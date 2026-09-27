@@ -32,7 +32,7 @@ A third-party agent program (Claude Code, Codex) that performs agent work; Polar
 _Avoid_: Agent runtime, backend
 
 **Workspace**:
-A directory on a Host that the user has registered with Polaris, usually a git repository; Agent Sessions and Review Checkouts belong to one.
+A directory on a Host that the user has registered with Polaris, usually a git repository; Agent Sessions and Review Checkouts belong to one. It persists (hidden when idle) until the user removes it.
 _Avoid_: Project, folder, repo (when meaning the registered directory)
 
 **Agent Session**:
@@ -67,7 +67,19 @@ A separate worktree on the Host holding the changes under Review, so they can be
 _Avoid_: Checkout, PR branch
 
 **Risk Summary**:
-An agent-written account of which parts of a change carry the most risk and most need a human's eyes.
+A ranked set of Risk Findings for the change under Review, combining rules, classifiers, and an agent's judgement, pointing a human at what most needs their eyes.
+
+**Risk Finding**:
+One flagged location in a change, with its source (Rule, Classifier, or Agent), severity, reason, and status (Open, Dismissed, Resolved).
+_Avoid_: Issue, warning, comment
+
+**Verdict**:
+The user's thumbs-up or thumbs-down on a Risk Finding; a thumbs-down carries reason badges or free text and a scope (this change, this repo, everywhere), and Verdicts are what the reviewer learns from.
+_Avoid_: Dismissal, feedback, rating
+
+**Risk Memory**:
+A scoped review instruction learned from Verdicts that only takes effect once the user approves it; kept either committed in the repo or privately on the Host.
+_Avoid_: Learning, suppression rule
 
 **Editor**:
 The view for reading and editing code, including inline chat and tab completion.
