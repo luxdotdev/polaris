@@ -244,7 +244,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);ou
 
 <div class="intro">
   <h1>Polaris · Orchestrator layout prototype</h1>
-  <p>Throwaway prototype for ENG-177, round 2: <b>Input → Intent → Output</b>. A is the round-1 baseline; E, F, G are new. Use ← → or the bottom bar. Hover a “Needs you” session, press <span class="kbd">K</span> to jump, try the “Needs you” toggle and the Output tabs. Round-1 B–D are in git history.</p>
+  <p>Round 3: <b>F is the pick</b>; H is the E+F hybrid (machines on top, sessions listed per machine). Keys: <span class="kbd">⌃1…9</span> spaces · <span class="kbd">⌘1–3</span> (or <span class="kbd">⌥1–3</span> if the browser eats ⌘) views · <span class="kbd">K</span> jump. Earlier: throwaway prototype for ENG-177, round 2: <b>Input → Intent → Output</b>. A is the round-1 baseline; E, F, G are new. Use ← → or the bottom bar. Hover a “Needs you” session, press <span class="kbd">K</span> to jump, try the “Needs you” toggle and the Output tabs. Round-1 B–D are in git history.</p>
 </div>
 <div class="scroller"><div class="app" id="app"></div><div class="hovercard" id="hovercard" hidden></div></div>
 <div class="proto-state" id="proto-state"></div>
@@ -281,7 +281,7 @@ const ORDER=['needs','working','terminal','idle','failed','dormant'];
 const PRS=[{n:212,t:'Add Review Checkout cleanup job',repo:'luxdotdev/polaris',who:'you',grp:'Mine'},{n:88,t:'Eligibility: annual income field',repo:'work-org/nj-homes-choice-next',who:'mchen',grp:'Review requested'},{n:431,t:'pg17: rollup views',repo:'work-org/dcai',who:'agent via you',grp:'Review requested'},{n:17,t:'Fight window heuristics',repo:'luxdotdev/sightline',who:'zei',grp:'Other open'}];
 
 const st={variant:'A',sel:'plan',host:'all',mode:'orchestrate',palette:false,resolved:{}};
-const VARIANTS={A:'Baseline · round 1',E:'I→I→O · sticky Host tree',F:'I→I→O · Workspace bar',G:'I→I→O · Turn timeline'};
+const VARIANTS={F:'Workspace bar · the pick',H:'Machine bar · E+F hybrid',E:'Sticky Host tree · round 2',A:'Baseline · round 1'};
 const byId=id=>S.find(s=>s.id===id);
 const host=id=>HOSTS.find(h=>h.id===id);
 const needsCount=(h)=>S.filter(s=>s.state==='needs'&&(!h||s.host===h)).length;
@@ -297,7 +297,7 @@ function titlebar(extra=''){
   const n=needsCount();
   return `<div class="titlebar"><div class="lights"><i></i><i></i><i></i></div>
     <div class="seg" role="group" aria-label="View">
-      ${['orchestrate','review','edit'].map(m=>`<button data-act="mode" data-v="${m}" aria-pressed="${st.mode===m}">${m[0].toUpperCase()+m.slice(1)}${m==='orchestrate'&&n?` <span class="badge">${n}</span>`:''}${m==='review'?` <span class="badge" style="background:var(--accent-soft);color:var(--accent)">2</span>`:''}</button>`).join('')}
+      ${['orchestrate','review','edit'].map((m,i)=>`<button data-act="mode" data-v="${m}" aria-pressed="${st.mode===m}" title="⌘${i+1}">${m[0].toUpperCase()+m.slice(1)} <span class="kbd">⌘${i+1}</span>${m==='orchestrate'&&n?` <span class="badge">${n}</span>`:''}${m==='review'?` <span class="badge" style="background:var(--accent-soft);color:var(--accent)">2</span>`:''}</button>`).join('')}
     </div>${extra}<span class="spacer"></span>
     <div class="search">Search sessions, files, PRs <span class="spacer"></span><span class="kbd">⌘K</span></div>
     <button class="btn primary small" data-act="new">+ New session</button></div>`;
@@ -488,11 +488,12 @@ function paletteHTML(){
 }
 const orch=(inner)=>st.mode==='orchestrate'?inner:`<div style="grid-column:2/4;display:flex;background:var(--bg)">${nonOrch()}</div>`;
 function E(){const s=byId(st.sel);return titlebar()+`<div class="iio">${sideNav()}${orch(intentPane(s)+outputPane(s))}</div>`+paletteHTML()}
+function spaces(){const out=[];HOSTS.forEach(h=>[...new Set(S.filter(x=>x.host===h.id).map(x=>x.ws))].forEach(w=>out.push(h.id+'/'+w)));return out}
 function F(){
-  const s=byId(st.sel);
+  const s=byId(st.sel);const SP=spaces();
   const bar=HOSTS.map(h=>{const wss=[...new Set(S.filter(x=>x.host===h.id).map(x=>x.ws))];
     return `<span class="hlab">${connDot(h)}${h.machine}</span>`+wss.map(w=>{const rows=S.filter(x=>x.host===h.id&&x.ws===w);const nd=rows.filter(x=>x.state==='needs'&&!st.resolved[x.id]).length;const act=rows.some(x=>x.state==='working');
-      return `<button class="wschip" data-act="ws" data-v="${h.id}/${w}" aria-pressed="${s.host===h.id&&s.ws===w}">${act?dot('working'):nd?dot('needs'):''}${esc(w)}${nd?` <span class="badge">${nd}</span>`:''}</button>`}).join('')}).join('');
+      return `<button class="wschip" data-act="ws" data-v="${h.id}/${w}" aria-pressed="${s.host===h.id&&s.ws===w}">${act?dot('working'):nd?dot('needs'):''}${esc(w)}${nd?` <span class="badge">${nd}</span>`:''}${SP.indexOf(h.id+'/'+w)<9?` <span class="kbd">⌃${SP.indexOf(h.id+'/'+w)+1}</span>`:''}</button>`}).join('')}).join('');
   const rows=S.filter(x=>x.host===s.host&&x.ws===s.ws).sort((a,b)=>ORDER.indexOf(a.state)-ORDER.indexOf(b.state));
   const elsewhere=S.filter(x=>x.state==='needs'&&!st.resolved[x.id]&&!(x.host===s.host&&x.ws===s.ws));
   const input=`<aside class="side"><div class="sidehead"><span class="zone-label">Input · ${esc(s.ws)}</span><span class="spacer"></span><button class="btn small" data-act="new">＋ New</button></div><div class="sidelist">
@@ -513,7 +514,23 @@ function G(){
   return titlebar()+`<div class="iio g">${sideNav()}${orch(intent+outputPane(s))}</div>`+paletteHTML();
 }
 
-const R={A,B,C,D,E,F,G};
+
+function H(){
+  const s=byId(st.sel);
+  const bar=HOSTS.map((h,i)=>{const hs=S.filter(x=>x.host===h.id);const nd=hs.filter(x=>x.state==='needs'&&!st.resolved[x.id]).length;const wk=hs.filter(x=>x.state==='working').length;
+    return `<button class="wschip" data-act="hostspace" data-v="${h.id}" aria-pressed="${s.host===h.id}" style="height:34px;padding:0 12px">${connDot(h)}<b>${h.machine}</b><span class="muted" style="font-weight:400">${h.name}</span>${wk?`<span class="pill p-working" style="padding:0 6px">${wk} working</span>`:''}${nd?`<span class="badge">${nd}</span>`:''}<span class="kbd">⌃${i+1}</span></button>`}).join('')+`<button class="wschip muted" data-act="new">＋ Add machine</button>`;
+  const hs=S.filter(x=>x.host===s.host);const wss=[...new Set(hs.map(x=>x.ws))];
+  const list=wss.map(w=>{const rows=hs.filter(x=>x.ws===w).sort((a,b)=>ORDER.indexOf(a.state)-ORDER.indexOf(b.state));const key=s.host+'/'+w,open=st.expanded[key];
+    let shown=open?rows:rows.slice(0,4);if(!shown.some(x=>x.id===st.sel)&&rows.some(x=>x.id===st.sel))shown=[...shown,byId(st.sel)];const hidden=rows.length-shown.length;
+    return `<div class="hgroup">▾ ${esc(w)}<span class="cnt" style="font-weight:400;color:var(--faint)">${rows.length}</span><span class="spacer"></span><button class="muted" data-act="new" title="New session in ${esc(w)}">＋</button></div>`+shown.map(x=>srow(x,false)).join('')+(hidden>0?`<button class="more" style="padding-left:10px" data-act="more" data-v="${key}">+ ${hidden} more</button>`:open&&rows.length>4?`<button class="more" style="padding-left:10px" data-act="more" data-v="${key}">Show fewer</button>`:'');}).join('');
+  const elsewhere=S.filter(x=>x.state==='needs'&&!st.resolved[x.id]&&x.host!==s.host);
+  const input=`<aside class="side"><div class="sidehead"><span class="zone-label">Input · ${host(s.host).machine}</span><span class="spacer"></span><button class="btn small" data-act="new">＋ New</button></div><div class="sidelist">${list}
+    <div class="hgroup" style="margin-top:8px">Sources · this session</div><div style="display:grid;gap:6px;padding:4px 8px">${srcs(s)}</div>
+    ${elsewhere.length?`<div class="hgroup" style="margin-top:8px">Needs you on other machines</div>${elsewhere.map(x=>`<button class="srow" style="padding-left:10px" data-act="sel" data-id="${x.id}" data-hover="${x.id}">${dot('needs')}<span class="name">${esc(x.title)}</span><span class="age">${host(x.host).machine}</span></button>`).join('')}`:''}
+    </div><div class="sidefoot"><button data-act="pal"><span class="kbd">K</span> Jump</button></div></aside>`;
+  return titlebar()+`<div class="wsbar">${bar}</div><div class="iio">${input}${orch(intentPane(s)+outputPane(s))}</div>`+paletteHTML();
+}
+const R={A,B,C,D,E,F,G,H};
 function render(){
   document.getElementById('app').innerHTML=R[st.variant]();
   document.getElementById('vlabel').innerHTML=`${st.variant}<small>${VARIANTS[st.variant]}</small>`;
@@ -530,6 +547,7 @@ document.addEventListener('click',e=>{
   else if(a==='otab'){st.otab=t.dataset.v}
   else if(a==='turn'){st.turn=+t.dataset.v}
   else if(a==='more'){st.expanded[t.dataset.v]=!st.expanded[t.dataset.v]}
+  else if(a==='hostspace'){const f=S.filter(x=>x.host===t.dataset.v).sort((x,y)=>ORDER.indexOf(x.state)-ORDER.indexOf(y.state))[0];if(f){st.sel=f.id;st.turn=null}}
   else if(a==='ws'){const [hh,ww]=t.dataset.v.split('/');const f=S.filter(x=>x.host===hh&&x.ws===ww).sort((x,y)=>ORDER.indexOf(x.state)-ORDER.indexOf(y.state))[0];st.sel=f.id;st.turn=null}
   else if(a==='mode'){st.mode=t.dataset.v}
   else if(a==='host'){st.host=t.dataset.v;const f=S.find(x=>st.host==='all'||x.host===st.host);if(f&&!(st.host==='all'||byId(st.sel).host===st.host))st.sel=f.id}
@@ -541,6 +559,12 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('keydown',e=>{
   const el=document.activeElement;if(el&&(el.matches('input,textarea,[contenteditable]')))return;
+  if((e.metaKey||e.altKey)&&!e.ctrlKey&&/^[1-3]$/.test(e.key)){e.preventDefault();st.mode=['orchestrate','review','edit'][+e.key-1];render();return}
+  const dig=(e.code||'').match(/^Digit([1-9])$/);
+  if(e.ctrlKey&&dig){e.preventDefault();const i=+dig[1]-1;
+    if(st.variant==='H'){const hh=HOSTS[i];if(hh){const f=S.filter(x=>x.host===hh.id).sort((x,y)=>ORDER.indexOf(x.state)-ORDER.indexOf(y.state))[0];if(f)st.sel=f.id}}
+    else{const sp=spaces()[i];if(sp){const [hh,ww]=sp.split('/');st.sel=S.filter(x=>x.host===hh&&x.ws===ww).sort((x,y)=>ORDER.indexOf(x.state)-ORDER.indexOf(y.state))[0].id}}
+    st.mode='orchestrate';st.turn=null;render();return}
   if(e.key==='ArrowLeft')step(-1);else if(e.key==='ArrowRight')step(1);
   else if((e.key==='k'||e.key==='K')&&'DEFG'.includes(st.variant)){e.preventDefault();st.palette=!st.palette;render()}
   else if(e.key==='Escape'&&st.palette){st.palette=false;render()}
@@ -562,6 +586,6 @@ document.addEventListener('mouseover',e=>{
 document.addEventListener('mouseout',e=>{if(e.target.closest('[data-hover],#hovercard')){clearTimeout(hideT);hideT=setTimeout(hideCard,250)}});
 document.getElementById('prev').onclick=()=>step(-1);
 document.getElementById('next').onclick=()=>step(1);
-const h=(location.hash||'').slice(1).toUpperCase();st.variant=VARIANTS[h]?h:'E';
+const h=(location.hash||'').slice(1).toUpperCase();st.variant=VARIANTS[h]?h:'F';
 render();
 </script>
