@@ -1,0 +1,388 @@
+<title>Polaris Orchestrator Layouts</title>
+<!--
+  PROTOTYPE — throwaway (ENG-177). Not production code.
+  Question: how should the Orchestrator look and behave in Polaris's single main window?
+  Four structurally different variants of the same mock data, switchable via the
+  bottom bar, ←/→ keys, or the URL hash (#A #B #C #D). Everything is in-memory; approving
+  or denying only mutates mock state.
+  Run: open this file in a browser (double-click), or view the published artifact.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#f7f8fa; --panel:#ffffff; --panel-2:#f2f3f5; --line:#e4e6eb; --ink:#1e1f22; --muted:#6c707e; --faint:#a8adbd;
+  --accent:#3574f0; --accent-soft:#e7effd; --sel:#dde7fb;
+  --needs:#c7860a; --needs-soft:#fdf2da; --working:#3574f0; --idle:#8c92a3; --term:#8d5ad8; --term-soft:#f1eafc;
+  --dormant:#b4b8c4; --failed:#d9434f; --failed-soft:#fbe7e9; --ok:#3f9a4f; --ok-soft:#e5f4e7;
+  --add:#3f9a4f; --del:#d9434f;
+  --sans:"Inter",-apple-system,"Segoe UI",sans-serif; --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  --shadow:0 1px 2px rgba(20,24,40,.06),0 4px 16px rgba(20,24,40,.06);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;
+  --bg:#1e1f22; --panel:#2b2d30; --panel-2:#26282b; --line:#393b40; --ink:#dfe1e5; --muted:#8e939c; --faint:#61656d;
+  --accent:#548af7; --accent-soft:#25324d; --sel:#2e436e;
+  --needs:#e9b44c; --needs-soft:#3d321a; --working:#548af7; --idle:#8e939c; --term:#b28af0; --term-soft:#352a4a;
+  --dormant:#5e626a; --failed:#f0707a; --failed-soft:#45262a; --ok:#6cc27a; --ok-soft:#233a27; --add:#6cc27a; --del:#f0707a;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.35);}}
+:root[data-theme="dark"]{color-scheme:dark;
+  --bg:#1e1f22; --panel:#2b2d30; --panel-2:#26282b; --line:#393b40; --ink:#dfe1e5; --muted:#8e939c; --faint:#61656d;
+  --accent:#548af7; --accent-soft:#25324d; --sel:#2e436e;
+  --needs:#e9b44c; --needs-soft:#3d321a; --working:#548af7; --idle:#8e939c; --term:#b28af0; --term-soft:#352a4a;
+  --dormant:#5e626a; --failed:#f0707a; --failed-soft:#45262a; --ok:#6cc27a; --ok-soft:#233a27; --add:#6cc27a; --del:#f0707a;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.35);}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:13px;line-height:1.45;padding-inline:16px;padding-block:16px 88px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:1px;border-radius:4px}
+.mono{font-family:var(--mono);font-size:12px}
+.muted{color:var(--muted)}
+.intro{max-width:1440px;margin:0 auto 12px;display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline}
+.intro h1{font-size:15px;margin:0;font-weight:600}
+.intro p{margin:0;color:var(--muted)}
+.scroller{overflow-x:auto;max-width:1440px;margin:0 auto;border-radius:12px;box-shadow:var(--shadow)}
+.app{min-width:1180px;height:760px;background:var(--bg);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;overflow:hidden}
+/* shared chrome */
+.titlebar{height:44px;flex:none;display:flex;align-items:center;gap:12px;padding:0 12px 0 76px;border-bottom:1px solid var(--line);background:var(--panel);position:relative}
+.lights{position:absolute;left:14px;display:flex;gap:7px}.lights i{width:11px;height:11px;border-radius:50%;background:var(--line)}
+.seg{display:inline-flex;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:2px}
+.seg button{padding:4px 12px;border-radius:6px;color:var(--muted);font-weight:500}
+.seg button[aria-pressed="true"]{background:var(--panel);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.badge{font-size:10.5px;font-weight:600;min-width:18px;height:18px;padding:0 5px;border-radius:9px;display:inline-grid;place-items:center;background:var(--needs-soft);color:var(--needs)}
+.spacer{flex:1}
+.search{height:28px;width:260px;border:1px solid var(--line);background:var(--panel-2);border-radius:7px;display:flex;align-items:center;padding:0 10px;color:var(--faint);gap:8px}
+.kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line);border-radius:4px;padding:0 4px;color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
+.st-working{background:var(--working);box-shadow:0 0 0 3px var(--accent-soft)}
+.st-needs{background:var(--needs);box-shadow:0 0 0 3px var(--needs-soft)}
+.st-idle{background:var(--idle)} .st-terminal{background:var(--term)} .st-dormant{background:transparent;border:1.5px solid var(--dormant)} .st-failed{background:var(--failed)}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:500;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.p-working{background:var(--accent-soft);color:var(--working)} .p-needs{background:var(--needs-soft);color:var(--needs)} .p-idle{background:var(--panel-2);color:var(--muted)}
+.p-terminal{background:var(--term-soft);color:var(--term)} .p-dormant{background:var(--panel-2);color:var(--faint)} .p-failed{background:var(--failed-soft);color:var(--failed)}
+.chip{font-family:var(--mono);font-size:11px;padding:1px 6px;border-radius:5px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.hchip{font-size:11px;padding:1px 7px;border-radius:5px;background:var(--panel-2);color:var(--muted);white-space:nowrap}
+.ctx{height:4px;width:48px;background:var(--panel-2);border-radius:2px;overflow:hidden;display:inline-block;vertical-align:middle}.ctx i{display:block;height:100%;background:var(--muted)}
+/* conversation */
+.convo{display:flex;flex-direction:column;gap:14px;padding:20px 28px;overflow:auto;flex:1}
+.turnsep{display:flex;align-items:center;gap:10px;color:var(--faint);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.turnsep::after{content:"";flex:1;height:1px;background:var(--line)}
+.msg-user{align-self:flex-end;max-width:70%;background:var(--accent-soft);padding:9px 13px;border-radius:12px 12px 4px 12px}
+.msg-agent{max-width:80%}
+.tool{display:flex;gap:8px;align-items:center;font-family:var(--mono);font-size:12px;color:var(--muted);padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);max-width:80%}
+.tool b{color:var(--ink);font-weight:500}
+.diffcard{border:1px solid var(--line);border-radius:10px;background:var(--panel);max-width:80%;overflow:hidden}
+.diffcard header{display:flex;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--line);font-weight:600;font-size:12px}
+.diffcard ul{list-style:none;margin:0;padding:4px 0}
+.diffcard li{display:flex;justify-content:space-between;padding:4px 12px;font-family:var(--mono);font-size:12px}
+.add{color:var(--add)} .del{color:var(--del)}
+.approval{border:1px solid var(--needs);background:var(--needs-soft);border-radius:10px;padding:12px 14px;max-width:80%;display:grid;gap:10px}
+.approval code{font-family:var(--mono);font-size:12px;background:var(--panel);padding:2px 6px;border-radius:4px}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btn{height:28px;padding:0 12px;border-radius:7px;border:1px solid var(--line);background:var(--panel);font-weight:500}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.small{height:24px;padding:0 9px;font-size:12px}
+.resolved{font-size:12px;color:var(--ok);font-weight:500}
+.composer{margin:0 28px 20px;border:1px solid var(--line);border-radius:10px;background:var(--panel);padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.composer .ph{color:var(--faint)}
+.composer .row{display:flex;gap:8px;align-items:center}
+.stream{color:var(--muted);font-style:italic}
+.caret{display:inline-block;width:7px;height:13px;background:var(--working);vertical-align:-2px;animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.caret{animation:none}}
+.sessionhead{display:flex;align-items:center;gap:10px;padding:14px 28px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.sessionhead h2{font-size:16px;margin:0;font-weight:600}
+.placeholder{flex:1;display:grid;place-items:center;color:var(--muted);text-align:center;padding:40px}
+.placeholder h3{color:var(--ink);margin:0 0 6px;font-size:15px}
+/* variant A: tree + conversation + inspector */
+.A-body{flex:1;display:grid;grid-template-columns:292px minmax(0,1fr) 300px;min-height:0}
+.toolwin{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.twhead{height:38px;display:flex;align-items:center;justify-content:space-between;padding:0 12px 0 16px;font-weight:600;font-size:12px;color:var(--muted);letter-spacing:.02em;flex:none}
+.tree{overflow:auto;padding:0 8px 12px;flex:1}
+.trow{display:flex;align-items:center;gap:8px;height:30px;padding:0 8px;border-radius:6px;white-space:nowrap;width:100%;text-align:left}
+.trow:hover{background:var(--panel-2)}
+.trow.sel{background:var(--sel)}
+.trow .name{overflow:hidden;text-overflow:ellipsis;flex:1}
+.lv1{font-weight:600}.lv2{padding-left:24px}.lv3{padding-left:40px}.lv4{padding-left:58px;color:var(--muted);font-size:12px}
+.hostsub{color:var(--faint);font-weight:400;font-size:11.5px}
+.center{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--bg)}
+.inspector{background:var(--panel);border-left:1px solid var(--line);overflow:auto;padding:4px 0 16px}
+.isec{padding:10px 16px;border-bottom:1px solid var(--line)}
+.isec h4{margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.kv{display:grid;grid-template-columns:90px 1fr;gap:4px 8px;font-size:12px}
+.kv dt{color:var(--muted)} .kv dd{margin:0}
+.tl{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:12px}
+.tl li{display:flex;gap:8px;align-items:center}
+.risk{display:flex;gap:8px;align-items:flex-start;font-size:12px;padding:4px 0}
+.sev{font-family:var(--mono);font-size:10.5px;padding:0 5px;border-radius:4px;font-weight:600}
+.sev.p1{background:var(--failed-soft);color:var(--failed)} .sev.p2{background:var(--needs-soft);color:var(--needs)}
+/* variant B: inbox */
+.B-filters{display:flex;gap:8px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel);flex:none}
+.hostpill{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel);font-weight:500}
+.hostpill[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.hostpill .n{color:var(--muted);font-weight:400}
+.B-body{flex:1;display:grid;grid-template-columns:440px minmax(0,1fr);min-height:0}
+.inbox{border-right:1px solid var(--line);overflow:auto;background:var(--panel)}
+.igroup h4{margin:0;padding:14px 18px 6px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);display:flex;gap:8px;align-items:center}
+.irow{display:grid;grid-template-columns:auto 1fr auto;gap:4px 12px;padding:11px 18px;border-bottom:1px solid var(--line);width:100%;text-align:left}
+.irow:hover{background:var(--panel-2)}
+.irow.sel{background:var(--sel)}
+.irow .t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.irow .meta{grid-column:2/4;display:flex;gap:6px;align-items:center;flex-wrap:wrap;color:var(--muted);font-size:12px}
+.irow .last{grid-column:2/4;color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.irow .ask{grid-column:2/4;background:var(--needs-soft);border-radius:8px;padding:8px 10px;display:grid;gap:8px;font-size:12px}
+.irow .time{color:var(--faint);font-size:11.5px}
+/* variant C: board */
+.C-body{flex:1;display:flex;flex-direction:column;min-height:0}
+.board{flex:1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:14px;overflow:auto;min-height:0}
+.col{display:flex;flex-direction:column;gap:10px;min-width:0}
+.colhead{display:flex;align-items:center;gap:8px;padding:2px 4px 4px;font-weight:600}
+.colhead .sub{color:var(--muted);font-weight:400;font-size:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;gap:7px;text-align:left;width:100%}
+.card:hover{border-color:var(--faint)}
+.card.sel{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.card.needs{border-color:var(--needs)}
+.card .t{font-weight:600}
+.card .row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.tail{font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--panel-2);border-radius:6px;padding:6px 8px;line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wsgroup{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;font-weight:600;padding:4px 4px 0}
+.drawer{height:330px;flex:none;border-top:1px solid var(--line);background:var(--bg);display:flex;flex-direction:column;min-height:0}
+.drawer .convo{padding:14px 28px}
+.draghandle{height:6px;display:grid;place-items:center}.draghandle i{width:40px;height:3px;border-radius:2px;background:var(--line)}
+/* variant D: focus rail */
+.D-body{flex:1;display:grid;grid-template-columns:64px minmax(0,1fr);min-height:0;position:relative}
+.rail{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:10px;padding:12px 0}
+.hosticon{width:40px;height:40px;border-radius:11px;background:var(--panel-2);display:grid;place-items:center;font-weight:600;position:relative;border:1px solid var(--line)}
+.hosticon[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:var(--accent)}
+.hosticon .b{position:absolute;top:-5px;right:-6px}
+.hosticon .conn{position:absolute;bottom:-2px;right:-2px;width:10px;height:10px;border-radius:50%;border:2px solid var(--panel)}
+.railsep{width:28px;height:1px;background:var(--line)}
+.focus{display:flex;flex-direction:column;min-width:0;min-height:0}
+.crumbs{display:flex;align-items:center;gap:6px;padding:12px 28px;border-bottom:1px solid var(--line);background:var(--panel)}
+.crumbs button{padding:3px 8px;border-radius:6px;font-weight:500}
+.crumbs button:hover{background:var(--panel-2)}
+.crumbs .sep{color:var(--faint)}
+.readcol{width:100%;max-width:780px;margin:0 auto;display:flex;flex-direction:column;flex:1;min-height:0}
+.readcol .convo{padding:24px 0}
+.readcol .composer{margin:0 0 20px}
+.toasts{position:absolute;top:66px;right:18px;display:grid;gap:8px;width:300px;z-index:3}
+.toast{background:var(--panel);border:1px solid var(--needs);border-radius:10px;padding:10px 12px;box-shadow:var(--shadow);display:grid;gap:6px;text-align:left}
+.palette-bg{position:absolute;inset:0;background:rgba(10,12,20,.28);display:grid;justify-items:center;align-items:start;padding-top:70px;z-index:5}
+.palette{width:620px;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
+.palette .q{padding:12px 16px;border-bottom:1px solid var(--line);color:var(--faint);display:flex;gap:10px;align-items:center}
+.palette ul{list-style:none;margin:0;padding:6px;max-height:420px;overflow:auto}
+.palette li button{display:flex;width:100%;gap:10px;align-items:center;padding:8px 10px;border-radius:7px;text-align:left}
+.palette li button:hover{background:var(--sel)}
+.palette .grp{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;padding:8px 10px 4px}
+/* switcher (prototype chrome, deliberately not part of the design) */
+.proto-bar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:4px;background:#111;color:#fff;border-radius:999px;padding:5px;box-shadow:0 8px 30px rgba(0,0,0,.35);z-index:50;font-family:var(--sans);max-width:calc(100vw - 32px)}
+.proto-bar button{width:34px;height:34px;border-radius:50%;color:#fff;font-size:16px}
+.proto-bar button:hover{background:#333}
+.proto-bar .lbl{padding:0 12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.proto-bar .lbl small{font-weight:400;opacity:.65;margin-left:6px}
+.proto-state{font-family:var(--mono);font-size:11px;color:var(--muted);max-width:1440px;margin:10px auto 0}
+</style>
+
+<div class="intro">
+  <h1>Polaris · Orchestrator layout prototype</h1>
+  <p>Throwaway prototype for ENG-177. Same mock data, four structurally different layouts. Use ← → or the bar at the bottom. Try approving the pending requests, switching Hosts, and pressing <span class="kbd">K</span> in D.</p>
+</div>
+<div class="scroller"><div class="app" id="app"></div></div>
+<div class="proto-state" id="proto-state"></div>
+<div class="proto-bar" role="toolbar" aria-label="Prototype variant switcher">
+  <button id="prev" aria-label="Previous variant">←</button>
+  <span class="lbl" id="vlabel"></span>
+  <button id="next" aria-label="Next variant">→</button>
+</div>
+
+<script>
+const HOSTS=[
+  {id:'local',name:'Local',machine:'MacBook Pro',conn:'ok'},
+  {id:'personal',name:'Personal',machine:'Mac Studio',conn:'ok'},
+  {id:'work',name:'Work',machine:'Linux VM',conn:'ok'},
+  {id:'pi',name:'Pi 4',machine:'Raspberry Pi 4',conn:'slow'},
+];
+const S=[
+  {id:'plan',host:'personal',ws:'polaris',title:'Polaris planning',h:'Claude',state:'working',branch:'main',age:'5h',ctx:17,turns:24,last:'Updating ENG-167 map with the Review workflow decision…'},
+  {id:'spike',host:'personal',ws:'polaris',title:'Spike GPUI review screen',h:'Codex',state:'needs',branch:'spike/gpui-review',age:'42m',ctx:38,turns:6,
+    ask:{kind:'approval',text:'Run a command',code:'cargo build --release -p review-spike'},last:'Wants to build the release binary to measure frame times',
+    worktrees:[{branch:'spike/gpui-review',path:'~/code/polaris.worktrees/spike-gpui-review'}]},
+  {id:'sight',host:'personal',ws:'sightline',title:'Fight timeline patterns',h:'Claude',state:'idle',branch:'main',age:'2h',ctx:44,turns:11,last:'Done: grouped ult trades into fight windows. 3 files changed.'},
+  {id:'shell',host:'personal',ws:'shellhacks-fiu',title:'Shellhacks 2026 elevator pitch',h:'Claude',state:'dormant',branch:'main',age:'1d',ctx:11,turns:4,last:'Process stopped after 30 min idle; resumes on your next message'},
+  {id:'elig',host:'work',ws:'nj-homes-choice-next',title:'Fix eligibility form validation',h:'Claude',state:'needs',branch:'nightly',age:'18m',ctx:29,turns:9,
+    ask:{kind:'question',text:'Should household income be entered monthly or annually? The API expects annual, but the old form collected monthly.'},last:'Asked a question about income units'},
+  {id:'pg17',host:'work',ws:'dcai',title:'Migrate reports to Postgres 17',h:'Codex',state:'working',branch:'staging',age:'1h',ctx:61,turns:14,last:'Rewriting report_rollups view for pg17 MERGE semantics…',
+    worktrees:[{branch:'pg17-migration',path:'~/code/dcai-wt/pg17',ext:true}]},
+  {id:'flaky',host:'work',ws:'dcai',title:'Flaky export test',h:'Claude',state:'terminal',branch:'staging',age:'25m',ctx:22,turns:7,last:'You took this session over in the terminal · following via hooks'},
+  {id:'cron',host:'pi',ws:'code',title:'Home automation cron',h:'Codex',state:'failed',branch:'main',age:'3h',ctx:8,turns:2,last:'codex app-server exited (OOM). Retry or move to another Host.'},
+  {id:'scratch',host:'local',ws:'~',title:'Quick regex question',h:'Claude',state:'idle',branch:'—',age:'10m',ctx:3,turns:1,last:'Answered.'},
+];
+const STATE_LABEL={working:'Working',needs:'Needs you',idle:'Idle',terminal:'In terminal',dormant:'Dormant',failed:'Failed'};
+const ORDER=['needs','working','terminal','idle','failed','dormant'];
+const PRS=[{n:212,t:'Add Review Checkout cleanup job',repo:'luxdotdev/polaris',who:'you',grp:'Mine'},{n:88,t:'Eligibility: annual income field',repo:'work-org/nj-homes-choice-next',who:'mchen',grp:'Review requested'},{n:431,t:'pg17: rollup views',repo:'work-org/dcai',who:'agent via you',grp:'Review requested'},{n:17,t:'Fight window heuristics',repo:'luxdotdev/sightline',who:'zei',grp:'Other open'}];
+
+const st={variant:'A',sel:'plan',host:'all',mode:'orchestrate',palette:false,resolved:{}};
+const VARIANTS={A:'Tree + conversation + inspector',B:'Attention inbox',C:'Mission-control board',D:'Focus rail + palette'};
+const byId=id=>S.find(s=>s.id===id);
+const host=id=>HOSTS.find(h=>h.id===id);
+const needsCount=(h)=>S.filter(s=>s.state==='needs'&&(!h||s.host===h)).length;
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+const dot=s=>`<span class="dot st-${s}" title="${STATE_LABEL[s]}"></span>`;
+const pill=s=>`<span class="pill p-${s}">${dot(s)}${STATE_LABEL[s]}</span>`;
+const hchip=s=>`<span class="chip">${s.h}</span>`;
+const ctx=v=>`<span class="ctx" title="Context ${v}%"><i style="width:${v}%"></i></span>`;
+const connDot=h=>`<span class="dot" style="background:${h.conn==='ok'?'var(--ok)':'var(--needs)'}" title="${h.conn==='ok'?'Connected':'Slow link'}"></span>`;
+
+function titlebar(extra=''){
+  const n=needsCount();
+  return `<div class="titlebar"><div class="lights"><i></i><i></i><i></i></div>
+    <div class="seg" role="group" aria-label="View">
+      ${['orchestrate','review','edit'].map(m=>`<button data-act="mode" data-v="${m}" aria-pressed="${st.mode===m}">${m[0].toUpperCase()+m.slice(1)}${m==='orchestrate'&&n?` <span class="badge">${n}</span>`:''}${m==='review'?` <span class="badge" style="background:var(--accent-soft);color:var(--accent)">2</span>`:''}</button>`).join('')}
+    </div>${extra}<span class="spacer"></span>
+    <div class="search">Search sessions, files, PRs <span class="spacer"></span><span class="kbd">⌘K</span></div>
+    <button class="btn primary small" data-act="new">+ New session</button></div>`;
+}
+
+function convo(s){
+  const r=st.resolved[s.id];
+  const parts=[];
+  if(s.id==='plan'){
+    parts.push(`<div class="turnsep">Turn 23</div>`,
+      `<div class="msg-user">Q9 - yes. I'm fine with persisting but hiding them instead…</div>`,
+      `<div class="tool">✎ <b>Edit</b> CONTEXT.md <span class="add">+6</span> <span class="del">−1</span></div>`,
+      `<div class="tool">↗ <b>linear.save_issue</b> ENG-185 · state Done</div>`,
+      `<div class="msg-agent">Recorded the Review workflow decision and closed the ticket. Added Risk Finding and Verdict to the glossary.</div>`,
+      `<div class="diffcard"><header><span>Turn 23 · 1 file</span><button class="btn small" data-act="mode" data-v="review">Review turn</button></header><ul><li>CONTEXT.md<span><span class="add">+6</span> <span class="del">−1</span></span></li></ul></div>`,
+      `<div class="turnsep">Turn 24 · now</div>`,
+      `<div class="msg-user">Let's go on to 177</div>`,
+      `<div class="tool">↗ <b>linear.save_issue</b> ENG-177 · assign me</div>`,
+      `<div class="msg-agent stream">Writing four layout variants of the Orchestrator… <span class="caret"></span></div>`);
+  } else {
+    parts.push(`<div class="turnsep">Turn ${s.turns}</div>`,
+      `<div class="msg-user">${esc(s.title)}</div>`,
+      `<div class="tool">⌕ <b>Grep</b> ${s.ws==='dcai'?'"report_rollups"':'"'+s.ws.split('-')[0]+'"'} · 14 matches</div>`,
+      `<div class="tool">✎ <b>Edit</b> src/${s.ws==='dcai'?'sql/rollups.sql':'lib/index.ts'} <span class="add">+42</span> <span class="del">−17</span></div>`);
+    if(s.ask && !r){
+      parts.push(s.ask.kind==='approval'
+        ?`<div class="approval"><div><b>${esc(s.ask.text)}</b> · ${s.h} wants to run</div><div><code>${esc(s.ask.code)}</code></div><div class="btns"><button class="btn primary small" data-act="resolve" data-id="${s.id}" data-v="approved">Approve</button><button class="btn small" data-act="resolve" data-id="${s.id}" data-v="always">Always in this Workspace</button><button class="btn small" data-act="resolve" data-id="${s.id}" data-v="denied">Deny</button></div></div>`
+        :`<div class="approval"><div><b>Question</b> · ${esc(s.ask.text)}</div><div class="btns"><button class="btn primary small" data-act="resolve" data-id="${s.id}" data-v="Annual">Annual</button><button class="btn small" data-act="resolve" data-id="${s.id}" data-v="Monthly">Monthly</button><button class="btn small" data-act="resolve" data-id="${s.id}" data-v="answered">Reply…</button></div></div>`);
+    } else if(s.ask&&r){parts.push(`<div class="resolved">✓ ${esc(r)} · continuing</div>`,`<div class="msg-agent stream">Working… <span class="caret"></span></div>`)}
+    else parts.push(`<div class="msg-agent ${s.state==='working'?'stream':''}">${esc(s.last)}${s.state==='working'?' <span class="caret"></span>':''}</div>`);
+    if(s.state==='failed') parts.push(`<div class="btns"><button class="btn small">Retry on Pi 4</button><button class="btn small">Fork to Mac Studio</button></div>`);
+  }
+  return `<div class="convo">${parts.join('')}</div>`;
+}
+function composer(s){
+  const hint=s.state==='terminal'?'Session is open in the terminal. Take it back to type here.':s.state==='dormant'?'Message to resume this session…':`Message ${s.h}…  ↵ send · ⇧↵ newline · @ file · paste image`;
+  return `<div class="composer"><div class="ph">${hint}</div><div class="row"><span class="chip">${s.h}</span><span class="hchip">${host(s.host).machine} · ${esc(s.ws)} · ${esc(s.branch)}</span><span class="spacer"></span><button class="btn small">Open in terminal</button><button class="btn small">Fork</button></div></div>`;
+}
+function head(s){return `<div class="sessionhead"><h2>${esc(s.title)}</h2>${pill(s.state)}${hchip(s)}<span class="hchip">${host(s.host).machine} / ${esc(s.ws)}</span><span class="chip">⎇ ${esc(s.branch)}</span><span class="spacer"></span><span class="muted">Turn ${s.turns} · ctx ${s.ctx}%</span></div>`}
+
+function nonOrch(){
+  if(st.mode==='review') return `<div class="placeholder"><div><h3>Review</h3><p>Same window, different view (designed in ENG-185, stack spiked in ENG-184).</p><div style="display:grid;gap:6px;margin-top:14px;text-align:left">${PRS.map(p=>`<div class="hchip" style="padding:6px 10px">#${p.n} ${esc(p.t)} <span class="muted">· ${p.repo} · ${p.grp}</span></div>`).join('')}</div></div></div>`;
+  return `<div class="placeholder"><div><h3>Editor</h3><p>Later milestone. Switching views keeps the selected Host and Workspace.</p></div></div>`;
+}
+
+/* ---------- Variant A ---------- */
+function A(){
+  const s=byId(st.sel);
+  const tree=HOSTS.map(h=>{
+    const wss=[...new Set(S.filter(x=>x.host===h.id).map(x=>x.ws))];
+    return `<div class="trow lv1">${connDot(h)}<span class="name">${h.name} <span class="hostsub">${h.machine}</span></span>${needsCount(h.id)?`<span class="badge">${needsCount(h.id)}</span>`:''}</div>`+
+      wss.map(w=>`<div class="trow lv2"><span class="muted">▾</span><span class="name">${esc(w)}</span></div>`+
+        S.filter(x=>x.host===h.id&&x.ws===w).map(x=>`<button class="trow lv3 ${x.id===st.sel?'sel':''}" data-act="sel" data-id="${x.id}">${dot(x.state)}<span class="name">${esc(x.title)}</span><span class="chip">${x.h}</span></button>`+
+          (x.worktrees||[]).map(wt=>`<div class="trow lv4">⎇ <span class="name">${esc(wt.branch)}</span>${wt.ext?'<span class="chip" title="Created by the agent outside the usual folder">found</span>':''}</div>`).join('')).join('')).join('');
+  }).join('');
+  const insp=`<div class="isec"><h4>Session</h4><dl class="kv"><dt>Host</dt><dd>${host(s.host).machine}</dd><dt>Workspace</dt><dd>${esc(s.ws)}</dd><dt>Branch</dt><dd class="mono">${esc(s.branch)}</dd><dt>Harness</dt><dd>${s.h}</dd><dt>Context</dt><dd>${ctx(s.ctx)} ${s.ctx}%</dd></dl></div>
+    <div class="isec"><h4>Turns</h4><ul class="tl">${[s.turns,s.turns-1,s.turns-2].filter(n=>n>0).map((n,i)=>`<li>${dot(i===0&&s.state==='working'?'working':'idle')}Turn ${n}<span class="spacer"></span><span class="add">+${12*n%57}</span><span class="del">−${7*n%23}</span></li>`).join('')}</ul><div class="btns" style="margin-top:10px"><button class="btn small" data-act="mode" data-v="review">Review all changes</button></div></div>
+    <div class="isec"><h4>Worktrees</h4>${(s.worktrees||[]).length?(s.worktrees.map(w=>`<div class="mono">${esc(w.path)}</div><div class="btns" style="margin-top:6px"><button class="btn small">Reveal</button><button class="btn small">Terminal here</button></div>`).join('')):'<span class="muted">Working in place</span>'}</div>
+    <div class="isec"><h4>Risk summary · preview</h4><div class="risk"><span class="sev p2">P2</span>New SQL view skips an index on org_id</div><div class="risk"><span class="sev p1">P1</span>Secret-like string in .env.example</div></div>`;
+  return titlebar()+`<div class="A-body"><aside class="toolwin"><div class="twhead">MACHINES<button class="muted" data-act="new">＋</button></div><div class="tree">${tree}</div></aside>
+    <main class="center">${st.mode==='orchestrate'?head(s)+convo(s)+composer(s):nonOrch()}</main>
+    <aside class="inspector">${insp}</aside></div>`;
+}
+
+/* ---------- Variant B ---------- */
+function B(){
+  const list=S.filter(x=>st.host==='all'||x.host===st.host);
+  const s=byId(st.sel);
+  const pills=[`<button class="hostpill" data-act="host" data-v="all" aria-pressed="${st.host==='all'}">All Hosts <span class="n">${S.length}</span></button>`,
+    ...HOSTS.map(h=>`<button class="hostpill" data-act="host" data-v="${h.id}" aria-pressed="${st.host===h.id}">${connDot(h)}${h.machine} <span class="n">${S.filter(x=>x.host===h.id).length}</span>${needsCount(h.id)?`<span class="badge">${needsCount(h.id)}</span>`:''}</button>`)].join('');
+  const groups=ORDER.map(g=>{const rows=list.filter(x=>x.state===g);if(!rows.length)return '';
+    return `<div class="igroup"><h4>${dot(g)}${STATE_LABEL[g]} · ${rows.length}</h4>${rows.map(x=>`
+      <div class="irow ${x.id===st.sel?'sel':''}" data-act="sel" data-id="${x.id}" tabindex="0" role="button">
+        ${dot(x.state)}<span class="t">${esc(x.title)}</span><span class="time">${x.age}</span>
+        <div class="meta"><span class="hchip">${host(x.host).machine}</span><span>${esc(x.ws)}</span><span class="chip">${x.h}</span><span class="chip">⎇ ${esc(x.branch)}</span></div>
+        ${x.ask&&!st.resolved[x.id]?`<div class="ask"><div>${x.ask.kind==='approval'?`Run <span class="mono">${esc(x.ask.code)}</span>`:esc(x.ask.text)}</div><div class="btns">${x.ask.kind==='approval'?`<button class="btn primary small" data-act="resolve" data-id="${x.id}" data-v="approved">Approve</button><button class="btn small" data-act="resolve" data-id="${x.id}" data-v="denied">Deny</button>`:`<button class="btn primary small" data-act="resolve" data-id="${x.id}" data-v="Annual">Annual</button><button class="btn small" data-act="resolve" data-id="${x.id}" data-v="Monthly">Monthly</button>`}</div></div>`:`<div class="last">${esc(st.resolved[x.id]?'✓ '+st.resolved[x.id]+' · continuing':x.last)}</div>`}
+      </div>`).join('')}</div>`}).join('');
+  return titlebar()+`<div class="B-filters">${pills}</div><div class="B-body"><section class="inbox">${groups||'<div class="placeholder">No sessions on this Host</div>'}</section>
+    <main class="center">${st.mode==='orchestrate'?head(s)+convo(s)+composer(s):nonOrch()}</main></div>`;
+}
+
+/* ---------- Variant C ---------- */
+function C(){
+  const s=byId(st.sel);
+  const cols=HOSTS.map(h=>{const hs=S.filter(x=>x.host===h.id).sort((a,b)=>ORDER.indexOf(a.state)-ORDER.indexOf(b.state));
+    const wss=[...new Set(hs.map(x=>x.ws))];
+    return `<div class="col"><div class="colhead">${connDot(h)}${h.machine}<span class="sub">${h.name}</span><span class="spacer"></span>${needsCount(h.id)?`<span class="badge">${needsCount(h.id)}</span>`:''}</div>
+      ${wss.map(w=>`<div class="wsgroup">${esc(w)}</div>`+hs.filter(x=>x.ws===w).map(x=>`
+        <button class="card ${x.id===st.sel?'sel':''} ${x.state==='needs'&&!st.resolved[x.id]?'needs':''}" data-act="sel" data-id="${x.id}">
+          <div class="row">${pill(x.state)}<span class="spacer"></span><span class="chip">${x.h}</span></div>
+          <div class="t">${esc(x.title)}</div>
+          <div class="tail">${esc(st.resolved[x.id]?'✓ '+st.resolved[x.id]:x.ask&&x.ask.code?'$ '+x.ask.code:x.last)}</div>
+          <div class="row"><span class="chip">⎇ ${esc(x.branch)}</span>${ctx(x.ctx)}<span>${x.ctx}%</span><span class="spacer"></span><span>${x.age}</span></div>
+        </button>`).join('')).join('')}
+      <button class="card muted" data-act="new" style="text-align:center">+ New on ${h.machine}</button></div>`}).join('');
+  return titlebar()+`<div class="C-body">${st.mode==='orchestrate'?`<div class="board">${cols}</div><div class="drawer"><div class="draghandle"><i></i></div>${head(s)}${convo(s)}</div>`:nonOrch()}</div>`;
+}
+
+/* ---------- Variant D ---------- */
+function D(){
+  const s=byId(st.sel); const h=host(s.host);
+  const rail=HOSTS.map(x=>`<button class="hosticon" data-act="railhost" data-v="${x.id}" aria-pressed="${x.id===s.host}" title="${x.machine}">${x.machine.split(' ').map(w=>w[0]).join('').slice(0,2)}${needsCount(x.id)?`<span class="badge b">${needsCount(x.id)}</span>`:''}<span class="conn" style="background:${x.conn==='ok'?'var(--ok)':'var(--needs)'}"></span></button>`).join('');
+  const pending=S.filter(x=>x.state==='needs'&&!st.resolved[x.id]&&x.id!==st.sel);
+  const toasts=pending.map(x=>`<div class="toast"><div style="display:flex;gap:8px;align-items:center">${dot('needs')}<b>${esc(x.title)}</b></div><div class="muted">${host(x.host).machine} · ${x.ask.kind==='approval'?'wants to run '+esc(x.ask.code):'has a question'}</div><div class="btns"><button class="btn small" data-act="sel" data-id="${x.id}">Open</button>${x.ask.kind==='approval'?`<button class="btn primary small" data-act="resolve" data-id="${x.id}" data-v="approved">Approve</button>`:''}</div></div>`).join('');
+  const siblings=S.filter(x=>x.host===s.host&&x.ws===s.ws);
+  const palette=st.palette?`<div class="palette-bg" data-act="closepal"><div class="palette"><div class="q">⌕ Jump to session, Workspace or Host… <span class="spacer"></span><span class="kbd">esc</span></div><ul>
+      ${ORDER.map(g=>{const rows=S.filter(x=>x.state===g);return rows.length?`<li class="grp">${STATE_LABEL[g]}</li>`+rows.map(x=>`<li><button data-act="sel" data-id="${x.id}">${dot(x.state)}<b>${esc(x.title)}</b><span class="muted">${host(x.host).machine} / ${esc(x.ws)}</span><span class="spacer"></span><span class="chip">${x.h}</span></button></li>`).join(''):''}).join('')}
+      <li class="grp">Actions</li><li><button>＋ New session on ${h.machine}…</button></li><li><button>⇄ Review PRs (2 requested)</button></li></ul></div></div>`:'';
+  return titlebar(`<button class="btn small" data-act="pal">Jump… <span class="kbd">K</span></button>`)+`<div class="D-body"><nav class="rail">${rail}<div class="railsep"></div><button class="hosticon" data-act="new" title="Add Host">＋</button></nav>
+    <section class="focus">${st.mode==='orchestrate'?`<div class="crumbs"><button data-act="pal">${connDot(h)} ${h.machine} ▾</button><span class="sep">/</span><button data-act="pal">${esc(s.ws)} ▾</button><span class="sep">/</span><button data-act="pal"><b>${esc(s.title)}</b> ▾</button>${pill(s.state)}<span class="spacer"></span>${siblings.length>1?`<span class="muted">${siblings.length} sessions in ${esc(s.ws)}</span>`:''}</div>
+      <div class="readcol">${convo(s)}${composer(s)}</div>`:nonOrch()}</section>
+    <div class="toasts">${st.mode==='orchestrate'?toasts:''}</div>${palette}</div>`;
+}
+
+const R={A,B,C,D};
+function render(){
+  document.getElementById('app').innerHTML=R[st.variant]();
+  document.getElementById('vlabel').innerHTML=`${st.variant}<small>${VARIANTS[st.variant]}</small>`;
+  const s=byId(st.sel);
+  document.getElementById('proto-state').textContent=`state · variant=${st.variant} view=${st.mode} selected=${s.id} (${host(s.host).machine}/${s.ws}, ${STATE_LABEL[s.state]}) hostFilter=${st.host} resolved=${JSON.stringify(st.resolved)}`;
+}
+function go(v){st.variant=v;st.palette=false;try{history.replaceState(null,'','#'+v)}catch(e){location.hash=v}render()}
+function step(d){const k=Object.keys(VARIANTS);go(k[(k.indexOf(st.variant)+d+k.length)%k.length])}
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-act]');if(!t)return;
+  const a=t.dataset.act;
+  if(a==='sel'){st.sel=t.dataset.id;st.mode='orchestrate';st.palette=false}
+  else if(a==='mode'){st.mode=t.dataset.v}
+  else if(a==='host'){st.host=t.dataset.v;const f=S.find(x=>st.host==='all'||x.host===st.host);if(f&&!(st.host==='all'||byId(st.sel).host===st.host))st.sel=f.id}
+  else if(a==='railhost'){const f=S.filter(x=>x.host===t.dataset.v).sort((x,y)=>ORDER.indexOf(x.state)-ORDER.indexOf(y.state))[0];if(f)st.sel=f.id}
+  else if(a==='resolve'){st.resolved[t.dataset.id]=t.dataset.v;const s=byId(t.dataset.id);if(t.dataset.v!=='denied')s.state='working';else s.state='idle';e.stopPropagation()}
+  else if(a==='pal'){st.palette=true}
+  else if(a==='closepal'){if(e.target!==t)return;st.palette=false}
+  render();
+});
+document.addEventListener('keydown',e=>{
+  const el=document.activeElement;if(el&&(el.matches('input,textarea,[contenteditable]')))return;
+  if(e.key==='ArrowLeft')step(-1);else if(e.key==='ArrowRight')step(1);
+  else if((e.key==='k'||e.key==='K')&&st.variant==='D'){st.palette=!st.palette;render()}
+  else if(e.key==='Escape'&&st.palette){st.palette=false;render()}
+  else if(e.key==='Enter'&&el&&el.dataset&&el.dataset.act==='sel'){el.click()}
+});
+document.getElementById('prev').onclick=()=>step(-1);
+document.getElementById('next').onclick=()=>step(1);
+const h=(location.hash||'').slice(1).toUpperCase();if(VARIANTS[h])st.variant=h;
+render();
+</script>
