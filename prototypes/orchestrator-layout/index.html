@@ -181,13 +181,72 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);ou
 .proto-bar .lbl{padding:0 12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .proto-bar .lbl small{font-weight:400;opacity:.65;margin-left:6px}
 .proto-state{font-family:var(--mono);font-size:11px;color:var(--muted);max-width:1440px;margin:10px auto 0}
+/* ---------- round 2: Input → Intent → Output ---------- */
+.app{position:relative}
+.iio{flex:1;display:grid;grid-template-columns:268px minmax(360px,420px) minmax(0,1fr);min-height:0}
+.iio.g{grid-template-columns:268px 300px minmax(0,1fr)}
+.zone-label{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.side{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.sidehead{display:flex;align-items:center;gap:8px;padding:10px 12px 8px;flex:none}
+.sidehead .seg button{padding:3px 10px;font-size:12px}
+.sidelist{overflow:auto;flex:1;padding:0 6px 10px}
+.hgroup{position:sticky;top:0;z-index:1;background:var(--panel);display:flex;align-items:center;gap:7px;height:30px;padding:0 8px;font-weight:600;font-size:12px;color:var(--muted)}
+.wsrow{display:flex;align-items:center;gap:7px;height:28px;padding:0 8px 0 10px;border-radius:6px;font-weight:600;width:100%;text-align:left}
+.wsrow:hover{background:var(--panel-2)}
+.wsrow .cnt{color:var(--faint);font-weight:400;font-size:11.5px}
+.srow{display:flex;align-items:center;gap:8px;height:28px;padding:0 8px 0 26px;border-radius:6px;width:100%;text-align:left;color:var(--ink)}
+.srow:hover{background:var(--panel-2)} .srow.sel{background:var(--sel)}
+.srow .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.srow .age{color:var(--faint);font-size:11px}
+.more{padding:2px 8px 6px 26px;color:var(--muted);font-size:12px;width:100%;text-align:left}
+.more:hover{color:var(--ink)}
+.wtrow{display:flex;gap:6px;align-items:center;height:24px;padding:0 8px 0 44px;color:var(--muted);font-size:12px}
+.sidefoot{border-top:1px solid var(--line);padding:8px 12px;display:flex;gap:8px;align-items:center;color:var(--muted);font-size:12px;flex:none}
+.hovercard{position:fixed;z-index:20;width:320px;background:var(--panel);border:1px solid var(--needs);border-radius:10px;box-shadow:var(--shadow);padding:12px;display:grid;gap:8px}
+.hovercard[hidden]{display:none!important}
+.intent{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--line);background:var(--bg)}
+.intent .convo{padding:16px 18px}
+.intent .msg-user,.intent .msg-agent,.intent .tool,.intent .approval,.intent .diffcard{max-width:100%}
+.intent .composer{margin:0 14px 14px}
+.ihead{padding:12px 18px;border-bottom:1px solid var(--line);display:grid;gap:6px}
+.ihead h2{margin:0;font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ihead .row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.srcs{display:flex;gap:6px;flex-wrap:wrap}
+.src{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;padding:2px 8px;border-radius:6px;background:var(--panel);border:1px solid var(--line);color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.at{color:var(--accent);font-weight:600}
+.output{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--panel)}
+.otabs{display:flex;align-items:center;gap:2px;padding:8px 14px 0;border-bottom:1px solid var(--line)}
+.otabs button{padding:7px 12px;border-bottom:2px solid transparent;color:var(--muted);font-weight:500}
+.otabs button[aria-pressed="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.obar{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.obody{overflow:auto;flex:1}
+.dfile{border-bottom:1px solid var(--line)}
+.dfile h5{margin:0;padding:8px 16px;font-family:var(--mono);font-size:12px;font-weight:500;background:var(--panel-2);display:flex;gap:10px;position:sticky;top:0}
+.dl{display:grid;grid-template-columns:44px 18px 1fr;font-family:var(--mono);font-size:12px;line-height:1.7}
+.dl span:first-child{color:var(--faint);text-align:right;padding-right:10px}
+.dl.a{background:color-mix(in srgb,var(--add) 12%,transparent)} .dl.d{background:color-mix(in srgb,var(--del) 12%,transparent)}
+.dl .code{white-space:pre;overflow:hidden;text-overflow:ellipsis}
+.rbadge{margin-left:auto}
+.preview{margin:16px;border:1px solid var(--line);border-radius:10px;height:calc(100% - 32px);display:grid;grid-template-rows:auto 1fr;overflow:hidden}
+.preview .url{padding:7px 12px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12px;color:var(--muted);background:var(--panel-2)}
+.preview .pg{display:grid;place-items:center;color:var(--muted)}
+.wsbar{display:flex;gap:6px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panel);overflow-x:auto;flex:none}
+.wsbar .hlab{font-size:11px;color:var(--faint);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-left:8px;white-space:nowrap;display:flex;gap:6px;align-items:center}
+.wschip{height:28px;padding:0 10px;border-radius:7px;border:1px solid var(--line);display:inline-flex;gap:6px;align-items:center;white-space:nowrap;font-weight:500}
+.wschip[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.turns{overflow:auto;flex:1;padding:12px;display:grid;gap:8px;align-content:start}
+.turncard{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:10px 12px;display:grid;gap:6px;text-align:left;width:100%}
+.turncard.sel{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.turncard .q{font-weight:500}
+.turncard .a{color:var(--muted);font-size:12px}
+.turncard .row{display:flex;gap:8px;align-items:center;font-size:12px}
 </style>
 
 <div class="intro">
   <h1>Polaris · Orchestrator layout prototype</h1>
-  <p>Throwaway prototype for ENG-177. Same mock data, four structurally different layouts. Use ← → or the bar at the bottom. Try approving the pending requests, switching Hosts, and pressing <span class="kbd">K</span> in D.</p>
+  <p>Throwaway prototype for ENG-177, round 2: <b>Input → Intent → Output</b>. A is the round-1 baseline; E, F, G are new. Use ← → or the bottom bar. Hover a “Needs you” session, press <span class="kbd">K</span> to jump, try the “Needs you” toggle and the Output tabs. Round-1 B–D are in git history.</p>
 </div>
-<div class="scroller"><div class="app" id="app"></div></div>
+<div class="scroller"><div class="app" id="app"></div><div class="hovercard" id="hovercard" hidden></div></div>
 <div class="proto-state" id="proto-state"></div>
 <div class="proto-bar" role="toolbar" aria-label="Prototype variant switcher">
   <button id="prev" aria-label="Previous variant">←</button>
@@ -222,7 +281,7 @@ const ORDER=['needs','working','terminal','idle','failed','dormant'];
 const PRS=[{n:212,t:'Add Review Checkout cleanup job',repo:'luxdotdev/polaris',who:'you',grp:'Mine'},{n:88,t:'Eligibility: annual income field',repo:'work-org/nj-homes-choice-next',who:'mchen',grp:'Review requested'},{n:431,t:'pg17: rollup views',repo:'work-org/dcai',who:'agent via you',grp:'Review requested'},{n:17,t:'Fight window heuristics',repo:'luxdotdev/sightline',who:'zei',grp:'Other open'}];
 
 const st={variant:'A',sel:'plan',host:'all',mode:'orchestrate',palette:false,resolved:{}};
-const VARIANTS={A:'Tree + conversation + inspector',B:'Attention inbox',C:'Mission-control board',D:'Focus rail + palette'};
+const VARIANTS={A:'Baseline · round 1',E:'I→I→O · sticky Host tree',F:'I→I→O · Workspace bar',G:'I→I→O · Turn timeline'};
 const byId=id=>S.find(s=>s.id===id);
 const host=id=>HOSTS.find(h=>h.id===id);
 const needsCount=(h)=>S.filter(s=>s.state==='needs'&&(!h||s.host===h)).length;
@@ -353,7 +412,108 @@ function D(){
     <div class="toasts">${st.mode==='orchestrate'?toasts:''}</div>${palette}</div>`;
 }
 
-const R={A,B,C,D};
+/* ================= round 2: Input → Intent → Output ================= */
+S.push(
+  {id:'p3',host:'personal',ws:'polaris',title:'Bun daemon SQLite schema',h:'Claude',state:'idle',branch:'main',age:'1d',ctx:31,turns:8,last:'Drafted event tables and receipts.'},
+  {id:'p4',host:'personal',ws:'polaris',title:'Glossary cleanup',h:'Claude',state:'dormant',branch:'main',age:'2d',ctx:9,turns:3,last:'Done.'},
+  {id:'p5',host:'personal',ws:'polaris',title:'Pierre diffs benchmark',h:'Codex',state:'dormant',branch:'bench/pierre',age:'2d',ctx:40,turns:5,last:'Scrolled 10k lines at 58 fps.'},
+  {id:'s2',host:'personal',ws:'sightline',title:'Ult economy chart',h:'Codex',state:'dormant',branch:'main',age:'3d',ctx:12,turns:2,last:'Chart shipped.'},
+  {id:'d3',host:'work',ws:'dcai',title:'IaC agent fleet deploy',h:'Codex',state:'idle',branch:'staging',age:'6h',ctx:27,turns:9,last:'Plan ready for review.'},
+  {id:'d4',host:'work',ws:'dcai',title:'grill-with-docs setup',h:'Claude',state:'dormant',branch:'main',age:'2d',ctx:18,turns:6,last:'Skill installed.'},
+  {id:'n2',host:'work',ws:'nj-homes-choice-next',title:'Verification code test script',h:'Claude',state:'dormant',branch:'nightly',age:'1d',ctx:10,turns:3,last:'Script added.'},
+);
+Object.assign(st,{side:'tree',otab:'changes',expanded:{},turn:null});
+const SRC={plan:[{k:'issue',t:'ENG-177 Orchestrator layout'},{k:'image',t:'herdr-sidebar.png'},{k:'image',t:'input-intent-output.png'},{k:'file',t:'CONTEXT.md'}],
+  pg17:[{k:'issue',t:'DCAI-431 Postgres 17 upgrade'},{k:'file',t:'sql/rollups.sql'},{k:'link',t:'PG17 release notes'}],
+  elig:[{k:'pr',t:'#88 annual income field'},{k:'image',t:'old-form.png'}],spike:[{k:'issue',t:'ENG-184 stack spike'},{k:'link',t:'gpui-kit docs'}]};
+const ICON={issue:'◉',file:'▤',image:'▣',link:'↗',pr:'⇅',doc:'☰'};
+const srcs=s=>(SRC[s.id]||[{k:'file',t:'README.md'}]).map(x=>`<span class="src">${ICON[x.k]} ${esc(x.t)}</span>`).join('');
+function diffsFor(s){
+  if(s.id==='plan')return[{file:'CONTEXT.md',add:6,del:1,lines:[[' ','**Risk Summary**:'],['-','An agent-written account of which parts of a change carry the most risk…'],['+','A ranked set of Risk Findings for the change under Review, combining rules,'],['+','classifiers, and an agent’s judgement, pointing a human at what most needs their eyes.'],[' ',''],['+','**Risk Finding**:'],['+','One flagged location in a change, with its source (Rule, Classifier, or Agent),'],['+','severity, reason, and status (Open, Dismissed, Resolved).']]},
+    {file:'prototypes/orchestrator-layout/index.html',add:412,del:0,lines:[['+','<title>Polaris Orchestrator Layouts</title>'],['+','<!-- PROTOTYPE — throwaway (ENG-177). Not production code. -->']]}];
+  if(s.id==='pg17')return[{file:'sql/rollups.sql',add:18,del:9,risk:'P2',lines:[[' ','CREATE OR REPLACE VIEW report_rollups AS'],['-','  SELECT org_id, sum(amount) FROM ledger GROUP BY 1'],['+','  SELECT l.org_id, sum(l.amount) AS total'],['+','  FROM ledger l'],['+',"  WHERE l.posted_at >= now() - interval '90 days'"],['+','  GROUP BY l.org_id'],[' ',';']]},
+    {file:'.env.example',add:1,del:0,risk:'P1',lines:[['+','PG_PASSWORD=hunter2-staging']]}];
+  const fn=s.title.split(' ')[0].toLowerCase();
+  return[{file:`src/${s.ws==='~'?'scratch':'lib'}/${fn}.ts`,add:42,del:17,lines:[[' ',`export function ${fn}(input: Input) {`],['-','  return legacy(input);'],['+','  const result = compute(input);'],['+','  return normalize(result);'],[' ','}']]}];
+}
+function outputPane(s){
+  const fs=diffsFor(s),add=fs.reduce((a,f)=>a+f.add,0),del=fs.reduce((a,f)=>a+f.del,0);
+  const turn=st.turn||s.turns;
+  const tabs=['changes','preview','files','risk'].map(t=>`<button data-act="otab" data-v="${t}" aria-pressed="${st.otab===t}">${t[0].toUpperCase()+t.slice(1)}${t==='risk'&&fs.some(f=>f.risk)?` <span class="badge" style="background:var(--failed-soft);color:var(--failed)">${fs.filter(f=>f.risk).length}</span>`:''}</button>`).join('');
+  let body='';
+  if(st.otab==='changes')body=fs.map(f=>{let n=12;return `<div class="dfile"><h5>${esc(f.file)} <span class="add">+${f.add}</span><span class="del">−${f.del}</span>${f.risk?`<span class="sev ${f.risk.toLowerCase()} rbadge">${f.risk}</span>`:''}</h5>${f.lines.map(([t,c])=>`<div class="dl ${t==='+'?'a':t==='-'?'d':''}"><span>${t==='-'?'':n++}</span><span class="${t==='+'?'add':t==='-'?'del':'muted'}">${t===' '?'':t}</span><span class="code">${esc(c)}</span></div>`).join('')}</div>`}).join('');
+  else if(st.otab==='preview')body=`<div class="preview"><div class="url">http://localhost:5173 · forwarded from ${host(s.host).machine}</div><div class="pg">Live preview of the dev server running on the Host</div></div>`;
+  else if(st.otab==='files')body=`<div class="isec">${fs.map(f=>`<div class="mono" style="padding:4px 0">${esc(f.file)} <span class="add">+${f.add}</span> <span class="del">−${f.del}</span></div>`).join('')}</div>`;
+  else body=`<div class="isec">${fs.filter(f=>f.risk).map(f=>`<div class="risk"><span class="sev ${f.risk.toLowerCase()}">${f.risk}</span>${esc(f.file)} · ${f.risk==='P1'?'Secret-like value committed':'Missing index on org_id filter'}<span class="spacer"></span><button class="btn small">👍</button><button class="btn small">👎</button></div>`).join('')||'<span class="muted">No Risk Findings for this Turn</span>'}</div>`;
+  return `<section class="output"><div class="otabs"><span class="zone-label" style="margin-right:10px">Output</span>${tabs}</div>
+    <div class="obar"><b>Turn ${turn}</b><span class="muted">${fs.length} file${fs.length>1?'s':''}</span><span class="add">+${add}</span><span class="del">−${del}</span><span class="spacer"></span><button class="btn small" data-act="mode" data-v="review">Open in Review</button><button class="btn small">Commit…</button></div>
+    <div class="obody">${body}</div></section>`;
+}
+function srow(x,indent){return `<button class="srow ${x.id===st.sel?'sel':''}" style="${indent?'':'padding-left:10px'}" data-act="sel" data-id="${x.id}" ${x.state==='needs'&&!st.resolved[x.id]?`data-hover="${x.id}"`:''}>${dot(x.state)}<span class="name">${esc(x.title)}</span>${x.worktrees?'<span class="muted" title="Has a Worktree">⎇</span>':''}<span class="age">${x.age}</span></button>`+
+  (x.id===st.sel?(x.worktrees||[]).map(w=>`<div class="wtrow">⎇ ${esc(w.branch)}${w.ext?' <span class="chip">found</span>':''}</div>`).join(''):'')}
+function sideNav(){
+  const n=needsCount();
+  const head=`<div class="sidehead"><span class="zone-label">Input</span><span class="spacer"></span><div class="seg"><button data-act="side" data-v="tree" aria-pressed="${st.side==='tree'}">Sessions</button><button data-act="side" data-v="inbox" aria-pressed="${st.side==='inbox'}">Needs you${n?` <span class="badge">${n}</span>`:''}</button></div></div>`;
+  let list;
+  if(st.side==='inbox'){
+    const rows=S.filter(x=>['needs','failed','terminal'].includes(x.state)).sort((a,b)=>ORDER.indexOf(a.state)-ORDER.indexOf(b.state));
+    list=rows.map(x=>`<div class="irow ${x.id===st.sel?'sel':''}" style="padding:10px 10px" data-act="sel" data-id="${x.id}" tabindex="0" role="button">${dot(x.state)}<span class="t">${esc(x.title)}</span><span class="time">${x.age}</span>
+      <div class="meta"><span class="hchip">${host(x.host).machine}</span><span>${esc(x.ws)}</span></div>
+      ${x.ask&&!st.resolved[x.id]?`<div class="ask"><div>${x.ask.kind==='approval'?`Run <span class="mono">${esc(x.ask.code)}</span>`:esc(x.ask.text)}</div><div class="btns"><button class="btn primary small" data-act="resolve" data-id="${x.id}" data-v="${x.ask.kind==='approval'?'approved':'Annual'}">${x.ask.kind==='approval'?'Approve':'Annual'}</button><button class="btn small" data-act="resolve" data-id="${x.id}" data-v="${x.ask.kind==='approval'?'denied':'Monthly'}">${x.ask.kind==='approval'?'Deny':'Monthly'}</button></div></div>`:`<div class="last">${esc(st.resolved[x.id]?'✓ '+st.resolved[x.id]:x.last)}</div>`}</div>`).join('')||'<div class="placeholder">Nothing needs you 🎉</div>';
+  } else list=HOSTS.map(h=>{
+    const hs=S.filter(x=>x.host===h.id);const wss=[...new Set(hs.map(x=>x.ws))];
+    return `<div class="hgroup">${connDot(h)}${h.machine}<span class="spacer"></span>${needsCount(h.id)?`<span class="badge">${needsCount(h.id)}</span>`:''}</div>`+wss.map(w=>{
+      const rows=hs.filter(x=>x.ws===w).sort((a,b)=>ORDER.indexOf(a.state)-ORDER.indexOf(b.state));
+      const key=h.id+'/'+w, open=st.expanded[key];
+      let shown=open?rows:rows.slice(0,3); if(!shown.some(x=>x.id===st.sel)&&rows.some(x=>x.id===st.sel))shown=[...shown,byId(st.sel)];
+      const hidden=rows.length-shown.length;
+      return `<div class="wsrow"><span class="muted">▾</span>${esc(w)}<span class="cnt">${rows.length}</span></div>`+shown.map(x=>srow(x,true)).join('')+
+        (hidden>0?`<button class="more" data-act="more" data-v="${key}">+ ${hidden} more (${hidden===1?'dormant':'idle or dormant'})</button>`:open&&rows.length>3?`<button class="more" data-act="more" data-v="${key}">Show fewer</button>`:'');
+    }).join('');
+  }).join('');
+  return `<aside class="side">${head}<div class="sidelist">${list}</div><div class="sidefoot"><button data-act="pal"><span class="kbd">K</span> Jump</button><span class="spacer"></span><button data-act="new">＋ New session</button></div></aside>`;
+}
+function intentComposer(s){
+  const dis=s.state==='terminal';
+  return `<div class="composer"><div class="ph">${dis?'Open in the terminal. Take it back to type here.':`<span class="at">@${s.h.toLowerCase()}</span> What should happen next? · paste images · @file`}</div><div class="row"><span class="hchip">${host(s.host).machine} · ⎇ ${esc(s.branch)}</span><span class="spacer"></span><button class="btn small">Terminal</button><button class="btn small">Fork</button></div></div>`;
+}
+function intentPane(s){
+  return `<section class="intent"><div class="ihead"><span class="zone-label">Intent</span><h2>${esc(s.title)}</h2><div class="row">${pill(s.state)}${hchip(s)}<span class="hchip">${host(s.host).machine} / ${esc(s.ws)}</span><span class="muted" style="font-size:12px">ctx ${s.ctx}%</span></div><div class="srcs">${srcs(s)}</div></div>${convo(s)}${intentComposer(s)}</section>`;
+}
+function paletteHTML(){
+  if(!st.palette)return '';const h=host(byId(st.sel).host);
+  return `<div class="palette-bg" data-act="closepal"><div class="palette"><div class="q">⌕ Jump to session, Workspace or Host… <span class="spacer"></span><span class="kbd">esc</span></div><ul>
+    ${ORDER.map(g=>{const rows=S.filter(x=>x.state===g);return rows.length?`<li class="grp">${STATE_LABEL[g]}</li>`+rows.map(x=>`<li><button data-act="sel" data-id="${x.id}">${dot(x.state)}<b>${esc(x.title)}</b><span class="muted">${host(x.host).machine} / ${esc(x.ws)}</span><span class="spacer"></span><span class="chip">${x.h}</span></button></li>`).join(''):''}).join('')}
+    <li class="grp">Actions</li><li><button>＋ New session on ${h.machine}…</button></li><li><button>⇄ Review PRs (2 requested)</button></li></ul></div></div>`;
+}
+const orch=(inner)=>st.mode==='orchestrate'?inner:`<div style="grid-column:2/4;display:flex;background:var(--bg)">${nonOrch()}</div>`;
+function E(){const s=byId(st.sel);return titlebar()+`<div class="iio">${sideNav()}${orch(intentPane(s)+outputPane(s))}</div>`+paletteHTML()}
+function F(){
+  const s=byId(st.sel);
+  const bar=HOSTS.map(h=>{const wss=[...new Set(S.filter(x=>x.host===h.id).map(x=>x.ws))];
+    return `<span class="hlab">${connDot(h)}${h.machine}</span>`+wss.map(w=>{const rows=S.filter(x=>x.host===h.id&&x.ws===w);const nd=rows.filter(x=>x.state==='needs'&&!st.resolved[x.id]).length;const act=rows.some(x=>x.state==='working');
+      return `<button class="wschip" data-act="ws" data-v="${h.id}/${w}" aria-pressed="${s.host===h.id&&s.ws===w}">${act?dot('working'):nd?dot('needs'):''}${esc(w)}${nd?` <span class="badge">${nd}</span>`:''}</button>`}).join('')}).join('');
+  const rows=S.filter(x=>x.host===s.host&&x.ws===s.ws).sort((a,b)=>ORDER.indexOf(a.state)-ORDER.indexOf(b.state));
+  const elsewhere=S.filter(x=>x.state==='needs'&&!st.resolved[x.id]&&!(x.host===s.host&&x.ws===s.ws));
+  const input=`<aside class="side"><div class="sidehead"><span class="zone-label">Input · ${esc(s.ws)}</span><span class="spacer"></span><button class="btn small" data-act="new">＋ New</button></div><div class="sidelist">
+    <div class="hgroup">Sessions</div>${rows.map(x=>srow(x,false)).join('')}
+    <div class="hgroup" style="margin-top:8px">Sources · this session</div><div style="display:grid;gap:6px;padding:4px 8px">${srcs(s)}</div>
+    ${elsewhere.length?`<div class="hgroup" style="margin-top:8px">Needs you elsewhere</div>${elsewhere.map(x=>`<button class="srow" style="padding-left:10px" data-act="sel" data-id="${x.id}" data-hover="${x.id}">${dot('needs')}<span class="name">${esc(x.title)}</span><span class="age">${host(x.host).machine}</span></button>`).join('')}`:''}
+    </div><div class="sidefoot"><button data-act="pal"><span class="kbd">K</span> Jump</button></div></aside>`;
+  return titlebar()+`<div class="wsbar">${bar}</div><div class="iio">${input}${orch(intentPane(s)+outputPane(s))}</div>`+paletteHTML();
+}
+function G(){
+  const s=byId(st.sel);const cur=st.turn||s.turns;
+  const qs={plan:['Let’s go on to 177','Q9 - yes. I’m fine with persisting but hiding them…','I saw a tweet about this paper…','Yes, let’s do that.','Q1 - sure, this is smart…']};
+  const as={plan:['Writing four layout variants…','Recorded Review workflow; closed ENG-185','Read the paper; created ENG-187','Committed glossary (a827090)','Asked round 2 of the Review grilling']};
+  const cards=[];for(let i=0;i<Math.min(5,s.turns);i++){const n=s.turns-i;
+    cards.push(`<button class="turncard ${n===cur?'sel':''}" data-act="turn" data-v="${n}"><div class="row"><b>Turn ${n}</b>${i===0?pill(s.state):''}<span class="spacer"></span><span class="add">+${(n*13)%61}</span><span class="del">−${(n*7)%19}</span></div><div class="q">${esc((qs[s.id]||[])[i]||(i===0?s.title:'Follow-up on '+s.title.toLowerCase()))}</div><div class="a">${esc((as[s.id]||[])[i]||(i===0?s.last:'Changed 2 files'))}</div></button>`)}
+  const pend=s.ask&&!st.resolved[s.id]?`<div style="padding:0 12px 10px">${convo(s).match(/<div class="approval">[\s\S]*?<\/div><\/div><\/div>/)?.[0]||''}</div>`:'';
+  const intent=`<section class="intent"><div class="ihead"><span class="zone-label">Intent · Turns</span><h2>${esc(s.title)}</h2><div class="row">${hchip(s)}<span class="hchip">${host(s.host).machine} / ${esc(s.ws)}</span></div><div class="srcs">${srcs(s)}</div></div><div class="turns">${cards.join('')}<button class="more" style="padding-left:4px">Show full transcript</button></div>${pend}${intentComposer(s)}</section>`;
+  return titlebar()+`<div class="iio g">${sideNav()}${orch(intent+outputPane(s))}</div>`+paletteHTML();
+}
+
+const R={A,B,C,D,E,F,G};
 function render(){
   document.getElementById('app').innerHTML=R[st.variant]();
   document.getElementById('vlabel').innerHTML=`${st.variant}<small>${VARIANTS[st.variant]}</small>`;
@@ -365,11 +525,16 @@ function step(d){const k=Object.keys(VARIANTS);go(k[(k.indexOf(st.variant)+d+k.l
 document.addEventListener('click',e=>{
   const t=e.target.closest('[data-act]');if(!t)return;
   const a=t.dataset.act;
-  if(a==='sel'){st.sel=t.dataset.id;st.mode='orchestrate';st.palette=false}
+  if(a==='sel'){st.sel=t.dataset.id;st.mode='orchestrate';st.palette=false;st.turn=null;hideCard()}
+  else if(a==='side'){st.side=t.dataset.v}
+  else if(a==='otab'){st.otab=t.dataset.v}
+  else if(a==='turn'){st.turn=+t.dataset.v}
+  else if(a==='more'){st.expanded[t.dataset.v]=!st.expanded[t.dataset.v]}
+  else if(a==='ws'){const [hh,ww]=t.dataset.v.split('/');const f=S.filter(x=>x.host===hh&&x.ws===ww).sort((x,y)=>ORDER.indexOf(x.state)-ORDER.indexOf(y.state))[0];st.sel=f.id;st.turn=null}
   else if(a==='mode'){st.mode=t.dataset.v}
   else if(a==='host'){st.host=t.dataset.v;const f=S.find(x=>st.host==='all'||x.host===st.host);if(f&&!(st.host==='all'||byId(st.sel).host===st.host))st.sel=f.id}
   else if(a==='railhost'){const f=S.filter(x=>x.host===t.dataset.v).sort((x,y)=>ORDER.indexOf(x.state)-ORDER.indexOf(y.state))[0];if(f)st.sel=f.id}
-  else if(a==='resolve'){st.resolved[t.dataset.id]=t.dataset.v;const s=byId(t.dataset.id);if(t.dataset.v!=='denied')s.state='working';else s.state='idle';e.stopPropagation()}
+  else if(a==='resolve'){hideCard();st.resolved[t.dataset.id]=t.dataset.v;const s=byId(t.dataset.id);if(t.dataset.v!=='denied')s.state='working';else s.state='idle';e.stopPropagation()}
   else if(a==='pal'){st.palette=true}
   else if(a==='closepal'){if(e.target!==t)return;st.palette=false}
   render();
@@ -377,12 +542,26 @@ document.addEventListener('click',e=>{
 document.addEventListener('keydown',e=>{
   const el=document.activeElement;if(el&&(el.matches('input,textarea,[contenteditable]')))return;
   if(e.key==='ArrowLeft')step(-1);else if(e.key==='ArrowRight')step(1);
-  else if((e.key==='k'||e.key==='K')&&st.variant==='D'){st.palette=!st.palette;render()}
+  else if((e.key==='k'||e.key==='K')&&'DEFG'.includes(st.variant)){e.preventDefault();st.palette=!st.palette;render()}
   else if(e.key==='Escape'&&st.palette){st.palette=false;render()}
   else if(e.key==='Enter'&&el&&el.dataset&&el.dataset.act==='sel'){el.click()}
 });
+
+const card=document.getElementById('hovercard');let hideT;
+function hideCard(){card.hidden=true}
+document.addEventListener('mouseover',e=>{
+  if(e.target.closest('#hovercard')){clearTimeout(hideT);return}
+  const r=e.target.closest('[data-hover]');if(!r)return;clearTimeout(hideT);
+  const x=byId(r.dataset.hover);if(!x||!x.ask||st.resolved[x.id])return;
+  const b=r.getBoundingClientRect();
+  card.innerHTML=`<div style="display:flex;gap:8px;align-items:center">${dot('needs')}<b>${esc(x.title)}</b></div><div class="muted">${host(x.host).machine} / ${esc(x.ws)} · ${x.h}</div>`+
+    (x.ask.kind==='approval'?`<div>Wants to run <code class="mono">${esc(x.ask.code)}</code></div><div class="btns"><button class="btn primary small" data-act="resolve" data-id="${x.id}" data-v="approved">Approve</button><button class="btn small" data-act="resolve" data-id="${x.id}" data-v="always">Always here</button><button class="btn small" data-act="resolve" data-id="${x.id}" data-v="denied">Deny</button></div>`
+     :`<div>${esc(x.ask.text)}</div><div class="btns"><button class="btn primary small" data-act="resolve" data-id="${x.id}" data-v="Annual">Annual</button><button class="btn small" data-act="resolve" data-id="${x.id}" data-v="Monthly">Monthly</button><button class="btn small" data-act="sel" data-id="${x.id}">Reply…</button></div>`);
+  card.style.left=Math.min(b.right+8,innerWidth-330)+'px';card.style.top=Math.max(8,Math.min(b.top-8,innerHeight-200))+'px';card.hidden=false;
+});
+document.addEventListener('mouseout',e=>{if(e.target.closest('[data-hover],#hovercard')){clearTimeout(hideT);hideT=setTimeout(hideCard,250)}});
 document.getElementById('prev').onclick=()=>step(-1);
 document.getElementById('next').onclick=()=>step(1);
-const h=(location.hash||'').slice(1).toUpperCase();if(VARIANTS[h])st.variant=h;
+const h=(location.hash||'').slice(1).toUpperCase();st.variant=VARIANTS[h]?h:'E';
 render();
 </script>
