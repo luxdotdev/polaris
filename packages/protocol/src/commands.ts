@@ -3,9 +3,9 @@
  * `commandId`; the Daemon stores a receipt so a retried command is applied once.
  * An ack means "intent recorded", not "the Harness finished".
  */
-import { Schema } from "effect"
-import { ApprovalDecision, HarnessKind, PermissionMode } from "./domain.ts"
-import { AttachmentId, RequestId, SessionId, TurnId, WorkspaceId } from "./ids.ts"
+import { Schema } from "effect";
+import { ApprovalDecision, HarnessKind, PermissionMode } from "./domain.ts";
+import { AttachmentId, RequestId, SessionId, TurnId, WorkspaceId } from "./ids.ts";
 
 export const SessionPlacement = Schema.TaggedUnion({
   /** Work directly in the Workspace directory (the default). */
@@ -14,8 +14,8 @@ export const SessionPlacement = Schema.TaggedUnion({
   NewWorktree: { branch: Schema.String, baseRef: Schema.NullOr(Schema.String) },
   /** Use a Worktree that already exists. */
   ExistingWorktree: { path: Schema.String },
-})
-export type SessionPlacement = typeof SessionPlacement.Type
+});
+export type SessionPlacement = typeof SessionPlacement.Type;
 
 export const Command = Schema.TaggedUnion({
   RegisterWorkspace: { path: Schema.String, name: Schema.NullOr(Schema.String) },
@@ -62,5 +62,5 @@ export const Command = Schema.TaggedUnion({
   OpenInTerminal: { sessionId: SessionId },
   /** Take the session back from the terminal UI. */
   ReturnFromTerminal: { sessionId: SessionId },
-})
-export type Command = typeof Command.Type
+});
+export type Command = typeof Command.Type;

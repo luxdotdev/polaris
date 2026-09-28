@@ -75,14 +75,12 @@
     "apps/daemon/src/engine/Engine.followups.test.ts": {
       "anti-slop-effect/no-manual-tag-comparison": 18,
       "anti-slop-effect/no-manual-tagged-construction": 37,
-      "anti-slop/require-readable-spacing": 37,
       "anti-slop/require-safety-comment-for-type-assertion": 14,
       "typescript/no-unnecessary-type-assertion": 2
     },
     "apps/daemon/src/engine/Engine.test.ts": {
       "anti-slop-effect/no-manual-tag-comparison": 9,
       "anti-slop-effect/no-manual-tagged-construction": 37,
-      "anti-slop/require-readable-spacing": 26,
       "anti-slop/require-safety-comment-for-type-assertion": 7,
       "typescript/no-unnecessary-type-assertion": 1
     },
@@ -117,7 +115,6 @@
     "apps/daemon/src/engine/session.test.ts": {
       "anti-slop-effect/no-manual-tagged-construction": 1,
       "anti-slop/no-chained-type-assertions": 1,
-      "anti-slop/require-readable-spacing": 27,
       "anti-slop/require-safety-comment-for-type-assertion": 5,
       "typescript/no-misused-spread": 2
     },
@@ -332,7 +329,6 @@
       "anti-slop/require-readable-spacing": 7
     },
     "apps/daemon/src/harness/claude/input.ts": {
-      "anti-slop/require-readable-spacing": 5,
       "anti-slop/require-safety-comment-for-type-assertion": 2
     },
     "apps/daemon/src/harness/claude/permissions.ts": {

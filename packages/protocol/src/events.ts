@@ -2,7 +2,7 @@
  * Persisted domain events. The Daemon's event store is the source of truth;
  * every read model a Client sees is a projection of these.
  */
-import { Schema } from "effect"
+import { Schema } from "effect";
 import {
   AgentSession,
   ApprovalDecision,
@@ -14,7 +14,7 @@ import {
   TurnItem,
   Workspace,
   Worktree,
-} from "./domain.ts"
+} from "./domain.ts";
 import {
   CommandId,
   RequestId,
@@ -23,7 +23,7 @@ import {
   TurnId,
   WorkspaceId,
   WorktreeId,
-} from "./ids.ts"
+} from "./ids.ts";
 
 export const DomainEvent = Schema.TaggedUnion({
   WorkspaceRegistered: { workspace: Workspace },
@@ -75,15 +75,15 @@ export const DomainEvent = Schema.TaggedUnion({
     ref: Schema.String,
     commit: Schema.String,
   },
-})
-export type DomainEvent = typeof DomainEvent.Type
+});
+export type DomainEvent = typeof DomainEvent.Type;
 
 /** Which stream an event belongs to. Host-level events use `host`. */
 export const StreamKey = Schema.Union([
   Schema.TaggedStruct("host", {}),
   Schema.TaggedStruct("session", { sessionId: SessionId }),
-])
-export type StreamKey = typeof StreamKey.Type
+]);
+export type StreamKey = typeof StreamKey.Type;
 
 export class EventEnvelope extends Schema.Class<EventEnvelope>("EventEnvelope")({
   sequence: Sequence,

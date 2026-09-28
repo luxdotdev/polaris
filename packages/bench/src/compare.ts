@@ -7,7 +7,7 @@
  * memory is steady run to run (a few MiB), so it is held tightly; CPU at low load
  * and tail latencies swing by tens of percent, so they are held loosely.
  */
-import type { AggregatedMetric, BenchResult, MetricKind } from "./types.ts"
+import type { AggregatedMetric, BenchResult, MetricKind } from "./types.ts";
 
 export const DEFAULT_TOLERANCE: Record<MetricKind, { relative: number; absolute: number }> = {
   memory: { relative: 0.1, absolute: 5 },
@@ -16,84 +16,84 @@ export const DEFAULT_TOLERANCE: Record<MetricKind, { relative: number; absolute:
   time: { relative: 0.35, absolute: 5 },
   throughput: { relative: 0.3, absolute: 0 },
   count: { relative: 0.25, absolute: 1 },
-}
+};
 
-export type Status = "ok" | "regressed" | "improved" | "new" | "missing"
+export type Status = "ok" | "regressed" | "improved" | "new" | "missing";
 
 export interface ComparisonRow {
-  readonly scenario: string
-  readonly metric: string
-  readonly unit: string
-  readonly kind: MetricKind | null
-  readonly baseline: number | null
-  readonly current: number | null
+  readonly scenario: string;
+  readonly metric: string;
+  readonly unit: string;
+  readonly kind: MetricKind | null;
+  readonly baseline: number | null;
+  readonly current: number | null;
   /** Relative change, positive = worse. */
-  readonly change: number | null
-  readonly allowed: number | null
-  readonly status: Status
+  readonly change: number | null;
+  readonly allowed: number | null;
+  readonly status: Status;
   /** Counted toward the exit status (its kind is in `failOn` and it is not informational). */
-  readonly gating: boolean
+  readonly gating: boolean;
 }
 
 export interface Comparison {
-  readonly rows: ReadonlyArray<ComparisonRow>
-  readonly regressions: ReadonlyArray<ComparisonRow>
-  readonly warnings: ReadonlyArray<string>
+  readonly rows: ReadonlyArray<ComparisonRow>;
+  readonly regressions: ReadonlyArray<ComparisonRow>;
+  readonly warnings: ReadonlyArray<string>;
 }
 
 export const compareMetric = (
   base: AggregatedMetric,
-  current: AggregatedMetric,
+  current: AggregatedMetric
 ): { status: Status; change: number; allowed: number } => {
-  const tolerance = current.tolerance ?? base.tolerance ?? DEFAULT_TOLERANCE[current.kind]
-  const sign = current.better === "lower" ? 1 : -1
-  const worsening = sign * (current.value - base.value)
-  const allowed = Math.max(tolerance.relative * Math.abs(base.value), tolerance.absolute)
+  const tolerance = current.tolerance ?? base.tolerance ?? DEFAULT_TOLERANCE[current.kind];
+  const sign = current.better === "lower" ? 1 : -1;
+  const worsening = sign * (current.value - base.value);
+  const allowed = Math.max(tolerance.relative * Math.abs(base.value), tolerance.absolute);
   const change =
     base.value === 0
       ? worsening === 0
         ? 0
         : Math.sign(worsening)
-      : worsening / Math.abs(base.value)
-  if (worsening > allowed) return { status: "regressed", change, allowed }
-  if (-worsening > allowed) return { status: "improved", change, allowed }
-  return { status: "ok", change, allowed }
-}
+      : worsening / Math.abs(base.value);
+  if (worsening > allowed) return { status: "regressed", change, allowed };
+  if (-worsening > allowed) return { status: "improved", change, allowed };
+  return { status: "ok", change, allowed };
+};
 
 export const compare = (
   baseline: BenchResult,
   current: BenchResult,
-  failOn: ReadonlySet<MetricKind>,
+  failOn: ReadonlySet<MetricKind>
 ): Comparison => {
-  const warnings: Array<string> = []
+  const warnings: Array<string> = [];
   if (baseline.env.machineSlug !== current.env.machineSlug) {
     warnings.push(
-      `baseline is from ${baseline.env.machineSlug}, this run is ${current.env.machineSlug}: numbers are not comparable`,
-    )
+      `baseline is from ${baseline.env.machineSlug}, this run is ${current.env.machineSlug}: numbers are not comparable`
+    );
   }
   if (baseline.options.quick !== current.options.quick) {
     warnings.push(
-      `baseline ran ${baseline.options.quick ? "--quick" : "full"}, this run ${current.options.quick ? "--quick" : "full"}: sizes differ`,
-    )
+      `baseline ran ${baseline.options.quick ? "--quick" : "full"}, this run ${current.options.quick ? "--quick" : "full"}: sizes differ`
+    );
   }
   if (baseline.env.daemon !== current.env.daemon) {
     warnings.push(
-      `baseline ran the ${baseline.env.daemon} Daemon, this run the ${current.env.daemon} one`,
-    )
+      `baseline ran the ${baseline.env.daemon} Daemon, this run the ${current.env.daemon} one`
+    );
   }
   if (baseline.env.transport !== current.env.transport) {
     warnings.push(
-      `baseline used the ${baseline.env.transport} transport, this run ${current.env.transport}`,
-    )
+      `baseline used the ${baseline.env.transport} transport, this run ${current.env.transport}`
+    );
   }
   if (current.options.profile)
-    warnings.push("this run was profiled: timings include profiler overhead")
+    warnings.push("this run was profiled: timings include profiler overhead");
 
-  const rows: Array<ComparisonRow> = []
+  const rows: Array<ComparisonRow> = [];
   for (const [scenario, result] of Object.entries(current.scenarios)) {
-    const base = baseline.scenarios[scenario]
+    const base = baseline.scenarios[scenario];
     for (const [metric, m] of Object.entries(result.metrics)) {
-      const b = base?.metrics[metric]
+      const b = base?.metrics[metric];
       if (b === undefined) {
         rows.push({
           scenario,
@@ -106,10 +106,10 @@ export const compare = (
           allowed: null,
           status: "new",
           gating: false,
-        })
-        continue
+        });
+        continue;
       }
-      const { status, change, allowed } = compareMetric(b, m)
+      const { status, change, allowed } = compareMetric(b, m);
       rows.push({
         scenario,
         metric,
@@ -121,10 +121,10 @@ export const compare = (
         allowed,
         status,
         gating: failOn.has(m.kind) && !m.info && !b.info,
-      })
+      });
     }
     for (const [metric, b] of Object.entries(base?.metrics ?? {})) {
-      if (result.metrics[metric] !== undefined) continue
+      if (result.metrics[metric] !== undefined) continue;
       rows.push({
         scenario,
         metric,
@@ -136,12 +136,12 @@ export const compare = (
         allowed: null,
         status: "missing",
         gating: false,
-      })
+      });
     }
   }
   return {
     rows,
     regressions: rows.filter((r) => r.status === "regressed" && r.gating),
     warnings,
-  }
-}
+  };
+};

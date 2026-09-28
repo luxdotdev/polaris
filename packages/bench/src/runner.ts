@@ -1,10 +1,10 @@
 /** Runs scenarios (each run with fresh Daemons) and aggregates runs into medians. */
-import { existsSync, mkdirSync, readdirSync, renameSync } from "node:fs"
-import { join } from "node:path"
-import { Duration, Effect } from "effect"
-import { cleanup, launchDaemon, type TransportKind } from "./daemon.ts"
-import { startSampler } from "./sampler.ts"
-import { median } from "./stats.ts"
+import { existsSync, mkdirSync, readdirSync, renameSync } from "node:fs";
+import { join } from "node:path";
+import { Duration, Effect } from "effect";
+import { cleanup, launchDaemon, type TransportKind } from "./daemon.ts";
+import { startSampler } from "./sampler.ts";
+import { median } from "./stats.ts";
 import type {
   AggregatedMetric,
   Metric,
@@ -12,19 +12,19 @@ import type {
   ScenarioContext,
   ScenarioResult,
   ScenarioRun,
-} from "./types.ts"
+} from "./types.ts";
 
 export interface RunnerOptions {
-  readonly quick: boolean
-  readonly runs: number
-  readonly binary: string | null
-  readonly transport: TransportKind
+  readonly quick: boolean;
+  readonly runs: number;
+  readonly binary: string | null;
+  readonly transport: TransportKind;
   /** Directory for this invocation's profiles; null without --profile. */
-  readonly profileRoot: string | null
-  readonly log: (message: string) => void
+  readonly profileRoot: string | null;
+  readonly log: (message: string) => void;
 }
 
-const SCENARIO_TIMEOUT = Duration.minutes(30)
+const SCENARIO_TIMEOUT = Duration.minutes(30);
 
 const contextFor = (options: RunnerOptions, profileDir: string | null): ScenarioContext => ({
   quick: options.quick,
@@ -34,92 +34,92 @@ const contextFor = (options: RunnerOptions, profileDir: string | null): Scenario
   launch: (launch = {}) =>
     Effect.acquireRelease(
       Effect.promise(() =>
-        launchDaemon({ binary: options.binary, profileDir, ...launch, home: launch.home ?? null }),
+        launchDaemon({ binary: options.binary, profileDir, ...launch, home: launch.home ?? null })
       ),
       (daemon) =>
         Effect.promise(async () => {
-          await daemon.stop()
+          await daemon.stop();
           // A home the scenario passed in is the scenario's to remove.
-          if (!launch.home) cleanup(daemon.home)
-        }),
+          if (!launch.home) cleanup(daemon.home);
+        })
     ),
   sample: (daemon, intervalMs = 250) =>
     Effect.acquireRelease(
       Effect.sync(() => startSampler({ roots: () => [daemon.pid], intervalMs })),
-      (sampler) => Effect.sync(() => sampler.stop()),
+      (sampler) => Effect.sync(() => sampler.stop())
     ),
   peak: (daemon, label) =>
     profileDir === null
       ? Effect.void
       : Effect.promise(async () => {
-          options.log(`heap snapshot (${label})…`)
-          const file = await daemon.heapSnapshot()
-          if (file) renameSync(file, join(profileDir, `heap-${label}.heapsnapshot`))
+          options.log(`heap snapshot (${label})…`);
+          const file = await daemon.heapSnapshot();
+          if (file) renameSync(file, join(profileDir, `heap-${label}.heapsnapshot`));
         }),
-})
+});
 
 const aggregate = (runs: ReadonlyArray<ScenarioRun>): Record<string, AggregatedMetric> => {
-  const byName = new Map<string, Array<Metric>>()
+  const byName = new Map<string, Array<Metric>>();
   for (const run of runs) {
     for (const [name, metric] of Object.entries(run.metrics)) {
-      if (!Number.isFinite(metric.value)) continue
-      byName.set(name, [...(byName.get(name) ?? []), metric])
+      if (!Number.isFinite(metric.value)) continue;
+      byName.set(name, [...(byName.get(name) ?? []), metric]);
     }
   }
-  const out: Record<string, AggregatedMetric> = {}
+  const out: Record<string, AggregatedMetric> = {};
   for (const [name, metrics] of byName) {
-    const values = metrics.map((m) => m.value)
+    const values = metrics.map((m) => m.value);
     out[name] = {
       ...metrics[0]!,
       value: median(values),
       runs: values,
       min: Math.min(...values),
       max: Math.max(...values),
-    }
+    };
   }
-  return out
-}
+  return out;
+};
 
 export const runScenario = async (
   scenario: Scenario,
-  options: RunnerOptions,
+  options: RunnerOptions
 ): Promise<ScenarioResult> => {
-  const started = performance.now()
-  const runs: Array<ScenarioRun> = []
-  let error: string | undefined
+  const started = performance.now();
+  const runs: Array<ScenarioRun> = [];
+  let error: string | undefined;
   for (let i = 1; i <= options.runs; i++) {
-    options.log(`${scenario.name}: run ${i}/${options.runs}`)
+    options.log(`${scenario.name}: run ${i}/${options.runs}`);
     const profileDir = options.profileRoot
       ? join(options.profileRoot, `${scenario.name}-run${i}`)
-      : null
-    if (profileDir) mkdirSync(profileDir, { recursive: true })
+      : null;
+    if (profileDir) mkdirSync(profileDir, { recursive: true });
     const exit = await Effect.runPromiseExit(
       Effect.scoped(scenario.run(contextFor(options, profileDir))).pipe(
-        Effect.timeout(SCENARIO_TIMEOUT),
-      ),
-    )
+        Effect.timeout(SCENARIO_TIMEOUT)
+      )
+    );
     if (exit._tag === "Success") {
-      runs.push(exit.value)
+      runs.push(exit.value);
     } else {
-      error = String(exit.cause).split("\n").slice(0, 8).join("\n")
-      options.log(`${scenario.name}: run ${i} failed\n${error}`)
-      break
+      error = String(exit.cause).split("\n").slice(0, 8).join("\n");
+      options.log(`${scenario.name}: run ${i} failed\n${error}`);
+      break;
     }
     if (profileDir && existsSync(profileDir)) {
-      const files = readdirSync(profileDir)
-      if (files.length > 0) options.log(`${scenario.name}: profiles in ${profileDir}`)
+      const files = readdirSync(profileDir);
+      if (files.length > 0) options.log(`${scenario.name}: profiles in ${profileDir}`);
     }
   }
   // A note every run agrees on appears once; one that differs is labelled with its run.
   const notes = [...new Set(runs.flatMap((r) => r.notes))].flatMap((note) =>
     runs.every((r) => r.notes.includes(note))
       ? [note]
-      : runs.flatMap((r, i) => (r.notes.includes(note) ? [`run ${i + 1}: ${note}`] : [])),
-  )
+      : runs.flatMap((r, i) => (r.notes.includes(note) ? [`run ${i + 1}: ${note}`] : []))
+  );
   return {
     metrics: aggregate(runs),
     notes,
     durationMs: performance.now() - started,
     ...(error === undefined ? {} : { error }),
-  }
-}
+  };
+};

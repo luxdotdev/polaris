@@ -9,36 +9,36 @@
  * a failing seed that fast-check printed.
  */
 export const pbtRuns = (fallback: number): number => {
-  const raw = process.env.POLARIS_PBT_RUNS
-  const n = raw === undefined ? Number.NaN : Number.parseInt(raw, 10)
-  return Number.isFinite(n) && n > 0 ? n : fallback
-}
+  const raw = process.env.POLARIS_PBT_RUNS;
+  const n = raw === undefined ? Number.NaN : Number.parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+};
 
 export const pbtSeed = (): { seed: number } | Record<string, never> => {
-  const raw = process.env.POLARIS_PBT_SEED
-  const n = raw === undefined ? Number.NaN : Number.parseInt(raw, 10)
-  return Number.isFinite(n) ? { seed: n } : {}
-}
+  const raw = process.env.POLARIS_PBT_SEED;
+  const n = raw === undefined ? Number.NaN : Number.parseInt(raw, 10);
+  return Number.isFinite(n) ? { seed: n } : {};
+};
 
 /** A test timeout that grows with the number of runs. */
 export const pbtTimeout = (runs: number, perRunMs: number): number =>
-  Math.max(30_000, runs * perRunMs)
+  Math.max(30_000, runs * perRunMs);
 
-export const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+export const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /** Wait until `condition` holds, or fail with `what` after `timeoutMs`. */
 export const eventually = async (
   what: string,
   condition: () => boolean | Promise<boolean>,
-  timeoutMs = 3000,
+  timeoutMs = 3000
 ): Promise<void> => {
-  const deadline = Date.now() + timeoutMs
+  const deadline = Date.now() + timeoutMs;
   while (!(await condition())) {
-    if (Date.now() > deadline) throw new Error(`timed out waiting until ${what}`)
-    await sleep(2)
+    if (Date.now() > deadline) throw new Error(`timed out waiting until ${what}`);
+    await sleep(2);
   }
-}
+};
 
 /** Is `prefix` a prefix of `list`? */
 export const isPrefix = (prefix: ReadonlyArray<number>, list: ReadonlyArray<number>): boolean =>
-  prefix.length <= list.length && prefix.every((x, i) => list[i] === x)
+  prefix.length <= list.length && prefix.every((x, i) => list[i] === x);

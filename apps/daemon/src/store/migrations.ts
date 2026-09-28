@@ -8,12 +8,12 @@
  * Projection rows keep the encoded domain object as JSON next to the columns
  * we filter on, so the read model loads without re-deriving it from events.
  */
-import { SqliteMigrator } from "@effect/sql-sqlite-bun"
-import { Effect } from "effect"
-import { SqlClient } from "effect/sql"
+import { SqliteMigrator } from "@effect/sql-sqlite-bun";
+import { Effect } from "effect";
+import { SqlClient } from "effect/sql";
 
 const init = Effect.gen(function* () {
-  const sql = yield* SqlClient.SqlClient
+  const sql = yield* SqlClient.SqlClient;
   yield* sql`
     CREATE TABLE events (
       sequence INTEGER PRIMARY KEY,
@@ -24,8 +24,8 @@ const init = Effect.gen(function* () {
       occurred_at TEXT NOT NULL,
       payload TEXT NOT NULL
     )
-  `
-  yield* sql`CREATE INDEX events_session ON events (session_id, sequence)`
+  `;
+  yield* sql`CREATE INDEX events_session ON events (session_id, sequence)`;
   yield* sql`
     CREATE TABLE command_receipts (
       command_id TEXT PRIMARY KEY,
@@ -33,21 +33,21 @@ const init = Effect.gen(function* () {
       rejection TEXT,
       recorded_at TEXT NOT NULL
     )
-  `
+  `;
   yield* sql`
     CREATE TABLE workspaces (
       id TEXT PRIMARY KEY,
       path TEXT NOT NULL,
       data TEXT NOT NULL
     )
-  `
+  `;
   yield* sql`
     CREATE TABLE worktrees (
       id TEXT PRIMARY KEY,
       workspace_id TEXT NOT NULL,
       data TEXT NOT NULL
     )
-  `
+  `;
   yield* sql`
     CREATE TABLE sessions (
       id TEXT PRIMARY KEY,
@@ -56,7 +56,7 @@ const init = Effect.gen(function* () {
       title_locked INTEGER NOT NULL DEFAULT 0,
       data TEXT NOT NULL
     )
-  `
+  `;
   yield* sql`
     CREATE TABLE turns (
       id TEXT PRIMARY KEY,
@@ -65,8 +65,8 @@ const init = Effect.gen(function* () {
       status TEXT NOT NULL,
       data TEXT NOT NULL
     )
-  `
-  yield* sql`CREATE INDEX turns_session ON turns (session_id, turn_index)`
+  `;
+  yield* sql`CREATE INDEX turns_session ON turns (session_id, turn_index)`;
   yield* sql`
     CREATE TABLE turn_items (
       sequence INTEGER PRIMARY KEY,
@@ -75,19 +75,19 @@ const init = Effect.gen(function* () {
       item_id TEXT NOT NULL,
       data TEXT NOT NULL
     )
-  `
-  yield* sql`CREATE INDEX turn_items_turn ON turn_items (turn_id, sequence)`
+  `;
+  yield* sql`CREATE INDEX turn_items_turn ON turn_items (turn_id, sequence)`;
   yield* sql`
     CREATE TABLE pending_approvals (
       request_id TEXT PRIMARY KEY,
       session_id TEXT NOT NULL,
       data TEXT NOT NULL
     )
-  `
-})
+  `;
+});
 
 export const migrations = SqliteMigrator.fromRecord({
   "0001_event_store": init,
-})
+});
 
-export const MigrationsLayer = SqliteMigrator.layer({ loader: migrations })
+export const MigrationsLayer = SqliteMigrator.layer({ loader: migrations });

@@ -1,5 +1,5 @@
-import { describe, expect, test } from "bun:test"
-import { stripSessionLines } from "./strip-session-trailer.ts"
+import { describe, expect, test } from "bun:test";
+import { stripSessionLines } from "./strip-session-trailer.ts";
 
 describe("stripSessionLines", () => {
   test("drops Claude-Session trailers and session URLs", () => {
@@ -11,12 +11,12 @@ describe("stripSessionLines", () => {
       "Claude-Session: https://claude.ai/code/session_01ABC",
       "https://claude.ai/code/session_01ABC",
       "",
-    ].join("\n")
+    ].join("\n");
 
-    expect(stripSessionLines(message)).toBe("Add the lint ratchet\n\nBody.\n")
-  })
+    expect(stripSessionLines(message)).toBe("Add the lint ratchet\n\nBody.\n");
+  });
 
   test("leaves other messages untouched", () => {
-    expect(stripSessionLines("Fix a bug\n\nSee https://claude.ai/docs\n")).toBeNull()
-  })
-})
+    expect(stripSessionLines("Fix a bug\n\nSee https://claude.ai/docs\n")).toBeNull();
+  });
+});

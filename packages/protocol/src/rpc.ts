@@ -7,10 +7,10 @@
  * Design follows pingdotgg/t3code@de251fc (MIT): `subscribeShell` /
  * `subscribeThread` with `afterSequence`.
  */
-import { Schema } from "effect"
-import { Rpc, RpcGroup } from "effect/rpc"
-import { CapabilityList } from "./capabilities.ts"
-import { Command } from "./commands.ts"
+import { Schema } from "effect";
+import { Rpc, RpcGroup } from "effect/rpc";
+import { CapabilityList } from "./capabilities.ts";
+import { Command } from "./commands.ts";
 import {
   AgentSession,
   ApprovalRequest,
@@ -20,9 +20,9 @@ import {
   TurnItem,
   Workspace,
   Worktree,
-} from "./domain.ts"
-import { EventEnvelope } from "./events.ts"
-import { BlobId, CommandId, Sequence, SessionId, TerminalId, TurnId, WorkspaceId } from "./ids.ts"
+} from "./domain.ts";
+import { EventEnvelope } from "./events.ts";
+import { BlobId, CommandId, Sequence, SessionId, TerminalId, TurnId, WorkspaceId } from "./ids.ts";
 
 // ── Errors ──────────────────────────────────────────────────────────────────
 
@@ -66,7 +66,7 @@ export const Hello = Rpc.make("hello", {
     protocolVersion: Schema.Int,
     capabilities: CapabilityList,
   }),
-})
+});
 
 // ── Commands ────────────────────────────────────────────────────────────────
 
@@ -75,7 +75,7 @@ export const Dispatch = Rpc.make("dispatch", {
   /** Sequence of the last event the command produced; a retried commandId returns the original. */
   success: Schema.Struct({ sequence: Schema.NullOr(Sequence) }),
   error: Schema.Union([CommandRejected, NotFound]),
-})
+});
 
 // ── Streams ─────────────────────────────────────────────────────────────────
 
@@ -95,14 +95,14 @@ export const HostStreamItem = Schema.TaggedUnion({
   Event: { envelope: EventEnvelope },
   /** Everything up to now has been sent; later items are live. */
   Synchronized: { sequence: Sequence },
-})
-export type HostStreamItem = typeof HostStreamItem.Type
+});
+export type HostStreamItem = typeof HostStreamItem.Type;
 
 export const SubscribeHost = Rpc.make("subscribeHost", {
   payload: { afterSequence: Schema.NullOr(Sequence) },
   success: HostStreamItem,
   stream: true,
-})
+});
 
 export class TurnDetail extends Schema.Class<TurnDetail>("TurnDetail")({
   turn: Turn,
@@ -135,8 +135,8 @@ export const SessionStreamItem = Schema.TaggedUnion({
    */
   ItemProgress: { turnId: TurnId, item: TurnItem },
   Synchronized: { sequence: Sequence },
-})
-export type SessionStreamItem = typeof SessionStreamItem.Type
+});
+export type SessionStreamItem = typeof SessionStreamItem.Type;
 
 export const SubscribeSession = Rpc.make("subscribeSession", {
   payload: {
@@ -148,7 +148,7 @@ export const SubscribeSession = Rpc.make("subscribeSession", {
   success: SessionStreamItem,
   error: NotFound,
   stream: true,
-})
+});
 
 /** How to launch a Harness's own terminal UI for a session that is In Terminal. */
 export class TerminalLaunch extends Schema.Class<TerminalLaunch>("TerminalLaunch")({
@@ -169,11 +169,11 @@ export const SessionTerminalCommand = Rpc.make("session.terminalCommand", {
   payload: { sessionId: SessionId },
   success: Schema.NullOr(TerminalLaunch),
   error: NotFound,
-})
+});
 
 // ── Files (read-mostly in M1) ───────────────────────────────────────────────
 
-export const FileKind = Schema.Literals(["file", "directory", "symlink", "other"])
+export const FileKind = Schema.Literals(["file", "directory", "symlink", "other"]);
 
 export class FileEntry extends Schema.Class<FileEntry>("FileEntry")({
   name: Schema.String,
@@ -187,13 +187,13 @@ export const ListDir = Rpc.make("files.listDir", {
   payload: { path: Schema.String },
   success: Schema.Array(FileEntry),
   error: FileError,
-})
+});
 
 export const Stat = Rpc.make("files.stat", {
   payload: { path: Schema.String },
   success: FileEntry,
   error: FileError,
-})
+});
 
 /**
  * Small reads return inline text; larger or binary reads return a BlobId whose
@@ -214,13 +214,13 @@ export const ReadFile = Rpc.make("files.read", {
     }),
   }),
   error: FileError,
-})
+});
 
 export const SearchPaths = Rpc.make("files.searchPaths", {
   payload: { root: Schema.String, query: Schema.String, limit: Schema.Int },
   success: Schema.Array(Schema.Struct({ path: Schema.String, score: Schema.Number })),
   error: FileError,
-})
+});
 
 export const Grep = Rpc.make("files.grep", {
   payload: {
@@ -236,22 +236,22 @@ export const Grep = Rpc.make("files.grep", {
       line: Schema.Int,
       column: Schema.Int,
       text: Schema.String,
-    }),
+    })
   ),
   error: FileError,
-})
+});
 
 export const FileChangeEvent = Schema.Struct({
   path: Schema.String,
   kind: Schema.Literals(["created", "modified", "deleted", "renamed"]),
-})
+});
 
 export const WatchFiles = Rpc.make("files.watch", {
   payload: { root: Schema.String },
   success: Schema.Array(FileChangeEvent),
   error: FileError,
   stream: true,
-})
+});
 
 // ── Git ─────────────────────────────────────────────────────────────────────
 
@@ -272,7 +272,7 @@ export const GitStatus = Rpc.make("git.status", {
     entries: Schema.Array(GitStatusEntry),
   }),
   error: GitError,
-})
+});
 
 /** A unified diff; delivered as a blob because diffs can be very large. */
 export const GitDiff = Rpc.make("git.diff", {
@@ -286,7 +286,7 @@ export const GitDiff = Rpc.make("git.diff", {
   },
   success: Schema.Struct({ blobId: BlobId, size: Schema.Int, files: Schema.Int }),
   error: Schema.Union([GitError, NotFound]),
-})
+});
 
 // ── Attachments ─────────────────────────────────────────────────────────────
 
@@ -301,7 +301,7 @@ export const StageAttachment = Rpc.make("attachments.stage", {
   },
   success: Attachment,
   error: FileError,
-})
+});
 
 // ── Terminal (one per Workspace, via Bun.Terminal) ──────────────────────────
 
@@ -315,7 +315,7 @@ export const TerminalOpen = Rpc.make("terminal.open", {
   },
   success: Schema.Struct({ terminalId: TerminalId }),
   error: FileError,
-})
+});
 
 /** Output bytes, base64 in JSON. Replays recent scrollback first on attach. */
 export const TerminalAttach = Rpc.make("terminal.attach", {
@@ -326,7 +326,7 @@ export const TerminalAttach = Rpc.make("terminal.attach", {
   }),
   error: NotFound,
   stream: true,
-})
+});
 
 /**
  * `terminal.attach` with the output as raw bytes instead of base64 in JSON
@@ -345,22 +345,22 @@ export const TerminalAttachBinary = Rpc.make("terminal.attachBinary", {
   }),
   error: NotFound,
   stream: true,
-})
+});
 
 export const TerminalInput = Rpc.make("terminal.input", {
   payload: { terminalId: TerminalId, data: Schema.Uint8ArrayFromBase64 },
   error: NotFound,
-})
+});
 
 export const TerminalResize = Rpc.make("terminal.resize", {
   payload: { terminalId: TerminalId, cols: Schema.Int, rows: Schema.Int },
   error: NotFound,
-})
+});
 
 export const TerminalClose = Rpc.make("terminal.close", {
   payload: { terminalId: TerminalId },
   error: NotFound,
-})
+});
 
 // ── Group ───────────────────────────────────────────────────────────────────
 
@@ -384,5 +384,5 @@ export class DaemonRpcs extends RpcGroup.make(
   TerminalAttachBinary,
   TerminalInput,
   TerminalResize,
-  TerminalClose,
+  TerminalClose
 ) {}

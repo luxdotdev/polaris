@@ -9,10 +9,10 @@
  *   checkpoint_before: SendTurn dispatch → `CheckpointRecorded(before)` at the Client
  *   checkpoint_after:  the Turn's last item → `CheckpointRecorded(after)` at the Client
  */
-import { join } from "node:path"
-import { SessionId, type TurnId } from "@polaris/protocol"
-import { Effect, Stream } from "effect"
-import { awaitReady, cleanup, connect, makeTempDir } from "../daemon.ts"
+import { join } from "node:path";
+import { SessionId, type TurnId } from "@polaris/protocol";
+import { Effect, Stream } from "effect";
+import { awaitReady, cleanup, connect, makeTempDir } from "../daemon.ts";
 import {
   registerWorkspace,
   sendTurn,
@@ -21,102 +21,102 @@ import {
   type TurnScript,
   waitUntil,
   watchSession,
-} from "../drive.ts"
-import { copyTree, git, sourceTree } from "../fixtures.ts"
-import { median } from "../stats.ts"
-import { cpu, peakMemory, type Scenario, time } from "../types.ts"
+} from "../drive.ts";
+import { copyTree, git, sourceTree } from "../fixtures.ts";
+import { median } from "../stats.ts";
+import { cpu, peakMemory, type Scenario, time } from "../types.ts";
 
 export const gitScenario: Scenario = {
   name: "git",
   description: "checkpoint capture, Turn diff, status on a large working tree",
   run: (ctx) =>
     Effect.gen(function* () {
-      const count = ctx.quick ? 5_000 : 50_000
-      const turns = ctx.quick ? 3 : 5
-      ctx.log(`git: preparing a ${count}-file repo (cached after the first run)…`)
-      const source = sourceTree(count)
+      const count = ctx.quick ? 5_000 : 50_000;
+      const turns = ctx.quick ? 3 : 5;
+      ctx.log(`git: preparing a ${count}-file repo (cached after the first run)…`);
+      const source = sourceTree(count);
       const dir = yield* Effect.acquireRelease(
         Effect.sync(() => makeTempDir("git")),
-        (d) => Effect.sync(() => cleanup(d)),
-      )
-      const repo = copyTree(source, join(dir, "repo"))
+        (d) => Effect.sync(() => cleanup(d))
+      );
+      const repo = copyTree(source, join(dir, "repo"));
       // A copy has new inodes and mtimes; refresh the index as a normal checkout would have it.
-      git(repo, "update-index", "-q", "--refresh")
+      git(repo, "update-index", "-q", "--refresh");
 
-      const daemon = yield* ctx.launch()
-      yield* awaitReady(daemon)
-      const sampler = yield* ctx.sample(daemon, 100)
-      const client = yield* connect(daemon, ctx.transport, "git")
-      const workspaceId = yield* registerWorkspace(client, repo, "git")
-      const script: TurnScript = { items: 2, deltasPerItem: 0, touchFiles: 20 }
+      const daemon = yield* ctx.launch();
+      yield* awaitReady(daemon);
+      const sampler = yield* ctx.sample(daemon, 100);
+      const client = yield* connect(daemon, ctx.transport, "git");
+      const workspaceId = yield* registerWorkspace(client, repo, "git");
+      const script: TurnScript = { items: 2, deltasPerItem: 0, touchFiles: 20 };
 
-      const sessionId = "git-0"
-      yield* startSession(client, { sessionId, workspaceId, script })
-      const watch = yield* watchSession(client, sessionId)
-      const dispatchedAt: Array<number> = []
+      const sessionId = "git-0";
+      yield* startSession(client, { sessionId, workspaceId, script });
+      const watch = yield* watchSession(client, sessionId);
+      const dispatchedAt: Array<number> = [];
       for (let turn = 1; turn <= turns; turn++) {
         yield* waitUntil(
           () => watch.turnEnded.length >= turn && watch.state === "idle",
           300_000,
-          `Turn ${turn}`,
-        )
+          `Turn ${turn}`
+        );
         if (turn < turns) {
-          yield* settle(200)
-          dispatchedAt.push(performance.now())
-          yield* sendTurn(client, sessionId, script)
+          yield* settle(200);
+          dispatchedAt.push(performance.now());
+          yield* sendTurn(client, sessionId, script);
         }
       }
-      const befores = watch.checkpoints.filter((c) => c.ref.endsWith("/before"))
-      const afters = watch.checkpoints.filter((c) => c.ref.endsWith("/after"))
+      const befores = watch.checkpoints.filter((c) => c.ref.endsWith("/before"));
+      const afters = watch.checkpoints.filter((c) => c.ref.endsWith("/after"));
       // Turn 1's before-checkpoint is committed before we subscribe: time Turns 2… only.
       const before = dispatchedAt.map(
-        (t, i) => (befores[befores.length - dispatchedAt.length + i]?.at ?? t) - t,
-      )
-      const after = afters.map((c) => c.at - c.lastItemAt)
-      const turnReport = sampler.report()
+        (t, i) => (befores[befores.length - dispatchedAt.length + i]?.at ?? t) - t
+      );
+      const after = afters.map((c) => c.at - c.lastItemAt);
+      const turnReport = sampler.report();
 
-      const rpc = client.connection.client
+      const rpc = client.connection.client;
       const snapshot = yield* rpc
         .subscribeSession({
           sessionId: SessionId.make(sessionId),
           afterSequence: null,
           turnLimit: 1,
         })
-        .pipe(Stream.runHead)
+        .pipe(Stream.runHead);
       const turnId =
         snapshot._tag === "Some" && snapshot.value._tag === "Snapshot"
           ? (snapshot.value.turns.at(-1)?.turn.id as TurnId | undefined)
-          : undefined
-      if (turnId === undefined) return yield* Effect.die(new Error("no Turn in the snapshot"))
+          : undefined;
+      if (turnId === undefined) return yield* Effect.die(new Error("no Turn in the snapshot"));
 
       const timed = <A, E>(effect: Effect.Effect<A, E>) =>
         Effect.gen(function* () {
-          const t = performance.now()
-          const value = yield* effect
-          return { value, ms: performance.now() - t }
-        })
+          const t = performance.now();
+          const value = yield* effect;
+          return { value, ms: performance.now() - t };
+        });
       const turnDiff = yield* timed(
         Effect.gen(function* () {
           const diff = yield* rpc["git.diff"]({
             cwd: repo,
             spec: { _tag: "Turn", sessionId: SessionId.make(sessionId), turnId },
-          })
-          const bytes = yield* client.connection.blobs.take(diff.blobId)
-          return { files: diff.files, bytes: bytes.byteLength }
-        }),
-      )
-      const status = yield* timed(rpc["git.status"]({ cwd: repo }))
+          });
+          const bytes = yield* client.connection.blobs.take(diff.blobId);
+          return { files: diff.files, bytes: bytes.byteLength };
+        })
+      );
+      const status = yield* timed(rpc["git.status"]({ cwd: repo }));
       const workingDiff = yield* timed(
         Effect.gen(function* () {
           const diff = yield* rpc["git.diff"]({
             cwd: repo,
             spec: { _tag: "WorkingTree", base: null },
-          })
-          yield* client.connection.blobs.take(diff.blobId)
-          return diff.files
-        }),
-      )
-      const all = sampler.report()
+          });
+          yield* client.connection.blobs.take(diff.blobId);
+          return diff.files;
+        })
+      );
+      const all = sampler.report();
 
       return {
         metrics: {
@@ -136,6 +136,6 @@ export const gitScenario: Scenario = {
             ? ["the Turn diff reported 0 files: see git/README.md (countFiles gets an ArrayBuffer)"]
             : []),
         ],
-      }
+      };
     }),
-}
+};

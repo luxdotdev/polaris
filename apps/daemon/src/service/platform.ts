@@ -8,8 +8,8 @@
  * musl builds (Alpine). A binary only runs on its own libc, so the running
  * process's libc is the build's.
  */
-import { readdirSync } from "node:fs"
-import pkg from "../../package.json" with { type: "json" }
+import { readdirSync } from "node:fs";
+import pkg from "../../package.json" with { type: "json" };
 
 /** The platforms the Daemon ships for (ENG-181). */
 export const PLATFORMS = [
@@ -18,8 +18,8 @@ export const PLATFORMS = [
   "linux-arm64",
   "linux-x64-musl",
   "linux-arm64-musl",
-] as const
-export type Platform = (typeof PLATFORMS)[number]
+] as const;
+export type Platform = (typeof PLATFORMS)[number];
 
 /** The `bun build --compile --target` for each platform. */
 export const BUN_TARGETS: Record<Platform, string> = {
@@ -28,52 +28,52 @@ export const BUN_TARGETS: Record<Platform, string> = {
   "linux-arm64": "bun-linux-arm64",
   "linux-x64-musl": "bun-linux-x64-musl",
   "linux-arm64-musl": "bun-linux-arm64-musl",
-}
+};
 
-export const VERSION: string = pkg.version
+export const VERSION: string = pkg.version;
 
 export const isPlatform = (value: string): value is Platform =>
-  (PLATFORMS as ReadonlyArray<string>).includes(value)
+  (PLATFORMS as ReadonlyArray<string>).includes(value);
 
-let musl: boolean | undefined
+let musl: boolean | undefined;
 /** Whether this process runs on musl libc (its loader is `/lib/ld-musl-<arch>.so.1`). */
 export const isMusl = (): boolean => {
-  if (musl !== undefined) return musl
-  musl = false
+  if (musl !== undefined) return musl;
+  musl = false;
   if (process.platform === "linux") {
     try {
-      musl = readdirSync("/lib").some((f) => f.startsWith("ld-musl-"))
+      musl = readdirSync("/lib").some((f) => f.startsWith("ld-musl-"));
     } catch {}
   }
-  return musl
-}
+  return musl;
+};
 
 /** `<os>-<arch>`, plus `-musl` on a musl Linux. */
 export const runtimePlatform = (): string =>
-  `${process.platform}-${process.arch}${isMusl() ? "-musl" : ""}`
+  `${process.platform}-${process.arch}${isMusl() ? "-musl" : ""}`;
 
 /** This process's platform, or null when the Daemon does not ship for it. */
 export const currentPlatform = (): Platform | null => {
-  const id = runtimePlatform()
-  return isPlatform(id) ? id : null
-}
+  const id = runtimePlatform();
+  return isPlatform(id) ? id : null;
+};
 
-export const versionLine = (): string => `polaris ${VERSION} ${runtimePlatform()}`
+export const versionLine = (): string => `polaris ${VERSION} ${runtimePlatform()}`;
 
 export interface VersionInfo {
-  readonly version: string
-  readonly platform: string
+  readonly version: string;
+  readonly platform: string;
 }
 
 /** Parses the output of `polaris version`; null if it is not one. */
 export const parseVersionLine = (output: string): VersionInfo | null => {
-  const match = /^polaris (\S+) (\S+)\s*$/m.exec(output.trim())
-  return match ? { version: match[1]!, platform: match[2]! } : null
-}
+  const match = /^polaris (\S+) (\S+)\s*$/m.exec(output.trim());
+  return match ? { version: match[1]!, platform: match[2]! } : null;
+};
 
 /**
  * Whether this process is a `bun build --compile` binary (its entry module
  * lives in Bun's embedded filesystem) rather than `bun src/main.ts`.
  */
 export const isCompiled = (): boolean =>
-  Bun.main.startsWith("/$bunfs/") || Bun.main.includes("~BUN")
+  Bun.main.startsWith("/$bunfs/") || Bun.main.includes("~BUN");

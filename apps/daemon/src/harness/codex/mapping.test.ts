@@ -1,6 +1,6 @@
-import { describe, expect, test } from "bun:test"
-import { Attachment, AttachmentId } from "@polaris/protocol"
-import { Schema } from "effect"
+import { describe, expect, test } from "bun:test";
+import { Attachment, AttachmentId } from "@polaris/protocol";
+import { Schema } from "effect";
 import {
   approvalDecision,
   elicitationDecision,
@@ -11,10 +11,10 @@ import {
   toTurnItem,
   turnInput,
   userInputDecision,
-} from "./mapping.ts"
-import { ThreadItem } from "./protocol.ts"
+} from "./mapping.ts";
+import { ThreadItem } from "./protocol.ts";
 
-const item = (raw: unknown) => toTurnItem(Schema.decodeUnknownSync(ThreadItem)(raw))
+const item = (raw: unknown) => toTurnItem(Schema.decodeUnknownSync(ThreadItem)(raw));
 
 const attachment = (name: string, mimeType: string) =>
   new Attachment({
@@ -23,7 +23,7 @@ const attachment = (name: string, mimeType: string) =>
     mimeType,
     size: 1,
     hostPath: `/home/user/.polaris/staging/s1/${name}`,
-  })
+  });
 
 describe("permission modes", () => {
   test("map onto approval policy, reviewer and sandbox", () => {
@@ -31,37 +31,37 @@ describe("permission modes", () => {
       approvalPolicy: "untrusted",
       approvalsReviewer: "user",
       sandbox: "read-only",
-    })
+    });
     expect(policyFor("auto-edits")).toEqual({
       approvalPolicy: "on-request",
       approvalsReviewer: "user",
       sandbox: "workspace-write",
-    })
+    });
     expect(policyFor("auto")).toEqual({
       approvalPolicy: "on-request",
       approvalsReviewer: "auto_review",
       sandbox: "workspace-write",
-    })
+    });
     expect(policyFor("full-access")).toEqual({
       approvalPolicy: "never",
       approvalsReviewer: "user",
       sandbox: "danger-full-access",
-    })
-  })
+    });
+  });
 
   test("sandbox modes expand to turn sandbox policies", () => {
-    expect(sandboxPolicyFor("read-only")).toEqual({ type: "readOnly", networkAccess: false })
-    expect(sandboxPolicyFor("workspace-write")).toMatchObject({ type: "workspaceWrite" })
-    expect(sandboxPolicyFor("danger-full-access")).toEqual({ type: "dangerFullAccess" })
-  })
-})
+    expect(sandboxPolicyFor("read-only")).toEqual({ type: "readOnly", networkAccess: false });
+    expect(sandboxPolicyFor("workspace-write")).toMatchObject({ type: "workspaceWrite" });
+    expect(sandboxPolicyFor("danger-full-access")).toEqual({ type: "dangerFullAccess" });
+  });
+});
 
 describe("turn input", () => {
   test("images become localImage inputs; other files are mentioned by path", () => {
     const input = turnInput("look", [
       attachment("shot.png", "image/png"),
       attachment("notes.txt", "text/plain"),
-    ])
+    ]);
     expect(input).toEqual([
       {
         type: "text",
@@ -69,13 +69,13 @@ describe("turn input", () => {
         text_elements: [],
       },
       { type: "localImage", path: "/home/user/.polaris/staging/s1/shot.png" },
-    ])
-  })
+    ]);
+  });
 
   test("a plain prompt is one text input", () => {
-    expect(turnInput("hi", [])).toEqual([{ type: "text", text: "hi", text_elements: [] }])
-  })
-})
+    expect(turnInput("hi", [])).toEqual([{ type: "text", text: "hi", text_elements: [] }]);
+  });
+});
 
 describe("thread items", () => {
   test("agent messages, reasoning and plans", () => {
@@ -83,14 +83,14 @@ describe("thread items", () => {
       _tag: "AssistantMessage",
       id: "a",
       text: "ok",
-    })
+    });
     expect(item({ type: "reasoning", id: "r", summary: ["one", "two"], content: ["raw"] })).toEqual(
-      { _tag: "Reasoning", id: "r", text: "one\n\ntwo" },
-    )
+      { _tag: "Reasoning", id: "r", text: "one\n\ntwo" }
+    );
     expect(item({ type: "reasoning", id: "r", summary: [], content: ["raw"] })).toMatchObject({
       text: "raw",
-    })
-  })
+    });
+  });
 
   test("command executions carry output, exit code and status", () => {
     expect(
@@ -102,7 +102,7 @@ describe("thread items", () => {
         status: "declined",
         aggregatedOutput: null,
         exitCode: null,
-      }),
+      })
     ).toEqual({
       _tag: "CommandExecution",
       id: "c",
@@ -111,8 +111,8 @@ describe("thread items", () => {
       output: "",
       exitCode: null,
       status: "declined",
-    })
-  })
+    });
+  });
 
   test("file changes map update to modify", () => {
     expect(
@@ -125,7 +125,7 @@ describe("thread items", () => {
           { path: "b.ts", kind: { type: "update", move_path: null }, diff: "" },
           { path: "c.ts", kind: { type: "delete" }, diff: "" },
         ],
-      }),
+      })
     ).toEqual({
       _tag: "FileChange",
       id: "f",
@@ -135,8 +135,8 @@ describe("thread items", () => {
         { path: "b.ts", kind: "modify" },
         { path: "c.ts", kind: "delete" },
       ],
-    })
-  })
+    });
+  });
 
   test("MCP tool calls become ToolCalls", () => {
     expect(
@@ -149,7 +149,7 @@ describe("thread items", () => {
         arguments: { id: "ENG-1" },
         result: { title: "x" },
         error: null,
-      }),
+      })
     ).toEqual({
       _tag: "ToolCall",
       id: "t",
@@ -157,14 +157,14 @@ describe("thread items", () => {
       input: { id: "ENG-1" },
       output: { title: "x" },
       status: "completed",
-    })
-  })
+    });
+  });
 
   test("user messages and unknown items are skipped", () => {
-    expect(item({ type: "userMessage", id: "u", content: [] })).toBeNull()
-    expect(item({ type: "contextCompaction", id: "x" })).toBeNull()
-    expect(item({ type: "somethingNew" })).toBeNull()
-  })
+    expect(item({ type: "userMessage", id: "u", content: [] })).toBeNull();
+    expect(item({ type: "contextCompaction", id: "x" })).toBeNull();
+    expect(item({ type: "somethingNew" })).toBeNull();
+  });
 
   test("plan updates become a Plan item", () => {
     expect(
@@ -172,7 +172,7 @@ describe("thread items", () => {
         { step: "read", status: "completed" },
         { step: "write", status: "inProgress" },
         { step: "test", status: "pending" },
-      ]),
+      ])
     ).toEqual({
       _tag: "Plan",
       id: "t1:plan",
@@ -181,30 +181,30 @@ describe("thread items", () => {
         { text: "write", status: "in-progress" },
         { text: "test", status: "pending" },
       ],
-    })
-  })
-})
+    });
+  });
+});
 
 describe("approval decisions", () => {
   test("command and file-change approvals", () => {
-    expect(approvalDecision({ _tag: "Allow", remember: false })).toEqual({ decision: "accept" })
+    expect(approvalDecision({ _tag: "Allow", remember: false })).toEqual({ decision: "accept" });
     expect(approvalDecision({ _tag: "Allow", remember: true })).toEqual({
       decision: "acceptForSession",
-    })
-    expect(approvalDecision({ _tag: "Deny", reason: null })).toEqual({ decision: "decline" })
-  })
+    });
+    expect(approvalDecision({ _tag: "Deny", reason: null })).toEqual({ decision: "decline" });
+  });
 
   test("permission grants return only what was requested", () => {
-    const requested = { network: { enabled: true }, fileSystem: null }
+    const requested = { network: { enabled: true }, fileSystem: null };
     expect(permissionsDecision(requested, { _tag: "Allow", remember: true })).toEqual({
       permissions: { network: { enabled: true } },
       scope: "session",
-    })
+    });
     expect(permissionsDecision(requested, { _tag: "Deny", reason: null })).toEqual({
       permissions: {},
       scope: "turn",
-    })
-  })
+    });
+  });
 
   test("questions take the answer text, or the first option on Allow", () => {
     const questions = [
@@ -217,24 +217,24 @@ describe("approval decisions", () => {
           { label: "SQLite", description: "" },
         ],
       },
-    ]
+    ];
     expect(userInputDecision(questions, { _tag: "Answer", text: "SQLite" })).toEqual({
       answers: { q1: { answers: ["SQLite"] } },
-    })
+    });
     expect(userInputDecision(questions, { _tag: "Allow", remember: false })).toEqual({
       answers: { q1: { answers: ["Postgres"] } },
-    })
-    expect(userInputDecision(questions, { _tag: "Deny", reason: null })).toEqual({ answers: {} })
-  })
+    });
+    expect(userInputDecision(questions, { _tag: "Deny", reason: null })).toEqual({ answers: {} });
+  });
 
   test("MCP elicitations", () => {
     expect(elicitationDecision({ _tag: "Deny", reason: null })).toEqual({
       action: "decline",
       content: null,
       _meta: null,
-    })
+    });
     expect(elicitationDecision({ _tag: "Allow", remember: false })).toMatchObject({
       action: "accept",
-    })
-  })
-})
+    });
+  });
+});

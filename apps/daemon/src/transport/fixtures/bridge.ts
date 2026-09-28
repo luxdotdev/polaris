@@ -5,6 +5,6 @@
  *
  *   POLARIS_HOME=<dir> bun bridge.ts <waitMs>
  */
-import { runBridge } from "../bridge.ts"
+import { runBridge } from "../bridge.ts";
 
-process.exit(await runBridge({ waitMs: Number(process.argv[2] ?? 5000) }))
+process.exit(await runBridge({ waitMs: Number(process.argv[2] ?? 5000) }));

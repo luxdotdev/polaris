@@ -11,7 +11,7 @@
  * was copied.
  */
 
-import { join } from "node:path"
+import { join } from "node:path";
 import {
   type CanUseTool,
   type Options,
@@ -22,10 +22,10 @@ import {
   type SDKResultMessage,
   type SDKUserMessage,
   query as sdkQuery,
-} from "@anthropic-ai/claude-agent-sdk"
-import type { ApprovalDecision, PermissionMode, RequestId, TurnId } from "@polaris/protocol"
-import { type Cause, Deferred, Effect, Fiber, Option, Queue, Scope, Stream } from "effect"
-import { paths } from "../../paths.ts"
+} from "@anthropic-ai/claude-agent-sdk";
+import type { ApprovalDecision, PermissionMode, RequestId, TurnId } from "@polaris/protocol";
+import { type Cause, Deferred, Effect, Fiber, Option, Queue, Scope, Stream } from "effect";
+import { paths } from "../../paths.ts";
 import {
   type HarnessDriver,
   HarnessError,
@@ -34,10 +34,10 @@ import {
   type HarnessSession,
   type OpenOptions,
   type TurnInput,
-} from "../HarnessDriver.ts"
-import { ClaudeHookReceiver } from "./hooks.ts"
-import { Inbox } from "./inbox.ts"
-import { buildUserMessage } from "./input.ts"
+} from "../HarnessDriver.ts";
+import { ClaudeHookReceiver } from "./hooks.ts";
+import { Inbox } from "./inbox.ts";
+import { buildUserMessage } from "./input.ts";
 import {
   approvalKind,
   describeToolCall,
@@ -45,39 +45,39 @@ import {
   parseQuestions,
   toClaudePermissionMode,
   toPermissionResult,
-} from "./permissions.ts"
-import { ClaudeTranslator } from "./translate.ts"
+} from "./permissions.ts";
+import { ClaudeTranslator } from "./translate.ts";
 
 export type QueryFn = (params: {
-  prompt: string | AsyncIterable<SDKUserMessage>
-  options?: Options
-}) => Query
+  prompt: string | AsyncIterable<SDKUserMessage>;
+  options?: Options;
+}) => Query;
 
 export interface ClaudeDriverOptions {
   /** The SDK's `query`; injectable so tests can script a fake Claude. */
-  readonly query?: QueryFn
+  readonly query?: QueryFn;
   /** Absolute path to `claude`; default: resolved on PATH. */
-  readonly claudePath?: () => string | null
+  readonly claudePath?: () => string | null;
   /** Runs `claude --version`; injectable for tests. */
-  readonly runVersion?: (path: string) => Promise<{ exitCode: number; stdout: string }>
+  readonly runVersion?: (path: string) => Promise<{ exitCode: number; stdout: string }>;
   /** Present when the Daemon runs the hook listener for In Terminal sessions. */
-  readonly hookReceiver?: ClaudeHookReceiver["Service"]
+  readonly hookReceiver?: ClaudeHookReceiver["Service"];
   /** Directory of staged attachments, granted read access; default `~/.polaris/staging`. */
-  readonly stagingDir?: string
+  readonly stagingDir?: string;
   /** Read a staged attachment; injectable for tests. */
-  readonly readFile?: (path: string) => Promise<Uint8Array>
+  readonly readFile?: (path: string) => Promise<Uint8Array>;
   /** Identifier Claude Code reports for this client. */
-  readonly clientApp?: string
+  readonly clientApp?: string;
   /** Receives the `claude` child's stderr lines (for the Daemon log). */
-  readonly onStderr?: (line: string) => void
+  readonly onStderr?: (line: string) => void;
 }
 
-const HARNESS = "claude"
+const HARNESS = "claude";
 
 const harnessError = (message: string, cause?: unknown) =>
   new HarnessError(
-    cause === undefined ? { harness: HARNESS, message } : { harness: HARNESS, message, cause },
-  )
+    cause === undefined ? { harness: HARNESS, message } : { harness: HARNESS, message, cause }
+  );
 
 const defaultRunVersion = async (path: string) => {
   const proc = Bun.spawn([path, "--version"], {
@@ -85,109 +85,109 @@ const defaultRunVersion = async (path: string) => {
     stdout: "pipe",
     stderr: "ignore",
     timeout: 10_000,
-  })
-  const stdout = await new Response(proc.stdout).text()
-  return { exitCode: await proc.exited, stdout }
-}
+  });
+  const stdout = await new Response(proc.stdout).text();
+  return { exitCode: await proc.exited, stdout };
+};
 
 /** `2.1.283 (Claude Code)` → `2.1.283`. */
 export const parseVersion = (stdout: string): string | null =>
-  /(\d+\.\d+\.\d+[^\s]*)/.exec(stdout)?.[1] ?? null
+  /(\d+\.\d+\.\d+[^\s]*)/.exec(stdout)?.[1] ?? null;
 
 const resultOutcome = (
-  result: SDKResultMessage,
+  result: SDKResultMessage
 ): { readonly status: "completed" | "failed"; readonly error: string | null } => {
   if (result.subtype === "success")
     return result.is_error
       ? { status: "failed", error: result.result || "Claude reported an error" }
-      : { status: "completed", error: null }
+      : { status: "completed", error: null };
   return {
     status: "failed",
     error: result.errors.length > 0 ? result.errors.join("\n") : result.subtype,
-  }
-}
+  };
+};
 
 interface PendingApproval {
-  readonly toolName: string
-  readonly toolUseId: string
-  readonly input: Record<string, unknown>
-  readonly suggestions: ReadonlyArray<PermissionUpdate>
-  readonly deferred: Deferred.Deferred<PermissionResult>
+  readonly toolName: string;
+  readonly toolUseId: string;
+  readonly input: Record<string, unknown>;
+  readonly suggestions: ReadonlyArray<PermissionUpdate>;
+  readonly deferred: Deferred.Deferred<PermissionResult>;
 }
 
 interface ActiveTurn {
-  readonly turnId: TurnId
+  readonly turnId: TurnId;
   /** Uuids of user messages sent for this Turn that Claude has not yet answered. */
-  readonly pending: Set<string>
-  interrupting: boolean
-  outcome: { status: "completed" | "failed"; error: string | null }
+  readonly pending: Set<string>;
+  interrupting: boolean;
+  outcome: { status: "completed" | "failed"; error: string | null };
 }
 
 const openSession = Effect.fnUntraced(function* (
   driver: Required<Pick<ClaudeDriverOptions, "query" | "claudePath">> & ClaudeDriverOptions,
-  options: OpenOptions,
+  options: OpenOptions
 ) {
-  const claudePath = driver.claudePath()
+  const claudePath = driver.claudePath();
   if (claudePath === null)
-    return yield* harnessError("Claude Code is not installed: `claude` was not found on PATH")
+    return yield* harnessError("Claude Code is not installed: `claude` was not found on PATH");
 
-  const scope = yield* Scope.Scope
-  const events = yield* Queue.unbounded<HarnessEvent, Cause.Done>()
-  const emit = (event: HarnessEvent) => Queue.offerUnsafe(events, event)
+  const scope = yield* Scope.Scope;
+  const events = yield* Queue.unbounded<HarnessEvent, Cause.Done>();
+  const emit = (event: HarnessEvent) => Queue.offerUnsafe(events, event);
   const emitAll = (list: ReadonlyArray<HarnessEvent>) => {
-    for (const e of list) emit(e)
-  }
+    for (const e of list) emit(e);
+  };
 
-  const translator = new ClaudeTranslator(options.cwd, options.resumeCursor)
-  const inbox = new Inbox<SDKUserMessage>()
-  const approvals = new Map<RequestId, PendingApproval>()
+  const translator = new ClaudeTranslator(options.cwd, options.resumeCursor);
+  const inbox = new Inbox<SDKUserMessage>();
+  const approvals = new Map<RequestId, PendingApproval>();
   /** Steer messages an interrupt cancelled; if Claude starts on one anyway, interrupt again. */
-  const cancelled = new Set<string>()
-  let active: ActiveTurn | null = null
-  let permissionMode: PermissionMode = options.permissionMode
-  let closing = false
-  let exited = false
+  const cancelled = new Set<string>();
+  let active: ActiveTurn | null = null;
+  let permissionMode: PermissionMode = options.permissionMode;
+  let closing = false;
+  let exited = false;
 
   const settle = (requestId: RequestId, result: PermissionResult) => {
-    const pending = approvals.get(requestId)
-    if (!pending) return
-    approvals.delete(requestId)
-    if (result.behavior === "deny") translator.markDeclined(pending.toolUseId)
-    Deferred.doneUnsafe(pending.deferred, Effect.succeed(result))
-  }
+    const pending = approvals.get(requestId);
+    if (!pending) return;
+    approvals.delete(requestId);
+    if (result.behavior === "deny") translator.markDeclined(pending.toolUseId);
+    Deferred.doneUnsafe(pending.deferred, Effect.succeed(result));
+  };
 
   /** Withdraw every open approval (interrupt, close, exit) and answer Claude with a deny. */
   const withdrawAll = (message: string) => {
     for (const requestId of [...approvals.keys()]) {
-      emit({ _tag: "ApprovalWithdrawn", requestId })
-      settle(requestId, { behavior: "deny", message, interrupt: true })
+      emit({ _tag: "ApprovalWithdrawn", requestId });
+      settle(requestId, { behavior: "deny", message, interrupt: true });
     }
-  }
+  };
 
   const endTurn = (status: "completed" | "interrupted" | "failed", error: string | null) => {
-    const turn = active
-    if (!turn) return
-    active = null
-    emitAll(translator.closeOpenTools(turn.turnId, status === "completed" ? "failed" : "declined"))
-    translator.endTurn()
-    emit({ _tag: "TurnEnded", turnId: turn.turnId, status, error })
-  }
+    const turn = active;
+    if (!turn) return;
+    active = null;
+    emitAll(translator.closeOpenTools(turn.turnId, status === "completed" ? "failed" : "declined"));
+    translator.endTurn();
+    emit({ _tag: "TurnEnded", turnId: turn.turnId, status, error });
+  };
 
   const canUseTool: CanUseTool = async (toolName, input, context) => {
-    const turn = active
+    const turn = active;
     if (!turn || turn.interrupting || closing)
-      return { behavior: "deny", message: "No Turn is in progress.", interrupt: true }
-    const requestId = crypto.randomUUID() as RequestId
-    const deferred = Deferred.makeUnsafe<PermissionResult>()
+      return { behavior: "deny", message: "No Turn is in progress.", interrupt: true };
+    const requestId = crypto.randomUUID() as RequestId;
+    const deferred = Deferred.makeUnsafe<PermissionResult>();
     approvals.set(requestId, {
       toolName,
       toolUseId: context.toolUseID,
       input,
       suggestions: context.suggestions ?? [],
       deferred,
-    })
-    const described = describeToolCall(toolName, input)
-    const questions = isQuestionTool(toolName) ? parseQuestions(input) : []
+    });
+    const described = describeToolCall(toolName, input);
+    const questions = isQuestionTool(toolName) ? parseQuestions(input) : [];
     emit({
       _tag: "ApprovalRequested",
       turnId: turn.turnId,
@@ -196,19 +196,19 @@ const openSession = Effect.fnUntraced(function* (
       title: isQuestionTool(toolName) ? described.title : (context.title ?? described.title),
       detail: described.detail ?? context.description ?? null,
       options: questions.length === 1 ? questions[0]!.options : [],
-    })
+    });
     const onAbort = () => {
-      if (!approvals.has(requestId)) return
-      emit({ _tag: "ApprovalWithdrawn", requestId })
-      settle(requestId, { behavior: "deny", message: "The request was cancelled." })
-    }
-    context.signal.addEventListener("abort", onAbort, { once: true })
+      if (!approvals.has(requestId)) return;
+      emit({ _tag: "ApprovalWithdrawn", requestId });
+      settle(requestId, { behavior: "deny", message: "The request was cancelled." });
+    };
+    context.signal.addEventListener("abort", onAbort, { once: true });
     try {
-      return await Effect.runPromise(Deferred.await(deferred))
+      return await Effect.runPromise(Deferred.await(deferred));
     } finally {
-      context.signal.removeEventListener("abort", onAbort)
+      context.signal.removeEventListener("abort", onAbort);
     }
-  }
+  };
 
   const sdkOptions: Options = {
     cwd: options.cwd,
@@ -233,94 +233,94 @@ const openSession = Effect.fnUntraced(function* (
     ...(options.model !== null ? { model: options.model } : {}),
     ...(options.resumeCursor !== null ? { resume: options.resumeCursor } : {}),
     ...(driver.onStderr ? { stderr: driver.onStderr } : {}),
-  }
+  };
 
   const q = yield* Effect.try({
     try: () => driver.query({ prompt: inbox, options: sdkOptions }),
     catch: (cause) => harnessError("Could not start Claude Code", cause),
-  })
+  });
 
   const finish = (error: string | null) => {
-    if (exited) return
-    exited = true
-    withdrawAll("Claude Code stopped.")
-    endTurn(error === null && closing ? "interrupted" : "failed", error ?? "Claude Code exited")
-    emit({ _tag: "Exited", error })
-    Queue.endUnsafe(events)
-  }
+    if (exited) return;
+    exited = true;
+    withdrawAll("Claude Code stopped.");
+    endTurn(error === null && closing ? "interrupted" : "failed", error ?? "Claude Code exited");
+    emit({ _tag: "Exited", error });
+    Queue.endUnsafe(events);
+  };
 
   const onResult = (result: SDKResultMessage) => {
-    const turn = active
-    if (!turn) return
+    const turn = active;
+    if (!turn) return;
     const uuids =
-      result.user_message_uuids ?? (result.user_message_uuid ? [result.user_message_uuid] : null)
+      result.user_message_uuids ?? (result.user_message_uuid ? [result.user_message_uuid] : null);
     // Older CLIs don't echo uuids: then a result answers everything sent so far.
-    if (uuids === null) turn.pending.clear()
-    else for (const u of uuids) turn.pending.delete(u)
-    turn.outcome = resultOutcome(result)
+    if (uuids === null) turn.pending.clear();
+    else for (const u of uuids) turn.pending.delete(u);
+    turn.outcome = resultOutcome(result);
     if (turn.interrupting) {
-      for (const u of turn.pending) cancelled.add(u)
-      endTurn("interrupted", null)
+      for (const u of turn.pending) cancelled.add(u);
+      endTurn("interrupted", null);
     } else if (turn.pending.size === 0) {
-      endTurn(turn.outcome.status, turn.outcome.error)
+      endTurn(turn.outcome.status, turn.outcome.error);
     }
-  }
+  };
 
   const onMessage = (message: SDKMessage) => {
-    if (message.type === "result") return onResult(message)
-    const echo = "user_message_uuid" in message ? message.user_message_uuid : undefined
+    if (message.type === "result") return onResult(message);
+    const echo = "user_message_uuid" in message ? message.user_message_uuid : undefined;
     if (typeof echo === "string" && cancelled.delete(echo)) {
       // A steer an interrupt could not recall started its own run: stop it too.
-      void q.interrupt().catch(() => {})
+      void q.interrupt().catch(() => {});
     }
-    emitAll(translator.onMessage(message))
-  }
+    emitAll(translator.onMessage(message));
+  };
 
   // Finalizers run in reverse: close the query, stop the reader, then report the exit.
-  yield* Effect.addFinalizer(() => Effect.sync(() => finish(null)))
+  yield* Effect.addFinalizer(() => Effect.sync(() => finish(null)));
   const reader = yield* Stream.fromAsyncIterable(q, (cause) => cause).pipe(
     Stream.runForEach((message) => Effect.sync(() => onMessage(message))),
     Effect.matchCause({
       onSuccess: () => finish(closing ? null : "Claude Code exited unexpectedly"),
       onFailure: (cause) => finish(closing ? null : (causeMessage(cause) ?? "Claude Code failed")),
     }),
-    Effect.forkIn(scope),
-  )
+    Effect.forkIn(scope)
+  );
   yield* Effect.addFinalizer(() =>
     Effect.gen(function* () {
-      closing = true
-      withdrawAll("The session was closed.")
-      inbox.end()
-      q.close()
-      yield* Fiber.interrupt(reader)
-    }),
-  )
+      closing = true;
+      withdrawAll("The session was closed.");
+      inbox.end();
+      q.close();
+      yield* Fiber.interrupt(reader);
+    })
+  );
 
   const send = Effect.fnUntraced(function* (prompt: string, input: TurnInput | null) {
-    const uuid = crypto.randomUUID()
+    const uuid = crypto.randomUUID();
     const message = yield* buildUserMessage({
       uuid,
       prompt,
       attachments: input?.attachments ?? [],
       ...(driver.readFile ? { readFile: driver.readFile } : {}),
-    })
-    return { uuid, message }
-  })
+    });
+    return { uuid, message };
+  });
 
   const sendTurn = Effect.fn("ClaudeSession.sendTurn")(function* (input: TurnInput) {
-    if (exited || closing) return yield* harnessError("The Claude session has ended")
-    if (active) return yield* harnessError("A Turn is already in progress; steer it instead")
-    const { uuid, message } = yield* send(input.prompt, input)
+    if (exited || closing) return yield* harnessError("The Claude session has ended");
+    if (active) return yield* harnessError("A Turn is already in progress; steer it instead");
+    const { uuid, message } = yield* send(input.prompt, input);
     active = {
       turnId: input.turnId,
       pending: new Set([uuid]),
       interrupting: false,
       outcome: { status: "completed", error: null },
-    }
-    translator.beginTurn(input.turnId)
-    emit({ _tag: "TurnStarted", turnId: input.turnId, prompt: input.prompt })
-    inbox.push(message)
-  })
+    };
+    translator.beginTurn(input.turnId);
+    emit({ _tag: "TurnStarted", turnId: input.turnId, prompt: input.prompt });
+    inbox.push(message);
+  });
 
   /**
    * Claude Code folds a user message sent mid-Turn into the running Turn between tool
@@ -328,59 +328,59 @@ const openSession = Effect.fnUntraced(function* (
    * until every message sent for it has been answered.
    */
   const steer = Effect.fn("ClaudeSession.steer")(function* (text: string) {
-    const turn = active
-    if (!turn || turn.interrupting) return yield* harnessError("No Turn is in progress to steer")
-    const { uuid, message } = yield* send(text, null)
-    turn.pending.add(uuid)
-    inbox.push(message)
-  })
+    const turn = active;
+    if (!turn || turn.interrupting) return yield* harnessError("No Turn is in progress to steer");
+    const { uuid, message } = yield* send(text, null);
+    turn.pending.add(uuid);
+    inbox.push(message);
+  });
 
   const interrupt = Effect.gen(function* () {
-    const turn = active
-    if (!turn || turn.interrupting) return
-    turn.interrupting = true
-    withdrawAll("The user interrupted the Turn.")
+    const turn = active;
+    if (!turn || turn.interrupting) return;
+    turn.interrupting = true;
+    withdrawAll("The user interrupted the Turn.");
     yield* Effect.tryPromise({
       try: () => q.interrupt(),
       catch: (cause) => harnessError("Could not interrupt Claude", cause),
-    })
-  }).pipe(Effect.withSpan("ClaudeSession.interrupt"))
+    });
+  }).pipe(Effect.withSpan("ClaudeSession.interrupt"));
 
   const respond = Effect.fn("ClaudeSession.respond")(function* (
     requestId: RequestId,
-    decision: ApprovalDecision,
+    decision: ApprovalDecision
   ) {
-    const pending = approvals.get(requestId)
-    if (!pending) return yield* harnessError(`No open request ${requestId}`)
-    settle(requestId, toPermissionResult(decision, pending))
-  })
+    const pending = approvals.get(requestId);
+    if (!pending) return yield* harnessError(`No open request ${requestId}`);
+    settle(requestId, toPermissionResult(decision, pending));
+  });
 
   const setPermissionMode = Effect.fn("ClaudeSession.setPermissionMode")(function* (
-    mode: PermissionMode,
+    mode: PermissionMode
   ) {
     yield* Effect.tryPromise({
       try: () => q.setPermissionMode(toClaudePermissionMode(mode)),
       catch: (cause) => harnessError("Could not change the permission mode", cause),
-    })
-    permissionMode = mode
-  })
+    });
+    permissionMode = mode;
+  });
 
   const terminalCommand = Effect.gen(function* () {
-    const cursor = translator.sessionCursor ?? options.resumeCursor
+    const cursor = translator.sessionCursor ?? options.resumeCursor;
     if (cursor === null)
-      return yield* harnessError("Claude has not started this session yet; send a Turn first")
-    const argv = ["claude", "--resume", cursor]
-    const mode = toClaudePermissionMode(permissionMode)
-    if (mode !== "default") argv.push("--permission-mode", mode)
+      return yield* harnessError("Claude has not started this session yet; send a Turn first");
+    const argv = ["claude", "--resume", cursor];
+    const mode = toClaudePermissionMode(permissionMode);
+    if (mode !== "default") argv.push("--permission-mode", mode);
     if (driver.hookReceiver) {
       const { settingsPath } = yield* driver.hookReceiver.prepare({
         sessionId: options.sessionId,
         cursor,
-      })
-      argv.push("--settings", settingsPath)
+      });
+      argv.push("--settings", settingsPath);
     }
-    return argv as ReadonlyArray<string>
-  })
+    return argv as ReadonlyArray<string>;
+  });
 
   const session: HarnessSession = {
     events: Stream.fromQueue(events),
@@ -390,38 +390,38 @@ const openSession = Effect.fnUntraced(function* (
     respond,
     setPermissionMode,
     terminalCommand,
-  }
-  return session
-})
+  };
+  return session;
+});
 
 const causeMessage = (cause: Cause.Cause<unknown>): string | null => {
   for (const reason of cause.reasons) {
-    const value = "error" in reason ? reason.error : "defect" in reason ? reason.defect : null
-    if (value instanceof Error) return value.message
-    if (value !== null && value !== undefined) return String(value)
+    const value = "error" in reason ? reason.error : "defect" in reason ? reason.defect : null;
+    if (value instanceof Error) return value.message;
+    if (value !== null && value !== undefined) return String(value);
   }
-  return null
-}
+  return null;
+};
 
 export const makeClaudeDriver = (options: ClaudeDriverOptions = {}): HarnessDriver => {
   const driver = {
     ...options,
     query: options.query ?? sdkQuery,
     claudePath: options.claudePath ?? (() => Bun.which("claude")),
-  }
-  const runVersion = options.runVersion ?? defaultRunVersion
+  };
+  const runVersion = options.runVersion ?? defaultRunVersion;
 
   const probe: Effect.Effect<HarnessProbe> = Effect.gen(function* () {
-    const path = driver.claudePath()
+    const path = driver.claudePath();
     if (path === null)
-      return { available: false, version: null, detail: "`claude` was not found on PATH" }
-    const result = yield* Effect.tryPromise(() => runVersion(path)).pipe(Effect.option)
+      return { available: false, version: null, detail: "`claude` was not found on PATH" };
+    const result = yield* Effect.tryPromise(() => runVersion(path)).pipe(Effect.option);
     if (Option.isNone(result) || result.value.exitCode !== 0)
-      return { available: false, version: null, detail: `\`${path} --version\` failed` }
-    return { available: true, version: parseVersion(result.value.stdout), detail: path }
-  }).pipe(Effect.withSpan("ClaudeDriver.probe"))
+      return { available: false, version: null, detail: `\`${path} --version\` failed` };
+    return { available: true, version: parseVersion(result.value.stdout), detail: path };
+  }).pipe(Effect.withSpan("ClaudeDriver.probe"));
 
-  const hooks = options.hookReceiver
+  const hooks = options.hookReceiver;
   return {
     kind: "claude",
     capabilities: { steer: true, liveCoAttach: false },
@@ -429,11 +429,11 @@ export const makeClaudeDriver = (options: ClaudeDriverOptions = {}): HarnessDriv
     open: (open) => openSession(driver, open),
     // While In Terminal, Polaris follows the TUI through its HTTP hooks (hooks.ts).
     ...(hooks ? { terminalFollow: { events: hooks.events, release: hooks.release } } : {}),
-  }
-}
+  };
+};
 
 /** The Claude driver with the Daemon's hook listener, for the `HarnessRegistry`. */
 export const ClaudeDriver = Effect.gen(function* () {
-  const hookReceiver = yield* ClaudeHookReceiver
-  return makeClaudeDriver({ hookReceiver })
-})
+  const hookReceiver = yield* ClaudeHookReceiver;
+  return makeClaudeDriver({ hookReceiver });
+});

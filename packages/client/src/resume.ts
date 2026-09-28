@@ -29,220 +29,222 @@ import {
   type Scope,
   Semaphore,
   Stream,
-} from "effect"
+} from "effect";
 
 export type SequenceMark =
   | { readonly kind: "snapshot"; readonly sequence: number }
   | { readonly kind: "event"; readonly sequence: number }
   | { readonly kind: "synchronized"; readonly sequence: number }
-  | { readonly kind: "ephemeral" }
+  | { readonly kind: "ephemeral" };
 
 /** Where a feed gets connections from: the HostConnection. */
 export interface LiveSource<C> {
   /** Waits for a live connection whose epoch is at least `minEpoch`. */
-  readonly next: (minEpoch: number) => Effect.Effect<{ readonly epoch: number; readonly client: C }>
+  readonly next: (
+    minEpoch: number
+  ) => Effect.Effect<{ readonly epoch: number; readonly client: C }>;
 }
 
 export interface FeedOptions<C, A, E> {
-  readonly source: LiveSource<C>
-  readonly open: (client: C, afterSequence: number | null) => Stream.Stream<A, E>
-  readonly mark: (item: A) => SequenceMark
+  readonly source: LiveSource<C>;
+  readonly open: (client: C, afterSequence: number | null) => Stream.Stream<A, E>;
+  readonly mark: (item: A) => SequenceMark;
   /** Errors that mean "the connection went away": resubscribe after reconnecting. */
-  readonly isDisconnect: (error: E) => boolean
+  readonly isDisconnect: (error: E) => boolean;
   /**
    * Sequences on this stream have no gaps, so a gap means something was missed
    * and the feed reopens. False for both Daemon streams: the host stream leaves
    * out session-only events, and a session stream is a subset of the log.
    */
-  readonly gapless: boolean
+  readonly gapless: boolean;
   /** Cached events after the Snapshot before the feed asks for a fresh Snapshot. */
-  readonly maxCachedEvents?: number
+  readonly maxCachedEvents?: number;
   /** Pause before reopening a stream the Daemon ended normally. */
-  readonly reopenDelayMs?: number
+  readonly reopenDelayMs?: number;
 }
 
 export interface Feed<A, E> {
   /** Cached items first, then live ones, across reconnects. Fails only with non-connection errors. */
-  readonly stream: Stream.Stream<A, E>
-  readonly lastSequence: () => number | null
-  readonly subscribers: () => number
+  readonly stream: Stream.Stream<A, E>;
+  readonly lastSequence: () => number | null;
+  readonly subscribers: () => number;
 }
 
 type Message<A, E> =
   | { readonly _tag: "item"; readonly item: A }
-  | { readonly _tag: "fail"; readonly error: E }
+  | { readonly _tag: "fail"; readonly error: E };
 
 class Reopen {
-  readonly _tag = "Reopen"
+  readonly _tag = "Reopen";
   constructor(readonly fresh: boolean) {}
 }
 
 /** The first pause before a reopen that made no progress, doubled each time up to the max. */
-export const REOPEN_BACKOFF_MS = 25
-export const MAX_REOPEN_BACKOFF_MS = 5_000
+export const REOPEN_BACKOFF_MS = 25;
+export const MAX_REOPEN_BACKOFF_MS = 5_000;
 
 /** How long to wait before the `stalled`-th reopen in a row that made no progress. */
 export const reopenBackoff = (stalled: number): number =>
-  stalled <= 0 ? 0 : Math.min(MAX_REOPEN_BACKOFF_MS, REOPEN_BACKOFF_MS * 2 ** (stalled - 1))
+  stalled <= 0 ? 0 : Math.min(MAX_REOPEN_BACKOFF_MS, REOPEN_BACKOFF_MS * 2 ** (stalled - 1));
 
 export const makeFeed = Effect.fnUntraced(function* <C, A, E>(
-  options: FeedOptions<C, A, E>,
+  options: FeedOptions<C, A, E>
 ): Effect.fn.Return<Feed<A, E>, never, Scope.Scope> {
-  const scope = yield* Effect.scope
-  const pubsub = yield* PubSub.unbounded<Message<A, E>>()
-  const lock = Semaphore.makeUnsafe(1)
-  const maxCached = options.maxCachedEvents ?? 10_000
+  const scope = yield* Effect.scope;
+  const pubsub = yield* PubSub.unbounded<Message<A, E>>();
+  const lock = Semaphore.makeUnsafe(1);
+  const maxCached = options.maxCachedEvents ?? 10_000;
 
-  let lastSequence: number | null = null
-  let snapshot: A | null = null
-  let events: Array<A> = []
-  let synchronized: A | null = null
-  let failure: { readonly error: E } | null = null
-  let refCount = 0
-  let upstream: Fiber.Fiber<void> | null = null
+  let lastSequence: number | null = null;
+  let snapshot: A | null = null;
+  let events: Array<A> = [];
+  let synchronized: A | null = null;
+  let failure: { readonly error: E } | null = null;
+  let refCount = 0;
+  let upstream: Fiber.Fiber<void> | null = null;
 
-  const publish = (message: Message<A, E>) => PubSub.publish(pubsub, message)
+  const publish = (message: Message<A, E>) => PubSub.publish(pubsub, message);
 
   const handle = (item: A): Effect.Effect<void, Reopen> =>
     lock.withPermit(
       Effect.suspend(() => {
-        const mark = options.mark(item)
+        const mark = options.mark(item);
         switch (mark.kind) {
           case "snapshot":
-            lastSequence = mark.sequence
-            snapshot = item
-            events = []
-            synchronized = null
-            break
+            lastSequence = mark.sequence;
+            snapshot = item;
+            events = [];
+            synchronized = null;
+            break;
           case "event": {
-            if (lastSequence !== null && mark.sequence <= lastSequence) return Effect.void
+            if (lastSequence !== null && mark.sequence <= lastSequence) return Effect.void;
             if (options.gapless && lastSequence !== null && mark.sequence !== lastSequence + 1)
-              return Effect.fail(new Reopen(false))
-            lastSequence = mark.sequence
+              return Effect.fail(new Reopen(false));
+            lastSequence = mark.sequence;
             if (snapshot !== null) {
-              events.push(item)
+              events.push(item);
               if (events.length > maxCached) {
-                snapshot = null
-                events = []
-                synchronized = null
+                snapshot = null;
+                events = [];
+                synchronized = null;
                 return Effect.andThen(
                   publish({ _tag: "item", item }),
-                  Effect.fail(new Reopen(true)),
-                )
+                  Effect.fail(new Reopen(true))
+                );
               }
             }
-            break
+            break;
           }
           case "synchronized":
-            synchronized = item
-            break
+            synchronized = item;
+            break;
           case "ephemeral":
-            break
+            break;
         }
-        return Effect.asVoid(publish({ _tag: "item", item }))
-      }),
-    )
+        return Effect.asVoid(publish({ _tag: "item", item }));
+      })
+    );
 
   const run = Effect.gen(function* () {
-    let minEpoch = 0
-    let fresh = false
+    let minEpoch = 0;
+    let fresh = false;
     /** Reopens in a row that saw no new event: each waits longer. */
-    let stalled = 0
+    let stalled = 0;
     while (true) {
-      const live = yield* options.source.next(minEpoch)
-      const after: number | null = fresh ? null : lastSequence
-      const before = lastSequence
-      fresh = false
+      const live = yield* options.source.next(minEpoch);
+      const after: number | null = fresh ? null : lastSequence;
+      const before = lastSequence;
+      fresh = false;
       const result: Result.Result<void, E | Reopen> = yield* options
         .open(live.client, after)
-        .pipe(Stream.runForEach(handle), Effect.result)
+        .pipe(Stream.runForEach(handle), Effect.result);
       if (result._tag === "Success") {
-        minEpoch = live.epoch
-        yield* Effect.sleep(options.reopenDelayMs ?? 1000)
-        continue
+        minEpoch = live.epoch;
+        yield* Effect.sleep(options.reopenDelayMs ?? 1000);
+        continue;
       }
-      const error: E | Reopen = result.failure
+      const error: E | Reopen = result.failure;
       if (error instanceof Reopen) {
-        minEpoch = live.epoch
-        fresh = error.fresh
-        stalled = lastSequence !== before ? 0 : stalled + 1
-        if (stalled > 0) yield* Effect.sleep(reopenBackoff(stalled))
-        continue
+        minEpoch = live.epoch;
+        fresh = error.fresh;
+        stalled = lastSequence !== before ? 0 : stalled + 1;
+        if (stalled > 0) yield* Effect.sleep(reopenBackoff(stalled));
+        continue;
       }
       if (options.isDisconnect(error)) {
-        minEpoch = live.epoch + 1
-        continue
+        minEpoch = live.epoch + 1;
+        continue;
       }
       yield* lock.withPermit(
         Effect.suspend(() => {
-          failure = { error }
-          return publish({ _tag: "fail", error })
-        }),
-      )
-      return
+          failure = { error };
+          return publish({ _tag: "fail", error });
+        })
+      );
+      return;
     }
-  })
+  });
 
   const retain = Effect.suspend(() => {
-    refCount++
+    refCount++;
     if (upstream === null) {
       if (failure !== null) {
-        failure = null
-        lastSequence = null
-        snapshot = null
-        events = []
-        synchronized = null
+        failure = null;
+        lastSequence = null;
+        snapshot = null;
+        events = [];
+        synchronized = null;
       }
       return Effect.map(Effect.forkIn(run, scope), (fiber) => {
-        upstream = fiber
+        upstream = fiber;
         fiber.addObserver(() => {
-          if (upstream === fiber) upstream = null
-        })
-      })
+          if (upstream === fiber) upstream = null;
+        });
+      });
     }
-    return Effect.void
-  })
+    return Effect.void;
+  });
 
   const release = Effect.suspend(() => {
-    refCount--
+    refCount--;
     if (refCount === 0 && upstream !== null) {
-      const fiber = upstream
-      upstream = null
-      return Fiber.interrupt(fiber)
+      const fiber = upstream;
+      upstream = null;
+      return Fiber.interrupt(fiber);
     }
-    return Effect.void
-  })
+    return Effect.void;
+  });
 
   const stream: Stream.Stream<A, E> = Stream.unwrap(
     Effect.gen(function* () {
       const { subscription, replay, failed } = yield* lock.withPermit(
         Effect.gen(function* () {
-          const subscription = yield* PubSub.subscribe(pubsub)
-          const replay: Array<A> = []
-          if (snapshot !== null) replay.push(snapshot, ...events)
-          if (synchronized !== null) replay.push(synchronized)
-          return { subscription, replay, failed: upstream === null ? null : failure }
-        }),
-      )
-      yield* Effect.acquireRelease(retain, () => release)
+          const subscription = yield* PubSub.subscribe(pubsub);
+          const replay: Array<A> = [];
+          if (snapshot !== null) replay.push(snapshot, ...events);
+          if (synchronized !== null) replay.push(synchronized);
+          return { subscription, replay, failed: upstream === null ? null : failure };
+        })
+      );
+      yield* Effect.acquireRelease(retain, () => release);
       const live = Stream.fromSubscription(subscription).pipe(
         Stream.mapEffect((message) =>
-          message._tag === "item" ? Effect.succeed(message.item) : Effect.fail(message.error),
-        ),
-      )
-      if (failed !== null) return Stream.fail(failed.error)
-      return Stream.concat(Stream.fromIterable(replay), live)
-    }),
-  )
+          message._tag === "item" ? Effect.succeed(message.item) : Effect.fail(message.error)
+        )
+      );
+      if (failed !== null) return Stream.fail(failed.error);
+      return Stream.concat(Stream.fromIterable(replay), live);
+    })
+  );
 
   return {
     stream,
     lastSequence: () => lastSequence,
     subscribers: () => refCount,
-  }
-})
+  };
+});
 
 export const isTaggedWith =
   (tag: string) =>
   (error: unknown): boolean =>
-    Predicate.isTagged(error, tag)
+    Predicate.isTagged(error, tag);

@@ -27,128 +27,128 @@ import {
   type TakeStreamOptions,
   type Wire,
   type WireOptions,
-} from "@polaris/protocol"
-import { Deferred, Effect, Latch, type Scope, type Stream } from "effect"
-import { RpcClient, type RpcGroup, RpcSchema, RpcSerialization } from "effect/rpc"
-import { RpcClientDefect, RpcClientError } from "effect/rpc/RpcClientError"
-import { constPing, type FromServerEncoded } from "effect/rpc/RpcMessage"
-import type { ClientTransport } from "./transport.ts"
+} from "@polaris/protocol";
+import { Deferred, Effect, Latch, type Scope, type Stream } from "effect";
+import { RpcClient, type RpcGroup, RpcSchema, RpcSerialization } from "effect/rpc";
+import { RpcClientDefect, RpcClientError } from "effect/rpc/RpcClientError";
+import { constPing, type FromServerEncoded } from "effect/rpc/RpcMessage";
+import type { ClientTransport } from "./transport.ts";
 
-export type DaemonClient = RpcClient.RpcClient<RpcGroup.Rpcs<typeof DaemonRpcs>, RpcClientError>
+export type DaemonClient = RpcClient.RpcClient<RpcGroup.Rpcs<typeof DaemonRpcs>, RpcClientError>;
 
 export interface ClientBlobs {
   /** Send bytes to the Daemon; pass the returned id in the RPC that consumes them. */
-  readonly offer: <E>(source: BlobSource<E>) => Effect.Effect<BlobId>
+  readonly offer: <E>(source: BlobSource<E>) => Effect.Effect<BlobId>;
   /** Receive a blob the Daemon referenced in a response (e.g. `files.read`, `git.diff`). */
-  readonly take: (blobId: BlobId) => Effect.Effect<Uint8Array, BlobError>
+  readonly take: (blobId: BlobId) => Effect.Effect<Uint8Array, BlobError>;
   /** The same, chunk by chunk as it arrives, without holding the whole blob (e.g. terminal output). */
   readonly takeStream: (
     blobId: BlobId,
-    options?: TakeStreamOptions,
-  ) => Stream.Stream<Uint8Array, BlobError>
+    options?: TakeStreamOptions
+  ) => Stream.Stream<Uint8Array, BlobError>;
 }
 
 export interface RpcConnection {
-  readonly client: DaemonClient
-  readonly blobs: ClientBlobs
-  readonly wire: Wire
+  readonly client: DaemonClient;
+  readonly blobs: ClientBlobs;
+  readonly wire: Wire;
   /** Fails when the connection is gone: closed, broken, or the peer stopped answering pings. */
-  readonly lost: Effect.Effect<never, RpcClientError>
+  readonly lost: Effect.Effect<never, RpcClientError>;
 }
 
 export interface RpcConnectionOptions {
-  readonly wire?: WireOptions
+  readonly wire?: WireOptions;
   /**
    * Ping interval while a request (not a stream) awaits its reply; the
    * connection is declared dead after 3 intervals with no traffic.
    */
-  readonly pingIntervalMs?: number
+  readonly pingIntervalMs?: number;
 }
 
 /** Tags of the streaming RPCs: long-lived, so waiting on them never needs a ping. */
 const streamTags: ReadonlySet<string> = new Set(
   [...DaemonRpcs.requests.values()]
     .filter((rpc) => RpcSchema.isStreamSchema(rpc.successSchema))
-    .map((rpc) => rpc._tag),
-)
+    .map((rpc) => rpc._tag)
+);
 
 const lostError = (message: string, cause?: unknown) =>
-  new RpcClientError({ reason: new RpcClientDefect({ message, cause }) })
+  new RpcClientError({ reason: new RpcClientDefect({ message, cause }) });
 
 export const connectRpc = Effect.fnUntraced(function* (
   transport: ClientTransport,
-  options: RpcConnectionOptions = {},
+  options: RpcConnectionOptions = {}
 ): Effect.fn.Return<RpcConnection, never, Scope.Scope> {
-  const serialization = RpcSerialization.json
-  const parser = serialization.makeUnsafe()
-  const lost = yield* Deferred.make<never, RpcClientError>()
-  const pingInterval = options.pingIntervalMs ?? 15_000
-  let lastHeard = Date.now()
-  let wire!: Wire
+  const serialization = RpcSerialization.json;
+  const parser = serialization.makeUnsafe();
+  const lost = yield* Deferred.make<never, RpcClientError>();
+  const pingInterval = options.pingIntervalMs ?? 15_000;
+  let lastHeard = Date.now();
+  let wire!: Wire;
   /** Requests (not streams) sent and not yet answered with an Exit. */
-  const awaiting = new Set<string | number>()
+  const awaiting = new Set<string | number>();
   /** Open while `awaiting` is non-empty: the ping loop runs only then. */
-  const pinging = Latch.makeUnsafe(false)
+  const pinging = Latch.makeUnsafe(false);
   const settled = (requestId: string | number) => {
-    awaiting.delete(requestId)
-    if (awaiting.size === 0) pinging.closeUnsafe()
-  }
+    awaiting.delete(requestId);
+    if (awaiting.size === 0) pinging.closeUnsafe();
+  };
 
   const protocol = yield* RpcClient.Protocol.make(
     Effect.fnUntraced(function* (writeResponse, clientIds) {
-      const requestClient = new Map<string | number, number>()
-      let currentError: RpcClientError | undefined
+      const requestClient = new Map<string | number, number>();
+      let currentError: RpcClientError | undefined;
 
       const broadcast = (response: FromServerEncoded) =>
         Effect.forEach(clientIds, (clientId) => writeResponse(clientId, response), {
           discard: true,
-        })
+        });
 
       const onJson = (text: string) =>
         Effect.suspend(() => {
-          lastHeard = Date.now()
-          let responses: ReadonlyArray<FromServerEncoded>
+          lastHeard = Date.now();
+          let responses: ReadonlyArray<FromServerEncoded>;
           try {
-            responses = parser.decode(text) as ReadonlyArray<FromServerEncoded>
+            responses = parser.decode(text) as ReadonlyArray<FromServerEncoded>;
           } catch (cause) {
             return broadcast({
               _tag: "ClientProtocolError",
               error: lostError("error decoding a message from the Daemon", cause),
-            })
+            });
           }
           return Effect.forEach(
             responses,
             (response) => {
-              if (response._tag === "Pong") return Effect.void
+              if (response._tag === "Pong") return Effect.void;
               if ("requestId" in response) {
-                const clientId = requestClient.get(response.requestId)
+                const clientId = requestClient.get(response.requestId);
                 if (clientId !== undefined) {
                   if (response._tag === "Exit") {
-                    requestClient.delete(response.requestId)
-                    settled(response.requestId)
+                    requestClient.delete(response.requestId);
+                    settled(response.requestId);
                   }
-                  return writeResponse(clientId, response)
+                  return writeResponse(clientId, response);
                 }
               }
-              return broadcast(response)
+              return broadcast(response);
             },
-            { discard: true },
-          )
-        })
+            { discard: true }
+          );
+        });
 
-      wire = yield* makeWire(transport, onJson, { ...options.wire, blobIdPrefix: "c" })
+      wire = yield* makeWire(transport, onJson, { ...options.wire, blobIdPrefix: "c" });
 
       const fail = (error: RpcClientError) =>
         Effect.suspend(() => {
-          if (currentError !== undefined) return Effect.void
-          currentError = error
+          if (currentError !== undefined) return Effect.void;
+          currentError = error;
           // Fail in-flight requests first: completing `lost` lets the owner close
           // this scope, which would interrupt us before the broadcast.
           return Effect.andThen(
             broadcast({ _tag: "ClientProtocolError", error }),
-            Deferred.fail(lost, error),
-          ).pipe(Effect.uninterruptible)
-        })
+            Deferred.fail(lost, error)
+          ).pipe(Effect.uninterruptible);
+        });
 
       yield* wire.closed.pipe(
         Effect.exit,
@@ -156,58 +156,58 @@ export const connectRpc = Effect.fnUntraced(function* (
           fail(
             exit._tag === "Success"
               ? lostError("the Daemon closed the connection")
-              : lostError(exit.cause.toString()),
-          ),
+              : lostError(exit.cause.toString())
+          )
         ),
-        Effect.forkScoped,
-      )
+        Effect.forkScoped
+      );
 
       // Keepalive while a reply is due: any traffic counts as liveness, and
       // pings keep a quiet link busy. Parked on the latch (no timer) otherwise.
       yield* Effect.gen(function* () {
         while (true) {
-          yield* pinging.await
-          yield* Effect.sleep(pingInterval)
-          if (awaiting.size === 0) continue
+          yield* pinging.await;
+          yield* Effect.sleep(pingInterval);
+          if (awaiting.size === 0) continue;
           if (Date.now() - lastHeard > pingInterval * 3) {
-            yield* fail(lostError("the Daemon stopped answering"))
-            return
+            yield* fail(lostError("the Daemon stopped answering"));
+            return;
           }
-          yield* Effect.ignore(wire.sendJson(parser.encode(constPing) as string))
+          yield* Effect.ignore(wire.sendJson(parser.encode(constPing) as string));
         }
-      }).pipe(Effect.forkScoped)
+      }).pipe(Effect.forkScoped);
 
       return {
         send: (clientId, request) =>
           Effect.suspend(() => {
-            if (currentError !== undefined) return Effect.fail(currentError)
+            if (currentError !== undefined) return Effect.fail(currentError);
             if (request._tag === "Request") {
-              requestClient.set(request.id, clientId)
+              requestClient.set(request.id, clientId);
               if (!streamTags.has(request.tag)) {
                 // The silence clock starts now, not at the last traffic of an idle link.
-                if (awaiting.size === 0) lastHeard = Date.now()
-                awaiting.add(request.id)
-                pinging.openUnsafe()
+                if (awaiting.size === 0) lastHeard = Date.now();
+                awaiting.add(request.id);
+                pinging.openUnsafe();
               }
             } else if (request._tag === "Interrupt") {
-              settled(request.requestId)
+              settled(request.requestId);
             }
-            const encoded = parser.encode(request)
-            if (encoded === undefined) return Effect.void
+            const encoded = parser.encode(request);
+            if (encoded === undefined) return Effect.void;
             return wire
               .sendJson(encoded as string)
-              .pipe(Effect.mapError((error) => lostError(error.message, error)))
+              .pipe(Effect.mapError((error) => lostError(error.message, error)));
           }),
         supportsAck: true,
         supportsTransferables: false,
         codecFor: serialization.codecFor,
-      }
-    }),
-  )
+      };
+    })
+  );
 
   const client = yield* RpcClient.make(DaemonRpcs, { spanPrefix: "polaris.rpc" }).pipe(
-    Effect.provideService(RpcClient.Protocol, protocol),
-  )
+    Effect.provideService(RpcClient.Protocol, protocol)
+  );
 
   return {
     client,
@@ -218,5 +218,5 @@ export const connectRpc = Effect.fnUntraced(function* (
       takeStream: (blobId, takeOptions) => wire.takeBlobStream(blobId, takeOptions),
     },
     lost: Deferred.await(lost),
-  }
-})
+  };
+});

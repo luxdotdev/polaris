@@ -1,7 +1,7 @@
 /**
  * Domain model shared by the Daemon and every Client. Names follow CONTEXT.md.
  */
-import { Schema } from "effect"
+import { Schema } from "effect";
 import {
   AttachmentId,
   HostId,
@@ -10,13 +10,13 @@ import {
   TurnId,
   WorkspaceId,
   WorktreeId,
-} from "./ids.ts"
+} from "./ids.ts";
 
-export const Timestamp = Schema.String // ISO-8601, UTC
-export type Timestamp = typeof Timestamp.Type
+export const Timestamp = Schema.String; // ISO-8601, UTC
+export type Timestamp = typeof Timestamp.Type;
 
-export const HarnessKind = Schema.Literals(["claude", "codex"])
-export type HarnessKind = typeof HarnessKind.Type
+export const HarnessKind = Schema.Literals(["claude", "codex"]);
+export type HarnessKind = typeof HarnessKind.Type;
 
 export const SessionState = Schema.Literals([
   "starting",
@@ -27,8 +27,8 @@ export const SessionState = Schema.Literals([
   "dormant",
   "failed",
   "archived",
-])
-export type SessionState = typeof SessionState.Type
+]);
+export type SessionState = typeof SessionState.Type;
 
 /** Client-side only: how one Client's link to one Host stands. Never sent by a Daemon. */
 export const ConnectionState = Schema.Literals([
@@ -36,11 +36,11 @@ export const ConnectionState = Schema.Literals([
   "reconnecting",
   "needs-attention",
   "offline",
-])
-export type ConnectionState = typeof ConnectionState.Type
+]);
+export type ConnectionState = typeof ConnectionState.Type;
 
-export const Platform = Schema.Literals(["darwin-arm64", "linux-x64", "linux-arm64"])
-export type Platform = typeof Platform.Type
+export const Platform = Schema.Literals(["darwin-arm64", "linux-x64", "linux-arm64"]);
+export type Platform = typeof Platform.Type;
 
 export class HostInfo extends Schema.Class<HostInfo>("HostInfo")({
   hostId: HostId,
@@ -73,8 +73,8 @@ export class Worktree extends Schema.Class<Worktree>("Worktree")({
   isMain: Schema.Boolean,
 }) {}
 
-export const PermissionMode = Schema.Literals(["supervised", "auto-edits", "auto", "full-access"])
-export type PermissionMode = typeof PermissionMode.Type
+export const PermissionMode = Schema.Literals(["supervised", "auto-edits", "auto", "full-access"]);
+export type PermissionMode = typeof PermissionMode.Type;
 
 export class AgentSession extends Schema.Class<AgentSession>("AgentSession")({
   id: SessionId,
@@ -98,8 +98,8 @@ export class AgentSession extends Schema.Class<AgentSession>("AgentSession")({
   updatedAt: Timestamp,
 }) {}
 
-export const TurnStatus = Schema.Literals(["working", "completed", "interrupted", "failed"])
-export type TurnStatus = typeof TurnStatus.Type
+export const TurnStatus = Schema.Literals(["working", "completed", "interrupted", "failed"]);
+export type TurnStatus = typeof TurnStatus.Type;
 
 export class Attachment extends Schema.Class<Attachment>("Attachment")({
   id: AttachmentId,
@@ -139,7 +139,7 @@ export const TurnItem = Schema.TaggedUnion({
   FileChange: {
     id: Schema.String,
     changes: Schema.Array(
-      Schema.Struct({ path: Schema.String, kind: Schema.Literals(["add", "modify", "delete"]) }),
+      Schema.Struct({ path: Schema.String, kind: Schema.Literals(["add", "modify", "delete"]) })
     ),
     status: Schema.Literals(["running", "completed", "failed", "declined"]),
   },
@@ -156,15 +156,15 @@ export const TurnItem = Schema.TaggedUnion({
       Schema.Struct({
         text: Schema.String,
         status: Schema.Literals(["pending", "in-progress", "completed"]),
-      }),
+      })
     ),
   },
   Error: { id: Schema.String, message: Schema.String },
-})
-export type TurnItem = typeof TurnItem.Type
+});
+export type TurnItem = typeof TurnItem.Type;
 
-export const ApprovalKind = Schema.Literals(["command", "file-change", "tool", "question"])
-export type ApprovalKind = typeof ApprovalKind.Type
+export const ApprovalKind = Schema.Literals(["command", "file-change", "tool", "question"]);
+export type ApprovalKind = typeof ApprovalKind.Type;
 
 export class ApprovalRequest extends Schema.Class<ApprovalRequest>("ApprovalRequest")({
   id: RequestId,
@@ -183,5 +183,5 @@ export const ApprovalDecision = Schema.TaggedUnion({
   Allow: { remember: Schema.Boolean },
   Deny: { reason: Schema.NullOr(Schema.String) },
   Answer: { text: Schema.String },
-})
-export type ApprovalDecision = typeof ApprovalDecision.Type
+});
+export type ApprovalDecision = typeof ApprovalDecision.Type;

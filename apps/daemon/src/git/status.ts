@@ -1,87 +1,87 @@
 /**
  * `git status --porcelain=v2 --branch -z`, parsed into the `git.status` shape.
  */
-import { runGit } from "./git.ts"
+import { runGit } from "./git.ts";
 
 export interface StatusEntry {
-  readonly path: string
-  readonly origPath: string | null
+  readonly path: string;
+  readonly origPath: string | null;
   /** Porcelain X (index) status: `.`, M, A, D, R, C, U; `?` untracked, `!` ignored. */
-  readonly index: string
+  readonly index: string;
   /** Porcelain Y (worktree) status, same alphabet. */
-  readonly worktree: string
+  readonly worktree: string;
 }
 
 export interface Status {
-  readonly branch: string | null
-  readonly head: string | null
-  readonly ahead: number
-  readonly behind: number
-  readonly entries: ReadonlyArray<StatusEntry>
+  readonly branch: string | null;
+  readonly head: string | null;
+  readonly ahead: number;
+  readonly behind: number;
+  readonly entries: ReadonlyArray<StatusEntry>;
 }
 
 /** Parses NUL-separated porcelain v2 output (with `--branch`). */
 export const parsePorcelainV2 = (output: string): Status => {
-  let branch: string | null = null
-  let head: string | null = null
-  let ahead = 0
-  let behind = 0
-  const entries: Array<StatusEntry> = []
-  const records = output.split("\0")
+  let branch: string | null = null;
+  let head: string | null = null;
+  let ahead = 0;
+  let behind = 0;
+  const entries: Array<StatusEntry> = [];
+  const records = output.split("\0");
   for (let i = 0; i < records.length; i++) {
-    const record = records[i]!
-    if (record === "") continue
+    const record = records[i]!;
+    if (record === "") continue;
     if (record.startsWith("# ")) {
-      const [, key, ...rest] = record.split(" ")
-      const value = rest.join(" ")
-      if (key === "branch.oid") head = value === "(initial)" ? null : value
-      else if (key === "branch.head") branch = value === "(detached)" ? null : value
+      const [, key, ...rest] = record.split(" ");
+      const value = rest.join(" ");
+      if (key === "branch.oid") head = value === "(initial)" ? null : value;
+      else if (key === "branch.head") branch = value === "(detached)" ? null : value;
       else if (key === "branch.ab") {
-        const match = /^\+(\d+) -(\d+)$/.exec(value)
+        const match = /^\+(\d+) -(\d+)$/.exec(value);
         if (match) {
-          ahead = Number(match[1])
-          behind = Number(match[2])
+          ahead = Number(match[1]);
+          behind = Number(match[2]);
         }
       }
-      continue
+      continue;
     }
-    const kind = record[0]
+    const kind = record[0];
     if (kind === "1") {
       // 1 XY sub mH mI mW hH hI path
-      const fields = splitN(record, 9)
-      const xy = fields[1]!
-      entries.push({ path: fields[8]!, origPath: null, index: xy[0]!, worktree: xy[1]! })
+      const fields = splitN(record, 9);
+      const xy = fields[1]!;
+      entries.push({ path: fields[8]!, origPath: null, index: xy[0]!, worktree: xy[1]! });
     } else if (kind === "2") {
       // 2 XY sub mH mI mW hH hI Xscore path \0 origPath
-      const fields = splitN(record, 10)
-      const xy = fields[1]!
-      const origPath = records[++i] ?? null
-      entries.push({ path: fields[9]!, origPath, index: xy[0]!, worktree: xy[1]! })
+      const fields = splitN(record, 10);
+      const xy = fields[1]!;
+      const origPath = records[++i] ?? null;
+      entries.push({ path: fields[9]!, origPath, index: xy[0]!, worktree: xy[1]! });
     } else if (kind === "u") {
       // u XY sub m1 m2 m3 mW h1 h2 h3 path
-      const fields = splitN(record, 11)
-      const xy = fields[1]!
-      entries.push({ path: fields[10]!, origPath: null, index: xy[0]!, worktree: xy[1]! })
+      const fields = splitN(record, 11);
+      const xy = fields[1]!;
+      entries.push({ path: fields[10]!, origPath: null, index: xy[0]!, worktree: xy[1]! });
     } else if (kind === "?" || kind === "!") {
-      entries.push({ path: record.slice(2), origPath: null, index: kind, worktree: kind })
+      entries.push({ path: record.slice(2), origPath: null, index: kind, worktree: kind });
     }
   }
-  return { branch, head, ahead, behind, entries }
-}
+  return { branch, head, ahead, behind, entries };
+};
 
 /** Splits on the first `n - 1` spaces; the last field keeps any spaces (paths). */
 const splitN = (record: string, n: number): Array<string> => {
-  const fields: Array<string> = []
-  let rest = record
+  const fields: Array<string> = [];
+  let rest = record;
   for (let k = 0; k < n - 1; k++) {
-    const at = rest.indexOf(" ")
-    if (at < 0) break
-    fields.push(rest.slice(0, at))
-    rest = rest.slice(at + 1)
+    const at = rest.indexOf(" ");
+    if (at < 0) break;
+    fields.push(rest.slice(0, at));
+    rest = rest.slice(at + 1);
   }
-  fields.push(rest)
-  return fields
-}
+  fields.push(rest);
+  return fields;
+};
 
 export const gitStatus = async (cwd: string): Promise<Status> => {
   const result = await runGit(cwd, [
@@ -90,6 +90,6 @@ export const gitStatus = async (cwd: string): Promise<Status> => {
     "--branch",
     "-z",
     "--untracked-files=normal",
-  ])
-  return parsePorcelainV2(new TextDecoder().decode(result.stdout))
-}
+  ]);
+  return parsePorcelainV2(new TextDecoder().decode(result.stdout));
+};

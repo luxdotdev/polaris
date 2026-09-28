@@ -15,7 +15,7 @@
  * a few chunks before their source is paused, and `sendJson` waits while more
  * than `maxQueuedJsonBytes` of JSON is queued.
  */
-import { Cause, Deferred, Effect, Exit, Latch, Schema, type Scope, Stream } from "effect"
+import { Cause, Deferred, Effect, Exit, Latch, Schema, type Scope, Stream } from "effect";
 import {
   BLOB_CHUNK_BYTES,
   encodeBlob,
@@ -23,16 +23,16 @@ import {
   encodeJsonFrame,
   type Frame,
   FrameDecoder,
-} from "./frame.ts"
-import type { BlobId } from "./ids.ts"
+} from "./frame.ts";
+import type { BlobId } from "./ids.ts";
 
 export class TransportError extends Schema.TaggedError<TransportError>()("TransportError", {
   message: Schema.String,
   cause: Schema.optional(Schema.Defect()),
 }) {}
 
-export const BlobFailure = Schema.Literals(["too-large", "timeout", "closed", "aborted"])
-export type BlobFailure = typeof BlobFailure.Type
+export const BlobFailure = Schema.Literals(["too-large", "timeout", "closed", "aborted"]);
+export type BlobFailure = typeof BlobFailure.Type;
 
 export class BlobError extends Schema.TaggedError<BlobError>()("BlobError", {
   blobId: Schema.String,
@@ -43,21 +43,21 @@ export class BlobError extends Schema.TaggedError<BlobError>()("BlobError", {
 /** A bidirectional byte pipe. Implementations adapt sockets and child-process stdio. */
 export interface ByteTransport {
   /** Bytes from the peer; ends when the peer closes its side. */
-  readonly incoming: Stream.Stream<Uint8Array, TransportError>
+  readonly incoming: Stream.Stream<Uint8Array, TransportError>;
   /** Completes once the transport accepted the bytes (waits on backpressure). */
-  readonly write: (bytes: Uint8Array) => Effect.Effect<void, TransportError>
+  readonly write: (bytes: Uint8Array) => Effect.Effect<void, TransportError>;
   /** Closes the transport. Idempotent. */
-  readonly close: Effect.Effect<void>
+  readonly close: Effect.Effect<void>;
 }
 
 export interface WireOptions {
   /** Prefix for BlobIds this side allocates, so both directions never collide. */
-  readonly blobIdPrefix?: string
-  readonly maxBlobBytes?: number
-  readonly maxBufferedBlobBytes?: number
-  readonly blobIdleTimeoutMs?: number
-  readonly unclaimedBlobTtlMs?: number
-  readonly maxQueuedJsonBytes?: number
+  readonly blobIdPrefix?: string;
+  readonly maxBlobBytes?: number;
+  readonly maxBufferedBlobBytes?: number;
+  readonly blobIdleTimeoutMs?: number;
+  readonly unclaimedBlobTtlMs?: number;
+  readonly maxQueuedJsonBytes?: number;
 }
 
 export const WIRE_DEFAULTS = {
@@ -66,17 +66,17 @@ export const WIRE_DEFAULTS = {
   blobIdleTimeoutMs: 60_000,
   unclaimedBlobTtlMs: 5 * 60_000,
   maxQueuedJsonBytes: 8 * 1024 * 1024,
-} as const
+} as const;
 
-export type BlobSource<E = never> = Uint8Array | Stream.Stream<Uint8Array, E>
+export type BlobSource<E = never> = Uint8Array | Stream.Stream<Uint8Array, E>;
 
 export interface Wire {
   /** Queue one RPC message (already serialized) as a JSON frame. */
-  readonly sendJson: (text: string) => Effect.Effect<void, TransportError>
+  readonly sendJson: (text: string) => Effect.Effect<void, TransportError>;
   /** Start sending `source` as a blob; returns its id immediately. */
-  readonly offerBlob: <E>(source: BlobSource<E>) => Effect.Effect<BlobId>
+  readonly offerBlob: <E>(source: BlobSource<E>) => Effect.Effect<BlobId>;
   /** Wait for the whole blob the peer sent (or is sending) under `blobId`. Single consumer. */
-  readonly takeBlob: (blobId: string) => Effect.Effect<Uint8Array, BlobError>
+  readonly takeBlob: (blobId: string) => Effect.Effect<Uint8Array, BlobError>;
   /**
    * The blob's bytes as they arrive, without collecting them: what arrived
    * before the call first, then each chunk. Ends after the final chunk. Single
@@ -85,16 +85,16 @@ export interface Wire {
    */
   readonly takeBlobStream: (
     blobId: string,
-    options?: TakeStreamOptions,
-  ) => Stream.Stream<Uint8Array, BlobError>
+    options?: TakeStreamOptions
+  ) => Stream.Stream<Uint8Array, BlobError>;
   /** Succeeds when the peer closed cleanly, fails on a transport or framing error. */
-  readonly closed: Effect.Effect<void, TransportError>
+  readonly closed: Effect.Effect<void, TransportError>;
   readonly stats: () => {
-    readonly bufferedBlobBytes: number
-    readonly incomingBlobs: number
-    readonly outgoingBlobs: number
-    readonly queuedJsonBytes: number
-  }
+    readonly bufferedBlobBytes: number;
+    readonly incomingBlobs: number;
+    readonly outgoingBlobs: number;
+    readonly queuedJsonBytes: number;
+  };
 }
 
 export interface TakeStreamOptions {
@@ -103,48 +103,48 @@ export interface TakeStreamOptions {
    * (default true). Turn it off for long-lived blobs that may be quiet for a
    * while, such as a terminal's output.
    */
-  readonly idleTimeout?: boolean
+  readonly idleTimeout?: boolean;
 }
 
 /** Frames buffered per outgoing stream-sourced blob before its source is paused. */
-const OUT_BLOB_HIGH_WATER = 4
+const OUT_BLOB_HIGH_WATER = 4;
 
 interface OutBlob {
-  readonly id: string
-  ready(): boolean
-  next(): Uint8Array
-  done(): boolean
+  readonly id: string;
+  ready(): boolean;
+  next(): Uint8Array;
+  done(): boolean;
 }
 
 interface InBlob {
   /** Chunks held for the consumer (all of them, or the unread ones when streamed). */
-  parts: Array<Uint8Array>
+  parts: Array<Uint8Array>;
   /** Bytes in `parts`. */
-  size: number
+  size: number;
   /** Bytes received so far, for `maxBlobBytes`. */
-  received: number
-  status: "receiving" | "complete" | "failed"
-  claimed: false | "whole" | "stream"
-  idleTimeout: boolean
-  touched: number
-  failure: BlobError | null
+  received: number;
+  status: "receiving" | "complete" | "failed";
+  claimed: false | "whole" | "stream";
+  idleTimeout: boolean;
+  touched: number;
+  failure: BlobError | null;
   /** A streaming consumer waiting for the next chunk. */
-  wake: (() => void) | null
-  readonly deferred: Deferred.Deferred<Uint8Array, BlobError>
+  wake: (() => void) | null;
+  readonly deferred: Deferred.Deferred<Uint8Array, BlobError>;
 }
 
-let blobCounter = 0
+let blobCounter = 0;
 
 const concat = (parts: ReadonlyArray<Uint8Array>, size: number): Uint8Array => {
-  if (parts.length === 1) return parts[0]!
-  const out = new Uint8Array(size)
-  let offset = 0
+  if (parts.length === 1) return parts[0]!;
+  const out = new Uint8Array(size);
+  let offset = 0;
   for (const p of parts) {
-    out.set(p, offset)
-    offset += p.byteLength
+    out.set(p, offset);
+    offset += p.byteLength;
   }
-  return out
-}
+  return out;
+};
 
 /**
  * Runs a Wire over `transport` for the lifetime of the current scope. Every
@@ -153,81 +153,81 @@ const concat = (parts: ReadonlyArray<Uint8Array>, size: number): Uint8Array => {
 export const makeWire = Effect.fnUntraced(function* (
   transport: ByteTransport,
   onJson: (text: string) => Effect.Effect<void>,
-  options: WireOptions = {},
+  options: WireOptions = {}
 ): Effect.fn.Return<Wire, never, Scope.Scope> {
-  const prefix = options.blobIdPrefix ?? "b"
-  const maxBlobBytes = options.maxBlobBytes ?? WIRE_DEFAULTS.maxBlobBytes
-  const maxBuffered = options.maxBufferedBlobBytes ?? WIRE_DEFAULTS.maxBufferedBlobBytes
-  const idleTimeout = options.blobIdleTimeoutMs ?? WIRE_DEFAULTS.blobIdleTimeoutMs
-  const unclaimedTtl = options.unclaimedBlobTtlMs ?? WIRE_DEFAULTS.unclaimedBlobTtlMs
-  const maxQueuedJson = options.maxQueuedJsonBytes ?? WIRE_DEFAULTS.maxQueuedJsonBytes
+  const prefix = options.blobIdPrefix ?? "b";
+  const maxBlobBytes = options.maxBlobBytes ?? WIRE_DEFAULTS.maxBlobBytes;
+  const maxBuffered = options.maxBufferedBlobBytes ?? WIRE_DEFAULTS.maxBufferedBlobBytes;
+  const idleTimeout = options.blobIdleTimeoutMs ?? WIRE_DEFAULTS.blobIdleTimeoutMs;
+  const unclaimedTtl = options.unclaimedBlobTtlMs ?? WIRE_DEFAULTS.unclaimedBlobTtlMs;
+  const maxQueuedJson = options.maxQueuedJsonBytes ?? WIRE_DEFAULTS.maxQueuedJsonBytes;
 
-  const closed = yield* Deferred.make<void, TransportError>()
-  let isClosed = false
+  const closed = yield* Deferred.make<void, TransportError>();
+  let isClosed = false;
 
   // ── Outgoing ──────────────────────────────────────────────────────────────
-  const wake = Latch.makeUnsafe(false)
-  const jsonSpace = Latch.makeUnsafe(true)
-  const jsonQueue: Array<Uint8Array> = []
-  let queuedJsonBytes = 0
-  const outBlobs: Array<OutBlob> = []
-  let roundRobin = 0
+  const wake = Latch.makeUnsafe(false);
+  const jsonSpace = Latch.makeUnsafe(true);
+  const jsonQueue: Array<Uint8Array> = [];
+  let queuedJsonBytes = 0;
+  const outBlobs: Array<OutBlob> = [];
+  let roundRobin = 0;
 
   const nextBlobFrame = (): Uint8Array | undefined => {
     for (let i = 0; i < outBlobs.length; i++) {
-      const index = (roundRobin + i) % outBlobs.length
-      const blob = outBlobs[index]!
-      if (!blob.ready()) continue
-      const frame = blob.next()
+      const index = (roundRobin + i) % outBlobs.length;
+      const blob = outBlobs[index]!;
+      if (!blob.ready()) continue;
+      const frame = blob.next();
       if (blob.done()) {
-        outBlobs.splice(index, 1)
-        roundRobin = outBlobs.length === 0 ? 0 : index % outBlobs.length
+        outBlobs.splice(index, 1);
+        roundRobin = outBlobs.length === 0 ? 0 : index % outBlobs.length;
       } else {
-        roundRobin = (index + 1) % outBlobs.length
+        roundRobin = (index + 1) % outBlobs.length;
       }
-      return frame
+      return frame;
     }
-    return undefined
-  }
+    return undefined;
+  };
 
   const writer = Effect.gen(function* () {
     while (true) {
-      wake.closeUnsafe()
-      const json = jsonQueue.shift()
+      wake.closeUnsafe();
+      const json = jsonQueue.shift();
       if (json !== undefined) {
-        queuedJsonBytes -= json.byteLength
-        if (queuedJsonBytes <= maxQueuedJson / 2) jsonSpace.openUnsafe()
-        yield* transport.write(json)
-        continue
+        queuedJsonBytes -= json.byteLength;
+        if (queuedJsonBytes <= maxQueuedJson / 2) jsonSpace.openUnsafe();
+        yield* transport.write(json);
+        continue;
       }
-      const frame = nextBlobFrame()
+      const frame = nextBlobFrame();
       if (frame !== undefined) {
-        yield* transport.write(frame)
-        continue
+        yield* transport.write(frame);
+        continue;
       }
-      yield* wake.await
+      yield* wake.await;
     }
-  })
+  });
 
   const sendJson = (text: string): Effect.Effect<void, TransportError> =>
     Effect.suspend(() => {
-      if (isClosed) return Effect.fail(new TransportError({ message: "connection closed" }))
-      const frame = encodeJsonFrame(text)
-      jsonQueue.push(frame)
-      queuedJsonBytes += frame.byteLength
-      wake.openUnsafe()
+      if (isClosed) return Effect.fail(new TransportError({ message: "connection closed" }));
+      const frame = encodeJsonFrame(text);
+      jsonQueue.push(frame);
+      queuedJsonBytes += frame.byteLength;
+      wake.openUnsafe();
       if (queuedJsonBytes > maxQueuedJson) {
-        jsonSpace.closeUnsafe()
-        return jsonSpace.await
+        jsonSpace.closeUnsafe();
+        return jsonSpace.await;
       }
-      return Effect.void
-    })
+      return Effect.void;
+    });
 
-  const scope = yield* Effect.scope
+  const scope = yield* Effect.scope;
 
   const offerBlob = <E>(source: BlobSource<E>): Effect.Effect<BlobId> =>
     Effect.suspend(() => {
-      const id = `${prefix}${(++blobCounter).toString(36)}-${crypto.randomUUID().slice(0, 8)}`
+      const id = `${prefix}${(++blobCounter).toString(36)}-${crypto.randomUUID().slice(0, 8)}`;
       // Accept any byte buffer: some Bun APIs hand back an ArrayBuffer where a Uint8Array is typed.
       const bytes: Uint8Array | null =
         source instanceof Uint8Array
@@ -236,66 +236,66 @@ export const makeWire = Effect.fnUntraced(function* (
             ? new Uint8Array(source as unknown as ArrayBuffer)
             : ArrayBuffer.isView(source)
               ? new Uint8Array(source.buffer, source.byteOffset, source.byteLength)
-              : null
+              : null;
       if (bytes !== null) {
-        const frames = encodeBlob(id, bytes)
-        let pending = frames.next()
+        const frames = encodeBlob(id, bytes);
+        let pending = frames.next();
         outBlobs.push({
           id,
           ready: () => !pending.done,
           next: () => {
-            const frame = pending.value as Uint8Array
-            pending = frames.next()
-            return frame
+            const frame = pending.value as Uint8Array;
+            pending = frames.next();
+            return frame;
           },
           done: () => pending.done === true,
-        })
-        wake.openUnsafe()
-        return Effect.succeed(id as BlobId)
+        });
+        wake.openUnsafe();
+        return Effect.succeed(id as BlobId);
       }
-      const buffered: Array<Uint8Array> = []
-      const space = Latch.makeUnsafe(true)
-      let finished = false
+      const buffered: Array<Uint8Array> = [];
+      const space = Latch.makeUnsafe(true);
+      let finished = false;
       const push = (frame: Uint8Array) => {
-        buffered.push(frame)
-        wake.openUnsafe()
-      }
+        buffered.push(frame);
+        wake.openUnsafe();
+      };
       outBlobs.push({
         id,
         ready: () => buffered.length > 0,
         next: () => {
-          const frame = buffered.shift()!
-          if (buffered.length < OUT_BLOB_HIGH_WATER) space.openUnsafe()
-          return frame
+          const frame = buffered.shift()!;
+          if (buffered.length < OUT_BLOB_HIGH_WATER) space.openUnsafe();
+          return frame;
         },
         done: () => finished && buffered.length === 0,
-      })
+      });
       const produce = Stream.runForEach(source as Stream.Stream<Uint8Array, E>, (chunk) =>
         Effect.gen(function* () {
           for (let offset = 0; offset < chunk.byteLength; offset += BLOB_CHUNK_BYTES) {
-            push(encodeBlobFrame(id, chunk.subarray(offset, offset + BLOB_CHUNK_BYTES), false))
-            space.closeUnsafe()
-            if (buffered.length >= OUT_BLOB_HIGH_WATER) yield* space.await
+            push(encodeBlobFrame(id, chunk.subarray(offset, offset + BLOB_CHUNK_BYTES), false));
+            space.closeUnsafe();
+            if (buffered.length >= OUT_BLOB_HIGH_WATER) yield* space.await;
           }
-        }),
+        })
       ).pipe(
         Effect.exit,
         Effect.flatMap((exit) =>
           Effect.sync(() => {
-            finished = true
-            push(encodeBlobFrame(id, new Uint8Array(), true, Exit.isFailure(exit)))
-          }),
-        ),
-      )
-      return Effect.as(Effect.forkIn(produce, scope), id as BlobId)
-    })
+            finished = true;
+            push(encodeBlobFrame(id, new Uint8Array(), true, Exit.isFailure(exit)));
+          })
+        )
+      );
+      return Effect.as(Effect.forkIn(produce, scope), id as BlobId);
+    });
 
   // ── Incoming ──────────────────────────────────────────────────────────────
-  const inBlobs = new Map<string, InBlob>()
-  let bufferedBytes = 0
+  const inBlobs = new Map<string, InBlob>();
+  let bufferedBytes = 0;
 
   const inBlob = (blobId: string): InBlob => {
-    let blob = inBlobs.get(blobId)
+    let blob = inBlobs.get(blobId);
     if (blob === undefined) {
       blob = {
         parts: [],
@@ -308,213 +308,214 @@ export const makeWire = Effect.fnUntraced(function* (
         failure: null,
         wake: null,
         deferred: Deferred.makeUnsafe<Uint8Array, BlobError>(),
-      }
-      inBlobs.set(blobId, blob)
-      armSweep()
+      };
+      inBlobs.set(blobId, blob);
+      armSweep();
     }
-    return blob
-  }
+    return blob;
+  };
 
   const release = (blob: InBlob) => {
-    bufferedBytes -= blob.size
-    blob.size = 0
-    blob.parts = []
-  }
+    bufferedBytes -= blob.size;
+    blob.size = 0;
+    blob.parts = [];
+  };
 
   const failBlob = (blobId: string, blob: InBlob, reason: BlobFailure, message: string) => {
     if (blob.status === "receiving") {
-      release(blob)
-      blob.status = "failed"
-      blob.touched = Date.now()
-      blob.failure = new BlobError({ blobId, reason, message })
-      Deferred.doneUnsafe(blob.deferred, Exit.fail(blob.failure))
-      blob.wake?.()
+      release(blob);
+      blob.status = "failed";
+      blob.touched = Date.now();
+      blob.failure = new BlobError({ blobId, reason, message });
+      Deferred.doneUnsafe(blob.deferred, Exit.fail(blob.failure));
+      blob.wake?.();
     }
-  }
+  };
 
   const onBlobFrame = (frame: Extract<Frame, { kind: "blob" }>) => {
-    const blob = inBlob(frame.blobId)
-    if (blob.status !== "receiving") return
-    blob.touched = Date.now()
-    if (frame.aborted) return failBlob(frame.blobId, blob, "aborted", "the sender aborted the blob")
-    const length = frame.bytes.byteLength
+    const blob = inBlob(frame.blobId);
+    if (blob.status !== "receiving") return;
+    blob.touched = Date.now();
+    if (frame.aborted)
+      return failBlob(frame.blobId, blob, "aborted", "the sender aborted the blob");
+    const length = frame.bytes.byteLength;
     if (length > 0) {
       if (blob.received + length > maxBlobBytes)
-        return failBlob(frame.blobId, blob, "too-large", `blob exceeds ${maxBlobBytes} bytes`)
+        return failBlob(frame.blobId, blob, "too-large", `blob exceeds ${maxBlobBytes} bytes`);
       if (bufferedBytes + length > maxBuffered)
-        return failBlob(frame.blobId, blob, "too-large", "connection blob buffer is full")
+        return failBlob(frame.blobId, blob, "too-large", "connection blob buffer is full");
       // A view into a much larger read buffer would keep all of it alive; copy those.
-      const bytes = frame.bytes.buffer.byteLength > 2 * length ? frame.bytes.slice() : frame.bytes
-      blob.parts.push(bytes)
-      blob.size += length
-      blob.received += length
-      bufferedBytes += length
+      const bytes = frame.bytes.buffer.byteLength > 2 * length ? frame.bytes.slice() : frame.bytes;
+      blob.parts.push(bytes);
+      blob.size += length;
+      blob.received += length;
+      bufferedBytes += length;
     }
     if (frame.final) {
-      blob.status = "complete"
-      if (blob.claimed === "whole") resolveWhole(blob)
+      blob.status = "complete";
+      if (blob.claimed === "whole") resolveWhole(blob);
     }
-    blob.wake?.()
-  }
+    blob.wake?.();
+  };
 
   /** Hands a complete blob to its `takeBlob`, in one piece. */
   const resolveWhole = (blob: InBlob) => {
-    const bytes = concat(blob.parts, blob.size)
-    blob.parts = [bytes]
-    Deferred.doneUnsafe(blob.deferred, Exit.succeed(bytes))
-  }
+    const bytes = concat(blob.parts, blob.size);
+    blob.parts = [bytes];
+    Deferred.doneUnsafe(blob.deferred, Exit.succeed(bytes));
+  };
 
   const takeBlob = (blobId: string): Effect.Effect<Uint8Array, BlobError> =>
     Effect.suspend(() => {
-      const blob = inBlob(blobId)
+      const blob = inBlob(blobId);
       if (blob.claimed)
         return Effect.fail(
-          new BlobError({ blobId, reason: "closed", message: "blob already taken" }),
-        )
+          new BlobError({ blobId, reason: "closed", message: "blob already taken" })
+        );
       if (isClosed && blob.status === "receiving")
-        failBlob(blobId, blob, "closed", "connection closed before the blob arrived")
-      blob.claimed = "whole"
-      blob.touched = Date.now()
-      if (blob.status === "complete") resolveWhole(blob)
-      return Deferred.await(blob.deferred).pipe(Effect.ensuring(forget(blobId, blob)))
-    })
+        failBlob(blobId, blob, "closed", "connection closed before the blob arrived");
+      blob.claimed = "whole";
+      blob.touched = Date.now();
+      if (blob.status === "complete") resolveWhole(blob);
+      return Deferred.await(blob.deferred).pipe(Effect.ensuring(forget(blobId, blob)));
+    });
 
   const forget = (blobId: string, blob: InBlob) =>
     Effect.sync(() => {
-      blob.wake = null
+      blob.wake = null;
       if (blob.status === "receiving") {
         // The consumer gave up midway: drop the rest of the blob as it arrives,
         // and let the sweep forget the entry once the sender has moved on.
-        failBlob(blobId, blob, "closed", "the consumer stopped reading")
-        blob.claimed = false
-        return
+        failBlob(blobId, blob, "closed", "the consumer stopped reading");
+        blob.claimed = false;
+        return;
       }
       if (inBlobs.get(blobId) === blob) {
-        inBlobs.delete(blobId)
-        release(blob)
+        inBlobs.delete(blobId);
+        release(blob);
       }
-    })
+    });
 
   const takeBlobStream = (
     blobId: string,
-    takeOptions: TakeStreamOptions = {},
+    takeOptions: TakeStreamOptions = {}
   ): Stream.Stream<Uint8Array, BlobError> =>
     Stream.suspend(() => {
-      const blob = inBlob(blobId)
+      const blob = inBlob(blobId);
       if (blob.claimed)
         return Stream.fail(
-          new BlobError({ blobId, reason: "closed", message: "blob already taken" }),
-        )
+          new BlobError({ blobId, reason: "closed", message: "blob already taken" })
+        );
       if (isClosed && blob.status === "receiving")
-        failBlob(blobId, blob, "closed", "connection closed before the blob arrived")
-      blob.claimed = "stream"
-      blob.idleTimeout = takeOptions.idleTimeout ?? true
-      blob.touched = Date.now()
+        failBlob(blobId, blob, "closed", "connection closed before the blob arrived");
+      blob.claimed = "stream";
+      blob.idleTimeout = takeOptions.idleTimeout ?? true;
+      blob.touched = Date.now();
       const pull = Effect.callback<
         readonly [Uint8Array, ...Array<Uint8Array>],
         BlobError | Cause.Done
       >((resume) => {
         const settle = (): boolean => {
           if (blob.parts.length > 0) {
-            const parts = blob.parts as [Uint8Array, ...Array<Uint8Array>]
-            blob.parts = []
-            bufferedBytes -= blob.size
-            blob.size = 0
-            resume(Effect.succeed(parts))
-            return true
+            const parts = blob.parts as [Uint8Array, ...Array<Uint8Array>];
+            blob.parts = [];
+            bufferedBytes -= blob.size;
+            blob.size = 0;
+            resume(Effect.succeed(parts));
+            return true;
           }
           if (blob.status === "failed") {
-            resume(Effect.fail(blob.failure!))
-            return true
+            resume(Effect.fail(blob.failure!));
+            return true;
           }
           if (blob.status === "complete") {
-            resume(Effect.fail(Cause.Done()))
-            return true
+            resume(Effect.fail(Cause.Done()));
+            return true;
           }
-          return false
-        }
-        if (settle()) return
+          return false;
+        };
+        if (settle()) return;
         // Cleared before settling: resuming can start the next pull synchronously.
         const waiter = () => {
-          blob.wake = null
-          if (!settle()) blob.wake = waiter
-        }
-        blob.wake = waiter
+          blob.wake = null;
+          if (!settle()) blob.wake = waiter;
+        };
+        blob.wake = waiter;
         return Effect.sync(() => {
-          blob.wake = null
-        })
-      })
-      return Stream.fromPull(Effect.succeed(pull)).pipe(Stream.ensuring(forget(blobId, blob)))
-    })
+          blob.wake = null;
+        });
+      });
+      return Stream.fromPull(Effect.succeed(pull)).pipe(Stream.ensuring(forget(blobId, blob)));
+    });
 
   // Expiry is swept by a timer that only runs while incoming blobs exist, so an
   // idle connection never wakes the process.
-  const sweepEveryMs = Math.max(50, Math.min(1000, idleTimeout / 4))
-  let sweepTimer: ReturnType<typeof setTimeout> | undefined
+  const sweepEveryMs = Math.max(50, Math.min(1000, idleTimeout / 4));
+  let sweepTimer: ReturnType<typeof setTimeout> | undefined;
   const armSweep = () => {
-    if (sweepTimer !== undefined || isClosed || inBlobs.size === 0) return
+    if (sweepTimer !== undefined || isClosed || inBlobs.size === 0) return;
     sweepTimer = setTimeout(() => {
-      sweepTimer = undefined
-      sweep()
-      armSweep()
-    }, sweepEveryMs)
-  }
+      sweepTimer = undefined;
+      sweep();
+      armSweep();
+    }, sweepEveryMs);
+  };
 
   const sweep = () => {
-    const now = Date.now()
+    const now = Date.now();
     for (const [blobId, blob] of inBlobs) {
       if (blob.status === "receiving" && blob.idleTimeout && now - blob.touched > idleTimeout) {
-        failBlob(blobId, blob, "timeout", `no progress for ${idleTimeout}ms`)
+        failBlob(blobId, blob, "timeout", `no progress for ${idleTimeout}ms`);
       } else if (
         !blob.claimed &&
         blob.status !== "receiving" &&
         now - blob.touched > unclaimedTtl
       ) {
-        inBlobs.delete(blobId)
-        release(blob)
+        inBlobs.delete(blobId);
+        release(blob);
       }
     }
-  }
+  };
 
-  const decoder = new FrameDecoder()
+  const decoder = new FrameDecoder();
   const reader = transport.incoming.pipe(
     Stream.runForEach((chunk) =>
       Effect.suspend(() => {
-        let frames: Array<Frame>
+        let frames: Array<Frame>;
         try {
-          frames = decoder.push(chunk)
+          frames = decoder.push(chunk);
         } catch (cause) {
-          return Effect.fail(new TransportError({ message: "malformed frame", cause }))
+          return Effect.fail(new TransportError({ message: "malformed frame", cause }));
         }
-        let i = 0
+        let i = 0;
         return Effect.whileLoop({
           while: () => i < frames.length,
           body: () => {
-            const frame = frames[i++]!
-            if (frame.kind === "json") return onJson(frame.text)
-            onBlobFrame(frame)
-            return Effect.void
+            const frame = frames[i++]!;
+            if (frame.kind === "json") return onJson(frame.text);
+            onBlobFrame(frame);
+            return Effect.void;
           },
           step: () => {},
-        })
-      }),
-    ),
-  )
+        });
+      })
+    )
+  );
 
   const shutdown = (exit: Exit.Exit<void, TransportError>) =>
     Effect.suspend(() => {
-      if (isClosed) return Effect.void
-      isClosed = true
-      clearTimeout(sweepTimer)
-      sweepTimer = undefined
-      for (const [blobId, blob] of inBlobs) failBlob(blobId, blob, "closed", "connection closed")
-      jsonSpace.openUnsafe()
-      return Effect.andThen(Deferred.done(closed, exit), transport.close)
-    })
+      if (isClosed) return Effect.void;
+      isClosed = true;
+      clearTimeout(sweepTimer);
+      sweepTimer = undefined;
+      for (const [blobId, blob] of inBlobs) failBlob(blobId, blob, "closed", "connection closed");
+      jsonSpace.openUnsafe();
+      return Effect.andThen(Deferred.done(closed, exit), transport.close);
+    });
 
-  yield* Effect.addFinalizer(() => shutdown(Exit.void))
-  yield* reader.pipe(Effect.exit, Effect.flatMap(shutdown), Effect.forkScoped)
-  yield* writer.pipe(Effect.exit, Effect.flatMap(shutdown), Effect.forkScoped)
+  yield* Effect.addFinalizer(() => shutdown(Exit.void));
+  yield* reader.pipe(Effect.exit, Effect.flatMap(shutdown), Effect.forkScoped);
+  yield* writer.pipe(Effect.exit, Effect.flatMap(shutdown), Effect.forkScoped);
 
   return {
     sendJson,
@@ -528,5 +529,5 @@ export const makeWire = Effect.fnUntraced(function* (
       outgoingBlobs: outBlobs.length,
       queuedJsonBytes,
     }),
-  } satisfies Wire
-})
+  } satisfies Wire;
+});

@@ -13,39 +13,39 @@
 // Every command loads only what it needs: `bridge` runs once per remote Client for as
 // long as it stays connected, and `serve` should not carry the install code.
 
-const [command, ...args] = process.argv.slice(2)
+const [command, ...args] = process.argv.slice(2);
 
 switch (command) {
   case "serve": {
-    const { runServe } = await import("./transport/serve.ts")
-    runServe()
-    break
+    const { runServe } = await import("./transport/serve.ts");
+    runServe();
+    break;
   }
   case "bridge": {
-    const { runBridge } = await import("./transport/bridge.ts")
-    process.exit(await runBridge())
-    break
+    const { runBridge } = await import("./transport/bridge.ts");
+    process.exit(await runBridge());
+    break;
   }
   case "version": {
-    const { versionLine } = await import("./service/platform.ts")
-    console.log(versionLine())
-    break
+    const { versionLine } = await import("./service/platform.ts");
+    console.log(versionLine());
+    break;
   }
   case "selftest": {
-    const { selfTest } = await import("./service/selftest.ts")
-    const result = await selfTest()
-    console.log(result.lines.join("\n"))
-    process.exitCode = result.ok ? 0 : 1
-    break
+    const { selfTest } = await import("./service/selftest.ts");
+    const result = await selfTest();
+    console.log(result.lines.join("\n"));
+    process.exitCode = result.ok ? 0 : 1;
+    break;
   }
   default: {
-    const { isServiceCommand, runServiceCommand } = await import("./service/cli.ts")
+    const { isServiceCommand, runServiceCommand } = await import("./service/cli.ts");
     if (isServiceCommand(command)) {
-      process.exit(await runServiceCommand(command, args))
+      process.exit(await runServiceCommand(command, args));
     }
-    console.error(`usage: polaris <serve|bridge|install|uninstall|upgrade|version|selftest>`)
-    process.exit(command === undefined ? 0 : 2)
+    console.error(`usage: polaris <serve|bridge|install|uninstall|upgrade|version|selftest>`);
+    process.exit(command === undefined ? 0 : 2);
   }
 }
 
-export {}
+export {};

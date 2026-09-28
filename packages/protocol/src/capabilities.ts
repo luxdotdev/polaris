@@ -1,7 +1,7 @@
-import { Schema, SchemaTransformation } from "effect"
+import { Schema, SchemaTransformation } from "effect";
 
 /** Bumped only for changes capability negotiation can't absorb. */
-export const PROTOCOL_VERSION = 1
+export const PROTOCOL_VERSION = 1;
 
 /**
  * Features negotiated in `hello`. A Client hides what a Daemon lacks, so an
@@ -29,10 +29,10 @@ export const Capability = Schema.Literals([
   /** `terminal.attachBinary`: terminal output as raw bytes on the blob channel, not base64 JSON. */
   "terminal.binary",
   "blobs",
-])
-export type Capability = typeof Capability.Type
+]);
+export type Capability = typeof Capability.Type;
 
-const isCapability = Schema.is(Capability)
+const isCapability = Schema.is(Capability);
 
 /**
  * A capability list as it travels in `hello`. Names this build doesn't know are
@@ -45,6 +45,6 @@ export const CapabilityList = Schema.Array(Schema.String).pipe(
     SchemaTransformation.transform<ReadonlyArray<Capability>, ReadonlyArray<string>>({
       decode: (names) => names.filter(isCapability),
       encode: (capabilities) => capabilities,
-    }),
-  ),
-)
+    })
+  )
+);

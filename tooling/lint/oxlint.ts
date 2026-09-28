@@ -1,36 +1,36 @@
-import { existsSync } from "node:fs"
-import { join, resolve } from "node:path"
-import { Schema } from "effect"
-import type { Violation } from "./baseline.ts"
+import { existsSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { Schema } from "effect";
+import type { Violation } from "./baseline.ts";
 
-export const ROOT = resolve(import.meta.dir, "../..")
+export const ROOT = resolve(import.meta.dir, "../..");
 
 /** Files oxlint lints; everything else passed on the command line is skipped. */
-export const LINTABLE = /\.[cm]?[jt]sx?$/
+export const LINTABLE = /\.[cm]?[jt]sx?$/;
 
-const Span = Schema.Struct({ line: Schema.Number, column: Schema.Number })
+const Span = Schema.Struct({ line: Schema.Number, column: Schema.Number });
 
 const Diagnostic = Schema.Struct({
   code: Schema.optional(Schema.String),
   message: Schema.String,
   filename: Schema.String,
   labels: Schema.optional(Schema.Array(Schema.Struct({ span: Span }))),
-})
+});
 
-const Report = Schema.Struct({ diagnostics: Schema.Array(Diagnostic) })
+const Report = Schema.Struct({ diagnostics: Schema.Array(Diagnostic) });
 
-const decodeReport = Schema.decodeUnknownSync(Schema.fromJsonString(Report))
+const decodeReport = Schema.decodeUnknownSync(Schema.fromJsonString(Report));
 
 /** `anti-slop(no-object-parameters)` → `anti-slop/no-object-parameters`; core rules drop `eslint`. */
 export const ruleName = (code: string | undefined): string => {
-  const match = /^([\w-]+)\((.+)\)$/.exec(code ?? "")
+  const match = /^([\w-]+)\((.+)\)$/.exec(code ?? "");
 
-  if (match === null) return code === undefined || code === "" ? "oxlint/diagnostic" : code
+  if (match === null) return code === undefined || code === "" ? "oxlint/diagnostic" : code;
 
-  const [, plugin, rule] = match
+  const [, plugin, rule] = match;
 
-  return plugin === "eslint" ? `${rule}` : `${plugin}/${rule}`
-}
+  return plugin === "eslint" ? `${rule}` : `${plugin}/${rule}`;
+};
 
 export class OxlintFailed extends Schema.TaggedError<OxlintFailed>()("OxlintFailed", {
   output: Schema.String,
@@ -41,10 +41,10 @@ export class OxlintFailed extends Schema.TaggedError<OxlintFailed>()("OxlintFail
  * applies) over `files`, or the whole repo when `files` is empty.
  */
 export const runOxlint = (files: ReadonlyArray<string>): ReadonlyArray<Violation> => {
-  const bin = join(ROOT, "node_modules/.bin/oxlint")
+  const bin = join(ROOT, "node_modules/.bin/oxlint");
 
   if (!existsSync(bin)) {
-    throw new OxlintFailed({ output: `oxlint isn't installed at ${bin}. Run bun install first.` })
+    throw new OxlintFailed({ output: `oxlint isn't installed at ${bin}. Run bun install first.` });
   }
 
   const run = Bun.spawnSync(
@@ -52,10 +52,10 @@ export const runOxlint = (files: ReadonlyArray<string>): ReadonlyArray<Violation
     {
       cwd: ROOT,
       env: { ...process.env, FORCE_COLOR: "0" },
-    },
-  )
+    }
+  );
 
-  const stdout = run.stdout.toString()
+  const stdout = run.stdout.toString();
 
   try {
     return decodeReport(stdout).diagnostics.map((d) => ({
@@ -64,8 +64,8 @@ export const runOxlint = (files: ReadonlyArray<string>): ReadonlyArray<Violation
       line: d.labels?.[0]?.span.line ?? 0,
       column: d.labels?.[0]?.span.column ?? 0,
       message: d.message,
-    }))
+    }));
   } catch {
-    throw new OxlintFailed({ output: `${stdout}\n${run.stderr.toString()}`.trim() })
+    throw new OxlintFailed({ output: `${stdout}\n${run.stderr.toString()}`.trim() });
   }
-}
+};

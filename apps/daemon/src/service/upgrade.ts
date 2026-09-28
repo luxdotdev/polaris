@@ -31,15 +31,15 @@
  * Existing Client connections are not handed off: they close on exec and the
  * Client resumes with `afterSequence`, as after any reconnect.
  */
-import { randomUUID } from "node:crypto"
-import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs"
-import { join } from "node:path"
-import type { Socket, SocketHandler } from "bun"
-import { Effect, Schema } from "effect"
-import { paths } from "../paths.ts"
-import { CommandRunner } from "./CommandRunner.ts"
-import * as libc from "./libc.ts"
-import { parseVersionLine, runtimePlatform, VERSION } from "./platform.ts"
+import { randomUUID } from "node:crypto";
+import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import type { Socket, SocketHandler } from "bun";
+import { Effect, Schema } from "effect";
+import { paths } from "../paths.ts";
+import { CommandRunner } from "./CommandRunner.ts";
+import * as libc from "./libc.ts";
+import { parseVersionLine, runtimePlatform, VERSION } from "./platform.ts";
 
 export class UpgradeError extends Schema.TaggedError<UpgradeError>()("UpgradeError", {
   step: Schema.String,
@@ -47,7 +47,7 @@ export class UpgradeError extends Schema.TaggedError<UpgradeError>()("UpgradeErr
 }) {}
 
 /** Environment variable carrying the hand-off envelope into the new image. */
-export const HANDOFF_ENV = "POLARIS_HANDOFF"
+export const HANDOFF_ENV = "POLARIS_HANDOFF";
 
 export const Handoff = Schema.Struct({
   /** The inherited listening socket, or null if the Daemon had none. */
@@ -58,18 +58,18 @@ export const Handoff = Schema.Struct({
   children: Schema.Record(Schema.String, Schema.Int),
   fromVersion: Schema.String,
   requestId: Schema.NullOr(Schema.String),
-})
-export type Handoff = typeof Handoff.Type
+});
+export type Handoff = typeof Handoff.Type;
 
 const fail = (step: string) => (error: unknown) =>
-  new UpgradeError({ step, message: error instanceof Error ? error.message : String(error) })
+  new UpgradeError({ step, message: error instanceof Error ? error.message : String(error) });
 
 // ── Before exec (old image) ────────────────────────────────────────────────
 
 export interface HandoffExtras {
-  readonly fds?: Readonly<Record<string, number>>
-  readonly children?: Readonly<Record<string, number>>
-  readonly requestId?: string | null
+  readonly fds?: Readonly<Record<string, number>>;
+  readonly children?: Readonly<Record<string, number>>;
+  readonly requestId?: string | null;
 }
 
 /**
@@ -80,44 +80,44 @@ export interface HandoffExtras {
  */
 export const prepareHandoff = Effect.fn("prepareHandoff")(function* (
   listenerFd: number | null,
-  extras: HandoffExtras = {},
+  extras: HandoffExtras = {}
 ) {
-  const fds = extras.fds ?? {}
-  const all = [...(listenerFd === null ? [] : [listenerFd]), ...Object.values(fds)]
+  const fds = extras.fds ?? {};
+  const all = [...(listenerFd === null ? [] : [listenerFd]), ...Object.values(fds)];
   yield* Effect.try({
     try: () => {
-      for (const fd of all) libc.clearCloseOnExec(fd)
+      for (const fd of all) libc.clearCloseOnExec(fd);
     },
     catch: fail("clear close-on-exec"),
-  })
+  });
   const handoff: Handoff = {
     listenerFd,
     fds: { ...fds },
     children: { ...(extras.children ?? {}) },
     fromVersion: VERSION,
     requestId: extras.requestId ?? null,
-  }
-  return { [HANDOFF_ENV]: JSON.stringify(handoff) } as Record<string, string>
-})
+  };
+  return { [HANDOFF_ENV]: JSON.stringify(handoff) } as Record<string, string>;
+});
 
 /** Undo `prepareHandoff` after a failed exec. */
 export const abortHandoff = (fds: ReadonlyArray<number>) =>
   Effect.sync(() => {
     for (const fd of fds) {
       try {
-        libc.setCloseOnExec(fd)
+        libc.setCloseOnExec(fd);
       } catch {}
     }
-  })
+  });
 
 /**
  * Replace this process with `binary`, same PID. `env` is merged over the
  * current environment. Only returns by failing.
  */
 export const execInto = Effect.fn("execInto")(function* (options: {
-  readonly binary: string
-  readonly args: ReadonlyArray<string>
-  readonly env?: Readonly<Record<string, string>>
+  readonly binary: string;
+  readonly args: ReadonlyArray<string>;
+  readonly env?: Readonly<Record<string, string>>;
 }) {
   return yield* Effect.try({
     try: () =>
@@ -126,40 +126,40 @@ export const execInto = Effect.fn("execInto")(function* (options: {
         ...options.env,
       }),
     catch: fail("execve"),
-  })
-})
+  });
+});
 
 // ── After exec (new image) ─────────────────────────────────────────────────
 
-let taken: Handoff | null | undefined
+let taken: Handoff | null | undefined;
 
 /**
  * Read (once) and remove the hand-off envelope from the environment, so it
  * is not passed on to Harnesses or terminals. Null on a cold start.
  */
 export const takeHandoff = Effect.fn("takeHandoff")(function* () {
-  if (taken !== undefined) return taken
-  const raw = process.env[HANDOFF_ENV]
-  delete process.env[HANDOFF_ENV]
+  if (taken !== undefined) return taken;
+  const raw = process.env[HANDOFF_ENV];
+  delete process.env[HANDOFF_ENV];
   if (raw === undefined) {
-    taken = null
-    return taken
+    taken = null;
+    return taken;
   }
   taken = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Handoff))(raw).pipe(
-    Effect.mapError(fail("read hand-off")),
-  )
+    Effect.mapError(fail("read hand-off"))
+  );
   // Keep inherited fds out of anything this image spawns.
   for (const fd of Object.values(taken.fds)) {
     try {
-      libc.setCloseOnExec(fd)
+      libc.setCloseOnExec(fd);
     } catch {}
   }
-  return taken
-})
+  return taken;
+});
 
 export interface AdoptedListener {
-  readonly fd: number
-  readonly fromVersion: string
+  readonly fd: number;
+  readonly fromVersion: string;
   /**
    * Accept every connection queued on the inherited listener, plus any that
    * arrive within `graceMs` (clients that resolved the socket path before the
@@ -169,8 +169,8 @@ export interface AdoptedListener {
    */
   readonly drain: (
     onConnection: (fd: number) => void,
-    options?: { readonly graceMs?: number },
-  ) => Effect.Effect<number, UpgradeError>
+    options?: { readonly graceMs?: number }
+  ) => Effect.Effect<number, UpgradeError>;
 }
 
 /**
@@ -178,46 +178,46 @@ export interface AdoptedListener {
  * records the upgrade as done for the `polaris upgrade` that asked for it.
  */
 export const adoptListener = Effect.fn("adoptListener")(function* () {
-  const handoff = yield* takeHandoff()
-  if (handoff === null) return null
+  const handoff = yield* takeHandoff();
+  if (handoff === null) return null;
   yield* writeStatus({
     requestId: handoff.requestId,
     state: "done",
     version: VERSION,
     pid: process.pid,
     error: null,
-  })
-  if (handoff.listenerFd === null) return null
-  const fd = handoff.listenerFd
+  });
+  if (handoff.listenerFd === null) return null;
+  const fd = handoff.listenerFd;
   const drain: AdoptedListener["drain"] = (onConnection, options) =>
     Effect.gen(function* () {
-      const graceMs = options?.graceMs ?? 250
-      const deadline = Date.now() + graceMs
-      let accepted = 0
+      const graceMs = options?.graceMs ?? 250;
+      const deadline = Date.now() + graceMs;
+      let accepted = 0;
       for (;;) {
-        const wait = Math.max(0, deadline - Date.now())
+        const wait = Math.max(0, deadline - Date.now());
         const ready = yield* Effect.try({
           // Short poll slices keep the event loop responsive during the grace period.
           try: () => libc.pollReadable(fd, Math.min(wait, 10)),
           catch: fail("poll inherited listener"),
-        })
+        });
         if (ready) {
           const connection = yield* Effect.try({
             try: () => libc.acceptFd(fd),
             catch: fail("accept on inherited listener"),
-          })
-          onConnection(connection)
-          accepted++
-          continue
+          });
+          onConnection(connection);
+          accepted++;
+          continue;
         }
-        if (wait === 0) break
-        yield* Effect.sleep(5)
+        if (wait === 0) break;
+        yield* Effect.sleep(5);
       }
-      yield* Effect.sync(() => libc.closeFd(fd))
-      return accepted
-    })
-  return { fd, fromVersion: handoff.fromVersion, drain } satisfies AdoptedListener
-})
+      yield* Effect.sync(() => libc.closeFd(fd));
+      return accepted;
+    });
+  return { fd, fromVersion: handoff.fromVersion, drain } satisfies AdoptedListener;
+});
 
 /**
  * Wrap a connected socket fd (accepted from the inherited listener, or a
@@ -226,24 +226,24 @@ export const adoptListener = Effect.fn("adoptListener")(function* () {
  */
 export const connectFd = <Data = undefined>(
   fd: number,
-  socket: SocketHandler<Data>,
+  socket: SocketHandler<Data>
 ): Promise<Socket<Data>> =>
   (
     Bun.connect as unknown as (options: {
-      fd: number
-      socket: SocketHandler<Data>
+      fd: number;
+      socket: SocketHandler<Data>;
     }) => Promise<Socket<Data>>
   )({
     fd,
     socket,
-  })
+  });
 
 /** The fd of a `Bun.listen` (or `node:net`) listener; present at runtime, missing from the types. */
 export const listenerFd = (listener: object): number => {
-  const fd = (listener as { readonly fd?: unknown }).fd
-  if (typeof fd !== "number") throw new Error("listener has no fd")
-  return fd
-}
+  const fd = (listener as { readonly fd?: unknown }).fd;
+  if (typeof fd !== "number") throw new Error("listener has no fd");
+  return fd;
+};
 
 /**
  * Bind a listener at `socketPath` without a window where the path is missing
@@ -252,37 +252,37 @@ export const listenerFd = (listener: object): number => {
  */
 export const bindAtomically = <A, E, R>(
   socketPath: string,
-  bind: (temporaryPath: string) => Effect.Effect<A, E, R>,
+  bind: (temporaryPath: string) => Effect.Effect<A, E, R>
 ): Effect.Effect<A, E | UpgradeError, R> =>
   Effect.gen(function* () {
-    const temporary = `${socketPath}.${process.pid}.new`
-    yield* Effect.sync(() => rmSync(temporary, { force: true }))
-    const listener = yield* bind(temporary)
+    const temporary = `${socketPath}.${process.pid}.new`;
+    yield* Effect.sync(() => rmSync(temporary, { force: true }));
+    const listener = yield* bind(temporary);
     yield* Effect.try({
       try: () => renameSync(temporary, socketPath),
       catch: fail("rename socket"),
-    })
-    return listener
-  })
+    });
+    return listener;
+  });
 
 // ── Upgrade requests (`polaris upgrade <path>` → running Daemon) ───────────
 
 export const upgradeFiles = () => {
-  const root = paths().root
+  const root = paths().root;
   return {
     /** Written by the Daemon at startup; `polaris upgrade` signals this PID. */
     pid: join(root, "daemon.pid"),
     request: join(root, "upgrade-request.json"),
     status: join(root, "upgrade-status.json"),
-  }
-}
+  };
+};
 
 export const UpgradeRequest = Schema.Struct({
   requestId: Schema.String,
   binary: Schema.String,
   version: Schema.String,
-})
-export type UpgradeRequest = typeof UpgradeRequest.Type
+});
+export type UpgradeRequest = typeof UpgradeRequest.Type;
 
 export const UpgradeStatus = Schema.Struct({
   requestId: Schema.NullOr(Schema.String),
@@ -290,59 +290,59 @@ export const UpgradeStatus = Schema.Struct({
   version: Schema.String,
   pid: Schema.Int,
   error: Schema.NullOr(Schema.String),
-})
-export type UpgradeStatus = typeof UpgradeStatus.Type
+});
+export type UpgradeStatus = typeof UpgradeStatus.Type;
 
 const writeJsonAtomic = (path: string, value: unknown) => {
-  const temporary = `${path}.${process.pid}.tmp`
-  writeFileSync(temporary, `${JSON.stringify(value)}\n`, { mode: 0o600 })
-  renameSync(temporary, path)
-}
+  const temporary = `${path}.${process.pid}.tmp`;
+  writeFileSync(temporary, `${JSON.stringify(value)}\n`, { mode: 0o600 });
+  renameSync(temporary, path);
+};
 
 const writeStatus = (status: UpgradeStatus) =>
   Effect.try({
     try: () => writeJsonAtomic(upgradeFiles().status, status),
     catch: fail("write status"),
-  })
+  });
 
 export const readStatus = Effect.fn("readStatus")(function* () {
-  const file = upgradeFiles().status
-  if (!existsSync(file)) return null
+  const file = upgradeFiles().status;
+  if (!existsSync(file)) return null;
   return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(UpgradeStatus))(
-    readFileSync(file, "utf8"),
-  ).pipe(Effect.orElseSucceed(() => null))
-})
+    readFileSync(file, "utf8")
+  ).pipe(Effect.orElseSucceed(() => null));
+});
 
 /** Run `<binary> version` and check it is a Daemon build for this platform. */
 export const validateBinary = Effect.fn("validateBinary")(function* (binary: string) {
-  const runner = yield* CommandRunner
-  const result = yield* runner.run([binary, "version"], { timeoutMs: 10_000 })
-  const info = result.code === 0 ? parseVersionLine(result.stdout) : null
+  const runner = yield* CommandRunner;
+  const result = yield* runner.run([binary, "version"], { timeoutMs: 10_000 });
+  const info = result.code === 0 ? parseVersionLine(result.stdout) : null;
   if (info === null) {
     return yield* new UpgradeError({
       step: "validate",
       message: `\`${binary} version\` exited ${result.code}: ${(result.stderr || result.stdout).trim()}`,
-    })
+    });
   }
-  const platform = runtimePlatform()
+  const platform = runtimePlatform();
   if (info.platform !== platform) {
     return yield* new UpgradeError({
       step: "validate",
       message: `${binary} is built for ${info.platform}, this Host is ${platform}`,
-    })
+    });
   }
-  return info
-})
+  return info;
+});
 
 export interface UpgradeHooks {
   /** The Daemon's listening socket fd right now, if it has one. */
-  readonly listenerFd: () => number | null
+  readonly listenerFd: () => number | null;
   /** Named fds and children to keep across the exec (Harness socketpairs). */
-  readonly collect?: () => Effect.Effect<Required<Omit<HandoffExtras, "requestId">>>
+  readonly collect?: () => Effect.Effect<Required<Omit<HandoffExtras, "requestId">>>;
   /** Last chance to flush state before the process image is replaced. */
-  readonly beforeExec?: Effect.Effect<void>
+  readonly beforeExec?: Effect.Effect<void>;
   /** argv after the binary; defaults to this process's own arguments. */
-  readonly args?: ReadonlyArray<string>
+  readonly args?: ReadonlyArray<string>;
 }
 
 /**
@@ -352,84 +352,84 @@ export interface UpgradeHooks {
  */
 export interface HandoffContributor {
   /** For logs and tests. */
-  readonly name?: string
-  readonly collect: () => Effect.Effect<Required<Omit<HandoffExtras, "requestId">>>
+  readonly name?: string;
+  readonly collect: () => Effect.Effect<Required<Omit<HandoffExtras, "requestId">>>;
   /** Last chance to write state for the new image (after collect, just before exec). */
-  readonly beforeExec?: Effect.Effect<void>
+  readonly beforeExec?: Effect.Effect<void>;
   /** The exec failed: the old image keeps running, undo `beforeExec`. */
-  readonly abort?: Effect.Effect<void>
+  readonly abort?: Effect.Effect<void>;
 }
 
-const contributors = new Set<HandoffContributor>()
+const contributors = new Set<HandoffContributor>();
 
 /** Register `contributor` for as long as the scope is open. */
 export const registerHandoffContributor = (contributor: HandoffContributor) =>
   Effect.acquireRelease(
     Effect.sync(() => contributors.add(contributor)),
-    () => Effect.sync(() => contributors.delete(contributor)),
-  )
+    () => Effect.sync(() => contributors.delete(contributor))
+  );
 
 /** The contributors registered right now, in registration order. */
-export const handoffContributors = (): ReadonlyArray<HandoffContributor> => [...contributors]
+export const handoffContributors = (): ReadonlyArray<HandoffContributor> => [...contributors];
 
 const collectContributors = Effect.gen(function* () {
-  const fds: Record<string, number> = {}
-  const children: Record<string, number> = {}
+  const fds: Record<string, number> = {};
+  const children: Record<string, number> = {};
   for (const contributor of contributors) {
-    const extras = yield* contributor.collect()
-    Object.assign(fds, extras.fds)
-    Object.assign(children, extras.children)
+    const extras = yield* contributor.collect();
+    Object.assign(fds, extras.fds);
+    Object.assign(children, extras.children);
   }
-  return { fds, children }
-})
+  return { fds, children };
+});
 
 /** Validate `request` and exec into it. Returns only if the upgrade failed. */
 export const performUpgrade = Effect.fn("performUpgrade")(function* (
   request: UpgradeRequest,
-  hooks: UpgradeHooks,
+  hooks: UpgradeHooks
 ) {
   const status = (state: UpgradeStatus["state"], error: string | null = null) =>
-    writeStatus({ requestId: request.requestId, state, version: VERSION, pid: process.pid, error })
-  yield* status("validating")
+    writeStatus({ requestId: request.requestId, state, version: VERSION, pid: process.pid, error });
+  yield* status("validating");
   const attempt = Effect.gen(function* () {
-    const info = yield* validateBinary(request.binary)
+    const info = yield* validateBinary(request.binary);
     if (info.version !== request.version) {
       return yield* new UpgradeError({
         step: "validate",
         message: `${request.binary} reports ${info.version}, expected ${request.version}`,
-      })
+      });
     }
-    const own = hooks.collect ? yield* hooks.collect() : { fds: {}, children: {} }
-    const contributed = yield* collectContributors
+    const own = hooks.collect ? yield* hooks.collect() : { fds: {}, children: {} };
+    const contributed = yield* collectContributors;
     const extras = {
       fds: { ...own.fds, ...contributed.fds },
       children: { ...own.children, ...contributed.children },
-    }
-    const listenerFd = hooks.listenerFd()
-    if (hooks.beforeExec) yield* hooks.beforeExec
+    };
+    const listenerFd = hooks.listenerFd();
+    if (hooks.beforeExec) yield* hooks.beforeExec;
     for (const contributor of contributors)
-      if (contributor.beforeExec) yield* contributor.beforeExec
+      if (contributor.beforeExec) yield* contributor.beforeExec;
     const abortContributors = Effect.forEach(
       [...contributors],
       (contributor) => contributor.abort ?? Effect.void,
-      { discard: true },
-    )
-    yield* status("exec")
+      { discard: true }
+    );
+    yield* status("exec");
     const env = yield* prepareHandoff(listenerFd, {
       ...extras,
       requestId: request.requestId,
-    }).pipe(Effect.tapError(() => abortContributors))
-    const kept = [...(listenerFd === null ? [] : [listenerFd]), ...Object.values(extras.fds)]
+    }).pipe(Effect.tapError(() => abortContributors));
+    const kept = [...(listenerFd === null ? [] : [listenerFd]), ...Object.values(extras.fds)];
     return yield* execInto({
       binary: request.binary,
       args: hooks.args ?? process.argv.slice(2),
       env,
-    }).pipe(Effect.tapError(() => Effect.andThen(abortHandoff(kept), abortContributors)))
-  })
+    }).pipe(Effect.tapError(() => Effect.andThen(abortHandoff(kept), abortContributors)));
+  });
   return yield* attempt.pipe(
-    Effect.tapError((error) => status("failed", `${error.step}: ${error.message}`)),
-  )
-})
+    Effect.tapError((error) => status("failed", `${error.step}: ${error.message}`))
+  );
+});
 
 /**
  * Write the pid file and exec into a new binary whenever `polaris upgrade`
@@ -437,52 +437,52 @@ export const performUpgrade = Effect.fn("performUpgrade")(function* (
  * the scope closes.
  */
 export const serveUpgrades = Effect.fn("serveUpgrades")(function* (hooks: UpgradeHooks) {
-  const context = yield* Effect.context<CommandRunner>()
-  const files = upgradeFiles()
+  const context = yield* Effect.context<CommandRunner>();
+  const files = upgradeFiles();
   yield* Effect.try({
     try: () => writeFileSync(files.pid, `${process.pid}\n`),
     catch: fail("write pid file"),
-  })
+  });
   const onSignal = () => {
     const program = Effect.gen(function* () {
       const raw = yield* Effect.try({
         try: () => readFileSync(files.request, "utf8"),
         catch: fail("read request"),
-      })
-      yield* Effect.sync(() => rmSync(files.request, { force: true }))
+      });
+      yield* Effect.sync(() => rmSync(files.request, { force: true }));
       const request = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(UpgradeRequest))(
-        raw,
-      ).pipe(Effect.mapError(fail("decode request")))
-      yield* performUpgrade(request, hooks)
+        raw
+      ).pipe(Effect.mapError(fail("decode request")));
+      yield* performUpgrade(request, hooks);
     }).pipe(
       Effect.catch((error) => Effect.logError("upgrade failed", error)),
-      Effect.provideContext(context),
-    )
-    Effect.runFork(program)
-  }
+      Effect.provideContext(context)
+    );
+    Effect.runFork(program);
+  };
   yield* Effect.acquireRelease(
     Effect.sync(() => process.on("SIGUSR2", onSignal)),
     () =>
       Effect.sync(() => {
-        process.off("SIGUSR2", onSignal)
+        process.off("SIGUSR2", onSignal);
         try {
-          if (readFileSync(files.pid, "utf8").trim() === String(process.pid)) rmSync(files.pid)
+          if (readFileSync(files.pid, "utf8").trim() === String(process.pid)) rmSync(files.pid);
         } catch {}
-      }),
-  )
-})
+      })
+  );
+});
 
 /** The PID of the running Daemon, if its pid file names a live process. */
 export const runningDaemonPid = (): number | null => {
   try {
-    const pid = Number(readFileSync(upgradeFiles().pid, "utf8").trim())
-    if (!Number.isInteger(pid) || pid <= 0) return null
-    process.kill(pid, 0)
-    return pid
+    const pid = Number(readFileSync(upgradeFiles().pid, "utf8").trim());
+    if (!Number.isInteger(pid) || pid <= 0) return null;
+    process.kill(pid, 0);
+    return pid;
   } catch {
-    return null
+    return null;
   }
-}
+};
 
 /**
  * Ask the running Daemon to exec into `binary` and wait for the new image to
@@ -490,45 +490,45 @@ export const runningDaemonPid = (): number | null => {
  * `~/.polaris/bin/<version>/` and repointed `current`.
  */
 export const requestUpgrade = Effect.fn("requestUpgrade")(function* (options: {
-  readonly pid: number
-  readonly binary: string
-  readonly version: string
-  readonly timeoutMs?: number
+  readonly pid: number;
+  readonly binary: string;
+  readonly version: string;
+  readonly timeoutMs?: number;
 }) {
-  const files = upgradeFiles()
+  const files = upgradeFiles();
   const request: UpgradeRequest = {
     requestId: randomUUID(),
     binary: options.binary,
     version: options.version,
-  }
+  };
   yield* Effect.try({
     try: () => {
-      writeJsonAtomic(files.request, request)
-      process.kill(options.pid, "SIGUSR2")
+      writeJsonAtomic(files.request, request);
+      process.kill(options.pid, "SIGUSR2");
     },
     catch: fail("signal Daemon"),
-  })
-  const deadline = Date.now() + (options.timeoutMs ?? 20_000)
+  });
+  const deadline = Date.now() + (options.timeoutMs ?? 20_000);
   while (Date.now() < deadline) {
-    const status = yield* readStatus()
+    const status = yield* readStatus();
     if (status?.requestId === request.requestId) {
       if (status.state === "done") {
         if (status.pid !== options.pid) {
           return yield* new UpgradeError({
             step: "verify",
             message: `Daemon came back as PID ${status.pid}, not ${options.pid}`,
-          })
+          });
         }
-        return status
+        return status;
       }
       if (status.state === "failed") {
-        return yield* new UpgradeError({ step: "daemon", message: status.error ?? "failed" })
+        return yield* new UpgradeError({ step: "daemon", message: status.error ?? "failed" });
       }
     }
-    yield* Effect.sleep(50)
+    yield* Effect.sleep(50);
   }
   return yield* new UpgradeError({
     step: "wait",
     message: "the Daemon did not report back from the upgrade in time",
-  })
-})
+  });
+});

@@ -6,8 +6,8 @@
  */
 const inside = Bun.spawnSync(["git", "rev-parse", "--is-inside-work-tree"], {
   cwd: import.meta.dir,
-})
+});
 
 if (inside.exitCode === 0 && process.env.CI === undefined) {
-  Bun.spawnSync(["git", "config", "core.hooksPath", "tooling/hooks"], { cwd: import.meta.dir })
+  Bun.spawnSync(["git", "config", "core.hooksPath", "tooling/hooks"], { cwd: import.meta.dir });
 }

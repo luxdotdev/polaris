@@ -16,33 +16,33 @@
  *   points `~/.polaris/agent.sock` on the Host at the forwarded agent, so the
  *   Daemon's long-lived processes keep a stable path across reconnects.
  */
-import { mkdirSync } from "node:fs"
-import { homedir } from "node:os"
-import { join } from "node:path"
+import { mkdirSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 export interface SshOptions {
   /** Directory for the ControlMaster sockets; default `~/.polaris/ssh` (mode 0700). */
-  readonly controlDir?: string
-  readonly controlPersist?: string
-  readonly forwardAgent?: boolean
-  readonly connectTimeoutSeconds?: number
-  readonly serverAliveIntervalSeconds?: number
-  readonly serverAliveCountMax?: number
+  readonly controlDir?: string;
+  readonly controlPersist?: string;
+  readonly forwardAgent?: boolean;
+  readonly connectTimeoutSeconds?: number;
+  readonly serverAliveIntervalSeconds?: number;
+  readonly serverAliveCountMax?: number;
   /** The remote command; default `polaris bridge`. */
-  readonly remoteCommand?: ReadonlyArray<string>
+  readonly remoteCommand?: ReadonlyArray<string>;
   /** The ssh binary; default `ssh` from PATH. */
-  readonly sshBinary?: string
+  readonly sshBinary?: string;
 }
 
-export const defaultControlDir = (): string => join(homedir(), ".polaris", "ssh")
+export const defaultControlDir = (): string => join(homedir(), ".polaris", "ssh");
 
 export const ensureControlDir = (dir: string): void => {
-  mkdirSync(dir, { recursive: true, mode: 0o700 })
-}
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+};
 
 export const sshArgv = (alias: string, options: SshOptions = {}): Array<string> => {
-  const controlDir = options.controlDir ?? defaultControlDir()
-  const option = (name: string, value: string | number) => ["-o", `${name}=${value}`]
+  const controlDir = options.controlDir ?? defaultControlDir();
+  const option = (name: string, value: string | number) => ["-o", `${name}=${value}`];
   return [
     options.sshBinary ?? "ssh",
     ...option("BatchMode", "yes"),
@@ -63,5 +63,5 @@ export const sshArgv = (alias: string, options: SshOptions = {}): Array<string> 
     "--",
     alias,
     ...(options.remoteCommand ?? ["polaris", "bridge"]),
-  ]
-}
+  ];
+};

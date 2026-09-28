@@ -10,20 +10,20 @@
  * The simulator runs with a fixed seed, so a run is reproducible and the
  * witness counts below are stable; change `--seed` to explore elsewhere.
  */
-import { join } from "node:path"
+import { join } from "node:path";
 
-const args = process.argv.slice(2)
+const args = process.argv.slice(2);
 const option = (name: string, fallback: string) => {
-  const at = args.indexOf(`--${name}`)
-  return at === -1 ? fallback : (args[at + 1] ?? fallback)
-}
-const samples = option("samples", "3000")
-const steps = option("steps", "4")
-const seed = option("seed", "0x5eed")
-const verify = args.includes("--verify")
+  const at = args.indexOf(`--${name}`);
+  return at === -1 ? fallback : (args[at + 1] ?? fallback);
+};
+const samples = option("samples", "3000");
+const steps = option("steps", "4");
+const seed = option("seed", "0x5eed");
+const verify = args.includes("--verify");
 
-const dir = join(import.meta.dir, "..")
-const quint = join(dir, "node_modules", ".bin", "quint")
+const dir = join(import.meta.dir, "..");
+const quint = join(dir, "node_modules", ".bin", "quint");
 
 /** States the simulation must reach, or its checks prove little (see polaris.qnt). */
 const WITNESSES = [
@@ -40,48 +40,48 @@ const WITNESSES = [
   "witnessUnarchived",
   "witnessArchiveRefused",
   "witnessLateRequest",
-]
+];
 
 /** Each ENG-209 finding: the instance of the code before its fix, and the property it breaks. */
 const FINDINGS = [
   { main: "finding1", invariant: "hostFeedCanProgress", what: "the host feed stalls on a gap" },
   { main: "finding2", invariant: "archivedIsClosed", what: "Archive leaves a Turn in flight" },
   { main: "finding3", invariant: "approvalsNeedATurn", what: "a late request is recorded" },
-]
+];
 
-let failed = false
+let failed = false;
 
 const run = (label: string, argv: ReadonlyArray<string>, expectFailure = false) => {
-  const started = performance.now()
-  const result = Bun.spawnSync([quint, ...argv], { cwd: dir, stdout: "pipe", stderr: "pipe" })
-  const seconds = ((performance.now() - started) / 1000).toFixed(1)
-  const output = `${result.stdout}${result.stderr}`
-  const ok = expectFailure ? result.exitCode !== 0 : result.exitCode === 0
-  console.log(`${ok ? "✓" : "✗"} ${label} (${seconds}s)`)
+  const started = performance.now();
+  const result = Bun.spawnSync([quint, ...argv], { cwd: dir, stdout: "pipe", stderr: "pipe" });
+  const seconds = ((performance.now() - started) / 1000).toFixed(1);
+  const output = `${result.stdout}${result.stderr}`;
+  const ok = expectFailure ? result.exitCode !== 0 : result.exitCode === 0;
+  console.log(`${ok ? "✓" : "✗"} ${label} (${seconds}s)`);
   const summary = output
     .split("\n")
-    .filter((line) => /^\[(ok|violation)\]|witnessed in|passing|failing|failed/.test(line.trim()))
-  for (const line of summary) console.log(`    ${line.trim()}`)
+    .filter((line) => /^\[(ok|violation)\]|witnessed in|passing|failing|failed/.test(line.trim()));
+  for (const line of summary) console.log(`    ${line.trim()}`);
   if (!ok) {
-    failed = true
+    failed = true;
     if (expectFailure) {
-      console.log("    expected a violation (a fixed finding's mutant) but found none")
+      console.log("    expected a violation (a fixed finding's mutant) but found none");
     } else {
-      console.log(output)
+      console.log(output);
     }
   }
-  return output
-}
+  return output;
+};
 
-run("typecheck polaris.qnt", ["typecheck", "polaris.qnt"])
-run("typecheck polaris_test.qnt", ["typecheck", "polaris_test.qnt"])
-run("scenario tests", ["test", "polaris_test.qnt", "--main=polaris_test"])
+run("typecheck polaris.qnt", ["typecheck", "polaris.qnt"]);
+run("typecheck polaris_test.qnt", ["typecheck", "polaris_test.qnt"]);
+run("scenario tests", ["test", "polaris_test.qnt", "--main=polaris_test"]);
 for (const n of [1, 2, 3]) {
   run(`scenario tests (finding ${n}, before its fix)`, [
     "test",
     "polaris_test.qnt",
     `--main=polaris_finding${n}_test`,
-  ])
+  ]);
 }
 
 const simulate = (main: string, invariants: ReadonlyArray<string>, witnesses = false) => [
@@ -95,16 +95,16 @@ const simulate = (main: string, invariants: ReadonlyArray<string>, witnesses = f
   `--seed=${seed}`,
   "--verbosity=1",
   ...(witnesses ? ["--witnesses", ...WITNESSES] : []),
-]
+];
 
 const simulated = run(
   `simulate current: safety, ${samples} traces of up to 60 steps`,
-  simulate("current", ["safety"], true),
-)
+  simulate("current", ["safety"], true)
+);
 for (const witness of WITNESSES) {
   if (new RegExp(`${witness} was witnessed in 0 trace`).test(simulated)) {
-    failed = true
-    console.log(`✗ ${witness} was never reached: the simulation no longer covers it`)
+    failed = true;
+    console.log(`✗ ${witness} was never reached: the simulation no longer covers it`);
   }
 }
 // The mutants: the simulator must still find each finding, or `safety` no longer guards it.
@@ -112,8 +112,8 @@ for (const finding of FINDINGS) {
   run(
     `simulate ${finding.main}: ${finding.invariant} is violated (${finding.what})`,
     simulate(finding.main, [finding.invariant]),
-    true,
-  )
+    true
+  );
 }
 
 if (verify) {
@@ -124,7 +124,7 @@ if (verify) {
     "--invariant=safety",
     `--max-steps=${steps}`,
     "--verbosity=1",
-  ])
+  ]);
 }
 
-process.exit(failed ? 1 : 0)
+process.exit(failed ? 1 : 0);

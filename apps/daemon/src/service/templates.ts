@@ -4,18 +4,18 @@
  * upgrade only repoints the `current` symlink.
  */
 
-export const LAUNCHD_LABEL = "dev.lux.polaris"
-export const SYSTEMD_UNIT = "polaris.service"
+export const LAUNCHD_LABEL = "dev.lux.polaris";
+export const SYSTEMD_UNIT = "polaris.service";
 
 export interface ServiceSpec {
   /** Absolute path of the stable launcher, `~/.polaris/bin/current/polaris`. */
-  readonly program: string
-  readonly args: ReadonlyArray<string>
+  readonly program: string;
+  readonly args: ReadonlyArray<string>;
   /** `POLARIS_HOME`, passed through so a non-default home keeps working. */
-  readonly home: string
-  readonly logDir: string
+  readonly home: string;
+  readonly logDir: string;
   /** Extra environment for the Daemon (e.g. PATH so Harnesses are found). */
-  readonly env: Readonly<Record<string, string>>
+  readonly env: Readonly<Record<string, string>>;
 }
 
 const xmlEscape = (value: string): string =>
@@ -24,19 +24,19 @@ const xmlEscape = (value: string): string =>
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
-    .replaceAll("'", "&apos;")
+    .replaceAll("'", "&apos;");
 
 /** A launchd LaunchAgent for `~/Library/LaunchAgents/dev.lux.polaris.plist`. */
 export const launchdPlist = (spec: ServiceSpec): string => {
-  const string = (value: string) => `<string>${xmlEscape(value)}</string>`
-  const env = { POLARIS_HOME: spec.home, ...spec.env }
+  const string = (value: string) => `<string>${xmlEscape(value)}</string>`;
+  const env = { POLARIS_HOME: spec.home, ...spec.env };
   const envEntries = Object.keys(env)
     .sort()
     .map(
-      (key) => `      <key>${xmlEscape(key)}</key>\n      ${string(env[key as keyof typeof env]!)}`,
+      (key) => `      <key>${xmlEscape(key)}</key>\n      ${string(env[key as keyof typeof env]!)}`
     )
-    .join("\n")
-  const argv = [spec.program, ...spec.args].map((arg) => `      ${string(arg)}`).join("\n")
+    .join("\n");
+  const argv = [spec.program, ...spec.args].map((arg) => `      ${string(arg)}`).join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -65,21 +65,21 @@ ${envEntries}
     ${string(`${spec.logDir}/daemon.err.log`)}
   </dict>
 </plist>
-`
-}
+`;
+};
 
 /** systemd quotes: wrap in double quotes, escape backslash, quote, `%` and `$`. */
 const systemdQuote = (value: string): string =>
-  `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("%", "%%").replaceAll("$", "$$$$")}"`
+  `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("%", "%%").replaceAll("$", "$$$$")}"`;
 
 /** A systemd `--user` unit for `~/.config/systemd/user/polaris.service`. */
 export const systemdUnit = (spec: ServiceSpec): string => {
-  const env = { POLARIS_HOME: spec.home, ...spec.env }
+  const env = { POLARIS_HOME: spec.home, ...spec.env };
   const envLines = Object.keys(env)
     .sort()
     .map((key) => `Environment=${systemdQuote(`${key}=${env[key as keyof typeof env]!}`)}`)
-    .join("\n")
-  const execStart = [spec.program, ...spec.args].map(systemdQuote).join(" ")
+    .join("\n");
+  const execStart = [spec.program, ...spec.args].map(systemdQuote).join(" ");
   return `[Unit]
 Description=Polaris Daemon
 After=network.target
@@ -95,14 +95,14 @@ StandardError=append:${spec.logDir}/daemon.err.log
 
 [Install]
 WantedBy=default.target
-`
-}
+`;
+};
 
 /** Marks the lines Polaris adds to crontab and shell profiles, so uninstall finds them. */
-export const SUPERVISOR_MARKER = "# polaris-supervisor"
+export const SUPERVISOR_MARKER = "# polaris-supervisor";
 
 /** POSIX sh single-quoting. */
-export const shQuote = (value: string): string => `'${value.replaceAll("'", `'\\''`)}'`
+export const shQuote = (value: string): string => `'${value.replaceAll("'", `'\\''`)}'`;
 
 /**
  * The fallback supervisor for Linux Hosts without a `systemd --user` bus
@@ -117,12 +117,12 @@ export const shQuote = (value: string): string => `'${value.replaceAll("'", `'\\
  * the binary is gone (uninstalled). SIGTERM stops it and its Daemon.
  */
 export const supervisorScript = (spec: ServiceSpec): string => {
-  const env = { POLARIS_HOME: spec.home, ...spec.env }
+  const env = { POLARIS_HOME: spec.home, ...spec.env };
   const exports = Object.keys(env)
     .sort()
     .map((key) => `${key}=${shQuote(env[key as keyof typeof env]!)}; export ${key}`)
-    .join("\n")
-  const serve = [spec.program, ...spec.args].map(shQuote).join(" ")
+    .join("\n");
+  const serve = [spec.program, ...spec.args].map(shQuote).join(" ");
   return `#!/bin/sh
 ${SUPERVISOR_MARKER}: keeps the Polaris Daemon running on a Host without systemd --user.
 # Written by \`polaris install\`; started by it, by cron @reboot and by the login profile.
@@ -162,11 +162,11 @@ while :; do
   sleep "$delay"
   delay=$(( delay * 2 )); [ "$delay" -gt 60 ] && delay=60
 done
-`
-}
+`;
+};
 
 /** The line added to crontab and login profiles to start the supervisor. */
 export const supervisorStartLine = (script: string, trigger: "cron" | "profile"): string =>
   trigger === "cron"
     ? `@reboot ${shQuote(script)} ${SUPERVISOR_MARKER}`
-    : `[ -x ${shQuote(script)} ] && ${shQuote(script)} >/dev/null 2>&1 ${SUPERVISOR_MARKER}`
+    : `[ -x ${shQuote(script)} ] && ${shQuote(script)} >/dev/null 2>&1 ${SUPERVISOR_MARKER}`;

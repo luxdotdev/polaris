@@ -1,5 +1,5 @@
-import { describe, expect, test } from "bun:test"
-import { type Dependency, declaredLicense, isAllowed, judge } from "./licenses.ts"
+import { describe, expect, test } from "bun:test";
+import { type Dependency, declaredLicense, isAllowed, judge } from "./licenses.ts";
 
 describe("isAllowed", () => {
   test.each([
@@ -17,20 +17,20 @@ describe("isAllowed", () => {
     ["", false],
     ["(MIT", false],
   ])("%s → %p", (expression, expected) => {
-    expect(isAllowed(expression)).toBe(expected)
-  })
-})
+    expect(isAllowed(expression)).toBe(expected);
+  });
+});
 
 describe("declaredLicense", () => {
   test("reads the string, object and legacy array forms", () => {
-    expect(declaredLicense({ license: "MIT" })).toBe("MIT")
-    expect(declaredLicense({ license: { type: "ISC" } })).toBe("ISC")
+    expect(declaredLicense({ license: "MIT" })).toBe("MIT");
+    expect(declaredLicense({ license: { type: "ISC" } })).toBe("ISC");
     expect(declaredLicense({ licenses: [{ type: "MIT" }, { type: "Apache-2.0" }] })).toBe(
-      "(MIT OR Apache-2.0)",
-    )
-    expect(declaredLicense({})).toBeNull()
-  })
-})
+      "(MIT OR Apache-2.0)"
+    );
+    expect(declaredLicense({})).toBeNull();
+  });
+});
 
 describe("judge", () => {
   const dep = (name: string, license: string | null): Dependency => ({
@@ -41,17 +41,17 @@ describe("judge", () => {
     repository: null,
     requiredBy: new Set(["@polaris/daemon"]),
     platformBuilds: [],
-  })
+  });
 
   test("matches prefix exceptions for per-platform builds", () => {
     const [verdict] = judge(
       [dep("@anthropic-ai/claude-agent-sdk-linux-x64", "SEE LICENSE IN LICENSE.md")],
       {
         "@anthropic-ai/claude-agent-sdk-*": { reason: "platform builds" },
-      },
-    )
-    expect(verdict?.status).toBe("exception")
-  })
+      }
+    );
+    expect(verdict?.status).toBe("exception");
+  });
 
   test("allows the allowlist, honours exceptions, and fails GPL and unknown licences", () => {
     const verdicts = judge(
@@ -61,13 +61,13 @@ describe("judge", () => {
         dep("copyleft", "GPL-3.0-only"),
         dep("mystery", null),
       ],
-      { "@anthropic-ai/claude-agent-sdk": { reason: "Anthropic terms" } },
-    )
+      { "@anthropic-ai/claude-agent-sdk": { reason: "Anthropic terms" } }
+    );
     expect(verdicts.map((v) => [v.dep.name, v.status])).toEqual([
       ["ok", "allowed"],
       ["@anthropic-ai/claude-agent-sdk", "exception"],
       ["copyleft", "violation"],
       ["mystery", "violation"],
-    ])
-  })
-})
+    ]);
+  });
+});

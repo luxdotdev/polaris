@@ -10,4 +10,4 @@
  * socket (EX_UNAVAILABLE), so a Client can tell "no Daemon" apart from an SSH
  * failure and show the Host as Needs Attention.
  */
-export const BRIDGE_EXIT_NO_DAEMON = 69
+export const BRIDGE_EXIT_NO_DAEMON = 69;

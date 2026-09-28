@@ -21,26 +21,26 @@ import {
   type WorkspaceId,
   type Worktree,
   type WorktreeId,
-} from "@polaris/protocol"
+} from "@polaris/protocol";
 
 export interface SessionRecord {
-  readonly session: AgentSession
+  readonly session: AgentSession;
   /** Set once the user renames the session; Harness title suggestions are then ignored. */
-  readonly titleLocked: boolean
+  readonly titleLocked: boolean;
   /**
    * The most recent Turns (at most `RECENT_TURNS`), ordered by `index`. The
    * session's `turnCount` counts all of them; older ones are in SQL.
    */
-  readonly turns: ReadonlyArray<Turn>
-  readonly pending: ReadonlyMap<RequestId, ApprovalRequest>
+  readonly turns: ReadonlyArray<Turn>;
+  readonly pending: ReadonlyMap<RequestId, ApprovalRequest>;
 }
 
 export interface ReadModel {
   /** Sequence of the last event folded in; 0 for an empty store. */
-  readonly sequence: number
-  readonly workspaces: ReadonlyMap<WorkspaceId, Workspace>
-  readonly worktrees: ReadonlyMap<WorktreeId, Worktree>
-  readonly sessions: ReadonlyMap<SessionId, SessionRecord>
+  readonly sequence: number;
+  readonly workspaces: ReadonlyMap<WorkspaceId, Workspace>;
+  readonly worktrees: ReadonlyMap<WorktreeId, Worktree>;
+  readonly sessions: ReadonlyMap<SessionId, SessionRecord>;
 }
 
 export const emptyModel: ReadModel = {
@@ -48,13 +48,13 @@ export const emptyModel: ReadModel = {
   workspaces: new Map(),
   worktrees: new Map(),
   sessions: new Map(),
-}
+};
 
 /**
  * How many Turns per session the read model keeps in memory. The Turn in flight
  * is always the latest, so it is always among them.
  */
-export const RECENT_TURNS = 32
+export const RECENT_TURNS = 32;
 
 // ── Stream classification ───────────────────────────────────────────────────
 
@@ -66,18 +66,18 @@ export const sessionOf = (event: DomainEvent): SessionId | null => {
     case "WorkspaceRemoved":
     case "WorktreeDetected":
     case "WorktreeRemoved":
-      return null
+      return null;
     case "SessionCreated":
-      return event.session.id
+      return event.session.id;
     case "TurnStarted":
     case "TurnEnded":
-      return event.turn.sessionId
+      return event.turn.sessionId;
     case "ApprovalRequested":
-      return event.request.sessionId
+      return event.request.sessionId;
     default:
-      return event.sessionId
+      return event.sessionId;
   }
-}
+};
 
 /**
  * Event types the Host stream leaves out: per-item output and checkpoints only
@@ -86,61 +86,61 @@ export const sessionOf = (event: DomainEvent): SessionId | null => {
 export const sessionOnlyEventTypes: ReadonlyArray<DomainEvent["_tag"]> = [
   "TurnItemCompleted",
   "CheckpointRecorded",
-]
+];
 
 export const isHostStreamEvent = (event: DomainEvent): boolean =>
-  !sessionOnlyEventTypes.includes(event._tag)
+  !sessionOnlyEventTypes.includes(event._tag);
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 export const lastTurn = (record: SessionRecord): Turn | undefined =>
-  record.turns[record.turns.length - 1]
+  record.turns[record.turns.length - 1];
 
 export const workingTurn = (record: SessionRecord): Turn | undefined =>
-  record.turns.find((turn) => turn.status === "working")
+  record.turns.find((turn) => turn.status === "working");
 
 export const checkpointLabel = (ref: string): "before" | "after" | null =>
-  ref.endsWith("/before") ? "before" : ref.endsWith("/after") ? "after" : null
+  ref.endsWith("/before") ? "before" : ref.endsWith("/after") ? "after" : null;
 
 const withMap = <K, V>(map: ReadonlyMap<K, V>, key: K, value: V | undefined): Map<K, V> => {
-  const next = new Map(map)
-  if (value === undefined) next.delete(key)
-  else next.set(key, value)
-  return next
-}
+  const next = new Map(map);
+  if (value === undefined) next.delete(key);
+  else next.set(key, value);
+  return next;
+};
 
 const upsertTurn = (turns: ReadonlyArray<Turn>, turn: Turn): ReadonlyArray<Turn> => {
-  const at = turns.findIndex((t) => t.id === turn.id)
+  const at = turns.findIndex((t) => t.id === turn.id);
   if (at === -1) {
     // A Turn older than every one in memory was evicted already and is final.
-    if (turns.length >= RECENT_TURNS && turn.index < turns[0]!.index) return turns
-    const next = [...turns, turn].sort((a, b) => a.index - b.index)
-    return next.length > RECENT_TURNS ? next.slice(next.length - RECENT_TURNS) : next
+    if (turns.length >= RECENT_TURNS && turn.index < turns[0]!.index) return turns;
+    const next = [...turns, turn].sort((a, b) => a.index - b.index);
+    return next.length > RECENT_TURNS ? next.slice(next.length - RECENT_TURNS) : next;
   }
-  const next = [...turns]
-  next[at] = turn
-  return next
-}
+  const next = [...turns];
+  next[at] = turn;
+  return next;
+};
 
 const updateSession = (
   model: ReadModel,
   sessionId: SessionId,
   occurredAt: string,
-  f: (record: SessionRecord) => SessionRecord,
+  f: (record: SessionRecord) => SessionRecord
 ): ReadModel => {
-  const record = model.sessions.get(sessionId)
-  if (record === undefined) return model
-  const next = f(record)
-  const session = new AgentSession({ ...next.session, updatedAt: occurredAt })
-  return { ...model, sessions: withMap(model.sessions, sessionId, { ...next, session }) }
-}
+  const record = model.sessions.get(sessionId);
+  if (record === undefined) return model;
+  const next = f(record);
+  const session = new AgentSession({ ...next.session, updatedAt: occurredAt });
+  return { ...model, sessions: withMap(model.sessions, sessionId, { ...next, session }) };
+};
 
 // ── Reducer ─────────────────────────────────────────────────────────────────
 
 export const project = (model: ReadModel, envelope: EventEnvelope): ReadModel => {
-  const next = apply(model, envelope.event, envelope.occurredAt, envelope.commandId !== null)
-  return { ...next, sequence: envelope.sequence }
-}
+  const next = apply(model, envelope.event, envelope.occurredAt, envelope.commandId !== null);
+  return { ...next, sequence: envelope.sequence };
+};
 
 /**
  * Fold events into one session's record exactly as `project` would, without
@@ -151,22 +151,22 @@ export const foldSession = (
   sessionId: SessionId,
   record: SessionRecord | undefined,
   events: ReadonlyArray<DomainEvent>,
-  occurredAt: string,
+  occurredAt: string
 ): SessionRecord | undefined => {
   let model: ReadModel = {
     ...emptyModel,
     sessions: record === undefined ? new Map() : new Map([[sessionId, record]]),
-  }
-  for (const event of events) model = apply(model, event, occurredAt, false)
-  return model.sessions.get(sessionId)
-}
+  };
+  for (const event of events) model = apply(model, event, occurredAt, false);
+  return model.sessions.get(sessionId);
+};
 
 const apply = (
   model: ReadModel,
   event: DomainEvent,
   at: string,
   /** The event records a Client's command (it carries a command id). */
-  byClient: boolean,
+  byClient: boolean
 ): ReadModel => {
   switch (event._tag) {
     case "WorkspaceRegistered":
@@ -174,21 +174,21 @@ const apply = (
       return {
         ...model,
         workspaces: withMap(model.workspaces, event.workspace.id, event.workspace),
-      }
+      };
     case "WorkspaceRemoved": {
-      const worktrees = new Map(model.worktrees)
+      const worktrees = new Map(model.worktrees);
       for (const [id, wt] of worktrees)
-        if (wt.workspaceId === event.workspaceId) worktrees.delete(id)
+        if (wt.workspaceId === event.workspaceId) worktrees.delete(id);
       return {
         ...model,
         workspaces: withMap(model.workspaces, event.workspaceId, undefined),
         worktrees,
-      }
+      };
     }
     case "WorktreeDetected":
-      return { ...model, worktrees: withMap(model.worktrees, event.worktree.id, event.worktree) }
+      return { ...model, worktrees: withMap(model.worktrees, event.worktree.id, event.worktree) };
     case "WorktreeRemoved":
-      return { ...model, worktrees: withMap(model.worktrees, event.worktreeId, undefined) }
+      return { ...model, worktrees: withMap(model.worktrees, event.worktreeId, undefined) };
     case "SessionCreated":
       return {
         ...model,
@@ -198,7 +198,7 @@ const apply = (
           turns: [],
           pending: new Map(),
         }),
-      }
+      };
     case "SessionStateChanged":
       return updateSession(model, event.sessionId, at, (r) => ({
         ...r,
@@ -207,24 +207,24 @@ const apply = (
           state: event.state,
           lastError: event.state === "failed" ? event.reason : r.session.lastError,
         }),
-      }))
+      }));
     case "SessionRenamed":
       return updateSession(model, event.sessionId, at, (r) => ({
         ...r,
         // A rename a Client asked for (it carries a command id) locks the title.
         titleLocked: r.titleLocked || byClient,
         session: new AgentSession({ ...r.session, title: event.title }),
-      }))
+      }));
     case "SessionCursorUpdated":
       return updateSession(model, event.sessionId, at, (r) => ({
         ...r,
         session: new AgentSession({ ...r.session, harnessCursor: event.harnessCursor }),
-      }))
+      }));
     case "SessionPermissionModeChanged":
       return updateSession(model, event.sessionId, at, (r) => ({
         ...r,
         session: new AgentSession({ ...r.session, permissionMode: event.permissionMode }),
-      }))
+      }));
     case "TurnStarted":
     case "TurnEnded":
       return updateSession(model, event.turn.sessionId, at, (r) => ({
@@ -235,34 +235,34 @@ const apply = (
           turnCount: Math.max(r.session.turnCount, event.turn.index + 1),
         }),
         turns: upsertTurn(r.turns, event.turn),
-      }))
+      }));
     case "TurnItemCompleted":
-      return model
+      return model;
     case "CheckpointRecorded": {
-      const label = checkpointLabel(event.ref)
-      if (label === null) return model
+      const label = checkpointLabel(event.ref);
+      if (label === null) return model;
       return updateSession(model, event.sessionId, at, (r) => {
-        const turn = r.turns.find((t) => t.id === event.turnId)
-        if (turn === undefined) return r
+        const turn = r.turns.find((t) => t.id === event.turnId);
+        if (turn === undefined) return r;
         const updated = new Turn({
           ...turn,
           ...(label === "before"
             ? { checkpointBefore: event.ref }
             : { checkpointAfter: event.ref }),
-        })
-        return { ...r, turns: upsertTurn(r.turns, updated) }
-      })
+        });
+        return { ...r, turns: upsertTurn(r.turns, updated) };
+      });
     }
     case "ApprovalRequested":
       return updateSession(model, event.request.sessionId, at, (r) => ({
         ...r,
         pending: withMap(r.pending, event.request.id, event.request),
-      }))
+      }));
     case "ApprovalResolved":
     case "ApprovalWithdrawn":
       return updateSession(model, event.sessionId, at, (r) => ({
         ...r,
         pending: withMap(r.pending, event.requestId, undefined),
-      }))
+      }));
   }
-}
+};

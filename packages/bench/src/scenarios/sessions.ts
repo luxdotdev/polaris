@@ -13,11 +13,11 @@
  * emit → Client receive for every delta (the bench Harness stamps each delta);
  * commit → Client receive for every event (1 ms resolution).
  */
-import { mkdirSync } from "node:fs"
-import { join } from "node:path"
-import type { WorkspaceId } from "@polaris/protocol"
-import { Effect } from "effect"
-import { awaitReady, type Client, cleanup, connect, type Daemon, makeTempDir } from "../daemon.ts"
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
+import type { WorkspaceId } from "@polaris/protocol";
+import { Effect } from "effect";
+import { awaitReady, type Client, cleanup, connect, type Daemon, makeTempDir } from "../daemon.ts";
 import {
   registerWorkspace,
   type SessionWatch,
@@ -27,9 +27,9 @@ import {
   type TurnScript,
   waitUntil,
   watchSession,
-} from "../drive.ts"
-import type { Sampler } from "../sampler.ts"
-import { summarize } from "../stats.ts"
+} from "../drive.ts";
+import type { Sampler } from "../sampler.ts";
+import { summarize } from "../stats.ts";
 import {
   cpu,
   latency,
@@ -40,14 +40,14 @@ import {
   type ScenarioContext,
   throughput,
   time,
-} from "../types.ts"
+} from "../types.ts";
 
 interface Phase {
-  readonly name: string
-  readonly sessions: number
-  readonly clients: number
-  readonly turns: number
-  readonly script: TurnScript
+  readonly name: string;
+  readonly sessions: number;
+  readonly clients: number;
+  readonly turns: number;
+  readonly script: TurnScript;
 }
 
 const realistic = (quick: boolean): TurnScript => ({
@@ -58,7 +58,7 @@ const realistic = (quick: boolean): TurnScript => ({
   deltaIntervalMs: 20,
   approvalEvery: 7,
   itemBytes: 400,
-})
+});
 
 const phasesFor = (quick: boolean): ReadonlyArray<Phase> =>
   quick
@@ -70,9 +70,9 @@ const phasesFor = (quick: boolean): ReadonlyArray<Phase> =>
         { name: "m10", sessions: 10, clients: 1, turns: 3, script: realistic(false) },
         { name: "m50", sessions: 50, clients: 1, turns: 3, script: realistic(false) },
         { name: "m50c4", sessions: 50, clients: 4, turns: 3, script: realistic(false) },
-      ]
+      ];
 
-let sessionCounter = 0
+let sessionCounter = 0;
 
 const runPhase = (
   ctx: ScenarioContext,
@@ -80,34 +80,34 @@ const runPhase = (
   sampler: Sampler,
   primary: Client,
   workspaceId: WorkspaceId,
-  phase: Phase,
+  phase: Phase
 ) =>
   Effect.scoped(
     Effect.gen(function* () {
-      const extra: Array<Client> = []
+      const extra: Array<Client> = [];
       for (let c = 1; c < phase.clients; c++) {
-        extra.push(yield* connect(daemon, ctx.transport, `bench-${c}`))
+        extra.push(yield* connect(daemon, ctx.transport, `bench-${c}`));
       }
-      const clients = [primary, ...extra]
-      const ids = Array.from({ length: phase.sessions }, () => `bench-s${++sessionCounter}`)
-      const deltaLatencies: Array<number> = []
-      const eventLatencies: Array<number> = []
-      const approvalRoundTrips: Array<number> = []
-      const dispatchToEvent: Array<number> = []
-      const acks: Array<number> = []
-      const watches = new Map<string, Array<SessionWatch>>()
+      const clients = [primary, ...extra];
+      const ids = Array.from({ length: phase.sessions }, () => `bench-s${++sessionCounter}`);
+      const deltaLatencies: Array<number> = [];
+      const eventLatencies: Array<number> = [];
+      const approvalRoundTrips: Array<number> = [];
+      const dispatchToEvent: Array<number> = [];
+      const acks: Array<number> = [];
+      const watches = new Map<string, Array<SessionWatch>>();
 
-      const from = sampler.now()
-      const started = performance.now()
+      const from = sampler.now();
+      const started = performance.now();
       // Start every session; subscribe once the session exists.
       yield* Effect.forEach(
         ids,
         (id) =>
           Effect.gen(function* () {
-            const t0 = performance.now()
-            yield* startSession(primary, { sessionId: id, workspaceId, script: phase.script })
-            acks.push(performance.now() - t0)
-            const list: Array<SessionWatch> = []
+            const t0 = performance.now();
+            yield* startSession(primary, { sessionId: id, workspaceId, script: phase.script });
+            acks.push(performance.now() - t0);
+            const list: Array<SessionWatch> = [];
             for (const client of clients) {
               list.push(
                 yield* watchSession(client, id, {
@@ -115,45 +115,45 @@ const runPhase = (
                   deltaLatencies,
                   eventLatencies,
                   approvalRoundTrips,
-                }),
-              )
+                })
+              );
             }
-            watches.set(id, list)
-            const main = list[0]!
+            watches.set(id, list);
+            const main = list[0]!;
             // The first Turn is committed with StartSession and arrives in the snapshot;
             // dispatch → event is measured on SendTurn.
-            yield* waitUntil(() => main.turnStarted.length >= 1, 30_000, `${id} first Turn`)
+            yield* waitUntil(() => main.turnStarted.length >= 1, 30_000, `${id} first Turn`);
             for (let turn = 1; turn < phase.turns; turn++) {
               yield* waitUntil(
                 () => main.turnEnded.length >= turn && main.state === "idle",
                 120_000,
-                `${id} Turn ${turn} to end`,
-              )
-              const t1 = performance.now()
-              yield* sendTurn(primary, id, phase.script)
-              acks.push(performance.now() - t1)
-              yield* waitUntil(() => main.turnStarted.length > turn, 30_000, `${id} TurnStarted`)
-              dispatchToEvent.push(main.turnStarted[turn]! - t1)
+                `${id} Turn ${turn} to end`
+              );
+              const t1 = performance.now();
+              yield* sendTurn(primary, id, phase.script);
+              acks.push(performance.now() - t1);
+              yield* waitUntil(() => main.turnStarted.length > turn, 30_000, `${id} TurnStarted`);
+              dispatchToEvent.push(main.turnStarted[turn]! - t1);
             }
             yield* waitUntil(
               () => list.every((w) => w.turnEnded.length >= phase.turns),
               120_000,
-              `${id} to finish`,
-            )
+              `${id} to finish`
+            );
           }),
-        { concurrency: "unbounded", discard: true },
-      )
-      const elapsed = (performance.now() - started) / 1000
-      const report = sampler.report(from, sampler.now())
-      const allWatches = [...watches.values()].flat()
-      const deltas = allWatches.reduce((a, w) => a + w.deltas, 0)
-      const bytes = allWatches.reduce((a, w) => a + w.deltaBytes, 0)
-      const dl = summarize(deltaLatencies)
-      const el = summarize(eventLatencies)
-      const de = summarize(dispatchToEvent)
-      const ack = summarize(acks)
-      const ap = summarize(approvalRoundTrips)
-      const p = phase.name
+        { concurrency: "unbounded", discard: true }
+      );
+      const elapsed = (performance.now() - started) / 1000;
+      const report = sampler.report(from, sampler.now());
+      const allWatches = [...watches.values()].flat();
+      const deltas = allWatches.reduce((a, w) => a + w.deltas, 0);
+      const bytes = allWatches.reduce((a, w) => a + w.deltaBytes, 0);
+      const dl = summarize(deltaLatencies);
+      const el = summarize(eventLatencies);
+      const de = summarize(dispatchToEvent);
+      const ack = summarize(acks);
+      const ap = summarize(approvalRoundTrips);
+      const p = phase.name;
       const metrics: Record<string, Metric> = {
         [`${p}.dispatch_ack_p50_ms`]: latency(ack.median),
         [`${p}.dispatch_to_event_p50_ms`]: latency(de.median),
@@ -172,110 +172,110 @@ const runPhase = (
           ? { [`${p}.footprint_peak_mib`]: peakMemory(report.footprintBytes.max) }
           : {}),
         [`${p}.wall_s`]: time(elapsed * 1000, { info: true }),
-      }
+      };
       ctx.log(
-        `${p}: ${phase.sessions} sessions × ${phase.turns} Turns to ${clients.length} Client(s) in ${elapsed.toFixed(1)} s; ${deltas} deltas (${(bytes / 1e6).toFixed(1)} MB), delta p50 ${dl.median.toFixed(2)} ms p99 ${dl.p99.toFixed(2)} ms`,
-      )
-      return metrics
-    }),
-  )
+        `${p}: ${phase.sessions} sessions × ${phase.turns} Turns to ${clients.length} Client(s) in ${elapsed.toFixed(1)} s; ${deltas} deltas (${(bytes / 1e6).toFixed(1)} MB), delta p50 ${dl.median.toFixed(2)} ms p99 ${dl.p99.toFixed(2)} ms`
+      );
+      return metrics;
+    })
+  );
 
 /** One session streaming deltas with no pause: the pipeline's ceiling. */
 const runBurst = (
   ctx: ScenarioContext,
   sampler: Sampler,
   primary: Client,
-  workspaceId: WorkspaceId,
+  workspaceId: WorkspaceId
 ) =>
   Effect.scoped(
     Effect.gen(function* () {
-      const deltasPerItem = ctx.quick ? 10_000 : 40_000
+      const deltasPerItem = ctx.quick ? 10_000 : 40_000;
       const script: TurnScript = {
         items: 3,
         deltasPerItem,
         deltaBytes: 64,
         deltaIntervalMs: 0,
-      }
-      const id = `bench-s${++sessionCounter}`
-      const deltaLatencies: Array<number> = []
-      const from = sampler.sample().t - 1
-      const t0 = performance.now()
-      yield* startSession(primary, { sessionId: id, workspaceId, script })
-      const watch = yield* watchSession(primary, id, { deltaLatencies })
-      yield* waitUntil(() => watch.turnEnded.length >= 1, 300_000, "burst Turn to end")
-      const elapsed = (performance.now() - t0) / 1000
-      sampler.sample()
-      const report = sampler.report(from, sampler.now())
-      const dl = summarize(deltaLatencies)
+      };
+      const id = `bench-s${++sessionCounter}`;
+      const deltaLatencies: Array<number> = [];
+      const from = sampler.sample().t - 1;
+      const t0 = performance.now();
+      yield* startSession(primary, { sessionId: id, workspaceId, script });
+      const watch = yield* watchSession(primary, id, { deltaLatencies });
+      yield* waitUntil(() => watch.turnEnded.length >= 1, 300_000, "burst Turn to end");
+      const elapsed = (performance.now() - t0) / 1000;
+      sampler.sample();
+      const report = sampler.report(from, sampler.now());
+      const dl = summarize(deltaLatencies);
       ctx.log(
-        `burst: ${watch.deltas} deltas in ${elapsed.toFixed(2)} s (${(watch.deltas / elapsed).toFixed(0)}/s), p99 ${dl.p99.toFixed(1)} ms`,
-      )
+        `burst: ${watch.deltas} deltas in ${elapsed.toFixed(2)} s (${(watch.deltas / elapsed).toFixed(0)}/s), p99 ${dl.p99.toFixed(1)} ms`
+      );
       return {
         "burst.deltas_per_s": throughput(watch.deltas / elapsed, "/s"),
         "burst.mb_per_s": throughput(watch.deltaBytes / 1e6 / elapsed, "MB/s"),
         "burst.delta_latency_p99_ms": latency(dl.p99, { info: true }),
         "burst.cpu_avg_pct": cpu(report.cpuAvgPct, { info: true }),
         "burst.rss_peak_mib": peakMemory(report.rssBytes.max),
-      } satisfies Record<string, Metric>
-    }),
-  )
+      } satisfies Record<string, Metric>;
+    })
+  );
 
 export const sessions: Scenario = {
   name: "sessions",
   description: "concurrent scripted Agent Sessions: latency, delta throughput, CPU, memory growth",
   run: (ctx) =>
     Effect.gen(function* () {
-      const daemon = yield* ctx.launch()
-      yield* awaitReady(daemon)
-      const sampler = yield* ctx.sample(daemon)
+      const daemon = yield* ctx.launch();
+      yield* awaitReady(daemon);
+      const sampler = yield* ctx.sample(daemon);
       const repo = yield* Effect.acquireRelease(
         Effect.sync(() => makeTempDir("sessions")),
-        (dir) => Effect.sync(() => cleanup(dir)),
-      )
-      mkdirSync(join(repo, "src"), { recursive: true })
-      const primary = yield* connect(daemon, ctx.transport, "bench-0")
-      const workspaceId = yield* registerWorkspace(primary, repo, "sessions")
-      yield* settle(1000)
-      const before = sampler.sample()
+        (dir) => Effect.sync(() => cleanup(dir))
+      );
+      mkdirSync(join(repo, "src"), { recursive: true });
+      const primary = yield* connect(daemon, ctx.transport, "bench-0");
+      const workspaceId = yield* registerWorkspace(primary, repo, "sessions");
+      yield* settle(1000);
+      const before = sampler.sample();
 
-      const metrics: Record<string, Metric> = { rss_before_mib: memory(before.rssBytes) }
-      const phases = phasesFor(ctx.quick)
+      const metrics: Record<string, Metric> = { rss_before_mib: memory(before.rssBytes) };
+      const phases = phasesFor(ctx.quick);
       for (const phase of phases) {
-        Object.assign(metrics, yield* runPhase(ctx, daemon, sampler, primary, workspaceId, phase))
+        Object.assign(metrics, yield* runPhase(ctx, daemon, sampler, primary, workspaceId, phase));
       }
-      Object.assign(metrics, yield* runBurst(ctx, sampler, primary, workspaceId))
-      yield* settle(3000)
-      const after = sampler.sample()
+      Object.assign(metrics, yield* runBurst(ctx, sampler, primary, workspaceId));
+      yield* settle(3000);
+      const after = sampler.sample();
 
       // The biggest single-Client phase again: a leak shows up as a second step up.
       const repeatOf = phases.find(
         (p) =>
           p.clients === 1 &&
-          p.sessions === Math.max(...phases.filter((q) => q.clients === 1).map((q) => q.sessions)),
-      )!
-      yield* runPhase(ctx, daemon, sampler, primary, workspaceId, { ...repeatOf, name: "repeat" })
-      yield* settle(3000)
-      const afterRepeat = sampler.sample()
+          p.sessions === Math.max(...phases.filter((q) => q.clients === 1).map((q) => q.sessions))
+      )!;
+      yield* runPhase(ctx, daemon, sampler, primary, workspaceId, { ...repeatOf, name: "repeat" });
+      yield* settle(3000);
+      const afterRepeat = sampler.sample();
       // Last, so the snapshot's own allocation does not skew the numbers above.
-      yield* ctx.peak(daemon, "after-repeat")
+      yield* ctx.peak(daemon, "after-repeat");
 
-      metrics.rss_after_mib = peakMemory(after.rssBytes)
-      metrics.rss_growth_mib = peakMemory(after.rssBytes - before.rssBytes)
+      metrics.rss_after_mib = peakMemory(after.rssBytes);
+      metrics.rss_growth_mib = peakMemory(after.rssBytes - before.rssBytes);
       metrics.rss_growth_repeat_mib = memory(afterRepeat.rssBytes - after.rssBytes, {
         tolerance: { relative: 0.5, absolute: 10 },
-      })
+      });
       if (after.footprintBytes !== null && before.footprintBytes !== null) {
-        metrics.footprint_growth_mib = peakMemory(after.footprintBytes - before.footprintBytes)
+        metrics.footprint_growth_mib = peakMemory(after.footprintBytes - before.footprintBytes);
       }
       const notes = [
         `phases: ${phases.map((p) => `${p.name} (${p.sessions} sessions × ${p.turns} Turns, ${p.clients} Client(s))`).join(", ")}, then burst and repeat (${repeatOf.name} again)`,
-      ]
-      const repeatGrowth = (afterRepeat.rssBytes - after.rssBytes) / 1024 / 1024
+      ];
+      const repeatGrowth = (afterRepeat.rssBytes - after.rssBytes) / 1024 / 1024;
       if (repeatGrowth > 20) {
         notes.push(
-          `memory grew another ${repeatGrowth.toFixed(0)} MiB when the ${repeatOf.name} phase was repeated: possible leak (or the read model's per-Turn growth)`,
-        )
+          `memory grew another ${repeatGrowth.toFixed(0)} MiB when the ${repeatOf.name} phase was repeated: possible leak (or the read model's per-Turn growth)`
+        );
       }
-      return { metrics, notes }
+      return { metrics, notes };
     }),
-}
+};

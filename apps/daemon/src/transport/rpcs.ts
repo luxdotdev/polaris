@@ -14,14 +14,14 @@
  *
  * and `serve` composes them in one place (see `server.ts`).
  */
-import { DaemonRpcs } from "@polaris/protocol"
-import { RpcMiddleware } from "effect/rpc"
-import type { BlobChannel } from "../services.ts"
+import { DaemonRpcs } from "@polaris/protocol";
+import { RpcMiddleware } from "effect/rpc";
+import type { BlobChannel } from "../services.ts";
 
 export class ConnectionBlobs extends RpcMiddleware.Service<
   ConnectionBlobs,
   { provides: BlobChannel }
 >()("polaris/daemon/transport/ConnectionBlobs") {}
 
-export const ServerRpcs = DaemonRpcs.middleware(ConnectionBlobs)
-export type ServerRpcs = typeof ServerRpcs
+export const ServerRpcs = DaemonRpcs.middleware(ConnectionBlobs);
+export type ServerRpcs = typeof ServerRpcs;

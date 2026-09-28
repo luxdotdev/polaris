@@ -2,18 +2,18 @@
  * Pure translations between Polaris's Harness vocabulary and the Codex
  * app-server protocol. No I/O here, so every rule is unit-testable.
  */
-import type { ApprovalDecision, Attachment, PermissionMode, TurnItem } from "@polaris/protocol"
-import type * as Gen from "./generated/index.ts"
-import type * as P from "./protocol.ts"
+import type { ApprovalDecision, Attachment, PermissionMode, TurnItem } from "@polaris/protocol";
+import type * as Gen from "./generated/index.ts";
+import type * as P from "./protocol.ts";
 
 // ---------------------------------------------------------------------------
 // Permission modes
 
 export interface CodexPolicy {
-  readonly approvalPolicy: Gen.AskForApproval
-  readonly approvalsReviewer: Gen.ApprovalsReviewer
+  readonly approvalPolicy: Gen.AskForApproval;
+  readonly approvalsReviewer: Gen.ApprovalsReviewer;
   /** For `thread/start` and `thread/resume`. */
-  readonly sandbox: Gen.SandboxMode
+  readonly sandbox: Gen.SandboxMode;
 }
 
 /**
@@ -31,25 +31,29 @@ export interface CodexPolicy {
 export const policyFor = (mode: PermissionMode): CodexPolicy => {
   switch (mode) {
     case "supervised":
-      return { approvalPolicy: "untrusted", approvalsReviewer: "user", sandbox: "read-only" }
+      return { approvalPolicy: "untrusted", approvalsReviewer: "user", sandbox: "read-only" };
     case "auto-edits":
-      return { approvalPolicy: "on-request", approvalsReviewer: "user", sandbox: "workspace-write" }
+      return {
+        approvalPolicy: "on-request",
+        approvalsReviewer: "user",
+        sandbox: "workspace-write",
+      };
     case "auto":
       return {
         approvalPolicy: "on-request",
         approvalsReviewer: "auto_review",
         sandbox: "workspace-write",
-      }
+      };
     case "full-access":
-      return { approvalPolicy: "never", approvalsReviewer: "user", sandbox: "danger-full-access" }
+      return { approvalPolicy: "never", approvalsReviewer: "user", sandbox: "danger-full-access" };
   }
-}
+};
 
 /** `turn/start` takes a full sandbox policy rather than a mode; this is the mode's default. */
 export const sandboxPolicyFor = (mode: Gen.SandboxMode): Gen.SandboxPolicy => {
   switch (mode) {
     case "read-only":
-      return { type: "readOnly", networkAccess: false }
+      return { type: "readOnly", networkAccess: false };
     case "workspace-write":
       return {
         type: "workspaceWrite",
@@ -57,11 +61,11 @@ export const sandboxPolicyFor = (mode: Gen.SandboxMode): Gen.SandboxPolicy => {
         networkAccess: false,
         excludeTmpdirEnvVar: false,
         excludeSlashTmp: false,
-      }
+      };
     case "danger-full-access":
-      return { type: "dangerFullAccess" }
+      return { type: "dangerFullAccess" };
   }
-}
+};
 
 // ---------------------------------------------------------------------------
 // Turn input
@@ -72,42 +76,43 @@ export const sandboxPolicyFor = (mode: Gen.SandboxMode): Gen.SandboxPolicy => {
  */
 export const turnInput = (
   prompt: string,
-  attachments: ReadonlyArray<Attachment>,
+  attachments: ReadonlyArray<Attachment>
 ): Array<Gen.UserInput> => {
-  const images = attachments.filter((a) => a.mimeType.startsWith("image/"))
-  const files = attachments.filter((a) => !a.mimeType.startsWith("image/"))
+  const images = attachments.filter((a) => a.mimeType.startsWith("image/"));
+  const files = attachments.filter((a) => !a.mimeType.startsWith("image/"));
   const text =
     files.length === 0
       ? prompt
-      : `${prompt}\n\nAttached files:\n${files.map((f) => `- ${f.hostPath}`).join("\n")}`
+      : `${prompt}\n\nAttached files:\n${files.map((f) => `- ${f.hostPath}`).join("\n")}`;
   return [
     { type: "text", text, text_elements: [] },
     ...images.map((image): Gen.UserInput => ({ type: "localImage", path: image.hostPath })),
-  ]
-}
+  ];
+};
 
 // ---------------------------------------------------------------------------
 // Items
 
 const itemStatus = (
-  status: "inProgress" | "completed" | "failed" | "declined",
-): "running" | "completed" | "failed" | "declined" => (status === "inProgress" ? "running" : status)
+  status: "inProgress" | "completed" | "failed" | "declined"
+): "running" | "completed" | "failed" | "declined" =>
+  status === "inProgress" ? "running" : status;
 
 /** Codex thread item → Polaris Turn item; null for items Polaris doesn't show (user messages…). */
 export const toTurnItem = (item: P.ThreadItem): TurnItem | null => {
   switch (item.type) {
     case "agentMessage":
-      if ("text" in item) return { _tag: "AssistantMessage", id: item.id, text: item.text }
-      return null
+      if ("text" in item) return { _tag: "AssistantMessage", id: item.id, text: item.text };
+      return null;
     case "plan":
-      if ("text" in item) return { _tag: "AssistantMessage", id: item.id, text: item.text }
-      return null
+      if ("text" in item) return { _tag: "AssistantMessage", id: item.id, text: item.text };
+      return null;
     case "reasoning":
       if ("summary" in item) {
-        const text = (item.summary.length > 0 ? item.summary : item.content).join("\n\n")
-        return { _tag: "Reasoning", id: item.id, text }
+        const text = (item.summary.length > 0 ? item.summary : item.content).join("\n\n");
+        return { _tag: "Reasoning", id: item.id, text };
       }
-      return null
+      return null;
     case "commandExecution":
       if ("command" in item)
         return {
@@ -118,8 +123,8 @@ export const toTurnItem = (item: P.ThreadItem): TurnItem | null => {
           output: item.aggregatedOutput ?? "",
           exitCode: item.exitCode,
           status: itemStatus(item.status),
-        }
-      return null
+        };
+      return null;
     case "fileChange":
       if ("changes" in item)
         return {
@@ -130,8 +135,8 @@ export const toTurnItem = (item: P.ThreadItem): TurnItem | null => {
             kind: change.kind.type === "update" ? "modify" : change.kind.type,
           })),
           status: itemStatus(item.status),
-        }
-      return null
+        };
+      return null;
     case "mcpToolCall":
       if ("server" in item)
         return {
@@ -141,8 +146,8 @@ export const toTurnItem = (item: P.ThreadItem): TurnItem | null => {
           input: item.arguments,
           output: item.error ?? item.result,
           status: itemStatus(item.status),
-        }
-      return null
+        };
+      return null;
     case "dynamicToolCall":
       if ("contentItems" in item)
         return {
@@ -152,8 +157,8 @@ export const toTurnItem = (item: P.ThreadItem): TurnItem | null => {
           input: item.arguments,
           output: item.contentItems,
           status: itemStatus(item.status),
-        }
-      return null
+        };
+      return null;
     case "collabAgentToolCall":
       if ("prompt" in item)
         return {
@@ -168,8 +173,8 @@ export const toTurnItem = (item: P.ThreadItem): TurnItem | null => {
               : item.status === "failed"
                 ? "failed"
                 : "completed",
-        }
-      return null
+        };
+      return null;
     case "webSearch":
       if ("query" in item)
         return {
@@ -179,8 +184,8 @@ export const toTurnItem = (item: P.ThreadItem): TurnItem | null => {
           input: { query: item.query },
           output: null,
           status: "completed",
-        }
-      return null
+        };
+      return null;
     case "imageView":
       if ("path" in item)
         return {
@@ -190,25 +195,25 @@ export const toTurnItem = (item: P.ThreadItem): TurnItem | null => {
           input: { path: item.path },
           output: null,
           status: "completed",
-        }
-      return null
+        };
+      return null;
     default:
-      return null
+      return null;
   }
-}
+};
 
 /** The text of a user message item (its text inputs, in order); null when it has none. */
 export const userMessageText = (item: P.ThreadItem): string | null => {
-  if (item.type !== "userMessage" || !("content" in item)) return null
+  if (item.type !== "userMessage" || !("content" in item)) return null;
   const text = item.content
     .flatMap((input) => (input.type === "text" && input.text !== undefined ? [input.text] : []))
-    .join("\n")
-  return text === "" ? null : text
-}
+    .join("\n");
+  return text === "" ? null : text;
+};
 
 export const toPlanItem = (
   id: string,
-  plan: (typeof P.TurnPlanUpdatedNotification.Type)["plan"],
+  plan: (typeof P.TurnPlanUpdatedNotification.Type)["plan"]
 ): TurnItem => ({
   _tag: "Plan",
   id,
@@ -216,38 +221,38 @@ export const toPlanItem = (
     text: step.step,
     status: step.status === "inProgress" ? "in-progress" : step.status,
   })),
-})
+});
 
 // ---------------------------------------------------------------------------
 // Approvals
 
 /** Command and file-change approvals share one decision vocabulary. */
 export const approvalDecision = (
-  decision: ApprovalDecision,
+  decision: ApprovalDecision
 ): Gen.FileChangeRequestApprovalResponse => {
   switch (decision._tag) {
     case "Allow":
-      return { decision: decision.remember ? "acceptForSession" : "accept" }
+      return { decision: decision.remember ? "acceptForSession" : "accept" };
     case "Deny":
-      return { decision: "decline" }
+      return { decision: "decline" };
     case "Answer":
-      return { decision: "decline" }
+      return { decision: "decline" };
   }
-}
+};
 
 export const permissionsDecision = (
   requested: (typeof P.PermissionsApprovalParams.Type)["permissions"],
-  decision: ApprovalDecision,
+  decision: ApprovalDecision
 ): Gen.PermissionsRequestApprovalResponse => {
-  if (decision._tag !== "Allow") return { permissions: {}, scope: "turn" }
-  const granted: Record<string, unknown> = {}
-  if (requested.network !== null) granted.network = requested.network
-  if (requested.fileSystem !== null) granted.fileSystem = requested.fileSystem
+  if (decision._tag !== "Allow") return { permissions: {}, scope: "turn" };
+  const granted: Record<string, unknown> = {};
+  if (requested.network !== null) granted.network = requested.network;
+  if (requested.fileSystem !== null) granted.fileSystem = requested.fileSystem;
   return {
     permissions: granted as Gen.PermissionsRequestApprovalResponse["permissions"],
     scope: decision.remember ? "session" : "turn",
-  }
-}
+  };
+};
 
 /**
  * A free-text answer fills every question; Allow picks each question's first
@@ -255,26 +260,26 @@ export const permissionsDecision = (
  */
 export const userInputDecision = (
   questions: (typeof P.UserInputParams.Type)["questions"],
-  decision: ApprovalDecision,
+  decision: ApprovalDecision
 ): Gen.ToolRequestUserInputResponse => {
-  const answers: Record<string, { answers: Array<string> }> = {}
+  const answers: Record<string, { answers: Array<string> }> = {};
   for (const question of questions) {
-    if (decision._tag === "Answer") answers[question.id] = { answers: [decision.text] }
+    if (decision._tag === "Answer") answers[question.id] = { answers: [decision.text] };
     else if (decision._tag === "Allow" && question.options?.[0])
-      answers[question.id] = { answers: [question.options[0].label] }
+      answers[question.id] = { answers: [question.options[0].label] };
   }
-  return { answers }
-}
+  return { answers };
+};
 
 export const elicitationDecision = (
-  decision: ApprovalDecision,
+  decision: ApprovalDecision
 ): Gen.McpServerElicitationRequestResponse => {
   switch (decision._tag) {
     case "Allow":
-      return { action: "accept", content: {}, _meta: null }
+      return { action: "accept", content: {}, _meta: null };
     case "Answer":
-      return { action: "accept", content: { answer: decision.text }, _meta: null }
+      return { action: "accept", content: { answer: decision.text }, _meta: null };
     case "Deny":
-      return { action: "decline", content: null, _meta: null }
+      return { action: "decline", content: null, _meta: null };
   }
-}
+};

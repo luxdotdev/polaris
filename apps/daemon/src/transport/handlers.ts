@@ -12,34 +12,34 @@ import {
   NotFound,
   PROTOCOL_VERSION,
   Sequence,
-} from "@polaris/protocol"
-import { Effect, Stream } from "effect"
-import { ClientCapabilities, DeviceLabel } from "../engine/rpc.ts"
-import { BlobChannel } from "../services.ts"
-import { ServerRpcs } from "./rpcs.ts"
+} from "@polaris/protocol";
+import { Effect, Stream } from "effect";
+import { ClientCapabilities, DeviceLabel } from "../engine/rpc.ts";
+import { BlobChannel } from "../services.ts";
+import { ServerRpcs } from "./rpcs.ts";
 
-const notYet = (what: string) => `${what} is not available on this Daemon yet`
+const notYet = (what: string) => `${what} is not available on this Daemon yet`;
 
 const fileError = (path: string, what: string) =>
-  new FileError({ path, code: "ENOTSUP", message: notYet(what) })
+  new FileError({ path, code: "ENOTSUP", message: notYet(what) });
 
 export const defaultHandlers = (options: {
-  readonly hostInfo: HostInfo
-  readonly capabilities: ReadonlyArray<Capability>
+  readonly hostInfo: HostInfo;
+  readonly capabilities: ReadonlyArray<Capability>;
 }) =>
   ServerRpcs.toLayer({
     // Record which device this connection is (for ApprovalResolved.resolvedBy) and
     // what it understands (e.g. whether to send it ItemProgress).
     hello: ({ deviceLabel, capabilities }, { client }) =>
       Effect.sync(() => {
-        client.annotate(DeviceLabel, deviceLabel)
-        client.annotate(ClientCapabilities, capabilities)
+        client.annotate(DeviceLabel, deviceLabel);
+        client.annotate(ClientCapabilities, capabilities);
       }).pipe(
         Effect.as({
           host: options.hostInfo,
           protocolVersion: PROTOCOL_VERSION,
           capabilities: options.capabilities,
-        }),
+        })
       ),
 
     dispatch: ({ commandId }) =>
@@ -58,7 +58,7 @@ export const defaultHandlers = (options: {
           },
           { _tag: "Synchronized" as const, sequence: Sequence.make(0) },
         ]),
-        Stream.never,
+        Stream.never
       ),
 
     subscribeSession: ({ sessionId }) =>
@@ -79,9 +79,9 @@ export const defaultHandlers = (options: {
     // Drain the bytes the Client already sent so they don't sit in the connection buffer.
     "attachments.stage": ({ name, blobId }) =>
       Effect.gen(function* () {
-        const blobs = yield* BlobChannel
-        yield* Effect.ignore(blobs.take(blobId))
-        return yield* fileError(name, "attachments")
+        const blobs = yield* BlobChannel;
+        yield* Effect.ignore(blobs.take(blobId));
+        return yield* fileError(name, "attachments");
       }),
 
     "terminal.open": ({ cwd }) => Effect.fail(fileError(cwd, "terminals")),
@@ -95,4 +95,4 @@ export const defaultHandlers = (options: {
       Effect.fail(new NotFound({ what: "terminal", id: terminalId })),
     "terminal.close": ({ terminalId }) =>
       Effect.fail(new NotFound({ what: "terminal", id: terminalId })),
-  })
+  });
