@@ -97,7 +97,8 @@ try {
     const source = await readFile(join(scratch, `${id}.ts`), "utf8")
     const target = join(outDir, `${id}.ts`)
     await mkdir(dirname(target), { recursive: true })
-    await writeFile(target, source)
+    const header = `// Generated from openai/codex app-server-protocol (Apache-2.0) by codex-cli ${version}\n`
+    await writeFile(target, header + source)
   }
 
   const exportName = (id: string) => id.split("/").at(-1)!
