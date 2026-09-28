@@ -6,8 +6,9 @@
  * `HostConnection` does).
  *
  * fast-check generates runs of: concurrent bursts of commands from two devices
- * (fresh and retried command ids, stale and racing approval answers) mixed
- * with Harness events (items, approval requests and withdrawals, Turn ends),
+ * (fresh and retried command ids, stale and racing approval answers, Archive
+ * and Unarchive) mixed with Harness events (items, approval requests and
+ * withdrawals, Turn ends, and late approval requests for a Turn that ended),
  * in an order and batching `fc.scheduler` picks; pauses of Client feeds (a
  * stalled Client, which the Daemon drops at `subscriberCapacity`); connection
  * drops; and Daemon crashes (the layer torn down, possibly mid-burst, the same
@@ -21,6 +22,8 @@
  *   - each approval request closes at most once, after it was opened; the
  *     first answer wins and the recorded device is the one that was accepted;
  *   - no Turn starts or continues without a Client's command;
+ *   - an approval is pending, and a session Working, only with a Turn in
+ *     flight; an Archived session holds neither;
  *   - the read model equals a reference fold of the log (also after reloads);
  *   - every Client feed has seen exactly a prefix of its committed stream, and
  *     each Snapshot matches the log at its sequence.
@@ -131,6 +134,7 @@ const abstractEvent = (envelope: EventEnvelope): AEvent => {
         tag: e._tag,
         what: `requested:${e.request.id}`,
         requestId: e.request.id,
+        turnId: e.request.turnId,
       }
     case "ApprovalResolved":
       return {
@@ -233,10 +237,18 @@ const referenceDecide = (
       if (!v.pending.has(command.requestId)) return "reject"
       return [
         `resolved:${command.requestId}:${device}`,
-        ...(v.pending.size === 1 && v.state === "needs-you" ? ["state:working"] : []),
+        ...(v.pending.size === 1 && v.state === "needs-you" && workingTurnOf(v) !== undefined
+          ? ["state:working"]
+          : []),
       ]
     case "Interrupt":
       return workingTurnOf(v) === undefined ? "reject" : []
+    case "ArchiveSession":
+      // Refused while a Turn is in flight, in every state (ENG-209 finding 2).
+      if (v.state === "archived" || workingTurnOf(v) !== undefined) return "reject"
+      return [...[...v.pending].map((r) => `withdrawn:${r}:daemon`), "state:archived"]
+    case "UnarchiveSession":
+      return v.state === "archived" ? ["state:dormant"] : "reject"
     case "RenameSession":
       return ["SessionRenamed"]
     default:
@@ -353,6 +365,9 @@ const reached = {
   withdrawnByHarness: 0,
   withdrawnByDaemon: 0,
   continued: 0,
+  archived: 0,
+  unarchived: 0,
+  lateRequests: 0,
   crashes: 0,
   crashesMidBurst: 0,
   interruptedByRestart: 0,
@@ -515,8 +530,8 @@ class World {
                     wire(conn, conn.engine.subscribeHost(after as Sequence | null)),
                   mark: markHost,
                   isDisconnect: (e) => e instanceof Disconnected,
-                  // HostConnection passes `gapless: true`, which is a bug: the host stream
-                  // leaves out session-only events, so it has gaps (hostFeed.test.ts).
+                  // As HostConnection opens it: the host stream leaves out session-only
+                  // events, so it has gaps (ENG-209 finding 1).
                   gapless: false,
                   reopenDelayMs: 1,
                 }).pipe(Scope.provide(this.clientScope)),
@@ -600,6 +615,23 @@ class World {
     // running, until it reports that Turn's end (the spec's `harnessReports` assumes
     // it). Its own view, not the read model's: that one may lag behind what it emitted.
     const sent = harness.turns.at(-1)?.turnId
+    if (what === "late") {
+      // A stale or misbehaving Harness asks about a Turn it already ended (ENG-209
+      // finding 3). Ignored, unless a Continue after a crash resumed that Turn since.
+      const ended = harness.turns.map((t) => t.turnId).filter((t) => this.endedTurns.has(t))
+      if (ended.length === 0) return
+      reached.lateRequests++
+      harness.emit({
+        _tag: "ApprovalRequested",
+        turnId: ended[pick % ended.length]!,
+        requestId: `late-${++this.requestCounter}` as RequestId,
+        kind: "command",
+        title: "Run a command",
+        detail: null,
+        options: [],
+      })
+      return
+    }
     const turnId = sent !== undefined && !this.endedTurns.has(sent) ? sent : undefined
     if (turnId === undefined && what !== "withdraw") return
     switch (what) {
@@ -758,6 +790,21 @@ const checkInvariants = async (world: World) => {
   for (const e of log) {
     if (isTurnStart(e) && e.commandId === null)
       throw new Error(`Turn started by itself at ${e.seq}`)
+    // A request is recorded only for its session's Turn in flight (late ones are ignored).
+    if (e.tag === "ApprovalRequested") {
+      const v = fold(log, e.seq - 1).get(e.session!)
+      if (v === undefined || workingTurnOf(v) !== e.turnId) {
+        throw new Error(`${e.requestId} was recorded at ${e.seq} for ${e.turnId}, not in flight`)
+      }
+    }
+  }
+
+  // Nothing is pending, and no session Working, without a Turn in flight; Archived holds neither.
+  for (const [s, v] of fold(log)) {
+    const working = workingTurnOf(v) !== undefined
+    if (v.pending.size > 0 && !working) throw new Error(`${s} has approvals pending with no Turn`)
+    if (v.state === "working" && !working) throw new Error(`${s} is Working with no Turn`)
+    if (v.state === "archived" && working) throw new Error(`${s} is Archived with a Turn in flight`)
   }
 
   // The read model is the reference fold of the log.
@@ -809,13 +856,20 @@ const sessionOfCommand = (command: Command): string =>
 
 // ── fast-check commands ─────────────────────────────────────────────────────
 
-type HarnessWhat = "item" | "delta" | "request" | "withdraw" | "end"
+type HarnessWhat = "item" | "delta" | "request" | "withdraw" | "end" | "late"
 
 type Action =
   | {
       readonly tag: "dispatch"
       readonly device: ClientName
-      readonly kind: "SendTurn" | "Continue" | "Respond" | "Interrupt" | "Rename"
+      readonly kind:
+        | "SendTurn"
+        | "Continue"
+        | "Respond"
+        | "Interrupt"
+        | "Rename"
+        | "Archive"
+        | "Unarchive"
       readonly s: SessionName
       readonly pick: number
       /** Reuse an earlier command (same id, same command, same device): a retry. */
@@ -862,6 +916,12 @@ const toDispatch = (world: World, action: Extract<Action, { tag: "dispatch" }>) 
       break
     case "Rename":
       command = { _tag: "RenameSession", sessionId, title: `t${idCounter}` }
+      break
+    case "Archive":
+      command = { _tag: "ArchiveSession", sessionId, deleteMergedBranch: false }
+      break
+    case "Unarchive":
+      command = { _tag: "UnarchiveSession", sessionId }
       break
     case "Respond": {
       // A pending request, or sometimes one already closed (a late answer).
@@ -1022,8 +1082,25 @@ const actionArb: fc.Arbitrary<Action> = fc.oneof(
       device: fc.constantFrom<ClientName>(...CLIENTS),
       kind:
         TRACE_DIR === undefined
-          ? fc.constantFrom("SendTurn", "Continue", "Respond", "Respond", "Interrupt", "Rename")
-          : fc.constantFrom("SendTurn", "Continue", "Respond", "Respond", "Rename"),
+          ? fc.constantFrom(
+              "SendTurn",
+              "Continue",
+              "Respond",
+              "Respond",
+              "Interrupt",
+              "Rename",
+              "Archive",
+              "Unarchive",
+            )
+          : fc.constantFrom(
+              "SendTurn",
+              "Continue",
+              "Respond",
+              "Respond",
+              "Rename",
+              "Archive",
+              "Unarchive",
+            ),
       s: sessionArb,
       pick: fc.nat(40),
       retry: fc.option(fc.nat(40), { freq: 4 }),
@@ -1034,7 +1111,15 @@ const actionArb: fc.Arbitrary<Action> = fc.oneof(
     arbitrary: fc.record({
       tag: fc.constant("harness" as const),
       s: sessionArb,
-      what: fc.constantFrom<HarnessWhat>("item", "delta", "request", "request", "withdraw", "end"),
+      what: fc.constantFrom<HarnessWhat>(
+        "item",
+        "delta",
+        "request",
+        "request",
+        "withdraw",
+        "end",
+        "late",
+      ),
       pick: fc.nat(40),
     }),
   },
@@ -1068,6 +1153,8 @@ const tally = (world: World, log: ReadonlyArray<AEvent>) => {
     if (e.tag === "ApprovalResolved") reached.approvalsResolved++
     if (e.what.endsWith(":harness")) reached.withdrawnByHarness++
     if (e.what.endsWith(":daemon")) reached.withdrawnByDaemon++
+    if (e.what === "state:archived") reached.archived++
+    if (e.what === "state:dormant" && e.commandId !== null) reached.unarchived++
   }
   const ids = new Map<string, number>()
   for (const sent of world.sent) ids.set(sent.id, (ids.get(sent.id) ?? 0) + 1)

@@ -1,18 +1,20 @@
 /**
- * Bugs the ENG-209 verification work found, each as a failing test kept as
- * `test.todo` until it is fixed (`bun test --todo` runs them). See
- * `packages/spec/README.md` ("Findings").
+ * Bugs the ENG-209 verification work found, kept as regression tests once
+ * fixed. A new finding that cannot be fixed in the same change goes here as a
+ * `test.todo` (`bun test --todo` runs them). See `packages/spec/README.md`
+ * ("Findings").
  */
 import { expect, test } from "bun:test"
 import { join } from "node:path"
 import { makeFeed, type SequenceMark } from "@polaris/client"
-import type {
-  Command,
-  HostStreamItem,
-  RequestId,
-  Sequence,
-  SessionId,
-  TurnId,
+import {
+  type Command,
+  CommandRejected,
+  type HostStreamItem,
+  type RequestId,
+  type Sequence,
+  type SessionId,
+  type TurnId,
 } from "@polaris/protocol"
 import { Effect, type Layer, type Scope, Stream } from "effect"
 import { Engine } from "../engine/Engine.ts"
@@ -73,10 +75,11 @@ const markHost = (item: HostStreamItem): SequenceMark =>
  * of times in a fraction of a second here). Spec: `hostFeedCanProgress` in
  * packages/spec/polaris.qnt (violated in `current`, holds in `fixed`).
  *
- * Fix: open the host feed with `gapless: false` in `HostConnection.ts` (the
- * dedupe by sequence is enough), or make the host stream gapless.
+ * Fixed: `HostConnection.ts` opens the host feed with `gapless: false` (the
+ * dedupe by sequence is enough: a dropped subscriber's stream ends, it is never
+ * skipped), and a feed's reopens that make no progress back off.
  */
-test.todo("the host feed follows a Turn that records items and checkpoints", async () => {
+test("the host feed follows a Turn that records items and checkpoints", async () => {
   const claude = makeFakeDriver("claude", { onTurn: completesTurns() })
   const layer = engineLayer({
     filename: join(tempDir(), "state.sqlite"),
@@ -96,7 +99,7 @@ test.todo("the host feed follows a Turn that records items and checkpoints", asy
         },
         mark: markHost,
         isDisconnect: () => false,
-        gapless: true, // as HostConnection.ts opens it
+        gapless: false, // as HostConnection.ts opens it
       })
       yield* Effect.forkScoped(Stream.runDrain(feed.stream))
       yield* Effect.sleep(20)
@@ -108,7 +111,7 @@ test.todo("the host feed follows a Turn that records items and checkpoints", asy
       return { last: feed.lastSequence(), cut: model.sequence, opens: opens.length }
     }),
   )
-  // Today: last is stuck at the event before the first CheckpointRecorded, opens in the thousands.
+  // Before the fix: last was stuck at the event before the first CheckpointRecorded, opens in the thousands.
   expect(result.last).toBe(result.cut)
   expect(result.opens).toBeLessThan(5)
 })
@@ -123,10 +126,12 @@ test.todo("the host feed follows a Turn that records items and checkpoints", asy
  * withdrawn). Spec: `restartWithdrawsApprovals` / the recovery rule; the spec
  * does not model Archive, so this one came from reading the code next to it.
  *
- * Fix: refuse `ArchiveSession` while a Turn is in flight in any state, or have
- * Archive (and recovery, for Archived sessions) end the Turn and withdraw.
+ * Fixed: `ArchiveSession` is refused while a Turn is in flight in every state,
+ * with the live states' reason, so an Archived session never holds a working
+ * Turn or a pending approval (spec: `archivedIsClosed`). Recovery also closes
+ * what an older log left open in an Archived session.
  */
-test.todo("archiving an In Terminal session mid-Turn leaves nothing open after a restart", async () => {
+test("archiving an In Terminal session mid-Turn is refused, and nothing is left open after a restart", async () => {
   const filename = join(tempDir(), "state.sqlite")
   const fakes = makeFakes()
   const s = "s-tui" as SessionId
@@ -154,6 +159,16 @@ test.todo("archiving an In Terminal session mid-Turn leaves nothing open after a
         },
       )
       yield* waitFor((m) => (m.sessions.get(s)?.pending.size ?? 0) === 1)
+      const refused = yield* Effect.flip(
+        dispatch({ _tag: "ArchiveSession", sessionId: s, deleteMergedBranch: false }),
+      )
+      expect(refused).toBeInstanceOf(CommandRejected)
+      expect((refused as CommandRejected).reason).toBe(
+        "interrupt the Turn in flight before archiving",
+      )
+      // The Turn ends in the terminal UI (its request goes with it); then Archive is accepted.
+      claude.follow.emit(s, { _tag: "TurnEnded", turnId, status: "completed", error: null })
+      yield* waitFor((m) => (m.sessions.get(s)?.pending.size ?? 1) === 0)
       yield* dispatch({ _tag: "ArchiveSession", sessionId: s, deleteMergedBranch: false })
       yield* waitFor((m) => m.sessions.get(s)?.session.state === "archived")
     }),
@@ -162,6 +177,7 @@ test.todo("archiving an In Terminal session mid-Turn leaves nothing open after a
     engineLayer({ filename, fakes, drivers: [makeFakeDriver("claude")] }),
     Effect.gen(function* () {
       const record = (yield* Effect.flatMap(EventStore, (store) => store.model)).sessions.get(s)!
+      expect(record.session.state).toBe("archived")
       expect(record.turns.filter((t) => t.status === "working")).toEqual([])
       expect(record.pending.size).toBe(0)
     }),
@@ -178,11 +194,13 @@ test.todo("archiving an In Terminal session mid-Turn leaves nothing open after a
  * `harnessReports` only lets a Harness ask during a Turn, and replaying a log
  * where the fake Harness asked right after ending its Turn failed there.
  *
- * Fix: ignore (or withdraw at once) an `ApprovalRequested` whose `turnId` is not
- * the session's working Turn, as `TurnEnded` already ignores a Turn that is not
- * working.
+ * Fixed: the session machine ignores an `ApprovalRequested` whose `turnId` is
+ * not the session's Turn in flight, as `TurnEnded` ignores a Turn that is not
+ * working, and answering (or withdrawing) the last request moves a session to
+ * Working only with a Turn in flight (spec: `approvalsNeedATurn`,
+ * `workingHasATurn`).
  */
-test.todo("a late approval request cannot leave a session Working without a Turn", async () => {
+test("a late approval request cannot leave a session Working without a Turn", async () => {
   const codex = makeFakeDriver("codex")
   const s = "s-late" as SessionId
   await run(
@@ -223,9 +241,10 @@ test.todo("a late approval request cannot leave a session Working without a Turn
       )
       yield* waitFor((m) => m.sessions.get(s)?.turns[0]?.status === "completed")
       yield* Effect.sleep(50)
-      const pending = (yield* Effect.flatMap(EventStore, (store) => store.model)).sessions.get(s)!
-        .pending.size
-      if (pending > 0) {
+      const late = (yield* Effect.flatMap(EventStore, (store) => store.model)).sessions.get(s)!
+      expect(late.pending.size).toBe(0)
+      expect(late.session.state).toBe("idle")
+      if (late.pending.size > 0) {
         yield* dispatch({
           _tag: "RespondToApproval",
           sessionId: s,
