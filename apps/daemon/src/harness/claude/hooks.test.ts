@@ -75,9 +75,10 @@ describe("HookTranslator", () => {
     ].flatMap((b) => h.onHook(b))
 
     expect(events).toEqual([
-      { _tag: "TurnStarted", turnId: "t1" },
+      // The Turn carries what the user typed in the TUI.
+      { _tag: "TurnStarted", turnId: "t1", prompt: "run tests" },
       {
-        _tag: "ItemCompleted",
+        _tag: "ItemUpdated",
         turnId: "t1",
         item: {
           _tag: "CommandExecution",
@@ -154,7 +155,7 @@ describe("HookTranslator", () => {
 
     expect(events).toEqual([
       { _tag: "CursorAssigned", cursor: "cs-1" },
-      { _tag: "TurnStarted", turnId: "t1" },
+      { _tag: "TurnStarted", turnId: "t1", prompt: null },
       {
         _tag: "ItemCompleted",
         turnId: "t1",
@@ -165,6 +166,12 @@ describe("HookTranslator", () => {
           status: "failed",
         },
       },
+      // Live while the Turn runs, persisted once when it ends.
+      {
+        _tag: "ItemUpdated",
+        turnId: "t1",
+        item: { _tag: "Plan", id: "plan:t1", steps: [{ text: "a", status: "in-progress" }] },
+      },
       {
         _tag: "ItemCompleted",
         turnId: "t1",
@@ -174,6 +181,19 @@ describe("HookTranslator", () => {
       { _tag: "Exited", error: null },
     ])
     expect(h.isEnded).toBe(true)
+  })
+
+  test("follows the TUI to a new session id (resume picked another, or /clear)", () => {
+    const h = new HookTranslator({ cursor: "cs-1", ...sequence() })
+    const events: unknown[] = [
+      { ...base, hook_event_name: "SessionStart", source: "resume" },
+      { ...base, session_id: "cs-2", hook_event_name: "SessionStart", source: "clear" },
+      { ...base, session_id: "cs-2", hook_event_name: "UserPromptSubmit", prompt: "again" },
+    ].flatMap((b) => h.onHook(b))
+    expect(events).toEqual([
+      { _tag: "CursorAssigned", cursor: "cs-2" },
+      { _tag: "TurnStarted", turnId: "t1", prompt: "again" },
+    ])
   })
 
   test("ignores malformed bodies and notifications that aren't permission prompts", () => {

@@ -135,7 +135,11 @@ describe("Codex driver against a fake app-server", () => {
       "Exited",
     ])
     expect(events[0]).toEqual({ _tag: "CursorAssigned", cursor: threadId })
-    expect(events[1]).toEqual({ _tag: "TurnStarted", turnId: TurnId.make("turn-1") })
+    expect(events[1]).toEqual({
+      _tag: "TurnStarted",
+      turnId: TurnId.make("turn-1"),
+      prompt: "say ok",
+    })
     expect(events[2]).toMatchObject({ _tag: "ItemDelta", field: "text", text: "ok" })
     expect(events[3]).toMatchObject({
       _tag: "ItemCompleted",
@@ -350,6 +354,116 @@ describe("Codex driver against a fake app-server", () => {
     })
   })
 
+  test("a Turn typed in the TUI carries its prompt; commands and the plan show live", async () => {
+    const command = (status: string, output: string | null) => ({
+      type: "commandExecution",
+      id: "c1",
+      command: "bun test",
+      cwd: "/repo",
+      status,
+      aggregatedOutput: output,
+      exitCode: status === "completed" ? 0 : null,
+    })
+    let tui: (() => void) | null = null
+    const handler: Handler = (request, conn) => {
+      if (request.method === "thread/resume")
+        tui = () => {
+          conn.notify("turn/started", { threadId: THREAD, turn: turn("t_tui") })
+          conn.notify("item/started", {
+            threadId: THREAD,
+            turnId: "t_tui",
+            startedAtMs: 0,
+            item: {
+              type: "userMessage",
+              id: "u1",
+              clientId: null,
+              content: [{ type: "text", text: "fix the tests", text_elements: [] }],
+            },
+          })
+          conn.notify("item/started", {
+            threadId: THREAD,
+            turnId: "t_tui",
+            startedAtMs: 0,
+            item: command("inProgress", null),
+          })
+          conn.notify("turn/plan/updated", {
+            threadId: THREAD,
+            turnId: "t_tui",
+            explanation: null,
+            plan: [{ step: "run tests", status: "inProgress" }],
+          })
+          conn.notify("item/completed", {
+            threadId: THREAD,
+            turnId: "t_tui",
+            completedAtMs: 0,
+            item: command("completed", "17 pass"),
+          })
+          conn.notify("turn/completed", { threadId: THREAD, turn: turn("t_tui", "completed") })
+        }
+      return scripted(() => {})(request, conn)
+    }
+    const { events } = await withSession(
+      handler,
+      ({ waitFor }) =>
+        Effect.gen(function* () {
+          tui?.()
+          yield* waitFor((e) => e._tag === "TurnEnded", "TurnEnded")
+        }),
+      { resumeCursor: THREAD },
+    )
+    const started = events.find((e) => e._tag === "TurnStarted")
+    expect(started).toMatchObject({ prompt: "fix the tests" })
+    const turnId = started?._tag === "TurnStarted" ? started.turnId : TurnId.make("missing")
+    expect(events.filter((e) => e._tag !== "CursorAssigned" && e._tag !== "Exited")).toEqual([
+      { _tag: "TurnStarted", turnId, prompt: "fix the tests" },
+      {
+        _tag: "ItemUpdated",
+        turnId,
+        item: {
+          _tag: "CommandExecution",
+          id: "c1",
+          command: "bun test",
+          cwd: "/repo",
+          output: "",
+          exitCode: null,
+          status: "running",
+        },
+      },
+      {
+        _tag: "ItemUpdated",
+        turnId,
+        item: {
+          _tag: "Plan",
+          id: "t_tui:plan",
+          steps: [{ text: "run tests", status: "in-progress" }],
+        },
+      },
+      {
+        _tag: "ItemCompleted",
+        turnId,
+        item: {
+          _tag: "CommandExecution",
+          id: "c1",
+          command: "bun test",
+          cwd: "/repo",
+          output: "17 pass",
+          exitCode: 0,
+          status: "completed",
+        },
+      },
+      {
+        _tag: "ItemCompleted",
+        turnId,
+        item: {
+          _tag: "Plan",
+          id: "t_tui:plan",
+          steps: [{ text: "run tests", status: "in-progress" }],
+        },
+      },
+      { _tag: "TurnEnded", turnId, status: "completed", error: null },
+    ])
+  })
+
   test("an async question is answered with a new user message", async () => {
     const handler = scripted((request, conn) => {
       if (request.method !== "turn/start") return
@@ -400,7 +514,10 @@ describe("Codex driver against a fake app-server", () => {
       threadId: THREAD,
       input: [{ type: "text", text: "SQLite" }],
     })
-    expect(events.filter((e) => e._tag === "TurnStarted")).toHaveLength(2)
+    expect(events.filter((e) => e._tag === "TurnStarted")).toMatchObject([
+      { prompt: "say hi" },
+      { prompt: "SQLite" },
+    ])
   })
 
   test("refuses credential and unsupported server requests, and reports a dropped server", async () => {

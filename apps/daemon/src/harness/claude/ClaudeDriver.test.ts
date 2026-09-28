@@ -132,7 +132,7 @@ describe("Claude driver", () => {
     await t.until(t.has("TurnEnded"), "TurnEnded")
 
     expect(t.events).toEqual([
-      { _tag: "TurnStarted", turnId: T1 },
+      { _tag: "TurnStarted", turnId: T1, prompt: "list files" },
       { _tag: "CursorAssigned", cursor: "claude-session-1" },
       { _tag: "ItemDelta", turnId: T1, itemId: "m1:0", field: "text", text: "Look" },
       {
@@ -141,7 +141,7 @@ describe("Claude driver", () => {
         item: { _tag: "AssistantMessage", id: "m1:0", text: "Looking." },
       },
       {
-        _tag: "ItemCompleted",
+        _tag: "ItemUpdated",
         turnId: T1,
         item: {
           _tag: "CommandExecution",
@@ -167,7 +167,7 @@ describe("Claude driver", () => {
         },
       },
       {
-        _tag: "ItemCompleted",
+        _tag: "ItemUpdated",
         turnId: T1,
         item: {
           _tag: "FileChange",
@@ -187,7 +187,7 @@ describe("Claude driver", () => {
         },
       },
       {
-        _tag: "ItemCompleted",
+        _tag: "ItemUpdated",
         turnId: T1,
         item: {
           _tag: "Plan",
@@ -199,7 +199,7 @@ describe("Claude driver", () => {
         },
       },
       {
-        _tag: "ItemCompleted",
+        _tag: "ItemUpdated",
         turnId: T1,
         item: {
           _tag: "ToolCall",
@@ -220,6 +220,19 @@ describe("Claude driver", () => {
           input: {},
           output: "no matches",
           status: "failed",
+        },
+      },
+      // The plan is persisted once, with its last state, when the Turn ends.
+      {
+        _tag: "ItemCompleted",
+        turnId: T1,
+        item: {
+          _tag: "Plan",
+          id: "plan:turn-1",
+          steps: [
+            { text: "list", status: "completed" },
+            { text: "edit", status: "in-progress" },
+          ],
         },
       },
       { _tag: "TurnEnded", turnId: T1, status: "completed", error: null },
@@ -247,6 +260,23 @@ describe("Claude driver", () => {
     await t.run(t.session.sendTurn(turn(T1, "one")))
     const exit = await Effect.runPromiseExit(t.session.sendTurn(turn(T2, "two")))
     expect(Exit.isFailure(exit)).toBe(true)
+    await t.close()
+  })
+
+  test("full-access keeps canUseTool, so leaving it mid-session still asks", async () => {
+    const t = await openFake({ permissionMode: "full-access" })
+    expect(t.fake.options!.permissionMode).toBe("bypassPermissions")
+    // Registered at start even though bypassPermissions never calls it: it can't be added later.
+    expect(typeof t.fake.options!.canUseTool).toBe("function")
+    await t.run(t.session.setPermissionMode("supervised"))
+    expect(t.fake.permissionModes).toEqual(["default"])
+    await t.run(t.session.sendTurn(turn(T1, "clean up")))
+    const answer = t.fake.askPermission("Bash", { command: "rm x" }, { toolUseID: "tu1" })
+    await t.until(t.has("ApprovalRequested"))
+    const request = t.events.find((e) => e._tag === "ApprovalRequested")!
+    if (request._tag !== "ApprovalRequested") throw new Error("unreachable")
+    await t.run(t.session.respond(request.requestId, { _tag: "Allow", remember: false }))
+    expect(await answer).toMatchObject({ behavior: "allow" })
     await t.close()
   })
 
@@ -303,7 +333,7 @@ describe("Claude driver", () => {
     await t.run(t.session.respond(request.requestId, { _tag: "Deny", reason: "not that file" }))
     expect(await answer).toEqual({ behavior: "deny", message: "not that file" })
     t.fake.emit(toolResult("tu1", "denied", { isError: true }))
-    await t.until(() => t.events.filter((e) => e._tag === "ItemCompleted").length === 2)
+    await t.until(() => t.events.filter((e) => e._tag === "ItemCompleted").length === 1)
     expect(t.events.at(-1)).toMatchObject({
       _tag: "ItemCompleted",
       item: { _tag: "FileChange", id: "tu1", status: "declined" },

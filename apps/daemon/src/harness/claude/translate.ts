@@ -4,9 +4,10 @@
  * Stateful but free of effects, so it is unit-testable on recorded messages.
  * Turn accounting (which `result` ends which Turn) lives in the session, not here.
  *
- * Tool items are emitted twice under one id: once `running` when the `tool_use`
- * block arrives, and again with the final status when its `tool_result` does. A
- * later `ItemCompleted` with the same item id supersedes the earlier one.
+ * A tool call is live progress (`ItemUpdated`, `running`) when its `tool_use`
+ * block arrives, and one `ItemCompleted` with the final status when its
+ * `tool_result` does. TodoWrite updates the Turn's plan live the same way; the
+ * plan is completed once, with its last state, when the Turn ends.
  */
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk"
 import type { TurnId, TurnItem } from "@polaris/protocol"
@@ -36,7 +37,7 @@ const PLAN_STATUS = {
   completed: "completed",
 } as const
 
-const planSteps = (input: unknown) =>
+export const planSteps = (input: unknown) =>
   isRecord(input) && Array.isArray(input.todos)
     ? input.todos.flatMap((t) => {
         if (!isRecord(t)) return []
@@ -118,6 +119,8 @@ export class ClaudeTranslator {
   private readonly delivered = new Map<string, number>()
   private readonly tools = new Map<string, OpenTool>()
   private readonly declined = new Set<string>()
+  /** The latest TodoWrite plan of each Turn, completed when the Turn ends. */
+  private readonly plans = new Map<TurnId, TurnItem>()
 
   constructor(
     private readonly cwd: string,
@@ -145,9 +148,17 @@ export class ClaudeTranslator {
     this.declined.add(toolUseId)
   }
 
-  /** Items still open at Turn end (e.g. interrupted mid-tool) reported as failed or declined. */
+  /**
+   * At Turn end: items still open (e.g. interrupted mid-tool) complete as failed or
+   * declined, and the Turn's plan completes with its last state.
+   */
   closeOpenTools(turnId: TurnId, status: "failed" | "declined"): HarnessEvent[] {
     const events: HarnessEvent[] = []
+    const plan = this.plans.get(turnId)
+    if (plan !== undefined) {
+      this.plans.delete(turnId)
+      events.push({ _tag: "ItemCompleted", turnId, item: plan })
+    }
     for (const [id, tool] of this.tools) {
       if (tool.turnId !== turnId || tool.name === "TodoWrite") continue
       events.push({
@@ -245,16 +256,18 @@ export class ClaudeTranslator {
       } else if (block.type === "tool_use" && typeof block.id === "string") {
         const name = str(block.name) ?? "unknown"
         if (name === "TodoWrite") {
-          events.push({
-            _tag: "ItemCompleted",
-            turnId,
-            item: { _tag: "Plan", id: `plan:${turnId}`, steps: planSteps(block.input) },
-          })
+          const plan: TurnItem = {
+            _tag: "Plan",
+            id: `plan:${turnId}`,
+            steps: planSteps(block.input),
+          }
+          this.plans.set(turnId, plan)
+          events.push({ _tag: "ItemUpdated", turnId, item: plan })
         }
         this.tools.set(block.id, { name, input: block.input, turnId })
         if (name !== "TodoWrite") {
           events.push({
-            _tag: "ItemCompleted",
+            _tag: "ItemUpdated",
             turnId,
             item: toolItem({
               id: block.id,
