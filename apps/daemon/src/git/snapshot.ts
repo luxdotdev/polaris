@@ -137,6 +137,9 @@ const ownIndexTree = async (repo: Repo): Promise<string> => {
     await rm(lock, { force: true })
   }
   const tree = await addAndWriteTree(repo.root, repo.ownIndex, OWN_INDEX_CONFIG)
+  // gc doesn't treat our index as a root, so its cached trees can be pruned;
+  // write-tree trusts that cache. A missing tree throws and takes the fallback.
+  await gitText(repo.root, ["cat-file", "-e", `${tree}^{tree}`])
   seeds.set(repo.ownIndex, seed)
   return tree
 }
