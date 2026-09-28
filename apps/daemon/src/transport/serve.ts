@@ -9,6 +9,7 @@ import type { Capability } from "@polaris/protocol"
 import { Effect, Layer } from "effect"
 import { AttachmentRpcsLive } from "../attachments/AttachmentRpcs.ts"
 import { AttachmentStoreLive } from "../attachments/AttachmentStore.ts"
+import { installDebugHooks } from "../debug.ts"
 import { Engine } from "../engine/Engine.ts"
 import { EngineRpcHandlers } from "../engine/rpc.ts"
 import { FileSearchLive } from "../files/FileSearch.ts"
@@ -80,4 +81,7 @@ export const serveProgram = Effect.scoped(
   ),
 )
 
-export const runServe = () => BunRuntime.runMain(serveProgram)
+export const runServe = () => {
+  installDebugHooks()
+  BunRuntime.runMain(serveProgram)
+}
