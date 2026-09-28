@@ -124,6 +124,16 @@ export const SessionStreamItem = Schema.TaggedUnion({
     field: Schema.Literals(["text", "output"]),
     text: Schema.String,
   },
+  /**
+   * The latest state of an item still in progress (a running command, a plan being
+   * worked through), replacing any earlier progress for the same `item.id`. Like
+   * `Delta`: live-only, not persisted, not sequenced; the item's final state
+   * arrives as a `TurnItemCompleted` event. Sent only to Clients that announced
+   * the `session.live-items` capability. Right after `Synchronized`, the Daemon
+   * sends the progress of every item still running, so a Client that subscribes
+   * mid-Turn sees them too.
+   */
+  ItemProgress: { turnId: TurnId, item: TurnItem },
   Synchronized: { sequence: Sequence },
 })
 export type SessionStreamItem = typeof SessionStreamItem.Type
@@ -138,6 +148,27 @@ export const SubscribeSession = Rpc.make("subscribeSession", {
   success: SessionStreamItem,
   error: NotFound,
   stream: true,
+})
+
+/** How to launch a Harness's own terminal UI for a session that is In Terminal. */
+export class TerminalLaunch extends Schema.Class<TerminalLaunch>("TerminalLaunch")({
+  /** Pass to `terminal.open` as `argv`. */
+  argv: Schema.Array(Schema.String),
+  /** The session's working directory; pass to `terminal.open` as `cwd`. */
+  cwd: Schema.String,
+  /** Variables to set on top of the login environment; often empty. */
+  env: Schema.Record(Schema.String, Schema.String),
+}) {}
+
+/**
+ * The terminal UI command for "Open in terminal". Null until the session is
+ * In Terminal and the Harness has produced its command (shortly after the
+ * `OpenInTerminal` ack), and again after `ReturnFromTerminal`.
+ */
+export const SessionTerminalCommand = Rpc.make("session.terminalCommand", {
+  payload: { sessionId: SessionId },
+  success: Schema.NullOr(TerminalLaunch),
+  error: NotFound,
 })
 
 // ── Files (read-mostly in M1) ───────────────────────────────────────────────
@@ -319,6 +350,7 @@ export class DaemonRpcs extends RpcGroup.make(
   Dispatch,
   SubscribeHost,
   SubscribeSession,
+  SessionTerminalCommand,
   ListDir,
   Stat,
   ReadFile,

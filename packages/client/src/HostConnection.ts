@@ -180,6 +180,7 @@ const markSession = (item: SessionStreamItem): SequenceMark => {
     case "Synchronized":
       return { kind: "synchronized", sequence: item.sequence }
     case "Delta":
+    case "ItemProgress":
       return { kind: "ephemeral" }
   }
 }
