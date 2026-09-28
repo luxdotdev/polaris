@@ -9,7 +9,7 @@ import { existsSync } from "node:fs"
 import { copyFile, mkdir, mkdtemp, rm, stat, utimes } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import { gitText, resolveHead, runGitRaw } from "./git.ts"
+import { gitText, mayBeInWorkTree, resolveHead, runGitRaw } from "./git.ts"
 
 export interface Snapshot {
   /** The repository top level the snapshot was taken from. */
@@ -52,6 +52,7 @@ const repos = new Map<string, Repo>()
 const discover = async (cwd: string): Promise<Repo | null> => {
   const cached = repos.get(cwd)
   if (cached !== undefined) return cached
+  if (!mayBeInWorkTree(cwd)) return null
   // One process for the top level and both index paths (per worktree).
   const result = await runGitRaw(cwd, [
     "rev-parse",
