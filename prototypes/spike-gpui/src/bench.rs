@@ -263,6 +263,10 @@ fn pane_missing(pane: &Entity<DiffPane>, cx: &App) -> bool {
 }
 
 async fn scroll(c: &mut Ctx, w: AnyWindowHandle, pane: &Entity<DiffPane>, secs: f32, cx: &mut AsyncApp) -> Value {
+    // GPUI throttles animation frames of inactive windows to 30 fps; scroll the key window.
+    let _ = cx.update_window(w, |_, window, _| window.activate_window());
+    sleep(cx, Duration::from_millis(300)).await;
+    let active = cx.update_window(w, |_, window, _| window.is_window_active()).unwrap_or(false);
     let start = Instant::now();
     cx.update(|cx| {
         pane.update(cx, |p, cx| {
@@ -289,6 +293,7 @@ async fn scroll(c: &mut Ctx, w: AnyWindowHandle, pane: &Entity<DiffPane>, secs: 
     let draws = c.frames.draws_ms(w.window_id(), start, end);
     let renders: Vec<Instant> = log.iter().map(|x| x.0).collect();
     json!({
+        "window_active": active,
         "duration_s": ms(end - start) / 1e3,
         "scrolled_px": y,
         "px_per_s_target": SPEED,
@@ -340,6 +345,11 @@ pub fn start(scenario: String, launch: Launch, main: AnyWindowHandle, app: Entit
     let frames = Frames::new();
     // Watchdog: GPUI draws nothing while a window is occluded (locked screen,
     // other Space, covered), so frame waits would hang forever.
+    let sc = scenario.clone();
+    std::panic::set_hook(Box::new(move |info| {
+        eprintln!("{info}");
+        write(&sc, json!({ "error": format!("panic: {info}") }));
+    }));
     let sc = scenario.clone();
     std::thread::spawn(move || {
         std::thread::sleep(Duration::from_secs(120));
@@ -430,10 +440,13 @@ async fn run(scenario: &str, launch: &Launch, c: &mut Ctx, cx: &mut AsyncApp) ->
                     // Same code path as pressing ⌃N: dispatch the bound action.
                     window.dispatch_action(ws_action(ws), cx);
                 });
+                let mut waited = 0;
                 let rendered = loop {
                     if let Some(t) = cx.update(|cx| c.app.read(cx).probe.rendered_at) {
                         break t;
                     }
+                    waited += 1;
+                    assert!(waited < 3000, "Ws action produced no render (focus not in the view?)");
                     sleep(cx, Duration::from_millis(1)).await;
                 };
                 let ok = cx.update(|cx| c.app.read(cx).selected == ws);
@@ -454,12 +467,7 @@ async fn run(scenario: &str, launch: &Launch, c: &mut Ctx, cx: &mut AsyncApp) ->
             let doc = cx.background_executor().spawn(async move { Arc::new(load_doc("290k")) }).await;
             let (pw, ppane) = cx.update(|cx| c.app.update(cx, |a, cx| a.pop_out(Some(doc), cx)));
             sleep(cx, Duration::from_millis(1500)).await;
-            let _ = cx.update_window(main, |_, window, _| window.activate_window());
-            sleep(cx, Duration::from_millis(300)).await;
             let s1 = scroll(c, main, &pane, 5., cx).await;
-            // Inactive GPUI windows are throttled to 30 fps; scroll the pop-out focused.
-            let _ = cx.update_window(pw, |_, window, _| window.activate_window());
-            sleep(cx, Duration::from_millis(300)).await;
             let s2 = scroll(c, pw, &ppane, 5., cx).await;
             let j = random_jumps(c, pw, &ppane, 10, cx).await;
             sleep(cx, Duration::from_secs(3)).await;
