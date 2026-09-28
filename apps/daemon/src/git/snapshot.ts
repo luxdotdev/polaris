@@ -1,15 +1,15 @@
 /**
- * Working-tree snapshots through a temporary index.
+ * Working-tree snapshots through an index of Polaris's own.
  *
- * Design follows pingdotgg/t3code@de251fc (MIT): point `GIT_INDEX_FILE` at a
- * throwaway index, `git add -A`, `git write-tree`. The user's index, HEAD and
- * branch are never written. No code was copied.
+ * Design follows pingdotgg/t3code@de251fc (MIT): point `GIT_INDEX_FILE` at an
+ * index that isn't the user's, `git add -A`, `git write-tree`. The user's
+ * index, HEAD and branch are never written. No code was copied.
  */
 import { existsSync } from "node:fs"
-import { copyFile, mkdtemp, rm, stat, utimes } from "node:fs/promises"
+import { copyFile, mkdir, mkdtemp, rm, stat, utimes } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
-import { findRepoRoot, gitText, resolveHead } from "./git.ts"
+import { dirname, join } from "node:path"
+import { gitText, resolveHead, runGitRaw } from "./git.ts"
 
 export interface Snapshot {
   /** The repository top level the snapshot was taken from. */
@@ -20,40 +20,168 @@ export interface Snapshot {
   readonly head: string | null
 }
 
+interface Repo {
+  readonly root: string
+  /** The user's index (of this worktree). Read, never written. */
+  readonly userIndex: string
+  /** Polaris's own index for this worktree: `<git dir>/polaris/index`. */
+  readonly ownIndex: string
+}
+
 /**
- * Snapshots the working tree of the repository containing `cwd`. Returns null
- * outside git repositories.
- *
- * The user's index is copied (never modified) into the temporary one first so
- * that git's stat cache lets `add -A` rehash only files that changed, which
- * keeps this cheap on large repositories.
+ * Config for commands on Polaris's own index: skip the trailing SHA over the
+ * whole index on every write (git ≥ 2.40; older versions ignore the key). Only
+ * our own git calls ever read this index.
  */
-export const snapshotWorkingTree = async (cwd: string): Promise<Snapshot | null> => {
-  const root = await findRepoRoot(cwd)
-  if (root === null) return null
-  const head = await resolveHead(root)
+const OWN_INDEX_CONFIG = ["-c", "index.skipHash=true"]
+
+/** An `index.lock` older than this was left by a crashed Daemon. */
+const STALE_LOCK_MS = 60_000
+
+const decoder = new TextDecoder()
+
+/** Repository paths by cwd. Only positive answers are kept; a failure drops the entry. */
+const repos = new Map<string, Repo>()
+
+const discover = async (cwd: string): Promise<Repo | null> => {
+  const cached = repos.get(cwd)
+  if (cached !== undefined) return cached
+  // One process for the top level and both index paths (per worktree).
+  const result = await runGitRaw(cwd, [
+    "rev-parse",
+    "--path-format=absolute",
+    "--show-toplevel",
+    "--git-path",
+    "index",
+    "--git-path",
+    "polaris/index",
+  ]).catch(() => null)
+  if (result === null || result.code !== 0) return null
+  const [root, userIndex, ownIndex] = decoder.decode(result.stdout).split("\n")
+  if (!root || !userIndex || !ownIndex) return null
+  const repo = { root, userIndex, ownIndex }
+  repos.set(cwd, repo)
+  return repo
+}
+
+/**
+ * The user's index this repository's own index was last seeded from, as a
+ * stat signature. git replaces the index file on every write (new inode,
+ * new mtime), so a different signature means the user's index changed.
+ */
+const seeds = new Map<string, string | null>()
+
+const signature = async (path: string): Promise<string | null> => {
+  const s = await stat(path, { bigint: true }).catch(() => null)
+  return s === null ? null : `${s.dev}:${s.ino}:${s.size}:${s.mtimeNs}:${s.ctimeNs}`
+}
+
+/** One snapshot at a time per index (git would refuse a second with `index.lock`). */
+const queues = new Map<string, Promise<unknown>>()
+
+const serialized = <A>(key: string, task: () => Promise<A>): Promise<A> => {
+  const previous = queues.get(key) ?? Promise.resolve()
+  const run = previous.then(task, task)
+  const settled = run.catch(() => {})
+  queues.set(key, settled)
+  void settled.then(() => {
+    if (queues.get(key) === settled) queues.delete(key)
+  })
+  return run
+}
+
+/**
+ * Copies the user's index to `to`, keeping its mtime: git treats entries
+ * modified in the same instant as the index ("racily clean") as suspect and
+ * rehashes them. A fresh mtime would make a same-size edit look unchanged and
+ * drop it.
+ */
+const copyUserIndex = async (userIndex: string, to: string): Promise<void> => {
+  await copyFile(userIndex, to)
+  const { atimeMs, mtimeMs } = await stat(userIndex)
+  await utimes(to, atimeMs / 1000, Math.floor(mtimeMs) / 1000)
+}
+
+const addAndWriteTree = async (root: string, index: string, config: ReadonlyArray<string>) => {
+  const env = { GIT_INDEX_FILE: index }
+  await gitText(root, [...config, "add", "-A"], { env })
+  return gitText(root, [...config, "write-tree"], { env })
+}
+
+/**
+ * The tree of the working tree through Polaris's own index, which persists
+ * between snapshots so that git's stat cache stays warm: `add -A` rehashes
+ * only files that changed since the last snapshot, whatever the user's index
+ * says. It is (re)seeded from the user's index whenever that changes, so
+ * which files count as tracked (and so are kept even if ignored) always
+ * follows the user's index, as with a fresh copy.
+ */
+const ownIndexTree = async (repo: Repo): Promise<string> => {
+  const seed = await signature(repo.userIndex)
+  if (seeds.get(repo.ownIndex) !== seed || !existsSync(repo.ownIndex)) {
+    seeds.delete(repo.ownIndex)
+    await mkdir(dirname(repo.ownIndex), { recursive: true })
+    await rm(repo.ownIndex, { force: true })
+    if (seed !== null) await copyUserIndex(repo.userIndex, repo.ownIndex)
+  }
+  const lock = `${repo.ownIndex}.lock`
+  const lockStat = await stat(lock).catch(() => null)
+  if (lockStat !== null && Date.now() - lockStat.mtimeMs > STALE_LOCK_MS) {
+    await rm(lock, { force: true })
+  }
+  const tree = await addAndWriteTree(repo.root, repo.ownIndex, OWN_INDEX_CONFIG)
+  seeds.set(repo.ownIndex, seed)
+  return tree
+}
+
+/** The tree through a throwaway copy of the user's index (the fallback). */
+const tempIndexTree = async (repo: Repo): Promise<string> => {
   const dir = await mkdtemp(join(tmpdir(), "polaris-index-"))
   try {
     const index = join(dir, "index")
-    const userIndex = await gitText(root, [
-      "rev-parse",
-      "--path-format=absolute",
-      "--git-path",
-      "index",
-    ])
-    if (existsSync(userIndex)) {
-      await copyFile(userIndex, index)
-      // Keep the index's own mtime: git treats entries modified in the same
-      // instant as the index ("racily clean") as suspect and rehashes them. A
-      // fresh mtime would make a same-size edit look unchanged and drop it.
-      const { atimeMs, mtimeMs } = await stat(userIndex)
-      await utimes(index, atimeMs / 1000, Math.floor(mtimeMs) / 1000)
-    }
-    const env = { GIT_INDEX_FILE: index }
-    await gitText(root, ["add", "-A"], { env })
-    const tree = await gitText(root, ["write-tree"], { env })
-    return { root, tree, head }
+    if (existsSync(repo.userIndex)) await copyUserIndex(repo.userIndex, index)
+    return await addAndWriteTree(repo.root, index, [])
   } finally {
     await rm(dir, { recursive: true, force: true })
   }
+}
+
+const snapshotRepo = async (repo: Repo): Promise<Snapshot> => {
+  const [tree, head] = await Promise.all([
+    serialized(repo.ownIndex, () =>
+      ownIndexTree(repo).catch(async () => {
+        // Our own index is only a cache: drop it and take this snapshot the slow way.
+        seeds.delete(repo.ownIndex)
+        await rm(repo.ownIndex, { force: true }).catch(() => {})
+        return tempIndexTree(repo)
+      }),
+    ),
+    resolveHead(repo.root),
+  ])
+  return { root: repo.root, tree, head }
+}
+
+/**
+ * Snapshots the working tree of the repository containing `cwd`. Returns null
+ * outside git repositories.
+ */
+export const snapshotWorkingTree = async (cwd: string): Promise<Snapshot | null> => {
+  const repo = await discover(cwd)
+  if (repo === null) return null
+  try {
+    return await snapshotRepo(repo)
+  } catch (cause) {
+    // The repository may have moved or gone: look again once.
+    repos.delete(cwd)
+    const again = await discover(cwd)
+    if (again === null) return null
+    if (again.root === repo.root && again.ownIndex === repo.ownIndex) throw cause
+    return snapshotRepo(again)
+  }
+}
+
+/** Forgets cached repository paths and seeds (tests). */
+export const resetSnapshotCaches = (): void => {
+  repos.clear()
+  seeds.clear()
 }

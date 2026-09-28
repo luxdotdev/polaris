@@ -8,7 +8,7 @@ import { Checkpoints } from "../services.ts"
 import { CheckpointsLive, captureCheckpoint, checkpointRef } from "./Checkpoints.ts"
 import { computeDiff } from "./diff.ts"
 import { handleGitDiff, handleGitStatus } from "./GitRpcs.ts"
-import { gitText } from "./git.ts"
+import { gitText, runGitRaw } from "./git.ts"
 import { parsePorcelainV2 } from "./status.ts"
 import { commitAll, makeRepo, removeDir, tempDir, write } from "./testing.ts"
 
@@ -129,6 +129,43 @@ describe("Checkpoints", () => {
     )
     // No parent on an unborn branch.
     expect(await gitText(root, ["rev-list", "--count", result!.commit])).toBe("1")
+  })
+
+  test("reuses the previous commit for an identical snapshot, and not otherwise", async () => {
+    const root = await repo({ "a.txt": "one\n" })
+    const capture = (turn: string, label: "before" | "after") =>
+      captureCheckpoint({ cwd: root, sessionId, turnId: turn, label })
+    const after1 = await capture("t1", "after")
+    const before2 = await capture("t2", "before")
+    expect(before2!.commit).toBe(after1!.commit)
+    expect(await gitText(root, ["rev-parse", checkpointRef(sessionId, "t2", "before")])).toBe(
+      after1!.commit,
+    )
+
+    write(root, "a.txt", "two\n")
+    const after2 = await capture("t2", "after")
+    expect(after2!.commit).not.toBe(before2!.commit)
+
+    // HEAD moved: same tree, different parent, so a new commit.
+    await commitAll(root, "two")
+    const before3 = await capture("t3", "before")
+    expect(before3!.commit).not.toBe(after2!.commit)
+    expect(await gitText(root, ["rev-parse", `${before3!.commit}^`])).toBe(
+      await gitText(root, ["rev-parse", "HEAD"]),
+    )
+  })
+
+  test("writes a new commit when the reused one was pruned", async () => {
+    const root = await repo({ "a.txt": "one\n" })
+    write(root, "b.txt", "b\n")
+    const first = await captureCheckpoint({ cwd: root, sessionId, turnId, label: "after" })
+    await gitText(root, ["update-ref", "-d", first!.ref])
+    await gitText(root, ["reflog", "expire", "--expire=now", "--all"])
+    await gitText(root, ["gc", "-q", "--prune=now"])
+    expect((await runGitRaw(root, ["cat-file", "-e", first!.commit])).code).not.toBe(0)
+    const next = await captureCheckpoint({ cwd: root, sessionId, turnId: "t2", label: "before" })
+    expect(next!.commit).not.toBe(first!.commit)
+    expect(await gitText(root, ["rev-parse", next!.ref])).toBe(next!.commit)
   })
 
   test("returns null outside a git repository", async () => {
