@@ -1,0 +1,137 @@
+"""Generate Polaris's pixel textures: night/dawn scenes, watercolour washes, dither halos.
+
+Deterministic. Requires numpy and pillow:
+    uv run --with numpy --with pillow design/scripts/gen_textures.py
+Writes into design/assets/{scenes,washes,halos}.
+"""
+import numpy as np, random, math
+from PIL import Image
+import os
+ASSETS=os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','assets')
+def OUTP(sub,name):
+    d=os.path.join(ASSETS,sub); os.makedirs(d,exist_ok=True); return os.path.join(d,name)
+def bayer(n):
+    m=np.array([[0,2],[3,1]])
+    while m.shape[0]<n:
+        m=np.block([[4*m,4*m+2],[4*m+3,4*m+1]])
+    return (m+0.5)/m.size
+B8=bayer(8)
+def hexc(h): h=h.lstrip('#'); return np.array([int(h[i:i+2],16) for i in (0,2,4)],float)
+def quant(val,palette,xs,ys):
+    # val in [0,1] maps across palette with ordered dither
+    n=len(palette)-1
+    v=np.clip(val,0,1)*n
+    lo=np.floor(v).astype(int); fr=v-lo
+    t=B8[ys%8,xs%8]
+    idx=np.where(fr>t,np.minimum(lo+1,n),lo)
+    P=np.array([hexc(c) for c in palette])
+    return P[idx]
+def up(img,s): return img.resize((img.width*s,img.height*s),Image.NEAREST)
+
+rng=np.random.default_rng(7)
+def noise2(w,h,scale,seed):
+    r=np.random.default_rng(seed)
+    gw,gh=w//scale+2,h//scale+2
+    g=r.random((gh,gw))
+    ys,xs=np.mgrid[0:h,0:w]
+    fx=xs/scale; fy=ys/scale
+    x0=fx.astype(int); y0=fy.astype(int); tx=fx-x0; ty=fy-y0
+    tx=tx*tx*(3-2*tx); ty=ty*ty*(3-2*ty)
+    a=g[y0,x0]; b=g[y0,x0+1]; c=g[y0+1,x0]; d=g[y0+1,x0+1]
+    return (a*(1-tx)+b*tx)*(1-ty)+(c*(1-tx)+d*tx)*ty
+def fbm(w,h,seed,scales=(24,12,6,3)):
+    v=sum(noise2(w,h,s,seed+i)*(0.5**i) for i,s in enumerate(scales))
+    return (v-v.min())/(v.max()-v.min())
+
+def scene(w,h,sky,hills,star,night=True,seed=1,name='scene'):
+    ys,xs=np.mgrid[0:h,0:w]
+    grad=ys/(h*0.78)
+    img=quant(grad+ (fbm(w,h,seed)-0.5)*0.12,sky,xs,ys)
+    r=random.Random(seed)
+    # stars
+    if night:
+        for _ in range(int(w*h*0.004)):
+            x=r.randrange(w); y=r.randrange(int(h*0.62))
+            b=r.random()
+            c=hexc('#E8EEFF') if b>0.85 else hexc('#8A96B8') if b>0.4 else hexc('#4A5578')
+            img[y,x]=c
+    # Polaris
+    px,py=int(w*0.72),int(h*0.18)
+    halo=np.exp(-(((xs-px)**2+(ys-py)**2)/(2*(h*0.07)**2)))
+    hc=hexc(star)
+    mask=halo*0.55>B8[ys%8,xs%8]
+    img[mask]=img[mask]*0.55+hc*0.45
+    for d in range(-4,5):
+        a=1-abs(d)/5
+        for (x,y) in ((px+d,py),(px,py+d)):
+            img[y,x]=img[y,x]*(1-a)+np.array([245,248,255])*a
+    for (x,y) in ((px-1,py-1),(px+1,py-1),(px-1,py+1),(px+1,py+1)): img[y,x]=img[y,x]*0.5+hc*0.5
+    # hills
+    for i,(col,base,amp,sd) in enumerate(hills):
+        prof=base*h + amp*h*(noise2(w,1,40,sd+i)[0]-0.5) + amp*0.35*h*(noise2(w,1,9,sd+10+i)[0]-0.5)
+        for x in range(w):
+            top=int(prof[x])
+            img[top:,x]=hexc(col)
+        # pines on the nearest two layers
+        if i>=len(hills)-2:
+            rr=random.Random(sd)
+            for _ in range(w//14):
+                x=rr.randrange(2,w-2); top=int(prof[x]); th=rr.randrange(5,11)
+                for k in range(th):
+                    half=max(0,(k*3)//th)
+                    y=top-th+k
+                    img[y,max(0,x-half):x+half+1]=hexc(col)
+    return img
+
+def save(img,name,s,sub):
+    im=Image.fromarray(np.clip(img,0,255).astype('uint8'))
+    up(im,s).save(OUTP(sub,name))
+
+W,H=360,225
+night=scene(W,H,['#070912','#0A0D1A','#0E1325','#141B33','#1C2542','#27304F'],
+    [('#141A2C',0.70,0.18,3),('#10152A',0.78,0.14,5),('#0B0F1E',0.86,0.10,9)],'#BCD3FF',True,11)
+# lit cabin window, warm human touch
+cx,cy=int(W*0.24),int(H*0.855)
+night[cy-6:cy,cx-5:cx+6]=hexc('#0B0F1E')
+for k in range(4): night[cy-9+k,cx-2-k:cx+3+k]=hexc('#0B0F1E')
+night[cy-4:cy-2,cx-2:cx]=hexc('#F2C27A'); night[cy-4:cy-2,cx+2:cx+4]=hexc('#F2C27A')
+save(night,'scene-night.png',4,'scenes')
+dawn=scene(W,H,['#C9D8F2','#D8E1F4','#E9E6F0','#F6E4DA','#FBE3CC','#FCE9D2'],
+    [('#B7C9A8',0.70,0.18,3),('#9DB78F',0.78,0.14,5),('#7FA074',0.86,0.10,9)],'#FFFFFF',False,12)
+# meadow flowers
+r=random.Random(4)
+for _ in range(260):
+    x=r.randrange(W); y=r.randrange(int(H*0.88),H)
+    dawn[y,x]=hexc(r.choice(['#F4D35E','#FFFFFF','#F2B5C4']))
+save(dawn,'scene-dawn.png',4,'scenes')
+
+# pixel watercolour washes (tile textures)
+def wash(hue,ground,name,w=40,h=40,seed=3,strength=(0.10,0.42)):
+    ys,xs=np.mgrid[0:h,0:w]
+    v=fbm(w,h,seed,(12,6,3))
+    v=0.35*v+0.65*(1-np.sqrt(((xs/w)**2+(ys/h)**2)/2))  # heavier top-left, like the refs
+    g=hexc(ground); c=hexc(hue)
+    lo,hi=strength
+    steps=[g*(1-a)+c*a for a in np.linspace(lo,hi,5)]
+    pal=['#%02x%02x%02x'%tuple(int(t) for t in s) for s in steps]
+    img=quant(v,pal,xs,ys)
+    save(img,name,4,'washes')
+for seed,(hue,n) in enumerate([('#D97757','claude'),('#6FCBA0','codex'),('#9DBAF5','starlight'),('#F2C84B','needs')]):
+    wash(hue,'#222327',f'wash-{n}-dark.png',seed=20+seed,strength=(0.16,0.62))
+    wash(hue,'#FFFFFF',f'wash-{n}-light.png',seed=20+seed,strength=(0.08,0.40))
+# wide wash for toast/banner
+wash('#6FCBA0','#222327','wash-codex-dark-wide.png',w=90,h=24,seed=5,strength=(0.05,0.30))
+wash('#D97757','#FFFFFF','wash-claude-light-wide.png',w=90,h=24,seed=6,strength=(0.06,0.34))
+
+# dithered halo (alpha) behind composer
+def halo(hue,name,w=200,h=90,cell=1,peak=0.5):
+    ys,xs=np.mgrid[0:h,0:w]
+    d=np.sqrt(((xs-w/2)/(w/2))**2+((ys-h/2)/(h/2))**2)
+    v=np.clip(1-d,0,1)**1.6*peak
+    on=v>B8[ys%8,xs%8]
+    rgba=np.zeros((h,w,4),np.uint8)
+    rgba[...,:3]=hexc(hue); rgba[...,3]=np.where(on,90,0)
+    up(Image.fromarray(rgba,'RGBA'),4).save(OUTP('halos',name))
+halo('#D97757','halo-claude.png')
+halo('#BCD3FF','halo-starlight.png',peak=0.6)
+print('done')
