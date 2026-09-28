@@ -5,7 +5,7 @@ import { Effect, Fiber, Stream } from "effect"
 import { makeRepo, removeDir, tempDir, write } from "../git/testing.ts"
 import { FileSearch, FileSearchLive } from "./FileSearch.ts"
 import { handleGrep, handleSearchPaths } from "./FilesRpcs.ts"
-import { fuzzyScore } from "./search/fallback.ts"
+import { fuzzyScore, gitGrepThreads } from "./search/fallback.ts"
 import type { FileChange } from "./search/types.ts"
 
 // Keep fff's frecency databases out of the real ~/.polaris.
@@ -235,5 +235,15 @@ describe("fallback fuzzy scorer", () => {
     expect(services).toBeGreaterThan(buried)
     expect(fuzzyScore("hd", "src/harness/HarnessDriver.ts")).not.toBeNull()
     expect(fuzzyScore("zzz", "src/services.ts")).toBeNull()
+  })
+})
+
+describe("fallback grep threads", () => {
+  test("half the cores (2–8) on macOS, git's default elsewhere", () => {
+    expect(gitGrepThreads("darwin", 12)).toBe(6)
+    expect(gitGrepThreads("darwin", 4)).toBe(2)
+    expect(gitGrepThreads("darwin", 2)).toBe(2)
+    expect(gitGrepThreads("darwin", 32)).toBe(8)
+    expect(gitGrepThreads("linux", 12)).toBeNull()
   })
 })

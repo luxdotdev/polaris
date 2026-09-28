@@ -6,6 +6,7 @@
  */
 import { existsSync, type FSWatcher, watch as fsWatch } from "node:fs"
 import { readdir } from "node:fs/promises"
+import { availableParallelism } from "node:os"
 import { join, relative } from "node:path"
 import { findRepoRoot, runGit } from "../../git/git.ts"
 import type { FileChange, GrepHit, GrepQuery, PathHit, SearchBackend } from "./types.ts"
@@ -18,6 +19,18 @@ const WALK_SKIP = new Set([".git", "node_modules", ".hg", ".svn"])
 const LIST_TTL_MS = 5_000
 /** Batch window for fs.watch events. */
 const WATCH_BATCH_MS = 50
+
+/**
+ * `git grep` threads. git defaults to one per core, but on macOS opening many
+ * small files in parallel contends in the kernel: on a 12-core M2 Max a
+ * 50k-file tree greps in ~1.3 s with 12 threads, ~0.72 s with 6 and ~0.93 s
+ * with 2, so half the cores (2–8) is near the best there. Elsewhere git's
+ * default stands (null).
+ */
+export const gitGrepThreads = (
+  platform: NodeJS.Platform = process.platform,
+  cores: number = availableParallelism(),
+): number | null => (platform === "darwin" ? Math.min(8, Math.max(2, Math.floor(cores / 2))) : null)
 
 const isSeparator = (c: string | undefined) =>
   c === undefined || c === "/" || c === "_" || c === "-" || c === "." || c === " "
@@ -88,8 +101,8 @@ const walk = async (root: string): Promise<Array<string>> => {
 }
 
 /** Files under `root`, relative to it: tracked plus untracked-not-ignored inside git. */
-export const listFiles = async (root: string): Promise<Array<string>> => {
-  if ((await findRepoRoot(root)) !== null) {
+export const listFiles = async (root: string, inRepo?: boolean): Promise<Array<string>> => {
+  if (inRepo ?? (await findRepoRoot(root)) !== null) {
     const { stdout } = await runGit(root, ["ls-files", "-z", "-co", "--exclude-standard"])
     return new TextDecoder()
       .decode(stdout)
@@ -106,9 +119,13 @@ class RegexFlavourUnsupported extends Error {}
  * `limit` hits. Regexes use PCRE (`-P`, closest to fff's Rust regex syntax)
  * when git was built with it, else POSIX extended (`-E`).
  */
-export const gitGrep = async (root: string, query: GrepQuery): Promise<Array<GrepHit>> => {
+export const gitGrep = async (
+  root: string,
+  query: GrepQuery,
+  knownInRepo?: boolean,
+): Promise<Array<GrepHit>> => {
   if (query.limit <= 0) return []
-  const inRepo = (await findRepoRoot(root)) !== null
+  const inRepo = knownInRepo ?? (await findRepoRoot(root)) !== null
   if (!query.regex) return runGitGrep(root, inRepo, "-F", query)
   try {
     return await runGitGrep(root, inRepo, "-P", query)
@@ -124,8 +141,10 @@ const runGitGrep = async (
   flavour: "-F" | "-E" | "-P",
   query: GrepQuery,
 ): Promise<Array<GrepHit>> => {
+  const threads = gitGrepThreads()
   const args = [
     "grep",
+    ...(threads === null ? [] : ["--threads", String(threads)]),
     "-n",
     "--column",
     "-z",
@@ -184,10 +203,18 @@ const runGitGrep = async (
 }
 
 export const makeFallbackBackend = (root: string): SearchBackend => {
+  // Whether `root` is inside a repository, looked up again at most every LIST_TTL_MS.
+  let repo: { at: number; inRepo: Promise<boolean> } | null = null
+  const inRepo = () => {
+    if (repo === null || Date.now() - repo.at > LIST_TTL_MS) {
+      repo = { at: Date.now(), inRepo: findRepoRoot(root).then((r) => r !== null) }
+    }
+    return repo.inRepo
+  }
   let cached: { at: number; files: Promise<Array<string>> } | null = null
   const files = () => {
     if (cached === null || Date.now() - cached.at > LIST_TTL_MS) {
-      cached = { at: Date.now(), files: listFiles(root) }
+      cached = { at: Date.now(), files: inRepo().then((r) => listFiles(root, r)) }
       cached.files.catch(() => {
         cached = null
       })
@@ -207,7 +234,7 @@ export const makeFallbackBackend = (root: string): SearchBackend => {
       }
       return hits.sort((a, b) => b.score - a.score).slice(0, limit)
     },
-    grep: (query) => gitGrep(root, query),
+    grep: async (query) => gitGrep(root, query, await inRepo()),
     watch: async (onBatch) => {
       let pending = new Map<string, FileChange>()
       let timer: ReturnType<typeof setTimeout> | undefined
