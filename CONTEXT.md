@@ -46,8 +46,20 @@ The Connection State of a Host the Client has stopped retrying, such as a machin
 ### Agents
 
 **Harness**:
-A third-party agent program (Claude Code, Codex) that performs agent work; Polaris drives Harnesses and never reimplements one.
+A third-party agent program (Claude Code, Codex, OpenCode) that performs agent work; Polaris drives Harnesses and never reimplements one.
 _Avoid_: Agent runtime, backend
+
+**Model**:
+A language model a Harness offers to run on, named as that Harness names it; chosen when an Agent Session starts and changeable between Turns, and each Turn records the Model it ran on.
+_Avoid_: LLM, provider (when meaning the model)
+
+**Usage**:
+The tokens, and the cost where known, consumed by Harness work on a Host, whether or not it ran in an Agent Session, grouped by Harness and Model; a cost the Harness did not report is an estimate, and subscription Usage is shown as its API-equivalent, never as money spent.
+_Avoid_: Spend, billing, credits
+
+**Plan Limit**:
+A cap a provider's subscription puts on Usage over a time window (such as five hours or a week), shown as how much is used and when it resets; known only from what the Harness reports.
+_Avoid_: Rate limit, quota, allowance
 
 **Workspace**:
 A directory on a Host that the user has registered with Polaris, usually a git repository; Agent Sessions and Review Checkouts belong to one. It persists (hidden when idle) until the user removes it.
