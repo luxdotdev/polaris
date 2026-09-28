@@ -138,7 +138,7 @@ export const makeBenchDriver = (kind: HarnessKind): HarnessDriver => ({
             })
           }
           if (script.startDelayMs > 0) yield* Effect.sleep(Duration.millis(script.startDelayMs))
-          yield* emit({ _tag: "TurnStarted", turnId })
+          yield* emit({ _tag: "TurnStarted", turnId, prompt: input.prompt })
 
           const files: Array<string> = []
           if (script.touchFiles > 0) {

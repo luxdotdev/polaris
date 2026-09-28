@@ -226,6 +226,9 @@ export const watchSession = (
                     return Effect.void
                 }
               }
+              default:
+                // ItemProgress and any later live-only items: not measured here.
+                return Effect.void
             }
           }),
         ),
