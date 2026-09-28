@@ -1,0 +1,22 @@
+# Research
+
+Source research behind the Polaris planning map ([ENG-167](https://linear.app/luxdev/issue/ENG-167)). Each file answers one research ticket and cites its primary sources. These are snapshots taken when each ticket closed; for what was decided, read the tickets.
+
+| File | Ticket |
+|---|---|
+| [herdr-remote.md](herdr-remote.md) | [ENG-168](https://linear.app/luxdev/issue/ENG-168): how herdr handles remote Hosts, image paste and file access |
+| [herdr-dagr.md](herdr-dagr.md) | [ENG-169](https://linear.app/luxdev/issue/ENG-169): herdr-dagr's DAG model and how it tracks agent state |
+| [t3-code.md](t3-code.md) | [ENG-170](https://linear.app/luxdev/issue/ENG-170): T3 Code's server, protocol, Harness drivers and mobile access |
+| [harness-surfaces.md](harness-surfaces.md) | [ENG-171](https://linear.app/luxdev/issue/ENG-171): what Claude Code, Codex and ACP let a UI control |
+| [zed-gpui-reuse.md](zed-gpui-reuse.md) | [ENG-172](https://linear.app/luxdev/issue/ENG-172): reusing Zed and GPUI |
+| [completion-providers.md](completion-providers.md) | [ENG-173](https://linear.app/luxdev/issue/ENG-173): tab completion and inline chat through ChatGPT sign-in vs local models |
+| [gpui-ecosystem.md](gpui-ecosystem.md) | [ENG-182](https://linear.app/luxdev/issue/ENG-182): existing GPUI agent orchestrators and gpui-kit |
+| [bun-web-stack.md](bun-web-stack.md) | [ENG-183](https://linear.app/luxdev/issue/ENG-183): whether a Bun and web-tech stack is viable |
+| [risk-summary.md](risk-summary.md) | [ENG-186](https://linear.app/luxdev/issue/ENG-186): building blocks for Risk Summaries |
+| [weakness-razor.md](weakness-razor.md) | [ENG-187](https://linear.app/luxdev/issue/ENG-187): Bennett's Razor applied to the reviewer's learning loop |
+
+The prototype and spike code is throwaway and stays on its own branches, not on `main`:
+- `prototype/orchestrator-layout` ([ENG-177](https://linear.app/luxdev/issue/ENG-177))
+- `prototype/spike-electron` and `prototype/spike-gpui` ([ENG-184](https://linear.app/luxdev/issue/ENG-184))
+
+The original `research/*` branches remain.
