@@ -10,11 +10,27 @@
  * with `F_GETFD` (no third argument) and clear close-on-exec with
  * `ioctl(fd, FIONCLEX)`, which takes none either.
  */
-import { dlopen, FFIType, type Pointer, ptr, read } from "bun:ffi"
+
+import { CString, dlopen, FFIType, type Pointer, ptr, read } from "bun:ffi"
+import { readdirSync } from "node:fs"
 
 const isDarwin = process.platform === "darwin"
 
-const LIBC_PATH = isDarwin ? "/usr/lib/libSystem.B.dylib" : "libc.so.6"
+/**
+ * musl's libc is its dynamic loader (`/lib/ld-musl-<arch>.so.1`); Alpine has
+ * no `libc.so.6`.
+ */
+const muslLoader = (): string | null => {
+  if (process.platform !== "linux") return null
+  try {
+    const name = readdirSync("/lib").find((f) => f.startsWith("ld-musl-") && f.endsWith(".so.1"))
+    return name === undefined ? null : `/lib/${name}`
+  } catch {
+    return null
+  }
+}
+
+const LIBC_PATH = isDarwin ? "/usr/lib/libSystem.B.dylib" : (muslLoader() ?? "libc.so.6")
 
 /** `_IO('f', 2)` on Darwin; the asm-generic value on Linux. */
 const FIONCLEX = isDarwin ? 0x20006602n : 0x5450n
@@ -43,6 +59,7 @@ const open = () =>
       returns: FFIType.i32,
     },
     waitpid: { args: [FFIType.i32, FFIType.ptr, FFIType.i32], returns: FFIType.i32 },
+    ptsname: { args: [FFIType.i32], returns: FFIType.ptr },
     // Darwin exports errno through `__error()`, glibc through `__errno_location()`.
     [isDarwin ? "__error" : "__errno_location"]: { args: [], returns: FFIType.ptr },
   })
@@ -138,6 +155,24 @@ export const reapChild = (pid: number): number | null => {
   const result = check("waitpid", libc().waitpid(pid, ptr(status), WNOHANG))
   return result === 0 ? null : status[0]!
 }
+
+/** The slave device of a PTY master fd (`/dev/ttys004`, `/dev/pts/3`), or null if `fd` is none. */
+export const ptsname = (fd: number): string | null => {
+  const name = libc().ptsname(fd)
+  return name === null ? null : new CString(name).toString()
+}
+
+/** Every open fd below `limit`, found by probing each with `fcntl(F_GETFD)`. */
+export const openFds = (limit = 1024): Array<number> => {
+  const fds: Array<number> = []
+  const { fcntl } = libc()
+  for (let fd = 0; fd < limit; fd++) if (fcntl(fd, F_GETFD) >= 0) fds.push(fd)
+  return fds
+}
+
+/** Decode a `waitpid` status: the exit code, or null when a signal ended the process. */
+export const exitCodeOf = (status: number): number | null =>
+  (status & 0x7f) === 0 ? (status >> 8) & 0xff : null
 
 /**
  * Replace this process image with `path`, keeping the PID, every fd without

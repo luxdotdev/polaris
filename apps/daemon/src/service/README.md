@@ -88,6 +88,12 @@ yield* serveUpgrades({
 
 `fixtures/handoff-daemon.ts` is a complete working example. If the transport uses `effect/socket` (built on `node:net`), bind it at the temporary path the same way. Adopted connections must still be wrapped with `Bun.connect({ fd })`.
 
+### Hand-off contributors
+
+A module with fds or children to keep registers a `HandoffContributor` for the life of its scope (`registerHandoffContributor`): `collect` returns named fds and children (merged with `hooks.collect`), `beforeExec` writes any state the new image needs, and `abort` undoes it if the exec fails. The terminals use this to keep PTYs across upgrades (`terminal/README.md`). After the exec, `takeHandoff()` returns the same names.
+
+`libc.ts` loads glibc's `libc.so.6`, or on a musl Host the loader `/lib/ld-musl-<arch>.so.1` (musl's libc; there is no `libc.so.6`). The hand-off tests pass on Alpine arm64.
+
 ### Interface for the Harness workstream
 
 The Codex app-server does not use this: it is started detached, not as the Daemon's child, and the new image re-adopts it through its socket (`harness/codex/README.md`, "App-server lifecycle"), so it also survives crashes and service restarts. A Harness child that must survive an upgrade but not a crash would be spawned with `const [ours, theirs] = socketPair(); Bun.spawn(argv, { stdio: [theirs, theirs, "inherit"] }); closeFd(theirs)`. Our end is then used through `connectFd(ours, …)`. `collect` reports `{ fds: { "harness:<sessionId>": ours }, children: { "harness:<sessionId>": pid } }`, and after the exec `takeHandoff()` returns them. A Harness whose protocol state lives in our process (the Claude Agent SDK) cannot be re-attached. Close it before the exec (the Agent Session goes Dormant) and resume it by cursor afterwards.

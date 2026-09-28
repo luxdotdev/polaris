@@ -8,11 +8,28 @@ The `Terminals` service and the `terminal.open/attach/input/resize/close` handle
 - **The Daemon owns terminals**: they outlive Client disconnects. Any number of Clients can attach. Each terminal keeps a **256 KiB scrollback** ring (`SCROLLBACK_BYTES`), which is replayed first to every attacher. The replay and the live subscription happen synchronously, so no output is lost or duplicated between them.
 - When the process exits, `Exit { code }` is sent (after 200 ms for the PTY to drain) and attach streams end. A signal gives `code: null`. An exited terminal still replays its scrollback and `Exit` until it is closed.
 - `close` sends SIGHUP (as closing a terminal window does), closes the PTY, sends `Exit { code: null }`, and forgets the terminal. Closing the layer's scope (Daemon shutdown) closes every terminal.
-- **Handlers**: `TerminalRpcsLive` is a partial `DaemonRpcs` handler layer. It needs `Terminals` (`TerminalsLive`).
+- **Handlers**: `TerminalRpcsLive` is a partial `DaemonRpcs` handler layer. It needs `Terminals`: `TerminalsDaemonLive` in `polaris serve` (recorded under `~/.polaris/`, handed across upgrades), `TerminalsLive` (in memory only) in tests.
+- The login shell comes from `userInfo().shell`, then `/etc/passwd`, then `$SHELL`, then `/bin/sh`. Bun reports `"unknown"` for the passwd shell in some containers (seen in Alpine and Debian), which is why the passwd file is read directly.
+
+## Across Daemon restarts
+
+| Event | Terminals |
+|---|---|
+| **execve upgrade** (`polaris upgrade`) | **Keep running.** Same terminal ids, same shells (with their variables and jobs), scrollback replayed, input, resize and the exit code all work afterwards. |
+| **crash, `systemctl`/`launchctl` restart, reboot** | **End.** The PTY master closes with the process, so each shell gets SIGHUP. The next Daemon lists them as ended (`exit: { code: null }`, `endedBy: "daemon-restart"`, with their `cwd` and `argv`); a Client that re-attaches gets the `Exit { code: null }` rather than NotFound, and can offer to open a new terminal in the same `cwd`. |
+
+How the upgrade hand-off works (verified by `handoff.test.ts` on macOS arm64, Debian arm64 (glibc) and Alpine arm64 (musl)):
+
+1. `open` notes the PTY **master fd** that `Bun.Terminal` opened: the lowest fd that was not open before the spawn and has a slave device (`ptsname`). Bun keeps a few dups of it; one is enough. `Bun.Terminal` does not expose its fd, hence the scan (1024 `fcntl` probes, synchronous with the spawn).
+2. The terminals register a `HandoffContributor` (`service/upgrade.ts`): at upgrade time they hand over `terminal:<id>` → master fd and shell pid (the shell stays our child: same PID), and write `~/.polaris/terminals-handoff.json` (ids, cwd, argv, size, slave device, exit states, base64 scrollback).
+3. The new image finds `terminal:<id>` in the hand-off and **adopts** the fd: reads with `Bun.file(fd).stream()` (the fd is non-blocking; Bun's reader waits for readiness, while `fs.createReadStream` and `tty.ReadStream` fail with EAGAIN), writes with `writeSync` plus a retry queue on EAGAIN, and resizes with `stty -f/-F <slave> cols C rows R` (`ioctl(TIOCSWINSZ)` is variadic, which bun:ffi can't call correctly on Apple arm64). Bun doesn't know the adopted shell, so it is reaped with `waitpid` every 200 ms to get its exit code.
+
+Output read by the old image after the hand-off file is written (a few ms before the exec) is lost from the scrollback; Clients were disconnected by the exec anyway and see everything after it.
 
 ## Known gaps / TODOs
 
 - Each attacher's queue is unbounded, so a stalled Client buffers output in the Daemon until it detaches.
 - Exited terminals stay until `close`. There is no TTL yet.
 - Terminals are not tied to a Workspace id. `open` takes only a `cwd`, as the protocol does.
-- Terminals don't survive a Daemon restart.
+- Terminals don't survive a crash or a service restart (see above). A shell that ignores SIGHUP is left running, orphaned; nothing kills it.
+- Terminals ended by a restart stay listed until `close`.
