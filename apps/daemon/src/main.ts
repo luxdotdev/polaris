@@ -15,6 +15,16 @@ import { isServiceCommand, runServiceCommand, versionLine } from "./service/cli.
 const [command, ...args] = process.argv.slice(2)
 
 switch (command) {
+  case "serve": {
+    const { runServe } = await import("./transport/serve.ts")
+    runServe()
+    break
+  }
+  case "bridge": {
+    const { runBridge } = await import("./transport/bridge.ts")
+    process.exit(await runBridge())
+    break
+  }
   case "version":
     console.log(versionLine())
     break
@@ -32,3 +42,5 @@ switch (command) {
     console.error(`usage: polaris <serve|bridge|install|uninstall|upgrade|version|selftest>`)
     process.exit(command === undefined ? 0 : 2)
 }
+
+export {}
