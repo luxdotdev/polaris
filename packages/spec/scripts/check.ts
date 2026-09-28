@@ -36,6 +36,17 @@ const WITNESSES = [
   "witnessRestartWithdrew",
   "witnessContinued",
   "witnessBatchOfTwo",
+  "witnessArchived",
+  "witnessUnarchived",
+  "witnessArchiveRefused",
+  "witnessLateRequest",
+]
+
+/** Each ENG-209 finding: the instance of the code before its fix, and the property it breaks. */
+const FINDINGS = [
+  { main: "finding1", invariant: "hostFeedCanProgress", what: "the host feed stalls on a gap" },
+  { main: "finding2", invariant: "archivedIsClosed", what: "Archive leaves a Turn in flight" },
+  { main: "finding3", invariant: "approvalsNeedATurn", what: "a late request is recorded" },
 ]
 
 let failed = false
@@ -54,7 +65,7 @@ const run = (label: string, argv: ReadonlyArray<string>, expectFailure = false) 
   if (!ok) {
     failed = true
     if (expectFailure) {
-      console.log("    expected a violation (a known finding) but found none: was it fixed?")
+      console.log("    expected a violation (a fixed finding's mutant) but found none")
     } else {
       console.log(output)
     }
@@ -64,12 +75,14 @@ const run = (label: string, argv: ReadonlyArray<string>, expectFailure = false) 
 
 run("typecheck polaris.qnt", ["typecheck", "polaris.qnt"])
 run("typecheck polaris_test.qnt", ["typecheck", "polaris_test.qnt"])
-run("scenario tests (fixed host feed)", ["test", "polaris_test.qnt", "--main=polaris_test"])
-run("scenario tests (current host feed)", [
-  "test",
-  "polaris_test.qnt",
-  "--main=polaris_current_test",
-])
+run("scenario tests", ["test", "polaris_test.qnt", "--main=polaris_test"])
+for (const n of [1, 2, 3]) {
+  run(`scenario tests (finding ${n}, before its fix)`, [
+    "test",
+    "polaris_test.qnt",
+    `--main=polaris_finding${n}_test`,
+  ])
+}
 
 const simulate = (main: string, invariants: ReadonlyArray<string>, witnesses = false) => [
   "run",
@@ -94,15 +107,14 @@ for (const witness of WITNESSES) {
     console.log(`✗ ${witness} was never reached: the simulation no longer covers it`)
   }
 }
-run(
-  `simulate fixed: safety and hostFeedCanProgress, ${samples} traces`,
-  simulate("fixed", ["safety", "hostFeedCanProgress"]),
-)
-run(
-  "simulate current: hostFeedCanProgress is violated (known finding 1)",
-  simulate("current", ["hostFeedCanProgress"]),
-  true,
-)
+// The mutants: the simulator must still find each finding, or `safety` no longer guards it.
+for (const finding of FINDINGS) {
+  run(
+    `simulate ${finding.main}: ${finding.invariant} is violated (${finding.what})`,
+    simulate(finding.main, [finding.invariant]),
+    true,
+  )
+}
 
 if (verify) {
   run(`verify small with Apalache: safety, up to ${steps} steps`, [

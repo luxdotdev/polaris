@@ -8,17 +8,27 @@
  * how each variable and action maps to the code and what is left out.
  *
  * Instances at the end of the file:
- *   - `current`: the code as it is (the host feed treats the host stream as gapless).
- *   - `fixed`:   the host feed without the gap check.
+ *   - `current`:  the code as it is.
+ *   - `finding1`, `finding2`, `finding3`: the code before each ENG-209 fix; each
+ *     must violate `safety` (`scripts/check.ts` checks that it still does).
+ *   - `small`:    a smaller `current`, for Apalache.
  */
 module polaris {
   // ── Parameters ────────────────────────────────────────────────────────────
 
   /**
-   * `HostConnection` opens its host feed with `gapless: true` (resume.ts), so a
-   * sequence gap makes the feed reopen from its last sequence.
+   * Finding 1: `HostConnection` opened its host feed with `gapless: true`
+   * (resume.ts), so a sequence gap made the feed reopen from its last sequence.
    */
   const HOST_FEED_GAPLESS: bool
+  /**
+   * Finding 2: Archive was refused with a Turn in flight only in the live
+   * states, so Starting (which the spec counts as Working) and In Terminal
+   * archived with the Turn still working and its approvals pending.
+   */
+  const ARCHIVE_IGNORES_TURN: bool
+  /** Finding 3: the engine recorded an approval request whatever the state of its Turn. */
+  const RECORDS_LATE_REQUESTS: bool
   /** Client devices, each with a feed per stream. */
   const CLIENTS: Set[str]
   /** Agent Sessions; recovery visits them in this order (any order gives the same result). */
@@ -47,7 +57,7 @@ module polaris {
     | TurnStarted(bool) // true: a Continue of an Interrupted Turn
     | TurnEnded(str) // "completed" | "interrupted"
     | ItemCompleted // session-only: the host stream leaves it out
-    | StateChanged(str) // "working" | "needs-you" | "idle" | "dormant"
+    | StateChanged(str) // "working" | "needs-you" | "idle" | "dormant" | "archived"
     | ApprovalRequested(str)
     | ApprovalResolved({ req: str, by: str })
     | ApprovalWithdrawn({ req: str, by: str }) // by "harness" | "daemon"
@@ -59,6 +69,8 @@ module polaris {
     | SendTurn(str)
     | Continue(str)
     | Respond({ session: str, req: str })
+    | Archive(str)
+    | Unarchive(str)
 
   type HarnessEvent =
     | HRequest(str)
@@ -66,10 +78,14 @@ module polaris {
     | HItem
     | HTurnEnded
 
-  /** Something waiting for the next group commit. */
+  /**
+   * Something waiting for the next group commit. A Harness report carries the
+   * Turn it is about (the session's `turns` when the Harness reported it),
+   * as the code's reports carry a `turnId`.
+   */
   type Work =
     | ClientCmd({ id: str, client: str, cmd: Command })
-    | HarnessEv({ session: str, ev: HarnessEvent })
+    | HarnessEv({ session: str, ev: HarnessEvent, turn: int })
 
   /** `command_receipts`: the last sequence written (0 for none), or a rejection. */
   type Receipt = NoReceipt | Applied(int) | Refused
@@ -97,8 +113,20 @@ module polaris {
   /** The Client side (`makeFeed`): survives reconnects and Daemon restarts. */
   type Feed = { last: int, seen: List[int] }
 
-  /** `requested` lists requests in the order they were opened (the order the engine withdraws them in). */
-  type SessionView = { turn: str, state: str, pending: Set[str], requested: List[str] }
+  /**
+   * `requested` lists requests in the order they were opened (the order the
+   * engine withdraws them in). `turns` counts the Turns started (the latest
+   * one's number: a Continue resumes the same Turn, as it keeps its id).
+   * `archivedSinceTurn`: archived after the last Turn started or ended.
+   */
+  type SessionView = {
+    turn: str,
+    state: str,
+    pending: Set[str],
+    requested: List[str],
+    turns: int,
+    archivedSinceTurn: bool,
+  }
 
   type Decision = Accept(List[EventKind]) | Refuse
 
@@ -128,14 +156,16 @@ module polaris {
   // ── The read model (model.ts `project`) ───────────────────────────────────
 
   pure val emptyView: SessionView =
-    { turn: "none", state: "dormant", pending: Set(), requested: [] }
+    { turn: "none", state: "dormant", pending: Set(), requested: [], turns: 0, archivedSinceTurn: false }
 
   pure def applyEvent(v: SessionView, e: Event): SessionView =
     match e.kind {
-      | TurnStarted(_) => { ...v, turn: "working" }
-      | TurnEnded(status) => { ...v, turn: status }
+      | TurnStarted(continued) =>
+        { ...v, turn: "working", turns: if (continued) v.turns else v.turns + 1, archivedSinceTurn: false }
+      | TurnEnded(status) => { ...v, turn: status, archivedSinceTurn: false }
       | ItemCompleted => v
-      | StateChanged(state) => { ...v, state: state }
+      | StateChanged(state) =>
+        { ...v, state: state, archivedSinceTurn: v.archivedSinceTurn or state == "archived" }
       | ApprovalRequested(r) =>
         { ...v, pending: v.pending.union(Set(r)), requested: v.requested.append(r) }
       | ApprovalResolved(x) => { ...v, pending: v.pending.exclude(Set(x.req)) }
@@ -151,11 +181,28 @@ module polaris {
   pure def streamSeqs(events: List[Event], st: str): List[int] =
     events.foldl([], (acc, e) => if (inStream(e, st)) acc.append(e.seq) else acc)
 
+  /** Turn number `turn` of the session is the Turn in flight. */
+  pure def inFlight(v: SessionView, turn: int): bool =
+    v.turn == "working" and v.turns == turn
+
   // ── The decider (engine/session.ts: commands and Harness events) ─────────
 
-  /** `acceptsTurn`: no Turn in flight, and not blocked on the user. */
+  /**
+   * `takesTurn`: no Turn in flight, Idle or Dormant (or Failed, not modelled),
+   * or Needs You with nothing pending (after a restart).
+   */
   pure def acceptsTurn(v: SessionView): bool =
-    v.turn != "working" and (v.state != "needs-you" or v.pending.size() == 0)
+    v.turn != "working" and v.state != "working" and v.state != "archived"
+      and (v.state != "needs-you" or v.pending.size() == 0)
+
+  /**
+   * The last pending request closes: back to Working, only with a Turn in
+   * flight (finding 3; before its fix, whatever the Turn).
+   */
+  pure def backToWork(v: SessionView, r: str): List[EventKind] =
+    if (v.pending == Set(r) and v.state == "needs-you" and (RECORDS_LATE_REQUESTS or v.turn == "working"))
+      [StateChanged("working")]
+    else []
 
   pure def decideClient(v: SessionView, cmd: Command, client: str): Decision =
     match cmd {
@@ -168,36 +215,44 @@ module polaris {
       | Respond(x) =>
         // First answer wins: a request no longer pending is rejected.
         if (v.pending.contains(x.req))
-          Accept(
-            [ApprovalResolved({ req: x.req, by: client })].concat(
-              if (v.pending.size() == 1 and v.state == "needs-you") [StateChanged("working")]
-              else []
-            )
-          )
+          Accept([ApprovalResolved({ req: x.req, by: client })].concat(backToWork(v, x.req)))
         else Refuse
+      | Archive(_) =>
+        // Refused with a Turn in flight, in every state; anything still pending is withdrawn.
+        if (v.state == "archived" or (v.turn == "working" and not(ARCHIVE_IGNORES_TURN))) Refuse
+        else if (ARCHIVE_IGNORES_TURN) Accept([StateChanged("archived")])
+        else Accept(withdrawAll(v, "daemon").concat([StateChanged("archived")]))
+      | Unarchive(_) =>
+        if (v.state == "archived") Accept([StateChanged("dormant")]) else Refuse
     }
 
   pure def withdrawAll(v: SessionView, by: str): List[EventKind] =
     v.requested.foldl([], (l, r) =>
       if (v.pending.contains(r)) l.append(ApprovalWithdrawn({ req: r, by: by })) else l)
 
-  pure def decideHarness(v: SessionView, ev: HarnessEvent): List[EventKind] =
+  /**
+   * A Harness report about Turn `turn`, decided against the session's view:
+   * requests and Turn ends count only for the Turn in flight. Archived records a Turn's end without leaving Archived and
+   * ignores requests.
+   */
+  pure def decideHarness(v: SessionView, ev: HarnessEvent, turn: int): List[EventKind] =
     match ev {
       | HRequest(r) =>
-        [ApprovalRequested(r)].concat(
-          if (v.state != "needs-you") [StateChanged("needs-you")] else []
-        )
+        if (v.state == "archived" or not(RECORDS_LATE_REQUESTS or inFlight(v, turn))) []
+        else
+          [ApprovalRequested(r)].concat(
+            if (v.state != "needs-you") [StateChanged("needs-you")] else []
+          )
       | HWithdraw(r) =>
         if (v.pending.contains(r))
-          [ApprovalWithdrawn({ req: r, by: "harness" })].concat(
-            if (v.pending.size() == 1 and v.state == "needs-you") [StateChanged("working")]
-            else []
-          )
+          [ApprovalWithdrawn({ req: r, by: "harness" })].concat(backToWork(v, r))
         else []
       | HItem => [ItemCompleted]
       | HTurnEnded =>
-        if (v.turn == "working")
-          withdrawAll(v, "harness").concat([TurnEnded("completed"), StateChanged("idle")])
+        if (inFlight(v, turn))
+          withdrawAll(v, "harness").concat([TurnEnded("completed")]).concat(
+            if (v.state == "archived") [] else [StateChanged("idle")]
+          )
         else []
     }
 
@@ -206,13 +261,18 @@ module polaris {
       | SendTurn(s) => s
       | Continue(s) => s
       | Respond(x) => x.session
+      | Archive(s) => s
+      | Unarchive(s) => s
     }
 
-  pure def startsTurn(cmd: Command): bool =
+  /** Commands whose reactor then runs: a Turn opens the Harness, Archive stops it. */
+  pure def reacts(cmd: Command): bool =
     match cmd {
       | SendTurn(_) => true
       | Continue(_) => true
       | Respond(_) => false
+      | Archive(_) => true
+      | Unarchive(_) => false
     }
 
   /** Append `kinds` to `events` with the next sequences (gapless by construction). */
@@ -220,10 +280,18 @@ module polaris {
     kinds.foldl(events, (acc, k) =>
       acc.append({ seq: acc.length() + 1, session: s, cmd: cmd, kind: k }))
 
-  /** The recovery rule (Engine.ts `recover`) for one session. */
+  /**
+   * The recovery rule (session.ts `recover`) for one session. An Archived
+   * session stays Archived; one an older log left with a Turn in flight has it
+   * Interrupted and its requests withdrawn (unreachable once Archive refuses a
+   * Turn in flight, but modelled as the code does it).
+   */
   pure def recoverSession(events: List[Event], s: str): List[Event] =
     val v = viewOf(events, s)
     if (v.state == "dormant") events
+    else if (v.state == "archived")
+      appendEvents(events, s, "",
+        (if (v.turn == "working") [TurnEnded("interrupted")] else []).concat(withdrawAll(v, "daemon")))
     else {
       val interrupted = if (v.turn == "working") [TurnEnded("interrupted")] else []
       val closing =
@@ -262,12 +330,13 @@ module polaris {
                   events: events,
                   receipts: acc.receipts.set(c.id, Applied(events.length())),
                   settle: acc.settle.append({ id: c.id, outcome: Ok(events.length()) }),
-                  react: if (startsTurn(c.cmd)) acc.react.union(Set(s)) else acc.react,
+                  react: if (reacts(c.cmd)) acc.react.union(Set(s)) else acc.react,
                 }
             }
         }
       | HarnessEv(h) =>
-        { ...acc, events: appendEvents(acc.events, h.session, "", decideHarness(viewOf(acc.events, h.session), h.ev)) }
+        val kinds = decideHarness(viewOf(acc.events, h.session), h.ev, h.turn)
+        { ...acc, events: appendEvents(acc.events, h.session, "", kinds) }
     }
 
   // ── Client feeds (resume.ts `handle`) ─────────────────────────────────────
@@ -306,7 +375,7 @@ module polaris {
     subs' = FEED_KEYS.mapBy(_ => closedSub),
     feeds' = FEED_KEYS.mapBy(_ => { last: NONE, seen: [] }),
     sentBy' = CMD_IDS.mapBy(_ => ""),
-    sentCmd' = CMD_IDS.mapBy(_ => SendTurn("s1")),
+    sentCmd' = CMD_IDS.mapBy(_ => SendTurn(SESSION_LIST[0])),
     answers' = CMD_IDS.mapBy(_ => []),
     lastRestart' = 0,
     crashes' = 0,
@@ -346,7 +415,19 @@ module polaris {
     unchangedGhosts,
   }
 
-  /** The Harness of a live session reports something; the engine records it with `recordFor`. */
+  pure def queuedRequest(q: List[Work], r: str): bool =
+    q.indices().exists(i => match q[i] {
+      | HarnessEv(h) => h.ev == HRequest(r)
+      | _ => false
+    })
+
+  /**
+   * The Harness of a live session reports something about its latest Turn; the
+   * engine records it with `recordFor`. Items, withdrawals and Turn ends come
+   * while that Turn is in flight. An approval request may also come late,
+   * after the Turn ended (a stale or misbehaving Harness), and any report may
+   * be decided after a later decision ended its Turn or started another.
+   */
   action harnessReports(s: str, ev: HarnessEvent): bool = all {
     up,
     harness.contains(s),
@@ -355,16 +436,16 @@ module polaris {
     val v = viewOf(log, s)
     match ev {
       | HRequest(r) => all {
-        v.turn == "working",
+        v.turns > 0,
         REQUEST_SESSION.get(r) == s,
         not(v.requested.indices().exists(i => v.requested[i] == r)),
-        not(queue.indices().exists(i => queue[i] == HarnessEv({ session: s, ev: ev }))),
+        not(queuedRequest(queue, r)),
       }
       | HWithdraw(r) => v.pending.contains(r)
       | HItem => v.turn == "working"
       | HTurnEnded => v.turn == "working"
     },
-    queue' = queue.append(HarnessEv({ session: s, ev: ev })),
+    queue' = queue.append(HarnessEv({ session: s, ev: ev, turn: viewOf(log, s).turns })),
     unchangedClients,
     log' = log, receipts' = receipts, up' = up, toPublish' = toPublish, toSettle' = toSettle,
     toReact' = toReact, reactor' = reactor, harness' = harness, subs' = subs,
@@ -419,12 +500,19 @@ module polaris {
     unchangedGhosts,
   }
 
-  /** The reactor of a SendTurn / Continue opens the Harness (`runTurn`), if the Turn is still in flight. */
+  /**
+   * The reactor of a SendTurn / Continue opens the Harness (`runTurn`), if the
+   * Turn is still in flight; Archive's stops it (`stopHarness`).
+   */
   action reactorRuns(s: str): bool = all {
     up,
     reactor.contains(s),
     reactor' = reactor.exclude(Set(s)),
-    harness' = if (viewOf(log, s).turn == "working") harness.union(Set(s)) else harness,
+    val v = viewOf(log, s)
+    harness' =
+      if (v.state == "archived") harness.exclude(Set(s))
+      else if (v.turn == "working") harness.union(Set(s))
+      else harness,
     unchangedClients,
     log' = log, receipts' = receipts, up' = up, queue' = queue, toPublish' = toPublish,
     toSettle' = toSettle, toReact' = toReact, subs' = subs,
@@ -547,6 +635,8 @@ module polaris {
     SESSIONS.map(s => SendTurn(s))
       .union(SESSIONS.map(s => Continue(s)))
       .union(REQUESTS.map(r => Respond({ session: REQUEST_SESSION.get(r), req: r })))
+      .union(SESSIONS.map(s => Archive(s)))
+      .union(SESSIONS.map(s => Unarchive(s)))
 
   pure val HARNESS_EVENTS: Set[HarnessEvent] =
     REQUESTS.map(r => HRequest(r)).union(REQUESTS.map(r => HWithdraw(r))).union(Set(HItem, HTurnEnded))
@@ -655,11 +745,47 @@ module polaris {
         i >= lastRestart and log[i].session == s and log[i].cmd != ""
           and match log[i].kind { | TurnStarted(_) => true | _ => false }))
 
-  /** An Interrupted Turn leaves its session Needs You until a Client continues or replaces it. */
+  /**
+   * An Interrupted Turn leaves its session Needs You until a Client continues
+   * or replaces it, or archives the session.
+   */
   val interruptedNeedsYou: bool =
     SESSIONS.forall(s => {
       val v = viewOf(log, s)
-      v.turn == "interrupted" implies v.state == "needs-you"
+      v.turn == "interrupted" implies (v.state == "needs-you" or v.archivedSinceTurn)
+    })
+
+  /** An approval is pending only while a Turn is in flight to answer it for (finding 3). */
+  val approvalsNeedATurn: bool =
+    SESSIONS.forall(s => {
+      val v = viewOf(log, s)
+      v.pending.size() > 0 implies v.turn == "working"
+    })
+
+  /** A session is Working only with a Turn in flight (finding 3). */
+  val workingHasATurn: bool =
+    SESSIONS.forall(s => {
+      val v = viewOf(log, s)
+      v.state == "working" implies v.turn == "working"
+    })
+
+  /** An Archived session holds no Turn in flight and no pending approval (finding 2). */
+  val archivedIsClosed: bool =
+    SESSIONS.forall(s => {
+      val v = viewOf(log, s)
+      v.state == "archived" implies (v.turn != "working" and v.pending.size() == 0)
+    })
+
+  /**
+   * A host feed can still make progress: the next host-stream event after the
+   * last one it saw does not make it reopen (finding 1). When this fails the
+   * feed reopens from `last`, the replay has the same gap, and it never advances.
+   */
+  val hostFeedCanProgress: bool =
+    CLIENTS.forall(c => {
+      val f = feeds.get((c, HOST))
+      val later = streamSeqs(log, HOST).select(x => f.last != NONE and x > f.last)
+      later.length() == 0 or not(handle(f, Ev(later[0]), HOST, log).reopen)
     })
 
   val safety: bool = all {
@@ -673,19 +799,11 @@ module polaris {
     restartWithdrawsApprovals,
     noAutoContinue,
     interruptedNeedsYou,
+    approvalsNeedATurn,
+    workingHasATurn,
+    archivedIsClosed,
+    hostFeedCanProgress,
   }
-
-  /**
-   * A host feed can still make progress: the next host-stream event after the
-   * last one it saw is `last + 1`, or its gap check is off. When this fails the
-   * feed reopens from `last`, the replay has the same gap, and it never advances.
-   */
-  val hostFeedCanProgress: bool =
-    CLIENTS.forall(c => {
-      val f = feeds.get((c, HOST))
-      val later = streamSeqs(log, HOST).select(x => f.last != NONE and x > f.last)
-      not(HOST_FEED_GAPLESS) or later.length() == 0 or later[0] == f.last + 1
-    })
 
   // ── Witnesses: states the checks must actually reach (`quint run --witnesses`) ──
 
@@ -708,6 +826,21 @@ module polaris {
     log.indices().exists(i => match log[i].kind { | ApprovalWithdrawn(x) => x.by == "daemon" | _ => false })
   val witnessContinued: bool = log.indices().exists(i => log[i].kind == TurnStarted(true))
   val witnessBatchOfTwo: bool = toSettle.length() + toPublish.length() > 0 and toSettle.length() >= 2
+  val witnessArchived: bool = log.indices().exists(i => log[i].kind == StateChanged("archived"))
+  val witnessUnarchived: bool =
+    log.indices().exists(i => log[i].kind == StateChanged("dormant") and log[i].cmd != "")
+  val witnessArchiveRefused: bool =
+    CMD_IDS.exists(id => match sentCmd.get(id) { | Archive(_) => true | _ => false }
+      and sentBy.get(id) != "" and answers.get(id).indices().exists(i => answers.get(id)[i] == Rejected))
+  /** A request about to be decided for a Turn that is not (or no longer) in flight. */
+  val witnessLateRequest: bool =
+    queue.indices().exists(i => match queue[i] {
+      | HarnessEv(h) => match h.ev {
+        | HRequest(_) => not(inFlight(viewOf(log, h.session), h.turn))
+        | _ => false
+      }
+      | _ => false
+    })
 
   // ── Liveness ──────────────────────────────────────────────────────────────
 
@@ -742,7 +875,9 @@ module polaris {
 /** The code as it is: two devices, two sessions, two requests in one session. */
 module current {
   import polaris(
-    HOST_FEED_GAPLESS = true,
+    HOST_FEED_GAPLESS = false,
+    ARCHIVE_IGNORES_TURN = false,
+    RECORDS_LATE_REQUESTS = false,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -754,10 +889,46 @@ module current {
   ).*
 }
 
-/** The same with the host feed's gap check off (see README.md, "Findings"). */
-module fixed {
+/** Finding 1: the host feed with the gap check (`gapless: true`). Violates `hostFeedCanProgress`. */
+module finding1 {
+  import polaris(
+    HOST_FEED_GAPLESS = true,
+    ARCHIVE_IGNORES_TURN = false,
+    RECORDS_LATE_REQUESTS = false,
+    CLIENTS = Set("mac", "phone"),
+    SESSION_LIST = ["s1", "s2"],
+    CMD_IDS = Set("k1", "k2", "k3", "k4"),
+    REQUESTS = Set("r1", "r2"),
+    REQUEST_SESSION = Map("r1" -> "s1", "r2" -> "s1"),
+    CAPACITY = 2,
+    MAX_LOG = 10,
+    MAX_CRASHES = 2,
+  ).*
+}
+
+/** Finding 2: Archive accepted with a Turn in flight. Violates `archivedIsClosed`. */
+module finding2 {
   import polaris(
     HOST_FEED_GAPLESS = false,
+    ARCHIVE_IGNORES_TURN = true,
+    RECORDS_LATE_REQUESTS = false,
+    CLIENTS = Set("mac", "phone"),
+    SESSION_LIST = ["s1", "s2"],
+    CMD_IDS = Set("k1", "k2", "k3", "k4"),
+    REQUESTS = Set("r1", "r2"),
+    REQUEST_SESSION = Map("r1" -> "s1", "r2" -> "s1"),
+    CAPACITY = 2,
+    MAX_LOG = 10,
+    MAX_CRASHES = 2,
+  ).*
+}
+
+/** Finding 3: late approval requests recorded. Violates `approvalsNeedATurn` (then `workingHasATurn`). */
+module finding3 {
+  import polaris(
+    HOST_FEED_GAPLESS = false,
+    ARCHIVE_IGNORES_TURN = false,
+    RECORDS_LATE_REQUESTS = true,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -773,6 +944,8 @@ module fixed {
 module small {
   import polaris(
     HOST_FEED_GAPLESS = false,
+    ARCHIVE_IGNORES_TURN = false,
+    RECORDS_LATE_REQUESTS = false,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1"],
     CMD_IDS = Set("k1", "k2"),

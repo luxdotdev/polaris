@@ -6,6 +6,8 @@
 module polaris_test {
   import polaris(
     HOST_FEED_GAPLESS = false,
+    ARCHIVE_IGNORES_TURN = false,
+    RECORDS_LATE_REQUESTS = false,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -58,7 +60,14 @@ module polaris_test {
       .then(restart)
       .expect(all {
         answers.get("k1") == [],
-        viewOf(log, "s1") == { turn: "interrupted", state: "needs-you", pending: Set(), requested: [] },
+        viewOf(log, "s1") == {
+          turn: "interrupted",
+          state: "needs-you",
+          pending: Set(),
+          requested: [],
+          turns: 1,
+          archivedSinceTurn: false,
+        },
         harness == Set(),
         safety,
       })
@@ -169,12 +178,108 @@ module polaris_test {
       .then(2.reps(_ => deliver("mac", HOST)))
       // Without the gap check the host feed sees 1, 2, 4, 5: seq 3 is an ItemCompleted.
       .expect(feeds.get(("mac", HOST)).seen == [1, 2, 4, 5] and hostFeedCanProgress and safety)
+
+  /** Finding 2: Archive waits for the Turn in flight (and its request) to end. */
+  run archiveIsRefusedWithATurnInFlightTest =
+    waitingOnApproval
+      .then(clientSends("mac", "k2", Archive("s1")))
+      .then(commitBatch)
+      .then(publishBatch)
+      .expect(all { answers.get("k2") == [Rejected], viewOf(log, "s1").state == "needs-you", safety })
+      .then(harnessReports("s1", HTurnEnded))
+      .then(commitBatch)
+      .then(publishBatch)
+      .then(clientSends("mac", "k3", Archive("s1")))
+      .then(commitBatch)
+      .then(publishBatch)
+      .then(reactorRuns("s1"))
+      .expect(all {
+        answers.get("k3") == [Ok(8)],
+        viewOf(log, "s1").state == "archived",
+        viewOf(log, "s1").pending == Set(),
+        // Archive stopped the Harness.
+        harness == Set(),
+        safety,
+      })
+      // A Turn is refused until Unarchive; a restart leaves the session Archived.
+      .then(clientSends("mac", "k4", SendTurn("s1")))
+      .then(commitBatch)
+      .then(publishBatch)
+      .then(crash)
+      .then(restart)
+      .expect(all { answers.get("k4") == [Rejected], viewOf(log, "s1").state == "archived", log.length() == 8, safety })
+
+  run unarchiveThenANewTurnTest =
+    turnRunning
+      .then(harnessReports("s1", HTurnEnded))
+      .then(commitBatch)
+      .then(publishBatch)
+      .then(clientSends("mac", "k2", Archive("s1")))
+      .then(clientSends("phone", "k3", Unarchive("s1")))
+      .then(clientSends("mac", "k4", SendTurn("s1")))
+      .then(commitBatch)
+      .then(publishBatch)
+      .then(reactorRuns("s1"))
+      .expect(all {
+        answers.get("k2") == [Ok(5)],
+        answers.get("k3") == [Ok(6)],
+        answers.get("k4") == [Ok(8)],
+        viewOf(log, "s1").state == "working",
+        harness == Set("s1"),
+        safety,
+      })
+
+  /** Finding 3: a request the Harness sends after its Turn ended is not recorded. */
+  run lateRequestIsIgnoredTest =
+    turnRunning
+      .then(harnessReports("s1", HTurnEnded))
+      .then(commitBatch)
+      .then(publishBatch)
+      .then(harnessReports("s1", HRequest("r1")))
+      .expect(witnessLateRequest)
+      // Decided: nothing to record, so nothing to publish.
+      .then(commitBatch)
+      .expect(all { log.length() == 4, toPublish == [], viewOf(log, "s1").state == "idle", safety })
+      .then(clientSends("mac", "k2", SendTurn("s1")))
+      .then(commitBatch)
+      .then(publishBatch)
+      .expect(answers.get("k2") == [Ok(6)] and safety)
+
+  /** …and one reported during the Turn but decided after a later Turn started is not either. */
+  run requestForAnEarlierTurnIsIgnoredTest =
+    turnRunning
+      // In one batch: Turn 1 ends, a Client starts Turn 2, then Turn 1's request is decided.
+      .then(harnessReports("s1", HTurnEnded))
+      .then(clientSends("mac", "k2", SendTurn("s1")))
+      .then(harnessReports("s1", HRequest("r1")))
+      .then(commitBatch)
+      .then(publishBatch)
+      .expect(all {
+        answers.get("k2") == [Ok(6)],
+        log.length() == 6,
+        viewOf(log, "s1").turn == "working",
+        viewOf(log, "s1").pending == Set(),
+        safety,
+      })
+      // A request reported during a Turn and decided before it ends is recorded, and the end withdraws it.
+      .then(harnessReports("s1", HRequest("r2")))
+      .then(harnessReports("s1", HTurnEnded))
+      .then(commitBatch)
+      .then(publishBatch)
+      .expect(all {
+        log[6].kind == ApprovalRequested("r2"),
+        log[8].kind == ApprovalWithdrawn({ req: "r2", by: "harness" }),
+        viewOf(log, "s1").pending == Set(),
+        safety,
+      })
 }
 
-/** The same host feed with the gap check `HostConnection` uses today. */
-module polaris_current_test {
+/** Finding 1: the host feed with the gap check `HostConnection` used before the fix. */
+module polaris_finding1_test {
   import polaris(
     HOST_FEED_GAPLESS = true,
+    ARCHIVE_IGNORES_TURN = false,
+    RECORDS_LATE_REQUESTS = false,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -210,6 +315,92 @@ module polaris_current_test {
         subs.get(("mac", HOST)).phase == "closed",
         feeds.get(("mac", HOST)).last == 2,
         not(hostFeedCanProgress),
-        safety,
+        feedsAreCommittedPrefixes,
       })
+}
+
+/** Finding 2: Archive accepted with a Turn in flight, as In Terminal and Starting did. */
+module polaris_finding2_test {
+  import polaris(
+    HOST_FEED_GAPLESS = false,
+    ARCHIVE_IGNORES_TURN = true,
+    RECORDS_LATE_REQUESTS = false,
+    CLIENTS = Set("mac", "phone"),
+    SESSION_LIST = ["s1", "s2"],
+    CMD_IDS = Set("k1", "k2", "k3", "k4"),
+    REQUESTS = Set("r1", "r2"),
+    REQUEST_SESSION = Map("r1" -> "s1", "r2" -> "s1"),
+    CAPACITY = 2,
+    MAX_LOG = 10,
+    MAX_CRASHES = 2,
+  ).* from "./polaris"
+
+  run archiveMidTurnLeavesItOpenTest =
+    init
+      .then(clientSends("mac", "k1", SendTurn("s1")))
+      .then(commitBatch)
+      .then(publishBatch)
+      .then(reactorRuns("s1"))
+      .then(harnessReports("s1", HRequest("r1")))
+      .then(commitBatch)
+      .then(publishBatch)
+      .then(clientSends("mac", "k2", Archive("s1")))
+      .then(commitBatch)
+      .then(publishBatch)
+      .expect(all {
+        viewOf(log, "s1") == {
+          turn: "working",
+          state: "archived",
+          pending: Set("r1"),
+          requested: ["r1"],
+          turns: 1,
+          archivedSinceTurn: true,
+        },
+        not(archivedIsClosed),
+      })
+}
+
+/** Finding 3: late approval requests recorded. */
+module polaris_finding3_test {
+  import polaris(
+    HOST_FEED_GAPLESS = false,
+    ARCHIVE_IGNORES_TURN = false,
+    RECORDS_LATE_REQUESTS = true,
+    CLIENTS = Set("mac", "phone"),
+    SESSION_LIST = ["s1", "s2"],
+    CMD_IDS = Set("k1", "k2", "k3", "k4"),
+    REQUESTS = Set("r1", "r2"),
+    REQUEST_SESSION = Map("r1" -> "s1", "r2" -> "s1"),
+    CAPACITY = 2,
+    MAX_LOG = 10,
+    MAX_CRASHES = 2,
+  ).* from "./polaris"
+
+  run lateRequestLeavesWorkingWithNoTurnTest =
+    init
+      .then(clientSends("mac", "k1", SendTurn("s1")))
+      .then(commitBatch)
+      .then(publishBatch)
+      .then(reactorRuns("s1"))
+      .then(harnessReports("s1", HTurnEnded))
+      .then(commitBatch)
+      .then(publishBatch)
+      .then(harnessReports("s1", HRequest("r1")))
+      .then(commitBatch)
+      .then(publishBatch)
+      .expect(viewOf(log, "s1").state == "needs-you" and not(approvalsNeedATurn))
+      // Answering it moves the session Working with no Turn…
+      .then(clientSends("mac", "k2", Respond({ session: "s1", req: "r1" })))
+      .then(commitBatch)
+      .then(publishBatch)
+      .expect(all {
+        viewOf(log, "s1").state == "working",
+        viewOf(log, "s1").turn == "completed",
+        not(workingHasATurn),
+      })
+      // …and a new Turn is refused.
+      .then(clientSends("mac", "k3", SendTurn("s1")))
+      .then(commitBatch)
+      .then(publishBatch)
+      .expect(answers.get("k3") == [Rejected])
 }

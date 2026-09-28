@@ -196,15 +196,20 @@ export const toUnits = (trace: Trace): { units: Array<Unit>; requests: Map<strin
             ? `Continue(${q(s)})`
             : sent.command._tag === "RespondToApproval"
               ? `Respond({ session: ${q(s)}, req: ${q(sent.command.requestId!)} })`
-              : null
+              : sent.command._tag === "ArchiveSession"
+                ? `Archive(${q(s)})`
+                : sent.command._tag === "UnarchiveSession"
+                  ? `Unarchive(${q(s)})`
+                  : null
       if (command === null)
         throw new Error(`seq ${e.seq}: no spec command for ${sent.command._tag}`)
-      const starts = sent.command._tag === "SendTurn" || sent.command._tag === "Continue"
+      // A Turn's reactor opens the Harness; Archive's stops it.
+      const reacts = ["SendTurn", "Continue", "ArchiveSession"].includes(sent.command._tag)
       units.push({
         actions: [
           `clientSends(${q(sent.device)}, ${q(id)}, ${command})`,
           ...commit,
-          ...(starts ? [`reactorRuns(${q(s)})`] : []),
+          ...(reacts ? [`reactorRuns(${q(s)})`] : []),
         ],
         events,
         label: `${id} ${sent.command._tag}`,
@@ -314,6 +319,8 @@ export const toQuint = (name: string, trace: Trace): string => {
 module ${name} {
   import polaris(
     HOST_FEED_GAPLESS = false,
+    ARCHIVE_IGNORES_TURN = false,
+    RECORDS_LATE_REQUESTS = false,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set(${[...cmdIds].map(q).join(", ")}),
