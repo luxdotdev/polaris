@@ -13,6 +13,7 @@
 import { statSync } from "node:fs"
 import { join } from "node:path"
 import {
+  type AgentSession,
   type ApprovalDecision,
   ApprovalRequest,
   type Attachment,
@@ -27,10 +28,12 @@ import {
   type SessionId,
   type SessionStreamItem,
   SessionSummary,
+  TerminalLaunch,
   Turn,
   TurnDetail,
   TurnId,
   type TurnItem,
+  type Workspace,
   WorkspaceId,
   Worktree,
 } from "@polaris/protocol"
@@ -55,7 +58,7 @@ import {
   type ServiceError,
   WorktreeTracker,
 } from "../services.ts"
-import { type CommitResult, EventStore } from "../store/EventStore.ts"
+import { type CommitResult, EventStore, type LiveItem } from "../store/EventStore.ts"
 import {
   isHostStreamEvent,
   lastTurn,
@@ -63,7 +66,8 @@ import {
   type SessionRecord,
   workingTurn,
 } from "../store/model.ts"
-import { CONTINUE_PROMPT, decide, stateChanged, worktreeIdFor } from "./decider.ts"
+import { CONTINUE_PROMPT, decide, forkBranch, stateChanged, worktreeIdFor } from "./decider.ts"
+import { finalReply, forkPreamble } from "./fork.ts"
 
 export interface EngineSettings {
   /** How long an Idle session keeps its Harness process before going Dormant. */
@@ -91,9 +95,21 @@ export class Engine extends Context.Service<
       readonly sessionId: SessionId
       readonly afterSequence: Sequence | null
       readonly turnLimit: number | null
+      /** Send `ItemProgress` (the Client announced `session.live-items`). Default false. */
+      readonly liveItems?: boolean
     }) => Stream.Stream<SessionStreamItem, NotFound>
-    /** argv of the Harness's own TUI for a session handed to the terminal, once known. */
-    readonly terminalCommand: (sessionId: SessionId) => Effect.Effect<ReadonlyArray<string> | null>
+    readonly hasSession: (sessionId: SessionId) => Effect.Effect<boolean>
+    /** How to launch the Harness's own TUI for a session that is In Terminal, once known. */
+    readonly terminalCommand: (sessionId: SessionId) => Effect.Effect<TerminalLaunch | null>
+    /**
+     * Call right before the Daemon replaces itself (execve upgrade). Harnesses that
+     * live inside the Daemon process (Claude, `liveCoAttach: false`) are closed
+     * cleanly: a Turn in flight ends Interrupted and its session Needs You (the
+     * user continues it, as after a restart); other live sessions go Dormant and
+     * resume from their cursor on the next Turn. Codex threads live in the shared
+     * app-server, which outlives the Daemon, so they are left alone.
+     */
+    readonly prepareForUpgrade: Effect.Effect<void>
   }
 >()("polaris/daemon/engine/Engine") {
   static readonly layer = Layer.effect(
@@ -102,17 +118,38 @@ export class Engine extends Context.Service<
   )
 }
 
-interface LiveHarness {
-  readonly driver: HarnessDriver
-  readonly session: HarnessSession
+/** Something whose `HarnessEvent`s the engine consumes: a live Harness, or a terminal follower. */
+interface EventSource {
   readonly scope: Scope.Closeable
-  consumer: Fiber.Fiber<void> | null
-  /** Set when Polaris stops the Harness on purpose, so its exit is not treated as a crash. */
+  /** Set when Polaris stops the source on purpose, so its exit is not treated as a crash. */
   stopping: boolean
 }
 
-const HARNESS = "Harness"
-const DAEMON = "Daemon"
+interface LiveHarness extends EventSource {
+  readonly driver: HarnessDriver
+  readonly session: HarnessSession
+  consumer: Fiber.Fiber<void> | null
+}
+
+/** Follows a session's terminal UI while it is In Terminal (sequential hand-off). */
+interface TerminalFollower extends EventSource {
+  readonly driver: HarnessDriver
+  fiber: Fiber.Fiber<void> | null
+}
+
+/** An item still in progress, as last reported by `ItemUpdated`. */
+interface Progress {
+  readonly turnId: TurnId
+  readonly item: TurnItem
+}
+
+type Withdrawer = "harness" | "daemon"
+
+const RESTARTED = "The Daemon restarted"
+const UPGRADING = "The Daemon is upgrading"
+
+/** How long `ReturnFromTerminal` waits for the terminal follower to drain. */
+const FOLLOWER_DRAIN = Duration.seconds(5)
 
 const make = Effect.gen(function* () {
   const store = yield* EventStore
@@ -124,7 +161,10 @@ const make = Effect.gen(function* () {
   const engineScope = yield* Effect.scope
 
   const live = new Map<SessionId, LiveHarness>()
-  const terminalArgv = new Map<SessionId, ReadonlyArray<string>>()
+  const terminalLaunch = new Map<SessionId, TerminalLaunch>()
+  const followers = new Map<SessionId, TerminalFollower>()
+  /** Items in progress per session, so a Client that subscribes mid-Turn sees them. */
+  const progress = new Map<SessionId, Map<string, Progress>>()
   const idleTimers = yield* FiberMap.make<SessionId>()
   const sessionLocks = new Map<SessionId, Semaphore.Semaphore>()
 
@@ -160,20 +200,29 @@ const make = Effect.gen(function* () {
 
   const withdrawPending = (
     record: SessionRecord,
-    resolvedBy: string,
+    withdrawnBy: Withdrawer,
     reason: string,
     onlyTurn?: TurnId,
   ): Array<DomainEvent> =>
     [...record.pending.values()]
       .filter((request) => onlyTurn === undefined || request.turnId === onlyTurn)
       .map((request) =>
-        DomainEvent.cases.ApprovalResolved.make({
+        DomainEvent.cases.ApprovalWithdrawn.make({
           sessionId: record.session.id,
           requestId: request.id,
-          decision: { _tag: "Deny", reason },
-          resolvedBy,
+          withdrawnBy,
+          reason,
         }),
       )
+
+  /** Forget progress of items that can no longer complete (their Turn ended, the Harness went away). */
+  const dropProgress = (sessionId: SessionId, turnId?: TurnId) => {
+    const items = progress.get(sessionId)
+    if (items === undefined) return
+    for (const [id, entry] of items)
+      if (turnId === undefined || entry.turnId === turnId) items.delete(id)
+    if (items.size === 0) progress.delete(sessionId)
+  }
 
   const endTurn = (
     turn: Turn,
@@ -194,7 +243,7 @@ const make = Effect.gen(function* () {
         const turn = workingTurn(record)
         return [
           ...(turn ? [endTurn(turn, "failed", at)] : []),
-          ...withdrawPending(record, DAEMON, message),
+          ...withdrawPending(record, "daemon", message),
           stateChanged(sessionId, "failed", message),
         ]
       })
@@ -234,6 +283,7 @@ const make = Effect.gen(function* () {
       if (entry === undefined) return
       entry.stopping = true
       live.delete(sessionId)
+      dropProgress(sessionId)
       if (entry.consumer !== null) yield* Fiber.interrupt(entry.consumer)
       yield* Scope.close(entry.scope, Exit.void)
     })
@@ -298,7 +348,7 @@ const make = Effect.gen(function* () {
       ),
     )
 
-  const onHarnessEvent = (sessionId: SessionId, entry: LiveHarness, event: HarnessEvent) =>
+  const onHarnessEvent = (sessionId: SessionId, entry: EventSource, event: HarnessEvent) =>
     Effect.gen(function* () {
       if (entry.stopping) return
       const at = yield* now
@@ -322,8 +372,8 @@ const make = Effect.gen(function* () {
             const turn = new Turn({
               id: event.turnId,
               sessionId,
-              index: record.turns.length,
-              prompt: "",
+              index: record.session.turnCount,
+              prompt: event.prompt ?? "",
               attachments: [],
               status: "working",
               checkpointBefore: null,
@@ -342,7 +392,7 @@ const make = Effect.gen(function* () {
           yield* cancelIdle(sessionId)
           return
         case "ItemDelta":
-          yield* store.publishDelta({
+          yield* store.publishEphemeral({
             _tag: "Delta",
             sessionId,
             turnId: event.turnId,
@@ -351,7 +401,20 @@ const make = Effect.gen(function* () {
             text: event.text,
           })
           return
+        case "ItemUpdated": {
+          const items = progress.get(sessionId) ?? new Map<string, Progress>()
+          items.set(event.item.id, { turnId: event.turnId, item: event.item })
+          progress.set(sessionId, items)
+          yield* store.publishEphemeral({
+            _tag: "ItemProgress",
+            sessionId,
+            turnId: event.turnId,
+            item: event.item,
+          })
+          return
+        }
         case "ItemCompleted":
+          progress.get(sessionId)?.delete(event.item.id)
           yield* recordFor(sessionId, () => [
             DomainEvent.cases.TurnItemCompleted.make({
               sessionId,
@@ -385,11 +448,11 @@ const make = Effect.gen(function* () {
           yield* recordFor(sessionId, (record) => {
             if (!record.pending.has(event.requestId)) return []
             return [
-              DomainEvent.cases.ApprovalResolved.make({
+              DomainEvent.cases.ApprovalWithdrawn.make({
                 sessionId,
                 requestId: event.requestId,
-                decision: { _tag: "Deny", reason: "Withdrawn by the Harness" },
-                resolvedBy: HARNESS,
+                withdrawnBy: "harness",
+                reason: "The Harness withdrew the request",
               }),
               ...(record.pending.size === 1 && record.session.state === "needs-you"
                 ? [stateChanged(sessionId, "working")]
@@ -398,6 +461,7 @@ const make = Effect.gen(function* () {
           })
           return
         case "TurnEnded": {
+          dropProgress(sessionId, event.turnId)
           const after = yield* capture(sessionId, event.turnId, "after")
           const result = yield* recordFor(sessionId, (record) => {
             const turn = record.turns.find((t) => t.id === event.turnId)
@@ -414,7 +478,7 @@ const make = Effect.gen(function* () {
               )
             }
             events.push(
-              ...withdrawPending(record, HARNESS, "The Turn ended", turn.id),
+              ...withdrawPending(record, "harness", "The Turn ended", turn.id),
               endTurn(turn, event.status, at, after?.ref ?? turn.checkpointAfter),
             )
             if (record.session.state !== "in-terminal") {
@@ -466,6 +530,7 @@ const make = Effect.gen(function* () {
         case "Exited": {
           entry.stopping = true
           if (live.get(sessionId) === entry) live.delete(sessionId)
+          dropProgress(sessionId)
           yield* cancelIdle(sessionId)
           yield* Scope.close(entry.scope, Exit.void)
           yield* recordFor(sessionId, (record) => {
@@ -475,7 +540,7 @@ const make = Effect.gen(function* () {
             const reason = event.error ?? "The Harness exited"
             const events: Array<DomainEvent> = [
               ...(turn ? [endTurn(turn, event.error ? "failed" : "interrupted", at)] : []),
-              ...withdrawPending(record, HARNESS, reason),
+              ...withdrawPending(record, "harness", reason),
             ]
             if (state === "in-terminal") return events
             events.push(
@@ -515,12 +580,44 @@ const make = Effect.gen(function* () {
           ])
         }
       }
+      // Before opening: a Harness may report its cursor as soon as it opens.
+      const session = (yield* store.model).sessions.get(sessionId)?.session
+      const input =
+        session !== undefined && session.parentSessionId !== null && session.harnessCursor === null
+          ? yield* withForkContext(session, prompt)
+          : prompt
       const entry = yield* openHarness(sessionId)
       yield* recordFor(sessionId, (record) =>
         record.session.state === "starting" ? [stateChanged(sessionId, "working")] : [],
       )
-      yield* entry.session.sendTurn({ turnId, prompt, attachments })
+      yield* entry.session.sendTurn({ turnId, prompt: input, attachments })
     }).pipe(Effect.catch((error) => failSession(sessionId, messageOf(error))))
+
+  /** A Fork's Harness starts fresh: prefix its first Turn with the parent's conversation (fork.ts). */
+  const withForkContext = (session: AgentSession, prompt: string) =>
+    Effect.gen(function* () {
+      const parentId = session.parentSessionId!
+      const model = yield* store.model
+      const parent = model.sessions.get(parentId)
+      const turns = yield* store.readTurns({ sessionId: parentId, beforeIndex: null, limit: null })
+      const at = turns.findIndex((t) => t.id === session.forkedFromTurnId)
+      const included = at === -1 ? turns : turns.slice(0, at + 1)
+      const items = yield* store.readTurnItems({
+        turnIds: included.map((t) => t.id),
+        upTo: model.sequence,
+      })
+      return forkPreamble({
+        parentTitle: parent?.session.title ?? parentId,
+        ownWorktree:
+          session.worktreeId !== null && session.worktreeId !== parent?.session.worktreeId,
+        turns: included.map((t) => ({ prompt: t.prompt, reply: finalReply(items.get(t.id)) })),
+        prompt,
+      })
+    }).pipe(
+      Effect.catch((error) =>
+        Effect.as(Effect.logWarning(`fork context for ${session.id}: ${error.message}`), prompt),
+      ),
+    )
 
   // ── Reactors (after commit) ──────────────────────────────────────────────
 
@@ -573,35 +670,12 @@ const make = Effect.gen(function* () {
           const turn = turnFrom(result.envelopes)
           if (record === undefined || workspace === undefined || turn === undefined) return
           if (command.placement._tag === "NewWorktree") {
-            const created = yield* worktrees
-              .create({
-                repoPath: workspace.path,
-                path: record.session.cwd,
-                branch: command.placement.branch.trim(),
-                baseRef: command.placement.baseRef,
-              })
-              .pipe(
-                Effect.catch((error) =>
-                  failSession(
-                    command.sessionId,
-                    `could not create the Worktree: ${error.message}`,
-                  ).pipe(Effect.as(null)),
-                ),
-              )
-            if (created === null) return
-            yield* recordFor(command.sessionId, () => [
-              DomainEvent.cases.WorktreeDetected.make({
-                worktree: new Worktree({
-                  id: worktreeIdFor(record.session.cwd),
-                  workspaceId: workspace.id,
-                  path: record.session.cwd,
-                  branch: created.branch,
-                  head: created.head,
-                  createdBySessionId: command.sessionId,
-                  isMain: false,
-                }),
-              }),
-            ])
+            const created = yield* createWorktree(command.sessionId, workspace, {
+              path: record.session.cwd,
+              branch: command.placement.branch.trim(),
+              baseRef: command.placement.baseRef,
+            })
+            if (!created) return
           }
           yield* runTurn(command.sessionId, turn.id, turn.prompt, turn.attachments)
         })
@@ -635,7 +709,7 @@ const make = Effect.gen(function* () {
             const turn = workingTurn(record)
             if (turn === undefined) return []
             return [
-              ...withdrawPending(record, DAEMON, "Interrupted"),
+              ...withdrawPending(record, "daemon", "Interrupted"),
               endTurn(turn, "interrupted", at),
               stateChanged(command.sessionId, "dormant"),
             ]
@@ -656,7 +730,8 @@ const make = Effect.gen(function* () {
         return Effect.gen(function* () {
           yield* cancelIdle(command.sessionId)
           yield* stopHarness(command.sessionId)
-          terminalArgv.delete(command.sessionId)
+          yield* stopFollower(command.sessionId, false)
+          terminalLaunch.delete(command.sessionId)
           const model = yield* store.model
           const record = model.sessions.get(command.sessionId)
           const worktree = record?.session.worktreeId
@@ -695,14 +770,40 @@ const make = Effect.gen(function* () {
         return Effect.gen(function* () {
           yield* cancelIdle(command.sessionId)
           const entry = yield* openHarness(command.sessionId)
-          terminalArgv.set(command.sessionId, yield* entry.session.terminalCommand)
+          const argv = yield* entry.session.terminalCommand
+          const cwd = (yield* store.model).sessions.get(command.sessionId)?.session.cwd ?? ""
+          terminalLaunch.set(
+            command.sessionId,
+            new TerminalLaunch({ argv: [...argv], cwd, env: {} }),
+          )
           // Claude hands off sequentially; Codex's TUI co-attaches to the running app-server.
-          if (!entry.driver.capabilities.liveCoAttach) yield* stopHarness(command.sessionId)
+          if (!entry.driver.capabilities.liveCoAttach) {
+            yield* stopHarness(command.sessionId)
+            yield* startFollower(command.sessionId, entry.driver)
+          }
         }).pipe(Effect.catch((error) => failSession(command.sessionId, messageOf(error))))
 
       case "ReturnFromTerminal":
         return Effect.gen(function* () {
-          terminalArgv.delete(command.sessionId)
+          terminalLaunch.delete(command.sessionId)
+          // Drain what the terminal UI did, including the cursor it ended on, before resuming.
+          yield* stopFollower(command.sessionId, true)
+          const record = (yield* store.model).sessions.get(command.sessionId)
+          const driver = record === undefined ? null : yield* registry.get(record.session.harness)
+          if (driver !== null && !driver.capabilities.liveCoAttach) {
+            // Polaris sent no Turn while In Terminal, so one still open is the terminal UI's,
+            // left unfinished when it closed.
+            const at = yield* now
+            yield* recordFor(command.sessionId, (current) => {
+              const turn = workingTurn(current)
+              return turn === undefined
+                ? []
+                : [
+                    ...withdrawPending(current, "harness", "The terminal UI closed", turn.id),
+                    endTurn(turn, "interrupted", at),
+                  ]
+            })
+          }
           yield* openHarness(command.sessionId)
           yield* recordFor(command.sessionId, (record) =>
             record.session.state !== "starting"
@@ -715,14 +816,150 @@ const make = Effect.gen(function* () {
           }
         }).pipe(Effect.catch((error) => failSession(command.sessionId, messageOf(error))))
 
+      case "ForkSession":
+        return Effect.gen(function* () {
+          const record = result.model.sessions.get(command.sessionId)
+          const worktreeId = record?.session.worktreeId ?? null
+          // No Worktree of its own (not a git repo, or no checkpoint): it shares the parent's cwd.
+          if (record === undefined || worktreeId === null || result.model.worktrees.has(worktreeId))
+            return
+          const workspace = result.model.workspaces.get(record.session.workspaceId)
+          const turn = yield* findTurn(command.fromSessionId, command.fromTurnId)
+          if (workspace === undefined || turn?.checkpointAfter == null) return
+          yield* createWorktree(command.sessionId, workspace, {
+            path: record.session.cwd,
+            branch: forkBranch(command.sessionId),
+            baseRef: turn.checkpointAfter,
+          })
+        })
+
+      case "UnarchiveSession":
+        return Effect.gen(function* () {
+          // Archive removed the Worktree the session created and kept its branch: bring it back.
+          const model = yield* store.model
+          const record = model.sessions.get(command.sessionId)
+          const worktreeId = record?.session.worktreeId ?? null
+          if (record === undefined || worktreeId === null || model.worktrees.has(worktreeId)) return
+          const workspace = model.workspaces.get(record.session.workspaceId)
+          const known = yield* store.lastKnownWorktree(worktreeId)
+          if (
+            workspace === undefined ||
+            known === null ||
+            known.isMain ||
+            known.branch === null ||
+            known.createdBySessionId !== command.sessionId
+          )
+            return
+          yield* createWorktree(command.sessionId, workspace, {
+            path: known.path,
+            branch: known.branch,
+            baseRef: null,
+          })
+        })
+
       case "SetWorkspaceHidden":
       case "RemoveWorkspace":
       case "RenameSession":
-      case "ForkSession":
-      case "UnarchiveSession":
         return Effect.void
     }
   }
+
+  /**
+   * Create a Worktree for a session and record it; on failure the session goes Failed.
+   * An existing `branch` is checked out as is; otherwise it is created at `baseRef`.
+   */
+  const createWorktree = (
+    sessionId: SessionId,
+    workspace: Workspace,
+    options: { readonly path: string; readonly branch: string; readonly baseRef: string | null },
+  ) =>
+    Effect.gen(function* () {
+      const created = yield* worktrees
+        .create({ repoPath: workspace.path, ...options })
+        .pipe(
+          Effect.catch((error) =>
+            failSession(sessionId, `could not create the Worktree: ${error.message}`).pipe(
+              Effect.as(null),
+            ),
+          ),
+        )
+      if (created === null) return false
+      yield* recordFor(sessionId, () => [
+        DomainEvent.cases.WorktreeDetected.make({
+          worktree: new Worktree({
+            id: worktreeIdFor(options.path),
+            workspaceId: workspace.id,
+            path: options.path,
+            branch: created.branch,
+            head: created.head,
+            createdBySessionId: sessionId,
+            isMain: false,
+          }),
+        }),
+      ])
+      return true
+    })
+
+  /** A Turn of any age: recent ones are in memory, older ones in SQL. */
+  const findTurn = (sessionId: SessionId, turnId: TurnId) =>
+    Effect.gen(function* () {
+      const record = (yield* store.model).sessions.get(sessionId)
+      const recent = record?.turns.find((t) => t.id === turnId)
+      if (recent !== undefined || record === undefined) return recent ?? null
+      const older = yield* store.readTurns({
+        sessionId,
+        beforeIndex: record.turns[0]?.index ?? null,
+        limit: null,
+      })
+      return older.find((t) => t.id === turnId) ?? null
+    })
+
+  // ── Terminal hand-off ────────────────────────────────────────────────────
+
+  /** Follow a sequentially handed-off session's terminal UI (e.g. Claude's hooks). */
+  const startFollower = (sessionId: SessionId, driver: HarnessDriver) =>
+    Effect.gen(function* () {
+      const follow = driver.terminalFollow
+      if (follow === undefined || followers.has(sessionId)) return
+      const follower: TerminalFollower = {
+        driver,
+        scope: yield* Scope.make(),
+        stopping: false,
+        fiber: null,
+      }
+      followers.set(sessionId, follower)
+      follower.fiber = yield* Effect.forkIn(
+        follow
+          .events(sessionId)
+          .pipe(
+            Stream.runForEach((event) =>
+              onHarnessEvent(sessionId, follower, event).pipe(
+                Effect.catchCause((cause) =>
+                  Effect.logError(`following ${event._tag} for ${sessionId} failed`, cause),
+                ),
+              ),
+            ),
+          ),
+        engineScope,
+      )
+    })
+
+  /** Stop following; with `drain`, first handle what the terminal UI already reported. */
+  const stopFollower = (sessionId: SessionId, drain: boolean) =>
+    Effect.gen(function* () {
+      const follower = followers.get(sessionId)
+      if (follower === undefined) return
+      followers.delete(sessionId)
+      yield* follower.driver.terminalFollow?.release(sessionId) ?? Effect.void
+      if (follower.fiber !== null) {
+        if (drain) {
+          yield* Fiber.join(follower.fiber).pipe(Effect.timeout(FOLLOWER_DRAIN), Effect.ignore)
+        }
+        yield* Fiber.interrupt(follower.fiber)
+      }
+      follower.stopping = true
+      yield* Scope.close(follower.scope, Exit.void)
+    })
 
   const respond = (
     sessionId: SessionId,
@@ -790,6 +1027,10 @@ const make = Effect.gen(function* () {
       attachments: yield* resolveAttachments(commandId, command),
       pathProbe: command._tag === "RegisterWorkspace" ? probePath(command.path) : null,
       canSteer: yield* canSteer(command),
+      forkTurn:
+        command._tag === "ForkSession"
+          ? yield* findTurn(command.fromSessionId, command.fromTurnId).pipe(Effect.orDie)
+          : null,
     }
     const result = yield* store
       .commit({ commandId, decide: (model) => decide(model, command, ctx) })
@@ -819,7 +1060,9 @@ const make = Effect.gen(function* () {
   const subscribeHost = (afterSequence: Sequence | null): Stream.Stream<HostStreamItem> =>
     Stream.unwrap(
       Effect.gen(function* () {
-        const subscription = yield* store.subscribe
+        const subscription = yield* store.subscribe({
+          filter: (item) => item._tag === "Event" && isHostStreamEvent(item.envelope.event),
+        })
         const model = yield* store.model
         const cut = model.sequence as Sequence
         const head: Array<HostStreamItem> = []
@@ -840,19 +1083,12 @@ const make = Effect.gen(function* () {
           for (const envelope of events) head.push({ _tag: "Event", envelope })
         }
         head.push({ _tag: "Synchronized", sequence: cut })
-        const liveItems = Stream.fromSubscription(subscription).pipe(
+        const liveItems = subscription.pipe(
           Stream.filter(
-            (item) =>
-              item._tag === "Event" &&
-              item.envelope.sequence > cut &&
-              isHostStreamEvent(item.envelope.event),
+            (item): item is Extract<LiveItem, { _tag: "Event" }> =>
+              item._tag === "Event" && item.envelope.sequence > cut,
           ),
-          Stream.map(
-            (item): HostStreamItem => ({
-              _tag: "Event",
-              envelope: (item as Extract<typeof item, { _tag: "Event" }>).envelope,
-            }),
-          ),
+          Stream.map((item): HostStreamItem => ({ _tag: "Event", envelope: item.envelope })),
         )
         return Stream.concat(Stream.fromIterable(head), liveItems)
       }).pipe(Effect.orDie),
@@ -862,11 +1098,16 @@ const make = Effect.gen(function* () {
     readonly sessionId: SessionId
     readonly afterSequence: Sequence | null
     readonly turnLimit: number | null
+    readonly liveItems?: boolean
   }): Stream.Stream<SessionStreamItem, NotFound> =>
     Stream.unwrap(
       Effect.gen(function* () {
         const { sessionId, afterSequence } = options
-        const subscription = yield* store.subscribe
+        const withProgress = options.liveItems === true
+        const subscription = yield* store.subscribe({
+          filter: (item) =>
+            item.sessionId === sessionId && (withProgress || item._tag !== "ItemProgress"),
+        })
         const model = yield* store.model
         const record = model.sessions.get(sessionId)
         if (record === undefined) {
@@ -875,11 +1116,22 @@ const make = Effect.gen(function* () {
         const cut = model.sequence as Sequence
         const head: Array<SessionStreamItem> = []
         if (afterSequence === null || afterSequence > cut) {
-          const limit = options.turnLimit
-          const turns =
-            limit === null
-              ? record.turns
-              : record.turns.slice(Math.max(0, record.turns.length - limit))
+          // Recent Turns come from the model (consistent with the cut); older, finished
+          // ones from SQL.
+          const total = record.session.turnCount
+          const wanted = options.turnLimit === null ? total : Math.min(options.turnLimit, total)
+          const recent = record.turns.slice(Math.max(0, record.turns.length - wanted))
+          const older =
+            wanted > recent.length
+              ? yield* store
+                  .readTurns({
+                    sessionId,
+                    beforeIndex: recent[0]?.index ?? total,
+                    limit: wanted - recent.length,
+                  })
+                  .pipe(Effect.orDie)
+              : []
+          const turns = [...older, ...recent]
           const items = yield* store
             .readTurnItems({ turnIds: turns.map((t) => t.id), upTo: cut })
             .pipe(Effect.orDie)
@@ -900,16 +1152,18 @@ const make = Effect.gen(function* () {
           for (const envelope of events) head.push({ _tag: "Event", envelope })
         }
         head.push({ _tag: "Synchronized", sequence: cut })
-        const liveItems = Stream.fromSubscription(subscription).pipe(
-          Stream.filter((item) =>
-            item._tag === "Event"
-              ? item.sessionId === sessionId && item.envelope.sequence > cut
-              : item.sessionId === sessionId,
-          ),
+        // Items still running, so a Client that subscribes mid-Turn sees them at once.
+        if (withProgress) {
+          for (const { turnId, item } of progress.get(sessionId)?.values() ?? []) {
+            head.push({ _tag: "ItemProgress", turnId, item })
+          }
+        }
+        const liveItems = subscription.pipe(
+          Stream.filter((item) => item._tag !== "Event" || item.envelope.sequence > cut),
           Stream.map((item): SessionStreamItem => {
             if (item._tag === "Event") return { _tag: "Event", envelope: item.envelope }
-            const { sessionId: _, ...delta } = item
-            return delta
+            const { sessionId: _, ...ephemeral } = item
+            return ephemeral
           }),
         )
         return Stream.concat(Stream.fromIterable(head), liveItems)
@@ -918,36 +1172,71 @@ const make = Effect.gen(function* () {
 
   // ── Recovery after a Daemon restart ──────────────────────────────────────
 
+  /**
+   * The recovery rule, for a session whose Harness went away with the Daemon
+   * (restart, upgrade): a `working` Turn becomes `interrupted` and the session
+   * Needs You (reason `interrupted`), so the user decides with Continue; a Turn
+   * is never continued automatically. Pending approvals are withdrawn. Other
+   * live states go Dormant and resume from the cursor on the next Turn.
+   */
+  const recover = (record: SessionRecord, at: string, reason: string): Array<DomainEvent> => {
+    const turn = workingTurn(record)
+    const id = record.session.id
+    const state = record.session.state
+    const events: Array<DomainEvent> = [
+      ...(turn ? [endTurn(turn, "interrupted", at)] : []),
+      ...withdrawPending(record, "daemon", reason),
+    ]
+    if (turn !== undefined) {
+      events.push(stateChanged(id, "needs-you", "interrupted"))
+    } else if (state === "failed") {
+      // Failed stays Failed until the user sends a Turn.
+    } else if (state === "needs-you" && lastTurn(record)?.status === "interrupted") {
+      // Still waiting on Continue from before.
+    } else {
+      events.push(
+        stateChanged(id, "dormant", reason === RESTARTED ? "daemon-restart" : "daemon-upgrade"),
+      )
+    }
+    return events
+  }
+
   yield* Effect.gen(function* () {
     const model = yield* store.model
     const at = yield* now
     for (const record of model.sessions.values()) {
       const state = record.session.state
       if (state === "archived" || state === "dormant") continue
-      yield* recordFor(record.session.id, (current) => {
-        const turn = workingTurn(current)
-        const events: Array<DomainEvent> = [
-          ...(turn ? [endTurn(turn, "interrupted", at)] : []),
-          ...withdrawPending(current, DAEMON, "The Daemon restarted"),
-        ]
-        const id = current.session.id
-        if (turn !== undefined) {
-          // Never continue automatically: the user decides, with Continue.
-          events.push(stateChanged(id, "needs-you", "interrupted"))
-        } else if (current.session.state === "failed") {
-          // Failed stays Failed until the user sends a Turn.
-        } else if (
-          current.session.state === "needs-you" &&
-          lastTurn(current)?.status === "interrupted"
-        ) {
-          // Still waiting on Continue from before.
-        } else {
-          events.push(stateChanged(id, "dormant", "daemon-restart"))
-        }
-        return events
-      })
+      yield* recordFor(record.session.id, (current) => recover(current, at, RESTARTED))
     }
   }).pipe(Effect.orDie)
+
+  const prepareForUpgrade = Effect.gen(function* () {
+    const inProcess = [...live.entries()]
+      .filter(([, entry]) => !entry.driver.capabilities.liveCoAttach)
+      .map(([id]) => id)
+    yield* Effect.forEach(
+      inProcess,
+      (sessionId) =>
+        serially(sessionId)(
+          Effect.gen(function* () {
+            yield* cancelIdle(sessionId)
+            yield* stopHarness(sessionId)
+            const at = yield* now
+            yield* recordFor(sessionId, (record) =>
+              record.session.state === "archived" || record.session.state === "in-terminal"
+                ? []
+                : recover(record, at, UPGRADING),
+            )
+          }),
+        ).pipe(
+          Effect.catchCause((cause) =>
+            Effect.logError(`preparing ${sessionId} for the upgrade failed`, cause),
+          ),
+        ),
+      { concurrency: "unbounded", discard: true },
+    )
+  }).pipe(Effect.withSpan("Engine.prepareForUpgrade"))
 
   yield* Effect.addFinalizer(() =>
     Effect.forEach([...live.keys()], (id) => stopHarness(id), { discard: true }),
@@ -957,7 +1246,9 @@ const make = Effect.gen(function* () {
     dispatch,
     subscribeHost,
     subscribeSession,
-    terminalCommand: (sessionId) => Effect.sync(() => terminalArgv.get(sessionId) ?? null),
+    hasSession: (sessionId) => Effect.map(store.model, (model) => model.sessions.has(sessionId)),
+    terminalCommand: (sessionId) => Effect.sync(() => terminalLaunch.get(sessionId) ?? null),
+    prepareForUpgrade,
   })
 })
 

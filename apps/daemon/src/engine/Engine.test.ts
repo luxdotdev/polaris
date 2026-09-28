@@ -427,7 +427,11 @@ describe("supervision", () => {
         yield* waitFor((m) => m.sessions.get(b)?.session.state === "in-terminal")
         yield* Effect.sleep(Duration.millis(20))
         expect(codex.sessions[0]!.closed).toBe(false)
-        expect(yield* engine.terminalCommand(a)).toEqual(["claude", "--resume", "new"])
+        expect(yield* engine.terminalCommand(a)).toMatchObject({
+          argv: ["claude", "--resume", "new"],
+          cwd: workspace.path,
+          env: {},
+        })
 
         const rejected = yield* Effect.flip(
           dispatch({ _tag: "SendTurn", sessionId: a, prompt: "x", attachments: [] }),
@@ -590,8 +594,24 @@ describe("fork and archive", () => {
           dispatch({ _tag: "ArchiveSession", sessionId: s, deleteMergedBranch: false }),
         )
         expect(again._tag).toBe("CommandRejected")
+        // Unarchive brings the Worktree back from the branch Archive kept.
         yield* dispatch({ _tag: "UnarchiveSession", sessionId: s })
-        yield* waitFor((m) => m.sessions.get(s)?.session.state === "dormant")
+        const restored = yield* waitFor(
+          (m) => m.sessions.get(s)?.session.state === "dormant" && m.worktrees.size === 1,
+        )
+        expect(fakes.worktreeCalls.at(-1)).toEqual({
+          op: "create",
+          path: cwd,
+          detail: { branch: "fix/flaky", baseRef: null },
+        })
+        expect([...restored.worktrees.values()][0]).toMatchObject({
+          path: cwd,
+          branch: "fix/flaky",
+          createdBySessionId: s,
+        })
+        yield* dispatch({ _tag: "SendTurn", sessionId: s, prompt: "again", attachments: [] })
+        yield* waitFor((m) => m.sessions.get(s)?.session.state === "idle")
+        expect(claude.latest(s)!.options.cwd).toBe(cwd)
       }),
     )
   })

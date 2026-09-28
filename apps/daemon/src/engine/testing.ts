@@ -28,7 +28,7 @@ import {
   type WorktreeInfo,
   WorktreeTracker,
 } from "../services.ts"
-import { EventStore } from "../store/EventStore.ts"
+import { EventStore, StoreConfig } from "../store/EventStore.ts"
 import type { ReadModel } from "../store/model.ts"
 import { Engine, EngineConfig } from "./Engine.ts"
 
@@ -49,6 +49,11 @@ export interface FakeDriver {
   readonly driver: HarnessDriver
   readonly sessions: Array<FakeHarnessSession>
   readonly latest: (sessionId: SessionId) => FakeHarnessSession | undefined
+  /** With `follow`: what the terminal UI reports while the session is In Terminal. */
+  readonly follow: {
+    readonly emit: (sessionId: SessionId, ...events: ReadonlyArray<HarnessEvent>) => void
+    readonly released: Array<SessionId>
+  }
 }
 
 export const makeFakeDriver = (
@@ -59,12 +64,37 @@ export const makeFakeDriver = (
     /** Events emitted in reply to each Turn; default is none (the test drives it). */
     readonly onTurn?: (input: TurnInput, session: FakeHarnessSession) => ReadonlyArray<HarnessEvent>
     readonly onInterrupt?: (session: FakeHarnessSession) => ReadonlyArray<HarnessEvent>
+    /** Offer `terminalFollow`, like Claude's hooks. */
+    readonly follow?: boolean
   } = {},
 ): FakeDriver => {
   const sessions: Array<FakeHarnessSession> = []
+  const followQueues = new Map<SessionId, Queue.Queue<HarnessEvent, Cause.Done>>()
+  const followQueue = (sessionId: SessionId) => {
+    let queue = followQueues.get(sessionId)
+    if (queue === undefined) {
+      queue = Effect.runSync(Queue.unbounded<HarnessEvent, Cause.Done>())
+      followQueues.set(sessionId, queue)
+    }
+    return queue
+  }
+  const released: Array<SessionId> = []
   const driver: HarnessDriver = {
     kind,
     capabilities: { steer: options.steer ?? false, liveCoAttach: options.liveCoAttach ?? false },
+    ...(options.follow
+      ? {
+          terminalFollow: {
+            events: (sessionId: SessionId) => Stream.fromQueue(followQueue(sessionId)),
+            release: (sessionId: SessionId) =>
+              Effect.sync(() => {
+                released.push(sessionId)
+                Queue.endUnsafe(followQueue(sessionId))
+                followQueues.delete(sessionId)
+              }),
+          },
+        }
+      : {}),
     probe: Effect.succeed({ available: true, version: "fake", detail: null }),
     open: (openOptions) =>
       Effect.gen(function* () {
@@ -109,6 +139,12 @@ export const makeFakeDriver = (
     driver,
     sessions,
     latest: (sessionId) => sessions.filter((s) => s.options.sessionId === sessionId).at(-1),
+    follow: {
+      emit: (sessionId, ...events) => {
+        for (const event of events) Queue.offerUnsafe(followQueue(sessionId), event)
+      },
+      released,
+    },
   }
 }
 
@@ -117,7 +153,7 @@ export const completesTurns =
   (cursor = "cursor-1") =>
   (input: TurnInput): ReadonlyArray<HarnessEvent> => [
     { _tag: "CursorAssigned", cursor },
-    { _tag: "TurnStarted", turnId: input.turnId },
+    { _tag: "TurnStarted", turnId: input.turnId, prompt: input.prompt },
     {
       _tag: "ItemCompleted",
       turnId: input.turnId,
@@ -208,8 +244,14 @@ export const engineLayer = (options: {
   readonly fakes: Fakes
   readonly drivers: ReadonlyArray<FakeDriver>
   readonly idleTimeout?: Duration.Input
+  /** Items buffered per live subscriber (StoreConfig). */
+  readonly subscriberCapacity?: number
 }) => {
-  const store = EventStore.layerSqlite(options.filename)
+  const store = EventStore.layerSqlite(options.filename).pipe(
+    Layer.provide(
+      Layer.succeed(StoreConfig)({ subscriberCapacity: options.subscriberCapacity ?? 4096 }),
+    ),
+  )
   return Engine.layer.pipe(
     Layer.provideMerge(store),
     Layer.provide(fakeServices(options.fakes, options.drivers)),

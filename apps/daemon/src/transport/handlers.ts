@@ -14,7 +14,7 @@ import {
   Sequence,
 } from "@polaris/protocol"
 import { Effect, Stream } from "effect"
-import { DeviceLabel } from "../engine/rpc.ts"
+import { ClientCapabilities, DeviceLabel } from "../engine/rpc.ts"
 import { BlobChannel } from "../services.ts"
 import { ServerRpcs } from "./rpcs.ts"
 
@@ -28,9 +28,13 @@ export const defaultHandlers = (options: {
   readonly capabilities: ReadonlyArray<Capability>
 }) =>
   ServerRpcs.toLayer({
-    // Record which device this connection is, for ApprovalResolved.resolvedBy.
-    hello: ({ deviceLabel }, { client }) =>
-      Effect.sync(() => client.annotate(DeviceLabel, deviceLabel)).pipe(
+    // Record which device this connection is (for ApprovalResolved.resolvedBy) and
+    // what it understands (e.g. whether to send it ItemProgress).
+    hello: ({ deviceLabel, capabilities }, { client }) =>
+      Effect.sync(() => {
+        client.annotate(DeviceLabel, deviceLabel)
+        client.annotate(ClientCapabilities, capabilities)
+      }).pipe(
         Effect.as({
           host: options.hostInfo,
           protocolVersion: PROTOCOL_VERSION,
@@ -59,6 +63,8 @@ export const defaultHandlers = (options: {
 
     subscribeSession: ({ sessionId }) =>
       Stream.fail(new NotFound({ what: "session", id: sessionId })),
+    "session.terminalCommand": ({ sessionId }) =>
+      Effect.fail(new NotFound({ what: "session", id: sessionId })),
 
     "files.listDir": ({ path }) => Effect.fail(fileError(path, "files")),
     "files.stat": ({ path }) => Effect.fail(fileError(path, "files")),

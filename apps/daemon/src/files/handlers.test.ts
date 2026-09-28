@@ -22,7 +22,13 @@ afterEach(() => {
   for (const dir of cleanup.splice(0)) removeDir(dir)
 })
 
-const WorkspaceIoRpcs = DaemonRpcs.omit("hello", "dispatch", "subscribeHost", "subscribeSession")
+const WorkspaceIoRpcs = DaemonRpcs.omit(
+  "hello",
+  "dispatch",
+  "subscribeHost",
+  "subscribeSession",
+  "session.terminalCommand",
+)
 
 describe("handler layers", () => {
   test("serve their DaemonRpcs tags end to end", async () => {

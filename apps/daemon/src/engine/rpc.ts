@@ -1,7 +1,8 @@
 /**
- * Handlers for the engine's three RPCs: `dispatch`, `subscribeHost` and
- * `subscribeSession`. The transport mounts `EngineRpcHandlers` next to the
- * other modules' handlers when it builds the `DaemonRpcs` server:
+ * Handlers for the engine's RPCs: `dispatch`, `subscribeHost`,
+ * `subscribeSession` and `session.terminalCommand`. The transport mounts
+ * `EngineRpcHandlers` next to the other modules' handlers when it builds the
+ * `DaemonRpcs` server:
  *
  *   RpcServer.layer(DaemonRpcs).pipe(
  *     Layer.provide(EngineRpcHandlers),
@@ -9,9 +10,11 @@
  *
  * The device label for `ApprovalResolved.resolvedBy` comes from the Client's
  * `hello`: the hello handler annotates the connection with
- * `options.client.annotate(DeviceLabel, payload.deviceLabel)`.
+ * `options.client.annotate(DeviceLabel, payload.deviceLabel)`, and the
+ * Client's capabilities with `ClientCapabilities` (only Clients that announced
+ * `session.live-items` get `ItemProgress` on session streams).
  */
-import { DaemonRpcs } from "@polaris/protocol"
+import { type Capability, DaemonRpcs, NotFound } from "@polaris/protocol"
 import { Context, Effect, Layer } from "effect"
 import { Engine } from "./Engine.ts"
 
@@ -19,6 +22,12 @@ import { Engine } from "./Engine.ts"
 export class DeviceLabel extends Context.Service<DeviceLabel, string>()(
   "polaris/daemon/engine/DeviceLabel",
 ) {}
+
+/** Per-connection annotation set by the `hello` handler: what the Client understands. */
+export class ClientCapabilities extends Context.Service<
+  ClientCapabilities,
+  ReadonlyArray<Capability>
+>()("polaris/daemon/engine/ClientCapabilities") {}
 
 export const UNKNOWN_DEVICE = "Unknown device"
 
@@ -47,8 +56,29 @@ const SubscribeSessionHandler = DaemonRpcs.toLayerHandler(
   "subscribeSession",
   Effect.gen(function* () {
     const engine = yield* Engine
-    return ({ sessionId, afterSequence, turnLimit }) =>
-      engine.subscribeSession({ sessionId, afterSequence, turnLimit })
+    return ({ sessionId, afterSequence, turnLimit }, { client }) =>
+      engine.subscribeSession({
+        sessionId,
+        afterSequence,
+        turnLimit,
+        liveItems: (Context.getOrUndefined(client.annotations, ClientCapabilities) ?? []).includes(
+          "session.live-items",
+        ),
+      })
+  }),
+)
+
+const TerminalCommandHandler = DaemonRpcs.toLayerHandler(
+  "session.terminalCommand",
+  Effect.gen(function* () {
+    const engine = yield* Engine
+    return ({ sessionId }) =>
+      Effect.gen(function* () {
+        if (!(yield* engine.hasSession(sessionId))) {
+          return yield* new NotFound({ what: "session", id: sessionId })
+        }
+        return yield* engine.terminalCommand(sessionId)
+      })
   }),
 )
 
@@ -56,4 +86,5 @@ export const EngineRpcHandlers = Layer.mergeAll(
   DispatchHandler,
   SubscribeHostHandler,
   SubscribeSessionHandler,
+  TerminalCommandHandler,
 )
