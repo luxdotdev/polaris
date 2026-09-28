@@ -15,6 +15,7 @@
     "dev": "turbo run dev",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "bench": "turbo run bench --log-prefix=none --",
     "lint": "biome check .",
     "format": "biome check --write .",
     "licenses": "bun scripts/licenses.ts",

@@ -1,0 +1,190 @@
+/**
+ * Launching the real Daemon for a scenario and connecting Clients to it.
+ *
+ * Each scenario gets a fresh `polaris serve --foreground` with a throwaway
+ * `POLARIS_HOME` (from source with `bun apps/daemon/src/main.ts`, or a compiled
+ * binary from `scripts/build-daemon.ts`), with the scripted bench Harness enabled.
+ * Clients connect through `polaris bridge` (as `ssh <host> polaris bridge` would)
+ * or straight to the Unix socket, and speak the real wire via `@polaris/client`.
+ */
+import { type ChildProcess, spawn } from "node:child_process"
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs"
+import { join, resolve } from "node:path"
+import { connectRpc, type RpcConnection, socketTransport, spawnTransport } from "@polaris/client"
+import { Duration, Effect, type Scope } from "effect"
+
+export const REPO_ROOT = resolve(import.meta.dir, "..", "..", "..")
+export const DAEMON_MAIN = join(REPO_ROOT, "apps", "daemon", "src", "main.ts")
+
+export type TransportKind = "bridge" | "socket"
+
+export interface LaunchOptions {
+  /** Compiled `polaris` binary; null runs from source. */
+  readonly binary: string | null
+  /** Reuse a POLARIS_HOME (e.g. to restart onto an existing store); null makes a fresh one. */
+  readonly home?: string | null
+  /** Write a CPU profile (on exit) and allow heap snapshots into this directory. */
+  readonly profileDir?: string | null
+  readonly env?: Record<string, string>
+}
+
+export interface Daemon {
+  readonly pid: number
+  readonly home: string
+  readonly socketPath: string
+  readonly env: Record<string, string>
+  /** Environment for `polaris bridge` (no profiling flags). */
+  readonly bridgeEnv: Record<string, string>
+  readonly spawnedAt: number
+  readonly argv: ReadonlyArray<string>
+  /** argv that runs `polaris bridge` against this Daemon. */
+  readonly bridgeArgv: ReadonlyArray<string>
+  /** The Daemon's stderr (logs), most recent 64 KiB. */
+  readonly logs: () => string
+  /** Ask the Daemon for a heap snapshot (needs profileDir); resolves with its path. */
+  readonly heapSnapshot: () => Promise<string | null>
+  /** SIGTERM and wait for exit; the CPU profile is written then. */
+  readonly stop: () => Promise<void>
+}
+
+/** Short paths: a Unix socket path must stay under ~104 bytes. */
+const tempRoot = () => {
+  const dir = "/tmp/polaris-bench"
+  mkdirSync(dir, { recursive: true })
+  return dir
+}
+
+export const makeTempDir = (prefix: string) => mkdtempSync(join(tempRoot(), `${prefix}-`))
+
+export const launchDaemon = async (options: LaunchOptions): Promise<Daemon> => {
+  const home = options.home ?? makeTempDir("home")
+  const profileDir = options.profileDir ?? null
+  const env: Record<string, string> = {
+    ...(process.env as Record<string, string>),
+    POLARIS_HOME: home,
+    POLARIS_BENCH_HARNESS: "1",
+    ...(profileDir ? { POLARIS_DEBUG_DIR: profileDir } : {}),
+    ...options.env,
+  }
+  // A .cpuprofile (Chrome DevTools, speedscope) and a grep-friendly .md summary, on exit.
+  const profileFlags = profileDir
+    ? ["--cpu-prof", "--cpu-prof-md", `--cpu-prof-dir=${profileDir}`]
+    : []
+  let argv: Array<string>
+  let bridgeArgv: Array<string>
+  if (options.binary) {
+    argv = [options.binary, "serve", "--foreground"]
+    bridgeArgv = [options.binary, "bridge"]
+    // A compiled Bun binary reads runtime flags from BUN_OPTIONS.
+    if (profileFlags.length > 0) env.BUN_OPTIONS = profileFlags.join(" ")
+  } else {
+    argv = ["bun", ...profileFlags, DAEMON_MAIN, "serve", "--foreground"]
+    bridgeArgv = ["bun", DAEMON_MAIN, "bridge"]
+  }
+  const spawnedAt = performance.now()
+  const child: ChildProcess = spawn(argv[0]!, argv.slice(1), {
+    env,
+    stdio: ["ignore", "ignore", "pipe"],
+  })
+  let logs = ""
+  child.stderr?.on("data", (chunk: Buffer) => {
+    logs = (logs + chunk.toString()).slice(-64 * 1024)
+  })
+  const exited = new Promise<void>((done) => child.once("exit", () => done()))
+  if (child.pid === undefined) throw new Error(`could not spawn ${argv.join(" ")}`)
+  const socketPath = join(home, "daemon.sock")
+  // The bridge must not profile itself or take heap-snapshot signals.
+  const { BUN_OPTIONS: _, POLARIS_DEBUG_DIR: __, ...bridgeEnv } = env
+
+  return {
+    pid: child.pid,
+    home,
+    socketPath,
+    env,
+    bridgeEnv,
+    spawnedAt,
+    argv,
+    bridgeArgv,
+    logs: () => logs,
+    heapSnapshot: async () => {
+      if (!profileDir) return null
+      const before = new Set(existsSync(profileDir) ? readdirSync(profileDir) : [])
+      child.kill("SIGUSR1")
+      const deadline = Date.now() + 120_000
+      while (Date.now() < deadline) {
+        await Bun.sleep(100)
+        const added = readdirSync(profileDir).find(
+          (f) => f.endsWith(".heapsnapshot") && !before.has(f),
+        )
+        if (added) return join(profileDir, added)
+      }
+      return null
+    },
+    stop: async () => {
+      if (child.exitCode === null && child.signalCode === null) {
+        child.kill("SIGTERM")
+        const killed = setTimeout(() => child.kill("SIGKILL"), 10_000)
+        await exited
+        clearTimeout(killed)
+      }
+    },
+  }
+}
+
+/** Remove a Daemon's POLARIS_HOME. */
+export const cleanup = (dir: string) => rmSync(dir, { recursive: true, force: true })
+
+export interface Client {
+  readonly connection: RpcConnection
+  readonly label: string
+}
+
+const identity = (label: string) => ({
+  clientName: "polaris-bench",
+  clientVersion: "0.0.0",
+  deviceLabel: label,
+  capabilities: [],
+})
+
+/** Connect one Client and say hello. */
+export const connect = (
+  daemon: Daemon,
+  transport: TransportKind,
+  label = "bench",
+): Effect.Effect<Client, unknown, Scope.Scope> =>
+  Effect.gen(function* () {
+    const t =
+      transport === "socket"
+        ? yield* socketTransport(daemon.socketPath)
+        : yield* spawnTransport(daemon.bridgeArgv, { env: daemon.bridgeEnv })
+    const connection = yield* connectRpc(t)
+    yield* connection.client.hello(identity(label)).pipe(Effect.timeout(Duration.seconds(30)))
+    return { connection, label }
+  })
+
+/**
+ * Wait until the Daemon answers `hello` on its socket, retrying every 2 ms.
+ * Resolves with the ms from spawn to the first successful hello.
+ */
+export const awaitReady = (daemon: Daemon, timeoutMs = 30_000): Effect.Effect<number, Error> =>
+  Effect.gen(function* () {
+    const deadline = performance.now() + timeoutMs
+    while (performance.now() < deadline) {
+      const ok = yield* Effect.scoped(
+        Effect.gen(function* () {
+          const t = yield* socketTransport(daemon.socketPath)
+          const connection = yield* connectRpc(t)
+          yield* connection.client.hello(identity("bench-probe"))
+        }),
+      ).pipe(
+        Effect.timeout(Duration.seconds(5)),
+        Effect.as(true),
+        Effect.catch(() => Effect.succeed(false)),
+      )
+      if (ok) return performance.now() - daemon.spawnedAt
+      yield* Effect.sleep(Duration.millis(2))
+    }
+    return yield* Effect.fail(
+      new Error(`the Daemon did not answer within ${timeoutMs} ms\n${daemon.logs()}`),
+    )
+  })

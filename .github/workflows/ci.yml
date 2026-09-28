@@ -80,6 +80,37 @@ jobs:
           expected=$(jq -r '.platforms["${{ matrix.platform }}"].sha256' dist/manifest.json)
           echo "$expected  dist/${{ matrix.platform }}/polaris" | sha256sum -c -
 
-  # memory-bench: placeholder. Once the Desktop App exists (apps/desktop), add a
-  # job that launches it against a local Daemon with N Agent Sessions and fails
-  # when resident memory of the Desktop App or Daemon exceeds the budget.
+  bench:
+    name: Daemon benchmarks (quick, report only)
+    # Runs the real Daemon (from source) through every scenario at --quick sizes and
+    # posts the numbers to the job summary. Report only for now: shared runners are
+    # too noisy to gate latency, and there is no baseline recorded on this runner yet.
+    # To gate memory, commit a baseline from this job's artifact as
+    # packages/bench/baselines/ci-ubuntu-latest-quick.json (see packages/bench/README.md):
+    # the step below then fails on memory regressions beyond tolerance.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: bun install --frozen-lockfile
+      - name: Run benchmarks
+        run: |
+          baseline=packages/bench/baselines/ci-ubuntu-latest-quick.json
+          if [ -f "$baseline" ]; then
+            bun run bench --quick --json bench-result.json --markdown "$GITHUB_STEP_SUMMARY" \
+              --compare "$baseline" --fail-on memory
+          else
+            bun run bench --quick --json bench-result.json --markdown "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bench-result
+          path: bench-result.json
+          if-no-files-found: warn
+
+  # Desktop App memory budget: once apps/desktop exists, add a scenario that launches
+  # it against a local Daemon with N Agent Sessions and samples its whole process tree
+  # with packages/bench's sampler (the Electron main process as the root).
