@@ -9,8 +9,8 @@
  * binary chunks. Handler layers are composed here, in one place: the defaults
  * from `handlers.ts` first, then whatever the caller passes, which wins.
  */
-import type { Socket } from "node:net"
 import {
+  type ByteTransport,
   type Capability,
   type HostInfo,
   makeWire,
@@ -25,7 +25,6 @@ import { BlobChannel, ServiceError } from "../services.ts"
 import { defaultHandlers } from "./handlers.ts"
 import { loadHostInfo } from "./hostInfo.ts"
 import { acquireLock, type DaemonAlreadyRunning, type LockError } from "./lock.ts"
-import { fromNodeSocket } from "./nodeTransport.ts"
 import { ConnectionBlobs, ServerRpcs } from "./rpcs.ts"
 import { listen, prepareSocketPath } from "./socket.ts"
 
@@ -145,7 +144,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
     )
 
     let nextClientId = 0
-    const serveConnection = (socket: Socket) =>
+    const serveConnection = (transport: ByteTransport) =>
       Effect.scoped(
         Effect.gen(function* () {
           const clientId = nextClientId++
@@ -168,7 +167,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
                 )
               }),
             )
-          const wire = yield* makeWire(fromNodeSocket(socket), onJson, {
+          const wire = yield* makeWire(transport, onJson, {
             ...options.wire,
             blobIdPrefix: "d",
           })
@@ -187,7 +186,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
     const scope = yield* Effect.scope
     const accepted = yield* listen(socketPath)
     yield* accepted.pipe(
-      Stream.runForEach((socket) => Effect.forkIn(serveConnection(socket), scope)),
+      Stream.runForEach((transport) => Effect.forkIn(serveConnection(transport), scope)),
       Effect.forkScoped,
     )
 

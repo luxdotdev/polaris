@@ -67,6 +67,8 @@ export interface ReconnectPolicy {
   readonly offlineRetryMs: number
   readonly needsAttentionRetryMs: number
   readonly helloTimeoutMs: number
+  /** After a drop, how long "no Daemon running" still counts as a restart (Reconnecting). */
+  readonly restartGraceMs: number
 }
 
 export const DEFAULT_POLICY: ReconnectPolicy = {
@@ -78,6 +80,7 @@ export const DEFAULT_POLICY: ReconnectPolicy = {
   offlineRetryMs: 10 * 60_000,
   needsAttentionRetryMs: 120_000,
   helloTimeoutMs: 20_000,
+  restartGraceMs: 30_000,
 }
 
 export interface HostConnectionOptions {
@@ -298,10 +301,14 @@ export const makeHostConnection = Effect.fnUntraced(function* (
       }),
     )
 
-  const waitForRetry = (delayMs: number | null) =>
+  /** Waits out the delay; true if the user asked to retry now. */
+  const waitForRetry = (delayMs: number | null): Effect.Effect<boolean> =>
     delayMs === null
-      ? Queue.take(retrySignal)
-      : Effect.raceFirst(Effect.sleep(delayMs), Queue.take(retrySignal))
+      ? Effect.as(Queue.take(retrySignal), true)
+      : Effect.raceFirst(
+          Effect.as(Effect.sleep(delayMs), false),
+          Effect.as(Queue.take(retrySignal), true),
+        )
 
   const backoff = (attempt: number) => {
     const base = Math.min(policy.maxDelayMs, policy.initialDelayMs * policy.factor ** attempt)
@@ -313,6 +320,7 @@ export const makeHostConnection = Effect.fnUntraced(function* (
     let epoch = 0
     let attempt = 0
     let failingSince = Date.now()
+    let lostAt: number | null = null
     while (true) {
       yield* Queue.poll(retrySignal)
       const failure = yield* connectOnce(epoch + 1).pipe(Effect.flip)
@@ -322,13 +330,19 @@ export const makeHostConnection = Effect.fnUntraced(function* (
         epoch = current.epoch
         attempt = 0
         failingSince = Date.now()
+        lostAt = failingSince
       } else {
         attempt++
       }
       const now = Date.now()
       let state: ConnectionState
       let delay: number | null
-      if (failure.kind === "needs-attention") {
+      // Right after a drop, "no Daemon" is most likely a Daemon restart: keep Reconnecting.
+      const restarting =
+        failure.reason === "daemon-not-running" &&
+        lostAt !== null &&
+        now - lostAt < policy.restartGraceMs
+      if (failure.kind === "needs-attention" && !restarting) {
         state = "needs-attention"
         delay = MANUAL_REASONS.has(failure.reason) ? null : policy.needsAttentionRetryMs
       } else if (now - failingSince >= policy.offlineAfterMs) {
@@ -344,8 +358,8 @@ export const makeHostConnection = Effect.fnUntraced(function* (
         attempt,
         nextAttemptAt: delay === null ? null : now + delay,
       })
-      yield* waitForRetry(delay)
-      if (state !== "reconnecting") yield* setStatus({ state: "reconnecting", nextAttemptAt: null })
+      const asked = yield* waitForRetry(delay)
+      if (asked) yield* setStatus({ state: "reconnecting", nextAttemptAt: null })
     }
   })
 

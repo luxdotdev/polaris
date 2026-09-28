@@ -6,9 +6,15 @@
  * exit status and stderr into a ConnectFailure the Connection State uses.
  */
 import { type ChildProcess, spawn } from "node:child_process"
-import { connect } from "node:net"
-import { type ByteTransport, TransportError } from "@polaris/protocol"
-import { Deferred, Effect, Exit, type Scope, Stream } from "effect"
+import { connect, type Socket } from "node:net"
+import {
+  type ByteTransport,
+  type EventReadable,
+  type EventWritable,
+  readEvents,
+  writeEvents,
+} from "@polaris/protocol"
+import { Deferred, Effect, Exit, type Scope } from "effect"
 import { ConnectFailure, classifyExit } from "./failures.ts"
 
 export interface ClientTransport extends ByteTransport {
@@ -18,51 +24,6 @@ export interface ClientTransport extends ByteTransport {
 
 /** How a HostConnection opens its transport. Injectable, so tests can replace `ssh`. */
 export type Connector = Effect.Effect<ClientTransport, ConnectFailure, Scope.Scope>
-
-interface WritableLike {
-  readonly destroyed: boolean
-  readonly writable: boolean
-  write(chunk: Uint8Array): boolean
-  on(event: "drain" | "close" | "error", listener: (...args: Array<unknown>) => void): unknown
-  off(event: "drain" | "close" | "error", listener: (...args: Array<unknown>) => void): unknown
-}
-
-const writeTo =
-  (stream: WritableLike) =>
-  (bytes: Uint8Array): Effect.Effect<void, TransportError> =>
-    Effect.callback<void, TransportError>((resume) => {
-      if (stream.destroyed || !stream.writable) {
-        resume(Effect.fail(new TransportError({ message: "transport closed" })))
-        return
-      }
-      if (stream.write(bytes)) {
-        resume(Effect.void)
-        return
-      }
-      const cleanup = () => {
-        stream.off("drain", onDrain)
-        stream.off("close", onClose)
-        stream.off("error", onClose)
-      }
-      const onDrain = () => {
-        cleanup()
-        resume(Effect.void)
-      }
-      const onClose = () => {
-        cleanup()
-        resume(Effect.fail(new TransportError({ message: "transport closed while writing" })))
-      }
-      stream.on("drain", onDrain)
-      stream.on("close", onClose)
-      stream.on("error", onClose)
-      return Effect.sync(cleanup)
-    })
-
-const readFrom = (stream: AsyncIterable<Uint8Array>) =>
-  Stream.fromAsyncIterable(
-    stream,
-    (cause) => new TransportError({ message: "transport read failed", cause }),
-  )
 
 const STDERR_LIMIT = 16 * 1024
 
@@ -90,7 +51,7 @@ export const spawnTransport = (
     let stderr = ""
     let spawnError: NodeJS.ErrnoException | null = null
 
-    const child: ChildProcess = yield* Effect.acquireRelease(
+    const { child, incoming } = yield* Effect.acquireRelease(
       Effect.sync(() => {
         const child = spawn(command, args, {
           stdio: ["pipe", "pipe", "pipe"],
@@ -108,9 +69,12 @@ export const spawnTransport = (
           stderr = (stderr + new TextDecoder().decode(chunk)).slice(-STDERR_LIMIT)
         })
         child.stdin?.on("error", () => {})
-        return child
+        // Attach the reader now, before any output can arrive.
+        const incoming =
+          child.stdout === null ? null : readEvents(child.stdout as unknown as EventReadable)
+        return { child: child as ChildProcess, incoming }
       }),
-      (child) =>
+      ({ child }) =>
         Effect.gen(function* () {
           child.stdin?.end()
           const done = yield* Deferred.await(exited).pipe(
@@ -123,8 +87,7 @@ export const spawnTransport = (
     )
 
     const stdin = child.stdin
-    const stdout = child.stdout
-    if (stdin === null || stdout === null) {
+    if (stdin === null || incoming === null) {
       return yield* new ConnectFailure({
         kind: "transient",
         reason: "spawn-failed",
@@ -150,8 +113,8 @@ export const spawnTransport = (
     )
 
     return {
-      incoming: readFrom(stdout as AsyncIterable<Uint8Array>),
-      write: writeTo(stdin as unknown as WritableLike),
+      incoming,
+      write: writeEvents(stdin as unknown as EventWritable),
       close: Effect.sync(() => {
         stdin.end()
       }),
@@ -162,8 +125,11 @@ export const spawnTransport = (
 /** Connects straight to a Daemon's Unix socket (the local Host). */
 export const socketTransport = (path: string): Connector =>
   Effect.gen(function* () {
-    const socket = yield* Effect.acquireRelease(
-      Effect.callback<import("node:net").Socket, ConnectFailure>((resume) => {
+    const { socket, incoming } = yield* Effect.acquireRelease(
+      Effect.callback<
+        { readonly socket: Socket; readonly incoming: ByteTransport["incoming"] },
+        ConnectFailure
+      >((resume) => {
         const socket = connect(path)
         const onError = (error: NodeJS.ErrnoException) =>
           resume(
@@ -185,14 +151,16 @@ export const socketTransport = (path: string): Connector =>
         socket.once("connect", () => {
           socket.off("error", onError)
           socket.on("error", () => {})
-          resume(Effect.succeed(socket))
+          resume(
+            Effect.succeed({ socket, incoming: readEvents(socket as unknown as EventReadable) }),
+          )
         })
       }),
-      (socket) => Effect.sync(() => socket.destroy()),
+      ({ socket }) => Effect.sync(() => socket.destroy()),
     )
     return {
-      incoming: readFrom(socket as AsyncIterable<Uint8Array>),
-      write: writeTo(socket as unknown as WritableLike),
+      incoming,
+      write: writeEvents(socket as unknown as EventWritable),
       close: Effect.sync(() => {
         socket.end()
       }),

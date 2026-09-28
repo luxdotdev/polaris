@@ -3,10 +3,12 @@
  * a 0700 directory. Remote Clients reach it through `polaris bridge` over SSH.
  */
 import { chmodSync, existsSync, lstatSync, mkdirSync, unlinkSync } from "node:fs"
-import { connect, createServer, type Server, type Socket } from "node:net"
+import { connect, createServer, type Server } from "node:net"
 import { dirname } from "node:path"
+import type { ByteTransport } from "@polaris/protocol"
 import { Effect, Queue, type Scope, Stream } from "effect"
 import { DaemonAlreadyRunning, LockError } from "./lock.ts"
+import { fromNodeSocket } from "./nodeTransport.ts"
 
 /** True when something accepts connections on `path`. */
 export const probeSocket = (path: string, timeoutMs = 1000): Effect.Effect<boolean> =>
@@ -49,15 +51,15 @@ export const prepareSocketPath = Effect.fnUntraced(function* (
   })
 })
 
-/** Listens on `path` for the lifetime of the scope; emits each accepted connection. */
+/** Listens on `path` for the lifetime of the scope; emits a transport per accepted connection. */
 export const listen = Effect.fnUntraced(function* (
   path: string,
-): Effect.fn.Return<Stream.Stream<Socket>, LockError, Scope.Scope> {
-  const connections = yield* Queue.unbounded<Socket>()
+): Effect.fn.Return<Stream.Stream<ByteTransport>, LockError, Scope.Scope> {
+  const connections = yield* Queue.unbounded<ByteTransport>()
   const server = yield* Effect.acquireRelease(
     Effect.callback<Server, LockError>((resume) => {
       const server = createServer({ allowHalfOpen: false }, (socket) => {
-        Queue.offerUnsafe(connections, socket)
+        Queue.offerUnsafe(connections, fromNodeSocket(socket))
       })
       // Create the socket file private from the start rather than chmod-ing after the fact.
       const previousUmask = process.umask(0o177)

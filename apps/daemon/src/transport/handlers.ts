@@ -14,6 +14,7 @@ import {
   Sequence,
 } from "@polaris/protocol"
 import { Effect, Stream } from "effect"
+import { DeviceLabel } from "../engine/rpc.ts"
 import { BlobChannel } from "../services.ts"
 import { ServerRpcs } from "./rpcs.ts"
 
@@ -27,12 +28,15 @@ export const defaultHandlers = (options: {
   readonly capabilities: ReadonlyArray<Capability>
 }) =>
   ServerRpcs.toLayer({
-    hello: () =>
-      Effect.succeed({
-        host: options.hostInfo,
-        protocolVersion: PROTOCOL_VERSION,
-        capabilities: options.capabilities,
-      }),
+    // Record which device this connection is, for ApprovalResolved.resolvedBy.
+    hello: ({ deviceLabel }, { client }) =>
+      Effect.sync(() => client.annotate(DeviceLabel, deviceLabel)).pipe(
+        Effect.as({
+          host: options.hostInfo,
+          protocolVersion: PROTOCOL_VERSION,
+          capabilities: options.capabilities,
+        }),
+      ),
 
     dispatch: ({ commandId }) =>
       Effect.fail(new CommandRejected({ commandId, reason: notYet("the event store") })),

@@ -105,10 +105,12 @@ export const connectRpc = Effect.fnUntraced(function* (
         Effect.suspend(() => {
           if (currentError !== undefined) return Effect.void
           currentError = error
+          // Fail in-flight requests first: completing `lost` lets the owner close
+          // this scope, which would interrupt us before the broadcast.
           return Effect.andThen(
-            Deferred.fail(lost, error),
             broadcast({ _tag: "ClientProtocolError", error }),
-          )
+            Deferred.fail(lost, error),
+          ).pipe(Effect.uninterruptible)
         })
 
       yield* wire.closed.pipe(
