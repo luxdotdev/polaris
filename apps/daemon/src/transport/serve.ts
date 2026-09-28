@@ -4,7 +4,7 @@
  * Handler layers from other Daemon modules are added to `daemonHandlers`
  * below as they land; `startServer` falls back to placeholders for the rest.
  */
-import { BunRuntime } from "@effect/platform-bun"
+import * as BunRuntime from "@effect/platform-bun/BunRuntime"
 import type { Capability } from "@polaris/protocol"
 import { Effect, Layer } from "effect"
 import { AttachmentRpcsLive } from "../attachments/AttachmentRpcs.ts"

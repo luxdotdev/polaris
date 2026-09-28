@@ -8,7 +8,7 @@ import { Checkpoints } from "../services.ts"
 import { CheckpointsLive, captureCheckpoint, checkpointRef } from "./Checkpoints.ts"
 import { computeDiff } from "./diff.ts"
 import { handleGitDiff, handleGitStatus } from "./GitRpcs.ts"
-import { gitText, runGitRaw } from "./git.ts"
+import { findRepoRoot, gitText, mayBeInWorkTree, runGitRaw } from "./git.ts"
 import { parsePorcelainV2 } from "./status.ts"
 import { commitAll, makeRepo, removeDir, tempDir, write } from "./testing.ts"
 
@@ -25,6 +25,24 @@ const repo = async (files?: Record<string, string>) => {
 const sessionId = "s1" as SessionId
 const turnId = "t1" as TurnId
 const decode = (bytes: Uint8Array) => new TextDecoder().decode(bytes)
+
+describe("mayBeInWorkTree", () => {
+  test("finds .git upwards (a directory, or a worktree's file) and nothing outside repos", async () => {
+    const root = await repo({ "a.txt": "a\n" })
+    write(root, "deep/er/file.txt", "x\n")
+    expect(mayBeInWorkTree(root)).toBe(true)
+    expect(mayBeInWorkTree(join(root, "deep", "er"))).toBe(true)
+    const worktree = join(tempDir(), "wt")
+    cleanup.push(worktree)
+    await gitText(root, ["worktree", "add", "-q", "-b", "side", worktree])
+    expect(mayBeInWorkTree(worktree)).toBe(true)
+    expect(await findRepoRoot(worktree)).toBe(worktree)
+    const outside = tempDir()
+    cleanup.push(outside)
+    expect(mayBeInWorkTree(outside)).toBe(false)
+    expect(await findRepoRoot(outside)).toBeNull()
+  })
+})
 
 describe("git.status", () => {
   test("parses porcelain v2 with renames, conflicts and untracked files", () => {

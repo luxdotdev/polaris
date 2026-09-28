@@ -25,6 +25,7 @@ Polaris is an IDE and agent orchestrator: a Bun Daemon per Host, an Electron Des
 - Services use `Context.Service`; functions use `Effect.fn`; errors are `Schema.TaggedError`.
 - Tests use `bun test`, next to the code as `*.test.ts`.
 - Never use node-pty; terminals use `Bun.Terminal`.
+- **Lifecycle changes go through the state machines**, never ad-hoc `if (state === …)` code: Session States through the Agent Session machine (`apps/daemon/src/engine/session.ts`, the engine's pure decider; see its README), Connection States through `packages/client/src/connection.ts`. They use XState v6 (`xstate@6.0.0-alpha.61`, an alpha, pinned exactly): read the bundled types in `node_modules/xstate/dist/declarations` rather than v5 docs or memory. The event log stays the source of truth: a machine snapshot is always derived from folded events, never kept only in an actor. Update the model-based tests (`*.testing.ts`, `*.graph.test.ts`) and the Mermaid diagrams with the machine.
 - Run `bun run typecheck && bun run test && bun run lint` before committing.
 
 ## Performance

@@ -9,7 +9,7 @@ import { existsSync } from "node:fs"
 import { copyFile, mkdir, mkdtemp, rm, stat, utimes } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import { gitText, resolveHead, runGitRaw } from "./git.ts"
+import { gitText, mayBeInWorkTree, resolveHead, runGitRaw } from "./git.ts"
 
 export interface Snapshot {
   /** The repository top level the snapshot was taken from. */
@@ -52,6 +52,7 @@ const repos = new Map<string, Repo>()
 const discover = async (cwd: string): Promise<Repo | null> => {
   const cached = repos.get(cwd)
   if (cached !== undefined) return cached
+  if (!mayBeInWorkTree(cwd)) return null
   // One process for the top level and both index paths (per worktree).
   const result = await runGitRaw(cwd, [
     "rev-parse",
@@ -136,6 +137,9 @@ const ownIndexTree = async (repo: Repo): Promise<string> => {
     await rm(lock, { force: true })
   }
   const tree = await addAndWriteTree(repo.root, repo.ownIndex, OWN_INDEX_CONFIG)
+  // gc doesn't treat our index as a root, so its cached trees can be pruned;
+  // write-tree trusts that cache. A missing tree throws and takes the fallback.
+  await gitText(repo.root, ["cat-file", "-e", `${tree}^{tree}`])
   seeds.set(repo.ownIndex, seed)
   return tree
 }

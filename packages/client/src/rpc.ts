@@ -8,6 +8,15 @@
  * in-flight request with an RpcClientError, and a ping loop detects a dead
  * peer. Unlike it, there is no built-in retry: a Wire is one connection, and
  * HostConnection owns reconnecting.
+ *
+ * Pings run only while a request is waiting for its reply. Streams (host and
+ * session subscriptions, watches) don't count: a Client that is only
+ * subscribed sends nothing, so an idle Daemon is never woken. Any JS the
+ * Daemon runs, even answering a ping, keeps the Bun runtime waking ~10 times a
+ * second for up to ~30 s afterwards, so a 15 s ping would keep it awake for
+ * good. While only streams are open, a dead link is noticed by the transport
+ * instead: the Unix socket closes, or ssh's own keepalives (answered by sshd,
+ * never reaching the Daemon) end the session.
  */
 import {
   type BlobError,
@@ -19,8 +28,8 @@ import {
   type Wire,
   type WireOptions,
 } from "@polaris/protocol"
-import { Deferred, Effect, type Scope, type Stream } from "effect"
-import { RpcClient, type RpcGroup, RpcSerialization } from "effect/rpc"
+import { Deferred, Effect, Latch, type Scope, type Stream } from "effect"
+import { RpcClient, type RpcGroup, RpcSchema, RpcSerialization } from "effect/rpc"
 import { RpcClientDefect, RpcClientError } from "effect/rpc/RpcClientError"
 import { constPing, type FromServerEncoded } from "effect/rpc/RpcMessage"
 import type { ClientTransport } from "./transport.ts"
@@ -49,9 +58,19 @@ export interface RpcConnection {
 
 export interface RpcConnectionOptions {
   readonly wire?: WireOptions
-  /** Ping interval; the connection is declared dead after 3 intervals with no traffic. */
+  /**
+   * Ping interval while a request (not a stream) awaits its reply; the
+   * connection is declared dead after 3 intervals with no traffic.
+   */
   readonly pingIntervalMs?: number
 }
+
+/** Tags of the streaming RPCs: long-lived, so waiting on them never needs a ping. */
+const streamTags: ReadonlySet<string> = new Set(
+  [...DaemonRpcs.requests.values()]
+    .filter((rpc) => RpcSchema.isStreamSchema(rpc.successSchema))
+    .map((rpc) => rpc._tag),
+)
 
 const lostError = (message: string, cause?: unknown) =>
   new RpcClientError({ reason: new RpcClientDefect({ message, cause }) })
@@ -66,6 +85,14 @@ export const connectRpc = Effect.fnUntraced(function* (
   const pingInterval = options.pingIntervalMs ?? 15_000
   let lastHeard = Date.now()
   let wire!: Wire
+  /** Requests (not streams) sent and not yet answered with an Exit. */
+  const awaiting = new Set<string | number>()
+  /** Open while `awaiting` is non-empty: the ping loop runs only then. */
+  const pinging = Latch.makeUnsafe(false)
+  const settled = (requestId: string | number) => {
+    awaiting.delete(requestId)
+    if (awaiting.size === 0) pinging.closeUnsafe()
+  }
 
   const protocol = yield* RpcClient.Protocol.make(
     Effect.fnUntraced(function* (writeResponse, clientIds) {
@@ -96,7 +123,10 @@ export const connectRpc = Effect.fnUntraced(function* (
               if ("requestId" in response) {
                 const clientId = requestClient.get(response.requestId)
                 if (clientId !== undefined) {
-                  if (response._tag === "Exit") requestClient.delete(response.requestId)
+                  if (response._tag === "Exit") {
+                    requestClient.delete(response.requestId)
+                    settled(response.requestId)
+                  }
                   return writeResponse(clientId, response)
                 }
               }
@@ -132,10 +162,13 @@ export const connectRpc = Effect.fnUntraced(function* (
         Effect.forkScoped,
       )
 
-      // Keepalive: any traffic counts as liveness; pings keep a quiet link busy.
+      // Keepalive while a reply is due: any traffic counts as liveness, and
+      // pings keep a quiet link busy. Parked on the latch (no timer) otherwise.
       yield* Effect.gen(function* () {
         while (true) {
+          yield* pinging.await
           yield* Effect.sleep(pingInterval)
+          if (awaiting.size === 0) continue
           if (Date.now() - lastHeard > pingInterval * 3) {
             yield* fail(lostError("the Daemon stopped answering"))
             return
@@ -148,7 +181,17 @@ export const connectRpc = Effect.fnUntraced(function* (
         send: (clientId, request) =>
           Effect.suspend(() => {
             if (currentError !== undefined) return Effect.fail(currentError)
-            if (request._tag === "Request") requestClient.set(request.id, clientId)
+            if (request._tag === "Request") {
+              requestClient.set(request.id, clientId)
+              if (!streamTags.has(request.tag)) {
+                // The silence clock starts now, not at the last traffic of an idle link.
+                if (awaiting.size === 0) lastHeard = Date.now()
+                awaiting.add(request.id)
+                pinging.openUnsafe()
+              }
+            } else if (request._tag === "Interrupt") {
+              settled(request.requestId)
+            }
             const encoded = parser.encode(request)
             if (encoded === undefined) return Effect.void
             return wire

@@ -1,3 +1,4 @@
+export * from "./bridge.ts"
 export * from "./capabilities.ts"
 export * from "./commands.ts"
 export * from "./domain.ts"

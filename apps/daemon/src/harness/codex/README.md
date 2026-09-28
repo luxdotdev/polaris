@@ -6,7 +6,7 @@ Implements `HarnessDriver` (`../HarnessDriver.ts`) for Codex by driving the user
 
 | File | Role |
 |---|---|
-| `CodexDriver.ts` | `makeCodexDriver(options)`: the driver value. `probe` runs `codex --version` and nothing else. `capabilities = { steer: true, liveCoAttach: true }`. |
+| `CodexDriver.ts` | `makeCodexDriver(options)`: the driver value. `probe` runs `codex --version` and nothing else. `capabilities = { steer: true, liveCoAttach: true }`. `HarnessRegistryLive` (`../registry.ts`) imports it, and with it the schemas in `protocol.ts`, on the first `probe` or `open`, in the registry's scope; an idle Daemon never loads it. |
 | `AppServer.ts` | The one app-server per Host: `codex app-server --listen unix://<socket>`, started lazily on the first `open`, **detached** so it outlives the Daemon (see "App-server lifecycle" below). |
 | `RpcConnection.ts` | JSON-RPC 2.0 over app-server's Unix-socket transport, which is **WebSocket over the socket** (HTTP Upgrade, one message per text frame). Bun's WebSocket client speaks it as `ws+unix://<path>`. |
 | `CodexSession.ts` | One Agent Session = one connection + one Codex thread. Translates notifications and server→client requests into `HarnessEvent`s. |

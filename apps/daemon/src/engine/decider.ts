@@ -4,6 +4,9 @@
  * from the outside world (ids, the clock, resolved attachments, a filesystem
  * probe) arrives in `DecideContext`. Side effects happen after commit, in the
  * reactors (`Engine.ts`).
+ *
+ * Everything that moves a Session State goes through the session lifecycle
+ * machine (`session.ts`); this module builds its inputs and maps its output.
  */
 import { basename, join } from "node:path"
 import {
@@ -15,7 +18,6 @@ import {
   DomainEvent,
   NotFound,
   type SessionId,
-  type SessionState,
   Turn,
   type TurnId,
   Workspace,
@@ -23,7 +25,10 @@ import {
   WorktreeId,
 } from "@polaris/protocol"
 import { Effect } from "effect"
-import { lastTurn, type ReadModel, type SessionRecord, workingTurn } from "../store/model.ts"
+import type { ReadModel, SessionRecord } from "../store/model.ts"
+import { decideSession, type SessionInput } from "./session.ts"
+
+export { stateChanged } from "./session.ts"
 
 export interface DecideContext {
   readonly commandId: CommandId
@@ -65,24 +70,6 @@ export const titleFromPrompt = (prompt: string): string => {
 /** What the engine sends the Harness when the user continues an Interrupted Turn. */
 export const CONTINUE_PROMPT = "Continue from where you left off."
 
-export const stateChanged = (
-  sessionId: SessionId,
-  state: SessionState,
-  reason: string | null = null,
-): DomainEvent => DomainEvent.cases.SessionStateChanged.make({ sessionId, state, reason })
-
-/** Session States in which the Harness process is known to be running. */
-const liveStates: ReadonlyArray<SessionState> = ["idle", "working", "needs-you"]
-
-/** Session States that accept a new Turn. */
-const acceptsTurn = (record: SessionRecord): boolean => {
-  const { state } = record.session
-  if (workingTurn(record) !== undefined) return false
-  if (state === "idle" || state === "dormant" || state === "failed") return true
-  // Needs You after a Daemon restart (an Interrupted Turn, nothing pending) takes a new Turn too.
-  return state === "needs-you" && record.pending.size === 0
-}
-
 export const decide = (model: ReadModel, command: Command, ctx: DecideContext): Decision => {
   const reject = (reason: string) =>
     Effect.fail(new CommandRejected({ commandId: ctx.commandId, reason }))
@@ -94,11 +81,17 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
     return record === undefined ? notFound("session", sessionId) : f(record)
   }
 
-  const startTurn = (record: SessionRecord, prompt: string): ReadonlyArray<DomainEvent> => {
-    const turn = new Turn({
+  /** Run the session machine: its events, or its reason to refuse. */
+  const lifecycle = (record: SessionRecord | undefined, input: SessionInput): Decision => {
+    const decision = decideSession(record, input)
+    return decision.rejection !== null ? reject(decision.rejection) : ok(...decision.events)
+  }
+
+  const newTurn = (session: AgentSession, prompt: string): Turn =>
+    new Turn({
       id: ctx.newTurnId,
-      sessionId: record.session.id,
-      index: record.session.turnCount,
+      sessionId: session.id,
+      index: session.turnCount,
       prompt,
       attachments: [...ctx.attachments],
       status: "working",
@@ -107,12 +100,6 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
       startedAt: ctx.now,
       endedAt: null,
     })
-    const live = record.session.state === "idle"
-    return [
-      DomainEvent.cases.TurnStarted.make({ turn }),
-      stateChanged(record.session.id, live ? "working" : "starting"),
-    ]
-  }
 
   switch (command._tag) {
     case "RegisterWorkspace": {
@@ -210,77 +197,42 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
         createdAt: ctx.now,
         updatedAt: ctx.now,
       })
-      const record: SessionRecord = {
+      return lifecycle(undefined, {
+        type: "session.start",
         session,
-        titleLocked: false,
-        turns: [],
-        pending: new Map(),
-      }
-      // startTurn emits `starting` again for a non-live session; the state is already starting.
-      const [turnStarted] = startTurn(record, command.prompt)
-      return ok(DomainEvent.cases.SessionCreated.make({ session }), turnStarted!)
+        turn: newTurn(session, command.prompt),
+      })
     }
 
     case "SendTurn":
-      return withSession(command.sessionId, (record) => {
-        const { state } = record.session
-        if (state === "archived") return reject("the session is Archived")
-        if (state === "in-terminal") return reject("the session is In Terminal; return it first")
-        if (!acceptsTurn(record)) return reject(`the session is ${state}; wait for the Turn to end`)
-        return ok(...startTurn(record, command.prompt))
-      })
+      return withSession(command.sessionId, (record) =>
+        lifecycle(record, { type: "turn.send", turn: newTurn(record.session, command.prompt) }),
+      )
 
     case "Continue":
-      return withSession(command.sessionId, (record) => {
-        const last = lastTurn(record)
-        if (last === undefined || last.status !== "interrupted") {
-          return reject("there is no Interrupted Turn to continue")
-        }
-        if (record.session.state === "in-terminal" || record.session.state === "archived") {
-          return reject(`the session is ${record.session.state}`)
-        }
-        if (!acceptsTurn(record)) return reject(`the session is ${record.session.state}`)
-        // The same Turn resumes: it goes back to working and keeps its before-checkpoint.
-        const turn = new Turn({ ...last, status: "working", endedAt: null })
-        const live = record.session.state === "idle"
-        return ok(
-          DomainEvent.cases.TurnStarted.make({ turn }),
-          stateChanged(record.session.id, live ? "working" : "starting"),
-        )
-      })
+      return withSession(command.sessionId, (record) =>
+        lifecycle(record, { type: "turn.continue" }),
+      )
 
     case "Steer":
-      return withSession(command.sessionId, (record) => {
-        if (workingTurn(record) === undefined || record.session.state === "in-terminal") {
-          return reject("there is no Turn in flight to steer")
-        }
-        if (!ctx.canSteer) return reject(`${record.session.harness} does not support steering`)
-        return ok()
-      })
+      return withSession(command.sessionId, (record) =>
+        lifecycle(record, { type: "turn.steer", canSteer: ctx.canSteer }),
+      )
 
     case "Interrupt":
       return withSession(command.sessionId, (record) =>
-        workingTurn(record) === undefined ? reject("there is no Turn in flight") : ok(),
+        lifecycle(record, { type: "turn.interrupt" }),
       )
 
     case "RespondToApproval":
-      return withSession(command.sessionId, (record) => {
-        if (!record.pending.has(command.requestId)) {
-          return reject(`request ${command.requestId} is already resolved`)
-        }
-        const events: Array<DomainEvent> = [
-          DomainEvent.cases.ApprovalResolved.make({
-            sessionId: command.sessionId,
-            requestId: command.requestId,
-            decision: command.decision,
-            resolvedBy: ctx.deviceLabel,
-          }),
-        ]
-        if (record.pending.size === 1 && record.session.state === "needs-you") {
-          events.push(stateChanged(command.sessionId, "working"))
-        }
-        return ok(...events)
-      })
+      return withSession(command.sessionId, (record) =>
+        lifecycle(record, {
+          type: "approval.respond",
+          requestId: command.requestId,
+          decision: command.decision,
+          resolvedBy: ctx.deviceLabel,
+        }),
+      )
 
     case "RenameSession":
       return withSession(command.sessionId, () => {
@@ -290,16 +242,9 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
       })
 
     case "SetPermissionMode":
-      return withSession(command.sessionId, (record) => {
-        if (record.session.state === "archived") return reject("the session is Archived")
-        if (record.session.permissionMode === command.permissionMode) return ok()
-        return ok(
-          DomainEvent.cases.SessionPermissionModeChanged.make({
-            sessionId: command.sessionId,
-            permissionMode: command.permissionMode,
-          }),
-        )
-      })
+      return withSession(command.sessionId, (record) =>
+        lifecycle(record, { type: "permissionMode.set", permissionMode: command.permissionMode }),
+      )
 
     case "ForkSession": {
       if (model.sessions.has(command.sessionId)) {
@@ -341,41 +286,28 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
           createdAt: ctx.now,
           updatedAt: ctx.now,
         })
-        return ok(DomainEvent.cases.SessionCreated.make({ session }))
+        return lifecycle(undefined, { type: "session.fork", session })
       })
     }
 
     case "ArchiveSession":
-      return withSession(command.sessionId, (record) => {
-        const { state } = record.session
-        if (state === "archived") return reject("the session is already Archived")
-        if (workingTurn(record) !== undefined && liveStates.includes(state)) {
-          return reject("interrupt the Turn in flight before archiving")
-        }
-        return ok(stateChanged(command.sessionId, "archived"))
-      })
+      return withSession(command.sessionId, (record) =>
+        lifecycle(record, { type: "session.archive" }),
+      )
 
     case "UnarchiveSession":
       return withSession(command.sessionId, (record) =>
-        record.session.state !== "archived"
-          ? reject("the session is not Archived")
-          : ok(stateChanged(command.sessionId, "dormant")),
+        lifecycle(record, { type: "session.unarchive" }),
       )
 
     case "OpenInTerminal":
-      return withSession(command.sessionId, (record) => {
-        const { state } = record.session
-        if (state !== "idle" && state !== "dormant" && state !== "failed") {
-          return reject(`the session is ${state}`)
-        }
-        return ok(stateChanged(command.sessionId, "in-terminal"))
-      })
+      return withSession(command.sessionId, (record) =>
+        lifecycle(record, { type: "terminal.open" }),
+      )
 
     case "ReturnFromTerminal":
       return withSession(command.sessionId, (record) =>
-        record.session.state !== "in-terminal"
-          ? reject("the session is not In Terminal")
-          : ok(stateChanged(command.sessionId, "starting")),
+        lifecycle(record, { type: "terminal.return" }),
       )
   }
 }

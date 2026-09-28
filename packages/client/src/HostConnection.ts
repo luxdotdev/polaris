@@ -1,21 +1,11 @@
 /**
  * A Client's link to one Host's Daemon, with its Connection State.
  *
- * Connection State policy (CONTEXT.md: Connected, Reconnecting, Needs
- * Attention, Offline), never prompting:
- *
- * - Before the first connection and after a drop: Reconnecting. Retries back
- *   off exponentially from `initialDelayMs` to `maxDelayMs` (2 minutes), with
- *   jitter; the first retry after a drop is immediate-ish.
- * - A failure only the user can fix (changed or unknown host key, auth
- *   failure, broken ssh config, missing ssh) is Needs Attention and stops
- *   automatic retries until `retryNow` (so we never hammer sshd with failing
- *   auth). A failure the install/upgrade flow can fix (polaris not installed,
- *   no Daemon running, protocol mismatch) is also Needs Attention but is
- *   re-checked every `needsAttentionRetryMs`.
- * - Transient failures that go on for `offlineAfterMs` (10 minutes) since the
- *   last good connection make the Host Offline; it is then retried every
- *   `offlineRetryMs` (10 minutes) or on demand via `retryNow`.
+ * The Connection State policy (Connected, Reconnecting, Needs Attention,
+ * Offline; backoff, which failures wait for the user, the restart grace) is
+ * the pure machine in `connection.ts`. This runs it, never prompting: one
+ * attempt at a time, each outcome fed to the machine, then the wait it asks
+ * for (or `retryNow`).
  */
 import {
   type BlobId,
@@ -28,8 +18,15 @@ import {
   type SessionId,
   type SessionStreamItem,
 } from "@polaris/protocol"
-import { Effect, Option, Predicate, Queue, Scope, Stream, SubscriptionRef } from "effect"
+import { Clock, Effect, Option, Predicate, Queue, Scope, Stream, SubscriptionRef } from "effect"
 import type { RpcClientError } from "effect/rpc/RpcClientError"
+import {
+  type ConnectionEvent,
+  connectionMachine,
+  DEFAULT_POLICY,
+  initialConnection,
+  type ReconnectPolicy,
+} from "./connection.ts"
 import { ConnectFailure } from "./failures.ts"
 import { type Feed, makeFeed, type SequenceMark } from "./resume.ts"
 import {
@@ -58,30 +55,7 @@ export interface ClientIdentity {
   readonly capabilities: ReadonlyArray<Capability>
 }
 
-export interface ReconnectPolicy {
-  readonly initialDelayMs: number
-  readonly maxDelayMs: number
-  readonly factor: number
-  readonly jitter: number
-  readonly offlineAfterMs: number
-  readonly offlineRetryMs: number
-  readonly needsAttentionRetryMs: number
-  readonly helloTimeoutMs: number
-  /** After a drop, how long "no Daemon running" still counts as a restart (Reconnecting). */
-  readonly restartGraceMs: number
-}
-
-export const DEFAULT_POLICY: ReconnectPolicy = {
-  initialDelayMs: 500,
-  maxDelayMs: 120_000,
-  factor: 2,
-  jitter: 0.2,
-  offlineAfterMs: 10 * 60_000,
-  offlineRetryMs: 10 * 60_000,
-  needsAttentionRetryMs: 120_000,
-  helloTimeoutMs: 20_000,
-  restartGraceMs: 30_000,
-}
+export { DEFAULT_POLICY, type ReconnectPolicy } from "./connection.ts"
 
 export interface HostConnectionOptions {
   /** Stable key in the HostRegistry, e.g. "local" or the SSH alias. */
@@ -185,16 +159,6 @@ const markSession = (item: SessionStreamItem): SequenceMark => {
   }
 }
 
-/** Reasons the user must fix; no automatic retry until `retryNow`. */
-const MANUAL_REASONS = new Set<string>([
-  "host-key-changed",
-  "host-key-unknown",
-  "auth-failed",
-  "ssh-config-error",
-  "ssh-missing",
-  "command-missing",
-])
-
 const connectorFor = (options: HostConnectionOptions): Connector => {
   if (options.connector !== undefined) return options.connector
   const target = options.target
@@ -218,11 +182,19 @@ export const makeHostConnection = Effect.fnUntraced(function* (
   const policy: ReconnectPolicy = { ...DEFAULT_POLICY, ...options.policy }
   const connector = connectorFor(options)
 
+  const startedAt = yield* Clock.currentTimeMillis
+  /** The Connection State machine's snapshot; only the loop's fiber moves it. */
+  let machine = initialConnection(policy, startedAt)
+  const step = (event: ConnectionEvent) => {
+    machine = connectionMachine.transition(machine, event)[0]
+    return machine
+  }
+
   const status = yield* SubscriptionRef.make<ConnectionStatus>({
-    state: "reconnecting",
+    state: machine.value,
     failure: null,
     attempt: 0,
-    since: Date.now(),
+    since: startedAt,
     nextAttemptAt: null,
     host: null,
     capabilities: [],
@@ -232,10 +204,12 @@ export const makeHostConnection = Effect.fnUntraced(function* (
   const retrySignal = yield* Queue.sliding<void>(1)
 
   const setStatus = (patch: Partial<ConnectionStatus>) =>
-    SubscriptionRef.update(status, (current) => {
-      const next = { ...current, ...patch }
-      return next.state === current.state ? next : { ...next, since: Date.now() }
-    })
+    Effect.flatMap(Clock.currentTimeMillis, (now) =>
+      SubscriptionRef.update(status, (current) => {
+        const next = { ...current, ...patch }
+        return next.state === current.state ? next : { ...next, since: now }
+      }),
+    )
 
   /** One connection attempt; returns only by failing, when the attempt or the connection ends. */
   const connectOnce = (epoch: number) =>
@@ -288,10 +262,11 @@ export const makeHostConnection = Effect.fnUntraced(function* (
         yield* Effect.addFinalizer(() =>
           SubscriptionRef.update(live, (current) => (current === session ? null : current)),
         )
+        const connected = step({ type: "connected", epoch })
         yield* setStatus({
-          state: "connected",
+          state: connected.value,
           failure: null,
-          attempt: 0,
+          attempt: connected.context.attempt,
           nextAttemptAt: null,
           host: hello.host,
           capabilities,
@@ -311,56 +286,20 @@ export const makeHostConnection = Effect.fnUntraced(function* (
           Effect.as(Queue.take(retrySignal), true),
         )
 
-  const backoff = (attempt: number) => {
-    const base = Math.min(policy.maxDelayMs, policy.initialDelayMs * policy.factor ** attempt)
-    const spread = base * policy.jitter
-    return Math.round(base - spread + Math.random() * 2 * spread)
-  }
-
   const loop = Effect.gen(function* () {
-    let epoch = 0
-    let attempt = 0
-    let failingSince = Date.now()
-    let lostAt: number | null = null
     while (true) {
       yield* Queue.poll(retrySignal)
-      const failure = yield* connectOnce(epoch + 1).pipe(Effect.flip)
-      const current = yield* SubscriptionRef.get(status)
-      const wasConnected = current.epoch > epoch
-      if (wasConnected) {
-        epoch = current.epoch
-        attempt = 0
-        failingSince = Date.now()
-        lostAt = failingSince
-      } else {
-        attempt++
-      }
-      const now = Date.now()
-      let state: ConnectionState
-      let delay: number | null
-      // Right after a drop, "no Daemon" is most likely a Daemon restart: keep Reconnecting.
-      const restarting =
-        failure.reason === "daemon-not-running" &&
-        lostAt !== null &&
-        now - lostAt < policy.restartGraceMs
-      if (failure.kind === "needs-attention" && !restarting) {
-        state = "needs-attention"
-        delay = MANUAL_REASONS.has(failure.reason) ? null : policy.needsAttentionRetryMs
-      } else if (now - failingSince >= policy.offlineAfterMs) {
-        state = "offline"
-        delay = policy.offlineRetryMs
-      } else {
-        state = "reconnecting"
-        delay = wasConnected ? 0 : backoff(attempt - 1)
-      }
+      const failure = yield* connectOnce(machine.context.epoch + 1).pipe(Effect.flip)
+      const now = yield* Clock.currentTimeMillis
+      const { value, context } = step({ type: "failed", failure, now, jitter: Math.random() })
       yield* setStatus({
-        state,
+        state: value,
         failure,
-        attempt,
-        nextAttemptAt: delay === null ? null : now + delay,
+        attempt: context.attempt,
+        nextAttemptAt: context.delay === null ? null : now + context.delay,
       })
-      const asked = yield* waitForRetry(delay)
-      if (asked) yield* setStatus({ state: "reconnecting", nextAttemptAt: null })
+      const asked = yield* waitForRetry(context.delay)
+      if (asked) yield* setStatus({ state: step({ type: "retry" }).value, nextAttemptAt: null })
     }
   })
 

@@ -10,7 +10,8 @@
  *   polaris version                print the version and platform
  *   polaris selftest               check this build's native libraries work here (exit 1 if not)
  */
-import { isServiceCommand, runServiceCommand, versionLine } from "./service/cli.ts"
+// Every command loads only what it needs: `bridge` runs once per remote Client for as
+// long as it stays connected, and `serve` should not carry the install code.
 
 const [command, ...args] = process.argv.slice(2)
 
@@ -25,9 +26,11 @@ switch (command) {
     process.exit(await runBridge())
     break
   }
-  case "version":
+  case "version": {
+    const { versionLine } = await import("./service/platform.ts")
     console.log(versionLine())
     break
+  }
   case "selftest": {
     const { selfTest } = await import("./service/selftest.ts")
     const result = await selfTest()
@@ -35,10 +38,14 @@ switch (command) {
     process.exitCode = result.ok ? 0 : 1
     break
   }
-  default:
+  default: {
+    const { isServiceCommand, runServiceCommand } = await import("./service/cli.ts")
     if (isServiceCommand(command)) {
       process.exit(await runServiceCommand(command, args))
     }
     console.error(`usage: polaris <serve|bridge|install|uninstall|upgrade|version|selftest>`)
     process.exit(command === undefined ? 0 : 2)
+  }
 }
+
+export {}

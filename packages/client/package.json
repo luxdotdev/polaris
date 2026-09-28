@@ -6,7 +6,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./install": "./src/install/index.ts"
+    "./install": "./src/install/index.ts",
+    "./testing": "./src/connection.testing.ts"
   },
   "scripts": {
     "typecheck": "tsc -p .",
@@ -14,6 +15,7 @@
   },
   "dependencies": {
     "@polaris/protocol": "workspace:*",
-    "effect": "4.0.0-rc.118"
+    "effect": "4.0.0-rc.118",
+    "xstate": "6.0.0-alpha.61"
   }
 }

@@ -139,9 +139,15 @@ const build = async (platform: Platform, version: string) => {
     process.execPath,
     "build",
     join(daemonDir, "src", "main.ts"),
+    // The fff worker (apps/daemon/src/files/search/fff.ts) is its own entrypoint.
+    join(daemonDir, "src", "files", "search", "fffWorker.ts"),
     "--compile",
     `--target=${target}`,
     "--minify",
+    // Each command's modules (`main.ts` imports them lazily) and the Harness drivers
+    // (loaded on first use) become separate chunks inside the binary, parsed only
+    // when imported: `serve` never parses the Claude Agent SDK, `bridge` not the Daemon.
+    "--splitting",
     ...define.map((value) => `--define=${value}`),
     `--outfile=${binary}`,
   ])

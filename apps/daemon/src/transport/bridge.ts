@@ -18,7 +18,7 @@
 import { renameSync, statSync, symlinkSync, unlinkSync } from "node:fs"
 import { connect, type Socket } from "node:net"
 import { join } from "node:path"
-import { BRIDGE_EXIT_NO_DAEMON } from "@polaris/protocol"
+import { BRIDGE_EXIT_NO_DAEMON } from "@polaris/protocol/bridge"
 import { paths } from "../paths.ts"
 
 /** The stable agent socket path on this Host (a symlink to the latest forwarded agent). */
