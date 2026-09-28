@@ -29,7 +29,7 @@ Polaris is an IDE and agent orchestrator: a Bun Daemon per Host, an Electron Des
 
 Polaris is Apache-2.0. When you copy or adapt code from another project (rather than depending on it):
 
-1. Only copy from permissively licensed sources: MIT, Apache-2.0, BSD, ISC, 0BSD, MPL-2.0 (file-level). **Never copy from GPL or AGPL sources**, and don't read them for code (Waku, Codux, Farcaster are out). herdr is Apache-2.0 only from commit `cd5ea1be` onward; never take anything earlier.
+1. Only copy from permissively licensed sources: MIT, Apache-2.0, BSD, ISC, 0BSD, Unlicense, MPL-2.0 (file-level). **Never copy from GPL or AGPL sources**, and don't read them for code (Waku, Codux, Farcaster are out). herdr is Apache-2.0 only from commit `cd5ea1be` onward; never take anything earlier.
 2. Pin the exact upstream commit.
 3. Add a header to every file with borrowed code, e.g. `// Portions adapted from pingdotgg/t3code@de251fc (MIT)`.
 4. Add an entry to `ATTRIBUTION.md`: source repo, pinned commit, licence, the Polaris files it landed in, and what changed.

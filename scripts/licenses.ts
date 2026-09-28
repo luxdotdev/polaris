@@ -23,6 +23,7 @@ export const ALLOWED = new Set([
   "BSD-3-Clause",
   "ISC",
   "0BSD",
+  "Unlicense",
   "OFL-1.1",
   "MPL-2.0",
 ])
