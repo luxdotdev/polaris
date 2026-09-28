@@ -21,7 +21,7 @@
         "@anthropic-ai/claude-agent-sdk": "0.3.283",
         "@effect/platform-bun": "4.0.0-rc.118",
         "@effect/sql-sqlite-bun": "4.0.0-rc.118",
-        "@ff-labs/fff-bun": "0.11.0",
+        "@ff-labs/fff-bun": "0.11.1-nightly.89c1927",
         "@polaris/protocol": "workspace:*",
         "effect": "4.0.0-rc.118",
       },
@@ -101,25 +101,25 @@
 
     "@effect/sql-sqlite-bun": ["@effect/sql-sqlite-bun@4.0.0-rc.118", "", { "peerDependencies": { "effect": "^4.0.0-rc.118" } }, "sha512-UF0oVOK7mQvEwpxySR9VTk5YoP5luRI//Z8NMOJKVG/SbZbsORGACd7Np+KZRiXXjgzSXEpfGb7Gs3G1cKfUCg=="],
 
-    "@ff-labs/fff-bin-android-arm64": ["@ff-labs/fff-bin-android-arm64@0.11.0", "", { "os": "android", "cpu": "arm64" }, "sha512-7CmURAtJg1xCETKE8d46CUpeql9tpdsdbyoNCrNRkH+t608jMy+mLQxmyw7cBDOI0ljg5BaffxGZfOS2E6kasA=="],
+    "@ff-labs/fff-bin-android-arm64": ["@ff-labs/fff-bin-android-arm64@0.11.1-nightly.89c1927", "", { "os": "android", "cpu": "arm64" }, "sha512-MtZGyNvM8Q2OnsSsaUIk7BTeQvkXQ37ODIUrqKUcemPXEVfi3Wbstr9UmKJCA4USPJZl+W032Vp3mtRhHh4cfg=="],
 
-    "@ff-labs/fff-bin-darwin-arm64": ["@ff-labs/fff-bin-darwin-arm64@0.11.0", "", { "os": "darwin", "cpu": "arm64" }, "sha512-C2VLBldxqNhTMtp1/NXULdEWpqfUKugP9E8BOMUDPw5qZH/YGC0tZQmeOlQUYOSScFQOiXZLJGXJMp3Uk+FGxg=="],
+    "@ff-labs/fff-bin-darwin-arm64": ["@ff-labs/fff-bin-darwin-arm64@0.11.1-nightly.89c1927", "", { "os": "darwin", "cpu": "arm64" }, "sha512-lbt9Kc+GAjLn+15WElxVtleJe2AXhONP1r/hC1UhHVsgUv493dazyhzm0GFHAXHHxIP0NY0VG9fR7Gz2TDDgxw=="],
 
-    "@ff-labs/fff-bin-darwin-x64": ["@ff-labs/fff-bin-darwin-x64@0.11.0", "", { "os": "darwin", "cpu": "x64" }, "sha512-DOnG46YoSOR8SxNVMMe+xhPS2JjFUigMS2r0M4oCGfHDaWVY2mnYK/g1YxrAeJS3cRGO5N8Aj4RP1zq5Z2f6jQ=="],
+    "@ff-labs/fff-bin-darwin-x64": ["@ff-labs/fff-bin-darwin-x64@0.11.1-nightly.89c1927", "", { "os": "darwin", "cpu": "x64" }, "sha512-fvUExIRs92kZkHxgJfZka5eQSLDmZxu0rrH0DVAVIm34tfzexM7lafuz8DkGSYJYHS5bKJM8QMRjo9kRJoMGEw=="],
 
-    "@ff-labs/fff-bin-linux-arm64-gnu": ["@ff-labs/fff-bin-linux-arm64-gnu@0.11.0", "", { "os": "linux", "cpu": "arm64" }, "sha512-wOTyNzovqN1+Kg3kPqfKqZ2+A262Um4bHrEIeAwKU9R7YoyMXI9oo6DTbEl2ullF3G01FaBt/PPHOZYi1q8ubw=="],
+    "@ff-labs/fff-bin-linux-arm64-gnu": ["@ff-labs/fff-bin-linux-arm64-gnu@0.11.1-nightly.89c1927", "", { "os": "linux", "cpu": "arm64" }, "sha512-a4KE6wsZ0EU9AJr4Ogeg6W1pSZftMj5LRMCu2tTKc1Cy24CfVuxYsHcPHNj17njhCoW11/n6MtXjs02rAZtyLA=="],
 
-    "@ff-labs/fff-bin-linux-arm64-musl": ["@ff-labs/fff-bin-linux-arm64-musl@0.11.0", "", { "os": "linux", "cpu": "arm64" }, "sha512-dtVOgT/mKN4VTqOh4i3AWjc3Kd9uDX9xz9YsiPs33lNXpEi/x68qynuaqb7JM7x/eD/nYrsJRsb5ivtH1D6nrQ=="],
+    "@ff-labs/fff-bin-linux-arm64-musl": ["@ff-labs/fff-bin-linux-arm64-musl@0.11.1-nightly.89c1927", "", { "os": "linux", "cpu": "arm64" }, "sha512-UCxBqNmN3x8pELNGnWsH8VpbT1QLRKaJxF5IN8E9+qEr9a0r64t83MEwJrj75dnCuurM7LfHkPldzxR8gzVvyA=="],
 
-    "@ff-labs/fff-bin-linux-x64-gnu": ["@ff-labs/fff-bin-linux-x64-gnu@0.11.0", "", { "os": "linux", "cpu": "x64" }, "sha512-MJ1AJz9c5kxdTiIhmlEwA+hw57vBDoa+VQSr4F+1inaEiFDtem7EnXE1P8Bdhf4okGM557mCXgRrvCt4kM5pSg=="],
+    "@ff-labs/fff-bin-linux-x64-gnu": ["@ff-labs/fff-bin-linux-x64-gnu@0.11.1-nightly.89c1927", "", { "os": "linux", "cpu": "x64" }, "sha512-PnaR1xgPQm91Nr2YrdasI3Tr3D8TYLDPc99T+lXEVUdh79Ykv7/cluiNQB6gV1KyHZOTiKetn2h9Wuk63BvjjQ=="],
 
-    "@ff-labs/fff-bin-linux-x64-musl": ["@ff-labs/fff-bin-linux-x64-musl@0.11.0", "", { "os": "linux", "cpu": "x64" }, "sha512-UjqEBtZphjH6MTK18kTlA+5ccUAu3PBATerAKh9otEWbLCwqpFV0ke8LON2+UavaO5+VhBUCk7Zi97AOQhn/9Q=="],
+    "@ff-labs/fff-bin-linux-x64-musl": ["@ff-labs/fff-bin-linux-x64-musl@0.11.1-nightly.89c1927", "", { "os": "linux", "cpu": "x64" }, "sha512-Wlbk3rUGtOyr9oEFLBczOYwOSh3kz5QNcy/2GiHQL9B/yg4D4CkopYTgdURP3EyHJt71XQdRrVmoBuZBf+wWqw=="],
 
-    "@ff-labs/fff-bin-win32-arm64": ["@ff-labs/fff-bin-win32-arm64@0.11.0", "", { "os": "win32", "cpu": "arm64" }, "sha512-IF54PgYYi+AsCGseNG5kYpMqkwTmp/9bB8zvndp6tXZp4xLQ4G6x/NgHgM4vyK85Sv3FWr6Sf4OZQhP4mSSipA=="],
+    "@ff-labs/fff-bin-win32-arm64": ["@ff-labs/fff-bin-win32-arm64@0.11.1-nightly.89c1927", "", { "os": "win32", "cpu": "arm64" }, "sha512-Pn9rpcDiyAAkfjCIkz2kDgnT6aWu10Y4azteOiXdvW6pqixpFyCE+YBp0Gbj7iSQUXsnfC7VvxnX586fQGbExw=="],
 
-    "@ff-labs/fff-bin-win32-x64": ["@ff-labs/fff-bin-win32-x64@0.11.0", "", { "os": "win32", "cpu": "x64" }, "sha512-NFnFcueeRZ+QHvBg/k3KhduH20zFRCGqPHqjslk/3H0CHOMyP5AMTbscNwn5TZUhMutIRCfFzVI7mm+oU8jvCQ=="],
+    "@ff-labs/fff-bin-win32-x64": ["@ff-labs/fff-bin-win32-x64@0.11.1-nightly.89c1927", "", { "os": "win32", "cpu": "x64" }, "sha512-7PSNq9g1+8R5N2IgFyYCAzQw/O2hQtWgpeHMtOKhqvriMPlObfKoZkNzjKL0QflQx/8yqBN73IP8TmbPS6FH1g=="],
 
-    "@ff-labs/fff-bun": ["@ff-labs/fff-bun@0.11.0", "", { "optionalDependencies": { "@ff-labs/fff-bin-android-arm64": "0.11.0", "@ff-labs/fff-bin-darwin-arm64": "0.11.0", "@ff-labs/fff-bin-darwin-x64": "0.11.0", "@ff-labs/fff-bin-linux-arm64-gnu": "0.11.0", "@ff-labs/fff-bin-linux-arm64-musl": "0.11.0", "@ff-labs/fff-bin-linux-x64-gnu": "0.11.0", "@ff-labs/fff-bin-linux-x64-musl": "0.11.0", "@ff-labs/fff-bin-win32-arm64": "0.11.0", "@ff-labs/fff-bin-win32-x64": "0.11.0" }, "os": [ "!aix", "!sunos", "!freebsd", "!openbsd", ], "cpu": [ "x64", "arm64", ] }, "sha512-IWN7pKGcYYX/g0KxZkPp2fuLrLydbKstnFswb1RfRxr0lXaw7WBchefMKUFvpfbxCWOAi3sUXHIlbfDA/Vpo4Q=="],
+    "@ff-labs/fff-bun": ["@ff-labs/fff-bun@0.11.1-nightly.89c1927", "", { "optionalDependencies": { "@ff-labs/fff-bin-android-arm64": "0.11.1-nightly.89c1927", "@ff-labs/fff-bin-darwin-arm64": "0.11.1-nightly.89c1927", "@ff-labs/fff-bin-darwin-x64": "0.11.1-nightly.89c1927", "@ff-labs/fff-bin-linux-arm64-gnu": "0.11.1-nightly.89c1927", "@ff-labs/fff-bin-linux-arm64-musl": "0.11.1-nightly.89c1927", "@ff-labs/fff-bin-linux-x64-gnu": "0.11.1-nightly.89c1927", "@ff-labs/fff-bin-linux-x64-musl": "0.11.1-nightly.89c1927", "@ff-labs/fff-bin-win32-arm64": "0.11.1-nightly.89c1927", "@ff-labs/fff-bin-win32-x64": "0.11.1-nightly.89c1927" }, "os": [ "!aix", "!sunos", "!freebsd", "!openbsd", ], "cpu": [ "x64", "arm64", ] }, "sha512-IGthDpTGvIwj1zok9Sk5fmRM5M0DtyuhiYv3Nmp0uTg1XeMyzHJmkcL/8EXnXTyLHCqM+7s/As1Dtq4zAYrVIQ=="],
 
     "@hono/node-server": ["@hono/node-server@2.1.1", "", { "peerDependencies": { "hono": "^4" } }, "sha512-ELuehkj5VCBdgEw9zs+ivkKwyzzUCSQuE96YmiPvn1ECBoZCczbFXJLeEGMTYjphP6gydh4pHMqEYPVMYUVgQg=="],
 
