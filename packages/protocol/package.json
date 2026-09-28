@@ -1,0 +1,17 @@
+{
+  "name": "@polaris/protocol",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "bun test --pass-with-no-tests"
+  },
+  "dependencies": {
+    "effect": "4.0.0-rc.118"
+  }
+}
