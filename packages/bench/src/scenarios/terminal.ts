@@ -2,6 +2,7 @@
  * terminal: output throughput of a Bun.Terminal streaming a lot of output
  * (`yes | head -c N`) to an attached Client, with the Daemon's CPU and memory.
  */
+import { attachTerminal } from "@polaris/client"
 import { Effect, Stream } from "effect"
 import { awaitReady, cleanup, connect, makeTempDir } from "../daemon.ts"
 import { settle } from "../drive.ts"
@@ -39,7 +40,11 @@ export const terminal: Scenario = {
       let received = 0
       let firstAt = 0
       let exitAt = 0
-      yield* rpc["terminal.attach"]({ terminalId: opened.terminalId }).pipe(
+      // Raw bytes on the blob channel when the Daemon has `terminal.binary`.
+      yield* attachTerminal(
+        { ...client.connection, capabilities: client.capabilities },
+        opened.terminalId,
+      ).pipe(
         Stream.tap((item) =>
           Effect.sync(() => {
             if (item._tag === "Output") {

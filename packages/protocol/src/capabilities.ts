@@ -26,6 +26,8 @@ export const Capability = Schema.Literals([
   "git.diff",
   "attachments.stage",
   "terminal",
+  /** `terminal.attachBinary`: terminal output as raw bytes on the blob channel, not base64 JSON. */
+  "terminal.binary",
   "blobs",
 ])
 export type Capability = typeof Capability.Type

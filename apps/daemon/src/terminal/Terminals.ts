@@ -44,6 +44,14 @@ export const SCROLLBACK_BYTES = 256 * 1024
 const DRAIN_AFTER_EXIT_MS = 200
 /** How often an adopted shell (not known to Bun) is checked for exit. */
 const REAP_INTERVAL_MS = 200
+/**
+ * PTY reads are small (often 1 KiB or less), and each one sent on its own
+ * costs far more than its bytes. Output is gathered for up to
+ * OUTPUT_FLUSH_MS (well under a 120 Hz frame) or until OUTPUT_FLUSH_BYTES
+ * have piled up, then goes to the scrollback and every attacher as one chunk.
+ */
+export const OUTPUT_FLUSH_MS = 4
+export const OUTPUT_FLUSH_BYTES = 64 * 1024
 
 export type TerminalItem =
   | { readonly _tag: "Output"; readonly data: Uint8Array }
@@ -122,7 +130,21 @@ interface Live {
   readonly listeners: Set<(item: TerminalItem) => void>
   exit: { readonly code: number | null } | null
   endedBy: TerminalInfo["endedBy"]
+  /** Output not flushed yet (see OUTPUT_FLUSH_MS). */
+  readonly pending: PendingOutput
 }
+
+interface PendingOutput {
+  buffer: Uint8Array
+  length: number
+  timer: ReturnType<typeof setTimeout> | null
+}
+
+const pendingOutput = (): PendingOutput => ({
+  buffer: new Uint8Array(OUTPUT_FLUSH_BYTES),
+  length: 0,
+  timer: null,
+})
 
 export class Terminals extends Context.Service<
   Terminals,
@@ -348,13 +370,45 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
       for (const listener of live.listeners) listener(item)
     }
 
-    const output = (live: Live, chunk: Uint8Array) => {
+    /** Sends the gathered output: to the scrollback and every attacher, as one chunk. */
+    const flush = (live: Live) => {
+      const pending = live.pending
+      if (pending.timer !== null) {
+        clearTimeout(pending.timer)
+        pending.timer = null
+      }
+      if (pending.length === 0) return
+      let chunk: Uint8Array
+      if (pending.length === pending.buffer.byteLength) {
+        chunk = pending.buffer
+        pending.buffer = new Uint8Array(OUTPUT_FLUSH_BYTES)
+      } else {
+        chunk = pending.buffer.slice(0, pending.length)
+      }
+      pending.length = 0
       live.scrollback.push(chunk)
       broadcast(live, { _tag: "Output", data: chunk })
     }
 
+    /** Gathers PTY output; copies it, so the caller's buffer may be reused. */
+    const output = (live: Live, data: Uint8Array) => {
+      if (live.exit !== null) return
+      const pending = live.pending
+      for (let at = 0; at < data.byteLength; ) {
+        const n = Math.min(data.byteLength - at, pending.buffer.byteLength - pending.length)
+        pending.buffer.set(data.subarray(at, at + n), pending.length)
+        pending.length += n
+        at += n
+        if (pending.length === pending.buffer.byteLength) flush(live)
+      }
+      if (pending.length > 0 && pending.timer === null) {
+        pending.timer = setTimeout(() => flush(live), OUTPUT_FLUSH_MS)
+      }
+    }
+
     const finish = (live: Live, code: number | null, endedBy: TerminalInfo["endedBy"] = "exit") => {
       if (live.exit !== null) return
+      flush(live)
       live.exit = { code }
       live.endedBy = endedBy
       broadcast(live, { _tag: "Exit", code })
@@ -421,6 +475,7 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
           listeners: new Set(),
           exit: record.exit,
           endedBy: record.endedBy,
+          pending: pendingOutput(),
         }
         terminals.set(record.id, live)
         const fd = handoff.fds[handoffName(record.id)]
@@ -457,6 +512,7 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
           listeners: new Set(),
           exit: { code: null },
           endedBy: "daemon-restart",
+          pending: pendingOutput(),
         })
       }
     }
@@ -477,7 +533,8 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
             }
             return { fds, children }
           }),
-        beforeExec: Effect.sync(() =>
+        beforeExec: Effect.sync(() => {
+          for (const live of terminals.values()) flush(live)
           writeJsonAtomic(
             handoffFile,
             [...terminals.values()].map((live) => ({
@@ -490,8 +547,8 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
               endedBy: live.endedBy,
               scrollback: Buffer.from(live.scrollback.snapshot()).toString("base64"),
             })),
-          ),
-        ),
+          )
+        }),
         abort: Effect.sync(() => rmSync(handoffFile, { force: true })),
       })
     }
@@ -499,7 +556,10 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
     yield* Effect.addFinalizer(() =>
       Effect.sync(() => {
         for (const timer of reapers) clearInterval(timer)
-        for (const live of terminals.values()) kill(live)
+        for (const live of terminals.values()) {
+          if (live.pending.timer !== null) clearTimeout(live.pending.timer)
+          kill(live)
+        }
         terminals.clear()
         // A clean shutdown ended every terminal itself; nothing to report next time.
         if (recordsFile !== null && existsSync(recordsFile)) rmSync(recordsFile, { force: true })
@@ -546,7 +606,9 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
               rows,
               name: "xterm-256color",
               data: (_terminal, data) => {
-                if (live !== undefined) output(live, new Uint8Array(data))
+                if (live !== undefined) {
+                  output(live, data instanceof Uint8Array ? data : new Uint8Array(data))
+                }
               },
             },
           })
@@ -584,6 +646,7 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
         listeners: new Set(),
         exit: null,
         endedBy: null,
+        pending: pendingOutput(),
       }
       const opened = live
       terminals.set(id, opened)

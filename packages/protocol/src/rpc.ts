@@ -328,6 +328,25 @@ export const TerminalAttach = Rpc.make("terminal.attach", {
   stream: true,
 })
 
+/**
+ * `terminal.attach` with the output as raw bytes instead of base64 in JSON
+ * (capability `terminal.binary`). The first item names one long-lived blob
+ * that carries all the output, scrollback first, as binary side-chunks; take
+ * it as a stream (`takeStream`, idle timeout off). It ends when the output
+ * does, and `Exit` follows. `Exit` can arrive before the blob's last chunks
+ * (JSON frames are never queued behind blob chunks), so wait for the blob to
+ * end before acting on it. Ending the stream stops the blob.
+ */
+export const TerminalAttachBinary = Rpc.make("terminal.attachBinary", {
+  payload: { terminalId: TerminalId },
+  success: Schema.TaggedUnion({
+    Output: { blobId: BlobId },
+    Exit: { code: Schema.NullOr(Schema.Int) },
+  }),
+  error: NotFound,
+  stream: true,
+})
+
 export const TerminalInput = Rpc.make("terminal.input", {
   payload: { terminalId: TerminalId, data: Schema.Uint8ArrayFromBase64 },
   error: NotFound,
@@ -362,6 +381,7 @@ export class DaemonRpcs extends RpcGroup.make(
   StageAttachment,
   TerminalOpen,
   TerminalAttach,
+  TerminalAttachBinary,
   TerminalInput,
   TerminalResize,
   TerminalClose,

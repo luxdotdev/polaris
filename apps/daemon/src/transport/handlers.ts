@@ -87,6 +87,8 @@ export const defaultHandlers = (options: {
     "terminal.open": ({ cwd }) => Effect.fail(fileError(cwd, "terminals")),
     "terminal.attach": ({ terminalId }) =>
       Stream.fail(new NotFound({ what: "terminal", id: terminalId })),
+    "terminal.attachBinary": ({ terminalId }) =>
+      Stream.fail(new NotFound({ what: "terminal", id: terminalId })),
     "terminal.input": ({ terminalId }) =>
       Effect.fail(new NotFound({ what: "terminal", id: terminalId })),
     "terminal.resize": ({ terminalId }) =>
