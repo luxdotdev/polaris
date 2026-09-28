@@ -5,6 +5,7 @@
  *   kind 0     = JSON message, UTF-8
  *   kind 1     = blob chunk: idLength:u8 id:utf8 flags:u8 bytes
  *                flags bit 0 = final chunk of this blob
+ *                flags bit 1 = aborted: the sender failed; drop what arrived
  *
  * Large payloads (file reads, diffs, attachments) travel as blob chunks
  * referenced by BlobId from the JSON messages, so they never block a stream.
@@ -21,6 +22,8 @@ export type Frame =
       readonly kind: "blob"
       readonly blobId: string
       readonly final: boolean
+      /** The sender gave up on this blob (its source failed); discard it. */
+      readonly aborted: boolean
       readonly bytes: Uint8Array
     }
 
@@ -57,13 +60,18 @@ export const encodeJsonFrame = (text: string): Uint8Array => {
   return concat([header(body.byteLength, FrameKind.Json), body])
 }
 
-export const encodeBlobFrame = (blobId: string, bytes: Uint8Array, final: boolean): Uint8Array => {
+export const encodeBlobFrame = (
+  blobId: string,
+  bytes: Uint8Array,
+  final: boolean,
+  aborted = false,
+): Uint8Array => {
   const id = encoder.encode(blobId)
   if (id.byteLength > 255) throw new FrameError("blob id longer than 255 bytes")
   const meta = new Uint8Array(id.byteLength + 2)
   meta[0] = id.byteLength
   meta.set(id, 1)
-  meta[id.byteLength + 1] = final ? 1 : 0
+  meta[id.byteLength + 1] = (final ? 1 : 0) | (aborted ? 2 : 0)
   return concat([header(meta.byteLength + bytes.byteLength, FrameKind.Blob), meta, bytes])
 }
 
@@ -117,6 +125,7 @@ const decodeBody = (kind: number | undefined, body: Uint8Array): Frame => {
         kind: "blob",
         blobId: decoder.decode(body.subarray(1, 1 + idLength)),
         final: ((body[1 + idLength] ?? 0) & 1) === 1,
+        aborted: ((body[1 + idLength] ?? 0) & 2) === 2,
         bytes: body.subarray(2 + idLength),
       }
     }

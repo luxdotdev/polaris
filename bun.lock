@@ -25,6 +25,9 @@
         "@polaris/protocol": "workspace:*",
         "effect": "4.0.0-rc.118",
       },
+      "devDependencies": {
+        "@polaris/client": "workspace:*",
+      },
     },
     "packages/client": {
       "name": "@polaris/client",
