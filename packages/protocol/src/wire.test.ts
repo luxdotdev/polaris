@@ -64,7 +64,11 @@ describe("wire", () => {
         yield* wa.offerBlob(bytes(4 * 1024 * 1024))
         yield* Effect.yieldNow
         yield* wa.sendJson("{}")
-        yield* Effect.sleep(100)
+        // Wait for every frame (16 blob chunks + 1 JSON) rather than a fixed
+        // delay: slow CI runners take longer to flush 4 MiB.
+        for (let waited = 0; aLog.length < 17 && waited < 5_000; waited += 10) {
+          yield* Effect.sleep(10)
+        }
         return aLog.map((f) => f[4])
       }),
     )
