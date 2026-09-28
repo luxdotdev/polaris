@@ -51,6 +51,7 @@ import {
   Stream,
 } from "effect"
 import type { HarnessDriver, HarnessEvent, HarnessSession } from "../harness/HarnessDriver.ts"
+import { registerHandoffContributor } from "../service/upgrade.ts"
 import {
   AttachmentStore,
   Checkpoints,
@@ -1237,6 +1238,15 @@ const make = Effect.gen(function* () {
       { concurrency: "unbounded", discard: true },
     )
   }).pipe(Effect.withSpan("Engine.prepareForUpgrade"))
+
+  // Runs whenever this Daemon execs into a new binary, for as long as the engine lives.
+  // If the exec fails, the sessions it stopped stay Dormant or Needs You and resume on
+  // their next Turn, as after a restart, so there is nothing to undo.
+  yield* registerHandoffContributor({
+    name: "engine",
+    collect: () => Effect.succeed({ fds: {}, children: {} }),
+    beforeExec: prepareForUpgrade,
+  })
 
   yield* Effect.addFinalizer(() =>
     Effect.forEach([...live.keys()], (id) => stopHarness(id), { discard: true }),

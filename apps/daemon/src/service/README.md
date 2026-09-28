@@ -93,7 +93,7 @@ yield* serveUpgrades({
 
 ### Hand-off contributors
 
-A module with fds or children to keep registers a `HandoffContributor` for the life of its scope (`registerHandoffContributor`): `collect` returns named fds and children (merged with `hooks.collect`), `beforeExec` writes any state the new image needs, and `abort` undoes it if the exec fails. The terminals use this to keep PTYs across upgrades (`terminal/README.md`). After the exec, `takeHandoff()` returns the same names.
+A module with fds or children to keep registers a `HandoffContributor` for the life of its scope (`registerHandoffContributor`): `collect` returns named fds and children (merged with `hooks.collect`), `beforeExec` writes any state the new image needs, and `abort` undoes it if the exec fails. The terminals use this to keep PTYs across upgrades (`terminal/README.md`); the engine registers one with no fds whose `beforeExec` is `Engine.prepareForUpgrade`, which closes in-process (Claude) Harnesses per the recovery rule (`store/README.md`). After the exec, `takeHandoff()` returns the same names.
 
 `libc.ts` loads glibc's `libc.so.6`, or on a musl Host the loader `/lib/ld-musl-<arch>.so.1` (musl's libc; there is no `libc.so.6`). The hand-off tests pass on Alpine arm64.
 

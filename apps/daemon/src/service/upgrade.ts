@@ -351,6 +351,8 @@ export interface UpgradeHooks {
  * registration order; names must be unique across contributors.
  */
 export interface HandoffContributor {
+  /** For logs and tests. */
+  readonly name?: string
   readonly collect: () => Effect.Effect<Required<Omit<HandoffExtras, "requestId">>>
   /** Last chance to write state for the new image (after collect, just before exec). */
   readonly beforeExec?: Effect.Effect<void>
@@ -366,6 +368,9 @@ export const registerHandoffContributor = (contributor: HandoffContributor) =>
     Effect.sync(() => contributors.add(contributor)),
     () => Effect.sync(() => contributors.delete(contributor)),
   )
+
+/** The contributors registered right now, in registration order. */
+export const handoffContributors = (): ReadonlyArray<HandoffContributor> => [...contributors]
 
 const collectContributors = Effect.gen(function* () {
   const fds: Record<string, number> = {}
