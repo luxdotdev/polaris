@@ -1,0 +1,39 @@
+# Claude Harness driver
+
+Implements `HarnessDriver` (`../HarnessDriver.ts`) for Claude Code (ENG-192, decisions ENG-171/175).
+
+## Design
+
+- **One Agent SDK `query()` per active Agent Session**, in-process in the Daemon, driving the user's own `claude` (`pathToClaudeCodeExecutable` = `claude` on PATH). The binary uses its own sign-in; this module never reads, copies or forwards OAuth tokens or API keys (the child simply inherits the Daemon's environment).
+- **Streaming input.** The prompt is a push-driven `AsyncIterable` (`inbox.ts`). `sendTurn` pushes one user message: text, images as base64 blocks (png/jpeg/gif/webp up to 5 MB), and other attachments listed by their staged host path (`input.ts`). The session's staging directory is added to `additionalDirectories` so Claude can read those files.
+- **Translation** (`translate.ts`): `system/init` → `CursorAssigned`; `stream_event` text/thinking deltas → `ItemDelta` (item id `<message id>:<block index>`); assistant text/thinking → `AssistantMessage`/`Reasoning`; `tool_use` → a `running` item, then its `tool_result` → the same item id with `completed`/`failed`/`declined`. Bash → `CommandExecution`, Edit/Write/MultiEdit/NotebookEdit → `FileChange` (`add` when Write reports `create`), TodoWrite → `Plan` (one id per Turn, `plan:<turnId>`, updated in place), everything else → `ToolCall`. Subagent traffic (`parent_tool_use_id` set) is summarized by the parent's tool call.
+- **Turn accounting** (`ClaudeDriver.ts`): each message sent carries a uuid. Claude echoes them on `result.user_message_uuids`; a Polaris Turn ends when every message sent for it has been answered. `result` subtypes map: `success` → completed, `success` with `is_error` or any `error_*` → failed (with the error text), anything after `interrupt` → interrupted.
+- **Approvals**: `canUseTool` → `ApprovalRequested` (Bash → `command`, file tools → `file-change`, `AskUserQuestion` → `question` with the option labels when there is one question, else `tool`) and awaits a `Deferred`. `Allow{remember}` returns the SDK's `suggestions` as `updatedPermissions`; `Deny` denies with the reason; `Answer` fills `AskUserQuestion`'s `answers` (several questions: one line each), or on a permission prompt denies with the user's text as the message to Claude. An SDK abort signal withdraws the request.
+- **Interrupt** withdraws every pending approval (`ApprovalWithdrawn`, answered deny + interrupt) and calls `query.interrupt()`. A steer that the interrupt could not recall is interrupted again if Claude starts on it.
+- **Steer** (`capabilities.steer = true`): pushes another user message into the live query. Claude Code folds it into the running Turn between tool rounds, or runs it right after; either way the Polaris Turn stays open until it is answered.
+- **Permission modes**: supervised → `default`, auto-edits → `acceptEdits`, auto → `auto` (Claude Code's own classifier decides prompts: the closest match to "the Harness decides, ask only when it can't"), full-access → `bypassPermissions`. `allowDangerouslySkipPermissions` is always set so full-access can be chosen mid-session; it doesn't enable bypass by itself.
+- **Close**: closing the scope ends the input, withdraws approvals, calls `query.close()` (ends the `claude` child), and emits `Exited{error: null}`. If `claude` dies on its own, the open Turn fails and `Exited` carries the error.
+- **probe** runs `claude --version` only.
+
+### Terminal handoff (`hooks.ts`)
+
+Sequential (`liveCoAttach = false`): the engine closes the session, then runs `terminalCommand` = `claude --resume <session id> [--permission-mode <mode>] [--settings <file>]` (flags checked against `claude --help` 2.1.283).
+
+While In Terminal, Polaris follows along through **Claude Code HTTP hooks**. `ClaudeHookReceiver` (one per Daemon) listens on `127.0.0.1:<random port>`; `prepare` mints a 256-bit per-session bearer token and writes a settings file (mode 0600, `~/.polaris/hooks/<session>.json`) subscribing UserPromptSubmit, PreToolUse, PostToolUse, PostToolUseFailure, Notification, Stop and SessionEnd. The token is in the file, not in argv, so the process list doesn't leak it. HTTP hooks only accept http(s) URLs (no Unix sockets), hence loopback + token. Every response is an empty `{}`: the hooks observe and never decide for the TUI; the timeout is 5 s and connection failures are non-blocking, so a stopped Daemon never stalls the TUI. `HookTranslator` turns hook bodies into `HarnessEvent`s: a prompt starts a Turn with a driver-minted TurnId, tool hooks give running/final items, a `permission_prompt` Notification gives an informational `ApprovalRequested` (answered in the terminal; withdrawn when the tool finishes, the Turn stops or the user types), `Stop` ends the Turn with `last_assistant_message`, `SessionEnd` ends the stream with `Exited`.
+
+Engine wiring: build the driver with `ClaudeDriver` (needs the `ClaudeHookReceiver` layer), call `receiver.events(sessionId)` when the session goes In Terminal, and `receiver.release(sessionId)` on hand-back.
+
+## Tests
+
+`bun test` covers a full Turn with streaming and tools, error results, approval round-trip with remember, deny → declined, a question, interrupt with a pending approval, steer, resume + terminal command, attachments, close and unexpected exit (fake `query` in `fakeClaude.ts`), and hook translation plus the real loopback listener. `POLARIS_E2E_CLAUDE=1 bun test ClaudeDriver.e2e` runs one real Turn with `haiku` in a temp dir.
+
+## Known gaps / TODO
+
+- `HarnessEvent.TurnStarted` has no prompt, so Turns typed in the terminal arrive without the user's text (UserPromptSubmit carries it). Suggest adding `prompt?: string`.
+- Tool items are emitted twice under one id (running, then final); the engine's projection must upsert by item id.
+- Claude Code doesn't report Bash exit codes; `exitCode` is always null (failure shows as `status: failed`).
+- Steer folding was verified against the SDK's documented semantics and the fake, not yet against a real mid-Turn run.
+- In Terminal, permission prompts are informational only; answering them from a Client would need a `PermissionRequest` hook that blocks the TUI, which we chose not to do.
+- A user setting `allowedHttpHookUrls` without a loopback entry, or `disableAllHooks`, silently disables follow-along.
+- No `ExitPlanMode` special handling (plan approval is a generic tool approval); no subagent transcripts; no `TitleSuggested`/`WorktreeCreated` yet.
+- The SDK's peer dependencies (`@anthropic-ai/sdk`, `@modelcontextprotocol/sdk`, `zod`) came in transitively; `bun run licenses:check` couldn't run because `scripts/licenses.ts` doesn't exist yet.
