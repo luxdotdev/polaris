@@ -49,8 +49,39 @@ _Avoid_: Step, exchange
 **Fork**:
 A new Agent Session started from a checkpoint of another, linked to its parent; the way to switch Harness or retry differently.
 
+**Session State**:
+Where an Agent Session stands right now: exactly one of Starting, Working, Needs You, Idle, In Terminal, Dormant, Failed, or Archived.
+_Avoid_: Status (unqualified), phase
+
+**Starting**:
+The state of an Agent Session whose Harness process is being launched or resumed and cannot yet take a Turn.
+
+**Working**:
+The state of an Agent Session whose Harness is in the middle of a Turn.
+_Avoid_: Running, busy, thinking
+
+**Needs You**:
+The state of an Agent Session whose Harness is blocked on the user, waiting for a permission grant or an answer.
+_Avoid_: Blocked, waiting, pending
+
+**Idle**:
+The state of an Agent Session whose last Turn has finished while its Harness process is still running.
+_Avoid_: Done, complete
+
+**In Terminal**:
+The state of an Agent Session the user has taken over in the Harness's own terminal UI; Polaris follows along but does not send Turns until the user hands it back.
+_Avoid_: Detached, external
+
 **Dormant**:
 The state of an Agent Session whose Harness process is not running but which can be resumed on demand or automatically.
+
+**Failed**:
+The state of an Agent Session whose Harness process crashed or errored out of a Turn.
+_Avoid_: Errored, dead
+
+**Archived**:
+The state of an Agent Session the user has put away after reviewing or merging its work; there is no "Done".
+_Avoid_: Closed, deleted
 
 ### Views
 
@@ -70,8 +101,26 @@ _Avoid_: Checkout, PR branch
 A ranked set of Risk Findings for the change under Review, combining rules, classifiers, and an agent's judgement, pointing a human at what most needs their eyes.
 
 **Risk Finding**:
-One flagged location in a change, with its source (Rule, Classifier, or Agent), severity, reason, and status (Open, Dismissed, Resolved).
+One flagged location in a change, with its source (Rule, Classifier, or Agent), Severity, confidence, reason, and status (Open, Dismissed, Resolved).
 _Avoid_: Issue, warning, comment
+
+**Severity**:
+How bad a Risk Finding would be if real: exactly one of Critical, High, Medium, or Low; a Risk Summary ranks by Severity, then confidence.
+_Avoid_: Priority, P0–P3 (in anything a user reads), level
+
+**Critical**:
+The Severity for secrets, security holes, and data loss; no Risk Memory may ever hide a Critical Finding.
+_Avoid_: Blocker, P0
+
+**High**:
+The Severity for a likely bug or breaking change.
+
+**Medium**:
+The Severity for something worth a human's look, such as a risky pattern or hard-to-maintain code.
+
+**Low**:
+The Severity for nits, style, and unnecessary comments.
+_Avoid_: Nit (as a Severity name), info
 
 **Verdict**:
 The user's thumbs-up or thumbs-down on a Risk Finding; a thumbs-down carries reason badges or free text and a scope (this change, this repo, everywhere), and Verdicts are what the reviewer learns from.
