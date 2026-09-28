@@ -44,6 +44,7 @@ def fbm(w,h,seed,scales=(24,12,6,3)):
     return (v-v.min())/(v.max()-v.min())
 
 def scene(w,h,sky,hills,star,night=True,seed=1,name='scene'):
+    """Returns (image, ground) where ground[x] is the top row of the nearest hill layer."""
     ys,xs=np.mgrid[0:h,0:w]
     grad=ys/(h*0.78)
     img=quant(grad+ (fbm(w,h,seed)-0.5)*0.12,sky,xs,ys)
@@ -81,7 +82,7 @@ def scene(w,h,sky,hills,star,night=True,seed=1,name='scene'):
                     half=max(0,(k*3)//th)
                     y=top-th+k
                     img[y,max(0,x-half):x+half+1]=hexc(col)
-    return img
+    return img, prof.astype(int)
 
 def save(img,name,s,sub):
     im=Image.fromarray(np.clip(img,0,255).astype('uint8'))
@@ -90,13 +91,62 @@ def save(img,name,s,sub):
 W,H=360,225
 night=scene(W,H,['#070912','#0A0D1A','#0E1325','#141B33','#1C2542','#27304F'],
     [('#141A2C',0.70,0.18,3),('#10152A',0.78,0.14,5),('#0B0F1E',0.86,0.10,9)],'#BCD3FF',True,11)
-# lit cabin window, warm human touch
-cx,cy=int(W*0.24),int(H*0.855)
-night[cy-6:cy,cx-5:cx+6]=hexc('#0B0F1E')
-for k in range(4): night[cy-9+k,cx-2-k:cx+3+k]=hexc('#0B0F1E')
-night[cy-4:cy-2,cx-2:cx]=hexc('#F2C27A'); night[cy-4:cy-2,cx+2:cx+4]=hexc('#F2C27A')
+# The cabin: the one warm human touch. Drawn as a sprite and seated on the ground line.
+CABIN = [
+    "............S.....",
+    ".............S....",
+    "............S.....",
+    "...........CC.....",
+    ".......HH..CC.....",
+    "......RRRH.CC.....",
+    ".....RRRRRHCC.....",
+    "....RRRRRRRHC.....",
+    "...RRRRRRRRRH.....",
+    "..RRRRRRRRRRRH....",
+    ".RRRRRRRRRRRRRH...",
+    "RRRRRRRRRRRRRRRH..",
+    "..WWWWWWWWWWWWW...",
+    "..WPPPPPPPPPPPW...",
+    "..WMMMMMWWWDDDW...",
+    "..WLLMLLPPPDDDW...",
+    "..WLLMLLWWWDDdW...",
+    "..WMMMMMPPPDDDW...",
+    "..WLLMLLWWWDDDW...",
+    "..WLLMLLPPPDDDW...",
+    "..WMMMMMWWWDDDW...",
+    ".FFFFFFFFFFFFFFF..",
+]
+CABIN_COLOURS = {
+    "R": "#0A0E1A",  # roof
+    "H": "#2C3860",  # roof edge lit by Polaris (light from the upper right)
+    "C": "#1D2540",  # chimney
+    "S": "#39425E",  # smoke
+    "W": "#161C30",  # wall
+    "P": "#11172A",  # plank shadow
+    "M": "#2A2016",  # window frame
+    "L": "#F2C27A",  # lamplight
+    "D": "#0D1120",  # door
+    "d": "#9C7A48",  # light through the door gap
+    "F": "#1C2238",  # stone foundation
+}
+
+def place_cabin(img, ground, x0, x1):
+    cw, ch = len(CABIN[0]), len(CABIN)
+    # seat on the flattest stretch of ground in [x0, x1)
+    best = min(range(x0, x1 - cw), key=lambda x: np.ptp(ground[x:x + cw]))
+    base = int(ground[best:best + cw].max())  # lowest ground point, so no corner floats
+    top = base - ch + 1
+    for j, row in enumerate(CABIN):
+        for i, ch_ in enumerate(row):
+            if ch_ != ".":
+                img[top + j, best + i] = hexc(CABIN_COLOURS[ch_])
+    # fill any gap between the foundation and higher ground
+    img[base + 1:base + 2, best + 1:best + cw - 2] = hexc(CABIN_COLOURS["F"])
+
+night, night_ground = night
+place_cabin(night, night_ground, int(W * 0.14), int(W * 0.34))
 save(night,'scene-night.png',4,'scenes')
-dawn=scene(W,H,['#C9D8F2','#D8E1F4','#E9E6F0','#F6E4DA','#FBE3CC','#FCE9D2'],
+dawn,_=scene(W,H,['#C9D8F2','#D8E1F4','#E9E6F0','#F6E4DA','#FBE3CC','#FCE9D2'],
     [('#B7C9A8',0.70,0.18,3),('#9DB78F',0.78,0.14,5),('#7FA074',0.86,0.10,9)],'#FFFFFF',False,12)
 # meadow flowers
 r=random.Random(4)
