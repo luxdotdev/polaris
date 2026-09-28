@@ -36,6 +36,36 @@ jobs:
         run: bunx tsc -p scripts && bun test scripts
       - run: bun run licenses:check
 
+  spec:
+    name: Spec (Quint), trace validation, Apalache
+    # packages/spec/README.md. The model-based tests themselves run in `check`.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: bun install --frozen-lockfile
+      - name: Quint typecheck, scenario tests, simulation (fixed seed)
+        run: bun run spec
+      - name: Trace validation (Engine runs replayed through the spec)
+        run: |
+          (cd apps/daemon && POLARIS_TRACE_DIR="$RUNNER_TEMP/traces" POLARIS_PBT_RUNS=30 \
+            bun test src/verification/engine.model.test.ts)
+          (cd packages/spec && bun scripts/replay.ts "$RUNNER_TEMP/traces")
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Apalache, bounded (report only)
+        # Exhaustive up to 4 steps of the small instance (~1 min); deeper bounds take
+        # minutes to hours, see the README's numbers. Report only until it has a track
+        # record on shared runners.
+        continue-on-error: true
+        working-directory: packages/spec
+        run: ./node_modules/.bin/quint verify polaris.qnt --main=small --invariant=safety --max-steps=4 --verbosity=1
+
   build-daemon:
     name: Build the Daemon
     # darwin builds must be re-signed with macOS codesign; the Linux targets cross-compile.

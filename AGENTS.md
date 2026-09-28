@@ -14,6 +14,7 @@ Polaris is an IDE and agent orchestrator: a Bun Daemon per Host, an Electron Des
 | `packages/protocol` | The wire contract: Effect Schema domain, events, commands, the `DaemonRpcs` group, and frame codec. Every Client and the Daemon depend on it. |
 | `packages/client` | Client runtime: connections to many Daemons over SSH, Connection State, resume, install/upgrade. |
 | `packages/bench` | Benchmarks: the real Daemon under scripted load, a process-tree memory/CPU sampler, baselines and comparisons. |
+| `packages/spec` | The Quint spec of commits, streams, Client feeds and approvals, and its checks (see Verification). |
 | `apps/daemon` | The Daemon (`polaris` binary): event store, Harness drivers, transport, files, git, terminals, user service. |
 | `apps/desktop` | The Electron Desktop App (not started yet). |
 
@@ -33,6 +34,14 @@ Performance is a product requirement: the Daemon must stay light on a Raspberry 
 - Before and after a change that could move memory, CPU or latency (engine, store, streams, transport, wire, files, git, terminals, Harness drivers, anything on a hot path or a timer), run the relevant scenarios against the committed baseline for your machine, e.g. `bun run bench sessions history --runs 3 --compare packages/bench/baselines/<machine>.json`. Use `--profile` to see where the time and memory go.
 - Never regress a baseline silently: fix the regression, or explain it in the commit and update the baseline (`--save-baseline`) in the same change.
 - Anything that wakes an idle Daemon (timers, polling, watchers) must justify itself in the `idle` scenario.
+
+## Verification
+
+The event store, the Engine's streams, recovery and approvals, and the Client's resume are specified in `packages/spec/polaris.qnt` (Quint) and tested against the real code by the model-based tests in `apps/daemon/src/verification/`. See `packages/spec/README.md`.
+
+- A change to the protocol, `apps/daemon/src/engine/`, `apps/daemon/src/store/` or `packages/client/src/resume.ts` that changes how commands are decided, committed, acknowledged, streamed, resumed or recovered must update the spec (and its README mapping) in the same change, and keep the spec checks, the model-based tests and trace validation green.
+- Run locally: `bun run spec` (Quint typecheck, scenario tests, simulator), `bun test apps/daemon/src/verification` (model-based tests; `POLARIS_PBT_RUNS=500` for a longer run, `POLARIS_PBT_SEED` to replay a failure), and trace validation as in the spec README. `bun run spec -- --verify` also runs Apalache (Java 17+).
+- A bug they find that you cannot fix in the same change goes into `apps/daemon/src/verification/findings.test.ts` as a `test.todo` with a note, and into the spec README's Findings.
 
 ## Attribution (required)
 
