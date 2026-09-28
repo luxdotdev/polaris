@@ -1,0 +1,15 @@
+{
+  "name": "@polaris/spec",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "spec": "bun scripts/check.ts",
+    "spec:replay": "bun scripts/replay.ts",
+    "typecheck": "tsc -p ."
+  },
+  "devDependencies": {
+    "@informalsystems/quint": "0.32.0"
+  }
+}

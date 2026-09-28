@@ -18,6 +18,7 @@
     "bench": "turbo run bench --log-prefix=none --",
     "lint": "biome check .",
     "format": "biome check --write .",
+    "spec": "bun --cwd packages/spec scripts/check.ts",
     "licenses": "bun scripts/licenses.ts",
     "licenses:check": "bun scripts/licenses.ts --check"
   },

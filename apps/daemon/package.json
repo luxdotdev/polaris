@@ -23,6 +23,7 @@
     "effect": "4.0.0-rc.118"
   },
   "devDependencies": {
-    "@polaris/client": "workspace:*"
+    "@polaris/client": "workspace:*",
+    "fast-check": "4.10.2"
   }
 }

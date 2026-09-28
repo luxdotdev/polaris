@@ -1,0 +1,3 @@
+_apalache-out/
+.replay/
+*.itf.json
