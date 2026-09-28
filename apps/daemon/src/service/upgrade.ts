@@ -39,7 +39,7 @@ import { Effect, Schema } from "effect"
 import { paths } from "../paths.ts"
 import { CommandRunner } from "./CommandRunner.ts"
 import * as libc from "./libc.ts"
-import { parseVersionLine, VERSION } from "./platform.ts"
+import { parseVersionLine, runtimePlatform, VERSION } from "./platform.ts"
 
 export class UpgradeError extends Schema.TaggedError<UpgradeError>()("UpgradeError", {
   step: Schema.String,
@@ -324,7 +324,7 @@ export const validateBinary = Effect.fn("validateBinary")(function* (binary: str
       message: `\`${binary} version\` exited ${result.code}: ${(result.stderr || result.stdout).trim()}`,
     })
   }
-  const platform = `${process.platform}-${process.arch}`
+  const platform = runtimePlatform()
   if (info.platform !== platform) {
     return yield* new UpgradeError({
       step: "validate",

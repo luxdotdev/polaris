@@ -11,10 +11,11 @@ import { join } from "node:path"
 import type { Subprocess } from "bun"
 import { Effect } from "effect"
 import { CommandRunner } from "../service/CommandRunner.ts"
+import { runtimePlatform } from "../service/platform.ts"
 import { requestUpgrade, runningDaemonPid } from "../service/upgrade.ts"
 
 const fixture = join(import.meta.dir, "fixtures", "terminal-daemon.ts")
-const platform = `${process.platform}-${process.arch}`
+const platform = runtimePlatform()
 
 let home: string
 let daemon: Subprocess | null = null

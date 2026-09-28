@@ -2,12 +2,23 @@
  * What to do about the Daemon on a Host, decided from what is there and
  * what the Desktop App bundles. Pure, so every branch is unit-tested.
  */
-import { compareVersions, type DaemonBuild, type Platform, platformFromUname } from "./builds.ts"
+import {
+  compareVersions,
+  type DaemonBuild,
+  type Libc,
+  MUSL_RUNTIME_PACKAGES,
+  type Platform,
+  platformFromUname,
+} from "./builds.ts"
 
 /** What `probeHost` found on the Host. */
 export interface HostProbe {
   readonly os: string
   readonly arch: string
+  /** Linux only: the C library; absent means glibc (and on macOS it doesn't apply). */
+  readonly libc?: Libc
+  /** musl only: runtime libraries the Daemon needs that the Host lacks (`MUSL_RUNTIME_LIBRARIES`). */
+  readonly missingLibraries?: ReadonlyArray<string>
   /** `polaris version` of `~/.polaris/bin/current/polaris`, or null if none is installed. */
   readonly installed: { readonly version: string; readonly platform: string } | null
 }
@@ -27,6 +38,17 @@ export interface PlanOptions {
 export type InstallPlan =
   | { readonly _tag: "Unsupported"; readonly os: string; readonly arch: string }
   | { readonly _tag: "MissingBuild"; readonly platform: Platform }
+  /**
+   * A musl Host without the shared libraries Bun's musl runtime needs.
+   * Installing them needs root, so show `command` for an administrator to run
+   * (Needs Attention), then retry.
+   */
+  | {
+      readonly _tag: "MissingLibraries"
+      readonly platform: Platform
+      readonly libraries: ReadonlyArray<string>
+      readonly command: string
+    }
   | { readonly _tag: "UpToDate"; readonly version: string }
   /** The Host has a newer Daemon than this Client bundles; use it as is (capabilities decide). */
   | { readonly _tag: "InstalledNewer"; readonly installed: string; readonly bundled: string }
@@ -49,10 +71,18 @@ export const planInstall = (
   builds: ReadonlyArray<DaemonBuild>,
   options: PlanOptions,
 ): InstallPlan => {
-  const platform = platformFromUname(probe.os, probe.arch)
+  const platform = platformFromUname(probe.os, probe.arch, probe.libc)
   if (platform === null) return { _tag: "Unsupported", os: probe.os, arch: probe.arch }
   const build = builds.find((candidate) => candidate.platform === platform)
   if (build === undefined) return { _tag: "MissingBuild", platform }
+  if (probe.libc === "musl" && (probe.missingLibraries?.length ?? 0) > 0) {
+    return {
+      _tag: "MissingLibraries",
+      platform,
+      libraries: probe.missingLibraries!,
+      command: `apk add ${MUSL_RUNTIME_PACKAGES.join(" ")}`,
+    }
+  }
 
   if (probe.installed !== null && probe.installed.platform === platform) {
     const order = compareVersions(probe.installed.version, build.version)

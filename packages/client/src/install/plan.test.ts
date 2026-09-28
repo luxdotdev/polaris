@@ -94,3 +94,48 @@ describe("planInstall", () => {
     })
   })
 })
+
+describe("musl Hosts", () => {
+  const withMusl = [...builds, build("linux-x64-musl"), build("linux-arm64-musl")]
+  const alpine = (missingLibraries: ReadonlyArray<string> = []): HostProbe => ({
+    os: "Linux",
+    arch: "aarch64",
+    libc: "musl",
+    missingLibraries,
+    installed: null,
+  })
+
+  test("map to the musl builds", () => {
+    expect(platformFromUname("Linux", "x86_64", "musl")).toBe("linux-x64-musl")
+    expect(platformFromUname("Linux", "aarch64", "musl")).toBe("linux-arm64-musl")
+    expect(platformFromUname("Darwin", "arm64", "musl")).toBe("darwin-arm64")
+    expect(planInstall(alpine(), withMusl, user)).toMatchObject({
+      _tag: "NeedsApproval",
+      platform: "linux-arm64-musl",
+    })
+  })
+
+  test("are a MissingBuild when the Client bundles no musl build, never the glibc one", () => {
+    expect(planInstall(alpine(), builds, user)).toEqual({
+      _tag: "MissingBuild",
+      platform: "linux-arm64-musl",
+    })
+  })
+
+  test("without libstdc++/libgcc need an administrator first", () => {
+    expect(planInstall(alpine(["libstdc++.so.6", "libgcc_s.so.1"]), withMusl, user)).toEqual({
+      _tag: "MissingLibraries",
+      platform: "linux-arm64-musl",
+      libraries: ["libstdc++.so.6", "libgcc_s.so.1"],
+      command: "apk add libstdc++ libgcc",
+    })
+  })
+
+  test("an installed glibc Daemon on a musl Host is replaced by the musl build", () => {
+    const probe = { ...alpine(), installed: { version: "1.2.0", platform: "linux-arm64" } }
+    expect(planInstall(probe, withMusl, user)).toMatchObject({
+      _tag: "NeedsApproval",
+      platform: "linux-arm64-musl",
+    })
+  })
+})

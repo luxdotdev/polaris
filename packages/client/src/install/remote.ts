@@ -11,7 +11,7 @@
  */
 import { randomBytes } from "node:crypto"
 import { Effect, Schema } from "effect"
-import type { DaemonBuild } from "./builds.ts"
+import { type DaemonBuild, MUSL_RUNTIME_LIBRARIES } from "./builds.ts"
 import { type HostProbe, type InstallPlan, type PlanOptions, planInstall } from "./plan.ts"
 import { Ssh, type SshError, shScript } from "./Ssh.ts"
 
@@ -24,9 +24,12 @@ export class RemoteInstallError extends Schema.TaggedError<RemoteInstallError>()
   },
 ) {}
 
-const PROBE_SCRIPT = [
+export const PROBE_SCRIPT = [
   `printf 'os=%s\\n' "$(uname -s)"`,
   `printf 'arch=%s\\n' "$(uname -m)"`,
+  // musl's loader is /lib/ld-musl-<arch>.so.1; `ldd --version` says "musl" there too.
+  `if ls /lib/ld-musl-* >/dev/null 2>&1 || (ldd --version 2>&1 | grep -qi musl); then echo libc=musl; ` +
+    `for l in ${MUSL_RUNTIME_LIBRARIES.join(" ")}; do [ -e "/usr/lib/$l" ] || [ -e "/lib/$l" ] || printf 'missing=%s\\n' "$l"; done; fi`,
   `v=$("$HOME/.polaris/bin/current/polaris" version 2>/dev/null) && printf 'installed=%s\\n' "$v"`,
   "exit 0",
 ].join("; ")
@@ -43,7 +46,17 @@ export const parseProbe = (stdout: string): HostProbe | null => {
   const arch = fields.get("arch")
   if (!os || !arch) return null
   const version = /^polaris (\S+) (\S+)$/.exec(fields.get("installed") ?? "")
-  return { os, arch, installed: version ? { version: version[1]!, platform: version[2]! } : null }
+  const missing = stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("missing="))
+    .map((line) => line.slice("missing=".length))
+  return {
+    os,
+    arch,
+    ...(fields.get("libc") === "musl" ? { libc: "musl" as const, missingLibraries: missing } : {}),
+    installed: version ? { version: version[1]!, platform: version[2]! } : null,
+  }
 }
 
 export const probeHost = Effect.fn("probeHost")(function* (alias: string) {
@@ -185,6 +198,11 @@ export type EnsureResult =
       readonly _tag: "Unavailable"
       readonly plan: Extract<InstallPlan, { _tag: "Unsupported" | "MissingBuild" }>
     }
+  /** Needs Attention: an administrator must run `plan.command` on the Host, then retry. */
+  | {
+      readonly _tag: "HostSetupNeeded"
+      readonly plan: Extract<InstallPlan, { _tag: "MissingLibraries" }>
+    }
 
 /**
  * Make sure the Host runs a Daemon this Client can talk to: install (only
@@ -204,6 +222,8 @@ export const ensureDaemon = Effect.fn("ensureDaemon")(function* (
     case "Unsupported":
     case "MissingBuild":
       return { _tag: "Unavailable", plan }
+    case "MissingLibraries":
+      return { _tag: "HostSetupNeeded", plan }
     case "UpToDate":
     case "InstalledNewer":
       return { _tag: "Ready", plan, applied: null }

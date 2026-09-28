@@ -220,6 +220,17 @@ describe("parsing", () => {
     expect(parseProbe("Welcome to Ubuntu\n")).toBeNull()
   })
 
+  test("parseProbe reads musl and its missing runtime libraries", () => {
+    expect(parseProbe("os=Linux\narch=x86_64\nlibc=musl\nmissing=libstdc++.so.6\n")).toEqual({
+      os: "Linux",
+      arch: "x86_64",
+      libc: "musl",
+      missingLibraries: ["libstdc++.so.6"],
+      installed: null,
+    })
+    expect(parseProbe("os=Linux\narch=x86_64\nlibc=musl\n")?.missingLibraries).toEqual([])
+  })
+
   test("classifySshFailure", () => {
     expect(classifySshFailure("Host key verification failed.")).toBe("host-key")
     expect(classifySshFailure("user@h: Permission denied (publickey).")).toBe("auth")

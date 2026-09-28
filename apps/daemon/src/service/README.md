@@ -22,14 +22,16 @@ apps/daemon/dist/manifest.json        version, commit, fff version, SHA-256 and 
 apps/daemon/dist/<platform>/polaris   bun build --compile --target=bun-<platform>, self-contained
 ```
 
-for `darwin-arm64`, `linux-x64` (glibc) and `linux-arm64` (glibc). The build runs `polaris selftest` on the host platform's binary. CI runs it on each Linux binary on native runners.
+for `darwin-arm64`, `linux-x64` and `linux-arm64` (glibc), and `linux-x64-musl` and `linux-arm64-musl` (musl, for Alpine). The build runs `polaris selftest` on the host platform's binary. CI runs it on each glibc Linux binary on native runners (not yet on the musl ones).
+
+On Linux the platform names the libc: a musl process reports `linux-<arch>-musl` (`runtimePlatform()` in `platform.ts`, from `/lib/ld-musl-*`), which is what `polaris version` prints and `polaris upgrade` checks. Bun's musl runtime links `libstdc++.so.6` and `libgcc_s.so.1` dynamically, so an Alpine Host needs `apk add libstdc++ libgcc` (root); the Client's probe checks for them. `HostInfo.platform` (protocol) still says `linux-x64` / `linux-arm64`.
 
 - **darwin needs re-signing.** Bun 1.3.13 appends the bundle after linking, which leaves the linker's ad-hoc signature invalid, and this macOS SIGKILLs the binary on exec (exit 137). The build runs `codesign --force --sign -`, so darwin builds must run on macOS (CI does).
 - **fff's native library is embedded.** The files workstream uses `@ff-labs/fff-bun` (bun:ffi). It imports `@ff-labs/fff-bin-<platform>/libfff_c.*` with `{ type: "file" }`, so `--compile` embeds the library and loads it from `$bunfs`; no file ships beside the binary. That needs two things at build time:
   1. The **target's** `@ff-labs/fff-bin-*` package installed. Optional dependencies for other platforms are not installed by default, and the bundler then fails with "Could not resolve". When one is missing, the build runs `bun install --frozen-lockfile --os=* --cpu=*`, which installs every platform's optional packages from the lockfile without changing it.
-  2. `--define FFF_LIBC="gnu"` for the Linux targets, or fff falls back to git grep at runtime (musl is not shipped).
+  2. `--define FFF_LIBC="gnu"` (or `"musl"`) for the Linux targets, or fff falls back to git grep at runtime. fff ships `fff-bin-linux-{x64,arm64}-musl`.
 
-  Verified: the darwin binary copied outside the repo (no `node_modules` nearby) and the linux-arm64 binary in a Debian container both print `fff: ok` from `polaris selftest`. `POLARIS_FFF=off polaris selftest` exits 1.
+  Verified: the darwin binary copied outside the repo (no `node_modules` nearby), the linux-arm64 binary in a Debian container, and the linux-arm64-musl binary in Alpine 3.24 (with `libstdc++ libgcc`) all print `fff: ok` from `polaris selftest`. `POLARIS_FFF=off polaris selftest` exits 1.
 
 ## Install (`polaris install`)
 
