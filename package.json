@@ -21,6 +21,8 @@
     "lint:baseline": "bun tooling/lint/ratchet.ts --update-baseline",
     "format": "biome check --write .",
     "format:check": "biome check .",
+    "quality": "bun tooling/quality/run.ts",
+    "prepare": "bun tooling/hooks/install.ts",
     "licenses": "bun scripts/licenses.ts",
     "licenses:check": "bun scripts/licenses.ts --check"
   },
