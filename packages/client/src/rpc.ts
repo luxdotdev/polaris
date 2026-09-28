@@ -1,3 +1,4 @@
+// Portions adapted from Effect-TS/effect, npm effect@4.0.0-rc.118 (MIT): src/rpc/RpcClient.ts `makeProtocolSocket`
 /**
  * Runs an effect/rpc client for `DaemonRpcs` over one framed Wire.
  *
