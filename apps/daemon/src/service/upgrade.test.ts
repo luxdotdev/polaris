@@ -109,70 +109,92 @@ describe("libc", () => {
   })
 })
 
+/** Runs the fixture Daemon via `launch`, upgrades it in place, and checks what survived. */
+const handoffScenario = async (launch: ReadonlyArray<string>) => {
+  const socketPath = join(home, "daemon.sock")
+  daemon = Bun.spawn([...launch, "--as", "1.0.0"], {
+    env: { ...process.env, POLARIS_HOME: home },
+    stdio: ["ignore", "inherit", "inherit"],
+  })
+  await waitFor(() => existsSync(socketPath) && runningDaemonPid() !== null)
+
+  const before = await info(socketPath)
+  expect(before).toMatchObject({ version: "1.0.0", pid: daemon.pid, echo: "ok", adopted: false })
+
+  // The "new binary": validates as a Daemon build, then becomes version 2.0.0.
+  const next = join(home, "polaris-2.0.0")
+  writeFileSync(
+    next,
+    `#!/bin/sh
+if [ "$1" = version ]; then echo "polaris 2.0.0 ${platform}"; exit 0; fi
+exec ${launch.map((arg) => `"${arg}"`).join(" ")} --as 2.0.0
+`,
+  )
+  chmodSync(next, 0o755)
+
+  // Hammer the socket throughout the switch: nothing may be refused.
+  let stop = false
+  const refused: Array<string> = []
+  const answered: Array<string> = []
+  const hammer = (async () => {
+    while (!stop) {
+      await info(socketPath).then(
+        (reply) => answered.push(reply.version),
+        (error: NodeJS.ErrnoException) => {
+          // Accepted by the old image just before exec: closed, the Client reconnects.
+          if (error.message === "closed before answering") return
+          refused.push(error.code ?? error.message)
+        },
+      )
+      await Bun.sleep(5)
+    }
+  })()
+
+  const status = await Effect.runPromise(
+    requestUpgrade({ pid: daemon.pid, binary: next, version: "2.0.0" }).pipe(
+      Effect.provide(CommandRunner.layer),
+    ),
+  )
+  expect(status).toMatchObject({ state: "done", pid: daemon.pid })
+
+  const after = await info(socketPath)
+  stop = true
+  await hammer
+
+  expect(after).toMatchObject({
+    version: "2.0.0",
+    pid: before.pid,
+    childPid: before.childPid,
+    echo: "ok",
+    adopted: true,
+  })
+  expect(alive(before.childPid)).toBe(true)
+  expect(refused).toEqual([])
+  expect(answered).toContain("1.0.0")
+  expect(answered).toContain("2.0.0")
+}
+
 describe("execve hand-off", () => {
   test("keeps the PID, the Harness child and the listener across an upgrade", async () => {
-    const socketPath = join(home, "daemon.sock")
-    daemon = Bun.spawn([process.execPath, fixture, "--as", "1.0.0"], {
-      env: { ...process.env, POLARIS_HOME: home },
-      stdio: ["ignore", "inherit", "inherit"],
-    })
-    await waitFor(() => existsSync(socketPath) && runningDaemonPid() !== null)
-
-    const before = await info(socketPath)
-    expect(before).toMatchObject({ version: "1.0.0", pid: daemon.pid, echo: "ok", adopted: false })
-
-    // The "new binary": validates as a Daemon build, then becomes version 2.0.0.
-    const next = join(home, "polaris-2.0.0")
-    writeFileSync(
-      next,
-      `#!/bin/sh
-if [ "$1" = version ]; then echo "polaris 2.0.0 ${platform}"; exit 0; fi
-exec "${process.execPath}" "${fixture}" --as 2.0.0
-`,
-    )
-    chmodSync(next, 0o755)
-
-    // Hammer the socket throughout the switch: nothing may be refused.
-    let stop = false
-    const refused: Array<string> = []
-    const answered: Array<string> = []
-    const hammer = (async () => {
-      while (!stop) {
-        await info(socketPath).then(
-          (reply) => answered.push(reply.version),
-          (error: NodeJS.ErrnoException) => {
-            // Accepted by the old image just before exec: closed, the Client reconnects.
-            if (error.message === "closed before answering") return
-            refused.push(error.code ?? error.message)
-          },
-        )
-        await Bun.sleep(5)
-      }
-    })()
-
-    const status = await Effect.runPromise(
-      requestUpgrade({ pid: daemon.pid, binary: next, version: "2.0.0" }).pipe(
-        Effect.provide(CommandRunner.layer),
-      ),
-    )
-    expect(status).toMatchObject({ state: "done", pid: daemon.pid })
-
-    const after = await info(socketPath)
-    stop = true
-    await hammer
-
-    expect(after).toMatchObject({
-      version: "2.0.0",
-      pid: before.pid,
-      childPid: before.childPid,
-      echo: "ok",
-      adopted: true,
-    })
-    expect(alive(before.childPid)).toBe(true)
-    expect(refused).toEqual([])
-    expect(answered).toContain("1.0.0")
-    expect(answered).toContain("2.0.0")
+    await handoffScenario([process.execPath, fixture])
   }, 30_000)
+
+  test("works between compiled binaries (bun:ffi inside bun build --compile)", async () => {
+    const binary = join(home, "fixture-bin")
+    const build = Bun.spawnSync([
+      process.execPath,
+      "build",
+      fixture,
+      "--compile",
+      `--outfile=${binary}`,
+    ])
+    expect(build.exitCode).toBe(0)
+    if (process.platform === "darwin") {
+      // See scripts/build-daemon.ts: Bun leaves an invalid ad-hoc signature.
+      expect(Bun.spawnSync(["codesign", "--force", "--sign", "-", binary]).exitCode).toBe(0)
+    }
+    await handoffScenario([binary])
+  }, 60_000)
 
   test("rejects a binary for another platform and keeps running", async () => {
     const socketPath = join(home, "daemon.sock")

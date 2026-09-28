@@ -3,6 +3,11 @@
   "ui": "stream",
   "tasks": {
     "build": { "dependsOn": ["^build"], "outputs": ["dist/**"] },
+    "@polaris/daemon#build": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/scripts/build-daemon.ts"],
+      "outputs": ["dist/**"]
+    },
     "typecheck": { "dependsOn": ["^typecheck"] },
     "test": { "dependsOn": ["^build"] },
     "dev": { "cache": false, "persistent": true }

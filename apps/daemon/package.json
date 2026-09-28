@@ -8,6 +8,7 @@
     "polaris": "./src/main.ts"
   },
   "scripts": {
+    "build": "bun ../../scripts/build-daemon.ts",
     "dev": "bun --watch src/main.ts serve --foreground",
     "typecheck": "tsc -p .",
     "test": "bun test --pass-with-no-tests"
