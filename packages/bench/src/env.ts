@@ -65,7 +65,9 @@ export const environment = (options: {
     arch: arch(),
     bun: Bun.version,
     gitSha: run(["git", "rev-parse", "--short=12", "HEAD"]),
-    gitDirty: run(["git", "status", "--porcelain"]).length > 0,
+    // Baselines being written are not a change to the code under test.
+    gitDirty:
+      run(["git", "status", "--porcelain", "--", ".", ":!packages/bench/baselines"]).length > 0,
     daemon: options.binary ? "compiled" : "source",
     daemonBinary: options.binary,
     transport: options.transport,
