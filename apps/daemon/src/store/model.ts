@@ -138,13 +138,36 @@ const updateSession = (
 // ── Reducer ─────────────────────────────────────────────────────────────────
 
 export const project = (model: ReadModel, envelope: EventEnvelope): ReadModel => {
-  const next = apply(model, envelope)
+  const next = apply(model, envelope.event, envelope.occurredAt, envelope.commandId !== null)
   return { ...next, sequence: envelope.sequence }
 }
 
-const apply = (model: ReadModel, envelope: EventEnvelope): ReadModel => {
-  const event = envelope.event
-  const at = envelope.occurredAt
+/**
+ * Fold events into one session's record exactly as `project` would, without
+ * the rest of the model. The session lifecycle machine (`engine/session.ts`)
+ * updates its context with it, so its snapshot is always the one the log folds to.
+ */
+export const foldSession = (
+  sessionId: SessionId,
+  record: SessionRecord | undefined,
+  events: ReadonlyArray<DomainEvent>,
+  occurredAt: string,
+): SessionRecord | undefined => {
+  let model: ReadModel = {
+    ...emptyModel,
+    sessions: record === undefined ? new Map() : new Map([[sessionId, record]]),
+  }
+  for (const event of events) model = apply(model, event, occurredAt, false)
+  return model.sessions.get(sessionId)
+}
+
+const apply = (
+  model: ReadModel,
+  event: DomainEvent,
+  at: string,
+  /** The event records a Client's command (it carries a command id). */
+  byClient: boolean,
+): ReadModel => {
   switch (event._tag) {
     case "WorkspaceRegistered":
     case "WorkspaceUpdated":
@@ -189,7 +212,7 @@ const apply = (model: ReadModel, envelope: EventEnvelope): ReadModel => {
       return updateSession(model, event.sessionId, at, (r) => ({
         ...r,
         // A rename a Client asked for (it carries a command id) locks the title.
-        titleLocked: r.titleLocked || envelope.commandId !== null,
+        titleLocked: r.titleLocked || byClient,
         session: new AgentSession({ ...r.session, title: event.title }),
       }))
     case "SessionCursorUpdated":
