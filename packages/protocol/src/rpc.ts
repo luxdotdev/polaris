@@ -9,7 +9,7 @@
  */
 import { Schema } from "effect"
 import { Rpc, RpcGroup } from "effect/rpc"
-import { Capability } from "./capabilities.ts"
+import { CapabilityList } from "./capabilities.ts"
 import { Command } from "./commands.ts"
 import {
   AgentSession,
@@ -59,12 +59,12 @@ export const Hello = Rpc.make("hello", {
     clientVersion: Schema.String,
     /** Label shown to other Clients, e.g. when this device resolves an approval. */
     deviceLabel: Schema.String,
-    capabilities: Schema.Array(Capability),
+    capabilities: CapabilityList,
   },
   success: Schema.Struct({
     host: HostInfo,
     protocolVersion: Schema.Int,
-    capabilities: Schema.Array(Capability),
+    capabilities: CapabilityList,
   }),
 })
 
