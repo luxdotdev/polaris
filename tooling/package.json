@@ -1,0 +1,15 @@
+{
+  "name": "@polaris/tooling",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "description": "Repo tooling: the lint ratchet, the quality runner behind the git hooks, and the hooks themselves.",
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "effect": "4.0.0-rc.118"
+  }
+}

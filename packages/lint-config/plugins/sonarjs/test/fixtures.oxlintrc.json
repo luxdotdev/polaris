@@ -1,0 +1,6 @@
+{
+  "jsPlugins": [{ "name": "sonarjs", "specifier": "../index.mjs" }],
+  "rules": {
+    "sonarjs/cognitive-complexity": ["error", 15]
+  }
+}

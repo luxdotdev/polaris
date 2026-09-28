@@ -1,0 +1,6 @@
+{
+  "jsPlugins": [{ "name": "polaris", "specifier": "../index.mjs" }],
+  "rules": {
+    "polaris/no-long-comment": "error"
+  }
+}

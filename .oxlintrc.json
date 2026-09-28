@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "extends": ["./packages/lint-config/oxlint.json"],
+  "ignorePatterns": [
+    "**/node_modules/**",
+    "**/dist/**",
+    ".agents/**",
+    ".claude/**",
+    ".codex/**",
+    "design/**",
+    "docs/**",
+    "packages/lint-config/plugins/anti-slop/**",
+    "packages/lint-config/plugins/*/test/fixtures/**",
+    "apps/daemon/src/harness/codex/generated/**"
+  ]
+}

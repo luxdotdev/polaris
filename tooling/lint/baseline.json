@@ -1,0 +1,837 @@
+{
+  "$comment": "Existing lint violations, per file and rule. `bun run lint` fails when a count goes up; `bun run lint:baseline` lowers them. Never raise a count by hand: fix the code. See packages/lint-config/README.md.",
+  "violations": {
+    "apps/daemon/scripts/e2e-claude-steer.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 11,
+      "anti-slop-effect/no-manual-tagged-construction": 5,
+      "anti-slop/no-chained-type-assertions": 1,
+      "anti-slop/no-conditional-empty-object-spread": 1,
+      "anti-slop/no-unsafe-dictionary-type": 2,
+      "anti-slop/require-readable-spacing": 47,
+      "anti-slop/require-safety-comment-for-type-assertion": 8,
+      "typescript/no-unnecessary-type-assertion": 2,
+      "typescript/no-unsafe-assignment": 12,
+      "typescript/no-unsafe-call": 23,
+      "typescript/no-unsafe-member-access": 9,
+      "typescript/no-unsafe-return": 3
+    },
+    "apps/daemon/scripts/e2e-codex-tui.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 12,
+      "anti-slop-effect/no-manual-tagged-construction": 8,
+      "anti-slop/no-chained-type-assertions": 1,
+      "anti-slop/no-conditional-empty-object-spread": 1,
+      "anti-slop/no-unsafe-dictionary-type": 2,
+      "anti-slop/require-readable-spacing": 59,
+      "anti-slop/require-safety-comment-for-type-assertion": 8,
+      "typescript/no-unnecessary-type-assertion": 3,
+      "typescript/no-unsafe-argument": 3,
+      "typescript/no-unsafe-assignment": 17,
+      "typescript/no-unsafe-call": 39,
+      "typescript/no-unsafe-member-access": 16,
+      "typescript/no-unsafe-return": 5
+    },
+    "apps/daemon/scripts/smoke.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 12,
+      "anti-slop-effect/no-manual-tagged-construction": 5,
+      "anti-slop/require-readable-spacing": 28,
+      "anti-slop/require-safety-comment-for-type-assertion": 3,
+      "typescript/no-unnecessary-type-assertion": 2,
+      "typescript/no-unsafe-argument": 1,
+      "typescript/no-unsafe-assignment": 13,
+      "typescript/no-unsafe-call": 12,
+      "typescript/no-unsafe-member-access": 6,
+      "typescript/no-unsafe-return": 2
+    },
+    "apps/daemon/src/attachments/AttachmentRpcs.ts": {
+      "anti-slop/require-readable-spacing": 1
+    },
+    "apps/daemon/src/attachments/AttachmentStore.test.ts": {
+      "anti-slop/no-conditional-empty-object-spread": 1,
+      "anti-slop/require-readable-spacing": 28,
+      "anti-slop/require-safety-comment-for-type-assertion": 6
+    },
+    "apps/daemon/src/attachments/AttachmentStore.ts": {
+      "anti-slop/no-runtime-typeof": 1,
+      "anti-slop/require-readable-spacing": 57,
+      "anti-slop/require-safety-comment-for-type-assertion": 3
+    },
+    "apps/daemon/src/debug.ts": {
+      "anti-slop/require-readable-spacing": 3
+    },
+    "apps/daemon/src/engine/decider.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 3,
+      "anti-slop/require-readable-spacing": 57,
+      "polaris/no-long-comment": 1,
+      "sonarjs/cognitive-complexity": 1,
+      "typescript/no-misused-spread": 2
+    },
+    "apps/daemon/src/engine/Engine.checkpoints.test.ts": {
+      "anti-slop-effect/no-manual-tagged-construction": 7,
+      "anti-slop/no-conditional-empty-object-spread": 1,
+      "anti-slop/require-readable-spacing": 18,
+      "anti-slop/require-safety-comment-for-type-assertion": 3,
+      "typescript/no-unnecessary-type-assertion": 2
+    },
+    "apps/daemon/src/engine/Engine.followups.test.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 18,
+      "anti-slop-effect/no-manual-tagged-construction": 37,
+      "anti-slop/require-readable-spacing": 37,
+      "anti-slop/require-safety-comment-for-type-assertion": 14,
+      "typescript/no-unnecessary-type-assertion": 2
+    },
+    "apps/daemon/src/engine/Engine.test.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 9,
+      "anti-slop-effect/no-manual-tagged-construction": 37,
+      "anti-slop/require-readable-spacing": 26,
+      "anti-slop/require-safety-comment-for-type-assertion": 7,
+      "typescript/no-unnecessary-type-assertion": 1
+    },
+    "apps/daemon/src/engine/Engine.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 18,
+      "anti-slop-effect/no-manual-tagged-construction": 12,
+      "anti-slop/no-array-filter-map": 3,
+      "anti-slop/no-conditional-empty-object-spread": 2,
+      "anti-slop/no-runtime-typeof": 2,
+      "anti-slop/no-unknown-parameters": 1,
+      "anti-slop/require-readable-spacing": 163,
+      "anti-slop/require-safety-comment-for-type-assertion": 3,
+      "max-lines": 1,
+      "polaris/no-long-comment": 1,
+      "typescript/no-misused-spread": 1
+    },
+    "apps/daemon/src/engine/fork.test.ts": {
+      "anti-slop-effect/no-manual-tagged-construction": 4,
+      "anti-slop/require-readable-spacing": 1
+    },
+    "apps/daemon/src/engine/fork.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 1,
+      "anti-slop/require-readable-spacing": 11
+    },
+    "apps/daemon/src/engine/rpc.ts": {
+      "anti-slop/require-readable-spacing": 5
+    },
+    "apps/daemon/src/engine/testing.ts": {
+      "anti-slop-effect/no-manual-tagged-construction": 5,
+      "anti-slop/no-conditional-empty-object-spread": 2,
+      "anti-slop/require-readable-spacing": 21,
+      "anti-slop/require-safety-comment-for-type-assertion": 1
+    },
+    "apps/daemon/src/files/files.test.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 2,
+      "anti-slop-effect/no-manual-tagged-construction": 6,
+      "anti-slop/require-readable-spacing": 11
+    },
+    "apps/daemon/src/files/FileSearch.test.ts": {
+      "anti-slop-effect/no-manual-tagged-construction": 1,
+      "anti-slop/require-readable-spacing": 25
+    },
+    "apps/daemon/src/files/FileSearch.ts": {
+      "anti-slop-effect/no-service-constructor-imports": 2,
+      "anti-slop/require-readable-spacing": 16
+    },
+    "apps/daemon/src/files/FilesRpcs.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 2,
+      "anti-slop/require-readable-spacing": 10,
+      "anti-slop/require-safety-comment-for-type-assertion": 1
+    },
+    "apps/daemon/src/files/fs.ts": {
+      "anti-slop-effect/no-manual-tagged-construction": 3,
+      "anti-slop/no-runtime-typeof": 2,
+      "anti-slop/require-readable-spacing": 26,
+      "sonarjs/cognitive-complexity": 1
+    },
+    "apps/daemon/src/files/handlers.test.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 1,
+      "anti-slop-effect/no-manual-tagged-construction": 3,
+      "anti-slop/require-readable-spacing": 10,
+      "anti-slop/require-safety-comment-for-type-assertion": 1,
+      "typescript/no-unnecessary-type-assertion": 1
+    },
+    "apps/daemon/src/files/mime.ts": {
+      "anti-slop/no-known-value-widening": 1,
+      "anti-slop/require-readable-spacing": 13
+    },
+    "apps/daemon/src/files/search/fallback.ts": {
+      "anti-slop/require-readable-spacing": 47,
+      "sonarjs/cognitive-complexity": 1,
+      "unicorn/no-useless-spread": 1
+    },
+    "apps/daemon/src/files/search/fff.ts": {
+      "anti-slop/require-readable-spacing": 33,
+      "unicorn/no-useless-spread": 1
+    },
+    "apps/daemon/src/files/testing.ts": {
+      "anti-slop/require-readable-spacing": 10,
+      "anti-slop/require-safety-comment-for-type-assertion": 2
+    },
+    "apps/daemon/src/git/Checkpoints.ts": {
+      "anti-slop/require-readable-spacing": 9
+    },
+    "apps/daemon/src/git/diff.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 1,
+      "anti-slop/require-readable-spacing": 18
+    },
+    "apps/daemon/src/git/git.test.ts": {
+      "anti-slop-effect/no-manual-tagged-construction": 5,
+      "anti-slop/require-readable-spacing": 18,
+      "anti-slop/require-safety-comment-for-type-assertion": 3
+    },
+    "apps/daemon/src/git/git.ts": {
+      "anti-slop/no-known-value-widening": 1,
+      "anti-slop/require-readable-spacing": 8,
+      "anti-slop/require-safety-comment-for-type-assertion": 1
+    },
+    "apps/daemon/src/git/GitRpcs.ts": {
+      "anti-slop/require-readable-spacing": 3
+    },
+    "apps/daemon/src/git/prune.test.ts": {
+      "anti-slop/require-readable-spacing": 29
+    },
+    "apps/daemon/src/git/prune.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 1,
+      "anti-slop/no-conditional-empty-object-spread": 2,
+      "anti-slop/require-readable-spacing": 52,
+      "sonarjs/cognitive-complexity": 1
+    },
+    "apps/daemon/src/git/snapshot.test.ts": {
+      "anti-slop/require-readable-spacing": 7
+    },
+    "apps/daemon/src/git/snapshot.ts": {
+      "anti-slop/require-readable-spacing": 24
+    },
+    "apps/daemon/src/git/status.ts": {
+      "anti-slop/require-readable-spacing": 14,
+      "sonarjs/cognitive-complexity": 1
+    },
+    "apps/daemon/src/git/testing.ts": {
+      "anti-slop/require-readable-spacing": 4
+    },
+    "apps/daemon/src/git/WorktreeTracker.test.ts": {
+      "anti-slop/require-readable-spacing": 9
+    },
+    "apps/daemon/src/git/WorktreeTracker.ts": {
+      "anti-slop/require-readable-spacing": 29
+    },
+    "apps/daemon/src/harness/bench/BenchDriver.test.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 8,
+      "anti-slop-effect/no-manual-tagged-construction": 1,
+      "anti-slop/require-readable-spacing": 14,
+      "anti-slop/require-safety-comment-for-type-assertion": 5,
+      "typescript/no-unnecessary-type-assertion": 1
+    },
+    "apps/daemon/src/harness/bench/BenchDriver.ts": {
+      "anti-slop-effect/no-manual-tagged-construction": 12,
+      "anti-slop/require-readable-spacing": 15,
+      "anti-slop/require-safety-comment-for-type-assertion": 2,
+      "sonarjs/cognitive-complexity": 1
+    },
+    "apps/daemon/src/harness/claude/ClaudeDriver.e2e.test.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 5,
+      "anti-slop-effect/no-manual-tagged-construction": 1,
+      "anti-slop/require-readable-spacing": 7,
+      "anti-slop/require-safety-comment-for-type-assertion": 2
+    },
+    "apps/daemon/src/harness/claude/ClaudeDriver.test.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 13,
+      "anti-slop-effect/no-manual-tagged-construction": 39,
+      "anti-slop/no-runtime-typeof": 1,
+      "anti-slop/require-readable-spacing": 29,
+      "anti-slop/require-safety-comment-for-type-assertion": 7
+    },
+    "apps/daemon/src/harness/claude/ClaudeDriver.ts": {
+      "anti-slop-effect/no-manual-tagged-construction": 6,
+      "anti-slop/no-conditional-empty-object-spread": 5,
+      "anti-slop/no-known-value-widening": 1,
+      "anti-slop/no-runtime-typeof": 1,
+      "anti-slop/no-unsafe-dictionary-type": 1,
+      "anti-slop/require-readable-spacing": 41,
+      "anti-slop/require-safety-comment-for-type-assertion": 2,
+      "polaris/no-long-comment": 1,
+      "typescript/no-base-to-string": 1,
+      "typescript/no-unnecessary-type-assertion": 1,
+      "unicorn/no-useless-spread": 1
+    },
+    "apps/daemon/src/harness/claude/fakeClaude.ts": {
+      "anti-slop/no-chained-type-assertions": 1,
+      "anti-slop/no-conditional-empty-object-spread": 3,
+      "anti-slop/no-runtime-typeof": 1,
+      "anti-slop/no-unknown-parameters": 3,
+      "anti-slop/no-unsafe-dictionary-type": 1,
+      "anti-slop/require-readable-spacing": 8,
+      "anti-slop/require-safety-comment-for-type-assertion": 3,
+      "typescript/no-this-alias": 1
+    },
+    "apps/daemon/src/harness/claude/hooks.test.ts": {
+      "anti-slop-effect/no-manual-tagged-construction": 22,
+      "anti-slop/no-unknown-parameters": 1,
+      "anti-slop/require-readable-spacing": 17,
+      "anti-slop/require-safety-comment-for-type-assertion": 5,
+      "typescript/await-thenable": 1,
+      "typescript/no-unsafe-argument": 1,
+      "typescript/no-unsafe-assignment": 2,
+      "typescript/no-unsafe-member-access": 4
+    },
+    "apps/daemon/src/harness/claude/hooks.ts": {
+      "anti-slop-effect/no-manual-tagged-construction": 13,
+      "anti-slop/no-runtime-typeof": 3,
+      "anti-slop/no-unknown-parameters": 2,
+      "anti-slop/no-unsafe-dictionary-type": 1,
+      "anti-slop/require-readable-spacing": 33,
+      "anti-slop/require-safety-comment-for-type-assertion": 2,
+      "sonarjs/cognitive-complexity": 1
+    },
+    "apps/daemon/src/harness/claude/inbox.ts": {
+      "anti-slop/require-readable-spacing": 7
+    },
+    "apps/daemon/src/harness/claude/input.ts": {
+      "anti-slop/require-readable-spacing": 5,
+      "anti-slop/require-safety-comment-for-type-assertion": 2
+    },
+    "apps/daemon/src/harness/claude/permissions.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 1,
+      "anti-slop/no-known-value-widening": 9,
+      "anti-slop/no-runtime-typeof": 2,
+      "anti-slop/no-unknown-parameters": 3,
+      "anti-slop/no-unsafe-dictionary-type": 2,
+      "anti-slop/require-readable-spacing": 13
+    },
+    "apps/daemon/src/harness/claude/translate.ts": {
+      "anti-slop-effect/no-manual-tagged-construction": 15,
+      "anti-slop-effect/prefer-effect-match": 1,
+      "anti-slop/no-known-value-widening": 3,
+      "anti-slop/no-runtime-typeof": 11,
+      "anti-slop/no-unknown-parameters": 7,
+      "anti-slop/no-unsafe-dictionary-type": 2,
+      "anti-slop/require-readable-spacing": 38,
+      "anti-slop/require-safety-comment-for-type-assertion": 2,
+      "sonarjs/cognitive-complexity": 2
+    },
+    "apps/daemon/src/harness/codex/AppServer.test.ts": {
+      "anti-slop/require-readable-spacing": 8
+    },
+    "apps/daemon/src/harness/codex/AppServer.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 1,
+      "anti-slop/require-readable-spacing": 42,
+      "anti-slop/require-safety-comment-for-type-assertion": 1
+    },
+    "apps/daemon/src/harness/codex/CodexDriver.test.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 29,
+      "anti-slop-effect/no-manual-tagged-construction": 24,
+      "anti-slop/no-unknown-parameters": 1,
+      "anti-slop/require-readable-spacing": 48,
+      "anti-slop/require-safety-comment-for-type-assertion": 2,
+      "typescript/no-unsafe-assignment": 1,
+      "typescript/restrict-template-expressions": 1
+    },
+    "apps/daemon/src/harness/codex/CodexDriver.ts": {
+      "anti-slop-effect/no-service-constructor-imports": 1,
+      "anti-slop/require-readable-spacing": 6
+    },
+    "apps/daemon/src/harness/codex/CodexSession.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 5,
+      "anti-slop-effect/no-manual-tagged-construction": 17,
+      "anti-slop/no-conditional-empty-object-spread": 2,
+      "anti-slop/no-unknown-parameters": 3,
+      "anti-slop/no-unknown-returns": 2,
+      "anti-slop/require-readable-spacing": 96,
+      "anti-slop/require-safety-comment-for-type-assertion": 1,
+      "sonarjs/cognitive-complexity": 1,
+      "typescript/no-unnecessary-type-assertion": 1
+    },
+    "apps/daemon/src/harness/codex/e2e.test.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 5,
+      "anti-slop/require-readable-spacing": 8
+    },
+    "apps/daemon/src/harness/codex/generate.ts": {
+      "anti-slop/require-readable-spacing": 16
+    },
+    "apps/daemon/src/harness/codex/index.ts": {
+      "anti-slop/require-readable-spacing": 1
+    },
+    "apps/daemon/src/harness/codex/mapping.test.ts": {
+      "anti-slop-effect/no-manual-tagged-construction": 16,
+      "anti-slop/no-unknown-parameters": 1,
+      "anti-slop/require-readable-spacing": 2
+    },
+    "apps/daemon/src/harness/codex/mapping.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 5,
+      "anti-slop-effect/no-manual-tagged-construction": 11,
+      "anti-slop-effect/prefer-effect-match": 1,
+      "anti-slop/no-unsafe-dictionary-type": 1,
+      "anti-slop/require-readable-spacing": 20,
+      "anti-slop/require-safety-comment-for-type-assertion": 1,
+      "sonarjs/cognitive-complexity": 1,
+      "typescript/no-unnecessary-type-assertion": 1
+    },
+    "apps/daemon/src/harness/codex/protocol.ts": {
+      "anti-slop/require-readable-spacing": 64
+    },
+    "apps/daemon/src/harness/codex/RpcConnection.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 1,
+      "anti-slop-effect/no-manual-tagged-construction": 2,
+      "anti-slop/no-object-parameters": 1,
+      "anti-slop/no-runtime-typeof": 1,
+      "anti-slop/no-unknown-parameters": 5,
+      "anti-slop/require-readable-spacing": 13,
+      "anti-slop/require-safety-comment-for-type-assertion": 1
+    },
+    "apps/daemon/src/harness/codex/testing/FakeAppServer.ts": {
+      "anti-slop/no-array-filter-map": 1,
+      "anti-slop/no-object-parameters": 1,
+      "anti-slop/no-unknown-parameters": 4,
+      "anti-slop/no-unknown-returns": 1,
+      "anti-slop/no-unsafe-dictionary-type": 4,
+      "anti-slop/require-readable-spacing": 10,
+      "anti-slop/require-safety-comment-for-type-assertion": 6,
+      "typescript/no-misused-promises": 1
+    },
+    "apps/daemon/src/harness/codex/testing/fakeCodex.ts": {
+      "anti-slop/require-readable-spacing": 8
+    },
+    "apps/daemon/src/harness/registry.ts": {
+      "anti-slop-effect/no-service-constructor-imports": 3,
+      "anti-slop/require-readable-spacing": 4
+    },
+    "apps/daemon/src/main.ts": {
+      "anti-slop/require-readable-spacing": 4
+    },
+    "apps/daemon/src/paths.ts": {
+      "anti-slop/require-readable-spacing": 1
+    },
+    "apps/daemon/src/service/cli.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 1,
+      "anti-slop/no-known-value-widening": 1,
+      "anti-slop/no-object-parameters": 1,
+      "anti-slop/require-readable-spacing": 13
+    },
+    "apps/daemon/src/service/CommandRunner.ts": {
+      "anti-slop/require-readable-spacing": 2
+    },
+    "apps/daemon/src/service/fixtures/handoff-daemon.ts": {
+      "anti-slop/require-readable-spacing": 9
+    },
+    "apps/daemon/src/service/install.test.ts": {
+      "anti-slop/require-readable-spacing": 37,
+      "anti-slop/require-safety-comment-for-type-assertion": 2
+    },
+    "apps/daemon/src/service/install.ts": {
+      "anti-slop/no-array-filter-map": 1,
+      "anti-slop/require-readable-spacing": 65,
+      "typescript/no-unnecessary-type-assertion": 2
+    },
+    "apps/daemon/src/service/libc.ts": {
+      "anti-slop/no-chained-type-assertions": 1,
+      "anti-slop/require-readable-spacing": 26,
+      "anti-slop/require-safety-comment-for-type-assertion": 2
+    },
+    "apps/daemon/src/service/platform.ts": {
+      "anti-slop/require-readable-spacing": 6,
+      "anti-slop/require-safety-comment-for-type-assertion": 1
+    },
+    "apps/daemon/src/service/selftest.ts": {
+      "anti-slop-effect/no-service-constructor-imports": 1,
+      "anti-slop/require-readable-spacing": 4
+    },
+    "apps/daemon/src/service/supervisor.test.ts": {
+      "anti-slop/require-readable-spacing": 8
+    },
+    "apps/daemon/src/service/templates.ts": {
+      "anti-slop/require-readable-spacing": 10,
+      "anti-slop/require-safety-comment-for-type-assertion": 3,
+      "typescript/no-unnecessary-type-assertion": 3
+    },
+    "apps/daemon/src/service/upgrade.test.ts": {
+      "anti-slop/require-readable-spacing": 16,
+      "typescript/no-unsafe-argument": 1
+    },
+    "apps/daemon/src/service/upgrade.ts": {
+      "anti-slop/no-chained-type-assertions": 1,
+      "anti-slop/no-known-value-widening": 1,
+      "anti-slop/no-object-parameters": 1,
+      "anti-slop/no-runtime-typeof": 1,
+      "anti-slop/no-unknown-parameters": 2,
+      "anti-slop/require-readable-spacing": 64,
+      "anti-slop/require-safety-comment-for-type-assertion": 4,
+      "typescript/no-unnecessary-type-assertion": 1,
+      "unicorn/no-useless-fallback-in-spread": 1
+    },
+    "apps/daemon/src/store/EventStore.bounded.test.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 4,
+      "anti-slop-effect/no-manual-tagged-construction": 3,
+      "anti-slop/require-readable-spacing": 20,
+      "anti-slop/require-safety-comment-for-type-assertion": 8,
+      "typescript/no-misused-spread": 2
+    },
+    "apps/daemon/src/store/EventStore.test.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 1,
+      "anti-slop-effect/no-manual-tagged-construction": 7,
+      "anti-slop/require-readable-spacing": 20,
+      "anti-slop/require-safety-comment-for-type-assertion": 7,
+      "typescript/no-misused-spread": 1
+    },
+    "apps/daemon/src/store/EventStore.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 7,
+      "anti-slop-effect/no-manual-tagged-construction": 3,
+      "anti-slop/require-readable-spacing": 64,
+      "anti-slop/require-safety-comment-for-type-assertion": 13,
+      "polaris/no-long-comment": 3,
+      "sonarjs/cognitive-complexity": 1,
+      "typescript/no-unnecessary-type-assertion": 2,
+      "typescript/no-unsafe-argument": 1
+    },
+    "apps/daemon/src/store/model.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 2,
+      "anti-slop/require-readable-spacing": 19,
+      "typescript/no-misused-spread": 7
+    },
+    "apps/daemon/src/terminal/fixtures/terminal-daemon.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 1,
+      "anti-slop-effect/no-service-constructor-imports": 1,
+      "anti-slop/no-unsafe-dictionary-type": 1,
+      "anti-slop/require-readable-spacing": 6,
+      "anti-slop/require-safety-comment-for-type-assertion": 6,
+      "typescript/no-unsafe-argument": 1
+    },
+    "apps/daemon/src/terminal/handoff.test.ts": {
+      "anti-slop/no-runtime-typeof": 1,
+      "anti-slop/no-unsafe-dictionary-type": 2,
+      "anti-slop/require-readable-spacing": 10,
+      "typescript/no-unsafe-argument": 1
+    },
+    "apps/daemon/src/terminal/TerminalRpcs.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 1,
+      "anti-slop-effect/no-manual-tagged-construction": 2,
+      "anti-slop/require-readable-spacing": 6,
+      "anti-slop/require-safety-comment-for-type-assertion": 1
+    },
+    "apps/daemon/src/terminal/Terminals.test.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 1,
+      "anti-slop-effect/no-manual-tagged-construction": 2,
+      "anti-slop/no-runtime-typeof": 1,
+      "anti-slop/require-readable-spacing": 21,
+      "anti-slop/require-safety-comment-for-type-assertion": 1
+    },
+    "apps/daemon/src/terminal/Terminals.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 2,
+      "anti-slop-effect/no-manual-tagged-construction": 4,
+      "anti-slop/no-array-filter-map": 1,
+      "anti-slop/no-unknown-parameters": 2,
+      "anti-slop/require-readable-spacing": 80,
+      "anti-slop/require-safety-comment-for-type-assertion": 8,
+      "prefer-const": 1,
+      "sonarjs/cognitive-complexity": 1,
+      "typescript/no-unnecessary-type-assertion": 2
+    },
+    "apps/daemon/src/transport/bridge.test.ts": {
+      "anti-slop/require-readable-spacing": 10,
+      "typescript/no-floating-promises": 1
+    },
+    "apps/daemon/src/transport/bridge.ts": {
+      "anti-slop/no-unknown-returns": 3,
+      "anti-slop/require-readable-spacing": 23
+    },
+    "apps/daemon/src/transport/bunSocket.ts": {
+      "anti-slop/no-chained-type-assertions": 2,
+      "anti-slop/require-readable-spacing": 15,
+      "anti-slop/require-safety-comment-for-type-assertion": 4
+    },
+    "apps/daemon/src/transport/handlers.ts": {
+      "anti-slop/require-readable-spacing": 1
+    },
+    "apps/daemon/src/transport/hostInfo.ts": {
+      "anti-slop/require-readable-spacing": 5
+    },
+    "apps/daemon/src/transport/lock.ts": {
+      "anti-slop/require-readable-spacing": 11,
+      "anti-slop/require-safety-comment-for-type-assertion": 3,
+      "sonarjs/cognitive-complexity": 1
+    },
+    "apps/daemon/src/transport/rpcs.ts": {
+      "anti-slop/require-readable-spacing": 1
+    },
+    "apps/daemon/src/transport/serve.ts": {
+      "anti-slop/require-readable-spacing": 2
+    },
+    "apps/daemon/src/transport/server.ts": {
+      "anti-slop/require-readable-spacing": 20,
+      "anti-slop/require-safety-comment-for-type-assertion": 3
+    },
+    "apps/daemon/src/transport/socket.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 1,
+      "anti-slop/require-readable-spacing": 10,
+      "typescript/restrict-template-expressions": 2
+    },
+    "apps/daemon/src/transport/transport.test.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 11,
+      "anti-slop-effect/no-manual-tagged-construction": 7,
+      "anti-slop/require-readable-spacing": 102,
+      "anti-slop/require-safety-comment-for-type-assertion": 7
+    },
+    "packages/bench/src/cli.ts": {
+      "anti-slop/require-readable-spacing": 31,
+      "anti-slop/require-safety-comment-for-type-assertion": 4,
+      "sonarjs/cognitive-complexity": 2
+    },
+    "packages/bench/src/compare.test.ts": {
+      "anti-slop/require-readable-spacing": 4
+    },
+    "packages/bench/src/compare.ts": {
+      "anti-slop/no-known-value-widening": 3,
+      "anti-slop/require-readable-spacing": 15,
+      "sonarjs/cognitive-complexity": 1
+    },
+    "packages/bench/src/daemon.ts": {
+      "anti-slop/no-conditional-empty-object-spread": 1,
+      "anti-slop/no-known-value-widening": 1,
+      "anti-slop/require-readable-spacing": 21,
+      "anti-slop/require-safety-comment-for-type-assertion": 1
+    },
+    "packages/bench/src/drive.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 5,
+      "anti-slop-effect/no-manual-tagged-construction": 6,
+      "anti-slop/require-readable-spacing": 29,
+      "anti-slop/require-safety-comment-for-type-assertion": 2,
+      "sonarjs/cognitive-complexity": 1,
+      "typescript/no-unnecessary-type-assertion": 1
+    },
+    "packages/bench/src/env.ts": {
+      "anti-slop/require-readable-spacing": 7
+    },
+    "packages/bench/src/fixtures.ts": {
+      "anti-slop/require-readable-spacing": 17,
+      "typescript/no-floating-promises": 1
+    },
+    "packages/bench/src/proc.test.ts": {
+      "anti-slop/require-readable-spacing": 4
+    },
+    "packages/bench/src/proc.ts": {
+      "anti-slop/require-readable-spacing": 26,
+      "anti-slop/require-safety-comment-for-type-assertion": 1,
+      "typescript/no-require-imports": 1
+    },
+    "packages/bench/src/report.ts": {
+      "anti-slop-effect/prefer-effect-match": 1,
+      "anti-slop/require-readable-spacing": 23,
+      "sonarjs/cognitive-complexity": 1
+    },
+    "packages/bench/src/runner.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 1,
+      "anti-slop/no-conditional-empty-object-spread": 1,
+      "anti-slop/no-known-value-widening": 1,
+      "anti-slop/require-readable-spacing": 15
+    },
+    "packages/bench/src/sampler.test.ts": {
+      "anti-slop/require-readable-spacing": 2
+    },
+    "packages/bench/src/sampler.ts": {
+      "anti-slop/require-readable-spacing": 11,
+      "anti-slop/require-safety-comment-for-type-assertion": 1,
+      "sonarjs/cognitive-complexity": 1,
+      "typescript/no-unnecessary-type-assertion": 1
+    },
+    "packages/bench/src/scenarios/blobs.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 1,
+      "anti-slop-effect/no-service-constructor-imports": 1,
+      "anti-slop/no-conditional-empty-object-spread": 1,
+      "anti-slop/require-readable-spacing": 11
+    },
+    "packages/bench/src/scenarios/cold-start.ts": {
+      "anti-slop/no-conditional-empty-object-spread": 1,
+      "anti-slop/require-readable-spacing": 4
+    },
+    "packages/bench/src/scenarios/files.ts": {
+      "anti-slop/require-readable-spacing": 14
+    },
+    "packages/bench/src/scenarios/git.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 2,
+      "anti-slop-effect/no-manual-tagged-construction": 2,
+      "anti-slop-effect/no-service-constructor-imports": 1,
+      "anti-slop/no-conditional-empty-object-spread": 1,
+      "anti-slop/require-readable-spacing": 19,
+      "anti-slop/require-safety-comment-for-type-assertion": 1,
+      "typescript/no-unnecessary-type-assertion": 1
+    },
+    "packages/bench/src/scenarios/history.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 4,
+      "anti-slop-effect/no-service-constructor-imports": 1,
+      "anti-slop/no-conditional-empty-object-spread": 3,
+      "anti-slop/no-known-value-widening": 1,
+      "anti-slop/require-readable-spacing": 21,
+      "anti-slop/require-safety-comment-for-type-assertion": 2
+    },
+    "packages/bench/src/scenarios/idle.ts": {
+      "anti-slop-effect/no-service-constructor-imports": 1,
+      "anti-slop/require-readable-spacing": 21
+    },
+    "packages/bench/src/scenarios/sessions.ts": {
+      "anti-slop-effect/no-service-constructor-imports": 1,
+      "anti-slop/no-conditional-empty-object-spread": 1,
+      "anti-slop/no-known-value-widening": 2,
+      "anti-slop/require-readable-spacing": 22
+    },
+    "packages/bench/src/scenarios/terminal.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 2,
+      "anti-slop-effect/no-service-constructor-imports": 1,
+      "anti-slop/no-conditional-empty-object-spread": 1,
+      "anti-slop/require-readable-spacing": 6
+    },
+    "packages/bench/src/stats.ts": {
+      "anti-slop/require-readable-spacing": 4
+    },
+    "packages/bench/src/types.ts": {
+      "anti-slop/require-readable-spacing": 5
+    },
+    "packages/client/src/client.test.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 2,
+      "anti-slop-effect/no-manual-tagged-construction": 13,
+      "anti-slop-effect/prefer-effect-match": 1,
+      "anti-slop/require-readable-spacing": 22,
+      "anti-slop/require-safety-comment-for-type-assertion": 1
+    },
+    "packages/client/src/failures.ts": {
+      "anti-slop/require-readable-spacing": 13
+    },
+    "packages/client/src/HostConnection.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 3,
+      "anti-slop-effect/no-service-constructor-imports": 1,
+      "anti-slop/require-readable-spacing": 24,
+      "anti-slop/require-safety-comment-for-type-assertion": 4,
+      "sonarjs/cognitive-complexity": 1
+    },
+    "packages/client/src/HostRegistry.ts": {
+      "anti-slop-effect/no-service-constructor-imports": 1,
+      "anti-slop/require-readable-spacing": 3
+    },
+    "packages/client/src/index.ts": {
+      "anti-slop/require-readable-spacing": 7
+    },
+    "packages/client/src/install/builds.ts": {
+      "anti-slop/require-readable-spacing": 16,
+      "anti-slop/require-safety-comment-for-type-assertion": 4
+    },
+    "packages/client/src/install/index.ts": {
+      "anti-slop/require-readable-spacing": 3
+    },
+    "packages/client/src/install/plan.test.ts": {
+      "anti-slop-effect/no-manual-tagged-construction": 12,
+      "anti-slop/require-readable-spacing": 7
+    },
+    "packages/client/src/install/plan.ts": {
+      "anti-slop-effect/no-manual-tagged-construction": 8,
+      "anti-slop/require-readable-spacing": 9
+    },
+    "packages/client/src/install/remote.test.ts": {
+      "anti-slop-effect/no-manual-tagged-construction": 8,
+      "anti-slop/require-readable-spacing": 20,
+      "anti-slop/require-safety-comment-for-type-assertion": 1
+    },
+    "packages/client/src/install/remote.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 2,
+      "anti-slop-effect/no-manual-tagged-construction": 7,
+      "anti-slop/no-conditional-empty-object-spread": 1,
+      "anti-slop/no-runtime-typeof": 1,
+      "anti-slop/no-unsafe-dictionary-type": 3,
+      "anti-slop/require-readable-spacing": 19,
+      "anti-slop/require-safety-comment-for-type-assertion": 1
+    },
+    "packages/client/src/install/Ssh.ts": {
+      "anti-slop/require-readable-spacing": 10
+    },
+    "packages/client/src/resume.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 2,
+      "anti-slop-effect/no-manual-tagged-construction": 3,
+      "anti-slop/no-unknown-parameters": 1,
+      "anti-slop/require-readable-spacing": 30
+    },
+    "packages/client/src/rpc.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 4,
+      "anti-slop-effect/no-manual-tagged-construction": 2,
+      "anti-slop/require-readable-spacing": 13,
+      "anti-slop/require-safety-comment-for-type-assertion": 3
+    },
+    "packages/client/src/ssh.ts": {
+      "anti-slop/require-readable-spacing": 1
+    },
+    "packages/client/src/terminal.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 1,
+      "anti-slop-effect/no-manual-tagged-construction": 1,
+      "anti-slop/require-readable-spacing": 1
+    },
+    "packages/client/src/transport.ts": {
+      "anti-slop-effect/no-manual-tag-comparison": 3,
+      "anti-slop/no-chained-type-assertions": 4,
+      "anti-slop/require-readable-spacing": 11,
+      "anti-slop/require-safety-comment-for-type-assertion": 9,
+      "typescript/no-unnecessary-type-assertion": 1
+    },
+    "packages/protocol/src/capabilities.ts": {
+      "anti-slop/require-readable-spacing": 1
+    },
+    "packages/protocol/src/commands.ts": {
+      "anti-slop/require-readable-spacing": 2
+    },
+    "packages/protocol/src/contract.test.ts": {
+      "anti-slop-effect/no-manual-tagged-construction": 9,
+      "anti-slop/require-readable-spacing": 4,
+      "anti-slop/require-safety-comment-for-type-assertion": 3
+    },
+    "packages/protocol/src/domain.ts": {
+      "anti-slop/require-readable-spacing": 10
+    },
+    "packages/protocol/src/events.ts": {
+      "anti-slop/require-readable-spacing": 2
+    },
+    "packages/protocol/src/frame.test.ts": {
+      "anti-slop/require-readable-spacing": 4
+    },
+    "packages/protocol/src/frame.ts": {
+      "anti-slop/require-readable-spacing": 31
+    },
+    "packages/protocol/src/ids.ts": {
+      "anti-slop/require-readable-spacing": 11
+    },
+    "packages/protocol/src/index.ts": {
+      "anti-slop/require-readable-spacing": 8
+    },
+    "packages/protocol/src/rpc.ts": {
+      "anti-slop/require-readable-spacing": 2
+    },
+    "packages/protocol/src/streams.ts": {
+      "anti-slop/no-unknown-returns": 6,
+      "anti-slop/require-readable-spacing": 30,
+      "anti-slop/require-safety-comment-for-type-assertion": 4,
+      "typescript/no-unnecessary-type-assertion": 4
+    },
+    "packages/protocol/src/wire.test.ts": {
+      "anti-slop/require-readable-spacing": 30
+    },
+    "packages/protocol/src/wire.ts": {
+      "anti-slop/no-chained-type-assertions": 1,
+      "anti-slop/require-readable-spacing": 67,
+      "anti-slop/require-safety-comment-for-type-assertion": 8
+    },
+    "scripts/build-daemon.ts": {
+      "anti-slop/no-unsafe-dictionary-type": 1,
+      "anti-slop/require-readable-spacing": 23,
+      "anti-slop/require-safety-comment-for-type-assertion": 2,
+      "typescript/no-unsafe-assignment": 2,
+      "typescript/no-unsafe-member-access": 5,
+      "typescript/no-unsafe-return": 1
+    },
+    "scripts/licenses.test.ts": {
+      "anti-slop/require-readable-spacing": 2
+    },
+    "scripts/licenses.ts": {
+      "anti-slop/no-runtime-typeof": 2,
+      "anti-slop/require-readable-spacing": 65,
+      "anti-slop/require-safety-comment-for-type-assertion": 2,
+      "sonarjs/cognitive-complexity": 1,
+      "typescript/no-unsafe-argument": 2,
+      "typescript/no-unsafe-call": 2,
+      "typescript/no-unsafe-member-access": 2
+    },
+    "scripts/manual-install.ts": {
+      "anti-slop/require-readable-spacing": 6
+    }
+  }
+}
