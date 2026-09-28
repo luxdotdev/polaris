@@ -1,0 +1,83 @@
+{
+  "spike": "electron",
+  "scenario": "memory-heavy",
+  "date": "2026-09-28T01:56:09.124Z",
+  "electron": "44.4.5",
+  "chrome": "152.0.7977.130",
+  "v8": "15.2.124.28-electron.0",
+  "displayFrequencyHz": 179.95997619628906,
+  "flags": {
+    "workers": true,
+    "poolSize": 3,
+    "sharePool": true,
+    "popout": "shared",
+    "backgroundThrottling": true,
+    "trimChromium": true,
+    "jsFlags": "",
+    "switchMode": "full",
+    "highlighter": "shiki-wasm",
+    "astCache": 100,
+    "variant": "baseline"
+  },
+  "result": {
+    "totalRssMB": 1013.2,
+    "totalFootprintMB": 827.3,
+    "totalAppMetricsWorkingSetMB": 1012.6,
+    "processCount": 4,
+    "rendererProcessCount": 1,
+    "popoutSharesRenderer": true,
+    "processes": [
+      {
+        "pid": 75908,
+        "type": "Browser",
+        "rssMB": 183,
+        "footprintMB": 58,
+        "appMetricsWorkingSetMB": 182.4,
+        "comm": "Electron"
+      },
+      {
+        "pid": 75910,
+        "type": "GPU:GPU",
+        "rssMB": 90.6,
+        "footprintMB": 206,
+        "appMetricsWorkingSetMB": 90.6,
+        "comm": "Electron Helper"
+      },
+      {
+        "pid": 75911,
+        "type": "Utility:network.mojom.NetworkService",
+        "rssMB": 46.3,
+        "footprintMB": 7.3,
+        "appMetricsWorkingSetMB": 46.3,
+        "comm": "Electron Helper"
+      },
+      {
+        "pid": 75912,
+        "type": "Tab",
+        "windows": "main-window+popout",
+        "rssMB": 693.3,
+        "footprintMB": 556,
+        "appMetricsWorkingSetMB": 693.3,
+        "comm": "Electron Helper (Renderer)"
+      }
+    ],
+    "jsHeap": {
+      "main": {
+        "usedJSHeapMB": 93,
+        "totalJSHeapMB": 143
+      },
+      "popout": {
+        "usedJSHeapMB": 93,
+        "totalJSHeapMB": 143
+      }
+    },
+    "popoutLoad": {
+      "fixture": "290k",
+      "files": 382,
+      "lines": 304724,
+      "fetchMs": 141.29999995231628,
+      "parseMs": 207,
+      "setItemsMs": 3.200000047683716
+    }
+  }
+}

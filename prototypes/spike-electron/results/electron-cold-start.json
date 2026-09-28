@@ -1,0 +1,119 @@
+{
+  "spike": "electron",
+  "scenario": "cold-start",
+  "date": "2026-09-28T02:18:04.394Z",
+  "electron": "44.4.5",
+  "chrome": "152.0.7977.130",
+  "v8": "15.2.124.28-electron.0",
+  "displayFrequencyHz": 179.95997619628906,
+  "flags": {
+    "workers": true,
+    "poolSize": 1,
+    "sharePool": true,
+    "popout": "shared",
+    "backgroundThrottling": true,
+    "trimChromium": true,
+    "jsFlags": "",
+    "switchMode": "full",
+    "highlighter": "shiki-wasm",
+    "astCache": 100,
+    "variant": "default"
+  },
+  "result": {
+    "launchToFirstDiffFrameMs": 420,
+    "launchToHighlightedFrameMs": 437,
+    "aggregation": "median of 5 launches after 1 discarded warm-up",
+    "runs": [
+      {
+        "launchToFirstDiffFrameMs": 419,
+        "launchToHighlightedFrameMs": 437,
+        "breakdown": {
+          "launchToMainScriptMs": 134,
+          "launchToAppReadyMs": 175,
+          "launchToRendererNavStartMs": 263,
+          "loadTiming": {
+            "fixture": "10k",
+            "files": 61,
+            "lines": 48763,
+            "fetchMs": 0.10000014305114746,
+            "parseMs": 11.299999952316284,
+            "setItemsMs": 10.799999952316284
+          }
+        },
+        "note": "T0 is taken by the bench runner immediately before spawning Electron. First diff frame = rAF after the one in which code lines were first found in the viewport."
+      },
+      {
+        "launchToFirstDiffFrameMs": 470,
+        "launchToHighlightedFrameMs": 476,
+        "breakdown": {
+          "launchToMainScriptMs": 155,
+          "launchToAppReadyMs": 197,
+          "launchToRendererNavStartMs": 299,
+          "loadTiming": {
+            "fixture": "10k",
+            "files": 61,
+            "lines": 48763,
+            "fetchMs": 0.20000004768371582,
+            "parseMs": 11.599999904632568,
+            "setItemsMs": 10.900000095367432
+          }
+        },
+        "note": "T0 is taken by the bench runner immediately before spawning Electron. First diff frame = rAF after the one in which code lines were first found in the viewport."
+      },
+      {
+        "launchToFirstDiffFrameMs": 417,
+        "launchToHighlightedFrameMs": 433,
+        "breakdown": {
+          "launchToMainScriptMs": 114,
+          "launchToAppReadyMs": 155,
+          "launchToRendererNavStartMs": 251,
+          "loadTiming": {
+            "fixture": "10k",
+            "files": 61,
+            "lines": 48763,
+            "fetchMs": 0.20000004768371582,
+            "parseMs": 10.400000095367432,
+            "setItemsMs": 11.599999904632568
+          }
+        },
+        "note": "T0 is taken by the bench runner immediately before spawning Electron. First diff frame = rAF after the one in which code lines were first found in the viewport."
+      },
+      {
+        "launchToFirstDiffFrameMs": 437,
+        "launchToHighlightedFrameMs": 454,
+        "breakdown": {
+          "launchToMainScriptMs": 150,
+          "launchToAppReadyMs": 191,
+          "launchToRendererNavStartMs": 276,
+          "loadTiming": {
+            "fixture": "10k",
+            "files": 61,
+            "lines": 48763,
+            "fetchMs": 0.09999990463256836,
+            "parseMs": 10.800000190734863,
+            "setItemsMs": 11.199999809265137
+          }
+        },
+        "note": "T0 is taken by the bench runner immediately before spawning Electron. First diff frame = rAF after the one in which code lines were first found in the viewport."
+      },
+      {
+        "launchToFirstDiffFrameMs": 420,
+        "launchToHighlightedFrameMs": 437,
+        "breakdown": {
+          "launchToMainScriptMs": 130,
+          "launchToAppReadyMs": 173,
+          "launchToRendererNavStartMs": 260,
+          "loadTiming": {
+            "fixture": "10k",
+            "files": 61,
+            "lines": 48763,
+            "fetchMs": 0.10000014305114746,
+            "parseMs": 11.599999904632568,
+            "setItemsMs": 10.799999952316284
+          }
+        },
+        "note": "T0 is taken by the bench runner immediately before spawning Electron. First diff frame = rAF after the one in which code lines were first found in the viewport."
+      }
+    ]
+  }
+}

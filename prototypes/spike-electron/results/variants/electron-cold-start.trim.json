@@ -1,0 +1,40 @@
+{
+  "spike": "electron",
+  "scenario": "cold-start",
+  "date": "2026-09-28T02:13:39.035Z",
+  "electron": "44.4.5",
+  "chrome": "152.0.7977.130",
+  "v8": "15.2.124.28-electron.0",
+  "displayFrequencyHz": 179.95997619628906,
+  "flags": {
+    "workers": true,
+    "poolSize": 1,
+    "sharePool": true,
+    "popout": "shared",
+    "backgroundThrottling": true,
+    "trimChromium": true,
+    "jsFlags": "",
+    "switchMode": "full",
+    "highlighter": "shiki-wasm",
+    "astCache": 100,
+    "variant": "trim"
+  },
+  "result": {
+    "launchToFirstDiffFrameMs": 427,
+    "launchToHighlightedFrameMs": 445,
+    "breakdown": {
+      "launchToMainScriptMs": 129,
+      "launchToAppReadyMs": 170,
+      "launchToRendererNavStartMs": 268,
+      "loadTiming": {
+        "fixture": "10k",
+        "files": 61,
+        "lines": 48763,
+        "fetchMs": 11.799999952316284,
+        "parseMs": 11.599999904632568,
+        "setItemsMs": 2.200000047683716
+      }
+    },
+    "note": "T0 is taken by the bench runner immediately before spawning Electron. First diff frame = rAF after the one in which code lines were first found in the viewport."
+  }
+}

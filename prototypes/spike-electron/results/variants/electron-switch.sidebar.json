@@ -1,0 +1,56 @@
+{
+  "spike": "electron",
+  "scenario": "switch",
+  "date": "2026-09-28T02:14:56.941Z",
+  "electron": "44.4.5",
+  "chrome": "152.0.7977.130",
+  "v8": "15.2.124.28-electron.0",
+  "displayFrequencyHz": 179.95997619628906,
+  "flags": {
+    "workers": true,
+    "poolSize": 1,
+    "sharePool": true,
+    "popout": "shared",
+    "backgroundThrottling": true,
+    "trimChromium": true,
+    "jsFlags": "",
+    "switchMode": "sidebar",
+    "highlighter": "shiki-wasm",
+    "astCache": 100,
+    "variant": "sidebar"
+  },
+  "result": {
+    "switches": 50,
+    "inputToCommit": {
+      "count": 50,
+      "p50": 0.8,
+      "p95": 1.7,
+      "p99": 3.5,
+      "max": 3.5,
+      "mean": 0.9,
+      "pctOver8_33": 0,
+      "pctOver16_7": 0
+    },
+    "inputToFrameStart": {
+      "count": 50,
+      "p50": 4.3,
+      "p95": 8.2,
+      "p99": 10.1,
+      "max": 10.1,
+      "mean": 4.31,
+      "pctOver8_33": 4,
+      "pctOver16_7": 0
+    },
+    "inputToPresentedFrame": {
+      "count": 50,
+      "p50": 10,
+      "p95": 13.8,
+      "p99": 14.4,
+      "max": 14.4,
+      "mean": 9.85,
+      "pctOver8_33": 78,
+      "pctOver16_7": 0
+    },
+    "switchMode": "sidebar"
+  }
+}

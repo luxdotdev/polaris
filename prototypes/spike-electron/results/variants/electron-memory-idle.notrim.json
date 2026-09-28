@@ -1,0 +1,73 @@
+{
+  "spike": "electron",
+  "scenario": "memory-idle",
+  "date": "2026-09-28T02:13:10.851Z",
+  "electron": "44.4.5",
+  "chrome": "152.0.7977.130",
+  "v8": "15.2.124.28-electron.0",
+  "displayFrequencyHz": 179.95997619628906,
+  "flags": {
+    "workers": true,
+    "poolSize": 1,
+    "sharePool": true,
+    "popout": "shared",
+    "backgroundThrottling": true,
+    "trimChromium": false,
+    "jsFlags": "",
+    "switchMode": "full",
+    "highlighter": "shiki-wasm",
+    "astCache": 100,
+    "variant": "notrim"
+  },
+  "result": {
+    "totalRssMB": 490,
+    "totalFootprintMB": 206.9,
+    "totalAppMetricsWorkingSetMB": 489.5,
+    "processCount": 4,
+    "rendererProcessCount": 1,
+    "popoutSharesRenderer": null,
+    "processes": [
+      {
+        "pid": 88409,
+        "type": "Browser",
+        "rssMB": 167,
+        "footprintMB": 49,
+        "appMetricsWorkingSetMB": 166.5,
+        "comm": "Electron"
+      },
+      {
+        "pid": 88410,
+        "type": "GPU:GPU",
+        "rssMB": 76.9,
+        "footprintMB": 64,
+        "appMetricsWorkingSetMB": 76.9,
+        "comm": "Electron Helper"
+      },
+      {
+        "pid": 88411,
+        "type": "Utility:network.mojom.NetworkService",
+        "rssMB": 46,
+        "footprintMB": 6.9,
+        "appMetricsWorkingSetMB": 46,
+        "comm": "Electron Helper"
+      },
+      {
+        "pid": 88412,
+        "type": "Tab",
+        "windows": "main-window",
+        "rssMB": 200.1,
+        "footprintMB": 87,
+        "appMetricsWorkingSetMB": 200.1,
+        "comm": "Electron Helper (Renderer)"
+      }
+    ],
+    "system": {
+      "freeMemMB": 79,
+      "swap": "total = 12288.00M  used = 11147.25M  free = 1140.75M  (encrypted)"
+    },
+    "jsHeap": {
+      "usedJSHeapMB": 14,
+      "totalJSHeapMB": 19
+    }
+  }
+}

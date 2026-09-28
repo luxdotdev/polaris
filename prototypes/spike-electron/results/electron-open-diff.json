@@ -1,0 +1,129 @@
+{
+  "spike": "electron",
+  "scenario": "open-diff",
+  "date": "2026-09-28T02:15:22.279Z",
+  "electron": "44.4.5",
+  "chrome": "152.0.7977.130",
+  "v8": "15.2.124.28-electron.0",
+  "displayFrequencyHz": 179.95997619628906,
+  "flags": {
+    "workers": true,
+    "poolSize": 1,
+    "sharePool": true,
+    "popout": "shared",
+    "backgroundThrottling": true,
+    "trimChromium": true,
+    "jsFlags": "",
+    "switchMode": "full",
+    "highlighter": "shiki-wasm",
+    "astCache": 100,
+    "variant": "default"
+  },
+  "result": {
+    "10k": {
+      "medianToFirstFrameMs": 19,
+      "runs": [
+        {
+          "fixture": "10k",
+          "files": 61,
+          "lines": 48763,
+          "fetchMs": 2,
+          "parseMs": 7.700000047683716,
+          "setItemsMs": 0.19999980926513672,
+          "toFirstFrameMs": 11,
+          "toHighlightedMs": 6
+        },
+        {
+          "fixture": "10k",
+          "files": 61,
+          "lines": 48763,
+          "fetchMs": 3.8999998569488525,
+          "parseMs": 7.800000190734863,
+          "setItemsMs": 0.8999998569488525,
+          "toFirstFrameMs": 19,
+          "toHighlightedMs": 8
+        },
+        {
+          "fixture": "10k",
+          "files": 61,
+          "lines": 48763,
+          "fetchMs": 5.6000001430511475,
+          "parseMs": 15.599999904632568,
+          "setItemsMs": 0.20000004768371582,
+          "toFirstFrameMs": 28,
+          "toHighlightedMs": 17
+        }
+      ]
+    },
+    "40k": {
+      "medianToFirstFrameMs": 58,
+      "runs": [
+        {
+          "fixture": "40k",
+          "files": 194,
+          "lines": 160430,
+          "fetchMs": 18.799999952316284,
+          "parseMs": 34.700000047683716,
+          "setItemsMs": 2.299999952316284,
+          "toFirstFrameMs": 73,
+          "toHighlightedMs": 66
+        },
+        {
+          "fixture": "40k",
+          "files": 194,
+          "lines": 160430,
+          "fetchMs": 7.299999952316284,
+          "parseMs": 38.40000009536743,
+          "setItemsMs": 0.2999999523162842,
+          "toFirstFrameMs": 50,
+          "toHighlightedMs": 45
+        },
+        {
+          "fixture": "40k",
+          "files": 194,
+          "lines": 160430,
+          "fetchMs": 9.599999904632568,
+          "parseMs": 42.90000009536743,
+          "setItemsMs": 0.2999999523162842,
+          "toFirstFrameMs": 58,
+          "toHighlightedMs": 53
+        }
+      ]
+    },
+    "290k": {
+      "medianToFirstFrameMs": 223,
+      "runs": [
+        {
+          "fixture": "290k",
+          "files": 382,
+          "lines": 304724,
+          "fetchMs": 157,
+          "parseMs": 212.5,
+          "setItemsMs": 2.700000047683716,
+          "toFirstFrameMs": 417,
+          "toHighlightedMs": 412
+        },
+        {
+          "fixture": "290k",
+          "files": 382,
+          "lines": 304724,
+          "fetchMs": 26.700000047683716,
+          "parseMs": 187.19999980926514,
+          "setItemsMs": 0.3000001907348633,
+          "toFirstFrameMs": 223,
+          "toHighlightedMs": 212
+        },
+        {
+          "fixture": "290k",
+          "files": 382,
+          "lines": 304724,
+          "fetchMs": 19,
+          "parseMs": 186.5,
+          "setItemsMs": 0.2999999523162842,
+          "toFirstFrameMs": 212,
+          "toHighlightedMs": 201
+        }
+      ]
+    }
+  }
+}

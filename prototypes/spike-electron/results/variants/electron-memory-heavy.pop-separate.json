@@ -1,0 +1,108 @@
+{
+  "spike": "electron",
+  "scenario": "memory-heavy",
+  "date": "2026-09-28T02:05:39.134Z",
+  "electron": "44.4.5",
+  "chrome": "152.0.7977.130",
+  "v8": "15.2.124.28-electron.0",
+  "displayFrequencyHz": 179.95997619628906,
+  "flags": {
+    "workers": true,
+    "poolSize": 3,
+    "sharePool": true,
+    "popout": "separate",
+    "backgroundThrottling": true,
+    "trimChromium": true,
+    "jsFlags": "",
+    "switchMode": "full",
+    "highlighter": "shiki-wasm",
+    "astCache": 100,
+    "variant": "pop-separate"
+  },
+  "result": {
+    "totalRssMB": 1354.5,
+    "totalFootprintMB": 1042.5,
+    "totalAppMetricsWorkingSetMB": 1354,
+    "processCount": 5,
+    "rendererProcessCount": 2,
+    "popoutSharesRenderer": false,
+    "processes": [
+      {
+        "pid": 81340,
+        "type": "Browser",
+        "rssMB": 193.3,
+        "footprintMB": 66,
+        "appMetricsWorkingSetMB": 192.8,
+        "comm": "Electron"
+      },
+      {
+        "pid": 81341,
+        "type": "GPU:GPU",
+        "rssMB": 91.7,
+        "footprintMB": 210,
+        "appMetricsWorkingSetMB": 91.7,
+        "comm": "Electron Helper"
+      },
+      {
+        "pid": 81342,
+        "type": "Utility:network.mojom.NetworkService",
+        "rssMB": 46.6,
+        "footprintMB": 7.5,
+        "appMetricsWorkingSetMB": 46.6,
+        "comm": "Electron Helper"
+      },
+      {
+        "pid": 81343,
+        "type": "Tab",
+        "windows": "main-window",
+        "rssMB": 496.9,
+        "footprintMB": 365,
+        "appMetricsWorkingSetMB": 496.9,
+        "comm": "Electron Helper (Renderer)"
+      },
+      {
+        "pid": 81360,
+        "type": "Tab",
+        "windows": "popout",
+        "rssMB": 526,
+        "footprintMB": 394,
+        "appMetricsWorkingSetMB": 526,
+        "comm": "Electron Helper (Renderer)"
+      }
+    ],
+    "system": {
+      "freeMemMB": 275,
+      "swap": "total = 12288.00M  used = 11179.25M  free = 1108.75M  (encrypted)"
+    },
+    "jsHeap": {
+      "main": {
+        "usedJSHeapMB": 45,
+        "totalJSHeapMB": 87
+      },
+      "popout": {
+        "usedJSHeapMB": 63,
+        "totalJSHeapMB": 101
+      }
+    },
+    "viewportCoverage": {
+      "main": {
+        "code": 1,
+        "highlighted": 0.8,
+        "blank": 0
+      },
+      "popout": {
+        "code": 1,
+        "highlighted": 0.8,
+        "blank": 0
+      }
+    },
+    "popoutLoad": {
+      "fixture": "290k",
+      "files": 382,
+      "lines": 304724,
+      "fetchMs": 30,
+      "parseMs": 205.89999985694885,
+      "setItemsMs": 5.1000001430511475
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name": "spike-electron",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "build": "vite build",
+    "start": "vite build && electron .",
+    "bench": "vite build && node scripts/bench.mjs",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@pierre/diffs": "1.5.1",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^8.0.6",
+    "@rolldown/plugin-babel": "^0.2.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "babel-plugin-react-compiler": "^1.0.0",
+    "electron": "^44.4.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1"
+  }
+}

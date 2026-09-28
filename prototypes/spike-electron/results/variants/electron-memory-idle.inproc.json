@@ -1,0 +1,57 @@
+{
+  "spike": "electron",
+  "scenario": "memory-idle",
+  "date": "2026-09-28T02:13:51.963Z",
+  "electron": "44.4.5",
+  "chrome": "152.0.7977.130",
+  "v8": "15.2.124.28-electron.0",
+  "displayFrequencyHz": 179.95997619628906,
+  "flags": {
+    "workers": true,
+    "poolSize": 1,
+    "sharePool": true,
+    "popout": "shared",
+    "backgroundThrottling": true,
+    "trimChromium": true,
+    "jsFlags": "",
+    "switchMode": "full",
+    "highlighter": "shiki-wasm",
+    "astCache": 100,
+    "variant": "inproc"
+  },
+  "result": {
+    "totalRssMB": 391.2,
+    "totalFootprintMB": 194,
+    "totalAppMetricsWorkingSetMB": 390.7,
+    "processCount": 2,
+    "rendererProcessCount": 1,
+    "popoutSharesRenderer": null,
+    "processes": [
+      {
+        "pid": 89586,
+        "type": "Browser",
+        "rssMB": 186.4,
+        "footprintMB": 105,
+        "appMetricsWorkingSetMB": 185.9,
+        "comm": "Electron"
+      },
+      {
+        "pid": 89590,
+        "type": "Tab",
+        "windows": "main-window",
+        "rssMB": 204.8,
+        "footprintMB": 89,
+        "appMetricsWorkingSetMB": 204.8,
+        "comm": "Electron Helper (Renderer)"
+      }
+    ],
+    "system": {
+      "freeMemMB": 84,
+      "swap": "total = 12288.00M  used = 11147.25M  free = 1140.75M  (encrypted)"
+    },
+    "jsHeap": {
+      "usedJSHeapMB": 14,
+      "totalJSHeapMB": 19
+    }
+  }
+}

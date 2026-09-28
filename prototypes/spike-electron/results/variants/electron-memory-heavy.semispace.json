@@ -1,0 +1,83 @@
+{
+  "spike": "electron",
+  "scenario": "memory-heavy",
+  "date": "2026-09-28T01:55:11.066Z",
+  "electron": "44.4.5",
+  "chrome": "152.0.7977.130",
+  "v8": "15.2.124.28-electron.0",
+  "displayFrequencyHz": 179.95997619628906,
+  "flags": {
+    "workers": true,
+    "poolSize": 3,
+    "sharePool": true,
+    "popout": "shared",
+    "backgroundThrottling": true,
+    "trimChromium": true,
+    "jsFlags": "--max-semi-space-size=2",
+    "switchMode": "full",
+    "highlighter": "shiki-wasm",
+    "astCache": 100,
+    "variant": "semispace"
+  },
+  "result": {
+    "totalRssMB": 964.6,
+    "totalFootprintMB": 708.3,
+    "totalAppMetricsWorkingSetMB": 964,
+    "processCount": 4,
+    "rendererProcessCount": 1,
+    "popoutSharesRenderer": true,
+    "processes": [
+      {
+        "pid": 75408,
+        "type": "Browser",
+        "rssMB": 182.8,
+        "footprintMB": 56,
+        "appMetricsWorkingSetMB": 182.2,
+        "comm": "Electron"
+      },
+      {
+        "pid": 75409,
+        "type": "GPU:GPU",
+        "rssMB": 89.9,
+        "footprintMB": 125,
+        "appMetricsWorkingSetMB": 89.9,
+        "comm": "Electron Helper"
+      },
+      {
+        "pid": 75410,
+        "type": "Utility:network.mojom.NetworkService",
+        "rssMB": 46.3,
+        "footprintMB": 7.3,
+        "appMetricsWorkingSetMB": 46.3,
+        "comm": "Electron Helper"
+      },
+      {
+        "pid": 75411,
+        "type": "Tab",
+        "windows": "main-window+popout",
+        "rssMB": 645.6,
+        "footprintMB": 520,
+        "appMetricsWorkingSetMB": 645.6,
+        "comm": "Electron Helper (Renderer)"
+      }
+    ],
+    "jsHeap": {
+      "main": {
+        "usedJSHeapMB": 94,
+        "totalJSHeapMB": 99
+      },
+      "popout": {
+        "usedJSHeapMB": 94,
+        "totalJSHeapMB": 99
+      }
+    },
+    "popoutLoad": {
+      "fixture": "290k",
+      "files": 382,
+      "lines": 304724,
+      "fetchMs": 20.399999856948853,
+      "parseMs": 208.60000014305115,
+      "setItemsMs": 3.299999952316284
+    }
+  }
+}

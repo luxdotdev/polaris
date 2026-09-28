@@ -1,0 +1,99 @@
+{
+  "spike": "electron",
+  "scenario": "memory-heavy",
+  "date": "2026-09-28T02:08:42.542Z",
+  "electron": "44.4.5",
+  "chrome": "152.0.7977.130",
+  "v8": "15.2.124.28-electron.0",
+  "displayFrequencyHz": 179.95997619628906,
+  "flags": {
+    "workers": true,
+    "poolSize": null,
+    "sharePool": true,
+    "popout": "shared",
+    "backgroundThrottling": true,
+    "trimChromium": true,
+    "jsFlags": "",
+    "switchMode": "full",
+    "highlighter": "shiki-wasm",
+    "astCache": 100,
+    "variant": "ab-pool2semi-a"
+  },
+  "result": {
+    "totalRssMB": 583,
+    "totalFootprintMB": 287.9,
+    "totalAppMetricsWorkingSetMB": 582.6,
+    "processCount": 4,
+    "rendererProcessCount": 1,
+    "popoutSharesRenderer": true,
+    "processes": [
+      {
+        "pid": 83409,
+        "type": "Browser",
+        "rssMB": 174.2,
+        "footprintMB": 46,
+        "appMetricsWorkingSetMB": 173.8,
+        "comm": "Electron"
+      },
+      {
+        "pid": 83410,
+        "type": "GPU:GPU",
+        "rssMB": 84.7,
+        "footprintMB": 101,
+        "appMetricsWorkingSetMB": 84.7,
+        "comm": "Electron Helper"
+      },
+      {
+        "pid": 83411,
+        "type": "Utility:network.mojom.NetworkService",
+        "rssMB": 46.1,
+        "footprintMB": 6.9,
+        "appMetricsWorkingSetMB": 46.1,
+        "comm": "Electron Helper"
+      },
+      {
+        "pid": 83412,
+        "type": "Tab",
+        "windows": "main-window+popout",
+        "rssMB": 278,
+        "footprintMB": 134,
+        "appMetricsWorkingSetMB": 278,
+        "comm": "Electron Helper (Renderer)"
+      }
+    ],
+    "system": {
+      "freeMemMB": 292,
+      "swap": "total = 12288.00M  used = 11179.25M  free = 1108.75M  (encrypted)"
+    },
+    "jsHeap": {
+      "main": {
+        "usedJSHeapMB": 24,
+        "totalJSHeapMB": 39
+      },
+      "popout": {
+        "usedJSHeapMB": 24,
+        "totalJSHeapMB": 39
+      }
+    },
+    "viewportCoverage": {
+      "main": {
+        "code": 1,
+        "highlighted": 0,
+        "blank": 0
+      },
+      "popout": {
+        "code": 1,
+        "highlighted": 0,
+        "blank": 0
+      }
+    },
+    "popoutLoad": {
+      "fixture": "290k",
+      "files": 382,
+      "lines": 304724,
+      "fetchMs": 20.09999990463257,
+      "parseMs": 222.29999995231628,
+      "setItemsMs": 3.1000001430511475
+    }
+  }
+}

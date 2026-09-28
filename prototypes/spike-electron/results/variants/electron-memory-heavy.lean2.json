@@ -1,0 +1,83 @@
+{
+  "spike": "electron",
+  "scenario": "memory-heavy",
+  "date": "2026-09-28T01:58:37.641Z",
+  "electron": "44.4.5",
+  "chrome": "152.0.7977.130",
+  "v8": "15.2.124.28-electron.0",
+  "displayFrequencyHz": 179.95997619628906,
+  "flags": {
+    "workers": true,
+    "poolSize": 2,
+    "sharePool": true,
+    "popout": "shared",
+    "backgroundThrottling": true,
+    "trimChromium": true,
+    "jsFlags": "--max-semi-space-size=2",
+    "switchMode": "full",
+    "highlighter": "shiki-wasm",
+    "astCache": 30,
+    "variant": "lean2"
+  },
+  "result": {
+    "totalRssMB": 751.1,
+    "totalFootprintMB": 664.1,
+    "totalAppMetricsWorkingSetMB": 749.4,
+    "processCount": 4,
+    "rendererProcessCount": 1,
+    "popoutSharesRenderer": true,
+    "processes": [
+      {
+        "pid": 77536,
+        "type": "Browser",
+        "rssMB": 125.6,
+        "footprintMB": 57,
+        "appMetricsWorkingSetMB": 123.9,
+        "comm": "Electron"
+      },
+      {
+        "pid": 77539,
+        "type": "GPU:GPU",
+        "rssMB": 70.3,
+        "footprintMB": 116,
+        "appMetricsWorkingSetMB": 70.3,
+        "comm": "Electron Helper"
+      },
+      {
+        "pid": 77540,
+        "type": "Utility:network.mojom.NetworkService",
+        "rssMB": 33.4,
+        "footprintMB": 7.1,
+        "appMetricsWorkingSetMB": 33.4,
+        "comm": "Electron Helper"
+      },
+      {
+        "pid": 77541,
+        "type": "Tab",
+        "windows": "main-window+popout",
+        "rssMB": 521.8,
+        "footprintMB": 484,
+        "appMetricsWorkingSetMB": 521.8,
+        "comm": "Electron Helper (Renderer)"
+      }
+    ],
+    "jsHeap": {
+      "main": {
+        "usedJSHeapMB": 49,
+        "totalJSHeapMB": 76
+      },
+      "popout": {
+        "usedJSHeapMB": 49,
+        "totalJSHeapMB": 76
+      }
+    },
+    "popoutLoad": {
+      "fixture": "290k",
+      "files": 382,
+      "lines": 304724,
+      "fetchMs": 139.5,
+      "parseMs": 217.39999985694885,
+      "setItemsMs": 3.700000047683716
+    }
+  }
+}
