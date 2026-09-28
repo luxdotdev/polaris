@@ -46,6 +46,7 @@ import {
   Fiber,
   FiberMap,
   Layer,
+  Result,
   Scope,
   Semaphore,
   Stream,
@@ -362,7 +363,28 @@ const make = Effect.gen(function* () {
       ),
     )
 
-  const onHarnessEvent = (sessionId: SessionId, entry: EventSource, event: HarnessEvent) =>
+  const onHarnessEvent = (
+    sessionId: SessionId,
+    entry: EventSource,
+    event: HarnessEvent,
+  ): Effect.Effect<void, ServiceError> =>
+    // Deltas are most of what a Harness emits: publish them without the rest.
+    event._tag === "ItemDelta"
+      ? Effect.suspend(() =>
+          entry.stopping
+            ? Effect.void
+            : store.publishEphemeral({
+                _tag: "Delta",
+                sessionId,
+                turnId: event.turnId,
+                itemId: event.itemId,
+                field: event.field,
+                text: event.text,
+              }),
+        )
+      : onHarnessRecord(sessionId, entry, event)
+
+  const onHarnessRecord = (sessionId: SessionId, entry: EventSource, event: HarnessEvent) =>
     Effect.gen(function* () {
       if (entry.stopping) return
       const at = yield* now
@@ -406,15 +428,7 @@ const make = Effect.gen(function* () {
           yield* cancelIdle(sessionId)
           return
         case "ItemDelta":
-          yield* store.publishEphemeral({
-            _tag: "Delta",
-            sessionId,
-            turnId: event.turnId,
-            itemId: event.itemId,
-            field: event.field,
-            text: event.text,
-          })
-          return
+          return // handled by onHarnessEvent
         case "ItemUpdated": {
           const items = progress.get(sessionId) ?? new Map<string, Progress>()
           items.set(event.item.id, { turnId: event.turnId, item: event.item })
@@ -1215,11 +1229,11 @@ const make = Effect.gen(function* () {
         }
         head.push({ _tag: "Synchronized", sequence: cut })
         const liveItems = subscription.pipe(
-          Stream.filter(
-            (item): item is Extract<LiveItem, { _tag: "Event" }> =>
-              item._tag === "Event" && item.envelope.sequence > cut,
+          Stream.filterMap((item) =>
+            item._tag === "Event" && item.envelope.sequence > cut
+              ? Result.succeed<HostStreamItem>({ _tag: "Event", envelope: item.envelope })
+              : Result.failVoid,
           ),
-          Stream.map((item): HostStreamItem => ({ _tag: "Event", envelope: item.envelope })),
         )
         return Stream.concat(Stream.fromIterable(head), liveItems)
       }).pipe(Effect.orDie),
@@ -1236,8 +1250,8 @@ const make = Effect.gen(function* () {
         const { sessionId, afterSequence } = options
         const withProgress = options.liveItems === true
         const subscription = yield* store.subscribe({
-          filter: (item) =>
-            item.sessionId === sessionId && (withProgress || item._tag !== "ItemProgress"),
+          sessionId,
+          ...(withProgress ? {} : { filter: (item: LiveItem) => item._tag !== "ItemProgress" }),
         })
         const model = yield* store.model
         const record = model.sessions.get(sessionId)
@@ -1289,12 +1303,16 @@ const make = Effect.gen(function* () {
             head.push({ _tag: "ItemProgress", turnId, item })
           }
         }
+        // One stage rather than a filter and a map: this runs for every Delta.
         const liveItems = subscription.pipe(
-          Stream.filter((item) => item._tag !== "Event" || item.envelope.sequence > cut),
-          Stream.map((item): SessionStreamItem => {
-            if (item._tag === "Event") return { _tag: "Event", envelope: item.envelope }
+          Stream.filterMap((item): Result.Result<SessionStreamItem, void> => {
+            if (item._tag === "Event") {
+              return item.envelope.sequence > cut
+                ? Result.succeed({ _tag: "Event", envelope: item.envelope })
+                : Result.failVoid
+            }
             const { sessionId: _, ...ephemeral } = item
-            return ephemeral
+            return Result.succeed(ephemeral)
           }),
         )
         return Stream.concat(Stream.fromIterable(head), liveItems)
