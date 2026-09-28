@@ -221,7 +221,7 @@ Dark is the default theme; light is equally supported. Every token exists in bot
 
 The Desktop App is Electron (Chromium 152, React). CSS effects are available: shadows, rounded clipping, per-element `backdrop-filter`, springs, custom fonts, and window-level vibrancy. The budgets still rule: display-rate frames (180 Hz measured) and under 1 GB for the whole app. See **Performance** under Motion.
 
-**Assets and source files.** Generated textures live in `design/assets/` (dither frames, state icons, scenes, watercolour washes, halos) and are reproducible from `design/scripts/gen_dither.py` and `design/scripts/gen_textures.py`. Mockups: the Paper file "Polaris — Orchestrator" (https://app.paper.design/file/01M3JV1J857QNW61TGHZYR6GMZ); artboard 5, "Orchestrate · Elevated", is the chosen Orchestrator direction, the Review page holds R1 (pull request, dark) and R2 (agent session turns, light), and the Editor page holds E1 (editor, dark), E2a (selection, dark), E2 (inline chat, dark) and E3 (an agent editing your file, light). The file's Paper tokens mirror this frontmatter as `-dark`/`-light` pairs.
+**Assets and source files.** Generated textures live in `design/assets/` (dither frames, state icons, scenes, watercolour washes, halos) and are reproducible from `design/scripts/gen_dither.py` and `design/scripts/gen_textures.py`. Mockups: the Paper file "Polaris — Orchestrator" (https://app.paper.design/file/01M3JV1J857QNW61TGHZYR6GMZ); artboard 5, "Orchestrate · Elevated", is the chosen Orchestrator direction, artboard 7 shows the plan graph with a subagent in focus, the Review page holds R1 (pull request, dark) and R2 (agent session turns, light), and the Editor page holds E1 (editor, dark), E2a (selection, dark), E2 (inline chat, dark) and E3 (an agent editing your file, light). The file's Paper tokens mirror this frontmatter as `-dark`/`-light` pairs.
 
 **Mode:** Operate. Scanability, consistency, and native macOS expectations outrank expression. Brand lives in precise details and the pixel world.
 
@@ -478,6 +478,19 @@ Quiet. Standard transitions are 120ms (hover, press), 160ms (small reveals), and
 - Animate `transform` and `opacity` only. Anything that triggers layout or paint per frame (width, height, top, box-shadow, blur radius) does not animate.
 - Springs are fine for panels and toasts when they drive `transform`. The Working dither steps a sprite strip by `transform`.
 - Long lists and diffs are virtualised; nothing animates on scroll.
+
+### Plan graph (DAG)
+
+A native take on herdr-dagr (ENG-169), planned for M4 · DAG automation. The vocabulary is provisional until `CONTEXT.md` defines the work item above an agent session: a **plan** holds **tasks**; each try at a task is an **attempt**, which is an agent session; **gates** are fan-in tasks; **futures** are declared but not yet real.
+
+- **Where.** A Plan tab in the Orchestrator's output pane, next to the orchestrating session's conversation, as in the herdr layout it replaces. The tab bar keeps "Message orchestrator (M)".
+- **Rows, not a canvas.** The graph is a rail list in the spirit of `git log --graph`: a plan trunk, collapsible project groups with their counts, tasks, and the attempts and subagents nested under them. Rows use the tree-row height. Fixed lanes, left to right: rail (60px), id in `code-inline`, title, actor (harness · model, "polaris reviewer" or "subagent"), and state.
+- **Rail glyphs reuse Session State.** Working is a 10px dither in the harness hue (Starlight for Polaris's own reviewer); needs you is the pixel hand; done is a filled `text-subtle` dot; waiting is a hollow `text-faint` dot; a future is a dashed dot on a dashed branch; a gate is a small outlined square, never a diamond (that is Critical). Rail lines are white at ~14%.
+- **Gates** show their inputs inline as small dots in each input's state colour, then an arrow and the gate's title; the state column says what they wait on ("waits A1R A2R").
+- **State column.** `text-default` for working, `text-subtle` for done with its evidence ("done · verified"; tiers verified, reported, heuristic, asserted), `needs-you` for needs you, `text-faint` for "waits X" and future.
+- **Individual agent viewing is a focus swap.** Selecting a node (a task's attempt, a review, a subagent) swaps the middle column to that agent's own live session: a breadcrumb back to the orchestrator ("Polaris planning › Session rows v2 › A2"), the title and attempt, the brief it received (labelled "Brief from {orchestrator}"), its transcript and steps, and a composer that steers that agent directly. The graph stays put; the selected row takes a translucent fill (lines show through) and a second line saying what the agent is doing now. There is no detail card.
+- **Subagents are nodes.** Subagents a session spawns (from SubagentStart/Stop) nest under their parent with a smaller glyph and "subagent" as actor, and can be focused like any other agent.
+- **Attention.** The plan header carries the next thing that needs you as a needs-you chip ("B1 wants to run pnpm test", tab to jump). A key hint row sits at the foot: move, focus, fold, next that needs you, message orchestrator.
 
 ### Editor
 
