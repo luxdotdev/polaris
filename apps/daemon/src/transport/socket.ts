@@ -3,12 +3,19 @@
  * a 0700 directory. Remote Clients reach it through `polaris bridge` over SSH.
  */
 import { chmodSync, existsSync, lstatSync, mkdirSync, unlinkSync } from "node:fs"
-import { connect, createServer, type Server } from "node:net"
+import { connect } from "node:net"
 import { dirname } from "node:path"
 import type { ByteTransport } from "@polaris/protocol"
 import { Effect, Queue, type Scope, Stream } from "effect"
+import {
+  type AdoptedListener,
+  bindAtomically,
+  connectFd,
+  listenerFd,
+  type UpgradeError,
+} from "../service/upgrade.ts"
+import { type BunSocketStream, socketHandlers } from "./bunSocket.ts"
 import { DaemonAlreadyRunning, LockError } from "./lock.ts"
-import { fromNodeSocket } from "./nodeTransport.ts"
 
 /** True when something accepts connections on `path`. */
 export const probeSocket = (path: string, timeoutMs = 1000): Effect.Effect<boolean> =>
@@ -51,40 +58,71 @@ export const prepareSocketPath = Effect.fnUntraced(function* (
   })
 })
 
-/** Listens on `path` for the lifetime of the scope; emits a transport per accepted connection. */
+export interface Listener {
+  /** A transport per accepted connection. */
+  readonly connections: Stream.Stream<ByteTransport>
+  /** The listening fd, for the upgrade hand-off. */
+  readonly fd: () => number | null
+  /** Serve the connections queued on a listener inherited across an upgrade. */
+  readonly adopt: (adopted: AdoptedListener) => Effect.Effect<number, UpgradeError>
+}
+
+/**
+ * Listens on `path` for the lifetime of the scope. Binds at a temporary path
+ * and renames it into place (`bindAtomically`), so the socket path never
+ * refuses connections, even while a new image takes over during an upgrade.
+ */
 export const listen = Effect.fnUntraced(function* (
   path: string,
-): Effect.fn.Return<Stream.Stream<ByteTransport>, LockError, Scope.Scope> {
+): Effect.fn.Return<Listener, LockError, Scope.Scope> {
   const connections = yield* Queue.unbounded<ByteTransport>()
+  const handlers = socketHandlers((transport) => {
+    Queue.offerUnsafe(connections, transport)
+  })
   const server = yield* Effect.acquireRelease(
-    Effect.callback<Server, LockError>((resume) => {
-      const server = createServer({ allowHalfOpen: false }, (socket) => {
-        Queue.offerUnsafe(connections, fromNodeSocket(socket))
-      })
-      // Create the socket file private from the start rather than chmod-ing after the fact.
-      const previousUmask = process.umask(0o177)
-      const onError = (cause: Error) => {
-        process.umask(previousUmask)
-        resume(Effect.fail(new LockError({ path, message: `cannot listen: ${cause.message}` })))
-      }
-      server.once("error", onError)
-      server.listen(path, () => {
-        process.umask(previousUmask)
-        server.off("error", onError)
-        try {
-          chmodSync(path, 0o600)
-        } catch {}
-        resume(Effect.succeed(server))
-      })
-    }),
+    bindAtomically(path, (temporary) =>
+      Effect.try({
+        try: () => {
+          // Create the socket file private from the start rather than chmod-ing after the fact.
+          const previousUmask = process.umask(0o177)
+          try {
+            return Bun.listen<BunSocketStream | undefined>({ unix: temporary, socket: handlers })
+          } finally {
+            process.umask(previousUmask)
+          }
+        },
+        catch: (cause) => new LockError({ path, message: `cannot listen: ${cause}` }),
+      }),
+    ).pipe(
+      Effect.mapError((error) =>
+        error._tag === "LockError" ? error : new LockError({ path, message: error.message }),
+      ),
+    ),
     (server) =>
       Effect.sync(() => {
-        server.close()
+        server.stop(true)
         try {
           unlinkSync(path)
         } catch {}
       }),
   )
-  server.on("error", () => {})
-  return Stream.fromQueue(connections)
+  yield* Effect.sync(() => {
+    try {
+      chmodSync(path, 0o600)
+    } catch {}
+  })
+  return {
+    connections: Stream.fromQueue(connections),
+    fd: () => {
+      try {
+        return listenerFd(server)
+      } catch {
+        return null
+      }
+    },
+    adopt: (adopted) =>
+      adopted.drain((fd) => {
+        void connectFd(fd, handlers)
+      }),
+  }
 })

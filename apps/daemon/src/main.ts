@@ -42,5 +42,3 @@ switch (command) {
     console.error(`usage: polaris <serve|bridge|install|uninstall|upgrade|version|selftest>`)
     process.exit(command === undefined ? 0 : 2)
 }
-
-export {}

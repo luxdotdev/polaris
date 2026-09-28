@@ -16,7 +16,7 @@ export const daemonHandlers = Layer.empty
 
 export const serveProgram = Effect.scoped(
   Effect.gen(function* () {
-    const server = yield* startServer({ handlers: daemonHandlers })
+    const server = yield* startServer({ handlers: daemonHandlers, upgrades: true })
     yield* Effect.logInfo(`polaris Daemon listening on ${server.socketPath}`)
     return yield* Effect.never
   }),

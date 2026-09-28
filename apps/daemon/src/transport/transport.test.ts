@@ -28,6 +28,7 @@ import {
 } from "@polaris/protocol"
 import { Context, Effect, Exit, Fiber, Layer, PubSub, Scope, Stream, SubscriptionRef } from "effect"
 import { DeviceLabel } from "../engine/rpc.ts"
+import { GitRpcsLive } from "../git/GitRpcs.ts"
 import { BlobChannel } from "../services.ts"
 import type { DaemonAlreadyRunning } from "./lock.ts"
 import { ServerRpcs } from "./rpcs.ts"
@@ -503,6 +504,66 @@ describe("transport", () => {
     )
     expect(result.failure?.reason).toBe("daemon-not-running")
   }, 15_000)
+
+  test("another module's handlers get their connection's BlobChannel (git.diff)", async () => {
+    const repo = join(home, "repo")
+    const git = (...args: Array<string>) => {
+      const r = Bun.spawnSync(["git", "-C", repo, ...args], {
+        env: {
+          ...process.env,
+          GIT_AUTHOR_NAME: "t",
+          GIT_AUTHOR_EMAIL: "t@t",
+          GIT_COMMITTER_NAME: "t",
+          GIT_COMMITTER_EMAIL: "t@t",
+        },
+      })
+      if (r.exitCode !== 0) throw new Error(r.stderr.toString())
+    }
+    Bun.spawnSync(["git", "init", "-q", repo])
+    await Bun.write(join(repo, "big.txt"), "a\n".repeat(400_000))
+    git("add", ".")
+    git("commit", "-qm", "init")
+    await Bun.write(join(repo, "big.txt"), "b\n".repeat(400_000))
+
+    const diff = await run(
+      Effect.gen(function* () {
+        yield* startServer({ ...serverOptions(home), handlers: GitRpcsLive })
+        const conn = yield* localHost(home)
+        const session = yield* conn.awaitSession
+        const result = yield* session.client["git.diff"]({
+          cwd: repo,
+          spec: { _tag: "WorkingTree", base: null },
+        })
+        const text = new TextDecoder().decode(yield* session.blobs.take(result.blobId))
+        return { result, text }
+      }),
+    )
+    // (`files` is not checked: git/diff.ts counts over an ArrayBuffer and reports 0; see README.)
+    expect(diff.text.length).toBe(diff.result.size)
+    expect(diff.text).toContain("+b")
+  }, 20_000)
+
+  test("polaris serve as a process: pid file, bridge, clean shutdown", async () => {
+    const env = { ...process.env, POLARIS_HOME: home }
+    const daemon = spawn("bun", [MAIN, "serve"], { env, stdio: "ignore" })
+    try {
+      for (let i = 0; i < 100 && !existsSync(join(home, "daemon.pid")); i++) await Bun.sleep(50)
+      const host = await run(
+        Effect.gen(function* () {
+          const conn = yield* bridgeHost(home)
+          return (yield* conn.awaitSession).host
+        }),
+      )
+      expect(host.daemonVersion.length).toBeGreaterThan(0)
+      expect(Number((await Bun.file(join(home, "daemon.pid")).text()).trim())).toBe(daemon.pid!)
+      expect(Number((await Bun.file(join(home, "daemon.lock")).text()).trim())).toBe(daemon.pid!)
+    } finally {
+      daemon.kill("SIGTERM")
+      await new Promise((resolve) => daemon.once("exit", resolve))
+    }
+    for (const file of ["daemon.sock", "daemon.lock", "daemon.pid"])
+      expect(existsSync(join(home, file))).toBe(false)
+  }, 20_000)
 })
 
 const runProcess = (argv: Array<string>, env: Record<string, string>) =>

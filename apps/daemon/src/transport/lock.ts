@@ -7,7 +7,15 @@
  * defence: a Daemon that answers on the socket always wins, whatever the lock
  * file says (covers pid reuse and a lock deleted by hand).
  */
-import { closeSync, mkdirSync, openSync, readFileSync, unlinkSync, writeSync } from "node:fs"
+import {
+  closeSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  statSync,
+  unlinkSync,
+  writeSync,
+} from "node:fs"
 import { dirname } from "node:path"
 import { Effect, Schema, type Scope } from "effect"
 
@@ -48,6 +56,14 @@ const readPid = (path: string): number | null => {
   }
 }
 
+const isFresh = (path: string): boolean => {
+  try {
+    return Date.now() - statSync(path).mtimeMs < 2000
+  } catch {
+    return false
+  }
+}
+
 const tryCreate = (path: string): boolean => {
   try {
     const fd = openSync(path, "wx", 0o600)
@@ -63,7 +79,15 @@ const tryCreate = (path: string): boolean => {
   }
 }
 
-/** Holds the Daemon lock for the lifetime of the scope. */
+/** Lock files this process holds right now. */
+const held = new Set<string>()
+
+/**
+ * Holds the Daemon lock for the lifetime of the scope.
+ *
+ * A lock naming this very process that this process does not hold was
+ * inherited across an execve upgrade (same pid, new image) and is taken over.
+ */
 export const acquireLock = Effect.fnUntraced(function* (
   path: string,
 ): Effect.fn.Return<void, DaemonAlreadyRunning | LockError, Scope.Scope> {
@@ -74,8 +98,10 @@ export const acquireLock = Effect.fnUntraced(function* (
         for (let attempt = 0; attempt < 3; attempt++) {
           if (tryCreate(path)) return "acquired" as const
           const pid = readPid(path)
-          // An unreadable or half-written lock is treated as stale only once it stays that way.
+          if (pid === process.pid) return held.has(path) ? pid : ("acquired" as const)
           if (pid !== null && isAlive(pid)) return pid
+          // No pid yet: another Daemon may be between creating the file and writing it.
+          if (pid === null && isFresh(path)) return -1
           try {
             unlinkSync(path)
           } catch (error) {
@@ -88,12 +114,13 @@ export const acquireLock = Effect.fnUntraced(function* (
     }).pipe(
       Effect.flatMap((result) =>
         result === "acquired"
-          ? Effect.void
+          ? Effect.sync(() => held.add(path))
           : Effect.fail(new DaemonAlreadyRunning({ pid: result === -1 ? null : result, path })),
       ),
     ),
     () =>
       Effect.sync(() => {
+        held.delete(path)
         if (readPid(path) === process.pid) {
           try {
             unlinkSync(path)
