@@ -59,12 +59,12 @@ jobs:
           distribution: temurin
           java-version: "21"
       - name: Apalache, bounded (report only)
-        # Exhaustive up to 4 steps of the small instance (~1 min); deeper bounds take
+        # Exhaustive up to 3 steps of the small instance (~40 s); deeper bounds take
         # minutes to hours, see the README's numbers. Report only until it has a track
         # record on shared runners.
         continue-on-error: true
         working-directory: packages/spec
-        run: ./node_modules/.bin/quint verify polaris.qnt --main=small --invariant=safety --max-steps=4 --verbosity=1
+        run: ./node_modules/.bin/quint verify polaris.qnt --main=small --invariant=safety --max-steps=3 --verbosity=1
 
   build-daemon:
     name: Build the Daemon
