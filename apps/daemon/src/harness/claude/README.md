@@ -32,7 +32,7 @@ Engine wiring: build the driver with `ClaudeDriver` (needs the `ClaudeHookReceiv
 - `HarnessEvent.TurnStarted` has no prompt, so Turns typed in the terminal arrive without the user's text (UserPromptSubmit carries it). Suggest adding `prompt?: string`.
 - Tool items are emitted twice under one id (running, then final); the engine's projection must upsert by item id.
 - Claude Code doesn't report Bash exit codes; `exitCode` is always null (failure shows as `status: failed`).
-- Steer folding was verified against the SDK's documented semantics and the fake, not yet against a real mid-Turn run.
+- Steer was verified against a real mid-Turn run (`apps/daemon/scripts/e2e-claude-steer.ts`, gated by `POLARIS_E2E_CLAUDE_STEER=1`, `haiku`): a Turn counting to 10 with one `sleep 1; echo N` Bash call per number was steered "stop at 5" after 2; Claude folded it in between tool calls, echoed 1–5, replied "I stopped at 5 as requested.", and the Polaris Turn ended once, `completed`, with no second Turn.
 - In Terminal, permission prompts are informational only; answering them from a Client would need a `PermissionRequest` hook that blocks the TUI, which we chose not to do.
 - A user setting `allowedHttpHookUrls` without a loopback entry, or `disableAllHooks`, silently disables follow-along.
 - No `ExitPlanMode` special handling (plan approval is a generic tool approval); no subagent transcripts; no `TitleSuggested`/`WorktreeCreated` yet.

@@ -21,7 +21,7 @@ The Daemon owns one app-server per Host on `~/.polaris/codex.sock` (keep it shor
 
 `terminalCommand` is `codex resume <threadId> --remote unix://<socket>`. The TUI attaches to the same server, and `thread/resume` on a loaded thread rejoins it, so Polaris and the TUI see the same live events and either can answer an approval. Polaris then gets `serverRequest/resolved` and emits `ApprovalWithdrawn`. Turns the TUI starts reach Polaris as notifications for an unknown Codex turn id. The driver mints a `TurnId` for them and emits `TurnStarted`. The same happens when Polaris rejoins a thread mid-Turn.
 
-Verified on this Host (codex-cli 0.157.1): `--listen unix://PATH` serves WebSocket-over-Unix (a raw HTTP Upgrade returns `101`), and Bun's `ws+unix://` connects to it. `codex app-server proxy --sock` is a raw byte pipe, not a JSONL bridge, so it isn't used. The TUI's `--remote unix://` flag exists on both `codex` and `codex resume`. A hands-on co-attach with a live TUI (mid-Turn attach, both sides seeing one approval) has **not** been exercised yet; it needs a PTY test.
+Verified on this Host (codex-cli 0.157.1): `--listen unix://PATH` serves WebSocket-over-Unix (a raw HTTP Upgrade returns `101`), and Bun's `ws+unix://` connects to it. `codex app-server proxy --sock` is a raw byte pipe, not a JSONL bridge, so it isn't used. The TUI's `--remote unix://` flag exists on both `codex` and `codex resume`. Live co-attach was exercised by hand with codex-cli 0.158.0 through the real Daemon (`apps/daemon/scripts/e2e-codex-tui.ts`, gated by `POLARIS_E2E_CODEX_TUI=1`; two tiny real Turns): a supervised session takes a Turn from Polaris, goes In Terminal, and `codex resume <thread> --remote unix://…/codex.sock` in a PTY shows that Turn's reply (same thread). A Turn typed in the TUI reaches Polaris as `TurnStarted` within ~0.1 s; its command approval shows in both the TUI ("Would you like to run the following command?") and Polaris (`ApprovalRequested`, kind `command`, on the minted Turn); answering it from Polaris runs the command, the TUI drops its prompt and shows the command as run, Polaris records exactly one `ApprovalRequested` and one `ApprovalResolved`, and the Turn ends `completed` in Polaris. `ReturnFromTerminal` brings the session back to Idle. Still failing: the TUI's Turn arrives with an empty prompt (see Known gaps).
 
 ### App-server lifecycle
 
@@ -108,7 +108,8 @@ It runs `codex app-server generate-ts` (stable surface, no `--experimental`) int
 ## Known gaps / TODO
 
 - **Foreign Turns have no prompt.** Turns started in the TUI surface as `TurnStarted` with a minted `TurnId`, but `HarnessEvent` carries no user message, so the engine can't show what was typed. This needs a small contract addition (a prompt on `TurnStarted`, or a `UserMessage` TurnItem).
-- **Live co-attach is unverified by hand** (see above). `ReturnFromTerminal` needs nothing from this driver, because Polaris never detaches.
+- `ReturnFromTerminal` needs nothing from this driver, because Polaris never detaches.
+- The Client has no RPC for the terminal command: the engine keeps it (`Engine.terminalCommand`) but nothing in `DaemonRpcs` returns it, so a Client can't launch the TUI without rebuilding the argv itself (the e2e script does).
 - **Plans appear only at Turn end.** The contract has no item upsert, so live plan steps aren't streamed.
 - **No `ItemStarted`.** A running command shows up only through output deltas until `item/completed`.
 - **MCP form elicitations** accept with empty content; there's no UI for `requestedSchema` yet. An elicitation with no Turn mints a Turn that never ends.
