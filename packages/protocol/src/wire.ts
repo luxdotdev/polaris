@@ -201,8 +201,17 @@ export const makeWire = Effect.fnUntraced(function* (
   const offerBlob = <E>(source: BlobSource<E>): Effect.Effect<BlobId> =>
     Effect.suspend(() => {
       const id = `${prefix}${(++blobCounter).toString(36)}-${crypto.randomUUID().slice(0, 8)}`
-      if (source instanceof Uint8Array) {
-        const frames = encodeBlob(id, source)
+      // Accept any byte buffer: some Bun APIs hand back an ArrayBuffer where a Uint8Array is typed.
+      const bytes: Uint8Array | null =
+        source instanceof Uint8Array
+          ? source
+          : (source as unknown) instanceof ArrayBuffer
+            ? new Uint8Array(source as unknown as ArrayBuffer)
+            : ArrayBuffer.isView(source)
+              ? new Uint8Array(source.buffer, source.byteOffset, source.byteLength)
+              : null
+      if (bytes !== null) {
+        const frames = encodeBlob(id, bytes)
         let pending = frames.next()
         outBlobs.push({
           id,
@@ -234,7 +243,7 @@ export const makeWire = Effect.fnUntraced(function* (
         },
         done: () => finished && buffered.length === 0,
       })
-      const produce = Stream.runForEach(source, (chunk) =>
+      const produce = Stream.runForEach(source as Stream.Stream<Uint8Array, E>, (chunk) =>
         Effect.gen(function* () {
           for (let offset = 0; offset < chunk.byteLength; offset += BLOB_CHUNK_BYTES) {
             push(encodeBlobFrame(id, chunk.subarray(offset, offset + BLOB_CHUNK_BYTES), false))
