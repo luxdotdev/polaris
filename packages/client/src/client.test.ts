@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { Effect, Fiber, Queue, Stream } from "effect"
 import { classifyExit } from "./failures.ts"
-import { makeFeed, type SequenceMark } from "./resume.ts"
+import { makeFeed, reopenBackoff, type SequenceMark } from "./resume.ts"
 import { sshArgv } from "./ssh.ts"
 
 describe("classifyExit", () => {
@@ -163,6 +163,81 @@ describe("resumable feed", () => {
     )
     expect(result.opens).toEqual([null, 5])
     expect(result.error).toBe("NotFound")
+  })
+
+  // ENG-209 finding 1: the host stream leaves out session-only events, so its sequences have gaps.
+  test("a stream with gaps (the host stream) is followed without reopening", async () => {
+    const result = await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const opens: Array<number | null> = []
+          const feed = yield* makeFeed<number, Item, never>({
+            source: { next: () => Effect.succeed({ epoch: 1, client: 0 }) },
+            open: (_client, after) => {
+              opens.push(after)
+              return Stream.concat(
+                Stream.fromIterable<Item>([
+                  { _tag: "Snapshot", sequence: 2 },
+                  { _tag: "Synchronized", sequence: 2 },
+                  { _tag: "Event", sequence: 4 },
+                  { _tag: "Event", sequence: 7 },
+                ]),
+                Stream.never,
+              )
+            },
+            mark,
+            isDisconnect: () => false,
+            gapless: false, // as HostConnection opens the host feed
+          })
+          const items = yield* feed.stream.pipe(Stream.take(4), Stream.runCollect)
+          return { items, opens, last: feed.lastSequence() }
+        }),
+      ),
+    )
+    expect(result.items.map((i) => `${i._tag}:${i.sequence}`)).toEqual([
+      "Snapshot:2",
+      "Synchronized:2",
+      "Event:4",
+      "Event:7",
+    ])
+    expect(result.opens).toEqual([null])
+    expect(result.last).toBe(7)
+  })
+
+  test("reopens that make no progress back off instead of looping hot", async () => {
+    const opens = await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const opens: Array<number | null> = []
+          // A gapless feed over a stream that always has the same gap: every reopen hits it again.
+          const feed = yield* makeFeed<number, Item, never>({
+            source: { next: () => Effect.succeed({ epoch: 1, client: 0 }) },
+            open: (_client, after) => {
+              opens.push(after)
+              return Stream.fromIterable<Item>([
+                ...(after === null ? [{ _tag: "Snapshot", sequence: 5 } as const] : []),
+                { _tag: "Event", sequence: 7 },
+              ])
+            },
+            mark,
+            isDisconnect: () => false,
+            gapless: true,
+          })
+          yield* Effect.forkScoped(Stream.runDrain(feed.stream))
+          yield* Effect.sleep(300)
+          return opens
+        }),
+      ),
+    )
+    // Without the backoff: thousands. With it: 0, 25, 50, 100, 200 ms…
+    expect(opens.length).toBeGreaterThan(2)
+    expect(opens.length).toBeLessThan(10)
+    expect(opens.slice(1).every((after) => after === 5)).toBe(true)
+  })
+
+  test("the reopen backoff doubles from the first stalled reopen, up to a cap", () => {
+    expect([0, 1, 2, 3].map(reopenBackoff)).toEqual([0, 25, 50, 100])
+    expect(reopenBackoff(50)).toBe(5_000)
   })
 
   test("a new subscriber gets the cached snapshot and events first", async () => {

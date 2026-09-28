@@ -82,7 +82,7 @@ stateDiagram-v2
 
 ## Resume
 
-`subscribeHost` and `subscribeSession(sessionId)` are backed by one upstream subscription per stream, shared by every local subscriber. After a reconnect the feed resubscribes with `afterSequence` = the last sequence it saw and drops events at or below it; on the host stream (gapless) a gap makes it reopen. The feed keeps the last Snapshot and the events after it (up to 10 000, then it asks for a fresh Snapshot), so a new subscriber is painted from the cache immediately and then revalidated. Consumers must accept a Snapshot at any point and treat it as a reset. `Delta` items are passed through, not cached. A session stream fails only with `NotFound`.
+`subscribeHost` and `subscribeSession(sessionId)` are backed by one upstream subscription per stream, shared by every local subscriber. After a reconnect the feed resubscribes with `afterSequence` = the last sequence it saw and drops events at or below it. Neither stream is gapless (the host stream leaves out session-only events such as `TurnItemCompleted` and `CheckpointRecorded`), and none needs a gap check: a subscriber the Daemon drops for falling behind has its stream ended, never skipped, and the feed resumes from its last sequence. A reopen that makes no progress backs off (25 ms, doubling up to 5 s), so a feed can never resubscribe in a tight loop. The feed keeps the last Snapshot and the events after it (up to 10 000, then it asks for a fresh Snapshot), so a new subscriber is painted from the cache immediately and then revalidated. Consumers must accept a Snapshot at any point and treat it as a reset. `Delta` items are passed through, not cached. A session stream fails only with `NotFound`.
 
 ## Known gaps / TODO
 

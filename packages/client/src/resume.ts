@@ -3,9 +3,16 @@
  * or `subscribeSession`).
  *
  * One upstream subscription serves every local subscriber. After a reconnect
- * it resubscribes with `afterSequence` = the last sequence seen, drops any
- * event at or below it (so a replay overlap never duplicates), and on the host
- * stream, where sequences are gapless, reopens if it ever sees a gap.
+ * it resubscribes with `afterSequence` = the last sequence seen and drops any
+ * event at or below it, so a replay overlap never duplicates. A subscriber the
+ * Daemon drops for falling behind has its stream ended (never skipped), so the
+ * feed needs no gap check to stay gapless; `gapless` is only for a stream
+ * whose sequences truly have no gaps. The host stream is not one: it leaves
+ * out session-only events.
+ *
+ * Reopens that make no progress back off (`REOPEN_BACKOFF_MS`, doubling up to
+ * `MAX_REOPEN_BACKOFF_MS`), so a stream that keeps asking to be reopened at the
+ * same point can never loop hot against the Daemon.
  *
  * The feed keeps the last Snapshot and the events after it. A new subscriber
  * first gets that cache (the Desktop App paints from it at once), then live
@@ -42,7 +49,11 @@ export interface FeedOptions<C, A, E> {
   readonly mark: (item: A) => SequenceMark
   /** Errors that mean "the connection went away": resubscribe after reconnecting. */
   readonly isDisconnect: (error: E) => boolean
-  /** Sequences on this stream have no gaps (true for the host stream). */
+  /**
+   * Sequences on this stream have no gaps, so a gap means something was missed
+   * and the feed reopens. False for both Daemon streams: the host stream leaves
+   * out session-only events, and a session stream is a subset of the log.
+   */
   readonly gapless: boolean
   /** Cached events after the Snapshot before the feed asks for a fresh Snapshot. */
   readonly maxCachedEvents?: number
@@ -65,6 +76,14 @@ class Reopen {
   readonly _tag = "Reopen"
   constructor(readonly fresh: boolean) {}
 }
+
+/** The first pause before a reopen that made no progress, doubled each time up to the max. */
+export const REOPEN_BACKOFF_MS = 25
+export const MAX_REOPEN_BACKOFF_MS = 5_000
+
+/** How long to wait before the `stalled`-th reopen in a row that made no progress. */
+export const reopenBackoff = (stalled: number): number =>
+  stalled <= 0 ? 0 : Math.min(MAX_REOPEN_BACKOFF_MS, REOPEN_BACKOFF_MS * 2 ** (stalled - 1))
 
 export const makeFeed = Effect.fnUntraced(function* <C, A, E>(
   options: FeedOptions<C, A, E>,
@@ -127,9 +146,12 @@ export const makeFeed = Effect.fnUntraced(function* <C, A, E>(
   const run = Effect.gen(function* () {
     let minEpoch = 0
     let fresh = false
+    /** Reopens in a row that saw no new event: each waits longer. */
+    let stalled = 0
     while (true) {
       const live = yield* options.source.next(minEpoch)
       const after: number | null = fresh ? null : lastSequence
+      const before = lastSequence
       fresh = false
       const result: Result.Result<void, E | Reopen> = yield* options
         .open(live.client, after)
@@ -143,6 +165,8 @@ export const makeFeed = Effect.fnUntraced(function* <C, A, E>(
       if (error instanceof Reopen) {
         minEpoch = live.epoch
         fresh = error.fresh
+        stalled = lastSequence !== before ? 0 : stalled + 1
+        if (stalled > 0) yield* Effect.sleep(reopenBackoff(stalled))
         continue
       }
       if (options.isDisconnect(error)) {

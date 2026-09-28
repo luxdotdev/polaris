@@ -330,7 +330,9 @@ export const makeHostConnection = Effect.fnUntraced(function* (
       >,
     mark: markHost,
     isDisconnect,
-    gapless: true,
+    // The host stream leaves out session-only events (TurnItemCompleted, CheckpointRecorded),
+    // so its sequences have gaps; the sequence dedupe keeps the feed exact (ENG-209 finding 1).
+    gapless: false,
   })
 
   const scope = yield* Effect.scope
