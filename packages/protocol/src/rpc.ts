@@ -72,7 +72,7 @@ export const Hello = Rpc.make("hello", {
 
 export const Dispatch = Rpc.make("dispatch", {
   payload: { commandId: CommandId, command: Command },
-  /** Sequence of the last event the command produced; null if it was a duplicate. */
+  /** Sequence of the last event the command produced; a retried commandId returns the original. */
   success: Schema.Struct({ sequence: Schema.NullOr(Sequence) }),
   error: Schema.Union([CommandRejected, NotFound]),
 })

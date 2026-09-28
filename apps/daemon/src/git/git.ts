@@ -44,7 +44,7 @@ export const runGitRaw = async (
     stderr: "pipe",
   })
   const [stdout, stderr, code] = await Promise.all([
-    new Response(proc.stdout).bytes(),
+    new Response(proc.stdout).arrayBuffer().then((b) => new Uint8Array(b)),
     new Response(proc.stderr).text(),
     proc.exited,
   ])

@@ -6,7 +6,7 @@
  * branch are never written. No code was copied.
  */
 import { existsSync } from "node:fs"
-import { copyFile, mkdtemp, rm } from "node:fs/promises"
+import { copyFile, mkdtemp, rm, stat, utimes } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { findRepoRoot, gitText, resolveHead } from "./git.ts"
@@ -41,7 +41,14 @@ export const snapshotWorkingTree = async (cwd: string): Promise<Snapshot | null>
       "--git-path",
       "index",
     ])
-    if (existsSync(userIndex)) await copyFile(userIndex, index)
+    if (existsSync(userIndex)) {
+      await copyFile(userIndex, index)
+      // Keep the index's own mtime: git treats entries modified in the same
+      // instant as the index ("racily clean") as suspect and rehashes them. A
+      // fresh mtime would make a same-size edit look unchanged and drop it.
+      const { atimeMs, mtimeMs } = await stat(userIndex)
+      await utimes(index, atimeMs / 1000, Math.floor(mtimeMs) / 1000)
+    }
     const env = { GIT_INDEX_FILE: index }
     await gitText(root, ["add", "-A"], { env })
     const tree = await gitText(root, ["write-tree"], { env })
