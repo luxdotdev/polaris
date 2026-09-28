@@ -97,6 +97,38 @@ def polaris_logo(tones, size=64):
     )
 
 
+# Constellation: Polaris's feature mark for the task graph. Three stars on a strict
+# 16x16 grid (a 5px sparkle, two 3px crosses, one lone pixel) joined by dotted lines.
+_CONST_STARS = [((11, 3), 2), ((3, 7), 1), ((7, 13), 1), ((14, 11), 0)]
+_CONST_LINKS = [(0, 1), (1, 2), (2, 3)]
+
+
+def constellation_cells():
+    stars, cores = set(), set()
+    for (cx, cy), r in _CONST_STARS:
+        cores.add((cx, cy))
+        for d in range(-r, r + 1):
+            stars |= {(cx + d, cy), (cx, cy + d)}
+    near = {(x + ox, y + oy) for x, y in stars for ox, oy in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1))}
+    links = set()
+    for a, b in _CONST_LINKS:
+        (x0, y0), (x1, y1) = _CONST_STARS[a][0], _CONST_STARS[b][0]
+        n = max(abs(x1 - x0), abs(y1 - y0))
+        pts = [(round(x0 + (x1 - x0) * i / n), round(y0 + (y1 - y0) * i / n)) for i in range(n + 1)]
+        links |= {q for i, q in enumerate(pts) if i % 2 == 1 and q not in near}
+    return stars, cores, links
+
+
+def constellation_icon(star, core, line, size=16):
+    stars, cores, links = constellation_cells()
+    rects = [f'<rect x="{x}" y="{y}" width="1" height="1" fill="{line}"/>' for x, y in sorted(links)]
+    rects += [f'<rect x="{x}" y="{y}" width="1" height="1" fill="{core if (x, y) in cores else star}"/>' for x, y in sorted(stars)]
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 16 16" '
+        f'shape-rendering="crispEdges">' + "".join(rects) + "</svg>"
+    )
+
+
 def icon(paths, color):
     body = "".join(f'<path d="{d}"/>' for d in paths)
     return (
@@ -126,3 +158,11 @@ if __name__ == "__main__":
     for name, color in FLAT.items():
         with open(out("icons", f"{name}.svg"), "w") as f:
             f.write(polaris_logo((color,) * 3, size=16))
+    CONSTELLATION = {
+        "px-constellation-dark": ("#BCD3FF", "#FFFFFF", "#BCD3FF66"),
+        "px-constellation-light": ("#4F82E8", "#2F5FC4", "#4F82E873"),
+        "px-constellation-white": ("#F4F5F7", "#F4F5F7", "#F4F5F766"),
+    }
+    for name, tones in CONSTELLATION.items():
+        with open(out("icons", f"{name}.svg"), "w") as f:
+            f.write(constellation_icon(*tones))
