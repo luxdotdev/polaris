@@ -87,30 +87,79 @@ export function* encodeBlob(blobId: string, bytes: Uint8Array): Generator<Uint8A
   }
 }
 
-/** Incremental decoder: feed arbitrary byte chunks, get whole frames back. */
+/**
+ * Incremental decoder: feed arbitrary byte chunks, get whole frames back.
+ *
+ * Incoming chunks are queued, not merged: a frame that fits inside one chunk
+ * is a view into it (no copy), and a frame split across chunks is copied once,
+ * into a buffer of exactly its size. (Merging on every push copied a 256 KiB
+ * blob chunk several times over while it arrived in socket-sized pieces.)
+ */
 export class FrameDecoder {
-  private buffer: Uint8Array = new Uint8Array(0)
+  private chunks: Array<Uint8Array> = []
+  private size = 0
 
   push(chunk: Uint8Array): Array<Frame> {
-    this.buffer = this.buffer.byteLength === 0 ? chunk : concat([this.buffer, chunk])
-    const frames: Array<Frame> = []
-    let offset = 0
-    const view = new DataView(this.buffer.buffer, this.buffer.byteOffset, this.buffer.byteLength)
-    while (this.buffer.byteLength - offset >= 4) {
-      const length = view.getUint32(offset)
-      if (length < 1 || length > MAX_FRAME_BYTES) throw new FrameError(`bad frame length ${length}`)
-      if (this.buffer.byteLength - offset - 4 < length) break
-      const kind = this.buffer[offset + 4]
-      const body = this.buffer.subarray(offset + 5, offset + 4 + length)
-      frames.push(decodeBody(kind, body))
-      offset += 4 + length
+    if (chunk.byteLength > 0) {
+      this.chunks.push(chunk)
+      this.size += chunk.byteLength
     }
-    this.buffer = offset === 0 ? this.buffer : this.buffer.slice(offset)
+    const frames: Array<Frame> = []
+    while (this.size >= 4) {
+      const length = this.peekLength()
+      if (length < 1 || length > MAX_FRAME_BYTES) throw new FrameError(`bad frame length ${length}`)
+      if (this.size - 4 < length) break
+      const frame = this.take(4 + length)
+      frames.push(decodeBody(frame[4], frame.subarray(5)))
+    }
     return frames
   }
 
   get pendingBytes(): number {
-    return this.buffer.byteLength
+    return this.size
+  }
+
+  private peekLength(): number {
+    const first = this.chunks[0]!
+    if (first.byteLength >= 4) {
+      return new DataView(first.buffer, first.byteOffset, 4).getUint32(0)
+    }
+    const head = new Uint8Array(4)
+    let at = 0
+    for (const chunk of this.chunks) {
+      const n = Math.min(4 - at, chunk.byteLength)
+      head.set(chunk.subarray(0, n), at)
+      at += n
+      if (at === 4) break
+    }
+    return new DataView(head.buffer).getUint32(0)
+  }
+
+  /** Removes the next `n` bytes (n <= size): a view when they sit in one chunk, else a copy. */
+  private take(n: number): Uint8Array {
+    this.size -= n
+    const first = this.chunks[0]!
+    if (first.byteLength >= n) {
+      if (first.byteLength === n) this.chunks.shift()
+      else this.chunks[0] = first.subarray(n)
+      return first.subarray(0, n)
+    }
+    const out = new Uint8Array(n)
+    let at = 0
+    while (at < n) {
+      const chunk = this.chunks[0]!
+      const need = n - at
+      if (chunk.byteLength <= need) {
+        out.set(chunk, at)
+        at += chunk.byteLength
+        this.chunks.shift()
+      } else {
+        out.set(chunk.subarray(0, need), at)
+        this.chunks[0] = chunk.subarray(need)
+        at = n
+      }
+    }
+    return out
   }
 }
 

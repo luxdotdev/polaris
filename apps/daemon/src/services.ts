@@ -34,6 +34,11 @@ export class BlobChannel extends Context.Service<
     ) => Effect.Effect<BlobId>
     /** Collect a blob the Client sent (or is sending) under `blobId`. */
     readonly take: (blobId: BlobId) => Effect.Effect<Uint8Array, ServiceError>
+    /**
+     * The same blob chunk by chunk as it arrives, never held whole (uploads
+     * written straight to disk). A blob is taken once, either way.
+     */
+    readonly takeStream: (blobId: BlobId) => Stream.Stream<Uint8Array, ServiceError>
   }
 >()("polaris/daemon/BlobChannel") {}
 
@@ -93,7 +98,8 @@ export class AttachmentStore extends Context.Service<
       readonly workspaceId: WorkspaceId
       readonly name: string
       readonly mimeType: string
-      readonly bytes: Uint8Array
+      /** The content, whole or as a stream (written to disk as it arrives). */
+      readonly bytes: Uint8Array | Stream.Stream<Uint8Array, ServiceError>
     }) => Effect.Effect<Attachment, ServiceError>
     readonly get: (
       ids: ReadonlyArray<AttachmentId>,

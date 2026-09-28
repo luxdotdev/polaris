@@ -14,12 +14,16 @@
  *   never        keep them until "clear now"
  * `_pending` attachments never see an archive, so under "on-archive" the
  * sweeper deletes them after `PENDING_MAX_AGE_DAYS`.
+ *
+ * Uploads are written to disk as their chunks arrive (a hidden `.partial`
+ * file beside the final one, renamed into place when complete), so staging
+ * holds a few chunks in memory whatever the size, and at most `maxBytes`.
  */
 import { randomUUID } from "node:crypto"
-import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises"
+import { mkdir, open, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { Attachment, type AttachmentId, type SessionId, type WorkspaceId } from "@polaris/protocol"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Stream } from "effect"
 import { paths } from "../paths.ts"
 import { AttachmentStore, ServiceError } from "../services.ts"
 
@@ -41,6 +45,8 @@ export const defaultAttachmentSettings: AttachmentSettings = {
 
 /** Unsessioned attachments older than this are swept under the "on-archive" policy. */
 export const PENDING_MAX_AGE_DAYS = 7
+/** Largest attachment `stage` accepts by default (the Wire's own per-blob limit). */
+export const MAX_ATTACHMENT_BYTES = 512 * 1024 * 1024
 const PENDING_DIR = "_pending"
 const META_FILE = ".meta.json"
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -143,6 +149,8 @@ export interface AttachmentStoreOptions {
   readonly settingsPath?: string
   /** How often the sweeper runs (default hourly). */
   readonly sweepMs?: number
+  /** Largest attachment accepted (default `MAX_ATTACHMENT_BYTES`). */
+  readonly maxBytes?: number
   /** Clock, for tests. */
   readonly now?: () => number
 }
@@ -152,6 +160,41 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
     const root = options.root ?? paths().staging
     const settingsPath = options.settingsPath ?? join(paths().root, "attachment-settings.json")
     const now = options.now ?? Date.now
+    const maxBytes = options.maxBytes ?? MAX_ATTACHMENT_BYTES
+    const tooLarge = (name: string) =>
+      new ServiceError({
+        service: "AttachmentStore",
+        message: `staging ${name}: larger than ${maxBytes} bytes`,
+      })
+
+    /** Writes `content` to `path` (created 0600) chunk by chunk; returns the size. */
+    const writeChunks = (
+      path: string,
+      name: string,
+      content: Stream.Stream<Uint8Array, ServiceError>,
+    ) =>
+      Effect.acquireUseRelease(
+        Effect.tryPromise({
+          try: () => open(path, "wx", 0o600),
+          catch: toServiceError(`staging ${name}`),
+        }),
+        (file) => {
+          let size = 0
+          return Stream.runForEach(content, (chunk) => {
+            size += chunk.byteLength
+            if (size > maxBytes) return Effect.fail(tooLarge(name))
+            return Effect.tryPromise({
+              try: async () => {
+                for (let at = 0; at < chunk.byteLength; ) {
+                  at += (await file.write(chunk, at)).bytesWritten
+                }
+              },
+              catch: toServiceError(`staging ${name}`),
+            })
+          }).pipe(Effect.map(() => size))
+        },
+        (file) => Effect.promise(() => file.close()),
+      )
 
     let settings: AttachmentSettings = yield* Effect.promise(async () => {
       try {
@@ -211,7 +254,7 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
       readonly workspaceId: WorkspaceId
       readonly name: string
       readonly mimeType: string
-      readonly bytes: Uint8Array
+      readonly bytes: Uint8Array | Stream.Stream<Uint8Array, ServiceError>
     }) {
       const id = randomUUID()
       const owner =
@@ -220,23 +263,40 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
           : join(root, segment(input.sessionId))
       const dir = join(owner, id)
       const hostPath = join(dir, safeFileName(input.name))
+      const partial = join(dir, ".partial")
+      const failed = toServiceError(`staging ${input.name}`)
+      const content = input.bytes
+      if (content instanceof Uint8Array && content.byteLength > maxBytes) {
+        return yield* tooLarge(input.name)
+      }
+      const size = yield* Effect.gen(function* () {
+        yield* Effect.tryPromise({
+          try: () => mkdir(dir, { recursive: true, mode: 0o700 }),
+          catch: failed,
+        })
+        const written =
+          content instanceof Uint8Array
+            ? yield* Effect.tryPromise({
+                try: () => writeFile(partial, content, { mode: 0o600, flag: "wx" }),
+                catch: failed,
+              }).pipe(Effect.as(content.byteLength))
+            : yield* writeChunks(partial, input.name, content)
+        yield* Effect.tryPromise({ try: () => rename(partial, hostPath), catch: failed })
+        return written
+      }).pipe(Effect.onError(() => Effect.promise(() => removeAttachmentDir(dir).catch(() => {}))))
       const meta: Meta = {
         id,
         name: input.name,
         mimeType: input.mimeType,
-        size: input.bytes.byteLength,
+        size,
         hostPath,
         sessionId: input.sessionId,
         workspaceId: input.workspaceId,
         stagedAt: now(),
       }
       yield* Effect.tryPromise({
-        try: async () => {
-          await mkdir(dir, { recursive: true, mode: 0o700 })
-          await writeFile(hostPath, input.bytes, { mode: 0o600 })
-          await writeFile(join(dir, META_FILE), JSON.stringify(meta))
-        },
-        catch: toServiceError(`staging ${input.name}`),
+        try: () => writeFile(join(dir, META_FILE), JSON.stringify(meta)),
+        catch: failed,
       })
       return toAttachment(meta)
     })

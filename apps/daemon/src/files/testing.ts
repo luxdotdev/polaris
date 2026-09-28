@@ -33,6 +33,12 @@ export const makeFakeBlobChannel = () => {
         ? Effect.fail(new ServiceError({ service: "BlobChannel", message: `no blob ${blobId}` }))
         : Effect.succeed(data)
     },
+    takeStream: (blobId) => {
+      const data = blobs.get(blobId)
+      return data === undefined
+        ? Stream.fail(new ServiceError({ service: "BlobChannel", message: `no blob ${blobId}` }))
+        : Stream.make(data)
+    },
   })
   /** Registers bytes as if a Client had sent them. */
   const put = (bytes: Uint8Array): BlobId => {

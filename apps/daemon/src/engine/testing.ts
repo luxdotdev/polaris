@@ -219,7 +219,7 @@ export const fakeServices = (fakes: Fakes, drivers: ReadonlyArray<FakeDriver>) =
             id: `att-${fakes.attachments.size + 1}` as AttachmentId,
             name: options.name,
             mimeType: options.mimeType,
-            size: options.bytes.byteLength,
+            size: options.bytes instanceof Uint8Array ? options.bytes.byteLength : 0,
             hostPath: `/staging/${options.name}`,
           })
           fakes.attachments.set(attachment.id, attachment)

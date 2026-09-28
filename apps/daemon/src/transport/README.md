@@ -16,6 +16,8 @@ The Daemon's only listener, the RPC server on it, and `polaris bridge`. Decision
 
 The framing and blob channel live in `packages/protocol/src/wire.ts` (shared with the Client): each RPC message is one JSON frame serialized with `RpcSerialization.json`; blobs are kind-1 frames. The writer drains queued JSON before each blob chunk and round-robins between blobs, so a large read never holds up a stream by more than one 256 KiB chunk. Limits (per connection): 512 MiB per blob, 1 GiB buffered, 60 s without progress fails a `take`, unclaimed blobs expire after 5 minutes; stream-sourced outgoing blobs buffer at most 4 chunks.
 
+A handler takes an incoming blob whole (`BlobChannel.take`) or as a stream of chunks as they arrive (`BlobChannel.takeStream`, backed by `Wire.takeBlobStream`), which never holds the whole blob: `attachments.stage` writes uploads to disk that way. A streamed take can opt out of the idle timeout (long-lived blobs such as terminal output); a consumer that stops early makes the Wire drop the rest of that blob as it arrives. The frame decoder queues socket reads rather than merging them, so a blob chunk is copied at most once on its way in.
+
 ## Mounting handler layers
 
 `startServer({ handlers })` takes any layer of RPC handlers, built from `DaemonRpcs`, `ServerRpcs` or a sub-group (`RpcGroup.make(...).toLayer`, `toLayerHandler`). Handlers are keyed by RPC tag, so they plug into `ServerRpcs` whichever group built them; any RPC not covered falls back to the placeholder. In `serve.ts`:

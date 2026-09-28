@@ -11,6 +11,7 @@
  * from `handlers.ts` first, then whatever the caller passes, which wins.
  */
 import {
+  type BlobError,
   type ByteTransport,
   type Capability,
   type HostInfo,
@@ -59,19 +60,17 @@ export interface RunningServer {
   readonly connections: () => number
 }
 
+const blobError = (error: BlobError) =>
+  new ServiceError({
+    service: "transport",
+    message: `blob ${error.blobId}: ${error.reason}: ${error.message}`,
+  })
+
 const blobChannelFor = (wire: Wire): BlobChannel["Service"] =>
   BlobChannel.of({
     offer: (bytes) => wire.offerBlob(bytes),
-    take: (blobId) =>
-      wire.takeBlob(blobId).pipe(
-        Effect.mapError(
-          (error) =>
-            new ServiceError({
-              service: "transport",
-              message: `blob ${error.blobId}: ${error.reason}: ${error.message}`,
-            }),
-        ),
-      ),
+    take: (blobId) => wire.takeBlob(blobId).pipe(Effect.mapError(blobError)),
+    takeStream: (blobId) => wire.takeBlobStream(blobId).pipe(Stream.mapError(blobError)),
   })
 
 /**
@@ -83,6 +82,7 @@ const BlobChannelOutsideRequest = Layer.succeed(BlobChannel)(
   BlobChannel.of({
     offer: () => Effect.die(new Error("BlobChannel used outside an RPC request")),
     take: () => Effect.die(new Error("BlobChannel used outside an RPC request")),
+    takeStream: () => Stream.die(new Error("BlobChannel used outside an RPC request")),
   }),
 )
 
