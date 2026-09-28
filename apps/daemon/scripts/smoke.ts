@@ -22,6 +22,7 @@ import {
   type WorkspaceId,
 } from "@polaris/protocol"
 import { Effect, Stream } from "effect"
+import { defaultStateFile, stopAppServer } from "../src/harness/codex/AppServer.ts"
 
 const harness = (process.argv[2] ?? "codex") as HarnessKind
 const MAIN = join(import.meta.dir, "..", "src", "main.ts")
@@ -141,5 +142,7 @@ await Effect.runPromise(Effect.scoped(program)).then(
 )
 daemon.kill("SIGTERM")
 await new Promise((r) => daemon.once("exit", r))
+// The shared Codex app-server outlives its Daemon by design; stop this throwaway one.
+await Effect.runPromise(stopAppServer({ stateFile: defaultStateFile(join(home, "codex.sock")) }))
 rmSync(home, { recursive: true, force: true })
 rmSync(repo, { recursive: true, force: true })
