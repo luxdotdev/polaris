@@ -116,7 +116,7 @@ CABIN = [
     "..WMMMMMWWWDDDW...",
     ".FFFFFFFFFFFFFFF..",
 ]
-CABIN_COLOURS = {
+CABIN_NIGHT = {
     "R": "#0A0E1A",  # roof
     "H": "#2C3860",  # roof edge lit by Polaris (light from the upper right)
     "C": "#1D2540",  # chimney
@@ -129,8 +129,22 @@ CABIN_COLOURS = {
     "d": "#9C7A48",  # light through the door gap
     "F": "#1C2238",  # stone foundation
 }
+# The same cabin at dawn: warm timber, a paler roof, and the lamp still on.
+CABIN_DAWN = {
+    "R": "#7E5646",  # roof
+    "H": "#B98468",  # roof edge catching the low sun
+    "C": "#8A7A72",  # chimney
+    "S": "#F4F1F6",  # smoke
+    "W": "#A9825F",  # wall
+    "P": "#93704F",  # plank shadow
+    "M": "#5E4434",  # window frame
+    "L": "#F2C27A",  # lamplight
+    "D": "#5E4434",  # door
+    "d": "#E0A860",  # light through the door gap
+    "F": "#8C8781",  # stone foundation
+}
 
-def place_cabin(img, ground, x0, x1):
+def place_cabin(img, ground, x0, x1, colours):
     cw, ch = len(CABIN[0]), len(CABIN)
     # seat on the flattest stretch of ground in [x0, x1)
     best = min(range(x0, x1 - cw), key=lambda x: np.ptp(ground[x:x + cw]))
@@ -139,20 +153,21 @@ def place_cabin(img, ground, x0, x1):
     for j, row in enumerate(CABIN):
         for i, ch_ in enumerate(row):
             if ch_ != ".":
-                img[top + j, best + i] = hexc(CABIN_COLOURS[ch_])
+                img[top + j, best + i] = hexc(colours[ch_])
     # fill any gap between the foundation and higher ground
-    img[base + 1:base + 2, best + 1:best + cw - 2] = hexc(CABIN_COLOURS["F"])
+    img[base + 1:base + 2, best + 1:best + cw - 2] = hexc(colours["F"])
 
 night, night_ground = night
-place_cabin(night, night_ground, int(W * 0.14), int(W * 0.34))
+place_cabin(night, night_ground, int(W * 0.14), int(W * 0.34), CABIN_NIGHT)
 save(night,'scene-night.png',4,'scenes')
-dawn,_=scene(W,H,['#C9D8F2','#D8E1F4','#E9E6F0','#F6E4DA','#FBE3CC','#FCE9D2'],
+dawn,dawn_ground=scene(W,H,['#C9D8F2','#D8E1F4','#E9E6F0','#F6E4DA','#FBE3CC','#FCE9D2'],
     [('#B7C9A8',0.70,0.18,3),('#9DB78F',0.78,0.14,5),('#7FA074',0.86,0.10,9)],'#FFFFFF',False,12)
 # meadow flowers
 r=random.Random(4)
 for _ in range(260):
     x=r.randrange(W); y=r.randrange(int(H*0.88),H)
     dawn[y,x]=hexc(r.choice(['#F4D35E','#FFFFFF','#F2B5C4']))
+place_cabin(dawn, dawn_ground, int(W * 0.14), int(W * 0.34), CABIN_DAWN)
 save(dawn,'scene-dawn.png',4,'scenes')
 
 # pixel watercolour washes (tile textures)

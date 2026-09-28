@@ -58,6 +58,22 @@ colors:
   diff-removed-bg-light: "#CF222E12"
   diff-selection-dark: "#BCD3FF29"
   diff-selection-light: "#4F82E829"
+  # Git status (Editor file tree, tabs, gutter). Added/untracked use diff-added, deleted uses diff-removed.
+  git-modified-dark: "#D6B37E"
+  git-modified-light: "#9A6B16"
+  # Syntax: "moonlit". Low chroma so signals still stand out over code.
+  syntax-keyword-dark: "#A3AFCB"
+  syntax-string-dark: "#D9C9A3"   # strings and numbers
+  syntax-type-dark: "#A9C6BD"     # types, components, classes
+  syntax-function-dark: "#F4F5F7" # called and declared functions
+  syntax-comment-dark: "#6E7280"
+  syntax-punctuation-dark: "#9A9CA4"
+  syntax-keyword-light: "#4A5A80"
+  syntax-string-light: "#86652E"
+  syntax-type-light: "#3E6B5E"
+  syntax-function-light: "#17181A"
+  syntax-comment-light: "#A4A6AC"
+  syntax-punctuation-light: "#74767D"
 typography:
   display:
     fontFamily: "SF Pro"
@@ -205,7 +221,7 @@ Dark is the default theme; light is equally supported. Every token exists in bot
 
 The Desktop App is Electron (Chromium 152, React). CSS effects are available: shadows, rounded clipping, per-element `backdrop-filter`, springs, custom fonts, and window-level vibrancy. The budgets still rule: display-rate frames (180 Hz measured) and under 1 GB for the whole app. See **Performance** under Motion.
 
-**Assets and source files.** Generated textures live in `design/assets/` (dither frames, state icons, scenes, watercolour washes, halos) and are reproducible from `design/scripts/gen_dither.py` and `design/scripts/gen_textures.py`. Mockups: the Paper file "Polaris — Orchestrator" (https://app.paper.design/file/01M3JV1J857QNW61TGHZYR6GMZ); artboard 5, "Orchestrate · Elevated", is the chosen Orchestrator direction, and the Review page holds R1 (pull request, dark) and R2 (agent session turns, light). The file's Paper tokens mirror this frontmatter as `-dark`/`-light` pairs.
+**Assets and source files.** Generated textures live in `design/assets/` (dither frames, state icons, scenes, watercolour washes, halos) and are reproducible from `design/scripts/gen_dither.py` and `design/scripts/gen_textures.py`. Mockups: the Paper file "Polaris — Orchestrator" (https://app.paper.design/file/01M3JV1J857QNW61TGHZYR6GMZ); artboard 5, "Orchestrate · Elevated", is the chosen Orchestrator direction, the Review page holds R1 (pull request, dark) and R2 (agent session turns, light), and the Editor page holds E1 (editor, dark), E2 (inline chat, dark) and E3 (an agent editing your file, light). The file's Paper tokens mirror this frontmatter as `-dark`/`-light` pairs.
 
 **Mode:** Operate. Scanability, consistency, and native macOS expectations outrank expression. Brand lives in precise details and the pixel world.
 
@@ -251,11 +267,13 @@ Faintly cool greys (a trace of blue, never readable as blue). Dark background is
 
 ### Harness identity
 
-Each Harness has one fixed hue; every Agent Session with that Harness uses it. Claude Code is `harness-claude-code` (coral orange). Codex is `harness-codex` (mint). These are provisional until checked against the signal colours in real screens. Harness hue appears in the dither, the session's Harness tile, and toasts that Harness sent. It may also colour text and borders in exactly two places: the composer's Working strip and the Harness picker chip (see Components). It never appears on buttons, selection, or body text.
+Each Harness has one fixed hue; every Agent Session with that Harness uses it. Claude Code is `harness-claude-code` (coral orange). Codex is `harness-codex` (mint). These are provisional until checked against the signal colours in real screens. Harness hue appears in the dither, the session's Harness tile, and toasts that Harness sent. It may also colour text and borders in exactly three places: the Working strip (in the composer, and across the top of an Editor file an agent is editing), the Harness picker chip, and an agent's live caret and lines in the Editor (see Components). It never appears on buttons, selection, or body text.
 
 ### Named Rules
 
-- **rule/colour-means-something:** a colour on screen must be Starlight, a Session State signal, a Severity, a diff, or a Harness hue. Anything else is a neutral.
+- **rule/colour-means-something:** a colour on screen must be Starlight, a Session State signal, a Severity, a diff, a git status, a syntax token, or a Harness hue. Anything else is a neutral.
+- **rule/syntax-is-moonlit:** syntax colours stay low-chroma and never reuse a signal hue, so a Severity, diff or Needs You mark is always the loudest thing over code.
+- **rule/git-is-a-letter:** a git status is always its letter (M, A, U, D, R, C, !) in a fixed slot, with the file name tinted to match. It never uses a dot or icon alone, so modified tan never reads as Needs You yellow (which is always a pixel icon).
 - **rule/starlight-is-rare:** Starlight never appears on buttons, links, selection, or hover.
 - **rule/no-colour-alone:** every colour signal also has an icon, shape, or label.
 - **rule/severity-is-a-badge:** a Severity is always a filled badge with its shape (◆ ▲ ● ○), its label, and its colour. Never colour alone, never a bare dot.
@@ -430,12 +448,12 @@ The signature component: a field of square cells lit on a strict pixel grid.
 - **Timing:** a new frame every ~83ms (12 fps), so it reads as pixel animation, not video. It fades in over 200ms on entering Working and fades out over 200ms on leaving it.
 - **Colour:** the Harness hue, or Starlight for Polaris's own work.
 - **Implementation:** frames of lit cells baked into a horizontal sprite strip, stepped by translating the strip (`transform`) inside a clipped box, so the animation stays on the compositor. Canvas is acceptable for large fields such as scenes.
-- **Where:** the Working indicator, the composer while a Turn is being sent, and mode or Harness activation moments. Never in the Editor's text area or behind diffs.
+- **Where:** the Working indicator, the composer while a Turn is being sent, mode or Harness activation moments, and 12px marks in the Editor's file tree and tabs on files a Working agent is changing. Never in the Editor's text area or behind diffs.
 - **Reduce Motion:** replaced by a still pixel pattern.
 
 ### Pixel scenes
 
-Full-bleed pixel illustrations: a night sky with Polaris for dark mode, a meadow at dawn for light mode. Only in onboarding, first run, and empty states (including the new-session page), never behind working surfaces (Orchestrator lists, Review, the Editor). Content over a scene sits on a `surface-raised` card. The current scenes are generated by `design/scripts/gen_textures.py`; do not copy the inspiration images.
+Full-bleed pixel illustrations: a night sky with Polaris for dark mode, a meadow at dawn for light mode. Only in onboarding, first run, and empty states (including the new-session page), never behind working surfaces (Orchestrator lists, Review, the Editor). Content over a scene sits on a `surface-raised` card. The current scenes are generated by `design/scripts/gen_textures.py`; do not copy the inspiration images. Both scenes carry the same cabin, seated on the ground line: moonlit with a lit window at night, warm timber with the lamp still on at dawn.
 
 - **rule/scene-text-contrast:** any text set directly on a scene sits on a "clearing": a solid radial vignette of the scene's darkest colour (dark: `#070912` at ~90% in the centre, fading to 0) sized to the text block plus 80px, and secondary lines use `text-default`, not `text-subtle`. Every line must clear 4.5:1 against the worst pixel behind it, stars included.
 
@@ -460,6 +478,19 @@ Quiet. Standard transitions are 120ms (hover, press), 160ms (small reveals), and
 - Animate `transform` and `opacity` only. Anything that triggers layout or paint per frame (width, height, top, box-shadow, blur radius) does not animate.
 - Springs are fine for panels and toasts when they drive `transform`. The Working dither steps a sprite strip by `transform`.
 - Long lists and diffs are virtualised; nothing animates on scroll.
+
+### Editor
+
+The third mode (title-bar switch: Orchestrate, Review, Edit). Two zones: the explorer (264px, `surface-sunken`) and the editor pane. The code is the content; chrome stays neutral and quiet.
+
+- **Explorer.** Workspace header (name, Host and path) and a Files / Changes segmented control, then the file tree in tree rows. Each row has two fixed trailing slots: an agent slot (a 12px dither in the Harness hue while a Working agent is changing that file, or the pixel needs-you hand on a folder where an agent is blocked) and a git slot (the status letter, or a 5px `git-modified` dot on a folder that contains changes). Below the tree, "Agents in {workspace}" lists that Workspace's sessions as session rows; the footer keeps the jump hint.
+- **Git status.** Modified `M` (`git-modified`), added `A` and untracked `U` (`diff-added`), deleted `D` (`diff-removed`, name struck through), renamed `R` (`git-modified`), conflicted `C` (`diff-removed`), ignored (`text-faint`, no letter). The file name takes the same tint unless the row is selected. In the gutter, a 2px bar marks changed lines (`git-modified` or `diff-added`) and a small `diff-removed` wedge marks where lines were deleted.
+- **Tabs.** 36px, `label` type. The active tab joins the editor surface; others sit on `surface-sunken`. A dot means unsaved, a close mark shows on the active tab, and a 12px dither leads the tab while an agent is changing that file.
+- **Breadcrumbs.** `caption` path and symbol in `text-faint`/`text-subtle`, with the "Ask about this file ⌘I" hint on the right.
+- **Code.** `code` type, moonlit syntax, line numbers right-aligned in `text-faint` (the current line in `text-default` on `fill-hover`). Ligatures off. Tab completion is ghost text in `text-faint` with a small "Tab" keycap after it.
+- **Inline chat (⌘I).** Opens as a `card`-radius raised card above the selection, aligned to the code's left edge: the Harness picker chip, the prompt, and the selected range. The selection keeps a Starlight fill at ~11%. The proposal renders inline as a diff (removed line on `diff-removed` fill, added lines on `diff-added` fill), and the card's footer says what changed ("1 change +2 −1 · Thought for 4s") with "Open as agent session", Reject (esc) and Accept (⌘↵, the view's one primary button).
+- **An agent editing your file.** When a Working agent session is changing the open file, a Working strip runs across the top of the editor: dither glyph, "Claude Code is editing this file" in the Harness hue, "{session} · turn N · elapsed" in `caption`, a Follow checkbox (on by default: the view scrolls with the agent) and "Open session". Lines the agent wrote this turn get a 2px Harness-hue bar and a ~5% Harness-hue fill; its live caret is a Harness-hue bar with a name flag ("Claude Code"). No dither in the text area.
+- **Status bar.** 26px, `caption`, `surface-sunken`. Left: Host (with latency when remote), branch and worktree, change count. Right: position or "Following Claude Code · Ln N", language, and Completions with the flat Polaris mark (Polaris's own feature).
 
 ### Titlebar
 
