@@ -13,10 +13,11 @@
   - `never`: attachments are kept until "clear now".
 - The sweeper runs hourly while the layer is alive. `AttachmentMaintenance.sweep` runs it on demand.
 - **Settings operations** (additive; not in `services.ts`): `settings`, `setSettings`, `usage` (bytes and files staged on this Host), and `clearNow({ workspaceId? })`, which returns what it removed.
-- **Handlers**: `AttachmentRpcsLive` takes the Client's blob from `BlobChannel.take(blobId)` and stages it. It needs `AttachmentStore` (`AttachmentStoreLive()` provides both services) and `BlobChannel`.
+- **Streaming**: `stage` takes the bytes whole or as a stream. `AttachmentRpcsLive` passes `BlobChannel.takeStream(blobId)`, so an upload is written to `<attachment id>/.partial` chunk by chunk as it arrives and renamed into place when complete: the Daemon holds a few 256 KiB chunks, whatever the size. A failed or oversized upload removes its directory. `maxBytes` (default `MAX_ATTACHMENT_BYTES`, 512 MiB, the Wire's own per-blob limit) is checked as the chunks arrive.
+- **Handlers**: `AttachmentRpcsLive` needs `AttachmentStore` (`AttachmentStoreLive()` provides both services) and `BlobChannel`.
 
 ## Known gaps / TODOs
 
 - Nothing moves `_pending` attachments into the session directory once the session exists. The engine can re-stage them or leave them in place, since `hostPath` stays valid.
 - Settings live in a JSON file. The Settings workstream may want them in the event store instead.
-- There are no size limits or quotas yet.
+- There is a per-attachment size limit but no quota.

@@ -9,6 +9,7 @@ import { createHash } from "node:crypto"
 import { existsSync, mkdtempSync, rmSync, statSync } from "node:fs"
 import { join } from "node:path"
 import {
+  attachTerminal,
   type ConnectionStatus,
   type HostConnection,
   type HostConnectionOptions,
@@ -18,6 +19,7 @@ import {
 import {
   Attachment,
   AttachmentId,
+  type Capability,
   CommandId,
   CommandRejected,
   EventEnvelope,
@@ -28,9 +30,13 @@ import {
   WorkspaceId,
 } from "@polaris/protocol"
 import { Context, Effect, Exit, Fiber, Layer, PubSub, Scope, Stream, SubscriptionRef } from "effect"
+import { AttachmentRpcsLive } from "../attachments/AttachmentRpcs.ts"
+import { AttachmentStoreLive } from "../attachments/AttachmentStore.ts"
 import { ClientCapabilities, DeviceLabel } from "../engine/rpc.ts"
 import { GitRpcsLive } from "../git/GitRpcs.ts"
 import { BlobChannel } from "../services.ts"
+import { TerminalRpcsLive } from "../terminal/TerminalRpcs.ts"
+import { TerminalsLive } from "../terminal/Terminals.ts"
 import type { DaemonAlreadyRunning } from "./lock.ts"
 import { ServerRpcs } from "./rpcs.ts"
 import { startServer } from "./server.ts"
@@ -582,6 +588,79 @@ describe("transport", () => {
     // (`files` is not checked: git/diff.ts counts over an ArrayBuffer and reports 0; see README.)
     expect(diff.text.length).toBe(diff.result.size)
     expect(diff.text).toContain("+b")
+  }, 20_000)
+
+  test("attachments.stage streams an upload to disk through the socket", async () => {
+    const payload = bytes(3 * 1024 * 1024 + 17, 5)
+    const staged = await run(
+      Effect.gen(function* () {
+        yield* startServer({
+          ...serverOptions(home),
+          handlers: AttachmentRpcsLive.pipe(
+            Layer.provide(AttachmentStoreLive({ root: join(home, "staging") })),
+          ),
+        })
+        const conn = yield* localHost(home)
+        yield* conn.awaitSession
+        return yield* conn.withBlob(payload, (blobId, s) =>
+          s.client["attachments.stage"]({
+            sessionId: null,
+            workspaceId: WorkspaceId.make("w1"),
+            name: "big.bin",
+            mimeType: "application/octet-stream",
+            blobId,
+          }),
+        )
+      }),
+    )
+    expect(staged.size).toBe(payload.byteLength)
+    expect(sha(new Uint8Array(await Bun.file(staged.hostPath).arrayBuffer()))).toBe(sha(payload))
+  }, 20_000)
+
+  test("terminal output arrives the same as raw bytes (terminal.binary) and as base64", async () => {
+    const size = 300_000
+    const texts = await run(
+      Effect.gen(function* () {
+        yield* startServer({
+          ...serverOptions(home),
+          handlers: TerminalRpcsLive.pipe(Layer.provide(TerminalsLive)),
+          capabilities: ["terminal", "terminal.binary"],
+        })
+        const conn = yield* localHost(home)
+        const session = yield* conn.awaitSession
+        const read = (capabilities: ReadonlyArray<Capability>) =>
+          Effect.gen(function* () {
+            const { terminalId } = yield* session.client["terminal.open"]({
+              cwd: home,
+              cols: 80,
+              rows: 24,
+              argv: [
+                "sh",
+                "-c",
+                `sleep 0.3; head -c ${size} /dev/zero | tr '\\0' a; echo; echo done`,
+              ],
+            })
+            let text = ""
+            const decoder = new TextDecoder()
+            let exit: number | null | undefined
+            yield* attachTerminal({ ...session, capabilities }, terminalId).pipe(
+              Stream.runForEach((item) =>
+                Effect.sync(() => {
+                  if (item._tag === "Output") text += decoder.decode(item.data, { stream: true })
+                  else exit = item.code
+                }),
+              ),
+            )
+            return { text, exit }
+          })
+        return [yield* read(["terminal.binary"]), yield* read([])]
+      }),
+    )
+    for (const { text, exit } of texts) {
+      expect(exit).toBe(0)
+      expect(text.split("a").length - 1).toBe(size)
+      expect(text).toContain("done")
+    }
   }, 20_000)
 
   test("polaris serve as a process: pid file, bridge, clean shutdown", async () => {

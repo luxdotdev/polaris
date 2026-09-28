@@ -15,7 +15,7 @@
  * a few chunks before their source is paused, and `sendJson` waits while more
  * than `maxQueuedJsonBytes` of JSON is queued.
  */
-import { Deferred, Effect, Exit, Latch, Schema, type Scope, Stream } from "effect"
+import { Cause, Deferred, Effect, Exit, Latch, Schema, type Scope, Stream } from "effect"
 import {
   BLOB_CHUNK_BYTES,
   encodeBlob,
@@ -77,6 +77,16 @@ export interface Wire {
   readonly offerBlob: <E>(source: BlobSource<E>) => Effect.Effect<BlobId>
   /** Wait for the whole blob the peer sent (or is sending) under `blobId`. Single consumer. */
   readonly takeBlob: (blobId: string) => Effect.Effect<Uint8Array, BlobError>
+  /**
+   * The blob's bytes as they arrive, without collecting them: what arrived
+   * before the call first, then each chunk. Ends after the final chunk. Single
+   * consumer, like `takeBlob` (a blob is taken one way or the other).
+   * Unconsumed chunks count against the connection's buffered bytes.
+   */
+  readonly takeBlobStream: (
+    blobId: string,
+    options?: TakeStreamOptions,
+  ) => Stream.Stream<Uint8Array, BlobError>
   /** Succeeds when the peer closed cleanly, fails on a transport or framing error. */
   readonly closed: Effect.Effect<void, TransportError>
   readonly stats: () => {
@@ -85,6 +95,15 @@ export interface Wire {
     readonly outgoingBlobs: number
     readonly queuedJsonBytes: number
   }
+}
+
+export interface TakeStreamOptions {
+  /**
+   * Fail with `timeout` when the blob makes no progress for `blobIdleTimeoutMs`
+   * (default true). Turn it off for long-lived blobs that may be quiet for a
+   * while, such as a terminal's output.
+   */
+  readonly idleTimeout?: boolean
 }
 
 /** Frames buffered per outgoing stream-sourced blob before its source is paused. */
@@ -98,11 +117,19 @@ interface OutBlob {
 }
 
 interface InBlob {
+  /** Chunks held for the consumer (all of them, or the unread ones when streamed). */
   parts: Array<Uint8Array>
+  /** Bytes in `parts`. */
   size: number
+  /** Bytes received so far, for `maxBlobBytes`. */
+  received: number
   status: "receiving" | "complete" | "failed"
-  claimed: boolean
+  claimed: false | "whole" | "stream"
+  idleTimeout: boolean
   touched: number
+  failure: BlobError | null
+  /** A streaming consumer waiting for the next chunk. */
+  wake: (() => void) | null
   readonly deferred: Deferred.Deferred<Uint8Array, BlobError>
 }
 
@@ -273,9 +300,13 @@ export const makeWire = Effect.fnUntraced(function* (
       blob = {
         parts: [],
         size: 0,
+        received: 0,
         status: "receiving",
         claimed: false,
+        idleTimeout: true,
         touched: Date.now(),
+        failure: null,
+        wake: null,
         deferred: Deferred.makeUnsafe<Uint8Array, BlobError>(),
       }
       inBlobs.set(blobId, blob)
@@ -294,7 +325,9 @@ export const makeWire = Effect.fnUntraced(function* (
       release(blob)
       blob.status = "failed"
       blob.touched = Date.now()
-      Deferred.doneUnsafe(blob.deferred, Exit.fail(new BlobError({ blobId, reason, message })))
+      blob.failure = new BlobError({ blobId, reason, message })
+      Deferred.doneUnsafe(blob.deferred, Exit.fail(blob.failure))
+      blob.wake?.()
     }
   }
 
@@ -305,20 +338,29 @@ export const makeWire = Effect.fnUntraced(function* (
     if (frame.aborted) return failBlob(frame.blobId, blob, "aborted", "the sender aborted the blob")
     const length = frame.bytes.byteLength
     if (length > 0) {
-      if (blob.size + length > maxBlobBytes)
+      if (blob.received + length > maxBlobBytes)
         return failBlob(frame.blobId, blob, "too-large", `blob exceeds ${maxBlobBytes} bytes`)
       if (bufferedBytes + length > maxBuffered)
         return failBlob(frame.blobId, blob, "too-large", "connection blob buffer is full")
-      blob.parts.push(frame.bytes.slice())
+      // A view into a much larger read buffer would keep all of it alive; copy those.
+      const bytes = frame.bytes.buffer.byteLength > 2 * length ? frame.bytes.slice() : frame.bytes
+      blob.parts.push(bytes)
       blob.size += length
+      blob.received += length
       bufferedBytes += length
     }
     if (frame.final) {
-      const bytes = concat(blob.parts, blob.size)
-      blob.parts = [bytes]
       blob.status = "complete"
-      Deferred.doneUnsafe(blob.deferred, Exit.succeed(bytes))
+      if (blob.claimed === "whole") resolveWhole(blob)
     }
+    blob.wake?.()
+  }
+
+  /** Hands a complete blob to its `takeBlob`, in one piece. */
+  const resolveWhole = (blob: InBlob) => {
+    const bytes = concat(blob.parts, blob.size)
+    blob.parts = [bytes]
+    Deferred.doneUnsafe(blob.deferred, Exit.succeed(bytes))
   }
 
   const takeBlob = (blobId: string): Effect.Effect<Uint8Array, BlobError> =>
@@ -330,24 +372,84 @@ export const makeWire = Effect.fnUntraced(function* (
         )
       if (isClosed && blob.status === "receiving")
         failBlob(blobId, blob, "closed", "connection closed before the blob arrived")
-      blob.claimed = true
+      blob.claimed = "whole"
       blob.touched = Date.now()
-      return Deferred.await(blob.deferred).pipe(
-        Effect.ensuring(
-          Effect.sync(() => {
-            if (inBlobs.get(blobId) === blob) {
-              inBlobs.delete(blobId)
-              release(blob)
-            }
-          }),
-        ),
-      )
+      if (blob.status === "complete") resolveWhole(blob)
+      return Deferred.await(blob.deferred).pipe(Effect.ensuring(forget(blobId, blob)))
+    })
+
+  const forget = (blobId: string, blob: InBlob) =>
+    Effect.sync(() => {
+      blob.wake = null
+      if (blob.status === "receiving") {
+        // The consumer gave up midway: drop the rest of the blob as it arrives,
+        // and let the sweep forget the entry once the sender has moved on.
+        failBlob(blobId, blob, "closed", "the consumer stopped reading")
+        blob.claimed = false
+        return
+      }
+      if (inBlobs.get(blobId) === blob) {
+        inBlobs.delete(blobId)
+        release(blob)
+      }
+    })
+
+  const takeBlobStream = (
+    blobId: string,
+    takeOptions: TakeStreamOptions = {},
+  ): Stream.Stream<Uint8Array, BlobError> =>
+    Stream.suspend(() => {
+      const blob = inBlob(blobId)
+      if (blob.claimed)
+        return Stream.fail(
+          new BlobError({ blobId, reason: "closed", message: "blob already taken" }),
+        )
+      if (isClosed && blob.status === "receiving")
+        failBlob(blobId, blob, "closed", "connection closed before the blob arrived")
+      blob.claimed = "stream"
+      blob.idleTimeout = takeOptions.idleTimeout ?? true
+      blob.touched = Date.now()
+      const pull = Effect.callback<
+        readonly [Uint8Array, ...Array<Uint8Array>],
+        BlobError | Cause.Done
+      >((resume) => {
+        const settle = (): boolean => {
+          if (blob.parts.length > 0) {
+            const parts = blob.parts as [Uint8Array, ...Array<Uint8Array>]
+            blob.parts = []
+            bufferedBytes -= blob.size
+            blob.size = 0
+            resume(Effect.succeed(parts))
+            return true
+          }
+          if (blob.status === "failed") {
+            resume(Effect.fail(blob.failure!))
+            return true
+          }
+          if (blob.status === "complete") {
+            resume(Effect.fail(Cause.Done()))
+            return true
+          }
+          return false
+        }
+        if (settle()) return
+        // Cleared before settling: resuming can start the next pull synchronously.
+        const waiter = () => {
+          blob.wake = null
+          if (!settle()) blob.wake = waiter
+        }
+        blob.wake = waiter
+        return Effect.sync(() => {
+          blob.wake = null
+        })
+      })
+      return Stream.fromPull(Effect.succeed(pull)).pipe(Stream.ensuring(forget(blobId, blob)))
     })
 
   const sweep = Effect.sync(() => {
     const now = Date.now()
     for (const [blobId, blob] of inBlobs) {
-      if (blob.status === "receiving" && now - blob.touched > idleTimeout) {
+      if (blob.status === "receiving" && blob.idleTimeout && now - blob.touched > idleTimeout) {
         failBlob(blobId, blob, "timeout", `no progress for ${idleTimeout}ms`)
       } else if (
         !blob.claimed &&
@@ -407,6 +509,7 @@ export const makeWire = Effect.fnUntraced(function* (
     sendJson,
     offerBlob,
     takeBlob,
+    takeBlobStream,
     closed: Deferred.await(closed),
     stats: () => ({
       bufferedBlobBytes: bufferedBytes,

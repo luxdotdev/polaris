@@ -11,6 +11,7 @@ import { type ChildProcess, spawn } from "node:child_process"
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs"
 import { join, resolve } from "node:path"
 import { connectRpc, type RpcConnection, socketTransport, spawnTransport } from "@polaris/client"
+import type { Capability } from "@polaris/protocol"
 import { Duration, Effect, type Scope } from "effect"
 
 export const REPO_ROOT = resolve(import.meta.dir, "..", "..", "..")
@@ -137,6 +138,8 @@ export const cleanup = (dir: string) => rmSync(dir, { recursive: true, force: tr
 export interface Client {
   readonly connection: RpcConnection
   readonly label: string
+  /** What the Daemon announced in `hello`. */
+  readonly capabilities: ReadonlyArray<Capability>
 }
 
 const identity = (label: string) => ({
@@ -158,8 +161,10 @@ export const connect = (
         ? yield* socketTransport(daemon.socketPath)
         : yield* spawnTransport(daemon.bridgeArgv, { env: daemon.bridgeEnv })
     const connection = yield* connectRpc(t)
-    yield* connection.client.hello(identity(label)).pipe(Effect.timeout(Duration.seconds(30)))
-    return { connection, label }
+    const hello = yield* connection.client
+      .hello(identity(label))
+      .pipe(Effect.timeout(Duration.seconds(30)))
+    return { connection, label, capabilities: hello.capabilities }
   })
 
 /**

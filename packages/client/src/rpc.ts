@@ -15,10 +15,11 @@ import {
   type BlobSource,
   DaemonRpcs,
   makeWire,
+  type TakeStreamOptions,
   type Wire,
   type WireOptions,
 } from "@polaris/protocol"
-import { Deferred, Effect, type Scope } from "effect"
+import { Deferred, Effect, type Scope, type Stream } from "effect"
 import { RpcClient, type RpcGroup, RpcSerialization } from "effect/rpc"
 import { RpcClientDefect, RpcClientError } from "effect/rpc/RpcClientError"
 import { constPing, type FromServerEncoded } from "effect/rpc/RpcMessage"
@@ -31,6 +32,11 @@ export interface ClientBlobs {
   readonly offer: <E>(source: BlobSource<E>) => Effect.Effect<BlobId>
   /** Receive a blob the Daemon referenced in a response (e.g. `files.read`, `git.diff`). */
   readonly take: (blobId: BlobId) => Effect.Effect<Uint8Array, BlobError>
+  /** The same, chunk by chunk as it arrives, without holding the whole blob (e.g. terminal output). */
+  readonly takeStream: (
+    blobId: BlobId,
+    options?: TakeStreamOptions,
+  ) => Stream.Stream<Uint8Array, BlobError>
 }
 
 export interface RpcConnection {
@@ -163,7 +169,11 @@ export const connectRpc = Effect.fnUntraced(function* (
   return {
     client,
     wire,
-    blobs: { offer: wire.offerBlob, take: (blobId) => wire.takeBlob(blobId) },
+    blobs: {
+      offer: wire.offerBlob,
+      take: (blobId) => wire.takeBlob(blobId),
+      takeStream: (blobId, takeOptions) => wire.takeBlobStream(blobId, takeOptions),
+    },
     lost: Deferred.await(lost),
   }
 })

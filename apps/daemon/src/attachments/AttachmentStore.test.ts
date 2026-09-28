@@ -2,10 +2,10 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
 import type { AttachmentId, SessionId, WorkspaceId } from "@polaris/protocol"
-import { Effect, Layer } from "effect"
+import { Effect, Layer, Stream } from "effect"
 import { makeFakeBlobChannel } from "../files/testing.ts"
 import { removeDir, tempDir } from "../git/testing.ts"
-import { AttachmentStore } from "../services.ts"
+import { AttachmentStore, ServiceError } from "../services.ts"
 import { handleStageAttachment } from "./AttachmentRpcs.ts"
 import {
   AttachmentMaintenance,
@@ -225,6 +225,45 @@ describe("AttachmentStore", () => {
     )
     expect(attachment).toMatchObject({ name: "shot.png", mimeType: "image/png", size: 10 })
     expect(readFileSync(attachment.hostPath, "utf8")).toBe("image data")
+  })
+
+  test("stages a stream chunk by chunk, and drops the upload when it fails or is too large", async () => {
+    const { run, staging } = setup()
+    const upload = (bytes: Stream.Stream<Uint8Array, ServiceError>, maxBytes?: number) =>
+      Effect.gen(function* () {
+        const store = yield* AttachmentStore
+        return yield* store.stage({
+          sessionId: s1,
+          workspaceId: ws,
+          name: "big.bin",
+          mimeType: "application/octet-stream",
+          bytes,
+        })
+      }).pipe(
+        Effect.provide(
+          AttachmentStoreLive({
+            root: staging,
+            settingsPath: join(staging, "s.json"),
+            ...(maxBytes === undefined ? {} : { maxBytes }),
+          }),
+        ),
+      )
+    const chunks = [bytes("hello "), bytes("streamed "), bytes("world")]
+    const staged = await run(upload(Stream.fromIterable(chunks)))
+    expect(staged.size).toBe(20)
+    expect(readFileSync(staged.hostPath, "utf8")).toBe("hello streamed world")
+    expect(readdirSync(join(staged.hostPath, "..")).sort()).toEqual([".meta.json", "big.bin"])
+
+    const failing = Stream.concat(
+      Stream.fromIterable(chunks),
+      Stream.fail(new ServiceError({ service: "test", message: "connection lost" })),
+    )
+    const failed = await run(Effect.flip(upload(failing)))
+    expect(failed.message).toContain("connection lost")
+    const tooLarge = await run(Effect.flip(upload(Stream.fromIterable(chunks), 10)))
+    expect(tooLarge.message).toContain("larger than 10 bytes")
+    // Only the first upload is left on disk.
+    expect(readdirSync(join(staging, s1))).toEqual([staged.id])
   })
 })
 

@@ -62,6 +62,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "git.diff",
   "attachments.stage",
   "terminal",
+  "terminal.binary",
 ]
 
 export const serveProgram = Effect.scoped(

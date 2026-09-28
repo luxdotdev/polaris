@@ -1,6 +1,7 @@
 /**
- * Handler for `attachments.stage`: the Client has sent the bytes as binary
- * side-chunks under `blobId`; collect them and stage them on the Host.
+ * Handler for `attachments.stage`: the Client sends the bytes as binary
+ * side-chunks under `blobId`; they are written to the staging file as they
+ * arrive, never collected in memory.
  */
 import { FileError, StageAttachment } from "@polaris/protocol"
 import { Effect } from "effect"
@@ -16,12 +17,13 @@ export const handleStageAttachment = Effect.fn("attachments.stage")(function* ({
 }: typeof StageAttachment.payloadSchema.Type) {
   const blobs = yield* BlobChannel
   const store = yield* AttachmentStore
-  return yield* blobs.take(blobId).pipe(
-    Effect.flatMap((bytes) => store.stage({ ...rest, bytes })),
-    Effect.mapError(
-      (error) => new FileError({ path: paths().staging, code: "ESTAGE", message: error.message }),
-    ),
-  )
+  return yield* store
+    .stage({ ...rest, bytes: blobs.takeStream(blobId) })
+    .pipe(
+      Effect.mapError(
+        (error) => new FileError({ path: paths().staging, code: "ESTAGE", message: error.message }),
+      ),
+    )
 })
 
 /** Requires `AttachmentStore` (from `AttachmentStoreLive()`), and `BlobChannel` per request. */

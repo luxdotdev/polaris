@@ -112,6 +112,72 @@ describe("wire", () => {
     expect(result).toEqual(["timeout", "closed"])
   })
 
+  test("takeBlobStream hands over chunks as they arrive, never the whole blob", async () => {
+    const result = await run(
+      Effect.gen(function* () {
+        const { a, b } = yield* makePair()
+        const wa = yield* makeWire(a, () => Effect.void)
+        const wb = yield* makeWire(b, () => Effect.void)
+        const big = bytes(3 * 1024 * 1024 + 5)
+        const id = yield* wa.offerBlob(big)
+        // Let some chunks arrive before the stream is taken.
+        yield* Effect.sleep(5)
+        let peakBuffered = 0
+        const chunks = yield* wb.takeBlobStream(id).pipe(
+          Stream.tap(() =>
+            Effect.sync(() => {
+              peakBuffered = Math.max(peakBuffered, wb.stats().bufferedBlobBytes)
+            }),
+          ),
+          Stream.runCollect,
+        )
+        const got = new Uint8Array(big.byteLength)
+        let at = 0
+        for (const chunk of chunks) {
+          got.set(chunk, at)
+          at += chunk.byteLength
+        }
+        return { got, big, chunks: chunks.length, stats: wb.stats() }
+      }),
+    )
+    expect(result.got).toEqual(result.big)
+    expect(result.chunks).toBeGreaterThan(1)
+    expect(result.stats.bufferedBlobBytes).toBe(0)
+    expect(result.stats.incomingBlobs).toBe(0)
+  })
+
+  test("takeBlobStream: a quiet blob can opt out of the idle timeout; stopping early drops the rest", async () => {
+    const result = await run(
+      Effect.gen(function* () {
+        const { a, b } = yield* makePair()
+        const wa = yield* makeWire(a, () => Effect.void)
+        const wb = yield* makeWire(b, () => Effect.void, { blobIdleTimeoutMs: 100 })
+        // A source that sends one chunk, stays quiet past the idle timeout, then ends.
+        const quiet = yield* wa.offerBlob(
+          Stream.concat(
+            Stream.succeed(bytes(10)),
+            Stream.fromEffect(Effect.as(Effect.sleep(300), bytes(5))),
+          ),
+        )
+        const received = yield* wb.takeBlobStream(quiet, { idleTimeout: false }).pipe(
+          Stream.runFold(
+            () => 0,
+            (n, chunk) => n + chunk.byteLength,
+          ),
+        )
+        const timedOut = yield* Effect.flip(Stream.runDrain(wb.takeBlobStream("never")))
+        // Stop after the first chunk of a large blob: the rest is dropped as it arrives.
+        const large = yield* wa.offerBlob(bytes(4 * 1024 * 1024))
+        yield* wb.takeBlobStream(large).pipe(Stream.take(1), Stream.runDrain)
+        yield* Effect.sleep(50)
+        return { received, timedOut: timedOut.reason, stats: wb.stats() }
+      }),
+    )
+    expect(result.received).toBe(15)
+    expect(result.timedOut).toBe("timeout")
+    expect(result.stats.bufferedBlobBytes).toBe(0)
+  })
+
   test("closed fails on malformed input", async () => {
     const err = await run(
       Effect.gen(function* () {

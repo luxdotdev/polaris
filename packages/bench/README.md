@@ -43,7 +43,7 @@ Sizes are full / `--quick`.
 | `blobs` | 100 / 16 MiB of incompressible bytes: `files.read` (Daemon → Client) and `attachments.stage` (Client → Daemon). RSS sampled every 50 ms. | MB/s each way, peak RSS over the pre-transfer level, RSS retained after. |
 | `files` | A generated, committed repo of 50k / 5k files (~1.5 KB each, cached in `/tmp/polaris-bench/fixtures/`). Path search and grep, first with fff and then with the git fallback (`POLARIS_FFF=off`), each in its own Daemon. | `first_search_ms` (builds the index), `search_p50/p95_ms`, `grep_p50/p95_ms`, `index_rss_mib`. |
 | `git` | A private copy of the same tree; 5 / 3 scripted Turns each rewriting 20 files, so the engine captures real checkpoints. | `checkpoint_before_ms` (SendTurn → `CheckpointRecorded(before)`), `checkpoint_after_ms` (last item → `CheckpointRecorded(after)`), `turn_diff_ms`, `status_ms`, `working_tree_diff_ms`. |
-| `terminal` | A `Bun.Terminal` running `yes … \| head -c 50M` / `10M`, attached. | `mb_per_s`, CPU, peak RSS over base. |
+| `terminal` | A `Bun.Terminal` running `yes … \| head -c 50M` / `10M`, attached through `attachTerminal` (raw bytes on the blob channel when the Daemon has `terminal.binary`). On macOS most of the CPU is the PTY itself: Bun reads it ~66 bytes at a time, ~36 ms of CPU per MB before the Daemon does anything. | `mb_per_s`, CPU, peak RSS over base. |
 
 Scenarios are independent and each starts its own Daemons, so any subset can run alone.
 
