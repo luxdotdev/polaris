@@ -364,6 +364,52 @@ const interruptUnattended = (
   )
 }
 
+/**
+ * Archive, in every state but Archived: refused while a Turn is in flight
+ * (the user interrupts it first, from Polaris or the terminal UI), so an
+ * Archived session never holds a working Turn. A request still pending with
+ * no Turn in flight (only in logs from before this rule) is withdrawn.
+ */
+const archive = ({ context }: { context: Context }, enq: Enqueue) => {
+  const record = need(context)
+  if (workingTurn(record) !== undefined) {
+    return reject(enq, "interrupt the Turn in flight before archiving")
+  }
+  return settle(enq, record, withdrawPending(record, "daemon", "The session was archived"), {
+    state: "archived",
+  })
+}
+
+type ApprovalRequestedInput = Extract<SessionInput, { type: "harness.approvalRequested" }>
+
+/**
+ * A Harness asks for approval: recorded only for the Turn in flight. A request
+ * for any other Turn (one that ended, a stale or misbehaving Harness) is
+ * ignored, as `turnEnded` ignores a Turn that is not working, so nothing is
+ * ever pending without a Turn to answer it for. `enter` is the state it moves
+ * the session to, if any.
+ */
+const approvalRequested = (
+  record: SessionRecord,
+  event: ApprovalRequestedInput,
+  enq: Enqueue,
+  enter?: "needs-you",
+) => {
+  if (workingTurn(record)?.id !== event.request.turnId) return HANDLED
+  return settle(
+    enq,
+    record,
+    [DomainEvent.cases.ApprovalRequested.make({ request: event.request })],
+    enter === undefined ? undefined : { state: enter },
+  )
+}
+
+/** Back to Working once nothing is pending, but only with a Turn to work on. */
+const backToWork = (record: SessionRecord, closing: RequestId) =>
+  record.pending.size === 1 && record.pending.has(closing) && workingTurn(record) !== undefined
+    ? ({ state: "working" } as const)
+    : undefined
+
 export const sessionMachine = createMachine({
   id: "session",
   schemas: {
@@ -417,7 +463,7 @@ export const sessionMachine = createMachine({
         }),
       ])
     },
-    "session.archive": ({ context }, enq) => settle(enq, need(context), [], { state: "archived" }),
+    "session.archive": archive,
     "session.unarchive": (_, enq) => reject(enq, "the session is not Archived"),
     "terminal.open": ({ context }, enq) =>
       reject(enq, `the session is ${need(context).session.state}`),
@@ -430,14 +476,7 @@ export const sessionMachine = createMachine({
       return started === null ? undefined : settle(enq, need(context), [started])
     },
     "harness.approvalRequested": ({ context, event }, enq) =>
-      settle(
-        enq,
-        need(context),
-        [DomainEvent.cases.ApprovalRequested.make({ request: event.request })],
-        {
-          state: "needs-you",
-        },
-      ),
+      approvalRequested(need(context), event, enq, "needs-you"),
     "harness.approvalWithdrawn": ({ context, event }, enq) => {
       const record = need(context)
       if (!record.pending.has(event.requestId)) return undefined
@@ -516,15 +555,6 @@ export const sessionMachine = createMachine({
     /** The Harness process is known to be running. */
     live: {
       initial: "idle",
-      on: {
-        "session.archive": ({ context }, enq) => {
-          const record = need(context)
-          if (workingTurn(record) !== undefined) {
-            return reject(enq, "interrupt the Turn in flight before archiving")
-          }
-          return settle(enq, record, [], { state: "archived" })
-        },
-      },
       states: {
         idle: {
           id: "idle",
@@ -555,9 +585,7 @@ export const sessionMachine = createMachine({
             "turn.send": sendTurn,
             "turn.continue": continueTurn,
             "harness.approvalRequested": ({ context, event }, enq) =>
-              settle(enq, need(context), [
-                DomainEvent.cases.ApprovalRequested.make({ request: event.request }),
-              ]),
+              approvalRequested(need(context), event, enq),
             "approval.respond": ({ context, event }, enq) => {
               const record = need(context)
               if (!record.pending.has(event.requestId)) return undefined
@@ -567,19 +595,13 @@ export const sessionMachine = createMachine({
                 decision: event.decision,
                 resolvedBy: event.resolvedBy,
               })
-              // The last answer puts the Harness back to work.
-              return settle(
-                enq,
-                record,
-                [resolved],
-                record.pending.size === 1 ? { state: "working" } : undefined,
-              )
+              // The last answer puts the Harness back to work (if it has a Turn to work on).
+              return settle(enq, record, [resolved], backToWork(record, event.requestId))
             },
             "harness.approvalWithdrawn": ({ context, event }, enq) => {
               const record = need(context)
-              // The default handles it unless it removes the last request.
-              if (record.pending.size !== 1 || !record.pending.has(event.requestId))
-                return undefined
+              // The default handles it unless it removes the last request of a Turn in flight.
+              if (backToWork(record, event.requestId) === undefined) return undefined
               return settle(
                 enq,
                 record,
@@ -606,9 +628,7 @@ export const sessionMachine = createMachine({
           settle(enq, need(context), [], { state: "starting" }),
         // Polaris follows along without changing the state.
         "harness.approvalRequested": ({ context, event }, enq) =>
-          settle(enq, need(context), [
-            DomainEvent.cases.ApprovalRequested.make({ request: event.request }),
-          ]),
+          approvalRequested(need(context), event, enq),
         "harness.turnEnded": ({ context, event }, enq) =>
           turnEnded(need(context), event, enq, false),
         "harness.exited": ({ context, event }, enq) => exited(need(context), event, enq, false),
@@ -661,7 +681,16 @@ export const sessionMachine = createMachine({
         // Only Unarchive leaves Archived.
         "turn.interruptUnattended": ({ context, event }, enq) =>
           interruptUnattended(need(context), event.at, enq, false),
-        "daemon.recover": ignore,
+        // Nothing to recover, except in logs from before Archive refused a Turn in flight:
+        // close what such a session left open, and keep it Archived.
+        "daemon.recover": ({ context, event }, enq) => {
+          const record = need(context)
+          const turn = workingTurn(record)
+          return settle(enq, record, [
+            ...(turn ? [endTurn(turn, "interrupted", event.at)] : []),
+            ...withdrawPending(record, "daemon", RECOVERY_REASON[event.cause]),
+          ])
+        },
       },
     },
   },

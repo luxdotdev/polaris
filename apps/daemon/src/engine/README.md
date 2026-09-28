@@ -35,8 +35,8 @@ stateDiagram-v2
     state "Idle" as idle
     state "Working" as working
     idle --> working: turn.send, harness.turnStarted
-    working --> needs_you: harness.approvalRequested
-    needs_you --> working: approval.respond, harness.approvalWithdrawn (last request)
+    working --> needs_you: harness.approvalRequested (for the Turn in flight)
+    needs_you --> working: approval.respond, harness.approvalWithdrawn (last request, Turn in flight)
     working --> idle: harness.turnEnded
     needs_you --> idle: harness.turnEnded
   }
@@ -59,13 +59,13 @@ stateDiagram-v2
   live --> dormant: daemon.recover (no Turn)
   in_terminal --> needs_you: daemon.recover restart (Turn in flight)
   live --> archived: session.archive (no Turn in flight)
-  dormant --> archived: session.archive
-  failed --> archived: session.archive
-  in_terminal --> archived: session.archive
+  dormant --> archived: session.archive (no Turn in flight)
+  failed --> archived: session.archive (no Turn in flight)
+  in_terminal --> archived: session.archive (no Turn in flight)
   archived --> dormant: session.unarchive
 ```
 
-Not drawn: `starting`, `dormant` and `failed` also take `harness.approvalRequested` (→ Needs You) and `harness.turnEnded` (→ Idle or Failed) like the live states, and every state but Archived takes `session.fail` (→ Failed) and `turn.interruptUnattended` (→ Dormant).
+Not drawn: `starting`, `dormant` and `failed` also take `harness.approvalRequested` (→ Needs You) and `harness.turnEnded` (→ Idle or Failed) like the live states, and every state but Archived takes `session.fail` (→ Failed) and `turn.interruptUnattended` (→ Dormant). Every state ignores `harness.approvalRequested` for a Turn that is not the Turn in flight (one that ended, a stale or misbehaving Harness), as every state ignores `harness.turnEnded` for a Turn that is not working. So an approval is pending only while its Turn is in flight, and a session is Working only with a Turn in flight (ENG-209, findings 2 and 3).
 
 ### Guards (illegal transitions are refused)
 
@@ -74,8 +74,8 @@ Not drawn: `starting`, `dormant` and `failed` also take `harness.approvalRequest
 | `turn.send` | Idle (→ Working), Dormant, Failed, Needs You after a restart with nothing pending (→ Starting); never with a Turn in flight | "the session is Archived", "… In Terminal; return it first", "the session is working; wait for the Turn to end" |
 | `turn.continue` | the same states, and only when the last Turn is Interrupted | "there is no Interrupted Turn to continue", "the session is \<state\>" |
 | `turn.steer` / `turn.interrupt` | a Turn in flight (steer: not In Terminal, and the Harness supports it) | "there is no Turn in flight …" |
-| `approval.respond` | a pending request (the last answer in Needs You → Working) | "request … is already resolved" (first Client wins) |
-| `session.archive` | any state but Archived; a live state only with no Turn in flight | "interrupt the Turn in flight before archiving", "already Archived" |
+| `approval.respond` | a pending request (the last answer in Needs You → Working, if a Turn is in flight) | "request … is already resolved" (first Client wins) |
+| `session.archive` | any state but Archived, only with no Turn in flight (withdraws anything still pending) | "interrupt the Turn in flight before archiving", "already Archived" |
 | `terminal.open` / `terminal.return` | Idle, Dormant, Failed / In Terminal | "the session is \<state\>" / "not In Terminal" |
 | `session.start` / `session.fork` | before the session exists | "session … already exists" |
 
@@ -85,20 +85,26 @@ Not drawn: `starting`, `dormant` and `failed` also take `harness.approvalRequest
 
 ### Restart recovery
 
-On start the engine sends `daemon.recover` (cause `restart`) to every session; `prepareForUpgrade` sends cause `upgrade` to the sessions whose Harness lives in the Daemon process. The rule: a Turn in flight ends Interrupted and the session Needs You (reason `interrupted`); pending approvals are withdrawn; Failed stays Failed; a Needs You already waiting on Continue stays; other states go Dormant (`daemon-restart` / `daemon-upgrade`). Dormant and Archived have nothing to recover, and an upgrade leaves In Terminal alone. **Nothing ever continues a Turn automatically**: only `turn.continue` does, and only the user sends it.
+On start the engine sends `daemon.recover` (cause `restart`) to every session; `prepareForUpgrade` sends cause `upgrade` to the sessions whose Harness lives in the Daemon process. The rule: a Turn in flight ends Interrupted and the session Needs You (reason `interrupted`); pending approvals are withdrawn; Failed stays Failed; a Needs You already waiting on Continue stays; other states go Dormant (`daemon-restart` / `daemon-upgrade`). Dormant and Archived have nothing to recover (an Archived session from a log written before Archive refused a Turn in flight has its Turn ended Interrupted and its requests withdrawn, and stays Archived), and an upgrade leaves In Terminal alone. **Nothing ever continues a Turn automatically**: only `turn.continue` does, and only the user sends it.
 
 ### Changes from the pre-machine engine
 
 Deliberate, and only in races the old code let through: Archived now ignores what a Harness still being stopped reports (a new Turn, an approval request, an exit, a failure) and an unattended interrupt ends its Turn without leaving Archived. Before, those could move an Archived session to Needs You, Idle, Failed or Dormant without Unarchive. Everything else emits the same events in the same order.
 
+### Changes from ENG-209's findings
+
+- Archive is refused while a Turn is in flight in every state (Starting, In Terminal, Dormant and Failed too), with the reason the live states already gave. Before, only Idle, Working and Needs You checked, so archiving In Terminal mid-Turn left the Turn `working` and its approvals pending for good (recovery skips Archived). We refuse rather than end the Turn on Archive: Archive never discards a Turn the user may still be watching in the terminal UI, the rule is one guard for every state, and Interrupt (from Polaris or the terminal UI) is always there to end the Turn first.
+- `harness.approvalRequested` for a Turn that is not the Turn in flight is ignored, and answering or withdrawing the last request moves to Working only with a Turn in flight. Before, a request that arrived after its Turn ended put the session in Needs You with no Turn, and answering it left it Working with no Turn, refusing new Turns until a restart.
+- The graph counts dropped (35 → 29 and 41 → 35 states, 149 → 127 and 196 → 174 transitions): the states "Archived with a Turn in flight" (and pending approvals) are gone.
+
 ## Model-based tests
 
-`session.testing.ts` wraps the machine in a test model for `xstate/graph`: abstract Steps a test can also drive against the real Engine (a command, something the fake Harness or the followed terminal UI reports, a Daemon restart), each followed by what the Engine then does on its own (opening the Harness, resuming it after the terminal, the fake's reply to an interrupt), plus whether a Harness process is running. `session.graph.test.ts` replays every generated path against the real Engine and the fake Harness (`testing.ts`), once with a Claude-like driver (sequential hand-off, terminal follower) and once with a Codex-like one (live co-attach). After every step the Engine's session (Session State, Turn in flight, last Turn status, pending approvals, Harness running) must equal the machine's; at the end of every path each command the machine refuses must be refused by the Engine with the same reason.
+`session.testing.ts` wraps the machine in a test model for `xstate/graph`: abstract Steps a test can also drive against the real Engine (a command, something the fake Harness or the followed terminal UI reports, a Daemon restart), each followed by what the Engine then does on its own (opening the Harness, resuming it after the terminal, the fake's reply to an interrupt), plus whether a Harness process is running. `session.graph.test.ts` replays every generated path against the real Engine and the fake Harness (`testing.ts`), once with a Claude-like driver (sequential hand-off, terminal follower) and once with a Codex-like one (live co-attach). After every step the Engine's session (Session State, Turn in flight, last Turn status, pending approvals, Harness running) must equal the machine's; at the end of every path each command the machine refuses must be refused by the Engine with the same reason, and a late approval request (for a Turn that ended) must change nothing in either.
 
 | Driver | States (shortest paths) | State-changing transitions (one path each) |
 |---|---|---|
-| Claude (sequential hand-off) | 35 | 149 |
-| Codex (live co-attach) | 41 | 196 |
+| Claude (sequential hand-off) | 29 | 127 |
+| Codex (live co-attach) | 35 | 174 |
 
 Simple paths are too many to replay (455k and 2.4M), so every transition is covered instead. Not replayed: `idle.timeout` (the Engine's timer; covered by `Engine.test.ts`) and `session.fail` (a failing Worktree or Harness open). `session.test.ts` checks the machine on its own: all eight Session States are reachable, the rebuild-from-fold property, the guards, recovery and effects.
 

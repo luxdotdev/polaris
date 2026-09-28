@@ -1,7 +1,14 @@
 import { describe, expect, test } from "bun:test"
-import type { SessionState } from "@polaris/protocol"
+import {
+  ApprovalRequest,
+  DomainEvent,
+  RequestId,
+  type SessionState,
+  Turn,
+  TurnId,
+} from "@polaris/protocol"
 import { getAdjacencyMap } from "xstate/graph"
-import { workingTurn } from "../store/model.ts"
+import { foldSession, type SessionRecord, workingTurn } from "../store/model.ts"
 import {
   ALL_STEPS,
   AT,
@@ -10,6 +17,7 @@ import {
   type ModelSnapshot,
   modelLogic,
   pathsFor,
+  SESSION,
   type Step,
   serialize,
   stepModel,
@@ -30,6 +38,25 @@ const run = (steps: ReadonlyArray<Step["type"]>, options = claude): ModelSnapsho
 }
 
 const record = (snapshot: ModelSnapshot) => snapshot.machine.context.record!
+
+/** A record as a log folds to it, for states the machine no longer produces (older logs). */
+const folded = (from: SessionRecord, events: ReadonlyArray<DomainEvent>) =>
+  foldSession(SESSION, from, events, AT)!
+
+const requestFor = (turnId: TurnId, id = "r-legacy") =>
+  new ApprovalRequest({
+    id: RequestId.make(id),
+    sessionId: SESSION,
+    turnId,
+    kind: "command",
+    title: "legacy",
+    detail: null,
+    options: [],
+    openedAt: AT,
+  })
+
+const records = (snapshots: ReadonlyArray<ModelSnapshot>): ReadonlyArray<SessionRecord> =>
+  snapshots.flatMap((s) => (s.machine.context.record === null ? [] : [s.machine.context.record]))
 
 /** Every snapshot the model reaches, with every Step tried from it. */
 const everyEdge = (options: ModelOptions) => {
@@ -82,8 +109,8 @@ describe("session machine", () => {
     })
     // Update README.md when these move.
     expect(counts).toEqual([
-      [35, 149],
-      [41, 196],
+      [29, 127],
+      [35, 174],
     ])
   })
 
@@ -121,6 +148,115 @@ describe("session machine", () => {
       expect(refusal(run(["start", "complete", "archive"]), "archive")).toBe(
         "the session is already Archived",
       )
+    })
+
+    // Finding 2 (ENG-209): Archive used to be refused only in the live states.
+    test("a Turn in flight must be interrupted before archiving, in every state", () => {
+      for (const options of [claude, codex]) {
+        const inTerminal = run(["start", "complete", "openTerminal", "terminalTurn"], options)
+        expect(stateOf(inTerminal.machine)).toBe("in-terminal")
+        expect(refusal(inTerminal, "archive", options)).toBe(
+          "interrupt the Turn in flight before archiving",
+        )
+        const asking = run(
+          ["start", "complete", "openTerminal", "terminalTurn", "requestApproval"],
+          options,
+        )
+        expect(record(asking).pending.size).toBe(1)
+        expect(refusal(asking, "archive", options)).toBe(
+          "interrupt the Turn in flight before archiving",
+        )
+      }
+      // Starting: a Turn sent to a Dormant session, its Harness still opening.
+      const dormant = record(run(["start", "complete", "exit"]))
+      const sent = decideSession(dormant, {
+        type: "turn.send",
+        turn: new Turn({
+          ...dormant.turns.at(-1)!,
+          id: TurnId.make("t-starting"),
+          index: dormant.session.turnCount,
+          status: "working",
+          endedAt: null,
+        }),
+      }).next.context.record!
+      expect(sent.session.state).toBe("starting")
+      expect(decideSession(sent, { type: "session.archive" }).rejection).toBe(
+        "interrupt the Turn in flight before archiving",
+      )
+    })
+
+    test("no reachable Archived session holds a Turn or a pending approval", () => {
+      for (const options of [claude, codex]) {
+        for (const r of records(everyEdge(options))) {
+          if (r.session.state !== "archived") continue
+          expect(workingTurn(r)).toBeUndefined()
+          expect(r.pending.size).toBe(0)
+        }
+      }
+    })
+
+    // Finding 3 (ENG-209): a request for a Turn that had ended used to be recorded.
+    test("an approval request for a Turn that is not in flight is ignored", () => {
+      for (const options of [claude, codex]) {
+        for (const steps of [
+          ["start", "complete", "lateApproval"],
+          ["start", "complete", "send", "lateApproval"],
+          ["start", "interrupt", "lateApproval"],
+          ["start", "complete", "openTerminal", "lateApproval"],
+        ] as const) {
+          const before = run(steps.slice(0, -1), options)
+          expect(record(run(steps, options))).toEqual(record(before))
+        }
+      }
+    })
+
+    test("in every reachable snapshot, pending approvals and Working need a Turn in flight", () => {
+      for (const options of [claude, codex]) {
+        for (const r of records(everyEdge(options))) {
+          if (r.pending.size > 0 || r.session.state === "working") {
+            expect(workingTurn(r)).toBeDefined()
+          }
+        }
+      }
+    })
+
+    test("answering an approval moves to Working only with a Turn in flight", () => {
+      // An older log: a request recorded after its Turn ended, the session Needs You.
+      const idle = record(run(["start", "complete"]))
+      const ended = idle.turns.at(-1)!
+      const stuck = folded(idle, [
+        DomainEvent.cases.ApprovalRequested.make({ request: requestFor(ended.id) }),
+        DomainEvent.cases.SessionStateChanged.make({
+          sessionId: SESSION,
+          state: "needs-you",
+          reason: null,
+        }),
+      ])
+      const answered = decideSession(stuck, {
+        type: "approval.respond",
+        requestId: RequestId.make("r-legacy"),
+        decision: { _tag: "Allow", remember: false },
+        resolvedBy: "mac",
+      })
+      expect(answered.events.map((e) => e._tag)).toEqual(["ApprovalResolved"])
+      const after = answered.next.context.record!
+      expect(after.session.state).toBe("needs-you")
+      // …and it takes a new Turn.
+      const next = new Turn({
+        ...ended,
+        id: TurnId.make("t-next"),
+        index: after.session.turnCount,
+        status: "working",
+        endedAt: null,
+      })
+      expect(decideSession(after, { type: "turn.send", turn: next }).rejection).toBeNull()
+      // The Harness withdrawing it instead: no Working without a Turn either.
+      const withdrawn = decideSession(stuck, {
+        type: "harness.approvalWithdrawn",
+        requestId: RequestId.make("r-legacy"),
+      })
+      expect(withdrawn.events.map((e) => e._tag)).toEqual(["ApprovalWithdrawn"])
+      expect(withdrawn.next.context.record!.session.state).toBe("needs-you")
     })
 
     test("the terminal opens from Idle, Dormant or Failed only", () => {
@@ -170,6 +306,26 @@ describe("session machine", () => {
         })
         expect(decision.events).toEqual([])
       }
+    })
+
+    test("an Archived session an older log left open is closed, and stays Archived", () => {
+      // Before finding 2's fix: archived In Terminal with a Turn in flight asking for approval.
+      const asking = record(
+        run(["start", "complete", "openTerminal", "terminalTurn", "requestApproval"], codex),
+      )
+      const archived = folded(asking, [
+        DomainEvent.cases.SessionStateChanged.make({
+          sessionId: SESSION,
+          state: "archived",
+          reason: null,
+        }),
+      ])
+      const decision = decideSession(archived, { type: "daemon.recover", cause: "restart", at: AT })
+      expect(decision.events.map((e) => e._tag)).toEqual(["TurnEnded", "ApprovalWithdrawn"])
+      const after = decision.next.context.record!
+      expect(after.session.state).toBe("archived")
+      expect(workingTurn(after)).toBeUndefined()
+      expect(after.pending.size).toBe(0)
     })
 
     test("an upgrade leaves a terminal UI alone", () => {

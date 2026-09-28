@@ -207,6 +207,21 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
               detail: null,
               options: [],
             })
+          case "lateApproval":
+            return emit(snapshot, {
+              _tag: "ApprovalRequested",
+              turnId: yield* inEngine(Effect.flatMap(EventStore, (store) => store.model)).pipe(
+                Effect.map(
+                  (model) =>
+                    model.sessions.get(SESSION)!.turns.findLast((t) => t.status !== "working")!.id,
+                ),
+              ),
+              requestId: RequestId.make(`r${n}`),
+              kind: "command",
+              title: "late",
+              detail: null,
+              options: [],
+            })
           case "withdrawApproval":
             return emit(snapshot, { _tag: "ApprovalWithdrawn", requestId: yield* firstPending() })
           case "terminalTurn":
@@ -258,6 +273,15 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
       refused++
     }
     yield* settle(observeModel(snapshot), done)
+
+    // A late approval request (for a Turn that ended) changes nothing, in the model and the Engine.
+    const late = stepModel(snapshot, { type: "lateApproval" }, options)
+    if (late.next !== snapshot) {
+      expect(observeModel(late.next)).toEqual(observeModel(snapshot))
+      yield* drive(snapshot, { type: "lateApproval" })
+      yield* Effect.sleep(5)
+      yield* settle(observeModel(late.next), [...done, { type: "lateApproval" }])
+    }
     yield* Scope.close(scope, Exit.void)
     return refused
   })

@@ -44,6 +44,8 @@ export type Step =
   | { readonly type: "returnTerminal" }
   /** The fake Harness (or, In Terminal, the followed terminal UI) reports… */
   | { readonly type: "requestApproval" }
+  /** …an approval request for a Turn that already ended (a stale or misbehaving Harness). */
+  | { readonly type: "lateApproval" }
   | { readonly type: "withdrawApproval" }
   | { readonly type: "terminalTurn" }
   | { readonly type: "complete" }
@@ -200,6 +202,26 @@ const inputsOf = (
               }),
             },
           ]
+    case "lateApproval": {
+      const ended = record?.turns.findLast((t) => t.status !== "working")
+      return channel === null || ended === undefined
+        ? []
+        : [
+            {
+              type: "harness.approvalRequested",
+              request: new ApprovalRequest({
+                id: RequestId.make(`r${n}`),
+                sessionId: SESSION,
+                turnId: ended.id,
+                kind: "command",
+                title: "late",
+                detail: null,
+                options: [],
+                openedAt: AT,
+              }),
+            },
+          ]
+    }
     case "withdrawApproval": {
       const [first] = record?.pending.keys() ?? []
       return channel === null || first === undefined
@@ -308,6 +330,7 @@ export const ALL_STEPS: ReadonlyArray<Step> = [
   { type: "fork" },
   ...COMMAND_STEPS.map((type) => ({ type })),
   { type: "requestApproval" },
+  { type: "lateApproval" },
   { type: "withdrawApproval" },
   { type: "terminalTurn" },
   { type: "complete" },
