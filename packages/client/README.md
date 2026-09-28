@@ -6,7 +6,7 @@ The Client runtime: one `HostConnection` per Host, many at once in a `HostRegist
 |---|---|
 | `HostConnection.ts` | Connect, `hello`, Connection State machine, reconnect policy, `subscribeHost` / `subscribeSession`, `withBlob`. |
 | `HostRegistry.ts` | `HostRegistry` service: add / remove / get Hosts, `hosts` as a `SubscriptionRef`. |
-| `rpc.ts` | effect/rpc client `Protocol` over the framed Wire (`packages/protocol/src/wire.ts`), ping keepalive. |
+| `rpc.ts` | effect/rpc client `Protocol` over the framed Wire (`packages/protocol/src/wire.ts`), ping keepalive while a reply is due. |
 | `resume.ts` | `makeFeed`: one upstream subscription, multicast, cached, resumed after reconnect. |
 | `transport.ts` | Transports: a spawned command's stdio (`ssh … polaris bridge`) or the local Unix socket. `Connector` is injectable. |
 | `ssh.ts` | The `ssh` argv. |
@@ -48,7 +48,7 @@ The ControlMaster is private to Polaris (its own directory, mode 0700), so it ne
 | No Daemon running within 30 s of a drop | Reconnecting | backoff (a Daemon restart or upgrade) |
 | Transient failures for 10 min since the last good connection | Offline | every 10 min, or `retryNow` |
 
-`ConnectionStatus.failure` carries the reason and a one-line detail (usually the relevant ssh stderr line). The last `HostInfo` stays in the status while not connected so the UI can dim the Host. A dead link is detected by ssh keepalives (~45 s) and by the RPC ping (no traffic for 3 × 15 s).
+`ConnectionStatus.failure` carries the reason and a one-line detail (usually the relevant ssh stderr line). The last `HostInfo` stays in the status while not connected so the UI can dim the Host. A dead link is detected by ssh keepalives (~45 s, answered by sshd, so they never wake the Daemon) and, while a request other than a stream awaits its reply, by the RPC ping (no traffic for 3 × 15 s). A Client that only holds subscriptions sends nothing: any JS the Daemon runs, even answering a ping, keeps Bun waking ~10 times a second for up to ~30 s, so a periodic ping would keep an idle Daemon awake for good.
 
 ## Resume
 

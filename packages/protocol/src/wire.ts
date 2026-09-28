@@ -279,6 +279,7 @@ export const makeWire = Effect.fnUntraced(function* (
         deferred: Deferred.makeUnsafe<Uint8Array, BlobError>(),
       }
       inBlobs.set(blobId, blob)
+      armSweep()
     }
     return blob
   }
@@ -344,7 +345,20 @@ export const makeWire = Effect.fnUntraced(function* (
       )
     })
 
-  const sweep = Effect.sync(() => {
+  // Expiry is swept by a timer that only runs while incoming blobs exist, so an
+  // idle connection never wakes the process.
+  const sweepEveryMs = Math.max(50, Math.min(1000, idleTimeout / 4))
+  let sweepTimer: ReturnType<typeof setTimeout> | undefined
+  const armSweep = () => {
+    if (sweepTimer !== undefined || isClosed || inBlobs.size === 0) return
+    sweepTimer = setTimeout(() => {
+      sweepTimer = undefined
+      sweep()
+      armSweep()
+    }, sweepEveryMs)
+  }
+
+  const sweep = () => {
     const now = Date.now()
     for (const [blobId, blob] of inBlobs) {
       if (blob.status === "receiving" && now - blob.touched > idleTimeout) {
@@ -358,7 +372,7 @@ export const makeWire = Effect.fnUntraced(function* (
         release(blob)
       }
     }
-  })
+  }
 
   const decoder = new FrameDecoder()
   const reader = transport.incoming.pipe(
@@ -389,6 +403,8 @@ export const makeWire = Effect.fnUntraced(function* (
     Effect.suspend(() => {
       if (isClosed) return Effect.void
       isClosed = true
+      clearTimeout(sweepTimer)
+      sweepTimer = undefined
       for (const [blobId, blob] of inBlobs) failBlob(blobId, blob, "closed", "connection closed")
       jsonSpace.openUnsafe()
       return Effect.andThen(Deferred.done(closed, exit), transport.close)
@@ -397,11 +413,6 @@ export const makeWire = Effect.fnUntraced(function* (
   yield* Effect.addFinalizer(() => shutdown(Exit.void))
   yield* reader.pipe(Effect.exit, Effect.flatMap(shutdown), Effect.forkScoped)
   yield* writer.pipe(Effect.exit, Effect.flatMap(shutdown), Effect.forkScoped)
-  yield* sweep.pipe(
-    Effect.delay(Math.max(50, Math.min(1000, idleTimeout / 4))),
-    Effect.forever,
-    Effect.forkScoped,
-  )
 
   return {
     sendJson,

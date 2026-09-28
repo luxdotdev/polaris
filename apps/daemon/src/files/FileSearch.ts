@@ -15,7 +15,7 @@ import type { FileChange, GrepHit, GrepQuery, PathHit, SearchBackend } from "./s
 export interface FileSearchOptions {
   /** Drop an index after this long without a search and with no watcher. */
   readonly idleMs: number
-  /** How often idle indexes are looked for. */
+  /** How often idle indexes are looked for (only while there are any: an idle Daemon sleeps). */
   readonly sweepMs: number
   /** Set false to force the fallback backend (tests; `POLARIS_FFF=off` does the same). */
   readonly useFff: boolean
@@ -69,6 +69,7 @@ const canonicalRoot = async (input: string): Promise<string> => {
 export const makeFileSearch = (options: FileSearchOptions) =>
   Effect.gen(function* () {
     const indexes = new Map<string, Index>()
+    let timer: ReturnType<typeof setInterval> | undefined
 
     const open = (root: string): Index => {
       const existing = indexes.get(root)
@@ -81,6 +82,7 @@ export const makeFileSearch = (options: FileSearchOptions) =>
       )
       const index: Index = { backend, lastUsed: Date.now(), watchers: 0 }
       indexes.set(root, index)
+      timer ??= setInterval(sweep, options.sweepMs)
       return index
     }
 
@@ -94,8 +96,11 @@ export const makeFileSearch = (options: FileSearchOptions) =>
       for (const [root, index] of indexes) {
         if (index.watchers === 0 && now - index.lastUsed > options.idleMs) drop(root, index)
       }
+      if (indexes.size === 0) {
+        clearInterval(timer)
+        timer = undefined
+      }
     }
-    const timer = setInterval(sweep, options.sweepMs)
     yield* Effect.addFinalizer(() =>
       Effect.sync(() => {
         clearInterval(timer)
