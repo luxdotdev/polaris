@@ -101,6 +101,30 @@ _Avoid_: Errored, dead
 The state of an Agent Session the user has put away after reviewing or merging its work; there is no "Done".
 _Avoid_: Closed, deleted
 
+### Constellations
+
+**Constellation**:
+A directed acyclic graph of Tasks in one Workspace, mapped by an orchestrating Agent Session or the user, that says what work exists, in what order, and what must pass before it ships.
+_Avoid_: Plan, run, workflow, pipeline
+
+**Task**:
+A stable unit of work in a Constellation, with dependencies on other Tasks; it is carried out by one or more Attempts, and its state follows its latest Attempt.
+_Avoid_: Job, step, ticket
+
+**Attempt**:
+One try at a Task, carried out by one Agent Session and linked to the earlier Attempt it follows (for example, sent back after review); a retry is a new Attempt, never a rewrite of an old one.
+_Avoid_: Retry, run
+
+**Gate**:
+A Task that waits for several other Tasks to finish (fan-in), such as "tiles merged to main", before the Constellation moves on.
+_Avoid_: Milestone, checkpoint
+
+**Future**:
+A Task a Constellation has declared but not yet started, shown as intent rather than work.
+
+**Subagent**:
+A helper a Harness spawns inside an Agent Session; Polaris shows it under its parent and lets the user view it on its own.
+
 ### Views
 
 **Orchestrator**:
