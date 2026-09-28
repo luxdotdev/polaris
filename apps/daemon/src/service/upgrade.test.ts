@@ -149,6 +149,7 @@ exec ${launch.map((arg) => `"${arg}"`).join(" ")} --as 2.0.0
       await Bun.sleep(5)
     }
   })()
+  await waitFor(() => answered.length > 0)
 
   const status = await Effect.runPromise(
     requestUpgrade({ pid: daemon.pid, binary: next, version: "2.0.0" }).pipe(
@@ -188,6 +189,7 @@ describe("execve hand-off", () => {
       "--compile",
       `--outfile=${binary}`,
     ])
+    expect(build.stderr.toString()).not.toContain("error")
     expect(build.exitCode).toBe(0)
     if (process.platform === "darwin") {
       // See scripts/build-daemon.ts: Bun leaves an invalid ad-hoc signature.
