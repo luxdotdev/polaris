@@ -7,6 +7,7 @@ import {
   AgentSession,
   ApprovalDecision,
   ApprovalRequest,
+  PermissionMode,
   SessionState,
   Timestamp,
   Turn,
@@ -40,6 +41,7 @@ export const DomainEvent = Schema.TaggedUnion({
   },
   SessionRenamed: { sessionId: SessionId, title: Schema.String },
   SessionCursorUpdated: { sessionId: SessionId, harnessCursor: Schema.String },
+  SessionPermissionModeChanged: { sessionId: SessionId, permissionMode: PermissionMode },
 
   TurnStarted: { turn: Turn },
   TurnItemCompleted: { sessionId: SessionId, turnId: TurnId, item: TurnItem },
