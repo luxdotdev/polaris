@@ -44,6 +44,7 @@ Polaris learned on top of it.
 - Absolute children inside flex containers work (selection toolbars, rails).
   A translucent row fill (`#FFFFFF10`) lets absolute rail lines show through;
   an opaque one hides them.
+- `update_styles` with `fill` recolours an SVG, but `stroke` on the SVG root does not: rewrite stroked icons with `write_html` (replace) when switching themes. The cached-path problem also hits the brand SVGs: the light theme needs a fresh copy of `polaris-logo-blue.svg`, or it renders an old star.
 - Screenshots right after a write can miss the last change; re-screenshot
   the specific node before "fixing" something that is actually there.
 - Big writes (whole code files) are fine as one call per 10 lines; generate
