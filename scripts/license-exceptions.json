@@ -1,0 +1,8 @@
+{
+  "$comment": "Production dependencies allowed despite a licence outside the allowlist in scripts/licenses.ts. Each entry needs a reason; keep this list short.",
+  "exceptions": {
+    "@anthropic-ai/claude-agent-sdk": {
+      "reason": "Anthropic terms; tolerated as in T3 Code; recheck before public release."
+    }
+  }
+}
