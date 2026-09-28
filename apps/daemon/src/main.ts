@@ -4,18 +4,23 @@
  *
  *   polaris serve [--foreground]   run the Daemon (normally started by launchd / systemd --user)
  *   polaris bridge                 pipe stdio to the local Daemon socket; what `ssh <host> polaris bridge` runs
- *   polaris install                install the user service for this binary
+ *   polaris install                install this binary and the user service
+ *   polaris uninstall [--purge]    remove the user service and binaries (state kept unless --purge)
+ *   polaris upgrade <path>         install <path> and hand the running Daemon over to it in place
  *   polaris version                print the version and platform
  */
-const VERSION = "0.0.0"
+import { isServiceCommand, runServiceCommand, versionLine } from "./service/cli.ts"
 
-const [command] = process.argv.slice(2)
+const [command, ...args] = process.argv.slice(2)
 
 switch (command) {
   case "version":
-    console.log(`polaris ${VERSION} ${process.platform}-${process.arch}`)
+    console.log(versionLine())
     break
   default:
-    console.error(`usage: polaris <serve|bridge|install|version>`)
+    if (isServiceCommand(command)) {
+      process.exit(await runServiceCommand(command, args))
+    }
+    console.error(`usage: polaris <serve|bridge|install|uninstall|upgrade|version>`)
     process.exit(command === undefined ? 0 : 2)
 }
