@@ -13,6 +13,7 @@ Polaris is an IDE and agent orchestrator: a Bun Daemon per Host, an Electron Des
 |---|---|
 | `packages/protocol` | The wire contract: Effect Schema domain, events, commands, the `DaemonRpcs` group, and frame codec. Every Client and the Daemon depend on it. |
 | `packages/client` | Client runtime: connections to many Daemons over SSH, Connection State, resume, install/upgrade. |
+| `packages/bench` | Benchmarks: the real Daemon under scripted load, a process-tree memory/CPU sampler, baselines and comparisons. |
 | `apps/daemon` | The Daemon (`polaris` binary): event store, Harness drivers, transport, files, git, terminals, user service. |
 | `apps/desktop` | The Electron Desktop App (not started yet). |
 
@@ -24,6 +25,14 @@ Polaris is an IDE and agent orchestrator: a Bun Daemon per Host, an Electron Des
 - Tests use `bun test`, next to the code as `*.test.ts`.
 - Never use node-pty; terminals use `Bun.Terminal`.
 - Run `bun run typecheck && bun run test && bun run lint` before committing.
+
+## Performance
+
+Performance is a product requirement: the Daemon must stay light on a Raspberry Pi 4 and a small Linux VM as well as a Mac, and the Desktop App has budgets (< 1 GB total in a heavy session, ≥ 120 Hz, Workspace switch < 100 ms). See `packages/bench/README.md`.
+
+- Before and after a change that could move memory, CPU or latency (engine, store, streams, transport, wire, files, git, terminals, Harness drivers, anything on a hot path or a timer), run the relevant scenarios against the committed baseline for your machine, e.g. `bun run bench sessions history --runs 3 --compare packages/bench/baselines/<machine>.json`. Use `--profile` to see where the time and memory go.
+- Never regress a baseline silently: fix the regression, or explain it in the commit and update the baseline (`--save-baseline`) in the same change.
+- Anything that wakes an idle Daemon (timers, polling, watchers) must justify itself in the `idle` scenario.
 
 ## Attribution (required)
 
