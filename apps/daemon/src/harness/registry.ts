@@ -8,6 +8,7 @@
 import type { HarnessKind } from "@polaris/protocol"
 import { Effect, Layer } from "effect"
 import { HarnessRegistry, ServiceError } from "../services.ts"
+import { makeBenchDriver } from "./bench/BenchDriver.ts"
 import { makeClaudeDriver } from "./claude/ClaudeDriver.ts"
 import { ClaudeHookReceiver } from "./claude/hooks.ts"
 import { makeCodexDriver } from "./codex/CodexDriver.ts"
@@ -21,10 +22,14 @@ export const HarnessRegistryLive = Layer.effect(
   Effect.gen(function* () {
     const hookReceiver = yield* ClaudeHookReceiver
     const claudePath = binary("POLARIS_CLAUDE", "claude")
-    const drivers: ReadonlyArray<HarnessDriver> = [
-      yield* makeCodexDriver({ codexPath: binary("POLARIS_CODEX", "codex") }),
-      makeClaudeDriver({ hookReceiver, claudePath: () => claudePath }),
-    ]
+    // Benchmarks only (packages/bench): a scripted Harness stands in for every kind.
+    const drivers: ReadonlyArray<HarnessDriver> =
+      process.env.POLARIS_BENCH_HARNESS === "1"
+        ? [makeBenchDriver("codex"), makeBenchDriver("claude")]
+        : [
+            yield* makeCodexDriver({ codexPath: binary("POLARIS_CODEX", "codex") }),
+            makeClaudeDriver({ hookReceiver, claudePath: () => claudePath }),
+          ]
     const byKind = new Map<HarnessKind, HarnessDriver>(drivers.map((d) => [d.kind, d]))
     return HarnessRegistry.of({
       get: (kind) => {
