@@ -5,8 +5,8 @@
  *   bun scripts/licenses.ts           regenerate THIRD_PARTY_NOTICES.md
  *   bun scripts/licenses.ts --check   fail on a disallowed licence or stale notices
  *
- * Walks the installed production dependency tree (`dependencies` and
- * `optionalDependencies`, transitively) of every workspace package (apps/*,
+ * Walks the installed production dependency tree (`dependencies`,
+ * `optionalDependencies` and `peerDependencies`, transitively) of every workspace package (apps/*,
  * packages/*), reads each package's declared licence, and enforces the
  * allowlist below. Anything else, including an unknown or missing licence,
  * fails unless `scripts/license-exceptions.json` lists the package with a
@@ -42,6 +42,10 @@ interface PackageJson {
   readonly workspaces?: ReadonlyArray<string> | { readonly packages?: ReadonlyArray<string> }
   readonly dependencies?: Record<string, string>
   readonly optionalDependencies?: Record<string, string>
+  readonly peerDependencies?: Record<string, string>
+  readonly peerDependenciesMeta?: Record<string, { readonly optional?: boolean }>
+  readonly os?: ReadonlyArray<string>
+  readonly cpu?: ReadonlyArray<string>
 }
 
 export interface Dependency {
@@ -52,6 +56,12 @@ export interface Dependency {
   readonly repository: string | null
   /** Workspace packages that (transitively) pull this in. */
   readonly requiredBy: Set<string>
+  /**
+   * Optional per-platform builds published with this package (`name@spec`,
+   * from its own package.json, so the list does not depend on which ones
+   * this machine installed).
+   */
+  readonly platformBuilds: Array<string>
 }
 
 const readJson = <T>(path: string): T => JSON.parse(readFileSync(path, "utf8")) as T
@@ -145,8 +155,26 @@ const repositoryUrl = (pkg: PackageJson): string | null => {
   return url?.replace(/^git\+/, "").replace(/\.git$/, "") ?? null
 }
 
-export const collect = (): { deps: Map<string, Dependency>; missing: Array<string> } => {
+export interface Collected {
+  readonly deps: Map<string, Dependency>
+  /** Installed per-platform builds: judged, but listed only under their parent. */
+  readonly platformBuilds: Map<string, Dependency>
+  readonly missing: Array<string>
+}
+
+const toDependency = (child: PackageJson, name: string, dir: string, workspace: string) => ({
+  name: child.name ?? name,
+  version: child.version ?? "0.0.0",
+  license: declaredLicense(child),
+  dir,
+  repository: repositoryUrl(child),
+  requiredBy: new Set([workspace]),
+  platformBuilds: [],
+})
+
+export const collect = (): Collected => {
   const deps = new Map<string, Dependency>()
+  const platformBuilds = new Map<string, Dependency>()
   const missing: Array<string> = []
   const workspaces = workspaceDirs().map((dir) => ({
     dir,
@@ -154,40 +182,62 @@ export const collect = (): { deps: Map<string, Dependency>; missing: Array<strin
   }))
   const workspaceNames = new Set(workspaces.map((w) => w.pkg.name))
 
-  const visit = (fromDir: string, pkg: PackageJson, workspace: string, seen: Set<string>) => {
-    const required = Object.keys(pkg.dependencies ?? {})
-    const optional = Object.keys(pkg.optionalDependencies ?? {})
-    for (const name of [...required, ...optional]) {
+  const visit = (
+    fromDir: string,
+    pkg: PackageJson,
+    parent: Dependency | null,
+    workspace: string,
+    seen: Set<string>,
+  ) => {
+    const optional = pkg.optionalDependencies ?? {}
+    // Peers are runtime dependencies too (Bun installs them); optional peers only if present.
+    const peers = Object.keys(pkg.peerDependencies ?? {})
+    const optionalPeers = new Set(
+      peers.filter((name) => pkg.peerDependenciesMeta?.[name]?.optional === true),
+    )
+    const names = [
+      ...new Set([...Object.keys(pkg.dependencies ?? {}), ...Object.keys(optional), ...peers]),
+    ]
+    for (const name of names) {
       if (workspaceNames.has(name)) continue // visited as a workspace in its own right
+      const isOptional = name in optional
       const dir = resolvePackageDir(fromDir, name)
-      if (dir === null) {
-        // Optional platform packages for other OSes are legitimately absent.
-        if (!optional.includes(name)) missing.push(`${name} (required by ${pkg.name})`)
+      const child = dir === null ? null : readJson<PackageJson>(join(dir, "package.json"))
+      // An optional dependency that is absent, or restricted by os/cpu, is a
+      // per-platform build (native binaries); which ones are installed varies by machine.
+      if (isOptional && (child === null || child.os !== undefined || child.cpu !== undefined)) {
+        const variant = `${name}@${optional[name]}`
+        if (parent && !parent.platformBuilds.includes(variant)) parent.platformBuilds.push(variant)
+        if (child !== null && dir !== null) {
+          platformBuilds.set(
+            `${child.name}@${child.version}`,
+            toDependency(child, name, dir, workspace),
+          )
+        }
         continue
       }
-      const child = readJson<PackageJson>(join(dir, "package.json"))
+      if (child === null || dir === null) {
+        if (optionalPeers.has(name)) continue
+        missing.push(`${name} (required by ${pkg.name})`)
+        continue
+      }
       const key = `${child.name}@${child.version}`
-      const existing = deps.get(key)
-      if (existing) {
-        existing.requiredBy.add(workspace)
+      let dep = deps.get(key)
+      if (dep) {
+        dep.requiredBy.add(workspace)
         if (seen.has(key)) continue
       } else {
-        deps.set(key, {
-          name: child.name ?? name,
-          version: child.version ?? "0.0.0",
-          license: declaredLicense(child),
-          dir,
-          repository: repositoryUrl(child),
-          requiredBy: new Set([workspace]),
-        })
+        dep = toDependency(child, name, dir, workspace)
+        deps.set(key, dep)
       }
       seen.add(key)
-      visit(dir, child, workspace, seen)
+      visit(dir, child, dep, workspace, seen)
     }
   }
 
-  for (const { dir, pkg } of workspaces) visit(dir, pkg, pkg.name ?? dir, new Set())
-  return { deps, missing }
+  for (const { dir, pkg } of workspaces) visit(dir, pkg, null, pkg.name ?? dir, new Set())
+  for (const dep of deps.values()) dep.platformBuilds.sort()
+  return { deps, platformBuilds, missing }
 }
 
 interface Exceptions {
@@ -211,7 +261,11 @@ export const judge = (
     if (dep.license !== null && isAllowed(dep.license)) {
       return { dep, status: "allowed", reason: null } as const
     }
-    const exception = exceptions[dep.name]
+    const exception =
+      exceptions[dep.name] ??
+      Object.entries(exceptions).find(
+        ([pattern]) => pattern.endsWith("*") && dep.name.startsWith(pattern.slice(0, -1)),
+      )?.[1]
     if (exception) return { dep, status: "exception", reason: exception.reason } as const
     return { dep, status: "violation", reason: null } as const
   })
@@ -256,6 +310,12 @@ export const renderNotices = (verdicts: ReadonlyArray<Verdict>): string => {
     if (texts.length === 0)
       lines.push(`Licensed under ${dep.license ?? "unknown terms"} (no licence file shipped).`, "")
     for (const text of texts) lines.push("```text", text, "```", "")
+    if (dep.platformBuilds.length > 0) {
+      lines.push(
+        `Per-platform builds published with this package: ${dep.platformBuilds.map((b) => `\`${b}\``).join(", ")}.`,
+        "",
+      )
+    }
     for (const notice of filesMatching(dep.dir, NOTICE_FILE)) {
       lines.push("NOTICE:", "", "```text", notice, "```", "")
     }
@@ -265,9 +325,12 @@ export const renderNotices = (verdicts: ReadonlyArray<Verdict>): string => {
 
 const main = () => {
   const check = process.argv.includes("--check")
-  const { deps, missing } = collect()
-  const verdicts = judge(deps.values(), readExceptions())
-  const violations = verdicts.filter((v) => v.status === "violation")
+  const { deps, platformBuilds, missing } = collect()
+  const exceptions = readExceptions()
+  const verdicts = judge(deps.values(), exceptions)
+  const violations = [...verdicts, ...judge(platformBuilds.values(), exceptions)].filter(
+    (v) => v.status === "violation",
+  )
   let failed = false
 
   if (missing.length > 0) {
@@ -301,8 +364,9 @@ const main = () => {
   }
 
   const exceptionCount = verdicts.filter((v) => v.status === "exception").length
+  const allowedCount = verdicts.filter((v) => v.status === "allowed").length
   console.log(
-    `${verdicts.length} production dependencies: ${verdicts.length - violations.length - exceptionCount} allowed, ${exceptionCount} by exception, ${violations.length} violations.`,
+    `${verdicts.length} production dependencies (plus ${platformBuilds.size} installed per-platform builds): ${allowedCount} allowed, ${exceptionCount} by exception, ${violations.length} violations.`,
   )
   process.exit(failed ? 1 : 0)
 }

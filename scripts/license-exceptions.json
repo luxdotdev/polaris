@@ -1,8 +1,14 @@
 {
-  "$comment": "Production dependencies allowed despite a licence outside the allowlist in scripts/licenses.ts. Each entry needs a reason; keep this list short.",
+  "$comment": "Production dependencies allowed despite a licence outside the allowlist in scripts/licenses.ts. Keys are package names; a trailing * matches a prefix. Each entry needs a reason; keep this list short.",
   "exceptions": {
     "@anthropic-ai/claude-agent-sdk": {
       "reason": "Anthropic terms; tolerated as in T3 Code; recheck before public release."
+    },
+    "fast-sha256": {
+      "reason": "The Unlicense (public-domain dedication, no conditions). Pulled in by @anthropic-ai/sdk -> standardwebhooks, a peer of the Claude Agent SDK. Lead to confirm, or add Unlicense to the allowlist."
+    },
+    "@anthropic-ai/claude-agent-sdk-*": {
+      "reason": "Per-platform builds of @anthropic-ai/claude-agent-sdk (its bundled Claude Code binary), under the same Anthropic terms; same exception, recheck with it."
     }
   }
 }

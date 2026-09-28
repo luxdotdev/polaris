@@ -40,6 +40,17 @@ describe("judge", () => {
     dir: "/nowhere",
     repository: null,
     requiredBy: new Set(["@polaris/daemon"]),
+    platformBuilds: [],
+  })
+
+  test("matches prefix exceptions for per-platform builds", () => {
+    const [verdict] = judge(
+      [dep("@anthropic-ai/claude-agent-sdk-linux-x64", "SEE LICENSE IN LICENSE.md")],
+      {
+        "@anthropic-ai/claude-agent-sdk-*": { reason: "platform builds" },
+      },
+    )
+    expect(verdict?.status).toBe("exception")
   })
 
   test("allows the allowlist, honours exceptions, and fails GPL and unknown licences", () => {
