@@ -34,6 +34,8 @@ Polaris is an IDE and agent orchestrator: a Bun Daemon per Host, an Electron Des
 
 oxfmt formats (`bun run format`; config in `oxfmt.config.mts`, built on `packages/lint-config/oxfmt.json`); oxlint lints, with the shared config in `packages/lint-config` (its `README.md` has the full rule list and policy). `bun run lint` is oxfmt's format check plus the lint ratchet.
 
+Repo-wide formatting commits are listed in `.git-blame-ignore-revs`, GitHub's blame skips them; locally run `git blame --ignore-revs-file .git-blame-ignore-revs`, or `git config blame.ignoreRevsFile .git-blame-ignore-revs` once (git then fails to blame in checkouts without the file, such as branches older than it). Add any future formatting-only commit there.
+
 - **The ratchet.** Existing violations are counted per file and rule in `tooling/lint/baseline.json`. Lint fails when a count goes up, so new files must be fully clean and old files may not get worse. When you fix baselined violations, run `bun run lint:baseline` and commit the lowered counts with the fix. Never raise a count by hand; `--rebaseline` is only for introducing a new rule, and says so in the commit.
 - **Size and complexity.** Files stay under 750 lines (blank lines don't count; comments do) and functions under a cognitive complexity of 15. Split along seams: a folder whose `index.ts` is the module's interface, never a `utils.ts` dumping ground.
 - **No disable comments** for `max-lines` or `sonarjs/cognitive-complexity`. Any other `oxlint-disable` needs a reason next to it and will be questioned in review.
