@@ -49,14 +49,18 @@ export const compareMetric = (
   const sign = current.better === "lower" ? 1 : -1;
   const worsening = sign * (current.value - base.value);
   const allowed = Math.max(tolerance.relative * Math.abs(base.value), tolerance.absolute);
+
   const change =
     base.value === 0
       ? worsening === 0
         ? 0
         : Math.sign(worsening)
       : worsening / Math.abs(base.value);
+
   if (worsening > allowed) return { status: "regressed", change, allowed };
+
   if (-worsening > allowed) return { status: "improved", change, allowed };
+
   return { status: "ok", change, allowed };
 };
 
@@ -66,34 +70,42 @@ export const compare = (
   failOn: ReadonlySet<MetricKind>
 ): Comparison => {
   const warnings: Array<string> = [];
+
   if (baseline.env.machineSlug !== current.env.machineSlug) {
     warnings.push(
       `baseline is from ${baseline.env.machineSlug}, this run is ${current.env.machineSlug}: numbers are not comparable`
     );
   }
+
   if (baseline.options.quick !== current.options.quick) {
     warnings.push(
       `baseline ran ${baseline.options.quick ? "--quick" : "full"}, this run ${current.options.quick ? "--quick" : "full"}: sizes differ`
     );
   }
+
   if (baseline.env.daemon !== current.env.daemon) {
     warnings.push(
       `baseline ran the ${baseline.env.daemon} Daemon, this run the ${current.env.daemon} one`
     );
   }
+
   if (baseline.env.transport !== current.env.transport) {
     warnings.push(
       `baseline used the ${baseline.env.transport} transport, this run ${current.env.transport}`
     );
   }
+
   if (current.options.profile)
     warnings.push("this run was profiled: timings include profiler overhead");
 
   const rows: Array<ComparisonRow> = [];
+
   for (const [scenario, result] of Object.entries(current.scenarios)) {
     const base = baseline.scenarios[scenario];
+
     for (const [metric, m] of Object.entries(result.metrics)) {
       const b = base?.metrics[metric];
+
       if (b === undefined) {
         rows.push({
           scenario,
@@ -109,6 +121,7 @@ export const compare = (
         });
         continue;
       }
+
       const { status, change, allowed } = compareMetric(b, m);
       rows.push({
         scenario,
@@ -123,6 +136,7 @@ export const compare = (
         gating: failOn.has(m.kind) && !m.info && !b.info,
       });
     }
+
     for (const [metric, b] of Object.entries(base?.metrics ?? {})) {
       if (result.metrics[metric] !== undefined) continue;
       rows.push({
@@ -139,6 +153,7 @@ export const compare = (
       });
     }
   }
+
   return {
     rows,
     regressions: rows.filter((r) => r.status === "regressed" && r.gating),

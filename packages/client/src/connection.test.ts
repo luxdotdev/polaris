@@ -33,6 +33,7 @@ const oracle = (
   jitter: number
 ) => {
   let { attempt, failingSince, lostAt } = before;
+
   if (wasConnected) {
     attempt = 0;
     failingSince = now;
@@ -40,17 +41,22 @@ const oracle = (
   } else {
     attempt++;
   }
+
   const backoff = (n: number) => {
     const base = Math.min(policy.maxDelayMs, policy.initialDelayMs * policy.factor ** n);
     const spread = base * policy.jitter;
+
     return Math.round(base - spread + jitter * 2 * spread);
   };
+
   let state: ConnectionState;
   let delay: number | null;
+
   const restarting =
     failure.reason === "daemon-not-running" &&
     lostAt !== null &&
     now - lostAt < policy.restartGraceMs;
+
   if (failure.kind === "needs-attention" && !restarting) {
     state = "needs-attention";
     delay = MANUAL_REASONS.has(failure.reason) ? null : policy.needsAttentionRetryMs;
@@ -61,6 +67,7 @@ const oracle = (
     state = "reconnecting";
     delay = wasConnected ? 0 : backoff(attempt - 1);
   }
+
   return { state, attempt, failingSince, lostAt, delay };
 };
 
@@ -75,20 +82,25 @@ describe("Connection State machine", () => {
   test("decides every failure exactly as the reconnect loop did (every reachable state)", () => {
     const failures = [...Object.values(FAILURES), LOST];
     const reached: Array<ConnectionModel> = [];
+
     for (const steps of connectionPaths().states) {
       let model = initialConnectionModel();
+
       for (const step of steps) model = stepConnection(model, step);
       reached.push(model);
     }
+
     // Also with the default policy and jitter, at a spread of times.
     for (const model of reached) {
       for (const policy of [model.machine.context.policy, DEFAULT_POLICY]) {
         const snapshot = { ...model.machine, context: { ...model.machine.context, policy } };
+
         for (const failure of failures) {
           for (const dt of [0, 1_000, 29_999, 30_000, 599_999, 600_000]) {
             for (const jitter of [0, 0.5, 0.99]) {
               const now = model.clock + dt;
               const next = failWith(snapshot, failure, now, jitter);
+
               const expected = oracle(
                 policy,
                 snapshot.context,
@@ -97,6 +109,7 @@ describe("Connection State machine", () => {
                 now,
                 jitter
               );
+
               expect({
                 state: next.value,
                 attempt: next.context.attempt,
@@ -115,10 +128,12 @@ describe("Connection State machine", () => {
     const policy = { ...DEFAULT_POLICY, jitter: 0 };
     let snapshot = initialConnection(policy, 0);
     const delays: Array<number | null> = [];
+
     for (let i = 0; i < 10; i++) {
       snapshot = failWith(snapshot, FAILURES.timeout, i);
       delays.push(snapshot.context.delay);
     }
+
     expect(delays).toEqual([500, 1000, 2000, 4000, 8000, 16000, 32000, 64000, 120000, 120000]);
     snapshot = connectionMachine.transition(snapshot, { type: "connected", epoch: 1 })[0];
     expect(snapshot.value).toBe("connected");
@@ -145,6 +160,7 @@ describe("Connection State machine", () => {
       type: "connected",
       epoch: 1,
     })[0];
+
     snapshot = failWith(snapshot, LOST, 1_000);
     const within = failWith(snapshot, FAILURES["daemon-not-running"], 30_999);
     expect(within.value).toBe("reconnecting");

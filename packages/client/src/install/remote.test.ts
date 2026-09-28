@@ -23,10 +23,13 @@ import { ensureDaemon, parseProbe } from "./remote.ts";
 import { classifySshFailure, Ssh, SshError } from "./Ssh.ts";
 
 const uname = (flag: string) => Bun.spawnSync(["uname", flag]).stdout.toString().trim();
+
 const platform = platformFromUname(uname("-s"), uname("-m"))!;
 
 let host: string;
+
 let dist: string;
+
 const commands: Array<string> = [];
 
 /** Runs `command` like sshd would, with the fake Host's HOME. */
@@ -37,6 +40,7 @@ const localSsh = (options: { corruptUploads?: boolean; unreachable?: boolean } =
       exec: (alias, command, execOptions) =>
         Effect.gen(function* () {
           commands.push(command);
+
           if (options.unreachable) {
             return yield* new SshError({
               alias,
@@ -44,13 +48,17 @@ const localSsh = (options: { corruptUploads?: boolean; unreachable?: boolean } =
               message: "ssh: connect to host h port 22: Connection refused",
             });
           }
+
           const stdin = execOptions?.stdinFile ? readFileSync(execOptions.stdinFile) : undefined;
+
           const bytes =
             stdin && options.corruptUploads ? Buffer.concat([stdin, Buffer.from("!")]) : stdin;
+
           const proc = Bun.spawnSync(["sh", "-c", command], {
             env: { PATH: process.env.PATH, HOME: host },
             stdin: bytes ?? "ignore",
           });
+
           return {
             code: proc.exitCode ?? 1,
             stdout: proc.stdout.toString(),
@@ -104,6 +112,7 @@ const writeDist = (version: string): ReadonlyArray<DaemonBuild> => {
       },
     })
   );
+
   return loadBuilds(dist);
 };
 
@@ -112,6 +121,7 @@ beforeEach(() => {
   dist = mkdtempSync(join(tmpdir(), "polaris-dist-"));
   commands.length = 0;
 });
+
 afterEach(() => {
   rmSync(host, { recursive: true, force: true });
   rmSync(dist, { recursive: true, force: true });
@@ -122,11 +132,13 @@ const current = () => readlinkSync(join(host, ".polaris", "bin", "current"));
 describe("ensureDaemon", () => {
   test("first contact asks for approval and touches nothing", async () => {
     const builds = writeDist("1.0.0");
+
     const result = await Effect.runPromise(
       ensureDaemon("h", builds, { trigger: "user", approvedSha256: new Set() }).pipe(
         Effect.provide(localSsh())
       )
     );
+
     expect(result).toMatchObject({
       _tag: "ApprovalNeeded",
       plan: { platform, version: "1.0.0", sha256: builds[0]!.sha256 },
@@ -137,9 +149,11 @@ describe("ensureDaemon", () => {
   test("installs the approved build, then is up to date", async () => {
     const builds = writeDist("1.0.0");
     const approved = { trigger: "user", approvedSha256: new Set([builds[0]!.sha256]) } as const;
+
     const result = await Effect.runPromise(
       ensureDaemon("h", builds, approved).pipe(Effect.provide(localSsh()))
     );
+
     expect(result).toMatchObject({
       _tag: "Ready",
       applied: { _tag: "Installed", version: "1.0.0" },
@@ -160,6 +174,7 @@ describe("ensureDaemon", () => {
         Effect.provide(localSsh())
       )
     );
+
     expect(again).toMatchObject({ _tag: "Ready", plan: { _tag: "UpToDate" }, applied: null });
   });
 
@@ -172,11 +187,13 @@ describe("ensureDaemon", () => {
     );
     const v2 = writeDist("1.1.0");
     commands.length = 0;
+
     const result = await Effect.runPromise(
       ensureDaemon("h", v2, { trigger: "background", approvedSha256: new Set() }).pipe(
         Effect.provide(localSsh())
       )
     );
+
     expect(result).toMatchObject({
       _tag: "Ready",
       applied: { _tag: "Upgraded", from: "1.0.0", version: "1.1.0" },
@@ -187,12 +204,14 @@ describe("ensureDaemon", () => {
 
   test("refuses an upload whose SHA-256 does not match on the Host", async () => {
     const builds = writeDist("1.0.0");
+
     const error = await Effect.runPromise(
       ensureDaemon("h", builds, {
         trigger: "user",
         approvedSha256: new Set([builds[0]!.sha256]),
       }).pipe(Effect.flip, Effect.provide(localSsh({ corruptUploads: true })))
     );
+
     expect(error).toMatchObject({ _tag: "RemoteInstallError", step: "upload polaris" });
     expect(error.message).toContain("SHA-256 on the Host");
   });
@@ -204,6 +223,7 @@ describe("ensureDaemon", () => {
         Effect.provide(localSsh({ unreachable: true }))
       )
     );
+
     expect(error).toBeInstanceOf(SshError);
     expect((error as SshError).needsAttention).toBe(false);
   });

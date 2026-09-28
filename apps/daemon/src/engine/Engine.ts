@@ -180,10 +180,12 @@ const make = Effect.gen(function* () {
     (sessionId: SessionId) =>
     <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> => {
       let lock = sessionLocks.get(sessionId);
+
       if (lock === undefined) {
         lock = Semaphore.makeUnsafe(1);
         sessionLocks.set(sessionId, lock);
       }
+
       return lock.withPermits(1)(effect);
     };
 
@@ -196,6 +198,7 @@ const make = Effect.gen(function* () {
       commandId: null,
       decide: (model) => {
         const record = model.sessions.get(sessionId);
+
         return Effect.succeed(record === undefined ? [] : f(record, model));
       },
     });
@@ -203,9 +206,12 @@ const make = Effect.gen(function* () {
   /** Forget progress of items that can no longer complete (their Turn ended, the Harness went away). */
   const dropProgress = (sessionId: SessionId, turnId?: TurnId) => {
     const items = progress.get(sessionId);
+
     if (items === undefined) return;
+
     for (const [id, entry] of items)
       if (turnId === undefined || entry.turnId === turnId) items.delete(id);
+
     if (items.size === 0) progress.delete(sessionId);
   };
 
@@ -220,15 +226,19 @@ const make = Effect.gen(function* () {
   ): Effect.Effect<CommitResult, ServiceError> =>
     Effect.gen(function* () {
       let effects: ReadonlyArray<SessionEffect> = [];
+
       const result = yield* recordFor(sessionId, (record) => {
         const decision = decideSession(record, typeof input === "function" ? input(record) : input);
         effects = decision.effects;
+
         return decision.events;
       });
+
       for (const effect of effects) {
         if (effect === "scheduleIdleStop") yield* scheduleIdle(sessionId);
         else yield* stopHarness(sessionId);
       }
+
       return result;
     });
 
@@ -244,7 +254,9 @@ const make = Effect.gen(function* () {
     Effect.gen(function* () {
       const model = yield* store.model;
       const record = model.sessions.get(sessionId);
+
       if (record === undefined) return null;
+
       return yield* checkpoints.capture({ cwd: record.session.cwd, sessionId, turnId, label });
     }).pipe(
       Effect.catch((error) =>
@@ -271,10 +283,12 @@ const make = Effect.gen(function* () {
   const stopHarness = (sessionId: SessionId) =>
     Effect.gen(function* () {
       const entry = live.get(sessionId);
+
       if (entry === undefined) return;
       entry.stopping = true;
       live.delete(sessionId);
       dropProgress(sessionId);
+
       if (entry.consumer !== null) yield* Fiber.interrupt(entry.consumer);
       yield* Scope.close(entry.scope, Exit.void);
     });
@@ -287,14 +301,18 @@ const make = Effect.gen(function* () {
   const openHarness = (sessionId: SessionId) =>
     Effect.gen(function* () {
       const existing = live.get(sessionId);
+
       if (existing !== undefined) return existing;
       const model = yield* store.model;
       const record = model.sessions.get(sessionId);
+
       if (record === undefined) {
         return yield* Effect.fail(new NotFound({ what: "session", id: sessionId }));
       }
+
       const driver = yield* registry.get(record.session.harness);
       const scope = yield* Scope.make();
+
       const session = yield* driver
         .open({
           sessionId,
@@ -307,9 +325,11 @@ const make = Effect.gen(function* () {
           Scope.provide(scope),
           Effect.onError(() => Scope.close(scope, Exit.void))
         );
+
       const entry: LiveHarness = { driver, session, scope, consumer: null, stopping: false };
       live.set(sessionId, entry);
       entry.consumer = yield* Effect.forkIn(consume(sessionId, entry), engineScope);
+
       return entry;
     });
 
@@ -359,6 +379,7 @@ const make = Effect.gen(function* () {
     Effect.gen(function* () {
       if (entry.stopping) return;
       const at = yield* now;
+
       switch (event._tag) {
         case "CursorAssigned":
           yield* recordFor(sessionId, (record) =>
@@ -371,6 +392,7 @@ const make = Effect.gen(function* () {
                   }),
                 ]
           );
+
           return;
         case "TurnStarted":
           // Turns Polaris sent are already recorded; others (e.g. typed in a co-attached TUI) are new.
@@ -381,6 +403,7 @@ const make = Effect.gen(function* () {
             at,
           });
           yield* cancelIdle(sessionId);
+
           return;
         case "ItemDelta":
           return; // handled by onHarnessEvent
@@ -394,8 +417,10 @@ const make = Effect.gen(function* () {
             turnId: event.turnId,
             item: event.item,
           });
+
           return;
         }
+
         case "ItemCompleted":
           progress.get(sessionId)?.delete(event.item.id);
           yield* recordFor(sessionId, () => [
@@ -405,6 +430,7 @@ const make = Effect.gen(function* () {
               item: event.item,
             }),
           ]);
+
           return;
         case "ApprovalRequested":
           yield* signal(sessionId, {
@@ -420,12 +446,14 @@ const make = Effect.gen(function* () {
               openedAt: at,
             }),
           });
+
           return;
         case "ApprovalWithdrawn":
           yield* signal(sessionId, {
             type: "harness.approvalWithdrawn",
             requestId: event.requestId,
           });
+
           return;
         case "TurnEnded": {
           dropProgress(sessionId, event.turnId);
@@ -438,23 +466,29 @@ const make = Effect.gen(function* () {
             checkpoint: after,
             at,
           });
+
           return;
         }
+
         case "TitleSuggested":
           yield* recordFor(sessionId, (record) =>
             record.titleLocked || record.session.title === event.title
               ? []
               : [DomainEvent.cases.SessionRenamed.make({ sessionId, title: event.title })]
           );
+
           return;
         case "WorktreeCreated": {
           const model = yield* store.model;
           const record = model.sessions.get(sessionId);
           const workspace = record && model.workspaces.get(record.session.workspaceId);
+
           if (workspace === undefined) return;
+
           const listed = yield* worktrees
             .list(workspace.path)
             .pipe(Effect.catch(() => Effect.succeed([])));
+
           const info = listed.find((w) => w.path === event.path);
           yield* recordFor(sessionId, () => [
             DomainEvent.cases.WorktreeDetected.make({
@@ -469,15 +503,19 @@ const make = Effect.gen(function* () {
               }),
             }),
           ]);
+
           return;
         }
+
         case "Exited": {
           entry.stopping = true;
+
           if (live.get(sessionId) === entry) live.delete(sessionId);
           dropProgress(sessionId);
           yield* cancelIdle(sessionId);
           yield* Scope.close(entry.scope, Exit.void);
           yield* signal(sessionId, { type: "harness.exited", error: event.error, at });
+
           return;
         }
       }
@@ -494,9 +532,12 @@ const make = Effect.gen(function* () {
       yield* cancelIdle(sessionId);
       const model = yield* store.model;
       const turn = model.sessions.get(sessionId)?.turns.find((t) => t.id === turnId);
+
       if (turn === undefined || turn.status !== "working") return;
+
       if (turn.checkpointBefore === null) {
         const before = yield* capture(sessionId, turnId, "before");
+
         if (before !== null) {
           yield* recordFor(sessionId, () => [
             DomainEvent.cases.CheckpointRecorded.make({
@@ -508,12 +549,15 @@ const make = Effect.gen(function* () {
           ]);
         }
       }
+
       // Before opening: a Harness may report its cursor as soon as it opens.
       const session = (yield* store.model).sessions.get(sessionId)?.session;
+
       const input =
         session !== undefined && session.parentSessionId !== null && session.harnessCursor === null
           ? yield* withForkContext(session, prompt)
           : prompt;
+
       const entry = yield* openHarness(sessionId);
       yield* signal(sessionId, { type: "harness.opened" });
       yield* entry.session.sendTurn({ turnId, prompt: input, attachments });
@@ -528,10 +572,12 @@ const make = Effect.gen(function* () {
       const turns = yield* store.readTurns({ sessionId: parentId, beforeIndex: null, limit: null });
       const at = turns.findIndex((t) => t.id === session.forkedFromTurnId);
       const included = at === -1 ? turns : turns.slice(0, at + 1);
+
       const items = yield* store.readTurnItems({
         turnIds: included.map((t) => t.id),
         upTo: model.sequence,
       });
+
       return forkPreamble({
         parentTitle: parent?.session.title ?? parentId,
         ownWorktree:
@@ -551,6 +597,7 @@ const make = Effect.gen(function* () {
     for (const envelope of envelopes) {
       if (envelope.event._tag === "TurnStarted") return envelope.event.turn;
     }
+
     return undefined;
   };
 
@@ -566,6 +613,7 @@ const make = Effect.gen(function* () {
           const workspace = result.envelopes
             .map((e) => e.event)
             .find((e) => e._tag === "WorkspaceRegistered")?.workspace;
+
           if (workspace === undefined || !workspace.isGitRepo) return;
           const listed = yield* worktrees.list(workspace.path);
           yield* store.commit({
@@ -596,20 +644,25 @@ const make = Effect.gen(function* () {
           const record = result.model.sessions.get(command.sessionId);
           const workspace = result.model.workspaces.get(command.workspaceId);
           const turn = turnFrom(result.envelopes);
+
           if (record === undefined || workspace === undefined || turn === undefined) return;
+
           if (command.placement._tag === "NewWorktree") {
             const created = yield* createWorktree(command.sessionId, workspace, {
               path: record.session.cwd,
               branch: command.placement.branch.trim(),
               baseRef: command.placement.baseRef,
             });
+
             if (!created) return;
           }
+
           yield* runTurn(command.sessionId, turn.id, turn.prompt, turn.attachments);
         });
 
       case "SendTurn": {
         const turn = turnFrom(result.envelopes);
+
         return turn === undefined
           ? Effect.void
           : runTurn(command.sessionId, turn.id, turn.prompt, turn.attachments);
@@ -617,6 +670,7 @@ const make = Effect.gen(function* () {
 
       case "Continue": {
         const turn = turnFrom(result.envelopes);
+
         return turn === undefined
           ? Effect.void
           : runTurn(command.sessionId, turn.id, CONTINUE_PROMPT, []);
@@ -630,6 +684,7 @@ const make = Effect.gen(function* () {
       case "Interrupt":
         return Effect.gen(function* () {
           const entry = live.get(command.sessionId);
+
           if (entry !== undefined) return yield* entry.session.interrupt;
           // No Harness is running the Turn; end it here.
           yield* signal(command.sessionId, { type: "turn.interruptUnattended", at: yield* now });
@@ -653,16 +708,20 @@ const make = Effect.gen(function* () {
           terminalLaunch.delete(command.sessionId);
           const model = yield* store.model;
           const record = model.sessions.get(command.sessionId);
+
           const worktree = record?.session.worktreeId
             ? model.worktrees.get(record.session.worktreeId)
             : undefined;
+
           const workspace = record && model.workspaces.get(record.session.workspaceId);
+
           const sharedWithActive = [...model.sessions.values()].some(
             (other) =>
               other.session.id !== command.sessionId &&
               other.session.worktreeId === worktree?.id &&
               other.session.state !== "archived"
           );
+
           if (
             worktree !== undefined &&
             workspace !== undefined &&
@@ -682,6 +741,7 @@ const make = Effect.gen(function* () {
               }),
             ]);
           }
+
           if (record !== undefined && workspace?.isGitRepo) {
             const at = yield* Clock.currentTimeMillis;
             const session = yield* checkpointSession(record, forkedTurns(model), at);
@@ -691,6 +751,7 @@ const make = Effect.gen(function* () {
               )
             );
           }
+
           yield* attachmentStore.onSessionArchived(command.sessionId);
         });
 
@@ -704,6 +765,7 @@ const make = Effect.gen(function* () {
             command.sessionId,
             new TerminalLaunch({ argv: [...argv], cwd, env: {} })
           );
+
           // Claude hands off sequentially; Codex's TUI co-attaches to the running app-server.
           if (!entry.driver.capabilities.liveCoAttach) {
             yield* stopHarness(command.sessionId);
@@ -718,11 +780,13 @@ const make = Effect.gen(function* () {
           yield* stopFollower(command.sessionId, true);
           const record = (yield* store.model).sessions.get(command.sessionId);
           const driver = record === undefined ? null : yield* registry.get(record.session.harness);
+
           if (driver !== null && !driver.capabilities.liveCoAttach) {
             // Polaris sent no Turn while In Terminal, so one still open is the terminal UI's,
             // left unfinished when it closed.
             yield* signal(command.sessionId, { type: "terminal.closed", at: yield* now });
           }
+
           yield* openHarness(command.sessionId);
           yield* signal(command.sessionId, { type: "harness.resumed" });
         }).pipe(Effect.catch((error) => failSession(command.sessionId, messageOf(error))));
@@ -731,11 +795,13 @@ const make = Effect.gen(function* () {
         return Effect.gen(function* () {
           const record = result.model.sessions.get(command.sessionId);
           const worktreeId = record?.session.worktreeId ?? null;
+
           // No Worktree of its own (not a git repo, or no checkpoint): it shares the parent's cwd.
           if (record === undefined || worktreeId === null || result.model.worktrees.has(worktreeId))
             return;
           const workspace = result.model.workspaces.get(record.session.workspaceId);
           const turn = yield* findTurn(command.fromSessionId, command.fromTurnId);
+
           if (workspace === undefined || turn?.checkpointAfter == null) return;
           yield* createWorktree(command.sessionId, workspace, {
             path: record.session.cwd,
@@ -750,10 +816,12 @@ const make = Effect.gen(function* () {
           const model = yield* store.model;
           const record = model.sessions.get(command.sessionId);
           const worktreeId = record?.session.worktreeId ?? null;
+
           if (record === undefined || worktreeId === null || model.worktrees.has(worktreeId))
             return;
           const workspace = model.workspaces.get(record.session.workspaceId);
           const known = yield* store.lastKnownWorktree(worktreeId);
+
           if (
             workspace === undefined ||
             known === null ||
@@ -773,10 +841,13 @@ const make = Effect.gen(function* () {
         return Effect.gen(function* () {
           // Nothing will sweep this repository any more: its sessions' checkpoints go now.
           const workspace = before.workspaces.get(command.workspaceId);
+
           if (workspace === undefined || !workspace.isGitRepo) return;
+
           const sessionIds = [...result.model.sessions.values()]
             .filter((record) => record.session.workspaceId === workspace.id)
             .map((record) => record.session.id);
+
           yield* Effect.forEach(
             sessionIds,
             (sessionId) =>
@@ -817,6 +888,7 @@ const make = Effect.gen(function* () {
             )
           )
         );
+
       if (created === null) return false;
       yield* recordFor(sessionId, () => [
         DomainEvent.cases.WorktreeDetected.make({
@@ -831,6 +903,7 @@ const make = Effect.gen(function* () {
           }),
         }),
       ]);
+
       return true;
     });
 
@@ -839,12 +912,15 @@ const make = Effect.gen(function* () {
     Effect.gen(function* () {
       const record = (yield* store.model).sessions.get(sessionId);
       const recent = record?.turns.find((t) => t.id === turnId);
+
       if (recent !== undefined || record === undefined) return recent ?? null;
+
       const older = yield* store.readTurns({
         sessionId,
         beforeIndex: record.turns[0]?.index ?? null,
         limit: null,
       });
+
       return older.find((t) => t.id === turnId) ?? null;
     });
 
@@ -855,12 +931,14 @@ const make = Effect.gen(function* () {
   /** The Turns each session's Forks started from, which survive compaction. */
   const forkedTurns = (model: ReadModel): ReadonlyMap<SessionId, ReadonlyArray<TurnId>> => {
     const pinned = new Map<SessionId, Array<TurnId>>();
+
     for (const { session } of model.sessions.values()) {
       if (session.parentSessionId === null || session.forkedFromTurnId === null) continue;
       const list = pinned.get(session.parentSessionId) ?? [];
       list.push(session.forkedFromTurnId);
       pinned.set(session.parentSessionId, list);
     }
+
     return pinned;
   };
 
@@ -876,20 +954,26 @@ const make = Effect.gen(function* () {
   ): Effect.Effect<CheckpointSession, ServiceError> =>
     Effect.gen(function* () {
       const session = record.session;
+
       const base = {
         sessionId: session.id,
         archivedAt,
         pinnedTurnIds: pinned.get(session.id) ?? [],
       };
+
       if (archivedAt === null) return base;
+
       const stored = yield* store.readTurns({
         sessionId: session.id,
         beforeIndex: null,
         limit: null,
       });
+
       const turns = new Map([...stored, ...record.turns].map((turn) => [turn.id, turn]));
+
       const worktree =
         session.worktreeId === null ? null : yield* store.lastKnownWorktree(session.worktreeId);
+
       return {
         ...base,
         turnIds: [...turns.values()].sort((a, b) => a.index - b.index).map((turn) => turn.id),
@@ -909,8 +993,10 @@ const make = Effect.gen(function* () {
     const model = yield* store.model;
     const pinned = forkedTurns(model);
     const targets: Array<SweepTarget> = [];
+
     for (const workspace of model.workspaces.values()) {
       if (!workspace.isGitRepo) continue;
+
       const sessions = yield* Effect.forEach(
         [...model.sessions.values()].filter((r) => r.session.workspaceId === workspace.id),
         (record) =>
@@ -920,8 +1006,10 @@ const make = Effect.gen(function* () {
             record.session.state === "archived" ? Date.parse(record.session.updatedAt) : null
           )
       );
+
       targets.push({ repoPath: workspace.path, sessions });
     }
+
     return targets;
   });
 
@@ -931,13 +1019,16 @@ const make = Effect.gen(function* () {
   const startFollower = (sessionId: SessionId, driver: HarnessDriver) =>
     Effect.gen(function* () {
       const follow = driver.terminalFollow;
+
       if (follow === undefined || followers.has(sessionId)) return;
+
       const follower: TerminalFollower = {
         driver,
         scope: yield* Scope.make(),
         stopping: false,
         fiber: null,
       };
+
       followers.set(sessionId, follower);
       follower.fiber = yield* Effect.forkIn(
         follow
@@ -959,15 +1050,19 @@ const make = Effect.gen(function* () {
   const stopFollower = (sessionId: SessionId, drain: boolean) =>
     Effect.gen(function* () {
       const follower = followers.get(sessionId);
+
       if (follower === undefined) return;
       followers.delete(sessionId);
       yield* follower.driver.terminalFollow?.release(sessionId) ?? Effect.void;
+
       if (follower.fiber !== null) {
         if (drain) {
           yield* Fiber.join(follower.fiber).pipe(Effect.timeout(FOLLOWER_DRAIN), Effect.ignore);
         }
+
         yield* Fiber.interrupt(follower.fiber);
       }
+
       follower.stopping = true;
       yield* Scope.close(follower.scope, Exit.void);
     });
@@ -979,11 +1074,13 @@ const make = Effect.gen(function* () {
   ) =>
     Effect.gen(function* () {
       const entry = live.get(sessionId);
+
       if (entry === undefined) {
         return yield* Effect.logWarning(
           `no running Harness for ${sessionId} to answer ${requestId}`
         );
       }
+
       yield* entry.session.respond(requestId, decision);
     });
 
@@ -995,7 +1092,9 @@ const make = Effect.gen(function* () {
   const resolveAttachments = (commandId: CommandId, command: Command) =>
     Effect.gen(function* () {
       if (command._tag !== "StartSession" && command._tag !== "SendTurn") return [];
+
       if (command.attachments.length === 0) return [];
+
       const found = yield* attachmentStore
         .get(command.attachments)
         .pipe(
@@ -1003,13 +1102,16 @@ const make = Effect.gen(function* () {
             (error) => new CommandRejected({ commandId, reason: `attachments: ${error.message}` })
           )
         );
+
       const missing = command.attachments.filter((id) => !found.some((a) => a.id === id));
+
       if (missing.length > 0) {
         return yield* new CommandRejected({
           commandId,
           reason: `unknown attachments: ${missing.join(", ")}`,
         });
       }
+
       return command.attachments.map((id) => found.find((a) => a.id === id)!);
     });
 
@@ -1018,8 +1120,10 @@ const make = Effect.gen(function* () {
       if (command._tag !== "Steer") return false;
       const model = yield* store.model;
       const record = model.sessions.get(command.sessionId);
+
       if (record === undefined) return false;
       const driver = yield* registry.get(record.session.harness).pipe(Effect.option);
+
       return driver._tag === "Some" && driver.value.capabilities.steer;
     });
 
@@ -1029,6 +1133,7 @@ const make = Effect.gen(function* () {
     readonly deviceLabel: string;
   }) {
     const { commandId, command } = options;
+
     const ctx = {
       commandId,
       now: yield* now,
@@ -1043,26 +1148,33 @@ const make = Effect.gen(function* () {
           ? yield* findTurn(command.fromSessionId, command.fromTurnId).pipe(Effect.orDie)
           : null,
     };
+
     let before: ReadModel | null = null;
+
     const result = yield* store
       .commit({
         commandId,
         decide: (model) => {
           before = model;
+
           return decide(model, command, ctx);
         },
       })
       .pipe(Effect.catchTag("ServiceError", (error) => Effect.die(error)));
+
     if (result._tag === "Committed") {
       const sessionId = sessionOfCommand(command);
+
       const reaction = react(command, result, before ?? result.model).pipe(
         Effect.catchCause((cause) => Effect.logError(`reacting to ${command._tag} failed`, cause))
       );
+
       yield* Effect.forkIn(
         sessionId === null ? reaction : serially(sessionId)(reaction),
         engineScope
       );
     }
+
     return { sequence: result.sequence };
   });
 
@@ -1081,9 +1193,11 @@ const make = Effect.gen(function* () {
         const subscription = yield* store.subscribe({
           filter: (item) => item._tag === "Event" && isHostStreamEvent(item.envelope.event),
         });
+
         const model = yield* store.model;
         const cut = model.sequence as Sequence;
         const head: Array<HostStreamItem> = [];
+
         if (afterSequence === null || afterSequence > cut) {
           head.push({
             _tag: "Snapshot",
@@ -1098,9 +1212,12 @@ const make = Effect.gen(function* () {
             upTo: cut,
             sessionId: null,
           });
+
           for (const envelope of events) head.push({ _tag: "Event", envelope });
         }
+
         head.push({ _tag: "Synchronized", sequence: cut });
+
         const liveItems = subscription.pipe(
           Stream.filterMap((item) =>
             item._tag === "Event" && item.envelope.sequence > cut
@@ -1108,6 +1225,7 @@ const make = Effect.gen(function* () {
               : Result.failVoid
           )
         );
+
         return Stream.concat(Stream.fromIterable(head), liveItems);
       }).pipe(Effect.orDie)
     );
@@ -1122,23 +1240,29 @@ const make = Effect.gen(function* () {
       Effect.gen(function* () {
         const { sessionId, afterSequence } = options;
         const withProgress = options.liveItems === true;
+
         const subscription = yield* store.subscribe({
           sessionId,
           ...(withProgress ? {} : { filter: (item: LiveItem) => item._tag !== "ItemProgress" }),
         });
+
         const model = yield* store.model;
         const record = model.sessions.get(sessionId);
+
         if (record === undefined) {
           return yield* Effect.fail(new NotFound({ what: "session", id: sessionId }));
         }
+
         const cut = model.sequence as Sequence;
         const head: Array<SessionStreamItem> = [];
+
         if (afterSequence === null || afterSequence > cut) {
           // Recent Turns come from the model (consistent with the cut); older, finished
           // ones from SQL.
           const total = record.session.turnCount;
           const wanted = options.turnLimit === null ? total : Math.min(options.turnLimit, total);
           const recent = record.turns.slice(Math.max(0, record.turns.length - wanted));
+
           const older =
             wanted > recent.length
               ? yield* store
@@ -1149,10 +1273,13 @@ const make = Effect.gen(function* () {
                   })
                   .pipe(Effect.orDie)
               : [];
+
           const turns = [...older, ...recent];
+
           const items = yield* store
             .readTurnItems({ turnIds: turns.map((t) => t.id), upTo: cut })
             .pipe(Effect.orDie);
+
           head.push({
             _tag: "Snapshot",
             sequence: cut,
@@ -1167,15 +1294,19 @@ const make = Effect.gen(function* () {
           const events = yield* store
             .readEvents({ after: afterSequence, upTo: cut, sessionId })
             .pipe(Effect.orDie);
+
           for (const envelope of events) head.push({ _tag: "Event", envelope });
         }
+
         head.push({ _tag: "Synchronized", sequence: cut });
+
         // Items still running, so a Client that subscribes mid-Turn sees them at once.
         if (withProgress) {
           for (const { turnId, item } of progress.get(sessionId)?.values() ?? []) {
             head.push({ _tag: "ItemProgress", turnId, item });
           }
         }
+
         // One stage rather than a filter and a map: this runs for every Delta.
         const liveItems = subscription.pipe(
           Stream.filterMap((item): Result.Result<SessionStreamItem, void> => {
@@ -1184,10 +1315,13 @@ const make = Effect.gen(function* () {
                 ? Result.succeed({ _tag: "Event", envelope: item.envelope })
                 : Result.failVoid;
             }
+
             const { sessionId: _, ...ephemeral } = item;
+
             return Result.succeed(ephemeral);
           })
         );
+
         return Stream.concat(Stream.fromIterable(head), liveItems);
       })
     );
@@ -1199,8 +1333,10 @@ const make = Effect.gen(function* () {
   yield* Effect.gen(function* () {
     const model = yield* store.model;
     const at = yield* now;
+
     for (const record of model.sessions.values()) {
       const input: SessionInput = { type: "daemon.recover", cause: "restart", at };
+
       // Most sessions (Dormant, Archived) have nothing to recover: skip their commit.
       if (decideSession(record, input).events.length === 0) continue;
       yield* signal(record.session.id, input);
@@ -1211,6 +1347,7 @@ const make = Effect.gen(function* () {
     const inProcess = [...live.entries()]
       .filter(([, entry]) => !entry.driver.capabilities.liveCoAttach)
       .map(([id]) => id);
+
     yield* Effect.forEach(
       inProcess,
       (sessionId) =>
@@ -1279,10 +1416,12 @@ const probePath = (path: string) => {
   try {
     if (!statSync(path).isDirectory()) return { isDirectory: false, isGitRepo: false };
     let isGitRepo = false;
+
     try {
       statSync(join(path, ".git"));
       isGitRepo = true;
     } catch {}
+
     return { isDirectory: true, isGitRepo };
   } catch {
     return null;

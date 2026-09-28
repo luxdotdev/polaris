@@ -42,15 +42,19 @@ export const parseProbe = (stdout: string): HostProbe | null => {
       .filter((line) => line.includes("="))
       .map((line) => [line.slice(0, line.indexOf("=")), line.slice(line.indexOf("=") + 1)])
   );
+
   const os = fields.get("os");
   const arch = fields.get("arch");
+
   if (!os || !arch) return null;
   const version = /^polaris (\S+) (\S+)$/.exec(fields.get("installed") ?? "");
+
   const missing = stdout
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.startsWith("missing="))
     .map((line) => line.slice("missing=".length));
+
   return {
     os,
     arch,
@@ -63,6 +67,7 @@ export const probeHost = Effect.fn("probeHost")(function* (alias: string) {
   const ssh = yield* Ssh;
   const result = yield* ssh.exec(alias, shScript(PROBE_SCRIPT));
   const probe = result.code === 0 ? parseProbe(result.stdout) : null;
+
   if (probe === null) {
     return yield* new RemoteInstallError({
       alias,
@@ -70,6 +75,7 @@ export const probeHost = Effect.fn("probeHost")(function* (alias: string) {
       message: `unexpected answer (exit ${result.code}): ${(result.stderr || result.stdout).trim()}`,
     });
   }
+
   return probe;
 });
 
@@ -88,9 +94,11 @@ const failed = (
 const upload = Effect.fn("upload")(function* (alias: string, build: DaemonBuild) {
   const ssh = yield* Ssh;
   const dir = `.polaris/upload-${randomBytes(6).toString("hex")}`;
+
   for (const [index, file] of build.files.entries()) {
     const target = `"$HOME/${dir}/${file.name}"`;
     const mode = index === 0 ? "755" : "644";
+
     const script = [
       "set -e",
       `mkdir -p "$HOME/${dir}"`,
@@ -99,9 +107,12 @@ const upload = Effect.fn("upload")(function* (alias: string, build: DaemonBuild)
       `mv ${target}.part ${target}`,
       `(sha256sum ${target} 2>/dev/null || shasum -a 256 ${target}) | cut -d' ' -f1`,
     ].join("; ");
+
     const result = yield* ssh.exec(alias, shScript(script), { stdinFile: file.path });
+
     if (result.code !== 0) return yield* failed(alias, `upload ${file.name}`, result);
     const remoteSha = result.stdout.trim();
+
     if (remoteSha !== file.sha256) {
       return yield* new RemoteInstallError({
         alias,
@@ -110,6 +121,7 @@ const upload = Effect.fn("upload")(function* (alias: string, build: DaemonBuild)
       });
     }
   }
+
   return { dir, binary: `"$HOME/${dir}/${build.files[0]!.name}"` };
 });
 
@@ -128,6 +140,7 @@ const runPolaris = Effect.fn("runPolaris")(function* (
   const ssh = yield* Ssh;
   const result = yield* ssh.exec(alias, shScript(command));
   const line = result.stdout.trim().split("\n").at(-1) ?? "";
+
   const report = (() => {
     try {
       return JSON.parse(line) as Record<string, unknown>;
@@ -135,12 +148,15 @@ const runPolaris = Effect.fn("runPolaris")(function* (
       return null;
     }
   })();
+
   if (result.code !== 0 || report === null || report.ok !== true) {
     const message = typeof report?.message === "string" ? report.message : null;
+
     return yield* message
       ? new RemoteInstallError({ alias, step, message })
       : failed(alias, step, result);
   }
+
   return report;
 });
 
@@ -163,6 +179,7 @@ export const applyPlan = Effect.fn("applyPlan")(function* (
   plan: Extract<InstallPlan, { _tag: "Install" | "Upgrade" }>
 ) {
   const uploaded = yield* upload(alias, plan.build);
+
   const run =
     plan._tag === "Install"
       ? runPolaris(alias, "install", `${uploaded.binary} install --json`).pipe(
@@ -184,6 +201,7 @@ export const applyPlan = Effect.fn("applyPlan")(function* (
             report,
           }))
         );
+
   return yield* run.pipe(Effect.ensuring(cleanUp(alias, uploaded.dir)));
 });
 
@@ -216,6 +234,7 @@ export const ensureDaemon = Effect.fn("ensureDaemon")(function* (
 ): Effect.fn.Return<EnsureResult, RemoteInstallError | SshError, Ssh> {
   const probe = yield* probeHost(alias);
   const plan = planInstall(probe, builds, options);
+
   switch (plan._tag) {
     case "NeedsApproval":
       return { _tag: "ApprovalNeeded", plan };

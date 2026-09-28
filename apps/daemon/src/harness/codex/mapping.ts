@@ -80,10 +80,12 @@ export const turnInput = (
 ): Array<Gen.UserInput> => {
   const images = attachments.filter((a) => a.mimeType.startsWith("image/"));
   const files = attachments.filter((a) => !a.mimeType.startsWith("image/"));
+
   const text =
     files.length === 0
       ? prompt
       : `${prompt}\n\nAttached files:\n${files.map((f) => `- ${f.hostPath}`).join("\n")}`;
+
   return [
     { type: "text", text, text_elements: [] },
     ...images.map((image): Gen.UserInput => ({ type: "localImage", path: image.hostPath })),
@@ -103,15 +105,19 @@ export const toTurnItem = (item: P.ThreadItem): TurnItem | null => {
   switch (item.type) {
     case "agentMessage":
       if ("text" in item) return { _tag: "AssistantMessage", id: item.id, text: item.text };
+
       return null;
     case "plan":
       if ("text" in item) return { _tag: "AssistantMessage", id: item.id, text: item.text };
+
       return null;
     case "reasoning":
       if ("summary" in item) {
         const text = (item.summary.length > 0 ? item.summary : item.content).join("\n\n");
+
         return { _tag: "Reasoning", id: item.id, text };
       }
+
       return null;
     case "commandExecution":
       if ("command" in item)
@@ -124,6 +130,7 @@ export const toTurnItem = (item: P.ThreadItem): TurnItem | null => {
           exitCode: item.exitCode,
           status: itemStatus(item.status),
         };
+
       return null;
     case "fileChange":
       if ("changes" in item)
@@ -136,6 +143,7 @@ export const toTurnItem = (item: P.ThreadItem): TurnItem | null => {
           })),
           status: itemStatus(item.status),
         };
+
       return null;
     case "mcpToolCall":
       if ("server" in item)
@@ -147,6 +155,7 @@ export const toTurnItem = (item: P.ThreadItem): TurnItem | null => {
           output: item.error ?? item.result,
           status: itemStatus(item.status),
         };
+
       return null;
     case "dynamicToolCall":
       if ("contentItems" in item)
@@ -158,6 +167,7 @@ export const toTurnItem = (item: P.ThreadItem): TurnItem | null => {
           output: item.contentItems,
           status: itemStatus(item.status),
         };
+
       return null;
     case "collabAgentToolCall":
       if ("prompt" in item)
@@ -174,6 +184,7 @@ export const toTurnItem = (item: P.ThreadItem): TurnItem | null => {
                 ? "failed"
                 : "completed",
         };
+
       return null;
     case "webSearch":
       if ("query" in item)
@@ -185,6 +196,7 @@ export const toTurnItem = (item: P.ThreadItem): TurnItem | null => {
           output: null,
           status: "completed",
         };
+
       return null;
     case "imageView":
       if ("path" in item)
@@ -196,6 +208,7 @@ export const toTurnItem = (item: P.ThreadItem): TurnItem | null => {
           output: null,
           status: "completed",
         };
+
       return null;
     default:
       return null;
@@ -205,9 +218,11 @@ export const toTurnItem = (item: P.ThreadItem): TurnItem | null => {
 /** The text of a user message item (its text inputs, in order); null when it has none. */
 export const userMessageText = (item: P.ThreadItem): string | null => {
   if (item.type !== "userMessage" || !("content" in item)) return null;
+
   const text = item.content
     .flatMap((input) => (input.type === "text" && input.text !== undefined ? [input.text] : []))
     .join("\n");
+
   return text === "" ? null : text;
 };
 
@@ -246,8 +261,11 @@ export const permissionsDecision = (
 ): Gen.PermissionsRequestApprovalResponse => {
   if (decision._tag !== "Allow") return { permissions: {}, scope: "turn" };
   const granted: Record<string, unknown> = {};
+
   if (requested.network !== null) granted.network = requested.network;
+
   if (requested.fileSystem !== null) granted.fileSystem = requested.fileSystem;
+
   return {
     permissions: granted as Gen.PermissionsRequestApprovalResponse["permissions"],
     scope: decision.remember ? "session" : "turn",
@@ -263,11 +281,13 @@ export const userInputDecision = (
   decision: ApprovalDecision
 ): Gen.ToolRequestUserInputResponse => {
   const answers: Record<string, { answers: Array<string> }> = {};
+
   for (const question of questions) {
     if (decision._tag === "Answer") answers[question.id] = { answers: [decision.text] };
     else if (decision._tag === "Allow" && question.options?.[0])
       answers[question.id] = { answers: [question.options[0].label] };
   }
+
   return { answers };
 };
 

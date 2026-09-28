@@ -7,9 +7,11 @@ test("samples a busy child's CPU and memory, and an idle one's near zero", async
     "-e",
     "const end = Date.now() + 3000; while (Date.now() < end) {}",
   ]);
+
   const idle = Bun.spawn(["bun", "-e", "setTimeout(() => {}, 3000)"]);
   const busySampler = startSampler({ roots: () => [busy.pid], intervalMs: 100 });
   const idleSampler = startSampler({ roots: () => [idle.pid], intervalMs: 100 });
+
   try {
     await Bun.sleep(300);
     const from = busySampler.now();

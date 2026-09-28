@@ -34,22 +34,28 @@ const fakeRunner = (
   const calls: Array<string> = [];
   /** stdin passed to each command, by its joined argv (last one wins). */
   const stdin = new Map<string, string>();
+
   const layer = Layer.succeed(
     CommandRunner,
     CommandRunner.of({
       run: (argv, options) =>
         Effect.sync(() => {
           calls.push(argv.join(" "));
+
           if (options?.stdin !== undefined) stdin.set(argv.join(" "), options.stdin);
+
           return { code: 0, stdout: "", stderr: "", ...respond(argv) };
         }),
     })
   );
+
   return { calls, stdin, layer };
 };
 
 let root: string;
+
 let source: string;
+
 const ctx = (os: InstallContext["os"]): InstallContext => ({
   os,
   polarisHome: join(root, ".polaris"),
@@ -65,15 +71,18 @@ beforeEach(() => {
   source = join(root, "polaris-upload");
   writeFileSync(source, "#!/bin/sh\necho polaris 1.2.3 darwin-arm64\n");
 });
+
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("install on macOS", () => {
   test("lays out the binary, links current and bootstraps the LaunchAgent", async () => {
     // Not loaded yet: `launchctl print` fails in both domains.
     const runner = fakeRunner((argv) => (argv[1] === "print" ? { code: 113 } : {}));
+
     const report = await Effect.runPromise(
       install(ctx("darwin"), { source, version: "1.2.3" }).pipe(Effect.provide(runner.layer))
     );
+
     const paths = layout(ctx("darwin"), "1.2.3");
     expect(readFileSync(paths.installed!, "utf8")).toBe(readFileSync(source, "utf8"));
     expect(readlinkSync(paths.current)).toBe("1.2.3");
@@ -95,9 +104,11 @@ describe("install on macOS", () => {
       install(ctx("darwin"), { source, version: "1.2.3" }).pipe(Effect.provide(first.layer))
     );
     const second = fakeRunner(); // now loaded
+
     const report = await Effect.runPromise(
       install(ctx("darwin"), { source, version: "1.2.3" }).pipe(Effect.provide(second.layer))
     );
+
     expect(report.binaryChanged).toBe(false);
     expect(report.serviceFileChanged).toBe(false);
     expect(report.restarted).toBe(false);
@@ -114,9 +125,11 @@ describe("install on macOS", () => {
     );
     writeFileSync(source, "#!/bin/sh\necho polaris 1.3.0 darwin-arm64\n");
     const second = fakeRunner();
+
     const report = await Effect.runPromise(
       install(ctx("darwin"), { source, version: "1.3.0" }).pipe(Effect.provide(second.layer))
     );
+
     expect(report.restarted).toBe(true);
     expect(readlinkSync(layout(ctx("darwin")).current)).toBe("1.3.0");
     expect(second.calls).toContain("launchctl kickstart -k gui/501/dev.lux.polaris");
@@ -125,13 +138,17 @@ describe("install on macOS", () => {
   test("falls back to the user domain without a GUI login", async () => {
     const runner = fakeRunner((argv) => {
       if (argv[1] === "print") return { code: 113 };
+
       if (argv[1] === "bootstrap" && argv[2] === "gui/501")
         return { code: 5, stderr: "Bootstrap failed: 5: Input/output error" };
+
       return {};
     });
+
     const report = await Effect.runPromise(
       install(ctx("darwin"), { source, version: "1.2.3" }).pipe(Effect.provide(runner.layer))
     );
+
     expect(report.serviceDomain).toBe("user/501");
     expect(report.notes.join("\n")).toContain("No GUI login session");
   });
@@ -142,9 +159,11 @@ describe("install on Linux", () => {
     const runner = fakeRunner((argv) =>
       argv[0] === "loginctl" && argv[1] === "show-user" ? { stdout: "no\n" } : {}
     );
+
     const report = await Effect.runPromise(
       install(ctx("linux"), { source, version: "1.2.3" }).pipe(Effect.provide(runner.layer))
     );
+
     expect(report.serviceFile).toBe(join(root, ".config/systemd/user/polaris.service"));
     expect(runner.calls).toContain("systemctl --user daemon-reload");
     expect(runner.calls).toContain("systemctl --user enable polaris.service");
@@ -155,12 +174,16 @@ describe("install on Linux", () => {
   test("reports clearly when linger needs an administrator", async () => {
     const runner = fakeRunner((argv) => {
       if (argv[0] === "loginctl" && argv[1] === "show-user") return { stdout: "no\n" };
+
       if (argv[0] === "loginctl") return { code: 1, stderr: "Access denied" };
+
       return {};
     });
+
     const report = await Effect.runPromise(
       install(ctx("linux"), { source, version: "1.2.3" }).pipe(Effect.provide(runner.layer))
     );
+
     expect(report.linger).toBe("needs-admin");
     expect(report.notes.join("\n")).toContain("sudo loginctl enable-linger ada");
   });
@@ -169,6 +192,7 @@ describe("install on Linux", () => {
     const report = await Effect.runPromise(
       install(ctx("linux"), { source, version: "1.2.3" }).pipe(Effect.provide(fakeRunner().layer))
     );
+
     expect(report).toMatchObject({ supervisor: "systemd", autostart: [] });
   });
 });
@@ -197,12 +221,15 @@ describe("install on Linux without systemd --user", () => {
     fakeRunner((argv) => {
       if (argv[0] === "systemctl")
         return { code: 1, stderr: "Failed to connect to bus: No medium found" };
+
       if (argv[0] === "crontab" && argv[1] === "-l") {
         if (cron.current === null) return { code: 127, stderr: "not found" };
+
         return cron.current === ""
           ? { code: 1, stderr: "no crontab for ada" }
           : { stdout: cron.current };
       }
+
       return {};
     });
 
@@ -210,9 +237,11 @@ describe("install on Linux without systemd --user", () => {
     const cron = { current: "" as string | null };
     writeFileSync(join(root, ".profile"), "export EDITOR=vi\n");
     const runner = noBus(cron);
+
     const report = await Effect.runPromise(
       install(ctx("linux"), { source, version: "1.2.3" }).pipe(Effect.provide(runner.layer))
     );
+
     const script = layout(ctx("linux")).supervisor;
     expect(report).toMatchObject({
       supervisor: "fallback",
@@ -248,6 +277,7 @@ describe("install on Linux without systemd --user", () => {
         Effect.provide(noBus({ current: null }).layer)
       )
     );
+
     expect(report.autostart).toEqual(["profile"]);
     expect(report.notes.join("\n")).toContain("does not start at boot");
   });
@@ -277,16 +307,20 @@ describe("uninstall", () => {
     );
     const state = join(root, ".polaris", "state.sqlite");
     writeFileSync(state, "");
+
     const report = await Effect.runPromise(
       uninstall(ctx("darwin"), { purge: false }).pipe(Effect.provide(runner.layer))
     );
+
     expect(report.serviceFileRemoved).toBe(true);
     expect(existsSync(layout(ctx("darwin")).bin)).toBe(false);
     expect(existsSync(state)).toBe(true);
+
     // And again: nothing left to do, still succeeds.
     const again = await Effect.runPromise(
       uninstall(ctx("darwin"), { purge: true }).pipe(Effect.provide(runner.layer))
     );
+
     expect(again.serviceFileRemoved).toBe(false);
     expect(existsSync(join(root, ".polaris"))).toBe(false);
   });
@@ -306,15 +340,18 @@ describe("uninstall", () => {
             spawn: true,
             systemdRun: null,
           });
+
           yield* server.connect;
         })
       )
     );
     const pid = readAppServerState(defaultStateFile(socketPath))!.pid;
     expect(isOurAppServer(pid, socketPath)).toBe(true);
+
     const report = await Effect.runPromise(
       uninstall(ctx("darwin"), { purge: false }).pipe(Effect.provide(fakeRunner().layer))
     );
+
     expect(report.codexAppServerStopped).toBe(pid);
     expect(isOurAppServer(pid, socketPath)).toBe(false);
   }, 20_000);

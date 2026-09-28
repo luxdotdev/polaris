@@ -22,8 +22,10 @@ const isDarwin = process.platform === "darwin";
  */
 const muslLoader = (): string | null => {
   if (process.platform !== "linux") return null;
+
   try {
     const name = readdirSync("/lib").find((f) => f.startsWith("ld-musl-") && f.endsWith(".so.1"));
+
     return name === undefined ? null : `/lib/${name}`;
   } catch {
     return null;
@@ -34,14 +36,22 @@ const LIBC_PATH = isDarwin ? "/usr/lib/libSystem.B.dylib" : (muslLoader() ?? "li
 
 /** `_IO('f', 2)` on Darwin; the asm-generic value on Linux. */
 const FIONCLEX = isDarwin ? 0x20006602n : 0x5450n;
+
 /** `_IO('f', 1)` on Darwin; the asm-generic value on Linux. */
 const FIOCLEX = isDarwin ? 0x20006601n : 0x5451n;
+
 const F_GETFD = 1;
+
 const FD_CLOEXEC = 1;
+
 const AF_UNIX = 1;
+
 const SOCK_STREAM = 1;
+
 const POLLIN = 0x1;
+
 const WNOHANG = 1;
+
 const EINTR = 4;
 
 type Libc = ReturnType<typeof open>;
@@ -65,14 +75,17 @@ const open = () =>
   });
 
 let lib: Libc | undefined;
+
 const libc = (): Libc["symbols"] => {
   lib ??= open();
+
   return lib.symbols;
 };
 
 const errno = (): number => {
   const symbols = libc() as unknown as Record<string, (() => Pointer | null) | undefined>;
   const location = (isDarwin ? symbols.__error : symbols.__errno_location)?.();
+
   return location ? read.i32(location, 0) : 0;
 };
 
@@ -88,6 +101,7 @@ export class LibcError extends Error {
 
 const check = (call: string, result: number): number => {
   if (result < 0) throw new LibcError(call, errno());
+
   return result;
 };
 
@@ -122,10 +136,13 @@ export const pollReadable = (fd: number, timeoutMs: number): boolean => {
   const view = new DataView(pollfd);
   view.setInt32(0, fd, true);
   view.setInt16(4, POLLIN, true);
+
   for (;;) {
     const ready = libc().poll(ptr(pollfd), 1, timeoutMs);
+
     if (ready < 0 && errno() === EINTR) continue;
     check("poll", ready);
+
     return ready > 0 && (view.getInt16(6, true) & POLLIN) !== 0;
   }
 };
@@ -142,6 +159,7 @@ export const acceptFd = (listenerFd: number): number =>
 export const socketPair = (): readonly [number, number] => {
   const fds = new Int32Array(2);
   check("socketpair", libc().socketpair(AF_UNIX, SOCK_STREAM, 0, ptr(fds)));
+
   return [fds[0]!, fds[1]!];
 };
 
@@ -153,12 +171,14 @@ export const socketPair = (): readonly [number, number] => {
 export const reapChild = (pid: number): number | null => {
   const status = new Int32Array(1);
   const result = check("waitpid", libc().waitpid(pid, ptr(status), WNOHANG));
+
   return result === 0 ? null : status[0]!;
 };
 
 /** The slave device of a PTY master fd (`/dev/ttys004`, `/dev/pts/3`), or null if `fd` is none. */
 export const ptsname = (fd: number): string | null => {
   const name = libc().ptsname(fd);
+
   return name === null ? null : new CString(name).toString();
 };
 
@@ -166,7 +186,9 @@ export const ptsname = (fd: number): string | null => {
 export const openFds = (limit = 1024): Array<number> => {
   const fds: Array<number> = [];
   const { fcntl } = libc();
+
   for (let fd = 0; fd < limit; fd++) if (fcntl(fd, F_GETFD) >= 0) fds.push(fd);
+
   return fds;
 };
 
@@ -184,6 +206,7 @@ export const execve = (
   env: Readonly<Record<string, string | undefined>>
 ): never => {
   const keepAlive: Array<Buffer> = [];
+
   const pointerArray = (values: ReadonlyArray<string>): BigUint64Array => {
     const array = new BigUint64Array(values.length + 1);
     values.forEach((value, index) => {
@@ -191,11 +214,14 @@ export const execve = (
       keepAlive.push(buffer);
       array[index] = BigInt(ptr(buffer));
     });
+
     return array;
   };
+
   const envEntries = Object.entries(env).flatMap(([key, value]) =>
     value === undefined ? [] : [`${key}=${value}`]
   );
+
   const argvArray = pointerArray(argv);
   const envArray = pointerArray(envEntries);
   const pathBuffer = cString(path);

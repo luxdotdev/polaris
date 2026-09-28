@@ -10,6 +10,7 @@ export class Inbox<A> implements AsyncIterable<A> {
 
   push(value: A): boolean {
     if (this.ended) return false;
+
     if (this.waiter) {
       const resolve = this.waiter;
       this.waiter = null;
@@ -17,12 +18,14 @@ export class Inbox<A> implements AsyncIterable<A> {
     } else {
       this.buffer.push(value);
     }
+
     return true;
   }
 
   end(): void {
     if (this.ended) return;
     this.ended = true;
+
     if (this.waiter) {
       const resolve = this.waiter;
       this.waiter = null;
@@ -38,14 +41,18 @@ export class Inbox<A> implements AsyncIterable<A> {
     return {
       next: () => {
         const value = this.buffer.shift();
+
         if (value !== undefined) return Promise.resolve({ value, done: false });
+
         if (this.ended) return Promise.resolve({ value: undefined, done: true });
+
         return new Promise((resolve) => {
           this.waiter = resolve;
         });
       },
       return: () => {
         this.end();
+
         return Promise.resolve({ value: undefined, done: true });
       },
     };

@@ -7,6 +7,7 @@ import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const FIXTURES = "/tmp/polaris-bench/fixtures";
+
 /** Bump when the generator changes, so stale caches are not reused. */
 const GENERATOR_VERSION = 1;
 
@@ -21,7 +22,9 @@ export const git = (cwd: string, ...args: ReadonlyArray<string>) => {
       GIT_COMMITTER_EMAIL: "bench@polaris.invalid",
     },
   });
+
   if (out.exitCode !== 0) throw new Error(`git ${args.join(" ")}: ${out.stderr.toString()}`);
+
   return out.stdout.toString();
 };
 
@@ -33,6 +36,7 @@ export const smallRepo = (dir: string) => {
   git(dir, "init", "-q", "-b", "main");
   git(dir, "add", "-A");
   git(dir, "commit", "-qm", "init");
+
   return dir;
 };
 
@@ -61,6 +65,7 @@ const rng = (seed: number) => () => {
   let t = seed;
   t = Math.imul(t ^ (t >>> 15), t | 1);
   t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 };
 
@@ -72,16 +77,20 @@ const rng = (seed: number) => () => {
 const writeTree = (dir: string, files: number) => {
   const random = rng(files);
   const pick = () => WORDS[Math.floor(random() * WORDS.length)]!;
+
   for (let i = 0; i < files; i++) {
     const d1 = `pkg${Math.floor(i / 10_000)}`;
     const d2 = `mod${Math.floor(i / 100) % 100}`;
     const folder = join(dir, "packages", d1, "src", d2);
+
     if (i % 100 === 0) mkdirSync(folder, { recursive: true });
     const name = `${pick()}${pick().replace(/^./, (c) => c.toUpperCase())}${i}.ts`;
     const lines: Array<string> = [`// generated file ${i}`];
+
     for (let l = 0; l < 30; l++) {
       lines.push(`export const ${pick()}${l} = (${pick()}: string) => \`${pick()} \${${pick()}}\``);
     }
+
     if (i % 1000 === 0) lines.push(`export const needleBench${i} = true`);
     writeFileSync(join(folder, name), `${lines.join("\n")}\n`);
   }
@@ -90,6 +99,7 @@ const writeTree = (dir: string, files: number) => {
 /** A cached, committed source tree of `files` files; returns its path (do not modify it). */
 export const sourceTree = (files: number): string => {
   const dir = join(FIXTURES, `tree-v${GENERATOR_VERSION}-${files}`);
+
   if (existsSync(join(dir, ".complete"))) return join(dir, "repo");
   rmSync(dir, { recursive: true, force: true });
   const repo = join(dir, "repo");
@@ -100,6 +110,7 @@ export const sourceTree = (files: number): string => {
   git(repo, "add", "-A");
   git(repo, "commit", "-qm", "generated tree");
   writeFileSync(join(dir, ".complete"), "");
+
   return repo;
 };
 
@@ -107,9 +118,12 @@ export const sourceTree = (files: number): string => {
 export const copyTree = (source: string, dest: string) => {
   if (process.platform === "darwin") {
     const out = Bun.spawnSync(["cp", "-Rc", source, dest]);
+
     if (out.exitCode === 0) return dest;
   }
+
   cpSync(source, dest, { recursive: true });
+
   return dest;
 };
 
@@ -117,10 +131,13 @@ export const copyTree = (source: string, dest: string) => {
 export const randomFile = (path: string, bytes: number) => {
   const chunk = new Uint8Array(1024 * 1024);
   const random = rng(bytes);
+
   for (let i = 0; i < chunk.length; i++) chunk[i] = Math.floor(random() * 256);
   const out = Bun.file(path).writer();
+
   for (let written = 0; written < bytes; written += chunk.length) {
     out.write(chunk.subarray(0, Math.min(chunk.length, bytes - written)));
   }
+
   return out.end();
 };

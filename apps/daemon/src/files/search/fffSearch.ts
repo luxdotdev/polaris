@@ -19,10 +19,13 @@ import type { GrepHit, GrepQuery, PathHit } from "./types.ts";
 
 /** Most candidate files narrowed to: fff matches a brace glob against every file, ~0.6 ms per path on 50k files. */
 export const MAX_CANDIDATES = 128;
+
 /** Time the literal searches may take in all before narrowing is given up (none is selective). */
 const LITERAL_BUDGET_MS = 50;
+
 /** Shortest literal worth a search. */
 const MIN_LITERAL = 3;
+
 /** Literals tried, longest first, until one is in few enough files. */
 const MAX_LITERAL_TRIES = 4;
 
@@ -30,6 +33,7 @@ const escapeRegex = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"
 
 const unwrap = <T>(result: { ok: true; value: T } | { ok: false; error: string }): T => {
   if (!result.ok) throw new Error(result.error);
+
   return result.value;
 };
 
@@ -40,6 +44,7 @@ export const fffSearchPaths = (
   limit: number
 ): Array<PathHit> => {
   const result = unwrap(finder.fileSearch(query, { pageSize: limit }));
+
   return result.items.map((item, i) => ({
     path: join(root, item.relativePath),
     score: result.scores[i]?.total ?? 0,
@@ -53,8 +58,11 @@ export const fffSearchPaths = (
  */
 const mayBeConstraint = (token: string): boolean => {
   if (token.startsWith("\\") && token.length > 1) return false;
+
   if (/^[*!/]/.test(token) || token.endsWith("/")) return true;
+
   if (/[*?[{]/.test(token) && (token.includes("/") || token.includes("{"))) return true;
+
   return token.startsWith("type:");
 };
 
@@ -86,6 +94,7 @@ const filesContaining = (
   budgetMs: number
 ): Array<string> | null => {
   const text = literal.caseInsensitive ? literal.text.toLowerCase() : literal.text;
+
   const found = finder.grep(text, {
     mode: "plain",
     // Smart case on an all-lowercase needle is case-insensitive.
@@ -95,8 +104,10 @@ const filesContaining = (
     timeBudgetMs: budgetMs,
     enforceTimeBudget: true,
   });
+
   if (!found.ok || found.value.nextCursor !== null) return null;
   const paths = [...new Set(found.value.items.map((item) => item.relativePath))];
+
   return paths.length > MAX_CANDIDATES ? null : paths;
 };
 
@@ -108,20 +119,28 @@ const filesContaining = (
  */
 export const narrowRegexGrep = (finder: FileFinder, query: string): Plan => {
   const tokens = query.trim().split(/\s+/);
+
   if (tokens.some(mayBeConstraint) || /﻿/.test(query)) return { full: true };
   const deadline = performance.now() + LITERAL_BUDGET_MS;
+
   for (const literal of candidateLiterals(query)) {
     const budget = Math.floor(deadline - performance.now());
+
     if (budget <= 0) break;
     const paths = filesContaining(finder, literal, budget);
+
     if (paths === null) continue;
+
     if (!paths.every(globSafe)) return { full: true };
     // Two entries at least (a brace glob needs a comma), and a letter so
     // fff's parser takes it for a glob.
     const entries = paths.length === 0 ? NO_FILES : [...paths, paths[0]!];
+
     if (!entries.some((p) => /[A-Za-z]/.test(p))) return { full: true };
+
     return { glob: `{${entries.join(",")}}` };
   }
+
   return { full: true };
 };
 
@@ -138,7 +157,9 @@ export const fffGrep = (
   const plan = mode === "regex" && options.narrow !== false ? narrowRegexGrep(finder, query) : null;
   const effective = plan !== null && "glob" in plan ? `${plan.glob} ${query}` : query;
   const result = unwrap(finder.grep(effective, { mode, smartCase: false, pageSize: limit }));
+
   if (result.regexFallbackError !== undefined) throw new Error(result.regexFallbackError);
+
   return result.items.slice(0, limit).map((match) => ({
     path: join(root, match.relativePath),
     line: match.lineNumber,

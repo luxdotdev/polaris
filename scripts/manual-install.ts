@@ -20,16 +20,22 @@ if (process.env.POLARIS_MANUAL_INSTALL !== "1") {
 }
 
 const root = join(import.meta.dir, "..");
+
 const platform = `${process.platform}-${process.arch}`;
+
 const binary = join(root, "apps", "daemon", "dist", platform, "polaris");
 
 const step = (argv: ReadonlyArray<string>) => {
   console.log(`$ ${argv.join(" ")}`);
   const result = Bun.spawnSync([...argv], { stdout: "inherit", stderr: "inherit" });
+
   if (result.exitCode !== 0) process.exit(result.exitCode ?? 1);
 };
 
 step([process.execPath, join(import.meta.dir, "build-daemon.ts"), platform]);
+
 step([binary, "install"]);
+
 step([binary, "install"]); // idempotent: nothing changes, nothing restarts
+
 if (process.argv.includes("--uninstall")) step([binary, "uninstall"]);

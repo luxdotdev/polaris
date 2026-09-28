@@ -45,10 +45,14 @@ export const defaultAttachmentSettings: AttachmentSettings = {
 
 /** Unsessioned attachments older than this are swept under the "on-archive" policy. */
 export const PENDING_MAX_AGE_DAYS = 7;
+
 /** Largest attachment `stage` accepts by default (the Wire's own per-blob limit). */
 export const MAX_ATTACHMENT_BYTES = 512 * 1024 * 1024;
+
 const PENDING_DIR = "_pending";
+
 const META_FILE = ".meta.json";
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface AttachmentUsage {
@@ -92,24 +96,29 @@ interface Meta {
  */
 export const safeFileName = (name: string): string => {
   const base = name.split(/[/\\]/).pop() ?? "";
+
   let safe = Array.from(base, (c) => {
     const code = c.charCodeAt(0);
+
     return code < 0x20 || code === 0x7f || ':*?"<>|'.includes(c) ? "_" : c;
   })
     .join("")
     .replace(/^[.\s]+/, "")
     .trim();
+
   if (safe.length > 120) {
     const dot = safe.lastIndexOf(".");
     const ext = dot > 0 && safe.length - dot <= 16 ? safe.slice(dot) : "";
     safe = safe.slice(0, 120 - ext.length) + ext;
   }
+
   return safe === "" ? "attachment" : safe;
 };
 
 /** A single path segment derived from an id (ids are opaque strings). */
 const segment = (id: string): string => {
   const safe = id.replace(/[^A-Za-z0-9._-]/g, "_").replace(/^\.+/, "_");
+
   return safe === "" ? "_" : safe;
 };
 
@@ -135,6 +144,7 @@ const isEnoent = (cause: unknown) =>
 const listDirs = async (dir: string): Promise<Array<string>> => {
   try {
     const entries = await readdir(dir, { withFileTypes: true });
+
     return entries.filter((e) => e.isDirectory()).map((e) => join(dir, e.name));
   } catch (cause) {
     if (isEnoent(cause)) return [];
@@ -161,6 +171,7 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
     const settingsPath = options.settingsPath ?? join(paths().root, "attachment-settings.json");
     const now = options.now ?? Date.now;
     const maxBytes = options.maxBytes ?? MAX_ATTACHMENT_BYTES;
+
     const tooLarge = (name: string) =>
       new ServiceError({
         service: "AttachmentStore",
@@ -180,25 +191,33 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
         }),
         (file) => {
           let size = 0;
+
           // Everything that arrived since the last write goes out in one writev.
           return Stream.runForEachArray(content, (chunks) => {
             let batch = 0;
+
             for (const chunk of chunks) batch += chunk.byteLength;
             size += batch;
+
             if (size > maxBytes) return Effect.fail(tooLarge(name));
+
             return Effect.tryPromise({
               try: async () => {
                 let written = (await file.writev(chunks)).bytesWritten;
+
                 if (written === batch) return;
+
                 // A short write: finish chunk by chunk.
                 for (const chunk of chunks) {
                   if (written >= chunk.byteLength) {
                     written -= chunk.byteLength;
                     continue;
                   }
+
                   for (let at = written; at < chunk.byteLength;) {
                     at += (await file.write(chunk, at)).bytesWritten;
                   }
+
                   written = 0;
                 }
               },
@@ -212,11 +231,13 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
     let settings: AttachmentSettings = yield* Effect.promise(async () => {
       try {
         const parsed = JSON.parse(await readFile(settingsPath, "utf8")) as AttachmentSettings;
+
         return { ...defaultAttachmentSettings, ...parsed };
       } catch {
         return defaultAttachmentSettings;
       }
     });
+
     const policyFor = (workspaceId: string): CleanupPolicy =>
       settings.workspaces[workspaceId] ?? settings.default;
 
@@ -224,6 +245,7 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
     const attachmentDirs = async (): Promise<Array<string>> => {
       const owners = await listDirs(root);
       const dirs: Array<string> = [];
+
       for (const owner of owners) {
         if (owner === join(root, PENDING_DIR)) {
           for (const workspace of await listDirs(owner)) dirs.push(...(await listDirs(workspace)));
@@ -231,6 +253,7 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
           dirs.push(...(await listDirs(owner)));
         }
       }
+
       return dirs;
     };
 
@@ -244,10 +267,13 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
 
     const allMetas = async () => {
       const out: Array<{ dir: string; meta: Meta }> = [];
+
       for (const dir of await attachmentDirs()) {
         const meta = await readMeta(dir);
+
         if (meta !== null) out.push({ dir, meta });
       }
+
       return out;
     };
 
@@ -255,6 +281,7 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
     const removeAttachmentDir = async (dir: string) => {
       await rm(dir, { recursive: true, force: true });
       let parent = join(dir, "..");
+
       while (parent.startsWith(root) && parent !== root) {
         if ((await readdir(parent).catch(() => ["x"])).length > 0) break;
         await rm(parent, { recursive: true, force: true });
@@ -270,23 +297,28 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
       readonly bytes: Uint8Array | Stream.Stream<Uint8Array, ServiceError>;
     }) {
       const id = randomUUID();
+
       const owner =
         input.sessionId === null
           ? join(root, PENDING_DIR, segment(input.workspaceId))
           : join(root, segment(input.sessionId));
+
       const dir = join(owner, id);
       const hostPath = join(dir, safeFileName(input.name));
       const partial = join(dir, ".partial");
       const failed = toServiceError(`staging ${input.name}`);
       const content = input.bytes;
+
       if (content instanceof Uint8Array && content.byteLength > maxBytes) {
         return yield* tooLarge(input.name);
       }
+
       const size = yield* Effect.gen(function* () {
         yield* Effect.tryPromise({
           try: () => mkdir(dir, { recursive: true, mode: 0o700 }),
           catch: failed,
         });
+
         const written =
           content instanceof Uint8Array
             ? yield* Effect.tryPromise({
@@ -294,9 +326,12 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
                 catch: failed,
               }).pipe(Effect.as(content.byteLength))
             : yield* writeChunks(partial, input.name, content);
+
         yield* Effect.tryPromise({ try: () => rename(partial, hostPath), catch: failed });
+
         return written;
       }).pipe(Effect.onError(() => Effect.promise(() => removeAttachmentDir(dir).catch(() => {}))));
+
       const meta: Meta = {
         id,
         name: input.name,
@@ -307,23 +342,29 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
         workspaceId: input.workspaceId,
         stagedAt: now(),
       };
+
       yield* Effect.tryPromise({
         try: () => writeFile(join(dir, META_FILE), JSON.stringify(meta)),
         catch: failed,
       });
+
       return toAttachment(meta);
     });
 
     const get = Effect.fn("AttachmentStore.get")(function* (ids: ReadonlyArray<AttachmentId>) {
       const wanted = new Set<string>(ids);
+
       const metas = yield* Effect.tryPromise({
         try: allMetas,
         catch: toServiceError("listing attachments"),
       });
+
       const byId = new Map(metas.map(({ meta }) => [meta.id, meta]));
+
       // Missing (already cleaned up) attachments are left out, in request order otherwise.
       return ids.flatMap((id) => {
         const meta = wanted.has(id) ? byId.get(id) : undefined;
+
         return meta === undefined ? [] : [toAttachment(meta)];
       });
     });
@@ -334,8 +375,10 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
       yield* Effect.tryPromise({
         try: async () => {
           const owner = join(root, segment(sessionId));
+
           for (const dir of await listDirs(owner)) {
             const meta = await readMeta(dir);
+
             if (meta === null || policyFor(meta.workspaceId).kind === "on-archive") {
               await removeAttachmentDir(dir);
             }
@@ -348,20 +391,24 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
     const sweep = Effect.tryPromise({
       try: async () => {
         let removed = 0;
+
         for (const { dir, meta } of await allMetas()) {
           const policy = policyFor(meta.workspaceId);
           const ageDays = (now() - meta.stagedAt) / DAY_MS;
+
           const expired =
             policy.kind === "after-days"
               ? ageDays >= policy.days
               : policy.kind === "on-archive" && meta.sessionId === null
                 ? ageDays >= PENDING_MAX_AGE_DAYS
                 : false;
+
           if (expired) {
             await removeAttachmentDir(dir);
             removed++;
           }
         }
+
         return removed;
       },
       catch: toServiceError("sweeping attachments"),
@@ -370,17 +417,22 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
     const usageOf = async (dirs: ReadonlyArray<string>): Promise<AttachmentUsage> => {
       let bytes = 0;
       let files = 0;
+
       for (const dir of dirs) {
         const meta = await readMeta(dir);
+
         if (meta === null) continue;
+
         const size = await stat(meta.hostPath).then(
           (s) => s.size,
           () => null
         );
+
         if (size === null) continue;
         bytes += size;
         files++;
       }
+
       return { bytes, files };
     };
 
@@ -408,8 +460,11 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
                 : (await allMetas())
                     .filter(({ meta }) => meta.workspaceId === clear.workspaceId)
                     .map(({ dir }) => dir);
+
             const cleared = await usageOf(targets);
+
             for (const dir of targets) await removeAttachmentDir(dir);
+
             return cleared;
           },
           catch: toServiceError("clearing attachments"),
@@ -418,9 +473,11 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
     });
 
     const sweepMs = options.sweepMs ?? 60 * 60 * 1000;
+
     const timer = setInterval(() => {
       void Effect.runPromise(Effect.ignore(sweep));
     }, sweepMs);
+
     yield* Effect.addFinalizer(() => Effect.sync(() => clearInterval(timer)));
 
     return {

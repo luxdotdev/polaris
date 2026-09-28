@@ -17,6 +17,7 @@ import { join } from "node:path";
 import { shQuote, supervisorScript, supervisorStartLine } from "./templates.ts";
 
 let root: string;
+
 afterEach(() => {
   // Stop anything a test left running.
   for (const file of ["supervisor.pid", "daemon.pid"]) {
@@ -24,11 +25,13 @@ afterEach(() => {
       process.kill(Number(readFileSync(join(root, file), "utf8")), "SIGKILL");
     } catch {}
   }
+
   rmSync(root, { recursive: true, force: true });
 });
 
 const waitFor = async (condition: () => boolean, timeoutMs = 10_000) => {
   const deadline = Date.now() + timeoutMs;
+
   while (!condition()) {
     if (Date.now() > deadline) throw new Error("timed out");
     await Bun.sleep(25);
@@ -38,6 +41,7 @@ const waitFor = async (condition: () => boolean, timeoutMs = 10_000) => {
 const alive = (pid: number) => {
   try {
     process.kill(pid, 0);
+
     return true;
   } catch {
     return false;
@@ -78,10 +82,12 @@ esac
     })
   );
   chmodSync(script, 0o755);
+
   const starts = () =>
     existsSync(join(root, "starts"))
       ? readFileSync(join(root, "starts"), "utf8").trim().split("\n").map(Number)
       : [];
+
   const supervisorPid = () => {
     try {
       return Number(readFileSync(join(root, "supervisor.pid"), "utf8"));
@@ -89,7 +95,9 @@ esac
       return null;
     }
   };
+
   const launch = () => Bun.spawnSync([script]).exitCode;
+
   return { program, script, starts, supervisorPid, launch };
 };
 

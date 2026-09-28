@@ -33,6 +33,7 @@ export interface TurnScript {
 export const prompt = (script: TurnScript) => `bench:${JSON.stringify(script)}`;
 
 let counter = 0;
+
 export const commandId = () => CommandId.make(`bench-${process.pid}-${++counter}`);
 
 export const dispatch = (client: Client, command: Command) =>
@@ -42,15 +43,19 @@ export const dispatch = (client: Client, command: Command) =>
 export const registerWorkspace = (client: Client, path: string, name: string) =>
   Effect.gen(function* () {
     yield* dispatch(client, { _tag: "RegisterWorkspace", path, name });
+
     const snapshot = yield* client.connection.client.subscribeHost({ afterSequence: null }).pipe(
       Stream.filter((item) => item._tag === "Snapshot"),
       Stream.runHead
     );
+
     const workspace =
       snapshot._tag === "Some" && snapshot.value._tag === "Snapshot"
         ? snapshot.value.workspaces.find((w) => w.name === name)
         : undefined;
+
     if (workspace === undefined) return yield* Effect.die(new Error(`${name} not registered`));
+
     return workspace.id as WorkspaceId;
   });
 
@@ -148,6 +153,7 @@ export const watchSession = (
       synchronizedAt: null,
       snapshotTurns: 0,
     };
+
     const approvalsOpened = new Map<string, number>();
     yield* client.connection.client
       .subscribeSession({
@@ -159,56 +165,72 @@ export const watchSession = (
         Stream.runForEach((item) =>
           Effect.suspend(() => {
             const at = performance.now();
+
             switch (item._tag) {
               case "Snapshot":
                 watch.snapshotAt ??= at;
                 watch.state = item.session.state;
                 watch.lastSequence = item.sequence;
                 watch.snapshotTurns = item.turns.length;
+
                 // Turns already in the snapshot count as started (and ended) on arrival.
                 if (watch.turnStarted.length === 0) {
                   for (const detail of item.turns) {
                     watch.turnStarted.push(at);
+
                     if (detail.turn.status !== "working") watch.turnEnded.push(at);
                   }
                 }
+
                 return Effect.void;
               case "Synchronized":
                 watch.synchronizedAt ??= at;
+
                 return Effect.void;
               case "Delta": {
                 watch.deltas++;
                 watch.deltaBytes += item.text.length;
+
                 if (options.deltaLatencies && item.text.charCodeAt(0) === 64 /* @ */) {
                   const emitted = Number(item.text.slice(1, item.text.indexOf("|")));
+
                   if (emitted > 0) options.deltaLatencies.push(nowEpoch() - emitted);
                 }
+
                 return Effect.void;
               }
+
               case "Event": {
                 watch.events++;
                 watch.lastSequence = item.envelope.sequence;
                 options.eventLatencies?.push(Date.now() - Date.parse(item.envelope.occurredAt));
                 const event = item.envelope.event;
+
                 switch (event._tag) {
                   case "SessionStateChanged":
                     watch.state = event.state;
+
                     return Effect.void;
                   case "TurnStarted":
                     watch.turnStarted.push(at);
+
                     return Effect.void;
                   case "TurnEnded":
                     watch.turnEnded.push(at);
                     watch.turnEndedSequences.push(item.envelope.sequence);
+
                     return Effect.void;
                   case "TurnItemCompleted":
                     watch.lastItemAt = at;
+
                     return Effect.void;
                   case "CheckpointRecorded":
                     watch.checkpoints.push({ at, ref: event.ref, lastItemAt: watch.lastItemAt });
+
                     return Effect.void;
                   case "ApprovalRequested":
                     approvalsOpened.set(event.request.id, at);
+
                     return options.autoApprove
                       ? dispatch(client, {
                           _tag: "RespondToApproval",
@@ -219,13 +241,17 @@ export const watchSession = (
                       : Effect.void;
                   case "ApprovalResolved": {
                     const opened = approvalsOpened.get(event.requestId);
+
                     if (opened !== undefined) options.approvalRoundTrips?.push(at - opened);
+
                     return Effect.void;
                   }
+
                   default:
                     return Effect.void;
                 }
               }
+
               default:
                 // ItemProgress and any later live-only items: not measured here.
                 return Effect.void;
@@ -235,6 +261,7 @@ export const watchSession = (
         Effect.ignore,
         Effect.forkScoped
       );
+
     return watch;
   });
 
@@ -242,10 +269,12 @@ export const watchSession = (
 export const waitUntil = (condition: () => boolean, timeoutMs: number, what: string) =>
   Effect.gen(function* () {
     const deadline = performance.now() + timeoutMs;
+
     while (!condition()) {
       if (performance.now() > deadline) {
         return yield* Effect.fail(new Error(`timed out after ${timeoutMs} ms waiting for ${what}`));
       }
+
       yield* Effect.sleep(Duration.millis(5));
     }
   });

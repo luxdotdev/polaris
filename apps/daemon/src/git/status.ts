@@ -28,24 +28,32 @@ export const parsePorcelainV2 = (output: string): Status => {
   let behind = 0;
   const entries: Array<StatusEntry> = [];
   const records = output.split("\0");
+
   for (let i = 0; i < records.length; i++) {
     const record = records[i]!;
+
     if (record === "") continue;
+
     if (record.startsWith("# ")) {
       const [, key, ...rest] = record.split(" ");
       const value = rest.join(" ");
+
       if (key === "branch.oid") head = value === "(initial)" ? null : value;
       else if (key === "branch.head") branch = value === "(detached)" ? null : value;
       else if (key === "branch.ab") {
         const match = /^\+(\d+) -(\d+)$/.exec(value);
+
         if (match) {
           ahead = Number(match[1]);
           behind = Number(match[2]);
         }
       }
+
       continue;
     }
+
     const kind = record[0];
+
     if (kind === "1") {
       // 1 XY sub mH mI mW hH hI path
       const fields = splitN(record, 9);
@@ -66,6 +74,7 @@ export const parsePorcelainV2 = (output: string): Status => {
       entries.push({ path: record.slice(2), origPath: null, index: kind, worktree: kind });
     }
   }
+
   return { branch, head, ahead, behind, entries };
 };
 
@@ -73,13 +82,17 @@ export const parsePorcelainV2 = (output: string): Status => {
 const splitN = (record: string, n: number): Array<string> => {
   const fields: Array<string> = [];
   let rest = record;
+
   for (let k = 0; k < n - 1; k++) {
     const at = rest.indexOf(" ");
+
     if (at < 0) break;
     fields.push(rest.slice(0, at));
     rest = rest.slice(at + 1);
   }
+
   fields.push(rest);
+
   return fields;
 };
 
@@ -91,5 +104,6 @@ export const gitStatus = async (cwd: string): Promise<Status> => {
     "-z",
     "--untracked-files=normal",
   ]);
+
   return parsePorcelainV2(new TextDecoder().decode(result.stdout));
 };

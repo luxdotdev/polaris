@@ -39,6 +39,7 @@ const contextFor = (options: RunnerOptions, profileDir: string | null): Scenario
       (daemon) =>
         Effect.promise(async () => {
           await daemon.stop();
+
           // A home the scenario passed in is the scenario's to remove.
           if (!launch.home) cleanup(daemon.home);
         })
@@ -54,19 +55,23 @@ const contextFor = (options: RunnerOptions, profileDir: string | null): Scenario
       : Effect.promise(async () => {
           options.log(`heap snapshot (${label})…`);
           const file = await daemon.heapSnapshot();
+
           if (file) renameSync(file, join(profileDir, `heap-${label}.heapsnapshot`));
         }),
 });
 
 const aggregate = (runs: ReadonlyArray<ScenarioRun>): Record<string, AggregatedMetric> => {
   const byName = new Map<string, Array<Metric>>();
+
   for (const run of runs) {
     for (const [name, metric] of Object.entries(run.metrics)) {
       if (!Number.isFinite(metric.value)) continue;
       byName.set(name, [...(byName.get(name) ?? []), metric]);
     }
   }
+
   const out: Record<string, AggregatedMetric> = {};
+
   for (const [name, metrics] of byName) {
     const values = metrics.map((m) => m.value);
     out[name] = {
@@ -77,6 +82,7 @@ const aggregate = (runs: ReadonlyArray<ScenarioRun>): Record<string, AggregatedM
       max: Math.max(...values),
     };
   }
+
   return out;
 };
 
@@ -87,17 +93,22 @@ export const runScenario = async (
   const started = performance.now();
   const runs: Array<ScenarioRun> = [];
   let error: string | undefined;
+
   for (let i = 1; i <= options.runs; i++) {
     options.log(`${scenario.name}: run ${i}/${options.runs}`);
+
     const profileDir = options.profileRoot
       ? join(options.profileRoot, `${scenario.name}-run${i}`)
       : null;
+
     if (profileDir) mkdirSync(profileDir, { recursive: true });
+
     const exit = await Effect.runPromiseExit(
       Effect.scoped(scenario.run(contextFor(options, profileDir))).pipe(
         Effect.timeout(SCENARIO_TIMEOUT)
       )
     );
+
     if (exit._tag === "Success") {
       runs.push(exit.value);
     } else {
@@ -105,17 +116,21 @@ export const runScenario = async (
       options.log(`${scenario.name}: run ${i} failed\n${error}`);
       break;
     }
+
     if (profileDir && existsSync(profileDir)) {
       const files = readdirSync(profileDir);
+
       if (files.length > 0) options.log(`${scenario.name}: profiles in ${profileDir}`);
     }
   }
+
   // A note every run agrees on appears once; one that differs is labelled with its run.
   const notes = [...new Set(runs.flatMap((r) => r.notes))].flatMap((note) =>
     runs.every((r) => r.notes.includes(note))
       ? [note]
       : runs.flatMap((r, i) => (r.notes.includes(note) ? [`run ${i + 1}: ${note}`] : []))
   );
+
   return {
     metrics: aggregate(runs),
     notes,

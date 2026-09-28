@@ -15,6 +15,7 @@ import { join } from "node:path";
 import { BRIDGE_EXIT_NO_DAEMON } from "@polaris/protocol";
 
 const BRIDGE = join(import.meta.dir, "fixtures", "bridge.ts");
+
 const ECHO = join(import.meta.dir, "fixtures", "echo-daemon.ts");
 
 const homes: Array<string> = [];
@@ -22,11 +23,13 @@ const homes: Array<string> = [];
 afterEach(() => {
   for (const home of homes.splice(0)) {
     const pidFile = join(home, "echo.pid");
+
     if (existsSync(pidFile)) {
       try {
         process.kill(Number(readFileSync(pidFile, "utf8").trim()));
       } catch {}
     }
+
     rmSync(home, { recursive: true, force: true });
   }
 });
@@ -37,6 +40,7 @@ const q = (value: string) => `'${value.replaceAll("'", `'\\''`)}'`;
 const makeHome = (script: ((home: string) => string) | null) => {
   const home = mkdtempSync(join(tmpdir(), "polaris-bridge-"));
   homes.push(home);
+
   if (script !== null) {
     mkdirSync(join(home, "bin"));
     writeFileSync(
@@ -45,11 +49,13 @@ const makeHome = (script: ((home: string) => string) | null) => {
       { mode: 0o755 }
     );
   }
+
   return home;
 };
 
 const starts = (home: string) => {
   const log = join(home, "starts.log");
+
   return existsSync(log) ? readFileSync(log, "utf8").split("\n").filter(Boolean).length : 0;
 };
 
@@ -60,13 +66,16 @@ const bridge = async (home: string, input: string, waitMs: number) => {
     stdout: "pipe",
     stderr: "pipe",
   });
+
   child.stdin.write(input);
   await child.stdin.flush();
+
   const [code, stdout, stderr] = await Promise.all([
     child.exited,
     new Response(child.stdout).text(),
     new Response(child.stderr).text(),
   ]);
+
   return { code, stdout, stderr };
 };
 
@@ -76,6 +85,7 @@ describe("polaris bridge without a Daemon", () => {
       (dir) =>
         `POLARIS_HOME=${q(dir)} nohup ${q(process.execPath)} ${q(ECHO)} >/dev/null 2>&1 &\necho $! > ${q(join(dir, "echo.pid"))}`
     );
+
     const result = await bridge(home, "hello\n", 5000);
     expect(result.stderr).toBe("");
     expect(result.code).toBe(0);

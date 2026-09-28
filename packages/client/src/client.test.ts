@@ -27,11 +27,13 @@ describe("classifyExit", () => {
     ["timeout", 255, "ssh: connect to host pi port 22: Operation timed out", "timeout"],
     ["dropped", 255, "Connection to pi closed by remote host.", "connection-lost"],
   ];
+
   for (const [name, code, stderr, reason] of cases) {
     test(name, () => {
       expect(classifyExit({ code, signal: null, stderr }).reason).toBe(reason as never);
     });
   }
+
   test("user-fixable failures are Needs Attention, network ones transient", () => {
     expect(classifyExit({ code: 255, signal: null, stderr: "Permission denied" }).kind).toBe(
       "needs-attention"
@@ -47,6 +49,7 @@ describe("sshArgv", () => {
     const argv = sshArgv("studio", { controlDir: "/c" });
     const joined = argv.join(" ");
     expect(argv[0]).toBe("ssh");
+
     for (const option of [
       "BatchMode=yes",
       "ControlMaster=auto",
@@ -90,6 +93,7 @@ describe("resumable feed", () => {
       Effect.scoped(
         Effect.gen(function* () {
           const opens: Array<number | null> = [];
+
           // Each "connection" replays one event it already sent, then fails as if dropped.
           const scripts: Array<Array<Item>> = [
             [
@@ -107,24 +111,31 @@ describe("resumable feed", () => {
               { _tag: "Synchronized", sequence: 4 },
             ],
           ];
+
           let epoch = 0;
+
           const feed = yield* makeFeed<number, Item, Disconnected>({
             source: { next: (min) => Effect.succeed({ epoch: Math.max(min, epoch), client: 0 }) },
             open: (_client, after) => {
               opens.push(after);
               const script = scripts[epoch++];
+
               if (script === undefined) return Stream.never;
+
               return Stream.concat(Stream.fromIterable(script), Stream.fail(new Disconnected()));
             },
             mark,
             isDisconnect: (e) => e instanceof Disconnected,
             gapless: true,
           });
+
           const items = yield* feed.stream.pipe(Stream.take(6), Stream.runCollect);
+
           return { items, opens };
         })
       )
     );
+
     expect(result.items.map((i) => `${i._tag}:${i.sequence}`)).toEqual([
       "Snapshot:0",
       "Event:1",
@@ -141,10 +152,12 @@ describe("resumable feed", () => {
       Effect.scoped(
         Effect.gen(function* () {
           const opens: Array<number | null> = [];
+
           const feed = yield* makeFeed<number, Item, string>({
             source: { next: () => Effect.succeed({ epoch: 1, client: 0 }) },
             open: (_client, after) => {
               opens.push(after);
+
               return opens.length === 1
                 ? Stream.fromIterable<Item>([
                     { _tag: "Snapshot", sequence: 5 },
@@ -156,11 +169,14 @@ describe("resumable feed", () => {
             isDisconnect: () => false,
             gapless: true,
           });
+
           const error = yield* feed.stream.pipe(Stream.runDrain, Effect.flip);
+
           return { error, opens };
         })
       )
     );
+
     expect(result.opens).toEqual([null, 5]);
     expect(result.error).toBe("NotFound");
   });
@@ -171,10 +187,12 @@ describe("resumable feed", () => {
       Effect.scoped(
         Effect.gen(function* () {
           const opens: Array<number | null> = [];
+
           const feed = yield* makeFeed<number, Item, never>({
             source: { next: () => Effect.succeed({ epoch: 1, client: 0 }) },
             open: (_client, after) => {
               opens.push(after);
+
               return Stream.concat(
                 Stream.fromIterable<Item>([
                   { _tag: "Snapshot", sequence: 2 },
@@ -189,11 +207,14 @@ describe("resumable feed", () => {
             isDisconnect: () => false,
             gapless: false, // as HostConnection opens the host feed
           });
+
           const items = yield* feed.stream.pipe(Stream.take(4), Stream.runCollect);
+
           return { items, opens, last: feed.lastSequence() };
         })
       )
     );
+
     expect(result.items.map((i) => `${i._tag}:${i.sequence}`)).toEqual([
       "Snapshot:2",
       "Synchronized:2",
@@ -209,11 +230,13 @@ describe("resumable feed", () => {
       Effect.scoped(
         Effect.gen(function* () {
           const opens: Array<number | null> = [];
+
           // A gapless feed over a stream that always has the same gap: every reopen hits it again.
           const feed = yield* makeFeed<number, Item, never>({
             source: { next: () => Effect.succeed({ epoch: 1, client: 0 }) },
             open: (_client, after) => {
               opens.push(after);
+
               return Stream.fromIterable<Item>([
                 ...(after === null ? [{ _tag: "Snapshot", sequence: 5 } as const] : []),
                 { _tag: "Event", sequence: 7 },
@@ -223,12 +246,15 @@ describe("resumable feed", () => {
             isDisconnect: () => false,
             gapless: true,
           });
+
           yield* Effect.forkScoped(Stream.runDrain(feed.stream));
           yield* Effect.sleep(300);
+
           return opens;
         })
       )
     );
+
     // Without the backoff: thousands. With it: 0, 25, 50, 100, 200 ms…
     expect(opens.length).toBeGreaterThan(2);
     expect(opens.length).toBeLessThan(10);
@@ -245,6 +271,7 @@ describe("resumable feed", () => {
       Effect.scoped(
         Effect.gen(function* () {
           const live = yield* Queue.unbounded<Item>();
+
           const feed = yield* makeFeed<number, Item, never>({
             source: { next: () => Effect.succeed({ epoch: 1, client: 0 }) },
             open: () => Stream.fromQueue(live),
@@ -252,20 +279,25 @@ describe("resumable feed", () => {
             isDisconnect: () => false,
             gapless: true,
           });
+
           yield* Queue.offerAll(live, [
             { _tag: "Snapshot", sequence: 1 },
             { _tag: "Event", sequence: 2 },
           ]);
           yield* feed.stream.pipe(Stream.take(2), Stream.runDrain);
+
           const second = yield* Effect.forkChild(
             feed.stream.pipe(Stream.take(3), Stream.runCollect)
           );
+
           yield* Effect.sleep(20);
           yield* Queue.offer(live, { _tag: "Event", sequence: 3 });
+
           return yield* Fiber.join(second);
         })
       )
     );
+
     expect(items.map((i) => `${i._tag}:${i.sequence}`)).toEqual([
       "Snapshot:1",
       "Event:2",

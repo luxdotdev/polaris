@@ -20,8 +20,11 @@ const run = <A, E>(filename: string, program: Effect.Effect<A, E, EventStore>) =
   Effect.runPromise(program.pipe(Effect.provide(EventStore.layerSqlite(filename))));
 
 const at = "2026-09-28T00:00:00.000Z";
+
 const wsId = "ws-1" as WorkspaceId;
+
 const sId = "s-1" as SessionId;
+
 const tId = "t-1" as TurnId;
 
 const workspace = new Workspace({
@@ -33,6 +36,7 @@ const workspace = new Workspace({
   hidden: false,
   registeredAt: at,
 });
+
 const session = new AgentSession({
   id: sId,
   workspaceId: wsId,
@@ -51,6 +55,7 @@ const session = new AgentSession({
   createdAt: at,
   updatedAt: at,
 });
+
 const turn = new Turn({
   id: tId,
   sessionId: sId,
@@ -168,12 +173,15 @@ describe("EventStore", () => {
       Effect.gen(function* () {
         const store = yield* EventStore;
         yield* seed(store);
+
         const rename = (title: string) =>
           Effect.succeed([DomainEvent.cases.SessionRenamed.make({ sessionId: sId, title })]);
+
         const again = CommandId.make("c-again");
         const rejected = CommandId.make("c-rejected");
         const rejection = new CommandRejected({ commandId: rejected, reason: "no" });
         const seen: Array<number> = [];
+
         // Forked together, these all queue before the writer runs: one batch.
         const results = yield* Effect.all(
           [
@@ -181,6 +189,7 @@ describe("EventStore", () => {
               commandId: again,
               decide: (model) => {
                 seen.push(model.sequence);
+
                 return rename("first");
               },
             }),
@@ -196,12 +205,14 @@ describe("EventStore", () => {
               commandId: null,
               decide: (model) => {
                 seen.push(model.sequence);
+
                 return rename("last");
               },
             }),
           ],
           { concurrency: "unbounded" }
         );
+
         const [first, duplicate, rejectedOnce, rejectedAgain, died, last] = results;
         expect(first).toMatchObject({ _tag: "Committed", sequence: 6 });
         expect(duplicate).toEqual({ _tag: "Duplicate", sequence: 6 as never });
@@ -223,9 +234,11 @@ describe("EventStore", () => {
         const store = yield* EventStore;
         expect((yield* store.model).sequence).toBe(7);
         const rejected = CommandId.make("c-rejected");
+
         const replay = yield* Effect.flip(
           store.commit<CommandRejected>({ commandId: rejected, decide: () => Effect.succeed([]) })
         );
+
         expect(replay).toEqual(new CommandRejected({ commandId: rejected, reason: "no" }));
       })
     );
@@ -238,6 +251,7 @@ describe("EventStore", () => {
         Effect.gen(function* () {
           const store = yield* EventStore;
           const live = yield* store.subscribe();
+
           const checked = yield* live.pipe(
             Stream.take(30),
             Stream.mapEffect((item) =>
@@ -245,17 +259,20 @@ describe("EventStore", () => {
                 if (item._tag !== "Event") return false;
                 const sequence = item.envelope.sequence;
                 const model = yield* store.model;
+
                 const rows = yield* store.readEvents({
                   after: sequence - 1,
                   upTo: sequence,
                   sessionId: null,
                 });
+
                 return model.sequence >= sequence && rows.length === 1;
               })
             ),
             Stream.runCollect,
             Effect.forkChild
           );
+
           yield* Effect.forEach(
             Array.from({ length: 30 }, (_, i) => i),
             (i) =>
@@ -284,12 +301,15 @@ describe("EventStore", () => {
         const store = yield* EventStore;
         const commandId = CommandId.make("c-reject");
         const rejection = new CommandRejected({ commandId, reason: "no" });
+
         const first = yield* Effect.flip(
           store.commit({ commandId, decide: () => Effect.fail(rejection) })
         );
+
         const second = yield* Effect.flip(
           store.commit<CommandRejected>({ commandId, decide: () => Effect.succeed([]) })
         );
+
         expect(first).toEqual(rejection);
         expect(second).toEqual(rejection);
         expect((yield* store.model).sequence).toBe(0);

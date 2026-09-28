@@ -12,21 +12,26 @@ type Pipe = Queue.Queue<Uint8Array, TransportError | Cause.Done>;
 const silentPeer = Effect.gen(function* () {
   const toPeer: Pipe = yield* Queue.unbounded<Uint8Array, TransportError | Cause.Done>();
   const toClient: Pipe = yield* Queue.unbounded<Uint8Array, TransportError | Cause.Done>();
+
   const side = (inbox: Pipe, outbox: Pipe): ByteTransport => ({
     incoming: Stream.fromQueue(inbox),
     write: (bytes) => Effect.sync(() => Queue.offerUnsafe(outbox, bytes)),
     close: Effect.sync(() => Queue.endUnsafe(outbox)),
   });
+
   const received: Array<{ readonly _tag: string; readonly id?: string; readonly tag?: string }> =
     [];
+
   const peer = yield* makeWire(side(toPeer, toClient), (text) =>
     Effect.sync(() => {
       received.push(JSON.parse(text));
     })
   );
+
   const transport = { ...side(toClient, toPeer), diagnose: Effect.die("unused") };
   const connection = yield* connectRpc(transport, { pingIntervalMs: 20 });
   const pings = () => received.filter((m) => m._tag === "Ping").length;
+
   return { connection, peer, received, pings };
 });
 
@@ -42,9 +47,11 @@ describe("keepalive", () => {
           Effect.forkScoped
         );
         yield* Effect.sleep(150);
+
         return pings();
       })
     );
+
     expect(pings).toBe(0);
   });
 
@@ -52,9 +59,11 @@ describe("keepalive", () => {
     const result = await run(
       Effect.gen(function* () {
         const { connection, peer, received, pings } = yield* silentPeer;
+
         const hello = yield* connection.client
           .hello({ clientName: "t", clientVersion: "0", deviceLabel: "t", capabilities: [] })
           .pipe(Effect.exit, Effect.forkScoped);
+
         yield* Effect.sleep(45);
         const whileWaiting = pings();
         // Answer the hello with a failure Exit: the reply is no longer due.
@@ -75,9 +84,11 @@ describe("keepalive", () => {
           .hello({ clientName: "t", clientVersion: "0", deviceLabel: "t", capabilities: [] })
           .pipe(Effect.forkScoped);
         const lost = yield* connection.lost.pipe(Effect.exit, Effect.timeout(1000));
+
         return { whileWaiting, afterReply, later, lost };
       })
     );
+
     expect(result.whileWaiting).toBeGreaterThan(0);
     expect(result.later).toBe(result.afterReply);
     expect(Exit.isFailure(result.lost)).toBe(true);

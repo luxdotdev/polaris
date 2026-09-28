@@ -42,6 +42,7 @@ const setup = (options: {
   readonly sweepInterval?: Duration.Input;
 }) => {
   const claude = makeFakeDriver("claude", { onTurn: completesTurns() });
+
   const layer = engineLayer({
     filename: join(tempDir(), "state.sqlite"),
     fakes: makeFakes(),
@@ -51,6 +52,7 @@ const setup = (options: {
       ? {}
       : { checkpointSweepInterval: options.sweepInterval }),
   });
+
   return layer;
 };
 
@@ -58,6 +60,7 @@ const registerWorkspace = (repo: string) =>
   Effect.gen(function* () {
     yield* dispatch({ _tag: "RegisterWorkspace", path: repo, name: null });
     const model = yield* waitFor((m) => [...m.workspaces.values()].some((w) => w.path === repo));
+
     return [...model.workspaces.values()].find((w) => w.path === repo)!;
   });
 
@@ -76,6 +79,7 @@ const sessionWithTurns = (workspace: Workspace, sessionId: SessionId, turns: num
       attachments: [],
     });
     yield* waitFor((m) => m.sessions.get(sessionId)?.turns[0]?.status === "completed");
+
     for (let i = 1; i < turns; i++) {
       yield* dispatch({ _tag: "SendTurn", sessionId, prompt: `turn ${i}`, attachments: [] });
       yield* waitFor(
@@ -84,7 +88,9 @@ const sessionWithTurns = (workspace: Workspace, sessionId: SessionId, turns: num
           m.sessions.get(sessionId)?.turns[i]?.status === "completed"
       );
     }
+
     const model = yield* waitFor((m) => m.sessions.get(sessionId)?.session.state === "idle");
+
     return model.sessions.get(sessionId)!.turns.map((t) => t.id);
   });
 
@@ -118,6 +124,7 @@ describe("checkpoint pruning", () => {
   test("Archive compacts the session per the policy, keeping Turns a Fork started from", async () => {
     const repo = await makeRepo();
     const layer = setup({ policy: { compactAfterMs: 0, dropAfterMs: 30 * DAY } });
+
     try {
       await run(
         layer,
@@ -139,18 +146,22 @@ describe("checkpoint pruning", () => {
           yield* waitFor((m) => m.sessions.has(sid("s-ck-fork")));
 
           yield* archive(parent);
+
           const expected = [
             `${turns[0]}/before`,
             `${turns[1]}/after`,
             `${turns[1]}/before`,
             `${turns[3]}/after`,
           ].sort();
+
           const deadline = Date.now() + 3000;
           let kept = yield* refsOf(repo, parent);
+
           while (kept.length !== expected.length && Date.now() < deadline) {
             yield* Effect.sleep(Duration.millis(20));
             kept = yield* refsOf(repo, parent);
           }
+
           expect(kept).toEqual(expected);
           // Another session's checkpoints are untouched.
           expect(yield* refsOf(repo, other)).toHaveLength(4);
@@ -163,10 +174,12 @@ describe("checkpoint pruning", () => {
 
   test("the sweeper drops old Archived sessions and keeps live and unknown ones", async () => {
     const repo = await makeRepo();
+
     const layer = setup({
       policy: { compactAfterMs: 0, dropAfterMs: 0 },
       sweepInterval: Duration.millis(50),
     });
+
     try {
       await run(
         layer,
@@ -183,9 +196,11 @@ describe("checkpoint pruning", () => {
           yield* createRefs(repo, live, liveTurns);
           yield* createRefs(repo, "s-sw-unknown", ["turn-x"]);
           const deadline = Date.now() + 3000;
+
           while ((yield* refsOf(repo, gone)).length > 0 && Date.now() < deadline) {
             yield* Effect.sleep(Duration.millis(20));
           }
+
           expect(yield* refsOf(repo, gone)).toEqual([]);
           expect(yield* refsOf(repo, live)).toHaveLength(4);
           expect(yield* refsOf(repo, "s-sw-unknown")).toHaveLength(2);
@@ -200,6 +215,7 @@ describe("checkpoint pruning", () => {
     const repo = await makeRepo();
     // The default policy keeps everything of a session Archived just now.
     const layer = setup({ policy: { compactAfterMs: 7 * DAY, dropAfterMs: 30 * DAY } });
+
     try {
       await run(
         layer,
@@ -215,9 +231,11 @@ describe("checkpoint pruning", () => {
           yield* dispatch({ _tag: "RemoveWorkspace", workspaceId: workspace.id });
           yield* waitFor((m) => !m.workspaces.has(workspace.id));
           const deadline = Date.now() + 3000;
+
           while ((yield* refsOf(repo, s)).length > 0 && Date.now() < deadline) {
             yield* Effect.sleep(Duration.millis(20));
           }
+
           expect(yield* refsOf(repo, s)).toEqual([]);
           expect(yield* refsOf(repo, "s-rm-unknown")).toHaveLength(2);
         })

@@ -89,8 +89,10 @@ export const connectRpc = Effect.fnUntraced(function* (
   const awaiting = new Set<string | number>();
   /** Open while `awaiting` is non-empty: the ping loop runs only then. */
   const pinging = Latch.makeUnsafe(false);
+
   const settled = (requestId: string | number) => {
     awaiting.delete(requestId);
+
     if (awaiting.size === 0) pinging.closeUnsafe();
   };
 
@@ -108,6 +110,7 @@ export const connectRpc = Effect.fnUntraced(function* (
         Effect.suspend(() => {
           lastHeard = Date.now();
           let responses: ReadonlyArray<FromServerEncoded>;
+
           try {
             responses = parser.decode(text) as ReadonlyArray<FromServerEncoded>;
           } catch (cause) {
@@ -116,20 +119,25 @@ export const connectRpc = Effect.fnUntraced(function* (
               error: lostError("error decoding a message from the Daemon", cause),
             });
           }
+
           return Effect.forEach(
             responses,
             (response) => {
               if (response._tag === "Pong") return Effect.void;
+
               if ("requestId" in response) {
                 const clientId = requestClient.get(response.requestId);
+
                 if (clientId !== undefined) {
                   if (response._tag === "Exit") {
                     requestClient.delete(response.requestId);
                     settled(response.requestId);
                   }
+
                   return writeResponse(clientId, response);
                 }
               }
+
               return broadcast(response);
             },
             { discard: true }
@@ -142,6 +150,7 @@ export const connectRpc = Effect.fnUntraced(function* (
         Effect.suspend(() => {
           if (currentError !== undefined) return Effect.void;
           currentError = error;
+
           // Fail in-flight requests first: completing `lost` lets the owner close
           // this scope, which would interrupt us before the broadcast.
           return Effect.andThen(
@@ -168,11 +177,15 @@ export const connectRpc = Effect.fnUntraced(function* (
         while (true) {
           yield* pinging.await;
           yield* Effect.sleep(pingInterval);
+
           if (awaiting.size === 0) continue;
+
           if (Date.now() - lastHeard > pingInterval * 3) {
             yield* fail(lostError("the Daemon stopped answering"));
+
             return;
           }
+
           yield* Effect.ignore(wire.sendJson(parser.encode(constPing) as string));
         }
       }).pipe(Effect.forkScoped);
@@ -181,8 +194,10 @@ export const connectRpc = Effect.fnUntraced(function* (
         send: (clientId, request) =>
           Effect.suspend(() => {
             if (currentError !== undefined) return Effect.fail(currentError);
+
             if (request._tag === "Request") {
               requestClient.set(request.id, clientId);
+
               if (!streamTags.has(request.tag)) {
                 // The silence clock starts now, not at the last traffic of an idle link.
                 if (awaiting.size === 0) lastHeard = Date.now();
@@ -192,8 +207,11 @@ export const connectRpc = Effect.fnUntraced(function* (
             } else if (request._tag === "Interrupt") {
               settled(request.requestId);
             }
+
             const encoded = parser.encode(request);
+
             if (encoded === undefined) return Effect.void;
+
             return wire
               .sendJson(encoded as string)
               .pipe(Effect.mapError((error) => lostError(error.message, error)));

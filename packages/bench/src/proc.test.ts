@@ -9,6 +9,7 @@ describe("procReader", () => {
     // Burn ~150 ms of CPU.
     const until = performance.now() + 150;
     let x = 0;
+
     while (performance.now() < until) x += Math.sqrt(x + 1);
     const after = reader.read(process.pid);
     const used = process.cpuUsage(start);
@@ -16,11 +17,13 @@ describe("procReader", () => {
     expect(after).not.toBeNull();
     const selfNs = (used.user + used.system) * 1000;
     const measuredNs = after!.cpuNs - before!.cpuNs;
+
     // Within 50 ms of what the process itself reports. The ps fallback has 10 ms
     // resolution on macOS but whole seconds on Linux (where procfs is always used).
     if (reader.backend !== "ps" || process.platform === "darwin") {
       expect(Math.abs(measuredNs - selfNs)).toBeLessThan(50e6);
     }
+
     const rss = process.memoryUsage().rss;
     expect(after!.rssBytes).toBeGreaterThan(rss * 0.5);
     expect(after!.rssBytes).toBeLessThan(rss * 2);
@@ -29,6 +32,7 @@ describe("procReader", () => {
 
   test("walks children", async () => {
     const child = Bun.spawn(["sleep", "5"]);
+
     try {
       await Bun.sleep(200);
       expect(processTree(process.pid)).toContain(child.pid);

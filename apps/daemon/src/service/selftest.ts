@@ -19,20 +19,24 @@ export const selfTest = async (): Promise<SelfTestResult> => {
   const scratch = mkdtempSync(join(tmpdir(), "polaris-selftest-"));
   const previousHome = process.env.POLARIS_HOME;
   process.env.POLARIS_HOME = join(scratch, "home");
+
   try {
     const root = join(scratch, "root");
     mkdirSync(root, { recursive: true });
     writeFileSync(join(root, "polaris-selftest-needle.txt"), "needle\n");
     const backend = await makeFffBackend(root);
+
     if (backend === null) {
       return {
         ok: false,
         lines: [versionLine(), `fff: unavailable (${fffLoadError() ?? "unknown"})`],
       };
     }
+
     try {
       const hits = await backend.searchPaths("selftestneedle", 5);
       const found = hits.some((hit) => hit.path.endsWith("polaris-selftest-needle.txt"));
+
       // A regex grep: fff's worker (its own entrypoint in the binary) and the literal narrowing.
       const grep = await backend.grep({
         pattern: "nee+dle$",
@@ -40,8 +44,10 @@ export const selfTest = async (): Promise<SelfTestResult> => {
         caseSensitive: false,
         limit: 5,
       });
+
       const grepped = grep.length === 1 && grep[0]!.path.endsWith("polaris-selftest-needle.txt");
       const ok = found && grepped;
+
       return {
         ok,
         lines: [

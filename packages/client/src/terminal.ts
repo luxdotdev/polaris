@@ -28,6 +28,7 @@ export const attachTerminal = (
   if (!connection.capabilities.includes("terminal.binary")) {
     return connection.client["terminal.attach"]({ terminalId });
   }
+
   // Sequential: `Exit` is handled only after the output blob has ended, even
   // when its JSON frame overtook the blob's last chunks.
   return connection.client["terminal.attachBinary"]({ terminalId }).pipe(

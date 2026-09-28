@@ -40,12 +40,14 @@ const timeUntilSynchronized = <A extends HostStreamItem | SessionStreamItem, E>(
       Stream.tap((item) =>
         Effect.sync(() => {
           items++;
+
           if (item._tag === "Snapshot") bytes = JSON.stringify(item).length;
         })
       ),
       Stream.takeUntil((item) => item._tag === "Synchronized"),
       Stream.runDrain
     );
+
     return { ms: performance.now() - t0, items, snapshotBytes: bytes };
   });
 
@@ -64,10 +66,12 @@ export const history: Scenario = {
         Effect.sync(() => makeTempDir("home")),
         (dir) => Effect.sync(() => cleanup(dir))
       );
+
       const repo = yield* Effect.acquireRelease(
         Effect.sync(() => makeTempDir("history")),
         (dir) => Effect.sync(() => cleanup(dir))
       );
+
       mkdirSync(join(repo, "src"));
 
       // ── Seed ───────────────────────────────────────────────────────────────
@@ -86,29 +90,36 @@ export const history: Scenario = {
               Effect.gen(function* () {
                 yield* startSession(client, { sessionId: id, workspaceId, script });
                 const watch = yield* watchSession(client, id);
+
                 for (let turn = 1; turn <= turnsPerSession; turn++) {
                   yield* waitUntil(
                     () => watch.turnEnded.length >= turn && watch.state === "idle",
                     300_000,
                     `${id} Turn ${turn}`
                   );
+
                   if (i === 0 && turn === Math.floor(turnsPerSession / 2)) {
                     midSequence = watch.turnEndedSequences.at(-1) ?? 0;
                   }
+
                   if (turn < turnsPerSession) yield* sendTurn(client, id, script);
                 }
               }),
             { concurrency: "unbounded", discard: true }
           );
           const seedMs = performance.now() - t0;
+
           const snapshot = yield* client.connection.client
             .subscribeHost({ afterSequence: null })
             .pipe(Stream.runHead);
+
           const sequence =
             snapshot._tag === "Some" && snapshot.value._tag === "Snapshot"
               ? snapshot.value.sequence
               : 0;
+
           const report = sampler.report();
+
           return {
             seedMs,
             sequence,
@@ -118,6 +129,7 @@ export const history: Scenario = {
           };
         })
       );
+
       ctx.log(
         `history: seeded ${seeded.sequence} events in ${(seeded.seedMs / 1000).toFixed(1)} s (${(seeded.sequence / (seeded.seedMs / 1000)).toFixed(0)}/s)`
       );
@@ -130,10 +142,13 @@ export const history: Scenario = {
       const loaded = sampler.sample();
 
       const client: Client = yield* connect(daemon, ctx.transport, "history");
+
       const host = yield* timeUntilSynchronized(
         client.connection.client.subscribeHost({ afterSequence: null })
       );
+
       const session = SessionId.make("hist-0");
+
       const full = yield* timeUntilSynchronized(
         client.connection.client.subscribeSession({
           sessionId: session,
@@ -141,6 +156,7 @@ export const history: Scenario = {
           turnLimit: null,
         })
       );
+
       const limited = yield* timeUntilSynchronized(
         client.connection.client.subscribeSession({
           sessionId: session,
@@ -148,10 +164,13 @@ export const history: Scenario = {
           turnLimit: 10,
         })
       );
+
       const hostResumeFrom = Math.max(0, seeded.sequence - 10_000) as Sequence;
+
       const hostResume = yield* timeUntilSynchronized(
         client.connection.client.subscribeHost({ afterSequence: hostResumeFrom })
       );
+
       const sessionResume = yield* timeUntilSynchronized(
         client.connection.client.subscribeSession({
           sessionId: session,
@@ -159,6 +178,7 @@ export const history: Scenario = {
           turnLimit: null,
         })
       );
+
       yield* settle(1000);
       const afterSnapshots = sampler.sample();
       // After the measurements: the snapshot allocates.
@@ -212,6 +232,7 @@ export const history: Scenario = {
           ? { footprint_after_snapshots_mib: peakMemory(afterSnapshots.footprintBytes) }
           : {}),
       };
+
       return {
         metrics,
         notes: [

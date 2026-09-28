@@ -22,8 +22,10 @@ class UsageError extends Schema.TaggedError<UsageError>()("UsageError", {
 }) {}
 
 const flag = (args: ReadonlyArray<string>, name: string) => args.includes(name);
+
 const option = (args: ReadonlyArray<string>, name: string): string | undefined => {
   const index = args.indexOf(name);
+
   return index >= 0 ? args[index + 1] : undefined;
 };
 
@@ -33,16 +35,20 @@ const output = (json: boolean, value: object, human: ReadonlyArray<string>) =>
 /** `polaris install [--binary <path>] [--json]` */
 const installCommand = Effect.fn("installCommand")(function* (args: ReadonlyArray<string>) {
   const source = option(args, "--binary") ?? (isCompiled() ? process.execPath : undefined);
+
   if (source === undefined) {
     return yield* new UsageError({
       message: "install needs a compiled polaris binary; build one or pass --binary <path>",
     });
   }
+
   const info = yield* validateBinary(source);
+
   const report = yield* install(defaultInstallContext(paths().root), {
     source,
     version: info.version,
   });
+
   yield* output(flag(args, "--json"), { ok: true, action: "install", ...report }, [
     `Installed polaris ${report.version} at ${report.binary}`,
     `  sha256 ${report.sha256}`,
@@ -60,6 +66,7 @@ const uninstallCommand = Effect.fn("uninstallCommand")(function* (args: Readonly
   const report = yield* uninstall(defaultInstallContext(paths().root), {
     purge: flag(args, "--purge"),
   });
+
   yield* output(flag(args, "--json"), { ok: true, action: "uninstall", ...report }, [
     report.purged
       ? `Removed the Polaris service and ${paths().root}`
@@ -74,6 +81,7 @@ const uninstallCommand = Effect.fn("uninstallCommand")(function* (args: Readonly
  */
 const upgradeCommand = Effect.fn("upgradeCommand")(function* (args: ReadonlyArray<string>) {
   const source = args.find((arg) => !arg.startsWith("--"));
+
   if (source === undefined)
     return yield* new UsageError({ message: "usage: polaris upgrade <path>" });
   const json = flag(args, "--json");
@@ -82,12 +90,15 @@ const upgradeCommand = Effect.fn("upgradeCommand")(function* (args: ReadonlyArra
   const staged = yield* stageBinary(ctx, { source, version: info.version });
   yield* pointCurrentAt(ctx, info.version);
   const pid = runningDaemonPid();
+
   if (pid === null) {
     const report = yield* install(ctx, { source: staged.path, version: info.version });
+
     return yield* output(json, { ok: true, action: "started", ...report }, [
       `No Daemon was running; started polaris ${info.version} (${report.serviceDomain})`,
     ]);
   }
+
   const status = yield* requestUpgrade({ pid, binary: staged.path, version: info.version });
   yield* output(json, { ok: true, action: "handoff", version: info.version, pid: status.pid }, [
     `Daemon (PID ${status.pid}) is now polaris ${info.version}`,
@@ -116,11 +127,13 @@ export const runServiceCommand = (command: string, args: ReadonlyArray<string>):
       Effect.catch((error) =>
         Effect.sync(() => {
           const message = "step" in error ? `${error.step}: ${error.message}` : error.message;
+
           if (flag(args, "--json")) {
             console.log(JSON.stringify({ ok: false, error: error._tag, message }));
           } else {
             console.error(`polaris ${command}: ${message}`);
           }
+
           return error._tag === "UsageError" ? 2 : 1;
         })
       ),

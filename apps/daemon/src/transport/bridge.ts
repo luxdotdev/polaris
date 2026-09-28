@@ -26,13 +26,17 @@ export const agentSocketPath = (): string => join(paths().root, "agent.sock");
 
 const linkForwardedAgent = () => {
   const forwarded = process.env.SSH_AUTH_SOCK;
+
   if (forwarded === undefined || forwarded === agentSocketPath()) return;
+
   try {
     if (!statSync(forwarded).isSocket()) return;
     const temp = `${agentSocketPath()}.${process.pid}`;
+
     try {
       unlinkSync(temp);
     } catch {}
+
     symlinkSync(forwarded, temp);
     renameSync(temp, agentSocketPath());
   } catch {
@@ -44,6 +48,7 @@ interface Source {
   pause(): unknown;
   resume(): unknown;
 }
+
 interface Sink {
   write(chunk: Uint8Array, callback: () => void): boolean;
   once(event: "drain", listener: () => void): unknown;
@@ -57,18 +62,23 @@ interface Sink {
 const pipe = (source: Source, sink: Sink) => {
   let inflight = 0;
   let paused = false;
+
   const resume = () => {
     if (paused) {
       paused = false;
       source.resume();
     }
   };
+
   return (chunk: Uint8Array) => {
     inflight++;
+
     const ok = sink.write(chunk, () => {
       inflight--;
+
       if (inflight === 0) resume();
     });
+
     if (!ok && !paused) {
       paused = true;
       source.pause();
@@ -130,15 +140,20 @@ const startDaemonViaSupervisor = async (
 ): Promise<boolean> => {
   const script =
     options.supervisor === undefined ? join(paths().bin, "polaris-supervise") : options.supervisor;
+
   if (script === null || !isFile(script)) return false;
+
   try {
     spawnSupervisor(script);
   } catch {
     return false;
   }
+
   const deadline = Date.now() + (options.waitMs ?? SUPERVISOR_START_WAIT_MS);
+
   for (;;) {
     if (await probeSocket(socketPath)) return true;
+
     if (Date.now() >= deadline) return false;
     await Bun.sleep(100);
   }
@@ -173,6 +188,7 @@ export const runBridge = (options: BridgeOptions = {}): Promise<number> =>
     });
     stdin.once("end", () => {
       stdinEnded = true;
+
       if (toSocket !== null) socket?.end();
     });
 
@@ -187,7 +203,9 @@ export const runBridge = (options: BridgeOptions = {}): Promise<number> =>
         toSocket = forward;
         const buffered = early ?? [];
         early = null;
+
         for (const chunk of buffered) forward(chunk);
+
         if (stdinEnded) current.end();
       });
 
@@ -197,19 +215,23 @@ export const runBridge = (options: BridgeOptions = {}): Promise<number> =>
       current.on("error", (error: NodeJS.ErrnoException) => {
         if (failed) return;
         failed = true;
+
         if (connected) {
           process.stderr.write(
             `polaris bridge: connection to the Daemon failed: ${error.message}\n`
           );
           finish(1);
+
           return;
         }
+
         const noDaemon = () => {
           process.stderr.write(
             `polaris bridge: no Daemon is running on this Host (nothing listening on ${socketPath}: ${error.code ?? error.message})\n`
           );
           finish(BRIDGE_EXIT_NO_DAEMON);
         };
+
         if (retried) return noDaemon();
         retried = true;
         void startDaemonViaSupervisor(socketPath, options).then((up) =>
@@ -221,5 +243,6 @@ export const runBridge = (options: BridgeOptions = {}): Promise<number> =>
         if (connected) finish(0);
       });
     };
+
     attempt();
   });

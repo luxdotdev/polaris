@@ -36,22 +36,28 @@ export const readEvents = (source: EventReadable): Stream.Stream<Uint8Array, Tra
   let failure: TransportError | null = null;
   let paused = false;
   let wake: (() => void) | null = null;
+
   const onData = (chunk: Uint8Array) => {
     pending.push(chunk);
+
     if (!paused && pending.length >= READ_HIGH_WATER) {
       paused = true;
       source.pause();
     }
+
     wake?.();
   };
+
   const onEnd = () => {
     ended = true;
     wake?.();
   };
+
   const onError = (cause: Error) => {
     failure ??= new TransportError({ message: "read failed", cause });
     wake?.();
   };
+
   source.on("data", onData as Listener);
   source.on("end", onEnd);
   source.on("close", onEnd);
@@ -62,31 +68,44 @@ export const readEvents = (source: EventReadable): Stream.Stream<Uint8Array, Tra
       if (pending.length > 0) {
         const chunks = pending;
         pending = [];
+
         if (paused) {
           paused = false;
           source.resume();
         }
+
         resume(Effect.succeed(chunks));
+
         return true;
       }
+
       if (failure !== null) {
         resume(Effect.fail(failure));
+
         return true;
       }
+
       if (ended) {
         resume(Effect.fail(Cause.Done()));
+
         return true;
       }
+
       return false;
     };
+
     if (settle()) return;
+
     // Clear before settling: resuming can synchronously start the next pull,
     // which registers its own waiter that must not be overwritten.
     const waiter = () => {
       wake = null;
+
       if (!settle()) wake = waiter;
     };
+
     wake = waiter;
+
     return Effect.sync(() => {
       wake = null;
     });
@@ -116,23 +135,30 @@ export const writeEvents =
     Effect.callback<void, TransportError>((resume) => {
       if (sink.destroyed || !sink.writable) {
         resume(Effect.fail(new TransportError({ message: "transport closed" })));
+
         return;
       }
+
       let done = false;
+
       const finish = (effect: Effect.Effect<void, TransportError>) => {
         if (done) return;
         done = true;
         cleanup();
         resume(effect);
       };
+
       const onDrain = () => finish(Effect.void);
+
       const onClose = () =>
         finish(Effect.fail(new TransportError({ message: "transport closed while writing" })));
+
       const cleanup = () => {
         sink.off("drain", onDrain);
         sink.off("close", onClose);
         sink.off("error", onClose);
       };
+
       const flushed = sink.write(bytes, (error) =>
         finish(
           error === null || error === undefined
@@ -140,12 +166,16 @@ export const writeEvents =
             : Effect.fail(new TransportError({ message: "write failed", cause: error }))
         )
       );
+
       if (flushed) {
         finish(Effect.void);
+
         return;
       }
+
       sink.on("drain", onDrain);
       sink.on("close", onClose);
       sink.on("error", onClose);
+
       return Effect.sync(cleanup);
     });

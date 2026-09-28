@@ -5,6 +5,7 @@
  */
 
 export const LAUNCHD_LABEL = "dev.lux.polaris";
+
 export const SYSTEMD_UNIT = "polaris.service";
 
 export interface ServiceSpec {
@@ -30,13 +31,16 @@ const xmlEscape = (value: string): string =>
 export const launchdPlist = (spec: ServiceSpec): string => {
   const string = (value: string) => `<string>${xmlEscape(value)}</string>`;
   const env = { POLARIS_HOME: spec.home, ...spec.env };
+
   const envEntries = Object.keys(env)
     .sort()
     .map(
       (key) => `      <key>${xmlEscape(key)}</key>\n      ${string(env[key as keyof typeof env]!)}`
     )
     .join("\n");
+
   const argv = [spec.program, ...spec.args].map((arg) => `      ${string(arg)}`).join("\n");
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -75,11 +79,14 @@ const systemdQuote = (value: string): string =>
 /** A systemd `--user` unit for `~/.config/systemd/user/polaris.service`. */
 export const systemdUnit = (spec: ServiceSpec): string => {
   const env = { POLARIS_HOME: spec.home, ...spec.env };
+
   const envLines = Object.keys(env)
     .sort()
     .map((key) => `Environment=${systemdQuote(`${key}=${env[key as keyof typeof env]!}`)}`)
     .join("\n");
+
   const execStart = [spec.program, ...spec.args].map(systemdQuote).join(" ");
+
   return `[Unit]
 Description=Polaris Daemon
 After=network.target
@@ -118,11 +125,14 @@ export const shQuote = (value: string): string => `'${value.replaceAll("'", `'\\
  */
 export const supervisorScript = (spec: ServiceSpec): string => {
   const env = { POLARIS_HOME: spec.home, ...spec.env };
+
   const exports = Object.keys(env)
     .sort()
     .map((key) => `${key}=${shQuote(env[key as keyof typeof env]!)}; export ${key}`)
     .join("\n");
+
   const serve = [spec.program, ...spec.args].map(shQuote).join(" ");
+
   return `#!/bin/sh
 ${SUPERVISOR_MARKER}: keeps the Polaris Daemon running on a Host without systemd --user.
 # Written by \`polaris install\`; started by it, by cron @reboot and by the login profile.

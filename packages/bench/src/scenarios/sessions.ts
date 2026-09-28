@@ -85,9 +85,11 @@ const runPhase = (
   Effect.scoped(
     Effect.gen(function* () {
       const extra: Array<Client> = [];
+
       for (let c = 1; c < phase.clients; c++) {
         extra.push(yield* connect(daemon, ctx.transport, `bench-${c}`));
       }
+
       const clients = [primary, ...extra];
       const ids = Array.from({ length: phase.sessions }, () => `bench-s${++sessionCounter}`);
       const deltaLatencies: Array<number> = [];
@@ -108,6 +110,7 @@ const runPhase = (
             yield* startSession(primary, { sessionId: id, workspaceId, script: phase.script });
             acks.push(performance.now() - t0);
             const list: Array<SessionWatch> = [];
+
             for (const client of clients) {
               list.push(
                 yield* watchSession(client, id, {
@@ -118,11 +121,13 @@ const runPhase = (
                 })
               );
             }
+
             watches.set(id, list);
             const main = list[0]!;
             // The first Turn is committed with StartSession and arrives in the snapshot;
             // dispatch → event is measured on SendTurn.
             yield* waitUntil(() => main.turnStarted.length >= 1, 30_000, `${id} first Turn`);
+
             for (let turn = 1; turn < phase.turns; turn++) {
               yield* waitUntil(
                 () => main.turnEnded.length >= turn && main.state === "idle",
@@ -135,6 +140,7 @@ const runPhase = (
               yield* waitUntil(() => main.turnStarted.length > turn, 30_000, `${id} TurnStarted`);
               dispatchToEvent.push(main.turnStarted[turn]! - t1);
             }
+
             yield* waitUntil(
               () => list.every((w) => w.turnEnded.length >= phase.turns),
               120_000,
@@ -154,6 +160,7 @@ const runPhase = (
       const ack = summarize(acks);
       const ap = summarize(approvalRoundTrips);
       const p = phase.name;
+
       const metrics: Record<string, Metric> = {
         [`${p}.dispatch_ack_p50_ms`]: latency(ack.median),
         [`${p}.dispatch_to_event_p50_ms`]: latency(de.median),
@@ -173,9 +180,11 @@ const runPhase = (
           : {}),
         [`${p}.wall_s`]: time(elapsed * 1000, { info: true }),
       };
+
       ctx.log(
         `${p}: ${phase.sessions} sessions × ${phase.turns} Turns to ${clients.length} Client(s) in ${elapsed.toFixed(1)} s; ${deltas} deltas (${(bytes / 1e6).toFixed(1)} MB), delta p50 ${dl.median.toFixed(2)} ms p99 ${dl.p99.toFixed(2)} ms`
       );
+
       return metrics;
     })
   );
@@ -190,12 +199,14 @@ const runBurst = (
   Effect.scoped(
     Effect.gen(function* () {
       const deltasPerItem = ctx.quick ? 10_000 : 40_000;
+
       const script: TurnScript = {
         items: 3,
         deltasPerItem,
         deltaBytes: 64,
         deltaIntervalMs: 0,
       };
+
       const id = `bench-s${++sessionCounter}`;
       const deltaLatencies: Array<number> = [];
       const from = sampler.sample().t - 1;
@@ -210,6 +221,7 @@ const runBurst = (
       ctx.log(
         `burst: ${watch.deltas} deltas in ${elapsed.toFixed(2)} s (${(watch.deltas / elapsed).toFixed(0)}/s), p99 ${dl.p99.toFixed(1)} ms`
       );
+
       return {
         "burst.deltas_per_s": throughput(watch.deltas / elapsed, "/s"),
         "burst.mb_per_s": throughput(watch.deltaBytes / 1e6 / elapsed, "MB/s"),
@@ -228,10 +240,12 @@ export const sessions: Scenario = {
       const daemon = yield* ctx.launch();
       yield* awaitReady(daemon);
       const sampler = yield* ctx.sample(daemon);
+
       const repo = yield* Effect.acquireRelease(
         Effect.sync(() => makeTempDir("sessions")),
         (dir) => Effect.sync(() => cleanup(dir))
       );
+
       mkdirSync(join(repo, "src"), { recursive: true });
       const primary = yield* connect(daemon, ctx.transport, "bench-0");
       const workspaceId = yield* registerWorkspace(primary, repo, "sessions");
@@ -240,9 +254,11 @@ export const sessions: Scenario = {
 
       const metrics: Record<string, Metric> = { rss_before_mib: memory(before.rssBytes) };
       const phases = phasesFor(ctx.quick);
+
       for (const phase of phases) {
         Object.assign(metrics, yield* runPhase(ctx, daemon, sampler, primary, workspaceId, phase));
       }
+
       Object.assign(metrics, yield* runBurst(ctx, sampler, primary, workspaceId));
       yield* settle(3000);
       const after = sampler.sample();
@@ -253,6 +269,7 @@ export const sessions: Scenario = {
           p.clients === 1 &&
           p.sessions === Math.max(...phases.filter((q) => q.clients === 1).map((q) => q.sessions))
       )!;
+
       yield* runPhase(ctx, daemon, sampler, primary, workspaceId, { ...repeatOf, name: "repeat" });
       yield* settle(3000);
       const afterRepeat = sampler.sample();
@@ -264,18 +281,23 @@ export const sessions: Scenario = {
       metrics.rss_growth_repeat_mib = memory(afterRepeat.rssBytes - after.rssBytes, {
         tolerance: { relative: 0.5, absolute: 10 },
       });
+
       if (after.footprintBytes !== null && before.footprintBytes !== null) {
         metrics.footprint_growth_mib = peakMemory(after.footprintBytes - before.footprintBytes);
       }
+
       const notes = [
         `phases: ${phases.map((p) => `${p.name} (${p.sessions} sessions × ${p.turns} Turns, ${p.clients} Client(s))`).join(", ")}, then burst and repeat (${repeatOf.name} again)`,
       ];
+
       const repeatGrowth = (afterRepeat.rssBytes - after.rssBytes) / 1024 / 1024;
+
       if (repeatGrowth > 20) {
         notes.push(
           `memory grew another ${repeatGrowth.toFixed(0)} MiB when the ${repeatOf.name} phase was repeated: possible leak (or the read model's per-Turn growth)`
         );
       }
+
       return { metrics, notes };
     }),
 };

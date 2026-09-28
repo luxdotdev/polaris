@@ -21,16 +21,20 @@ export const makeRepo = async (files: Record<string, string> = { "README.md": "h
   await gitText(root, ["config", "user.name", "Test"]);
   await gitText(root, ["config", "user.email", "test@example.com"]);
   await gitText(root, ["config", "commit.gpgsign", "false"]);
+
   for (const [path, content] of Object.entries(files)) write(root, path, content);
+
   if (Object.keys(files).length > 0) {
     await gitText(root, ["add", "-A"]);
     await gitText(root, ["commit", "-q", "-m", "initial"]);
   }
+
   return root;
 };
 
 export const commitAll = async (root: string, message: string): Promise<string> => {
   await gitText(root, ["add", "-A"]);
   await gitText(root, ["commit", "-q", "-m", message]);
+
   return gitText(root, ["rev-parse", "HEAD"]);
 };

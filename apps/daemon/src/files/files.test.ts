@@ -9,17 +9,21 @@ import { detectMimeType } from "./mime.ts";
 import { makeFakeBlobChannel } from "./testing.ts";
 
 const cleanup: Array<string> = [];
+
 afterEach(() => {
   for (const dir of cleanup.splice(0)) removeDir(dir);
 });
+
 const dir = () => {
   const path = tempDir();
   cleanup.push(path);
+
   return path;
 };
 
 const read = (path: string, offset: number | null = null, length: number | null = null) => {
   const blobs = makeFakeBlobChannel();
+
   return Effect.runPromise(
     handleReadFile({ path, offset, length }).pipe(Effect.provide(blobs.layer))
   ).then((result) => ({ result, blobs }));
@@ -53,6 +57,7 @@ describe("files.read", () => {
     write(root, "big.txt", big);
     const { result, blobs } = await read(join(root, "big.txt"));
     expect(result.content._tag).toBe("Blob");
+
     if (result.content._tag !== "Blob") throw new Error("unreachable");
     expect(blobs.blobs.get(result.content.blobId)!.byteLength).toBe(big.length);
   });
@@ -62,6 +67,7 @@ describe("files.read", () => {
     const bytes = new Uint8Array(STREAM_MIN_BYTES + 10).map((_, i) => i % 251);
     writeFileSync(join(root, "huge.bin"), bytes);
     const { result, blobs } = await read(join(root, "huge.bin"), 5, STREAM_MIN_BYTES + 2);
+
     if (result.content._tag !== "Blob") throw new Error("expected a blob");
     const got = blobs.blobs.get(result.content.blobId)!;
     expect(got.byteLength).toBe(STREAM_MIN_BYTES + 2);
@@ -90,17 +96,21 @@ describe("files.read", () => {
 
   test("missing files and directories fail with FileError codes", async () => {
     const root = dir();
+
     const missing = await Effect.runPromise(
       Effect.flip(handleReadFile({ path: join(root, "nope"), offset: null, length: null })).pipe(
         Effect.provide(makeFakeBlobChannel().layer)
       )
     );
+
     expect(missing).toMatchObject({ _tag: "FileError", code: "ENOENT" });
+
     const isDir = await Effect.runPromise(
       Effect.flip(handleReadFile({ path: root, offset: null, length: null })).pipe(
         Effect.provide(makeFakeBlobChannel().layer)
       )
     );
+
     expect(isDir).toMatchObject({ _tag: "FileError", code: "EISDIR" });
   });
 });
@@ -128,6 +138,7 @@ describe("files.listDir and files.stat", () => {
     const error = await Effect.runPromise(
       Effect.flip(handleListDir({ path: "/definitely/not/here" }))
     );
+
     expect(error).toMatchObject({ _tag: "FileError", code: "ENOENT" });
   });
 });

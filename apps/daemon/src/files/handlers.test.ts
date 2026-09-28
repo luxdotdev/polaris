@@ -18,6 +18,7 @@ import { FilesRpcsLive } from "./FilesRpcs.ts";
 import { makeFakeBlobChannel } from "./testing.ts";
 
 const cleanup: Array<string> = [];
+
 afterEach(() => {
   for (const dir of cleanup.splice(0)) removeDir(dir);
 });
@@ -59,17 +60,21 @@ describe("handler layers", () => {
       Effect.scoped(
         Effect.gen(function* () {
           const client = yield* RpcTest.makeClient(WorkspaceIoRpcs);
+
           const read = yield* client["files.read"]({
             path: join(repo, "a.txt"),
             offset: null,
             length: null,
           });
+
           const hits = yield* client["files.searchPaths"]({ root: repo, query: "a", limit: 5 });
           const status = yield* client["git.status"]({ cwd: repo });
+
           const diff = yield* client["git.diff"]({
             cwd: repo,
             spec: { _tag: "WorkingTree", base: null },
           });
+
           const attachment = yield* client["attachments.stage"]({
             sessionId: null,
             workspaceId: "ws" as WorkspaceId,
@@ -77,16 +82,19 @@ describe("handler layers", () => {
             mimeType: "text/plain",
             blobId: upload,
           });
+
           const { terminalId } = yield* client["terminal.open"]({
             cwd: repo,
             cols: 80,
             rows: 24,
             argv: ["/bin/sh", "-c", "echo from-terminal"],
           });
+
           const output = yield* client["terminal.attach"]({ terminalId }).pipe(
             Stream.runCollect,
             Effect.timeout("5 seconds")
           );
+
           return { read, hits, status, diff, attachment, output };
         }).pipe(Effect.provide(handlers))
       )
@@ -97,9 +105,11 @@ describe("handler layers", () => {
     expect(result.status.entries.map((e) => e.path)).toEqual(["a.txt"]);
     expect(new TextDecoder().decode(blobs.blobs.get(result.diff.blobId)!)).toContain("+two");
     expect(result.attachment.name).toBe("note.txt");
+
     const text = result.output
       .map((item) => (item._tag === "Output" ? new TextDecoder().decode(item.data) : ""))
       .join("");
+
     expect(text).toContain("from-terminal");
     expect(result.output.at(-1)).toEqual({ _tag: "Exit", code: 0 });
   });

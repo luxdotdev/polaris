@@ -9,6 +9,7 @@ const makePair = (writeDelayMs = 0) =>
   Effect.gen(function* () {
     const aToB: Pipe = yield* Queue.unbounded<Uint8Array, TransportError | Cause.Done>();
     const bToA: Pipe = yield* Queue.unbounded<Uint8Array, TransportError | Cause.Done>();
+
     const side = (inbox: Pipe, outbox: Pipe, log: Array<Uint8Array>): ByteTransport => ({
       incoming: Stream.fromQueue(inbox),
       write: (bytes) =>
@@ -20,7 +21,9 @@ const makePair = (writeDelayMs = 0) =>
         Queue.endUnsafe(outbox);
       }),
     });
+
     const aLog: Array<Uint8Array> = [];
+
     return { a: side(bToA, aToB, aLog), b: side(aToB, bToA, []), aLog };
   });
 
@@ -36,18 +39,23 @@ describe("wire", () => {
         const { a, b } = yield* makePair();
         const receivedByB: Array<string> = [];
         const wa = yield* makeWire(a, () => Effect.void, { blobIdPrefix: "a" });
+
         const wb = yield* makeWire(b, (t) => Effect.sync(() => receivedByB.push(t)), {
           blobIdPrefix: "b",
         });
+
         const big = bytes(3 * 1024 * 1024 + 5);
         const id = yield* wa.offerBlob(big);
+
         for (let i = 0; i < 5; i++) yield* wa.sendJson(`{"n":${i}}`);
         const got = yield* wb.takeBlob(id);
         const back = yield* wb.offerBlob(Stream.fromIterable([bytes(10, 1), bytes(700_000, 2)]));
         const gotBack = yield* wa.takeBlob(back);
+
         return { got, big, receivedByB, gotBack, stats: wb.stats() };
       })
     );
+
     expect(result.got).toEqual(result.big);
     expect(result.receivedByB).toEqual([0, 1, 2, 3, 4].map((n) => `{"n":${n}}`));
     expect(result.gotBack.byteLength).toBe(700_010);
@@ -64,14 +72,17 @@ describe("wire", () => {
         yield* wa.offerBlob(bytes(4 * 1024 * 1024));
         yield* Effect.yieldNow;
         yield* wa.sendJson("{}");
+
         // Wait for every frame (16 blob chunks + 1 JSON) rather than a fixed
         // delay: slow CI runners take longer to flush 4 MiB.
         for (let waited = 0; aLog.length < 17 && waited < 5_000; waited += 10) {
           yield* Effect.sleep(10);
         }
+
         return aLog.map((f) => f[4]);
       })
     );
+
     const jsonAt = kinds.indexOf(0);
     expect(kinds.length).toBe(17);
     expect(jsonAt).toBeGreaterThanOrEqual(0);
@@ -85,14 +96,18 @@ describe("wire", () => {
         const wa = yield* makeWire(a, () => Effect.void);
         const wb = yield* makeWire(b, () => Effect.void, { maxBlobBytes: 1024 });
         const tooBig = yield* wa.offerBlob(bytes(4096));
+
         const failing = yield* wa.offerBlob(
           Stream.concat(Stream.succeed(bytes(10)), Stream.fail("boom"))
         );
+
         const e1 = yield* Effect.flip(wb.takeBlob(tooBig));
         const e2 = yield* Effect.flip(wb.takeBlob(failing));
+
         return [e1.reason, e2.reason];
       })
     );
+
     expect(result).toEqual(["too-large", "aborted"]);
   });
 
@@ -106,9 +121,11 @@ describe("wire", () => {
         const pending = yield* Effect.forkChild(Effect.flip(wa.takeBlob("later")));
         yield* b.close;
         const closed = yield* Fiber.join(pending);
+
         return [timeout.reason, closed.reason];
       })
     );
+
     expect(result).toEqual(["timeout", "closed"]);
   });
 
@@ -123,6 +140,7 @@ describe("wire", () => {
         // Let some chunks arrive before the stream is taken.
         yield* Effect.sleep(5);
         let peakBuffered = 0;
+
         const chunks = yield* wb.takeBlobStream(id).pipe(
           Stream.tap(() =>
             Effect.sync(() => {
@@ -131,15 +149,19 @@ describe("wire", () => {
           ),
           Stream.runCollect
         );
+
         const got = new Uint8Array(big.byteLength);
         let at = 0;
+
         for (const chunk of chunks) {
           got.set(chunk, at);
           at += chunk.byteLength;
         }
+
         return { got, big, chunks: chunks.length, stats: wb.stats() };
       })
     );
+
     expect(result.got).toEqual(result.big);
     expect(result.chunks).toBeGreaterThan(1);
     expect(result.stats.bufferedBlobBytes).toBe(0);
@@ -152,6 +174,7 @@ describe("wire", () => {
         const { a, b } = yield* makePair();
         const wa = yield* makeWire(a, () => Effect.void);
         const wb = yield* makeWire(b, () => Effect.void, { blobIdleTimeoutMs: 100 });
+
         // A source that sends one chunk, stays quiet past the idle timeout, then ends.
         const quiet = yield* wa.offerBlob(
           Stream.concat(
@@ -159,20 +182,24 @@ describe("wire", () => {
             Stream.fromEffect(Effect.as(Effect.sleep(300), bytes(5)))
           )
         );
+
         const received = yield* wb.takeBlobStream(quiet, { idleTimeout: false }).pipe(
           Stream.runFold(
             () => 0,
             (n, chunk) => n + chunk.byteLength
           )
         );
+
         const timedOut = yield* Effect.flip(Stream.runDrain(wb.takeBlobStream("never")));
         // Stop after the first chunk of a large blob: the rest is dropped as it arrives.
         const large = yield* wa.offerBlob(bytes(4 * 1024 * 1024));
         yield* wb.takeBlobStream(large).pipe(Stream.take(1), Stream.runDrain);
         yield* Effect.sleep(50);
+
         return { received, timedOut: timedOut.reason, stats: wb.stats() };
       })
     );
+
     expect(result.received).toBe(15);
     expect(result.timedOut).toBe("timeout");
     expect(result.stats.bufferedBlobBytes).toBe(0);
@@ -186,10 +213,13 @@ describe("wire", () => {
           write: () => Effect.void,
           close: Effect.void,
         };
+
         const w = yield* makeWire(t, () => Effect.void);
+
         return yield* Effect.flip(w.closed);
       })
     );
+
     expect(err._tag).toBe("TransportError");
   });
 });

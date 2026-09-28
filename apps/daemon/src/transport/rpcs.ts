@@ -24,4 +24,5 @@ export class ConnectionBlobs extends RpcMiddleware.Service<
 >()("polaris/daemon/transport/ConnectionBlobs") {}
 
 export const ServerRpcs = DaemonRpcs.middleware(ConnectionBlobs);
+
 export type ServerRpcs = typeof ServerRpcs;

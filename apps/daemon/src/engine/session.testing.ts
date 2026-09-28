@@ -28,6 +28,7 @@ import {
 } from "./session.ts";
 
 export const AT = "2026-01-01T00:00:00.000Z";
+
 export const SESSION = SessionId.make("s-model");
 
 /** What a test can do to a session, in the terms of the Engine's public surface. */
@@ -145,7 +146,9 @@ const inputsOf = (
   const turnCount = record?.session.turnCount ?? 0;
   const working = record && workingTurn(record);
   const channel = channelOf(snapshot, options);
+
   if (record === undefined && step.type !== "start" && step.type !== "fork") return [];
+
   switch (step.type) {
     case "start":
       return [
@@ -165,6 +168,7 @@ const inputsOf = (
       return [{ type: "turn.interrupt" }];
     case "approve": {
       const [first] = record?.pending.keys() ?? [];
+
       return first === undefined
         ? []
         : [
@@ -176,6 +180,7 @@ const inputsOf = (
             },
           ];
     }
+
     case "archive":
       return [{ type: "session.archive" }];
     case "unarchive":
@@ -204,6 +209,7 @@ const inputsOf = (
           ];
     case "lateApproval": {
       const ended = record?.turns.findLast((t) => t.status !== "working");
+
       return channel === null || ended === undefined
         ? []
         : [
@@ -222,12 +228,15 @@ const inputsOf = (
             },
           ];
     }
+
     case "withdrawApproval": {
       const [first] = record?.pending.keys() ?? [];
+
       return channel === null || first === undefined
         ? []
         : [{ type: "harness.approvalWithdrawn", requestId: first }];
     }
+
     case "terminalTurn":
       // A Turn typed in the Harness's own UI: the co-attached TUI, or the followed one.
       return channel === null ||
@@ -269,19 +278,26 @@ export const stepModel = (
   options: ModelOptions
 ): { readonly next: ModelSnapshot; readonly rejection: string | null } => {
   const inputs = inputsOf(snapshot, step, options);
+
   if (inputs.length === 0) return { next: snapshot, rejection: null };
   let machine = snapshot.machine;
   let live = snapshot.live;
+
   const run = (input: SessionInput) => {
     const decision = decideSession(machine.context.record ?? undefined, input);
     machine = decision.next;
+
     return decision;
   };
+
   for (const input of inputs) {
     const decision = run(input);
+
     if (decision.rejection !== null) return { next: snapshot, rejection: decision.rejection };
   }
+
   const record = () => machine.context.record!;
+
   // What the Engine does after the step, on its own.
   switch (step.type) {
     case "start":
@@ -305,6 +321,7 @@ export const stepModel = (
       } else {
         run({ type: "turn.interruptUnattended", at: AT });
       }
+
       break;
     case "openTerminal":
       // Codex's TUI co-attaches to the running Harness; Claude's takes over from it.
@@ -322,6 +339,7 @@ export const stepModel = (
       live = false;
       break;
   }
+
   return { next: { ...snapshot, machine, live, counter: snapshot.counter + 1 }, rejection: null };
 };
 
@@ -398,24 +416,30 @@ const traversal = {
  */
 export const pathsFor = (options: ModelOptions) => {
   const logic = modelLogic(options);
+
   const shortest = getShortestPaths(logic, traversal) as unknown as ReadonlyArray<{
     readonly state: ModelSnapshot;
     readonly steps: ReadonlyArray<{ readonly event: Step }>;
   }>;
+
   // Steps start with xstate.init.
   const stepsOf = (path: (typeof shortest)[number]) => path.steps.slice(1).map((s) => s.event);
   const toState = new Map(shortest.map((path) => [serialize(path.state), stepsOf(path)]));
+
   const adjacency = getAdjacencyMap(logic, traversal) as unknown as Record<
     string,
     {
       readonly transitions: Record<string, { readonly event: Step; readonly state: ModelSnapshot }>;
     }
   >;
+
   const transitions: Array<ReadonlyArray<Step>> = [];
+
   for (const [key, vertex] of Object.entries(adjacency)) {
     for (const edge of Object.values(vertex.transitions)) {
       if (serialize(edge.state) !== key) transitions.push([...toState.get(key)!, edge.event]);
     }
   }
+
   return { states: shortest.map(stepsOf), transitions };
 };

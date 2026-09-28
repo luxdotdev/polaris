@@ -23,7 +23,9 @@ const str = (u: unknown): string | null => (typeof u === "string" ? u : null);
 /** Text of a `tool_result` content (a string or an array of content blocks). */
 export const toolResultText = (content: unknown): string => {
   if (typeof content === "string") return content;
+
   if (!Array.isArray(content)) return "";
+
   return content
     .flatMap((b) =>
       isRecord(b) && b.type === "text" && typeof b.text === "string" ? [b.text] : []
@@ -43,6 +45,7 @@ export const planSteps = (input: unknown) =>
         if (!isRecord(t)) return [];
         const text = str(t.content);
         const status = PLAN_STATUS[t.status as keyof typeof PLAN_STATUS];
+
         return text === null || status === undefined ? [] : [{ text, status }];
       })
     : [];
@@ -60,13 +63,16 @@ export const toolItem = (options: {
 }): TurnItem => {
   const { id, name, input, cwd, status, resultText, structured } = options;
   const i = isRecord(input) ? input : {};
+
   switch (name) {
     case "Bash": {
       const s = isRecord(structured) ? structured : null;
+
       const output =
         s && (typeof s.stdout === "string" || typeof s.stderr === "string")
           ? [str(s.stdout), str(s.stderr)].filter((x) => x).join("\n")
           : (resultText ?? "");
+
       return {
         _tag: "CommandExecution",
         id,
@@ -78,6 +84,7 @@ export const toolItem = (options: {
         status,
       };
     }
+
     case "Edit":
     case "MultiEdit":
     case "Write":
@@ -85,6 +92,7 @@ export const toolItem = (options: {
       const path = str(i.file_path) ?? str(i.notebook_path) ?? "";
       const created = isRecord(structured) && structured.type === "create";
       const deleted = name === "NotebookEdit" && i.edit_mode === "delete";
+
       return {
         _tag: "FileChange",
         id,
@@ -92,6 +100,7 @@ export const toolItem = (options: {
         status,
       };
     }
+
     default:
       return {
         _tag: "ToolCall",
@@ -155,10 +164,12 @@ export class ClaudeTranslator {
   closeOpenTools(turnId: TurnId, status: "failed" | "declined"): HarnessEvent[] {
     const events: HarnessEvent[] = [];
     const plan = this.plans.get(turnId);
+
     if (plan !== undefined) {
       this.plans.delete(turnId);
       events.push({ _tag: "ItemCompleted", turnId, item: plan });
     }
+
     for (const [id, tool] of this.tools) {
       if (tool.turnId !== turnId || tool.name === "TodoWrite") continue;
       events.push({
@@ -176,6 +187,7 @@ export class ClaudeTranslator {
       });
       this.tools.delete(id);
     }
+
     return events;
   }
 
@@ -184,8 +196,10 @@ export class ClaudeTranslator {
       case "system":
         if (message.subtype === "init" && message.session_id !== this.cursor) {
           this.cursor = message.session_id;
+
           return [{ _tag: "CursorAssigned", cursor: message.session_id }];
         }
+
         return [];
       case "stream_event":
         return message.parent_tool_use_id === null ? this.onStreamEvent(message.event) : [];
@@ -204,20 +218,27 @@ export class ClaudeTranslator {
 
   private onStreamEvent(event: unknown): HarnessEvent[] {
     if (!isRecord(event) || this.turnId === null) return [];
+
     if (event.type === "message_start" && isRecord(event.message)) {
       this.streamMessageId = str(event.message.id);
+
       return [];
     }
+
     if (event.type !== "content_block_delta" || this.streamMessageId === null) return [];
     const delta = event.delta;
+
     if (!isRecord(delta) || typeof event.index !== "number") return [];
+
     const text =
       delta.type === "text_delta"
         ? str(delta.text)
         : delta.type === "thinking_delta"
           ? str(delta.thinking)
           : null;
+
     if (text === null || text === "") return [];
+
     return [
       {
         _tag: "ItemDelta",
@@ -231,15 +252,19 @@ export class ClaudeTranslator {
 
   private onAssistant(messageId: string, content: unknown): HarnessEvent[] {
     const turnId = this.turnId;
+
     if (turnId === null || !Array.isArray(content)) return [];
     const events: HarnessEvent[] = [];
+
     for (const block of content) {
       // Blocks of one message arrive in order, one or more per SDK message, so the running
       // count is the block's index: the same id its stream deltas used.
       const index = this.delivered.get(messageId) ?? 0;
       this.delivered.set(messageId, index + 1);
+
       if (!isRecord(block)) continue;
       const id = `${messageId}:${index}`;
+
       if (block.type === "text" && typeof block.text === "string" && block.text !== "") {
         events.push({
           _tag: "ItemCompleted",
@@ -255,16 +280,20 @@ export class ClaudeTranslator {
           });
       } else if (block.type === "tool_use" && typeof block.id === "string") {
         const name = str(block.name) ?? "unknown";
+
         if (name === "TodoWrite") {
           const plan: TurnItem = {
             _tag: "Plan",
             id: `plan:${turnId}`,
             steps: planSteps(block.input),
           };
+
           this.plans.set(turnId, plan);
           events.push({ _tag: "ItemUpdated", turnId, item: plan });
         }
+
         this.tools.set(block.id, { name, input: block.input, turnId });
+
         if (name !== "TodoWrite") {
           events.push({
             _tag: "ItemUpdated",
@@ -282,27 +311,35 @@ export class ClaudeTranslator {
         }
       }
     }
+
     return events;
   }
 
   private onUser(content: unknown, structured: unknown): HarnessEvent[] {
     if (!Array.isArray(content)) return [];
+
     const results = content.filter(
       (b): b is Record<string, unknown> =>
         isRecord(b) && b.type === "tool_result" && typeof b.tool_use_id === "string"
     );
+
     const events: HarnessEvent[] = [];
+
     for (const block of results) {
       const id = block.tool_use_id as string;
       const tool = this.tools.get(id);
+
       if (!tool) continue;
       this.tools.delete(id);
+
       if (tool.name === "TodoWrite") continue;
+
       const status: ToolStatus = this.declined.delete(id)
         ? "declined"
         : block.is_error === true
           ? "failed"
           : "completed";
+
       events.push({
         _tag: "ItemCompleted",
         turnId: tool.turnId,
@@ -318,6 +355,7 @@ export class ClaudeTranslator {
         }),
       });
     }
+
     return events;
   }
 }

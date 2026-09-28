@@ -23,6 +23,7 @@ describe.skipIf(!enabled)("Claude driver against the real claude", () => {
 
       const cwd = await mkdtemp(join(tmpdir(), "polaris-e2e-claude-"));
       const scope = Effect.runSync(Scope.make());
+
       const session = await Effect.runPromise(
         driver
           .open({
@@ -34,10 +35,13 @@ describe.skipIf(!enabled)("Claude driver against the real claude", () => {
           })
           .pipe(Scope.provide(scope))
       );
+
       const events: HarnessEvent[] = [];
+
       const done = Effect.runPromise(
         Stream.runForEach(session.events, (e) => Effect.sync(() => events.push(e)))
       );
+
       await Effect.runPromise(
         session.sendTurn({
           turnId: "e2e-turn" as TurnId,
@@ -45,16 +49,19 @@ describe.skipIf(!enabled)("Claude driver against the real claude", () => {
           attachments: [],
         })
       );
+
       for (let i = 0; i < 1200 && !events.some((e) => e._tag === "TurnEnded"); i++)
         await Bun.sleep(100);
 
       const ended = events.find((e) => e._tag === "TurnEnded");
       expect(ended).toMatchObject({ status: "completed" });
+
       const text = events
         .flatMap((e) =>
           e._tag === "ItemCompleted" && e.item._tag === "AssistantMessage" ? [e.item.text] : []
         )
         .join("");
+
       expect(text.toLowerCase()).toContain("ok");
       const cursor = events.find((e) => e._tag === "CursorAssigned");
       expect(cursor).toBeDefined();

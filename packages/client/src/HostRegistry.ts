@@ -31,11 +31,13 @@ export class HostRegistry extends Context.Service<
       const remove = (key: string) =>
         Effect.gen(function* () {
           const scope = scopes.get(key);
+
           if (scope === undefined) return;
           scopes.delete(key);
           yield* SubscriptionRef.update(hosts, (current) => {
             const next = new Map(current);
             next.delete(key);
+
             return next;
           });
           yield* Scope.close(scope, Exit.void);
@@ -50,6 +52,7 @@ export class HostRegistry extends Context.Service<
           yield* SubscriptionRef.update(hosts, (current) =>
             new Map(current).set(options.key, connection)
           );
+
           return connection;
         });
 

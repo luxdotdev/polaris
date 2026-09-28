@@ -9,6 +9,7 @@ const agg = (m: Metric): AggregatedMetric => ({
   min: m.value,
   max: m.value,
 });
+
 const metric = (kind: MetricKind, value: number, better: "lower" | "higher" = "lower") =>
   agg({ value, unit: "", kind, better });
 
@@ -72,6 +73,7 @@ describe("compareMetric", () => {
       better: "lower",
       tolerance: { relative: 1, absolute: 0.5 },
     });
+
     expect(compareMetric(base, { ...base, value: 0.5 }).status).toBe("ok");
     expect(compareMetric(base, { ...base, value: 0.7 }).status).toBe("regressed");
   });
@@ -84,6 +86,7 @@ describe("compare", () => {
       lat: metric("latency", 10),
       gone: metric("time", 1),
     });
+
     const current = result(
       {
         mem: metric("memory", 150),
@@ -92,6 +95,7 @@ describe("compare", () => {
       },
       "other"
     );
+
     const c = compare(base, current, new Set(["memory"]));
     expect(c.regressions.map((r) => r.metric)).toEqual(["mem"]);
     expect(c.rows.find((r) => r.metric === "lat")?.status).toBe("regressed");

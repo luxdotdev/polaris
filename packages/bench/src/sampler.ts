@@ -83,14 +83,17 @@ export const startSampler = (options: SamplerOptions): Sampler => {
   const sample = (): TreeSample => {
     const t = now();
     const pids = new Set<number>();
+
     for (const root of options.roots()) for (const pid of processTree(root, reader)) pids.add(pid);
     const current = new Map<number, ProcCounters>();
     let rssBytes = 0;
     let footprint: number | null = 0;
     let cpuNs = 0;
     let wakeups: number | null = 0;
+
     for (const pid of pids) {
       const counters = reader.read(pid);
+
       if (counters === null) continue;
       current.set(pid, counters);
       rssBytes += counters.rssBytes;
@@ -102,6 +105,7 @@ export const startSampler = (options: SamplerOptions): Sampler => {
       const total = counters.cpuNs + counters.childCpuNs;
       const delta = before === undefined ? total : total - before.cpuNs - before.childCpuNs;
       cpuNs += Math.max(0, delta);
+
       if (wakeups !== null && counters.wakeups !== null) {
         wakeups += Math.max(0, counters.wakeups - (before?.wakeups ?? counters.wakeups));
       } else wakeups = null;
@@ -111,9 +115,11 @@ export const startSampler = (options: SamplerOptions): Sampler => {
       peak.name = counters.name || peak.name;
       peaks.set(pid, peak);
     }
+
     const dt = Math.max(1e-6, t - previousT);
     // The first sample only sets the baseline for deltas.
     const first = samples.length === 0 && previous.size === 0;
+
     const s: TreeSample = {
       t,
       rssBytes,
@@ -123,9 +129,11 @@ export const startSampler = (options: SamplerOptions): Sampler => {
       wakeups: first ? 0 : wakeups,
       processes: current.size,
     };
+
     previous = current;
     previousT = t;
     samples.push(s);
+
     return s;
   };
 
@@ -140,10 +148,13 @@ export const startSampler = (options: SamplerOptions): Sampler => {
     const rated = window.slice(1);
     const durationMs = rated.length > 0 ? endT - window[0]!.t : 0;
     const cpuNs = rated.reduce((a, s) => a + s.cpuNs, 0);
+
     const wakeups = rated.every((s) => s.wakeups !== null)
       ? rated.reduce((a, s) => a + (s.wakeups ?? 0), 0)
       : null;
+
     const footprints = window.map((s) => s.footprintBytes);
+
     return {
       backend: reader.backend,
       durationMs,

@@ -13,6 +13,7 @@ const base = { session_id: "cs-1", transcript_path: "/t.jsonl", cwd: "/work/repo
 
 const sequence = () => {
   let n = 0;
+
   return {
     newTurnId: () => `t${++n}` as TurnId,
     newRequestId: () => `r${++n}` as RequestId,
@@ -43,6 +44,7 @@ describe("hookSettings", () => {
 describe("HookTranslator", () => {
   test("a Turn typed in the TUI, with a tool, a permission prompt, and a stop", () => {
     const h = new HookTranslator({ cursor: "cs-1", ...sequence() });
+
     const events: unknown[] = [
       { ...base, hook_event_name: "UserPromptSubmit", prompt: "run tests" },
       {
@@ -124,6 +126,7 @@ describe("HookTranslator", () => {
 
   test("a new cursor, failures, plans, subagents and session end", () => {
     const h = new HookTranslator({ cursor: null, ...sequence() });
+
     const events: unknown[] = [
       {
         ...base,
@@ -185,11 +188,13 @@ describe("HookTranslator", () => {
 
   test("follows the TUI to a new session id (resume picked another, or /clear)", () => {
     const h = new HookTranslator({ cursor: "cs-1", ...sequence() });
+
     const events: unknown[] = [
       { ...base, hook_event_name: "SessionStart", source: "resume" },
       { ...base, session_id: "cs-2", hook_event_name: "SessionStart", source: "clear" },
       { ...base, session_id: "cs-2", hook_event_name: "UserPromptSubmit", prompt: "again" },
     ].flatMap((b) => h.onHook(b));
+
     expect(events).toEqual([
       { _tag: "CursorAssigned", cursor: "cs-2" },
       { _tag: "TurnStarted", turnId: "t1", prompt: "again" },
@@ -211,9 +216,11 @@ describe("ClaudeHookReceiver", () => {
   ) => {
     const settingsDir = join(await mkdtemp(join(tmpdir(), "polaris-hooks-")), "hooks");
     const scope = Effect.runSync(Scope.make());
+
     const receiver = await Effect.runPromise(
       ClaudeHookReceiver.make({ settingsDir }).pipe(Scope.provide(scope))
     );
+
     try {
       await body(receiver, settingsDir);
     } finally {
@@ -224,9 +231,11 @@ describe("ClaudeHookReceiver", () => {
   test("writes a private settings file and follows a session over loopback", async () => {
     await withReceiver(async (receiver) => {
       const sessionId = "session-1" as SessionId;
+
       const { settingsPath } = await Effect.runPromise(
         receiver.prepare({ sessionId, cursor: "cs-1" })
       );
+
       expect((await stat(settingsPath)).mode & 0o777).toBe(0o600);
       const settings = JSON.parse(await readFile(settingsPath, "utf8"));
       const hook = settings.hooks.Stop[0].hooks[0];
@@ -254,6 +263,7 @@ describe("ClaudeHookReceiver", () => {
       const events: HarnessEvent[] = await Effect.runPromise(
         Stream.runCollect(receiver.events(sessionId))
       );
+
       expect(events.map((e) => e._tag)).toEqual([
         "TurnStarted",
         "ItemCompleted",
@@ -269,12 +279,15 @@ describe("ClaudeHookReceiver", () => {
   test("the driver's terminal command carries the settings file", async () => {
     await withReceiver(async (receiver) => {
       const fake = new FakeClaude();
+
       const driver = makeClaudeDriver({
         query: fake.query,
         claudePath: () => "/opt/bin/claude",
         hookReceiver: receiver,
       });
+
       const scope = Effect.runSync(Scope.make());
+
       const session = await Effect.runPromise(
         driver
           .open({
@@ -286,13 +299,17 @@ describe("ClaudeHookReceiver", () => {
           })
           .pipe(Scope.provide(scope))
       );
+
       fake.emit(init("cs-2"));
       let argv: ReadonlyArray<string> = [];
+
       for (let i = 0; i < 100 && argv.length === 0; i++) {
         await Bun.sleep(2);
         const exit = await Effect.runPromiseExit(session.terminalCommand);
+
         if (Exit.isSuccess(exit)) argv = exit.value;
       }
+
       expect(argv.slice(0, 4)).toEqual(["claude", "--resume", "cs-2", "--settings"]);
       expect(argv[4]).toEndWith("/hooks/session-2.json");
       await Effect.runPromise(Scope.close(scope, Exit.void));

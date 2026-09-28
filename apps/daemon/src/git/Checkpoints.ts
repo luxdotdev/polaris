@@ -49,23 +49,30 @@ export const captureCheckpoint = async (options: {
   readonly label: "before" | "after";
 }): Promise<{ readonly ref: string; readonly commit: string } | null> => {
   const snapshot = await snapshotWorkingTree(options.cwd);
+
   if (snapshot === null) return null;
   const ref = checkpointRef(options.sessionId, options.turnId, options.label);
+
   const newCommit = () => {
     const parents = snapshot.head === null ? [] : ["-p", snapshot.head];
     const message = `polaris checkpoint ${options.sessionId}/${options.turnId}/${options.label}`;
+
     return gitText(snapshot.root, ["commit-tree", snapshot.tree, ...parents, "-m", message], {
       env: identity,
     });
   };
+
   const last = lastCommits.get(snapshot.root);
+
   const reusable =
     last !== undefined &&
     last.tree === snapshot.tree &&
     last.head === snapshot.head &&
     Date.now() - last.at < REUSE_MS;
+
   let commit = reusable ? last.commit : await newCommit();
   const update = await runGitRaw(snapshot.root, ["update-ref", ref, commit]);
+
   if (update.code !== 0) {
     if (!reusable)
       throw new GitCommandError(
@@ -78,12 +85,14 @@ export const captureCheckpoint = async (options: {
     commit = await newCommit();
     await gitText(snapshot.root, ["update-ref", ref, commit]);
   }
+
   lastCommits.set(snapshot.root, {
     tree: snapshot.tree,
     head: snapshot.head,
     commit,
     at: reusable ? last.at : Date.now(),
   });
+
   return { ref, commit };
 };
 

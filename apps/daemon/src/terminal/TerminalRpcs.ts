@@ -44,13 +44,16 @@ export const attachBinary = (
       if (!(yield* terminals.list).some((t) => t.id === terminalId)) {
         return Stream.fail(new NotFound({ what: "terminal", id: terminalId }));
       }
+
       const blobs = yield* BlobChannel;
       const exit = yield* Deferred.make<number | null>();
       const detached = yield* Deferred.make<void>();
+
       const output = terminals.attach(terminalId).pipe(
         Stream.takeWhile((item) => {
           if (item._tag === "Output") return true;
           Deferred.doneUnsafe(exit, Exit.succeed(item.code));
+
           return false;
         }),
         Stream.map((item) => (item as { readonly data: Uint8Array }).data),
@@ -61,7 +64,9 @@ export const attachBinary = (
         // Closed between the check above and the attach: report it as ended.
         Stream.ensuring(Deferred.succeed(exit, null))
       );
+
       const blobId = yield* blobs.offer(output);
+
       return Stream.concat(
         Stream.succeed<BinaryItem>({ _tag: "Output", blobId }),
         Stream.fromEffect(
@@ -79,6 +84,7 @@ export const attachBinary = (
 export const TerminalRpcsLive = TerminalRpcs.toLayer(
   Effect.gen(function* () {
     const terminals = yield* Terminals;
+
     return TerminalRpcs.of({
       "terminal.open": (payload) =>
         Effect.map(terminals.open(payload), (terminalId) => ({ terminalId })),

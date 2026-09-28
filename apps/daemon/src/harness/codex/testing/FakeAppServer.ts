@@ -39,6 +39,7 @@ export const startFakeAppServer = (socketPath: string, handler: Handler): FakeAp
 
   const connectionFor = (ws: ServerWebSocket<unknown>, current: ClientRequest | null) => {
     const send = (message: object) => ws.send(JSON.stringify(message));
+
     return {
       reply: (result) => send({ id: current?.id, result }),
       replyError: (code, message) => send({ id: current?.id, error: { code, message } }),
@@ -61,17 +62,21 @@ export const startFakeAppServer = (socketPath: string, handler: Handler): FakeAp
       message: async (ws, data) => {
         const message = JSON.parse(String(data)) as Record<string, unknown>;
         received.push(message);
+
         const { id, method, params } = message as {
           id?: number | string;
           method?: string;
           params?: unknown;
         };
+
         if (method === undefined) {
           const resolve = waiting.get(String(id));
           waiting.delete(String(id));
           resolve?.(message.error === undefined ? message.result : { error: message.error });
+
           return;
         }
+
         if (id === undefined) return;
         await handler({ id, method, params }, connectionFor(ws, { id, method, params }));
       },
@@ -107,15 +112,19 @@ export const readFixture = async (path: string): Promise<ReadonlyArray<Frame>> =
  */
 export const replay = (frames: ReadonlyArray<Frame>): Handler => {
   let cursor = 0;
+
   return (request, conn) => {
     const at = frames.findIndex(
       (f, i) => i >= cursor && f.dir === "out" && f.msg.method === request.method
     );
+
     if (at < 0) return conn.replyError(-32601, `fixture has no further ${request.method}`);
     const recordedId = frames[at]!.msg.id;
     let i = at + 1;
+
     for (; i < frames.length && frames[i]!.dir === "in"; i++) {
       const msg = frames[i]!.msg;
+
       if (msg.method !== undefined) conn.notify(msg.method as string, msg.params);
       else if (msg.id === recordedId)
         if (msg.error !== undefined) {
@@ -123,6 +132,7 @@ export const replay = (frames: ReadonlyArray<Frame>): Handler => {
           conn.replyError(error.code, error.message);
         } else conn.reply(msg.result);
     }
+
     cursor = i;
   };
 };

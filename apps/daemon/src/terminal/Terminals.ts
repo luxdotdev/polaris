@@ -40,10 +40,13 @@ import { registerHandoffContributor, takeHandoff } from "../service/upgrade.ts";
 
 /** Scrollback kept per terminal for replay to late attachers. */
 export const SCROLLBACK_BYTES = 256 * 1024;
+
 /** After the process exits, how long to wait for the PTY to drain before reporting Exit. */
 const DRAIN_AFTER_EXIT_MS = 200;
+
 /** How often an adopted shell (not known to Bun) is checked for exit. */
 const REAP_INTERVAL_MS = 200;
+
 /**
  * PTY reads are small (often 1 KiB or less), and each one sent on its own
  * costs far more than its bytes. Output is gathered for up to
@@ -51,6 +54,7 @@ const REAP_INTERVAL_MS = 200;
  * have piled up, then goes to the scrollback and every attacher as one chunk.
  */
 export const OUTPUT_FLUSH_MS = 4;
+
 export const OUTPUT_FLUSH_BYTES = 64 * 1024;
 
 export type TerminalItem =
@@ -67,13 +71,17 @@ export class Scrollback {
     if (chunk.byteLength >= this.capacity) {
       this.chunks = [chunk.slice(chunk.byteLength - this.capacity)];
       this.size = this.capacity;
+
       return;
     }
+
     this.chunks.push(chunk);
     this.size += chunk.byteLength;
+
     while (this.size > this.capacity) {
       const first = this.chunks[0]!;
       const excess = this.size - this.capacity;
+
       if (first.byteLength <= excess) {
         this.chunks.shift();
         this.size -= first.byteLength;
@@ -87,10 +95,12 @@ export class Scrollback {
   snapshot(): Uint8Array {
     const out = new Uint8Array(this.size);
     let at = 0;
+
     for (const chunk of this.chunks) {
       out.set(chunk, at);
       at += chunk.byteLength;
     }
+
     return out;
   }
 
@@ -171,18 +181,23 @@ export const loginShell = (): string => {
   try {
     // Bun reports "unknown" for fields it could not read (seen in Alpine and Debian containers).
     const shell = userInfo().shell;
+
     if (shell?.startsWith("/")) return shell;
   } catch {
     // No passwd entry (some containers).
   }
+
   try {
     const uid = process.getuid?.();
+
     const entry = readFileSync("/etc/passwd", "utf8")
       .split("\n")
       .map((line) => line.split(":"))
       .find((fields) => fields[2] === String(uid));
+
     if (entry?.[6]?.startsWith("/")) return entry[6];
   } catch {}
+
   return process.env.SHELL || "/bin/sh";
 };
 
@@ -214,6 +229,7 @@ const HandedTerminal = Schema.Struct({
 const decodeRecords = Schema.decodeUnknownOption(
   Schema.fromJsonString(Schema.Array(TerminalRecord))
 );
+
 const decodeHanded = Schema.decodeUnknownOption(
   Schema.fromJsonString(Schema.Array(HandedTerminal))
 );
@@ -221,6 +237,7 @@ const decodeHanded = Schema.decodeUnknownOption(
 const readJson = <A>(path: string, decode: (raw: string) => { _tag: string; value?: A }) => {
   try {
     const decoded = decode(readFileSync(path, "utf8"));
+
     return decoded._tag === "Some" ? (decoded.value as A) : null;
   } catch {
     return null;
@@ -256,8 +273,10 @@ const findMaster = (before: ReadonlySet<number>): { fd: number; slave: string } 
   for (const fd of libc.openFds()) {
     if (before.has(fd)) continue;
     const slave = libc.ptsname(fd);
+
     if (slave !== null) return { fd, slave };
   }
+
   return null;
 };
 
@@ -288,23 +307,30 @@ const adoptPty = (options: {
   let closed = false;
   const pending: Array<Uint8Array> = [];
   let flushing: ReturnType<typeof setTimeout> | null = null;
+
   const flush = () => {
     flushing = null;
+
     while (!closed && pending.length > 0) {
       const chunk = pending[0]!;
+
       try {
         const written = writeSync(options.fd, chunk);
+
         if (written < chunk.byteLength) pending[0] = chunk.subarray(written);
         else pending.shift();
       } catch (error) {
         if (isAgain(error)) {
           flushing = setTimeout(flush, 10);
+
           return;
         }
+
         pending.length = 0;
       }
     }
   };
+
   void (async () => {
     try {
       for await (const chunk of Bun.file(options.fd).stream())
@@ -312,12 +338,15 @@ const adoptPty = (options: {
     } catch {
       // EIO on Linux once the slave side is gone: the PTY's end of file.
     }
+
     options.onClosed();
   })();
+
   return {
     write: (data) => {
       if (closed) return;
       pending.push(data);
+
       if (flushing === null) flush();
     },
     resize: (cols, rows) => {
@@ -332,7 +361,9 @@ const adoptPty = (options: {
     close: () => {
       if (closed) return;
       closed = true;
+
       if (flushing !== null) clearTimeout(flushing);
+
       try {
         libc.closeFd(options.fd);
       } catch {}
@@ -346,15 +377,18 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
   Effect.gen(function* () {
     const terminals = new Map<string, Live>();
     const recordsFile = options.stateDir === null ? null : join(options.stateDir, "terminals.json");
+
     const handoffFile =
       options.stateDir === null ? null : join(options.stateDir, "terminals-handoff.json");
 
     /** Record running terminals, so the next Daemon knows which ones a crash ended. */
     const persist = () => {
       if (recordsFile === null) return;
+
       const running = [...terminals.values()]
         .filter((live) => live.exit === null)
         .map((live) => ({ ...live.info, argv: [...live.info.argv] }));
+
       try {
         writeJsonAtomic(recordsFile, running);
       } catch {
@@ -363,9 +397,11 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
     };
 
     const notFound = (id: string) => new NotFound({ what: "terminal", id });
+
     const lookup = (id: TerminalId) =>
       Effect.suspend(() => {
         const live = terminals.get(id);
+
         return live === undefined ? Effect.fail(notFound(id)) : Effect.succeed(live);
       });
 
@@ -376,18 +412,22 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
     /** Sends the gathered output: to the scrollback and every attacher, as one chunk. */
     const flush = (live: Live) => {
       const pending = live.pending;
+
       if (pending.timer !== null) {
         clearTimeout(pending.timer);
         pending.timer = null;
       }
+
       if (pending.length === 0) return;
       let chunk: Uint8Array;
+
       if (pending.length === pending.buffer.byteLength) {
         chunk = pending.buffer;
         pending.buffer = new Uint8Array(OUTPUT_FLUSH_BYTES);
       } else {
         chunk = pending.buffer.slice(0, pending.length);
       }
+
       pending.length = 0;
       live.scrollback.push(chunk);
       broadcast(live, { _tag: "Output", data: chunk });
@@ -397,13 +437,16 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
     const output = (live: Live, data: Uint8Array) => {
       if (live.exit !== null) return;
       const pending = live.pending;
+
       for (let at = 0; at < data.byteLength;) {
         const n = Math.min(data.byteLength - at, pending.buffer.byteLength - pending.length);
         pending.buffer.set(data.subarray(at, at + n), pending.length);
         pending.length += n;
         at += n;
+
         if (pending.length === pending.buffer.byteLength) flush(live);
       }
+
       if (pending.length > 0 && pending.timer === null) {
         pending.timer = setTimeout(() => flush(live), OUTPUT_FLUSH_MS);
       }
@@ -427,6 +470,7 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
           // Already gone.
         }
       }
+
       live.pty?.close();
       live.pty = null;
       live.masterFd = null;
@@ -434,20 +478,24 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
 
     // Watches an adopted shell, which the new image's Bun doesn't know about.
     const reapers = new Set<ReturnType<typeof setInterval>>();
+
     const watchAdopted = (live: Live) => {
       const timer = setInterval(() => {
         let status: number | null;
+
         try {
           status = libc.reapChild(live.info.pid);
         } catch {
           status = -1; // ECHILD: someone else reaped it; the code is lost.
         }
+
         if (status === null) return;
         clearInterval(timer);
         reapers.delete(timer);
         const code = status === -1 ? null : libc.exitCodeOf(status);
         setTimeout(() => finish(live, code), DRAIN_AFTER_EXIT_MS);
       }, REAP_INTERVAL_MS);
+
       reapers.add(timer);
     };
 
@@ -456,14 +504,19 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
       options.stateDir === null
         ? null
         : yield* takeHandoff().pipe(Effect.orElseSucceed(() => null));
+
     const handed =
       handoff !== null && handoffFile !== null ? readJson(handoffFile, decodeHanded) : null;
+
     if (handoffFile !== null) rmSync(handoffFile, { force: true });
+
     if (handed !== null && handoff !== null) {
       for (const record of handed as ReadonlyArray<typeof HandedTerminal.Type>) {
         const scrollback = new Scrollback(SCROLLBACK_BYTES);
         const replay = Buffer.from(record.scrollback, "base64");
+
         if (replay.byteLength > 0) scrollback.push(new Uint8Array(replay));
+
         const live: Live = {
           info: {
             id: record.id as TerminalId,
@@ -482,13 +535,17 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
           endedBy: record.endedBy,
           pending: pendingOutput(),
         };
+
         terminals.set(record.id, live);
         const fd = handoff.fds[handoffName(record.id)];
+
         if (live.exit !== null) continue;
+
         if (fd === undefined) {
           finish(live, null, "daemon-restart");
           continue;
         }
+
         live.masterFd = fd;
         live.pty = adoptPty({
           fd,
@@ -500,6 +557,7 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
       }
     } else if (recordsFile !== null) {
       const ended = readJson(recordsFile, decodeRecords) ?? [];
+
       for (const record of ended as ReadonlyArray<typeof TerminalRecord.Type>) {
         terminals.set(record.id, {
           info: {
@@ -521,6 +579,7 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
         });
       }
     }
+
     persist();
 
     // ── Upgrade hand-off: keep every master fd and shell, write the rest to disk.
@@ -531,11 +590,13 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
           Effect.sync(() => {
             const fds: Record<string, number> = {};
             const children: Record<string, number> = {};
+
             for (const live of terminals.values()) {
               if (live.exit !== null || live.masterFd === null) continue;
               fds[handoffName(live.info.id)] = live.masterFd;
               children[handoffName(live.info.id)] = live.info.pid;
             }
+
             return { fds, children };
           }),
         beforeExec: Effect.sync(() => {
@@ -561,11 +622,14 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
     yield* Effect.addFinalizer(() =>
       Effect.sync(() => {
         for (const timer of reapers) clearInterval(timer);
+
         for (const live of terminals.values()) {
           if (live.pending.timer !== null) clearTimeout(live.pending.timer);
           kill(live);
         }
+
         terminals.clear();
+
         // A clean shutdown ended every terminal itself; nothing to report next time.
         if (recordsFile !== null && existsSync(recordsFile)) rmSync(recordsFile, { force: true });
       })
@@ -581,19 +645,23 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
       yield* Effect.tryPromise({
         try: async () => {
           const stats = await stat(cwd);
+
           if (!stats.isDirectory()) {
             throw Object.assign(new Error(`not a directory: ${cwd}`), { code: "ENOTDIR" });
           }
         },
         catch: (cause) => {
           const failure = toFsFailure(cwd, cause);
+
           return new FileError({ path: cwd, code: failure.code, message: failure.message });
         },
       });
+
       const argv =
         openOptions.argv !== null && openOptions.argv.length > 0
           ? [...openOptions.argv]
           : [loginShell(), "-l"];
+
       const id = `term_${randomUUID()}` as TerminalId;
       const cols = clampSize(openOptions.cols, 80);
       const rows = clampSize(openOptions.rows, 24);
@@ -603,6 +671,7 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
         try: () => {
           // Synchronous from here to findMaster: no other fd can appear in between.
           const before = handoffFile === null ? null : openFdsOrNull();
+
           const proc = Bun.spawn(argv, {
             cwd,
             env: { ...process.env, TERM: "xterm-256color", COLORTERM: "truecolor" },
@@ -617,10 +686,13 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
               },
             },
           });
+
           let master: { fd: number; slave: string } | null = null;
+
           try {
             master = before === null ? null : findMaster(before);
           } catch {}
+
           return { proc, master };
         },
         catch: (cause) =>
@@ -660,6 +732,7 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
         // Let the PTY drain the last output before reporting the exit.
         setTimeout(() => finish(opened, spawned.proc.exitCode), DRAIN_AFTER_EXIT_MS);
       });
+
       return id;
     });
 
@@ -669,16 +742,22 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
           const live = yield* lookup(id);
           // Synchronous: no output can slip between the replay and the subscription.
           const replay = live.scrollback.snapshot();
+
           if (replay.byteLength > 0) Queue.offerUnsafe(queue, { _tag: "Output", data: replay });
+
           if (live.exit !== null) {
             Queue.offerUnsafe(queue, { _tag: "Exit", code: live.exit.code });
             Queue.endUnsafe(queue);
+
             return;
           }
+
           const listener = (item: TerminalItem) => {
             Queue.offerUnsafe(queue, item);
+
             if (item._tag === "Exit") Queue.endUnsafe(queue);
           };
+
           live.listeners.add(listener);
           yield* Effect.addFinalizer(() => Effect.sync(() => live.listeners.delete(listener)));
         })
@@ -718,6 +797,7 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
 
 /** In-memory terminals, killed when this layer's scope closes. For tests and embedding. */
 export const makeTerminals = makeTerminalsWith({ stateDir: null });
+
 export const TerminalsLive = Layer.effect(Terminals, makeTerminals);
 
 /**

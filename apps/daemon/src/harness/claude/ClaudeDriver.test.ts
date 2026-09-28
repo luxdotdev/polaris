@@ -6,6 +6,7 @@ import { type ClaudeDriverOptions, makeClaudeDriver, parseVersion } from "./Clau
 import { assistant, FakeClaude, init, result, streamEvent, toolResult } from "./fakeClaude.ts";
 
 const T1 = "turn-1" as TurnId;
+
 const T2 = "turn-2" as TurnId;
 
 const openFake = async (
@@ -13,6 +14,7 @@ const openFake = async (
   driverOptions: ClaudeDriverOptions = {}
 ) => {
   const fake = new FakeClaude();
+
   const driver = makeClaudeDriver({
     query: fake.query,
     claudePath: () => "/opt/bin/claude",
@@ -20,7 +22,9 @@ const openFake = async (
     readFile: async () => new Uint8Array([137, 80, 78, 71]),
     ...driverOptions,
   });
+
   const scope = Effect.runSync(Scope.make());
+
   const session = await Effect.runPromise(
     driver
       .open({
@@ -33,6 +37,7 @@ const openFake = async (
       })
       .pipe(Scope.provide(scope))
   );
+
   const events: HarnessEvent[] = [];
   let ended = false;
   Effect.runFork(
@@ -40,14 +45,18 @@ const openFake = async (
       Effect.ensuring(Effect.sync(() => (ended = true)))
     )
   );
+
   const until = async (predicate: () => boolean, label = "condition") => {
     for (let i = 0; i < 400; i++) {
       if (predicate()) return;
       await Bun.sleep(2);
     }
+
     throw new Error(`timed out waiting for ${label}; events: ${JSON.stringify(events, null, 1)}`);
   };
+
   const has = (tag: HarnessEvent["_tag"]) => () => events.some((e) => e._tag === tag);
+
   return {
     fake,
     session,
@@ -274,6 +283,7 @@ describe("Claude driver", () => {
     const answer = t.fake.askPermission("Bash", { command: "rm x" }, { toolUseID: "tu1" });
     await t.until(t.has("ApprovalRequested"));
     const request = t.events.find((e) => e._tag === "ApprovalRequested")!;
+
     if (request._tag !== "ApprovalRequested") throw new Error("unreachable");
     await t.run(t.session.respond(request.requestId, { _tag: "Allow", remember: false }));
     expect(await answer).toMatchObject({ behavior: "allow" });
@@ -283,17 +293,20 @@ describe("Claude driver", () => {
   test("an approval round-trip, remembering the rule", async () => {
     const t = await openFake();
     await t.run(t.session.sendTurn(turn(T1, "clean up")));
+
     const rule = {
       type: "addRules" as const,
       rules: [{ toolName: "Bash", ruleContent: "rm:*" }],
       behavior: "allow" as const,
       destination: "session" as const,
     };
+
     const answer = t.fake.askPermission(
       "Bash",
       { command: "rm x", description: "Remove x" },
       { toolUseID: "tu1", suggestions: [rule] }
     );
+
     await t.until(t.has("ApprovalRequested"));
     const request = t.events.find((e) => e._tag === "ApprovalRequested")!;
     expect(request).toMatchObject({
@@ -304,6 +317,7 @@ describe("Claude driver", () => {
       detail: "rm x",
       options: [],
     });
+
     if (request._tag !== "ApprovalRequested") throw new Error("unreachable");
     await t.run(t.session.respond(request.requestId, { _tag: "Allow", remember: true }));
     expect(await answer).toEqual({
@@ -311,10 +325,12 @@ describe("Claude driver", () => {
       updatedInput: { command: "rm x", description: "Remove x" },
       updatedPermissions: [rule],
     });
+
     // The same request can't be answered twice.
     const again = await Effect.runPromiseExit(
       t.session.respond(request.requestId, { _tag: "Deny", reason: null })
     );
+
     expect(Exit.isFailure(again)).toBe(true);
     await t.close();
   });
@@ -328,6 +344,7 @@ describe("Claude driver", () => {
     const answer = t.fake.askPermission("Edit", { file_path: "a" }, { toolUseID: "tu1" });
     await t.until(t.has("ApprovalRequested"));
     const request = t.events.find((e) => e._tag === "ApprovalRequested")!;
+
     if (request._tag !== "ApprovalRequested") throw new Error("unreachable");
     expect(request.kind).toBe("file-change");
     await t.run(t.session.respond(request.requestId, { _tag: "Deny", reason: "not that file" }));
@@ -344,6 +361,7 @@ describe("Claude driver", () => {
   test("a question is asked with its options and answered", async () => {
     const t = await openFake();
     await t.run(t.session.sendTurn(turn(T1, "pick a db")));
+
     const input = {
       questions: [
         {
@@ -357,6 +375,7 @@ describe("Claude driver", () => {
         },
       ],
     };
+
     const answer = t.fake.askPermission("AskUserQuestion", input, { toolUseID: "tu1" });
     await t.until(t.has("ApprovalRequested"));
     const request = t.events.find((e) => e._tag === "ApprovalRequested")!;
@@ -365,6 +384,7 @@ describe("Claude driver", () => {
       title: "Which database?",
       options: ["SQLite", "Postgres"],
     });
+
     if (request._tag !== "ApprovalRequested") throw new Error("unreachable");
     await t.run(t.session.respond(request.requestId, { _tag: "Answer", text: "SQLite" }));
     expect(await answer).toEqual({
@@ -384,6 +404,7 @@ describe("Claude driver", () => {
     const answer = t.fake.askPermission("Bash", { command: "make" }, { toolUseID: "tu1" });
     await t.until(t.has("ApprovalRequested"));
     const request = t.events.find((e) => e._tag === "ApprovalRequested")!;
+
     if (request._tag !== "ApprovalRequested") throw new Error("unreachable");
 
     await t.run(t.session.interrupt);
@@ -476,6 +497,7 @@ describe("Claude driver", () => {
 
   test("images are inlined and other attachments referenced by path", async () => {
     const t = await openFake();
+
     const png = {
       id: "a1" as AttachmentId,
       name: "shot.png",
@@ -483,6 +505,7 @@ describe("Claude driver", () => {
       size: 4,
       hostPath: "/stage/shot.png",
     } as Attachment;
+
     const pdf = {
       id: "a2" as AttachmentId,
       name: "spec.pdf",
@@ -490,6 +513,7 @@ describe("Claude driver", () => {
       size: 9,
       hostPath: "/stage/spec.pdf",
     } as Attachment;
+
     await t.run(t.session.sendTurn(turn(T1, "see these", [png, pdf])));
     const sent = await t.fake.nextInput(0);
     expect(sent.message.content).toEqual([
@@ -529,13 +553,16 @@ describe("Claude driver", () => {
 describe("probe", () => {
   test("reports the version from `claude --version` only", async () => {
     const calls: string[] = [];
+
     const driver = makeClaudeDriver({
       claudePath: () => "/opt/bin/claude",
       runVersion: async (path) => {
         calls.push(path);
+
         return { exitCode: 0, stdout: "2.1.283 (Claude Code)\n" };
       },
     });
+
     expect(await Effect.runPromise(driver.probe)).toEqual({
       available: true,
       version: "2.1.283",
@@ -547,10 +574,12 @@ describe("probe", () => {
   test("is unavailable when claude is missing or broken", async () => {
     const missing = makeClaudeDriver({ claudePath: () => null });
     expect((await Effect.runPromise(missing.probe)).available).toBe(false);
+
     const broken = makeClaudeDriver({
       claudePath: () => "/opt/bin/claude",
       runVersion: async () => ({ exitCode: 1, stdout: "" }),
     });
+
     expect((await Effect.runPromise(broken.probe)).available).toBe(false);
   });
 

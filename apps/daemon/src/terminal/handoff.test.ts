@@ -15,10 +15,13 @@ import { runtimePlatform } from "../service/platform.ts";
 import { requestUpgrade, runningDaemonPid } from "../service/upgrade.ts";
 
 const fixture = join(import.meta.dir, "fixtures", "terminal-daemon.ts");
+
 const platform = runtimePlatform();
 
 let home: string;
+
 let daemon: Subprocess | null = null;
+
 const previousHome = process.env.POLARIS_HOME;
 
 beforeEach(() => {
@@ -30,6 +33,7 @@ afterEach(async () => {
   daemon?.kill("SIGKILL");
   await daemon?.exited;
   daemon = null;
+
   if (previousHome === undefined) delete process.env.POLARIS_HOME;
   else process.env.POLARIS_HOME = previousHome;
   rmSync(home, { recursive: true, force: true });
@@ -49,6 +53,7 @@ const call = <A = unknown>(request: Record<string, unknown>): Promise<A> =>
         },
         data(socket, data) {
           buffered += data.toString();
+
           if (buffered.includes("\n")) {
             resolve(JSON.parse(buffered.slice(0, buffered.indexOf("\n"))));
             socket.end();
@@ -66,6 +71,7 @@ const call = <A = unknown>(request: Record<string, unknown>): Promise<A> =>
 
 const waitFor = async (condition: () => boolean | Promise<boolean>, timeoutMs = 10_000) => {
   const deadline = Date.now() + timeoutMs;
+
   while (!(await condition())) {
     if (Date.now() > deadline) throw new Error("timed out");
     await Bun.sleep(30);
@@ -76,10 +82,12 @@ const readUntil = async (id: string, needle: string | RegExp) => {
   let text = "";
   await waitFor(async () => {
     text = await call<string>({ op: "read", id });
+
     return typeof needle === "string" ? text.includes(needle) : needle.test(text);
   }).catch(() => {
     throw new Error(`timed out waiting for ${needle}; got ${JSON.stringify(text)}`);
   });
+
   return text;
 };
 
@@ -114,11 +122,13 @@ exec "${process.execPath}" "${fixture}" --as 2.0.0
 `
     );
     chmodSync(next, 0o755);
+
     const status = await Effect.runPromise(
       requestUpgrade({ pid: daemon!.pid, binary: next, version: "2.0.0" }).pipe(
         Effect.provide(CommandRunner.layer)
       )
     );
+
     expect(status).toMatchObject({ state: "done", pid: daemon!.pid });
     expect(await call({ op: "info" })).toMatchObject({ version: "2.0.0", adopted: true });
 

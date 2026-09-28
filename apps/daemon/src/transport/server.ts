@@ -101,6 +101,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
     const defaults = paths();
     const socketPath = options.socketPath ?? defaults.socket;
     const lockPath = options.lockPath ?? defaults.lock;
+
     // After an execve upgrade this process inherits the lock (same pid) and a listener.
     const adopted =
       options.upgrades === true
@@ -110,7 +111,9 @@ export const startServer = <ROut = never, E = never, RIn = never>(
             )
           )
         : null;
+
     yield* acquireLock(lockPath);
+
     // The inherited socket still accepts (queued in the old listener), so don't probe it.
     if (adopted === null) yield* prepareSocketPath(socketPath);
     const hostInfo = yield* loadHostInfo(options.root ?? defaults.root);
@@ -119,27 +122,34 @@ export const startServer = <ROut = never, E = never, RIn = never>(
     const serialization = RpcSerialization.json;
     const encoder = serialization.makeUnsafe();
     const encodeDefect = Schema.encodeSync(serialization.codecFor(Schema.Defect()));
+
     const connections = new Map<
       number,
       { readonly wire: Wire; readonly blobs: BlobChannel["Service"] }
     >();
+
     const disconnects = yield* Queue.unbounded<number>();
     let writeRequest!: Parameters<Parameters<typeof RpcServer.Protocol.make>[0]>[0];
 
     const protocol = yield* RpcServer.Protocol.make((write) => {
       writeRequest = write;
+
       return Effect.succeed({
         disconnects,
         send: (clientId, response) => {
           const connection = connections.get(clientId);
+
           if (connection === undefined) return Effect.void;
           let text: string | Uint8Array | undefined;
+
           try {
             text = encoder.encode(response);
           } catch (cause) {
             text = encoder.encode(ResponseDefectEncoded(encodeDefect(cause)));
           }
+
           if (text === undefined) return Effect.void;
+
           return Effect.ignore(connection.wire.sendJson(text as string));
         },
         end: () => Effect.void,
@@ -155,6 +165,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
 
     const blobsMiddleware = ConnectionBlobs.of((effect, { client }) => {
       const connection = connections.get(client.id);
+
       return connection === undefined
         ? Effect.die(new Error(`no connection for client ${client.id}`))
         : Effect.provideService(effect, BlobChannel, connection.blobs);
@@ -177,22 +188,26 @@ export const startServer = <ROut = never, E = never, RIn = never>(
     );
 
     let nextClientId = 0;
+
     const serveConnection = (transport: ByteTransport) =>
       Effect.scoped(
         Effect.gen(function* () {
           const clientId = nextClientId++;
           const ready = Latch.makeUnsafe(false);
           const decoder = serialization.makeUnsafe();
+
           const onJson = (text: string) =>
             Effect.andThen(
               ready.await,
               Effect.suspend(() => {
                 let messages: ReadonlyArray<unknown>;
+
                 try {
                   messages = decoder.decode(text);
                 } catch (cause) {
                   return Effect.logWarning("dropping an undecodable message", cause);
                 }
+
                 return Effect.forEach(
                   messages,
                   (message) => writeRequest(clientId, message as never),
@@ -200,10 +215,12 @@ export const startServer = <ROut = never, E = never, RIn = never>(
                 );
               })
             );
+
           const wire = yield* makeWire(transport, onJson, {
             ...options.wire,
             blobIdPrefix: "d",
           });
+
           connections.set(clientId, { wire, blobs: blobChannelFor(wire) });
           yield* Effect.addFinalizer(() =>
             Effect.andThen(
@@ -222,6 +239,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       Stream.runForEach((transport) => Effect.forkIn(serveConnection(transport), scope)),
       Effect.forkScoped
     );
+
     if (adopted !== null) {
       const drained = yield* listener
         .adopt(adopted)
@@ -230,10 +248,12 @@ export const startServer = <ROut = never, E = never, RIn = never>(
             Effect.as(Effect.logWarning("draining the old listener", error), 0)
           )
         );
+
       yield* Effect.logInfo(
         `took over from ${adopted.fromVersion}; ${drained} queued connection(s)`
       );
     }
+
     if (options.upgrades === true) {
       yield* serveUpgrades({ listenerFd: listener.fd, args: ["serve"] }).pipe(
         Effect.provide(CommandRunner.layer),

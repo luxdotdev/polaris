@@ -162,10 +162,13 @@ const markSession = (item: SessionStreamItem): SequenceMark => {
 const connectorFor = (options: HostConnectionOptions): Connector => {
   if (options.connector !== undefined) return options.connector;
   const target = options.target;
+
   if (target._tag === "Local") return socketTransport(target.socketPath);
+
   return Effect.suspend(() => {
     const controlDir = options.ssh?.controlDir ?? defaultControlDir();
     ensureControlDir(controlDir);
+
     return spawnTransport(
       sshArgv(target.alias, {
         ...options.ssh,
@@ -185,8 +188,10 @@ export const makeHostConnection = Effect.fnUntraced(function* (
   const startedAt = yield* Clock.currentTimeMillis;
   /** The Connection State machine's snapshot; only the loop's fiber moves it. */
   let machine = initialConnection(policy, startedAt);
+
   const step = (event: ConnectionEvent) => {
     machine = connectionMachine.transition(machine, event)[0];
+
     return machine;
   };
 
@@ -200,6 +205,7 @@ export const makeHostConnection = Effect.fnUntraced(function* (
     capabilities: [],
     epoch: 0,
   });
+
   const live = yield* SubscriptionRef.make<LiveSession | null>(null);
   const retrySignal = yield* Queue.sliding<void>(1);
 
@@ -207,6 +213,7 @@ export const makeHostConnection = Effect.fnUntraced(function* (
     Effect.flatMap(Clock.currentTimeMillis, (now) =>
       SubscriptionRef.update(status, (current) => {
         const next = { ...current, ...patch };
+
         return next.state === current.state ? next : { ...next, since: now };
       })
     );
@@ -217,6 +224,7 @@ export const makeHostConnection = Effect.fnUntraced(function* (
       Effect.gen(function* () {
         const transport = yield* connector;
         const connection = yield* connectRpc(transport, options.rpc);
+
         const hello = yield* connection.client
           .hello({
             clientName: options.identity.name,
@@ -240,6 +248,7 @@ export const makeHostConnection = Effect.fnUntraced(function* (
               error instanceof ConnectFailure ? Effect.fail(error) : Effect.flip(transport.diagnose)
             )
           );
+
         if (hello.protocolVersion !== PROTOCOL_VERSION) {
           return yield* new ConnectFailure({
             kind: "needs-attention",
@@ -247,9 +256,11 @@ export const makeHostConnection = Effect.fnUntraced(function* (
             detail: `the Daemon speaks protocol ${hello.protocolVersion}, this Client ${PROTOCOL_VERSION}`,
           });
         }
+
         const capabilities = hello.capabilities.filter((c) =>
           options.identity.capabilities.includes(c)
         );
+
         const session: LiveSession = {
           epoch,
           client: connection.client,
@@ -257,6 +268,7 @@ export const makeHostConnection = Effect.fnUntraced(function* (
           host: hello.host,
           capabilities,
         };
+
         yield* Effect.addFinalizer(() =>
           SubscriptionRef.update(live, (current) => (current === session ? null : current))
         );
@@ -271,6 +283,7 @@ export const makeHostConnection = Effect.fnUntraced(function* (
           epoch,
         });
         yield* SubscriptionRef.set(live, session);
+
         return yield* connection.lost.pipe(Effect.catch(() => Effect.flip(transport.diagnose)));
       })
     );
@@ -297,6 +310,7 @@ export const makeHostConnection = Effect.fnUntraced(function* (
         nextAttemptAt: context.delay === null ? null : now + context.delay,
       });
       const asked = yield* waitForRetry(context.delay);
+
       if (asked) yield* setStatus({ state: step({ type: "retry" }).value, nextAttemptAt: null });
     }
   });
@@ -341,7 +355,9 @@ export const makeHostConnection = Effect.fnUntraced(function* (
     Effect.gen(function* () {
       const key = `${sessionId}\u0000${turnLimit ?? ""}`;
       const existing = sessionFeeds.get(key);
+
       if (existing !== undefined) return existing;
+
       const feed = yield* makeFeed<DaemonClient, SessionStreamItem, NotFound | RpcClientError>({
         source,
         open: (client, afterSequence) =>
@@ -354,10 +370,13 @@ export const makeHostConnection = Effect.fnUntraced(function* (
         isDisconnect,
         gapless: false,
       }).pipe(Scope.provide(scope));
+
       sessionFeeds.set(key, feed);
       const idle = [...sessionFeeds].filter(([, f]) => f.subscribers() === 0);
+
       for (const [k] of idle.slice(0, Math.max(0, idle.length - MAX_IDLE_SESSION_FEEDS)))
         sessionFeeds.delete(k);
+
       return feed;
     });
 

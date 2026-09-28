@@ -23,11 +23,13 @@ import type { WorkerReply, WorkerRequest, WorkerWatchEvent } from "./fffWorker.t
 import type { FileChange, GrepHit, PathHit, SearchBackend } from "./types.ts";
 
 let loadError: string | null = null;
+
 /** Set once fff failed to load in the worker: later indexes go straight to the fallback. */
 let unavailable = false;
 
 export const fffDisabled = (): boolean => {
   const flag = process.env.POLARIS_FFF?.toLowerCase();
+
   return flag === "off" || flag === "0" || flag === "false";
 };
 
@@ -35,6 +37,7 @@ export const fffDisabled = (): boolean => {
 export const fffLoadError = (): string | null => loadError;
 
 type Distribute<T> = T extends unknown ? Omit<T, "id"> : never;
+
 type Request = Distribute<WorkerRequest>;
 
 class FffUnavailable extends Error {
@@ -59,7 +62,9 @@ interface Connection {
 }
 
 let connection: Connection | null = null;
+
 let nextIndex = 1;
+
 let nextSubscription = 1;
 
 /**
@@ -70,6 +75,7 @@ let nextSubscription = 1;
  */
 const workerUrl = (): string => {
   const beside = new URL("./fffWorker.ts", import.meta.url);
+
   return beside.pathname.startsWith("/$bunfs/")
     ? new URL("./files/search/fffWorker.js", import.meta.url).href
     : beside.href;
@@ -83,27 +89,37 @@ const connect = (): Connection => {
   const conn: Connection = { worker, pending: new Map(), watchers: new Map(), nextId: 1, open: 0 };
   worker.onmessage = (message: MessageEvent<WorkerReply | WorkerWatchEvent>) => {
     const data = message.data;
+
     if ("subscription" in data) {
       conn.watchers.get(data.subscription)?.(data.changes);
+
       return;
     }
+
     const waiter = conn.pending.get(data.id);
+
     if (waiter === undefined) return;
     conn.pending.delete(data.id);
+
     if (data.ok) waiter.resolve(data.value);
     else if (data.unavailable !== undefined)
       waiter.reject(new FffUnavailable(data.unavailable, data.error));
     else waiter.reject(new Error(data.error));
   };
+
   worker.onerror = (event) => {
     // The worker died: fail what was in flight; the next index starts a new one.
     const error = new Error(`fff worker failed: ${event.message}`);
+
     for (const waiter of conn.pending.values()) waiter.reject(error);
     conn.pending.clear();
+
     if (connection === conn) connection = null;
     conn.worker.terminate();
   };
+
   connection = conn;
+
   return conn;
 };
 
@@ -134,8 +150,10 @@ const release = (conn: Connection, index: number) => {
 export const loadFff = async (): Promise<true | null> => {
   if (fffDisabled()) {
     loadError = "disabled by POLARIS_FFF";
+
     return null;
   }
+
   return unavailable ? null : true;
 };
 
@@ -146,15 +164,18 @@ export const loadFff = async (): Promise<true | null> => {
  */
 export const makeFffBackend = async (root: string): Promise<SearchBackend | null> => {
   if ((await loadFff()) === null) return null;
+
   const dbDir = join(
     paths().root,
     "fff",
     createHash("sha256").update(root).digest("hex").slice(0, 16)
   );
+
   mkdirSync(dbDir, { recursive: true });
   const conn = connect();
   const index = nextIndex++;
   conn.open++;
+
   try {
     await call(conn, {
       op: "open",
@@ -166,16 +187,21 @@ export const makeFffBackend = async (root: string): Promise<SearchBackend | null
   } catch (cause) {
     release(conn, index);
     loadError = cause instanceof Error ? cause.message : String(cause);
+
     if (cause instanceof FffUnavailable) {
       if (cause.reason === "library") unavailable = true;
+
       return null;
     }
+
     throw cause;
   }
+
   loadError = null;
 
   const subscriptions = new Set<number>();
   let disposed = false;
+
   return {
     kind: "fff",
     root,
@@ -186,21 +212,26 @@ export const makeFffBackend = async (root: string): Promise<SearchBackend | null
       const subscription = nextSubscription++;
       conn.watchers.set(subscription, onBatch);
       subscriptions.add(subscription);
+
       const stop = () => {
         if (!subscriptions.delete(subscription)) return;
         conn.watchers.delete(subscription);
+
         if (!disposed) void call(conn, { op: "unwatch", index, subscription }).catch(() => {});
       };
+
       try {
         await call(conn, { op: "watch", index, subscription });
       } catch (cause) {
         stop();
         throw cause;
       }
+
       return stop;
     },
     dispose: () => {
       if (disposed) return;
+
       for (const subscription of subscriptions) conn.watchers.delete(subscription);
       subscriptions.clear();
       disposed = true;

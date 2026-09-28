@@ -17,6 +17,7 @@ export const handleStageAttachment = Effect.fn("attachments.stage")(function* ({
 }: typeof StageAttachment.payloadSchema.Type) {
   const blobs = yield* BlobChannel;
   const store = yield* AttachmentStore;
+
   return yield* store
     .stage({ ...rest, bytes: blobs.takeStream(blobId) })
     .pipe(

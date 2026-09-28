@@ -72,9 +72,12 @@ export const planInstall = (
   options: PlanOptions
 ): InstallPlan => {
   const platform = platformFromUname(probe.os, probe.arch, probe.libc);
+
   if (platform === null) return { _tag: "Unsupported", os: probe.os, arch: probe.arch };
   const build = builds.find((candidate) => candidate.platform === platform);
+
   if (build === undefined) return { _tag: "MissingBuild", platform };
+
   if (probe.libc === "musl" && (probe.missingLibraries?.length ?? 0) > 0) {
     return {
       _tag: "MissingLibraries",
@@ -86,10 +89,13 @@ export const planInstall = (
 
   if (probe.installed !== null && probe.installed.platform === platform) {
     const order = compareVersions(probe.installed.version, build.version);
+
     if (order === 0) return { _tag: "UpToDate", version: build.version };
+
     if (order > 0) {
       return { _tag: "InstalledNewer", installed: probe.installed.version, bundled: build.version };
     }
+
     // An installed Daemon was approved when it was first installed; upgrades need no new approval.
     return { _tag: "Upgrade", from: probe.installed.version, build };
   }
@@ -102,7 +108,10 @@ export const planInstall = (
       sha256: build.sha256,
       reason,
     }) as const;
+
   if (options.trigger === "background") return needsApproval("background");
+
   if (!options.approvedSha256.has(build.sha256)) return needsApproval("first-install");
+
   return { _tag: "Install", build };
 };

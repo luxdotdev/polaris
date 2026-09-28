@@ -5,10 +5,12 @@ import { fffGrep, MAX_CANDIDATES, narrowRegexGrep } from "./fffSearch.ts";
 import type { GrepQuery } from "./types.ts";
 
 let root: string;
+
 let finder: FileFinder;
 
 beforeAll(async () => {
   root = tempDir("polaris-fffsearch-");
+
   // Filler files so the bigram index has something to tell apart.
   for (let i = 0; i < 300; i++) {
     write(
@@ -17,6 +19,7 @@ beforeAll(async () => {
       `export const filler${i} = "plain text ${i}"\nlet value = ${i}\n`
     );
   }
+
   write(
     root,
     "src/alpha.ts",
@@ -57,6 +60,7 @@ beforeAll(async () => {
     "needle in the docs\nfn main is documented\nno literals here: 12345\n"
   );
   const created = FileFinder.create({ basePath: root, disableWatch: true });
+
   if (!created.ok) throw new Error(created.error);
   finder = created.value;
   await finder.waitForIndexReady(10_000);

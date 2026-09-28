@@ -63,10 +63,12 @@ interface Plan {
 }
 
 const workspaceId = "ws-pbt" as WorkspaceId;
+
 let eventCounter = 0;
 
 const eventFor = (target: Target): DomainEvent => {
   const n = ++eventCounter;
+
   return target === null
     ? DomainEvent.cases.WorkspaceUpdated.make({
         workspace: new Workspace({
@@ -147,30 +149,39 @@ const applyDecision = (model: Model, plan: Plan, modelSeq: number): Expected => 
       `${plan.id ?? "daemon"} was decided against sequence ${modelSeq}, expected ${model.log.length}`
     );
   }
+
   if (plan.id !== null) {
     const receipt = model.receipts.get(plan.id);
+
     if (receipt !== undefined && receipt.tag !== "unknown") {
       throw new Error(`${plan.id} was decided again although it has a receipt`);
     }
   }
+
   switch (plan.kind.tag) {
     case "append": {
       const sequences: Array<number> = [];
+
       for (const target of plan.kind.targets) {
         const seq = model.log.length + 1;
         model.log.push({ seq, target, commandId: plan.id });
         sequences.push(seq);
       }
+
       if (plan.id !== null) {
         model.receipts.set(plan.id, { tag: "applied", sequence: sequences.at(-1) ?? null });
       }
+
       return { tag: "committed", sequences };
     }
+
     case "empty":
       if (plan.id !== null) model.receipts.set(plan.id, { tag: "applied", sequence: null });
+
       return { tag: "committed", sequences: [] };
     case "reject":
       if (plan.id !== null) model.receipts.set(plan.id, { tag: "rejected" });
+
       return { tag: "rejected" };
     case "defect":
       return { tag: "defect" };
@@ -180,7 +191,9 @@ const applyDecision = (model: Model, plan: Plan, modelSeq: number): Expected => 
 const expectedFromReceipt = (receipt: Receipt | undefined, plan: Plan): Expected => {
   if (receipt === undefined)
     throw new Error(`${plan.id} was answered without a decision or receipt`);
+
   if (receipt.tag === "unknown") return { tag: "learn" };
+
   return receipt.tag === "rejected"
     ? { tag: "rejected" }
     : { tag: "duplicate", sequence: receipt.sequence };
@@ -193,6 +206,7 @@ const checkOutcome = (
   model: Model
 ) => {
   const label = `${plan.id ?? "daemon"} (${plan.kind.tag})`;
+
   if (expected.tag === "learn") {
     // Its receipt was unknown after a crash; the store's answer says what it was.
     if (Exit.isSuccess(exit) && exit.value._tag === "Duplicate") {
@@ -202,41 +216,56 @@ const checkOutcome = (
     } else {
       throw new Error(`${label}: unexpected ${JSON.stringify(exit)}`);
     }
+
     return;
   }
+
   switch (expected.tag) {
     case "committed": {
       if (!Exit.isSuccess(exit) || exit.value._tag !== "Committed") {
         throw new Error(`${label}: expected Committed, got ${String(exit)}`);
       }
+
       expect(exit.value.envelopes.map((e) => e.sequence as number)).toEqual([
         ...expected.sequences,
       ]);
       expect(exit.value.sequence as number | null).toBe(expected.sequences.at(-1) ?? null);
+
       return;
     }
+
     case "duplicate": {
       reached.duplicatesAnswered++;
+
       if (!Exit.isSuccess(exit) || exit.value._tag !== "Duplicate") {
         throw new Error(`${label}: expected Duplicate, got ${String(exit)}`);
       }
+
       expect(exit.value.sequence as number | null).toBe(expected.sequence);
+
       return;
     }
+
     case "rejected": {
       reached.rejections++;
       const error = Exit.isFailure(exit) ? Cause.findErrorOption(exit.cause) : Option.none();
+
       if (Option.isNone(error) || !(error.value instanceof CommandRejected)) {
         throw new Error(`${label}: expected CommandRejected, got ${String(exit)}`);
       }
+
       expect(error.value.commandId as string).toBe(plan.id!);
+
       return;
     }
+
     case "defect": {
       reached.defects++;
+
       if (!Exit.isFailure(exit) || !Cause.hasDies(exit.cause)) {
         throw new Error(`${label}: expected a defect, got ${String(exit)}`);
       }
+
       return;
     }
   }
@@ -265,6 +294,7 @@ class World {
 
   get rt() {
     if (this.runtime === null) throw new Error("the Daemon is down");
+
     return this.runtime;
   }
 
@@ -275,6 +305,7 @@ class World {
       )
     );
     const store = await this.rt.runPromise(Effect.map(EventStore, (s) => s));
+
     for (const sub of this.subscribers) sub.fiber = this.rt.runFork(follow(store, sub));
   }
 
@@ -282,10 +313,12 @@ class World {
   async crash() {
     const runtime = this.rt;
     this.runtime = null;
+
     for (const sub of this.subscribers) {
       if (sub.fiber !== null) await Effect.runPromise(Fiber.interrupt(sub.fiber));
       sub.fiber = null;
     }
+
     await runtime.dispose();
   }
 
@@ -299,6 +332,7 @@ class World {
       Effect.gen(function* () {
         const model = yield* store.model;
         const events = yield* store.readEvents({ after: 0, upTo: model.sequence, sessionId: null });
+
         return events.map((e) => ({
           seq: e.sequence as number,
           target: targetOf(e),
@@ -318,27 +352,33 @@ const follow = (store: EventStore["Service"], sub: Subscriber) =>
   Effect.gen(function* () {
     const observe = (seq: number, committedUpTo: number) => {
       if (seq <= sub.last) sub.errors.push(`saw ${seq} after ${sub.last}`);
+
       if (seq > committedUpTo) sub.errors.push(`saw ${seq} before it was in the model`);
       sub.last = seq;
       sub.seen.push(seq);
     };
+
     while (true) {
       yield* Effect.scoped(
         Effect.gen(function* () {
           const live = yield* store.subscribe(
             sub.target === null ? {} : { sessionId: sub.target as SessionId }
           );
+
           const cut = (yield* store.model).sequence;
+
           const replay = yield* store.readEvents({
             after: sub.last,
             upTo: cut,
             sessionId: sub.target as SessionId | null,
           });
+
           for (const envelope of replay) observe(envelope.sequence, cut);
           yield* live.pipe(
             Stream.runForEach((item) =>
               Effect.gen(function* () {
                 yield* sub.gate.await;
+
                 if (item._tag !== "Event" || item.envelope.sequence <= cut) return;
                 observe(item.envelope.sequence, (yield* store.model).sequence);
               })
@@ -356,22 +396,27 @@ const checkInvariants = async (model: Model, world: World) => {
   const log = await world.readLog();
   // The database holds exactly the reference log: gapless, nothing lost, nothing extra.
   expect(log).toEqual(model.log);
+
   for (const [i, e] of log.entries()) expect(e.seq).toBe(i + 1);
   expect(await world.store((s) => Effect.map(s.model, (m) => m.sequence))).toBe(log.length);
   // Each command id's events are one contiguous block (one decision).
   const blocks = new Map<string, Array<number>>();
+
   for (const e of log) {
     if (e.commandId === null) continue;
     blocks.set(e.commandId, [...(blocks.get(e.commandId) ?? []), e.seq]);
   }
+
   for (const [id, seqs] of blocks) {
     const first = seqs[0]!;
     expect({ id, seqs }).toEqual({ id, seqs: seqs.map((_, i) => first + i) });
   }
+
   // Every subscriber saw a prefix of its stream: no gaps, duplicates or reordering.
   for (const sub of world.subscribers) {
     expect(sub.errors).toEqual([]);
     const stream = streamSeqs(model.log, sub.target ?? "all");
+
     if (!isPrefix(sub.seen, stream)) {
       throw new Error(
         `subscriber ${sub.target ?? "all"} saw ${sub.seen.join(",")} of ${stream.join(",")}`
@@ -406,18 +451,24 @@ const resolveId = (choice: IdChoice, model: Model, previous: Plan | undefined, k
     case "retry": {
       // Only ids whose command is remembered: a defect leaves no receipt to retry against.
       const candidates = model.ids.filter((id) => model.kinds.get(id)!.tag !== "defect");
+
       if (candidates.length > 0) {
         const id = candidates[choice.pick % candidates.length]!;
+
         return { id, kind: model.kinds.get(id)! };
       }
+
       break;
     }
+
     case "fresh":
       break;
   }
+
   const id = `cmd-${++model.nextId}`;
   model.ids.push(id);
   model.kinds.set(id, kind);
+
   return { id, kind };
 };
 
@@ -448,42 +499,54 @@ class Burst extends Step {
 
   override async step(model: Model, world: World) {
     let previous: Plan | undefined;
+
     const plans = this.groups.map((group) =>
       group.map((spec) => {
         const plan: Plan = { ...resolveId(spec.id, model, previous, spec.kind) };
         previous = plan;
+
         return plan;
       })
     );
+
     const decided: Array<{ readonly plan: Plan; readonly modelSeq: number }> = [];
     const exits = new Map<Plan, Exit.Exit<CommitResult, unknown>>();
     const sent: Array<Plan> = [];
     const runtime = world.rt;
+
     const commitOne = (plan: Plan) => {
       sent.push(plan);
+
       return runtime
         .runPromiseExit(
           Effect.gen(function* () {
             const store = yield* EventStore;
+
             const result = yield* store.commit({
               commandId: plan.id === null ? null : CommandId.make(plan.id),
               decide: (current) => {
                 decided.push({ plan, modelSeq: current.sequence });
+
                 return decideFor(plan);
               },
             });
+
             // The answer comes only once the events are in the database.
             if (result.sequence !== null) {
               const upTo = result.sequence as number;
               const rows = yield* store.readEvents({ after: upTo - 1, upTo, sessionId: null });
+
               if (rows.length !== 1) return yield* Effect.die(new Error("answered before commit"));
             }
+
             return result;
           })
         )
         .then((exit) => void exits.set(plan, exit));
     };
+
     const released: Array<Promise<unknown>> = [];
+
     for (const group of plans) {
       released.push(
         this.scheduler
@@ -491,13 +554,17 @@ class Burst extends Step {
           .then(() => (world.runtime === runtime ? Promise.all(group.map(commitOne)) : undefined))
       );
     }
+
     if (this.crashAfter === null) {
       await this.scheduler.waitIdle();
       await Promise.all(released);
       reconcile(model, decided, exits);
+
       return;
     }
+
     const upTo = Math.min(this.crashAfter ?? 0, this.scheduler.count());
+
     if (upTo > 0) await this.scheduler.waitNext(upTo);
     reached.crashesMidBurst++;
     await world.crash();
@@ -510,6 +577,7 @@ class Burst extends Step {
     const groups = this.groups
       .map((g) => g.map((s) => `${s.id.tag}:${s.kind.tag}`).join("+"))
       .join(" | ");
+
     return `Burst(${groups}${this.crashAfter === null ? "" : `, crash after ${this.crashAfter}`})`;
   }
 }
@@ -521,12 +589,15 @@ const reconcile = (
   exits: ReadonlyMap<Plan, Exit.Exit<CommitResult, unknown>>
 ) => {
   reached.bursts++;
+
   if (decided.length > 1) reached.multiDecisionBursts++;
   const expected = new Map<Plan, Expected>();
+
   for (const { plan, modelSeq } of decided) {
     if (expected.has(plan)) throw new Error(`${plan.id} was decided twice`);
     expected.set(plan, applyDecision(model, plan, modelSeq));
   }
+
   for (const [plan, exit] of exits) {
     const e =
       expected.get(plan) ??
@@ -535,6 +606,7 @@ const reconcile = (
             throw new Error("a Daemon commit was never decided");
           })()
         : expectedFromReceipt(model.receipts.get(plan.id), plan));
+
     checkOutcome(plan, e, exit, model);
   }
 };
@@ -553,23 +625,29 @@ const afterCrash = async (
   expect(log.slice(0, model.log.length)).toEqual(model.log);
   const extra = log.slice(model.log.length);
   let at = 0;
+
   for (const { plan } of decided) {
     const targets = plan.kind.tag === "append" ? plan.kind.targets : [];
     const block = extra.slice(at, at + targets.length);
+
     const committed =
       targets.length > 0 &&
       block.length === targets.length &&
       block.every((e, i) => e.commandId === plan.id && e.target === targets[i]);
+
     if (committed) {
       reached.decidedAndKeptInCrash++;
       at += targets.length;
+
       for (const e of block) model.log.push(e);
+
       if (plan.id !== null) {
         model.receipts.set(plan.id, { tag: "applied", sequence: block.at(-1)!.seq });
       }
     } else if (plan.kind.tag === "append") {
       reached.decidedThenLostInCrash++;
     }
+
     if (
       !committed &&
       plan.id !== null &&
@@ -581,6 +659,7 @@ const afterCrash = async (
       if (plan.kind.tag !== "append") model.receipts.set(plan.id, { tag: "unknown" });
     }
   }
+
   if (at !== extra.length) {
     throw new Error(`events after the crash that no decision explains: ${JSON.stringify(extra)}`);
   }
@@ -603,6 +682,7 @@ class Pause extends Step {
   }
   override async step(_model: Model, world: World) {
     const sub = world.subscribers[this.index % world.subscribers.length]!;
+
     if (this.paused) Latch.closeUnsafe(sub.gate);
     else Latch.openUnsafe(sub.gate);
   }
@@ -620,10 +700,12 @@ class Ephemeral extends Step {
   override async step(_model: Model, world: World) {
     const target = this.target as SessionId;
     const count = this.count;
+
     const [before, after] = await world.store((store) =>
       Effect.gen(function* () {
         // No yield between the counts: publishing is synchronous, so only it could drop anyone.
         const before = yield* store.subscriberCount;
+
         for (let i = 0; i < count; i++) {
           yield* store.publishEphemeral({
             _tag: "Delta",
@@ -634,9 +716,11 @@ class Ephemeral extends Step {
             text: `${i}`,
           });
         }
+
         return [before, yield* store.subscriberCount] as const;
       })
     );
+
     expect(after).toBe(before);
   }
   override toString = () => `Ephemeral(${this.target} x${this.count})`;
@@ -645,6 +729,7 @@ class Ephemeral extends Step {
 // ── Arbitraries ─────────────────────────────────────────────────────────────
 
 const targetArb: fc.Arbitrary<Target> = fc.constantFrom<Target>("s1", "s2", null);
+
 const kindArb: fc.Arbitrary<Kind> = fc.oneof(
   {
     weight: 6,
@@ -656,12 +741,14 @@ const kindArb: fc.Arbitrary<Kind> = fc.oneof(
   { weight: 1, arbitrary: fc.constant({ tag: "empty" as const }) },
   { weight: 1, arbitrary: fc.constant({ tag: "defect" as const }) }
 );
+
 const idArb: fc.Arbitrary<IdChoice> = fc.oneof(
   { weight: 5, arbitrary: fc.constant({ tag: "fresh" as const }) },
   { weight: 3, arbitrary: fc.nat(20).map((pick) => ({ tag: "retry" as const, pick })) },
   { weight: 1, arbitrary: fc.constant({ tag: "again" as const }) },
   { weight: 1, arbitrary: fc.constant({ tag: "daemon" as const }) }
 );
+
 const commitArb = fc.record({ id: idArb, kind: kindArb });
 
 const commandArbs: Array<fc.Arbitrary<Cmd>> = [
@@ -710,13 +797,17 @@ describe("EventStore, model-based", () => {
               errors: [],
               fiber: null,
             }));
+
             const world = new World(capacity, subscribers);
             await world.open();
             const model = newModel();
+
             try {
               await fc.asyncModelRun(() => ({ model, real: world }), commands);
+
               // Liveness: with every subscriber reading again, each catches up.
               for (const sub of subscribers) Latch.openUnsafe(sub.gate);
+
               for (const sub of subscribers) {
                 const stream = streamSeqs(model.log, sub.target ?? "all");
                 await eventually(`subscriber ${sub.target ?? "all"} catches up`, () =>
@@ -726,12 +817,14 @@ describe("EventStore, model-based", () => {
               }
             } finally {
               for (const sub of subscribers) reached.drops += sub.drops;
+
               if (world.runtime !== null) await world.crash();
             }
           }
         ),
         { numRuns: RUNS, ...pbtSeed() }
       );
+
       if (process.env.POLARIS_PBT_STATS === "1") console.info("EventStore PBT reached", reached);
     },
     pbtTimeout(RUNS, 400)

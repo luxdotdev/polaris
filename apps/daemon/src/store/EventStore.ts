@@ -62,6 +62,7 @@ import {
 
 const json = <S extends Schema.Top>(schema: S) => {
   const codec = Schema.toCodecJson(schema);
+
   return {
     encode: (value: S["Type"]): string =>
       JSON.stringify(Schema.encodeSync(codec as never)(value as never)),
@@ -71,12 +72,19 @@ const json = <S extends Schema.Top>(schema: S) => {
 };
 
 const EventJson = json(DomainEvent);
+
 const WorkspaceJson = json(Workspace);
+
 const WorktreeJson = json(Worktree);
+
 const SessionJson = json(AgentSession);
+
 const TurnJson = json(Turn);
+
 const TurnItemJson = json(TurnItem);
+
 const ApprovalJson = json(ApprovalRequest);
+
 const RejectionJson = json(Schema.Union([CommandRejected, NotFound]));
 
 // ── Public types ────────────────────────────────────────────────────────────
@@ -235,7 +243,9 @@ export class EventStore extends Context.Service<
         /** The caller was interrupted before its batch started: skip it. */
         abandoned: boolean;
       }
+
       type Outcome = Exit.Exit<CommitResult, Rejection | ServiceError>;
+
       let queued: Array<Pending> = [];
       /** A drain is scheduled or running; later commits queue for it. */
       let writing = false;
@@ -249,6 +259,7 @@ export class EventStore extends Context.Service<
           const writes: Array<Effect.Effect<unknown, SqlError.SqlError>> = [];
           const published: Array<EventEnvelope> = [];
           const outcomes: Array<Outcome> = [];
+
           // Receipts written earlier in this batch, not yet visible to `findReceipt`.
           const receipts = new Map<
             CommandId,
@@ -257,6 +268,7 @@ export class EventStore extends Context.Service<
 
           for (const { options } of batch) {
             const { commandId } = options;
+
             if (commandId !== null) {
               const receipt =
                 receipts.get(commandId) ??
@@ -272,6 +284,7 @@ export class EventStore extends Context.Service<
                   ),
                   Effect.mapError(storeError("read a command receipt"))
                 ));
+
               if (receipt !== undefined) {
                 outcomes.push(
                   receipt.rejection !== null
@@ -286,8 +299,10 @@ export class EventStore extends Context.Service<
             }
 
             const decided = yield* Effect.exit(options.decide(next));
+
             if (decided._tag === "Failure") {
               const rejection = Cause.findErrorOption(decided.cause);
+
               if (commandId !== null && rejection._tag === "Some") {
                 writes.push(
                   sql`INSERT INTO command_receipts ${sql.insert({
@@ -299,11 +314,13 @@ export class EventStore extends Context.Service<
                 );
                 receipts.set(commandId, { sequence: null, rejection: rejection.value });
               }
+
               outcomes.push(Exit.failCause(decided.cause));
               continue;
             }
 
             const envelopes: Array<EventEnvelope> = [];
+
             for (const event of decided.value) {
               const envelope = new EventEnvelope({
                 sequence: (next.sequence + 1) as Sequence,
@@ -311,13 +328,16 @@ export class EventStore extends Context.Service<
                 commandId,
                 event,
               });
+
               const after = project(next, envelope);
               writes.push(writeEvent(sql, envelope), writeProjection(sql, after, envelope));
               envelopes.push(envelope);
               published.push(envelope);
               next = after;
             }
+
             const sequence = envelopes.length > 0 ? next.sequence : null;
+
             if (commandId !== null) {
               writes.push(
                 sql`INSERT INTO command_receipts ${sql.insert({
@@ -329,6 +349,7 @@ export class EventStore extends Context.Service<
               );
               receipts.set(commandId, { sequence, rejection: null });
             }
+
             outcomes.push(
               Exit.succeed({
                 _tag: "Committed",
@@ -344,10 +365,13 @@ export class EventStore extends Context.Service<
               .withTransaction(Effect.forEach(writes, (write) => write, { discard: true }))
               .pipe(Effect.mapError(storeError("commit events")));
           }
+
           yield* Ref.set(modelRef, next);
+
           for (const envelope of published) {
             hub.publish({ _tag: "Event", envelope, sessionId: sessionOf(envelope.event) });
           }
+
           return outcomes;
         });
 
@@ -359,12 +383,16 @@ export class EventStore extends Context.Service<
       const writeBatch = (taken: ReadonlyArray<Pending>) =>
         Effect.gen(function* () {
           const batch = taken.filter((pending) => !pending.abandoned);
+
           if (batch.length === 0) return;
           const result = yield* Effect.exit(runBatch(batch));
+
           if (result._tag === "Success") return settle(batch, result.value);
+
           if (batch.length === 1) {
             return settle(batch, [result as Exit.Exit<never, ServiceError>]);
           }
+
           // A failed batch wrote nothing; commit its commands one by one, so one bad
           // command (or a transient error) only fails itself.
           for (const pending of batch) {
@@ -399,7 +427,9 @@ export class EventStore extends Context.Service<
             deferred: Deferred.makeUnsafe<CommitResult, Rejection | ServiceError>(),
             abandoned: false,
           };
+
           queued.push(pending);
+
           if (!writing) {
             // Write in a microtask: it runs once every fiber the scheduler is running
             // right now has had its turn (so their commits join this batch), but before
@@ -407,6 +437,7 @@ export class EventStore extends Context.Service<
             writing = true;
             queueMicrotask(() => Effect.runForkWith(context)(drain));
           }
+
           return Deferred.await(pending.deferred).pipe(
             Effect.onInterrupt(() =>
               Effect.sync(() => {
@@ -443,19 +474,25 @@ export class EventStore extends Context.Service<
       }) =>
         Effect.gen(function* () {
           const out = new Map<TurnId, Array<TurnItem>>();
+
           if (options.turnIds.length === 0) return out;
+
           const rows = yield* sql<{ turn_id: string; item_id: string; data: string }>`
             SELECT turn_id, item_id, data FROM turn_items
             WHERE turn_id IN ${sql.in(options.turnIds)} AND sequence <= ${options.upTo}
             ORDER BY sequence`;
+
           // An item completed twice keeps its first position and its latest content.
           const byTurn = new Map<string, Map<string, TurnItem>>();
+
           for (const row of rows) {
             const items = byTurn.get(row.turn_id) ?? new Map<string, TurnItem>();
             items.set(row.item_id, TurnItemJson.decode(row.data));
             byTurn.set(row.turn_id, items);
           }
+
           for (const [turnId, items] of byTurn) out.set(turnId as TurnId, [...items.values()]);
+
           return out;
         }).pipe(Effect.mapError(storeError("read turn items")));
 
@@ -484,6 +521,7 @@ export class EventStore extends Context.Service<
           ORDER BY sequence DESC LIMIT 1`.pipe(
           Effect.map((rows) => {
             const event = rows[0] === undefined ? null : EventJson.decode(rows[0].payload);
+
             return event?._tag === "WorktreeDetected" ? event.worktree : null;
           }),
           Effect.mapError(storeError("read a Worktree"))
@@ -516,6 +554,7 @@ export class EventStore extends Context.Service<
     Effect.sync(() => {
       const file = paths().database;
       mkdirSync(dirname(file), { recursive: true });
+
       return EventStore.layerSqlite(file);
     })
   );
@@ -539,6 +578,7 @@ const makeHub = (capacity: number) => {
     /** Set for a subscriber to one session only. */
     readonly sessionId: SessionId | undefined;
   }
+
   // Subscribers to one session are kept apart, so an item (most are one session's
   // Deltas) visits only that session's subscribers, not every stream of every Client.
   const everything = new Set<Subscriber>();
@@ -549,30 +589,37 @@ const makeHub = (capacity: number) => {
   const drop = (subscriber: Subscriber) => {
     const bucket =
       subscriber.sessionId === undefined ? everything : bySession.get(subscriber.sessionId);
+
     if (bucket === undefined || !bucket.delete(subscriber)) return;
     size--;
+
     if (bucket.size === 0 && subscriber.sessionId !== undefined) {
       bySession.delete(subscriber.sessionId);
     }
+
     Queue.endUnsafe(subscriber.queue);
   };
 
   const offer = (subscribers: ReadonlySet<Subscriber>, item: LiveItem) => {
     for (const subscriber of subscribers) {
       if (subscriber.filter !== undefined && !subscriber.filter(item)) continue;
+
       if (item._tag !== "Event") {
         if (Queue.sizeUnsafe(subscriber.queue) < ephemeralLimit)
           Queue.offerUnsafe(subscriber.queue, item);
         continue;
       }
+
       if (!Queue.offerUnsafe(subscriber.queue, item)) drop(subscriber);
     }
   };
 
   const publish = (item: LiveItem) => {
     if (everything.size > 0) offer(everything, item);
+
     if (item.sessionId !== null) {
       const bucket = bySession.get(item.sessionId);
+
       if (bucket !== undefined) offer(bucket, item);
     }
   };
@@ -585,6 +632,7 @@ const makeHub = (capacity: number) => {
       const queue = yield* Queue.dropping<LiveItem, Cause.Done>(capacity);
       const sessionId = options?.sessionId;
       const subscriber: Subscriber = { queue, filter: options?.filter, sessionId };
+
       if (sessionId === undefined) {
         everything.add(subscriber);
       } else {
@@ -592,8 +640,10 @@ const makeHub = (capacity: number) => {
         bucket.add(subscriber);
         bySession.set(sessionId, bucket);
       }
+
       size++;
       yield* Effect.addFinalizer(() => Effect.sync(() => drop(subscriber)));
+
       return Stream.fromQueue(queue);
     });
 
@@ -620,6 +670,7 @@ const decodeEventRow = (row: EventRow): EventEnvelope =>
 
 const writeEvent = (sql: SqlClient.SqlClient, envelope: EventEnvelope) => {
   const sessionId = sessionOf(envelope.event);
+
   return sql`INSERT INTO events ${sql.insert({
     sequence: envelope.sequence,
     stream_kind: sessionId === null ? "host" : "session",
@@ -660,6 +711,7 @@ const writeProjection = (
   envelope: EventEnvelope
 ): Effect.Effect<unknown, SqlError.SqlError> => {
   const event = envelope.event;
+
   switch (event._tag) {
     case "WorkspaceRegistered":
     case "WorkspaceUpdated":
@@ -685,6 +737,7 @@ const writeProjection = (
       const sessionId = sessionOf(event)!;
       const record = after.sessions.get(sessionId);
       const session = upsertSession(sql, record);
+
       switch (event._tag) {
         case "TurnStarted":
         case "TurnEnded":
@@ -735,10 +788,13 @@ const loadModel = (sql: SqlClient.SqlClient) =>
     const [max] = yield* sql<{
       sequence: number | null;
     }>`SELECT MAX(sequence) AS sequence FROM events`;
+
     const workspaces = yield* sql<{ data: string }>`SELECT data FROM workspaces`;
     const worktrees = yield* sql<{ data: string }>`SELECT data FROM worktrees`;
+
     const sessions = yield* sql<{ data: string; title_locked: number }>`
       SELECT data, title_locked FROM sessions`;
+
     // Only the most recent Turns of each session stay in memory (see RECENT_TURNS).
     const turns = yield* sql<{ data: string }>`
       SELECT data FROM (
@@ -747,16 +803,20 @@ const loadModel = (sql: SqlClient.SqlClient) =>
         FROM turns
       ) WHERE recency <= ${RECENT_TURNS}
       ORDER BY session_id, turn_index`;
+
     const pending = yield* sql<{ data: string }>`SELECT data FROM pending_approvals`;
 
     const turnsBySession = new Map<string, Array<Turn>>();
+
     for (const row of turns) {
       const turn = TurnJson.decode(row.data);
       const list = turnsBySession.get(turn.sessionId) ?? [];
       list.push(turn);
       turnsBySession.set(turn.sessionId, list);
     }
+
     const pendingBySession = new Map<string, Map<ApprovalRequest["id"], ApprovalRequest>>();
+
     for (const row of pending) {
       const request = ApprovalJson.decode(row.data);
       const map = pendingBySession.get(request.sessionId) ?? new Map();
@@ -770,18 +830,21 @@ const loadModel = (sql: SqlClient.SqlClient) =>
       workspaces: new Map(
         workspaces.map((row) => {
           const w = WorkspaceJson.decode(row.data);
+
           return [w.id, w];
         })
       ),
       worktrees: new Map(
         worktrees.map((row) => {
           const w = WorktreeJson.decode(row.data);
+
           return [w.id, w];
         })
       ),
       sessions: new Map(
         sessions.map((row) => {
           const session = SessionJson.decode(row.data);
+
           return [
             session.id,
             {
@@ -794,5 +857,6 @@ const loadModel = (sql: SqlClient.SqlClient) =>
         })
       ),
     };
+
     return model;
   });

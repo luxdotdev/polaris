@@ -5,13 +5,16 @@ import { basename, join } from "node:path";
 import { snapshotWorkingTree } from "./snapshot.ts";
 
 const dirs: Array<string> = [];
+
 afterEach(() => {
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
 const git = (cwd: string, ...args: Array<string>) => {
   const r = Bun.spawnSync(["git", ...args], { cwd });
+
   if (r.exitCode !== 0) throw new Error(r.stderr.toString());
+
   return r.stdout.toString().trim();
 };
 
@@ -43,9 +46,11 @@ const makeRepo = (files: Record<string, string>) => {
   git(repo, "init", "-q", "-b", "main");
   git(repo, "config", "user.email", "t@example.com");
   git(repo, "config", "user.name", "t");
+
   for (const [path, content] of Object.entries(files)) writeFileSync(join(repo, path), content);
   git(repo, "add", "-A");
   git(repo, "commit", "-qm", "init");
+
   return repo;
 };
 
@@ -128,10 +133,12 @@ test("a user's split index is read but never split or expired by our writes", as
   const repo = makeRepo({ "a.txt": "a\n" });
   git(repo, "config", "core.splitIndex", "true");
   git(repo, "update-index", "--split-index");
+
   const shared = () =>
     readdirSync(join(repo, ".git"))
       .filter((name) => name.startsWith("sharedindex."))
       .sort();
+
   const before = shared();
   expect(before.length).toBe(1);
   writeFileSync(join(repo, "b.txt"), "b\n");

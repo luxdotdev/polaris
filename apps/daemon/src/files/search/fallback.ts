@@ -13,10 +13,13 @@ import type { FileChange, GrepHit, GrepQuery, PathHit, SearchBackend } from "./t
 
 /** Cap on files considered by the walk outside git repositories. */
 const WALK_MAX_FILES = 200_000;
+
 /** Directories the walk skips outside git repositories (inside, .gitignore decides). */
 const WALK_SKIP = new Set([".git", "node_modules", ".hg", ".svn"]);
+
 /** How long a file list is reused before it is rebuilt. */
 const LIST_TTL_MS = 5_000;
+
 /** Batch window for fs.watch events. */
 const WATCH_BATCH_MS = 50;
 
@@ -45,13 +48,17 @@ const matchFrom = (
   let score = 0;
   let at = from;
   let previous = -2;
+
   for (const q of query) {
     const found = lower.indexOf(q, at);
+
     if (found < 0) return null;
     score += 1;
+
     if (found === previous + 1) score += 5;
     const before = candidate[found - 1];
     const here = candidate[found]!;
+
     if (isSeparator(before)) score += 8;
     else if (before !== undefined && before === before.toLowerCase() && here !== here.toLowerCase())
       score += 6;
@@ -59,6 +66,7 @@ const matchFrom = (
     previous = found;
     at = found + 1;
   }
+
   return score;
 };
 
@@ -69,27 +77,33 @@ const matchFrom = (
  */
 export const fuzzyScore = (query: string, path: string): number | null => {
   const q = query.toLowerCase().replace(/\s+/g, "");
+
   if (q === "") return 0;
   const lower = path.toLowerCase();
   const slash = path.lastIndexOf("/");
   const inName = matchFrom(q, path, lower, slash + 1);
   const anywhere = matchFrom(q, path, lower, 0);
+
   if (anywhere === null) return null;
   const best = inName !== null ? Math.max(inName + q.length * 2, anywhere) : anywhere;
+
   return best - path.length * 0.01;
 };
 
 const walk = async (root: string): Promise<Array<string>> => {
   const out: Array<string> = [];
   const stack = [root];
+
   while (stack.length > 0 && out.length < WALK_MAX_FILES) {
     const dir = stack.pop()!;
     let entries: Array<import("node:fs").Dirent>;
+
     try {
       entries = await readdir(dir, { withFileTypes: true });
     } catch {
       continue;
     }
+
     for (const entry of entries) {
       if (entry.isDirectory()) {
         if (!WALK_SKIP.has(entry.name)) stack.push(join(dir, entry.name));
@@ -98,6 +112,7 @@ const walk = async (root: string): Promise<Array<string>> => {
       }
     }
   }
+
   return out;
 };
 
@@ -105,11 +120,13 @@ const walk = async (root: string): Promise<Array<string>> => {
 export const listFiles = async (root: string, inRepo?: boolean): Promise<Array<string>> => {
   if (inRepo ?? (await findRepoRoot(root)) !== null) {
     const { stdout } = await runGit(root, ["ls-files", "-z", "-co", "--exclude-standard"]);
+
     return new TextDecoder()
       .decode(stdout)
       .split("\0")
       .filter((p) => p !== "");
   }
+
   return walk(root);
 };
 
@@ -127,7 +144,9 @@ export const gitGrep = async (
 ): Promise<Array<GrepHit>> => {
   if (query.limit <= 0) return [];
   const inRepo = knownInRepo ?? (await findRepoRoot(root)) !== null;
+
   if (!query.regex) return runGitGrep(root, inRepo, "-F", query);
+
   try {
     return await runGitGrep(root, inRepo, "-P", query);
   } catch (cause) {
@@ -143,6 +162,7 @@ const runGitGrep = async (
   query: GrepQuery
 ): Promise<Array<GrepHit>> => {
   const threads = gitGrepThreads();
+
   const args = [
     "grep",
     ...(threads === null ? [] : ["--threads", String(threads)]),
@@ -159,6 +179,7 @@ const runGitGrep = async (
     "--",
     ".",
   ];
+
   const proc = Bun.spawn(["git", ...args], {
     cwd: root,
     env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_OPTIONAL_LOCKS: "0", LC_ALL: "C" },
@@ -166,11 +187,14 @@ const runGitGrep = async (
     stdout: "pipe",
     stderr: "pipe",
   });
+
   const hits: Array<GrepHit> = [];
   const decoder = new TextDecoder();
   let buffer = "";
+
   const parseLine = (line: string) => {
     const [path, lineNo, column, ...rest] = line.split("\0");
+
     if (path === undefined || lineNo === undefined || column === undefined) return;
     hits.push({
       path: join(root, path),
@@ -179,40 +203,51 @@ const runGitGrep = async (
       text: rest.join("\0"),
     });
   };
+
   for await (const chunk of proc.stdout) {
     buffer += decoder.decode(chunk, { stream: true });
     let newline = buffer.indexOf("\n");
+
     while (newline >= 0 && hits.length < query.limit) {
       parseLine(buffer.slice(0, newline));
       buffer = buffer.slice(newline + 1);
       newline = buffer.indexOf("\n");
     }
+
     if (hits.length >= query.limit) {
       proc.kill();
       break;
     }
   }
+
   if (hits.length < query.limit && buffer !== "") parseLine(buffer);
   const code = await proc.exited;
+
   // 0 = matches, 1 = none; anything else (bad regex, …) is an error unless we killed it.
   if (code > 1 && hits.length < query.limit) {
     const stderr = (await new Response(proc.stderr).text()).trim();
+
     if (flavour === "-P" && /PCRE|perl/i.test(stderr)) throw new RegexFlavourUnsupported(stderr);
     throw new Error(stderr || `git grep exited ${code}`);
   }
+
   return hits.slice(0, query.limit);
 };
 
 export const makeFallbackBackend = (root: string): SearchBackend => {
   // Whether `root` is inside a repository, looked up again at most every LIST_TTL_MS.
   let repo: { at: number; inRepo: Promise<boolean> } | null = null;
+
   const inRepo = () => {
     if (repo === null || Date.now() - repo.at > LIST_TTL_MS) {
       repo = { at: Date.now(), inRepo: findRepoRoot(root).then((r) => r !== null) };
     }
+
     return repo.inRepo;
   };
+
   let cached: { at: number; files: Promise<Array<string>> } | null = null;
+
   const files = () => {
     if (cached === null || Date.now() - cached.at > LIST_TTL_MS) {
       cached = { at: Date.now(), files: inRepo().then((r) => listFiles(root, r)) };
@@ -220,8 +255,10 @@ export const makeFallbackBackend = (root: string): SearchBackend => {
         cached = null;
       });
     }
+
     return cached.files;
   };
+
   const watchers = new Set<() => void>();
 
   return {
@@ -229,25 +266,32 @@ export const makeFallbackBackend = (root: string): SearchBackend => {
     root,
     searchPaths: async (query, limit) => {
       const hits: Array<PathHit> = [];
+
       for (const path of await files()) {
         const score = fuzzyScore(query, path);
+
         if (score !== null) hits.push({ path: join(root, path), score });
       }
+
       return hits.sort((a, b) => b.score - a.score).slice(0, limit);
     },
     grep: async (query) => gitGrep(root, query, await inRepo()),
     watch: async (onBatch) => {
       let pending = new Map<string, FileChange>();
       let timer: ReturnType<typeof setTimeout> | undefined;
+
       const flush = () => {
         timer = undefined;
         const batch = [...pending.values()];
         pending = new Map();
+
         if (batch.length > 0) onBatch(batch);
       };
+
       const watcher: FSWatcher = fsWatch(root, { recursive: true }, (event, name) => {
         if (name === null) return;
         const rel = name.toString();
+
         if (rel === ".git" || rel.startsWith(".git/") || rel.includes("/.git/")) return;
         const path = join(root, rel);
         // fs.watch can't tell created from deleted; look at the file system.
@@ -260,12 +304,15 @@ export const makeFallbackBackend = (root: string): SearchBackend => {
         cached = null;
         timer ??= setTimeout(flush, WATCH_BATCH_MS);
       });
+
       const stop = () => {
         clearTimeout(timer);
         watcher.close();
         watchers.delete(stop);
       };
+
       watchers.add(stop);
+
       return stop;
     },
     dispose: () => {

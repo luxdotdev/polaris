@@ -49,6 +49,7 @@ export const hookSettings = (options: { readonly url: string; readonly token: st
     headers: { Authorization: `Bearer ${options.token}` },
     timeout: HOOK_TIMEOUT_SECONDS,
   };
+
   return {
     hooks: Object.fromEntries(
       FOLLOWED_HOOK_EVENTS.map((event) => [
@@ -112,30 +113,37 @@ export class HookTranslator {
       this.turnId = this.newTurnId();
       events.push({ _tag: "TurnStarted", turnId: this.turnId, prompt });
     }
+
     return this.turnId;
   }
 
   private endTurn(events: HarnessEvent[], status: "completed" | "interrupted"): void {
     if (this.turnId === null) return;
+
     if (this.plan !== null) {
       events.push({ _tag: "ItemCompleted", turnId: this.turnId, item: this.plan });
       this.plan = null;
     }
+
     events.push({ _tag: "TurnEnded", turnId: this.turnId, status, error: null });
     this.turnId = null;
   }
 
   onHook(body: unknown): HarnessEvent[] {
     if (!isRecord(body) || this.ended) return [];
+
     // Subagent activity is summarized by the parent's own tool call.
     if (typeof body.agent_id === "string") return [];
     const events: HarnessEvent[] = [];
     const sessionId = str(body.session_id);
+
     if (sessionId !== null && sessionId !== this.cursor) {
       this.cursor = sessionId;
       events.push({ _tag: "CursorAssigned", cursor: sessionId });
     }
+
     const cwd = str(body.cwd) ?? "";
+
     switch (body.hook_event_name) {
       case "UserPromptSubmit":
         this.withdraw(events);
@@ -147,6 +155,7 @@ export class HookTranslator {
         const id = str(body.tool_use_id);
         const name = str(body.tool_name) ?? "unknown";
         this.lastTool = { name, input: body.tool_input };
+
         if (id !== null && name !== "TodoWrite")
           events.push({
             _tag: "ItemUpdated",
@@ -163,20 +172,24 @@ export class HookTranslator {
           });
         break;
       }
+
       case "PostToolUse":
       case "PostToolUseFailure": {
         this.withdraw(events);
         const turnId = this.ensureTurn(events);
         const id = str(body.tool_use_id);
         const name = str(body.tool_name) ?? "unknown";
+
         if (id === null) break;
         const failed = body.hook_event_name === "PostToolUseFailure";
+
         if (name === "TodoWrite") {
           if (failed) break;
           this.plan = { _tag: "Plan", id: `plan:${turnId}`, steps: planSteps(body.tool_input) };
           events.push({ _tag: "ItemUpdated", turnId, item: this.plan });
           break;
         }
+
         events.push({
           _tag: "ItemCompleted",
           turnId,
@@ -192,6 +205,7 @@ export class HookTranslator {
         });
         break;
       }
+
       case "Notification": {
         if (body.notification_type !== "permission_prompt" || this.pendingPrompt !== null) break;
         const turnId = this.ensureTurn(events);
@@ -209,10 +223,12 @@ export class HookTranslator {
         });
         break;
       }
+
       case "Stop": {
         this.withdraw(events);
         const turnId = this.turnId;
         const text = str(body.last_assistant_message);
+
         if (turnId !== null && text)
           events.push({
             _tag: "ItemCompleted",
@@ -222,6 +238,7 @@ export class HookTranslator {
         this.endTurn(events, "completed");
         break;
       }
+
       case "SessionEnd":
         this.withdraw(events);
         this.endTurn(events, "interrupted");
@@ -229,6 +246,7 @@ export class HookTranslator {
         events.push({ _tag: "Exited", error: null });
         break;
     }
+
     return events;
   }
 }
@@ -236,6 +254,7 @@ export class HookTranslator {
 const tokensEqual = (a: string, b: string): boolean => {
   const x = Buffer.from(a);
   const y = Buffer.from(b);
+
   return x.length === y.length && timingSafeEqual(x, y);
 };
 
@@ -255,21 +274,27 @@ export const makeHookHandler =
   async (request: Request): Promise<Response> => {
     const url = new URL(request.url);
     const match = /^\/hooks\/([^/]+)$/.exec(url.pathname);
+
     if (request.method !== "POST" || !match) return new Response(null, { status: 404 });
     const registration = registrations.get(decodeURIComponent(match[1]!));
     const auth = request.headers.get("authorization") ?? "";
     const token = auth.startsWith("Bearer ") ? auth.slice("Bearer ".length) : "";
+
     if (!registration || !tokensEqual(token, registration.token))
       return new Response(null, { status: 401 });
     let body: unknown;
+
     try {
       body = await request.json();
     } catch {
       return new Response(null, { status: 400 });
     }
+
     for (const event of registration.translator.onHook(body))
       Queue.offerUnsafe(registration.queue, event);
+
     if (registration.translator.isEnded) Queue.endUnsafe(registration.queue);
+
     // An empty object: observe only, never decide for the TUI.
     return Response.json({});
   };
@@ -300,18 +325,22 @@ export class ClaudeHookReceiver extends Context.Service<
       const settingsDir = options?.settingsDir ?? join(paths().root, "hooks");
       const registrations = new Map<string, Registration>();
       const handler = makeHookHandler(registrations);
+
       const server = yield* Effect.acquireRelease(
         Effect.sync(() => Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: handler })),
         (server) =>
           Effect.promise(async () => {
             await server.stop(true);
+
             for (const r of registrations.values()) {
               Queue.endUnsafe(r.queue);
               await rm(r.settingsPath, { force: true });
             }
+
             registrations.clear();
           })
       );
+
       const port = server.port!;
 
       const prepare = Effect.fn("ClaudeHookReceiver.prepare")(function* (o: {
@@ -319,6 +348,7 @@ export class ClaudeHookReceiver extends Context.Service<
         readonly cursor: string | null;
       }) {
         const existing = registrations.get(o.sessionId);
+
         if (existing) return { settingsPath: existing.settingsPath };
         const token = Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");
         const settingsPath = join(settingsDir, `${encodeURIComponent(o.sessionId)}.json`);
@@ -344,17 +374,20 @@ export class ClaudeHookReceiver extends Context.Service<
           queue,
           settingsPath,
         });
+
         return { settingsPath };
       });
 
       const events = (sessionId: SessionId): Stream.Stream<HarnessEvent> => {
         const r = registrations.get(sessionId);
+
         return r ? Stream.fromQueue(r.queue) : Stream.empty;
       };
 
       const release = (sessionId: SessionId) =>
         Effect.promise(async () => {
           const r = registrations.get(sessionId);
+
           if (!r) return;
           registrations.delete(sessionId);
           Queue.endUnsafe(r.queue);

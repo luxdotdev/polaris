@@ -19,16 +19,20 @@ import {
 import { commitAll, makeRepo, removeDir, write } from "./testing.ts";
 
 const cleanup: Array<string> = [];
+
 afterEach(() => {
   for (const dir of cleanup.splice(0)) removeDir(dir);
 });
+
 const repo = async () => {
   const root = await makeRepo();
   cleanup.push(root);
+
   return root;
 };
 
 const DAY = 24 * 60 * 60 * 1000;
+
 const NOW = 1_800_000_000_000;
 
 /** Refs for Turns t1..tn of `sessionId`, each with before and after, t1 oldest. */
@@ -68,6 +72,7 @@ describe("planCheckpointPrune", () => {
       sessions: [{ sessionId: "s1", archivedAt: null }],
       now: NOW,
     });
+
     expect(plan.delete).toEqual([]);
     expect(plan.keep).toHaveLength(6);
     expect(plan.sessions.get("s1")).toBe("live");
@@ -79,6 +84,7 @@ describe("planCheckpointPrune", () => {
       sessions: [archived("s1", DEFAULT_CHECKPOINT_POLICY.compactAfterMs - 1)],
       now: NOW,
     });
+
     expect(plan.delete).toEqual([]);
     expect(plan.sessions.get("s1")).toBe("grace");
   });
@@ -89,6 +95,7 @@ describe("planCheckpointPrune", () => {
       sessions: [archived("s1", 8 * DAY)],
       now: NOW,
     });
+
     expect(plan.sessions.get("s1")).toBe("compact");
     expect(plan.keep).toEqual([
       checkpointRef("s1", "t1", "before"),
@@ -103,6 +110,7 @@ describe("planCheckpointPrune", () => {
       sessions: [archived("s1", 8 * DAY, { turnIds: ["t3", "t1", "t2"] })],
       now: NOW,
     });
+
     expect(plan.keep).toEqual([
       checkpointRef("s1", "t2", "after"),
       checkpointRef("s1", "t3", "before"),
@@ -124,6 +132,7 @@ describe("planCheckpointPrune", () => {
       sessions: [archived("s1", 8 * DAY, { pinnedTurnIds: ["t2"] })],
       now: NOW,
     });
+
     expect(plan.keep).toEqual([
       checkpointRef("s1", "t1", "before"),
       checkpointRef("s1", "t2", "after"),
@@ -139,6 +148,7 @@ describe("planCheckpointPrune", () => {
       now: NOW,
       unmergedBranches: new Set(),
     });
+
     expect(plan.sessions.get("s1")).toBe("drop");
     expect(plan.keep).toEqual([]);
     expect(plan.delete).toHaveLength(4);
@@ -151,6 +161,7 @@ describe("planCheckpointPrune", () => {
       now: NOW,
       unmergedBranches: new Set(["polaris/s1"]),
     });
+
     expect(plan.sessions.get("s1")).toBe("protected");
     expect(plan.keep).toEqual([
       checkpointRef("s1", "t1", "before"),
@@ -172,6 +183,7 @@ describe("planCheckpointPrune", () => {
       sessions: [{ sessionId: "live", archivedAt: null }, archived("old", 40 * DAY)],
       now: NOW,
     });
+
     expect(plan.delete.every((r) => r.includes("/old/"))).toBe(true);
     expect(plan.keep.every((r) => r.includes("/live/"))).toBe(true);
   });
@@ -200,6 +212,7 @@ describe("pruneCheckpoints in a real repository", () => {
       ],
       {}
     );
+
     expect(report.deleted).toHaveLength(4);
     const left = (await listCheckpointRefs(root)).map((r) => r.ref).sort();
     expect(left).toEqual(
@@ -212,6 +225,7 @@ describe("pruneCheckpoints in a real repository", () => {
         checkpointRef("old", "t3", "after"),
       ].sort()
     );
+
     // The kept endpoints still give the whole session's diff.
     const diff = await gitText(root, [
       "diff",
@@ -219,17 +233,20 @@ describe("pruneCheckpoints in a real repository", () => {
       checkpointRef("old", "t1", "before"),
       checkpointRef("old", "t3", "after"),
     ]);
+
     expect(diff.split("\n")).toEqual(["old-1.txt", "old-2.txt", "old-3.txt"]);
   });
 
   test("a dry run deletes nothing", async () => {
     const root = await repo();
     await capture(root, "old", 2);
+
     const report = await pruneCheckpoints(
       root,
       [{ sessionId: "old", archivedAt: Date.now() - 40 * DAY }],
       { dryRun: true }
     );
+
     expect(report.deleted).toHaveLength(4);
     expect(await listCheckpointRefs(root)).toHaveLength(4);
   });
@@ -248,6 +265,7 @@ describe("pruneCheckpoints in a real repository", () => {
       archivedAt: Date.now() - 40 * DAY,
       worktreeBranch: "polaris/s1",
     };
+
     const protectedReport = await pruneCheckpoints(root, [session]);
     expect(protectedReport.sessions.get("s1")).toBe("protected");
     expect(await listCheckpointRefs(root)).toHaveLength(2);
@@ -261,9 +279,11 @@ describe("pruneCheckpoints in a real repository", () => {
   test("a deleted Worktree branch no longer protects", async () => {
     const root = await repo();
     await capture(root, "s1", 1);
+
     const report = await pruneCheckpoints(root, [
       { sessionId: "s1", archivedAt: Date.now() - 40 * DAY, worktreeBranch: "gone" },
     ]);
+
     expect(report.sessions.get("s1")).toBe("drop");
     expect(await listCheckpointRefs(root)).toHaveLength(0);
   });
@@ -273,10 +293,13 @@ describe("pruneCheckpoints in a real repository", () => {
     await capture(root, "a", 3);
     await capture(root, "b", 1);
     const now = Date.now();
+
     const graced = await Effect.runPromise(
       onSessionArchived(root, { sessionId: "a", archivedAt: now })
     );
+
     expect(graced.delete).toEqual([]);
+
     const immediate = await Effect.runPromise(
       onSessionArchived(
         root,
@@ -284,6 +307,7 @@ describe("pruneCheckpoints in a real repository", () => {
         { policy: { compactAfterMs: 0, dropAfterMs: 30 * DAY } }
       )
     );
+
     expect(immediate.delete).toHaveLength(4);
     const left = (await listCheckpointRefs(root)).map((r) => r.ref);
     expect(left.filter((r) => r.includes("/b/"))).toHaveLength(2);
@@ -301,12 +325,14 @@ describe("pruneCheckpoints in a real repository", () => {
   test("the sweep skips a broken repository and prunes the rest", async () => {
     const root = await repo();
     await capture(root, "old", 1);
+
     const reports = await Effect.runPromise(
       sweepCheckpoints([
         { repoPath: join(root, "does-not-exist"), sessions: [] },
         { repoPath: root, sessions: [{ sessionId: "old", archivedAt: Date.now() - 40 * DAY }] },
       ])
     );
+
     expect(reports.map((r) => r.repoPath)).toEqual([root]);
     expect(await listCheckpointRefs(root)).toHaveLength(0);
   });
@@ -315,15 +341,18 @@ describe("pruneCheckpoints in a real repository", () => {
     const root = await repo();
     await capture(root, "old", 1);
     let calls = 0;
+
     const fiber = Effect.runFork(
       runCheckpointSweeper({
         interval: "20 millis",
         targets: Effect.sync(() => {
           calls++;
+
           return [{ repoPath: root, sessions: [{ sessionId: "old", archivedAt: 0 }] }];
         }),
       })
     );
+
     while (calls < 3) await Bun.sleep(10);
     await Effect.runPromise(Fiber.interrupt(fiber));
     expect(await listCheckpointRefs(root)).toHaveLength(0);

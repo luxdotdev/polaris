@@ -110,6 +110,7 @@ export const initialConnectionModel = (): ConnectionModel => initial;
 /** The model after `step`; the same snapshot when the step can't happen. */
 export const stepConnection = (model: ConnectionModel, step: ConnectionStep): ConnectionModel => {
   const { machine, phase, clock } = model;
+
   const fail = (failure: ConnectFailure) => {
     const [next] = connectionMachine.transition(machine, {
       type: "failed",
@@ -117,6 +118,7 @@ export const stepConnection = (model: ConnectionModel, step: ConnectionStep): Co
       now: clock,
       jitter: 0.5,
     });
+
     return {
       ...model,
       machine: next,
@@ -124,9 +126,11 @@ export const stepConnection = (model: ConnectionModel, step: ConnectionStep): Co
       failedAt: clock,
     };
   };
+
   switch (step.type) {
     case "connect":
       if (phase !== "attempting") return model;
+
       return {
         ...model,
         machine: connectionMachine.transition(machine, {
@@ -141,6 +145,7 @@ export const stepConnection = (model: ConnectionModel, step: ConnectionStep): Co
       return phase === "live" ? fail(LOST) : model;
     case "retry":
       if (phase !== "waiting") return model;
+
       return {
         ...model,
         machine: connectionMachine.transition(machine, { type: "retry" })[0],
@@ -148,13 +153,17 @@ export const stepConnection = (model: ConnectionModel, step: ConnectionStep): Co
       };
     case "elapse": {
       const delay = machine.context.delay;
+
       if (phase !== "waiting" || delay === null) return model;
+
       return { ...model, phase: "attempting", clock: clock + delay };
     }
+
     case "tick": {
       if (phase !== "waiting") return model;
       const delay = machine.context.delay;
       const passed = MODEL_POLICY.restartGraceMs;
+
       return {
         ...model,
         clock: clock + passed,
@@ -189,6 +198,7 @@ export const observeConnectionModel = (model: ConnectionModel): ObservedConnecti
 export const serializeConnection = (model: ConnectionModel): string => {
   const { context, value } = model.machine;
   const sinceLost = context.lostAt === null ? "never" : model.clock - context.lostAt;
+
   return JSON.stringify({
     value,
     phase: model.phase,
@@ -230,11 +240,14 @@ const stepsOf = (path: { readonly steps: ReadonlyArray<{ readonly event: unknown
  */
 export const connectionPaths = () => {
   const logic = connectionModelLogic;
+
   const shortest = getShortestPaths(logic, traversal) as unknown as ReadonlyArray<{
     readonly state: ConnectionModel;
     readonly steps: ReadonlyArray<{ readonly event: ConnectionStep }>;
   }>;
+
   const toState = new Map(shortest.map((path) => [serializeConnection(path.state), stepsOf(path)]));
+
   const adjacency = getAdjacencyMap(logic, traversal) as unknown as Record<
     string,
     {
@@ -244,7 +257,9 @@ export const connectionPaths = () => {
       >;
     }
   >;
+
   const transitions: Array<Path> = [];
+
   for (const [key, vertex] of Object.entries(adjacency)) {
     for (const edge of Object.values(vertex.transitions)) {
       if (serializeConnection(edge.state) !== key) {
@@ -252,5 +267,6 @@ export const connectionPaths = () => {
       }
     }
   }
+
   return { states: shortest.map(stepsOf), transitions };
 };

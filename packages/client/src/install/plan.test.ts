@@ -8,12 +8,15 @@ const build = (platform: DaemonBuild["platform"], version = "1.2.0"): DaemonBuil
   sha256: `sha-${platform}-${version}`,
   files: [{ name: "polaris", path: `/dist/${platform}/polaris`, sha256: "x", size: 1 }],
 });
+
 const builds = [build("darwin-arm64"), build("linux-x64"), build("linux-arm64")];
+
 const linux = (installed: HostProbe["installed"] = null): HostProbe => ({
   os: "Linux",
   arch: "x86_64",
   installed,
 });
+
 const user = { trigger: "user", approvedSha256: new Set<string>() } as const;
 
 describe("platformFromUname", () => {
@@ -51,6 +54,7 @@ describe("planInstall", () => {
       trigger: "user",
       approvedSha256: new Set(["sha-linux-x64-1.2.0"]),
     });
+
     expect(plan).toMatchObject({ _tag: "Install", build: { platform: "linux-x64" } });
   });
 
@@ -59,6 +63,7 @@ describe("planInstall", () => {
       trigger: "background",
       approvedSha256: new Set(["sha-linux-x64-1.2.0"]),
     });
+
     expect(plan).toMatchObject({ _tag: "NeedsApproval", reason: "background" });
   });
 
@@ -67,6 +72,7 @@ describe("planInstall", () => {
       trigger: "background",
       approvedSha256: new Set(),
     });
+
     expect(plan).toMatchObject({ _tag: "Upgrade", from: "1.1.0" });
   });
 
@@ -97,6 +103,7 @@ describe("planInstall", () => {
 
 describe("musl Hosts", () => {
   const withMusl = [...builds, build("linux-x64-musl"), build("linux-arm64-musl")];
+
   const alpine = (missingLibraries: ReadonlyArray<string> = []): HostProbe => ({
     os: "Linux",
     arch: "aarch64",

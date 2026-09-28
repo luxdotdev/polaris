@@ -34,8 +34,11 @@ export const isQuestionTool = (toolName: string): boolean => toolName === "AskUs
 
 export const approvalKind = (toolName: string): ApprovalKind => {
   if (toolName === "Bash") return "command";
+
   if (FILE_TOOLS.has(toolName)) return "file-change";
+
   if (isQuestionTool(toolName)) return "question";
+
   return "tool";
 };
 
@@ -54,16 +57,21 @@ const str = (u: unknown): string | null => (typeof u === "string" ? u : null);
 /** The questions of an `AskUserQuestion` call (1–4, each with 2–4 options). */
 export const parseQuestions = (input: unknown): ReadonlyArray<QuestionSpec> => {
   if (!isRecord(input) || !Array.isArray(input.questions)) return [];
+
   return input.questions.flatMap((q): QuestionSpec[] => {
     if (!isRecord(q)) return [];
     const question = str(q.question);
+
     if (question === null) return [];
+
     const options = Array.isArray(q.options)
       ? q.options.flatMap((o) => {
           const label = isRecord(o) ? str(o.label) : null;
+
           return label === null ? [] : [label];
         })
       : [];
+
     return [
       { question, header: str(q.header) ?? "", options, multiSelect: q.multiSelect === true },
     ];
@@ -76,6 +84,7 @@ export const describeToolCall = (
   input: unknown
 ): { readonly title: string; readonly detail: string | null } => {
   const i = isRecord(input) ? input : {};
+
   switch (toolName) {
     case "Bash":
       return { title: str(i.description) ?? "Run a command", detail: str(i.command) };
@@ -94,11 +103,13 @@ export const describeToolCall = (
       return { title: "Approve the plan", detail: str(i.plan) };
     case "AskUserQuestion": {
       const questions = parseQuestions(input);
+
       return {
         title: questions[0]?.question ?? "Claude has a question",
         detail: questions.length > 1 ? questions.map((q) => q.question).join("\n") : null,
       };
     }
+
     default:
       return { title: `Use ${toolName}`, detail: JSON.stringify(input) };
   }
@@ -114,6 +125,7 @@ export const answersFor = (
 ): Record<string, string> => {
   const lines = text.split("\n").map((l) => l.trim());
   const perLine = questions.length > 1 && lines.length === questions.length;
+
   return Object.fromEntries(questions.map((q, i) => [q.question, perLine ? lines[i]! : text]));
 };
 
@@ -149,6 +161,7 @@ export const toPermissionResult = (
           },
         };
       }
+
       // A typed reply to a permission prompt: decline, and hand Claude the user's words.
       return { behavior: "deny", message: decision.text };
   }

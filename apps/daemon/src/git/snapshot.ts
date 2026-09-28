@@ -51,8 +51,11 @@ const repos = new Map<string, Repo>();
 
 const discover = async (cwd: string): Promise<Repo | null> => {
   const cached = repos.get(cwd);
+
   if (cached !== undefined) return cached;
+
   if (!mayBeInWorkTree(cwd)) return null;
+
   // One process for the top level and both index paths (per worktree).
   const result = await runGitRaw(cwd, [
     "rev-parse",
@@ -63,11 +66,14 @@ const discover = async (cwd: string): Promise<Repo | null> => {
     "--git-path",
     "polaris/index",
   ]).catch(() => null);
+
   if (result === null || result.code !== 0) return null;
   const [root, userIndex, ownIndex] = decoder.decode(result.stdout).split("\n");
+
   if (!root || !userIndex || !ownIndex) return null;
   const repo = { root, userIndex, ownIndex };
   repos.set(cwd, repo);
+
   return repo;
 };
 
@@ -80,6 +86,7 @@ const seeds = new Map<string, string | null>();
 
 const signature = async (path: string): Promise<string | null> => {
   const s = await stat(path, { bigint: true }).catch(() => null);
+
   return s === null ? null : `${s.dev}:${s.ino}:${s.size}:${s.mtimeNs}:${s.ctimeNs}`;
 };
 
@@ -94,6 +101,7 @@ const serialized = <A>(key: string, task: () => Promise<A>): Promise<A> => {
   void settled.then(() => {
     if (queues.get(key) === settled) queues.delete(key);
   });
+
   return run;
 };
 
@@ -112,6 +120,7 @@ const copyUserIndex = async (userIndex: string, to: string): Promise<void> => {
 const addAndWriteTree = async (root: string, index: string, config: ReadonlyArray<string>) => {
   const env = { GIT_INDEX_FILE: index };
   await gitText(root, [...config, "add", "-A"], { env });
+
   return gitText(root, [...config, "write-tree"], { env });
 };
 
@@ -125,31 +134,40 @@ const addAndWriteTree = async (root: string, index: string, config: ReadonlyArra
  */
 const ownIndexTree = async (repo: Repo): Promise<string> => {
   const seed = await signature(repo.userIndex);
+
   if (seeds.get(repo.ownIndex) !== seed || !existsSync(repo.ownIndex)) {
     seeds.delete(repo.ownIndex);
     await mkdir(dirname(repo.ownIndex), { recursive: true });
     await rm(repo.ownIndex, { force: true });
+
     if (seed !== null) await copyUserIndex(repo.userIndex, repo.ownIndex);
   }
+
   const lock = `${repo.ownIndex}.lock`;
   const lockStat = await stat(lock).catch(() => null);
+
   if (lockStat !== null && Date.now() - lockStat.mtimeMs > STALE_LOCK_MS) {
     await rm(lock, { force: true });
   }
+
   const tree = await addAndWriteTree(repo.root, repo.ownIndex, OWN_INDEX_CONFIG);
   // gc doesn't treat our index as a root, so its cached trees can be pruned;
   // write-tree trusts that cache. A missing tree throws and takes the fallback.
   await gitText(repo.root, ["cat-file", "-e", `${tree}^{tree}`]);
   seeds.set(repo.ownIndex, seed);
+
   return tree;
 };
 
 /** The tree through a throwaway copy of the user's index (the fallback). */
 const tempIndexTree = async (repo: Repo): Promise<string> => {
   const dir = await mkdtemp(join(tmpdir(), "polaris-index-"));
+
   try {
     const index = join(dir, "index");
+
     if (existsSync(repo.userIndex)) await copyUserIndex(repo.userIndex, index);
+
     return await addAndWriteTree(repo.root, index, INDEX_CONFIG);
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -163,11 +181,13 @@ const snapshotRepo = async (repo: Repo): Promise<Snapshot> => {
         // Our own index is only a cache: drop it and take this snapshot the slow way.
         seeds.delete(repo.ownIndex);
         await rm(repo.ownIndex, { force: true }).catch(() => {});
+
         return tempIndexTree(repo);
       })
     ),
     resolveHead(repo.root),
   ]);
+
   return { root: repo.root, tree, head };
 };
 
@@ -177,15 +197,20 @@ const snapshotRepo = async (repo: Repo): Promise<Snapshot> => {
  */
 export const snapshotWorkingTree = async (cwd: string): Promise<Snapshot | null> => {
   const repo = await discover(cwd);
+
   if (repo === null) return null;
+
   try {
     return await snapshotRepo(repo);
   } catch (cause) {
     // The repository may have moved or gone: look again once.
     repos.delete(cwd);
     const again = await discover(cwd);
+
     if (again === null) return null;
+
     if (again.root === repo.root && again.ownIndex === repo.ownIndex) throw cause;
+
     return snapshotRepo(again);
   }
 };

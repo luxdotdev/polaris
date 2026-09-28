@@ -16,6 +16,7 @@ describe("frames", () => {
     const wire = [encodeJsonFrame('{"a":"é"}'), ...encodeBlob("b1", blob), encodeJsonFrame("{}")];
     const all = new Uint8Array(wire.reduce((n, f) => n + f.byteLength, 0));
     let o = 0;
+
     for (const f of wire) {
       all.set(f, o);
       o += f.byteLength;
@@ -23,6 +24,7 @@ describe("frames", () => {
 
     const decoder = new FrameDecoder();
     const frames = [];
+
     for (let i = 0; i < all.byteLength; i += 7777)
       frames.push(...decoder.push(all.subarray(i, i + 7777)));
 
@@ -33,10 +35,12 @@ describe("frames", () => {
     expect(chunks.map((c) => c.final)).toEqual([false, false, true]);
     const joined = new Uint8Array(chunks.reduce((n, c) => n + c.bytes.byteLength, 0));
     let p = 0;
+
     for (const c of chunks) {
       joined.set(c.bytes, p);
       p += c.bytes.byteLength;
     }
+
     expect(joined).toEqual(blob);
   });
 

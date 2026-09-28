@@ -62,6 +62,7 @@ describe("turn input", () => {
       attachment("shot.png", "image/png"),
       attachment("notes.txt", "text/plain"),
     ]);
+
     expect(input).toEqual([
       {
         type: "text",
@@ -218,6 +219,7 @@ describe("approval decisions", () => {
         ],
       },
     ];
+
     expect(userInputDecision(questions, { _tag: "Answer", text: "SQLite" })).toEqual({
       answers: { q1: { answers: ["SQLite"] } },
     });

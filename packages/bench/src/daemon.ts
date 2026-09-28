@@ -15,6 +15,7 @@ import type { Capability } from "@polaris/protocol";
 import { Duration, Effect, type Scope } from "effect";
 
 export const REPO_ROOT = resolve(import.meta.dir, "..", "..", "..");
+
 export const DAEMON_MAIN = join(REPO_ROOT, "apps", "daemon", "src", "main.ts");
 
 export type TransportKind = "bridge" | "socket";
@@ -52,6 +53,7 @@ export interface Daemon {
 const tempRoot = () => {
   const dir = "/tmp/polaris-bench";
   mkdirSync(dir, { recursive: true });
+
   return dir;
 };
 
@@ -60,6 +62,7 @@ export const makeTempDir = (prefix: string) => mkdtempSync(join(tempRoot(), `${p
 export const launchDaemon = async (options: LaunchOptions): Promise<Daemon> => {
   const home = options.home ?? makeTempDir("home");
   const profileDir = options.profileDir ?? null;
+
   const env: Record<string, string> = {
     ...(process.env as Record<string, string>),
     POLARIS_HOME: home,
@@ -67,31 +70,39 @@ export const launchDaemon = async (options: LaunchOptions): Promise<Daemon> => {
     ...(profileDir ? { POLARIS_DEBUG_DIR: profileDir } : {}),
     ...options.env,
   };
+
   // A .cpuprofile (Chrome DevTools, speedscope) and a grep-friendly .md summary, on exit.
   const profileFlags = profileDir
     ? ["--cpu-prof", "--cpu-prof-md", `--cpu-prof-dir=${profileDir}`]
     : [];
+
   let argv: Array<string>;
   let bridgeArgv: Array<string>;
+
   if (options.binary) {
     argv = [options.binary, "serve", "--foreground"];
     bridgeArgv = [options.binary, "bridge"];
+
     // A compiled Bun binary reads runtime flags from BUN_OPTIONS.
     if (profileFlags.length > 0) env.BUN_OPTIONS = profileFlags.join(" ");
   } else {
     argv = ["bun", ...profileFlags, DAEMON_MAIN, "serve", "--foreground"];
     bridgeArgv = ["bun", DAEMON_MAIN, "bridge"];
   }
+
   const spawnedAt = performance.now();
+
   const child: ChildProcess = spawn(argv[0]!, argv.slice(1), {
     env,
     stdio: ["ignore", "ignore", "pipe"],
   });
+
   let logs = "";
   child.stderr?.on("data", (chunk: Buffer) => {
     logs = (logs + chunk.toString()).slice(-64 * 1024);
   });
   const exited = new Promise<void>((done) => child.once("exit", () => done()));
+
   if (child.pid === undefined) throw new Error(`could not spawn ${argv.join(" ")}`);
   const socketPath = join(home, "daemon.sock");
   // The bridge must not profile itself or take heap-snapshot signals.
@@ -112,13 +123,17 @@ export const launchDaemon = async (options: LaunchOptions): Promise<Daemon> => {
       const before = new Set(existsSync(profileDir) ? readdirSync(profileDir) : []);
       child.kill("SIGUSR1");
       const deadline = Date.now() + 120_000;
+
       while (Date.now() < deadline) {
         await Bun.sleep(100);
+
         const added = readdirSync(profileDir).find(
           (f) => f.endsWith(".heapsnapshot") && !before.has(f)
         );
+
         if (added) return join(profileDir, added);
       }
+
       return null;
     },
     stop: async () => {
@@ -160,10 +175,13 @@ export const connect = (
       transport === "socket"
         ? yield* socketTransport(daemon.socketPath)
         : yield* spawnTransport(daemon.bridgeArgv, { env: daemon.bridgeEnv });
+
     const connection = yield* connectRpc(t);
+
     const hello = yield* connection.client
       .hello(identity(label))
       .pipe(Effect.timeout(Duration.seconds(30)));
+
     return { connection, label, capabilities: hello.capabilities };
   });
 
@@ -174,6 +192,7 @@ export const connect = (
 export const awaitReady = (daemon: Daemon, timeoutMs = 30_000): Effect.Effect<number, Error> =>
   Effect.gen(function* () {
     const deadline = performance.now() + timeoutMs;
+
     while (performance.now() < deadline) {
       const ok = yield* Effect.scoped(
         Effect.gen(function* () {
@@ -186,9 +205,11 @@ export const awaitReady = (daemon: Daemon, timeoutMs = 30_000): Effect.Effect<nu
         Effect.as(true),
         Effect.catch(() => Effect.succeed(false))
       );
+
       if (ok) return performance.now() - daemon.spawnedAt;
       yield* Effect.sleep(Duration.millis(2));
     }
+
     return yield* Effect.fail(
       new Error(`the Daemon did not answer within ${timeoutMs} ms\n${daemon.logs()}`)
     );

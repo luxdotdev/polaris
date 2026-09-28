@@ -12,13 +12,16 @@ import {
 import { makeFakeCodex } from "./testing/fakeCodex.ts";
 
 const dirs: Array<string> = [];
+
 const pids: Array<number> = [];
+
 afterEach(() => {
   for (const pid of pids.splice(0)) {
     try {
       process.kill(pid, "SIGKILL");
     } catch {}
   }
+
   for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
 
@@ -30,6 +33,7 @@ const setup = (version = "1.0.0") => {
   const socketPath = join(dir, "c.sock");
   const stateFile = join(dir, "codex-app-server.json");
   const options = { codexPath: codex.path, socketPath, spawn: true, stateFile, systemdRun: null };
+
   return { dir, codex, socketPath, stateFile, options };
 };
 
@@ -47,8 +51,10 @@ const connectOnce = (options: Parameters<typeof makeAppServer>[0]) =>
 
 const recordedPid = (stateFile: string) => {
   const state = readAppServerState(stateFile);
+
   if (state === null) throw new Error("no state file");
   pids.push(state.pid);
+
   return state.pid;
 };
 
@@ -107,6 +113,7 @@ describe("the shared app-server outlives the Daemon", () => {
     await connectOnce(options);
     const old = recordedPid(stateFile);
     process.kill(old, "SIGKILL");
+
     while (isOurAppServer(old, socketPath)) await Bun.sleep(20);
     await connectOnce(options);
     expect(recordedPid(stateFile)).not.toBe(old);
@@ -149,6 +156,7 @@ describe("the shared app-server outlives the Daemon", () => {
       logFile: "/home/u/.polaris/logs/codex-app-server.log",
       systemdRun: "/usr/bin/systemd-run",
     });
+
     expect(argv.slice(0, 4)).toEqual([
       "/bin/sh",
       "-c",

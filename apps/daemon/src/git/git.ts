@@ -45,11 +45,13 @@ export const runGitRaw = async (
     stdout: "pipe",
     stderr: "pipe",
   });
+
   const [stdout, stderr, code] = await Promise.all([
     new Response(proc.stdout).arrayBuffer().then((b) => new Uint8Array(b)),
     new Response(proc.stderr).text(),
     proc.exited,
   ]);
+
   return { code, stdout, stderr };
 };
 
@@ -72,7 +74,9 @@ export const runGit = async (
 ): Promise<GitResult> => {
   const result = await runGitRaw(cwd, args, options);
   const ok = result.code === 0 || (options.okCodes?.includes(result.code) ?? false);
+
   if (!ok) throw new GitCommandError(cwd, args, result.code, result.stderr);
+
   return result;
 };
 
@@ -118,9 +122,11 @@ export const gitTextEffect = (cwd: string, args: ReadonlyArray<string>, options:
 export const mayBeInWorkTree = (cwd: string): boolean => {
   if (process.env.GIT_DIR !== undefined || process.env.GIT_WORK_TREE !== undefined) return true;
   let dir = resolve(cwd);
+
   for (;;) {
     if (existsSync(join(dir, ".git"))) return true;
     const parent = dirname(dir);
+
     if (parent === dir) return false;
     dir = parent;
   }
@@ -130,20 +136,24 @@ export const mayBeInWorkTree = (cwd: string): boolean => {
 export const findRepoRoot = async (cwd: string): Promise<string | null> => {
   if (!mayBeInWorkTree(cwd)) return null;
   const result = await runGitRaw(cwd, ["rev-parse", "--show-toplevel"]).catch(() => null);
+
   if (result === null || result.code !== 0) return null;
   const root = decoder.decode(result.stdout).trim();
+
   return root === "" ? null : root;
 };
 
 /** The HEAD commit, or null on an unborn branch. */
 export const resolveHead = async (cwd: string): Promise<string | null> => {
   const result = await runGitRaw(cwd, ["rev-parse", "--verify", "--quiet", "HEAD^{commit}"]);
+
   return result.code === 0 ? decoder.decode(result.stdout).trim() : null;
 };
 
 /** Resolves a ref to a commit, or null when it doesn't exist. */
 export const resolveCommit = async (cwd: string, ref: string): Promise<string | null> => {
   const result = await runGitRaw(cwd, ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`]);
+
   return result.code === 0 ? decoder.decode(result.stdout).trim() : null;
 };
 

@@ -16,10 +16,12 @@ export const blobs: Scenario = {
   run: (ctx) =>
     Effect.gen(function* () {
       const size = (ctx.quick ? 16 : 100) * 1024 * 1024;
+
       const dir = yield* Effect.acquireRelease(
         Effect.sync(() => makeTempDir("blobs")),
         (d) => Effect.sync(() => cleanup(d))
       );
+
       const file = join(dir, "big.bin");
       yield* Effect.promise(() => Promise.resolve(randomFile(file, size)));
       const daemon = yield* ctx.launch();
@@ -33,17 +35,21 @@ export const blobs: Scenario = {
       // Download.
       const readFrom = base.t;
       const t0 = performance.now();
+
       const read = yield* client.connection.client["files.read"]({
         path: file,
         offset: null,
         length: null,
       });
+
       if (read.content._tag !== "Blob") return yield* Effect.die(new Error("expected a blob"));
       const bytes = yield* client.connection.blobs.take(read.content.blobId);
       const readSeconds = (performance.now() - t0) / 1000;
+
       if (bytes.byteLength !== size) {
         return yield* Effect.die(new Error(`read ${bytes.byteLength} of ${size} bytes`));
       }
+
       const readReport = sampler.report(readFrom - 1, sampler.sample().t);
       yield* settle(2000);
 
@@ -51,6 +57,7 @@ export const blobs: Scenario = {
       const uploadFrom = sampler.sample().t;
       const t1 = performance.now();
       const blobId = yield* client.connection.blobs.offer(bytes);
+
       const staged = yield* client.connection.client["attachments.stage"]({
         sessionId: null,
         workspaceId,
@@ -58,7 +65,9 @@ export const blobs: Scenario = {
         mimeType: "application/octet-stream",
         blobId,
       });
+
       const uploadSeconds = (performance.now() - t1) / 1000;
+
       if (staged.size !== size) return yield* Effect.die(new Error(`staged ${staged.size} bytes`));
       const uploadReport = sampler.report(uploadFrom - 1, sampler.sample().t);
       yield* settle(2000);
@@ -71,8 +80,10 @@ export const blobs: Scenario = {
       // peaks a lot: hold them to 35% or a quarter of the payload.
       const tolerance = { relative: 0.35, absolute: size / 1024 / 1024 / 4 };
       const blobMemory = (bytes: number) => memory(bytes, { tolerance });
+
       const rate = (mbPerS: number) =>
         throughput(mbPerS, "MB/s", { tolerance: { relative: 0.5, absolute: 0 } });
+
       return {
         metrics: {
           read_mb_per_s: rate(mb / readSeconds),

@@ -14,10 +14,12 @@ export const terminal: Scenario = {
   run: (ctx) =>
     Effect.gen(function* () {
       const bytes = (ctx.quick ? 10 : 50) * 1_000_000;
+
       const cwd = yield* Effect.acquireRelease(
         Effect.sync(() => makeTempDir("term")),
         (d) => Effect.sync(() => cleanup(d))
       );
+
       const daemon = yield* ctx.launch();
       yield* awaitReady(daemon);
       const sampler = yield* ctx.sample(daemon, 100);
@@ -37,6 +39,7 @@ export const terminal: Scenario = {
           `sleep 0.5; yes 0123456789abcdefghijklmnopqrstuvwxyz | head -c ${bytes}`,
         ],
       });
+
       let received = 0;
       let firstAt = 0;
       let exitAt = 0;
@@ -64,10 +67,13 @@ export const terminal: Scenario = {
       const after = sampler.sample();
       // After the measurements: the snapshot allocates.
       yield* ctx.peak(daemon, "after-output");
+
       const notes = [
         `${bytes / 1e6} MB of output via \`yes | head -c\`; the PTY turns \\n into \\r\\n`,
       ];
+
       if (received < bytes) notes.push(`received only ${received} of ${bytes} bytes`);
+
       return {
         metrics: {
           mb_per_s: throughput(received / 1e6 / seconds, "MB/s"),

@@ -16,6 +16,7 @@ export const PLATFORMS = [
   "linux-x64-musl",
   "linux-arm64-musl",
 ] as const;
+
 export type Platform = (typeof PLATFORMS)[number];
 
 /** A Linux Host's C library: glibc builds don't run on musl (Alpine) and vice versa. */
@@ -33,11 +34,15 @@ export const platformFromUname = (
   const system = os.trim().toLowerCase();
   const machine = arch.trim().toLowerCase();
   const suffix = libc === "musl" ? "-musl" : "";
+
   if (system === "darwin" && (machine === "arm64" || machine === "aarch64")) return "darwin-arm64";
+
   if (system === "linux" && (machine === "x86_64" || machine === "amd64"))
     return `linux-x64${suffix}` as Platform;
+
   if (system === "linux" && (machine === "aarch64" || machine === "arm64"))
     return `linux-arm64${suffix}` as Platform;
+
   return null;
 };
 
@@ -46,6 +51,7 @@ export const platformFromUname = (
  * images lack them; installing them needs root (`apk add libstdc++ libgcc`).
  */
 export const MUSL_RUNTIME_LIBRARIES = ["libstdc++.so.6", "libgcc_s.so.1"] as const;
+
 export const MUSL_RUNTIME_PACKAGES = ["libstdc++", "libgcc"] as const;
 
 export interface BuildFile {
@@ -65,6 +71,7 @@ export interface DaemonBuild {
 }
 
 const FileEntry = Schema.Struct({ sha256: Schema.String, size: Schema.Number });
+
 const Manifest = Schema.Struct({
   version: Schema.String,
   platforms: Schema.Record(
@@ -82,12 +89,15 @@ export const loadBuilds = (distDir: string): ReadonlyArray<DaemonBuild> => {
   const manifest = Schema.decodeUnknownSync(Schema.fromJsonString(Manifest))(
     readFileSync(join(distDir, "manifest.json"), "utf8")
   );
+
   return Object.entries(manifest.platforms).flatMap(([platform, build]) => {
     if (!(PLATFORMS as ReadonlyArray<string>).includes(platform)) return [];
+
     const names = [
       build.binary,
       ...Object.keys(build.files).filter((name) => name !== build.binary),
     ];
+
     return [
       {
         platform: platform as Platform,
@@ -113,12 +123,18 @@ export const compareVersions = (a: string, b: string): number => {
   const [coreB = "", preB] = b.split("-", 2);
   const partsA = coreA.split(".").map(Number);
   const partsB = coreB.split(".").map(Number);
+
   for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
     const diff = (partsA[i] ?? 0) - (partsB[i] ?? 0);
+
     if (diff !== 0) return diff;
   }
+
   if (preA === preB) return 0;
+
   if (preA === undefined) return 1;
+
   if (preB === undefined) return -1;
+
   return preA.localeCompare(preB, undefined, { numeric: true });
 };

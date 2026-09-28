@@ -29,7 +29,9 @@ export const ALLOWED = new Set([
 ]);
 
 const root = join(import.meta.dir, "..");
+
 const noticesPath = join(root, "THIRD_PARTY_NOTICES.md");
+
 const exceptionsPath = join(import.meta.dir, "license-exceptions.json");
 
 interface PackageJson {
@@ -70,10 +72,14 @@ const readJson = <T>(path: string): T => JSON.parse(readFileSync(path, "utf8")) 
 /** The declared licence as an SPDX expression, or null if none is declared. */
 export const declaredLicense = (pkg: PackageJson): string | null => {
   if (typeof pkg.license === "string") return pkg.license;
+
   if (pkg.license?.type) return pkg.license.type;
   const legacy = pkg.licenses?.flatMap((entry) => (entry.type ? [entry.type] : [])) ?? [];
+
   if (legacy.length === 1) return legacy[0]!;
+
   if (legacy.length > 1) return `(${legacy.join(" OR ")})`;
+
   return null;
 };
 
@@ -86,37 +92,52 @@ export const isAllowed = (expression: string, allowed: ReadonlySet<string> = ALL
   const tokens = expression.match(/\(|\)|[^\s()]+/g) ?? [];
   let position = 0;
   const peek = () => tokens[position];
+
   const orExpr = (): boolean => {
     let value = andExpr();
+
     while (peek()?.toUpperCase() === "OR") {
       position++;
       const right = andExpr();
       value = value || right;
     }
+
     return value;
   };
+
   const andExpr = (): boolean => {
     let value = atom();
+
     while (peek()?.toUpperCase() === "AND") {
       position++;
       const right = atom();
       value = value && right;
     }
+
     return value;
   };
+
   const atom = (): boolean => {
     const token = tokens[position++];
+
     if (token === undefined) throw new Error("unexpected end");
+
     if (token === "(") {
       const value = orExpr();
+
       if (tokens[position++] !== ")") throw new Error("expected )");
+
       return value;
     }
+
     if (peek()?.toUpperCase() === "WITH") position += 2;
+
     return allowed.has(token.replace(/\+$/, ""));
   };
+
   try {
     const value = orExpr();
+
     return position === tokens.length && value;
   } catch {
     return false;
@@ -125,13 +146,17 @@ export const isAllowed = (expression: string, allowed: ReadonlySet<string> = ALL
 
 const workspaceDirs = (): ReadonlyArray<string> => {
   const pkg = readJson<PackageJson>(join(root, "package.json"));
+
   const patterns = Array.isArray(pkg.workspaces)
     ? pkg.workspaces
     : ((pkg.workspaces as { packages?: ReadonlyArray<string> } | undefined)?.packages ?? []);
+
   return patterns.flatMap((pattern) => {
     if (!pattern.endsWith("/*")) return [join(root, pattern)];
     const parent = join(root, pattern.slice(0, -2));
+
     if (!existsSync(parent)) return [];
+
     return readdirSync(parent)
       .map((name) => join(parent, name))
       .filter((dir) => existsSync(join(dir, "package.json")));
@@ -141,10 +166,13 @@ const workspaceDirs = (): ReadonlyArray<string> => {
 /** Node's lookup: `<dir>/node_modules/<name>`, walking up from the requiring package's real path. */
 const resolvePackageDir = (fromDir: string, name: string): string | null => {
   let dir = realpathSync(fromDir);
+
   for (;;) {
     const candidate = join(dir, "node_modules", name);
+
     if (existsSync(join(candidate, "package.json"))) return realpathSync(candidate);
     const parent = dirname(dir);
+
     if (parent === dir) return null;
     dir = parent;
   }
@@ -153,6 +181,7 @@ const resolvePackageDir = (fromDir: string, name: string): string | null => {
 const repositoryUrl = (pkg: PackageJson): string | null => {
   const repo = typeof pkg.repository === "string" ? pkg.repository : pkg.repository?.url;
   const url = repo ?? pkg.homepage ?? null;
+
   return url?.replace(/^git\+/, "").replace(/\.git$/, "") ?? null;
 };
 
@@ -177,10 +206,12 @@ export const collect = (): Collected => {
   const deps = new Map<string, Dependency>();
   const platformBuilds = new Map<string, Dependency>();
   const missing: Array<string> = [];
+
   const workspaces = workspaceDirs().map((dir) => ({
     dir,
     pkg: readJson<PackageJson>(join(dir, "package.json")),
   }));
+
   const workspaceNames = new Set(workspaces.map((w) => w.pkg.name));
 
   const visit = (
@@ -193,51 +224,65 @@ export const collect = (): Collected => {
     const optional = pkg.optionalDependencies ?? {};
     // Peers are runtime dependencies too (Bun installs them); optional peers only if present.
     const peers = Object.keys(pkg.peerDependencies ?? {});
+
     const optionalPeers = new Set(
       peers.filter((name) => pkg.peerDependenciesMeta?.[name]?.optional === true)
     );
+
     const names = [
       ...new Set([...Object.keys(pkg.dependencies ?? {}), ...Object.keys(optional), ...peers]),
     ];
+
     for (const name of names) {
       if (workspaceNames.has(name)) continue; // visited as a workspace in its own right
       const isOptional = name in optional;
       const dir = resolvePackageDir(fromDir, name);
       const child = dir === null ? null : readJson<PackageJson>(join(dir, "package.json"));
+
       // An optional dependency that is absent, or restricted by os/cpu, is a
       // per-platform build (native binaries); which ones are installed varies by machine.
       if (isOptional && (child === null || child.os !== undefined || child.cpu !== undefined)) {
         const variant = `${name}@${optional[name]}`;
+
         if (parent && !parent.platformBuilds.includes(variant)) parent.platformBuilds.push(variant);
+
         if (child !== null && dir !== null) {
           platformBuilds.set(
             `${child.name}@${child.version}`,
             toDependency(child, name, dir, workspace)
           );
         }
+
         continue;
       }
+
       if (child === null || dir === null) {
         if (optionalPeers.has(name)) continue;
         missing.push(`${name} (required by ${pkg.name})`);
         continue;
       }
+
       const key = `${child.name}@${child.version}`;
       let dep = deps.get(key);
+
       if (dep) {
         dep.requiredBy.add(workspace);
+
         if (seen.has(key)) continue;
       } else {
         dep = toDependency(child, name, dir, workspace);
         deps.set(key, dep);
       }
+
       seen.add(key);
       visit(dir, child, dep, workspace, seen);
     }
   };
 
   for (const { dir, pkg } of workspaces) visit(dir, pkg, null, pkg.name ?? dir, new Set());
+
   for (const dep of deps.values()) dep.platformBuilds.sort();
+
   return { deps, platformBuilds, missing };
 };
 
@@ -262,16 +307,20 @@ export const judge = (
     if (dep.license !== null && isAllowed(dep.license)) {
       return { dep, status: "allowed", reason: null } as const;
     }
+
     const exception =
       exceptions[dep.name] ??
       Object.entries(exceptions).find(
         ([pattern]) => pattern.endsWith("*") && dep.name.startsWith(pattern.slice(0, -1))
       )?.[1];
+
     if (exception) return { dep, status: "exception", reason: exception.reason } as const;
+
     return { dep, status: "violation", reason: null } as const;
   });
 
 const LICENSE_FILE = /^(licen[cs]e|copying)(\.|-|$)/i;
+
 const NOTICE_FILE = /^notice(\.|$)/i;
 
 const filesMatching = (dir: string, pattern: RegExp): Array<string> =>
@@ -285,6 +334,7 @@ const byName = (a: Verdict, b: Verdict) =>
 
 export const renderNotices = (verdicts: ReadonlyArray<Verdict>): string => {
   const sorted = [...verdicts].sort(byName);
+
   const lines: Array<string> = [
     "# Third-party notices",
     "",
@@ -298,29 +348,39 @@ export const renderNotices = (verdicts: ReadonlyArray<Verdict>): string => {
     ),
     "",
   ];
+
   const exceptions = sorted.filter((v) => v.status === "exception");
+
   if (exceptions.length > 0) {
     lines.push("## Licence exceptions", "");
+
     for (const { dep, reason } of exceptions) lines.push(`- **${dep.name}**: ${reason}`);
     lines.push("");
   }
+
   lines.push("## Licence texts", "");
+
   for (const { dep } of sorted) {
     lines.push(`### ${dep.name}@${dep.version}`, "");
     const texts = filesMatching(dep.dir, LICENSE_FILE);
+
     if (texts.length === 0)
       lines.push(`Licensed under ${dep.license ?? "unknown terms"} (no licence file shipped).`, "");
+
     for (const text of texts) lines.push("```text", text, "```", "");
+
     if (dep.platformBuilds.length > 0) {
       lines.push(
         `Per-platform builds published with this package: ${dep.platformBuilds.map((b) => `\`${b}\``).join(", ")}.`,
         ""
       );
     }
+
     for (const notice of filesMatching(dep.dir, NOTICE_FILE)) {
       lines.push("NOTICE:", "", "```text", notice, "```", "");
     }
   }
+
   return `${lines.join("\n").trimEnd()}\n`;
 };
 
@@ -329,15 +389,18 @@ const main = () => {
   const { deps, platformBuilds, missing } = collect();
   const exceptions = readExceptions();
   const verdicts = judge(deps.values(), exceptions);
+
   const violations = [...verdicts, ...judge(platformBuilds.values(), exceptions)].filter(
     (v) => v.status === "violation"
   );
+
   let failed = false;
 
   if (missing.length > 0) {
     console.error(`Not installed (run bun install):\n  ${missing.join("\n  ")}`);
     failed = true;
   }
+
   if (violations.length > 0) {
     console.error(
       `Licences outside the allowlist (${[...ALLOWED].join(", ")}):\n${violations
@@ -353,8 +416,10 @@ const main = () => {
   }
 
   const notices = renderNotices(verdicts);
+
   if (check) {
     const current = existsSync(noticesPath) ? readFileSync(noticesPath, "utf8") : "";
+
     if (current !== notices) {
       console.error("THIRD_PARTY_NOTICES.md is out of date: run `bun run licenses`.");
       failed = true;

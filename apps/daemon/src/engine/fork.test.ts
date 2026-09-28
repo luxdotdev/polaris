@@ -12,6 +12,7 @@ describe("forkPreamble", () => {
       ],
       prompt: "Try a mutex",
     });
+
     expect(text).toStartWith(
       '[Context from Polaris] This session is a fork of the session "Fix the flaky test"'
     );

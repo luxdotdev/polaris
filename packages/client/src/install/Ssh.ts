@@ -15,6 +15,7 @@ export interface SshResult {
 
 /** Why ssh itself failed (exit 255), as far as its stderr tells. */
 export const SshFailure = Schema.Literals(["host-key", "auth", "unreachable", "spawn", "unknown"]);
+
 export type SshFailure = typeof SshFailure.Type;
 
 export class SshError extends Schema.TaggedError<SshError>()("SshError", {
@@ -31,16 +32,19 @@ export class SshError extends Schema.TaggedError<SshError>()("SshError", {
 export const classifySshFailure = (stderr: string): SshFailure => {
   if (/host key verification failed|remote host identification has changed/i.test(stderr))
     return "host-key";
+
   if (
     /permission denied|too many authentication failures|no supported authentication/i.test(stderr)
   )
     return "auth";
+
   if (
     /could not resolve hostname|connection refused|timed out|no route to host|network is unreachable|connection closed/i.test(
       stderr
     )
   )
     return "unreachable";
+
   return "unknown";
 };
 
@@ -78,13 +82,16 @@ export class Ssh extends Context.Service<
             resume(
               Effect.fail(new SshError({ alias, failure: "spawn", message: "invalid alias" }))
             );
+
             return;
           }
+
           const child = spawn(
             "ssh",
             ["-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=15", "--", alias, command],
             { stdio: [options?.stdinFile ? "pipe" : "ignore", "pipe", "pipe"] }
           );
+
           let stdout = "";
           let stderr = "";
           child.stdout?.on("data", (chunk: Buffer) => {
@@ -93,11 +100,13 @@ export class Ssh extends Context.Service<
           child.stderr?.on("data", (chunk: Buffer) => {
             stderr += chunk.toString();
           });
+
           if (options?.stdinFile && child.stdin) {
             // ssh exiting early (EPIPE) is reported through its exit code below.
             child.stdin.on("error", () => {});
             createReadStream(options.stdinFile).pipe(child.stdin);
           }
+
           child.on("error", (error) =>
             resume(Effect.fail(new SshError({ alias, failure: "spawn", message: error.message })))
           );
@@ -116,6 +125,7 @@ export class Ssh extends Context.Service<
               resume(Effect.succeed({ code: code ?? 1, stdout, stderr }));
             }
           });
+
           return Effect.sync(() => child.kill());
         }),
     })

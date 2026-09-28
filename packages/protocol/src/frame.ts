@@ -14,6 +14,7 @@
 export const FrameKind = { Json: 0, Blob: 1 } as const;
 
 export const MAX_FRAME_BYTES = 16 * 1024 * 1024;
+
 export const BLOB_CHUNK_BYTES = 256 * 1024;
 
 export type Frame =
@@ -32,31 +33,38 @@ export class FrameError extends Error {
 }
 
 const encoder = new TextEncoder();
+
 const decoder = new TextDecoder();
 
 const header = (bodyLength: number, kind: number): Uint8Array => {
   const length = bodyLength + 1;
+
   if (length > MAX_FRAME_BYTES) throw new FrameError(`frame of ${length} bytes exceeds limit`);
   const out = new Uint8Array(5);
   new DataView(out.buffer).setUint32(0, length);
   out[4] = kind;
+
   return out;
 };
 
 const concat = (parts: ReadonlyArray<Uint8Array>): Uint8Array => {
   let size = 0;
+
   for (const p of parts) size += p.byteLength;
   const out = new Uint8Array(size);
   let offset = 0;
+
   for (const p of parts) {
     out.set(p, offset);
     offset += p.byteLength;
   }
+
   return out;
 };
 
 export const encodeJsonFrame = (text: string): Uint8Array => {
   const body = encoder.encode(text);
+
   return concat([header(body.byteLength, FrameKind.Json), body]);
 };
 
@@ -67,11 +75,13 @@ export const encodeBlobFrame = (
   aborted = false
 ): Uint8Array => {
   const id = encoder.encode(blobId);
+
   if (id.byteLength > 255) throw new FrameError("blob id longer than 255 bytes");
   const meta = new Uint8Array(id.byteLength + 2);
   meta[0] = id.byteLength;
   meta.set(id, 1);
   meta[id.byteLength + 1] = (final ? 1 : 0) | (aborted ? 2 : 0);
+
   return concat([header(meta.byteLength + bytes.byteLength, FrameKind.Blob), meta, bytes]);
 };
 
@@ -79,8 +89,10 @@ export const encodeBlobFrame = (
 export function* encodeBlob(blobId: string, bytes: Uint8Array): Generator<Uint8Array> {
   if (bytes.byteLength === 0) {
     yield encodeBlobFrame(blobId, bytes, true);
+
     return;
   }
+
   for (let offset = 0; offset < bytes.byteLength; offset += BLOB_CHUNK_BYTES) {
     const end = Math.min(offset + BLOB_CHUNK_BYTES, bytes.byteLength);
     yield encodeBlobFrame(blobId, bytes.subarray(offset, end), end === bytes.byteLength);
@@ -104,15 +116,20 @@ export class FrameDecoder {
       this.chunks.push(chunk);
       this.size += chunk.byteLength;
     }
+
     const frames: Array<Frame> = [];
+
     while (this.size >= 4) {
       const length = this.peekLength();
+
       if (length < 1 || length > MAX_FRAME_BYTES)
         throw new FrameError(`bad frame length ${length}`);
+
       if (this.size - 4 < length) break;
       const frame = this.take(4 + length);
       frames.push(decodeBody(frame[4], frame.subarray(5)));
     }
+
     return frames;
   }
 
@@ -122,17 +139,22 @@ export class FrameDecoder {
 
   private peekLength(): number {
     const first = this.chunks[0]!;
+
     if (first.byteLength >= 4) {
       return new DataView(first.buffer, first.byteOffset, 4).getUint32(0);
     }
+
     const head = new Uint8Array(4);
     let at = 0;
+
     for (const chunk of this.chunks) {
       const n = Math.min(4 - at, chunk.byteLength);
       head.set(chunk.subarray(0, n), at);
       at += n;
+
       if (at === 4) break;
     }
+
     return new DataView(head.buffer).getUint32(0);
   }
 
@@ -140,16 +162,21 @@ export class FrameDecoder {
   private take(n: number): Uint8Array {
     this.size -= n;
     const first = this.chunks[0]!;
+
     if (first.byteLength >= n) {
       if (first.byteLength === n) this.chunks.shift();
       else this.chunks[0] = first.subarray(n);
+
       return first.subarray(0, n);
     }
+
     const out = new Uint8Array(n);
     let at = 0;
+
     while (at < n) {
       const chunk = this.chunks[0]!;
       const need = n - at;
+
       if (chunk.byteLength <= need) {
         out.set(chunk, at);
         at += chunk.byteLength;
@@ -160,6 +187,7 @@ export class FrameDecoder {
         at = n;
       }
     }
+
     return out;
   }
 }
@@ -170,7 +198,9 @@ const decodeBody = (kind: number | undefined, body: Uint8Array): Frame => {
       return { kind: "json", text: decoder.decode(body) };
     case FrameKind.Blob: {
       const idLength = body[0] ?? 0;
+
       if (body.byteLength < idLength + 2) throw new FrameError("truncated blob frame");
+
       return {
         kind: "blob",
         blobId: decoder.decode(body.subarray(1, 1 + idLength)),
@@ -179,6 +209,7 @@ const decodeBody = (kind: number | undefined, body: Uint8Array): Frame => {
         bytes: body.subarray(2 + idLength),
       };
     }
+
     default:
       throw new FrameError(`unknown frame kind ${kind}`);
   }

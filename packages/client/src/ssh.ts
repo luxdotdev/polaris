@@ -43,6 +43,7 @@ export const ensureControlDir = (dir: string): void => {
 export const sshArgv = (alias: string, options: SshOptions = {}): Array<string> => {
   const controlDir = options.controlDir ?? defaultControlDir();
   const option = (name: string, value: string | number) => ["-o", `${name}=${value}`];
+
   return [
     options.sshBinary ?? "ssh",
     ...option("BatchMode", "yes"),

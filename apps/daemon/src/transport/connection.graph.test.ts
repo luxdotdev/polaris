@@ -56,16 +56,21 @@ const replay = (steps: ReadonlyArray<ConnectionStep>) =>
     const outcomes = yield* Queue.unbounded<Outcome>();
     let awaiting = false;
     let live: { readonly close: Effect.Effect<void> } | null = null;
+
     const connector: Connector = Effect.gen(function* () {
       awaiting = true;
+
       const outcome = yield* Queue.take(outcomes).pipe(
         Effect.ensuring(Effect.sync(() => (awaiting = false)))
       );
+
       if (outcome._tag === "fail") return yield* Effect.fail(outcome.failure);
       const transport = yield* socketTransport(socketPath);
       live = transport;
+
       return { ...transport, diagnose: Effect.succeed(LOST) };
     });
+
     const conn = yield* makeHostConnection({
       key: "model",
       name: "Model",
@@ -79,6 +84,7 @@ const replay = (steps: ReadonlyArray<ConnectionStep>) =>
       const status = yield* SubscriptionRef.get(conn.status);
       const now = yield* Clock.currentTimeMillis;
       const phase = awaiting ? "attempting" : status.state === "connected" ? "live" : "waiting";
+
       return {
         state: status.state,
         attempt: status.attempt,
@@ -92,17 +98,22 @@ const replay = (steps: ReadonlyArray<ConnectionStep>) =>
     const settle = (expected: ObservedConnection, done: ReadonlyArray<ConnectionStep>) =>
       Effect.gen(function* () {
         const deadline = Date.now() + 3000;
+
         while (true) {
           const actual = yield* observed;
+
           if (Bun.deepEquals(actual, expected)) return;
+
           if (Date.now() > deadline) {
             const path = done.map((s) => (s.type === "fail" ? `fail(${s.reason})` : s.type));
+
             return yield* Effect.die(
               new Error(
                 `after ${path.join(" → ") || "start"}: the HostConnection shows ${JSON.stringify(actual)}, the machine ${JSON.stringify(expected)}`
               )
             );
           }
+
           // Real time: the TestClock only moves when a step moves it.
           yield* Effect.promise(() => Bun.sleep(1));
         }
@@ -128,6 +139,7 @@ const replay = (steps: ReadonlyArray<ConnectionStep>) =>
     let model = initialConnectionModel();
     const done: Array<ConnectionStep> = [];
     yield* settle(observeConnectionModel(model), done);
+
     for (const step of steps) {
       const next = stepConnection(model, step);
       expect(next).not.toBe(model);

@@ -20,6 +20,7 @@ export const handleGitStatus = Effect.fn("git.status")(function* ({
   readonly cwd: string;
 }) {
   const status = yield* Effect.tryPromise({ try: () => gitStatus(cwd), catch: gitError(cwd) });
+
   return {
     ...status,
     entries: status.entries.map((entry) => new GitStatusEntry(entry)),
@@ -37,8 +38,10 @@ export const handleGitDiff = Effect.fn("git.diff")(function* ({
         ? new NotFound({ what: cause.what, id: cause.id })
         : gitError(cwd)(cause),
   });
+
   const blobs = yield* BlobChannel;
   const blobId = yield* blobs.offer(diff.bytes);
+
   return { blobId, size: diff.bytes.byteLength, files: diff.files };
 });
 

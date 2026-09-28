@@ -21,16 +21,19 @@ switch (command) {
     runServe();
     break;
   }
+
   case "bridge": {
     const { runBridge } = await import("./transport/bridge.ts");
     process.exit(await runBridge());
     break;
   }
+
   case "version": {
     const { versionLine } = await import("./service/platform.ts");
     console.log(versionLine());
     break;
   }
+
   case "selftest": {
     const { selfTest } = await import("./service/selftest.ts");
     const result = await selfTest();
@@ -38,11 +41,14 @@ switch (command) {
     process.exitCode = result.ok ? 0 : 1;
     break;
   }
+
   default: {
     const { isServiceCommand, runServiceCommand } = await import("./service/cli.ts");
+
     if (isServiceCommand(command)) {
       process.exit(await runServiceCommand(command, args));
     }
+
     console.error(`usage: polaris <serve|bridge|install|uninstall|upgrade|version|selftest>`);
     process.exit(command === undefined ? 0 : 2);
   }

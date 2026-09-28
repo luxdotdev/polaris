@@ -81,6 +81,7 @@ export const defaultHandlers = (options: {
       Effect.gen(function* () {
         const blobs = yield* BlobChannel;
         yield* Effect.ignore(blobs.take(blobId));
+
         return yield* fileError(name, "attachments");
       }),
 

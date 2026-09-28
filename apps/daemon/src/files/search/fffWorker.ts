@@ -73,15 +73,19 @@ interface Index {
 declare const self: Worker;
 
 let FileFinder: typeof FileFinderType | null | undefined;
+
 const loadError = { message: "" };
+
 const load = async (): Promise<typeof FileFinderType | null> => {
   if (FileFinder !== undefined) return FileFinder;
+
   try {
     FileFinder = (await import("@ff-labs/fff-bun")).FileFinder;
   } catch (cause) {
     loadError.message = cause instanceof Error ? cause.message : String(cause);
     FileFinder = null;
   }
+
   return FileFinder;
 };
 
@@ -89,17 +93,21 @@ const indexes = new Map<number, Index>();
 
 const unwrap = <T>(result: { ok: true; value: T } | { ok: false; error: string }): T => {
   if (!result.ok) throw new Error(result.error);
+
   return result.value;
 };
 
 const ready = (index: Index) => {
   index.scanned ??= index.finder.waitForScan(SCAN_WAIT_MS);
+
   return index.scanned;
 };
 
 const get = (id: number): Index => {
   const index = indexes.get(id);
+
   if (index === undefined) throw new Error(`no fff index ${id}`);
+
   return index;
 };
 
@@ -116,8 +124,10 @@ const handle = async (request: WorkerRequest): Promise<unknown> => {
   switch (request.op) {
     case "open": {
       const Finder = await load();
+
       if (Finder === null) throw new Unavailable("library", loadError.message);
       let created: ReturnType<typeof Finder.create>;
+
       try {
         created = Finder.create({
           basePath: request.root,
@@ -129,6 +139,7 @@ const handle = async (request: WorkerRequest): Promise<unknown> => {
         FileFinder = null;
         throw new Unavailable("library", cause instanceof Error ? cause.message : String(cause));
       }
+
       if (!created.ok) throw new Unavailable("root", created.error);
       indexes.set(request.index, {
         root: request.root,
@@ -136,30 +147,40 @@ const handle = async (request: WorkerRequest): Promise<unknown> => {
         scanned: undefined,
         subscriptions: new Map(),
       });
+
       return null;
     }
+
     case "searchPaths": {
       const index = get(request.index);
       await ready(index);
+
       return fffSearchPaths(index.finder, index.root, request.query, request.limit);
     }
+
     case "grep": {
       const index = get(request.index);
       await ready(index);
+
       return fffGrep(index.finder, index.root, request.query);
     }
+
     case "watch": {
       const index = get(request.index);
       // fff drops subscriptions made before its initial scan and watcher are ready.
       await ready(index);
       const deadline = Date.now() + SCAN_WAIT_MS;
+
       while (!(unwrap(index.finder.getScanProgress()).isWatcherReady || Date.now() > deadline)) {
         await Bun.sleep(20);
       }
+
       const subscription = request.subscription;
+
       const stop = unwrap(
         index.finder.watch((events) => {
           const changes: Array<FileChange> = [];
+
           for (const event of events) {
             const kind = mapKind(event.kind);
             // `rescan` means events were lost: report the root as modified so Clients re-read.
@@ -167,27 +188,36 @@ const handle = async (request: WorkerRequest): Promise<unknown> => {
               kind === null ? { path: index.root, kind: "modified" } : { path: event.path, kind }
             );
           }
+
           if (changes.length > 0) {
             self.postMessage({ subscription, changes } satisfies WorkerWatchEvent);
           }
         })
       );
+
       index.subscriptions.set(subscription, stop);
+
       return null;
     }
+
     case "unwatch": {
       const index = indexes.get(request.index);
       index?.subscriptions.get(request.subscription)?.();
       index?.subscriptions.delete(request.subscription);
+
       return null;
     }
+
     case "close": {
       const index = indexes.get(request.index);
+
       if (index !== undefined) {
         indexes.delete(request.index);
+
         for (const stop of index.subscriptions.values()) stop();
         index.finder.destroy();
       }
+
       return null;
     }
   }

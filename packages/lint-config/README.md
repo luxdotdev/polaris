@@ -73,7 +73,7 @@ The generic rules that matter most day to day:
 - `no-object-parameters`: a function (including an `Effect.fn`) takes an owner-provided, named input type parsed at its boundary, not an inline object type.
 - `no-known-value-widening`: `const x: Record<string, T> = { … }` throws away the known keys; prefer inference or `satisfies`.
 - `no-module-mocking`: no `vi.mock`/`jest.mock`-style module mocking; replace dependencies through a real seam (a Layer).
-- `require-readable-spacing`: blank lines between statement groups. Autofixable with `oxlint --fix`; oxfmt keeps the blank lines it adds (it preserves one blank line between statements and never adds or removes them).
+- `require-readable-spacing`: blank lines between statement groups. Autofixable with `oxlint --fix`; oxfmt keeps the blank lines it adds (it only collapses runs of blank lines to one), so the two never fight.
 
 ## Fixtures
 

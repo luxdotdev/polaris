@@ -58,10 +58,12 @@ export const AppServerState = Schema.Struct({
   socketPath: Schema.String,
   startedAt: Schema.Number,
 });
+
 export type AppServerState = typeof AppServerState.Type;
 
 export const defaultStateFile = (socketPath: string) =>
   join(dirname(socketPath), "codex-app-server.json");
+
 export const defaultLogFile = (socketPath: string) =>
   join(dirname(socketPath), "logs", "codex-app-server.log");
 
@@ -70,6 +72,7 @@ const decodeState = Schema.decodeUnknownOption(Schema.fromJsonString(AppServerSt
 export const readAppServerState = (stateFile: string): AppServerState | null => {
   try {
     const state = decodeState(readFileSync(stateFile, "utf8"));
+
     return state._tag === "Some" ? state.value : null;
   } catch {
     return null;
@@ -86,6 +89,7 @@ const writeState = (stateFile: string, state: AppServerState) => {
 const isAlive = (pid: number): boolean => {
   try {
     process.kill(pid, 0);
+
     return true;
   } catch {
     // ESRCH, or EPERM: it exists but isn't ours, so it can't be our server either.
@@ -102,12 +106,15 @@ const commandLine = (pid: number): string | null => {
       return null;
     }
   }
+
   const result = Bun.spawnSync(["ps", "-o", "command=", "-p", String(pid)], {
     stdin: "ignore",
     stdout: "pipe",
     stderr: "ignore",
   });
+
   const text = result.stdout.toString().trim();
+
   return result.exitCode === 0 && text !== "" ? text : null;
 };
 
@@ -115,6 +122,7 @@ const commandLine = (pid: number): string | null => {
 export const isOurAppServer = (pid: number, socketPath: string): boolean => {
   if (!isAlive(pid)) return false;
   const command = commandLine(pid);
+
   return (command?.includes("app-server") && command.includes(socketPath)) === true;
 };
 
@@ -135,7 +143,9 @@ export const installedCodexVersion = (codexPath: string): Effect.Effect<string |
         stderr: "ignore",
         timeout: 5_000,
       });
+
       const [out, code] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
+
       return code === 0 ? (out.trim().match(/(\d+\.\d+\.\d+\S*)/)?.[1] ?? null) : null;
     } catch {
       return null;
@@ -162,6 +172,7 @@ export const launchArgv = (options: {
   readonly systemdRun: string | null;
 }): Array<string> => {
   const server = [options.codexPath, "app-server", "--listen", `unix://${options.socketPath}`];
+
   const command =
     options.systemdRun === null
       ? server
@@ -174,6 +185,7 @@ export const launchArgv = (options: {
           `--unit=polaris-codex-app-server-${Date.now()}`,
           ...server,
         ];
+
   // "$@" keeps every argument intact; the log file is $0. Only the pid reaches our pipe.
   return ["/bin/sh", "-c", '"$@" </dev/null >>"$0" 2>&1 & echo $!', options.logFile, ...command];
 };
@@ -188,9 +200,11 @@ const loadedThreads = (socketPath: string) =>
         capabilities: { experimentalApi: false, requestAttestation: false },
       });
       yield* conn.notify("initialized");
+
       const result = (yield* conn.request("thread/loaded/list", {})) as {
         readonly data?: ReadonlyArray<string>;
       };
+
       return result.data ?? null;
     })
   ).pipe(
@@ -202,10 +216,12 @@ const loadedThreads = (socketPath: string) =>
 const waitFor = (done: () => boolean | Promise<boolean>, timeoutMs: number) =>
   Effect.promise(async () => {
     const deadline = Date.now() + timeoutMs;
+
     while (Date.now() < deadline) {
       if (await done()) return true;
       await Bun.sleep(50);
     }
+
     return done();
   });
 
@@ -222,16 +238,21 @@ export const stopAppServer = (options: {
     const state = readAppServerState(options.stateFile);
     const socketPath = options.socketPath ?? state?.socketPath;
     let stopped: number | null = null;
+
     if (state !== null && isOurAppServer(state.pid, state.socketPath)) {
       stopped = state.pid;
       yield* Effect.sync(() => process.kill(state.pid, "SIGTERM"));
       const exited = yield* waitFor(() => !isAlive(state.pid), 5_000);
+
       if (!exited) yield* Effect.sync(() => process.kill(state.pid, "SIGKILL"));
     }
+
     yield* Effect.sync(() => {
       rmSync(options.stateFile, { force: true });
+
       if (socketPath !== undefined) rmSync(socketPath, { force: true });
     });
+
     return { stopped };
   });
 
@@ -257,31 +278,40 @@ export const makeAppServer = (
 
     const spawn = Effect.gen(function* () {
       const codexPath = options.codexPath;
+
       if (codexPath === null)
         return yield* codexError("codex was not found on PATH; install Codex to use it");
       // A recorded server that is alive but not answering is hung: replace it.
       const previous = readAppServerState(stateFile);
+
       if (previous !== null && isOurAppServer(previous.pid, previous.socketPath)) {
         yield* stopAppServer({ stateFile, socketPath: options.socketPath });
       }
+
       mkdirSync(dirname(options.socketPath), { recursive: true });
       mkdirSync(dirname(logFile), { recursive: true });
+
       if (existsSync(options.socketPath)) rmSync(options.socketPath, { force: true });
       const version = yield* versionOf(codexPath);
+
       const pid = yield* Effect.tryPromise({
         try: async () => {
           const proc = Bun.spawn(
             launchArgv({ codexPath, socketPath: options.socketPath, logFile, systemdRun }),
             { stdin: "ignore", stdout: "pipe", stderr: "ignore", detached: true }
           );
+
           const out = await new Response(proc.stdout).text();
           await proc.exited;
           const pid = Number(out.trim());
+
           if (!Number.isInteger(pid) || pid <= 0) throw new Error(`no pid from launcher: ${out}`);
+
           return pid;
         },
         catch: (cause) => codexError("Failed to start codex app-server", cause),
       });
+
       yield* Effect.sync(() =>
         writeState(stateFile, {
           pid,
@@ -293,13 +323,17 @@ export const makeAppServer = (
       );
 
       const deadline = Date.now() + (options.startTimeoutMs ?? 15_000);
+
       while (Date.now() < deadline) {
         if (!isAlive(pid))
           return yield* codexError(`codex app-server exited at start: ${logTail()}`);
+
         if (yield* isAnswering(options.socketPath)) return;
         yield* Effect.sleep("100 millis");
       }
+
       yield* stopAppServer({ stateFile, socketPath: options.socketPath });
+
       return yield* codexError(`codex app-server did not start listening on ${options.socketPath}`);
     });
 
@@ -307,16 +341,21 @@ export const makeAppServer = (
     const replaceIfOutdated = Effect.gen(function* () {
       if (!options.spawn || options.codexPath === null || connections > 0) return;
       const state = readAppServerState(stateFile);
+
       if (state === null || state.socketPath !== options.socketPath) return;
       const installed = yield* versionOf(options.codexPath);
+
       if (installed === null || state.version === null || installed === state.version) return;
       const loaded = yield* loadedThreads(options.socketPath);
+
       if (loaded === null || loaded.length > 0) {
         yield* Effect.logInfo(
           `codex ${installed} is installed but app-server ${state.version} has live threads; keeping it`
         );
+
         return;
       }
+
       yield* Effect.logInfo(`restarting codex app-server ${state.version} → ${installed}`);
       yield* stopAppServer({ stateFile, socketPath: options.socketPath });
     });
@@ -325,8 +364,10 @@ export const makeAppServer = (
       Effect.gen(function* () {
         if (yield* isAnswering(options.socketPath)) {
           yield* replaceIfOutdated;
+
           if (yield* isAnswering(options.socketPath)) return;
         }
+
         if (!options.spawn)
           return yield* codexError(`No Codex app-server is listening on ${options.socketPath}`);
         yield* spawn;
@@ -338,6 +379,7 @@ export const makeAppServer = (
       const conn = yield* connectUnix(options.socketPath);
       connections++;
       yield* Effect.addFinalizer(() => Effect.sync(() => connections--));
+
       return conn;
     });
 

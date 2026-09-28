@@ -16,7 +16,9 @@ import {
 } from "./testing/FakeAppServer.ts";
 
 const THREAD = "thr_1";
+
 const cleanup: Array<() => void> = [];
+
 afterEach(() => {
   for (const fn of cleanup.splice(0)) fn();
 });
@@ -25,6 +27,7 @@ afterEach(() => {
 const socketPath = () => {
   const dir = mkdtempSync("/tmp/pcx-");
   cleanup.push(() => rmSync(dir, { recursive: true, force: true }));
+
   return join(dir, "s.sock");
 };
 
@@ -48,12 +51,14 @@ const withSession = <A>(
   const server = startFakeAppServer(path, handler);
   cleanup.push(server.stop);
   const events: Array<HarnessEvent> = [];
+
   const program = Effect.gen(function* () {
     const driver = yield* makeCodexDriver({
       socketPath: path,
       spawnAppServer: false,
       codexPath: "/opt/codex/bin/codex",
     });
+
     const session = yield* driver.open({
       sessionId: SessionId.make("s1"),
       cwd: "/repo",
@@ -61,24 +66,31 @@ const withSession = <A>(
       model: null,
       resumeCursor: options.resumeCursor ?? null,
     });
+
     yield* session.events.pipe(
       Stream.runForEach((e) => Effect.sync(() => events.push(e))),
       // Detached, so it keeps reading through scope close and sees the final `Exited`.
       Effect.forkDetach
     );
+
     const waitFor = (predicate: (e: HarnessEvent) => boolean, label = "event") =>
       Effect.promise(async () => {
         for (let i = 0; i < 200; i++) {
           const found = events.find(predicate);
+
           if (found) return found;
           await Bun.sleep(10);
         }
+
         throw new Error(`timed out waiting for ${label}; saw ${events.map((e) => e._tag)}`);
       });
+
     return yield* body({ session, server, events, waitFor });
   });
+
   return Effect.runPromise(Effect.scoped(program)).then(async (result) => {
     await Bun.sleep(20);
+
     return { result, events, server };
   });
 };
@@ -115,6 +127,7 @@ const turn = (id: string, status = "inProgress", error: unknown = null) => ({
 describe("Codex driver against a fake app-server", () => {
   test("replays a recorded full Turn", async () => {
     const frames = await readFixture(join(import.meta.dir, "fixtures/full-turn.jsonl"));
+
     const { events, server } = await withSession(replay(frames), ({ session, waitFor }) =>
       Effect.gen(function* () {
         yield* session.sendTurn({
@@ -125,6 +138,7 @@ describe("Codex driver against a fake app-server", () => {
         yield* waitFor((e) => e._tag === "TurnEnded", "TurnEnded");
       })
     );
+
     const threadId = "01a0e68a-7f27-7583-8ddc-d1194aeb14f4";
     expect(events.map((e) => e._tag)).toEqual([
       "CursorAssigned",
@@ -170,6 +184,7 @@ describe("Codex driver against a fake app-server", () => {
 
   test("an approval round-trip answers the server request", async () => {
     let approval: Promise<unknown> = Promise.resolve();
+
     const handler = scripted((request, conn) => {
       if (request.method !== "turn/start") return;
       conn.reply({ turn: turn("t1") });
@@ -205,9 +220,11 @@ describe("Codex driver against a fake app-server", () => {
             },
           });
           conn.notify("turn/completed", { threadId: THREAD, turn: turn("t1", "completed") });
+
           return answer;
         });
     });
+
     const { events } = await withSession(handler, ({ session, waitFor }) =>
       Effect.gen(function* () {
         yield* session.sendTurn({ turnId: TurnId.make("turn-1"), prompt: "test", attachments: [] });
@@ -218,17 +235,21 @@ describe("Codex driver against a fake app-server", () => {
           title: "bun test",
           detail: "run the tests",
         });
+
         if (asked._tag !== "ApprovalRequested") throw new Error("unreachable");
         yield* session.respond(asked.requestId, { _tag: "Allow", remember: true });
         yield* waitFor((e) => e._tag === "TurnEnded", "TurnEnded");
         expect(yield* Effect.promise(() => approval)).toEqual({ decision: "acceptForSession" });
+
         // A second answer to the same request is rejected rather than sent twice.
         const again = yield* Effect.flip(
           session.respond(asked.requestId, { _tag: "Allow", remember: false })
         );
+
         expect(again.message).toContain("No open Codex request");
       })
     );
+
     // Our own answer's `serverRequest/resolved` is not reported as a withdrawal.
     expect(events.some((e) => e._tag === "ApprovalWithdrawn")).toBe(false);
     expect(events.find((e) => e._tag === "ItemCompleted")).toMatchObject({
@@ -255,14 +276,17 @@ describe("Codex driver against a fake app-server", () => {
             startedAtMs: 0,
             reason: null,
           });
+
           return;
         case "turn/interrupt":
           conn.reply({});
           conn.notify("serverRequest/resolved", { threadId: THREAD, requestId: 1000 });
           conn.notify("turn/completed", { threadId: THREAD, turn: turn("t1", "interrupted") });
+
           return;
       }
     });
+
     const { events, server } = await withSession(handler, ({ session, waitFor }) =>
       Effect.gen(function* () {
         yield* session.sendTurn({ turnId: TurnId.make("turn-1"), prompt: "edit", attachments: [] });
@@ -270,10 +294,13 @@ describe("Codex driver against a fake app-server", () => {
         expect(asked).toMatchObject({ kind: "file-change", title: "Apply file changes" });
         yield* session.interrupt;
         yield* waitFor((e) => e._tag === "TurnEnded", "TurnEnded");
+
         if (asked._tag !== "ApprovalRequested") throw new Error("unreachable");
+
         return asked.requestId;
       })
     );
+
     expect(server.requests("turn/interrupt")[0]?.params).toEqual({
       threadId: THREAD,
       turnId: "t1",
@@ -290,7 +317,9 @@ describe("Codex driver against a fake app-server", () => {
         conn.notify("turn/completed", { threadId: THREAD, turn: turn("t_tui", "completed") });
       }
     });
+
     let sendThreadNotifications: (() => void) | null = null;
+
     const wrapped: Handler = (request, conn) => {
       if (request.method === "thread/resume")
         sendThreadNotifications = () => {
@@ -305,8 +334,10 @@ describe("Codex driver against a fake app-server", () => {
           // Another thread on the shared server is ignored.
           conn.notify("turn/started", { threadId: "thr_other", turn: turn("t_other") });
         };
+
       return handler(request, conn);
     };
+
     const { events, server } = await withSession(
       wrapped,
       ({ session, waitFor }) =>
@@ -315,14 +346,17 @@ describe("Codex driver against a fake app-server", () => {
           const delta = yield* waitFor((e) => e._tag === "ItemDelta", "delta");
           const started = yield* waitFor((e) => e._tag === "TurnStarted", "TurnStarted");
           expect(delta).toMatchObject({ itemId: "m1", text: "Working" });
+
           if (started._tag !== "TurnStarted" || delta._tag !== "ItemDelta")
             throw new Error("unreachable");
           expect(delta.turnId).toBe(started.turnId);
           yield* waitFor((e) => e._tag === "TitleSuggested", "title");
+
           // Sending a Turn while one is in flight is refused; steering is the way in.
           const busy = yield* Effect.flip(
             session.sendTurn({ turnId: TurnId.make("x"), prompt: "no", attachments: [] })
           );
+
           expect(busy.message).toContain("already in progress");
           yield* session.steer("also run lint");
           yield* waitFor((e) => e._tag === "TurnEnded", "TurnEnded");
@@ -336,6 +370,7 @@ describe("Codex driver against a fake app-server", () => {
         }),
       { resumeCursor: THREAD, permissionMode: "auto" }
     );
+
     expect(server.requests("thread/resume")[0]?.params).toMatchObject({
       threadId: THREAD,
       excludeTurns: true,
@@ -367,7 +402,9 @@ describe("Codex driver against a fake app-server", () => {
       aggregatedOutput: output,
       exitCode: status === "completed" ? 0 : null,
     });
+
     let tui: (() => void) | null = null;
+
     const handler: Handler = (request, conn) => {
       if (request.method === "thread/resume")
         tui = () => {
@@ -403,8 +440,10 @@ describe("Codex driver against a fake app-server", () => {
           });
           conn.notify("turn/completed", { threadId: THREAD, turn: turn("t_tui", "completed") });
         };
+
       return scripted(() => {})(request, conn);
     };
+
     const { events } = await withSession(
       handler,
       ({ waitFor }) =>
@@ -414,6 +453,7 @@ describe("Codex driver against a fake app-server", () => {
         }),
       { resumeCursor: THREAD }
     );
+
     const started = events.find((e) => e._tag === "TurnStarted");
     expect(started).toMatchObject({ prompt: "fix the tests" });
     const turnId = started?._tag === "TurnStarted" ? started.turnId : TurnId.make("missing");
@@ -474,6 +514,7 @@ describe("Codex driver against a fake app-server", () => {
       const id = text === "say hi" ? "t1" : "t2";
       conn.reply({ turn: turn(id) });
       conn.notify("turn/started", { threadId: THREAD, turn: turn(id) });
+
       if (id === "t1")
         conn.notify("item/completed", {
           threadId: THREAD,
@@ -491,6 +532,7 @@ describe("Codex driver against a fake app-server", () => {
         });
       conn.notify("turn/completed", { threadId: THREAD, turn: turn(id, "completed") });
     });
+
     const { events, server } = await withSession(handler, ({ session, waitFor }) =>
       Effect.gen(function* () {
         yield* session.sendTurn({
@@ -505,6 +547,7 @@ describe("Codex driver against a fake app-server", () => {
           options: ["Postgres", "SQLite"],
         });
         yield* waitFor((e) => e._tag === "TurnEnded", "TurnEnded");
+
         if (asked._tag !== "ApprovalRequested") throw new Error("unreachable");
         yield* session.respond(asked.requestId, { _tag: "Answer", text: "SQLite" });
         yield* waitFor(
@@ -513,6 +556,7 @@ describe("Codex driver against a fake app-server", () => {
         );
       })
     );
+
     expect(server.requests("turn/start")[1]?.params).toMatchObject({
       threadId: THREAD,
       input: [{ type: "text", text: "SQLite" }],
@@ -526,12 +570,14 @@ describe("Codex driver against a fake app-server", () => {
   test("refuses credential and unsupported server requests, and reports a dropped server", async () => {
     let refusal: Promise<unknown> = Promise.resolve();
     let drop = () => {};
+
     const handler = scripted((request, conn) => {
       if (request.method !== "turn/start") return;
       conn.reply({ turn: turn("t1") });
       refusal = conn.request("account/chatgptAuthTokens/refresh", { reason: "unauthorized" });
       drop = conn.drop;
     });
+
     const { events } = await withSession(handler, ({ session, waitFor }) =>
       Effect.gen(function* () {
         yield* session.sendTurn({ turnId: TurnId.make("turn-1"), prompt: "go", attachments: [] });
@@ -542,6 +588,7 @@ describe("Codex driver against a fake app-server", () => {
         expect(failed._tag).toBe("HarnessError");
       })
     );
+
     const exited = events.filter((e) => e._tag === "Exited");
     expect(exited).toHaveLength(1);
     expect(exited[0]).toMatchObject({ error: expect.stringContaining("closed the connection") });
@@ -555,6 +602,7 @@ describe("Codex driver against a fake app-server", () => {
           const error = yield* Effect.flip(
             session.respond(RequestId.make("nope"), { _tag: "Deny", reason: null })
           );
+
           expect(error.harness).toBe("codex");
         })
     );

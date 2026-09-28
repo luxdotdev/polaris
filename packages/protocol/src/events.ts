@@ -76,6 +76,7 @@ export const DomainEvent = Schema.TaggedUnion({
     commit: Schema.String,
   },
 });
+
 export type DomainEvent = typeof DomainEvent.Type;
 
 /** Which stream an event belongs to. Host-level events use `host`. */
@@ -83,6 +84,7 @@ export const StreamKey = Schema.Union([
   Schema.TaggedStruct("host", {}),
   Schema.TaggedStruct("session", { sessionId: SessionId }),
 ]);
+
 export type StreamKey = typeof StreamKey.Type;
 
 export class EventEnvelope extends Schema.Class<EventEnvelope>("EventEnvelope")({

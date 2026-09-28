@@ -81,36 +81,45 @@ const markHost = (item: HostStreamItem): SequenceMark =>
  */
 test("the host feed follows a Turn that records items and checkpoints", async () => {
   const claude = makeFakeDriver("claude", { onTurn: completesTurns() });
+
   const layer = engineLayer({
     filename: join(tempDir(), "state.sqlite"),
     fakes: makeFakes(),
     drivers: [claude],
   });
+
   const result = await run(
     layer,
     Effect.gen(function* () {
       const engine = yield* Engine;
       const opens: Array<number | null> = [];
+
       const feed = yield* makeFeed<Engine["Service"], HostStreamItem, never>({
         source: { next: () => Effect.succeed({ epoch: 1, client: engine }) },
         open: (client, after) => {
           opens.push(after);
+
           return client.subscribeHost(after as Sequence | null);
         },
         mark: markHost,
         isDisconnect: () => false,
         gapless: false, // as HostConnection.ts opens it
       });
+
       yield* Effect.forkScoped(Stream.runDrain(feed.stream));
       yield* Effect.sleep(20);
       yield* startSession("s1" as SessionId);
+
       const model = yield* waitFor(
         (m) => m.sessions.get("s1" as SessionId)?.session.state === "idle"
       );
+
       yield* Effect.sleep(100);
+
       return { last: feed.lastSequence(), cut: model.sequence, opens: opens.length };
     })
   );
+
   // Before the fix: last was stuck at the event before the first CheckpointRecorded, opens in the thousands.
   expect(result.last).toBe(result.cut);
   expect(result.opens).toBeLessThan(5);
@@ -159,9 +168,11 @@ test("archiving an In Terminal session mid-Turn is refused, and nothing is left 
         }
       );
       yield* waitFor((m) => (m.sessions.get(s)?.pending.size ?? 0) === 1);
+
       const refused = yield* Effect.flip(
         dispatch({ _tag: "ArchiveSession", sessionId: s, deleteMergedBranch: false })
       );
+
       expect(refused).toBeInstanceOf(CommandRejected);
       expect((refused as CommandRejected).reason).toBe(
         "interrupt the Turn in flight before archiving"
@@ -244,6 +255,7 @@ test("a late approval request cannot leave a session Working without a Turn", as
       const late = (yield* Effect.flatMap(EventStore, (store) => store.model)).sessions.get(s)!;
       expect(late.pending.size).toBe(0);
       expect(late.session.state).toBe("idle");
+
       if (late.pending.size > 0) {
         yield* dispatch({
           _tag: "RespondToApproval",
@@ -252,10 +264,12 @@ test("a late approval request cannot leave a session Working without a Turn", as
           decision: { _tag: "Allow", remember: false },
         });
       }
+
       // With no Turn in flight, a new one must be accepted.
       const sent = yield* Effect.exit(
         dispatch({ _tag: "SendTurn", sessionId: s, prompt: "next", attachments: [] })
       );
+
       expect(sent._tag).toBe("Success");
     })
   );

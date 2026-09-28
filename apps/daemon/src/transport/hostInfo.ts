@@ -29,13 +29,17 @@ const loadHostId = (root: string) =>
   Effect.try({
     try: () => {
       const file = join(root, "host-id");
+
       try {
         const existing = readFileSync(file, "utf8").trim();
+
         if (existing.length > 0) return existing;
       } catch {}
+
       mkdirSync(root, { recursive: true, mode: 0o700 });
       const id = randomUUID();
       writeFileSync(file, `${id}\n`, { mode: 0o600, flag: "w" });
+
       return id;
     },
     catch: (cause) =>
@@ -45,6 +49,7 @@ const loadHostId = (root: string) =>
 export const loadHostInfo = Effect.fnUntraced(function* (root: string) {
   const hostId = yield* loadHostId(root);
   const platform = yield* platformOf(process.platform, process.arch);
+
   return new HostInfo({
     hostId: HostId.make(hostId),
     hostname: hostname(),

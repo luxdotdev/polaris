@@ -16,6 +16,7 @@ import { runtimePlatform } from "./platform.ts";
 import { HANDOFF_ENV, prepareHandoff, requestUpgrade, runningDaemonPid } from "./upgrade.ts";
 
 const fixture = join(import.meta.dir, "fixtures", "handoff-daemon.ts");
+
 const platform = runtimePlatform();
 
 interface Info {
@@ -38,6 +39,7 @@ const info = (socketPath: string): Promise<Info> =>
         },
         data(socket, data) {
           buffered += data.toString();
+
           if (buffered.includes("\n")) {
             resolve(JSON.parse(buffered.slice(0, buffered.indexOf("\n"))));
             socket.end();
@@ -58,6 +60,7 @@ const info = (socketPath: string): Promise<Info> =>
 
 const waitFor = async (condition: () => boolean, timeoutMs = 10_000) => {
   const deadline = Date.now() + timeoutMs;
+
   while (!condition()) {
     if (Date.now() > deadline) throw new Error("timed out");
     await Bun.sleep(20);
@@ -67,6 +70,7 @@ const waitFor = async (condition: () => boolean, timeoutMs = 10_000) => {
 const alive = (pid: number) => {
   try {
     process.kill(pid, 0);
+
     return true;
   } catch {
     return false;
@@ -74,7 +78,9 @@ const alive = (pid: number) => {
 };
 
 let home: string;
+
 let daemon: Subprocess | null = null;
+
 const previousHome = process.env.POLARIS_HOME;
 
 beforeEach(() => {
@@ -86,6 +92,7 @@ afterEach(async () => {
   daemon?.kill("SIGKILL");
   await daemon?.exited;
   daemon = null;
+
   if (previousHome === undefined) delete process.env.POLARIS_HOME;
   else process.env.POLARIS_HOME = previousHome;
   rmSync(home, { recursive: true, force: true });
@@ -94,6 +101,7 @@ afterEach(async () => {
 describe("libc", () => {
   test("clears close-on-exec and builds an env for the new image", async () => {
     const [a, b] = socketPair();
+
     try {
       clearCloseOnExec(a);
       expect(isCloseOnExec(a)).toBe(false);
@@ -137,6 +145,7 @@ exec ${launch.map((arg) => `"${arg}"`).join(" ")} --as 2.0.0
   let stop = false;
   const refused: Array<string> = [];
   const answered: Array<string> = [];
+
   const hammer = (async () => {
     while (!stop) {
       await info(socketPath).then(
@@ -150,6 +159,7 @@ exec ${launch.map((arg) => `"${arg}"`).join(" ")} --as 2.0.0
       await Bun.sleep(5);
     }
   })();
+
   await waitFor(() => answered.length > 0);
 
   const status = await Effect.runPromise(
@@ -157,6 +167,7 @@ exec ${launch.map((arg) => `"${arg}"`).join(" ")} --as 2.0.0
       Effect.provide(CommandRunner.layer)
     )
   );
+
   expect(status).toMatchObject({ state: "done", pid: daemon.pid });
 
   const after = await info(socketPath);
@@ -183,6 +194,7 @@ describe("execve hand-off", () => {
 
   test("works between compiled binaries (bun:ffi inside bun build --compile)", async () => {
     const binary = join(home, "fixture-bin");
+
     const build = Bun.spawnSync([
       process.execPath,
       "build",
@@ -190,12 +202,15 @@ describe("execve hand-off", () => {
       "--compile",
       `--outfile=${binary}`,
     ]);
+
     expect(build.stderr.toString()).not.toContain("error");
     expect(build.exitCode).toBe(0);
+
     if (process.platform === "darwin") {
       // See scripts/build-daemon.ts: Bun leaves an invalid ad-hoc signature.
       expect(Bun.spawnSync(["codesign", "--force", "--sign", "-", binary]).exitCode).toBe(0);
     }
+
     await handoffScenario([binary]);
   }, 60_000);
 
@@ -216,6 +231,7 @@ describe("execve hand-off", () => {
         Effect.provide(CommandRunner.layer)
       )
     );
+
     expect(error.message).toContain("plan9-mips");
     expect((await info(socketPath)).version).toBe("1.0.0");
   }, 30_000);

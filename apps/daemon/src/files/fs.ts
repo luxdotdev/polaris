@@ -12,8 +12,10 @@ import { detectMimeType, isTextMime } from "./mime.ts";
 
 /** Reads at or under this size of valid UTF-8 text come back inline; everything else as a blob. */
 export const INLINE_TEXT_MAX_BYTES = 256 * 1024;
+
 /** Ranges larger than this are streamed from disk into the BlobChannel instead of buffered. */
 export const STREAM_MIN_BYTES = 4 * 1024 * 1024;
+
 /** Bytes read from the start of a file to detect its mime type. */
 const SNIFF_BYTES = 8 * 1024;
 
@@ -29,17 +31,21 @@ export class FsFailure extends Error {
 
 export const toFsFailure = (path: string, cause: unknown): FsFailure => {
   if (cause instanceof FsFailure) return cause;
+
   const code =
     typeof cause === "object" && cause !== null && "code" in cause && typeof cause.code === "string"
       ? cause.code
       : "EIO";
+
   return new FsFailure(path, code, cause instanceof Error ? cause.message : String(cause));
 };
 
 /** `~` and `~/x` expand to the Host user's home; relative paths resolve against it too. */
 export const resolveHostPath = (path: string): string => {
   if (path === "~") return homedir();
+
   if (path.startsWith("~/")) return join(homedir(), path.slice(2));
+
   return isAbsolute(path) ? resolve(path) : resolve(homedir(), path);
 };
 
@@ -73,8 +79,10 @@ const toEntry = (path: string, name: string, stats: Stats): Entry => ({
 /** `lstat` semantics: a symlink is reported as a symlink, not as its target. */
 export const statPath = async (input: string): Promise<Entry> => {
   const path = resolveHostPath(input);
+
   try {
     const stats = await lstat(path);
+
     return toEntry(path, path.split("/").pop() || path, stats);
   } catch (cause) {
     throw toFsFailure(path, cause);
@@ -85,14 +93,17 @@ export const statPath = async (input: string): Promise<Entry> => {
 export const listDir = async (input: string): Promise<Array<Entry>> => {
   const path = resolveHostPath(input);
   let names: Array<string>;
+
   try {
     names = await readdir(path);
   } catch (cause) {
     throw toFsFailure(path, cause);
   }
+
   const entries = await Promise.all(
     names.map(async (name) => {
       const child = join(path, name);
+
       try {
         return toEntry(child, name, await lstat(child));
       } catch {
@@ -100,6 +111,7 @@ export const listDir = async (input: string): Promise<Array<Entry>> => {
       }
     })
   );
+
   return entries
     .filter((entry): entry is Entry => entry !== null)
     .sort((a, b) =>
@@ -136,40 +148,54 @@ export const readRange = async (
   length: number | null
 ): Promise<ReadResult> => {
   const path = resolveHostPath(input);
+
   try {
     const stats = await stat(path);
+
     if (stats.isDirectory()) throw new FsFailure(path, "EISDIR", `is a directory: ${path}`);
+
     if (!stats.isFile()) throw new FsFailure(path, "ENOTFILE", `not a regular file: ${path}`);
+
     if ((offset !== null && offset < 0) || (length !== null && length < 0)) {
       throw new FsFailure(path, "EINVAL", "offset and length must not be negative");
     }
+
     const size = stats.size;
     const start = Math.min(offset ?? 0, size);
     const end = length === null ? size : Math.min(size, start + length);
     const handle = await open(path, "r");
+
     try {
       const head = new Uint8Array(Math.min(SNIFF_BYTES, size));
       await handle.read(head, 0, head.length, 0);
       const mimeType = detectMimeType(path, head);
+
       if (end - start > STREAM_MIN_BYTES) {
         return { size, mimeType, content: { _tag: "Range", path, start, end } };
       }
+
       const bytes = new Uint8Array(end - start);
       let read = 0;
+
       while (read < bytes.length) {
         const { bytesRead } = await handle.read(bytes, read, bytes.length - read, start + read);
+
         if (bytesRead === 0) break;
         read += bytesRead;
       }
+
       const slice = read === bytes.length ? bytes : bytes.subarray(0, read);
+
       if (isTextMime(mimeType) && slice.length <= INLINE_TEXT_MAX_BYTES) {
         try {
           const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(slice);
+
           return { size, mimeType, content: { _tag: "Inline", text } };
         } catch {
           // The range cut a character (or the file isn't UTF-8): send the bytes.
         }
       }
+
       return { size, mimeType, content: { _tag: "Bytes", bytes: slice } };
     } finally {
       await handle.close();

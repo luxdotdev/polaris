@@ -15,6 +15,7 @@ export const SessionPlacement = Schema.TaggedUnion({
   /** Use a Worktree that already exists. */
   ExistingWorktree: { path: Schema.String },
 });
+
 export type SessionPlacement = typeof SessionPlacement.Type;
 
 export const Command = Schema.TaggedUnion({
@@ -63,4 +64,5 @@ export const Command = Schema.TaggedUnion({
   /** Take the session back from the terminal UI. */
   ReturnFromTerminal: { sessionId: SessionId },
 });
+
 export type Command = typeof Command.Type;

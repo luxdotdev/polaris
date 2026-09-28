@@ -45,11 +45,14 @@ const decodeMessage = Schema.decodeUnknownOption(Schema.fromJsonString(RpcMessag
 /** `POLARIS_CODEX_TRACE=<file>` appends every JSON-RPC frame as `{dir, msg}` lines (fixtures, debugging). */
 const trace = (dir: "in" | "out", raw: string) => {
   const file = process.env.POLARIS_CODEX_TRACE;
+
   if (!file) return;
   let msg: unknown = raw;
+
   try {
     msg = JSON.parse(raw);
   } catch {}
+
   appendFileSync(file, `${JSON.stringify({ dir, msg })}\n`);
 };
 
@@ -66,6 +69,7 @@ export const connectUnix = (
 
     const shutdown = (reason: string | null) => {
       if (!Deferred.doneUnsafe(closed, Effect.succeed(reason))) return;
+
       for (const deferred of pending.values())
         Deferred.doneUnsafe(
           deferred,
@@ -79,8 +83,10 @@ export const connectUnix = (
       const raw = typeof data === "string" ? data : String(data);
       trace("in", raw);
       const message = decodeMessage(raw);
+
       if (message._tag === "None") return;
       const { id, method, params, result, error } = message.value;
+
       if (method !== undefined) {
         Queue.offerUnsafe(
           incoming,
@@ -88,10 +94,13 @@ export const connectUnix = (
             ? { _tag: "Notification", method, params }
             : { _tag: "Request", id, method, params }
         );
+
         return;
       }
+
       if (id === undefined) return;
       const deferred = pending.get(String(id));
+
       if (deferred === undefined) return;
       pending.delete(String(id));
       Deferred.doneUnsafe(
@@ -113,11 +122,13 @@ export const connectUnix = (
           );
           shutdown(message);
         };
+
         ws.onclose = (event) =>
           shutdown(
             closedByClient ? null : `Codex app-server closed the connection (${event.code})`
           );
         ws.onmessage = (event) => onMessage(event.data);
+
         return Effect.sync(() => ws.close());
       }),
       (ws) =>
@@ -132,6 +143,7 @@ export const connectUnix = (
       Effect.suspend(() => {
         if (Deferred.isDoneUnsafe(closed))
           return Effect.fail(codexError("Codex app-server connection is closed"));
+
         return Effect.try({
           try: () => {
             const raw = JSON.stringify(message);
@@ -150,6 +162,7 @@ export const connectUnix = (
         yield* send({ id, method, params }).pipe(
           Effect.tapError(() => Effect.sync(() => pending.delete(String(id))))
         );
+
         return yield* Deferred.await(deferred);
       }).pipe(Effect.mapError((e) => codexError(`${method}: ${e.message}`, e.cause)));
 

@@ -10,11 +10,14 @@ import type { FileChange } from "./search/types.ts";
 
 // Keep fff's frecency databases out of the real ~/.polaris.
 let home: string;
+
 const previousHome = process.env.POLARIS_HOME;
+
 beforeAll(() => {
   home = tempDir("polaris-home-");
   process.env.POLARIS_HOME = home;
 });
+
 afterAll(() => {
   if (previousHome === undefined) delete process.env.POLARIS_HOME;
   else process.env.POLARIS_HOME = previousHome;
@@ -22,6 +25,7 @@ afterAll(() => {
 });
 
 const cleanup: Array<string> = [];
+
 afterEach(() => {
   for (const dir of cleanup.splice(0)) removeDir(dir);
 });
@@ -33,9 +37,11 @@ const fixture = async () => {
     "src/harness/HarnessDriver.ts": "// drives a Harness\nexport const driver = 'BlobChannel'\n",
     "README.md": "Polaris\n",
   });
+
   write(root, "src/untracked.ts", "const blobchannel = 2\n");
   write(root, "dist/services.js", "BlobChannel ignored\n");
   cleanup.push(root);
+
   return root;
 };
 
@@ -44,10 +50,12 @@ const withSearch = <A, E>(useFff: boolean, effect: Effect.Effect<A, E, FileSearc
 
 const waitFor = async (predicate: () => boolean, what: string) => {
   const deadline = Date.now() + 8000;
+
   while (Date.now() < deadline) {
     if (predicate()) return;
     await Bun.sleep(25);
   }
+
   throw new Error(`timed out waiting for ${what}`);
 };
 
@@ -57,23 +65,28 @@ for (const useFff of [true, false]) {
   describe(`FileSearch (${backend})`, () => {
     test("uses the expected backend", async () => {
       const root = await fixture();
+
       const kind = await withSearch(
         useFff,
         Effect.gen(function* () {
           const search = yield* FileSearch;
           yield* search.searchPaths(root, "readme", 5);
+
           return yield* search.backendOf(root);
         })
       );
+
       expect(kind).toBe(backend);
     });
 
     test("fuzzy path search finds files and skips ignored ones", async () => {
       const root = await fixture();
+
       const hits = await withSearch(
         useFff,
         handleSearchPaths({ root, query: "services", limit: 10 })
       );
+
       const paths = hits.map((h) => h.path);
       expect(paths[0]).toBe(join(root, "src/services.ts"));
       expect(paths).not.toContain(join(root, "dist/services.js"));
@@ -81,6 +94,7 @@ for (const useFff of [true, false]) {
 
     test("grep: plain, case-insensitive and regex, with 1-based columns", async () => {
       const root = await fixture();
+
       const results = await withSearch(
         useFff,
         Effect.all([
@@ -114,9 +128,12 @@ for (const useFff of [true, false]) {
           }),
         ])
       );
+
       const [sensitive, insensitive, regex, limited] = results;
+
       const where = (hits: typeof sensitive) =>
         hits.map((h) => h.path.slice(root.length + 1)).sort();
+
       expect(where(sensitive)).toEqual(["src/harness/HarnessDriver.ts", "src/services.ts"]);
       expect(where(insensitive)).toEqual([
         "src/harness/HarnessDriver.ts",
@@ -132,17 +149,21 @@ for (const useFff of [true, false]) {
     test("watch reports created, modified and deleted files", async () => {
       const root = await fixture();
       const seen: Array<FileChange> = [];
+
       const has = (name: string, kind: FileChange["kind"]) =>
         seen.some((c) => c.path === join(root, name) && c.kind === kind);
+
       const layer = FileSearchLive({ useFff });
       await Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
             const search = yield* FileSearch;
+
             const fiber = yield* search.watch(root).pipe(
               Stream.runForEach((batch) => Effect.sync(() => seen.push(...batch))),
               Effect.forkChild
             );
+
             // Let the watcher arm (fff scans first).
             yield* search.searchPaths(root, "x", 1);
             yield* Effect.sleep("300 millis");
@@ -227,22 +248,26 @@ describe("FileSearch lifecycle", () => {
 
   test("a root that is a file is ENOTDIR", async () => {
     const root = await fixture();
+
     const error = await withSearch(
       false,
       Effect.flip(handleSearchPaths({ root: join(root, "README.md"), query: "x", limit: 1 }))
     );
+
     expect(error).toMatchObject({ _tag: "FileError", code: "ENOTDIR" });
   });
 
   test("POLARIS_FFF=off forces the fallback", async () => {
     const root = await fixture();
     process.env.POLARIS_FFF = "off";
+
     try {
       const { loadFff } = await import("./search/fff.ts");
       expect(await loadFff()).toBeNull();
     } finally {
       delete process.env.POLARIS_FFF;
     }
+
     expect(root).toBeTruthy();
   });
 });

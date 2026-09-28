@@ -19,6 +19,7 @@ export const PLATFORMS = [
   "linux-x64-musl",
   "linux-arm64-musl",
 ] as const;
+
 export type Platform = (typeof PLATFORMS)[number];
 
 /** The `bun build --compile --target` for each platform. */
@@ -36,15 +37,18 @@ export const isPlatform = (value: string): value is Platform =>
   (PLATFORMS as ReadonlyArray<string>).includes(value);
 
 let musl: boolean | undefined;
+
 /** Whether this process runs on musl libc (its loader is `/lib/ld-musl-<arch>.so.1`). */
 export const isMusl = (): boolean => {
   if (musl !== undefined) return musl;
   musl = false;
+
   if (process.platform === "linux") {
     try {
       musl = readdirSync("/lib").some((f) => f.startsWith("ld-musl-"));
     } catch {}
   }
+
   return musl;
 };
 
@@ -55,6 +59,7 @@ export const runtimePlatform = (): string =>
 /** This process's platform, or null when the Daemon does not ship for it. */
 export const currentPlatform = (): Platform | null => {
   const id = runtimePlatform();
+
   return isPlatform(id) ? id : null;
 };
 
@@ -68,6 +73,7 @@ export interface VersionInfo {
 /** Parses the output of `polaris version`; null if it is not one. */
 export const parseVersionLine = (output: string): VersionInfo | null => {
   const match = /^polaris (\S+) (\S+)\s*$/m.exec(output.trim());
+
   return match ? { version: match[1]!, platform: match[2]! } : null;
 };
 

@@ -81,6 +81,7 @@ class Reopen {
 
 /** The first pause before a reopen that made no progress, doubled each time up to the max. */
 export const REOPEN_BACKOFF_MS = 25;
+
 export const MAX_REOPEN_BACKOFF_MS = 5_000;
 
 /** How long to wait before the `stalled`-th reopen in a row that made no progress. */
@@ -109,6 +110,7 @@ export const makeFeed = Effect.fnUntraced(function* <C, A, E>(
     lock.withPermit(
       Effect.suspend(() => {
         const mark = options.mark(item);
+
         switch (mark.kind) {
           case "snapshot":
             lastSequence = mark.sequence;
@@ -118,29 +120,36 @@ export const makeFeed = Effect.fnUntraced(function* <C, A, E>(
             break;
           case "event": {
             if (lastSequence !== null && mark.sequence <= lastSequence) return Effect.void;
+
             if (options.gapless && lastSequence !== null && mark.sequence !== lastSequence + 1)
               return Effect.fail(new Reopen(false));
             lastSequence = mark.sequence;
+
             if (snapshot !== null) {
               events.push(item);
+
               if (events.length > maxCached) {
                 snapshot = null;
                 events = [];
                 synchronized = null;
+
                 return Effect.andThen(
                   publish({ _tag: "item", item }),
                   Effect.fail(new Reopen(true))
                 );
               }
             }
+
             break;
           }
+
           case "synchronized":
             synchronized = item;
             break;
           case "ephemeral":
             break;
         }
+
         return Effect.asVoid(publish({ _tag: "item", item }));
       })
     );
@@ -150,43 +159,54 @@ export const makeFeed = Effect.fnUntraced(function* <C, A, E>(
     let fresh = false;
     /** Reopens in a row that saw no new event: each waits longer. */
     let stalled = 0;
+
     while (true) {
       const live = yield* options.source.next(minEpoch);
       const after: number | null = fresh ? null : lastSequence;
       const before = lastSequence;
       fresh = false;
+
       const result: Result.Result<void, E | Reopen> = yield* options
         .open(live.client, after)
         .pipe(Stream.runForEach(handle), Effect.result);
+
       if (result._tag === "Success") {
         minEpoch = live.epoch;
         yield* Effect.sleep(options.reopenDelayMs ?? 1000);
         continue;
       }
+
       const error: E | Reopen = result.failure;
+
       if (error instanceof Reopen) {
         minEpoch = live.epoch;
         fresh = error.fresh;
         stalled = lastSequence !== before ? 0 : stalled + 1;
+
         if (stalled > 0) yield* Effect.sleep(reopenBackoff(stalled));
         continue;
       }
+
       if (options.isDisconnect(error)) {
         minEpoch = live.epoch + 1;
         continue;
       }
+
       yield* lock.withPermit(
         Effect.suspend(() => {
           failure = { error };
+
           return publish({ _tag: "fail", error });
         })
       );
+
       return;
     }
   });
 
   const retain = Effect.suspend(() => {
     refCount++;
+
     if (upstream === null) {
       if (failure !== null) {
         failure = null;
@@ -195,6 +215,7 @@ export const makeFeed = Effect.fnUntraced(function* <C, A, E>(
         events = [];
         synchronized = null;
       }
+
       return Effect.map(Effect.forkIn(run, scope), (fiber) => {
         upstream = fiber;
         fiber.addObserver(() => {
@@ -202,16 +223,20 @@ export const makeFeed = Effect.fnUntraced(function* <C, A, E>(
         });
       });
     }
+
     return Effect.void;
   });
 
   const release = Effect.suspend(() => {
     refCount--;
+
     if (refCount === 0 && upstream !== null) {
       const fiber = upstream;
       upstream = null;
+
       return Fiber.interrupt(fiber);
     }
+
     return Effect.void;
   });
 
@@ -221,18 +246,25 @@ export const makeFeed = Effect.fnUntraced(function* <C, A, E>(
         Effect.gen(function* () {
           const subscription = yield* PubSub.subscribe(pubsub);
           const replay: Array<A> = [];
+
           if (snapshot !== null) replay.push(snapshot, ...events);
+
           if (synchronized !== null) replay.push(synchronized);
+
           return { subscription, replay, failed: upstream === null ? null : failure };
         })
       );
+
       yield* Effect.acquireRelease(retain, () => release);
+
       const live = Stream.fromSubscription(subscription).pipe(
         Stream.mapEffect((message) =>
           message._tag === "item" ? Effect.succeed(message.item) : Effect.fail(message.error)
         )
       );
+
       if (failed !== null) return Stream.fail(failed.error);
+
       return Stream.concat(Stream.fromIterable(replay), live);
     })
   );

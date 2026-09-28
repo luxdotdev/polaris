@@ -54,15 +54,18 @@ import { startServer } from "./server.ts";
 const MAIN = join(import.meta.dir, "..", "main.ts");
 
 let home: string;
+
 beforeEach(() => {
   // Short path: Unix socket paths are limited to ~104 bytes on macOS.
   home = mkdtempSync("/tmp/plt-");
 });
+
 afterEach(() => {
   rmSync(home, { recursive: true, force: true });
 });
 
 const socketOf = (dir: string) => join(dir, "daemon.sock");
+
 const serverOptions = (dir: string) => ({
   socketPath: socketOf(dir),
   lockPath: join(dir, "daemon.lock"),
@@ -71,15 +74,19 @@ const serverOptions = (dir: string) => ({
 
 const bytes = (n: number, seed: number) => {
   const out = new Uint8Array(n);
+
   for (let i = 0; i < n; i++) out[i] = (i * 31 + seed) % 256;
+
   return out;
 };
+
 const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 
 /** A tiny event log standing in for the store: survives server restarts. */
 const makeLog = Effect.gen(function* () {
   const pubsub = yield* PubSub.unbounded<EventEnvelope>();
   const events: Array<EventEnvelope> = [];
+
   const append = Effect.suspend(() => {
     const envelope = new EventEnvelope({
       sequence: Sequence.make(events.length + 1),
@@ -87,14 +94,18 @@ const makeLog = Effect.gen(function* () {
       commandId: null,
       event: { _tag: "WorkspaceRemoved", workspaceId: WorkspaceId.make(`w${events.length + 1}`) },
     });
+
     events.push(envelope);
+
     return PubSub.publish(pubsub, envelope);
   });
+
   const subscribeHost = (afterSequence: number | null): Stream.Stream<HostStreamItem> =>
     Stream.unwrap(
       Effect.gen(function* () {
         const live = yield* PubSub.subscribe(pubsub);
         const upTo = events.length;
+
         const head: Array<HostStreamItem> =
           afterSequence === null
             ? [
@@ -109,6 +120,7 @@ const makeLog = Effect.gen(function* () {
             : events
                 .slice(afterSequence, upTo)
                 .map((envelope) => ({ _tag: "Event" as const, envelope }));
+
         return Stream.concat(
           Stream.fromIterable([
             ...head,
@@ -121,6 +133,7 @@ const makeLog = Effect.gen(function* () {
         );
       })
     );
+
   return { append, subscribeHost, events };
 });
 
@@ -145,6 +158,7 @@ const testHandlers = (log: Log) =>
         const blobs = yield* BlobChannel;
         const size = length ?? 0;
         const blobId = yield* blobs.offer(bytes(size, 7));
+
         return {
           size,
           mimeType: "application/octet-stream",
@@ -156,6 +170,7 @@ const testHandlers = (log: Log) =>
       Effect.gen(function* () {
         const blobs = yield* BlobChannel;
         const received = yield* Effect.orDie(blobs.take(blobId));
+
         return new Attachment({
           id: AttachmentId.make("a1"),
           name,
@@ -224,25 +239,31 @@ describe("transport", () => {
         const server = yield* startServer(serverOptions(home));
         const conn = yield* localHost(home);
         const session = yield* conn.awaitSession;
+
         const status = yield* conn.session.pipe(
           Effect.andThen(() => SubscriptionRef.get(conn.status))
         );
+
         const rejected = yield* Effect.flip(
           session.client.dispatch({
             commandId: CommandId.make("c1"),
             command: { _tag: "RemoveWorkspace", workspaceId: WorkspaceId.make("w1") },
           })
         );
+
         const hostItems = yield* session.client
           .subscribeHost({ afterSequence: null })
           .pipe(Stream.take(2), Stream.runCollect);
+
         const modes = {
           socket: statSync(socketOf(home)).mode & 0o777,
           dir: statSync(home).mode & 0o777,
         };
+
         return { server, session, status, rejected, hostItems, modes };
       })
     );
+
     expect(result.session.host.hostId).toBe(result.server.hostInfo.hostId);
     expect(result.session.host.platform).toBe(`${process.platform}-${process.arch}` as never);
     expect(result.session.capabilities).toEqual(["blobs"]);
@@ -262,15 +283,18 @@ describe("transport", () => {
         yield* startServer({ ...serverOptions(home), handlers: testHandlers(log) });
         const conn = yield* localHost(home);
         const session = yield* conn.awaitSession;
+
         const error = yield* Effect.flip(
           session.client.dispatch({
             commandId: CommandId.make("c1"),
             command: { _tag: "RemoveWorkspace", workspaceId: WorkspaceId.make("w1") },
           })
         );
+
         return error._tag === "CommandRejected" ? error.reason : error._tag;
       })
     );
+
     expect(reason).toBe("Test MacBook");
   });
 
@@ -278,6 +302,7 @@ describe("transport", () => {
     const result = await run(
       Effect.gen(function* () {
         const log = yield* makeLog;
+
         const handlers = Layer.merge(
           testHandlers(log),
           // Echo the capabilities hello recorded, as the terminal command's argv.
@@ -291,26 +316,34 @@ describe("transport", () => {
             )
           )
         );
+
         yield* startServer({ ...serverOptions(home), handlers });
+
         const conn = yield* localHost(home, {
           identity: { ...identity, capabilities: [...identity.capabilities, "session.live-items"] },
         });
+
         const session = yield* conn.awaitSession;
+
         return yield* session.client["session.terminalCommand"]({ sessionId: "s" as never });
       })
     );
+
     expect(result?.argv).toEqual(["blobs", "files.read", "session.live-items"]);
+
     // Without a real engine the placeholder answers NotFound.
     const missing = await run(
       Effect.gen(function* () {
         yield* startServer(serverOptions(home));
         const conn = yield* localHost(home);
         const session = yield* conn.awaitSession;
+
         return yield* Effect.flip(
           session.client["session.terminalCommand"]({ sessionId: "s" as never })
         );
       })
     );
+
     expect(missing._tag).toBe("NotFound");
   });
 
@@ -329,7 +362,9 @@ describe("transport", () => {
             Stream.runCollect
           )
         );
+
         yield* Effect.sleep(50);
+
         const appends = Effect.forkChild(
           Effect.forEach(
             Array.from({ length: 50 }),
@@ -339,16 +374,21 @@ describe("transport", () => {
             }
           )
         );
+
         yield* appends;
+
         // While events flow, a 6 MB read and a 5 MB upload share the connection.
         const read = yield* session.client["files.read"]({
           path: "/x",
           offset: null,
           length: 6_000_000,
         });
+
         const readBytes =
           read.content._tag === "Blob" ? yield* session.blobs.take(read.content.blobId) : null;
+
         const upload = bytes(5_000_000, 3);
+
         const staged = yield* conn.withBlob(upload, (blobId, s) =>
           s.client["attachments.stage"]({
             sessionId: null,
@@ -358,10 +398,13 @@ describe("transport", () => {
             blobId,
           })
         );
+
         const events = yield* Fiber.join(collected);
+
         return { readBytes, staged, upload, events };
       })
     );
+
     expect(result.readBytes?.byteLength).toBe(6_000_000);
     expect(sha(result.readBytes!)).toBe(sha(bytes(6_000_000, 7)));
     expect(result.staged.size).toBe(5_000_000);
@@ -376,10 +419,13 @@ describe("transport", () => {
       Effect.gen(function* () {
         const log = yield* makeLog;
         const server = yield* startServer({ ...serverOptions(home), handlers: testHandlers(log) });
+
         const conns = yield* Effect.forEach(Array.from({ length: 6 }), (_, i) =>
           localHost(home, { key: `c${i}` })
         );
+
         yield* Effect.forEach(conns, (c) => c.awaitSession, { concurrency: "unbounded" });
+
         const fibers = yield* Effect.forEach(conns, (c) =>
           Effect.forkChild(
             c.subscribeHost.pipe(
@@ -390,13 +436,18 @@ describe("transport", () => {
             )
           )
         );
+
         yield* Effect.sleep(100);
+
         for (let i = 0; i < 10; i++) yield* log.append;
         const results = yield* Effect.forEach(fibers, Fiber.join);
+
         return { results, connections: server.connections() };
       })
     );
+
     expect(seen.connections).toBe(6);
+
     for (const r of seen.results) expect(r).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
   }, 15_000);
 
@@ -404,14 +455,17 @@ describe("transport", () => {
     const result = await run(
       Effect.gen(function* () {
         const log = yield* makeLog;
+
         const startOn = () =>
           Effect.gen(function* () {
             const scope = yield* Scope.make();
             yield* startServer({ ...serverOptions(home), handlers: testHandlers(log) }).pipe(
               Scope.provide(scope)
             );
+
             return scope;
           });
+
         let serverScope = yield* startOn();
         const conn = yield* localHost(home);
         yield* conn.awaitSession;
@@ -420,6 +474,7 @@ describe("transport", () => {
           Stream.runForEach((s) => Effect.sync(() => states.push(s.state))),
           Effect.forkChild
         );
+
         const items = yield* Effect.forkChild(
           conn.subscribeHost.pipe(
             Stream.filter((i) => i._tag === "Event"),
@@ -428,22 +483,29 @@ describe("transport", () => {
             Stream.runCollect
           )
         );
+
         yield* Effect.sleep(50);
+
         for (let round = 0; round < 3; round++) {
           for (let i = 0; i < 20; i++) yield* log.append;
           yield* Effect.sleep(20);
           // Kill the Daemon mid-stream; events keep landing in the store while it's down.
           yield* Scope.close(serverScope, Exit.void);
+
           for (let i = 0; i < 5; i++) yield* log.append;
           yield* waitFor(conn, (s) => s.state === "reconnecting");
           serverScope = yield* startOn();
           yield* waitFor(conn, (s) => s.state === "connected" && s.epoch === round + 2);
+
           for (let i = 0; i < 5; i++) yield* log.append;
         }
+
         const sequences = yield* Fiber.join(items);
+
         return { sequences, states, events: log.events.length };
       })
     );
+
     expect(result.events).toBe(90);
     expect(result.sequences).toEqual(Array.from({ length: 90 }, (_, i) => i + 1));
     expect(result.states).toContain("reconnecting");
@@ -454,15 +516,18 @@ describe("transport", () => {
     const first = await run(
       Effect.gen(function* () {
         const log = yield* makeLog;
+
         for (let i = 0; i < 3; i++) yield* log.append;
         yield* startServer({ ...serverOptions(home), handlers: testHandlers(log) });
         const conn = yield* localHost(home);
         yield* conn.subscribeHost.pipe(Stream.take(2), Stream.runDrain);
         yield* log.append;
+
         // Nothing is subscribed now; the cache holds the snapshot at 3.
         return yield* conn.subscribeHost.pipe(Stream.take(3), Stream.runCollect);
       })
     );
+
     expect(first.map((i) => i._tag)).toEqual(["Snapshot", "Synchronized", "Event"]);
     expect(first[0]?._tag === "Snapshot" && first[0].sequence).toBe(3 as never);
     expect(first[2]?._tag === "Event" && first[2].envelope.sequence).toBe(4 as never);
@@ -474,9 +539,11 @@ describe("transport", () => {
         const log = yield* makeLog;
         yield* startServer({ ...serverOptions(home), handlers: testHandlers(log) });
         const conn = yield* localHost(home);
+
         return yield* conn.subscribeSession("nope" as never).pipe(Stream.runDrain, Effect.flip);
       })
     );
+
     expect(error._tag).toBe("NotFound");
   });
 
@@ -485,12 +552,15 @@ describe("transport", () => {
       Effect.gen(function* () {
         yield* startServer(serverOptions(home));
         const second = yield* startServer(serverOptions(home)).pipe(Effect.flip, Effect.scoped);
+
         const child = yield* Effect.promise(() =>
           runProcess(["bun", MAIN, "serve"], { POLARIS_HOME: home })
         );
+
         return { second: second as DaemonAlreadyRunning, child };
       })
     );
+
     expect(result.second._tag).toBe("DaemonAlreadyRunning");
     expect(result.child.code).toBe(75);
     expect(result.child.stderr).toContain("already running");
@@ -498,10 +568,12 @@ describe("transport", () => {
 
   test("takes over a stale socket left by a killed Daemon", async () => {
     const path = socketOf(home);
+
     const child = spawn("bun", [
       "-e",
       `require("node:net").createServer().listen(${JSON.stringify(path)}, () => console.log("up"))`,
     ]);
+
     await new Promise<void>((resolve) => child.stdout?.once("data", () => resolve()));
     child.kill("SIGKILL");
     await new Promise((resolve) => child.once("exit", resolve));
@@ -511,9 +583,11 @@ describe("transport", () => {
       Effect.gen(function* () {
         yield* startServer(serverOptions(home));
         const conn = yield* localHost(home);
+
         return (yield* conn.awaitSession).host;
       })
     );
+
     expect(host.hostname.length).toBeGreaterThan(0);
   });
 
@@ -524,13 +598,16 @@ describe("transport", () => {
         yield* startServer({ ...serverOptions(home), handlers: testHandlers(log) });
         const conn = yield* bridgeHost(home);
         const session = yield* conn.awaitSession;
+
         const read = yield* session.client["files.read"]({
           path: "/x",
           offset: null,
           length: 3_000_000,
         });
+
         const got =
           read.content._tag === "Blob" ? yield* session.blobs.take(read.content.blobId) : null;
+
         const staged = yield* conn.withBlob(bytes(2_000_000, 9), (blobId, s) =>
           s.client["attachments.stage"]({
             sessionId: null,
@@ -540,9 +617,11 @@ describe("transport", () => {
             blobId,
           })
         );
+
         return { host: session.host, got, staged };
       })
     );
+
     expect(result.got && sha(result.got)).toBe(sha(bytes(3_000_000, 7)));
     expect(result.staged.hostPath).toBe(sha(bytes(2_000_000, 9)));
   }, 15_000);
@@ -556,14 +635,17 @@ describe("transport", () => {
         yield* startServer(serverOptions(home));
         yield* conn.retryNow;
         yield* waitFor(conn, (s) => s.state === "connected");
+
         return status;
       })
     );
+
     expect(result.failure?.reason).toBe("daemon-not-running");
   }, 15_000);
 
   test("another module's handlers get their connection's BlobChannel (git.diff)", async () => {
     const repo = join(home, "repo");
+
     const git = (...args: Array<string>) => {
       const r = Bun.spawnSync(["git", "-C", repo, ...args], {
         env: {
@@ -574,8 +656,10 @@ describe("transport", () => {
           GIT_COMMITTER_EMAIL: "t@t",
         },
       });
+
       if (r.exitCode !== 0) throw new Error(r.stderr.toString());
     };
+
     Bun.spawnSync(["git", "init", "-q", repo]);
     await Bun.write(join(repo, "big.txt"), "a\n".repeat(400_000));
     git("add", ".");
@@ -587,14 +671,18 @@ describe("transport", () => {
         yield* startServer({ ...serverOptions(home), handlers: GitRpcsLive });
         const conn = yield* localHost(home);
         const session = yield* conn.awaitSession;
+
         const result = yield* session.client["git.diff"]({
           cwd: repo,
           spec: { _tag: "WorkingTree", base: null },
         });
+
         const text = new TextDecoder().decode(yield* session.blobs.take(result.blobId));
+
         return { result, text };
       })
     );
+
     // (`files` is not checked: git/diff.ts counts over an ArrayBuffer and reports 0; see README.)
     expect(diff.text.length).toBe(diff.result.size);
     expect(diff.text).toContain("+b");
@@ -602,6 +690,7 @@ describe("transport", () => {
 
   test("attachments.stage streams an upload to disk through the socket", async () => {
     const payload = bytes(3 * 1024 * 1024 + 17, 5);
+
     const staged = await run(
       Effect.gen(function* () {
         yield* startServer({
@@ -612,6 +701,7 @@ describe("transport", () => {
         });
         const conn = yield* localHost(home);
         yield* conn.awaitSession;
+
         return yield* conn.withBlob(payload, (blobId, s) =>
           s.client["attachments.stage"]({
             sessionId: null,
@@ -623,12 +713,14 @@ describe("transport", () => {
         );
       })
     );
+
     expect(staged.size).toBe(payload.byteLength);
     expect(sha(new Uint8Array(await Bun.file(staged.hostPath).arrayBuffer()))).toBe(sha(payload));
   }, 20_000);
 
   test("terminal output arrives the same as raw bytes (terminal.binary) and as base64", async () => {
     const size = 300_000;
+
     const texts = await run(
       Effect.gen(function* () {
         yield* startServer({
@@ -638,6 +730,7 @@ describe("transport", () => {
         });
         const conn = yield* localHost(home);
         const session = yield* conn.awaitSession;
+
         const read = (capabilities: ReadonlyArray<Capability>) =>
           Effect.gen(function* () {
             const { terminalId } = yield* session.client["terminal.open"]({
@@ -650,6 +743,7 @@ describe("transport", () => {
                 `sleep 0.3; head -c ${size} /dev/zero | tr '\\0' a; echo; echo done`,
               ],
             });
+
             let text = "";
             const decoder = new TextDecoder();
             let exit: number | null | undefined;
@@ -661,11 +755,14 @@ describe("transport", () => {
                 })
               )
             );
+
             return { text, exit };
           });
+
         return [yield* read(["terminal.binary"]), yield* read([])];
       })
     );
+
     for (const { text, exit } of texts) {
       expect(exit).toBe(0);
       expect(text.split("a").length - 1).toBe(size);
@@ -676,14 +773,18 @@ describe("transport", () => {
   test("polaris serve as a process: pid file, bridge, clean shutdown", async () => {
     const env = { ...process.env, POLARIS_HOME: home };
     const daemon = spawn("bun", [MAIN, "serve"], { env, stdio: "ignore" });
+
     try {
       for (let i = 0; i < 100 && !existsSync(join(home, "daemon.pid")); i++) await Bun.sleep(50);
+
       const host = await run(
         Effect.gen(function* () {
           const conn = yield* bridgeHost(home);
+
           return (yield* conn.awaitSession).host;
         })
       );
+
       expect(host.daemonVersion.length).toBeGreaterThan(0);
       expect(Number((await Bun.file(join(home, "daemon.pid")).text()).trim())).toBe(daemon.pid!);
       expect(Number((await Bun.file(join(home, "daemon.lock")).text()).trim())).toBe(daemon.pid!);
@@ -691,6 +792,7 @@ describe("transport", () => {
       daemon.kill("SIGTERM");
       await new Promise((resolve) => daemon.once("exit", resolve));
     }
+
     for (const file of ["daemon.sock", "daemon.lock", "daemon.pid"])
       expect(existsSync(join(home, file))).toBe(false);
   }, 20_000);

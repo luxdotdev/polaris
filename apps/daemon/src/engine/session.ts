@@ -35,7 +35,9 @@ import { foldSession, lastTurn, type SessionRecord, workingTurn } from "../store
 
 // Effect Schemas as Standard Schemas: XState v6 infers its event types from them.
 const standard = Schema.toStandardSchemaV1;
+
 const At = { at: Schema.String };
+
 const Nothing = standard(Schema.Struct({}));
 
 const eventSchemas = {
@@ -145,6 +147,7 @@ const RECOVERY_REASON = {
 
 const need = (context: Context): SessionRecord => {
   if (context.record === null) throw new Error("the session machine needs a session");
+
   return context.record;
 };
 
@@ -171,12 +174,16 @@ const settle = (
 ) => {
   const sessionId =
     record?.session.id ?? (events[0]?._tag === "SessionCreated" ? events[0].session.id : undefined);
+
   if (sessionId === undefined) return undefined;
   const all = enter ? [...events, stateChanged(sessionId, enter.state, enter.reason)] : events;
+
   if (all.length === 0) return HANDLED;
+
   for (const event of all) enq.emit({ type: "domain", event });
   const next = foldSession(sessionId, record ?? undefined, all, "")!;
   const moved = enter !== undefined || next.session.state !== record?.session.state;
+
   return {
     ...(moved ? { target: `#${next.session.state}`, reenter: true } : {}),
     context: { record: next },
@@ -191,7 +198,9 @@ const reject = (enq: Enqueue, reason: string) => {
 const takesTurn = (record: SessionRecord): boolean => {
   if (workingTurn(record) !== undefined) return false;
   const { state } = record.session;
+
   if (state === "idle" || state === "dormant" || state === "failed") return true;
+
   // Needs You after a Daemon restart (an Interrupted Turn, nothing pending) takes a new Turn too.
   return state === "needs-you" && record.pending.size === 0;
 };
@@ -199,13 +208,18 @@ const takesTurn = (record: SessionRecord): boolean => {
 /** Why a new or continued Turn is refused, in the order the checks read to a user. */
 const turnRefusal = (record: SessionRecord, kind: "send" | "continue"): string => {
   const { state } = record.session;
+
   if (kind === "continue") {
     if (lastTurn(record)?.status !== "interrupted")
       return "there is no Interrupted Turn to continue";
+
     return `the session is ${state}`;
   }
+
   if (state === "archived") return "the session is Archived";
+
   if (state === "in-terminal") return "the session is In Terminal; return it first";
+
   return `the session is ${state}; wait for the Turn to end`;
 };
 
@@ -217,7 +231,9 @@ const sendTurn = (
   enq: Enqueue
 ) => {
   const record = need(context);
+
   if (!takesTurn(record)) return undefined;
+
   return settle(enq, record, [DomainEvent.cases.TurnStarted.make({ turn: event.turn })], {
     state: record.session.state === "idle" ? "working" : "starting",
   });
@@ -226,9 +242,11 @@ const sendTurn = (
 const continueTurn = ({ context }: { context: Context }, enq: Enqueue) => {
   const record = need(context);
   const last = lastTurn(record);
+
   if (last === undefined || last.status !== "interrupted" || !takesTurn(record)) return undefined;
   // The same Turn resumes: back to working, keeping its before-checkpoint.
   const turn = new Turn({ ...last, status: "working", endedAt: null });
+
   return settle(enq, record, [DomainEvent.cases.TurnStarted.make({ turn })], {
     state: record.session.state === "idle" ? "working" : "starting",
   });
@@ -266,8 +284,10 @@ const turnEnded = (
   withState: boolean
 ) => {
   const turn = record.turns.find((t) => t.id === event.turnId);
+
   if (turn === undefined || turn.status !== "working") return undefined;
   const events: Array<DomainEvent> = [];
+
   if (event.checkpoint !== null) {
     events.push(
       DomainEvent.cases.CheckpointRecorded.make({
@@ -278,10 +298,12 @@ const turnEnded = (
       })
     );
   }
+
   events.push(
     ...withdrawPending(record, "harness", "The Turn ended", turn.id),
     endTurn(turn, event.status, event.at, event.checkpoint?.ref ?? turn.checkpointAfter)
   );
+
   return settle(
     enq,
     record,
@@ -300,10 +322,12 @@ type ExitedInput = Extract<SessionInput, { type: "harness.exited" }>;
 const exited = (record: SessionRecord, event: ExitedInput, enq: Enqueue, withState: boolean) => {
   const turn = workingTurn(record);
   const reason = event.error ?? "The Harness exited";
+
   const events = [
     ...(turn ? [endTurn(turn, event.error ? "failed" : "interrupted", event.at)] : []),
     ...withdrawPending(record, "harness", reason),
   ];
+
   return settle(
     enq,
     record,
@@ -328,16 +352,20 @@ type RecoverInput = Extract<SessionInput, { type: "daemon.recover" }>;
 const recover = (record: SessionRecord, event: RecoverInput, enq: Enqueue) => {
   const turn = workingTurn(record);
   const { state } = record.session;
+
   const events = [
     ...(turn ? [endTurn(turn, "interrupted", event.at)] : []),
     ...withdrawPending(record, "daemon", RECOVERY_REASON[event.cause]),
   ];
+
   if (turn !== undefined) {
     return settle(enq, record, events, { state: "needs-you", reason: "interrupted" });
   }
+
   if (state === "failed" || (state === "needs-you" && lastTurn(record)?.status === "interrupted")) {
     return settle(enq, record, events);
   }
+
   return settle(enq, record, events, {
     state: "dormant",
     reason: event.cause === "restart" ? "daemon-restart" : "daemon-upgrade",
@@ -355,7 +383,9 @@ const interruptUnattended = (
   withState: boolean
 ) => {
   const turn = workingTurn(record);
+
   if (turn === undefined) return undefined;
+
   return settle(
     enq,
     record,
@@ -372,9 +402,11 @@ const interruptUnattended = (
  */
 const archive = ({ context }: { context: Context }, enq: Enqueue) => {
   const record = need(context);
+
   if (workingTurn(record) !== undefined) {
     return reject(enq, "interrupt the Turn in flight before archiving");
   }
+
   return settle(enq, record, withdrawPending(record, "daemon", "The session was archived"), {
     state: "archived",
   });
@@ -396,6 +428,7 @@ const approvalRequested = (
   enter?: "needs-you"
 ) => {
   if (workingTurn(record)?.id !== event.request.turnId) return HANDLED;
+
   return settle(
     enq,
     record,
@@ -431,9 +464,11 @@ export const sessionMachine = createMachine({
     "turn.continue": ({ context }, enq) => reject(enq, turnRefusal(need(context), "continue")),
     "turn.steer": ({ context, event }, enq) => {
       const record = need(context);
+
       if (workingTurn(record) === undefined || record.session.state === "in-terminal") {
         return reject(enq, "there is no Turn in flight to steer");
       }
+
       if (!event.canSteer)
         return reject(enq, `${record.session.harness} does not support steering`);
     },
@@ -442,9 +477,11 @@ export const sessionMachine = createMachine({
     },
     "approval.respond": ({ context, event }, enq) => {
       const record = need(context);
+
       if (!record.pending.has(event.requestId)) {
         return reject(enq, `request ${event.requestId} is already resolved`);
       }
+
       return settle(enq, record, [
         DomainEvent.cases.ApprovalResolved.make({
           sessionId: record.session.id,
@@ -456,7 +493,9 @@ export const sessionMachine = createMachine({
     },
     "permissionMode.set": ({ context, event }, enq) => {
       const record = need(context);
+
       if (record.session.permissionMode === event.permissionMode) return undefined;
+
       return settle(enq, record, [
         DomainEvent.cases.SessionPermissionModeChanged.make({
           sessionId: record.session.id,
@@ -474,13 +513,16 @@ export const sessionMachine = createMachine({
     "harness.resumed": ignore,
     "harness.turnStarted": ({ context, event }, enq) => {
       const started = harnessTurn(need(context), event);
+
       return started === null ? undefined : settle(enq, need(context), [started]);
     },
     "harness.approvalRequested": ({ context, event }, enq) =>
       approvalRequested(need(context), event, enq, "needs-you"),
     "harness.approvalWithdrawn": ({ context, event }, enq) => {
       const record = need(context);
+
       if (!record.pending.has(event.requestId)) return undefined;
+
       return settle(enq, record, [
         DomainEvent.cases.ApprovalWithdrawn.make({
           sessionId: record.session.id,
@@ -496,7 +538,9 @@ export const sessionMachine = createMachine({
       // A Turn the terminal UI left open when it closed ends Interrupted.
       const record = need(context);
       const turn = workingTurn(record);
+
       if (turn === undefined) return undefined;
+
       return settle(enq, record, [
         ...withdrawPending(record, "harness", "The terminal UI closed", turn.id),
         endTurn(turn, "interrupted", event.at),
@@ -506,6 +550,7 @@ export const sessionMachine = createMachine({
     "session.fail": ({ context, event }, enq) => {
       const record = need(context);
       const turn = workingTurn(record);
+
       return settle(
         enq,
         record,
@@ -541,12 +586,14 @@ export const sessionMachine = createMachine({
           settle(enq, need(context), [], { state: "working" }),
         "harness.resumed": ({ context }, enq) => {
           const record = need(context);
+
           return settle(enq, record, [], {
             state: workingTurn(record) !== undefined ? "working" : "idle",
           });
         },
         "harness.turnStarted": ({ context, event }, enq) => {
           const started = harnessTurn(need(context), event);
+
           return started === null
             ? undefined
             : settle(enq, need(context), [started], { state: "working" });
@@ -567,6 +614,7 @@ export const sessionMachine = createMachine({
               settle(enq, need(context), [], { state: "in-terminal" }),
             "harness.turnStarted": ({ context, event }, enq) => {
               const started = harnessTurn(need(context), event);
+
               return started === null
                 ? undefined
                 : settle(enq, need(context), [started], { state: "working" });
@@ -574,6 +622,7 @@ export const sessionMachine = createMachine({
             "idle.timeout": ({ context, event }, enq) => {
               if (!event.harnessLive) return undefined;
               enq.emit({ type: "effect", effect: "stopHarness" });
+
               return settle(enq, need(context), [], { state: "dormant", reason: "idle-timeout" });
             },
           },
@@ -589,20 +638,25 @@ export const sessionMachine = createMachine({
               approvalRequested(need(context), event, enq),
             "approval.respond": ({ context, event }, enq) => {
               const record = need(context);
+
               if (!record.pending.has(event.requestId)) return undefined;
+
               const resolved = DomainEvent.cases.ApprovalResolved.make({
                 sessionId: record.session.id,
                 requestId: event.requestId,
                 decision: event.decision,
                 resolvedBy: event.resolvedBy,
               });
+
               // The last answer puts the Harness back to work (if it has a Turn to work on).
               return settle(enq, record, [resolved], backToWork(record, event.requestId));
             },
             "harness.approvalWithdrawn": ({ context, event }, enq) => {
               const record = need(context);
+
               // The default handles it unless it removes the last request of a Turn in flight.
               if (backToWork(record, event.requestId) === undefined) return undefined;
+
               return settle(
                 enq,
                 record,
@@ -648,6 +702,7 @@ export const sessionMachine = createMachine({
           settle(enq, need(context), [], { state: "in-terminal" }),
         "harness.turnStarted": ({ context, event }, enq) => {
           const started = harnessTurn(need(context), event);
+
           return started === null
             ? undefined
             : settle(enq, need(context), [started], { state: "working" });
@@ -687,6 +742,7 @@ export const sessionMachine = createMachine({
         "daemon.recover": ({ context, event }, enq) => {
           const record = need(context);
           const turn = workingTurn(record);
+
           return settle(enq, record, [
             ...(turn ? [endTurn(turn, "interrupted", event.at)] : []),
             ...withdrawPending(record, "daemon", RECOVERY_REASON[event.cause]),
@@ -706,16 +762,19 @@ const LIVE: ReadonlyArray<SessionState> = ["idle", "working", "needs-you"];
 /** The Session State a snapshot stands for (`new` before the session exists). */
 export const stateOf = (snapshot: SessionSnapshot): SessionState | "new" => {
   const value = snapshot.value as string | { live: SessionState };
+
   return typeof value === "string" ? (value as SessionState | "new") : value.live;
 };
 
 const snapshots = new WeakMap<SessionRecord, SessionSnapshot>();
+
 const initial = sessionMachine.resolveState({ value: "new", context: { record: null } });
 
 /** The machine snapshot the folded record stands for. */
 export const snapshotOf = (record: SessionRecord | undefined): SessionSnapshot => {
   if (record === undefined) return initial;
   let snapshot = snapshots.get(record);
+
   if (snapshot === undefined) {
     const { state } = record.session;
     snapshot = sessionMachine.resolveState({
@@ -724,6 +783,7 @@ export const snapshotOf = (record: SessionRecord | undefined): SessionSnapshot =
     });
     snapshots.set(record, snapshot);
   }
+
   return snapshot;
 };
 
@@ -743,19 +803,24 @@ export interface Decision {
 /** One pure step of the lifecycle: `transition(snapshotOf(record), input)`. */
 export const decideSession = (record: SessionRecord | undefined, input: SessionInput): Decision => {
   const snapshot = snapshotOf(record);
+
   if (record === undefined && input.type !== "session.start" && input.type !== "session.fork") {
     return { events: [], rejection: null, effects: [], next: snapshot, unhandled: true };
   }
+
   const result = transition(sessionMachine, snapshot, input as never);
   const events: Array<DomainEvent> = [];
   const effects: Array<SessionEffect> = [];
   let rejection: string | null = null;
+
   for (const effect of result[1] as ReadonlyArray<{ kind?: string; event?: Emitted }>) {
     if (effect.kind !== "emit" || effect.event === undefined) continue;
     const emitted = effect.event;
+
     if (emitted.type === "domain") events.push(emitted.event);
     else if (emitted.type === "rejected") rejection = emitted.reason;
     else effects.push(emitted.effect);
   }
+
   return { events, rejection, effects, next: result[0], unhandled: isUnhandled(snapshot, result) };
 };

@@ -28,8 +28,11 @@ const run = <A, E>(filename: string, program: Effect.Effect<A, E, EventStore>) =
 const tempFile = () => join(mkdtempSync(join(tmpdir(), "polaris-store-")), "state.sqlite");
 
 const at = "2026-09-28T00:00:00.000Z";
+
 const wsId = "ws-1" as WorkspaceId;
+
 const sId = "s-1" as SessionId;
+
 const tId = "t-1" as TurnId;
 
 const workspace = new Workspace({
@@ -41,6 +44,7 @@ const workspace = new Workspace({
   hidden: false,
   registeredAt: at,
 });
+
 const session = new AgentSession({
   id: sId,
   workspaceId: wsId,
@@ -59,6 +63,7 @@ const session = new AgentSession({
   createdAt: at,
   updatedAt: at,
 });
+
 const turnAt = (index: number, id = `t-${index}`) =>
   new Turn({
     id: id as TurnId,
@@ -72,6 +77,7 @@ const turnAt = (index: number, id = `t-${index}`) =>
     startedAt: at,
     endedAt: at,
   });
+
 const request = new ApprovalRequest({
   id: "r-1" as RequestId,
   sessionId: sId,
@@ -150,6 +156,7 @@ describe("recent Turns", () => {
   test("only recent Turns stay in memory, on commit and on reload; older ones read from SQL", async () => {
     const file = tempFile();
     const total = RECENT_TURNS * 2 + 3;
+
     const check = Effect.gen(function* () {
       const store = yield* EventStore;
       const current = (yield* store.model).sessions.get(sId)!;
@@ -157,16 +164,19 @@ describe("recent Turns", () => {
       expect(current.turns.map((t) => t.index)).toEqual(
         Array.from({ length: RECENT_TURNS }, (_, i) => total - RECENT_TURNS + i)
       );
+
       const older = yield* store.readTurns({
         sessionId: sId,
         beforeIndex: current.turns[0]!.index,
         limit: 3,
       });
+
       const first = total - RECENT_TURNS;
       expect(older.map((t) => t.index)).toEqual([first - 3, first - 2, first - 1]);
       const all = yield* store.readTurns({ sessionId: sId, beforeIndex: null, limit: null });
       expect(all.map((t) => t.index)).toEqual(Array.from({ length: total }, (_, i) => i));
     });
+
     await run(
       file,
       Effect.gen(function* () {
@@ -194,6 +204,7 @@ describe("live subscribers", () => {
           yield* seed(store);
           const stalled = yield* store.subscribe();
           const unrelated = yield* store.subscribe({ filter: (item) => item.sessionId !== sId });
+
           for (let i = 0; i < 1000; i++)
             yield* store.publishEphemeral({
               _tag: "Delta",
@@ -204,8 +215,10 @@ describe("live subscribers", () => {
               text: "x",
             });
           expect(yield* store.subscriberCount).toBe(2);
+
           const rename = (title: string) =>
             record(store, [DomainEvent.cases.SessionRenamed.make({ sessionId: sId, title })]);
+
           // 8 Deltas (half of 16) and 8 events fill the buffer...
           for (let i = 0; i < 8; i++) yield* rename(`t${i}`);
           expect(yield* store.subscriberCount).toBe(2);
@@ -237,6 +250,7 @@ describe("live subscribers", () => {
           const other = "s-other" as SessionId;
           const mine = yield* store.subscribe({ sessionId: sId });
           const theirs = yield* store.subscribe({ sessionId: other });
+
           const delta = (sessionId: SessionId, text: string) =>
             store.publishEphemeral({
               _tag: "Delta",
@@ -246,19 +260,25 @@ describe("live subscribers", () => {
               field: "text",
               text,
             });
+
           yield* delta(sId, "a");
           yield* delta(other, "b");
           yield* record(store, [
             DomainEvent.cases.SessionRenamed.make({ sessionId: sId, title: "r" }),
           ]);
+
           const [a] = yield* Stream.runCollect(Stream.take(mine, 2)).pipe(
             Effect.map((items) => [items.map((i) => (i._tag === "Delta" ? i.text : i._tag))])
           );
+
           expect(a).toEqual(["a", "Event"]);
+
           const [b] = yield* Stream.runCollect(Stream.take(theirs, 1)).pipe(
             Effect.map((items) => [items.map((i) => (i._tag === "Delta" ? i.text : i._tag))])
           );
+
           expect(b).toEqual(["b"]);
+
           // Fill `mine` (nobody reads it any more) until the next event drops it.
           for (let i = 0; i < 17; i++)
             yield* record(store, [

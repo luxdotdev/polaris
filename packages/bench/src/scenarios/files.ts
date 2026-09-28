@@ -18,11 +18,13 @@ const PATH_QUERIES = [
   "deltaSnap",
   "harness",
 ];
+
 const GREP_QUERIES: ReadonlyArray<{ pattern: string; regex: boolean }> = [
   { pattern: "needleBench", regex: false },
   { pattern: "checkpoint", regex: false },
   { pattern: "export const needle\\w+ = true", regex: true },
 ];
+
 const REPEAT = 5;
 
 const measure = (client: Client, root: string) =>
@@ -37,14 +39,17 @@ const measure = (client: Client, root: string) =>
     const search: Array<number> = [];
     const grep: Array<number> = [];
     let grepHits = 0;
+
     for (let r = 0; r < REPEAT; r++) {
       for (const query of PATH_QUERIES) {
         const t = performance.now();
         yield* rpc["files.searchPaths"]({ root, query, limit: 50 });
         search.push(performance.now() - t);
       }
+
       for (const q of GREP_QUERIES) {
         const t = performance.now();
+
         const hits = yield* rpc["files.grep"]({
           root,
           pattern: q.pattern,
@@ -52,10 +57,13 @@ const measure = (client: Client, root: string) =>
           caseSensitive: true,
           limit: 200,
         });
+
         grep.push(performance.now() - t);
+
         if (r === 0) grepHits += hits.length;
       }
     }
+
     return {
       firstMs,
       firstHits: first.length,
@@ -82,6 +90,7 @@ export const files: Scenario = {
             const daemon = yield* ctx.launch(
               backend === "fallback" ? { env: { POLARIS_FFF: "off" } } : {}
             );
+
             yield* awaitReady(daemon);
             const sampler = yield* ctx.sample(daemon, 250);
             const client = yield* connect(daemon, ctx.transport, "files");
@@ -90,6 +99,7 @@ export const files: Scenario = {
             const result = yield* measure(client, root);
             yield* settle(1000);
             const after = sampler.sample();
+
             if (backend === "fff") yield* ctx.peak(daemon, "fff-index");
             const b = backend;
             metrics[`${b}.first_search_ms`] = time(result.firstMs);
@@ -98,11 +108,13 @@ export const files: Scenario = {
             metrics[`${b}.grep_p50_ms`] = latency(result.grep.median);
             metrics[`${b}.grep_p95_ms`] = latency(result.grep.p95);
             metrics[`${b}.index_rss_mib`] = peakMemory(after.rssBytes - before.rssBytes);
+
             if (after.footprintBytes !== null && before.footprintBytes !== null) {
               metrics[`${b}.index_footprint_mib`] = peakMemory(
                 after.footprintBytes - before.footprintBytes
               );
             }
+
             metrics[`${b}.rss_mib`] = peakMemory(after.rssBytes);
             notes.push(
               `${b}: first search returned ${result.firstHits} paths; grep hits ${result.grepHits} (limit 200 per query)`
@@ -110,9 +122,11 @@ export const files: Scenario = {
           })
         );
       }
+
       notes.push(
         `${count} files (~1.5 KB each) committed to git; ${PATH_QUERIES.length} path queries and ${GREP_QUERIES.length} greps × ${REPEAT}`
       );
+
       return { metrics, notes };
     }),
 };

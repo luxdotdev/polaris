@@ -49,11 +49,13 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
       liveCoAttach: options.liveCoAttach,
       follow: !options.liveCoAttach,
     });
+
     const layer = engineLayer({
       filename: join(tempDir(), "state.sqlite"),
       fakes: makeFakes(),
       drivers: [driver],
     });
+
     let scope = yield* Scope.make();
     let services: Context.Context<Env> = yield* Layer.buildWithScope(layer, scope);
     const inEngine = <A, E>(effect: Effect.Effect<A, E, Env>) => Effect.provide(effect, services);
@@ -64,24 +66,31 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
           engine.dispatch({ commandId: cid("model"), command, deviceLabel: "model" })
         )
       );
+
     const record = () =>
       inEngine(Effect.map(EventStore, (store) => store)).pipe(
         Effect.flatMap((store) => store.model),
         Effect.map((model) => model.sessions.get(SESSION))
       );
+
     const harnessLive = (sessionId = SESSION) => {
       const latest = driver.latest(sessionId);
+
       return latest !== undefined && !latest.closed;
     };
+
     const observed = () => Effect.map(record(), (r) => observe(r, harnessLive()));
 
     /** Wait for the Engine to show `expected` (its reactors run after the ack). */
     const settle = (expected: Observed, done: ReadonlyArray<Step>) =>
       Effect.gen(function* () {
         const deadline = Date.now() + 3000;
+
         while (true) {
           const actual = yield* observed();
+
           if (Bun.deepEquals(actual, expected)) return;
+
           if (Date.now() > deadline) {
             return yield* Effect.die(
               new Error(
@@ -89,12 +98,14 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
               )
             );
           }
+
           yield* Effect.sleep(2);
         }
       });
 
     // A Workspace (not a git repository: no checkpoints or Worktrees to fake).
     yield* dispatch({ _tag: "RegisterWorkspace", path: tempDir(), name: null });
+
     const workspaceId: WorkspaceId = yield* inEngine(
       Effect.flatMap(EventStore, (store) => store.model)
     ).pipe(Effect.map((model) => [...model.workspaces.keys()][0]!));
@@ -114,22 +125,28 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
 
     const emit = (snapshot: ModelSnapshot, ...events: ReadonlyArray<HarnessEvent>) => {
       const channel = channelOf(snapshot, options);
+
       if (channel === "harness") driver.latest(SESSION)!.emit(...events);
       else if (channel === "follower") driver.follow.emit(SESSION, ...events);
       else throw new Error("no channel to the Harness");
     };
+
     const working = () =>
       Effect.map(record(), (r) => {
         const turn = r && workingTurn(r);
+
         if (turn === undefined) throw new Error("no Turn in flight");
+
         return turn.id;
       });
+
     const firstPending = () =>
       Effect.map(record(), (r) => [...(r?.pending.keys() ?? [])][0] ?? RequestId.make("none"));
 
     const drive = (snapshot: ModelSnapshot, step: Step) =>
       Effect.gen(function* () {
         const n = snapshot.counter;
+
         switch (step.type) {
           case "start":
             return yield* start(SESSION);
@@ -138,9 +155,11 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
             yield* Effect.gen(function* () {
               while (!harnessLive(PARENT)) yield* Effect.sleep(2);
             });
+
             const parent = yield* inEngine(Effect.flatMap(EventStore, (store) => store.model)).pipe(
               Effect.map((model) => model.sessions.get(PARENT)!)
             );
+
             const turnId = workingTurn(parent)!.id;
             driver
               .latest(PARENT)!
@@ -148,10 +167,12 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
             yield* Effect.gen(function* () {
               while (true) {
                 const model = yield* inEngine(Effect.flatMap(EventStore, (store) => store.model));
+
                 if (model.sessions.get(PARENT)?.session.state === "idle") return;
                 yield* Effect.sleep(2);
               }
             });
+
             return yield* dispatch({
               _tag: "ForkSession",
               sessionId: SESSION,
@@ -160,6 +181,7 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
               harness: options.harness,
             });
           }
+
           case "send":
             return yield* dispatch({
               _tag: "SendTurn",
@@ -171,13 +193,16 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
             return yield* dispatch({ _tag: "Continue", sessionId: SESSION });
           case "interrupt": {
             yield* dispatch({ _tag: "Interrupt", sessionId: SESSION });
+
             // The fake Harness answers an interrupt by ending the Turn.
             if (snapshot.live) {
               const turnId = yield* working();
               emit(snapshot, { _tag: "TurnEnded", turnId, status: "interrupted", error: null });
             }
+
             return;
           }
+
           case "approve":
             return yield* dispatch({
               _tag: "RespondToApproval",
@@ -247,12 +272,14 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
             yield* Scope.close(scope, Exit.void);
             scope = yield* Scope.make();
             services = yield* Layer.buildWithScope(layer, scope);
+
             return;
         }
       });
 
     let snapshot = initialSnapshot();
     const done: Array<Step> = [];
+
     for (const step of steps) {
       const { next, rejection } = stepModel(snapshot, step, options);
       expect(rejection).toBeNull();
@@ -264,25 +291,31 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
 
     // Every command the machine refuses here, the Engine refuses, for the same reason.
     let refused = 0;
+
     for (const type of COMMAND_STEPS) {
       const { rejection } = stepModel(snapshot, { type }, options);
+
       if (rejection === null) continue;
       const result = yield* drive(snapshot, { type }).pipe(Effect.flip);
       expect(result).toBeInstanceOf(CommandRejected);
       expect((result as CommandRejected).reason).toBe(rejection);
       refused++;
     }
+
     yield* settle(observeModel(snapshot), done);
 
     // A late approval request (for a Turn that ended) changes nothing, in the model and the Engine.
     const late = stepModel(snapshot, { type: "lateApproval" }, options);
+
     if (late.next !== snapshot) {
       expect(observeModel(late.next)).toEqual(observeModel(snapshot));
       yield* drive(snapshot, { type: "lateApproval" });
       yield* Effect.sleep(5);
       yield* settle(observeModel(late.next), [...done, { type: "lateApproval" }]);
     }
+
     yield* Scope.close(scope, Exit.void);
+
     return refused;
   });
 
@@ -297,9 +330,11 @@ for (const options of suites) {
   describe(`session machine vs Engine: ${options.harness} (${handOff})`, () => {
     test(`${paths.states.length} shortest paths, one to every state`, async () => {
       let refused = 0;
+
       for (const steps of paths.states) {
         refused += await Effect.runPromise(replay(options, steps));
       }
+
       expect(refused).toBeGreaterThan(0);
     }, 120_000);
 

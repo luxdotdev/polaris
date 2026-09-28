@@ -21,21 +21,25 @@ import {
 } from "../upgrade.ts";
 
 const version = process.argv[process.argv.indexOf("--as") + 1] ?? "unknown";
+
 const HARNESS = "harness:echo";
 
 /** A line-oriented wrapper over our end of the child's socketpair. */
 const harnessLink = async (fd: number) => {
   const waiting: Array<(line: string) => void> = [];
   let buffered = "";
+
   const socket = await connectFd(fd, {
     data(_socket, data) {
       buffered += data.toString();
+
       for (let newline = buffered.indexOf("\n"); newline >= 0; newline = buffered.indexOf("\n")) {
         waiting.shift()?.(buffered.slice(0, newline));
         buffered = buffered.slice(newline + 1);
       }
     },
   });
+
   return {
     echo: (text: string) =>
       new Promise<string>((resolve) => {
@@ -52,6 +56,7 @@ const program = Effect.gen(function* () {
   let harnessFd: number;
   let childPid: number;
   const inherited = handoff?.fds[HARNESS];
+
   if (handoff && inherited !== undefined) {
     harnessFd = inherited;
     childPid = handoff.children[HARNESS]!;
@@ -62,6 +67,7 @@ const program = Effect.gen(function* () {
     harnessFd = ours;
     childPid = child.pid;
   }
+
   const harness = yield* Effect.promise(() => harnessLink(harnessFd));
 
   const handlers: SocketHandler<undefined> = {
@@ -77,11 +83,13 @@ const program = Effect.gen(function* () {
   const server = yield* bindAtomically(paths().socket, (temporary) =>
     Effect.sync(() => Bun.listen({ unix: temporary, socket: handlers }))
   );
+
   if (adopted) {
     yield* adopted.drain((fd) => {
       void connectFd(fd, handlers);
     });
   }
+
   yield* serveUpgrades({
     listenerFd: () => listenerFd(server),
     collect: () =>
@@ -89,6 +97,7 @@ const program = Effect.gen(function* () {
     args: ["serve"],
   });
   console.log(`ready ${version}`);
+
   return yield* Effect.never;
 });
 

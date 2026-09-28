@@ -16,6 +16,7 @@ import { startSampler } from "../sampler.ts";
 import { cpu, type Metric, memory, type Scenario, throughput } from "../types.ts";
 
 const WORKSPACES = 3;
+
 const SESSIONS = 6;
 
 export const idle: Scenario = {
@@ -24,10 +25,12 @@ export const idle: Scenario = {
   run: (ctx) =>
     Effect.gen(function* () {
       const windowMs = ctx.quick ? 10_000 : 30_000;
+
       const root = yield* Effect.acquireRelease(
         Effect.sync(() => makeTempDir("idle")),
         (dir) => Effect.sync(() => cleanup(dir))
       );
+
       const repos = Array.from({ length: WORKSPACES }, (_, i) => smallRepo(join(root, `ws${i}`)));
 
       // Set up: Workspaces and sessions that each ran one Turn.
@@ -35,14 +38,17 @@ export const idle: Scenario = {
         Effect.sync(() => makeTempDir("home")),
         (dir) => Effect.sync(() => cleanup(dir))
       );
+
       yield* Effect.scoped(
         Effect.gen(function* () {
           const daemon = yield* ctx.launch({ home });
           yield* awaitReady(daemon);
           const client = yield* connect(daemon, "socket", "setup");
           const ids: Array<string> = [];
+
           for (const [i, repo] of repos.entries()) {
             const workspaceId = yield* registerWorkspace(client, repo, `ws${i}`);
+
             for (let s = 0; s < SESSIONS / WORKSPACES; s++) {
               const id = `idle-${i}-${s}`;
               ids.push(id);
@@ -53,6 +59,7 @@ export const idle: Scenario = {
               });
             }
           }
+
           for (const id of ids) {
             const watch = yield* watchSession(client, id);
             yield* waitUntil(() => watch.state === "idle", 60_000, `${id} idle`);
@@ -83,8 +90,10 @@ export const idle: Scenario = {
           });
           metrics.client_cpu_max_pct = cpu(report.cpuPct.max, { info: true });
           metrics.client_rss_mib = memory(report.rssBytes.median);
+
           if (report.footprintBytes)
             metrics.client_footprint_mib = memory(report.footprintBytes.median);
+
           if (report.wakeupsPerSec !== null) {
             metrics.client_wakeups_per_s = throughput(report.wakeupsPerSec, "/s", {
               kind: "count",
@@ -100,10 +109,12 @@ export const idle: Scenario = {
         Effect.sync(() => Bun.spawn(["bun", "-e", "setInterval(() => {}, 1 << 30)"])),
         (proc) => Effect.sync(() => proc.kill())
       );
+
       const floor = yield* Effect.acquireRelease(
         Effect.sync(() => startSampler({ roots: () => [bare.pid], intervalMs: 500 })),
         (s) => Effect.sync(() => s.stop())
       );
+
       yield* settle(3000);
       const from = sampler.sample().t;
       const floorFrom = floor.sample().t;
@@ -112,6 +123,7 @@ export const idle: Scenario = {
       const floorReport = floor.report(floorFrom - 1, floor.sample().t);
       metrics.bare_bun_cpu_avg_pct = cpu(floorReport.cpuAvgPct, { info: true });
       metrics.bare_bun_rss_mib = memory(floorReport.rssBytes.median, { info: true });
+
       if (floorReport.wakeupsPerSec !== null) {
         metrics.bare_bun_wakeups_per_s = throughput(floorReport.wakeupsPerSec, "/s", {
           kind: "count",
@@ -119,12 +131,15 @@ export const idle: Scenario = {
           info: true,
         });
       }
+
       metrics.noclient_cpu_avg_pct = cpu(report.cpuAvgPct, {
         tolerance: { relative: 1, absolute: 0.5 },
       });
       metrics.noclient_rss_mib = memory(report.rssBytes.median);
+
       if (report.footprintBytes)
         metrics.noclient_footprint_mib = memory(report.footprintBytes.median);
+
       if (report.wakeupsPerSec !== null) {
         metrics.noclient_wakeups_per_s = throughput(report.wakeupsPerSec, "/s", {
           kind: "count",
@@ -132,6 +147,7 @@ export const idle: Scenario = {
           tolerance: { relative: 1, absolute: 5 },
         });
       }
+
       metrics.processes = { value: report.maxProcesses, unit: "", kind: "count", better: "lower" };
 
       // Judge against a bare Bun process sampled over the same window, not against zero:
@@ -140,23 +156,28 @@ export const idle: Scenario = {
       metrics.noclient_cpu_over_bare_pct = cpu(extraCpu, {
         tolerance: { relative: 1, absolute: 0.3 },
       });
+
       if (extraCpu > 0.3) {
         notes.push(
           `idle CPU without a Client is ${report.cpuAvgPct.toFixed(2)}% of a core, ${extraCpu.toFixed(2)} points above a bare Bun process`
         );
       }
+
       const extraWakeups =
         report.wakeupsPerSec !== null && floorReport.wakeupsPerSec !== null
           ? report.wakeupsPerSec - floorReport.wakeupsPerSec
           : null;
+
       if (extraWakeups !== null && extraWakeups > 5) {
         notes.push(
           `${report.wakeupsPerSec!.toFixed(1)} wakeups/s idle with no Client, ${extraWakeups.toFixed(1)}/s above a bare Bun process: timers or polling`
         );
       }
+
       notes.push(
         `${WORKSPACES} Workspaces, ${SESSIONS} Dormant sessions; ${windowMs / 1000} s windows after a settle; wakeups are ${process.platform === "darwin" ? "idle + interrupt wakeups (proc_pid_rusage)" : "context switches of all threads"}`
       );
+
       return { metrics, notes };
     }),
 };

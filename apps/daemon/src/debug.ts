@@ -14,6 +14,7 @@ import { join } from "node:path";
 
 export const installDebugHooks = (): void => {
   const dir = process.env.POLARIS_DEBUG_DIR;
+
   if (dir) {
     let count = 0;
     process.on("SIGUSR1", () => {
@@ -26,7 +27,9 @@ export const installDebugHooks = (): void => {
       process.stderr.write(`polaris debug: wrote ${file}\n`);
     });
   }
+
   const statsMs = Number(process.env.POLARIS_DEBUG_STATS_MS);
+
   if (statsMs > 0) {
     let expected = performance.now() + statsMs;
     setInterval(() => {

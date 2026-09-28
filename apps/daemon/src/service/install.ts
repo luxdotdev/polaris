@@ -57,6 +57,7 @@ export interface InstallContext {
 
 export const defaultInstallContext = (polarisHome: string): InstallContext => {
   const info = userInfo();
+
   return {
     os: process.platform === "darwin" ? "darwin" : "linux",
     polarisHome,
@@ -70,6 +71,7 @@ export const defaultInstallContext = (polarisHome: string): InstallContext => {
 
 export const layout = (ctx: InstallContext, version?: string) => {
   const bin = join(ctx.polarisHome, "bin");
+
   return {
     bin,
     current: join(bin, "current"),
@@ -88,6 +90,7 @@ export const layout = (ctx: InstallContext, version?: string) => {
 
 export const serviceSpec = (ctx: InstallContext): ServiceSpec => {
   const paths = layout(ctx);
+
   return {
     program: paths.launcher,
     args: ["serve"],
@@ -160,12 +163,14 @@ const fsStep = <A>(step: string, f: () => A) =>
 const placeFile = (source: string, target: string, sha256: string, mode: number) =>
   fsStep(`copy ${basename(target)}`, () => {
     if (source === target) return false;
+
     if (existsSync(target) && sha256File(target) === sha256) return false;
     mkdirSync(dirname(target), { recursive: true });
     const temp = `${target}.tmp-${process.pid}`;
     copyFileSync(source, temp);
     chmodSync(temp, mode);
     renameSync(temp, target);
+
     return true;
   });
 
@@ -181,6 +186,7 @@ export const stageBinary = Effect.fn("stageBinary")(function* (
   const path = layout(ctx, options.version).installed!;
   const sha256 = yield* fsStep("hash binary", () => sha256File(options.source));
   const changed = yield* placeFile(options.source, path, sha256, 0o755);
+
   return { path, sha256, changed };
 });
 
@@ -188,13 +194,16 @@ export const stageBinary = Effect.fn("stageBinary")(function* (
 export const pointCurrentAt = (ctx: InstallContext, version: string) =>
   fsStep("link current", () => {
     const { current } = layout(ctx);
+
     try {
       if (readlinkSync(current) === version) return false;
     } catch {}
+
     const temp = `${current}.tmp-${process.pid}`;
     rmSync(temp, { force: true });
     symlinkSync(version, temp);
     renameSync(temp, current);
+
     return true;
   });
 
@@ -204,6 +213,7 @@ const writeIfChanged = (path: string, content: string, mode = 0o644) =>
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, content, { mode });
     chmodSync(path, mode);
+
     return true;
   });
 
@@ -212,17 +222,20 @@ const run = Effect.fnUntraced(function* (
   options?: { readonly stdin?: string }
 ) {
   const runner = yield* CommandRunner;
+
   return yield* runner.run(argv, options);
 });
 
 const runOrFail = Effect.fnUntraced(function* (step: string, argv: ReadonlyArray<string>) {
   const result = yield* run(argv);
+
   if (result.code !== 0) {
     return yield* new InstallError({
       step,
       message: `\`${argv.join(" ")}\` exited ${result.code}: ${(result.stderr || result.stdout).trim()}`,
     });
   }
+
   return result;
 });
 
@@ -238,13 +251,17 @@ const activateLaunchd = Effect.fnUntraced(function* (
 ) {
   const notes: Array<string> = [];
   let domain = `gui/${ctx.uid}`;
+
   const loaded = (d: string) =>
     run(["launchctl", "print", `${d}/${LAUNCHD_LABEL}`]).pipe(Effect.map((r) => r.code === 0));
+
   let isLoaded = yield* loaded(domain);
+
   if (!isLoaded && (yield* loaded(`user/${ctx.uid}`))) {
     domain = `user/${ctx.uid}`;
     isLoaded = true;
   }
+
   if (isLoaded && !changed.serviceFile) {
     // Same definition: start it if stopped, restart only if the binary changed.
     const kick = changed.binary ? ["-k"] : [];
@@ -254,10 +271,13 @@ const activateLaunchd = Effect.fnUntraced(function* (
       ...kick,
       `${domain}/${LAUNCHD_LABEL}`,
     ]);
+
     return { domain, restarted: changed.binary, linger: "not-applicable" as const, notes };
   }
+
   if (isLoaded) yield* run(["launchctl", "bootout", `${domain}/${LAUNCHD_LABEL}`]);
   let boot = yield* run(["launchctl", "bootstrap", domain, serviceFile]);
+
   if (boot.code !== 0 && domain.startsWith("gui/")) {
     notes.push(
       `No GUI login session (launchctl bootstrap ${domain}: ${boot.stderr.trim()}); using user/${ctx.uid}.`
@@ -265,14 +285,17 @@ const activateLaunchd = Effect.fnUntraced(function* (
     domain = `user/${ctx.uid}`;
     boot = yield* run(["launchctl", "bootstrap", domain, serviceFile]);
   }
+
   if (boot.code !== 0) {
     return yield* new InstallError({
       step: "load service",
       message: `launchctl bootstrap ${domain} exited ${boot.code}: ${boot.stderr.trim()}`,
     });
   }
+
   yield* run(["launchctl", "enable", `${domain}/${LAUNCHD_LABEL}`]);
   yield* runOrFail("start service", ["launchctl", "kickstart", `${domain}/${LAUNCHD_LABEL}`]);
+
   return { domain, restarted: isLoaded, linger: "not-applicable" as const, notes };
 });
 
@@ -282,12 +305,14 @@ const activateLaunchd = Effect.fnUntraced(function* (
 export const probeLinuxService = Effect.fnUntraced(function* () {
   const systemd = yield* run(["systemctl", "--user", "show-environment"]);
   const crontab = yield* run(["crontab", "-l"]);
+
   const access: CrontabAccess =
     crontab.code === 0 || /no crontab/i.test(crontab.stderr)
       ? "available"
       : crontab.code === 127
         ? "missing"
         : "denied";
+
   return {
     probe: { userSystemd: systemd.code === 0, crontab: access } satisfies LinuxServiceProbe,
     systemdError:
@@ -302,6 +327,7 @@ export const probeLinuxService = Effect.fnUntraced(function* () {
 const withMarkedLine = (content: string, line: string | null): string => {
   const kept = content.split("\n").filter((l) => l !== "" && !l.includes(SUPERVISOR_MARKER));
   const all = line === null ? kept : [...kept, line];
+
   return all.length === 0 ? "" : `${all.join("\n")}\n`;
 };
 
@@ -317,13 +343,17 @@ const editProfiles = (ctx: InstallContext, line: string | null) =>
   fsStep("edit login profile", () => {
     for (const file of profileFiles(ctx)) {
       const before = existsSync(file) ? readFileSync(file, "utf8") : null;
+
       if (before === null && line === null) continue;
+
       const kept = (before ?? "")
         .split("\n")
         .filter((l) => !l.includes(SUPERVISOR_MARKER))
         .join("\n")
         .replace(/\n*$/, "");
+
       const after = line === null ? `${kept}\n` : `${kept}${kept === "" ? "" : "\n"}${line}\n`;
+
       if (after !== before) writeFileSync(file, after);
     }
   });
@@ -331,8 +361,10 @@ const editProfiles = (ctx: InstallContext, line: string | null) =>
 const pidFromFile = (path: string): number | null => {
   try {
     const pid = Number(readFileSync(path, "utf8").trim());
+
     if (!Number.isInteger(pid) || pid <= 0) return null;
     process.kill(pid, 0);
+
     return pid;
   } catch {
     return null;
@@ -347,13 +379,16 @@ const terminate = (pid: number) =>
     } catch {
       return;
     }
+
     const deadline = Date.now() + 5_000;
+
     while (Date.now() < deadline) {
       try {
         process.kill(pid, 0);
       } catch {
         return;
       }
+
       await Bun.sleep(50);
     }
   });
@@ -365,13 +400,17 @@ const activateFallback = Effect.fnUntraced(function* (
   found: { readonly systemdError: string; readonly crontab: string }
 ) {
   const paths = layout(ctx);
+
   const notes: Array<string> = [
     `No systemd user bus on this Host (${found.systemdError || "systemctl --user failed"}), so Polaris runs under its own supervisor (${paths.supervisor}). It restarts the Daemon if it exits.`,
   ];
+
   if (plan.autostart.includes("cron")) {
     const next = withMarkedLine(found.crontab, supervisorStartLine(paths.supervisor, "cron"));
+
     if (next !== found.crontab) {
       const written = yield* run(["crontab", "-"], { stdin: next });
+
       if (written.code !== 0) {
         return yield* new InstallError({
           step: "edit crontab",
@@ -379,18 +418,22 @@ const activateFallback = Effect.fnUntraced(function* (
         });
       }
     }
+
     notes.push("It starts at boot through cron @reboot, if a cron daemon runs at boot.");
   } else {
     notes.push(
       "It does not start at boot (no usable crontab); it starts at your next login, or when the Client reinstalls."
     );
   }
+
   yield* editProfiles(ctx, supervisorStartLine(paths.supervisor, "profile"));
   // A new binary: stop the running Daemon; the supervisor restarts it on `current`.
   const daemon = pidFromFile(join(ctx.polarisHome, "daemon.pid"));
   const restart = daemon !== null && (changed.binary || changed.serviceFile);
+
   if (restart) yield* terminate(daemon);
   yield* runOrFail("start supervisor", [paths.supervisor]);
+
   return {
     domain: "polaris-supervisor",
     restarted: restart,
@@ -402,12 +445,16 @@ const activateFallback = Effect.fnUntraced(function* (
 /** Stop the fallback supervisor (and its Daemon) and remove its autostart lines. */
 const removeFallback = Effect.fnUntraced(function* (ctx: InstallContext) {
   const supervisor = pidFromFile(join(ctx.polarisHome, "supervisor.pid"));
+
   if (supervisor !== null) yield* terminate(supervisor);
   const crontab = yield* run(["crontab", "-l"]);
+
   if (crontab.code === 0 && crontab.stdout.includes(SUPERVISOR_MARKER)) {
     yield* run(["crontab", "-"], { stdin: withMarkedLine(crontab.stdout, null) });
   }
+
   yield* editProfiles(ctx, null);
+
   return supervisor !== null;
 });
 
@@ -418,8 +465,10 @@ const removeFallback = Effect.fnUntraced(function* (ctx: InstallContext) {
  */
 const enableLinger = Effect.fnUntraced(function* (ctx: InstallContext) {
   const shown = yield* run(["loginctl", "show-user", ctx.user, "--property=Linger", "--value"]);
+
   if (shown.code === 0 && shown.stdout.trim() === "yes") return "already-enabled" as const;
   const enabled = yield* run(["loginctl", "enable-linger", ctx.user]);
+
   return enabled.code === 0 ? ("enabled" as const) : ("needs-admin" as const);
 });
 
@@ -429,17 +478,20 @@ const activateSystemd = Effect.fnUntraced(function* (
 ) {
   const notes: Array<string> = [];
   const systemctl = (...args: Array<string>) => ["systemctl", "--user", ...args];
+
   if (changed.serviceFile) yield* runOrFail("reload units", systemctl("daemon-reload"));
   const active = yield* run(systemctl("is-active", "--quiet", SYSTEMD_UNIT));
   yield* runOrFail("enable service", systemctl("enable", SYSTEMD_UNIT));
   const restart = active.code === 0 && (changed.binary || changed.serviceFile);
   yield* runOrFail("start service", systemctl(restart ? "restart" : "start", SYSTEMD_UNIT));
   const linger = yield* enableLinger(ctx);
+
   if (linger === "needs-admin") {
     notes.push(
       `Lingering is off, so the Daemon stops when ${ctx.user} logs out. An administrator can run: sudo loginctl enable-linger ${ctx.user}`
     );
   }
+
   return { domain: "systemd --user", restarted: restart, linger, notes };
 });
 
@@ -465,18 +517,23 @@ export const install = Effect.fn("install")(function* (
   const plan = linux === null ? null : planLinuxService(linux.probe);
   const fallback = plan?.supervisor === "fallback";
   const serviceFile = fallback ? paths.supervisor : paths.serviceFile;
+
   const serviceFileChanged = fallback
     ? yield* writeIfChanged(serviceFile, supervisorScript(serviceSpec(ctx)), 0o755)
     : yield* writeIfChanged(serviceFile, renderServiceFile(ctx));
+
   const changed = { binary: binaryChanged || currentChanged, serviceFile: serviceFileChanged };
+
   const activation =
     ctx.os === "darwin"
       ? yield* activateLaunchd(ctx, paths.serviceFile, changed)
       : fallback
         ? yield* activateFallback(ctx, changed, plan!, linux!)
         : yield* activateSystemd(ctx, changed);
+
   const supervisor: Supervisor =
     ctx.os === "darwin" ? "launchd" : fallback ? "fallback" : "systemd";
+
   return {
     version: options.version,
     binary: staged.path,
@@ -514,6 +571,7 @@ export const uninstall = Effect.fn("uninstall")(function* (
 ): Effect.fn.Return<UninstallReport, InstallError, CommandRunner> {
   const paths = layout(ctx);
   let supervisorStopped = false;
+
   if (ctx.os === "darwin") {
     yield* run(["launchctl", "bootout", `gui/${ctx.uid}/${LAUNCHD_LABEL}`]);
     yield* run(["launchctl", "bootout", `user/${ctx.uid}/${LAUNCHD_LABEL}`]);
@@ -521,24 +579,31 @@ export const uninstall = Effect.fn("uninstall")(function* (
     yield* run(["systemctl", "--user", "disable", "--now", SYSTEMD_UNIT]);
     supervisorStopped = yield* removeFallback(ctx);
   }
+
   // The shared Codex app-server outlives the Daemon on purpose; uninstall ends it.
   const appServer = yield* stopAppServer({
     stateFile: defaultStateFile(join(ctx.polarisHome, "codex.sock")),
     socketPath: join(ctx.polarisHome, "codex.sock"),
   });
+
   const serviceFileRemoved = yield* fsStep("remove service file", () => {
     const existed = existsSync(paths.serviceFile);
     rmSync(paths.serviceFile, { force: true });
+
     return existed;
   });
+
   if (ctx.os === "linux" && serviceFileRemoved) {
     yield* run(["systemctl", "--user", "daemon-reload"]);
   }
+
   const binariesRemoved = yield* fsStep("remove binaries", () => {
     const existed = existsSync(paths.bin);
     rmSync(options.purge ? ctx.polarisHome : paths.bin, { recursive: true, force: true });
+
     return existed;
   });
+
   return {
     serviceFileRemoved,
     codexAppServerStopped: appServer.stopped,

@@ -16,33 +16,42 @@ import {
 } from "./AttachmentStore.ts";
 
 const cleanup: Array<string> = [];
+
 afterEach(() => {
   for (const dir of cleanup.splice(0)) removeDir(dir);
 });
 
 const DAY = 24 * 60 * 60 * 1000;
+
 const ws = "ws1" as WorkspaceId;
+
 const other = "ws2" as WorkspaceId;
+
 const s1 = "session-1" as SessionId;
+
 const bytes = (text: string) => new TextEncoder().encode(text);
 
 const setup = () => {
   const home = tempDir("polaris-home-");
   cleanup.push(home);
   const clock = { now: Date.now() };
+
   const options: AttachmentStoreOptions = {
     root: join(home, "staging"),
     settingsPath: join(home, "attachment-settings.json"),
     now: () => clock.now,
   };
+
   const run = <A, E>(effect: Effect.Effect<A, E, AttachmentStore | AttachmentMaintenance>) =>
     Effect.runPromise(Effect.scoped(Effect.provide(effect, AttachmentStoreLive(options))));
+
   return { home, clock, options, run, staging: options.root! };
 };
 
 const stage = (sessionId: SessionId | null, workspaceId: WorkspaceId, name: string, text = "x") =>
   Effect.gen(function* () {
     const store = yield* AttachmentStore;
+
     return yield* store.stage({
       sessionId,
       workspaceId,
@@ -66,9 +75,11 @@ describe("AttachmentStore", () => {
     const got = await run(
       Effect.gen(function* () {
         const store = yield* AttachmentStore;
+
         return yield* store.get([attachment.id, "missing" as AttachmentId]);
       })
     );
+
     expect(got).toEqual([attachment]);
   });
 
@@ -163,20 +174,24 @@ describe("AttachmentStore", () => {
 
   test("settings persist across restarts", async () => {
     const { run } = setup();
+
     const next = {
       default: { kind: "never" as const },
       workspaces: { ws2: { kind: "after-days" as const, days: 9 } },
     };
+
     await run(
       Effect.gen(function* () {
         yield* (yield* AttachmentMaintenance).setSettings(next);
       })
     );
+
     const loaded = await run(
       Effect.gen(function* () {
         return yield* (yield* AttachmentMaintenance).settings;
       })
     );
+
     expect(loaded).toEqual(next);
   });
 
@@ -185,25 +200,32 @@ describe("AttachmentStore", () => {
     await run(stage(s1, ws, "a.txt", "12345"));
     await run(stage(null, other, "b.txt", "123"));
     await run(stage("session-3" as SessionId, other, "c.txt", "1"));
+
     const usage = await run(
       Effect.gen(function* () {
         return yield* (yield* AttachmentMaintenance).usage;
       })
     );
+
     expect(usage).toEqual({ bytes: 9, files: 3 });
+
     const cleared = await run(
       Effect.gen(function* () {
         return yield* (yield* AttachmentMaintenance).clearNow({ workspaceId: other });
       })
     );
+
     expect(cleared).toEqual({ bytes: 4, files: 2 });
+
     const all = await run(
       Effect.gen(function* () {
         const maintenance = yield* AttachmentMaintenance;
         const removed = yield* maintenance.clearNow();
+
         return { removed, after: yield* maintenance.usage };
       })
     );
+
     expect(all).toEqual({ removed: { bytes: 5, files: 1 }, after: { bytes: 0, files: 0 } });
     expect(existsSync(staging) ? readdirSync(staging) : []).toEqual([]);
   });
@@ -212,6 +234,7 @@ describe("AttachmentStore", () => {
     const { options } = setup();
     const blobs = makeFakeBlobChannel();
     const blobId = blobs.put(bytes("image data"));
+
     const attachment = await Effect.runPromise(
       Effect.scoped(
         handleStageAttachment({
@@ -223,15 +246,18 @@ describe("AttachmentStore", () => {
         }).pipe(Effect.provide(Layer.merge(blobs.layer, AttachmentStoreLive(options))))
       )
     );
+
     expect(attachment).toMatchObject({ name: "shot.png", mimeType: "image/png", size: 10 });
     expect(readFileSync(attachment.hostPath, "utf8")).toBe("image data");
   });
 
   test("stages a stream chunk by chunk, and drops the upload when it fails or is too large", async () => {
     const { run, staging } = setup();
+
     const upload = (bytes: Stream.Stream<Uint8Array, ServiceError>, maxBytes?: number) =>
       Effect.gen(function* () {
         const store = yield* AttachmentStore;
+
         return yield* store.stage({
           sessionId: s1,
           workspaceId: ws,
@@ -248,6 +274,7 @@ describe("AttachmentStore", () => {
           })
         )
       );
+
     const chunks = [bytes("hello "), bytes("streamed "), bytes("world")];
     const staged = await run(upload(Stream.fromIterable(chunks)));
     expect(staged.size).toBe(20);
@@ -258,6 +285,7 @@ describe("AttachmentStore", () => {
       Stream.fromIterable(chunks),
       Stream.fail(new ServiceError({ service: "test", message: "connection lost" }))
     );
+
     const failed = await run(Effect.flip(upload(failing)));
     expect(failed.message).toContain("connection lost");
     const tooLarge = await run(Effect.flip(upload(Stream.fromIterable(chunks), 10)));

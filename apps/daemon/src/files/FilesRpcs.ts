@@ -29,6 +29,7 @@ export class FilesRpcs extends RpcGroup.make(
 
 const fileError = (path: string) => (cause: unknown) => {
   const failure = toFsFailure(resolveHostPath(path), cause);
+
   return new FileError({ path: failure.path, code: failure.code, message: failure.message });
 };
 
@@ -40,6 +41,7 @@ export const handleListDir = Effect.fn("files.listDir")(function* ({
   readonly path: string;
 }) {
   const entries = yield* Effect.tryPromise({ try: () => listDir(path), catch: fileError(path) });
+
   return entries.map(toFileEntry);
 });
 
@@ -58,11 +60,15 @@ export const handleReadFile = Effect.fn("files.read")(function* ({
     try: () => readRange(path, offset, length),
     catch: fileError(path),
   });
+
   const { content } = result;
+
   if (content._tag === "Inline") {
     return { size: result.size, mimeType: result.mimeType, content };
   }
+
   const blobs = yield* BlobChannel;
+
   const blobId = yield* blobs.offer(
     content._tag === "Bytes"
       ? content.bytes
@@ -75,6 +81,7 @@ export const handleReadFile = Effect.fn("files.read")(function* ({
             new ServiceError({ service: "files.read", message: String(cause), cause }),
         })
   );
+
   return {
     size: result.size,
     mimeType: result.mimeType,
@@ -88,6 +95,7 @@ export const handleSearchPaths = Effect.fn("files.searchPaths")(function* ({
   limit,
 }: typeof SearchPaths.payloadSchema.Type) {
   const search = yield* FileSearch;
+
   return yield* search.searchPaths(root, query, limit);
 });
 
@@ -96,6 +104,7 @@ export const handleGrep = Effect.fn("files.grep")(function* ({
   ...query
 }: typeof Grep.payloadSchema.Type) {
   const search = yield* FileSearch;
+
   return yield* search.grep(root, query);
 });
 
@@ -103,6 +112,7 @@ export const handleWatchFiles = ({ root }: { readonly root: string }) =>
   Stream.unwrap(
     Effect.gen(function* () {
       const search = yield* FileSearch;
+
       return search.watch(root);
     })
   );

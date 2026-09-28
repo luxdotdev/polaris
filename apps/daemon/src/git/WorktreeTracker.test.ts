@@ -8,6 +8,7 @@ import { commitAll, makeRepo, removeDir, tempDir, write } from "./testing.ts";
 import { parseWorktreeList, WorktreeTrackerLive } from "./WorktreeTracker.ts";
 
 const cleanup: Array<string> = [];
+
 afterEach(() => {
   for (const dir of cleanup.splice(0)) removeDir(dir);
 });
@@ -37,6 +38,7 @@ describe("WorktreeTracker", () => {
       "",
       "",
     ].join("\0");
+
     expect(parseWorktreeList(out)).toEqual([
       { path: "/repo", head: "aaa", branch: "main", isMain: true },
       { path: "/elsewhere/wt", head: "bbb", branch: null, isMain: false },
@@ -52,9 +54,11 @@ describe("WorktreeTracker", () => {
     const created = await run(
       Effect.gen(function* () {
         const tracker = yield* WorktreeTracker;
+
         return yield* tracker.create({ repoPath: root, path, branch: "feature", baseRef: "main" });
       })
     );
+
     expect(created).toMatchObject({ path, branch: "feature", isMain: false });
     expect(existsSync(join(path, "README.md"))).toBe(true);
 
@@ -70,6 +74,7 @@ describe("WorktreeTracker", () => {
     const root = await makeRepo();
     const outside = tempDir("polaris-wt-");
     cleanup.push(root, outside);
+
     const tracker = (f: (t: WorktreeTracker["Service"]) => Effect.Effect<unknown, unknown>) =>
       run(withTracker(f));
 
@@ -100,12 +105,15 @@ describe("WorktreeTracker", () => {
     const external = join(outside, "external");
 
     const seen: Array<ReadonlyArray<WorktreeInfo>> = [];
+
     const waitFor = async (predicate: (list: ReadonlyArray<WorktreeInfo>) => boolean) => {
       const deadline = Date.now() + 5000;
+
       while (Date.now() < deadline) {
         if (seen.some(predicate)) return;
         await Bun.sleep(25);
       }
+
       throw new Error(`timed out; saw ${JSON.stringify(seen)}`);
     };
 
@@ -114,6 +122,7 @@ describe("WorktreeTracker", () => {
         t.watch(root).pipe(Stream.runForEach((list) => Effect.sync(() => seen.push(list))))
       ).pipe(Effect.provide(WorktreeTrackerLive))
     );
+
     try {
       await waitFor((list) => list.length === 1);
       // Created by the user's own git, not through the tracker.

@@ -33,12 +33,15 @@ const program = Effect.gen(function* () {
   const read = (id: string) =>
     Effect.gen(function* () {
       const items: Array<TerminalItem> = [];
+
       const fiber = yield* terminals.attach(id as TerminalId).pipe(
         Stream.runForEach((item) => Effect.sync(() => items.push(item))),
         Effect.forkChild
       );
+
       yield* Effect.sleep("150 millis");
       yield* Fiber.interrupt(fiber);
+
       return items
         .map((i) => (i._tag === "Output" ? new TextDecoder().decode(i.data) : `<exit ${i.code}>`))
         .join("");
@@ -46,6 +49,7 @@ const program = Effect.gen(function* () {
 
   const handle = (request: Record<string, unknown>): Effect.Effect<unknown> => {
     const id = request.id as TerminalId;
+
     switch (request.op) {
       case "info":
         return Effect.succeed({ version, pid: process.pid, adopted: adopted !== null });
@@ -86,9 +90,11 @@ const program = Effect.gen(function* () {
   const server = yield* bindAtomically(paths().socket, (temporary) =>
     Effect.sync(() => Bun.listen({ unix: temporary, socket: handlers }))
   );
+
   if (adopted) yield* adopted.drain((fd) => void connectFd(fd, handlers));
   yield* serveUpgrades({ listenerFd: () => listenerFd(server), args: ["serve"] });
   console.log(`ready ${version}`);
+
   return yield* Effect.never;
 });
 

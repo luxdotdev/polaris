@@ -27,64 +27,90 @@ if (process.env.POLARIS_E2E_CLAUDE_STEER !== "1") {
 }
 
 const MAIN = join(import.meta.dir, "..", "src", "main.ts");
+
 const home = mkdtempSync("/tmp/pcs-");
+
 const repo = mkdtempSync("/tmp/pcr-");
+
 const out = process.env.POLARIS_E2E_OUT ?? mkdtempSync(join(tmpdir(), "polaris-e2e-claude-steer-"));
+
 mkdirSync(out, { recursive: true });
+
 const env = { ...process.env, POLARIS_HOME: home };
 
 const sh = (cmd: string) => Bun.spawnSync(["sh", "-c", cmd], { cwd: repo });
+
 sh("git init -q && git config user.email e2e@x && git config user.name e2e");
+
 writeFileSync(join(repo, "README.md"), "hello\n");
+
 sh("git add -A && git commit -qm init");
 
 const daemon = spawn("bun", [MAIN, "serve", "--foreground"], {
   env,
   stdio: ["ignore", "inherit", "inherit"],
 });
+
 const t0 = Date.now();
+
 const log = (...a: unknown[]) =>
   console.log(`[e2e +${((Date.now() - t0) / 1000).toFixed(1)}s]`, ...a);
 
 const results: Array<{ check: string; ok: boolean; detail?: string }> = [];
+
 const check = (name: string, ok: boolean, detail?: string) => {
   results.push({ check: name, ok, ...(detail === undefined ? {} : { detail }) });
   log(ok ? "PASS" : "FAIL", name, detail ?? "");
 };
+
 const until = async (what: string, condition: () => boolean, timeoutMs = 60_000) => {
   const deadline = Date.now() + timeoutMs;
+
   while (!condition()) {
     if (Date.now() > deadline) {
       log(`timed out waiting for ${what}`);
+
       return false;
     }
+
     await Bun.sleep(100);
   }
+
   return true;
 };
 
 let n = 0;
+
 const cmd = () => CommandId.make(`e2e-${++n}`);
+
 const events: Array<{ at: number; event: Record<string, unknown> }> = [];
+
 const eventsOf = (tag: string) => events.filter((e) => e.event._tag === tag);
+
 let state = "unknown";
+
 /** Turns already in the session snapshot (the first one starts before the subscription). */
 let snapshotTurns = 0;
 
 /** Numbers echoed by completed Bash calls, in completion order (each call id once). */
 const echoed = () => {
   const seen = new Map<string, number>();
+
   for (const { event } of eventsOf("TurnItemCompleted")) {
     const item = event.item as { _tag: string; id: string; status?: string; output?: string };
+
     if (item._tag !== "CommandExecution" || item.status !== "completed") continue;
     const number = Number(item.output?.trim().split("\n").at(-1));
+
     if (Number.isInteger(number)) seen.set(item.id, number);
   }
+
   return [...seen.values()];
 };
 
 const program = Effect.gen(function* () {
   yield* Effect.sleep("1 second");
+
   const conn = yield* makeHostConnection({
     key: "e2e",
     name: "E2E",
@@ -92,15 +118,18 @@ const program = Effect.gen(function* () {
     identity: { name: "polaris-e2e", version: "0.0.0", deviceLabel: "E2E", capabilities: [] },
     connector: spawnTransport(["bun", MAIN, "bridge"], { env }),
   });
+
   const s = yield* conn.awaitSession;
   yield* s.client.dispatch({
     commandId: cmd(),
     command: { _tag: "RegisterWorkspace", path: repo, name: "e2e" },
   });
+
   const snapshot = yield* s.client.subscribeHost({ afterSequence: null }).pipe(
     Stream.filter((i) => i._tag === "Snapshot"),
     Stream.runHead
   );
+
   if (snapshot._tag !== "Some" || snapshot.value._tag !== "Snapshot")
     return yield* Effect.die("no snapshot");
   const workspace = snapshot.value.workspaces[0]!;
@@ -133,19 +162,24 @@ const program = Effect.gen(function* () {
         if (item._tag === "Snapshot") {
           state = item.session.state;
           snapshotTurns = item.turns.length;
+
           return;
         }
+
         if (item._tag !== "Event") return;
         const e = item.envelope.event as unknown as Record<string, unknown>;
         events.push({ at: Date.now() - t0, event: e });
+
         if (e._tag === "SessionStateChanged") {
           state = e.state as string;
           log("state →", state, e.reason ?? "");
         }
+
         if (e._tag === "TurnStarted" || e._tag === "TurnEnded") {
           const turn = e.turn as { id: string; status: string };
           log(e._tag, turn.id, turn.status);
         }
+
         if (e._tag === "TurnItemCompleted") log("item", JSON.stringify(e.item).slice(0, 200));
       })
     ),
@@ -186,10 +220,12 @@ const program = Effect.gen(function* () {
     numbers.join(" ")
   );
   check("counting reached 5", numbers.includes(5), numbers.join(" "));
+
   const replies = eventsOf("TurnItemCompleted")
     .map((e) => e.event.item as { _tag: string; text?: string })
     .filter((item) => item._tag === "AssistantMessage")
     .map((item) => item.text ?? "");
+
   check("the reply mentions 5", /\b5\b|five/i.test(replies.join(" ")), replies.at(-1));
   check("the session is Idle afterwards", state === "idle", state);
   writeFileSync(
@@ -202,21 +238,32 @@ const outcome = await Effect.runPromise(Effect.scoped(program)).then(
   () => null,
   (e) => e
 );
+
 if (outcome !== null) {
   log("ERROR", outcome);
   results.push({ check: "script ran to the end", ok: false, detail: String(outcome) });
 }
+
 writeFileSync(join(out, "events.jsonl"), events.map((e) => JSON.stringify(e)).join("\n"));
+
 writeFileSync(join(out, "results.json"), JSON.stringify(results, null, 2));
+
 daemon.kill("SIGTERM");
+
 await new Promise((r) => daemon.once("exit", r));
+
 rmSync(home, { recursive: true, force: true });
+
 rmSync(repo, { recursive: true, force: true });
+
 log(`evidence in ${out}`);
+
 const failed = results.filter((r) => !r.ok);
+
 log(
   failed.length === 0
     ? "ALL PASS"
     : `${failed.length} FAILED: ${failed.map((f) => f.check).join("; ")}`
 );
+
 process.exitCode = failed.length === 0 ? 0 : 1;

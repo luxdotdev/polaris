@@ -55,6 +55,7 @@ interface Index {
 
 const fileError = (path: string, cause: unknown) => {
   const failure = toFsFailure(path, cause);
+
   return new FileError({ path: failure.path, code: failure.code, message: failure.message });
 };
 
@@ -62,9 +63,11 @@ const canonicalRoot = async (input: string): Promise<string> => {
   const path = resolveHostPath(input);
   const real = await realpath(path);
   const stats = await stat(real);
+
   if (!stats.isDirectory()) {
     throw Object.assign(new Error(`not a directory: ${path}`), { code: "ENOTDIR" });
   }
+
   return real;
 };
 
@@ -75,16 +78,21 @@ export const makeFileSearch = (options: FileSearchOptions) =>
 
     const open = (root: string): Index => {
       const existing = indexes.get(root);
+
       if (existing !== undefined) {
         existing.lastUsed = Date.now();
+
         return existing;
       }
+
       const backend = (options.useFff ? makeFffBackend(root) : Promise.resolve(null)).then(
         (fff) => fff ?? makeFallbackBackend(root)
       );
+
       const index: Index = { backend, lastUsed: Date.now(), watchers: 0, busy: 0 };
       indexes.set(root, index);
       timer ??= setInterval(sweep, options.sweepMs);
+
       return index;
     };
 
@@ -95,19 +103,23 @@ export const makeFileSearch = (options: FileSearchOptions) =>
 
     const sweep = () => {
       const now = Date.now();
+
       for (const [root, index] of indexes) {
         if (index.watchers === 0 && index.busy === 0 && now - index.lastUsed > options.idleMs) {
           drop(root, index);
         }
       }
+
       if (indexes.size === 0) {
         clearInterval(timer);
         timer = undefined;
       }
     };
+
     yield* Effect.addFinalizer(() =>
       Effect.sync(() => {
         clearInterval(timer);
+
         for (const [root, index] of indexes) drop(root, index);
       })
     );
@@ -118,6 +130,7 @@ export const makeFileSearch = (options: FileSearchOptions) =>
           const root = await canonicalRoot(input);
           const index = open(root);
           index.busy++;
+
           try {
             return await f(await index.backend);
           } finally {
@@ -140,6 +153,7 @@ export const makeFileSearch = (options: FileSearchOptions) =>
               try: () => canonicalRoot(input),
               catch: (cause) => fileError(resolveHostPath(input), cause),
             });
+
             const index = open(root);
             index.watchers++;
             yield* Effect.addFinalizer(() =>
@@ -148,10 +162,12 @@ export const makeFileSearch = (options: FileSearchOptions) =>
                 index.lastUsed = Date.now();
               })
             );
+
             const backend = yield* Effect.tryPromise({
               try: () => index.backend,
               catch: (cause) => fileError(root, cause),
             });
+
             // acquireRelease: an interrupt while the watcher is arming still unsubscribes.
             yield* Effect.acquireRelease(
               Effect.tryPromise({
@@ -166,6 +182,7 @@ export const makeFileSearch = (options: FileSearchOptions) =>
         Effect.promise(async () => {
           const root = await canonicalRoot(input).catch(() => null);
           const index = root === null ? undefined : indexes.get(root);
+
           return index === undefined ? null : (await index.backend).kind;
         }),
     });

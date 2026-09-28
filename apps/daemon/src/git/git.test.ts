@@ -13,17 +13,22 @@ import { parsePorcelainV2 } from "./status.ts";
 import { commitAll, makeRepo, removeDir, tempDir, write } from "./testing.ts";
 
 const cleanup: Array<string> = [];
+
 afterEach(() => {
   for (const dir of cleanup.splice(0)) removeDir(dir);
 });
+
 const repo = async (files?: Record<string, string>) => {
   const root = await makeRepo(files);
   cleanup.push(root);
+
   return root;
 };
 
 const sessionId = "s1" as SessionId;
+
 const turnId = "t1" as TurnId;
+
 const decode = (bytes: Uint8Array) => new TextDecoder().decode(bytes);
 
 describe("mayBeInWorkTree", () => {
@@ -58,6 +63,7 @@ describe("git.status", () => {
       "? untracked dir/x.ts",
       "",
     ].join("\0");
+
     const status = parsePorcelainV2(out);
     expect(status.branch).toBe("main");
     expect(status.head).toBe("0123456789abcdef0123456789abcdef01234567");
@@ -80,9 +86,11 @@ describe("git.status", () => {
     expect(status.branch).toBe("main");
     expect(status.head).toBe(await gitText(root, ["rev-parse", "HEAD"]));
     expect(status.ahead).toBe(0);
+
     const byPath = Object.fromEntries(
       status.entries.map((e) => [e.path, `${e.index}${e.worktree}`])
     );
+
     expect(byPath).toEqual({ "a.txt": ".M", "b.txt": "D.", "new.txt": "??" });
   });
 
@@ -111,6 +119,7 @@ describe("Checkpoints", () => {
     const result = await Effect.runPromise(
       Effect.gen(function* () {
         const checkpoints = yield* Checkpoints;
+
         return yield* checkpoints.capture({ cwd: root, sessionId, turnId, label: "before" });
       }).pipe(Effect.provide(CheckpointsLive))
     );
@@ -123,6 +132,7 @@ describe("Checkpoints", () => {
     const files = (await gitText(root, ["ls-tree", "-r", "--name-only", result!.commit])).split(
       "\n"
     );
+
     expect(files.sort()).toEqual([".gitignore", "staged.txt", "tracked.txt", "untracked.txt"]);
     expect(await gitText(root, ["show", `${result!.commit}:tracked.txt`])).toBe("v2");
 
@@ -135,12 +145,14 @@ describe("Checkpoints", () => {
   test("works in a subdirectory and on an unborn branch", async () => {
     const root = await repo({});
     write(root, "sub/file.txt", "x\n");
+
     const result = await captureCheckpoint({
       cwd: join(root, "sub"),
       sessionId,
       turnId,
       label: "after",
     });
+
     expect(result).not.toBeNull();
     expect(await gitText(root, ["ls-tree", "-r", "--name-only", result!.commit])).toBe(
       "sub/file.txt"
@@ -151,8 +163,10 @@ describe("Checkpoints", () => {
 
   test("reuses the previous commit for an identical snapshot, and not otherwise", async () => {
     const root = await repo({ "a.txt": "one\n" });
+
     const capture = (turn: string, label: "before" | "after") =>
       captureCheckpoint({ cwd: root, sessionId, turnId: turn, label });
+
     const after1 = await capture("t1", "after");
     const before2 = await capture("t2", "before");
     expect(before2!.commit).toBe(after1!.commit);
@@ -238,11 +252,13 @@ describe("git.diff", () => {
     write(root, "a.txt", "two\n");
     const head = await commitAll(root, "two");
     const blobs = makeFakeBlobChannel();
+
     const result = await Effect.runPromise(
       handleGitDiff({ cwd: root, spec: { _tag: "Range", base, head } }).pipe(
         Effect.provide(blobs.layer)
       )
     );
+
     expect(result.files).toBe(1);
     const bytes = blobs.blobs.get(result.blobId)!;
     expect(bytes.byteLength).toBe(result.size);
@@ -252,11 +268,13 @@ describe("git.diff", () => {
   test("a missing Turn checkpoint is NotFound", async () => {
     const root = await repo();
     const blobs = makeFakeBlobChannel();
+
     const error = await Effect.runPromise(
       Effect.flip(
         handleGitDiff({ cwd: root, spec: { _tag: "Turn", sessionId, turnId: "nope" as TurnId } })
       ).pipe(Effect.provide(Layer.merge(blobs.layer, Layer.empty)))
     );
+
     expect(error._tag).toBe("NotFound");
     expect(checkpointRef(sessionId, "nope", "before")).toBe(
       "refs/polaris/checkpoints/s1/nope/before"

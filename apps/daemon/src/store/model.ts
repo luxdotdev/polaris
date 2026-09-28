@@ -104,21 +104,27 @@ export const checkpointLabel = (ref: string): "before" | "after" | null =>
 
 const withMap = <K, V>(map: ReadonlyMap<K, V>, key: K, value: V | undefined): Map<K, V> => {
   const next = new Map(map);
+
   if (value === undefined) next.delete(key);
   else next.set(key, value);
+
   return next;
 };
 
 const upsertTurn = (turns: ReadonlyArray<Turn>, turn: Turn): ReadonlyArray<Turn> => {
   const at = turns.findIndex((t) => t.id === turn.id);
+
   if (at === -1) {
     // A Turn older than every one in memory was evicted already and is final.
     if (turns.length >= RECENT_TURNS && turn.index < turns[0]!.index) return turns;
     const next = [...turns, turn].sort((a, b) => a.index - b.index);
+
     return next.length > RECENT_TURNS ? next.slice(next.length - RECENT_TURNS) : next;
   }
+
   const next = [...turns];
   next[at] = turn;
+
   return next;
 };
 
@@ -129,9 +135,11 @@ const updateSession = (
   f: (record: SessionRecord) => SessionRecord
 ): ReadModel => {
   const record = model.sessions.get(sessionId);
+
   if (record === undefined) return model;
   const next = f(record);
   const session = new AgentSession({ ...next.session, updatedAt: occurredAt });
+
   return { ...model, sessions: withMap(model.sessions, sessionId, { ...next, session }) };
 };
 
@@ -139,6 +147,7 @@ const updateSession = (
 
 export const project = (model: ReadModel, envelope: EventEnvelope): ReadModel => {
   const next = apply(model, envelope.event, envelope.occurredAt, envelope.commandId !== null);
+
   return { ...next, sequence: envelope.sequence };
 };
 
@@ -157,7 +166,9 @@ export const foldSession = (
     ...emptyModel,
     sessions: record === undefined ? new Map() : new Map([[sessionId, record]]),
   };
+
   for (const event of events) model = apply(model, event, occurredAt, false);
+
   return model.sessions.get(sessionId);
 };
 
@@ -177,14 +188,17 @@ const apply = (
       };
     case "WorkspaceRemoved": {
       const worktrees = new Map(model.worktrees);
+
       for (const [id, wt] of worktrees)
         if (wt.workspaceId === event.workspaceId) worktrees.delete(id);
+
       return {
         ...model,
         workspaces: withMap(model.workspaces, event.workspaceId, undefined),
         worktrees,
       };
     }
+
     case "WorktreeDetected":
       return { ...model, worktrees: withMap(model.worktrees, event.worktree.id, event.worktree) };
     case "WorktreeRemoved":
@@ -240,19 +254,25 @@ const apply = (
       return model;
     case "CheckpointRecorded": {
       const label = checkpointLabel(event.ref);
+
       if (label === null) return model;
+
       return updateSession(model, event.sessionId, at, (r) => {
         const turn = r.turns.find((t) => t.id === event.turnId);
+
         if (turn === undefined) return r;
+
         const updated = new Turn({
           ...turn,
           ...(label === "before"
             ? { checkpointBefore: event.ref }
             : { checkpointAfter: event.ref }),
         });
+
         return { ...r, turns: upsertTurn(r.turns, updated) };
       });
     }
+
     case "ApprovalRequested":
       return updateSession(model, event.request.sessionId, at, (r) => ({
         ...r,

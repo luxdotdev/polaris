@@ -32,6 +32,7 @@ export class TransportError extends Schema.TaggedError<TransportError>()("Transp
 }) {}
 
 export const BlobFailure = Schema.Literals(["too-large", "timeout", "closed", "aborted"]);
+
 export type BlobFailure = typeof BlobFailure.Type;
 
 export class BlobError extends Schema.TaggedError<BlobError>()("BlobError", {
@@ -139,10 +140,12 @@ const concat = (parts: ReadonlyArray<Uint8Array>, size: number): Uint8Array => {
   if (parts.length === 1) return parts[0]!;
   const out = new Uint8Array(size);
   let offset = 0;
+
   for (const p of parts) {
     out.set(p, offset);
     offset += p.byteLength;
   }
+
   return out;
 };
 
@@ -177,16 +180,20 @@ export const makeWire = Effect.fnUntraced(function* (
     for (let i = 0; i < outBlobs.length; i++) {
       const index = (roundRobin + i) % outBlobs.length;
       const blob = outBlobs[index]!;
+
       if (!blob.ready()) continue;
       const frame = blob.next();
+
       if (blob.done()) {
         outBlobs.splice(index, 1);
         roundRobin = outBlobs.length === 0 ? 0 : index % outBlobs.length;
       } else {
         roundRobin = (index + 1) % outBlobs.length;
       }
+
       return frame;
     }
+
     return undefined;
   };
 
@@ -194,17 +201,22 @@ export const makeWire = Effect.fnUntraced(function* (
     while (true) {
       wake.closeUnsafe();
       const json = jsonQueue.shift();
+
       if (json !== undefined) {
         queuedJsonBytes -= json.byteLength;
+
         if (queuedJsonBytes <= maxQueuedJson / 2) jsonSpace.openUnsafe();
         yield* transport.write(json);
         continue;
       }
+
       const frame = nextBlobFrame();
+
       if (frame !== undefined) {
         yield* transport.write(frame);
         continue;
       }
+
       yield* wake.await;
     }
   });
@@ -216,10 +228,13 @@ export const makeWire = Effect.fnUntraced(function* (
       jsonQueue.push(frame);
       queuedJsonBytes += frame.byteLength;
       wake.openUnsafe();
+
       if (queuedJsonBytes > maxQueuedJson) {
         jsonSpace.closeUnsafe();
+
         return jsonSpace.await;
       }
+
       return Effect.void;
     });
 
@@ -228,6 +243,7 @@ export const makeWire = Effect.fnUntraced(function* (
   const offerBlob = <E>(source: BlobSource<E>): Effect.Effect<BlobId> =>
     Effect.suspend(() => {
       const id = `${prefix}${(++blobCounter).toString(36)}-${crypto.randomUUID().slice(0, 8)}`;
+
       // Accept any byte buffer: some Bun APIs hand back an ArrayBuffer where a Uint8Array is typed.
       const bytes: Uint8Array | null =
         source instanceof Uint8Array
@@ -237,6 +253,7 @@ export const makeWire = Effect.fnUntraced(function* (
             : ArrayBuffer.isView(source)
               ? new Uint8Array(source.buffer, source.byteOffset, source.byteLength)
               : null;
+
       if (bytes !== null) {
         const frames = encodeBlob(id, bytes);
         let pending = frames.next();
@@ -246,35 +263,44 @@ export const makeWire = Effect.fnUntraced(function* (
           next: () => {
             const frame = pending.value as Uint8Array;
             pending = frames.next();
+
             return frame;
           },
           done: () => pending.done === true,
         });
         wake.openUnsafe();
+
         return Effect.succeed(id as BlobId);
       }
+
       const buffered: Array<Uint8Array> = [];
       const space = Latch.makeUnsafe(true);
       let finished = false;
+
       const push = (frame: Uint8Array) => {
         buffered.push(frame);
         wake.openUnsafe();
       };
+
       outBlobs.push({
         id,
         ready: () => buffered.length > 0,
         next: () => {
           const frame = buffered.shift()!;
+
           if (buffered.length < OUT_BLOB_HIGH_WATER) space.openUnsafe();
+
           return frame;
         },
         done: () => finished && buffered.length === 0,
       });
+
       const produce = Stream.runForEach(source as Stream.Stream<Uint8Array, E>, (chunk) =>
         Effect.gen(function* () {
           for (let offset = 0; offset < chunk.byteLength; offset += BLOB_CHUNK_BYTES) {
             push(encodeBlobFrame(id, chunk.subarray(offset, offset + BLOB_CHUNK_BYTES), false));
             space.closeUnsafe();
+
             if (buffered.length >= OUT_BLOB_HIGH_WATER) yield* space.await;
           }
         })
@@ -287,6 +313,7 @@ export const makeWire = Effect.fnUntraced(function* (
           })
         )
       );
+
       return Effect.as(Effect.forkIn(produce, scope), id as BlobId);
     });
 
@@ -296,6 +323,7 @@ export const makeWire = Effect.fnUntraced(function* (
 
   const inBlob = (blobId: string): InBlob => {
     let blob = inBlobs.get(blobId);
+
     if (blob === undefined) {
       blob = {
         parts: [],
@@ -312,6 +340,7 @@ export const makeWire = Effect.fnUntraced(function* (
       inBlobs.set(blobId, blob);
       armSweep();
     }
+
     return blob;
   };
 
@@ -334,14 +363,18 @@ export const makeWire = Effect.fnUntraced(function* (
 
   const onBlobFrame = (frame: Extract<Frame, { kind: "blob" }>) => {
     const blob = inBlob(frame.blobId);
+
     if (blob.status !== "receiving") return;
     blob.touched = Date.now();
+
     if (frame.aborted)
       return failBlob(frame.blobId, blob, "aborted", "the sender aborted the blob");
     const length = frame.bytes.byteLength;
+
     if (length > 0) {
       if (blob.received + length > maxBlobBytes)
         return failBlob(frame.blobId, blob, "too-large", `blob exceeds ${maxBlobBytes} bytes`);
+
       if (bufferedBytes + length > maxBuffered)
         return failBlob(frame.blobId, blob, "too-large", "connection blob buffer is full");
       // A view into a much larger read buffer would keep all of it alive; copy those.
@@ -351,10 +384,13 @@ export const makeWire = Effect.fnUntraced(function* (
       blob.received += length;
       bufferedBytes += length;
     }
+
     if (frame.final) {
       blob.status = "complete";
+
       if (blob.claimed === "whole") resolveWhole(blob);
     }
+
     blob.wake?.();
   };
 
@@ -368,28 +404,35 @@ export const makeWire = Effect.fnUntraced(function* (
   const takeBlob = (blobId: string): Effect.Effect<Uint8Array, BlobError> =>
     Effect.suspend(() => {
       const blob = inBlob(blobId);
+
       if (blob.claimed)
         return Effect.fail(
           new BlobError({ blobId, reason: "closed", message: "blob already taken" })
         );
+
       if (isClosed && blob.status === "receiving")
         failBlob(blobId, blob, "closed", "connection closed before the blob arrived");
       blob.claimed = "whole";
       blob.touched = Date.now();
+
       if (blob.status === "complete") resolveWhole(blob);
+
       return Deferred.await(blob.deferred).pipe(Effect.ensuring(forget(blobId, blob)));
     });
 
   const forget = (blobId: string, blob: InBlob) =>
     Effect.sync(() => {
       blob.wake = null;
+
       if (blob.status === "receiving") {
         // The consumer gave up midway: drop the rest of the blob as it arrives,
         // and let the sweep forget the entry once the sender has moved on.
         failBlob(blobId, blob, "closed", "the consumer stopped reading");
         blob.claimed = false;
+
         return;
       }
+
       if (inBlobs.get(blobId) === blob) {
         inBlobs.delete(blobId);
         release(blob);
@@ -402,15 +445,18 @@ export const makeWire = Effect.fnUntraced(function* (
   ): Stream.Stream<Uint8Array, BlobError> =>
     Stream.suspend(() => {
       const blob = inBlob(blobId);
+
       if (blob.claimed)
         return Stream.fail(
           new BlobError({ blobId, reason: "closed", message: "blob already taken" })
         );
+
       if (isClosed && blob.status === "receiving")
         failBlob(blobId, blob, "closed", "connection closed before the blob arrived");
       blob.claimed = "stream";
       blob.idleTimeout = takeOptions.idleTimeout ?? true;
       blob.touched = Date.now();
+
       const pull = Effect.callback<
         readonly [Uint8Array, ...Array<Uint8Array>],
         BlobError | Cause.Done
@@ -422,29 +468,41 @@ export const makeWire = Effect.fnUntraced(function* (
             bufferedBytes -= blob.size;
             blob.size = 0;
             resume(Effect.succeed(parts));
+
             return true;
           }
+
           if (blob.status === "failed") {
             resume(Effect.fail(blob.failure!));
+
             return true;
           }
+
           if (blob.status === "complete") {
             resume(Effect.fail(Cause.Done()));
+
             return true;
           }
+
           return false;
         };
+
         if (settle()) return;
+
         // Cleared before settling: resuming can start the next pull synchronously.
         const waiter = () => {
           blob.wake = null;
+
           if (!settle()) blob.wake = waiter;
         };
+
         blob.wake = waiter;
+
         return Effect.sync(() => {
           blob.wake = null;
         });
       });
+
       return Stream.fromPull(Effect.succeed(pull)).pipe(Stream.ensuring(forget(blobId, blob)));
     });
 
@@ -452,6 +510,7 @@ export const makeWire = Effect.fnUntraced(function* (
   // idle connection never wakes the process.
   const sweepEveryMs = Math.max(50, Math.min(1000, idleTimeout / 4));
   let sweepTimer: ReturnType<typeof setTimeout> | undefined;
+
   const armSweep = () => {
     if (sweepTimer !== undefined || isClosed || inBlobs.size === 0) return;
     sweepTimer = setTimeout(() => {
@@ -463,6 +522,7 @@ export const makeWire = Effect.fnUntraced(function* (
 
   const sweep = () => {
     const now = Date.now();
+
     for (const [blobId, blob] of inBlobs) {
       if (blob.status === "receiving" && blob.idleTimeout && now - blob.touched > idleTimeout) {
         failBlob(blobId, blob, "timeout", `no progress for ${idleTimeout}ms`);
@@ -478,22 +538,28 @@ export const makeWire = Effect.fnUntraced(function* (
   };
 
   const decoder = new FrameDecoder();
+
   const reader = transport.incoming.pipe(
     Stream.runForEach((chunk) =>
       Effect.suspend(() => {
         let frames: Array<Frame>;
+
         try {
           frames = decoder.push(chunk);
         } catch (cause) {
           return Effect.fail(new TransportError({ message: "malformed frame", cause }));
         }
+
         let i = 0;
+
         return Effect.whileLoop({
           while: () => i < frames.length,
           body: () => {
             const frame = frames[i++]!;
+
             if (frame.kind === "json") return onJson(frame.text);
             onBlobFrame(frame);
+
             return Effect.void;
           },
           step: () => {},
@@ -508,8 +574,10 @@ export const makeWire = Effect.fnUntraced(function* (
       isClosed = true;
       clearTimeout(sweepTimer);
       sweepTimer = undefined;
+
       for (const [blobId, blob] of inBlobs) failBlob(blobId, blob, "closed", "connection closed");
       jsonSpace.openUnsafe();
+
       return Effect.andThen(Deferred.done(closed, exit), transport.close);
     });
 

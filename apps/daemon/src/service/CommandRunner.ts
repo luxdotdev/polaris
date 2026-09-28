@@ -32,11 +32,13 @@ export class CommandRunner extends Context.Service<
               stderr: "pipe",
               timeout: options?.timeoutMs ?? 15_000,
             });
+
             const [stdout, stderr, code] = await Promise.all([
               new Response(proc.stdout).text(),
               new Response(proc.stderr).text(),
               proc.exited,
             ]);
+
             return { code, stdout, stderr };
           } catch (error) {
             // ENOENT and friends: report like a shell would rather than dying.

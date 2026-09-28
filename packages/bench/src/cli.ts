@@ -27,6 +27,7 @@ const ALL_KINDS: ReadonlyArray<MetricKind> = [
   "throughput",
   "count",
 ];
+
 export const BENCH_DIR = resolve(import.meta.dir, "..");
 
 const usage = `usage: bun run bench [scenario...] [options]
@@ -78,13 +79,18 @@ const parseArgs = (argv: ReadonlyArray<string>): Args => {
     transport: "bridge",
     list: false,
   };
+
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;
+
     const value = () => {
       const v = argv[++i];
+
       if (v === undefined) throw new Error(`${arg} needs a value`);
+
       return v;
     };
+
     switch (arg) {
       case "--quick":
         args.quick = true;
@@ -103,13 +109,16 @@ const parseArgs = (argv: ReadonlyArray<string>): Args => {
           .split(",")
           .map((k) => k.trim())
           .filter(Boolean);
+
         for (const k of kinds) {
           if (!ALL_KINDS.includes(k as MetricKind) && k !== "none")
             throw new Error(`unknown kind ${k}`);
         }
+
         args.failOn = new Set(kinds.filter((k) => k !== "none") as Array<MetricKind>);
         break;
       }
+
       case "--save-baseline":
         args.saveBaseline = true;
         break;
@@ -124,10 +133,12 @@ const parseArgs = (argv: ReadonlyArray<string>): Args => {
         break;
       case "--transport": {
         const t = value();
+
         if (t !== "bridge" && t !== "socket") throw new Error(`unknown transport ${t}`);
         args.transport = t;
         break;
       }
+
       case "--list":
         args.list = true;
         break;
@@ -141,26 +152,35 @@ const parseArgs = (argv: ReadonlyArray<string>): Args => {
         args.scenarios.push(arg);
     }
   }
+
   return args;
 };
 
 const main = async () => {
   let args: Args;
+
   try {
     args = parseArgs(process.argv.slice(2));
   } catch (error) {
     console.error(`${(error as Error).message}\n\n${usage}`);
+
     return 2;
   }
+
   if (args.list) {
     for (const s of SCENARIOS) console.log(`${s.name.padEnd(12)} ${s.description}`);
+
     return 0;
   }
+
   const unknown = args.scenarios.filter((name) => !SCENARIOS.some((s) => s.name === name));
+
   if (unknown.length > 0) {
     console.error(`unknown scenario(s): ${unknown.join(", ")}\n\n${usage}`);
+
     return 2;
   }
+
   const selected =
     args.scenarios.length === 0
       ? SCENARIOS
@@ -170,6 +190,7 @@ const main = async () => {
   const runDir = join(BENCH_DIR, "results", stamp);
   mkdirSync(runDir, { recursive: true });
   const started = performance.now();
+
   const log = (message: string) =>
     process.stderr.write(
       `[bench ${((performance.now() - started) / 1000).toFixed(1)}s] ${message}\n`
@@ -179,6 +200,7 @@ const main = async () => {
   log(`${env.machine} (${env.cpu}), ${env.daemon} Daemon, results in ${runDir}`);
 
   const scenarios: Record<string, ScenarioResult> = {};
+
   for (const scenario of selected) {
     scenarios[scenario.name] = await runScenario(scenario, {
       quick: args.quick,
@@ -201,18 +223,22 @@ const main = async () => {
     },
     scenarios,
   };
+
   const resultPath = join(runDir, "result.json");
   writeFileSync(resultPath, `${JSON.stringify(result, null, 2)}\n`);
+
   if (args.json) {
     mkdirSync(dirname(args.json), { recursive: true });
     copyFileSync(resultPath, args.json);
   }
+
   if (args.saveBaseline) {
     const baselinePath = join(
       BENCH_DIR,
       "baselines",
       `${env.machineSlug}${args.quick ? "-quick" : ""}.json`
     );
+
     copyFileSync(resultPath, baselinePath);
     log(`baseline written to ${baselinePath}`);
   }
@@ -222,6 +248,7 @@ const main = async () => {
   writeFileSync(join(runDir, "summary.txt"), `${text}\n`);
 
   let comparison: Comparison | null = null;
+
   if (args.compare) {
     const baseline = JSON.parse(readFileSync(args.compare, "utf8")) as BenchResult;
     comparison = compare(baseline, result, args.failOn);
@@ -229,11 +256,15 @@ const main = async () => {
     console.log(`\ncompared with ${args.compare}\n${rendered}`);
     writeFileSync(join(runDir, "comparison.txt"), `${rendered}\n`);
   }
+
   if (args.markdown) appendFileSync(args.markdown, `${renderMarkdown(result, comparison)}\n`);
 
   const failed = Object.values(scenarios).some((s) => s.error !== undefined);
+
   if (failed) log("some scenarios failed");
+
   if (comparison && comparison.regressions.length > 0) return 1;
+
   return failed ? 1 : 0;
 };
 

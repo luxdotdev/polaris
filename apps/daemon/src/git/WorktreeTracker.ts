@@ -12,6 +12,7 @@ import { gitText, runGitRaw } from "./git.ts";
 
 /** How long the registry must be quiet before it is re-read. */
 export const WATCH_DEBOUNCE_MS = 150;
+
 /** Safety net: re-read this often even without file-system events (fs events can be dropped). */
 export const WATCH_POLL_MS = 30_000;
 
@@ -19,6 +20,7 @@ export const WATCH_POLL_MS = 30_000;
 export const parseWorktreeList = (output: string): Array<WorktreeInfo> => {
   const worktrees: Array<WorktreeInfo> = [];
   let current: { path: string; head: string; branch: string | null; bare: boolean } | null = null;
+
   const flush = () => {
     if (current !== null && !current.bare) {
       worktrees.push({
@@ -31,16 +33,20 @@ export const parseWorktreeList = (output: string): Array<WorktreeInfo> => {
       // A bare main repository has no working tree; keep the "first is main" rule for the rest.
       worktrees.length = 0;
     }
+
     current = null;
   };
+
   for (const field of output.split("\0")) {
     if (field === "") {
       flush();
       continue;
     }
+
     const space = field.indexOf(" ");
     const key = space < 0 ? field : field.slice(0, space);
     const value = space < 0 ? "" : field.slice(space + 1);
+
     if (key === "worktree") {
       flush();
       current = { path: value, head: "", branch: null, bare: false };
@@ -50,7 +56,9 @@ export const parseWorktreeList = (output: string): Array<WorktreeInfo> => {
       else if (key === "bare") current.bare = true;
     }
   }
+
   flush();
+
   return worktrees;
 };
 
@@ -75,18 +83,24 @@ export const createWorktree = async (options: {
 }): Promise<WorktreeInfo> => {
   const { repoPath, path, branch, baseRef } = options;
   await mkdir(dirname(resolve(repoPath, path)), { recursive: true });
+
   const exists =
     (await runGitRaw(repoPath, ["show-ref", "--verify", "--quiet", `refs/heads/${branch}`]))
       .code === 0;
+
   const args = exists
     ? // An existing branch is checked out as-is (git refuses if it is checked out elsewhere).
       ["worktree", "add", path, branch]
     : ["worktree", "add", "-b", branch, path, ...(baseRef === null ? [] : [baseRef])];
+
   await gitText(repoPath, args);
+
   const created = (await listWorktrees(repoPath)).find((w) =>
     samePath(w.path, resolve(repoPath, path))
   );
+
   if (created === undefined) throw new Error(`worktree ${path} was not registered by git`);
+
   return created;
 };
 
@@ -104,12 +118,16 @@ export const removeWorktree = async (options: {
   const { repoPath, path, deleteBranchIfMerged } = options;
   const worktrees = await listWorktrees(repoPath);
   const target = worktrees.find((w) => samePath(w.path, resolve(repoPath, path)));
+
   if (target === undefined) throw new Error(`not a worktree of ${repoPath}: ${path}`);
+
   if (target.isMain) throw new Error("the main worktree cannot be removed");
   const main = worktrees.find((w) => w.isMain);
   const mainPath = main?.path ?? repoPath;
   await gitText(mainPath, ["worktree", "remove", target.path]);
+
   if (!deleteBranchIfMerged || target.branch === null) return { branchDeleted: false };
+
   const merged =
     (
       await runGitRaw(mainPath, [
@@ -119,9 +137,11 @@ export const removeWorktree = async (options: {
         "HEAD",
       ])
     ).code === 0;
+
   if (!merged) return { branchDeleted: false };
   // `-d` re-checks mergedness itself, so an unmerged branch can never be lost here.
   const deleted = await runGitRaw(mainPath, ["branch", "-d", target.branch]);
+
   return { branchDeleted: deleted.code === 0 };
 };
 
@@ -159,14 +179,18 @@ export const watchWorktrees = (
       const refresh = async () => {
         if (running) {
           again = true;
+
           return;
         }
+
         running = true;
+
         try {
           do {
             again = false;
             const list = await listWorktrees(repoPath);
             const key = JSON.stringify(list);
+
             if (key !== last && !closed) {
               last = key;
               Queue.offerUnsafe(queue, list);
@@ -190,6 +214,7 @@ export const watchWorktrees = (
 
       const arm = (path: string, recursive: boolean) => {
         if (watchers.has(path) || !existsSync(path)) return;
+
         try {
           const watcher = fsWatch(path, { recursive }, schedule);
           watcher.on("error", () => {
@@ -202,12 +227,15 @@ export const watchWorktrees = (
           // The directory vanished between the check and the watch; the poll covers it.
         }
       };
+
       const armWorktreesDir = () => {
         const existing = watchers.get(worktreesDir);
+
         if (existing !== undefined && !existsSync(worktreesDir)) {
           existing.close();
           watchers.delete(worktreesDir);
         }
+
         arm(worktreesDir, true);
       };
 
@@ -220,6 +248,7 @@ export const watchWorktrees = (
           closed = true;
           clearTimeout(timer);
           clearInterval(poll);
+
           for (const watcher of watchers.values()) watcher.close();
           watchers.clear();
         })

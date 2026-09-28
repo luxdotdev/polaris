@@ -28,7 +28,9 @@ import {
 import { dirname, join } from "node:path";
 
 const root = join(import.meta.dir, "..");
+
 const daemonDir = join(root, "apps", "daemon");
+
 const distDir = join(daemonDir, "dist");
 
 const PLATFORMS = {
@@ -52,28 +54,35 @@ const PLATFORMS = {
     define: ['FFF_LIBC="musl"'],
   },
 } as const;
+
 type Platform = keyof typeof PLATFORMS;
 
 const sha256 = (path: string) => createHash("sha256").update(readFileSync(path)).digest("hex");
 
 const run = async (argv: ReadonlyArray<string>, cwd = root) => {
   const proc = Bun.spawn([...argv], { cwd, stdout: "pipe", stderr: "pipe" });
+
   const [stdout, stderr, code] = await Promise.all([
     new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),
     proc.exited,
   ]);
+
   if (code !== 0) throw new Error(`${argv.join(" ")} exited ${code}\n${stderr || stdout}`);
+
   return stdout;
 };
 
 /** Node-style lookup from `fromDir` (real path) upwards, without require's caches. */
 const findPackage = (fromDir: string, name: string): string | null => {
   let dir = realpathSync(fromDir);
+
   for (;;) {
     const candidate = join(dir, "node_modules", name, "package.json");
+
     if (existsSync(candidate)) return candidate;
     const parent = dirname(dir);
+
     if (parent === dir) return null;
     dir = parent;
   }
@@ -85,25 +94,30 @@ const readVersion = (packageJson: string): string =>
 /** fff-bun's package.json; the bundler resolves fff-bin-* from its directory. */
 const fffBunPackage = (): string => {
   const found = findPackage(daemonDir, "@ff-labs/fff-bun");
+
   if (found === null) throw new Error("@ff-labs/fff-bun is not installed: run bun install");
+
   return found;
 };
 
 const fffBinInstalled = (platform: Platform): boolean => {
   const fffBun = fffBunPackage();
   const bin = findPackage(dirname(fffBun), `@ff-labs/fff-bin-${PLATFORMS[platform].fffBin}`);
+
   return bin !== null && readVersion(bin) === readVersion(fffBun);
 };
 
 /** Install the target platforms' optional packages (fff-bin-*) from the lockfile. */
 const ensureTargetPackages = async (platforms: ReadonlyArray<Platform>) => {
   const missing = platforms.filter((platform) => !fffBinInstalled(platform));
+
   if (missing.length === 0) return;
   console.log(
     `installing optional packages for ${missing.join(", ")} (bun install --os=* --cpu=*)`
   );
   await run([process.execPath, "install", "--frozen-lockfile", "--os=*", "--cpu=*"]);
   const still = missing.filter((platform) => !fffBinInstalled(platform));
+
   if (still.length > 0) {
     throw new Error(`@ff-labs/fff-bin-* still missing for ${still.join(", ")} after install`);
   }
@@ -118,6 +132,7 @@ const onMusl = (() => {
     return false;
   }
 })();
+
 const hostPlatform = `${process.platform}-${process.arch}${onMusl ? "-musl" : ""}`;
 
 /**
@@ -129,6 +144,7 @@ const signAdHoc = async (binary: string) => {
   if (process.platform !== "darwin") {
     throw new Error("darwin builds must run on macOS (codesign is needed to re-sign the binary)");
   }
+
   await run(["codesign", "--force", "--sign", "-", binary]);
   await run(["codesign", "--verify", "--strict", binary]);
 };
@@ -155,15 +171,18 @@ const build = async (platform: Platform, version: string) => {
     ...define.map((value) => `--define=${value}`),
     `--outfile=${binary}`,
   ]);
+
   if (platform.startsWith("darwin")) await signAdHoc(binary);
 
   if (platform === hostPlatform) {
     // `selftest` also proves the embedded fff library loads and searches.
     const output = (await run([binary, "selftest"])).trim();
     const expected = `polaris ${version} ${platform}`;
+
     if (output.split("\n")[0] !== expected) {
       throw new Error(`${binary} selftest printed "${output}", expected "${expected}" first`);
     }
+
     console.log(output.replaceAll(/^/gm, "  "));
   }
 
@@ -178,17 +197,20 @@ const build = async (platform: Platform, version: string) => {
 const main = async () => {
   const requested = process.argv.slice(2);
   const unknown = requested.filter((platform) => !(platform in PLATFORMS));
+
   if (unknown.length > 0) throw new Error(`unknown platform(s): ${unknown.join(", ")}`);
   const platforms = (requested.length > 0 ? requested : Object.keys(PLATFORMS)) as Array<Platform>;
 
   const version = JSON.parse(readFileSync(join(daemonDir, "package.json"), "utf8"))
     .version as string;
+
   const fff = readVersion(fffBunPackage());
   const commit = (await run(["git", "rev-parse", "HEAD"]).catch(() => "unknown")).trim();
   await ensureTargetPackages(platforms);
 
   const manifestPath = join(distDir, "manifest.json");
   const previous = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, "utf8")) : null;
+
   const built: Record<string, unknown> =
     previous?.version === version && previous?.commit === commit ? { ...previous.platforms } : {};
 
@@ -205,6 +227,7 @@ const main = async () => {
     fff: { package: "@ff-labs/fff-bun", version: fff, embedded: true },
     platforms: built,
   };
+
   writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   console.log(`wrote ${manifestPath}`);
 };

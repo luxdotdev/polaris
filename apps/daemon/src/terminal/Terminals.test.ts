@@ -11,12 +11,16 @@ import {
 } from "./Terminals.ts";
 
 const encode = (text: string) => new TextEncoder().encode(text);
+
 const decode = (bytes: Uint8Array) => new TextDecoder().decode(bytes);
 
 let runtime: ManagedRuntime.ManagedRuntime<Terminals, never>;
+
 const cleanup: Array<string> = [];
+
 afterEach(async () => {
   await runtime?.dispose();
+
   for (const dir of cleanup.splice(0)) removeDir(dir);
 });
 
@@ -24,15 +28,18 @@ const setup = () => {
   runtime = ManagedRuntime.make(Layer.fresh(TerminalsLive));
   const dir = tempDir("polaris-term-");
   cleanup.push(dir);
+
   const run = <A, E>(f: (t: Terminals["Service"]) => Effect.Effect<A, E>) =>
     runtime.runPromise(
       Effect.gen(function* () {
         return yield* f(yield* Terminals);
       })
     );
+
   /** Attaches and collects items into an array until the stream ends or is stopped. */
   const attach = (id: TerminalId) => {
     const items: Array<TerminalItem> = [];
+
     const fiber = runtime.runFork(
       Effect.gen(function* () {
         const terminals = yield* Terminals;
@@ -41,19 +48,26 @@ const setup = () => {
           .pipe(Stream.runForEach((item) => Effect.sync(() => items.push(item))));
       })
     );
+
     const text = () =>
       items.map((i) => (i._tag === "Output" ? decode(i.data) : `<exit ${i.code}>`)).join("");
+
     const waitFor = async (needle: string | RegExp, timeoutMs = 5000) => {
       const deadline = Date.now() + timeoutMs;
+
       while (Date.now() < deadline) {
         const current = text();
+
         if (typeof needle === "string" ? current.includes(needle) : needle.test(current)) return;
         await Bun.sleep(20);
       }
+
       throw new Error(`timed out waiting for ${needle}; got ${JSON.stringify(text())}`);
     };
+
     return { items, fiber, text, waitFor, stop: () => runtime.runPromise(Fiber.interrupt(fiber)) };
   };
+
   return { dir, run, attach };
 };
 
@@ -114,15 +128,20 @@ describe("Terminals", () => {
 
   test("attaching after exit replays the output and the Exit", async () => {
     const { dir, run, attach } = setup();
+
     const id = await run((t) =>
       t.open({ cwd: dir, cols: 80, rows: 24, argv: ["/bin/sh", "-c", "echo done-now; exit 0"] })
     );
+
     const deadline = Date.now() + 5000;
+
     while (Date.now() < deadline) {
       const info = (await run((t) => t.list)).find((i) => i.id === id);
+
       if (info?.exit) break;
       await Bun.sleep(20);
     }
+
     const a = attach(id);
     await a.waitFor("done-now");
     await a.waitFor("<exit 0>");
@@ -142,9 +161,11 @@ describe("Terminals", () => {
 
   test("a missing cwd is a FileError; an unknown id is NotFound", async () => {
     const { run } = setup();
+
     const error = await run((t) =>
       Effect.flip(t.open({ cwd: "/definitely/missing", cols: 80, rows: 24, argv: null }))
     );
+
     expect(error).toMatchObject({ _tag: "FileError", code: "ENOENT" });
     const missing = await run((t) => Effect.flip(t.resize("nope" as TerminalId, 1, 1)));
     expect(missing._tag).toBe("NotFound");

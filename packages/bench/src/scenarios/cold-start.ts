@@ -20,6 +20,7 @@ export const coldStart: Scenario = {
       const footprint: Array<number> = [];
       const bridge: Array<number> = [];
       let idleCpu = 0;
+
       for (let i = 0; i < spawns; i++) {
         yield* Effect.scoped(
           Effect.gen(function* () {
@@ -30,15 +31,18 @@ export const coldStart: Scenario = {
             yield* settle(2000);
             const s = sampler.sample();
             rss.push(s.rssBytes);
+
             if (s.footprintBytes !== null) footprint.push(s.footprintBytes);
             const t0 = performance.now();
             yield* Effect.scoped(connect(daemon, "bridge"));
             bridge.push(performance.now() - t0);
+
             // CPU in the settled window, before the bridge connect.
             if (i === 0) idleCpu = sampler.report(ready + 500, ready + 2000).cpuAvgPct;
           })
         );
       }
+
       return {
         metrics: {
           hello_ms: time(summarize(hello).median),

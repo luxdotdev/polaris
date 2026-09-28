@@ -33,18 +33,26 @@ export class BunSocketStream extends EventEmitter {
   write(chunk: Uint8Array, callback: Callback): boolean {
     if (this.pending.length > 0) {
       this.pending.push({ bytes: chunk, callback });
+
       return false;
     }
+
     const written = this.socket.write(chunk);
+
     if (written >= chunk.byteLength) {
       queueMicrotask(() => callback());
+
       return true;
     }
+
     if (written < 0) {
       queueMicrotask(() => callback(new Error("socket closed")));
+
       return false;
     }
+
     this.pending.push({ bytes: chunk.subarray(written), callback });
+
     return false;
   }
 
@@ -53,14 +61,19 @@ export class BunSocketStream extends EventEmitter {
     while (this.pending.length > 0) {
       const head = this.pending[0]!;
       const written = this.socket.write(head.bytes);
+
       if (written < 0) return;
+
       if (written < head.bytes.byteLength) {
         head.bytes = head.bytes.subarray(written);
+
         return;
       }
+
       this.pending.shift();
       head.callback();
     }
+
     if (this.endAfterFlush) this.socket.end();
     this.emit("drain");
   }
@@ -75,6 +88,7 @@ export class BunSocketStream extends EventEmitter {
 
   end(): void {
     this.writable = false;
+
     if (this.pending.length === 0) this.socket.end();
     else this.endAfterFlush = true;
   }
@@ -85,6 +99,7 @@ export class BunSocketStream extends EventEmitter {
     this.writable = false;
     const pending = this.pending;
     this.pending = [];
+
     for (const { callback } of pending) callback(error ?? new Error("socket closed"));
     this.emit("end");
     this.emit("close");

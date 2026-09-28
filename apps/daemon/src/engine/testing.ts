@@ -74,15 +74,20 @@ export const makeFakeDriver = (
 ): FakeDriver => {
   const sessions: Array<FakeHarnessSession> = [];
   const followQueues = new Map<SessionId, Queue.Queue<HarnessEvent, Cause.Done>>();
+
   const followQueue = (sessionId: SessionId) => {
     let queue = followQueues.get(sessionId);
+
     if (queue === undefined) {
       queue = Effect.runSync(Queue.unbounded<HarnessEvent, Cause.Done>());
       followQueues.set(sessionId, queue);
     }
+
     return queue;
   };
+
   const released: Array<SessionId> = [];
+
   const driver: HarnessDriver = {
     kind,
     capabilities: { steer: options.steer ?? false, liveCoAttach: options.liveCoAttach ?? false },
@@ -103,6 +108,7 @@ export const makeFakeDriver = (
     open: (openOptions) =>
       Effect.gen(function* () {
         const queue = yield* Queue.unbounded<HarnessEvent, Cause.Done>();
+
         const session: FakeHarnessSession = {
           options: openOptions,
           turns: [],
@@ -114,12 +120,14 @@ export const makeFakeDriver = (
             for (const event of events) Queue.offerUnsafe(queue, event);
           },
         };
+
         sessions.push(session);
         yield* Effect.addFinalizer(() =>
           Effect.sync(() => {
             session.closed = true;
           }).pipe(Effect.andThen(Queue.end(queue)))
         );
+
         return {
           events: Stream.fromQueue(queue),
           sendTurn: (input) =>
@@ -139,6 +147,7 @@ export const makeFakeDriver = (
         };
       }),
   };
+
   return {
     driver,
     sessions,
@@ -190,6 +199,7 @@ export const fakeServices = (fakes: Fakes, drivers: ReadonlyArray<FakeDriver>) =
       capture: ({ sessionId, turnId, label }) =>
         Effect.sync(() => {
           fakes.checkpoints.push({ sessionId, label });
+
           return {
             ref: `refs/polaris/checkpoints/${sessionId}/${turnId}/${label}`,
             commit: `commit-${fakes.checkpoints.length}`,
@@ -204,6 +214,7 @@ export const fakeServices = (fakes: Fakes, drivers: ReadonlyArray<FakeDriver>) =
           const info: WorktreeInfo = { path, branch, head: "abc123", isMain: false };
           fakes.worktrees.set(repoPath, [...(fakes.worktrees.get(repoPath) ?? []), info]);
           fakes.worktreeCalls.push({ op: "create", path, detail: { branch, baseRef } });
+
           return info;
         }),
       remove: ({ repoPath, path, deleteBranchIfMerged }) =>
@@ -225,7 +236,9 @@ export const fakeServices = (fakes: Fakes, drivers: ReadonlyArray<FakeDriver>) =
             size: options.bytes instanceof Uint8Array ? options.bytes.byteLength : 0,
             hostPath: `/staging/${options.name}`,
           });
+
           fakes.attachments.set(attachment.id, attachment);
+
           return attachment;
         }),
       get: (ids) => Effect.sync(() => ids.flatMap((id) => fakes.attachments.get(id) ?? [])),
@@ -234,6 +247,7 @@ export const fakeServices = (fakes: Fakes, drivers: ReadonlyArray<FakeDriver>) =
     Layer.succeed(HarnessRegistry)({
       get: (kind) => {
         const found = drivers.find((d) => d.driver.kind === kind);
+
         return found
           ? Effect.succeed(found.driver)
           : Effect.die(new Error(`no fake driver for ${kind}`));
@@ -259,6 +273,7 @@ export const engineLayer = (options: {
       Layer.succeed(StoreConfig)({ subscriberCapacity: options.subscriberCapacity ?? 4096 })
     )
   );
+
   return Engine.layer.pipe(
     Layer.provideMerge(store),
     Layer.provide(fakeServices(options.fakes, options.drivers)),
@@ -282,10 +297,12 @@ export const tempDir = (): string => mkdtempSync(join(tmpdir(), "polaris-engine-
 export const fakeRepo = (): string => {
   const dir = join(tempDir(), "repo");
   mkdirSync(join(dir, ".git"), { recursive: true });
+
   return dir;
 };
 
 let commandCounter = 0;
+
 export const cid = (label = "cmd"): CommandId => CommandId.make(`${label}-${++commandCounter}`);
 
 /** Poll the read model until `predicate` holds (reactors run after the ack). */
@@ -293,9 +310,12 @@ export const waitFor = (predicate: (model: ReadModel) => boolean, timeout = 2000
   Effect.gen(function* () {
     const store = yield* EventStore;
     const deadline = Date.now() + timeout;
+
     while (true) {
       const model = yield* store.model;
+
       if (predicate(model)) return model;
+
       if (Date.now() > deadline) return yield* Effect.die(new Error("waitFor timed out"));
       yield* Effect.sleep(Duration.millis(5));
     }
@@ -305,6 +325,7 @@ export const waitFor = (predicate: (model: ReadModel) => boolean, timeout = 2000
 export const waitUntil = (condition: () => boolean, timeout = 2000) =>
   Effect.gen(function* () {
     const deadline = Date.now() + timeout;
+
     while (!condition()) {
       if (Date.now() > deadline) return yield* Effect.die(new Error("waitUntil timed out"));
       yield* Effect.sleep(Duration.millis(5));

@@ -25,9 +25,11 @@ export class FakeClaude {
 
   readonly query: QueryFn = ({ prompt, options }) => {
     this.options = options ?? null;
+
     if (typeof prompt !== "string") void this.pump(prompt);
     const iterator = this.out[Symbol.asyncIterator]();
     const self = this;
+
     const q = {
       next: () => iterator.next(),
       return: () => iterator.return!(),
@@ -37,6 +39,7 @@ export class FakeClaude {
       },
       interrupt: async () => {
         self.interrupts++;
+
         return undefined;
       },
       setPermissionMode: async (mode: string) => {
@@ -47,12 +50,14 @@ export class FakeClaude {
         self.out.end();
       },
     };
+
     return q as unknown as Query;
   };
 
   private async pump(prompt: AsyncIterable<SDKUserMessage>) {
     for await (const message of prompt) {
       this.inputs.push(message);
+
       for (const w of this.inputWaiters.splice(0)) w();
     }
   }
@@ -60,6 +65,7 @@ export class FakeClaude {
   /** Resolves with the n-th (0-based) user message the driver sent. */
   async nextInput(n: number): Promise<SDKUserMessage> {
     while (this.inputs.length <= n) await new Promise<void>((r) => this.inputWaiters.push(r));
+
     return this.inputs[n]!;
   }
 
@@ -78,7 +84,9 @@ export class FakeClaude {
     extra: { toolUseID: string; suggestions?: PermissionUpdate[]; signal?: AbortSignal }
   ): Promise<PermissionResult | null> {
     const canUseTool = this.options?.canUseTool;
+
     if (!canUseTool) throw new Error("canUseTool was not provided");
+
     return canUseTool(toolName, input, {
       signal: extra.signal ?? new AbortController().signal,
       toolUseID: extra.toolUseID,

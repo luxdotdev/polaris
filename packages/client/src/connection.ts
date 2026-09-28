@@ -92,6 +92,7 @@ export type ConnectionEvent =
 const backoff = (policy: ReconnectPolicy, attempt: number, jitter: number) => {
   const base = Math.min(policy.maxDelayMs, policy.initialDelayMs * policy.factor ** attempt);
   const spread = base * policy.jitter;
+
   return Math.round(base - spread + jitter * 2 * spread);
 };
 
@@ -108,11 +109,13 @@ const failed = (
   const failingSince = wasConnected ? now : context.failingSince;
   const lostAt = wasConnected ? now : context.lostAt;
   const base = { attempt, failingSince, lostAt, failure };
+
   // Right after a drop, "no Daemon" is most likely a Daemon restart: keep Reconnecting.
   const restarting =
     failure.reason === "daemon-not-running" &&
     lostAt !== null &&
     now - lostAt < policy.restartGraceMs;
+
   if (failure.kind === "needs-attention" && !restarting) {
     return {
       target: "needs-attention" as const,
@@ -122,9 +125,11 @@ const failed = (
       },
     };
   }
+
   if (now - failingSince >= policy.offlineAfterMs) {
     return { target: "offline" as const, context: { ...base, delay: policy.offlineRetryMs } };
   }
+
   return {
     target: "reconnecting" as const,
     context: {

@@ -30,6 +30,7 @@ export const Capability = Schema.Literals([
   "terminal.binary",
   "blobs",
 ]);
+
 export type Capability = typeof Capability.Type;
 
 const isCapability = Schema.is(Capability);

@@ -53,22 +53,37 @@ const decode =
     Option.getOrNull(Schema.decodeUnknownOption(schema)(input) as Option.Option<S["Type"]>);
 
 const decodeThread = decode(P.ThreadResponse);
+
 const decodeTurnStart = decode(P.TurnStartResponse);
+
 const decodeTurnStarted = decode(P.TurnStartedNotification);
+
 const decodeTurnCompleted = decode(P.TurnCompletedNotification);
+
 const decodeItem = decode(P.ItemNotification);
+
 const decodeDelta = decode(P.DeltaNotification);
+
 const decodePlan = decode(P.TurnPlanUpdatedNotification);
+
 const decodeResolved = decode(P.ServerRequestResolvedNotification);
+
 const decodeError = decode(P.ErrorNotification);
+
 const decodeName = decode(P.ThreadNameUpdatedNotification);
+
 const decodeCommandApproval = decode(P.CommandApprovalParams);
+
 const decodeFileApproval = decode(P.FileChangeApprovalParams);
+
 const decodePermissions = decode(P.PermissionsApprovalParams);
+
 const decodeUserInput = decode(P.UserInputParams);
+
 const decodeElicitation = decode(P.ElicitationParams);
 
 const newTurnId = () => TurnId.make(crypto.randomUUID());
+
 const newRequestId = () => RequestId.make(crypto.randomUUID());
 
 export const openSession = (
@@ -77,6 +92,7 @@ export const openSession = (
 ): Effect.Effect<HarnessSession, HarnessError, Scope.Scope> =>
   Effect.gen(function* () {
     const events = yield* Queue.unbounded<HarnessEvent, Cause.Done>();
+
     const emit = (event: HarnessEvent) => {
       Queue.offerUnsafe(events, event);
     };
@@ -90,6 +106,7 @@ export const openSession = (
 
     let permissionMode: PermissionMode = options.permissionMode;
     const policy = policyFor(permissionMode);
+
     const common = {
       cwd: options.cwd,
       approvalPolicy: policy.approvalPolicy,
@@ -97,6 +114,7 @@ export const openSession = (
       sandbox: policy.sandbox,
       ...(options.model === null ? {} : { model: options.model }),
     };
+
     const threadResult =
       options.resumeCursor === null
         ? yield* conn.request("thread/start", {
@@ -108,7 +126,9 @@ export const openSession = (
             threadId: options.resumeCursor,
             excludeTurns: true,
           } satisfies P.ClientParams["thread/resume"]);
+
     const thread = decodeThread(threadResult);
+
     if (thread === null) return yield* codexError("Unexpected thread/start response from Codex");
     const threadId = thread.thread.id;
     emit({ _tag: "CursorAssigned", cursor: threadId });
@@ -126,6 +146,7 @@ export const openSession = (
 
     const announce = (codexTurnId: string, prompt: string | null) => {
       const turnId = turns.get(codexTurnId);
+
       if (turnId === undefined || announced.has(codexTurnId)) return;
       announced.add(codexTurnId);
       emit({ _tag: "TurnStarted", turnId, prompt });
@@ -140,21 +161,27 @@ export const openSession = (
      */
     const turnFor = (codexTurnId: string, options?: { readonly announce: boolean }): TurnId => {
       let turnId = turns.get(codexTurnId);
+
       if (turnId === undefined) {
         const local = pendingLocalTurn;
         pendingLocalTurn = null;
         turnId = local?.turnId ?? newTurnId();
         turns.set(codexTurnId, turnId);
+
         if (!endedTurns.has(codexTurnId)) activeCodexTurn = codexTurnId;
+
         if (local !== null) announce(codexTurnId, local.prompt);
       }
+
       if (options?.announce !== false) announce(codexTurnId, null);
+
       return turnId;
     };
 
     /** Live progress for items with a visible running state; text streams as deltas instead. */
     const progressOf = (item: P.ThreadItem) => {
       const mapped = toTurnItem(item);
+
       return mapped === null || mapped._tag === "AssistantMessage" || mapped._tag === "Reasoning"
         ? null
         : mapped;
@@ -191,9 +218,11 @@ export const openSession = (
 
     const handleRequest = (id: P.RpcId, method: string, params: unknown) => {
       const invalid = () => conn.respondError(id, -32602, `Polaris could not read ${method}`);
+
       switch (method) {
         case "item/commandExecution/requestApproval": {
           const p = decodeCommandApproval(params);
+
           if (p === null) return invalid();
           openRequest(id, p.turnId, {
             kind: "command",
@@ -202,10 +231,13 @@ export const openSession = (
             options: [],
             respond: approvalDecision,
           });
+
           return Effect.void;
         }
+
         case "item/fileChange/requestApproval": {
           const p = decodeFileApproval(params);
+
           if (p === null) return invalid();
           openRequest(id, p.turnId, {
             kind: "file-change",
@@ -214,10 +246,13 @@ export const openSession = (
             options: [],
             respond: approvalDecision,
           });
+
           return Effect.void;
         }
+
         case "item/permissions/requestApproval": {
           const p = decodePermissions(params);
+
           if (p === null) return invalid();
           openRequest(id, p.turnId, {
             kind: "tool",
@@ -226,10 +261,13 @@ export const openSession = (
             options: [],
             respond: (decision) => permissionsDecision(p.permissions, decision),
           });
+
           return Effect.void;
         }
+
         case "item/tool/requestUserInput": {
           const p = decodeUserInput(params);
+
           if (p === null) return invalid();
           openRequest(id, p.turnId, {
             kind: "question",
@@ -238,10 +276,13 @@ export const openSession = (
             options: p.questions[0]?.options?.map((o) => o.label) ?? [],
             respond: (decision) => userInputDecision(p.questions, decision),
           });
+
           return Effect.void;
         }
+
         case "mcpServer/elicitation/request": {
           const p = decodeElicitation(params);
+
           if (p === null) return invalid();
           openRequest(id, p.turnId ?? activeCodexTurn ?? "", {
             kind: "tool",
@@ -250,8 +291,10 @@ export const openSession = (
             options: [],
             respond: elicitationDecision,
           });
+
           return Effect.void;
         }
+
         default:
           // Dynamic tools, attestation and ChatGPT token refresh are never enabled by Polaris,
           // and Polaris never handles credentials.
@@ -266,36 +309,50 @@ export const openSession = (
       switch (method) {
         case "thread/name/updated": {
           const p = decodeName(params);
+
           if (ours(p) && p?.threadName) emit({ _tag: "TitleSuggested", title: p.threadName });
+
           return;
         }
+
         case "turn/started": {
           const p = decodeTurnStarted(params);
+
           if (!ours(p) || p === null) return;
           activeCodexTurn = p.turn.id;
           // A Turn started elsewhere is announced with its user message, which comes next.
           turnFor(p.turn.id, { announce: false });
+
           return;
         }
+
         case "item/started": {
           const p = decodeItem(params);
+
           if (!ours(p) || p === null) return;
+
           if (p.item.type === "userMessage") {
             turnFor(p.turnId, { announce: false });
             announce(p.turnId, userMessageText(p.item));
+
             return;
           }
+
           const turnId = turnFor(p.turnId);
           const item = progressOf(p.item);
+
           if (item !== null) emit({ _tag: "ItemUpdated", turnId, item });
+
           return;
         }
+
         case "item/agentMessage/delta":
         case "item/plan/delta":
         case "item/reasoning/summaryTextDelta":
         case "item/reasoning/textDelta":
         case "item/commandExecution/outputDelta": {
           const p = decodeDelta(params);
+
           if (!ours(p) || p === null) return;
           emit({
             _tag: "ItemDelta",
@@ -304,19 +361,27 @@ export const openSession = (
             field: method === "item/commandExecution/outputDelta" ? "output" : "text",
             text: p.delta,
           });
+
           return;
         }
+
         case "item/completed": {
           const p = decodeItem(params);
+
           if (!ours(p) || p === null) return;
+
           if (p.item.type === "userMessage") {
             turnFor(p.turnId, { announce: false });
             announce(p.turnId, userMessageText(p.item));
+
             return;
           }
+
           const turnId = turnFor(p.turnId);
           const item = toTurnItem(p.item);
+
           if (item !== null) emit({ _tag: "ItemCompleted", turnId, item });
+
           if (
             p.item.type === "agentMessage" &&
             "delivery" in p.item &&
@@ -337,10 +402,13 @@ export const openSession = (
               });
             }
           }
+
           return;
         }
+
         case "turn/plan/updated": {
           const p = decodePlan(params);
+
           if (!ours(p) || p === null) return;
           plans.set(p.turnId, p.plan);
           emit({
@@ -348,10 +416,13 @@ export const openSession = (
             turnId: turnFor(p.turnId),
             item: toPlanItem(`${p.turnId}:plan`, p.plan),
           });
+
           return;
         }
+
         case "error": {
           const p = decodeError(params);
+
           if (!ours(p) || p === null || p.willRetry) return;
           emit({
             _tag: "ItemCompleted",
@@ -362,28 +433,39 @@ export const openSession = (
               message: p.error.message,
             },
           });
+
           return;
         }
+
         case "serverRequest/resolved": {
           const p = decodeResolved(params);
+
           if (p === null) return;
           const requestId = byRpcId.get(String(p.requestId));
+
           if (requestId === undefined) return;
           byRpcId.delete(String(p.requestId));
+
           // Still pending means someone else (the TUI, or Codex itself) resolved it.
           if (pending.delete(requestId)) emit({ _tag: "ApprovalWithdrawn", requestId });
+
           return;
         }
+
         case "turn/completed": {
           const p = decodeTurnCompleted(params);
+
           if (!ours(p) || p === null) return;
           const turnId = turnFor(p.turn.id);
           const plan = plans.get(p.turn.id);
+
           if (plan !== undefined) {
             emit({ _tag: "ItemCompleted", turnId, item: toPlanItem(`${p.turn.id}:plan`, plan) });
             plans.delete(p.turn.id);
           }
+
           endedTurns.add(p.turn.id);
+
           if (activeCodexTurn === p.turn.id) activeCodexTurn = null;
           emit({
             _tag: "TurnEnded",
@@ -391,8 +473,10 @@ export const openSession = (
             status: p.turn.status === "inProgress" ? "completed" : p.turn.status,
             error: p.turn.error?.message ?? null,
           });
+
           return;
         }
+
         default:
           return;
       }
@@ -405,6 +489,7 @@ export const openSession = (
 
     let closing = false;
     let finished = false;
+
     const finish = (error: string | null) => {
       if (finished) return;
       finished = true;
@@ -439,6 +524,7 @@ export const openSession = (
           return yield* codexError("A Turn is already in progress; steer or interrupt it");
         const policy = policyFor(permissionMode);
         pendingLocalTurn = { turnId, prompt };
+
         const result = yield* conn
           .request("turn/start", {
             threadId,
@@ -449,10 +535,14 @@ export const openSession = (
             ...(options.model === null ? {} : { model: options.model }),
           } satisfies P.ClientParams["turn/start"])
           .pipe(Effect.ensuring(Effect.sync(() => (pendingLocalTurn = null))));
+
         const started = decodeTurnStart(result);
+
         if (started === null) return yield* codexError("Unexpected turn/start response from Codex");
+
         if (!turns.has(started.turn.id)) turns.set(started.turn.id, turnId);
         announce(started.turn.id, prompt);
+
         if (!endedTurns.has(started.turn.id)) activeCodexTurn ??= started.turn.id;
       });
 
@@ -484,17 +574,22 @@ export const openSession = (
       respond: (requestId, decision) =>
         Effect.gen(function* () {
           const request = pending.get(requestId);
+
           if (request === undefined)
             return yield* codexError(
               `No open Codex request ${requestId}; it may have been resolved`
             );
           pending.delete(requestId);
+
           if (request._tag === "Rpc") {
             yield* conn.respond(request.rpcId, request.respond(decision));
+
             return;
           }
+
           // Async questions are answered with a new user message, never an RPC response.
           if (decision._tag !== "Answer") return;
+
           if (activeCodexTurn !== null) yield* steerText(decision.text);
           else yield* startTurn(newTurnId(), decision.text, turnInput(decision.text, []));
         }),
@@ -511,5 +606,6 @@ export const openSession = (
         `unix://${config.appServer.socketPath}`,
       ]),
     };
+
     return session;
   });

@@ -59,6 +59,7 @@ export const Handoff = Schema.Struct({
   fromVersion: Schema.String,
   requestId: Schema.NullOr(Schema.String),
 });
+
 export type Handoff = typeof Handoff.Type;
 
 const fail = (step: string) => (error: unknown) =>
@@ -90,13 +91,15 @@ export const prepareHandoff = Effect.fn("prepareHandoff")(function* (
     },
     catch: fail("clear close-on-exec"),
   });
+
   const handoff: Handoff = {
     listenerFd,
     fds: { ...fds },
-    children: { ...(extras.children ?? {}) },
+    children: { ...extras.children },
     fromVersion: VERSION,
     requestId: extras.requestId ?? null,
   };
+
   return { [HANDOFF_ENV]: JSON.stringify(handoff) } as Record<string, string>;
 });
 
@@ -141,19 +144,24 @@ export const takeHandoff = Effect.fn("takeHandoff")(function* () {
   if (taken !== undefined) return taken;
   const raw = process.env[HANDOFF_ENV];
   delete process.env[HANDOFF_ENV];
+
   if (raw === undefined) {
     taken = null;
+
     return taken;
   }
+
   taken = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Handoff))(raw).pipe(
     Effect.mapError(fail("read hand-off"))
   );
+
   // Keep inherited fds out of anything this image spawns.
   for (const fd of Object.values(taken.fds)) {
     try {
       libc.setCloseOnExec(fd);
     } catch {}
   }
+
   return taken;
 });
 
@@ -179,6 +187,7 @@ export interface AdoptedListener {
  */
 export const adoptListener = Effect.fn("adoptListener")(function* () {
   const handoff = yield* takeHandoff();
+
   if (handoff === null) return null;
   yield* writeStatus({
     requestId: handoff.requestId,
@@ -187,35 +196,45 @@ export const adoptListener = Effect.fn("adoptListener")(function* () {
     pid: process.pid,
     error: null,
   });
+
   if (handoff.listenerFd === null) return null;
   const fd = handoff.listenerFd;
+
   const drain: AdoptedListener["drain"] = (onConnection, options) =>
     Effect.gen(function* () {
       const graceMs = options?.graceMs ?? 250;
       const deadline = Date.now() + graceMs;
       let accepted = 0;
+
       for (;;) {
         const wait = Math.max(0, deadline - Date.now());
+
         const ready = yield* Effect.try({
           // Short poll slices keep the event loop responsive during the grace period.
           try: () => libc.pollReadable(fd, Math.min(wait, 10)),
           catch: fail("poll inherited listener"),
         });
+
         if (ready) {
           const connection = yield* Effect.try({
             try: () => libc.acceptFd(fd),
             catch: fail("accept on inherited listener"),
           });
+
           onConnection(connection);
           accepted++;
           continue;
         }
+
         if (wait === 0) break;
         yield* Effect.sleep(5);
       }
+
       yield* Effect.sync(() => libc.closeFd(fd));
+
       return accepted;
     });
+
   return { fd, fromVersion: handoff.fromVersion, drain } satisfies AdoptedListener;
 });
 
@@ -241,7 +260,9 @@ export const connectFd = <Data = undefined>(
 /** The fd of a `Bun.listen` (or `node:net`) listener; present at runtime, missing from the types. */
 export const listenerFd = (listener: object): number => {
   const fd = (listener as { readonly fd?: unknown }).fd;
+
   if (typeof fd !== "number") throw new Error("listener has no fd");
+
   return fd;
 };
 
@@ -262,6 +283,7 @@ export const bindAtomically = <A, E, R>(
       try: () => renameSync(temporary, socketPath),
       catch: fail("rename socket"),
     });
+
     return listener;
   });
 
@@ -269,6 +291,7 @@ export const bindAtomically = <A, E, R>(
 
 export const upgradeFiles = () => {
   const root = paths().root;
+
   return {
     /** Written by the Daemon at startup; `polaris upgrade` signals this PID. */
     pid: join(root, "daemon.pid"),
@@ -282,6 +305,7 @@ export const UpgradeRequest = Schema.Struct({
   binary: Schema.String,
   version: Schema.String,
 });
+
 export type UpgradeRequest = typeof UpgradeRequest.Type;
 
 export const UpgradeStatus = Schema.Struct({
@@ -291,6 +315,7 @@ export const UpgradeStatus = Schema.Struct({
   pid: Schema.Int,
   error: Schema.NullOr(Schema.String),
 });
+
 export type UpgradeStatus = typeof UpgradeStatus.Type;
 
 const writeJsonAtomic = (path: string, value: unknown) => {
@@ -307,7 +332,9 @@ const writeStatus = (status: UpgradeStatus) =>
 
 export const readStatus = Effect.fn("readStatus")(function* () {
   const file = upgradeFiles().status;
+
   if (!existsSync(file)) return null;
+
   return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(UpgradeStatus))(
     readFileSync(file, "utf8")
   ).pipe(Effect.orElseSucceed(() => null));
@@ -318,19 +345,23 @@ export const validateBinary = Effect.fn("validateBinary")(function* (binary: str
   const runner = yield* CommandRunner;
   const result = yield* runner.run([binary, "version"], { timeoutMs: 10_000 });
   const info = result.code === 0 ? parseVersionLine(result.stdout) : null;
+
   if (info === null) {
     return yield* new UpgradeError({
       step: "validate",
       message: `\`${binary} version\` exited ${result.code}: ${(result.stderr || result.stdout).trim()}`,
     });
   }
+
   const platform = runtimePlatform();
+
   if (info.platform !== platform) {
     return yield* new UpgradeError({
       step: "validate",
       message: `${binary} is built for ${info.platform}, this Host is ${platform}`,
     });
   }
+
   return info;
 });
 
@@ -375,11 +406,13 @@ export const handoffContributors = (): ReadonlyArray<HandoffContributor> => [...
 const collectContributors = Effect.gen(function* () {
   const fds: Record<string, number> = {};
   const children: Record<string, number> = {};
+
   for (const contributor of contributors) {
     const extras = yield* contributor.collect();
     Object.assign(fds, extras.fds);
     Object.assign(children, extras.children);
   }
+
   return { fds, children };
 });
 
@@ -390,42 +423,56 @@ export const performUpgrade = Effect.fn("performUpgrade")(function* (
 ) {
   const status = (state: UpgradeStatus["state"], error: string | null = null) =>
     writeStatus({ requestId: request.requestId, state, version: VERSION, pid: process.pid, error });
+
   yield* status("validating");
+
   const attempt = Effect.gen(function* () {
     const info = yield* validateBinary(request.binary);
+
     if (info.version !== request.version) {
       return yield* new UpgradeError({
         step: "validate",
         message: `${request.binary} reports ${info.version}, expected ${request.version}`,
       });
     }
+
     const own = hooks.collect ? yield* hooks.collect() : { fds: {}, children: {} };
     const contributed = yield* collectContributors;
+
     const extras = {
       fds: { ...own.fds, ...contributed.fds },
       children: { ...own.children, ...contributed.children },
     };
+
     const listenerFd = hooks.listenerFd();
+
     if (hooks.beforeExec) yield* hooks.beforeExec;
+
     for (const contributor of contributors)
       if (contributor.beforeExec) yield* contributor.beforeExec;
+
     const abortContributors = Effect.forEach(
       [...contributors],
       (contributor) => contributor.abort ?? Effect.void,
       { discard: true }
     );
+
     yield* status("exec");
+
     const env = yield* prepareHandoff(listenerFd, {
       ...extras,
       requestId: request.requestId,
     }).pipe(Effect.tapError(() => abortContributors));
+
     const kept = [...(listenerFd === null ? [] : [listenerFd]), ...Object.values(extras.fds)];
+
     return yield* execInto({
       binary: request.binary,
       args: hooks.args ?? process.argv.slice(2),
       env,
     }).pipe(Effect.tapError(() => Effect.andThen(abortHandoff(kept), abortContributors)));
   });
+
   return yield* attempt.pipe(
     Effect.tapError((error) => status("failed", `${error.step}: ${error.message}`))
   );
@@ -443,28 +490,35 @@ export const serveUpgrades = Effect.fn("serveUpgrades")(function* (hooks: Upgrad
     try: () => writeFileSync(files.pid, `${process.pid}\n`),
     catch: fail("write pid file"),
   });
+
   const onSignal = () => {
     const program = Effect.gen(function* () {
       const raw = yield* Effect.try({
         try: () => readFileSync(files.request, "utf8"),
         catch: fail("read request"),
       });
+
       yield* Effect.sync(() => rmSync(files.request, { force: true }));
+
       const request = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(UpgradeRequest))(
         raw
       ).pipe(Effect.mapError(fail("decode request")));
+
       yield* performUpgrade(request, hooks);
     }).pipe(
       Effect.catch((error) => Effect.logError("upgrade failed", error)),
       Effect.provideContext(context)
     );
+
     Effect.runFork(program);
   };
+
   yield* Effect.acquireRelease(
     Effect.sync(() => process.on("SIGUSR2", onSignal)),
     () =>
       Effect.sync(() => {
         process.off("SIGUSR2", onSignal);
+
         try {
           if (readFileSync(files.pid, "utf8").trim() === String(process.pid)) rmSync(files.pid);
         } catch {}
@@ -476,8 +530,10 @@ export const serveUpgrades = Effect.fn("serveUpgrades")(function* (hooks: Upgrad
 export const runningDaemonPid = (): number | null => {
   try {
     const pid = Number(readFileSync(upgradeFiles().pid, "utf8").trim());
+
     if (!Number.isInteger(pid) || pid <= 0) return null;
     process.kill(pid, 0);
+
     return pid;
   } catch {
     return null;
@@ -496,11 +552,13 @@ export const requestUpgrade = Effect.fn("requestUpgrade")(function* (options: {
   readonly timeoutMs?: number;
 }) {
   const files = upgradeFiles();
+
   const request: UpgradeRequest = {
     requestId: randomUUID(),
     binary: options.binary,
     version: options.version,
   };
+
   yield* Effect.try({
     try: () => {
       writeJsonAtomic(files.request, request);
@@ -509,8 +567,10 @@ export const requestUpgrade = Effect.fn("requestUpgrade")(function* (options: {
     catch: fail("signal Daemon"),
   });
   const deadline = Date.now() + (options.timeoutMs ?? 20_000);
+
   while (Date.now() < deadline) {
     const status = yield* readStatus();
+
     if (status?.requestId === request.requestId) {
       if (status.state === "done") {
         if (status.pid !== options.pid) {
@@ -519,14 +579,18 @@ export const requestUpgrade = Effect.fn("requestUpgrade")(function* (options: {
             message: `Daemon came back as PID ${status.pid}, not ${options.pid}`,
           });
         }
+
         return status;
       }
+
       if (status.state === "failed") {
         return yield* new UpgradeError({ step: "daemon", message: status.error ?? "failed" });
       }
     }
+
     yield* Effect.sleep(50);
   }
+
   return yield* new UpgradeError({
     step: "wait",
     message: "the Daemon did not report back from the upgrade in time",

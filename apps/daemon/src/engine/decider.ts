@@ -63,7 +63,9 @@ export const forkBranch = (sessionId: SessionId): string =>
 
 export const titleFromPrompt = (prompt: string): string => {
   const line = prompt.trim().split("\n")[0]?.trim() ?? "";
+
   if (line === "") return "New session";
+
   return line.length > 60 ? `${line.slice(0, 59)}…` : line;
 };
 
@@ -73,17 +75,20 @@ export const CONTINUE_PROMPT = "Continue from where you left off.";
 export const decide = (model: ReadModel, command: Command, ctx: DecideContext): Decision => {
   const reject = (reason: string) =>
     Effect.fail(new CommandRejected({ commandId: ctx.commandId, reason }));
+
   const notFound = (what: string, id: string) => Effect.fail(new NotFound({ what, id }));
   const ok = (...events: ReadonlyArray<DomainEvent>): Decision => Effect.succeed(events);
 
   const withSession = (sessionId: SessionId, f: (record: SessionRecord) => Decision): Decision => {
     const record = model.sessions.get(sessionId);
+
     return record === undefined ? notFound("session", sessionId) : f(record);
   };
 
   /** Run the session machine: its events, or its reason to refuse. */
   const lifecycle = (record: SessionRecord | undefined, input: SessionInput): Decision => {
     const decision = decideSession(record, input);
+
     return decision.rejection !== null ? reject(decision.rejection) : ok(...decision.events);
   };
 
@@ -104,10 +109,13 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
   switch (command._tag) {
     case "RegisterWorkspace": {
       const probe = ctx.pathProbe;
+
       if (probe === null || !probe.isDirectory) return reject(`${command.path} is not a directory`);
+
       for (const workspace of model.workspaces.values()) {
         if (workspace.path === command.path) return reject(`${command.path} is already registered`);
       }
+
       const workspace = new Workspace({
         id: ctx.newWorkspaceId,
         path: command.path,
@@ -117,13 +125,17 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
         hidden: false,
         registeredAt: ctx.now,
       });
+
       return ok(DomainEvent.cases.WorkspaceRegistered.make({ workspace }));
     }
 
     case "SetWorkspaceHidden": {
       const workspace = model.workspaces.get(command.workspaceId);
+
       if (workspace === undefined) return notFound("workspace", command.workspaceId);
+
       if (workspace.hidden === command.hidden) return ok();
+
       return ok(
         DomainEvent.cases.WorkspaceUpdated.make({
           workspace: new Workspace({ ...workspace, hidden: command.hidden }),
@@ -135,6 +147,7 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
       if (!model.workspaces.has(command.workspaceId)) {
         return notFound("workspace", command.workspaceId);
       }
+
       for (const record of model.sessions.values()) {
         if (
           record.session.workspaceId === command.workspaceId &&
@@ -143,6 +156,7 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
           return reject("archive the Workspace's Agent Sessions before removing it");
         }
       }
+
       return ok(DomainEvent.cases.WorkspaceRemoved.make({ workspaceId: command.workspaceId }));
     }
 
@@ -150,15 +164,19 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
       if (model.sessions.has(command.sessionId)) {
         return reject(`session ${command.sessionId} already exists`);
       }
+
       const workspace = model.workspaces.get(command.workspaceId);
+
       if (workspace === undefined) return notFound("workspace", command.workspaceId);
 
       let cwd = workspace.path;
       let worktreeId: WorktreeId | null = null;
       const placement = command.placement;
+
       if (placement._tag === "NewWorktree") {
         if (!workspace.isGitRepo) return reject("a new Worktree needs a git repository");
         const branch = placement.branch.trim();
+
         if (
           branch === "" ||
           branch.startsWith("/") ||
@@ -167,13 +185,16 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
         ) {
           return reject(`"${placement.branch}" is not a usable branch name`);
         }
+
         cwd = join(workspace.worktreeRoot, branch);
         worktreeId = worktreeIdFor(cwd);
+
         if (model.worktrees.has(worktreeId)) return reject(`a Worktree already exists at ${cwd}`);
       } else if (placement._tag === "ExistingWorktree") {
         const worktree = [...model.worktrees.values()].find(
           (w) => w.workspaceId === workspace.id && w.path === placement.path
         );
+
         if (worktree === undefined) return notFound("worktree", placement.path);
         cwd = worktree.path;
         worktreeId = worktree.id;
@@ -197,6 +218,7 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
         createdAt: ctx.now,
         updatedAt: ctx.now,
       });
+
       return lifecycle(undefined, {
         type: "session.start",
         session,
@@ -237,7 +259,9 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
     case "RenameSession":
       return withSession(command.sessionId, () => {
         const title = command.title.trim();
+
         if (title === "") return reject("a title cannot be empty");
+
         return ok(DomainEvent.cases.SessionRenamed.make({ sessionId: command.sessionId, title }));
       });
 
@@ -250,11 +274,14 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
       if (model.sessions.has(command.sessionId)) {
         return reject(`session ${command.sessionId} already exists`);
       }
+
       return withSession(command.fromSessionId, (parent) => {
         const turn =
           parent.turns.find((t) => t.id === command.fromTurnId) ??
           (ctx.forkTurn?.id === command.fromTurnId ? ctx.forkTurn : undefined);
+
         if (turn === undefined) return notFound("turn", command.fromTurnId);
+
         if (turn.status === "working") return reject("the Turn is still in flight");
         const sameHarness = parent.session.harness === command.harness;
         // The Fork gets its own Worktree on a new branch at the Turn's after-checkpoint
@@ -263,11 +290,14 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
         const workspace = model.workspaces.get(parent.session.workspaceId);
         let cwd = parent.session.cwd;
         let worktreeId = parent.session.worktreeId;
+
         if (workspace?.isGitRepo === true && turn.checkpointAfter !== null) {
           cwd = join(workspace.worktreeRoot, forkBranch(command.sessionId));
           worktreeId = worktreeIdFor(cwd);
+
           if (model.worktrees.has(worktreeId)) return reject(`a Worktree already exists at ${cwd}`);
         }
+
         const session = new AgentSession({
           id: command.sessionId,
           workspaceId: parent.session.workspaceId,
@@ -286,6 +316,7 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
           createdAt: ctx.now,
           updatedAt: ctx.now,
         });
+
         return lifecycle(undefined, { type: "session.fork", session });
       });
     }

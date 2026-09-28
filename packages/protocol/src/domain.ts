@@ -13,9 +13,11 @@ import {
 } from "./ids.ts";
 
 export const Timestamp = Schema.String; // ISO-8601, UTC
+
 export type Timestamp = typeof Timestamp.Type;
 
 export const HarnessKind = Schema.Literals(["claude", "codex"]);
+
 export type HarnessKind = typeof HarnessKind.Type;
 
 export const SessionState = Schema.Literals([
@@ -28,6 +30,7 @@ export const SessionState = Schema.Literals([
   "failed",
   "archived",
 ]);
+
 export type SessionState = typeof SessionState.Type;
 
 /** Client-side only: how one Client's link to one Host stands. Never sent by a Daemon. */
@@ -37,9 +40,11 @@ export const ConnectionState = Schema.Literals([
   "needs-attention",
   "offline",
 ]);
+
 export type ConnectionState = typeof ConnectionState.Type;
 
 export const Platform = Schema.Literals(["darwin-arm64", "linux-x64", "linux-arm64"]);
+
 export type Platform = typeof Platform.Type;
 
 export class HostInfo extends Schema.Class<HostInfo>("HostInfo")({
@@ -74,6 +79,7 @@ export class Worktree extends Schema.Class<Worktree>("Worktree")({
 }) {}
 
 export const PermissionMode = Schema.Literals(["supervised", "auto-edits", "auto", "full-access"]);
+
 export type PermissionMode = typeof PermissionMode.Type;
 
 export class AgentSession extends Schema.Class<AgentSession>("AgentSession")({
@@ -99,6 +105,7 @@ export class AgentSession extends Schema.Class<AgentSession>("AgentSession")({
 }) {}
 
 export const TurnStatus = Schema.Literals(["working", "completed", "interrupted", "failed"]);
+
 export type TurnStatus = typeof TurnStatus.Type;
 
 export class Attachment extends Schema.Class<Attachment>("Attachment")({
@@ -161,9 +168,11 @@ export const TurnItem = Schema.TaggedUnion({
   },
   Error: { id: Schema.String, message: Schema.String },
 });
+
 export type TurnItem = typeof TurnItem.Type;
 
 export const ApprovalKind = Schema.Literals(["command", "file-change", "tool", "question"]);
+
 export type ApprovalKind = typeof ApprovalKind.Type;
 
 export class ApprovalRequest extends Schema.Class<ApprovalRequest>("ApprovalRequest")({
@@ -184,4 +193,5 @@ export const ApprovalDecision = Schema.TaggedUnion({
   Deny: { reason: Schema.NullOr(Schema.String) },
   Answer: { text: Schema.String },
 });
+
 export type ApprovalDecision = typeof ApprovalDecision.Type;

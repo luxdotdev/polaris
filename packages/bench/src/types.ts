@@ -104,6 +104,7 @@ export const memory = (bytes: number, extra: Partial<Metric> = {}): Metric => ({
   better: "lower",
   ...extra,
 });
+
 /**
  * Memory at a peak, grown over a run, or left after activity depends on when the
  * garbage collector ran: runs of the same build spread by 15–30%, so it is held
@@ -121,6 +122,7 @@ export const cpu = (pct: number, extra: Partial<Metric> = {}): Metric => ({
   better: "lower",
   ...extra,
 });
+
 export const latency = (ms: number, extra: Partial<Metric> = {}): Metric => ({
   value: ms,
   unit: "ms",
@@ -128,6 +130,7 @@ export const latency = (ms: number, extra: Partial<Metric> = {}): Metric => ({
   better: "lower",
   ...extra,
 });
+
 export const time = (ms: number, extra: Partial<Metric> = {}): Metric => ({
   value: ms,
   unit: "ms",
@@ -135,6 +138,7 @@ export const time = (ms: number, extra: Partial<Metric> = {}): Metric => ({
   better: "lower",
   ...extra,
 });
+
 export const throughput = (
   perSecond: number,
   unit: string,
@@ -146,6 +150,7 @@ export const throughput = (
   better: "higher",
   ...extra,
 });
+
 export const count = (n: number, unit: string, extra: Partial<Metric> = {}): Metric => ({
   value: n,
   unit,

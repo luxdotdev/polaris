@@ -9,6 +9,7 @@ export const polarisHome = (): string => process.env.POLARIS_HOME ?? join(homedi
 
 export const paths = () => {
   const root = polarisHome();
+
   return {
     root,
     /** The Daemon's only listener: a Unix socket, reached remotely through `polaris bridge` over SSH. */

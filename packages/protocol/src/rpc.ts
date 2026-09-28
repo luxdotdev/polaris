@@ -96,6 +96,7 @@ export const HostStreamItem = Schema.TaggedUnion({
   /** Everything up to now has been sent; later items are live. */
   Synchronized: { sequence: Sequence },
 });
+
 export type HostStreamItem = typeof HostStreamItem.Type;
 
 export const SubscribeHost = Rpc.make("subscribeHost", {
@@ -136,6 +137,7 @@ export const SessionStreamItem = Schema.TaggedUnion({
   ItemProgress: { turnId: TurnId, item: TurnItem },
   Synchronized: { sequence: Sequence },
 });
+
 export type SessionStreamItem = typeof SessionStreamItem.Type;
 
 export const SubscribeSession = Rpc.make("subscribeSession", {

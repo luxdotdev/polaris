@@ -21,12 +21,14 @@ import { DaemonAlreadyRunning, LockError } from "./lock.ts";
 export const probeSocket = (path: string, timeoutMs = 1000): Effect.Effect<boolean> =>
   Effect.callback<boolean>((resume) => {
     const socket = connect(path);
+
     const done = (alive: boolean) => {
       clearTimeout(timer);
       socket.removeAllListeners();
       socket.destroy();
       resume(Effect.succeed(alive));
     };
+
     const timer = setTimeout(() => done(false), timeoutMs);
     socket.once("connect", () => done(true));
     socket.once("error", () => done(false));
@@ -47,7 +49,9 @@ export const prepareSocketPath = Effect.fnUntraced(function* (
     },
     catch: (cause) => new LockError({ path: dir, message: String(cause) }),
   });
+
   if (!existsSync(path)) return;
+
   if (yield* probeSocket(path)) return yield* new DaemonAlreadyRunning({ pid: null, path });
   yield* Effect.try({
     try: () => {
@@ -76,15 +80,18 @@ export const listen = Effect.fnUntraced(function* (
   path: string
 ): Effect.fn.Return<Listener, LockError, Scope.Scope> {
   const connections = yield* Queue.unbounded<ByteTransport>();
+
   const handlers = socketHandlers((transport) => {
     Queue.offerUnsafe(connections, transport);
   });
+
   const server = yield* Effect.acquireRelease(
     bindAtomically(path, (temporary) =>
       Effect.try({
         try: () => {
           // Create the socket file private from the start rather than chmod-ing after the fact.
           const previousUmask = process.umask(0o177);
+
           try {
             return Bun.listen<BunSocketStream | undefined>({ unix: temporary, socket: handlers });
           } finally {
@@ -101,16 +108,19 @@ export const listen = Effect.fnUntraced(function* (
     (server) =>
       Effect.sync(() => {
         server.stop(true);
+
         try {
           unlinkSync(path);
         } catch {}
       })
   );
+
   yield* Effect.sync(() => {
     try {
       chmodSync(path, 0o600);
     } catch {}
   });
+
   return {
     connections: Stream.fromQueue(connections),
     fd: () => {

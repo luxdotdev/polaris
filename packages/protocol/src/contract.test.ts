@@ -8,7 +8,9 @@ import { DomainEvent } from "./events.ts";
 import { SessionStreamItem, TerminalLaunch } from "./rpc.ts";
 
 const decodeEvent = Schema.decodeUnknownSync(Schema.toCodecJson(DomainEvent));
+
 const encodeEvent = Schema.encodeSync(Schema.toCodecJson(DomainEvent));
+
 const decodeItem = Schema.decodeUnknownSync(Schema.toCodecJson(SessionStreamItem));
 
 describe("contract compatibility", () => {
@@ -20,6 +22,7 @@ describe("contract compatibility", () => {
       decision: { _tag: "Deny", reason: "Withdrawn by the Harness" },
       resolvedBy: "Harness",
     };
+
     expect(decodeEvent(legacy)).toMatchObject({ _tag: "ApprovalResolved", resolvedBy: "Harness" });
   });
 
@@ -30,6 +33,7 @@ describe("contract compatibility", () => {
       withdrawnBy: "daemon",
       reason: "The Daemon restarted",
     });
+
     expect(decodeEvent(JSON.parse(JSON.stringify(encodeEvent(event))))).toEqual(event);
   });
 

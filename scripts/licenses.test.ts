@@ -50,6 +50,7 @@ describe("judge", () => {
         "@anthropic-ai/claude-agent-sdk-*": { reason: "platform builds" },
       }
     );
+
     expect(verdict?.status).toBe("exception");
   });
 
@@ -63,6 +64,7 @@ describe("judge", () => {
       ],
       { "@anthropic-ai/claude-agent-sdk": { reason: "Anthropic terms" } }
     );
+
     expect(verdicts.map((v) => [v.dep.name, v.status])).toEqual([
       ["ok", "allowed"],
       ["@anthropic-ai/claude-agent-sdk", "exception"],

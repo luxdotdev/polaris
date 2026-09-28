@@ -72,7 +72,9 @@ export const serveProgram = Effect.scoped(
       capabilities: daemonCapabilities,
       upgrades: true,
     });
+
     yield* Effect.logInfo(`polaris Daemon listening on ${server.socketPath}`);
+
     return yield* Effect.never;
   })
 ).pipe(

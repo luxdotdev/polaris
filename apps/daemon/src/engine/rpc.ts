@@ -35,6 +35,7 @@ const DispatchHandler = DaemonRpcs.toLayerHandler(
   "dispatch",
   Effect.gen(function* () {
     const engine = yield* Engine;
+
     return ({ commandId, command }, { client }) =>
       engine.dispatch({
         commandId,
@@ -48,6 +49,7 @@ const SubscribeHostHandler = DaemonRpcs.toLayerHandler(
   "subscribeHost",
   Effect.gen(function* () {
     const engine = yield* Engine;
+
     return ({ afterSequence }) => engine.subscribeHost(afterSequence);
   })
 );
@@ -56,6 +58,7 @@ const SubscribeSessionHandler = DaemonRpcs.toLayerHandler(
   "subscribeSession",
   Effect.gen(function* () {
     const engine = yield* Engine;
+
     return ({ sessionId, afterSequence, turnLimit }, { client }) =>
       engine.subscribeSession({
         sessionId,
@@ -72,11 +75,13 @@ const TerminalCommandHandler = DaemonRpcs.toLayerHandler(
   "session.terminalCommand",
   Effect.gen(function* () {
     const engine = yield* Engine;
+
     return ({ sessionId }) =>
       Effect.gen(function* () {
         if (!(yield* engine.hasSession(sessionId))) {
           return yield* new NotFound({ what: "session", id: sessionId });
         }
+
         return yield* engine.terminalCommand(sessionId);
       });
   })

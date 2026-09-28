@@ -11,12 +11,14 @@
 export const pbtRuns = (fallback: number): number => {
   const raw = process.env.POLARIS_PBT_RUNS;
   const n = raw === undefined ? Number.NaN : Number.parseInt(raw, 10);
+
   return Number.isFinite(n) && n > 0 ? n : fallback;
 };
 
 export const pbtSeed = (): { seed: number } | Record<string, never> => {
   const raw = process.env.POLARIS_PBT_SEED;
   const n = raw === undefined ? Number.NaN : Number.parseInt(raw, 10);
+
   return Number.isFinite(n) ? { seed: n } : {};
 };
 
@@ -33,6 +35,7 @@ export const eventually = async (
   timeoutMs = 3000
 ): Promise<void> => {
   const deadline = Date.now() + timeoutMs;
+
   while (!(await condition())) {
     if (Date.now() > deadline) throw new Error(`timed out waiting until ${what}`);
     await sleep(2);

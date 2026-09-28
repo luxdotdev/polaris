@@ -41,6 +41,7 @@ export class LockError extends Schema.TaggedError<LockError>()("LockError", {
 const isAlive = (pid: number): boolean => {
   try {
     process.kill(pid, 0);
+
     return true;
   } catch (error) {
     return (error as NodeJS.ErrnoException).code === "EPERM";
@@ -50,6 +51,7 @@ const isAlive = (pid: number): boolean => {
 const readPid = (path: string): number | null => {
   try {
     const pid = Number.parseInt(readFileSync(path, "utf8").trim(), 10);
+
     return Number.isInteger(pid) && pid > 0 ? pid : null;
   } catch {
     return null;
@@ -67,11 +69,13 @@ const isFresh = (path: string): boolean => {
 const tryCreate = (path: string): boolean => {
   try {
     const fd = openSync(path, "wx", 0o600);
+
     try {
       writeSync(fd, `${process.pid}\n`);
     } finally {
       closeSync(fd);
     }
+
     return true;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "EEXIST") return false;
@@ -95,19 +99,25 @@ export const acquireLock = Effect.fnUntraced(function* (
     Effect.try({
       try: () => {
         mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+
         for (let attempt = 0; attempt < 3; attempt++) {
           if (tryCreate(path)) return "acquired" as const;
           const pid = readPid(path);
+
           if (pid === process.pid) return held.has(path) ? pid : ("acquired" as const);
+
           if (pid !== null && isAlive(pid)) return pid;
+
           // No pid yet: another Daemon may be between creating the file and writing it.
           if (pid === null && isFresh(path)) return -1;
+
           try {
             unlinkSync(path);
           } catch (error) {
             if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
           }
         }
+
         return readPid(path) ?? -1;
       },
       catch: (cause) => new LockError({ path, message: String(cause) }),
@@ -121,6 +131,7 @@ export const acquireLock = Effect.fnUntraced(function* (
     () =>
       Effect.sync(() => {
         held.delete(path);
+
         if (readPid(path) === process.pid) {
           try {
             unlinkSync(path);

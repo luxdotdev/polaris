@@ -13,16 +13,23 @@
 import { join } from "node:path";
 
 const args = process.argv.slice(2);
+
 const option = (name: string, fallback: string) => {
   const at = args.indexOf(`--${name}`);
+
   return at === -1 ? fallback : (args[at + 1] ?? fallback);
 };
+
 const samples = option("samples", "3000");
+
 const steps = option("steps", "4");
+
 const seed = option("seed", "0x5eed");
+
 const verify = args.includes("--verify");
 
 const dir = join(import.meta.dir, "..");
+
 const quint = join(dir, "node_modules", ".bin", "quint");
 
 /** States the simulation must reach, or its checks prove little (see polaris.qnt). */
@@ -58,24 +65,32 @@ const run = (label: string, argv: ReadonlyArray<string>, expectFailure = false) 
   const output = `${result.stdout}${result.stderr}`;
   const ok = expectFailure ? result.exitCode !== 0 : result.exitCode === 0;
   console.log(`${ok ? "✓" : "✗"} ${label} (${seconds}s)`);
+
   const summary = output
     .split("\n")
     .filter((line) => /^\[(ok|violation)\]|witnessed in|passing|failing|failed/.test(line.trim()));
+
   for (const line of summary) console.log(`    ${line.trim()}`);
+
   if (!ok) {
     failed = true;
+
     if (expectFailure) {
       console.log("    expected a violation (a fixed finding's mutant) but found none");
     } else {
       console.log(output);
     }
   }
+
   return output;
 };
 
 run("typecheck polaris.qnt", ["typecheck", "polaris.qnt"]);
+
 run("typecheck polaris_test.qnt", ["typecheck", "polaris_test.qnt"]);
+
 run("scenario tests", ["test", "polaris_test.qnt", "--main=polaris_test"]);
+
 for (const n of [1, 2, 3]) {
   run(`scenario tests (finding ${n}, before its fix)`, [
     "test",
@@ -101,12 +116,14 @@ const simulated = run(
   `simulate current: safety, ${samples} traces of up to 60 steps`,
   simulate("current", ["safety"], true)
 );
+
 for (const witness of WITNESSES) {
   if (new RegExp(`${witness} was witnessed in 0 trace`).test(simulated)) {
     failed = true;
     console.log(`✗ ${witness} was never reached: the simulation no longer covers it`);
   }
 }
+
 // The mutants: the simulator must still find each finding, or `safety` no longer guards it.
 for (const finding of FINDINGS) {
   run(

@@ -55,6 +55,7 @@ export const HarnessRegistryLive = Layer.effect(
     const claudePath = binary("POLARIS_CLAUDE", "claude");
     // Benchmarks only (packages/bench): a scripted Harness stands in for every kind.
     const bench = process.env.POLARIS_BENCH_HARNESS === "1";
+
     const benchDriver = (kind: HarnessKind) =>
       lazyDriver(
         kind,
@@ -63,6 +64,7 @@ export const HarnessRegistryLive = Layer.effect(
           Effect.map(({ makeBenchDriver }) => makeBenchDriver(kind))
         )
       );
+
     const drivers: ReadonlyArray<HarnessDriver> = bench
       ? [yield* benchDriver("codex"), yield* benchDriver("claude")]
       : [
@@ -86,10 +88,13 @@ export const HarnessRegistryLive = Layer.effect(
             { terminalFollow: { events: hookReceiver.events, release: hookReceiver.release } }
           ),
         ];
+
     const byKind = new Map<HarnessKind, HarnessDriver>(drivers.map((d) => [d.kind, d]));
+
     return HarnessRegistry.of({
       get: (kind) => {
         const driver = byKind.get(kind);
+
         return driver
           ? Effect.succeed(driver)
           : Effect.fail(new ServiceError({ service: "harness", message: `no ${kind} driver` }));

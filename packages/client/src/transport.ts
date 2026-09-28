@@ -40,6 +40,7 @@ export const spawnTransport = (
 ): Connector =>
   Effect.gen(function* () {
     const [command, ...args] = argv;
+
     if (command === undefined) {
       return yield* new ConnectFailure({
         kind: "needs-attention",
@@ -47,6 +48,7 @@ export const spawnTransport = (
         detail: "empty command",
       });
     }
+
     const exited = yield* Deferred.make<{ code: number | null; signal: string | null }>();
     let stderr = "";
     let spawnError: NodeJS.ErrnoException | null = null;
@@ -57,6 +59,7 @@ export const spawnTransport = (
           stdio: ["pipe", "pipe", "pipe"],
           env: options.env ?? process.env,
         });
+
         child.on("error", (error: NodeJS.ErrnoException) => {
           spawnError = error;
           Deferred.doneUnsafe(exited, Exit.succeed({ code: null, signal: null }));
@@ -69,17 +72,21 @@ export const spawnTransport = (
           stderr = (stderr + new TextDecoder().decode(chunk)).slice(-STDERR_LIMIT);
         });
         child.stdin?.on("error", () => {});
+
         // Attach the reader now, before any output can arrive.
         const incoming =
           child.stdout === null ? null : readEvents(child.stdout as unknown as EventReadable);
+
         return { child: child as ChildProcess, incoming };
       }),
       ({ child }) =>
         Effect.gen(function* () {
           child.stdin?.end();
+
           const done = yield* Deferred.await(exited).pipe(
             Effect.timeoutOption(options.killAfterMs ?? 2000)
           );
+
           if (done._tag === "None") child.kill("SIGTERM");
           child.stderr?.destroy();
           child.stdout?.destroy();
@@ -87,6 +94,7 @@ export const spawnTransport = (
     );
 
     const stdin = child.stdin;
+
     if (stdin === null || incoming === null) {
       return yield* new ConnectFailure({
         kind: "transient",
@@ -131,6 +139,7 @@ export const socketTransport = (path: string): Connector =>
         ConnectFailure
       >((resume) => {
         const socket = connect(path);
+
         const onError = (error: NodeJS.ErrnoException) =>
           resume(
             Effect.fail(
@@ -147,6 +156,7 @@ export const socketTransport = (path: string): Connector =>
                   })
             )
           );
+
         socket.once("error", onError);
         socket.once("connect", () => {
           socket.off("error", onError);
@@ -158,6 +168,7 @@ export const socketTransport = (path: string): Connector =>
       }),
       ({ socket }) => Effect.sync(() => socket.destroy())
     );
+
     return {
       incoming,
       write: writeEvents(socket as unknown as EventWritable),
