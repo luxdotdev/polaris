@@ -4,6 +4,7 @@ Polaris is an IDE and agent orchestrator: a Bun Daemon per Host, an Electron Des
 
 - `CONTEXT.md`: the glossary. Use its terms exactly (Host, Daemon, Workspace, Agent Session, Turn, Session State…) in code, comments and UI copy.
 - `PRODUCT.md` and `DESIGN.md`: product truth, voice and the UI spec.
+- Any user-facing work (Paper mockups, the Desktop App, copy, brand): load the `product-design` skill (`.agents/skills/product-design/`) first.
 - The decisions behind the architecture are on the Linear map ENG-167 (each closed ticket holds its resolution); research is under `docs/research/`.
 
 ## Layout
