@@ -180,13 +180,26 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
         }),
         (file) => {
           let size = 0
-          return Stream.runForEach(content, (chunk) => {
-            size += chunk.byteLength
+          // Everything that arrived since the last write goes out in one writev.
+          return Stream.runForEachArray(content, (chunks) => {
+            let batch = 0
+            for (const chunk of chunks) batch += chunk.byteLength
+            size += batch
             if (size > maxBytes) return Effect.fail(tooLarge(name))
             return Effect.tryPromise({
               try: async () => {
-                for (let at = 0; at < chunk.byteLength; ) {
-                  at += (await file.write(chunk, at)).bytesWritten
+                let written = (await file.writev(chunks)).bytesWritten
+                if (written === batch) return
+                // A short write: finish chunk by chunk.
+                for (const chunk of chunks) {
+                  if (written >= chunk.byteLength) {
+                    written -= chunk.byteLength
+                    continue
+                  }
+                  for (let at = written; at < chunk.byteLength; ) {
+                    at += (await file.write(chunk, at)).bytesWritten
+                  }
+                  written = 0
                 }
               },
               catch: toServiceError(`staging ${name}`),
