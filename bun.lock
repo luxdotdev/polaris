@@ -24,6 +24,7 @@
         "@ff-labs/fff-bun": "0.11.1-nightly.89c1927",
         "@polaris/protocol": "workspace:*",
         "effect": "4.0.0-rc.118",
+        "xstate": "6.0.0-alpha.61",
       },
       "devDependencies": {
         "@polaris/client": "workspace:*",
@@ -44,6 +45,7 @@
       "dependencies": {
         "@polaris/protocol": "workspace:*",
         "effect": "4.0.0-rc.118",
+        "xstate": "6.0.0-alpha.61",
       },
     },
     "packages/protocol": {
@@ -386,6 +388,8 @@
     "wrappy": ["wrappy@1.0.2", "", {}, "sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ=="],
 
     "ws": ["ws@8.22.0", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-Ydggc987+RO0AnWtZ/7Wq9FtNvcrL1b/RO0ud9mWjUPgDrsAAwQSF51sm2hm1XofbU/4jkpGEsLFsZZxU+1DOg=="],
+
+    "xstate": ["xstate@6.0.0-alpha.61", "", { "bin": { "xstate": "./bin/xstate.js" } }, "sha512-0Gch618aN2W1IDAuHESH92CuRBiN4K03Tq2WmNz2MhO+QD2si/vrzQ5R8l0+jJdygMWfbRsLE4qfO6lAX8pY5Q=="],
 
     "zod": ["zod@4.6.5", "", {}, "sha512-v5l/aFXZQeai4awLbOpSoHecE9UiMrnfx75tEXLjNonXVARxQ5mOeipTjROUchszUNCqnE+hqAMujRsRHsut2Q=="],
 

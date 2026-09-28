@@ -4,7 +4,7 @@
  *
  *   dispatch ─▶ decide (under the commit lock) ─▶ commit ─▶ ack
  *                                                  └─▶ reactor (after commit, per-session serial)
- *   Harness events ─▶ mapped to domain events ─▶ commit
+ *   Harness events ─▶ session machine (session.ts) ─▶ commit ─▶ its effects
  *
  * An ack means the intent is recorded; the reactor opens Harnesses, captures
  * checkpoints, creates or removes Worktrees and so on. Nothing here writes
@@ -29,7 +29,7 @@ import {
   type SessionStreamItem,
   SessionSummary,
   TerminalLaunch,
-  Turn,
+  type Turn,
   TurnDetail,
   TurnId,
   type TurnItem,
@@ -70,15 +70,10 @@ import {
   WorktreeTracker,
 } from "../services.ts"
 import { type CommitResult, EventStore, type LiveItem } from "../store/EventStore.ts"
-import {
-  isHostStreamEvent,
-  lastTurn,
-  type ReadModel,
-  type SessionRecord,
-  workingTurn,
-} from "../store/model.ts"
-import { CONTINUE_PROMPT, decide, forkBranch, stateChanged, worktreeIdFor } from "./decider.ts"
+import { isHostStreamEvent, lastTurn, type ReadModel, type SessionRecord } from "../store/model.ts"
+import { CONTINUE_PROMPT, decide, forkBranch, worktreeIdFor } from "./decider.ts"
 import { finalReply, forkPreamble } from "./fork.ts"
+import { decideSession, type SessionEffect, type SessionInput } from "./session.ts"
 
 export interface EngineSettings {
   /** How long an Idle session keeps its Harness process before going Dormant. */
@@ -158,11 +153,6 @@ interface Progress {
   readonly item: TurnItem
 }
 
-type Withdrawer = "harness" | "daemon"
-
-const RESTARTED = "The Daemon restarted"
-const UPGRADING = "The Daemon is upgrading"
-
 /** How long `ReturnFromTerminal` waits for the terminal follower to drain. */
 const FOLLOWER_DRAIN = Duration.seconds(5)
 
@@ -210,26 +200,6 @@ const make = Effect.gen(function* () {
       },
     })
 
-  const committedAny = (result: CommitResult) =>
-    result._tag === "Committed" && result.envelopes.length > 0
-
-  const withdrawPending = (
-    record: SessionRecord,
-    withdrawnBy: Withdrawer,
-    reason: string,
-    onlyTurn?: TurnId,
-  ): Array<DomainEvent> =>
-    [...record.pending.values()]
-      .filter((request) => onlyTurn === undefined || request.turnId === onlyTurn)
-      .map((request) =>
-        DomainEvent.cases.ApprovalWithdrawn.make({
-          sessionId: record.session.id,
-          requestId: request.id,
-          withdrawnBy,
-          reason,
-        }),
-      )
-
   /** Forget progress of items that can no longer complete (their Turn ended, the Harness went away). */
   const dropProgress = (sessionId: SessionId, turnId?: TurnId) => {
     const items = progress.get(sessionId)
@@ -239,14 +209,27 @@ const make = Effect.gen(function* () {
     if (items.size === 0) progress.delete(sessionId)
   }
 
-  const endTurn = (
-    turn: Turn,
-    status: "completed" | "interrupted" | "failed",
-    endedAt: string,
-    checkpointAfter: string | null = turn.checkpointAfter,
-  ): DomainEvent =>
-    DomainEvent.cases.TurnEnded.make({
-      turn: new Turn({ ...turn, status, endedAt, checkpointAfter }),
+  /**
+   * Run one lifecycle input through the session machine against the session's
+   * latest state, commit the events it emits, then run its effects. `input`
+   * may read the record it is decided against.
+   */
+  const signal = (
+    sessionId: SessionId,
+    input: SessionInput | ((record: SessionRecord) => SessionInput),
+  ): Effect.Effect<CommitResult, ServiceError> =>
+    Effect.gen(function* () {
+      let effects: ReadonlyArray<SessionEffect> = []
+      const result = yield* recordFor(sessionId, (record) => {
+        const decision = decideSession(record, typeof input === "function" ? input(record) : input)
+        effects = decision.effects
+        return decision.events
+      })
+      for (const effect of effects) {
+        if (effect === "scheduleIdleStop") yield* scheduleIdle(sessionId)
+        else yield* stopHarness(sessionId)
+      }
+      return result
     })
 
   /** The Turn in flight fails and the session goes Failed. */
@@ -254,14 +237,7 @@ const make = Effect.gen(function* () {
     Effect.gen(function* () {
       const at = yield* now
       yield* Effect.logWarning(`session ${sessionId} failed: ${message}`)
-      yield* recordFor(sessionId, (record) => {
-        const turn = workingTurn(record)
-        return [
-          ...(turn ? [endTurn(turn, "failed", at)] : []),
-          ...withdrawPending(record, "daemon", message),
-          stateChanged(sessionId, "failed", message),
-        ]
-      })
+      yield* signal(sessionId, { type: "session.fail", message, at })
     })
 
   const capture = (sessionId: SessionId, turnId: TurnId, label: "before" | "after") =>
@@ -304,14 +280,9 @@ const make = Effect.gen(function* () {
     })
 
   const goDormant = (sessionId: SessionId) =>
-    Effect.gen(function* () {
-      const result = yield* recordFor(sessionId, (record) =>
-        record.session.state === "idle" && live.has(sessionId)
-          ? [stateChanged(sessionId, "dormant", "idle-timeout")]
-          : [],
-      )
-      if (committedAny(result)) yield* stopHarness(sessionId)
-    }).pipe(Effect.catchCause((cause) => Effect.logError("idle stop failed", cause)))
+    signal(sessionId, () => ({ type: "idle.timeout", harnessLive: live.has(sessionId) })).pipe(
+      Effect.catchCause((cause) => Effect.logError("idle stop failed", cause)),
+    )
 
   const openHarness = (sessionId: SessionId) =>
     Effect.gen(function* () {
@@ -403,27 +374,11 @@ const make = Effect.gen(function* () {
           return
         case "TurnStarted":
           // Turns Polaris sent are already recorded; others (e.g. typed in a co-attached TUI) are new.
-          yield* recordFor(sessionId, (record) => {
-            if (record.turns.some((t) => t.id === event.turnId)) return []
-            const turn = new Turn({
-              id: event.turnId,
-              sessionId,
-              index: record.session.turnCount,
-              prompt: event.prompt ?? "",
-              attachments: [],
-              status: "working",
-              checkpointBefore: null,
-              checkpointAfter: null,
-              startedAt: at,
-              endedAt: null,
-            })
-            const state = record.session.state
-            return [
-              DomainEvent.cases.TurnStarted.make({ turn }),
-              ...(state === "idle" || state === "starting" || state === "dormant"
-                ? [stateChanged(sessionId, "working")]
-                : []),
-            ]
+          yield* signal(sessionId, {
+            type: "harness.turnStarted",
+            turnId: event.turnId,
+            prompt: event.prompt ?? "",
+            at,
           })
           yield* cancelIdle(sessionId)
           return
@@ -452,8 +407,9 @@ const make = Effect.gen(function* () {
           ])
           return
         case "ApprovalRequested":
-          yield* recordFor(sessionId, (record) => {
-            const request = new ApprovalRequest({
+          yield* signal(sessionId, {
+            type: "harness.approvalRequested",
+            request: new ApprovalRequest({
               id: event.requestId,
               sessionId,
               turnId: event.turnId,
@@ -462,66 +418,26 @@ const make = Effect.gen(function* () {
               detail: event.detail,
               options: [...event.options],
               openedAt: at,
-            })
-            const state = record.session.state
-            return [
-              DomainEvent.cases.ApprovalRequested.make({ request }),
-              ...(state === "in-terminal" || state === "needs-you"
-                ? []
-                : [stateChanged(sessionId, "needs-you")]),
-            ]
+            }),
           })
           return
         case "ApprovalWithdrawn":
-          yield* recordFor(sessionId, (record) => {
-            if (!record.pending.has(event.requestId)) return []
-            return [
-              DomainEvent.cases.ApprovalWithdrawn.make({
-                sessionId,
-                requestId: event.requestId,
-                withdrawnBy: "harness",
-                reason: "The Harness withdrew the request",
-              }),
-              ...(record.pending.size === 1 && record.session.state === "needs-you"
-                ? [stateChanged(sessionId, "working")]
-                : []),
-            ]
+          yield* signal(sessionId, {
+            type: "harness.approvalWithdrawn",
+            requestId: event.requestId,
           })
           return
         case "TurnEnded": {
           dropProgress(sessionId, event.turnId)
           const after = yield* capture(sessionId, event.turnId, "after")
-          const result = yield* recordFor(sessionId, (record) => {
-            const turn = record.turns.find((t) => t.id === event.turnId)
-            if (turn === undefined || turn.status !== "working") return []
-            const events: Array<DomainEvent> = []
-            if (after !== null) {
-              events.push(
-                DomainEvent.cases.CheckpointRecorded.make({
-                  sessionId,
-                  turnId: turn.id,
-                  ref: after.ref,
-                  commit: after.commit,
-                }),
-              )
-            }
-            events.push(
-              ...withdrawPending(record, "harness", "The Turn ended", turn.id),
-              endTurn(turn, event.status, at, after?.ref ?? turn.checkpointAfter),
-            )
-            if (record.session.state !== "in-terminal") {
-              events.push(
-                event.status === "failed"
-                  ? stateChanged(sessionId, "failed", event.error ?? "The Turn failed")
-                  : stateChanged(sessionId, "idle"),
-              )
-            }
-            return events
+          yield* signal(sessionId, {
+            type: "harness.turnEnded",
+            turnId: event.turnId,
+            status: event.status,
+            error: event.error,
+            checkpoint: after,
+            at,
           })
-          const model = yield* store.model
-          if (committedAny(result) && model.sessions.get(sessionId)?.session.state === "idle") {
-            yield* scheduleIdle(sessionId)
-          }
           return
         }
         case "TitleSuggested":
@@ -561,23 +477,7 @@ const make = Effect.gen(function* () {
           dropProgress(sessionId)
           yield* cancelIdle(sessionId)
           yield* Scope.close(entry.scope, Exit.void)
-          yield* recordFor(sessionId, (record) => {
-            const state = record.session.state
-            if (state === "archived" || state === "dormant") return []
-            const turn = workingTurn(record)
-            const reason = event.error ?? "The Harness exited"
-            const events: Array<DomainEvent> = [
-              ...(turn ? [endTurn(turn, event.error ? "failed" : "interrupted", at)] : []),
-              ...withdrawPending(record, "harness", reason),
-            ]
-            if (state === "in-terminal") return events
-            events.push(
-              event.error !== null
-                ? stateChanged(sessionId, "failed", event.error)
-                : stateChanged(sessionId, "dormant", "harness-exited"),
-            )
-            return events
-          })
+          yield* signal(sessionId, { type: "harness.exited", error: event.error, at })
           return
         }
       }
@@ -615,9 +515,7 @@ const make = Effect.gen(function* () {
           ? yield* withForkContext(session, prompt)
           : prompt
       const entry = yield* openHarness(sessionId)
-      yield* recordFor(sessionId, (record) =>
-        record.session.state === "starting" ? [stateChanged(sessionId, "working")] : [],
-      )
+      yield* signal(sessionId, { type: "harness.opened" })
       yield* entry.session.sendTurn({ turnId, prompt: input, attachments })
     }).pipe(Effect.catch((error) => failSession(sessionId, messageOf(error))))
 
@@ -734,16 +632,7 @@ const make = Effect.gen(function* () {
           const entry = live.get(command.sessionId)
           if (entry !== undefined) return yield* entry.session.interrupt
           // No Harness is running the Turn; end it here.
-          const at = yield* now
-          yield* recordFor(command.sessionId, (record) => {
-            const turn = workingTurn(record)
-            if (turn === undefined) return []
-            return [
-              ...withdrawPending(record, "daemon", "Interrupted"),
-              endTurn(turn, "interrupted", at),
-              stateChanged(command.sessionId, "dormant"),
-            ]
-          })
+          yield* signal(command.sessionId, { type: "turn.interruptUnattended", at: yield* now })
         })
 
       case "RespondToApproval":
@@ -832,27 +721,10 @@ const make = Effect.gen(function* () {
           if (driver !== null && !driver.capabilities.liveCoAttach) {
             // Polaris sent no Turn while In Terminal, so one still open is the terminal UI's,
             // left unfinished when it closed.
-            const at = yield* now
-            yield* recordFor(command.sessionId, (current) => {
-              const turn = workingTurn(current)
-              return turn === undefined
-                ? []
-                : [
-                    ...withdrawPending(current, "harness", "The terminal UI closed", turn.id),
-                    endTurn(turn, "interrupted", at),
-                  ]
-            })
+            yield* signal(command.sessionId, { type: "terminal.closed", at: yield* now })
           }
           yield* openHarness(command.sessionId)
-          yield* recordFor(command.sessionId, (record) =>
-            record.session.state !== "starting"
-              ? []
-              : [stateChanged(command.sessionId, workingTurn(record) ? "working" : "idle")],
-          )
-          const model = yield* store.model
-          if (model.sessions.get(command.sessionId)?.session.state === "idle") {
-            yield* scheduleIdle(command.sessionId)
-          }
+          yield* signal(command.sessionId, { type: "harness.resumed" })
         }).pipe(Effect.catch((error) => failSession(command.sessionId, messageOf(error))))
 
       case "ForkSession":
@@ -1321,42 +1193,16 @@ const make = Effect.gen(function* () {
 
   // ── Recovery after a Daemon restart ──────────────────────────────────────
 
-  /**
-   * The recovery rule, for a session whose Harness went away with the Daemon
-   * (restart, upgrade): a `working` Turn becomes `interrupted` and the session
-   * Needs You (reason `interrupted`), so the user decides with Continue; a Turn
-   * is never continued automatically. Pending approvals are withdrawn. Other
-   * live states go Dormant and resume from the cursor on the next Turn.
-   */
-  const recover = (record: SessionRecord, at: string, reason: string): Array<DomainEvent> => {
-    const turn = workingTurn(record)
-    const id = record.session.id
-    const state = record.session.state
-    const events: Array<DomainEvent> = [
-      ...(turn ? [endTurn(turn, "interrupted", at)] : []),
-      ...withdrawPending(record, "daemon", reason),
-    ]
-    if (turn !== undefined) {
-      events.push(stateChanged(id, "needs-you", "interrupted"))
-    } else if (state === "failed") {
-      // Failed stays Failed until the user sends a Turn.
-    } else if (state === "needs-you" && lastTurn(record)?.status === "interrupted") {
-      // Still waiting on Continue from before.
-    } else {
-      events.push(
-        stateChanged(id, "dormant", reason === RESTARTED ? "daemon-restart" : "daemon-upgrade"),
-      )
-    }
-    return events
-  }
-
+  // The recovery rule is the session machine's `daemon.recover` (session.ts): a Turn in
+  // flight ends Interrupted and the session Needs You; it is never continued automatically.
   yield* Effect.gen(function* () {
     const model = yield* store.model
     const at = yield* now
     for (const record of model.sessions.values()) {
-      const state = record.session.state
-      if (state === "archived" || state === "dormant") continue
-      yield* recordFor(record.session.id, (current) => recover(current, at, RESTARTED))
+      const input: SessionInput = { type: "daemon.recover", cause: "restart", at }
+      // Most sessions (Dormant, Archived) have nothing to recover: skip their commit.
+      if (decideSession(record, input).events.length === 0) continue
+      yield* signal(record.session.id, input)
     }
   }).pipe(Effect.orDie)
 
@@ -1371,12 +1217,7 @@ const make = Effect.gen(function* () {
           Effect.gen(function* () {
             yield* cancelIdle(sessionId)
             yield* stopHarness(sessionId)
-            const at = yield* now
-            yield* recordFor(sessionId, (record) =>
-              record.session.state === "archived" || record.session.state === "in-terminal"
-                ? []
-                : recover(record, at, UPGRADING),
-            )
+            yield* signal(sessionId, { type: "daemon.recover", cause: "upgrade", at: yield* now })
           }),
         ).pipe(
           Effect.catchCause((cause) =>
