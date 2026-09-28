@@ -7,7 +7,7 @@ Implements `HarnessDriver` (`../HarnessDriver.ts`) for Codex by driving the user
 | File | Role |
 |---|---|
 | `CodexDriver.ts` | `makeCodexDriver(options)`: the driver value. `probe` runs `codex --version` and nothing else. `capabilities = { steer: true, liveCoAttach: true }`. |
-| `AppServer.ts` | The one app-server per Host: `codex app-server --listen unix://<socket>`, started lazily on the first `open`, stopped when the driver's scope closes. If something already answers on the socket (a server left by a previous Daemon), it is reused so live threads survive a Daemon restart. |
+| `AppServer.ts` | The one app-server per Host: `codex app-server --listen unix://<socket>`, started lazily on the first `open`, **detached** so it outlives the Daemon (see "App-server lifecycle" below). |
 | `RpcConnection.ts` | JSON-RPC 2.0 over app-server's Unix-socket transport, which is **WebSocket over the socket** (HTTP Upgrade, one message per text frame). Bun's WebSocket client speaks it as `ws+unix://<path>`. |
 | `CodexSession.ts` | One Agent Session = one connection + one Codex thread. Translates notifications and server→client requests into `HarnessEvent`s. |
 | `mapping.ts` | Pure translations: permission modes, turn input, thread items → `TurnItem`s, approval decisions. |
@@ -22,6 +22,18 @@ The Daemon owns one app-server per Host on `~/.polaris/codex.sock` (keep it shor
 `terminalCommand` is `codex resume <threadId> --remote unix://<socket>`. The TUI attaches to the same server, and `thread/resume` on a loaded thread rejoins it, so Polaris and the TUI see the same live events and either can answer an approval. Polaris then gets `serverRequest/resolved` and emits `ApprovalWithdrawn`. Turns the TUI starts reach Polaris as notifications for an unknown Codex turn id. The driver mints a `TurnId` for them and emits `TurnStarted`. The same happens when Polaris rejoins a thread mid-Turn.
 
 Verified on this Host (codex-cli 0.157.1): `--listen unix://PATH` serves WebSocket-over-Unix (a raw HTTP Upgrade returns `101`), and Bun's `ws+unix://` connects to it. `codex app-server proxy --sock` is a raw byte pipe, not a JSONL bridge, so it isn't used. The TUI's `--remote unix://` flag exists on both `codex` and `codex resume`. A hands-on co-attach with a live TUI (mid-Turn attach, both sides seeing one approval) has **not** been exercised yet; it needs a PTY test.
+
+### App-server lifecycle
+
+The server must outlive the Daemon, or a Daemon restart, crash or upgrade would end the user's co-attached `codex --remote` TUI. So it is never the Daemon's child:
+
+- **Start**: `/bin/sh -c '"$@" </dev/null >>log 2>&1 & echo $!'` spawned with `detached: true` (setsid). The shell prints the server's pid and exits, so the server is reparented to init, in its own session and process group, with stdio on `~/.polaris/logs/codex-app-server.log`. No Daemon pipe, process group or PID (which an execve upgrade keeps) ties it to the Daemon. launchd `bootout` of the Daemon's job leaves it running (verified on macOS). Under systemd (`INVOCATION_ID` set), stopping `polaris.service` kills its whole cgroup, so the server is started through `systemd-run --user --scope --collect` in its own scope.
+- **Record**: `~/.polaris/codex-app-server.json` holds `{ pid, version, codexPath, socketPath, startedAt }`.
+- **Adopt**: the next Daemon (after a restart, crash or execve upgrade) finds it answering on the socket and connects; Codex sessions resume by cursor as after any reconnect.
+- **Replace**: before this Daemon has a connection of its own, it compares the recorded version with `codex --version`. If codex was upgraded and `thread/loaded/list` is empty (no Polaris session or TUI is live on it), the old server is stopped and a new one started; otherwise it is kept. A recorded server that is alive but not answering is replaced. Before any signal, the pid's command line must still name `app-server` and the socket (pids get reused).
+- **Stop**: `polaris uninstall` calls `stopAppServer` (SIGTERM, SIGKILL after 5 s, then removes the state file and socket). Tests that spawn a real server must call it too.
+
+Tests: `AppServer.test.ts` runs the real lifecycle against a fake `codex` executable (`testing/fakeCodex.ts`, which serves `FakeAppServer`): detached and not our child, adopted by a second "Daemon", replaced after a version change only when no thread is loaded, a dead server replaced, stop, and pid-reuse safety.
 
 ### Event mapping
 
@@ -101,6 +113,8 @@ It runs `codex app-server generate-ts` (stable surface, no `--experimental`) int
 - **No `ItemStarted`.** A running command shows up only through output deltas until `item/completed`.
 - **MCP form elicitations** accept with empty content; there's no UI for `requestedSchema` yet. An elicitation with no Turn mints a Turn that never ends.
 - **Multi-question `requestUserInput`**: one Answer fills every question.
-- **App-server lifecycle**: a spawned server is killed with its scope, so a Daemon restart ends a live TUI co-attach. A server that survived a crash is reused even if the installed codex has since been upgraded. Nothing restarts a server that dies between `open`s until the next `open`.
+- Nothing restarts a server that dies between `open`s until the next `open`.
+- An outdated server with a thread loaded is kept until a later `open` finds it idle; nothing checks again on a timer.
+- The `systemd-run --user --scope` path is covered by an argv unit test only; it has not been run on a systemd Host.
 - **PATH under launchd**: `Bun.which("codex")` may miss nvm/Homebrew installs when the Daemon runs as a user service. Pass `codexPath` or resolve it from a login shell.
 - `bun run licenses:check` isn't runnable yet (`scripts/licenses.ts` isn't in the tree). This module adds no dependencies.

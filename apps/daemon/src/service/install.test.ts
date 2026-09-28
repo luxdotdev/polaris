@@ -3,6 +3,13 @@ import { existsSync, mkdtempSync, readFileSync, readlinkSync, rmSync, writeFileS
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { Effect, Layer } from "effect"
+import {
+  defaultStateFile,
+  isOurAppServer,
+  makeAppServer,
+  readAppServerState,
+} from "../harness/codex/AppServer.ts"
+import { makeFakeCodex } from "../harness/codex/testing/fakeCodex.ts"
 import { type CommandResult, CommandRunner } from "./CommandRunner.ts"
 import { type InstallContext, install, layout, sha256File, uninstall } from "./install.ts"
 
@@ -177,4 +184,32 @@ describe("uninstall", () => {
     expect(again.serviceFileRemoved).toBe(false)
     expect(existsSync(join(root, ".polaris"))).toBe(false)
   })
+
+  test("stops the shared Codex app-server, which otherwise outlives the Daemon", async () => {
+    // Short paths: the socket must fit the Unix socket path limit.
+    root = mkdtempSync("/tmp/pun-")
+    const home = join(root, ".polaris")
+    const socketPath = join(home, "codex.sock")
+    const codex = makeFakeCodex(root)
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const server = yield* makeAppServer({
+            codexPath: codex.path,
+            socketPath,
+            spawn: true,
+            systemdRun: null,
+          })
+          yield* server.connect
+        }),
+      ),
+    )
+    const pid = readAppServerState(defaultStateFile(socketPath))!.pid
+    expect(isOurAppServer(pid, socketPath)).toBe(true)
+    const report = await Effect.runPromise(
+      uninstall(ctx("darwin"), { purge: false }).pipe(Effect.provide(fakeRunner().layer)),
+    )
+    expect(report.codexAppServerStopped).toBe(pid)
+    expect(isOurAppServer(pid, socketPath)).toBe(false)
+  }, 20_000)
 })

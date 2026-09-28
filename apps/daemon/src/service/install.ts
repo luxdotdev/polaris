@@ -21,6 +21,7 @@ import {
 import { homedir, userInfo } from "node:os"
 import { basename, dirname, join } from "node:path"
 import { Effect, Schema } from "effect"
+import { defaultStateFile, stopAppServer } from "../harness/codex/AppServer.ts"
 import { CommandRunner } from "./CommandRunner.ts"
 import {
   LAUNCHD_LABEL,
@@ -302,6 +303,8 @@ export const install = Effect.fn("install")(function* (
 
 export interface UninstallReport {
   readonly serviceFileRemoved: boolean
+  /** PID of the shared Codex app-server that was stopped, if one was running. */
+  readonly codexAppServerStopped: number | null
   readonly binariesRemoved: boolean
   readonly purged: boolean
 }
@@ -322,6 +325,11 @@ export const uninstall = Effect.fn("uninstall")(function* (
   } else {
     yield* run(["systemctl", "--user", "disable", "--now", SYSTEMD_UNIT])
   }
+  // The shared Codex app-server outlives the Daemon on purpose; uninstall ends it.
+  const appServer = yield* stopAppServer({
+    stateFile: defaultStateFile(join(ctx.polarisHome, "codex.sock")),
+    socketPath: join(ctx.polarisHome, "codex.sock"),
+  })
   const serviceFileRemoved = yield* fsStep("remove service file", () => {
     const existed = existsSync(paths.serviceFile)
     rmSync(paths.serviceFile, { force: true })
@@ -335,5 +343,10 @@ export const uninstall = Effect.fn("uninstall")(function* (
     rmSync(options.purge ? ctx.polarisHome : paths.bin, { recursive: true, force: true })
     return existed
   })
-  return { serviceFileRemoved, binariesRemoved, purged: options.purge }
+  return {
+    serviceFileRemoved,
+    codexAppServerStopped: appServer.stopped,
+    binariesRemoved,
+    purged: options.purge,
+  }
 })
