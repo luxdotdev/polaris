@@ -1,0 +1,19 @@
+[package]
+name = "spike-gpui"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# Standalone: not part of any workspace.
+[workspace]
+
+[dependencies]
+# Pinned to the exact gpui-pre snapshot gpui-kit 0.6.6 was released against.
+gpui-kit = { version = "=0.6.6", features = ["tree-sitter-rust"] }
+gpui = { package = "gpui-pre", version = "=0.3.6", features = ["profiler"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+libc = "0.2"
+
+[profile.release]
+debug = "limited"
