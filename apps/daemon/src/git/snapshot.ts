@@ -29,11 +29,17 @@ interface Repo {
 }
 
 /**
- * Config for commands on Polaris's own index: skip the trailing SHA over the
- * whole index on every write (git ≥ 2.40; older versions ignore the key). Only
- * our own git calls ever read this index.
+ * Never split an index of ours: with the user's `core.splitIndex`, writing it
+ * would add `sharedindex.*` files to the git dir and expire old ones there.
  */
-const OWN_INDEX_CONFIG = ["-c", "index.skipHash=true"]
+const INDEX_CONFIG = ["-c", "core.splitIndex=false"]
+
+/**
+ * Config for commands on Polaris's own index: also skip the trailing SHA over
+ * the whole index on every write (git ≥ 2.40; older versions ignore the key).
+ * Only our own git calls ever read this index.
+ */
+const OWN_INDEX_CONFIG = [...INDEX_CONFIG, "-c", "index.skipHash=true"]
 
 /** An `index.lock` older than this was left by a crashed Daemon. */
 const STALE_LOCK_MS = 60_000
@@ -140,7 +146,7 @@ const tempIndexTree = async (repo: Repo): Promise<string> => {
   try {
     const index = join(dir, "index")
     if (existsSync(repo.userIndex)) await copyUserIndex(repo.userIndex, index)
-    return await addAndWriteTree(repo.root, index, [])
+    return await addAndWriteTree(repo.root, index, INDEX_CONFIG)
   } finally {
     await rm(dir, { recursive: true, force: true })
   }

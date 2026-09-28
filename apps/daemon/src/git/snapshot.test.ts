@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test"
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { basename, join } from "node:path"
 import { snapshotWorkingTree } from "./snapshot.ts"
@@ -122,6 +122,26 @@ test("each worktree has its own index", async () => {
   expect(filesOf(repo, side!.tree)).toEqual(["a.txt", "side.txt"])
   const sideIndex = join(repo, ".git", "worktrees", basename(other), "polaris", "index")
   expect(existsSync(sideIndex)).toBe(true)
+})
+
+test("a user's split index is read but never split or expired by our writes", async () => {
+  const repo = makeRepo({ "a.txt": "a\n" })
+  git(repo, "config", "core.splitIndex", "true")
+  git(repo, "update-index", "--split-index")
+  const shared = () =>
+    readdirSync(join(repo, ".git"))
+      .filter((name) => name.startsWith("sharedindex."))
+      .sort()
+  const before = shared()
+  expect(before.length).toBe(1)
+  writeFileSync(join(repo, "b.txt"), "b\n")
+  const first = await snapshotWorkingTree(repo)
+  writeFileSync(join(repo, "c.txt"), "c\n")
+  const second = await snapshotWorkingTree(repo)
+  expect(filesOf(repo, first!.tree)).toEqual(["a.txt", "b.txt"])
+  expect(filesOf(repo, second!.tree)).toEqual(["a.txt", "b.txt", "c.txt"])
+  expect(shared()).toEqual(before)
+  expect(git(repo, "status", "--porcelain")).toBe("?? b.txt\n?? c.txt")
 })
 
 test("concurrent snapshots of one repository agree", async () => {
