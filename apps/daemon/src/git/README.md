@@ -26,11 +26,10 @@
 
   Deleting a ref only makes the snapshot unreachable; git's automatic `gc` reclaims it later. Polaris never runs `gc` in a user's repository. Deletions are one `update-ref --stdin` transaction.
 
-  Engine wiring (not done yet): on `ArchiveSession`, call `onSessionArchived(workspace.path, { sessionId, archivedAt, turnIds, pinnedTurnIds, worktreeBranch })` (with the default policy it deletes nothing yet; it is the hook for a shorter policy). In the engine's scope, fork `runCheckpointSweeper({ targets })`, where `targets` lists each Workspace path with all its sessions (`archivedAt` null unless Archived, `turnIds` in order, `pinnedTurnIds` = Turns any Fork started from, `worktreeBranch` of the Worktree the session created). It sweeps at start and every 6 hours; a failing repository is logged and skipped. `dropSessionCheckpoints` deletes one session's refs outright (e.g. when a Workspace is removed).
+  Engine wiring (`engine/Engine.ts`): on `ArchiveSession` the engine calls `onSessionArchived(workspace.path, { sessionId, archivedAt, turnIds, pinnedTurnIds, worktreeBranch })` (with the default policy it deletes nothing yet; it is the hook for a shorter policy). In its scope it forks `runCheckpointSweeper({ targets })`, where `targets` is an Effect evaluated at each sweep that lists each git Workspace path with all its sessions (`archivedAt` null unless Archived, `turnIds` in order, `pinnedTurnIds` = Turns any Fork started from, `worktreeBranch` of the Worktree the session created). It sweeps at start and every 6 hours; a failing repository is logged and skipped. On `RemoveWorkspace` it calls `dropSessionCheckpoints` for each of the Workspace's sessions. Tested end to end with the fake Harness and real repositories in `engine/Engine.checkpoints.test.ts`.
 - **Handlers**: `GitRpcsLive` is a partial `DaemonRpcs` handler layer, which needs `BlobChannel` for each request.
 
 ## Known gaps / TODOs
 
 - Checkpoints run `git add -A`, which runs clean filters (e.g. LFS). That respects the user's config, but it can be slow.
-- The engine does not call the pruner yet (see "Checkpoint pruning" above for the two call sites).
 - `git.status` uses `--untracked-files=normal`, so untracked directories are collapsed.

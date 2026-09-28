@@ -50,6 +50,15 @@ import {
   Semaphore,
   Stream,
 } from "effect"
+import {
+  type CheckpointPolicy,
+  type CheckpointSession,
+  DEFAULT_CHECKPOINT_POLICY,
+  dropSessionCheckpoints,
+  onSessionArchived as pruneArchivedSession,
+  runCheckpointSweeper,
+  type SweepTarget,
+} from "../git/prune.ts"
 import type { HarnessDriver, HarnessEvent, HarnessSession } from "../harness/HarnessDriver.ts"
 import { registerHandoffContributor } from "../service/upgrade.ts"
 import {
@@ -73,6 +82,10 @@ import { finalReply, forkPreamble } from "./fork.ts"
 export interface EngineSettings {
   /** How long an Idle session keeps its Harness process before going Dormant. */
   readonly idleTimeout: Duration.Input
+  /** Checkpoint pruning policy (`git/prune.ts`); `DEFAULT_CHECKPOINT_POLICY` when unset. */
+  readonly checkpointPolicy?: CheckpointPolicy
+  /** How often the checkpoint sweeper runs (6 hours when unset); null turns it off. */
+  readonly checkpointSweepInterval?: Duration.Input | null
 }
 
 export const EngineConfig = Context.Reference<EngineSettings>(
@@ -632,6 +645,8 @@ const make = Effect.gen(function* () {
   const react = (
     command: Command,
     result: Extract<CommitResult, { _tag: "Committed" }>,
+    /** The model the command was decided against. */
+    before: ReadModel,
   ): Effect.Effect<void, unknown> => {
     switch (command._tag) {
       case "RegisterWorkspace":
@@ -764,6 +779,15 @@ const make = Effect.gen(function* () {
               }),
             ])
           }
+          if (record !== undefined && workspace?.isGitRepo) {
+            const at = yield* Clock.currentTimeMillis
+            const session = yield* checkpointSession(record, forkedTurns(model), at)
+            yield* pruneArchivedSession(workspace.path, session, { policy: checkpointPolicy }).pipe(
+              Effect.catch((error) =>
+                Effect.logWarning(`checkpoint prune of ${command.sessionId}: ${error.message}`),
+              ),
+            )
+          }
           yield* attachmentStore.onSessionArchived(command.sessionId)
         })
 
@@ -858,8 +882,30 @@ const make = Effect.gen(function* () {
           })
         })
 
-      case "SetWorkspaceHidden":
       case "RemoveWorkspace":
+        return Effect.gen(function* () {
+          // Nothing will sweep this repository any more: its sessions' checkpoints go now.
+          const workspace = before.workspaces.get(command.workspaceId)
+          if (workspace === undefined || !workspace.isGitRepo) return
+          const sessionIds = [...result.model.sessions.values()]
+            .filter((record) => record.session.workspaceId === workspace.id)
+            .map((record) => record.session.id)
+          yield* Effect.forEach(
+            sessionIds,
+            (sessionId) =>
+              Effect.tryPromise({
+                try: () => dropSessionCheckpoints(workspace.path, sessionId),
+                catch: messageOf,
+              }).pipe(
+                Effect.catch((message) =>
+                  Effect.logWarning(`dropping checkpoints of ${sessionId}: ${message}`),
+                ),
+              ),
+            { discard: true },
+          )
+        })
+
+      case "SetWorkspaceHidden":
       case "RenameSession":
         return Effect.void
     }
@@ -914,6 +960,83 @@ const make = Effect.gen(function* () {
       })
       return older.find((t) => t.id === turnId) ?? null
     })
+
+  // ── Checkpoint pruning (git/prune.ts) ────────────────────────────────────
+
+  const checkpointPolicy = config.checkpointPolicy ?? DEFAULT_CHECKPOINT_POLICY
+
+  /** The Turns each session's Forks started from, which survive compaction. */
+  const forkedTurns = (model: ReadModel): ReadonlyMap<SessionId, ReadonlyArray<TurnId>> => {
+    const pinned = new Map<SessionId, Array<TurnId>>()
+    for (const { session } of model.sessions.values()) {
+      if (session.parentSessionId === null || session.forkedFromTurnId === null) continue
+      const list = pinned.get(session.parentSessionId) ?? []
+      list.push(session.forkedFromTurnId)
+      pinned.set(session.parentSessionId, list)
+    }
+    return pinned
+  }
+
+  /**
+   * What the pruning policy knows about one session. A session that is not
+   * Archived keeps every checkpoint, so only an Archived one needs its Turn
+   * order and its Worktree's branch (both read from SQL).
+   */
+  const checkpointSession = (
+    record: SessionRecord,
+    pinned: ReadonlyMap<SessionId, ReadonlyArray<TurnId>>,
+    archivedAt: number | null,
+  ): Effect.Effect<CheckpointSession, ServiceError> =>
+    Effect.gen(function* () {
+      const session = record.session
+      const base = {
+        sessionId: session.id,
+        archivedAt,
+        pinnedTurnIds: pinned.get(session.id) ?? [],
+      }
+      if (archivedAt === null) return base
+      const stored = yield* store.readTurns({
+        sessionId: session.id,
+        beforeIndex: null,
+        limit: null,
+      })
+      const turns = new Map([...stored, ...record.turns].map((turn) => [turn.id, turn]))
+      const worktree =
+        session.worktreeId === null ? null : yield* store.lastKnownWorktree(session.worktreeId)
+      return {
+        ...base,
+        turnIds: [...turns.values()].sort((a, b) => a.index - b.index).map((turn) => turn.id),
+        worktreeBranch:
+          worktree !== null && !worktree.isMain && worktree.createdBySessionId === session.id
+            ? worktree.branch
+            : null,
+      }
+    })
+
+  /**
+   * Every git Workspace with all its sessions, built fresh for each sweep. An
+   * Archived session's `updatedAt` stands in for when it was Archived: a later
+   * change (a rename) only postpones its pruning.
+   */
+  const checkpointTargets = Effect.gen(function* () {
+    const model = yield* store.model
+    const pinned = forkedTurns(model)
+    const targets: Array<SweepTarget> = []
+    for (const workspace of model.workspaces.values()) {
+      if (!workspace.isGitRepo) continue
+      const sessions = yield* Effect.forEach(
+        [...model.sessions.values()].filter((r) => r.session.workspaceId === workspace.id),
+        (record) =>
+          checkpointSession(
+            record,
+            pinned,
+            record.session.state === "archived" ? Date.parse(record.session.updatedAt) : null,
+          ),
+      )
+      targets.push({ repoPath: workspace.path, sessions })
+    }
+    return targets
+  })
 
   // ── Terminal hand-off ────────────────────────────────────────────────────
 
@@ -1033,12 +1156,19 @@ const make = Effect.gen(function* () {
           ? yield* findTurn(command.fromSessionId, command.fromTurnId).pipe(Effect.orDie)
           : null,
     }
+    let before: ReadModel | null = null
     const result = yield* store
-      .commit({ commandId, decide: (model) => decide(model, command, ctx) })
+      .commit({
+        commandId,
+        decide: (model) => {
+          before = model
+          return decide(model, command, ctx)
+        },
+      })
       .pipe(Effect.catchTag("ServiceError", (error) => Effect.die(error)))
     if (result._tag === "Committed") {
       const sessionId = sessionOfCommand(command)
-      const reaction = react(command, result).pipe(
+      const reaction = react(command, result, before ?? result.model).pipe(
         Effect.catchCause((cause) => Effect.logError(`reacting to ${command._tag} failed`, cause)),
       )
       yield* Effect.forkIn(
@@ -1247,6 +1377,19 @@ const make = Effect.gen(function* () {
     collect: () => Effect.succeed({ fds: {}, children: {} }),
     beforeExec: prepareForUpgrade,
   })
+
+  if (config.checkpointSweepInterval !== null) {
+    yield* Effect.forkIn(
+      runCheckpointSweeper({
+        targets: checkpointTargets,
+        policy: checkpointPolicy,
+        ...(config.checkpointSweepInterval === undefined
+          ? {}
+          : { interval: config.checkpointSweepInterval }),
+      }),
+      engineScope,
+    )
+  }
 
   yield* Effect.addFinalizer(() =>
     Effect.forEach([...live.keys()], (id) => stopHarness(id), { discard: true }),

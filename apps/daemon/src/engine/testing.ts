@@ -15,6 +15,7 @@ import {
   type SessionId,
 } from "@polaris/protocol"
 import { type Cause, Duration, Effect, Layer, Queue, Stream } from "effect"
+import type { CheckpointPolicy } from "../git/prune.ts"
 import type {
   HarnessDriver,
   HarnessEvent,
@@ -244,6 +245,9 @@ export const engineLayer = (options: {
   readonly fakes: Fakes
   readonly drivers: ReadonlyArray<FakeDriver>
   readonly idleTimeout?: Duration.Input
+  readonly checkpointPolicy?: CheckpointPolicy
+  /** The checkpoint sweeper is off unless a test sets this. */
+  readonly checkpointSweepInterval?: Duration.Input
   /** Items buffered per live subscriber (StoreConfig). */
   readonly subscriberCapacity?: number
 }) => {
@@ -256,7 +260,13 @@ export const engineLayer = (options: {
     Layer.provideMerge(store),
     Layer.provide(fakeServices(options.fakes, options.drivers)),
     Layer.provide(
-      Layer.succeed(EngineConfig)({ idleTimeout: options.idleTimeout ?? Duration.minutes(30) }),
+      Layer.succeed(EngineConfig)({
+        idleTimeout: options.idleTimeout ?? Duration.minutes(30),
+        checkpointSweepInterval: options.checkpointSweepInterval ?? null,
+        ...(options.checkpointPolicy === undefined
+          ? {}
+          : { checkpointPolicy: options.checkpointPolicy }),
+      }),
     ),
   )
 }
