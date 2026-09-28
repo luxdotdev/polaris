@@ -139,6 +139,8 @@ const build = async (platform: Platform, version: string) => {
     process.execPath,
     "build",
     join(daemonDir, "src", "main.ts"),
+    // The fff worker (apps/daemon/src/files/search/fff.ts) is its own entrypoint.
+    join(daemonDir, "src", "files", "search", "fffWorker.ts"),
     "--compile",
     `--target=${target}`,
     "--minify",

@@ -189,6 +189,25 @@ describe("FileSearch lifecycle", () => {
     )
   })
 
+  test("fff's worker starts with the first index and stops with the last", async () => {
+    const { fffWorkerRunning } = await import("./search/fff.ts")
+    const root = await fixture()
+    expect(fffWorkerRunning()).toBe(false)
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const search = yield* FileSearch
+          yield* search.searchPaths(root, "readme", 1)
+          expect(yield* search.backendOf(root)).toBe("fff")
+          expect(fffWorkerRunning()).toBe(true)
+          yield* Effect.sleep("150 millis")
+          expect(yield* search.backendOf(root)).toBeNull()
+        }).pipe(Effect.provide(FileSearchLive({ idleMs: 50, sweepMs: 20 }))),
+      ),
+    )
+    await waitFor(() => !fffWorkerRunning(), "the fff worker to stop")
+  })
+
   test("an index with a watcher is kept while idle", async () => {
     const root = await fixture()
     await Effect.runPromise(

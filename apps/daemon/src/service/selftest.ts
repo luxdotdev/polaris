@@ -33,9 +33,21 @@ export const selfTest = async (): Promise<SelfTestResult> => {
     try {
       const hits = await backend.searchPaths("selftestneedle", 5)
       const found = hits.some((hit) => hit.path.endsWith("polaris-selftest-needle.txt"))
+      // A regex grep: fff's worker (its own entrypoint in the binary) and the literal narrowing.
+      const grep = await backend.grep({
+        pattern: "nee+dle$",
+        regex: true,
+        caseSensitive: false,
+        limit: 5,
+      })
+      const grepped = grep.length === 1 && grep[0]!.path.endsWith("polaris-selftest-needle.txt")
+      const ok = found && grepped
       return {
-        ok: found,
-        lines: [versionLine(), found ? "fff: ok" : `fff: loaded but search found nothing`],
+        ok,
+        lines: [
+          versionLine(),
+          ok ? "fff: ok" : `fff: loaded but ${found ? "grep" : "search"} found nothing`,
+        ],
       }
     } finally {
       backend.dispose()
