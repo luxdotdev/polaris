@@ -407,3 +407,10 @@ export const makeWire = Effect.fnUntraced(function* (
     }),
   } satisfies Wire
 })
+
+/**
+ * Exit status of `polaris bridge` when nothing is listening on the Daemon
+ * socket (EX_UNAVAILABLE), so a Client can tell "no Daemon" apart from an SSH
+ * failure and show the Host as Needs Attention.
+ */
+export const BRIDGE_EXIT_NO_DAEMON = 69
