@@ -2,6 +2,8 @@
  * The one way the Daemon runs git: the Host's own `git` CLI, so the user's
  * config, credentials and hooks apply. No JS git implementation.
  */
+import { existsSync } from "node:fs"
+import { dirname, join, resolve } from "node:path"
 import { Effect } from "effect"
 import { ServiceError } from "../services.ts"
 
@@ -106,8 +108,27 @@ export const gitTextEffect = (cwd: string, args: ReadonlyArray<string>, options:
       }),
   })
 
+/**
+ * Whether `cwd` could be inside a git work tree: some directory from `cwd` up
+ * has a `.git` (a directory, or the file a worktree or submodule has). When
+ * none does, git can't find a work tree either, so callers skip spawning it.
+ * With `GIT_DIR` or `GIT_WORK_TREE` set, git doesn't look for `.git`: always
+ * true then.
+ */
+export const mayBeInWorkTree = (cwd: string): boolean => {
+  if (process.env.GIT_DIR !== undefined || process.env.GIT_WORK_TREE !== undefined) return true
+  let dir = resolve(cwd)
+  for (;;) {
+    if (existsSync(join(dir, ".git"))) return true
+    const parent = dirname(dir)
+    if (parent === dir) return false
+    dir = parent
+  }
+}
+
 /** The repository's top level, or null when `cwd` is not inside a git work tree. */
 export const findRepoRoot = async (cwd: string): Promise<string | null> => {
+  if (!mayBeInWorkTree(cwd)) return null
   const result = await runGitRaw(cwd, ["rev-parse", "--show-toplevel"]).catch(() => null)
   if (result === null || result.code !== 0) return null
   const root = decoder.decode(result.stdout).trim()
