@@ -3,18 +3,47 @@
  * belongs to the Daemon, not to a Client: it outlives Client disconnects, any
  * number of Clients can attach at once, and a late attacher first gets the
  * recent scrollback replayed.
+ *
+ * Across a Daemon restart:
+ * - **execve upgrade**: terminals keep running. Before the exec, each PTY
+ *   master fd is kept open (close-on-exec cleared) and the shells stay our
+ *   children (same PID). The new image re-adopts the master fd (read with
+ *   `Bun.file(fd).stream()`, written with `writeSync`, resized with `stty` on
+ *   the slave side) and reaps the shell itself. Scrollback and exit states
+ *   travel in `~/.polaris/terminals-handoff.json`.
+ * - **crash, service restart, reboot**: the PTY master closes with the
+ *   process, so the shells get SIGHUP and the terminals end. Every open
+ *   terminal is recorded in `~/.polaris/terminals.json`; the next Daemon
+ *   lists those as ended (`endedBy: "daemon-restart"`), so a Client that
+ *   re-attaches gets `Exit { code: null }` instead of NotFound, and can open
+ *   a new terminal in the same `cwd`.
  */
 import { randomUUID } from "node:crypto"
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+  writeSync,
+} from "node:fs"
 import { stat } from "node:fs/promises"
 import { userInfo } from "node:os"
+import { dirname, join } from "node:path"
 import { FileError, NotFound, type TerminalId } from "@polaris/protocol"
-import { Context, Effect, Layer, Queue, Stream } from "effect"
+import { Context, Effect, Layer, Queue, Schema, Stream } from "effect"
 import { resolveHostPath, toFsFailure } from "../files/fs.ts"
+import { paths } from "../paths.ts"
+import * as libc from "../service/libc.ts"
+import { registerHandoffContributor, takeHandoff } from "../service/upgrade.ts"
 
 /** Scrollback kept per terminal for replay to late attachers. */
 export const SCROLLBACK_BYTES = 256 * 1024
 /** After the process exits, how long to wait for the PTY to drain before reporting Exit. */
 const DRAIN_AFTER_EXIT_MS = 200
+/** How often an adopted shell (not known to Bun) is checked for exit. */
+const REAP_INTERVAL_MS = 200
 
 export type TerminalItem =
   | { readonly _tag: "Output"; readonly data: Uint8Array }
@@ -69,15 +98,30 @@ export interface TerminalInfo {
   readonly pid: number
   /** Null while running. */
   readonly exit: { readonly code: number | null } | null
+  /** Why it ended: its process exited, or the Daemon restarted (crash, service restart, reboot). */
+  readonly endedBy: "exit" | "daemon-restart" | null
+}
+
+/** The PTY side of a terminal: Bun's own, or a master fd adopted across an upgrade. */
+interface Pty {
+  readonly write: (data: Uint8Array) => void
+  readonly resize: (cols: number, rows: number) => void
+  readonly close: () => void
 }
 
 interface Live {
-  readonly info: Omit<TerminalInfo, "exit">
-  readonly terminal: Bun.Terminal
-  readonly process: Bun.Subprocess
+  readonly info: Omit<TerminalInfo, "exit" | "endedBy">
+  pty: Pty | null
+  /** The PTY master fd, when known; what an upgrade hands over. */
+  masterFd: number | null
+  /** The slave device (`/dev/pts/3`), for resizing an adopted PTY. */
+  slave: string | null
+  cols: number
+  rows: number
   readonly scrollback: Scrollback
   readonly listeners: Set<(item: TerminalItem) => void>
   exit: { readonly code: number | null } | null
+  endedBy: TerminalInfo["endedBy"]
 }
 
 export class Terminals extends Context.Service<
@@ -103,172 +147,515 @@ export class Terminals extends Context.Service<
 /** The Host user's login shell: the passwd entry first (launchd/systemd may not set SHELL). */
 export const loginShell = (): string => {
   try {
+    // Bun reports "unknown" for fields it could not read (seen in Alpine and Debian containers).
     const shell = userInfo().shell
-    if (shell) return shell
+    if (shell?.startsWith("/")) return shell
   } catch {
     // No passwd entry (some containers).
   }
+  try {
+    const uid = process.getuid?.()
+    const entry = readFileSync("/etc/passwd", "utf8")
+      .split("\n")
+      .map((line) => line.split(":"))
+      .find((fields) => fields[2] === String(uid))
+    if (entry?.[6]?.startsWith("/")) return entry[6]
+  } catch {}
   return process.env.SHELL || "/bin/sh"
 }
 
 const clampSize = (n: number, fallback: number) =>
   Number.isFinite(n) && n > 0 ? Math.min(Math.floor(n), 10_000) : fallback
 
-export const makeTerminals = Effect.gen(function* () {
-  const terminals = new Map<string, Live>()
+// ── Persistence ────────────────────────────────────────────────────────────
 
-  const notFound = (id: string) => new NotFound({ what: "terminal", id })
-  const lookup = (id: TerminalId) =>
-    Effect.suspend(() => {
-      const live = terminals.get(id)
-      return live === undefined ? Effect.fail(notFound(id)) : Effect.succeed(live)
-    })
+/** A terminal as recorded on disk (`terminals.json`), so the next Daemon knows it ended. */
+const TerminalRecord = Schema.Struct({
+  id: Schema.String,
+  cwd: Schema.String,
+  argv: Schema.Array(Schema.String),
+  pid: Schema.Int,
+})
 
-  const broadcast = (live: Live, item: TerminalItem) => {
-    for (const listener of live.listeners) listener(item)
+/** A terminal handed across an execve upgrade (`terminals-handoff.json`). */
+const HandedTerminal = Schema.Struct({
+  ...TerminalRecord.fields,
+  cols: Schema.Int,
+  rows: Schema.Int,
+  slave: Schema.NullOr(Schema.String),
+  exit: Schema.NullOr(Schema.Struct({ code: Schema.NullOr(Schema.Int) })),
+  endedBy: Schema.NullOr(Schema.Literals(["exit", "daemon-restart"])),
+  /** Base64 of the scrollback. */
+  scrollback: Schema.String,
+})
+
+const decodeRecords = Schema.decodeUnknownOption(
+  Schema.fromJsonString(Schema.Array(TerminalRecord)),
+)
+const decodeHanded = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.Array(HandedTerminal)))
+
+const readJson = <A>(path: string, decode: (raw: string) => { _tag: string; value?: A }) => {
+  try {
+    const decoded = decode(readFileSync(path, "utf8"))
+    return decoded._tag === "Some" ? (decoded.value as A) : null
+  } catch {
+    return null
   }
+}
 
-  const finish = (live: Live, code: number | null) => {
-    if (live.exit !== null) return
-    live.exit = { code }
-    broadcast(live, { _tag: "Exit", code })
-    live.listeners.clear()
+const writeJsonAtomic = (path: string, value: unknown) => {
+  mkdirSync(dirname(path), { recursive: true })
+  const temporary = `${path}.${process.pid}.tmp`
+  writeFileSync(temporary, JSON.stringify(value), { mode: 0o600 })
+  renameSync(temporary, path)
+}
+
+const handoffName = (id: string) => `terminal:${id}`
+
+export interface TerminalsOptions {
+  /**
+   * Where `terminals.json` and `terminals-handoff.json` live. Null keeps
+   * terminals in memory only (tests), and then nothing is handed across an
+   * upgrade either.
+   */
+  readonly stateDir: string | null
+}
+
+// ── PTY backends ───────────────────────────────────────────────────────────
+
+/**
+ * Finds the PTY master fd Bun opened for a terminal: the lowest fd that was
+ * not open before the spawn and has a slave device. Bun keeps a few dups of
+ * the master; any one will do, the others close on exec.
+ */
+const findMaster = (before: ReadonlySet<number>): { fd: number; slave: string } | null => {
+  for (const fd of libc.openFds()) {
+    if (before.has(fd)) continue
+    const slave = libc.ptsname(fd)
+    if (slave !== null) return { fd, slave }
   }
+  return null
+}
 
-  const kill = (live: Live) => {
-    if (live.exit === null) {
+const openFdsOrNull = (): Set<number> | null => {
+  try {
+    return new Set(libc.openFds())
+  } catch {
+    return null
+  }
+}
+
+const isAgain = (error: unknown) =>
+  (error as { code?: string } | null)?.code === "EAGAIN" ||
+  (error as { code?: string } | null)?.code === "EWOULDBLOCK"
+
+/**
+ * A PTY master fd inherited across an execve. Bun opened it non-blocking, so
+ * writes that would block are queued and retried; reads go through Bun's own
+ * file reader, which waits for readiness. `stty` on the slave device resizes
+ * it (`ioctl(TIOCSWINSZ)` is variadic, which bun:ffi can't call portably).
+ */
+const adoptPty = (options: {
+  readonly fd: number
+  readonly slave: string | null
+  readonly onData: (chunk: Uint8Array) => void
+  readonly onClosed: () => void
+}): Pty => {
+  let closed = false
+  const pending: Array<Uint8Array> = []
+  let flushing: ReturnType<typeof setTimeout> | null = null
+  const flush = () => {
+    flushing = null
+    while (!closed && pending.length > 0) {
+      const chunk = pending[0]!
       try {
-        live.process.kill("SIGHUP")
-      } catch {
-        // Already gone.
-      }
-    }
-    live.terminal.close()
-  }
-
-  yield* Effect.addFinalizer(() =>
-    Effect.sync(() => {
-      for (const live of terminals.values()) kill(live)
-      terminals.clear()
-    }),
-  )
-
-  const open = Effect.fn("Terminals.open")(function* (options: {
-    readonly cwd: string
-    readonly cols: number
-    readonly rows: number
-    readonly argv: ReadonlyArray<string> | null
-  }) {
-    const cwd = resolveHostPath(options.cwd)
-    yield* Effect.tryPromise({
-      try: async () => {
-        const stats = await stat(cwd)
-        if (!stats.isDirectory()) {
-          throw Object.assign(new Error(`not a directory: ${cwd}`), { code: "ENOTDIR" })
-        }
-      },
-      catch: (cause) => {
-        const failure = toFsFailure(cwd, cause)
-        return new FileError({ path: cwd, code: failure.code, message: failure.message })
-      },
-    })
-    const argv =
-      options.argv !== null && options.argv.length > 0 ? [...options.argv] : [loginShell(), "-l"]
-    const id = `term_${randomUUID()}` as TerminalId
-    const scrollback = new Scrollback(SCROLLBACK_BYTES)
-    const listeners = new Set<(item: TerminalItem) => void>()
-
-    const spawned = yield* Effect.try({
-      try: () => {
-        const proc = Bun.spawn(argv, {
-          cwd,
-          env: { ...process.env, TERM: "xterm-256color", COLORTERM: "truecolor" },
-          terminal: {
-            cols: clampSize(options.cols, 80),
-            rows: clampSize(options.rows, 24),
-            name: "xterm-256color",
-            data: (_terminal, data) => {
-              const chunk = new Uint8Array(data)
-              scrollback.push(chunk)
-              for (const listener of listeners) listener({ _tag: "Output", data: chunk })
-            },
-          },
-        })
-        return proc
-      },
-      catch: (cause) =>
-        new FileError({
-          path: argv[0] ?? cwd,
-          code: toFsFailure(cwd, cause).code,
-          message: cause instanceof Error ? cause.message : String(cause),
-        }),
-    })
-
-    const live: Live = {
-      info: { id, cwd, argv, pid: spawned.pid },
-      terminal: spawned.terminal!,
-      process: spawned,
-      scrollback,
-      listeners,
-      exit: null,
-    }
-    terminals.set(id, live)
-    void spawned.exited.then(() => {
-      // Let the PTY drain the last output before reporting the exit.
-      setTimeout(() => finish(live, spawned.exitCode), DRAIN_AFTER_EXIT_MS)
-    })
-    return id
-  })
-
-  const attach = (id: TerminalId): Stream.Stream<TerminalItem, NotFound> =>
-    Stream.callback<TerminalItem, NotFound>((queue) =>
-      Effect.gen(function* () {
-        const live = yield* lookup(id)
-        // Synchronous: no output can slip between the replay and the subscription.
-        const replay = live.scrollback.snapshot()
-        if (replay.byteLength > 0) Queue.offerUnsafe(queue, { _tag: "Output", data: replay })
-        if (live.exit !== null) {
-          Queue.offerUnsafe(queue, { _tag: "Exit", code: live.exit.code })
-          Queue.endUnsafe(queue)
+        const written = writeSync(options.fd, chunk)
+        if (written < chunk.byteLength) pending[0] = chunk.subarray(written)
+        else pending.shift()
+      } catch (error) {
+        if (isAgain(error)) {
+          flushing = setTimeout(flush, 10)
           return
         }
-        const listener = (item: TerminalItem) => {
-          Queue.offerUnsafe(queue, item)
-          if (item._tag === "Exit") Queue.endUnsafe(queue)
+        pending.length = 0
+      }
+    }
+  }
+  void (async () => {
+    try {
+      for await (const chunk of Bun.file(options.fd).stream()) options.onData(new Uint8Array(chunk))
+    } catch {
+      // EIO on Linux once the slave side is gone: the PTY's end of file.
+    }
+    options.onClosed()
+  })()
+  return {
+    write: (data) => {
+      if (closed) return
+      pending.push(data)
+      if (flushing === null) flush()
+    },
+    resize: (cols, rows) => {
+      if (closed || options.slave === null) return
+      const flag = process.platform === "darwin" ? "-f" : "-F"
+      Bun.spawn(["stty", flag, options.slave, "cols", String(cols), "rows", String(rows)], {
+        stdin: "ignore",
+        stdout: "ignore",
+        stderr: "ignore",
+      })
+    },
+    close: () => {
+      if (closed) return
+      closed = true
+      if (flushing !== null) clearTimeout(flushing)
+      try {
+        libc.closeFd(options.fd)
+      } catch {}
+    },
+  }
+}
+
+// ── The service ────────────────────────────────────────────────────────────
+
+export const makeTerminalsWith = (options: TerminalsOptions) =>
+  Effect.gen(function* () {
+    const terminals = new Map<string, Live>()
+    const recordsFile = options.stateDir === null ? null : join(options.stateDir, "terminals.json")
+    const handoffFile =
+      options.stateDir === null ? null : join(options.stateDir, "terminals-handoff.json")
+
+    /** Record running terminals, so the next Daemon knows which ones a crash ended. */
+    const persist = () => {
+      if (recordsFile === null) return
+      const running = [...terminals.values()]
+        .filter((live) => live.exit === null)
+        .map((live) => ({ ...live.info, argv: [...live.info.argv] }))
+      try {
+        writeJsonAtomic(recordsFile, running)
+      } catch {
+        // Best effort: an unwritable home must not break terminals.
+      }
+    }
+
+    const notFound = (id: string) => new NotFound({ what: "terminal", id })
+    const lookup = (id: TerminalId) =>
+      Effect.suspend(() => {
+        const live = terminals.get(id)
+        return live === undefined ? Effect.fail(notFound(id)) : Effect.succeed(live)
+      })
+
+    const broadcast = (live: Live, item: TerminalItem) => {
+      for (const listener of live.listeners) listener(item)
+    }
+
+    const output = (live: Live, chunk: Uint8Array) => {
+      live.scrollback.push(chunk)
+      broadcast(live, { _tag: "Output", data: chunk })
+    }
+
+    const finish = (live: Live, code: number | null, endedBy: TerminalInfo["endedBy"] = "exit") => {
+      if (live.exit !== null) return
+      live.exit = { code }
+      live.endedBy = endedBy
+      broadcast(live, { _tag: "Exit", code })
+      live.listeners.clear()
+      persist()
+    }
+
+    const kill = (live: Live) => {
+      if (live.exit === null) {
+        try {
+          process.kill(live.info.pid, "SIGHUP")
+        } catch {
+          // Already gone.
         }
-        live.listeners.add(listener)
-        yield* Effect.addFinalizer(() => Effect.sync(() => live.listeners.delete(listener)))
+      }
+      live.pty?.close()
+      live.pty = null
+      live.masterFd = null
+    }
+
+    // Watches an adopted shell, which the new image's Bun doesn't know about.
+    const reapers = new Set<ReturnType<typeof setInterval>>()
+    const watchAdopted = (live: Live) => {
+      const timer = setInterval(() => {
+        let status: number | null
+        try {
+          status = libc.reapChild(live.info.pid)
+        } catch {
+          status = -1 // ECHILD: someone else reaped it; the code is lost.
+        }
+        if (status === null) return
+        clearInterval(timer)
+        reapers.delete(timer)
+        const code = status === -1 ? null : libc.exitCodeOf(status)
+        setTimeout(() => finish(live, code), DRAIN_AFTER_EXIT_MS)
+      }, REAP_INTERVAL_MS)
+      reapers.add(timer)
+    }
+
+    // ── Start-up: adopt what an upgrade handed over, or mark what a crash ended.
+    const handoff =
+      options.stateDir === null ? null : yield* takeHandoff().pipe(Effect.orElseSucceed(() => null))
+    const handed =
+      handoff !== null && handoffFile !== null ? readJson(handoffFile, decodeHanded) : null
+    if (handoffFile !== null) rmSync(handoffFile, { force: true })
+    if (handed !== null && handoff !== null) {
+      for (const record of handed as ReadonlyArray<typeof HandedTerminal.Type>) {
+        const scrollback = new Scrollback(SCROLLBACK_BYTES)
+        const replay = Buffer.from(record.scrollback, "base64")
+        if (replay.byteLength > 0) scrollback.push(new Uint8Array(replay))
+        const live: Live = {
+          info: {
+            id: record.id as TerminalId,
+            cwd: record.cwd,
+            argv: record.argv,
+            pid: record.pid,
+          },
+          pty: null,
+          masterFd: null,
+          slave: record.slave,
+          cols: record.cols,
+          rows: record.rows,
+          scrollback,
+          listeners: new Set(),
+          exit: record.exit,
+          endedBy: record.endedBy,
+        }
+        terminals.set(record.id, live)
+        const fd = handoff.fds[handoffName(record.id)]
+        if (live.exit !== null) continue
+        if (fd === undefined) {
+          finish(live, null, "daemon-restart")
+          continue
+        }
+        live.masterFd = fd
+        live.pty = adoptPty({
+          fd,
+          slave: record.slave,
+          onData: (chunk) => output(live, chunk),
+          onClosed: () => {},
+        })
+        watchAdopted(live)
+      }
+    } else if (recordsFile !== null) {
+      const ended = readJson(recordsFile, decodeRecords) ?? []
+      for (const record of ended as ReadonlyArray<typeof TerminalRecord.Type>) {
+        terminals.set(record.id, {
+          info: {
+            id: record.id as TerminalId,
+            cwd: record.cwd,
+            argv: record.argv,
+            pid: record.pid,
+          },
+          pty: null,
+          masterFd: null,
+          slave: null,
+          cols: 80,
+          rows: 24,
+          scrollback: new Scrollback(SCROLLBACK_BYTES),
+          listeners: new Set(),
+          exit: { code: null },
+          endedBy: "daemon-restart",
+        })
+      }
+    }
+    persist()
+
+    // ── Upgrade hand-off: keep every master fd and shell, write the rest to disk.
+    if (handoffFile !== null) {
+      yield* registerHandoffContributor({
+        collect: () =>
+          Effect.sync(() => {
+            const fds: Record<string, number> = {}
+            const children: Record<string, number> = {}
+            for (const live of terminals.values()) {
+              if (live.exit !== null || live.masterFd === null) continue
+              fds[handoffName(live.info.id)] = live.masterFd
+              children[handoffName(live.info.id)] = live.info.pid
+            }
+            return { fds, children }
+          }),
+        beforeExec: Effect.sync(() =>
+          writeJsonAtomic(
+            handoffFile,
+            [...terminals.values()].map((live) => ({
+              ...live.info,
+              argv: [...live.info.argv],
+              cols: live.cols,
+              rows: live.rows,
+              slave: live.slave,
+              exit: live.exit,
+              endedBy: live.endedBy,
+              scrollback: Buffer.from(live.scrollback.snapshot()).toString("base64"),
+            })),
+          ),
+        ),
+        abort: Effect.sync(() => rmSync(handoffFile, { force: true })),
+      })
+    }
+
+    yield* Effect.addFinalizer(() =>
+      Effect.sync(() => {
+        for (const timer of reapers) clearInterval(timer)
+        for (const live of terminals.values()) kill(live)
+        terminals.clear()
+        // A clean shutdown ended every terminal itself; nothing to report next time.
+        if (recordsFile !== null && existsSync(recordsFile)) rmSync(recordsFile, { force: true })
       }),
     )
 
-  return Terminals.of({
-    open,
-    attach,
-    input: (id, data) =>
-      Effect.flatMap(lookup(id), (live) =>
-        Effect.sync(() => {
-          if (!live.terminal.closed) live.terminal.write(data)
-        }),
-      ),
-    resize: (id, cols, rows) =>
-      Effect.flatMap(lookup(id), (live) =>
-        Effect.sync(() => {
-          if (!live.terminal.closed) live.terminal.resize(clampSize(cols, 80), clampSize(rows, 24))
-        }),
-      ),
-    close: (id) =>
-      Effect.flatMap(lookup(id), (live) =>
-        Effect.sync(() => {
-          terminals.delete(id)
-          kill(live)
-          finish(live, null)
-        }),
-      ),
-    list: Effect.sync(() =>
-      [...terminals.values()].map((live) => ({ ...live.info, exit: live.exit })),
-    ),
-  })
-})
+    const open = Effect.fn("Terminals.open")(function* (openOptions: {
+      readonly cwd: string
+      readonly cols: number
+      readonly rows: number
+      readonly argv: ReadonlyArray<string> | null
+    }) {
+      const cwd = resolveHostPath(openOptions.cwd)
+      yield* Effect.tryPromise({
+        try: async () => {
+          const stats = await stat(cwd)
+          if (!stats.isDirectory()) {
+            throw Object.assign(new Error(`not a directory: ${cwd}`), { code: "ENOTDIR" })
+          }
+        },
+        catch: (cause) => {
+          const failure = toFsFailure(cwd, cause)
+          return new FileError({ path: cwd, code: failure.code, message: failure.message })
+        },
+      })
+      const argv =
+        openOptions.argv !== null && openOptions.argv.length > 0
+          ? [...openOptions.argv]
+          : [loginShell(), "-l"]
+      const id = `term_${randomUUID()}` as TerminalId
+      const cols = clampSize(openOptions.cols, 80)
+      const rows = clampSize(openOptions.rows, 24)
+      let live: Live | undefined
 
-/** Terminals are killed when this layer's scope closes (Daemon shutdown). */
+      const spawned = yield* Effect.try({
+        try: () => {
+          // Synchronous from here to findMaster: no other fd can appear in between.
+          const before = handoffFile === null ? null : openFdsOrNull()
+          const proc = Bun.spawn(argv, {
+            cwd,
+            env: { ...process.env, TERM: "xterm-256color", COLORTERM: "truecolor" },
+            terminal: {
+              cols,
+              rows,
+              name: "xterm-256color",
+              data: (_terminal, data) => {
+                if (live !== undefined) output(live, new Uint8Array(data))
+              },
+            },
+          })
+          let master: { fd: number; slave: string } | null = null
+          try {
+            master = before === null ? null : findMaster(before)
+          } catch {}
+          return { proc, master }
+        },
+        catch: (cause) =>
+          new FileError({
+            path: argv[0] ?? cwd,
+            code: toFsFailure(cwd, cause).code,
+            message: cause instanceof Error ? cause.message : String(cause),
+          }),
+      })
+
+      const terminal = spawned.proc.terminal!
+      live = {
+        info: { id, cwd, argv, pid: spawned.proc.pid },
+        pty: {
+          write: (data) => {
+            if (!terminal.closed) terminal.write(data)
+          },
+          resize: (c, r) => {
+            if (!terminal.closed) terminal.resize(c, r)
+          },
+          close: () => terminal.close(),
+        },
+        masterFd: spawned.master?.fd ?? null,
+        slave: spawned.master?.slave ?? null,
+        cols,
+        rows,
+        scrollback: new Scrollback(SCROLLBACK_BYTES),
+        listeners: new Set(),
+        exit: null,
+        endedBy: null,
+      }
+      const opened = live
+      terminals.set(id, opened)
+      persist()
+      void spawned.proc.exited.then(() => {
+        // Let the PTY drain the last output before reporting the exit.
+        setTimeout(() => finish(opened, spawned.proc.exitCode), DRAIN_AFTER_EXIT_MS)
+      })
+      return id
+    })
+
+    const attach = (id: TerminalId): Stream.Stream<TerminalItem, NotFound> =>
+      Stream.callback<TerminalItem, NotFound>((queue) =>
+        Effect.gen(function* () {
+          const live = yield* lookup(id)
+          // Synchronous: no output can slip between the replay and the subscription.
+          const replay = live.scrollback.snapshot()
+          if (replay.byteLength > 0) Queue.offerUnsafe(queue, { _tag: "Output", data: replay })
+          if (live.exit !== null) {
+            Queue.offerUnsafe(queue, { _tag: "Exit", code: live.exit.code })
+            Queue.endUnsafe(queue)
+            return
+          }
+          const listener = (item: TerminalItem) => {
+            Queue.offerUnsafe(queue, item)
+            if (item._tag === "Exit") Queue.endUnsafe(queue)
+          }
+          live.listeners.add(listener)
+          yield* Effect.addFinalizer(() => Effect.sync(() => live.listeners.delete(listener)))
+        }),
+      )
+
+    return Terminals.of({
+      open,
+      attach,
+      input: (id, data) =>
+        Effect.flatMap(lookup(id), (live) => Effect.sync(() => live.pty?.write(data))),
+      resize: (id, cols, rows) =>
+        Effect.flatMap(lookup(id), (live) =>
+          Effect.sync(() => {
+            live.cols = clampSize(cols, 80)
+            live.rows = clampSize(rows, 24)
+            live.pty?.resize(live.cols, live.rows)
+          }),
+        ),
+      close: (id) =>
+        Effect.flatMap(lookup(id), (live) =>
+          Effect.sync(() => {
+            terminals.delete(id)
+            kill(live)
+            finish(live, null, live.endedBy ?? "exit")
+            persist()
+          }),
+        ),
+      list: Effect.sync(() =>
+        [...terminals.values()].map((live) => ({
+          ...live.info,
+          exit: live.exit,
+          endedBy: live.endedBy,
+        })),
+      ),
+    })
+  })
+
+/** In-memory terminals, killed when this layer's scope closes. For tests and embedding. */
+export const makeTerminals = makeTerminalsWith({ stateDir: null })
 export const TerminalsLive = Layer.effect(Terminals, makeTerminals)
+
+/**
+ * The Daemon's terminals: recorded under `~/.polaris/` so a restart reports
+ * them as ended, and handed across execve upgrades.
+ */
+export const TerminalsDaemonLive = Layer.effect(
+  Terminals,
+  Effect.suspend(() => makeTerminalsWith({ stateDir: paths().root })),
+)

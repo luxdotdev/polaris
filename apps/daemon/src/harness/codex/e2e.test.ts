@@ -11,6 +11,7 @@ import { join } from "node:path"
 import { SessionId, TurnId } from "@polaris/protocol"
 import { Effect, Stream } from "effect"
 import type { HarnessEvent } from "../HarnessDriver.ts"
+import { defaultStateFile, stopAppServer } from "./AppServer.ts"
 import { makeCodexDriver } from "./CodexDriver.ts"
 
 const enabled = process.env.POLARIS_E2E_CODEX === "1"
@@ -65,6 +66,11 @@ test.skipIf(!enabled)(
         `unix://${join(socketDir, "s.sock")}`,
       ])
     } finally {
+      // The app-server outlives its Daemon by design; this test owns this one.
+      const socketPath = join(socketDir, "s.sock")
+      await Effect.runPromise(
+        stopAppServer({ stateFile: defaultStateFile(socketPath), socketPath }),
+      )
       rmSync(repo, { recursive: true, force: true })
       rmSync(socketDir, { recursive: true, force: true })
     }

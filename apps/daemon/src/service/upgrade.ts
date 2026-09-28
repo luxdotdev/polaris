@@ -39,7 +39,7 @@ import { Effect, Schema } from "effect"
 import { paths } from "../paths.ts"
 import { CommandRunner } from "./CommandRunner.ts"
 import * as libc from "./libc.ts"
-import { parseVersionLine, VERSION } from "./platform.ts"
+import { parseVersionLine, runtimePlatform, VERSION } from "./platform.ts"
 
 export class UpgradeError extends Schema.TaggedError<UpgradeError>()("UpgradeError", {
   step: Schema.String,
@@ -324,7 +324,7 @@ export const validateBinary = Effect.fn("validateBinary")(function* (binary: str
       message: `\`${binary} version\` exited ${result.code}: ${(result.stderr || result.stdout).trim()}`,
     })
   }
-  const platform = `${process.platform}-${process.arch}`
+  const platform = runtimePlatform()
   if (info.platform !== platform) {
     return yield* new UpgradeError({
       step: "validate",
@@ -345,6 +345,39 @@ export interface UpgradeHooks {
   readonly args?: ReadonlyArray<string>
 }
 
+/**
+ * A Daemon module with fds and children to carry across the exec (terminals'
+ * PTY masters and shells). Contributors are asked after `hooks.collect`, in
+ * registration order; names must be unique across contributors.
+ */
+export interface HandoffContributor {
+  readonly collect: () => Effect.Effect<Required<Omit<HandoffExtras, "requestId">>>
+  /** Last chance to write state for the new image (after collect, just before exec). */
+  readonly beforeExec?: Effect.Effect<void>
+  /** The exec failed: the old image keeps running, undo `beforeExec`. */
+  readonly abort?: Effect.Effect<void>
+}
+
+const contributors = new Set<HandoffContributor>()
+
+/** Register `contributor` for as long as the scope is open. */
+export const registerHandoffContributor = (contributor: HandoffContributor) =>
+  Effect.acquireRelease(
+    Effect.sync(() => contributors.add(contributor)),
+    () => Effect.sync(() => contributors.delete(contributor)),
+  )
+
+const collectContributors = Effect.gen(function* () {
+  const fds: Record<string, number> = {}
+  const children: Record<string, number> = {}
+  for (const contributor of contributors) {
+    const extras = yield* contributor.collect()
+    Object.assign(fds, extras.fds)
+    Object.assign(children, extras.children)
+  }
+  return { fds, children }
+})
+
 /** Validate `request` and exec into it. Returns only if the upgrade failed. */
 export const performUpgrade = Effect.fn("performUpgrade")(function* (
   request: UpgradeRequest,
@@ -361,17 +394,32 @@ export const performUpgrade = Effect.fn("performUpgrade")(function* (
         message: `${request.binary} reports ${info.version}, expected ${request.version}`,
       })
     }
-    const extras = hooks.collect ? yield* hooks.collect() : { fds: {}, children: {} }
+    const own = hooks.collect ? yield* hooks.collect() : { fds: {}, children: {} }
+    const contributed = yield* collectContributors
+    const extras = {
+      fds: { ...own.fds, ...contributed.fds },
+      children: { ...own.children, ...contributed.children },
+    }
     const listenerFd = hooks.listenerFd()
     if (hooks.beforeExec) yield* hooks.beforeExec
+    for (const contributor of contributors)
+      if (contributor.beforeExec) yield* contributor.beforeExec
+    const abortContributors = Effect.forEach(
+      [...contributors],
+      (contributor) => contributor.abort ?? Effect.void,
+      { discard: true },
+    )
     yield* status("exec")
-    const env = yield* prepareHandoff(listenerFd, { ...extras, requestId: request.requestId })
+    const env = yield* prepareHandoff(listenerFd, {
+      ...extras,
+      requestId: request.requestId,
+    }).pipe(Effect.tapError(() => abortContributors))
     const kept = [...(listenerFd === null ? [] : [listenerFd]), ...Object.values(extras.fds)]
     return yield* execInto({
       binary: request.binary,
       args: hooks.args ?? process.argv.slice(2),
       env,
-    }).pipe(Effect.tapError(() => abortHandoff(kept)))
+    }).pipe(Effect.tapError(() => Effect.andThen(abortHandoff(kept), abortContributors)))
   })
   return yield* attempt.pipe(
     Effect.tapError((error) => status("failed", `${error.step}: ${error.message}`)),

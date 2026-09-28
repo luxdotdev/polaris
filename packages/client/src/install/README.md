@@ -18,9 +18,10 @@ const result = yield* ensureDaemon(alias, builds, { trigger: "user", approvedSha
 
 ## Flow
 
-1. **Probe** (one round trip): `uname -s`, `uname -m`, and `~/.polaris/bin/current/polaris version`.
+1. **Probe** (one round trip): `uname -s`, `uname -m`, the C library on Linux (`libc=musl` when `/lib/ld-musl-*` exists or `ldd --version` says musl, plus a `missing=<lib>` line for each of `libstdc++.so.6` and `libgcc_s.so.1` not found in `/usr/lib` or `/lib`), and `~/.polaris/bin/current/polaris version`.
 2. **Plan**:
-   - `Unsupported` / `MissingBuild`: the Host is not a platform we ship, or its build is not bundled.
+   - `Unsupported` / `MissingBuild`: the Host is not a platform we ship, or its build is not bundled. A musl Host maps to `linux-x64-musl` / `linux-arm64-musl`, never to a glibc build (it would not run).
+   - `MissingLibraries` (`EnsureResult` `HostSetupNeeded`, shown as Needs Attention): a musl Host without `libstdc++` / `libgcc`, which Bun's musl runtime links dynamically. Installing them needs root, so the plan carries the exact `command` (`apk add libstdc++ libgcc`) for an administrator; then retry. Verified on Alpine 3.24 arm64: without them the binary fails to load (`Error loading shared library libstdc++.so.6`); with them `polaris selftest` prints `fff: ok`.
    - `UpToDate`, or `InstalledNewer`: the Host is ahead of this Client. It is never downgraded; capability negotiation decides.
    - `NeedsApproval`: no Daemon yet. It carries the **platform, version and SHA-256** for the one-time approval, shown inline on the Host as Needs Attention. A **background reconnect never installs**, even for an approved SHA (`reason: "background"`).
    - `Install`: no Daemon, the user asked, and this build's SHA-256 is in `approvedSha256`.
@@ -29,7 +30,7 @@ const result = yield* ensureDaemon(alias, builds, { trigger: "user", approvedSha
    - Install: `<upload>/polaris install --json`
    - Upgrade: `~/.polaris/bin/current/polaris upgrade <upload>/polaris --json` (execve hand-off, same PID; Harnesses keep running)
 
-   The upload directory is always removed afterwards. The JSON line the Daemon prints is returned in `applied.report`.
+   The upload directory is always removed afterwards. The JSON line the Daemon prints is returned in `applied.report`. Show its `notes` to the user; in particular `supervisor: "fallback"` means the Linux Host has no systemd user bus and the Daemon runs under Polaris' own supervisor, which only returns after a reboot if `autostart` includes `cron`.
 
 ## Tests
 
@@ -40,4 +41,5 @@ const result = yield* ensureDaemon(alias, builds, { trigger: "user", approvedSha
 - Storing approvals (`approvedSha256` per Host) belongs to the Desktop App.
 - Each file is a separate ssh invocation. Use ControlMaster (the connection workstream's multiplexed session) to avoid repeated handshakes.
 - Uploads are not resumable; a dropped connection re-uploads from the start.
-- `probeHost` trusts `uname`. A Linux Host with musl libc is reported as `linux-x64` / `linux-arm64`, but our builds need glibc.
+- musl `linux-x64-musl` is built but was only exercised under x64 emulation, where Bun crashes for lack of AVX (as its glibc build would); a real x64 Alpine Host is untested. Bun's `*-baseline` targets would cover CPUs without AVX.
+- CI does not build or selftest the musl binaries yet.

@@ -16,7 +16,7 @@ export class CommandRunner extends Context.Service<
   {
     readonly run: (
       argv: ReadonlyArray<string>,
-      options?: { readonly timeoutMs?: number },
+      options?: { readonly timeoutMs?: number; readonly stdin?: string },
     ) => Effect.Effect<CommandResult>
   }
 >()("polaris/daemon/service/CommandRunner") {
@@ -27,7 +27,7 @@ export class CommandRunner extends Context.Service<
         Effect.promise(async () => {
           try {
             const proc = Bun.spawn([...argv], {
-              stdin: "ignore",
+              stdin: options?.stdin === undefined ? "ignore" : new Blob([options.stdin]),
               stdout: "pipe",
               stderr: "pipe",
               timeout: options?.timeoutMs ?? 15_000,

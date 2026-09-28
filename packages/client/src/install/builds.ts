@@ -9,18 +9,44 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { Schema } from "effect"
 
-export const PLATFORMS = ["darwin-arm64", "linux-x64", "linux-arm64"] as const
+export const PLATFORMS = [
+  "darwin-arm64",
+  "linux-x64",
+  "linux-arm64",
+  "linux-x64-musl",
+  "linux-arm64-musl",
+] as const
 export type Platform = (typeof PLATFORMS)[number]
 
-/** Map `uname -s` / `uname -m` to a Daemon platform; null if we do not ship one. */
-export const platformFromUname = (os: string, arch: string): Platform | null => {
+/** A Linux Host's C library: glibc builds don't run on musl (Alpine) and vice versa. */
+export type Libc = "gnu" | "musl"
+
+/**
+ * Map `uname -s` / `uname -m` (and, on Linux, the C library) to a Daemon
+ * platform; null if we do not ship one.
+ */
+export const platformFromUname = (
+  os: string,
+  arch: string,
+  libc: Libc = "gnu",
+): Platform | null => {
   const system = os.trim().toLowerCase()
   const machine = arch.trim().toLowerCase()
+  const suffix = libc === "musl" ? "-musl" : ""
   if (system === "darwin" && (machine === "arm64" || machine === "aarch64")) return "darwin-arm64"
-  if (system === "linux" && (machine === "x86_64" || machine === "amd64")) return "linux-x64"
-  if (system === "linux" && (machine === "aarch64" || machine === "arm64")) return "linux-arm64"
+  if (system === "linux" && (machine === "x86_64" || machine === "amd64"))
+    return `linux-x64${suffix}` as Platform
+  if (system === "linux" && (machine === "aarch64" || machine === "arm64"))
+    return `linux-arm64${suffix}` as Platform
   return null
 }
+
+/**
+ * Shared libraries Bun's musl runtime links dynamically. Alpine's minimal
+ * images lack them; installing them needs root (`apk add libstdc++ libgcc`).
+ */
+export const MUSL_RUNTIME_LIBRARIES = ["libstdc++.so.6", "libgcc_s.so.1"] as const
+export const MUSL_RUNTIME_PACKAGES = ["libstdc++", "libgcc"] as const
 
 export interface BuildFile {
   readonly name: string

@@ -10,14 +10,15 @@
  * `{ type: "file" }`, so the target platform's package must be installed at
  * build time (optional dependencies for other platforms are not installed by
  * default; this script installs them from the lockfile when missing), and
- * Linux builds need `--define FFF_LIBC="gnu"` to pick the glibc library.
+ * Linux builds need `--define FFF_LIBC="gnu"` (or `"musl"`) to pick the library.
  *
- *   bun scripts/build-daemon.ts [darwin-arm64|linux-x64|linux-arm64 ...]
+ *   bun scripts/build-daemon.ts [darwin-arm64|linux-x64|linux-arm64|linux-x64-musl|linux-arm64-musl ...]
  */
 import { createHash } from "node:crypto"
 import {
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
@@ -37,6 +38,18 @@ const PLATFORMS = {
     target: "bun-linux-arm64",
     fffBin: "linux-arm64-gnu",
     define: ['FFF_LIBC="gnu"'],
+  },
+  // musl (Alpine). Bun's musl runtime links libstdc++ and libgcc dynamically,
+  // so the Host needs `apk add libstdc++ libgcc`; the Client's probe checks.
+  "linux-x64-musl": {
+    target: "bun-linux-x64-musl",
+    fffBin: "linux-x64-musl",
+    define: ['FFF_LIBC="musl"'],
+  },
+  "linux-arm64-musl": {
+    target: "bun-linux-arm64-musl",
+    fffBin: "linux-arm64-musl",
+    define: ['FFF_LIBC="musl"'],
   },
 } as const
 type Platform = keyof typeof PLATFORMS
@@ -94,7 +107,14 @@ const ensureTargetPackages = async (platforms: ReadonlyArray<Platform>) => {
   }
 }
 
-const hostPlatform = `${process.platform}-${process.arch}`
+const onMusl = (() => {
+  try {
+    return process.platform === "linux" && readdirSync("/lib").some((f) => f.startsWith("ld-musl-"))
+  } catch {
+    return false
+  }
+})()
+const hostPlatform = `${process.platform}-${process.arch}${onMusl ? "-musl" : ""}`
 
 /**
  * Bun appends the bundle after linking, which leaves the linker's ad-hoc

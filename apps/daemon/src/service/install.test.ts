@@ -3,25 +3,42 @@ import { existsSync, mkdtempSync, readFileSync, readlinkSync, rmSync, writeFileS
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { Effect, Layer } from "effect"
+import {
+  defaultStateFile,
+  isOurAppServer,
+  makeAppServer,
+  readAppServerState,
+} from "../harness/codex/AppServer.ts"
+import { makeFakeCodex } from "../harness/codex/testing/fakeCodex.ts"
 import { type CommandResult, CommandRunner } from "./CommandRunner.ts"
-import { type InstallContext, install, layout, sha256File, uninstall } from "./install.ts"
+import {
+  type InstallContext,
+  install,
+  layout,
+  planLinuxService,
+  sha256File,
+  uninstall,
+} from "./install.ts"
 
 /** A scripted service manager: records every command, answers from `respond`. */
 const fakeRunner = (
   respond: (argv: ReadonlyArray<string>) => Partial<CommandResult> = () => ({}),
 ) => {
   const calls: Array<string> = []
+  /** stdin passed to each command, by its joined argv (last one wins). */
+  const stdin = new Map<string, string>()
   const layer = Layer.succeed(
     CommandRunner,
     CommandRunner.of({
-      run: (argv) =>
+      run: (argv, options) =>
         Effect.sync(() => {
           calls.push(argv.join(" "))
+          if (options?.stdin !== undefined) stdin.set(argv.join(" "), options.stdin)
           return { code: 0, stdout: "", stderr: "", ...respond(argv) }
         }),
     }),
   )
-  return { calls, layer }
+  return { calls, stdin, layer }
 }
 
 let root: string
@@ -141,18 +158,107 @@ describe("install on Linux", () => {
     expect(report.notes.join("\n")).toContain("sudo loginctl enable-linger ada")
   })
 
-  test("fails with the step when systemctl --user is unavailable", async () => {
-    const runner = fakeRunner((argv) =>
-      argv[0] === "systemctl" ? { code: 1, stderr: "Failed to connect to bus" } : {},
+  test("reports systemd as the supervisor", async () => {
+    const report = await Effect.runPromise(
+      install(ctx("linux"), { source, version: "1.2.3" }).pipe(Effect.provide(fakeRunner().layer)),
     )
-    const error = await Effect.runPromise(
+    expect(report).toMatchObject({ supervisor: "systemd", autostart: [] })
+  })
+})
+
+describe("install on Linux without systemd --user", () => {
+  test("planLinuxService", () => {
+    expect(planLinuxService({ userSystemd: true, crontab: "available" })).toEqual({
+      supervisor: "systemd",
+      autostart: [],
+    })
+    expect(planLinuxService({ userSystemd: false, crontab: "available" })).toEqual({
+      supervisor: "fallback",
+      autostart: ["cron", "profile"],
+    })
+    expect(planLinuxService({ userSystemd: false, crontab: "missing" })).toEqual({
+      supervisor: "fallback",
+      autostart: ["profile"],
+    })
+    expect(planLinuxService({ userSystemd: false, crontab: "denied" }).autostart).toEqual([
+      "profile",
+    ])
+  })
+
+  /** No user bus; `crontab` answers from `cron` (null: not installed). */
+  const noBus = (cron: { current: string | null }) =>
+    fakeRunner((argv) => {
+      if (argv[0] === "systemctl")
+        return { code: 1, stderr: "Failed to connect to bus: No medium found" }
+      if (argv[0] === "crontab" && argv[1] === "-l") {
+        if (cron.current === null) return { code: 127, stderr: "not found" }
+        return cron.current === ""
+          ? { code: 1, stderr: "no crontab for ada" }
+          : { stdout: cron.current }
+      }
+      return {}
+    })
+
+  test("installs the fallback supervisor with cron @reboot and a profile hook, idempotently", async () => {
+    const cron = { current: "" as string | null }
+    writeFileSync(join(root, ".profile"), "export EDITOR=vi\n")
+    const runner = noBus(cron)
+    const report = await Effect.runPromise(
+      install(ctx("linux"), { source, version: "1.2.3" }).pipe(Effect.provide(runner.layer)),
+    )
+    const script = layout(ctx("linux")).supervisor
+    expect(report).toMatchObject({
+      supervisor: "fallback",
+      autostart: ["cron", "profile"],
+      serviceFile: script,
+      serviceDomain: "polaris-supervisor",
+      linger: "not-applicable",
+    })
+    expect(report.notes[0]).toContain("No systemd user bus on this Host (Failed to connect to bus")
+    expect(readFileSync(script, "utf8")).toContain("polaris serve exited")
+    expect(runner.calls).toContain(script) // started
+    expect(runner.calls.some((c) => c.startsWith("systemctl --user enable"))).toBe(false)
+    const crontab = runner.stdin.get("crontab -")!
+    expect(crontab).toBe(`@reboot '${script}' # polaris-supervisor\n`)
+    const profile = readFileSync(join(root, ".profile"), "utf8")
+    expect(profile).toBe(
+      `export EDITOR=vi\n[ -x '${script}' ] && '${script}' >/dev/null 2>&1 # polaris-supervisor\n`,
+    )
+
+    // Again: the crontab already has the line, the profile is unchanged.
+    cron.current = crontab
+    const again = noBus(cron)
+    await Effect.runPromise(
+      install(ctx("linux"), { source, version: "1.2.3" }).pipe(Effect.provide(again.layer)),
+    )
+    expect(again.calls).not.toContain("crontab -")
+    expect(readFileSync(join(root, ".profile"), "utf8")).toBe(profile)
+  })
+
+  test("without crontab it says the Daemon won't start at boot", async () => {
+    const report = await Effect.runPromise(
       install(ctx("linux"), { source, version: "1.2.3" }).pipe(
-        Effect.flip,
-        Effect.provide(runner.layer),
+        Effect.provide(noBus({ current: null }).layer),
       ),
     )
-    expect(error._tag).toBe("InstallError")
-    expect(error.message).toContain("Failed to connect to bus")
+    expect(report.autostart).toEqual(["profile"])
+    expect(report.notes.join("\n")).toContain("does not start at boot")
+  })
+
+  test("uninstall removes the cron and profile lines and keeps the user's own", async () => {
+    const cron = { current: "0 * * * * backup\n" as string | null }
+    const runner = noBus(cron)
+    await Effect.runPromise(
+      install(ctx("linux"), { source, version: "1.2.3" }).pipe(Effect.provide(runner.layer)),
+    )
+    cron.current = runner.stdin.get("crontab -")!
+    expect(cron.current).toContain("0 * * * * backup\n@reboot")
+    const removal = noBus(cron)
+    await Effect.runPromise(
+      uninstall(ctx("linux"), { purge: false }).pipe(Effect.provide(removal.layer)),
+    )
+    expect(removal.stdin.get("crontab -")).toBe("0 * * * * backup\n")
+    expect(readFileSync(join(root, ".profile"), "utf8")).not.toContain("polaris-supervisor")
   })
 })
 
@@ -177,4 +283,32 @@ describe("uninstall", () => {
     expect(again.serviceFileRemoved).toBe(false)
     expect(existsSync(join(root, ".polaris"))).toBe(false)
   })
+
+  test("stops the shared Codex app-server, which otherwise outlives the Daemon", async () => {
+    // Short paths: the socket must fit the Unix socket path limit.
+    root = mkdtempSync("/tmp/pun-")
+    const home = join(root, ".polaris")
+    const socketPath = join(home, "codex.sock")
+    const codex = makeFakeCodex(root)
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const server = yield* makeAppServer({
+            codexPath: codex.path,
+            socketPath,
+            spawn: true,
+            systemdRun: null,
+          })
+          yield* server.connect
+        }),
+      ),
+    )
+    const pid = readAppServerState(defaultStateFile(socketPath))!.pid
+    expect(isOurAppServer(pid, socketPath)).toBe(true)
+    const report = await Effect.runPromise(
+      uninstall(ctx("darwin"), { purge: false }).pipe(Effect.provide(fakeRunner().layer)),
+    )
+    expect(report.codexAppServerStopped).toBe(pid)
+    expect(isOurAppServer(pid, socketPath)).toBe(false)
+  }, 20_000)
 })

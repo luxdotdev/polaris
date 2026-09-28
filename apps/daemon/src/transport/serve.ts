@@ -19,7 +19,7 @@ import { WorktreeTrackerLive } from "../git/WorktreeTracker.ts"
 import { HarnessRegistryLive } from "../harness/registry.ts"
 import { EventStore } from "../store/EventStore.ts"
 import { TerminalRpcsLive } from "../terminal/TerminalRpcs.ts"
-import { TerminalsLive } from "../terminal/Terminals.ts"
+import { TerminalsDaemonLive } from "../terminal/Terminals.ts"
 import { startServer } from "./server.ts"
 
 /** Exit status when another Daemon already holds the lock or answers on the socket. */
@@ -44,7 +44,7 @@ export const daemonHandlers = Layer.mergeAll(
   FilesRpcsLive.pipe(Layer.provide(FileSearchLive())),
   GitRpcsLive,
   AttachmentRpcsLive,
-  TerminalRpcsLive.pipe(Layer.provide(TerminalsLive)),
+  TerminalRpcsLive.pipe(Layer.provide(TerminalsDaemonLive)),
 ).pipe(Layer.provide(daemonServices))
 
 export const daemonCapabilities: ReadonlyArray<Capability> = [

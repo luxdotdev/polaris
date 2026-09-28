@@ -12,10 +12,11 @@ import type { Subprocess } from "bun"
 import { Effect } from "effect"
 import { CommandRunner } from "./CommandRunner.ts"
 import { clearCloseOnExec, closeFd, isCloseOnExec, socketPair } from "./libc.ts"
+import { runtimePlatform } from "./platform.ts"
 import { HANDOFF_ENV, prepareHandoff, requestUpgrade, runningDaemonPid } from "./upgrade.ts"
 
 const fixture = join(import.meta.dir, "fixtures", "handoff-daemon.ts")
-const platform = `${process.platform}-${process.arch}`
+const platform = runtimePlatform()
 
 interface Info {
   readonly version: string
