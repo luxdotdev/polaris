@@ -25,6 +25,24 @@ _Avoid_: IDE window, workspace window
 **Mobile App**:
 A future phone Client for starting and supervising Agent Sessions on a Host.
 
+**Connection State**:
+How a Client's link to one Host's Daemon stands right now: exactly one of Connected, Reconnecting, Needs Attention, or Offline; independent of any Session State on that Host.
+_Avoid_: Status (unqualified), online/offline (as the only states)
+
+**Connected**:
+The Connection State in which the Client has a live link to the Host's Daemon.
+
+**Reconnecting**:
+The Connection State in which the link dropped and the Client is retrying on its own, without prompting, while showing the Host's last known state dimmed.
+_Avoid_: Disconnected
+
+**Needs Attention**:
+The Connection State in which the Client cannot reconnect or install without the user, such as a changed host key, a password or 2FA prompt, or a first install awaiting approval; shown inline on the Host, never as a blocking dialog.
+_Avoid_: Error, disconnected
+
+**Offline**:
+The Connection State of a Host the Client has stopped retrying, such as a machine that is shut down.
+
 ### Agents
 
 **Harness**:
