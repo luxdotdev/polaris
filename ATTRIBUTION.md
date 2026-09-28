@@ -6,7 +6,7 @@ Each entry records the source repository, the pinned commit, the licence, the Po
 
 ## Designs followed (no code copied)
 
-- **pingdotgg/t3code** @ `de251fc` (MIT): the protocol shape (snapshot then sequenced, resumable streams; `afterSequence`), the event-sourced store with command receipts, and per-Turn git-ref checkpoints. `packages/protocol`, `apps/daemon/src/store`.
+- **pingdotgg/t3code** @ `de251fc` (MIT): the protocol shape (snapshot then sequenced, resumable streams; `afterSequence`), the event-sourced store with command receipts, and per-Turn git-ref checkpoints. `packages/protocol`, `apps/daemon/src/store`, `apps/daemon/src/git` (temporary-index working-tree snapshots).
 - **tty7** (Apache-2.0): user-service install with SHA approval, capability-negotiated versioning, and the `execve` upgrade hand-off.
 - **herdr** @ ≥ `cd5ea1be` (Apache-2.0): the OpenSSH stdio bridge and reconnect model.
 
