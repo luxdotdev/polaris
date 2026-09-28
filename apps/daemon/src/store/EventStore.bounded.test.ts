@@ -227,4 +227,52 @@ describe("live subscribers", () => {
       ),
     )
   })
+
+  test("a subscriber to one session gets only its items and is dropped at capacity like any", async () => {
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const store = yield* EventStore
+          yield* seed(store)
+          const other = "s-other" as SessionId
+          const mine = yield* store.subscribe({ sessionId: sId })
+          const theirs = yield* store.subscribe({ sessionId: other })
+          const delta = (sessionId: SessionId, text: string) =>
+            store.publishEphemeral({
+              _tag: "Delta",
+              sessionId,
+              turnId: tId,
+              itemId: "m",
+              field: "text",
+              text,
+            })
+          yield* delta(sId, "a")
+          yield* delta(other, "b")
+          yield* record(store, [
+            DomainEvent.cases.SessionRenamed.make({ sessionId: sId, title: "r" }),
+          ])
+          const [a] = yield* Stream.runCollect(Stream.take(mine, 2)).pipe(
+            Effect.map((items) => [items.map((i) => (i._tag === "Delta" ? i.text : i._tag))]),
+          )
+          expect(a).toEqual(["a", "Event"])
+          const [b] = yield* Stream.runCollect(Stream.take(theirs, 1)).pipe(
+            Effect.map((items) => [items.map((i) => (i._tag === "Delta" ? i.text : i._tag))]),
+          )
+          expect(b).toEqual(["b"])
+          // Fill `mine` (nobody reads it any more) until the next event drops it.
+          for (let i = 0; i < 17; i++)
+            yield* record(store, [
+              DomainEvent.cases.SessionRenamed.make({ sessionId: sId, title: `t${i}` }),
+            ])
+          expect(yield* store.subscriberCount).toBe(1)
+        }),
+      ).pipe(
+        Effect.provide(
+          EventStore.layerSqlite(":memory:").pipe(
+            Layer.provide(Layer.succeed(StoreConfig)({ subscriberCapacity: 16 })),
+          ),
+        ),
+      ),
+    )
+  })
 })

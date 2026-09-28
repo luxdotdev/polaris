@@ -3,7 +3,7 @@
  * log (global, gapless `sequence`), the command receipts and the projection
  * tables; `commit` writes all three in one transaction.
  *
- * Commits are serialized by a single permit, so the sequence is gapless and
+ * Commits are serialized (one drain writes batches of them), so the sequence is gapless and
  * the order subscribers see equals the order of commit. Subscribers are only
  * notified after the transaction commits.
  *
@@ -31,16 +31,17 @@ import {
   Worktree,
 } from "@polaris/protocol"
 import {
-  type Cause,
+  Cause,
   Clock,
   Context,
+  Deferred,
   Effect,
+  Exit,
   Layer,
   Queue,
   Ref,
   Schema,
   type Scope,
-  Semaphore,
   Stream,
 } from "effect"
 import { SqlClient, type SqlError } from "effect/sql"
@@ -160,6 +161,8 @@ export class EventStore extends Context.Service<
      * last sequence seen.
      */
     readonly subscribe: (options?: {
+      /** Only this session's items; cheaper than a filter, since other sessions' items skip it. */
+      readonly sessionId?: SessionId
       readonly filter?: (item: LiveItem) => boolean
     }) => Effect.Effect<Stream.Stream<LiveItem>, never, Scope.Scope>
     readonly publishEphemeral: (item: EphemeralItem) => Effect.Effect<void>
@@ -199,8 +202,12 @@ export class EventStore extends Context.Service<
     Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient
       const loaded = yield* loadModel(sql).pipe(Effect.mapError(storeError("load the read model")))
+      // WAL (set by the client) with synchronous = NORMAL: a commit is durable once it
+      // is in the WAL, so a Daemon crash loses nothing that was acked; only an OS crash
+      // or power loss can roll back the last commits (the database stays consistent).
+      // FULL would fsync the WAL on every commit, the biggest cost of a small commit.
+      yield* sql`PRAGMA synchronous = NORMAL`.pipe(Effect.orDie)
       const modelRef = yield* Ref.make(loaded)
-      const lock = yield* Semaphore.make(1)
       const { subscriberCapacity } = yield* StoreConfig
       const hub = makeHub(subscriberCapacity)
 
@@ -212,83 +219,201 @@ export class EventStore extends Context.Service<
           Effect.map((rows) => rows[0]),
         )
 
-      const commit = <E extends Rejection>(options: CommitOptions<E>) =>
+      // ── Group commit ──────────────────────────────────────────────────────
+      //
+      // A commit that finds the store idle writes in its own fiber; commits that arrive
+      // while one is writing queue, and the writer then takes all of them as one batch:
+      // it decides each in order against the model the previous ones produced and
+      // writes them in one transaction. Per command, events + projections + receipt are
+      // still atomic (the whole batch is), the sequence stays gapless, subscribers hear
+      // of a batch only after it commits, and a caller's result (its ack) only after
+      // that too. Batches form on their own under load, with no added delay when idle.
+
+      interface Pending {
+        readonly options: CommitOptions<Rejection>
+        readonly deferred: Deferred.Deferred<CommitResult, Rejection | ServiceError>
+        /** The caller was interrupted before its batch started: skip it. */
+        abandoned: boolean
+      }
+      type Outcome = Exit.Exit<CommitResult, Rejection | ServiceError>
+      let queued: Array<Pending> = []
+      /** A drain is scheduled or running; later commits queue for it. */
+      let writing = false
+      const context = yield* Effect.context<never>()
+
+      const runBatch = (batch: ReadonlyArray<Pending>) =>
         Effect.gen(function* () {
-          const { commandId } = options
           const now = new Date(yield* Clock.currentTimeMillis).toISOString()
+          const start = yield* Ref.get(modelRef)
+          let next = start
+          const writes: Array<Effect.Effect<unknown, SqlError.SqlError>> = []
+          const published: Array<EventEnvelope> = []
+          const outcomes: Array<Outcome> = []
+          // Receipts written earlier in this batch, not yet visible to `findReceipt`.
+          const receipts = new Map<
+            CommandId,
+            { readonly sequence: number | null; readonly rejection: Rejection | null }
+          >()
 
-          if (commandId !== null) {
-            const receipt = yield* findReceipt(commandId).pipe(
-              Effect.mapError(storeError("read a command receipt")),
-            )
-            if (receipt !== undefined) {
-              if (receipt.rejection !== null) {
-                return yield* Effect.fail(RejectionJson.decode(receipt.rejection) as E)
+          for (const { options } of batch) {
+            const { commandId } = options
+            if (commandId !== null) {
+              const receipt =
+                receipts.get(commandId) ??
+                (yield* findReceipt(commandId).pipe(
+                  Effect.map((row) =>
+                    row === undefined
+                      ? undefined
+                      : {
+                          sequence: row.sequence,
+                          rejection:
+                            row.rejection === null ? null : RejectionJson.decode(row.rejection),
+                        },
+                  ),
+                  Effect.mapError(storeError("read a command receipt")),
+                ))
+              if (receipt !== undefined) {
+                outcomes.push(
+                  receipt.rejection !== null
+                    ? Exit.fail(receipt.rejection)
+                    : Exit.succeed({
+                        _tag: "Duplicate",
+                        sequence: receipt.sequence as Sequence | null,
+                      }),
+                )
+                continue
               }
-              return {
-                _tag: "Duplicate",
-                sequence: receipt.sequence as Sequence | null,
-              } satisfies CommitResult as CommitResult
             }
-          }
 
-          const model = yield* Ref.get(modelRef)
-          const events = yield* options.decide(model).pipe(
-            Effect.catch((error: E) =>
-              (commandId === null
-                ? Effect.void
-                : sql`INSERT INTO command_receipts ${sql.insert({
+            const decided = yield* Effect.exit(options.decide(next))
+            if (decided._tag === "Failure") {
+              const rejection = Cause.findErrorOption(decided.cause)
+              if (commandId !== null && rejection._tag === "Some") {
+                writes.push(
+                  sql`INSERT INTO command_receipts ${sql.insert({
                     command_id: commandId,
                     sequence: null,
-                    rejection: RejectionJson.encode(error),
+                    rejection: RejectionJson.encode(rejection.value),
                     recorded_at: now,
-                  })}`.pipe(Effect.mapError(storeError("record a rejection")))
-              ).pipe(Effect.andThen(Effect.fail(error))),
-            ),
-          )
+                  })}`,
+                )
+                receipts.set(commandId, { sequence: null, rejection: rejection.value })
+              }
+              outcomes.push(Exit.failCause(decided.cause))
+              continue
+            }
 
-          let next = model
-          const envelopes: Array<EventEnvelope> = []
-          const writes: Array<Effect.Effect<unknown, SqlError.SqlError>> = []
-          for (const event of events) {
-            const envelope = new EventEnvelope({
-              sequence: (next.sequence + 1) as Sequence,
-              occurredAt: now,
-              commandId,
-              event,
-            })
-            const after = project(next, envelope)
-            writes.push(writeEvent(sql, envelope), writeProjection(sql, after, envelope))
-            envelopes.push(envelope)
-            next = after
-          }
-          const sequence = envelopes.length > 0 ? next.sequence : null
-          if (commandId !== null) {
-            writes.push(
-              sql`INSERT INTO command_receipts ${sql.insert({
-                command_id: commandId,
-                sequence,
-                rejection: null,
-                recorded_at: now,
-              })}`,
+            const envelopes: Array<EventEnvelope> = []
+            for (const event of decided.value) {
+              const envelope = new EventEnvelope({
+                sequence: (next.sequence + 1) as Sequence,
+                occurredAt: now,
+                commandId,
+                event,
+              })
+              const after = project(next, envelope)
+              writes.push(writeEvent(sql, envelope), writeProjection(sql, after, envelope))
+              envelopes.push(envelope)
+              published.push(envelope)
+              next = after
+            }
+            const sequence = envelopes.length > 0 ? next.sequence : null
+            if (commandId !== null) {
+              writes.push(
+                sql`INSERT INTO command_receipts ${sql.insert({
+                  command_id: commandId,
+                  sequence,
+                  rejection: null,
+                  recorded_at: now,
+                })}`,
+              )
+              receipts.set(commandId, { sequence, rejection: null })
+            }
+            outcomes.push(
+              Exit.succeed({
+                _tag: "Committed",
+                envelopes,
+                sequence: sequence as Sequence | null,
+                model: next,
+              }),
             )
           }
+
           if (writes.length > 0) {
             yield* sql
               .withTransaction(Effect.forEach(writes, (write) => write, { discard: true }))
               .pipe(Effect.mapError(storeError("commit events")))
           }
           yield* Ref.set(modelRef, next)
-          for (const envelope of envelopes) {
+          for (const envelope of published) {
             hub.publish({ _tag: "Event", envelope, sessionId: sessionOf(envelope.event) })
           }
-          return {
-            _tag: "Committed",
-            envelopes,
-            sequence: sequence as Sequence | null,
-            model: next,
-          } satisfies CommitResult as CommitResult
-        }).pipe(Effect.uninterruptible, lock.withPermits(1))
+          return outcomes
+        })
+
+      const settle = (batch: ReadonlyArray<Pending>, outcomes: ReadonlyArray<Outcome>) => {
+        for (let i = 0; i < batch.length; i++) Deferred.doneUnsafe(batch[i]!.deferred, outcomes[i]!)
+      }
+
+      const writeBatch = (taken: ReadonlyArray<Pending>) =>
+        Effect.gen(function* () {
+          const batch = taken.filter((pending) => !pending.abandoned)
+          if (batch.length === 0) return
+          const result = yield* Effect.exit(runBatch(batch))
+          if (result._tag === "Success") return settle(batch, result.value)
+          if (batch.length === 1) {
+            return settle(batch, [result as Exit.Exit<never, ServiceError>])
+          }
+          // A failed batch wrote nothing; commit its commands one by one, so one bad
+          // command (or a transient error) only fails itself.
+          for (const pending of batch) {
+            const single = yield* Effect.exit(runBatch([pending]))
+            settle(
+              [pending],
+              single._tag === "Success" ? single.value : [single as Exit.Exit<never, ServiceError>],
+            )
+          }
+        }).pipe(Effect.uninterruptible)
+
+      /** Writes batches until nothing is queued. */
+      const drain = Effect.gen(function* () {
+        while (queued.length > 0) {
+          const taken = queued
+          queued = []
+          yield* writeBatch(taken)
+        }
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => {
+            writing = false
+          }),
+        ),
+        Effect.uninterruptible,
+      )
+
+      const commit = <E extends Rejection>(options: CommitOptions<E>) =>
+        Effect.suspend(() => {
+          const pending: Pending = {
+            options: options as CommitOptions<Rejection>,
+            deferred: Deferred.makeUnsafe<CommitResult, Rejection | ServiceError>(),
+            abandoned: false,
+          }
+          queued.push(pending)
+          if (!writing) {
+            // Write in a microtask: it runs once every fiber the scheduler is running
+            // right now has had its turn (so their commits join this batch), but before
+            // the event loop moves on, so a commit costs no extra turn of it.
+            writing = true
+            queueMicrotask(() => Effect.runForkWith(context)(drain))
+          }
+          return Deferred.await(pending.deferred).pipe(
+            Effect.onInterrupt(() =>
+              Effect.sync(() => {
+                pending.abandoned = true
+              }),
+            ),
+          )
+        }) as Effect.Effect<CommitResult, E | ServiceError>
 
       const readEvents = (options: {
         readonly after: number
@@ -366,7 +491,7 @@ export class EventStore extends Context.Service<
       return EventStore.of({
         model: Ref.get(modelRef),
         commit,
-        subscribe: (options) => hub.subscribe(options?.filter),
+        subscribe: (options) => hub.subscribe(options),
         publishEphemeral: (item) => Effect.sync(() => hub.publish(item)),
         subscriberCount: Effect.sync(() => hub.size()),
         readEvents,
@@ -410,16 +535,28 @@ const makeHub = (capacity: number) => {
   interface Subscriber {
     readonly queue: Queue.Queue<LiveItem, Cause.Done>
     readonly filter: ((item: LiveItem) => boolean) | undefined
+    /** Set for a subscriber to one session only. */
+    readonly sessionId: SessionId | undefined
   }
-  const subscribers = new Set<Subscriber>()
+  // Subscribers to one session are kept apart, so an item (most are one session's
+  // Deltas) visits only that session's subscribers, not every stream of every Client.
+  const everything = new Set<Subscriber>()
+  const bySession = new Map<SessionId, Set<Subscriber>>()
+  let size = 0
   const ephemeralLimit = Math.max(1, Math.floor(capacity / 2))
 
   const drop = (subscriber: Subscriber) => {
-    subscribers.delete(subscriber)
+    const bucket =
+      subscriber.sessionId === undefined ? everything : bySession.get(subscriber.sessionId)
+    if (bucket === undefined || !bucket.delete(subscriber)) return
+    size--
+    if (bucket.size === 0 && subscriber.sessionId !== undefined) {
+      bySession.delete(subscriber.sessionId)
+    }
     Queue.endUnsafe(subscriber.queue)
   }
 
-  const publish = (item: LiveItem) => {
+  const offer = (subscribers: ReadonlySet<Subscriber>, item: LiveItem) => {
     for (const subscriber of subscribers) {
       if (subscriber.filter !== undefined && !subscriber.filter(item)) continue
       if (item._tag !== "Event") {
@@ -431,16 +568,35 @@ const makeHub = (capacity: number) => {
     }
   }
 
-  const subscribe = (filter?: (item: LiveItem) => boolean) =>
+  const publish = (item: LiveItem) => {
+    if (everything.size > 0) offer(everything, item)
+    if (item.sessionId !== null) {
+      const bucket = bySession.get(item.sessionId)
+      if (bucket !== undefined) offer(bucket, item)
+    }
+  }
+
+  const subscribe = (options?: {
+    readonly sessionId?: SessionId | undefined
+    readonly filter?: ((item: LiveItem) => boolean) | undefined
+  }) =>
     Effect.gen(function* () {
       const queue = yield* Queue.dropping<LiveItem, Cause.Done>(capacity)
-      const subscriber: Subscriber = { queue, filter }
-      subscribers.add(subscriber)
+      const sessionId = options?.sessionId
+      const subscriber: Subscriber = { queue, filter: options?.filter, sessionId }
+      if (sessionId === undefined) {
+        everything.add(subscriber)
+      } else {
+        const bucket = bySession.get(sessionId) ?? new Set<Subscriber>()
+        bucket.add(subscriber)
+        bySession.set(sessionId, bucket)
+      }
+      size++
       yield* Effect.addFinalizer(() => Effect.sync(() => drop(subscriber)))
       return Stream.fromQueue(queue)
     })
 
-  return { publish, subscribe, size: () => subscribers.size }
+  return { publish, subscribe, size: () => size }
 }
 
 const storeError = (what: string) => (cause: unknown) =>
