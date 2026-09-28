@@ -17,16 +17,45 @@ Polaris is an IDE and agent orchestrator: a Bun Daemon per Host, an Electron Des
 | `packages/spec` | The Quint spec of commits, streams, Client feeds and approvals, and its checks (see Verification). |
 | `apps/daemon` | The Daemon (`polaris` binary): event store, Harness drivers, transport, files, git, terminals, user service. |
 | `apps/desktop` | The Electron Desktop App (not started yet). |
+| `packages/lint-config` | The shared oxlint config every workspace extends, and the custom plugins (`polaris/no-long-comment`, vendored anti-slop, the SonarJS cognitive-complexity wrapper). Read its `README.md` before touching lint rules. |
+| `tooling` | The lint ratchet and its baseline (`tooling/lint`), the quality runner behind the git hooks (`tooling/quality`), and the hooks (`tooling/hooks`). |
 
 ## Stack and conventions
 
-- Bun ≥ 1.3.9 (pinned in `packageManager`), Turborepo, TypeScript 7, Biome.
+- Bun ≥ 1.3.9 (pinned in `packageManager`), Turborepo, TypeScript 7, Biome (formatting), oxlint (linting).
 - **Effect 4** (`effect@4.0.0-rc.118`, pinned exactly; the `@effect/*` packages must match). APIs differ from Effect 3: read `node_modules/effect/AGENTS.md` and `node_modules/effect/ai-docs/` rather than relying on memory. RPC is `effect/rpc`, SQL is `effect/sql`, sockets `effect/socket`.
 - Services use `Context.Service`; functions use `Effect.fn`; errors are `Schema.TaggedError`.
 - Tests use `bun test`, next to the code as `*.test.ts`.
 - Never use node-pty; terminals use `Bun.Terminal`.
 - **Lifecycle changes go through the state machines**, never ad-hoc `if (state === …)` code: Session States through the Agent Session machine (`apps/daemon/src/engine/session.ts`, the engine's pure decider; see its README), Connection States through `packages/client/src/connection.ts`. They use XState v6 (`xstate@6.0.0-alpha.61`, an alpha, pinned exactly): read the bundled types in `node_modules/xstate/dist/declarations` rather than v5 docs or memory. The event log stays the source of truth: a machine snapshot is always derived from folded events, never kept only in an actor. Update the model-based tests (`*.testing.ts`, `*.graph.test.ts`) and the Mermaid diagrams with the machine.
 - Run `bun run typecheck && bun run test && bun run lint` before committing.
+
+## Lint and maintainability
+
+Biome formats (`bun run format`); oxlint lints, with the shared config in `packages/lint-config` (its `README.md` has the full rule list and policy). `bun run lint` is Biome's format check plus the lint ratchet.
+
+- **The ratchet.** Existing violations are counted per file and rule in `tooling/lint/baseline.json`. Lint fails when a count goes up, so new files must be fully clean and old files may not get worse. When you fix baselined violations, run `bun run lint:baseline` and commit the lowered counts with the fix. Never raise a count by hand; `--rebaseline` is only for introducing a new rule, and says so in the commit.
+- **Size and complexity.** Files stay under 750 lines (blank lines don't count; comments do) and functions under a cognitive complexity of 15. Split along seams: a folder whose `index.ts` is the module's interface, never a `utils.ts` dumping ground.
+- **No disable comments** for `max-lines` or `sonarjs/cognitive-complexity`. Any other `oxlint-disable` needs a reason next to it and will be questioned in review.
+- **Comments**: at most two lines of prose (`polaris/no-long-comment`). A comment says what the code does or warns about a trap at this call site; *why* the code is this way goes in an ADR under `docs/adr/`, with a one-line pointer. JSDoc on an API is exempt.
+- **Type assertions** need a `// SAFETY: …` line stating the invariant that makes them true. Parse `unknown` at the boundary with Effect Schema rather than passing it around or narrowing with `typeof`.
+- **Effect rules** (anti-slop-effect, on everywhere):
+  - `no-manual-tagged-construction`: build tagged values with their Schema `.make` / class constructor, so they're checked.
+  - `no-manual-tag-comparison`: branch on `_tag` with `Match.tag`/`Match.tags` or `Predicate.isTagged`, so exhaustiveness is checked.
+  - `prefer-effect-match`: a chained literal ternary over one value becomes a `Match`.
+  - `no-manual-effect-error-tag`: handle tagged errors with `Effect.catchTag`/`catchTags`, not by inspecting `_tag` in a broad catch.
+  - `no-service-constructor-imports`: runtime code yields a service from its Layer instead of importing its `make…` constructor.
+
+## Git hooks
+
+`bun install` points git at `tooling/hooks` (`core.hooksPath`, a relative path, so each checkout and worktree runs its own copy against its own `node_modules`; a checkout without dependencies installed is refused with a message).
+
+- **pre-commit**: formats fully staged files with Biome and restages them, only checks partially staged ones, and lints staged files through the ratchet.
+- **commit-msg**: strips `Claude-Session:` trailers and claude.ai session URLs; this repo doesn't record them.
+- **pre-push**: re-checks format and lint on the files in the pushed commits, then typechecks and tests the changed packages and their dependents (`turbo --filter=...[base...head]`).
+- **By hand**: `bun run quality <files…>` (fix), `--check`, `--dirty`, or `--range <a>..<b>`.
+
+Never bypass a hook with `--no-verify`. If one is broken, fix it or say so.
 
 ## Performance
 

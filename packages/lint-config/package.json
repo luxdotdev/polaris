@@ -1,0 +1,17 @@
+{
+  "name": "@polaris/lint-config",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "description": "Shared oxlint configuration and the custom oxlint plugins every workspace extends.",
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@oxlint/plugins": "1.86.0",
+    "effect": "4.0.0-rc.118",
+    "eslint-plugin-sonarjs": "4.2.2"
+  }
+}

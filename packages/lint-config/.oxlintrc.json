@@ -1,0 +1,5 @@
+{
+  "$schema": "../../node_modules/oxlint/configuration_schema.json",
+  "extends": ["./oxlint.json"],
+  "ignorePatterns": ["plugins/anti-slop/**", "plugins/*/test/fixtures/**"]
+}

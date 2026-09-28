@@ -1,0 +1,4 @@
+#!/bin/sh
+# Strips agent session links (Claude-Session trailers, claude.ai session URLs)
+# from the commit message; this repo doesn't record them.
+exec bun tooling/quality/strip-session-trailer.ts "$1"

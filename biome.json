@@ -6,7 +6,15 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!design", "!docs", "!**/*.md", "!packages/bench/baselines"]
+    "includes": [
+      "**",
+      "!design",
+      "!docs",
+      "!**/*.md",
+      "!packages/bench/baselines",
+      "!packages/lint-config/plugins/anti-slop",
+      "!tooling/lint/baseline.json"
+    ]
   },
   "formatter": {
     "indentStyle": "space",
@@ -19,11 +27,6 @@
     }
   },
   "linter": {
-    "rules": {
-      "recommended": true,
-      "style": {
-        "noNonNullAssertion": "off"
-      }
-    }
+    "enabled": false
   }
 }

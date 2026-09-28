@@ -29,7 +29,13 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
+      # oxlint's JS plugin host runs on Node; the anti-slop plugin is TypeScript (type stripping, Node >= 22.18).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
       - run: bun install --frozen-lockfile
+      # Biome format check, then oxlint through the ratchet (tooling/lint/baseline.json):
+      # fails on new or increased violations. See packages/lint-config/README.md.
       - run: bun run lint
       - run: bunx turbo run typecheck test
       - name: Typecheck and test scripts
