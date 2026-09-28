@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test"
-import { BLOB_CHUNK_BYTES, encodeBlob, encodeJsonFrame, FrameDecoder, FrameError } from "./frame.ts"
+import {
+  BLOB_CHUNK_BYTES,
+  encodeBlob,
+  encodeBlobFrame,
+  encodeJsonFrame,
+  FrameDecoder,
+  FrameError,
+} from "./frame.ts"
 
 const bytes = (n: number) => Uint8Array.from({ length: n }, (_, i) => i % 251)
 
@@ -35,7 +42,14 @@ describe("frames", () => {
 
   test("an empty blob still sends a final frame", () => {
     const frames = new FrameDecoder().push([...encodeBlob("e", new Uint8Array())][0]!)
-    expect(frames).toEqual([{ kind: "blob", blobId: "e", final: true, bytes: new Uint8Array() }])
+    expect(frames).toEqual([
+      { kind: "blob", blobId: "e", final: true, aborted: false, bytes: new Uint8Array() },
+    ])
+  })
+
+  test("carries the aborted flag", () => {
+    const [frame] = new FrameDecoder().push(encodeBlobFrame("x", new Uint8Array(), true, true))
+    expect(frame).toMatchObject({ kind: "blob", blobId: "x", final: true, aborted: true })
   })
 
   test("rejects unknown kinds", () => {
