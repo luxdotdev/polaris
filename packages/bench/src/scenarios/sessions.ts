@@ -35,6 +35,7 @@ import {
   latency,
   type Metric,
   memory,
+  peakMemory,
   type Scenario,
   type ScenarioContext,
   throughput,
@@ -166,9 +167,9 @@ const runPhase = (
         }),
         [`${p}.cpu_avg_pct`]: cpu(report.cpuAvgPct),
         [`${p}.cpu_p95_pct`]: cpu(report.cpuPct.p95),
-        [`${p}.rss_peak_mib`]: memory(report.rssBytes.max),
+        [`${p}.rss_peak_mib`]: peakMemory(report.rssBytes.max),
         ...(report.footprintBytes
-          ? { [`${p}.footprint_peak_mib`]: memory(report.footprintBytes.max) }
+          ? { [`${p}.footprint_peak_mib`]: peakMemory(report.footprintBytes.max) }
           : {}),
         [`${p}.wall_s`]: time(elapsed * 1000, { info: true }),
       }
@@ -214,7 +215,7 @@ const runBurst = (
         "burst.mb_per_s": throughput(watch.deltaBytes / 1e6 / elapsed, "MB/s"),
         "burst.delta_latency_p99_ms": latency(dl.p99, { info: true }),
         "burst.cpu_avg_pct": cpu(report.cpuAvgPct, { info: true }),
-        "burst.rss_peak_mib": memory(report.rssBytes.max),
+        "burst.rss_peak_mib": peakMemory(report.rssBytes.max),
       } satisfies Record<string, Metric>
     }),
   )
@@ -258,13 +259,13 @@ export const sessions: Scenario = {
       // Last, so the snapshot's own allocation does not skew the numbers above.
       yield* ctx.peak(daemon, "after-repeat")
 
-      metrics.rss_after_mib = memory(after.rssBytes)
-      metrics.rss_growth_mib = memory(after.rssBytes - before.rssBytes)
+      metrics.rss_after_mib = peakMemory(after.rssBytes)
+      metrics.rss_growth_mib = peakMemory(after.rssBytes - before.rssBytes)
       metrics.rss_growth_repeat_mib = memory(afterRepeat.rssBytes - after.rssBytes, {
         tolerance: { relative: 0.5, absolute: 10 },
       })
       if (after.footprintBytes !== null && before.footprintBytes !== null) {
-        metrics.footprint_growth_mib = memory(after.footprintBytes - before.footprintBytes)
+        metrics.footprint_growth_mib = peakMemory(after.footprintBytes - before.footprintBytes)
       }
       const notes = [
         `phases: ${phases.map((p) => `${p.name} (${p.sessions} sessions × ${p.turns} Turns, ${p.clients} Client(s))`).join(", ")}, then burst and repeat (${repeatOf.name} again)`,

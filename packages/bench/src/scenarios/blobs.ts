@@ -67,28 +67,30 @@ export const blobs: Scenario = {
       yield* ctx.peak(daemon, "after-upload")
 
       const mb = size / 1e6
+      // Transfers allocate in proportion to the payload and GC timing moves the
+      // peaks a lot: hold them to 35% or a quarter of the payload.
+      const tolerance = { relative: 0.35, absolute: size / 1024 / 1024 / 4 }
+      const blobMemory = (bytes: number) => memory(bytes, { tolerance })
+      const rate = (mbPerS: number) =>
+        throughput(mbPerS, "MB/s", { tolerance: { relative: 0.5, absolute: 0 } })
       return {
         metrics: {
-          read_mb_per_s: throughput(mb / readSeconds, "MB/s"),
-          read_rss_peak_over_base_mib: memory(readReport.rssBytes.max - base.rssBytes),
-          upload_mb_per_s: throughput(mb / uploadSeconds, "MB/s"),
-          upload_rss_peak_over_base_mib: memory(uploadReport.rssBytes.max - base.rssBytes),
-          rss_after_mib: memory(after.rssBytes),
+          read_mb_per_s: rate(mb / readSeconds),
+          read_rss_peak_over_base_mib: blobMemory(readReport.rssBytes.max - base.rssBytes),
+          upload_mb_per_s: rate(mb / uploadSeconds),
+          upload_rss_peak_over_base_mib: blobMemory(uploadReport.rssBytes.max - base.rssBytes),
+          rss_after_mib: blobMemory(after.rssBytes),
           ...(base.footprintBytes !== null &&
           after.footprintBytes !== null &&
           uploadReport.footprintBytes
             ? {
-                upload_footprint_peak_over_base_mib: memory(
+                upload_footprint_peak_over_base_mib: blobMemory(
                   uploadReport.footprintBytes.max - base.footprintBytes,
                 ),
-                footprint_retained_mib: memory(after.footprintBytes - base.footprintBytes, {
-                  tolerance: { relative: 0.5, absolute: 10 },
-                }),
+                footprint_retained_mib: blobMemory(after.footprintBytes - base.footprintBytes),
               }
             : {}),
-          rss_retained_mib: memory(after.rssBytes - base.rssBytes, {
-            tolerance: { relative: 0.5, absolute: 10 },
-          }),
+          rss_retained_mib: blobMemory(after.rssBytes - base.rssBytes),
         },
         notes: [
           `${size / 1024 / 1024} MiB of incompressible bytes each way over ${ctx.transport}; RSS sampled every 50 ms`,

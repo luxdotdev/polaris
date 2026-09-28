@@ -26,7 +26,7 @@ import {
   waitUntil,
   watchSession,
 } from "../drive.ts"
-import { type Metric, memory, type Scenario, throughput, time } from "../types.ts"
+import { type Metric, memory, peakMemory, type Scenario, throughput, time } from "../types.ts"
 
 /** Time a stream until its `Synchronized` item; returns ms and the items received. */
 const timeUntilSynchronized = <A extends HostStreamItem | SessionStreamItem, E>(
@@ -167,9 +167,9 @@ export const history: Scenario = {
       const metrics: Record<string, Metric> = {
         events: { value: seeded.sequence, unit: "", kind: "count", better: "higher", info: true },
         seed_events_per_s: throughput(seeded.sequence / (seeded.seedMs / 1000), "/s"),
-        seed_rss_peak_mib: memory(seeded.rssPeak),
+        seed_rss_peak_mib: peakMemory(seeded.rssPeak),
         ...(seeded.footprintPeak !== null
-          ? { seed_footprint_peak_mib: memory(seeded.footprintPeak) }
+          ? { seed_footprint_peak_mib: peakMemory(seeded.footprintPeak) }
           : {}),
         restart_hello_ms: time(helloMs),
         loaded_rss_mib: memory(loaded.rssBytes),
@@ -207,9 +207,9 @@ export const history: Scenario = {
           better: "lower",
           info: true,
         },
-        rss_after_snapshots_mib: memory(afterSnapshots.rssBytes),
+        rss_after_snapshots_mib: peakMemory(afterSnapshots.rssBytes),
         ...(afterSnapshots.footprintBytes !== null
-          ? { footprint_after_snapshots_mib: memory(afterSnapshots.footprintBytes) }
+          ? { footprint_after_snapshots_mib: peakMemory(afterSnapshots.footprintBytes) }
           : {}),
       }
       return {

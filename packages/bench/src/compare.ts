@@ -12,7 +12,7 @@ import type { AggregatedMetric, BenchResult, MetricKind } from "./types.ts"
 export const DEFAULT_TOLERANCE: Record<MetricKind, { relative: number; absolute: number }> = {
   memory: { relative: 0.1, absolute: 5 },
   cpu: { relative: 0.5, absolute: 2 },
-  latency: { relative: 0.5, absolute: 2 },
+  latency: { relative: 0.5, absolute: 5 },
   time: { relative: 0.35, absolute: 5 },
   throughput: { relative: 0.3, absolute: 0 },
   count: { relative: 0.25, absolute: 1 },

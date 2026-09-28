@@ -5,7 +5,7 @@
 import { Effect, Stream } from "effect"
 import { awaitReady, cleanup, connect, makeTempDir } from "../daemon.ts"
 import { settle } from "../drive.ts"
-import { cpu, memory, type Scenario, throughput, time } from "../types.ts"
+import { cpu, peakMemory, type Scenario, throughput, time } from "../types.ts"
 
 export const terminal: Scenario = {
   name: "terminal",
@@ -68,15 +68,15 @@ export const terminal: Scenario = {
           mb_per_s: throughput(received / 1e6 / seconds, "MB/s"),
           stream_ms: time(seconds * 1000, { info: true }),
           cpu_avg_pct: cpu(report.cpuAvgPct),
-          rss_peak_over_base_mib: memory(report.rssBytes.max - base.rssBytes),
+          rss_peak_over_base_mib: peakMemory(report.rssBytes.max - base.rssBytes),
           ...(report.footprintBytes && base.footprintBytes !== null
             ? {
-                footprint_peak_over_base_mib: memory(
+                footprint_peak_over_base_mib: peakMemory(
                   report.footprintBytes.max - base.footprintBytes,
                 ),
               }
             : {}),
-          rss_after_close_mib: memory(after.rssBytes),
+          rss_after_close_mib: peakMemory(after.rssBytes),
         },
         notes,
       }

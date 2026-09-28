@@ -81,6 +81,9 @@ A result is JSON: `env` (machine model, CPU, cores, RAM, OS, Bun version, git sh
 Baselines live in `baselines/`, named by machine slug (`<model>-<cpu>-<cores>c`, plus `-quick`):
 
 - `mac14-13-apple-m2-max-12c.json`: the lead's Mac Studio (M2 Max, 32 GB), full suite, median of 3 runs, source Daemon, bridge transport.
+- `mac14-13-apple-m2-max-12c-quick.json`: the same at `--quick` sizes, for fast before/after checks.
+
+Other apps were running on the machine while these were recorded (it is a workstation, not a lab), so treat single-digit-percent differences as noise; the tolerances below account for it.
 
 **Updating a baseline** (after an intended change, or on a new machine): close heavy apps, plug in, then
 
@@ -99,14 +102,16 @@ and commit it with a message saying why the numbers moved. Never regenerate a ba
 
 | Kind | Relative | Absolute | Why |
 |---|---|---|---|
-| memory (MiB) | 10% | 5 MiB | RSS repeats within a few MiB run to run; this catches a real step (a leak, a cache) without flagging allocator jitter. |
-| cpu (% of a core) | 50% | 2 points | CPU at light load swings by tens of percent between runs. |
-| latency (ms) | 50% | 2 ms | Tail latencies (p99) are noisy; the absolute floor keeps sub-ms numbers from flapping. |
-| time (ms) | 35% | 5 ms | Whole operations (snapshots, checkpoints, first search) are steadier than tails. |
-| throughput (/s) | 30% | 0 | A drop of a third is a real slowdown. |
+| memory, steady state (MiB) | 10% | 5 MiB | Settled, idle and loaded RSS / footprint repeat within ~3% run to run; this catches a real step (a leak, a new cache) without flagging allocator jitter. |
+| memory at a peak, grown, or left after activity (`peakMemory`) | 25% | 10 MiB | Depends on when the GC ran: 15–30% spread between runs of the same build. |
+| memory in `blobs` | 35% | ¼ of the payload | Transfers allocate in proportion to the payload and their peaks move with GC timing. |
+| cpu (% of a core) | 50% | 2 points | CPU under load spreads ~10–20% between runs, light-load CPU much more. |
+| latency (ms) | 50% | 5 ms | p50s of a few ms and p99 tails swing by several ms; the absolute floor keeps them from flapping. |
+| time (ms) | 35% | 5 ms | Whole operations (start-up, snapshots, checkpoints, first search) repeat within a few %. |
+| throughput (/s) | 30% (50% in `blobs`) | 0 | A drop of a third is a real slowdown; blob transfers are noisier. |
 | count | 25% | 1 | Sizes and counts that should not change much. |
 
-A metric can override its tolerance (e.g. idle CPU: 0.3 points absolute), and informational metrics (`info`) never gate. These numbers come from the spread of the 3-run baseline on the Mac Studio: most memory metrics moved < 3% between runs, CPU and p99 latencies up to ~40%. Loosen a metric's tolerance in its scenario if it flaps; do not loosen the defaults.
+A metric can override its tolerance (idle CPU, for example, is held to 0.3 points over a bare Bun process), and informational metrics (`info`) never gate. The numbers come from the spread of the three runs behind the Mac Studio baseline (the `range` column of a `--runs 3` table shows it for any machine). If a metric flaps, loosen that metric's tolerance in its scenario with a comment saying why; do not loosen the defaults.
 
 ## Profiles and snapshots
 

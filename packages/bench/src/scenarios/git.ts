@@ -24,7 +24,7 @@ import {
 } from "../drive.ts"
 import { copyTree, git, sourceTree } from "../fixtures.ts"
 import { median } from "../stats.ts"
-import { cpu, memory, type Scenario, time } from "../types.ts"
+import { cpu, peakMemory, type Scenario, time } from "../types.ts"
 
 export const gitScenario: Scenario = {
   name: "git",
@@ -126,8 +126,8 @@ export const gitScenario: Scenario = {
           status_ms: time(status.ms),
           working_tree_diff_ms: time(workingDiff.ms),
           turns_cpu_avg_pct: cpu(turnReport.cpuAvgPct, { info: true }),
-          rss_peak_mib: memory(all.rssBytes.max),
-          ...(all.footprintBytes ? { footprint_peak_mib: memory(all.footprintBytes.max) } : {}),
+          rss_peak_mib: peakMemory(all.rssBytes.max),
+          ...(all.footprintBytes ? { footprint_peak_mib: peakMemory(all.footprintBytes.max) } : {}),
         },
         notes: [
           `${count} files; ${turns} Turns each rewriting 20 files; before-checkpoint timed on Turns 2–${turns}`,

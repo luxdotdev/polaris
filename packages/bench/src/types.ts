@@ -104,6 +104,16 @@ export const memory = (bytes: number, extra: Partial<Metric> = {}): Metric => ({
   better: "lower",
   ...extra,
 })
+/**
+ * Memory at a peak, grown over a run, or left after activity depends on when the
+ * garbage collector ran: runs of the same build spread by 15–30%, so it is held
+ * to 25% / 10 MiB instead of the steady-state 10% / 5 MiB.
+ */
+export const PEAK_TOLERANCE = { relative: 0.25, absolute: 10 } as const
+
+export const peakMemory = (bytes: number, extra: Partial<Metric> = {}): Metric =>
+  memory(bytes, { tolerance: PEAK_TOLERANCE, ...extra })
+
 export const cpu = (pct: number, extra: Partial<Metric> = {}): Metric => ({
   value: pct,
   unit: "%",

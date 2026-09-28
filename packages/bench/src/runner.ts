@@ -110,7 +110,12 @@ export const runScenario = async (
       if (files.length > 0) options.log(`${scenario.name}: profiles in ${profileDir}`)
     }
   }
-  const notes = [...new Set(runs.flatMap((r) => r.notes))]
+  // A note every run agrees on appears once; one that differs is labelled with its run.
+  const notes = [...new Set(runs.flatMap((r) => r.notes))].flatMap((note) =>
+    runs.every((r) => r.notes.includes(note))
+      ? [note]
+      : runs.flatMap((r, i) => (r.notes.includes(note) ? [`run ${i + 1}: ${note}`] : [])),
+  )
   return {
     metrics: aggregate(runs),
     notes,

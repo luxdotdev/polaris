@@ -8,7 +8,7 @@ import { awaitReady, type Client, connect } from "../daemon.ts"
 import { settle } from "../drive.ts"
 import { sourceTree } from "../fixtures.ts"
 import { summarize } from "../stats.ts"
-import { latency, type Metric, memory, type Scenario, time } from "../types.ts"
+import { latency, type Metric, peakMemory, type Scenario, time } from "../types.ts"
 
 const PATH_QUERIES = [
   "sessionTurn",
@@ -97,13 +97,13 @@ export const files: Scenario = {
             metrics[`${b}.search_p95_ms`] = latency(result.search.p95)
             metrics[`${b}.grep_p50_ms`] = latency(result.grep.median)
             metrics[`${b}.grep_p95_ms`] = latency(result.grep.p95)
-            metrics[`${b}.index_rss_mib`] = memory(after.rssBytes - before.rssBytes)
+            metrics[`${b}.index_rss_mib`] = peakMemory(after.rssBytes - before.rssBytes)
             if (after.footprintBytes !== null && before.footprintBytes !== null) {
-              metrics[`${b}.index_footprint_mib`] = memory(
+              metrics[`${b}.index_footprint_mib`] = peakMemory(
                 after.footprintBytes - before.footprintBytes,
               )
             }
-            metrics[`${b}.rss_mib`] = memory(after.rssBytes)
+            metrics[`${b}.rss_mib`] = peakMemory(after.rssBytes)
             notes.push(
               `${b}: first search returned ${result.firstHits} paths; grep hits ${result.grepHits} (limit 200 per query)`,
             )
