@@ -127,8 +127,7 @@
       "anti-slop/no-known-value-widening": 3,
       "anti-slop/require-readable-spacing": 24,
       "anti-slop/require-safety-comment-for-type-assertion": 6,
-      "sonarjs/cognitive-complexity": 1,
-      "typescript/no-explicit-any": 3
+      "sonarjs/cognitive-complexity": 1
     },
     "apps/daemon/src/engine/session.ts": {
       "anti-slop/no-array-filter-map": 1,
@@ -785,7 +784,6 @@
       "anti-slop/require-readable-spacing": 16,
       "anti-slop/require-safety-comment-for-type-assertion": 9,
       "sonarjs/cognitive-complexity": 1,
-      "typescript/no-explicit-any": 3,
       "typescript/no-unnecessary-type-assertion": 1
     },
     "packages/client/src/connection.ts": {

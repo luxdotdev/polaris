@@ -4,7 +4,7 @@
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
-  "description": "Shared oxlint configuration and the custom oxlint plugins every workspace extends.",
+  "description": "Shared oxlint and oxfmt configuration and the custom oxlint plugins every workspace extends.",
   "scripts": {
     "typecheck": "tsc -p .",
     "test": "bun test"

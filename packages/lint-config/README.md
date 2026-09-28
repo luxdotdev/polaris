@@ -1,8 +1,12 @@
 # @polaris/lint-config
 
-The shared [oxlint](https://oxc.rs/docs/guide/usage/linter) configuration (`oxlint.json`) and the custom oxlint plugins under `plugins/`. Every workspace has a `.oxlintrc.json` that extends `oxlint.json`, and so does the repo root (for `scripts/` and anything outside a workspace). Biome still formats; it no longer lints.
+The shared [oxlint](https://oxc.rs/docs/guide/usage/linter) configuration (`oxlint.json`), the shared [oxfmt](https://oxc.rs/docs/guide/usage/formatter) style (`oxfmt.json`), and the custom oxlint plugins under `plugins/`. Every workspace has a `.oxlintrc.json` that extends `oxlint.json`, and so does the repo root (for `scripts/` and anything outside a workspace).
 
-`bun run lint` runs Biome's format check, then the lint ratchet (`tooling/lint/ratchet.ts`), which runs oxlint over the repo and compares the result with the committed baseline.
+`bun run lint` runs oxfmt's format check (`oxfmt --check`), then the lint ratchet (`tooling/lint/ratchet.ts`), which runs oxlint over the repo and compares the result with the committed baseline.
+
+## Formatting
+
+`oxfmt.json` is the house style, kept in step with sightline's: 2-space indent, semicolons, double quotes, `trailingComma: "es5"`, `package.json` key order left alone, imports not sorted (sightline doesn't sort them either). The one difference is `printWidth`: 100 rather than sightline's 80, because `max-lines` (750) was set against 100-column code and rewrapping at 80 pushes six files over it through formatting alone. The root `oxfmt.config.mts` spreads it and adds Polaris's ignore paths, because oxfmt resolves `ignorePatterns` against the config file's own directory; it's found automatically, so `bun run format`, `oxfmt <files>` and editors all use it. oxfmt applies the ignores to explicit file arguments too.
 
 ## The rules
 
@@ -39,7 +43,7 @@ A "comment" is a block comment, or an unbroken run of `//` lines that each own t
 
 - blank lines inside the comment;
 - reference lines: `See docs/…`, a bare URL, a ticket id like `ENG-123`;
-- tooling directives: `eslint-disable`/`oxlint-disable`, `@ts-expect-error`, `biome-ignore`, and the `SAFETY:` line that `anti-slop/require-safety-comment-for-type-assertion` asks for.
+- tooling directives: `eslint-disable`/`oxlint-disable`, `@ts-expect-error`, `prettier-ignore`/`oxfmt-ignore`, and the `SAFETY:` line that `anti-slop/require-safety-comment-for-type-assertion` asks for.
 
 JSDoc (`/** … */`) documents an API surface and is exempt. Trailing comments (code before them on the line) are never grouped or reported. A hashbang is not a comment.
 
@@ -51,7 +55,7 @@ A one-rule wrapper around [`eslint-plugin-sonarjs`](https://github.com/SonarSour
 
 ## anti-slop (`plugins/anti-slop/`)
 
-A vendored copy of [dmmulroy/anti-slop](https://github.com/dmmulroy/anti-slop) (MIT); provenance and update steps are in `plugins/anti-slop/UPSTREAM.md`. It is meant to be owned, not consumed: edit it to fit us and re-diff against upstream when pulling changes. It is excluded from Biome and from lint so its bytes stay close to upstream.
+A vendored copy of [dmmulroy/anti-slop](https://github.com/dmmulroy/anti-slop) (MIT); provenance and update steps are in `plugins/anti-slop/UPSTREAM.md`. It is meant to be owned, not consumed: edit it to fit us and re-diff against upstream when pulling changes. It is excluded from oxfmt and from lint so its bytes stay close to upstream.
 
 The Effect rules, with the reason for each:
 
@@ -69,7 +73,7 @@ The generic rules that matter most day to day:
 - `no-object-parameters`: a function (including an `Effect.fn`) takes an owner-provided, named input type parsed at its boundary, not an inline object type.
 - `no-known-value-widening`: `const x: Record<string, T> = { … }` throws away the known keys; prefer inference or `satisfies`.
 - `no-module-mocking`: no `vi.mock`/`jest.mock`-style module mocking; replace dependencies through a real seam (a Layer).
-- `require-readable-spacing`: blank lines between statement groups. Autofixable with `oxlint --fix`; Biome keeps the blank lines it adds.
+- `require-readable-spacing`: blank lines between statement groups. Autofixable with `oxlint --fix`; oxfmt keeps the blank lines it adds (it preserves one blank line between statements and never adds or removes them).
 
 ## Fixtures
 

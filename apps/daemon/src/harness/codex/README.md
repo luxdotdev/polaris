@@ -92,7 +92,7 @@ bun apps/daemon/src/harness/codex/generate.ts --codex /path/to/codex
 bun run typecheck                                         # fails where protocol.ts drifted
 ```
 
-It runs `codex app-server generate-ts` (stable surface, no `--experimental`) into a temp directory, copies the import closure of the roots listed in `generate.ts`, formats with Biome, and rewrites `generated/version.ts`. To use a new message, add its type to `ROOTS` and a schema plus a `conforms<…>` line in `protocol.ts`.
+It runs `codex app-server generate-ts` (stable surface, no `--experimental`) into a temp directory, copies the import closure of the roots listed in `generate.ts` unformatted (oxfmt ignores `generated/`), and rewrites `generated/version.ts`. To use a new message, add its type to `ROOTS` and a schema plus a `conforms<…>` line in `protocol.ts`.
 
 ## Tests
 

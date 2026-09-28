@@ -34,7 +34,7 @@ jobs:
         with:
           node-version: 24
       - run: bun install --frozen-lockfile
-      # Biome format check, then oxlint through the ratchet (tooling/lint/baseline.json):
+      # oxfmt format check, then oxlint through the ratchet (tooling/lint/baseline.json):
       # fails on new or increased violations. See packages/lint-config/README.md.
       - run: bun run lint
       - run: bunx turbo run typecheck test

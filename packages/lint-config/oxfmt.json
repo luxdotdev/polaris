@@ -1,0 +1,23 @@
+{
+  "$schema": "../../node_modules/oxfmt/configuration_schema.json",
+  "trailingComma": "es5",
+  "tabWidth": 2,
+  "semi": true,
+  "singleQuote": false,
+  "printWidth": 100,
+  "sortTailwindcss": {},
+  "sortPackageJson": false,
+  "ignorePatterns": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/.turbo/**",
+    "**/__snapshots__/**",
+    "**/*.md",
+    "**/*.mdx",
+    "**/*.lock",
+    "**/bun.lock",
+    "**/pnpm-lock.yaml",
+    "**/package-lock.json",
+    ".github/**"
+  ]
+}
