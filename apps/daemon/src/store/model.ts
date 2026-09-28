@@ -4,8 +4,10 @@
  *
  * The decider validates commands against it, the stream snapshots are built
  * from it, and the SQL projection tables persist it (see `projection.ts`).
- * Turn items are the exception: they only live in SQL, so a long history
- * does not stay resident.
+ * Turn items are the exception: they only live in SQL, and so do all but
+ * the most recent `RECENT_TURNS` Turns of each session, so a long history
+ * does not stay resident. Older Turns are finished and never change; read
+ * them with `EventStore.readTurns`.
  */
 import {
   AgentSession,
@@ -25,7 +27,10 @@ export interface SessionRecord {
   readonly session: AgentSession
   /** Set once the user renames the session; Harness title suggestions are then ignored. */
   readonly titleLocked: boolean
-  /** Ordered by `index`. */
+  /**
+   * The most recent Turns (at most `RECENT_TURNS`), ordered by `index`. The
+   * session's `turnCount` counts all of them; older ones are in SQL.
+   */
   readonly turns: ReadonlyArray<Turn>
   readonly pending: ReadonlyMap<RequestId, ApprovalRequest>
 }
@@ -44,6 +49,12 @@ export const emptyModel: ReadModel = {
   worktrees: new Map(),
   sessions: new Map(),
 }
+
+/**
+ * How many Turns per session the read model keeps in memory. The Turn in flight
+ * is always the latest, so it is always among them.
+ */
+export const RECENT_TURNS = 32
 
 // ── Stream classification ───────────────────────────────────────────────────
 
@@ -100,7 +111,12 @@ const withMap = <K, V>(map: ReadonlyMap<K, V>, key: K, value: V | undefined): Ma
 
 const upsertTurn = (turns: ReadonlyArray<Turn>, turn: Turn): ReadonlyArray<Turn> => {
   const at = turns.findIndex((t) => t.id === turn.id)
-  if (at === -1) return [...turns, turn].sort((a, b) => a.index - b.index)
+  if (at === -1) {
+    // A Turn older than every one in memory was evicted already and is final.
+    if (turns.length >= RECENT_TURNS && turn.index < turns[0]!.index) return turns
+    const next = [...turns, turn].sort((a, b) => a.index - b.index)
+    return next.length > RECENT_TURNS ? next.slice(next.length - RECENT_TURNS) : next
+  }
   const next = [...turns]
   next[at] = turn
   return next
@@ -115,11 +131,7 @@ const updateSession = (
   const record = model.sessions.get(sessionId)
   if (record === undefined) return model
   const next = f(record)
-  const session = new AgentSession({
-    ...next.session,
-    turnCount: next.turns.length,
-    updatedAt: occurredAt,
-  })
+  const session = new AgentSession({ ...next.session, updatedAt: occurredAt })
   return { ...model, sessions: withMap(model.sessions, sessionId, { ...next, session }) }
 }
 
@@ -194,6 +206,11 @@ const apply = (model: ReadModel, envelope: EventEnvelope): ReadModel => {
     case "TurnEnded":
       return updateSession(model, event.turn.sessionId, at, (r) => ({
         ...r,
+        session: new AgentSession({
+          ...r.session,
+          // Turn indexes are dense from 0, so the count is one past the highest seen.
+          turnCount: Math.max(r.session.turnCount, event.turn.index + 1),
+        }),
         turns: upsertTurn(r.turns, event.turn),
       }))
     case "TurnItemCompleted":
@@ -219,6 +236,7 @@ const apply = (model: ReadModel, envelope: EventEnvelope): ReadModel => {
         pending: withMap(r.pending, event.request.id, event.request),
       }))
     case "ApprovalResolved":
+    case "ApprovalWithdrawn":
       return updateSession(model, event.sessionId, at, (r) => ({
         ...r,
         pending: withMap(r.pending, event.requestId, undefined),
