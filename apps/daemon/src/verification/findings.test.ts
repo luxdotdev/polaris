@@ -115,7 +115,7 @@ test.todo("the host feed follows a Turn that records items and checkpoints", asy
 
 /**
  * Finding 2. `ArchiveSession` is accepted while the session is In Terminal even
- * with a Turn in flight there (the decider only refuses for Idle / Working /
+ * with a Turn in flight there (the session machine only refuses in its `live` states, Idle / Working /
  * Needs You), and it neither ends that Turn nor withdraws its pending
  * approvals. Recovery skips Archived sessions, so after a Daemon restart the
  * archived session still has a `working` Turn and a pending approval, against

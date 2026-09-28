@@ -151,7 +151,7 @@ module polaris {
   pure def streamSeqs(events: List[Event], st: str): List[int] =
     events.foldl([], (acc, e) => if (inStream(e, st)) acc.append(e.seq) else acc)
 
-  // ── The decider (decider.ts, and the Engine's Harness event handling) ──────
+  // ── The decider (engine/session.ts: commands and Harness events) ─────────
 
   /** `acceptsTurn`: no Turn in flight, and not blocked on the user. */
   pure def acceptsTurn(v: SessionView): bool =
