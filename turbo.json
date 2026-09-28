@@ -9,7 +9,7 @@
       "outputs": ["dist/**"]
     },
     "typecheck": { "dependsOn": ["^typecheck"] },
-    "test": { "dependsOn": ["^build"] },
+    "test": { "dependsOn": ["^build"], "env": ["POLARIS_PBT_*"] },
     "dev": { "cache": false, "persistent": true },
     "bench": {
       "cache": false,
