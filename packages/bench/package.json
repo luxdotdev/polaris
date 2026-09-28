@@ -1,0 +1,21 @@
+{
+  "name": "@polaris/bench",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    "./sampler": "./src/sampler.ts",
+    "./proc": "./src/proc.ts"
+  },
+  "scripts": {
+    "bench": "bun src/cli.ts",
+    "typecheck": "tsc -p .",
+    "test": "bun test --pass-with-no-tests"
+  },
+  "dependencies": {
+    "@polaris/client": "workspace:*",
+    "@polaris/protocol": "workspace:*",
+    "effect": "4.0.0-rc.118"
+  }
+}
