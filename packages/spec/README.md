@@ -106,7 +106,7 @@ Measured on an Apple M-series laptop.
 | `quint run --main=fixed --invariants safety hostFeedCanProgress` | same | no violation, ~16 s |
 | `quint run --main=current --invariant=hostFeedCanProgress` | | violation in the first trace (finding 1; a 16-step scenario in `polaris_current_test`) |
 | `quint verify --main=small --invariant=safety` (Apalache 0.56.1) | 4 steps | no violation, ~55 s |
-| | 5 steps | no violation, ~8 min |
+| | 5 steps | no violation, ~8 min (6 steps: stopped unfinished after 35 min) |
 | `quint verify --main=fixed` | 4 steps | no violation, ~105 s; 6 steps ran out of a 4 GB heap after 22 min |
 | Mutants (a subscriber that skips instead of dropping; no batch-local receipts; no withdrawal on restart; no pending check on answers; no client dedupe *and* no live cut filter) | 3000 traces | each violates `safety` within seconds |
 | Store model-based test | 1000 runs | pass, ~6.5 s (CI: 25 runs) |
