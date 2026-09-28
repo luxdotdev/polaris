@@ -53,6 +53,8 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "session.steer",
   "session.fork",
   "session.terminal-handoff",
+  "session.terminal-command",
+  "session.live-items",
   "files.read",
   "files.search",
   "files.watch",

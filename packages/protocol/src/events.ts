@@ -55,6 +55,19 @@ export const DomainEvent = Schema.TaggedUnion({
     /** Label of the Client device that answered first. */
     resolvedBy: Schema.String,
   },
+  /**
+   * The request went away without a Client answering it: the Harness withdrew
+   * it (the Turn ended or was interrupted, or the terminal UI answered it), or
+   * the Daemon did (restart, crash, upgrade). Logs written before this event
+   * existed record the same thing as `ApprovalResolved` with a `Deny` decision
+   * and `resolvedBy` "Harness" or "Daemon"; both decode and project alike.
+   */
+  ApprovalWithdrawn: {
+    sessionId: SessionId,
+    requestId: RequestId,
+    withdrawnBy: Schema.Literals(["harness", "daemon"]),
+    reason: Schema.String,
+  },
 
   CheckpointRecorded: {
     sessionId: SessionId,

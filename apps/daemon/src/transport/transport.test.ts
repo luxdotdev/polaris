@@ -24,10 +24,11 @@ import {
   type HostStreamItem,
   NotFound,
   Sequence,
+  TerminalLaunch,
   WorkspaceId,
 } from "@polaris/protocol"
 import { Context, Effect, Exit, Fiber, Layer, PubSub, Scope, Stream, SubscriptionRef } from "effect"
-import { DeviceLabel } from "../engine/rpc.ts"
+import { ClientCapabilities, DeviceLabel } from "../engine/rpc.ts"
 import { GitRpcsLive } from "../git/GitRpcs.ts"
 import { BlobChannel } from "../services.ts"
 import type { DaemonAlreadyRunning } from "./lock.ts"
@@ -255,6 +256,46 @@ describe("transport", () => {
       }),
     )
     expect(reason).toBe("Test MacBook")
+  })
+
+  test("handlers see the Client's capabilities from hello; session.terminalCommand is served", async () => {
+    const result = await run(
+      Effect.gen(function* () {
+        const log = yield* makeLog
+        const handlers = Layer.merge(
+          testHandlers(log),
+          // Echo the capabilities hello recorded, as the terminal command's argv.
+          ServerRpcs.toLayerHandler("session.terminalCommand", (_, { client }) =>
+            Effect.succeed(
+              new TerminalLaunch({
+                argv: [...(Context.getOrUndefined(client.annotations, ClientCapabilities) ?? [])],
+                cwd: "/repo",
+                env: {},
+              }),
+            ),
+          ),
+        )
+        yield* startServer({ ...serverOptions(home), handlers })
+        const conn = yield* localHost(home, {
+          identity: { ...identity, capabilities: [...identity.capabilities, "session.live-items"] },
+        })
+        const session = yield* conn.awaitSession
+        return yield* session.client["session.terminalCommand"]({ sessionId: "s" as never })
+      }),
+    )
+    expect(result?.argv).toEqual(["blobs", "files.read", "session.live-items"])
+    // Without a real engine the placeholder answers NotFound.
+    const missing = await run(
+      Effect.gen(function* () {
+        yield* startServer(serverOptions(home))
+        const conn = yield* localHost(home)
+        const session = yield* conn.awaitSession
+        return yield* Effect.flip(
+          session.client["session.terminalCommand"]({ sessionId: "s" as never }),
+        )
+      }),
+    )
+    expect(missing._tag).toBe("NotFound")
   })
 
   test("streams events and moves multi-MB blobs both ways, interleaved", async () => {

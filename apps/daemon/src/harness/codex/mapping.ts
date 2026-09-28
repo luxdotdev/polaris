@@ -197,6 +197,15 @@ export const toTurnItem = (item: P.ThreadItem): TurnItem | null => {
   }
 }
 
+/** The text of a user message item (its text inputs, in order); null when it has none. */
+export const userMessageText = (item: P.ThreadItem): string | null => {
+  if (item.type !== "userMessage" || !("content" in item)) return null
+  const text = item.content
+    .flatMap((input) => (input.type === "text" && input.text !== undefined ? [input.text] : []))
+    .join("\n")
+  return text === "" ? null : text
+}
+
 export const toPlanItem = (
   id: string,
   plan: (typeof P.TurnPlanUpdatedNotification.Type)["plan"],

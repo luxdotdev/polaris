@@ -28,7 +28,12 @@ export class HarnessError extends Schema.TaggedError<HarnessError>()("HarnessErr
 export type HarnessEvent =
   /** The Harness-native resume handle is known (or changed); persist it. */
   | { readonly _tag: "CursorAssigned"; readonly cursor: string }
-  | { readonly _tag: "TurnStarted"; readonly turnId: TurnId }
+  /**
+   * A Turn began. `prompt` is the user's message when the driver knows it; the
+   * engine records it for Turns started outside Polaris (a co-attached or
+   * handed-off terminal UI). Turns Polaris sent are already recorded.
+   */
+  | { readonly _tag: "TurnStarted"; readonly turnId: TurnId; readonly prompt: string | null }
   /** Ephemeral streaming text for an item still in progress. */
   | {
       readonly _tag: "ItemDelta"
@@ -37,6 +42,14 @@ export type HarnessEvent =
       readonly field: "text" | "output"
       readonly text: string
     }
+  /**
+   * The latest state of an item still in progress (a command that started, a plan
+   * that changed). Ephemeral like `ItemDelta`: shown live, never persisted. The
+   * same id is expected to end with an `ItemCompleted`; the engine drops progress
+   * still open when its Turn ends.
+   */
+  | { readonly _tag: "ItemUpdated"; readonly turnId: TurnId; readonly item: TurnItem }
+  /** The final state of an item; persisted. A later completion with the same id supersedes it. */
   | { readonly _tag: "ItemCompleted"; readonly turnId: TurnId; readonly item: TurnItem }
   | {
       readonly _tag: "ApprovalRequested"
@@ -108,6 +121,18 @@ export interface HarnessDriver {
     readonly steer: boolean
     /** Terminal UI can attach while Polaris stays attached (Codex). */
     readonly liveCoAttach: boolean
+  }
+  /**
+   * For Harnesses that hand off sequentially (`liveCoAttach: false`): what the
+   * Harness's own terminal UI does while the session is In Terminal, so Polaris
+   * can follow along. The engine follows from the moment it has the terminal
+   * command, and calls `release` on `ReturnFromTerminal`, which ends the stream
+   * once it has drained. A `CursorAssigned` seen here is the cursor to resume
+   * from afterwards (the terminal UI may have moved to a new native session).
+   */
+  readonly terminalFollow?: {
+    readonly events: (sessionId: SessionId) => Stream.Stream<HarnessEvent>
+    readonly release: (sessionId: SessionId) => Effect.Effect<void>
   }
   /** Must have no side effects: never open an authenticated session or start MCP servers. */
   readonly probe: Effect.Effect<HarnessProbe>

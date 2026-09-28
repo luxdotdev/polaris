@@ -30,7 +30,19 @@ import {
   Workspace,
   Worktree,
 } from "@polaris/protocol"
-import { Clock, Context, Effect, Layer, PubSub, Ref, Schema, type Scope, Semaphore } from "effect"
+import {
+  type Cause,
+  Clock,
+  Context,
+  Effect,
+  Layer,
+  Queue,
+  Ref,
+  Schema,
+  type Scope,
+  Semaphore,
+  Stream,
+} from "effect"
 import { SqlClient, type SqlError } from "effect/sql"
 import { paths } from "../paths.ts"
 import { ServiceError } from "../services.ts"
@@ -38,6 +50,7 @@ import { MigrationsLayer } from "./migrations.ts"
 import {
   emptyModel,
   project,
+  RECENT_TURNS,
   type ReadModel,
   type SessionRecord,
   sessionOf,
@@ -67,7 +80,7 @@ const RejectionJson = json(Schema.Union([CommandRejected, NotFound]))
 
 // ── Public types ────────────────────────────────────────────────────────────
 
-/** What subscribers receive: committed events, and ephemeral output deltas. */
+/** What subscribers receive: committed events, and ephemeral output deltas and item progress. */
 export type LiveItem =
   | {
       readonly _tag: "Event"
@@ -82,6 +95,28 @@ export type LiveItem =
       readonly field: "text" | "output"
       readonly text: string
     }
+  | {
+      readonly _tag: "ItemProgress"
+      readonly sessionId: SessionId
+      readonly turnId: TurnId
+      readonly item: TurnItem
+    }
+
+export type EphemeralItem = Extract<LiveItem, { _tag: "Delta" | "ItemProgress" }>
+
+export interface StoreSettings {
+  /**
+   * Items buffered per live subscriber. A subscriber that falls this far behind
+   * (a stalled Client) is dropped: its stream ends after the items it already
+   * has, and the Client resubscribes from its last sequence. Ephemeral items are
+   * dropped earlier, once the buffer is half full, so they never cost a subscriber.
+   */
+  readonly subscriberCapacity: number
+}
+
+export const StoreConfig = Context.Reference<StoreSettings>("polaris/daemon/store/StoreConfig", {
+  defaultValue: () => ({ subscriberCapacity: 4096 }),
+})
 
 export type CommitResult =
   | {
@@ -117,9 +152,19 @@ export class EventStore extends Context.Service<
     readonly commit: <E extends Rejection = never>(
       options: CommitOptions<E>,
     ) => Effect.Effect<CommitResult, E | ServiceError>
-    /** Subscribe before reading a snapshot, so nothing committed in between is missed. */
-    readonly subscribe: Effect.Effect<PubSub.Subscription<LiveItem>, never, Scope.Scope>
-    readonly publishDelta: (delta: Extract<LiveItem, { _tag: "Delta" }>) => Effect.Effect<void>
+    /**
+     * Subscribe before reading a snapshot, so nothing committed in between is
+     * missed. The subscription lives as long as the scope; `filter` keeps
+     * unrelated items out of its buffer. The stream ends (without an error) if
+     * the subscriber falls `subscriberCapacity` items behind; resume from the
+     * last sequence seen.
+     */
+    readonly subscribe: (options?: {
+      readonly filter?: (item: LiveItem) => boolean
+    }) => Effect.Effect<Stream.Stream<LiveItem>, never, Scope.Scope>
+    readonly publishEphemeral: (item: EphemeralItem) => Effect.Effect<void>
+    /** Live subscribers right now (for tests and diagnostics). */
+    readonly subscriberCount: Effect.Effect<number>
     /**
      * Committed events with `after < sequence <= upTo`, in order. With a
      * session id, only that session's events; without, the Host stream's events.
@@ -129,6 +174,19 @@ export class EventStore extends Context.Service<
       readonly upTo: number
       readonly sessionId: SessionId | null
     }) => Effect.Effect<ReadonlyArray<EventEnvelope>, ServiceError>
+    /**
+     * A session's Turns from SQL, ordered by index: those with `index < beforeIndex`
+     * (all when null), at most the last `limit` of them (all when null).
+     */
+    readonly readTurns: (options: {
+      readonly sessionId: SessionId
+      readonly beforeIndex: number | null
+      readonly limit: number | null
+    }) => Effect.Effect<ReadonlyArray<Turn>, ServiceError>
+    /** The last recorded state of a Worktree, even one since removed (from its `WorktreeDetected`). */
+    readonly lastKnownWorktree: (
+      worktreeId: Worktree["id"],
+    ) => Effect.Effect<Worktree | null, ServiceError>
     /** Completed items of the given Turns, as of `upTo`, in completion order. */
     readonly readTurnItems: (options: {
       readonly turnIds: ReadonlyArray<TurnId>
@@ -143,7 +201,8 @@ export class EventStore extends Context.Service<
       const loaded = yield* loadModel(sql).pipe(Effect.mapError(storeError("load the read model")))
       const modelRef = yield* Ref.make(loaded)
       const lock = yield* Semaphore.make(1)
-      const hub = yield* PubSub.unbounded<LiveItem>()
+      const { subscriberCapacity } = yield* StoreConfig
+      const hub = makeHub(subscriberCapacity)
 
       const findReceipt = (commandId: CommandId) =>
         sql<{
@@ -220,16 +279,9 @@ export class EventStore extends Context.Service<
               .pipe(Effect.mapError(storeError("commit events")))
           }
           yield* Ref.set(modelRef, next)
-          yield* PubSub.publishAll(
-            hub,
-            envelopes.map(
-              (envelope): LiveItem => ({
-                _tag: "Event",
-                envelope,
-                sessionId: sessionOf(envelope.event),
-              }),
-            ),
-          )
+          for (const envelope of envelopes) {
+            hub.publish({ _tag: "Event", envelope, sessionId: sessionOf(envelope.event) })
+          }
           return {
             _tag: "Committed",
             envelopes,
@@ -281,12 +333,45 @@ export class EventStore extends Context.Service<
           return out
         }).pipe(Effect.mapError(storeError("read turn items")))
 
+      const readTurns = (options: {
+        readonly sessionId: SessionId
+        readonly beforeIndex: number | null
+        readonly limit: number | null
+      }) =>
+        sql<{ data: string }>`
+          SELECT data FROM (
+            SELECT data, turn_index FROM turns
+            WHERE session_id = ${options.sessionId}
+              AND turn_index < ${options.beforeIndex ?? Number.MAX_SAFE_INTEGER}
+            ORDER BY turn_index DESC
+            LIMIT ${options.limit ?? -1}
+          ) ORDER BY turn_index`.pipe(
+          Effect.map((rows) => rows.map((row) => TurnJson.decode(row.data))),
+          Effect.mapError(storeError("read turns")),
+        )
+
+      const lastKnownWorktree = (worktreeId: Worktree["id"]) =>
+        sql<{ payload: string }>`
+          SELECT payload FROM events
+          WHERE event_type = 'WorktreeDetected'
+            AND json_extract(payload, '$.worktree.id') = ${worktreeId}
+          ORDER BY sequence DESC LIMIT 1`.pipe(
+          Effect.map((rows) => {
+            const event = rows[0] === undefined ? null : EventJson.decode(rows[0].payload)
+            return event?._tag === "WorktreeDetected" ? event.worktree : null
+          }),
+          Effect.mapError(storeError("read a Worktree")),
+        )
+
       return EventStore.of({
         model: Ref.get(modelRef),
         commit,
-        subscribe: PubSub.subscribe(hub),
-        publishDelta: (delta) => PubSub.publish(hub, delta).pipe(Effect.asVoid),
+        subscribe: (options) => hub.subscribe(options?.filter),
+        publishEphemeral: (item) => Effect.sync(() => hub.publish(item)),
+        subscriberCount: Effect.sync(() => hub.size()),
         readEvents,
+        readTurns,
+        lastKnownWorktree,
         readTurnItems,
       })
     }),
@@ -311,6 +396,52 @@ export class EventStore extends Context.Service<
 }
 
 // ── Internals ───────────────────────────────────────────────────────────────
+
+/**
+ * The live fan-out: one bounded buffer per subscriber, so a stalled Client
+ * costs at most `capacity` items. Publishing never blocks a commit. On
+ * overflow the subscriber is dropped rather than skipping an event, so its
+ * stream has no gaps: it ends, and the Client resumes from its last sequence
+ * (replayed from the `events` table). Ephemeral items (Deltas, item progress)
+ * are only buffered while the buffer is less than half full; a Client that
+ * falls behind loses some live output but still gets every item's final state.
+ */
+const makeHub = (capacity: number) => {
+  interface Subscriber {
+    readonly queue: Queue.Queue<LiveItem, Cause.Done>
+    readonly filter: ((item: LiveItem) => boolean) | undefined
+  }
+  const subscribers = new Set<Subscriber>()
+  const ephemeralLimit = Math.max(1, Math.floor(capacity / 2))
+
+  const drop = (subscriber: Subscriber) => {
+    subscribers.delete(subscriber)
+    Queue.endUnsafe(subscriber.queue)
+  }
+
+  const publish = (item: LiveItem) => {
+    for (const subscriber of subscribers) {
+      if (subscriber.filter !== undefined && !subscriber.filter(item)) continue
+      if (item._tag !== "Event") {
+        if (Queue.sizeUnsafe(subscriber.queue) < ephemeralLimit)
+          Queue.offerUnsafe(subscriber.queue, item)
+        continue
+      }
+      if (!Queue.offerUnsafe(subscriber.queue, item)) drop(subscriber)
+    }
+  }
+
+  const subscribe = (filter?: (item: LiveItem) => boolean) =>
+    Effect.gen(function* () {
+      const queue = yield* Queue.dropping<LiveItem, Cause.Done>(capacity)
+      const subscriber: Subscriber = { queue, filter }
+      subscribers.add(subscriber)
+      yield* Effect.addFinalizer(() => Effect.sync(() => drop(subscriber)))
+      return Stream.fromQueue(queue)
+    })
+
+  return { publish, subscribe, size: () => subscribers.size }
+}
 
 const storeError = (what: string) => (cause: unknown) =>
   new ServiceError({ service: "store", message: `failed to ${what}`, cause })
@@ -430,6 +561,7 @@ const writeProjection = (
             })}`,
           ])
         case "ApprovalResolved":
+        case "ApprovalWithdrawn":
           return Effect.all([
             session,
             sql`DELETE FROM pending_approvals WHERE request_id = ${event.requestId}`,
@@ -450,9 +582,14 @@ const loadModel = (sql: SqlClient.SqlClient) =>
     const worktrees = yield* sql<{ data: string }>`SELECT data FROM worktrees`
     const sessions = yield* sql<{ data: string; title_locked: number }>`
       SELECT data, title_locked FROM sessions`
-    const turns = yield* sql<{
-      data: string
-    }>`SELECT data FROM turns ORDER BY session_id, turn_index`
+    // Only the most recent Turns of each session stay in memory (see RECENT_TURNS).
+    const turns = yield* sql<{ data: string }>`
+      SELECT data FROM (
+        SELECT data, session_id, turn_index,
+          ROW_NUMBER() OVER (PARTITION BY session_id ORDER BY turn_index DESC) AS recency
+        FROM turns
+      ) WHERE recency <= ${RECENT_TURNS}
+      ORDER BY session_id, turn_index`
     const pending = yield* sql<{ data: string }>`SELECT data FROM pending_approvals`
 
     const turnsBySession = new Map<string, Array<Turn>>()

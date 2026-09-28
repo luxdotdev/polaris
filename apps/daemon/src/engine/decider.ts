@@ -39,6 +39,8 @@ export interface DecideContext {
   readonly pathProbe: { readonly isDirectory: boolean; readonly isGitRepo: boolean } | null
   /** For Steer: whether the session's Harness supports it. */
   readonly canSteer: boolean
+  /** For ForkSession: the Turn forked from, looked up in memory or SQL (null if unknown). */
+  readonly forkTurn: Turn | null
 }
 
 type Decision = Effect.Effect<ReadonlyArray<DomainEvent>, CommandRejected | NotFound>
@@ -46,6 +48,13 @@ type Decision = Effect.Effect<ReadonlyArray<DomainEvent>, CommandRejected | NotF
 /** Worktree ids are derived from the path, so every observer of a path agrees on its id. */
 export const worktreeIdFor = (path: string): WorktreeId =>
   WorktreeId.make(`wt_${Bun.hash(path).toString(16)}`)
+
+/**
+ * The branch of a Fork's own Worktree: `polaris/fork-<8 hex>`, derived from the
+ * Fork's session id so the decider and the reactor agree on it.
+ */
+export const forkBranch = (sessionId: SessionId): string =>
+  `polaris/fork-${Bun.hash(sessionId).toString(16).padStart(16, "0").slice(0, 8)}`
 
 export const titleFromPrompt = (prompt: string): string => {
   const line = prompt.trim().split("\n")[0]?.trim() ?? ""
@@ -89,7 +98,7 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
     const turn = new Turn({
       id: ctx.newTurnId,
       sessionId: record.session.id,
-      index: record.turns.length,
+      index: record.session.turnCount,
       prompt,
       attachments: [...ctx.attachments],
       status: "working",
@@ -297,18 +306,30 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
         return reject(`session ${command.sessionId} already exists`)
       }
       return withSession(command.fromSessionId, (parent) => {
-        const turn = parent.turns.find((t) => t.id === command.fromTurnId)
+        const turn =
+          parent.turns.find((t) => t.id === command.fromTurnId) ??
+          (ctx.forkTurn?.id === command.fromTurnId ? ctx.forkTurn : undefined)
         if (turn === undefined) return notFound("turn", command.fromTurnId)
         if (turn.status === "working") return reject("the Turn is still in flight")
         const sameHarness = parent.session.harness === command.harness
-        // TODO(git): put the Fork in its own Worktree at the Turn's checkpoint.
+        // The Fork gets its own Worktree on a new branch at the Turn's after-checkpoint
+        // (the reactor creates it). Without a checkpoint (not a git repo, or the capture
+        // failed) it shares the parent's directory.
+        const workspace = model.workspaces.get(parent.session.workspaceId)
+        let cwd = parent.session.cwd
+        let worktreeId = parent.session.worktreeId
+        if (workspace?.isGitRepo === true && turn.checkpointAfter !== null) {
+          cwd = join(workspace.worktreeRoot, forkBranch(command.sessionId))
+          worktreeId = worktreeIdFor(cwd)
+          if (model.worktrees.has(worktreeId)) return reject(`a Worktree already exists at ${cwd}`)
+        }
         const session = new AgentSession({
           id: command.sessionId,
           workspaceId: parent.session.workspaceId,
           harness: command.harness,
           title: `Fork of ${parent.session.title}`,
-          cwd: parent.session.cwd,
-          worktreeId: parent.session.worktreeId,
+          cwd,
+          worktreeId,
           state: "dormant",
           permissionMode: parent.session.permissionMode,
           model: sameHarness ? parent.session.model : null,

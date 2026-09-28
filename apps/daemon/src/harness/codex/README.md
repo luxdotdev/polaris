@@ -19,7 +19,7 @@ Implements `HarnessDriver` (`../HarnessDriver.ts`) for Codex by driving the user
 
 The Daemon owns one app-server per Host on `~/.polaris/codex.sock` (keep it short: Unix socket paths are capped near 104 bytes; app-server itself symlinks long paths, but other clients may not). Each `open` makes its own connection, sends `initialize`/`initialized`, then `thread/start` (fresh) or `thread/resume` with `excludeTurns: true` (`resumeCursor`). The thread id is the cursor (`CursorAssigned`). Closing the session's scope sends `thread/unsubscribe` and closes the connection; the app-server unloads the thread after its own 30-minute idle grace.
 
-`terminalCommand` is `codex resume <threadId> --remote unix://<socket>`. The TUI attaches to the same server, and `thread/resume` on a loaded thread rejoins it, so Polaris and the TUI see the same live events and either can answer an approval. Polaris then gets `serverRequest/resolved` and emits `ApprovalWithdrawn`. Turns the TUI starts reach Polaris as notifications for an unknown Codex turn id. The driver mints a `TurnId` for them and emits `TurnStarted`. The same happens when Polaris rejoins a thread mid-Turn.
+`terminalCommand` is `codex resume <threadId> --remote unix://<socket>`. The TUI attaches to the same server, and `thread/resume` on a loaded thread rejoins it, so Polaris and the TUI see the same live events and either can answer an approval. Polaris then gets `serverRequest/resolved` and emits `ApprovalWithdrawn`. Turns the TUI starts reach Polaris as notifications for an unknown Codex turn id. The driver mints a `TurnId` for them and emits `TurnStarted` when the Turn's `userMessage` item arrives, with its text as the `prompt` (app-server sends `turn/started`, then the user message). If anything else in the Turn comes first (Polaris rejoined a thread mid-Turn), `TurnStarted` goes out then, without a prompt. Turns Polaris starts carry the prompt it sent.
 
 Verified on this Host (codex-cli 0.157.1): `--listen unix://PATH` serves WebSocket-over-Unix (a raw HTTP Upgrade returns `101`), and Bun's `ws+unix://` connects to it. `codex app-server proxy --sock` is a raw byte pipe, not a JSONL bridge, so it isn't used. The TUI's `--remote unix://` flag exists on both `codex` and `codex resume`. A hands-on co-attach with a live TUI (mid-Turn attach, both sides seeing one approval) has **not** been exercised yet; it needs a PTY test.
 
@@ -28,11 +28,12 @@ Verified on this Host (codex-cli 0.157.1): `--listen unix://PATH` serves WebSock
 | app-server | HarnessEvent |
 |---|---|
 | `thread/start`/`thread/resume` result | `CursorAssigned { cursor: thread.id }` |
-| `turn/started` (or first sight of an unknown turn id) | `TurnStarted` |
+| `turn/started` + `userMessage` item (or first sight of an unknown turn id) | `TurnStarted { prompt }` |
+| `item/started` (commands, file changes, tool calls) | `ItemUpdated` (live progress, `running`) |
 | `item/agentMessage/delta`, `item/plan/delta`, `item/reasoning/summaryTextDelta`, `item/reasoning/textDelta` | `ItemDelta { field: "text" }` |
 | `item/commandExecution/outputDelta` | `ItemDelta { field: "output" }` |
 | `item/completed` | `ItemCompleted`: agentMessage/plan → AssistantMessage, reasoning → Reasoning (summary, else raw content), commandExecution → CommandExecution, fileChange → FileChange (`update` → `modify`), mcpToolCall → ToolCall `server.tool`, dynamicToolCall/collabAgentToolCall/webSearch/imageView → ToolCall. User messages, compaction and review markers are skipped. |
-| `turn/plan/updated` | the latest plan is emitted once as a `Plan` item (id `<codexTurn>:plan`) just before `TurnEnded` |
+| `turn/plan/updated` | `ItemUpdated` with the `Plan` (id `<codexTurn>:plan`) each time; the latest plan is completed once, just before `TurnEnded` |
 | `error` with `willRetry: false` | `ItemCompleted` with an `Error` item |
 | `turn/completed` | `TurnEnded { status, error }` |
 | `thread/name/updated` | `TitleSuggested` |
@@ -84,7 +85,7 @@ It runs `codex app-server generate-ts` (stable surface, no `--experimental`) int
 ## Tests
 
 - `mapping.test.ts`: the pure rules.
-- `CodexDriver.test.ts`: the driver against `FakeAppServer` on a real Unix socket. It covers a full Turn replayed from `fixtures/full-turn.jsonl` (recorded from a real codex 0.157.1 Turn, with paths and account notifications scrubbed), a command approval round-trip, interrupt with a withdrawn file-change approval, resume that rejoins a TUI-started Turn and steers it, an async question answered by a new Turn, refusal of a credential request, a dropped server, and a side-effect-free `probe`.
+- `CodexDriver.test.ts`: the driver against `FakeAppServer` on a real Unix socket. It covers a full Turn replayed from `fixtures/full-turn.jsonl` (recorded from a real codex 0.157.1 Turn, with paths and account notifications scrubbed), a command approval round-trip, interrupt with a withdrawn file-change approval, resume that rejoins a TUI-started Turn and steers it, a TUI-typed Turn with its prompt and live command and plan progress, an async question answered by a new Turn, refusal of a credential request, a dropped server, and a side-effect-free `probe`.
 - `e2e.test.ts`: one real tiny Turn against the installed codex in a temp git repo. It uses your Codex sign-in and quota:
 
   ```sh
@@ -95,10 +96,7 @@ It runs `codex app-server generate-ts` (stable surface, no `--experimental`) int
 
 ## Known gaps / TODO
 
-- **Foreign Turns have no prompt.** Turns started in the TUI surface as `TurnStarted` with a minted `TurnId`, but `HarnessEvent` carries no user message, so the engine can't show what was typed. This needs a small contract addition (a prompt on `TurnStarted`, or a `UserMessage` TurnItem).
 - **Live co-attach is unverified by hand** (see above). `ReturnFromTerminal` needs nothing from this driver, because Polaris never detaches.
-- **Plans appear only at Turn end.** The contract has no item upsert, so live plan steps aren't streamed.
-- **No `ItemStarted`.** A running command shows up only through output deltas until `item/completed`.
 - **MCP form elicitations** accept with empty content; there's no UI for `requestedSchema` yet. An elicitation with no Turn mints a Turn that never ends.
 - **Multi-question `requestUserInput`**: one Answer fills every question.
 - **App-server lifecycle**: a spawned server is killed with its scope, so a Daemon restart ends a live TUI co-attach. A server that survived a crash is reused even if the installed codex has since been upgraded. Nothing restarts a server that dies between `open`s until the next `open`.

@@ -27,6 +27,7 @@ import {
   toTurnItem,
   turnInput,
   userInputDecision,
+  userMessageText,
 } from "./mapping.ts"
 import * as P from "./protocol.ts"
 import { codexError, type Incoming, type RpcConnection } from "./RpcConnection.ts"
@@ -114,22 +115,49 @@ export const openSession = (
 
     // --- Turn bookkeeping -------------------------------------------------
     const turns = new Map<string, TurnId>() // Codex turn id → Polaris TurnId
+    /** Codex turns whose `TurnStarted` was emitted. */
+    const announced = new Set<string>()
     const plans = new Map<string, (typeof P.TurnPlanUpdatedNotification.Type)["plan"]>()
     let activeCodexTurn: string | null = null
-    let pendingLocalTurn: TurnId | null = null
+    /** A Turn Polaris is starting (`turn/start` in flight), with the prompt it sent. */
+    let pendingLocalTurn: { readonly turnId: TurnId; readonly prompt: string } | null = null
     const endedTurns = new Set<string>()
     let errorCount = 0
 
-    /** Maps a Codex turn to a Polaris Turn, announcing Turns started elsewhere (e.g. the TUI). */
-    const turnFor = (codexTurnId: string): TurnId => {
-      const known = turns.get(codexTurnId)
-      if (known !== undefined) return known
-      const turnId = pendingLocalTurn ?? newTurnId()
-      pendingLocalTurn = null
-      turns.set(codexTurnId, turnId)
-      if (!endedTurns.has(codexTurnId)) activeCodexTurn = codexTurnId
-      emit({ _tag: "TurnStarted", turnId })
+    const announce = (codexTurnId: string, prompt: string | null) => {
+      const turnId = turns.get(codexTurnId)
+      if (turnId === undefined || announced.has(codexTurnId)) return
+      announced.add(codexTurnId)
+      emit({ _tag: "TurnStarted", turnId, prompt })
+    }
+
+    /**
+     * Maps a Codex turn to a Polaris Turn. Turns Polaris started are announced with
+     * their prompt at once. A Turn started elsewhere (the TUI) is announced when its
+     * user message arrives, so it carries what was typed; with `announce` (anything
+     * else happening in the Turn, e.g. when rejoining mid-Turn) it is announced
+     * without one.
+     */
+    const turnFor = (codexTurnId: string, options?: { readonly announce: boolean }): TurnId => {
+      let turnId = turns.get(codexTurnId)
+      if (turnId === undefined) {
+        const local = pendingLocalTurn
+        pendingLocalTurn = null
+        turnId = local?.turnId ?? newTurnId()
+        turns.set(codexTurnId, turnId)
+        if (!endedTurns.has(codexTurnId)) activeCodexTurn = codexTurnId
+        if (local !== null) announce(codexTurnId, local.prompt)
+      }
+      if (options?.announce !== false) announce(codexTurnId, null)
       return turnId
+    }
+
+    /** Live progress for items with a visible running state; text streams as deltas instead. */
+    const progressOf = (item: P.ThreadItem) => {
+      const mapped = toTurnItem(item)
+      return mapped === null || mapped._tag === "AssistantMessage" || mapped._tag === "Reasoning"
+        ? null
+        : mapped
     }
 
     // --- Approvals --------------------------------------------------------
@@ -245,12 +273,21 @@ export const openSession = (
           const p = decodeTurnStarted(params)
           if (!ours(p) || p === null) return
           activeCodexTurn = p.turn.id
-          turnFor(p.turn.id)
+          // A Turn started elsewhere is announced with its user message, which comes next.
+          turnFor(p.turn.id, { announce: false })
           return
         }
         case "item/started": {
           const p = decodeItem(params)
-          if (ours(p) && p !== null) turnFor(p.turnId)
+          if (!ours(p) || p === null) return
+          if (p.item.type === "userMessage") {
+            turnFor(p.turnId, { announce: false })
+            announce(p.turnId, userMessageText(p.item))
+            return
+          }
+          const turnId = turnFor(p.turnId)
+          const item = progressOf(p.item)
+          if (item !== null) emit({ _tag: "ItemUpdated", turnId, item })
           return
         }
         case "item/agentMessage/delta":
@@ -272,6 +309,11 @@ export const openSession = (
         case "item/completed": {
           const p = decodeItem(params)
           if (!ours(p) || p === null) return
+          if (p.item.type === "userMessage") {
+            turnFor(p.turnId, { announce: false })
+            announce(p.turnId, userMessageText(p.item))
+            return
+          }
           const turnId = turnFor(p.turnId)
           const item = toTurnItem(p.item)
           if (item !== null) emit({ _tag: "ItemCompleted", turnId, item })
@@ -299,7 +341,13 @@ export const openSession = (
         }
         case "turn/plan/updated": {
           const p = decodePlan(params)
-          if (ours(p) && p !== null) plans.set(p.turnId, p.plan)
+          if (!ours(p) || p === null) return
+          plans.set(p.turnId, p.plan)
+          emit({
+            _tag: "ItemUpdated",
+            turnId: turnFor(p.turnId),
+            item: toPlanItem(`${p.turnId}:plan`, p.plan),
+          })
           return
         }
         case "error": {
@@ -385,12 +433,12 @@ export const openSession = (
     )
 
     // --- Commands ---------------------------------------------------------
-    const startTurn = (turnId: TurnId, input: ReturnType<typeof turnInput>) =>
+    const startTurn = (turnId: TurnId, prompt: string, input: ReturnType<typeof turnInput>) =>
       Effect.gen(function* () {
         if (activeCodexTurn !== null || pendingLocalTurn !== null)
           return yield* codexError("A Turn is already in progress; steer or interrupt it")
         const policy = policyFor(permissionMode)
-        pendingLocalTurn = turnId
+        pendingLocalTurn = { turnId, prompt }
         const result = yield* conn
           .request("turn/start", {
             threadId,
@@ -403,10 +451,8 @@ export const openSession = (
           .pipe(Effect.ensuring(Effect.sync(() => (pendingLocalTurn = null))))
         const started = decodeTurnStart(result)
         if (started === null) return yield* codexError("Unexpected turn/start response from Codex")
-        if (!turns.has(started.turn.id)) {
-          turns.set(started.turn.id, turnId)
-          emit({ _tag: "TurnStarted", turnId })
-        }
+        if (!turns.has(started.turn.id)) turns.set(started.turn.id, turnId)
+        announce(started.turn.id, prompt)
         if (!endedTurns.has(started.turn.id)) activeCodexTurn ??= started.turn.id
       })
 
@@ -423,7 +469,7 @@ export const openSession = (
     const session: HarnessSession = {
       events: Stream.fromQueue(events),
       sendTurn: (input: TurnInput) =>
-        startTurn(input.turnId, turnInput(input.prompt, input.attachments)),
+        startTurn(input.turnId, input.prompt, turnInput(input.prompt, input.attachments)),
       steer: steerText,
       interrupt: Effect.suspend(() =>
         activeCodexTurn === null
@@ -450,7 +496,7 @@ export const openSession = (
           // Async questions are answered with a new user message, never an RPC response.
           if (decision._tag !== "Answer") return
           if (activeCodexTurn !== null) yield* steerText(decision.text)
-          else yield* startTurn(newTurnId(), turnInput(decision.text, []))
+          else yield* startTurn(newTurnId(), decision.text, turnInput(decision.text, []))
         }),
       setPermissionMode: (mode) =>
         Effect.sync(() => {

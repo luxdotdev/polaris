@@ -13,6 +13,13 @@ export const Capability = Schema.Literals([
   "session.steer",
   "session.fork",
   "session.terminal-handoff",
+  /** `session.terminalCommand`: the argv, cwd and env of the Harness TUI for "Open in terminal". */
+  "session.terminal-command",
+  /**
+   * `ItemProgress` on session streams (running commands, live plans). A Client
+   * announces it in `hello`; the Daemon only sends `ItemProgress` to Clients that did.
+   */
+  "session.live-items",
   "files.read",
   "files.search",
   "files.watch",

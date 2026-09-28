@@ -16,15 +16,17 @@
 import { timingSafeEqual } from "node:crypto"
 import { mkdir, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import type { RequestId, SessionId, TurnId } from "@polaris/protocol"
+import type { RequestId, SessionId, TurnId, TurnItem } from "@polaris/protocol"
 import { type Cause, Context, Effect, Layer, Queue, Stream } from "effect"
 import { paths } from "../../paths.ts"
 import { HarnessError, type HarnessEvent } from "../HarnessDriver.ts"
 import { approvalKind, describeToolCall } from "./permissions.ts"
-import { toolItem } from "./translate.ts"
+import { planSteps, toolItem } from "./translate.ts"
 
 /** Hook events Polaris subscribes to while a session is In Terminal. */
 export const FOLLOWED_HOOK_EVENTS = [
+  // Carries the (possibly new) session id as soon as the TUI starts, resumes or `/clear`s.
+  "SessionStart",
   "UserPromptSubmit",
   "PreToolUse",
   "PostToolUse",
@@ -64,7 +66,11 @@ const str = (u: unknown): string | null => (typeof u === "string" ? u : null)
 
 /**
  * Turns hook POST bodies into `HarnessEvent`s for one session. Turns started in the
- * TUI get Polaris Turn ids minted here. A permission prompt shown in the TUI becomes an
+ * TUI get Polaris Turn ids minted here, with the typed prompt. Every hook carries the
+ * TUI's current session id, reported as `CursorAssigned` whenever it changes, so the
+ * engine resumes from where the TUI left off. Running tools and TodoWrite plans are
+ * live progress (`ItemUpdated`); tools complete on PostToolUse, the plan when the
+ * Turn ends. A permission prompt shown in the TUI becomes an
  * informational `ApprovalRequested` (Needs You); it is answered in the terminal and
  * withdrawn when the tool finishes, the Turn stops, or the user types again.
  */
@@ -73,6 +79,7 @@ export class HookTranslator {
   private cursor: string | null
   private pendingPrompt: RequestId | null = null
   private lastTool: { readonly name: string; readonly input: unknown } | null = null
+  private plan: TurnItem | null = null
   private ended = false
 
   constructor(
@@ -100,16 +107,20 @@ export class HookTranslator {
     }
   }
 
-  private ensureTurn(events: HarnessEvent[]): TurnId {
+  private ensureTurn(events: HarnessEvent[], prompt: string | null = null): TurnId {
     if (this.turnId === null) {
       this.turnId = this.newTurnId()
-      events.push({ _tag: "TurnStarted", turnId: this.turnId })
+      events.push({ _tag: "TurnStarted", turnId: this.turnId, prompt })
     }
     return this.turnId
   }
 
   private endTurn(events: HarnessEvent[], status: "completed" | "interrupted"): void {
     if (this.turnId === null) return
+    if (this.plan !== null) {
+      events.push({ _tag: "ItemCompleted", turnId: this.turnId, item: this.plan })
+      this.plan = null
+    }
     events.push({ _tag: "TurnEnded", turnId: this.turnId, status, error: null })
     this.turnId = null
   }
@@ -129,7 +140,7 @@ export class HookTranslator {
       case "UserPromptSubmit":
         this.withdraw(events)
         this.endTurn(events, "completed")
-        this.ensureTurn(events)
+        this.ensureTurn(events, str(body.prompt))
         break
       case "PreToolUse": {
         const turnId = this.ensureTurn(events)
@@ -138,7 +149,7 @@ export class HookTranslator {
         this.lastTool = { name, input: body.tool_input }
         if (id !== null && name !== "TodoWrite")
           events.push({
-            _tag: "ItemCompleted",
+            _tag: "ItemUpdated",
             turnId,
             item: toolItem({
               id,
@@ -161,33 +172,9 @@ export class HookTranslator {
         if (id === null) break
         const failed = body.hook_event_name === "PostToolUseFailure"
         if (name === "TodoWrite") {
-          const todos =
-            isRecord(body.tool_input) && Array.isArray(body.tool_input.todos)
-              ? body.tool_input.todos
-              : []
-          events.push({
-            _tag: "ItemCompleted",
-            turnId,
-            item: {
-              _tag: "Plan",
-              id: `plan:${turnId}`,
-              steps: todos.flatMap((t) =>
-                isRecord(t) && typeof t.content === "string"
-                  ? [
-                      {
-                        text: t.content,
-                        status:
-                          t.status === "completed"
-                            ? ("completed" as const)
-                            : t.status === "in_progress"
-                              ? ("in-progress" as const)
-                              : ("pending" as const),
-                      },
-                    ]
-                  : [],
-              ),
-            },
-          })
+          if (failed) break
+          this.plan = { _tag: "Plan", id: `plan:${turnId}`, steps: planSteps(body.tool_input) }
+          events.push({ _tag: "ItemUpdated", turnId, item: this.plan })
           break
         }
         events.push({

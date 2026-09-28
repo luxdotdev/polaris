@@ -6,7 +6,7 @@ The Daemon's only listener, the RPC server on it, and `polaris bridge`. Decision
 |---|---|
 | `server.ts` | `startServer`: lock, socket, `RpcServer` for `ServerRpcs`, one Wire per connection. Handler layers are composed here. |
 | `rpcs.ts` | `ServerRpcs` = `DaemonRpcs` + the server-only `ConnectionBlobs` middleware. |
-| `handlers.ts` | `hello` (HostInfo, capabilities, device label) and placeholders for every other RPC. |
+| `handlers.ts` | `hello` (HostInfo, capabilities; annotates the connection with the device label and the Client's capabilities) and placeholders for every other RPC. |
 | `socket.ts` | Stale-socket probe, private socket directory, `Bun.listen` bound atomically, upgrade adoption. |
 | `bunSocket.ts` | Bun sockets (listened or adopted by fd) as ByteTransports, with partial-write handling. |
 | `lock.ts` | Single-instance lock. |

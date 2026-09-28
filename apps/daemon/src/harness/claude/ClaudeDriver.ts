@@ -216,6 +216,11 @@ const openSession = Effect.fnUntraced(function* (
     permissionMode: toClaudePermissionMode(options.permissionMode),
     // Only makes `bypassPermissions` selectable later (full-access); it does not enable it.
     allowDangerouslySkipPermissions: true,
+    // Always registered, even in full-access. The callback can only be registered when the
+    // query starts, and `setPermissionMode` can leave `bypassPermissions` mid-session; without
+    // it every later prompt would be denied outright. In `bypassPermissions` Claude simply
+    // never calls it, which is what the SDK's start-time CLAUDE_SDK_CAN_USE_TOOL_SHADOWED
+    // warning says; it is expected and harmless here (see README).
     canUseTool,
     includePartialMessages: true,
     systemPrompt: { type: "preset", preset: "claude_code" },
@@ -313,7 +318,7 @@ const openSession = Effect.fnUntraced(function* (
       outcome: { status: "completed", error: null },
     }
     translator.beginTurn(input.turnId)
-    emit({ _tag: "TurnStarted", turnId: input.turnId })
+    emit({ _tag: "TurnStarted", turnId: input.turnId, prompt: input.prompt })
     inbox.push(message)
   })
 
@@ -416,11 +421,14 @@ export const makeClaudeDriver = (options: ClaudeDriverOptions = {}): HarnessDriv
     return { available: true, version: parseVersion(result.value.stdout), detail: path }
   }).pipe(Effect.withSpan("ClaudeDriver.probe"))
 
+  const hooks = options.hookReceiver
   return {
     kind: "claude",
     capabilities: { steer: true, liveCoAttach: false },
     probe,
     open: (open) => openSession(driver, open),
+    // While In Terminal, Polaris follows the TUI through its HTTP hooks (hooks.ts).
+    ...(hooks ? { terminalFollow: { events: hooks.events, release: hooks.release } } : {}),
   }
 }
 

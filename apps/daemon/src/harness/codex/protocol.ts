@@ -120,10 +120,19 @@ export const ImageViewItem = Schema.Struct({
   id: Schema.String,
   path: Schema.String,
 })
-/** Anything else (user messages, compaction markers, review mode…); the driver skips these. */
+/** What the user typed; gives Turns started in the TUI their prompt. */
+export const UserMessageItem = Schema.Struct({
+  type: Schema.Literal("userMessage"),
+  id: Schema.String,
+  content: Schema.Array(
+    Schema.Struct({ type: Schema.String, text: Schema.optional(Schema.String) }),
+  ),
+})
+/** Anything else (compaction markers, review mode…); the driver skips these. */
 export const OtherItem = Schema.Struct({ type: Schema.String, id: Schema.optional(Schema.String) })
 
 export const ThreadItem = Schema.Union([
+  UserMessageItem,
   AgentMessageItem,
   PlanItem,
   ReasoningItem,
@@ -259,6 +268,7 @@ type Conforms<Generated, S extends { readonly Type: unknown }> = [Generated] ext
 type Item<T extends Gen.ThreadItem["type"]> = Extract<Gen.ThreadItem, { type: T }>
 const conforms = <_ extends true>() => undefined
 
+conforms<Conforms<Item<"userMessage">, typeof UserMessageItem>>()
 conforms<Conforms<Item<"agentMessage">, typeof AgentMessageItem>>()
 conforms<Conforms<Item<"plan">, typeof PlanItem>>()
 conforms<Conforms<Item<"reasoning">, typeof ReasoningItem>>()
