@@ -45,10 +45,11 @@ and add their capabilities with `startServer({ capabilities: [...] })` (the tran
 
 ## Bridge
 
-`polaris bridge` connects to `paths().socket` and pipes stdin → socket and socket → stdout with backpressure. Bytes that arrive before the socket connects are buffered. It exits 0 when either side closes, and exits `BRIDGE_EXIT_NO_DAEMON` (69) with a one-line stderr reason when nothing listens, which the Client shows as Needs Attention. With agent forwarding on, it points `~/.polaris/agent.sock` at the forwarded `SSH_AUTH_SOCK` (atomic symlink swap), so the Daemon's long-lived processes have a stable agent path (`agentSocketPath()`).
+`polaris bridge` connects to `paths().socket` and pipes stdin → socket and socket → stdout with backpressure. Bytes that arrive before the socket connects are buffered. It exits 0 when either side closes. When nothing listens and `~/.polaris/bin/polaris-supervise` exists (the fallback supervisor on Linux without systemd --user, which nothing may have started since a reboot), it starts the supervisor detached, waits up to 5 s for the socket to accept, and connects once more; input the Client sent meanwhile stays buffered. Otherwise, or if the Daemon does not come up, it exits `BRIDGE_EXIT_NO_DAEMON` (69) with a one-line stderr reason, which the Client shows as Needs Attention. `bridge.test.ts` runs the bridge as a process (`fixtures/bridge.ts`) against a stand-in supervisor. With agent forwarding on, it points `~/.polaris/agent.sock` at the forwarded `SSH_AUTH_SOCK` (atomic symlink swap), so the Daemon's long-lived processes have a stable agent path (`agentSocketPath()`).
 
 ## Bun quirks found here
 
+- Under `bun test`, a `node:net` connect to a missing Unix socket fails the test even when its `error` event is handled; tests that need one run the code in a child process.
 - Data that reaches a `node:net` socket before a `data` listener exists is dropped, and `drain` is not always emitted. Readers attach in the accept/open callback (`readEvents`), and writes also resolve on the write callback (`writeEvents`).
 - `Bun.Socket#write` can accept part of a chunk; `bunSocket.ts` queues the rest until `drain`.
 

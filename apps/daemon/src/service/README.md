@@ -93,7 +93,7 @@ yield* serveUpgrades({
 
 ### Hand-off contributors
 
-A module with fds or children to keep registers a `HandoffContributor` for the life of its scope (`registerHandoffContributor`): `collect` returns named fds and children (merged with `hooks.collect`), `beforeExec` writes any state the new image needs, and `abort` undoes it if the exec fails. The terminals use this to keep PTYs across upgrades (`terminal/README.md`). After the exec, `takeHandoff()` returns the same names.
+A module with fds or children to keep registers a `HandoffContributor` for the life of its scope (`registerHandoffContributor`): `collect` returns named fds and children (merged with `hooks.collect`), `beforeExec` writes any state the new image needs, and `abort` undoes it if the exec fails. The terminals use this to keep PTYs across upgrades (`terminal/README.md`); the engine registers one with no fds whose `beforeExec` is `Engine.prepareForUpgrade`, which closes in-process (Claude) Harnesses per the recovery rule (`store/README.md`). After the exec, `takeHandoff()` returns the same names.
 
 `libc.ts` loads glibc's `libc.so.6`, or on a musl Host the loader `/lib/ld-musl-<arch>.so.1` (musl's libc; there is no `libc.so.6`). The hand-off tests pass on Alpine arm64.
 
@@ -104,10 +104,9 @@ The Codex app-server does not use this: it is started detached, not as the Daemo
 ## Known gaps / TODO
 
 - `daemon.pid` is written by `serveUpgrades`. Reconcile it with the transport's `daemon.lock` (one file could do both).
-- Not yet in `polaris serve`: the transport owns `serve`, so the hand-off is wired only in the test fixture until then.
 - Harness fds are named by convention (`harness:<sessionId>`); the Harness registry has to provide `collect`.
 - `StandardOutput=append:` in the systemd unit cannot quote paths, so a `POLARIS_HOME` with spaces breaks logging on Linux.
-- Fallback supervisor: with no usable crontab (or no cron daemon running at boot), nothing starts the Daemon after a reboot until the user logs in or the Client reinstalls. `polaris bridge` exits 69 when no Daemon answers; it could run `~/.polaris/bin/polaris-supervise` when that exists and retry, which would close the gap (transport's call).
+- Fallback supervisor: with no usable crontab (or no cron daemon running at boot), nothing starts the Daemon after a reboot until the user logs in or a Client connects: `polaris bridge` starts `~/.polaris/bin/polaris-supervise` when no Daemon answers (`transport/README.md`, "Bridge").
 - Fallback supervisor: a login profile hook only runs for login shells; `ssh host cmd` does not read `~/.profile`.
 - The upgrade request is authenticated only by filesystem permissions (the files are mode 0600 under the user's home), which is enough for a per-user Daemon.
 - Only macOS arm64 and Linux arm64 were exercised locally. linux-x64 is exercised by CI's smoke job.

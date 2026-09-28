@@ -20,6 +20,7 @@ import {
   type Workspace,
 } from "@polaris/protocol"
 import { Deferred, Duration, Effect, Fiber, type Layer, Stream } from "effect"
+import { handoffContributors } from "../service/upgrade.ts"
 import { EventStore } from "../store/EventStore.ts"
 import { RECENT_TURNS } from "../store/model.ts"
 import { forkBranch } from "./decider.ts"
@@ -685,5 +686,41 @@ describe("upgrade", () => {
         expect(claude.latest(idle)!.options.resumeCursor).toBe("idle-cursor")
       }),
     )
+  })
+
+  test("the engine registers an upgrade hand-off contributor that runs prepareForUpgrade", async () => {
+    const claude = makeFakeDriver("claude", { onTurn: completesTurns("c1") })
+    const codex = makeFakeDriver("codex", { liveCoAttach: true, onTurn: completesTurns("x1") })
+    const { layer } = setup({ drivers: [claude, codex] })
+    const engineContributors = () => handoffContributors().filter((c) => c.name === "engine")
+    expect(engineContributors()).toHaveLength(0)
+    await run(
+      layer,
+      Effect.gen(function* () {
+        const workspace = yield* registerWorkspace
+        const inProcess = sid("s-handoff-claude")
+        const shared = sid("s-handoff-codex")
+        yield* startSession(workspace, inProcess)
+        yield* startSession(workspace, shared, "codex")
+        yield* waitFor(
+          (m) =>
+            m.sessions.get(inProcess)?.session.state === "idle" &&
+            m.sessions.get(shared)?.session.state === "idle",
+        )
+        const contributors = engineContributors()
+        expect(contributors).toHaveLength(1)
+        const contributor = contributors[0]!
+        expect(yield* contributor.collect()).toEqual({ fds: {}, children: {} })
+        yield* contributor.beforeExec!
+
+        const model = yield* EventStore.pipe(Effect.flatMap((store) => store.model))
+        expect(model.sessions.get(inProcess)!.session.state).toBe("dormant")
+        expect(claude.latest(inProcess)!.closed).toBe(true)
+        expect(model.sessions.get(shared)!.session.state).toBe("idle")
+        expect(codex.latest(shared)!.closed).toBe(false)
+      }),
+    )
+    // Registered for the engine's lifetime only.
+    expect(engineContributors()).toHaveLength(0)
   })
 })

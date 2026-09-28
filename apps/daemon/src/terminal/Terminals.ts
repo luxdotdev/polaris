@@ -465,6 +465,7 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
     // ── Upgrade hand-off: keep every master fd and shell, write the rest to disk.
     if (handoffFile !== null) {
       yield* registerHandoffContributor({
+        name: "terminals",
         collect: () =>
           Effect.sync(() => {
             const fds: Record<string, number> = {}
