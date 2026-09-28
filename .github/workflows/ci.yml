@@ -46,9 +46,9 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
       - run: bun install --frozen-lockfile
+      # Also installs the other platforms' optional packages (fff-bin-*) so their
+      # native libraries can be embedded, and runs `polaris selftest` on darwin.
       - run: bunx turbo run build --filter=@polaris/daemon
-      - name: Smoke-test the darwin build
-        run: apps/daemon/dist/darwin-arm64/polaris version
       - uses: actions/upload-artifact@v4
         with:
           name: polaris-daemon
@@ -72,10 +72,11 @@ jobs:
         with:
           name: polaris-daemon
           path: dist
-      - name: Run polaris version and check the manifest hash
+      - name: Run polaris selftest (embedded fff loads) and check the manifest hash
         run: |
           chmod +x dist/${{ matrix.platform }}/polaris
           dist/${{ matrix.platform }}/polaris version | grep -x "polaris .* ${{ matrix.platform }}"
+          dist/${{ matrix.platform }}/polaris selftest
           expected=$(jq -r '.platforms["${{ matrix.platform }}"].sha256' dist/manifest.json)
           echo "$expected  dist/${{ matrix.platform }}/polaris" | sha256sum -c -
 

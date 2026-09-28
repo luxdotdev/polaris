@@ -2,44 +2,44 @@
 /**
  * Build the `polaris` Daemon for every platform it ships on (ENG-181):
  *
- *   apps/daemon/dist/<platform>/polaris          bun build --compile
- *   apps/daemon/dist/<platform>/libfff_c.{dylib,so}  fff's native library
- *   apps/daemon/dist/manifest.json               version + SHA-256 of every file
+ *   apps/daemon/dist/<platform>/polaris   bun build --compile, one self-contained file
+ *   apps/daemon/dist/manifest.json        version, commit and SHA-256 per platform
  *
- * `bun build --compile` cannot embed a library that is dlopen'ed at runtime,
- * so fff's prebuilt library (from the `@ff-labs/fff-bin-*` package matching
- * each platform, MIT) ships beside the binary; the Daemon finds it through
- * `apps/daemon/src/service/native.ts`.
+ * fff's native library (`@ff-labs/fff-bun`, MIT) is embedded by the compile
+ * step: fff-bun imports `@ff-labs/fff-bin-<platform>/libfff_c.*` with
+ * `{ type: "file" }`, so the target platform's package must be installed at
+ * build time (optional dependencies for other platforms are not installed by
+ * default; this script installs them from the lockfile when missing), and
+ * Linux builds need `--define FFF_LIBC="gnu"` to pick the glibc library.
  *
  *   bun scripts/build-daemon.ts [darwin-arm64|linux-x64|linux-arm64 ...]
  */
 import { createHash } from "node:crypto"
 import {
-  copyFileSync,
   existsSync,
   mkdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   statSync,
   writeFileSync,
 } from "node:fs"
-import { createRequire } from "node:module"
 import { dirname, join } from "node:path"
 
 const root = join(import.meta.dir, "..")
 const daemonDir = join(root, "apps", "daemon")
 const distDir = join(daemonDir, "dist")
-const cacheDir = join(root, "node_modules", ".cache", "polaris-native")
 
 const PLATFORMS = {
-  "darwin-arm64": { target: "bun-darwin-arm64", fff: "darwin-arm64", lib: "libfff_c.dylib" },
-  "linux-x64": { target: "bun-linux-x64", fff: "linux-x64-gnu", lib: "libfff_c.so" },
-  "linux-arm64": { target: "bun-linux-arm64", fff: "linux-arm64-gnu", lib: "libfff_c.so" },
+  "darwin-arm64": { target: "bun-darwin-arm64", fffBin: "darwin-arm64", define: [] },
+  "linux-x64": { target: "bun-linux-x64", fffBin: "linux-x64-gnu", define: ['FFF_LIBC="gnu"'] },
+  "linux-arm64": {
+    target: "bun-linux-arm64",
+    fffBin: "linux-arm64-gnu",
+    define: ['FFF_LIBC="gnu"'],
+  },
 } as const
 type Platform = keyof typeof PLATFORMS
-
-/** Used until the Daemon depends on @ff-labs/fff-node; then its installed version wins. */
-const DEFAULT_FFF_VERSION = "0.11.0"
 
 const sha256 = (path: string) => createHash("sha256").update(readFileSync(path)).digest("hex")
 
@@ -54,63 +54,45 @@ const run = async (argv: ReadonlyArray<string>, cwd = root) => {
   return stdout
 }
 
-const daemonRequire = createRequire(join(daemonDir, "package.json"))
-
-const fffVersion = (): string => {
-  try {
-    const pkg = JSON.parse(
-      readFileSync(daemonRequire.resolve("@ff-labs/fff-node/package.json"), "utf8"),
-    )
-    return pkg.version
-  } catch {
-    return DEFAULT_FFF_VERSION
+/** Node-style lookup from `fromDir` (real path) upwards, without require's caches. */
+const findPackage = (fromDir: string, name: string): string | null => {
+  let dir = realpathSync(fromDir)
+  for (;;) {
+    const candidate = join(dir, "node_modules", name, "package.json")
+    if (existsSync(candidate)) return candidate
+    const parent = dirname(dir)
+    if (parent === dir) return null
+    dir = parent
   }
 }
 
-/**
- * The path of fff's library for `platform`: from node_modules when the
- * platform package is installed (the host's own), otherwise from the npm
- * tarball, verified against the registry's SHA-512 integrity and cached.
- */
-const fffLibrary = async (platform: Platform, version: string): Promise<string> => {
-  const { fff, lib } = PLATFORMS[platform]
-  const name = `@ff-labs/fff-bin-${fff}`
-  try {
-    const fffRequire = createRequire(daemonRequire.resolve("@ff-labs/fff-node/package.json"))
-    const pkgJson = fffRequire.resolve(`${name}/package.json`)
-    if (JSON.parse(readFileSync(pkgJson, "utf8")).version === version) {
-      const local = join(dirname(pkgJson), lib)
-      if (existsSync(local)) return local
-    }
-  } catch {}
+const readVersion = (packageJson: string): string =>
+  JSON.parse(readFileSync(packageJson, "utf8")).version
 
-  const extracted = join(cacheDir, `fff-bin-${fff}-${version}`)
-  const cached = join(extracted, "package", lib)
-  if (existsSync(cached)) return cached
-
-  const meta = await fetch(`https://registry.npmjs.org/${name}/${version}`).then((response) => {
-    if (!response.ok) throw new Error(`${name}@${version}: registry answered ${response.status}`)
-    return response.json() as Promise<{ dist: { tarball: string; integrity: string } }>
-  })
-  const tarball = new Uint8Array(await (await fetch(meta.dist.tarball)).arrayBuffer())
-  const [algorithm, expected] = meta.dist.integrity.split("-", 2) as [string, string]
-  const actual = createHash(algorithm).update(tarball).digest("base64")
-  if (actual !== expected) throw new Error(`${name}@${version}: integrity mismatch`)
-  mkdirSync(extracted, { recursive: true })
-  const archive = join(extracted, "package.tgz")
-  writeFileSync(archive, tarball)
-  await run(["tar", "-xzf", archive, "-C", extracted])
-  rmSync(archive)
-  if (!existsSync(cached)) throw new Error(`${name}@${version} has no ${lib}`)
-  return cached
+/** fff-bun's package.json; the bundler resolves fff-bin-* from its directory. */
+const fffBunPackage = (): string => {
+  const found = findPackage(daemonDir, "@ff-labs/fff-bun")
+  if (found === null) throw new Error("@ff-labs/fff-bun is not installed: run bun install")
+  return found
 }
 
-interface FileEntry {
-  readonly sha256: string
-  readonly size: number
+const fffBinInstalled = (platform: Platform): boolean => {
+  const fffBun = fffBunPackage()
+  const bin = findPackage(dirname(fffBun), `@ff-labs/fff-bin-${PLATFORMS[platform].fffBin}`)
+  return bin !== null && readVersion(bin) === readVersion(fffBun)
 }
 
-const entry = (path: string): FileEntry => ({ sha256: sha256(path), size: statSync(path).size })
+/** Install the target platforms' optional packages (fff-bin-*) from the lockfile. */
+const ensureTargetPackages = async (platforms: ReadonlyArray<Platform>) => {
+  const missing = platforms.filter((platform) => !fffBinInstalled(platform))
+  if (missing.length === 0) return
+  console.log(`installing optional packages for ${missing.join(", ")} (bun install --os=* --cpu=*)`)
+  await run([process.execPath, "install", "--frozen-lockfile", "--os=*", "--cpu=*"])
+  const still = missing.filter((platform) => !fffBinInstalled(platform))
+  if (still.length > 0) {
+    throw new Error(`@ff-labs/fff-bin-* still missing for ${still.join(", ")} after install`)
+  }
+}
 
 const hostPlatform = `${process.platform}-${process.arch}`
 
@@ -127,8 +109,8 @@ const signAdHoc = async (binary: string) => {
   await run(["codesign", "--verify", "--strict", binary])
 }
 
-const build = async (platform: Platform, version: string, fff: string) => {
-  const { target, lib } = PLATFORMS[platform]
+const build = async (platform: Platform, version: string) => {
+  const { target, define } = PLATFORMS[platform]
   const outDir = join(distDir, platform)
   rmSync(outDir, { recursive: true, force: true })
   mkdirSync(outDir, { recursive: true })
@@ -140,23 +122,26 @@ const build = async (platform: Platform, version: string, fff: string) => {
     "--compile",
     `--target=${target}`,
     "--minify",
+    ...define.map((value) => `--define=${value}`),
     `--outfile=${binary}`,
   ])
   if (platform.startsWith("darwin")) await signAdHoc(binary)
-  copyFileSync(await fffLibrary(platform, fff), join(outDir, lib))
 
   if (platform === hostPlatform) {
-    const output = (await run([binary, "version"])).trim()
+    // `selftest` also proves the embedded fff library loads and searches.
+    const output = (await run([binary, "selftest"])).trim()
     const expected = `polaris ${version} ${platform}`
-    if (output !== expected)
-      throw new Error(`${binary} version printed "${output}", not "${expected}"`)
+    if (output.split("\n")[0] !== expected) {
+      throw new Error(`${binary} selftest printed "${output}", expected "${expected}" first`)
+    }
+    console.log(output.replaceAll(/^/gm, "  "))
   }
 
   return {
     target,
     binary: "polaris",
     sha256: sha256(binary),
-    files: { polaris: entry(binary), [lib]: entry(join(outDir, lib)) },
+    files: { polaris: { sha256: sha256(binary), size: statSync(binary).size } },
   }
 }
 
@@ -168,8 +153,9 @@ const main = async () => {
 
   const version = JSON.parse(readFileSync(join(daemonDir, "package.json"), "utf8"))
     .version as string
-  const fff = fffVersion()
+  const fff = readVersion(fffBunPackage())
   const commit = (await run(["git", "rev-parse", "HEAD"]).catch(() => "unknown")).trim()
+  await ensureTargetPackages(platforms)
 
   const manifestPath = join(distDir, "manifest.json")
   const previous = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, "utf8")) : null
@@ -178,7 +164,7 @@ const main = async () => {
 
   for (const platform of platforms) {
     const started = performance.now()
-    built[platform] = await build(platform, version, fff)
+    built[platform] = await build(platform, version)
     const seconds = ((performance.now() - started) / 1000).toFixed(1)
     console.log(`built ${platform} in ${seconds}s`)
   }
@@ -186,7 +172,7 @@ const main = async () => {
   const manifest = {
     version,
     commit,
-    fff: { package: "@ff-labs/fff-node", version: fff },
+    fff: { package: "@ff-labs/fff-bun", version: fff, embedded: true },
     platforms: built,
   }
   writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)

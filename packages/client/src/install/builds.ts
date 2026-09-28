@@ -1,8 +1,9 @@
 /**
  * The Daemon builds the Desktop App bundles: one per platform, as produced
  * by `scripts/build-daemon.ts` (`<dir>/manifest.json` plus
- * `<dir>/<platform>/polaris` and its native libraries). Nothing is ever
- * downloaded on the Host.
+ * `<dir>/<platform>/polaris`, a single self-contained file today; any other
+ * files the manifest lists travel with it). Nothing is ever downloaded on
+ * the Host.
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"

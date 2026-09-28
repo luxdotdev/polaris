@@ -5,7 +5,6 @@ import { join } from "node:path"
 import { Effect, Layer } from "effect"
 import { type CommandResult, CommandRunner } from "./CommandRunner.ts"
 import { type InstallContext, install, layout, sha256File, uninstall } from "./install.ts"
-import { fffLibraryName } from "./native.ts"
 
 /** A scripted service manager: records every command, answers from `respond`. */
 const fakeRunner = (
@@ -41,7 +40,6 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "polaris-install-"))
   source = join(root, "polaris-upload")
   writeFileSync(source, "#!/bin/sh\necho polaris 1.2.3 darwin-arm64\n")
-  writeFileSync(join(root, fffLibraryName()), "native library")
 })
 afterEach(() => rmSync(root, { recursive: true, force: true }))
 
@@ -55,7 +53,6 @@ describe("install on macOS", () => {
     const paths = layout(ctx("darwin"), "1.2.3")
     expect(readFileSync(paths.installed!, "utf8")).toBe(readFileSync(source, "utf8"))
     expect(readlinkSync(paths.current)).toBe("1.2.3")
-    expect(readFileSync(join(paths.versionDir!, fffLibraryName()), "utf8")).toBe("native library")
     expect(report.notes).toEqual([])
     expect(report.sha256).toBe(sha256File(source))
     expect(report.serviceFile).toBe(join(root, "Library/LaunchAgents/dev.lux.polaris.plist"))

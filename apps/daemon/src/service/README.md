@@ -10,7 +10,7 @@ Everything that gets a `polaris` binary onto a Host, keeps it running as a user 
 | `CommandRunner.ts` | Service for running `launchctl`, `systemctl`, `loginctl` and `<binary> version`; tests replace it. |
 | `libc.ts` | `bun:ffi` bindings: `execve`, close-on-exec, `poll`/`accept`, `socketpair`, `waitpid`. |
 | `upgrade.ts` | The execve hand-off: `prepareHandoff`, `execInto`, `adoptListener`, `bindAtomically`, `serveUpgrades`, `requestUpgrade`. |
-| `native.ts` | Where fff's native library is loaded from (`fffLibraryPath()`). |
+| `selftest.ts` | `polaris selftest`: checks that the embedded fff library loads and searches on this Host. |
 | `cli.ts` | The `install`, `uninstall` and `upgrade` subcommands wired into `main.ts`. |
 
 ## Builds
@@ -18,30 +18,24 @@ Everything that gets a `polaris` binary onto a Host, keeps it running as a user 
 `bun run build` (the turbo `build` task of `@polaris/daemon`, via `scripts/build-daemon.ts`) writes:
 
 ```
-apps/daemon/dist/manifest.json               version, commit, SHA-256 and size of every file
-apps/daemon/dist/<platform>/polaris          bun build --compile --target=bun-<platform>
-apps/daemon/dist/<platform>/libfff_c.{dylib,so}
+apps/daemon/dist/manifest.json        version, commit, fff version, SHA-256 and size per platform
+apps/daemon/dist/<platform>/polaris   bun build --compile --target=bun-<platform>, self-contained
 ```
 
-for `darwin-arm64`, `linux-x64` (glibc) and `linux-arm64` (glibc). The script checks the host's build with `polaris version`.
+for `darwin-arm64`, `linux-x64` (glibc) and `linux-arm64` (glibc). The build runs `polaris selftest` on the host platform's binary. CI runs it on each Linux binary on native runners.
 
 - **darwin needs re-signing.** Bun 1.3.13 appends the bundle after linking, which leaves the linker's ad-hoc signature invalid, and this macOS SIGKILLs the binary on exec (exit 137). The build runs `codesign --force --sign -`, so darwin builds must run on macOS (CI does).
-- **fff's native library ships beside the binary.** `@ff-labs/fff-node` (MIT) loads `libfff_c` through `ffi-rs`, finding it in the platform package `@ff-labs/fff-bin-<platform>` next to itself in `node_modules`. That lookup cannot work inside a compiled binary (`/$bunfs/`), and `--compile` cannot embed a `dlopen`ed library. The build copies the right library from `@ff-labs/fff-bin-{darwin-arm64,linux-x64-gnu,linux-arm64-gnu}` (from `node_modules` for the host, otherwise from the npm tarball, checked against the registry's SHA-512 integrity). The fff version is the one installed for `@polaris/daemon`, or 0.11.0 until the files workstream adds the dependency.
+- **fff's native library is embedded.** The files workstream uses `@ff-labs/fff-bun` (bun:ffi). It imports `@ff-labs/fff-bin-<platform>/libfff_c.*` with `{ type: "file" }`, so `--compile` embeds the library and loads it from `$bunfs`; no file ships beside the binary. That needs two things at build time:
+  1. The **target's** `@ff-labs/fff-bin-*` package installed. Optional dependencies for other platforms are not installed by default, and the bundler then fails with "Could not resolve". When one is missing, the build runs `bun install --frozen-lockfile --os=* --cpu=*`, which installs every platform's optional packages from the lockfile without changing it.
+  2. `--define FFF_LIBC="gnu"` for the Linux targets, or fff falls back to git grep at runtime (musl is not shipped).
 
-### For the files workstream: loading fff
-
-Call `fffLibraryPath()` from `native.ts`. It returns `$POLARIS_FFF_LIB` if set, otherwise `dirname(process.execPath)/libfff_c.{dylib,so}` when running compiled, or `null` when running from source (then let fff-node resolve its npm package as usual). Two caveats:
-
-1. fff-node's JS wrapper hardcodes its own lookup (`findBinary()`) and has no path option, so in the compiled Daemon either `dlopen` `libfff_c` with `bun:ffi` directly (the C API is small), or use fff-node's `ffi-rs` `open({ library, path })` with our path before calling it.
-2. `ffi-rs` is itself a native Node addon (`@yuuang/ffi-rs-*`). `bun build --compile` embeds a statically required `.node` file only for the host platform, so cross-compiled Linux builds would carry the wrong one. Binding `libfff_c` with `bun:ffi` avoids both problems; I recommend that.
-
-`install` copies every file `companionFiles()` names from beside the source binary into `~/.polaris/bin/<version>/`, and the Client uploads them with the binary.
+  Verified: the darwin binary copied outside the repo (no `node_modules` nearby) and the linux-arm64 binary in a Debian container both print `fff: ok` from `polaris selftest`. `POLARIS_FFF=off polaris selftest` exits 1.
 
 ## Install (`polaris install`)
 
 No sudo; everything under `~/.polaris/` (`POLARIS_HOME`). Each step is idempotent: a second run with the same binary changes nothing and restarts nothing.
 
-1. Copy the binary (and native libraries) to `~/.polaris/bin/<version>/polaris`: write a temp file, then rename. It is skipped if the SHA-256 already matches. Renaming matters on macOS: overwriting a signed binary in place gets it killed.
+1. Copy the binary to `~/.polaris/bin/<version>/polaris`: write a temp file, then rename. It is skipped if the SHA-256 already matches. Renaming matters on macOS: overwriting a signed binary in place gets it killed.
 2. Point `~/.polaris/bin/current` at `<version>` with an atomic symlink rename. The service always runs `~/.polaris/bin/current/polaris serve`.
 3. Write the service file only if its content changed:
    - macOS: `~/Library/LaunchAgents/dev.lux.polaris.plist`, with `RunAtLoad` and `KeepAlive`, logs at `~/.polaris/logs/daemon.{out,err}.log`, and `POLARIS_HOME` and `PATH` set. It bootstraps into `gui/<uid>`. Over SSH to a Mac with nobody logged in at the console, that domain does not exist, so it falls back to `user/<uid>` and says so in `notes`.

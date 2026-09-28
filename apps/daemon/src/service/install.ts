@@ -22,7 +22,6 @@ import { homedir, userInfo } from "node:os"
 import { basename, dirname, join } from "node:path"
 import { Effect, Schema } from "effect"
 import { CommandRunner } from "./CommandRunner.ts"
-import { companionFiles } from "./native.ts"
 import {
   LAUNCHD_LABEL,
   launchdPlist,
@@ -131,8 +130,9 @@ const placeFile = (source: string, target: string, sha256: string, mode: number)
   })
 
 /**
- * Copies `source` to `~/.polaris/bin/<version>/polaris`, with the native
- * libraries that sit beside it (see native.ts). A no-op for identical files.
+ * Copies `source` to `~/.polaris/bin/<version>/polaris` (a no-op if an
+ * identical file is there). The binary is self-contained: native libraries
+ * such as fff's are embedded by `bun build --compile`.
  */
 export const stageBinary = Effect.fn("stageBinary")(function* (
   ctx: InstallContext,
@@ -140,18 +140,8 @@ export const stageBinary = Effect.fn("stageBinary")(function* (
 ) {
   const path = layout(ctx, options.version).installed!
   const sha256 = yield* fsStep("hash binary", () => sha256File(options.source))
-  let changed = yield* placeFile(options.source, path, sha256, 0o755)
-  const missing: Array<string> = []
-  for (const name of companionFiles()) {
-    const from = join(dirname(options.source), name)
-    if (!existsSync(from)) {
-      missing.push(name)
-      continue
-    }
-    const hash = yield* fsStep(`hash ${name}`, () => sha256File(from))
-    changed = (yield* placeFile(from, join(dirname(path), name), hash, 0o644)) || changed
-  }
-  return { path, sha256, changed, missing }
+  const changed = yield* placeFile(options.source, path, sha256, 0o755)
+  return { path, sha256, changed }
 })
 
 /** Points `current` at `version` with an atomic rename; false if it already did. */
@@ -306,12 +296,7 @@ export const install = Effect.fn("install")(function* (
     serviceDomain: activation.domain,
     restarted: activation.restarted,
     linger: activation.linger,
-    notes: [
-      ...staged.missing.map(
-        (name) => `${name} was not next to the binary; file search falls back to its npm package.`,
-      ),
-      ...activation.notes,
-    ],
+    notes: activation.notes,
   }
 })
 
