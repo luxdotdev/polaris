@@ -15,6 +15,10 @@ BIN=target/release/spike-gpui
 mkdir -p results
 system_profiler SPDisplaysDataType > results/gpui-displays.txt 2>/dev/null
 
+# Headless throughput run first; it doubles as a warm-up exec, since the first
+# launch of a freshly linked binary pays ~350 ms for macOS's code scan.
+"$BIN" --hl-stats > results/gpui-hl-stats.json
+
 COLD_RUNS=${COLD_RUNS:-5}
 for i in $(seq 1 "$COLD_RUNS"); do
   echo "== cold-start run $i"
@@ -42,5 +46,4 @@ for s in open-diff scroll-10k scroll-40k scroll-290k switch memory-idle memory-h
   "$BIN" --bench "$s" || echo "!! $s failed" >&2
   sleep 2
 done
-"$BIN" --hl-stats > results/gpui-hl-stats.json
 echo "done: $(ls results/*.json | wc -l) result files in $(pwd)/results"

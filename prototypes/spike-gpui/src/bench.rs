@@ -378,13 +378,22 @@ async fn run(scenario: &str, launch: &Launch, c: &mut Ctx, cx: &mut AsyncApp) ->
                 p.probe.arm();
                 cx.notify();
             }));
-            let (hl, _) = wait_pane_frame(c, main, &pane, cx).await;
+            // Bounded: an occluded window never draws the second frame.
+            let mut hl = None;
+            for _ in 0..5000 {
+                if let Some(r) = cx.update(|cx| pane.read(cx).probe.rendered_at) {
+                    hl = Some(wait_present(c, main, r, cx).await);
+                    break;
+                }
+                sleep(cx, Duration::from_millis(1)).await;
+            }
+            let hl_ms = hl.map(|t| launch.proc_to_main_ms + ms(t - launch.main_instant));
             let main_to_first = ms(first - launch.main_instant);
             json!({
                 "ms": launch.proc_to_main_ms + main_to_first,
                 "process_start_to_main_ms": launch.proc_to_main_ms,
                 "main_to_first_frame_ms": main_to_first,
-                "ms_to_first_frame_with_visible_rows_highlighted": launch.proc_to_main_ms + ms(hl - launch.main_instant),
+                "ms_to_first_frame_with_visible_rows_highlighted": hl_ms,
                 "note": "first frame = sidebar + 10k diff rows painted (diff parsed synchronously before window open); highlighting is async",
             })
         }
