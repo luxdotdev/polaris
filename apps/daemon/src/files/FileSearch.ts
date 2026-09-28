@@ -49,6 +49,8 @@ interface Index {
   readonly backend: Promise<SearchBackend>
   lastUsed: number
   watchers: number
+  /** Searches in flight: an index is never dropped under one. */
+  busy: number
 }
 
 const fileError = (path: string, cause: unknown) => {
@@ -79,7 +81,7 @@ export const makeFileSearch = (options: FileSearchOptions) =>
       const backend = (options.useFff ? makeFffBackend(root) : Promise.resolve(null)).then(
         (fff) => fff ?? makeFallbackBackend(root),
       )
-      const index: Index = { backend, lastUsed: Date.now(), watchers: 0 }
+      const index: Index = { backend, lastUsed: Date.now(), watchers: 0, busy: 0 }
       indexes.set(root, index)
       return index
     }
@@ -92,7 +94,9 @@ export const makeFileSearch = (options: FileSearchOptions) =>
     const sweep = () => {
       const now = Date.now()
       for (const [root, index] of indexes) {
-        if (index.watchers === 0 && now - index.lastUsed > options.idleMs) drop(root, index)
+        if (index.watchers === 0 && index.busy === 0 && now - index.lastUsed > options.idleMs) {
+          drop(root, index)
+        }
       }
     }
     const timer = setInterval(sweep, options.sweepMs)
@@ -107,7 +111,14 @@ export const makeFileSearch = (options: FileSearchOptions) =>
       Effect.tryPromise({
         try: async () => {
           const root = await canonicalRoot(input)
-          return f(await open(root).backend)
+          const index = open(root)
+          index.busy++
+          try {
+            return await f(await index.backend)
+          } finally {
+            index.busy--
+            index.lastUsed = Date.now()
+          }
         },
         catch: (cause) => fileError(resolveHostPath(input), cause),
       })
