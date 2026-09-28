@@ -97,3 +97,76 @@ StandardError=append:${spec.logDir}/daemon.err.log
 WantedBy=default.target
 `
 }
+
+/** Marks the lines Polaris adds to crontab and shell profiles, so uninstall finds them. */
+export const SUPERVISOR_MARKER = "# polaris-supervisor"
+
+/** POSIX sh single-quoting. */
+export const shQuote = (value: string): string => `'${value.replaceAll("'", `'\\''`)}'`
+
+/**
+ * The fallback supervisor for Linux Hosts without a `systemd --user` bus
+ * (minimal containers, SSH sessions without pam_systemd, non-systemd
+ * distributions): `~/.polaris/bin/polaris-supervise`, a POSIX sh script.
+ *
+ * Without arguments it detaches itself (setsid when available, else nohup)
+ * and returns at once. `--foreground` is the supervisor proper: single
+ * instance through `supervisor.pid`, runs `polaris serve`, restarts it when it
+ * exits (1 s backoff doubling to 60 s; reset after a minute of uptime), and
+ * gives up quietly when the Daemon exits 75 (another Daemon already runs) or
+ * the binary is gone (uninstalled). SIGTERM stops it and its Daemon.
+ */
+export const supervisorScript = (spec: ServiceSpec): string => {
+  const env = { POLARIS_HOME: spec.home, ...spec.env }
+  const exports = Object.keys(env)
+    .sort()
+    .map((key) => `${key}=${shQuote(env[key as keyof typeof env]!)}; export ${key}`)
+    .join("\n")
+  const serve = [spec.program, ...spec.args].map(shQuote).join(" ")
+  return `#!/bin/sh
+${SUPERVISOR_MARKER}: keeps the Polaris Daemon running on a Host without systemd --user.
+# Written by \`polaris install\`; started by it, by cron @reboot and by the login profile.
+${exports}
+LOGS=${shQuote(spec.logDir)}
+PIDFILE="$POLARIS_HOME/supervisor.pid"
+
+running() { [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE" 2>/dev/null)" 2>/dev/null; }
+
+if [ "$1" != "--foreground" ]; then
+  running && exit 0
+  mkdir -p "$LOGS"
+  if command -v setsid >/dev/null 2>&1; then
+    setsid "$0" --foreground </dev/null >>"$LOGS/supervisor.log" 2>&1 &
+  else
+    nohup "$0" --foreground </dev/null >>"$LOGS/supervisor.log" 2>&1 &
+  fi
+  exit 0
+fi
+
+running && exit 0
+echo $$ >"$PIDFILE"
+child=
+trap 'rm -f "$PIDFILE"; [ -n "$child" ] && kill "$child" 2>/dev/null; exit 0' TERM INT HUP
+delay=1
+while :; do
+  [ -x ${shQuote(spec.program)} ] || { rm -f "$PIDFILE"; exit 0; }
+  started=$(date +%s)
+  ${serve} >>"$LOGS/daemon.out.log" 2>>"$LOGS/daemon.err.log" &
+  child=$!
+  wait "$child"
+  code=$?
+  child=
+  if [ "$code" = 75 ]; then rm -f "$PIDFILE"; exit 0; fi
+  if [ $(( $(date +%s) - started )) -ge 60 ]; then delay=1; fi
+  echo "$(date): polaris serve exited $code; restarting in \${delay}s"
+  sleep "$delay"
+  delay=$(( delay * 2 )); [ "$delay" -gt 60 ] && delay=60
+done
+`
+}
+
+/** The line added to crontab and login profiles to start the supervisor. */
+export const supervisorStartLine = (script: string, trigger: "cron" | "profile"): string =>
+  trigger === "cron"
+    ? `@reboot ${shQuote(script)} ${SUPERVISOR_MARKER}`
+    : `[ -x ${shQuote(script)} ] && ${shQuote(script)} >/dev/null 2>&1 ${SUPERVISOR_MARKER}`

@@ -30,7 +30,7 @@ const result = yield* ensureDaemon(alias, builds, { trigger: "user", approvedSha
    - Install: `<upload>/polaris install --json`
    - Upgrade: `~/.polaris/bin/current/polaris upgrade <upload>/polaris --json` (execve hand-off, same PID; Harnesses keep running)
 
-   The upload directory is always removed afterwards. The JSON line the Daemon prints is returned in `applied.report`.
+   The upload directory is always removed afterwards. The JSON line the Daemon prints is returned in `applied.report`. Show its `notes` to the user; in particular `supervisor: "fallback"` means the Linux Host has no systemd user bus and the Daemon runs under Polaris' own supervisor, which only returns after a reboot if `autostart` includes `cron`.
 
 ## Tests
 

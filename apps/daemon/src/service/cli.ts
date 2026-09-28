@@ -48,6 +48,9 @@ const installCommand = Effect.fn("installCommand")(function* (args: ReadonlyArra
     `  sha256 ${report.sha256}`,
     `  service ${report.serviceFile} (${report.serviceDomain})${report.restarted ? ", restarted" : ""}`,
     ...(report.linger === "not-applicable" ? [] : [`  linger ${report.linger}`]),
+    ...(report.supervisor === "fallback"
+      ? [`  supervisor fallback (autostart: ${report.autostart.join(", ") || "none"})`]
+      : []),
     ...report.notes.map((note) => `  note: ${note}`),
   ])
 })

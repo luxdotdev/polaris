@@ -27,7 +27,10 @@ import {
   LAUNCHD_LABEL,
   launchdPlist,
   type ServiceSpec,
+  SUPERVISOR_MARKER,
   SYSTEMD_UNIT,
+  supervisorScript,
+  supervisorStartLine,
   systemdUnit,
 } from "./templates.ts"
 
@@ -74,6 +77,8 @@ export const layout = (ctx: InstallContext, version?: string) => {
     versionDir: version === undefined ? null : join(bin, version),
     installed: version === undefined ? null : join(bin, version, "polaris"),
     logs: join(ctx.polarisHome, "logs"),
+    /** The fallback supervisor on Linux Hosts without systemd --user. */
+    supervisor: join(bin, "polaris-supervise"),
     serviceFile:
       ctx.os === "darwin"
         ? join(ctx.userHome, "Library", "LaunchAgents", `${LAUNCHD_LABEL}.plist`)
@@ -100,6 +105,36 @@ export const sha256File = (path: string): string =>
 
 export type LingerStatus = "enabled" | "already-enabled" | "needs-admin" | "not-applicable"
 
+/** What keeps the Daemon running: launchd, systemd --user, or Polaris' own fallback supervisor. */
+export type Supervisor = "launchd" | "systemd" | "fallback"
+
+/** How the fallback supervisor comes back after a reboot or logout. */
+export type Autostart = "cron" | "profile"
+
+export type CrontabAccess = "available" | "missing" | "denied"
+
+export interface LinuxServiceProbe {
+  /** `systemctl --user` reaches a user manager (a user bus exists). */
+  readonly userSystemd: boolean
+  readonly crontab: CrontabAccess
+}
+
+/**
+ * Pure: which supervisor a Linux Host gets. systemd --user whenever it
+ * answers; otherwise the fallback supervisor, started at boot by cron
+ * `@reboot` when the user may edit their crontab, and at login by the shell
+ * profile always (it is single-instance, so both are harmless together).
+ */
+export const planLinuxService = (
+  probe: LinuxServiceProbe,
+): { readonly supervisor: "systemd" | "fallback"; readonly autostart: ReadonlyArray<Autostart> } =>
+  probe.userSystemd
+    ? { supervisor: "systemd", autostart: [] }
+    : {
+        supervisor: "fallback",
+        autostart: probe.crontab === "available" ? ["cron", "profile"] : ["profile"],
+      }
+
 export interface InstallReport {
   readonly version: string
   readonly binary: string
@@ -111,6 +146,10 @@ export interface InstallReport {
   readonly serviceDomain: string
   readonly restarted: boolean
   readonly linger: LingerStatus
+  /** What keeps the Daemon running; the Client shows `fallback` with `notes`. */
+  readonly supervisor: Supervisor
+  /** Fallback only: what starts it again after a reboot (cron) or at login (profile). */
+  readonly autostart: ReadonlyArray<Autostart>
   readonly notes: ReadonlyArray<string>
 }
 
@@ -159,17 +198,21 @@ export const pointCurrentAt = (ctx: InstallContext, version: string) =>
     return true
   })
 
-const writeIfChanged = (path: string, content: string) =>
+const writeIfChanged = (path: string, content: string, mode = 0o644) =>
   fsStep("write service file", () => {
     if (existsSync(path) && readFileSync(path, "utf8") === content) return false
     mkdirSync(dirname(path), { recursive: true })
-    writeFileSync(path, content, { mode: 0o644 })
+    writeFileSync(path, content, { mode })
+    chmodSync(path, mode)
     return true
   })
 
-const run = Effect.fnUntraced(function* (argv: ReadonlyArray<string>) {
+const run = Effect.fnUntraced(function* (
+  argv: ReadonlyArray<string>,
+  options?: { readonly stdin?: string },
+) {
   const runner = yield* CommandRunner
-  return yield* runner.run(argv)
+  return yield* runner.run(argv, options)
 })
 
 const runOrFail = Effect.fnUntraced(function* (step: string, argv: ReadonlyArray<string>) {
@@ -233,6 +276,141 @@ const activateLaunchd = Effect.fnUntraced(function* (
   return { domain, restarted: isLoaded, linger: "not-applicable" as const, notes }
 })
 
+// ── Linux without systemd --user ───────────────────────────────────────────
+
+/** Probe the Host's service options; never fails. */
+export const probeLinuxService = Effect.fnUntraced(function* () {
+  const systemd = yield* run(["systemctl", "--user", "show-environment"])
+  const crontab = yield* run(["crontab", "-l"])
+  const access: CrontabAccess =
+    crontab.code === 0 || /no crontab/i.test(crontab.stderr)
+      ? "available"
+      : crontab.code === 127
+        ? "missing"
+        : "denied"
+  return {
+    probe: { userSystemd: systemd.code === 0, crontab: access } satisfies LinuxServiceProbe,
+    systemdError:
+      systemd.code === 127
+        ? "systemctl is not installed"
+        : (systemd.stderr || systemd.stdout).trim(),
+    crontab: crontab.code === 0 ? crontab.stdout : "",
+  }
+})
+
+/** `lines` without Polaris' marked lines, plus `line` (when given), newline-terminated. */
+const withMarkedLine = (content: string, line: string | null): string => {
+  const kept = content.split("\n").filter((l) => l !== "" && !l.includes(SUPERVISOR_MARKER))
+  const all = line === null ? kept : [...kept, line]
+  return all.length === 0 ? "" : `${all.join("\n")}\n`
+}
+
+/** The login profiles to hook: `~/.profile`, plus bash's own if they exist (bash reads only the first). */
+const profileFiles = (ctx: InstallContext): Array<string> => [
+  join(ctx.userHome, ".profile"),
+  ...[".bash_profile", ".bash_login"]
+    .map((name) => join(ctx.userHome, name))
+    .filter((path) => existsSync(path)),
+]
+
+const editProfiles = (ctx: InstallContext, line: string | null) =>
+  fsStep("edit login profile", () => {
+    for (const file of profileFiles(ctx)) {
+      const before = existsSync(file) ? readFileSync(file, "utf8") : null
+      if (before === null && line === null) continue
+      const kept = (before ?? "")
+        .split("\n")
+        .filter((l) => !l.includes(SUPERVISOR_MARKER))
+        .join("\n")
+        .replace(/\n*$/, "")
+      const after = line === null ? `${kept}\n` : `${kept}${kept === "" ? "" : "\n"}${line}\n`
+      if (after !== before) writeFileSync(file, after)
+    }
+  })
+
+const pidFromFile = (path: string): number | null => {
+  try {
+    const pid = Number(readFileSync(path, "utf8").trim())
+    if (!Number.isInteger(pid) || pid <= 0) return null
+    process.kill(pid, 0)
+    return pid
+  } catch {
+    return null
+  }
+}
+
+/** SIGTERM `pid` and wait up to 5 s for it to go. */
+const terminate = (pid: number) =>
+  Effect.promise(async () => {
+    try {
+      process.kill(pid, "SIGTERM")
+    } catch {
+      return
+    }
+    const deadline = Date.now() + 5_000
+    while (Date.now() < deadline) {
+      try {
+        process.kill(pid, 0)
+      } catch {
+        return
+      }
+      await Bun.sleep(50)
+    }
+  })
+
+const activateFallback = Effect.fnUntraced(function* (
+  ctx: InstallContext,
+  changed: { readonly binary: boolean; readonly serviceFile: boolean },
+  plan: { readonly autostart: ReadonlyArray<Autostart> },
+  found: { readonly systemdError: string; readonly crontab: string },
+) {
+  const paths = layout(ctx)
+  const notes: Array<string> = [
+    `No systemd user bus on this Host (${found.systemdError || "systemctl --user failed"}), so Polaris runs under its own supervisor (${paths.supervisor}). It restarts the Daemon if it exits.`,
+  ]
+  if (plan.autostart.includes("cron")) {
+    const next = withMarkedLine(found.crontab, supervisorStartLine(paths.supervisor, "cron"))
+    if (next !== found.crontab) {
+      const written = yield* run(["crontab", "-"], { stdin: next })
+      if (written.code !== 0) {
+        return yield* new InstallError({
+          step: "edit crontab",
+          message: `crontab - exited ${written.code}: ${written.stderr.trim()}`,
+        })
+      }
+    }
+    notes.push("It starts at boot through cron @reboot, if a cron daemon runs at boot.")
+  } else {
+    notes.push(
+      "It does not start at boot (no usable crontab); it starts at your next login, or when the Client reinstalls.",
+    )
+  }
+  yield* editProfiles(ctx, supervisorStartLine(paths.supervisor, "profile"))
+  // A new binary: stop the running Daemon; the supervisor restarts it on `current`.
+  const daemon = pidFromFile(join(ctx.polarisHome, "daemon.pid"))
+  const restart = daemon !== null && (changed.binary || changed.serviceFile)
+  if (restart) yield* terminate(daemon)
+  yield* runOrFail("start supervisor", [paths.supervisor])
+  return {
+    domain: "polaris-supervisor",
+    restarted: restart,
+    linger: "not-applicable" as const,
+    notes,
+  }
+})
+
+/** Stop the fallback supervisor (and its Daemon) and remove its autostart lines. */
+const removeFallback = Effect.fnUntraced(function* (ctx: InstallContext) {
+  const supervisor = pidFromFile(join(ctx.polarisHome, "supervisor.pid"))
+  if (supervisor !== null) yield* terminate(supervisor)
+  const crontab = yield* run(["crontab", "-l"])
+  if (crontab.code === 0 && crontab.stdout.includes(SUPERVISOR_MARKER)) {
+    yield* run(["crontab", "-"], { stdin: withMarkedLine(crontab.stdout, null) })
+  }
+  yield* editProfiles(ctx, null)
+  return supervisor !== null
+})
+
 /**
  * Enable lingering so the user manager (and the Daemon) survives logout and
  * starts at boot. Allowed for oneself on most distributions when the session
@@ -281,22 +459,33 @@ export const install = Effect.fn("install")(function* (
   const sha256 = staged.sha256
   const binaryChanged = staged.changed
   const currentChanged = yield* pointCurrentAt(ctx, options.version)
-  const serviceFileChanged = yield* writeIfChanged(paths.serviceFile, renderServiceFile(ctx))
+  const linux = ctx.os === "linux" ? yield* probeLinuxService() : null
+  const plan = linux === null ? null : planLinuxService(linux.probe)
+  const fallback = plan?.supervisor === "fallback"
+  const serviceFile = fallback ? paths.supervisor : paths.serviceFile
+  const serviceFileChanged = fallback
+    ? yield* writeIfChanged(serviceFile, supervisorScript(serviceSpec(ctx)), 0o755)
+    : yield* writeIfChanged(serviceFile, renderServiceFile(ctx))
   const changed = { binary: binaryChanged || currentChanged, serviceFile: serviceFileChanged }
   const activation =
     ctx.os === "darwin"
       ? yield* activateLaunchd(ctx, paths.serviceFile, changed)
-      : yield* activateSystemd(ctx, changed)
+      : fallback
+        ? yield* activateFallback(ctx, changed, plan!, linux!)
+        : yield* activateSystemd(ctx, changed)
+  const supervisor: Supervisor = ctx.os === "darwin" ? "launchd" : fallback ? "fallback" : "systemd"
   return {
     version: options.version,
     binary: staged.path,
     sha256,
     binaryChanged: changed.binary,
-    serviceFile: paths.serviceFile,
+    serviceFile,
     serviceFileChanged,
     serviceDomain: activation.domain,
     restarted: activation.restarted,
     linger: activation.linger,
+    supervisor,
+    autostart: fallback ? plan!.autostart : [],
     notes: activation.notes,
   }
 })
@@ -305,6 +494,8 @@ export interface UninstallReport {
   readonly serviceFileRemoved: boolean
   /** PID of the shared Codex app-server that was stopped, if one was running. */
   readonly codexAppServerStopped: number | null
+  /** Linux: the fallback supervisor (and its Daemon) was running and was stopped. */
+  readonly supervisorStopped: boolean
   readonly binariesRemoved: boolean
   readonly purged: boolean
 }
@@ -319,11 +510,13 @@ export const uninstall = Effect.fn("uninstall")(function* (
   options: { readonly purge: boolean },
 ): Effect.fn.Return<UninstallReport, InstallError, CommandRunner> {
   const paths = layout(ctx)
+  let supervisorStopped = false
   if (ctx.os === "darwin") {
     yield* run(["launchctl", "bootout", `gui/${ctx.uid}/${LAUNCHD_LABEL}`])
     yield* run(["launchctl", "bootout", `user/${ctx.uid}/${LAUNCHD_LABEL}`])
   } else {
     yield* run(["systemctl", "--user", "disable", "--now", SYSTEMD_UNIT])
+    supervisorStopped = yield* removeFallback(ctx)
   }
   // The shared Codex app-server outlives the Daemon on purpose; uninstall ends it.
   const appServer = yield* stopAppServer({
@@ -346,6 +539,7 @@ export const uninstall = Effect.fn("uninstall")(function* (
   return {
     serviceFileRemoved,
     codexAppServerStopped: appServer.stopped,
+    supervisorStopped,
     binariesRemoved,
     purged: options.purge,
   }
