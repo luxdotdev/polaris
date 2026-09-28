@@ -61,6 +61,40 @@ ICONS = {
 }
 
 
+# The Polaris star: a symmetric 16x16 pixel star with a 2px spine, rays that step
+# evenly (2, 4, 6, 8, 16 wide) and short diagonal rays, like an eight-point sparkle.
+_HALF = {7.5: 1, 6.5: 1, 5.5: 1, 4.5: 2, 3.5: 2, 2.5: 3, 1.5: 4, 0.5: 8}
+
+
+def star_cells():
+    c = 7.5
+    cells = set()
+    for y in range(16):
+        for x in range(16):
+            dx, dy = abs(x - c), abs(y - c)
+            if dx < _HALF[dy] or dy < _HALF[dx]:
+                cells.add((x, y))
+    for d in (3, 4):  # short diagonal rays
+        cells |= {(d, d), (15 - d, d), (d, 15 - d), (15 - d, 15 - d)}
+    return cells
+
+
+def polaris_logo(tones, size=64):
+    """tones: (outline, body, core). Pass one colour three times for a flat mark."""
+    outline, body, core = tones
+    cells = star_cells()
+    rects = []
+    for x, y in sorted(cells):
+        edge = any((x + ox, y + oy) not in cells for ox, oy in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+        centre = abs(x - 7.5) + abs(y - 7.5) <= 2
+        fill = core if centre else outline if edge else body
+        rects.append(f'<rect x="{x}" y="{y}" width="1" height="1" fill="{fill}"/>')
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 16 16" '
+        f'shape-rendering="crispEdges">' + "".join(rects) + "</svg>"
+    )
+
+
 def icon(paths, color):
     body = "".join(f'<path d="{d}"/>' for d in paths)
     return (
@@ -76,3 +110,17 @@ if __name__ == "__main__":
     for name, (paths, color) in ICONS.items():
         with open(out("icons", f"{name}.svg"), "w") as f:
             f.write(icon(paths, color))
+    # Shaded logo (outline, body, core) for 24px and up; flat versions for small UI use.
+    LOGOS = {
+        "polaris-logo-starlight": ("#7C9FE8", "#BCD3FF", "#FFFFFF"),
+        "polaris-logo-blue": ("#2F5FC4", "#4F82E8", "#A9C4FA"),
+        "polaris-logo-white": ("#F4F5F7",) * 3,
+        "polaris-logo-ink": ("#17181A",) * 3,
+    }
+    for name, tones in LOGOS.items():
+        with open(out("brand", f"{name}.svg"), "w") as f:
+            f.write(polaris_logo(tones))
+    FLAT = {"px-polaris-dark": "#BCD3FF", "px-polaris-light": "#4F82E8", "px-polaris-ink": "#17181A", "px-polaris-white": "#F4F5F7"}
+    for name, color in FLAT.items():
+        with open(out("icons", f"{name}.svg"), "w") as f:
+            f.write(polaris_logo((color,) * 3, size=16))

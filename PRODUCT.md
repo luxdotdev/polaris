@@ -10,7 +10,7 @@ The Desktop App is the only Client today. A Mobile App (iOS) is planned and will
 
 ## Stack
 
-Undecided: Zed's GPUI or Electron, chosen on performance. Design decisions must render identically on either; nothing in DESIGN.md may depend on CSS-only or shader-only features.
+Electron (decided in ENG-184): Chromium 152, React with the React Compiler, Pierre Diffs for Review, CodeMirror 6 later for the Editor. Budgets: display-rate frames (measured at 180 Hz) and under 1 GB for the whole app.
 
 ## Users
 
@@ -33,16 +33,16 @@ Polaris drives Harnesses rather than reimplementing one, and it supervises Agent
 
 ## Capabilities and Constraints
 
-- Vocabulary is fixed by `CONTEXT.md`; UI copy uses those terms exactly (Agent Session, Harness, Turn, Needs You, Risk Finding, Severity, Verdict).
+- Vocabulary is fixed by `CONTEXT.md`; UI copy uses those terms exactly, lowercase unless they are proper nouns (agent session, harness, turn, needs you, risk finding, severity, verdict).
 - Session States: Starting, Working, Needs You, Idle, In Terminal, Dormant, Failed, Archived.
 - Severities: Critical, High, Medium, Low. No Risk Memory may hide a Critical Finding.
-- Undecided: UI framework (GPUI or Electron); Mobile App scope.
+- Undecided: Mobile App scope.
 
 ## Brand Commitments
 
 - **Name:** Polaris (codename). The north star is the art direction: a night sky in dark mode, a meadow at dawn in light mode.
 - **Personality:** calm, precise, alive.
-- **Voice:** terse, peer to peer. No emoji, no exclamation marks, no AI hype words ("magic", "supercharge", "seamless"). Glossary terms used exactly and consistently.
+- **Voice:** terse, peer to peer. No emoji, no exclamation marks, no AI hype words ("magic", "supercharge", "seamless"). Glossary terms used exactly and consistently, lowercase in product copy unless they are proper nouns (Polaris, Claude Code, Codex).
 - **Brand colour:** a cool starlight white-blue, used sparingly.
 - **Signature material:** pixel art and dither.
 - **Anti-references:** the "AI purple gradient" look; dashboards crowded with panels, cards, and charts.
