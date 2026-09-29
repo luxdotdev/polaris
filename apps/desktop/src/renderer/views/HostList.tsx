@@ -1,5 +1,5 @@
 import type { Workspace } from "@polaris/protocol";
-import { Button, Row, SectionHeader } from "@polaris/ui";
+import { Button, IconButton, PlusIcon, Row, SectionHeader } from "@polaris/ui";
 import { useState } from "react";
 import type { HostView } from "../../shared/api.ts";
 import { startProofSession } from "../proof.ts";
@@ -18,6 +18,7 @@ import { useApp, useConnection } from "./hooks.ts";
 interface SelectProps {
   readonly selected: Selection | null;
   readonly onSelect: (selection: Selection) => void;
+  readonly onNewSession: (hostKey: string, workspaceId: Workspace["id"]) => void;
 }
 
 interface SessionRowProps extends SelectProps {
@@ -60,7 +61,14 @@ interface WorkspaceProps extends SelectProps {
   readonly workspace: Workspace;
 }
 
-const WorkspaceSection = ({ hostKey, model, workspace, selected, onSelect }: WorkspaceProps) => {
+const WorkspaceSection = ({
+  hostKey,
+  model,
+  workspace,
+  selected,
+  onSelect,
+  onNewSession,
+}: WorkspaceProps) => {
   const sessions = sessionsOf(model, workspace.id);
 
   return (
@@ -68,13 +76,28 @@ const WorkspaceSection = ({ hostKey, model, workspace, selected, onSelect }: Wor
       <SectionHeader
         title={workspace.path}
         empty={sessions.length === 0 ? `No agent sessions in ${workspace.name}` : undefined}
+        action={
+          <IconButton
+            size="sm"
+            label={`New session in ${workspace.name}`}
+            icon={<PlusIcon size={14} />}
+            onClick={() => onNewSession(hostKey, workspace.id)}
+            data-testid={`new-session-${workspace.name}`}
+          />
+        }
       >
         {workspace.name}
       </SectionHeader>
       <ul className="flex flex-col gap-px">
         {sessions.map((entry) => (
           <li key={entry.session.id}>
-            <SessionRow hostKey={hostKey} entry={entry} selected={selected} onSelect={onSelect} />
+            <SessionRow
+              hostKey={hostKey}
+              entry={entry}
+              selected={selected}
+              onSelect={onSelect}
+              onNewSession={onNewSession}
+            />
           </li>
         ))}
       </ul>
@@ -114,7 +137,7 @@ const ProofButton = ({ host, onSelect }: HostProps) => {
   );
 };
 
-const HostSection = ({ host, selected, onSelect }: HostProps) => {
+const HostSection = ({ host, selected, onSelect, onNewSession }: HostProps) => {
   const model = useApp((s) => s.hostModels[host.key]) ?? emptyHostModel;
   const workspaces = visibleWorkspaces(model);
   const { status } = host;
@@ -137,7 +160,12 @@ const HostSection = ({ host, selected, onSelect }: HostProps) => {
         <p className="text-caption text-text-faint px-2">Last known · revalidating</p>
       ) : null}
       {host.proofHarness ? (
-        <ProofButton host={host} selected={selected} onSelect={onSelect} />
+        <ProofButton
+          host={host}
+          selected={selected}
+          onSelect={onSelect}
+          onNewSession={onNewSession}
+        />
       ) : null}
       {workspaces.length === 0 ? (
         <p className="text-caption text-text-faint px-2 py-1.5">No workspaces yet</p>
@@ -151,6 +179,7 @@ const HostSection = ({ host, selected, onSelect }: HostProps) => {
               workspace={workspace}
               selected={selected}
               onSelect={onSelect}
+              onNewSession={onNewSession}
             />
           ))}
         </ul>
@@ -159,7 +188,7 @@ const HostSection = ({ host, selected, onSelect }: HostProps) => {
   );
 };
 
-export const HostList = ({ selected, onSelect }: SelectProps) => {
+export const HostList = ({ selected, onSelect, onNewSession }: SelectProps) => {
   const hosts = useApp((s) => s.hosts);
 
   return (
@@ -168,7 +197,13 @@ export const HostList = ({ selected, onSelect }: SelectProps) => {
       className="gap-section border-hairline bg-surface-sunken pt-panel flex flex-col overflow-y-auto border-r p-2"
     >
       {hosts.map((host) => (
-        <HostSection key={host.key} host={host} selected={selected} onSelect={onSelect} />
+        <HostSection
+          key={host.key}
+          host={host}
+          selected={selected}
+          onSelect={onSelect}
+          onNewSession={onNewSession}
+        />
       ))}
     </nav>
   );

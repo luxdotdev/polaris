@@ -1,0 +1,12 @@
+/**
+ * The session feature: the Orchestrator's Intent (conversation and composer)
+ * and Output (the Turn's diff) for one Agent Session, and the new-session
+ * page. The shell places them; selection stays with the shell.
+ */
+export { NewSessionPage, type NewSessionPageProps } from "./ui/NewSessionPage.tsx";
+
+export { SessionIntent, type SessionViewProps } from "./ui/SessionIntent.tsx";
+
+export { SessionOutput } from "./ui/SessionOutput.tsx";
+
+export { SessionView } from "./ui/SessionView.tsx";

@@ -17,6 +17,7 @@
     "@polaris/client": "workspace:*",
     "@polaris/protocol": "workspace:*",
     "@polaris/ui": "workspace:*",
+    "@tanstack/react-virtual": "3.14.13",
     "effect": "4.0.0-rc.118",
     "react": "19.3.0",
     "react-dom": "19.3.0",

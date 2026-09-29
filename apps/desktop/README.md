@@ -26,12 +26,13 @@ bun run bench desktop-idle          # memory and CPU of the built app, settled (
 | `src/main/protocol.ts`, `window.ts`, `menu.ts` | `app://polaris` with a strict CSP, the `hiddenInset` window, the native menu (⌘1–3, appearance, density). |
 | `src/main/snapshotCache.ts` | The last synchronized Host snapshots, painted at launch and then revalidated (ENG-175). |
 | `src/renderer/store/` | Pure reducers for Host and session feeds (`hostModel.ts`, `sessionModel.ts`), a zustand vanilla store applying one frame's updates at a time (`store.ts`, `frameQueue.ts`). |
+| `src/renderer/features/session/` | The session feature: `SessionIntent` (header, virtualized conversation, composer), `SessionOutput` (the Turn's diff), `SessionView` (both, side by side) and `NewSessionPage`; `index.ts` is its interface. Pure view models under `model/` (Turn rows, items, composer intents, Model picker, unified diff, `StartSession`/Fork), tested. |
 | `src/renderer/views/` | The shell and the proof screen. |
 | `scripts/` | `build.ts`, `dev.ts`, `smoke.ts` and their helpers. |
 
 ## The bridge
 
-- **Requests**: `window.polaris.request(method, input)` → `Result` (`{ ok, value }` or `{ ok: false, error: { code, message } }`). Methods: settings, `dispatch` (a Client-generated `commandId`), files, git, `session.terminalCommand`, terminal, `attachments.stage` (bytes → `withBlob` → stage on one connection), `install.ensure`, the snapshot cache, and dev's `dev.proofWorkspace`.
+- **Requests**: `window.polaris.request(method, input)` → `Result` (`{ ok, value }` or `{ ok: false, error: { code, message } }`). Methods: settings, `dispatch` (a Client-generated `commandId`; a refusal's message is the Daemon's reason), files, git, `harness.models`, `session.terminalCommand`, terminal, `attachments.stage` (bytes → `withBlob` → stage on one connection), `install.ensure`, the snapshot cache, and dev's `dev.proofWorkspace`.
 - **Feeds**: `window.polaris.subscribe(kind, input, { items, end })`. `host` and `session` are the client's resumable feeds, so every window shares one upstream subscription per stream: Snapshot (cached) first, then events, `Delta`s and `ItemProgress` (the app announces `session.live-items`). Feeds bound to one connection (`terminal`, `files.watch`) end when it drops; resubscribe.
 - **Batching**: main coalesces every feed's items for a window into one message per 4 ms; the renderer applies them once per animation frame (or every 100 ms while hidden).
 - Payloads are structured-clone plain data: class instances lose their prototype, so the renderer types domain values as plain records (`store/plain.ts`).
@@ -47,4 +48,6 @@ Environment: `POLARIS_DESKTOP_USER_DATA`, `POLARIS_DESKTOP_HIDDEN=1`, `POLARIS_D
 - Settings for Hosts have no UI yet; edit the file. The install / upgrade approval flow is exposed (`install.ensure`) but has no UI, and approvals are not stored.
 - The macOS window closes the app (no dock-only mode yet); no vibrancy.
 - The production CSP allows inline styles (Radix and sonner inject them); scripts stay `'self'` only.
+- The session view's diff is a lightweight unified renderer (no syntax or word highlights, long lines truncate); Pierre Diffs arrives with Review. Diffs over 4 MB aren't parsed here.
+- The conversation shows a session's last 20 Turns (the feed's `turnLimit`); older ones aren't paged in yet. Assistant text is plain (no Markdown yet).
 - `@polaris/ui`'s `Row` can't be used with `asChild` (its Slot gets several children), so session rows are `role="button"` divs.
