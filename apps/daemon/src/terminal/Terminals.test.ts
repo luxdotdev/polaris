@@ -1,14 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import type { TerminalId } from "@polaris/protocol";
+import { FileError, NotFound, TerminalId } from "@polaris/protocol";
 import { Effect, Exit, Fiber, Layer, ManagedRuntime, Stream } from "effect";
 import { removeDir, tempDir } from "../git/testing.ts";
-import {
-  loginShell,
-  Scrollback,
-  type TerminalItem,
-  Terminals,
-  TerminalsLive,
-} from "./Terminals.ts";
+import { loginShell, Scrollback, TerminalItem, Terminals, TerminalsLive } from "./Terminals.ts";
 
 const encode = (text: string) => new TextEncoder().encode(text);
 
@@ -50,7 +44,11 @@ const setup = () => {
     );
 
     const text = () =>
-      items.map((i) => (i._tag === "Output" ? decode(i.data) : `<exit ${i.code}>`)).join("");
+      items
+        .map((i) =>
+          TerminalItem.match(i, { Output: (o) => decode(o.data), Exit: (e) => `<exit ${e.code}>` })
+        )
+        .join("");
 
     const waitFor = async (needle: string | RegExp, timeoutMs = 5000) => {
       const deadline = Date.now() + timeoutMs;
@@ -58,7 +56,7 @@ const setup = () => {
       while (Date.now() < deadline) {
         const current = text();
 
-        if (typeof needle === "string" ? current.includes(needle) : needle.test(current)) return;
+        if (needle instanceof RegExp ? needle.test(current) : current.includes(needle)) return;
         await Bun.sleep(20);
       }
 
@@ -156,7 +154,8 @@ describe("Terminals", () => {
     await run((t) => t.close(id));
     await a.waitFor("<exit null>");
     const error = await run((t) => Effect.flip(t.input(id, encode("x"))));
-    expect(error).toMatchObject({ _tag: "NotFound", what: "terminal" });
+    expect(error).toBeInstanceOf(NotFound);
+    expect(error).toMatchObject({ what: "terminal" });
   });
 
   test("a missing cwd is a FileError; an unknown id is NotFound", async () => {
@@ -166,8 +165,9 @@ describe("Terminals", () => {
       Effect.flip(t.open({ cwd: "/definitely/missing", cols: 80, rows: 24, argv: null }))
     );
 
-    expect(error).toMatchObject({ _tag: "FileError", code: "ENOENT" });
-    const missing = await run((t) => Effect.flip(t.resize("nope" as TerminalId, 1, 1)));
+    expect(error).toBeInstanceOf(FileError);
+    expect(error).toMatchObject({ code: "ENOENT" });
+    const missing = await run((t) => Effect.flip(t.resize(TerminalId.make("nope"), 1, 1)));
     expect(missing._tag).toBe("NotFound");
   });
 

@@ -2,7 +2,6 @@
  * Handlers for `terminal.open/attach/attachBinary/input/resize/close`.
  */
 import {
-  type BlobId,
   NotFound,
   TerminalAttach,
   TerminalAttachBinary,
@@ -15,7 +14,7 @@ import {
 import { Deferred, Effect, Exit, Stream } from "effect";
 import { RpcGroup } from "effect/rpc";
 import { BlobChannel, ServiceError } from "../services.ts";
-import { Terminals } from "./Terminals.ts";
+import { TerminalItem, type TerminalOutput, Terminals } from "./Terminals.ts";
 
 export class TerminalRpcs extends RpcGroup.make(
   TerminalOpen,
@@ -26,9 +25,9 @@ export class TerminalRpcs extends RpcGroup.make(
   TerminalClose
 ) {}
 
-type BinaryItem =
-  | { readonly _tag: "Output"; readonly blobId: BlobId }
-  | { readonly _tag: "Exit"; readonly code: number | null };
+const BinaryItem = TerminalAttachBinary.successSchema.success;
+
+type BinaryItem = typeof BinaryItem.Type;
 
 /**
  * `terminal.attachBinary`: the terminal's output (scrollback, then live) as
@@ -49,14 +48,20 @@ export const attachBinary = (
       const exit = yield* Deferred.make<number | null>();
       const detached = yield* Deferred.make<void>();
 
-      const output = terminals.attach(terminalId).pipe(
-        Stream.takeWhile((item) => {
-          if (item._tag === "Output") return true;
-          Deferred.doneUnsafe(exit, Exit.succeed(item.code));
+      /** Output continues the blob; `Exit` settles `exit` and ends it. */
+      const isOutput = (item: TerminalItem): item is TerminalOutput =>
+        TerminalItem.match(item, {
+          Output: () => true,
+          Exit: ({ code }) => {
+            Deferred.doneUnsafe(exit, Exit.succeed(code));
 
-          return false;
-        }),
-        Stream.map((item) => (item as { readonly data: Uint8Array }).data),
+            return false;
+          },
+        });
+
+      const output = terminals.attach(terminalId).pipe(
+        Stream.takeWhile(isOutput),
+        Stream.map((item) => item.data),
         Stream.interruptWhen(Deferred.await(detached)),
         Stream.mapError(
           (error) => new ServiceError({ service: "terminal", message: `${error.what} gone` })
@@ -68,9 +73,11 @@ export const attachBinary = (
       const blobId = yield* blobs.offer(output);
 
       return Stream.concat(
-        Stream.succeed<BinaryItem>({ _tag: "Output", blobId }),
+        Stream.succeed<BinaryItem>(BinaryItem.cases.Output.make({ blobId })),
         Stream.fromEffect(
-          Effect.map(Deferred.await(exit), (code): BinaryItem => ({ _tag: "Exit", code }))
+          Effect.map(Deferred.await(exit), (code): BinaryItem =>
+            BinaryItem.cases.Exit.make({ code })
+          )
         )
       ).pipe(
         Stream.onExit((result) =>

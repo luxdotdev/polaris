@@ -10,9 +10,9 @@
  * replay an attacher gets now, as text, with `<exit N>` appended once exited),
  * `{op:"list"}`.
  */
-import type { TerminalId } from "@polaris/protocol";
+import { TerminalId } from "@polaris/protocol";
 import type { Socket } from "bun";
-import { Effect, Fiber, Stream } from "effect";
+import { Context, Effect, Fiber, Layer, Option, Schema, Stream } from "effect";
 import { paths } from "../../paths.ts";
 import { CommandRunner } from "../../service/CommandRunner.ts";
 import {
@@ -22,19 +22,50 @@ import {
   listenerFd,
   serveUpgrades,
 } from "../../service/upgrade.ts";
-import { makeTerminalsWith, type TerminalItem } from "../Terminals.ts";
+import { type TerminalInfo, TerminalItem, Terminals, TerminalsDaemonLive } from "../Terminals.ts";
 
 const version = process.argv[process.argv.indexOf("--as") + 1] ?? "unknown";
 
+/** One request line, keyed by `op`. */
+const Request = Schema.Union([
+  Schema.Struct({ op: Schema.Literal("info") }),
+  Schema.Struct({ op: Schema.Literal("open"), cwd: Schema.String }),
+  Schema.Struct({ op: Schema.Literal("input"), id: TerminalId, text: Schema.String }),
+  Schema.Struct({
+    op: Schema.Literal("resize"),
+    id: TerminalId,
+    cols: Schema.Number,
+    rows: Schema.Number,
+  }),
+  Schema.Struct({ op: Schema.Literal("read"), id: TerminalId }),
+  Schema.Struct({ op: Schema.Literal("list") }),
+]).pipe(Schema.toTaggedUnion("op"));
+
+const decodeRequest = Schema.decodeUnknownOption(Schema.fromJsonString(Request));
+
+interface Info {
+  readonly version: string;
+  readonly pid: number;
+  readonly adopted: boolean;
+}
+
+interface BadRequest {
+  readonly error: string;
+}
+
+/** Every reply is one JSON line. */
+type Reply = string | Info | ReadonlyArray<TerminalInfo> | BadRequest;
+
 const program = Effect.gen(function* () {
   const adopted = yield* adoptListener();
-  const terminals = yield* makeTerminalsWith({ stateDir: paths().root });
+  // Built in this scope (after adopting the listener), as the Daemon's own layer.
+  const terminals = Context.get(yield* Layer.build(TerminalsDaemonLive), Terminals);
 
-  const read = (id: string) =>
+  const read = (id: TerminalId) =>
     Effect.gen(function* () {
       const items: Array<TerminalItem> = [];
 
-      const fiber = yield* terminals.attach(id as TerminalId).pipe(
+      const fiber = yield* terminals.attach(id).pipe(
         Stream.runForEach((item) => Effect.sync(() => items.push(item))),
         Effect.forkChild
       );
@@ -43,43 +74,39 @@ const program = Effect.gen(function* () {
       yield* Fiber.interrupt(fiber);
 
       return items
-        .map((i) => (i._tag === "Output" ? new TextDecoder().decode(i.data) : `<exit ${i.code}>`))
+        .map((i) =>
+          TerminalItem.match(i, {
+            Output: (o) => new TextDecoder().decode(o.data),
+            Exit: (e) => `<exit ${e.code}>`,
+          })
+        )
         .join("");
     });
 
-  const handle = (request: Record<string, unknown>): Effect.Effect<unknown> => {
-    const id = request.id as TerminalId;
+  const handle = Request.match({
+    info: () => Effect.succeed({ version, pid: process.pid, adopted: adopted !== null }),
+    open: ({ cwd }) =>
+      terminals.open({ cwd, cols: 80, rows: 24, argv: ["/bin/sh"] }).pipe(Effect.orDie),
+    input: ({ id, text }) =>
+      terminals.input(id, new TextEncoder().encode(text)).pipe(Effect.as("ok"), Effect.orDie),
+    resize: ({ id, cols, rows }) =>
+      terminals.resize(id, cols, rows).pipe(Effect.as("ok"), Effect.orDie),
+    read: ({ id }) => read(id),
+    list: () => terminals.list,
+  });
 
-    switch (request.op) {
-      case "info":
-        return Effect.succeed({ version, pid: process.pid, adopted: adopted !== null });
-      case "open":
-        return terminals
-          .open({ cwd: request.cwd as string, cols: 80, rows: 24, argv: ["/bin/sh"] })
-          .pipe(Effect.orDie);
-      case "input":
-        return terminals
-          .input(id, new TextEncoder().encode(request.text as string))
-          .pipe(Effect.as("ok"), Effect.orDie);
-      case "resize":
-        return terminals
-          .resize(id, request.cols as number, request.rows as number)
-          .pipe(Effect.as("ok"), Effect.orDie);
-      case "read":
-        return read(id);
-      case "list":
-        return terminals.list;
-      default:
-        return Effect.succeed({ error: `unknown op ${String(request.op)}` });
-    }
-  };
+  const reply = (line: string): Effect.Effect<Reply> =>
+    Option.match(decodeRequest(line), {
+      onNone: () => Effect.succeed({ error: `bad request ${line}` }),
+      onSome: handle,
+    });
 
   const handlers = {
     data(socket: Socket, data: Buffer) {
       for (const line of data.toString().split("\n")) {
         if (line.trim() === "") continue;
         Effect.runFork(
-          handle(JSON.parse(line)).pipe(
+          reply(line).pipe(
             Effect.tap((reply) => Effect.sync(() => socket.write(`${JSON.stringify(reply)}\n`)))
           )
         );
