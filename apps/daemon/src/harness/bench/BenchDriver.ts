@@ -14,28 +14,53 @@
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { ApprovalDecision, HarnessKind, RequestId, TurnId, TurnItem } from "@polaris/protocol";
-import { type Cause, Deferred, Duration, Effect, Fiber, Queue, Stream } from "effect";
-import type { HarnessDriver, HarnessEvent, HarnessSession, TurnInput } from "../HarnessDriver.ts";
+import {
+  type ApprovalDecision,
+  type HarnessKind,
+  RequestId,
+  type TurnId,
+  TurnItem,
+} from "@polaris/protocol";
+import {
+  type Cause,
+  Deferred,
+  Duration,
+  Effect,
+  Fiber,
+  Option,
+  Queue,
+  Schema,
+  Stream,
+  Struct,
+} from "effect";
+import {
+  type HarnessDriver,
+  HarnessEvent,
+  type HarnessSession,
+  type OpenOptions,
+  type TurnInput,
+} from "../HarnessDriver.ts";
 
-export interface BenchTurnScript {
+const BenchTurnScriptSchema = Schema.Struct({
   /** Completed TurnItems per Turn; kinds rotate message, reasoning, command, tool call, file change. */
-  readonly items: number;
+  items: Schema.Number,
   /** Deltas streamed before each message, reasoning and command item completes. */
-  readonly deltasPerItem: number;
+  deltasPerItem: Schema.Number,
   /** Bytes of text per delta (including the timestamp prefix). */
-  readonly deltaBytes: number;
+  deltaBytes: Schema.Number,
   /** Pause between deltas; 0 streams as fast as the engine takes them. */
-  readonly deltaIntervalMs: number;
+  deltaIntervalMs: Schema.Number,
   /** Every Nth item first asks for an approval and waits for the answer; 0 never asks. */
-  readonly approvalEvery: number;
+  approvalEvery: Schema.Number,
   /** Files written under `<cwd>/polaris-bench/` during the Turn, so checkpoints see changes. */
-  readonly touchFiles: number;
+  touchFiles: Schema.Number,
   /** Minimum text size of each completed message, reasoning and command item (padded). */
-  readonly itemBytes: number;
+  itemBytes: Schema.Number,
   /** Wait before the Turn starts, e.g. to model a Harness thinking. */
-  readonly startDelayMs: number;
-}
+  startDelayMs: Schema.Number,
+});
+
+export type BenchTurnScript = typeof BenchTurnScriptSchema.Type;
 
 export const DEFAULT_SCRIPT: BenchTurnScript = {
   items: 5,
@@ -50,16 +75,17 @@ export const DEFAULT_SCRIPT: BenchTurnScript = {
 
 export const BENCH_PROMPT_PREFIX = "bench:";
 
+const decodeScriptOverrides = Schema.decodeUnknownOption(
+  Schema.fromJsonString(BenchTurnScriptSchema.mapFields(Struct.map(Schema.optionalKey)))
+);
+
 export const parseScript = (prompt: string): BenchTurnScript => {
   if (!prompt.startsWith(BENCH_PROMPT_PREFIX)) return DEFAULT_SCRIPT;
 
-  try {
-    const parsed = JSON.parse(prompt.slice(BENCH_PROMPT_PREFIX.length)) as Partial<BenchTurnScript>;
-
-    return { ...DEFAULT_SCRIPT, ...parsed };
-  } catch {
-    return DEFAULT_SCRIPT;
-  }
+  return Option.match(decodeScriptOverrides(prompt.slice(BENCH_PROMPT_PREFIX.length)), {
+    onNone: () => DEFAULT_SCRIPT,
+    onSome: (overrides) => ({ ...DEFAULT_SCRIPT, ...overrides }),
+  });
 };
 
 const nowMs = () => performance.timeOrigin + performance.now();
@@ -70,178 +96,211 @@ const deltaText = (bytes: number): string => {
   return bytes > head.length ? head + "x".repeat(bytes - head.length) : head;
 };
 
-const itemFor = (
-  kind: number,
-  id: string,
-  text: string,
-  cwd: string,
-  files: ReadonlyArray<string>
-): TurnItem => {
+interface ItemSeed {
+  readonly id: string;
+  readonly text: string;
+  readonly cwd: string;
+  readonly files: ReadonlyArray<string>;
+}
+
+/** Kinds rotate message, reasoning, command, tool call, file change. */
+const ITEM_KINDS = 5;
+
+/** Kinds 0–2 (message, reasoning, command) stream deltas before they complete. */
+const STREAMED_KINDS = 3;
+
+const itemFor = (kind: number, seed: ItemSeed): TurnItem => {
+  const { id, text, cwd, files } = seed;
+
   switch (kind) {
     case 0:
-      return { _tag: "AssistantMessage", id, text };
+      return TurnItem.cases.AssistantMessage.make({ id, text });
     case 1:
-      return { _tag: "Reasoning", id, text };
+      return TurnItem.cases.Reasoning.make({ id, text });
     case 2:
-      return {
-        _tag: "CommandExecution",
+      return TurnItem.cases.CommandExecution.make({
         id,
         command: "bun test",
         cwd,
         output: text,
         exitCode: 0,
         status: "completed",
-      };
+      });
     case 3:
-      return {
-        _tag: "ToolCall",
+      return TurnItem.cases.ToolCall.make({
         id,
         name: "read_file",
         input: { path: "src/index.ts" },
         output: { lines: 120 },
         status: "completed",
-      };
+      });
     default:
-      return {
-        _tag: "FileChange",
+      return TurnItem.cases.FileChange.make({
         id,
         changes: (files.length > 0 ? files : ["src/index.ts"]).map((path) => ({
           path,
           kind: "modify" as const,
         })),
         status: "completed",
-      };
+      });
   }
 };
+
+const { ItemDelta } = HarnessEvent;
+
+const touchFiles = (cwd: string, turnId: TurnId, count: number): ReadonlyArray<string> => {
+  if (count <= 0) return [];
+  mkdirSync(join(cwd, "polaris-bench"), { recursive: true });
+
+  return Array.from({ length: count }, (_, f) => {
+    const path = join("polaris-bench", `file-${f}.txt`);
+    writeFileSync(join(cwd, path), `${turnId} ${f}\n`.repeat(20));
+
+    return path;
+  });
+};
+
+const openBenchSession = Effect.fn("BenchDriver.open")(function* (options: OpenOptions) {
+  const scope = yield* Effect.scope;
+  const events = yield* Queue.unbounded<HarnessEvent, Cause.Done>();
+  const approvals = new Map<RequestId, Deferred.Deferred<ApprovalDecision>>();
+  let current: { readonly turnId: TurnId; readonly fiber: Fiber.Fiber<void> } | null = null;
+  let turns = 0;
+  const emit = (event: HarnessEvent) => Queue.offer(events, event);
+
+  yield* Effect.addFinalizer(() => Queue.end(events));
+
+  const awaitApproval = Effect.fnUntraced(function* (turnId: TurnId, itemId: string) {
+    const requestId = RequestId.make(`${itemId}-approval`);
+    const answer = yield* Deferred.make<ApprovalDecision>();
+    approvals.set(requestId, answer);
+    yield* emit(
+      HarnessEvent.ApprovalRequested({
+        turnId,
+        requestId,
+        kind: "command",
+        title: "Run bun test",
+        detail: "bun test --coverage",
+        options: [],
+      })
+    );
+    yield* Deferred.await(answer);
+    approvals.delete(requestId);
+  });
+
+  /** Streams the item's deltas and returns their text. */
+  const streamDeltas = Effect.fnUntraced(function* (
+    script: BenchTurnScript,
+    turnId: TurnId,
+    itemId: string,
+    field: "text" | "output"
+  ) {
+    let text = "";
+
+    for (let d = 0; d < script.deltasPerItem; d++) {
+      const chunk = deltaText(script.deltaBytes);
+      text += chunk;
+      yield* emit(ItemDelta({ turnId, itemId, field, text: chunk }));
+
+      if (script.deltaIntervalMs > 0) {
+        yield* Effect.sleep(Duration.millis(script.deltaIntervalMs));
+      } else {
+        yield* Effect.yieldNow;
+      }
+    }
+
+    return text;
+  });
+
+  const runItem = Effect.fnUntraced(function* (
+    script: BenchTurnScript,
+    turnId: TurnId,
+    i: number,
+    files: ReadonlyArray<string>
+  ) {
+    const itemId = `${turnId}-item-${i}`;
+    const kindIndex = i % ITEM_KINDS;
+
+    if (script.approvalEvery > 0 && (i + 1) % script.approvalEvery === 0) {
+      yield* awaitApproval(turnId, itemId);
+    }
+
+    let text =
+      kindIndex < STREAMED_KINDS
+        ? yield* streamDeltas(script, turnId, itemId, kindIndex === 2 ? "output" : "text")
+        : "";
+
+    if (text.length < script.itemBytes) text += "y".repeat(script.itemBytes - text.length);
+
+    const item = itemFor(kindIndex, {
+      id: itemId,
+      text: text || `item ${i}`,
+      cwd: options.cwd,
+      files,
+    });
+
+    yield* emit(HarnessEvent.ItemCompleted({ turnId, item }));
+  });
+
+  const runTurn = (input: TurnInput) =>
+    Effect.gen(function* () {
+      const script = parseScript(input.prompt);
+      const { turnId } = input;
+      turns++;
+
+      if (turns === 1) {
+        yield* emit(
+          HarnessEvent.CursorAssigned({
+            cursor: options.resumeCursor ?? `bench-${options.sessionId}`,
+          })
+        );
+      }
+
+      if (script.startDelayMs > 0) yield* Effect.sleep(Duration.millis(script.startDelayMs));
+      yield* emit(HarnessEvent.TurnStarted({ turnId, prompt: input.prompt }));
+      const files = touchFiles(options.cwd, turnId, script.touchFiles);
+
+      for (let i = 0; i < script.items; i++) yield* runItem(script, turnId, i, files);
+
+      yield* emit(HarnessEvent.TurnEnded({ turnId, status: "completed", error: null }));
+    }).pipe(
+      Effect.onInterrupt(() =>
+        emit(HarnessEvent.TurnEnded({ turnId: input.turnId, status: "interrupted", error: null }))
+      ),
+      Effect.ensuring(
+        Effect.sync(() => {
+          if (current?.turnId === input.turnId) current = null;
+        })
+      )
+    );
+
+  const session: HarnessSession = {
+    events: Stream.fromQueue(events),
+    sendTurn: (input) =>
+      Effect.gen(function* () {
+        const fiber = yield* Effect.forkIn(runTurn(input), scope);
+        current = { turnId: input.turnId, fiber };
+      }),
+    steer: () => Effect.void,
+    interrupt: Effect.suspend(() =>
+      current === null ? Effect.void : Fiber.interrupt(current.fiber)
+    ),
+    respond: (requestId, decision) =>
+      Effect.suspend(() => {
+        const answer = approvals.get(requestId);
+
+        return answer === undefined ? Effect.void : Deferred.succeed(answer, decision);
+      }).pipe(Effect.asVoid),
+    setPermissionMode: () => Effect.void,
+    terminalCommand: Effect.succeed(["sh"]),
+  };
+
+  return session;
+});
 
 export const makeBenchDriver = (kind: HarnessKind): HarnessDriver => ({
   kind,
   capabilities: { steer: true, liveCoAttach: true },
   probe: Effect.succeed({ available: true, version: "bench", detail: "scripted bench Harness" }),
-  open: (options) =>
-    Effect.gen(function* () {
-      const scope = yield* Effect.scope;
-      const events = yield* Queue.unbounded<HarnessEvent, Cause.Done>();
-      const approvals = new Map<RequestId, Deferred.Deferred<ApprovalDecision>>();
-      let current: { readonly turnId: TurnId; readonly fiber: Fiber.Fiber<void> } | null = null;
-      let turns = 0;
-      const emit = (event: HarnessEvent) => Queue.offer(events, event);
-
-      yield* Effect.addFinalizer(() => Queue.end(events));
-
-      const runTurn = (input: TurnInput) =>
-        Effect.gen(function* () {
-          const script = parseScript(input.prompt);
-          const { turnId } = input;
-          turns++;
-
-          if (turns === 1) {
-            yield* emit({
-              _tag: "CursorAssigned",
-              cursor: options.resumeCursor ?? `bench-${options.sessionId}`,
-            });
-          }
-
-          if (script.startDelayMs > 0) yield* Effect.sleep(Duration.millis(script.startDelayMs));
-          yield* emit({ _tag: "TurnStarted", turnId, prompt: input.prompt });
-
-          const files: Array<string> = [];
-
-          if (script.touchFiles > 0) {
-            const dir = join(options.cwd, "polaris-bench");
-            mkdirSync(dir, { recursive: true });
-
-            for (let f = 0; f < script.touchFiles; f++) {
-              const path = join("polaris-bench", `file-${f}.txt`);
-              writeFileSync(join(options.cwd, path), `${turnId} ${f}\n`.repeat(20));
-              files.push(path);
-            }
-          }
-
-          for (let i = 0; i < script.items; i++) {
-            const itemId = `${turnId}-item-${i}`;
-            const kindIndex = i % 5;
-
-            if (script.approvalEvery > 0 && (i + 1) % script.approvalEvery === 0) {
-              const requestId = `${itemId}-approval` as RequestId;
-              const answer = yield* Deferred.make<ApprovalDecision>();
-              approvals.set(requestId, answer);
-              yield* emit({
-                _tag: "ApprovalRequested",
-                turnId,
-                requestId,
-                kind: "command",
-                title: "Run bun test",
-                detail: "bun test --coverage",
-                options: [],
-              });
-              yield* Deferred.await(answer);
-              approvals.delete(requestId);
-            }
-
-            let text = "";
-
-            if (kindIndex <= 2) {
-              for (let d = 0; d < script.deltasPerItem; d++) {
-                const chunk = deltaText(script.deltaBytes);
-                text += chunk;
-                yield* emit({
-                  _tag: "ItemDelta",
-                  turnId,
-                  itemId,
-                  field: kindIndex === 2 ? "output" : "text",
-                  text: chunk,
-                });
-
-                if (script.deltaIntervalMs > 0) {
-                  yield* Effect.sleep(Duration.millis(script.deltaIntervalMs));
-                } else {
-                  yield* Effect.yieldNow;
-                }
-              }
-            }
-
-            if (text.length < script.itemBytes) text += "y".repeat(script.itemBytes - text.length);
-            yield* emit({
-              _tag: "ItemCompleted",
-              turnId,
-              item: itemFor(kindIndex, itemId, text || `item ${i}`, options.cwd, files),
-            });
-          }
-
-          yield* emit({ _tag: "TurnEnded", turnId, status: "completed", error: null });
-        }).pipe(
-          Effect.onInterrupt(() =>
-            emit({ _tag: "TurnEnded", turnId: input.turnId, status: "interrupted", error: null })
-          ),
-          Effect.ensuring(
-            Effect.sync(() => {
-              if (current?.turnId === input.turnId) current = null;
-            })
-          )
-        );
-
-      const session: HarnessSession = {
-        events: Stream.fromQueue(events),
-        sendTurn: (input) =>
-          Effect.gen(function* () {
-            const fiber = yield* Effect.forkIn(runTurn(input), scope);
-            current = { turnId: input.turnId, fiber };
-          }),
-        steer: () => Effect.void,
-        interrupt: Effect.suspend(() =>
-          current === null ? Effect.void : Fiber.interrupt(current.fiber)
-        ),
-        respond: (requestId, decision) =>
-          Effect.suspend(() => {
-            const answer = approvals.get(requestId);
-
-            return answer === undefined ? Effect.void : Deferred.succeed(answer, decision);
-          }).pipe(Effect.asVoid),
-        setPermissionMode: () => Effect.void,
-        terminalCommand: Effect.succeed(["sh"]),
-      };
-
-      return session;
-    }),
+  open: openBenchSession,
 });
