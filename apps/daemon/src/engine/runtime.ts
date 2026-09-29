@@ -10,6 +10,7 @@ import type {
   TerminalLaunch,
   Turn,
   TurnId,
+  SubagentId,
   TurnItem,
 } from "@polaris/protocol";
 import {
@@ -76,6 +77,7 @@ export interface TerminalFollower extends EventSource {
 export interface Progress {
   readonly turnId: TurnId;
   readonly item: TurnItem;
+  readonly subagentId: SubagentId | null;
 }
 
 /** Events the Daemon decides on its own, from the session's latest record and the model. */

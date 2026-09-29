@@ -10,6 +10,7 @@ import {
   DomainEvent,
   NotFound,
   type SessionId,
+  Subagent,
   type TurnId,
   Worktree,
 } from "@polaris/protocol";
@@ -109,6 +110,7 @@ const make = (rt: EngineRuntime["Service"]): Supervisor["Service"] => {
                   itemId: event.itemId,
                   field: event.field,
                   text: event.text,
+                  subagentId: event.subagentId ?? null,
                 })
               )
         )
@@ -164,6 +166,7 @@ const make = (rt: EngineRuntime["Service"]): Supervisor["Service"] => {
               sessionId,
               turnId: e.turnId,
               item: e.item,
+              subagentId: e.subagentId ?? null,
             }),
           ]);
         }),
@@ -184,6 +187,29 @@ const make = (rt: EngineRuntime["Service"]): Supervisor["Service"] => {
       ApprovalWithdrawn: (e) =>
         rt.signal(sessionId, { type: "harness.approvalWithdrawn", requestId: e.requestId }),
       TurnEnded: (e) => onTurnEnded(sessionId, e, at),
+      SubagentStarted: (e) =>
+        rt.signal(sessionId, {
+          type: "harness.subagentStarted",
+          subagent: new Subagent({
+            id: e.subagentId,
+            sessionId,
+            turnId: e.turnId,
+            parentItemId: e.parentItemId,
+            title: e.title,
+            agent: e.agent,
+            model: e.model,
+            status: "working",
+            startedAt: at,
+            endedAt: null,
+          }),
+        }),
+      SubagentEnded: (e) =>
+        rt.signal(sessionId, {
+          type: "harness.subagentEnded",
+          subagentId: e.subagentId,
+          status: e.status,
+          at,
+        }),
       TitleSuggested: (e) =>
         rt.recordFor(sessionId, (record) =>
           record.titleLocked || record.session.title === e.title
@@ -197,11 +223,12 @@ const make = (rt: EngineRuntime["Service"]): Supervisor["Service"] => {
   const onItemUpdated = (sessionId: SessionId, event: HarnessEventOf<"ItemUpdated">) =>
     Effect.suspend(() => {
       const items = progress.get(sessionId) ?? new Map<string, Progress>();
-      items.set(event.item.id, { turnId: event.turnId, item: event.item });
+      const subagentId = event.subagentId ?? null;
+      items.set(event.item.id, { turnId: event.turnId, item: event.item, subagentId });
       progress.set(sessionId, items);
 
       return store.publishEphemeral(
-        LiveItem.ItemProgress({ sessionId, turnId: event.turnId, item: event.item })
+        LiveItem.ItemProgress({ sessionId, turnId: event.turnId, item: event.item, subagentId })
       );
     });
 

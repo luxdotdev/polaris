@@ -86,8 +86,26 @@ const init = Effect.gen(function* () {
   `;
 });
 
+/** Subagents (ENG-204): their records, and which items are theirs. */
+const subagents = Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient;
+  yield* sql`ALTER TABLE turn_items ADD COLUMN subagent_id TEXT`;
+  yield* sql`
+    CREATE TABLE subagents (
+      id TEXT NOT NULL,
+      session_id TEXT NOT NULL,
+      turn_id TEXT NOT NULL,
+      status TEXT NOT NULL,
+      data TEXT NOT NULL,
+      PRIMARY KEY (session_id, id)
+    )
+  `;
+  yield* sql`CREATE INDEX subagents_turn ON subagents (turn_id)`;
+});
+
 export const migrations = SqliteMigrator.fromRecord({
   "0001_event_store": init,
+  "0002_subagents": subagents,
 });
 
 export const MigrationsLayer = SqliteMigrator.layer({ loader: migrations });

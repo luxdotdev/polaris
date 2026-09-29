@@ -22,6 +22,10 @@ export type ReasoningEffort = typeof ReasoningEffort.Type;
 export const addedNullable = <S extends Schema.Top>(schema: S) =>
   Schema.NullOr(schema).pipe(Schema.withDecodingDefaultKey(Effect.succeed(null)));
 
+/** An array field added after logs were written: absent decodes as empty. */
+export const addedArray = <S extends Schema.Top>(schema: S) =>
+  Schema.Array(schema).pipe(Schema.withDecodingDefaultKey(Effect.succeed([])));
+
 export class Model extends Schema.Class<Model>("Model")({
   id: ModelId,
   /** How the Harness displays it. */

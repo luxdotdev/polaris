@@ -16,6 +16,8 @@ import {
   type EventEnvelope,
   type RequestId,
   type SessionId,
+  type Subagent,
+  type SubagentId,
   Turn,
   type TurnId,
   type Workspace,
@@ -34,6 +36,8 @@ export interface SessionRecord {
    */
   readonly turns: ReadonlyArray<Turn>;
   readonly pending: ReadonlyMap<RequestId, ApprovalRequest>;
+  /** Subagents still working; ended ones are in SQL (`EventStore.readSubagents`). */
+  readonly subagents: ReadonlyMap<SubagentId, Subagent>;
 }
 
 export interface ReadModel {
@@ -82,6 +86,8 @@ export const sessionOf: (event: DomainEvent) => SessionId | null =
     TurnStarted: byTurn,
     TurnItemCompleted: bySessionId,
     TurnEnded: byTurn,
+    SubagentStarted: (event) => event.subagent.sessionId,
+    SubagentEnded: (event) => event.subagent.sessionId,
     ApprovalRequested: (event) => event.request.sessionId,
     ApprovalResolved: bySessionId,
     ApprovalWithdrawn: bySessionId,
@@ -99,6 +105,21 @@ export const sessionOnlyEventTypes: ReadonlyArray<DomainEvent["_tag"]> = [
 
 export const isHostStreamEvent = (event: DomainEvent): boolean =>
   !sessionOnlyEventTypes.includes(event._tag);
+
+/**
+ * Events only Clients that announced `session.subagents` get: a Subagent's
+ * lifecycle and its own items. Older Clients would show those items as the Turn's.
+ */
+export const isSubagentEvent = (event: DomainEvent): boolean =>
+  DomainEvent.matchOrElse(
+    event,
+    {
+      SubagentStarted: () => true,
+      SubagentEnded: () => true,
+      TurnItemCompleted: (completed) => completed.subagentId !== null,
+    },
+    () => false
+  );
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -203,6 +224,7 @@ interface RecordChange {
   readonly titleLocked?: boolean;
   readonly turns?: ReadonlyArray<Turn>;
   readonly pending?: ReadonlyMap<RequestId, ApprovalRequest>;
+  readonly subagents?: ReadonlyMap<SubagentId, Subagent>;
 }
 
 /** Apply `f`'s change to a session's record; every change also sets `updatedAt`. */
@@ -222,6 +244,7 @@ const updateSession = (
     titleLocked: change.titleLocked ?? record.titleLocked,
     turns: change.turns ?? record.turns,
     pending: change.pending ?? record.pending,
+    subagents: change.subagents ?? record.subagents,
   };
 
   return { ...model, sessions: withMap(model.sessions, sessionId, next) };
@@ -258,6 +281,7 @@ const createSession =
       titleLocked: false,
       turns: [],
       pending: new Map(),
+      subagents: new Map(),
     }),
   });
 
@@ -353,6 +377,18 @@ const apply: (event: DomainEvent) => Reducer = DomainEvent.match<Reducer>({
       })),
   ApprovalResolved: resolveRequest,
   ApprovalWithdrawn: resolveRequest,
+  SubagentStarted:
+    ({ subagent }) =>
+    (fold) =>
+      updateSession(fold, subagent.sessionId, (r) => ({
+        subagents: withMap(r.subagents, subagent.id, subagent),
+      })),
+  SubagentEnded:
+    ({ subagent }) =>
+    (fold) =>
+      updateSession(fold, subagent.sessionId, (r) => ({
+        subagents: withMap(r.subagents, subagent.id, undefined),
+      })),
 });
 
 export const project = (model: ReadModel, envelope: EventEnvelope): ReadModel => {

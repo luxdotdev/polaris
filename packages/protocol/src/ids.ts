@@ -20,6 +20,11 @@ export const WorktreeId = Schema.String.pipe(Schema.brand("WorktreeId"));
 
 export type WorktreeId = typeof WorktreeId.Type;
 
+/** A Subagent, as its driver names it (Claude's Task tool use id, Codex's agent thread id). */
+export const SubagentId = Schema.String.pipe(Schema.brand("SubagentId"));
+
+export type SubagentId = typeof SubagentId.Type;
+
 /** An approval or question a Harness is blocked on. */
 export const RequestId = Schema.String.pipe(Schema.brand("RequestId"));
 
