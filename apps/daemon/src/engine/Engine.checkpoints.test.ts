@@ -74,6 +74,7 @@ const sessionWithTurns = (workspace: Workspace, sessionId: SessionId, turns: num
         placement: SessionPlacement.cases.InPlace.make({}),
         permissionMode: "supervised",
         model: null,
+        effort: null,
         prompt: "turn 0",
         attachments: [],
       })
@@ -144,6 +145,8 @@ describe("checkpoint pruning", () => {
               fromSessionId: parent,
               fromTurnId: turns[1]!,
               harness: "claude",
+              model: null,
+              effort: null,
             })
           );
           yield* waitFor((m) => m.sessions.has(sid("s-ck-fork")));

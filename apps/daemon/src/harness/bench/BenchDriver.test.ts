@@ -37,6 +37,7 @@ describe("bench Harness", () => {
             cwd,
             permissionMode: "supervised",
             model: null,
+            effort: null,
             resumeCursor: null,
           });
 
@@ -71,6 +72,8 @@ describe("bench Harness", () => {
               touchFiles: 2,
             })}`,
             attachments: [],
+            model: null,
+            effort: null,
           });
           yield* Fiber.join(consumer);
 
@@ -106,6 +109,7 @@ describe("bench Harness", () => {
             cwd: tmpdir(),
             permissionMode: "supervised",
             model: null,
+            effort: null,
             resumeCursor: "cursor",
           });
 
@@ -113,6 +117,8 @@ describe("bench Harness", () => {
             turnId: TurnId.make("t1"),
             prompt: `${BENCH_PROMPT_PREFIX}{"items":100,"deltaIntervalMs":50}`,
             attachments: [],
+            model: null,
+            effort: null,
           });
 
           const ended = yield* session.events.pipe(

@@ -1,0 +1,38 @@
+/*
+ * Theme-dependent images from design/assets: watercolour washes, pixel scenes and dither halos.
+ * Images can't be light-dark() pairs, so each theme scope sets the variables.
+ */
+:root,
+[data-theme="dark"] {
+  --wash-claude-code: url("../../../../design/assets/washes/wash-claude-dark.png");
+  --wash-codex: url("../../../../design/assets/washes/wash-codex-dark.png");
+  --wash-opencode: url("../../../../design/assets/washes/wash-opencode-dark.png");
+  --wash-starlight: url("../../../../design/assets/washes/wash-starlight-dark.png");
+  --wash-needs-you: url("../../../../design/assets/washes/wash-needs-dark.png");
+  --scene: url("../../../../design/assets/scenes/scene-night.png");
+  --scene-clearing: #070912;
+  --halo-claude-code: url("../../../../design/assets/halos/halo-claude.png");
+  --halo-starlight: url("../../../../design/assets/halos/halo-starlight.png");
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --wash-claude-code: url("../../../../design/assets/washes/wash-claude-light.png");
+    --wash-codex: url("../../../../design/assets/washes/wash-codex-light.png");
+    --wash-opencode: url("../../../../design/assets/washes/wash-opencode-light.png");
+    --wash-starlight: url("../../../../design/assets/washes/wash-starlight-light.png");
+    --wash-needs-you: url("../../../../design/assets/washes/wash-needs-light.png");
+    --scene: url("../../../../design/assets/scenes/scene-dawn.png");
+    --scene-clearing: #fbfbfc;
+  }
+}
+
+[data-theme="light"] {
+  --wash-claude-code: url("../../../../design/assets/washes/wash-claude-light.png");
+  --wash-codex: url("../../../../design/assets/washes/wash-codex-light.png");
+  --wash-opencode: url("../../../../design/assets/washes/wash-opencode-light.png");
+  --wash-starlight: url("../../../../design/assets/washes/wash-starlight-light.png");
+  --wash-needs-you: url("../../../../design/assets/washes/wash-needs-light.png");
+  --scene: url("../../../../design/assets/scenes/scene-dawn.png");
+  --scene-clearing: #fbfbfc;
+}

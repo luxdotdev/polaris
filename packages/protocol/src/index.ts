@@ -10,10 +10,16 @@ export * from "./events.ts";
 
 export * from "./frame.ts";
 
+export * from "./harnesses.ts";
+
 export * from "./ids.ts";
+
+export * from "./models.ts";
 
 export * from "./rpc.ts";
 
 export * from "./streams.ts";
+
+export * from "./usage.ts";
 
 export * from "./wire.ts";

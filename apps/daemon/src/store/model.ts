@@ -78,6 +78,7 @@ export const sessionOf: (event: DomainEvent) => SessionId | null =
     SessionRenamed: bySessionId,
     SessionCursorUpdated: bySessionId,
     SessionPermissionModeChanged: bySessionId,
+    SessionModelChanged: bySessionId,
     TurnStarted: byTurn,
     TurnItemCompleted: bySessionId,
     TurnEnded: byTurn,
@@ -127,6 +128,7 @@ export const patchSession = (session: AgentSession, patch: SessionPatch): AgentS
     state: session.state,
     permissionMode: session.permissionMode,
     model: session.model,
+    effort: session.effort,
     parentSessionId: session.parentSessionId,
     forkedFromTurnId: session.forkedFromTurnId,
     harnessCursor: session.harnessCursor,
@@ -147,6 +149,8 @@ export const patchTurn = (turn: Turn, patch: TurnPatch): Turn =>
     index: turn.index,
     prompt: turn.prompt,
     attachments: turn.attachments,
+    model: turn.model,
+    effort: turn.effort,
     status: turn.status,
     checkpointBefore: turn.checkpointBefore,
     checkpointAfter: turn.checkpointAfter,
@@ -329,6 +333,10 @@ const apply: (event: DomainEvent) => Reducer = DomainEvent.match<Reducer>({
   SessionPermissionModeChanged: (event) => (fold) =>
     updateSession(fold, event.sessionId, () => ({
       session: { permissionMode: event.permissionMode },
+    })),
+  SessionModelChanged: (event) => (fold) =>
+    updateSession(fold, event.sessionId, () => ({
+      session: { model: event.model, effort: event.effort },
     })),
   TurnStarted: recordTurn,
   TurnEnded: recordTurn,

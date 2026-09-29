@@ -57,6 +57,7 @@ const startSession = (sessionId: SessionId) =>
         placement: SessionPlacement.cases.InPlace.make({}),
         permissionMode: "supervised",
         model: null,
+        effort: null,
         prompt: "Fix the flaky test",
         attachments: [],
       })
@@ -237,6 +238,7 @@ test("a late approval request cannot leave a session Working without a Turn", as
           placement: SessionPlacement.cases.InPlace.make({}),
           permissionMode: "supervised",
           model: null,
+          effort: null,
           prompt: "go",
           attachments: [],
         })

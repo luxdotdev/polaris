@@ -49,6 +49,8 @@ export type Step =
   | { readonly type: "unarchive" }
   | { readonly type: "openTerminal" }
   | { readonly type: "returnTerminal" }
+  /** Changes nothing the model observes; it is here for its refusals. */
+  | { readonly type: "setModel" }
   /** The fake Harness (or, In Terminal, the followed terminal UI) reports… */
   | { readonly type: "requestApproval" }
   /** …an approval request for a Turn that already ended (a stale or misbehaving Harness). */
@@ -71,6 +73,7 @@ export const COMMAND_STEPS = [
   "unarchive",
   "openTerminal",
   "returnTerminal",
+  "setModel",
 ] as const satisfies ReadonlyArray<Step["type"]>;
 
 export interface ModelSnapshot {
@@ -88,6 +91,8 @@ export interface ModelOptions {
   readonly harness: HarnessKind;
   /** Codex: the TUI co-attaches to the running Harness. Claude: sequential hand-off. */
   readonly liveCoAttach: boolean;
+  /** The Harness can change Model mid-session; without it, `SetModel` is refused once it has a cursor. */
+  readonly switchModel: boolean;
 }
 
 const recordOf = (snapshot: ModelSnapshot): SessionRecord | undefined =>
@@ -118,6 +123,7 @@ const newSession = (harness: HarnessKind, state: SessionState): AgentSession =>
     state,
     permissionMode: "supervised",
     model: null,
+    effort: null,
     parentSessionId: null,
     forkedFromTurnId: null,
     harnessCursor: null,
@@ -134,6 +140,8 @@ const newTurn = (id: string, index: number): Turn =>
     index,
     prompt: "model",
     attachments: [],
+    model: null,
+    effort: null,
     status: "working",
     checkpointBefore: null,
     checkpointAfter: null,
@@ -231,6 +239,9 @@ const INPUTS = {
   unarchive: () => [{ type: "session.unarchive" }],
   openTerminal: () => [{ type: "terminal.open" }],
   returnTerminal: () => [{ type: "terminal.return" }],
+  setModel: (c) => [
+    { type: "model.set", model: `m${c.n}`, effort: null, canSwitchModel: c.options.switchModel },
+  ],
   requestApproval: (c) =>
     c.channel === null || c.working === undefined || (c.record?.pending.size ?? 0) >= 2
       ? []

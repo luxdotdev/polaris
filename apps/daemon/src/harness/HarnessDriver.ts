@@ -11,7 +11,10 @@ import type {
   ApprovalKind,
   Attachment,
   HarnessKind,
+  Model,
+  ModelId,
   PermissionMode,
+  ReasoningEffort,
   RequestId,
   SessionId,
   TurnId,
@@ -79,7 +82,9 @@ export interface OpenOptions {
   readonly sessionId: SessionId;
   readonly cwd: string;
   readonly permissionMode: PermissionMode;
-  readonly model: string | null;
+  /** The session's Model and effort; null for the Harness's and the Model's defaults. */
+  readonly model: ModelId | null;
+  readonly effort: ReasoningEffort | null;
   /** Resume an existing Harness-native session; null starts a fresh one. */
   readonly resumeCursor: string | null;
 }
@@ -88,6 +93,12 @@ export interface TurnInput {
   readonly turnId: TurnId;
   readonly prompt: string;
   readonly attachments: ReadonlyArray<Attachment>;
+  /**
+   * The Model and effort the Turn records. They differ from `OpenOptions` after
+   * `SetModel`; a driver whose Harness can switch applies them to this Turn.
+   */
+  readonly model: ModelId | null;
+  readonly effort: ReasoningEffort | null;
 }
 
 export interface HarnessSession {
@@ -122,6 +133,8 @@ export interface HarnessDriver {
     readonly steer: boolean;
     /** Terminal UI can attach while Polaris stays attached (Codex). */
     readonly liveCoAttach: boolean;
+    /** The Harness can change a session's Model between Turns (`SetModel`). */
+    readonly switchModel: boolean;
   };
   /**
    * For Harnesses that hand off sequentially (`liveCoAttach: false`): what the
@@ -137,6 +150,8 @@ export interface HarnessDriver {
   };
   /** Must have no side effects: never open an authenticated session or start MCP servers. */
   readonly probe: Effect.Effect<HarnessProbe>;
+  /** The Models the Harness offers on this Host, as it reports them; absent until the driver asks. */
+  readonly listModels?: Effect.Effect<ReadonlyArray<Model>, HarnessError>;
   /** Starts or resumes a Harness session. Closing the scope stops it (the session goes Dormant). */
   readonly open: (options: OpenOptions) => Effect.Effect<HarnessSession, HarnessError, Scope.Scope>;
 }

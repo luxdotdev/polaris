@@ -17,6 +17,7 @@ import { join } from "node:path";
 import {
   type ApprovalDecision,
   type HarnessKind,
+  Model,
   RequestId,
   type TurnId,
   TurnItem,
@@ -298,9 +299,30 @@ const openBenchSession = Effect.fn("BenchDriver.open")(function* (options: OpenO
   return session;
 });
 
+/** Two stand-in Models, so Clients can exercise the picker against a bench Daemon. */
+const BENCH_MODELS = [
+  new Model({
+    id: "bench-large",
+    name: "Bench Large",
+    description: null,
+    efforts: ["low", "medium", "high"],
+    defaultEffort: "medium",
+    isDefault: true,
+  }),
+  new Model({
+    id: "bench-small",
+    name: "Bench Small",
+    description: null,
+    efforts: [],
+    defaultEffort: null,
+    isDefault: false,
+  }),
+];
+
 export const makeBenchDriver = (kind: HarnessKind): HarnessDriver => ({
   kind,
-  capabilities: { steer: true, liveCoAttach: true },
+  capabilities: { steer: true, liveCoAttach: true, switchModel: true },
   probe: Effect.succeed({ available: true, version: "bench", detail: "scripted bench Harness" }),
+  listModels: Effect.succeed(BENCH_MODELS),
   open: openBenchSession,
 });

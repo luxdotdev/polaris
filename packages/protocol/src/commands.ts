@@ -4,8 +4,10 @@
  * An ack means "intent recorded", not "the Harness finished".
  */
 import { Schema } from "effect";
-import { ApprovalDecision, HarnessKind, PermissionMode } from "./domain.ts";
+import { ApprovalDecision, PermissionMode } from "./domain.ts";
+import { HarnessKind } from "./harnesses.ts";
 import { AttachmentId, RequestId, SessionId, TurnId, WorkspaceId } from "./ids.ts";
+import { addedNullable, ModelId, ReasoningEffort } from "./models.ts";
 
 export const SessionPlacement = Schema.TaggedUnion({
   /** Work directly in the Workspace directory (the default). */
@@ -29,7 +31,9 @@ export const Command = Schema.TaggedUnion({
     harness: HarnessKind,
     placement: SessionPlacement,
     permissionMode: PermissionMode,
-    model: Schema.NullOr(Schema.String),
+    /** The initial Model and effort; null for the Harness's and the Model's defaults. */
+    model: Schema.NullOr(ModelId),
+    effort: addedNullable(ReasoningEffort),
     prompt: Schema.String,
     attachments: Schema.Array(AttachmentId),
   },
@@ -50,11 +54,20 @@ export const Command = Schema.TaggedUnion({
   },
   RenameSession: { sessionId: SessionId, title: Schema.String },
   SetPermissionMode: { sessionId: SessionId, permissionMode: PermissionMode },
+  /**
+   * The Model and effort for the next Turns (capability `session.set-model`).
+   * Only between Turns, and only where the Harness can switch Model mid-session;
+   * otherwise fork with the new Model.
+   */
+  SetModel: { sessionId: SessionId, model: ModelId, effort: Schema.NullOr(ReasoningEffort) },
   ForkSession: {
     sessionId: SessionId,
     fromSessionId: SessionId,
     fromTurnId: TurnId,
     harness: HarnessKind,
+    /** Null keeps the parent's Model and effort for the same Harness, else the defaults. */
+    model: addedNullable(ModelId),
+    effort: addedNullable(ReasoningEffort),
   },
   /** Archive removes the session's Worktree but keeps its branch; unmerged branches are never deleted. */
   ArchiveSession: { sessionId: SessionId, deleteMergedBranch: Schema.Boolean },
