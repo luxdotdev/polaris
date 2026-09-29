@@ -29,6 +29,34 @@ bun run bench desktop-idle          # memory and CPU of the built app, settled (
 | `src/renderer/views/` | The shell and the proof screen. |
 | `scripts/` | `build.ts`, `dev.ts`, `smoke.ts` and their helpers. |
 
+## The shell and its slots
+
+The renderer is split into the **shell** (owned by the app shell: layout, selection, keyboard) and **features** that fill its slots. Layout F (ENG-177): title bar, an adaptive top bar, then Input (sidebar, 264px) → Intent (448px) → Output (the rest).
+
+| Folder | What |
+|---|---|
+| `src/renderer/app/` | The root (`App.tsx`), providers, and `slots.tsx`: the one place features are wired in. |
+| `src/renderer/shell/` | Title bar, Workspace bar / machine bar, sidebar (session rows, groups, "Needs you elsewhere"), the columns. |
+| `src/renderer/routes/` | Navigation state (mode, Host, Workspace, session, sidebar view, pane), persisted per window; keyboard; the Workspace-switch timer. |
+| `src/renderer/features/<name>/` | Features (session view, jump menu, inbox, new session…), each exporting the component for its slot. |
+
+**Slots** (`src/renderer/app/slots.tsx`; each has a placeholder default until its feature lands):
+
+| Slot | Props | Where it renders |
+|---|---|---|
+| `SessionIntent` | `{ hostKey, sessionId }` | The Intent column, for the selected Agent Session. |
+| `SessionOutput` | `{ hostKey, sessionId }` | The Output column, for the same session. |
+| `NewSession` | `{ hostKey, workspaceId, onStarted(sessionId), onCancel() }` | Spans Intent + Output while starting a session ("New session", ⌘N, the sidebar +). |
+| `NoSession` | `{ hostKey, workspaceId }` | Spans Intent + Output when nothing is selected. |
+| `NeedsYouInbox` | none | The sidebar's "Needs you" view (the Sessions / Needs you switch). |
+| `JumpMenu` | `{ open, onOpenChange }` | The K jump menu; the shell owns `open` (K, ⌘K, the title bar's jump field). |
+
+To wire a feature: in `slots.tsx`, import its component and replace the default, e.g. `SessionIntent: SessionIntentView` from `../features/session/index.ts`. Slots receive ids, not data: read the store with `useApp(selector)` (Host models, open sessions) and open a session's feed with `useSessionFeed(hostKey, sessionId)` (`src/renderer/shell/hooks.ts`).
+
+**Shell actions** for features (`useShellActions()` from `src/renderer/routes/navigation.ts`): `selectSession({ hostKey, sessionId })`, `selectWorkspace({ hostKey, workspaceId })`, `selectHost(hostKey)`, `openJump()`, `startNewSession()`, `showSidebar("sessions" | "needs-you")`. `useSelection()` returns the current `{ mode, hostKey, workspaceId, sessionId, pane }`.
+
+The smoke test reads `data-testid`s from the session placeholder (`live-item`, `turn-items`); a feature replacing `SessionIntent`/`SessionOutput` keeps them or updates `scripts/smoke.ts`.
+
 ## The bridge
 
 - **Requests**: `window.polaris.request(method, input)` → `Result` (`{ ok, value }` or `{ ok: false, error: { code, message } }`). Methods: settings, `dispatch` (a Client-generated `commandId`), files, git, `session.terminalCommand`, terminal, `attachments.stage` (bytes → `withBlob` → stage on one connection), `install.ensure`, the snapshot cache, and dev's `dev.proofWorkspace`.
