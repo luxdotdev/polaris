@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { FileError, ReadFile } from "@polaris/protocol";
 import { Effect } from "effect";
 import { removeDir, tempDir, write } from "../git/testing.ts";
 import { handleListDir, handleReadFile, handleStat } from "./FilesRpcs.ts";
@@ -29,6 +30,14 @@ const read = (path: string, offset: number | null = null, length: number | null 
   ).then((result) => ({ result, blobs }));
 };
 
+const Content = ReadFile.successSchema.fields.content;
+
+const blobIdOf = (content: typeof Content.Type) => {
+  if (!Content.guards.Blob(content)) throw new Error("expected a blob");
+
+  return content.blobId;
+};
+
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]);
 
 describe("files.read", () => {
@@ -38,7 +47,7 @@ describe("files.read", () => {
     const { result } = await read(join(root, "a.ts"));
     expect(result.size).toBe(19);
     expect(result.mimeType).toBe("text/typescript");
-    expect(result.content).toEqual({ _tag: "Inline", text: "export const x = 1\n" });
+    expect(result.content).toEqual(Content.cases.Inline.make({ text: "export const x = 1\n" }));
   });
 
   test("ranged reads return just the range but the whole file's size", async () => {
@@ -46,9 +55,9 @@ describe("files.read", () => {
     write(root, "n.txt", "0123456789");
     const { result } = await read(join(root, "n.txt"), 3, 4);
     expect(result.size).toBe(10);
-    expect(result.content).toEqual({ _tag: "Inline", text: "3456" });
+    expect(result.content).toEqual(Content.cases.Inline.make({ text: "3456" }));
     const past = await read(join(root, "n.txt"), 8, 100);
-    expect(past.result.content).toEqual({ _tag: "Inline", text: "89" });
+    expect(past.result.content).toEqual(Content.cases.Inline.make({ text: "89" }));
   });
 
   test("text over the inline threshold goes through the BlobChannel", async () => {
@@ -57,9 +66,7 @@ describe("files.read", () => {
     write(root, "big.txt", big);
     const { result, blobs } = await read(join(root, "big.txt"));
     expect(result.content._tag).toBe("Blob");
-
-    if (result.content._tag !== "Blob") throw new Error("unreachable");
-    expect(blobs.blobs.get(result.content.blobId)!.byteLength).toBe(big.length);
+    expect(blobs.blobs.get(blobIdOf(result.content))!.byteLength).toBe(big.length);
   });
 
   test("very large ranges are streamed into the BlobChannel", async () => {
@@ -67,9 +74,7 @@ describe("files.read", () => {
     const bytes = new Uint8Array(STREAM_MIN_BYTES + 10).map((_, i) => i % 251);
     writeFileSync(join(root, "huge.bin"), bytes);
     const { result, blobs } = await read(join(root, "huge.bin"), 5, STREAM_MIN_BYTES + 2);
-
-    if (result.content._tag !== "Blob") throw new Error("expected a blob");
-    const got = blobs.blobs.get(result.content.blobId)!;
+    const got = blobs.blobs.get(blobIdOf(result.content))!;
     expect(got.byteLength).toBe(STREAM_MIN_BYTES + 2);
     expect(got[0]).toBe(5);
   });
@@ -103,7 +108,8 @@ describe("files.read", () => {
       )
     );
 
-    expect(missing).toMatchObject({ _tag: "FileError", code: "ENOENT" });
+    expect(missing).toBeInstanceOf(FileError);
+    expect(missing.code).toBe("ENOENT");
 
     const isDir = await Effect.runPromise(
       Effect.flip(handleReadFile({ path: root, offset: null, length: null })).pipe(
@@ -111,7 +117,8 @@ describe("files.read", () => {
       )
     );
 
-    expect(isDir).toMatchObject({ _tag: "FileError", code: "EISDIR" });
+    expect(isDir).toBeInstanceOf(FileError);
+    expect(isDir.code).toBe("EISDIR");
   });
 });
 
@@ -139,7 +146,8 @@ describe("files.listDir and files.stat", () => {
       Effect.flip(handleListDir({ path: "/definitely/not/here" }))
     );
 
-    expect(error).toMatchObject({ _tag: "FileError", code: "ENOENT" });
+    expect(error).toBeInstanceOf(FileError);
+    expect(error.code).toBe("ENOENT");
   });
 });
 

@@ -80,8 +80,8 @@ type Plan = { readonly glob: string } | { readonly full: true };
 /** Required literals worth trying, longest first. */
 const candidateLiterals = (query: string): ReadonlyArray<RequiredLiteral> =>
   (requiredLiterals(query) ?? [])
-    .filter((l) => [...l.text].length >= MIN_LITERAL)
-    .sort((a, b) => [...b.text].length - [...a.text].length)
+    .filter((l) => Array.from(l.text).length >= MIN_LITERAL)
+    .sort((a, b) => Array.from(b.text).length - Array.from(a.text).length)
     .slice(0, MAX_LITERAL_TRIES);
 
 /**
