@@ -117,6 +117,7 @@ export interface ComposerProps extends Omit<TextareaProps, "bare"> {
 const HALOS: Record<Harness, string | undefined> = {
   claude: "var(--halo-claude-code)",
   codex: undefined,
+  opencode: undefined,
 };
 
 /** The composer shell: the Harness picker, the prompt, and send (DESIGN.md, Working strip). */

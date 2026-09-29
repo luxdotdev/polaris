@@ -24,6 +24,7 @@ const binary = (env: string, name: string): string | null =>
 export const DRIVER_CAPABILITIES = {
   codex: { steer: true, liveCoAttach: true, switchModel: true },
   claude: { steer: true, liveCoAttach: false, switchModel: true },
+  opencode: { steer: true, liveCoAttach: true, switchModel: true },
   bench: { steer: true, liveCoAttach: true, switchModel: true },
 } as const satisfies Record<KnownHarnessKind | "bench", HarnessDriver["capabilities"]>;
 

@@ -12,17 +12,20 @@ export type TintHue = IdentityHue | "needs-you";
 export const HARNESS_NAMES: Record<Harness, string> = {
   claude: "Claude Code",
   codex: "Codex",
+  opencode: "OpenCode",
 };
 
 /** The handle a composer uses to address a Harness ("@claude"). */
 export const HARNESS_HANDLES: Record<Harness, string> = {
   claude: "@claude",
   codex: "@codex",
+  opencode: "@opencode",
 };
 
 const HUE_VARS: Record<TintHue, string> = {
   claude: "var(--color-harness-claude-code)",
   codex: "var(--color-harness-codex)",
+  opencode: "var(--color-harness-opencode)",
   starlight: "var(--color-starlight)",
   "needs-you": "var(--color-needs-you)",
 };
@@ -34,6 +37,7 @@ export function hueVar(hue: TintHue): string {
 const WASH_VARS: Record<TintHue, string> = {
   claude: "var(--wash-claude-code)",
   codex: "var(--wash-codex)",
+  opencode: "var(--wash-opencode)",
   starlight: "var(--wash-starlight)",
   "needs-you": "var(--wash-needs-you)",
 };

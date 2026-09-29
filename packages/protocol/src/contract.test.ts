@@ -105,11 +105,11 @@ describe("contract compatibility", () => {
   });
 
   test("a session of a Harness this build doesn't list still decodes", () => {
-    const newer = legacySession.replace('"harness":"claude"', '"harness":"opencode"');
+    const newer = legacySession.replace('"harness":"claude"', '"harness":"gemini"');
     const event = decodeEventJson(`{"_tag":"SessionCreated","session":${newer}}`);
 
-    expect(Predicate.isTagged(event, "SessionCreated") && event.session.harness).toBe("opencode");
-    expect(harnessEntry("opencode")).toBeUndefined();
+    expect(Predicate.isTagged(event, "SessionCreated") && event.session.harness).toBe("gemini");
+    expect(harnessEntry("gemini")).toBeUndefined();
     expect(() =>
       decodeEventJson(
         `{"_tag":"SessionCreated","session":${legacySession.replace('"claude"', '"Not A Kind"')}}`
@@ -152,8 +152,9 @@ describe("contract compatibility", () => {
     expect(decode(HARNESS_CATALOGUE.map((harness) => harness.capability))).toEqual([
       "harness.claude",
       "harness.codex",
+      "harness.opencode",
     ]);
-    expect(decode(["harness.opencode", "session.set-model", "harness.models", "usage"])).toEqual([
+    expect(decode(["harness.gemini", "session.set-model", "harness.models", "usage"])).toEqual([
       "session.set-model",
       "harness.models",
       "usage",
