@@ -8,6 +8,7 @@ bun run --cwd apps/desktop build    # out/{main,preload,renderer} and an unpacke
 bun run --cwd apps/desktop start    # electron . against the last build
 bun run --cwd apps/desktop smoke    # build, then the end-to-end smoke test (Node; Playwright)
 bun run bench desktop-idle          # memory and CPU of the built app, settled (packages/bench)
+node scripts/sessionScreens.ts --out <dir> [--frames]   # the session view on fixtures (#preview/<scene>), every theme and density
 ```
 
 `dev` connects the local Host to `~/.polaris/daemon.sock` when a Daemon answers there; otherwise it starts a dev Daemon from source with its own home and the scripted bench Harness, and keeps it across restarts (ADR 0007). Builds: Vite for the renderer, `Bun.build` for main and preload (ADR 0008).
