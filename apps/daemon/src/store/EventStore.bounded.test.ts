@@ -10,16 +10,17 @@ import { join } from "node:path";
 import {
   AgentSession,
   ApprovalRequest,
+  ApprovalDecision,
   DomainEvent,
-  type RequestId,
-  type SessionId,
+  RequestId,
+  SessionId,
   Turn,
-  type TurnId,
+  TurnId,
   Workspace,
-  type WorkspaceId,
+  WorkspaceId,
 } from "@polaris/protocol";
-import { Effect, Layer, Stream } from "effect";
-import { EventStore, StoreConfig } from "./EventStore.ts";
+import { Effect, Layer, Predicate, Stream } from "effect";
+import { EventStore, LiveItem, StoreConfig } from "./EventStore.ts";
 import { RECENT_TURNS } from "./model.ts";
 
 const run = <A, E>(filename: string, program: Effect.Effect<A, E, EventStore>) =>
@@ -29,11 +30,11 @@ const tempFile = () => join(mkdtempSync(join(tmpdir(), "polaris-store-")), "stat
 
 const at = "2026-09-28T00:00:00.000Z";
 
-const wsId = "ws-1" as WorkspaceId;
+const wsId = WorkspaceId.make("ws-1");
 
-const sId = "s-1" as SessionId;
+const sId = SessionId.make("s-1");
 
-const tId = "t-1" as TurnId;
+const tId = TurnId.make("t-1");
 
 const workspace = new Workspace({
   id: wsId,
@@ -64,30 +65,33 @@ const session = new AgentSession({
   updatedAt: at,
 });
 
-const turnAt = (index: number, id = `t-${index}`) =>
+const turnAt = (index: number, id = `t-${index}`, status: Turn["status"] = "completed") =>
   new Turn({
-    id: id as TurnId,
+    id: TurnId.make(id),
     sessionId: sId,
     index,
     prompt: `prompt ${index}`,
     attachments: [],
-    status: "completed",
+    status,
     checkpointBefore: null,
     checkpointAfter: null,
     startedAt: at,
-    endedAt: at,
+    endedAt: status === "working" ? null : at,
   });
 
-const request = new ApprovalRequest({
-  id: "r-1" as RequestId,
-  sessionId: sId,
-  turnId: tId,
-  kind: "command",
-  title: "Run",
-  detail: null,
-  options: [],
-  openedAt: at,
-});
+const requestWithId = (id: string) =>
+  new ApprovalRequest({
+    id: RequestId.make(id),
+    sessionId: sId,
+    turnId: tId,
+    kind: "command",
+    title: "Run",
+    detail: null,
+    options: [],
+    openedAt: at,
+  });
+
+const request = requestWithId("r-1");
 
 const record = (store: EventStore["Service"], events: ReadonlyArray<DomainEvent>) =>
   store.commit({ commandId: null, decide: () => Effect.succeed(events) });
@@ -97,7 +101,7 @@ const seed = (store: EventStore["Service"]) =>
     DomainEvent.cases.WorkspaceRegistered.make({ workspace }),
     DomainEvent.cases.SessionCreated.make({ session }),
     DomainEvent.cases.TurnStarted.make({
-      turn: new Turn({ ...turnAt(0, tId), status: "working", endedAt: null }),
+      turn: turnAt(0, tId, "working"),
     }),
   ]);
 
@@ -115,18 +119,18 @@ describe("approvals", () => {
           DomainEvent.cases.ApprovalResolved.make({
             sessionId: sId,
             requestId: request.id,
-            decision: { _tag: "Deny", reason: "Withdrawn by the Harness" },
+            decision: ApprovalDecision.cases.Deny.make({ reason: "Withdrawn by the Harness" }),
             resolvedBy: "Harness",
           }),
           DomainEvent.cases.ApprovalRequested.make({
-            request: new ApprovalRequest({ ...request, id: "r-2" as RequestId }),
+            request: requestWithId("r-2"),
           }),
         ]);
         expect((yield* store.model).sessions.get(sId)!.pending.size).toBe(1);
         yield* record(store, [
           DomainEvent.cases.ApprovalWithdrawn.make({
             sessionId: sId,
-            requestId: "r-2" as RequestId,
+            requestId: RequestId.make("r-2"),
             withdrawnBy: "daemon",
             reason: "The Daemon restarted",
           }),
@@ -206,14 +210,9 @@ describe("live subscribers", () => {
           const unrelated = yield* store.subscribe({ filter: (item) => item.sessionId !== sId });
 
           for (let i = 0; i < 1000; i++)
-            yield* store.publishEphemeral({
-              _tag: "Delta",
-              sessionId: sId,
-              turnId: tId,
-              itemId: "m",
-              field: "text",
-              text: "x",
-            });
+            yield* store.publishEphemeral(
+              LiveItem.Delta({ sessionId: sId, turnId: tId, itemId: "m", field: "text", text: "x" })
+            );
           expect(yield* store.subscriberCount).toBe(2);
 
           const rename = (title: string) =>
@@ -226,8 +225,10 @@ describe("live subscribers", () => {
           yield* rename("overflow");
           expect(yield* store.subscriberCount).toBe(1);
           const drained = yield* Stream.runCollect(stalled);
-          expect(drained.filter((i) => i._tag === "Delta")).toHaveLength(8);
-          expect(drained.filter((i) => i._tag === "Event").map((i) => i._tag)).toHaveLength(8);
+          expect(drained.filter((i) => Predicate.isTagged(i, "Delta"))).toHaveLength(8);
+          expect(
+            drained.filter((i) => Predicate.isTagged(i, "Event")).map((i) => i._tag)
+          ).toHaveLength(8);
           // The filtered subscriber buffered none of this session's items, so it stays.
           expect(unrelated).toBeDefined();
         })
@@ -247,19 +248,14 @@ describe("live subscribers", () => {
         Effect.gen(function* () {
           const store = yield* EventStore;
           yield* seed(store);
-          const other = "s-other" as SessionId;
+          const other = SessionId.make("s-other");
           const mine = yield* store.subscribe({ sessionId: sId });
           const theirs = yield* store.subscribe({ sessionId: other });
 
           const delta = (sessionId: SessionId, text: string) =>
-            store.publishEphemeral({
-              _tag: "Delta",
-              sessionId,
-              turnId: tId,
-              itemId: "m",
-              field: "text",
-              text,
-            });
+            store.publishEphemeral(
+              LiveItem.Delta({ sessionId, turnId: tId, itemId: "m", field: "text", text })
+            );
 
           yield* delta(sId, "a");
           yield* delta(other, "b");
@@ -268,13 +264,17 @@ describe("live subscribers", () => {
           ]);
 
           const [a] = yield* Stream.runCollect(Stream.take(mine, 2)).pipe(
-            Effect.map((items) => [items.map((i) => (i._tag === "Delta" ? i.text : i._tag))])
+            Effect.map((items) => [
+              items.map((i) => (Predicate.isTagged(i, "Delta") ? i.text : i._tag)),
+            ])
           );
 
           expect(a).toEqual(["a", "Event"]);
 
           const [b] = yield* Stream.runCollect(Stream.take(theirs, 1)).pipe(
-            Effect.map((items) => [items.map((i) => (i._tag === "Delta" ? i.text : i._tag))])
+            Effect.map((items) => [
+              items.map((i) => (Predicate.isTagged(i, "Delta") ? i.text : i._tag)),
+            ])
           );
 
           expect(b).toEqual(["b"]);
