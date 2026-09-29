@@ -64,6 +64,7 @@ const startSession = (
       placement,
       permissionMode: "supervised",
       model: null,
+      effort: null,
       prompt: "Fix the flaky test",
       attachments: [],
     })
@@ -170,6 +171,55 @@ describe("commands", () => {
         expect(fakes.checkpoints.map((c) => c.label)).toEqual(["before", "after"]);
         expect(claude.latest(s)!.options.cwd).toBe(workspace.path);
         expect(claude.latest(s)!.options.resumeCursor).toBeNull();
+      })
+    );
+  });
+
+  test("SetModel between Turns: the next Turn runs on the new Model; refused mid-Turn", async () => {
+    const codex = makeFakeDriver("codex");
+    const claude = makeFakeDriver("claude", { switchModel: false, onTurn: completesTurns("c-1") });
+    const { layer } = setup({ drivers: [codex, claude] });
+    await run(
+      layer,
+      Effect.gen(function* () {
+        const workspace = yield* registerWorkspace;
+        const s = sid("s-model");
+
+        const setModel = (sessionId: SessionId, model: string, effort: string | null) =>
+          dispatch(Command.cases.SetModel.make({ sessionId, model, effort }));
+
+        yield* startSession(workspace, s, "codex");
+        const started = yield* waitFor((m) => m.sessions.get(s)?.session.state === "working");
+        const busy = yield* Effect.flip(setModel(s, "gpt-5.5", "high"));
+        expect(busy).toMatchObject({ reason: "the session is working; wait for the Turn to end" });
+
+        const turnId = started.sessions.get(s)!.turns[0]!.id;
+        codex.latest(s)!.emit(HarnessEvent.TurnEnded({ turnId, status: "completed", error: null }));
+        yield* waitFor((m) => m.sessions.get(s)?.session.state === "idle");
+        yield* setModel(s, "gpt-5.5", "high");
+        // The same Model and effort again changes nothing.
+        expect((yield* setModel(s, "gpt-5.5", "high")).sequence).toBeNull();
+        yield* dispatch(
+          Command.cases.SendTurn.make({ sessionId: s, prompt: "go", attachments: [] })
+        );
+        yield* waitUntil(() => codex.latest(s)?.turns.length === 2);
+
+        const record = (yield* Effect.flatMap(EventStore, (store) => store.model)).sessions.get(s)!;
+        expect(record.session).toMatchObject({ model: "gpt-5.5", effort: "high" });
+        expect(record.turns.map((t) => [t.model, t.effort])).toEqual([
+          [null, null],
+          ["gpt-5.5", "high"],
+        ]);
+        expect(codex.latest(s)!.turns[1]).toMatchObject({ model: "gpt-5.5", effort: "high" });
+
+        // A Harness that can't switch mid-session: only before it has a session of its own.
+        const c = sid("s-model-claude");
+        yield* startSession(workspace, c, "claude");
+        yield* waitFor((m) => m.sessions.get(c)?.session.state === "idle");
+        const stuck = yield* Effect.flip(setModel(c, "opus", null));
+        expect(stuck).toMatchObject({
+          reason: "claude can't switch Model mid-session; fork instead",
+        });
       })
     );
   });
@@ -583,6 +633,8 @@ describe("fork and archive", () => {
             fromSessionId: parent,
             fromTurnId: turnId,
             harness: "codex",
+            model: "gpt-5.5",
+            effort: "low",
           })
         );
         const after = yield* waitFor((m) => m.sessions.has(child));
@@ -591,6 +643,9 @@ describe("fork and archive", () => {
           parentSessionId: parent,
           forkedFromTurnId: turnId,
           harness: "codex",
+          // "Fork with Model X": the Fork runs on the Model it asked for.
+          model: "gpt-5.5",
+          effort: "low",
           state: "dormant",
           harnessCursor: null,
         });

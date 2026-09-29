@@ -28,7 +28,10 @@ const WorkspaceIoRpcs = DaemonRpcs.omit(
   "dispatch",
   "subscribeHost",
   "subscribeSession",
-  "session.terminalCommand"
+  "session.terminalCommand",
+  "harness.models",
+  "usage.query",
+  "usage.watch"
 );
 
 describe("handler layers", () => {

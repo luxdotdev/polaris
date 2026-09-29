@@ -2,6 +2,7 @@
  * Domain model shared by the Daemon and every Client. Names follow CONTEXT.md.
  */
 import { Schema } from "effect";
+import { HarnessKind } from "./harnesses.ts";
 import {
   AttachmentId,
   HostId,
@@ -11,14 +12,11 @@ import {
   WorkspaceId,
   WorktreeId,
 } from "./ids.ts";
+import { addedNullable, ModelId, ReasoningEffort } from "./models.ts";
 
 export const Timestamp = Schema.String; // ISO-8601, UTC
 
 export type Timestamp = typeof Timestamp.Type;
-
-export const HarnessKind = Schema.Literals(["claude", "codex"]);
-
-export type HarnessKind = typeof HarnessKind.Type;
 
 export const SessionState = Schema.Literals([
   "starting",
@@ -92,7 +90,10 @@ export class AgentSession extends Schema.Class<AgentSession>("AgentSession")({
   worktreeId: Schema.NullOr(WorktreeId),
   state: SessionState,
   permissionMode: PermissionMode,
-  model: Schema.NullOr(Schema.String),
+  /** The Model the next Turn runs on; null for the Harness's default. Changed by `SetModel`. */
+  model: Schema.NullOr(ModelId),
+  /** The reasoning effort the next Turn runs with; null for the Model's default. */
+  effort: addedNullable(ReasoningEffort),
   /** Set when this session is a Fork. */
   parentSessionId: Schema.NullOr(SessionId),
   forkedFromTurnId: Schema.NullOr(TurnId),
@@ -123,6 +124,9 @@ export class Turn extends Schema.Class<Turn>("Turn")({
   index: Schema.Int,
   prompt: Schema.String,
   attachments: Schema.Array(Attachment),
+  /** The Model and effort the Turn ran on, as the session had them; null for the defaults. */
+  model: addedNullable(ModelId),
+  effort: addedNullable(ReasoningEffort),
   status: TurnStatus,
   /** `refs/polaris/checkpoints/<session>/<turn>` taken before and after the Turn. */
   checkpointBefore: Schema.NullOr(Schema.String),

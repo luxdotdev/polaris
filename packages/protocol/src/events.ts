@@ -24,6 +24,7 @@ import {
   WorkspaceId,
   WorktreeId,
 } from "./ids.ts";
+import { ModelId, ReasoningEffort } from "./models.ts";
 
 export const DomainEvent = Schema.TaggedUnion({
   WorkspaceRegistered: { workspace: Workspace },
@@ -42,6 +43,12 @@ export const DomainEvent = Schema.TaggedUnion({
   SessionRenamed: { sessionId: SessionId, title: Schema.String },
   SessionCursorUpdated: { sessionId: SessionId, harnessCursor: Schema.String },
   SessionPermissionModeChanged: { sessionId: SessionId, permissionMode: PermissionMode },
+  /** `SetModel`: the Model and effort the next Turns run on. */
+  SessionModelChanged: {
+    sessionId: SessionId,
+    model: ModelId,
+    effort: Schema.NullOr(ReasoningEffort),
+  },
 
   TurnStarted: { turn: Turn },
   TurnItemCompleted: { sessionId: SessionId, turnId: TurnId, item: TurnItem },

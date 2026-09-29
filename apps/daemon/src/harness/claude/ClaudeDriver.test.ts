@@ -39,6 +39,7 @@ const openFake = async (
         cwd: "/work/repo",
         permissionMode: "supervised",
         model: null,
+        effort: null,
         resumeCursor: null,
         ...overrides,
       })
@@ -90,6 +91,8 @@ const turn = (turnId: TurnId, prompt: string, attachments: Attachment[] = []) =>
   turnId,
   prompt,
   attachments,
+  model: null,
+  effort: null,
 });
 
 const inputUuid = (m: { uuid?: string }) => m.uuid!;

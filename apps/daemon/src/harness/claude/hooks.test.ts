@@ -322,6 +322,7 @@ describe("ClaudeHookReceiver", () => {
             cwd: "/work/repo",
             permissionMode: "supervised",
             model: null,
+            effort: null,
             resumeCursor: null,
           })
           .pipe(Scope.provide(scope))

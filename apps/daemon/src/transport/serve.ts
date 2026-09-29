@@ -5,7 +5,7 @@
  * below as they land; `startServer` falls back to placeholders for the rest.
  */
 import * as BunRuntime from "@effect/platform-bun/BunRuntime";
-import type { Capability } from "@polaris/protocol";
+import { type Capability, HARNESS_CATALOGUE } from "@polaris/protocol";
 import { Effect, Layer } from "effect";
 import { AttachmentRpcsLive } from "../attachments/AttachmentRpcs.ts";
 import { AttachmentStoreLive } from "../attachments/AttachmentStore.ts";
@@ -17,6 +17,7 @@ import { FilesRpcsLive } from "../files/FilesRpcs.ts";
 import { CheckpointsLive } from "../git/Checkpoints.ts";
 import { GitRpcsLive } from "../git/GitRpcs.ts";
 import { WorktreeTrackerLive } from "../git/WorktreeTracker.ts";
+import { HarnessRpcsLive } from "../harness/HarnessRpcs.ts";
 import { HarnessRegistryLive } from "../harness/registry.ts";
 import { EventStore } from "../store/EventStore.ts";
 import { TerminalRpcsLive } from "../terminal/TerminalRpcs.ts";
@@ -45,12 +46,13 @@ export const daemonHandlers = Layer.mergeAll(
   FilesRpcsLive.pipe(Layer.provide(FileSearchLive())),
   GitRpcsLive,
   AttachmentRpcsLive,
+  HarnessRpcsLive,
   TerminalRpcsLive.pipe(Layer.provide(TerminalsDaemonLive))
 ).pipe(Layer.provide(daemonServices));
 
+// `harness.models`, `session.set-model` and `usage` wait for the drivers (ENG-201, ENG-202).
 export const daemonCapabilities: ReadonlyArray<Capability> = [
-  "harness.claude",
-  "harness.codex",
+  ...HARNESS_CATALOGUE.map((harness) => harness.capability),
   "session.steer",
   "session.fork",
   "session.terminal-handoff",

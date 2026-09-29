@@ -74,7 +74,7 @@ export const makeCodexDriver = (
 
     return {
       kind: "codex",
-      capabilities: { steer: true, liveCoAttach: true },
+      capabilities: { steer: true, liveCoAttach: true, switchModel: true },
       probe: probeCodex(codexPath),
       open: (openOptions) =>
         codexPath === null

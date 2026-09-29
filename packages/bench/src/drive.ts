@@ -78,6 +78,7 @@ export const startSession = (
       placement: SessionPlacement.cases.InPlace.make({}),
       permissionMode: "supervised",
       model: null,
+      effort: null,
       prompt: prompt(options.script),
       attachments: [],
     })

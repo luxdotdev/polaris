@@ -104,6 +104,7 @@ const program = Effect.gen(function* () {
       placement: SessionPlacement.cases.InPlace.make({}),
       permissionMode: "full-access",
       model: harness === "claude" ? "haiku" : null,
+      effort: null,
       prompt:
         "Create a file named ok.txt containing the single word ok, then reply with the word done.",
       attachments: [],

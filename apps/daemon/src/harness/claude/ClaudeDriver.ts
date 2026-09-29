@@ -485,7 +485,7 @@ export const makeClaudeDriver = (options: ClaudeDriverOptions = {}): HarnessDriv
 
   const claude: HarnessDriver = {
     kind: "claude",
-    capabilities: { steer: true, liveCoAttach: false },
+    capabilities: { steer: true, liveCoAttach: false, switchModel: true },
     probe,
     open: (open) => openSession(driver, open),
   };

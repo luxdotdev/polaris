@@ -1,0 +1,78 @@
+/**
+ * The Harness catalogue: every Harness Polaris can drive, vetted before it is
+ * added (ENG-199). Adding a Harness is one entry here plus its driver in the
+ * Daemon; its `harness.<kind>` capability and its kind follow from the entry.
+ */
+import { Schema } from "effect";
+
+/**
+ * A Harness's kind as it travels: open, so an event naming a Harness this
+ * build's catalogue doesn't list (from a newer Daemon) still decodes. Look it
+ * up with `harnessEntry`; a Client shows an unknown kind by its name alone.
+ */
+export const HarnessKind = Schema.String.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/));
+
+export type HarnessKind = typeof HarnessKind.Type;
+
+/** How a user sets a Harness up on a Host. Polaris never signs in for them (ADR 0001). */
+export interface HarnessSetup {
+  /** One line for a host where the Harness is not installed. */
+  readonly install: string;
+  /** The shell command that installs it. */
+  readonly installCommand: string;
+  /** One line for a host where it is installed but not signed in. */
+  readonly signIn: string;
+  /** The argv that starts its own sign-in, run in a Harness terminal on the Host. */
+  readonly signInCommand: ReadonlyArray<string>;
+  readonly docsUrl: string;
+}
+
+export interface HarnessEntry<K extends string = string> {
+  readonly kind: K;
+  /** The product name, as the vendor writes it. */
+  readonly name: string;
+  /** The capability a Daemon announces in `hello` when it has this Harness's driver. */
+  readonly capability: `harness.${K}`;
+  readonly setup: HarnessSetup;
+}
+
+const entry = <const K extends string>(
+  kind: K,
+  details: Omit<HarnessEntry<K>, "kind" | "capability">
+): HarnessEntry<K> => ({ kind, capability: `harness.${kind}`, ...details });
+
+export const HARNESS_CATALOGUE = [
+  entry("claude", {
+    name: "Claude Code",
+    setup: {
+      install: "Install Claude Code on this host.",
+      installCommand: "curl -fsSL https://claude.ai/install.sh | bash",
+      signIn: "Sign in to Claude Code in its own terminal: run claude, then /login.",
+      signInCommand: ["claude"],
+      docsUrl: "https://code.claude.com/docs/en/setup",
+    },
+  }),
+  entry("codex", {
+    name: "Codex",
+    setup: {
+      install: "Install Codex on this host.",
+      installCommand: "npm install -g @openai/codex",
+      signIn: "Sign in to Codex in its own terminal.",
+      signInCommand: ["codex", "login"],
+      docsUrl: "https://developers.openai.com/codex/cli",
+    },
+  }),
+] as const;
+
+/** The kinds this build's catalogue lists. */
+export type KnownHarnessKind = (typeof HARNESS_CATALOGUE)[number]["kind"];
+
+export const KNOWN_HARNESS_KINDS: ReadonlyArray<KnownHarnessKind> = HARNESS_CATALOGUE.map(
+  (harness) => harness.kind
+);
+
+export const harnessEntry = (kind: HarnessKind): HarnessEntry | undefined =>
+  HARNESS_CATALOGUE.find((harness) => harness.kind === kind);
+
+export const isKnownHarness = (kind: HarnessKind): kind is KnownHarnessKind =>
+  harnessEntry(kind) !== undefined;

@@ -31,6 +31,7 @@ describe.skipIf(!enabled)("Claude driver against the real claude", () => {
             cwd,
             permissionMode: "supervised",
             model: "haiku",
+            effort: null,
             resumeCursor: null,
           })
           .pipe(Scope.provide(scope))
@@ -47,6 +48,8 @@ describe.skipIf(!enabled)("Claude driver against the real claude", () => {
           turnId: TurnId.make("e2e-turn"),
           prompt: "Reply with the single word ok and nothing else. Do not use any tools.",
           attachments: [],
+          model: null,
+          effort: null,
         })
       );
 

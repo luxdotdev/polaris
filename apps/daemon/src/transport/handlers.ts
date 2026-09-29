@@ -12,6 +12,7 @@ import {
   NotFound,
   PROTOCOL_VERSION,
   Sequence,
+  Unsupported,
 } from "@polaris/protocol";
 import { Effect, Stream } from "effect";
 import { ClientCapabilities, DeviceLabel } from "../engine/rpc.ts";
@@ -65,6 +66,10 @@ export const defaultHandlers = (options: {
       Stream.fail(new NotFound({ what: "session", id: sessionId })),
     "session.terminalCommand": ({ sessionId }) =>
       Effect.fail(new NotFound({ what: "session", id: sessionId })),
+
+    "harness.models": () => Effect.fail(new Unsupported({ capability: "harness.models" })),
+    "usage.query": () => Effect.fail(new Unsupported({ capability: "usage" })),
+    "usage.watch": () => Stream.fail(new Unsupported({ capability: "usage" })),
 
     "files.listDir": ({ path }) => Effect.fail(fileError(path, "files")),
     "files.stat": ({ path }) => Effect.fail(fileError(path, "files")),
