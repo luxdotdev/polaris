@@ -55,6 +55,31 @@ const machineInfo = () => {
   return { machine: board || product || "Linux", cpu, os: `${osName} (${type()} ${release()})` };
 };
 
+const cpuTicks = () => {
+  let busy = 0;
+  let total = 0;
+
+  for (const { times } of cpus()) {
+    const used = times.user + times.nice + times.sys + times.irq;
+    busy += used;
+    total += used + times.idle;
+  }
+
+  return { busy, total };
+};
+
+/** How many cores the rest of the machine keeps busy, sampled over `ms` while the bench is idle. */
+export const measureBackgroundCores = async (ms = 1000): Promise<number> => {
+  const before = cpuTicks();
+  await Bun.sleep(ms);
+  const after = cpuTicks();
+  const total = after.total - before.total;
+
+  if (total <= 0) return 0;
+
+  return Math.round(((after.busy - before.busy) / total) * cpus().length * 10) / 10;
+};
+
 export const environment = (options: {
   readonly binary: string | null;
   readonly transport: TransportKind;

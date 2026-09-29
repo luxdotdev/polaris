@@ -11,9 +11,9 @@
  */
 import { appendFileSync, copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
-import { type Comparison, compare } from "./compare.ts";
+import { BUSY_BACKGROUND_CORES, type Comparison, compare } from "./compare.ts";
 import { REPO_ROOT, type TransportKind } from "./daemon.ts";
-import { environment } from "./env.ts";
+import { environment, measureBackgroundCores } from "./env.ts";
 import { renderComparison, renderMarkdown, renderResult } from "./report.ts";
 import { runScenario } from "./runner.ts";
 import { SCENARIOS } from "./scenarios/index.ts";
@@ -264,8 +264,18 @@ const main = async () => {
       `[bench ${((performance.now() - started) / 1000).toFixed(1)}s] ${message}\n`
     );
 
-  const env = environment({ binary: args.binary, transport: args.transport });
+  const env = {
+    ...environment({ binary: args.binary, transport: args.transport }),
+    backgroundCores: await measureBackgroundCores(),
+  };
+
   log(`${env.machine} (${env.cpu}), ${env.daemon} Daemon, results in ${runDir}`);
+
+  if (env.backgroundCores > BUSY_BACKGROUND_CORES) {
+    log(
+      `warning: ${env.backgroundCores} cores are busy with other work; throughput and CPU will not match a quiet baseline`
+    );
+  }
 
   const scenarios: Record<string, ScenarioResult> = {};
 

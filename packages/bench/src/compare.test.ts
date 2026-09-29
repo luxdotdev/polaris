@@ -103,4 +103,17 @@ describe("compare", () => {
     expect(c.rows.find((r) => r.metric === "gone")?.status).toBe("missing");
     expect(c.warnings.some((w) => w.includes("not comparable"))).toBe(true);
   });
+
+  test("a run on a busy machine warns, whichever side it is", () => {
+    const quiet = result({ mem: metric("memory", 100) });
+    const busy: BenchResult = { ...quiet, env: { ...quiet.env, backgroundCores: 4.2 } };
+
+    expect(compare(quiet, quiet, new Set(["memory"])).warnings).toEqual([]);
+    expect(compare(quiet, busy, new Set(["memory"])).warnings).toEqual([
+      "this run started with 4.2 cores busy with other work: throughput and CPU are not comparable",
+    ]);
+    expect(compare(busy, quiet, new Set(["memory"])).warnings[0]).toStartWith(
+      "baseline started with 4.2"
+    );
+  });
 });
