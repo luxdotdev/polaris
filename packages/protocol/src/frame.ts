@@ -86,7 +86,7 @@ export const encodeBlobFrame = (
 };
 
 /** Splits `bytes` into blob frames of at most BLOB_CHUNK_BYTES. Always emits a final frame. */
-export function* encodeBlob(blobId: string, bytes: Uint8Array): Generator<Uint8Array> {
+export function* encodeBlob(blobId: string, bytes: Uint8Array): Generator<Uint8Array, void> {
   if (bytes.byteLength === 0) {
     yield encodeBlobFrame(blobId, bytes, true);
 
