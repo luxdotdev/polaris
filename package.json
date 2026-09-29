@@ -35,5 +35,11 @@
     "oxlint-tsgolint": "7.0.2003",
     "turbo": "2.11.5",
     "typescript": "7.0.2"
+  },
+  "trustedDependencies": [
+    "electron"
+  ],
+  "overrides": {
+    "@types/node": "26.6.3"
   }
 }

@@ -1,0 +1,38 @@
+{
+  "name": "@polaris/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "bun scripts/dev.ts",
+    "build": "bun scripts/build.ts",
+    "start": "electron .",
+    "smoke": "node scripts/smoke.ts --build",
+    "typecheck": "tsc -p . && tsc -p src/renderer/tsconfig.app.json && tsc -p src/renderer/tsconfig.test.json",
+    "test": "bun test --pass-with-no-tests"
+  },
+  "dependencies": {
+    "@polaris/client": "workspace:*",
+    "@polaris/protocol": "workspace:*",
+    "@polaris/ui": "workspace:*",
+    "effect": "4.0.0-rc.118",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "zustand": "5.0.15"
+  },
+  "devDependencies": {
+    "@babel/core": "8.0.6",
+    "@rolldown/plugin-babel": "0.2.4",
+    "@tailwindcss/vite": "4.3.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "babel-plugin-react-compiler": "1.0.0",
+    "electron": "44.4.5",
+    "playwright-core": "1.63.0",
+    "tailwindcss": "4.3.3",
+    "vite": "8.3.1"
+  }
+}

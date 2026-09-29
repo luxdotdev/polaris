@@ -1,0 +1,25 @@
+/* The renderer's one stylesheet: Night watch from @polaris/ui, plus this app's sources. */
+@import "@polaris/ui/styles.css";
+
+@source "./";
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  background-color: var(--color-bg);
+  color: var(--color-text-default);
+}
+
+@utility app-drag {
+  -webkit-app-region: drag;
+}
+
+@utility app-no-drag {
+  -webkit-app-region: no-drag;
+}
