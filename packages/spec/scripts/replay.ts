@@ -21,31 +21,53 @@
  */
 import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
+import { Match, Schema } from "effect";
 
-interface TEvent {
-  readonly seq: number;
-  readonly commandId: string | null;
-  readonly session: string | null;
-  readonly tag: string;
-  readonly what: string;
-  readonly turnId?: string;
-  readonly status?: string;
-  readonly state?: string;
-  readonly requestId?: string;
-  readonly reason?: string | null;
-}
+const TEvent = Schema.Struct({
+  seq: Schema.Number,
+  commandId: Schema.NullOr(Schema.String),
+  session: Schema.NullOr(Schema.String),
+  tag: Schema.String,
+  what: Schema.String,
+  turnId: Schema.optional(Schema.String),
+  status: Schema.optional(Schema.String),
+  state: Schema.optional(Schema.String),
+  requestId: Schema.optional(Schema.String),
+  reason: Schema.optional(Schema.NullOr(Schema.String)),
+});
 
-interface TCommand {
-  readonly _tag: string;
-  readonly sessionId?: string;
-  readonly requestId?: string;
-}
+type TEvent = typeof TEvent.Type;
 
-interface Trace {
-  readonly log: ReadonlyArray<TEvent>;
-  readonly commands: Record<string, { readonly device: string; readonly command: TCommand }>;
-  readonly restarts: ReadonlyArray<number>;
-}
+const SessionCommand = <Tag extends string>(tag: Tag) =>
+  Schema.TaggedStruct(tag, { sessionId: Schema.String });
+
+/** The commands the spec models, then any other command (only its tag is read). */
+const TCommand = Schema.Union([
+  SessionCommand("SendTurn"),
+  SessionCommand("Continue"),
+  Schema.TaggedStruct("RespondToApproval", {
+    sessionId: Schema.String,
+    requestId: Schema.String,
+  }),
+  SessionCommand("ArchiveSession"),
+  SessionCommand("UnarchiveSession"),
+  Schema.Struct({ _tag: Schema.String, sessionId: Schema.optional(Schema.String) }),
+]);
+
+type TCommand = typeof TCommand.Type;
+
+const Trace = Schema.Struct({
+  log: Schema.Array(TEvent),
+  commands: Schema.Record(
+    Schema.String,
+    Schema.Struct({ device: Schema.String, command: TCommand })
+  ),
+  restarts: Schema.Array(Schema.Number),
+});
+
+type Trace = typeof Trace.Type;
+
+const decodeTrace = Schema.decodeUnknownSync(Schema.fromJsonString(Trace));
 
 interface SpecEvent {
   readonly session: string;
@@ -58,6 +80,12 @@ interface Unit {
   readonly actions: ReadonlyArray<string>;
   readonly events: ReadonlyArray<SpecEvent>;
   readonly label: string;
+}
+
+/** A trace as spec decisions, and the session each approval request belongs to. */
+export interface Replay {
+  readonly units: Array<Unit>;
+  readonly requests: Map<string, string>;
 }
 
 const DROPPED = new Set([
@@ -75,6 +103,8 @@ const DROPPED = new Set([
 
 const SESSIONS = ["s1", "s2"];
 
+const COMMIT = ["commitBatch", "publishBatch"];
+
 const q = (s: string) => JSON.stringify(s);
 
 /** The spec has no Starting: it counts as Working. */
@@ -90,28 +120,68 @@ const isRecovery = (e: TEvent) =>
       ((e.state === "needs-you" && e.reason === "interrupted") ||
         (e.state === "dormant" && e.reason === "daemon-restart"))));
 
-export const toUnits = (trace: Trace): { units: Array<Unit>; requests: Map<string, string> } => {
-  const state = new Map<string, string>();
-  const turns = new Map<string, Set<string>>();
-  const requests = new Map<string, string>();
-  const stateOf = (s: string) => state.get(s) ?? "dormant";
+/** Each restart's recovery: the recovery-shaped Daemon events right before its point. */
+const recoveryPoints = (trace: Trace): Map<number, number> => {
+  const log = trace.log;
+  const recoveryOf = new Map<number, number>();
+  trace.restarts.forEach((point, r) => {
+    for (let i = point - 1; i >= 0 && isRecovery(log[i]!) && !recoveryOf.has(log[i]!.seq); i--) {
+      recoveryOf.set(log[i]!.seq, r);
+    }
+  });
+
+  return recoveryOf;
+};
+
+/** The spec's command for a Client command in session `s`; null if the spec has none. */
+const specCommand = (command: TCommand, s: string): string | null =>
+  Match.value(command).pipe(
+    Match.tag("SendTurn", () => `SendTurn(${q(s)})`),
+    Match.tag("Continue", () => `Continue(${q(s)})`),
+    Match.tag("RespondToApproval", (c) => `Respond({ session: ${q(s)}, req: ${q(c.requestId)} })`),
+    Match.tag("ArchiveSession", () => `Archive(${q(s)})`),
+    Match.tag("UnarchiveSession", () => `Unarchive(${q(s)})`),
+    Match.orElse(() => null)
+  );
+
+/** A Turn's reactor opens the Harness; Archive's stops it. */
+const REACTS = new Set(["SendTurn", "Continue", "ArchiveSession"]);
+
+class Replayer {
+  private readonly state = new Map<string, string>();
+  private readonly turns = new Map<string, Set<string>>();
+  private readonly requests = new Map<string, string>();
+  private readonly units: Array<Unit> = [];
+  private readonly recoveryOf: Map<number, number>;
+  private readonly log: ReadonlyArray<TEvent>;
+  private nextRestart = 0;
+  private i = 0;
+
+  constructor(private readonly trace: Trace) {
+    this.log = trace.log;
+    this.recoveryOf = recoveryPoints(trace);
+  }
+
+  run(): Replay {
+    while (this.i < this.log.length) this.step(this.log[this.i]!);
+    this.flushRestarts(Number.POSITIVE_INFINITY);
+
+    return { units: this.units, requests: this.requests };
+  }
+
+  private stateOf(s: string) {
+    return this.state.get(s) ?? "dormant";
+  }
 
   /** The spec event for an engine event, updating the tracked state; null if dropped. */
-  const map = (e: TEvent, cmd: string, keepSameState: boolean): SpecEvent | null => {
+  private map(e: TEvent, cmd: string, keepSameState: boolean): SpecEvent | null {
     if (DROPPED.has(e.tag) || e.session === null) return null;
     const s = e.session;
     const out = (kind: string): SpecEvent => ({ session: s, cmd, kind });
 
     switch (e.tag) {
-      case "TurnStarted": {
-        const known = turns.get(s) ?? new Set();
-        const continued = known.has(e.turnId!);
-        known.add(e.turnId!);
-        turns.set(s, known);
-
-        return out(`TurnStarted(${continued})`);
-      }
-
+      case "TurnStarted":
+        return out(`TurnStarted(${this.startTurn(s, e.turnId!)})`);
       case "TurnEnded":
         return out(`TurnEnded(${q(e.status!)})`);
       case "TurnItemCompleted":
@@ -119,14 +189,14 @@ export const toUnits = (trace: Trace): { units: Array<Unit>; requests: Map<strin
       case "SessionStateChanged": {
         const n = norm(e.state!);
 
-        if (!keepSameState && n === stateOf(s)) return null;
-        state.set(s, n);
+        if (!keepSameState && n === this.stateOf(s)) return null;
+        this.state.set(s, n);
 
         return out(`StateChanged(${q(n)})`);
       }
 
       case "ApprovalRequested":
-        requests.set(e.requestId!, s);
+        this.requests.set(e.requestId!, s);
 
         return out(`ApprovalRequested(${q(e.requestId!)})`);
       case "ApprovalResolved":
@@ -136,198 +206,206 @@ export const toUnits = (trace: Trace): { units: Array<Unit>; requests: Map<strin
       default:
         throw new Error(`seq ${e.seq}: no spec event for ${e.tag}`);
     }
-  };
+  }
 
-  const commit = ["commitBatch", "publishBatch"];
-  const units: Array<Unit> = [];
-  const log = trace.log;
-  // Each restart's recovery: the recovery-shaped Daemon events right before its point.
-  const recoveryOf = new Map<number, number>();
-  trace.restarts.forEach((point, r) => {
-    for (let i = point - 1; i >= 0 && isRecovery(log[i]!) && !recoveryOf.has(log[i]!.seq); i--) {
-      recoveryOf.set(log[i]!.seq, r);
-    }
-  });
-  let nextRestart = 0;
+  /** Records a Turn as started; true if it had started before (a continuation). */
+  private startTurn(s: string, turnId: string): boolean {
+    const known = this.turns.get(s) ?? new Set();
+    const continued = known.has(turnId);
+    known.add(turnId);
+    this.turns.set(s, known);
 
-  const flushRestarts = (beforeSeq: number) => {
-    while (nextRestart < trace.restarts.length && trace.restarts[nextRestart]! < beforeSeq) {
-      const r = nextRestart++;
-      const recovery = log.filter((e) => recoveryOf.get(e.seq) === r);
-      const events = recovery.flatMap((e) => map(e, "", true) ?? []);
+    return continued;
+  }
+
+  private mapAll(events: ReadonlyArray<TEvent>, cmd: string): Array<SpecEvent> {
+    return events.flatMap((e) => this.map(e, cmd, true) ?? []);
+  }
+
+  private flushRestarts(beforeSeq: number) {
+    const restarts = this.trace.restarts;
+
+    while (this.nextRestart < restarts.length && restarts[this.nextRestart]! < beforeSeq) {
+      const r = this.nextRestart++;
+      const recovery = this.log.filter((e) => this.recoveryOf.get(e.seq) === r);
+      const events = this.mapAll(recovery, "");
       // The sessions in the order the engine recovered them, then the ones it left alone.
       const order = [...new Set([...recovery.map((e) => e.session!), ...SESSIONS])];
-      units.push({
+      this.units.push({
         actions: ["crash", `restartIn([${order.map(q).join(", ")}])`],
         events,
         label: `restart ${r + 1}`,
       });
     }
-  };
+  }
 
-  let i = 0;
+  private step(e: TEvent) {
+    if (this.recoveryOf.has(e.seq)) {
+      this.i++;
 
-  while (i < log.length) {
-    const e = log[i]!;
-
-    if (recoveryOf.has(e.seq)) {
-      i++;
-      continue;
+      return;
     }
 
-    flushRestarts(e.seq);
+    this.flushRestarts(e.seq);
 
-    if (e.commandId !== null) {
-      // A Client command: its events are contiguous (checked by the test itself).
-      const id = e.commandId;
-      const block: Array<TEvent> = [];
-
-      while (i < log.length && log[i]!.commandId === id) block.push(log[i++]!);
-      const sent = trace.commands[id];
-      const setup = /^setup-(s\d+)-/.exec(id);
-
-      if (setup !== null) {
-        // StartSession: the spec's sessions exist from the start, Dormant; starting one is a SendTurn.
-        const s = setup[1]!;
-        const events = block.flatMap((b) => map(b, id, true) ?? []);
-        state.set(s, "working");
-        units.push({
-          actions: [
-            `clientSends("mac", ${q(id)}, SendTurn(${q(s)}))`,
-            ...commit,
-            `reactorRuns(${q(s)})`,
-          ],
-          events: [...events, { session: s, cmd: id, kind: 'StateChanged("working")' }],
-          label: `${id} StartSession`,
-        });
-        continue;
-      }
-
-      const events = block.flatMap((b) => map(b, id, true) ?? []);
-
-      if (events.length === 0) continue; // RenameSession, RegisterWorkspace: nothing the spec models
-
-      if (sent === undefined) throw new Error(`seq ${e.seq}: unknown command ${id}`);
-      const s = sent.command.sessionId!;
-
-      const command =
-        sent.command._tag === "SendTurn"
-          ? `SendTurn(${q(s)})`
-          : sent.command._tag === "Continue"
-            ? `Continue(${q(s)})`
-            : sent.command._tag === "RespondToApproval"
-              ? `Respond({ session: ${q(s)}, req: ${q(sent.command.requestId!)} })`
-              : sent.command._tag === "ArchiveSession"
-                ? `Archive(${q(s)})`
-                : sent.command._tag === "UnarchiveSession"
-                  ? `Unarchive(${q(s)})`
-                  : null;
-
-      if (command === null)
-        throw new Error(`seq ${e.seq}: no spec command for ${sent.command._tag}`);
-      // A Turn's reactor opens the Harness; Archive's stops it.
-      const reacts = ["SendTurn", "Continue", "ArchiveSession"].includes(sent.command._tag);
-      units.push({
-        actions: [
-          `clientSends(${q(sent.device)}, ${q(id)}, ${command})`,
-          ...commit,
-          ...(reacts ? [`reactorRuns(${q(s)})`] : []),
-        ],
-        events,
-        label: `${id} ${sent.command._tag}`,
-      });
-      continue;
-    }
-
+    if (e.commandId !== null) this.clientCommand(e, e.commandId);
     // Something the Daemon recorded on its own: a Harness report, one decision each.
-    if (DROPPED.has(e.tag)) {
-      i++;
-      continue;
+    else if (DROPPED.has(e.tag)) this.i++;
+    else this.daemonDecision(e, e.session!);
+  }
+
+  /** A Client command: its events are contiguous (checked by the test itself). */
+  private clientCommand(e: TEvent, id: string) {
+    const block: Array<TEvent> = [];
+
+    while (this.i < this.log.length && this.log[this.i]!.commandId === id) {
+      block.push(this.log[this.i++]!);
     }
 
-    const s = e.session!;
+    const setup = /^setup-(s\d+)-/.exec(id);
 
-    const take = (pred: (x: TEvent) => boolean) => {
-      // Skip dropped events of the same decision (e.g. the checkpoint before a Turn ends).
-      let j = i;
+    if (setup !== null) {
+      this.startSession(id, setup[1]!, block);
 
-      while (j < log.length && log[j]!.commandId === null && DROPPED.has(log[j]!.tag)) j++;
+      return;
+    }
 
-      if (j < log.length && log[j]!.commandId === null && log[j]!.session === s && pred(log[j]!)) {
-        i = j + 1;
+    const events = this.mapAll(block, id);
 
-        return log[j]!;
-      }
+    if (events.length === 0) return; // RenameSession, RegisterWorkspace: nothing the spec models
+    const sent = this.trace.commands[id];
 
-      return null;
-    };
+    if (sent === undefined) throw new Error(`seq ${e.seq}: unknown command ${id}`);
+    const s = sent.command.sessionId!;
+    const command = specCommand(sent.command, s);
 
-    const harness = (report: string, events: Array<TEvent>) => {
-      units.push({
-        actions: [`harnessReports(${q(s)}, ${report})`, ...commit],
-        events: events.flatMap((x) => map(x, "", true) ?? []),
-        label: `${s} ${report}`,
-      });
-    };
+    if (command === null) throw new Error(`seq ${e.seq}: no spec command for ${sent.command._tag}`);
+    this.units.push({
+      actions: [
+        `clientSends(${q(sent.device)}, ${q(id)}, ${command})`,
+        ...COMMIT,
+        ...(REACTS.has(sent.command._tag) ? [`reactorRuns(${q(s)})`] : []),
+      ],
+      events,
+      label: `${id} ${sent.command._tag}`,
+    });
+  }
 
-    const endsTurnAfter = (from: number) => {
-      let j = from;
+  /** StartSession: the spec's sessions exist from the start, Dormant; starting one is a SendTurn. */
+  private startSession(id: string, s: string, block: ReadonlyArray<TEvent>) {
+    const events = this.mapAll(block, id);
+    this.state.set(s, "working");
+    this.units.push({
+      actions: [
+        `clientSends("mac", ${q(id)}, SendTurn(${q(s)}))`,
+        ...COMMIT,
+        `reactorRuns(${q(s)})`,
+      ],
+      events: [...events, { session: s, cmd: id, kind: 'StateChanged("working")' }],
+      label: `${id} StartSession`,
+    });
+  }
 
-      while (
-        j < log.length &&
-        log[j]!.commandId === null &&
-        log[j]!.session === s &&
-        (log[j]!.tag === "ApprovalWithdrawn" || DROPPED.has(log[j]!.tag))
-      )
-        j++;
-
-      return (
-        j < log.length &&
-        log[j]!.commandId === null &&
-        log[j]!.tag === "TurnEnded" &&
-        log[j]!.status === "completed"
-      );
-    };
-
+  private daemonDecision(e: TEvent, s: string) {
     if (e.tag === "ApprovalRequested") {
-      i++;
-      const followed = take((x) => x.tag === "SessionStateChanged" && x.state === "needs-you");
-      harness(`HRequest(${q(e.requestId!)})`, followed ? [e, followed] : [e]);
+      this.i++;
+
+      const followed = this.take(
+        s,
+        (x) => x.tag === "SessionStateChanged" && x.state === "needs-you"
+      );
+
+      this.harness(s, `HRequest(${q(e.requestId!)})`, followed ? [e, followed] : [e]);
     } else if (e.tag === "TurnItemCompleted") {
-      i++;
-      harness("HItem", [e]);
-    } else if (
-      (e.tag === "ApprovalWithdrawn" && byOf(e) === "harness" && endsTurnAfter(i)) ||
-      (e.tag === "TurnEnded" && e.status === "completed")
-    ) {
-      const events: Array<TEvent> = [];
-
-      while (log[i]!.tag !== "TurnEnded") {
-        if (!DROPPED.has(log[i]!.tag)) events.push(log[i]!);
-        i++;
-      }
-
-      events.push(log[i++]!);
-      const idle = take((x) => x.tag === "SessionStateChanged" && x.state === "idle");
-
-      if (idle === null) throw new Error(`seq ${e.seq}: a Turn ended without going Idle`);
-      harness("HTurnEnded", [...events, idle]);
+      this.i++;
+      this.harness(s, "HItem", [e]);
+    } else if (this.endsTurn(e, s)) {
+      this.turnEnded(e, s);
     } else if (e.tag === "ApprovalWithdrawn" && byOf(e) === "harness") {
-      i++;
-      const followed = take((x) => x.tag === "SessionStateChanged" && x.state === "working");
-      harness(`HWithdraw(${q(e.requestId!)})`, followed ? [e, followed] : [e]);
-    } else if (e.tag === "SessionStateChanged" && norm(e.state!) === stateOf(s)) {
+      this.i++;
+
+      const followed = this.take(
+        s,
+        (x) => x.tag === "SessionStateChanged" && x.state === "working"
+      );
+
+      this.harness(s, `HWithdraw(${q(e.requestId!)})`, followed ? [e, followed] : [e]);
+    } else if (e.tag === "SessionStateChanged" && norm(e.state!) === this.stateOf(s)) {
       // The reactor moving Starting → Working: no change in the spec's terms.
-      i++;
+      this.i++;
     } else {
       throw new Error(`seq ${e.seq}: cannot map ${e.what} (${s}) to a spec decision`);
     }
   }
 
-  flushRestarts(Number.POSITIVE_INFINITY);
+  private endsTurn(e: TEvent, s: string): boolean {
+    return (
+      (e.tag === "ApprovalWithdrawn" && byOf(e) === "harness" && this.endsTurnAfter(this.i, s)) ||
+      (e.tag === "TurnEnded" && e.status === "completed")
+    );
+  }
 
-  return { units, requests };
-};
+  private turnEnded(e: TEvent, s: string) {
+    const events: Array<TEvent> = [];
+
+    while (this.log[this.i]!.tag !== "TurnEnded") {
+      if (!DROPPED.has(this.log[this.i]!.tag)) events.push(this.log[this.i]!);
+      this.i++;
+    }
+
+    events.push(this.log[this.i++]!);
+    const idle = this.take(s, (x) => x.tag === "SessionStateChanged" && x.state === "idle");
+
+    if (idle === null) throw new Error(`seq ${e.seq}: a Turn ended without going Idle`);
+    this.harness(s, "HTurnEnded", [...events, idle]);
+  }
+
+  /** The next Daemon event of session `s` if `pred` holds for it, skipping dropped ones. */
+  private take(s: string, pred: (x: TEvent) => boolean): TEvent | null {
+    const log = this.log;
+    let j = this.i;
+
+    while (j < log.length && log[j]!.commandId === null && DROPPED.has(log[j]!.tag)) j++;
+
+    if (j < log.length && log[j]!.commandId === null && log[j]!.session === s && pred(log[j]!)) {
+      this.i = j + 1;
+
+      return log[j]!;
+    }
+
+    return null;
+  }
+
+  private harness(s: string, report: string, events: ReadonlyArray<TEvent>) {
+    this.units.push({
+      actions: [`harnessReports(${q(s)}, ${report})`, ...COMMIT],
+      events: this.mapAll(events, ""),
+      label: `${s} ${report}`,
+    });
+  }
+
+  private endsTurnAfter(from: number, s: string): boolean {
+    const log = this.log;
+    let j = from;
+
+    while (
+      j < log.length &&
+      log[j]!.commandId === null &&
+      log[j]!.session === s &&
+      (log[j]!.tag === "ApprovalWithdrawn" || DROPPED.has(log[j]!.tag))
+    )
+      j++;
+
+    return (
+      j < log.length &&
+      log[j]!.commandId === null &&
+      log[j]!.tag === "TurnEnded" &&
+      log[j]!.status === "completed"
+    );
+  }
+}
+
+export const toUnits = (trace: Trace): Replay => new Replayer(trace).run();
 
 export const toQuint = (name: string, trace: Trace): string => {
   const { units, requests } = toUnits(trace);
@@ -411,10 +489,10 @@ if (import.meta.main) {
   const jobs: Array<{ readonly file: string; readonly name: string; readonly path: string }> = [];
 
   for (const file of files) {
-    const trace = JSON.parse(readFileSync(join(dir, file), "utf8")) as Trace;
     const name = `replay_${basename(file, ".json").replace(/[^A-Za-z0-9]/g, "_")}`;
 
     try {
+      const trace = decodeTrace(readFileSync(join(dir, file), "utf8"));
       const source = toQuint(name, trace);
       const { units } = toUnits(trace);
       decisions += units.length;
@@ -424,7 +502,7 @@ if (import.meta.main) {
       jobs.push({ file, name, path });
     } catch (error) {
       failed++;
-      console.error(`✗ ${file}: ${(error as Error).message}`);
+      console.error(`✗ ${file}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
