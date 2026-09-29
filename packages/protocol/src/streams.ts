@@ -6,21 +6,24 @@
 import { Cause, Effect, Stream } from "effect";
 import { TransportError } from "./wire.ts";
 
-type Listener = (...args: ReadonlyArray<never>) => void;
-
+/** The events `readEvents` listens for, typed so Node and Bun emitters fit without casts. */
 export interface EventReadable {
-  on(event: string, listener: Listener): unknown;
-  off(event: string, listener: Listener): unknown;
-  pause(): unknown;
-  resume(): unknown;
+  on(event: "data", listener: (chunk: Uint8Array) => void): void;
+  on(event: "end" | "close", listener: () => void): void;
+  on(event: "error", listener: (error: Error) => void): void;
+  off(event: "data", listener: (chunk: Uint8Array) => void): void;
+  off(event: "end" | "close", listener: () => void): void;
+  off(event: "error", listener: (error: Error) => void): void;
+  pause(): void;
+  resume(): void;
 }
 
 export interface EventWritable {
   readonly destroyed: boolean;
   readonly writable: boolean;
   write(chunk: Uint8Array, callback: (error?: Error | null) => void): boolean;
-  on(event: string, listener: Listener): unknown;
-  off(event: string, listener: Listener): unknown;
+  on(event: "drain" | "close" | "error", listener: () => void): void;
+  off(event: "drain" | "close" | "error", listener: () => void): void;
 }
 
 const READ_HIGH_WATER = 64;
@@ -58,10 +61,10 @@ export const readEvents = (source: EventReadable): Stream.Stream<Uint8Array, Tra
     wake?.();
   };
 
-  source.on("data", onData as Listener);
+  source.on("data", onData);
   source.on("end", onEnd);
   source.on("close", onEnd);
-  source.on("error", onError as Listener);
+  source.on("error", onError);
 
   const pull = Effect.callback<ReadonlyArray<Uint8Array>, TransportError | Cause.Done>((resume) => {
     const settle = (): boolean => {
@@ -115,10 +118,10 @@ export const readEvents = (source: EventReadable): Stream.Stream<Uint8Array, Tra
     Stream.flatMap((chunks) => Stream.fromIterable(chunks)),
     Stream.ensuring(
       Effect.sync(() => {
-        source.off("data", onData as Listener);
+        source.off("data", onData);
         source.off("end", onEnd);
         source.off("close", onEnd);
-        source.off("error", onError as Listener);
+        source.off("error", onError);
       })
     )
   );
