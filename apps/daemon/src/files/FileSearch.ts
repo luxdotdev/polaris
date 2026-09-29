@@ -8,8 +8,8 @@ import { realpath, stat } from "node:fs/promises";
 import { FileError } from "@polaris/protocol";
 import { Context, Effect, Layer, Queue, Stream } from "effect";
 import { resolveHostPath, toFsFailure } from "./fs.ts";
-import { makeFallbackBackend } from "./search/fallback.ts";
-import { makeFffBackend } from "./search/fff.ts";
+import { openFallbackBackend } from "./search/fallback.ts";
+import { openFffBackend } from "./search/fff.ts";
 import type { FileChange, GrepHit, GrepQuery, PathHit, SearchBackend } from "./search/types.ts";
 
 export interface FileSearchOptions {
@@ -85,8 +85,8 @@ export const makeFileSearch = (options: FileSearchOptions) =>
         return existing;
       }
 
-      const backend = (options.useFff ? makeFffBackend(root) : Promise.resolve(null)).then(
-        (fff) => fff ?? makeFallbackBackend(root)
+      const backend = (options.useFff ? openFffBackend(root) : Promise.resolve(null)).then(
+        (fff) => fff ?? openFallbackBackend(root)
       );
 
       const index: Index = { backend, lastUsed: Date.now(), watchers: 0, busy: 0 };

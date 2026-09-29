@@ -1,5 +1,5 @@
 /** Test helpers: an in-memory BlobChannel. Not used at runtime. */
-import type { BlobId } from "@polaris/protocol";
+import { BlobId } from "@polaris/protocol";
 import { Effect, Layer, Stream } from "effect";
 import { BlobChannel, ServiceError } from "../services.ts";
 
@@ -27,7 +27,7 @@ export const makeFakeBlobChannel = () => {
             ? bytes
             : concat(yield* Stream.runCollect(bytes).pipe(Effect.orDie));
 
-        const id = `blob-${next++}` as BlobId;
+        const id = BlobId.make(`blob-${next++}`);
         blobs.set(id, data);
 
         return id;
@@ -50,7 +50,7 @@ export const makeFakeBlobChannel = () => {
 
   /** Registers bytes as if a Client had sent them. */
   const put = (bytes: Uint8Array): BlobId => {
-    const id = `blob-${next++}` as BlobId;
+    const id = BlobId.make(`blob-${next++}`);
     blobs.set(id, bytes);
 
     return id;

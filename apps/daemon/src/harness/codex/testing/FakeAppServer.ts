@@ -5,20 +5,25 @@
  * code.
  */
 import type { ServerWebSocket } from "bun";
+import { Schema } from "effect";
+import { type RpcId, RpcMessage, type RpcPayload } from "../protocol.ts";
+
+/** The client's answer to a server→client request: its `result`, or `{ error }` (as received). */
+export type ClientAnswer = RpcPayload;
 
 export interface ClientRequest {
-  readonly id: number | string;
+  readonly id: RpcId;
   readonly method: string;
-  readonly params: unknown;
+  readonly params: RpcPayload;
 }
 
 export interface FakeConnection {
   /** Answer the client request currently being handled. */
-  readonly reply: (result: unknown) => void;
+  readonly reply: (result: RpcPayload) => void;
   readonly replyError: (code: number, message: string) => void;
-  readonly notify: (method: string, params: unknown) => void;
+  readonly notify: (method: string, params: RpcPayload) => void;
   /** A server→client request; resolves with the client's `result` (or `{ error }`). */
-  readonly request: (method: string, params: unknown) => Promise<unknown>;
+  readonly request: (method: string, params: RpcPayload) => Promise<ClientAnswer>;
   /** Drop the connection, as if app-server exited. */
   readonly drop: () => void;
 }
@@ -27,18 +32,29 @@ export type Handler = (request: ClientRequest, conn: FakeConnection) => void | P
 
 export interface FakeAppServer {
   /** Every client message, in arrival order (requests, notifications and responses). */
-  readonly received: Array<Record<string, unknown>>;
+  readonly received: Array<RpcMessage>;
   readonly requests: (method: string) => Array<ClientRequest>;
   readonly stop: () => void;
 }
 
-export const startFakeAppServer = (socketPath: string, handler: Handler): FakeAppServer => {
-  const received: Array<Record<string, unknown>> = [];
-  let nextServerId = 1000;
-  const waiting = new Map<string, (value: unknown) => void>();
+/** One JSON-RPC message the fake writes. */
+interface ServerMessage {
+  readonly id?: RpcId | undefined;
+  readonly method?: string;
+  readonly params?: RpcPayload;
+  readonly result?: RpcPayload;
+  readonly error?: { readonly code: number; readonly message: string };
+}
 
-  const connectionFor = (ws: ServerWebSocket<unknown>, current: ClientRequest | null) => {
-    const send = (message: object) => ws.send(JSON.stringify(message));
+const decodeMessage = Schema.decodeUnknownSync(Schema.fromJsonString(RpcMessage));
+
+export const startFakeAppServer = (socketPath: string, handler: Handler): FakeAppServer => {
+  const received: Array<RpcMessage> = [];
+  let nextServerId = 1000;
+  const waiting = new Map<string, (value: ClientAnswer) => void>();
+
+  const connectionFor = (ws: ServerWebSocket<undefined>, current: ClientRequest | null) => {
+    const send = (message: ServerMessage) => ws.send(JSON.stringify(message));
 
     return {
       reply: (result) => send({ id: current?.id, result }),
@@ -54,31 +70,30 @@ export const startFakeAppServer = (socketPath: string, handler: Handler): FakeAp
     } satisfies FakeConnection;
   };
 
+  const onMessage = async (ws: ServerWebSocket<undefined>, data: string | Buffer) => {
+    const message = decodeMessage(String(data));
+    received.push(message);
+    const { id, method, params } = message;
+
+    if (method === undefined) {
+      const resolve = waiting.get(String(id));
+      waiting.delete(String(id));
+      resolve?.(message.error === undefined ? (message.result ?? null) : { error: message.error });
+
+      return;
+    }
+
+    if (id === undefined) return;
+    await handler({ id, method, params }, connectionFor(ws, { id, method, params }));
+  };
+
   const server = Bun.serve({
     unix: socketPath,
     fetch: (req, srv) =>
       srv.upgrade(req) ? undefined : new Response("upgrade required", { status: 426 }),
     websocket: {
-      message: async (ws, data) => {
-        const message = JSON.parse(String(data)) as Record<string, unknown>;
-        received.push(message);
-
-        const { id, method, params } = message as {
-          id?: number | string;
-          method?: string;
-          params?: unknown;
-        };
-
-        if (method === undefined) {
-          const resolve = waiting.get(String(id));
-          waiting.delete(String(id));
-          resolve?.(message.error === undefined ? message.result : { error: message.error });
-
-          return;
-        }
-
-        if (id === undefined) return;
-        await handler({ id, method, params }, connectionFor(ws, { id, method, params }));
+      message: (ws, data) => {
+        void onMessage(ws, data);
       },
     },
   });
@@ -86,24 +101,27 @@ export const startFakeAppServer = (socketPath: string, handler: Handler): FakeAp
   return {
     received,
     requests: (method) =>
-      received
-        .filter((m) => m.method === method && m.id !== undefined)
-        .map((m) => ({ id: m.id as number, method, params: m.params })),
-    stop: () => server.stop(true),
+      received.flatMap((m) =>
+        m.method === method && m.id !== undefined ? [{ id: m.id, method, params: m.params }] : []
+      ),
+    stop: () => {
+      void server.stop(true);
+    },
   };
 };
 
 /** One recorded frame: `out` is client→server, `in` is server→client. */
-export interface Frame {
-  readonly dir: "in" | "out";
-  readonly msg: Record<string, unknown>;
-}
+export const Frame = Schema.Struct({ dir: Schema.Literals(["in", "out"]), msg: RpcMessage });
+
+export type Frame = typeof Frame.Type;
+
+const decodeFrame = Schema.decodeUnknownSync(Schema.fromJsonString(Frame));
 
 export const readFixture = async (path: string): Promise<ReadonlyArray<Frame>> =>
   (await Bun.file(path).text())
     .split("\n")
     .filter((line) => line.trim() !== "")
-    .map((line) => JSON.parse(line) as Frame);
+    .map((line) => decodeFrame(line));
 
 /**
  * Replays a recorded session: for each client request, finds the next recorded
@@ -125,12 +143,10 @@ export const replay = (frames: ReadonlyArray<Frame>): Handler => {
     for (; i < frames.length && frames[i]!.dir === "in"; i++) {
       const msg = frames[i]!.msg;
 
-      if (msg.method !== undefined) conn.notify(msg.method as string, msg.params);
+      if (msg.method !== undefined) conn.notify(msg.method, msg.params);
       else if (msg.id === recordedId)
-        if (msg.error !== undefined) {
-          const error = msg.error as { code: number; message: string };
-          conn.replyError(error.code, error.message);
-        } else conn.reply(msg.result);
+        if (msg.error === undefined) conn.reply(msg.result ?? null);
+        else conn.replyError(msg.error.code, msg.error.message);
     }
 
     cursor = i;

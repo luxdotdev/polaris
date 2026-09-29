@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { Effect, type Scope } from "effect";
 import { polarisHome } from "../../paths.ts";
 import type { HarnessDriver, HarnessProbe } from "../HarnessDriver.ts";
-import { makeAppServer } from "./AppServer.ts";
+import { acquireAppServer } from "./AppServer.ts";
 import { openSession } from "./CodexSession.ts";
 import { codexError } from "./RpcConnection.ts";
 
@@ -66,7 +66,7 @@ export const makeCodexDriver = (
   Effect.gen(function* () {
     const codexPath = options.codexPath === undefined ? Bun.which("codex") : options.codexPath;
 
-    const appServer = yield* makeAppServer({
+    const appServer = yield* acquireAppServer({
       codexPath,
       socketPath: options.socketPath ?? join(polarisHome(), "codex.sock"),
       spawn: options.spawnAppServer ?? true,

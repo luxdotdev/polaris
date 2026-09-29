@@ -34,7 +34,7 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Socket, SocketHandler } from "bun";
+import type { FdSocketOptions, Socket, SocketHandler, SocketListener } from "bun";
 import { Effect, Schema } from "effect";
 import { paths } from "../paths.ts";
 import { CommandRunner } from "./CommandRunner.ts";
@@ -62,8 +62,13 @@ export const Handoff = Schema.Struct({
 
 export type Handoff = typeof Handoff.Type;
 
-const fail = (step: string) => (error: unknown) =>
-  new UpgradeError({ step, message: error instanceof Error ? error.message : String(error) });
+declare module "bun" {
+  /** `Bun.connect({ fd })` works at runtime; Bun's declarations only lack the overload. */
+  function connect<Data = undefined>(options: FdSocketOptions<Data>): Promise<Socket<Data>>;
+}
+
+const fail = (step: string) => (cause: unknown) =>
+  new UpgradeError({ step, message: cause instanceof Error ? cause.message : String(cause) });
 
 // ── Before exec (old image) ────────────────────────────────────────────────
 
@@ -100,7 +105,7 @@ export const prepareHandoff = Effect.fn("prepareHandoff")(function* (
     requestId: extras.requestId ?? null,
   };
 
-  return { [HANDOFF_ENV]: JSON.stringify(handoff) } as Record<string, string>;
+  return { [HANDOFF_ENV]: JSON.stringify(handoff) };
 });
 
 /** Undo `prepareHandoff` after a failed exec. */
@@ -246,24 +251,15 @@ export const adoptListener = Effect.fn("adoptListener")(function* () {
 export const connectFd = <Data = undefined>(
   fd: number,
   socket: SocketHandler<Data>
-): Promise<Socket<Data>> =>
-  (
-    Bun.connect as unknown as (options: {
-      fd: number;
-      socket: SocketHandler<Data>;
-    }) => Promise<Socket<Data>>
-  )({
-    fd,
-    socket,
-  });
+): Promise<Socket<Data>> => Bun.connect({ fd, socket });
 
-/** The fd of a `Bun.listen` (or `node:net`) listener; present at runtime, missing from the types. */
-export const listenerFd = (listener: object): number => {
-  const fd = (listener as { readonly fd?: unknown }).fd;
+const hasFd = Schema.is(Schema.Struct({ fd: Schema.Number }));
 
-  if (typeof fd !== "number") throw new Error("listener has no fd");
+/** The fd of a `Bun.listen` listener; present at runtime, missing from the types. */
+export const listenerFd = <Data>(listener: SocketListener<Data>): number => {
+  if (!hasFd(listener)) throw new Error("listener has no fd");
 
-  return fd;
+  return listener.fd;
 };
 
 /**
@@ -318,7 +314,7 @@ export const UpgradeStatus = Schema.Struct({
 
 export type UpgradeStatus = typeof UpgradeStatus.Type;
 
-const writeJsonAtomic = (path: string, value: unknown) => {
+const writeJsonAtomic = <A>(path: string, value: A) => {
   const temporary = `${path}.${process.pid}.tmp`;
   writeFileSync(temporary, `${JSON.stringify(value)}\n`, { mode: 0o600 });
   renameSync(temporary, path);

@@ -2,15 +2,21 @@
  * Unified diffs for `git.diff`: the working tree (untracked files included),
  * one Turn (between its checkpoint refs), or an arbitrary range.
  */
-import type { SessionId, TurnId } from "@polaris/protocol";
+import { GitDiff } from "@polaris/protocol";
 import { checkpointRef } from "./Checkpoints.ts";
 import { emptyTree, findRepoRoot, resolveCommit, resolveHead, runGit } from "./git.ts";
 import { snapshotWorkingTree } from "./snapshot.ts";
 
-export type DiffSpec =
-  | { readonly _tag: "WorkingTree"; readonly base: string | null }
-  | { readonly _tag: "Turn"; readonly sessionId: SessionId; readonly turnId: TurnId }
-  | { readonly _tag: "Range"; readonly base: string; readonly head: string };
+/** What `git.diff` compares: the protocol's tagged union, with its `cases` constructors. */
+export const DiffSpec = GitDiff.payloadSchema.fields.spec;
+
+export type DiffSpec = typeof DiffSpec.Type;
+
+type WorkingTreeSpec = typeof DiffSpec.cases.WorkingTree.Type;
+
+type TurnSpec = typeof DiffSpec.cases.Turn.Type;
+
+type RangeSpec = typeof DiffSpec.cases.Range.Type;
 
 export class DiffNotFound extends Error {
   constructor(
@@ -70,47 +76,51 @@ const requireCommit = async (root: string, ref: string, what: string): Promise<s
   return commit;
 };
 
+const diffWorkingTree = async (cwd: string, root: string, spec: WorkingTreeSpec) => {
+  const snapshot = await snapshotWorkingTree(root);
+
+  if (snapshot === null) throw new NotARepository(cwd);
+
+  const base =
+    spec.base !== null
+      ? await requireCommit(root, spec.base, "ref")
+      : ((await resolveHead(root)) ?? (await emptyTree(root)));
+
+  return diffTrees(root, base, snapshot.tree);
+};
+
+const diffTurn = async (cwd: string, root: string, spec: TurnSpec) => {
+  const before = await requireCommit(
+    root,
+    checkpointRef(spec.sessionId, spec.turnId, "before"),
+    "checkpoint"
+  );
+
+  // A Turn still in progress has no `after` yet: diff against the working tree now.
+  const after =
+    (await resolveCommit(root, checkpointRef(spec.sessionId, spec.turnId, "after"))) ??
+    (await snapshotWorkingTree(root))?.tree;
+
+  if (after === undefined) throw new NotARepository(cwd);
+
+  return diffTrees(root, before, after);
+};
+
+const diffRange = async (root: string, spec: RangeSpec) => {
+  const base = await requireCommit(root, spec.base, "ref");
+  const head = await requireCommit(root, spec.head, "ref");
+
+  return diffTrees(root, base, head);
+};
+
 export const computeDiff = async (cwd: string, spec: DiffSpec): Promise<DiffResult> => {
   const root = await findRepoRoot(cwd);
 
   if (root === null) throw new NotARepository(cwd);
 
-  switch (spec._tag) {
-    case "WorkingTree": {
-      const snapshot = await snapshotWorkingTree(root);
-
-      if (snapshot === null) throw new NotARepository(cwd);
-
-      const base =
-        spec.base !== null
-          ? await requireCommit(root, spec.base, "ref")
-          : ((await resolveHead(root)) ?? (await emptyTree(root)));
-
-      return diffTrees(root, base, snapshot.tree);
-    }
-
-    case "Turn": {
-      const before = await requireCommit(
-        root,
-        checkpointRef(spec.sessionId, spec.turnId, "before"),
-        "checkpoint"
-      );
-
-      // A Turn still in progress has no `after` yet: diff against the working tree now.
-      const after =
-        (await resolveCommit(root, checkpointRef(spec.sessionId, spec.turnId, "after"))) ??
-        (await snapshotWorkingTree(root))?.tree;
-
-      if (after === undefined) throw new NotARepository(cwd);
-
-      return diffTrees(root, before, after);
-    }
-
-    case "Range": {
-      const base = await requireCommit(root, spec.base, "ref");
-      const head = await requireCommit(root, spec.head, "ref");
-
-      return diffTrees(root, base, head);
-    }
-  }
+  return DiffSpec.match(spec, {
+    WorkingTree: (workingTree) => diffWorkingTree(cwd, root, workingTree),
+    Turn: (turn) => diffTurn(cwd, root, turn),
+    Range: (range) => diffRange(root, range),
+  });
 };

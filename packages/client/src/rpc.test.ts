@@ -1,7 +1,26 @@
 import { describe, expect, test } from "bun:test";
 import { type ByteTransport, makeWire, type TransportError } from "@polaris/protocol";
-import { type Cause, Effect, Exit, Fiber, Queue, type Scope, Stream } from "effect";
+import {
+  type Cause,
+  Effect,
+  Exit,
+  Fiber,
+  Predicate,
+  Queue,
+  Schema,
+  type Scope,
+  Stream,
+} from "effect";
+import { RequestId, ResponseExitDieEncoded } from "effect/rpc/RpcMessage";
 import { connectRpc } from "./rpc.ts";
+
+/** The parts of a message from the Client that the peer looks at. */
+const Sent = Schema.Struct({
+  _tag: Schema.String,
+  id: Schema.optional(Schema.Union([Schema.String, Schema.Number])),
+});
+
+const decodeSent = Schema.decodeUnknownSync(Schema.fromJsonString(Sent));
 
 type Pipe = Queue.Queue<Uint8Array, TransportError | Cause.Done>;
 
@@ -19,18 +38,17 @@ const silentPeer = Effect.gen(function* () {
     close: Effect.sync(() => Queue.endUnsafe(outbox)),
   });
 
-  const received: Array<{ readonly _tag: string; readonly id?: string; readonly tag?: string }> =
-    [];
+  const received: Array<typeof Sent.Type> = [];
 
   const peer = yield* makeWire(side(toPeer, toClient), (text) =>
     Effect.sync(() => {
-      received.push(JSON.parse(text));
+      received.push(decodeSent(text));
     })
   );
 
   const transport = { ...side(toClient, toPeer), diagnose: Effect.die("unused") };
   const connection = yield* connectRpc(transport, { pingIntervalMs: 20 });
-  const pings = () => received.filter((m) => m._tag === "Ping").length;
+  const pings = () => received.filter(Predicate.isTagged("Ping")).length;
 
   return { connection, peer, received, pings };
 });
@@ -67,13 +85,11 @@ describe("keepalive", () => {
         yield* Effect.sleep(45);
         const whileWaiting = pings();
         // Answer the hello with a failure Exit: the reply is no longer due.
-        const request = received.find((m) => m._tag === "Request")!;
+        const request: typeof Sent.Type = received.find((m) => Predicate.isTagged(m, "Request"))!;
         yield* peer.sendJson(
-          JSON.stringify({
-            _tag: "Exit",
-            requestId: request.id,
-            exit: { _tag: "Failure", cause: [{ _tag: "Die", defect: "no" }] },
-          })
+          JSON.stringify(
+            ResponseExitDieEncoded({ requestId: RequestId(request.id!), encodedDefect: "no" })
+          )
         );
         yield* Fiber.join(hello);
         const afterReply = pings();

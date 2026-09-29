@@ -78,46 +78,50 @@ const failWith = (
   jitter = 0.3
 ) => connectionMachine.transition(snapshot, { type: "failed", failure, now, jitter })[0];
 
+/** The machine decides `failure` at `now` exactly as the oracle (the old reconnect loop) did. */
+const expectOracleDecision = (
+  snapshot: ConnectionSnapshot,
+  failure: ConnectFailure,
+  now: number,
+  jitter: number
+) => {
+  const next = failWith(snapshot, failure, now, jitter);
+  const { policy } = snapshot.context;
+
+  const expected = oracle(
+    policy,
+    snapshot.context,
+    snapshot.value === "connected",
+    failure,
+    now,
+    jitter
+  );
+
+  expect({
+    state: next.value,
+    attempt: next.context.attempt,
+    failingSince: next.context.failingSince,
+    lostAt: next.context.lostAt,
+    delay: next.context.delay,
+  }).toEqual(expected);
+};
+
+const reachedModels = (): Array<ConnectionModel> =>
+  connectionPaths().states.map((steps) => steps.reduce(stepConnection, initialConnectionModel()));
+
 describe("Connection State machine", () => {
   test("decides every failure exactly as the reconnect loop did (every reachable state)", () => {
     const failures = [...Object.values(FAILURES), LOST];
-    const reached: Array<ConnectionModel> = [];
-
-    for (const steps of connectionPaths().states) {
-      let model = initialConnectionModel();
-
-      for (const step of steps) model = stepConnection(model, step);
-      reached.push(model);
-    }
 
     // Also with the default policy and jitter, at a spread of times.
-    for (const model of reached) {
+    for (const model of reachedModels()) {
       for (const policy of [model.machine.context.policy, DEFAULT_POLICY]) {
         const snapshot = { ...model.machine, context: { ...model.machine.context, policy } };
 
         for (const failure of failures) {
           for (const dt of [0, 1_000, 29_999, 30_000, 599_999, 600_000]) {
-            for (const jitter of [0, 0.5, 0.99]) {
-              const now = model.clock + dt;
-              const next = failWith(snapshot, failure, now, jitter);
-
-              const expected = oracle(
-                policy,
-                snapshot.context,
-                snapshot.value === "connected",
-                failure,
-                now,
-                jitter
-              );
-
-              expect({
-                state: next.value,
-                attempt: next.context.attempt,
-                failingSince: next.context.failingSince,
-                lostAt: next.context.lostAt,
-                delay: next.context.delay,
-              }).toEqual(expected);
-            }
+            for (const jitter of [0, 0.5, 0.99])
+              expectOracleDecision(snapshot, failure, model.clock + dt, jitter);
           }
         }
       }

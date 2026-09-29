@@ -19,7 +19,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Layer } from "effect";
 import { type DaemonBuild, loadBuilds, platformFromUname } from "./builds.ts";
-import { ensureDaemon, parseProbe } from "./remote.ts";
+import { InstallPlan } from "./plan.ts";
+import {
+  ApplyResult,
+  EnsureResult,
+  ensureDaemon,
+  parseProbe,
+  RemoteInstallError,
+} from "./remote.ts";
 import { classifySshFailure, Ssh, SshError } from "./Ssh.ts";
 
 const uname = (flag: string) => Bun.spawnSync(["uname", flag]).stdout.toString().trim();
@@ -139,10 +146,16 @@ describe("ensureDaemon", () => {
       )
     );
 
-    expect(result).toMatchObject({
-      _tag: "ApprovalNeeded",
-      plan: { platform, version: "1.0.0", sha256: builds[0]!.sha256 },
-    });
+    expect(result).toEqual(
+      EnsureResult.ApprovalNeeded({
+        plan: InstallPlan.NeedsApproval({
+          platform,
+          version: "1.0.0",
+          sha256: builds[0]!.sha256,
+          reason: "first-install",
+        }),
+      })
+    );
     expect(commands).toHaveLength(1); // only the probe
   });
 
@@ -154,10 +167,15 @@ describe("ensureDaemon", () => {
       ensureDaemon("h", builds, approved).pipe(Effect.provide(localSsh()))
     );
 
-    expect(result).toMatchObject({
-      _tag: "Ready",
-      applied: { _tag: "Installed", version: "1.0.0" },
-    });
+    expect(result).toEqual(
+      EnsureResult.Ready({
+        plan: InstallPlan.Install({ build: builds[0]! }),
+        applied: ApplyResult.Installed({
+          version: "1.0.0",
+          report: { ok: true, action: "install", version: "1.0.0" },
+        }),
+      })
+    );
     expect(current()).toBe("1.0.0");
     expect(readFileSync(join(host, ".polaris/bin/1.0.0/libnative.so"), "utf8")).toBe(
       "native library 1.0.0"
@@ -175,7 +193,9 @@ describe("ensureDaemon", () => {
       )
     );
 
-    expect(again).toMatchObject({ _tag: "Ready", plan: { _tag: "UpToDate" }, applied: null });
+    expect(again).toEqual(
+      EnsureResult.Ready({ plan: InstallPlan.UpToDate({ version: "1.0.0" }), applied: null })
+    );
   });
 
   test("upgrades an installed Daemon with polaris upgrade <path>", async () => {
@@ -194,10 +214,16 @@ describe("ensureDaemon", () => {
       )
     );
 
-    expect(result).toMatchObject({
-      _tag: "Ready",
-      applied: { _tag: "Upgraded", from: "1.0.0", version: "1.1.0" },
-    });
+    expect(result).toEqual(
+      EnsureResult.Ready({
+        plan: InstallPlan.Upgrade({ from: "1.0.0", build: v2[0]! }),
+        applied: ApplyResult.Upgraded({
+          from: "1.0.0",
+          version: "1.1.0",
+          report: { ok: true, action: "handoff", version: "1.1.0" },
+        }),
+      })
+    );
     expect(current()).toBe("1.1.0");
     expect(commands.some((c) => c.includes("current/polaris") && c.includes("upgrade"))).toBe(true);
   });
@@ -212,7 +238,8 @@ describe("ensureDaemon", () => {
       }).pipe(Effect.flip, Effect.provide(localSsh({ corruptUploads: true })))
     );
 
-    expect(error).toMatchObject({ _tag: "RemoteInstallError", step: "upload polaris" });
+    expect(error).toBeInstanceOf(RemoteInstallError);
+    expect(error).toMatchObject({ step: "upload polaris" });
     expect(error.message).toContain("SHA-256 on the Host");
   });
 
@@ -224,8 +251,7 @@ describe("ensureDaemon", () => {
       )
     );
 
-    expect(error).toBeInstanceOf(SshError);
-    expect((error as SshError).needsAttention).toBe(false);
+    expect(error instanceof SshError ? error.needsAttention : "not an SshError").toBe(false);
   });
 });
 

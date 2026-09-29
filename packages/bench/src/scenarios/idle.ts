@@ -9,7 +9,7 @@
  */
 import { join } from "node:path";
 import { Effect, Stream } from "effect";
-import { awaitReady, cleanup, connect, makeTempDir } from "../daemon.ts";
+import { awaitReady, cleanup, connect, createTempDir } from "../daemon.ts";
 import { registerWorkspace, settle, startSession, waitUntil, watchSession } from "../drive.ts";
 import { smallRepo } from "../fixtures.ts";
 import { startSampler } from "../sampler.ts";
@@ -27,7 +27,7 @@ export const idle: Scenario = {
       const windowMs = ctx.quick ? 10_000 : 30_000;
 
       const root = yield* Effect.acquireRelease(
-        Effect.sync(() => makeTempDir("idle")),
+        Effect.sync(() => createTempDir("idle")),
         (dir) => Effect.sync(() => cleanup(dir))
       );
 
@@ -35,7 +35,7 @@ export const idle: Scenario = {
 
       // Set up: Workspaces and sessions that each ran one Turn.
       const home = yield* Effect.acquireRelease(
-        Effect.sync(() => makeTempDir("home")),
+        Effect.sync(() => createTempDir("home")),
         (dir) => Effect.sync(() => cleanup(dir))
       );
 

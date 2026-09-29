@@ -19,7 +19,7 @@ import { createHash } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { paths } from "../../paths.ts";
-import type { WorkerReply, WorkerRequest, WorkerWatchEvent } from "./fffWorker.ts";
+import type { WorkerReply, WorkerRequest, WorkerValue, WorkerWatchEvent } from "./fffWorker.ts";
 import type { FileChange, GrepHit, PathHit, SearchBackend } from "./types.ts";
 
 let loadError: string | null = null;
@@ -53,7 +53,7 @@ interface Connection {
   readonly worker: Worker;
   readonly pending: Map<
     number,
-    { resolve: (value: unknown) => void; reject: (error: Error) => void }
+    { resolve: (value: WorkerValue) => void; reject: (error: Error) => void }
   >;
   readonly watchers: Map<number, (changes: ReadonlyArray<FileChange>) => void>;
   nextId: number;
@@ -123,11 +123,13 @@ const connect = (): Connection => {
   return conn;
 };
 
-const call = <A>(conn: Connection, request: Request): Promise<A> =>
+const call = <A extends WorkerValue>(conn: Connection, request: Request): Promise<A> =>
   new Promise<A>((resolve, reject) => {
     const id = conn.nextId++;
-    conn.pending.set(id, { resolve: resolve as (value: unknown) => void, reject });
-    conn.worker.postMessage({ ...request, id } as WorkerRequest);
+    // SAFETY: the worker answers `id` with the result of this request's op, which callers name as `A`.
+    conn.pending.set(id, { resolve: resolve as (value: WorkerValue) => void, reject });
+    const message: WorkerRequest = { ...request, id };
+    conn.worker.postMessage(message);
   });
 
 /** Drops one open index; the last one stops the worker once the worker has closed it. */
@@ -162,7 +164,7 @@ export const loadFff = async (): Promise<true | null> => {
  * library can't load or refuses the root. Frecency and query history live
  * under `~/.polaris/fff/<hash of root>/` (one LMDB environment per index).
  */
-export const makeFffBackend = async (root: string): Promise<SearchBackend | null> => {
+export const openFffBackend = async (root: string): Promise<SearchBackend | null> => {
   if ((await loadFff()) === null) return null;
 
   const dbDir = join(

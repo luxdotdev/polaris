@@ -19,6 +19,8 @@ export const PLATFORMS = [
 
 export type Platform = (typeof PLATFORMS)[number];
 
+const isPlatform = Schema.is(Schema.Literals(PLATFORMS));
+
 /** A Linux Host's C library: glibc builds don't run on musl (Alpine) and vice versa. */
 export type Libc = "gnu" | "musl";
 
@@ -33,15 +35,15 @@ export const platformFromUname = (
 ): Platform | null => {
   const system = os.trim().toLowerCase();
   const machine = arch.trim().toLowerCase();
-  const suffix = libc === "musl" ? "-musl" : "";
+  const musl = libc === "musl";
 
   if (system === "darwin" && (machine === "arm64" || machine === "aarch64")) return "darwin-arm64";
 
   if (system === "linux" && (machine === "x86_64" || machine === "amd64"))
-    return `linux-x64${suffix}` as Platform;
+    return musl ? "linux-x64-musl" : "linux-x64";
 
   if (system === "linux" && (machine === "aarch64" || machine === "arm64"))
-    return `linux-arm64${suffix}` as Platform;
+    return musl ? "linux-arm64-musl" : "linux-arm64";
 
   return null;
 };
@@ -91,7 +93,7 @@ export const loadBuilds = (distDir: string): ReadonlyArray<DaemonBuild> => {
   );
 
   return Object.entries(manifest.platforms).flatMap(([platform, build]) => {
-    if (!(PLATFORMS as ReadonlyArray<string>).includes(platform)) return [];
+    if (!isPlatform(platform)) return [];
 
     const names = [
       build.binary,
@@ -100,7 +102,7 @@ export const loadBuilds = (distDir: string): ReadonlyArray<DaemonBuild> => {
 
     return [
       {
-        platform: platform as Platform,
+        platform,
         version: manifest.version,
         sha256: build.sha256,
         files: names.map((name) => ({

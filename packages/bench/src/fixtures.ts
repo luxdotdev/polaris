@@ -128,7 +128,7 @@ export const copyTree = (source: string, dest: string) => {
 };
 
 /** A file of `bytes` pseudo-random bytes (incompressible, like a binary or image). */
-export const randomFile = (path: string, bytes: number) => {
+export const randomFile = async (path: string, bytes: number) => {
   const chunk = new Uint8Array(1024 * 1024);
   const random = rng(bytes);
 
@@ -136,7 +136,7 @@ export const randomFile = (path: string, bytes: number) => {
   const out = Bun.file(path).writer();
 
   for (let written = 0; written < bytes; written += chunk.length) {
-    out.write(chunk.subarray(0, Math.min(chunk.length, bytes - written)));
+    await out.write(chunk.subarray(0, Math.min(chunk.length, bytes - written)));
   }
 
   return out.end();

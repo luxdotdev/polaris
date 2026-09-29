@@ -45,13 +45,13 @@ const linkForwardedAgent = () => {
 };
 
 interface Source {
-  pause(): unknown;
-  resume(): unknown;
+  pause(): void;
+  resume(): void;
 }
 
 interface Sink {
   write(chunk: Uint8Array, callback: () => void): boolean;
-  once(event: "drain", listener: () => void): unknown;
+  once(event: "drain", listener: () => void): void;
 }
 
 /**

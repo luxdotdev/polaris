@@ -38,13 +38,16 @@ export class LockError extends Schema.TaggedError<LockError>()("LockError", {
   message: Schema.String,
 }) {}
 
+/** A Node system error, which carries its errno name in `code`. */
+const isErrno = Schema.is(Schema.Struct({ code: Schema.String }));
+
 const isAlive = (pid: number): boolean => {
   try {
     process.kill(pid, 0);
 
     return true;
   } catch (error) {
-    return (error as NodeJS.ErrnoException).code === "EPERM";
+    return isErrno(error) && error.code === "EPERM";
   }
 };
 
@@ -78,13 +81,43 @@ const tryCreate = (path: string): boolean => {
 
     return true;
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "EEXIST") return false;
+    if (isErrno(error) && error.code === "EEXIST") return false;
     throw error;
   }
 };
 
 /** Lock files this process holds right now. */
 const held = new Set<string>();
+
+/** `-1` stands for a holder that hasn't written its pid yet. */
+type Claim = "acquired" | number;
+
+const removeStale = (path: string) => {
+  try {
+    unlinkSync(path);
+  } catch (error) {
+    if (!isErrno(error) || error.code !== "ENOENT") throw error;
+  }
+};
+
+const claim = (path: string): Claim => {
+  mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (tryCreate(path)) return "acquired";
+    const pid = readPid(path);
+
+    if (pid === process.pid) return held.has(path) ? pid : "acquired";
+
+    if (pid !== null && isAlive(pid)) return pid;
+
+    // No pid yet: another Daemon may be between creating the file and writing it.
+    if (pid === null && isFresh(path)) return -1;
+    removeStale(path);
+  }
+
+  return readPid(path) ?? -1;
+};
 
 /**
  * Holds the Daemon lock for the lifetime of the scope.
@@ -97,29 +130,7 @@ export const acquireLock = Effect.fnUntraced(function* (
 ): Effect.fn.Return<void, DaemonAlreadyRunning | LockError, Scope.Scope> {
   yield* Effect.acquireRelease(
     Effect.try({
-      try: () => {
-        mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-
-        for (let attempt = 0; attempt < 3; attempt++) {
-          if (tryCreate(path)) return "acquired" as const;
-          const pid = readPid(path);
-
-          if (pid === process.pid) return held.has(path) ? pid : ("acquired" as const);
-
-          if (pid !== null && isAlive(pid)) return pid;
-
-          // No pid yet: another Daemon may be between creating the file and writing it.
-          if (pid === null && isFresh(path)) return -1;
-
-          try {
-            unlinkSync(path);
-          } catch (error) {
-            if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-          }
-        }
-
-        return readPid(path) ?? -1;
-      },
+      try: () => claim(path),
       catch: (cause) => new LockError({ path, message: String(cause) }),
     }).pipe(
       Effect.flatMap((result) =>

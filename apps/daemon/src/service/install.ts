@@ -334,9 +334,11 @@ const withMarkedLine = (content: string, line: string | null): string => {
 /** The login profiles to hook: `~/.profile`, plus bash's own if they exist (bash reads only the first). */
 const profileFiles = (ctx: InstallContext): Array<string> => [
   join(ctx.userHome, ".profile"),
-  ...[".bash_profile", ".bash_login"]
-    .map((name) => join(ctx.userHome, name))
-    .filter((path) => existsSync(path)),
+  ...[".bash_profile", ".bash_login"].flatMap((name) => {
+    const path = join(ctx.userHome, name);
+
+    return existsSync(path) ? [path] : [];
+  }),
 ];
 
 const editProfiles = (ctx: InstallContext, line: string | null) =>
@@ -528,7 +530,7 @@ export const install = Effect.fn("install")(function* (
     ctx.os === "darwin"
       ? yield* activateLaunchd(ctx, paths.serviceFile, changed)
       : fallback
-        ? yield* activateFallback(ctx, changed, plan!, linux!)
+        ? yield* activateFallback(ctx, changed, plan, linux!)
         : yield* activateSystemd(ctx, changed);
 
   const supervisor: Supervisor =
@@ -545,7 +547,7 @@ export const install = Effect.fn("install")(function* (
     restarted: activation.restarted,
     linger: activation.linger,
     supervisor,
-    autostart: fallback ? plan!.autostart : [],
+    autostart: fallback ? plan.autostart : [],
     notes: activation.notes,
   };
 });

@@ -1,7 +1,7 @@
 /** Runs scenarios (each run with fresh Daemons) and aggregates runs into medians. */
 import { existsSync, mkdirSync, readdirSync, renameSync } from "node:fs";
 import { join } from "node:path";
-import { Duration, Effect } from "effect";
+import { Duration, Effect, Exit } from "effect";
 import { cleanup, launchDaemon, type TransportKind } from "./daemon.ts";
 import { startSampler } from "./sampler.ts";
 import { median } from "./stats.ts";
@@ -60,7 +60,7 @@ const contextFor = (options: RunnerOptions, profileDir: string | null): Scenario
         }),
 });
 
-const aggregate = (runs: ReadonlyArray<ScenarioRun>): Record<string, AggregatedMetric> => {
+const aggregate = (runs: ReadonlyArray<ScenarioRun>) => {
   const byName = new Map<string, Array<Metric>>();
 
   for (const run of runs) {
@@ -109,7 +109,7 @@ export const runScenario = async (
       )
     );
 
-    if (exit._tag === "Success") {
+    if (Exit.isSuccess(exit)) {
       runs.push(exit.value);
     } else {
       error = String(exit.cause).split("\n").slice(0, 8).join("\n");
@@ -131,10 +131,11 @@ export const runScenario = async (
       : runs.flatMap((r, i) => (r.notes.includes(note) ? [`run ${i + 1}: ${note}`] : []))
   );
 
-  return {
+  const result: ScenarioResult = {
     metrics: aggregate(runs),
     notes,
     durationMs: performance.now() - started,
-    ...(error === undefined ? {} : { error }),
   };
+
+  return error === undefined ? result : { ...result, error };
 };

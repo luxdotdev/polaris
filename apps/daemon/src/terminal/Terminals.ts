@@ -31,8 +31,8 @@ import {
 import { stat } from "node:fs/promises";
 import { userInfo } from "node:os";
 import { dirname, join } from "node:path";
-import { FileError, NotFound, type TerminalId } from "@polaris/protocol";
-import { Context, Effect, Layer, Queue, Schema, Stream } from "effect";
+import { FileError, NotFound, TerminalAttach, TerminalId } from "@polaris/protocol";
+import { Context, Effect, Layer, Option, Predicate, Queue, Schema, Stream } from "effect";
 import { resolveHostPath, toFsFailure } from "../files/fs.ts";
 import { paths } from "../paths.ts";
 import * as libc from "../service/libc.ts";
@@ -57,9 +57,12 @@ export const OUTPUT_FLUSH_MS = 4;
 
 export const OUTPUT_FLUSH_BYTES = 64 * 1024;
 
-export type TerminalItem =
-  | { readonly _tag: "Output"; readonly data: Uint8Array }
-  | { readonly _tag: "Exit"; readonly code: number | null };
+/** What an attacher receives: `terminal.attach`'s items, with their `cases` constructors. */
+export const TerminalItem = TerminalAttach.successSchema.success;
+
+export type TerminalItem = typeof TerminalItem.Type;
+
+export type TerminalOutput = typeof TerminalItem.cases.Output.Type;
 
 /** A byte ring buffer of whole chunks, trimmed from the front to `capacity`. */
 export class Scrollback {
@@ -150,6 +153,11 @@ interface PendingOutput {
   timer: ReturnType<typeof setTimeout> | null;
 }
 
+/** Where a spawned PTY's output goes: set once its `Live` exists. */
+interface OutputTarget {
+  live: Live | undefined;
+}
+
 const pendingOutput = (): PendingOutput => ({
   buffer: new Uint8Array(OUTPUT_FLUSH_BYTES),
   length: 0,
@@ -208,7 +216,7 @@ const clampSize = (n: number, fallback: number) =>
 
 /** A terminal as recorded on disk (`terminals.json`), so the next Daemon knows it ended. */
 const TerminalRecord = Schema.Struct({
-  id: Schema.String,
+  id: TerminalId,
   cwd: Schema.String,
   argv: Schema.Array(Schema.String),
   pid: Schema.Int,
@@ -234,17 +242,20 @@ const decodeHanded = Schema.decodeUnknownOption(
   Schema.fromJsonString(Schema.Array(HandedTerminal))
 );
 
-const readJson = <A>(path: string, decode: (raw: string) => { _tag: string; value?: A }) => {
-  try {
-    const decoded = decode(readFileSync(path, "utf8"));
+type TerminalRecord = typeof TerminalRecord.Type;
 
-    return decoded._tag === "Some" ? (decoded.value as A) : null;
+type HandedTerminal = typeof HandedTerminal.Type;
+
+const readJson = <A>(path: string, decode: (raw: string) => Option.Option<A>): A | null => {
+  try {
+    return Option.getOrNull(decode(readFileSync(path, "utf8")));
   } catch {
     return null;
   }
 };
 
-const writeJsonAtomic = (path: string, value: unknown) => {
+/** Handed terminals are records too, so both files go through here. */
+const writeJsonAtomic = (path: string, value: ReadonlyArray<TerminalRecord>) => {
   mkdirSync(dirname(path), { recursive: true });
   const temporary = `${path}.${process.pid}.tmp`;
   writeFileSync(temporary, JSON.stringify(value), { mode: 0o600 });
@@ -288,9 +299,8 @@ const openFdsOrNull = (): Set<number> | null => {
   }
 };
 
-const isAgain = (error: unknown) =>
-  (error as { code?: string } | null)?.code === "EAGAIN" ||
-  (error as { code?: string } | null)?.code === "EWOULDBLOCK";
+/** A write to a non-blocking fd that would block: retry later. */
+const isAgain = Schema.is(Schema.Struct({ code: Schema.Literals(["EAGAIN", "EWOULDBLOCK"]) }));
 
 /**
  * A PTY master fd inherited across an execve. Bun opened it non-blocking, so
@@ -371,6 +381,45 @@ const adoptPty = (options: {
   };
 };
 
+// ── Start-up ───────────────────────────────────────────────────────────────
+
+/** A terminal an upgrade handed over, with its scrollback; its PTY is adopted separately. */
+const liveFromHanded = (record: HandedTerminal): Live => {
+  const scrollback = new Scrollback(SCROLLBACK_BYTES);
+  const replay = Buffer.from(record.scrollback, "base64");
+
+  if (replay.byteLength > 0) scrollback.push(new Uint8Array(replay));
+
+  return {
+    info: { id: record.id, cwd: record.cwd, argv: record.argv, pid: record.pid },
+    pty: null,
+    masterFd: null,
+    slave: record.slave,
+    cols: record.cols,
+    rows: record.rows,
+    scrollback,
+    listeners: new Set(),
+    exit: record.exit,
+    endedBy: record.endedBy,
+    pending: pendingOutput(),
+  };
+};
+
+/** A terminal the previous Daemon recorded as running: a crash or restart ended it. */
+const endedLive = (record: TerminalRecord): Live => ({
+  info: { id: record.id, cwd: record.cwd, argv: record.argv, pid: record.pid },
+  pty: null,
+  masterFd: null,
+  slave: null,
+  cols: 80,
+  rows: 24,
+  scrollback: new Scrollback(SCROLLBACK_BYTES),
+  listeners: new Set(),
+  exit: { code: null },
+  endedBy: "daemon-restart",
+  pending: pendingOutput(),
+});
+
 // ── The service ────────────────────────────────────────────────────────────
 
 export const makeTerminalsWith = (options: TerminalsOptions) =>
@@ -385,9 +434,9 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
     const persist = () => {
       if (recordsFile === null) return;
 
-      const running = [...terminals.values()]
-        .filter((live) => live.exit === null)
-        .map((live) => ({ ...live.info, argv: [...live.info.argv] }));
+      const running = [...terminals.values()].flatMap((live) =>
+        live.exit === null ? [{ ...live.info, argv: [...live.info.argv] }] : []
+      );
 
       try {
         writeJsonAtomic(recordsFile, running);
@@ -430,7 +479,7 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
 
       pending.length = 0;
       live.scrollback.push(chunk);
-      broadcast(live, { _tag: "Output", data: chunk });
+      broadcast(live, TerminalItem.cases.Output.make({ data: chunk }));
     };
 
     /** Gathers PTY output; copies it, so the caller's buffer may be reused. */
@@ -457,7 +506,7 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
       flush(live);
       live.exit = { code };
       live.endedBy = endedBy;
-      broadcast(live, { _tag: "Exit", code });
+      broadcast(live, TerminalItem.cases.Exit.make({ code }));
       live.listeners.clear();
       persist();
     };
@@ -510,73 +559,35 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
 
     if (handoffFile !== null) rmSync(handoffFile, { force: true });
 
+    /** Re-adopts a handed terminal's PTY master fd, or ends it when none came across. */
+    const adopt = (live: Live, fd: number | undefined) => {
+      if (live.exit !== null) return;
+
+      if (fd === undefined) {
+        finish(live, null, "daemon-restart");
+
+        return;
+      }
+
+      live.masterFd = fd;
+      live.pty = adoptPty({
+        fd,
+        slave: live.slave,
+        onData: (chunk) => output(live, chunk),
+        onClosed: () => {},
+      });
+      watchAdopted(live);
+    };
+
     if (handed !== null && handoff !== null) {
-      for (const record of handed as ReadonlyArray<typeof HandedTerminal.Type>) {
-        const scrollback = new Scrollback(SCROLLBACK_BYTES);
-        const replay = Buffer.from(record.scrollback, "base64");
-
-        if (replay.byteLength > 0) scrollback.push(new Uint8Array(replay));
-
-        const live: Live = {
-          info: {
-            id: record.id as TerminalId,
-            cwd: record.cwd,
-            argv: record.argv,
-            pid: record.pid,
-          },
-          pty: null,
-          masterFd: null,
-          slave: record.slave,
-          cols: record.cols,
-          rows: record.rows,
-          scrollback,
-          listeners: new Set(),
-          exit: record.exit,
-          endedBy: record.endedBy,
-          pending: pendingOutput(),
-        };
-
+      for (const record of handed) {
+        const live = liveFromHanded(record);
         terminals.set(record.id, live);
-        const fd = handoff.fds[handoffName(record.id)];
-
-        if (live.exit !== null) continue;
-
-        if (fd === undefined) {
-          finish(live, null, "daemon-restart");
-          continue;
-        }
-
-        live.masterFd = fd;
-        live.pty = adoptPty({
-          fd,
-          slave: record.slave,
-          onData: (chunk) => output(live, chunk),
-          onClosed: () => {},
-        });
-        watchAdopted(live);
+        adopt(live, handoff.fds[handoffName(record.id)]);
       }
     } else if (recordsFile !== null) {
-      const ended = readJson(recordsFile, decodeRecords) ?? [];
-
-      for (const record of ended as ReadonlyArray<typeof TerminalRecord.Type>) {
-        terminals.set(record.id, {
-          info: {
-            id: record.id as TerminalId,
-            cwd: record.cwd,
-            argv: record.argv,
-            pid: record.pid,
-          },
-          pty: null,
-          masterFd: null,
-          slave: null,
-          cols: 80,
-          rows: 24,
-          scrollback: new Scrollback(SCROLLBACK_BYTES),
-          listeners: new Set(),
-          exit: { code: null },
-          endedBy: "daemon-restart",
-          pending: pendingOutput(),
-        });
+      for (const record of readJson(recordsFile, decodeRecords) ?? []) {
+        terminals.set(record.id, endedLive(record));
       }
     }
 
@@ -662,10 +673,10 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
           ? [...openOptions.argv]
           : [loginShell(), "-l"];
 
-      const id = `term_${randomUUID()}` as TerminalId;
+      const id = TerminalId.make(`term_${randomUUID()}`);
       const cols = clampSize(openOptions.cols, 80);
       const rows = clampSize(openOptions.rows, 24);
-      let live: Live | undefined;
+      const target: OutputTarget = { live: undefined };
 
       const spawned = yield* Effect.try({
         try: () => {
@@ -680,8 +691,8 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
               rows,
               name: "xterm-256color",
               data: (_terminal, data) => {
-                if (live !== undefined) {
-                  output(live, data instanceof Uint8Array ? data : new Uint8Array(data));
+                if (target.live !== undefined) {
+                  output(target.live, data instanceof Uint8Array ? data : new Uint8Array(data));
                 }
               },
             },
@@ -704,7 +715,8 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
       });
 
       const terminal = spawned.proc.terminal!;
-      live = {
+
+      const live: Live = {
         info: { id, cwd, argv, pid: spawned.proc.pid },
         pty: {
           write: (data) => {
@@ -725,12 +737,13 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
         endedBy: null,
         pending: pendingOutput(),
       };
-      const opened = live;
-      terminals.set(id, opened);
+
+      target.live = live;
+      terminals.set(id, live);
       persist();
       void spawned.proc.exited.then(() => {
         // Let the PTY drain the last output before reporting the exit.
-        setTimeout(() => finish(opened, spawned.proc.exitCode), DRAIN_AFTER_EXIT_MS);
+        setTimeout(() => finish(live, spawned.proc.exitCode), DRAIN_AFTER_EXIT_MS);
       });
 
       return id;
@@ -743,10 +756,11 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
           // Synchronous: no output can slip between the replay and the subscription.
           const replay = live.scrollback.snapshot();
 
-          if (replay.byteLength > 0) Queue.offerUnsafe(queue, { _tag: "Output", data: replay });
+          if (replay.byteLength > 0)
+            Queue.offerUnsafe(queue, TerminalItem.cases.Output.make({ data: replay }));
 
           if (live.exit !== null) {
-            Queue.offerUnsafe(queue, { _tag: "Exit", code: live.exit.code });
+            Queue.offerUnsafe(queue, TerminalItem.cases.Exit.make({ code: live.exit.code }));
             Queue.endUnsafe(queue);
 
             return;
@@ -755,7 +769,7 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
           const listener = (item: TerminalItem) => {
             Queue.offerUnsafe(queue, item);
 
-            if (item._tag === "Exit") Queue.endUnsafe(queue);
+            if (Predicate.isTagged(item, "Exit")) Queue.endUnsafe(queue);
           };
 
           live.listeners.add(listener);

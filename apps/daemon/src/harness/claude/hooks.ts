@@ -16,12 +16,13 @@
 import { timingSafeEqual } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { RequestId, SessionId, TurnId, TurnItem } from "@polaris/protocol";
-import { type Cause, Context, Effect, Layer, Queue, Stream } from "effect";
+import { RequestId, type SessionId, TurnId, TurnItem } from "@polaris/protocol";
+import { type Cause, Context, Effect, Layer, Option, Queue, Stream } from "effect";
 import { paths } from "../../paths.ts";
-import { HarnessError, type HarnessEvent } from "../HarnessDriver.ts";
+import { HarnessError, HarnessEvent } from "../HarnessDriver.ts";
 import { approvalKind, describeToolCall } from "./permissions.ts";
-import { planSteps, toolItem } from "./translate.ts";
+import { decodeHookBody, type HookBody, type ToolPayload } from "./payloads.ts";
+import { planItem, toolItem } from "./translate.ts";
 
 /** Hook events Polaris subscribes to while a session is In Terminal. */
 export const FOLLOWED_HOOK_EVENTS = [
@@ -60,11 +61,6 @@ export const hookSettings = (options: { readonly url: string; readonly token: st
   };
 };
 
-const isRecord = (u: unknown): u is Record<string, unknown> =>
-  typeof u === "object" && u !== null && !Array.isArray(u);
-
-const str = (u: unknown): string | null => (typeof u === "string" ? u : null);
-
 /**
  * Turns hook POST bodies into `HarnessEvent`s for one session. Turns started in the
  * TUI get Polaris Turn ids minted here, with the typed prompt. Every hook carries the
@@ -79,9 +75,20 @@ export class HookTranslator {
   private turnId: TurnId | null = null;
   private cursor: string | null;
   private pendingPrompt: RequestId | null = null;
-  private lastTool: { readonly name: string; readonly input: unknown } | null = null;
+  private lastTool: { readonly name: string; readonly input: ToolPayload } | null = null;
   private plan: TurnItem | null = null;
   private ended = false;
+
+  /** What each followed hook event does, by `hook_event_name`. */
+  private readonly handlers = new Map<string, (body: HookBody, events: HarnessEvent[]) => void>([
+    ["UserPromptSubmit", (body, events) => this.onPrompt(body, events)],
+    ["PreToolUse", (body, events) => this.onPreToolUse(body, events)],
+    ["PostToolUse", (body, events) => this.onPostToolUse(body, events, false)],
+    ["PostToolUseFailure", (body, events) => this.onPostToolUse(body, events, true)],
+    ["Notification", (body, events) => this.onNotification(body, events)],
+    ["Stop", (body, events) => this.onStop(body, events)],
+    ["SessionEnd", (_body, events) => this.onSessionEnd(events)],
+  ]);
 
   constructor(
     private readonly options: {
@@ -98,12 +105,12 @@ export class HookTranslator {
   }
 
   private newTurnId(): TurnId {
-    return this.options.newTurnId?.() ?? (crypto.randomUUID() as TurnId);
+    return this.options.newTurnId?.() ?? TurnId.make(crypto.randomUUID());
   }
 
   private withdraw(events: HarnessEvent[]): void {
     if (this.pendingPrompt !== null) {
-      events.push({ _tag: "ApprovalWithdrawn", requestId: this.pendingPrompt });
+      events.push(HarnessEvent.ApprovalWithdrawn({ requestId: this.pendingPrompt }));
       this.pendingPrompt = null;
     }
   }
@@ -111,7 +118,7 @@ export class HookTranslator {
   private ensureTurn(events: HarnessEvent[], prompt: string | null = null): TurnId {
     if (this.turnId === null) {
       this.turnId = this.newTurnId();
-      events.push({ _tag: "TurnStarted", turnId: this.turnId, prompt });
+      events.push(HarnessEvent.TurnStarted({ turnId: this.turnId, prompt }));
     }
 
     return this.turnId;
@@ -121,133 +128,128 @@ export class HookTranslator {
     if (this.turnId === null) return;
 
     if (this.plan !== null) {
-      events.push({ _tag: "ItemCompleted", turnId: this.turnId, item: this.plan });
+      events.push(HarnessEvent.ItemCompleted({ turnId: this.turnId, item: this.plan }));
       this.plan = null;
     }
 
-    events.push({ _tag: "TurnEnded", turnId: this.turnId, status, error: null });
+    events.push(HarnessEvent.TurnEnded({ turnId: this.turnId, status, error: null }));
     this.turnId = null;
   }
 
-  onHook(body: unknown): HarnessEvent[] {
-    if (!isRecord(body) || this.ended) return [];
-
+  onHook(body: HookBody): HarnessEvent[] {
     // Subagent activity is summarized by the parent's own tool call.
-    if (typeof body.agent_id === "string") return [];
+    if (this.ended || body.agent_id !== null) return [];
     const events: HarnessEvent[] = [];
-    const sessionId = str(body.session_id);
 
-    if (sessionId !== null && sessionId !== this.cursor) {
-      this.cursor = sessionId;
-      events.push({ _tag: "CursorAssigned", cursor: sessionId });
+    if (body.session_id !== null && body.session_id !== this.cursor) {
+      this.cursor = body.session_id;
+      events.push(HarnessEvent.CursorAssigned({ cursor: body.session_id }));
     }
 
-    const cwd = str(body.cwd) ?? "";
-
-    switch (body.hook_event_name) {
-      case "UserPromptSubmit":
-        this.withdraw(events);
-        this.endTurn(events, "completed");
-        this.ensureTurn(events, str(body.prompt));
-        break;
-      case "PreToolUse": {
-        const turnId = this.ensureTurn(events);
-        const id = str(body.tool_use_id);
-        const name = str(body.tool_name) ?? "unknown";
-        this.lastTool = { name, input: body.tool_input };
-
-        if (id !== null && name !== "TodoWrite")
-          events.push({
-            _tag: "ItemUpdated",
-            turnId,
-            item: toolItem({
-              id,
-              name,
-              input: body.tool_input,
-              cwd,
-              status: "running",
-              resultText: null,
-              structured: null,
-            }),
-          });
-        break;
-      }
-
-      case "PostToolUse":
-      case "PostToolUseFailure": {
-        this.withdraw(events);
-        const turnId = this.ensureTurn(events);
-        const id = str(body.tool_use_id);
-        const name = str(body.tool_name) ?? "unknown";
-
-        if (id === null) break;
-        const failed = body.hook_event_name === "PostToolUseFailure";
-
-        if (name === "TodoWrite") {
-          if (failed) break;
-          this.plan = { _tag: "Plan", id: `plan:${turnId}`, steps: planSteps(body.tool_input) };
-          events.push({ _tag: "ItemUpdated", turnId, item: this.plan });
-          break;
-        }
-
-        events.push({
-          _tag: "ItemCompleted",
-          turnId,
-          item: toolItem({
-            id,
-            name,
-            input: body.tool_input,
-            cwd,
-            status: failed ? (body.is_interrupt === true ? "declined" : "failed") : "completed",
-            resultText: failed ? (str(body.error) ?? "") : null,
-            structured: failed ? null : body.tool_response,
-          }),
-        });
-        break;
-      }
-
-      case "Notification": {
-        if (body.notification_type !== "permission_prompt" || this.pendingPrompt !== null) break;
-        const turnId = this.ensureTurn(events);
-        const requestId = this.options.newRequestId?.() ?? (crypto.randomUUID() as RequestId);
-        this.pendingPrompt = requestId;
-        const tool = this.lastTool;
-        events.push({
-          _tag: "ApprovalRequested",
-          turnId,
-          requestId,
-          kind: tool ? approvalKind(tool.name) : "tool",
-          title: str(body.message) ?? "Claude needs your permission",
-          detail: tool ? describeToolCall(tool.name, tool.input).detail : null,
-          options: [],
-        });
-        break;
-      }
-
-      case "Stop": {
-        this.withdraw(events);
-        const turnId = this.turnId;
-        const text = str(body.last_assistant_message);
-
-        if (turnId !== null && text)
-          events.push({
-            _tag: "ItemCompleted",
-            turnId,
-            item: { _tag: "AssistantMessage", id: `stop:${turnId}`, text },
-          });
-        this.endTurn(events, "completed");
-        break;
-      }
-
-      case "SessionEnd":
-        this.withdraw(events);
-        this.endTurn(events, "interrupted");
-        this.ended = true;
-        events.push({ _tag: "Exited", error: null });
-        break;
-    }
+    if (body.hook_event_name !== null) this.handlers.get(body.hook_event_name)?.(body, events);
 
     return events;
+  }
+
+  private onPrompt(body: HookBody, events: HarnessEvent[]): void {
+    this.withdraw(events);
+    this.endTurn(events, "completed");
+    this.ensureTurn(events, body.prompt);
+  }
+
+  private onSessionEnd(events: HarnessEvent[]): void {
+    this.withdraw(events);
+    this.endTurn(events, "interrupted");
+    this.ended = true;
+    events.push(HarnessEvent.Exited({ error: null }));
+  }
+
+  private onPreToolUse(body: HookBody, events: HarnessEvent[]): void {
+    const turnId = this.ensureTurn(events);
+    const id = body.tool_use_id;
+    const name = body.tool_name ?? "unknown";
+    this.lastTool = { name, input: body.tool_input };
+
+    if (id === null || name === "TodoWrite") return;
+    events.push(
+      HarnessEvent.ItemUpdated({
+        turnId,
+        item: toolItem({
+          id,
+          name,
+          input: body.tool_input,
+          cwd: body.cwd ?? "",
+          status: "running",
+          resultText: null,
+          structured: null,
+        }),
+      })
+    );
+  }
+
+  private onPostToolUse(body: HookBody, events: HarnessEvent[], failed: boolean): void {
+    this.withdraw(events);
+    const turnId = this.ensureTurn(events);
+    const id = body.tool_use_id;
+    const name = body.tool_name ?? "unknown";
+
+    if (id === null) return;
+
+    if (name === "TodoWrite") {
+      if (failed) return;
+      this.plan = planItem(turnId, body.tool_input);
+      events.push(HarnessEvent.ItemUpdated({ turnId, item: this.plan }));
+
+      return;
+    }
+
+    events.push(
+      HarnessEvent.ItemCompleted({
+        turnId,
+        item: toolItem({
+          id,
+          name,
+          input: body.tool_input,
+          cwd: body.cwd ?? "",
+          status: failed ? (body.is_interrupt === true ? "declined" : "failed") : "completed",
+          resultText: failed ? (body.error ?? "") : null,
+          structured: failed ? null : body.tool_response,
+        }),
+      })
+    );
+  }
+
+  private onNotification(body: HookBody, events: HarnessEvent[]): void {
+    if (body.notification_type !== "permission_prompt" || this.pendingPrompt !== null) return;
+    const turnId = this.ensureTurn(events);
+    const requestId = this.options.newRequestId?.() ?? RequestId.make(crypto.randomUUID());
+    this.pendingPrompt = requestId;
+    const tool = this.lastTool;
+    events.push(
+      HarnessEvent.ApprovalRequested({
+        turnId,
+        requestId,
+        kind: tool ? approvalKind(tool.name) : "tool",
+        title: body.message ?? "Claude needs your permission",
+        detail: tool ? describeToolCall(tool.name, tool.input).detail : null,
+        options: [],
+      })
+    );
+  }
+
+  private onStop(body: HookBody, events: HarnessEvent[]): void {
+    this.withdraw(events);
+    const turnId = this.turnId;
+    const text = body.last_assistant_message;
+
+    if (turnId !== null && text)
+      events.push(
+        HarnessEvent.ItemCompleted({
+          turnId,
+          item: TurnItem.cases.AssistantMessage.make({ id: `stop:${turnId}`, text }),
+        })
+      );
+    this.endTurn(events, "completed");
   }
 }
 
@@ -282,16 +284,20 @@ export const makeHookHandler =
 
     if (!registration || !tokensEqual(token, registration.token))
       return new Response(null, { status: 401 });
-    let body: unknown;
+    let body: Option.Option<HookBody>;
 
     try {
-      body = await request.json();
+      body = decodeHookBody(await request.json());
     } catch {
       return new Response(null, { status: 400 });
     }
 
-    for (const event of registration.translator.onHook(body))
-      Queue.offerUnsafe(registration.queue, event);
+    const events = Option.match(body, {
+      onNone: () => [],
+      onSome: (hook) => registration.translator.onHook(hook),
+    });
+
+    for (const event of events) Queue.offerUnsafe(registration.queue, event);
 
     if (registration.translator.isEnded) Queue.endUnsafe(registration.queue);
 

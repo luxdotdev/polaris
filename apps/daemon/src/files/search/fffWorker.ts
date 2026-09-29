@@ -8,7 +8,7 @@
  */
 import type { FileFinder as FileFinderType } from "@ff-labs/fff-bun";
 import { fffGrep, fffSearchPaths } from "./fffSearch.ts";
-import type { FileChange, GrepQuery } from "./types.ts";
+import type { FileChange, GrepHit, GrepQuery, PathHit } from "./types.ts";
 
 export type WorkerRequest = { readonly id: number } & (
   | {
@@ -30,8 +30,11 @@ export type WorkerRequest = { readonly id: number } & (
   | { readonly op: "close"; readonly index: number }
 );
 
+/** What an op answers: hits for the searches, null for everything else. */
+export type WorkerValue = ReadonlyArray<PathHit> | ReadonlyArray<GrepHit> | null;
+
 export type WorkerReply =
-  | { readonly id: number; readonly ok: true; readonly value: unknown }
+  | { readonly id: number; readonly ok: true; readonly value: WorkerValue }
   | {
       readonly id: number;
       readonly ok: false;
@@ -120,36 +123,76 @@ class Unavailable extends Error {
   }
 }
 
-const handle = async (request: WorkerRequest): Promise<unknown> => {
-  switch (request.op) {
-    case "open": {
-      const Finder = await load();
+type RequestOf<Op extends WorkerRequest["op"]> = Extract<WorkerRequest, { readonly op: Op }>;
 
-      if (Finder === null) throw new Unavailable("library", loadError.message);
-      let created: ReturnType<typeof Finder.create>;
+const openIndex = async (request: RequestOf<"open">): Promise<null> => {
+  const Finder = await load();
 
-      try {
-        created = Finder.create({
-          basePath: request.root,
-          frecencyDbPath: request.frecencyDbPath,
-          historyDbPath: request.historyDbPath,
-        });
-      } catch (cause) {
-        // Thrown (not returned) when the native library itself fails to load.
-        FileFinder = null;
-        throw new Unavailable("library", cause instanceof Error ? cause.message : String(cause));
+  if (Finder === null) throw new Unavailable("library", loadError.message);
+  let created: ReturnType<typeof Finder.create>;
+
+  try {
+    created = Finder.create({
+      basePath: request.root,
+      frecencyDbPath: request.frecencyDbPath,
+      historyDbPath: request.historyDbPath,
+    });
+  } catch (cause) {
+    // Thrown (not returned) when the native library itself fails to load.
+    FileFinder = null;
+    throw new Unavailable("library", cause instanceof Error ? cause.message : String(cause));
+  }
+
+  if (!created.ok) throw new Unavailable("root", created.error);
+  indexes.set(request.index, {
+    root: request.root,
+    finder: created.value,
+    scanned: undefined,
+    subscriptions: new Map(),
+  });
+
+  return null;
+};
+
+const watchIndex = async (request: RequestOf<"watch">): Promise<null> => {
+  const index = get(request.index);
+  // fff drops subscriptions made before its initial scan and watcher are ready.
+  await ready(index);
+  const deadline = Date.now() + SCAN_WAIT_MS;
+
+  while (!(unwrap(index.finder.getScanProgress()).isWatcherReady || Date.now() > deadline)) {
+    await Bun.sleep(20);
+  }
+
+  const subscription = request.subscription;
+
+  const stop = unwrap(
+    index.finder.watch((events) => {
+      const changes: Array<FileChange> = [];
+
+      for (const event of events) {
+        const kind = mapKind(event.kind);
+        // `rescan` means events were lost: report the root as modified so Clients re-read.
+        changes.push(
+          kind === null ? { path: index.root, kind: "modified" } : { path: event.path, kind }
+        );
       }
 
-      if (!created.ok) throw new Unavailable("root", created.error);
-      indexes.set(request.index, {
-        root: request.root,
-        finder: created.value,
-        scanned: undefined,
-        subscriptions: new Map(),
-      });
+      if (changes.length > 0) {
+        self.postMessage({ subscription, changes } satisfies WorkerWatchEvent);
+      }
+    })
+  );
 
-      return null;
-    }
+  index.subscriptions.set(subscription, stop);
+
+  return null;
+};
+
+const handle = async (request: WorkerRequest): Promise<WorkerValue> => {
+  switch (request.op) {
+    case "open":
+      return openIndex(request);
 
     case "searchPaths": {
       const index = get(request.index);
@@ -165,40 +208,8 @@ const handle = async (request: WorkerRequest): Promise<unknown> => {
       return fffGrep(index.finder, index.root, request.query);
     }
 
-    case "watch": {
-      const index = get(request.index);
-      // fff drops subscriptions made before its initial scan and watcher are ready.
-      await ready(index);
-      const deadline = Date.now() + SCAN_WAIT_MS;
-
-      while (!(unwrap(index.finder.getScanProgress()).isWatcherReady || Date.now() > deadline)) {
-        await Bun.sleep(20);
-      }
-
-      const subscription = request.subscription;
-
-      const stop = unwrap(
-        index.finder.watch((events) => {
-          const changes: Array<FileChange> = [];
-
-          for (const event of events) {
-            const kind = mapKind(event.kind);
-            // `rescan` means events were lost: report the root as modified so Clients re-read.
-            changes.push(
-              kind === null ? { path: index.root, kind: "modified" } : { path: event.path, kind }
-            );
-          }
-
-          if (changes.length > 0) {
-            self.postMessage({ subscription, changes } satisfies WorkerWatchEvent);
-          }
-        })
-      );
-
-      index.subscriptions.set(subscription, stop);
-
-      return null;
-    }
+    case "watch":
+      return watchIndex(request);
 
     case "unwatch": {
       const index = indexes.get(request.index);
@@ -223,16 +234,19 @@ const handle = async (request: WorkerRequest): Promise<unknown> => {
   }
 };
 
+/** The failure reply; `unavailable` only when fff can't serve this at all. */
+const failureReply = (id: number, cause: unknown): WorkerReply => {
+  const error = cause instanceof Error ? cause.message : String(cause);
+
+  if (cause instanceof Unavailable) return { id, ok: false, error, unavailable: cause.reason };
+
+  return { id, ok: false, error };
+};
+
 self.onmessage = (message: MessageEvent<WorkerRequest>) => {
   const request = message.data;
   handle(request).then(
     (value) => self.postMessage({ id: request.id, ok: true, value } satisfies WorkerReply),
-    (cause: unknown) =>
-      self.postMessage({
-        id: request.id,
-        ok: false,
-        error: cause instanceof Error ? cause.message : String(cause),
-        ...(cause instanceof Unavailable ? { unavailable: cause.reason } : {}),
-      } satisfies WorkerReply)
+    (cause: unknown) => self.postMessage(failureReply(request.id, cause))
   );
 };

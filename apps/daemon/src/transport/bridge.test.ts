@@ -67,7 +67,7 @@ const bridge = async (home: string, input: string, waitMs: number) => {
     stderr: "pipe",
   });
 
-  child.stdin.write(input);
+  await child.stdin.write(input);
   await child.stdin.flush();
 
   const [code, stdout, stderr] = await Promise.all([

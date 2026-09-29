@@ -26,6 +26,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
+import { Option, Schema } from "effect";
 
 const root = join(import.meta.dir, "..");
 
@@ -56,6 +57,34 @@ const PLATFORMS = {
 } as const;
 
 type Platform = keyof typeof PLATFORMS;
+
+const isPlatform = (name: string): name is Platform => Object.hasOwn(PLATFORMS, name);
+
+const decodeVersioned = Schema.decodeUnknownSync(
+  Schema.fromJsonString(Schema.Struct({ version: Schema.String }))
+);
+
+const FileEntry = Schema.Struct({ sha256: Schema.String, size: Schema.Number });
+
+const PlatformBuild = Schema.Struct({
+  target: Schema.String,
+  binary: Schema.String,
+  sha256: Schema.String,
+  files: Schema.Record(Schema.String, FileEntry),
+});
+
+type PlatformBuild = typeof PlatformBuild.Type;
+
+/** The parts of a previous `manifest.json` a rebuild keeps. */
+const decodeManifest = Schema.decodeUnknownOption(
+  Schema.fromJsonString(
+    Schema.Struct({
+      version: Schema.String,
+      commit: Schema.String,
+      platforms: Schema.Record(Schema.String, PlatformBuild),
+    })
+  )
+);
 
 const sha256 = (path: string) => createHash("sha256").update(readFileSync(path)).digest("hex");
 
@@ -89,7 +118,7 @@ const findPackage = (fromDir: string, name: string): string | null => {
 };
 
 const readVersion = (packageJson: string): string =>
-  JSON.parse(readFileSync(packageJson, "utf8")).version;
+  decodeVersioned(readFileSync(packageJson, "utf8")).version;
 
 /** fff-bun's package.json; the bundler resolves fff-bin-* from its directory. */
 const fffBunPackage = (): string => {
@@ -149,7 +178,7 @@ const signAdHoc = async (binary: string) => {
   await run(["codesign", "--verify", "--strict", binary]);
 };
 
-const build = async (platform: Platform, version: string) => {
+const build = async (platform: Platform, version: string): Promise<PlatformBuild> => {
   const { target, define } = PLATFORMS[platform];
   const outDir = join(distDir, platform);
   rmSync(outDir, { recursive: true, force: true });
@@ -164,8 +193,7 @@ const build = async (platform: Platform, version: string) => {
     "--compile",
     `--target=${target}`,
     "--minify",
-    // Each command's modules (`main.ts` imports them lazily) and the Harness drivers
-    // (loaded on first use) become separate chunks inside the binary, parsed only
+    // Lazily imported commands and Harness drivers become separate chunks, parsed only
     // when imported: `serve` never parses the Claude Agent SDK, `bridge` not the Daemon.
     "--splitting",
     ...define.map((value) => `--define=${value}`),
@@ -196,23 +224,25 @@ const build = async (platform: Platform, version: string) => {
 
 const main = async () => {
   const requested = process.argv.slice(2);
-  const unknown = requested.filter((platform) => !(platform in PLATFORMS));
+  const unknown = requested.filter((platform) => !isPlatform(platform));
 
   if (unknown.length > 0) throw new Error(`unknown platform(s): ${unknown.join(", ")}`);
-  const platforms = (requested.length > 0 ? requested : Object.keys(PLATFORMS)) as Array<Platform>;
+  const platforms = (requested.length > 0 ? requested : Object.keys(PLATFORMS)).filter(isPlatform);
 
-  const version = JSON.parse(readFileSync(join(daemonDir, "package.json"), "utf8"))
-    .version as string;
+  const version = readVersion(join(daemonDir, "package.json"));
 
   const fff = readVersion(fffBunPackage());
   const commit = (await run(["git", "rev-parse", "HEAD"]).catch(() => "unknown")).trim();
   await ensureTargetPackages(platforms);
 
   const manifestPath = join(distDir, "manifest.json");
-  const previous = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, "utf8")) : null;
 
-  const built: Record<string, unknown> =
-    previous?.version === version && previous?.commit === commit ? { ...previous.platforms } : {};
+  const previous = existsSync(manifestPath)
+    ? Option.getOrNull(decodeManifest(readFileSync(manifestPath, "utf8")))
+    : null;
+
+  const built: Record<string, PlatformBuild> =
+    previous?.version === version && previous.commit === commit ? { ...previous.platforms } : {};
 
   for (const platform of platforms) {
     const started = performance.now();

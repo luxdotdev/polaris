@@ -15,7 +15,17 @@
  * a few chunks before their source is paused, and `sendJson` waits while more
  * than `maxQueuedJsonBytes` of JSON is queued.
  */
-import { Cause, Deferred, Effect, Exit, Latch, Schema, type Scope, Stream } from "effect";
+import {
+  Array as Arr,
+  Cause,
+  Deferred,
+  Effect,
+  Exit,
+  Latch,
+  Schema,
+  type Scope,
+  Stream,
+} from "effect";
 import {
   BLOB_CHUNK_BYTES,
   encodeBlob,
@@ -24,7 +34,7 @@ import {
   type Frame,
   FrameDecoder,
 } from "./frame.ts";
-import type { BlobId } from "./ids.ts";
+import { BlobId } from "./ids.ts";
 
 export class TransportError extends Schema.TaggedError<TransportError>()("TransportError", {
   message: Schema.String,
@@ -136,6 +146,14 @@ interface InBlob {
 
 let blobCounter = 0;
 
+/** Some Bun APIs hand back an ArrayBuffer where a Uint8Array is typed. */
+const asBytes = (source: ArrayBufferView | ArrayBuffer): Uint8Array =>
+  source instanceof Uint8Array
+    ? source
+    : source instanceof ArrayBuffer
+      ? new Uint8Array(source)
+      : new Uint8Array(source.buffer, source.byteOffset, source.byteLength);
+
 const concat = (parts: ReadonlyArray<Uint8Array>, size: number): Uint8Array => {
   if (parts.length === 1) return parts[0]!;
   const out = new Uint8Array(size);
@@ -242,35 +260,29 @@ export const makeWire = Effect.fnUntraced(function* (
 
   const offerBlob = <E>(source: BlobSource<E>): Effect.Effect<BlobId> =>
     Effect.suspend(() => {
-      const id = `${prefix}${(++blobCounter).toString(36)}-${crypto.randomUUID().slice(0, 8)}`;
+      const id = BlobId.make(
+        `${prefix}${(++blobCounter).toString(36)}-${crypto.randomUUID().slice(0, 8)}`
+      );
 
-      // Accept any byte buffer: some Bun APIs hand back an ArrayBuffer where a Uint8Array is typed.
-      const bytes: Uint8Array | null =
-        source instanceof Uint8Array
-          ? source
-          : (source as unknown) instanceof ArrayBuffer
-            ? new Uint8Array(source as unknown as ArrayBuffer)
-            : ArrayBuffer.isView(source)
-              ? new Uint8Array(source.buffer, source.byteOffset, source.byteLength)
-              : null;
-
-      if (bytes !== null) {
-        const frames = encodeBlob(id, bytes);
+      if (!Stream.isStream(source)) {
+        const frames = encodeBlob(id, asBytes(source));
         let pending = frames.next();
         outBlobs.push({
           id,
           ready: () => !pending.done,
           next: () => {
-            const frame = pending.value as Uint8Array;
+            const frame = pending;
+
+            if (frame.done === true) throw new Error(`blob ${id} has no frame ready`);
             pending = frames.next();
 
-            return frame;
+            return frame.value;
           },
           done: () => pending.done === true,
         });
         wake.openUnsafe();
 
-        return Effect.succeed(id as BlobId);
+        return Effect.succeed(id);
       }
 
       const buffered: Array<Uint8Array> = [];
@@ -295,7 +307,7 @@ export const makeWire = Effect.fnUntraced(function* (
         done: () => finished && buffered.length === 0,
       });
 
-      const produce = Stream.runForEach(source as Stream.Stream<Uint8Array, E>, (chunk) =>
+      const produce = Stream.runForEach(source, (chunk) =>
         Effect.gen(function* () {
           for (let offset = 0; offset < chunk.byteLength; offset += BLOB_CHUNK_BYTES) {
             push(encodeBlobFrame(id, chunk.subarray(offset, offset + BLOB_CHUNK_BYTES), false));
@@ -314,7 +326,7 @@ export const makeWire = Effect.fnUntraced(function* (
         )
       );
 
-      return Effect.as(Effect.forkIn(produce, scope), id as BlobId);
+      return Effect.as(Effect.forkIn(produce, scope), id);
     });
 
   // ── Incoming ──────────────────────────────────────────────────────────────
@@ -462,8 +474,9 @@ export const makeWire = Effect.fnUntraced(function* (
         BlobError | Cause.Done
       >((resume) => {
         const settle = (): boolean => {
-          if (blob.parts.length > 0) {
-            const parts = blob.parts as [Uint8Array, ...Array<Uint8Array>];
+          const parts = blob.parts;
+
+          if (Arr.isArrayNonEmpty(parts)) {
             blob.parts = [];
             bufferedBytes -= blob.size;
             blob.size = 0;

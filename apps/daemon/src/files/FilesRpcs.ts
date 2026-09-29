@@ -16,7 +16,15 @@ import { Effect, Stream } from "effect";
 import { RpcGroup } from "effect/rpc";
 import { BlobChannel, ServiceError } from "../services.ts";
 import { FileSearch } from "./FileSearch.ts";
-import { type Entry, listDir, readRange, resolveHostPath, statPath, toFsFailure } from "./fs.ts";
+import {
+  type Entry,
+  listDir,
+  ReadContent,
+  readRange,
+  resolveHostPath,
+  statPath,
+  toFsFailure,
+} from "./fs.ts";
 
 export class FilesRpcs extends RpcGroup.make(
   ListDir,
@@ -63,20 +71,17 @@ export const handleReadFile = Effect.fn("files.read")(function* ({
 
   const { content } = result;
 
-  if (content._tag === "Inline") {
+  if (ReadContent.$is("Inline")(content)) {
     return { size: result.size, mimeType: result.mimeType, content };
   }
 
   const blobs = yield* BlobChannel;
 
   const blobId = yield* blobs.offer(
-    content._tag === "Bytes"
+    ReadContent.$is("Bytes")(content)
       ? content.bytes
       : Stream.fromReadableStream({
-          evaluate: () =>
-            Bun.file(content.path)
-              .slice(content.start, content.end)
-              .stream() as ReadableStream<Uint8Array>,
+          evaluate: () => Bun.file(content.path).slice(content.start, content.end).stream(),
           onError: (cause) =>
             new ServiceError({ service: "files.read", message: String(cause), cause }),
         })

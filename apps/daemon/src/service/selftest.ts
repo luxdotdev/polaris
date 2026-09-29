@@ -7,7 +7,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fffLoadError, makeFffBackend } from "../files/search/fff.ts";
+import { fffLoadError, openFffBackend } from "../files/search/fff.ts";
 import { versionLine } from "./platform.ts";
 
 export interface SelfTestResult {
@@ -24,7 +24,7 @@ export const selfTest = async (): Promise<SelfTestResult> => {
     const root = join(scratch, "root");
     mkdirSync(root, { recursive: true });
     writeFileSync(join(root, "polaris-selftest-needle.txt"), "needle\n");
-    const backend = await makeFffBackend(root);
+    const backend = await openFffBackend(root);
 
     if (backend === null) {
       return {

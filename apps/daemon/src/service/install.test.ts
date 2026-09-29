@@ -13,7 +13,7 @@ import { Effect, Layer } from "effect";
 import {
   defaultStateFile,
   isOurAppServer,
-  makeAppServer,
+  acquireAppServer,
   readAppServerState,
 } from "../harness/codex/AppServer.ts";
 import { makeFakeCodex } from "../harness/codex/testing/fakeCodex.ts";
@@ -26,6 +26,11 @@ import {
   sha256File,
   uninstall,
 } from "./install.ts";
+
+/** The fake user crontab: null when the user has none. */
+interface CronTable {
+  current: string | null;
+}
 
 /** A scripted service manager: records every command, answers from `respond`. */
 const fakeRunner = (
@@ -217,7 +222,7 @@ describe("install on Linux without systemd --user", () => {
   });
 
   /** No user bus; `crontab` answers from `cron` (null: not installed). */
-  const noBus = (cron: { current: string | null }) =>
+  const noBus = (cron: CronTable) =>
     fakeRunner((argv) => {
       if (argv[0] === "systemctl")
         return { code: 1, stderr: "Failed to connect to bus: No medium found" };
@@ -234,7 +239,7 @@ describe("install on Linux without systemd --user", () => {
     });
 
   test("installs the fallback supervisor with cron @reboot and a profile hook, idempotently", async () => {
-    const cron = { current: "" as string | null };
+    const cron: CronTable = { current: "" };
     writeFileSync(join(root, ".profile"), "export EDITOR=vi\n");
     const runner = noBus(cron);
 
@@ -283,7 +288,7 @@ describe("install on Linux without systemd --user", () => {
   });
 
   test("uninstall removes the cron and profile lines and keeps the user's own", async () => {
-    const cron = { current: "0 * * * * backup\n" as string | null };
+    const cron: CronTable = { current: "0 * * * * backup\n" };
     const runner = noBus(cron);
     await Effect.runPromise(
       install(ctx("linux"), { source, version: "1.2.3" }).pipe(Effect.provide(runner.layer))
@@ -334,7 +339,7 @@ describe("uninstall", () => {
     await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
-          const server = yield* makeAppServer({
+          const server = yield* acquireAppServer({
             codexPath: codex.path,
             socketPath,
             spawn: true,

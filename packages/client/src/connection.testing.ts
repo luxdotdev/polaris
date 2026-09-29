@@ -7,7 +7,8 @@
  * outcome, waiting to retry, connected), which the machine leaves to its
  * runner. Not used in production.
  */
-import type { AnyActorLogic } from "xstate";
+import { Record, Struct } from "effect";
+import type { ActorLogic } from "xstate";
 import { getAdjacencyMap, getShortestPaths, type TraversalOptions } from "xstate/graph";
 import {
   type ConnectionSnapshot,
@@ -72,10 +73,7 @@ export type ConnectionStep =
 
 export const CONNECTION_STEPS: ReadonlyArray<ConnectionStep> = [
   { type: "connect" },
-  ...(Object.keys(FAILURES) as Array<keyof typeof FAILURES>).map((reason) => ({
-    type: "fail" as const,
-    reason,
-  })),
+  ...Struct.keys(FAILURES).map((reason) => ({ type: "fail" as const, reason })),
   { type: "drop" },
   { type: "retry" },
   { type: "elapse" },
@@ -107,69 +105,80 @@ const initial: ConnectionModel = {
 
 export const initialConnectionModel = (): ConnectionModel => initial;
 
+const failModel = (model: ConnectionModel, failure: ConnectFailure): ConnectionModel => {
+  const [next] = connectionMachine.transition(model.machine, {
+    type: "failed",
+    failure,
+    now: model.clock,
+    jitter: 0.5,
+  });
+
+  return {
+    ...model,
+    machine: next,
+    phase: next.context.delay === 0 ? "attempting" : "waiting",
+    failedAt: model.clock,
+  };
+};
+
+const connectModel = (model: ConnectionModel): ConnectionModel => {
+  if (model.phase !== "attempting") return model;
+
+  return {
+    ...model,
+    machine: connectionMachine.transition(model.machine, {
+      type: "connected",
+      epoch: model.machine.context.epoch + 1,
+    })[0],
+    phase: "live",
+  };
+};
+
+const retryModel = (model: ConnectionModel): ConnectionModel => {
+  if (model.phase !== "waiting") return model;
+
+  return {
+    ...model,
+    machine: connectionMachine.transition(model.machine, { type: "retry" })[0],
+    phase: "attempting",
+  };
+};
+
+const elapseModel = (model: ConnectionModel): ConnectionModel => {
+  const delay = model.machine.context.delay;
+
+  if (model.phase !== "waiting" || delay === null) return model;
+
+  return { ...model, phase: "attempting", clock: model.clock + delay };
+};
+
+const tickModel = (model: ConnectionModel): ConnectionModel => {
+  if (model.phase !== "waiting") return model;
+  const delay = model.machine.context.delay;
+  const passed = MODEL_POLICY.restartGraceMs;
+
+  return {
+    ...model,
+    clock: model.clock + passed,
+    phase: delay !== null && passed >= delay ? "attempting" : "waiting",
+  };
+};
+
 /** The model after `step`; the same snapshot when the step can't happen. */
 export const stepConnection = (model: ConnectionModel, step: ConnectionStep): ConnectionModel => {
-  const { machine, phase, clock } = model;
-
-  const fail = (failure: ConnectFailure) => {
-    const [next] = connectionMachine.transition(machine, {
-      type: "failed",
-      failure,
-      now: clock,
-      jitter: 0.5,
-    });
-
-    return {
-      ...model,
-      machine: next,
-      phase: next.context.delay === 0 ? ("attempting" as const) : ("waiting" as const),
-      failedAt: clock,
-    };
-  };
-
   switch (step.type) {
     case "connect":
-      if (phase !== "attempting") return model;
-
-      return {
-        ...model,
-        machine: connectionMachine.transition(machine, {
-          type: "connected",
-          epoch: machine.context.epoch + 1,
-        })[0],
-        phase: "live",
-      };
+      return connectModel(model);
     case "fail":
-      return phase === "attempting" ? fail(FAILURES[step.reason]) : model;
+      return model.phase === "attempting" ? failModel(model, FAILURES[step.reason]) : model;
     case "drop":
-      return phase === "live" ? fail(LOST) : model;
+      return model.phase === "live" ? failModel(model, LOST) : model;
     case "retry":
-      if (phase !== "waiting") return model;
-
-      return {
-        ...model,
-        machine: connectionMachine.transition(machine, { type: "retry" })[0],
-        phase: "attempting",
-      };
-    case "elapse": {
-      const delay = machine.context.delay;
-
-      if (phase !== "waiting" || delay === null) return model;
-
-      return { ...model, phase: "attempting", clock: clock + delay };
-    }
-
-    case "tick": {
-      if (phase !== "waiting") return model;
-      const delay = machine.context.delay;
-      const passed = MODEL_POLICY.restartGraceMs;
-
-      return {
-        ...model,
-        clock: clock + passed,
-        phase: delay !== null && passed >= delay ? "attempting" : "waiting",
-      };
-    }
+      return retryModel(model);
+    case "elapse":
+      return elapseModel(model);
+    case "tick":
+      return tickModel(model);
   }
 };
 
@@ -215,23 +224,23 @@ export const serializeConnection = (model: ConnectionModel): string => {
   });
 };
 
-export const connectionModelLogic: AnyActorLogic = {
-  transition: (model: ConnectionModel, step: ConnectionStep) => [stepConnection(model, step), []],
+export const connectionModelLogic: ActorLogic<ConnectionModel, ConnectionStep> = {
+  transition: (model, step) => [stepConnection(model, step), []],
   initialTransition: () => [initial, []],
   getInitialSnapshot: () => initial,
-  getPersistedSnapshot: (model: ConnectionModel) => model,
-} as AnyActorLogic;
+  getPersistedSnapshot: (model) => model,
+};
 
-const traversal = {
+const traversal: TraversalOptions<ConnectionModel, ConnectionStep, unknown> = {
   events: CONNECTION_STEPS,
   serializeState: serializeConnection,
-  // oxlint-disable-next-line typescript/no-explicit-any -- graph options are typed per logic; this one is ad hoc.
-} as unknown as TraversalOptions<any, any, any>;
+};
 
 type Path = ReadonlyArray<ConnectionStep>;
 
-const stepsOf = (path: { readonly steps: ReadonlyArray<{ readonly event: unknown }> }): Path =>
-  path.steps.slice(1).map((s) => s.event as ConnectionStep);
+const stepsOf = (path: {
+  readonly steps: ReadonlyArray<{ readonly event: ConnectionStep }>;
+}): Path => path.steps.slice(1).map((s) => s.event);
 
 /**
  * The paths to test: one shortest path to every state, and one per
@@ -241,27 +250,16 @@ const stepsOf = (path: { readonly steps: ReadonlyArray<{ readonly event: unknown
 export const connectionPaths = () => {
   const logic = connectionModelLogic;
 
-  const shortest = getShortestPaths(logic, traversal) as unknown as ReadonlyArray<{
-    readonly state: ConnectionModel;
-    readonly steps: ReadonlyArray<{ readonly event: ConnectionStep }>;
-  }>;
+  const shortest = getShortestPaths(logic, traversal);
 
   const toState = new Map(shortest.map((path) => [serializeConnection(path.state), stepsOf(path)]));
 
-  const adjacency = getAdjacencyMap(logic, traversal) as unknown as Record<
-    string,
-    {
-      readonly transitions: Record<
-        string,
-        { readonly event: ConnectionStep; readonly state: ConnectionModel }
-      >;
-    }
-  >;
+  const adjacency = getAdjacencyMap(logic, traversal);
 
   const transitions: Array<Path> = [];
 
-  for (const [key, vertex] of Object.entries(adjacency)) {
-    for (const edge of Object.values(vertex.transitions)) {
+  for (const [key, vertex] of Record.toEntries(adjacency)) {
+    for (const edge of Record.values(vertex.transitions)) {
       if (serializeConnection(edge.state) !== key) {
         transitions.push([...toState.get(key)!, edge.event]);
       }

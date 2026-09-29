@@ -1,13 +1,15 @@
 import { describe, expect, test } from "bun:test";
+import { existsSync } from "node:fs";
 import { mkdtemp, readFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { RequestId, SessionId, TurnId } from "@polaris/protocol";
-import { Effect, Exit, Scope, Stream } from "effect";
-import type { HarnessEvent } from "../HarnessDriver.ts";
+import { RequestId, SessionId, TurnId, TurnItem } from "@polaris/protocol";
+import { Effect, Exit, Option, Schema, Scope, Stream } from "effect";
+import { HarnessEvent } from "../HarnessDriver.ts";
 import { makeClaudeDriver } from "./ClaudeDriver.ts";
 import { FakeClaude, init } from "./fakeClaude.ts";
 import { ClaudeHookReceiver, FOLLOWED_HOOK_EVENTS, HookTranslator, hookSettings } from "./hooks.ts";
+import { decodeHookBody, HookBody } from "./payloads.ts";
 
 const base = { session_id: "cs-1", transcript_path: "/t.jsonl", cwd: "/work/repo" };
 
@@ -15,10 +17,34 @@ const sequence = () => {
   let n = 0;
 
   return {
-    newTurnId: () => `t${++n}` as TurnId,
-    newRequestId: () => `r${++n}` as RequestId,
+    newTurnId: () => TurnId.make(`t${++n}`),
+    newRequestId: () => RequestId.make(`r${++n}`),
   };
 };
+
+const parseHook = Schema.decodeUnknownSync(HookBody);
+
+const t1 = TurnId.make("t1");
+
+const r2 = RequestId.make("r2");
+
+/** The hook settings file, as far as the tests read it. */
+const SettingsFile = Schema.fromJsonString(
+  Schema.Struct({
+    hooks: Schema.Struct({
+      Stop: Schema.NonEmptyArray(
+        Schema.Struct({
+          hooks: Schema.NonEmptyArray(
+            Schema.Struct({
+              url: Schema.String,
+              headers: Schema.Record(Schema.String, Schema.String),
+            })
+          ),
+        })
+      ),
+    }),
+  })
+);
 
 describe("hookSettings", () => {
   test("subscribes every followed event over http with the bearer token and a short timeout", () => {
@@ -74,53 +100,47 @@ describe("HookTranslator", () => {
         stop_hook_active: false,
         last_assistant_message: "Green.",
       },
-    ].flatMap((b) => h.onHook(b));
+    ].flatMap((b) => h.onHook(parseHook(b)));
 
     expect(events).toEqual([
       // The Turn carries what the user typed in the TUI.
-      { _tag: "TurnStarted", turnId: "t1", prompt: "run tests" },
-      {
-        _tag: "ItemUpdated",
-        turnId: "t1",
-        item: {
-          _tag: "CommandExecution",
+      HarnessEvent.TurnStarted({ turnId: t1, prompt: "run tests" }),
+      HarnessEvent.ItemUpdated({
+        turnId: t1,
+        item: TurnItem.cases.CommandExecution.make({
           id: "tu1",
           command: "bun test",
           cwd: "/work/repo",
           output: "",
           exitCode: null,
           status: "running",
-        },
-      },
-      {
-        _tag: "ApprovalRequested",
-        turnId: "t1",
-        requestId: "r2",
+        }),
+      }),
+      HarnessEvent.ApprovalRequested({
+        turnId: t1,
+        requestId: r2,
         kind: "command",
         title: "Claude needs your permission to use Bash",
         detail: "bun test",
         options: [],
-      },
-      { _tag: "ApprovalWithdrawn", requestId: "r2" },
-      {
-        _tag: "ItemCompleted",
-        turnId: "t1",
-        item: {
-          _tag: "CommandExecution",
+      }),
+      HarnessEvent.ApprovalWithdrawn({ requestId: r2 }),
+      HarnessEvent.ItemCompleted({
+        turnId: t1,
+        item: TurnItem.cases.CommandExecution.make({
           id: "tu1",
           command: "bun test",
           cwd: "/work/repo",
           output: "17 pass",
           exitCode: null,
           status: "completed",
-        },
-      },
-      {
-        _tag: "ItemCompleted",
-        turnId: "t1",
-        item: { _tag: "AssistantMessage", id: "stop:t1", text: "Green." },
-      },
-      { _tag: "TurnEnded", turnId: "t1", status: "completed", error: null },
+        }),
+      }),
+      HarnessEvent.ItemCompleted({
+        turnId: t1,
+        item: TurnItem.cases.AssistantMessage.make({ id: "stop:t1", text: "Green." }),
+      }),
+      HarnessEvent.TurnEnded({ turnId: t1, status: "completed", error: null }),
     ]);
   });
 
@@ -154,34 +174,36 @@ describe("HookTranslator", () => {
       },
       { ...base, hook_event_name: "SessionEnd", reason: "prompt_input_exit" },
       { ...base, hook_event_name: "Stop" },
-    ].flatMap((b) => h.onHook(b));
+    ].flatMap((b) => h.onHook(parseHook(b)));
 
     expect(events).toEqual([
-      { _tag: "CursorAssigned", cursor: "cs-1" },
-      { _tag: "TurnStarted", turnId: "t1", prompt: null },
-      {
-        _tag: "ItemCompleted",
-        turnId: "t1",
-        item: {
-          _tag: "FileChange",
+      HarnessEvent.CursorAssigned({ cursor: "cs-1" }),
+      HarnessEvent.TurnStarted({ turnId: t1, prompt: null }),
+      HarnessEvent.ItemCompleted({
+        turnId: t1,
+        item: TurnItem.cases.FileChange.make({
           id: "tu1",
           changes: [{ path: "/work/repo/a.ts", kind: "modify" }],
           status: "failed",
-        },
-      },
+        }),
+      }),
       // Live while the Turn runs, persisted once when it ends.
-      {
-        _tag: "ItemUpdated",
-        turnId: "t1",
-        item: { _tag: "Plan", id: "plan:t1", steps: [{ text: "a", status: "in-progress" }] },
-      },
-      {
-        _tag: "ItemCompleted",
-        turnId: "t1",
-        item: { _tag: "Plan", id: "plan:t1", steps: [{ text: "a", status: "in-progress" }] },
-      },
-      { _tag: "TurnEnded", turnId: "t1", status: "interrupted", error: null },
-      { _tag: "Exited", error: null },
+      HarnessEvent.ItemUpdated({
+        turnId: t1,
+        item: TurnItem.cases.Plan.make({
+          id: "plan:t1",
+          steps: [{ text: "a", status: "in-progress" }],
+        }),
+      }),
+      HarnessEvent.ItemCompleted({
+        turnId: t1,
+        item: TurnItem.cases.Plan.make({
+          id: "plan:t1",
+          steps: [{ text: "a", status: "in-progress" }],
+        }),
+      }),
+      HarnessEvent.TurnEnded({ turnId: t1, status: "interrupted", error: null }),
+      HarnessEvent.Exited({ error: null }),
     ]);
     expect(h.isEnded).toBe(true);
   });
@@ -193,19 +215,21 @@ describe("HookTranslator", () => {
       { ...base, hook_event_name: "SessionStart", source: "resume" },
       { ...base, session_id: "cs-2", hook_event_name: "SessionStart", source: "clear" },
       { ...base, session_id: "cs-2", hook_event_name: "UserPromptSubmit", prompt: "again" },
-    ].flatMap((b) => h.onHook(b));
+    ].flatMap((b) => h.onHook(parseHook(b)));
 
     expect(events).toEqual([
-      { _tag: "CursorAssigned", cursor: "cs-2" },
-      { _tag: "TurnStarted", turnId: "t1", prompt: "again" },
+      HarnessEvent.CursorAssigned({ cursor: "cs-2" }),
+      HarnessEvent.TurnStarted({ turnId: t1, prompt: "again" }),
     ]);
   });
 
   test("ignores malformed bodies and notifications that aren't permission prompts", () => {
     const h = new HookTranslator({ cursor: "cs-1" });
-    expect(h.onHook("nope")).toEqual([]);
+    expect(Option.isNone(decodeHookBody("nope"))).toBe(true);
     expect(
-      h.onHook({ ...base, hook_event_name: "Notification", notification_type: "idle_prompt" })
+      h.onHook(
+        parseHook({ ...base, hook_event_name: "Notification", notification_type: "idle_prompt" })
+      )
     ).toEqual([]);
   });
 });
@@ -230,18 +254,21 @@ describe("ClaudeHookReceiver", () => {
 
   test("writes a private settings file and follows a session over loopback", async () => {
     await withReceiver(async (receiver) => {
-      const sessionId = "session-1" as SessionId;
+      const sessionId = SessionId.make("session-1");
 
       const { settingsPath } = await Effect.runPromise(
         receiver.prepare({ sessionId, cursor: "cs-1" })
       );
 
       expect((await stat(settingsPath)).mode & 0o777).toBe(0o600);
-      const settings = JSON.parse(await readFile(settingsPath, "utf8"));
+      const settings = Schema.decodeUnknownSync(SettingsFile)(await readFile(settingsPath, "utf8"));
       const hook = settings.hooks.Stop[0].hooks[0];
       expect(hook.url).toBe(`http://127.0.0.1:${receiver.port}/hooks/session-1`);
 
-      const post = (headers: Record<string, string>, body: unknown) =>
+      const post = (
+        headers: Readonly<Record<string, string>>,
+        body: Readonly<Record<string, string>>
+      ) =>
         fetch(hook.url, {
           method: "POST",
           headers: { "content-type": "application/json", ...headers },
@@ -253,7 +280,7 @@ describe("ClaudeHookReceiver", () => {
         (await post({ Authorization: "Bearer wrong" }, { ...base, hook_event_name: "Stop" })).status
       ).toBe(401);
 
-      const auth = hook.headers as Record<string, string>;
+      const auth = hook.headers;
       const ok = await post(auth, { ...base, hook_event_name: "UserPromptSubmit", prompt: "hi" });
       expect(ok.status).toBe(200);
       expect(await ok.json()).toEqual({});
@@ -272,7 +299,7 @@ describe("ClaudeHookReceiver", () => {
       ]);
 
       await Effect.runPromise(receiver.release(sessionId));
-      await expect(stat(settingsPath)).rejects.toThrow();
+      expect(existsSync(settingsPath)).toBe(false);
     });
   });
 
@@ -291,7 +318,7 @@ describe("ClaudeHookReceiver", () => {
       const session = await Effect.runPromise(
         driver
           .open({
-            sessionId: "session-2" as SessionId,
+            sessionId: SessionId.make("session-2"),
             cwd: "/work/repo",
             permissionMode: "supervised",
             model: null,

@@ -9,7 +9,7 @@ import { chmodSync, existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Subprocess } from "bun";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { CommandRunner } from "../service/CommandRunner.ts";
 import { runtimePlatform } from "../service/platform.ts";
 import { requestUpgrade, runningDaemonPid } from "../service/upgrade.ts";
@@ -41,9 +41,33 @@ afterEach(async () => {
 
 const socketPath = () => join(home, "daemon.sock");
 
-/** One request to the fixture Daemon. */
-const call = <A = unknown>(request: Record<string, unknown>): Promise<A> =>
+/** A request line for the fixture Daemon (see fixtures/terminal-daemon.ts). */
+interface FixtureRequest {
+  readonly op: "info" | "open" | "input" | "resize" | "read" | "list";
+  readonly id?: string;
+  readonly cwd?: string;
+  readonly text?: string;
+  readonly cols?: number;
+  readonly rows?: number;
+}
+
+const Info = Schema.Struct({ version: Schema.String, pid: Schema.Number, adopted: Schema.Boolean });
+
+const Listed = Schema.Array(
+  Schema.Struct({
+    id: Schema.String,
+    cwd: Schema.String,
+    exit: Schema.NullOr(Schema.Struct({ code: Schema.NullOr(Schema.Number) })),
+    endedBy: Schema.NullOr(Schema.String),
+  })
+);
+
+const Ok = Schema.Literal("ok");
+
+/** One request to the fixture Daemon, its reply parsed with `reply`. */
+const call = <A>(request: FixtureRequest, reply: Schema.ConstraintDecoder<A>): Promise<A> =>
   new Promise((resolve, reject) => {
+    const decode = Schema.decodeUnknownSync(Schema.fromJsonString(reply));
     let buffered = "";
     Bun.connect({
       unix: socketPath(),
@@ -55,7 +79,12 @@ const call = <A = unknown>(request: Record<string, unknown>): Promise<A> =>
           buffered += data.toString();
 
           if (buffered.includes("\n")) {
-            resolve(JSON.parse(buffered.slice(0, buffered.indexOf("\n"))));
+            try {
+              resolve(decode(buffered.slice(0, buffered.indexOf("\n"))));
+            } catch (error) {
+              reject(error);
+            }
+
             socket.end();
           }
         },
@@ -81,9 +110,9 @@ const waitFor = async (condition: () => boolean | Promise<boolean>, timeoutMs = 
 const readUntil = async (id: string, needle: string | RegExp) => {
   let text = "";
   await waitFor(async () => {
-    text = await call<string>({ op: "read", id });
+    text = await call({ op: "read", id }, Schema.String);
 
-    return typeof needle === "string" ? text.includes(needle) : needle.test(text);
+    return needle instanceof RegExp ? needle.test(text) : text.includes(needle);
   }).catch(() => {
     throw new Error(`timed out waiting for ${needle}; got ${JSON.stringify(text)}`);
   });
@@ -98,7 +127,7 @@ const start = async (version: string) => {
   });
   await waitFor(() => existsSync(socketPath()) && runningDaemonPid() !== null);
   await waitFor(() =>
-    call({ op: "info" }).then(
+    call({ op: "info" }, Info).then(
       () => true,
       () => false
     )
@@ -108,8 +137,8 @@ const start = async (version: string) => {
 describe("terminals across Daemon restarts", () => {
   test("an execve upgrade keeps the shell, its scrollback, input, resize and exit code", async () => {
     await start("1.0.0");
-    const id = await call<string>({ op: "open", cwd: home });
-    await call({ op: "input", id, text: "X=kept; echo ready-$$\n" });
+    const id = await call({ op: "open", cwd: home }, Schema.String);
+    await call({ op: "input", id, text: "X=kept; echo ready-$$\n" }, Ok);
     const before = await readUntil(id, /ready-\d+/);
     const shellPid = before.match(/ready-(\d+)/)![1];
 
@@ -130,35 +159,35 @@ exec "${process.execPath}" "${fixture}" --as 2.0.0
     );
 
     expect(status).toMatchObject({ state: "done", pid: daemon!.pid });
-    expect(await call({ op: "info" })).toMatchObject({ version: "2.0.0", adopted: true });
+    expect(await call({ op: "info" }, Info)).toMatchObject({ version: "2.0.0", adopted: true });
 
     // Same terminal id, scrollback replayed, same shell with its variables.
-    expect(await call<string>({ op: "read", id })).toContain(`ready-${shellPid}`);
-    await call({ op: "input", id, text: "echo $X-after-$$\n" });
+    expect(await call({ op: "read", id }, Schema.String)).toContain(`ready-${shellPid}`);
+    await call({ op: "input", id, text: "echo $X-after-$$\n" }, Ok);
     await readUntil(id, `kept-after-${shellPid}`);
 
-    await call({ op: "resize", id, cols: 100, rows: 40 });
+    await call({ op: "resize", id, cols: 100, rows: 40 }, Ok);
     await Bun.sleep(200); // the adopted PTY resizes through stty
-    await call({ op: "input", id, text: "stty size\n" });
+    await call({ op: "input", id, text: "stty size\n" }, Ok);
     await readUntil(id, "40 100");
 
-    await call({ op: "input", id, text: "exit 3\n" });
+    await call({ op: "input", id, text: "exit 3\n" }, Ok);
     await readUntil(id, "<exit 3>");
-    const list = await call<Array<{ id: string; endedBy: string }>>({ op: "list" });
+    const list = await call({ op: "list" }, Listed);
     expect(list.find((t) => t.id === id)).toMatchObject({ exit: { code: 3 }, endedBy: "exit" });
   }, 30_000);
 
   test("a crash ends terminals; the next Daemon reports them ended in their cwd", async () => {
     await start("1.0.0");
-    const id = await call<string>({ op: "open", cwd: home });
-    await call({ op: "input", id, text: "echo alive\n" });
+    const id = await call({ op: "open", cwd: home }, Schema.String);
+    await call({ op: "input", id, text: "echo alive\n" }, Ok);
     await readUntil(id, "alive");
     daemon!.kill("SIGKILL");
     await daemon!.exited;
 
     await start("1.0.0");
-    expect(await call<string>({ op: "read", id })).toBe("<exit null>");
-    const list = await call<Array<Record<string, unknown>>>({ op: "list" });
+    expect(await call({ op: "read", id }, Schema.String)).toBe("<exit null>");
+    const list = await call({ op: "list" }, Listed);
     expect(list.find((t) => t.id === id)).toMatchObject({
       cwd: home,
       exit: { code: null },

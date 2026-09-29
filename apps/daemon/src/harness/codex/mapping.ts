@@ -2,7 +2,13 @@
  * Pure translations between Polaris's Harness vocabulary and the Codex
  * app-server protocol. No I/O here, so every rule is unit-testable.
  */
-import type { ApprovalDecision, Attachment, PermissionMode, TurnItem } from "@polaris/protocol";
+import {
+  ApprovalDecision,
+  type Attachment,
+  type PermissionMode,
+  TurnItem,
+} from "@polaris/protocol";
+import { Match } from "effect";
 import type * as Gen from "./generated/index.ts";
 import type * as P from "./protocol.ts";
 
@@ -95,125 +101,141 @@ export const turnInput = (
 // ---------------------------------------------------------------------------
 // Items
 
+const { AssistantMessage, CommandExecution, FileChange, Plan, Reasoning, ToolCall } =
+  TurnItem.cases;
+
 const itemStatus = (
   status: "inProgress" | "completed" | "failed" | "declined"
 ): "running" | "completed" | "failed" | "declined" =>
   status === "inProgress" ? "running" : status;
 
+const collabStatus = (status: string) =>
+  Match.value(status).pipe(
+    Match.when("inProgress", () => "running" as const),
+    Match.when("failed", () => "failed" as const),
+    Match.orElse(() => "completed" as const)
+  );
+
+type ItemMapper = (item: P.ThreadItem) => TurnItem | null;
+
+/** One mapper per Codex item type; each checks the fields it needs (unknown items share a type). */
+const itemMappers = new Map<string, ItemMapper>([
+  [
+    "agentMessage",
+    (item) => ("text" in item ? AssistantMessage.make({ id: item.id, text: item.text }) : null),
+  ],
+  [
+    "plan",
+    (item) => ("text" in item ? AssistantMessage.make({ id: item.id, text: item.text }) : null),
+  ],
+  [
+    "reasoning",
+    (item) =>
+      "summary" in item
+        ? Reasoning.make({
+            id: item.id,
+            text: (item.summary.length > 0 ? item.summary : item.content).join("\n\n"),
+          })
+        : null,
+  ],
+  [
+    "commandExecution",
+    (item) =>
+      "command" in item
+        ? CommandExecution.make({
+            id: item.id,
+            command: item.command,
+            cwd: item.cwd,
+            output: item.aggregatedOutput ?? "",
+            exitCode: item.exitCode,
+            status: itemStatus(item.status),
+          })
+        : null,
+  ],
+  [
+    "fileChange",
+    (item) =>
+      "changes" in item
+        ? FileChange.make({
+            id: item.id,
+            changes: item.changes.map((change) => ({
+              path: change.path,
+              kind: change.kind.type === "update" ? "modify" : change.kind.type,
+            })),
+            status: itemStatus(item.status),
+          })
+        : null,
+  ],
+  [
+    "mcpToolCall",
+    (item) =>
+      "server" in item
+        ? ToolCall.make({
+            id: item.id,
+            name: `${item.server}.${item.tool}`,
+            input: item.arguments,
+            output: item.error ?? item.result,
+            status: itemStatus(item.status),
+          })
+        : null,
+  ],
+  [
+    "dynamicToolCall",
+    (item) =>
+      "contentItems" in item
+        ? ToolCall.make({
+            id: item.id,
+            name: item.tool,
+            input: item.arguments,
+            output: item.contentItems,
+            status: itemStatus(item.status),
+          })
+        : null,
+  ],
+  [
+    "collabAgentToolCall",
+    (item) =>
+      "prompt" in item
+        ? ToolCall.make({
+            id: item.id,
+            name: `agent.${item.tool}`,
+            input: { prompt: item.prompt },
+            output: null,
+            status: collabStatus(item.status),
+          })
+        : null,
+  ],
+  [
+    "webSearch",
+    (item) =>
+      "query" in item
+        ? ToolCall.make({
+            id: item.id,
+            name: "web_search",
+            input: { query: item.query },
+            output: null,
+            status: "completed",
+          })
+        : null,
+  ],
+  [
+    "imageView",
+    (item) =>
+      "path" in item
+        ? ToolCall.make({
+            id: item.id,
+            name: "view_image",
+            input: { path: item.path },
+            output: null,
+            status: "completed",
+          })
+        : null,
+  ],
+]);
+
 /** Codex thread item → Polaris Turn item; null for items Polaris doesn't show (user messages…). */
-export const toTurnItem = (item: P.ThreadItem): TurnItem | null => {
-  switch (item.type) {
-    case "agentMessage":
-      if ("text" in item) return { _tag: "AssistantMessage", id: item.id, text: item.text };
-
-      return null;
-    case "plan":
-      if ("text" in item) return { _tag: "AssistantMessage", id: item.id, text: item.text };
-
-      return null;
-    case "reasoning":
-      if ("summary" in item) {
-        const text = (item.summary.length > 0 ? item.summary : item.content).join("\n\n");
-
-        return { _tag: "Reasoning", id: item.id, text };
-      }
-
-      return null;
-    case "commandExecution":
-      if ("command" in item)
-        return {
-          _tag: "CommandExecution",
-          id: item.id,
-          command: item.command,
-          cwd: item.cwd,
-          output: item.aggregatedOutput ?? "",
-          exitCode: item.exitCode,
-          status: itemStatus(item.status),
-        };
-
-      return null;
-    case "fileChange":
-      if ("changes" in item)
-        return {
-          _tag: "FileChange",
-          id: item.id,
-          changes: item.changes.map((change) => ({
-            path: change.path,
-            kind: change.kind.type === "update" ? "modify" : change.kind.type,
-          })),
-          status: itemStatus(item.status),
-        };
-
-      return null;
-    case "mcpToolCall":
-      if ("server" in item)
-        return {
-          _tag: "ToolCall",
-          id: item.id,
-          name: `${item.server}.${item.tool}`,
-          input: item.arguments,
-          output: item.error ?? item.result,
-          status: itemStatus(item.status),
-        };
-
-      return null;
-    case "dynamicToolCall":
-      if ("contentItems" in item)
-        return {
-          _tag: "ToolCall",
-          id: item.id,
-          name: item.tool,
-          input: item.arguments,
-          output: item.contentItems,
-          status: itemStatus(item.status),
-        };
-
-      return null;
-    case "collabAgentToolCall":
-      if ("prompt" in item)
-        return {
-          _tag: "ToolCall",
-          id: item.id,
-          name: `agent.${item.tool}`,
-          input: { prompt: item.prompt },
-          output: null,
-          status:
-            item.status === "inProgress"
-              ? "running"
-              : item.status === "failed"
-                ? "failed"
-                : "completed",
-        };
-
-      return null;
-    case "webSearch":
-      if ("query" in item)
-        return {
-          _tag: "ToolCall",
-          id: item.id,
-          name: "web_search",
-          input: { query: item.query },
-          output: null,
-          status: "completed",
-        };
-
-      return null;
-    case "imageView":
-      if ("path" in item)
-        return {
-          _tag: "ToolCall",
-          id: item.id,
-          name: "view_image",
-          input: { path: item.path },
-          output: null,
-          status: "completed",
-        };
-
-      return null;
-    default:
-      return null;
-  }
-};
+export const toTurnItem = (item: P.ThreadItem): TurnItem | null =>
+  itemMappers.get(item.type)?.(item) ?? null;
 
 /** The text of a user message item (its text inputs, in order); null when it has none. */
 export const userMessageText = (item: P.ThreadItem): string | null => {
@@ -229,14 +251,14 @@ export const userMessageText = (item: P.ThreadItem): string | null => {
 export const toPlanItem = (
   id: string,
   plan: (typeof P.TurnPlanUpdatedNotification.Type)["plan"]
-): TurnItem => ({
-  _tag: "Plan",
-  id,
-  steps: plan.map((step) => ({
-    text: step.step,
-    status: step.status === "inProgress" ? "in-progress" : step.status,
-  })),
-});
+): TurnItem =>
+  Plan.make({
+    id,
+    steps: plan.map((step) => ({
+      text: step.step,
+      status: step.status === "inProgress" ? "in-progress" : step.status,
+    })),
+  });
 
 // ---------------------------------------------------------------------------
 // Approvals
@@ -244,32 +266,27 @@ export const toPlanItem = (
 /** Command and file-change approvals share one decision vocabulary. */
 export const approvalDecision = (
   decision: ApprovalDecision
-): Gen.FileChangeRequestApprovalResponse => {
-  switch (decision._tag) {
-    case "Allow":
-      return { decision: decision.remember ? "acceptForSession" : "accept" };
-    case "Deny":
-      return { decision: "decline" };
-    case "Answer":
-      return { decision: "decline" };
-  }
-};
+): Gen.FileChangeRequestApprovalResponse =>
+  ApprovalDecision.match(decision, {
+    Allow: ({ remember }): Gen.FileChangeRequestApprovalResponse => ({
+      decision: remember ? "acceptForSession" : "accept",
+    }),
+    Deny: () => ({ decision: "decline" }),
+    Answer: () => ({ decision: "decline" }),
+  });
 
 export const permissionsDecision = (
   requested: (typeof P.PermissionsApprovalParams.Type)["permissions"],
   decision: ApprovalDecision
-): Gen.PermissionsRequestApprovalResponse => {
-  if (decision._tag !== "Allow") return { permissions: {}, scope: "turn" };
-  const granted: Record<string, unknown> = {};
+): P.PermissionsGrant => {
+  if (!ApprovalDecision.guards.Allow(decision)) return { permissions: {}, scope: "turn" };
+  const granted: P.GrantedPermissions = {};
 
   if (requested.network !== null) granted.network = requested.network;
 
   if (requested.fileSystem !== null) granted.fileSystem = requested.fileSystem;
 
-  return {
-    permissions: granted as Gen.PermissionsRequestApprovalResponse["permissions"],
-    scope: decision.remember ? "session" : "turn",
-  };
+  return { permissions: granted, scope: decision.remember ? "session" : "turn" };
 };
 
 /**
@@ -283,8 +300,9 @@ export const userInputDecision = (
   const answers: Record<string, { answers: Array<string> }> = {};
 
   for (const question of questions) {
-    if (decision._tag === "Answer") answers[question.id] = { answers: [decision.text] };
-    else if (decision._tag === "Allow" && question.options?.[0])
+    if (ApprovalDecision.guards.Answer(decision))
+      answers[question.id] = { answers: [decision.text] };
+    else if (ApprovalDecision.guards.Allow(decision) && question.options?.[0])
       answers[question.id] = { answers: [question.options[0].label] };
   }
 
@@ -293,13 +311,13 @@ export const userInputDecision = (
 
 export const elicitationDecision = (
   decision: ApprovalDecision
-): Gen.McpServerElicitationRequestResponse => {
-  switch (decision._tag) {
-    case "Allow":
-      return { action: "accept", content: {}, _meta: null };
-    case "Answer":
-      return { action: "accept", content: { answer: decision.text }, _meta: null };
-    case "Deny":
-      return { action: "decline", content: null, _meta: null };
-  }
-};
+): Gen.McpServerElicitationRequestResponse =>
+  ApprovalDecision.match(decision, {
+    Allow: (): Gen.McpServerElicitationRequestResponse => ({
+      action: "accept",
+      content: {},
+      _meta: null,
+    }),
+    Answer: ({ text }) => ({ action: "accept", content: { answer: text }, _meta: null }),
+    Deny: () => ({ action: "decline", content: null, _meta: null }),
+  });

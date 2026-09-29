@@ -9,7 +9,7 @@ import { chmodSync, existsSync, mkdtempSync, rmSync, writeFileSync } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Subprocess } from "bun";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { CommandRunner } from "./CommandRunner.ts";
 import { clearCloseOnExec, closeFd, isCloseOnExec, socketPair } from "./libc.ts";
 import { runtimePlatform } from "./platform.ts";
@@ -19,13 +19,17 @@ const fixture = join(import.meta.dir, "fixtures", "handoff-daemon.ts");
 
 const platform = runtimePlatform();
 
-interface Info {
-  readonly version: string;
-  readonly pid: number;
-  readonly childPid: number;
-  readonly echo: string;
-  readonly adopted: boolean;
-}
+const Info = Schema.Struct({
+  version: Schema.String,
+  pid: Schema.Number,
+  childPid: Schema.Number,
+  echo: Schema.String,
+  adopted: Schema.Boolean,
+});
+
+type Info = typeof Info.Type;
+
+const decodeInfo = Schema.decodeUnknownSync(Schema.fromJsonString(Info));
 
 /** Connect to the Daemon socket and ask for `info`. */
 const info = (socketPath: string): Promise<Info> =>
@@ -41,7 +45,7 @@ const info = (socketPath: string): Promise<Info> =>
           buffered += data.toString();
 
           if (buffered.includes("\n")) {
-            resolve(JSON.parse(buffered.slice(0, buffered.indexOf("\n"))));
+            resolve(decodeInfo(buffered.slice(0, buffered.indexOf("\n"))));
             socket.end();
           }
         },
@@ -107,7 +111,7 @@ describe("libc", () => {
       expect(isCloseOnExec(a)).toBe(false);
       const env = await Effect.runPromise(prepareHandoff(a, { fds: { "harness:x": b } }));
       expect(isCloseOnExec(b)).toBe(false);
-      expect(JSON.parse(env[HANDOFF_ENV]!)).toMatchObject({
+      expect(JSON.parse(env[HANDOFF_ENV])).toMatchObject({
         listenerFd: a,
         fds: { "harness:x": b },
       });

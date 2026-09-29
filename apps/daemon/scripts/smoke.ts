@@ -13,18 +13,25 @@
 import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { makeHostConnection, spawnTransport } from "@polaris/client";
+import { type HostTarget, makeHostConnection, spawnTransport } from "@polaris/client";
 import {
+  Command,
   CommandId,
-  type HarnessKind,
+  DomainEvent,
+  GitDiff,
+  HarnessKind,
+  HostStreamItem,
   SessionId,
-  type SessionStreamItem,
-  type WorkspaceId,
+  SessionPlacement,
+  SessionStreamItem,
+  type TurnId,
 } from "@polaris/protocol";
-import { Effect, Stream } from "effect";
+import { Data, Effect, Option, Schema, Stream } from "effect";
 import { defaultStateFile, stopAppServer } from "../src/harness/codex/AppServer.ts";
 
-const harness = (process.argv[2] ?? "codex") as HarnessKind;
+const harness = Schema.decodeUnknownSync(HarnessKind)(process.argv[2] ?? "codex");
+
+const { Ssh } = Data.taggedEnum<HostTarget>();
 
 const MAIN = join(import.meta.dir, "..", "src", "main.ts");
 
@@ -59,7 +66,7 @@ const program = Effect.gen(function* () {
   const conn = yield* makeHostConnection({
     key: "smoke",
     name: "Smoke",
-    target: { _tag: "Ssh", alias: "unused" },
+    target: Ssh({ alias: "unused" }),
     identity: {
       name: "polaris-smoke",
       version: "0.0.0",
@@ -74,16 +81,14 @@ const program = Effect.gen(function* () {
 
   yield* s.client.dispatch({
     commandId: cmd(),
-    command: { _tag: "RegisterWorkspace", path: repo, name: "smoke" },
+    command: Command.cases.RegisterWorkspace.make({ path: repo, name: "smoke" }),
   });
 
-  const snapshot = yield* s.client.subscribeHost({ afterSequence: null }).pipe(
-    Stream.filter((i) => i._tag === "Snapshot"),
-    Stream.runHead
-  );
+  const snapshot = yield* s.client
+    .subscribeHost({ afterSequence: null })
+    .pipe(Stream.filter(HostStreamItem.guards.Snapshot), Stream.runHead);
 
-  if (snapshot._tag !== "Some" || snapshot.value._tag !== "Snapshot")
-    return yield* Effect.die("no snapshot");
+  if (Option.isNone(snapshot)) return yield* Effect.die("no snapshot");
   const workspace = snapshot.value.workspaces[0];
 
   if (!workspace) return yield* Effect.die("workspace not registered");
@@ -92,51 +97,55 @@ const program = Effect.gen(function* () {
   const sessionId = SessionId.make(`smoke-${harness}`);
   yield* s.client.dispatch({
     commandId: cmd(),
-    command: {
-      _tag: "StartSession",
+    command: Command.cases.StartSession.make({
       sessionId,
-      workspaceId: workspace.id as WorkspaceId,
+      workspaceId: workspace.id,
       harness,
-      placement: { _tag: "InPlace" },
+      placement: SessionPlacement.cases.InPlace.make({}),
       permissionMode: "full-access",
       model: harness === "claude" ? "haiku" : null,
       prompt:
         "Create a file named ok.txt containing the single word ok, then reply with the word done.",
       attachments: [],
-    },
+    }),
   });
   log("started", harness, "session");
 
-  let turnId: string | null = null;
+  let turnId: TurnId | null = null;
+
+  const onEvent = (e: DomainEvent) =>
+    DomainEvent.matchOrElse(
+      e,
+      {
+        SessionStateChanged: (changed) => log("state →", changed.state, changed.reason ?? ""),
+        TurnStarted: (started) => {
+          turnId = started.turn.id;
+        },
+        TurnItemCompleted: (completed) =>
+          log("item", completed.item._tag, JSON.stringify(completed.item).slice(0, 140)),
+        CheckpointRecorded: (checkpoint) => log("checkpoint", checkpoint.ref),
+        ApprovalRequested: (requested) => log("approval!", requested.request.title),
+      },
+      () => undefined
+    );
+
+  const settled = (item: SessionStreamItem) =>
+    SessionStreamItem.guards.Event(item) &&
+    DomainEvent.guards.SessionStateChanged(item.envelope.event) &&
+    ["idle", "failed", "needs-you"].includes(item.envelope.event.state);
+
   yield* s.client.subscribeSession({ sessionId, afterSequence: null, turnLimit: null }).pipe(
     Stream.tap((item: SessionStreamItem) =>
       Effect.sync(() => {
-        if (item._tag === "Snapshot") {
+        if (SessionStreamItem.guards.Snapshot(item)) {
           log("snapshot: session", item.session.state, `${item.turns.length} turn(s)`);
           turnId = item.turns.at(-1)?.turn.id ?? turnId;
         }
 
-        if (item._tag !== "Event") return;
-        const e = item.envelope.event;
-
-        if (e._tag === "SessionStateChanged") log("state →", e.state, e.reason ?? "");
-
-        if (e._tag === "TurnStarted") turnId = e.turn.id;
-
-        if (e._tag === "TurnItemCompleted")
-          log("item", e.item._tag, JSON.stringify(e.item).slice(0, 140));
-
-        if (e._tag === "CheckpointRecorded") log("checkpoint", e.ref);
-
-        if (e._tag === "ApprovalRequested") log("approval!", e.request.title);
+        if (SessionStreamItem.guards.Event(item)) onEvent(item.envelope.event);
       })
     ),
-    Stream.takeUntil(
-      (item) =>
-        item._tag === "Event" &&
-        item.envelope.event._tag === "SessionStateChanged" &&
-        ["idle", "failed", "needs-you"].includes(item.envelope.event.state)
-    ),
+    Stream.takeUntil(settled),
     Stream.runDrain,
     Effect.timeout("3 minutes")
   );
@@ -144,7 +153,7 @@ const program = Effect.gen(function* () {
   if (turnId) {
     const diff = yield* s.client["git.diff"]({
       cwd: repo,
-      spec: { _tag: "Turn", sessionId, turnId: turnId as never },
+      spec: GitDiff.payloadSchema.fields.spec.cases.Turn.make({ sessionId, turnId }),
     });
 
     const bytes = yield* s.blobs.take(diff.blobId);

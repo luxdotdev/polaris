@@ -10,7 +10,7 @@
  * Nothing is downloaded on the Host and nothing needs sudo.
  */
 import { randomBytes } from "node:crypto";
-import { Effect, Schema } from "effect";
+import { Data, Effect, Match, Option, Predicate, Schema } from "effect";
 import { type DaemonBuild, MUSL_RUNTIME_LIBRARIES } from "./builds.ts";
 import { type HostProbe, type InstallPlan, type PlanOptions, planInstall } from "./plan.ts";
 import { Ssh, type SshError, shScript } from "./Ssh.ts";
@@ -55,12 +55,15 @@ export const parseProbe = (stdout: string): HostProbe | null => {
     .filter((line) => line.startsWith("missing="))
     .map((line) => line.slice("missing=".length));
 
-  return {
+  const probe: HostProbe = {
     os,
     arch,
-    ...(fields.get("libc") === "musl" ? { libc: "musl" as const, missingLibraries: missing } : {}),
     installed: version ? { version: version[1]!, platform: version[2]! } : null,
   };
+
+  if (fields.get("libc") !== "musl") return probe;
+
+  return { ...probe, libc: "musl", missingLibraries: missing };
 };
 
 export const probeHost = Effect.fn("probeHost")(function* (alias: string) {
@@ -131,6 +134,11 @@ const cleanUp = (alias: string, dir: string) =>
     yield* ssh.exec(alias, shScript(`rm -rf "$HOME/${dir}"`));
   }).pipe(Effect.ignore);
 
+/** The JSON line `polaris install|upgrade --json` prints; its fields vary by action and version. */
+export type DaemonReport = Schema.JsonObject;
+
+const decodeReport = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.JsonObject));
+
 /** Run `polaris install|upgrade --json` and parse the JSON line it prints last. */
 const runPolaris = Effect.fn("runPolaris")(function* (
   alias: string,
@@ -141,16 +149,10 @@ const runPolaris = Effect.fn("runPolaris")(function* (
   const result = yield* ssh.exec(alias, shScript(command));
   const line = result.stdout.trim().split("\n").at(-1) ?? "";
 
-  const report = (() => {
-    try {
-      return JSON.parse(line) as Record<string, unknown>;
-    } catch {
-      return null;
-    }
-  })();
+  const report: DaemonReport | null = Option.getOrNull(decodeReport(line));
 
   if (result.code !== 0 || report === null || report.ok !== true) {
-    const message = typeof report?.message === "string" ? report.message : null;
+    const message = Predicate.isString(report?.message) ? report.message : null;
 
     return yield* message
       ? new RemoteInstallError({ alias, step, message })
@@ -160,18 +162,12 @@ const runPolaris = Effect.fn("runPolaris")(function* (
   return report;
 });
 
-export type ApplyResult =
-  | {
-      readonly _tag: "Installed";
-      readonly version: string;
-      readonly report: Record<string, unknown>;
-    }
-  | {
-      readonly _tag: "Upgraded";
-      readonly from: string;
-      readonly version: string;
-      readonly report: Record<string, unknown>;
-    };
+export type ApplyResult = Data.TaggedEnum<{
+  Installed: { readonly version: string; readonly report: DaemonReport };
+  Upgraded: { readonly from: string; readonly version: string; readonly report: DaemonReport };
+}>;
+
+export const ApplyResult = Data.taggedEnum<ApplyResult>();
 
 /** Carry out an `Install` or `Upgrade` plan. */
 export const applyPlan = Effect.fn("applyPlan")(function* (
@@ -180,47 +176,40 @@ export const applyPlan = Effect.fn("applyPlan")(function* (
 ) {
   const uploaded = yield* upload(alias, plan.build);
 
-  const run =
-    plan._tag === "Install"
-      ? runPolaris(alias, "install", `${uploaded.binary} install --json`).pipe(
-          Effect.map((report): ApplyResult => ({
-            _tag: "Installed",
-            version: plan.build.version,
-            report,
-          }))
-        )
-      : runPolaris(
+  const run = Match.value(plan).pipe(
+    Match.tagsExhaustive({
+      Install: () =>
+        runPolaris(alias, "install", `${uploaded.binary} install --json`).pipe(
+          Effect.map((report) => ApplyResult.Installed({ version: plan.build.version, report }))
+        ),
+      Upgrade: (upgrade) =>
+        runPolaris(
           alias,
           "upgrade",
           `"$HOME/.polaris/bin/current/polaris" upgrade ${uploaded.binary} --json`
         ).pipe(
-          Effect.map((report): ApplyResult => ({
-            _tag: "Upgraded",
-            from: plan.from,
-            version: plan.build.version,
-            report,
-          }))
-        );
+          Effect.map((report) =>
+            ApplyResult.Upgraded({ from: upgrade.from, version: plan.build.version, report })
+          )
+        ),
+    })
+  );
 
   return yield* run.pipe(Effect.ensuring(cleanUp(alias, uploaded.dir)));
 });
 
-export type EnsureResult =
-  | { readonly _tag: "Ready"; readonly plan: InstallPlan; readonly applied: ApplyResult | null }
+export type EnsureResult = Data.TaggedEnum<{
+  Ready: { readonly plan: InstallPlan; readonly applied: ApplyResult | null };
   /** Show inline on the Host as Needs Attention; call again with the SHA approved. */
-  | {
-      readonly _tag: "ApprovalNeeded";
-      readonly plan: Extract<InstallPlan, { _tag: "NeedsApproval" }>;
-    }
-  | {
-      readonly _tag: "Unavailable";
-      readonly plan: Extract<InstallPlan, { _tag: "Unsupported" | "MissingBuild" }>;
-    }
+  ApprovalNeeded: { readonly plan: Extract<InstallPlan, { _tag: "NeedsApproval" }> };
+  Unavailable: {
+    readonly plan: Extract<InstallPlan, { _tag: "Unsupported" | "MissingBuild" }>;
+  };
   /** Needs Attention: an administrator must run `plan.command` on the Host, then retry. */
-  | {
-      readonly _tag: "HostSetupNeeded";
-      readonly plan: Extract<InstallPlan, { _tag: "MissingLibraries" }>;
-    };
+  HostSetupNeeded: { readonly plan: Extract<InstallPlan, { _tag: "MissingLibraries" }> };
+}>;
+
+export const EnsureResult = Data.taggedEnum<EnsureResult>();
 
 /**
  * Make sure the Host runs a Daemon this Client can talk to: install (only
@@ -235,19 +224,21 @@ export const ensureDaemon = Effect.fn("ensureDaemon")(function* (
   const probe = yield* probeHost(alias);
   const plan = planInstall(probe, builds, options);
 
-  switch (plan._tag) {
-    case "NeedsApproval":
-      return { _tag: "ApprovalNeeded", plan };
-    case "Unsupported":
-    case "MissingBuild":
-      return { _tag: "Unavailable", plan };
-    case "MissingLibraries":
-      return { _tag: "HostSetupNeeded", plan };
-    case "UpToDate":
-    case "InstalledNewer":
-      return { _tag: "Ready", plan, applied: null };
-    case "Install":
-    case "Upgrade":
-      return { _tag: "Ready", plan, applied: yield* applyPlan(alias, plan) };
-  }
+  const ready = (applied: ApplyResult | null): EnsureResult =>
+    EnsureResult.Ready({ plan, applied });
+
+  const decided = (result: EnsureResult) => Effect.succeed(result);
+
+  return yield* Match.value(plan).pipe(
+    Match.tagsExhaustive({
+      NeedsApproval: (needs) => decided(EnsureResult.ApprovalNeeded({ plan: needs })),
+      Unsupported: (unsupported) => decided(EnsureResult.Unavailable({ plan: unsupported })),
+      MissingBuild: (missing) => decided(EnsureResult.Unavailable({ plan: missing })),
+      MissingLibraries: (missing) => decided(EnsureResult.HostSetupNeeded({ plan: missing })),
+      UpToDate: () => decided(ready(null)),
+      InstalledNewer: () => decided(ready(null)),
+      Install: (install) => Effect.map(applyPlan(alias, install), ready),
+      Upgrade: (upgrade) => Effect.map(applyPlan(alias, upgrade), ready),
+    })
+  );
 });

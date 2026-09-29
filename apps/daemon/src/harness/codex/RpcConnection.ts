@@ -7,23 +7,24 @@
  * TUI uses the same transport, which is what lets both co-attach.
  */
 import { appendFileSync } from "node:fs";
-import { type Cause, Deferred, Effect, Queue, Schema, type Scope } from "effect";
+import { type Cause, Data, Deferred, Effect, Option, Queue, Schema, type Scope } from "effect";
 import { HarnessError } from "../HarnessDriver.ts";
-import { type RpcId, RpcMessage } from "./protocol.ts";
+import { type Outgoing, type RpcId, RpcMessage, type RpcPayload } from "./protocol.ts";
 
-export type Incoming =
-  | { readonly _tag: "Notification"; readonly method: string; readonly params: unknown }
-  | {
-      readonly _tag: "Request";
-      readonly id: RpcId;
-      readonly method: string;
-      readonly params: unknown;
-    };
+/** A server notification or server→client request; `params` is undefined when the server sent none. */
+export type Incoming = Data.TaggedEnum<{
+  Notification: { readonly method: string; readonly params: RpcPayload };
+  Request: { readonly id: RpcId; readonly method: string; readonly params: RpcPayload };
+}>;
+
+export const Incoming = Data.taggedEnum<Incoming>();
+
+const { Notification, Request } = Incoming;
 
 export interface RpcConnection {
-  readonly request: (method: string, params: unknown) => Effect.Effect<unknown, HarnessError>;
-  readonly notify: (method: string, params?: unknown) => Effect.Effect<void, HarnessError>;
-  readonly respond: (id: RpcId, result: unknown) => Effect.Effect<void, HarnessError>;
+  readonly request: (method: string, params: Outgoing) => Effect.Effect<RpcPayload, HarnessError>;
+  readonly notify: (method: string, params?: Outgoing) => Effect.Effect<void, HarnessError>;
+  readonly respond: (id: RpcId, result: Outgoing) => Effect.Effect<void, HarnessError>;
   readonly respondError: (
     id: RpcId,
     code: number,
@@ -33,6 +34,15 @@ export interface RpcConnection {
   readonly incoming: Queue.Dequeue<Incoming, Cause.Done>;
   /** Completes when the connection closes, with a reason unless the client closed it. */
   readonly closed: Deferred.Deferred<string | null>;
+}
+
+/** One JSON-RPC message the driver writes. */
+interface OutgoingMessage {
+  readonly id?: RpcId;
+  readonly method?: string;
+  readonly params?: Outgoing;
+  readonly result?: Outgoing;
+  readonly error?: { readonly code: number; readonly message: string };
 }
 
 export const codexError = (message: string, cause?: unknown) =>
@@ -63,7 +73,7 @@ export const connectUnix = (
   Effect.gen(function* () {
     const incoming = yield* Queue.unbounded<Incoming, Cause.Done>();
     const closed = yield* Deferred.make<string | null>();
-    const pending = new Map<string, Deferred.Deferred<unknown, HarnessError>>();
+    const pending = new Map<string, Deferred.Deferred<RpcPayload, HarnessError>>();
     let nextId = 1;
     let closedByClient = false;
 
@@ -79,20 +89,17 @@ export const connectUnix = (
       Queue.endUnsafe(incoming);
     };
 
-    const onMessage = (data: unknown) => {
-      const raw = typeof data === "string" ? data : String(data);
+    const onMessage = (raw: string) => {
       trace("in", raw);
       const message = decodeMessage(raw);
 
-      if (message._tag === "None") return;
+      if (Option.isNone(message)) return;
       const { id, method, params, result, error } = message.value;
 
       if (method !== undefined) {
         Queue.offerUnsafe(
           incoming,
-          id === undefined
-            ? { _tag: "Notification", method, params }
-            : { _tag: "Request", id, method, params }
+          id === undefined ? Notification({ method, params }) : Request({ id, method, params })
         );
 
         return;
@@ -116,7 +123,7 @@ export const connectUnix = (
         const ws = new WebSocket(`ws+unix://${socketPath}`);
         ws.onopen = () => resume(Effect.succeed(ws));
         ws.onerror = (event) => {
-          const message = (event as ErrorEvent).message || "WebSocket error";
+          const message = (event instanceof ErrorEvent && event.message) || "WebSocket error";
           resume(
             Effect.fail(codexError(`Cannot reach Codex app-server at ${socketPath}: ${message}`))
           );
@@ -127,7 +134,7 @@ export const connectUnix = (
           shutdown(
             closedByClient ? null : `Codex app-server closed the connection (${event.code})`
           );
-        ws.onmessage = (event) => onMessage(event.data);
+        ws.onmessage = (event) => onMessage(String(event.data));
 
         return Effect.sync(() => ws.close());
       }),
@@ -139,7 +146,7 @@ export const connectUnix = (
         })
     );
 
-    const send = (message: object) =>
+    const send = (message: OutgoingMessage) =>
       Effect.suspend(() => {
         if (Deferred.isDoneUnsafe(closed))
           return Effect.fail(codexError("Codex app-server connection is closed"));
@@ -154,10 +161,10 @@ export const connectUnix = (
         });
       });
 
-    const request = (method: string, params: unknown) =>
+    const request = (method: string, params: Outgoing) =>
       Effect.gen(function* () {
         const id = nextId++;
-        const deferred = yield* Deferred.make<unknown, HarnessError>();
+        const deferred = yield* Deferred.make<RpcPayload, HarnessError>();
         pending.set(String(id), deferred);
         yield* send({ id, method, params }).pipe(
           Effect.tapError(() => Effect.sync(() => pending.delete(String(id))))

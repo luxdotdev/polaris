@@ -8,13 +8,7 @@
  * chunk; the rest is queued and flushed on `drain`.
  */
 import { EventEmitter } from "node:events";
-import {
-  type ByteTransport,
-  type EventReadable,
-  type EventWritable,
-  readEvents,
-  writeEvents,
-} from "@polaris/protocol";
+import { type ByteTransport, readEvents, writeEvents } from "@polaris/protocol";
 import type { Socket, SocketHandler } from "bun";
 import { Effect } from "effect";
 
@@ -107,8 +101,8 @@ export class BunSocketStream extends EventEmitter {
 }
 
 export const toTransport = (stream: BunSocketStream): ByteTransport => ({
-  incoming: readEvents(stream as unknown as EventReadable),
-  write: writeEvents(stream as unknown as EventWritable),
+  incoming: readEvents(stream),
+  write: writeEvents(stream),
   close: Effect.sync(() => stream.end()),
 });
 

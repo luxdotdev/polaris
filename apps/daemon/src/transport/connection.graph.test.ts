@@ -13,6 +13,7 @@ import { join } from "node:path";
 import {
   type ConnectFailure,
   type Connector,
+  HostTarget,
   makeHostConnection,
   socketTransport,
 } from "@polaris/client";
@@ -28,13 +29,12 @@ import {
   observeConnectionModel,
   stepConnection,
 } from "@polaris/client/testing";
-import { Clock, Effect, Queue, SubscriptionRef } from "effect";
+import { Clock, Effect, Option, Queue, SubscriptionRef } from "effect";
 import { TestClock } from "effect/testing";
 import { startServer } from "./server.ts";
 
-type Outcome =
-  | { readonly _tag: "connect" }
-  | { readonly _tag: "fail"; readonly failure: ConnectFailure };
+/** How the next attempt ends: it connects (none) or fails with the failure. */
+type Outcome = Option.Option<ConnectFailure>;
 
 const identity = {
   name: "polaris-test",
@@ -64,7 +64,7 @@ const replay = (steps: ReadonlyArray<ConnectionStep>) =>
         Effect.ensuring(Effect.sync(() => (awaiting = false)))
       );
 
-      if (outcome._tag === "fail") return yield* Effect.fail(outcome.failure);
+      if (Option.isSome(outcome)) return yield* Effect.fail(outcome.value);
       const transport = yield* socketTransport(socketPath);
       live = transport;
 
@@ -74,7 +74,7 @@ const replay = (steps: ReadonlyArray<ConnectionStep>) =>
     const conn = yield* makeHostConnection({
       key: "model",
       name: "Model",
-      target: { _tag: "Local", socketPath },
+      target: HostTarget.Local({ socketPath }),
       identity,
       policy: MODEL_POLICY,
       connector,
@@ -122,9 +122,9 @@ const replay = (steps: ReadonlyArray<ConnectionStep>) =>
     const drive = (model: ConnectionModel, step: ConnectionStep) => {
       switch (step.type) {
         case "connect":
-          return Queue.offer(outcomes, { _tag: "connect" });
+          return Queue.offer(outcomes, Option.none());
         case "fail":
-          return Queue.offer(outcomes, { _tag: "fail", failure: FAILURES[step.reason] });
+          return Queue.offer(outcomes, Option.some(FAILURES[step.reason]));
         case "drop":
           return live?.close ?? Effect.die(new Error("nothing to drop"));
         case "retry":
