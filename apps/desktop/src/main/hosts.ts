@@ -185,3 +185,13 @@ export const toIpcError = (error: {
   code: error._tag,
   message: error.message,
 });
+
+/** Waits until the Host with `key` is first Connected. */
+export const whenConnected = (key: string) =>
+  HostDirectory.use((dir) =>
+    SubscriptionRef.changes(dir.views).pipe(
+      Stream.filter((views) => views.some((v) => v.key === key && v.status.state === "connected")),
+      Stream.runHead,
+      Effect.asVoid
+    )
+  );

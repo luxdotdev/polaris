@@ -12,7 +12,14 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, nativeTheme, session } from "electron";
 import { type AppEvent, type Appearance, CHANNELS } from "../shared/api.ts";
-import { clientIdentity, type ClientRuntime, hostEntries, startClientRuntime } from "./hosts.ts";
+import {
+  clientIdentity,
+  type ClientRuntime,
+  hostEntries,
+  LOCAL_HOST_KEY,
+  startClientRuntime,
+  whenConnected,
+} from "./hosts.ts";
 import { registerIpc } from "./ipc/index.ts";
 import { type LocalDaemon, resolveLocalDaemon } from "./localDaemon.ts";
 import { buildMenu } from "./menu.ts";
@@ -116,12 +123,19 @@ const start = async () => {
   if (devUrl === null) serveRenderer(join(appRoot, "out/renderer"));
   else applyDevCsp(session.defaultSession, devUrl);
 
-  createMainWindow({
+  const win = createMainWindow({
     url: devUrl ?? `${APP_ORIGIN}/index.html`,
     preload: join(appRoot, "out/preload/index.cjs"),
     trusted,
     show: env.POLARIS_DESKTOP_HIDDEN !== "1",
   });
+
+  // Benchmarks and scripts wait for this line: the window is painted and the local Host is up.
+  const shown = new Promise<void>((resolve) => win.once("ready-to-show", () => resolve()));
+
+  void Promise.all([shown, runtime.runPromise(whenConnected(LOCAL_HOST_KEY))]).then(() =>
+    console.log("polaris: ready")
+  );
 };
 
 let quitting = false;
