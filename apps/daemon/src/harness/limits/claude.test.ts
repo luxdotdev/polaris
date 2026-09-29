@@ -134,6 +134,22 @@ describe("rate_limit_event", () => {
     ]);
   });
 
+  test("fractions become whole-looking percentages, not float noise", () => {
+    const message = event({
+      type: "rate_limit_event",
+      rate_limit_info: {
+        status: "allowed",
+        rateLimitType: "seven_day",
+        unifiedWindows: { seven_day: { utilization: 0.07 }, five_hour: { utilization: 0.1234 } },
+      },
+    });
+
+    expect(brief(fromRateLimitEvent(message, AT, emptyClaudeLimitContext()))).toEqual([
+      ["weekly", null, 7, "ok"],
+      ["five-hour", null, 12.34, "ok"],
+    ]);
+  });
+
   test("the named window carries the event's status", () => {
     const message = event({
       type: "rate_limit_event",

@@ -260,8 +260,11 @@ export const fromRateLimitEvent = (
 
   return [...windows].flatMap(([name, w]) => {
     const window = eventWindow(name, context);
-    const usedPercent = w.utilization === null ? null : clamp(w.utilization * 100);
     const status = name === named ? (EVENT_STATUS.get(info.status ?? "") ?? "ok") : "ok";
+
+    // Rounded to 0.01 %: `0.07 * 100` is 7.000000000000001, which would read as a change.
+    const usedPercent =
+      w.utilization === null ? null : clamp(Math.round(w.utilization * 1e4) / 100);
 
     // A window with neither a value nor a verdict says nothing.
     if (!window || (usedPercent === null && status === "ok")) return [];
