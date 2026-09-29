@@ -4,7 +4,7 @@ Tells Clients, per Host, whether each catalogue Harness is usable (ENG-201, deci
 
 | File | Role |
 |---|---|
-| `probe.ts` | `probeHarness(entry, env)`: one Harness, no side effects. `harnessBinary` finds the binary (`POLARIS_CLAUDE` / `POLARIS_CODEX`, else PATH), at probe time, so a Harness installed after the Daemon started is found. |
+| `probe.ts` | `probeHarness(entry, env)`: one Harness, no side effects. `harnessBinary` finds the binary (`POLARIS_CLAUDE` / `POLARIS_CODEX` / `POLARIS_GEMINI` / `POLARIS_COPILOT`, else PATH), at probe time, so a Harness installed after the Daemon started is found. |
 | `Availability.ts` | The `Availability` service: the cached `HostHarnesses` report and its changes. |
 | `AvailabilityRpcs.ts` | `harness.availability` (`refresh` probes again) and `harness.watchAvailability` (the current report, then each new one). |
 
@@ -19,7 +19,7 @@ Checked in this order, stopping at the first that applies:
 
 `signInArgv` is the catalogue's `setup.signInCommand` with the binary the Daemon found as `argv[0]`, for `terminal.open` on the Host. That matters under launchd / systemd, whose PATH often lacks nvm or Homebrew. Polaris never signs in for the user; the Harness does, in its own terminal. Once that terminal exits, a Client asks `harness.availability` with `refresh: true`.
 
-`minVersion`: Claude Code `2.1.283`, the `claudeCodeVersion` the pinned Agent SDK (0.3.283) is built for. Codex `0.157.1`, the codex-cli the app-server bindings in `../codex/generated/` came from. Raise them with the SDK or the bindings.
+`minVersion` for the ACP Harnesses is in `../acp/README.md`. Claude Code `2.1.283`, the `claudeCodeVersion` the pinned Agent SDK (0.3.283) is built for. Codex `0.157.1`, the codex-cli the app-server bindings in `../codex/generated/` came from. Raise them with the SDK or the bindings.
 
 ## Detecting sign-in without credentials
 
@@ -29,6 +29,7 @@ Each Harness reports its own sign-in state. Polaris never opens, reads or parses
 |---|---|---|---|
 | Claude Code | `claude auth status --json` | `{"loggedIn": bool, …}`, exit 1 when signed out. Only `loggedIn` is decoded. Unparseable output → `unknown`. | The Agent SDK's `accountInfo()`: it needs a live `query()`, which starts a session and imports the SDK (ENG-196). |
 | Codex | `codex login status` | Exit 0 when signed in; exit 1 with `Not logged in` on stderr when not; anything else → `unknown`. | app-server `account/read`: it needs the app-server, which starts a long-lived process and loads the Codex bindings. |
+| Gemini CLI, GitHub Copilot CLI (ACP) | none | No status command exists: without its config directory the Harness has never run here (`needs-sign-in`); otherwise `unknown`, and an `open` that isn't signed in fails with the sign-in hint. See `../acp/README.md`. | ACP `session/new`, which answers "auth required": it starts the agent and a session. |
 
 Side effects, measured on macOS with Claude Code 2.1.284 and codex-cli 0.158.0:
 
@@ -36,6 +37,7 @@ Side effects, measured on macOS with Claude Code 2.1.284 and codex-cli 0.158.0:
 - **Claude on a Host where it never ran:** `claude auth status` creates `~/.claude.json` and a backup under `~/.claude/backups/`. So when the config file (`$CLAUDE_CONFIG_DIR/.claude.json`, else `~/.claude.json`) doesn't exist, the probe skips the command and reports `needs-sign-in` ("Claude Code hasn't been run on this host yet"). A user signed in only through `ANTHROPIC_API_KEY` who has never run `claude` is therefore shown as needing sign-in; running the sign-in argv fixes that.
 - **Codex on a Host where it never ran:** any `codex` invocation, `--version` included, creates `~/.codex/tmp/arg0/…` (helper links). With `CODEX_HOME` set explicitly to a directory that doesn't exist, Codex warns and creates nothing. So every probe command gets `CODEX_HOME` explicitly (the user's, else `~/.codex`), and when that directory doesn't exist `codex login status` is skipped and the Harness reports `needs-sign-in`.
 - Claude probes also run with `DISABLE_AUTOUPDATER=1` and `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`, so a probe never starts an update or phones home.
+- **Gemini CLI:** `--version` writes `~/.gemini/projects.json` temp files, so it runs with `GEMINI_CLI_HOME` on an empty scratch directory, removed afterwards. **Copilot CLI:** `--version` unpacks its package cache into `~/Library/Caches/copilot`, as every start does. Measured with Gemini CLI 0.61.0 and Copilot CLI 1.0.89.
 - Every command runs in the user's home directory with stdin closed and a 5 s timeout. A timeout is `unknown`.
 
 Tested with fake binaries on PATH (`probe.test.ts`), which assert which commands ran and that a never-run Host's home stays empty.
