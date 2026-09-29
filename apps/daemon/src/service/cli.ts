@@ -29,7 +29,7 @@ const option = (args: ReadonlyArray<string>, name: string): string | undefined =
   return index >= 0 ? args[index + 1] : undefined;
 };
 
-const output = (json: boolean, value: object, human: ReadonlyArray<string>) =>
+const output = <Report>(json: boolean, value: Report, human: ReadonlyArray<string>) =>
   Effect.sync(() => console.log(json ? JSON.stringify(value) : human.join("\n")));
 
 /** `polaris install [--binary <path>] [--json]` */
@@ -105,24 +105,29 @@ const upgradeCommand = Effect.fn("upgradeCommand")(function* (args: ReadonlyArra
   ]);
 });
 
-const commands: Record<
+const commands = {
+  install: installCommand,
+  uninstall: uninstallCommand,
+  upgrade: upgradeCommand,
+} satisfies Record<
   string,
   (
     args: ReadonlyArray<string>
   ) => Effect.Effect<void, UsageError | InstallError | UpgradeError, CommandRunner>
-> = {
-  install: installCommand,
-  uninstall: uninstallCommand,
-  upgrade: upgradeCommand,
-};
+>;
 
-export const isServiceCommand = (command: string | undefined): command is string =>
+type ServiceCommand = keyof typeof commands;
+
+export const isServiceCommand = (command: string | undefined): command is ServiceCommand =>
   command !== undefined && command in commands;
 
 /** Run a lifecycle subcommand; resolves to the process exit code. */
-export const runServiceCommand = (command: string, args: ReadonlyArray<string>): Promise<number> =>
+export const runServiceCommand = (
+  command: ServiceCommand,
+  args: ReadonlyArray<string>
+): Promise<number> =>
   Effect.runPromise(
-    commands[command]!(args).pipe(
+    commands[command](args).pipe(
       Effect.as(0),
       Effect.catch((error) =>
         Effect.sync(() => {
@@ -134,7 +139,7 @@ export const runServiceCommand = (command: string, args: ReadonlyArray<string>):
             console.error(`polaris ${command}: ${message}`);
           }
 
-          return error._tag === "UsageError" ? 2 : 1;
+          return error instanceof UsageError ? 2 : 1;
         })
       ),
       Effect.provide(CommandRunner.layer)

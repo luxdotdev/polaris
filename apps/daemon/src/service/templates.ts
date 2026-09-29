@@ -27,16 +27,16 @@ const xmlEscape = (value: string): string =>
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&apos;");
 
+/** `POLARIS_HOME` plus the spec's environment, sorted by name. */
+const sortedEnv = (spec: ServiceSpec): Array<[string, string]> =>
+  Object.entries({ POLARIS_HOME: spec.home, ...spec.env }).sort(([a], [b]) => (a < b ? -1 : 1));
+
 /** A launchd LaunchAgent for `~/Library/LaunchAgents/dev.lux.polaris.plist`. */
 export const launchdPlist = (spec: ServiceSpec): string => {
   const string = (value: string) => `<string>${xmlEscape(value)}</string>`;
-  const env = { POLARIS_HOME: spec.home, ...spec.env };
 
-  const envEntries = Object.keys(env)
-    .sort()
-    .map(
-      (key) => `      <key>${xmlEscape(key)}</key>\n      ${string(env[key as keyof typeof env]!)}`
-    )
+  const envEntries = sortedEnv(spec)
+    .map(([key, value]) => `      <key>${xmlEscape(key)}</key>\n      ${string(value)}`)
     .join("\n");
 
   const argv = [spec.program, ...spec.args].map((arg) => `      ${string(arg)}`).join("\n");
@@ -78,11 +78,8 @@ const systemdQuote = (value: string): string =>
 
 /** A systemd `--user` unit for `~/.config/systemd/user/polaris.service`. */
 export const systemdUnit = (spec: ServiceSpec): string => {
-  const env = { POLARIS_HOME: spec.home, ...spec.env };
-
-  const envLines = Object.keys(env)
-    .sort()
-    .map((key) => `Environment=${systemdQuote(`${key}=${env[key as keyof typeof env]!}`)}`)
+  const envLines = sortedEnv(spec)
+    .map(([key, value]) => `Environment=${systemdQuote(`${key}=${value}`)}`)
     .join("\n");
 
   const execStart = [spec.program, ...spec.args].map(systemdQuote).join(" ");
@@ -124,11 +121,8 @@ export const shQuote = (value: string): string => `'${value.replaceAll("'", `'\\
  * the binary is gone (uninstalled). SIGTERM stops it and its Daemon.
  */
 export const supervisorScript = (spec: ServiceSpec): string => {
-  const env = { POLARIS_HOME: spec.home, ...spec.env };
-
-  const exports = Object.keys(env)
-    .sort()
-    .map((key) => `${key}=${shQuote(env[key as keyof typeof env]!)}; export ${key}`)
+  const exports = sortedEnv(spec)
+    .map(([key, value]) => `${key}=${shQuote(value)}; export ${key}`)
     .join("\n");
 
   const serve = [spec.program, ...spec.args].map(shQuote).join(" ");

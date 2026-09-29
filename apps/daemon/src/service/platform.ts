@@ -34,7 +34,7 @@ export const BUN_TARGETS: Record<Platform, string> = {
 export const VERSION: string = pkg.version;
 
 export const isPlatform = (value: string): value is Platform =>
-  (PLATFORMS as ReadonlyArray<string>).includes(value);
+  PLATFORMS.some((platform) => platform === value);
 
 let musl: boolean | undefined;
 

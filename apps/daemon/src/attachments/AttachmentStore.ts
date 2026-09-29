@@ -22,21 +22,34 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, open, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { Attachment, type AttachmentId, type SessionId, type WorkspaceId } from "@polaris/protocol";
-import { Context, Effect, Layer, Stream } from "effect";
+import { Attachment, AttachmentId, type SessionId, type WorkspaceId } from "@polaris/protocol";
+import { Context, Effect, Layer, Schema, Stream } from "effect";
 import { paths } from "../paths.ts";
 import { AttachmentStore, ServiceError } from "../services.ts";
 
-export type CleanupPolicy =
-  | { readonly kind: "on-archive" }
-  | { readonly kind: "after-days"; readonly days: number }
-  | { readonly kind: "never" };
+const CleanupPolicy = Schema.Union([
+  Schema.Struct({ kind: Schema.Literal("on-archive") }),
+  Schema.Struct({ kind: Schema.Literal("after-days"), days: Schema.Number }),
+  Schema.Struct({ kind: Schema.Literal("never") }),
+]);
+
+export type CleanupPolicy = typeof CleanupPolicy.Type;
 
 export interface AttachmentSettings {
   readonly default: CleanupPolicy;
   /** Per-Workspace overrides of `default`. */
   readonly workspaces: Readonly<Record<string, CleanupPolicy>>;
 }
+
+/** The settings file: either field may be missing, and falls back to its default. */
+const decodeSettingsFile = Schema.decodeUnknownSync(
+  Schema.fromJsonString(
+    Schema.Struct({
+      default: Schema.optionalKey(CleanupPolicy),
+      workspaces: Schema.optionalKey(Schema.Record(Schema.String, CleanupPolicy)),
+    })
+  )
+);
 
 export const defaultAttachmentSettings: AttachmentSettings = {
   default: { kind: "on-archive" },
@@ -77,17 +90,23 @@ export class AttachmentMaintenance extends Context.Service<
   }
 >()("polaris/daemon/attachments/AttachmentMaintenance") {}
 
-interface Meta {
-  readonly id: string;
-  readonly name: string;
-  readonly mimeType: string;
-  readonly size: number;
-  readonly hostPath: string;
-  readonly sessionId: string | null;
-  readonly workspaceId: string;
+const Meta = Schema.Struct({
+  id: AttachmentId,
+  name: Schema.String,
+  mimeType: Schema.String,
+  size: Schema.Number,
+  hostPath: Schema.String,
+  sessionId: Schema.NullOr(Schema.String),
+  workspaceId: Schema.String,
   /** Epoch milliseconds. */
-  readonly stagedAt: number;
-}
+  stagedAt: Schema.Number,
+});
+
+type Meta = typeof Meta.Type;
+
+const decodeMeta = Schema.decodeUnknownSync(Schema.fromJsonString(Meta));
+
+const hasErrnoCode = Schema.is(Schema.Struct({ code: Schema.String }));
 
 /**
  * A file name that is safe on every Host: no directories, no control or
@@ -131,15 +150,14 @@ const toServiceError = (message: string) => (cause: unknown) =>
 
 const toAttachment = (meta: Meta) =>
   new Attachment({
-    id: meta.id as AttachmentId,
+    id: meta.id,
     name: meta.name,
     mimeType: meta.mimeType,
     size: meta.size,
     hostPath: meta.hostPath,
   });
 
-const isEnoent = (cause: unknown) =>
-  typeof cause === "object" && cause !== null && "code" in cause && cause.code === "ENOENT";
+const isEnoent = (cause: unknown) => hasErrnoCode(cause) && cause.code === "ENOENT";
 
 const listDirs = async (dir: string): Promise<Array<string>> => {
   try {
@@ -230,7 +248,7 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
 
     let settings: AttachmentSettings = yield* Effect.promise(async () => {
       try {
-        const parsed = JSON.parse(await readFile(settingsPath, "utf8")) as AttachmentSettings;
+        const parsed = decodeSettingsFile(await readFile(settingsPath, "utf8"));
 
         return { ...defaultAttachmentSettings, ...parsed };
       } catch {
@@ -259,7 +277,7 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
 
     const readMeta = async (dir: string): Promise<Meta | null> => {
       try {
-        return JSON.parse(await readFile(join(dir, META_FILE), "utf8")) as Meta;
+        return decodeMeta(await readFile(join(dir, META_FILE), "utf8"));
       } catch {
         return null;
       }
@@ -296,7 +314,7 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
       readonly mimeType: string;
       readonly bytes: Uint8Array | Stream.Stream<Uint8Array, ServiceError>;
     }) {
-      const id = randomUUID();
+      const id = AttachmentId.make(randomUUID());
 
       const owner =
         input.sessionId === null
