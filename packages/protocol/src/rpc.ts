@@ -9,6 +9,7 @@
  */
 import { Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/rpc";
+import { HostHarnesses } from "./availability.ts";
 import { CapabilityList } from "./capabilities.ts";
 import { Command } from "./commands.ts";
 import {
@@ -206,6 +207,29 @@ export const ListModels = Rpc.make("harness.models", {
   payload: { harness: HarnessKind, refresh: Schema.Boolean },
   success: HarnessModels,
   error: Schema.Union([NotFound, Unsupported, HarnessUnavailable]),
+});
+
+/**
+ * Every Harness's availability on this Host (capability `harness.availability`).
+ * Answered from the Daemon's cache; `refresh` probes again. Probing runs each
+ * Harness's version and sign-in status commands, which have no side effects.
+ */
+export const HarnessAvailabilityQuery = Rpc.make("harness.availability", {
+  payload: { refresh: Schema.Boolean },
+  success: HostHarnesses,
+  error: Unsupported,
+});
+
+/**
+ * Availability as it changes (capability `harness.availability`): the current
+ * report first, then one per probe. The Daemon never probes on a timer; ask
+ * `harness.availability` with `refresh`, e.g. once a sign-in terminal exits.
+ */
+export const WatchHarnessAvailability = Rpc.make("harness.watchAvailability", {
+  payload: {},
+  success: HostHarnesses,
+  error: Unsupported,
+  stream: true,
 });
 
 // ── Usage ───────────────────────────────────────────────────────────────────
@@ -447,6 +471,8 @@ export class DaemonRpcs extends RpcGroup.make(
   SubscribeSession,
   SessionTerminalCommand,
   ListModels,
+  HarnessAvailabilityQuery,
+  WatchHarnessAvailability,
   QueryUsage,
   WatchUsage,
   ListDir,
