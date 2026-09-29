@@ -26,7 +26,7 @@
  * runs automatically) reclaims the objects later. Polaris never runs `gc` in a
  * user's repository.
  */
-import { Duration, Effect, Schedule } from "effect";
+import { Duration, Effect, Option, Schedule } from "effect";
 import { ServiceError } from "../services.ts";
 import { gitText, runGitRaw } from "./git.ts";
 
@@ -175,48 +175,69 @@ const compactKeep = (
   return keep;
 };
 
-/** The pure policy: which refs go. Every branch is unit-tested. */
-export const planCheckpointPrune = (input: PlanInput): PrunePlan => {
-  const policy = input.policy ?? DEFAULT_CHECKPOINT_POLICY;
-  const known = new Map(input.sessions.map((s) => [s.sessionId, s]));
+const groupBySession = (refs: ReadonlyArray<CheckpointRef>): Map<string, Array<CheckpointRef>> => {
   const bySession = new Map<string, Array<CheckpointRef>>();
 
-  for (const ref of input.refs) {
+  for (const ref of refs) {
     const list = bySession.get(ref.sessionId) ?? [];
     list.push(ref);
     bySession.set(ref.sessionId, list);
   }
 
+  return bySession;
+};
+
+const sessionVerdict = (
+  session: CheckpointSession | undefined,
+  input: PlanInput,
+  policy: CheckpointPolicy
+): SessionVerdict => {
+  if (session === undefined) return "orphan";
+
+  if (session.archivedAt === null) return "live";
+  const age = input.now - session.archivedAt;
+
+  if (age < policy.compactAfterMs) return "grace";
+
+  if (age < policy.dropAfterMs) return "compact";
+
+  const unmerged =
+    session.worktreeBranch != null &&
+    (input.unmergedBranches?.has(session.worktreeBranch) ?? false);
+
+  return unmerged ? "protected" : "drop";
+};
+
+const keptRefs = (
+  verdict: SessionVerdict,
+  refs: ReadonlyArray<CheckpointRef>,
+  session: CheckpointSession | undefined,
+  pruneOrphans: boolean
+): ReadonlySet<string> => {
+  if (verdict === "live" || verdict === "grace" || (verdict === "orphan" && !pruneOrphans)) {
+    return new Set(refs.map((r) => r.ref));
+  }
+
+  if ((verdict === "compact" || verdict === "protected") && session !== undefined) {
+    return compactKeep(refs, session);
+  }
+
+  return new Set<string>();
+};
+
+/** The pure policy: which refs go. Every branch is unit-tested. */
+export const planCheckpointPrune = (input: PlanInput): PrunePlan => {
+  const policy = input.policy ?? DEFAULT_CHECKPOINT_POLICY;
+  const known = new Map(input.sessions.map((s) => [s.sessionId, s]));
   const del: Array<string> = [];
   const keep: Array<string> = [];
   const verdicts = new Map<string, SessionVerdict>();
 
-  for (const [sessionId, refs] of bySession) {
+  for (const [sessionId, refs] of groupBySession(input.refs)) {
     const session = known.get(sessionId);
-    let verdict: SessionVerdict;
-
-    if (session === undefined) verdict = "orphan";
-    else if (session.archivedAt === null) verdict = "live";
-    else {
-      const age = input.now - session.archivedAt;
-
-      const unmerged =
-        session.worktreeBranch != null &&
-        (input.unmergedBranches?.has(session.worktreeBranch) ?? false);
-
-      if (age < policy.compactAfterMs) verdict = "grace";
-      else if (age < policy.dropAfterMs) verdict = "compact";
-      else verdict = unmerged ? "protected" : "drop";
-    }
-
+    const verdict = sessionVerdict(session, input, policy);
     verdicts.set(sessionId, verdict);
-
-    const kept =
-      verdict === "live" || verdict === "grace" || (verdict === "orphan" && !input.pruneOrphans)
-        ? new Set(refs.map((r) => r.ref))
-        : verdict === "compact" || verdict === "protected"
-          ? compactKeep(refs, session!)
-          : new Set<string>();
+    const kept = keptRefs(verdict, refs, session, input.pruneOrphans ?? false);
 
     for (const ref of refs) (kept.has(ref.ref) ? keep : del).push(ref.ref);
   }
@@ -311,7 +332,7 @@ export const pruneCheckpoints = async (
     refs,
     sessions,
     now: options.now ?? Date.now(),
-    ...(options.policy === undefined ? {} : { policy: options.policy }),
+    policy: options.policy ?? DEFAULT_CHECKPOINT_POLICY,
     unmergedBranches,
     pruneOrphans: options.pruneOrphans ?? false,
   });
@@ -381,7 +402,7 @@ export const onSessionArchived = Effect.fn("Checkpoints.onSessionArchived")(func
         refs,
         sessions: [session],
         now: options.now ?? Date.now(),
-        ...(options.policy === undefined ? {} : { policy: options.policy }),
+        policy: options.policy ?? DEFAULT_CHECKPOINT_POLICY,
         unmergedBranches,
       });
 
@@ -417,7 +438,7 @@ export const sweepCheckpoints = Effect.fn("Checkpoints.sweep")(function* (
       Effect.option
     );
 
-    if (report._tag === "Some") reports.push(report.value);
+    if (Option.isSome(report)) reports.push(report.value);
   }
 
   return reports;

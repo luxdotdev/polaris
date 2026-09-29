@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { SessionId, TurnId } from "@polaris/protocol";
+import { SessionId, TurnId } from "@polaris/protocol";
 import { Effect, Layer } from "effect";
 import { makeFakeBlobChannel } from "../files/testing.ts";
 import { Checkpoints } from "../services.ts";
 import { CheckpointsLive, captureCheckpoint, checkpointRef } from "./Checkpoints.ts";
-import { computeDiff } from "./diff.ts";
+import { computeDiff, DiffSpec } from "./diff.ts";
 import { handleGitDiff, handleGitStatus } from "./GitRpcs.ts";
 import { findRepoRoot, gitText, mayBeInWorkTree, runGitRaw } from "./git.ts";
 import { parsePorcelainV2 } from "./status.ts";
@@ -25,9 +25,9 @@ const repo = async (files?: Record<string, string>) => {
   return root;
 };
 
-const sessionId = "s1" as SessionId;
+const sessionId = SessionId.make("s1");
 
-const turnId = "t1" as TurnId;
+const turnId = TurnId.make("t1");
 
 const decode = (bytes: Uint8Array) => new TextDecoder().decode(bytes);
 
@@ -213,7 +213,7 @@ describe("git.diff", () => {
     write(root, "a.txt", "two\n");
     write(root, "fresh.txt", "brand new\n");
     write(root, "noise.log", "ignored\n");
-    const diff = await computeDiff(root, { _tag: "WorkingTree", base: null });
+    const diff = await computeDiff(root, DiffSpec.cases.WorkingTree.make({ base: null }));
     const text = decode(diff.bytes);
     expect(diff.files).toBe(2);
     expect(text).toContain("diff --git a/a.txt b/a.txt");
@@ -227,7 +227,7 @@ describe("git.diff", () => {
     const first = await gitText(root, ["rev-parse", "HEAD"]);
     write(root, "b.txt", "b\n");
     await commitAll(root, "second");
-    const diff = await computeDiff(root, { _tag: "WorkingTree", base: first });
+    const diff = await computeDiff(root, DiffSpec.cases.WorkingTree.make({ base: first }));
     expect(decode(diff.bytes)).toContain("b/b.txt");
     expect(diff.files).toBe(1);
   });
@@ -239,7 +239,7 @@ describe("git.diff", () => {
     write(root, "added.txt", "added\n");
     await captureCheckpoint({ cwd: root, sessionId, turnId, label: "after" });
     write(root, "later.txt", "after the turn\n");
-    const diff = await computeDiff(root, { _tag: "Turn", sessionId, turnId });
+    const diff = await computeDiff(root, DiffSpec.cases.Turn.make({ sessionId, turnId }));
     const text = decode(diff.bytes);
     expect(diff.files).toBe(2);
     expect(text).toContain("+agent edit");
@@ -254,7 +254,7 @@ describe("git.diff", () => {
     const blobs = makeFakeBlobChannel();
 
     const result = await Effect.runPromise(
-      handleGitDiff({ cwd: root, spec: { _tag: "Range", base, head } }).pipe(
+      handleGitDiff({ cwd: root, spec: DiffSpec.cases.Range.make({ base, head }) }).pipe(
         Effect.provide(blobs.layer)
       )
     );
@@ -271,7 +271,10 @@ describe("git.diff", () => {
 
     const error = await Effect.runPromise(
       Effect.flip(
-        handleGitDiff({ cwd: root, spec: { _tag: "Turn", sessionId, turnId: "nope" as TurnId } })
+        handleGitDiff({
+          cwd: root,
+          spec: DiffSpec.cases.Turn.make({ sessionId, turnId: TurnId.make("nope") }),
+        })
       ).pipe(Effect.provide(Layer.merge(blobs.layer, Layer.empty)))
     );
 

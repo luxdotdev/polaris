@@ -20,12 +20,60 @@ export interface Status {
   readonly entries: ReadonlyArray<StatusEntry>;
 }
 
+interface BranchHeader {
+  branch: string | null;
+  head: string | null;
+  ahead: number;
+  behind: number;
+}
+
+/** Applies one `# branch.*` header line to `header`. */
+const applyHeader = (header: BranchHeader, record: string): void => {
+  const [, key, ...rest] = record.split(" ");
+  const value = rest.join(" ");
+
+  if (key === "branch.oid") header.head = value === "(initial)" ? null : value;
+  else if (key === "branch.head") header.branch = value === "(detached)" ? null : value;
+  else if (key === "branch.ab") {
+    const match = /^\+(\d+) -(\d+)$/.exec(value);
+
+    if (match) {
+      header.ahead = Number(match[1]);
+      header.behind = Number(match[2]);
+    }
+  }
+};
+
+/** An ordinary, unmerged or untracked/ignored entry (every kind but renames). */
+const parseEntry = (record: string): StatusEntry | null => {
+  const kind = record[0];
+
+  if (kind === "1") {
+    // 1 XY sub mH mI mW hH hI path
+    const fields = splitN(record, 9);
+    const xy = fields[1]!;
+
+    return { path: fields[8]!, origPath: null, index: xy[0]!, worktree: xy[1]! };
+  }
+
+  if (kind === "u") {
+    // u XY sub m1 m2 m3 mW h1 h2 h3 path
+    const fields = splitN(record, 11);
+    const xy = fields[1]!;
+
+    return { path: fields[10]!, origPath: null, index: xy[0]!, worktree: xy[1]! };
+  }
+
+  if (kind === "?" || kind === "!") {
+    return { path: record.slice(2), origPath: null, index: kind, worktree: kind };
+  }
+
+  return null;
+};
+
 /** Parses NUL-separated porcelain v2 output (with `--branch`). */
 export const parsePorcelainV2 = (output: string): Status => {
-  let branch: string | null = null;
-  let head: string | null = null;
-  let ahead = 0;
-  let behind = 0;
+  const header: BranchHeader = { branch: null, head: null, ahead: 0, behind: 0 };
   const entries: Array<StatusEntry> = [];
   const records = output.split("\0");
 
@@ -35,47 +83,25 @@ export const parsePorcelainV2 = (output: string): Status => {
     if (record === "") continue;
 
     if (record.startsWith("# ")) {
-      const [, key, ...rest] = record.split(" ");
-      const value = rest.join(" ");
-
-      if (key === "branch.oid") head = value === "(initial)" ? null : value;
-      else if (key === "branch.head") branch = value === "(detached)" ? null : value;
-      else if (key === "branch.ab") {
-        const match = /^\+(\d+) -(\d+)$/.exec(value);
-
-        if (match) {
-          ahead = Number(match[1]);
-          behind = Number(match[2]);
-        }
-      }
-
+      applyHeader(header, record);
       continue;
     }
 
-    const kind = record[0];
-
-    if (kind === "1") {
-      // 1 XY sub mH mI mW hH hI path
-      const fields = splitN(record, 9);
-      const xy = fields[1]!;
-      entries.push({ path: fields[8]!, origPath: null, index: xy[0]!, worktree: xy[1]! });
-    } else if (kind === "2") {
+    if (record[0] === "2") {
       // 2 XY sub mH mI mW hH hI Xscore path \0 origPath
       const fields = splitN(record, 10);
       const xy = fields[1]!;
       const origPath = records[++i] ?? null;
       entries.push({ path: fields[9]!, origPath, index: xy[0]!, worktree: xy[1]! });
-    } else if (kind === "u") {
-      // u XY sub m1 m2 m3 mW h1 h2 h3 path
-      const fields = splitN(record, 11);
-      const xy = fields[1]!;
-      entries.push({ path: fields[10]!, origPath: null, index: xy[0]!, worktree: xy[1]! });
-    } else if (kind === "?" || kind === "!") {
-      entries.push({ path: record.slice(2), origPath: null, index: kind, worktree: kind });
+      continue;
     }
+
+    const entry = parseEntry(record);
+
+    if (entry !== null) entries.push(entry);
   }
 
-  return { branch, head, ahead, behind, entries };
+  return { ...header, entries };
 };
 
 /** Splits on the first `n - 1` spaces; the last field keeps any spaces (paths). */
