@@ -10,6 +10,7 @@
  * the user sees keeps their own prompt; only the Harness gets the preamble.
  */
 import type { TurnItem } from "@polaris/protocol";
+import { Predicate } from "effect";
 
 /** Characters of earlier conversation to include, at most. */
 export const FORK_CONTEXT_BUDGET = 24_000;
@@ -36,7 +37,7 @@ export const finalReply = (items: ReadonlyArray<TurnItem> | undefined): string |
   for (let i = items.length - 1; i >= 0; i--) {
     const item = items[i]!;
 
-    if (item._tag === "AssistantMessage" && item.text.trim() !== "") return item.text;
+    if (Predicate.isTagged(item, "AssistantMessage") && item.text.trim() !== "") return item.text;
   }
 
   return null;

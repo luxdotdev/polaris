@@ -12,19 +12,20 @@ import { basename, join } from "node:path";
 import {
   AgentSession,
   type Attachment,
-  type Command,
+  Command,
   type CommandId,
   CommandRejected,
   DomainEvent,
   NotFound,
   type SessionId,
+  SessionPlacement,
   Turn,
   type TurnId,
   Workspace,
   type WorkspaceId,
   WorktreeId,
 } from "@polaris/protocol";
-import { Effect } from "effect";
+import { Effect, Result } from "effect";
 import type { ReadModel, SessionRecord } from "../store/model.ts";
 import { decideSession, type SessionInput } from "./session.ts";
 
@@ -72,273 +73,289 @@ export const titleFromPrompt = (prompt: string): string => {
 /** What the engine sends the Harness when the user continues an Interrupted Turn. */
 export const CONTINUE_PROMPT = "Continue from where you left off.";
 
-export const decide = (model: ReadModel, command: Command, ctx: DecideContext): Decision => {
+type CommandOf<Tag extends Command["_tag"]> = Extract<Command, { _tag: Tag }>;
+
+/** What each command's decision can use: the model, the context, and the verdicts. */
+interface Deciding {
+  readonly model: ReadModel;
+  readonly ctx: DecideContext;
+  readonly reject: (reason: string) => Decision;
+  readonly notFound: (what: string, id: string) => Decision;
+  readonly ok: (...events: ReadonlyArray<DomainEvent>) => Decision;
+  readonly withSession: (sessionId: SessionId, f: (record: SessionRecord) => Decision) => Decision;
+  /** Run the session machine: its events, or its reason to refuse. */
+  readonly lifecycle: (record: SessionRecord | undefined, input: SessionInput) => Decision;
+  readonly newTurn: (session: AgentSession, prompt: string) => Turn;
+}
+
+const deciding = (model: ReadModel, ctx: DecideContext): Deciding => {
   const reject = (reason: string) =>
     Effect.fail(new CommandRejected({ commandId: ctx.commandId, reason }));
 
   const notFound = (what: string, id: string) => Effect.fail(new NotFound({ what, id }));
   const ok = (...events: ReadonlyArray<DomainEvent>): Decision => Effect.succeed(events);
 
-  const withSession = (sessionId: SessionId, f: (record: SessionRecord) => Decision): Decision => {
-    const record = model.sessions.get(sessionId);
+  return {
+    model,
+    ctx,
+    reject,
+    notFound,
+    ok,
+    withSession: (sessionId, f) => {
+      const record = model.sessions.get(sessionId);
 
-    return record === undefined ? notFound("session", sessionId) : f(record);
+      return record === undefined ? notFound("session", sessionId) : f(record);
+    },
+    lifecycle: (record, input) => {
+      const decision = decideSession(record, input);
+
+      return decision.rejection !== null ? reject(decision.rejection) : ok(...decision.events);
+    },
+    newTurn: (session, prompt) =>
+      new Turn({
+        id: ctx.newTurnId,
+        sessionId: session.id,
+        index: session.turnCount,
+        prompt,
+        attachments: [...ctx.attachments],
+        status: "working",
+        checkpointBefore: null,
+        checkpointAfter: null,
+        startedAt: ctx.now,
+        endedAt: null,
+      }),
   };
+};
 
-  /** Run the session machine: its events, or its reason to refuse. */
-  const lifecycle = (record: SessionRecord | undefined, input: SessionInput): Decision => {
-    const decision = decideSession(record, input);
+const registerWorkspace = (d: Deciding, command: CommandOf<"RegisterWorkspace">): Decision => {
+  const probe = d.ctx.pathProbe;
 
-    return decision.rejection !== null ? reject(decision.rejection) : ok(...decision.events);
-  };
+  if (probe === null || !probe.isDirectory) return d.reject(`${command.path} is not a directory`);
 
-  const newTurn = (session: AgentSession, prompt: string): Turn =>
-    new Turn({
-      id: ctx.newTurnId,
-      sessionId: session.id,
-      index: session.turnCount,
-      prompt,
-      attachments: [...ctx.attachments],
-      status: "working",
-      checkpointBefore: null,
-      checkpointAfter: null,
-      startedAt: ctx.now,
-      endedAt: null,
+  for (const workspace of d.model.workspaces.values()) {
+    if (workspace.path === command.path) return d.reject(`${command.path} is already registered`);
+  }
+
+  const workspace = new Workspace({
+    id: d.ctx.newWorkspaceId,
+    path: command.path,
+    name: command.name ?? basename(command.path),
+    isGitRepo: probe.isGitRepo,
+    worktreeRoot: `${command.path}.worktrees`,
+    hidden: false,
+    registeredAt: d.ctx.now,
+  });
+
+  return d.ok(DomainEvent.cases.WorkspaceRegistered.make({ workspace }));
+};
+
+const setWorkspaceHidden = (d: Deciding, command: CommandOf<"SetWorkspaceHidden">): Decision => {
+  const workspace = d.model.workspaces.get(command.workspaceId);
+
+  if (workspace === undefined) return d.notFound("workspace", command.workspaceId);
+
+  if (workspace.hidden === command.hidden) return d.ok();
+
+  const updated = new Workspace({
+    id: workspace.id,
+    path: workspace.path,
+    name: workspace.name,
+    isGitRepo: workspace.isGitRepo,
+    worktreeRoot: workspace.worktreeRoot,
+    hidden: command.hidden,
+    registeredAt: workspace.registeredAt,
+  });
+
+  return d.ok(DomainEvent.cases.WorkspaceUpdated.make({ workspace: updated }));
+};
+
+const removeWorkspace = (d: Deciding, command: CommandOf<"RemoveWorkspace">): Decision => {
+  if (!d.model.workspaces.has(command.workspaceId)) {
+    return d.notFound("workspace", command.workspaceId);
+  }
+
+  for (const record of d.model.sessions.values()) {
+    if (record.session.workspaceId === command.workspaceId && record.session.state !== "archived") {
+      return d.reject("archive the Workspace's Agent Sessions before removing it");
+    }
+  }
+
+  return d.ok(DomainEvent.cases.WorkspaceRemoved.make({ workspaceId: command.workspaceId }));
+};
+
+const isUsableBranch = (branch: string) =>
+  branch !== "" &&
+  !branch.startsWith("/") &&
+  !branch.startsWith("-") &&
+  !branch.split("/").some((part) => part === ".." || part === ".");
+
+/** Where a new session works: its cwd and Worktree, or the refusal of its placement. */
+type Placed = Result.Result<
+  { readonly cwd: string; readonly worktreeId: WorktreeId | null },
+  Decision
+>;
+
+const place = (d: Deciding, workspace: Workspace, placement: SessionPlacement): Placed =>
+  SessionPlacement.match<Placed>(placement, {
+    InPlace: () => Result.succeed({ cwd: workspace.path, worktreeId: null }),
+    NewWorktree: ({ branch: requested }) => {
+      if (!workspace.isGitRepo)
+        return Result.fail(d.reject("a new Worktree needs a git repository"));
+      const branch = requested.trim();
+
+      if (!isUsableBranch(branch)) {
+        return Result.fail(d.reject(`"${requested}" is not a usable branch name`));
+      }
+
+      const cwd = join(workspace.worktreeRoot, branch);
+      const worktreeId = worktreeIdFor(cwd);
+
+      if (d.model.worktrees.has(worktreeId)) {
+        return Result.fail(d.reject(`a Worktree already exists at ${cwd}`));
+      }
+
+      return Result.succeed({ cwd, worktreeId });
+    },
+    ExistingWorktree: ({ path }) => {
+      const worktree = [...d.model.worktrees.values()].find(
+        (w) => w.workspaceId === workspace.id && w.path === path
+      );
+
+      if (worktree === undefined) return Result.fail(d.notFound("worktree", path));
+
+      return Result.succeed({ cwd: worktree.path, worktreeId: worktree.id });
+    },
+  });
+
+const startSession = (d: Deciding, command: CommandOf<"StartSession">): Decision => {
+  if (d.model.sessions.has(command.sessionId)) {
+    return d.reject(`session ${command.sessionId} already exists`);
+  }
+
+  const workspace = d.model.workspaces.get(command.workspaceId);
+
+  if (workspace === undefined) return d.notFound("workspace", command.workspaceId);
+  const placed = place(d, workspace, command.placement);
+
+  if (Result.isFailure(placed)) return placed.failure;
+
+  const session = new AgentSession({
+    id: command.sessionId,
+    workspaceId: workspace.id,
+    harness: command.harness,
+    title: titleFromPrompt(command.prompt),
+    cwd: placed.success.cwd,
+    worktreeId: placed.success.worktreeId,
+    state: "starting",
+    permissionMode: command.permissionMode,
+    model: command.model,
+    parentSessionId: null,
+    forkedFromTurnId: null,
+    harnessCursor: null,
+    turnCount: 0,
+    lastError: null,
+    createdAt: d.ctx.now,
+    updatedAt: d.ctx.now,
+  });
+
+  return d.lifecycle(undefined, {
+    type: "session.start",
+    session,
+    turn: d.newTurn(session, command.prompt),
+  });
+};
+
+const forkSession = (d: Deciding, command: CommandOf<"ForkSession">): Decision => {
+  if (d.model.sessions.has(command.sessionId)) {
+    return d.reject(`session ${command.sessionId} already exists`);
+  }
+
+  return d.withSession(command.fromSessionId, (parent) => {
+    const turn =
+      parent.turns.find((t) => t.id === command.fromTurnId) ??
+      (d.ctx.forkTurn?.id === command.fromTurnId ? d.ctx.forkTurn : undefined);
+
+    if (turn === undefined) return d.notFound("turn", command.fromTurnId);
+
+    if (turn.status === "working") return d.reject("the Turn is still in flight");
+    // Its own Worktree at the Turn's after-checkpoint, or the parent's directory.
+    // See docs/adr/0005-a-fork-gets-its-own-worktree.md.
+    const workspace = d.model.workspaces.get(parent.session.workspaceId);
+    let cwd = parent.session.cwd;
+    let worktreeId = parent.session.worktreeId;
+
+    if (workspace?.isGitRepo === true && turn.checkpointAfter !== null) {
+      cwd = join(workspace.worktreeRoot, forkBranch(command.sessionId));
+      worktreeId = worktreeIdFor(cwd);
+
+      if (d.model.worktrees.has(worktreeId)) return d.reject(`a Worktree already exists at ${cwd}`);
+    }
+
+    const session = new AgentSession({
+      id: command.sessionId,
+      workspaceId: parent.session.workspaceId,
+      harness: command.harness,
+      title: `Fork of ${parent.session.title}`,
+      cwd,
+      worktreeId,
+      state: "dormant",
+      permissionMode: parent.session.permissionMode,
+      model: parent.session.harness === command.harness ? parent.session.model : null,
+      parentSessionId: parent.session.id,
+      forkedFromTurnId: turn.id,
+      harnessCursor: null,
+      turnCount: 0,
+      lastError: null,
+      createdAt: d.ctx.now,
+      updatedAt: d.ctx.now,
     });
 
-  switch (command._tag) {
-    case "RegisterWorkspace": {
-      const probe = ctx.pathProbe;
+    return d.lifecycle(undefined, { type: "session.fork", session });
+  });
+};
 
-      if (probe === null || !probe.isDirectory) return reject(`${command.path} is not a directory`);
+const renameSession = (d: Deciding, command: CommandOf<"RenameSession">): Decision =>
+  d.withSession(command.sessionId, () => {
+    const title = command.title.trim();
 
-      for (const workspace of model.workspaces.values()) {
-        if (workspace.path === command.path) return reject(`${command.path} is already registered`);
-      }
+    if (title === "") return d.reject("a title cannot be empty");
 
-      const workspace = new Workspace({
-        id: ctx.newWorkspaceId,
-        path: command.path,
-        name: command.name ?? basename(command.path),
-        isGitRepo: probe.isGitRepo,
-        worktreeRoot: `${command.path}.worktrees`,
-        hidden: false,
-        registeredAt: ctx.now,
-      });
+    return d.ok(DomainEvent.cases.SessionRenamed.make({ sessionId: command.sessionId, title }));
+  });
 
-      return ok(DomainEvent.cases.WorkspaceRegistered.make({ workspace }));
-    }
+/** A lifecycle command of an existing session: the machine input it stands for. */
+const onSession = (d: Deciding, sessionId: SessionId, input: SessionInput): Decision =>
+  d.withSession(sessionId, (record) => d.lifecycle(record, input));
 
-    case "SetWorkspaceHidden": {
-      const workspace = model.workspaces.get(command.workspaceId);
+export const decide = (model: ReadModel, command: Command, ctx: DecideContext): Decision => {
+  const d = deciding(model, ctx);
 
-      if (workspace === undefined) return notFound("workspace", command.workspaceId);
-
-      if (workspace.hidden === command.hidden) return ok();
-
-      return ok(
-        DomainEvent.cases.WorkspaceUpdated.make({
-          workspace: new Workspace({ ...workspace, hidden: command.hidden }),
-        })
-      );
-    }
-
-    case "RemoveWorkspace": {
-      if (!model.workspaces.has(command.workspaceId)) {
-        return notFound("workspace", command.workspaceId);
-      }
-
-      for (const record of model.sessions.values()) {
-        if (
-          record.session.workspaceId === command.workspaceId &&
-          record.session.state !== "archived"
-        ) {
-          return reject("archive the Workspace's Agent Sessions before removing it");
-        }
-      }
-
-      return ok(DomainEvent.cases.WorkspaceRemoved.make({ workspaceId: command.workspaceId }));
-    }
-
-    case "StartSession": {
-      if (model.sessions.has(command.sessionId)) {
-        return reject(`session ${command.sessionId} already exists`);
-      }
-
-      const workspace = model.workspaces.get(command.workspaceId);
-
-      if (workspace === undefined) return notFound("workspace", command.workspaceId);
-
-      let cwd = workspace.path;
-      let worktreeId: WorktreeId | null = null;
-      const placement = command.placement;
-
-      if (placement._tag === "NewWorktree") {
-        if (!workspace.isGitRepo) return reject("a new Worktree needs a git repository");
-        const branch = placement.branch.trim();
-
-        if (
-          branch === "" ||
-          branch.startsWith("/") ||
-          branch.startsWith("-") ||
-          branch.split("/").some((part) => part === ".." || part === ".")
-        ) {
-          return reject(`"${placement.branch}" is not a usable branch name`);
-        }
-
-        cwd = join(workspace.worktreeRoot, branch);
-        worktreeId = worktreeIdFor(cwd);
-
-        if (model.worktrees.has(worktreeId)) return reject(`a Worktree already exists at ${cwd}`);
-      } else if (placement._tag === "ExistingWorktree") {
-        const worktree = [...model.worktrees.values()].find(
-          (w) => w.workspaceId === workspace.id && w.path === placement.path
-        );
-
-        if (worktree === undefined) return notFound("worktree", placement.path);
-        cwd = worktree.path;
-        worktreeId = worktree.id;
-      }
-
-      const session = new AgentSession({
-        id: command.sessionId,
-        workspaceId: workspace.id,
-        harness: command.harness,
-        title: titleFromPrompt(command.prompt),
-        cwd,
-        worktreeId,
-        state: "starting",
-        permissionMode: command.permissionMode,
-        model: command.model,
-        parentSessionId: null,
-        forkedFromTurnId: null,
-        harnessCursor: null,
-        turnCount: 0,
-        lastError: null,
-        createdAt: ctx.now,
-        updatedAt: ctx.now,
-      });
-
-      return lifecycle(undefined, {
-        type: "session.start",
-        session,
-        turn: newTurn(session, command.prompt),
-      });
-    }
-
-    case "SendTurn":
-      return withSession(command.sessionId, (record) =>
-        lifecycle(record, { type: "turn.send", turn: newTurn(record.session, command.prompt) })
-      );
-
-    case "Continue":
-      return withSession(command.sessionId, (record) =>
-        lifecycle(record, { type: "turn.continue" })
-      );
-
-    case "Steer":
-      return withSession(command.sessionId, (record) =>
-        lifecycle(record, { type: "turn.steer", canSteer: ctx.canSteer })
-      );
-
-    case "Interrupt":
-      return withSession(command.sessionId, (record) =>
-        lifecycle(record, { type: "turn.interrupt" })
-      );
-
-    case "RespondToApproval":
-      return withSession(command.sessionId, (record) =>
-        lifecycle(record, {
-          type: "approval.respond",
-          requestId: command.requestId,
-          decision: command.decision,
-          resolvedBy: ctx.deviceLabel,
-        })
-      );
-
-    case "RenameSession":
-      return withSession(command.sessionId, () => {
-        const title = command.title.trim();
-
-        if (title === "") return reject("a title cannot be empty");
-
-        return ok(DomainEvent.cases.SessionRenamed.make({ sessionId: command.sessionId, title }));
-      });
-
-    case "SetPermissionMode":
-      return withSession(command.sessionId, (record) =>
-        lifecycle(record, { type: "permissionMode.set", permissionMode: command.permissionMode })
-      );
-
-    case "ForkSession": {
-      if (model.sessions.has(command.sessionId)) {
-        return reject(`session ${command.sessionId} already exists`);
-      }
-
-      return withSession(command.fromSessionId, (parent) => {
-        const turn =
-          parent.turns.find((t) => t.id === command.fromTurnId) ??
-          (ctx.forkTurn?.id === command.fromTurnId ? ctx.forkTurn : undefined);
-
-        if (turn === undefined) return notFound("turn", command.fromTurnId);
-
-        if (turn.status === "working") return reject("the Turn is still in flight");
-        const sameHarness = parent.session.harness === command.harness;
-        // The Fork gets its own Worktree on a new branch at the Turn's after-checkpoint
-        // (the reactor creates it). Without a checkpoint (not a git repo, or the capture
-        // failed) it shares the parent's directory.
-        const workspace = model.workspaces.get(parent.session.workspaceId);
-        let cwd = parent.session.cwd;
-        let worktreeId = parent.session.worktreeId;
-
-        if (workspace?.isGitRepo === true && turn.checkpointAfter !== null) {
-          cwd = join(workspace.worktreeRoot, forkBranch(command.sessionId));
-          worktreeId = worktreeIdFor(cwd);
-
-          if (model.worktrees.has(worktreeId)) return reject(`a Worktree already exists at ${cwd}`);
-        }
-
-        const session = new AgentSession({
-          id: command.sessionId,
-          workspaceId: parent.session.workspaceId,
-          harness: command.harness,
-          title: `Fork of ${parent.session.title}`,
-          cwd,
-          worktreeId,
-          state: "dormant",
-          permissionMode: parent.session.permissionMode,
-          model: sameHarness ? parent.session.model : null,
-          parentSessionId: parent.session.id,
-          forkedFromTurnId: turn.id,
-          harnessCursor: null,
-          turnCount: 0,
-          lastError: null,
-          createdAt: ctx.now,
-          updatedAt: ctx.now,
-        });
-
-        return lifecycle(undefined, { type: "session.fork", session });
-      });
-    }
-
-    case "ArchiveSession":
-      return withSession(command.sessionId, (record) =>
-        lifecycle(record, { type: "session.archive" })
-      );
-
-    case "UnarchiveSession":
-      return withSession(command.sessionId, (record) =>
-        lifecycle(record, { type: "session.unarchive" })
-      );
-
-    case "OpenInTerminal":
-      return withSession(command.sessionId, (record) =>
-        lifecycle(record, { type: "terminal.open" })
-      );
-
-    case "ReturnFromTerminal":
-      return withSession(command.sessionId, (record) =>
-        lifecycle(record, { type: "terminal.return" })
-      );
-  }
+  return Command.match<Decision>(command, {
+    RegisterWorkspace: (c) => registerWorkspace(d, c),
+    SetWorkspaceHidden: (c) => setWorkspaceHidden(d, c),
+    RemoveWorkspace: (c) => removeWorkspace(d, c),
+    StartSession: (c) => startSession(d, c),
+    SendTurn: (c) =>
+      d.withSession(c.sessionId, (record) =>
+        d.lifecycle(record, { type: "turn.send", turn: d.newTurn(record.session, c.prompt) })
+      ),
+    Continue: (c) => onSession(d, c.sessionId, { type: "turn.continue" }),
+    Steer: (c) => onSession(d, c.sessionId, { type: "turn.steer", canSteer: ctx.canSteer }),
+    Interrupt: (c) => onSession(d, c.sessionId, { type: "turn.interrupt" }),
+    RespondToApproval: (c) =>
+      onSession(d, c.sessionId, {
+        type: "approval.respond",
+        requestId: c.requestId,
+        decision: c.decision,
+        resolvedBy: ctx.deviceLabel,
+      }),
+    RenameSession: (c) => renameSession(d, c),
+    SetPermissionMode: (c) =>
+      onSession(d, c.sessionId, { type: "permissionMode.set", permissionMode: c.permissionMode }),
+    ForkSession: (c) => forkSession(d, c),
+    ArchiveSession: (c) => onSession(d, c.sessionId, { type: "session.archive" }),
+    UnarchiveSession: (c) => onSession(d, c.sessionId, { type: "session.unarchive" }),
+    OpenInTerminal: (c) => onSession(d, c.sessionId, { type: "terminal.open" }),
+    ReturnFromTerminal: (c) => onSession(d, c.sessionId, { type: "terminal.return" }),
+  });
 };

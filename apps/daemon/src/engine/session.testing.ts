@@ -7,6 +7,7 @@
  */
 import {
   AgentSession,
+  ApprovalDecision,
   ApprovalRequest,
   type HarnessKind,
   RequestId,
@@ -16,8 +17,13 @@ import {
   TurnId,
   WorkspaceId,
 } from "@polaris/protocol";
-import type { AnyActorLogic } from "xstate";
-import { getAdjacencyMap, getShortestPaths, type TraversalOptions } from "xstate/graph";
+import type { ActorLogic } from "xstate";
+import {
+  adjacencyMapToArray,
+  getAdjacencyMap,
+  getShortestPaths,
+  type TraversalOptions,
+} from "xstate/graph";
 import { lastTurn, type SessionRecord, workingTurn } from "../store/model.ts";
 import {
   decideSession,
@@ -135,148 +141,161 @@ const newTurn = (id: string, index: number): Turn =>
     endedAt: null,
   });
 
-/** The machine inputs a Step is, given the model's state; empty if the Step can't happen. */
-const inputsOf = (
-  snapshot: ModelSnapshot,
-  step: Step,
-  options: ModelOptions
-): ReadonlyArray<SessionInput> => {
+/** What a Step's inputs are built from: the model's state before it. */
+interface StepContext {
+  readonly snapshot: ModelSnapshot;
+  readonly options: ModelOptions;
+  readonly record: SessionRecord | undefined;
+  /** For fresh ids. */
+  readonly n: number;
+  readonly turnCount: number;
+  readonly working: Turn | undefined;
+  readonly channel: "harness" | "follower" | null;
+}
+
+type Inputs = ReadonlyArray<SessionInput>;
+
+const approvalRequest = (id: string, turnId: TurnId, title: string) =>
+  new ApprovalRequest({
+    id: RequestId.make(id),
+    sessionId: SESSION,
+    turnId,
+    kind: "command",
+    title,
+    detail: null,
+    options: [],
+    openedAt: AT,
+  });
+
+const firstPending = (record: SessionRecord | undefined) => {
+  const [first] = record?.pending.keys() ?? [];
+
+  return first;
+};
+
+const turnEnded = (c: StepContext, completed: boolean): Inputs =>
+  c.channel === null || c.working === undefined
+    ? []
+    : [
+        {
+          type: "harness.turnEnded",
+          turnId: c.working.id,
+          status: completed ? "completed" : "failed",
+          error: completed ? null : "the Turn failed",
+          checkpoint: null,
+          at: AT,
+        },
+      ];
+
+const exited = (c: StepContext, error: string | null): Inputs =>
+  c.snapshot.live ? [{ type: "harness.exited", error, at: AT }] : [];
+
+/** A Turn typed in the Harness's own UI: the co-attached TUI, or the followed one. */
+const terminalTurn = (c: StepContext): Inputs => {
+  const state = stateOfModel(c.snapshot);
+  const typedThere = state === "in-terminal" || (c.options.liveCoAttach && state === "idle");
+
+  return c.channel === null || c.working !== undefined || !typedThere
+    ? []
+    : [{ type: "harness.turnStarted", turnId: TurnId.make(`tui${c.n}`), prompt: "tui", at: AT }];
+};
+
+/** The machine inputs of each Step, given the model's state; empty if the Step can't happen. */
+const INPUTS = {
+  start: (c) => [
+    {
+      type: "session.start",
+      session: newSession(c.options.harness, "starting"),
+      turn: newTurn(`t${c.n}`, 0),
+    },
+  ],
+  fork: (c) => [{ type: "session.fork", session: newSession(c.options.harness, "dormant") }],
+  send: (c) => [{ type: "turn.send", turn: newTurn(`t${c.n}`, c.turnCount) }],
+  continue: () => [{ type: "turn.continue" }],
+  interrupt: () => [{ type: "turn.interrupt" }],
+  approve: (c) => {
+    const first = firstPending(c.record);
+
+    return first === undefined
+      ? []
+      : [
+          {
+            type: "approval.respond",
+            requestId: first,
+            decision: ApprovalDecision.cases.Allow.make({ remember: false }),
+            resolvedBy: "model",
+          },
+        ];
+  },
+  archive: () => [{ type: "session.archive" }],
+  unarchive: () => [{ type: "session.unarchive" }],
+  openTerminal: () => [{ type: "terminal.open" }],
+  returnTerminal: () => [{ type: "terminal.return" }],
+  requestApproval: (c) =>
+    c.channel === null || c.working === undefined || (c.record?.pending.size ?? 0) >= 2
+      ? []
+      : [
+          {
+            type: "harness.approvalRequested",
+            request: approvalRequest(`r${c.n}`, c.working.id, "model"),
+          },
+        ],
+  lateApproval: (c) => {
+    const ended = c.record?.turns.findLast((t) => t.status !== "working");
+
+    return c.channel === null || ended === undefined
+      ? []
+      : [
+          {
+            type: "harness.approvalRequested",
+            request: approvalRequest(`r${c.n}`, ended.id, "late"),
+          },
+        ];
+  },
+  withdrawApproval: (c) => {
+    const first = firstPending(c.record);
+
+    return c.channel === null || first === undefined
+      ? []
+      : [{ type: "harness.approvalWithdrawn", requestId: first }];
+  },
+  terminalTurn,
+  complete: (c) => turnEnded(c, true),
+  failTurn: (c) => turnEnded(c, false),
+  exit: (c) => exited(c, null),
+  crash: (c) => exited(c, "boom"),
+  restart: (c) =>
+    c.record === undefined ? [] : [{ type: "daemon.recover", cause: "restart", at: AT }],
+} satisfies { readonly [K in Step["type"]]: (c: StepContext) => Inputs };
+
+const inputsOf = (snapshot: ModelSnapshot, step: Step, options: ModelOptions): Inputs => {
   const record = recordOf(snapshot);
-  const n = snapshot.counter;
-  const turnCount = record?.session.turnCount ?? 0;
-  const working = record && workingTurn(record);
-  const channel = channelOf(snapshot, options);
 
   if (record === undefined && step.type !== "start" && step.type !== "fork") return [];
 
-  switch (step.type) {
-    case "start":
-      return [
-        {
-          type: "session.start",
-          session: newSession(options.harness, "starting"),
-          turn: newTurn(`t${n}`, 0),
-        },
-      ];
-    case "fork":
-      return [{ type: "session.fork", session: newSession(options.harness, "dormant") }];
-    case "send":
-      return [{ type: "turn.send", turn: newTurn(`t${n}`, turnCount) }];
-    case "continue":
-      return [{ type: "turn.continue" }];
-    case "interrupt":
-      return [{ type: "turn.interrupt" }];
-    case "approve": {
-      const [first] = record?.pending.keys() ?? [];
-
-      return first === undefined
-        ? []
-        : [
-            {
-              type: "approval.respond",
-              requestId: first,
-              decision: { _tag: "Allow", remember: false },
-              resolvedBy: "model",
-            },
-          ];
-    }
-
-    case "archive":
-      return [{ type: "session.archive" }];
-    case "unarchive":
-      return [{ type: "session.unarchive" }];
-    case "openTerminal":
-      return [{ type: "terminal.open" }];
-    case "returnTerminal":
-      return [{ type: "terminal.return" }];
-    case "requestApproval":
-      return channel === null || working === undefined || (record?.pending.size ?? 0) >= 2
-        ? []
-        : [
-            {
-              type: "harness.approvalRequested",
-              request: new ApprovalRequest({
-                id: RequestId.make(`r${n}`),
-                sessionId: SESSION,
-                turnId: working.id,
-                kind: "command",
-                title: "model",
-                detail: null,
-                options: [],
-                openedAt: AT,
-              }),
-            },
-          ];
-    case "lateApproval": {
-      const ended = record?.turns.findLast((t) => t.status !== "working");
-
-      return channel === null || ended === undefined
-        ? []
-        : [
-            {
-              type: "harness.approvalRequested",
-              request: new ApprovalRequest({
-                id: RequestId.make(`r${n}`),
-                sessionId: SESSION,
-                turnId: ended.id,
-                kind: "command",
-                title: "late",
-                detail: null,
-                options: [],
-                openedAt: AT,
-              }),
-            },
-          ];
-    }
-
-    case "withdrawApproval": {
-      const [first] = record?.pending.keys() ?? [];
-
-      return channel === null || first === undefined
-        ? []
-        : [{ type: "harness.approvalWithdrawn", requestId: first }];
-    }
-
-    case "terminalTurn":
-      // A Turn typed in the Harness's own UI: the co-attached TUI, or the followed one.
-      return channel === null ||
-        working !== undefined ||
-        !(
-          stateOfModel(snapshot) === "in-terminal" ||
-          (options.liveCoAttach && stateOfModel(snapshot) === "idle")
-        )
-        ? []
-        : [{ type: "harness.turnStarted", turnId: TurnId.make(`tui${n}`), prompt: "tui", at: AT }];
-    case "complete":
-    case "failTurn":
-      return channel === null || working === undefined
-        ? []
-        : [
-            {
-              type: "harness.turnEnded",
-              turnId: working.id,
-              status: step.type === "complete" ? "completed" : "failed",
-              error: step.type === "complete" ? null : "the Turn failed",
-              checkpoint: null,
-              at: AT,
-            },
-          ];
-    case "exit":
-    case "crash":
-      return snapshot.live
-        ? [{ type: "harness.exited", error: step.type === "exit" ? null : "boom", at: AT }]
-        : [];
-    case "restart":
-      return record === undefined ? [] : [{ type: "daemon.recover", cause: "restart", at: AT }];
-  }
+  return INPUTS[step.type]({
+    snapshot,
+    options,
+    record,
+    n: snapshot.counter,
+    turnCount: record?.session.turnCount ?? 0,
+    working: record && workingTurn(record),
+    channel: channelOf(snapshot, options),
+  });
 };
+
+/** The model after a Step, or the reason the machine refused it. */
+export interface ModelStep {
+  readonly next: ModelSnapshot;
+  readonly rejection: string | null;
+}
 
 /** A Step against the model: its inputs, then what the Engine does on its own. */
 export const stepModel = (
   snapshot: ModelSnapshot,
   step: Step,
   options: ModelOptions
-): { readonly next: ModelSnapshot; readonly rejection: string | null } => {
+): ModelStep => {
   const inputs = inputsOf(snapshot, step, options);
 
   if (inputs.length === 0) return { next: snapshot, rejection: null };
@@ -393,7 +412,7 @@ const initialModel: ModelSnapshot = {
 export const initialSnapshot = (): ModelSnapshot => initialModel;
 
 /** The model as actor logic, for `xstate/graph`'s traversals. */
-export const modelLogic = (options: ModelOptions): AnyActorLogic => ({
+export const modelLogic = (options: ModelOptions): ActorLogic<ModelSnapshot, Step> => ({
   transition: (snapshot: ModelSnapshot, step: Step) => [
     stepModel(snapshot, step, options).next,
     [],
@@ -403,11 +422,10 @@ export const modelLogic = (options: ModelOptions): AnyActorLogic => ({
   getPersistedSnapshot: (snapshot: ModelSnapshot) => snapshot,
 });
 
-const traversal = {
-  events: ALL_STEPS,
+const traversal: TraversalOptions<ModelSnapshot, Step, unknown> = {
+  events: [...ALL_STEPS],
   serializeState: serialize,
-  // oxlint-disable-next-line typescript/no-explicit-any -- graph options are typed per logic; this one is ad hoc.
-} as unknown as TraversalOptions<any, any, any>;
+};
 
 /**
  * The paths to test, generated from the model: one shortest path to every
@@ -417,28 +435,19 @@ const traversal = {
 export const pathsFor = (options: ModelOptions) => {
   const logic = modelLogic(options);
 
-  const shortest = getShortestPaths(logic, traversal) as unknown as ReadonlyArray<{
-    readonly state: ModelSnapshot;
-    readonly steps: ReadonlyArray<{ readonly event: Step }>;
-  }>;
+  const shortest = getShortestPaths(logic, traversal);
 
   // Steps start with xstate.init.
   const stepsOf = (path: (typeof shortest)[number]) => path.steps.slice(1).map((s) => s.event);
   const toState = new Map(shortest.map((path) => [serialize(path.state), stepsOf(path)]));
 
-  const adjacency = getAdjacencyMap(logic, traversal) as unknown as Record<
-    string,
-    {
-      readonly transitions: Record<string, { readonly event: Step; readonly state: ModelSnapshot }>;
-    }
-  >;
-
+  const edges = adjacencyMapToArray(getAdjacencyMap(logic, traversal));
   const transitions: Array<ReadonlyArray<Step>> = [];
 
-  for (const [key, vertex] of Object.entries(adjacency)) {
-    for (const edge of Object.values(vertex.transitions)) {
-      if (serialize(edge.state) !== key) transitions.push([...toState.get(key)!, edge.event]);
-    }
+  for (const { state, event, nextState } of edges) {
+    const key = serialize(state);
+
+    if (serialize(nextState) !== key) transitions.push([...toState.get(key)!, event]);
   }
 
   return { states: shortest.map(stepsOf), transitions };
