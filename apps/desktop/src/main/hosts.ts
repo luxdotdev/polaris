@@ -13,7 +13,16 @@ import {
   HostTarget,
 } from "@polaris/client";
 import { Capability } from "@polaris/protocol";
-import { Context, Effect, Layer, ManagedRuntime, Option, Stream, SubscriptionRef } from "effect";
+import {
+  Context,
+  Effect,
+  Layer,
+  ManagedRuntime,
+  Option,
+  Predicate,
+  Stream,
+  SubscriptionRef,
+} from "effect";
 import type { ConnectionStatusView, HostView, IpcError } from "../shared/api.ts";
 import type { LocalDaemon } from "./localDaemon.ts";
 import type { RemoteHostSetting } from "./settings.ts";
@@ -177,13 +186,14 @@ export type ClientRuntime = ManagedRuntime.ManagedRuntime<HostDirectory, never>;
 export const startClientRuntime = (input: HostDirectoryInput): ClientRuntime =>
   ManagedRuntime.make(HostDirectory.layer(input));
 
-/** Every failure crossing IPC becomes its tag and message. */
+/** Every failure crossing IPC becomes its tag and message; a refusal's message is its `reason`. */
 export const toIpcError = (error: {
   readonly _tag: string;
   readonly message: string;
+  readonly reason?: unknown;
 }): IpcError => ({
   code: error._tag,
-  message: error.message,
+  message: Predicate.isString(error.reason) && error.message === "" ? error.reason : error.message,
 });
 
 /** Waits until the Host with `key` is first Connected. */

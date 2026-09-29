@@ -8,6 +8,7 @@ import {
   Command,
   CommandId,
   GitDiffSpec,
+  HarnessKind,
   Sequence,
   SessionId,
   SessionSummary,
@@ -70,6 +71,8 @@ export const RequestInputs = {
   }),
   "git.status": onHost({ cwd: Schema.String }),
   "git.diff": onHost({ cwd: Schema.String, spec: GitDiffSpec }),
+  /** A Harness's Models on the Host (capability `harness.models`); `refresh` asks the Harness again. */
+  "harness.models": onHost({ harness: HarnessKind, refresh: Schema.Boolean }),
   "session.terminalCommand": onHost({ sessionId: SessionId }),
   "terminal.open": onHost({
     cwd: Schema.String,

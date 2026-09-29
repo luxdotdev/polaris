@@ -12,6 +12,7 @@ import type {
   FileEntry,
   GitStatus,
   Grep,
+  HarnessModels,
   HostInfo,
   HostStreamItem,
   SearchPaths,
@@ -96,6 +97,9 @@ export interface HostView {
   readonly status: ConnectionStatusView;
 }
 
+/** A Schema class instance after structured clone: its fields, without the prototype. */
+export type Plain<T> = { readonly [K in keyof T]: T[K] };
+
 // ── Requests ────────────────────────────────────────────────────────────────
 
 /** How the renderer looks: `data-theme` (unset for "system") and `data-density` on the root. */
@@ -148,6 +152,7 @@ export interface RequestOutputs {
   "files.grep": Rpc.Success<typeof Grep>;
   "git.status": Rpc.Success<typeof GitStatus>;
   "git.diff": { readonly bytes: Uint8Array; readonly files: number };
+  "harness.models": Plain<HarnessModels>;
   "session.terminalCommand": TerminalLaunch | null;
   "terminal.open": { readonly terminalId: TerminalId };
   "terminal.input": null;
