@@ -64,7 +64,7 @@ export function Chip({
       {leading === undefined ? null : (
         <span className="flex w-3 shrink-0 items-center justify-center">{leading}</span>
       )}
-      {children}
+      <Slot.Slottable>{children}</Slot.Slottable>
       {needsYou > 0 ? (
         <Badge tone="needs-you" size="count" aria-label={`${needsYou} need you`}>
           {needsYou}

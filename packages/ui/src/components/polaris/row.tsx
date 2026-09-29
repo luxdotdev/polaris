@@ -18,7 +18,10 @@ export interface RowProps extends Omit<HTMLAttributes<HTMLDivElement>, "title"> 
   readonly variant?: "list" | "session" | "tree";
   /** needs-you tints the second line and lifts the title (rule/needs-you-is-loudest). */
   readonly tone?: "default" | "needs-you" | "quiet";
-  /** Render as the child element (a button or link) instead of a div. */
+  /**
+   * Render as the single child element (a button or link) instead of a div; the row's
+   * content goes inside it, before the child's own children.
+   */
   readonly asChild?: boolean;
 }
 
@@ -98,7 +101,7 @@ export function Row({
         </span>
       )}
       {trailing}
-      {children}
+      <Slot.Slottable>{children}</Slot.Slottable>
     </Comp>
   );
 }
