@@ -61,13 +61,13 @@ export function CommandInput({ className, hint, ...props }: CommandInputProps) {
       <CommandPrimitive.Input
         data-slot="command-input"
         className={cn(
-          "h-full min-w-0 flex-1 bg-transparent text-heading font-regular text-text-strong caret-starlight outline-hidden placeholder:text-text-faint",
+          "h-full min-w-0 flex-1 bg-transparent text-heading font-regular text-text-strong caret-text-strong outline-hidden placeholder:text-text-faint",
           className
         )}
         {...props}
       />
       {hint === undefined ? null : (
-        <span className="text-caption text-text-faint shrink-0">{hint}</span>
+        <span className="text-caption text-text-subtle shrink-0">{hint}</span>
       )}
     </div>
   );
@@ -93,7 +93,7 @@ export function CommandEmpty({
 }: ComponentProps<typeof CommandPrimitive.Empty>) {
   return (
     <CommandPrimitive.Empty
-      className={cn("px-2.5 py-3 text-caption text-text-faint", className)}
+      className={cn("px-2.5 py-3 text-caption text-text-subtle", className)}
       {...props}
     />
   );
@@ -161,13 +161,13 @@ export function CommandItem({
       )}
       <span className="truncate">{children}</span>
       {detail === undefined ? null : (
-        <span className="text-caption text-text-faint group-data-[selected=true]/item:text-text-subtle truncate">
+        <span className="text-caption text-text-subtle group-data-[selected=true]/item:text-text-default truncate">
           {detail}
         </span>
       )}
       <span className="flex-1" />
       {meta === undefined ? null : (
-        <span className="text-caption text-text-faint group-data-[selected=true]/item:text-text-subtle shrink-0">
+        <span className="text-caption text-text-subtle group-data-[selected=true]/item:text-text-default shrink-0">
           {meta}
         </span>
       )}

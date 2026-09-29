@@ -163,7 +163,7 @@ export function Composer({
           </Button>
           <span className="flex-1" />
           {branch === undefined ? null : (
-            <span className="text-micro text-text-faint truncate font-mono">{branch}</span>
+            <span className="text-micro text-text-subtle truncate font-mono">{branch}</span>
           )}
           <Button variant="secondary" size="icon" aria-label="Send" onClick={onSend}>
             <ArrowUpIcon size={14} />

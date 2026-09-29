@@ -289,7 +289,7 @@ export function Output() {
               </div>
               <p className="text-body text-text-subtle">
                 An Anthropic API key is hard-coded and will ship with the prototype. Read it from
-                the environment instead. No Risk Memory can hide this.
+                the environment instead. No risk memory can hide this.
               </p>
               <div className="flex items-center gap-1">
                 <Button size="sm">Ask Claude Code to fix</Button>

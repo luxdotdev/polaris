@@ -3,8 +3,8 @@ import {
   Clearing,
   Dither,
   EmptyState,
-  PixelHandIcon,
-  PixelPolarisIcon,
+  PixelSparkleIcon,
+  PixelFolderIcon,
   Scene,
   Wordmark,
 } from "../../src";
@@ -48,17 +48,15 @@ export function PixelWorldSection() {
       </Scene>
       <div className="rounded-card border-hairline grid grid-cols-2 gap-3 border">
         <EmptyState
-          hue="starlight"
-          icon={<PixelPolarisIcon size={24} className="text-starlight" />}
+          icon={<PixelSparkleIcon size={24} className="text-text-strong" />}
           title="Nothing needs you"
           fact="4 sessions on 2 hosts are working or idle."
         />
         <EmptyState
-          hue="claude"
-          icon={<PixelHandIcon size={24} className="text-text-subtle" />}
-          title="No agent sessions in polaris"
-          fact="Mac Studio · ~/code/polaris"
-          action={<Button>New session</Button>}
+          icon={<PixelFolderIcon size={24} className="text-text-strong" />}
+          title="Nothing to review"
+          fact="No pull requests or finished turns in polaris."
+          action={<Button>Review a PR by URL</Button>}
         />
       </div>
     </Section>

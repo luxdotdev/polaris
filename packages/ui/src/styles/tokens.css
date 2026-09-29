@@ -18,6 +18,8 @@
   --color-fill-hover: light-dark(#f4f4f6, #242529);
   --color-row-selected: light-dark(#ffffff, #26272c);
   --color-hairline: light-dark(#0000000f, #ffffff0f);
+  /* The flat scrim under a modal (Paper's jump menu, "no blur"). */
+  --color-scrim: light-dark(#0a0b0c33, #0a0b0c8c);
   --color-text-strong: light-dark(#17181a, #f4f5f7);
   --color-text-default: light-dark(#333438, #e3e4e8);
   --color-text-subtle: light-dark(#74767d, #9a9ca4);

@@ -7,6 +7,16 @@ import { hueVar, washVar, type TintHue } from "../../lib/hue";
 /** 24, 32 and 40 are the DESIGN.md sizes; 20 and 28 are the Compact and Calm session-row tiles. */
 export type TileSize = 20 | 24 | 28 | 32 | 40 | 48;
 
+/** The row radius at 32 and 40; Paper scales it below (a round tile would read as a dot) and above. */
+const RADII: Record<TileSize, string> = {
+  20: "rounded-control",
+  24: "rounded-[7px]",
+  28: "rounded-[8px]",
+  32: "rounded-row",
+  40: "rounded-row",
+  48: "rounded-[12px]",
+};
+
 export interface TileProps extends HTMLAttributes<HTMLSpanElement> {
   /** The identity hue of the wash; "neutral" is an unwashed tile (a pull request, say). */
   readonly hue: TintHue | "neutral";
@@ -15,6 +25,8 @@ export interface TileProps extends HTMLAttributes<HTMLSpanElement> {
   readonly dormant?: boolean;
   /** A dimmed wash, as on an Idle session row. */
   readonly muted?: boolean;
+  /** No hue hairline, as on the pane empty-state tile. */
+  readonly borderless?: boolean;
 }
 
 /**
@@ -26,6 +38,7 @@ export function Tile({
   size = 32,
   dormant = false,
   muted = false,
+  borderless = false,
   className,
   style,
   children,
@@ -47,11 +60,12 @@ export function Tile({
       data-hue={hue}
       className={cn(
         "pixelated relative inline-flex shrink-0 items-center justify-center overflow-clip border bg-cover bg-center bg-origin-border",
-        size >= 32 ? "rounded-row" : "rounded-control",
+        RADII[size],
         washed && "border-[color-mix(in_oklab,var(--tile-hue)_20%,transparent)]",
         hue === "neutral" && !dormant && "border-hairline bg-fill-selected",
         dormant && "border-dashed border-text-faint/40",
         muted && "opacity-70",
+        borderless && "border-transparent",
         className
       )}
       style={vars}

@@ -65,11 +65,15 @@ export function Row({
       data-selected={selected ? "" : undefined}
       aria-selected={props.role === "option" ? selected : undefined}
       className={cn(
-        "group/row flex w-full shrink-0 cursor-default items-center gap-gap rounded-row border border-transparent px-row-x text-left select-none",
+        "group/row flex w-full shrink-0 cursor-default items-center rounded-row border border-transparent text-left select-none",
+        // Session rows swap the pair (Paper 11U-0: gap 10, padding 8 at Calm).
+        session ? "gap-row-x px-gap" : "gap-gap px-row-x",
         HEIGHTS[variant],
         "hover:bg-fill-hover",
         selected && !session && "bg-fill-selected hover:bg-fill-selected",
-        selected && session && "border-hairline bg-row-selected hover:bg-row-selected",
+        selected &&
+          session &&
+          "border-hairline bg-row-selected shadow-[inset_0_1px_0_light-dark(transparent,#ffffff08)] hover:bg-row-selected",
         className
       )}
       {...props}
@@ -94,7 +98,7 @@ export function Row({
         <span
           className={cn(
             "shrink-0 text-caption tabular",
-            selected ? "text-text-subtle" : "text-text-faint"
+            selected ? "text-text-default" : "text-text-subtle"
           )}
         >
           {meta}
