@@ -33,6 +33,8 @@ export interface HarnessEntry<K extends string = string> {
   readonly name: string;
   /** The capability a Daemon announces in `hello` when it has this Harness's driver. */
   readonly capability: `harness.${K}`;
+  /** The oldest version its driver supports; older installs report `outdated`. */
+  readonly minVersion: string;
   readonly setup: HarnessSetup;
 }
 
@@ -44,6 +46,8 @@ const entry = <const K extends string>(
 export const HARNESS_CATALOGUE = [
   entry("claude", {
     name: "Claude Code",
+    // The Claude Code the pinned Agent SDK is built for (`claudeCodeVersion`).
+    minVersion: "2.1.283",
     setup: {
       install: "Install Claude Code on this host.",
       installCommand: "curl -fsSL https://claude.ai/install.sh | bash",
@@ -54,6 +58,8 @@ export const HARNESS_CATALOGUE = [
   }),
   entry("codex", {
     name: "Codex",
+    // The codex-cli the app-server bindings were generated from.
+    minVersion: "0.157.1",
     setup: {
       install: "Install Codex on this host.",
       installCommand: "npm install -g @openai/codex",

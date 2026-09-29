@@ -58,7 +58,6 @@ export const HarnessRegistryLive = Layer.effect(
     // The app-server the Codex driver may start belongs to this layer, not to the first `open`.
     const scope = yield* Effect.scope;
     const codexPath = binary("POLARIS_CODEX", "codex");
-    const claudePath = binary("POLARIS_CLAUDE", "claude");
     // Benchmarks only (packages/bench): a scripted Harness stands in for every kind.
     const bench = process.env.POLARIS_BENCH_HARNESS === "1";
 
@@ -87,7 +86,11 @@ export const HarnessRegistryLive = Layer.effect(
             DRIVER_CAPABILITIES.claude,
             Effect.promise(() => import("./claude/ClaudeDriver.ts")).pipe(
               Effect.map(({ makeClaudeDriver }) =>
-                makeClaudeDriver({ hookReceiver, claudePath: () => claudePath })
+                // Looked up per session, so a Claude Code installed after start is found.
+                makeClaudeDriver({
+                  hookReceiver,
+                  claudePath: () => binary("POLARIS_CLAUDE", "claude"),
+                })
               )
             ),
             // While In Terminal, Polaris follows the TUI through its HTTP hooks (hooks.ts).

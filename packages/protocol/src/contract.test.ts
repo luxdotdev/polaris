@@ -4,6 +4,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import { Predicate, Schema } from "effect";
+import { HarnessAvailability, HostHarnesses } from "./availability.ts";
 import { CapabilityList } from "./capabilities.ts";
 import { Command } from "./commands.ts";
 import { ApprovalDecision, TurnItem } from "./domain.ts";
@@ -220,5 +221,40 @@ describe("contract compatibility", () => {
     expect(roundTrip(HarnessModels, models)).toEqual(models);
     expect(roundTrip(UsageStreamItem, usage)).toEqual(usage);
     expect(roundTrip(UsageStreamItem, limit)).toEqual(limit);
+  });
+
+  test("Harness availability round-trips; a status from a newer Daemon decodes as unknown", () => {
+    const report = new HostHarnesses({
+      checkedAt: "2026-01-01T00:00:00Z",
+      harnesses: HARNESS_CATALOGUE.map(
+        (harness) =>
+          new HarnessAvailability({
+            harness: harness.kind,
+            status: "needs-sign-in",
+            version: "9.9.9",
+            minVersion: harness.minVersion,
+            detail: "Not logged in",
+            signInArgv: [`/usr/local/bin/${harness.kind}`, ...harness.setup.signInCommand.slice(1)],
+          })
+      ),
+    });
+
+    const codec = Schema.toCodecJson(HostHarnesses);
+    const json = JSON.stringify(Schema.encodeSync(codec)(report));
+
+    expect(Schema.decodeUnknownSync(Schema.fromJsonString(codec))(json)).toEqual(report);
+
+    const [first] = Schema.encodeSync(HostHarnesses)(report).harnesses;
+    expect(first?.status).toBe("needs-sign-in");
+    expect(
+      Schema.decodeUnknownSync(HarnessAvailability)({ ...first, status: "rate-limited" })
+    ).toMatchObject({
+      status: "unknown",
+    });
+  });
+
+  test("every catalogue entry declares a minimum version", () => {
+    for (const harness of HARNESS_CATALOGUE)
+      expect(Bun.semver.satisfies(harness.minVersion, "*")).toBe(true);
   });
 });
