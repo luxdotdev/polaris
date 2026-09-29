@@ -70,6 +70,13 @@ export const compareMetric = (
   return { status: "ok", change, allowed };
 };
 
+/**
+ * Above this many cores busy with other work, a run is not comparable with a baseline taken on a
+ * quiet machine. Load moves the PTY-bound `terminal` scenario most: four `nice yes` processes on a
+ * 12-core M2 Max cut its throughput from ~24 to ~6.5 MB/s with no code change.
+ */
+export const BUSY_BACKGROUND_CORES = 2;
+
 /** Differences in how the two results were produced that make them less comparable. */
 const environmentWarnings = (baseline: BenchResult, current: BenchResult): Array<string> => {
   const warnings: Array<string> = [];
@@ -100,6 +107,19 @@ const environmentWarnings = (baseline: BenchResult, current: BenchResult): Array
 
   if (current.options.profile)
     warnings.push("this run was profiled: timings include profiler overhead");
+
+  for (const [which, result] of [
+    ["baseline", baseline],
+    ["this run", current],
+  ] as const) {
+    const busy = result.env.backgroundCores;
+
+    if (busy !== undefined && busy > BUSY_BACKGROUND_CORES) {
+      warnings.push(
+        `${which} started with ${busy} cores busy with other work: throughput and CPU are not comparable`
+      );
+    }
+  }
 
   return warnings;
 };

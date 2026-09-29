@@ -56,6 +56,11 @@ export interface Environment {
   readonly transport: TransportKind;
   readonly sampler: string;
   readonly date: string;
+  /**
+   * Cores busy with other work in the second before the scenarios started (100% of one core = 1).
+   * Absent in results recorded before it was measured.
+   */
+  readonly backgroundCores?: number;
 }
 
 export interface BenchResult {

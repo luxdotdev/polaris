@@ -76,7 +76,7 @@ CPU is the change of user + system time over the tree between samples (including
 
 ## Results and baselines
 
-A result is JSON: `env` (machine model, CPU, cores, RAM, OS, Bun version, git sha and dirty flag, source vs compiled, transport, sampler backend, date), `options`, and per scenario its metrics (`value` is the median over runs, with `runs`, `min`, `max`, `unit`, `kind`, `better`), notes and duration.
+A result is JSON: `env` (machine model, CPU, cores, RAM, OS, Bun version, git sha and dirty flag, source vs compiled, transport, sampler backend, date, and `backgroundCores`: how many cores other work kept busy in the second before the scenarios started), `options`, and per scenario its metrics (`value` is the median over runs, with `runs`, `min`, `max`, `unit`, `kind`, `better`), notes and duration.
 
 Baselines live in `baselines/`, named by machine slug (`<model>-<cpu>-<cores>c`, plus `-quick`):
 
@@ -84,6 +84,8 @@ Baselines live in `baselines/`, named by machine slug (`<model>-<cpu>-<cores>c`,
 - `mac14-13-apple-m2-max-12c-quick.json`: the same at `--quick` sizes, for fast before/after checks.
 
 Other apps were running on the machine while these were recorded (it is a workstation, not a lab), so treat single-digit-percent differences as noise; the tolerances below account for it.
+
+**Check the machine is quiet before blaming the code.** Other load moves CPU-bound scenarios far beyond the tolerances: four stray `nice yes > /dev/null` processes on the Mac Studio took `terminal` from ~24 to ~6.5 MB/s on every commit alike. The bench warns when more than 2 cores are busy before it starts (`BUSY_BACKGROUND_CORES`), and `--compare` warns when either side was recorded that way. Before bisecting a regression, re-run the baseline's own commit: if it is slow too, the machine changed, not the code.
 
 **Updating a baseline** (after an intended change, or on a new machine): close heavy apps, plug in, then
 

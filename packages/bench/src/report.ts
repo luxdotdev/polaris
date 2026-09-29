@@ -33,7 +33,7 @@ const table = (header: ReadonlyArray<string>, rows: ReadonlyArray<ReadonlyArray<
 export const environmentLine = (result: BenchResult) => {
   const e = result.env;
 
-  return `${e.machine} · ${e.cpu} · ${e.cores} cores · ${e.memoryGiB} GiB · ${e.os} · bun ${e.bun} · ${e.daemon} Daemon · ${e.transport} · ${e.gitSha}${e.gitDirty ? "-dirty" : ""} · ${result.options.quick ? "quick" : "full"} × ${result.options.runs} run(s)`;
+  return `${e.machine} · ${e.cpu} · ${e.cores} cores · ${e.memoryGiB} GiB · ${e.os} · bun ${e.bun} · ${e.daemon} Daemon · ${e.transport} · ${e.gitSha}${e.gitDirty ? "-dirty" : ""} · ${result.options.quick ? "quick" : "full"} × ${result.options.runs} run(s)${e.backgroundCores === undefined ? "" : ` · ${e.backgroundCores} cores busy before`}`;
 };
 
 export const renderResult = (result: BenchResult): string => {
