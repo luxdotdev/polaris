@@ -27,9 +27,15 @@ import {
   Turn,
   TurnId,
 } from "@polaris/protocol";
-import { Schema } from "effect";
-import { createMachine, isUnhandled, transition, types } from "xstate";
-import { foldSession, lastTurn, type SessionRecord, workingTurn } from "../store/model.ts";
+import { Predicate, Schema } from "effect";
+import { createMachine, type EventObject, isUnhandled, transition, types } from "xstate";
+import {
+  foldSession,
+  lastTurn,
+  patchTurn,
+  type SessionRecord,
+  workingTurn,
+} from "../store/model.ts";
 
 // ── Inputs ──────────────────────────────────────────────────────────────────
 
@@ -100,6 +106,11 @@ type Emitted =
   | { readonly type: "rejected"; readonly reason: string }
   | { readonly type: "effect"; readonly effect: SessionEffect };
 
+const EMITTED: ReadonlySet<string> = new Set<Emitted["type"]>(["domain", "rejected", "effect"]);
+
+/** What the machine emits is ours: every `enq.emit` here passes an `Emitted`. */
+const isEmitted = (event: EventObject): event is Emitted => EMITTED.has(event.type);
+
 interface Context {
   /** The folded session; null before it exists. */
   readonly record: SessionRecord | null;
@@ -120,7 +131,7 @@ const endTurn = (
   checkpointAfter: string | null = turn.checkpointAfter
 ): DomainEvent =>
   DomainEvent.cases.TurnEnded.make({
-    turn: new Turn({ ...turn, status, endedAt, checkpointAfter }),
+    turn: patchTurn(turn, { status, endedAt, checkpointAfter }),
   });
 
 const withdrawPending = (
@@ -129,16 +140,18 @@ const withdrawPending = (
   reason: string,
   onlyTurn?: TurnId
 ): Array<DomainEvent> =>
-  [...record.pending.values()]
-    .filter((request) => onlyTurn === undefined || request.turnId === onlyTurn)
-    .map((request) =>
-      DomainEvent.cases.ApprovalWithdrawn.make({
-        sessionId: record.session.id,
-        requestId: request.id,
-        withdrawnBy,
-        reason,
-      })
-    );
+  [...record.pending.values()].flatMap((request) =>
+    onlyTurn === undefined || request.turnId === onlyTurn
+      ? [
+          DomainEvent.cases.ApprovalWithdrawn.make({
+            sessionId: record.session.id,
+            requestId: request.id,
+            withdrawnBy,
+            reason,
+          }),
+        ]
+      : []
+  );
 
 const RECOVERY_REASON = {
   restart: "The Daemon restarted",
@@ -184,10 +197,9 @@ const settle = (
   const next = foldSession(sessionId, record ?? undefined, all, "")!;
   const moved = enter !== undefined || next.session.state !== record?.session.state;
 
-  return {
-    ...(moved ? { target: `#${next.session.state}`, reenter: true } : {}),
-    context: { record: next },
-  };
+  const context = { record: next };
+
+  return moved ? { target: `#${next.session.state}`, reenter: true, context } : { context };
 };
 
 const reject = (enq: Enqueue, reason: string) => {
@@ -245,7 +257,7 @@ const continueTurn = ({ context }: { context: Context }, enq: Enqueue) => {
 
   if (last === undefined || last.status !== "interrupted" || !takesTurn(record)) return undefined;
   // The same Turn resumes: back to working, keeping its before-checkpoint.
-  const turn = new Turn({ ...last, status: "working", endedAt: null });
+  const turn = patchTurn(last, { status: "working", endedAt: null });
 
   return settle(enq, record, [DomainEvent.cases.TurnStarted.make({ turn })], {
     state: record.session.state === "idle" ? "working" : "starting",
@@ -761,9 +773,9 @@ const LIVE: ReadonlyArray<SessionState> = ["idle", "working", "needs-you"];
 
 /** The Session State a snapshot stands for (`new` before the session exists). */
 export const stateOf = (snapshot: SessionSnapshot): SessionState | "new" => {
-  const value = snapshot.value as string | { live: SessionState };
+  const value = snapshot.value;
 
-  return typeof value === "string" ? (value as SessionState | "new") : value.live;
+  return Predicate.isString(value) ? value : value.live;
 };
 
 const snapshots = new WeakMap<SessionRecord, SessionSnapshot>();
@@ -808,14 +820,14 @@ export const decideSession = (record: SessionRecord | undefined, input: SessionI
     return { events: [], rejection: null, effects: [], next: snapshot, unhandled: true };
   }
 
-  const result = transition(sessionMachine, snapshot, input as never);
+  const result = transition(sessionMachine, snapshot, input);
   const events: Array<DomainEvent> = [];
   const effects: Array<SessionEffect> = [];
   let rejection: string | null = null;
 
-  for (const effect of result[1] as ReadonlyArray<{ kind?: string; event?: Emitted }>) {
-    if (effect.kind !== "emit" || effect.event === undefined) continue;
-    const emitted = effect.event;
+  for (const action of result[1]) {
+    if (action.kind !== "emit" || !isEmitted(action.event)) continue;
+    const emitted = action.event;
 
     if (emitted.type === "domain") events.push(emitted.event);
     else if (emitted.type === "rejected") rejection = emitted.reason;

@@ -7,25 +7,27 @@ import {
   CommandId,
   CommandRejected,
   DomainEvent,
-  type SessionId,
+  Sequence,
+  SessionId,
   Turn,
-  type TurnId,
+  TurnId,
+  TurnItem,
   Workspace,
-  type WorkspaceId,
+  WorkspaceId,
 } from "@polaris/protocol";
-import { Effect, Exit, Fiber, Stream } from "effect";
-import { EventStore } from "./EventStore.ts";
+import { Effect, Exit, Fiber, Predicate, Stream } from "effect";
+import { CommitResult, EventStore } from "./EventStore.ts";
 
 const run = <A, E>(filename: string, program: Effect.Effect<A, E, EventStore>) =>
   Effect.runPromise(program.pipe(Effect.provide(EventStore.layerSqlite(filename))));
 
 const at = "2026-09-28T00:00:00.000Z";
 
-const wsId = "ws-1" as WorkspaceId;
+const wsId = WorkspaceId.make("ws-1");
 
-const sId = "s-1" as SessionId;
+const sId = SessionId.make("s-1");
 
-const tId = "t-1" as TurnId;
+const tId = TurnId.make("t-1");
 
 const workspace = new Workspace({
   id: wsId,
@@ -36,6 +38,18 @@ const workspace = new Workspace({
   hidden: false,
   registeredAt: at,
 });
+
+/** `workspace` under another name. */
+const workspaceNamed = (name: string) =>
+  new Workspace({
+    id: workspace.id,
+    path: workspace.path,
+    name,
+    isGitRepo: workspace.isGitRepo,
+    worktreeRoot: workspace.worktreeRoot,
+    hidden: workspace.hidden,
+    registeredAt: workspace.registeredAt,
+  });
 
 const session = new AgentSession({
   id: sId,
@@ -80,7 +94,7 @@ const seed = (store: EventStore["Service"]) =>
         DomainEvent.cases.TurnItemCompleted.make({
           sessionId: sId,
           turnId: tId,
-          item: { _tag: "AssistantMessage", id: "m1", text: "hello" },
+          item: TurnItem.cases.AssistantMessage.make({ id: "m1", text: "hello" }),
         }),
         DomainEvent.cases.SessionRenamed.make({ sessionId: sId, title: "Renamed" }),
       ]),
@@ -94,9 +108,10 @@ describe("EventStore", () => {
       Effect.gen(function* () {
         const store = yield* EventStore;
         const result = yield* seed(store);
-        expect(result).toMatchObject({ _tag: "Committed", sequence: 5 });
+        expect(result._tag).toBe("Committed");
+        expect(result).toMatchObject({ sequence: 5 });
         const again = yield* seed(store);
-        expect(again).toEqual({ _tag: "Duplicate", sequence: 5 as never });
+        expect(again).toEqual(CommitResult.Duplicate({ sequence: Sequence.make(5) }));
       })
     );
     await run(
@@ -112,7 +127,9 @@ describe("EventStore", () => {
         expect(record.titleLocked).toBe(true);
         expect(record.turns).toEqual([turn]);
         const items = yield* store.readTurnItems({ turnIds: [tId], upTo: 5 });
-        expect(items.get(tId)).toEqual([{ _tag: "AssistantMessage", id: "m1", text: "hello" }]);
+        expect(items.get(tId)).toEqual([
+          TurnItem.cases.AssistantMessage.make({ id: "m1", text: "hello" }),
+        ]);
       })
     );
   });
@@ -131,7 +148,7 @@ describe("EventStore", () => {
           "SessionRenamed",
         ]);
         const sessionEvents = yield* store.readEvents({ after: 1, upTo: 5, sessionId: sId });
-        expect(sessionEvents.map((e) => e.sequence)).toEqual([2, 3, 4, 5] as never);
+        expect(sessionEvents.map((e) => Number(e.sequence))).toEqual([2, 3, 4, 5]);
       })
     );
   });
@@ -160,7 +177,7 @@ describe("EventStore", () => {
           { concurrency: "unbounded" }
         );
         const all = yield* store.readEvents({ after: 0, upTo: 1000, sessionId: sId });
-        const sequences = all.map((e) => e.sequence as number);
+        const sequences = all.map((e) => Number(e.sequence));
         expect(sequences).toEqual(Array.from({ length: 104 }, (_, i) => i + 2));
       })
     );
@@ -214,12 +231,14 @@ describe("EventStore", () => {
         );
 
         const [first, duplicate, rejectedOnce, rejectedAgain, died, last] = results;
-        expect(first).toMatchObject({ _tag: "Committed", sequence: 6 });
-        expect(duplicate).toEqual({ _tag: "Duplicate", sequence: 6 as never });
+        expect(first._tag).toBe("Committed");
+        expect(first).toMatchObject({ sequence: 6 });
+        expect(duplicate).toEqual(CommitResult.Duplicate({ sequence: Sequence.make(6) }));
         expect(rejectedOnce).toEqual(rejection);
         expect(rejectedAgain).toEqual(rejection);
         expect(Exit.isFailure(died)).toBe(true);
-        expect(last).toMatchObject({ _tag: "Committed", sequence: 7 });
+        expect(last._tag).toBe("Committed");
+        expect(last).toMatchObject({ sequence: 7 });
         // Each decide saw the model the commands before it in the batch produced.
         expect(seen).toEqual([5, 6]);
         const model = yield* store.model;
@@ -256,7 +275,7 @@ describe("EventStore", () => {
             Stream.take(30),
             Stream.mapEffect((item) =>
               Effect.gen(function* () {
-                if (item._tag !== "Event") return false;
+                if (!Predicate.isTagged(item, "Event")) return false;
                 const sequence = item.envelope.sequence;
                 const model = yield* store.model;
 
@@ -281,7 +300,7 @@ describe("EventStore", () => {
                 decide: () =>
                   Effect.succeed([
                     DomainEvent.cases.WorkspaceUpdated.make({
-                      workspace: new Workspace({ ...workspace, name: `w${i}` }),
+                      workspace: workspaceNamed(`w${i}`),
                     }),
                   ]),
               }),

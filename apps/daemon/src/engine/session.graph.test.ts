@@ -10,15 +10,17 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import {
-  type Command,
+  ApprovalDecision,
+  Command,
   CommandRejected,
   RequestId,
   SessionId,
+  SessionPlacement,
   TurnId,
   type WorkspaceId,
 } from "@polaris/protocol";
 import { type Context, Effect, Exit, Layer, Scope } from "effect";
-import type { HarnessEvent } from "../harness/HarnessDriver.ts";
+import { HarnessEvent } from "../harness/HarnessDriver.ts";
 import { EventStore } from "../store/EventStore.ts";
 import { workingTurn } from "../store/model.ts";
 import { Engine } from "./Engine.ts";
@@ -104,24 +106,25 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
       });
 
     // A Workspace (not a git repository: no checkpoints or Worktrees to fake).
-    yield* dispatch({ _tag: "RegisterWorkspace", path: tempDir(), name: null });
+    yield* dispatch(Command.cases.RegisterWorkspace.make({ path: tempDir(), name: null }));
 
     const workspaceId: WorkspaceId = yield* inEngine(
       Effect.flatMap(EventStore, (store) => store.model)
     ).pipe(Effect.map((model) => [...model.workspaces.keys()][0]!));
 
     const start = (sessionId: SessionId) =>
-      dispatch({
-        _tag: "StartSession",
-        sessionId,
-        workspaceId,
-        harness: options.harness,
-        placement: { _tag: "InPlace" },
-        permissionMode: "supervised",
-        model: null,
-        prompt: "model",
-        attachments: [],
-      });
+      dispatch(
+        Command.cases.StartSession.make({
+          sessionId,
+          workspaceId,
+          harness: options.harness,
+          placement: SessionPlacement.cases.InPlace.make({}),
+          permissionMode: "supervised",
+          model: null,
+          prompt: "model",
+          attachments: [],
+        })
+      );
 
     const emit = (snapshot: ModelSnapshot, ...events: ReadonlyArray<HarnessEvent>) => {
       const channel = channelOf(snapshot, options);
@@ -163,7 +166,7 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
             const turnId = workingTurn(parent)!.id;
             driver
               .latest(PARENT)!
-              .emit({ _tag: "TurnEnded", turnId, status: "completed", error: null });
+              .emit(HarnessEvent.TurnEnded({ turnId, status: "completed", error: null }));
             yield* Effect.gen(function* () {
               while (true) {
                 const model = yield* inEngine(Effect.flatMap(EventStore, (store) => store.model));
@@ -173,101 +176,109 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
               }
             });
 
-            return yield* dispatch({
-              _tag: "ForkSession",
-              sessionId: SESSION,
-              fromSessionId: PARENT,
-              fromTurnId: turnId,
-              harness: options.harness,
-            });
+            return yield* dispatch(
+              Command.cases.ForkSession.make({
+                sessionId: SESSION,
+                fromSessionId: PARENT,
+                fromTurnId: turnId,
+                harness: options.harness,
+              })
+            );
           }
 
           case "send":
-            return yield* dispatch({
-              _tag: "SendTurn",
-              sessionId: SESSION,
-              prompt: "model",
-              attachments: [],
-            });
+            return yield* dispatch(
+              Command.cases.SendTurn.make({ sessionId: SESSION, prompt: "model", attachments: [] })
+            );
           case "continue":
-            return yield* dispatch({ _tag: "Continue", sessionId: SESSION });
+            return yield* dispatch(Command.cases.Continue.make({ sessionId: SESSION }));
           case "interrupt": {
-            yield* dispatch({ _tag: "Interrupt", sessionId: SESSION });
+            yield* dispatch(Command.cases.Interrupt.make({ sessionId: SESSION }));
 
             // The fake Harness answers an interrupt by ending the Turn.
             if (snapshot.live) {
               const turnId = yield* working();
-              emit(snapshot, { _tag: "TurnEnded", turnId, status: "interrupted", error: null });
+              emit(
+                snapshot,
+                HarnessEvent.TurnEnded({ turnId, status: "interrupted", error: null })
+              );
             }
 
             return;
           }
 
           case "approve":
-            return yield* dispatch({
-              _tag: "RespondToApproval",
-              sessionId: SESSION,
-              requestId: yield* firstPending(),
-              decision: { _tag: "Allow", remember: false },
-            });
+            return yield* dispatch(
+              Command.cases.RespondToApproval.make({
+                sessionId: SESSION,
+                requestId: yield* firstPending(),
+                decision: ApprovalDecision.cases.Allow.make({ remember: false }),
+              })
+            );
           case "archive":
-            return yield* dispatch({
-              _tag: "ArchiveSession",
-              sessionId: SESSION,
-              deleteMergedBranch: false,
-            });
+            return yield* dispatch(
+              Command.cases.ArchiveSession.make({ sessionId: SESSION, deleteMergedBranch: false })
+            );
           case "unarchive":
-            return yield* dispatch({ _tag: "UnarchiveSession", sessionId: SESSION });
+            return yield* dispatch(Command.cases.UnarchiveSession.make({ sessionId: SESSION }));
           case "openTerminal":
-            return yield* dispatch({ _tag: "OpenInTerminal", sessionId: SESSION });
+            return yield* dispatch(Command.cases.OpenInTerminal.make({ sessionId: SESSION }));
           case "returnTerminal":
-            return yield* dispatch({ _tag: "ReturnFromTerminal", sessionId: SESSION });
+            return yield* dispatch(Command.cases.ReturnFromTerminal.make({ sessionId: SESSION }));
           case "requestApproval":
-            return emit(snapshot, {
-              _tag: "ApprovalRequested",
-              turnId: yield* working(),
-              requestId: RequestId.make(`r${n}`),
-              kind: "command",
-              title: "model",
-              detail: null,
-              options: [],
-            });
+            return emit(
+              snapshot,
+              HarnessEvent.ApprovalRequested({
+                turnId: yield* working(),
+                requestId: RequestId.make(`r${n}`),
+                kind: "command",
+                title: "model",
+                detail: null,
+                options: [],
+              })
+            );
           case "lateApproval":
-            return emit(snapshot, {
-              _tag: "ApprovalRequested",
-              turnId: yield* inEngine(Effect.flatMap(EventStore, (store) => store.model)).pipe(
-                Effect.map(
-                  (model) =>
-                    model.sessions.get(SESSION)!.turns.findLast((t) => t.status !== "working")!.id
-                )
-              ),
-              requestId: RequestId.make(`r${n}`),
-              kind: "command",
-              title: "late",
-              detail: null,
-              options: [],
-            });
+            return emit(
+              snapshot,
+              HarnessEvent.ApprovalRequested({
+                turnId: yield* inEngine(Effect.flatMap(EventStore, (store) => store.model)).pipe(
+                  Effect.map(
+                    (model) =>
+                      model.sessions.get(SESSION)!.turns.findLast((t) => t.status !== "working")!.id
+                  )
+                ),
+                requestId: RequestId.make(`r${n}`),
+                kind: "command",
+                title: "late",
+                detail: null,
+                options: [],
+              })
+            );
           case "withdrawApproval":
-            return emit(snapshot, { _tag: "ApprovalWithdrawn", requestId: yield* firstPending() });
+            return emit(
+              snapshot,
+              HarnessEvent.ApprovalWithdrawn({ requestId: yield* firstPending() })
+            );
           case "terminalTurn":
-            return emit(snapshot, {
-              _tag: "TurnStarted",
-              turnId: TurnId.make(`tui${n}`),
-              prompt: "tui",
-            });
+            return emit(
+              snapshot,
+              HarnessEvent.TurnStarted({ turnId: TurnId.make(`tui${n}`), prompt: "tui" })
+            );
           case "complete":
           case "failTurn":
-            return emit(snapshot, {
-              _tag: "TurnEnded",
-              turnId: yield* working(),
-              status: step.type === "complete" ? "completed" : "failed",
-              error: step.type === "complete" ? null : "the Turn failed",
-            });
+            return emit(
+              snapshot,
+              HarnessEvent.TurnEnded({
+                turnId: yield* working(),
+                status: step.type === "complete" ? "completed" : "failed",
+                error: step.type === "complete" ? null : "the Turn failed",
+              })
+            );
           case "exit":
           case "crash":
             return driver
               .latest(SESSION)!
-              .emit({ _tag: "Exited", error: step.type === "exit" ? null : "boom" });
+              .emit(HarnessEvent.Exited({ error: step.type === "exit" ? null : "boom" }));
           case "restart":
             yield* Scope.close(scope, Exit.void);
             scope = yield* Scope.make();
@@ -298,7 +309,7 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
       if (rejection === null) continue;
       const result = yield* drive(snapshot, { type }).pipe(Effect.flip);
       expect(result).toBeInstanceOf(CommandRejected);
-      expect((result as CommandRejected).reason).toBe(rejection);
+      expect(result instanceof CommandRejected ? result.reason : null).toBe(rejection);
       refused++;
     }
 

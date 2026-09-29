@@ -1,6 +1,22 @@
 # Engine
 
-The orchestration engine: `decider.ts` validates Client commands, `Engine.ts` commits them and supervises each Agent Session's Harness. The store and the rest of the engine are described in `../store/README.md`; this page is about the **Agent Session lifecycle machine** (`session.ts`, ENG-210).
+The orchestration engine: `decider.ts` validates Client commands, the `Engine` service (`Engine.ts`) commits them and supervises each Agent Session's Harness. The store and the rest of the engine are described in `../store/README.md`; this page is about the **Agent Session lifecycle machine** (`session.ts`, ENG-210). Why it is a pure decider: `docs/adr/0006-the-session-machine-is-a-pure-decider.md`.
+
+## Modules
+
+`Engine.ts` is the module's interface (the `Engine` service, `EngineConfig`) and wires the parts, each an internal service built once per `Engine.layer`:
+
+| Module | What |
+|---|---|
+| `runtime.ts` | `EngineRuntime`: the shared state (running Harnesses, terminal followers, live item progress, idle timers, per-session locks) and primitives: `serially`, `recordFor`, `signal` / `signalWith` (one machine input, committed, then its effects), `failSession`, `capture`, `stopHarness`, `findTurn`. |
+| `supervisor.ts` | `Supervisor`: opens Harnesses, hands them Turns (`runTurn`, with a Fork's preamble), and maps `HarnessEvent`s to domain events and machine inputs. |
+| `terminal.ts` | `TerminalHandoff`: `OpenInTerminal` / `ReturnFromTerminal`, and following Claude's TUI while In Terminal. |
+| `worktrees.ts` | `Worktrees`: detection on register, creation for `NewWorktree` and Forks, removal on Archive, restore on Unarchive. |
+| `pruning.ts` | `CheckpointPruning`: the policy on Archive, a removed Workspace's checkpoints, and the sweeper's targets. |
+| `reactors.ts` | `Reactors`: what runs after each command commits. |
+| `dispatch.ts` | `Dispatcher`: resolves the decider's inputs, commits, acks and forks the reactor. |
+| `streams.ts` | `Streams`: the Host and session streams (snapshot or replay, `Synchronized`, live). |
+| `recovery.ts` | `daemon.recover` on start and before an upgrade (`docs/adr/0004-restart-recovery-never-continues-a-turn.md`). |
 
 ## The session machine
 
@@ -16,8 +32,8 @@ record (folded from the log) ─▶ snapshotOf(record) ─▶ transition(machine
 - **The event log stays the source of truth.** `snapshotOf(record)` derives the machine snapshot from the folded `SessionRecord` (the Session State is the state value, the record is the context), so a restart rebuilds it by folding events, as it always did. Nothing keeps a snapshot between inputs.
 - **The context update is the fold.** A transition emits its `DomainEvent`s and moves to the state `foldSession` of those events gives (`store/model.ts`, the same reducer `project` uses). So a transition's next snapshot is exactly what the log folds to once its events commit, and the target state and the recorded `SessionStateChanged` can't disagree. `session.test.ts` checks this for every reachable snapshot and input.
 - **Inputs** (`SessionInput`) are Client commands, validated (a state that doesn't accept one rejects it with the reason a user reads), and engine signals from the reactors: the Harness (`harness.opened`, `harness.turnStarted`, `harness.approvalRequested`, `harness.turnEnded`, `harness.exited`, …), the terminal hand-off (`terminal.closed`, `harness.resumed`), the idle timer (`idle.timeout`), failures (`session.fail`) and restart / upgrade recovery (`daemon.recover`). Their payloads are Effect Schemas passed to XState as Standard Schemas (`Schema.toStandardSchemaV1`), which types every handler's `event`.
-- **Effects**: entering Idle emits `scheduleIdleStop` (the engine arms the idle timer); `idle.timeout` emits `stopHarness`. Everything else the reactors do (opening Harnesses, checkpoints, Worktrees) stays in `Engine.ts`, keyed off the command or Harness event as before.
-- **Where it runs**: `decider.ts` builds the input for each lifecycle command (`StartSession`, `SendTurn`, `Continue`, `Steer`, `Interrupt`, `RespondToApproval`, `SetPermissionMode`, `ForkSession`, `ArchiveSession`, `UnarchiveSession`, `OpenInTerminal`, `ReturnFromTerminal`) and returns what the machine emits; `Engine.ts`'s `signal(sessionId, input)` does the same for engine signals inside `store.commit`, then runs the effects. Workspaces, Worktrees, renames and Turn items are not lifecycle and stay where they were.
+- **Effects**: entering Idle emits `scheduleIdleStop` (the engine arms the idle timer); `idle.timeout` emits `stopHarness`. Everything else the reactors do (opening Harnesses, checkpoints, Worktrees) stays in the reactors and the supervisor, keyed off the command or Harness event as before.
+- **Where it runs**: `decider.ts` builds the input for each lifecycle command (`StartSession`, `SendTurn`, `Continue`, `Steer`, `Interrupt`, `RespondToApproval`, `SetPermissionMode`, `ForkSession`, `ArchiveSession`, `UnarchiveSession`, `OpenInTerminal`, `ReturnFromTerminal`) and returns what the machine emits; the runtime's `signal(sessionId, input)` (`runtime.ts`) does the same for engine signals inside `store.commit`, then runs the effects. Workspaces, Worktrees, renames and Turn items are not lifecycle and stay where they were.
 - **Cost**: one `resolveState` + `transition` is ~10 µs, and snapshots are cached per record (`WeakMap`), so a record is resolved once. Deltas and item events never touch the machine.
 
 How XState v6 transition functions read in `session.ts`: returning `undefined` means "not taken" and the event bubbles to the machine-level default (usually a rejection); returning an object takes the transition, even `HANDLED` (no target), which is how a state ignores a signal. A state change targets `#<state>` with `reenter: true`, so an entry action runs for every recorded `SessionStateChanged`.

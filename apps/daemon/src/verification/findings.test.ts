@@ -4,17 +4,20 @@
  * `test.todo` (`bun test --todo` runs them). See `packages/spec/README.md`
  * ("Findings").
  */
+import { HarnessEvent } from "../harness/HarnessDriver.ts";
 import { expect, test } from "bun:test";
 import { join } from "node:path";
 import { makeFeed, type SequenceMark } from "@polaris/client";
 import {
-  type Command,
+  ApprovalDecision,
+  Command,
   CommandRejected,
-  type HostStreamItem,
-  type RequestId,
-  type Sequence,
-  type SessionId,
-  type TurnId,
+  HostStreamItem,
+  RequestId,
+  Sequence,
+  SessionId,
+  SessionPlacement,
+  TurnId,
 } from "@polaris/protocol";
 import { Effect, type Layer, type Scope, Stream } from "effect";
 import { Engine } from "../engine/Engine.ts";
@@ -33,7 +36,7 @@ import { EventStore } from "../store/EventStore.ts";
 type Env = Engine | EventStore;
 
 const run = <A, E>(layer: Layer.Layer<Env>, program: Effect.Effect<A, E, Env | Scope.Scope>) =>
-  Effect.runPromise(Effect.scoped(program).pipe(Effect.provide(layer)) as Effect.Effect<A, E>);
+  Effect.runPromise(Effect.scoped(program).pipe(Effect.provide(layer)));
 
 const dispatch = (command: Command) =>
   Effect.flatMap(Engine, (engine) =>
@@ -43,27 +46,30 @@ const dispatch = (command: Command) =>
 const startSession = (sessionId: SessionId) =>
   Effect.gen(function* () {
     const repo = fakeRepo();
-    yield* dispatch({ _tag: "RegisterWorkspace", path: repo, name: null });
+    yield* dispatch(Command.cases.RegisterWorkspace.make({ path: repo, name: null }));
     const model = yield* waitFor((m) => m.workspaces.size === 1);
     const workspace = [...model.workspaces.values()][0]!;
-    yield* dispatch({
-      _tag: "StartSession",
-      sessionId,
-      workspaceId: workspace.id,
-      harness: "claude",
-      placement: { _tag: "InPlace" },
-      permissionMode: "supervised",
-      model: null,
-      prompt: "Fix the flaky test",
-      attachments: [],
-    });
+    yield* dispatch(
+      Command.cases.StartSession.make({
+        sessionId,
+        workspaceId: workspace.id,
+        harness: "claude",
+        placement: SessionPlacement.cases.InPlace.make({}),
+        permissionMode: "supervised",
+        model: null,
+        prompt: "Fix the flaky test",
+        attachments: [],
+      })
+    );
     yield* waitFor((m) => m.sessions.get(sessionId)?.session.state === "idle");
   });
 
 const markHost = (item: HostStreamItem): SequenceMark =>
-  item._tag === "Event"
-    ? { kind: "event", sequence: item.envelope.sequence }
-    : { kind: item._tag === "Snapshot" ? "snapshot" : "synchronized", sequence: item.sequence };
+  HostStreamItem.match<SequenceMark>(item, {
+    Event: (event) => ({ kind: "event", sequence: event.envelope.sequence }),
+    Snapshot: (snapshot) => ({ kind: "snapshot", sequence: snapshot.sequence }),
+    Synchronized: (synced) => ({ kind: "synchronized", sequence: synced.sequence }),
+  });
 
 /**
  * Finding 1. `HostConnection` opens the host feed with `gapless: true`, but the
@@ -99,7 +105,7 @@ test("the host feed follows a Turn that records items and checkpoints", async ()
         open: (client, after) => {
           opens.push(after);
 
-          return client.subscribeHost(after as Sequence | null);
+          return client.subscribeHost(after === null ? null : Sequence.make(after));
         },
         mark: markHost,
         isDisconnect: () => false,
@@ -108,10 +114,10 @@ test("the host feed follows a Turn that records items and checkpoints", async ()
 
       yield* Effect.forkScoped(Stream.runDrain(feed.stream));
       yield* Effect.sleep(20);
-      yield* startSession("s1" as SessionId);
+      yield* startSession(SessionId.make("s1"));
 
       const model = yield* waitFor(
-        (m) => m.sessions.get("s1" as SessionId)?.session.state === "idle"
+        (m) => m.sessions.get(SessionId.make("s1"))?.session.state === "idle"
       );
 
       yield* Effect.sleep(100);
@@ -143,44 +149,43 @@ test("the host feed follows a Turn that records items and checkpoints", async ()
 test("archiving an In Terminal session mid-Turn is refused, and nothing is left open after a restart", async () => {
   const filename = join(tempDir(), "state.sqlite");
   const fakes = makeFakes();
-  const s = "s-tui" as SessionId;
+  const s = SessionId.make("s-tui");
   const claude = makeFakeDriver("claude", { onTurn: completesTurns(), follow: true });
   await run(
     engineLayer({ filename, fakes, drivers: [claude] }),
     Effect.gen(function* () {
       yield* startSession(s);
-      yield* dispatch({ _tag: "OpenInTerminal", sessionId: s });
+      yield* dispatch(Command.cases.OpenInTerminal.make({ sessionId: s }));
       yield* waitFor((m) => m.sessions.get(s)?.session.state === "in-terminal");
       yield* Effect.sleep(20);
       // The user types a Turn in the terminal UI, which asks for approval.
-      const turnId = "t-typed" as TurnId;
+      const turnId = TurnId.make("t-typed");
       claude.follow.emit(
         s,
-        { _tag: "TurnStarted", turnId, prompt: "typed in the TUI" },
-        {
-          _tag: "ApprovalRequested",
+        HarnessEvent.TurnStarted({ turnId, prompt: "typed in the TUI" }),
+        HarnessEvent.ApprovalRequested({
           turnId,
-          requestId: "req-tui" as RequestId,
+          requestId: RequestId.make("req-tui"),
           kind: "command",
           title: "Run a command",
           detail: null,
           options: [],
-        }
+        })
       );
       yield* waitFor((m) => (m.sessions.get(s)?.pending.size ?? 0) === 1);
 
       const refused = yield* Effect.flip(
-        dispatch({ _tag: "ArchiveSession", sessionId: s, deleteMergedBranch: false })
+        dispatch(Command.cases.ArchiveSession.make({ sessionId: s, deleteMergedBranch: false }))
       );
 
       expect(refused).toBeInstanceOf(CommandRejected);
-      expect((refused as CommandRejected).reason).toBe(
-        "interrupt the Turn in flight before archiving"
-      );
+      expect(refused).toMatchObject({ reason: "interrupt the Turn in flight before archiving" });
       // The Turn ends in the terminal UI (its request goes with it); then Archive is accepted.
-      claude.follow.emit(s, { _tag: "TurnEnded", turnId, status: "completed", error: null });
+      claude.follow.emit(s, HarnessEvent.TurnEnded({ turnId, status: "completed", error: null }));
       yield* waitFor((m) => (m.sessions.get(s)?.pending.size ?? 1) === 0);
-      yield* dispatch({ _tag: "ArchiveSession", sessionId: s, deleteMergedBranch: false });
+      yield* dispatch(
+        Command.cases.ArchiveSession.make({ sessionId: s, deleteMergedBranch: false })
+      );
       yield* waitFor((m) => m.sessions.get(s)?.session.state === "archived");
     })
   );
@@ -213,7 +218,7 @@ test("archiving an In Terminal session mid-Turn is refused, and nothing is left 
  */
 test("a late approval request cannot leave a session Working without a Turn", async () => {
   const codex = makeFakeDriver("codex");
-  const s = "s-late" as SessionId;
+  const s = SessionId.make("s-late");
   await run(
     engineLayer({
       filename: join(tempDir(), "state.sqlite"),
@@ -222,33 +227,33 @@ test("a late approval request cannot leave a session Working without a Turn", as
     }),
     Effect.gen(function* () {
       const repo = fakeRepo();
-      yield* dispatch({ _tag: "RegisterWorkspace", path: repo, name: null });
+      yield* dispatch(Command.cases.RegisterWorkspace.make({ path: repo, name: null }));
       const model = yield* waitFor((m) => m.workspaces.size === 1);
-      yield* dispatch({
-        _tag: "StartSession",
-        sessionId: s,
-        workspaceId: [...model.workspaces.values()][0]!.id,
-        harness: "codex",
-        placement: { _tag: "InPlace" },
-        permissionMode: "supervised",
-        model: null,
-        prompt: "go",
-        attachments: [],
-      });
+      yield* dispatch(
+        Command.cases.StartSession.make({
+          sessionId: s,
+          workspaceId: [...model.workspaces.values()][0]!.id,
+          harness: "codex",
+          placement: SessionPlacement.cases.InPlace.make({}),
+          permissionMode: "supervised",
+          model: null,
+          prompt: "go",
+          attachments: [],
+        })
+      );
       yield* waitFor((m) => m.sessions.get(s)?.session.state === "working");
       const harness = codex.latest(s)!;
       const turnId = harness.turns[0]!.turnId;
       harness.emit(
-        { _tag: "TurnEnded", turnId, status: "completed", error: null },
-        {
-          _tag: "ApprovalRequested",
+        HarnessEvent.TurnEnded({ turnId, status: "completed", error: null }),
+        HarnessEvent.ApprovalRequested({
           turnId,
-          requestId: "req-late" as RequestId,
+          requestId: RequestId.make("req-late"),
           kind: "command",
           title: "Run a command",
           detail: null,
           options: [],
-        }
+        })
       );
       yield* waitFor((m) => m.sessions.get(s)?.turns[0]?.status === "completed");
       yield* Effect.sleep(50);
@@ -257,17 +262,18 @@ test("a late approval request cannot leave a session Working without a Turn", as
       expect(late.session.state).toBe("idle");
 
       if (late.pending.size > 0) {
-        yield* dispatch({
-          _tag: "RespondToApproval",
-          sessionId: s,
-          requestId: "req-late" as RequestId,
-          decision: { _tag: "Allow", remember: false },
-        });
+        yield* dispatch(
+          Command.cases.RespondToApproval.make({
+            sessionId: s,
+            requestId: RequestId.make("req-late"),
+            decision: ApprovalDecision.cases.Allow.make({ remember: false }),
+          })
+        );
       }
 
       // With no Turn in flight, a new one must be accepted.
       const sent = yield* Effect.exit(
-        dispatch({ _tag: "SendTurn", sessionId: s, prompt: "next", attachments: [] })
+        dispatch(Command.cases.SendTurn.make({ sessionId: s, prompt: "next", attachments: [] }))
       );
 
       expect(sent._tag).toBe("Success");
