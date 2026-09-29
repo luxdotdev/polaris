@@ -1,6 +1,7 @@
 /** Human-readable output: terminal tables and Markdown (for $GITHUB_STEP_SUMMARY). */
 import type { Comparison, ComparisonRow } from "./compare.ts";
-import type { BenchResult } from "./types.ts";
+import { Match } from "effect";
+import type { BenchResult, ScenarioResult } from "./types.ts";
 
 export const fmt = (value: number | null): string => {
   if (value === null || Number.isNaN(value)) return "–";
@@ -66,14 +67,11 @@ export const renderResult = (result: BenchResult): string => {
   return out.join("\n");
 };
 
-const mark = (row: ComparisonRow) =>
-  row.status === "regressed"
-    ? row.gating
-      ? "REGRESSED"
-      : "worse (not gating)"
-    : row.status === "improved"
-      ? "improved"
-      : row.status;
+const mark = (row: ComparisonRow): string =>
+  Match.value(row.status).pipe(
+    Match.when("regressed", () => (row.gating ? "REGRESSED" : "worse (not gating)")),
+    Match.orElse((status) => status)
+  );
 
 export const renderComparison = (comparison: Comparison, onlyChanges = false): string => {
   const rows = comparison.rows
@@ -114,27 +112,38 @@ export const renderMarkdown = (result: BenchResult, comparison: Comparison | nul
   const byKey = new Map(comparison?.rows.map((r) => [`${r.scenario}\u0000${r.metric}`, r]) ?? []);
 
   for (const [name, scenario] of Object.entries(result.scenarios)) {
-    out.push(`### ${name}`, "");
-
-    if (scenario.error) out.push(`**Failed:** \`${scenario.error}\``, "");
-    out.push(
-      comparison
-        ? "| metric | value | unit | baseline | change | status |\n|---|---:|---|---:|---:|---|"
-        : "| metric | value | unit |\n|---|---:|---|"
-    );
-
-    for (const [metric, m] of Object.entries(scenario.metrics)) {
-      const row = byKey.get(`${name}\u0000${metric}`);
-      out.push(
-        comparison
-          ? `| ${metric} | ${fmt(m.value)} | ${m.unit} | ${fmt(row?.baseline ?? null)} | ${pct(row?.change ?? null)} | ${row ? mark(row) : ""} |`
-          : `| ${metric} | ${fmt(m.value)} | ${m.unit} |`
-      );
-    }
-
-    for (const note of scenario.notes) out.push("", `- ${note}`);
-    out.push("");
+    out.push(...scenarioMarkdown(name, scenario, comparison === null ? null : byKey));
   }
 
   return out.join("\n");
+};
+
+/** One scenario's section; `rows` (comparison rows by scenario and metric) is null without one. */
+const scenarioMarkdown = (
+  name: string,
+  scenario: ScenarioResult,
+  rows: ReadonlyMap<string, ComparisonRow> | null
+): Array<string> => {
+  const out = [`### ${name}`, ""];
+
+  if (scenario.error) out.push(`**Failed:** \`${scenario.error}\``, "");
+  out.push(
+    rows
+      ? "| metric | value | unit | baseline | change | status |\n|---|---:|---|---:|---:|---|"
+      : "| metric | value | unit |\n|---|---:|---|"
+  );
+
+  for (const [metric, m] of Object.entries(scenario.metrics)) {
+    const row = rows?.get(`${name}\u0000${metric}`);
+    out.push(
+      rows
+        ? `| ${metric} | ${fmt(m.value)} | ${m.unit} | ${fmt(row?.baseline ?? null)} | ${pct(row?.change ?? null)} | ${row ? mark(row) : ""} |`
+        : `| ${metric} | ${fmt(m.value)} | ${m.unit} |`
+    );
+  }
+
+  for (const note of scenario.notes) out.push("", `- ${note}`);
+  out.push("");
+
+  return out;
 };

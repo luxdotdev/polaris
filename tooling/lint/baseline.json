@@ -39,14 +39,6 @@
       "typescript/no-unsafe-member-access": 6,
       "typescript/no-unsafe-return": 2
     },
-    "apps/daemon/src/attachments/AttachmentStore.test.ts": {
-      "anti-slop/no-conditional-empty-object-spread": 1,
-      "anti-slop/require-safety-comment-for-type-assertion": 6
-    },
-    "apps/daemon/src/attachments/AttachmentStore.ts": {
-      "anti-slop/no-runtime-typeof": 1,
-      "anti-slop/require-safety-comment-for-type-assertion": 3
-    },
     "apps/daemon/src/engine/decider.ts": {
       "anti-slop-effect/no-manual-tag-comparison": 3,
       "polaris/no-long-comment": 1,
@@ -116,78 +108,6 @@
       "anti-slop-effect/no-manual-tagged-construction": 5,
       "anti-slop/no-conditional-empty-object-spread": 2,
       "anti-slop/require-safety-comment-for-type-assertion": 1
-    },
-    "apps/daemon/src/files/files.test.ts": {
-      "anti-slop-effect/no-manual-tag-comparison": 2,
-      "anti-slop-effect/no-manual-tagged-construction": 6
-    },
-    "apps/daemon/src/files/FileSearch.test.ts": {
-      "anti-slop-effect/no-manual-tagged-construction": 1
-    },
-    "apps/daemon/src/files/FileSearch.ts": {
-      "anti-slop-effect/no-service-constructor-imports": 2
-    },
-    "apps/daemon/src/files/FilesRpcs.ts": {
-      "anti-slop-effect/no-manual-tag-comparison": 2,
-      "anti-slop/require-safety-comment-for-type-assertion": 1
-    },
-    "apps/daemon/src/files/fs.ts": {
-      "anti-slop-effect/no-manual-tagged-construction": 3,
-      "anti-slop/no-runtime-typeof": 2,
-      "sonarjs/cognitive-complexity": 1
-    },
-    "apps/daemon/src/files/handlers.test.ts": {
-      "anti-slop-effect/no-manual-tag-comparison": 1,
-      "anti-slop-effect/no-manual-tagged-construction": 3,
-      "anti-slop/require-safety-comment-for-type-assertion": 1,
-      "typescript/no-unnecessary-type-assertion": 1
-    },
-    "apps/daemon/src/files/mime.ts": {
-      "anti-slop/no-known-value-widening": 1
-    },
-    "apps/daemon/src/files/search/fallback.ts": {
-      "sonarjs/cognitive-complexity": 1,
-      "unicorn/no-useless-spread": 1
-    },
-    "apps/daemon/src/files/search/fff.ts": {
-      "anti-slop/no-unknown-parameters": 2,
-      "anti-slop/require-safety-comment-for-type-assertion": 2,
-      "typescript/no-unnecessary-type-assertion": 1
-    },
-    "apps/daemon/src/files/search/fffSearch.ts": {
-      "typescript/no-misused-spread": 3
-    },
-    "apps/daemon/src/files/search/fffWorker.ts": {
-      "anti-slop/no-conditional-empty-object-spread": 1,
-      "anti-slop/no-unknown-returns": 1,
-      "sonarjs/cognitive-complexity": 1
-    },
-    "apps/daemon/src/files/search/regexLiterals.ts": {
-      "anti-slop/no-known-value-widening": 1,
-      "sonarjs/cognitive-complexity": 3,
-      "typescript/no-misused-spread": 1
-    },
-    "apps/daemon/src/files/testing.ts": {
-      "anti-slop/require-safety-comment-for-type-assertion": 2
-    },
-    "apps/daemon/src/git/diff.ts": {
-      "anti-slop-effect/no-manual-tag-comparison": 1
-    },
-    "apps/daemon/src/git/git.test.ts": {
-      "anti-slop-effect/no-manual-tagged-construction": 5,
-      "anti-slop/require-safety-comment-for-type-assertion": 3
-    },
-    "apps/daemon/src/git/git.ts": {
-      "anti-slop/no-known-value-widening": 1,
-      "anti-slop/require-safety-comment-for-type-assertion": 1
-    },
-    "apps/daemon/src/git/prune.ts": {
-      "anti-slop-effect/no-manual-tag-comparison": 1,
-      "anti-slop/no-conditional-empty-object-spread": 2,
-      "sonarjs/cognitive-complexity": 1
-    },
-    "apps/daemon/src/git/status.ts": {
-      "sonarjs/cognitive-complexity": 1
     },
     "apps/daemon/src/harness/bench/BenchDriver.test.ts": {
       "anti-slop-effect/no-manual-tag-comparison": 8,
@@ -327,44 +247,6 @@
       "anti-slop/require-safety-comment-for-type-assertion": 6,
       "typescript/no-misused-promises": 1
     },
-    "apps/daemon/src/service/cli.ts": {
-      "anti-slop-effect/no-manual-tag-comparison": 1,
-      "anti-slop/no-known-value-widening": 1,
-      "anti-slop/no-object-parameters": 1
-    },
-    "apps/daemon/src/service/install.test.ts": {
-      "anti-slop/require-safety-comment-for-type-assertion": 2
-    },
-    "apps/daemon/src/service/install.ts": {
-      "anti-slop/no-array-filter-map": 1,
-      "typescript/no-unnecessary-type-assertion": 2
-    },
-    "apps/daemon/src/service/libc.ts": {
-      "anti-slop/no-chained-type-assertions": 1,
-      "anti-slop/require-safety-comment-for-type-assertion": 2
-    },
-    "apps/daemon/src/service/platform.ts": {
-      "anti-slop/require-safety-comment-for-type-assertion": 1
-    },
-    "apps/daemon/src/service/selftest.ts": {
-      "anti-slop-effect/no-service-constructor-imports": 1
-    },
-    "apps/daemon/src/service/templates.ts": {
-      "anti-slop/require-safety-comment-for-type-assertion": 3,
-      "typescript/no-unnecessary-type-assertion": 3
-    },
-    "apps/daemon/src/service/upgrade.test.ts": {
-      "typescript/no-unsafe-argument": 1
-    },
-    "apps/daemon/src/service/upgrade.ts": {
-      "anti-slop/no-chained-type-assertions": 1,
-      "anti-slop/no-known-value-widening": 1,
-      "anti-slop/no-object-parameters": 1,
-      "anti-slop/no-runtime-typeof": 1,
-      "anti-slop/no-unknown-parameters": 2,
-      "anti-slop/require-safety-comment-for-type-assertion": 4,
-      "typescript/no-unnecessary-type-assertion": 1
-    },
     "apps/daemon/src/store/EventStore.bounded.test.ts": {
       "anti-slop-effect/no-manual-tag-comparison": 4,
       "anti-slop-effect/no-manual-tagged-construction": 3,
@@ -389,39 +271,6 @@
     "apps/daemon/src/store/model.ts": {
       "anti-slop-effect/no-manual-tag-comparison": 2,
       "typescript/no-misused-spread": 7
-    },
-    "apps/daemon/src/terminal/fixtures/terminal-daemon.ts": {
-      "anti-slop-effect/no-manual-tag-comparison": 1,
-      "anti-slop-effect/no-service-constructor-imports": 1,
-      "anti-slop/no-unsafe-dictionary-type": 1,
-      "anti-slop/require-safety-comment-for-type-assertion": 6,
-      "typescript/no-unsafe-argument": 1
-    },
-    "apps/daemon/src/terminal/handoff.test.ts": {
-      "anti-slop/no-runtime-typeof": 1,
-      "anti-slop/no-unsafe-dictionary-type": 2,
-      "typescript/no-unsafe-argument": 1
-    },
-    "apps/daemon/src/terminal/TerminalRpcs.ts": {
-      "anti-slop-effect/no-manual-tag-comparison": 1,
-      "anti-slop-effect/no-manual-tagged-construction": 2,
-      "anti-slop/require-safety-comment-for-type-assertion": 1
-    },
-    "apps/daemon/src/terminal/Terminals.test.ts": {
-      "anti-slop-effect/no-manual-tag-comparison": 1,
-      "anti-slop-effect/no-manual-tagged-construction": 2,
-      "anti-slop/no-runtime-typeof": 1,
-      "anti-slop/require-safety-comment-for-type-assertion": 1
-    },
-    "apps/daemon/src/terminal/Terminals.ts": {
-      "anti-slop-effect/no-manual-tag-comparison": 2,
-      "anti-slop-effect/no-manual-tagged-construction": 4,
-      "anti-slop/no-array-filter-map": 1,
-      "anti-slop/no-unknown-parameters": 2,
-      "anti-slop/require-safety-comment-for-type-assertion": 8,
-      "prefer-const": 1,
-      "sonarjs/cognitive-complexity": 1,
-      "typescript/no-unnecessary-type-assertion": 2
     },
     "apps/daemon/src/transport/bridge.test.ts": {
       "typescript/no-floating-promises": 1
@@ -478,83 +327,6 @@
       "anti-slop/no-array-filter-map": 1,
       "anti-slop/require-safety-comment-for-type-assertion": 14,
       "sonarjs/cognitive-complexity": 2
-    },
-    "packages/bench/src/cli.ts": {
-      "anti-slop/require-safety-comment-for-type-assertion": 4,
-      "sonarjs/cognitive-complexity": 2
-    },
-    "packages/bench/src/compare.ts": {
-      "anti-slop/no-known-value-widening": 3,
-      "sonarjs/cognitive-complexity": 1
-    },
-    "packages/bench/src/daemon.ts": {
-      "anti-slop/no-conditional-empty-object-spread": 1,
-      "anti-slop/no-known-value-widening": 1,
-      "anti-slop/require-safety-comment-for-type-assertion": 1
-    },
-    "packages/bench/src/drive.ts": {
-      "anti-slop-effect/no-manual-tag-comparison": 5,
-      "anti-slop-effect/no-manual-tagged-construction": 6,
-      "anti-slop/require-safety-comment-for-type-assertion": 2,
-      "sonarjs/cognitive-complexity": 1,
-      "typescript/no-unnecessary-type-assertion": 1
-    },
-    "packages/bench/src/fixtures.ts": {
-      "typescript/no-floating-promises": 1
-    },
-    "packages/bench/src/proc.ts": {
-      "anti-slop/require-safety-comment-for-type-assertion": 1,
-      "typescript/no-require-imports": 1
-    },
-    "packages/bench/src/report.ts": {
-      "anti-slop-effect/prefer-effect-match": 1,
-      "sonarjs/cognitive-complexity": 1
-    },
-    "packages/bench/src/runner.ts": {
-      "anti-slop-effect/no-manual-tag-comparison": 1,
-      "anti-slop/no-conditional-empty-object-spread": 1,
-      "anti-slop/no-known-value-widening": 1
-    },
-    "packages/bench/src/sampler.ts": {
-      "anti-slop/require-safety-comment-for-type-assertion": 1,
-      "sonarjs/cognitive-complexity": 1,
-      "typescript/no-unnecessary-type-assertion": 1
-    },
-    "packages/bench/src/scenarios/blobs.ts": {
-      "anti-slop-effect/no-manual-tag-comparison": 1,
-      "anti-slop-effect/no-service-constructor-imports": 1,
-      "anti-slop/no-conditional-empty-object-spread": 1
-    },
-    "packages/bench/src/scenarios/cold-start.ts": {
-      "anti-slop/no-conditional-empty-object-spread": 1
-    },
-    "packages/bench/src/scenarios/git.ts": {
-      "anti-slop-effect/no-manual-tag-comparison": 2,
-      "anti-slop-effect/no-manual-tagged-construction": 2,
-      "anti-slop-effect/no-service-constructor-imports": 1,
-      "anti-slop/no-conditional-empty-object-spread": 1,
-      "anti-slop/require-safety-comment-for-type-assertion": 1,
-      "typescript/no-unnecessary-type-assertion": 1
-    },
-    "packages/bench/src/scenarios/history.ts": {
-      "anti-slop-effect/no-manual-tag-comparison": 4,
-      "anti-slop-effect/no-service-constructor-imports": 1,
-      "anti-slop/no-conditional-empty-object-spread": 3,
-      "anti-slop/no-known-value-widening": 1,
-      "anti-slop/require-safety-comment-for-type-assertion": 2
-    },
-    "packages/bench/src/scenarios/idle.ts": {
-      "anti-slop-effect/no-service-constructor-imports": 1
-    },
-    "packages/bench/src/scenarios/sessions.ts": {
-      "anti-slop-effect/no-service-constructor-imports": 1,
-      "anti-slop/no-conditional-empty-object-spread": 1,
-      "anti-slop/no-known-value-widening": 2
-    },
-    "packages/bench/src/scenarios/terminal.ts": {
-      "anti-slop-effect/no-manual-tag-comparison": 2,
-      "anti-slop-effect/no-service-constructor-imports": 1,
-      "anti-slop/no-conditional-empty-object-spread": 1
     },
     "packages/client/src/client.test.ts": {
       "anti-slop-effect/no-manual-tag-comparison": 2,
@@ -638,32 +410,6 @@
     "packages/protocol/src/wire.ts": {
       "anti-slop/no-chained-type-assertions": 1,
       "anti-slop/require-safety-comment-for-type-assertion": 8
-    },
-    "packages/spec/scripts/check.ts": {
-      "typescript/restrict-template-expressions": 2
-    },
-    "packages/spec/scripts/replay.ts": {
-      "anti-slop-effect/no-manual-tag-comparison": 5,
-      "anti-slop-effect/prefer-effect-match": 1,
-      "anti-slop/no-known-value-widening": 1,
-      "anti-slop/require-safety-comment-for-type-assertion": 2,
-      "sonarjs/cognitive-complexity": 1
-    },
-    "scripts/build-daemon.ts": {
-      "anti-slop/no-unsafe-dictionary-type": 1,
-      "anti-slop/require-safety-comment-for-type-assertion": 2,
-      "polaris/no-long-comment": 1,
-      "typescript/no-unsafe-assignment": 2,
-      "typescript/no-unsafe-member-access": 5,
-      "typescript/no-unsafe-return": 1
-    },
-    "scripts/licenses.ts": {
-      "anti-slop/no-runtime-typeof": 2,
-      "anti-slop/require-safety-comment-for-type-assertion": 2,
-      "sonarjs/cognitive-complexity": 1,
-      "typescript/no-unsafe-argument": 2,
-      "typescript/no-unsafe-call": 2,
-      "typescript/no-unsafe-member-access": 2
     }
   }
 }

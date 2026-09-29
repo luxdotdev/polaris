@@ -11,12 +11,12 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import {
   type HostStreamItem,
-  type Sequence,
+  Sequence,
   SessionId,
   type SessionStreamItem,
 } from "@polaris/protocol";
-import { Effect, Stream } from "effect";
-import { awaitReady, type Client, cleanup, connect, makeTempDir } from "../daemon.ts";
+import { Effect, Option, Predicate, Stream } from "effect";
+import { awaitReady, type Client, cleanup, connect, createTempDir } from "../daemon.ts";
 import {
   registerWorkspace,
   sendTurn,
@@ -41,10 +41,10 @@ const timeUntilSynchronized = <A extends HostStreamItem | SessionStreamItem, E>(
         Effect.sync(() => {
           items++;
 
-          if (item._tag === "Snapshot") bytes = JSON.stringify(item).length;
+          if (Predicate.isTagged(item, "Snapshot")) bytes = JSON.stringify(item).length;
         })
       ),
-      Stream.takeUntil((item) => item._tag === "Synchronized"),
+      Stream.takeUntil((item) => Predicate.isTagged(item, "Synchronized")),
       Stream.runDrain
     );
 
@@ -63,12 +63,12 @@ export const history: Scenario = {
       const script: TurnScript = { items: itemsPerTurn, deltasPerItem: 0, itemBytes: 300 };
 
       const home = yield* Effect.acquireRelease(
-        Effect.sync(() => makeTempDir("home")),
+        Effect.sync(() => createTempDir("home")),
         (dir) => Effect.sync(() => cleanup(dir))
       );
 
       const repo = yield* Effect.acquireRelease(
-        Effect.sync(() => makeTempDir("history")),
+        Effect.sync(() => createTempDir("history")),
         (dir) => Effect.sync(() => cleanup(dir))
       );
 
@@ -113,10 +113,10 @@ export const history: Scenario = {
             .subscribeHost({ afterSequence: null })
             .pipe(Stream.runHead);
 
+          const first = Option.getOrUndefined(snapshot);
+
           const sequence =
-            snapshot._tag === "Some" && snapshot.value._tag === "Snapshot"
-              ? snapshot.value.sequence
-              : 0;
+            first !== undefined && Predicate.isTagged(first, "Snapshot") ? first.sequence : 0;
 
           const report = sampler.report();
 
@@ -165,7 +165,7 @@ export const history: Scenario = {
         })
       );
 
-      const hostResumeFrom = Math.max(0, seeded.sequence - 10_000) as Sequence;
+      const hostResumeFrom = Sequence.make(Math.max(0, seeded.sequence - 10_000));
 
       const hostResume = yield* timeUntilSynchronized(
         client.connection.client.subscribeHost({ afterSequence: hostResumeFrom })
@@ -174,7 +174,7 @@ export const history: Scenario = {
       const sessionResume = yield* timeUntilSynchronized(
         client.connection.client.subscribeSession({
           sessionId: session,
-          afterSequence: seeded.midSequence as Sequence,
+          afterSequence: Sequence.make(seeded.midSequence),
           turnLimit: null,
         })
       );
@@ -184,18 +184,26 @@ export const history: Scenario = {
       // After the measurements: the snapshot allocates.
       yield* ctx.peak(daemon, "after-snapshots");
 
-      const metrics: Record<string, Metric> = {
+      const metrics: Record<string, Metric> = {};
+
+      Object.assign(metrics, {
         events: { value: seeded.sequence, unit: "", kind: "count", better: "higher", info: true },
         seed_events_per_s: throughput(seeded.sequence / (seeded.seedMs / 1000), "/s"),
         seed_rss_peak_mib: peakMemory(seeded.rssPeak),
-        ...(seeded.footprintPeak !== null
-          ? { seed_footprint_peak_mib: peakMemory(seeded.footprintPeak) }
-          : {}),
-        restart_hello_ms: time(helloMs),
-        loaded_rss_mib: memory(loaded.rssBytes),
-        ...(loaded.footprintBytes !== null
-          ? { loaded_footprint_mib: memory(loaded.footprintBytes) }
-          : {}),
+      } satisfies Record<string, Metric>);
+
+      if (seeded.footprintPeak !== null) {
+        metrics.seed_footprint_peak_mib = peakMemory(seeded.footprintPeak);
+      }
+
+      metrics.restart_hello_ms = time(helloMs);
+      metrics.loaded_rss_mib = memory(loaded.rssBytes);
+
+      if (loaded.footprintBytes !== null) {
+        metrics.loaded_footprint_mib = memory(loaded.footprintBytes);
+      }
+
+      Object.assign(metrics, {
         host_snapshot_ms: time(host.ms),
         host_snapshot_kb: {
           value: host.snapshotBytes / 1024,
@@ -228,10 +236,11 @@ export const history: Scenario = {
           info: true,
         },
         rss_after_snapshots_mib: peakMemory(afterSnapshots.rssBytes),
-        ...(afterSnapshots.footprintBytes !== null
-          ? { footprint_after_snapshots_mib: peakMemory(afterSnapshots.footprintBytes) }
-          : {}),
-      };
+      } satisfies Record<string, Metric>);
+
+      if (afterSnapshots.footprintBytes !== null) {
+        metrics.footprint_after_snapshots_mib = peakMemory(afterSnapshots.footprintBytes);
+      }
 
       return {
         metrics,

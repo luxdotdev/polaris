@@ -4,54 +4,56 @@
  */
 import { extname } from "node:path";
 
-const EXTENSIONS: Record<string, string> = {
-  // Previewed by the Client.
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".gif": "image/gif",
-  ".webp": "image/webp",
-  ".bmp": "image/bmp",
-  ".ico": "image/x-icon",
-  ".avif": "image/avif",
-  ".svg": "image/svg+xml",
-  ".pdf": "application/pdf",
-  // Text the Editor knows by type.
-  ".json": "application/json",
-  ".md": "text/markdown",
-  ".markdown": "text/markdown",
-  ".html": "text/html",
-  ".htm": "text/html",
-  ".css": "text/css",
-  ".csv": "text/csv",
-  ".xml": "application/xml",
-  ".js": "text/javascript",
-  ".mjs": "text/javascript",
-  ".cjs": "text/javascript",
-  ".jsx": "text/javascript",
-  ".ts": "text/typescript",
-  ".mts": "text/typescript",
-  ".cts": "text/typescript",
-  ".tsx": "text/typescript",
-  ".yaml": "application/yaml",
-  ".yml": "application/yaml",
-  ".toml": "application/toml",
-  ".sh": "application/x-sh",
-  // Binary.
-  ".zip": "application/zip",
-  ".gz": "application/gzip",
-  ".tar": "application/x-tar",
-  ".wasm": "application/wasm",
-  ".mp4": "video/mp4",
-  ".mov": "video/quicktime",
-  ".webm": "video/webm",
-  ".mp3": "audio/mpeg",
-  ".wav": "audio/wav",
-  ".woff": "font/woff",
-  ".woff2": "font/woff2",
-  ".ttf": "font/ttf",
-  ".otf": "font/otf",
-};
+const EXTENSIONS = new Map(
+  Object.entries({
+    // Previewed by the Client.
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".bmp": "image/bmp",
+    ".ico": "image/x-icon",
+    ".avif": "image/avif",
+    ".svg": "image/svg+xml",
+    ".pdf": "application/pdf",
+    // Text the Editor knows by type.
+    ".json": "application/json",
+    ".md": "text/markdown",
+    ".markdown": "text/markdown",
+    ".html": "text/html",
+    ".htm": "text/html",
+    ".css": "text/css",
+    ".csv": "text/csv",
+    ".xml": "application/xml",
+    ".js": "text/javascript",
+    ".mjs": "text/javascript",
+    ".cjs": "text/javascript",
+    ".jsx": "text/javascript",
+    ".ts": "text/typescript",
+    ".mts": "text/typescript",
+    ".cts": "text/typescript",
+    ".tsx": "text/typescript",
+    ".yaml": "application/yaml",
+    ".yml": "application/yaml",
+    ".toml": "application/toml",
+    ".sh": "application/x-sh",
+    // Binary.
+    ".zip": "application/zip",
+    ".gz": "application/gzip",
+    ".tar": "application/x-tar",
+    ".wasm": "application/wasm",
+    ".mp4": "video/mp4",
+    ".mov": "video/quicktime",
+    ".webm": "video/webm",
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+    ".woff": "font/woff",
+    ".woff2": "font/woff2",
+    ".ttf": "font/ttf",
+    ".otf": "font/otf",
+  })
+);
 
 const startsWith = (head: Uint8Array, signature: ReadonlyArray<number>, at = 0): boolean =>
   head.length >= at + signature.length && signature.every((byte, i) => head[at + i] === byte);
@@ -108,7 +110,7 @@ export const detectMimeType = (path: string, head: Uint8Array): string => {
   const magic = sniffMagic(head);
 
   if (magic !== null) return magic;
-  const byExtension = EXTENSIONS[extname(path).toLowerCase()];
+  const byExtension = EXTENSIONS.get(extname(path).toLowerCase());
 
   if (byExtension !== undefined) return byExtension;
 

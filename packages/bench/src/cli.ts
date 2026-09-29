@@ -17,7 +17,12 @@ import { environment } from "./env.ts";
 import { renderComparison, renderMarkdown, renderResult } from "./report.ts";
 import { runScenario } from "./runner.ts";
 import { SCENARIOS } from "./scenarios/index.ts";
-import type { BenchResult, MetricKind, ScenarioResult } from "./types.ts";
+import {
+  type BenchResult,
+  type MetricKind,
+  parseBenchResult,
+  type ScenarioResult,
+} from "./types.ts";
 
 const ALL_KINDS: ReadonlyArray<MetricKind> = [
   "memory",
@@ -62,6 +67,28 @@ interface Args {
   list: boolean;
 }
 
+const isMetricKind = (kind: string): kind is MetricKind => ALL_KINDS.some((k) => k === kind);
+
+/** `--fail-on memory,cpu` (or `none`): the metric kinds that gate `--compare`. */
+const parseFailOn = (value: string): Set<MetricKind> => {
+  const kinds = value
+    .split(",")
+    .map((k) => k.trim())
+    .filter(Boolean);
+
+  for (const k of kinds) {
+    if (!isMetricKind(k) && k !== "none") throw new Error(`unknown kind ${k}`);
+  }
+
+  return new Set(kinds.filter(isMetricKind));
+};
+
+const parseTransport = (value: string): TransportKind => {
+  if (value !== "bridge" && value !== "socket") throw new Error(`unknown transport ${value}`);
+
+  return value;
+};
+
 const fromRoot = (path: string) => (isAbsolute(path) ? path : join(REPO_ROOT, path));
 
 const parseArgs = (argv: ReadonlyArray<string>): Args => {
@@ -104,20 +131,9 @@ const parseArgs = (argv: ReadonlyArray<string>): Args => {
       case "--compare":
         args.compare = fromRoot(value());
         break;
-      case "--fail-on": {
-        const kinds = value()
-          .split(",")
-          .map((k) => k.trim())
-          .filter(Boolean);
-
-        for (const k of kinds) {
-          if (!ALL_KINDS.includes(k as MetricKind) && k !== "none")
-            throw new Error(`unknown kind ${k}`);
-        }
-
-        args.failOn = new Set(kinds.filter((k) => k !== "none") as Array<MetricKind>);
+      case "--fail-on":
+        args.failOn = parseFailOn(value());
         break;
-      }
 
       case "--save-baseline":
         args.saveBaseline = true;
@@ -131,13 +147,9 @@ const parseArgs = (argv: ReadonlyArray<string>): Args => {
       case "--binary":
         args.binary = fromRoot(value());
         break;
-      case "--transport": {
-        const t = value();
-
-        if (t !== "bridge" && t !== "socket") throw new Error(`unknown transport ${t}`);
-        args.transport = t;
+      case "--transport":
+        args.transport = parseTransport(value());
         break;
-      }
 
       case "--list":
         args.list = true;
@@ -156,13 +168,69 @@ const parseArgs = (argv: ReadonlyArray<string>): Args => {
   return args;
 };
 
+/** Writes `result.json` and `summary.txt` under `runDir`, plus `--json` and `--save-baseline`. */
+const writeResult = (result: BenchResult, args: Args, runDir: string, log: (m: string) => void) => {
+  const resultPath = join(runDir, "result.json");
+  writeFileSync(resultPath, `${JSON.stringify(result, null, 2)}\n`);
+
+  if (args.json) {
+    mkdirSync(dirname(args.json), { recursive: true });
+    copyFileSync(resultPath, args.json);
+  }
+
+  if (args.saveBaseline) {
+    const baselinePath = join(
+      BENCH_DIR,
+      "baselines",
+      `${result.env.machineSlug}${args.quick ? "-quick" : ""}.json`
+    );
+
+    copyFileSync(resultPath, baselinePath);
+    log(`baseline written to ${baselinePath}`);
+  }
+
+  const text = renderResult(result);
+  console.log(text);
+  writeFileSync(join(runDir, "summary.txt"), `${text}\n`);
+};
+
+const compareWithBaseline = (
+  baselinePath: string,
+  result: BenchResult,
+  failOn: ReadonlySet<MetricKind>,
+  runDir: string
+): Comparison => {
+  const baseline = parseBenchResult(readFileSync(baselinePath, "utf8"));
+  const comparison = compare(baseline, result, failOn);
+  const rendered = renderComparison(comparison);
+  console.log(`\ncompared with ${baselinePath}\n${rendered}`);
+  writeFileSync(join(runDir, "comparison.txt"), `${rendered}\n`);
+
+  return comparison;
+};
+
+/** 1 when a scenario failed or a gating metric regressed, else 0. */
+const exitCode = (
+  scenarios: Record<string, ScenarioResult>,
+  comparison: Comparison | null,
+  log: (m: string) => void
+) => {
+  const failed = Object.values(scenarios).some((s) => s.error !== undefined);
+
+  if (failed) log("some scenarios failed");
+
+  if (comparison && comparison.regressions.length > 0) return 1;
+
+  return failed ? 1 : 0;
+};
+
 const main = async () => {
   let args: Args;
 
   try {
     args = parseArgs(process.argv.slice(2));
   } catch (error) {
-    console.error(`${(error as Error).message}\n\n${usage}`);
+    console.error(`${error instanceof Error ? error.message : String(error)}\n\n${usage}`);
 
     return 2;
   }
@@ -224,48 +292,15 @@ const main = async () => {
     scenarios,
   };
 
-  const resultPath = join(runDir, "result.json");
-  writeFileSync(resultPath, `${JSON.stringify(result, null, 2)}\n`);
+  writeResult(result, args, runDir, log);
 
-  if (args.json) {
-    mkdirSync(dirname(args.json), { recursive: true });
-    copyFileSync(resultPath, args.json);
-  }
-
-  if (args.saveBaseline) {
-    const baselinePath = join(
-      BENCH_DIR,
-      "baselines",
-      `${env.machineSlug}${args.quick ? "-quick" : ""}.json`
-    );
-
-    copyFileSync(resultPath, baselinePath);
-    log(`baseline written to ${baselinePath}`);
-  }
-
-  const text = renderResult(result);
-  console.log(text);
-  writeFileSync(join(runDir, "summary.txt"), `${text}\n`);
-
-  let comparison: Comparison | null = null;
-
-  if (args.compare) {
-    const baseline = JSON.parse(readFileSync(args.compare, "utf8")) as BenchResult;
-    comparison = compare(baseline, result, args.failOn);
-    const rendered = renderComparison(comparison);
-    console.log(`\ncompared with ${args.compare}\n${rendered}`);
-    writeFileSync(join(runDir, "comparison.txt"), `${rendered}\n`);
-  }
+  const comparison = args.compare
+    ? compareWithBaseline(args.compare, result, args.failOn, runDir)
+    : null;
 
   if (args.markdown) appendFileSync(args.markdown, `${renderMarkdown(result, comparison)}\n`);
 
-  const failed = Object.values(scenarios).some((s) => s.error !== undefined);
-
-  if (failed) log("some scenarios failed");
-
-  if (comparison && comparison.regressions.length > 0) return 1;
-
-  return failed ? 1 : 0;
+  return exitCode(scenarios, comparison, log);
 };
 
 process.exit(await main());

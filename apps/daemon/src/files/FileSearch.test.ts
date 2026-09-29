@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { join } from "node:path";
+import { FileError } from "@polaris/protocol";
 import { Effect, Fiber, Stream } from "effect";
 import { makeRepo, removeDir, tempDir, write } from "../git/testing.ts";
 import { FileSearch, FileSearchLive } from "./FileSearch.ts";
@@ -254,7 +255,8 @@ describe("FileSearch lifecycle", () => {
       Effect.flip(handleSearchPaths({ root: join(root, "README.md"), query: "x", limit: 1 }))
     );
 
-    expect(error).toMatchObject({ _tag: "FileError", code: "ENOTDIR" });
+    expect(error).toBeInstanceOf(FileError);
+    expect(error.code).toBe("ENOTDIR");
   });
 
   test("POLARIS_FFF=off forces the fallback", async () => {

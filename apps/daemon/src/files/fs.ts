@@ -8,6 +8,7 @@ import type { Stats } from "node:fs";
 import { lstat, open, readdir, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
+import { Data, Schema } from "effect";
 import { detectMimeType, isTextMime } from "./mime.ts";
 
 /** Reads at or under this size of valid UTF-8 text come back inline; everything else as a blob. */
@@ -29,13 +30,13 @@ export class FsFailure extends Error {
   }
 }
 
+/** Node's errno errors (`ENOENT`, `EACCES`, …) carry a string `code`. */
+const hasErrnoCode = Schema.is(Schema.Struct({ code: Schema.String }));
+
 export const toFsFailure = (path: string, cause: unknown): FsFailure => {
   if (cause instanceof FsFailure) return cause;
 
-  const code =
-    typeof cause === "object" && cause !== null && "code" in cause && typeof cause.code === "string"
-      ? cause.code
-      : "EIO";
+  const code = hasErrnoCode(cause) ? cause.code : "EIO";
 
   return new FsFailure(path, code, cause instanceof Error ? cause.message : String(cause));
 };
@@ -123,11 +124,14 @@ export const listDir = async (input: string): Promise<Array<Entry>> => {
     );
 };
 
-export type ReadContent =
-  | { readonly _tag: "Inline"; readonly text: string }
-  | { readonly _tag: "Bytes"; readonly bytes: Uint8Array }
+export type ReadContent = Data.TaggedEnum<{
+  Inline: { readonly text: string };
+  Bytes: { readonly bytes: Uint8Array };
   /** A large range, to be streamed from disk: bytes `[start, end)` of `path`. */
-  | { readonly _tag: "Range"; readonly path: string; readonly start: number; readonly end: number };
+  Range: { readonly path: string; readonly start: number; readonly end: number };
+}>;
+
+export const ReadContent = Data.taggedEnum<ReadContent>();
 
 export interface ReadResult {
   /** Size of the whole file, not of the range. */
@@ -135,6 +139,38 @@ export interface ReadResult {
   readonly mimeType: string;
   readonly content: ReadContent;
 }
+
+type FileHandle = Awaited<ReturnType<typeof open>>;
+
+/** Reads `[start, end)` into memory; shorter if the file shrank meanwhile. */
+const readBytes = async (handle: FileHandle, start: number, end: number): Promise<Uint8Array> => {
+  const bytes = new Uint8Array(end - start);
+  let read = 0;
+
+  while (read < bytes.length) {
+    const { bytesRead } = await handle.read(bytes, read, bytes.length - read, start + read);
+
+    if (bytesRead === 0) break;
+    read += bytesRead;
+  }
+
+  return read === bytes.length ? bytes : bytes.subarray(0, read);
+};
+
+/** Inline text when `bytes` is small, text-typed and valid UTF-8; the bytes otherwise. */
+const toContent = (mimeType: string, bytes: Uint8Array): ReadContent => {
+  if (isTextMime(mimeType) && bytes.length <= INLINE_TEXT_MAX_BYTES) {
+    try {
+      const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
+
+      return ReadContent.Inline({ text });
+    } catch {
+      // The range cut a character (or the file isn't UTF-8): send the bytes.
+    }
+  }
+
+  return ReadContent.Bytes({ bytes });
+};
 
 /**
  * Reads `[offset, offset + length)` (clamped to the file). Text within
@@ -171,32 +207,10 @@ export const readRange = async (
       const mimeType = detectMimeType(path, head);
 
       if (end - start > STREAM_MIN_BYTES) {
-        return { size, mimeType, content: { _tag: "Range", path, start, end } };
+        return { size, mimeType, content: ReadContent.Range({ path, start, end }) };
       }
 
-      const bytes = new Uint8Array(end - start);
-      let read = 0;
-
-      while (read < bytes.length) {
-        const { bytesRead } = await handle.read(bytes, read, bytes.length - read, start + read);
-
-        if (bytesRead === 0) break;
-        read += bytesRead;
-      }
-
-      const slice = read === bytes.length ? bytes : bytes.subarray(0, read);
-
-      if (isTextMime(mimeType) && slice.length <= INLINE_TEXT_MAX_BYTES) {
-        try {
-          const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(slice);
-
-          return { size, mimeType, content: { _tag: "Inline", text } };
-        } catch {
-          // The range cut a character (or the file isn't UTF-8): send the bytes.
-        }
-      }
-
-      return { size, mimeType, content: { _tag: "Bytes", bytes: slice } };
+      return { size, mimeType, content: toContent(mimeType, await readBytes(handle, start, end)) };
     } finally {
       await handle.close();
     }

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import type { AttachmentId, SessionId, WorkspaceId } from "@polaris/protocol";
+import { AttachmentId, SessionId, WorkspaceId } from "@polaris/protocol";
 import { Effect, Layer, Stream } from "effect";
 import { makeFakeBlobChannel } from "../files/testing.ts";
 import { removeDir, tempDir } from "../git/testing.ts";
@@ -11,6 +11,7 @@ import {
   AttachmentMaintenance,
   AttachmentStoreLive,
   type AttachmentStoreOptions,
+  MAX_ATTACHMENT_BYTES,
   PENDING_MAX_AGE_DAYS,
   safeFileName,
 } from "./AttachmentStore.ts";
@@ -23,11 +24,11 @@ afterEach(() => {
 
 const DAY = 24 * 60 * 60 * 1000;
 
-const ws = "ws1" as WorkspaceId;
+const ws = WorkspaceId.make("ws1");
 
-const other = "ws2" as WorkspaceId;
+const other = WorkspaceId.make("ws2");
 
-const s1 = "session-1" as SessionId;
+const s1 = SessionId.make("session-1");
 
 const bytes = (text: string) => new TextEncoder().encode(text);
 
@@ -76,7 +77,7 @@ describe("AttachmentStore", () => {
       Effect.gen(function* () {
         const store = yield* AttachmentStore;
 
-        return yield* store.get([attachment.id, "missing" as AttachmentId]);
+        return yield* store.get([attachment.id, AttachmentId.make("missing")]);
       })
     );
 
@@ -102,7 +103,7 @@ describe("AttachmentStore", () => {
   test("on-archive (default): archiving a session deletes its attachments", async () => {
     const { run, staging } = setup();
     const a = await run(stage(s1, ws, "a.txt"));
-    const other1 = await run(stage("session-2" as SessionId, ws, "b.txt"));
+    const other1 = await run(stage(SessionId.make("session-2"), ws, "b.txt"));
     await run(
       Effect.gen(function* () {
         yield* (yield* AttachmentStore).onSessionArchived(s1);
@@ -199,7 +200,7 @@ describe("AttachmentStore", () => {
     const { run, staging } = setup();
     await run(stage(s1, ws, "a.txt", "12345"));
     await run(stage(null, other, "b.txt", "123"));
-    await run(stage("session-3" as SessionId, other, "c.txt", "1"));
+    await run(stage(SessionId.make("session-3"), other, "c.txt", "1"));
 
     const usage = await run(
       Effect.gen(function* () {
@@ -254,7 +255,10 @@ describe("AttachmentStore", () => {
   test("stages a stream chunk by chunk, and drops the upload when it fails or is too large", async () => {
     const { run, staging } = setup();
 
-    const upload = (bytes: Stream.Stream<Uint8Array, ServiceError>, maxBytes?: number) =>
+    const upload = (
+      bytes: Stream.Stream<Uint8Array, ServiceError>,
+      maxBytes: number = MAX_ATTACHMENT_BYTES
+    ) =>
       Effect.gen(function* () {
         const store = yield* AttachmentStore;
 
@@ -270,7 +274,7 @@ describe("AttachmentStore", () => {
           AttachmentStoreLive({
             root: staging,
             settingsPath: join(staging, "s.json"),
-            ...(maxBytes === undefined ? {} : { maxBytes }),
+            maxBytes,
           })
         )
       );

@@ -4,7 +4,7 @@
  */
 import { afterEach, describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { DaemonRpcs, type WorkspaceId } from "@polaris/protocol";
+import { DaemonRpcs, GitDiff, ReadFile, TerminalAttach, WorkspaceId } from "@polaris/protocol";
 import { Effect, Layer, Stream } from "effect";
 import { RpcTest } from "effect/rpc";
 import { AttachmentRpcsLive } from "../attachments/AttachmentRpcs.ts";
@@ -72,12 +72,12 @@ describe("handler layers", () => {
 
           const diff = yield* client["git.diff"]({
             cwd: repo,
-            spec: { _tag: "WorkingTree", base: null },
+            spec: GitDiff.payloadSchema.fields.spec.cases.WorkingTree.make({ base: null }),
           });
 
           const attachment = yield* client["attachments.stage"]({
             sessionId: null,
-            workspaceId: "ws" as WorkspaceId,
+            workspaceId: WorkspaceId.make("ws"),
             name: "note.txt",
             mimeType: "text/plain",
             blobId: upload,
@@ -100,17 +100,21 @@ describe("handler layers", () => {
       )
     );
 
-    expect(result.read.content).toEqual({ _tag: "Inline", text: "two\n" });
+    expect(result.read.content).toEqual(
+      ReadFile.successSchema.fields.content.cases.Inline.make({ text: "two\n" })
+    );
     expect(result.hits.map((h) => h.path)).toContain(join(repo, "a.txt"));
     expect(result.status.entries.map((e) => e.path)).toEqual(["a.txt"]);
-    expect(new TextDecoder().decode(blobs.blobs.get(result.diff.blobId)!)).toContain("+two");
+    expect(new TextDecoder().decode(blobs.blobs.get(result.diff.blobId))).toContain("+two");
     expect(result.attachment.name).toBe("note.txt");
 
+    const Attached = TerminalAttach.successSchema.success;
+
     const text = result.output
-      .map((item) => (item._tag === "Output" ? new TextDecoder().decode(item.data) : ""))
+      .map((item) => (Attached.guards.Output(item) ? new TextDecoder().decode(item.data) : ""))
       .join("");
 
     expect(text).toContain("from-terminal");
-    expect(result.output.at(-1)).toEqual({ _tag: "Exit", code: 0 });
+    expect(result.output.at(-1)).toEqual(Attached.cases.Exit.make({ code: 0 }));
   });
 });

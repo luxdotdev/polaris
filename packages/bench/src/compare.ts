@@ -7,7 +7,7 @@
  * memory is steady run to run (a few MiB), so it is held tightly; CPU at low load
  * and tail latencies swing by tens of percent, so they are held loosely.
  */
-import type { AggregatedMetric, BenchResult, MetricKind } from "./types.ts";
+import type { AggregatedMetric, BenchResult, MetricKind, ScenarioResult } from "./types.ts";
 
 export const DEFAULT_TOLERANCE: Record<MetricKind, { relative: number; absolute: number }> = {
   memory: { relative: 0.1, absolute: 5 },
@@ -41,10 +41,16 @@ export interface Comparison {
   readonly warnings: ReadonlyArray<string>;
 }
 
+export interface MetricComparison {
+  readonly status: Status;
+  readonly change: number;
+  readonly allowed: number;
+}
+
 export const compareMetric = (
   base: AggregatedMetric,
   current: AggregatedMetric
-): { status: Status; change: number; allowed: number } => {
+): MetricComparison => {
   const tolerance = current.tolerance ?? base.tolerance ?? DEFAULT_TOLERANCE[current.kind];
   const sign = current.better === "lower" ? 1 : -1;
   const worsening = sign * (current.value - base.value);
@@ -64,11 +70,8 @@ export const compareMetric = (
   return { status: "ok", change, allowed };
 };
 
-export const compare = (
-  baseline: BenchResult,
-  current: BenchResult,
-  failOn: ReadonlySet<MetricKind>
-): Comparison => {
+/** Differences in how the two results were produced that make them less comparable. */
+const environmentWarnings = (baseline: BenchResult, current: BenchResult): Array<string> => {
   const warnings: Array<string> = [];
 
   if (baseline.env.machineSlug !== current.env.machineSlug) {
@@ -98,65 +101,83 @@ export const compare = (
   if (current.options.profile)
     warnings.push("this run was profiled: timings include profiler overhead");
 
+  return warnings;
+};
+
+/** One scenario's rows: every current metric against the baseline, then those it lost. */
+const scenarioRows = (
+  scenario: string,
+  result: ScenarioResult,
+  base: ScenarioResult | undefined,
+  failOn: ReadonlySet<MetricKind>
+): Array<ComparisonRow> => {
   const rows: Array<ComparisonRow> = [];
 
-  for (const [scenario, result] of Object.entries(current.scenarios)) {
-    const base = baseline.scenarios[scenario];
+  for (const [metric, m] of Object.entries(result.metrics)) {
+    const b = base?.metrics[metric];
 
-    for (const [metric, m] of Object.entries(result.metrics)) {
-      const b = base?.metrics[metric];
-
-      if (b === undefined) {
-        rows.push({
-          scenario,
-          metric,
-          unit: m.unit,
-          kind: m.kind,
-          baseline: null,
-          current: m.value,
-          change: null,
-          allowed: null,
-          status: "new",
-          gating: false,
-        });
-        continue;
-      }
-
-      const { status, change, allowed } = compareMetric(b, m);
+    if (b === undefined) {
       rows.push({
         scenario,
         metric,
         unit: m.unit,
         kind: m.kind,
-        baseline: b.value,
+        baseline: null,
         current: m.value,
-        change,
-        allowed,
-        status,
-        gating: failOn.has(m.kind) && !m.info && !b.info,
-      });
-    }
-
-    for (const [metric, b] of Object.entries(base?.metrics ?? {})) {
-      if (result.metrics[metric] !== undefined) continue;
-      rows.push({
-        scenario,
-        metric,
-        unit: b.unit,
-        kind: b.kind,
-        baseline: b.value,
-        current: null,
         change: null,
         allowed: null,
-        status: "missing",
+        status: "new",
         gating: false,
       });
+      continue;
     }
+
+    const { status, change, allowed } = compareMetric(b, m);
+    rows.push({
+      scenario,
+      metric,
+      unit: m.unit,
+      kind: m.kind,
+      baseline: b.value,
+      current: m.value,
+      change,
+      allowed,
+      status,
+      gating: failOn.has(m.kind) && !m.info && !b.info,
+    });
   }
+
+  for (const [metric, b] of Object.entries(base?.metrics ?? {})) {
+    if (result.metrics[metric] !== undefined) continue;
+    rows.push({
+      scenario,
+      metric,
+      unit: b.unit,
+      kind: b.kind,
+      baseline: b.value,
+      current: null,
+      change: null,
+      allowed: null,
+      status: "missing",
+      gating: false,
+    });
+  }
+
+  return rows;
+};
+
+export const compare = (
+  baseline: BenchResult,
+  current: BenchResult,
+  failOn: ReadonlySet<MetricKind>
+): Comparison => {
+  const rows = Object.entries(current.scenarios).flatMap(([scenario, result]) =>
+    scenarioRows(scenario, result, baseline.scenarios[scenario], failOn)
+  );
 
   return {
     rows,
     regressions: rows.filter((r) => r.status === "regressed" && r.gating),
-    warnings,
+    warnings: environmentWarnings(baseline, current),
   };
 };

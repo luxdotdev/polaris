@@ -62,6 +62,23 @@ const MAX_SHARED_SCAN = 64;
 
 const lower = (l: RequiredLiteral) => (l.caseInsensitive ? l.text.toLowerCase() : l.text);
 
+/** The longest substring of `text` longer than `floor` (and ≥ MIN_SHARED) that `shared` accepts. */
+const longestShared = (
+  text: string,
+  floor: number,
+  shared: (piece: string) => boolean
+): string | null => {
+  for (let length = text.length; length >= MIN_SHARED && length > floor; length--) {
+    for (let start = 0; start + length <= text.length; start++) {
+      const piece = text.slice(start, start + length);
+
+      if (shared(piece)) return piece;
+    }
+  }
+
+  return null;
+};
+
 /** Longest substrings (≥ MIN_SHARED) every branch requires. */
 const sharedAcross = (
   branches: ReadonlyArray<ReadonlyArray<RequiredLiteral>>
@@ -70,23 +87,17 @@ const sharedAcross = (
   const [first, ...rest] = branches;
   const anyInsensitive = branches.some((b) => b.some((l) => l.caseInsensitive));
   const norm = (l: RequiredLiteral) => (anyInsensitive ? l.text.toLowerCase() : l.text);
+
+  const inEveryBranch = (piece: string) =>
+    rest.every((branch) => branch.some((l) => norm(l).includes(piece)));
+
   let best: RequiredLiteral | null = null;
 
   for (const literal of first!) {
     const text = norm(literal).slice(0, MAX_SHARED_SCAN);
+    const piece = longestShared(text, best?.text.length ?? 0, inEveryBranch);
 
-    for (let length = text.length; length >= MIN_SHARED; length--) {
-      if (best !== null && length <= best.text.length) break;
-
-      for (let start = 0; start + length <= text.length; start++) {
-        const piece = text.slice(start, start + length);
-
-        if (rest.every((branch) => branch.some((l) => norm(l).includes(piece)))) {
-          best = { text: piece, caseInsensitive: anyInsensitive };
-          break;
-        }
-      }
-    }
+    if (piece !== null) best = { text: piece, caseInsensitive: anyInsensitive };
   }
 
   return best === null ? [] : [best];
@@ -97,12 +108,23 @@ const join = (a: RequiredLiteral, b: RequiredLiteral): RequiredLiteral => ({
   caseInsensitive: a.caseInsensitive || b.caseInsensitive,
 });
 
+interface Bounds {
+  readonly min: number;
+  readonly max: number | null;
+}
+
+/** A group's inline flags, up to the `)` or `:` that ends them. */
+interface FlagList {
+  readonly end: ")" | ":";
+  readonly setInsensitive: boolean | null;
+}
+
 class Parser {
   private at = 0;
   private readonly chars: ReadonlyArray<string>;
 
   constructor(pattern: string) {
-    this.chars = [...pattern];
+    this.chars = Array.from(pattern);
   }
 
   parse(): Info {
@@ -230,7 +252,7 @@ class Parser {
     return { whole: null, required };
   }
 
-  private counted(): { min: number; max: number | null } {
+  private counted(): Bounds {
     this.at++; // {
 
     const digits = () => {
@@ -318,45 +340,18 @@ class Parser {
       const c = this.peek();
 
       if (c === "P" || c === "<") {
-        if (c === "P") this.at++;
-
-        if (this.next() !== "<") throw new Unsupported("group name");
-
-        while (this.peek() !== ">") {
-          if (!/^[A-Za-z0-9_.[\]]$/.test(this.next())) throw new Unsupported("group name");
-        }
-
-        this.at++;
+        this.groupName(c);
       } else {
         // Flags: (?flags) applies to the rest of the enclosing group, (?flags:…) is scoped.
-        let negate = false;
-        let setInsensitive: boolean | null = null;
+        const { end, setInsensitive } = this.flagList();
 
-        for (;;) {
-          const f = this.next();
+        if (setInsensitive !== null) flags.caseInsensitive = setInsensitive;
 
-          if (f === ")" || f === ":") {
-            if (setInsensitive !== null) flags.caseInsensitive = setInsensitive;
+        if (end === ")") {
+          outer.caseInsensitive = flags.caseInsensitive;
 
-            if (f === ")") {
-              outer.caseInsensitive = flags.caseInsensitive;
-
-              // Zero-width: the literal around it carries on.
-              return { whole: { text: "", caseInsensitive: false }, required: [] };
-            }
-
-            break;
-          }
-
-          if (f === "-") {
-            if (negate) throw new Unsupported("flags");
-            negate = true;
-          } else if (f === "i") {
-            setInsensitive = !negate;
-          } else if (!"msUuR".includes(f)) {
-            // `x` (verbose) changes what whitespace and `#` mean: don't narrow.
-            throw new Unsupported(`flag ${f}`);
-          }
+          // Zero-width: the literal around it carries on.
+          return { whole: { text: "", caseInsensitive: false }, required: [] };
         }
       }
     }
@@ -366,6 +361,40 @@ class Parser {
     if (this.next() !== ")") throw new Unsupported("unclosed group");
 
     return info;
+  }
+
+  /** `P<name>` or `<name>` after `(?`, up to and including the `>`. */
+  private groupName(c: "P" | "<"): void {
+    if (c === "P") this.at++;
+
+    if (this.next() !== "<") throw new Unsupported("group name");
+
+    while (this.peek() !== ">") {
+      if (!/^[A-Za-z0-9_.[\]]$/.test(this.next())) throw new Unsupported("group name");
+    }
+
+    this.at++;
+  }
+
+  private flagList(): FlagList {
+    let negate = false;
+    let setInsensitive: boolean | null = null;
+
+    for (;;) {
+      const f = this.next();
+
+      if (f === ")" || f === ":") return { end: f, setInsensitive };
+
+      if (f === "-") {
+        if (negate) throw new Unsupported("flags");
+        negate = true;
+      } else if (f === "i") {
+        setInsensitive = !negate;
+      } else if (!"msUuR".includes(f)) {
+        // `x` (verbose) changes what whitespace and `#` mean: don't narrow.
+        throw new Unsupported(`flag ${f}`);
+      }
+    }
   }
 
   /** Skips a bracketed class, including nested classes and `[:name:]`. */
@@ -379,23 +408,31 @@ class Parser {
 
       if (c === "]") return;
 
-      if (c === "\\") {
-        const e = this.next();
-
-        if (e === "x" || e === "u" || e === "U" || e === "p" || e === "P") {
-          throw new Unsupported("class escape");
-        }
-      } else if (c === "[") {
-        if (this.peek() === ":") {
-          const close = this.chars.indexOf(":", this.at + 1);
-
-          if (close < 0 || this.chars[close + 1] !== "]") throw new Unsupported("class name");
-          this.at = close + 2;
-        } else {
-          this.characterClass();
-        }
-      }
+      if (c === "\\") this.classEscape();
+      else if (c === "[") this.nestedClass();
     }
+  }
+
+  private classEscape(): void {
+    const e = this.next();
+
+    if (e === "x" || e === "u" || e === "U" || e === "p" || e === "P") {
+      throw new Unsupported("class escape");
+    }
+  }
+
+  /** After a `[` inside a class: `[:name:]`, or a nested class. */
+  private nestedClass(): void {
+    if (this.peek() !== ":") {
+      this.characterClass();
+
+      return;
+    }
+
+    const close = this.chars.indexOf(":", this.at + 1);
+
+    if (close < 0 || this.chars[close + 1] !== "]") throw new Unsupported("class name");
+    this.at = close + 2;
   }
 }
 

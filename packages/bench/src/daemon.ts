@@ -57,19 +57,26 @@ const tempRoot = () => {
   return dir;
 };
 
-export const makeTempDir = (prefix: string) => mkdtempSync(join(tempRoot(), `${prefix}-`));
+/** This process's environment, without unset variables. */
+const inheritedEnv = () =>
+  Object.fromEntries(
+    Object.entries(process.env).flatMap(([key, value]): Array<[string, string]> =>
+      value === undefined ? [] : [[key, value]]
+    )
+  );
+
+export const createTempDir = (prefix: string) => mkdtempSync(join(tempRoot(), `${prefix}-`));
 
 export const launchDaemon = async (options: LaunchOptions): Promise<Daemon> => {
-  const home = options.home ?? makeTempDir("home");
+  const home = options.home ?? createTempDir("home");
   const profileDir = options.profileDir ?? null;
 
-  const env: Record<string, string> = {
-    ...(process.env as Record<string, string>),
-    POLARIS_HOME: home,
-    POLARIS_BENCH_HARNESS: "1",
-    ...(profileDir ? { POLARIS_DEBUG_DIR: profileDir } : {}),
-    ...options.env,
-  };
+  const env = inheritedEnv();
+  env.POLARIS_HOME = home;
+  env.POLARIS_BENCH_HARNESS = "1";
+
+  if (profileDir) env.POLARIS_DEBUG_DIR = profileDir;
+  Object.assign(env, options.env);
 
   // A .cpuprofile (Chrome DevTools, speedscope) and a grep-friendly .md summary, on exit.
   const profileFlags = profileDir

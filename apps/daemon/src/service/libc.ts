@@ -11,7 +11,7 @@
  * `ioctl(fd, FIONCLEX)`, which takes none either.
  */
 
-import { CString, dlopen, FFIType, type Pointer, ptr, read } from "bun:ffi";
+import { CString, dlopen, FFIType, ptr, read } from "bun:ffi";
 import { readdirSync } from "node:fs";
 
 const isDarwin = process.platform === "darwin";
@@ -56,23 +56,28 @@ const EINTR = 4;
 
 type Libc = ReturnType<typeof open>;
 
+const SYMBOLS = {
+  execve: { args: [FFIType.ptr, FFIType.ptr, FFIType.ptr], returns: FFIType.i32 },
+  ioctl: { args: [FFIType.i32, FFIType.u64], returns: FFIType.i32 },
+  fcntl: { args: [FFIType.i32, FFIType.i32], returns: FFIType.i32 },
+  accept: { args: [FFIType.i32, FFIType.ptr, FFIType.ptr], returns: FFIType.i32 },
+  poll: { args: [FFIType.ptr, FFIType.u32, FFIType.i32], returns: FFIType.i32 },
+  close: { args: [FFIType.i32], returns: FFIType.i32 },
+  socketpair: {
+    args: [FFIType.i32, FFIType.i32, FFIType.i32, FFIType.ptr],
+    returns: FFIType.i32,
+  },
+  waitpid: { args: [FFIType.i32, FFIType.ptr, FFIType.i32], returns: FFIType.i32 },
+  ptsname: { args: [FFIType.i32], returns: FFIType.ptr },
+} as const;
+
+const ERRNO_LOCATION = { args: [], returns: FFIType.ptr } as const;
+
+// Darwin exports errno through `__error()`, glibc through `__errno_location()`.
 const open = () =>
-  dlopen(LIBC_PATH, {
-    execve: { args: [FFIType.ptr, FFIType.ptr, FFIType.ptr], returns: FFIType.i32 },
-    ioctl: { args: [FFIType.i32, FFIType.u64], returns: FFIType.i32 },
-    fcntl: { args: [FFIType.i32, FFIType.i32], returns: FFIType.i32 },
-    accept: { args: [FFIType.i32, FFIType.ptr, FFIType.ptr], returns: FFIType.i32 },
-    poll: { args: [FFIType.ptr, FFIType.u32, FFIType.i32], returns: FFIType.i32 },
-    close: { args: [FFIType.i32], returns: FFIType.i32 },
-    socketpair: {
-      args: [FFIType.i32, FFIType.i32, FFIType.i32, FFIType.ptr],
-      returns: FFIType.i32,
-    },
-    waitpid: { args: [FFIType.i32, FFIType.ptr, FFIType.i32], returns: FFIType.i32 },
-    ptsname: { args: [FFIType.i32], returns: FFIType.ptr },
-    // Darwin exports errno through `__error()`, glibc through `__errno_location()`.
-    [isDarwin ? "__error" : "__errno_location"]: { args: [], returns: FFIType.ptr },
-  });
+  isDarwin
+    ? dlopen(LIBC_PATH, { ...SYMBOLS, __error: ERRNO_LOCATION })
+    : dlopen(LIBC_PATH, { ...SYMBOLS, __errno_location: ERRNO_LOCATION });
 
 let lib: Libc | undefined;
 
@@ -83,8 +88,8 @@ const libc = (): Libc["symbols"] => {
 };
 
 const errno = (): number => {
-  const symbols = libc() as unknown as Record<string, (() => Pointer | null) | undefined>;
-  const location = (isDarwin ? symbols.__error : symbols.__errno_location)?.();
+  const symbols = libc();
+  const location = "__error" in symbols ? symbols.__error() : symbols.__errno_location();
 
   return location ? read.i32(location, 0) : 0;
 };

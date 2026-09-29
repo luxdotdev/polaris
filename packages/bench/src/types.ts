@@ -1,5 +1,5 @@
 /** The shape of benchmark results, shared by scenarios, reports and comparisons. */
-import type { Effect, Scope } from "effect";
+import { type Effect, Schema, type Scope } from "effect";
 import type { Daemon, LaunchOptions, TransportKind } from "./daemon.ts";
 import type { Sampler } from "./sampler.ts";
 
@@ -92,6 +92,64 @@ export interface Scenario {
   readonly description: string;
   readonly run: (ctx: ScenarioContext) => Effect.Effect<ScenarioRun, unknown, Scope.Scope>;
 }
+
+// ── Parsing a result file (a baseline) ──────────────────────────────────────
+
+const AggregatedMetricSchema = Schema.Struct({
+  value: Schema.Number,
+  unit: Schema.String,
+  kind: Schema.Literals(["memory", "cpu", "latency", "time", "throughput", "count"]),
+  better: Schema.Literals(["lower", "higher"]),
+  tolerance: Schema.optionalKey(
+    Schema.Struct({ relative: Schema.Number, absolute: Schema.Number })
+  ),
+  info: Schema.optionalKey(Schema.Boolean),
+  runs: Schema.Array(Schema.Number),
+  min: Schema.Number,
+  max: Schema.Number,
+});
+
+const ScenarioResultSchema = Schema.Struct({
+  metrics: Schema.Record(Schema.String, AggregatedMetricSchema),
+  notes: Schema.Array(Schema.String),
+  durationMs: Schema.Number,
+  error: Schema.optionalKey(Schema.String),
+});
+
+const EnvironmentSchema = Schema.Struct({
+  machine: Schema.String,
+  machineSlug: Schema.String,
+  cpu: Schema.String,
+  cores: Schema.Number,
+  memoryGiB: Schema.Number,
+  os: Schema.String,
+  arch: Schema.String,
+  bun: Schema.String,
+  gitSha: Schema.String,
+  gitDirty: Schema.Boolean,
+  daemon: Schema.Literals(["source", "compiled"]),
+  daemonBinary: Schema.NullOr(Schema.String),
+  transport: Schema.Literals(["bridge", "socket"]),
+  sampler: Schema.String,
+  date: Schema.String,
+});
+
+const BenchResultSchema = Schema.Struct({
+  schema: Schema.Literal(1),
+  env: EnvironmentSchema,
+  options: Schema.Struct({
+    quick: Schema.Boolean,
+    runs: Schema.Number,
+    profile: Schema.Boolean,
+    scenarios: Schema.Array(Schema.String),
+  }),
+  scenarios: Schema.Record(Schema.String, ScenarioResultSchema),
+});
+
+/** Parses a result JSON file's contents (e.g. a committed baseline). */
+export const parseBenchResult: (json: string) => BenchResult = Schema.decodeUnknownSync(
+  Schema.fromJsonString(BenchResultSchema)
+);
 
 // ── Metric constructors ─────────────────────────────────────────────────────
 

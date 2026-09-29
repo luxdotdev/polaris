@@ -62,7 +62,7 @@ const run = (label: string, argv: ReadonlyArray<string>, expectFailure = false) 
   const started = performance.now();
   const result = Bun.spawnSync([quint, ...argv], { cwd: dir, stdout: "pipe", stderr: "pipe" });
   const seconds = ((performance.now() - started) / 1000).toFixed(1);
-  const output = `${result.stdout}${result.stderr}`;
+  const output = `${result.stdout.toString()}${result.stderr.toString()}`;
   const ok = expectFailure ? result.exitCode !== 0 : result.exitCode === 0;
   console.log(`${ok ? "✓" : "✗"} ${label} (${seconds}s)`);
 

@@ -10,6 +10,7 @@
     "typecheck": "tsc -p ."
   },
   "devDependencies": {
-    "@informalsystems/quint": "0.32.0"
+    "@informalsystems/quint": "0.32.0",
+    "effect": "4.0.0-rc.118"
   }
 }

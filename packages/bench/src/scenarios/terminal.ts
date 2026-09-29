@@ -3,10 +3,10 @@
  * (`yes | head -c N`) to an attached Client, with the Daemon's CPU and memory.
  */
 import { attachTerminal } from "@polaris/client";
-import { Effect, Stream } from "effect";
-import { awaitReady, cleanup, connect, makeTempDir } from "../daemon.ts";
+import { Effect, Predicate, Stream } from "effect";
+import { awaitReady, cleanup, connect, createTempDir } from "../daemon.ts";
 import { settle } from "../drive.ts";
-import { cpu, peakMemory, type Scenario, throughput, time } from "../types.ts";
+import { cpu, type Metric, peakMemory, type Scenario, throughput, time } from "../types.ts";
 
 export const terminal: Scenario = {
   name: "terminal",
@@ -16,7 +16,7 @@ export const terminal: Scenario = {
       const bytes = (ctx.quick ? 10 : 50) * 1_000_000;
 
       const cwd = yield* Effect.acquireRelease(
-        Effect.sync(() => makeTempDir("term")),
+        Effect.sync(() => createTempDir("term")),
         (d) => Effect.sync(() => cleanup(d))
       );
 
@@ -50,13 +50,13 @@ export const terminal: Scenario = {
       ).pipe(
         Stream.tap((item) =>
           Effect.sync(() => {
-            if (item._tag === "Output") {
+            if (Predicate.isTagged(item, "Output")) {
               if (received === 0) firstAt = performance.now();
               received += item.data.byteLength;
             } else exitAt = performance.now();
           })
         ),
-        Stream.takeUntil((item) => item._tag === "Exit"),
+        Stream.takeUntil((item) => Predicate.isTagged(item, "Exit")),
         Stream.runDrain,
         Effect.timeout("5 minutes")
       );
@@ -74,22 +74,23 @@ export const terminal: Scenario = {
 
       if (received < bytes) notes.push(`received only ${received} of ${bytes} bytes`);
 
-      return {
-        metrics: {
-          mb_per_s: throughput(received / 1e6 / seconds, "MB/s"),
-          stream_ms: time(seconds * 1000, { info: true }),
-          cpu_avg_pct: cpu(report.cpuAvgPct),
-          rss_peak_over_base_mib: peakMemory(report.rssBytes.max - base.rssBytes),
-          ...(report.footprintBytes && base.footprintBytes !== null
-            ? {
-                footprint_peak_over_base_mib: peakMemory(
-                  report.footprintBytes.max - base.footprintBytes
-                ),
-              }
-            : {}),
-          rss_after_close_mib: peakMemory(after.rssBytes),
-        },
-        notes,
-      };
+      const metrics: Record<string, Metric> = {};
+
+      Object.assign(metrics, {
+        mb_per_s: throughput(received / 1e6 / seconds, "MB/s"),
+        stream_ms: time(seconds * 1000, { info: true }),
+        cpu_avg_pct: cpu(report.cpuAvgPct),
+        rss_peak_over_base_mib: peakMemory(report.rssBytes.max - base.rssBytes),
+      } satisfies Record<string, Metric>);
+
+      if (report.footprintBytes && base.footprintBytes !== null) {
+        metrics.footprint_peak_over_base_mib = peakMemory(
+          report.footprintBytes.max - base.footprintBytes
+        );
+      }
+
+      metrics.rss_after_close_mib = peakMemory(after.rssBytes);
+
+      return { metrics, notes };
     }),
 };

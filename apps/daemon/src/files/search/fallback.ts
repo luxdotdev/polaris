@@ -155,15 +155,12 @@ export const gitGrep = async (
   }
 };
 
-const runGitGrep = async (
-  root: string,
-  inRepo: boolean,
-  flavour: "-F" | "-E" | "-P",
-  query: GrepQuery
-): Promise<Array<GrepHit>> => {
+type GrepFlavour = "-F" | "-E" | "-P";
+
+const gitGrepArgs = (inRepo: boolean, flavour: GrepFlavour, query: GrepQuery) => {
   const threads = gitGrepThreads();
 
-  const args = [
+  return [
     "grep",
     ...(threads === null ? [] : ["--threads", String(threads)]),
     "-n",
@@ -179,8 +176,15 @@ const runGitGrep = async (
     "--",
     ".",
   ];
+};
 
-  const proc = Bun.spawn(["git", ...args], {
+const runGitGrep = async (
+  root: string,
+  inRepo: boolean,
+  flavour: GrepFlavour,
+  query: GrepQuery
+): Promise<Array<GrepHit>> => {
+  const proc = Bun.spawn(["git", ...gitGrepArgs(inRepo, flavour, query)], {
     cwd: root,
     env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_OPTIONAL_LOCKS: "0", LC_ALL: "C" },
     stdin: "ignore",
@@ -234,7 +238,7 @@ const runGitGrep = async (
   return hits.slice(0, query.limit);
 };
 
-export const makeFallbackBackend = (root: string): SearchBackend => {
+export const openFallbackBackend = (root: string): SearchBackend => {
   // Whether `root` is inside a repository, looked up again at most every LIST_TTL_MS.
   let repo: { at: number; inRepo: Promise<boolean> } | null = null;
 
@@ -316,7 +320,7 @@ export const makeFallbackBackend = (root: string): SearchBackend => {
       return stop;
     },
     dispose: () => {
-      for (const stop of [...watchers]) stop();
+      for (const stop of watchers) stop();
     },
   };
 };

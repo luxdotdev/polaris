@@ -17,7 +17,14 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { WorkspaceId } from "@polaris/protocol";
 import { Effect } from "effect";
-import { awaitReady, type Client, cleanup, connect, type Daemon, makeTempDir } from "../daemon.ts";
+import {
+  awaitReady,
+  type Client,
+  cleanup,
+  connect,
+  type Daemon,
+  createTempDir,
+} from "../daemon.ts";
 import {
   registerWorkspace,
   type SessionWatch,
@@ -161,7 +168,9 @@ const runPhase = (
       const ap = summarize(approvalRoundTrips);
       const p = phase.name;
 
-      const metrics: Record<string, Metric> = {
+      const metrics: Record<string, Metric> = {};
+
+      Object.assign(metrics, {
         [`${p}.dispatch_ack_p50_ms`]: latency(ack.median),
         [`${p}.dispatch_to_event_p50_ms`]: latency(de.median),
         [`${p}.dispatch_to_event_p99_ms`]: latency(de.p99),
@@ -175,11 +184,13 @@ const runPhase = (
         [`${p}.cpu_avg_pct`]: cpu(report.cpuAvgPct),
         [`${p}.cpu_p95_pct`]: cpu(report.cpuPct.p95),
         [`${p}.rss_peak_mib`]: peakMemory(report.rssBytes.max),
-        ...(report.footprintBytes
-          ? { [`${p}.footprint_peak_mib`]: peakMemory(report.footprintBytes.max) }
-          : {}),
-        [`${p}.wall_s`]: time(elapsed * 1000, { info: true }),
-      };
+      } satisfies Record<string, Metric>);
+
+      if (report.footprintBytes) {
+        metrics[`${p}.footprint_peak_mib`] = peakMemory(report.footprintBytes.max);
+      }
+
+      metrics[`${p}.wall_s`] = time(elapsed * 1000, { info: true });
 
       ctx.log(
         `${p}: ${phase.sessions} sessions × ${phase.turns} Turns to ${clients.length} Client(s) in ${elapsed.toFixed(1)} s; ${deltas} deltas (${(bytes / 1e6).toFixed(1)} MB), delta p50 ${dl.median.toFixed(2)} ms p99 ${dl.p99.toFixed(2)} ms`
@@ -242,7 +253,7 @@ export const sessions: Scenario = {
       const sampler = yield* ctx.sample(daemon);
 
       const repo = yield* Effect.acquireRelease(
-        Effect.sync(() => makeTempDir("sessions")),
+        Effect.sync(() => createTempDir("sessions")),
         (dir) => Effect.sync(() => cleanup(dir))
       );
 
@@ -252,7 +263,8 @@ export const sessions: Scenario = {
       yield* settle(1000);
       const before = sampler.sample();
 
-      const metrics: Record<string, Metric> = { rss_before_mib: memory(before.rssBytes) };
+      const metrics: Record<string, Metric> = {};
+      metrics.rss_before_mib = memory(before.rssBytes);
       const phases = phasesFor(ctx.quick);
 
       for (const phase of phases) {
