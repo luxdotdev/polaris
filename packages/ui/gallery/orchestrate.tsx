@@ -4,6 +4,7 @@ import {
   ApprovalCard,
   Button,
   Chip,
+  HostStateChip,
   Dither,
   Kbd,
   PixelFailedIcon,
@@ -129,7 +130,7 @@ function WorkspaceBar() {
       {HOSTS.map((group, groupIndex) => (
         <Fragment key={group.host}>
           {groupIndex === 0 ? null : <span className="bg-text-faint/25 mx-1.5 h-4 w-px" />}
-          <span className="text-caption text-text-faint pr-1.5 pl-1">{group.host}</span>
+          <HostStateChip host={group.host} state="connected" />
           {group.chips.map((chip, chipIndex) => (
             <Chip
               key={chip.name}

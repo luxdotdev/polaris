@@ -26,6 +26,8 @@ export const buttonVariants = cva(
         default: "h-7 px-3",
         /** Floating layers and strips, as in Paper's toast and stop control. */
         sm: "h-[26px] px-2.5 text-caption font-medium",
+        /** Inside inbox cards (Paper 1G2-0: 24px, 12px). */
+        xs: "h-6 px-2.5 text-caption font-medium",
         /** A 16px icon in a 28px square. */
         icon: "size-7",
         "icon-sm": "size-[26px]",

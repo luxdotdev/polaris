@@ -178,3 +178,84 @@ for (let x = 6; x <= 9; x++) ARCHIVE.push([x, 7]);
 export function PixelArchiveIcon(props: PixelIconProps) {
   return <CellPixels cells={ARCHIVE} {...props} />;
 }
+
+const KEY = [
+  "M7 17V17.01",
+  "M18 3H21V6",
+  "M19 8H17V10",
+  "M15 12.01V12",
+  "M16 5.01V5",
+  "M14 7.01V7",
+  "M12 9.01V9",
+  "M10 11L5 11",
+  "M13 14L13 19",
+  "M3 13V19",
+  "M11 21L5 21",
+];
+
+const FOLDER = ["M20 7H14", "M12 5H12.01", "M4 20H20", "M4 3H10", "M2 18L2 5", "M22 18L22 9"];
+
+const SERVER = [
+  "M17 6.5V6.49",
+  "M13 6.5V6.49",
+  "M17 17.5V17.49",
+  "M13 17.5V17.49",
+  "M5 3L19 3",
+  "M5 10L19 10",
+  "M5 14L19 14",
+  "M5 21L19 21",
+  "M3 16V19",
+  "M21 16V19",
+  "M21 5V8",
+  "M3 5V8",
+];
+
+const FORK = [
+  "M7 7V10",
+  "M17 7V10",
+  "M12 12V17",
+  "M6.5 2H7.5",
+  "M6.5 7H7.5",
+  "M9.5 4L9.5 5",
+  "M4.5 4L4.5 5",
+  "M16.5 2H17.5",
+  "M16.5 7H17.5",
+  "M19.5 4L19.5 5",
+  "M14.5 4L14.5 5",
+  "M11.5 17H12.5",
+  "M11.5 22H12.5",
+  "M14.5 19L14.5 20",
+  "M9.5 19L9.5 20",
+  "M9 12H15",
+];
+
+/** Needs Attention on a Host: the key (Paper 5PM-1). */
+export function PixelKeyIcon(props: PixelIconProps) {
+  return <StrokePixels paths={KEY} {...props} />;
+}
+
+/** A workspace to add (Paper 57Q-1). */
+export function PixelFolderIcon(props: PixelIconProps) {
+  return <StrokePixels paths={FOLDER} {...props} />;
+}
+
+/** A host to connect (Paper 57Q-1). */
+export function PixelServerIcon(props: PixelIconProps) {
+  return <StrokePixels paths={SERVER} {...props} />;
+}
+
+/** Fork a turn (Paper VG-0). */
+export function PixelForkIcon(props: PixelIconProps) {
+  return <StrokePixels paths={FORK} {...props} />;
+}
+
+const SPARKLE: Cell[] = [];
+
+for (let d = -3; d <= 3; d++) SPARKLE.push([7 + d, 7]);
+
+for (const d of [-3, -2, -1, 1, 2, 3]) SPARKLE.push([7, 7 + d]);
+
+/** A new session, not yet possible (Paper 57Q-1's locked row). Drawn for Polaris. */
+export function PixelSparkleIcon(props: PixelIconProps) {
+  return <CellPixels cells={SPARKLE} {...props} />;
+}
