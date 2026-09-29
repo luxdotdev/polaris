@@ -15,6 +15,7 @@
  */
 import { existsSync, readdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { Match, Schema } from "effect";
 
 export const ALLOWED = new Set([
   "MIT",
@@ -34,22 +35,36 @@ const noticesPath = join(root, "THIRD_PARTY_NOTICES.md");
 
 const exceptionsPath = join(import.meta.dir, "license-exceptions.json");
 
-interface PackageJson {
-  readonly name?: string;
-  readonly version?: string;
-  readonly private?: boolean;
-  readonly license?: string | { readonly type?: string };
-  readonly licenses?: ReadonlyArray<{ readonly type?: string }>;
-  readonly repository?: string | { readonly url?: string };
-  readonly homepage?: string;
-  readonly workspaces?: ReadonlyArray<string> | { readonly packages?: ReadonlyArray<string> };
-  readonly dependencies?: Record<string, string>;
-  readonly optionalDependencies?: Record<string, string>;
-  readonly peerDependencies?: Record<string, string>;
-  readonly peerDependenciesMeta?: Record<string, { readonly optional?: boolean }>;
-  readonly os?: ReadonlyArray<string>;
-  readonly cpu?: ReadonlyArray<string>;
-}
+const LicenseObject = Schema.Struct({ type: Schema.optional(Schema.String) });
+
+const StringMap = Schema.Record(Schema.String, Schema.String);
+
+const StringList = Schema.Array(Schema.String);
+
+const PackageJson = Schema.Struct({
+  name: Schema.optional(Schema.String),
+  version: Schema.optional(Schema.String),
+  private: Schema.optional(Schema.Boolean),
+  license: Schema.optional(Schema.Union([Schema.String, LicenseObject])),
+  licenses: Schema.optional(Schema.Array(LicenseObject)),
+  repository: Schema.optional(
+    Schema.Union([Schema.String, Schema.Struct({ url: Schema.optional(Schema.String) })])
+  ),
+  homepage: Schema.optional(Schema.String),
+  workspaces: Schema.optional(
+    Schema.Union([StringList, Schema.Struct({ packages: Schema.optional(StringList) })])
+  ),
+  dependencies: Schema.optional(StringMap),
+  optionalDependencies: Schema.optional(StringMap),
+  peerDependencies: Schema.optional(StringMap),
+  peerDependenciesMeta: Schema.optional(
+    Schema.Record(Schema.String, Schema.Struct({ optional: Schema.optional(Schema.Boolean) }))
+  ),
+  os: Schema.optional(StringList),
+  cpu: Schema.optional(StringList),
+});
+
+type PackageJson = typeof PackageJson.Type;
 
 export interface Dependency {
   readonly name: string;
@@ -67,13 +82,21 @@ export interface Dependency {
   readonly platformBuilds: Array<string>;
 }
 
-const readJson = <T>(path: string): T => JSON.parse(readFileSync(path, "utf8")) as T;
+const decodePackageJson = Schema.decodeUnknownSync(Schema.fromJsonString(PackageJson));
+
+const readPackageJson = (path: string): PackageJson =>
+  decodePackageJson(readFileSync(path, "utf8"));
+
+const licenseField = Match.type<NonNullable<PackageJson["license"]>>().pipe(
+  Match.when(Match.string, (license): string | null => license),
+  Match.orElse((license) => license.type || null)
+);
 
 /** The declared licence as an SPDX expression, or null if none is declared. */
 export const declaredLicense = (pkg: PackageJson): string | null => {
-  if (typeof pkg.license === "string") return pkg.license;
+  const direct = pkg.license === undefined ? null : licenseField(pkg.license);
 
-  if (pkg.license?.type) return pkg.license.type;
+  if (direct !== null) return direct;
   const legacy = pkg.licenses?.flatMap((entry) => (entry.type ? [entry.type] : [])) ?? [];
 
   if (legacy.length === 1) return legacy[0]!;
@@ -144,12 +167,14 @@ export const isAllowed = (expression: string, allowed: ReadonlySet<string> = ALL
   }
 };
 
-const workspaceDirs = (): ReadonlyArray<string> => {
-  const pkg = readJson<PackageJson>(join(root, "package.json"));
+const workspacePatterns = Match.type<NonNullable<PackageJson["workspaces"]>>().pipe(
+  Match.when(Schema.is(StringList), (patterns): ReadonlyArray<string> => patterns),
+  Match.orElse((workspaces) => workspaces.packages ?? [])
+);
 
-  const patterns = Array.isArray(pkg.workspaces)
-    ? pkg.workspaces
-    : ((pkg.workspaces as { packages?: ReadonlyArray<string> } | undefined)?.packages ?? []);
+const workspaceDirs = (): ReadonlyArray<string> => {
+  const { workspaces } = readPackageJson(join(root, "package.json"));
+  const patterns = workspaces === undefined ? [] : workspacePatterns(workspaces);
 
   return patterns.flatMap((pattern) => {
     if (!pattern.endsWith("/*")) return [join(root, pattern)];
@@ -178,8 +203,13 @@ const resolvePackageDir = (fromDir: string, name: string): string | null => {
   }
 };
 
+const repositoryField = Match.type<NonNullable<PackageJson["repository"]>>().pipe(
+  Match.when(Match.string, (repository): string | undefined => repository),
+  Match.orElse((repository) => repository.url)
+);
+
 const repositoryUrl = (pkg: PackageJson): string | null => {
-  const repo = typeof pkg.repository === "string" ? pkg.repository : pkg.repository?.url;
+  const repo = pkg.repository === undefined ? undefined : repositoryField(pkg.repository);
   const url = repo ?? pkg.homepage ?? null;
 
   return url?.replace(/^git\+/, "").replace(/\.git$/, "") ?? null;
@@ -202,6 +232,39 @@ const toDependency = (child: PackageJson, name: string, dir: string, workspace: 
   platformBuilds: [],
 });
 
+/** An installed package: its real directory and its parsed package.json. */
+interface Installed {
+  readonly dir: string;
+  readonly child: PackageJson;
+}
+
+const locate = (fromDir: string, name: string): Installed | null => {
+  const dir = resolvePackageDir(fromDir, name);
+
+  return dir === null ? null : { dir, child: readPackageJson(join(dir, "package.json")) };
+};
+
+// Peers are runtime dependencies too (Bun installs them); optional peers only if present.
+const dependencyNames = (pkg: PackageJson): ReadonlyArray<string> => [
+  ...new Set([
+    ...Object.keys(pkg.dependencies ?? {}),
+    ...Object.keys(pkg.optionalDependencies ?? {}),
+    ...Object.keys(pkg.peerDependencies ?? {}),
+  ]),
+];
+
+const optionalPeerNames = (pkg: PackageJson): ReadonlySet<string> =>
+  new Set(
+    Object.keys(pkg.peerDependencies ?? {}).filter(
+      (name) => pkg.peerDependenciesMeta?.[name]?.optional === true
+    )
+  );
+
+// An optional dependency that is absent, or restricted by os/cpu, is a
+// per-platform build (native binaries); which ones are installed varies by machine.
+const isPlatformBuild = (found: Installed | null): boolean =>
+  found === null || found.child.os !== undefined || found.child.cpu !== undefined;
+
 export const collect = (): Collected => {
   const deps = new Map<string, Dependency>();
   const platformBuilds = new Map<string, Dependency>();
@@ -209,10 +272,48 @@ export const collect = (): Collected => {
 
   const workspaces = workspaceDirs().map((dir) => ({
     dir,
-    pkg: readJson<PackageJson>(join(dir, "package.json")),
+    pkg: readPackageJson(join(dir, "package.json")),
   }));
 
   const workspaceNames = new Set(workspaces.map((w) => w.pkg.name));
+
+  const addPlatformBuild = (
+    parent: Dependency | null,
+    name: string,
+    variant: string,
+    found: Installed | null,
+    workspace: string
+  ) => {
+    if (parent && !parent.platformBuilds.includes(variant)) parent.platformBuilds.push(variant);
+
+    if (found !== null) {
+      const { child, dir } = found;
+      platformBuilds.set(
+        `${child.name}@${child.version}`,
+        toDependency(child, name, dir, workspace)
+      );
+    }
+  };
+
+  /** Records `found` for `workspace`; returns it when its own dependencies still need a visit. */
+  const addDependency = (
+    found: Installed,
+    name: string,
+    workspace: string,
+    seen: Set<string>
+  ): Dependency | null => {
+    const key = `${found.child.name}@${found.child.version}`;
+    const existing = deps.get(key);
+
+    if (existing) existing.requiredBy.add(workspace);
+
+    if (existing && seen.has(key)) return null;
+    const dep = existing ?? toDependency(found.child, name, found.dir, workspace);
+    deps.set(key, dep);
+    seen.add(key);
+
+    return dep;
+  };
 
   const visit = (
     fromDir: string,
@@ -222,60 +323,25 @@ export const collect = (): Collected => {
     seen: Set<string>
   ) => {
     const optional = pkg.optionalDependencies ?? {};
-    // Peers are runtime dependencies too (Bun installs them); optional peers only if present.
-    const peers = Object.keys(pkg.peerDependencies ?? {});
+    const optionalPeers = optionalPeerNames(pkg);
 
-    const optionalPeers = new Set(
-      peers.filter((name) => pkg.peerDependenciesMeta?.[name]?.optional === true)
-    );
-
-    const names = [
-      ...new Set([...Object.keys(pkg.dependencies ?? {}), ...Object.keys(optional), ...peers]),
-    ];
-
-    for (const name of names) {
+    for (const name of dependencyNames(pkg)) {
       if (workspaceNames.has(name)) continue; // visited as a workspace in its own right
-      const isOptional = name in optional;
-      const dir = resolvePackageDir(fromDir, name);
-      const child = dir === null ? null : readJson<PackageJson>(join(dir, "package.json"));
+      const found = locate(fromDir, name);
 
-      // An optional dependency that is absent, or restricted by os/cpu, is a
-      // per-platform build (native binaries); which ones are installed varies by machine.
-      if (isOptional && (child === null || child.os !== undefined || child.cpu !== undefined)) {
-        const variant = `${name}@${optional[name]}`;
-
-        if (parent && !parent.platformBuilds.includes(variant)) parent.platformBuilds.push(variant);
-
-        if (child !== null && dir !== null) {
-          platformBuilds.set(
-            `${child.name}@${child.version}`,
-            toDependency(child, name, dir, workspace)
-          );
-        }
-
+      if (name in optional && isPlatformBuild(found)) {
+        addPlatformBuild(parent, name, `${name}@${optional[name]}`, found, workspace);
         continue;
       }
 
-      if (child === null || dir === null) {
-        if (optionalPeers.has(name)) continue;
-        missing.push(`${name} (required by ${pkg.name})`);
+      if (found === null) {
+        if (!optionalPeers.has(name)) missing.push(`${name} (required by ${pkg.name})`);
         continue;
       }
 
-      const key = `${child.name}@${child.version}`;
-      let dep = deps.get(key);
+      const dep = addDependency(found, name, workspace, seen);
 
-      if (dep) {
-        dep.requiredBy.add(workspace);
-
-        if (seen.has(key)) continue;
-      } else {
-        dep = toDependency(child, name, dir, workspace);
-        deps.set(key, dep);
-      }
-
-      seen.add(key);
-      visit(dir, child, dep, workspace, seen);
+      if (dep !== null) visit(found.dir, found.child, dep, workspace, seen);
     }
   };
 
@@ -286,12 +352,18 @@ export const collect = (): Collected => {
   return { deps, platformBuilds, missing };
 };
 
-interface Exceptions {
-  readonly exceptions: Record<string, { readonly reason: string }>;
-}
+const Exceptions = Schema.Struct({
+  exceptions: Schema.Record(Schema.String, Schema.Struct({ reason: Schema.String })),
+});
+
+type Exceptions = typeof Exceptions.Type;
+
+const decodeExceptions = Schema.decodeUnknownSync(Schema.fromJsonString(Exceptions));
 
 const readExceptions = (): Exceptions["exceptions"] =>
-  existsSync(exceptionsPath) ? readJson<Exceptions>(exceptionsPath).exceptions : {};
+  existsSync(exceptionsPath)
+    ? decodeExceptions(readFileSync(exceptionsPath, "utf8")).exceptions
+    : {};
 
 export interface Verdict {
   readonly dep: Dependency;
