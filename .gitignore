@@ -6,3 +6,4 @@ dist/
 .polaris-dev/
 .claude/worktrees/
 .env*
+.dagr/
