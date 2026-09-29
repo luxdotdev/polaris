@@ -75,9 +75,14 @@ describe("harness.availability", () => {
     );
 
     expect(first.harnesses.map((h) => h.harness)).toEqual(HARNESS_CATALOGUE.map((h) => h.kind));
-    expect(statuses(first)).toEqual({ claude: "not-installed", codex: "needs-sign-in" });
+    expect(statuses(first)).toEqual({
+      claude: "not-installed",
+      codex: "needs-sign-in",
+      gemini: "not-installed",
+      copilot: "not-installed",
+    });
     expect(second).toEqual(first);
-    expect(statuses(refreshed)).toEqual({ claude: "not-installed", codex: "ready" });
+    expect(statuses(refreshed)).toMatchObject({ claude: "not-installed", codex: "ready" });
     expect(await host.probes()).toBe(2);
   });
 

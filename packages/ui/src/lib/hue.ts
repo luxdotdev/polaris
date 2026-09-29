@@ -1,7 +1,10 @@
-import { isKnownHarness, type HarnessKind, type KnownHarnessKind } from "@polaris/protocol";
+import type { HarnessKind } from "@polaris/protocol";
 
-/** A Harness this build knows (the protocol catalogue); each has one fixed identity hue. */
-export type Harness = KnownHarnessKind;
+/**
+ * A Harness with an identity hue in DESIGN.md. Other catalogue Harnesses (Gemini
+ * CLI, GitHub Copilot CLI) get the neutral tile until they have one.
+ */
+export type Harness = "claude" | "codex";
 
 /** An identity hue: a Harness, or Starlight for Polaris's own work. */
 export type IdentityHue = Harness | "starlight";
@@ -44,6 +47,8 @@ export function washVar(hue: TintHue): string {
 }
 
 /** The identity hue for any Harness kind a Daemon reports; unknown kinds get no hue. */
+const isHued = (kind: HarnessKind): kind is Harness => Object.hasOwn(HARNESS_NAMES, kind);
+
 export function harnessHue(kind: HarnessKind): Harness | "neutral" {
-  return isKnownHarness(kind) ? kind : "neutral";
+  return isHued(kind) ? kind : "neutral";
 }

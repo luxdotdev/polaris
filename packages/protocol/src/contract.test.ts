@@ -152,6 +152,8 @@ describe("contract compatibility", () => {
     expect(decode(HARNESS_CATALOGUE.map((harness) => harness.capability))).toEqual([
       "harness.claude",
       "harness.codex",
+      "harness.gemini",
+      "harness.copilot",
     ]);
     expect(decode(["harness.opencode", "session.set-model", "harness.models", "usage"])).toEqual([
       "session.set-model",

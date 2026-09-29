@@ -68,6 +68,31 @@ export const HARNESS_CATALOGUE = [
       docsUrl: "https://developers.openai.com/codex/cli",
     },
   }),
+  // Driven through the Agent Client Protocol (ACP v1).
+  entry("gemini", {
+    name: "Gemini CLI",
+    // The first release with `--acp` (before it, only `--experimental-acp`).
+    minVersion: "0.33.0",
+    setup: {
+      install: "Install Gemini CLI on this host.",
+      installCommand: "npm install -g @google/gemini-cli",
+      signIn: "Sign in to Gemini CLI in its own terminal: run gemini and pick how to sign in.",
+      signInCommand: ["gemini"],
+      docsUrl: "https://geminicli.com/docs/get-started/",
+    },
+  }),
+  entry("copilot", {
+    name: "GitHub Copilot CLI",
+    // The first general-availability release; ACP, session load and effort predate it.
+    minVersion: "1.0.0",
+    setup: {
+      install: "Install GitHub Copilot CLI on this host.",
+      installCommand: "npm install -g @github/copilot",
+      signIn: "Sign in to GitHub Copilot CLI in its own terminal.",
+      signInCommand: ["copilot", "login"],
+      docsUrl: "https://docs.github.com/en/copilot/how-tos/copilot-cli",
+    },
+  }),
 ] as const;
 
 /** The kinds this build's catalogue lists. */

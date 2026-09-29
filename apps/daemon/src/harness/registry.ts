@@ -9,11 +9,13 @@
  * follow-along comes from the hook receiver, which does not need the SDK.
  *
  * Under launchd / systemd a user's PATH often lacks nvm or Homebrew bins, so
- * `POLARIS_CODEX` and `POLARIS_CLAUDE` can point at the binaries explicitly.
+ * `POLARIS_CODEX`, `POLARIS_CLAUDE`, `POLARIS_GEMINI` and `POLARIS_COPILOT` can
+ * point at the binaries explicitly.
  */
 import type { HarnessKind, KnownHarnessKind } from "@polaris/protocol";
 import { Effect, Layer, Scope } from "effect";
 import { HarnessRegistry, ServiceError } from "../services.ts";
+import { ACP_HARNESSES } from "./acp/harnesses.ts";
 import { ClaudeHookReceiver } from "./claude/hooks.ts";
 import { type HarnessDriver, HarnessError } from "./HarnessDriver.ts";
 
@@ -24,6 +26,8 @@ const binary = (env: string, name: string): string | null =>
 export const DRIVER_CAPABILITIES = {
   codex: { steer: true, liveCoAttach: true, switchModel: true },
   claude: { steer: true, liveCoAttach: false, switchModel: true },
+  gemini: { steer: false, liveCoAttach: false, switchModel: true },
+  copilot: { steer: false, liveCoAttach: false, switchModel: true },
   bench: { steer: true, liveCoAttach: true, switchModel: true },
 } as const satisfies Record<KnownHarnessKind | "bench", HarnessDriver["capabilities"]>;
 
@@ -71,7 +75,7 @@ export const HarnessRegistryLive = Layer.effect(
       );
 
     const drivers: ReadonlyArray<HarnessDriver> = bench
-      ? [yield* benchDriver("codex"), yield* benchDriver("claude")]
+      ? yield* Effect.forEach(["codex", "claude", ...ACP_HARNESSES.map((h) => h.kind)], benchDriver)
       : [
           yield* lazyDriver(
             "codex",
@@ -96,6 +100,21 @@ export const HarnessRegistryLive = Layer.effect(
             // While In Terminal, Polaris follows the TUI through its HTTP hooks (hooks.ts).
             { terminalFollow: { events: hookReceiver.events, release: hookReceiver.release } }
           ),
+          ...(yield* Effect.forEach(ACP_HARNESSES, (harness) =>
+            lazyDriver(
+              harness.kind,
+              DRIVER_CAPABILITIES[harness.kind],
+              Effect.promise(() => import("./acp/AcpDriver.ts")).pipe(
+                Effect.flatMap(({ makeAcpDriver }) =>
+                  makeAcpDriver({
+                    harness,
+                    binaryPath: () => binary(harness.binaryEnv, harness.binary),
+                  })
+                ),
+                Scope.provide(scope)
+              )
+            )
+          )),
         ];
 
     const byKind = new Map<HarnessKind, HarnessDriver>(drivers.map((d) => [d.kind, d]));
