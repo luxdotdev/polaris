@@ -19,17 +19,28 @@ export const RpcId = Schema.Union([Schema.String, Schema.Number]);
 
 export type RpcId = typeof RpcId.Type;
 
+/** A JSON-RPC payload (`params`, `result`) the driver sends. */
+export type Json = Schema.Json;
+
+/**
+ * A received payload, as `JSON.parse` left it: each method's handler decodes it with its
+ * own schema, so the frame isn't walked twice (it runs once per streamed delta).
+ */
+export const RpcPayload = Schema.Unknown;
+
+export type RpcPayload = typeof RpcPayload.Type;
+
 /** One JSON-RPC message as it arrives on the wire (`"jsonrpc"` is omitted by app-server). */
 export const RpcMessage = Schema.Struct({
   id: Schema.optional(RpcId),
   method: Schema.optional(Schema.String),
-  params: Schema.optional(Schema.Unknown),
-  result: Schema.optional(Schema.Unknown),
+  params: Schema.optional(RpcPayload),
+  result: Schema.optional(RpcPayload),
   error: Schema.optional(
     Schema.Struct({
       code: Schema.Number,
       message: Schema.String,
-      data: Schema.optional(Schema.Unknown),
+      data: Schema.optional(RpcPayload),
     })
   ),
 });
@@ -172,6 +183,10 @@ export const TurnStartResponse = Schema.Struct({ turn: Schema.Struct({ id: Schem
 
 export const TurnSteerResponse = Schema.Struct({ turnId: Schema.String });
 
+export const ThreadLoadedListResponse = Schema.Struct({
+  data: Schema.optional(Schema.Array(Schema.String)),
+});
+
 // ---------------------------------------------------------------------------
 // Notifications
 
@@ -260,8 +275,8 @@ export const PermissionsApprovalParams = Schema.Struct({
   itemId: Schema.String,
   reason: NullableString,
   permissions: Schema.Struct({
-    network: Schema.NullOr(Schema.Unknown),
-    fileSystem: Schema.NullOr(Schema.Unknown),
+    network: Schema.NullOr(Schema.Json),
+    fileSystem: Schema.NullOr(Schema.Json),
   }),
 });
 
@@ -389,3 +404,23 @@ export type ClientParams = {
   readonly "turn/steer": Gen.TurnSteerParams;
   readonly "turn/interrupt": Gen.TurnInterruptParams;
 };
+
+/** The permissions a grant gives: parts of the requested profile, as Codex sent them. */
+export type GrantedPermissions = { network?: Json; fileSystem?: Json };
+
+/** A permissions grant: exactly the requested profile, forwarded as Codex sent it. */
+export type PermissionsGrant = {
+  readonly permissions: GrantedPermissions;
+  readonly scope: Gen.PermissionsRequestApprovalResponse["scope"];
+};
+
+/** Wire shapes the driver answers server requests with. */
+export type ServerRequestResponse =
+  | Gen.CommandExecutionRequestApprovalResponse
+  | Gen.FileChangeRequestApprovalResponse
+  | Gen.ToolRequestUserInputResponse
+  | Gen.McpServerElicitationRequestResponse
+  | PermissionsGrant;
+
+/** A payload the driver writes: typed client params, a server-request response, or plain JSON. */
+export type Outgoing = ClientParams[keyof ClientParams] | ServerRequestResponse | Json;
