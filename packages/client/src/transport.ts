@@ -5,16 +5,10 @@
  * Each transport can explain, after it failed, why: `diagnose` classifies the
  * exit status and stderr into a ConnectFailure the Connection State uses.
  */
-import { type ChildProcess, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import { connect, type Socket } from "node:net";
-import {
-  type ByteTransport,
-  type EventReadable,
-  type EventWritable,
-  readEvents,
-  writeEvents,
-} from "@polaris/protocol";
-import { Deferred, Effect, Exit, type Scope } from "effect";
+import { type ByteTransport, readEvents, writeEvents } from "@polaris/protocol";
+import { Deferred, Effect, Exit, Option, type Scope } from "effect";
 import { ConnectFailure, classifyExit } from "./failures.ts";
 
 export interface ClientTransport extends ByteTransport {
@@ -74,10 +68,9 @@ export const spawnTransport = (
         child.stdin?.on("error", () => {});
 
         // Attach the reader now, before any output can arrive.
-        const incoming =
-          child.stdout === null ? null : readEvents(child.stdout as unknown as EventReadable);
+        const incoming = child.stdout === null ? null : readEvents(child.stdout);
 
-        return { child: child as ChildProcess, incoming };
+        return { child, incoming };
       }),
       ({ child }) =>
         Effect.gen(function* () {
@@ -87,7 +80,7 @@ export const spawnTransport = (
             Effect.timeoutOption(options.killAfterMs ?? 2000)
           );
 
-          if (done._tag === "None") child.kill("SIGTERM");
+          if (Option.isNone(done)) child.kill("SIGTERM");
           child.stderr?.destroy();
           child.stdout?.destroy();
         })
@@ -113,8 +106,8 @@ export const spawnTransport = (
               detail: `${command}: ${spawnError.code ?? spawnError.message}`,
             })
           : classifyExit({
-              code: exit._tag === "Some" ? exit.value.code : null,
-              signal: exit._tag === "Some" ? exit.value.signal : null,
+              code: Option.isSome(exit) ? exit.value.code : null,
+              signal: Option.isSome(exit) ? exit.value.signal : null,
               stderr,
             })
       )
@@ -122,7 +115,7 @@ export const spawnTransport = (
 
     return {
       incoming,
-      write: writeEvents(stdin as unknown as EventWritable),
+      write: writeEvents(stdin),
       close: Effect.sync(() => {
         stdin.end();
       }),
@@ -161,9 +154,7 @@ export const socketTransport = (path: string): Connector =>
         socket.once("connect", () => {
           socket.off("error", onError);
           socket.on("error", () => {});
-          resume(
-            Effect.succeed({ socket, incoming: readEvents(socket as unknown as EventReadable) })
-          );
+          resume(Effect.succeed({ socket, incoming: readEvents(socket) }));
         });
       }),
       ({ socket }) => Effect.sync(() => socket.destroy())
@@ -171,7 +162,7 @@ export const socketTransport = (path: string): Connector =>
 
     return {
       incoming,
-      write: writeEvents(socket as unknown as EventWritable),
+      write: writeEvents(socket),
       close: Effect.sync(() => {
         socket.end();
       }),

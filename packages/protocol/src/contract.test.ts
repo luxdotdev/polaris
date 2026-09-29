@@ -4,32 +4,44 @@
  */
 import { describe, expect, test } from "bun:test";
 import { Schema } from "effect";
+import { ApprovalDecision, TurnItem } from "./domain.ts";
 import { DomainEvent } from "./events.ts";
+import { RequestId, Sequence, SessionId, TurnId } from "./ids.ts";
 import { SessionStreamItem, TerminalLaunch } from "./rpc.ts";
 
 const decodeEvent = Schema.decodeUnknownSync(Schema.toCodecJson(DomainEvent));
 
 const encodeEvent = Schema.encodeSync(Schema.toCodecJson(DomainEvent));
 
-const decodeItem = Schema.decodeUnknownSync(Schema.toCodecJson(SessionStreamItem));
+/** Decodes a log row or wire message exactly as it was written, as JSON text. */
+const decodeEventJson = Schema.decodeUnknownSync(
+  Schema.fromJsonString(Schema.toCodecJson(DomainEvent))
+);
+
+const decodeItemJson = Schema.decodeUnknownSync(
+  Schema.fromJsonString(Schema.toCodecJson(SessionStreamItem))
+);
 
 describe("contract compatibility", () => {
   test("a withdrawal logged before ApprovalWithdrawn existed still decodes", () => {
-    const legacy = {
-      _tag: "ApprovalResolved",
-      sessionId: "s",
-      requestId: "r",
-      decision: { _tag: "Deny", reason: "Withdrawn by the Harness" },
-      resolvedBy: "Harness",
-    };
+    const legacy =
+      '{"_tag":"ApprovalResolved","sessionId":"s","requestId":"r",' +
+      '"decision":{"_tag":"Deny","reason":"Withdrawn by the Harness"},"resolvedBy":"Harness"}';
 
-    expect(decodeEvent(legacy)).toMatchObject({ _tag: "ApprovalResolved", resolvedBy: "Harness" });
+    expect(decodeEventJson(legacy)).toEqual(
+      DomainEvent.cases.ApprovalResolved.make({
+        sessionId: SessionId.make("s"),
+        requestId: RequestId.make("r"),
+        decision: ApprovalDecision.cases.Deny.make({ reason: "Withdrawn by the Harness" }),
+        resolvedBy: "Harness",
+      })
+    );
   });
 
   test("ApprovalWithdrawn round-trips", () => {
     const event = DomainEvent.cases.ApprovalWithdrawn.make({
-      sessionId: "s" as never,
-      requestId: "r" as never,
+      sessionId: SessionId.make("s"),
+      requestId: RequestId.make("r"),
       withdrawnBy: "daemon",
       reason: "The Daemon restarted",
     });
@@ -39,19 +51,19 @@ describe("contract compatibility", () => {
 
   test("ItemProgress carries a full item; a Snapshot with unknown extra fields still decodes", () => {
     expect(
-      decodeItem({
-        _tag: "ItemProgress",
-        turnId: "t",
-        item: { _tag: "Plan", id: "p", steps: [{ text: "a", status: "in-progress" }] },
+      decodeItemJson(
+        '{"_tag":"ItemProgress","turnId":"t",' +
+          '"item":{"_tag":"Plan","id":"p","steps":[{"text":"a","status":"in-progress"}]}}'
+      )
+    ).toEqual(
+      SessionStreamItem.cases.ItemProgress.make({
+        turnId: TurnId.make("t"),
+        item: TurnItem.cases.Plan.make({ id: "p", steps: [{ text: "a", status: "in-progress" }] }),
       })
-    ).toMatchObject({ _tag: "ItemProgress", item: { _tag: "Plan" } });
-    expect(
-      decodeItem({
-        _tag: "Synchronized",
-        sequence: 3,
-        somethingNewer: true,
-      })
-    ).toEqual({ _tag: "Synchronized", sequence: 3 as never });
+    );
+    expect(decodeItemJson('{"_tag":"Synchronized","sequence":3,"somethingNewer":true}')).toEqual(
+      SessionStreamItem.cases.Synchronized.make({ sequence: Sequence.make(3) })
+    );
   });
 
   test("TerminalLaunch", () => {

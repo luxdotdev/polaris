@@ -21,15 +21,25 @@
  * overflowed and the feed asked for a fresh one), and replaces all prior state.
  */
 import {
+  HostStreamItem,
+  type NotFound,
+  Sequence,
+  type SessionId,
+  SessionStreamItem,
+} from "@polaris/protocol";
+import {
   Effect,
+  Exit,
   Fiber,
   Predicate,
   PubSub,
-  type Result,
+  Result,
   type Scope,
   Semaphore,
   Stream,
 } from "effect";
+import type { RpcClientError } from "effect/rpc/RpcClientError";
+import type { DaemonClient } from "./rpc.ts";
 
 export type SequenceMark =
   | { readonly kind: "snapshot"; readonly sequence: number }
@@ -70,9 +80,8 @@ export interface Feed<A, E> {
   readonly subscribers: () => number;
 }
 
-type Message<A, E> =
-  | { readonly _tag: "item"; readonly item: A }
-  | { readonly _tag: "fail"; readonly error: E };
+/** What subscribers receive: an item, or the failure that ended the feed. */
+type Message<A, E> = Exit.Exit<A, E>;
 
 class Reopen {
   readonly _tag = "Reopen";
@@ -133,10 +142,7 @@ export const makeFeed = Effect.fnUntraced(function* <C, A, E>(
                 events = [];
                 synchronized = null;
 
-                return Effect.andThen(
-                  publish({ _tag: "item", item }),
-                  Effect.fail(new Reopen(true))
-                );
+                return Effect.andThen(publish(Exit.succeed(item)), Effect.fail(new Reopen(true)));
               }
             }
 
@@ -150,7 +156,7 @@ export const makeFeed = Effect.fnUntraced(function* <C, A, E>(
             break;
         }
 
-        return Effect.asVoid(publish({ _tag: "item", item }));
+        return Effect.asVoid(publish(Exit.succeed(item)));
       })
     );
 
@@ -170,7 +176,7 @@ export const makeFeed = Effect.fnUntraced(function* <C, A, E>(
         .open(live.client, after)
         .pipe(Stream.runForEach(handle), Effect.result);
 
-      if (result._tag === "Success") {
+      if (Result.isSuccess(result)) {
         minEpoch = live.epoch;
         yield* Effect.sleep(options.reopenDelayMs ?? 1000);
         continue;
@@ -196,7 +202,7 @@ export const makeFeed = Effect.fnUntraced(function* <C, A, E>(
         Effect.suspend(() => {
           failure = { error };
 
-          return publish({ _tag: "fail", error });
+          return publish(Exit.fail(error));
         })
       );
 
@@ -258,9 +264,7 @@ export const makeFeed = Effect.fnUntraced(function* <C, A, E>(
       yield* Effect.acquireRelease(retain, () => release);
 
       const live = Stream.fromSubscription(subscription).pipe(
-        Stream.mapEffect((message) =>
-          message._tag === "item" ? Effect.succeed(message.item) : Effect.fail(message.error)
-        )
+        Stream.mapEffect((message) => message)
       );
 
       if (failed !== null) return Stream.fail(failed.error);
@@ -276,7 +280,53 @@ export const makeFeed = Effect.fnUntraced(function* <C, A, E>(
   };
 });
 
-export const isTaggedWith =
-  (tag: string) =>
-  (error: unknown): boolean =>
-    Predicate.isTagged(error, tag);
+const isDisconnect = Predicate.isTagged("RpcClientError");
+
+const afterSequenceOf = (sequence: number | null) =>
+  sequence === null ? null : Sequence.make(sequence);
+
+const markHost = HostStreamItem.match<SequenceMark>({
+  Snapshot: (item) => ({ kind: "snapshot", sequence: item.sequence }),
+  Event: (item) => ({ kind: "event", sequence: item.envelope.sequence }),
+  Synchronized: (item) => ({ kind: "synchronized", sequence: item.sequence }),
+});
+
+const markSession = SessionStreamItem.match<SequenceMark>({
+  Snapshot: (item) => ({ kind: "snapshot", sequence: item.sequence }),
+  Event: (item) => ({ kind: "event", sequence: item.envelope.sequence }),
+  Synchronized: (item) => ({ kind: "synchronized", sequence: item.sequence }),
+  Delta: () => ({ kind: "ephemeral" }),
+  ItemProgress: () => ({ kind: "ephemeral" }),
+});
+
+/** A Daemon's host stream as a Feed. */
+export const openHostFeed = (source: LiveSource<DaemonClient>) =>
+  makeFeed<DaemonClient, HostStreamItem, RpcClientError>({
+    source,
+    open: (client, afterSequence) =>
+      client.subscribeHost({ afterSequence: afterSequenceOf(afterSequence) }),
+    mark: markHost,
+    isDisconnect,
+    // The host stream leaves out session-only events (TurnItemCompleted, CheckpointRecorded),
+    // so its sequences have gaps; the sequence dedupe keeps the feed exact (ENG-209 finding 1).
+    gapless: false,
+  });
+
+/** A Daemon's stream of one Agent Session as a Feed. */
+export const openSessionFeed = (
+  source: LiveSource<DaemonClient>,
+  sessionId: SessionId,
+  turnLimit: number | null
+) =>
+  makeFeed<DaemonClient, SessionStreamItem, NotFound | RpcClientError>({
+    source,
+    open: (client, afterSequence) =>
+      client.subscribeSession({
+        sessionId,
+        afterSequence: afterSequenceOf(afterSequence),
+        turnLimit,
+      }),
+    mark: markSession,
+    isDisconnect,
+    gapless: false,
+  });

@@ -18,7 +18,18 @@ import {
   type SessionId,
   type SessionStreamItem,
 } from "@polaris/protocol";
-import { Clock, Effect, Option, Predicate, Queue, Scope, Stream, SubscriptionRef } from "effect";
+import {
+  Clock,
+  Context,
+  Data,
+  Effect,
+  Layer,
+  Option,
+  Queue,
+  Scope,
+  Stream,
+  SubscriptionRef,
+} from "effect";
 import type { RpcClientError } from "effect/rpc/RpcClientError";
 import {
   type ConnectionEvent,
@@ -28,7 +39,7 @@ import {
   type ReconnectPolicy,
 } from "./connection.ts";
 import { ConnectFailure } from "./failures.ts";
-import { type Feed, makeFeed, type SequenceMark } from "./resume.ts";
+import { type Feed, openHostFeed, openSessionFeed } from "./resume.ts";
 import {
   type ClientBlobs,
   connectRpc,
@@ -38,14 +49,16 @@ import {
 import { defaultControlDir, ensureControlDir, type SshOptions, sshArgv } from "./ssh.ts";
 import { type Connector, socketTransport, spawnTransport } from "./transport.ts";
 
-export type HostTarget =
-  | { readonly _tag: "Local"; readonly socketPath: string }
-  | {
-      readonly _tag: "Ssh";
-      readonly alias: string;
-      /** Per-Host toggle; off by default. */
-      readonly forwardAgent?: boolean;
-    };
+export type HostTarget = Data.TaggedEnum<{
+  Local: { readonly socketPath: string };
+  Ssh: {
+    readonly alias: string;
+    /** Per-Host toggle; off by default. */
+    readonly forwardAgent?: boolean;
+  };
+}>;
+
+export const HostTarget = Data.taggedEnum<HostTarget>();
 
 export interface ClientIdentity {
   readonly name: string;
@@ -131,51 +144,24 @@ export interface HostConnection {
   readonly retryNow: Effect.Effect<void>;
 }
 
-const isDisconnect = (error: unknown): error is RpcClientError =>
-  Predicate.isTagged(error, "RpcClientError");
-
-const markHost = (item: HostStreamItem): SequenceMark => {
-  switch (item._tag) {
-    case "Snapshot":
-      return { kind: "snapshot", sequence: item.sequence };
-    case "Event":
-      return { kind: "event", sequence: item.envelope.sequence };
-    case "Synchronized":
-      return { kind: "synchronized", sequence: item.sequence };
-  }
-};
-
-const markSession = (item: SessionStreamItem): SequenceMark => {
-  switch (item._tag) {
-    case "Snapshot":
-      return { kind: "snapshot", sequence: item.sequence };
-    case "Event":
-      return { kind: "event", sequence: item.envelope.sequence };
-    case "Synchronized":
-      return { kind: "synchronized", sequence: item.sequence };
-    case "Delta":
-    case "ItemProgress":
-      return { kind: "ephemeral" };
-  }
-};
-
 const connectorFor = (options: HostConnectionOptions): Connector => {
   if (options.connector !== undefined) return options.connector;
-  const target = options.target;
 
-  if (target._tag === "Local") return socketTransport(target.socketPath);
+  return HostTarget.$match(options.target, {
+    Local: (target) => socketTransport(target.socketPath),
+    Ssh: (target) =>
+      Effect.suspend(() => {
+        const controlDir = options.ssh?.controlDir ?? defaultControlDir();
+        ensureControlDir(controlDir);
 
-  return Effect.suspend(() => {
-    const controlDir = options.ssh?.controlDir ?? defaultControlDir();
-    ensureControlDir(controlDir);
-
-    return spawnTransport(
-      sshArgv(target.alias, {
-        ...options.ssh,
-        controlDir,
-        forwardAgent: target.forwardAgent ?? false,
-      })
-    );
+        return spawnTransport(
+          sshArgv(target.alias, {
+            ...options.ssh,
+            controlDir,
+            forwardAgent: target.forwardAgent ?? false,
+          })
+        );
+      }),
   });
 };
 
@@ -329,23 +315,7 @@ export const makeHostConnection = Effect.fnUntraced(function* (
       Effect.map(nextLive(minEpoch), (s) => ({ epoch: s.epoch, client: s.client })),
   };
 
-  const hostFeed: Feed<HostStreamItem, never> = yield* makeFeed<
-    DaemonClient,
-    HostStreamItem,
-    never
-  >({
-    source,
-    open: (client, afterSequence) =>
-      client.subscribeHost({ afterSequence: afterSequence as never }) as Stream.Stream<
-        HostStreamItem,
-        never
-      >,
-    mark: markHost,
-    isDisconnect,
-    // The host stream leaves out session-only events (TurnItemCompleted, CheckpointRecorded),
-    // so its sequences have gaps; the sequence dedupe keeps the feed exact (ENG-209 finding 1).
-    gapless: false,
-  });
+  const hostFeed = yield* openHostFeed(source);
 
   const scope = yield* Effect.scope;
   const sessionFeeds = new Map<string, Feed<SessionStreamItem, NotFound | RpcClientError>>();
@@ -358,18 +328,7 @@ export const makeHostConnection = Effect.fnUntraced(function* (
 
       if (existing !== undefined) return existing;
 
-      const feed = yield* makeFeed<DaemonClient, SessionStreamItem, NotFound | RpcClientError>({
-        source,
-        open: (client, afterSequence) =>
-          client.subscribeSession({
-            sessionId,
-            afterSequence: afterSequence as never,
-            turnLimit,
-          }),
-        mark: markSession,
-        isDisconnect,
-        gapless: false,
-      }).pipe(Scope.provide(scope));
+      const feed = yield* openSessionFeed(source, sessionId, turnLimit).pipe(Scope.provide(scope));
 
       sessionFeeds.set(key, feed);
       const idle = [...sessionFeeds].filter(([, f]) => f.subscribers() === 0);
@@ -393,11 +352,12 @@ export const makeHostConnection = Effect.fnUntraced(function* (
     changes: SubscriptionRef.changes(status),
     session,
     awaitSession: nextLive(0),
-    subscribeHost: hostFeed.stream,
+    // A feed resubscribes on every RpcClientError, so none ever reaches a subscriber.
+    subscribeHost: Stream.orDie(hostFeed.stream),
     subscribeSession: (sessionId, opts) =>
       Stream.unwrap(
         Effect.map(sessionFeed(sessionId, opts?.turnLimit ?? null), (feed) => feed.stream)
-      ) as Stream.Stream<SessionStreamItem, NotFound>,
+      ).pipe(Stream.catchTag("RpcClientError", (error) => Stream.die(error))),
     withBlob: (bytes, use) =>
       Effect.flatMap(session, (s) =>
         Effect.flatMap(s.blobs.offer(bytes), (blobId) => use(blobId, s))
@@ -405,3 +365,17 @@ export const makeHostConnection = Effect.fnUntraced(function* (
     retryNow: Effect.asVoid(Queue.offer(retrySignal, undefined)),
   };
 });
+
+/** Opens HostConnections; the HostRegistry connects through it, so tests can replace it. */
+export class HostConnector extends Context.Service<
+  HostConnector,
+  {
+    readonly connect: (
+      options: HostConnectionOptions
+    ) => Effect.Effect<HostConnection, never, Scope.Scope>;
+  }
+>()("polaris/client/HostConnector") {
+  static readonly layer = Layer.succeed(HostConnector)(
+    HostConnector.of({ connect: makeHostConnection })
+  );
+}

@@ -19,9 +19,9 @@ import {
   type Wire,
   type WireOptions,
 } from "@polaris/protocol";
-import { Effect, Latch, Layer, Queue, Schema, type Scope, Stream } from "effect";
+import { Effect, Latch, Layer, Predicate, Queue, Schema, type Scope, Stream } from "effect";
 import { RpcSerialization, RpcServer } from "effect/rpc";
-import { ResponseDefectEncoded } from "effect/rpc/RpcMessage";
+import { type FromClientEncoded, ResponseDefectEncoded } from "effect/rpc/RpcMessage";
 import { paths } from "../paths.ts";
 import { CommandRunner } from "../service/CommandRunner.ts";
 import { adoptListener, serveUpgrades } from "../service/upgrade.ts";
@@ -148,9 +148,10 @@ export const startServer = <ROut = never, E = never, RIn = never>(
             text = encoder.encode(ResponseDefectEncoded(encodeDefect(cause)));
           }
 
-          if (text === undefined) return Effect.void;
+          // The JSON serialization always encodes to a string.
+          if (!Predicate.isString(text)) return Effect.void;
 
-          return Effect.ignore(connection.wire.sendJson(text as string));
+          return Effect.ignore(connection.wire.sendJson(text));
         },
         end: () => Effect.void,
         clientIds: Effect.sync(() => new Set(connections.keys())),
@@ -174,6 +175,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
     const handlers = yield* Layer.build(
       Layer.merge(
         defaultHandlers({ hostInfo, capabilities }),
+        // SAFETY: `handlers` is omitted only when ROut, E and RIn keep their `never` defaults.
         ((options.handlers ?? Layer.empty) as Layer.Layer<ROut, E, RIn>).pipe(
           Layer.provide(BlobChannelOutsideRequest)
         )
@@ -200,19 +202,19 @@ export const startServer = <ROut = never, E = never, RIn = never>(
             Effect.andThen(
               ready.await,
               Effect.suspend(() => {
-                let messages: ReadonlyArray<unknown>;
+                let messages: ReadonlyArray<FromClientEncoded>;
 
                 try {
-                  messages = decoder.decode(text);
+                  // SAFETY: as in Effect's own RpcServer protocols, the envelope is trusted and
+                  // RpcServer decodes each payload against its Rpc schema.
+                  messages = decoder.decode(text) as ReadonlyArray<FromClientEncoded>;
                 } catch (cause) {
                   return Effect.logWarning("dropping an undecodable message", cause);
                 }
 
-                return Effect.forEach(
-                  messages,
-                  (message) => writeRequest(clientId, message as never),
-                  { discard: true }
-                );
+                return Effect.forEach(messages, (message) => writeRequest(clientId, message), {
+                  discard: true,
+                });
               })
             );
 

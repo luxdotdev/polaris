@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { Effect, Fiber, Queue, Stream } from "effect";
-import { classifyExit } from "./failures.ts";
+import { Data, Effect, Fiber, Queue, Stream } from "effect";
+import { classifyExit, type NeedsAttentionReason, type TransientReason } from "./failures.ts";
 import { makeFeed, reopenBackoff, type SequenceMark } from "./resume.ts";
 import { sshArgv } from "./ssh.ts";
 
 describe("classifyExit", () => {
-  const cases: Array<[string, number | null, string, string]> = [
+  const cases: Array<[string, number | null, string, NeedsAttentionReason | TransientReason]> = [
     [
       "host key changed",
       255,
@@ -30,7 +30,7 @@ describe("classifyExit", () => {
 
   for (const [name, code, stderr, reason] of cases) {
     test(name, () => {
-      expect(classifyExit({ code, signal: null, stderr }).reason).toBe(reason as never);
+      expect(classifyExit({ code, signal: null, stderr }).reason).toBe(reason);
     });
   }
 
@@ -71,17 +71,19 @@ describe("sshArgv", () => {
   });
 });
 
-type Item =
-  | { readonly _tag: "Snapshot"; readonly sequence: number }
-  | { readonly _tag: "Event"; readonly sequence: number }
-  | { readonly _tag: "Synchronized"; readonly sequence: number };
+type Item = Data.TaggedEnum<{
+  Snapshot: { readonly sequence: number };
+  Event: { readonly sequence: number };
+  Synchronized: { readonly sequence: number };
+}>;
 
-const mark = (item: Item): SequenceMark =>
-  item._tag === "Snapshot"
-    ? { kind: "snapshot", sequence: item.sequence }
-    : item._tag === "Event"
-      ? { kind: "event", sequence: item.sequence }
-      : { kind: "synchronized", sequence: item.sequence };
+const { Snapshot, Event, Synchronized, $match } = Data.taggedEnum<Item>();
+
+const mark = $match({
+  Snapshot: (item): SequenceMark => ({ kind: "snapshot", sequence: item.sequence }),
+  Event: (item): SequenceMark => ({ kind: "event", sequence: item.sequence }),
+  Synchronized: (item): SequenceMark => ({ kind: "synchronized", sequence: item.sequence }),
+});
 
 class Disconnected {
   readonly _tag = "Disconnected";
@@ -96,20 +98,9 @@ describe("resumable feed", () => {
 
           // Each "connection" replays one event it already sent, then fails as if dropped.
           const scripts: Array<Array<Item>> = [
-            [
-              { _tag: "Snapshot", sequence: 0 },
-              { _tag: "Event", sequence: 1 },
-              { _tag: "Event", sequence: 2 },
-            ],
-            [
-              { _tag: "Event", sequence: 2 },
-              { _tag: "Event", sequence: 3 },
-            ],
-            [
-              { _tag: "Event", sequence: 3 },
-              { _tag: "Event", sequence: 4 },
-              { _tag: "Synchronized", sequence: 4 },
-            ],
+            [Snapshot({ sequence: 0 }), Event({ sequence: 1 }), Event({ sequence: 2 })],
+            [Event({ sequence: 2 }), Event({ sequence: 3 })],
+            [Event({ sequence: 3 }), Event({ sequence: 4 }), Synchronized({ sequence: 4 })],
           ];
 
           let epoch = 0;
@@ -159,10 +150,7 @@ describe("resumable feed", () => {
               opens.push(after);
 
               return opens.length === 1
-                ? Stream.fromIterable<Item>([
-                    { _tag: "Snapshot", sequence: 5 },
-                    { _tag: "Event", sequence: 7 },
-                  ])
+                ? Stream.fromIterable<Item>([Snapshot({ sequence: 5 }), Event({ sequence: 7 })])
                 : Stream.fail("NotFound");
             },
             mark,
@@ -195,10 +183,10 @@ describe("resumable feed", () => {
 
               return Stream.concat(
                 Stream.fromIterable<Item>([
-                  { _tag: "Snapshot", sequence: 2 },
-                  { _tag: "Synchronized", sequence: 2 },
-                  { _tag: "Event", sequence: 4 },
-                  { _tag: "Event", sequence: 7 },
+                  Snapshot({ sequence: 2 }),
+                  Synchronized({ sequence: 2 }),
+                  Event({ sequence: 4 }),
+                  Event({ sequence: 7 }),
                 ]),
                 Stream.never
               );
@@ -238,8 +226,8 @@ describe("resumable feed", () => {
               opens.push(after);
 
               return Stream.fromIterable<Item>([
-                ...(after === null ? [{ _tag: "Snapshot", sequence: 5 } as const] : []),
-                { _tag: "Event", sequence: 7 },
+                ...(after === null ? [Snapshot({ sequence: 5 })] : []),
+                Event({ sequence: 7 }),
               ]);
             },
             mark,
@@ -280,10 +268,7 @@ describe("resumable feed", () => {
             gapless: true,
           });
 
-          yield* Queue.offerAll(live, [
-            { _tag: "Snapshot", sequence: 1 },
-            { _tag: "Event", sequence: 2 },
-          ]);
+          yield* Queue.offerAll(live, [Snapshot({ sequence: 1 }), Event({ sequence: 2 })]);
           yield* feed.stream.pipe(Stream.take(2), Stream.runDrain);
 
           const second = yield* Effect.forkChild(
@@ -291,7 +276,7 @@ describe("resumable feed", () => {
           );
 
           yield* Effect.sleep(20);
-          yield* Queue.offer(live, { _tag: "Event", sequence: 3 });
+          yield* Queue.offer(live, Event({ sequence: 3 }));
 
           return yield* Fiber.join(second);
         })

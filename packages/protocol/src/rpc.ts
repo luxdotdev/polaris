@@ -197,6 +197,14 @@ export const Stat = Rpc.make("files.stat", {
   error: FileError,
 });
 
+/** What `files.read` returns: inline text, or a BlobId whose bytes follow as binary side-chunks. */
+export const FileContent = Schema.TaggedUnion({
+  Inline: { text: Schema.String },
+  Blob: { blobId: BlobId },
+});
+
+export type FileContent = typeof FileContent.Type;
+
 /**
  * Small reads return inline text; larger or binary reads return a BlobId whose
  * bytes follow as binary side-chunks.
@@ -210,10 +218,7 @@ export const ReadFile = Rpc.make("files.read", {
   success: Schema.Struct({
     size: Schema.Int,
     mimeType: Schema.String,
-    content: Schema.TaggedUnion({
-      Inline: { text: Schema.String },
-      Blob: { blobId: BlobId },
-    }),
+    content: FileContent,
   }),
   error: FileError,
 });
@@ -276,15 +281,20 @@ export const GitStatus = Rpc.make("git.status", {
   error: GitError,
 });
 
+/** What `git.diff` compares. */
+export const GitDiffSpec = Schema.TaggedUnion({
+  WorkingTree: { base: Schema.NullOr(Schema.String) },
+  Turn: { sessionId: SessionId, turnId: TurnId },
+  Range: { base: Schema.String, head: Schema.String },
+});
+
+export type GitDiffSpec = typeof GitDiffSpec.Type;
+
 /** A unified diff; delivered as a blob because diffs can be very large. */
 export const GitDiff = Rpc.make("git.diff", {
   payload: {
     cwd: Schema.String,
-    spec: Schema.TaggedUnion({
-      WorkingTree: { base: Schema.NullOr(Schema.String) },
-      Turn: { sessionId: SessionId, turnId: TurnId },
-      Range: { base: Schema.String, head: Schema.String },
-    }),
+    spec: GitDiffSpec,
   },
   success: Schema.Struct({ blobId: BlobId, size: Schema.Int, files: Schema.Int }),
   error: Schema.Union([GitError, NotFound]),

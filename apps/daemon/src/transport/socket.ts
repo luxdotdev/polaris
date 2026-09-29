@@ -58,7 +58,8 @@ export const prepareSocketPath = Effect.fnUntraced(function* (
       if (lstatSync(path).isDirectory()) throw new Error(`${path} is a directory`);
       unlinkSync(path);
     },
-    catch: (cause) => new LockError({ path, message: `cannot remove stale socket: ${cause}` }),
+    catch: (cause) =>
+      new LockError({ path, message: `cannot remove stale socket: ${String(cause)}` }),
   });
 });
 
@@ -98,11 +99,11 @@ export const listen = Effect.fnUntraced(function* (
             process.umask(previousUmask);
           }
         },
-        catch: (cause) => new LockError({ path, message: `cannot listen: ${cause}` }),
+        catch: (cause) => new LockError({ path, message: `cannot listen: ${String(cause)}` }),
       })
     ).pipe(
-      Effect.mapError((error) =>
-        error._tag === "LockError" ? error : new LockError({ path, message: error.message })
+      Effect.catchTag("UpgradeError", (error) =>
+        Effect.fail(new LockError({ path, message: error.message }))
       )
     ),
     (server) =>

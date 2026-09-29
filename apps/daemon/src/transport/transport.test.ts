@@ -13,19 +13,26 @@ import {
   type ConnectionStatus,
   type HostConnection,
   type HostConnectionOptions,
+  HostTarget,
   makeHostConnection,
   spawnTransport,
+  TerminalOutput,
 } from "@polaris/client";
 import {
   Attachment,
   AttachmentId,
   type Capability,
+  Command,
   CommandId,
   CommandRejected,
+  DomainEvent,
   EventEnvelope,
-  type HostStreamItem,
+  FileContent,
+  GitDiffSpec,
+  HostStreamItem,
   NotFound,
   Sequence,
+  SessionId,
   TerminalLaunch,
   WorkspaceId,
 } from "@polaris/protocol";
@@ -35,6 +42,7 @@ import {
   Exit,
   Fiber,
   Layer,
+  Option,
   PubSub,
   Scope,
   Stream,
@@ -47,7 +55,7 @@ import { GitRpcsLive } from "../git/GitRpcs.ts";
 import { BlobChannel } from "../services.ts";
 import { TerminalRpcsLive } from "../terminal/TerminalRpcs.ts";
 import { TerminalsLive } from "../terminal/Terminals.ts";
-import type { DaemonAlreadyRunning } from "./lock.ts";
+import { DaemonAlreadyRunning } from "./lock.ts";
 import { ServerRpcs } from "./rpcs.ts";
 import { startServer } from "./server.ts";
 
@@ -92,7 +100,9 @@ const makeLog = Effect.gen(function* () {
       sequence: Sequence.make(events.length + 1),
       occurredAt: new Date().toISOString(),
       commandId: null,
-      event: { _tag: "WorkspaceRemoved", workspaceId: WorkspaceId.make(`w${events.length + 1}`) },
+      event: DomainEvent.cases.WorkspaceRemoved.make({
+        workspaceId: WorkspaceId.make(`w${events.length + 1}`),
+      }),
     });
 
     events.push(envelope);
@@ -109,26 +119,25 @@ const makeLog = Effect.gen(function* () {
         const head: Array<HostStreamItem> =
           afterSequence === null
             ? [
-                {
-                  _tag: "Snapshot",
+                HostStreamItem.cases.Snapshot.make({
                   sequence: Sequence.make(upTo),
                   workspaces: [],
                   worktrees: [],
                   sessions: [],
-                },
+                }),
               ]
             : events
                 .slice(afterSequence, upTo)
-                .map((envelope) => ({ _tag: "Event" as const, envelope }));
+                .map((envelope) => HostStreamItem.cases.Event.make({ envelope }));
 
         return Stream.concat(
           Stream.fromIterable([
             ...head,
-            { _tag: "Synchronized" as const, sequence: Sequence.make(upTo) },
+            HostStreamItem.cases.Synchronized.make({ sequence: Sequence.make(upTo) }),
           ]),
           Stream.fromSubscription(live).pipe(
             Stream.filter((envelope) => envelope.sequence > upTo),
-            Stream.map((envelope) => ({ _tag: "Event" as const, envelope }))
+            Stream.map((envelope) => HostStreamItem.cases.Event.make({ envelope }))
           )
         );
       })
@@ -162,7 +171,7 @@ const testHandlers = (log: Log) =>
         return {
           size,
           mimeType: "application/octet-stream",
-          content: { _tag: "Blob" as const, blobId },
+          content: FileContent.cases.Blob.make({ blobId }),
         };
       })
     ),
@@ -204,7 +213,7 @@ const localHost = (dir: string, extra: Partial<HostConnectionOptions> = {}) =>
   makeHostConnection({
     key: "local",
     name: "Local",
-    target: { _tag: "Local", socketPath: socketOf(dir) },
+    target: HostTarget.Local({ socketPath: socketOf(dir) }),
     identity,
     policy: fastPolicy,
     ...extra,
@@ -214,7 +223,7 @@ const bridgeHost = (dir: string) =>
   makeHostConnection({
     key: "bridge",
     name: "Bridge",
-    target: { _tag: "Ssh", alias: "unused" },
+    target: HostTarget.Ssh({ alias: "unused" }),
     identity,
     policy: fastPolicy,
     connector: spawnTransport(["bun", MAIN, "bridge"], {
@@ -226,8 +235,18 @@ const waitFor = (conn: HostConnection, predicate: (s: ConnectionStatus) => boole
   conn.changes.pipe(
     Stream.filter(predicate),
     Stream.runHead,
-    Effect.map((o) => o._tag === "Some" && o.value)
+    Effect.map((o) => Option.isSome(o) && o.value)
   );
+
+const isEvent = HostStreamItem.isAnyOf(["Event"]);
+
+const isBlob = FileContent.isAnyOf(["Blob"]);
+
+const sequenceOf = HostStreamItem.match({
+  Snapshot: (item) => item.sequence,
+  Event: (item) => item.envelope.sequence,
+  Synchronized: (item) => item.sequence,
+});
 
 const run = <A, E>(effect: Effect.Effect<A, E, Scope.Scope>) =>
   Effect.runPromise(Effect.scoped(effect));
@@ -247,7 +266,7 @@ describe("transport", () => {
         const rejected = yield* Effect.flip(
           session.client.dispatch({
             commandId: CommandId.make("c1"),
-            command: { _tag: "RemoveWorkspace", workspaceId: WorkspaceId.make("w1") },
+            command: Command.cases.RemoveWorkspace.make({ workspaceId: WorkspaceId.make("w1") }),
           })
         );
 
@@ -265,7 +284,7 @@ describe("transport", () => {
     );
 
     expect(result.session.host.hostId).toBe(result.server.hostInfo.hostId);
-    expect(result.session.host.platform).toBe(`${process.platform}-${process.arch}` as never);
+    expect<string>(result.session.host.platform).toBe(`${process.platform}-${process.arch}`);
     expect(result.session.capabilities).toEqual(["blobs"]);
     expect(result.status.state).toBe("connected");
     // The placeholder dispatch rejects; the device label only shows with the test handlers.
@@ -287,11 +306,11 @@ describe("transport", () => {
         const error = yield* Effect.flip(
           session.client.dispatch({
             commandId: CommandId.make("c1"),
-            command: { _tag: "RemoveWorkspace", workspaceId: WorkspaceId.make("w1") },
+            command: Command.cases.RemoveWorkspace.make({ workspaceId: WorkspaceId.make("w1") }),
           })
         );
 
-        return error._tag === "CommandRejected" ? error.reason : error._tag;
+        return error instanceof CommandRejected ? error.reason : error._tag;
       })
     );
 
@@ -325,7 +344,9 @@ describe("transport", () => {
 
         const session = yield* conn.awaitSession;
 
-        return yield* session.client["session.terminalCommand"]({ sessionId: "s" as never });
+        return yield* session.client["session.terminalCommand"]({
+          sessionId: SessionId.make("s"),
+        });
       })
     );
 
@@ -339,7 +360,7 @@ describe("transport", () => {
         const session = yield* conn.awaitSession;
 
         return yield* Effect.flip(
-          session.client["session.terminalCommand"]({ sessionId: "s" as never })
+          session.client["session.terminalCommand"]({ sessionId: SessionId.make("s") })
         );
       })
     );
@@ -356,11 +377,7 @@ describe("transport", () => {
         const session = yield* conn.awaitSession;
 
         const collected = yield* Effect.forkChild(
-          conn.subscribeHost.pipe(
-            Stream.filter((i) => i._tag === "Event"),
-            Stream.take(50),
-            Stream.runCollect
-          )
+          conn.subscribeHost.pipe(Stream.filter(isEvent), Stream.take(50), Stream.runCollect)
         );
 
         yield* Effect.sleep(50);
@@ -384,8 +401,9 @@ describe("transport", () => {
           length: 6_000_000,
         });
 
-        const readBytes =
-          read.content._tag === "Blob" ? yield* session.blobs.take(read.content.blobId) : null;
+        const readBytes = isBlob(read.content)
+          ? yield* session.blobs.take(read.content.blobId)
+          : null;
 
         const upload = bytes(5_000_000, 3);
 
@@ -409,9 +427,9 @@ describe("transport", () => {
     expect(sha(result.readBytes!)).toBe(sha(bytes(6_000_000, 7)));
     expect(result.staged.size).toBe(5_000_000);
     expect(result.staged.hostPath).toBe(sha(result.upload));
-    expect(
-      result.events.map((e) => (e._tag === "Event" ? Number(e.envelope.sequence) : -1))
-    ).toEqual(Array.from({ length: 50 }, (_, i) => i + 1));
+    expect(result.events.map((e) => Number(e.envelope.sequence))).toEqual(
+      Array.from({ length: 50 }, (_, i) => i + 1)
+    );
   }, 20_000);
 
   test("many Clients connect at once and get the same stream", async () => {
@@ -429,9 +447,9 @@ describe("transport", () => {
         const fibers = yield* Effect.forEach(conns, (c) =>
           Effect.forkChild(
             c.subscribeHost.pipe(
-              Stream.filter((i) => i._tag === "Event"),
+              Stream.filter(isEvent),
               Stream.take(10),
-              Stream.map((i) => (i._tag === "Event" ? Number(i.envelope.sequence) : 0)),
+              Stream.map((i) => Number(i.envelope.sequence)),
               Stream.runCollect
             )
           )
@@ -477,8 +495,8 @@ describe("transport", () => {
 
         const items = yield* Effect.forkChild(
           conn.subscribeHost.pipe(
-            Stream.filter((i) => i._tag === "Event"),
-            Stream.map((i) => (i._tag === "Event" ? Number(i.envelope.sequence) : 0)),
+            Stream.filter(isEvent),
+            Stream.map((i) => Number(i.envelope.sequence)),
             Stream.take(90),
             Stream.runCollect
           )
@@ -529,8 +547,7 @@ describe("transport", () => {
     );
 
     expect(first.map((i) => i._tag)).toEqual(["Snapshot", "Synchronized", "Event"]);
-    expect(first[0]?._tag === "Snapshot" && first[0].sequence).toBe(3 as never);
-    expect(first[2]?._tag === "Event" && first[2].envelope.sequence).toBe(4 as never);
+    expect(first.map((i) => Number(sequenceOf(i)))).toEqual([3, 3, 4]);
   }, 10_000);
 
   test("session streams surface NotFound", async () => {
@@ -540,7 +557,9 @@ describe("transport", () => {
         yield* startServer({ ...serverOptions(home), handlers: testHandlers(log) });
         const conn = yield* localHost(home);
 
-        return yield* conn.subscribeSession("nope" as never).pipe(Stream.runDrain, Effect.flip);
+        return yield* conn
+          .subscribeSession(SessionId.make("nope"))
+          .pipe(Stream.runDrain, Effect.flip);
       })
     );
 
@@ -557,11 +576,11 @@ describe("transport", () => {
           runProcess(["bun", MAIN, "serve"], { POLARIS_HOME: home })
         );
 
-        return { second: second as DaemonAlreadyRunning, child };
+        return { second, child };
       })
     );
 
-    expect(result.second._tag).toBe("DaemonAlreadyRunning");
+    expect(result.second).toBeInstanceOf(DaemonAlreadyRunning);
     expect(result.child.code).toBe(75);
     expect(result.child.stderr).toContain("already running");
   }, 15_000);
@@ -605,8 +624,7 @@ describe("transport", () => {
           length: 3_000_000,
         });
 
-        const got =
-          read.content._tag === "Blob" ? yield* session.blobs.take(read.content.blobId) : null;
+        const got = isBlob(read.content) ? yield* session.blobs.take(read.content.blobId) : null;
 
         const staged = yield* conn.withBlob(bytes(2_000_000, 9), (blobId, s) =>
           s.client["attachments.stage"]({
@@ -674,7 +692,7 @@ describe("transport", () => {
 
         const result = yield* session.client["git.diff"]({
           cwd: repo,
-          spec: { _tag: "WorkingTree", base: null },
+          spec: GitDiffSpec.cases.WorkingTree.make({ base: null }),
         });
 
         const text = new TextDecoder().decode(yield* session.blobs.take(result.blobId));
@@ -749,10 +767,16 @@ describe("transport", () => {
             let exit: number | null | undefined;
             yield* attachTerminal({ ...session, capabilities }, terminalId).pipe(
               Stream.runForEach((item) =>
-                Effect.sync(() => {
-                  if (item._tag === "Output") text += decoder.decode(item.data, { stream: true });
-                  else exit = item.code;
-                })
+                Effect.sync(() =>
+                  TerminalOutput.$match(item, {
+                    Output: (output) => {
+                      text += decoder.decode(output.data, { stream: true });
+                    },
+                    Exit: (ended) => {
+                      exit = ended.code;
+                    },
+                  })
+                )
               )
             );
 
