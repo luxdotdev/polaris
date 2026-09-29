@@ -8,7 +8,7 @@
  *
  * Runs under Node: Playwright's Electron launcher does not connect under Bun.
  */
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { _electron as electron, type Page } from "playwright-core";
@@ -33,11 +33,16 @@ const screenshots = option("--screenshots");
 /** The renderer bundle: large enough that `files.read` sends it as a blob. */
 const bigAsset = () => {
   const dir = join(OUT_DIR, "renderer/assets");
-  const js = readdirSync(dir).find((f) => f.endsWith(".js"));
+  // The largest chunk: lazy chunks (the session preview) are too small to be sent as blobs.
+
+  const js = readdirSync(dir)
+    .filter((f) => f.endsWith(".js"))
+    .map((f) => join(dir, f))
+    .toSorted((a, b) => statSync(b).size - statSync(a).size)[0];
 
   if (js === undefined) throw new Error("build the renderer first");
 
-  return join(dir, js);
+  return js;
 };
 
 const step = (message: string) => console.log(`smoke: ${message}`);
