@@ -1,0 +1,10 @@
+/* @polaris/ui/styles.css: import once in the renderer entry. */
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "./tokens.css";
+@import "./theme.css";
+@import "./dither.css";
+@import "./assets.css";
+
+/* Scan this package's components; the consuming app adds its own @source. */
+@source "../";

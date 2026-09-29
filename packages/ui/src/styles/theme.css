@@ -1,0 +1,118 @@
+/*
+ * Theming: dark is the default; light comes from [data-theme="light"] or, when no theme is
+ * forced, from the system appearance. Tokens are light-dark() pairs, so only color-scheme flips.
+ */
+:root {
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+  }
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+}
+
+/* Inherited colours resolve where they are set, so a themed subtree sets them again. */
+[data-theme] {
+  background-color: var(--color-bg);
+  color: var(--color-text-default);
+}
+
+/* shadcn's semantic variables, mapped onto Night watch so stock components pick it up. */
+@theme inline {
+  --color-background: var(--color-bg);
+  --color-foreground: var(--color-text-default);
+  --color-card: var(--color-surface-raised);
+  --color-card-foreground: var(--color-text-default);
+  --color-popover: var(--color-surface-raised);
+  --color-popover-foreground: var(--color-text-default);
+  --color-primary: var(--color-text-strong);
+  --color-primary-foreground: light-dark(#ffffff, #1a1b1d);
+  --color-secondary: var(--color-fill-selected);
+  --color-secondary-foreground: var(--color-text-default);
+  --color-muted: var(--color-surface-sunken);
+  --color-muted-foreground: var(--color-text-subtle);
+  --color-accent: var(--color-fill-hover);
+  --color-accent-foreground: var(--color-text-strong);
+  --color-destructive: var(--color-failed);
+  --color-border: var(--color-hairline);
+  --color-input: var(--color-hairline);
+  --color-ring: var(--color-starlight);
+}
+
+@font-face {
+  font-family: "Geist Pixel";
+  src: url("../fonts/GeistPixel-Square.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--color-hairline);
+  }
+
+  /* Base type goes on body: html keeps 16px so rem-based spacing stays true to the tokens. */
+  html {
+    font-family: var(--font-sans);
+    font-synthesis: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-variant-ligatures: none;
+  }
+
+  body {
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    background-color: var(--color-bg);
+    color: var(--color-text-default);
+  }
+
+  /* Focus is always a 2px Starlight ring with a 2px offset. */
+  :focus-visible {
+    outline: 2px solid var(--color-starlight);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--color-diff-selection);
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility pixelated {
+  image-rendering: pixelated;
+  shape-rendering: crispEdges;
+}
+
+/* Reduce Motion: transitions become instant, and the dither stills (see dither.tsx). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+  }
+}
+
+[data-reduce-motion="true"] *,
+[data-reduce-motion="true"] ::before,
+[data-reduce-motion="true"] ::after {
+  transition-duration: 0ms !important;
+  animation-duration: 0ms !important;
+}

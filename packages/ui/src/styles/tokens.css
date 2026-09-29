@@ -1,0 +1,157 @@
+/*
+ * Night watch tokens: DESIGN.md frontmatter plus the Paper file's token list.
+ * Every colour is a light-dark() pair resolved against the element's color-scheme (see theme.css).
+ */
+@theme static {
+  /* Only Polaris tokens exist: Tailwind's palette, type scale, weights and radii are cleared. */
+  --color-*: initial;
+  --text-*: initial;
+  --font-weight-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+
+  /* Neutrals. */
+  --color-bg: light-dark(#fbfbfc, #1a1b1d);
+  --color-surface-sunken: light-dark(#f3f3f5, #151618);
+  --color-surface-raised: light-dark(#ffffff, #222327);
+  --color-fill-selected: light-dark(#ededef, #2b2c31);
+  --color-fill-hover: light-dark(#f4f4f6, #242529);
+  --color-row-selected: light-dark(#ffffff, #26272c);
+  --color-hairline: light-dark(#0000000f, #ffffff0f);
+  --color-text-strong: light-dark(#17181a, #f4f5f7);
+  --color-text-default: light-dark(#333438, #e3e4e8);
+  --color-text-subtle: light-dark(#74767d, #9a9ca4);
+  --color-text-faint: light-dark(#a4a6ac, #686a72);
+
+  /* Brand: focus rings, Polaris's own activity, the mark, the star. Nothing else. */
+  --color-starlight: light-dark(#4f82e8, #bcd3ff);
+
+  /* Session State signals. */
+  --color-needs-you: light-dark(#b98a00, #f2c84b);
+  --color-failed: light-dark(#d23b30, #f0645a);
+
+  /* Severity: always a labelled badge with its shape. */
+  --color-severity-critical: #e5484d;
+  --color-severity-high: light-dark(#c85a12, #f2894a);
+  --color-severity-medium: light-dark(#9c7a06, #e6c04a);
+  --color-severity-low: light-dark(#626b7d, #8a93a6);
+
+  /* Harness identity hues; the light variants come from the Paper file. */
+  --color-harness-claude-code: light-dark(#c4562f, #d97757);
+  --color-harness-codex: light-dark(#1e8a5c, #6fcba0);
+
+  /* Diffs and git status. */
+  --color-diff-added: #3fb950;
+  --color-diff-removed: #f85149;
+  --color-diff-added-cvd: #388bfd;
+  --color-diff-removed-cvd: #db8b2c;
+  --color-diff-added-bg: light-dark(#1a7f3714, #3fb9501a);
+  --color-diff-removed-bg: light-dark(#cf222e12, #f851491a);
+  --color-diff-added-emphasis: light-dark(#1a7f3729, #3fb95040);
+  --color-diff-removed-emphasis: light-dark(#cf222e24, #f8514940);
+  --color-diff-selection: light-dark(#4f82e829, #bcd3ff29);
+  --color-git-modified: light-dark(#9a6b16, #d6b37e);
+
+  /* Syntax: moonlit. */
+  --color-syntax-keyword: light-dark(#4a5a80, #a3afcb);
+  --color-syntax-string: light-dark(#86652e, #d9c9a3);
+  --color-syntax-type: light-dark(#3e6b5e, #a9c6bd);
+  --color-syntax-function: light-dark(#17181a, #f4f5f7);
+  --color-syntax-comment: light-dark(#a4a6ac, #6e7280);
+  --color-syntax-punctuation: light-dark(#74767d, #9a9ca4);
+
+  /* Type: SF Pro and SF Mono are the system faces on macOS; Geist Pixel is the wordmark only. */
+  --font-sans: system-ui, -apple-system, "SF Pro Text", "SF Pro", "Helvetica Neue", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+  --font-pixel: "Geist Pixel", ui-monospace, monospace;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+
+  --text-display: 24px;
+  --text-display--line-height: 30px;
+  --text-display--font-weight: 500;
+  --text-title: 18px;
+  --text-title--line-height: 24px;
+  --text-title--font-weight: 500;
+  --text-heading: 16px;
+  --text-heading--line-height: 20px;
+  --text-heading--font-weight: 500;
+  --text-heading-sm: 14px;
+  --text-heading-sm--line-height: 20px;
+  --text-heading-sm--font-weight: 500;
+  --text-body: 13px;
+  --text-body--line-height: 18px;
+  --text-body--font-weight: 400;
+  --text-label: 13px;
+  --text-label--line-height: 16px;
+  --text-label--font-weight: 500;
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-caption--font-weight: 400;
+  --text-code: 13px;
+  --text-code--line-height: 20px;
+  --text-code--font-weight: 400;
+  --text-code-inline: 12px;
+  --text-code-inline--line-height: 16px;
+  --text-code-inline--font-weight: 400;
+  /* Keycaps and counts inside chips (Paper: 11/12). */
+  --text-micro: 11px;
+  --text-micro--line-height: 12px;
+
+  --radius-control: 6px;
+  --radius-row: 10px;
+  --radius-card: 14px;
+  --radius-full: 999px;
+
+  --shadow-float: 0 8px 24px light-dark(rgb(0 0 0 / 10%), rgb(0 0 0 / 40%));
+
+  --opacity-dimmed: 55%;
+
+  --ease-out: cubic-bezier(0.215, 0.61, 0.355, 1);
+}
+
+/* Density: spacing and row heights only, swapped as one set (rule/density-through-tokens). */
+@theme inline {
+  --spacing-row: var(--density-row);
+  --spacing-tree-row: var(--density-tree-row);
+  --spacing-session-row: var(--density-session-row);
+  --spacing-harness-tile: var(--density-harness-tile);
+  --spacing-row-x: var(--density-row-x);
+  --spacing-gap: var(--density-gap);
+  --spacing-panel: var(--density-panel);
+  --spacing-section: var(--density-section);
+}
+
+:root,
+[data-density="calm"] {
+  --density-row: 32px;
+  --density-tree-row: 28px;
+  --density-session-row: 48px;
+  --density-harness-tile: 28px;
+  --density-row-x: 10px;
+  --density-gap: 8px;
+  --density-panel: 16px;
+  --density-section: 24px;
+}
+
+[data-density="balanced"] {
+  --density-row: 28px;
+  --density-tree-row: 24px;
+  --density-session-row: 40px;
+  --density-harness-tile: 24px;
+  --density-row-x: 8px;
+  --density-gap: 6px;
+  --density-panel: 12px;
+  --density-section: 16px;
+}
+
+[data-density="compact"] {
+  --density-row: 24px;
+  --density-tree-row: 22px;
+  --density-session-row: 28px;
+  --density-harness-tile: 20px;
+  --density-row-x: 6px;
+  --density-gap: 4px;
+  --density-panel: 10px;
+  --density-section: 12px;
+}
