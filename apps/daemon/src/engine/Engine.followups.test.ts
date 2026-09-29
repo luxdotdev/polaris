@@ -8,18 +8,19 @@ import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import {
   AgentSession,
-  type Command,
+  Command,
   DomainEvent,
   type HarnessKind,
-  type RequestId,
-  type Sequence,
-  type SessionId,
+  RequestId,
+  SessionId,
+  SessionPlacement,
   type SessionStreamItem,
   Turn,
-  type TurnId,
+  TurnId,
+  TurnItem,
   type Workspace,
 } from "@polaris/protocol";
-import { Deferred, Duration, Effect, Fiber, type Layer, Stream } from "effect";
+import { Deferred, Duration, Effect, Fiber, type Layer, Predicate, Stream } from "effect";
 import { handoffContributors } from "../service/upgrade.ts";
 import { EventStore } from "../store/EventStore.ts";
 import { RECENT_TURNS } from "../store/model.ts";
@@ -31,6 +32,7 @@ import {
   engineLayer,
   type FakeDriver,
   fakeRepo,
+  HarnessEvents,
   makeFakeDriver,
   makeFakes,
   tempDir,
@@ -41,16 +43,16 @@ import {
 type Env = Engine | EventStore;
 
 const run = <A, E>(layer: Layer.Layer<Env>, program: Effect.Effect<A, E, Env>) =>
-  Effect.runPromise(program.pipe(Effect.provide(layer)) as Effect.Effect<A, E>);
+  Effect.runPromise(program.pipe(Effect.provide(layer)));
 
-const sid = (s: string) => s as SessionId;
+const sid = (s: string) => SessionId.make(s);
 
 const dispatch = (command: Command, deviceLabel = "MacBook") =>
   Effect.flatMap(Engine, (engine) => engine.dispatch({ commandId: cid(), command, deviceLabel }));
 
 const registerWorkspace = Effect.gen(function* () {
   const repo = fakeRepo();
-  yield* dispatch({ _tag: "RegisterWorkspace", path: repo, name: null });
+  yield* dispatch(Command.cases.RegisterWorkspace.make({ path: repo, name: null }));
   const model = yield* waitFor((m) => [...m.workspaces.values()].some((w) => w.path === repo));
 
   return [...model.workspaces.values()].find((w) => w.path === repo)!;
@@ -62,17 +64,18 @@ const startSession = (
   harness: HarnessKind = "claude",
   prompt = "Fix the flaky test"
 ) =>
-  dispatch({
-    _tag: "StartSession",
-    sessionId,
-    workspaceId: workspace.id,
-    harness,
-    placement: { _tag: "InPlace" },
-    permissionMode: "supervised",
-    model: null,
-    prompt,
-    attachments: [],
-  });
+  dispatch(
+    Command.cases.StartSession.make({
+      sessionId,
+      workspaceId: workspace.id,
+      harness,
+      placement: SessionPlacement.cases.InPlace.make({}),
+      permissionMode: "supervised",
+      model: null,
+      prompt,
+      attachments: [],
+    })
+  );
 
 const setup = (options: {
   drivers: ReadonlyArray<FakeDriver>;
@@ -95,13 +98,13 @@ const collect = <E>(stream: Stream.Stream<SessionStreamItem, E>) =>
       Effect.sync(() => void items.push(item))
     ).pipe(Effect.forkChild);
 
-    yield* waitUntil(() => items.some((i) => i._tag === "Synchronized"));
+    yield* waitUntil(() => items.some((i) => Predicate.isTagged(i, "Synchronized")));
 
     return { items, fiber };
   });
 
 const eventTags = (items: ReadonlyArray<SessionStreamItem>) =>
-  items.flatMap((i) => (i._tag === "Event" ? [i.envelope.event._tag] : []));
+  items.flatMap((i) => (Predicate.isTagged(i, "Event") ? [i.envelope.event._tag] : []));
 
 describe("Turns started outside Polaris", () => {
   test("a Turn typed in a co-attached TUI is recorded with its prompt", async () => {
@@ -114,12 +117,12 @@ describe("Turns started outside Polaris", () => {
         const s = sid("s-tui-prompt");
         yield* startSession(workspace, s, "codex");
         yield* waitFor((m) => m.sessions.get(s)?.session.state === "idle");
-        const tuiTurn = "turn-from-tui" as TurnId;
+        const tuiTurn = TurnId.make("turn-from-tui");
         codex
           .latest(s)!
           .emit(
-            { _tag: "TurnStarted", turnId: tuiTurn, prompt: "also update the docs" },
-            { _tag: "TurnEnded", turnId: tuiTurn, status: "completed", error: null }
+            HarnessEvents.TurnStarted({ turnId: tuiTurn, prompt: "also update the docs" }),
+            HarnessEvents.TurnEnded({ turnId: tuiTurn, status: "completed", error: null })
           );
 
         const model = yield* waitFor(
@@ -153,15 +156,14 @@ describe("live item progress", () => {
         const harness = codex.latest(s)!;
         const turnId = harness.turns[0]!.turnId;
 
-        const running = {
-          _tag: "CommandExecution" as const,
+        const running = TurnItem.cases.CommandExecution.make({
           id: "c1",
           command: "bun test",
           cwd: workspace.path,
           output: "",
           exitCode: null,
-          status: "running" as const,
-        };
+          status: "running",
+        });
 
         const early = yield* collect(
           engine.subscribeSession({
@@ -178,14 +180,18 @@ describe("live item progress", () => {
 
         const before = (yield* store.model).sequence;
         harness.emit(
-          { _tag: "ItemUpdated", turnId, item: running },
-          {
-            _tag: "ItemUpdated",
+          HarnessEvents.ItemUpdated({ turnId, item: running }),
+          HarnessEvents.ItemUpdated({
             turnId,
-            item: { _tag: "Plan", id: "p1", steps: [{ text: "test", status: "in-progress" }] },
-          }
+            item: TurnItem.cases.Plan.make({
+              id: "p1",
+              steps: [{ text: "test", status: "in-progress" }],
+            }),
+          })
         );
-        yield* waitUntil(() => early.items.filter((i) => i._tag === "ItemProgress").length === 2);
+        yield* waitUntil(
+          () => early.items.filter((i) => Predicate.isTagged(i, "ItemProgress")).length === 2
+        );
         // Nothing was persisted for progress.
         expect((yield* store.model).sequence).toBe(before);
 
@@ -199,23 +205,25 @@ describe("live item progress", () => {
           })
         );
 
-        yield* waitUntil(() => late.items.filter((i) => i._tag === "ItemProgress").length === 2);
-        const sync = late.items.findIndex((i) => i._tag === "Synchronized");
-        expect(late.items[sync + 1]).toMatchObject({ _tag: "ItemProgress", item: { id: "c1" } });
+        yield* waitUntil(
+          () => late.items.filter((i) => Predicate.isTagged(i, "ItemProgress")).length === 2
+        );
+        const sync = late.items.findIndex((i) => Predicate.isTagged(i, "Synchronized"));
+        expect(late.items[sync + 1]?._tag).toBe("ItemProgress");
+        expect(late.items[sync + 1]).toMatchObject({ item: { id: "c1" } });
 
         harness.emit(
-          {
-            _tag: "ItemCompleted",
+          HarnessEvents.ItemCompleted({
             turnId,
             item: { ...running, output: "17 pass", exitCode: 0, status: "completed" },
-          },
-          { _tag: "TurnEnded", turnId, status: "completed", error: null }
+          }),
+          HarnessEvents.TurnEnded({ turnId, status: "completed", error: null })
         );
         yield* waitFor((m) => m.sessions.get(s)?.session.state === "idle");
         yield* waitUntil(() => eventTags(early.items).includes("TurnEnded"));
         // A Client that didn't announce `session.live-items` never gets ItemProgress.
         yield* waitUntil(() => eventTags(legacy.items).includes("TurnEnded"));
-        expect(legacy.items.some((i) => i._tag === "ItemProgress")).toBe(false);
+        expect(legacy.items.some((i) => Predicate.isTagged(i, "ItemProgress"))).toBe(false);
         expect(eventTags(early.items).filter((t) => t === "TurnItemCompleted")).toHaveLength(1);
 
         // Progress of items that never completed is gone once the Turn ended.
@@ -229,10 +237,10 @@ describe("live item progress", () => {
         );
 
         yield* Effect.sleep(Duration.millis(20));
-        expect(after.items.some((i) => i._tag === "ItemProgress")).toBe(false);
+        expect(after.items.some((i) => Predicate.isTagged(i, "ItemProgress"))).toBe(false);
         const snapshot = after.items[0]!;
 
-        if (snapshot._tag !== "Snapshot") throw new Error("expected a snapshot");
+        if (!Predicate.isTagged(snapshot, "Snapshot")) throw new Error("expected a snapshot");
         expect(snapshot.turns[0]!.items).toEqual([
           { ...running, output: "17 pass", exitCode: 0, status: "completed" },
         ]);
@@ -257,23 +265,24 @@ describe("ApprovalWithdrawn", () => {
         yield* waitFor((m) => m.sessions.get(s)?.session.state === "working");
         const harness = codex.latest(s)!;
         const turnId = harness.turns[0]!.turnId;
-        const requestId = "req-1" as RequestId;
-        harness.emit({
-          _tag: "ApprovalRequested",
-          turnId,
-          requestId,
-          kind: "command",
-          title: "Run tests",
-          detail: null,
-          options: [],
-        });
+        const requestId = RequestId.make("req-1");
+        harness.emit(
+          HarnessEvents.ApprovalRequested({
+            turnId,
+            requestId,
+            kind: "command",
+            title: "Run tests",
+            detail: null,
+            options: [],
+          })
+        );
         yield* waitFor((m) => m.sessions.get(s)?.session.state === "needs-you");
-        harness.emit({ _tag: "ApprovalWithdrawn", requestId });
+        harness.emit(HarnessEvents.ApprovalWithdrawn({ requestId }));
         const model = yield* waitFor((m) => m.sessions.get(s)?.session.state === "working");
         expect(model.sessions.get(s)!.pending.size).toBe(0);
         const events = yield* store.readEvents({ after: 0, upTo: model.sequence, sessionId: s });
         expect(events.map((e) => e.event._tag)).not.toContain("ApprovalResolved");
-        expect(events.find((e) => e.event._tag === "ApprovalWithdrawn")?.event).toEqual(
+        expect(events.find((e) => Predicate.isTagged(e.event, "ApprovalWithdrawn"))?.event).toEqual(
           DomainEvent.cases.ApprovalWithdrawn.make({
             sessionId: s,
             requestId,
@@ -282,20 +291,21 @@ describe("ApprovalWithdrawn", () => {
           })
         );
         // The Turn ending withdraws what is still pending, the same way.
-        harness.emit({
-          _tag: "ApprovalRequested",
-          turnId,
-          requestId: "req-2" as RequestId,
-          kind: "command",
-          title: "Again",
-          detail: null,
-          options: [],
-        });
+        harness.emit(
+          HarnessEvents.ApprovalRequested({
+            turnId,
+            requestId: RequestId.make("req-2"),
+            kind: "command",
+            title: "Again",
+            detail: null,
+            options: [],
+          })
+        );
         yield* waitFor((m) => m.sessions.get(s)?.pending.size === 1);
-        harness.emit({ _tag: "TurnEnded", turnId, status: "completed", error: null });
+        harness.emit(HarnessEvents.TurnEnded({ turnId, status: "completed", error: null }));
         const done = yield* waitFor((m) => m.sessions.get(s)?.session.state === "idle");
         const all = yield* store.readEvents({ after: 0, upTo: done.sequence, sessionId: s });
-        expect(all.filter((e) => e.event._tag === "ApprovalWithdrawn")).toHaveLength(2);
+        expect(all.filter((e) => Predicate.isTagged(e.event, "ApprovalWithdrawn"))).toHaveLength(2);
         expect(done.sessions.get(s)!.pending.size).toBe(0);
       })
     );
@@ -315,7 +325,7 @@ describe("terminal hand-off", () => {
         yield* startSession(workspace, s);
         yield* waitFor((m) => m.sessions.get(s)?.session.state === "idle");
         expect(yield* engine.terminalCommand(s)).toBeNull();
-        yield* dispatch({ _tag: "OpenInTerminal", sessionId: s });
+        yield* dispatch(Command.cases.OpenInTerminal.make({ sessionId: s }));
         yield* waitUntil(() => claude.sessions[0]!.closed);
 
         const launch = yield* Effect.gen(function* () {
@@ -335,19 +345,18 @@ describe("terminal hand-off", () => {
 
         // The user works in the TUI: a finished Turn, a new native session, and a Turn
         // still open when they hand the session back.
-        const t1 = "tui-1" as TurnId;
-        const t2 = "tui-2" as TurnId;
+        const t1 = TurnId.make("tui-1");
+        const t2 = TurnId.make("tui-2");
         claude.follow.emit(
           s,
-          { _tag: "TurnStarted", turnId: t1, prompt: "rename the helper" },
-          {
-            _tag: "ItemCompleted",
+          HarnessEvents.TurnStarted({ turnId: t1, prompt: "rename the helper" }),
+          HarnessEvents.ItemCompleted({
             turnId: t1,
-            item: { _tag: "AssistantMessage", id: "a1", text: "Renamed." },
-          },
-          { _tag: "TurnEnded", turnId: t1, status: "completed", error: null },
-          { _tag: "CursorAssigned", cursor: "c2" },
-          { _tag: "TurnStarted", turnId: t2, prompt: "now the tests" }
+            item: TurnItem.cases.AssistantMessage.make({ id: "a1", text: "Renamed." }),
+          }),
+          HarnessEvents.TurnEnded({ turnId: t1, status: "completed", error: null }),
+          HarnessEvents.CursorAssigned({ cursor: "c2" }),
+          HarnessEvents.TurnStarted({ turnId: t2, prompt: "now the tests" })
         );
 
         const during = yield* waitFor(
@@ -360,7 +369,7 @@ describe("terminal hand-off", () => {
           status: "completed",
         });
 
-        yield* dispatch({ _tag: "ReturnFromTerminal", sessionId: s });
+        yield* dispatch(Command.cases.ReturnFromTerminal.make({ sessionId: s }));
         const back = yield* waitFor((m) => m.sessions.get(s)?.session.state === "idle");
         expect(claude.follow.released).toEqual([s]);
         expect(yield* engine.terminalCommand(s)).toBeNull();
@@ -391,13 +400,14 @@ describe("Fork", () => {
         expect(turn.checkpointAfter).toBe(`refs/polaris/checkpoints/${parent}/${turn.id}/after`);
 
         const child = sid("s-fork-child");
-        yield* dispatch({
-          _tag: "ForkSession",
-          sessionId: child,
-          fromSessionId: parent,
-          fromTurnId: turn.id,
-          harness: "codex",
-        });
+        yield* dispatch(
+          Command.cases.ForkSession.make({
+            sessionId: child,
+            fromSessionId: parent,
+            fromTurnId: turn.id,
+            harness: "codex",
+          })
+        );
         const branch = forkBranch(child);
         expect(branch).toMatch(/^polaris\/fork-[0-9a-f]{8}$/);
         const path = join(workspace.worktreeRoot, branch);
@@ -421,12 +431,13 @@ describe("Fork", () => {
         const worktree = [...forked.worktrees.values()].find((w) => w.path === path)!;
         expect(worktree).toMatchObject({ branch, createdBySessionId: child });
 
-        yield* dispatch({
-          _tag: "SendTurn",
-          sessionId: child,
-          prompt: "Try it with a retry instead",
-          attachments: [],
-        });
+        yield* dispatch(
+          Command.cases.SendTurn.make({
+            sessionId: child,
+            prompt: "Try it with a retry instead",
+            attachments: [],
+          })
+        );
         const after = yield* waitFor((m) => m.sessions.get(child)?.session.state === "idle");
         const harness = codex.latest(child)!;
         expect(harness.options).toMatchObject({ cwd: path, resumeCursor: null });
@@ -440,12 +451,9 @@ describe("Fork", () => {
         expect(after.sessions.get(child)!.turns[0]!.prompt).toBe("Try it with a retry instead");
 
         // Later Turns resume the Fork's own cursor and get no preamble.
-        yield* dispatch({
-          _tag: "SendTurn",
-          sessionId: child,
-          prompt: "and more",
-          attachments: [],
-        });
+        yield* dispatch(
+          Command.cases.SendTurn.make({ sessionId: child, prompt: "and more", attachments: [] })
+        );
         yield* waitFor((m) => m.sessions.get(child)?.turns.length === 2);
         yield* waitUntil(() => harness.turns.length === 2);
         expect(harness.turns[1]!.prompt).toBe("and more");
@@ -482,26 +490,27 @@ describe("bounded buffers", () => {
             Effect.gen(function* () {
               items.push(item);
 
-              if (item._tag === "Synchronized") yield* Deferred.await(gate);
+              if (Predicate.isTagged(item, "Synchronized")) yield* Deferred.await(gate);
             })
         ).pipe(Effect.forkChild);
 
-        yield* waitUntil(() => items.some((i) => i._tag === "Synchronized"));
+        yield* waitUntil(() => items.some((i) => Predicate.isTagged(i, "Synchronized")));
         expect(yield* store.subscriberCount).toBe(baseline + 1);
 
         // Deltas never cost it the subscription: they stop being buffered at half capacity.
         for (let i = 0; i < 10_000; i++)
-          harness.emit({ _tag: "ItemDelta", turnId, itemId: "m1", field: "text", text: "x" });
+          harness.emit(HarnessEvents.ItemDelta({ turnId, itemId: "m1", field: "text", text: "x" }));
         yield* Effect.sleep(Duration.millis(50));
         expect(yield* store.subscriberCount).toBe(baseline + 1);
 
         // Committed events past the capacity drop it rather than skipping any.
         for (let i = 0; i < capacity * 4; i++)
-          harness.emit({
-            _tag: "ItemCompleted",
-            turnId,
-            item: { _tag: "AssistantMessage", id: `m${i}`, text: `${i}` },
-          });
+          harness.emit(
+            HarnessEvents.ItemCompleted({
+              turnId,
+              item: TurnItem.cases.AssistantMessage.make({ id: `m${i}`, text: `${i}` }),
+            })
+          );
         const deadline = Date.now() + 2000;
 
         while ((yield* store.subscriberCount) > baseline && Date.now() < deadline)
@@ -511,9 +520,15 @@ describe("bounded buffers", () => {
         // Released, it drains what was buffered (bounded), then its stream ends.
         yield* Deferred.succeed(gate, undefined);
         yield* Fiber.join(fiber);
-        const drained = items.slice(items.findIndex((i) => i._tag === "Synchronized") + 1);
+
+        const drained = items.slice(
+          items.findIndex((i) => Predicate.isTagged(i, "Synchronized")) + 1
+        );
+
         expect(drained.length).toBeLessThanOrEqual(capacity);
-        expect(drained.filter((i) => i._tag === "Delta").length).toBeLessThanOrEqual(capacity / 2);
+        expect(drained.filter((i) => Predicate.isTagged(i, "Delta")).length).toBeLessThanOrEqual(
+          capacity / 2
+        );
 
         // Let every item commit, then resume from the last sequence it saw: the replay
         // fills in the rest, with no gaps.
@@ -523,11 +538,15 @@ describe("bounded buffers", () => {
         );
 
         while ((yield* items64) < capacity * 4) yield* Effect.sleep(Duration.millis(5));
-        const seen = items.flatMap((i) => (i._tag === "Event" ? [i.envelope.sequence] : []));
+
+        const seen = items.flatMap((i) =>
+          Predicate.isTagged(i, "Event") ? [i.envelope.sequence] : []
+        );
+
         const snapshot = items[0]!;
 
-        if (snapshot._tag !== "Snapshot") throw new Error("expected a snapshot");
-        const last = (seen.at(-1) ?? snapshot.sequence) as Sequence;
+        if (!Predicate.isTagged(snapshot, "Snapshot")) throw new Error("expected a snapshot");
+        const last = seen.at(-1) ?? snapshot.sequence;
         const resumed: Array<SessionStreamItem> = [];
 
         const again = yield* Stream.runForEach(
@@ -535,10 +554,10 @@ describe("bounded buffers", () => {
           (item) => Effect.sync(() => void resumed.push(item))
         ).pipe(Effect.forkChild);
 
-        yield* waitUntil(() => resumed.some((i) => i._tag === "Synchronized"));
+        yield* waitUntil(() => resumed.some((i) => Predicate.isTagged(i, "Synchronized")));
 
         const replayed = resumed.flatMap((i) =>
-          i._tag === "Event" ? [i.envelope.sequence as number] : []
+          Predicate.isTagged(i, "Event") ? [Number(i.envelope.sequence)] : []
         );
 
         const all = [...seen.map(Number), ...replayed];
@@ -548,7 +567,7 @@ describe("bounded buffers", () => {
           after: snapshot.sequence,
           upTo: model.sequence,
           sessionId: s,
-        })).map((e) => e.sequence as number);
+        })).map((e) => Number(e.sequence));
 
         expect(all).toEqual(expected);
         yield* Fiber.interrupt(again);
@@ -574,7 +593,7 @@ describe("recent Turns in memory", () => {
 
         const turnAt = (index: number) =>
           new Turn({
-            id: `turn-${index}` as TurnId,
+            id: TurnId.make(`turn-${index}`),
             sessionId: s,
             index,
             prompt: `prompt ${index}`,
@@ -627,32 +646,35 @@ describe("recent Turns in memory", () => {
 
         const [full] = yield* snapshotOf(null);
 
-        if (full?._tag !== "Snapshot") throw new Error("expected a snapshot");
+        if (!Predicate.isTagged(full, "Snapshot")) throw new Error("expected a snapshot");
         expect(full.turns.map((t) => t.turn.index)).toEqual(
           Array.from({ length: total }, (_, i) => i)
         );
         const [limited] = yield* snapshotOf(RECENT_TURNS + 3);
 
-        if (limited?._tag !== "Snapshot") throw new Error("expected a snapshot");
+        if (!Predicate.isTagged(limited, "Snapshot")) throw new Error("expected a snapshot");
         expect(limited.turns.map((t) => t.turn.index)[0]).toBe(total - RECENT_TURNS - 3);
 
         // A new Turn gets the next index, not the in-memory count.
-        yield* dispatch({ _tag: "SendTurn", sessionId: s, prompt: "next", attachments: [] });
+        yield* dispatch(
+          Command.cases.SendTurn.make({ sessionId: s, prompt: "next", attachments: [] })
+        );
         const next = yield* waitFor((m) => m.sessions.get(s)?.session.turnCount === total + 1);
         expect(next.sessions.get(s)!.turns.at(-1)).toMatchObject({ index: total, prompt: "next" });
         expect(next.sessions.get(s)!.turns).toHaveLength(RECENT_TURNS);
 
         // Forking from a Turn no longer in memory still works.
-        yield* dispatch({
-          _tag: "ForkSession",
-          sessionId: sid("s-long-fork"),
-          fromSessionId: s,
-          fromTurnId: "turn-0" as TurnId,
-          harness: "codex",
-        });
+        yield* dispatch(
+          Command.cases.ForkSession.make({
+            sessionId: sid("s-long-fork"),
+            fromSessionId: s,
+            fromTurnId: TurnId.make("turn-0"),
+            harness: "codex",
+          })
+        );
         const forked = yield* waitFor((m) => m.sessions.has(sid("s-long-fork")));
         expect(forked.sessions.get(sid("s-long-fork"))!.session.forkedFromTurnId).toBe(
-          "turn-0" as TurnId
+          TurnId.make("turn-0")
         );
       })
     );
@@ -684,21 +706,20 @@ describe("upgrade", () => {
         const idleHarness = claude.latest(idle)!;
         const idleTurn = idleHarness.turns[0]!.turnId;
         idleHarness.emit(
-          { _tag: "CursorAssigned", cursor: "idle-cursor" },
-          { _tag: "TurnEnded", turnId: idleTurn, status: "completed", error: null }
+          HarnessEvents.CursorAssigned({ cursor: "idle-cursor" }),
+          HarnessEvents.TurnEnded({ turnId: idleTurn, status: "completed", error: null })
         );
         const busyHarness = claude.latest(busy)!;
         busyHarness.emit(
-          { _tag: "CursorAssigned", cursor: "busy-cursor" },
-          {
-            _tag: "ApprovalRequested",
+          HarnessEvents.CursorAssigned({ cursor: "busy-cursor" }),
+          HarnessEvents.ApprovalRequested({
             turnId: busyHarness.turns[0]!.turnId,
-            requestId: "req-up" as RequestId,
+            requestId: RequestId.make("req-up"),
             kind: "command",
             title: "Run",
             detail: null,
             options: [],
-          }
+          })
         );
         yield* waitFor(
           (m) =>
@@ -720,12 +741,14 @@ describe("upgrade", () => {
         expect(codex.latest(remote)!.closed).toBe(false);
 
         // They resume afterwards: Continue for the interrupted Turn, a new Turn for the other.
-        yield* dispatch({ _tag: "Continue", sessionId: busy });
+        yield* dispatch(Command.cases.Continue.make({ sessionId: busy }));
         yield* waitUntil(
           () => claude.sessions.filter((x) => x.options.sessionId === busy).length === 2
         );
         expect(claude.latest(busy)!.options.resumeCursor).toBe("busy-cursor");
-        yield* dispatch({ _tag: "SendTurn", sessionId: idle, prompt: "go on", attachments: [] });
+        yield* dispatch(
+          Command.cases.SendTurn.make({ sessionId: idle, prompt: "go on", attachments: [] })
+        );
         yield* waitUntil(
           () => claude.sessions.filter((x) => x.options.sessionId === idle).length === 2
         );

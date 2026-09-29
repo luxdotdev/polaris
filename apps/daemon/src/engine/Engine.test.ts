@@ -1,16 +1,20 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import type {
+import {
+  ApprovalDecision,
   Command,
-  HarnessKind,
-  HostStreamItem,
+  type HarnessKind,
+  type HostStreamItem,
   RequestId,
+  Sequence,
   SessionId,
-  SessionStreamItem,
-  TurnId,
-  Workspace,
+  SessionPlacement,
+  type SessionStreamItem,
+  type TurnId,
+  TurnItem,
+  type Workspace,
 } from "@polaris/protocol";
-import { Duration, Effect, Exit, Fiber, type Layer, Stream } from "effect";
+import { Duration, Effect, Exit, Fiber, type Layer, Predicate, Stream } from "effect";
 import { EventStore } from "../store/EventStore.ts";
 import { CONTINUE_PROMPT } from "./decider.ts";
 import { Engine } from "./Engine.ts";
@@ -20,6 +24,7 @@ import {
   engineLayer,
   type FakeDriver,
   fakeRepo,
+  HarnessEvents,
   makeFakeDriver,
   makeFakes,
   tempDir,
@@ -30,16 +35,16 @@ import {
 type Env = Engine | EventStore;
 
 const run = <A, E>(layer: Layer.Layer<Env>, program: Effect.Effect<A, E, Env>) =>
-  Effect.runPromise(program.pipe(Effect.provide(layer)) as Effect.Effect<A, E>);
+  Effect.runPromise(program.pipe(Effect.provide(layer)));
 
-const sid = (s: string) => s as SessionId;
+const sid = (s: string) => SessionId.make(s);
 
 const dispatch = (command: Command, deviceLabel = "MacBook") =>
   Effect.flatMap(Engine, (engine) => engine.dispatch({ commandId: cid(), command, deviceLabel }));
 
 const registerWorkspace = Effect.gen(function* () {
   const repo = fakeRepo();
-  yield* dispatch({ _tag: "RegisterWorkspace", path: repo, name: null });
+  yield* dispatch(Command.cases.RegisterWorkspace.make({ path: repo, name: null }));
   const model = yield* waitFor((m) => [...m.workspaces.values()].some((w) => w.path === repo));
 
   return [...model.workspaces.values()].find((w) => w.path === repo)!;
@@ -49,19 +54,20 @@ const startSession = (
   workspace: Workspace,
   sessionId: SessionId,
   harness: HarnessKind = "claude",
-  placement: Extract<Command, { _tag: "StartSession" }>["placement"] = { _tag: "InPlace" }
+  placement: SessionPlacement = SessionPlacement.cases.InPlace.make({})
 ) =>
-  dispatch({
-    _tag: "StartSession",
-    sessionId,
-    workspaceId: workspace.id,
-    harness,
-    placement,
-    permissionMode: "supervised",
-    model: null,
-    prompt: "Fix the flaky test",
-    attachments: [],
-  });
+  dispatch(
+    Command.cases.StartSession.make({
+      sessionId,
+      workspaceId: workspace.id,
+      harness,
+      placement,
+      permissionMode: "supervised",
+      model: null,
+      prompt: "Fix the flaky test",
+      attachments: [],
+    })
+  );
 
 const setup = (options: { drivers: ReadonlyArray<FakeDriver>; idleTimeout?: Duration.Input }) => {
   const fakes = makeFakes();
@@ -81,7 +87,7 @@ describe("commands", () => {
         const store = yield* EventStore;
         const repo = fakeRepo();
         const commandId = cid();
-        const command: Command = { _tag: "RegisterWorkspace", path: repo, name: "repo" };
+        const command: Command = Command.cases.RegisterWorkspace.make({ path: repo, name: "repo" });
         const first = yield* engine.dispatch({ commandId, command, deviceLabel: "a" });
         const second = yield* engine.dispatch({ commandId, command, deviceLabel: "a" });
         expect(first.sequence).not.toBeNull();
@@ -94,11 +100,10 @@ describe("commands", () => {
         // the same command under a fresh id would now succeed.
         const rejectedId = cid();
 
-        const missing: Command = {
-          _tag: "RegisterWorkspace",
+        const missing: Command = Command.cases.RegisterWorkspace.make({
           path: join(repo, "nope"),
           name: null,
-        };
+        });
 
         const r1 = yield* Effect.flip(
           engine.dispatch({ commandId: rejectedId, command: missing, deviceLabel: "a" })
@@ -127,15 +132,17 @@ describe("commands", () => {
         yield* waitFor((m) => m.sessions.get(s)?.session.state === "working");
 
         const busy = yield* Effect.flip(
-          dispatch({ _tag: "SendTurn", sessionId: s, prompt: "more", attachments: [] })
+          dispatch(Command.cases.SendTurn.make({ sessionId: s, prompt: "more", attachments: [] }))
         );
 
         expect(busy._tag).toBe("CommandRejected");
-        const cont = yield* Effect.flip(dispatch({ _tag: "Continue", sessionId: s }));
+        const cont = yield* Effect.flip(dispatch(Command.cases.Continue.make({ sessionId: s })));
         expect(cont._tag).toBe("CommandRejected");
 
         const missing = yield* Effect.flip(
-          dispatch({ _tag: "SendTurn", sessionId: sid("nope"), prompt: "x", attachments: [] })
+          dispatch(
+            Command.cases.SendTurn.make({ sessionId: sid("nope"), prompt: "x", attachments: [] })
+          )
         );
 
         expect(missing._tag).toBe("NotFound");
@@ -177,10 +184,10 @@ describe("commands", () => {
         const s = sid("s-title");
         yield* startSession(workspace, s);
         yield* waitFor((m) => m.sessions.get(s)?.session.state === "working");
-        claude.latest(s)!.emit({ _tag: "TitleSuggested", title: "Stabilize CI" });
+        claude.latest(s)!.emit(HarnessEvents.TitleSuggested({ title: "Stabilize CI" }));
         yield* waitFor((m) => m.sessions.get(s)?.session.title === "Stabilize CI");
-        yield* dispatch({ _tag: "RenameSession", sessionId: s, title: "Mine" });
-        claude.latest(s)!.emit({ _tag: "TitleSuggested", title: "Something else" });
+        yield* dispatch(Command.cases.RenameSession.make({ sessionId: s, title: "Mine" }));
+        claude.latest(s)!.emit(HarnessEvents.TitleSuggested({ title: "Something else" }));
         yield* Effect.sleep(Duration.millis(30));
         const model = yield* waitFor((m) => m.sessions.get(s)?.session.title === "Mine");
         expect(model.sessions.get(s)!.titleLocked).toBe(true);
@@ -203,26 +210,26 @@ describe("approvals", () => {
         yield* waitFor((m) => m.sessions.get(s)?.session.state === "working");
         const harness = codex.latest(s)!;
         const turnId = harness.turns[0]!.turnId;
-        const requestId = "req-1" as RequestId;
-        harness.emit({
-          _tag: "ApprovalRequested",
-          turnId,
-          requestId,
-          kind: "command",
-          title: "Run bun test",
-          detail: null,
-          options: [],
-        });
+        const requestId = RequestId.make("req-1");
+        harness.emit(
+          HarnessEvents.ApprovalRequested({
+            turnId,
+            requestId,
+            kind: "command",
+            title: "Run bun test",
+            detail: null,
+            options: [],
+          })
+        );
         yield* waitFor((m) => m.sessions.get(s)?.session.state === "needs-you");
 
         const answer = (device: string) =>
           dispatch(
-            {
-              _tag: "RespondToApproval",
+            Command.cases.RespondToApproval.make({
               sessionId: s,
               requestId,
-              decision: { _tag: "Allow", remember: false },
-            },
+              decision: ApprovalDecision.cases.Allow.make({ remember: false }),
+            }),
             device
           ).pipe(Effect.exit);
 
@@ -239,7 +246,7 @@ describe("approvals", () => {
         const model = yield* waitFor((m) => m.sessions.get(s)?.session.state === "working");
         expect(model.sessions.get(s)!.pending.size).toBe(0);
         const events = yield* store.readEvents({ after: 0, upTo: model.sequence, sessionId: s });
-        const resolved = events.filter((e) => e.event._tag === "ApprovalResolved");
+        const resolved = events.filter((e) => Predicate.isTagged(e.event, "ApprovalResolved"));
         expect(resolved).toHaveLength(1);
         expect(resolved[0]!.event).toMatchObject({ resolvedBy: winnerLabel });
         yield* waitUntil(() => harness.responses.length === 1);
@@ -266,7 +273,7 @@ describe("streams", () => {
 
         const writes = yield* Effect.forEach(
           Array.from({ length: 80 }, (_, i) => i),
-          (i) => dispatch({ _tag: "RenameSession", sessionId: s, title: `title ${i}` }),
+          (i) => dispatch(Command.cases.RenameSession.make({ sessionId: s, title: `title ${i}` })),
           { concurrency: 8 }
         ).pipe(Effect.forkChild);
 
@@ -275,12 +282,17 @@ describe("streams", () => {
         const hostItems: Array<HostStreamItem> = [];
         const sessionItems: Array<SessionStreamItem> = [];
 
-        const hostFiber = yield* Stream.runForEach(engine.subscribeHost(base as never), (item) =>
-          Effect.sync(() => void hostItems.push(item))
+        const hostFiber = yield* Stream.runForEach(
+          engine.subscribeHost(Sequence.make(base)),
+          (item) => Effect.sync(() => void hostItems.push(item))
         ).pipe(Effect.forkChild);
 
         const sessionFiber = yield* Stream.runForEach(
-          engine.subscribeSession({ sessionId: s, afterSequence: base as never, turnLimit: null }),
+          engine.subscribeSession({
+            sessionId: s,
+            afterSequence: Sequence.make(base),
+            turnLimit: null,
+          }),
           (item) => Effect.sync(() => void sessionItems.push(item))
         ).pipe(Effect.forkChild);
 
@@ -288,9 +300,9 @@ describe("streams", () => {
         const final = (yield* store.model).sequence;
         expect(final).toBe(base + 80);
 
-        const seqs = (items: ReadonlyArray<HostStreamItem | SessionStreamItem>) =>
+        const seqs = (items: ReadonlyArray<HostStreamItem | SessionStreamItem>): Array<number> =>
           items.flatMap((item) =>
-            item._tag === "Event" ? [item.envelope.sequence as number] : []
+            Predicate.isTagged(item, "Event") ? [item.envelope.sequence] : []
           );
 
         yield* waitUntil(
@@ -302,8 +314,8 @@ describe("streams", () => {
         const expected = Array.from({ length: 80 }, (_, i) => base + 1 + i);
         expect(seqs(hostItems)).toEqual(expected);
         expect(seqs(sessionItems)).toEqual(expected);
-        expect(hostItems.filter((i) => i._tag === "Synchronized")).toHaveLength(1);
-        expect(hostItems.some((i) => i._tag === "Snapshot")).toBe(false);
+        expect(hostItems.filter((i) => Predicate.isTagged(i, "Synchronized"))).toHaveLength(1);
+        expect(hostItems.some((i) => Predicate.isTagged(i, "Snapshot"))).toBe(false);
       })
     );
   });
@@ -323,30 +335,26 @@ describe("streams", () => {
         const turnId = harness.turns[0]!.turnId;
         // The Claude driver completes a tool item twice under one id: it must show once.
         harness.emit(
-          {
-            _tag: "ItemCompleted",
+          HarnessEvents.ItemCompleted({
             turnId,
-            item: {
-              _tag: "ToolCall",
+            item: TurnItem.cases.ToolCall.make({
               id: "t1",
               name: "Read",
               input: {},
               output: null,
               status: "running",
-            },
-          },
-          {
-            _tag: "ItemCompleted",
+            }),
+          }),
+          HarnessEvents.ItemCompleted({
             turnId,
-            item: {
-              _tag: "ToolCall",
+            item: TurnItem.cases.ToolCall.make({
               id: "t1",
               name: "Read",
               input: {},
               output: "ok",
               status: "completed",
-            },
-          }
+            }),
+          })
         );
         yield* Effect.sleep(Duration.millis(30));
 
@@ -357,23 +365,26 @@ describe("streams", () => {
           (item) => Effect.sync(() => void items.push(item))
         ).pipe(Effect.forkChild);
 
-        yield* waitUntil(() => items.some((i) => i._tag === "Synchronized"));
-        harness.emit({ _tag: "ItemDelta", turnId, itemId: "m1", field: "text", text: "Hel" });
-        harness.emit({ _tag: "TurnEnded", turnId, status: "completed", error: null });
+        yield* waitUntil(() => items.some((i) => Predicate.isTagged(i, "Synchronized")));
+        harness.emit(HarnessEvents.ItemDelta({ turnId, itemId: "m1", field: "text", text: "Hel" }));
+        harness.emit(HarnessEvents.TurnEnded({ turnId, status: "completed", error: null }));
         yield* waitUntil(() =>
-          items.some((i) => i._tag === "Event" && i.envelope.event._tag === "TurnEnded")
+          items.some(
+            (i) =>
+              Predicate.isTagged(i, "Event") && Predicate.isTagged(i.envelope.event, "TurnEnded")
+          )
         );
         yield* Fiber.interrupt(fiber);
 
         const snapshot = items[0]!;
         expect(snapshot._tag).toBe("Snapshot");
 
-        if (snapshot._tag !== "Snapshot") return;
+        if (!Predicate.isTagged(snapshot, "Snapshot")) return;
         expect(snapshot.turns).toHaveLength(1);
         expect(snapshot.turns[0]!.items).toHaveLength(1);
         expect(snapshot.turns[0]!.items[0]).toMatchObject({ id: "t1", status: "completed" });
         expect(items[1]!._tag).toBe("Synchronized");
-        expect(items.some((i) => i._tag === "Delta" && i.text === "Hel")).toBe(true);
+        expect(items.some((i) => Predicate.isTagged(i, "Delta") && i.text === "Hel")).toBe(true);
 
         const missing = yield* engine
           .subscribeSession({ sessionId: sid("nope"), afterSequence: null, turnLimit: null })
@@ -400,7 +411,9 @@ describe("supervision", () => {
         expect(claude.sessions).toHaveLength(1);
         expect(claude.sessions[0]!.closed).toBe(true);
 
-        yield* dispatch({ _tag: "SendTurn", sessionId: s, prompt: "and again", attachments: [] });
+        yield* dispatch(
+          Command.cases.SendTurn.make({ sessionId: s, prompt: "and again", attachments: [] })
+        );
 
         const model = yield* waitFor(
           (m) =>
@@ -424,7 +437,7 @@ describe("supervision", () => {
         const s = sid("s-crash");
         yield* startSession(workspace, s, "codex");
         yield* waitFor((m) => m.sessions.get(s)?.session.state === "working");
-        codex.latest(s)!.emit({ _tag: "Exited", error: "segfault" });
+        codex.latest(s)!.emit(HarnessEvents.Exited({ error: "segfault" }));
         const model = yield* waitFor((m) => m.sessions.get(s)?.session.state === "failed");
         expect(model.sessions.get(s)!.session.lastError).toBe("segfault");
         expect(model.sessions.get(s)!.turns[0]!.status).toBe("failed");
@@ -450,8 +463,8 @@ describe("supervision", () => {
             m.sessions.get(a)?.session.state === "idle" &&
             m.sessions.get(b)?.session.state === "idle"
         );
-        yield* dispatch({ _tag: "OpenInTerminal", sessionId: a });
-        yield* dispatch({ _tag: "OpenInTerminal", sessionId: b });
+        yield* dispatch(Command.cases.OpenInTerminal.make({ sessionId: a }));
+        yield* dispatch(Command.cases.OpenInTerminal.make({ sessionId: b }));
         yield* waitUntil(() => claude.sessions[0]!.closed);
         yield* waitFor((m) => m.sessions.get(b)?.session.state === "in-terminal");
         yield* Effect.sleep(Duration.millis(20));
@@ -463,13 +476,13 @@ describe("supervision", () => {
         });
 
         const rejected = yield* Effect.flip(
-          dispatch({ _tag: "SendTurn", sessionId: a, prompt: "x", attachments: [] })
+          dispatch(Command.cases.SendTurn.make({ sessionId: a, prompt: "x", attachments: [] }))
         );
 
         expect(rejected._tag).toBe("CommandRejected");
 
-        yield* dispatch({ _tag: "ReturnFromTerminal", sessionId: a });
-        yield* dispatch({ _tag: "ReturnFromTerminal", sessionId: b });
+        yield* dispatch(Command.cases.ReturnFromTerminal.make({ sessionId: a }));
+        yield* dispatch(Command.cases.ReturnFromTerminal.make({ sessionId: b }));
         yield* waitFor(
           (m) =>
             m.sessions.get(a)?.session.state === "idle" &&
@@ -507,16 +520,15 @@ describe("restart recovery", () => {
         const harness = codex1.latest(s1)!;
         turnId = harness.turns[0]!.turnId;
         harness.emit(
-          { _tag: "CursorAssigned", cursor: "thread-9" },
-          {
-            _tag: "ApprovalRequested",
+          HarnessEvents.CursorAssigned({ cursor: "thread-9" }),
+          HarnessEvents.ApprovalRequested({
             turnId,
-            requestId: "req-9" as RequestId,
+            requestId: RequestId.make("req-9"),
             kind: "file-change",
             title: "Edit a file",
             detail: null,
             options: [],
-          }
+          })
         );
         yield* waitFor((m) => m.sessions.get(s1)?.session.state === "needs-you");
         // The Daemon goes away here: the layer closes without the Harness reporting anything.
@@ -539,7 +551,7 @@ describe("restart recovery", () => {
         expect(codex2.sessions).toHaveLength(0);
         expect(claude2.sessions).toHaveLength(0);
 
-        yield* dispatch({ _tag: "Continue", sessionId: s1 });
+        yield* dispatch(Command.cases.Continue.make({ sessionId: s1 }));
         yield* waitFor((m) => m.sessions.get(s1)?.session.state === "working");
         const resumed = codex2.latest(s1)!;
         expect(resumed.options.resumeCursor).toBe("thread-9");
@@ -565,13 +577,14 @@ describe("fork and archive", () => {
         const model = yield* waitFor((m) => m.sessions.get(parent)?.session.state === "idle");
         const turnId = model.sessions.get(parent)!.turns[0]!.id;
         const child = sid("s-child");
-        yield* dispatch({
-          _tag: "ForkSession",
-          sessionId: child,
-          fromSessionId: parent,
-          fromTurnId: turnId,
-          harness: "codex",
-        });
+        yield* dispatch(
+          Command.cases.ForkSession.make({
+            sessionId: child,
+            fromSessionId: parent,
+            fromTurnId: turnId,
+            harness: "codex",
+          })
+        );
         const after = yield* waitFor((m) => m.sessions.has(child));
         const fork = after.sessions.get(child)!.session;
         expect(fork).toMatchObject({
@@ -587,7 +600,7 @@ describe("fork and archive", () => {
           .pipe(Stream.take(1), Stream.runCollect);
 
         expect(
-          snapshot?._tag === "Snapshot" && snapshot.sessions.map((x) => x.session.id)
+          Predicate.isTagged(snapshot, "Snapshot") && snapshot.sessions.map((x) => x.session.id)
         ).toContain(child);
       })
     );
@@ -601,11 +614,12 @@ describe("fork and archive", () => {
       Effect.gen(function* () {
         const workspace = yield* registerWorkspace;
         const s = sid("s-archive");
-        yield* startSession(workspace, s, "claude", {
-          _tag: "NewWorktree",
-          branch: "fix/flaky",
-          baseRef: null,
-        });
+        yield* startSession(
+          workspace,
+          s,
+          "claude",
+          SessionPlacement.cases.NewWorktree.make({ branch: "fix/flaky", baseRef: null })
+        );
         const model = yield* waitFor((m) => m.sessions.get(s)?.session.state === "idle");
         const cwd = join(workspace.worktreeRoot, "fix/flaky");
         expect(model.sessions.get(s)!.session.cwd).toBe(cwd);
@@ -613,7 +627,9 @@ describe("fork and archive", () => {
         const worktree = model.worktrees.get(model.sessions.get(s)!.session.worktreeId!)!;
         expect(worktree).toMatchObject({ path: cwd, branch: "fix/flaky", createdBySessionId: s });
 
-        yield* dispatch({ _tag: "ArchiveSession", sessionId: s, deleteMergedBranch: false });
+        yield* dispatch(
+          Command.cases.ArchiveSession.make({ sessionId: s, deleteMergedBranch: false })
+        );
         yield* waitFor(
           (m) => m.sessions.get(s)?.session.state === "archived" && m.worktrees.size === 0
         );
@@ -625,12 +641,12 @@ describe("fork and archive", () => {
         expect(claude.latest(s)!.closed).toBe(true);
 
         const again = yield* Effect.flip(
-          dispatch({ _tag: "ArchiveSession", sessionId: s, deleteMergedBranch: false })
+          dispatch(Command.cases.ArchiveSession.make({ sessionId: s, deleteMergedBranch: false }))
         );
 
         expect(again._tag).toBe("CommandRejected");
         // Unarchive brings the Worktree back from the branch Archive kept.
-        yield* dispatch({ _tag: "UnarchiveSession", sessionId: s });
+        yield* dispatch(Command.cases.UnarchiveSession.make({ sessionId: s }));
 
         const restored = yield* waitFor(
           (m) => m.sessions.get(s)?.session.state === "dormant" && m.worktrees.size === 1
@@ -646,7 +662,9 @@ describe("fork and archive", () => {
           branch: "fix/flaky",
           createdBySessionId: s,
         });
-        yield* dispatch({ _tag: "SendTurn", sessionId: s, prompt: "again", attachments: [] });
+        yield* dispatch(
+          Command.cases.SendTurn.make({ sessionId: s, prompt: "again", attachments: [] })
+        );
         yield* waitFor((m) => m.sessions.get(s)?.session.state === "idle");
         expect(claude.latest(s)!.options.cwd).toBe(cwd);
       })

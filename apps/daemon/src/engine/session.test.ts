@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  ApprovalDecision,
   ApprovalRequest,
   DomainEvent,
   RequestId,
@@ -7,7 +8,7 @@ import {
   Turn,
   TurnId,
 } from "@polaris/protocol";
-import { getAdjacencyMap } from "xstate/graph";
+import { adjacencyMapToArray, getAdjacencyMap } from "xstate/graph";
 import { foldSession, type SessionRecord, workingTurn } from "../store/model.ts";
 import {
   ALL_STEPS,
@@ -59,35 +60,57 @@ const requestFor = (turnId: TurnId, id = "r-legacy") =>
     openedAt: AT,
   });
 
+/** A new Turn in flight, otherwise like `from`. */
+const workingCopy = (from: Turn, id: string, index: number) =>
+  new Turn({
+    id: TurnId.make(id),
+    sessionId: from.sessionId,
+    index,
+    prompt: from.prompt,
+    attachments: from.attachments,
+    status: "working",
+    checkpointBefore: from.checkpointBefore,
+    checkpointAfter: from.checkpointAfter,
+    startedAt: from.startedAt,
+    endedAt: null,
+  });
+
 const records = (snapshots: ReadonlyArray<ModelSnapshot>): ReadonlyArray<SessionRecord> =>
   snapshots.flatMap((s) => (s.machine.context.record === null ? [] : [s.machine.context.record]));
 
 /** Every snapshot the model reaches, with every Step tried from it. */
 const everyEdge = (options: ModelOptions) => {
-  const adjacency = getAdjacencyMap(modelLogic(options), {
-    events: ALL_STEPS as never,
-    serializeState: serialize as never,
-  }) as unknown as Record<string, { readonly state: ModelSnapshot }>;
+  const adjacency = getAdjacencyMap<ModelSnapshot, Step, unknown>(modelLogic(options), {
+    events: ALL_STEPS,
+    serializeState: serialize,
+  });
 
-  return Object.values(adjacency).map((vertex) => vertex.state);
+  // Every Step is tried from every snapshot, so each one is the source of some edge.
+  const vertices = new Map(
+    adjacencyMapToArray(adjacency).map(({ state }) => [serialize(state), state])
+  );
+
+  return [...vertices.values()];
 };
 
 describe("session machine", () => {
   test("reaches all eight Session States", () => {
     for (const options of [claude, codex]) {
       const states = new Set(everyEdge(options).map((s) => stateOf(s.machine)));
-      expect([...states].sort() as Array<string>).toEqual(
-        [
-          "new",
-          "starting",
-          "working",
-          "needs-you",
-          "idle",
-          "in-terminal",
-          "dormant",
-          "failed",
-          "archived",
-        ]
+      expect([...states].sort()).toEqual(
+        (
+          [
+            "new",
+            "starting",
+            "working",
+            "needs-you",
+            "idle",
+            "in-terminal",
+            "dormant",
+            "failed",
+            "archived",
+          ] satisfies Array<SessionState | "new">
+        )
           .filter((s) => s !== "starting") // transient: the Engine opens the Harness at once
           .sort()
       );
@@ -184,13 +207,7 @@ describe("session machine", () => {
 
       const sent = decideSession(dormant, {
         type: "turn.send",
-        turn: new Turn({
-          ...dormant.turns.at(-1)!,
-          id: TurnId.make("t-starting"),
-          index: dormant.session.turnCount,
-          status: "working",
-          endedAt: null,
-        }),
+        turn: workingCopy(dormant.turns.at(-1)!, "t-starting", dormant.session.turnCount),
       }).next.context.record!;
 
       expect(sent.session.state).toBe("starting");
@@ -251,7 +268,7 @@ describe("session machine", () => {
       const answered = decideSession(stuck, {
         type: "approval.respond",
         requestId: RequestId.make("r-legacy"),
-        decision: { _tag: "Allow", remember: false },
+        decision: ApprovalDecision.cases.Allow.make({ remember: false }),
         resolvedBy: "mac",
       });
 
@@ -260,13 +277,7 @@ describe("session machine", () => {
       expect(after.session.state).toBe("needs-you");
 
       // …and it takes a new Turn.
-      const next = new Turn({
-        ...ended,
-        id: TurnId.make("t-next"),
-        index: after.session.turnCount,
-        status: "working",
-        endedAt: null,
-      });
+      const next = workingCopy(ended, "t-next", after.session.turnCount);
 
       expect(decideSession(after, { type: "turn.send", turn: next }).rejection).toBeNull();
 

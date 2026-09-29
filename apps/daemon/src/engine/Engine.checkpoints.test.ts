@@ -6,7 +6,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import type { Command, SessionId, TurnId, Workspace } from "@polaris/protocol";
+import { Command, SessionId, SessionPlacement, type Workspace } from "@polaris/protocol";
 import { Duration, Effect, type Layer } from "effect";
 import { gitText } from "../git/git.ts";
 import { type CheckpointPolicy, listCheckpointRefs } from "../git/prune.ts";
@@ -26,9 +26,9 @@ import {
 type Env = Engine | EventStore;
 
 const run = <A, E>(layer: Layer.Layer<Env>, program: Effect.Effect<A, E, Env>) =>
-  Effect.runPromise(program.pipe(Effect.provide(layer)) as Effect.Effect<A, E>);
+  Effect.runPromise(program.pipe(Effect.provide(layer)));
 
-const sid = (s: string) => s as SessionId;
+const sid = (s: string) => SessionId.make(s);
 
 const dispatch = (command: Command) =>
   Effect.flatMap(Engine, (engine) =>
@@ -43,22 +43,21 @@ const setup = (options: {
 }) => {
   const claude = makeFakeDriver("claude", { onTurn: completesTurns() });
 
-  const layer = engineLayer({
+  const base = {
     filename: join(tempDir(), "state.sqlite"),
     fakes: makeFakes(),
     drivers: [claude],
     checkpointPolicy: options.policy,
-    ...(options.sweepInterval === undefined
-      ? {}
-      : { checkpointSweepInterval: options.sweepInterval }),
-  });
+  };
 
-  return layer;
+  if (options.sweepInterval === undefined) return engineLayer(base);
+
+  return engineLayer({ ...base, checkpointSweepInterval: options.sweepInterval });
 };
 
 const registerWorkspace = (repo: string) =>
   Effect.gen(function* () {
-    yield* dispatch({ _tag: "RegisterWorkspace", path: repo, name: null });
+    yield* dispatch(Command.cases.RegisterWorkspace.make({ path: repo, name: null }));
     const model = yield* waitFor((m) => [...m.workspaces.values()].some((w) => w.path === repo));
 
     return [...model.workspaces.values()].find((w) => w.path === repo)!;
@@ -67,21 +66,24 @@ const registerWorkspace = (repo: string) =>
 /** Start a session and run `turns` Turns to completion; returns their ids in order. */
 const sessionWithTurns = (workspace: Workspace, sessionId: SessionId, turns: number) =>
   Effect.gen(function* () {
-    yield* dispatch({
-      _tag: "StartSession",
-      sessionId,
-      workspaceId: workspace.id,
-      harness: "claude",
-      placement: { _tag: "InPlace" },
-      permissionMode: "supervised",
-      model: null,
-      prompt: "turn 0",
-      attachments: [],
-    });
+    yield* dispatch(
+      Command.cases.StartSession.make({
+        sessionId,
+        workspaceId: workspace.id,
+        harness: "claude",
+        placement: SessionPlacement.cases.InPlace.make({}),
+        permissionMode: "supervised",
+        model: null,
+        prompt: "turn 0",
+        attachments: [],
+      })
+    );
     yield* waitFor((m) => m.sessions.get(sessionId)?.turns[0]?.status === "completed");
 
     for (let i = 1; i < turns; i++) {
-      yield* dispatch({ _tag: "SendTurn", sessionId, prompt: `turn ${i}`, attachments: [] });
+      yield* dispatch(
+        Command.cases.SendTurn.make({ sessionId, prompt: `turn ${i}`, attachments: [] })
+      );
       yield* waitFor(
         (m) =>
           m.sessions.get(sessionId)?.turns.length === i + 1 &&
@@ -116,7 +118,7 @@ const refsOf = (repo: string, sessionId: string) =>
 
 const archive = (sessionId: SessionId) =>
   Effect.gen(function* () {
-    yield* dispatch({ _tag: "ArchiveSession", sessionId, deleteMergedBranch: false });
+    yield* dispatch(Command.cases.ArchiveSession.make({ sessionId, deleteMergedBranch: false }));
     yield* waitFor((m) => m.sessions.get(sessionId)?.session.state === "archived");
   });
 
@@ -136,13 +138,14 @@ describe("checkpoint pruning", () => {
           const otherTurns = yield* sessionWithTurns(workspace, other, 2);
           yield* createRefs(repo, parent, turns);
           yield* createRefs(repo, other, otherTurns);
-          yield* dispatch({
-            _tag: "ForkSession",
-            sessionId: sid("s-ck-fork"),
-            fromSessionId: parent,
-            fromTurnId: turns[1]! as TurnId,
-            harness: "claude",
-          });
+          yield* dispatch(
+            Command.cases.ForkSession.make({
+              sessionId: sid("s-ck-fork"),
+              fromSessionId: parent,
+              fromTurnId: turns[1]!,
+              harness: "claude",
+            })
+          );
           yield* waitFor((m) => m.sessions.has(sid("s-ck-fork")));
 
           yield* archive(parent);
@@ -228,7 +231,7 @@ describe("checkpoint pruning", () => {
           yield* archive(s);
           expect(yield* refsOf(repo, s)).toHaveLength(4);
 
-          yield* dispatch({ _tag: "RemoveWorkspace", workspaceId: workspace.id });
+          yield* dispatch(Command.cases.RemoveWorkspace.make({ workspaceId: workspace.id }));
           yield* waitFor((m) => !m.workspaces.has(workspace.id));
           const deadline = Date.now() + 3000;
 

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { TurnItem } from "@polaris/protocol";
 import { FORK_CONTEXT_BUDGET, finalReply, forkPreamble } from "./fork.ts";
 
 describe("forkPreamble", () => {
@@ -39,10 +40,10 @@ describe("forkPreamble", () => {
     expect(finalReply(undefined)).toBeNull();
     expect(
       finalReply([
-        { _tag: "AssistantMessage", id: "a", text: "first" },
-        { _tag: "Reasoning", id: "r", text: "hmm" },
-        { _tag: "AssistantMessage", id: "b", text: "last" },
-        { _tag: "AssistantMessage", id: "c", text: "  " },
+        TurnItem.cases.AssistantMessage.make({ id: "a", text: "first" }),
+        TurnItem.cases.Reasoning.make({ id: "r", text: "hmm" }),
+        TurnItem.cases.AssistantMessage.make({ id: "b", text: "last" }),
+        TurnItem.cases.AssistantMessage.make({ id: "c", text: "  " }),
       ])
     ).toBe("last");
   });
