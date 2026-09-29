@@ -16,17 +16,28 @@ const listeners = new Map<number, SubscriptionListener<unknown>>();
 
 let nextId = 1;
 
+/** One listener's failure must not stop the rest of the batch from being delivered. */
+const deliver = (run: () => void) => {
+  try {
+    run();
+  } catch (cause) {
+    console.error("polaris: a subscription listener threw", cause);
+  }
+};
+
 ipcRenderer.on(CHANNELS.batch, (_event, entries: ReadonlyArray<BatchEntry>) => {
   for (const entry of entries) {
     const listener = listeners.get(entry.id);
 
     if (listener === undefined) continue;
 
-    if (entry.items.length > 0) listener.items(entry.items);
+    if (entry.items.length > 0) deliver(() => listener.items(entry.items));
 
     if (entry.end !== undefined) {
       listeners.delete(entry.id);
-      listener.end?.(entry.end);
+      const end = entry.end;
+
+      deliver(() => listener.end?.(end));
     }
   }
 });

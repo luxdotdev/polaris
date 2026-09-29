@@ -8,12 +8,13 @@
  *
  * Runs under Node: Playwright's Electron launcher does not connect under Bun.
  */
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { _electron as electron, type Page } from "playwright-core";
 import { spawnSync } from "node:child_process";
-import { APP_DIR, electronBinary } from "./lib/electron.ts";
+import { APP_DIR, electronBinary, OUT_DIR, REPO_ROOT } from "./lib/electron.ts";
+import { probeSource } from "./lib/probe.ts";
 import { startDaemon } from "./lib/daemon.ts";
 
 const args = process.argv.slice(2);
@@ -28,6 +29,16 @@ const option = (name: string) => {
 
 const screenshots = option("--screenshots");
 
+/** The renderer bundle: large enough that `files.read` sends it as a blob. */
+const bigAsset = () => {
+  const dir = join(OUT_DIR, "renderer/assets");
+  const js = readdirSync(dir).find((f) => f.endsWith(".js"));
+
+  if (js === undefined) throw new Error("build the renderer first");
+
+  return join(dir, js);
+};
+
 const step = (message: string) => console.log(`smoke: ${message}`);
 
 if (flag("--build")) {
@@ -39,6 +50,16 @@ const home = mkdtempSync(join(tmpdir(), "polaris-smoke-"));
 const userData = join(home, "user-data");
 
 const daemon = await startDaemon({ home, benchHarness: true });
+
+const UNREACHABLE = "polaris-smoke.invalid";
+
+// A remote Host that can't be reached: it must show a Connection State, never block the app.
+mkdirSync(userData, { recursive: true });
+
+writeFileSync(
+  join(userData, "settings.json"),
+  JSON.stringify({ hosts: [{ alias: UNREACHABLE, label: "Nowhere" }] })
+);
 
 step(`Daemon up at ${daemon.socketPath}`);
 
@@ -87,6 +108,13 @@ try {
     .waitFor({ timeout: 15_000 });
   step("local Host connected");
 
+  const remote = page.getByTestId(`connection-${UNREACHABLE}`);
+
+  await remote
+    .filter({ hasText: /^(reconnecting|needs attention|offline)$/ })
+    .waitFor({ timeout: 20_000 });
+  step(`unreachable remote Host: ${await remote.textContent()}`);
+
   await page.getByRole("button", { name: "Start proof session" }).click();
   await page.getByTestId("session-panel").waitFor({ timeout: 15_000 });
   step("proof session open");
@@ -110,6 +138,22 @@ try {
 
   if (items !== "6 items") throw new Error(`expected 6 items, saw ${items}`);
   await shoot(page, "light");
+
+  const probe = await Promise.race([
+    page.evaluate(probeSource({ bigFile: bigAsset(), repo: REPO_ROOT })),
+    new Promise((_, reject) =>
+      setTimeout(async () => {
+        const steps = await page.evaluate("JSON.stringify(window.__probeSteps)");
+
+        reject(new Error(`RPC probe timed out after ${String(steps)}`));
+      }, 20_000)
+    ),
+  ]);
+
+  step(`RPC round trips: ${JSON.stringify(probe)}`);
+
+  if (!JSON.stringify(probe).includes('"terminal":true'))
+    throw new Error("terminal output missing");
 
   if (consoleErrors.length > 0) throw new Error(`renderer errors:\n${consoleErrors.join("\n")}`);
   step("ok");
