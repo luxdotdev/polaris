@@ -181,7 +181,7 @@ def wash(hue,ground,name,w=40,h=40,seed=3,strength=(0.10,0.42)):
     pal=['#%02x%02x%02x'%tuple(int(t) for t in s) for s in steps]
     img=quant(v,pal,xs,ys)
     save(img,name,4,'washes')
-for seed,(hue,n) in enumerate([('#D97757','claude'),('#6FCBA0','codex'),('#9DBAF5','starlight'),('#F2C84B','needs')]):
+for seed,(hue,n) in enumerate([('#D97757','claude'),('#6FCBA0','codex'),('#9DBAF5','starlight'),('#F2C84B','needs'),('#E58FA8','opencode')]):
     wash(hue,'#222327',f'wash-{n}-dark.png',seed=20+seed,strength=(0.16,0.62))
     wash(hue,'#FFFFFF',f'wash-{n}-light.png',seed=20+seed,strength=(0.08,0.40))
 # wide wash for toast/banner

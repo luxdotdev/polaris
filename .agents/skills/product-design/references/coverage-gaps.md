@@ -7,10 +7,10 @@ instead of inventing a standard inline. Promote through `intake.md`.
 - Connection State visuals: glossary exists (ENG-179), but no accepted
   treatment for Reconnecting (dimmed last-known state), Needs Attention
   (inline, never modal), or Offline on the machine/workspace bar, rows, or
-  status bar. The status bar currently shows a neutral dot and latency only.
+  status bar. The status bar currently shows a neutral dot and latency only. Settings S4 (Hosts) proposes a treatment for the host table only; not yet accepted.
 - In Terminal handoff: taking a session over in the Harness's terminal and
   handing it back has an icon but no flow.
-- Settings, including the density slider and text size.
+- Settings: Notifications, Keyboard, Attachments and About pages have no artboard yet; S1–S4 cover Harnesses, Usage, Appearance and Hosts. Density is untested beyond Calm there too.
 - Onboarding and first Host setup (SSH, Daemon install approval).
 - Two agents or you and an agent editing the same lines in the Editor (E3
   shows presence only).
