@@ -1,0 +1,233 @@
+/**
+ * One Host's read model in the renderer: its Workspaces, Worktrees and Agent
+ * Sessions (with pending approvals), folded from the host feed exactly as the
+ * Daemon folds its log (`apps/daemon/src/store/model.ts`). A Snapshot resets it.
+ */
+import type {
+  Sequence,
+  ApprovalRequest,
+  DomainEvent,
+  EventEnvelope,
+  HostStreamItem,
+  Workspace,
+  Worktree,
+} from "@polaris/protocol";
+import { Match } from "effect";
+import type { SessionData } from "./plain.ts";
+
+export interface SessionEntry {
+  readonly session: SessionData;
+  readonly pendingApprovals: ReadonlyArray<ApprovalRequest>;
+  readonly lastTurnPreview: string | null;
+}
+
+export interface HostModel {
+  readonly sequence: Sequence;
+  /** False until the feed says everything up to now has arrived (or while painted from cache). */
+  readonly synchronized: boolean;
+  /** Painted from the last cached snapshot; replaced by the first live Snapshot. */
+  readonly fromCache: boolean;
+  readonly workspaces: ReadonlyMap<string, Workspace>;
+  readonly worktrees: ReadonlyMap<string, Worktree>;
+  readonly sessions: ReadonlyMap<string, SessionEntry>;
+}
+
+export const emptyHostModel: HostModel = {
+  // SAFETY: sequences start at 1, so 0 precedes every real one.
+  sequence: 0 as Sequence,
+  synchronized: false,
+  fromCache: false,
+  workspaces: new Map(),
+  worktrees: new Map(),
+  sessions: new Map(),
+};
+
+const withEntry = <V>(map: ReadonlyMap<string, V>, key: string, value: V | undefined) => {
+  const next = new Map(map);
+
+  if (value === undefined) next.delete(key);
+  else next.set(key, value);
+
+  return next;
+};
+
+const entryOf = (summary: SessionEntry): SessionEntry => ({
+  session: summary.session,
+  pendingApprovals: summary.pendingApprovals,
+  lastTurnPreview: summary.lastTurnPreview,
+});
+
+type SessionChange = (entry: SessionEntry) => SessionEntry;
+
+interface SessionUpdate {
+  readonly model: HostModel;
+  readonly sessionId: string;
+  readonly at: string;
+  readonly change: SessionChange;
+}
+
+/** Applies `change` to a session's entry and stamps `updatedAt`; unknown sessions are ignored. */
+const updateSession = ({ model, sessionId, at, change }: SessionUpdate): HostModel => {
+  const entry = model.sessions.get(sessionId);
+
+  if (entry === undefined) return model;
+  const next = change(entry);
+
+  return {
+    ...model,
+    sessions: withEntry(model.sessions, sessionId, {
+      ...next,
+      session: { ...next.session, updatedAt: at },
+    }),
+  };
+};
+
+const patch =
+  (fields: Partial<SessionData>): SessionChange =>
+  (entry) => ({ ...entry, session: { ...entry.session, ...fields } });
+
+const withoutRequest =
+  (requestId: string): SessionChange =>
+  (entry) => ({
+    ...entry,
+    pendingApprovals: entry.pendingApprovals.filter((r) => r.id !== requestId),
+  });
+
+type Fold = (model: HostModel, at: string) => HostModel;
+
+const onSession =
+  (sessionId: string, change: SessionChange): Fold =>
+  (model, at) =>
+    updateSession({ model, sessionId, at, change });
+
+const onTurn = (turn: {
+  readonly sessionId: string;
+  readonly index: number;
+  readonly prompt: string;
+}) =>
+  onSession(turn.sessionId, (entry) => ({
+    ...entry,
+    lastTurnPreview: turn.prompt.slice(0, 140),
+    session: { ...entry.session, turnCount: Math.max(entry.session.turnCount, turn.index + 1) },
+  }));
+
+const removeWorkspace =
+  (workspaceId: string): Fold =>
+  (model) => ({
+    ...model,
+    workspaces: withEntry(model.workspaces, workspaceId, undefined),
+    worktrees: new Map([...model.worktrees].filter(([, wt]) => wt.workspaceId !== workspaceId)),
+  });
+
+const unchanged: Fold = (model) => model;
+
+const fold = (event: DomainEvent): Fold =>
+  Match.value(event).pipe(
+    Match.tagsExhaustive({
+      WorkspaceRegistered:
+        ({ workspace }): Fold =>
+        (m) => ({
+          ...m,
+          workspaces: withEntry(m.workspaces, workspace.id, workspace),
+        }),
+      WorkspaceUpdated:
+        ({ workspace }): Fold =>
+        (m) => ({
+          ...m,
+          workspaces: withEntry(m.workspaces, workspace.id, workspace),
+        }),
+      WorkspaceRemoved: ({ workspaceId }) => removeWorkspace(workspaceId),
+      WorktreeDetected:
+        ({ worktree }): Fold =>
+        (m) => ({
+          ...m,
+          worktrees: withEntry(m.worktrees, worktree.id, worktree),
+        }),
+      WorktreeRemoved:
+        ({ worktreeId }): Fold =>
+        (m) => ({
+          ...m,
+          worktrees: withEntry(m.worktrees, worktreeId, undefined),
+        }),
+      SessionCreated:
+        ({ session }): Fold =>
+        (m) => ({
+          ...m,
+          sessions: withEntry(m.sessions, session.id, {
+            session,
+            pendingApprovals: [],
+            lastTurnPreview: null,
+          }),
+        }),
+      SessionStateChanged: ({ sessionId, state, reason }) =>
+        onSession(sessionId, (entry) =>
+          patch({ state, lastError: state === "failed" ? reason : entry.session.lastError })(entry)
+        ),
+      SessionRenamed: ({ sessionId, title }) => onSession(sessionId, patch({ title })),
+      SessionCursorUpdated: ({ sessionId, harnessCursor }) =>
+        onSession(sessionId, patch({ harnessCursor })),
+      SessionPermissionModeChanged: ({ sessionId, permissionMode }) =>
+        onSession(sessionId, patch({ permissionMode })),
+      TurnStarted: ({ turn }) => onTurn(turn),
+      TurnEnded: ({ turn }) => onTurn(turn),
+      TurnItemCompleted: () => unchanged,
+      CheckpointRecorded: () => unchanged,
+      ApprovalRequested: ({ request }) =>
+        onSession(request.sessionId, (entry) => ({
+          ...entry,
+          pendingApprovals: [...withoutRequest(request.id)(entry).pendingApprovals, request],
+        })),
+      ApprovalResolved: ({ sessionId, requestId }) =>
+        onSession(sessionId, withoutRequest(requestId)),
+      ApprovalWithdrawn: ({ sessionId, requestId }) =>
+        onSession(sessionId, withoutRequest(requestId)),
+    })
+  );
+
+export const applyEnvelope = (model: HostModel, envelope: EventEnvelope): HostModel => {
+  // Resumed feeds never repeat a sequence; this guards a replayed cache.
+  if (envelope.sequence <= model.sequence) return model;
+
+  return { ...fold(envelope.event)(model, envelope.occurredAt), sequence: envelope.sequence };
+};
+
+export interface HostSnapshot {
+  readonly sequence: Sequence;
+  readonly workspaces: ReadonlyArray<Workspace>;
+  readonly worktrees: ReadonlyArray<Worktree>;
+  readonly sessions: ReadonlyArray<SessionEntry>;
+}
+
+/** A Snapshot resets the model; so does a cached one, marked `fromCache` by its caller. */
+export const modelFromSnapshot = (snapshot: HostSnapshot): HostModel => ({
+  sequence: snapshot.sequence,
+  synchronized: false,
+  fromCache: false,
+  workspaces: new Map(snapshot.workspaces.map((w) => [w.id, w])),
+  worktrees: new Map(snapshot.worktrees.map((w) => [w.id, w])),
+  sessions: new Map(snapshot.sessions.map((s) => [s.session.id, entryOf(s)])),
+});
+
+export const applyHostItem = (model: HostModel, item: HostStreamItem): HostModel =>
+  Match.value(item).pipe(
+    Match.tagsExhaustive({
+      Snapshot: (snapshot) => modelFromSnapshot(snapshot),
+      Event: ({ envelope }) => applyEnvelope(model, envelope),
+      Synchronized: (): HostModel => ({ ...model, synchronized: true }),
+    })
+  );
+
+export const applyHostItems = (model: HostModel, items: ReadonlyArray<HostStreamItem>) =>
+  items.reduce(applyHostItem, model);
+
+/** Sessions of a Workspace, most recently updated first; archived ones left out. */
+export const sessionsOf = (model: HostModel, workspaceId: string): ReadonlyArray<SessionEntry> =>
+  [...model.sessions.values()]
+    .filter((e) => e.session.workspaceId === workspaceId && e.session.state !== "archived")
+    .sort((a, b) => b.session.updatedAt.localeCompare(a.session.updatedAt));
+
+/** Visible Workspaces in registration order. */
+export const visibleWorkspaces = (model: HostModel): ReadonlyArray<Workspace> =>
+  [...model.workspaces.values()]
+    .filter((w) => !w.hidden)
+    .sort((a, b) => a.registeredAt.localeCompare(b.registeredAt));

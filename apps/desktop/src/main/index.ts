@@ -1,0 +1,133 @@
+/**
+ * The Electron main process: the Client runtime (`@polaris/client`'s
+ * HostRegistry on Effect), the typed IPC bridge, the menu and the window.
+ *
+ *   POLARIS_DESKTOP_USER_DATA=<dir>   settings and caches go here (tests, benchmarks)
+ *   POLARIS_DESKTOP_HIDDEN=1          never show the window (smoke tests, benchmarks)
+ *   ELECTRON_RENDERER_URL=<url>       dev: load the renderer from the Vite server
+ */
+import { existsSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { app, nativeTheme, session } from "electron";
+import type { ThemeSource } from "../shared/api.ts";
+import { clientIdentity, type ClientRuntime, hostEntries, startClientRuntime } from "./hosts.ts";
+import { registerIpc } from "./ipc/index.ts";
+import { type LocalDaemon, resolveLocalDaemon } from "./localDaemon.ts";
+import { buildMenu } from "./menu.ts";
+import {
+  APP_ORIGIN,
+  applyDevCsp,
+  isTrustedUrl,
+  registerAppScheme,
+  serveRenderer,
+} from "./protocol.ts";
+import { openSnapshotCache } from "./snapshotCache.ts";
+import { readSettings, type Settings, settingsPath, writeSettings } from "./settings.ts";
+import { createMainWindow } from "./window.ts";
+
+const env = process.env;
+
+const devUrl = env.ELECTRON_RENDERER_URL ?? null;
+
+const dev = devUrl !== null || env.POLARIS_DESKTOP_DEV === "1";
+
+/** `out/main/index.js` → the app root (`apps/desktop`, or `Resources/app` when bundled). */
+const appRoot = join(dirname(fileURLToPath(import.meta.url)), "../..");
+
+const repoRoot = join(appRoot, "../..");
+
+if (env.POLARIS_DESKTOP_USER_DATA !== undefined) {
+  app.setPath("userData", env.POLARIS_DESKTOP_USER_DATA);
+}
+
+// The spike measured these as harmless and never needed: see ENG-184's NOTES.md.
+app.commandLine.appendSwitch(
+  "disable-features",
+  "SpareRendererForSitePerProcess,MediaRouter,Translate,AutofillServerCommunication,OptimizationHints"
+);
+
+registerAppScheme();
+
+if (!app.requestSingleInstanceLock()) app.exit(0);
+
+let runtime: ClientRuntime | null = null;
+
+let localDaemon: LocalDaemon | null = null;
+
+let ipc: { readonly dispose: () => void } | null = null;
+
+const trusted = (url: string) => isTrustedUrl(url, devUrl);
+
+const start = async () => {
+  const file = settingsPath(app.getPath("userData"));
+  let settings: Settings = readSettings(file);
+
+  const setTheme = (theme: ThemeSource) => {
+    settings = { ...settings, theme };
+    writeSettings({ path: file, settings });
+    nativeTheme.themeSource = theme;
+    buildMenu({ theme, setTheme, dev });
+  };
+
+  nativeTheme.themeSource = settings.theme ?? "system";
+  buildMenu({ theme: settings.theme ?? "system", setTheme, dev });
+
+  localDaemon = await resolveLocalDaemon({ dev, repoRoot, env });
+  const benchHarness = localDaemon.benchHarness;
+
+  runtime = startClientRuntime({
+    entries: hostEntries({ local: localDaemon, remotes: settings.hosts ?? [] }),
+    identity: clientIdentity(app.getVersion()),
+  });
+
+  const daemonDist = join(repoRoot, "apps/daemon/dist");
+
+  ipc = registerIpc({
+    runtime,
+    trusted,
+    context: {
+      settings: () => settings,
+      cache: openSnapshotCache(app.getPath("userData")),
+      setTheme,
+      proofWorkspace: () => (benchHarness ? mkdtempSync(join(tmpdir(), "polaris-proof-")) : null),
+      daemonDist: existsSync(join(daemonDist, "manifest.json")) ? daemonDist : null,
+    },
+  });
+
+  session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) =>
+    callback(false)
+  );
+
+  if (devUrl === null) serveRenderer(join(appRoot, "out/renderer"));
+  else applyDevCsp(session.defaultSession, devUrl);
+
+  createMainWindow({
+    url: devUrl ?? `${APP_ORIGIN}/index.html`,
+    preload: join(appRoot, "out/preload/index.cjs"),
+    trusted,
+    show: env.POLARIS_DESKTOP_HIDDEN !== "1",
+  });
+};
+
+let quitting = false;
+
+app.on("will-quit", (event) => {
+  if (quitting) return;
+  quitting = true;
+  event.preventDefault();
+  ipc?.dispose();
+  // The dev Daemon (if this app started it) goes down with the app.
+  void Promise.allSettled([runtime?.dispose(), localDaemon?.stop()]).then(() => app.exit(0));
+});
+
+app.on("window-all-closed", () => app.quit());
+
+app
+  .whenReady()
+  .then(start)
+  .catch((cause: unknown) => {
+    console.error("polaris: failed to start", cause);
+    app.exit(1);
+  });

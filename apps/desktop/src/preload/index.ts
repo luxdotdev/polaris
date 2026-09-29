@@ -1,0 +1,59 @@
+/**
+ * The preload script: exposes the typed `PolarisApi` as `window.polaris`
+ * through `contextBridge`. Sandboxed, so it may require nothing but `electron`.
+ * One IPC listener demultiplexes every subscription's batched items.
+ */
+import { contextBridge, ipcRenderer } from "electron";
+import {
+  type BatchEntry,
+  CHANNELS,
+  type MenuCommand,
+  type PolarisApi,
+  type SubscriptionListener,
+} from "../shared/api.ts";
+
+const listeners = new Map<number, SubscriptionListener<unknown>>();
+
+let nextId = 1;
+
+ipcRenderer.on(CHANNELS.batch, (_event, entries: ReadonlyArray<BatchEntry>) => {
+  for (const entry of entries) {
+    const listener = listeners.get(entry.id);
+
+    if (listener === undefined) continue;
+
+    if (entry.items.length > 0) listener.items(entry.items);
+
+    if (entry.end !== undefined) {
+      listeners.delete(entry.id);
+      listener.end?.(entry.end);
+    }
+  }
+});
+
+const api: PolarisApi = {
+  request: (method, input) => ipcRenderer.invoke(CHANNELS.request, { method, input }),
+  subscribe: (kind, input, listener) => {
+    const id = nextId++;
+
+    // SAFETY: the main process only sends items of `kind` under this id (see main/ipc/subscriptions.ts).
+    listeners.set(id, listener as SubscriptionListener<unknown>);
+    ipcRenderer.send(CHANNELS.subscribe, { id, kind, input });
+
+    return () => {
+      if (!listeners.delete(id)) return;
+      ipcRenderer.send(CHANNELS.unsubscribe, { id });
+    };
+  },
+  onMenu: (listener) => {
+    const handler = (_event: Electron.IpcRendererEvent, command: MenuCommand) => listener(command);
+
+    ipcRenderer.on(CHANNELS.menu, handler);
+
+    return () => {
+      ipcRenderer.off(CHANNELS.menu, handler);
+    };
+  },
+};
+
+contextBridge.exposeInMainWorld("polaris", api);
