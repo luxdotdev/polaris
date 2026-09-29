@@ -3,6 +3,7 @@
  * the Engine on a SQLite file with the fake Harness, two devices' connections,
  * and their Client feeds (the real `makeFeed`, wired as `HostConnection` does).
  */
+import { HarnessEvent } from "../harness/HarnessDriver.ts";
 import { join } from "node:path";
 import { type Feed, makeFeed, type SequenceMark } from "@polaris/client";
 import {
@@ -38,7 +39,6 @@ import {
   type FakeDriver,
   type FakeHarnessSession,
   type Fakes,
-  HarnessEvents,
   tempDir,
 } from "../engine/testing.ts";
 import { EventStore } from "../store/EventStore.ts";
@@ -482,7 +482,7 @@ export class World {
     switch (what) {
       case "item":
         return harness.emit(
-          HarnessEvents.ItemCompleted({
+          HarnessEvent.ItemCompleted({
             turnId,
             item: TurnItem.cases.AssistantMessage.make({
               id: `msg-${++this.itemCounter}`,
@@ -492,11 +492,11 @@ export class World {
         );
       case "delta":
         return harness.emit(
-          HarnessEvents.ItemDelta({ turnId, itemId: "m", field: "text", text: "…" })
+          HarnessEvent.ItemDelta({ turnId, itemId: "m", field: "text", text: "…" })
         );
       case "request":
         return harness.emit(
-          HarnessEvents.ApprovalRequested({
+          HarnessEvent.ApprovalRequested({
             turnId,
             requestId: RequestId.make(`req-${++this.requestCounter}`),
             kind: "command",
@@ -508,7 +508,7 @@ export class World {
       case "end":
         this.endedTurns.add(turnId);
 
-        return harness.emit(HarnessEvents.TurnEnded({ turnId, status: "completed", error: null }));
+        return harness.emit(HarnessEvent.TurnEnded({ turnId, status: "completed", error: null }));
     }
   }
 
@@ -520,7 +520,7 @@ export class World {
     if (ended.length === 0) return;
     reached.lateRequests++;
     harness.emit(
-      HarnessEvents.ApprovalRequested({
+      HarnessEvent.ApprovalRequested({
         turnId: ended[pick % ended.length]!,
         requestId: RequestId.make(`late-${++this.requestCounter}`),
         kind: "command",
@@ -536,6 +536,6 @@ export class World {
     const pending = [...(record?.pending.keys() ?? [])];
 
     if (pending.length === 0) return;
-    harness.emit(HarnessEvents.ApprovalWithdrawn({ requestId: pending[pick % pending.length]! }));
+    harness.emit(HarnessEvent.ApprovalWithdrawn({ requestId: pending[pick % pending.length]! }));
   }
 }

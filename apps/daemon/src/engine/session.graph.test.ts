@@ -20,7 +20,7 @@ import {
   type WorkspaceId,
 } from "@polaris/protocol";
 import { type Context, Effect, Exit, Layer, Scope } from "effect";
-import type { HarnessEvent } from "../harness/HarnessDriver.ts";
+import { HarnessEvent } from "../harness/HarnessDriver.ts";
 import { EventStore } from "../store/EventStore.ts";
 import { workingTurn } from "../store/model.ts";
 import { Engine } from "./Engine.ts";
@@ -38,7 +38,7 @@ import {
   type Step,
   stepModel,
 } from "./session.testing.ts";
-import { cid, engineLayer, HarnessEvents, makeFakeDriver, makeFakes, tempDir } from "./testing.ts";
+import { cid, engineLayer, makeFakeDriver, makeFakes, tempDir } from "./testing.ts";
 
 const PARENT = SessionId.make("s-parent");
 
@@ -166,7 +166,7 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
             const turnId = workingTurn(parent)!.id;
             driver
               .latest(PARENT)!
-              .emit(HarnessEvents.TurnEnded({ turnId, status: "completed", error: null }));
+              .emit(HarnessEvent.TurnEnded({ turnId, status: "completed", error: null }));
             yield* Effect.gen(function* () {
               while (true) {
                 const model = yield* inEngine(Effect.flatMap(EventStore, (store) => store.model));
@@ -200,7 +200,7 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
               const turnId = yield* working();
               emit(
                 snapshot,
-                HarnessEvents.TurnEnded({ turnId, status: "interrupted", error: null })
+                HarnessEvent.TurnEnded({ turnId, status: "interrupted", error: null })
               );
             }
 
@@ -228,7 +228,7 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
           case "requestApproval":
             return emit(
               snapshot,
-              HarnessEvents.ApprovalRequested({
+              HarnessEvent.ApprovalRequested({
                 turnId: yield* working(),
                 requestId: RequestId.make(`r${n}`),
                 kind: "command",
@@ -240,7 +240,7 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
           case "lateApproval":
             return emit(
               snapshot,
-              HarnessEvents.ApprovalRequested({
+              HarnessEvent.ApprovalRequested({
                 turnId: yield* inEngine(Effect.flatMap(EventStore, (store) => store.model)).pipe(
                   Effect.map(
                     (model) =>
@@ -257,18 +257,18 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
           case "withdrawApproval":
             return emit(
               snapshot,
-              HarnessEvents.ApprovalWithdrawn({ requestId: yield* firstPending() })
+              HarnessEvent.ApprovalWithdrawn({ requestId: yield* firstPending() })
             );
           case "terminalTurn":
             return emit(
               snapshot,
-              HarnessEvents.TurnStarted({ turnId: TurnId.make(`tui${n}`), prompt: "tui" })
+              HarnessEvent.TurnStarted({ turnId: TurnId.make(`tui${n}`), prompt: "tui" })
             );
           case "complete":
           case "failTurn":
             return emit(
               snapshot,
-              HarnessEvents.TurnEnded({
+              HarnessEvent.TurnEnded({
                 turnId: yield* working(),
                 status: step.type === "complete" ? "completed" : "failed",
                 error: step.type === "complete" ? null : "the Turn failed",
@@ -278,7 +278,7 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
           case "crash":
             return driver
               .latest(SESSION)!
-              .emit(HarnessEvents.Exited({ error: step.type === "exit" ? null : "boom" }));
+              .emit(HarnessEvent.Exited({ error: step.type === "exit" ? null : "boom" }));
           case "restart":
             yield* Scope.close(scope, Exit.void);
             scope = yield* Scope.make();

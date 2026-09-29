@@ -4,6 +4,7 @@
  * following the TUI, the refreshed cursor), Forks in their own Worktree,
  * bounded live buffers, recent Turns in memory, and the upgrade hook.
  */
+import { HarnessEvent } from "../harness/HarnessDriver.ts";
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import {
@@ -32,7 +33,6 @@ import {
   engineLayer,
   type FakeDriver,
   fakeRepo,
-  HarnessEvents,
   makeFakeDriver,
   makeFakes,
   tempDir,
@@ -121,8 +121,8 @@ describe("Turns started outside Polaris", () => {
         codex
           .latest(s)!
           .emit(
-            HarnessEvents.TurnStarted({ turnId: tuiTurn, prompt: "also update the docs" }),
-            HarnessEvents.TurnEnded({ turnId: tuiTurn, status: "completed", error: null })
+            HarnessEvent.TurnStarted({ turnId: tuiTurn, prompt: "also update the docs" }),
+            HarnessEvent.TurnEnded({ turnId: tuiTurn, status: "completed", error: null })
           );
 
         const model = yield* waitFor(
@@ -180,8 +180,8 @@ describe("live item progress", () => {
 
         const before = (yield* store.model).sequence;
         harness.emit(
-          HarnessEvents.ItemUpdated({ turnId, item: running }),
-          HarnessEvents.ItemUpdated({
+          HarnessEvent.ItemUpdated({ turnId, item: running }),
+          HarnessEvent.ItemUpdated({
             turnId,
             item: TurnItem.cases.Plan.make({
               id: "p1",
@@ -213,11 +213,11 @@ describe("live item progress", () => {
         expect(late.items[sync + 1]).toMatchObject({ item: { id: "c1" } });
 
         harness.emit(
-          HarnessEvents.ItemCompleted({
+          HarnessEvent.ItemCompleted({
             turnId,
             item: { ...running, output: "17 pass", exitCode: 0, status: "completed" },
           }),
-          HarnessEvents.TurnEnded({ turnId, status: "completed", error: null })
+          HarnessEvent.TurnEnded({ turnId, status: "completed", error: null })
         );
         yield* waitFor((m) => m.sessions.get(s)?.session.state === "idle");
         yield* waitUntil(() => eventTags(early.items).includes("TurnEnded"));
@@ -267,7 +267,7 @@ describe("ApprovalWithdrawn", () => {
         const turnId = harness.turns[0]!.turnId;
         const requestId = RequestId.make("req-1");
         harness.emit(
-          HarnessEvents.ApprovalRequested({
+          HarnessEvent.ApprovalRequested({
             turnId,
             requestId,
             kind: "command",
@@ -277,7 +277,7 @@ describe("ApprovalWithdrawn", () => {
           })
         );
         yield* waitFor((m) => m.sessions.get(s)?.session.state === "needs-you");
-        harness.emit(HarnessEvents.ApprovalWithdrawn({ requestId }));
+        harness.emit(HarnessEvent.ApprovalWithdrawn({ requestId }));
         const model = yield* waitFor((m) => m.sessions.get(s)?.session.state === "working");
         expect(model.sessions.get(s)!.pending.size).toBe(0);
         const events = yield* store.readEvents({ after: 0, upTo: model.sequence, sessionId: s });
@@ -292,7 +292,7 @@ describe("ApprovalWithdrawn", () => {
         );
         // The Turn ending withdraws what is still pending, the same way.
         harness.emit(
-          HarnessEvents.ApprovalRequested({
+          HarnessEvent.ApprovalRequested({
             turnId,
             requestId: RequestId.make("req-2"),
             kind: "command",
@@ -302,7 +302,7 @@ describe("ApprovalWithdrawn", () => {
           })
         );
         yield* waitFor((m) => m.sessions.get(s)?.pending.size === 1);
-        harness.emit(HarnessEvents.TurnEnded({ turnId, status: "completed", error: null }));
+        harness.emit(HarnessEvent.TurnEnded({ turnId, status: "completed", error: null }));
         const done = yield* waitFor((m) => m.sessions.get(s)?.session.state === "idle");
         const all = yield* store.readEvents({ after: 0, upTo: done.sequence, sessionId: s });
         expect(all.filter((e) => Predicate.isTagged(e.event, "ApprovalWithdrawn"))).toHaveLength(2);
@@ -349,14 +349,14 @@ describe("terminal hand-off", () => {
         const t2 = TurnId.make("tui-2");
         claude.follow.emit(
           s,
-          HarnessEvents.TurnStarted({ turnId: t1, prompt: "rename the helper" }),
-          HarnessEvents.ItemCompleted({
+          HarnessEvent.TurnStarted({ turnId: t1, prompt: "rename the helper" }),
+          HarnessEvent.ItemCompleted({
             turnId: t1,
             item: TurnItem.cases.AssistantMessage.make({ id: "a1", text: "Renamed." }),
           }),
-          HarnessEvents.TurnEnded({ turnId: t1, status: "completed", error: null }),
-          HarnessEvents.CursorAssigned({ cursor: "c2" }),
-          HarnessEvents.TurnStarted({ turnId: t2, prompt: "now the tests" })
+          HarnessEvent.TurnEnded({ turnId: t1, status: "completed", error: null }),
+          HarnessEvent.CursorAssigned({ cursor: "c2" }),
+          HarnessEvent.TurnStarted({ turnId: t2, prompt: "now the tests" })
         );
 
         const during = yield* waitFor(
@@ -499,14 +499,14 @@ describe("bounded buffers", () => {
 
         // Deltas never cost it the subscription: they stop being buffered at half capacity.
         for (let i = 0; i < 10_000; i++)
-          harness.emit(HarnessEvents.ItemDelta({ turnId, itemId: "m1", field: "text", text: "x" }));
+          harness.emit(HarnessEvent.ItemDelta({ turnId, itemId: "m1", field: "text", text: "x" }));
         yield* Effect.sleep(Duration.millis(50));
         expect(yield* store.subscriberCount).toBe(baseline + 1);
 
         // Committed events past the capacity drop it rather than skipping any.
         for (let i = 0; i < capacity * 4; i++)
           harness.emit(
-            HarnessEvents.ItemCompleted({
+            HarnessEvent.ItemCompleted({
               turnId,
               item: TurnItem.cases.AssistantMessage.make({ id: `m${i}`, text: `${i}` }),
             })
@@ -706,13 +706,13 @@ describe("upgrade", () => {
         const idleHarness = claude.latest(idle)!;
         const idleTurn = idleHarness.turns[0]!.turnId;
         idleHarness.emit(
-          HarnessEvents.CursorAssigned({ cursor: "idle-cursor" }),
-          HarnessEvents.TurnEnded({ turnId: idleTurn, status: "completed", error: null })
+          HarnessEvent.CursorAssigned({ cursor: "idle-cursor" }),
+          HarnessEvent.TurnEnded({ turnId: idleTurn, status: "completed", error: null })
         );
         const busyHarness = claude.latest(busy)!;
         busyHarness.emit(
-          HarnessEvents.CursorAssigned({ cursor: "busy-cursor" }),
-          HarnessEvents.ApprovalRequested({
+          HarnessEvent.CursorAssigned({ cursor: "busy-cursor" }),
+          HarnessEvent.ApprovalRequested({
             turnId: busyHarness.turns[0]!.turnId,
             requestId: RequestId.make("req-up"),
             kind: "command",

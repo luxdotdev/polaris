@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { HarnessEvent } from "../harness/HarnessDriver.ts";
 import { join } from "node:path";
 import {
   ApprovalDecision,
@@ -24,7 +25,6 @@ import {
   engineLayer,
   type FakeDriver,
   fakeRepo,
-  HarnessEvents,
   makeFakeDriver,
   makeFakes,
   tempDir,
@@ -184,10 +184,10 @@ describe("commands", () => {
         const s = sid("s-title");
         yield* startSession(workspace, s);
         yield* waitFor((m) => m.sessions.get(s)?.session.state === "working");
-        claude.latest(s)!.emit(HarnessEvents.TitleSuggested({ title: "Stabilize CI" }));
+        claude.latest(s)!.emit(HarnessEvent.TitleSuggested({ title: "Stabilize CI" }));
         yield* waitFor((m) => m.sessions.get(s)?.session.title === "Stabilize CI");
         yield* dispatch(Command.cases.RenameSession.make({ sessionId: s, title: "Mine" }));
-        claude.latest(s)!.emit(HarnessEvents.TitleSuggested({ title: "Something else" }));
+        claude.latest(s)!.emit(HarnessEvent.TitleSuggested({ title: "Something else" }));
         yield* Effect.sleep(Duration.millis(30));
         const model = yield* waitFor((m) => m.sessions.get(s)?.session.title === "Mine");
         expect(model.sessions.get(s)!.titleLocked).toBe(true);
@@ -212,7 +212,7 @@ describe("approvals", () => {
         const turnId = harness.turns[0]!.turnId;
         const requestId = RequestId.make("req-1");
         harness.emit(
-          HarnessEvents.ApprovalRequested({
+          HarnessEvent.ApprovalRequested({
             turnId,
             requestId,
             kind: "command",
@@ -335,7 +335,7 @@ describe("streams", () => {
         const turnId = harness.turns[0]!.turnId;
         // The Claude driver completes a tool item twice under one id: it must show once.
         harness.emit(
-          HarnessEvents.ItemCompleted({
+          HarnessEvent.ItemCompleted({
             turnId,
             item: TurnItem.cases.ToolCall.make({
               id: "t1",
@@ -345,7 +345,7 @@ describe("streams", () => {
               status: "running",
             }),
           }),
-          HarnessEvents.ItemCompleted({
+          HarnessEvent.ItemCompleted({
             turnId,
             item: TurnItem.cases.ToolCall.make({
               id: "t1",
@@ -366,8 +366,8 @@ describe("streams", () => {
         ).pipe(Effect.forkChild);
 
         yield* waitUntil(() => items.some((i) => Predicate.isTagged(i, "Synchronized")));
-        harness.emit(HarnessEvents.ItemDelta({ turnId, itemId: "m1", field: "text", text: "Hel" }));
-        harness.emit(HarnessEvents.TurnEnded({ turnId, status: "completed", error: null }));
+        harness.emit(HarnessEvent.ItemDelta({ turnId, itemId: "m1", field: "text", text: "Hel" }));
+        harness.emit(HarnessEvent.TurnEnded({ turnId, status: "completed", error: null }));
         yield* waitUntil(() =>
           items.some(
             (i) =>
@@ -437,7 +437,7 @@ describe("supervision", () => {
         const s = sid("s-crash");
         yield* startSession(workspace, s, "codex");
         yield* waitFor((m) => m.sessions.get(s)?.session.state === "working");
-        codex.latest(s)!.emit(HarnessEvents.Exited({ error: "segfault" }));
+        codex.latest(s)!.emit(HarnessEvent.Exited({ error: "segfault" }));
         const model = yield* waitFor((m) => m.sessions.get(s)?.session.state === "failed");
         expect(model.sessions.get(s)!.session.lastError).toBe("segfault");
         expect(model.sessions.get(s)!.turns[0]!.status).toBe("failed");
@@ -520,8 +520,8 @@ describe("restart recovery", () => {
         const harness = codex1.latest(s1)!;
         turnId = harness.turns[0]!.turnId;
         harness.emit(
-          HarnessEvents.CursorAssigned({ cursor: "thread-9" }),
-          HarnessEvents.ApprovalRequested({
+          HarnessEvent.CursorAssigned({ cursor: "thread-9" }),
+          HarnessEvent.ApprovalRequested({
             turnId,
             requestId: RequestId.make("req-9"),
             kind: "file-change",

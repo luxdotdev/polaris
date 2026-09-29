@@ -17,11 +17,11 @@ import {
 } from "@polaris/protocol";
 import { type Cause, Duration, Effect, Layer, Queue, Stream } from "effect";
 import type { CheckpointPolicy } from "../git/prune.ts";
-import type {
-  HarnessDriver,
+import {
+  type HarnessDriver,
   HarnessEvent,
-  OpenOptions,
-  TurnInput,
+  type OpenOptions,
+  type TurnInput,
 } from "../harness/HarnessDriver.ts";
 import {
   AttachmentStore,
@@ -33,11 +33,8 @@ import {
 import { EventStore, StoreConfig } from "../store/EventStore.ts";
 import type { ReadModel } from "../store/model.ts";
 import { Engine, EngineConfig, type EngineSettings } from "./Engine.ts";
-import { HarnessEvents } from "./supervisor.ts";
 
 // ── Harness ────────────────────────────────────────────────────────────────
-
-export { HarnessEvents } from "./supervisor.ts";
 
 export interface FakeHarnessSession {
   readonly options: OpenOptions;
@@ -170,16 +167,16 @@ export const makeFakeDriver = (
 export const completesTurns =
   (cursor = "cursor-1") =>
   (input: TurnInput): ReadonlyArray<HarnessEvent> => [
-    HarnessEvents.CursorAssigned({ cursor }),
-    HarnessEvents.TurnStarted({ turnId: input.turnId, prompt: input.prompt }),
-    HarnessEvents.ItemCompleted({
+    HarnessEvent.CursorAssigned({ cursor }),
+    HarnessEvent.TurnStarted({ turnId: input.turnId, prompt: input.prompt }),
+    HarnessEvent.ItemCompleted({
       turnId: input.turnId,
       item: TurnItem.cases.AssistantMessage.make({
         id: `msg-${input.turnId}`,
         text: `re: ${input.prompt}`,
       }),
     }),
-    HarnessEvents.TurnEnded({ turnId: input.turnId, status: "completed", error: null }),
+    HarnessEvent.TurnEnded({ turnId: input.turnId, status: "completed", error: null }),
   ];
 
 // ── Services ───────────────────────────────────────────────────────────────

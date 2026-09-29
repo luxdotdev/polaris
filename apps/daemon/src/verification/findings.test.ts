@@ -4,6 +4,7 @@
  * `test.todo` (`bun test --todo` runs them). See `packages/spec/README.md`
  * ("Findings").
  */
+import { HarnessEvent } from "../harness/HarnessDriver.ts";
 import { expect, test } from "bun:test";
 import { join } from "node:path";
 import { makeFeed, type SequenceMark } from "@polaris/client";
@@ -24,7 +25,6 @@ import {
   cid,
   completesTurns,
   engineLayer,
-  HarnessEvents,
   fakeRepo,
   makeFakeDriver,
   makeFakes,
@@ -162,8 +162,8 @@ test("archiving an In Terminal session mid-Turn is refused, and nothing is left 
       const turnId = TurnId.make("t-typed");
       claude.follow.emit(
         s,
-        HarnessEvents.TurnStarted({ turnId, prompt: "typed in the TUI" }),
-        HarnessEvents.ApprovalRequested({
+        HarnessEvent.TurnStarted({ turnId, prompt: "typed in the TUI" }),
+        HarnessEvent.ApprovalRequested({
           turnId,
           requestId: RequestId.make("req-tui"),
           kind: "command",
@@ -181,7 +181,7 @@ test("archiving an In Terminal session mid-Turn is refused, and nothing is left 
       expect(refused).toBeInstanceOf(CommandRejected);
       expect(refused).toMatchObject({ reason: "interrupt the Turn in flight before archiving" });
       // The Turn ends in the terminal UI (its request goes with it); then Archive is accepted.
-      claude.follow.emit(s, HarnessEvents.TurnEnded({ turnId, status: "completed", error: null }));
+      claude.follow.emit(s, HarnessEvent.TurnEnded({ turnId, status: "completed", error: null }));
       yield* waitFor((m) => (m.sessions.get(s)?.pending.size ?? 1) === 0);
       yield* dispatch(
         Command.cases.ArchiveSession.make({ sessionId: s, deleteMergedBranch: false })
@@ -245,8 +245,8 @@ test("a late approval request cannot leave a session Working without a Turn", as
       const harness = codex.latest(s)!;
       const turnId = harness.turns[0]!.turnId;
       harness.emit(
-        HarnessEvents.TurnEnded({ turnId, status: "completed", error: null }),
-        HarnessEvents.ApprovalRequested({
+        HarnessEvent.TurnEnded({ turnId, status: "completed", error: null }),
+        HarnessEvent.ApprovalRequested({
           turnId,
           requestId: RequestId.make("req-late"),
           kind: "command",

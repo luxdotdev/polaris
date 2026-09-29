@@ -13,16 +13,13 @@ import {
   type TurnId,
   Worktree,
 } from "@polaris/protocol";
-import { Context, Data, Effect, Exit, Layer, Scope, Stream } from "effect";
-import type { HarnessError, HarnessEvent } from "../harness/HarnessDriver.ts";
+import { Context, Effect, Exit, Layer, Scope, Stream } from "effect";
+import { type HarnessError, HarnessEvent } from "../harness/HarnessDriver.ts";
 import type { ServiceError } from "../services.ts";
 import { LiveItem } from "../store/EventStore.ts";
 import { worktreeIdFor } from "./decider.ts";
 import { finalReply, forkPreamble } from "./fork.ts";
 import { EngineRuntime, type EventSource, type LiveHarness, type Progress } from "./runtime.ts";
-
-/** Constructors and matchers for `HarnessEvent`. */
-export const HarnessEvents = Data.taggedEnum<HarnessEvent>();
 
 type HarnessEventOf<Tag extends HarnessEvent["_tag"]> = Extract<HarnessEvent, { _tag: Tag }>;
 
@@ -92,7 +89,7 @@ const make = (rt: EngineRuntime["Service"]): Supervisor["Service"] => {
       )
     );
 
-  const isDelta = HarnessEvents.$is("ItemDelta");
+  const isDelta = HarnessEvent.$is("ItemDelta");
 
   const onHarnessEvent = (
     sessionId: SessionId,
@@ -133,7 +130,7 @@ const make = (rt: EngineRuntime["Service"]): Supervisor["Service"] => {
     event: HarnessEvent,
     at: string
   ): Effect.Effect<void, ServiceError> =>
-    HarnessEvents.$match(event, {
+    HarnessEvent.$match(event, {
       CursorAssigned: (e) =>
         rt.recordFor(sessionId, (record) =>
           record.session.harnessCursor === e.cursor

@@ -37,6 +37,7 @@
  * `engine.world.testing.ts` and the checks in `engine.invariants.testing.ts`.
  * The same properties are specified in `packages/spec/polaris.qnt`.
  */
+import { HarnessEvent } from "../harness/HarnessDriver.ts";
 import { describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -51,13 +52,7 @@ import {
 import { Effect, Latch, Predicate } from "effect";
 import fc from "fast-check";
 import { Engine } from "../engine/Engine.ts";
-import {
-  type FakeDriver,
-  fakeRepo,
-  HarnessEvents,
-  makeFakeDriver,
-  makeFakes,
-} from "../engine/testing.ts";
+import { type FakeDriver, fakeRepo, makeFakeDriver, makeFakes } from "../engine/testing.ts";
 import { checkInvariants } from "./engine.invariants.testing.ts";
 import {
   type AEvent,
@@ -464,7 +459,7 @@ const codexDriver = (): FakeDriver =>
 
       return turn === undefined
         ? []
-        : [HarnessEvents.TurnEnded({ turnId: turn.turnId, status: "interrupted", error: null })];
+        : [HarnessEvent.TurnEnded({ turnId: turn.turnId, status: "interrupted", error: null })];
     },
   });
 
