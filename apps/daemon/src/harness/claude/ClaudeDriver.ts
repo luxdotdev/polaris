@@ -23,13 +23,28 @@ import {
   type SDKUserMessage,
   query as sdkQuery,
 } from "@anthropic-ai/claude-agent-sdk";
-import type { ApprovalDecision, PermissionMode, RequestId, TurnId } from "@polaris/protocol";
-import { type Cause, Deferred, Effect, Fiber, Option, Queue, Scope, Stream } from "effect";
+import {
+  type ApprovalDecision,
+  type PermissionMode,
+  RequestId,
+  type TurnId,
+} from "@polaris/protocol";
+import {
+  type Cause,
+  Deferred,
+  Effect,
+  Fiber,
+  Inspectable,
+  Option,
+  Queue,
+  Scope,
+  Stream,
+} from "effect";
 import { paths } from "../../paths.ts";
 import {
   type HarnessDriver,
   HarnessError,
-  type HarnessEvent,
+  HarnessEvent,
   type HarnessProbe,
   type HarnessSession,
   type OpenOptions,
@@ -44,6 +59,7 @@ import {
   isQuestionTool,
   parseQuestions,
   toClaudePermissionMode,
+  type ToolUseInput,
   toPermissionResult,
 } from "./permissions.ts";
 import { ClaudeTranslator } from "./translate.ts";
@@ -96,9 +112,13 @@ const defaultRunVersion = async (path: string) => {
 export const parseVersion = (stdout: string): string | null =>
   /(\d+\.\d+\.\d+[^\s]*)/.exec(stdout)?.[1] ?? null;
 
-const resultOutcome = (
-  result: SDKResultMessage
-): { readonly status: "completed" | "failed"; readonly error: string | null } => {
+/** How a Turn ends when every message sent for it is answered. */
+interface TurnOutcome {
+  readonly status: "completed" | "failed";
+  readonly error: string | null;
+}
+
+const resultOutcome = (result: SDKResultMessage): TurnOutcome => {
   if (result.subtype === "success")
     return result.is_error
       ? { status: "failed", error: result.result || "Claude reported an error" }
@@ -113,7 +133,7 @@ const resultOutcome = (
 interface PendingApproval {
   readonly toolName: string;
   readonly toolUseId: string;
-  readonly input: Record<string, unknown>;
+  readonly input: ToolUseInput;
   readonly suggestions: ReadonlyArray<PermissionUpdate>;
   readonly deferred: Deferred.Deferred<PermissionResult>;
 }
@@ -123,7 +143,7 @@ interface ActiveTurn {
   /** Uuids of user messages sent for this Turn that Claude has not yet answered. */
   readonly pending: Set<string>;
   interrupting: boolean;
-  outcome: { status: "completed" | "failed"; error: string | null };
+  outcome: TurnOutcome;
 }
 
 const openSession = Effect.fnUntraced(function* (
@@ -165,8 +185,8 @@ const openSession = Effect.fnUntraced(function* (
 
   /** Withdraw every open approval (interrupt, close, exit) and answer Claude with a deny. */
   const withdrawAll = (message: string) => {
-    for (const requestId of [...approvals.keys()]) {
-      emit({ _tag: "ApprovalWithdrawn", requestId });
+    for (const requestId of approvals.keys()) {
+      emit(HarnessEvent.ApprovalWithdrawn({ requestId }));
       settle(requestId, { behavior: "deny", message, interrupt: true });
     }
   };
@@ -178,7 +198,7 @@ const openSession = Effect.fnUntraced(function* (
     active = null;
     emitAll(translator.closeOpenTools(turn.turnId, status === "completed" ? "failed" : "declined"));
     translator.endTurn();
-    emit({ _tag: "TurnEnded", turnId: turn.turnId, status, error });
+    emit(HarnessEvent.TurnEnded({ turnId: turn.turnId, status, error }));
   };
 
   const canUseTool: CanUseTool = async (toolName, input, context) => {
@@ -186,7 +206,7 @@ const openSession = Effect.fnUntraced(function* (
 
     if (!turn || turn.interrupting || closing)
       return { behavior: "deny", message: "No Turn is in progress.", interrupt: true };
-    const requestId = crypto.randomUUID() as RequestId;
+    const requestId = RequestId.make(crypto.randomUUID());
     const deferred = Deferred.makeUnsafe<PermissionResult>();
     approvals.set(requestId, {
       toolName,
@@ -197,19 +217,20 @@ const openSession = Effect.fnUntraced(function* (
     });
     const described = describeToolCall(toolName, input);
     const questions = isQuestionTool(toolName) ? parseQuestions(input) : [];
-    emit({
-      _tag: "ApprovalRequested",
-      turnId: turn.turnId,
-      requestId,
-      kind: approvalKind(toolName),
-      title: isQuestionTool(toolName) ? described.title : (context.title ?? described.title),
-      detail: described.detail ?? context.description ?? null,
-      options: questions.length === 1 ? questions[0]!.options : [],
-    });
+    emit(
+      HarnessEvent.ApprovalRequested({
+        turnId: turn.turnId,
+        requestId,
+        kind: approvalKind(toolName),
+        title: isQuestionTool(toolName) ? described.title : (context.title ?? described.title),
+        detail: described.detail ?? context.description ?? null,
+        options: questions.length === 1 ? questions[0]!.options : [],
+      })
+    );
 
     const onAbort = () => {
       if (!approvals.has(requestId)) return;
-      emit({ _tag: "ApprovalWithdrawn", requestId });
+      emit(HarnessEvent.ApprovalWithdrawn({ requestId }));
       settle(requestId, { behavior: "deny", message: "The request was cancelled." });
     };
 
@@ -228,11 +249,8 @@ const openSession = Effect.fnUntraced(function* (
     permissionMode: toClaudePermissionMode(options.permissionMode),
     // Only makes `bypassPermissions` selectable later (full-access); it does not enable it.
     allowDangerouslySkipPermissions: true,
-    // Always registered, even in full-access. The callback can only be registered when the
-    // query starts, and `setPermissionMode` can leave `bypassPermissions` mid-session; without
-    // it every later prompt would be denied outright. In `bypassPermissions` Claude simply
-    // never calls it, which is what the SDK's start-time CLAUDE_SDK_CAN_USE_TOOL_SHADOWED
-    // warning says; it is expected and harmless here (see README).
+    // Registered even in full-access, so prompts still work after a later mode change; the
+    // SDK's CLAUDE_SDK_CAN_USE_TOOL_SHADOWED warning is expected. See this driver's README.
     canUseTool,
     includePartialMessages: true,
     systemPrompt: { type: "preset", preset: "claude_code" },
@@ -242,10 +260,13 @@ const openSession = Effect.fnUntraced(function* (
       ...process.env,
       CLAUDE_AGENT_SDK_CLIENT_APP: driver.clientApp ?? "polaris-daemon",
     },
-    ...(options.model !== null ? { model: options.model } : {}),
-    ...(options.resumeCursor !== null ? { resume: options.resumeCursor } : {}),
-    ...(driver.onStderr ? { stderr: driver.onStderr } : {}),
   };
+
+  if (options.model !== null) sdkOptions.model = options.model;
+
+  if (options.resumeCursor !== null) sdkOptions.resume = options.resumeCursor;
+
+  if (driver.onStderr) sdkOptions.stderr = driver.onStderr;
 
   const q = yield* Effect.try({
     try: () => driver.query({ prompt: inbox, options: sdkOptions }),
@@ -257,7 +278,7 @@ const openSession = Effect.fnUntraced(function* (
     exited = true;
     withdrawAll("Claude Code stopped.");
     endTurn(error === null && closing ? "interrupted" : "failed", error ?? "Claude Code exited");
-    emit({ _tag: "Exited", error });
+    emit(HarnessEvent.Exited({ error }));
     Queue.endUnsafe(events);
   };
 
@@ -286,7 +307,7 @@ const openSession = Effect.fnUntraced(function* (
     if (message.type === "result") return onResult(message);
     const echo = "user_message_uuid" in message ? message.user_message_uuid : undefined;
 
-    if (typeof echo === "string" && cancelled.delete(echo)) {
+    if (echo !== undefined && cancelled.delete(echo)) {
       // A steer an interrupt could not recall started its own run: stop it too.
       void q.interrupt().catch(() => {});
     }
@@ -323,7 +344,7 @@ const openSession = Effect.fnUntraced(function* (
       uuid,
       prompt,
       attachments: input?.attachments ?? [],
-      ...(driver.readFile ? { readFile: driver.readFile } : {}),
+      readFile: driver.readFile,
     });
 
     return { uuid, message };
@@ -341,7 +362,7 @@ const openSession = Effect.fnUntraced(function* (
       outcome: { status: "completed", error: null },
     };
     translator.beginTurn(input.turnId);
-    emit({ _tag: "TurnStarted", turnId: input.turnId, prompt: input.prompt });
+    emit(HarnessEvent.TurnStarted({ turnId: input.turnId, prompt: input.prompt }));
     inbox.push(message);
   });
 
@@ -396,7 +417,7 @@ const openSession = Effect.fnUntraced(function* (
 
     if (cursor === null)
       return yield* harnessError("Claude has not started this session yet; send a Turn first");
-    const argv = ["claude", "--resume", cursor];
+    const argv: Array<string> = ["claude", "--resume", cursor];
     const mode = toClaudePermissionMode(permissionMode);
 
     if (mode !== "default") argv.push("--permission-mode", mode);
@@ -410,7 +431,7 @@ const openSession = Effect.fnUntraced(function* (
       argv.push("--settings", settingsPath);
     }
 
-    return argv as ReadonlyArray<string>;
+    return argv;
   });
 
   const session: HarnessSession = {
@@ -432,7 +453,7 @@ const causeMessage = (cause: Cause.Cause<unknown>): string | null => {
 
     if (value instanceof Error) return value.message;
 
-    if (value !== null && value !== undefined) return String(value);
+    if (value !== null && value !== undefined) return Inspectable.toStringUnknown(value);
   }
 
   return null;
@@ -462,14 +483,17 @@ export const makeClaudeDriver = (options: ClaudeDriverOptions = {}): HarnessDriv
 
   const hooks = options.hookReceiver;
 
-  return {
+  const claude: HarnessDriver = {
     kind: "claude",
     capabilities: { steer: true, liveCoAttach: false },
     probe,
     open: (open) => openSession(driver, open),
-    // While In Terminal, Polaris follows the TUI through its HTTP hooks (hooks.ts).
-    ...(hooks ? { terminalFollow: { events: hooks.events, release: hooks.release } } : {}),
   };
+
+  // While In Terminal, Polaris follows the TUI through its HTTP hooks (hooks.ts).
+  return hooks
+    ? { ...claude, terminalFollow: { events: hooks.events, release: hooks.release } }
+    : claude;
 };
 
 /** The Claude driver with the Daemon's hook listener, for the `HarnessRegistry`. */

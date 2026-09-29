@@ -2,11 +2,17 @@
  * Polaris permission modes and approval decisions, mapped onto Claude Code's.
  */
 import type {
+  CanUseTool,
   PermissionMode as ClaudePermissionMode,
   PermissionResult,
   PermissionUpdate,
 } from "@anthropic-ai/claude-agent-sdk";
-import type { ApprovalDecision, ApprovalKind, PermissionMode } from "@polaris/protocol";
+import { ApprovalDecision, type ApprovalKind, type PermissionMode } from "@polaris/protocol";
+import { Option } from "effect";
+import { decodeQuestions, present, type ToolPayload, toolFields } from "./payloads.ts";
+
+/** A tool call's input as `canUseTool` receives it. */
+export type ToolUseInput = Parameters<CanUseTool>[1];
 
 /**
  * - supervised → `default`: prompt for anything not already allowed.
@@ -49,58 +55,44 @@ export interface QuestionSpec {
   readonly multiSelect: boolean;
 }
 
-const isRecord = (u: unknown): u is Record<string, unknown> =>
-  typeof u === "object" && u !== null && !Array.isArray(u);
-
-const str = (u: unknown): string | null => (typeof u === "string" ? u : null);
-
 /** The questions of an `AskUserQuestion` call (1–4, each with 2–4 options). */
-export const parseQuestions = (input: unknown): ReadonlyArray<QuestionSpec> => {
-  if (!isRecord(input) || !Array.isArray(input.questions)) return [];
-
-  return input.questions.flatMap((q): QuestionSpec[] => {
-    if (!isRecord(q)) return [];
-    const question = str(q.question);
-
-    if (question === null) return [];
-
-    const options = Array.isArray(q.options)
-      ? q.options.flatMap((o) => {
-          const label = isRecord(o) ? str(o.label) : null;
-
-          return label === null ? [] : [label];
-        })
-      : [];
-
-    return [
-      { question, header: str(q.header) ?? "", options, multiSelect: q.multiSelect === true },
-    ];
+export const parseQuestions = (input: ToolPayload): ReadonlyArray<QuestionSpec> =>
+  Option.match(decodeQuestions(input), {
+    onNone: () => [],
+    onSome: ({ questions }) =>
+      present(questions).map((q) => ({
+        question: q.question,
+        header: q.header ?? "",
+        options: present(q.options).map((o) => o.label),
+        multiSelect: q.multiSelect === true,
+      })),
   });
-};
 
 /** A one-line summary of a tool call, for approval cards and notifications. */
-export const describeToolCall = (
-  toolName: string,
-  input: unknown
-): { readonly title: string; readonly detail: string | null } => {
-  const i = isRecord(input) ? input : {};
+export interface ToolDescription {
+  readonly title: string;
+  readonly detail: string | null;
+}
+
+export const describeToolCall = (toolName: string, input: ToolPayload): ToolDescription => {
+  const i = toolFields(input);
 
   switch (toolName) {
     case "Bash":
-      return { title: str(i.description) ?? "Run a command", detail: str(i.command) };
+      return { title: i.description ?? "Run a command", detail: i.command };
     case "Edit":
     case "MultiEdit":
-      return { title: "Edit a file", detail: str(i.file_path) };
+      return { title: "Edit a file", detail: i.file_path };
     case "Write":
-      return { title: "Write a file", detail: str(i.file_path) };
+      return { title: "Write a file", detail: i.file_path };
     case "NotebookEdit":
-      return { title: "Edit a notebook", detail: str(i.notebook_path) };
+      return { title: "Edit a notebook", detail: i.notebook_path };
     case "WebFetch":
-      return { title: "Fetch a web page", detail: str(i.url) };
+      return { title: "Fetch a web page", detail: i.url };
     case "WebSearch":
-      return { title: "Search the web", detail: str(i.query) };
+      return { title: "Search the web", detail: i.query };
     case "ExitPlanMode":
-      return { title: "Approve the plan", detail: str(i.plan) };
+      return { title: "Approve the plan", detail: i.plan };
     case "AskUserQuestion": {
       const questions = parseQuestions(input);
 
@@ -136,33 +128,32 @@ export const toPermissionResult = (
   decision: ApprovalDecision,
   request: {
     readonly toolName: string;
-    readonly input: Record<string, unknown>;
+    readonly input: ToolUseInput;
     readonly suggestions: ReadonlyArray<PermissionUpdate>;
   }
-): PermissionResult => {
-  switch (decision._tag) {
-    case "Allow":
-      return decision.remember && request.suggestions.length > 0
+): PermissionResult =>
+  ApprovalDecision.match(decision, {
+    Allow: (allow): PermissionResult =>
+      allow.remember && request.suggestions.length > 0
         ? {
             behavior: "allow",
             updatedInput: request.input,
             updatedPermissions: [...request.suggestions],
           }
-        : { behavior: "allow", updatedInput: request.input };
-    case "Deny":
-      return { behavior: "deny", message: decision.reason ?? DEFAULT_DENY_MESSAGE };
-    case "Answer":
-      if (isQuestionTool(request.toolName)) {
-        return {
-          behavior: "allow",
-          updatedInput: {
-            ...request.input,
-            answers: answersFor(parseQuestions(request.input), decision.text),
-          },
-        };
-      }
-
-      // A typed reply to a permission prompt: decline, and hand Claude the user's words.
-      return { behavior: "deny", message: decision.text };
-  }
-};
+        : { behavior: "allow", updatedInput: request.input },
+    Deny: (deny): PermissionResult => ({
+      behavior: "deny",
+      message: deny.reason ?? DEFAULT_DENY_MESSAGE,
+    }),
+    Answer: (answer): PermissionResult =>
+      isQuestionTool(request.toolName)
+        ? {
+            behavior: "allow",
+            updatedInput: {
+              ...request.input,
+              answers: answersFor(parseQuestions(request.input), answer.text),
+            },
+          }
+        : // A typed reply to a permission prompt: decline, and hand Claude the user's words.
+          { behavior: "deny", message: answer.text },
+  });
