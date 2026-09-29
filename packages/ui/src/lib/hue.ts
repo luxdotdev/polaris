@@ -1,7 +1,7 @@
-import type { HarnessKind } from "@polaris/protocol";
+import { isKnownHarness, type HarnessKind, type KnownHarnessKind } from "@polaris/protocol";
 
-/** A Harness, as the protocol names it; each has one fixed identity hue. */
-export type Harness = HarnessKind;
+/** A Harness this build knows (the protocol catalogue); each has one fixed identity hue. */
+export type Harness = KnownHarnessKind;
 
 /** An identity hue: a Harness, or Starlight for Polaris's own work. */
 export type IdentityHue = Harness | "starlight";
@@ -41,4 +41,9 @@ const WASH_VARS: Record<TintHue, string> = {
 /** The watercolour wash image for a hue, switched per theme in assets.css. */
 export function washVar(hue: TintHue): string {
   return WASH_VARS[hue];
+}
+
+/** The identity hue for any Harness kind a Daemon reports; unknown kinds get no hue. */
+export function harnessHue(kind: HarnessKind): Harness | "neutral" {
+  return isKnownHarness(kind) ? kind : "neutral";
 }

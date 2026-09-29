@@ -39,6 +39,7 @@
   /* Harness identity hues; the light variants come from the Paper file. */
   --color-harness-claude-code: light-dark(#c4562f, #d97757);
   --color-harness-codex: light-dark(#1e8a5c, #6fcba0);
+  --color-harness-opencode: light-dark(#b8466a, #e58fa8);
 
   /* Diffs and git status. */
   --color-diff-added: #3fb950;
