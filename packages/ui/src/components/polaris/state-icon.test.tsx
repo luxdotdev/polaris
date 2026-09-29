@@ -1,5 +1,5 @@
 import { SessionState } from "@polaris/protocol";
-import { cleanup, render } from "@testing-library/react";
+import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, test } from "bun:test";
 
 import { SEVERITIES, SEVERITY_MARKS, SeverityBadge } from "./severity-badge";
@@ -112,5 +112,38 @@ describe("rule/severity-vs-state", () => {
       expect(badge.textContent?.length).toBeGreaterThan(0);
       expect(badge.querySelector("[data-slot=state-icon]")).toBeNull();
     }
+  });
+});
+
+describe("leaving Working", () => {
+  test("fades the dither out over 200ms, then removes it", async () => {
+    const { container, rerender } = render(<StateIcon state="working" harness="claude" />);
+
+    rerender(<StateIcon state="idle" harness="claude" />);
+
+    const leaving = container.querySelector("[data-leaving]");
+
+    expect(leaving).not.toBeNull();
+    expect(leaving?.hasAttribute("data-moving")).toBe(true);
+    expect(container.querySelector("[data-glyph=dot-solid]")).not.toBeNull();
+
+    await act(() => new Promise((resolve) => setTimeout(resolve, 250)));
+    expect(container.querySelector("[data-leaving]")).toBeNull();
+  });
+
+  test("never leaves from another state", () => {
+    const { container, rerender } = render(<StateIcon state="idle" harness="claude" />);
+
+    rerender(<StateIcon state="needs-you" harness="claude" />);
+    expect(container.querySelector("[data-leaving]")).toBeNull();
+  });
+
+  test("cancels the exit if Working resumes", () => {
+    const { container, rerender } = render(<StateIcon state="working" harness="codex" />);
+
+    rerender(<StateIcon state="needs-you" harness="codex" />);
+    rerender(<StateIcon state="working" harness="codex" />);
+    expect(container.querySelector("[data-leaving]")).toBeNull();
+    expect(container.querySelectorAll("[data-moving]").length).toBe(1);
   });
 });
