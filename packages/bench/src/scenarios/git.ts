@@ -10,9 +10,9 @@
  *   checkpoint_after:  the Turn's last item → `CheckpointRecorded(after)` at the Client
  */
 import { join } from "node:path";
-import { SessionId, type TurnId } from "@polaris/protocol";
-import { Effect, Stream } from "effect";
-import { awaitReady, cleanup, connect, makeTempDir } from "../daemon.ts";
+import { GitDiff, SessionId } from "@polaris/protocol";
+import { Effect, Option, Predicate, Stream } from "effect";
+import { awaitReady, cleanup, connect, createTempDir } from "../daemon.ts";
 import {
   registerWorkspace,
   sendTurn,
@@ -24,7 +24,9 @@ import {
 } from "../drive.ts";
 import { copyTree, git, sourceTree } from "../fixtures.ts";
 import { median } from "../stats.ts";
-import { cpu, peakMemory, type Scenario, time } from "../types.ts";
+import { cpu, type Metric, peakMemory, type Scenario, time } from "../types.ts";
+
+const DiffSpec = GitDiff.payloadSchema.fields.spec;
 
 export const gitScenario: Scenario = {
   name: "git",
@@ -37,7 +39,7 @@ export const gitScenario: Scenario = {
       const source = sourceTree(count);
 
       const dir = yield* Effect.acquireRelease(
-        Effect.sync(() => makeTempDir("git")),
+        Effect.sync(() => createTempDir("git")),
         (d) => Effect.sync(() => cleanup(d))
       );
 
@@ -92,12 +94,17 @@ export const gitScenario: Scenario = {
         })
         .pipe(Stream.runHead);
 
+      const first = Option.getOrUndefined(snapshot);
+
       const turnId =
-        snapshot._tag === "Some" && snapshot.value._tag === "Snapshot"
-          ? (snapshot.value.turns.at(-1)?.turn.id as TurnId | undefined)
+        first !== undefined && Predicate.isTagged(first, "Snapshot")
+          ? first.turns.at(-1)?.turn.id
           : undefined;
 
       if (turnId === undefined) return yield* Effect.die(new Error("no Turn in the snapshot"));
+
+      const turnSpec = DiffSpec.cases.Turn.make({ sessionId: SessionId.make(sessionId), turnId });
+      const workingTreeSpec = DiffSpec.cases.WorkingTree.make({ base: null });
 
       const timed = <A, E>(effect: Effect.Effect<A, E>) =>
         Effect.gen(function* () {
@@ -109,10 +116,7 @@ export const gitScenario: Scenario = {
 
       const turnDiff = yield* timed(
         Effect.gen(function* () {
-          const diff = yield* rpc["git.diff"]({
-            cwd: repo,
-            spec: { _tag: "Turn", sessionId: SessionId.make(sessionId), turnId },
-          });
+          const diff = yield* rpc["git.diff"]({ cwd: repo, spec: turnSpec });
 
           const bytes = yield* client.connection.blobs.take(diff.blobId);
 
@@ -124,10 +128,7 @@ export const gitScenario: Scenario = {
 
       const workingDiff = yield* timed(
         Effect.gen(function* () {
-          const diff = yield* rpc["git.diff"]({
-            cwd: repo,
-            spec: { _tag: "WorkingTree", base: null },
-          });
+          const diff = yield* rpc["git.diff"]({ cwd: repo, spec: workingTreeSpec });
 
           yield* client.connection.blobs.take(diff.blobId);
 
@@ -137,17 +138,22 @@ export const gitScenario: Scenario = {
 
       const all = sampler.report();
 
+      const metrics: Record<string, Metric> = {};
+
+      Object.assign(metrics, {
+        checkpoint_before_ms: time(median(before)),
+        checkpoint_after_ms: time(median(after)),
+        turn_diff_ms: time(turnDiff.ms),
+        status_ms: time(status.ms),
+        working_tree_diff_ms: time(workingDiff.ms),
+        turns_cpu_avg_pct: cpu(turnReport.cpuAvgPct, { info: true }),
+        rss_peak_mib: peakMemory(all.rssBytes.max),
+      } satisfies Record<string, Metric>);
+
+      if (all.footprintBytes) metrics.footprint_peak_mib = peakMemory(all.footprintBytes.max);
+
       return {
-        metrics: {
-          checkpoint_before_ms: time(median(before)),
-          checkpoint_after_ms: time(median(after)),
-          turn_diff_ms: time(turnDiff.ms),
-          status_ms: time(status.ms),
-          working_tree_diff_ms: time(workingDiff.ms),
-          turns_cpu_avg_pct: cpu(turnReport.cpuAvgPct, { info: true }),
-          rss_peak_mib: peakMemory(all.rssBytes.max),
-          ...(all.footprintBytes ? { footprint_peak_mib: peakMemory(all.footprintBytes.max) } : {}),
-        },
+        metrics,
         notes: [
           `${count} files; ${turns} Turns each rewriting 20 files; before-checkpoint timed on Turns 2–${turns}`,
           `Turn diff: ${turnDiff.value.files} file(s), ${turnDiff.value.bytes} bytes; status: ${status.value.entries.length} entries; working-tree diff: ${workingDiff.value} file(s)`,

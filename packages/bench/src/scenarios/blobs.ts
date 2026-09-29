@@ -4,11 +4,11 @@
  * Daemon's peak memory while each is in flight.
  */
 import { join } from "node:path";
-import { Effect } from "effect";
-import { awaitReady, cleanup, connect, makeTempDir } from "../daemon.ts";
+import { Effect, Predicate } from "effect";
+import { awaitReady, cleanup, connect, createTempDir } from "../daemon.ts";
 import { registerWorkspace, settle } from "../drive.ts";
 import { randomFile } from "../fixtures.ts";
-import { memory, type Scenario, throughput } from "../types.ts";
+import { type Metric, memory, type Scenario, throughput } from "../types.ts";
 
 export const blobs: Scenario = {
   name: "blobs",
@@ -18,12 +18,12 @@ export const blobs: Scenario = {
       const size = (ctx.quick ? 16 : 100) * 1024 * 1024;
 
       const dir = yield* Effect.acquireRelease(
-        Effect.sync(() => makeTempDir("blobs")),
+        Effect.sync(() => createTempDir("blobs")),
         (d) => Effect.sync(() => cleanup(d))
       );
 
       const file = join(dir, "big.bin");
-      yield* Effect.promise(() => Promise.resolve(randomFile(file, size)));
+      yield* Effect.promise(() => randomFile(file, size));
       const daemon = yield* ctx.launch();
       yield* awaitReady(daemon);
       const sampler = yield* ctx.sample(daemon, 50);
@@ -42,7 +42,8 @@ export const blobs: Scenario = {
         length: null,
       });
 
-      if (read.content._tag !== "Blob") return yield* Effect.die(new Error("expected a blob"));
+      if (!Predicate.isTagged(read.content, "Blob"))
+        return yield* Effect.die(new Error("expected a blob"));
       const bytes = yield* client.connection.blobs.take(read.content.blobId);
       const readSeconds = (performance.now() - t0) / 1000;
 
@@ -84,25 +85,31 @@ export const blobs: Scenario = {
       const rate = (mbPerS: number) =>
         throughput(mbPerS, "MB/s", { tolerance: { relative: 0.5, absolute: 0 } });
 
+      const metrics: Record<string, Metric> = {};
+
+      Object.assign(metrics, {
+        read_mb_per_s: rate(mb / readSeconds),
+        read_rss_peak_over_base_mib: blobMemory(readReport.rssBytes.max - base.rssBytes),
+        upload_mb_per_s: rate(mb / uploadSeconds),
+        upload_rss_peak_over_base_mib: blobMemory(uploadReport.rssBytes.max - base.rssBytes),
+        rss_after_mib: blobMemory(after.rssBytes),
+      } satisfies Record<string, Metric>);
+
+      if (
+        base.footprintBytes !== null &&
+        after.footprintBytes !== null &&
+        uploadReport.footprintBytes
+      ) {
+        metrics.upload_footprint_peak_over_base_mib = blobMemory(
+          uploadReport.footprintBytes.max - base.footprintBytes
+        );
+        metrics.footprint_retained_mib = blobMemory(after.footprintBytes - base.footprintBytes);
+      }
+
+      metrics.rss_retained_mib = blobMemory(after.rssBytes - base.rssBytes);
+
       return {
-        metrics: {
-          read_mb_per_s: rate(mb / readSeconds),
-          read_rss_peak_over_base_mib: blobMemory(readReport.rssBytes.max - base.rssBytes),
-          upload_mb_per_s: rate(mb / uploadSeconds),
-          upload_rss_peak_over_base_mib: blobMemory(uploadReport.rssBytes.max - base.rssBytes),
-          rss_after_mib: blobMemory(after.rssBytes),
-          ...(base.footprintBytes !== null &&
-          after.footprintBytes !== null &&
-          uploadReport.footprintBytes
-            ? {
-                upload_footprint_peak_over_base_mib: blobMemory(
-                  uploadReport.footprintBytes.max - base.footprintBytes
-                ),
-                footprint_retained_mib: blobMemory(after.footprintBytes - base.footprintBytes),
-              }
-            : {}),
-          rss_retained_mib: blobMemory(after.rssBytes - base.rssBytes),
-        },
+        metrics,
         notes: [
           `${size / 1024 / 1024} MiB of incompressible bytes each way over ${ctx.transport}; RSS sampled every 50 ms`,
         ],

@@ -71,6 +71,37 @@ export interface Sampler {
   readonly stop: () => void;
 }
 
+interface PeakTracker {
+  name: string;
+  maxRssBytes: number;
+  cpuNs: number;
+}
+
+/** A tree total that becomes null (unknown) once any process lacks the counter. */
+const addKnown = (sum: number | null, value: number | null): number | null =>
+  sum === null || value === null ? null : sum + value;
+
+/** CPU (own + reaped children) a process used since `before`, or all of it when new. */
+const cpuSince = (counters: ProcCounters, before: ProcCounters | undefined): number => {
+  const total = counters.cpuNs + counters.childCpuNs;
+
+  return Math.max(0, before === undefined ? total : total - before.cpuNs - before.childCpuNs);
+};
+
+/** Wakeups since `before` (none for a new process), or null when unknown. */
+const wakeupsSince = (counters: ProcCounters, before: ProcCounters | undefined) =>
+  counters.wakeups === null
+    ? null
+    : Math.max(0, counters.wakeups - (before?.wakeups ?? counters.wakeups));
+
+const trackPeak = (peaks: Map<number, PeakTracker>, pid: number, counters: ProcCounters) => {
+  const peak = peaks.get(pid) ?? { name: counters.name, maxRssBytes: 0, cpuNs: 0 };
+  peak.maxRssBytes = Math.max(peak.maxRssBytes, counters.rssBytes);
+  peak.cpuNs = counters.cpuNs;
+  peak.name = counters.name || peak.name;
+  peaks.set(pid, peak);
+};
+
 export const startSampler = (options: SamplerOptions): Sampler => {
   const reader = procReader();
   const started = performance.now();
@@ -78,7 +109,7 @@ export const startSampler = (options: SamplerOptions): Sampler => {
   const samples: Array<TreeSample> = [];
   let previous = new Map<number, ProcCounters>();
   let previousT = 0;
-  const peaks = new Map<number, { name: string; maxRssBytes: number; cpuNs: number }>();
+  const peaks = new Map<number, PeakTracker>();
 
   const sample = (): TreeSample => {
     const t = now();
@@ -97,23 +128,11 @@ export const startSampler = (options: SamplerOptions): Sampler => {
       if (counters === null) continue;
       current.set(pid, counters);
       rssBytes += counters.rssBytes;
-      footprint =
-        footprint === null || counters.footprintBytes === null
-          ? null
-          : footprint + counters.footprintBytes;
+      footprint = addKnown(footprint, counters.footprintBytes);
       const before = previous.get(pid);
-      const total = counters.cpuNs + counters.childCpuNs;
-      const delta = before === undefined ? total : total - before.cpuNs - before.childCpuNs;
-      cpuNs += Math.max(0, delta);
-
-      if (wakeups !== null && counters.wakeups !== null) {
-        wakeups += Math.max(0, counters.wakeups - (before?.wakeups ?? counters.wakeups));
-      } else wakeups = null;
-      const peak = peaks.get(pid) ?? { name: counters.name, maxRssBytes: 0, cpuNs: 0 };
-      peak.maxRssBytes = Math.max(peak.maxRssBytes, counters.rssBytes);
-      peak.cpuNs = counters.cpuNs;
-      peak.name = counters.name || peak.name;
-      peaks.set(pid, peak);
+      cpuNs += cpuSince(counters, before);
+      wakeups = addKnown(wakeups, wakeupsSince(counters, before));
+      trackPeak(peaks, pid, counters);
     }
 
     const dt = Math.max(1e-6, t - previousT);
@@ -153,16 +172,14 @@ export const startSampler = (options: SamplerOptions): Sampler => {
       ? rated.reduce((a, s) => a + (s.wakeups ?? 0), 0)
       : null;
 
-    const footprints = window.map((s) => s.footprintBytes);
+    const footprints = window.flatMap((s) => (s.footprintBytes === null ? [] : [s.footprintBytes]));
 
     return {
       backend: reader.backend,
       durationMs,
       samples: window.length,
       rssBytes: summarize(window.map((s) => s.rssBytes)),
-      footprintBytes: footprints.every((f) => f !== null)
-        ? summarize(footprints as Array<number>)
-        : null,
+      footprintBytes: footprints.length === window.length ? summarize(footprints) : null,
       cpuPct: summarize(rated.map((s) => s.cpuPct)),
       cpuAvgPct: durationMs > 0 ? (cpuNs / 1e6 / durationMs) * 100 : 0,
       cpuSeconds: cpuNs / 1e9,

@@ -19,6 +19,7 @@
  * Only processes of the same user can be read, which is all a benchmark needs.
  */
 import { readdirSync, readFileSync } from "node:fs";
+import { dlopen, FFIType, ptr } from "bun:ffi";
 
 export interface ProcCounters {
   readonly pid: number;
@@ -48,8 +49,6 @@ const RUSAGE_V2_SIZE = 160;
 
 const darwinReader = (): ProcReader | null => {
   try {
-    const { dlopen, FFIType, ptr } = require("bun:ffi") as typeof import("bun:ffi");
-
     const lib = dlopen("/usr/lib/libSystem.B.dylib", {
       proc_pid_rusage: { args: [FFIType.i32, FFIType.i32, FFIType.ptr], returns: FFIType.i32 },
       proc_listchildpids: { args: [FFIType.i32, FFIType.ptr, FFIType.i32], returns: FFIType.i32 },

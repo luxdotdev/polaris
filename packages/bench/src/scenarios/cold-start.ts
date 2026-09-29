@@ -7,7 +7,7 @@ import { Effect } from "effect";
 import { awaitReady, connect } from "../daemon.ts";
 import { settle } from "../drive.ts";
 import { summarize } from "../stats.ts";
-import { cpu, memory, type Scenario, time } from "../types.ts";
+import { cpu, type Metric, memory, type Scenario, time } from "../types.ts";
 
 export const coldStart: Scenario = {
   name: "cold-start",
@@ -43,17 +43,23 @@ export const coldStart: Scenario = {
         );
       }
 
+      const metrics: Record<string, Metric> = {};
+
+      Object.assign(metrics, {
+        hello_ms: time(summarize(hello).median),
+        hello_max_ms: time(summarize(hello).max, { info: true }),
+        rss_settled_mib: memory(summarize(rss).median),
+      } satisfies Record<string, Metric>);
+
+      if (footprint.length > 0) {
+        metrics.footprint_settled_mib = memory(summarize(footprint).median);
+      }
+
+      metrics.bridge_connect_ms = time(summarize(bridge).median);
+      metrics.settle_cpu_pct = cpu(idleCpu, { info: true });
+
       return {
-        metrics: {
-          hello_ms: time(summarize(hello).median),
-          hello_max_ms: time(summarize(hello).max, { info: true }),
-          rss_settled_mib: memory(summarize(rss).median),
-          ...(footprint.length > 0
-            ? { footprint_settled_mib: memory(summarize(footprint).median) }
-            : {}),
-          bridge_connect_ms: time(summarize(bridge).median),
-          settle_cpu_pct: cpu(idleCpu, { info: true }),
-        },
+        metrics,
         notes: [`${spawns} spawns per run; hello polled every 2 ms over the Unix socket`],
       };
     }),
