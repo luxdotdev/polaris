@@ -22,6 +22,7 @@ import type {
 import type { Rpc } from "effect/rpc";
 import type {
   CachedHost,
+  Density,
   RequestInput,
   RequestMethod,
   SubscriptionInput,
@@ -31,6 +32,7 @@ import type {
 
 export type {
   CachedHost,
+  Density,
   RequestInput,
   RequestMethod,
   SubscriptionInput,
@@ -47,8 +49,8 @@ export const CHANNELS = {
   unsubscribe: "polaris:unsubscribe",
   /** main → renderer: every subscription's items since the last flush, in one message. */
   batch: "polaris:batch",
-  /** main → renderer: a menu command (View → Orchestrate ⌘1 …). */
-  menu: "polaris:menu",
+  /** main → renderer: an `AppEvent` (a menu command, a changed appearance). */
+  app: "polaris:app",
 } as const;
 
 /** A failure crossing IPC: the tagged error's tag and message, nothing that can't be cloned. */
@@ -96,8 +98,13 @@ export interface HostView {
 
 // ── Requests ────────────────────────────────────────────────────────────────
 
-export interface SettingsView {
+/** How the renderer looks: `data-theme` (unset for "system") and `data-density` on the root. */
+export interface Appearance {
   readonly theme: ThemeSource;
+  readonly density: Density;
+}
+
+export interface SettingsView extends Appearance {
   readonly hosts: ReadonlyArray<{
     readonly alias: string;
     readonly label: string;
@@ -127,6 +134,7 @@ export interface RequestOutputs {
   "cache.get": ReadonlyArray<CachedHost>;
   "cache.put": null;
   "settings.setTheme": null;
+  "settings.setDensity": null;
   "host.retryNow": null;
   dispatch: { readonly sequence: number | null };
   "files.listDir": ReadonlyArray<FileEntry>;
@@ -183,13 +191,13 @@ export interface SubscriptionListener<A> {
   readonly end?: (error: IpcError | null) => void;
 }
 
-// ── Menu ────────────────────────────────────────────────────────────────────
+// ── App events ──────────────────────────────────────────────────────────────
 
 export type Route = "orchestrate" | "review" | "edit";
 
-export interface MenuCommand {
-  readonly route: Route;
-}
+export type AppEvent =
+  | { readonly kind: "route"; readonly route: Route }
+  | { readonly kind: "appearance"; readonly appearance: Appearance };
 
 // ── The API on `window.polaris` ─────────────────────────────────────────────
 
@@ -204,5 +212,5 @@ export interface PolarisApi {
     input: SubscriptionInput<K>,
     listener: SubscriptionListener<SubscriptionItem<K>>
   ) => () => void;
-  readonly onMenu: (listener: (command: MenuCommand) => void) => () => void;
+  readonly onAppEvent: (listener: (event: AppEvent) => void) => () => void;
 }

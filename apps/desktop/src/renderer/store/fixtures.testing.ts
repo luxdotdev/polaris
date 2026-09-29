@@ -41,6 +41,7 @@ export const session = new AgentSession({
   state: "starting",
   permissionMode: "auto",
   model: null,
+  effort: null,
   parentSessionId: null,
   forkedFromTurnId: null,
   harnessCursor: null,
@@ -61,6 +62,8 @@ const turnFields = {
   checkpointAfter: null,
   startedAt: at,
   endedAt: null,
+  model: null,
+  effort: null,
 } satisfies Turn;
 
 export const turn = new Turn(turnFields);

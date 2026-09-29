@@ -12,7 +12,8 @@ export const APP_ORIGIN = "app://polaris";
 const PROD_CSP = [
   "default-src 'none'",
   "script-src 'self'",
-  "style-src 'self'",
+  // Radix and sonner inject <style> elements at runtime; scripts stay strict.
+  "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
   "connect-src 'self'",

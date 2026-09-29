@@ -1,14 +1,11 @@
+import { SegmentedControl, Wordmark } from "@polaris/ui";
 import type { Route } from "../../shared/api.ts";
 import { useApp, useConnection } from "./hooks.ts";
 
-const MODES: ReadonlyArray<{
-  readonly route: Route;
-  readonly label: string;
-  readonly key: string;
-}> = [
-  { route: "orchestrate", label: "Orchestrate", key: "⌘1" },
-  { route: "review", label: "Review", key: "⌘2" },
-  { route: "edit", label: "Edit", key: "⌘3" },
+const MODES: ReadonlyArray<{ readonly value: Route; readonly label: string }> = [
+  { value: "orchestrate", label: "Orchestrate" },
+  { value: "review", label: "Review" },
+  { value: "edit", label: "Edit" },
 ];
 
 /** The `hiddenInset` title bar: a drag region with the wordmark and the mode switch. */
@@ -17,22 +14,16 @@ export const TitleBar = () => {
   const { setRoute } = useConnection();
 
   return (
-    <header className="titlebar">
-      <span className="wordmark">Polaris</span>
-      <nav className="modes" aria-label="Mode">
-        {MODES.map((mode) => (
-          <button
-            key={mode.route}
-            type="button"
-            className="mode"
-            aria-pressed={route === mode.route}
-            title={`${mode.label} ${mode.key}`}
-            onClick={() => setRoute(mode.route)}
-          >
-            {mode.label}
-          </button>
-        ))}
-      </nav>
+    <header className="app-drag border-hairline bg-surface-sunken flex h-[52px] shrink-0 items-center gap-4 border-b pl-[88px]">
+      <Wordmark />
+      <SegmentedControl
+        className="app-no-drag"
+        variant="mode"
+        aria-label="Mode"
+        options={MODES}
+        value={route}
+        onValueChange={setRoute}
+      />
     </header>
   );
 };

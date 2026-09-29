@@ -57,10 +57,9 @@ const app = await electron.launch({
 const shoot = async (page: Page, theme: "dark" | "light") => {
   if (screenshots === null) return;
   mkdirSync(screenshots, { recursive: true });
-  // What View → Appearance does (menu.ts), without driving the native menu.
-  await app.evaluate(({ nativeTheme }, t) => {
-    nativeTheme.themeSource = t;
-  }, theme);
+  // What View → Appearance does (menu.ts): the setting, then data-theme on the root.
+  await page.evaluate(`window.polaris.request("settings.setTheme", { theme: "${theme}" })`);
+  await page.locator(`html[data-theme="${theme}"]`).waitFor({ state: "attached" });
   await page.waitForTimeout(300);
   const path = join(screenshots, `proof-${theme}.png`);
 
@@ -70,8 +69,14 @@ const shoot = async (page: Page, theme: "dark" | "light") => {
 
 let failed = false;
 
+const consoleErrors: Array<string> = [];
+
 try {
   const page = await app.firstWindow();
+
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
 
   await page.setViewportSize({ width: 1280, height: 800 });
   // Playwright emulates a light colour scheme by default; follow the app's own theme instead.
@@ -105,10 +110,18 @@ try {
 
   if (items !== "6 items") throw new Error(`expected 6 items, saw ${items}`);
   await shoot(page, "light");
+
+  if (consoleErrors.length > 0) throw new Error(`renderer errors:\n${consoleErrors.join("\n")}`);
   step("ok");
 } catch (error) {
   failed = true;
   console.error("smoke: FAILED", error);
+  const page = app.windows()[0];
+
+  if (page !== undefined) {
+    console.error(`smoke: screen text:\n${await page.locator("body").innerText()}`);
+    console.error(`smoke: renderer errors:\n${consoleErrors.join("\n")}`);
+  }
 } finally {
   await app.close();
   await daemon.stop();

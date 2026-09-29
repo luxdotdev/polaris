@@ -6,13 +6,14 @@
 import type { HostConnection, LiveSession } from "@polaris/client";
 import type { FileContent } from "@polaris/protocol";
 import { Effect, flow, Match, Schema } from "effect";
-import type { FileContentView, InstallView, IpcError, RequestOutput } from "../../shared/api.ts";
-import {
-  RequestInputs,
-  type RequestInput,
-  type RequestMethod,
-  type ThemeSource,
-} from "../../shared/contract.ts";
+import type {
+  Appearance,
+  FileContentView,
+  InstallView,
+  IpcError,
+  RequestOutput,
+} from "../../shared/api.ts";
+import { RequestInputs, type RequestInput, type RequestMethod } from "../../shared/contract.ts";
 import { HostDirectory, toIpcError } from "../hosts.ts";
 import type { Settings } from "../settings.ts";
 import type { SnapshotCache } from "../snapshotCache.ts";
@@ -22,7 +23,7 @@ import { ensureInstalled } from "./install.ts";
 export interface RequestContext {
   readonly settings: () => Settings;
   readonly cache: SnapshotCache;
-  readonly setTheme: (theme: ThemeSource) => void;
+  readonly setAppearance: (patch: Partial<Appearance>) => void;
   /** A fresh temp directory, or null when the local Daemon doesn't run the bench Harness. */
   readonly proofWorkspace: () => string | null;
   /** The bundled Daemon builds (`manifest.json`), or null when this build has none. */
@@ -78,6 +79,7 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
 
       return {
         theme: settings.theme ?? "system",
+        density: settings.density ?? "calm",
         hosts: (settings.hosts ?? []).map((h) => ({
           alias: h.alias,
           label: h.label ?? h.alias,
@@ -88,7 +90,9 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
     }),
   "cache.get": () => Effect.sync(() => ctx.cache.get()),
   "cache.put": ({ host }) => Effect.sync(() => ctx.cache.put(host)).pipe(done),
-  "settings.setTheme": ({ theme }) => Effect.sync(() => ctx.setTheme(theme)).pipe(done),
+  "settings.setTheme": ({ theme }) => Effect.sync(() => ctx.setAppearance({ theme })).pipe(done),
+  "settings.setDensity": ({ density }) =>
+    Effect.sync(() => ctx.setAppearance({ density })).pipe(done),
   "host.retryNow": ({ hostKey }) => onHost(hostKey, (c) => c.retryNow).pipe(done),
   dispatch: ({ hostKey, commandId, command }) =>
     onLive(hostKey, (s) => s.client.dispatch({ commandId, command })),

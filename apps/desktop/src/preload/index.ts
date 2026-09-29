@@ -7,7 +7,7 @@ import { contextBridge, ipcRenderer } from "electron";
 import {
   type BatchEntry,
   CHANNELS,
-  type MenuCommand,
+  type AppEvent,
   type PolarisApi,
   type SubscriptionListener,
 } from "../shared/api.ts";
@@ -45,13 +45,13 @@ const api: PolarisApi = {
       ipcRenderer.send(CHANNELS.unsubscribe, { id });
     };
   },
-  onMenu: (listener) => {
-    const handler = (_event: Electron.IpcRendererEvent, command: MenuCommand) => listener(command);
+  onAppEvent: (listener) => {
+    const handler = (_event: Electron.IpcRendererEvent, event: AppEvent) => listener(event);
 
-    ipcRenderer.on(CHANNELS.menu, handler);
+    ipcRenderer.on(CHANNELS.app, handler);
 
     return () => {
-      ipcRenderer.off(CHANNELS.menu, handler);
+      ipcRenderer.off(CHANNELS.app, handler);
     };
   },
 };

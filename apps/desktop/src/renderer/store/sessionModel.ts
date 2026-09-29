@@ -120,6 +120,10 @@ const fold = (event: DomainEvent): Fold =>
         ({ harnessCursor }): Fold =>
         (m) =>
           patchSession(m, { harnessCursor }),
+      SessionModelChanged:
+        ({ model, effort }): Fold =>
+        (m) =>
+          patchSession(m, { model, effort }),
       SessionPermissionModeChanged:
         ({ permissionMode }): Fold =>
         (m) =>

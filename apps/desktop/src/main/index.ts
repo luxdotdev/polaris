@@ -10,8 +10,8 @@ import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, nativeTheme, session } from "electron";
-import type { ThemeSource } from "../shared/api.ts";
+import { app, BrowserWindow, nativeTheme, session } from "electron";
+import { type AppEvent, type Appearance, CHANNELS } from "../shared/api.ts";
 import { clientIdentity, type ClientRuntime, hostEntries, startClientRuntime } from "./hosts.ts";
 import { registerIpc } from "./ipc/index.ts";
 import { type LocalDaemon, resolveLocalDaemon } from "./localDaemon.ts";
@@ -64,15 +64,28 @@ const start = async () => {
   const file = settingsPath(app.getPath("userData"));
   let settings: Settings = readSettings(file);
 
-  const setTheme = (theme: ThemeSource) => {
-    settings = { ...settings, theme };
+  const appearance = (): Appearance => ({
+    theme: settings.theme ?? "system",
+    density: settings.density ?? "calm",
+  });
+
+  const setAppearance = (patch: Partial<Appearance>) => {
+    settings = { ...settings, ...patch };
     writeSettings({ path: file, settings });
-    nativeTheme.themeSource = theme;
-    buildMenu({ theme, setTheme, dev });
+    applyAppearance();
   };
 
-  nativeTheme.themeSource = settings.theme ?? "system";
-  buildMenu({ theme: settings.theme ?? "system", setTheme, dev });
+  const applyAppearance = () => {
+    const current = appearance();
+    const event: AppEvent = { kind: "appearance", appearance: current };
+
+    nativeTheme.themeSource = current.theme;
+    buildMenu({ appearance: current, setAppearance, dev });
+
+    for (const win of BrowserWindow.getAllWindows()) win.webContents.send(CHANNELS.app, event);
+  };
+
+  applyAppearance();
 
   localDaemon = await resolveLocalDaemon({ dev, repoRoot, env });
   const benchHarness = localDaemon.benchHarness;
@@ -90,7 +103,7 @@ const start = async () => {
     context: {
       settings: () => settings,
       cache: openSnapshotCache(app.getPath("userData")),
-      setTheme,
+      setAppearance,
       proofWorkspace: () => (benchHarness ? mkdtempSync(join(tmpdir(), "polaris-proof-")) : null),
       daemonDist: existsSync(join(daemonDist, "manifest.json")) ? daemonDist : null,
     },

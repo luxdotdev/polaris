@@ -1,15 +1,18 @@
-import { useState } from "react";
 import type { Workspace } from "@polaris/protocol";
+import { Button, Row, SectionHeader } from "@polaris/ui";
+import { useState } from "react";
 import type { HostView } from "../../shared/api.ts";
 import { startProofSession } from "../proof.ts";
 import {
   emptyHostModel,
   type HostModel,
+  type SessionEntry,
   sessionsOf,
   visibleWorkspaces,
 } from "../store/hostModel.ts";
 import type { Selection } from "./App.tsx";
 import { connectionLabel, sessionStateLabel } from "./copy.ts";
+import { SessionIcon } from "./SessionIcon.tsx";
 import { useApp, useConnection } from "./hooks.ts";
 
 interface SelectProps {
@@ -17,44 +20,64 @@ interface SelectProps {
   readonly onSelect: (selection: Selection) => void;
 }
 
+interface SessionRowProps extends SelectProps {
+  readonly hostKey: string;
+  readonly entry: SessionEntry;
+}
+
+const SessionRow = ({ hostKey, entry, selected, onSelect }: SessionRowProps) => {
+  const { session, pendingApprovals, lastTurnPreview } = entry;
+  const needsYou = session.state === "needs-you" || pendingApprovals.length > 0;
+  const isSelected = selected?.hostKey === hostKey && selected.sessionId === session.id;
+  const select = () => onSelect({ hostKey, sessionId: session.id });
+
+  // Row's asChild can't slot (it renders several children), so the row itself is the button.
+  return (
+    <Row
+      role="button"
+      tabIndex={0}
+      aria-pressed={isSelected}
+      onClick={select}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        select();
+      }}
+      variant="session"
+      tone={needsYou ? "needs-you" : "default"}
+      selected={isSelected}
+      leading={<SessionIcon state={session.state} harness={session.harness} />}
+      title={session.title || "untitled"}
+      description={lastTurnPreview ?? sessionStateLabel[session.state]}
+      meta={<span data-testid="row-state">{sessionStateLabel[session.state]}</span>}
+    />
+  );
+};
+
 interface WorkspaceProps extends SelectProps {
   readonly hostKey: string;
   readonly model: HostModel;
   readonly workspace: Workspace;
 }
 
-const WorkspaceRows = ({ hostKey, model, workspace, selected, onSelect }: WorkspaceProps) => {
+const WorkspaceSection = ({ hostKey, model, workspace, selected, onSelect }: WorkspaceProps) => {
   const sessions = sessionsOf(model, workspace.id);
 
   return (
-    <li className="workspace">
-      <div className="workspace-name" title={workspace.path}>
+    <li>
+      <SectionHeader
+        title={workspace.path}
+        empty={sessions.length === 0 ? `No agent sessions in ${workspace.name}` : undefined}
+      >
         {workspace.name}
-      </div>
-      {sessions.length === 0 ? (
-        <div className="empty-row">no agent sessions</div>
-      ) : (
-        <ul className="sessions">
-          {sessions.map(({ session, pendingApprovals }) => (
-            <li key={session.id}>
-              <button
-                type="button"
-                className="session-row"
-                data-state={session.state}
-                aria-current={selected?.hostKey === hostKey && selected.sessionId === session.id}
-                onClick={() => onSelect({ hostKey, sessionId: session.id })}
-              >
-                <span className="state-dot" aria-hidden />
-                <span className="session-title">{session.title || "untitled"}</span>
-                <span className="session-state">
-                  {sessionStateLabel[session.state]}
-                  {pendingApprovals.length > 0 ? ` · ${pendingApprovals.length}` : ""}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      </SectionHeader>
+      <ul className="flex flex-col gap-px">
+        {sessions.map((entry) => (
+          <li key={entry.session.id}>
+            <SessionRow hostKey={hostKey} entry={entry} selected={selected} onSelect={onSelect} />
+          </li>
+        ))}
+      </ul>
     </li>
   );
 };
@@ -78,16 +101,15 @@ const ProofButton = ({ host, onSelect }: HostProps) => {
   };
 
   return (
-    <div className="proof">
-      <button
-        type="button"
-        className="button"
+    <div className="flex flex-col gap-1 px-2 py-1">
+      <Button
+        variant="primary"
         disabled={busy || host.status.state !== "connected"}
         onClick={start}
       >
         {busy ? "Starting…" : "Start proof session"}
-      </button>
-      {error === null ? null : <span className="error">{error}</span>}
+      </Button>
+      {error === null ? null : <p className="text-caption text-failed">{error}</p>}
     </div>
   );
 };
@@ -96,28 +118,33 @@ const HostSection = ({ host, selected, onSelect }: HostProps) => {
   const model = useApp((s) => s.hostModels[host.key]) ?? emptyHostModel;
   const workspaces = visibleWorkspaces(model);
   const { status } = host;
+  const detail = status.state === "connected" ? null : (status.failure?.detail ?? null);
 
   return (
-    <section className="host" data-connection={status.state} aria-label={host.label}>
-      <header className="host-header">
-        <span className="host-name">{host.label}</span>
-        <span className="connection" data-testid={`connection-${host.key}`}>
+    <section
+      aria-label={host.label}
+      data-connection={status.state}
+      className="flex flex-col data-[connection=offline]:opacity-(--opacity-dimmed) data-[connection=reconnecting]:opacity-(--opacity-dimmed)"
+    >
+      <div className="flex items-baseline justify-between px-2 pb-1">
+        <h2 className="text-label text-text-strong">{host.label}</h2>
+        <span className="text-caption text-text-subtle" data-testid={`connection-${host.key}`}>
           {connectionLabel[status.state]}
         </span>
-      </header>
-      {status.failure === null || status.state === "connected" ? null : (
-        <div className="host-detail">{status.failure.detail}</div>
-      )}
-      {model.fromCache ? <div className="host-detail">last known · revalidating</div> : null}
+      </div>
+      {detail === null ? null : <p className="text-caption text-text-subtle px-2">{detail}</p>}
+      {model.fromCache ? (
+        <p className="text-caption text-text-faint px-2">Last known · revalidating</p>
+      ) : null}
       {host.proofHarness ? (
         <ProofButton host={host} selected={selected} onSelect={onSelect} />
       ) : null}
       {workspaces.length === 0 ? (
-        <div className="empty-row">no workspaces</div>
+        <p className="text-caption text-text-faint px-2 py-1.5">No workspaces yet</p>
       ) : (
-        <ul className="workspaces">
+        <ul className="flex flex-col">
           {workspaces.map((workspace) => (
-            <WorkspaceRows
+            <WorkspaceSection
               key={workspace.id}
               hostKey={host.key}
               model={model}
@@ -136,7 +163,10 @@ export const HostList = ({ selected, onSelect }: SelectProps) => {
   const hosts = useApp((s) => s.hosts);
 
   return (
-    <nav className="sidebar" aria-label="Hosts">
+    <nav
+      aria-label="Hosts"
+      className="gap-section border-hairline bg-surface-sunken pt-panel flex flex-col overflow-y-auto border-r p-2"
+    >
       {hosts.map((host) => (
         <HostSection key={host.key} host={host} selected={selected} onSelect={onSelect} />
       ))}

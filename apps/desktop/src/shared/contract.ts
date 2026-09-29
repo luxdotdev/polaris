@@ -25,6 +25,11 @@ export const ThemeSource = Schema.Literals(["system", "dark", "light"]);
 
 export type ThemeSource = typeof ThemeSource.Type;
 
+/** DESIGN.md's density steps; spacing and row heights only. */
+export const Density = Schema.Literals(["calm", "balanced", "compact"]);
+
+export type Density = typeof Density.Type;
+
 const onHost = <F extends Schema.Struct.Fields>(fields: F) =>
   Schema.Struct({ hostKey: HostKey, ...fields });
 
@@ -45,6 +50,7 @@ export const RequestInputs = {
   "cache.get": Schema.Struct({}),
   "cache.put": Schema.Struct({ host: CachedHost }),
   "settings.setTheme": Schema.Struct({ theme: ThemeSource }),
+  "settings.setDensity": Schema.Struct({ density: Density }),
   "host.retryNow": onHost({}),
   dispatch: onHost({ commandId: CommandId, command: Command }),
   "files.listDir": onHost({ path: Schema.String }),

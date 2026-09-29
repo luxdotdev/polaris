@@ -166,6 +166,8 @@ const fold = (event: DomainEvent): Fold =>
       SessionRenamed: ({ sessionId, title }) => onSession(sessionId, patch({ title })),
       SessionCursorUpdated: ({ sessionId, harnessCursor }) =>
         onSession(sessionId, patch({ harnessCursor })),
+      SessionModelChanged: ({ sessionId, model, effort }) =>
+        onSession(sessionId, patch({ model, effort })),
       SessionPermissionModeChanged: ({ sessionId, permissionMode }) =>
         onSession(sessionId, patch({ permissionMode })),
       TurnStarted: ({ turn }) => onTurn(turn),

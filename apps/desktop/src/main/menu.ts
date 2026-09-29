@@ -1,20 +1,27 @@
 /**
  * The native menu: the standard macOS menus, View → Orchestrate / Review /
- * Edit (⌘1–3, routed in the renderer) and the appearance override.
+ * Edit (⌘1–3, routed in the renderer), and the appearance and density overrides.
  */
 import { BrowserWindow, Menu, type MenuItemConstructorOptions } from "electron";
-import { CHANNELS, type MenuCommand, type Route, type ThemeSource } from "../shared/api.ts";
+import {
+  type AppEvent,
+  type Appearance,
+  CHANNELS,
+  type Density,
+  type Route,
+  type ThemeSource,
+} from "../shared/api.ts";
 
 export interface MenuInput {
-  readonly theme: ThemeSource;
-  readonly setTheme: (theme: ThemeSource) => void;
+  readonly appearance: Appearance;
+  readonly setAppearance: (patch: Partial<Appearance>) => void;
   readonly dev: boolean;
 }
 
 const route = (to: Route) => () => {
-  const command: MenuCommand = { route: to };
+  const event: AppEvent = { kind: "route", route: to };
 
-  BrowserWindow.getFocusedWindow()?.webContents.send(CHANNELS.menu, command);
+  BrowserWindow.getFocusedWindow()?.webContents.send(CHANNELS.app, event);
 };
 
 const MODES: ReadonlyArray<{
@@ -33,7 +40,13 @@ const THEMES: ReadonlyArray<{ readonly label: string; readonly theme: ThemeSourc
   { label: "Light", theme: "light" },
 ];
 
-export const buildMenu = ({ theme, setTheme, dev }: MenuInput) => {
+const DENSITIES: ReadonlyArray<{ readonly label: string; readonly density: Density }> = [
+  { label: "Calm", density: "calm" },
+  { label: "Balanced", density: "balanced" },
+  { label: "Compact", density: "compact" },
+];
+
+export const buildMenu = ({ appearance, setAppearance, dev }: MenuInput) => {
   const view: Array<MenuItemConstructorOptions> = [
     ...MODES.map((m) => ({ label: m.label, accelerator: m.key, click: route(m.route) })),
     { type: "separator" },
@@ -42,8 +55,17 @@ export const buildMenu = ({ theme, setTheme, dev }: MenuInput) => {
       submenu: THEMES.map((t) => ({
         label: t.label,
         type: "radio" as const,
-        checked: t.theme === theme,
-        click: () => setTheme(t.theme),
+        checked: t.theme === appearance.theme,
+        click: () => setAppearance({ theme: t.theme }),
+      })),
+    },
+    {
+      label: "Density",
+      submenu: DENSITIES.map((d) => ({
+        label: d.label,
+        type: "radio" as const,
+        checked: d.density === appearance.density,
+        click: () => setAppearance({ density: d.density }),
       })),
     },
     { type: "separator" },

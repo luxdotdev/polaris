@@ -88,6 +88,7 @@ export const startProofSession = async ({
       placement: Placement.InPlace(),
       permissionMode: "auto",
       model: null,
+      effort: null,
       prompt: PROOF_PROMPT,
       attachments: [],
     })

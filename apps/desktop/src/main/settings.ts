@@ -6,7 +6,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { Option, Schema } from "effect";
-import { ThemeSource } from "../shared/contract.ts";
+import { Density, ThemeSource } from "../shared/contract.ts";
 
 export const RemoteHostSetting = Schema.Struct({
   alias: Schema.String.check(Schema.isMinLength(1)),
@@ -19,6 +19,7 @@ export type RemoteHostSetting = typeof RemoteHostSetting.Type;
 
 export const Settings = Schema.Struct({
   theme: Schema.optionalKey(ThemeSource),
+  density: Schema.optionalKey(Density),
   hosts: Schema.optionalKey(Schema.Array(RemoteHostSetting)),
 });
 

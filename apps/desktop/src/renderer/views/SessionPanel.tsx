@@ -1,10 +1,18 @@
-import type { ApprovalRequest, TurnItem } from "@polaris/protocol";
+import {
+  type ApprovalDecision,
+  type ApprovalRequest,
+  isKnownHarness,
+  type TurnItem,
+} from "@polaris/protocol";
+import { ApprovalCard } from "@polaris/ui";
 import { Match } from "effect";
 import { Commands, Decisions, newCommandId } from "../commands.ts";
+import type { SessionData } from "../store/plain.ts";
 import type { LiveItem, TurnView } from "../store/sessionModel.ts";
 import { sessionKey } from "../store/store.ts";
 import type { Selection } from "./App.tsx";
 import { sessionStateLabel } from "./copy.ts";
+import { SessionIcon } from "./SessionIcon.tsx";
 import { useApp, useSessionFeed } from "./hooks.ts";
 
 const itemSummary = (item: TurnItem): string =>
@@ -29,22 +37,24 @@ const liveText = (live: LiveItem) => {
 };
 
 const TurnBlock = ({ view }: { readonly view: TurnView }) => (
-  <li className="turn" data-status={view.turn.status}>
-    <div className="turn-header">
-      <span>turn {view.turn.index + 1}</span>
-      <span className="turn-status">{view.turn.status}</span>
-      <span className="turn-count" data-testid="turn-items">
-        {view.items.length} items
-      </span>
+  <li className="flex flex-col gap-1">
+    <div className="text-caption text-text-subtle tabular flex gap-3">
+      <span>Turn {view.turn.index + 1}</span>
+      <span>{view.turn.status}</span>
+      <span data-testid="turn-items">{view.items.length} items</span>
     </div>
-    <ol className="items">
+    <ol className="text-code-inline flex flex-col gap-0.5 font-mono">
       {view.items.map((item) => (
-        <li key={item.id} className="item" data-kind={item._tag}>
+        <li key={item.id} className="text-text-default break-all whitespace-pre-wrap">
           {itemSummary(item).slice(0, 200)}
         </li>
       ))}
       {[...view.live].map(([id, live]) => (
-        <li key={id} className="item live" data-testid="live-item">
+        <li
+          key={id}
+          className="text-text-subtle break-all whitespace-pre-wrap"
+          data-testid="live-item"
+        >
           {liveText(live)}
         </li>
       ))}
@@ -52,14 +62,14 @@ const TurnBlock = ({ view }: { readonly view: TurnView }) => (
   </li>
 );
 
-const Approval = ({
-  hostKey,
-  request,
-}: {
+interface ApprovalProps {
   readonly hostKey: string;
+  readonly session: SessionData;
   readonly request: ApprovalRequest;
-}) => {
-  const respond = (decision: Parameters<typeof Commands.RespondToApproval>[0]["decision"]) =>
+}
+
+const Approval = ({ hostKey, session, request }: ApprovalProps) => {
+  const respond = (decision: ApprovalDecision) =>
     void window.polaris.request("dispatch", {
       hostKey,
       commandId: newCommandId(),
@@ -70,26 +80,29 @@ const Approval = ({
       }),
     });
 
+  const { harness } = session;
+
+  if (!isKnownHarness(harness)) {
+    return <p className="text-caption text-needs-you">Needs you: {request.title}</p>;
+  }
+
   return (
-    <div className="approval">
-      <span>{request.title}</span>
-      <button
-        type="button"
-        className="button"
-        onClick={() => respond(Decisions.Allow({ remember: false }))}
-      >
-        Allow
-      </button>
-      <button
-        type="button"
-        className="button quiet"
-        onClick={() => respond(Decisions.Deny({ reason: null }))}
-      >
-        Deny
-      </button>
-    </div>
+    <ApprovalCard
+      harness={harness}
+      title={request.title}
+      summary={request.detail ?? request.kind}
+      command={request.title}
+      where={session.cwd}
+      onApprove={() => respond(Decisions.Allow({ remember: false }))}
+      onAlwaysAllow={() => respond(Decisions.Allow({ remember: true }))}
+      onDeny={() => respond(Decisions.Deny({ reason: null }))}
+    />
   );
 };
+
+const Placeholder = ({ children }: { readonly children: string }) => (
+  <section className="text-body text-text-faint grid place-items-center">{children}</section>
+);
 
 /** The open Agent Session: its Turns, completed items, and items still streaming. */
 export const SessionPanel = ({ selection }: { readonly selection: Selection | null }) => {
@@ -99,28 +112,34 @@ export const SessionPanel = ({ selection }: { readonly selection: Selection | nu
     selection === null ? undefined : s.sessions[sessionKey(selection.hostKey, selection.sessionId)]
   );
 
-  if (selection === null) {
-    return <section className="output empty">Select an agent session.</section>;
-  }
+  if (selection === null) return <Placeholder>Select an agent session</Placeholder>;
 
-  if (model?.session == null) {
-    return <section className="output empty">Loading…</section>;
-  }
+  if (model?.session == null) return <Placeholder>Loading…</Placeholder>;
 
   const { session } = model;
 
   return (
-    <section className="output" aria-label={session.title} data-testid="session-panel">
-      <header className="output-header">
-        <span className="output-title">{session.title || "untitled"}</span>
-        <span className="session-state" data-testid="session-state" data-state={session.state}>
+    <section
+      aria-label={session.title}
+      data-testid="session-panel"
+      className="gap-section p-panel flex flex-col overflow-y-auto px-6 select-text"
+    >
+      <header className="flex items-center gap-3">
+        <SessionIcon state={session.state} harness={session.harness} />
+        <h1 className="text-title text-text-strong">{session.title || "untitled"}</h1>
+        <span className="text-caption text-text-subtle" data-testid="session-state">
           {sessionStateLabel[session.state]}
         </span>
       </header>
       {model.pendingApprovals.map((request) => (
-        <Approval key={request.id} hostKey={selection.hostKey} request={request} />
+        <Approval
+          key={request.id}
+          hostKey={selection.hostKey}
+          session={session}
+          request={request}
+        />
       ))}
-      <ol className="turns">
+      <ol className="flex flex-col gap-4">
         {model.turns.map((view) => (
           <TurnBlock key={view.turn.id} view={view} />
         ))}

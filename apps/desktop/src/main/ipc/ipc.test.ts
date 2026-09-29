@@ -43,7 +43,7 @@ const directory = Layer.effect(
 const context: RequestContext = {
   settings: () => ({ theme: "dark", hosts: [{ alias: "studio" }] }),
   cache: { get: () => [], put: () => undefined },
-  setTheme: () => undefined,
+  setAppearance: () => undefined,
   proofWorkspace: () => null,
   daemonDist: null,
 };
@@ -64,6 +64,7 @@ describe("requests", () => {
     expect(exit).toEqual(
       Exit.succeed({
         theme: "dark",
+        density: "calm",
         hosts: [{ alias: "studio", label: "studio", colour: null, forwardAgent: false }],
       })
     );
