@@ -50,6 +50,8 @@ import {
   type OpenOptions,
   type TurnInput,
 } from "../HarnessDriver.ts";
+import { emptyClaudeLimitContext } from "../limits/claude.ts";
+import type { PlanLimitSink } from "../limits/PlanLimits.ts";
 import { ClaudeHookReceiver } from "./hooks.ts";
 import { Inbox } from "./inbox.ts";
 import { buildUserMessage } from "./input.ts";
@@ -62,6 +64,7 @@ import {
   type ToolUseInput,
   toPermissionResult,
 } from "./permissions.ts";
+import { type ClaudePlanLimits, claudePlanLimitReader } from "./planLimits.ts";
 import { ClaudeTranslator } from "./translate.ts";
 
 export type QueryFn = (params: {
@@ -86,6 +89,8 @@ export interface ClaudeDriverOptions {
   readonly clientApp?: string;
   /** Receives the `claude` child's stderr lines (for the Daemon log). */
   readonly onStderr?: (line: string) => void;
+  /** Receives the account's Plan Limits as Claude Code reports them. */
+  readonly planLimits?: PlanLimitSink;
 }
 
 const HARNESS = "claude";
@@ -147,7 +152,8 @@ interface ActiveTurn {
 }
 
 const openSession = Effect.fnUntraced(function* (
-  driver: Required<Pick<ClaudeDriverOptions, "query" | "claudePath">> & ClaudeDriverOptions,
+  driver: Required<Pick<ClaudeDriverOptions, "query" | "claudePath">> &
+    ClaudeDriverOptions & { readonly limits: ClaudePlanLimits | null },
   options: OpenOptions
 ) {
   const claudePath = driver.claudePath();
@@ -199,6 +205,7 @@ const openSession = Effect.fnUntraced(function* (
     emitAll(translator.closeOpenTools(turn.turnId, status === "completed" ? "failed" : "declined"));
     translator.endTurn();
     emit(HarnessEvent.TurnEnded({ turnId: turn.turnId, status, error }));
+    limits?.refresh();
   };
 
   const canUseTool: CanUseTool = async (toolName, input, context) => {
@@ -273,6 +280,9 @@ const openSession = Effect.fnUntraced(function* (
     catch: (cause) => harnessError("Could not start Claude Code", cause),
   });
 
+  const limits = driver.limits ? claudePlanLimitReader(driver.limits, q) : null;
+  limits?.read();
+
   const finish = (error: string | null) => {
     if (exited) return;
     exited = true;
@@ -305,6 +315,7 @@ const openSession = Effect.fnUntraced(function* (
 
   const onMessage = (message: SDKMessage) => {
     if (message.type === "result") return onResult(message);
+    limits?.onMessage(message);
     const echo = "user_message_uuid" in message ? message.user_message_uuid : undefined;
 
     if (echo !== undefined && cancelled.delete(echo)) {
@@ -464,6 +475,9 @@ export const makeClaudeDriver = (options: ClaudeDriverOptions = {}): HarnessDriv
     ...options,
     query: options.query ?? sdkQuery,
     claudePath: options.claudePath ?? (() => Bun.which("claude")),
+    limits: options.planLimits
+      ? { sink: options.planLimits, context: emptyClaudeLimitContext() }
+      : null,
   };
 
   const runVersion = options.runVersion ?? defaultRunVersion;

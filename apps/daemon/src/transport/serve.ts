@@ -19,6 +19,7 @@ import { GitRpcsLive } from "../git/GitRpcs.ts";
 import { WorktreeTrackerLive } from "../git/WorktreeTracker.ts";
 import { Availability, AvailabilityRpcsLive } from "../harness/availability/index.ts";
 import { HarnessRpcsLive } from "../harness/HarnessRpcs.ts";
+import { latestRolloutLimits, PlanLimitRpcsLive, PlanLimits } from "../harness/limits/index.ts";
 import { HarnessRegistryLive } from "../harness/registry.ts";
 import { EventStore } from "../store/EventStore.ts";
 import { TerminalRpcsLive } from "../terminal/TerminalRpcs.ts";
@@ -27,6 +28,11 @@ import { startServer } from "./server.ts";
 
 /** Exit status when another Daemon already holds the lock or answers on the socket. */
 export const SERVE_EXIT_ALREADY_RUNNING = 75;
+
+/** Seeded from Codex's rollout logs; benchmarks skip that, their Harness is scripted. */
+const PlanLimitsLive = PlanLimits.layer(
+  process.env.POLARIS_BENCH_HARNESS === "1" ? {} : { seed: latestRolloutLimits() }
+);
 
 /** The services behind the handlers: the event store and engine, git, attachments, Harnesses. */
 const daemonServices = Engine.layer.pipe(
@@ -38,7 +44,8 @@ const daemonServices = Engine.layer.pipe(
       WorktreeTrackerLive,
       AttachmentStoreLive()
     )
-  )
+  ),
+  Layer.provideMerge(PlanLimitsLive)
 );
 
 /** Every real handler layer the Daemon mounts. Compose new modules' layers here. */
@@ -48,14 +55,17 @@ export const daemonHandlers = Layer.mergeAll(
   GitRpcsLive,
   AttachmentRpcsLive,
   HarnessRpcsLive,
+  PlanLimitRpcsLive,
   AvailabilityRpcsLive.pipe(Layer.provide(Availability.layer())),
   TerminalRpcsLive.pipe(Layer.provide(TerminalsDaemonLive))
 ).pipe(Layer.provide(daemonServices));
 
-// `harness.models`, `session.set-model` and `usage` wait for the drivers (ENG-202).
+// `harness.models` and `session.set-model` wait for the drivers (ENG-202). `usage` has Plan
+// Limits; `usage.query` answers "not indexed yet" until the Usage index (ENG-205).
 export const daemonCapabilities: ReadonlyArray<Capability> = [
   ...HARNESS_CATALOGUE.map((harness) => harness.capability),
   "harness.availability",
+  "usage",
   "session.steer",
   "session.fork",
   "session.terminal-handoff",

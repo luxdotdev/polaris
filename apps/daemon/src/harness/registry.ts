@@ -10,12 +10,14 @@
  *
  * Under launchd / systemd a user's PATH often lacks nvm or Homebrew bins, so
  * `POLARIS_CODEX` and `POLARIS_CLAUDE` can point at the binaries explicitly.
+ * Requires `PlanLimits`, where the drivers report what their Harness exposes.
  */
 import type { HarnessKind, KnownHarnessKind } from "@polaris/protocol";
 import { Effect, Layer, Scope } from "effect";
 import { HarnessRegistry, ServiceError } from "../services.ts";
 import { ClaudeHookReceiver } from "./claude/hooks.ts";
 import { type HarnessDriver, HarnessError } from "./HarnessDriver.ts";
+import { PlanLimits } from "./limits/PlanLimits.ts";
 
 const binary = (env: string, name: string): string | null =>
   process.env[env] || Bun.which(name) || null;
@@ -55,6 +57,8 @@ export const HarnessRegistryLive = Layer.effect(
   HarnessRegistry,
   Effect.gen(function* () {
     const hookReceiver = yield* ClaudeHookReceiver;
+    const { report } = yield* PlanLimits;
+    const planLimits = { report };
     // The app-server the Codex driver may start belongs to this layer, not to the first `open`.
     const scope = yield* Effect.scope;
     const codexPath = binary("POLARIS_CODEX", "codex");
@@ -77,7 +81,7 @@ export const HarnessRegistryLive = Layer.effect(
             "codex",
             DRIVER_CAPABILITIES.codex,
             Effect.promise(() => import("./codex/CodexDriver.ts")).pipe(
-              Effect.flatMap(({ makeCodexDriver }) => makeCodexDriver({ codexPath })),
+              Effect.flatMap(({ makeCodexDriver }) => makeCodexDriver({ codexPath, planLimits })),
               Scope.provide(scope)
             )
           ),
@@ -90,6 +94,7 @@ export const HarnessRegistryLive = Layer.effect(
                 makeClaudeDriver({
                   hookReceiver,
                   claudePath: () => binary("POLARIS_CLAUDE", "claude"),
+                  planLimits,
                 })
               )
             ),

@@ -8,6 +8,8 @@ import { join } from "node:path";
 import { Effect, type Scope } from "effect";
 import { polarisHome } from "../../paths.ts";
 import type { HarnessDriver, HarnessProbe } from "../HarnessDriver.ts";
+import { CodexLimitTracker } from "../limits/codex.ts";
+import type { PlanLimitSink } from "../limits/PlanLimits.ts";
 import { acquireAppServer } from "./AppServer.ts";
 import { openSession } from "./CodexSession.ts";
 import { codexError } from "./RpcConnection.ts";
@@ -24,6 +26,8 @@ export interface CodexDriverOptions {
   readonly spawnAppServer?: boolean;
   /** Reported to Codex as `clientInfo.version`. */
   readonly clientVersion?: string;
+  /** Receives the account's Plan Limits as Codex reports them. */
+  readonly planLimits?: PlanLimitSink;
 }
 
 /** `codex --version` only: never starts a session, a server, MCP servers or a login. */
@@ -72,6 +76,10 @@ export const makeCodexDriver = (
       spawn: options.spawnAppServer ?? true,
     });
 
+    const planLimits = options.planLimits
+      ? { sink: options.planLimits, tracker: new CodexLimitTracker() }
+      : null;
+
     return {
       kind: "codex",
       capabilities: { steer: true, liveCoAttach: true, switchModel: true },
@@ -80,7 +88,12 @@ export const makeCodexDriver = (
         codexPath === null
           ? Effect.fail(codexError("codex was not found on PATH; install Codex to use it"))
           : openSession(
-              { appServer, codexPath, clientVersion: options.clientVersion ?? "0.0.0" },
+              {
+                appServer,
+                codexPath,
+                clientVersion: options.clientVersion ?? "0.0.0",
+                planLimits,
+              },
               openOptions
             ),
     } satisfies HarnessDriver;

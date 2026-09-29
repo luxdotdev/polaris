@@ -13,6 +13,7 @@ Implements `HarnessDriver` (`../HarnessDriver.ts`) for Codex by driving the user
 | `mapping.ts` | Pure translations: permission modes, turn input, thread items → `TurnItem`s, approval decisions. |
 | `protocol.ts` | Effect Schemas that validate the fields the driver reads, each checked at compile time against the generated type. |
 | `generated/` | TypeScript bindings from `codex app-server generate-ts`, trimmed to the import closure of what the driver uses. Generated from **codex-cli 0.157.1** (`generated/version.ts`). |
+| `planLimits.ts` | With `planLimits` set, each session sends `account/rateLimits/read` once it has connected and reports `account/rateLimits/updated` notifications, merged through one `CodexLimitTracker` per driver. See `../limits/README.md`. |
 | `testing/FakeAppServer.ts` | A scriptable fake app-server on a real Unix socket (same WebSocket transport) and a replayer for recorded traffic. |
 
 ### Shared server and live co-attach
