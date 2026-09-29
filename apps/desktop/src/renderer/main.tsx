@@ -1,6 +1,6 @@
 import "./styles.css";
 import { Toaster, TooltipProvider } from "@polaris/ui";
-import { StrictMode } from "react";
+import { lazy, StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { applyAppearance } from "./appearance.ts";
 import { connect } from "./store/store.ts";
@@ -22,12 +22,25 @@ window.polaris.onAppEvent((event) => {
 
 const root = document.getElementById("root");
 
+// `#preview/<scene>`: the session view on fixtures, for screenshots (its own chunk).
+const Preview = lazy(() =>
+  import("./features/session/preview/Preview.tsx").then((m) => ({ default: m.Preview }))
+);
+
+const preview = location.hash.startsWith("#preview/");
+
 if (root !== null) {
   createRoot(root).render(
     <StrictMode>
       <ConnectionProvider value={connection}>
         <TooltipProvider>
-          <App />
+          {preview ? (
+            <Suspense>
+              <Preview hash={location.hash} />
+            </Suspense>
+          ) : (
+            <App />
+          )}
           <Toaster />
         </TooltipProvider>
       </ConnectionProvider>

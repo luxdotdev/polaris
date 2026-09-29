@@ -8,11 +8,12 @@ import { PixelFailedIcon, showToast } from "@polaris/ui";
 import { createElement } from "react";
 import type { IpcError } from "../../../shared/api.ts";
 import { newCommandId } from "../../commands.ts";
+import { polaris } from "./bridge.ts";
 
 export type Sent = { readonly ok: true } | { readonly ok: false; readonly error: IpcError };
 
 export const dispatch = async (hostKey: string, command: Command): Promise<Sent> => {
-  const result = await window.polaris.request("dispatch", {
+  const result = await polaris().request("dispatch", {
     hostKey,
     commandId: newCommandId(),
     command,

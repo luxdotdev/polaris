@@ -80,7 +80,7 @@ export const Conversation = ({ scrollKey, rows, ctx }: ConversationProps) => {
               key={item.key}
               ref={virtualizer.measureElement}
               data-index={item.index}
-              className="absolute top-0 left-0 w-full px-5 pb-4"
+              className="pb-panel absolute top-0 left-0 w-full px-5"
             >
               <ConversationRow row={row} ctx={ctx} />
             </div>

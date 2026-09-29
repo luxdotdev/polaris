@@ -33,6 +33,8 @@ export interface NewSessionPageProps {
   readonly workspaceId: WorkspaceId;
   /** The session exists (its feed may still be catching up): open it. */
   readonly onStarted: (sessionId: SessionId) => void;
+  /** Esc leaves the page without starting anything. */
+  readonly onCancel?: (() => void) | undefined;
 }
 
 type Models = Readonly<Record<Harness, ModelChoice | null>>;
@@ -129,7 +131,19 @@ const defaultPlacement = (workspace: Workspace): PlacementChoice =>
 
 const PREVIEW_ID = newSessionId();
 
-export const NewSessionPage = ({ hostKey, workspaceId, onStarted }: NewSessionPageProps) => {
+/** The composer's mono hint: the branch a new Worktree will take, once there's a prompt. */
+const branchLabel = (placement: PlacementChoice, choice: HarnessChoice, draft: string) => {
+  if (placement.kind !== "new-worktree" || choice === "fork") return undefined;
+
+  return draft.trim() === "" ? "new worktree" : placement.branch;
+};
+
+export const NewSessionPage = ({
+  hostKey,
+  workspaceId,
+  onStarted,
+  onCancel,
+}: NewSessionPageProps) => {
   const host = useHost(hostKey);
   const hostModel = useApp((s) => s.hostModels[hostKey]) ?? emptyHostModel;
   const workspace = hostModel.workspaces.get(workspaceId);
@@ -213,13 +227,14 @@ export const NewSessionPage = ({ hostKey, workspaceId, onStarted }: NewSessionPa
           onSubmit={submit}
           canSubmit={canSubmit}
           placeholder="Describe the change"
+          onEscape={onCancel}
           attachments={ui.attachments}
           staging={pending}
           onFiles={hasCapability(host, "attachments.stage") ? stage : undefined}
           onRemoveAttachment={(a) =>
             patchSessionUi(key, (u) => ({ attachments: u.attachments.filter((x) => x !== a) }))
           }
-          branch={shown.kind === "new-worktree" && choice !== "fork" ? shown.branch : undefined}
+          branch={branchLabel(shown, choice, ui.draft)}
           prominentSend
         />
         <HarnessChoiceRow

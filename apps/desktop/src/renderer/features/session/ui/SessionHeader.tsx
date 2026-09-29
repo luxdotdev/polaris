@@ -166,7 +166,7 @@ export const SessionHeader = (props: SessionHeaderProps) => {
   const state = capitalized(sessionStateLabel[session.state]);
 
   return (
-    <header className="border-hairline flex shrink-0 flex-col gap-2.5 border-b px-5 pt-4 pb-3.5">
+    <header className="border-hairline gap-row-x pt-panel flex shrink-0 flex-col border-b px-5 pb-3.5">
       <div className="flex min-w-0 items-center gap-2">
         <div className="min-w-0 flex-1">
           <Title hostKey={hostKey} session={session} />

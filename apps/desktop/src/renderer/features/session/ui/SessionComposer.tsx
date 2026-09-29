@@ -120,7 +120,7 @@ export const SessionComposer = (props: SessionComposerProps) => {
 
   return (
     <DraftComposer
-      className="px-4 pb-4"
+      className="px-panel pb-panel"
       harness={harness}
       picker={
         <ModelPicker
@@ -128,7 +128,7 @@ export const SessionComposer = (props: SessionComposerProps) => {
           harness={harness}
           model={session.model}
           effort={session.effort}
-          working={isWorking}
+          working={isWorking && session.state === "working"}
           disabled={isWorking}
           note={modelChange.note}
           onChoose={modelChange.change}
@@ -139,7 +139,11 @@ export const SessionComposer = (props: SessionComposerProps) => {
       onSubmit={submit}
       canSubmit={command !== null}
       placeholder={placeholderFor(mode)}
-      working={isWorking ? { elapsed: formatElapsed(elapsed), onStop: stop } : undefined}
+      working={
+        isWorking && session.state === "working"
+          ? { elapsed: formatElapsed(elapsed), onStop: stop }
+          : undefined
+      }
       onEscape={isWorking ? stop : undefined}
       attachments={ui.attachments}
       staging={pending}

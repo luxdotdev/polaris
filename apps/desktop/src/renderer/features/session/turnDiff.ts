@@ -7,6 +7,7 @@ import type { GitDiffSpec, SessionId, TurnId } from "@polaris/protocol";
 import { Data } from "effect";
 import { useEffect, useState } from "react";
 import { type DiffFile, parseUnifiedDiff } from "./model/diff.ts";
+import { polaris } from "./bridge.ts";
 
 export type DiffState =
   | { readonly kind: "loading" }
@@ -35,7 +36,7 @@ const load = async (
   sessionId: SessionId,
   turnId: TurnId
 ): Promise<DiffState> => {
-  const result = await window.polaris.request("git.diff", {
+  const result = await polaris().request("git.diff", {
     hostKey,
     cwd,
     spec: Specs.Turn({ sessionId, turnId }),

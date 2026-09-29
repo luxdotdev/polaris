@@ -74,6 +74,7 @@ export const SessionIntent = ({ hostKey, sessionId, onOpenSession }: SessionView
   const ctx: RowContext = {
     harness,
     state: session.state,
+    liveTurnId: lastTurn?.status === "working" && session.state === "working" ? lastTurn.id : null,
     where,
     onToggleTurn: (turnId) => toggleUnfolded(key, turnId),
     onOpenDiff: (turnId) => showTurnDiff(key, turnId),

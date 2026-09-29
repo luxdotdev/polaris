@@ -26,6 +26,8 @@ import { Item } from "./items.tsx";
 export interface RowContext {
   readonly harness: Harness | null;
   readonly state: SessionState;
+  /** The Turn in flight, whose avatar shimmers; null between Turns. */
+  readonly liveTurnId: string | null;
   readonly where: string;
   readonly onToggleTurn: (turnId: string) => void;
   readonly onOpenDiff: (turnId: string) => void;
@@ -40,7 +42,7 @@ const Summary = ({ row, ctx }: { row: Extract<Row, { kind: "summary" }>; ctx: Ro
     type="button"
     onClick={() => ctx.onToggleTurn(row.turnId)}
     aria-label={`Turn ${row.number}: ${row.summary}`}
-    className="rounded-row border-hairline bg-surface-raised/50 hover:bg-fill-hover flex h-10 w-full cursor-default items-center gap-2.5 border px-3 text-left"
+    className="rounded-row border-hairline bg-surface-raised/50 hover:bg-fill-hover gap-row-x flex h-10 w-full cursor-default items-center border px-3 text-left"
     data-testid="turn-summary"
   >
     <span className="text-caption text-text-subtle tabular shrink-0 font-medium">
@@ -60,7 +62,7 @@ const Summary = ({ row, ctx }: { row: Extract<Row, { kind: "summary" }>; ctx: Ro
 const Prompt = ({ row }: { readonly row: Extract<Row, { kind: "prompt" }> }) => (
   <div className="flex flex-col items-end gap-1.5" data-testid="prompt">
     {row.text === "" ? null : (
-      <p className="rounded-card bg-fill-selected text-body text-text-strong max-w-[340px] px-3.5 py-2.5 break-words whitespace-pre-wrap">
+      <p className="rounded-card bg-fill-selected text-body text-text-strong py-row-x max-w-[340px] px-3.5 break-words whitespace-pre-wrap">
         {row.text}
       </p>
     )}
@@ -74,7 +76,11 @@ const Agent = ({ row, ctx }: { row: Extract<Row, { kind: "item" }>; ctx: RowCont
   <div className="flex gap-3" data-testid="turn-item" data-kind={row.item.kind}>
     <div className={AVATAR}>
       {row.lead && ctx.harness !== null ? (
-        <HarnessMark harness={ctx.harness} size={24} state={row.item.live ? "working" : "idle"} />
+        <HarnessMark
+          harness={ctx.harness}
+          size={24}
+          {...(row.turnId === ctx.liveTurnId ? { state: "working" as const } : {})}
+        />
       ) : null}
     </div>
     <div className="flex min-w-0 flex-1 flex-col">
@@ -99,8 +105,9 @@ const Question = ({ request, ctx }: { request: ApprovalRequest; ctx: RowContext 
 
   return (
     <div className="rounded-card border-hairline bg-surface-raised flex flex-col overflow-clip border">
-      <div className="pixelated flex items-center gap-2.5 bg-(image:--wash-needs-you) bg-cover px-3.5 py-2.5">
-        <PixelHandIcon size={16} className="text-needs-you" />
+      <div aria-hidden="true" className="pixelated h-1.5 bg-(image:--wash-needs-you) bg-cover" />
+      <div className="flex items-center gap-2.5 px-3.5 pt-3">
+        <PixelHandIcon size={16} className="text-needs-you shrink-0" />
         <p className="text-label text-text-strong flex-1">{request.title}</p>
       </div>
       {request.detail === null ? null : (

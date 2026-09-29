@@ -6,6 +6,7 @@ import { emptySessionModel, type SessionModel } from "../../store/sessionModel.t
 import { sessionKey } from "../../store/store.ts";
 import { useApp, useSessionFeed } from "../../views/hooks.ts";
 import type { ModelData } from "./model/models.ts";
+import { polaris } from "./bridge.ts";
 
 /** Keeps the session's feed open and returns its model (empty until the Snapshot lands). */
 export const useSession = (hostKey: string, sessionId: SessionId): SessionModel => {
@@ -38,7 +39,7 @@ const fetchModels = (hostKey: string, harness: string): Promise<ModelsState> => 
 
   if (cached !== undefined) return cached;
 
-  const request = window.polaris
+  const request = polaris()
     .request("harness.models", { hostKey, harness, refresh: false })
     .then((result): ModelsState =>
       result.ok

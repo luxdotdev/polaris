@@ -6,6 +6,7 @@
 import type { SessionId, WorkspaceId } from "@polaris/protocol";
 import { useState } from "react";
 import { showRefusal } from "./dispatch.ts";
+import { polaris } from "./bridge.ts";
 import type { StagedAttachment } from "./state.ts";
 
 export interface StageTarget {
@@ -17,7 +18,7 @@ export interface StageTarget {
 const stageOne = async (target: StageTarget, file: File): Promise<StagedAttachment | null> => {
   const bytes = new Uint8Array(await file.arrayBuffer());
 
-  const result = await window.polaris.request("attachments.stage", {
+  const result = await polaris().request("attachments.stage", {
     ...target,
     name: file.name === "" ? "pasted" : file.name,
     mimeType: file.type === "" ? "application/octet-stream" : file.type,

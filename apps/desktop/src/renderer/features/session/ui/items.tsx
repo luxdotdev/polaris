@@ -92,7 +92,7 @@ const Command = ({ item, hue }: { item: Extract<ItemView, { kind: "command" }>; 
 
   return (
     <div className={cn(WELL, "flex flex-col overflow-clip")} data-testid="command">
-      <div className="flex h-[30px] items-center gap-2.5 px-3">
+      <div className="h-row gap-row-x flex items-center px-3">
         {item.live ? (
           <LiveMark hue={hue} />
         ) : failed ? (
@@ -144,7 +144,7 @@ const Files = ({
         key={change.path}
         type="button"
         onClick={onOpenDiff}
-        className="hover:bg-fill-hover flex h-[30px] cursor-default items-center gap-2.5 px-3 text-left"
+        className="hover:bg-fill-hover h-row gap-row-x flex cursor-default items-center px-3 text-left"
       >
         <GitStatusLetter status={GIT_STATUS[change.kind]} />
         <span
@@ -186,7 +186,7 @@ const Step = ({ step, hue }: { readonly step: PlanStep; readonly hue: Hue }) => 
   return (
     <div
       className={cn(
-        "flex h-[30px] shrink-0 items-center gap-2.5 px-3",
+        "flex h-row shrink-0 items-center gap-row-x px-3",
         current && hue !== null && CURRENT_FILL[hue]
       )}
     >
