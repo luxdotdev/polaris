@@ -107,11 +107,22 @@ export interface ComposerProps extends Omit<TextareaProps, "bare"> {
   readonly harness: Harness;
   readonly model: string;
   /** Set while a Turn runs: grows the Working strip and tints the edge in the Harness hue. */
-  readonly working?: { readonly elapsed: ReactNode; readonly onStop?: (() => void) | undefined };
+  readonly working?:
+    | { readonly elapsed: ReactNode; readonly onStop?: (() => void) | undefined }
+    | undefined;
   /** The branch or worktree the Turn runs on, in mono. */
-  readonly branch?: string;
+  readonly branch?: string | undefined;
   readonly onSend?: () => void;
   readonly onAddSource?: () => void;
+  /** Replaces the default Harness picker chip, e.g. with one that opens a Model menu. */
+  readonly picker?: ReactNode;
+  /** Staged attachments, shown above the prompt. */
+  readonly attachments?: ReactNode;
+  /** Extra controls after "Add a source" ("Plan first" on the new-session page). */
+  readonly tools?: ReactNode;
+  readonly sendDisabled?: boolean;
+  /** The new-session page's send: a round primary button (Paper artboard 4). */
+  readonly prominentSend?: boolean;
 }
 
 const HALOS: Record<Harness, string | undefined> = {
@@ -127,6 +138,11 @@ export function Composer({
   branch,
   onSend,
   onAddSource,
+  picker,
+  attachments,
+  tools,
+  sendDisabled = false,
+  prominentSend = false,
   className,
   placeholder,
   ...props
@@ -151,6 +167,7 @@ export function Composer({
         <WorkingStrip harness={harness} elapsed={working.elapsed} onStop={working.onStop} />
       )}
       <div className="flex flex-col gap-3.5 pt-3 pr-3 pb-2.5 pl-3.5">
+        {attachments}
         <Textarea
           bare
           rows={1}
@@ -162,15 +179,23 @@ export function Composer({
           {...props}
         />
         <div className="flex items-center gap-1.5">
-          <HarnessPicker harness={harness} model={model} working={isWorking} />
+          {picker ?? <HarnessPicker harness={harness} model={model} working={isWorking} />}
           <Button variant="ghost" size="icon-sm" aria-label="Add a source" onClick={onAddSource}>
             <PlusIcon size={14} />
           </Button>
+          {tools}
           <span className="flex-1" />
           {branch === undefined ? null : (
             <span className="text-micro text-text-faint truncate font-mono">{branch}</span>
           )}
-          <Button variant="secondary" size="icon" aria-label="Send" onClick={onSend}>
+          <Button
+            variant={prominentSend ? "primary" : "secondary"}
+            size="icon"
+            aria-label="Send"
+            disabled={sendDisabled}
+            className={prominentSend ? "size-[30px] rounded-full" : "rounded-full"}
+            onClick={onSend}
+          >
             <ArrowUpIcon size={14} />
           </Button>
         </div>
