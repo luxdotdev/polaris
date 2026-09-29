@@ -17,6 +17,7 @@ import { FilesRpcsLive } from "../files/FilesRpcs.ts";
 import { CheckpointsLive } from "../git/Checkpoints.ts";
 import { GitRpcsLive } from "../git/GitRpcs.ts";
 import { WorktreeTrackerLive } from "../git/WorktreeTracker.ts";
+import { Availability, AvailabilityRpcsLive } from "../harness/availability/index.ts";
 import { HarnessRpcsLive } from "../harness/HarnessRpcs.ts";
 import { HarnessRegistryLive } from "../harness/registry.ts";
 import { EventStore } from "../store/EventStore.ts";
@@ -47,12 +48,14 @@ export const daemonHandlers = Layer.mergeAll(
   GitRpcsLive,
   AttachmentRpcsLive,
   HarnessRpcsLive,
+  AvailabilityRpcsLive.pipe(Layer.provide(Availability.layer())),
   TerminalRpcsLive.pipe(Layer.provide(TerminalsDaemonLive))
 ).pipe(Layer.provide(daemonServices));
 
-// `harness.models`, `session.set-model` and `usage` wait for the drivers (ENG-201, ENG-202).
+// `harness.models`, `session.set-model` and `usage` wait for the drivers (ENG-202).
 export const daemonCapabilities: ReadonlyArray<Capability> = [
   ...HARNESS_CATALOGUE.map((harness) => harness.capability),
+  "harness.availability",
   "session.steer",
   "session.fork",
   "session.terminal-handoff",
