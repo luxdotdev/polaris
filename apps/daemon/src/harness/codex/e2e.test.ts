@@ -35,6 +35,7 @@ test.skipIf(!enabled)(
           cwd: repo,
           permissionMode: "supervised",
           model: null,
+          effort: null,
           resumeCursor: null,
         });
 
@@ -43,6 +44,8 @@ test.skipIf(!enabled)(
           turnId,
           prompt: "Reply with just the word ok. Do not run commands or edit files.",
           attachments: [],
+          model: null,
+          effort: null,
         });
 
         const events = yield* session.events.pipe(

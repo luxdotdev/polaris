@@ -25,9 +25,9 @@ import {
 } from "./session.testing.ts";
 import { decideSession, snapshotOf, stateOf } from "./session.ts";
 
-const claude: ModelOptions = { harness: "claude", liveCoAttach: false };
+const claude: ModelOptions = { harness: "claude", liveCoAttach: false, switchModel: false };
 
-const codex: ModelOptions = { harness: "codex", liveCoAttach: true };
+const codex: ModelOptions = { harness: "codex", liveCoAttach: true, switchModel: true };
 
 const run = (steps: ReadonlyArray<Step["type"]>, options = claude): ModelSnapshot => {
   let snapshot = initialSnapshot();
@@ -68,6 +68,8 @@ const workingCopy = (from: Turn, id: string, index: number) =>
     index,
     prompt: from.prompt,
     attachments: from.attachments,
+    model: null,
+    effort: null,
     status: "working",
     checkpointBefore: from.checkpointBefore,
     checkpointAfter: from.checkpointAfter,

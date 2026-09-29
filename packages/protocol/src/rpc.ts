@@ -16,13 +16,17 @@ import {
   ApprovalRequest,
   Attachment,
   HostInfo,
+  Timestamp,
   Turn,
   TurnItem,
   Workspace,
   Worktree,
 } from "./domain.ts";
 import { EventEnvelope } from "./events.ts";
+import { HarnessKind } from "./harnesses.ts";
 import { BlobId, CommandId, Sequence, SessionId, TerminalId, TurnId, WorkspaceId } from "./ids.ts";
+import { Model } from "./models.ts";
+import { UsageReport, UsageStreamItem } from "./usage.ts";
 
 // ── Errors ──────────────────────────────────────────────────────────────────
 
@@ -50,6 +54,12 @@ export class GitError extends Schema.TaggedError<GitError>()("GitError", {
   cwd: Schema.String,
   message: Schema.String,
 }) {}
+
+/** The Harness can't answer on this Host: not installed, not signed in, or it failed. */
+export class HarnessUnavailable extends Schema.TaggedError<HarnessUnavailable>()(
+  "HarnessUnavailable",
+  { harness: HarnessKind, message: Schema.String }
+) {}
 
 // ── Handshake ───────────────────────────────────────────────────────────────
 
@@ -171,6 +181,60 @@ export const SessionTerminalCommand = Rpc.make("session.terminalCommand", {
   payload: { sessionId: SessionId },
   success: Schema.NullOr(TerminalLaunch),
   error: NotFound,
+});
+
+// ── Harnesses ───────────────────────────────────────────────────────────────
+
+export class HarnessModels extends Schema.Class<HarnessModels>("HarnessModels")({
+  harness: HarnessKind,
+  /** As the Harness reports them, in its order. */
+  models: Schema.Array(Model),
+  /**
+   * The Harness can change an Agent Session's Model between Turns (`SetModel`).
+   * Otherwise a Client offers a Fork with the new Model instead.
+   */
+  switchesModel: Schema.Boolean,
+  /** When the Daemon last asked the Harness; the list is cached per Host. */
+  fetchedAt: Timestamp,
+}) {}
+
+/**
+ * A Harness's Models on this Host (capability `harness.models`). `refresh`
+ * asks the Harness again instead of answering from the Daemon's cache.
+ */
+export const ListModels = Rpc.make("harness.models", {
+  payload: { harness: HarnessKind, refresh: Schema.Boolean },
+  success: HarnessModels,
+  error: Schema.Union([NotFound, Unsupported, HarnessUnavailable]),
+});
+
+// ── Usage ───────────────────────────────────────────────────────────────────
+
+/**
+ * Hourly Usage buckets that overlap `[from, to)` (capability `usage`),
+ * optionally for one Harness or one Agent Session.
+ */
+export const QueryUsage = Rpc.make("usage.query", {
+  payload: {
+    from: Timestamp,
+    to: Timestamp,
+    harness: Schema.NullOr(HarnessKind),
+    sessionId: Schema.NullOr(SessionId),
+  },
+  success: UsageReport,
+  error: Unsupported,
+});
+
+/**
+ * Usage and Plan Limit changes as they happen (capability `usage`): every
+ * known Plan Limit first, then changes. A new item kind needs its own
+ * capability, sent only to Clients that announce it, as `ItemProgress` does.
+ */
+export const WatchUsage = Rpc.make("usage.watch", {
+  payload: {},
+  success: UsageStreamItem,
+  error: Unsupported,
+  stream: true,
 });
 
 // ── Files (read-mostly in M1) ───────────────────────────────────────────────
@@ -382,6 +446,9 @@ export class DaemonRpcs extends RpcGroup.make(
   SubscribeHost,
   SubscribeSession,
   SessionTerminalCommand,
+  ListModels,
+  QueryUsage,
+  WatchUsage,
   ListDir,
   Stat,
   ReadFile,

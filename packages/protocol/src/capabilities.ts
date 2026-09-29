@@ -1,4 +1,5 @@
 import { Schema, SchemaTransformation } from "effect";
+import { HARNESS_CATALOGUE } from "./harnesses.ts";
 
 /** Bumped only for changes capability negotiation can't absorb. */
 export const PROTOCOL_VERSION = 1;
@@ -8,10 +9,14 @@ export const PROTOCOL_VERSION = 1;
  * older Daemon keeps working until the Desktop App upgrades it.
  */
 export const Capability = Schema.Literals([
-  "harness.claude",
-  "harness.codex",
+  /** `harness.<kind>`: the Daemon has that Harness's driver (one per catalogue entry). */
+  ...HARNESS_CATALOGUE.map((harness) => harness.capability),
+  /** `harness.models`: each Harness's Models on this Host. */
+  "harness.models",
   "session.steer",
   "session.fork",
+  /** The `SetModel` command. */
+  "session.set-model",
   "session.terminal-handoff",
   /** `session.terminalCommand`: the argv, cwd and env of the Harness TUI for "Open in terminal". */
   "session.terminal-command",
@@ -29,6 +34,8 @@ export const Capability = Schema.Literals([
   /** `terminal.attachBinary`: terminal output as raw bytes on the blob channel, not base64 JSON. */
   "terminal.binary",
   "blobs",
+  /** `usage.query` and `usage.watch`: Usage and Plan Limits on this Host. */
+  "usage",
 ]);
 
 export type Capability = typeof Capability.Type;

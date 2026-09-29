@@ -490,6 +490,7 @@ const setUp = async (world: World) => {
           placement: SessionPlacement.cases.InPlace.make({}),
           permissionMode: "supervised",
           model: null,
+          effort: null,
           prompt: "start",
           attachments: [],
         }),

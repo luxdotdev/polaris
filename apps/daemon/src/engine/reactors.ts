@@ -193,6 +193,8 @@ const make = Effect.gen(function* () {
             live.get(command.sessionId)?.session.setPermissionMode(command.permissionMode) ??
             Effect.void
         ),
+      // The next Turn carries the Model and effort to the Harness (TurnInput).
+      SetModel: () => Effect.void,
       ArchiveSession: archive,
       OpenInTerminal: (command) => terminal.openInTerminal(command.sessionId),
       ReturnFromTerminal: (command) => terminal.returnFromTerminal(command.sessionId),

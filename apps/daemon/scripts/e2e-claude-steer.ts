@@ -163,6 +163,7 @@ const program = Effect.gen(function* () {
       placement: SessionPlacement.cases.InPlace.make({}),
       permissionMode: "full-access",
       model: "haiku",
+      effort: null,
       prompt: [
         "Count from 1 to 10 slowly using the Bash tool.",
         "For each number N, make a separate Bash call running exactly `sleep 1; echo N`,",

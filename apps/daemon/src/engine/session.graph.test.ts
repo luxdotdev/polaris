@@ -49,6 +49,7 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
   Effect.gen(function* () {
     const driver = makeFakeDriver(options.harness, {
       liveCoAttach: options.liveCoAttach,
+      switchModel: options.switchModel,
       follow: !options.liveCoAttach,
     });
 
@@ -121,6 +122,7 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
           placement: SessionPlacement.cases.InPlace.make({}),
           permissionMode: "supervised",
           model: null,
+          effort: null,
           prompt: "model",
           attachments: [],
         })
@@ -182,6 +184,8 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
                 fromSessionId: PARENT,
                 fromTurnId: turnId,
                 harness: options.harness,
+                model: null,
+                effort: null,
               })
             );
           }
@@ -225,6 +229,10 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
             return yield* dispatch(Command.cases.OpenInTerminal.make({ sessionId: SESSION }));
           case "returnTerminal":
             return yield* dispatch(Command.cases.ReturnFromTerminal.make({ sessionId: SESSION }));
+          case "setModel":
+            return yield* dispatch(
+              Command.cases.SetModel.make({ sessionId: SESSION, model: `m${n}`, effort: null })
+            );
           case "requestApproval":
             return emit(
               snapshot,
@@ -331,8 +339,8 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
   });
 
 const suites: ReadonlyArray<ModelOptions> = [
-  { harness: "claude", liveCoAttach: false },
-  { harness: "codex", liveCoAttach: true },
+  { harness: "claude", liveCoAttach: false, switchModel: true },
+  { harness: "codex", liveCoAttach: true, switchModel: true },
 ];
 
 for (const options of suites) {

@@ -87,6 +87,7 @@ const withSession = <A>(
       cwd: "/repo",
       permissionMode: options.permissionMode ?? "supervised",
       model: null,
+      effort: null,
       resumeCursor: options.resumeCursor ?? null,
     });
 
@@ -160,6 +161,8 @@ describe("Codex driver against a fake app-server", () => {
           turnId: TurnId.make("turn-1"),
           prompt: "say ok",
           attachments: [],
+          model: null,
+          effort: null,
         });
         yield* waitFor("TurnEnded");
       })
@@ -247,7 +250,13 @@ describe("Codex driver against a fake app-server", () => {
 
     const { events } = await withSession(handler, ({ session, waitFor }) =>
       Effect.gen(function* () {
-        yield* session.sendTurn({ turnId: TurnId.make("turn-1"), prompt: "test", attachments: [] });
+        yield* session.sendTurn({
+          turnId: TurnId.make("turn-1"),
+          prompt: "test",
+          attachments: [],
+          model: null,
+          effort: null,
+        });
         const asked = yield* waitFor("ApprovalRequested");
         expect(asked).toMatchObject({
           turnId: "turn-1",
@@ -311,7 +320,13 @@ describe("Codex driver against a fake app-server", () => {
 
     const { events, server } = await withSession(handler, ({ session, waitFor }) =>
       Effect.gen(function* () {
-        yield* session.sendTurn({ turnId: TurnId.make("turn-1"), prompt: "edit", attachments: [] });
+        yield* session.sendTurn({
+          turnId: TurnId.make("turn-1"),
+          prompt: "edit",
+          attachments: [],
+          model: null,
+          effort: null,
+        });
         const asked = yield* waitFor("ApprovalRequested");
         expect(asked).toMatchObject({ kind: "file-change", title: "Apply file changes" });
         yield* session.interrupt;
@@ -371,7 +386,13 @@ describe("Codex driver against a fake app-server", () => {
 
           // Sending a Turn while one is in flight is refused; steering is the way in.
           const busy = yield* Effect.flip(
-            session.sendTurn({ turnId: TurnId.make("x"), prompt: "no", attachments: [] })
+            session.sendTurn({
+              turnId: TurnId.make("x"),
+              prompt: "no",
+              attachments: [],
+              model: null,
+              effort: null,
+            })
           );
 
           expect(busy.message).toContain("already in progress");
@@ -537,6 +558,8 @@ describe("Codex driver against a fake app-server", () => {
           turnId: TurnId.make("turn-1"),
           prompt: "say hi",
           attachments: [],
+          model: null,
+          effort: null,
         });
         const asked = yield* waitFor("ApprovalRequested");
         expect(asked).toMatchObject({
@@ -576,7 +599,13 @@ describe("Codex driver against a fake app-server", () => {
 
     const { events } = await withSession(handler, ({ session, waitFor }) =>
       Effect.gen(function* () {
-        yield* session.sendTurn({ turnId: TurnId.make("turn-1"), prompt: "go", attachments: [] });
+        yield* session.sendTurn({
+          turnId: TurnId.make("turn-1"),
+          prompt: "go",
+          attachments: [],
+          model: null,
+          effort: null,
+        });
         expect(yield* Effect.promise(() => refusal)).toMatchObject({ error: { code: -32601 } });
         drop();
         yield* waitFor("Exited");

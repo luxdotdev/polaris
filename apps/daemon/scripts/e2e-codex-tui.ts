@@ -174,6 +174,7 @@ const program = Effect.gen(function* () {
       placement: SessionPlacement.cases.InPlace.make({}),
       permissionMode: "supervised",
       model: null,
+      effort: null,
       prompt: "Reply with just the word ready. Do not run commands or edit files.",
       attachments: [],
     }),

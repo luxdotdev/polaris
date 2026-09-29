@@ -72,6 +72,7 @@ const startSession = (
       placement: SessionPlacement.cases.InPlace.make({}),
       permissionMode: "supervised",
       model: null,
+      effort: null,
       prompt,
       attachments: [],
     })
@@ -406,6 +407,8 @@ describe("Fork", () => {
             fromSessionId: parent,
             fromTurnId: turn.id,
             harness: "codex",
+            model: null,
+            effort: null,
           })
         );
         const branch = forkBranch(child);
@@ -598,6 +601,8 @@ describe("recent Turns in memory", () => {
             index,
             prompt: `prompt ${index}`,
             attachments: [],
+            model: null,
+            effort: null,
             status: "completed",
             checkpointBefore: null,
             checkpointAfter: null,
@@ -620,6 +625,7 @@ describe("recent Turns in memory", () => {
                   state: "dormant",
                   permissionMode: "supervised",
                   model: null,
+                  effort: null,
                   parentSessionId: null,
                   forkedFromTurnId: null,
                   harnessCursor: "cur",
@@ -670,6 +676,8 @@ describe("recent Turns in memory", () => {
             fromSessionId: s,
             fromTurnId: TurnId.make("turn-0"),
             harness: "codex",
+            model: null,
+            effort: null,
           })
         );
         const forked = yield* waitFor((m) => m.sessions.has(sid("s-long-fork")));

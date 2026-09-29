@@ -63,6 +63,7 @@ export const makeFakeDriver = (
   options: {
     readonly steer?: boolean;
     readonly liveCoAttach?: boolean;
+    readonly switchModel?: boolean;
     /** Events emitted in reply to each Turn; default is none (the test drives it). */
     readonly onTurn?: (
       input: TurnInput,
@@ -101,7 +102,11 @@ export const makeFakeDriver = (
 
   const withoutFollow: HarnessDriver = {
     kind,
-    capabilities: { steer: options.steer ?? false, liveCoAttach: options.liveCoAttach ?? false },
+    capabilities: {
+      steer: options.steer ?? false,
+      liveCoAttach: options.liveCoAttach ?? false,
+      switchModel: options.switchModel ?? true,
+    },
     probe: Effect.succeed({ available: true, version: "fake", detail: null }),
     open: (openOptions) =>
       Effect.gen(function* () {

@@ -54,6 +54,7 @@ const make = (rt: EngineRuntime["Service"]): Supervisor["Service"] => {
           cwd: record.session.cwd,
           permissionMode: record.session.permissionMode,
           model: record.session.model,
+          effort: record.session.effort,
           resumeCursor: record.session.harnessCursor,
         })
         .pipe(
@@ -277,7 +278,13 @@ const make = (rt: EngineRuntime["Service"]): Supervisor["Service"] => {
 
       const entry = yield* openHarness(sessionId);
       yield* rt.signal(sessionId, { type: "harness.opened" });
-      yield* entry.session.sendTurn({ turnId, prompt: input, attachments });
+      yield* entry.session.sendTurn({
+        turnId,
+        prompt: input,
+        attachments,
+        model: turn.model,
+        effort: turn.effort,
+      });
     }).pipe(Effect.catch((error) => rt.failSession(sessionId, error.message)));
 
   const recordBefore = (sessionId: SessionId, turnId: TurnId) =>

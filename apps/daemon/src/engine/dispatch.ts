@@ -83,16 +83,17 @@ const make = Effect.gen(function* () {
       return command.attachments.flatMap((id) => byId.get(id) ?? []);
     });
 
-  const canSteer = (command: Command) =>
+  /** What the session's Harness driver declares, for the commands that depend on it. */
+  const driverCan = (command: Command, tag: "Steer" | "SetModel", can: "steer" | "switchModel") =>
     Effect.gen(function* () {
-      if (!Predicate.isTagged(command, "Steer")) return false;
+      if (!Predicate.isTagged(command, tag)) return false;
       const model = yield* store.model;
       const record = model.sessions.get(command.sessionId);
 
       if (record === undefined) return false;
       const driver = yield* rt.registry.get(record.session.harness).pipe(Effect.option);
 
-      return Option.isSome(driver) && driver.value.capabilities.steer;
+      return Option.isSome(driver) && driver.value.capabilities[can];
     });
 
   const forkTurn = (command: Command) =>
@@ -111,7 +112,8 @@ const make = Effect.gen(function* () {
       newWorkspaceId: WorkspaceId.make(`ws_${crypto.randomUUID()}`),
       attachments: yield* resolveAttachments(commandId, command),
       pathProbe: Predicate.isTagged(command, "RegisterWorkspace") ? probePath(command.path) : null,
-      canSteer: yield* canSteer(command),
+      canSteer: yield* driverCan(command, "Steer", "steer"),
+      canSwitchModel: yield* driverCan(command, "SetModel", "switchModel"),
       forkTurn: yield* forkTurn(command),
     };
 

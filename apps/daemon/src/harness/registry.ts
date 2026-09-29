@@ -11,21 +11,21 @@
  * Under launchd / systemd a user's PATH often lacks nvm or Homebrew bins, so
  * `POLARIS_CODEX` and `POLARIS_CLAUDE` can point at the binaries explicitly.
  */
-import type { HarnessKind } from "@polaris/protocol";
+import type { HarnessKind, KnownHarnessKind } from "@polaris/protocol";
 import { Effect, Layer, Scope } from "effect";
 import { HarnessRegistry, ServiceError } from "../services.ts";
 import { ClaudeHookReceiver } from "./claude/hooks.ts";
-import type { HarnessDriver } from "./HarnessDriver.ts";
+import { type HarnessDriver, HarnessError } from "./HarnessDriver.ts";
 
 const binary = (env: string, name: string): string | null =>
   process.env[env] || Bun.which(name) || null;
 
 /** What each driver declares; checked against the loaded drivers in registry.test.ts. */
 export const DRIVER_CAPABILITIES = {
-  codex: { steer: true, liveCoAttach: true },
-  claude: { steer: true, liveCoAttach: false },
-  bench: { steer: true, liveCoAttach: true },
-} as const satisfies Record<HarnessKind | "bench", HarnessDriver["capabilities"]>;
+  codex: { steer: true, liveCoAttach: true, switchModel: true },
+  claude: { steer: true, liveCoAttach: false, switchModel: true },
+  bench: { steer: true, liveCoAttach: true, switchModel: true },
+} as const satisfies Record<KnownHarnessKind | "bench", HarnessDriver["capabilities"]>;
 
 /**
  * A driver that loads the real one the first time it is probed or opened.
@@ -42,6 +42,12 @@ export const lazyDriver = (
     capabilities,
     ...extra,
     probe: Effect.flatMap(loaded, (driver) => driver.probe),
+    listModels: Effect.flatMap(
+      loaded,
+      (driver) =>
+        driver.listModels ??
+        Effect.fail(new HarnessError({ harness: kind, message: "it doesn't list its Models yet" }))
+    ),
     open: (options) => Effect.flatMap(loaded, (driver) => driver.open(options)),
   }));
 

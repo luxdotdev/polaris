@@ -16,6 +16,7 @@ import {
   type CommandId,
   CommandRejected,
   DomainEvent,
+  isKnownHarness,
   NotFound,
   type SessionId,
   SessionPlacement,
@@ -45,6 +46,8 @@ export interface DecideContext {
   readonly pathProbe: { readonly isDirectory: boolean; readonly isGitRepo: boolean } | null;
   /** For Steer: whether the session's Harness supports it. */
   readonly canSteer: boolean;
+  /** For SetModel: whether the session's Harness can change Model mid-session. */
+  readonly canSwitchModel: boolean;
   /** For ForkSession: the Turn forked from, looked up in memory or SQL (null if unknown). */
   readonly forkTurn: Turn | null;
 }
@@ -118,6 +121,8 @@ const deciding = (model: ReadModel, ctx: DecideContext): Deciding => {
         index: session.turnCount,
         prompt,
         attachments: [...ctx.attachments],
+        model: session.model,
+        effort: session.effort,
         status: "working",
         checkpointBefore: null,
         checkpointAfter: null,
@@ -232,6 +237,7 @@ const startSession = (d: Deciding, command: CommandOf<"StartSession">): Decision
     return d.reject(`session ${command.sessionId} already exists`);
   }
 
+  if (!isKnownHarness(command.harness)) return d.reject(unknownHarness(command.harness));
   const workspace = d.model.workspaces.get(command.workspaceId);
 
   if (workspace === undefined) return d.notFound("workspace", command.workspaceId);
@@ -249,6 +255,7 @@ const startSession = (d: Deciding, command: CommandOf<"StartSession">): Decision
     state: "starting",
     permissionMode: command.permissionMode,
     model: command.model,
+    effort: command.effort,
     parentSessionId: null,
     forkedFromTurnId: null,
     harnessCursor: null,
@@ -269,6 +276,8 @@ const forkSession = (d: Deciding, command: CommandOf<"ForkSession">): Decision =
   if (d.model.sessions.has(command.sessionId)) {
     return d.reject(`session ${command.sessionId} already exists`);
   }
+
+  if (!isKnownHarness(command.harness)) return d.reject(unknownHarness(command.harness));
 
   return d.withSession(command.fromSessionId, (parent) => {
     const turn =
@@ -291,6 +300,8 @@ const forkSession = (d: Deciding, command: CommandOf<"ForkSession">): Decision =
       if (d.model.worktrees.has(worktreeId)) return d.reject(`a Worktree already exists at ${cwd}`);
     }
 
+    const inherits = parent.session.harness === command.harness;
+
     const session = new AgentSession({
       id: command.sessionId,
       workspaceId: parent.session.workspaceId,
@@ -300,7 +311,9 @@ const forkSession = (d: Deciding, command: CommandOf<"ForkSession">): Decision =
       worktreeId,
       state: "dormant",
       permissionMode: parent.session.permissionMode,
-      model: parent.session.harness === command.harness ? parent.session.model : null,
+      // The Model the Fork asks for, else the parent's for the same Harness.
+      model: command.model ?? (inherits ? parent.session.model : null),
+      effort: command.effort ?? (command.model === null && inherits ? parent.session.effort : null),
       parentSessionId: parent.session.id,
       forkedFromTurnId: turn.id,
       harnessCursor: null,
@@ -313,6 +326,20 @@ const forkSession = (d: Deciding, command: CommandOf<"ForkSession">): Decision =
     return d.lifecycle(undefined, { type: "session.fork", session });
   });
 };
+
+const unknownHarness = (kind: string) => `${kind} is not a Harness this Daemon drives`;
+
+const setModel = (d: Deciding, command: CommandOf<"SetModel">): Decision =>
+  d.withSession(command.sessionId, (record) => {
+    if (command.model.trim() === "") return d.reject("a Model cannot be empty");
+
+    return d.lifecycle(record, {
+      type: "model.set",
+      model: command.model,
+      effort: command.effort,
+      canSwitchModel: d.ctx.canSwitchModel,
+    });
+  });
 
 const renameSession = (d: Deciding, command: CommandOf<"RenameSession">): Decision =>
   d.withSession(command.sessionId, () => {
@@ -352,6 +379,7 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
     RenameSession: (c) => renameSession(d, c),
     SetPermissionMode: (c) =>
       onSession(d, c.sessionId, { type: "permissionMode.set", permissionMode: c.permissionMode }),
+    SetModel: (c) => setModel(d, c),
     ForkSession: (c) => forkSession(d, c),
     ArchiveSession: (c) => onSession(d, c.sessionId, { type: "session.archive" }),
     UnarchiveSession: (c) => onSession(d, c.sessionId, { type: "session.unarchive" }),

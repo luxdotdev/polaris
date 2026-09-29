@@ -94,6 +94,7 @@ const DROPPED = new Set([
   "SessionCursorUpdated",
   "SessionRenamed",
   "SessionPermissionModeChanged",
+  "SessionModelChanged",
   "WorkspaceRegistered",
   "WorkspaceUpdated",
   "WorkspaceRemoved",
