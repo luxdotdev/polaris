@@ -64,7 +64,7 @@ export const HostStateNote = ({ host }: { readonly host: HostView }) => {
     <div className="flex flex-col gap-1.5">
       <HostStateLabel host={host} />
       {failure === null ? null : (
-        <CodeWell className="text-code-inline text-text-default whitespace-pre-wrap">
+        <CodeWell className="text-code-inline text-text-default overflow-x-hidden break-all whitespace-pre-wrap">
           {failure.detail}
         </CodeWell>
       )}

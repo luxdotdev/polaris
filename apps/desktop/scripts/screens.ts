@@ -1,0 +1,189 @@
+#!/usr/bin/env node
+/**
+ * Screenshots of the shell against Paper's 11U-0 (Workspace bar, dark) and
+ * MX-0 (machine bar, light), from real Daemons: four local Daemons on the
+ * bench Harness stand in for four machines. Needs a built app.
+ *
+ *   node scripts/screens.ts <out dir>
+ */
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { _electron as electron, type ElectronApplication, type Page } from "playwright-core";
+import { startDaemon, type TestDaemon } from "./lib/daemon.ts";
+import { APP_DIR, electronBinary } from "./lib/electron.ts";
+import { type SeedWorkspace, seedSource } from "./lib/seed.ts";
+
+const out = process.argv[2] ?? join(tmpdir(), "polaris-screens");
+
+const step = (message: string) => console.log(`screens: ${message}`);
+
+mkdirSync(out, { recursive: true });
+
+const MACHINES = [
+  { key: "studio", label: "Mac Studio" },
+  { key: "vm", label: "Linux VM" },
+  { key: "pi", label: "Raspberry Pi 4" },
+] as const;
+
+/** Artboard 5's Workspaces: seven, across four machines. */
+const FEW: ReadonlyArray<SeedWorkspace> = [
+  {
+    hostKey: "studio",
+    name: "polaris",
+    sessions: [
+      { title: "Spike GPUI review screen", state: "needs-you" },
+      { title: "Polaris planning", state: "working" },
+      { title: "Orchestrator layout prototype", state: "idle" },
+    ],
+  },
+  {
+    hostKey: "studio",
+    name: "sightline",
+    sessions: [{ title: "Tighten the ingest path", state: "idle" }],
+  },
+  { hostKey: "studio", name: "shellhacks-fiu", sessions: [] },
+  {
+    hostKey: "vm",
+    name: "nj-homes-choice-next",
+    sessions: [{ title: "Fix eligibility form validation", state: "needs-you" }],
+  },
+  {
+    hostKey: "vm",
+    name: "dcai",
+    sessions: [{ title: "Migrate reports to Postgres 17", state: "working" }],
+  },
+  {
+    hostKey: "pi",
+    name: "code",
+    sessions: [{ title: "Rebuild the sensor dashboard", state: "idle" }],
+  },
+  { hostKey: "local", name: "~", sessions: [{ title: "Dotfiles cleanup", state: "idle" }] },
+];
+
+/** Artboard 2's: 17 Workspaces, so the machine bar takes over. */
+const MANY: ReadonlyArray<SeedWorkspace> = [
+  ...FEW,
+  {
+    hostKey: "vm",
+    name: "infra",
+    sessions: [
+      { title: "Flaky export test", state: "idle" },
+      { title: "Rollup view benchmarks", state: "working" },
+    ],
+  },
+  ...["api-gateway", "data-pipelines", "docs-site", "billing"].map((name) => ({
+    hostKey: "vm",
+    name,
+    sessions: [{ title: `Tidy ${name}`, state: "idle" as const }],
+  })),
+  ...["notes", "site", "scratch", "bench", "tools"].map((name) => ({
+    hostKey: "local",
+    name,
+    sessions: [],
+  })),
+];
+
+interface Rig {
+  readonly app: ElectronApplication;
+  readonly page: Page;
+  readonly daemons: ReadonlyArray<TestDaemon>;
+  readonly home: string;
+}
+
+const launch = async (theme: "dark" | "light"): Promise<Rig> => {
+  const home = mkdtempSync(join(tmpdir(), "polaris-screens-"));
+
+  const daemons = await Promise.all(
+    ["local", ...MACHINES.map((m) => m.key)].map((key) =>
+      startDaemon({ home: join(home, key), benchHarness: true })
+    )
+  );
+
+  const [local, ...rest] = daemons;
+  const userData = join(home, "user-data");
+
+  mkdirSync(userData, { recursive: true });
+  writeFileSync(join(userData, "settings.json"), JSON.stringify({ theme }));
+
+  const app = await electron.launch({
+    executablePath: electronBinary(),
+    args: [APP_DIR],
+    env: {
+      ...process.env,
+      POLARIS_DESKTOP_LOCAL_SOCKET: local?.socketPath ?? "",
+      POLARIS_DESKTOP_BENCH_HARNESS: "1",
+      POLARIS_DESKTOP_LOCAL_LABEL: "MacBook Pro",
+      POLARIS_DESKTOP_EXTRA_HOSTS: JSON.stringify(
+        MACHINES.map((m, i) => ({ ...m, socket: rest[i]?.socketPath ?? "" }))
+      ),
+      POLARIS_DESKTOP_USER_DATA: userData,
+      POLARIS_DESKTOP_HIDDEN: "1",
+    },
+  });
+
+  const page = await app.firstWindow();
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ colorScheme: null });
+  await page
+    .locator('[data-host="local"][data-connection="connected"]')
+    .waitFor({ timeout: 20_000 });
+
+  return { app, page, daemons, home };
+};
+
+const close = async ({ app, daemons, home }: Rig) => {
+  await app.close();
+  await Promise.all(daemons.map((d) => d.stop()));
+  rmSync(home, { recursive: true, force: true });
+};
+
+const shoot = async (page: Page, name: string) => {
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: join(out, `${name}.png`) });
+  step(`saved ${name}.png`);
+};
+
+const density = async (page: Page, value: "calm" | "balanced" | "compact") => {
+  await page.evaluate(`window.polaris.request("settings.setDensity", { density: "${value}" })`);
+  await page.locator(`html[data-density="${value}"]`).waitFor({ state: "attached" });
+};
+
+// 11U-0: the Workspace bar, dark, polaris selected with Polaris planning working.
+{
+  const rig = await launch("dark");
+
+  await rig.page.evaluate(seedSource(FEW));
+  await rig.page.locator('[data-slot="chip"]', { hasText: "polaris" }).first().click();
+  await rig.page.getByText("Polaris planning", { exact: true }).first().click();
+  await shoot(rig.page, "11U-0-workspace-bar-dark-calm");
+  await density(rig.page, "balanced");
+  await shoot(rig.page, "11U-0-workspace-bar-dark-balanced");
+  await density(rig.page, "compact");
+  await shoot(rig.page, "11U-0-workspace-bar-dark-compact");
+  await density(rig.page, "calm");
+  await rig.page.evaluate(`window.polaris.request("settings.setTheme", { theme: "light" })`);
+  await shoot(rig.page, "11U-0-workspace-bar-light-calm");
+  await close(rig);
+}
+
+// MX-0: the machine bar, light, Linux VM selected; then a machine going away.
+{
+  const rig = await launch("light");
+
+  await rig.page.evaluate(seedSource(MANY));
+  await rig.page.locator('nav[aria-label="Machines"]').waitFor({ timeout: 20_000 });
+  await rig.page.locator('[data-host="vm"]').click();
+  await rig.page.getByText("Migrate reports to Postgres 17", { exact: true }).first().click();
+  await shoot(rig.page, "MX-0-machine-bar-light-calm");
+  await rig.page.evaluate(`window.polaris.request("settings.setTheme", { theme: "dark" })`);
+  await shoot(rig.page, "MX-0-machine-bar-dark-calm");
+  await rig.daemons[3]?.stop();
+  await rig.page.locator('[data-host="pi"]').click();
+  await rig.page
+    .locator('[data-host="pi"][data-connection="reconnecting"]')
+    .waitFor({ timeout: 20_000 });
+  await shoot(rig.page, "host-reconnecting-dark");
+  await close(rig);
+}

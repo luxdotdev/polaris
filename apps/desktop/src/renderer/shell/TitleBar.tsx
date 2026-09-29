@@ -44,8 +44,8 @@ export const TitleBar = () => {
   ];
 
   return (
-    <header className="app-drag gap-panel border-hairline bg-surface-sunken pl-panel flex h-11 shrink-0 items-center border-b pr-3">
-      {/* The native traffic lights sit here (window.ts, trafficLightPosition). */}
+    <header className="app-drag border-hairline bg-surface-sunken flex h-11 shrink-0 items-center gap-4 border-b pr-3 pl-4">
+      {/* The native traffic lights sit here (window.ts); fixed, never density-scaled. */}
       <span className="w-[60px] shrink-0" aria-hidden />
       <Wordmark />
       <SegmentedControl

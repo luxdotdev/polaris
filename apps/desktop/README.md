@@ -8,6 +8,7 @@ bun run --cwd apps/desktop build    # out/{main,preload,renderer} and an unpacke
 bun run --cwd apps/desktop start    # electron . against the last build
 bun run --cwd apps/desktop smoke    # build, then the end-to-end smoke test (Node; Playwright)
 bun run bench desktop-idle          # memory and CPU of the built app, settled (packages/bench)
+node scripts/screens.ts <dir>       # screenshots against Paper 11U-0 / MX-0, from four seeded local Daemons
 ```
 
 `dev` connects the local Host to `~/.polaris/daemon.sock` when a Daemon answers there; otherwise it starts a dev Daemon from source with its own home and the scripted bench Harness, and keeps it across restarts (ADR 0007). Builds: Vite for the renderer, `Bun.build` for main and preload (ADR 0008).
@@ -55,6 +56,14 @@ To wire a feature: in `slots.tsx`, import its component and replace the default,
 
 **Shell actions** for features (`useShellActions()` from `src/renderer/routes/navigation.ts`): `selectSession({ hostKey, sessionId })`, `selectWorkspace({ hostKey, workspaceId })`, `selectHost(hostKey)`, `openJump()`, `startNewSession()`, `showSidebar("sessions" | "needs-you")`. `useSelection()` returns the current `{ mode, hostKey, workspaceId, sessionId, pane }`.
 
+**Top bar** (`routes/topBar.ts`, ENG-177): the Workspace bar (every shown Workspace on every Host as a chip, ⌃1…⌃9, ⌃0) up to 10 Workspaces; the machine bar (⌃N per machine, the sidebar then groups that machine's sessions by Workspace, three per group then "N more") from 11, back only at 9 (hysteresis); hidden in machine mode with a single machine. Hidden Workspaces (CONTEXT.md: hidden when idle) are left out.
+
+**Keyboard** (`routes/keyboard.ts`): ⌘1/2/3 modes (native menu); ⌃1…⌃0, or ⌥1…⌥0 since macOS may bind ⌃N to Spaces; K (outside text fields) and ⌘K the jump menu; ⌘N a new session. Develop → Start proof session (dev, or a bench-Harness local Daemon) runs the proof flow.
+
+**Workspace switch timing** (`routes/switchTimer.ts`): input event → second animation frame after it, kept in `window.__polaris.switchTimes()`; the smoke test switches 40 times and fails over 100 ms at p95.
+
+**Connection State** stays inline: the Host's row dims only while reconnecting and shows how long; the reason sits in a code well under the sidebar header (to be replaced by `@polaris/ui`'s HostStateCard).
+
 The smoke test reads `data-testid`s from the session placeholder (`live-item`, `turn-items`); a feature replacing `SessionIntent`/`SessionOutput` keeps them or updates `scripts/smoke.ts`.
 
 ## The bridge
@@ -68,11 +77,14 @@ The smoke test reads `data-testid`s from the session placeholder (`live-item`, `
 
 `<userData>/settings.json`: `theme` (`system` | `dark` | `light`), `density` (`calm` | `balanced` | `compact`), and `hosts`: `[{ alias, label?, colour?, forwardAgent? }]` by `~/.ssh/config` alias. The renderer sets `data-theme` (unset for system) and `data-density` on the root.
 
-Environment: `POLARIS_DESKTOP_USER_DATA`, `POLARIS_DESKTOP_HIDDEN=1`, `POLARIS_DESKTOP_LOCAL_SOCKET` (+ `POLARIS_DESKTOP_BENCH_HARNESS=1`), `POLARIS_DESKTOP_DAEMON=system|dev`.
+Environment: `POLARIS_DESKTOP_EXTRA_HOSTS` (screenshots and tests: `[{ key, label, socket }]`, more Hosts on local sockets), `POLARIS_DESKTOP_LOCAL_LABEL`, `POLARIS_DESKTOP_USER_DATA`, `POLARIS_DESKTOP_HIDDEN=1`, `POLARIS_DESKTOP_LOCAL_SOCKET` (+ `POLARIS_DESKTOP_BENCH_HARNESS=1`), `POLARIS_DESKTOP_DAEMON=system|dev`.
 
 ## Known gaps
 
 - Settings for Hosts have no UI yet; edit the file. The install / upgrade approval flow is exposed (`install.ensure`) but has no UI, and approvals are not stored.
 - The macOS window closes the app (no dock-only mode yet); no vibrancy.
-- The production CSP allows inline styles (Radix and sonner inject them); scripts stay `'self'` only.
+- The production CSP allows `style-src 'unsafe-inline'` (Radix and sonner inject `<style>` elements); accepted for now, scripts stay `'self'` only.
+- The dev server is `http://127.0.0.1:5198` (strict): the `@polaris/ui` gallery holds 5199.
+- Navigation persists in `localStorage`, shared by every window of the app; per-window keys come with multiple windows.
 - `@polaris/ui`'s `Row` can't be used with `asChild` (its Slot gets several children), so session rows are `role="button"` divs.
+- No Sources chips, "Add machine" or per-session age of last activity yet; ages are since the session was created.

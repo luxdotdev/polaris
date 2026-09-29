@@ -19,7 +19,7 @@ import { type SidebarView, sessionOrder, workspaceKey } from "../../routes/selec
 import { activeSessions, needsYou, shownState, shownWorkspaces } from "../../routes/topBar.ts";
 import { emptyHostModel, type HostModel, type SessionEntry } from "../../store/hostModel.ts";
 import type { HostView } from "../../../shared/api.ts";
-import { homePath, plural } from "../copy.ts";
+import { age, homePath, plural } from "../copy.ts";
 import { HostStateNote } from "../HostState.tsx";
 import { useApp, useNav, useSelection, useShellActions } from "../hooks.ts";
 import { useNow } from "../useNow.ts";
@@ -141,7 +141,12 @@ const hiddenSummary = (rest: ReadonlyArray<SessionEntry>) => {
   return `${rest.length} more, ${states.join(", ")}`;
 };
 
-const MachineGroup = ({ hostKey, model, workspace }: WorkspaceListProps) => {
+const MachineGroup = ({
+  hostKey,
+  model,
+  workspace,
+  now,
+}: WorkspaceListProps & { readonly now: number }) => {
   const { toggleFolded } = useShellActions();
   const key = workspaceKey(hostKey, workspace.id);
   const folded = useNav((s) => s.folded[key]);
@@ -187,8 +192,8 @@ const MachineGroup = ({ hostKey, model, workspace }: WorkspaceListProps) => {
               key={entry.session.id}
               hostKey={hostKey}
               entry={entry}
-              now={0}
-              meta=""
+              now={now}
+              meta={age(entry.session.createdAt, now)}
             />
           ))
         : null}
@@ -264,6 +269,7 @@ const MachineSidebar = () => {
   const model = useHostModel(hostKey);
   const host = useApp((s) => s.hosts.find((h) => h.key === hostKey));
   const workspaces = shownWorkspaces(model);
+  const now = useNow();
 
   if (hostKey === null || host === undefined) {
     return (
@@ -298,6 +304,7 @@ const MachineSidebar = () => {
               hostKey={hostKey}
               model={model}
               workspace={workspace}
+              now={now}
             />
           ))}
           <Elsewhere hostKey={hostKey} workspaceId={null} />

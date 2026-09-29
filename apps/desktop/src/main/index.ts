@@ -5,6 +5,8 @@
  *   POLARIS_DESKTOP_USER_DATA=<dir>   settings and caches go here (tests, benchmarks)
  *   POLARIS_DESKTOP_HIDDEN=1          never show the window (smoke tests, benchmarks)
  *   ELECTRON_RENDERER_URL=<url>       dev: load the renderer from the Vite server
+ *   POLARIS_DESKTOP_EXTRA_HOSTS=<json> screenshots and tests: [{ key, label, socket }] as more Hosts
+ *   POLARIS_DESKTOP_LOCAL_LABEL=<name> the local Host's name (default "This Mac")
  */
 import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -15,6 +17,7 @@ import { type AppEvent, type Appearance, CHANNELS } from "../shared/api.ts";
 import {
   clientIdentity,
   type ClientRuntime,
+  extraHosts,
   hostEntries,
   LOCAL_HOST_KEY,
   startClientRuntime,
@@ -67,6 +70,9 @@ let ipc: { readonly dispose: () => void } | null = null;
 
 const trusted = (url: string) => isTrustedUrl(url, devUrl);
 
+const localLabel = (label: string | undefined): { localLabel?: string } =>
+  label === undefined || label === "" ? {} : { localLabel: label };
+
 const start = async () => {
   const file = settingsPath(app.getPath("userData"));
   let settings: Settings = readSettings(file);
@@ -101,7 +107,12 @@ const start = async () => {
   const benchHarness = localDaemon.benchHarness;
 
   runtime = startClientRuntime({
-    entries: hostEntries({ local: localDaemon, remotes: settings.hosts ?? [] }),
+    entries: hostEntries({
+      local: localDaemon,
+      remotes: settings.hosts ?? [],
+      extras: extraHosts(env.POLARIS_DESKTOP_EXTRA_HOSTS),
+      ...localLabel(env.POLARIS_DESKTOP_LOCAL_LABEL),
+    }),
     identity: clientIdentity(app.getVersion()),
   });
 
