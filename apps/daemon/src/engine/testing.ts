@@ -8,11 +8,12 @@ import { join } from "node:path";
 import {
   type ApprovalDecision,
   Attachment,
-  type AttachmentId,
+  AttachmentId,
   CommandId,
   type HarnessKind,
   type RequestId,
   type SessionId,
+  TurnItem,
 } from "@polaris/protocol";
 import { type Cause, Duration, Effect, Layer, Queue, Stream } from "effect";
 import type { CheckpointPolicy } from "../git/prune.ts";
@@ -31,9 +32,12 @@ import {
 } from "../services.ts";
 import { EventStore, StoreConfig } from "../store/EventStore.ts";
 import type { ReadModel } from "../store/model.ts";
-import { Engine, EngineConfig } from "./Engine.ts";
+import { Engine, EngineConfig, type EngineSettings } from "./Engine.ts";
+import { HarnessEvents } from "./supervisor.ts";
 
 // ── Harness ────────────────────────────────────────────────────────────────
+
+export { HarnessEvents } from "./supervisor.ts";
 
 export interface FakeHarnessSession {
   readonly options: OpenOptions;
@@ -88,22 +92,19 @@ export const makeFakeDriver = (
 
   const released: Array<SessionId> = [];
 
-  const driver: HarnessDriver = {
+  const terminalFollow: HarnessDriver["terminalFollow"] = {
+    events: (sessionId: SessionId) => Stream.fromQueue(followQueue(sessionId)),
+    release: (sessionId: SessionId) =>
+      Effect.sync(() => {
+        released.push(sessionId);
+        Queue.endUnsafe(followQueue(sessionId));
+        followQueues.delete(sessionId);
+      }),
+  };
+
+  const withoutFollow: HarnessDriver = {
     kind,
     capabilities: { steer: options.steer ?? false, liveCoAttach: options.liveCoAttach ?? false },
-    ...(options.follow
-      ? {
-          terminalFollow: {
-            events: (sessionId: SessionId) => Stream.fromQueue(followQueue(sessionId)),
-            release: (sessionId: SessionId) =>
-              Effect.sync(() => {
-                released.push(sessionId);
-                Queue.endUnsafe(followQueue(sessionId));
-                followQueues.delete(sessionId);
-              }),
-          },
-        }
-      : {}),
     probe: Effect.succeed({ available: true, version: "fake", detail: null }),
     open: (openOptions) =>
       Effect.gen(function* () {
@@ -148,6 +149,10 @@ export const makeFakeDriver = (
       }),
   };
 
+  const driver: HarnessDriver = options.follow
+    ? { ...withoutFollow, terminalFollow }
+    : withoutFollow;
+
   return {
     driver,
     sessions,
@@ -165,14 +170,16 @@ export const makeFakeDriver = (
 export const completesTurns =
   (cursor = "cursor-1") =>
   (input: TurnInput): ReadonlyArray<HarnessEvent> => [
-    { _tag: "CursorAssigned", cursor },
-    { _tag: "TurnStarted", turnId: input.turnId, prompt: input.prompt },
-    {
-      _tag: "ItemCompleted",
+    HarnessEvents.CursorAssigned({ cursor }),
+    HarnessEvents.TurnStarted({ turnId: input.turnId, prompt: input.prompt }),
+    HarnessEvents.ItemCompleted({
       turnId: input.turnId,
-      item: { _tag: "AssistantMessage", id: `msg-${input.turnId}`, text: `re: ${input.prompt}` },
-    },
-    { _tag: "TurnEnded", turnId: input.turnId, status: "completed", error: null },
+      item: TurnItem.cases.AssistantMessage.make({
+        id: `msg-${input.turnId}`,
+        text: `re: ${input.prompt}`,
+      }),
+    }),
+    HarnessEvents.TurnEnded({ turnId: input.turnId, status: "completed", error: null }),
   ];
 
 // ── Services ───────────────────────────────────────────────────────────────
@@ -230,7 +237,7 @@ export const fakeServices = (fakes: Fakes, drivers: ReadonlyArray<FakeDriver>) =
       stage: (options) =>
         Effect.sync(() => {
           const attachment = new Attachment({
-            id: `att-${fakes.attachments.size + 1}` as AttachmentId,
+            id: AttachmentId.make(`att-${fakes.attachments.size + 1}`),
             name: options.name,
             mimeType: options.mimeType,
             size: options.bytes instanceof Uint8Array ? options.bytes.byteLength : 0,
@@ -274,17 +281,20 @@ export const engineLayer = (options: {
     )
   );
 
+  const settings: EngineSettings = {
+    idleTimeout: options.idleTimeout ?? Duration.minutes(30),
+    checkpointSweepInterval: options.checkpointSweepInterval ?? null,
+  };
+
   return Engine.layer.pipe(
     Layer.provideMerge(store),
     Layer.provide(fakeServices(options.fakes, options.drivers)),
     Layer.provide(
-      Layer.succeed(EngineConfig)({
-        idleTimeout: options.idleTimeout ?? Duration.minutes(30),
-        checkpointSweepInterval: options.checkpointSweepInterval ?? null,
-        ...(options.checkpointPolicy === undefined
-          ? {}
-          : { checkpointPolicy: options.checkpointPolicy }),
-      })
+      Layer.succeed(EngineConfig)(
+        options.checkpointPolicy === undefined
+          ? settings
+          : { ...settings, checkpointPolicy: options.checkpointPolicy }
+      )
     )
   );
 };

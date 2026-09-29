@@ -1,0 +1,175 @@
+/**
+ * Checkpoint pruning (`git/prune.ts`) as the engine drives it: the policy on
+ * Archive, dropping a removed Workspace's checkpoints, and the periodic
+ * sweeper's targets, built fresh from the read model for each sweep.
+ */
+import type { SessionId, TurnId, Workspace } from "@polaris/protocol";
+import { Clock, Context, Effect, Layer } from "effect";
+import {
+  type CheckpointSession,
+  DEFAULT_CHECKPOINT_POLICY,
+  dropSessionCheckpoints,
+  onSessionArchived as pruneArchivedSession,
+  runCheckpointSweeper,
+  type SweepTarget,
+} from "../git/prune.ts";
+import type { ServiceError } from "../services.ts";
+import type { ReadModel, SessionRecord } from "../store/model.ts";
+import { EngineRuntime } from "./runtime.ts";
+
+/** The Turns each session's Forks started from, which survive compaction. */
+const forkedTurns = (model: ReadModel): ReadonlyMap<SessionId, ReadonlyArray<TurnId>> => {
+  const pinned = new Map<SessionId, Array<TurnId>>();
+
+  for (const { session } of model.sessions.values()) {
+    if (session.parentSessionId === null || session.forkedFromTurnId === null) continue;
+    const list = pinned.get(session.parentSessionId) ?? [];
+    list.push(session.forkedFromTurnId);
+    pinned.set(session.parentSessionId, list);
+  }
+
+  return pinned;
+};
+
+const describeError = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause));
+
+const make = (rt: EngineRuntime["Service"]): CheckpointPruning["Service"] => {
+  const { store } = rt;
+  const policy = rt.config.checkpointPolicy ?? DEFAULT_CHECKPOINT_POLICY;
+
+  /**
+   * What the pruning policy knows about one session. A session that is not
+   * Archived keeps every checkpoint, so only an Archived one needs its Turn
+   * order and its Worktree's branch (both read from SQL).
+   */
+  const checkpointSession = (
+    record: SessionRecord,
+    pinned: ReadonlyMap<SessionId, ReadonlyArray<TurnId>>,
+    archivedAt: number | null
+  ): Effect.Effect<CheckpointSession, ServiceError> =>
+    Effect.gen(function* () {
+      const session = record.session;
+
+      const base = {
+        sessionId: session.id,
+        archivedAt,
+        pinnedTurnIds: pinned.get(session.id) ?? [],
+      };
+
+      if (archivedAt === null) return base;
+
+      const stored = yield* store.readTurns({
+        sessionId: session.id,
+        beforeIndex: null,
+        limit: null,
+      });
+
+      const turns = new Map([...stored, ...record.turns].map((turn) => [turn.id, turn]));
+
+      const worktree =
+        session.worktreeId === null ? null : yield* store.lastKnownWorktree(session.worktreeId);
+
+      return {
+        ...base,
+        turnIds: [...turns.values()].sort((a, b) => a.index - b.index).map((turn) => turn.id),
+        worktreeBranch:
+          worktree !== null && !worktree.isMain && worktree.createdBySessionId === session.id
+            ? worktree.branch
+            : null,
+      };
+    });
+
+  /**
+   * Every git Workspace with all its sessions. An Archived session's `updatedAt`
+   * stands in for when it was Archived: a later change (a rename) only postpones its pruning.
+   */
+  const targets = Effect.gen(function* () {
+    const model = yield* store.model;
+    const pinned = forkedTurns(model);
+    const found: Array<SweepTarget> = [];
+
+    for (const workspace of model.workspaces.values()) {
+      if (!workspace.isGitRepo) continue;
+
+      const sessions = yield* Effect.forEach(
+        [...model.sessions.values()].filter((r) => r.session.workspaceId === workspace.id),
+        (record) =>
+          checkpointSession(
+            record,
+            pinned,
+            record.session.state === "archived" ? Date.parse(record.session.updatedAt) : null
+          )
+      );
+
+      found.push({ repoPath: workspace.path, sessions });
+    }
+
+    return found;
+  });
+
+  const onArchived = (record: SessionRecord, workspace: Workspace, model: ReadModel) =>
+    Effect.gen(function* () {
+      const at = yield* Clock.currentTimeMillis;
+      const session = yield* checkpointSession(record, forkedTurns(model), at);
+      yield* pruneArchivedSession(workspace.path, session, { policy }).pipe(
+        Effect.catch((error) =>
+          Effect.logWarning(`checkpoint prune of ${record.session.id}: ${error.message}`)
+        )
+      );
+    });
+
+  const onWorkspaceRemoved = (workspace: Workspace, sessionIds: ReadonlyArray<SessionId>) =>
+    Effect.forEach(
+      sessionIds,
+      (sessionId) =>
+        Effect.tryPromise({
+          try: () => dropSessionCheckpoints(workspace.path, sessionId),
+          catch: describeError,
+        }).pipe(
+          Effect.catch((message) =>
+            Effect.logWarning(`dropping checkpoints of ${sessionId}: ${message}`)
+          )
+        ),
+      { discard: true }
+    );
+
+  const interval = rt.config.checkpointSweepInterval;
+
+  const startSweeper =
+    interval === null
+      ? Effect.void
+      : Effect.forkIn(
+          runCheckpointSweeper(
+            interval === undefined ? { targets, policy } : { targets, policy, interval }
+          ),
+          rt.engineScope
+        ).pipe(Effect.asVoid);
+
+  return { onArchived, onWorkspaceRemoved, startSweeper };
+};
+
+export class CheckpointPruning extends Context.Service<
+  CheckpointPruning,
+  {
+    /** Apply the policy to a session that was just Archived. */
+    readonly onArchived: (
+      record: SessionRecord,
+      workspace: Workspace,
+      model: ReadModel
+    ) => Effect.Effect<void, ServiceError>;
+    /** Nothing sweeps a removed Workspace's repository any more: drop its sessions' checkpoints. */
+    readonly onWorkspaceRemoved: (
+      workspace: Workspace,
+      sessionIds: ReadonlyArray<SessionId>
+    ) => Effect.Effect<void>;
+    /** Fork the sweeper into the Engine's scope, unless it is turned off. */
+    readonly startSweeper: Effect.Effect<void>;
+  }
+>()("polaris/daemon/engine/CheckpointPruning") {
+  static readonly layer = Layer.effect(
+    CheckpointPruning,
+    Effect.gen(function* () {
+      return make(yield* EngineRuntime);
+    })
+  );
+}

@@ -1,0 +1,154 @@
+/**
+ * `dispatch`: resolve what the decider needs from outside (attachments, a path
+ * probe, Harness capabilities, an old Turn), decide and commit, ack, then fork
+ * the command's reactor, serialized per session.
+ */
+import { statSync } from "node:fs";
+import { join } from "node:path";
+import {
+  type Command,
+  type CommandId,
+  CommandRejected,
+  type NotFound,
+  type Sequence,
+  TurnId,
+  WorkspaceId,
+} from "@polaris/protocol";
+import { Context, Effect, Layer, Option, Predicate } from "effect";
+import { CommitResult } from "../store/EventStore.ts";
+import type { ReadModel } from "../store/model.ts";
+import { decide } from "./decider.ts";
+import { Reactors } from "./reactors.ts";
+import { EngineRuntime } from "./runtime.ts";
+
+export interface DispatchInput {
+  readonly commandId: CommandId;
+  readonly command: Command;
+  /** Label of the sending Client device, from its `hello`. */
+  readonly deviceLabel: string;
+}
+
+export type Dispatch = (
+  input: DispatchInput
+) => Effect.Effect<{ readonly sequence: Sequence | null }, CommandRejected | NotFound>;
+
+const probePath = (path: string) => {
+  try {
+    if (!statSync(path).isDirectory()) return { isDirectory: false, isGitRepo: false };
+    let isGitRepo = false;
+
+    try {
+      statSync(join(path, ".git"));
+      isGitRepo = true;
+    } catch {}
+
+    return { isDirectory: true, isGitRepo };
+  } catch {
+    return null;
+  }
+};
+
+const sessionOfCommand = (command: Command) => ("sessionId" in command ? command.sessionId : null);
+
+const make = Effect.gen(function* () {
+  const rt = yield* EngineRuntime;
+  const { react } = yield* Reactors;
+  const { store } = rt;
+
+  const resolveAttachments = (commandId: CommandId, command: Command) =>
+    Effect.gen(function* () {
+      if (!Predicate.isTagged(command, "StartSession") && !Predicate.isTagged(command, "SendTurn"))
+        return [];
+
+      if (command.attachments.length === 0) return [];
+
+      const found = yield* rt.attachmentStore
+        .get(command.attachments)
+        .pipe(
+          Effect.mapError(
+            (error) => new CommandRejected({ commandId, reason: `attachments: ${error.message}` })
+          )
+        );
+
+      const byId = new Map(found.map((attachment) => [attachment.id, attachment]));
+      const missing = command.attachments.filter((id) => !byId.has(id));
+
+      if (missing.length > 0) {
+        return yield* new CommandRejected({
+          commandId,
+          reason: `unknown attachments: ${missing.join(", ")}`,
+        });
+      }
+
+      return command.attachments.flatMap((id) => byId.get(id) ?? []);
+    });
+
+  const canSteer = (command: Command) =>
+    Effect.gen(function* () {
+      if (!Predicate.isTagged(command, "Steer")) return false;
+      const model = yield* store.model;
+      const record = model.sessions.get(command.sessionId);
+
+      if (record === undefined) return false;
+      const driver = yield* rt.registry.get(record.session.harness).pipe(Effect.option);
+
+      return Option.isSome(driver) && driver.value.capabilities.steer;
+    });
+
+  const forkTurn = (command: Command) =>
+    Predicate.isTagged(command, "ForkSession")
+      ? rt.findTurn(command.fromSessionId, command.fromTurnId).pipe(Effect.orDie)
+      : Effect.succeed(null);
+
+  const dispatch: Dispatch = Effect.fn("Engine.dispatch")(function* (input: DispatchInput) {
+    const { commandId, command } = input;
+
+    const ctx = {
+      commandId,
+      now: yield* rt.now,
+      deviceLabel: input.deviceLabel,
+      newTurnId: TurnId.make(`turn_${crypto.randomUUID()}`),
+      newWorkspaceId: WorkspaceId.make(`ws_${crypto.randomUUID()}`),
+      attachments: yield* resolveAttachments(commandId, command),
+      pathProbe: Predicate.isTagged(command, "RegisterWorkspace") ? probePath(command.path) : null,
+      canSteer: yield* canSteer(command),
+      forkTurn: yield* forkTurn(command),
+    };
+
+    let before: ReadModel | null = null;
+
+    const result = yield* store
+      .commit({
+        commandId,
+        decide: (model) => {
+          before = model;
+
+          return decide(model, command, ctx);
+        },
+      })
+      .pipe(Effect.catchTag("ServiceError", (error) => Effect.die(error)));
+
+    if (CommitResult.$is("Committed")(result)) {
+      const sessionId = sessionOfCommand(command);
+
+      const reaction = react({ command, result, before: before ?? result.model }).pipe(
+        Effect.catchCause((cause) => Effect.logError(`reacting to ${command._tag} failed`, cause))
+      );
+
+      yield* Effect.forkIn(
+        sessionId === null ? reaction : rt.serially(sessionId)(reaction),
+        rt.engineScope
+      );
+    }
+
+    return { sequence: result.sequence };
+  });
+
+  return Dispatcher.of({ dispatch });
+});
+
+export class Dispatcher extends Context.Service<Dispatcher, { readonly dispatch: Dispatch }>()(
+  "polaris/daemon/engine/Dispatcher"
+) {
+  static readonly layer = Layer.effect(Dispatcher, make);
+}
