@@ -43,6 +43,17 @@ export function washVar(hue: TintHue): string {
   return WASH_VARS[hue];
 }
 
+const HALO_VARS: Record<IdentityHue, string> = {
+  claude: "var(--halo-claude-code)",
+  codex: "var(--halo-codex)",
+  starlight: "var(--halo-starlight)",
+};
+
+/** The dither halo image for an identity hue, switched per theme in assets.css. */
+export function haloVar(hue: IdentityHue): string {
+  return HALO_VARS[hue];
+}
+
 /** The identity hue for any Harness kind a Daemon reports; unknown kinds get no hue. */
 export function harnessHue(kind: HarnessKind): Harness | "neutral" {
   return isKnownHarness(kind) ? kind : "neutral";
