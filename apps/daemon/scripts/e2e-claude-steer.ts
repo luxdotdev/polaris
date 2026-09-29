@@ -15,9 +15,18 @@ import { spawn } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { makeHostConnection, spawnTransport } from "@polaris/client";
-import { CommandId, SessionId, type SessionStreamItem, type WorkspaceId } from "@polaris/protocol";
-import { Effect, Stream } from "effect";
+import { type HostTarget, makeHostConnection, spawnTransport } from "@polaris/client";
+import {
+  Command,
+  CommandId,
+  DomainEvent,
+  HostStreamItem,
+  SessionId,
+  SessionPlacement,
+  SessionStreamItem,
+  TurnItem,
+} from "@polaris/protocol";
+import { Cause, Data, Effect, Exit, Option, Stream } from "effect";
 
 if (process.env.POLARIS_E2E_CLAUDE_STEER !== "1") {
   console.error(
@@ -56,10 +65,19 @@ const t0 = Date.now();
 const log = (...a: unknown[]) =>
   console.log(`[e2e +${((Date.now() - t0) / 1000).toFixed(1)}s]`, ...a);
 
-const results: Array<{ check: string; ok: boolean; detail?: string }> = [];
+interface CheckResult {
+  readonly check: string;
+  readonly ok: boolean;
+  detail?: string;
+}
+
+const results: Array<CheckResult> = [];
 
 const check = (name: string, ok: boolean, detail?: string) => {
-  results.push({ check: name, ok, ...(detail === undefined ? {} : { detail }) });
+  const result: CheckResult = { check: name, ok };
+
+  if (detail !== undefined) result.detail = detail;
+  results.push(result);
   log(ok ? "PASS" : "FAIL", name, detail ?? "");
 };
 
@@ -83,9 +101,12 @@ let n = 0;
 
 const cmd = () => CommandId.make(`e2e-${++n}`);
 
-const events: Array<{ at: number; event: Record<string, unknown> }> = [];
+const { Ssh } = Data.taggedEnum<HostTarget>();
 
-const eventsOf = (tag: string) => events.filter((e) => e.event._tag === tag);
+const events: Array<{ readonly at: number; readonly event: DomainEvent }> = [];
+
+const eventsOf = <Tag extends DomainEvent["_tag"]>(tag: Tag) =>
+  events.flatMap(({ at, event }) => (DomainEvent.isAnyOf([tag])(event) ? [{ at, event }] : []));
 
 let state = "unknown";
 
@@ -97,10 +118,10 @@ const echoed = () => {
   const seen = new Map<string, number>();
 
   for (const { event } of eventsOf("TurnItemCompleted")) {
-    const item = event.item as { _tag: string; id: string; status?: string; output?: string };
+    const item = event.item;
 
-    if (item._tag !== "CommandExecution" || item.status !== "completed") continue;
-    const number = Number(item.output?.trim().split("\n").at(-1));
+    if (!TurnItem.guards.CommandExecution(item) || item.status !== "completed") continue;
+    const number = Number(item.output.trim().split("\n").at(-1));
 
     if (Number.isInteger(number)) seen.set(item.id, number);
   }
@@ -114,7 +135,7 @@ const program = Effect.gen(function* () {
   const conn = yield* makeHostConnection({
     key: "e2e",
     name: "E2E",
-    target: { _tag: "Ssh", alias: "unused" },
+    target: Ssh({ alias: "unused" }),
     identity: { name: "polaris-e2e", version: "0.0.0", deviceLabel: "E2E", capabilities: [] },
     connector: spawnTransport(["bun", MAIN, "bridge"], { env }),
   });
@@ -122,27 +143,24 @@ const program = Effect.gen(function* () {
   const s = yield* conn.awaitSession;
   yield* s.client.dispatch({
     commandId: cmd(),
-    command: { _tag: "RegisterWorkspace", path: repo, name: "e2e" },
+    command: Command.cases.RegisterWorkspace.make({ path: repo, name: "e2e" }),
   });
 
-  const snapshot = yield* s.client.subscribeHost({ afterSequence: null }).pipe(
-    Stream.filter((i) => i._tag === "Snapshot"),
-    Stream.runHead
-  );
+  const snapshot = yield* s.client
+    .subscribeHost({ afterSequence: null })
+    .pipe(Stream.filter(HostStreamItem.guards.Snapshot), Stream.runHead);
 
-  if (snapshot._tag !== "Some" || snapshot.value._tag !== "Snapshot")
-    return yield* Effect.die("no snapshot");
+  if (Option.isNone(snapshot)) return yield* Effect.die("no snapshot");
   const workspace = snapshot.value.workspaces[0]!;
 
   const sessionId = SessionId.make("e2e-claude-steer");
   yield* s.client.dispatch({
     commandId: cmd(),
-    command: {
-      _tag: "StartSession",
+    command: Command.cases.StartSession.make({
       sessionId,
-      workspaceId: workspace.id as WorkspaceId,
+      workspaceId: workspace.id,
       harness: "claude",
-      placement: { _tag: "InPlace" },
+      placement: SessionPlacement.cases.InPlace.make({}),
       permissionMode: "full-access",
       model: "haiku",
       prompt: [
@@ -152,35 +170,39 @@ const program = Effect.gen(function* () {
         "into one call. After the last number, reply with one short sentence saying where you stopped.",
       ].join(" "),
       attachments: [],
-    },
+    }),
   });
   log("Turn started: count to 10");
+
+  const onEvent = (e: DomainEvent) =>
+    DomainEvent.matchOrElse(
+      e,
+      {
+        SessionStateChanged: (changed) => {
+          state = changed.state;
+          log("state →", state, changed.reason ?? "");
+        },
+        TurnStarted: ({ _tag, turn }) => log(_tag, turn.id, turn.status),
+        TurnEnded: ({ _tag, turn }) => log(_tag, turn.id, turn.status),
+        TurnItemCompleted: (completed) => log("item", JSON.stringify(completed.item).slice(0, 200)),
+      },
+      () => undefined
+    );
 
   yield* s.client.subscribeSession({ sessionId, afterSequence: null, turnLimit: null }).pipe(
     Stream.runForEach((item: SessionStreamItem) =>
       Effect.sync(() => {
-        if (item._tag === "Snapshot") {
+        if (SessionStreamItem.guards.Snapshot(item)) {
           state = item.session.state;
           snapshotTurns = item.turns.length;
 
           return;
         }
 
-        if (item._tag !== "Event") return;
-        const e = item.envelope.event as unknown as Record<string, unknown>;
+        if (!SessionStreamItem.guards.Event(item)) return;
+        const e = item.envelope.event;
         events.push({ at: Date.now() - t0, event: e });
-
-        if (e._tag === "SessionStateChanged") {
-          state = e.state as string;
-          log("state →", state, e.reason ?? "");
-        }
-
-        if (e._tag === "TurnStarted" || e._tag === "TurnEnded") {
-          const turn = e.turn as { id: string; status: string };
-          log(e._tag, turn.id, turn.status);
-        }
-
-        if (e._tag === "TurnItemCompleted") log("item", JSON.stringify(e.item).slice(0, 200));
+        onEvent(e);
       })
     ),
     Effect.forkScoped
@@ -191,11 +213,10 @@ const program = Effect.gen(function* () {
   log("echoed before the steer:", beforeSteer.join(" "));
   yield* s.client.dispatch({
     commandId: cmd(),
-    command: {
-      _tag: "Steer",
+    command: Command.cases.Steer.make({
       sessionId,
       text: "Change of plan: stop at 5. Do not run any command for a number above 5. Once 5 is echoed, reply with one short sentence saying you stopped at 5.",
-    },
+    }),
   });
   const steeredAt = Date.now() - t0;
   log("steered: stop at 5");
@@ -209,10 +230,7 @@ const program = Effect.gen(function* () {
   const turns = snapshotTurns + started.length;
   check("one Turn in all (the steer made no second Turn)", turns === 1, `${turns}`);
   check("the Turn ended exactly once", ended.length === 1, `${ended.length}`);
-  check(
-    "it ended completed",
-    (ended[0]?.event.turn as { status: string } | undefined)?.status === "completed"
-  );
+  check("it ended completed", ended[0]?.event.turn.status === "completed");
   check("the steer landed mid-Turn", beforeSteer.length < 10 && beforeSteer.length >= 2);
   check(
     "no number above 5 was echoed",
@@ -222,9 +240,9 @@ const program = Effect.gen(function* () {
   check("counting reached 5", numbers.includes(5), numbers.join(" "));
 
   const replies = eventsOf("TurnItemCompleted")
-    .map((e) => e.event.item as { _tag: string; text?: string })
-    .filter((item) => item._tag === "AssistantMessage")
-    .map((item) => item.text ?? "");
+    .map((e) => e.event.item)
+    .filter(TurnItem.guards.AssistantMessage)
+    .map((item) => item.text);
 
   check("the reply mentions 5", /\b5\b|five/i.test(replies.join(" ")), replies.at(-1));
   check("the session is Idle afterwards", state === "idle", state);
@@ -234,14 +252,12 @@ const program = Effect.gen(function* () {
   );
 });
 
-const outcome = await Effect.runPromise(Effect.scoped(program)).then(
-  () => null,
-  (e) => e
-);
+const outcome = await Effect.runPromise(Effect.exit(Effect.scoped(program)));
 
-if (outcome !== null) {
-  log("ERROR", outcome);
-  results.push({ check: "script ran to the end", ok: false, detail: String(outcome) });
+if (Exit.isFailure(outcome)) {
+  const error = Cause.pretty(outcome.cause);
+  log("ERROR", error);
+  results.push({ check: "script ran to the end", ok: false, detail: error });
 }
 
 writeFileSync(join(out, "events.jsonl"), events.map((e) => JSON.stringify(e)).join("\n"));
