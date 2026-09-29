@@ -82,7 +82,11 @@ describe("keepalive", () => {
           .hello({ clientName: "t", clientVersion: "0", deviceLabel: "t", capabilities: [] })
           .pipe(Effect.exit, Effect.forkScoped);
 
-        yield* Effect.sleep(45);
+        // Wait for the first ping (due 20 ms after the request) rather than a fixed delay.
+        for (let waited = 0; pings() === 0 && waited < 1000; waited += 10) {
+          yield* Effect.sleep(10);
+        }
+
         const whileWaiting = pings();
         // Answer the hello with a failure Exit: the reply is no longer due.
         const request: typeof Sent.Type = received.find((m) => Predicate.isTagged(m, "Request"))!;
