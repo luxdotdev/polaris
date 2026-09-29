@@ -1,13 +1,20 @@
 import { describe, expect, test } from "bun:test";
-import type { Attachment, AttachmentId, SessionId, TurnId } from "@polaris/protocol";
+import {
+  ApprovalDecision,
+  Attachment,
+  AttachmentId,
+  SessionId,
+  TurnId,
+  TurnItem,
+} from "@polaris/protocol";
 import { Effect, Exit, Scope, Stream } from "effect";
-import type { HarnessEvent, OpenOptions } from "../HarnessDriver.ts";
+import { HarnessEvent, type OpenOptions } from "../HarnessDriver.ts";
 import { type ClaudeDriverOptions, makeClaudeDriver, parseVersion } from "./ClaudeDriver.ts";
 import { assistant, FakeClaude, init, result, streamEvent, toolResult } from "./fakeClaude.ts";
 
-const T1 = "turn-1" as TurnId;
+const T1 = TurnId.make("turn-1");
 
-const T2 = "turn-2" as TurnId;
+const T2 = TurnId.make("turn-2");
 
 const openFake = async (
   overrides: Partial<OpenOptions> = {},
@@ -28,7 +35,7 @@ const openFake = async (
   const session = await Effect.runPromise(
     driver
       .open({
-        sessionId: "session-1" as SessionId,
+        sessionId: SessionId.make("session-1"),
         cwd: "/work/repo",
         permissionMode: "supervised",
         model: null,
@@ -55,7 +62,16 @@ const openFake = async (
     throw new Error(`timed out waiting for ${label}; events: ${JSON.stringify(events, null, 1)}`);
   };
 
-  const has = (tag: HarnessEvent["_tag"]) => () => events.some((e) => e._tag === tag);
+  const has = (tag: HarnessEvent["_tag"]) => () => events.some(HarnessEvent.$is(tag));
+
+  /** The first event with this tag; fails the test when there is none. */
+  const first = <T extends HarnessEvent["_tag"]>(tag: T) => {
+    const event = events.find(HarnessEvent.$is(tag));
+
+    if (event === undefined) throw new Error(`no ${tag} event`);
+
+    return event;
+  };
 
   return {
     fake,
@@ -63,6 +79,7 @@ const openFake = async (
     events,
     until,
     has,
+    first,
     isEnded: () => ended,
     run: <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect),
     close: () => Effect.runPromise(Scope.close(scope, Exit.void)),
@@ -141,110 +158,93 @@ describe("Claude driver", () => {
     await t.until(t.has("TurnEnded"), "TurnEnded");
 
     expect(t.events).toEqual([
-      { _tag: "TurnStarted", turnId: T1, prompt: "list files" },
-      { _tag: "CursorAssigned", cursor: "claude-session-1" },
-      { _tag: "ItemDelta", turnId: T1, itemId: "m1:0", field: "text", text: "Look" },
-      {
-        _tag: "ItemCompleted",
+      HarnessEvent.TurnStarted({ turnId: T1, prompt: "list files" }),
+      HarnessEvent.CursorAssigned({ cursor: "claude-session-1" }),
+      HarnessEvent.ItemDelta({ turnId: T1, itemId: "m1:0", field: "text", text: "Look" }),
+      HarnessEvent.ItemCompleted({
         turnId: T1,
-        item: { _tag: "AssistantMessage", id: "m1:0", text: "Looking." },
-      },
-      {
-        _tag: "ItemUpdated",
+        item: TurnItem.cases.AssistantMessage.make({ id: "m1:0", text: "Looking." }),
+      }),
+      HarnessEvent.ItemUpdated({
         turnId: T1,
-        item: {
-          _tag: "CommandExecution",
+        item: TurnItem.cases.CommandExecution.make({
           id: "tu1",
           command: "ls",
           cwd: "/work/repo",
           output: "",
           exitCode: null,
           status: "running",
-        },
-      },
-      {
-        _tag: "ItemCompleted",
+        }),
+      }),
+      HarnessEvent.ItemCompleted({
         turnId: T1,
-        item: {
-          _tag: "CommandExecution",
+        item: TurnItem.cases.CommandExecution.make({
           id: "tu1",
           command: "ls",
           cwd: "/work/repo",
           output: "a\nb",
           exitCode: null,
           status: "completed",
-        },
-      },
-      {
-        _tag: "ItemUpdated",
+        }),
+      }),
+      HarnessEvent.ItemUpdated({
         turnId: T1,
-        item: {
-          _tag: "FileChange",
+        item: TurnItem.cases.FileChange.make({
           id: "tu2",
           changes: [{ path: "/work/repo/x.ts", kind: "modify" }],
           status: "running",
-        },
-      },
-      {
-        _tag: "ItemCompleted",
+        }),
+      }),
+      HarnessEvent.ItemCompleted({
         turnId: T1,
-        item: {
-          _tag: "FileChange",
+        item: TurnItem.cases.FileChange.make({
           id: "tu2",
           changes: [{ path: "/work/repo/x.ts", kind: "add" }],
           status: "completed",
-        },
-      },
-      {
-        _tag: "ItemUpdated",
+        }),
+      }),
+      HarnessEvent.ItemUpdated({
         turnId: T1,
-        item: {
-          _tag: "Plan",
+        item: TurnItem.cases.Plan.make({
           id: "plan:turn-1",
           steps: [
             { text: "list", status: "completed" },
             { text: "edit", status: "in-progress" },
           ],
-        },
-      },
-      {
-        _tag: "ItemUpdated",
+        }),
+      }),
+      HarnessEvent.ItemUpdated({
         turnId: T1,
-        item: {
-          _tag: "ToolCall",
+        item: TurnItem.cases.ToolCall.make({
           id: "tu4",
           name: "Grep",
           input: {},
           output: null,
           status: "running",
-        },
-      },
-      {
-        _tag: "ItemCompleted",
+        }),
+      }),
+      HarnessEvent.ItemCompleted({
         turnId: T1,
-        item: {
-          _tag: "ToolCall",
+        item: TurnItem.cases.ToolCall.make({
           id: "tu4",
           name: "Grep",
           input: {},
           output: "no matches",
           status: "failed",
-        },
-      },
+        }),
+      }),
       // The plan is persisted once, with its last state, when the Turn ends.
-      {
-        _tag: "ItemCompleted",
+      HarnessEvent.ItemCompleted({
         turnId: T1,
-        item: {
-          _tag: "Plan",
+        item: TurnItem.cases.Plan.make({
           id: "plan:turn-1",
           steps: [
             { text: "list", status: "completed" },
             { text: "edit", status: "in-progress" },
           ],
-        },
-      },
-      { _tag: "TurnEnded", turnId: T1, status: "completed", error: null },
+        }),
+      }),
+      HarnessEvent.TurnEnded({ turnId: T1, status: "completed", error: null }),
     ]);
     await t.close();
   });
@@ -255,12 +255,13 @@ describe("Claude driver", () => {
     const sent = await t.fake.nextInput(0);
     t.fake.emit(result([inputUuid(sent)], { subtype: "error_max_turns", errors: ["too many"] }));
     await t.until(t.has("TurnEnded"));
-    expect(t.events.at(-1)).toEqual({
-      _tag: "TurnEnded",
-      turnId: T1,
-      status: "failed",
-      error: "too many",
-    });
+    expect(t.events.at(-1)).toEqual(
+      HarnessEvent.TurnEnded({
+        turnId: T1,
+        status: "failed",
+        error: "too many",
+      })
+    );
     await t.close();
   });
 
@@ -276,16 +277,16 @@ describe("Claude driver", () => {
     const t = await openFake({ permissionMode: "full-access" });
     expect(t.fake.options!.permissionMode).toBe("bypassPermissions");
     // Registered at start even though bypassPermissions never calls it: it can't be added later.
-    expect(typeof t.fake.options!.canUseTool).toBe("function");
+    expect(t.fake.options!.canUseTool).toBeInstanceOf(Function);
     await t.run(t.session.setPermissionMode("supervised"));
     expect(t.fake.permissionModes).toEqual(["default"]);
     await t.run(t.session.sendTurn(turn(T1, "clean up")));
     const answer = t.fake.askPermission("Bash", { command: "rm x" }, { toolUseID: "tu1" });
     await t.until(t.has("ApprovalRequested"));
-    const request = t.events.find((e) => e._tag === "ApprovalRequested")!;
-
-    if (request._tag !== "ApprovalRequested") throw new Error("unreachable");
-    await t.run(t.session.respond(request.requestId, { _tag: "Allow", remember: false }));
+    const request = t.first("ApprovalRequested");
+    await t.run(
+      t.session.respond(request.requestId, ApprovalDecision.cases.Allow.make({ remember: false }))
+    );
     expect(await answer).toMatchObject({ behavior: "allow" });
     await t.close();
   });
@@ -308,18 +309,17 @@ describe("Claude driver", () => {
     );
 
     await t.until(t.has("ApprovalRequested"));
-    const request = t.events.find((e) => e._tag === "ApprovalRequested")!;
+    const request = t.first("ApprovalRequested");
     expect(request).toMatchObject({
-      _tag: "ApprovalRequested",
       turnId: T1,
       kind: "command",
       title: "Remove x",
       detail: "rm x",
       options: [],
     });
-
-    if (request._tag !== "ApprovalRequested") throw new Error("unreachable");
-    await t.run(t.session.respond(request.requestId, { _tag: "Allow", remember: true }));
+    await t.run(
+      t.session.respond(request.requestId, ApprovalDecision.cases.Allow.make({ remember: true }))
+    );
     expect(await answer).toEqual({
       behavior: "allow",
       updatedInput: { command: "rm x", description: "Remove x" },
@@ -328,7 +328,7 @@ describe("Claude driver", () => {
 
     // The same request can't be answered twice.
     const again = await Effect.runPromiseExit(
-      t.session.respond(request.requestId, { _tag: "Deny", reason: null })
+      t.session.respond(request.requestId, ApprovalDecision.cases.Deny.make({ reason: null }))
     );
 
     expect(Exit.isFailure(again)).toBe(true);
@@ -343,18 +343,21 @@ describe("Claude driver", () => {
     );
     const answer = t.fake.askPermission("Edit", { file_path: "a" }, { toolUseID: "tu1" });
     await t.until(t.has("ApprovalRequested"));
-    const request = t.events.find((e) => e._tag === "ApprovalRequested")!;
-
-    if (request._tag !== "ApprovalRequested") throw new Error("unreachable");
+    const request = t.first("ApprovalRequested");
     expect(request.kind).toBe("file-change");
-    await t.run(t.session.respond(request.requestId, { _tag: "Deny", reason: "not that file" }));
+    await t.run(
+      t.session.respond(
+        request.requestId,
+        ApprovalDecision.cases.Deny.make({ reason: "not that file" })
+      )
+    );
     expect(await answer).toEqual({ behavior: "deny", message: "not that file" });
     t.fake.emit(toolResult("tu1", "denied", { isError: true }));
-    await t.until(() => t.events.filter((e) => e._tag === "ItemCompleted").length === 1);
-    expect(t.events.at(-1)).toMatchObject({
-      _tag: "ItemCompleted",
-      item: { _tag: "FileChange", id: "tu1", status: "declined" },
-    });
+    await t.until(() => t.events.filter(HarnessEvent.$is("ItemCompleted")).length === 1);
+    const completed = t.first("ItemCompleted");
+    expect(t.events.at(-1)).toBe(completed);
+    expect(TurnItem.guards.FileChange(completed.item)).toBe(true);
+    expect(completed.item).toMatchObject({ id: "tu1", status: "declined" });
     await t.close();
   });
 
@@ -378,15 +381,15 @@ describe("Claude driver", () => {
 
     const answer = t.fake.askPermission("AskUserQuestion", input, { toolUseID: "tu1" });
     await t.until(t.has("ApprovalRequested"));
-    const request = t.events.find((e) => e._tag === "ApprovalRequested")!;
+    const request = t.first("ApprovalRequested");
     expect(request).toMatchObject({
       kind: "question",
       title: "Which database?",
       options: ["SQLite", "Postgres"],
     });
-
-    if (request._tag !== "ApprovalRequested") throw new Error("unreachable");
-    await t.run(t.session.respond(request.requestId, { _tag: "Answer", text: "SQLite" }));
+    await t.run(
+      t.session.respond(request.requestId, ApprovalDecision.cases.Answer.make({ text: "SQLite" }))
+    );
     expect(await answer).toEqual({
       behavior: "allow",
       updatedInput: { ...input, answers: { "Which database?": "SQLite" } },
@@ -403,33 +406,31 @@ describe("Claude driver", () => {
     );
     const answer = t.fake.askPermission("Bash", { command: "make" }, { toolUseID: "tu1" });
     await t.until(t.has("ApprovalRequested"));
-    const request = t.events.find((e) => e._tag === "ApprovalRequested")!;
-
-    if (request._tag !== "ApprovalRequested") throw new Error("unreachable");
+    const request = t.first("ApprovalRequested");
 
     await t.run(t.session.interrupt);
     expect(t.fake.interrupts).toBe(1);
     expect(await answer).toMatchObject({ behavior: "deny", interrupt: true });
     await t.until(t.has("ApprovalWithdrawn"));
-    expect(t.events).toContainEqual({ _tag: "ApprovalWithdrawn", requestId: request.requestId });
+    expect(t.events).toContainEqual(
+      HarnessEvent.ApprovalWithdrawn({ requestId: request.requestId })
+    );
 
     t.fake.emit(result([inputUuid(sent)], { subtype: "error_during_execution" }));
     await t.until(t.has("TurnEnded"));
     expect(t.events.slice(-2)).toEqual([
-      {
-        _tag: "ItemCompleted",
+      HarnessEvent.ItemCompleted({
         turnId: T1,
-        item: {
-          _tag: "CommandExecution",
+        item: TurnItem.cases.CommandExecution.make({
           id: "tu1",
           command: "make",
           cwd: "/work/repo",
           output: "",
           exitCode: null,
           status: "declined",
-        },
-      },
-      { _tag: "TurnEnded", turnId: T1, status: "interrupted", error: null },
+        }),
+      }),
+      HarnessEvent.TurnEnded({ turnId: T1, status: "interrupted", error: null }),
     ]);
     // A permission prompt after the Turn is over is refused outright.
     expect(await t.fake.askPermission("Bash", {}, { toolUseID: "tu9" })).toMatchObject({
@@ -450,15 +451,16 @@ describe("Claude driver", () => {
     t.fake.emit(result([inputUuid(first)]));
     t.fake.emit(assistant("m9", [{ type: "text", text: "Renamed." }]));
     await t.until(t.has("ItemCompleted"));
-    expect(t.events.some((e) => e._tag === "TurnEnded")).toBe(false);
+    expect(t.events.some(HarnessEvent.$is("TurnEnded"))).toBe(false);
     t.fake.emit(result([inputUuid(second)]));
     await t.until(t.has("TurnEnded"));
-    expect(t.events.at(-1)).toEqual({
-      _tag: "TurnEnded",
-      turnId: T1,
-      status: "completed",
-      error: null,
-    });
+    expect(t.events.at(-1)).toEqual(
+      HarnessEvent.TurnEnded({
+        turnId: T1,
+        status: "completed",
+        error: null,
+      })
+    );
     // Steering with nothing in flight fails.
     expect(Exit.isFailure(await Effect.runPromiseExit(t.session.steer("late")))).toBe(true);
     await t.close();
@@ -471,7 +473,7 @@ describe("Claude driver", () => {
     t.fake.emit(init("claude-session-0"));
     await Bun.sleep(10);
     // An unchanged cursor is not re-announced.
-    expect(t.events.some((e) => e._tag === "CursorAssigned")).toBe(false);
+    expect(t.events.some(HarnessEvent.$is("CursorAssigned"))).toBe(false);
     expect(await t.run(t.session.terminalCommand)).toEqual([
       "claude",
       "--resume",
@@ -498,21 +500,21 @@ describe("Claude driver", () => {
   test("images are inlined and other attachments referenced by path", async () => {
     const t = await openFake();
 
-    const png = {
-      id: "a1" as AttachmentId,
+    const png = new Attachment({
+      id: AttachmentId.make("a1"),
       name: "shot.png",
       mimeType: "image/png",
       size: 4,
       hostPath: "/stage/shot.png",
-    } as Attachment;
+    });
 
-    const pdf = {
-      id: "a2" as AttachmentId,
+    const pdf = new Attachment({
+      id: AttachmentId.make("a2"),
       name: "spec.pdf",
       mimeType: "application/pdf",
       size: 9,
       hostPath: "/stage/spec.pdf",
-    } as Attachment;
+    });
 
     await t.run(t.session.sendTurn(turn(T1, "see these", [png, pdf])));
     const sent = await t.fake.nextInput(0);
@@ -534,7 +536,7 @@ describe("Claude driver", () => {
     await t.close();
     expect(t.fake.closed).toBe(true);
     await t.until(t.isEnded, "stream end");
-    expect(t.events.at(-1)).toEqual({ _tag: "Exited", error: null });
+    expect(t.events.at(-1)).toEqual(HarnessEvent.Exited({ error: null }));
   });
 
   test("claude exiting mid-Turn fails the Turn and reports the exit", async () => {
@@ -543,8 +545,12 @@ describe("Claude driver", () => {
     t.fake.exit();
     await t.until(t.isEnded, "stream end");
     expect(t.events.slice(-2)).toEqual([
-      { _tag: "TurnEnded", turnId: T1, status: "failed", error: "Claude Code exited unexpectedly" },
-      { _tag: "Exited", error: "Claude Code exited unexpectedly" },
+      HarnessEvent.TurnEnded({
+        turnId: T1,
+        status: "failed",
+        error: "Claude Code exited unexpectedly",
+      }),
+      HarnessEvent.Exited({ error: "Claude Code exited unexpectedly" }),
     ]);
     await t.close();
   });

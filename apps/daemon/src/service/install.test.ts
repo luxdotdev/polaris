@@ -13,7 +13,7 @@ import { Effect, Layer } from "effect";
 import {
   defaultStateFile,
   isOurAppServer,
-  makeAppServer,
+  acquireAppServer,
   readAppServerState,
 } from "../harness/codex/AppServer.ts";
 import { makeFakeCodex } from "../harness/codex/testing/fakeCodex.ts";
@@ -339,7 +339,7 @@ describe("uninstall", () => {
     await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
-          const server = yield* makeAppServer({
+          const server = yield* acquireAppServer({
             codexPath: codex.path,
             socketPath,
             spawn: true,

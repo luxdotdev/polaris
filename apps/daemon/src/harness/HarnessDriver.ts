@@ -17,7 +17,7 @@ import type {
   TurnId,
   TurnItem,
 } from "@polaris/protocol";
-import { type Effect, Schema, type Scope, type Stream } from "effect";
+import { Data, type Effect, Schema, type Scope, type Stream } from "effect";
 
 export class HarnessError extends Schema.TaggedError<HarnessError>()("HarnessError", {
   harness: Schema.String,
@@ -25,54 +25,55 @@ export class HarnessError extends Schema.TaggedError<HarnessError>()("HarnessErr
   cause: Schema.optional(Schema.Defect()),
 }) {}
 
-export type HarnessEvent =
+export type HarnessEvent = Data.TaggedEnum<{
   /** The Harness-native resume handle is known (or changed); persist it. */
-  | { readonly _tag: "CursorAssigned"; readonly cursor: string }
+  CursorAssigned: { readonly cursor: string };
   /**
    * A Turn began. `prompt` is the user's message when the driver knows it; the
    * engine records it for Turns started outside Polaris (a co-attached or
    * handed-off terminal UI). Turns Polaris sent are already recorded.
    */
-  | { readonly _tag: "TurnStarted"; readonly turnId: TurnId; readonly prompt: string | null }
+  TurnStarted: { readonly turnId: TurnId; readonly prompt: string | null };
   /** Ephemeral streaming text for an item still in progress. */
-  | {
-      readonly _tag: "ItemDelta";
-      readonly turnId: TurnId;
-      readonly itemId: string;
-      readonly field: "text" | "output";
-      readonly text: string;
-    }
+  ItemDelta: {
+    readonly turnId: TurnId;
+    readonly itemId: string;
+    readonly field: "text" | "output";
+    readonly text: string;
+  };
   /**
    * The latest state of an item still in progress (a command that started, a plan
    * that changed). Ephemeral like `ItemDelta`: shown live, never persisted. The
    * same id is expected to end with an `ItemCompleted`; the engine drops progress
    * still open when its Turn ends.
    */
-  | { readonly _tag: "ItemUpdated"; readonly turnId: TurnId; readonly item: TurnItem }
+  ItemUpdated: { readonly turnId: TurnId; readonly item: TurnItem };
   /** The final state of an item; persisted. A later completion with the same id supersedes it. */
-  | { readonly _tag: "ItemCompleted"; readonly turnId: TurnId; readonly item: TurnItem }
-  | {
-      readonly _tag: "ApprovalRequested";
-      readonly turnId: TurnId;
-      readonly requestId: RequestId;
-      readonly kind: ApprovalKind;
-      readonly title: string;
-      readonly detail: string | null;
-      readonly options: ReadonlyArray<string>;
-    }
+  ItemCompleted: { readonly turnId: TurnId; readonly item: TurnItem };
+  ApprovalRequested: {
+    readonly turnId: TurnId;
+    readonly requestId: RequestId;
+    readonly kind: ApprovalKind;
+    readonly title: string;
+    readonly detail: string | null;
+    readonly options: ReadonlyArray<string>;
+  };
   /** The Harness withdrew or resolved a request itself (e.g. the Turn was interrupted). */
-  | { readonly _tag: "ApprovalWithdrawn"; readonly requestId: RequestId }
-  | {
-      readonly _tag: "TurnEnded";
-      readonly turnId: TurnId;
-      readonly status: "completed" | "interrupted" | "failed";
-      readonly error: string | null;
-    }
-  | { readonly _tag: "TitleSuggested"; readonly title: string }
+  ApprovalWithdrawn: { readonly requestId: RequestId };
+  TurnEnded: {
+    readonly turnId: TurnId;
+    readonly status: "completed" | "interrupted" | "failed";
+    readonly error: string | null;
+  };
+  TitleSuggested: { readonly title: string };
   /** A Worktree the Harness created, so the engine can attribute it to this session. */
-  | { readonly _tag: "WorktreeCreated"; readonly path: string }
+  WorktreeCreated: { readonly path: string };
   /** The Harness process went away. `error` is null for a clean shutdown. */
-  | { readonly _tag: "Exited"; readonly error: string | null };
+  Exited: { readonly error: string | null };
+}>;
+
+/** Constructors (`HarnessEvent.ItemDelta({ ... })`), `$is` and `$match` for `HarnessEvent`s. */
+export const HarnessEvent = Data.taggedEnum<HarnessEvent>();
 
 export interface OpenOptions {
   readonly sessionId: SessionId;

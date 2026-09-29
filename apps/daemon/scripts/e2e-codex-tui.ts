@@ -20,15 +20,18 @@ import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { makeHostConnection, spawnTransport } from "@polaris/client";
+import { type HostTarget, makeHostConnection, spawnTransport } from "@polaris/client";
 import {
+  ApprovalDecision,
+  Command,
   CommandId,
-  RequestId,
+  DomainEvent,
+  HostStreamItem,
   SessionId,
-  type SessionStreamItem,
-  type WorkspaceId,
+  SessionPlacement,
+  SessionStreamItem,
 } from "@polaris/protocol";
-import { Effect, Stream } from "effect";
+import { Cause, Data, Effect, Exit, Option, Stream } from "effect";
 import { defaultStateFile, stopAppServer } from "../src/harness/codex/AppServer.ts";
 
 if (process.env.POLARIS_E2E_CODEX_TUI !== "1") {
@@ -90,10 +93,19 @@ const screenText = () =>
     .replace(/\r/g, "")
     .replace(/\n{3,}/g, "\n\n");
 
-const results: Array<{ check: string; ok: boolean; detail?: string }> = [];
+interface CheckResult {
+  readonly check: string;
+  readonly ok: boolean;
+  detail?: string;
+}
+
+const results: Array<CheckResult> = [];
 
 const check = (name: string, ok: boolean, detail?: string) => {
-  results.push({ check: name, ok, ...(detail === undefined ? {} : { detail }) });
+  const result: CheckResult = { check: name, ok };
+
+  if (detail !== undefined) result.detail = detail;
+  results.push(result);
   log(ok ? "PASS" : "FAIL", name, detail ?? "");
 };
 
@@ -117,9 +129,12 @@ let n = 0;
 
 const cmd = () => CommandId.make(`e2e-${++n}`);
 
-const events: Array<{ at: number; event: Record<string, unknown> }> = [];
+const { Ssh } = Data.taggedEnum<HostTarget>();
 
-const eventsOf = (tag: string) => events.filter((e) => e.event._tag === tag);
+const events: Array<{ readonly at: number; readonly event: DomainEvent }> = [];
+
+const eventsOf = <Tag extends DomainEvent["_tag"]>(tag: Tag) =>
+  events.flatMap(({ at, event }) => (DomainEvent.isAnyOf([tag])(event) ? [{ at, event }] : []));
 
 let state = "unknown";
 
@@ -131,7 +146,7 @@ const program = Effect.gen(function* () {
   const conn = yield* makeHostConnection({
     key: "e2e",
     name: "E2E",
-    target: { _tag: "Ssh", alias: "unused" },
+    target: Ssh({ alias: "unused" }),
     identity: { name: "polaris-e2e", version: "0.0.0", deviceLabel: "E2E", capabilities: [] },
     connector: spawnTransport(["bun", MAIN, "bridge"], { env }),
   });
@@ -139,68 +154,70 @@ const program = Effect.gen(function* () {
   const s = yield* conn.awaitSession;
   yield* s.client.dispatch({
     commandId: cmd(),
-    command: { _tag: "RegisterWorkspace", path: repo, name: "e2e" },
+    command: Command.cases.RegisterWorkspace.make({ path: repo, name: "e2e" }),
   });
 
-  const snapshot = yield* s.client.subscribeHost({ afterSequence: null }).pipe(
-    Stream.filter((i) => i._tag === "Snapshot"),
-    Stream.runHead
-  );
+  const snapshot = yield* s.client
+    .subscribeHost({ afterSequence: null })
+    .pipe(Stream.filter(HostStreamItem.guards.Snapshot), Stream.runHead);
 
-  if (snapshot._tag !== "Some" || snapshot.value._tag !== "Snapshot")
-    return yield* Effect.die("no snapshot");
+  if (Option.isNone(snapshot)) return yield* Effect.die("no snapshot");
   const workspace = snapshot.value.workspaces[0]!;
 
   const sessionId = SessionId.make("e2e-codex-tui");
   yield* s.client.dispatch({
     commandId: cmd(),
-    command: {
-      _tag: "StartSession",
+    command: Command.cases.StartSession.make({
       sessionId,
-      workspaceId: workspace.id as WorkspaceId,
+      workspaceId: workspace.id,
       harness: "codex",
-      placement: { _tag: "InPlace" },
+      placement: SessionPlacement.cases.InPlace.make({}),
       permissionMode: "supervised",
       model: null,
       prompt: "Reply with just the word ready. Do not run commands or edit files.",
       attachments: [],
-    },
+    }),
   });
   log("session started; first Turn from Polaris");
+
+  const onEvent = (e: DomainEvent) =>
+    DomainEvent.matchOrElse(
+      e,
+      {
+        SessionStateChanged: (changed) => {
+          state = changed.state;
+          log("state →", state, changed.reason ?? "");
+        },
+        SessionCursorUpdated: (updated) => {
+          cursor = updated.harnessCursor;
+        },
+        TurnStarted: ({ _tag, turn }) =>
+          log(_tag, turn.id, turn.status, JSON.stringify(turn.prompt)),
+        TurnEnded: ({ _tag, turn }) => log(_tag, turn.id, turn.status, JSON.stringify(turn.prompt)),
+        ApprovalRequested: (requested) =>
+          log("ApprovalRequested", JSON.stringify(requested.request)),
+        ApprovalResolved: (resolved) =>
+          log("ApprovalResolved", JSON.stringify(resolved.decision), "by", resolved.resolvedBy),
+        TurnItemCompleted: (completed) => log("item", JSON.stringify(completed.item).slice(0, 160)),
+      },
+      () => undefined
+    );
 
   // Every session event, in the background, for the whole run.
   yield* s.client.subscribeSession({ sessionId, afterSequence: null, turnLimit: null }).pipe(
     Stream.runForEach((item: SessionStreamItem) =>
       Effect.sync(() => {
-        if (item._tag === "Snapshot") {
+        if (SessionStreamItem.guards.Snapshot(item)) {
           state = item.session.state;
           cursor = item.session.harnessCursor ?? cursor;
 
           return;
         }
 
-        if (item._tag !== "Event") return;
-        const e = item.envelope.event as unknown as Record<string, unknown>;
+        if (!SessionStreamItem.guards.Event(item)) return;
+        const e = item.envelope.event;
         events.push({ at: Date.now() - t0, event: e });
-
-        if (e._tag === "SessionStateChanged") {
-          state = e.state as string;
-          log("state →", state, e.reason ?? "");
-        }
-
-        if (e._tag === "SessionCursorUpdated") cursor = e.harnessCursor as string;
-
-        if (e._tag === "TurnStarted" || e._tag === "TurnEnded") {
-          const turn = e.turn as { id: string; status: string; prompt: string };
-          log(e._tag, turn.id, turn.status, JSON.stringify(turn.prompt));
-        }
-
-        if (e._tag === "ApprovalRequested") log("ApprovalRequested", JSON.stringify(e.request));
-
-        if (e._tag === "ApprovalResolved")
-          log("ApprovalResolved", JSON.stringify(e.decision), "by", e.resolvedBy);
-
-        if (e._tag === "TurnItemCompleted") log("item", JSON.stringify(e.item).slice(0, 160));
+        onEvent(e);
       })
     ),
     Effect.forkScoped
@@ -210,7 +227,10 @@ const program = Effect.gen(function* () {
   check("Polaris Turn completes", state === "idle");
   check("thread id known", cursor !== null, cursor ?? undefined);
 
-  yield* s.client.dispatch({ commandId: cmd(), command: { _tag: "OpenInTerminal", sessionId } });
+  yield* s.client.dispatch({
+    commandId: cmd(),
+    command: Command.cases.OpenInTerminal.make({ sessionId }),
+  });
   yield* Effect.promise(() => until("In Terminal", () => state === "in-terminal", 30_000));
   check("session goes In Terminal", state === "in-terminal");
 
@@ -293,15 +313,14 @@ const program = Effect.gen(function* () {
   writeFileSync(join(out, "tui-screen-at-approval.txt"), screenText());
 
   if (requested.length > 0) {
-    const request = requested[0]!.event.request as { id: string };
+    const { request } = requested[0]!.event;
     yield* s.client.dispatch({
       commandId: cmd(),
-      command: {
-        _tag: "RespondToApproval",
+      command: Command.cases.RespondToApproval.make({
         sessionId,
-        requestId: RequestId.make(request.id),
-        decision: { _tag: "Allow", remember: false },
-      },
+        requestId: request.id,
+        decision: ApprovalDecision.cases.Allow.make({ remember: false }),
+      }),
     });
     log("answered the approval from Polaris");
   }
@@ -329,7 +348,7 @@ const program = Effect.gen(function* () {
     ([...screen.matchAll(/Ran\s+touch tui-approval\.txt/g)].at(-1)?.index ?? -1) >
       screen.lastIndexOf("Yes, proceed")
   );
-  const foreign = eventsOf("TurnStarted").at(-1)?.event.turn as { prompt: string } | undefined;
+  const foreign = eventsOf("TurnStarted").at(-1)?.event.turn;
   check(
     "Polaris knows what was typed in the TUI (TurnStarted prompt)",
     (foreign?.prompt ?? "") !== "",
@@ -339,20 +358,18 @@ const program = Effect.gen(function* () {
   tui.kill("SIGTERM");
   yield* s.client.dispatch({
     commandId: cmd(),
-    command: { _tag: "ReturnFromTerminal", sessionId },
+    command: Command.cases.ReturnFromTerminal.make({ sessionId }),
   });
   yield* Effect.promise(() => until("back from terminal", () => state === "idle", 30_000));
   check("session returns from the terminal to Idle", state === "idle", state);
 });
 
-const outcome = await Effect.runPromise(Effect.scoped(program)).then(
-  () => null,
-  (e) => e
-);
+const outcome = await Effect.runPromise(Effect.exit(Effect.scoped(program)));
 
-if (outcome !== null) {
-  log("ERROR", outcome);
-  results.push({ check: "script ran to the end", ok: false, detail: String(outcome) });
+if (Exit.isFailure(outcome)) {
+  const error = Cause.pretty(outcome.cause);
+  log("ERROR", error);
+  results.push({ check: "script ran to the end", ok: false, detail: error });
 }
 
 writeFileSync(join(out, "events.jsonl"), events.map((e) => JSON.stringify(e)).join("\n"));

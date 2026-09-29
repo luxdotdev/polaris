@@ -8,9 +8,9 @@ import { expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { SessionId, TurnId } from "@polaris/protocol";
+import { SessionId, TurnId, TurnItem } from "@polaris/protocol";
 import { Effect, Stream } from "effect";
-import type { HarnessEvent } from "../HarnessDriver.ts";
+import { HarnessEvent } from "../HarnessDriver.ts";
 import { defaultStateFile, stopAppServer } from "./AppServer.ts";
 import { makeCodexDriver } from "./CodexDriver.ts";
 
@@ -46,7 +46,7 @@ test.skipIf(!enabled)(
         });
 
         const events = yield* session.events.pipe(
-          Stream.takeUntil((e: HarnessEvent) => e._tag === "TurnEnded"),
+          Stream.takeUntil(HarnessEvent.$is("TurnEnded")),
           Stream.runCollect
         );
 
@@ -57,19 +57,19 @@ test.skipIf(!enabled)(
 
       const { events, terminal } = await Effect.runPromise(Effect.scoped(program));
 
-      const cursor = events.find((e) => e._tag === "CursorAssigned");
+      const cursor = events.find(HarnessEvent.$is("CursorAssigned"));
       expect(cursor).toBeDefined();
-      const ended = events.find((e) => e._tag === "TurnEnded");
+      const ended = events.find(HarnessEvent.$is("TurnEnded"));
       expect(ended).toMatchObject({ turnId: "turn-1", status: "completed", error: null });
 
-      const reply = events.flatMap((e) =>
-        e._tag === "ItemCompleted" && e.item._tag === "AssistantMessage" ? [e.item.text] : []
-      );
+      const reply = events
+        .filter(HarnessEvent.$is("ItemCompleted"))
+        .flatMap(({ item }) => (TurnItem.guards.AssistantMessage(item) ? [item.text] : []));
 
       expect(reply.join(" ").toLowerCase()).toContain("ok");
       expect(terminal.slice(1)).toEqual([
         "resume",
-        cursor?._tag === "CursorAssigned" ? cursor.cursor : "",
+        cursor?.cursor ?? "",
         "--remote",
         `unix://${join(socketDir, "s.sock")}`,
       ]);

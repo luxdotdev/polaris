@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Attachment, AttachmentId } from "@polaris/protocol";
+import { ApprovalDecision, Attachment, AttachmentId, TurnItem } from "@polaris/protocol";
 import { Schema } from "effect";
 import {
   approvalDecision,
@@ -12,9 +12,11 @@ import {
   turnInput,
   userInputDecision,
 } from "./mapping.ts";
-import { ThreadItem } from "./protocol.ts";
+import { type Json, ThreadItem } from "./protocol.ts";
 
-const item = (raw: unknown) => toTurnItem(Schema.decodeUnknownSync(ThreadItem)(raw));
+const item = (raw: Json) => toTurnItem(Schema.decodeUnknownSync(ThreadItem)(raw));
+
+const { Allow, Answer, Deny } = ApprovalDecision.cases;
 
 const attachment = (name: string, mimeType: string) =>
   new Attachment({
@@ -80,13 +82,11 @@ describe("turn input", () => {
 
 describe("thread items", () => {
   test("agent messages, reasoning and plans", () => {
-    expect(item({ type: "agentMessage", id: "a", text: "ok", phase: null })).toEqual({
-      _tag: "AssistantMessage",
-      id: "a",
-      text: "ok",
-    });
+    expect(item({ type: "agentMessage", id: "a", text: "ok", phase: null })).toEqual(
+      TurnItem.cases.AssistantMessage.make({ id: "a", text: "ok" })
+    );
     expect(item({ type: "reasoning", id: "r", summary: ["one", "two"], content: ["raw"] })).toEqual(
-      { _tag: "Reasoning", id: "r", text: "one\n\ntwo" }
+      TurnItem.cases.Reasoning.make({ id: "r", text: "one\n\ntwo" })
     );
     expect(item({ type: "reasoning", id: "r", summary: [], content: ["raw"] })).toMatchObject({
       text: "raw",
@@ -104,15 +104,16 @@ describe("thread items", () => {
         aggregatedOutput: null,
         exitCode: null,
       })
-    ).toEqual({
-      _tag: "CommandExecution",
-      id: "c",
-      command: "ls",
-      cwd: "/repo",
-      output: "",
-      exitCode: null,
-      status: "declined",
-    });
+    ).toEqual(
+      TurnItem.cases.CommandExecution.make({
+        id: "c",
+        command: "ls",
+        cwd: "/repo",
+        output: "",
+        exitCode: null,
+        status: "declined",
+      })
+    );
   });
 
   test("file changes map update to modify", () => {
@@ -127,16 +128,17 @@ describe("thread items", () => {
           { path: "c.ts", kind: { type: "delete" }, diff: "" },
         ],
       })
-    ).toEqual({
-      _tag: "FileChange",
-      id: "f",
-      status: "running",
-      changes: [
-        { path: "a.ts", kind: "add" },
-        { path: "b.ts", kind: "modify" },
-        { path: "c.ts", kind: "delete" },
-      ],
-    });
+    ).toEqual(
+      TurnItem.cases.FileChange.make({
+        id: "f",
+        status: "running",
+        changes: [
+          { path: "a.ts", kind: "add" },
+          { path: "b.ts", kind: "modify" },
+          { path: "c.ts", kind: "delete" },
+        ],
+      })
+    );
   });
 
   test("MCP tool calls become ToolCalls", () => {
@@ -151,14 +153,15 @@ describe("thread items", () => {
         result: { title: "x" },
         error: null,
       })
-    ).toEqual({
-      _tag: "ToolCall",
-      id: "t",
-      name: "linear.get_issue",
-      input: { id: "ENG-1" },
-      output: { title: "x" },
-      status: "completed",
-    });
+    ).toEqual(
+      TurnItem.cases.ToolCall.make({
+        id: "t",
+        name: "linear.get_issue",
+        input: { id: "ENG-1" },
+        output: { title: "x" },
+        status: "completed",
+      })
+    );
   });
 
   test("user messages and unknown items are skipped", () => {
@@ -174,34 +177,35 @@ describe("thread items", () => {
         { step: "write", status: "inProgress" },
         { step: "test", status: "pending" },
       ])
-    ).toEqual({
-      _tag: "Plan",
-      id: "t1:plan",
-      steps: [
-        { text: "read", status: "completed" },
-        { text: "write", status: "in-progress" },
-        { text: "test", status: "pending" },
-      ],
-    });
+    ).toEqual(
+      TurnItem.cases.Plan.make({
+        id: "t1:plan",
+        steps: [
+          { text: "read", status: "completed" },
+          { text: "write", status: "in-progress" },
+          { text: "test", status: "pending" },
+        ],
+      })
+    );
   });
 });
 
 describe("approval decisions", () => {
   test("command and file-change approvals", () => {
-    expect(approvalDecision({ _tag: "Allow", remember: false })).toEqual({ decision: "accept" });
-    expect(approvalDecision({ _tag: "Allow", remember: true })).toEqual({
+    expect(approvalDecision(Allow.make({ remember: false }))).toEqual({ decision: "accept" });
+    expect(approvalDecision(Allow.make({ remember: true }))).toEqual({
       decision: "acceptForSession",
     });
-    expect(approvalDecision({ _tag: "Deny", reason: null })).toEqual({ decision: "decline" });
+    expect(approvalDecision(Deny.make({ reason: null }))).toEqual({ decision: "decline" });
   });
 
   test("permission grants return only what was requested", () => {
     const requested = { network: { enabled: true }, fileSystem: null };
-    expect(permissionsDecision(requested, { _tag: "Allow", remember: true })).toEqual({
+    expect(permissionsDecision(requested, Allow.make({ remember: true }))).toEqual({
       permissions: { network: { enabled: true } },
       scope: "session",
     });
-    expect(permissionsDecision(requested, { _tag: "Deny", reason: null })).toEqual({
+    expect(permissionsDecision(requested, Deny.make({ reason: null }))).toEqual({
       permissions: {},
       scope: "turn",
     });
@@ -220,22 +224,22 @@ describe("approval decisions", () => {
       },
     ];
 
-    expect(userInputDecision(questions, { _tag: "Answer", text: "SQLite" })).toEqual({
+    expect(userInputDecision(questions, Answer.make({ text: "SQLite" }))).toEqual({
       answers: { q1: { answers: ["SQLite"] } },
     });
-    expect(userInputDecision(questions, { _tag: "Allow", remember: false })).toEqual({
+    expect(userInputDecision(questions, Allow.make({ remember: false }))).toEqual({
       answers: { q1: { answers: ["Postgres"] } },
     });
-    expect(userInputDecision(questions, { _tag: "Deny", reason: null })).toEqual({ answers: {} });
+    expect(userInputDecision(questions, Deny.make({ reason: null }))).toEqual({ answers: {} });
   });
 
   test("MCP elicitations", () => {
-    expect(elicitationDecision({ _tag: "Deny", reason: null })).toEqual({
+    expect(elicitationDecision(Deny.make({ reason: null }))).toEqual({
       action: "decline",
       content: null,
       _meta: null,
     });
-    expect(elicitationDecision({ _tag: "Allow", remember: false })).toMatchObject({
+    expect(elicitationDecision(Allow.make({ remember: false }))).toMatchObject({
       action: "accept",
     });
   });

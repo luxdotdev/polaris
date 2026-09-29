@@ -9,29 +9,58 @@
  * `tool_result` does. TodoWrite updates the Turn's plan live the same way; the
  * plan is completed once, with its last state, when the Turn ends.
  */
-import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
-import type { TurnId, TurnItem } from "@polaris/protocol";
-import type { HarnessEvent } from "../HarnessDriver.ts";
+import type {
+  SDKAssistantMessage,
+  SDKMessage,
+  SDKPartialAssistantMessage,
+  SDKUserMessage,
+} from "@anthropic-ai/claude-agent-sdk";
+import { type TurnId, TurnItem } from "@polaris/protocol";
+import { Option, Predicate } from "effect";
+import { HarnessEvent } from "../HarnessDriver.ts";
+import {
+  type AssistantBlock,
+  decodeAssistantContent,
+  decodeTodos,
+  decodeToolResultContent,
+  decodeToolResults,
+  present,
+  type ToolPayload,
+  toolFields,
+} from "./payloads.ts";
 
 type ToolStatus = "running" | "completed" | "failed" | "declined";
 
-const isRecord = (u: unknown): u is Record<string, unknown> =>
-  typeof u === "object" && u !== null && !Array.isArray(u);
+const { CursorAssigned, ItemCompleted, ItemDelta, ItemUpdated } = HarnessEvent;
 
-const str = (u: unknown): string | null => (typeof u === "string" ? u : null);
+type BlockDelta = Extract<
+  SDKPartialAssistantMessage["event"],
+  { readonly type: "content_block_delta" }
+>["delta"];
+
+/** A streamed text or thinking chunk; null for other deltas (tool input JSON, signatures). */
+const deltaText = (delta: BlockDelta): string | null => {
+  switch (delta.type) {
+    case "text_delta":
+      return delta.text;
+    case "thinking_delta":
+      return delta.thinking;
+    default:
+      return null;
+  }
+};
 
 /** Text of a `tool_result` content (a string or an array of content blocks). */
-export const toolResultText = (content: unknown): string => {
-  if (typeof content === "string") return content;
-
-  if (!Array.isArray(content)) return "";
-
-  return content
-    .flatMap((b) =>
-      isRecord(b) && b.type === "text" && typeof b.text === "string" ? [b.text] : []
-    )
-    .join("\n");
-};
+export const toolResultText = (content: ToolPayload): string =>
+  Option.match(decodeToolResultContent(content), {
+    onNone: () => "",
+    onSome: (decoded) =>
+      Predicate.isString(decoded)
+        ? decoded
+        : present(decoded)
+            .map((block) => block.text)
+            .join("\n"),
+  });
 
 const PLAN_STATUS = {
   pending: "pending",
@@ -39,83 +68,90 @@ const PLAN_STATUS = {
   completed: "completed",
 } as const;
 
-export const planSteps = (input: unknown) =>
-  isRecord(input) && Array.isArray(input.todos)
-    ? input.todos.flatMap((t) => {
-        if (!isRecord(t)) return [];
-        const text = str(t.content);
-        const status = PLAN_STATUS[t.status as keyof typeof PLAN_STATUS];
+export const planSteps = (input: ToolPayload) =>
+  Option.match(decodeTodos(input), {
+    onNone: () => [],
+    onSome: ({ todos }) =>
+      present(todos).map((todo) => ({ text: todo.content, status: PLAN_STATUS[todo.status] })),
+  });
 
-        return text === null || status === undefined ? [] : [{ text, status }];
-      })
-    : [];
+/** The live plan of a Turn, from a TodoWrite call's input. */
+export const planItem = (turnId: TurnId, input: ToolPayload): TurnItem =>
+  TurnItem.cases.Plan.make({ id: `plan:${turnId}`, steps: planSteps(input) });
 
-/** Build the `TurnItem` for one tool call, in any state. */
-export const toolItem = (options: {
+/** One tool call, in any state. */
+export interface ToolCall {
   readonly id: string;
   readonly name: string;
-  readonly input: unknown;
+  readonly input: ToolPayload;
   readonly cwd: string;
   readonly status: ToolStatus;
   readonly resultText: string | null;
   /** The structured `tool_use_result`, when the SDK attached one. */
-  readonly structured: unknown;
-}): TurnItem => {
-  const { id, name, input, cwd, status, resultText, structured } = options;
-  const i = isRecord(input) ? input : {};
+  readonly structured: ToolPayload;
+}
 
-  switch (name) {
-    case "Bash": {
-      const s = isRecord(structured) ? structured : null;
+const FILE_TOOLS = new Set(["Edit", "MultiEdit", "Write", "NotebookEdit"]);
 
-      const output =
-        s && (typeof s.stdout === "string" || typeof s.stderr === "string")
-          ? [str(s.stdout), str(s.stderr)].filter((x) => x).join("\n")
-          : (resultText ?? "");
+const commandItem = (call: ToolCall): TurnItem => {
+  const result = toolFields(call.structured);
+  const streams = [result.stdout, result.stderr];
 
-      return {
-        _tag: "CommandExecution",
-        id,
-        command: str(i.command) ?? "",
-        cwd,
-        output,
-        // Claude Code reports a non-zero exit only as an error result, without the code.
-        exitCode: null,
-        status,
-      };
-    }
+  const output =
+    result.stdout !== null || result.stderr !== null
+      ? streams.flatMap((text) => (text ? [text] : [])).join("\n")
+      : (call.resultText ?? "");
 
-    case "Edit":
-    case "MultiEdit":
-    case "Write":
-    case "NotebookEdit": {
-      const path = str(i.file_path) ?? str(i.notebook_path) ?? "";
-      const created = isRecord(structured) && structured.type === "create";
-      const deleted = name === "NotebookEdit" && i.edit_mode === "delete";
+  return TurnItem.cases.CommandExecution.make({
+    id: call.id,
+    command: toolFields(call.input).command ?? "",
+    cwd: call.cwd,
+    output,
+    // Claude Code reports a non-zero exit only as an error result, without the code.
+    exitCode: null,
+    status: call.status,
+  });
+};
 
-      return {
-        _tag: "FileChange",
-        id,
-        changes: [{ path, kind: created ? "add" : deleted ? "delete" : "modify" }],
-        status,
-      };
-    }
+const fileChangeKind = (call: ToolCall, editMode: string | null) => {
+  if (toolFields(call.structured).type === "create") return "add";
 
-    default:
-      return {
-        _tag: "ToolCall",
-        id,
-        name,
-        input,
-        output: status === "running" ? null : (structured ?? resultText),
-        status,
-      };
-  }
+  return call.name === "NotebookEdit" && editMode === "delete" ? "delete" : "modify";
+};
+
+const fileChangeItem = (call: ToolCall): TurnItem => {
+  const input = toolFields(call.input);
+
+  return TurnItem.cases.FileChange.make({
+    id: call.id,
+    changes: [
+      {
+        path: input.file_path ?? input.notebook_path ?? "",
+        kind: fileChangeKind(call, input.edit_mode),
+      },
+    ],
+    status: call.status,
+  });
+};
+
+/** Build the `TurnItem` for one tool call, in any state. */
+export const toolItem = (call: ToolCall): TurnItem => {
+  if (call.name === "Bash") return commandItem(call);
+
+  if (FILE_TOOLS.has(call.name)) return fileChangeItem(call);
+
+  return TurnItem.cases.ToolCall.make({
+    id: call.id,
+    name: call.name,
+    input: call.input,
+    output: call.status === "running" ? null : (call.structured ?? call.resultText),
+    status: call.status,
+  });
 };
 
 interface OpenTool {
   readonly name: string;
-  readonly input: unknown;
+  readonly input: ToolPayload;
   readonly turnId: TurnId;
 }
 
@@ -167,24 +203,25 @@ export class ClaudeTranslator {
 
     if (plan !== undefined) {
       this.plans.delete(turnId);
-      events.push({ _tag: "ItemCompleted", turnId, item: plan });
+      events.push(ItemCompleted({ turnId, item: plan }));
     }
 
     for (const [id, tool] of this.tools) {
       if (tool.turnId !== turnId || tool.name === "TodoWrite") continue;
-      events.push({
-        _tag: "ItemCompleted",
-        turnId,
-        item: toolItem({
-          id,
-          name: tool.name,
-          input: tool.input,
-          cwd: this.cwd,
-          status,
-          resultText: null,
-          structured: null,
-        }),
-      });
+      events.push(
+        ItemCompleted({
+          turnId,
+          item: toolItem({
+            id,
+            name: tool.name,
+            input: tool.input,
+            cwd: this.cwd,
+            status,
+            resultText: null,
+            structured: null,
+          }),
+        })
+      );
       this.tools.delete(id);
     }
 
@@ -197,7 +234,7 @@ export class ClaudeTranslator {
         if (message.subtype === "init" && message.session_id !== this.cursor) {
           this.cursor = message.session_id;
 
-          return [{ _tag: "CursorAssigned", cursor: message.session_id }];
+          return [CursorAssigned({ cursor: message.session_id })];
         }
 
         return [];
@@ -216,117 +253,114 @@ export class ClaudeTranslator {
     }
   }
 
-  private onStreamEvent(event: unknown): HarnessEvent[] {
-    if (!isRecord(event) || this.turnId === null) return [];
+  /** Runs once per streamed chunk; the SDK types these events, so they need no parsing. */
+  private onStreamEvent(event: SDKPartialAssistantMessage["event"]): HarnessEvent[] {
+    if (this.turnId === null) return [];
 
-    if (event.type === "message_start" && isRecord(event.message)) {
-      this.streamMessageId = str(event.message.id);
+    if (event.type === "message_start") {
+      this.streamMessageId = event.message.id;
 
       return [];
     }
 
     if (event.type !== "content_block_delta" || this.streamMessageId === null) return [];
-    const delta = event.delta;
-
-    if (!isRecord(delta) || typeof event.index !== "number") return [];
-
-    const text =
-      delta.type === "text_delta"
-        ? str(delta.text)
-        : delta.type === "thinking_delta"
-          ? str(delta.thinking)
-          : null;
+    const text = deltaText(event.delta);
 
     if (text === null || text === "") return [];
 
     return [
-      {
-        _tag: "ItemDelta",
+      ItemDelta({
         turnId: this.turnId,
         itemId: `${this.streamMessageId}:${event.index}`,
         field: "text",
         text,
-      },
+      }),
     ];
   }
 
-  private onAssistant(messageId: string, content: unknown): HarnessEvent[] {
+  private onAssistant(
+    messageId: string,
+    content: SDKAssistantMessage["message"]["content"]
+  ): HarnessEvent[] {
     const turnId = this.turnId;
+    const blocks = decodeAssistantContent(content);
 
-    if (turnId === null || !Array.isArray(content)) return [];
-    const events: HarnessEvent[] = [];
+    if (turnId === null || Option.isNone(blocks)) return [];
 
-    for (const block of content) {
+    return blocks.value.flatMap((block) => {
       // Blocks of one message arrive in order, one or more per SDK message, so the running
       // count is the block's index: the same id its stream deltas used.
       const index = this.delivered.get(messageId) ?? 0;
       this.delivered.set(messageId, index + 1);
 
-      if (!isRecord(block)) continue;
-      const id = `${messageId}:${index}`;
-
-      if (block.type === "text" && typeof block.text === "string" && block.text !== "") {
-        events.push({
-          _tag: "ItemCompleted",
-          turnId,
-          item: { _tag: "AssistantMessage", id, text: block.text },
-        });
-      } else if (block.type === "thinking" && typeof block.thinking === "string") {
-        if (block.thinking !== "")
-          events.push({
-            _tag: "ItemCompleted",
-            turnId,
-            item: { _tag: "Reasoning", id, text: block.thinking },
-          });
-      } else if (block.type === "tool_use" && typeof block.id === "string") {
-        const name = str(block.name) ?? "unknown";
-
-        if (name === "TodoWrite") {
-          const plan: TurnItem = {
-            _tag: "Plan",
-            id: `plan:${turnId}`,
-            steps: planSteps(block.input),
-          };
-
-          this.plans.set(turnId, plan);
-          events.push({ _tag: "ItemUpdated", turnId, item: plan });
-        }
-
-        this.tools.set(block.id, { name, input: block.input, turnId });
-
-        if (name !== "TodoWrite") {
-          events.push({
-            _tag: "ItemUpdated",
-            turnId,
-            item: toolItem({
-              id: block.id,
-              name,
-              input: block.input,
-              cwd: this.cwd,
-              status: "running",
-              resultText: null,
-              structured: null,
-            }),
-          });
-        }
-      }
-    }
-
-    return events;
+      return block === null ? [] : this.onAssistantBlock(turnId, `${messageId}:${index}`, block);
+    });
   }
 
-  private onUser(content: unknown, structured: unknown): HarnessEvent[] {
-    if (!Array.isArray(content)) return [];
+  private onAssistantBlock(turnId: TurnId, id: string, block: AssistantBlock): HarnessEvent[] {
+    switch (block.type) {
+      case "text":
+        return block.text === ""
+          ? []
+          : [
+              ItemCompleted({
+                turnId,
+                item: TurnItem.cases.AssistantMessage.make({ id, text: block.text }),
+              }),
+            ];
+      case "thinking":
+        return block.thinking === ""
+          ? []
+          : [
+              ItemCompleted({
+                turnId,
+                item: TurnItem.cases.Reasoning.make({ id, text: block.thinking }),
+              }),
+            ];
+      case "tool_use":
+        return this.onToolUse(turnId, block.id, block.name ?? "unknown", block.input);
+    }
+  }
 
-    const results = content.filter(
-      (b): b is Record<string, unknown> =>
-        isRecord(b) && b.type === "tool_result" && typeof b.tool_use_id === "string"
-    );
+  private onToolUse(turnId: TurnId, id: string, name: string, input: ToolPayload): HarnessEvent[] {
+    this.tools.set(id, { name, input, turnId });
+
+    if (name === "TodoWrite") {
+      const plan = planItem(turnId, input);
+      this.plans.set(turnId, plan);
+
+      return [ItemUpdated({ turnId, item: plan })];
+    }
+
+    return [
+      ItemUpdated({
+        turnId,
+        item: toolItem({
+          id,
+          name,
+          input,
+          cwd: this.cwd,
+          status: "running",
+          resultText: null,
+          structured: null,
+        }),
+      }),
+    ];
+  }
+
+  private onUser(
+    content: SDKUserMessage["message"]["content"],
+    structured: SDKUserMessage["tool_use_result"]
+  ): HarnessEvent[] {
+    const decoded = decodeToolResults(content);
+
+    if (Option.isNone(decoded)) return [];
+    const results = present(decoded.value);
 
     const events: HarnessEvent[] = [];
 
     for (const block of results) {
-      const id = block.tool_use_id as string;
+      const id = block.tool_use_id;
       const tool = this.tools.get(id);
 
       if (!tool) continue;
@@ -340,20 +374,21 @@ export class ClaudeTranslator {
           ? "failed"
           : "completed";
 
-      events.push({
-        _tag: "ItemCompleted",
-        turnId: tool.turnId,
-        item: toolItem({
-          id,
-          name: tool.name,
-          input: tool.input,
-          cwd: this.cwd,
-          status,
-          resultText: toolResultText(block.content),
-          // The SDK attaches one structured result per message; trust it only when unambiguous.
-          structured: results.length === 1 ? structured : null,
-        }),
-      });
+      events.push(
+        ItemCompleted({
+          turnId: tool.turnId,
+          item: toolItem({
+            id,
+            name: tool.name,
+            input: tool.input,
+            cwd: this.cwd,
+            status,
+            resultText: toolResultText(block.content),
+            // The SDK attaches one structured result per message; trust it only when unambiguous.
+            structured: results.length === 1 ? structured : null,
+          }),
+        })
+      );
     }
 
     return events;

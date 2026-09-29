@@ -5,11 +5,13 @@
  */
 import type { SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { Attachment } from "@polaris/protocol";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { HarnessError } from "../HarnessDriver.ts";
 
 /** Image types the Messages API accepts inline. */
-const INLINE_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
+const InlineImageType = Schema.Literals(["image/png", "image/jpeg", "image/gif", "image/webp"]);
+
+const isInlineImageType = Schema.is(InlineImageType);
 
 /** The API's per-image limit is 5 MB; larger images are passed by path instead. */
 const MAX_INLINE_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -20,13 +22,23 @@ type ContentBlock =
       type: "image";
       source: {
         type: "base64";
-        media_type: "image/png" | "image/jpeg" | "image/gif" | "image/webp";
+        media_type: typeof InlineImageType.Type;
         data: string;
       };
     };
 
 export const isInlineImage = (a: Attachment): boolean =>
-  INLINE_IMAGE_TYPES.has(a.mimeType) && a.size <= MAX_INLINE_IMAGE_BYTES;
+  isInlineImageType(a.mimeType) && a.size <= MAX_INLINE_IMAGE_BYTES;
+
+/** The attachments sent inline, with their image type. */
+const inlineImages = (attachments: ReadonlyArray<Attachment>) =>
+  attachments.flatMap((attachment) => {
+    const mediaType = attachment.mimeType;
+
+    return isInlineImageType(mediaType) && attachment.size <= MAX_INLINE_IMAGE_BYTES
+      ? [{ attachment, mediaType }]
+      : [];
+  });
 
 export const attachmentNote = (files: ReadonlyArray<Attachment>): string =>
   [
@@ -35,19 +47,19 @@ export const attachmentNote = (files: ReadonlyArray<Attachment>): string =>
   ].join("\n");
 
 export const buildUserMessage = Effect.fn("claude.buildUserMessage")(function* (options: {
-  readonly uuid: string;
+  readonly uuid: NonNullable<SDKUserMessage["uuid"]>;
   readonly prompt: string;
   readonly attachments: ReadonlyArray<Attachment>;
   /** Read a staged file; injectable for tests. */
-  readonly readFile?: (path: string) => Promise<Uint8Array>;
+  readonly readFile?: ((path: string) => Promise<Uint8Array>) | undefined;
 }) {
   const readFile = options.readFile ?? ((path: string) => Bun.file(path).bytes());
-  const images = options.attachments.filter(isInlineImage);
+  const images = inlineImages(options.attachments);
   const others = options.attachments.filter((a) => !isInlineImage(a));
 
   const content: ContentBlock[] = [];
 
-  for (const image of images) {
+  for (const { attachment: image, mediaType } of images) {
     const bytes = yield* Effect.tryPromise({
       try: () => readFile(image.hostPath),
       catch: (cause) =>
@@ -62,7 +74,7 @@ export const buildUserMessage = Effect.fn("claude.buildUserMessage")(function* (
       type: "image",
       source: {
         type: "base64",
-        media_type: image.mimeType as "image/png",
+        media_type: mediaType,
         data: Buffer.from(bytes).toString("base64"),
       },
     });
@@ -77,7 +89,7 @@ export const buildUserMessage = Effect.fn("claude.buildUserMessage")(function* (
     type: "user",
     message: { role: "user", content },
     parent_tool_use_id: null,
-    uuid: options.uuid as NonNullable<SDKUserMessage["uuid"]>,
+    uuid: options.uuid,
     origin: { kind: "human" },
   };
 

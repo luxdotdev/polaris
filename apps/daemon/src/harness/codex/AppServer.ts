@@ -24,8 +24,9 @@
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { Effect, Schema, type Scope, Semaphore } from "effect";
+import { Effect, Option, Schema, type Scope, Semaphore } from "effect";
 import type { HarnessError } from "../HarnessDriver.ts";
+import { ThreadLoadedListResponse } from "./protocol.ts";
 import { codexError, connectUnix, type RpcConnection } from "./RpcConnection.ts";
 
 export interface AppServerOptions {
@@ -73,7 +74,7 @@ export const readAppServerState = (stateFile: string): AppServerState | null => 
   try {
     const state = decodeState(readFileSync(stateFile, "utf8"));
 
-    return state._tag === "Some" ? state.value : null;
+    return Option.getOrNull(state);
   } catch {
     return null;
   }
@@ -190,6 +191,8 @@ export const launchArgv = (options: {
   return ["/bin/sh", "-c", '"$@" </dev/null >>"$0" 2>&1 & echo $!', options.logFile, ...command];
 };
 
+const decodeLoadedList = Schema.decodeUnknownOption(ThreadLoadedListResponse);
+
 /** Loaded thread ids on the server (live sessions or TUIs); null if it can't say. */
 const loadedThreads = (socketPath: string) =>
   Effect.scoped(
@@ -201,11 +204,9 @@ const loadedThreads = (socketPath: string) =>
       });
       yield* conn.notify("initialized");
 
-      const result = (yield* conn.request("thread/loaded/list", {})) as {
-        readonly data?: ReadonlyArray<string>;
-      };
+      const result = decodeLoadedList(yield* conn.request("thread/loaded/list", {}));
 
-      return result.data ?? null;
+      return Option.getOrNull(result)?.data ?? null;
     })
   ).pipe(
     Effect.timeout("5 seconds"),
@@ -256,7 +257,7 @@ export const stopAppServer = (options: {
     return { stopped };
   });
 
-export const makeAppServer = (
+export const acquireAppServer = (
   options: AppServerOptions
 ): Effect.Effect<AppServer, never, Scope.Scope> =>
   Effect.gen(function* () {

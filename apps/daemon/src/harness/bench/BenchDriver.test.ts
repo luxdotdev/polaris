@@ -2,9 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { RequestId, SessionId, TurnId } from "@polaris/protocol";
-import { Effect, Fiber, Stream } from "effect";
-import type { HarnessEvent } from "../HarnessDriver.ts";
+import { ApprovalDecision, SessionId, TurnId } from "@polaris/protocol";
+import { Effect, Fiber, Option, Stream } from "effect";
+import { HarnessEvent } from "../HarnessDriver.ts";
 import {
   BENCH_PROMPT_PREFIX,
   DEFAULT_SCRIPT,
@@ -33,7 +33,7 @@ describe("bench Harness", () => {
           const driver = makeBenchDriver("codex");
 
           const session = yield* driver.open({
-            sessionId: "s1" as SessionId,
+            sessionId: SessionId.make("s1"),
             cwd,
             permissionMode: "supervised",
             model: null,
@@ -47,18 +47,21 @@ describe("bench Harness", () => {
               Effect.gen(function* () {
                 seen.push(event);
 
-                if (event._tag === "ApprovalRequested") {
-                  yield* session.respond(event.requestId, { _tag: "Allow", remember: false });
+                if (HarnessEvent.$is("ApprovalRequested")(event)) {
+                  yield* session.respond(
+                    event.requestId,
+                    ApprovalDecision.cases.Allow.make({ remember: false })
+                  );
                 }
               })
             ),
-            Stream.takeUntil((event) => event._tag === "TurnEnded"),
+            Stream.takeUntil(HarnessEvent.$is("TurnEnded")),
             Stream.runDrain,
             Effect.forkScoped
           );
 
           yield* session.sendTurn({
-            turnId: "t1" as TurnId,
+            turnId: TurnId.make("t1"),
             prompt: `${BENCH_PROMPT_PREFIX}${JSON.stringify({
               items: 5,
               deltasPerItem: 3,
@@ -82,7 +85,7 @@ describe("bench Harness", () => {
     expect(tags.at(-1)).toBe("TurnEnded");
     expect(tags.filter((t) => t === "ItemCompleted")).toHaveLength(5);
     // Items 0–2 of every five stream deltas: 3 items × 3 deltas.
-    const deltas = events.filter((e) => e._tag === "ItemDelta");
+    const deltas = events.filter(HarnessEvent.$is("ItemDelta"));
     expect(deltas).toHaveLength(9);
 
     for (const d of deltas) {
@@ -90,9 +93,7 @@ describe("bench Harness", () => {
       expect(d.text).toMatch(/^@\d+\.\d+\|x+$/);
     }
 
-    expect(
-      events.filter((e) => e._tag === "ApprovalRequested").map((e) => e.requestId as RequestId)
-    ).toHaveLength(2);
+    expect(events.filter(HarnessEvent.$is("ApprovalRequested"))).toHaveLength(2);
     expect(readdirSync(join(cwd, "polaris-bench"))).toHaveLength(2);
   });
 
@@ -101,7 +102,7 @@ describe("bench Harness", () => {
       Effect.scoped(
         Effect.gen(function* () {
           const session = yield* makeBenchDriver("claude").open({
-            sessionId: "s2" as SessionId,
+            sessionId: SessionId.make("s2"),
             cwd: tmpdir(),
             permissionMode: "supervised",
             model: null,
@@ -109,14 +110,16 @@ describe("bench Harness", () => {
           });
 
           yield* session.sendTurn({
-            turnId: "t1" as TurnId,
+            turnId: TurnId.make("t1"),
             prompt: `${BENCH_PROMPT_PREFIX}{"items":100,"deltaIntervalMs":50}`,
             attachments: [],
           });
 
           const ended = yield* session.events.pipe(
-            Stream.tap((event) => (event._tag === "TurnStarted" ? session.interrupt : Effect.void)),
-            Stream.filter((event) => event._tag === "TurnEnded"),
+            Stream.tap((event) =>
+              HarnessEvent.$is("TurnStarted")(event) ? session.interrupt : Effect.void
+            ),
+            Stream.filter(HarnessEvent.$is("TurnEnded")),
             Stream.runHead
           );
 
@@ -125,8 +128,6 @@ describe("bench Harness", () => {
       )
     );
 
-    expect(end._tag === "Some" && end.value._tag === "TurnEnded" && end.value.status).toBe(
-      "interrupted"
-    );
+    expect(Option.map(end, (e) => e.status)).toEqual(Option.some("interrupted"));
   });
 });

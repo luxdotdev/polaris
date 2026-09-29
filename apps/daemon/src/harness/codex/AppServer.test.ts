@@ -5,7 +5,7 @@ import { Effect } from "effect";
 import {
   isOurAppServer,
   launchArgv,
-  makeAppServer,
+  acquireAppServer,
   readAppServerState,
   stopAppServer,
 } from "./AppServer.ts";
@@ -38,11 +38,11 @@ const setup = (version = "1.0.0") => {
 };
 
 /** One "Daemon lifetime": make the server handle, connect once, close the scope. */
-const connectOnce = (options: Parameters<typeof makeAppServer>[0]) =>
+const connectOnce = (options: Parameters<typeof acquireAppServer>[0]) =>
   Effect.runPromise(
     Effect.scoped(
       Effect.gen(function* () {
-        const server = yield* makeAppServer(options);
+        const server = yield* acquireAppServer(options);
         const conn = yield* server.connect;
         yield* conn.request("initialize", {});
       })
