@@ -146,10 +146,13 @@ export const init = (sessionId: string) => ({
   uuid: crypto.randomUUID(),
 });
 
+/** A top-level frame's parent; `inSubagent` sets a Subagent's. */
+const NO_PARENT: string | null = null;
+
 export const assistant = (id: string, content: ReadonlyArray<Json>) => ({
   type: "assistant" as const,
   message: { id, role: "assistant" as const, content },
-  parent_tool_use_id: null,
+  parent_tool_use_id: NO_PARENT,
   uuid: crypto.randomUUID(),
   session_id: "s",
 });
@@ -178,7 +181,7 @@ export const toolResult = (toolUseId: string, content: string, options: ToolResu
   return {
     type: "user" as const,
     message: { role: "user" as const, content: [block] },
-    parent_tool_use_id: null,
+    parent_tool_use_id: NO_PARENT,
     tool_use_result: options.structured,
     session_id: "s",
   };
@@ -230,10 +233,51 @@ export const result = (uuids: string[] | null, options: ResultOptions = {}) => {
   return message;
 };
 
+/** A Subagent starts, spawned by the Agent call `toolUseId`. */
+export const taskStarted = (
+  toolUseId: string,
+  description: string,
+  options: { readonly background?: boolean; readonly subagentType?: string } = {}
+) => ({
+  type: "system" as const,
+  subtype: "task_started" as const,
+  task_id: `task-${toolUseId}`,
+  tool_use_id: toolUseId,
+  description,
+  subagent_type: options.subagentType,
+  is_backgrounded: options.background ?? false,
+  task_type: "local_agent",
+  uuid: crypto.randomUUID(),
+  session_id: "s",
+});
+
+export const taskNotification = (
+  toolUseId: string,
+  status: "completed" | "failed" | "stopped"
+) => ({
+  type: "system" as const,
+  subtype: "task_notification" as const,
+  task_id: `task-${toolUseId}`,
+  tool_use_id: toolUseId,
+  status,
+  output_file: "",
+  summary: "",
+  uuid: crypto.randomUUID(),
+  session_id: "s",
+});
+
+/** The same frame, as the Subagent spawned by `parentToolUseId` sends it. */
+export const inSubagent = <M extends ReturnType<typeof assistant> | ReturnType<typeof toolResult>>(
+  parentToolUseId: string,
+  message: M
+): M => ({ ...message, parent_tool_use_id: parentToolUseId });
+
 /** A message the fake Claude sends: one of the builders' shapes. */
 export type FakeMessage =
   | ReturnType<typeof init>
   | ReturnType<typeof assistant>
   | ReturnType<typeof toolResult>
   | ReturnType<typeof streamEvent>
-  | ReturnType<typeof result>;
+  | ReturnType<typeof result>
+  | ReturnType<typeof taskStarted>
+  | ReturnType<typeof taskNotification>;

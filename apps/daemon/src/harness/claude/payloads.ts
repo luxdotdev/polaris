@@ -62,6 +62,8 @@ const ToolResultBlock = Schema.Struct({
 });
 
 /** The `tool_result` blocks of a user message. */
+export type ToolResult = typeof ToolResultBlock.Type;
+
 export const decodeToolResults = Schema.decodeUnknownOption(lenientArray(ToolResultBlock));
 
 /** A `tool_result`'s content: a string, or content blocks of which the text ones count. */
@@ -86,6 +88,9 @@ const ToolFields = Schema.Struct({
   type: StringOrNull,
   stdout: StringOrNull,
   stderr: StringOrNull,
+  /** The Agent (Task) tool's helper kind and Model override. */
+  subagent_type: StringOrNull,
+  model: StringOrNull,
 });
 
 export type ToolFields = typeof ToolFields.Type;
@@ -102,6 +107,8 @@ const NO_FIELDS: ToolFields = {
   type: null,
   stdout: null,
   stderr: null,
+  subagent_type: null,
+  model: null,
 };
 
 const decodeToolFields = Schema.decodeUnknownOption(ToolFields);
