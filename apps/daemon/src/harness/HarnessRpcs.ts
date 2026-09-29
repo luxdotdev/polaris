@@ -1,9 +1,10 @@
 /**
  * Handler for `harness.models`: each Harness's Models, asked of the Harness
- * itself through its driver. The per-Host cache and the real listings are
- * ENG-202; until a driver lists its Models the answer is `HarnessUnavailable`.
+ * itself through its driver (ENG-202) and cached per Host for the Daemon's
+ * lifetime. `refresh` asks again; a failed listing is never cached.
  */
 import {
+  type HarnessKind,
   HarnessModels,
   HarnessUnavailable,
   isKnownHarness,
@@ -16,28 +17,60 @@ import { HarnessRegistry } from "../services.ts";
 
 export class HarnessRpcs extends RpcGroup.make(ListModels) {}
 
-export const handleListModels = Effect.fn("harness.models")(function* ({
-  harness,
-}: typeof ListModels.payloadSchema.Type) {
+type Listing = Effect.Effect<HarnessModels, NotFound | HarnessUnavailable>;
+
+/** Asks the Harness, through its driver, for its Models. */
+const fetchModels = (harness: HarnessKind) =>
+  Effect.gen(function* () {
+    const registry = yield* HarnessRegistry;
+
+    const driver = yield* registry
+      .get(harness)
+      .pipe(Effect.mapError(() => new NotFound({ what: "harness", id: harness })));
+
+    const models = yield* (driver.listModels ?? Effect.succeed([])).pipe(
+      Effect.mapError((error) => new HarnessUnavailable({ harness, message: error.message }))
+    );
+
+    return new HarnessModels({
+      harness,
+      models: [...models],
+      switchesModel: driver.capabilities.switchModel,
+      fetchedAt: new Date(yield* Clock.currentTimeMillis).toISOString(),
+    });
+  });
+
+/** `harness.models` with the per-Host cache; concurrent askers share one listing. */
+export const makeModelLists = Effect.gen(function* () {
   const registry = yield* HarnessRegistry;
+  const cache = new Map<HarnessKind, Listing>();
 
-  if (!isKnownHarness(harness)) return yield* new NotFound({ what: "harness", id: harness });
+  const fresh = (harness: HarnessKind) =>
+    Effect.gen(function* () {
+      const once = yield* Effect.cached(
+        fetchModels(harness).pipe(
+          Effect.provideService(HarnessRegistry, registry),
+          Effect.tapError(() => Effect.sync(() => cache.delete(harness)))
+        )
+      );
 
-  const driver = yield* registry
-    .get(harness)
-    .pipe(Effect.mapError(() => new NotFound({ what: "harness", id: harness })));
+      cache.set(harness, once);
 
-  const models = yield* (driver.listModels ?? Effect.succeed([])).pipe(
-    Effect.mapError((error) => new HarnessUnavailable({ harness, message: error.message }))
-  );
+      return once;
+    });
 
-  return new HarnessModels({
+  return Effect.fn("harness.models")(function* ({
     harness,
-    models: [...models],
-    switchesModel: driver.capabilities.switchModel,
-    fetchedAt: new Date(yield* Clock.currentTimeMillis).toISOString(),
+    refresh,
+  }: typeof ListModels.payloadSchema.Type) {
+    if (!isKnownHarness(harness)) return yield* new NotFound({ what: "harness", id: harness });
+    const cached = refresh ? undefined : cache.get(harness);
+
+    return yield* cached ?? (yield* fresh(harness));
   });
 });
 
 /** Requires `HarnessRegistry`. */
-export const HarnessRpcsLive = HarnessRpcs.toLayer({ "harness.models": handleListModels });
+export const HarnessRpcsLive = HarnessRpcs.toLayer(
+  Effect.map(makeModelLists, (list) => ({ "harness.models": list }))
+);
