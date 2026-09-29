@@ -85,7 +85,7 @@ Measured with `bun run bench usage`, synthetic logs:
 | 1.1 GB (full) | 9.1 s (120 MB/s) | 67 MiB (footprint 29 MiB) | 81 ms | 79 ms | 25 MiB |
 | 89 MB (quick) | 0.7 s | 38 MiB | 9 ms | 12 ms | 1.2 MiB |
 
-On this Mac's real logs (3.6 GB: 1.5 GB Claude, 2.1 GB Codex), `scripts/usage-vs-ccusage.ts` builds the index in about 18 s with a 151 MiB peak process RSS (Bun itself is about 75 MiB of that).
+On this Mac's real logs (3.6 GB: 1.5 GB Claude, 2.1 GB Codex), `scripts/usage-vs-ccusage.ts` builds the index in 17–18 s with a 150–170 MiB peak process RSS (Bun itself is about 75 MiB of that).
 
 What keeps memory flat, which matters on a Pi 4:
 
