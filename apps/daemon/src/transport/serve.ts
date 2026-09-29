@@ -52,10 +52,12 @@ export const daemonHandlers = Layer.mergeAll(
   TerminalRpcsLive.pipe(Layer.provide(TerminalsDaemonLive))
 ).pipe(Layer.provide(daemonServices));
 
-// `harness.models`, `session.set-model` and `usage` wait for the drivers (ENG-202).
+// `usage` waits for the Usage index (M1.5).
 export const daemonCapabilities: ReadonlyArray<Capability> = [
   ...HARNESS_CATALOGUE.map((harness) => harness.capability),
   "harness.availability",
+  "harness.models",
+  "session.set-model",
   "session.steer",
   "session.fork",
   "session.terminal-handoff",

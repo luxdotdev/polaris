@@ -43,4 +43,4 @@ Wiring: `Engine.layer` needs `EventStore` (`EventStore.layerLive`), `HarnessRegi
 - The terminal cursor is refreshed from Claude's hooks only; if hooks are disabled (`disableAllHooks`, or `allowedHttpHookUrls` without loopback), Polaris resumes the session it handed off. Reading the latest session id from the transcript directory would cover that.
 - Replay (`afterSequence`) still reads the whole `(after, cut]` range at once; a Client far behind should get a fresh snapshot instead.
 - `Steer`, `Interrupt`, `RespondToApproval` and `SetPermissionMode` reach the Harness only while it runs. Otherwise they are logged.
-- `SetModel` is recorded, and each Turn records its Model and effort and hands them to the driver (`TurnInput`), but the drivers still run on the Model they were opened with; applying it per Turn (and listing Models) is ENG-202, so the Daemon doesn't announce `session.set-model` or `harness.models` yet.
+- `SetModel` is recorded, and each Turn records its Model and effort and hands them to the driver (`TurnInput`), which applies them before the Turn (see the Claude and Codex driver READMEs).

@@ -27,6 +27,9 @@ type FakeQuery = Pick<
   | typeof Symbol.asyncIterator
   | "interrupt"
   | "setPermissionMode"
+  | "setModel"
+  | "applyFlagSettings"
+  | "supportedModels"
   | "close"
 >;
 
@@ -41,6 +44,11 @@ export class FakeClaude {
   options: Options | null = null;
   readonly inputs: SDKUserMessage[] = [];
   readonly permissionModes: string[] = [];
+  /** `setModel` calls; undefined is "back to the default". */
+  readonly models: Array<string | undefined> = [];
+  readonly flagSettings: Array<Parameters<Query["applyFlagSettings"]>[0]> = [];
+  /** What `supportedModels()` answers. */
+  modelInfos: Awaited<ReturnType<Query["supportedModels"]>> = [];
   interrupts = 0;
   closed = false;
   private readonly out = new Inbox<SDKMessage>();
@@ -65,6 +73,13 @@ export class FakeClaude {
       setPermissionMode: async (mode) => {
         this.permissionModes.push(mode);
       },
+      setModel: async (model) => {
+        this.models.push(model);
+      },
+      applyFlagSettings: async (settings) => {
+        this.flagSettings.push(settings);
+      },
+      supportedModels: async () => this.modelInfos,
       close: () => {
         this.closed = true;
         this.out.end();

@@ -188,6 +188,11 @@ export const referenceDecide = (v: View, command: Command, device: string): Refe
       ArchiveSession: () => decideArchive(v),
       UnarchiveSession: () => (v.state === "archived" ? ["state:dormant"] : "reject"),
       RenameSession: () => ["SessionRenamed"],
+      // Between Turns only; each generated Model is new, so it always records a change.
+      SetModel: () =>
+        v.state === "archived" || v.state === "in-terminal" || workingTurnOf(v) !== undefined
+          ? "reject"
+          : ["SessionModelChanged"],
     },
     (c) => {
       throw new Error(`no reference for ${c._tag}`);

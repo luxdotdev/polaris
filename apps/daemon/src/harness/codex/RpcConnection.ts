@@ -66,9 +66,22 @@ const trace = (dir: "in" | "out", raw: string) => {
   appendFileSync(file, `${JSON.stringify({ dir, msg })}\n`);
 };
 
-/** Opens a JSON-RPC connection over the app-server's Unix socket; closing the scope closes it. */
-export const connectUnix = (
-  socketPath: string
+/** How the core talks to one transport: raw messages out, a close. */
+interface Wire {
+  readonly send: (raw: string) => void;
+  readonly close: () => void;
+}
+
+/** What a transport reports back to the core. */
+interface WireEvents {
+  readonly onMessage: (raw: string) => void;
+  /** The transport closed; `reason` is null only when the client closed it. */
+  readonly onClose: (reason: string | null) => void;
+}
+
+/** JSON-RPC over a transport `open` connects; closing the scope closes it. */
+const makeConnection = (
+  open: (events: WireEvents) => Effect.Effect<Wire, HarnessError, Scope.Scope>
 ): Effect.Effect<RpcConnection, HarnessError, Scope.Scope> =>
   Effect.gen(function* () {
     const incoming = yield* Queue.unbounded<Incoming, Cause.Done>();
@@ -118,30 +131,12 @@ export const connectUnix = (
       );
     };
 
-    const socket = yield* Effect.acquireRelease(
-      Effect.callback<WebSocket, HarnessError>((resume) => {
-        const ws = new WebSocket(`ws+unix://${socketPath}`);
-        ws.onopen = () => resume(Effect.succeed(ws));
-        ws.onerror = (event) => {
-          const message = (event instanceof ErrorEvent && event.message) || "WebSocket error";
-          resume(
-            Effect.fail(codexError(`Cannot reach Codex app-server at ${socketPath}: ${message}`))
-          );
-          shutdown(message);
-        };
-
-        ws.onclose = (event) =>
-          shutdown(
-            closedByClient ? null : `Codex app-server closed the connection (${event.code})`
-          );
-        ws.onmessage = (event) => onMessage(String(event.data));
-
-        return Effect.sync(() => ws.close());
-      }),
-      (ws) =>
+    const wire = yield* Effect.acquireRelease(
+      open({ onMessage, onClose: (reason) => shutdown(closedByClient ? null : reason) }),
+      (opened) =>
         Effect.sync(() => {
           closedByClient = true;
-          ws.close();
+          opened.close();
           shutdown(null);
         })
     );
@@ -155,7 +150,7 @@ export const connectUnix = (
           try: () => {
             const raw = JSON.stringify(message);
             trace("out", raw);
-            socket.send(raw);
+            wire.send(raw);
           },
           catch: (cause) => codexError("Failed to write to Codex app-server", cause),
         });
@@ -182,3 +177,79 @@ export const connectUnix = (
       closed,
     } satisfies RpcConnection;
   });
+
+/** Opens a JSON-RPC connection over the app-server's Unix socket; closing the scope closes it. */
+export const connectUnix = (
+  socketPath: string
+): Effect.Effect<RpcConnection, HarnessError, Scope.Scope> =>
+  makeConnection(({ onMessage, onClose }) =>
+    Effect.callback<Wire, HarnessError>((resume) => {
+      const ws = new WebSocket(`ws+unix://${socketPath}`);
+      ws.onopen = () =>
+        resume(Effect.succeed({ send: (raw) => ws.send(raw), close: () => ws.close() }));
+      ws.onerror = (event) => {
+        const message = (event instanceof ErrorEvent && event.message) || "WebSocket error";
+        resume(
+          Effect.fail(codexError(`Cannot reach Codex app-server at ${socketPath}: ${message}`))
+        );
+        onClose(message);
+      };
+
+      ws.onclose = (event) => onClose(`Codex app-server closed the connection (${event.code})`);
+      ws.onmessage = (event) => onMessage(String(event.data));
+
+      return Effect.sync(() => ws.close());
+    })
+  );
+
+/**
+ * Starts a private `codex app-server` on stdio (one JSON-RPC message per line)
+ * and connects to it; closing the scope ends the process. For one-off requests
+ * that shouldn't start the shared, detached server.
+ */
+export const connectStdio = (
+  codexPath: string
+): Effect.Effect<RpcConnection, HarnessError, Scope.Scope> =>
+  makeConnection(({ onMessage, onClose }) =>
+    Effect.try({
+      try: (): Wire => {
+        const proc = Bun.spawn([codexPath, "app-server"], {
+          stdin: "pipe",
+          stdout: "pipe",
+          stderr: "ignore",
+        });
+
+        void (async () => {
+          const decoder = new TextDecoder();
+          let buffer = "";
+
+          for await (const chunk of proc.stdout) {
+            buffer += decoder.decode(chunk, { stream: true });
+            let end = buffer.indexOf("\n");
+
+            while (end >= 0) {
+              const line = buffer.slice(0, end).trim();
+              buffer = buffer.slice(end + 1);
+
+              if (line !== "") onMessage(line);
+              end = buffer.indexOf("\n");
+            }
+          }
+
+          onClose(`codex app-server exited (${await proc.exited})`);
+        })();
+
+        return {
+          send: (raw) => {
+            void proc.stdin.write(`${raw}\n`);
+            void proc.stdin.flush();
+          },
+          close: () => {
+            void proc.stdin.end();
+            proc.kill();
+          },
+        };
+      },
+      catch: (cause) => codexError("Failed to start codex app-server", cause),
+    })
+  );

@@ -29,6 +29,8 @@ const ROOTS = [
   "v2/ThreadUnsubscribeParams",
   "v2/ThreadUnsubscribeResponse",
   "v2/TurnStartParams",
+  "v2/ModelListParams",
+  "v2/ModelListResponse",
   "v2/TurnStartResponse",
   "v2/TurnSteerParams",
   "v2/TurnSteerResponse",
