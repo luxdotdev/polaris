@@ -197,7 +197,9 @@ export type Route = "orchestrate" | "review" | "edit";
 
 export type AppEvent =
   | { readonly kind: "route"; readonly route: Route }
-  | { readonly kind: "appearance"; readonly appearance: Appearance };
+  | { readonly kind: "appearance"; readonly appearance: Appearance }
+  /** Dev only (Develop menu): start the bench-Harness proof session on this Host. */
+  | { readonly kind: "proof"; readonly hostKey: string };
 
 // ── The API on `window.polaris` ─────────────────────────────────────────────
 

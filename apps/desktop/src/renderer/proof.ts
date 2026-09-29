@@ -46,7 +46,7 @@ const workspaceAt = (store: AppStore, hostKey: string, path: string): Promise<Wo
 
     const timer = setTimeout(() => {
       stop();
-      reject(new ProofFailed("the Workspace never showed up in the host feed"));
+      reject(new ProofFailed("the workspace never showed up in the host feed"));
     }, WAIT_MS);
 
     const stop = store.subscribe(() => {
@@ -74,7 +74,14 @@ export const startProofSession = async ({
 
   if (!dir.ok) throw new ProofFailed(dir.error.message);
 
-  await dispatch(api, hostKey, Commands.RegisterWorkspace({ path: dir.value.path, name: "proof" }));
+  await dispatch(
+    api,
+    hostKey,
+    Commands.RegisterWorkspace({
+      path: dir.value.path,
+      name: `proof-${dir.value.path.slice(-4).toLowerCase()}`,
+    })
+  );
   const workspaceId = await workspaceAt(store, hostKey, dir.value.path);
   const sessionId = newSessionId();
 

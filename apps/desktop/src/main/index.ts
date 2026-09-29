@@ -71,6 +71,8 @@ const start = async () => {
   const file = settingsPath(app.getPath("userData"));
   let settings: Settings = readSettings(file);
 
+  let proofHostKey: string | null = null;
+
   const appearance = (): Appearance => ({
     theme: settings.theme ?? "system",
     density: settings.density ?? "calm",
@@ -87,14 +89,15 @@ const start = async () => {
     const event: AppEvent = { kind: "appearance", appearance: current };
 
     nativeTheme.themeSource = current.theme;
-    buildMenu({ appearance: current, setAppearance, dev });
+    buildMenu({ appearance: current, setAppearance, dev, proofHostKey });
 
     for (const win of BrowserWindow.getAllWindows()) win.webContents.send(CHANNELS.app, event);
   };
 
   applyAppearance();
-
   localDaemon = await resolveLocalDaemon({ dev, repoRoot, env });
+  proofHostKey = localDaemon.benchHarness ? LOCAL_HOST_KEY : null;
+  applyAppearance();
   const benchHarness = localDaemon.benchHarness;
 
   runtime = startClientRuntime({
