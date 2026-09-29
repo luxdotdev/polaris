@@ -6,7 +6,7 @@ import { Context, Effect, Exit, Layer, Option, Scope, SubscriptionRef } from "ef
 import {
   type HostConnection,
   type HostConnectionOptions,
-  makeHostConnection,
+  HostConnector,
 } from "./HostConnection.ts";
 
 export class HostRegistry extends Context.Service<
@@ -24,6 +24,7 @@ export class HostRegistry extends Context.Service<
   static readonly layer = Layer.effect(
     HostRegistry,
     Effect.gen(function* () {
+      const connector = yield* HostConnector;
       const parent = yield* Effect.scope;
       const scopes = new Map<string, Scope.Closeable>();
       const hosts = yield* SubscriptionRef.make<ReadonlyMap<string, HostConnection>>(new Map());
@@ -48,7 +49,7 @@ export class HostRegistry extends Context.Service<
           yield* remove(options.key);
           const scope = yield* Scope.fork(parent, "sequential");
           scopes.set(options.key, scope);
-          const connection = yield* makeHostConnection(options).pipe(Scope.provide(scope));
+          const connection = yield* connector.connect(options).pipe(Scope.provide(scope));
           yield* SubscriptionRef.update(hosts, (current) =>
             new Map(current).set(options.key, connection)
           );

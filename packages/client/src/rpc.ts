@@ -28,7 +28,7 @@ import {
   type Wire,
   type WireOptions,
 } from "@polaris/protocol";
-import { Deferred, Effect, Latch, type Scope, type Stream } from "effect";
+import { Data, Deferred, Effect, Exit, Latch, Predicate, type Scope, type Stream } from "effect";
 import { RpcClient, type RpcGroup, RpcSchema, RpcSerialization } from "effect/rpc";
 import { RpcClientDefect, RpcClientError } from "effect/rpc/RpcClientError";
 import { constPing, type FromServerEncoded } from "effect/rpc/RpcMessage";
@@ -67,10 +67,16 @@ export interface RpcConnectionOptions {
 
 /** Tags of the streaming RPCs: long-lived, so waiting on them never needs a ping. */
 const streamTags: ReadonlySet<string> = new Set(
-  [...DaemonRpcs.requests.values()]
-    .filter((rpc) => RpcSchema.isStreamSchema(rpc.successSchema))
-    .map((rpc) => rpc._tag)
+  [...DaemonRpcs.requests.values()].flatMap((rpc) =>
+    RpcSchema.isStreamSchema(rpc.successSchema) ? [rpc._tag] : []
+  )
 );
+
+const { ClientProtocolError } = Data.taggedEnum<FromServerEncoded>();
+
+const isPong = Predicate.isTagged("Pong");
+
+const isExit = Predicate.isTagged("Exit");
 
 const lostError = (message: string, cause?: unknown) =>
   new RpcClientError({ reason: new RpcClientDefect({ message, cause }) });
@@ -112,24 +118,27 @@ export const connectRpc = Effect.fnUntraced(function* (
           let responses: ReadonlyArray<FromServerEncoded>;
 
           try {
+            // SAFETY: as in effect/rpc's own socket protocol, the envelope from the Daemon is
+            // trusted; RpcClient decodes each payload against its Rpc schema.
             responses = parser.decode(text) as ReadonlyArray<FromServerEncoded>;
           } catch (cause) {
-            return broadcast({
-              _tag: "ClientProtocolError",
-              error: lostError("error decoding a message from the Daemon", cause),
-            });
+            return broadcast(
+              ClientProtocolError({
+                error: lostError("error decoding a message from the Daemon", cause),
+              })
+            );
           }
 
           return Effect.forEach(
             responses,
             (response) => {
-              if (response._tag === "Pong") return Effect.void;
+              if (isPong(response)) return Effect.void;
 
               if ("requestId" in response) {
                 const clientId = requestClient.get(response.requestId);
 
                 if (clientId !== undefined) {
-                  if (response._tag === "Exit") {
+                  if (isExit(response)) {
                     requestClient.delete(response.requestId);
                     settled(response.requestId);
                   }
@@ -154,7 +163,7 @@ export const connectRpc = Effect.fnUntraced(function* (
           // Fail in-flight requests first: completing `lost` lets the owner close
           // this scope, which would interrupt us before the broadcast.
           return Effect.andThen(
-            broadcast({ _tag: "ClientProtocolError", error }),
+            broadcast(ClientProtocolError({ error })),
             Deferred.fail(lost, error)
           ).pipe(Effect.uninterruptible);
         });
@@ -163,7 +172,7 @@ export const connectRpc = Effect.fnUntraced(function* (
         Effect.exit,
         Effect.flatMap((exit) =>
           fail(
-            exit._tag === "Success"
+            Exit.isSuccess(exit)
               ? lostError("the Daemon closed the connection")
               : lostError(exit.cause.toString())
           )
@@ -186,7 +195,10 @@ export const connectRpc = Effect.fnUntraced(function* (
             return;
           }
 
-          yield* Effect.ignore(wire.sendJson(parser.encode(constPing) as string));
+          const ping = parser.encode(constPing);
+
+          // The JSON serialization always encodes to a string.
+          if (Predicate.isString(ping)) yield* Effect.ignore(wire.sendJson(ping));
         }
       }).pipe(Effect.forkScoped);
 
@@ -195,7 +207,7 @@ export const connectRpc = Effect.fnUntraced(function* (
           Effect.suspend(() => {
             if (currentError !== undefined) return Effect.fail(currentError);
 
-            if (request._tag === "Request") {
+            if (Predicate.isTagged(request, "Request")) {
               requestClient.set(request.id, clientId);
 
               if (!streamTags.has(request.tag)) {
@@ -204,16 +216,16 @@ export const connectRpc = Effect.fnUntraced(function* (
                 awaiting.add(request.id);
                 pinging.openUnsafe();
               }
-            } else if (request._tag === "Interrupt") {
+            } else if (Predicate.isTagged(request, "Interrupt")) {
               settled(request.requestId);
             }
 
             const encoded = parser.encode(request);
 
-            if (encoded === undefined) return Effect.void;
+            if (!Predicate.isString(encoded)) return Effect.void;
 
             return wire
-              .sendJson(encoded as string)
+              .sendJson(encoded)
               .pipe(Effect.mapError((error) => lostError(error.message, error)));
           }),
         supportsAck: true,
