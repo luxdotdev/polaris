@@ -130,8 +130,13 @@ const connectionCard = (machine: MachineView): CardModel | null => {
   }
 };
 
-const sizeLabel = (bytes: number | null) =>
-  bytes === null ? "" : ` · ${(bytes / 1_000_000).toFixed(1)} MB`;
+const sizeLabel = (bytes: number | null) => {
+  if (bytes === null) return "";
+
+  return bytes < 100_000
+    ? ` · ${Math.ceil(bytes / 1000)} KB`
+    : ` · ${(bytes / 1_000_000).toFixed(1)} MB`;
+};
 
 type Problem = NonNullable<NonNullable<MachineView["install"]>["problem"]>;
 

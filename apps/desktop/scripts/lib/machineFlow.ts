@@ -7,6 +7,7 @@
  */
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { Schema } from "effect";
 import type { Page } from "playwright-core";
 import {
   fakeSshScript,
@@ -17,6 +18,10 @@ import type { MachineView, PolarisApi } from "../../src/shared/api.ts";
 import { REPO_ROOT } from "./electron.ts";
 
 export const FAKE_ALIAS = "fake-studio";
+
+const decodeVersion = Schema.decodeUnknownSync(
+  Schema.fromJsonString(Schema.Struct({ version: Schema.String }))
+);
 
 /** The renderer's global, for the functions `page.evaluate` runs there (no DOM lib here). */
 declare const window: { readonly polaris: PolarisApi };
@@ -43,11 +48,26 @@ export const prepareFakeHost = (root: string): FakeHost => {
   chmodSync(join(bin, "ssh"), 0o755);
   writeFileSync(
     join(sshHome, ".ssh", "config"),
-    `Host ${FAKE_ALIAS}\n  HostName studio.test\n  User lucas\n\nHost *.internal\n  User ops\n`
+    [
+      `Host ${FAKE_ALIAS}`,
+      "  HostName studio.test",
+      "  User lucas",
+      "Host work-vm pi",
+      "  HostName 10.0.4.12",
+      "  User ubuntu",
+      "Host *.internal",
+      "  User ops",
+      "",
+    ].join("\n")
+  );
+
+  // The Daemon it runs is this repo's, so the build says the same version (no upgrade loop).
+  const { version } = decodeVersion(
+    readFileSync(join(REPO_ROOT, "apps/daemon/package.json"), "utf8")
   );
 
   const sha256 = writeDist(dist, {
-    version: "0.0.1-smoke",
+    version,
     platform: hostPlatform(),
     daemon: ["bun", join(REPO_ROOT, "apps/daemon/src/main.ts")],
   });

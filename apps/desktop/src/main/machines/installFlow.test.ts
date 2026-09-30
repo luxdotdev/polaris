@@ -117,6 +117,24 @@ describe("install flow", () => {
     });
   });
 
+  test("a check that changes nothing keeps the last install's outcome", () => {
+    const installed = run(
+      { type: "check", trigger: "user" },
+      { type: "planned", plan: plan(null, "user", ["abc123"]) },
+      {
+        type: "applied",
+        outcome: { kind: "installed", version: "0.2.0", from: null, notes: [], adminCommand: null },
+      }
+    );
+
+    const again = [
+      { type: "check", trigger: "background" },
+      { type: "planned", plan: plan("0.2.0", "background", []) },
+    ] as const;
+
+    expect(again.reduce(stepInstall, installed).context.outcome?.kind).toBe("installed");
+  });
+
   test("not now parks the Host until the user checks again", () => {
     const parked = run(
       { type: "check", trigger: "user" },

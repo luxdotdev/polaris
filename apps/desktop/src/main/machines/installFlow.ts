@@ -108,8 +108,11 @@ const planned = ({ context, event }: { context: InstallContext; event: Omit<Plan
           ? { target: "installing" as const, context: { ...cleared, work: plan } }
           : ask(plan),
       Upgrade: (plan) => ({ target: "installing" as const, context: { ...cleared, work: plan } }),
+      // A check that changes nothing keeps saying what the last install or upgrade did.
       UpToDate: ({ version }) =>
-        ready({ kind: "current", version, from: null, notes: [], adminCommand: null }),
+        ready(
+          context.outcome ?? { kind: "current", version, from: null, notes: [], adminCommand: null }
+        ),
       InstalledNewer: ({ installed }) =>
         ready({ kind: "newer", version: installed, from: null, notes: [], adminCommand: null }),
       Unsupported: ({ os, arch }) =>
@@ -138,7 +141,10 @@ const check =
   ({ event }: { event: { readonly trigger: InstallTrigger } }) =>
     fromParked && event.trigger === "background"
       ? undefined
-      : { target: "checking" as const, context: { ...cleared, trigger: event.trigger } };
+      : {
+          target: "checking" as const,
+          context: { offer: null, work: null, problem: null, trigger: event.trigger },
+        };
 
 export const installMachine = setup({
   schemas: {

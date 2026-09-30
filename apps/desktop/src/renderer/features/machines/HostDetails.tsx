@@ -118,11 +118,13 @@ const TextSetting = ({
   placeholder,
   label,
   onSave,
+  mono = false,
 }: {
   readonly value: string;
   readonly placeholder: string;
   readonly label: string;
   readonly onSave: (value: string) => void;
+  readonly mono?: boolean;
 }) => {
   const [draft, setDraft] = useState(value);
 
@@ -133,7 +135,7 @@ const TextSetting = ({
   return (
     <Input
       aria-label={label}
-      className="text-code-inline w-[300px] font-mono"
+      className={mono ? "text-code-inline w-[260px] font-mono" : "w-[260px]"}
       value={draft}
       placeholder={placeholder}
       onChange={(event) => setDraft(event.target.value)}
@@ -175,6 +177,7 @@ const RemoteSettings = ({ machine }: { readonly machine: MachineView }) => (
         label="Remote command"
         value={machine.remoteCommand ?? ""}
         placeholder={DEFAULT_REMOTE_COMMAND}
+        mono
         onSave={(line) =>
           void call("machines.update", {
             hostKey: machine.key,
@@ -186,9 +189,14 @@ const RemoteSettings = ({ machine }: { readonly machine: MachineView }) => (
   </>
 );
 
-export const HostDetails = ({ machine }: { readonly machine: MachineView }) => {
+export interface HostDetailsProps {
+  readonly machine: MachineView;
+  /** The user opened the row: show its settings too, not only what needs them. */
+  readonly settings: boolean;
+}
+
+export const HostDetails = ({ machine, settings }: HostDetailsProps) => {
   const note = outcomeNote(machine);
-  const local = machine.alias === null;
 
   return (
     <>
@@ -208,6 +216,16 @@ export const HostDetails = ({ machine }: { readonly machine: MachineView }) => {
         </div>
       )}
       {machine.status?.state === "connected" ? <Harnesses machine={machine} /> : null}
+      {settings ? <Settings machine={machine} /> : null}
+    </>
+  );
+};
+
+const Settings = ({ machine }: { readonly machine: MachineView }) => {
+  const local = machine.alias === null;
+
+  return (
+    <>
       <div className="border-hairline flex flex-col gap-3 border-t pt-3">
         {local ? (
           <Field

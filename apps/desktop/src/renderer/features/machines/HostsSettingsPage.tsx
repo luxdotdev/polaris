@@ -4,7 +4,7 @@
  * button, which opens the add-machine flow inline under the table.
  */
 import { Button, PlusIcon } from "@polaris/ui";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { MachineView } from "../../../shared/api.ts";
 import { emptyHostModel, visibleWorkspaces } from "../../store/hostModel.ts";
 import { useApp } from "../../shell/hooks.ts";
@@ -27,11 +27,13 @@ const Row = ({
   machine,
   now,
   open,
+  settings,
   onToggle,
 }: {
   readonly machine: MachineView;
   readonly now: number;
   readonly open: boolean;
+  readonly settings: boolean;
   readonly onToggle: () => void;
 }) => {
   const model = useApp((s) => s.hostModels[machine.key]);
@@ -48,7 +50,7 @@ const Row = ({
       onRetry={() => void call("host.retryNow", { hostKey: machine.key })}
       onRemove={remote ? () => void call("machines.remove", { hostKey: machine.key }) : null}
     >
-      <HostDetails machine={machine} />
+      <HostDetails machine={machine} settings={settings} />
     </HostRow>
   );
 };
@@ -63,9 +65,19 @@ export const HostsSettingsPage = ({ adding = false }: HostsSettingsPageProps) =>
   const [adder, setAdder] = useState(adding);
   // Rows the user opened or closed; others follow whether they need the user.
   const [toggled, setToggled] = useState<Readonly<Record<string, boolean>>>({});
+  // Rows opened because they needed the user stay open after, to show the outcome.
+  const [kept, setKept] = useState<ReadonlySet<string>>(new Set());
   const now = useNow(machines?.some((m) => m.status?.state === "reconnecting") ?? false);
 
-  const isOpen = (machine: MachineView) => toggled[machine.key] ?? needsUser(machine);
+  useEffect(() => {
+    const opened = (machines ?? []).filter((m) => needsUser(m)).map((m) => m.key);
+
+    if (opened.every((key) => kept.has(key))) return;
+    setKept((current) => new Set([...current, ...opened]));
+  }, [machines, kept]);
+
+  const isOpen = (machine: MachineView) =>
+    toggled[machine.key] ?? (kept.has(machine.key) || needsUser(machine));
 
   const toggle = (machine: MachineView) =>
     setToggled((current) => ({ ...current, [machine.key]: !isOpen(machine) }));
@@ -93,6 +105,7 @@ export const HostsSettingsPage = ({ adding = false }: HostsSettingsPageProps) =>
               machine={machine}
               now={now}
               open={isOpen(machine)}
+              settings={toggled[machine.key] === true}
               onToggle={() => toggle(machine)}
             />
           ))}
