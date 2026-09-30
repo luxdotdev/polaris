@@ -12,20 +12,13 @@ import {
   CommandList,
 } from "@polaris/ui";
 import { useMemo } from "react";
+import { NothingNeedsYou } from "../features/empty/index.ts";
 import { barHosts, needsYou, shownState } from "../routes/topBar.ts";
 import { sessionStateLabel } from "../shell/copy.ts";
 import { SessionGlyph, SummaryGlyph } from "../shell/glyphs.tsx";
 import { useApp, useShellActions } from "../shell/hooks.ts";
 import { CompactSessionRow } from "../shell/sidebar/SessionRow.tsx";
 import type { JumpMenuProps } from "./slots.tsx";
-
-const Pending = ({ children }: { readonly children: string }) => (
-  <div className="p-panel text-body text-text-faint grid flex-1 place-items-center text-center">
-    {children}
-  </div>
-);
-
-export const DefaultNoSession = () => <Pending>No agent sessions in this workspace yet.</Pending>;
 
 export const DefaultNeedsYouInbox = () => {
   const hosts = useApp((s) => s.hosts);
@@ -37,7 +30,7 @@ export const DefaultNeedsYouInbox = () => {
     )
   );
 
-  if (waiting.length === 0) return <Pending>Nothing needs you.</Pending>;
+  if (waiting.length === 0) return <NothingNeedsYou />;
 
   return (
     <div className="flex flex-col px-2 pt-2">
