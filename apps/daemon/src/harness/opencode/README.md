@@ -127,6 +127,7 @@ It starts `opencode serve` with throwaway XDG directories (no config, no credent
   ```
 
   `POLARIS_OPENCODE` picks the binary, `POLARIS_E2E_OPENCODE_MODEL` the Model. Zen's free tier refuses OpenCode older than 1.18.0.
+- Through the whole Daemon: `POLARIS_OPENCODE=… bun --cwd apps/daemon scripts/smoke.ts opencode` runs `polaris serve`, asks `harness.availability` and `harness.models`, and runs one real Turn (free Model, throwaway XDG) with its checkpoints and diff.
 
 ## Known gaps / TODO
 
