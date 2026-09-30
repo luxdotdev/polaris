@@ -3,7 +3,7 @@
  * (`scripts/sessionScreens.ts`): `#preview/<scene>` renders one scene with a
  * stand-in bridge and store, no Daemon involved. Loaded as its own chunk.
  */
-import { Capability, HostId, type SessionId, Sequence } from "@polaris/protocol";
+import { Capability, HARNESS_CATALOGUE, HostId, type SessionId, Sequence } from "@polaris/protocol";
 import type { ReactNode } from "react";
 import { createStore } from "zustand/vanilla";
 import type {
@@ -63,14 +63,41 @@ const host: HostView = {
 
 const SCENES = { session: planning, approval, question, interrupted, long } as const;
 
-const SCENE_NAMES = ["session", "approval", "question", "interrupted", "long", "new"] as const;
+const SCENE_NAMES = [
+  "session",
+  "approval",
+  "question",
+  "interrupted",
+  "long",
+  "new",
+  "setup",
+] as const;
 
 type Scene = (typeof SCENE_NAMES)[number];
 
 const harnessOf = (input: RequestInput<RequestMethod>) =>
   "harness" in input && input.harness === "codex" ? "codex" : "claude";
 
-const answer = (method: RequestMethod, input: RequestInput<RequestMethod>): Result<unknown> => {
+/** Every catalogue Harness ready, except Codex on the setup scene. */
+const availability = (scene: Scene) => ({
+  harnesses: HARNESS_CATALOGUE.map((entry) => ({
+    harness: entry.kind,
+    status: scene === "setup" && entry.kind === "codex" ? "not-installed" : "ready",
+    version: scene === "setup" && entry.kind === "codex" ? null : entry.minVersion,
+    minVersion: entry.minVersion,
+    detail: null,
+    signInArgv: null,
+  })),
+  checkedAt: "2026-09-30T00:00:00.000Z",
+});
+
+const answer = (
+  scene: Scene,
+  method: RequestMethod,
+  input: RequestInput<RequestMethod>
+): Result<unknown> => {
+  if (method === "harness.availability") return { ok: true, value: availability(scene) };
+
   if (method === "harness.models") {
     const harness = harnessOf(input);
 
@@ -88,12 +115,12 @@ const answer = (method: RequestMethod, input: RequestInput<RequestMethod>): Resu
   return { ok: false, error: { code: "Unsupported", message: "preview" } };
 };
 
-const bridge: PolarisApi = {
+const bridgeFor = (scene: Scene): PolarisApi => ({
   // SAFETY: fixture answers match RequestOutputs for the methods the session feature calls.
-  request: (method, input) => Promise.resolve(answer(method, input) as never),
+  request: (method, input) => Promise.resolve(answer(scene, method, input) as never),
   subscribe: () => () => undefined,
   onAppEvent: () => () => undefined,
-};
+});
 
 const stateFor = (models: ReadonlyArray<SessionModel>): AppState => {
   const sessions = models.flatMap((m) => (m.session === null ? [] : [m.session]));
@@ -143,10 +170,10 @@ export const Preview = ({ hash }: { readonly hash: string }) => {
   const scene = sceneOf(hash);
   const models = Object.values(SCENES).map((make) => make());
   const store = createStore<AppState>(() => stateFor(models));
-  const shown = scene === "new" ? null : models[SCENE_NAMES.indexOf(scene)];
+  const shown = scene === "new" || scene === "setup" ? null : models[SCENE_NAMES.indexOf(scene)];
   const sessionId: SessionId | null = shown?.session?.id ?? null;
 
-  standInBridge(bridge);
+  standInBridge(bridgeFor(scene));
 
   // The long scene opens every Turn, so scrolling crosses thousands of rows.
   if (scene === "long" && shown?.session != null) {

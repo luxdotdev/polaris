@@ -3,7 +3,15 @@
  * where it runs, the composer and the Harness choice. Sends `StartSession`,
  * or `ForkSession` then the prompt as its first Turn for "Fork a turn".
  */
-import type { Command, PermissionMode, SessionId, Workspace, WorkspaceId } from "@polaris/protocol";
+import {
+  type Command,
+  HARNESS_CATALOGUE,
+  isKnownHarness,
+  type PermissionMode,
+  type SessionId,
+  type Workspace,
+  type WorkspaceId,
+} from "@polaris/protocol";
 import { Clearing, type Harness, Scene } from "@polaris/ui";
 import { useState } from "react";
 import { newSessionId } from "../../../commands.ts";
@@ -11,9 +19,10 @@ import { emptyHostModel } from "../../../store/hostModel.ts";
 import { useApp } from "../../../views/hooks.ts";
 import { useStaging } from "../attachments.ts";
 import { send } from "../dispatch.ts";
-import { hasCapability, useHarnessModels, useHost } from "../hooks.ts";
+import { hasCapability, useHarnessOptions, useHost } from "../hooks.ts";
 import { tildePath } from "../model/format.ts";
-import { defaultChoice, type ModelChoice, modelLabel } from "../model/models.ts";
+import { defaultHarness } from "../model/harnesses.ts";
+import type { ModelChoice } from "../model/models.ts";
 import {
   branchFromPrompt,
   forkStartCommands,
@@ -24,7 +33,7 @@ import {
 import { patchSessionUi, type SessionUi, uiKey, useSessionUi } from "../state.ts";
 import { DraftComposer } from "./DraftComposer.tsx";
 import { ForkSource, type ForkSourceValue } from "./ForkSource.tsx";
-import { HarnessChoiceRow } from "./HarnessChoice.tsx";
+import { HarnessChoiceRow, SetupNote } from "./HarnessChoice.tsx";
 import { ModelPicker } from "./ModelPicker.tsx";
 import { PermissionChip, WhereLine } from "./placement.tsx";
 
@@ -37,33 +46,26 @@ export interface NewSessionPageProps {
   readonly onCancel?: (() => void) | undefined;
 }
 
-type Models = Readonly<Record<Harness, ModelChoice | null>>;
-
-const useCaptions = (hostKey: string, picked: Models): Record<Harness, string> => {
-  const claude = useHarnessModels(hostKey, "claude");
-  const codex = useHarnessModels(hostKey, "codex");
-
-  const caption = (models: typeof claude, harness: Harness) => {
-    const choice = picked[harness] ?? defaultChoice(harness, models.models);
-
-    return modelLabel(models.models, choice?.model ?? null, choice?.effort ?? null);
-  };
-
-  return { claude: caption(claude, "claude"), codex: caption(codex, "codex") };
-};
+type Models = Readonly<Partial<Record<Harness, ModelChoice | null>>>;
 
 interface Choices {
-  readonly choice: HarnessChoice;
+  readonly choice: HarnessChoice | null;
+  /** The chosen Harness is ready (or the Host couldn't say). */
+  readonly startable: boolean;
   readonly models: Models;
   readonly permissionMode: PermissionMode;
   readonly placement: PlacementChoice;
   readonly fork: ForkSourceValue | null;
 }
 
-const harnessOf = (choices: Choices): Harness => {
-  if (choices.choice !== "fork") return choices.choice;
+/** The Harness the session runs on: the chosen one, or the forked session's. */
+const harnessOf = (choices: Choices): Harness | null => {
+  if (choices.choice === null) return null;
 
-  return choices.fork?.session.harness === "codex" ? "codex" : "claude";
+  if (choices.choice.kind === "harness") return choices.choice.harness;
+  const kind = choices.fork?.session.harness ?? "";
+
+  return isKnownHarness(kind) ? kind : null;
 };
 
 /** A new worktree with no branch named yet takes one from the prompt. */
@@ -80,10 +82,12 @@ const commandsFor = (
   ui: SessionUi
 ): ReadonlyArray<Command> | null => {
   const harness = harnessOf(choices);
-  const attachments = ui.attachments.map((a) => a.id);
-  const model = choices.models[harness];
 
-  if (choices.choice === "fork") {
+  if (harness === null || !choices.startable) return null;
+  const attachments = ui.attachments.map((a) => a.id);
+  const model = choices.models[harness] ?? null;
+
+  if (choices.choice?.kind === "fork") {
     if (choices.fork === null) return null;
     const { session, turnId } = choices.fork;
 
@@ -132,8 +136,8 @@ const defaultPlacement = (workspace: Workspace): PlacementChoice =>
 const PREVIEW_ID = newSessionId();
 
 /** The composer's mono hint: the branch a new Worktree will take, once there's a prompt. */
-const branchLabel = (placement: PlacementChoice, choice: HarnessChoice, draft: string) => {
-  if (placement.kind !== "new-worktree" || choice === "fork") return undefined;
+const branchLabel = (placement: PlacementChoice, choice: HarnessChoice | null, draft: string) => {
+  if (placement.kind !== "new-worktree" || choice?.kind === "fork") return undefined;
 
   return draft.trim() === "" ? "new worktree" : placement.branch;
 };
@@ -149,14 +153,14 @@ export const NewSessionPage = ({
   const workspace = hostModel.workspaces.get(workspaceId);
   const key = uiKey(hostKey, `new:${workspaceId}`);
   const ui = useSessionUi(key);
-  const [choice, setChoice] = useState<HarnessChoice>("claude");
-  const [models, setModels] = useState<Models>({ claude: null, codex: null });
+  const [picked, setPicked] = useState<HarnessChoice | null>(null);
+  const [models, setModels] = useState<Models>({});
+  const { options } = useHarnessOptions(hostKey);
   const [permissionMode, setPermissionMode] = useState<PermissionMode>("supervised");
   const [placement, setPlacement] = useState<PlacementChoice | null>(null);
   const [forkSession, setForkSession] = useState<SessionId | null>(null);
   const [fork, setFork] = useState<ForkSourceValue | null>(null);
   const [busy, setBusy] = useState(false);
-  const captions = useCaptions(hostKey, models);
 
   const { stage, pending } = useStaging({ hostKey, workspaceId, sessionId: null }, (staged) =>
     patchSessionUi(key, (u) => ({ attachments: [...u.attachments, staged] }))
@@ -164,8 +168,25 @@ export const NewSessionPage = ({
 
   if (workspace === undefined) return <Scene className="h-full flex-1" data-testid="new-session" />;
   const where = placement ?? defaultPlacement(workspace);
-  const choices: Choices = { choice, models, permissionMode, placement: where, fork };
+  const fallback = defaultHarness(options);
+
+  const choice: HarnessChoice | null =
+    picked ?? (fallback === null ? null : { kind: "harness", harness: fallback });
+
+  const option = options.find((o) => choice?.kind === "harness" && o.kind === choice.harness);
+
+  const choices: Choices = {
+    choice,
+    startable: option?.startable ?? choice?.kind === "fork",
+    models,
+    permissionMode,
+    placement: where,
+    fork,
+  };
+
   const harness = harnessOf(choices);
+  // The composer takes a Harness hue even before one is chosen (or when a fork has none).
+  const hue: Harness = harness ?? option?.kind ?? HARNESS_CATALOGUE[0].kind;
   const canSubmit = !busy && commandsFor(PREVIEW_ID, workspaceId, choices, ui) !== null;
   const shown = resolvePlacement(where, ui.draft);
 
@@ -210,15 +231,16 @@ export const NewSessionPage = ({
       <div className="flex w-full max-w-[640px] flex-col gap-3.5 pt-1 pb-10">
         <DraftComposer
           className="shadow-float rounded-card"
-          harness={harness}
+          harness={hue}
           autoFocus
           picker={
             <ModelPicker
               hostKey={hostKey}
-              harness={harness}
-              model={models[harness]?.model ?? null}
-              effort={models[harness]?.effort ?? null}
-              onChoose={(next) => setModels({ ...models, [harness]: next })}
+              harness={hue}
+              model={models[hue]?.model ?? null}
+              effort={models[hue]?.effort ?? null}
+              disabled={!choices.startable}
+              onChoose={(next) => setModels({ ...models, [hue]: next })}
             />
           }
           tools={<PermissionChip value={permissionMode} onChange={setPermissionMode} />}
@@ -238,12 +260,15 @@ export const NewSessionPage = ({
           prominentSend
         />
         <HarnessChoiceRow
+          hostKey={hostKey}
+          options={options}
+          picked={models}
           value={choice}
-          onChange={setChoice}
-          captions={captions}
+          onChange={setPicked}
           canFork={hasCapability(host, "session.fork")}
         />
-        {choice === "fork" ? (
+        {option !== undefined && !option.startable ? <SetupNote option={option} /> : null}
+        {choice?.kind === "fork" ? (
           <ForkSource
             hostKey={hostKey}
             workspaceId={workspaceId}

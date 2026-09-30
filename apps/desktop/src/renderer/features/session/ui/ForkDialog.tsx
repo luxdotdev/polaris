@@ -17,6 +17,7 @@ import {
 import { useState } from "react";
 import { newSessionId } from "../../../commands.ts";
 import { send } from "../dispatch.ts";
+import { useHarnessOptions } from "../hooks.ts";
 import { forkCommand } from "../model/intent.ts";
 import type { ModelChoice } from "../model/models.ts";
 import { ModelPicker } from "./ModelPicker.tsx";
@@ -37,11 +38,6 @@ export interface ForkDialogProps {
   readonly onForked?: ((sessionId: SessionId) => void) | undefined;
 }
 
-const HARNESSES = [
-  { value: "claude" as const, label: "Claude Code" },
-  { value: "codex" as const, label: "Codex" },
-];
-
 const ForkForm = ({
   hostKey,
   target,
@@ -52,6 +48,11 @@ const ForkForm = ({
   const [choice, setChoice] = useState<ModelChoice | null>(null);
   const [busy, setBusy] = useState(false);
   const sameHarness = harness === target.harness;
+  // Any Harness the Host can run now; the session's own stays listed so the default holds.
+
+  const harnesses = useHarnessOptions(hostKey)
+    .options.filter((o) => o.startable || o.kind === target.harness)
+    .map((o) => ({ value: o.kind, label: o.name }));
 
   const fork = () => {
     const sessionId = newSessionId();
@@ -94,7 +95,7 @@ const ForkForm = ({
             setHarness(next);
             setChoice(null);
           }}
-          options={HARNESSES}
+          options={harnesses}
         />
         <div className="flex items-center gap-2">
           <ModelPicker

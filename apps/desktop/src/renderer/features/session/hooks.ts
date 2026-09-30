@@ -5,6 +5,7 @@ import type { HostView } from "../../../shared/api.ts";
 import { emptySessionModel, type SessionModel } from "../../store/sessionModel.ts";
 import { sessionKey } from "../../store/store.ts";
 import { useApp, useSessionFeed } from "../../views/hooks.ts";
+import { type AvailabilityReport, type HarnessOption, harnessOptions } from "./model/harnesses.ts";
 import type { ModelData } from "./model/models.ts";
 import { polaris } from "./bridge.ts";
 
@@ -88,4 +89,45 @@ export const useElapsed = (since: string | null, running: boolean): number => {
   }, [running]);
 
   return since === null ? 0 : Math.max(0, now - Date.parse(since));
+};
+
+export interface HarnessOptions {
+  readonly options: ReadonlyArray<HarnessOption>;
+  /** Still asking the Host; the options are the catalogue's guess until then. */
+  readonly loading: boolean;
+}
+
+/**
+ * The Harnesses a Host can run, from its `harness.availability` (asked once per mount,
+ * answered from the Daemon's cache); without that capability, from its drivers.
+ */
+export const useHarnessOptions = (hostKey: string): HarnessOptions => {
+  const host = useHost(hostKey);
+  const canAsk = hasCapability(host, "harness.availability");
+
+  const [report, setReport] = useState<{ key: string; value: AvailabilityReport | null } | null>(
+    null
+  );
+
+  useEffect(() => {
+    if (!canAsk) return undefined;
+    let live = true;
+
+    void polaris()
+      .request("harness.availability", { hostKey, refresh: false })
+      .then((result) => {
+        if (live) setReport({ key: hostKey, value: result.ok ? result.value : null });
+      });
+
+    return () => {
+      live = false;
+    };
+  }, [canAsk, hostKey]);
+
+  const answered = report?.key === hostKey ? report : null;
+
+  return {
+    options: harnessOptions(answered?.value ?? null, host?.status.capabilities ?? []),
+    loading: canAsk && answered === null,
+  };
 };

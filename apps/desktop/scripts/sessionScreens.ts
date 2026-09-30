@@ -30,7 +30,7 @@ if (out === null) throw new Error("--out <dir> is required");
 if (args.includes("--build"))
   spawnSync("bun", [join(APP_DIR, "scripts/build.ts"), "--no-app"], { stdio: "inherit" });
 
-const scenes = (option("--scenes") ?? "session,approval,question,interrupted,new").split(",");
+const scenes = (option("--scenes") ?? "session,approval,question,interrupted,new,setup").split(",");
 
 /** Scroll the long scene's conversation at 4000 px/s for 5 s and report frame intervals. */
 const scrollFrames = `new Promise((resolve) => {
@@ -86,7 +86,12 @@ try {
   for (const scene of scenes) {
     await page.evaluate(`location.hash = "#preview/${scene}"; location.reload()`);
     await page.waitForLoadState("domcontentloaded");
-    await page.getByTestId(scene === "new" ? "new-session" : "session-panel").waitFor();
+    const isNew = scene === "new" || scene === "setup";
+
+    await page.getByTestId(isNew ? "new-session" : "session-panel").waitFor();
+
+    // The setup scene shows a Harness that isn't installed: choose it to show its setup line.
+    if (scene === "setup") await page.getByTestId("harness-codex").click();
 
     for (const density of densities) {
       for (const theme of ["dark", "light"]) {

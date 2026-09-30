@@ -4,6 +4,7 @@
  */
 import type {
   AttachmentId,
+  KnownHarnessKind,
   Command,
   PermissionMode,
   SessionId,
@@ -20,7 +21,10 @@ export type PlacementChoice =
   | { readonly kind: "new-worktree"; readonly branch: string; readonly base: string | null }
   | { readonly kind: "existing"; readonly path: string; readonly branch: string | null };
 
-export type HarnessChoice = "claude" | "codex" | "fork";
+/** A catalogue Harness, or "Fork a turn". */
+export type HarnessChoice =
+  | { readonly kind: "harness"; readonly harness: KnownHarnessKind }
+  | { readonly kind: "fork" };
 
 export const toPlacement = (choice: PlacementChoice): SessionPlacement =>
   Match.value(choice).pipe(
@@ -57,7 +61,7 @@ export const isBranchName = (branch: string): boolean => {
 export interface StartInput {
   readonly sessionId: SessionId;
   readonly workspaceId: WorkspaceId;
-  readonly harness: "claude" | "codex";
+  readonly harness: KnownHarnessKind;
   readonly placement: PlacementChoice;
   readonly permissionMode: PermissionMode;
   readonly model: ModelChoice | null;

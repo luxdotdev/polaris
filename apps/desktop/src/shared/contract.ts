@@ -73,6 +73,8 @@ export const RequestInputs = {
   "git.diff": onHost({ cwd: Schema.String, spec: GitDiffSpec }),
   /** A Harness's Models on the Host (capability `harness.models`); `refresh` asks the Harness again. */
   "harness.models": onHost({ harness: HarnessKind, refresh: Schema.Boolean }),
+  /** Each catalogue Harness's status on the Host (capability `harness.availability`). */
+  "harness.availability": onHost({ refresh: Schema.Boolean }),
   "session.terminalCommand": onHost({ sessionId: SessionId }),
   "terminal.open": onHost({
     cwd: Schema.String,

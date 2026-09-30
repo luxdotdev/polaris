@@ -13,6 +13,7 @@ import type {
   GitStatus,
   Grep,
   HarnessModels,
+  HostHarnesses,
   HostInfo,
   HostStreamItem,
   SearchPaths,
@@ -153,6 +154,7 @@ export interface RequestOutputs {
   "git.status": Rpc.Success<typeof GitStatus>;
   "git.diff": { readonly bytes: Uint8Array; readonly files: number };
   "harness.models": Plain<HarnessModels>;
+  "harness.availability": Plain<HostHarnesses>;
   "session.terminalCommand": TerminalLaunch | null;
   "terminal.open": { readonly terminalId: TerminalId };
   "terminal.input": null;

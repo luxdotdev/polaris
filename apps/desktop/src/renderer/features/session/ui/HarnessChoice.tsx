@@ -1,10 +1,13 @@
 /**
  * The new-session page's Harness choice (DESIGN.md, New session): one row of
- * three equal 56px cards, Claude Code, Codex and Fork a turn, each with a 48px
- * washed tile. The selected card lifts to text-strong with a check.
+ * equal 56px cards, one per Harness the Host has (catalogue + availability)
+ * and Fork a turn. A Harness that isn't ready shows why, never an install.
  */
-import { CheckIcon, cn, Dither, type Harness, HARNESS_NAMES, Tile } from "@polaris/ui";
+import { CheckIcon, cn, Dither, type Harness, Tile } from "@polaris/ui";
 import type { ReactNode } from "react";
+import { useHarnessModels } from "../hooks.ts";
+import { type HarnessOption, STATUS_CAPTIONS } from "../model/harnesses.ts";
+import { defaultChoice, type ModelChoice, modelLabel } from "../model/models.ts";
 import type { HarnessChoice as Choice } from "../model/newSession.ts";
 
 /** Paper's fork glyph (artboard 4), on the 24px pixel grid. */
@@ -71,37 +74,111 @@ const Card = ({ selected, tile, title, caption, onSelect, testId }: CardProps) =
   </button>
 );
 
-const HarnessTile = ({ harness }: { readonly harness: Harness }) => (
-  <Tile hue={harness} size={48} className="h-full w-12 rounded-none border-0 border-r">
+const HarnessTile = ({
+  harness,
+  muted,
+}: {
+  readonly harness: Harness;
+  readonly muted: boolean;
+}) => (
+  <Tile
+    hue={harness}
+    size={48}
+    muted={muted}
+    className="h-full w-12 rounded-none border-0 border-r"
+  >
     <Dither hue={harness} size={20} />
   </Tile>
 );
 
+const HarnessCard = ({
+  hostKey,
+  option,
+  picked,
+  selected,
+  onSelect,
+}: {
+  readonly hostKey: string;
+  readonly option: HarnessOption;
+  readonly picked: ModelChoice | null;
+  readonly selected: boolean;
+  readonly onSelect: () => void;
+}) => {
+  const { models } = useHarnessModels(hostKey, option.kind, option.startable);
+  const choice = picked ?? defaultChoice(option.kind, models);
+
+  const caption =
+    STATUS_CAPTIONS[option.status] ??
+    modelLabel(models, choice?.model ?? null, choice?.effort ?? null);
+
+  return (
+    <Card
+      testId={`harness-${option.kind}`}
+      selected={selected}
+      tile={<HarnessTile harness={option.kind} muted={!option.startable} />}
+      title={option.name}
+      caption={caption}
+      onSelect={onSelect}
+    />
+  );
+};
+
+/** Under the row when the chosen Harness can't start: its setup line and its docs. */
+export const SetupNote = ({ option }: { readonly option: HarnessOption }) => (
+  <div
+    className="rounded-card border-hairline bg-surface-raised flex flex-col gap-1 border px-4 py-3"
+    data-testid="harness-setup"
+  >
+    <p className="text-body text-text-default">
+      {option.setupLine ?? `${option.name} can't start yet.`}
+    </p>
+    {option.detail === null ? null : (
+      <p className="text-caption text-text-subtle">{option.detail}</p>
+    )}
+    <a
+      href={option.docsUrl}
+      target="_blank"
+      rel="noreferrer"
+      className="text-label text-text-strong decoration-text-faint self-start underline underline-offset-4"
+    >
+      {option.name} setup guide
+    </a>
+  </div>
+);
+
 export interface HarnessChoiceProps {
-  readonly value: Choice;
+  readonly hostKey: string;
+  readonly options: ReadonlyArray<HarnessOption>;
+  /** The Model the user picked per Harness; absent means its default. */
+  readonly picked: Readonly<Partial<Record<Harness, ModelChoice | null>>>;
+  readonly value: Choice | null;
   readonly onChange: (choice: Choice) => void;
-  /** The Model each Harness would start on, as its card's caption. */
-  readonly captions: Readonly<Record<Harness, string>>;
   readonly canFork: boolean;
 }
 
-export const HarnessChoiceRow = ({ value, onChange, captions, canFork }: HarnessChoiceProps) => (
+export const HarnessChoiceRow = ({
+  hostKey,
+  options,
+  picked,
+  value,
+  onChange,
+  canFork,
+}: HarnessChoiceProps) => (
   <div role="radiogroup" aria-label="Harness" className="flex w-full gap-2.5">
-    {(["claude", "codex"] as const).map((harness) => (
-      <Card
-        key={harness}
-        testId={`harness-${harness}`}
-        selected={value === harness}
-        tile={<HarnessTile harness={harness} />}
-        title={HARNESS_NAMES[harness]}
-        caption={captions[harness]}
-        onSelect={() => onChange(harness)}
+    {options.map((option) => (
+      <HarnessCard
+        key={option.kind}
+        hostKey={hostKey}
+        option={option}
+        picked={picked[option.kind] ?? null}
+        selected={value?.kind === "harness" && value.harness === option.kind}
+        onSelect={() => onChange({ kind: "harness", harness: option.kind })}
       />
     ))}
     {canFork ? (
       <Card
         testId="harness-fork"
-        selected={value === "fork"}
+        selected={value?.kind === "fork"}
         tile={
           <Tile hue="starlight" size={48} className="h-full w-12 rounded-none border-0 border-r">
             <ForkGlyph />
@@ -109,7 +186,7 @@ export const HarnessChoiceRow = ({ value, onChange, captions, canFork }: Harness
         }
         title="Fork a turn"
         caption="From a checkpoint"
-        onSelect={() => onChange("fork")}
+        onSelect={() => onChange({ kind: "fork" })}
       />
     ) : null}
   </div>
