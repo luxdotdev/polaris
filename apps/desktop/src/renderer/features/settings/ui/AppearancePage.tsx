@@ -38,7 +38,7 @@ const THEMES: ReadonlyArray<ThemeCard> = [
   { value: "system", name: "Match macOS", hint: "Auto" },
 ];
 
-/** A scene as its theme draws it: `--scene` resolves inside a `data-theme` subtree. */
+/** A scene as its theme draws it (`--scene` in a `data-theme` subtree); a class, as inline url()s resolve against the page. */
 const Scene = ({
   theme,
   position,
@@ -48,8 +48,8 @@ const Scene = ({
 }) => (
   <span
     data-theme={theme}
-    className="pixelated block h-28 flex-1 bg-cover"
-    style={{ backgroundImage: "var(--scene)", backgroundPosition: position }}
+    className="pixelated block h-28 flex-1 bg-(image:--scene) bg-cover"
+    style={{ backgroundPosition: position }}
   />
 );
 

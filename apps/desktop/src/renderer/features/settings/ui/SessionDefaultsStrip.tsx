@@ -108,7 +108,7 @@ export const SessionDefaultsStrip = ({
 
   return (
     <FooterStrip>
-      <span className="text-caption text-text-subtle w-[152px] shrink-0">
+      <span className="text-caption text-text-subtle w-[146px] shrink-0">
         New sessions start with
       </span>
       <Chip

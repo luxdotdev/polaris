@@ -12,6 +12,7 @@ import {
   CommandList,
 } from "@polaris/ui";
 import { useMemo } from "react";
+import { type ShellAction, useRegisteredActions } from "../routes/actions.ts";
 import { barHosts, needsYou, shownState } from "../routes/topBar.ts";
 import { sessionStateLabel } from "../shell/copy.ts";
 import { SessionGlyph, SummaryGlyph } from "../shell/glyphs.tsx";
@@ -58,7 +59,17 @@ export const DefaultNeedsYouInbox = () => {
   );
 };
 
+/** Registered actions by group, in registration order. */
+const actionGroups = (actions: ReadonlyArray<ShellAction>) => {
+  const groups = new Map<string, Array<ShellAction>>();
+
+  for (const a of actions) groups.set(a.group, [...(groups.get(a.group) ?? []), a]);
+
+  return [...groups.entries()];
+};
+
 export const DefaultJumpMenu = ({ open, onOpenChange }: JumpMenuProps) => {
+  const actions = useRegisteredActions();
   const hosts = useApp((s) => s.hosts);
   const models = useApp((s) => s.hostModels);
   const { selectSession, selectWorkspace } = useShellActions();
@@ -118,6 +129,20 @@ export const DefaultJumpMenu = ({ open, onOpenChange }: JumpMenuProps) => {
             ))
           )}
         </CommandGroup>
+        {actionGroups(actions).map(([group, list]) => (
+          <CommandGroup key={group} heading={group}>
+            {list.map((a) => (
+              <CommandItem
+                key={a.id}
+                value={`${a.title} ${(a.keywords ?? []).join(" ")}`}
+                meta={a.shortcut}
+                onSelect={() => go(a.run)}
+              >
+                {a.title}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        ))}
       </CommandList>
     </CommandDialog>
   );

@@ -17,6 +17,7 @@ import { APP_DIR, electronBinary, OUT_DIR, REPO_ROOT } from "./lib/electron.ts";
 import { probeSource } from "./lib/probe.ts";
 import { startDaemon } from "./lib/daemon.ts";
 import { initRepo, sessionFlow } from "./lib/sessionFlow.ts";
+import { settingsFlow } from "./lib/settingsFlow.ts";
 
 const args = process.argv.slice(2);
 
@@ -192,6 +193,7 @@ try {
 
   initRepo(repo);
   await sessionFlow({ page, repo, step, shoot: (name) => shoot(page, name) });
+  await settingsFlow({ app, page, step, shoot: (name) => shoot(page, name) });
   await timeSwitches(page);
 
   const probe = await Promise.race([
