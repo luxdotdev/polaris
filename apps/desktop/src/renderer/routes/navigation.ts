@@ -92,6 +92,8 @@ export interface ShellActions {
   readonly openJump: () => void;
   readonly setJumpOpen: (open: boolean) => void;
   readonly setHelpOpen: (open: boolean) => void;
+  /** Closes the shell's overlay (jump menu or shortcut help); true when one was open. */
+  readonly closeOverlay: () => boolean;
   readonly startNewSession: () => void;
   readonly closeNewSession: () => void;
   readonly toggleFolded: (key: string, open: boolean) => void;
@@ -231,9 +233,18 @@ export const createNavigation = ({
       if (host !== undefined) selectHost(host.host.key, inputAt);
     },
     showSidebar: (sidebar) => set({ sidebar }),
-    openJump: () => set({ jumpOpen: true }),
-    setJumpOpen: (jumpOpen) => set({ jumpOpen }),
-    setHelpOpen: (helpOpen) => set({ helpOpen }),
+    // One shell overlay at a time: opening one closes the other.
+    openJump: () => set({ jumpOpen: true, helpOpen: false }),
+    setJumpOpen: (jumpOpen) => set(jumpOpen ? { jumpOpen, helpOpen: false } : { jumpOpen }),
+    setHelpOpen: (helpOpen) => set(helpOpen ? { helpOpen, jumpOpen: false } : { helpOpen }),
+    closeOverlay: () => {
+      const { jumpOpen, helpOpen } = store.getState();
+
+      if (!jumpOpen && !helpOpen) return false;
+      set({ jumpOpen: false, helpOpen: false });
+
+      return true;
+    },
     startNewSession: () => {
       const { hostKey, workspaceId } = current();
 

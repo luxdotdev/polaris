@@ -43,7 +43,22 @@ export const handleKey = (
   return registry.handleKey(event);
 };
 
+/**
+ * Escape closes the shell's own overlay, decided from state and before any Radix
+ * layer sees the key: Radix's layer stack is stale while one dialog closes and the next opens.
+ */
+export const handleOverlayEscape = (
+  event: { readonly key: string; readonly isComposing: boolean },
+  actions: ShellActions
+): boolean => !event.isComposing && event.key === "Escape" && actions.closeOverlay();
+
 export const installKeyboard = (context: KeyContext) => {
+  const escape = (event: KeyboardEvent) => {
+    if (!handleOverlayEscape(event, context.actions)) return;
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
   const listener = (event: KeyboardEvent) => {
     if (event.defaultPrevented || event.repeat || event.isComposing) return;
 
@@ -60,7 +75,11 @@ export const installKeyboard = (context: KeyContext) => {
     if (handleKey(input, context)) event.preventDefault();
   };
 
+  window.addEventListener("keydown", escape, { capture: true });
   window.addEventListener("keydown", listener);
 
-  return () => window.removeEventListener("keydown", listener);
+  return () => {
+    window.removeEventListener("keydown", escape, { capture: true });
+    window.removeEventListener("keydown", listener);
+  };
 };
