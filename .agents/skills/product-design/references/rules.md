@@ -10,6 +10,7 @@ the full text is in the named canonical file; do not restate it.
 | rule/colour-means-something | DESIGN.md, Colors, Named Rules | agent |
 | rule/starlight-is-rare | DESIGN.md, Colors, Named Rules | agent |
 | rule/no-colour-alone | DESIGN.md, Colors, Named Rules | agent |
+| rule/context-is-quiet | DESIGN.md, Components, Turns in the conversation | agent (`contextLabel` tests) |
 | rule/signal-text-variants | DESIGN.md, Colors, Named Rules | agent + contrast table |
 | rule/faint-is-not-content | DESIGN.md, Colors, Neutral | agent |
 | rule/severity-is-a-badge | DESIGN.md, Colors, Named Rules | agent |

@@ -222,10 +222,11 @@ describe("tool parts", () => {
       TurnItem.cases.Plan.make({
         id: "t:plan",
         steps: [
-          { text: "a", status: "completed" },
-          { text: "b", status: "in-progress" },
-          { text: "c", status: "pending" },
+          { text: "a", status: "completed", detail: null },
+          { text: "b", status: "in-progress", detail: null },
+          { text: "c", status: "pending", detail: null },
         ],
+        explanation: null,
       })
     );
     expect(planItem("t:plan", { nope: true })).toBeNull();

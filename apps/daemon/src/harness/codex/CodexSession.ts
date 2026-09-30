@@ -55,6 +55,7 @@ import {
 } from "./mapping.ts";
 import * as P from "./protocol.ts";
 import { codexError, Incoming, type RpcConnection } from "./RpcConnection.ts";
+import { ReasoningTimes } from "./reasoning.ts";
 import { CodexSubagents } from "./subagents.ts";
 import { requestCompat } from "./compat.ts";
 
@@ -110,6 +111,8 @@ const decodeItem = decode(P.ItemNotification);
 const decodeDelta = decode(P.DeltaNotification);
 
 const decodePlan = decode(P.TurnPlanUpdatedNotification);
+
+const decodeTokenUsage = decode(P.ThreadTokenUsageUpdatedNotification);
 
 const decodeResolved = decode(P.ServerRequestResolvedNotification);
 
@@ -318,7 +321,8 @@ export const openSession = (
     const turns = new Map<string, TurnId>(); // Codex turn id → Polaris TurnId
     /** Codex turns whose `TurnStarted` was emitted. */
     const announced = new Set<string>();
-    const plans = new Map<string, (typeof P.TurnPlanUpdatedNotification.Type)["plan"]>();
+    const plans = new Map<string, typeof P.TurnPlanUpdatedNotification.Type>();
+    const reasoning = new ReasoningTimes();
     let activeCodexTurn: string | null = null;
     /** A Turn Polaris is starting (`turn/start` in flight), with the prompt it sent. */
     let pendingLocalTurn: { readonly turnId: TurnId; readonly prompt: string } | null = null;
@@ -447,7 +451,11 @@ export const openSession = (
 
       if (p.item.type === "userMessage") return announceUserMessage(p);
       const turnId = turnFor(p.turnId);
-      const item = progressOf(p.item);
+
+      const item =
+        p.item.type === "reasoning" && p.item.id !== undefined
+          ? reasoning.start(p.item.id, p.startedAtMs)
+          : progressOf(p.item);
 
       if (item !== null) emit(HarnessEvent.ItemUpdated({ turnId, item }));
 
@@ -465,7 +473,8 @@ export const openSession = (
       const turnId = turnFor(p.turnId);
       const item = toTurnItem(p.item);
 
-      if (item !== null) emit(HarnessEvent.ItemCompleted({ turnId, item }));
+      if (item !== null)
+        emit(HarnessEvent.ItemCompleted({ turnId, item: reasoning.finish(item, p.completedAtMs) }));
 
       for (const event of subagents.fromParentItem(turnId, p.item)) emit(event);
       openAsyncQuestions(turnId, p.item);
@@ -552,11 +561,11 @@ export const openSession = (
           const p = decodePlan(params);
 
           if (!ours(p)) return;
-          plans.set(p.turnId, p.plan);
+          plans.set(p.turnId, p);
           emit(
             HarnessEvent.ItemUpdated({
               turnId: turnFor(p.turnId),
-              item: toPlanItem(`${p.turnId}:plan`, p.plan),
+              item: toPlanItem(`${p.turnId}:plan`, p),
             })
           );
         },
@@ -594,6 +603,21 @@ export const openSession = (
         },
       ],
       ["turn/completed", onTurnCompleted],
+      [
+        "thread/tokenUsage/updated",
+        (params) => {
+          const p = decodeTokenUsage(params);
+
+          if (!ours(p)) return;
+          const { last, modelContextWindow } = p.tokenUsage;
+          emit(
+            HarnessEvent.ContextUsed({
+              usedTokens: last.totalTokens,
+              windowTokens: modelContextWindow,
+            })
+          );
+        },
+      ],
     ]);
 
     if (config.planLimits)

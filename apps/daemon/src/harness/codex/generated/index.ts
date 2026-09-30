@@ -21,6 +21,7 @@ export type { ThreadNameUpdatedNotification } from "./v2/ThreadNameUpdatedNotifi
 export type { TurnStartedNotification } from "./v2/TurnStartedNotification.ts"
 export type { TurnCompletedNotification } from "./v2/TurnCompletedNotification.ts"
 export type { TurnPlanUpdatedNotification } from "./v2/TurnPlanUpdatedNotification.ts"
+export type { ThreadTokenUsageUpdatedNotification } from "./v2/ThreadTokenUsageUpdatedNotification.ts"
 export type { ItemStartedNotification } from "./v2/ItemStartedNotification.ts"
 export type { ItemCompletedNotification } from "./v2/ItemCompletedNotification.ts"
 export type { AgentMessageDeltaNotification } from "./v2/AgentMessageDeltaNotification.ts"

@@ -5,6 +5,7 @@
  */
 import {
   AgentSession,
+  ContextUsage,
   ApprovalRequest,
   RequestId,
   Sequence,
@@ -81,6 +82,7 @@ const session = (id: string, patch: Partial<AgentSession>) =>
     forkedFromTurnId: null,
     harnessCursor: null,
     turnCount: 24,
+    contextUsage: null,
     lastError: null,
     createdAt: ago(18_000),
     updatedAt: ago(10),
@@ -109,11 +111,12 @@ const earlierTurn = (sessionId: SessionId) =>
 const PLAN = I.Plan.make({
   id: "p24",
   steps: [
-    { text: "Moved ENG-177 to In Progress", status: "completed" },
-    { text: "Read the Orchestrator notes and mock data", status: "completed" },
-    { text: "Writing index.html", status: "in-progress" },
-    { text: "Publish the prototype as an artifact", status: "pending" },
+    { text: "Moved ENG-177 to In Progress", status: "completed", detail: null },
+    { text: "Read the Orchestrator notes and mock data", status: "completed", detail: null },
+    { text: "Write index.html", status: "in-progress", detail: "Writing index.html" },
+    { text: "Publish the prototype as an artifact", status: "pending", detail: null },
   ],
+  explanation: null,
 });
 
 const model = (patch: Partial<SessionModel>): SessionModel => ({
@@ -127,7 +130,11 @@ const model = (patch: Partial<SessionModel>): SessionModel => ({
 
 /** Artboard 5: Working on turn 24, the plan live, turn 23 folded. */
 export const planning = (): SessionModel => {
-  const s = session("s-planning", {});
+  const s = session("s-planning", {
+    contextUsage: new ContextUsage({ usedTokens: 84_000, windowTokens: 200_000 }),
+  });
+
+  const thinking = I.Reasoning.make({ id: "r25", text: "", startedAt: ago(4), endedAt: null });
 
   return model({
     session: s,
@@ -144,6 +151,8 @@ export const planning = (): SessionModel => {
           I.Reasoning.make({
             id: "r24",
             text: "Four layouts from one mock data set; arrow keys flip between them.",
+            startedAt: ago(84),
+            endedAt: ago(72),
           }),
           I.AssistantMessage.make({
             id: "m24",
@@ -157,7 +166,10 @@ export const planning = (): SessionModel => {
             status: "completed",
           }),
         ],
-        [["p24", { item: PLAN, text: "", output: "" }]]
+        [
+          ["p24", { item: PLAN, text: "", output: "" }],
+          ["r25", { item: thinking, text: "Checking how the mock data is shaped.", output: "" }],
+        ]
       ),
     ],
   });
@@ -171,6 +183,7 @@ export const approval = (): SessionModel => {
     state: "needs-you",
     model: "gpt-5.5",
     effort: "high",
+    contextUsage: new ContextUsage({ usedTokens: 236_000, windowTokens: 258_000 }),
   });
 
   const t = turn(
@@ -304,7 +317,12 @@ export const long = (): SessionModel => {
 
   const turns = Array.from({ length: 150 }, (_, n) =>
     view(turn(s.id, n, `Step ${n + 1}: move the next module onto the new store`, "completed"), [
-      I.Reasoning.make({ id: `r${n}`, text: "Checking the callers first." }),
+      I.Reasoning.make({
+        id: `r${n}`,
+        text: "Checking the callers first.",
+        startedAt: null,
+        endedAt: null,
+      }),
       I.AssistantMessage.make({
         id: `m${n}`,
         text: `Moved module ${n + 1}. Its callers now read through the selector, and the old subscription is gone.\n\nNext I'll run the tests for this package.`,

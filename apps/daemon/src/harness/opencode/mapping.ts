@@ -236,7 +236,12 @@ export const planItem = (id: string, input: P.Payload): TurnItem | null => {
     ? null
     : TurnItem.cases.Plan.make({
         id,
-        steps: todos.map((todo) => ({ text: todo.content, status: planStatus(todo.status) })),
+        steps: todos.map((todo) => ({
+          text: todo.content,
+          status: planStatus(todo.status),
+          detail: null,
+        })),
+        explanation: null,
       });
 };
 

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   ApprovalDecision,
+  ContextUsage,
   type DomainEvent,
   DomainEvent as Events,
   SessionStreamItem,
@@ -51,6 +52,33 @@ describe("session model", () => {
     expect(model.session?.title).toBe("Proof session");
     expect(model.turns[0]?.items).toEqual([message]);
     expect(model.pendingApprovals).toEqual([approval]);
+  });
+
+  test("context usage folds into the session the header reads", () => {
+    const usage = new ContextUsage({ usedTokens: 84_000, windowTokens: 200_000 });
+
+    const model = applySessionItems(started, [
+      event(4, E.SessionContextUsed.make({ sessionId, usage })),
+    ]);
+
+    expect(started.session?.contextUsage).toBeNull();
+    expect(model.session?.contextUsage).toEqual(usage);
+  });
+
+  test("a live reasoning item keeps its start while its text streams", () => {
+    const thinking = TurnItem.cases.Reasoning.make({
+      id: "r1",
+      text: "",
+      startedAt: "2026-09-30T10:00:00.000Z",
+      endedAt: null,
+    });
+
+    const model = applySessionItems(started, [
+      S.ItemProgress.make({ turnId, item: thinking, subagentId: null }),
+      S.Delta.make({ turnId, itemId: "r1", field: "text", text: "Hmm", subagentId: null }),
+    ]);
+
+    expect(model.turns[0]?.live.get("r1")).toMatchObject({ item: thinking, text: "Hmm" });
   });
 
   test("deltas stream into the live item until it completes", () => {

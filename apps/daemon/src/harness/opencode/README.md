@@ -47,7 +47,7 @@ Only events whose `sessionID` is this session's are used; the stream is per dire
 | (session created or resumed) | `CursorAssigned { cursor: sessionID }` |
 | `message.updated` (user) + its `text` part | `TurnStarted { prompt }` for a Turn Polaris didn't send |
 | `message.part.delta` (`field: "text"`) | `ItemDelta { field: "text" }` (text and reasoning) |
-| `message.part.updated` text / reasoning, once `time.end` is set | `ItemCompleted` AssistantMessage / Reasoning (synthetic and ignored text skipped) |
+| `message.part.updated` text / reasoning, once `time.end` is set | `ItemCompleted` AssistantMessage / Reasoning (synthetic and ignored text skipped; reasoning timed by the part's `time`) |
 | `message.part.updated` tool, `running` | `ItemUpdated`: `bash` → CommandExecution (output from `metadata.output`), `edit`/`write`/`multiedit`/`patch`/`apply_patch` → FileChange (paths from `filePath` or the patch's `*** Add/Update/Delete File:` headers), anything else → ToolCall |
 | `message.part.updated` tool, `completed` / `error` | `ItemCompleted`, same mapping; a rejected permission is `declined`, other errors `failed` |
 | `message.part.updated` `todowrite` | `ItemUpdated` with a Plan (id `<turn>:plan`); the latest plan is completed just before `TurnEnded` |
@@ -133,6 +133,7 @@ It starts `opencode serve` with throwaway XDG directories (no config, no credent
 
 - **Subagents**: the `task` tool's child sessions (`parentID`) show only as a ToolCall; making them Subagents is its own M1.5 ticket.
 - **Usage**: per-message cost and tokens are not reported by this driver; ENG-205's Usage index reads them.
+- **Context usage**: not reported, so the header shows none. An assistant message's `tokens` give the used count, but the window needs the Model's `limit.context` from the provider list; a follow-up.
 - **Bench**: no `opencode` scenario in `packages/bench` yet.
 - **Nightly contract test** against the latest OpenCode release: not set up.
 - **Instances**: OpenCode keeps an instance loaded per directory until the server stops; the driver doesn't dispose one when its last session in that directory closes.

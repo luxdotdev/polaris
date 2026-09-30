@@ -186,7 +186,8 @@ describe("live item progress", () => {
             turnId,
             item: TurnItem.cases.Plan.make({
               id: "p1",
-              steps: [{ text: "test", status: "in-progress" }],
+              steps: [{ text: "test", status: "in-progress", detail: null }],
+              explanation: null,
             }),
           })
         );
@@ -630,6 +631,7 @@ describe("recent Turns in memory", () => {
                   forkedFromTurnId: null,
                   harnessCursor: "cur",
                   turnCount: 0,
+                  contextUsage: null,
                   lastError: null,
                   createdAt: at,
                   updatedAt: at,

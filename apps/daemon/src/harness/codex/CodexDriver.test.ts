@@ -252,6 +252,76 @@ describe("Codex driver against a fake app-server", () => {
     ).toContainEqual(TurnItem.cases.Error.make({ id: "t1:error:1", message: readable }));
   });
 
+  test("reasoning is live and timed by Codex's stamps; token usage reports the context", async () => {
+    const reasoning = (summary: string[]) => ({
+      type: "reasoning",
+      id: "r1",
+      summary,
+      content: [],
+    });
+
+    const breakdown = (totalTokens: number) => ({
+      totalTokens,
+      inputTokens: totalTokens,
+      cachedInputTokens: 0,
+      cacheWriteInputTokens: 0,
+      outputTokens: 0,
+      reasoningOutputTokens: 0,
+    });
+
+    const handler = scripted((request, conn) => {
+      if (request.method !== "turn/start") return;
+      conn.reply({ turn: turn("t1") });
+      conn.notify("turn/started", { threadId: THREAD, turn: turn("t1") });
+      const at = Date.parse("2026-09-30T10:00:00Z");
+      const item = { threadId: THREAD, turnId: "t1" };
+      conn.notify("item/started", { ...item, startedAtMs: at, item: reasoning([]) });
+      conn.notify("item/completed", {
+        ...item,
+        completedAtMs: at + 12_000,
+        item: reasoning(["Planning."]),
+      });
+      conn.notify("thread/tokenUsage/updated", {
+        ...item,
+        tokenUsage: {
+          total: breakdown(90_000),
+          last: breakdown(64_000),
+          modelContextWindow: 258_000,
+        },
+      });
+      conn.notify("turn/completed", { threadId: THREAD, turn: turn("t1", "completed") });
+    });
+
+    const { events } = await withSession(handler, ({ session, waitFor }) =>
+      Effect.gen(function* () {
+        yield* session.sendTurn({
+          turnId: TurnId.make("turn-1"),
+          prompt: "hi",
+          attachments: [],
+          model: null,
+          effort: null,
+        });
+        yield* waitFor("TurnEnded");
+      })
+    );
+
+    expect(events.find(HarnessEvent.$is("ItemUpdated"))?.item).toMatchObject({
+      text: "",
+      startedAt: "2026-09-30T10:00:00.000Z",
+    });
+    expect(events.find(HarnessEvent.$is("ItemCompleted"))?.item).toEqual(
+      TurnItem.cases.Reasoning.make({
+        id: "r1",
+        text: "Planning.",
+        startedAt: "2026-09-30T10:00:00.000Z",
+        endedAt: "2026-09-30T10:00:12.000Z",
+      })
+    );
+    expect(events.find(HarnessEvent.$is("ContextUsed"))).toEqual(
+      HarnessEvent.ContextUsed({ usedTokens: 64_000, windowTokens: 258_000 })
+    );
+  });
+
   test("an approval round-trip answers the server request", async () => {
     let approval: Promise<ClientAnswer> = Promise.resolve(null);
 
@@ -544,7 +614,8 @@ describe("Codex driver against a fake app-server", () => {
 
     const plan = TurnItem.cases.Plan.make({
       id: "t_tui:plan",
-      steps: [{ text: "run tests", status: "in-progress" }],
+      steps: [{ text: "run tests", status: "in-progress", detail: null }],
+      explanation: null,
     });
 
     const commandItem = (

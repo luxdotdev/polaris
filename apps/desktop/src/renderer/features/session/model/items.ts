@@ -13,6 +13,8 @@ export type FileChangeKind = "add" | "modify" | "delete";
 export interface PlanStep {
   readonly text: string;
   readonly status: "pending" | "in-progress" | "completed";
+  /** What the step is doing now (Claude's `activeForm`), when the Harness says. */
+  readonly detail: string | null;
 }
 
 interface Base {
@@ -23,7 +25,13 @@ interface Base {
 
 export type ItemView =
   | (Base & { readonly kind: "message"; readonly text: string })
-  | (Base & { readonly kind: "reasoning"; readonly text: string })
+  | (Base & {
+      readonly kind: "reasoning";
+      readonly text: string;
+      /** When the Harness began and finished thinking; null when unknown. */
+      readonly startedAt: string | null;
+      readonly endedAt: string | null;
+    })
   | (Base & {
       readonly kind: "command";
       readonly command: string;
@@ -42,7 +50,11 @@ export type ItemView =
       readonly summary: string;
       readonly status: ItemStatus;
     })
-  | (Base & { readonly kind: "plan"; readonly steps: ReadonlyArray<PlanStep> })
+  | (Base & {
+      readonly kind: "plan";
+      readonly steps: ReadonlyArray<PlanStep>;
+      readonly explanation: string | null;
+    })
   | (Base & { readonly kind: "error"; readonly message: string });
 
 const SUMMARY_MAX = 160;
@@ -78,7 +90,14 @@ const fromItem = (item: TurnItem, live: boolean): ItemView =>
   Match.value(item).pipe(
     Match.tagsExhaustive({
       AssistantMessage: (i): ItemView => ({ kind: "message", id: i.id, live, text: i.text }),
-      Reasoning: (i): ItemView => ({ kind: "reasoning", id: i.id, live, text: i.text }),
+      Reasoning: (i): ItemView => ({
+        kind: "reasoning",
+        id: i.id,
+        live,
+        text: i.text,
+        startedAt: i.startedAt,
+        endedAt: i.endedAt,
+      }),
       CommandExecution: (i): ItemView => ({
         kind: "command",
         id: i.id,
@@ -103,7 +122,13 @@ const fromItem = (item: TurnItem, live: boolean): ItemView =>
         summary: toolSummary(i.input),
         status: i.status,
       }),
-      Plan: (i): ItemView => ({ kind: "plan", id: i.id, live, steps: i.steps }),
+      Plan: (i): ItemView => ({
+        kind: "plan",
+        id: i.id,
+        live,
+        steps: i.steps,
+        explanation: i.explanation,
+      }),
       Error: (i): ItemView => ({ kind: "error", id: i.id, live, message: i.message }),
     })
   );

@@ -165,7 +165,12 @@ export const translatorFor = (
     const item =
       part.type === "text"
         ? TurnItem.cases.AssistantMessage.make({ id: part.id, text: part.text })
-        : TurnItem.cases.Reasoning.make({ id: part.id, text: part.text });
+        : TurnItem.cases.Reasoning.make({
+            id: part.id,
+            text: part.text,
+            startedAt: new Date(part.time.start).toISOString(),
+            endedAt: new Date(part.time.end).toISOString(),
+          });
 
     emit(HarnessEvent.ItemCompleted({ turnId: current().id, item }));
   };

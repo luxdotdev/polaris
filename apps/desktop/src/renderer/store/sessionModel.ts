@@ -128,6 +128,10 @@ const fold = (event: DomainEvent): Fold =>
         ({ permissionMode }): Fold =>
         (m) =>
           patchSession(m, { permissionMode }),
+      SessionContextUsed:
+        ({ usage }): Fold =>
+        (m) =>
+          patchSession(m, { contextUsage: usage }),
       TurnStarted:
         ({ turn }): Fold =>
         (m) =>
