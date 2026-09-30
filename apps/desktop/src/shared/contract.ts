@@ -114,6 +114,7 @@ export const RequestInputs = {
     harness: HarnessKind,
     value: Schema.NullOr(SessionDefault),
   }),
+  "settings.setNewWorktree": Schema.Struct({ on: Schema.Boolean }),
   /** Opens a URL in the user's browser; https only (a catalogue `docsUrl`). */
   "shell.openExternal": Schema.Struct({
     url: Schema.String.check(Schema.isPattern(/^https:\/\//)),

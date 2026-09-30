@@ -45,7 +45,17 @@ const GROUPS: ReadonlyArray<GroupSource> = [
         title: "Harnesses",
         blurb:
           "The agent programs Polaris drives on each host. Each harness keeps its own sign-in; Polaris never reads your keys or tokens.",
-        keywords: ["claude", "codex", "opencode", "sign in", "model", "effort", "permissions"],
+        keywords: [
+          "claude",
+          "codex",
+          "opencode",
+          "sign in",
+          "model",
+          "effort",
+          "permissions",
+          "worktree",
+          "branch",
+        ],
       },
       {
         id: "usage",
