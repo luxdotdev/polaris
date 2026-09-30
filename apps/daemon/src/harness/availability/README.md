@@ -4,7 +4,7 @@ Tells Clients, per Host, whether each catalogue Harness is usable (ENG-201, deci
 
 | File | Role |
 |---|---|
-| `probe.ts` | `probeHarness(entry, env)`: one Harness, no side effects. `harnessBinary` finds the binary (`POLARIS_CLAUDE` / `POLARIS_CODEX` / `POLARIS_OPENCODE` / `POLARIS_GEMINI` / `POLARIS_COPILOT`, else PATH), at probe time, so a Harness installed after the Daemon started is found. |
+| `probe.ts` | `probeHarness(entry, env)`: one Harness, no side effects. `harnessBinary` finds the binary (`POLARIS_CLAUDE` / `POLARIS_CODEX` / `POLARIS_OPENCODE` / `POLARIS_GEMINI` / `POLARIS_COPILOT`, else PATH), at probe time, so a Harness installed after the Daemon started is found. PATH is the user's: `polaris serve` merges their interactive login shell's PATH (and `~/.local/bin`, `~/.bun/bin`, …) into its own at start (`service/userPath.ts`), since launchd, systemd and `ssh host cmd` all start it bare. |
 | `Availability.ts` | The `Availability` service: the cached `HostHarnesses` report and its changes. |
 | `AvailabilityRpcs.ts` | `harness.availability` (`refresh` probes again) and `harness.watchAvailability` (the current report, then each new one). |
 

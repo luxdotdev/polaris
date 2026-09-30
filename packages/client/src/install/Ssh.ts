@@ -88,7 +88,23 @@ export class Ssh extends Context.Service<
 
           const child = spawn(
             "ssh",
-            ["-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=15", "--", alias, command],
+            [
+              "-T",
+              "-o",
+              "BatchMode=yes",
+              // Never write known_hosts (ssh.ts); no agent for install commands.
+              "-o",
+              "StrictHostKeyChecking=yes",
+              "-o",
+              "UpdateHostKeys=no",
+              "-o",
+              "ForwardAgent=no",
+              "-o",
+              "ConnectTimeout=15",
+              "--",
+              alias,
+              command,
+            ],
             { stdio: [options?.stdinFile ? "pipe" : "ignore", "pipe", "pipe"] }
           );
 

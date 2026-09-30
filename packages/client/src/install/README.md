@@ -11,7 +11,7 @@ const result = yield* ensureDaemon(alias, builds, { trigger: "user", approvedSha
 
 | File | What |
 |---|---|
-| `Ssh.ts` | `Ssh` service: one non-interactive command over the system `ssh` (`-T -o BatchMode=yes -o ConnectTimeout=15 -- <alias>`), with optional stdin streamed from a local file. ssh's own failures (exit 255) become `SshError` with a `failure` of `host-key`, `auth`, `unreachable`, `spawn` or `unknown`. `needsAttention` is true for the first two. Remote commands are wrapped in `sh -c '…'`, so the user's login shell does not matter. |
+| `Ssh.ts` | `Ssh` service: one non-interactive command over the system `ssh` (`-T -o BatchMode=yes -o StrictHostKeyChecking=yes -o UpdateHostKeys=no -o ForwardAgent=no -o ConnectTimeout=15 -- <alias>`), with optional stdin streamed from a local file. ssh's own failures (exit 255) become `SshError` with a `failure` of `host-key`, `auth`, `unreachable`, `spawn` or `unknown`. `needsAttention` is true for the first two. Remote commands are wrapped in `sh -c '…'`, so the user's login shell does not matter. |
 | `builds.ts` | `loadBuilds(distDir)` reads `manifest.json`. Also `platformFromUname`, `compareVersions`. |
 | `plan.ts` | `planInstall(probe, builds, options)`, a pure function; every branch is unit-tested. |
 | `remote.ts` | `probeHost`, `applyPlan`, `ensureDaemon`. |
