@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import type { NeedsYouRequest, NeedsYouSession, NeedsYouSummary } from "../../shared/needsYou.ts";
+import type {
+  NeedsYouAction,
+  NeedsYouRequest,
+  NeedsYouSession,
+  NeedsYouSummary,
+} from "../../shared/needsYou.ts";
+import { NOTIFICATION_BUTTONS, notificationHandlers } from "./actions.ts";
 import { emptyNotificationState, notificationKey, planNotifications } from "./plan.ts";
 
 const req = (requestId: string, kind: NeedsYouRequest["kind"] = "command"): NeedsYouRequest => ({
@@ -90,5 +96,30 @@ describe("notification plan", () => {
 
   test("an Interrupted Turn (no requests) doesn't notify", () => {
     expect(plan(summary([session("i", [])])).show).toEqual([]);
+  });
+});
+
+describe("notification actions", () => {
+  const acted = (drive: (on: ReturnType<typeof notificationHandlers>) => void) => {
+    const content = plan(summary([session("a", [req("r1")])])).show[0]!;
+    const actions: Array<NeedsYouAction> = [];
+
+    drive(notificationHandlers(content, (a) => actions.push(a)));
+
+    return actions;
+  };
+
+  test("the buttons are Approve then Deny, and answer the notified request", () => {
+    expect(NOTIFICATION_BUTTONS).toEqual(["Approve", "Deny"]);
+    const where = { hostKey: "local", sessionId: "a", requestId: "r1" };
+
+    expect(acted((on) => on.action(0))).toEqual([{ action: "approve", ...where }]);
+    expect(acted((on) => on.action(1))).toEqual([{ action: "deny", ...where }]);
+    expect(acted((on) => on.reply("Monthly"))).toEqual([
+      { action: "answer", ...where, text: "Monthly" },
+    ]);
+    expect(acted((on) => on.click())).toEqual([
+      { action: "open", hostKey: "local", sessionId: "a" },
+    ]);
   });
 });

@@ -229,6 +229,7 @@ const needsYouProbe = () =>
           tray: probe.trayTitle(),
           notified: probe.notified(),
           requests: [...probe.requests()],
+          standing: [...probe.standing()],
         };
   });
 
@@ -237,6 +238,7 @@ interface Probe {
   readonly tray: string;
   readonly notified: number;
   readonly requests: ReadonlyArray<string>;
+  readonly standing: ReadonlyArray<{ readonly key: string; readonly requestId: string }>;
 }
 
 const waitForProbe = async (want: (p: Probe) => boolean, what: string) => {
@@ -250,7 +252,30 @@ const waitForProbe = async (want: (p: Probe) => boolean, what: string) => {
   throw new Error(`Needs You: ${what} never happened (${JSON.stringify(await needsYouProbe())})`);
 };
 
-/** The first approval shows in the inbox and the menu bar count; approving it there resolves it. */
+/** Presses a button on the notification for the next request not yet `answered`. */
+const pressNotification = async (index: 0 | 1, answered: ReadonlyArray<string>) => {
+  const probe = await waitForProbe(
+    (p) => p.standing.some((n) => !answered.includes(n.requestId)),
+    "a notification for the next request"
+  );
+
+  const shown = probe.standing.find((n) => !answered.includes(n.requestId))!;
+
+  const pressed = await app.evaluate(
+    (_electron, [key, button]) => globalThis.__polarisNeedsYou?.press(key, button) ?? false,
+    [shown.key, index] as const
+  );
+
+  if (!pressed) throw new Error(`the notification for ${shown.requestId} has no buttons`);
+  await waitForProbe((p) => !p.requests.includes(shown.requestId), "the notification's answer");
+
+  return shown.requestId;
+};
+
+/**
+ * The first approval: the menu bar count, then Approve on its notification; the second: Deny
+ * on its notification; the third is approved from the inbox. Each leaves the summary.
+ */
 const inboxCheck = async (page: Page) => {
   const before = await waitForProbe(
     (p) => p.count > 0 && p.tray === String(p.count),
@@ -258,17 +283,52 @@ const inboxCheck = async (page: Page) => {
   );
 
   step(`menu bar star: ${before.tray} waiting; ${before.notified} notification(s) planned`);
+  const approvedThere = await pressNotification(0, []);
+
+  step(`approved ${approvedThere} from its notification; it left the menu bar summary`);
+  const denied = await pressNotification(1, [approvedThere]);
+
+  step(`denied ${denied} from its notification; the Turn went on`);
+  await waitForProbe(
+    (p) => p.requests.some((r) => r !== denied && r !== approvedThere),
+    "a third request"
+  );
   await page.getByRole("radio", { name: /^Needs you/ }).click();
   const card = page.getByTestId("needs-you-card").first();
 
   await card.waitFor({ timeout: 5_000 });
   await shoot(page, "needs-you-inbox");
   await card.getByRole("button", { name: /^Approve/ }).click();
-  const answered = before.requests[0];
+  const answered = (await needsYouProbe())?.requests[0];
 
   await waitForProbe((p) => !p.requests.includes(answered ?? ""), "the answer");
-  step("approved from the inbox; the request left the menu bar summary");
+  step(`approved ${answered} from the inbox; the request left the menu bar summary`);
   await page.getByRole("radio", { name: /^Sessions/ }).click();
+
+  return 3;
+};
+
+/** macOS: closing the last window hides it; the star and its probe keep running. */
+const closeKeepsRunning = async () => {
+  if (process.platform !== "darwin") return;
+
+  const after = await app.evaluate(async ({ BrowserWindow }) => {
+    const win = BrowserWindow.getAllWindows()[0]!;
+
+    win.close();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    return {
+      windows: BrowserWindow.getAllWindows().length,
+      destroyed: win.isDestroyed(),
+      visible: win.isVisible(),
+      star: globalThis.__polarisNeedsYou?.trayTitle() ?? null,
+    };
+  });
+
+  if (after.windows !== 1 || after.destroyed || after.visible || after.star === null)
+    throw new Error(`closing the window didn't keep Polaris running: ${JSON.stringify(after)}`);
+  step("closed the window: hidden, the menu bar star still running");
 };
 
 let failed = false;
@@ -342,16 +402,18 @@ try {
   await timeSwitches(page);
   await jumpByTyping(page);
 
+  let probeTimer: ReturnType<typeof setTimeout> | undefined;
+
   const probe = await Promise.race([
     page.evaluate(probeSource({ bigFile: bigAsset(), repo: REPO_ROOT })),
-    new Promise((_, reject) =>
-      setTimeout(async () => {
+    new Promise((_, reject) => {
+      probeTimer = setTimeout(async () => {
         const steps = await page.evaluate("JSON.stringify(window.__probeSteps)");
 
         reject(new Error(`RPC probe timed out after ${String(steps)}`));
-      }, 20_000)
-    ),
-  ]);
+      }, 20_000);
+    }),
+  ]).finally(() => clearTimeout(probeTimer));
 
   step(`RPC round trips: ${JSON.stringify(probe)}`);
 
@@ -379,6 +441,7 @@ try {
 
   if (consoleErrors.length > 0) throw new Error(`renderer errors:\n${consoleErrors.join("\n")}`);
   await checkNoneReady(page, step);
+  await closeKeepsRunning();
   step("ok");
 } catch (error) {
   failed = true;
