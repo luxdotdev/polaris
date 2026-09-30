@@ -127,6 +127,10 @@ export const SubscriptionInputs = {
   session: onHost({ sessionId: SessionId, turnLimit: Schema.NullOr(Schema.Int) }),
   terminal: onHost({ terminalId: TerminalId }),
   "files.watch": onHost({ root: Schema.String }),
+  /** Each catalogue Harness's status as it changes (`harness.watchAvailability`). */
+  "harness.availability": onHost({}),
+  /** Plan Limits as they change (`usage.watch`, its `PlanLimitChanged` items). */
+  "plan-limits": onHost({}),
 } as const;
 
 export type SubscriptionKind = keyof typeof SubscriptionInputs;
