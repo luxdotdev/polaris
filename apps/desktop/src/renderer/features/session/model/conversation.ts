@@ -51,6 +51,8 @@ export type Row =
       readonly status: "interrupted" | "failed";
       /** The last Turn was interrupted by a restart: offer Continue. */
       readonly canContinue: boolean;
+      /** The last Turn failed: offer Retry, which sends its prompt again. */
+      readonly canRetry: boolean;
     };
 
 const firstLine = (text: string) => {
@@ -118,6 +120,7 @@ const endingRow = (view: TurnView, isLast: boolean): ReadonlyArray<Row> => {
       number: index + 1,
       status,
       canContinue: isLast && status === "interrupted",
+      canRetry: isLast && status === "failed",
     },
   ];
 };

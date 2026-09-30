@@ -196,6 +196,8 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
             );
           case "continue":
             return yield* dispatch(Command.cases.Continue.make({ sessionId: SESSION }));
+          case "retry":
+            return yield* dispatch(Command.cases.Retry.make({ sessionId: SESSION }));
           case "interrupt": {
             yield* dispatch(Command.cases.Interrupt.make({ sessionId: SESSION }));
 

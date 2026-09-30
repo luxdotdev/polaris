@@ -21,7 +21,7 @@ import { send } from "../dispatch.ts";
 import { useHost, useSession, hasCapability } from "../hooks.ts";
 import { conversationRows } from "../model/conversation.ts";
 import { tildePath } from "../model/format.ts";
-import { composerMode, continueCommand, openQuestion } from "../model/intent.ts";
+import { composerMode, continueCommand, openQuestion, retryCommand } from "../model/intent.ts";
 import { useOutbox } from "../outbox.ts";
 import { showTurnDiff, toggleUnfolded, uiKey, useSessionUi } from "../state.ts";
 import { Conversation } from "./Conversation.tsx";
@@ -115,6 +115,7 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
         "Couldn't answer"
       ),
     onContinue: () => void send(hostKey, continueCommand(sessionId), "Couldn't continue"),
+    onRetry: () => void send(hostKey, retryCommand(sessionId), "Couldn't retry"),
     modelLabel: (model, effort) => modelLabel(models.models, model, effort),
     canSteer: mode?.kind === "steer",
     outbox,

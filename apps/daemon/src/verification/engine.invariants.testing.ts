@@ -98,6 +98,8 @@ const checkBlock = (world: World, log: ReadonlyArray<AEvent>, first: Sent, block
   }
 
   if (Predicate.isTagged(first.command, "Continue")) reached.continued++;
+
+  if (Predicate.isTagged(first.command, "Retry")) reached.retried++;
   world.checkedBlocks.add(id);
 };
 

@@ -27,7 +27,7 @@ import {
   WorktreeId,
 } from "@polaris/protocol";
 import { Effect, Result } from "effect";
-import type { ReadModel, SessionRecord } from "../store/model.ts";
+import { lastTurn, type ReadModel, type SessionRecord } from "../store/model.ts";
 import { decideSession, type SessionInput } from "./session.ts";
 
 export { stateChanged } from "./session.ts";
@@ -88,7 +88,11 @@ interface Deciding {
   readonly withSession: (sessionId: SessionId, f: (record: SessionRecord) => Decision) => Decision;
   /** Run the session machine: its events, or its reason to refuse. */
   readonly lifecycle: (record: SessionRecord | undefined, input: SessionInput) => Decision;
-  readonly newTurn: (session: AgentSession, prompt: string) => Turn;
+  readonly newTurn: (
+    session: AgentSession,
+    prompt: string,
+    attachments?: ReadonlyArray<Attachment>
+  ) => Turn;
 }
 
 const deciding = (model: ReadModel, ctx: DecideContext): Deciding => {
@@ -114,13 +118,13 @@ const deciding = (model: ReadModel, ctx: DecideContext): Deciding => {
 
       return decision.rejection !== null ? reject(decision.rejection) : ok(...decision.events);
     },
-    newTurn: (session, prompt) =>
+    newTurn: (session, prompt, attachments = ctx.attachments) =>
       new Turn({
         id: ctx.newTurnId,
         sessionId: session.id,
         index: session.turnCount,
         prompt,
-        attachments: [...ctx.attachments],
+        attachments: [...attachments],
         model: session.model,
         effort: session.effort,
         status: "working",
@@ -350,6 +354,18 @@ const renameSession = (d: Deciding, command: CommandOf<"RenameSession">): Decisi
     return d.ok(DomainEvent.cases.SessionRenamed.make({ sessionId: command.sessionId, title }));
   });
 
+/** A new Turn with the last Turn's prompt and attachments; the machine checks that it Failed. */
+const retry = (d: Deciding, command: CommandOf<"Retry">): Decision =>
+  d.withSession(command.sessionId, (record) => {
+    const last = lastTurn(record);
+
+    if (last === undefined) return d.reject("there is no Failed Turn to retry");
+
+    const turn = d.newTurn(record.session, last.prompt, last.attachments);
+
+    return d.lifecycle(record, { type: "turn.retry", turn });
+  });
+
 /** A lifecycle command of an existing session: the machine input it stands for. */
 const onSession = (d: Deciding, sessionId: SessionId, input: SessionInput): Decision =>
   d.withSession(sessionId, (record) => d.lifecycle(record, input));
@@ -367,6 +383,7 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
         d.lifecycle(record, { type: "turn.send", turn: d.newTurn(record.session, c.prompt) })
       ),
     Continue: (c) => onSession(d, c.sessionId, { type: "turn.continue" }),
+    Retry: (c) => retry(d, c),
     Steer: (c) => onSession(d, c.sessionId, { type: "turn.steer", canSteer: ctx.canSteer }),
     Interrupt: (c) => onSession(d, c.sessionId, { type: "turn.interrupt" }),
     RespondToApproval: (c) =>

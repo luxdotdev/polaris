@@ -42,6 +42,7 @@ const WITNESSES = [
   "witnessHarnessWithdrew",
   "witnessRestartWithdrew",
   "witnessContinued",
+  "witnessRetried",
   "witnessBatchOfTwo",
   "witnessArchived",
   "witnessUnarchived",

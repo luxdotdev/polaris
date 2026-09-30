@@ -65,6 +65,7 @@ export const reached = {
   withdrawnByHarness: 0,
   withdrawnByDaemon: 0,
   continued: 0,
+  retried: 0,
   archived: 0,
   unarchived: 0,
   lateRequests: 0,
@@ -76,7 +77,7 @@ export const reached = {
   disconnects: 0,
 };
 
-export type HarnessWhat = "item" | "delta" | "request" | "withdraw" | "end" | "late";
+export type HarnessWhat = "item" | "delta" | "request" | "withdraw" | "end" | "fail" | "late";
 
 // ── Client feeds ────────────────────────────────────────────────────────────
 
@@ -509,6 +510,10 @@ export class World {
         this.endedTurns.add(turnId);
 
         return harness.emit(HarnessEvent.TurnEnded({ turnId, status: "completed", error: null }));
+      case "fail":
+        this.endedTurns.add(turnId);
+
+        return harness.emit(HarnessEvent.TurnEnded({ turnId, status: "failed", error: "boom" }));
     }
   }
 

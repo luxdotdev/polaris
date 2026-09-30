@@ -141,6 +141,17 @@ describe("conversation rows", () => {
     });
     expect(turnRows(view(0, [], new Map(), "completed"), true, true).at(-1)?.kind).toBe("prompt");
   });
+
+  test("a failed last Turn offers Retry; an earlier one doesn't", () => {
+    expect(turnRows(view(0, [], new Map(), "failed"), true, true).at(-1)).toMatchObject({
+      kind: "ending",
+      canContinue: false,
+      canRetry: true,
+    });
+    expect(turnRows(view(0, [], new Map(), "failed"), true, false).at(-1)).toMatchObject({
+      canRetry: false,
+    });
+  });
 });
 
 describe("steers in the conversation", () => {

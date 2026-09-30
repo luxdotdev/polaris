@@ -45,6 +45,7 @@ const SessionCommand = <Tag extends string>(tag: Tag) =>
 const TCommand = Schema.Union([
   SessionCommand("SendTurn"),
   SessionCommand("Continue"),
+  SessionCommand("Retry"),
   Schema.TaggedStruct("RespondToApproval", {
     sessionId: Schema.String,
     requestId: Schema.String,
@@ -141,14 +142,18 @@ const specCommand = (command: TCommand, s: string): string | null =>
   Match.value(command).pipe(
     Match.tag("SendTurn", () => `SendTurn(${q(s)})`),
     Match.tag("Continue", () => `Continue(${q(s)})`),
+    Match.tag("Retry", () => `Retry(${q(s)})`),
     Match.tag("RespondToApproval", (c) => `Respond({ session: ${q(s)}, req: ${q(c.requestId)} })`),
     Match.tag("ArchiveSession", () => `Archive(${q(s)})`),
     Match.tag("UnarchiveSession", () => `Unarchive(${q(s)})`),
     Match.orElse(() => null)
   );
 
+/** The Turn ends a Harness reports: completed goes Idle, failed goes Failed. */
+const ENDS = new Set(["completed", "failed"]);
+
 /** A Turn's reactor opens the Harness; Archive's stops it. */
-const REACTS = new Set(["SendTurn", "Continue", "ArchiveSession"]);
+const REACTS = new Set(["SendTurn", "Continue", "Retry", "ArchiveSession"]);
 
 class Replayer {
   private readonly state = new Map<string, string>();
@@ -344,7 +349,7 @@ class Replayer {
   private endsTurn(e: TEvent, s: string): boolean {
     return (
       (e.tag === "ApprovalWithdrawn" && byOf(e) === "harness" && this.endsTurnAfter(this.i, s)) ||
-      (e.tag === "TurnEnded" && e.status === "completed")
+      (e.tag === "TurnEnded" && ENDS.has(e.status!))
     );
   }
 
@@ -356,11 +361,14 @@ class Replayer {
       this.i++;
     }
 
-    events.push(this.log[this.i++]!);
-    const idle = this.take(s, (x) => x.tag === "SessionStateChanged" && x.state === "idle");
+    const ended = this.log[this.i++]!;
+    events.push(ended);
+    const failed = ended.status === "failed";
+    const next = failed ? "failed" : "idle";
+    const closing = this.take(s, (x) => x.tag === "SessionStateChanged" && x.state === next);
 
-    if (idle === null) throw new Error(`seq ${e.seq}: a Turn ended without going Idle`);
-    this.harness(s, "HTurnEnded", [...events, idle]);
+    if (closing === null) throw new Error(`seq ${e.seq}: a Turn ended without going ${next}`);
+    this.harness(s, failed ? "HTurnFailed" : "HTurnEnded", [...events, closing]);
   }
 
   /** The next Daemon event of session `s` if `pred` holds for it, skipping dropped ones. */
@@ -409,7 +417,7 @@ class Replayer {
       j < log.length &&
       log[j]!.commandId === null &&
       log[j]!.tag === "TurnEnded" &&
-      log[j]!.status === "completed"
+      ENDS.has(log[j]!.status!)
     );
   }
 }

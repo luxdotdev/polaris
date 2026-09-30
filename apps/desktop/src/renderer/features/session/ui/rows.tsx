@@ -40,6 +40,7 @@ export interface RowContext {
   readonly onOpenDiff: (turnId: string) => void;
   readonly onRespond: (request: ApprovalRequest, decision: ApprovalDecision) => void;
   readonly onContinue: () => void;
+  readonly onRetry: () => void;
   /** "Opus 5 · high", as the Harness names them. */
   readonly modelLabel: (model: string | null, effort: string | null) => string;
   /** A Turn is in flight that takes steers (a failed steer retries as one). */
@@ -206,6 +207,11 @@ const Ending = ({ row, ctx }: { row: Extract<Row, { kind: "ending" }>; ctx: RowC
     {row.canContinue ? (
       <Button variant="secondary" onClick={ctx.onContinue}>
         Continue
+      </Button>
+    ) : null}
+    {row.canRetry ? (
+      <Button variant="secondary" onClick={ctx.onRetry}>
+        Retry
       </Button>
     ) : null}
   </div>
