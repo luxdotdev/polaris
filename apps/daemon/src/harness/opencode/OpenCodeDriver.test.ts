@@ -450,9 +450,10 @@ describe("OpenCode driver", () => {
     const plan = TurnItem.cases.Plan.make({
       id: "turn-1:plan",
       steps: [
-        { text: "write it", status: "in-progress" },
-        { text: "test it", status: "pending" },
+        { text: "write it", status: "in-progress", detail: null },
+        { text: "test it", status: "pending", detail: null },
       ],
+      explanation: null,
     });
 
     expect(ofTag(events, "ItemUpdated").map((e) => e.item)).toEqual([plan]);

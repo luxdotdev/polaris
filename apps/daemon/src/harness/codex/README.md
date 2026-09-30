@@ -47,10 +47,12 @@ Tests: `AppServer.test.ts` runs the real lifecycle against a fake `codex` execut
 | `item/agentMessage/delta`, `item/plan/delta`, `item/reasoning/summaryTextDelta`, `item/reasoning/textDelta` | `ItemDelta { field: "text" }` |
 | `item/commandExecution/outputDelta` | `ItemDelta { field: "output" }` |
 | `item/completed` | `ItemCompleted`: agentMessage/plan → AssistantMessage, reasoning → Reasoning (summary, else raw content), commandExecution → CommandExecution, fileChange → FileChange (`update` → `modify`), mcpToolCall → ToolCall `server.tool`, dynamicToolCall/collabAgentToolCall/webSearch/imageView → ToolCall. A Turn's first user message (its prompt), compaction and review markers are skipped; later user messages are steers (`UserMessage`). |
-| `turn/plan/updated` | `ItemUpdated` with the `Plan` (id `<codexTurn>:plan`) each time; the latest plan is completed once, just before `TurnEnded` |
+| `turn/plan/updated` | `ItemUpdated` with the `Plan` (id `<codexTurn>:plan`, its `explanation` when not blank) each time; the latest plan is completed once, just before `TurnEnded` |
 | `error` with `willRetry: false` | `ItemCompleted` with an `Error` item, its message made readable (below) |
 | `turn/completed` | `TurnEnded { status, error }`, the error made readable (below) |
 | `thread/name/updated` | `TitleSuggested` |
+| `item/started` / `item/completed` for reasoning | a live `Reasoning` (`ItemUpdated`, empty text) timed from `startedAtMs`, completed with `endedAt` from `completedAtMs` (`reasoning.ts`; the driver's clock when a stamp is missing) |
+| `thread/tokenUsage/updated` | `ContextUsed { usedTokens: last.totalTokens, windowTokens: modelContextWindow }` |
 | `serverRequest/resolved` for a request Polaris didn't answer | `ApprovalWithdrawn` |
 | connection closed by the server | `Exited { error }`; scope close gives `Exited { error: null }` |
 

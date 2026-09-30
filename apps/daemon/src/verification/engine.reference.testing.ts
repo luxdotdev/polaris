@@ -85,7 +85,9 @@ export const abstractEvent = (envelope: EventEnvelope): AEvent => {
 
 export const inStream = (e: AEvent, stream: StreamName) =>
   stream === "host"
-    ? e.tag !== "TurnItemCompleted" && e.tag !== "CheckpointRecorded"
+    ? e.tag !== "TurnItemCompleted" &&
+      e.tag !== "CheckpointRecorded" &&
+      e.tag !== "SessionContextUsed"
     : e.session === stream;
 
 export const streamSeqs = (log: ReadonlyArray<AEvent>, stream: StreamName) =>

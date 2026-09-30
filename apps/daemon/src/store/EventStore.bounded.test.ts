@@ -61,6 +61,7 @@ const session = new AgentSession({
   forkedFromTurnId: null,
   harnessCursor: null,
   turnCount: 0,
+  contextUsage: null,
   lastError: null,
   createdAt: at,
   updatedAt: at,

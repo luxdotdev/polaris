@@ -8,6 +8,10 @@
  * block arrives, and one `ItemCompleted` with the final status when its
  * `tool_result` does. TodoWrite updates the Turn's plan live the same way; the
  * plan is completed once, with its last state, when the Turn ends.
+ *
+ * A thinking block is live progress from its stream start, and completes with
+ * the times it started and stopped streaming. Each main-scope assistant
+ * message reports how full the context window is (`ContextUsed`).
  */
 import type {
   SDKAssistantMessage,
@@ -32,8 +36,15 @@ import {
 
 type ToolStatus = "running" | "completed" | "failed" | "declined";
 
-const { CursorAssigned, ItemCompleted, ItemDelta, ItemUpdated, SubagentEnded, SubagentStarted } =
-  HarnessEvent;
+const {
+  ContextUsed,
+  CursorAssigned,
+  ItemCompleted,
+  ItemDelta,
+  ItemUpdated,
+  SubagentEnded,
+  SubagentStarted,
+} = HarnessEvent;
 
 /** Where an item belongs: the Turn, or one of its Subagents. */
 interface Scope {
@@ -92,12 +103,25 @@ export const planSteps = (input: ToolPayload) =>
   Option.match(decodeTodos(input), {
     onNone: () => [],
     onSome: ({ todos }) =>
-      present(todos).map((todo) => ({ text: todo.content, status: PLAN_STATUS[todo.status] })),
+      present(todos).map((todo) => ({
+        text: todo.content,
+        status: PLAN_STATUS[todo.status],
+        detail: todo.activeForm === todo.content ? null : todo.activeForm,
+      })),
   });
 
 /** The live plan of a Turn (or of a Subagent: its key), from a TodoWrite call's input. */
 export const planItem = (key: string, input: ToolPayload): TurnItem =>
-  TurnItem.cases.Plan.make({ id: `plan:${key}`, steps: planSteps(input) });
+  TurnItem.cases.Plan.make({ id: `plan:${key}`, steps: planSteps(input), explanation: null });
+
+type MessageUsage = SDKAssistantMessage["message"]["usage"];
+
+/** The tokens one model call carried: its whole prompt (cached or not) and its output. */
+const contextTokens = (usage: MessageUsage): number =>
+  usage.input_tokens +
+  (usage.cache_creation_input_tokens ?? 0) +
+  (usage.cache_read_input_tokens ?? 0) +
+  usage.output_tokens;
 
 /** One tool call, in any state. */
 export interface ToolCall {
@@ -194,12 +218,32 @@ export class ClaudeTranslator {
   private readonly plans = new Map<string, { readonly scope: Scope; readonly item: TurnItem }>();
   /** Subagents by the id of the tool call that spawned them. */
   private readonly subagents = new Map<string, OpenSubagent>();
+  /** When each thinking block still open started and (once its stream stopped) ended. */
+  private readonly thinking = new Map<string, { startedAt: string; endedAt: string | null }>();
+  /** The Model's context window, once Claude Code has said; and the last usage reported. */
+  private contextWindow: number | null = null;
+  private contextUsed: number | null = null;
 
   constructor(
     private readonly cwd: string,
-    cursor: string | null = null
+    cursor: string | null = null,
+    private readonly now: () => string = () => new Date().toISOString()
   ) {
     this.cursor = cursor;
+  }
+
+  /**
+   * Claude Code's own count (`getContextUsage`, or a result's `modelUsage`):
+   * it sets the window later reports use, and is reported itself.
+   */
+  onContextUsage(usedTokens: number | null, windowTokens: number | null): HarnessEvent[] {
+    if (windowTokens !== null && windowTokens > 0) this.contextWindow = windowTokens;
+    const used = usedTokens ?? this.contextUsed;
+
+    if (used === null) return [];
+    this.contextUsed = used;
+
+    return [ContextUsed({ usedTokens: used, windowTokens: this.contextWindow })];
   }
 
   get sessionCursor(): string | null {
@@ -278,7 +322,7 @@ export class ClaudeTranslator {
         );
       case "assistant":
         return this.withScope(message.parent_tool_use_id, (scope) =>
-          this.onAssistant(scope, message.message.id, message.message.content)
+          this.onAssistant(scope, message.message)
         );
       case "user":
         // Tool results read their scope from the tool call they answer.
@@ -314,6 +358,12 @@ export class ClaudeTranslator {
     }
 
     if (message.subtype === "task_started") return this.onTaskStarted(message);
+
+    if (message.subtype === "compact_boundary") {
+      const after = message.compact_metadata.post_tokens;
+
+      return after === undefined ? [] : this.onContextUsage(after, null);
+    }
 
     return message.subtype === "task_notification" ? this.onTaskNotification(message) : [];
   }
@@ -387,33 +437,84 @@ export class ClaudeTranslator {
 
     const messageId = this.streamMessageIds.get(key);
 
-    if (event.type !== "content_block_delta" || messageId === undefined) return [];
-    const text = deltaText(event.delta);
+    if (messageId === undefined) return [];
 
-    if (text === null || text === "") return [];
+    switch (event.type) {
+      case "content_block_start":
+        return event.content_block.type === "thinking"
+          ? this.startThinking(scope, `${messageId}:${event.index}`)
+          : [];
+      case "content_block_stop": {
+        const open = this.thinking.get(`${messageId}:${event.index}`);
 
-    return [
-      ItemDelta({ ...scoped(scope), itemId: `${messageId}:${event.index}`, field: "text", text }),
-    ];
+        if (open !== undefined) open.endedAt = this.now();
+
+        return [];
+      }
+
+      case "content_block_delta": {
+        const text = deltaText(event.delta);
+        const itemId = `${messageId}:${event.index}`;
+
+        return text === null || text === ""
+          ? []
+          : [ItemDelta({ ...scoped(scope), itemId, field: "text", text })];
+      }
+
+      default:
+        return [];
+    }
   }
 
-  private onAssistant(
-    scope: Scope,
-    messageId: string,
-    content: SDKAssistantMessage["message"]["content"]
-  ): HarnessEvent[] {
-    const blocks = decodeAssistantContent(content);
+  /** A thinking block starts streaming: it shows live, timed from now. */
+  private startThinking(scope: Scope, id: string): HarnessEvent[] {
+    const startedAt = this.now();
+    this.thinking.set(id, { startedAt, endedAt: null });
+    const item = TurnItem.cases.Reasoning.make({ id, text: "", startedAt, endedAt: null });
 
-    if (Option.isNone(blocks)) return [];
+    return [ItemUpdated({ ...scoped(scope), item })];
+  }
 
-    return blocks.value.flatMap((block) => {
-      // Blocks of one message arrive in order, one or more per SDK message, so the running
-      // count is the block's index: the same id its stream deltas used.
-      const index = this.delivered.get(messageId) ?? 0;
-      this.delivered.set(messageId, index + 1);
+  /** A thinking block's final item, with its times when its stream was seen. */
+  private thinkingItem(scope: Scope, id: string, text: string): HarnessEvent[] {
+    const open = this.thinking.get(id);
+    this.thinking.delete(id);
 
-      return block === null ? [] : this.onAssistantBlock(scope, `${messageId}:${index}`, block);
-    });
+    // Nothing streamed and nothing to show: there is no row to keep.
+    if (open === undefined && text === "") return [];
+    const startedAt = open?.startedAt ?? null;
+    const endedAt = open === undefined ? null : (open.endedAt ?? this.now());
+    const item = TurnItem.cases.Reasoning.make({ id, text, startedAt, endedAt });
+
+    return [ItemCompleted({ ...scoped(scope), item })];
+  }
+
+  private onAssistant(scope: Scope, message: SDKAssistantMessage["message"]): HarnessEvent[] {
+    const blocks = decodeAssistantContent(message.content);
+    const usage = scope.subagentId === null ? this.onMessageUsage(message.usage) : [];
+
+    if (Option.isNone(blocks)) return usage;
+
+    const messageId = message.id;
+
+    return blocks.value
+      .flatMap((block) => {
+        // Blocks of one message arrive in order, one or more per SDK message, so the running
+        // count is the block's index: the same id its stream deltas used.
+        const index = this.delivered.get(messageId) ?? 0;
+        this.delivered.set(messageId, index + 1);
+
+        return block === null ? [] : this.onAssistantBlock(scope, `${messageId}:${index}`, block);
+      })
+      .concat(usage);
+  }
+
+  /** The Turn's own model call: how full the context is now, when that changed. */
+  private onMessageUsage(usage: MessageUsage | undefined): HarnessEvent[] {
+    if (usage === undefined) return [];
+    const used = contextTokens(usage);
+
+    return used === 0 || used === this.contextUsed ? [] : this.onContextUsage(used, null);
   }
 
   private onAssistantBlock(scope: Scope, id: string, block: AssistantBlock): HarnessEvent[] {
@@ -428,14 +529,7 @@ export class ClaudeTranslator {
               }),
             ];
       case "thinking":
-        return block.thinking === ""
-          ? []
-          : [
-              ItemCompleted({
-                ...scoped(scope),
-                item: TurnItem.cases.Reasoning.make({ id, text: block.thinking }),
-              }),
-            ];
+        return this.thinkingItem(scope, id, block.thinking);
       case "tool_use":
         return this.onToolUse(scope, block.id, block.name ?? "unknown", block.input);
     }

@@ -1,7 +1,8 @@
 /**
  * The Intent column's header (artboard 5): the session title (click to
- * rename), its Harness and state, and a menu for permission mode, Fork and
- * Archive. A refused Archive (a Turn in flight) says why in a toast.
+ * rename), its Harness and state, how full its context is, and a menu for
+ * permission mode, Fork and Archive. A refused Archive (a Turn in flight)
+ * says why in a toast.
  */
 import type { PermissionMode } from "@polaris/protocol";
 import {
@@ -34,6 +35,7 @@ import {
   permissionLabel,
   renameCommand,
 } from "../model/intent.ts";
+import { contextLabel } from "../model/meta.ts";
 
 export interface SessionHeaderProps {
   readonly hostKey: string;
@@ -174,6 +176,7 @@ const setPermission = (hostKey: string, session: SessionData, mode: PermissionMo
 export const SessionHeader = (props: SessionHeaderProps) => {
   const { hostKey, session, harness, turnNumber } = props;
   const state = capitalized(sessionStateLabel[session.state]);
+  const context = contextLabel(session.contextUsage);
 
   return (
     <header className="border-hairline gap-row-x pt-panel flex shrink-0 flex-col border-b px-5 pb-3.5">
@@ -183,17 +186,29 @@ export const SessionHeader = (props: SessionHeaderProps) => {
         </div>
         <SessionMenu {...props} />
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 items-center gap-3 whitespace-nowrap">
         {harness === null ? (
           <span className="text-label text-text-default">{session.harness}</span>
         ) : (
-          <HarnessMark harness={harness} named />
+          <HarnessMark harness={harness} named className="shrink-0" />
         )}
-        <span className="text-caption text-text-subtle tabular" data-testid="session-state">
+        <span
+          className="text-caption text-text-subtle tabular shrink-0"
+          data-testid="session-state"
+        >
           {turnNumber === null ? state : `${state} · turn ${turnNumber}`}
         </span>
         <span className="flex-1" />
-        <span className="text-caption text-text-subtle">
+        {context === null ? null : (
+          <span
+            className="text-caption text-text-subtle tabular min-w-0 truncate"
+            title={`${context.text}: ${context.detail}`}
+            data-testid="session-context"
+          >
+            {context.text}
+          </span>
+        )}
+        <span className="text-caption text-text-subtle shrink-0 whitespace-nowrap">
           {permissionLabel(session.permissionMode)}
         </span>
       </div>

@@ -7,6 +7,7 @@ import {
   AgentSession,
   ApprovalDecision,
   ApprovalRequest,
+  ContextUsage,
   PermissionMode,
   SessionState,
   Subagent,
@@ -51,6 +52,9 @@ export const DomainEvent = Schema.TaggedUnion({
     model: ModelId,
     effort: Schema.NullOr(ReasoningEffort),
   },
+
+  /** The Harness reported how full the context window is (see `AgentSession.contextUsage`). */
+  SessionContextUsed: { sessionId: SessionId, usage: ContextUsage },
 
   TurnStarted: { turn: Turn },
   TurnItemCompleted: {

@@ -100,9 +100,16 @@ const deltaText = (bytes: number): string => {
 interface ItemSeed {
   readonly id: string;
   readonly text: string;
+  /** When a reasoning item began streaming; it ends as it completes. */
+  readonly startedAt: string;
   readonly cwd: string;
   readonly files: ReadonlyArray<string>;
 }
+
+/** The stand-in Model's context window, and how much of it each Turn fills. */
+const BENCH_CONTEXT_WINDOW = 200_000;
+
+const BENCH_CONTEXT_PER_TURN = 30_000;
 
 /** Kinds rotate message, reasoning, command, tool call, file change. */
 const ITEM_KINDS = 5;
@@ -111,13 +118,18 @@ const ITEM_KINDS = 5;
 const STREAMED_KINDS = 3;
 
 const itemFor = (kind: number, seed: ItemSeed): TurnItem => {
-  const { id, text, cwd, files } = seed;
+  const { id, text, cwd, files, startedAt } = seed;
 
   switch (kind) {
     case 0:
       return TurnItem.cases.AssistantMessage.make({ id, text });
     case 1:
-      return TurnItem.cases.Reasoning.make({ id, text });
+      return TurnItem.cases.Reasoning.make({
+        id,
+        text,
+        startedAt,
+        endedAt: new Date().toISOString(),
+      });
     case 2:
       return TurnItem.cases.CommandExecution.make({
         id,
@@ -226,6 +238,8 @@ const openBenchSession = Effect.fn("BenchDriver.open")(function* (options: OpenO
       yield* awaitApproval(turnId, itemId);
     }
 
+    const startedAt = new Date().toISOString();
+
     let text =
       kindIndex < STREAMED_KINDS
         ? yield* streamDeltas(script, turnId, itemId, kindIndex === 2 ? "output" : "text")
@@ -236,6 +250,7 @@ const openBenchSession = Effect.fn("BenchDriver.open")(function* (options: OpenO
     const item = itemFor(kindIndex, {
       id: itemId,
       text: text || `item ${i}`,
+      startedAt,
       cwd: options.cwd,
       files,
     });
@@ -263,6 +278,12 @@ const openBenchSession = Effect.fn("BenchDriver.open")(function* (options: OpenO
 
       for (let i = 0; i < script.items; i++) yield* runItem(script, turnId, i, files);
 
+      yield* emit(
+        HarnessEvent.ContextUsed({
+          usedTokens: Math.min(BENCH_CONTEXT_WINDOW, turns * BENCH_CONTEXT_PER_TURN),
+          windowTokens: BENCH_CONTEXT_WINDOW,
+        })
+      );
       yield* emit(HarnessEvent.TurnEnded({ turnId, status: "completed", error: null }));
     }).pipe(
       Effect.onInterrupt(() =>

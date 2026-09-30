@@ -191,8 +191,21 @@ describe("ACP driver", () => {
       HarnessEvent.$is("ItemCompleted")(event) ? [event.item] : []
     );
 
-    expect(completed).toEqual([
-      TurnItem.cases.Reasoning.make({ id: "t-1:reasoning:1", text: "Thinking" }),
+    // Thinking is live from its first chunk and completes with the times it streamed.
+    const thinking = open.events.find(HarnessEvent.$is("ItemUpdated"));
+    expect(thinking?.item).toMatchObject({ text: "", endedAt: null });
+    const [reasoning, ...rest] = completed;
+
+    if (reasoning === undefined || !TurnItem.guards.Reasoning(reasoning))
+      throw new Error("no reasoning");
+    expect(reasoning).toMatchObject({ id: "t-1:reasoning:1", text: "Thinking" });
+    expect([reasoning.startedAt, reasoning.endedAt]).not.toContain(null);
+    expect(open.events.find(HarnessEvent.$is("ContextUsed"))).toMatchObject({
+      usedTokens: 10,
+      windowTokens: 100,
+    });
+
+    expect(rest).toEqual([
       TurnItem.cases.AssistantMessage.make({ id: "t-1:text:2", text: "Hello" }),
       TurnItem.cases.CommandExecution.make({
         id: "call-1",
@@ -206,9 +219,10 @@ describe("ACP driver", () => {
       TurnItem.cases.Plan.make({
         id: "t-1:plan",
         steps: [
-          { text: "Test", status: "completed" },
-          { text: "Ship", status: "in-progress" },
+          { text: "Test", status: "completed", detail: null },
+          { text: "Ship", status: "in-progress", detail: null },
         ],
+        explanation: null,
       }),
     ]);
     expect(open.events).toContainEqual(HarnessEvent.TitleSuggested({ title: "Testing" }));

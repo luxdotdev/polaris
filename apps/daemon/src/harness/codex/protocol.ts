@@ -248,6 +248,9 @@ export const ItemNotification = Schema.Struct({
   threadId: Schema.String,
   turnId: Schema.String,
   item: ThreadItem,
+  /** When the item started (`item/started`) or completed (`item/completed`), in Unix ms. */
+  startedAtMs: Schema.optional(Schema.Number),
+  completedAtMs: Schema.optional(Schema.Number),
 });
 
 export const DeltaNotification = Schema.Struct({
@@ -260,12 +263,24 @@ export const DeltaNotification = Schema.Struct({
 export const TurnPlanUpdatedNotification = Schema.Struct({
   threadId: Schema.String,
   turnId: Schema.String,
+  explanation: OptionalNullableString,
   plan: Schema.Array(
     Schema.Struct({
       step: Schema.String,
       status: Schema.Literals(["pending", "inProgress", "completed"]),
     })
   ),
+});
+
+const TokenUsageBreakdown = Schema.Struct({ totalTokens: Schema.Number });
+
+export const ThreadTokenUsageUpdatedNotification = Schema.Struct({
+  threadId: Schema.String,
+  turnId: Schema.String,
+  tokenUsage: Schema.Struct({
+    last: TokenUsageBreakdown,
+    modelContextWindow: Schema.NullOr(Schema.Number),
+  }),
 });
 
 export const ServerRequestResolvedNotification = Schema.Struct({
@@ -404,6 +419,10 @@ conforms<Conforms<Gen.ReasoningTextDeltaNotification, typeof DeltaNotification>>
 conforms<Conforms<Gen.CommandExecutionOutputDeltaNotification, typeof DeltaNotification>>();
 
 conforms<Conforms<Gen.TurnPlanUpdatedNotification, typeof TurnPlanUpdatedNotification>>();
+
+conforms<
+  Conforms<Gen.ThreadTokenUsageUpdatedNotification, typeof ThreadTokenUsageUpdatedNotification>
+>();
 
 conforms<
   Conforms<Gen.ServerRequestResolvedNotification, typeof ServerRequestResolvedNotification>

@@ -211,9 +211,10 @@ describe("Claude driver", () => {
         item: TurnItem.cases.Plan.make({
           id: "plan:turn-1",
           steps: [
-            { text: "list", status: "completed" },
-            { text: "edit", status: "in-progress" },
+            { text: "list", status: "completed", detail: "listing" },
+            { text: "edit", status: "in-progress", detail: "editing" },
           ],
+          explanation: null,
         }),
       }),
       HarnessEvent.ItemUpdated({
@@ -242,9 +243,10 @@ describe("Claude driver", () => {
         item: TurnItem.cases.Plan.make({
           id: "plan:turn-1",
           steps: [
-            { text: "list", status: "completed" },
-            { text: "edit", status: "in-progress" },
+            { text: "list", status: "completed", detail: "listing" },
+            { text: "edit", status: "in-progress", detail: "editing" },
           ],
+          explanation: null,
         }),
       }),
       HarnessEvent.TurnEnded({ turnId: T1, status: "completed", error: null }),

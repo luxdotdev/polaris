@@ -135,6 +135,8 @@ const itemMappers = new Map<string, ItemMapper>([
         ? Reasoning.make({
             id: item.id,
             text: (item.summary.length > 0 ? item.summary : item.content).join("\n\n"),
+            startedAt: null,
+            endedAt: null,
           })
         : null,
   ],
@@ -250,15 +252,20 @@ export const userMessageText = (item: P.ThreadItem): string | null => {
 
 export const toPlanItem = (
   id: string,
-  plan: (typeof P.TurnPlanUpdatedNotification.Type)["plan"]
-): TurnItem =>
-  Plan.make({
+  update: Pick<typeof P.TurnPlanUpdatedNotification.Type, "plan" | "explanation">
+): TurnItem => {
+  const explanation = update.explanation?.trim() ?? "";
+
+  return Plan.make({
     id,
-    steps: plan.map((step) => ({
+    steps: update.plan.map((step) => ({
       text: step.step,
       status: step.status === "inProgress" ? "in-progress" : step.status,
+      detail: null,
     })),
+    explanation: explanation === "" ? null : explanation,
   });
+};
 
 // ---------------------------------------------------------------------------
 // Approvals

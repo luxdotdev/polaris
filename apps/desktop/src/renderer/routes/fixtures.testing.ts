@@ -83,6 +83,7 @@ export const hostModel = (workspaces: ReadonlyArray<WorkspaceSpec>): HostModel =
               forkedFromTurnId: null,
               harnessCursor: null,
               turnCount: 1,
+              contextUsage: null,
               lastError: null,
               createdAt: s.createdAt ?? time(0),
               updatedAt: time(0),
