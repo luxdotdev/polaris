@@ -53,7 +53,7 @@ export function ApprovalCard({
       <div className="px-3.5 pb-3">
         <CodeWell>{command}</CodeWell>
       </div>
-      <p className="text-caption text-text-faint truncate px-3.5 pb-3">{where}</p>
+      <p className="text-caption text-text-subtle truncate px-3.5 pb-3">{where}</p>
       <div className="border-hairline flex items-center gap-1.5 border-t px-3.5 py-2.5">
         <Button variant="primary" onClick={onApprove}>
           Approve

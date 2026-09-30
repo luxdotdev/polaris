@@ -94,7 +94,12 @@ export const sessionFlow = async ({ page, repo, step, shoot }: FlowInput) => {
   await page.evaluate(
     `window.polaris.request("dispatch", { hostKey: "local", commandId: crypto.randomUUID(), command: { _tag: "RegisterWorkspace", path: ${JSON.stringify(repo)}, name: "smoke-repo" } })`
   );
-  await page.getByTestId("new-session-smoke-repo").click();
+  // From the shell: its Workspace chip, then the title bar's New session.
+  await page
+    .getByRole("button", { name: /smoke-repo/ })
+    .first()
+    .click();
+  await page.getByRole("button", { name: "New session" }).first().click();
   await page.getByTestId("new-session").waitFor();
   await page.getByTestId("where-line").filter({ hasText: "on a new worktree" }).waitFor();
   const input = page.getByTestId("composer-input");

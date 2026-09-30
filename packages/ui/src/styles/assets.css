@@ -12,6 +12,8 @@
   --scene: url("../../../../design/assets/scenes/scene-night.png");
   --scene-clearing: #070912;
   --halo-claude-code: url("../../../../design/assets/halos/halo-claude.png");
+  --halo-codex: url("../../../../design/assets/halos/halo-codex.png");
+  --halo-opencode: url("../../../../design/assets/halos/halo-opencode.png");
   --halo-starlight: url("../../../../design/assets/halos/halo-starlight.png");
 }
 
@@ -24,6 +26,10 @@
     --wash-needs-you: url("../../../../design/assets/washes/wash-needs-light.png");
     --scene: url("../../../../design/assets/scenes/scene-dawn.png");
     --scene-clearing: #fbfbfc;
+    --halo-claude-code: url("../../../../design/assets/halos/halo-claude-light.png");
+    --halo-codex: url("../../../../design/assets/halos/halo-codex-light.png");
+    --halo-opencode: url("../../../../design/assets/halos/halo-opencode-light.png");
+    --halo-starlight: url("../../../../design/assets/halos/halo-starlight-light.png");
   }
 }
 
@@ -35,4 +41,8 @@
   --wash-needs-you: url("../../../../design/assets/washes/wash-needs-light.png");
   --scene: url("../../../../design/assets/scenes/scene-dawn.png");
   --scene-clearing: #fbfbfc;
+  --halo-claude-code: url("../../../../design/assets/halos/halo-claude-light.png");
+  --halo-codex: url("../../../../design/assets/halos/halo-codex-light.png");
+  --halo-opencode: url("../../../../design/assets/halos/halo-opencode-light.png");
+  --halo-starlight: url("../../../../design/assets/halos/halo-starlight-light.png");
 }

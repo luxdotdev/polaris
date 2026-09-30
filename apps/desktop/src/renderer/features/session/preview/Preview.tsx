@@ -1,10 +1,10 @@
 /**
  * The session view on fixtures, for screenshots against Paper
- * (`scripts/sessionScreens.ts`): `#preview/<scene>` renders one scene with a
- * stand-in bridge and store, no Daemon involved. Loaded as its own chunk.
+ * (`scripts/sessionScreens.ts`): `#preview/<scene>` renders the shell with one
+ * scene selected, on a stand-in bridge and store, no Daemon involved. Its own chunk.
  */
-import { Capability, HARNESS_CATALOGUE, HostId, type SessionId, Sequence } from "@polaris/protocol";
-import type { ReactNode } from "react";
+import { Capability, HARNESS_CATALOGUE, HostId, Sequence } from "@polaris/protocol";
+import { createRoot } from "react-dom/client";
 import { createStore } from "zustand/vanilla";
 import type {
   HostView,
@@ -15,12 +15,11 @@ import type {
 } from "../../../../shared/api.ts";
 import { modelFromSnapshot } from "../../../store/hostModel.ts";
 import type { SessionModel } from "../../../store/sessionModel.ts";
-import { type AppState, initialState, sessionKey } from "../../../store/store.ts";
-import { ConnectionProvider } from "../../../views/hooks.ts";
+import { App } from "../../../app/App.tsx";
+import { createNavigation } from "../../../routes/navigation.ts";
+import { type AppState, type Connection, initialState, sessionKey } from "../../../store/store.ts";
 import { standInBridge } from "../bridge.ts";
 import { patchSessionUi, uiKey } from "../state.ts";
-import { NewSessionPage } from "../ui/NewSessionPage.tsx";
-import { SessionView } from "../ui/SessionView.tsx";
 import {
   approval,
   interrupted,
@@ -123,8 +122,6 @@ const bridgeFor = (scene: Scene): PolarisApi => ({
 });
 
 const stateFor = (models: ReadonlyArray<SessionModel>): AppState => {
-  const sessions = models.flatMap((m) => (m.session === null ? [] : [m.session]));
-
   return {
     ...initialState,
     hosts: [host],
@@ -134,11 +131,17 @@ const stateFor = (models: ReadonlyArray<SessionModel>): AppState => {
           sequence: Sequence.make(90),
           workspaces: [workspace],
           worktrees: [worktree],
-          sessions: sessions.map((session) => ({
-            session,
-            pendingApprovals: [],
-            lastTurnPreview: null,
-          })),
+          sessions: models.flatMap((m) =>
+            m.session === null
+              ? []
+              : [
+                  {
+                    session: m.session,
+                    pendingApprovals: m.pendingApprovals,
+                    lastTurnPreview: m.turns.at(-1)?.turn.prompt ?? null,
+                  },
+                ]
+          ),
         }),
         synchronized: true,
       },
@@ -155,25 +158,32 @@ const sceneOf = (hash: string): Scene => {
   return SCENE_NAMES.find((n) => n === name) ?? "session";
 };
 
-/** Stands in for the shell's chrome: title bar, Workspace bar and the Input column. */
-const Chrome = ({ children }: { readonly children: ReactNode }) => (
-  <div className="bg-bg flex h-full flex-col">
-    <div className="border-hairline bg-surface-sunken h-[84px] shrink-0 border-b" />
-    <div className="flex min-h-0 flex-1">
-      <div className="border-hairline bg-surface-sunken w-[264px] shrink-0 border-r" />
-      {children}
-    </div>
-  </div>
-);
-
-export const Preview = ({ hash }: { readonly hash: string }) => {
+/**
+ * Mounts the real shell on fixtures, with the scene's session (or the new-session page)
+ * selected. Returns the density setter, for View → Density to reach the fixture store.
+ */
+export const mountPreview = (root: HTMLElement, hash: string) => {
   const scene = sceneOf(hash);
   const models = Object.values(SCENES).map((make) => make());
   const store = createStore<AppState>(() => stateFor(models));
+
+  const connection: Connection = {
+    store,
+    openSession: () => () => undefined,
+    setDensity: (density) => store.setState({ density }),
+  };
+
+  const navigation = createNavigation({ app: store, storage: null });
   const shown = scene === "new" || scene === "setup" ? null : models[SCENE_NAMES.indexOf(scene)];
-  const sessionId: SessionId | null = shown?.session?.id ?? null;
 
   standInBridge(bridgeFor(scene));
+
+  if (shown?.session == null) {
+    navigation.actions.selectWorkspace({ hostKey: HOST, workspaceId });
+    navigation.actions.startNewSession();
+  } else {
+    navigation.actions.selectSession({ hostKey: HOST, sessionId: shown.session.id });
+  }
 
   // The long scene opens every Turn, so scrolling crosses thousands of rows.
   if (scene === "long" && shown?.session != null) {
@@ -182,17 +192,7 @@ export const Preview = ({ hash }: { readonly hash: string }) => {
     patchSessionUi(uiKey(HOST, shown.session.id), () => ({ unfolded }));
   }
 
-  return (
-    <ConnectionProvider
-      value={{ store, openSession: () => () => undefined, setRoute: () => undefined }}
-    >
-      <Chrome>
-        {sessionId === null ? (
-          <NewSessionPage hostKey={HOST} workspaceId={workspaceId} onStarted={() => undefined} />
-        ) : (
-          <SessionView hostKey={HOST} sessionId={sessionId} />
-        )}
-      </Chrome>
-    </ConnectionProvider>
-  );
+  createRoot(root).render(<App value={{ connection, navigation }} />);
+
+  return connection.setDensity;
 };

@@ -3,7 +3,7 @@ import type { HTMLAttributes, ReactNode } from "react";
 import { ArrowUpIcon, ChevronDownIcon, PlusIcon } from "../../icons/chrome";
 import { cn } from "../../lib/cn";
 import type { CssVars } from "../../lib/css";
-import { HARNESS_HANDLES, HARNESS_NAMES, hueVar, type Harness } from "../../lib/hue";
+import { harnessHue, haloVar, harnessTextVar, hueVar, type Harness } from "../../lib/hue";
 import { Button } from "../ui/button";
 import { Textarea, type TextareaProps } from "../ui/textarea";
 import { Dither } from "./dither";
@@ -27,13 +27,17 @@ export function HarnessPicker({
   style,
   ...props
 }: HarnessPickerProps) {
-  const vars: CssVars = { "--harness": hueVar(harness), ...style };
+  const vars: CssVars = {
+    "--harness": hueVar(harness),
+    "--harness-text": harnessTextVar(harness),
+    ...style,
+  };
 
   return (
     <button
       type="button"
       data-slot="harness-picker"
-      aria-label={`${HARNESS_NAMES[harness]}, ${model}`}
+      aria-label={`${harnessHue(harness).name}, ${model}`}
       className={cn(
         "inline-flex h-[26px] shrink-0 cursor-default items-center gap-1.5 rounded-control border bg-fill-selected pr-2 pl-1 select-none",
         working
@@ -50,10 +54,10 @@ export function HarnessPicker({
       <span
         className={cn(
           "text-caption font-medium",
-          working ? "text-(--harness)" : "text-text-default"
+          working ? "text-(--harness-text)" : "text-text-default"
         )}
       >
-        {HARNESS_HANDLES[harness]}
+        {harnessHue(harness).handle}
       </span>
       <span className="text-caption text-text-subtle">{model}</span>
       <ChevronDownIcon size={10} className="text-text-subtle" />
@@ -82,8 +86,8 @@ export function WorkingStrip({ harness, elapsed, onStop, children }: WorkingStri
         className="pixelated pointer-events-none absolute -top-[70px] -left-[120px] h-[150px] w-[320px] bg-(image:--halo) bg-size-[100%_100%] opacity-90"
       />
       <Dither hue={harness} size={14} moving className="relative" />
-      <span className="text-caption relative font-medium text-(--harness)">
-        {children ?? `${HARNESS_NAMES[harness]} is working`}
+      <span className="text-caption relative font-medium text-(--harness-text)">
+        {children ?? `${harnessHue(harness).name} is working`}
       </span>
       <span className="text-caption text-text-subtle tabular relative">· {elapsed}</span>
       <span className="flex-1" />
@@ -125,11 +129,6 @@ export interface ComposerProps extends Omit<TextareaProps, "bare"> {
   readonly prominentSend?: boolean;
 }
 
-const HALOS: Record<Harness, string | undefined> = {
-  claude: "var(--halo-claude-code)",
-  codex: undefined,
-};
-
 /** The composer shell: the Harness picker, the prompt, and send (DESIGN.md, Working strip). */
 export function Composer({
   harness,
@@ -147,7 +146,12 @@ export function Composer({
   placeholder,
   ...props
 }: ComposerProps) {
-  const vars: CssVars = { "--harness": hueVar(harness), "--halo": HALOS[harness] };
+  const vars: CssVars = {
+    "--harness": hueVar(harness),
+    "--harness-text": harnessTextVar(harness),
+    "--halo": haloVar(harness),
+  };
+
   const isWorking = working !== undefined;
 
   return (
@@ -186,7 +190,7 @@ export function Composer({
           {tools}
           <span className="flex-1" />
           {branch === undefined ? null : (
-            <span className="text-micro text-text-faint truncate font-mono">{branch}</span>
+            <span className="text-micro text-text-subtle truncate font-mono">{branch}</span>
           )}
           <Button
             variant={prominentSend ? "primary" : "secondary"}

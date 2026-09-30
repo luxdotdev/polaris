@@ -16,7 +16,7 @@ import { Clearing, type Harness, Scene } from "@polaris/ui";
 import { useState } from "react";
 import { newSessionId } from "../../../commands.ts";
 import { emptyHostModel } from "../../../store/hostModel.ts";
-import { useApp } from "../../../views/hooks.ts";
+import { useApp } from "../../../shell/hooks.ts";
 import { useStaging } from "../attachments.ts";
 import { send } from "../dispatch.ts";
 import { hasCapability, useHarnessOptions, useHost } from "../hooks.ts";

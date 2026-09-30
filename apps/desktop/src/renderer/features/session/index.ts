@@ -8,5 +8,3 @@ export { NewSessionPage, type NewSessionPageProps } from "./ui/NewSessionPage.ts
 export { SessionIntent, type SessionViewProps } from "./ui/SessionIntent.tsx";
 
 export { SessionOutput } from "./ui/SessionOutput.tsx";
-
-export { SessionView } from "./ui/SessionView.tsx";

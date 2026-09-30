@@ -4,8 +4,8 @@
  */
 import type {
   AttachmentId,
-  KnownHarnessKind,
   Command,
+  HarnessKind,
   PermissionMode,
   SessionId,
   SessionPlacement,
@@ -23,7 +23,7 @@ export type PlacementChoice =
 
 /** A catalogue Harness, or "Fork a turn". */
 export type HarnessChoice =
-  | { readonly kind: "harness"; readonly harness: KnownHarnessKind }
+  | { readonly kind: "harness"; readonly harness: HarnessKind }
   | { readonly kind: "fork" };
 
 export const toPlacement = (choice: PlacementChoice): SessionPlacement =>
@@ -61,7 +61,7 @@ export const isBranchName = (branch: string): boolean => {
 export interface StartInput {
   readonly sessionId: SessionId;
   readonly workspaceId: WorkspaceId;
-  readonly harness: KnownHarnessKind;
+  readonly harness: HarnessKind;
   readonly placement: PlacementChoice;
   readonly permissionMode: PermissionMode;
   readonly model: ModelChoice | null;

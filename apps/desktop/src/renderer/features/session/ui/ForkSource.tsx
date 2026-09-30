@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useEffect } from "react";
 import { emptyHostModel, sessionsOf } from "../../../store/hostModel.ts";
 import type { SessionData } from "../../../store/plain.ts";
-import { useApp } from "../../../views/hooks.ts";
+import { useApp } from "../../../shell/hooks.ts";
 import { useSession } from "../hooks.ts";
 
 export interface ForkSourceValue {

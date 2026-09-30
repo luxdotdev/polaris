@@ -24,7 +24,7 @@ import {
 import { useState } from "react";
 import { Commands } from "../../../commands.ts";
 import type { SessionData } from "../../../store/plain.ts";
-import { sessionStateLabel } from "../../../views/copy.ts";
+import { sessionStateLabel } from "../../../shell/copy.ts";
 import { send } from "../dispatch.ts";
 import {
   archiveCommand,

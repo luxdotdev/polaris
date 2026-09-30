@@ -10,7 +10,7 @@ import {
   ChevronRightIcon,
   cn,
   type Harness,
-  HARNESS_NAMES,
+  harnessHue,
   HarnessMark,
   Input,
   PixelFailedIcon,
@@ -150,7 +150,7 @@ const Question = ({ request, ctx }: { request: ApprovalRequest; ctx: RowContext 
 
 const Approval = ({ request, ctx }: { request: ApprovalRequest; ctx: RowContext }) => {
   if (request.kind === "question") return <Question request={request} ctx={ctx} />;
-  const who = ctx.harness === null ? "The agent" : HARNESS_NAMES[ctx.harness];
+  const who = ctx.harness === null ? "The agent" : harnessHue(ctx.harness).name;
   const respond = (decision: ApprovalDecision) => ctx.onRespond(request, decision);
 
   return (

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { HostView } from "../../../shared/api.ts";
 import { emptySessionModel, type SessionModel } from "../../store/sessionModel.ts";
 import { sessionKey } from "../../store/store.ts";
-import { useApp, useSessionFeed } from "../../views/hooks.ts";
+import { useApp, useSessionFeed } from "../../shell/hooks.ts";
 import { type AvailabilityReport, type HarnessOption, harnessOptions } from "./model/harnesses.ts";
 import type { ModelData } from "./model/models.ts";
 import { polaris } from "./bridge.ts";

@@ -6,7 +6,7 @@
  */
 import type { HostStreamItem, SessionId, SessionStreamItem } from "@polaris/protocol";
 import { createStore, type StoreApi } from "zustand/vanilla";
-import type { CachedHost, HostView, PolarisApi, Route } from "../../shared/api.ts";
+import type { CachedHost, Density, HostView, PolarisApi } from "../../shared/api.ts";
 import { frameQueue } from "./frameQueue.ts";
 import { applyHostItems, emptyHostModel, type HostModel, modelFromSnapshot } from "./hostModel.ts";
 import { applySessionItems, emptySessionModel, type SessionModel } from "./sessionModel.ts";
@@ -16,14 +16,15 @@ export interface AppState {
   readonly hostModels: Readonly<Record<string, HostModel>>;
   /** Keyed by `sessionKey(hostKey, sessionId)`. */
   readonly sessions: Readonly<Record<string, SessionModel>>;
-  readonly route: Route;
+  /** The density step, for the few sizes that are numbers rather than CSS tokens (tiles). */
+  readonly density: Density;
 }
 
 export const initialState: AppState = {
   hosts: [],
   hostModels: {},
   sessions: {},
-  route: "orchestrate",
+  density: "calm",
 };
 
 export const sessionKey = (hostKey: string, sessionId: string) => `${hostKey}\u0000${sessionId}`;
@@ -47,6 +48,20 @@ const groupBy = <A>(items: ReadonlyArray<A>, key: (a: A) => string) => {
   return groups;
 };
 
+interface GroupFold<M, I> {
+  readonly current: Readonly<Record<string, M>>;
+  readonly groups: ReadonlyMap<string, ReadonlyArray<I>>;
+  readonly apply: (model: M | undefined, group: ReadonlyArray<I>) => M;
+}
+
+/** A new record with each group folded in; the same record when there is nothing to fold. */
+const foldGroups = <M, I>({ current, groups, apply }: GroupFold<M, I>) => {
+  if (groups.size === 0) return current;
+  const folded = [...groups].map(([key, group]): [string, M] => [key, apply(current[key], group)]);
+
+  return { ...current, ...Object.fromEntries(folded) };
+};
+
 /** Folds one frame's updates into the state; pure, so it is unit-tested. */
 export const reduceUpdates = (state: AppState, updates: ReadonlyArray<Update>): AppState => {
   let hosts = state.hosts;
@@ -59,23 +74,26 @@ export const reduceUpdates = (state: AppState, updates: ReadonlyArray<Update>): 
     else sessionItems.push(u);
   }
 
-  const hostModels = { ...state.hostModels };
+  // Only copy what changed: a frame of deltas must not re-render Host-level views.
+  const hostModels = foldGroups({
+    current: state.hostModels,
+    groups: groupBy(hostItems, (h) => h.hostKey),
+    apply: (model, group) =>
+      applyHostItems(
+        model ?? emptyHostModel,
+        group.map((g) => g.item)
+      ),
+  });
 
-  for (const [hostKey, group] of groupBy(hostItems, (h) => h.hostKey)) {
-    hostModels[hostKey] = applyHostItems(
-      hostModels[hostKey] ?? emptyHostModel,
-      group.map((g) => g.item)
-    );
-  }
-
-  const sessions = { ...state.sessions };
-
-  for (const [key, group] of groupBy(sessionItems, (s) => s.key)) {
-    sessions[key] = applySessionItems(
-      sessions[key] ?? emptySessionModel,
-      group.map((g) => g.item)
-    );
-  }
+  const sessions = foldGroups({
+    current: state.sessions,
+    groups: groupBy(sessionItems, (s) => s.key),
+    apply: (model, group) =>
+      applySessionItems(
+        model ?? emptySessionModel,
+        group.map((g) => g.item)
+      ),
+  });
 
   return { ...state, hosts, hostModels, sessions };
 };
@@ -107,7 +125,7 @@ export interface Connection {
   readonly store: AppStore;
   /** Opens (or shares) an Agent Session's feed; call the returned function to release it. */
   readonly openSession: (hostKey: string, sessionId: SessionId) => () => void;
-  readonly setRoute: (route: Route) => void;
+  readonly setDensity: (density: Density) => void;
 }
 
 /** Connects a store to the main process: the Host list, every Host's feed, and the cache. */
@@ -205,6 +223,6 @@ export const connect = (api: PolarisApi): Connection => {
   return {
     store,
     openSession,
-    setRoute: (route) => store.setState({ route }),
+    setDensity: (density) => store.setState({ density }),
   };
 };

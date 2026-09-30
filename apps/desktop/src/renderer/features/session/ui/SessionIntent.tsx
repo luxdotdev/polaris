@@ -14,7 +14,7 @@ import { useState } from "react";
 import { Commands } from "../../../commands.ts";
 import { emptyHostModel } from "../../../store/hostModel.ts";
 import type { SessionData } from "../../../store/plain.ts";
-import { useApp } from "../../../views/hooks.ts";
+import { useApp, useShellActions } from "../../../shell/hooks.ts";
 import { send } from "../dispatch.ts";
 import { useHost, useSession, hasCapability } from "../hooks.ts";
 import { conversationRows } from "../model/conversation.ts";
@@ -27,11 +27,10 @@ import type { RowContext } from "./rows.tsx";
 import { SessionComposer } from "./SessionComposer.tsx";
 import { SessionHeader } from "./SessionHeader.tsx";
 
+/** The shell's session slot props (`app/slots.tsx`). */
 export interface SessionViewProps {
   readonly hostKey: string;
   readonly sessionId: SessionId;
-  /** Open another session (a new Fork); the shell owns selection. */
-  readonly onOpenSession?: ((sessionId: SessionId) => void) | undefined;
 }
 
 const useWhere = (hostKey: string, session: SessionData | null) => {
@@ -51,7 +50,10 @@ const Placeholder = ({ children }: { readonly children: string }) => (
   <section className="text-body text-text-faint grid flex-1 place-items-center">{children}</section>
 );
 
-export const SessionIntent = ({ hostKey, sessionId, onOpenSession }: SessionViewProps) => {
+export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
+  const { selectSession } = useShellActions();
+  // A Fork opens once it exists; the shell owns selection.
+  const onOpenSession = (id: SessionId) => selectSession({ hostKey, sessionId: id });
   const model = useSession(hostKey, sessionId);
   const key = uiKey(hostKey, sessionId);
   const ui = useSessionUi(key);
