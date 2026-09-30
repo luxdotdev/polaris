@@ -61,18 +61,51 @@ const waitFor = <A>(
     });
   });
 
-export const createEnsureWorkspace = ({
-  api,
-  store,
-  timeoutMs = 10_000,
-}: EnsureInput): EnsureWorkspace => {
-  const pending = new Map<string, Promise<Ensured>>();
+export type ShowFolder = (hostKey: string, path: string, name: string | null) => Promise<Ensured>;
 
+/**
+ * The Workspace at `path` on the Host, shown: registered (as `name`) if new, shown again if
+ * hidden; resolves once the Host's feed has it.
+ */
+export const createShowFolder = ({ api, store, timeoutMs = 10_000 }: EnsureInput): ShowFolder => {
   const shownAt = (hostKey: string, path: string) => (state: AppState) => {
     const workspace = workspaceAt(state.hostModels[hostKey], path);
 
     return workspace !== undefined && !workspace.hidden ? workspace.id : undefined;
   };
+
+  return async (hostKey, path, name) => {
+    const state = store.getState();
+    const host = state.hosts.find((h) => h.key === hostKey);
+    const label = host?.label ?? hostKey;
+
+    if (host?.status.state !== "connected") return failed(`${label} isn't connected`);
+
+    const existing = workspaceAt(state.hostModels[hostKey], path);
+
+    if (existing?.hidden === false) return { ok: true, workspaceId: existing.id };
+
+    const command =
+      existing === undefined
+        ? Commands.RegisterWorkspace({ path, name })
+        : Commands.SetWorkspaceHidden({ workspaceId: existing.id, hidden: false });
+
+    const sent = await api.request("dispatch", { hostKey, commandId: newCommandId(), command });
+
+    if (!sent.ok) return failed(sent.error.message);
+
+    const workspaceId = await waitFor(store, shownAt(hostKey, path), timeoutMs);
+
+    return workspaceId === null
+      ? failed(`${label} didn't confirm the workspace`)
+      : { ok: true, workspaceId };
+  };
+};
+
+export const createEnsureWorkspace = (input: EnsureInput): EnsureWorkspace => {
+  const { store } = input;
+  const show = createShowFolder(input);
+  const pending = new Map<string, Promise<Ensured>>();
 
   const ensure = async (hostKey: string): Promise<Ensured> => {
     const state = store.getState();
@@ -87,22 +120,7 @@ export const createEnsureWorkspace = ({
     if (host === undefined || home === null)
       return failed(`${host?.label ?? hostKey} isn't connected`);
 
-    const existing = workspaceAt(model, home);
-
-    const command =
-      existing === undefined
-        ? Commands.RegisterWorkspace({ path: home, name: HOME_WORKSPACE })
-        : Commands.SetWorkspaceHidden({ workspaceId: existing.id, hidden: false });
-
-    const sent = await api.request("dispatch", { hostKey, commandId: newCommandId(), command });
-
-    if (!sent.ok) return failed(sent.error.message);
-
-    const workspaceId = await waitFor(store, shownAt(hostKey, home), timeoutMs);
-
-    return workspaceId === null
-      ? failed(`${host.label} didn't confirm the workspace`)
-      : { ok: true, workspaceId };
+    return show(hostKey, home, HOME_WORKSPACE);
   };
 
   return (hostKey) => {

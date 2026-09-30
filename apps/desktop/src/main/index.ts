@@ -121,6 +121,13 @@ const start = async () => {
     for (const win of BrowserWindow.getAllWindows()) win.webContents.send(CHANNELS.app, event);
   };
 
+  const setNewWorktree = (on: boolean) => {
+    saveSettings({ newWorktree: on });
+    const event: AppEvent = { kind: "new-worktree", on };
+
+    for (const win of BrowserWindow.getAllWindows()) win.webContents.send(CHANNELS.app, event);
+  };
+
   const pickFolder = async () => {
     const options: Electron.OpenDialogOptions = {
       title: "Add a workspace",
@@ -193,6 +200,7 @@ const start = async () => {
       prices: openPrices(app.getPath("userData")),
       setAppearance,
       setSessionDefault,
+      setNewWorktree,
       openExternal: (url) => shell.openExternal(url),
       sshHosts: () => sshAliasNames(env),
       setWelcomeSeen: () => saveSettings({ welcomeSeen: true }),

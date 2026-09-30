@@ -1,6 +1,6 @@
 /**
  * The session view in the smoke test: register a git Workspace, start a bench
- * session from the new-session page on a new Worktree, approve what it asks,
+ * session from the new-session page in the Workspace directory, approve what it asks,
  * see its Turn diff, then send a follow-up Turn and sample frame intervals
  * while it streams.
  */
@@ -12,7 +12,7 @@ import type { Page } from "playwright-core";
 const bench = (script: Record<string, number>) => `bench:${JSON.stringify(script)}`;
 
 /** Items 2, 5 and 8 ask first; two files are written, so the Turn has a diff. */
-const FIRST_TURN = bench({
+export const FIRST_TURN = bench({
   items: 9,
   deltasPerItem: 30,
   deltaBytes: 48,
@@ -63,7 +63,7 @@ export const frameStats = (times: ReadonlyArray<number>) => {
   };
 };
 
-const approveAll = async (page: Page, step: (m: string) => void) => {
+export const approveAll = async (page: Page, step: (m: string) => void) => {
   const state = page.getByTestId("session-state");
   let approved = 0;
 
@@ -122,7 +122,7 @@ export const sessionFlow = async ({ page, repo, step, shoot, atFirstApproval }: 
     .click();
   await page.getByRole("button", { name: "New session" }).first().click();
   await page.getByTestId("new-session").waitFor();
-  await page.getByTestId("where-line").filter({ hasText: "on a new worktree" }).waitFor();
+  await page.getByTestId("where-line").filter({ hasText: "in place" }).waitFor();
   // Only a ready Harness is pre-selected (bench mode: Claude Code and Codex).
   const picked = page.locator('[role="radiogroup"][aria-label="Harness"] [aria-checked="true"]');
 
