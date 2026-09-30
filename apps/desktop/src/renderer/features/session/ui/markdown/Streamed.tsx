@@ -4,8 +4,9 @@
  * and KaTeX once their plugins load, links open in the browser.
  */
 import "./markdown.css";
-import { type Components, type ControlsConfig, Streamdown } from "streamdown";
+import { type Components, type ControlsConfig, defaultRehypePlugins, Streamdown } from "streamdown";
 import { needsOf } from "./needs.ts";
+import { rehypeSoftBreaks } from "./softBreaks.ts";
 import { usePlugins } from "./plugins.ts";
 import { MERMAID_CONFIG, POLARIS_SHIKI } from "./theme.ts";
 
@@ -14,6 +15,9 @@ const CONTROLS: ControlsConfig = {
   table: { copy: true, download: false, fullscreen: false },
   mermaid: { copy: true, download: false, fullscreen: false, panZoom: false },
 };
+
+// After sanitizing, so the `<wbr>` it adds stays.
+const REHYPE = [...Object.values(defaultRehypePlugins), rehypeSoftBreaks];
 
 const COMPONENTS: Components = {
   // Opened by the window's handler in the user's browser (https only).
@@ -42,6 +46,7 @@ const Streamed = ({ text, live }: StreamedProps) => {
       className="polaris-md"
       isAnimating={live}
       plugins={plugins}
+      rehypePlugins={REHYPE}
       components={COMPONENTS}
       controls={CONTROLS}
       shikiTheme={[POLARIS_SHIKI, POLARIS_SHIKI]}
