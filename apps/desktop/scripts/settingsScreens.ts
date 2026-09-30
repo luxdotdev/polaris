@@ -52,17 +52,70 @@ const olderClaude = (root: string) => {
   };
 };
 
-const daemons = await Promise.all(
-  ["local", ...MACHINES.map((m) => m.key)].map((key) =>
-    key === "pi"
-      ? startDaemon({
-          home: join(home, key),
-          benchHarness: false,
-          ...olderClaude(join(home, "pi-host")),
-        })
-      : startDaemon({ home: join(home, key), benchHarness: true })
-  )
-);
+/**
+ * S2's figures: the Studio's HOME holds 30 days of Claude Code transcript lines on two Models
+ * (`projects/**\/*.jsonl`, the shape its Usage index reads), so Usage isn't empty.
+ */
+const claudeLogs = (root: string) => {
+  const dir = join(root, ".claude", "projects", "-Users-demo-polaris");
+  const day = 86_400_000;
+  const now = Date.now();
+
+  mkdirSync(dir, { recursive: true });
+
+  const lines = Array.from({ length: 30 }, (_, d) =>
+    [0, 1, 2].map((i) => {
+      const n = ((d * 7 + i * 3) % 11) + 2;
+      const model = i === 2 ? "claude-sonnet-5" : "claude-opus-5";
+
+      return JSON.stringify({
+        type: "assistant",
+        sessionId: `demo-${d}`,
+        timestamp: new Date(now - (29 - d) * day - i * 3_600_000).toISOString(),
+        version: "2.1.284",
+        requestId: `req_${d}_${i}`,
+        message: {
+          id: `msg_${d}_${i}`,
+          model,
+          role: "assistant",
+          content: [{ type: "text", text: "demo" }],
+          usage: {
+            input_tokens: n * 1_000,
+            output_tokens: n * 4_000,
+            cache_read_input_tokens: n * 90_000,
+            cache_creation_input_tokens: n * 6_000,
+          },
+        },
+      });
+    })
+  ).flat();
+
+  writeFileSync(join(dir, "demo.jsonl"), `${lines.join("\n")}\n`);
+
+  return root;
+};
+
+const startHost = (key: string) => {
+  if (key === "pi") {
+    return startDaemon({
+      home: join(home, key),
+      benchHarness: false,
+      ...olderClaude(join(home, "pi-host")),
+    });
+  }
+
+  if (key === "studio") {
+    return startDaemon({
+      home: join(home, key),
+      benchHarness: true,
+      userHome: claudeLogs(join(home, "studio-user")),
+    });
+  }
+
+  return startDaemon({ home: join(home, key), benchHarness: true });
+};
+
+const daemons = await Promise.all(["local", ...MACHINES.map((m) => m.key)].map(startHost));
 
 const [local, ...rest] = daemons;
 
@@ -145,7 +198,7 @@ try {
   // S2: Usage, dark.
   await setAppearance(page, { theme: "dark" });
   await page.getByRole("button", { name: "Usage" }).click();
-  await page.waitForTimeout(2_000);
+  await page.getByText(/tokens on \d+ host/).waitFor({ timeout: 30_000 });
   await shoot(page, "S2-usage-dark");
 
   // The gear in the sidebar footer and the K menu's Settings actions.

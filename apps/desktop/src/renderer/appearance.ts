@@ -1,6 +1,7 @@
 /**
  * The user's appearance on the root: `data-theme` (unset follows the system), `data-density`,
- * `data-text-size`, `data-diff-palette`, `data-reduce-motion` (unset follows the system) and the code face.
+ * `data-text-size`, `data-diff-palette`, `data-reduce-motion` (unset follows the system), and the code
+ * face and size.
  */
 import type { Appearance, CodeFont } from "../shared/api.ts";
 
@@ -30,4 +31,6 @@ export const applyAppearance = (appearance: Appearance, root = document.document
 
   if (font === null) root.style.removeProperty("--font-mono");
   else root.style.setProperty("--font-mono", font);
+
+  root.style.setProperty("--code-size", `${appearance.codeFontSize}px`);
 };

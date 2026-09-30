@@ -96,6 +96,7 @@ describe("requests", () => {
         diffPalette: "default",
         motion: "system",
         codeFont: "sf-mono",
+        codeFontSize: 13,
         sessionDefaults: {},
         version: "0.1.0",
         welcomeSeen: false,

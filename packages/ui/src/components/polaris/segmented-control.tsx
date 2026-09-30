@@ -11,12 +11,21 @@ export interface SegmentedOption<Value extends string> {
   readonly disabled?: boolean;
 }
 
+const SEGMENT_SIZE = {
+  mode: "h-[26px] px-2.5 text-label",
+  fill: "h-6 flex-1 gap-1.5 text-caption font-medium",
+  well: "rounded-[4px] px-2 py-[3px] text-caption font-regular data-[state=on]:font-medium",
+} as const;
+
 export interface SegmentedControlProps<Value extends string> {
   readonly options: readonly SegmentedOption<Value>[];
   readonly value: Value;
   readonly onValueChange: (value: Value) => void;
-  /** "mode" is the title-bar switch (26px segments); "fill" stretches equal segments (24px). */
-  readonly variant?: "mode" | "fill";
+  /**
+   * "mode" is the title-bar switch (26px segments); "fill" stretches equal segments (24px);
+   * "well" is the small sunken range control (Settings → Usage: 7 / 30 / 90 days).
+   */
+  readonly variant?: "mode" | "fill" | "well";
   readonly "aria-label": string;
   readonly className?: string;
 }
@@ -49,6 +58,7 @@ export function SegmentedControl<Value extends string>({
       className={cn(
         "flex items-center gap-0.5 rounded-[8px] border border-hairline bg-bg p-0.5",
         variant === "fill" && "w-full",
+        variant === "well" && "gap-0 rounded-control bg-surface-sunken",
         className
       )}
     >
@@ -61,9 +71,7 @@ export function SegmentedControl<Value extends string>({
             "group/segment flex cursor-default items-center justify-center gap-2 rounded-control font-medium text-text-subtle select-none",
             "hover:text-text-default data-[state=on]:bg-fill-selected data-[state=on]:text-text-strong",
             "disabled:opacity-(--opacity-dimmed)",
-            variant === "mode"
-              ? "h-[26px] px-2.5 text-label"
-              : "h-6 flex-1 gap-1.5 text-caption font-medium"
+            SEGMENT_SIZE[variant]
           )}
         >
           {option.label}

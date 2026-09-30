@@ -184,6 +184,43 @@ export const usePlanLimits = (hostKey: string): ReadonlyArray<LimitData> => {
   return useStore(live, (s) => s.limits[hostKey]) ?? NO_LIMITS;
 };
 
+/** Session States in which a Harness is running a Turn, and so refreshing its Plan Limits. */
+const RUNNING: ReadonlySet<string> = new Set(["starting", "working", "needs-you"]);
+
+/**
+ * Whether a session of `harness` is running on `hostKey` (on any Host when null): only then
+ * does a fresh Plan Limit read "live" (`limitAge`).
+ */
+export const useHarnessRunning = (hostKey: string | null, harness: HarnessKind): boolean =>
+  useApp((s) =>
+    Object.entries(s.hostModels).some(
+      ([key, model]) =>
+        (hostKey === null || key === hostKey) &&
+        [...model.sessions.values()].some(
+          (e) => e.session.harness === harness && RUNNING.has(e.session.state)
+        )
+    )
+  );
+
+/** The Harnesses with a session running on any Host, e.g. for Settings → Usage's Plan Limits. */
+export const useRunningHarnesses = (): ReadonlySet<string> => {
+  const joined = useApp((s) =>
+    [
+      ...new Set(
+        Object.values(s.hostModels).flatMap((model) =>
+          [...model.sessions.values()].flatMap((e) =>
+            RUNNING.has(e.session.state) ? [e.session.harness] : []
+          )
+        )
+      ),
+    ]
+      .sort()
+      .join("\u0000")
+  );
+
+  return new Set(joined === "" ? [] : joined.split("\u0000"));
+};
+
 export interface ModelsState {
   readonly models: ReadonlyArray<ModelData>;
   /** The Harness can change an Agent Session's Model between Turns (`SetModel`). */

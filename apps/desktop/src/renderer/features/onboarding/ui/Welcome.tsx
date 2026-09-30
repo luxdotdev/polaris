@@ -65,7 +65,7 @@ export const Welcome = () => {
           <p className="text-display text-text-strong font-medium tracking-[-0.015em]">
             The north star for your agents.
           </p>
-          <p className="text-heading-sm text-text-default font-normal">
+          <p className="text-heading-sm text-text-default font-regular">
             Launch, steer, and review {drivesLine(installed, CATALOGUE)} on this Mac and every host
             you reach over SSH.
           </p>
