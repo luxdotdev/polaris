@@ -55,7 +55,12 @@ const home = mkdtempSync(join(tmpdir(), "polaris-smoke-"));
 
 const userData = join(home, "user-data");
 
-const daemon = await startDaemon({ home, benchHarness: true });
+// A fresh home for the Daemon too: onboarding registers it as the "home" Workspace.
+const userHome = join(home, "user-home");
+
+mkdirSync(userHome, { recursive: true });
+
+const daemon = await startDaemon({ home, benchHarness: true, userHome });
 
 const UNREACHABLE = "polaris-smoke.invalid";
 
@@ -137,6 +142,30 @@ const shoot = async (page: Page, name: string) => {
   await setTheme(page, "dark");
 };
 
+/** O1 Welcome → Get started → O2 setup → Start session → New session in "home". */
+const onboarding = async (page: Page) => {
+  await page.getByTestId("welcome").waitFor({ timeout: 15_000 });
+  await page
+    .getByTestId("found")
+    .filter({ hasText: /Claude Code|Bench|No agents/ })
+    .waitFor();
+  step(`O1 welcome: ${await page.getByTestId("found").textContent()}`);
+  await shoot(page, "o1-welcome");
+  await page.keyboard.press("Enter");
+
+  await page.getByTestId("setup-start-session").waitFor({ timeout: 15_000 });
+  step("O2 setup: no Workspace on any Host");
+  await shoot(page, "o2-setup");
+  await page.getByTestId("setup-start-session").click();
+
+  await page
+    .getByTestId("new-session")
+    .filter({ hasText: "New session · home" })
+    .waitFor({ timeout: 15_000 });
+  step(`New session in the home Workspace (${userHome})`);
+  await shoot(page, "o2-home-new-session");
+};
+
 let failed = false;
 
 const consoleErrors: Array<string> = [];
@@ -152,6 +181,7 @@ try {
   await page.setViewportSize({ width: 1280, height: 800 });
   // Playwright emulates a light colour scheme by default; follow the app's own theme instead.
   await page.emulateMedia({ colorScheme: null });
+  await onboarding(page);
   await page
     .locator('[data-host="local"][data-connection="connected"]')
     .waitFor({ timeout: 15_000 });

@@ -62,20 +62,22 @@ To wire a feature: in `slots.tsx`, import its component and replace the default,
 
 **Workspace switch timing** (`routes/switchTimer.ts`): input event → second animation frame after it, kept in `window.__polaris.switchTimes()`; the smoke test switches 40 times and fails over 100 ms at p95.
 
+**Onboarding** (`src/renderer/features/onboarding/`, DESIGN.md Onboarding): O1 Welcome replaces the whole window until "Get started" (↵), which sets `welcomeSeen` in the settings; the Orchestrator's stage is the O2 setup (`SetupStage`) whenever the selected Host has no Workspace, and an empty scene (`WaitingStage`) until some Host has said what it holds, so the setup never flashes. `startNewSession` (sidebar +, title bar, ⌘N, the K menu) with no Workspace asks `createNavigation`'s `ensureWorkspace`, which registers the Host's home directory (`HostInfo.homeDir`) as the Workspace "home", or shows it again if hidden, then opens New session in it. Features use `useEnsureWorkspace()` for the same. `model.ts` (stage, found-on-this-Mac lines) and `ensureWorkspace.ts` are tested; the smoke test walks O1 → O2 → Start session → New session in "home".
+
 **Connection State** stays inline: the Host's row dims only while reconnecting and shows how long; the reason sits in a code well under the sidebar header (to be replaced by `@polaris/ui`'s HostStateCard).
 
 **Session view** (`src/renderer/features/session/`, wired into `SessionIntent`, `SessionOutput` and `NewSession`): the header, the virtualized conversation (Turns streaming live, inline approvals and questions) and the composer (send, steer, stop, attachments, Model) in Intent; the chosen Turn's diff in Output (Changes); the new-session page, whose Harness choice comes from the catalogue and the Host's `harness.availability`. `index.ts` is its interface; pure view models under `model/` are tested. `#preview/<scene>` renders the shell on fixtures (a lazy chunk) for `scripts/sessionScreens.ts`. The smoke test reads its `data-testid`s (`session-state`, `live-item`, `turn-item`, `approval`, `diff-file`, `turn-summary`, `composer-input`, `where-line`, `new-session`).
 
 ## The bridge
 
-- **Requests**: `window.polaris.request(method, input)` → `Result` (`{ ok, value }` or `{ ok: false, error: { code, message } }`). Methods: settings, `dispatch` (a Client-generated `commandId`; a refusal's message is the Daemon's reason), files, git, `harness.models`, `harness.availability`, `session.terminalCommand`, terminal, `attachments.stage` (bytes → `withBlob` → stage on one connection), `install.ensure`, the snapshot cache, and dev's `dev.proofWorkspace`.
+- **Requests**: `window.polaris.request(method, input)` → `Result` (`{ ok, value }` or `{ ok: false, error: { code, message } }`). Methods: settings, `dispatch` (a Client-generated `commandId`; a refusal's message is the Daemon's reason), files, git, `harness.models`, `harness.availability`, `session.terminalCommand`, terminal, `attachments.stage` (bytes → `withBlob` → stage on one connection), `install.ensure`, the snapshot cache, onboarding's `onboarding.found` (the `~/.ssh/config` aliases, `src/main/sshHosts.ts`, and the app version) and `onboarding.welcomeSeen`, `dialog.pickFolder` (the native folder picker), and dev's `dev.proofWorkspace`.
 - **Feeds**: `window.polaris.subscribe(kind, input, { items, end })`. `host` and `session` are the client's resumable feeds, so every window shares one upstream subscription per stream: Snapshot (cached) first, then events, `Delta`s and `ItemProgress` (the app announces `session.live-items`). Feeds bound to one connection (`terminal`, `files.watch`) end when it drops; resubscribe.
 - **Batching**: main coalesces every feed's items for a window into one message per 4 ms; the renderer applies them once per animation frame (or every 100 ms while hidden).
 - Payloads are structured-clone plain data: class instances lose their prototype, so the renderer types domain values as plain records (`store/plain.ts`).
 
 ## Settings
 
-`<userData>/settings.json`: `theme` (`system` | `dark` | `light`), `density` (`calm` | `balanced` | `compact`), and `hosts`: `[{ alias, label?, colour?, forwardAgent? }]` by `~/.ssh/config` alias. The renderer sets `data-theme` (unset for system) and `data-density` on the root.
+`<userData>/settings.json`: `theme` (`system` | `dark` | `light`), `density` (`calm` | `balanced` | `compact`), `welcomeSeen` (scripts that launch the app past the welcome set it), and `hosts`: `[{ alias, label?, colour?, forwardAgent? }]` by `~/.ssh/config` alias. The renderer sets `data-theme` (unset for system) and `data-density` on the root.
 
 Environment: `POLARIS_DESKTOP_EXTRA_HOSTS` (screenshots and tests: `[{ key, label, socket }]`, more Hosts on local sockets), `POLARIS_DESKTOP_LOCAL_LABEL`, `POLARIS_DESKTOP_USER_DATA`, `POLARIS_DESKTOP_HIDDEN=1`, `POLARIS_DESKTOP_LOCAL_SOCKET` (+ `POLARIS_DESKTOP_BENCH_HARNESS=1`), `POLARIS_DESKTOP_DAEMON=system|dev`.
 
