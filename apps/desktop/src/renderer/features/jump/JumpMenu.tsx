@@ -155,19 +155,24 @@ const Results = ({ onClose }: { readonly onClose: () => void }) => {
   );
 };
 
+/**
+ * Rendered only while open: a closing dialog must not linger through its fade-out
+ * as Radix's topmost layer, taking the next overlay's Escape (routes/keyboard.ts).
+ */
 export const JumpMenu = ({ open, onOpenChange }: JumpMenuProps) => {
   const { setJumpOpen } = useShellActions();
 
+  if (!open) return null;
+
   return (
     <CommandDialog
-      open={open}
+      open
       onOpenChange={onOpenChange}
       shouldFilter={false}
       title="Jump"
       description="Jump to a session, workspace, worktree, machine or action"
     >
-      {/* Mounted only while open, so every opening starts from an empty query. */}
-      {open ? <Results onClose={() => setJumpOpen(false)} /> : null}
+      <Results onClose={() => setJumpOpen(false)} />
     </CommandDialog>
   );
 };

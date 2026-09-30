@@ -18,6 +18,7 @@ const setup = () => {
     openJump: noop,
     setJumpOpen: noop,
     setHelpOpen: noop,
+    closeOverlay: () => false,
     startNewSession: noop,
     closeNewSession: noop,
     toggleFolded: noop,
