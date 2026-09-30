@@ -48,7 +48,8 @@ One Turn at a time; `steer` isn't in ACP v1, so it fails and the capability is o
 | `session/update` | HarnessEvent |
 |---|---|
 | `agent_message_chunk` | `ItemDelta` on an open `AssistantMessage` |
-| `agent_thought_chunk` | `ItemDelta` on an open `Reasoning` |
+| `agent_thought_chunk` | `ItemDelta` on an open `Reasoning`; its first chunk makes it live (`ItemUpdated`) and it completes timed from that chunk to its close |
+| `usage_update` | `ContextUsed { usedTokens: used, windowTokens: size }` |
 | `tool_call`, `tool_call_update` (merged by id) | `ItemUpdated` while pending or in progress, `ItemCompleted` once completed or failed. `execute` → `CommandExecution` (command from `rawInput.command`, output from its text content, exit code from `rawOutput.exit_code`/`exitCode`); `edit`/`delete`/`move` with diffs or locations → `FileChange` (a diff without `oldText` is an add); anything else → `ToolCall` |
 | `plan` | `ItemUpdated` with the `Plan` (`<turn>:plan`); completed once when the Turn ends |
 | `session_info_update` with a title | `TitleSuggested` |

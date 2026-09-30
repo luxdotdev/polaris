@@ -13,6 +13,7 @@ The orchestration engine: `decider.ts` validates Client commands, the `Engine` s
 | `terminal.ts` | `TerminalHandoff`: `OpenInTerminal` / `ReturnFromTerminal`, and following Claude's TUI while In Terminal. |
 | `worktrees.ts` | `Worktrees`: detection on register, creation for `NewWorktree` and Forks, removal on Archive, restore on Unarchive. |
 | `pruning.ts` | `CheckpointPruning`: the policy on Archive, a removed Workspace's checkpoints, and the sweeper's targets. |
+| `context.ts` | Which `ContextUsed` reports become `SessionContextUsed`: the first, a new window, or a move of a whole percent (a thousand tokens while the window is unknown). |
 | `reactors.ts` | `Reactors`: what runs after each command commits. |
 | `dispatch.ts` | `Dispatcher`: resolves the decider's inputs, commits, acks and forks the reactor. |
 | `streams.ts` | `Streams`: the Host and session streams (snapshot or replay, `Synchronized`, live). |
