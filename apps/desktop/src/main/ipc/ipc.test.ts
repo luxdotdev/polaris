@@ -7,7 +7,8 @@ import { describe, expect, test } from "bun:test";
 import { Effect, Exit, Layer, ManagedRuntime, SubscriptionRef } from "effect";
 import type { BatchEntry, HostView } from "../../shared/api.ts";
 import { RequestInputs, SubscriptionInputs } from "../../shared/contract.ts";
-import { HostDirectory, UnknownHost } from "../hosts.ts";
+import { CommandId, CommandRejected } from "@polaris/protocol";
+import { HostDirectory, toIpcError, UnknownHost } from "../hosts.ts";
 import { type RequestContext, requestHandlers, requestRunner } from "./requests.ts";
 import { windowSubscriptions } from "./subscriptions.ts";
 
@@ -68,6 +69,18 @@ describe("requests", () => {
         hosts: [{ alias: "studio", label: "studio", colour: null, forwardAgent: false }],
       })
     );
+  });
+
+  test("a refusal crosses with the Daemon's reason as its message", () => {
+    const refused = new CommandRejected({
+      commandId: CommandId.make("c1"),
+      reason: "interrupt the Turn in flight before archiving",
+    });
+
+    expect(toIpcError(refused)).toEqual({
+      code: "CommandRejected",
+      message: "interrupt the Turn in flight before archiving",
+    });
   });
 
   test("an input that does not decode never reaches the handler", async () => {

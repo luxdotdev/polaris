@@ -5,14 +5,8 @@
  */
 import type { SessionId, WorkspaceId } from "@polaris/protocol";
 import type { ComponentType } from "react";
-import {
-  DefaultJumpMenu,
-  DefaultNeedsYouInbox,
-  DefaultNewSession,
-  DefaultNoSession,
-  DefaultSessionIntent,
-  DefaultSessionOutput,
-} from "./defaultSlots.tsx";
+import { NewSessionPage, SessionIntent, SessionOutput } from "../features/session/index.ts";
+import { DefaultJumpMenu, DefaultNeedsYouInbox, DefaultNoSession } from "./defaultSlots.tsx";
 
 /** A selected Agent Session: which Host it lives on and its id. */
 export interface SessionSlotProps {
@@ -53,9 +47,9 @@ export interface ShellSlots {
 }
 
 export const slots: ShellSlots = {
-  SessionIntent: DefaultSessionIntent,
-  SessionOutput: DefaultSessionOutput,
-  NewSession: DefaultNewSession,
+  SessionIntent,
+  SessionOutput,
+  NewSession: NewSessionPage,
   NoSession: DefaultNoSession,
   NeedsYouInbox: DefaultNeedsYouInbox,
   JumpMenu: DefaultJumpMenu,

@@ -1,7 +1,7 @@
 /**
  * Placeholder slot contents, until each feature lands (see app/slots.tsx).
- * They keep the shell usable end to end: a session preview, a plain jump
- * list, the sessions that need you.
+ * They keep the shell usable end to end: a plain jump list, the sessions
+ * that need you.
  */
 import {
   CommandDialog,
@@ -10,7 +10,6 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  Button,
 } from "@polaris/ui";
 import { useMemo } from "react";
 import { barHosts, needsYou, shownState } from "../routes/topBar.ts";
@@ -18,27 +17,11 @@ import { sessionStateLabel } from "../shell/copy.ts";
 import { SessionGlyph, SummaryGlyph } from "../shell/glyphs.tsx";
 import { useApp, useShellActions } from "../shell/hooks.ts";
 import { CompactSessionRow } from "../shell/sidebar/SessionRow.tsx";
-import { SessionPreview } from "./SessionPreview.tsx";
-import type { JumpMenuProps, NewSessionProps, SessionSlotProps } from "./slots.tsx";
+import type { JumpMenuProps } from "./slots.tsx";
 
 const Pending = ({ children }: { readonly children: string }) => (
   <div className="p-panel text-body text-text-faint grid flex-1 place-items-center text-center">
     {children}
-  </div>
-);
-
-export const DefaultSessionIntent = SessionPreview;
-
-export const DefaultSessionOutput = (_props: SessionSlotProps) => (
-  <Pending>Changes, preview, files and risk land here with the session view.</Pending>
-);
-
-export const DefaultNewSession = ({ onCancel }: NewSessionProps) => (
-  <div className="flex flex-1 flex-col items-center justify-center gap-3">
-    <p className="text-body text-text-faint">
-      Starting a session from here comes with the new-session flow.
-    </p>
-    <Button onClick={onCancel}>Back</Button>
   </div>
 );
 

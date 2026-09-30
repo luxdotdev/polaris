@@ -8,7 +8,7 @@
  *
  * Runs under Node: Playwright's Electron launcher does not connect under Bun.
  */
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { _electron as electron, type Page } from "playwright-core";
@@ -16,6 +16,7 @@ import { spawnSync } from "node:child_process";
 import { APP_DIR, electronBinary, OUT_DIR, REPO_ROOT } from "./lib/electron.ts";
 import { probeSource } from "./lib/probe.ts";
 import { startDaemon } from "./lib/daemon.ts";
+import { initRepo, sessionFlow } from "./lib/sessionFlow.ts";
 
 const args = process.argv.slice(2);
 
@@ -32,11 +33,16 @@ const screenshots = option("--screenshots");
 /** The renderer bundle: large enough that `files.read` sends it as a blob. */
 const bigAsset = () => {
   const dir = join(OUT_DIR, "renderer/assets");
-  const js = readdirSync(dir).find((f) => f.endsWith(".js"));
+  // The largest chunk: lazy chunks (the session preview) are too small to be sent as blobs.
+
+  const js = readdirSync(dir)
+    .filter((f) => f.endsWith(".js"))
+    .map((f) => join(dir, f))
+    .toSorted((a, b) => statSync(b).size - statSync(a).size)[0];
 
   if (js === undefined) throw new Error("build the renderer first");
 
-  return join(dir, js);
+  return js;
 };
 
 const step = (message: string) => console.log(`smoke: ${message}`);
@@ -108,17 +114,27 @@ const startProof = () =>
     Menu.getApplicationMenu()?.getMenuItemById("dev-proof")?.click();
   });
 
-const shoot = async (page: Page, theme: "dark" | "light") => {
-  if (screenshots === null) return;
-  mkdirSync(screenshots, { recursive: true });
+const setTheme = async (page: Page, theme: "dark" | "light") => {
   // What View → Appearance does (menu.ts): the setting, then data-theme on the root.
   await page.evaluate(`window.polaris.request("settings.setTheme", { theme: "${theme}" })`);
   await page.locator(`html[data-theme="${theme}"]`).waitFor({ state: "attached" });
   await page.waitForTimeout(300);
-  const path = join(screenshots, `proof-${theme}.png`);
+};
 
-  await page.screenshot({ path });
-  step(`saved ${path}`);
+/** Saves `<name>-dark.png` and `<name>-light.png`, then leaves the app dark. */
+const shoot = async (page: Page, name: string) => {
+  if (screenshots === null) return;
+  mkdirSync(screenshots, { recursive: true });
+
+  for (const theme of ["dark", "light"] as const) {
+    await setTheme(page, theme);
+    const path = join(screenshots, `${name}-${theme}.png`);
+
+    await page.screenshot({ path });
+    step(`saved ${path}`);
+  }
+
+  await setTheme(page, "dark");
 };
 
 let failed = false;
@@ -161,20 +177,21 @@ try {
 
   await page
     .getByTestId("session-state")
-    .filter({ hasText: /^working$/ })
+    .filter({ hasText: /^Working/ })
     .waitFor({ timeout: 15_000 });
-  await shoot(page, "dark");
+  await shoot(page, "proof");
 
-  await page
-    .getByTestId("session-state")
-    .filter({ hasText: /^idle$/ })
-    .waitFor({ timeout: 60_000 });
-  const items = await page.getByTestId("turn-items").first().textContent();
+  await page.getByTestId("session-state").filter({ hasText: /^Idle/ }).waitFor({ timeout: 60_000 });
+  const items = await page.getByTestId("turn-item").count();
 
-  step(`turn finished: ${items}`);
+  step(`turn finished: ${items} items`);
 
-  if (items !== "6 items") throw new Error(`expected 6 items, saw ${items}`);
-  await shoot(page, "light");
+  if (items !== 6) throw new Error(`expected 6 items, saw ${items}`);
+
+  const repo = join(home, "smoke-repo");
+
+  initRepo(repo);
+  await sessionFlow({ page, repo, step, shoot: (name) => shoot(page, name) });
   await timeSwitches(page);
 
   const probe = await Promise.race([

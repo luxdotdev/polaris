@@ -6,6 +6,7 @@ import { startProofSession } from "./proof.ts";
 import { installKeyboard } from "./routes/keyboard.ts";
 import { createNavigation } from "./routes/navigation.ts";
 import { exposeSwitchTimes } from "./routes/switchTimer.ts";
+import type { Density } from "../shared/api.ts";
 import { connect } from "./store/store.ts";
 
 const connection = connect(window.polaris);
@@ -20,9 +21,15 @@ const storage = (() => {
 
 const navigation = createNavigation({ app: connection.store, storage });
 
+// `#preview/<scene>`: the shell on fixtures, for screenshots (features/session/preview).
+const preview = location.hash.startsWith("#preview/");
+
+let setPreviewDensity: ((density: Density) => void) | null = null;
+
 const appearance = (value: Parameters<typeof applyAppearance>[0]) => {
   applyAppearance(value);
   connection.setDensity(value.density);
+  setPreviewDensity?.(value.density);
 };
 
 appearance({ theme: "system", density: "calm" });
@@ -47,4 +54,10 @@ exposeSwitchTimes();
 
 const root = document.getElementById("root");
 
-if (root !== null) createRoot(root).render(<App value={{ connection, navigation }} />);
+if (root !== null && preview) {
+  void import("./features/session/preview/Preview.tsx").then((m) => {
+    setPreviewDensity = m.mountPreview(root, location.hash);
+  });
+} else if (root !== null) {
+  createRoot(root).render(<App value={{ connection, navigation }} />);
+}
