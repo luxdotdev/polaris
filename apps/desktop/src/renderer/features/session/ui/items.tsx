@@ -222,7 +222,9 @@ const Plan = ({ steps, hue }: { readonly steps: ReadonlyArray<PlanStep>; readonl
 const ErrorItem = ({ message }: { readonly message: string }) => (
   <div className="flex items-start gap-2" data-testid="item-error">
     <PixelFailedIcon size={14} className="text-failed mt-0.5 shrink-0" />
-    <p className="text-body text-text-default break-words whitespace-pre-wrap">{message}</p>
+    <p className="text-body text-text-default min-w-0 wrap-anywhere whitespace-pre-wrap">
+      {message}
+    </p>
   </div>
 );
 
