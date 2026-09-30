@@ -82,6 +82,36 @@ module polaris_test {
       .then(reactorRuns("s1"))
       .expect(all { answers.get("k2") == [Ok(6)], harness == Set("s1"), safety })
 
+  /** Retry only after a Failed Turn: a new Turn, and a restart leaves Failed alone. */
+  run retrySendsAFailedTurnAgainTest =
+    waitingOnApproval
+      .then(clientSends("mac", "k2", Retry("s1")))
+      .then(harnessReports("s1", HTurnFailed))
+      .then(commitBatch)
+      .then(publishBatch)
+      .expect(all {
+        answers.get("k2") == [Rejected],
+        log[4].kind == ApprovalWithdrawn({ req: "r1", by: "harness" }),
+        log[5].kind == TurnEnded("failed"),
+        log[6].kind == StateChanged("failed"),
+        safety,
+      })
+      .then(crash)
+      .then(restart)
+      .expect(all { log.length() == 7, viewOf(log, "s1").state == "failed", safety })
+      .then(clientSends("phone", "k3", Retry("s1")))
+      .then(commitBatch)
+      .then(publishBatch)
+      .then(reactorRuns("s1"))
+      .expect(all {
+        answers.get("k3") == [Ok(9)],
+        viewOf(log, "s1").turns == 2,
+        viewOf(log, "s1").state == "working",
+        harness == Set("s1"),
+        witnessRetried,
+        safety,
+      })
+
   run twoDevicesAnswerAtOnceTest =
     waitingOnApproval
       .then(clientSends("mac", "k2", r1))

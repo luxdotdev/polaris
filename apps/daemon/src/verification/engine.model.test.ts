@@ -72,6 +72,7 @@ const TRACE_DIR = process.env.POLARIS_TRACE_DIR;
 type DispatchKind =
   | "SendTurn"
   | "Continue"
+  | "Retry"
   | "Respond"
   | "Interrupt"
   | "Rename"
@@ -145,6 +146,8 @@ const commandFor = (world: World, action: DispatchAction): Command | null => {
       return Command.cases.SendTurn.make({ sessionId, prompt: "go on", attachments: [] });
     case "Continue":
       return Command.cases.Continue.make({ sessionId });
+    case "Retry":
+      return Command.cases.Retry.make({ sessionId });
     case "Interrupt":
       return Command.cases.Interrupt.make({ sessionId });
     case "Rename":
@@ -330,6 +333,7 @@ const actionArb: fc.Arbitrary<Action> = fc.oneof(
           ? fc.constantFrom(
               "SendTurn",
               "Continue",
+              "Retry",
               "Respond",
               "Respond",
               "Interrupt",
@@ -341,6 +345,7 @@ const actionArb: fc.Arbitrary<Action> = fc.oneof(
           : fc.constantFrom(
               "SendTurn",
               "Continue",
+              "Retry",
               "Respond",
               "Respond",
               "Rename",
@@ -365,6 +370,7 @@ const actionArb: fc.Arbitrary<Action> = fc.oneof(
         "request",
         "withdraw",
         "end",
+        "fail",
         "late"
       ),
       pick: fc.nat(40),
