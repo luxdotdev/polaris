@@ -37,11 +37,11 @@ Local Host: `target: { _tag: "Local", socketPath }` connects to the socket direc
 
 ## SSH
 
-`ssh -o BatchMode=yes -o ControlMaster=auto -o ControlPath=~/.polaris/ssh/%C -o ControlPersist=10m -o Compression=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -o ConnectTimeout=15 -o ForwardAgent=no -o ClearAllForwardings=yes -o RequestTTY=no -T -e none -- <alias> ~/.polaris/bin/current/polaris bridge`
+`ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o UpdateHostKeys=no -o ControlMaster=auto -o ControlPath=~/.polaris/ssh/%C -o ControlPersist=10m -o Compression=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -o ConnectTimeout=15 -o ForwardAgent=no -o ClearAllForwardings=yes -o RequestTTY=no -T -e none -- <alias> ~/.polaris/bin/current/polaris bridge`
 
 The remote command defaults to the installed Daemon (`DEFAULT_REMOTE_COMMAND`), because `polaris` is not on PATH in a non-interactive SSH shell; `SshOptions.remoteCommand` overrides it per Host.
 
-The ControlMaster is private to Polaris (its own directory, mode 0700), so it never interferes with the user's multiplexing. Everything else (HostName, User, ProxyJump, keys) comes from `~/.ssh/config`. Agent forwarding is off unless the Host's `forwardAgent` toggle is on; then the bridge keeps `~/.polaris/agent.sock` on the Host pointing at the forwarded agent.
+Polaris never writes `known_hosts` (`StrictHostKeyChecking=yes`, `UpdateHostKeys=no`, whatever the user's config says); trusting a new key is the user's own `ssh <alias>`. The ControlMaster is private to Polaris (its own directory, mode 0700), so it never interferes with the user's multiplexing. Everything else (HostName, User, ProxyJump, keys) comes from `~/.ssh/config`. Agent forwarding is off unless the Host's `forwardAgent` toggle is on; then the bridge keeps `~/.polaris/agent.sock` on the Host pointing at the forwarded agent.
 
 ## Connection State
 

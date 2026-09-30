@@ -58,6 +58,8 @@ describe("sshArgv", () => {
 
     for (const option of [
       "BatchMode=yes",
+      "StrictHostKeyChecking=yes",
+      "UpdateHostKeys=no",
       "ControlMaster=auto",
       "ControlPath=/c/%C",
       "ControlPersist=10m",

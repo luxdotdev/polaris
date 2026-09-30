@@ -9,6 +9,9 @@
  *   the several channels a Client opens reuse one authenticated connection,
  *   without touching the user's own multiplexing;
  * - `BatchMode=yes`: ssh never prompts; a prompt means Needs Attention;
+ * - `StrictHostKeyChecking=yes` and `UpdateHostKeys=no`: Polaris never writes
+ *   `known_hosts`, even if the user's config says `accept-new`; the user trusts
+ *   a key themselves;
  * - keepalives, so a dead link is noticed in ~45s rather than at TCP timeout;
  * - compression, no forwardings of any kind, no tty and no escape character
  *   (the stream is binary);
@@ -56,6 +59,8 @@ export const sshArgv = (alias: string, options: SshOptions = {}): Array<string> 
   return [
     options.sshBinary ?? "ssh",
     ...option("BatchMode", "yes"),
+    ...option("StrictHostKeyChecking", "yes"),
+    ...option("UpdateHostKeys", "no"),
     ...option("ControlMaster", "auto"),
     // %C is a hash of local host, remote host, port and user: short and collision-free.
     ...option("ControlPath", join(controlDir, "%C")),
