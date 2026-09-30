@@ -17,7 +17,7 @@ import { APP_DIR, electronBinary, OUT_DIR, REPO_ROOT, sizeWindow } from "./lib/e
 import { probeSource } from "./lib/probe.ts";
 import { startDaemon } from "./lib/daemon.ts";
 import { machineFlow, prepareFakeHost } from "./lib/machineFlow.ts";
-import { initRepo, sessionFlow } from "./lib/sessionFlow.ts";
+import { checkNoneReady, initRepo, sessionFlow } from "./lib/sessionFlow.ts";
 import { settingsFlow } from "./lib/settingsFlow.ts";
 import { terminalFlow } from "./lib/terminalFlow.ts";
 
@@ -372,6 +372,7 @@ try {
   });
 
   if (consoleErrors.length > 0) throw new Error(`renderer errors:\n${consoleErrors.join("\n")}`);
+  await checkNoneReady(page, step);
   step("ok");
 } catch (error) {
   failed = true;

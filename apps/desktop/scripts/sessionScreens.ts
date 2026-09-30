@@ -113,7 +113,7 @@ try {
 
     await page.evaluate(`location.hash = "#preview/${base}"; location.reload()`);
     await page.waitForLoadState("domcontentloaded");
-    const isNew = base === "new" || base === "setup";
+    const isNew = ["new", "setup", "none-ready"].includes(base);
 
     await page.getByTestId(isNew ? "new-session" : "session-panel").waitFor();
 

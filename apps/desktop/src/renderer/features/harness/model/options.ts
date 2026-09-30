@@ -29,6 +29,8 @@ export interface HarnessOption {
    */
   readonly listed: boolean;
   readonly version: string | null;
+  /** The oldest version its driver supports. */
+  readonly minVersion: string;
   /** What to do before it can start, in one line; null when nothing is needed. */
   readonly setupLine: string | null;
   /** The Harness's own reason, when it gave one. */
@@ -91,6 +93,7 @@ const option = (probe: Probe, listed = LISTED.has(probe.status)): HarnessOption 
     startable: STARTABLE.has(probe.status),
     listed,
     version: probe.version,
+    minVersion: probe.minVersion,
     setupLine: setupLine(probe),
     detail: probe.status === "ready" ? null : probe.detail,
     docsUrl: entry?.setup.docsUrl ?? null,
@@ -133,11 +136,30 @@ export const listedOptions = (options: ReadonlyArray<HarnessOption>) =>
 export const otherCount = (options: ReadonlyArray<HarnessOption>) =>
   options.filter((o) => !o.listed).length;
 
-/** The Harness a new session starts on by default: the first listed one that can start. */
-export const defaultHarness = (options: ReadonlyArray<HarnessOption>): HarnessKind | null => {
-  const listed = listedOptions(options);
+/** The Harness a new session starts on by default: the first ready one, never one that isn't. */
+export const defaultHarness = (options: ReadonlyArray<HarnessOption>): HarnessKind | null =>
+  options.find((o) => o.status === "ready")?.kind ?? null;
 
-  return (listed.find((o) => o.startable) ?? listed[0])?.kind ?? null;
+/** Nothing on the Host can start a session now (its report is in, and none is ready). */
+export const noneReady = (options: ReadonlyArray<HarnessOption>) =>
+  !options.some((o) => o.status === "ready");
+
+/** Why a Harness can't start, in one line: "Claude Code 2.1.272 · needs 2.1.283 or newer". */
+export const reasonLine = (option: HarnessOption): string => {
+  const named = option.version === null ? option.name : `${option.name} ${option.version}`;
+
+  switch (option.status) {
+    case "outdated":
+      return `${named} · needs ${option.minVersion} or newer`;
+    case "not-installed":
+      return `${option.name} · not installed`;
+    case "needs-sign-in":
+      return `${named} · needs sign-in`;
+    case "unknown":
+      return `${named} · couldn't check`;
+    case "ready":
+      return `${named} · ready`;
+  }
 };
 
 /** "Ready on 2 of 3 hosts" (DESIGN.md, Settings S1), over one Harness's options per Host. */

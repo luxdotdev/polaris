@@ -7,8 +7,8 @@ import { CheckIcon, ChoiceTile, cn, Dither, type Harness } from "@polaris/ui";
 import type { ReactNode } from "react";
 import { useHarnessModels } from "../live.ts";
 import { defaultChoice, type ModelChoice, modelLabel } from "../model/models.ts";
-import { type HarnessOption, listedOptions, STATUS_LABELS } from "../model/options.ts";
-import { OtherHarnessesLink } from "./Availability.tsx";
+import { type HarnessOption, listedOptions, noneReady, STATUS_LABELS } from "../model/options.ts";
+import { NotReadyPanel, OtherHarnessesLink } from "./Availability.tsx";
 
 import type { HarnessChoice } from "../model/choice.ts";
 
@@ -134,6 +134,9 @@ export interface HarnessChoiceProps {
   readonly value: HarnessChoice | null;
   readonly onChange: (choice: HarnessChoice) => void;
   readonly canFork: boolean;
+  /** The Host's first availability report hasn't arrived. */
+  readonly loading: boolean;
+  readonly onSignIn: (option: HarnessOption) => void;
 }
 
 export const HarnessChoiceRow = ({
@@ -143,6 +146,8 @@ export const HarnessChoiceRow = ({
   value,
   onChange,
   canFork,
+  loading,
+  onSignIn,
 }: HarnessChoiceProps) => {
   const listed = listedOptions(options);
   const cards = listed.length + (canFork ? 1 : 0);
@@ -180,10 +185,12 @@ export const HarnessChoiceRow = ({
           />
         ) : null}
       </div>
-      {listed.length === 0 ? (
-        <p className="text-caption text-text-default">No harness is ready on this host yet.</p>
-      ) : null}
-      <OtherHarnessesLink hostKey={hostKey} options={options} />
+      {/* With none ready the panel lists every Harness, so the link would repeat it. */}
+      {!loading && noneReady(options) ? (
+        <NotReadyPanel hostKey={hostKey} options={options} onSignIn={onSignIn} />
+      ) : (
+        <OtherHarnessesLink hostKey={hostKey} options={options} />
+      )}
     </div>
   );
 };
