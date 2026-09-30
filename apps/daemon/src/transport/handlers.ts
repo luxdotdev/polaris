@@ -94,6 +94,12 @@ export const defaultHandlers = (options: {
         return yield* fileError(name, "attachments");
       }),
 
+    "attachments.settings": () =>
+      Effect.fail(new Unsupported({ capability: "attachments.settings" })),
+    "attachments.setSettings": () =>
+      Effect.fail(new Unsupported({ capability: "attachments.settings" })),
+    "attachments.clear": () => Effect.fail(new Unsupported({ capability: "attachments.settings" })),
+
     "terminal.open": ({ cwd }) => Effect.fail(fileError(cwd, "terminals")),
     "terminal.attach": ({ terminalId }) =>
       Stream.fail(new NotFound({ what: "terminal", id: terminalId })),

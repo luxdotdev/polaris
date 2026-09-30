@@ -65,6 +65,13 @@ const GROUPS: ReadonlyArray<GroupSource> = [
         blurb: "The machines Polaris connects to over SSH.",
         keywords: ["machines", "ssh", "daemon", "add a host"],
       },
+      {
+        id: "attachments",
+        title: "Attachments",
+        blurb:
+          "Pasted and dropped files are staged on the host that runs the session. Choose when each host deletes them.",
+        keywords: ["files", "images", "staging", "cleanup", "clear", "disk"],
+      },
     ],
   },
 ];
