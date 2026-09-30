@@ -6,7 +6,9 @@ import type { SessionId, SessionState } from "@polaris/protocol";
 import { Button, DropdownMenuItem, PixelTerminalIcon } from "@polaris/ui";
 import { useState } from "react";
 import { activateTab } from "../actions.ts";
+import { claimFocusFromMenu } from "../focus.ts";
 import { openInTerminal, takeBack } from "../handoff.ts";
+import { loaded } from "../loaded.ts";
 import { handoffKey, tabOf } from "../model/tabs.ts";
 import { drawerKey, getDrawer, updateDrawer } from "../store.ts";
 
@@ -27,6 +29,10 @@ const showOrOpen = (s: HandoffSession) => {
   if (tab !== undefined && tab.status.kind === "live") {
     updateDrawer(key, (d) => ({ ...d, open: true }));
     activateTab(s, tab.key);
+    // Already mounted, the surface won't autofocus again; focus it once React has shown it.
+    requestAnimationFrame(() => {
+      if (tab.terminalId !== null) loaded.runtime?.focusTerminal(s.hostKey, tab.terminalId);
+    });
 
     return Promise.resolve(true);
   }
@@ -40,7 +46,10 @@ const canHandOff = (state: SessionState) => state !== "archived" && state !== "s
 export const OpenInTerminalItem = ({ session }: { readonly session: HandoffSession }) => (
   <DropdownMenuItem
     disabled={!canHandOff(session.state)}
-    onSelect={() => void showOrOpen(session)}
+    onSelect={() => {
+      claimFocusFromMenu();
+      void showOrOpen(session);
+    }}
     data-testid="open-in-terminal"
   >
     {session.state === "in-terminal" ? "Show terminal" : "Open in terminal"}

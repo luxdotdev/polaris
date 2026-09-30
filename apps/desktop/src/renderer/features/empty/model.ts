@@ -5,15 +5,6 @@
 
 export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
-/** The fact under "Nothing needs you": what is still going on, across Hosts. */
-export const nothingNeedsYouFact = (working: number, hosts: number): string => {
-  if (working === 0) return "No agent sessions are working";
-
-  return hosts <= 1
-    ? `${plural(working, "session")} working`
-    : `${plural(working, "session")} working on ${plural(hosts, "host")}`;
-};
-
 /** The fact when a Workspace has sessions but none is open. */
 export const noSelectionFact = (sessions: number, workspace: string) =>
   `${plural(sessions, "session")} in ${workspace} · K to jump`;

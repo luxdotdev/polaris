@@ -98,7 +98,7 @@ try {
   await shoot(page, "workspace-stage");
 
   await page.getByText("Needs you", { exact: true }).click();
-  await page.getByTestId("nothing-needs-you").waitFor();
+  await page.getByTestId("needs-you-empty").waitFor();
   await shoot(page, "nothing-needs-you");
   await page.getByText("Sessions", { exact: true }).first().click();
 

@@ -25,13 +25,33 @@ const waitForText = async (page: Page, terminalId: string, needle: string, ms = 
   );
 };
 
-const activeTerminal = async (page: Page) => {
-  const surface = page.getByTestId("terminal-surface");
+/** The id of the terminal that has keyboard focus (xterm's helper textarea), or null. */
+const FOCUSED = `document.activeElement?.closest("[data-terminal-id]")?.getAttribute("data-terminal-id") ?? null`;
 
-  await surface.waitFor({ timeout: 10_000 });
-  const id = await surface.getAttribute("data-terminal-id");
+/** Longer than the session menu's 160 ms close, after which Radix would restore focus. */
+const FOCUS_HOLD_MS = 300;
 
-  if (id === null) throw new Error("the terminal surface has no terminal id");
+/**
+ * Waits until a terminal other than `except` is shown and has focus, and
+ * still has it after a menu could have taken it back; typing is safe then.
+ */
+const focusedTerminal = async (page: Page, except: string | null = null) => {
+  const deadline = Date.now() + 15_000;
+  let id: string | null = null;
+
+  // Polled with evaluate: the app's CSP forbids the eval behind waitForFunction(string).
+  while (id === null || id === except) {
+    if (Date.now() > deadline)
+      throw new Error(`no terminal other than ${String(except)} took focus`);
+    await page.waitForTimeout(50);
+    id = await page.evaluate<string | null>(FOCUSED);
+  }
+
+  await page.waitForTimeout(FOCUS_HOLD_MS);
+
+  const still = await page.evaluate<string | null>(FOCUSED);
+
+  if (still !== id) throw new Error(`terminal ${id} lost focus to ${String(still)}`);
 
   return id;
 };
@@ -65,10 +85,9 @@ export const terminalFlow = async ({
   readonly shoot: (name: string) => Promise<void>;
 }) => {
   await page.keyboard.press("Control+Backquote");
-  const shell = await activeTerminal(page);
+  const shell = await focusedTerminal(page);
 
   step(`terminal ${shell} open`);
-  await page.waitForTimeout(500);
   await page.keyboard.type("echo polaris-$((6 * 7))\n");
   await waitForText(page, shell, "polaris-42");
   step("terminal echo round trip");
@@ -77,9 +96,8 @@ export const terminalFlow = async ({
   await page.getByTestId("session-menu").click();
   await page.getByTestId("open-in-terminal").click();
   await page.getByTestId("in-terminal").waitFor({ timeout: 15_000 });
-  const handoff = await activeTerminal(page);
+  const handoff = await focusedTerminal(page, shell);
 
-  if (handoff === shell) throw new Error("the hand-off did not open its own terminal");
   step(`session handed off to terminal ${handoff}`);
   await page.keyboard.type("echo handed-$((1 + 1))\n");
   await waitForText(page, handoff, "handed-2");

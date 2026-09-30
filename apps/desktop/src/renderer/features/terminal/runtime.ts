@@ -285,7 +285,7 @@ const retheme = () => {
   for (const inst of instances.values()) inst.term.options.theme = theme;
 };
 
-loaded.runtime = { disposeTerminal, reattachDropped };
+loaded.runtime = { disposeTerminal, reattachDropped, focusTerminal };
 
 if ("document" in globalThis) {
   new MutationObserver(retheme).observe(document.documentElement, {
