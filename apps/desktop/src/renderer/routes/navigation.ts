@@ -16,6 +16,7 @@ import {
   type Selection,
   type SidebarView,
   resolveSelection,
+  type SettingsSection,
   workspaceKey,
 } from "./selection.ts";
 import { timeSwitch } from "./switchTimer.ts";
@@ -97,6 +98,13 @@ export interface ShellActions {
   readonly startNewSession: () => void;
   readonly closeNewSession: () => void;
   readonly toggleFolded: (key: string, open: boolean) => void;
+  /** Settings over the three zones (⌘,); the last section when none is given. */
+  readonly openSettings: (
+    section?: SettingsSection,
+    options?: { readonly adding?: boolean }
+  ) => void;
+  /** Back to where the user was (esc). */
+  readonly closeSettings: () => void;
 }
 
 export interface Navigation {
@@ -116,7 +124,8 @@ const sameSelection = (a: Selection, b: Selection) =>
   a.workspaceId === b.workspaceId &&
   a.sessionId === b.sessionId &&
   a.pane === b.pane &&
-  a.sidebar === b.sidebar;
+  a.sidebar === b.sidebar &&
+  a.settings === b.settings;
 
 export interface NavigationInput {
   readonly app: AppStore;
@@ -135,6 +144,8 @@ export const createNavigation = ({
 }: NavigationInput): Navigation => {
   const store = createStore<NavState>(() => loadNav(storage));
   const set = (patch: Partial<NavState>) => store.setState(patch);
+
+  let lastSection: SettingsSection = "appearance";
 
   let cache: { nav: NavState; app: AppState; selection: Selection } | null = null;
 
@@ -184,6 +195,7 @@ export const createNavigation = ({
       sessionId: null,
       pane: "session",
       mode: "orchestrate",
+      settings: null,
     });
     timeSwitch(inputAt);
   };
@@ -195,12 +207,13 @@ export const createNavigation = ({
       workspaceId: null,
       sessionId: null,
       pane: "session",
+      settings: null,
     });
     timeSwitch(inputAt);
   };
 
   const actions: ShellActions = {
-    setMode: (mode) => set({ mode }),
+    setMode: (mode) => set({ mode, settings: null }),
     selectSession: ({ hostKey, sessionId }) => {
       const entry = app.getState().hostModels[hostKey]?.sessions.get(sessionId);
 
@@ -211,6 +224,7 @@ export const createNavigation = ({
         workspaceId: entry?.session.workspaceId ?? store.getState().workspaceId,
         pane: "session",
         mode: "orchestrate",
+        settings: null,
       });
     },
     selectWorkspace,
@@ -248,7 +262,7 @@ export const createNavigation = ({
     startNewSession: () => {
       const { hostKey, workspaceId } = current();
 
-      set({ pane: "new-session", mode: "orchestrate" });
+      set({ pane: "new-session", mode: "orchestrate", settings: null });
 
       if (workspaceId !== null || hostKey === null || ensureWorkspace === undefined) return;
 
@@ -261,6 +275,14 @@ export const createNavigation = ({
     },
     closeNewSession: () => set({ pane: "session" }),
     toggleFolded: (key, open) => set({ folded: { ...store.getState().folded, [key]: !open } }),
+    openSettings: (section, options) => {
+      lastSection = section ?? lastSection;
+      set({
+        settings: { section: lastSection, adding: options?.adding ?? false },
+        jumpOpen: false,
+      });
+    },
+    closeSettings: () => set({ settings: null }),
   };
 
   // The bar's mode follows the Workspace count, with hysteresis (topBar.ts).

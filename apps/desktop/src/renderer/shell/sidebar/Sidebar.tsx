@@ -7,6 +7,7 @@ import type { Workspace } from "@polaris/protocol";
 import {
   ChevronDownIcon,
   ChevronRightIcon,
+  GearIcon,
   IconButton,
   Kbd,
   PlusIcon,
@@ -203,16 +204,24 @@ const MachineGroup = ({
 };
 
 const Footer = ({ caption }: { readonly caption: string }) => {
-  const { openJump } = useShellActions();
+  const { openJump, openSettings } = useShellActions();
 
   return (
-    <div className="border-hairline px-panel flex h-10 shrink-0 items-center gap-2 border-t">
+    <div className="border-hairline pl-panel flex h-10 shrink-0 items-center gap-2 border-t pr-2">
       <button type="button" onClick={openJump} className="flex cursor-default items-center gap-2">
         <Kbd>K</Kbd>
         <span className="text-caption text-text-subtle">Jump</span>
       </button>
       <span className="flex-1" />
       <span className="text-caption text-text-faint truncate">{caption}</span>
+      <IconButton
+        label="Settings"
+        shortcut="⌘,"
+        size="sm"
+        icon={<GearIcon size={14} />}
+        className="text-text-subtle"
+        onClick={() => openSettings()}
+      />
     </div>
   );
 };

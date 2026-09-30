@@ -22,7 +22,7 @@ Root attributes (any element can set them for its subtree):
 |---|---|---|
 | `data-theme` | `dark`, `light` | dark; with no attribute, the system appearance decides |
 | `data-density` | `calm`, `balanced`, `compact` | calm |
-| `data-reduce-motion` | `true` | follows `prefers-reduced-motion` |
+| `data-reduce-motion` | `true`, `false` | follows `prefers-reduced-motion`; `false` keeps motion when the system asks to reduce it |
 | `data-text-size` | `small`, `default`, `large`, `larger` | default (scales the type table only; density is separate) |
 | `data-diff-palette` | `cvd` | the red/green diff palette; `cvd` swaps in blue/orange for diffs, fills and git letters |
 
@@ -56,7 +56,7 @@ M1 coverage (V0): HostStateChip and HostStateCard (Connection State in the works
 - **rule/faint-is-not-content**: `text-faint` colours only placeholders, disabled text and ignored files (tested by scanning the sources); ages, empty lines, key hints and line numbers are `text-subtle`.
 - **rule/signal-text-variants**: a signal hue set as words uses its `-text` token (`text-needs-you-text`, `text-failed-text`, `text-severity-*-text`, `text-diff-*-text`, `text-git-modified-text`, `harnessTextVar()`); glyphs, washes, dither, rules and line fills keep the base hue. Badges fill with `bg-*-fill` (the base hue at 12% dark, 10% light).
 - **Brand moments**: `<Button variant="primary" size="brand">Get started <ButtonKeycap>↵</ButtonKeycap></Button>` (36px, 8px radius, the one button shadow), `Wordmark moment` and `StageHeading` carry the onboarding tracking. Onboarding only.
-- **Icons**: `src/icons/chrome.tsx` re-exports 13 Nucleo UI outline icons (drawn at 16px with a 1px stroke); `src/icons/pixel.tsx` re-exports 9 Nucleo pixel icons for Polaris concepts plus the Polaris star (`star_cells()` from gen_dither.py). The Nucleo icons live in `src/icons/nucleo/` under the **Nucleo License, not Apache-2.0** (see its `LICENSE.md` and the root `NOTICE`); regenerate them with `scripts/vendor-nucleo.ts` from a licensed install. Nucleo allows at most 100 in an open-source project.
+- **Icons**: `src/icons/chrome.tsx` re-exports 21 Nucleo UI outline icons (drawn at 16px with a 1px stroke); `src/icons/pixel.tsx` re-exports 9 Nucleo pixel icons for Polaris concepts plus the Polaris star (`star_cells()` from gen_dither.py). The Nucleo icons live in `src/icons/nucleo/` under the **Nucleo License, not Apache-2.0** (see its `LICENSE.md` and the root `NOTICE`); regenerate them with `scripts/vendor-nucleo.ts` from a licensed install. Nucleo allows at most 100 in an open-source project.
 
 ## Gallery
 

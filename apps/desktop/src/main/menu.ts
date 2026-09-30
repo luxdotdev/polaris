@@ -1,8 +1,8 @@
 /**
- * The native menu: the standard macOS menus, plus View, Go, Session and Help
- * built from the keymap (`shared/keymap.ts`). Their accelerators are shown
- * but not registered, so key presses reach the renderer, the one place that
- * handles shortcuts; a menu click sends the command there.
+ * The native menu: the standard macOS menus, plus Polaris → Settings… (⌘,),
+ * View, Go, Session and Help built from the keymap (`shared/keymap.ts`). Their
+ * accelerators are shown but not registered, so key presses reach the
+ * renderer, the one place that handles shortcuts; a menu click sends the command there.
  */
 import { BrowserWindow, Menu, type MenuItemConstructorOptions } from "electron";
 import {
@@ -66,6 +66,24 @@ const develop = (proofHostKey: string | null): MenuItemConstructorOptions => ({
   ],
 });
 
+/** The macOS app menu, as `role: "appMenu"` builds it, plus the keymap's App items (Settings…). */
+const appMenu = (): MenuItemConstructorOptions => ({
+  role: "appMenu",
+  submenu: [
+    { role: "about" },
+    { type: "separator" },
+    ...commandItems("App"),
+    { type: "separator" },
+    { role: "services" },
+    { type: "separator" },
+    { role: "hide" },
+    { role: "hideOthers" },
+    { role: "unhide" },
+    { type: "separator" },
+    { role: "quit" },
+  ],
+});
+
 const THEMES: ReadonlyArray<{ readonly label: string; readonly theme: ThemeSource }> = [
   { label: "System", theme: "system" },
   { label: "Dark", theme: "dark" },
@@ -106,7 +124,7 @@ export const buildMenu = ({ appearance, setAppearance, dev, proofHostKey }: Menu
 
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
-      { role: "appMenu" },
+      appMenu(),
       { role: "fileMenu" },
       { role: "editMenu" },
       { label: "View", submenu: view },

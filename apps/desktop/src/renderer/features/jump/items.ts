@@ -184,6 +184,23 @@ const ACTIONS: ReadonlyArray<{
     title: () => "Keyboard shortcuts",
     keywords: ["help", "keys", "hotkeys"],
   },
+  { id: "settings.open", title: () => "Settings", keywords: ["preferences", "settings"] },
+  {
+    id: "settings.appearance",
+    title: () => "Settings: Appearance",
+    keywords: ["theme", "density", "text size", "font", "motion", "colourblind"],
+  },
+  {
+    id: "settings.harnesses",
+    title: () => "Settings: Harnesses",
+    keywords: ["claude", "codex", "opencode", "sign in", "model", "permissions"],
+  },
+  {
+    id: "settings.usage",
+    title: () => "Settings: Usage",
+    keywords: ["tokens", "cost", "plan limits", "rate limit"],
+  },
+  { id: "settings.hosts", title: () => "Settings: Hosts", keywords: ["machines", "ssh"] },
 ];
 
 const shortcutOf = (id: CommandId) => {

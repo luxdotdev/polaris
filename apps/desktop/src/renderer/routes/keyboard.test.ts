@@ -22,6 +22,8 @@ const setup = () => {
     startNewSession: noop,
     closeNewSession: noop,
     toggleFolded: noop,
+    openSettings: noop,
+    closeSettings: noop,
   };
 
   const registry = createCommandRegistry({ mac: true });

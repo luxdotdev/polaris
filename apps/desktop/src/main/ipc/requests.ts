@@ -9,6 +9,7 @@ import { Effect, flow, Match, Schema } from "effect";
 import type {
   Appearance,
   FileContentView,
+  SessionDefault,
   InstallView,
   IpcError,
   RequestOutput,
@@ -16,7 +17,8 @@ import type {
 import { RequestInputs, type RequestInput, type RequestMethod } from "../../shared/contract.ts";
 import { HostDirectory, toIpcError } from "../hosts.ts";
 import type { NeedsYouSummary } from "../../shared/needsYou.ts";
-import type { Settings } from "../settings.ts";
+import { appearanceOf, type Settings } from "../settings.ts";
+import { estimate, type Prices } from "../prices.ts";
 import type { SnapshotCache } from "../snapshotCache.ts";
 import { ensureInstalled } from "./install.ts";
 
@@ -24,7 +26,11 @@ import { ensureInstalled } from "./install.ts";
 export interface RequestContext {
   readonly settings: () => Settings;
   readonly cache: SnapshotCache;
+  /** The price table for Usage estimates. */
+  readonly prices: Prices;
   readonly setAppearance: (patch: Partial<Appearance>) => void;
+  readonly setSessionDefault: (harness: string, value: SessionDefault | null) => void;
+  readonly openExternal: (url: string) => Promise<void>;
   /** A fresh temp directory, or null when the local Daemon doesn't run the bench Harness. */
   readonly proofWorkspace: () => string | null;
   /** The literal Host aliases in `~/.ssh/config`. */
@@ -87,8 +93,9 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
       const settings = ctx.settings();
 
       return {
-        theme: settings.theme ?? "system",
-        density: settings.density ?? "calm",
+        ...appearanceOf(settings),
+        sessionDefaults: settings.sessionDefaults ?? {},
+        version: ctx.appVersion,
         welcomeSeen: settings.welcomeSeen ?? false,
         hosts: (settings.hosts ?? []).map((h) => ({
           alias: h.alias,
@@ -103,6 +110,14 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
   "settings.setTheme": ({ theme }) => Effect.sync(() => ctx.setAppearance({ theme })).pipe(done),
   "settings.setDensity": ({ density }) =>
     Effect.sync(() => ctx.setAppearance({ density })).pipe(done),
+  "settings.setAppearance": ({ patch }) => Effect.sync(() => ctx.setAppearance(patch)).pipe(done),
+  "settings.setSessionDefault": ({ harness, value }) =>
+    Effect.sync(() => ctx.setSessionDefault(harness, value)).pipe(done),
+  "shell.openExternal": ({ url }) =>
+    Effect.tryPromise({
+      try: () => ctx.openExternal(url),
+      catch: (cause): IpcError => ({ code: "OpenFailed", message: String(cause) }),
+    }).pipe(done),
   "host.retryNow": ({ hostKey }) => onHost(hostKey, (c) => c.retryNow).pipe(done),
   dispatch: ({ hostKey, commandId, command }) =>
     onLive(hostKey, (s) => s.client.dispatch({ commandId, command })),
@@ -136,6 +151,18 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
     onLive(hostKey, (s) => s.client["harness.availability"]({ refresh })),
   "session.terminalCommand": ({ hostKey, sessionId }) =>
     onLive(hostKey, (s) => s.client["session.terminalCommand"]({ sessionId })),
+  "usage.query": ({ hostKey, ...payload }) =>
+    onLive(hostKey, (s) => s.client["usage.query"](payload)).pipe(
+      Effect.flatMap((report) =>
+        Effect.promise(() => ctx.prices.table().catch(() => null)).pipe(
+          Effect.map((table) => ({
+            report,
+            estimates: table === null ? [] : estimate(report.buckets, table),
+            pricesFetchedAt: table?.fetchedAt ?? null,
+          }))
+        )
+      )
+    ),
   "terminal.open": ({ hostKey, ...payload }) =>
     onLive(hostKey, (s) => s.client["terminal.open"](payload)),
   "terminal.input": ({ hostKey, ...payload }) =>

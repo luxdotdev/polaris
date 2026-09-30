@@ -9,6 +9,8 @@ import { NeedsYouHover, NeedsYouInbox } from "../features/needs-you/index.ts";
 import { NewSessionPage, SessionIntent, SessionOutput } from "../features/session/index.ts";
 import { WorkspaceStage } from "../features/empty/index.ts";
 import { JumpMenu } from "../features/jump/index.ts";
+import { HostsPlaceholder } from "../features/settings/ui/HostsPlaceholder.tsx";
+import { HarnessTerminal, type HarnessTerminalProps } from "../features/terminal/index.ts";
 
 /** A selected Agent Session: which Host it lives on and its id. */
 export interface SessionSlotProps {
@@ -41,6 +43,11 @@ export interface NeedsYouHoverSlotProps {
   readonly children: ReactElement;
 }
 
+export interface SettingsHostsProps {
+  /** Open the add-a-host form at once (`openSettings("hosts", { adding: true })`). */
+  readonly adding: boolean;
+}
+
 export interface ShellSlots {
   /** The Intent column (448px): the conversation and composer of the selected session. */
   readonly SessionIntent: ComponentType<SessionSlotProps>;
@@ -56,6 +63,10 @@ export interface ShellSlots {
   readonly JumpMenu: ComponentType<JumpMenuProps>;
   /** The Needs You hover card around a waiting session's row or its Workspace chip. */
   readonly NeedsYouHover: ComponentType<NeedsYouHoverSlotProps>;
+  /** Settings → Hosts (Paper S4): the page centres its own 680px column. */
+  readonly SettingsHosts: ComponentType<SettingsHostsProps>;
+  /** Settings → Harnesses' "Sign in in terminal": the Harness's own sign-in on its Host. */
+  readonly HarnessTerminal: ComponentType<HarnessTerminalProps>;
 }
 
 export const slots: ShellSlots = {
@@ -66,4 +77,6 @@ export const slots: ShellSlots = {
   NeedsYouInbox,
   JumpMenu,
   NeedsYouHover,
+  SettingsHosts: HostsPlaceholder,
+  HarnessTerminal,
 };

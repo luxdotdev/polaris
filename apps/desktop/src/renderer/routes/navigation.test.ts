@@ -82,6 +82,32 @@ describe("navigation", () => {
     expect(nav.current()).not.toBe(first);
   });
 
+  test("Settings opens over where the user was, remembers its section, and esc returns", () => {
+    const nav = createNavigation({ app: withData({ local: 3 }), storage: null });
+
+    nav.actions.selectShortcut(1);
+    nav.actions.openSettings();
+    expect(nav.current().settings).toEqual({ section: "appearance", adding: false });
+    nav.actions.openSettings("hosts", { adding: true });
+    expect(nav.current().settings).toEqual({ section: "hosts", adding: true });
+    nav.actions.closeSettings();
+    expect(nav.current().settings).toBeNull();
+    expect(String(nav.current().workspaceId)).toBe("local1");
+    nav.actions.openSettings();
+    expect(nav.current().settings?.section).toBe("hosts");
+  });
+
+  test("moving elsewhere closes Settings", () => {
+    const nav = createNavigation({ app: withData({ local: 2 }), storage: null });
+
+    nav.actions.openSettings("usage");
+    nav.actions.setMode("orchestrate");
+    expect(nav.current().settings).toBeNull();
+    nav.actions.openSettings("usage");
+    nav.actions.selectShortcut(1);
+    expect(nav.current().settings).toBeNull();
+  });
+
   test("a new session with no Workspace falls back to the one onboarding makes", async () => {
     const app = withData({ local: 0 });
     const asked: Array<string> = [];

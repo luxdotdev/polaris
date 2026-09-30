@@ -12,8 +12,8 @@ import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, dialog, nativeTheme, session } from "electron";
-import { type AppEvent, type Appearance, CHANNELS } from "../shared/api.ts";
+import { app, BrowserWindow, dialog, nativeTheme, session, shell } from "electron";
+import { type AppEvent, type Appearance, CHANNELS, type SessionDefault } from "../shared/api.ts";
 import {
   clientIdentity,
   type ClientRuntime,
@@ -34,8 +34,15 @@ import {
   registerAppScheme,
   serveRenderer,
 } from "./protocol.ts";
+import { openPrices } from "./prices.ts";
 import { openSnapshotCache } from "./snapshotCache.ts";
-import { readSettings, type Settings, settingsPath, writeSettings } from "./settings.ts";
+import {
+  appearanceOf,
+  readSettings,
+  type Settings,
+  settingsPath,
+  writeSettings,
+} from "./settings.ts";
 import { readSshHosts } from "./sshHosts.ts";
 import { createMainWindow } from "./window.ts";
 
@@ -83,10 +90,7 @@ const start = async () => {
 
   let proofHostKey: string | null = null;
 
-  const appearance = (): Appearance => ({
-    theme: settings.theme ?? "system",
-    density: settings.density ?? "calm",
-  });
+  const appearance = (): Appearance => appearanceOf(settings);
 
   const saveSettings = (patch: Partial<Settings>) => {
     settings = { ...settings, ...patch };
@@ -96,6 +100,19 @@ const start = async () => {
   const setAppearance = (patch: Partial<Appearance>) => {
     saveSettings(patch);
     applyAppearance();
+  };
+
+  const setSessionDefault = (harness: string, value: SessionDefault | null) => {
+    const others = Object.entries(settings.sessionDefaults ?? {}).filter(([k]) => k !== harness);
+
+    const sessionDefaults = Object.fromEntries(
+      value === null ? others : [...others, [harness, value]]
+    );
+
+    saveSettings({ sessionDefaults });
+    const event: AppEvent = { kind: "session-defaults", sessionDefaults };
+
+    for (const win of BrowserWindow.getAllWindows()) win.webContents.send(CHANNELS.app, event);
   };
 
   const pickFolder = async () => {
@@ -148,7 +165,10 @@ const start = async () => {
     context: {
       settings: () => settings,
       cache: openSnapshotCache(app.getPath("userData")),
+      prices: openPrices(app.getPath("userData")),
       setAppearance,
+      setSessionDefault,
+      openExternal: (url) => shell.openExternal(url),
       sshHosts: () => readSshHosts(),
       setWelcomeSeen: () => saveSettings({ welcomeSeen: true }),
       pickFolder,

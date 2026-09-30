@@ -9,8 +9,10 @@ import {
   CommandId,
   GitDiffSpec,
   HarnessKind,
+  PermissionMode,
   Sequence,
   SessionId,
+  Timestamp,
   SessionSummary,
   TerminalId,
   Workspace,
@@ -30,6 +32,47 @@ export type ThemeSource = typeof ThemeSource.Type;
 export const Density = Schema.Literals(["calm", "balanced", "compact"]);
 
 export type Density = typeof Density.Type;
+
+/** `data-text-size`: scales the type table only (DESIGN.md, Settings). */
+export const TextSize = Schema.Literals(["small", "default", "large", "larger"]);
+
+export type TextSize = typeof TextSize.Type;
+
+/** `data-diff-palette`: `cvd` is the colourblind-safe blue and orange. */
+export const DiffPalette = Schema.Literals(["default", "cvd"]);
+
+export type DiffPalette = typeof DiffPalette.Type;
+
+/** Reduce Motion: follow macOS, always reduce, or keep motion. */
+export const MotionSource = Schema.Literals(["system", "reduce", "full"]);
+
+export type MotionSource = typeof MotionSource.Type;
+
+/** The code face: `--font-mono` on the root. */
+export const CodeFont = Schema.Literals(["sf-mono", "menlo"]);
+
+export type CodeFont = typeof CodeFont.Type;
+
+/** Any subset of the appearance settings, applied over the current ones. */
+export const AppearancePatch = Schema.Struct({
+  theme: Schema.optionalKey(ThemeSource),
+  density: Schema.optionalKey(Density),
+  textSize: Schema.optionalKey(TextSize),
+  diffPalette: Schema.optionalKey(DiffPalette),
+  motion: Schema.optionalKey(MotionSource),
+  codeFont: Schema.optionalKey(CodeFont),
+});
+
+export type AppearancePatch = typeof AppearancePatch.Type;
+
+/** What a new Agent Session of one Harness starts with; null fields take the Harness's default. */
+export const SessionDefault = Schema.Struct({
+  model: Schema.NullOr(Schema.String),
+  effort: Schema.NullOr(Schema.String),
+  permissionMode: PermissionMode,
+});
+
+export type SessionDefault = typeof SessionDefault.Type;
 
 const onHost = <F extends Schema.Struct.Fields>(fields: F) =>
   Schema.Struct({ hostKey: HostKey, ...fields });
@@ -52,6 +95,16 @@ export const RequestInputs = {
   "cache.put": Schema.Struct({ host: CachedHost }),
   "settings.setTheme": Schema.Struct({ theme: ThemeSource }),
   "settings.setDensity": Schema.Struct({ density: Density }),
+  "settings.setAppearance": Schema.Struct({ patch: AppearancePatch }),
+  /** Null clears the Harness's defaults. */
+  "settings.setSessionDefault": Schema.Struct({
+    harness: HarnessKind,
+    value: Schema.NullOr(SessionDefault),
+  }),
+  /** Opens a URL in the user's browser; https only (a catalogue `docsUrl`). */
+  "shell.openExternal": Schema.Struct({
+    url: Schema.String.check(Schema.isPattern(/^https:\/\//)),
+  }),
   "host.retryNow": onHost({}),
   dispatch: onHost({ commandId: CommandId, command: Command }),
   "files.listDir": onHost({ path: Schema.String }),
@@ -76,6 +129,13 @@ export const RequestInputs = {
   /** Each catalogue Harness's status on the Host (capability `harness.availability`). */
   "harness.availability": onHost({ refresh: Schema.Boolean }),
   "session.terminalCommand": onHost({ sessionId: SessionId }),
+  /** Hourly Usage buckets overlapping `[from, to)` (capability `usage`). */
+  "usage.query": onHost({
+    from: Timestamp,
+    to: Timestamp,
+    harness: Schema.NullOr(HarnessKind),
+    sessionId: Schema.NullOr(SessionId),
+  }),
   "terminal.open": onHost({
     cwd: Schema.String,
     cols: Schema.Int,
@@ -157,6 +217,8 @@ export const SubscriptionInputs = {
   session: onHost({ sessionId: SessionId, turnLimit: Schema.NullOr(Schema.Int) }),
   terminal: onHost({ terminalId: TerminalId }),
   "files.watch": onHost({ root: Schema.String }),
+  /** Plan Limits (every known one first) and Usage changes on a Host (capability `usage`). */
+  usage: onHost({}),
   /** Each catalogue Harness's status as it changes (`harness.watchAvailability`). */
   "harness.availability": onHost({}),
   /** Plan Limits as they change (`usage.watch`, its `PlanLimitChanged` items). */

@@ -160,11 +160,11 @@
   shape-rendering: crispEdges;
 }
 
-/* Reduce Motion: transitions become instant, and the dither stills (see dither.tsx). */
+/* Reduce Motion: transitions become instant, and the dither stills; `false` overrides the system. */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  ::before,
-  ::after {
+  :root:not([data-reduce-motion="false"]) *,
+  :root:not([data-reduce-motion="false"]) ::before,
+  :root:not([data-reduce-motion="false"]) ::after {
     transition-duration: 0ms !important;
     animation-duration: 0ms !important;
   }

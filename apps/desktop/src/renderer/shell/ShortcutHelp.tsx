@@ -26,6 +26,7 @@ const SECTIONS: ReadonlyArray<{ readonly heading: string; readonly rows: Readonl
       { title: "Workspace or machine 1–10", keys: ["⌃1…⌃0", "⌥1…⌥0"] },
       { title: "Between session rows", keys: ["↑", "↓"] },
       ...fromKeymap("View"),
+      ...fromKeymap("App"),
     ],
   },
   {

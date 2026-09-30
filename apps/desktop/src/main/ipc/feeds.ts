@@ -51,6 +51,7 @@ const openers: Openers = {
     onLive(hostKey, (session) => attachTerminal(session, terminalId)),
   "files.watch": ({ hostKey, root }) =>
     onLive(hostKey, (session) => session.client["files.watch"]({ root })),
+  usage: ({ hostKey }) => onLive(hostKey, (session) => session.client["usage.watch"]({})),
   "harness.availability": ({ hostKey }) =>
     onLive(hostKey, (session) => session.client["harness.watchAvailability"]({})),
   "plan-limits": ({ hostKey }) =>

@@ -21,23 +21,36 @@ import type {
   SessionStreamItem,
   TerminalId,
   TerminalLaunch,
+  UsageReport,
+  UsageStreamItem,
 } from "@polaris/protocol";
 import type { Rpc } from "effect/rpc";
 import type { CommandId } from "./keymap.ts";
 import type { NeedsYouAction } from "./needsYou.ts";
 import type {
   CachedHost,
+  CodeFont,
   Density,
+  DiffPalette,
+  MotionSource,
   RequestInput,
   RequestMethod,
   SubscriptionInput,
+  SessionDefault,
   SubscriptionKind,
+  TextSize,
   ThemeSource,
 } from "./contract.ts";
 
 export type {
+  AppearancePatch,
   CachedHost,
+  CodeFont,
   Density,
+  DiffPalette,
+  MotionSource,
+  SessionDefault,
+  TextSize,
   RequestInput,
   RequestMethod,
   SubscriptionInput,
@@ -106,13 +119,26 @@ export type Plain<T> = { readonly [K in keyof T]: T[K] };
 
 // ── Requests ────────────────────────────────────────────────────────────────
 
-/** How the renderer looks: `data-theme` (unset for "system") and `data-density` on the root. */
+/**
+ * How the renderer looks, as root attributes: `data-theme` (unset for "system"),
+ * `data-density`, `data-text-size`, `data-diff-palette`, `data-reduce-motion`, and the code face.
+ */
 export interface Appearance {
   readonly theme: ThemeSource;
   readonly density: Density;
+  readonly textSize: TextSize;
+  readonly diffPalette: DiffPalette;
+  readonly motion: MotionSource;
+  readonly codeFont: CodeFont;
 }
 
+/** Each Harness's defaults for new sessions, by kind. */
+export type SessionDefaults = Readonly<Record<string, SessionDefault>>;
+
 export interface SettingsView extends Appearance {
+  readonly sessionDefaults: SessionDefaults;
+  /** This build's version, for About Polaris. */
+  readonly version: string;
   /** False until the user pressed "Get started" on the welcome. */
   readonly welcomeSeen: boolean;
   readonly hosts: ReadonlyArray<{
@@ -121,6 +147,21 @@ export interface SettingsView extends Appearance {
     readonly colour: string | null;
     readonly forwardAgent: boolean;
   }>;
+}
+
+/** What a bucket's tokens not covered by a reported cost would cost at API prices (ENG-207). */
+export interface BucketEstimate {
+  readonly estimatedUsd: number;
+  /** Tokens whose Model no price list has; not in `estimatedUsd`. */
+  readonly unpricedTokens: number;
+}
+
+/** `usage.query`'s report, with each bucket's estimate (same order) and when prices were fetched. */
+export interface UsageQueryView {
+  readonly report: Plain<UsageReport>;
+  readonly estimates: ReadonlyArray<BucketEstimate>;
+  /** Null when no price table could be read. */
+  readonly pricesFetchedAt: string | null;
 }
 
 /** What `files.read` returns: inline text, or the bytes the Daemon sent as a blob. */
@@ -145,6 +186,9 @@ export interface RequestOutputs {
   "cache.put": null;
   "settings.setTheme": null;
   "settings.setDensity": null;
+  "settings.setAppearance": null;
+  "settings.setSessionDefault": null;
+  "shell.openExternal": null;
   "host.retryNow": null;
   dispatch: { readonly sequence: number | null };
   "files.listDir": ReadonlyArray<FileEntry>;
@@ -161,6 +205,7 @@ export interface RequestOutputs {
   "harness.models": Plain<HarnessModels>;
   "harness.availability": Plain<HostHarnesses>;
   "session.terminalCommand": TerminalLaunch | null;
+  "usage.query": UsageQueryView;
   "terminal.open": { readonly terminalId: TerminalId };
   "terminal.input": null;
   "terminal.resize": null;
@@ -189,6 +234,7 @@ export interface SubscriptionItems {
   session: SessionStreamItem;
   terminal: TerminalItem;
   "files.watch": ReadonlyArray<typeof FileChangeEvent.Type>;
+  usage: UsageStreamItem;
   "harness.availability": Plain<HostHarnesses>;
   "plan-limits": Plain<PlanLimit>;
 }
@@ -217,6 +263,7 @@ export type AppEvent =
   /** A command from the native menu (`shared/keymap.ts`); the renderer runs it. */
   | { readonly kind: "command"; readonly id: CommandId }
   | { readonly kind: "appearance"; readonly appearance: Appearance }
+  | { readonly kind: "session-defaults"; readonly sessionDefaults: SessionDefaults }
   /** Dev only (Develop menu): start the bench-Harness proof session on this Host. */
   | { readonly kind: "proof"; readonly hostKey: string }
   /** The menu bar star or a notification: open a waiting session, or answer it. */

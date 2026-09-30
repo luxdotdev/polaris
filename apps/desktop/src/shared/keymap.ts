@@ -20,9 +20,14 @@ export type CommandId =
   | "approval.deny"
   | "session.archive"
   | "session.openInTerminal"
-  | "theme.toggle";
+  | "theme.toggle"
+  | "settings.open"
+  | "settings.appearance"
+  | "settings.harnesses"
+  | "settings.usage"
+  | "settings.hosts";
 
-export type MenuName = "View" | "Go" | "Session" | "Help";
+export type MenuName = "App" | "View" | "Go" | "Session" | "Help";
 
 export interface KeyBinding {
   readonly id: CommandId;
@@ -55,6 +60,12 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   { id: "session.openInTerminal", title: "Open in terminal", keys: [], menu: "Session" },
   { id: "session.archive", title: "Archive session", keys: [], menu: "Session" },
   { id: "theme.toggle", title: "Toggle dark and light", keys: [] },
+  // macOS's own Settings… chord, in the app menu (DESIGN.md, Settings).
+  { id: "settings.open", title: "Settings…", keys: ["CmdOrCtrl+,"], menu: "App" },
+  { id: "settings.appearance", title: "Settings: Appearance", keys: [] },
+  { id: "settings.harnesses", title: "Settings: Harnesses", keys: [] },
+  { id: "settings.usage", title: "Settings: Usage", keys: [] },
+  { id: "settings.hosts", title: "Settings: Hosts", keys: [] },
   {
     id: "help.shortcuts",
     title: "Keyboard shortcuts",
@@ -77,7 +88,6 @@ export const RESERVED: ReadonlyArray<string> = [
   "CmdOrCtrl+Z",
   "CmdOrCtrl+Shift+Z",
   "CmdOrCtrl+`",
-  "CmdOrCtrl+,",
   "CmdOrCtrl+R",
   "CmdOrCtrl+Alt+I",
   "CmdOrCtrl+Shift+/",
