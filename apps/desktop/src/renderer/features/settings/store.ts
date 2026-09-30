@@ -27,6 +27,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
   diffPalette: "default",
   motion: "system",
   codeFont: "sf-mono",
+  codeFontSize: 13,
 };
 
 export const settingsStore = createStore<SettingsState>(() => ({
@@ -53,6 +54,7 @@ export const connectSettings = (api: PolarisApi) => {
         diffPalette: v.diffPalette,
         motion: v.motion,
         codeFont: v.codeFont,
+        codeFontSize: v.codeFontSize,
       },
       sessionDefaults: v.sessionDefaults,
       version: v.version,

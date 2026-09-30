@@ -4,14 +4,12 @@
  * the words change, never the colour.
  */
 import { harnessEntry, type PlanLimit } from "@polaris/protocol";
+import { limitAge } from "../../harness/model/limits.ts";
 import type { Plain } from "../../../../shared/api.ts";
 
 export type Limit = Plain<PlanLimit>;
 
 export const METER_CELLS = 40;
-
-/** A reading this recent reads as "live". */
-const LIVE_MS = 5 * 60_000;
 
 export interface LimitWindow {
   readonly key: string;
@@ -27,7 +25,7 @@ export interface LimitWindow {
 export interface LimitRow {
   readonly harness: string;
   readonly name: string;
-  /** "Max · live", "Pro · as of 40m ago". */
+  /** "Max · live" while a session runs, else "Pro · as of 40m ago" / "as of 13:01". */
   readonly caption: string;
   readonly windows: ReadonlyArray<LimitWindow>;
 }
@@ -91,20 +89,6 @@ const note = (limit: Limit, now: number): string => {
   return reset === null ? words : `${words} · ${reset}`;
 };
 
-/** "live" or "as of 40m ago" / "as of 3h ago" / "as of 2d ago". */
-export const freshness = (observedAt: string, now: number): string => {
-  const ms = now - Date.parse(observedAt);
-
-  if (ms < LIVE_MS) return "live";
-  const minutes = Math.floor(ms / 60_000);
-
-  if (minutes < 60) return `as of ${minutes}m ago`;
-
-  if (minutes < 1440) return `as of ${Math.floor(minutes / 60)}h ago`;
-
-  return `as of ${Math.floor(minutes / 1440)}d ago`;
-};
-
 /** A status-only reading lights the whole meter when reached, none otherwise. */
 const litCells = (used: number | null, status: Limit["status"]) => {
   if (used !== null) return Math.round((used / 100) * METER_CELLS);
@@ -138,7 +122,12 @@ export const latestLimits = (limits: ReadonlyArray<Limit>): ReadonlyArray<Limit>
   return [...newest.values()];
 };
 
-export const limitRows = (limits: ReadonlyArray<Limit>, now: number): ReadonlyArray<LimitRow> => {
+/** `running`: Harnesses with a session running now; only their fresh values read "live". */
+export const limitRows = (
+  limits: ReadonlyArray<Limit>,
+  now: number,
+  running: ReadonlySet<string>
+): ReadonlyArray<LimitRow> => {
   const byHarness = new Map<string, Array<Limit>>();
 
   for (const l of latestLimits(limits))
@@ -148,7 +137,7 @@ export const limitRows = (limits: ReadonlyArray<Limit>, now: number): ReadonlyAr
     const sorted = [...list].sort((a, b) => kindRank(a.kind) - kindRank(b.kind));
     const observed = list.reduce((a, b) => (a > b.observedAt ? a : b.observedAt), "");
     const plan = list.find((l) => l.plan !== null)?.plan ?? null;
-    const fresh = freshness(observed, now);
+    const fresh = limitAge(Date.parse(observed), now, running.has(harness));
 
     return {
       harness,

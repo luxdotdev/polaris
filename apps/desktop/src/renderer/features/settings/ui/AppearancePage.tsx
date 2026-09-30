@@ -5,8 +5,16 @@
  */
 import {
   CheckIcon,
+  ChevronDownIcon,
   cn,
   Dither,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
   Select,
   SelectContent,
   SelectItem,
@@ -17,6 +25,7 @@ import {
 } from "@polaris/ui";
 import type {
   CodeFont,
+  CodeFontSize,
   Density,
   MotionSource,
   TextSize,
@@ -89,7 +98,7 @@ const ThemeCards = ({ value }: { readonly value: ThemeSource }) => (
           <span className="py-row-x gap-gap flex items-center px-3">
             <span
               className={cn(
-                "text-body flex-1 font-medium",
+                "text-label flex-1",
                 selected ? "text-text-strong" : "text-text-default"
               )}
             >
@@ -127,7 +136,7 @@ const DensityPreview = () => (
         <Dither hue="claude" size={12} />
       </Tile>
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="text-body text-text-strong truncate font-medium">Polaris planning</span>
+        <span className="text-label text-text-strong truncate">Polaris planning</span>
         <span className="text-caption text-text-subtle truncate">Writing layout variants…</span>
       </span>
       <span className="text-caption text-text-subtle">5h</span>
@@ -142,9 +151,7 @@ const DensityPreview = () => (
         <span className="border-text-subtle size-1.5 rounded-full border" />
       </Tile>
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="text-body text-text-default truncate font-medium">
-          Glossary first pass
-        </span>
+        <span className="text-label text-text-default truncate">Glossary first pass</span>
         <span className="text-caption text-text-subtle truncate">Dormant · resumes on reply</span>
       </span>
       <span className="text-caption text-text-subtle">1d</span>
@@ -206,10 +213,62 @@ const TEXT_PERCENT: Readonly<Record<TextSize, string>> = {
   larger: "115%",
 };
 
-const CODE_FONTS: ReadonlyArray<{ readonly value: CodeFont; readonly name: string }> = [
-  { value: "sf-mono", name: "SF Mono" },
-  { value: "menlo", name: "Menlo" },
+const CODE_FONTS: ReadonlyArray<{
+  readonly value: CodeFont;
+  readonly name: string;
+  readonly family: string;
+}> = [
+  { value: "sf-mono", name: "SF Mono", family: '"SF Mono", ui-monospace, monospace' },
+  { value: "menlo", name: "Menlo", family: "Menlo, ui-monospace, monospace" },
 ];
+
+const CODE_SIZES: ReadonlyArray<CodeFontSize> = [12, 13, 14, 15];
+
+/** Font and size in one control, "SF Mono · 13" (Paper S3): the Editor's font and size are settings. */
+const CodeFontMenu = ({ font, size }: { readonly font: CodeFont; readonly size: CodeFontSize }) => (
+  <DropdownMenu>
+    <DropdownMenuTrigger
+      id="code-font"
+      className="h-tree-row px-row-x rounded-control text-caption text-text-strong hover:bg-fill-hover border-text-strong/10 flex cursor-default items-center gap-1.5 border"
+    >
+      {CODE_FONTS.find((f) => f.value === font)?.name ?? font} · {size}
+      <ChevronDownIcon size={10} className="text-text-subtle" />
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="end">
+      <DropdownMenuLabel>Font</DropdownMenuLabel>
+      <DropdownMenuRadioGroup
+        value={font}
+        onValueChange={(v) => {
+          const next = CODE_FONTS.find((f) => f.value === v);
+
+          if (next !== undefined) setAppearance({ codeFont: next.value });
+        }}
+      >
+        {CODE_FONTS.map((f) => (
+          <DropdownMenuRadioItem key={f.value} value={f.value} style={{ fontFamily: f.family }}>
+            {f.name}
+          </DropdownMenuRadioItem>
+        ))}
+      </DropdownMenuRadioGroup>
+      <DropdownMenuSeparator />
+      <DropdownMenuLabel>Size</DropdownMenuLabel>
+      <DropdownMenuRadioGroup
+        value={String(size)}
+        onValueChange={(v) => {
+          const next = CODE_SIZES.find((s) => String(s) === v);
+
+          if (next !== undefined) setAppearance({ codeFontSize: next });
+        }}
+      >
+        {CODE_SIZES.map((s) => (
+          <DropdownMenuRadioItem key={s} value={String(s)}>
+            {s}
+          </DropdownMenuRadioItem>
+        ))}
+      </DropdownMenuRadioGroup>
+    </DropdownMenuContent>
+  </DropdownMenu>
+);
 
 const MOTION: ReadonlyArray<{ readonly value: MotionSource; readonly name: string }> = [
   { value: "system", name: "Match macOS" },
@@ -250,25 +309,7 @@ export const AppearancePage = () => {
           </span>
         </SettingRow>
         <SettingRow title="Code font" caption="Editor, diffs and turn output" htmlFor="code-font">
-          <Select
-            value={appearance.codeFont}
-            onValueChange={(v) => {
-              const font = CODE_FONTS.find((f) => f.value === v);
-
-              if (font !== undefined) setAppearance({ codeFont: font.value });
-            }}
-          >
-            <SelectTrigger id="code-font" className="h-tree-row">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {CODE_FONTS.map((f) => (
-                <SelectItem key={f.value} value={f.value}>
-                  {f.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <CodeFontMenu font={appearance.codeFont} size={appearance.codeFontSize} />
         </SettingRow>
         <SettingRow
           title="Colourblind-safe diffs"
@@ -302,7 +343,7 @@ export const AppearancePage = () => {
               if (motion !== undefined) setAppearance({ motion: motion.value });
             }}
           >
-            <SelectTrigger id="reduce-motion" className="h-tree-row">
+            <SelectTrigger id="reduce-motion" className="h-tree-row bg-transparent">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

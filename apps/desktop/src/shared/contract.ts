@@ -53,6 +53,11 @@ export const CodeFont = Schema.Literals(["sf-mono", "menlo"]);
 
 export type CodeFont = typeof CodeFont.Type;
 
+/** The code face's size in px at the default text size (`--code-size`). */
+export const CodeFontSize = Schema.Literals([12, 13, 14, 15]);
+
+export type CodeFontSize = typeof CodeFontSize.Type;
+
 /** Any subset of the appearance settings, applied over the current ones. */
 export const AppearancePatch = Schema.Struct({
   theme: Schema.optionalKey(ThemeSource),
@@ -61,6 +66,7 @@ export const AppearancePatch = Schema.Struct({
   diffPalette: Schema.optionalKey(DiffPalette),
   motion: Schema.optionalKey(MotionSource),
   codeFont: Schema.optionalKey(CodeFont),
+  codeFontSize: Schema.optionalKey(CodeFontSize),
 });
 
 export type AppearancePatch = typeof AppearancePatch.Type;

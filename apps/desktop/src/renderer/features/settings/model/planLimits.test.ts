@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { freshness, type Limit, limitRows, resetPhrase } from "./planLimits.ts";
+import { type Limit, limitRows, resetPhrase } from "./planLimits.ts";
 
 const NOW = Date.parse("2026-09-30T15:00:00Z");
 
@@ -16,11 +16,20 @@ const limit = (patch: Partial<Limit>): Limit => ({
   ...patch,
 });
 
+const CLAUDE_RUNNING: ReadonlySet<string> = new Set(["claude"]);
+
 describe("limitRows", () => {
+  test("a fresh value reads live only while a session of its Harness runs (V2 bug 5)", () => {
+    const [idle] = limitRows([limit({})], NOW, new Set());
+
+    expect(idle?.caption).toBe("Max · as of 2m ago");
+  });
+
   test("one row per Harness, windows in order, 40-cell meters", () => {
     const rows = limitRows(
       [limit({ kind: "weekly", usedPercent: 34, resetsAt: null }), limit({})],
-      NOW
+      NOW,
+      CLAUDE_RUNNING
     );
 
     expect(rows).toHaveLength(1);
@@ -32,7 +41,7 @@ describe("limitRows", () => {
   });
 
   test("near a limit the words change, not the colour", () => {
-    const [row] = limitRows([limit({ status: "warning", usedPercent: 91 })], NOW);
+    const [row] = limitRows([limit({ status: "warning", usedPercent: 91 })], NOW, CLAUDE_RUNNING);
 
     expect(row?.windows[0]?.note).toBe("Near the limit · resets in 1h 48m");
   });
@@ -43,7 +52,8 @@ describe("limitRows", () => {
         limit({ usedPercent: 10, observedAt: "2026-09-30T14:00:00Z" }),
         limit({ usedPercent: 20, observedAt: "2026-09-30T14:20:00Z" }),
       ],
-      NOW
+      NOW,
+      CLAUDE_RUNNING
     );
 
     expect([row?.windows[0]?.percent, row?.caption]).toEqual(["20%", "Max · as of 40m ago"]);
@@ -51,9 +61,7 @@ describe("limitRows", () => {
 });
 
 describe("phrases", () => {
-  test("freshness and resets", () => {
-    expect(freshness("2026-09-30T14:58:00Z", NOW)).toBe("live");
-    expect(freshness("2026-09-30T11:00:00Z", NOW)).toBe("as of 4h ago");
+  test("resets", () => {
     expect(resetPhrase("2026-09-30T15:30:00Z", NOW)).toBe("in 30m");
     expect(resetPhrase("2026-10-05T09:00:00Z", NOW)).toMatch(/^[A-Z][a-z]{2} \d\d:\d\d$/);
   });

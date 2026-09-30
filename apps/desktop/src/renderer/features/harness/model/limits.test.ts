@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { PlanLimit } from "@polaris/protocol";
 import {
   freshness,
+  limitAge,
   limitHint,
   limitLine,
   limitsFor,
@@ -51,13 +52,19 @@ describe("Plan Limits", () => {
     ]);
   });
 
-  test("freshness reads live, else how old", () => {
-    expect(freshness([limit()], NOW)).toBe("live");
-    expect(freshness([limit({ observedAt: "2026-09-30T11:20:00.000Z" })], NOW)).toBe(
+  test("freshness reads live only while a session runs, else how old", () => {
+    expect(freshness([limit()], NOW, true)).toBe("live");
+    expect(freshness([limit({ observedAt: "2026-09-30T11:20:00.000Z" })], NOW, true)).toBe(
       "as of 40m ago"
     );
-    expect(limitHint([], NOW)).toBeNull();
-    expect(limitHint([limit()], NOW)).toBe("5-hour 42% · resets in 2h · live");
+    expect(limitHint([], NOW, true)).toBeNull();
+    expect(limitHint([limit()], NOW, true)).toBe("5-hour 42% · resets in 2h · live");
+  });
+
+  test("a fresh value with no session running shows its age (V2 bug 5, ENG-206)", () => {
+    expect(freshness([limit()], NOW, false)).toMatch(/^as of \d+m ago$/);
+    expect(limitAge(NOW - 3 * 3_600_000, NOW, false)).toMatch(/^as of \d\d:\d\d$/);
+    expect(limitAge(NOW - 3 * 86_400_000, NOW, true)).toBe("as of 3d ago");
   });
 
   test("the latest value replaces its window", () => {
