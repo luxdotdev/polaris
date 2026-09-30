@@ -6,6 +6,7 @@
 import { hueVar, SegmentedControl, Switch, Tile, Dither, harnessHue } from "@polaris/ui";
 import { useState } from "react";
 import { useNow } from "../../../shell/useNow.ts";
+import { useRunningHarnesses } from "../../harness/index.ts";
 import { type LimitRow, type LimitWindow, limitRows, METER_CELLS } from "../model/planLimits.ts";
 import { sectionInfo } from "../model/sections.ts";
 import {
@@ -58,7 +59,7 @@ const LimitRowView = ({ row }: { readonly row: LimitRow }) => (
     <div className="flex w-[152px] shrink-0 items-center gap-2.5">
       <HarnessTile harness={row.harness} size={28} />
       <span className="flex min-w-0 flex-col">
-        <span className="text-body text-text-default truncate font-medium">{row.name}</span>
+        <span className="text-label text-text-default truncate">{row.name}</span>
         <span className="text-caption text-text-subtle truncate">{row.caption}</span>
       </span>
     </div>
@@ -68,9 +69,27 @@ const LimitRowView = ({ row }: { readonly row: LimitRow }) => (
   </div>
 );
 
-const PlanLimits = ({ rows }: { readonly rows: ReadonlyArray<LimitRow> }) => (
+/** OpenCode reports a limit only when a provider refuses work, so its absence needs saying (Paper S2). */
+const OPENCODE_ASIDE = "OpenCode reports a limit only once you reach it";
+
+const PlanLimits = ({
+  rows,
+  harnesses,
+}: {
+  readonly rows: ReadonlyArray<LimitRow>;
+  /** Harnesses with Usage in the range. */
+  readonly harnesses: ReadonlyArray<string>;
+}) => (
   <div className="flex flex-col gap-2.5">
-    <Heading>Plan limits</Heading>
+    <Heading
+      aside={
+        harnesses.includes("opencode") && !rows.some((r) => r.harness === "opencode") ? (
+          <span className="text-caption text-text-subtle">{OPENCODE_ASIDE}</span>
+        ) : null
+      }
+    >
+      Plan limits
+    </Heading>
     {rows.length === 0 ? (
       <p className="text-caption text-text-subtle">
         No plan limits reported yet. A harness reports its limits as it runs.
@@ -193,15 +212,15 @@ const ModelTable = ({ summary }: { readonly summary: UsageSummary }) => (
     </div>
     {summary.byModel.map((row) => (
       <div key={`${row.harness}/${row.model}`} className="px-panel flex h-9 shrink-0 items-center">
-        <span className="text-body text-text-default flex-1 truncate font-medium">{row.model}</span>
+        <span className="text-label text-text-default flex-1 truncate">{row.model}</span>
         <span className="text-caption text-text-subtle flex w-[120px] shrink-0 items-center gap-1.5">
           <span className="size-2 shrink-0" style={{ background: hueVar(row.harness) }} />
           {harnessHue(row.harness).name}
         </span>
-        <span className="text-body text-text-default tabular w-[90px] shrink-0 text-right">
+        <span className="text-label font-regular text-text-default tabular w-[90px] shrink-0 text-right">
           {compactTokens(row.tokens)}
         </span>
-        <span className="text-body text-text-subtle tabular w-[110px] shrink-0 text-right">
+        <span className="text-label font-regular text-text-subtle tabular w-[110px] shrink-0 text-right">
           {costLabel(row.cost)}
         </span>
       </div>
@@ -249,6 +268,7 @@ const Tokens = ({
           <Switch checked={split} onCheckedChange={setSplit} />
         </label>
         <SegmentedControl
+          variant="well"
           aria-label="Range"
           options={RANGE_OPTIONS}
           value={String(days)}
@@ -296,6 +316,7 @@ export const UsagePage = () => {
   const [days, setDays] = useState<RangeDays>(30);
   const data = useUsage(days);
   const now = useNow();
+  const running = useRunningHarnesses();
   const info = sectionInfo("usage");
   const summary = usageSummary({ buckets: data.buckets, days, now, estimate: pricedEstimate });
 
@@ -306,7 +327,7 @@ export const UsagePage = () => {
         <p className="text-caption text-text-subtle">No connected host reports usage yet.</p>
       ) : (
         <>
-          <PlanLimits rows={limitRows(data.limits, now)} />
+          <PlanLimits rows={limitRows(data.limits, now, running)} harnesses={summary.harnesses} />
           <Tokens
             summary={summary}
             hostCount={data.hostCount}

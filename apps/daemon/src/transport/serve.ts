@@ -83,6 +83,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "files.watch",
   "git.diff",
   "attachments.stage",
+  "attachments.settings",
   "terminal",
   "terminal.binary",
   "usage",

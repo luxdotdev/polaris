@@ -42,6 +42,7 @@ const UI_MORE: ReadonlyArray<readonly [string, string]> = [
   ["ServerIcon", "ServerOutline18"],
   ["TerminalIcon", "SquareTerminalOutline18"],
   ["ArrowUpRightIcon", "ArrowUpRightOutline18"],
+  ["PaperclipIcon", "Paperclip2Outline18"],
 ];
 
 /** Polaris name → Nucleo pixel outline 24px component. Polaris-owned concepts only. */

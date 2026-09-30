@@ -1,3 +1,5 @@
+export * from "./attachments.ts";
+
 export * from "./availability.ts";
 
 export * from "./bridge.ts";

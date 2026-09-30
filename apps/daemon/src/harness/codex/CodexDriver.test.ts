@@ -205,6 +205,53 @@ describe("Codex driver against a fake app-server", () => {
     });
   });
 
+  test("a Turn the API rejects reads as its message, not the raw JSON body", async () => {
+    const body = JSON.stringify({
+      type: "error",
+      error: {
+        message: "model 'gpt-6-luna' is not supported for this account",
+        type: "invalid_request_error",
+        param: null,
+        code: null,
+      },
+    });
+
+    const error = { message: body, codexErrorInfo: "badRequest", additionalDetails: null };
+
+    const handler = scripted((request, conn) => {
+      if (request.method !== "turn/start") return;
+      conn.reply({ turn: turn("t1") });
+      conn.notify("turn/started", { threadId: THREAD, turn: turn("t1") });
+      conn.notify("error", { threadId: THREAD, turnId: "t1", willRetry: false, error });
+      conn.notify("turn/completed", { threadId: THREAD, turn: turn("t1", "failed", error) });
+    });
+
+    const { events } = await withSession(handler, ({ session, waitFor }) =>
+      Effect.gen(function* () {
+        yield* session.sendTurn({
+          turnId: TurnId.make("turn-1"),
+          prompt: "hi",
+          attachments: [],
+          model: "gpt-6-luna",
+          effort: "low",
+        });
+        yield* waitFor("TurnEnded");
+      })
+    );
+
+    const readable =
+      "gpt-6-luna isn't available on this Codex account or plan. Choose another Model. " +
+      "Codex said: model 'gpt-6-luna' is not supported for this account";
+
+    expect(events.find(HarnessEvent.$is("TurnEnded"))).toMatchObject({
+      status: "failed",
+      error: readable,
+    });
+    expect(
+      events.flatMap((e) => (HarnessEvent.$is("ItemCompleted")(e) ? [e.item] : []))
+    ).toContainEqual(TurnItem.cases.Error.make({ id: "t1:error:1", message: readable }));
+  });
+
   test("an approval round-trip answers the server request", async () => {
     let approval: Promise<ClientAnswer> = Promise.resolve(null);
 

@@ -16,9 +16,11 @@ import { spawnSync } from "node:child_process";
 import { APP_DIR, electronBinary, OUT_DIR, REPO_ROOT, sizeWindow } from "./lib/electron.ts";
 import { probeSource } from "./lib/probe.ts";
 import { startDaemon } from "./lib/daemon.ts";
+import { freshStartFlow } from "./lib/freshStartFlow.ts";
 import { machineFlow, prepareFakeHost } from "./lib/machineFlow.ts";
 import { checkNoneReady, initRepo, sessionFlow } from "./lib/sessionFlow.ts";
 import { settingsFlow } from "./lib/settingsFlow.ts";
+import { attachmentsFlow } from "./lib/attachmentsFlow.ts";
 import { terminalFlow } from "./lib/terminalFlow.ts";
 
 const args = process.argv.slice(2);
@@ -53,6 +55,9 @@ const step = (message: string) => console.log(`smoke: ${message}`);
 if (flag("--build")) {
   spawnSync("bun", [join(APP_DIR, "scripts/build.ts"), "--no-app"], { stdio: "inherit" });
 }
+
+// First, its own launch: New session the moment the local Host connects (V2 bug 1).
+await freshStartFlow({ step, show: flag("--show") });
 
 const home = mkdtempSync(join(tmpdir(), "polaris-smoke-"));
 
@@ -333,6 +338,7 @@ try {
   });
   await settingsFlow({ app, page, step, shoot: (name) => shoot(page, name) });
   await terminalFlow({ page, step, shoot: (name) => shoot(page, name) });
+  await attachmentsFlow({ app, page, step, shoot: (name) => shoot(page, name) });
   await timeSwitches(page);
   await jumpByTyping(page);
 

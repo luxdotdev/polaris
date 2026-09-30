@@ -270,6 +270,34 @@ export const interrupted = (): SessionModel => {
   });
 };
 
+/**
+ * A Failed Turn whose error is one long unbroken token (an API body nothing
+ * unwrapped): the error row must wrap it, never scroll sideways.
+ */
+export const failed = (): SessionModel => {
+  const raw =
+    '{"type":"error","error":{"message":"model_gpt-6-luna_is_not_supported_when_using_the_responses_api_with_this_account",' +
+    '"type":"invalid_request_error","param":null,"code":"model_not_supported"},"status":400}';
+
+  const s = session("s-failed", {
+    harness: "codex",
+    title: "Reply with the single word: pong",
+    state: "failed",
+    model: "gpt-6-luna",
+    effort: "low",
+    lastError: raw,
+  });
+
+  return model({
+    session: s,
+    turns: [
+      view(turn(s.id, 2, "Reply with the single word: pong", "failed"), [
+        I.Error.make({ id: "e2", message: raw.replaceAll(" ", "") }),
+      ]),
+    ],
+  });
+};
+
 /** 150 Turns of mixed items, for scrolling the virtualized conversation. */
 export const long = (): SessionModel => {
   const s = session("s-long", { title: "Long-running refactor", state: "idle", turnCount: 150 });

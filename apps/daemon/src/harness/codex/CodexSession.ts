@@ -45,6 +45,7 @@ import {
   elicitationDecision,
   permissionsDecision,
   policyFor,
+  readableError,
   sandboxPolicyFor,
   toPlanItem,
   toTurnItem,
@@ -500,7 +501,7 @@ export const openSession = (
         HarnessEvent.TurnEnded({
           turnId,
           status: p.turn.status === "inProgress" ? "completed" : p.turn.status,
-          error: p.turn.error?.message ?? null,
+          error: p.turn.error ? readableError(p.turn.error.message) : null,
         })
       );
     };
@@ -571,7 +572,7 @@ export const openSession = (
               turnId: turnFor(p.turnId),
               item: TurnItem.cases.Error.make({
                 id: `${p.turnId}:error:${++errorCount}`,
-                message: p.error.message,
+                message: readableError(p.error.message),
               }),
             })
           );

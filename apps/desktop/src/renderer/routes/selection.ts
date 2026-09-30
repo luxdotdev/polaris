@@ -10,6 +10,7 @@ import {
   activeSessions,
   type BarHost,
   barWorkspaces,
+  LOCAL_HOST,
   needsYou,
   type TopBarMode,
 } from "./topBar.ts";
@@ -19,13 +20,14 @@ export type SidebarView = "sessions" | "needs-you";
 export type Pane = "session" | "new-session";
 
 /** The Settings pages (DESIGN.md, Settings); features/machines fills "hosts". */
-export type SettingsSection = "appearance" | "harnesses" | "usage" | "hosts";
+export type SettingsSection = "appearance" | "harnesses" | "usage" | "hosts" | "attachments";
 
 export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
   "appearance",
   "harnesses",
   "usage",
   "hosts",
+  "attachments",
 ];
 
 /** Settings, open over the three zones; null when closed. */
@@ -113,7 +115,18 @@ const pickHost = ({ nav, bar }: ResolveInput): string | null => {
 
   if (known !== undefined) return known.host.key;
 
-  return (bar.find((h) => h.workspaces.length > 0) ?? bar[0])?.host.key ?? null;
+  // No choice yet: a Host with Workspaces; else this Mac (it runs sessions in its home
+  // directory), else any connected Host; bar order puts this Mac last, so ask for it.
+  const connected = (h: BarHost) => h.host.status.state === "connected";
+
+  const pick =
+    bar.find((h) => h.workspaces.length > 0) ??
+    bar.find((h) => h.host.key === LOCAL_HOST && connected(h)) ??
+    bar.find(connected) ??
+    bar.find((h) => h.host.key === LOCAL_HOST) ??
+    bar[0];
+
+  return pick?.host.key ?? null;
 };
 
 const pickWorkspace = (input: ResolveInput, hostKey: string | null): WorkspaceId | null => {
@@ -171,9 +184,13 @@ export const resolveSelection = (raw: ResolveInput): Selection => {
   const input = { ...raw, nav: followSession(raw) };
   const { nav, bar } = input;
 
-  // In the Workspace bar a stale Workspace falls back to the first chip, on any Host.
+  // In the Workspace bar a stale Workspace falls back to the first chip, on any Host; a
+  // Host chosen on its own (its label: add a Workspace, or what needs attention) is kept.
+  const hostOnly = nav.workspaceId === null && bar.some((h) => h.host.key === nav.hostKey);
+
   const stale =
     nav.topBar === "workspaces" &&
+    !hostOnly &&
     !barWorkspaces(bar).some(
       (w) => w.hostKey === nav.hostKey && w.workspace.id === nav.workspaceId
     );

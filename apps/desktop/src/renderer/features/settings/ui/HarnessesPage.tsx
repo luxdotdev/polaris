@@ -5,13 +5,12 @@
  */
 import {
   ArrowUpIcon,
-  ArrowUpRightIcon,
   Button,
   CheckIcon,
   ChevronRightIcon,
   cn,
   Dither,
-  TerminalIcon,
+  PixelTerminalIcon,
   Tile,
 } from "@polaris/ui";
 import { type ReactNode, useState } from "react";
@@ -60,8 +59,8 @@ const Action = ({
 }) => {
   if (action.kind === "sign-in") {
     return (
-      <Button variant="secondary" size="sm" onClick={onSignIn}>
-        <TerminalIcon size={14} />
+      <Button variant="secondary" className="text-label gap-1.5 px-2.5" onClick={onSignIn}>
+        <PixelTerminalIcon size={14} />
         Sign in in terminal
       </Button>
     );
@@ -70,12 +69,10 @@ const Action = ({
   return (
     <Button
       variant="ghost"
-      size="sm"
-      className="text-text-default"
+      className="text-label text-text-default px-2.5"
       onClick={() => void window.polaris.request("shell.openExternal", { url: action.url })}
     >
       Open setup guide
-      <ArrowUpRightIcon size={12} />
     </Button>
   );
 };
@@ -94,8 +91,8 @@ const Row = ({
   readonly onClose: () => void;
 }) => (
   <div className="flex flex-col" data-testid="harness-host-row">
-    <div className="px-panel flex h-10 shrink-0 items-center">
-      <span className="text-body text-text-default w-[168px] shrink-0 truncate pr-3 font-medium">
+    <div className="px-panel flex h-[39px] shrink-0 items-center">
+      <span className="text-label text-text-default w-[168px] shrink-0 truncate pr-3">
         {row.hostLabel}
       </span>
       <span className="text-caption text-text-subtle w-24 shrink-0 truncate font-mono">
@@ -103,7 +100,7 @@ const Row = ({
       </span>
       <span
         className={cn(
-          "text-body flex min-w-0 flex-1 items-center gap-1.5",
+          "text-label font-regular flex min-w-0 flex-1 items-center gap-1.5",
           row.ready ? "text-text-subtle" : "text-text-default"
         )}
       >

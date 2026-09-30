@@ -29,6 +29,7 @@ const view: HostView = {
     host: null,
     capabilities: [],
     epoch: 0,
+    latencyMs: null,
   },
 };
 
@@ -96,6 +97,7 @@ describe("requests", () => {
         diffPalette: "default",
         motion: "system",
         codeFont: "sf-mono",
+        codeFontSize: 13,
         sessionDefaults: {},
         version: "0.1.0",
         welcomeSeen: false,
