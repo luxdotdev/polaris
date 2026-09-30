@@ -488,8 +488,19 @@ describe("transport", () => {
         const conn = yield* localHost(home);
         yield* conn.awaitSession;
         const states: Array<string> = [];
+        // Each connection's measured round trip, and when a drop last ended a good one.
+        const latencies: Array<number | null> = [];
+        const lastSeen: Array<number | null> = [];
         yield* conn.changes.pipe(
-          Stream.runForEach((s) => Effect.sync(() => states.push(s.state))),
+          Stream.runForEach((s) =>
+            Effect.sync(() => {
+              states.push(s.state);
+
+              if (s.state === "connected") latencies.push(s.latencyMs);
+
+              if (s.state === "reconnecting") lastSeen.push(s.lastSeenAt);
+            })
+          ),
           Effect.forkChild
         );
 
@@ -520,7 +531,7 @@ describe("transport", () => {
 
         const sequences = yield* Fiber.join(items);
 
-        return { sequences, states, events: log.events.length };
+        return { sequences, states, latencies, lastSeen, events: log.events.length };
       })
     );
 
@@ -528,6 +539,10 @@ describe("transport", () => {
     expect(result.sequences).toEqual(Array.from({ length: 90 }, (_, i) => i + 1));
     expect(result.states).toContain("reconnecting");
     expect(result.states.filter((s) => s === "connected").length).toBeGreaterThanOrEqual(4);
+    // Every connection measured its round trip; every drop recorded when it was last seen.
+    expect(result.latencies.every((ms) => ms !== null && ms >= 0 && ms < 5000)).toBe(true);
+    expect(result.lastSeen.length).toBeGreaterThan(0);
+    expect(result.lastSeen.every((at) => at !== null)).toBe(true);
   }, 20_000);
 
   test("a late subscriber paints from the cache first", async () => {

@@ -28,7 +28,17 @@ import {
   type Wire,
   type WireOptions,
 } from "@polaris/protocol";
-import { Data, Deferred, Effect, Exit, Latch, Predicate, type Scope, type Stream } from "effect";
+import {
+  Data,
+  Deferred,
+  Effect,
+  Exit,
+  Latch,
+  Option,
+  Predicate,
+  type Scope,
+  type Stream,
+} from "effect";
 import { RpcClient, type RpcGroup, RpcSchema, RpcSerialization } from "effect/rpc";
 import { RpcClientDefect, RpcClientError } from "effect/rpc/RpcClientError";
 import { constPing, type FromServerEncoded } from "effect/rpc/RpcMessage";
@@ -54,6 +64,11 @@ export interface RpcConnection {
   readonly wire: Wire;
   /** Fails when the connection is gone: closed, broken, or the peer stopped answering pings. */
   readonly lost: Effect.Effect<never, RpcClientError>;
+  /**
+   * One protocol ping, timed to its pong: the link's round trip in ms, or null
+   * after 5 s. The Daemon answers it without running a handler.
+   */
+  readonly roundTrip: Effect.Effect<number | null>;
 }
 
 export interface RpcConnectionOptions {
@@ -91,6 +106,8 @@ export const connectRpc = Effect.fnUntraced(function* (
   const pingInterval = options.pingIntervalMs ?? 15_000;
   let lastHeard = Date.now();
   let wire!: Wire;
+  /** Waiting for the next pong (`roundTrip`). */
+  let pongWaiters: Array<Deferred.Deferred<void>> = [];
   /** Requests (not streams) sent and not yet answered with an Exit. */
   const awaiting = new Set<string | number>();
   /** Open while `awaiting` is non-empty: the ping loop runs only then. */
@@ -132,7 +149,14 @@ export const connectRpc = Effect.fnUntraced(function* (
           return Effect.forEach(
             responses,
             (response) => {
-              if (isPong(response)) return Effect.void;
+              if (isPong(response)) {
+                const waiters = pongWaiters;
+                pongWaiters = [];
+
+                return Effect.forEach(waiters, (w) => Deferred.succeed(w, undefined), {
+                  discard: true,
+                });
+              }
 
               if ("requestId" in response) {
                 const clientId = requestClient.get(response.requestId);
@@ -248,5 +272,17 @@ export const connectRpc = Effect.fnUntraced(function* (
       takeStream: (blobId, takeOptions) => wire.takeBlobStream(blobId, takeOptions),
     },
     lost: Deferred.await(lost),
+    roundTrip: Effect.gen(function* () {
+      const pong = yield* Deferred.make<void>();
+      const ping = parser.encode(constPing);
+
+      if (!Predicate.isString(ping)) return null;
+      pongWaiters.push(pong);
+      const started = performance.now();
+      yield* Effect.ignore(wire.sendJson(ping));
+      const answered = yield* Deferred.await(pong).pipe(Effect.timeoutOption(5000));
+
+      return Option.isSome(answered) ? Math.round(performance.now() - started) : null;
+    }),
   };
 });

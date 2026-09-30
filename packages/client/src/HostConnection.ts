@@ -100,6 +100,10 @@ export interface ConnectionStatus {
   readonly capabilities: ReadonlyArray<Capability>;
   /** Increments on every successful connection. */
   readonly epoch: number;
+  /** The link's round trip when this connection opened (one protocol ping), in ms; null if unmeasured. */
+  readonly latencyMs: number | null;
+  /** When the last good connection ended (ms since epoch); null while connected or never. */
+  readonly lastSeenAt: number | null;
 }
 
 /** One live connection: an RPC client and its blob channel. Invalid once the epoch changes. */
@@ -190,6 +194,8 @@ export const makeHostConnection = Effect.fnUntraced(function* (
     host: null,
     capabilities: [],
     epoch: 0,
+    latencyMs: null,
+    lastSeenAt: null,
   });
 
   const live = yield* SubscriptionRef.make<LiveSession | null>(null);
@@ -258,8 +264,12 @@ export const makeHostConnection = Effect.fnUntraced(function* (
         yield* Effect.addFinalizer(() =>
           SubscriptionRef.update(live, (current) => (current === session ? null : current))
         );
+        // After hello, so ssh's own handshake isn't counted.
+        const latencyMs = yield* connection.roundTrip;
         const connected = step({ type: "connected", epoch });
         yield* setStatus({
+          latencyMs,
+          lastSeenAt: null,
           state: connected.value,
           failure: null,
           attempt: connected.context.attempt,
@@ -288,8 +298,11 @@ export const makeHostConnection = Effect.fnUntraced(function* (
       yield* Queue.poll(retrySignal);
       const failure = yield* connectOnce(machine.context.epoch + 1).pipe(Effect.flip);
       const now = yield* Clock.currentTimeMillis;
+      const wasConnected = machine.value === "connected";
       const { value, context } = step({ type: "failed", failure, now, jitter: Math.random() });
+      const { lastSeenAt } = yield* SubscriptionRef.get(status);
       yield* setStatus({
+        lastSeenAt: wasConnected ? now : lastSeenAt,
         state: value,
         failure,
         attempt: context.attempt,
