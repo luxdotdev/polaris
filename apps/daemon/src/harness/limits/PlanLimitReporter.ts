@@ -14,6 +14,12 @@ export class PlanLimitReporter extends Context.Service<
     readonly report: (limits: ReadonlyArray<PlanLimit>) => void;
   }
 >()("polaris/daemon/harness/PlanLimitReporter") {
+  /** Drops every report: for a registry run without the Usage index (scripts, tests). */
+  static readonly none = Layer.succeed(
+    PlanLimitReporter,
+    PlanLimitReporter.of({ report: () => {} })
+  );
+
   /** Requires `PlanLimitSink`. */
   static readonly layer = Layer.effect(
     PlanLimitReporter,

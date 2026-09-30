@@ -39,6 +39,7 @@ import {
   type SessionEffect,
   type SessionInput,
 } from "./session.inputs.ts";
+import { endSubagents, subagentEnded, subagentStarted } from "./session.subagents.ts";
 
 export type { SessionEffect, SessionInput } from "./session.inputs.ts";
 
@@ -269,6 +270,7 @@ const exited = (record: SessionRecord, event: ExitedInput, enq: Enqueue, withSta
   const reason = event.error ?? "The Harness exited";
 
   const events = [
+    ...endSubagents(record, event.at),
     ...(turn ? [endTurn(turn, event.error ? "failed" : "interrupted", event.at)] : []),
     ...withdrawPending(record, "harness", reason),
   ];
@@ -299,6 +301,7 @@ const recover = (record: SessionRecord, event: RecoverInput, enq: Enqueue) => {
   const { state } = record.session;
 
   const events = [
+    ...endSubagents(record, event.at),
     ...(turn ? [endTurn(turn, "interrupted", event.at)] : []),
     ...withdrawPending(record, "daemon", RECOVERY_REASON[event.cause]),
   ];
@@ -334,7 +337,11 @@ const interruptUnattended = (
   return settle(
     enq,
     record,
-    [...withdrawPending(record, "daemon", "Interrupted"), endTurn(turn, "interrupted", at)],
+    [
+      ...endSubagents(record, at),
+      ...withdrawPending(record, "daemon", "Interrupted"),
+      endTurn(turn, "interrupted", at),
+    ],
     withState ? { state: "dormant" } : undefined
   );
 };
@@ -345,16 +352,22 @@ const interruptUnattended = (
  * Archived session never holds a working Turn. A request still pending with
  * no Turn in flight (only in logs from before this rule) is withdrawn.
  */
-const archive = ({ context }: { context: Context }, enq: Enqueue) => {
+const archive = ({ context, event }: { context: Context; event: { at: string } }, enq: Enqueue) => {
   const record = need(context);
 
   if (workingTurn(record) !== undefined) {
     return reject(enq, "interrupt the Turn in flight before archiving");
   }
 
-  return settle(enq, record, withdrawPending(record, "daemon", "The session was archived"), {
-    state: "archived",
-  });
+  return settle(
+    enq,
+    record,
+    [
+      ...endSubagents(record, event.at),
+      ...withdrawPending(record, "daemon", "The session was archived"),
+    ],
+    { state: "archived" }
+  );
 };
 
 type ApprovalRequestedInput = Extract<SessionInput, { type: "harness.approvalRequested" }>;
@@ -500,6 +513,10 @@ export const sessionMachine = createMachine({
       ]);
     },
     "harness.turnEnded": ({ context, event }, enq) => turnEnded(need(context), event, enq, true),
+    "harness.subagentStarted": ({ context, event }, enq) =>
+      settle(enq, need(context), subagentStarted(need(context), event.subagent)),
+    "harness.subagentEnded": ({ context, event }, enq) =>
+      settle(enq, need(context), subagentEnded(need(context), event)),
     "harness.exited": ({ context, event }, enq) => exited(need(context), event, enq, true),
     "terminal.closed": ({ context, event }, enq) => {
       // A Turn the terminal UI left open when it closed ends Interrupted.
@@ -522,6 +539,7 @@ export const sessionMachine = createMachine({
         enq,
         record,
         [
+          ...endSubagents(record, event.at),
           ...(turn ? [endTurn(turn, "failed", event.at)] : []),
           ...withdrawPending(record, "daemon", event.message),
         ],
@@ -713,6 +731,7 @@ export const sessionMachine = createMachine({
           const turn = workingTurn(record);
 
           return settle(enq, record, [
+            ...endSubagents(record, event.at),
             ...(turn ? [endTurn(turn, "interrupted", event.at)] : []),
             ...withdrawPending(record, "daemon", RECOVERY_REASON[event.cause]),
           ]);

@@ -54,6 +54,7 @@ import {
 } from "./mapping.ts";
 import * as P from "./protocol.ts";
 import { codexError, Incoming, type RpcConnection } from "./RpcConnection.ts";
+import { CodexSubagents } from "./subagents.ts";
 
 export interface SessionConfig {
   readonly appServer: AppServer;
@@ -308,6 +309,7 @@ export const openSession = (
     let pendingLocalTurn: { readonly turnId: TurnId; readonly prompt: string } | null = null;
     const endedTurns = new Set<string>();
     let errorCount = 0;
+    const subagents = new CodexSubagents();
 
     const announce = (codexTurnId: string, prompt: string | null) => {
       const turnId = turns.get(codexTurnId);
@@ -412,36 +414,57 @@ export const openSession = (
       }
     };
 
+    /** An item on a Subagent's thread: the Subagent's own (what it was asked is skipped). */
+    const onSubagentItem = (p: ItemNotification, completed: boolean) => {
+      const scope = subagents.scopeOf(p.threadId);
+      const item = scope && (completed ? toTurnItem(p.item) : progressOf(p.item));
+
+      if (!scope || !item) return;
+      emit((completed ? HarnessEvent.ItemCompleted : HarnessEvent.ItemUpdated)({ ...scope, item }));
+    };
+
     const onItemStarted = (params: P.RpcPayload) => {
       const p = decodeItem(params);
 
-      if (!ours(p)) return;
+      if (p === null) return;
+
+      if (p.threadId !== threadId) return onSubagentItem(p, false);
 
       if (p.item.type === "userMessage") return announceUserMessage(p);
       const turnId = turnFor(p.turnId);
       const item = progressOf(p.item);
 
       if (item !== null) emit(HarnessEvent.ItemUpdated({ turnId, item }));
+
+      for (const event of subagents.fromParentItem(turnId, p.item)) emit(event);
     };
 
     const onItemCompleted = (params: P.RpcPayload) => {
       const p = decodeItem(params);
 
-      if (!ours(p)) return;
+      if (p === null) return;
+
+      if (p.threadId !== threadId) return onSubagentItem(p, true);
 
       if (p.item.type === "userMessage") return announceUserMessage(p);
       const turnId = turnFor(p.turnId);
       const item = toTurnItem(p.item);
 
       if (item !== null) emit(HarnessEvent.ItemCompleted({ turnId, item }));
+
+      for (const event of subagents.fromParentItem(turnId, p.item)) emit(event);
       openAsyncQuestions(turnId, p.item);
     };
 
     const onDelta = (field: "text" | "output") => (params: P.RpcPayload) => {
       const p = decodeDelta(params);
 
-      if (!ours(p)) return;
-      emit(ItemDelta({ turnId: turnFor(p.turnId), itemId: p.itemId, field, text: p.delta }));
+      if (p === null) return;
+
+      const scope =
+        p.threadId === threadId ? { turnId: turnFor(p.turnId) } : subagents.scopeOf(p.threadId);
+
+      if (scope) emit(ItemDelta({ ...scope, itemId: p.itemId, field, text: p.delta }));
     };
 
     const onTurnCompleted = (params: P.RpcPayload) => {
@@ -482,7 +505,20 @@ export const openSession = (
         (params) => {
           const p = decodeTurnStarted(params);
 
-          if (!ours(p)) return;
+          if (p === null) return;
+
+          if (p.threadId !== threadId) {
+            // A Subagent's own turn belongs to the Polaris Turn that spawned it (its approvals too).
+            const scope = subagents.scopeOf(p.threadId);
+
+            if (scope) {
+              turns.set(p.turn.id, scope.turnId);
+              announced.add(p.turn.id);
+            }
+
+            return;
+          }
+
           activeCodexTurn = p.turn.id;
           // A Turn started elsewhere is announced with its user message, which comes next.
           turnFor(p.turn.id, { announce: false });

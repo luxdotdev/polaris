@@ -76,6 +76,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "session.terminal-handoff",
   "session.terminal-command",
   "session.live-items",
+  "session.subagents",
   "files.read",
   "files.search",
   "files.watch",

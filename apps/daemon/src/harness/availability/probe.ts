@@ -4,7 +4,7 @@
  * credentials (ADR 0001) and never imports a driver here (ENG-196).
  */
 import { existsSync } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   HarnessAvailability,
@@ -136,7 +136,25 @@ const codex: Prober = {
     }),
 };
 
-const PROBERS: Record<KnownHarnessKind, Prober> = { claude, codex };
+const opencodeScratch = join(tmpdir(), "polaris-opencode-probe");
+
+/**
+ * OpenCode: `--version` only, with XDG directories in a scratch dir (it creates
+ * them on any run). It needs no sign-in: its free models work without a provider.
+ */
+const opencode: Prober = {
+  binaryEnv: "POLARIS_OPENCODE",
+  binary: "opencode",
+  probeEnv: () => ({
+    XDG_DATA_HOME: join(opencodeScratch, "data"),
+    XDG_CONFIG_HOME: join(opencodeScratch, "config"),
+    XDG_STATE_HOME: join(opencodeScratch, "state"),
+    XDG_CACHE_HOME: join(opencodeScratch, "cache"),
+  }),
+  signIn: () => Effect.succeed({ status: "ready", detail: null }),
+};
+
+const PROBERS: Record<KnownHarnessKind, Prober> = { claude, codex, opencode };
 
 /** The binary a Harness runs as on this Host, or null when it isn't installed. */
 export const harnessBinary = (kind: KnownHarnessKind, env: ProbeEnv): string | null => {

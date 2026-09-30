@@ -31,6 +31,10 @@ export class ClientCapabilities extends Context.Service<
 
 export const UNKNOWN_DEVICE = "Unknown device";
 
+/** Whether the Client announced `capability` in its `hello`. */
+const announced = (annotations: Context.Context<never>, capability: Capability) =>
+  (Context.getOrUndefined(annotations, ClientCapabilities) ?? []).includes(capability);
+
 const DispatchHandler = DaemonRpcs.toLayerHandler(
   "dispatch",
   Effect.gen(function* () {
@@ -50,7 +54,10 @@ const SubscribeHostHandler = DaemonRpcs.toLayerHandler(
   Effect.gen(function* () {
     const engine = yield* Engine;
 
-    return ({ afterSequence }) => engine.subscribeHost(afterSequence);
+    return ({ afterSequence }, { client }) =>
+      engine.subscribeHost(afterSequence, {
+        subagents: announced(client.annotations, "session.subagents"),
+      });
   })
 );
 
@@ -64,9 +71,8 @@ const SubscribeSessionHandler = DaemonRpcs.toLayerHandler(
         sessionId,
         afterSequence,
         turnLimit,
-        liveItems: (Context.getOrUndefined(client.annotations, ClientCapabilities) ?? []).includes(
-          "session.live-items"
-        ),
+        liveItems: announced(client.annotations, "session.live-items"),
+        subagents: announced(client.annotations, "session.subagents"),
       });
   })
 );

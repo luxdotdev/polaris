@@ -54,7 +54,20 @@ Tests: `AppServer.test.ts` runs the real lifecycle against a fake `codex` execut
 | `serverRequest/resolved` for a request Polaris didn't answer | `ApprovalWithdrawn` |
 | connection closed by the server | `Exited { error }`; scope close gives `Exited { error: null }` |
 
-Notifications for other threads on the shared server are ignored.
+Notifications for other threads on the shared server are ignored, except a Subagent's.
+
+### Subagents
+
+A Codex agent spawned from the Polaris thread runs in a thread of its own on the same app-server, and its notifications reach the session's connection (verified with codex-cli 0.158.0). `subagents.ts` tracks them:
+
+| parent-thread item | HarnessEvent |
+|---|---|
+| `subAgentActivity` `started` (multi-agent v2) | `SubagentStarted { subagentId: agentThreadId, title and agent: the agent's name (the last segment of `agentPath`) }` |
+| `subAgentActivity` `completed` / `interrupted` | `SubagentEnded` |
+| `collabAgentToolCall` `spawnAgent` (v1) | one `SubagentStarted` per `receiverThreadIds` entry (title: the prompt's first line, `model`) |
+| `collabAgentToolCall` `agentsStates` | `SubagentEnded` for each agent `completed` / `errored` (→ failed) / `interrupted` / `shutdown` / `notFound` |
+
+Items, deltas and progress on a Subagent's thread are its own (`subagentId` = its thread), under the Polaris Turn that spawned it. Its own Codex turns map to that Turn too, so an approval it asks for belongs to the Turn, and its `turn/completed` ends nothing. The collab call itself stays a `ToolCall` of the Turn. `subagents.test.ts` replays `fixtures/subagent-turn.jsonl`, a real Turn that spawned one agent (scrubbed).
 
 ### Approvals
 

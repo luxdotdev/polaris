@@ -17,6 +17,7 @@ import {
   ApprovalRequest,
   Attachment,
   HostInfo,
+  Subagent,
   Timestamp,
   Turn,
   TurnItem,
@@ -25,8 +26,17 @@ import {
 } from "./domain.ts";
 import { EventEnvelope } from "./events.ts";
 import { HarnessKind } from "./harnesses.ts";
-import { BlobId, CommandId, Sequence, SessionId, TerminalId, TurnId, WorkspaceId } from "./ids.ts";
-import { Model } from "./models.ts";
+import {
+  BlobId,
+  CommandId,
+  Sequence,
+  SessionId,
+  SubagentId,
+  TerminalId,
+  TurnId,
+  WorkspaceId,
+} from "./ids.ts";
+import { addedArray, addedNullable, Model } from "./models.ts";
 import { UsageReport, UsageStreamItem } from "./usage.ts";
 
 // ── Errors ──────────────────────────────────────────────────────────────────
@@ -94,6 +104,8 @@ export class SessionSummary extends Schema.Class<SessionSummary>("SessionSummary
   session: AgentSession,
   pendingApprovals: Schema.Array(ApprovalRequest),
   lastTurnPreview: Schema.NullOr(Schema.String),
+  /** Subagents still working, for Clients that announced `session.subagents`. */
+  subagents: addedArray(Subagent),
 }) {}
 
 export const HostStreamItem = Schema.TaggedUnion({
@@ -116,9 +128,18 @@ export const SubscribeHost = Rpc.make("subscribeHost", {
   stream: true,
 });
 
+/** A Subagent and its own items, viewable on its own. */
+export class SubagentDetail extends Schema.Class<SubagentDetail>("SubagentDetail")({
+  subagent: Subagent,
+  items: Schema.Array(TurnItem),
+}) {}
+
 export class TurnDetail extends Schema.Class<TurnDetail>("TurnDetail")({
   turn: Turn,
+  /** The Turn's own items; its Subagents' items are under `subagents`. */
   items: Schema.Array(TurnItem),
+  /** The Subagents the Turn spawned, empty for Clients without `session.subagents`. */
+  subagents: addedArray(SubagentDetail),
 }) {}
 
 export const SessionStreamItem = Schema.TaggedUnion({
@@ -135,6 +156,8 @@ export const SessionStreamItem = Schema.TaggedUnion({
     itemId: Schema.String,
     field: Schema.Literals(["text", "output"]),
     text: Schema.String,
+    /** Set for a Subagent's own item (sent only to Clients with `session.subagents`). */
+    subagentId: addedNullable(SubagentId),
   },
   /**
    * The latest state of an item still in progress (a running command, a plan being
@@ -145,7 +168,7 @@ export const SessionStreamItem = Schema.TaggedUnion({
    * sends the progress of every item still running, so a Client that subscribes
    * mid-Turn sees them too.
    */
-  ItemProgress: { turnId: TurnId, item: TurnItem },
+  ItemProgress: { turnId: TurnId, item: TurnItem, subagentId: addedNullable(SubagentId) },
   Synchronized: { sequence: Sequence },
 });
 
