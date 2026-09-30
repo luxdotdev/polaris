@@ -110,11 +110,19 @@ const Row = ({
         <span className="text-text-subtle flex w-3.5 shrink-0 justify-center">
           {GLYPHS[row.glyph]}
         </span>
-        <span className="truncate">{row.text}</span>
+        <span className={cn("truncate", row.note !== null && "shrink-0")}>{row.text}</span>
+        {row.note === null ? null : (
+          <span className="text-caption text-text-subtle truncate" data-testid="harness-row-note">
+            · {row.note}
+          </span>
+        )}
       </span>
-      <span className="flex w-[170px] shrink-0 justify-end">
-        {row.action === null ? null : <Action action={row.action} onSignIn={onSignIn} />}
-      </span>
+      {/* An empty action slot lends its width to the status (a noted row has no action). */}
+      {row.action === null && row.note !== null ? null : (
+        <span className="flex w-[170px] shrink-0 justify-end">
+          {row.action === null ? null : <Action action={row.action} onSignIn={onSignIn} />}
+        </span>
+      )}
     </div>
     {signingIn && row.action?.kind === "sign-in" ? (
       <slots.HarnessTerminal

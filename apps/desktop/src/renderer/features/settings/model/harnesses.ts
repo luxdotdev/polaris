@@ -6,6 +6,7 @@
  */
 import { HARNESS_CATALOGUE, type HarnessStatus, type HostHarnesses } from "@polaris/protocol";
 import type { Plain } from "../../../../shared/api.ts";
+import { olderThanTestedNote } from "../../harness/model/options.ts";
 
 export type AvailabilityReport = Plain<HostHarnesses>;
 
@@ -38,6 +39,8 @@ export interface HostRow {
   readonly version: string | null;
   readonly glyph: RowGlyph;
   readonly text: string;
+  /** "older than tested (2.1.283)", a quiet caption after `text`; null otherwise. */
+  readonly note: string | null;
   readonly ready: boolean;
   readonly action: RowAction | null;
 }
@@ -81,7 +84,7 @@ const STATUS_ROW: Readonly<
     (
       entry: Entry,
       found: { minVersion: string; signInArgv: ReadonlyArray<string> | null }
-    ) => Omit<HostRow, "hostKey" | "hostLabel" | "version">
+    ) => Omit<HostRow, "hostKey" | "hostLabel" | "version" | "note">
   >
 > = {
   ready: () => ({ glyph: "ready", text: "Ready", ready: true, action: null }),
@@ -113,6 +116,7 @@ const hostRow = (entry: Entry, host: ProbedHost): HostRow => {
     return {
       ...base,
       version: null,
+      note: null,
       glyph: "unknown",
       text: host.probe.kind === "failed" ? host.probe.message : NOT_REPORTED[host.probe.kind],
       ready: false,
@@ -126,6 +130,7 @@ const hostRow = (entry: Entry, host: ProbedHost): HostRow => {
     return {
       ...base,
       version: null,
+      note: null,
       glyph: "unknown",
       text: "This host's daemon doesn't drive it",
       ready: false,
@@ -133,7 +138,12 @@ const hostRow = (entry: Entry, host: ProbedHost): HostRow => {
     };
   }
 
-  return { ...base, version: found.version, ...STATUS_ROW[found.status](entry, found) };
+  return {
+    ...base,
+    version: found.version,
+    note: olderThanTestedNote(found.olderThanTested),
+    ...STATUS_ROW[found.status](entry, found),
+  };
 };
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;

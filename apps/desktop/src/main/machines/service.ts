@@ -364,6 +364,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
             status: h.status,
             version: h.version,
             minVersion: h.minVersion,
+            olderThanTested: h.olderThanTested,
             detail: h.detail,
             signInArgv: h.signInArgv,
           }))

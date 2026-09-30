@@ -187,6 +187,8 @@ export interface HarnessAvailabilityView {
   readonly status: "not-installed" | "outdated" | "needs-sign-in" | "ready" | "unknown";
   readonly version: string | null;
   readonly minVersion: string;
+  /** The tested version, when the installed one works but is older than it; else null. */
+  readonly olderThanTested: string | null;
   readonly detail: string | null;
   /** The Harness's own sign-in, run on the Host in a terminal; null when it can't. */
   readonly signInArgv: ReadonlyArray<string> | null;

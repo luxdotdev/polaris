@@ -8,6 +8,7 @@ import { Button } from "@polaris/ui";
 import { useEffect, useState } from "react";
 import type { HarnessAvailabilityView, MachineView } from "../../../shared/api.ts";
 import { slots } from "../../app/slots.tsx";
+import { olderThanTestedNote } from "../harness/index.ts";
 import { call } from "./hooks.tsx";
 
 const STATUS_TEXT: Readonly<Record<HarnessAvailabilityView["status"], string>> = {
@@ -96,8 +97,13 @@ export const Harnesses = ({ machine }: { readonly machine: MachineView }) => {
                 <span className="text-code-inline text-text-subtle w-[84px] shrink-0 truncate font-mono">
                   {harness.version ?? "—"}
                 </span>
-                <span className="text-caption text-text-default flex-1">
-                  {STATUS_TEXT[harness.status]}
+                <span className="text-caption text-text-default flex min-w-0 flex-1 gap-1.5">
+                  <span>{STATUS_TEXT[harness.status]}</span>
+                  {olderThanTestedNote(harness.olderThanTested) === null ? null : (
+                    <span className="text-text-subtle truncate">
+                      · {olderThanTestedNote(harness.olderThanTested)}
+                    </span>
+                  )}
                 </span>
                 <Action harness={harness} onSignIn={() => setSigningIn(harness.harness)} />
               </div>

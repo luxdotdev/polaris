@@ -25,6 +25,7 @@ export {
   defaultHarness,
   type HarnessOption,
   listedOptions,
+  olderThanTestedNote,
   STATUS_LABELS,
 } from "./model/options.ts";
 

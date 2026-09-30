@@ -5,6 +5,7 @@
 import { harnessEntry, type HostHarnesses, type Workspace } from "@polaris/protocol";
 import type { HostView, Plain } from "../../../shared/api.ts";
 import type { HostModel } from "../../store/hostModel.ts";
+import { olderThanTestedNote } from "../harness/model/options.ts";
 
 /** "unknown" until the settings arrive, so the welcome never flashes for a returning user. */
 export type Welcome = "unknown" | "show" | "seen";
@@ -49,11 +50,20 @@ const harnessName = (kind: string) => harnessEntry(kind)?.name ?? kind;
 type Reported = Availability["harnesses"][number];
 
 const named = (harnesses: ReadonlyArray<Reported>) =>
-  harnesses.map((h) =>
-    h.version === null ? harnessName(h.harness) : `${harnessName(h.harness)} ${h.version}`
-  );
+  harnesses.map((h) => {
+    const name =
+      h.version === null ? harnessName(h.harness) : `${harnessName(h.harness)} ${h.version}`;
 
-/** Installed Harnesses with their versions: "Claude Code 2.1.4", in catalogue order. */
+    const note = olderThanTestedNote(h.olderThanTested);
+
+    // A comma, not "·": the footer already separates its parts with dots.
+    return note === null ? name : `${name}, ${note}`;
+  });
+
+/**
+ * Installed Harnesses with their versions: "Claude Code 2.1.4", in catalogue order; one older
+ * than tested says so, quietly: "Claude Code 2.1.272, older than tested (2.1.283)".
+ */
 export const installedHarnesses = (availability: Availability | null): ReadonlyArray<string> =>
   named((availability?.harnesses ?? []).filter((h) => h.status !== "not-installed"));
 

@@ -37,6 +37,8 @@ export interface HarnessOption {
   readonly docsUrl: string | null;
   /** Its own sign-in, to run in a terminal on the Host; null unless it needs signing in. */
   readonly signInArgv: ReadonlyArray<string> | null;
+  /** "older than tested (2.1.283)" for a usable version below the tested one; null otherwise. */
+  readonly note: string | null;
 }
 
 const STARTABLE: ReadonlySet<HarnessStatus> = new Set(["ready", "unknown"]);
@@ -52,11 +54,19 @@ export const STATUS_LABELS: Readonly<Record<HarnessStatus, string>> = {
   outdated: "Needs a newer version",
 };
 
+/**
+ * The quiet caption for a version between the minimum and the tested one (DESIGN.md, Settings S1):
+ * never a signal colour and never an action.
+ */
+export const olderThanTestedNote = (tested: string | null | undefined): string | null =>
+  tested === null || tested === undefined ? null : `older than tested (${tested})`;
+
 interface Probe {
   readonly harness: HarnessKind;
   readonly status: HarnessStatus;
   readonly version: string | null;
   readonly minVersion: string;
+  readonly olderThanTested: string | null;
   readonly detail: string | null;
   readonly signInArgv: ReadonlyArray<string> | null;
 }
@@ -95,6 +105,7 @@ const option = (probe: Probe, listed = LISTED.has(probe.status)): HarnessOption 
     detail: probe.status === "ready" ? null : probe.detail,
     docsUrl: entry?.setup.docsUrl ?? null,
     signInArgv: probe.status === "needs-sign-in" ? probe.signInArgv : null,
+    note: olderThanTestedNote(probe.olderThanTested),
   };
 };
 
@@ -117,6 +128,7 @@ export const harnessOptions = (
         status: "unknown",
         version: null,
         minVersion: entry.minVersion,
+        olderThanTested: null,
         detail: null,
         signInArgv: null,
       },

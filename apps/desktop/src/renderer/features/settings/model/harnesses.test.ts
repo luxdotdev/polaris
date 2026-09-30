@@ -6,12 +6,14 @@ import { harnessGroups, type ProbedHost } from "./harnesses.ts";
 const availability = (
   harness: string,
   status: HarnessAvailability["status"],
-  version: string | null = "1.0.0"
+  version: string | null = "1.0.0",
+  olderThanTested: string | null = null
 ): Plain<HarnessAvailability> => ({
   harness,
   status,
   version,
   minVersion: "2.1.0",
+  olderThanTested,
   detail: null,
   signInArgv: status === "not-installed" ? null : [`/usr/local/bin/${harness}`, "login"],
 });
@@ -68,6 +70,21 @@ describe("harnessGroups", () => {
     });
     expect(claude.summary).toBe("Ready on 1 of 4 hosts");
     expect(claude.collapsible).toBe(false);
+  });
+
+  test("older than tested: ready, a quiet note, no action", () => {
+    const [row] = group(
+      [reported("pi", [availability("claude", "ready", "2.1.272", "2.1.283")])],
+      "claude"
+    ).rows;
+
+    expect(row).toMatchObject({
+      glyph: "ready",
+      text: "Ready",
+      ready: true,
+      note: "older than tested (2.1.283)",
+      action: null,
+    });
   });
 
   test("ready everywhere collapses, with the shared version", () => {

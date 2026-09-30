@@ -51,12 +51,18 @@ describe("onboardingStage", () => {
   });
 });
 
-const reported = (harness: string, status: HarnessAvailability["status"], version: string | null) =>
+const reported = (
+  harness: string,
+  status: HarnessAvailability["status"],
+  version: string | null,
+  olderThanTested: string | null = null
+) =>
   new HarnessAvailability({
     harness,
     status,
     version,
     minVersion: "0",
+    olderThanTested,
     detail: null,
     signInArgv: null,
   });
@@ -77,6 +83,15 @@ describe("found on this Mac", () => {
     );
     expect(foundLine(availability, 1)).toContain("1 host in ~/.ssh/config");
     expect(foundLine(null, 0)).toBe("No agents yet");
+  });
+
+  test("a Harness older than tested says so, quietly", () => {
+    const older = new HostHarnesses({
+      checkedAt: "2026-09-30T00:00:00.000Z",
+      harnesses: [reported("claude", "ready", "2.1.272", "2.1.283")],
+    });
+
+    expect(foundLine(older, 0)).toBe("Claude Code 2.1.272, older than tested (2.1.283)");
   });
 
   test("names join the way a sentence does", () => {

@@ -9,11 +9,17 @@ import {
   readyOn,
 } from "./options.ts";
 
-const probe = (harness: string, status: HarnessStatus, version: string | null = "1.0.0") => ({
+const probe = (
+  harness: string,
+  status: HarnessStatus,
+  version: string | null = "1.0.0",
+  olderThanTested: string | null = null
+) => ({
   harness,
   status,
   version,
   minVersion: "2.0.0",
+  olderThanTested,
   detail: status === "ready" ? null : "said the Harness",
   signInArgv: status === "not-installed" ? null : [harness, "login"],
 });
@@ -26,6 +32,19 @@ const report = (...harnesses: ReadonlyArray<ReturnType<typeof probe>>): Availabi
 const [first, second, third] = HARNESS_CATALOGUE;
 
 describe("Harness options", () => {
+  test("a usable version older than tested is ready and listed, with a quiet note", () => {
+    const [claude] = harnessOptions(report(probe("claude", "ready", "2.1.272", "2.1.283")), []);
+
+    expect(claude).toMatchObject({
+      status: "ready",
+      startable: true,
+      listed: true,
+      note: "older than tested (2.1.283)",
+      setupLine: null,
+    });
+    expect(harnessOptions(report(probe("codex", "ready")), [])[0]?.note).toBeNull();
+  });
+
   test("every Harness the Host reports appears, in its order, catalogue or not", () => {
     const all = report(
       ...HARNESS_CATALOGUE.map((e) => probe(e.kind, "ready")),

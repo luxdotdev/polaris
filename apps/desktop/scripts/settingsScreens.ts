@@ -6,9 +6,10 @@
  *
  *   node scripts/settingsScreens.ts <out dir>
  */
+import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { _electron as electron, type Page } from "playwright-core";
 import { startDaemon } from "./lib/daemon.ts";
 import { APP_DIR, electronBinary, sizeWindow } from "./lib/electron.ts";
@@ -25,9 +26,41 @@ const MACHINES = [
 
 const home = mkdtempSync(join(tmpdir(), "polaris-settings-screens-"));
 
+/**
+ * The Pi runs a real probe against a fake Claude Code 2.1.272 (what the real Pi ran): usable
+ * but older than tested, so S1 shows the quiet note. Nothing else is on its PATH.
+ */
+const olderClaude = (root: string) => {
+  const bin = join(root, "bin");
+  const userHome = join(root, "user");
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(userHome, { recursive: true });
+  writeFileSync(join(userHome, ".claude.json"), "{}");
+  writeFileSync(
+    join(bin, "claude"),
+    `#!/bin/sh\ncase "$1" in --version) echo "2.1.272 (Claude Code)";; *) echo '{"loggedIn":true}';; esac\n`,
+    { mode: 0o755 }
+  );
+
+  return {
+    userHome,
+    // Bun's own directory too: `spawn` finds the Daemon's `bun` through this PATH.
+    env: {
+      PATH: `${bin}:${dirname(execFileSync("which", ["bun"]).toString().trim())}:/usr/bin:/bin`,
+      POLARIS_USER_PATH: "off",
+    },
+  };
+};
+
 const daemons = await Promise.all(
   ["local", ...MACHINES.map((m) => m.key)].map((key) =>
-    startDaemon({ home: join(home, key), benchHarness: true })
+    key === "pi"
+      ? startDaemon({
+          home: join(home, key),
+          benchHarness: false,
+          ...olderClaude(join(home, "pi-host")),
+        })
+      : startDaemon({ home: join(home, key), benchHarness: true })
   )
 );
 
