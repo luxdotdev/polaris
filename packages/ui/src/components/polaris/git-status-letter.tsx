@@ -32,14 +32,14 @@ export const GIT_LETTERS: Record<GitStatus, string> = {
   ignored: "",
 };
 
-/** The tint for the letter and the file name beside it. */
+/** The tint for the letter and the file name beside it: the -text variants. */
 export const GIT_TINTS: Record<GitStatus, string> = {
-  modified: "text-git-modified",
-  added: "text-diff-added",
-  untracked: "text-diff-added",
-  deleted: "text-diff-removed",
-  renamed: "text-git-modified",
-  conflicted: "text-diff-removed",
+  modified: "text-git-modified-text",
+  added: "text-diff-added-text",
+  untracked: "text-diff-added-text",
+  deleted: "text-diff-removed-text",
+  renamed: "text-git-modified-text",
+  conflicted: "text-diff-removed-text",
   ignored: "text-text-faint",
 };
 

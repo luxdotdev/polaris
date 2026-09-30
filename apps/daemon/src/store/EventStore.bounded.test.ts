@@ -214,7 +214,14 @@ describe("live subscribers", () => {
 
           for (let i = 0; i < 1000; i++)
             yield* store.publishEphemeral(
-              LiveItem.Delta({ sessionId: sId, turnId: tId, itemId: "m", field: "text", text: "x" })
+              LiveItem.Delta({
+                sessionId: sId,
+                turnId: tId,
+                itemId: "m",
+                field: "text",
+                text: "x",
+                subagentId: null,
+              })
             );
           expect(yield* store.subscriberCount).toBe(2);
 
@@ -257,7 +264,14 @@ describe("live subscribers", () => {
 
           const delta = (sessionId: SessionId, text: string) =>
             store.publishEphemeral(
-              LiveItem.Delta({ sessionId, turnId: tId, itemId: "m", field: "text", text })
+              LiveItem.Delta({
+                sessionId,
+                turnId: tId,
+                itemId: "m",
+                field: "text",
+                text,
+                subagentId: null,
+              })
             );
 
           yield* delta(sId, "a");

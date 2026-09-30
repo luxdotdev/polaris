@@ -9,6 +9,7 @@ import {
   ApprovalRequest,
   PermissionMode,
   SessionState,
+  Subagent,
   Timestamp,
   Turn,
   TurnItem,
@@ -20,11 +21,12 @@ import {
   RequestId,
   Sequence,
   SessionId,
+  SubagentId,
   TurnId,
   WorkspaceId,
   WorktreeId,
 } from "./ids.ts";
-import { ModelId, ReasoningEffort } from "./models.ts";
+import { addedNullable, ModelId, ReasoningEffort } from "./models.ts";
 
 export const DomainEvent = Schema.TaggedUnion({
   WorkspaceRegistered: { workspace: Workspace },
@@ -51,8 +53,19 @@ export const DomainEvent = Schema.TaggedUnion({
   },
 
   TurnStarted: { turn: Turn },
-  TurnItemCompleted: { sessionId: SessionId, turnId: TurnId, item: TurnItem },
+  TurnItemCompleted: {
+    sessionId: SessionId,
+    turnId: TurnId,
+    item: TurnItem,
+    /** Set when the item is a Subagent's own, not the Turn's. */
+    subagentId: addedNullable(SubagentId),
+  },
   TurnEnded: { turn: Turn },
+
+  /** A Harness spawned a Subagent in a Turn (capability `session.subagents`). */
+  SubagentStarted: { subagent: Subagent },
+  /** It finished, failed, or the Harness went away first (`interrupted`). */
+  SubagentEnded: { subagent: Subagent },
 
   ApprovalRequested: { request: ApprovalRequest },
   ApprovalResolved: {

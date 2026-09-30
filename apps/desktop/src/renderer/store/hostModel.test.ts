@@ -23,7 +23,9 @@ const snapshot = H.Snapshot.make({
   sequence: seq(3),
   workspaces: [workspace],
   worktrees: [],
-  sessions: [new SessionSummary({ session, pendingApprovals: [], lastTurnPreview: null })],
+  sessions: [
+    new SessionSummary({ session, pendingApprovals: [], lastTurnPreview: null, subagents: [] }),
+  ],
 });
 
 /** What the renderer really receives: values after structured clone. */

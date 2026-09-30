@@ -17,6 +17,7 @@ export default defineConfig({
     modulePreload: false,
     reportCompressedSize: false,
   },
-  server: { port: 5199, strictPort: false },
+  // Its own port on IPv4 only: the @polaris/ui gallery takes 5199 (V0 review, S1).
+  server: { port: 5198, strictPort: true, host: "127.0.0.1" },
   worker: { format: "es" },
 });

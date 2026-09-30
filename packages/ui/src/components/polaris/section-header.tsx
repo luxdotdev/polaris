@@ -24,7 +24,7 @@ export function SectionHeader({
         {action}
       </div>
       {empty === undefined ? null : (
-        <p className="text-caption text-text-faint px-2 pb-1.5">{empty}</p>
+        <p className="text-caption text-text-subtle px-2 pb-1.5">{empty}</p>
       )}
     </div>
   );

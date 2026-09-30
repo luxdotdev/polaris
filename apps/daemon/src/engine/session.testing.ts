@@ -235,7 +235,7 @@ const INPUTS = {
           },
         ];
   },
-  archive: () => [{ type: "session.archive" }],
+  archive: () => [{ type: "session.archive", at: AT }],
   unarchive: () => [{ type: "session.unarchive" }],
   openTerminal: () => [{ type: "terminal.open" }],
   returnTerminal: () => [{ type: "terminal.return" }],

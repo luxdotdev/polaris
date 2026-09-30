@@ -1724,6 +1724,150 @@
         "10 MB of output via `yes | head -c`; the PTY turns \\n into \\r\\n"
       ],
       "durationMs": 10169.609708000004
+    },
+    "usage": {
+      "metrics": {
+        "build_ms": {
+          "value": 703.7860419999997,
+          "unit": "ms",
+          "kind": "time",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.25,
+            "absolute": 200
+          },
+          "runs": [
+            872.3158749999998,
+            703.7860419999997,
+            692.0666249999995
+          ],
+          "min": 692.0666249999995,
+          "max": 872.3158749999998
+        },
+        "build_mb_per_s": {
+          "value": 126.5239741711161,
+          "unit": "MB/s",
+          "kind": "throughput",
+          "better": "higher",
+          "tolerance": {
+            "relative": 0.25,
+            "absolute": 0
+          },
+          "runs": [
+            102.07977356826164,
+            126.5239741711161,
+            128.66652397809253
+          ],
+          "min": 102.07977356826164,
+          "max": 128.66652397809253
+        },
+        "build_rss_peak_over_base_mib": {
+          "value": 37.59375,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.25,
+            "absolute": 10
+          },
+          "runs": [
+            33.09375,
+            37.59375,
+            37.8125
+          ],
+          "min": 33.09375,
+          "max": 37.8125
+        },
+        "noop_refresh_ms": {
+          "value": 8.85562499999969,
+          "unit": "ms",
+          "kind": "time",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.5,
+            "absolute": 20
+          },
+          "runs": [
+            8.85562499999969,
+            10.314666999999645,
+            8.59454100000039
+          ],
+          "min": 8.59454100000039,
+          "max": 10.314666999999645
+        },
+        "append_refresh_ms": {
+          "value": 12.325208999999631,
+          "unit": "ms",
+          "kind": "time",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.5,
+            "absolute": 20
+          },
+          "runs": [
+            12.325208999999631,
+            11.421540999999706,
+            12.677374999999302
+          ],
+          "min": 11.421540999999706,
+          "max": 12.677374999999302
+        },
+        "rss_settled_mib": {
+          "value": 142.640625,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.25,
+            "absolute": 10
+          },
+          "runs": [
+            138.265625,
+            142.640625,
+            142.90625
+          ],
+          "min": 138.265625,
+          "max": 142.90625
+        },
+        "index_mib": {
+          "value": 1.2109375,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.1,
+            "absolute": 1
+          },
+          "runs": [
+            1.2109375,
+            1.2109375,
+            1.2109375
+          ],
+          "min": 1.2109375,
+          "max": 1.2109375
+        },
+        "build_footprint_peak_over_base_mib": {
+          "value": 26.78131866455078,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.25,
+            "absolute": 10
+          },
+          "runs": [
+            21.250045776367188,
+            28.828216552734375,
+            26.78131866455078
+          ],
+          "min": 21.250045776367188,
+          "max": 28.828216552734375
+        }
+      },
+      "notes": [
+        "89 MB of logs, 82 hourly buckets; RSS sampled every 50 ms"
+      ],
+      "durationMs": 12004.162417
     }
   }
 }

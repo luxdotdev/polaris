@@ -5,7 +5,8 @@ import type { TintHue } from "../../lib/hue";
 import { Tile } from "./tile";
 
 export interface EmptyStateProps extends Omit<HTMLAttributes<HTMLDivElement>, "title"> {
-  readonly hue: TintHue;
+  /** The wash; Paper uses Starlight for every pane. */
+  readonly hue?: TintHue;
   /** A pixel icon for the tile. */
   readonly icon: ReactNode;
   /** One heading-sm sentence. */
@@ -21,7 +22,7 @@ export interface EmptyStateProps extends Omit<HTMLAttributes<HTMLDivElement>, "t
  * at most one action. No scene and no signal colour ("Nothing needs you" is never yellow).
  */
 export function EmptyState({
-  hue,
+  hue = "starlight",
   icon,
   title,
   fact,
@@ -35,10 +36,10 @@ export function EmptyState({
       className={cn("flex flex-col items-center gap-3 px-6 py-10 text-center", className)}
       {...props}
     >
-      <Tile hue={hue} size={48}>
+      <Tile hue={hue} size={48} borderless>
         {icon}
       </Tile>
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-0.5">
         <p className="text-heading-sm text-text-strong">{title}</p>
         {fact === undefined ? null : <p className="text-caption text-text-subtle">{fact}</p>}
       </div>

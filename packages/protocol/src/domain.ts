@@ -8,6 +8,7 @@ import {
   HostId,
   RequestId,
   SessionId,
+  SubagentId,
   TurnId,
   WorkspaceId,
   WorktreeId,
@@ -131,6 +132,32 @@ export class Turn extends Schema.Class<Turn>("Turn")({
   /** `refs/polaris/checkpoints/<session>/<turn>` taken before and after the Turn. */
   checkpointBefore: Schema.NullOr(Schema.String),
   checkpointAfter: Schema.NullOr(Schema.String),
+  startedAt: Timestamp,
+  endedAt: Schema.NullOr(Timestamp),
+}) {}
+
+export const SubagentStatus = Schema.Literals(["working", "completed", "failed", "interrupted"]);
+
+export type SubagentStatus = typeof SubagentStatus.Type;
+
+/**
+ * A helper a Harness spawns inside an Agent Session (CONTEXT.md: Subagent).
+ * It belongs to the Turn that spawned it, has its own items, and may outlive
+ * that Turn (Claude's background agents); it ends when the Harness says so, or
+ * `interrupted` when the Harness goes away first.
+ */
+export class Subagent extends Schema.Class<Subagent>("Subagent")({
+  id: SubagentId,
+  sessionId: SessionId,
+  turnId: TurnId,
+  /** The parent Turn's item that spawned it (Claude's Task call), when there is one. */
+  parentItemId: Schema.NullOr(Schema.String),
+  /** Its job in a few words, as the Harness describes it. */
+  title: Schema.String,
+  /** The kind of helper as the Harness names it (`Explore`, a Codex agent's name), when known. */
+  agent: Schema.NullOr(Schema.String),
+  model: Schema.NullOr(ModelId),
+  status: SubagentStatus,
   startedAt: Timestamp,
   endedAt: Schema.NullOr(Timestamp),
 }) {}

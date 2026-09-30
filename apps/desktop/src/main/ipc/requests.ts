@@ -125,6 +125,10 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
         Effect.map(s.blobs.take(diff.blobId), (bytes) => ({ bytes, files: diff.files }))
       )
     ),
+  "harness.models": ({ hostKey, ...payload }) =>
+    onLive(hostKey, (s) => s.client["harness.models"](payload)),
+  "harness.availability": ({ hostKey, refresh }) =>
+    onLive(hostKey, (s) => s.client["harness.availability"]({ refresh })),
   "session.terminalCommand": ({ hostKey, sessionId }) =>
     onLive(hostKey, (s) => s.client["session.terminalCommand"]({ sessionId })),
   "terminal.open": ({ hostKey, ...payload }) =>

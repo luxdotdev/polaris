@@ -8,6 +8,7 @@ import { history } from "./history.ts";
 import { idle } from "./idle.ts";
 import { sessions } from "./sessions.ts";
 import { terminal } from "./terminal.ts";
+import { usage } from "./usage.ts";
 
 /** Every scenario, in the order `bun run bench` runs them. */
 export const SCENARIOS: ReadonlyArray<Scenario> = [
@@ -20,4 +21,5 @@ export const SCENARIOS: ReadonlyArray<Scenario> = [
   gitScenario,
   terminal,
   desktopIdle,
+  usage,
 ];

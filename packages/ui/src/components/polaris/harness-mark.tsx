@@ -2,7 +2,7 @@ import type { SessionState } from "@polaris/protocol";
 import type { HTMLAttributes } from "react";
 
 import { cn } from "../../lib/cn";
-import { HARNESS_NAMES, type Harness } from "../../lib/hue";
+import { harnessHue, type Harness } from "../../lib/hue";
 import { Dither } from "./dither";
 import { StateIcon } from "./state-icon";
 import { Tile, type TileSize } from "./tile";
@@ -37,7 +37,7 @@ export function HarnessMark({
       size={size}
       dormant={state === "dormant"}
       muted={state === "idle"}
-      aria-label={named ? undefined : HARNESS_NAMES[harness]}
+      aria-label={named ? undefined : harnessHue(harness).name}
       role={named ? undefined : "img"}
     >
       {state === undefined ? (
@@ -57,7 +57,7 @@ export function HarnessMark({
       {...props}
     >
       {tile}
-      {HARNESS_NAMES[harness]}
+      {harnessHue(harness).name}
     </span>
   );
 }

@@ -18,7 +18,8 @@ const server = await createServer({ configFile: join(APP_DIR, "vite.config.ts") 
 
 await server.listen();
 
-const rendererUrl = server.resolvedUrls?.local[0] ?? "http://localhost:5199/";
+// Never "localhost": Chromium tries ::1 first, where another server may answer.
+const rendererUrl = "http://127.0.0.1:5198/";
 
 let daemon: TestDaemon | null = null;
 

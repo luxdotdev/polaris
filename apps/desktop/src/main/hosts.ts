@@ -22,6 +22,8 @@ import {
   Layer,
   ManagedRuntime,
   Option,
+  Predicate,
+  Schema,
   Stream,
   SubscriptionRef,
 } from "effect";
@@ -79,17 +81,53 @@ export const hostView = (entry: HostEntry, status: ConnectionStatus): HostView =
   status: statusView(status),
 });
 
+/** A Host on a local socket under its own name: screenshots and tests only (`POLARIS_DESKTOP_EXTRA_HOSTS`). */
+export const ExtraHost = Schema.Struct({
+  key: Schema.String.check(Schema.isMinLength(1)),
+  label: Schema.String,
+  socket: Schema.String,
+});
+
+export type ExtraHost = typeof ExtraHost.Type;
+
+const decodeExtras = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.Array(ExtraHost)));
+
+export const extraHosts = (json: string | undefined): ReadonlyArray<ExtraHost> =>
+  json === undefined || json === "" ? [] : Option.getOrElse(decodeExtras(json), () => []);
+
 export interface HostEntriesInput {
   /** Null while the local Host is switched off on this machine. */
   readonly local: LocalDaemon | null;
   readonly remotes: ReadonlyArray<RemoteHostSetting>;
+  readonly extras?: ReadonlyArray<ExtraHost>;
+  /** The local Host's name; "This Mac" by default. */
+  readonly localLabel?: string;
 }
 
 /** The local Host first, then the remote Hosts in settings order; duplicate aliases dropped. */
-export const hostEntries = ({ local, remotes }: HostEntriesInput): ReadonlyArray<HostEntry> => {
+export const hostEntries = ({
+  local,
+  remotes,
+  extras = [],
+  localLabel = "This Mac",
+}: HostEntriesInput): ReadonlyArray<HostEntry> => {
   const seen = new Set<string>([LOCAL_HOST_KEY]);
 
-  const entries: Array<HostEntry> = local === null ? [] : [localEntry(local)];
+  const entries: Array<HostEntry> = local === null ? [] : [localEntry(local, localLabel)];
+
+  for (const extra of extras) {
+    if (seen.has(extra.key)) continue;
+    seen.add(extra.key);
+    entries.push({
+      key: extra.key,
+      label: extra.label,
+      colour: null,
+      alias: null,
+      proofHarness: false,
+      target: HostTarget.Local({ socketPath: extra.socket }),
+      remoteCommand: null,
+    });
+  }
 
   for (const remote of remotes) {
     if (seen.has(remote.alias)) continue;
@@ -100,9 +138,9 @@ export const hostEntries = ({ local, remotes }: HostEntriesInput): ReadonlyArray
   return entries;
 };
 
-export const localEntry = (local: LocalDaemon): HostEntry => ({
+export const localEntry = (local: LocalDaemon, label = "This Mac"): HostEntry => ({
   key: LOCAL_HOST_KEY,
-  label: "This Mac",
+  label,
   colour: null,
   alias: null,
   proofHarness: local.benchHarness,
@@ -265,13 +303,14 @@ export const startClientRuntime = (
   machines: Layer.Layer<Machines, never, HostDirectory>
 ): ClientRuntime => ManagedRuntime.make(Layer.provideMerge(machines, HostDirectory.layer(input)));
 
-/** Every failure crossing IPC becomes its tag and message. */
+/** Every failure crossing IPC becomes its tag and message; a refusal's message is its `reason`. */
 export const toIpcError = (error: {
   readonly _tag: string;
   readonly message: string;
+  readonly reason?: unknown;
 }): IpcError => ({
   code: error._tag,
-  message: error.message,
+  message: Predicate.isString(error.reason) && error.message === "" ? error.reason : error.message,
 });
 
 /** Waits until the Host with `key` is first Connected. */

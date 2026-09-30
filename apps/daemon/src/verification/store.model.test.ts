@@ -731,6 +731,7 @@ class Ephemeral extends Step {
               itemId: "m",
               field: "text",
               text: `${i}`,
+              subagentId: null,
             })
           );
         }

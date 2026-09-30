@@ -10,6 +10,8 @@ the full text is in the named canonical file; do not restate it.
 | rule/colour-means-something | DESIGN.md, Colors, Named Rules | agent |
 | rule/starlight-is-rare | DESIGN.md, Colors, Named Rules | agent |
 | rule/no-colour-alone | DESIGN.md, Colors, Named Rules | agent |
+| rule/signal-text-variants | DESIGN.md, Colors, Named Rules | agent + contrast table |
+| rule/faint-is-not-content | DESIGN.md, Colors, Neutral | agent |
 | rule/severity-is-a-badge | DESIGN.md, Colors, Named Rules | agent |
 | rule/severity-vs-state | DESIGN.md, Colors, Named Rules | agent |
 | rule/low-confidence-dims | DESIGN.md, Colors, Named Rules | agent |

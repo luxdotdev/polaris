@@ -7,7 +7,7 @@ import { Button, PlusIcon } from "@polaris/ui";
 import { useState } from "react";
 import type { MachineView } from "../../../shared/api.ts";
 import { emptyHostModel, visibleWorkspaces } from "../../store/hostModel.ts";
-import { useApp } from "../../views/hooks.ts";
+import { useApp } from "../../shell/hooks.ts";
 import { AddMachine } from "./AddMachine.tsx";
 import { call, useMachines, useNow } from "./hooks.tsx";
 import { HostDetails } from "./HostDetails.tsx";

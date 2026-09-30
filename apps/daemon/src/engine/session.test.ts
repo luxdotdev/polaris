@@ -213,7 +213,7 @@ describe("session machine", () => {
       }).next.context.record!;
 
       expect(sent.session.state).toBe("starting");
-      expect(decideSession(sent, { type: "session.archive" }).rejection).toBe(
+      expect(decideSession(sent, { type: "session.archive", at: AT }).rejection).toBe(
         "interrupt the Turn in flight before archiving"
       );
     });

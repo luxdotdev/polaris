@@ -3,7 +3,7 @@ import type { HTMLAttributes, ReactNode } from "react";
 import { ArrowUpIcon, ChevronDownIcon, PlusIcon } from "../../icons/chrome";
 import { cn } from "../../lib/cn";
 import type { CssVars } from "../../lib/css";
-import { HARNESS_HANDLES, HARNESS_NAMES, hueVar, type Harness } from "../../lib/hue";
+import { harnessHue, haloVar, harnessTextVar, hueVar, type Harness } from "../../lib/hue";
 import { Button } from "../ui/button";
 import { Textarea, type TextareaProps } from "../ui/textarea";
 import { Dither } from "./dither";
@@ -27,13 +27,17 @@ export function HarnessPicker({
   style,
   ...props
 }: HarnessPickerProps) {
-  const vars: CssVars = { "--harness": hueVar(harness), ...style };
+  const vars: CssVars = {
+    "--harness": hueVar(harness),
+    "--harness-text": harnessTextVar(harness),
+    ...style,
+  };
 
   return (
     <button
       type="button"
       data-slot="harness-picker"
-      aria-label={`${HARNESS_NAMES[harness]}, ${model}`}
+      aria-label={`${harnessHue(harness).name}, ${model}`}
       className={cn(
         "inline-flex h-[26px] shrink-0 cursor-default items-center gap-1.5 rounded-control border bg-fill-selected pr-2 pl-1 select-none",
         working
@@ -50,10 +54,10 @@ export function HarnessPicker({
       <span
         className={cn(
           "text-caption font-medium",
-          working ? "text-(--harness)" : "text-text-default"
+          working ? "text-(--harness-text)" : "text-text-default"
         )}
       >
-        {HARNESS_HANDLES[harness]}
+        {harnessHue(harness).handle}
       </span>
       <span className="text-caption text-text-subtle">{model}</span>
       <ChevronDownIcon size={10} className="text-text-subtle" />
@@ -82,8 +86,8 @@ export function WorkingStrip({ harness, elapsed, onStop, children }: WorkingStri
         className="pixelated pointer-events-none absolute -top-[70px] -left-[120px] h-[150px] w-[320px] bg-(image:--halo) bg-size-[100%_100%] opacity-90"
       />
       <Dither hue={harness} size={14} moving className="relative" />
-      <span className="text-caption relative font-medium text-(--harness)">
-        {children ?? `${HARNESS_NAMES[harness]} is working`}
+      <span className="text-caption relative font-medium text-(--harness-text)">
+        {children ?? `${harnessHue(harness).name} is working`}
       </span>
       <span className="text-caption text-text-subtle tabular relative">· {elapsed}</span>
       <span className="flex-1" />
@@ -107,17 +111,23 @@ export interface ComposerProps extends Omit<TextareaProps, "bare"> {
   readonly harness: Harness;
   readonly model: string;
   /** Set while a Turn runs: grows the Working strip and tints the edge in the Harness hue. */
-  readonly working?: { readonly elapsed: ReactNode; readonly onStop?: (() => void) | undefined };
+  readonly working?:
+    | { readonly elapsed: ReactNode; readonly onStop?: (() => void) | undefined }
+    | undefined;
   /** The branch or worktree the Turn runs on, in mono. */
-  readonly branch?: string;
+  readonly branch?: string | undefined;
   readonly onSend?: () => void;
   readonly onAddSource?: () => void;
+  /** Replaces the default Harness picker chip, e.g. with one that opens a Model menu. */
+  readonly picker?: ReactNode;
+  /** Staged attachments, shown above the prompt. */
+  readonly attachments?: ReactNode;
+  /** Extra controls after "Add a source" ("Plan first" on the new-session page). */
+  readonly tools?: ReactNode;
+  readonly sendDisabled?: boolean;
+  /** The new-session page's send: a round primary button (Paper artboard 4). */
+  readonly prominentSend?: boolean;
 }
-
-const HALOS: Record<Harness, string | undefined> = {
-  claude: "var(--halo-claude-code)",
-  codex: undefined,
-};
 
 /** The composer shell: the Harness picker, the prompt, and send (DESIGN.md, Working strip). */
 export function Composer({
@@ -127,11 +137,21 @@ export function Composer({
   branch,
   onSend,
   onAddSource,
+  picker,
+  attachments,
+  tools,
+  sendDisabled = false,
+  prominentSend = false,
   className,
   placeholder,
   ...props
 }: ComposerProps) {
-  const vars: CssVars = { "--harness": hueVar(harness), "--halo": HALOS[harness] };
+  const vars: CssVars = {
+    "--harness": hueVar(harness),
+    "--harness-text": harnessTextVar(harness),
+    "--halo": haloVar(harness),
+  };
+
   const isWorking = working !== undefined;
 
   return (
@@ -151,6 +171,7 @@ export function Composer({
         <WorkingStrip harness={harness} elapsed={working.elapsed} onStop={working.onStop} />
       )}
       <div className="flex flex-col gap-3.5 pt-3 pr-3 pb-2.5 pl-3.5">
+        {attachments}
         <Textarea
           bare
           rows={1}
@@ -162,15 +183,23 @@ export function Composer({
           {...props}
         />
         <div className="flex items-center gap-1.5">
-          <HarnessPicker harness={harness} model={model} working={isWorking} />
+          {picker ?? <HarnessPicker harness={harness} model={model} working={isWorking} />}
           <Button variant="ghost" size="icon-sm" aria-label="Add a source" onClick={onAddSource}>
             <PlusIcon size={14} />
           </Button>
+          {tools}
           <span className="flex-1" />
           {branch === undefined ? null : (
-            <span className="text-micro text-text-faint truncate font-mono">{branch}</span>
+            <span className="text-micro text-text-subtle truncate font-mono">{branch}</span>
           )}
-          <Button variant="secondary" size="icon" aria-label="Send" onClick={onSend}>
+          <Button
+            variant={prominentSend ? "primary" : "secondary"}
+            size="icon"
+            aria-label="Send"
+            disabled={sendDisabled}
+            className={prominentSend ? "size-[30px] rounded-full" : "rounded-full"}
+            onClick={onSend}
+          >
             <ArrowUpIcon size={14} />
           </Button>
         </div>

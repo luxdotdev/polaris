@@ -17,6 +17,7 @@ import type {
   ReasoningEffort,
   RequestId,
   SessionId,
+  SubagentId,
   TurnId,
   TurnItem,
 } from "@polaris/protocol";
@@ -43,6 +44,8 @@ export type HarnessEvent = Data.TaggedEnum<{
     readonly itemId: string;
     readonly field: "text" | "output";
     readonly text: string;
+    /** Set for a Subagent's own item; absent for the Turn's. The same holds on the item events below. */
+    readonly subagentId?: SubagentId;
   };
   /**
    * The latest state of an item still in progress (a command that started, a plan
@@ -50,9 +53,34 @@ export type HarnessEvent = Data.TaggedEnum<{
    * same id is expected to end with an `ItemCompleted`; the engine drops progress
    * still open when its Turn ends.
    */
-  ItemUpdated: { readonly turnId: TurnId; readonly item: TurnItem };
+  ItemUpdated: {
+    readonly turnId: TurnId;
+    readonly item: TurnItem;
+    readonly subagentId?: SubagentId;
+  };
   /** The final state of an item; persisted. A later completion with the same id supersedes it. */
-  ItemCompleted: { readonly turnId: TurnId; readonly item: TurnItem };
+  ItemCompleted: {
+    readonly turnId: TurnId;
+    readonly item: TurnItem;
+    readonly subagentId?: SubagentId;
+  };
+  /**
+   * The Harness spawned a Subagent in `turnId`. Its own items then carry its
+   * `subagentId`. It may outlive the Turn (a background agent).
+   */
+  SubagentStarted: {
+    readonly turnId: TurnId;
+    readonly subagentId: SubagentId;
+    /** The Turn's item that spawned it (the Task tool call), when there is one. */
+    readonly parentItemId: string | null;
+    readonly title: string;
+    readonly agent: string | null;
+    readonly model: string | null;
+  };
+  SubagentEnded: {
+    readonly subagentId: SubagentId;
+    readonly status: "completed" | "failed" | "interrupted";
+  };
   ApprovalRequested: {
     readonly turnId: TurnId;
     readonly requestId: RequestId;

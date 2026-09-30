@@ -11,6 +11,12 @@
   }
 }
 
+@keyframes polaris-dither-out {
+  to {
+    opacity: 0;
+  }
+}
+
 .polaris-dither {
   display: inline-block;
   position: relative;
@@ -39,6 +45,11 @@
   animation: polaris-dither-step calc(var(--dither-frames) * 83ms) steps(var(--dither-frames))
     infinite;
   will-change: transform;
+}
+
+/* Leaving Working: it keeps stepping while it fades out over 200ms. */
+.polaris-dither[data-leaving] {
+  animation: polaris-dither-out 200ms var(--ease-out) forwards;
 }
 
 /* Reduce Motion replaces the dither with a still pixel pattern. */

@@ -22,6 +22,7 @@ import {
   type NotFound,
   Sequence,
   type SessionId,
+  SubagentDetail,
   type Turn,
   TurnId,
   type TurnItem,
@@ -55,6 +56,7 @@ import {
   loadModel,
   RejectionJson,
   storeError,
+  SubagentJson,
   TurnItemJson,
   TurnJson,
   writeEvent,
@@ -151,11 +153,20 @@ export class EventStore extends Context.Service<
     readonly lastKnownWorktree: (
       worktreeId: Worktree["id"]
     ) => Effect.Effect<Worktree | null, ServiceError>;
-    /** Completed items of the given Turns, as of `upTo`, in completion order. */
+    /** Completed items of the given Turns (not their Subagents'), as of `upTo`, in completion order. */
     readonly readTurnItems: (options: {
       readonly turnIds: ReadonlyArray<TurnId>;
       readonly upTo: number;
     }) => Effect.Effect<ReadonlyMap<TurnId, ReadonlyArray<TurnItem>>, ServiceError>;
+    /**
+     * The Subagents the given Turns spawned, with their own items as of `upTo`.
+     * A Subagent's record is its latest, which may be newer than `upTo`; the
+     * `SubagentStarted`/`SubagentEnded` events after it replace it by id.
+     */
+    readonly readSubagents: (options: {
+      readonly turnIds: ReadonlyArray<TurnId>;
+      readonly upTo: number;
+    }) => Effect.Effect<ReadonlyMap<TurnId, ReadonlyArray<SubagentDetail>>, ServiceError>;
   }
 >()("polaris/daemon/store/EventStore") {
   static readonly layer = Layer.effect(
@@ -201,6 +212,7 @@ export class EventStore extends Context.Service<
           const rows = yield* sql<{ turn_id: string; item_id: string; data: string }>`
             SELECT turn_id, item_id, data FROM turn_items
             WHERE turn_id IN ${sql.in(options.turnIds)} AND sequence <= ${options.upTo}
+              AND subagent_id IS NULL
             ORDER BY sequence`;
 
           // An item completed twice keeps its first position and its latest content.
@@ -215,6 +227,50 @@ export class EventStore extends Context.Service<
 
           return new Map([...byTurn].map(([turnId, items]) => [turnId, [...items.values()]]));
         }).pipe(Effect.mapError(storeError("read turn items")));
+
+      const readSubagents = (options: {
+        readonly turnIds: ReadonlyArray<TurnId>;
+        readonly upTo: number;
+      }) =>
+        Effect.gen(function* () {
+          if (options.turnIds.length === 0) return new Map<TurnId, Array<SubagentDetail>>();
+
+          const subagents = yield* sql<{ data: string }>`
+            SELECT data FROM subagents WHERE turn_id IN ${sql.in(options.turnIds)}`;
+
+          if (subagents.length === 0) return new Map<TurnId, Array<SubagentDetail>>();
+
+          const rows = yield* sql<{ subagent_id: string; item_id: string; data: string }>`
+            SELECT subagent_id, item_id, data FROM turn_items
+            WHERE turn_id IN ${sql.in(options.turnIds)} AND sequence <= ${options.upTo}
+              AND subagent_id IS NOT NULL
+            ORDER BY sequence`;
+
+          // As for a Turn: an item completed twice keeps its first position and its latest content.
+          const items = new Map<string, Map<string, TurnItem>>();
+
+          for (const row of rows) {
+            const own = items.get(row.subagent_id) ?? new Map<string, TurnItem>();
+            own.set(row.item_id, TurnItemJson.decode(row.data));
+            items.set(row.subagent_id, own);
+          }
+
+          const byTurn = new Map<TurnId, Array<SubagentDetail>>();
+
+          for (const row of subagents) {
+            const subagent = SubagentJson.decode(row.data);
+            const list = byTurn.get(subagent.turnId) ?? [];
+            list.push(
+              new SubagentDetail({ subagent, items: [...(items.get(subagent.id)?.values() ?? [])] })
+            );
+            byTurn.set(subagent.turnId, list);
+          }
+
+          for (const list of byTurn.values())
+            list.sort((a, b) => a.subagent.startedAt.localeCompare(b.subagent.startedAt));
+
+          return byTurn;
+        }).pipe(Effect.mapError(storeError("read subagents")));
 
       const readTurns = (options: {
         readonly sessionId: SessionId;
@@ -257,6 +313,7 @@ export class EventStore extends Context.Service<
         readTurns,
         lastKnownWorktree,
         readTurnItems,
+        readSubagents,
       });
     })
   );

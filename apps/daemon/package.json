@@ -24,6 +24,7 @@
     "xstate": "6.0.0-alpha.61"
   },
   "devDependencies": {
+    "@agentclientprotocol/sdk": "1.5.1",
     "@polaris/client": "workspace:*",
     "fast-check": "4.10.2"
   }

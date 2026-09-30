@@ -3,100 +3,12 @@ import type { SVGProps } from "react";
 import { cn } from "../lib/cn";
 
 /**
- * Pixel glyphs for Polaris-owned concepts, drawn on a strict grid in currentColor.
- * Hand, terminal and x-mark share their paths with design/scripts/gen_dither.py.
+ * Pixel glyphs for Polaris-owned concepts: Nucleo pixel icons (vendored in ./nucleo under
+ * their own licence) and the Polaris star, drawn on a strict grid in currentColor.
  */
+export * from "./nucleo/pixel";
+
 export type PixelIconProps = SVGProps<SVGSVGElement> & { readonly size?: number };
-
-const HAND = [
-  "M19 21V7",
-  "M16 10V5H17",
-  "M13 10L13 3H14",
-  "M10 10V1H11",
-  "M7 12V3H10",
-  "M4 10V16",
-  "M6 18L6 18.01",
-  "M8 20V21",
-];
-
-const TERMINAL = [
-  "M13 16H17",
-  "M19 3H5",
-  "M19 21H5",
-  "M3 19V5",
-  "M21 19V5",
-  "M11.01 12L11 12",
-  "M9.01 14L9 14",
-  "M7.01 16L7 16",
-  "M7.01 8L7 8",
-  "M9.01 10L9 10",
-];
-
-const X_MARK = [
-  "M8 22L16 22",
-  "M18.01 20L18 20",
-  "M6.01 20L6 20",
-  "M20.01 18L20 18",
-  "M4.01 18L4 18",
-  "M16.01 16L16 16",
-  "M8.01 16L8 16",
-  "M14.01 14L14 14",
-  "M10.01 14L10 14",
-  "M12.01 12L12 12",
-  "M14.01 10L14 10",
-  "M10.01 10L10 10",
-  "M22 8L22 16",
-  "M16.01 8L16 8",
-  "M8.01 8L8 8",
-  "M2 8L2 16",
-  "M20.01 6L20 6",
-  "M4 6L4 6.01",
-  "M18.01 4L18 4",
-  "M6 4L6 4.01",
-  "M8 2L16 2",
-];
-
-function StrokePixels({
-  size = 16,
-  paths,
-  className,
-  ...props
-}: PixelIconProps & { readonly paths: readonly string[] }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="square"
-      className={cn("pixelated", className)}
-      aria-hidden="true"
-      focusable="false"
-      {...props}
-    >
-      {paths.map((d) => (
-        <path key={d} d={d} />
-      ))}
-    </svg>
-  );
-}
-
-/** The "needs you" hand. */
-export function PixelHandIcon(props: PixelIconProps) {
-  return <StrokePixels paths={HAND} {...props} />;
-}
-
-/** In Terminal: the square terminal. */
-export function PixelTerminalIcon(props: PixelIconProps) {
-  return <StrokePixels paths={TERMINAL} {...props} />;
-}
-
-/** Failed: the circled x-mark. */
-export function PixelFailedIcon(props: PixelIconProps) {
-  return <StrokePixels paths={X_MARK} {...props} />;
-}
 
 type Cell = readonly [x: number, y: number];
 
@@ -164,17 +76,4 @@ const STAR = starCells();
 /** The flat Polaris mark, for sizes below 24px. Never rotated, outlined or anti-aliased. */
 export function PixelPolarisIcon(props: PixelIconProps) {
   return <CellPixels cells={STAR} {...props} />;
-}
-
-const ARCHIVE: Cell[] = [];
-
-for (let x = 3; x <= 12; x++) ARCHIVE.push([x, 4], [x, 11]);
-
-for (let y = 5; y <= 10; y++) ARCHIVE.push([3, y], [12, y]);
-
-for (let x = 6; x <= 9; x++) ARCHIVE.push([x, 7]);
-
-/** Archived: a pixel box, drawn for Polaris. */
-export function PixelArchiveIcon(props: PixelIconProps) {
-  return <CellPixels cells={ARCHIVE} {...props} />;
 }
