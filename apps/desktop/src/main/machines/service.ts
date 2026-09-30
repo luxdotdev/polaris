@@ -166,7 +166,10 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
         trigger,
         approved: input.approvals.approved(alias),
         builds: input.builds,
-        onBuild: setRecord(alias, { activity: "Building the daemon for this host from source" }),
+        onBuild: Effect.andThen(
+          Effect.sync(() => void (bundled = undefined)),
+          setRecord(alias, { activity: "Building the daemon for this host from source" })
+        ),
       });
 
       yield* setRecord(alias, { offerSize: size });
@@ -207,11 +210,17 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
       if (started.value === "checking") yield* launch(alias, checkBody(alias, trigger));
     });
 
+  // Read once, not on every Connection State change; a dev build refreshes it.
+  let bundled: string | null | undefined;
+
   const bundledVersion = () =>
-    input.builds.forPlatform(null, { build: false, onBuild: Effect.void }).pipe(
-      Effect.map((builds) => builds[0]?.version ?? null),
-      Effect.orElseSucceed(() => null)
-    );
+    bundled !== undefined
+      ? Effect.succeed(bundled)
+      : input.builds.forPlatform(null, { build: false, onBuild: Effect.void }).pipe(
+          Effect.map((builds) => builds[0]?.version ?? null),
+          Effect.orElseSucceed(() => null),
+          Effect.tap((version) => Effect.sync(() => void (bundled = version)))
+        );
 
   // Background checks: once per occasion a Host's Connection State calls for one.
   const occasions = new Map<string, string>();
