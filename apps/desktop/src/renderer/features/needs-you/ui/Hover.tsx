@@ -13,11 +13,12 @@ import {
   harnessHue,
   QuestionCard,
 } from "@polaris/ui";
-import type { ReactElement } from "react";
+import { type ReactElement, useRef, useState, useSyncExternalStore } from "react";
 import { useShellActions } from "../../../shell/hooks.ts";
 import { useNow } from "../../../shell/useNow.ts";
 import { age } from "../../../shell/copy.ts";
 import { useInboxUntimed } from "../hooks.ts";
+import { modalOpen } from "../modal.ts";
 import type { WaitingSession } from "../model/inbox.ts";
 import { answer, approve, deny } from "../respond.ts";
 import { where } from "./Inbox.tsx";
@@ -76,7 +77,11 @@ const Card = ({ item }: { readonly item: WaitingSession }) => {
       title={session.title || "Untitled session"}
       summary={`${name} ${KIND_WANTS[request.kind]} · ${age(request.openedAt, now)}`}
       command={request.detail ?? request.title}
-      where={where(item, null, now)}
+      where={
+        item.branch === null
+          ? where(item, null, now)
+          : `${where(item, null, now)} · ⎇ ${item.branch}`
+      }
       onApprove={() => void approve(target)}
       onAlwaysAllow={() => void approve(target, true)}
       onDeny={() => void deny(target)}
@@ -95,15 +100,86 @@ const useWaiting = ({ hostKey, sessionId, workspaceId }: Omit<NeedsYouHoverProps
   );
 };
 
+/** How long a card stays after the pointer leaves, so it can be reached. */
+const CLOSE_MS = 150;
+
 export const NeedsYouHover = ({ children, ...target }: NeedsYouHoverProps) => {
   const item = useWaiting(target);
+  const [open, setOpen] = useState(false);
+  const modal = useSyncExternalStore(modalOpen.subscribe, modalOpen.get);
+  // Open only while the pointer is over the trigger (not just clicked) or on keyboard focus:
+  // a click selects, and neither its focus nor Radix's delayed open may reopen the card (V1 B6).
+  const hovering = useRef(false);
+  const clicked = useRef(false);
+  const keyboard = useRef(false);
+  const overCard = useRef(false);
+  const closing = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelClose = () => {
+    if (closing.current !== null) clearTimeout(closing.current);
+    closing.current = null;
+  };
+
+  const closeSoon = () => {
+    cancelClose();
+    closing.current = setTimeout(() => {
+      if (!overCard.current) setOpen(false);
+    }, CLOSE_MS);
+  };
 
   if (item === undefined) return children;
 
   return (
-    <HoverCard openDelay={350} closeDelay={150}>
-      <HoverCardTrigger asChild>{children}</HoverCardTrigger>
-      <HoverCardContent side="right" align="start" sideOffset={8} data-testid="needs-you-hover">
+    <HoverCard
+      openDelay={350}
+      closeDelay={CLOSE_MS}
+      open={open && !modal}
+      onOpenChange={(next) => {
+        const invited = (hovering.current && !clicked.current) || keyboard.current;
+
+        if (next && !invited) return;
+        cancelClose();
+        setOpen(next);
+      }}
+    >
+      <HoverCardTrigger
+        asChild
+        onPointerEnter={() => {
+          hovering.current = true;
+        }}
+        onPointerDown={() => {
+          clicked.current = true;
+          setOpen(false);
+        }}
+        onPointerLeave={() => {
+          hovering.current = false;
+          clicked.current = false;
+          closeSoon();
+        }}
+        onFocus={(event) => {
+          keyboard.current = event.currentTarget.matches(":focus-visible");
+        }}
+        onBlur={() => {
+          keyboard.current = false;
+          closeSoon();
+        }}
+      >
+        {children}
+      </HoverCardTrigger>
+      <HoverCardContent
+        side="right"
+        align="start"
+        sideOffset={8}
+        data-testid="needs-you-hover"
+        onPointerEnter={() => {
+          overCard.current = true;
+          cancelClose();
+        }}
+        onPointerLeave={() => {
+          overCard.current = false;
+          closeSoon();
+        }}
+      >
         <Card item={item} />
       </HoverCardContent>
     </HoverCard>

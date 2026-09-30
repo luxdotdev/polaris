@@ -21,7 +21,7 @@ export function StageHeading({ kicker, title, line, className, ...props }: Stage
       className={cn("flex flex-col items-center gap-2 text-center", className)}
       {...props}
     >
-      <p className="text-caption text-starlight font-medium tracking-[0.02em]">{kicker}</p>
+      <p className="text-caption text-starlight-text font-medium tracking-[0.02em]">{kicker}</p>
       <h1 className="text-display text-text-strong tracking-[-0.015em]">{title}</h1>
       {line === undefined ? null : <p className="text-body text-text-default">{line}</p>}
     </Clearing>
