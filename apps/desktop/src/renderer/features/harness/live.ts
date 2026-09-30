@@ -43,23 +43,52 @@ const hold = (key: string, open: () => () => void) => {
 const setReport = (hostKey: string, report: AvailabilityReport) =>
   live.setState((s) => ({ reports: { ...s.reports, [hostKey]: report } }));
 
+/** Feeds bound to a connection end when it drops; one still held is opened again after this. */
+const REOPEN_MS = 3000;
+
+/** Keeps a feed open while held: reopened whenever it ends, closed on release. */
+const resilient = (open: (onEnd: () => void) => () => void) => {
+  let stopped = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let close: () => void = () => undefined;
+
+  const start = () => {
+    close = open(() => {
+      if (!stopped) timer = setTimeout(start, REOPEN_MS);
+    });
+  };
+
+  start();
+
+  return () => {
+    stopped = true;
+    clearTimeout(timer);
+    close();
+  };
+};
+
 const openAvailability = (hostKey: string) =>
-  polaris().subscribe(
-    "harness.availability",
-    { hostKey },
-    { items: (items) => items.forEach((report) => setReport(hostKey, report)) }
+  resilient((onEnd) =>
+    polaris().subscribe(
+      "harness.availability",
+      { hostKey },
+      { items: (items) => items.forEach((report) => setReport(hostKey, report)), end: onEnd }
+    )
   );
 
 const openLimits = (hostKey: string) =>
-  polaris().subscribe(
-    "plan-limits",
-    { hostKey },
-    {
-      items: (items) =>
-        live.setState((s) => ({
-          limits: { ...s.limits, [hostKey]: items.reduce(upsertLimit, s.limits[hostKey] ?? []) },
-        })),
-    }
+  resilient((onEnd) =>
+    polaris().subscribe(
+      "plan-limits",
+      { hostKey },
+      {
+        items: (items) =>
+          live.setState((s) => ({
+            limits: { ...s.limits, [hostKey]: items.reduce(upsertLimit, s.limits[hostKey] ?? []) },
+          })),
+        end: onEnd,
+      }
+    )
   );
 
 const useHostView = (hostKey: string): HostView | undefined =>

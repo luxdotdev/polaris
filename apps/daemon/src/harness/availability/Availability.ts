@@ -8,6 +8,7 @@ import {
   Context,
   Duration,
   Effect,
+  Fiber,
   Layer,
   Predicate,
   Stream,
@@ -74,8 +75,16 @@ const makeAvailability = Effect.fnUntraced(function* (options: AvailabilityOptio
     return report;
   });
 
-  // Concurrent asks share one probe.
-  const [cached, invalidate] = yield* Effect.cachedInvalidateWithTTL(probeAll, Duration.infinity);
+  // Concurrent asks share one probe, on its own fiber: a caller that stops waiting (a view
+  // unmounting mid-probe) must not interrupt it, or the cache would keep the interruption.
+  const scope = yield* Effect.scope;
+
+  const [probing, invalidate] = yield* Effect.cachedInvalidateWithTTL(
+    Effect.forkIn(probeAll, scope),
+    Duration.infinity
+  );
+
+  const cached = Effect.flatMap(probing, Fiber.join);
 
   return Availability.of({
     get: (refresh) => (refresh ? Effect.andThen(invalidate, cached) : cached),

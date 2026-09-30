@@ -15,7 +15,7 @@ afterEach(() => {
 });
 
 /** A Host with a fake `codex` whose sign-in the test flips; `claude` isn't installed. */
-const fakeHost = () => {
+const fakeHost = (versionDelay = "0") => {
   const root = mkdtempSync(join(tmpdir(), "polaris-availability-rpc-"));
   dirs.push(root);
   const home = join(root, "home");
@@ -28,7 +28,7 @@ const fakeHost = () => {
   writeFileSync(
     join(bin, "codex"),
     `#!/bin/sh
-if [ "$1" = "--version" ]; then echo x >> "${counter}"; echo 'codex-cli 0.158.0'; exit 0; fi
+if [ "$1" = "--version" ]; then sleep ${versionDelay}; echo x >> "${counter}"; echo 'codex-cli 0.158.0'; exit 0; fi
 if [ -e "${signedIn}" ]; then exit 0; fi
 echo 'Not logged in' >&2; exit 1
 `
@@ -106,6 +106,31 @@ describe("harness.availability", () => {
       )
     );
 
+    expect(await host.probes()).toBe(1);
+  });
+
+  test("a watcher that leaves mid-probe doesn't break the next ask", async () => {
+    // A view that unmounts while the first probe runs (the desktop's first-run card, B4).
+    const host = fakeHost("0.3");
+
+    const report = await run(
+      host.env,
+      Effect.gen(function* () {
+        const rpc = yield* client;
+
+        const leaving = yield* rpc["harness.watchAvailability"]({}).pipe(
+          Stream.runHead,
+          Effect.forkChild
+        );
+
+        yield* Effect.sleep("50 millis");
+        yield* Fiber.interrupt(leaving);
+
+        return yield* rpc["harness.availability"]({ refresh: false });
+      })
+    );
+
+    expect(statuses(report).codex).toBe("needs-sign-in");
     expect(await host.probes()).toBe(1);
   });
 
