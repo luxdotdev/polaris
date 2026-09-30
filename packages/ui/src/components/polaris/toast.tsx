@@ -88,12 +88,18 @@ export function Toast({
 
 const TOASTER_STYLE: CssVars = { "--width": "360px" };
 
-/** Mount once. Toasts sit top-right and slide on transform only. */
+/** The shell moves toasts clear of its bottom and right edges (the Terminal strip, the Output rail). */
+const TOASTER_OFFSET = {
+  right: "var(--toast-inset-right, 16px)",
+  bottom: "var(--toast-inset-bottom, 16px)",
+};
+
+/** Mount once. Toasts sit bottom-right and slide on transform only. */
 export function Toaster() {
   return (
     <Sonner
-      position="top-right"
-      offset={16}
+      position="bottom-right"
+      offset={TOASTER_OFFSET}
       gap={8}
       visibleToasts={3}
       toastOptions={{ unstyled: true }}
