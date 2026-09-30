@@ -226,6 +226,7 @@ const RANGE_OPTIONS = RANGES.map((d) => ({ value: String(d), label: `${d} days` 
 const Tokens = ({
   summary,
   hostCount,
+  indexing,
   days,
   onDays,
 }: {
@@ -233,6 +234,8 @@ const Tokens = ({
   readonly hostCount: number;
   readonly days: RangeDays;
   readonly onDays: (days: RangeDays) => void;
+  /** A Daemon is still reading Harness logs: say so, and don't claim there are no tokens. */
+  readonly indexing: boolean;
 }) => {
   const [split, setSplit] = useState(true);
   const share = summary.polarisShare;
@@ -256,11 +259,18 @@ const Tokens = ({
           }}
         />
       </div>
-      {summary.tokens === 0 ? (
-        <p className="text-caption text-text-subtle">
-          No tokens in the last {days} days on{" "}
-          {hostCount === 1 ? "this host" : `${hostCount} hosts`}.
+      {indexing ? (
+        <p className="text-caption text-text-subtle" data-testid="usage-indexing" role="status">
+          Indexing usage…
         </p>
+      ) : null}
+      {summary.tokens === 0 ? (
+        indexing ? null : (
+          <p className="text-caption text-text-subtle">
+            No tokens in the last {days} days on{" "}
+            {hostCount === 1 ? "this host" : `${hostCount} hosts`}.
+          </p>
+        )
       ) : (
         <>
           <div className="flex gap-10">
@@ -297,7 +307,13 @@ export const UsagePage = () => {
       ) : (
         <>
           <PlanLimits rows={limitRows(data.limits, now)} />
-          <Tokens summary={summary} hostCount={data.hostCount} days={days} onDays={setDays} />
+          <Tokens
+            summary={summary}
+            hostCount={data.hostCount}
+            indexing={data.indexing}
+            days={days}
+            onDays={setDays}
+          />
         </>
       )}
     </Column>
