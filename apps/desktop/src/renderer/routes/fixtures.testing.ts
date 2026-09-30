@@ -29,6 +29,8 @@ export const hostView = (
     host: null,
     capabilities: [],
     epoch: 1,
+    latencyMs: null,
+    lastSeenAt: null,
   },
 });
 

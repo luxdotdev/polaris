@@ -128,10 +128,10 @@ export const HostsSettingsPage = ({ adding = false }: HostsSettingsPageProps) =>
       ) : (
         <div className="flex items-center gap-3">
           <Button variant="primary" onClick={() => setAdder(true)}>
-            <PlusIcon />
+            <PlusIcon size={12} />
             Add a host
           </Button>
-          <span className="text-caption text-text-faint">
+          <span className="text-caption text-text-subtle">
             Pick an alias from ~/.ssh/config; the first install asks for your approval.
           </span>
         </div>

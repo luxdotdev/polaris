@@ -5,9 +5,8 @@
  * Settings rows. A background check (a reconnect) never installs.
  */
 import type { InstallTrigger, Ssh } from "@polaris/client/install";
-import { harnessEntry } from "@polaris/protocol";
 import { Context, Effect, Fiber, Layer, Schema, Stream, SubscriptionRef } from "effect";
-import type { HarnessAvailabilityView, MachineView, SshAliasView } from "../../shared/api.ts";
+import type { MachineView, SshAliasView } from "../../shared/api.ts";
 import { HostDirectory, LOCAL_HOST_KEY, localEntry, remoteEntry } from "../hosts.ts";
 import type { LocalDaemon } from "../localDaemon.ts";
 import type { RemoteHostSetting, Settings } from "../settings.ts";
@@ -92,10 +91,6 @@ export class Machines extends Context.Service<
     readonly dismiss: (key: string) => Effect.Effect<void, MachineError>;
     readonly startDaemon: (key: string) => Effect.Effect<void, MachineError>;
     readonly setLocalEnabled: (enabled: boolean) => Effect.Effect<void, MachineError>;
-    readonly harnesses: (
-      key: string,
-      refresh: boolean
-    ) => Effect.Effect<ReadonlyArray<HarnessAvailabilityView> | null, MachineError>;
     readonly openSsh: (key: string) => Effect.Effect<void, MachineError>;
   }
 >()("polaris/desktop/Machines") {
@@ -334,42 +329,6 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
       yield* publish;
     });
 
-  const live = (key: string) =>
-    dir.connection(key).pipe(
-      Effect.flatMap((connection) => connection.session),
-      Effect.mapError(asMachineError)
-    );
-
-  const availability = (key: string, refresh: boolean) =>
-    Effect.gen(function* () {
-      const session = yield* live(key);
-
-      if (!session.capabilities.includes("harness.availability")) return null;
-
-      const report = yield* session.client["harness.availability"]({ refresh }).pipe(
-        Effect.mapError(asMachineError)
-      );
-
-      return report.harnesses;
-    });
-
-  const harnesses = (key: string, refresh: boolean) =>
-    Effect.map(availability(key, refresh), (found) =>
-      found === null
-        ? null
-        : found.map((h): HarnessAvailabilityView => ({
-            harness: h.harness,
-            name: harnessEntry(h.harness)?.name ?? h.harness,
-            docsUrl: harnessEntry(h.harness)?.setup.docsUrl ?? null,
-            status: h.status,
-            version: h.version,
-            minVersion: h.minVersion,
-            olderThanTested: h.olderThanTested,
-            detail: h.detail,
-            signInArgv: h.signInArgv,
-          }))
-    );
-
   const terminal = (argv: ReadonlyArray<string>) =>
     Effect.tryPromise({
       try: () => input.openTerminal(argv),
@@ -393,7 +352,6 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
     dismiss: (key) => Effect.asVoid(step(key, { type: "dismiss" })),
     startDaemon: restart,
     setLocalEnabled,
-    harnesses,
     openSsh: (key) => Effect.andThen(requireRemote(key), terminal(sshArgv(key))),
   });
 });

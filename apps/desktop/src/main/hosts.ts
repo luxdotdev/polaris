@@ -70,6 +70,8 @@ export const statusView = (status: ConnectionStatus): ConnectionStatusView => ({
   host: status.host,
   capabilities: status.capabilities,
   epoch: status.epoch,
+  latencyMs: status.latencyMs,
+  lastSeenAt: status.lastSeenAt,
 });
 
 export const hostView = (entry: HostEntry, status: ConnectionStatus): HostView => ({

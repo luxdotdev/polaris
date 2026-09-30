@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { ConnectionStatusView, InstallFlowView, MachineView } from "../../../shared/api.ts";
 import {
+  ago,
   attentionCard,
   connectionLine,
   elapsed,
@@ -19,6 +20,8 @@ const status = (patch: Partial<ConnectionStatusView> = {}): ConnectionStatusView
   host: null,
   capabilities: [],
   epoch: 1,
+  latencyMs: null,
+  lastSeenAt: null,
   ...patch,
 });
 
@@ -170,15 +173,42 @@ describe("rows", () => {
       state: "connected",
       label: "Connected",
       caption: "local",
+      retry: false,
     });
+    // A remote Host shows its latency, never its platform (DESIGN.md, Settings · Hosts).
+    expect(connectionLine(machine({ status: status({ latencyMs: 4 }) }), 0).caption).toBe("4 ms");
+    expect(connectionLine(machine(), 0).caption).toBeNull();
+    expect(connectionLine(machine({ status: status({ latencyMs: 0 }) }), 0).caption).toBe("<1 ms");
     expect(
       connectionLine(machine({ status: status({ state: "reconnecting", since: 1_000 }) }), 41_000)
     ).toEqual({
       state: "reconnecting",
       label: "Reconnecting",
       caption: "for 40s",
+      retry: false,
     });
     expect(connectionLine(machine({ status: null }), 0).state).toBe("off");
+
+    const day = 24 * 3_600_000;
+    const offline = status({ state: "offline", since: 5 * day, lastSeenAt: 2 * day });
+    expect(connectionLine(machine({ status: offline }), 5 * day)).toEqual({
+      state: "offline",
+      label: "Offline",
+      caption: "last seen 3d ago",
+      retry: true,
+    });
+    expect(connectionLine(machine({ status: status({ state: "offline" }) }), 0).caption).toBe(
+      "not reached yet"
+    );
+  });
+
+  test("how long ago", () => {
+    expect([ago(20_000), ago(12 * 60_000), ago(3 * 3_600_000), ago(49 * 3_600_000)]).toEqual([
+      "just now",
+      "12m ago",
+      "3h ago",
+      "2d ago",
+    ]);
   });
 
   test("elapsed time", () => {

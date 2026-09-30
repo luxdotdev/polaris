@@ -6,6 +6,7 @@
 import {
   ChevronDownIcon,
   cn,
+  PixelAlertIcon,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -13,7 +14,7 @@ import {
 } from "@polaris/ui";
 import type { ReactNode } from "react";
 import type { MachineView } from "../../../shared/api.ts";
-import { type ConnectionLine, connectionLine, hostCaption } from "./model.ts";
+import { type ConnectionLine, connectionLine, workspacesText } from "./model.ts";
 
 export const LANES = {
   daemon: "w-[84px] shrink-0",
@@ -21,33 +22,10 @@ export const LANES = {
   trailing: "w-tree-row shrink-0 flex justify-center",
 } as const;
 
-/** The state mark: filled dot, hollow dot, dashed dot, or a triangle (rule/no-colour-alone). */
+/** The state mark: filled dot, hollow dot, dashed dot, or the pixel alert (rule/no-colour-alone). */
 const StateMark = ({ state }: { readonly state: ConnectionLine["state"] }) => {
   if (state === "needs-attention") {
-    return (
-      <svg
-        width="12"
-        height="12"
-        viewBox="0 0 12 12"
-        aria-hidden
-        className="text-text-default shrink-0"
-      >
-        <path
-          d="M6 1.5L11 10.5H1L6 1.5z"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.1"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M6 5v2.4"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.1"
-          strokeLinecap="round"
-        />
-      </svg>
-    );
+    return <PixelAlertIcon size={12} aria-hidden className="text-text-default shrink-0" />;
   }
 
   return (
@@ -90,6 +68,7 @@ const Trailing = ({ machine, open, expanded, onToggle, onRetry, onRemove }: Trai
         className="text-text-subtle hover:bg-fill-hover rounded-control flex size-6 cursor-default items-center justify-center"
       >
         <ChevronDownIcon
+          size={14}
           className={cn("transition-transform duration-120", expanded && "rotate-180")}
         />
       </button>
@@ -116,6 +95,12 @@ const Trailing = ({ machine, open, expanded, onToggle, onRetry, onRemove }: Trai
     )}
   </span>
 );
+
+const nameTone = (attention: boolean, quiet: boolean) => {
+  if (attention) return "text-text-strong";
+
+  return quiet ? "text-text-subtle" : "text-text-default";
+};
 
 export interface HostRowProps {
   readonly machine: MachineView;
@@ -150,7 +135,8 @@ export const HostRow = ({
     >
       <div
         className={cn(
-          "min-h-session-row px-panel flex items-center",
+          // 52 at calm (Paper S4): the session row's density token plus the caption's leading.
+          "px-panel flex min-h-[calc(var(--spacing-session-row)+4px)] items-center",
           line.state === "reconnecting" && "opacity-(--opacity-dimmed)"
         )}
       >
@@ -168,26 +154,22 @@ export const HostRow = ({
                 style={{ background: machine.colour }}
               />
             )}
-            <span
-              className={cn(
-                "text-body truncate font-medium",
-                attention ? "text-text-strong" : quiet ? "text-text-subtle" : "text-text-default"
-              )}
-            >
+            <span className={cn("text-label truncate", nameTone(attention, quiet))}>
               {machine.label}
             </span>
           </span>
-          <span className="text-caption text-text-faint truncate">
-            {hostCaption(machine, workspaces)}
+          <span className="text-caption text-text-subtle truncate">
+            {machine.alias === null ? (
+              "This Mac"
+            ) : (
+              <>
+                ssh <span className="text-code-inline font-mono">{machine.alias}</span>
+              </>
+            )}
+            {workspaces === null ? null : ` · ${workspacesText(workspaces)}`}
           </span>
         </button>
-        <span
-          className={cn(
-            LANES.daemon,
-            "text-caption tabular",
-            quiet ? "text-text-faint" : "text-text-subtle"
-          )}
-        >
+        <span className={cn(LANES.daemon, "text-caption text-text-subtle tabular")}>
           {machine.status?.host?.daemonVersion ?? "—"}
         </span>
         <span
@@ -204,7 +186,21 @@ export const HostRow = ({
             {line.label}
           </span>
           {line.caption === null ? null : (
-            <span className="text-caption text-text-faint tabular truncate">{line.caption}</span>
+            <span className="text-caption text-text-subtle tabular truncate">
+              {line.caption}
+              {line.retry ? (
+                <>
+                  {" · "}
+                  <button
+                    type="button"
+                    onClick={onRetry}
+                    className="text-text-default cursor-default hover:underline"
+                  >
+                    Retry
+                  </button>
+                </>
+              ) : null}
+            </span>
           )}
         </span>
         <Trailing

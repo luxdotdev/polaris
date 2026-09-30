@@ -99,6 +99,8 @@ const host = (key: string, label: string): HostView => ({
     host: null,
     capabilities: [],
     epoch: 0,
+    latencyMs: null,
+    lastSeenAt: null,
   },
 });
 

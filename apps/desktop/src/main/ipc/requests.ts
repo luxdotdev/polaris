@@ -200,7 +200,6 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
   "machines.startDaemon": ({ hostKey }) => machines((m) => m.startDaemon(hostKey)).pipe(done),
   "machines.setLocalEnabled": ({ enabled }) =>
     machines((m) => m.setLocalEnabled(enabled)).pipe(done),
-  "machines.harnesses": ({ hostKey, refresh }) => machines((m) => m.harnesses(hostKey, refresh)),
   "machines.openSsh": ({ hostKey }) => machines((m) => m.openSsh(hostKey)).pipe(done),
   "clipboard.write": ({ text }) => Effect.promise(() => ctx.writeClipboard(text)).pipe(done),
   "onboarding.found": () =>

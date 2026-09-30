@@ -100,6 +100,10 @@ export interface ConnectionStatusView {
   readonly host: HostInfo | null;
   readonly capabilities: ReadonlyArray<Capability>;
   readonly epoch: number;
+  /** Round trip when this connection opened, in ms; null if unmeasured. */
+  readonly latencyMs: number | null;
+  /** When the last good connection ended; null while connected or never. */
+  readonly lastSeenAt: number | null;
 }
 
 export interface HostView {
@@ -175,23 +179,6 @@ export interface MachineView {
   readonly status: ConnectionStatusView | null;
   /** Null for the local Host (Polaris never installs on this Mac from here). */
   readonly install: InstallFlowView | null;
-}
-
-/** A Harness on one Host (`harness.availability`), flattened. */
-export interface HarnessAvailabilityView {
-  readonly harness: string;
-  /** The product's name ("Claude Code"). */
-  readonly name: string;
-  /** Its own setup docs: Polaris never installs a Harness, it links these. */
-  readonly docsUrl: string | null;
-  readonly status: "not-installed" | "outdated" | "needs-sign-in" | "ready" | "unknown";
-  readonly version: string | null;
-  readonly minVersion: string;
-  /** The tested version, when the installed one works but is older than it; else null. */
-  readonly olderThanTested: string | null;
-  readonly detail: string | null;
-  /** The Harness's own sign-in, run on the Host in a terminal; null when it can't. */
-  readonly signInArgv: ReadonlyArray<string> | null;
 }
 
 /** A Schema class instance after structured clone: its fields, without the prototype. */
@@ -301,8 +288,6 @@ export interface RequestOutputs {
   "machines.dismiss": null;
   "machines.startDaemon": null;
   "machines.setLocalEnabled": null;
-  /** Null when the Host's Daemon doesn't report availability (capability missing). */
-  "machines.harnesses": ReadonlyArray<HarnessAvailabilityView> | null;
   "machines.openSsh": null;
   "clipboard.write": null;
   "onboarding.found": { readonly sshHosts: ReadonlyArray<string>; readonly version: string };
