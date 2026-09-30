@@ -8,3 +8,5 @@ export { TerminalDock, type TerminalDockProps } from "./ui/TerminalDock.tsx";
 export { InTerminalBar, OpenInTerminalItem, type HandoffSession } from "./ui/InTerminal.tsx";
 
 export { runInTerminal, toggleTerminal, type TerminalPlace, type TerminalRun } from "./actions.ts";
+
+export { HarnessTerminal, type HarnessTerminalProps } from "./ui/HarnessTerminal.tsx";

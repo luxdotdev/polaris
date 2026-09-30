@@ -75,7 +75,27 @@ export const useDrawer = (key: string | null): Drawer =>
   useStore(drawers, (s) => (key === null ? emptyDrawer : (s[key] ?? emptyDrawer)));
 
 /** A terminal exited or ended: every tab showing it says so. */
-export const applyStatus = (terminalId: string, status: TabStatus) =>
+type StatusListener = (status: TabStatus) => void;
+
+const statusListeners = new Map<string, Set<StatusListener>>();
+
+/** Hears one terminal's exits and ends, for terminals shown outside the drawer. */
+export const onTerminalStatus = (terminalId: string, listener: StatusListener) => {
+  const set = statusListeners.get(terminalId) ?? new Set();
+
+  set.add(listener);
+  statusListeners.set(terminalId, set);
+
+  return () => {
+    set.delete(listener);
+
+    if (set.size === 0) statusListeners.delete(terminalId);
+  };
+};
+
+export const applyStatus = (terminalId: string, status: TabStatus) => {
+  for (const listener of statusListeners.get(terminalId) ?? []) listener(status);
+
   drawers.setState((all) => {
     const next: Record<string, Drawer> = {};
 
@@ -87,3 +107,4 @@ export const applyStatus = (terminalId: string, status: TabStatus) =>
 
     return next;
   });
+};
