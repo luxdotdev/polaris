@@ -18,7 +18,7 @@ export const NeedsAttentionReason = Schema.Literals([
   "ssh-config-error",
   "ssh-missing",
   "command-missing",
-  /** `polaris` is not on the Host's PATH: the install flow is needed. */
+  /** No `~/.polaris/bin/current/polaris` (or `polaris` on PATH): the install flow is needed. */
   "polaris-not-installed",
   /** `polaris bridge` ran but no Daemon is listening on the Host. */
   "daemon-not-running",
@@ -97,8 +97,13 @@ export const classifyExit = (exit: {
       lastLine(stderr, /Permission denied|authentication|Authentication/)
     );
 
-  if (code === 127 || has(/polaris: (command )?not found|command not found: polaris/))
-    return needs("polaris-not-installed", lastLine(stderr, /not found/));
+  if (
+    code === 127 ||
+    has(
+      /polaris: (command )?not found|command not found: polaris|bin\/current\/polaris.*No such file/
+    )
+  )
+    return needs("polaris-not-installed", lastLine(stderr, /not found|No such file/));
 
   if (has(/Could not resolve hostname|Network is unreachable|No route to host|Connection refused/))
     return transient("unreachable", lastLine(stderr, /resolve|unreachable|route|refused/));

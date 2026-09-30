@@ -36,7 +36,9 @@ Local Host: `target: { _tag: "Local", socketPath }` connects to the socket direc
 
 ## SSH
 
-`ssh -o BatchMode=yes -o ControlMaster=auto -o ControlPath=~/.polaris/ssh/%C -o ControlPersist=10m -o Compression=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -o ConnectTimeout=15 -o ForwardAgent=no -o ClearAllForwardings=yes -o RequestTTY=no -T -e none -- <alias> polaris bridge`
+`ssh -o BatchMode=yes -o ControlMaster=auto -o ControlPath=~/.polaris/ssh/%C -o ControlPersist=10m -o Compression=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -o ConnectTimeout=15 -o ForwardAgent=no -o ClearAllForwardings=yes -o RequestTTY=no -T -e none -- <alias> ~/.polaris/bin/current/polaris bridge`
+
+The remote command defaults to the installed Daemon (`DEFAULT_REMOTE_COMMAND`), because `polaris` is not on PATH in a non-interactive SSH shell; `SshOptions.remoteCommand` overrides it per Host.
 
 The ControlMaster is private to Polaris (its own directory, mode 0700), so it never interferes with the user's multiplexing. Everything else (HostName, User, ProxyJump, keys) comes from `~/.ssh/config`. Agent forwarding is off unless the Host's `forwardAgent` toggle is on; then the bridge keeps `~/.polaris/agent.sock` on the Host pointing at the forwarded agent.
 
@@ -88,5 +90,4 @@ stateDiagram-v2
 
 - Session feeds keep up to 32 idle caches; no persistence of caches across app restarts yet (a seed option on `makeFeed` would do it).
 - Deltas for an item in progress are not replayed after a reconnect; the Turn catches up at its next sequenced event.
-- The remote command is `polaris bridge` on the user's PATH; the install flow may need `~/.polaris/bin/current/polaris bridge` (`SshOptions.remoteCommand`).
 - The ssh stderr classifier is based on OpenSSH messages; other clients (e.g. Tailscale SSH banners) may land in the generic "connection-lost".
