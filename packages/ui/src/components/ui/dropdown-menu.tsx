@@ -13,7 +13,16 @@ import {
   MENU_SHORTCUT,
 } from "../../lib/menu";
 
-export const DropdownMenu = DropdownMenuPrimitive.Root;
+/**
+ * Non-modal by default: a modal menu locks scrolling and sets `pointer-events` on
+ * `<body>`, which restyles the whole document on open and close (~12 ms mid-stream).
+ */
+export function DropdownMenu({
+  modal = false,
+  ...props
+}: ComponentProps<typeof DropdownMenuPrimitive.Root>) {
+  return <DropdownMenuPrimitive.Root modal={modal} {...props} />;
+}
 
 export const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
 
