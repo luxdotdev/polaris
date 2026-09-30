@@ -222,7 +222,7 @@ export const compactTokens = (n: number): string => {
 /** "$312.40", with "~" when any of it is estimated (DESIGN.md, Settings). */
 export const costLabel = (cost: Cost): string => {
   if (cost.usd === 0 && cost.partial) return "—";
-  const usd = `$${cost.usd.toFixed(2)}`;
+  const usd = `$${cost.usd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return cost.estimated ? `~${usd}` : usd;
 };

@@ -118,6 +118,10 @@ describe("usageSummary", () => {
     });
   });
 
+  test("costs over a thousand dollars group their digits", () => {
+    expect(costLabel({ usd: 4870.849, estimated: true, partial: false })).toBe("~$4,870.85");
+  });
+
   test("compact token figures", () => {
     expect([48_200_000, 912_400, 640, 2_100_000_000].map(compactTokens)).toEqual([
       "48.2M",
