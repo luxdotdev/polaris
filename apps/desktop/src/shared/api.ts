@@ -110,6 +110,8 @@ export interface Appearance {
 }
 
 export interface SettingsView extends Appearance {
+  /** False until the user pressed "Get started" on the welcome. */
+  readonly welcomeSeen: boolean;
   readonly hosts: ReadonlyArray<{
     readonly alias: string;
     readonly label: string;
@@ -162,6 +164,9 @@ export interface RequestOutputs {
   "terminal.close": null;
   "attachments.stage": Attachment;
   "install.ensure": InstallView;
+  "onboarding.found": { readonly sshHosts: ReadonlyArray<string>; readonly version: string };
+  "onboarding.welcomeSeen": null;
+  "dialog.pickFolder": { readonly path: string | null };
   "dev.proofWorkspace": { readonly path: string };
 }
 

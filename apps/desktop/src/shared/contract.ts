@@ -95,6 +95,12 @@ export const RequestInputs = {
   }),
   /** Probe a remote Host and plan an install or upgrade; installs only with an approved SHA-256. */
   "install.ensure": onHost({ approvedSha256: Schema.NullOr(Schema.String) }),
+  /** What onboarding found on this Mac: the Host aliases in `~/.ssh/config`, and the app's version. */
+  "onboarding.found": Schema.Struct({}),
+  /** "Get started": the welcome isn't shown again. */
+  "onboarding.welcomeSeen": Schema.Struct({}),
+  /** The native folder picker, for a Workspace on the local Host; null when cancelled. */
+  "dialog.pickFolder": Schema.Struct({}),
   /** Dev only: a fresh temporary directory on the dev Daemon's Host for the proof session. */
   "dev.proofWorkspace": Schema.Struct({}),
 } as const;

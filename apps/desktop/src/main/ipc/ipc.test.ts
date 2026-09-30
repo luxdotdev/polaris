@@ -46,6 +46,10 @@ const context: RequestContext = {
   cache: { get: () => [], put: () => undefined },
   setAppearance: () => undefined,
   proofWorkspace: () => null,
+  sshHosts: () => ["studio", "pi"],
+  setWelcomeSeen: () => undefined,
+  appVersion: "0.1.0",
+  pickFolder: () => Promise.resolve(null),
   daemonDist: null,
 };
 
@@ -66,9 +70,16 @@ describe("requests", () => {
       Exit.succeed({
         theme: "dark",
         density: "calm",
+        welcomeSeen: false,
         hosts: [{ alias: "studio", label: "studio", colour: null, forwardAgent: false }],
       })
     );
+  });
+
+  test("onboarding.found lists the ssh config's Host aliases", async () => {
+    const exit = await run(requestRunner(handlers, "onboarding.found")({}));
+
+    expect(exit).toEqual(Exit.succeed({ sshHosts: ["studio", "pi"], version: "0.1.0" }));
   });
 
   test("a refusal crosses with the Daemon's reason as its message", () => {

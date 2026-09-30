@@ -12,7 +12,7 @@ import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, nativeTheme, session } from "electron";
+import { app, BrowserWindow, dialog, nativeTheme, session } from "electron";
 import { type AppEvent, type Appearance, CHANNELS } from "../shared/api.ts";
 import {
   clientIdentity,
@@ -35,6 +35,7 @@ import {
 } from "./protocol.ts";
 import { openSnapshotCache } from "./snapshotCache.ts";
 import { readSettings, type Settings, settingsPath, writeSettings } from "./settings.ts";
+import { readSshHosts } from "./sshHosts.ts";
 import { createMainWindow } from "./window.ts";
 
 const env = process.env;
@@ -84,10 +85,30 @@ const start = async () => {
     density: settings.density ?? "calm",
   });
 
-  const setAppearance = (patch: Partial<Appearance>) => {
+  const saveSettings = (patch: Partial<Settings>) => {
     settings = { ...settings, ...patch };
     writeSettings({ path: file, settings });
+  };
+
+  const setAppearance = (patch: Partial<Appearance>) => {
+    saveSettings(patch);
     applyAppearance();
+  };
+
+  const pickFolder = async () => {
+    const options: Electron.OpenDialogOptions = {
+      title: "Add a workspace",
+      buttonLabel: "Add workspace",
+      properties: ["openDirectory", "createDirectory"],
+    };
+
+    const win = BrowserWindow.getFocusedWindow();
+
+    const picked = await (win === null
+      ? dialog.showOpenDialog(options)
+      : dialog.showOpenDialog(win, options));
+
+    return picked.canceled ? null : (picked.filePaths[0] ?? null);
   };
 
   const applyAppearance = () => {
@@ -125,6 +146,10 @@ const start = async () => {
       settings: () => settings,
       cache: openSnapshotCache(app.getPath("userData")),
       setAppearance,
+      sshHosts: () => readSshHosts(),
+      setWelcomeSeen: () => saveSettings({ welcomeSeen: true }),
+      pickFolder,
+      appVersion: app.getVersion(),
       proofWorkspace: () => (benchHarness ? mkdtempSync(join(tmpdir(), "polaris-proof-")) : null),
       daemonDist: existsSync(join(daemonDist, "manifest.json")) ? daemonDist : null,
     },

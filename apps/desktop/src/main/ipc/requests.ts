@@ -26,6 +26,12 @@ export interface RequestContext {
   readonly setAppearance: (patch: Partial<Appearance>) => void;
   /** A fresh temp directory, or null when the local Daemon doesn't run the bench Harness. */
   readonly proofWorkspace: () => string | null;
+  /** The literal Host aliases in `~/.ssh/config`. */
+  readonly sshHosts: () => ReadonlyArray<string>;
+  readonly setWelcomeSeen: () => void;
+  readonly appVersion: string;
+  /** The native folder picker on the focused window; null when cancelled. */
+  readonly pickFolder: () => Promise<string | null>;
   /** The bundled Daemon builds (`manifest.json`), or null when this build has none. */
   readonly daemonDist: string | null;
 }
@@ -80,6 +86,7 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
       return {
         theme: settings.theme ?? "system",
         density: settings.density ?? "calm",
+        welcomeSeen: settings.welcomeSeen ?? false,
         hosts: (settings.hosts ?? []).map((h) => ({
           alias: h.alias,
           label: h.label ?? h.alias,
@@ -146,6 +153,10 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
 
       return ensureInstalled({ alias, approvedSha256, dist: ctx.daemonDist });
     }),
+  "onboarding.found": () =>
+    Effect.sync(() => ({ sshHosts: ctx.sshHosts(), version: ctx.appVersion })),
+  "onboarding.welcomeSeen": () => Effect.sync(ctx.setWelcomeSeen).pipe(done),
+  "dialog.pickFolder": () => Effect.promise(ctx.pickFolder).pipe(Effect.map((path) => ({ path }))),
   "dev.proofWorkspace": () =>
     Effect.suspend(() => {
       const path = ctx.proofWorkspace();
