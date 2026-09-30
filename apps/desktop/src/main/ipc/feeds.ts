@@ -51,6 +51,7 @@ const openers: Openers = {
     onLive(hostKey, (session) => attachTerminal(session, terminalId)),
   "files.watch": ({ hostKey, root }) =>
     onLive(hostKey, (session) => session.client["files.watch"]({ root })),
+  usage: ({ hostKey }) => onLive(hostKey, (session) => session.client["usage.watch"]({})),
 };
 
 export const isSubscriptionKind = (kind: string): kind is SubscriptionKind =>

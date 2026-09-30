@@ -12,8 +12,8 @@ import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, nativeTheme, session } from "electron";
-import { type AppEvent, type Appearance, CHANNELS } from "../shared/api.ts";
+import { app, BrowserWindow, nativeTheme, session, shell } from "electron";
+import { type AppEvent, type Appearance, CHANNELS, type SessionDefault } from "../shared/api.ts";
 import {
   clientIdentity,
   type ClientRuntime,
@@ -34,7 +34,13 @@ import {
   serveRenderer,
 } from "./protocol.ts";
 import { openSnapshotCache } from "./snapshotCache.ts";
-import { readSettings, type Settings, settingsPath, writeSettings } from "./settings.ts";
+import {
+  appearanceOf,
+  readSettings,
+  type Settings,
+  settingsPath,
+  writeSettings,
+} from "./settings.ts";
 import { createMainWindow } from "./window.ts";
 
 const env = process.env;
@@ -79,15 +85,26 @@ const start = async () => {
 
   let proofHostKey: string | null = null;
 
-  const appearance = (): Appearance => ({
-    theme: settings.theme ?? "system",
-    density: settings.density ?? "calm",
-  });
+  const appearance = (): Appearance => appearanceOf(settings);
 
   const setAppearance = (patch: Partial<Appearance>) => {
     settings = { ...settings, ...patch };
     writeSettings({ path: file, settings });
     applyAppearance();
+  };
+
+  const setSessionDefault = (harness: string, value: SessionDefault | null) => {
+    const others = Object.entries(settings.sessionDefaults ?? {}).filter(([k]) => k !== harness);
+
+    const sessionDefaults = Object.fromEntries(
+      value === null ? others : [...others, [harness, value]]
+    );
+
+    settings = { ...settings, sessionDefaults };
+    writeSettings({ path: file, settings });
+    const event: AppEvent = { kind: "session-defaults", sessionDefaults };
+
+    for (const win of BrowserWindow.getAllWindows()) win.webContents.send(CHANNELS.app, event);
   };
 
   const applyAppearance = () => {
@@ -123,8 +140,11 @@ const start = async () => {
     trusted,
     context: {
       settings: () => settings,
+      version: app.getVersion(),
       cache: openSnapshotCache(app.getPath("userData")),
       setAppearance,
+      setSessionDefault,
+      openExternal: (url) => shell.openExternal(url),
       proofWorkspace: () => (benchHarness ? mkdtempSync(join(tmpdir(), "polaris-proof-")) : null),
       daemonDist: existsSync(join(daemonDist, "manifest.json")) ? daemonDist : null,
     },

@@ -20,21 +20,34 @@ import type {
   SessionStreamItem,
   TerminalId,
   TerminalLaunch,
+  UsageReport,
+  UsageStreamItem,
 } from "@polaris/protocol";
 import type { Rpc } from "effect/rpc";
 import type {
   CachedHost,
+  CodeFont,
   Density,
+  DiffPalette,
+  MotionSource,
   RequestInput,
   RequestMethod,
   SubscriptionInput,
+  SessionDefault,
   SubscriptionKind,
+  TextSize,
   ThemeSource,
 } from "./contract.ts";
 
 export type {
+  AppearancePatch,
   CachedHost,
+  CodeFont,
   Density,
+  DiffPalette,
+  MotionSource,
+  SessionDefault,
+  TextSize,
   RequestInput,
   RequestMethod,
   SubscriptionInput,
@@ -103,13 +116,26 @@ export type Plain<T> = { readonly [K in keyof T]: T[K] };
 
 // ── Requests ────────────────────────────────────────────────────────────────
 
-/** How the renderer looks: `data-theme` (unset for "system") and `data-density` on the root. */
+/**
+ * How the renderer looks, as root attributes: `data-theme` (unset for "system"),
+ * `data-density`, `data-text-size`, `data-diff-palette`, `data-reduce-motion`, and the code face.
+ */
 export interface Appearance {
   readonly theme: ThemeSource;
   readonly density: Density;
+  readonly textSize: TextSize;
+  readonly diffPalette: DiffPalette;
+  readonly motion: MotionSource;
+  readonly codeFont: CodeFont;
 }
 
+/** Each Harness's defaults for new sessions, by kind. */
+export type SessionDefaults = Readonly<Record<string, SessionDefault>>;
+
 export interface SettingsView extends Appearance {
+  readonly sessionDefaults: SessionDefaults;
+  /** This build's version, for About Polaris. */
+  readonly version: string;
   readonly hosts: ReadonlyArray<{
     readonly alias: string;
     readonly label: string;
@@ -140,6 +166,9 @@ export interface RequestOutputs {
   "cache.put": null;
   "settings.setTheme": null;
   "settings.setDensity": null;
+  "settings.setAppearance": null;
+  "settings.setSessionDefault": null;
+  "shell.openExternal": null;
   "host.retryNow": null;
   dispatch: { readonly sequence: number | null };
   "files.listDir": ReadonlyArray<FileEntry>;
@@ -156,6 +185,7 @@ export interface RequestOutputs {
   "harness.models": Plain<HarnessModels>;
   "harness.availability": Plain<HostHarnesses>;
   "session.terminalCommand": TerminalLaunch | null;
+  "usage.query": Plain<UsageReport>;
   "terminal.open": { readonly terminalId: TerminalId };
   "terminal.input": null;
   "terminal.resize": null;
@@ -180,6 +210,7 @@ export interface SubscriptionItems {
   session: SessionStreamItem;
   terminal: TerminalItem;
   "files.watch": ReadonlyArray<typeof FileChangeEvent.Type>;
+  usage: UsageStreamItem;
 }
 
 export type SubscriptionItem<K extends SubscriptionKind> = SubscriptionItems[K];
@@ -205,6 +236,9 @@ export type Route = "orchestrate" | "review" | "edit";
 export type AppEvent =
   | { readonly kind: "route"; readonly route: Route }
   | { readonly kind: "appearance"; readonly appearance: Appearance }
+  | { readonly kind: "session-defaults"; readonly sessionDefaults: SessionDefaults }
+  /** Polaris → Settings… (⌘,). */
+  | { readonly kind: "settings" }
   /** Dev only (Develop menu): start the bench-Harness proof session on this Host. */
   | { readonly kind: "proof"; readonly hostKey: string };
 

@@ -1,12 +1,20 @@
 /**
- * App settings in `<userData>/settings.json`: the theme override and the
- * remote Hosts (by `~/.ssh/config` alias). A missing or unreadable file means
+ * App settings in `<userData>/settings.json`: appearance, each Harness's
+ * defaults for new sessions, and the remote Hosts (by `~/.ssh/config` alias). A missing or unreadable file means
  * the defaults; the file is rewritten whole on every change.
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { Option, Schema } from "effect";
-import { Density, ThemeSource } from "../shared/contract.ts";
+import {
+  CodeFont,
+  Density,
+  DiffPalette,
+  MotionSource,
+  SessionDefault,
+  TextSize,
+  ThemeSource,
+} from "../shared/contract.ts";
 
 export const RemoteHostSetting = Schema.Struct({
   alias: Schema.String.check(Schema.isMinLength(1)),
@@ -20,6 +28,12 @@ export type RemoteHostSetting = typeof RemoteHostSetting.Type;
 export const Settings = Schema.Struct({
   theme: Schema.optionalKey(ThemeSource),
   density: Schema.optionalKey(Density),
+  textSize: Schema.optionalKey(TextSize),
+  diffPalette: Schema.optionalKey(DiffPalette),
+  motion: Schema.optionalKey(MotionSource),
+  codeFont: Schema.optionalKey(CodeFont),
+  /** By Harness kind. */
+  sessionDefaults: Schema.optionalKey(Schema.Record(Schema.String, SessionDefault)),
   hosts: Schema.optionalKey(Schema.Array(RemoteHostSetting)),
 });
 
@@ -53,3 +67,13 @@ export const writeSettings = ({ path, settings }: SettingsWrite) => {
   writeFileSync(partial, `${JSON.stringify(settings, null, 2)}\n`);
   renameSync(partial, path);
 };
+
+/** The appearance a settings file asks for, with the defaults filled in. */
+export const appearanceOf = (settings: Settings) => ({
+  theme: settings.theme ?? "system",
+  density: settings.density ?? "calm",
+  textSize: settings.textSize ?? "default",
+  diffPalette: settings.diffPalette ?? "default",
+  motion: settings.motion ?? "system",
+  codeFont: settings.codeFont ?? "sf-mono",
+});
