@@ -5,6 +5,8 @@
  * `localhost` over the real ssh (host key not trusted here), and an
  * unreachable alias (reconnecting). Also the add-a-host form. Opens the
  * page the way a new user does, from the first-run card's "Browse hosts".
+ * Then Hosts failing with host-key-changed, auth-failed and daemon-not-running
+ * (lib/failingHosts.ts), each card and the Orchestrator's view of one.
  *
  *   node scripts/machineScreens.ts <dir> [--build]
  */
@@ -15,6 +17,7 @@ import { join } from "node:path";
 import { _electron as electron, type Page } from "playwright-core";
 import { startDaemon } from "./lib/daemon.ts";
 import { APP_DIR, electronBinary, sizeWindow } from "./lib/electron.ts";
+import { FAILING_HOSTS, writeFailingSsh } from "./lib/failingHosts.ts";
 import { FAKE_ALIAS, prepareFakeHost } from "./lib/machineFlow.ts";
 
 const dir = process.argv[2];
@@ -32,6 +35,10 @@ const userData = join(home, "user-data");
 const daemon = await startDaemon({ home, benchHarness: true });
 
 const fake = prepareFakeHost(join(home, "remote"));
+
+const failing = join(home, "failing");
+
+writeFailingSsh(failing, join(home, "remote", "bin", "ssh"));
 
 mkdirSync(userData, { recursive: true });
 
@@ -55,6 +62,7 @@ const app = await electron.launch({
   env: {
     ...process.env,
     ...fake.env,
+    PATH: `${failing}:${fake.env.PATH ?? ""}`,
     POLARIS_DESKTOP_LOCAL_SOCKET: daemon.socketPath,
     POLARIS_DESKTOP_BENCH_HARNESS: "1",
     POLARIS_DESKTOP_USER_DATA: userData,
@@ -86,6 +94,42 @@ const openHosts = async (page: Page) => {
   await page.getByTestId("hosts-settings").waitFor({ timeout: 10_000 });
   await page.getByTestId("add-machine").waitFor({ timeout: 10_000 });
   await page.getByTestId("add-machine").getByRole("button", { name: "Cancel" }).click();
+};
+
+/** Each needs-attention card (O4), then the Orchestrator with a failing Host selected. */
+const failingHosts = async (page: Page) => {
+  for (const host of FAILING_HOSTS) {
+    await page.evaluate(
+      `window.polaris.request("machines.add", ${JSON.stringify({
+        alias: host.alias,
+        label: host.label,
+        colour: null,
+        forwardAgent: false,
+      })})`
+    );
+  }
+
+  for (const host of FAILING_HOSTS) {
+    const row = page.getByTestId(`machine-${host.alias}`);
+
+    await page
+      .locator(`[data-testid="machine-${host.alias}"][data-state="needs-attention"]`)
+      .waitFor({ timeout: 30_000 });
+    await row.scrollIntoViewIfNeeded();
+
+    for (const theme of ["dark", "light"] as const) {
+      await setTheme(page, theme);
+      const path = join(dir, `attention-${host.reason}-${theme}.png`);
+
+      await row.screenshot({ path });
+      console.log(`screens: ${path}`);
+    }
+  }
+
+  await page.keyboard.press("Escape");
+  await page.locator('[data-host="fail-auth"]').first().click();
+  await page.waitForTimeout(800);
+  await shoot(page, "orchestrator-needs-attention");
 };
 
 try {
@@ -131,6 +175,8 @@ try {
   await page.getByRole("button", { name: "Add a host" }).click();
   await page.getByTestId("add-machine").scrollIntoViewIfNeeded();
   await shoot(page, "add-host");
+  await page.getByTestId("add-machine").getByRole("button", { name: "Cancel" }).click();
+  await failingHosts(page);
 } catch (error) {
   await app.windows()[0]?.screenshot({ path: join(tmpdir(), "polaris-screens-failure.png") });
   throw error;
