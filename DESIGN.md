@@ -568,6 +568,16 @@ One brand moment, then the real shell; never a wizard. First launch shows a full
 
 Three tiers. **Stage**: the whole main area is empty (first run, a workspace with no sessions, a host with no workspaces). It uses the pixel scene with a clearing, as in New session. **Pane**: an inbox, the Review queue, a risk summary with no findings, the Editor with no file open, or an empty Constellation. It uses a 48px watercolour tile with a pixel icon, one `heading-sm` sentence, one `caption` line of fact, and at most one secondary action. There is no scene and no signal colour: "Nothing needs you" never uses the needs-you hue. A risk summary with no findings says what ran and what the user hasn't opened; it never implies the change is safe. **Inline**: a section or menu with nothing in it gets one `caption` line under its header ("None in polaris"). Mockups: Empty states page, X1. In the app: a host with no workspaces is the first-run stage ("Where does your code live?", 57Q-1); a workspace with no sessions is a stage headed "Nothing is running here yet" with a setup card (start a session, open a terminal); a workspace whose sessions aren't open is a pane ("No agent session open", "3 sessions in polaris · K to jump", New session); modes not built yet are panes too.
 
+### Output
+
+The Orchestrator's lanes, left to right: sidebar (264px), Intent (the rest, never under 320px), Output. Output is collapsed by default, so the conversation gets the room.
+
+- **Rail (collapsed).** 240px on `surface-sunken`, no divider of its own (Intent's hairline separates it). A 44px header with a show chevron (⌘⌥B) and "Output" in `label`, then fact rows at the row height in fixed lanes (a 16px icon slot, then the value): the session's state glyph and state, the Host, the cwd in `code-inline` (truncated from the start, so the folder name stays), the branch in `code-inline` ("Not a git repository" in `caption` `text-subtle` when there is none), and the change count from git status ("2 changes", "No changes"), which opens the panel. The Terminal strip stays at its foot; toasts inset past it.
+- **Panel (open).** Changes for the chosen Turn, as before, with a hide chevron at the header's end. Default width 80% of what the old fixed 448px Intent left (about 450px in a 1280px window); resizable from its left edge (an 8px hit area, ← → by 16px, double-click resets), never under 360px nor leaving Intent under 320px. The width is one per window and persists.
+- **When it opens.** The session's first edit in a Turn (a file change item, or the Turn's diff gaining a file), once per Turn: if the user closes it, it stays closed until the next Turn's first edit. Also the chevron, the change count, ⌘⌥B, or showing the terminal drawer (which lives in the panel). It only collapses on a user action; hiding it hides the terminal drawer too (its terminals keep running).
+- **Motion.** Opening slides the panel in from the rail's edge on `transform`, 200ms ease-out; Intent reflows once, not per frame. Collapsing is instant. Reduce Motion makes opening instant.
+- **Live.** The diff of a Turn still in flight and the rail's facts follow the files as they change (`files.watch` on the session's cwd, settled over 250ms); no reload needed, on this Mac or a remote Host.
+
 ### Terminal
 
 A drawer of Daemon terminals per Workspace, docked under Output (under the stage when no session is open), so the conversation keeps its full height. Hidden, it is a 28px strip ("Terminal ⌃`"); shown, a hairline-topped drawer (default 280px, resizable from its top edge, never under 120px or leaving less than that above) with a 36px header: tabs in `label` type (selected: `fill-selected`, `text-strong`), the cwd in `code-inline` `text-subtle`, and a hide control. ⌃` toggles it; showing an empty drawer opens the Workspace's shell. Tabs are the Workspace's shell and one per session handed off to its Harness's terminal UI.
@@ -596,7 +606,7 @@ Nucleo UI outline, 1px stroke, 16px, in `text-subtle` (or `text-strong` when sel
 
 ### Motion
 
-Quiet. Standard transitions are 120ms (hover, press), 160ms (small reveals), and 200ms (panels, toasts), all ease-out. No bounce, springs, or overshoot. Reduce Motion drops all transitions to instant fades and stills the dither.
+Quiet. Standard transitions are 120ms (hover, press), 160ms (small reveals), and 200ms (panels, toasts), all ease-out. No bounce, springs, or overshoot (Output's slide-in is a 200ms ease-out, not a spring). Reduce Motion drops all transitions to instant fades and stills the dither.
 
 ### Performance
 

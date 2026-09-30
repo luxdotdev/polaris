@@ -9,6 +9,14 @@ export { InTerminalBar, OpenInTerminalItem, type HandoffSession } from "./ui/InT
 
 export { claimFocusFromMenu, keepTerminalFocus } from "./focus.ts";
 
-export { runInTerminal, toggleTerminal, type TerminalPlace, type TerminalRun } from "./actions.ts";
+export {
+  hideTerminal,
+  runInTerminal,
+  toggleTerminal,
+  type TerminalPlace,
+  type TerminalRun,
+} from "./actions.ts";
 
 export { HarnessTerminal, type HarnessTerminalProps } from "./ui/HarnessTerminal.tsx";
+
+export { isTerminalShown, useTerminalShown } from "./store.ts";

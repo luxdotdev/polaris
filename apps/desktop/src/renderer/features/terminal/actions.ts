@@ -113,6 +113,12 @@ export const activateTab = (place: TerminalPlace, tabKey: string) =>
 export const setDrawerHeight = (place: TerminalPlace, height: number) =>
   updateDrawer(drawerKey(place.hostKey, place.workspaceId), (d) => ({ ...d, height }));
 
+/** Hides the drawer; its terminals keep running. */
+export const hideTerminal = (place: TerminalPlace) =>
+  updateDrawer(drawerKey(place.hostKey, place.workspaceId), (d) =>
+    d.open ? { ...d, open: false } : d
+  );
+
 /** Shows or hides the drawer; showing an empty one opens the Workspace's shell in `cwd`. */
 export const toggleTerminal = (place: TerminalPlace, cwd: string, title: string) => {
   const key = drawerKey(place.hostKey, place.workspaceId);

@@ -7,7 +7,12 @@ import type { SessionId, WorkspaceId } from "@polaris/protocol";
 import type { ComponentType, ReactElement } from "react";
 import { HostsSettingsPage } from "../features/machines/index.ts";
 import { NeedsYouHover, NeedsYouInbox } from "../features/needs-you/index.ts";
-import { NewSessionPage, SessionIntent, SessionOutput } from "../features/session/index.ts";
+import {
+  NewSessionPage,
+  OutputRail,
+  SessionIntent,
+  SessionOutput,
+} from "../features/session/index.ts";
 import { WorkspaceStage } from "../features/empty/index.ts";
 import { JumpMenu } from "../features/jump/index.ts";
 import { OpenFolderDialog } from "../features/open-folder/index.ts";
@@ -50,10 +55,12 @@ export interface SettingsHostsProps {
 }
 
 export interface ShellSlots {
-  /** The Intent column (448px): the conversation and composer of the selected session. */
+  /** The Intent column (the rest): the conversation and composer of the selected session. */
   readonly SessionIntent: ComponentType<SessionSlotProps>;
-  /** The Output column (the rest): Changes, Preview, Files, Risk for the selected session. */
+  /** The Output panel (resizable, right): Changes, Preview, Files, Risk for the selected session. */
   readonly SessionOutput: ComponentType<SessionSlotProps>;
+  /** Output collapsed: the 240px rail of Workspace facts. */
+  readonly OutputRail: ComponentType<SessionSlotProps>;
   /** Spans Intent and Output while the user starts a session in a Workspace. */
   readonly NewSession: ComponentType<NewSessionProps>;
   /** Spans Intent and Output when the Workspace has no session selected. */
@@ -75,6 +82,7 @@ export interface ShellSlots {
 export const slots: ShellSlots = {
   SessionIntent,
   SessionOutput,
+  OutputRail,
   NewSession: NewSessionPage,
   NoSession: WorkspaceStage,
   NeedsYouInbox,
