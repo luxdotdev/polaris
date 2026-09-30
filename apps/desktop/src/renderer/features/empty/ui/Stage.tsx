@@ -16,10 +16,10 @@ export interface StageProps {
 
 export const Stage = ({ kicker, title, line, children, testId }: StageProps) => (
   <Scene
-    className="flex h-full min-h-0 flex-1 flex-col items-center overflow-y-auto px-4 pt-[128px] pb-10"
+    className="flex h-full min-h-0 flex-1 flex-col items-center overflow-y-auto px-4 pt-[120px] pb-10"
     data-testid={testId}
   >
-    <StageHeading kicker={kicker} title={title} line={line} className="px-20 pb-9" />
+    <StageHeading kicker={kicker} title={title} line={line} className="px-20 pb-[34px]" />
     {children}
   </Scene>
 );

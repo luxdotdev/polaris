@@ -173,7 +173,8 @@ if (only === null || only === "bars") {
   await close(rig);
 }
 
-// AR-0: the K jump menu over artboard 5, typed "po"; empty (Recent, Needs you, Actions); help.
+// AR-0: the K jump menu over artboard 5: open with no query (Recent, Needs you, Actions),
+// typed "po", "working", and a query that matches nothing; then help.
 if (only === null || only === "jump") {
   const rig = await launch("dark");
 
@@ -184,11 +185,13 @@ if (only === null || only === "jump") {
   await rig.page.getByText("Polaris planning", { exact: true }).first().click();
   await rig.page.keyboard.press("Meta+K");
   await rig.page.getByRole("combobox").waitFor();
-  await shoot(rig.page, "AR-0-jump-empty-dark");
+  await shoot(rig.page, "AR-0-jump-open-dark");
   await rig.page.getByRole("combobox").pressSequentially("po", { delay: 30 });
   await shoot(rig.page, "AR-0-jump-po-dark");
   await rig.page.getByRole("combobox").fill("working");
   await shoot(rig.page, "AR-0-jump-working-dark");
+  await rig.page.getByRole("combobox").fill("zzqx nothing here");
+  await shoot(rig.page, "AR-0-jump-no-match-dark");
   await rig.page.keyboard.press("Escape");
   await rig.page.evaluate(`window.polaris.request("settings.setTheme", { theme: "light" })`);
   await rig.page.keyboard.press("Meta+K");

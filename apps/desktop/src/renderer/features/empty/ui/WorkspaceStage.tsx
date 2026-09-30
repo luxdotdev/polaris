@@ -19,7 +19,7 @@ import { emptyHostModel } from "../../../store/hostModel.ts";
 import { useApp, useShellActions } from "../../../shell/hooks.ts";
 import { toggleTerminal } from "../../terminal/index.ts";
 import { useReadyLine } from "../hooks.ts";
-import { noSelectionFact, stageKicker } from "../model.ts";
+import { captionPath, noSelectionFact, stageKicker } from "../model.ts";
 import { Stage } from "./Stage.tsx";
 
 export interface WorkspaceStageProps {
@@ -56,7 +56,7 @@ const EmptyWorkspace = ({ hostKey, workspaceId, host, workspace }: EmptyWorkspac
         <SetupRow
           icon={<PixelTerminalIcon size={20} />}
           title="Open a terminal"
-          caption={workspace.path}
+          caption={captionPath(workspace.path, host.status.host?.homeDir ?? null)}
           action={
             <Button
               onClick={() =>
