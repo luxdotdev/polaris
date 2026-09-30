@@ -201,7 +201,6 @@ export const RequestInputs = {
   "machines.startDaemon": onHost({}),
   /** Switch the local Host on or off on this machine. */
   "machines.setLocalEnabled": Schema.Struct({ enabled: Schema.Boolean }),
-  "machines.harnesses": onHost({ refresh: Schema.Boolean }),
   /**
    * Opens macOS Terminal on this Mac running `ssh <alias>` (to trust a host key); the
    * fallback when the local Host is off, since the in-app terminal runs on a Daemon.

@@ -65,7 +65,7 @@ const connectionCard = (machine: MachineView): CardModel | null => {
         `${label}'s host key isn't trusted yet`,
         "Connect once in a terminal and accept the key. Polaris retries when you're back.",
         `ssh ${alias}`,
-        { label: "Open in Terminal", action: "open-ssh" },
+        { label: "Open in terminal", action: "open-ssh" },
         RETRY
       );
     case "host-key-changed":
@@ -75,7 +75,7 @@ const connectionCard = (machine: MachineView): CardModel | null => {
         "It no longer matches known_hosts. If you rebuilt the machine, remove the old key and retry. If you didn't, don't connect.",
         `ssh-keygen -R ${alias}`,
         null,
-        COPY
+        { label: `Copy ssh-keygen -R ${alias}`, action: "copy-detail" }
       );
     case "auth-failed":
       return card(
@@ -84,7 +84,7 @@ const connectionCard = (machine: MachineView): CardModel | null => {
         "Polaris never answers password or 2FA prompts. Load a key into ssh-agent, then retry.",
         detail,
         RETRY,
-        { label: "Open in Terminal", action: "open-ssh" }
+        { label: "Open in terminal", action: "open-ssh" }
       );
     case "daemon-not-running":
       return card(
@@ -255,36 +255,66 @@ export const elapsed = (ms: number): string => {
 export interface ConnectionLine {
   readonly state: "connected" | "reconnecting" | "needs-attention" | "offline" | "off";
   readonly label: string;
-  /** Faint trailing text: "local", "for 40s", "since 09:14". */
+  /** Trailing caption: "local", "4 ms", "for 40s", "last seen 3d ago". */
   readonly caption: string | null;
+  /** Offline offers "Retry" after its caption (Paper S4). */
+  readonly retry: boolean;
 }
 
-const clock = (ms: number) =>
-  new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+/** "just now", "12m ago", "3h ago", "3d ago". */
+export const ago = (ms: number): string => {
+  const minutes = Math.floor(Math.max(0, ms) / 60_000);
+
+  if (minutes < 1) return "just now";
+
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+
+  return hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
+};
+
+/** "local", or the latency measured when the connection opened (DESIGN.md, Settings · Hosts). */
+const connectedCaption = (alias: string | null, latencyMs: number | null) => {
+  if (alias === null) return "local";
+
+  if (latencyMs === null) return null;
+
+  return latencyMs < 1 ? "<1 ms" : `${latencyMs} ms`;
+};
 
 /** The Connection column: state word and its caption at `now`. */
 export const connectionLine = (machine: MachineView, now: number): ConnectionLine => {
   const status = machine.status;
 
-  if (status === null) return { state: "off", label: "Off", caption: "on this Mac" };
+  if (status === null) return { state: "off", label: "Off", caption: "on this Mac", retry: false };
 
   switch (status.state) {
     case "connected":
       return {
         state: "connected",
         label: "Connected",
-        caption: machine.alias === null ? "local" : (status.host?.platform ?? null),
+        caption: connectedCaption(machine.alias, status.latencyMs),
+        retry: false,
       };
     case "reconnecting":
       return {
         state: "reconnecting",
         label: "Reconnecting",
         caption: `for ${elapsed(now - status.since)}`,
+        retry: false,
       };
     case "offline":
-      return { state: "offline", label: "Offline", caption: `since ${clock(status.since)}` };
+      return {
+        state: "offline",
+        label: "Offline",
+        caption:
+          status.lastSeenAt === null
+            ? "not reached yet"
+            : `last seen ${ago(now - status.lastSeenAt)}`,
+        retry: true,
+      };
     default:
-      return { state: "needs-attention", label: "Needs attention", caption: null };
+      return { state: "needs-attention", label: "Needs attention", caption: null, retry: false };
   }
 };
 
@@ -292,10 +322,10 @@ export const connectionLine = (machine: MachineView, now: number): ConnectionLin
 export const hostCaption = (machine: MachineView, workspaces: number | null): string => {
   const where = machine.alias === null ? "This Mac" : `ssh ${machine.alias}`;
 
-  if (workspaces === null) return where;
-
-  return `${where} · ${workspaces} ${workspaces === 1 ? "workspace" : "workspaces"}`;
+  return workspaces === null ? where : `${where} · ${workspacesText(workspaces)}`;
 };
+
+export const workspacesText = (n: number): string => `${n} ${n === 1 ? "workspace" : "workspaces"}`;
 
 /** A just-finished upgrade or install, for the row's note. */
 export const outcomeNote = (machine: MachineView): string | null => {

@@ -45,6 +45,7 @@ const status = (patch: Partial<ConnectionStatusView>): ConnectionStatusView => (
   capabilities: [],
   epoch: 0,
   latencyMs: null,
+  lastSeenAt: null,
   ...patch,
 });
 

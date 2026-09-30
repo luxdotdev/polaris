@@ -105,6 +105,8 @@ export interface ConnectionStatus {
    * `hello` (one ping; nothing periodic, so an idle Daemon stays asleep). Null until measured.
    */
   readonly latencyMs: number | null;
+  /** When the last good connection ended (ms since epoch); null while connected or never. */
+  readonly lastSeenAt: number | null;
 }
 
 /** One live connection: an RPC client and its blob channel. Invalid once the epoch changes. */
@@ -196,6 +198,7 @@ export const makeHostConnection = Effect.fnUntraced(function* (
     capabilities: [],
     epoch: 0,
     latencyMs: null,
+    lastSeenAt: null,
   });
 
   const live = yield* SubscriptionRef.make<LiveSession | null>(null);
@@ -273,6 +276,7 @@ export const makeHostConnection = Effect.fnUntraced(function* (
           host: hello.host,
           capabilities,
           epoch,
+          lastSeenAt: null,
         });
         yield* SubscriptionRef.set(live, session);
         yield* connection.roundTrip.pipe(
@@ -300,8 +304,11 @@ export const makeHostConnection = Effect.fnUntraced(function* (
       yield* Queue.poll(retrySignal);
       const failure = yield* connectOnce(machine.context.epoch + 1).pipe(Effect.flip);
       const now = yield* Clock.currentTimeMillis;
+      const wasConnected = machine.value === "connected";
       const { value, context } = step({ type: "failed", failure, now, jitter: Math.random() });
+      const { lastSeenAt } = yield* SubscriptionRef.get(status);
       yield* setStatus({
+        lastSeenAt: wasConnected ? now : lastSeenAt,
         state: value,
         failure,
         attempt: context.attempt,

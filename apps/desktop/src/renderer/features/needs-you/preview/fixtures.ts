@@ -45,6 +45,7 @@ const hostView = (key: string, label: string): HostView => ({
     capabilities: Capability.literals,
     epoch: 1,
     latencyMs: null,
+    lastSeenAt: null,
   },
 });
 

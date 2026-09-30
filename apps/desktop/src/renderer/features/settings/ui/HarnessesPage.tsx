@@ -3,79 +3,15 @@
  * Harness with its tile, "Ready on N of M hosts", a row per Host with at most
  * one action, and the defaults new sessions start with.
  */
-import {
-  ArrowUpIcon,
-  Button,
-  CheckIcon,
-  ChevronRightIcon,
-  cn,
-  Dither,
-  PixelTerminalIcon,
-  Tile,
-} from "@polaris/ui";
-import { type ReactNode, useState } from "react";
+import { ChevronRightIcon, cn, Dither, Tile } from "@polaris/ui";
+import { useState } from "react";
 import { slots } from "../../../app/slots.tsx";
-import {
-  type HarnessGroup,
-  harnessGroups,
-  type HostRow,
-  type RowAction,
-  type RowGlyph,
-} from "../model/harnesses.ts";
+import { type HarnessGroup, harnessGroups, type HostRow } from "../model/harnesses.ts";
+import { Action, GLYPHS } from "./harnessRow.tsx";
 import { sectionInfo } from "../model/sections.ts";
 import { useHostProbes } from "./hostProbes.ts";
 import { Column, PageHeader } from "./parts.tsx";
 import { SessionDefaultsStrip } from "./SessionDefaultsStrip.tsx";
-
-const KeyGlyph = () => (
-  <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden className="shrink-0">
-    <circle cx="5" cy="7" r="2.6" fill="none" stroke="currentColor" strokeWidth="1.1" />
-    <path
-      d="M7.6 7H12.2M10.5 7v1.8"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.1"
-      strokeLinecap="round"
-    />
-  </svg>
-);
-
-const GLYPHS: Readonly<Record<RowGlyph, ReactNode>> = {
-  ready: <CheckIcon size={14} />,
-  "sign-in": <KeyGlyph />,
-  update: <ArrowUpIcon size={14} />,
-  missing: (
-    <span className="border-text-subtle mx-0.5 size-2.5 rounded-full border border-dashed" />
-  ),
-  unknown: <span className="bg-text-subtle mx-1 size-1.5 rounded-full" />,
-};
-
-const Action = ({
-  action,
-  onSignIn,
-}: {
-  readonly action: RowAction;
-  readonly onSignIn: () => void;
-}) => {
-  if (action.kind === "sign-in") {
-    return (
-      <Button variant="secondary" className="text-label gap-1.5 px-2.5" onClick={onSignIn}>
-        <PixelTerminalIcon size={14} />
-        Sign in in terminal
-      </Button>
-    );
-  }
-
-  return (
-    <Button
-      variant="ghost"
-      className="text-label text-text-default px-2.5"
-      onClick={() => void window.polaris.request("shell.openExternal", { url: action.url })}
-    >
-      Open setup guide
-    </Button>
-  );
-};
 
 const Row = ({
   row,

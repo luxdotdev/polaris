@@ -103,6 +103,7 @@ const host = (key: string, label: string): HostView => ({
     capabilities: [],
     epoch: 0,
     latencyMs: null,
+    lastSeenAt: null,
   },
 });
 
