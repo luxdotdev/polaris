@@ -32,6 +32,11 @@ export function IdentitySection() {
             <HarnessMark harness="codex" size={size} />
           </Swatch>
         ))}
+        {TILE_SIZES.map((size) => (
+          <Swatch key={`opencode-${size}`} label={`opencode ${size}`}>
+            <HarnessMark harness="opencode" size={size} />
+          </Swatch>
+        ))}
         <Swatch label="starlight 32">
           <Tile hue="starlight" size={32}>
             <PixelPolarisIcon className="text-starlight" />
@@ -52,6 +57,8 @@ export function IdentitySection() {
       <div className="flex items-center gap-6">
         <HarnessMark harness="claude" named />
         <HarnessMark harness="codex" named />
+        <HarnessMark harness="opencode" named />
+        <HarnessMark harness="opencode" named state="working" />
         <HarnessMark harness="claude" named state="working" />
       </div>
     </Section>

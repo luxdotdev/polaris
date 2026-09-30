@@ -73,7 +73,7 @@ export const HarnessRegistryLive = Layer.effect(
       );
 
     const drivers: ReadonlyArray<HarnessDriver> = bench
-      ? [yield* benchDriver("codex"), yield* benchDriver("claude")]
+      ? [yield* benchDriver("codex"), yield* benchDriver("claude"), yield* benchDriver("opencode")]
       : [
           yield* lazyDriver(
             "codex",
