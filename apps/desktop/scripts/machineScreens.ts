@@ -4,7 +4,7 @@
  * this Mac, a fake remote Host awaiting install approval (then installed),
  * `localhost` over the real ssh (host key not trusted here), and an
  * unreachable alias (reconnecting). Also the add-a-host form. Opens the
- * page the way a user does, from Settings….
+ * page the way a new user does, from the first-run card's "Browse hosts".
  *
  *   node scripts/machineScreens.ts <dir> [--build]
  */
@@ -40,6 +40,7 @@ mkdirSync(dir, { recursive: true });
 writeFileSync(
   join(userData, "settings.json"),
   JSON.stringify({
+    welcomeSeen: true,
     hosts: [
       { alias: FAKE_ALIAS, label: "Mac Studio" },
       { alias: "localhost", label: "Raspberry Pi 4" },
@@ -79,13 +80,12 @@ const shoot = async (page: Page, name: string) => {
 };
 
 /** Settings → Hosts: the sidebar's Settings button (as ⌘, does), then Hosts in the nav. */
+/** The first-run card's "Connect a host → Browse hosts": Settings → Hosts with the add form open. */
 const openHosts = async (page: Page) => {
-  await page.getByRole("button", { name: "Settings" }).click();
-  await page
-    .getByRole("navigation", { name: "Settings" })
-    .getByRole("button", { name: "Hosts" })
-    .click();
+  await page.getByRole("button", { name: "Browse hosts" }).click();
   await page.getByTestId("hosts-settings").waitFor({ timeout: 10_000 });
+  await page.getByTestId("add-machine").waitFor({ timeout: 10_000 });
+  await page.getByTestId("add-machine").getByRole("button", { name: "Cancel" }).click();
 };
 
 try {
@@ -113,11 +113,9 @@ try {
     .getByTestId("machine-localhost")
     .getByRole("button", { name: "Open in Terminal" })
     .click();
-  await page
-    .getByTestId("machine-localhost")
-    .getByText(/authenticity|known hosts|Host key/)
-    .first()
-    .waitFor({ timeout: 15_000 });
+  // xterm draws on a canvas: wait for its surface, then for ssh's prompt to be drawn.
+  await page.getByTestId("machine-localhost").locator(".xterm").waitFor({ timeout: 15_000 });
+  await page.waitForTimeout(1500);
   await page.getByTestId("machine-localhost").scrollIntoViewIfNeeded();
   await shoot(page, "ssh-terminal");
 
