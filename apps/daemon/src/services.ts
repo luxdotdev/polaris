@@ -8,6 +8,7 @@ import type {
   AttachmentId,
   BlobId,
   HarnessKind,
+  PlanLimit,
   SessionId,
   TurnId,
   WorkspaceId,
@@ -117,3 +118,16 @@ export class HarnessRegistry extends Context.Service<
     readonly all: Effect.Effect<ReadonlyArray<HarnessDriver>>;
   }
 >()("polaris/daemon/HarnessRegistry") {}
+
+/**
+ * Where the Harness drivers report Plan Limits (ENG-206). `usage.watch` sends
+ * each to every watcher, and the last value of each window survives restarts.
+ * Implemented by `usage/`.
+ */
+export class PlanLimitSink extends Context.Service<
+  PlanLimitSink,
+  {
+    /** The latest value of one Plan Limit window, keyed by (`harness`, `kind`, `scope`). */
+    readonly report: (limit: PlanLimit) => Effect.Effect<void>;
+  }
+>()("polaris/daemon/PlanLimitSink") {}

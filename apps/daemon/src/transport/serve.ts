@@ -23,13 +23,20 @@ import { HarnessRegistryLive } from "../harness/registry.ts";
 import { EventStore } from "../store/EventStore.ts";
 import { TerminalRpcsLive } from "../terminal/TerminalRpcs.ts";
 import { TerminalsDaemonLive } from "../terminal/Terminals.ts";
+import { UsageIndexLive, UsageRpcsLive, UsageSessions } from "../usage/index.ts";
 import { startServer } from "./server.ts";
 
 /** Exit status when another Daemon already holds the lock or answers on the socket. */
 export const SERVE_EXIT_ALREADY_RUNNING = 75;
 
-/** The services behind the handlers: the event store and engine, git, attachments, Harnesses. */
-const daemonServices = Engine.layer.pipe(
+/**
+ * The Usage index and the Plan Limit sink the drivers report to. The index
+ * opens nothing until a Client asks for Usage.
+ */
+const usageServices = UsageIndexLive().pipe(Layer.provide(UsageSessions.layer));
+
+/** The services behind the handlers: the event store and engine, git, attachments, Harnesses, Usage. */
+const daemonServices = Layer.mergeAll(Engine.layer, usageServices).pipe(
   Layer.provideMerge(
     Layer.mergeAll(
       EventStore.layerLive,
@@ -49,6 +56,7 @@ export const daemonHandlers = Layer.mergeAll(
   AttachmentRpcsLive,
   HarnessRpcsLive,
   AvailabilityRpcsLive.pipe(Layer.provide(Availability.layer())),
+  UsageRpcsLive,
   TerminalRpcsLive.pipe(Layer.provide(TerminalsDaemonLive))
 ).pipe(Layer.provide(daemonServices));
 
@@ -70,6 +78,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "attachments.stage",
   "terminal",
   "terminal.binary",
+  "usage",
 ];
 
 export const serveProgram = Effect.scoped(
