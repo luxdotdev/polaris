@@ -4,18 +4,11 @@ import {
   cleanPath,
   hostStageLine,
   noSelectionFact,
-  nothingNeedsYouFact,
   readyLine,
   stageKicker,
 } from "./model.ts";
 
 describe("empty-state copy", () => {
-  test("nothing needs you says what is still going on", () => {
-    expect(nothingNeedsYouFact(0, 0)).toBe("No agent sessions are working");
-    expect(nothingNeedsYouFact(1, 1)).toBe("1 session working");
-    expect(nothingNeedsYouFact(4, 2)).toBe("4 sessions working on 2 hosts");
-  });
-
   test("a workspace with unselected sessions points at the jump menu", () => {
     expect(noSelectionFact(3, "polaris")).toBe("3 sessions in polaris · K to jump");
   });
@@ -40,7 +33,7 @@ describe("empty-state copy", () => {
   });
 
   test("glossary words stay lowercase (rule/glossary-lowercase)", () => {
-    const copy = [nothingNeedsYouFact(2, 2), noSelectionFact(1, "x"), hostStageLine(1)];
+    const copy = [noSelectionFact(1, "x"), noSelectionFact(3, "x"), hostStageLine(1)];
 
     for (const line of copy) expect(line).not.toMatch(/\b(Workspace|Session|Host)s?\b/);
   });

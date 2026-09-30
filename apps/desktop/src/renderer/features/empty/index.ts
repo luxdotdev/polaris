@@ -7,4 +7,4 @@ export { HostStage } from "./ui/HostStage.tsx";
 
 export { WorkspaceStage, type WorkspaceStageProps } from "./ui/WorkspaceStage.tsx";
 
-export { LaterMode, NothingNeedsYou, type LaterModeProps } from "./ui/panes.tsx";
+export { LaterMode, type LaterModeProps } from "./ui/panes.tsx";

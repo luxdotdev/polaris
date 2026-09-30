@@ -1,39 +1,11 @@
 /**
  * Pane-tier empty states (Paper 5SH-1): a 48px Starlight-washed tile, one
- * sentence, one fact, at most one action; never a signal colour, so "Nothing
- * needs you" is never yellow.
+ * sentence, one fact, at most one action; never a signal colour. The inbox's
+ * own ("Nothing needs you") lives with the needs-you feature.
  */
-import { EmptyState, PixelCheckIcon, PixelSparkleIcon } from "@polaris/ui";
-import { useApp } from "../../../shell/hooks.ts";
-import { nothingNeedsYouFact } from "../model.ts";
+import { EmptyState, PixelSparkleIcon } from "@polaris/ui";
 
 const glyph = "text-text-strong";
-
-type HostModels = ReturnType<typeof useHostModels>;
-
-const useHostModels = () => useApp((s) => s.hostModels);
-
-const workingIn = (models: HostModels) =>
-  Object.values(models).map(
-    (model) => [...model.sessions.values()].filter((e) => e.session.state === "working").length
-  );
-
-/** The Needs You inbox with nothing in it. */
-export const NothingNeedsYou = () => {
-  const perHost = workingIn(useHostModels());
-  const sessions = perHost.reduce((a, b) => a + b, 0);
-  const hosts = perHost.filter((n) => n > 0).length;
-
-  return (
-    <div className="grid flex-1 place-items-center" data-testid="nothing-needs-you">
-      <EmptyState
-        icon={<PixelCheckIcon size={24} className={glyph} />}
-        title="Nothing needs you"
-        fact={nothingNeedsYouFact(sessions, hosts)}
-      />
-    </div>
-  );
-};
 
 export interface LaterModeProps {
   readonly title: string;
