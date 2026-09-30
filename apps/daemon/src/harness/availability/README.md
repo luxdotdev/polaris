@@ -49,7 +49,7 @@ Tested with fake binaries on PATH (`probe.test.ts`), which assert which commands
 - **No timers, no watchers.** The layer only makes a `SubscriptionRef`; nothing runs until a Client asks. The first `harness.availability` or `harness.watchAvailability` probes, and later ones answer from the cache until `refresh: true`. Concurrent asks share one probe (`Effect.cachedInvalidateWithTTL`, infinite TTL).
 - **No driver is loaded.** This module imports neither the Claude Agent SDK, the Codex bindings nor the OpenCode driver, and doesn't go through `HarnessDriver.probe` (which would load them through `lazyDriver`). `probe.test.ts` checks, in a fresh process, that probing leaves them unloaded.
 - A full probe of both Harnesses on an M-series Mac takes about 150 ms: four short-lived processes, run in parallel per Harness.
-- `POLARIS_BENCH_HARNESS=1` (benchmarks) reports every Harness `ready` at version `bench` without probing.
+- `POLARIS_BENCH_HARNESS=1` (benchmarks, the dev Desktop App) reports Claude Code and Codex `ready` at version `bench` without probing them: the bench Harness stands in for exactly those (`../bench/kinds.ts`). Every other Harness is probed as usual.
 
 ## Gaps
 

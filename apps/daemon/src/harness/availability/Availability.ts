@@ -13,6 +13,7 @@ import {
   Stream,
   SubscriptionRef,
 } from "effect";
+import { isBenchKind } from "../bench/kinds.ts";
 import { type ProbeEnv, probeHarness } from "./probe.ts";
 
 export class Availability extends Context.Service<
@@ -31,7 +32,10 @@ export class Availability extends Context.Service<
 export interface AvailabilityOptions {
   /** Defaults to the Daemon's environment. */
   readonly env?: ProbeEnv;
-  /** Benchmarks: every Harness is the scripted one, ready. Defaults to `POLARIS_BENCH_HARNESS=1`. */
+  /**
+   * Benchmarks: Claude Code and Codex are the scripted bench Harness, ready; the
+   * others are probed as usual. Defaults to `POLARIS_BENCH_HARNESS=1`.
+   */
   readonly bench?: boolean;
 }
 
@@ -55,7 +59,7 @@ const makeAvailability = Effect.fnUntraced(function* (options: AvailabilityOptio
   const probeAll = Effect.gen(function* () {
     const harnesses = yield* Effect.forEach(
       HARNESS_CATALOGUE,
-      (entry) => (bench ? benchReady(entry) : probeHarness(entry, env)),
+      (entry) => (bench && isBenchKind(entry.kind) ? benchReady(entry) : probeHarness(entry, env)),
       { concurrency: "unbounded" }
     );
 
