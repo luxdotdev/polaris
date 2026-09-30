@@ -11,6 +11,8 @@ import type { AppState, AppStore } from "../store/store.ts";
 import {
   initialNav,
   type NavState,
+  recentKey,
+  withRecent,
   type Selection,
   type SidebarView,
   resolveSelection,
@@ -32,6 +34,7 @@ const Persisted = Schema.Struct({
   topBar: Schema.Literals(["workspaces", "machines", "hidden"]),
   lastSession: Schema.Record(Schema.String, Schema.String),
   folded: Schema.Record(Schema.String, Schema.Boolean),
+  recent: Schema.optionalKey(Schema.Array(Schema.String)),
 });
 
 const decodePersisted = Schema.decodeUnknownOption(Schema.fromJsonString(Persisted));
@@ -64,6 +67,7 @@ const persistable = (nav: NavState) => ({
   topBar: nav.topBar,
   lastSession: nav.lastSession,
   folded: nav.folded,
+  recent: nav.recent,
 });
 
 export interface SessionTarget {
@@ -87,6 +91,7 @@ export interface ShellActions {
   readonly showSidebar: (view: SidebarView) => void;
   readonly openJump: () => void;
   readonly setJumpOpen: (open: boolean) => void;
+  readonly setHelpOpen: (open: boolean) => void;
   readonly startNewSession: () => void;
   readonly closeNewSession: () => void;
   readonly toggleFolded: (key: string, open: boolean) => void;
@@ -162,6 +167,7 @@ export const createNavigation = ({ app, storage }: NavigationInput): Navigation 
   const selectWorkspace = ({ hostKey, workspaceId }: WorkspaceTarget, inputAt?: number) => {
     set({
       lastSession: remembered(),
+      recent: withRecent(store.getState().recent, recentKey("workspace", hostKey, workspaceId)),
       hostKey,
       workspaceId,
       sessionId: null,
@@ -188,6 +194,7 @@ export const createNavigation = ({ app, storage }: NavigationInput): Navigation 
       const entry = app.getState().hostModels[hostKey]?.sessions.get(sessionId);
 
       set({
+        recent: withRecent(store.getState().recent, recentKey("session", hostKey, sessionId)),
         hostKey,
         sessionId,
         workspaceId: entry?.session.workspaceId ?? store.getState().workspaceId,
@@ -217,6 +224,7 @@ export const createNavigation = ({ app, storage }: NavigationInput): Navigation 
     showSidebar: (sidebar) => set({ sidebar }),
     openJump: () => set({ jumpOpen: true }),
     setJumpOpen: (jumpOpen) => set({ jumpOpen }),
+    setHelpOpen: (helpOpen) => set({ helpOpen }),
     startNewSession: () => set({ pane: "new-session", mode: "orchestrate" }),
     closeNewSession: () => set({ pane: "session" }),
     toggleFolded: (key, open) => set({ folded: { ...store.getState().folded, [key]: !open } }),

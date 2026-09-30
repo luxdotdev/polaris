@@ -15,11 +15,30 @@ export interface SessionRowProps {
 }
 
 /** Row's `asChild` can't slot (it renders several children), so the row itself is the button. */
+/** ↑/↓ move focus to the previous or next session row in the same sidebar. */
+const moveFocus = (from: HTMLElement, by: number) => {
+  const rows = [
+    ...(from.closest("aside")?.querySelectorAll<HTMLElement>("[data-session-row]") ?? []),
+  ];
+
+  const next = rows[rows.indexOf(from) + by];
+
+  next?.focus();
+};
+
 const buttonProps = (select: () => void) => ({
   role: "button",
   tabIndex: 0,
+  "data-session-row": "",
   onClick: select,
-  onKeyDown: (event: KeyboardEvent) => {
+  onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      moveFocus(event.currentTarget, event.key === "ArrowDown" ? 1 : -1);
+
+      return;
+    }
+
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
     select();

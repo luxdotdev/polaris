@@ -108,6 +108,41 @@ const timeSwitches = async (page: Page) => {
   if (at(0.95) > 100) throw new Error("Workspace switch p95 is over the 100 ms budget");
 };
 
+/** ⌘K, type the other Workspace's name, ↵: its session opens (Sessions rank first); then ⌘/ help. */
+const jumpByTyping = async (page: Page) => {
+  const chip = page.locator('[data-slot="chip"][aria-pressed="false"]').first();
+  const name = ((await chip.textContent()) ?? "").replace(/\s*⌃\d.*$/, "").trim();
+
+  await page.keyboard.press("Meta+K");
+  const input = page.getByRole("combobox");
+
+  await input.waitFor({ timeout: 5000 });
+  await input.pressSequentially(name, { delay: 20 });
+  await page.getByTestId("jump-item").first().waitFor();
+  const first = (await page.getByTestId("jump-item").first().textContent()) ?? "";
+
+  await page.keyboard.press("Enter");
+  await page
+    .locator('[data-slot="chip"][aria-pressed="true"]', { hasText: name })
+    .waitFor({ timeout: 5000 });
+  step(`jumped by typing "${name}" to: ${first.slice(0, 60)}`);
+
+  await page.keyboard.press("Meta+Slash");
+  await page.getByRole("dialog", { name: "Keyboard shortcuts" }).waitFor({ timeout: 5000 });
+  await page.keyboard.press("Escape");
+  // Closed at once (data-state), even while the fade-out still runs.
+  await page
+    .locator('[role="dialog"][data-state="open"]')
+    .waitFor({ state: "detached", timeout: 5000 });
+  step("shortcut help opens with ⌘/ and closes with esc");
+
+  await page.keyboard.press("Meta+2");
+  await page.getByText(/Review arrives/).waitFor({ timeout: 5000 });
+  await page.keyboard.press("Meta+1");
+  await page.getByTestId("session-panel").waitFor({ timeout: 5000 });
+  step("⌘2 and ⌘1 switch views");
+};
+
 /** Develop → Start proof session, as the menu does it. */
 const startProof = () =>
   app.evaluate(({ Menu }) => {
@@ -253,6 +288,7 @@ try {
     atFirstApproval: () => inboxCheck(page),
   });
   await timeSwitches(page);
+  await jumpByTyping(page);
 
   const probe = await Promise.race([
     page.evaluate(probeSource({ bigFile: bigAsset(), repo: REPO_ROOT })),

@@ -61,7 +61,22 @@ To wire a feature: in `slots.tsx`, import its component and replace the default,
 
 **Top bar** (`routes/topBar.ts`, ENG-177): the Workspace bar (every shown Workspace on every Host as a chip, ⌃1…⌃9, ⌃0) up to 10 Workspaces; the machine bar (⌃N per machine, the sidebar then groups that machine's sessions by Workspace, three per group then "N more") from 11, back only at 9 (hysteresis); hidden in machine mode with a single machine. Hidden Workspaces (CONTEXT.md: hidden when idle) are left out.
 
-**Keyboard** (`routes/keyboard.ts`): ⌘1/2/3 modes (native menu); ⌃1…⌃0, or ⌥1…⌥0 since macOS may bind ⌃N to Spaces; K (outside text fields) and ⌘K the jump menu; ⌘N a new session. Develop → Start proof session (dev, or a bench-Harness local Daemon) runs the proof flow.
+**Keyboard and commands.** Every shortcut is one row in `src/shared/keymap.ts` (id, title, accelerators, menu). The renderer's registry (`routes/commands.ts`) runs commands by id; the shell registers its handlers in `shell/commands.ts`, and a feature can take a command over while mounted with `useCommands().register({ "session.interrupt": { run, enabled } })` (the latest registration wins until removed). The native menu (View, Go, Session, Help) is built from the same table: its accelerators are shown but not registered, so key presses reach the renderer, the one handler, and a menu click sends `{ kind: "command", id }`. `routes/keyboard.ts` adds ⌃1…⌃0 / ⌥1…⌥0 (Workspace chips or machines). Bare keys (K, ?) never fire while typing. `shared/keymap.test.ts` checks for duplicate chords, reserved macOS/Electron chords (⌘Q, ⌘W, ⌘H, ⌘M, ⌘,, ⌘⇧3/4/5, ⌘⇧/ …) and the ⌃/⌥ digits.
+
+| Keys | Command |
+|---|---|
+| ⌘1 / ⌘2 / ⌘3 | Orchestrate / Review / Edit |
+| ⌘K, K | Jump menu |
+| ⌃1…⌃0, ⌥1…⌥0 | Workspace chip (Workspace bar) or machine (machine bar) |
+| ⌥⌘↓ / ⌥⌘↑ | Next / previous session in the sidebar |
+| ↑ / ↓ on a session row | Move between rows; ↵ opens |
+| ⌘N | New session |
+| ⌘L | Focus the composer |
+| ⌘. | Stop the Turn in flight (esc in the composer too) |
+| ⇧⌘A / ⇧⌘D | Approve / deny the selected session's oldest pending approval |
+| ⌘/, ? | Keyboard shortcuts |
+
+**Jump menu** (`features/jump/`, Paper AR-0): across every Host, Agent Sessions (title, Workspace, Host, state, Harness), Workspaces, Worktrees, machines and actions (new session, open in terminal, archive, views, theme, shortcuts). With no query: Recent, Needs you, Actions; with one: Sessions (Needs You first), Workspaces, Worktrees, Machines, Actions, ranked by `ranking.ts` (prefix > word start > scattered letters, which count only in titles and for 3+ letters). ↵ opens, ⌘↵ opens in Review. Results follow live state.
 
 **Workspace switch timing** (`routes/switchTimer.ts`): input event → second animation frame after it, kept in `window.__polaris.switchTimes()`; the smoke test switches 40 times and fails over 100 ms at p95.
 

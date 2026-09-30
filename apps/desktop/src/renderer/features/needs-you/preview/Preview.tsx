@@ -6,6 +6,7 @@ import { createRoot } from "react-dom/client";
 import { createStore } from "zustand/vanilla";
 import type { PolarisApi } from "../../../../shared/api.ts";
 import { App } from "../../../app/App.tsx";
+import { createCommandRegistry } from "../../../routes/commands.ts";
 import { createNavigation } from "../../../routes/navigation.ts";
 import { type AppState, type Connection, initialState } from "../../../store/store.ts";
 import { standInBridge } from "../../session/bridge.ts";
@@ -30,6 +31,7 @@ export const mountNeedsYouPreview = (root: HTMLElement, hash: string) => {
     store,
     openSession: () => () => undefined,
     setDensity: (density) => store.setState({ density }),
+    setAppearance: ({ density, theme }) => store.setState({ density, theme }),
   };
 
   const navigation = createNavigation({ app: store, storage: null });
@@ -43,7 +45,9 @@ export const mountNeedsYouPreview = (root: HTMLElement, hash: string) => {
     navigation.actions.showSidebar("needs-you");
   }
 
-  createRoot(root).render(<App value={{ connection, navigation }} />);
+  const commands = createCommandRegistry({ mac: true });
+
+  createRoot(root).render(<App value={{ connection, navigation, commands }} />);
 
   return connection.setDensity;
 };

@@ -6,7 +6,14 @@
  */
 import type { HostStreamItem, SessionId, SessionStreamItem } from "@polaris/protocol";
 import { createStore, type StoreApi } from "zustand/vanilla";
-import type { CachedHost, Density, HostView, PolarisApi } from "../../shared/api.ts";
+import type {
+  Appearance,
+  CachedHost,
+  Density,
+  HostView,
+  PolarisApi,
+  ThemeSource,
+} from "../../shared/api.ts";
 import { frameQueue } from "./frameQueue.ts";
 import { applyHostItems, emptyHostModel, type HostModel, modelFromSnapshot } from "./hostModel.ts";
 import { applySessionItems, emptySessionModel, type SessionModel } from "./sessionModel.ts";
@@ -18,6 +25,8 @@ export interface AppState {
   readonly sessions: Readonly<Record<string, SessionModel>>;
   /** The density step, for the few sizes that are numbers rather than CSS tokens (tiles). */
   readonly density: Density;
+  /** The theme setting ("system" follows macOS); the jump menu's toggle reads it. */
+  readonly theme: ThemeSource;
 }
 
 export const initialState: AppState = {
@@ -25,6 +34,7 @@ export const initialState: AppState = {
   hostModels: {},
   sessions: {},
   density: "calm",
+  theme: "system",
 };
 
 export const sessionKey = (hostKey: string, sessionId: string) => `${hostKey}\u0000${sessionId}`;
@@ -125,6 +135,7 @@ export interface Connection {
   readonly store: AppStore;
   /** Opens (or shares) an Agent Session's feed; call the returned function to release it. */
   readonly openSession: (hostKey: string, sessionId: SessionId) => () => void;
+  readonly setAppearance: (appearance: Appearance) => void;
   readonly setDensity: (density: Density) => void;
 }
 
@@ -223,6 +234,7 @@ export const connect = (api: PolarisApi): Connection => {
   return {
     store,
     openSession,
+    setAppearance: ({ density, theme }) => store.setState({ density, theme }),
     setDensity: (density) => store.setState({ density }),
   };
 };
