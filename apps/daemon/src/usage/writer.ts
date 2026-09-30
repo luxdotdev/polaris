@@ -21,6 +21,9 @@ export interface UsageRow {
   readonly cacheWrite: number;
   readonly output: number;
   readonly reasoning: number;
+  readonly cacheWrite1h: number;
+  /** The request's whole prompt, cached or not. */
+  readonly context: number;
   readonly cost: number | null;
 }
 
@@ -97,12 +100,12 @@ export const writerOver = (db: Database) => {
 
   const statements = {
     insert: db.query(
-      `INSERT OR IGNORE INTO usage (harness, native, ts, hour, model, input, cache_read, cache_write, output, reasoning, cost, dedupe, msg, req, sidechain, fast)
-       VALUES ($harness, $native, $ts, $hour, $model, $input, $cacheRead, $cacheWrite, $output, $reasoning, $cost, $dedupe, $msg, $req, $sidechain, $fast)`
+      `INSERT OR IGNORE INTO usage (harness, native, ts, hour, model, input, cache_read, cache_write, cache_write_1h, context, output, reasoning, cost, dedupe, msg, req, sidechain, fast)
+       VALUES ($harness, $native, $ts, $hour, $model, $input, $cacheRead, $cacheWrite, $cacheWrite1h, $context, $output, $reasoning, $cost, $dedupe, $msg, $req, $sidechain, $fast)`
     ),
     replace: db.query(
       `UPDATE usage SET native = $native, ts = $ts, hour = $hour, model = $model, input = $input, cache_read = $cacheRead,
-       cache_write = $cacheWrite, output = $output, cost = $cost, req = $req, sidechain = $sidechain, fast = $fast WHERE id = $id`
+       cache_write = $cacheWrite, cache_write_1h = $cacheWrite1h, context = $context, output = $output, cost = $cost, req = $req, sidechain = $sidechain, fast = $fast WHERE id = $id`
     ),
     addKey: db.query("INSERT OR IGNORE INTO claude_keys (key, entry) VALUES (?, ?)"),
     byKey: db.query<ClaudeRowSql, [string]>(
@@ -159,6 +162,8 @@ export const writerOver = (db: Database) => {
     input: entry.input,
     cacheRead: entry.cacheRead,
     cacheWrite: entry.cacheWrite,
+    cacheWrite1h: entry.cacheWrite1h,
+    context: entry.input + entry.cacheRead + entry.cacheWrite,
     output: entry.output,
     cost: entry.cost,
     req: entry.req,
