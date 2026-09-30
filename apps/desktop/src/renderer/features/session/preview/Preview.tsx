@@ -66,6 +66,7 @@ const host: HostView = {
     },
     capabilities: Capability.literals,
     epoch: 1,
+    latencyMs: null,
   },
 };
 

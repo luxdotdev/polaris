@@ -24,6 +24,7 @@ Root attributes (any element can set them for its subtree):
 | `data-density` | `calm`, `balanced`, `compact` | calm |
 | `data-reduce-motion` | `true`, `false` | follows `prefers-reduced-motion`; `false` keeps motion when the system asks to reduce it |
 | `data-text-size` | `small`, `default`, `large`, `larger` | default (scales the type table only; density is separate) |
+| `--code-size` (style) | a length | 13px: the `code` role's size at the default text size; `code-inline` is 1px smaller |
 | `data-diff-palette` | `cvd` | the red/green diff palette; `cvd` swaps in blue/orange for diffs, fills and git letters |
 
 ## Tokens

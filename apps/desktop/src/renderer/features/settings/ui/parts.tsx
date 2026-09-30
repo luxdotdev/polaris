@@ -19,9 +19,11 @@ export const PageHeader = ({
   </header>
 );
 
-/** The centred 680px column every page but Hosts (its own) sits in. */
+/** The centred 680px column (Paper S1–S4); narrow windows keep 16px each side. */
 export const Column = ({ children }: { readonly children: ReactNode }) => (
-  <div className="mx-auto flex w-[680px] max-w-full flex-col gap-7 px-4 py-10">{children}</div>
+  <div className="mx-auto flex w-[680px] max-w-[calc(100%-2rem)] flex-col gap-7 py-10">
+    {children}
+  </div>
 );
 
 /** A group's heading, with an optional caption on the right. */
@@ -78,7 +80,7 @@ export const SettingRow = ({
 }) => (
   <div className="px-panel flex items-center gap-4 py-3">
     <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-      <label htmlFor={htmlFor} className="text-body text-text-strong font-medium">
+      <label htmlFor={htmlFor} className="text-label text-text-strong">
         {title}
       </label>
       <span className="text-caption text-text-subtle">{caption}</span>
@@ -89,7 +91,7 @@ export const SettingRow = ({
 
 /** The sunken strip at a group's foot for secondary defaults. */
 export const FooterStrip = ({ children }: { readonly children: ReactNode }) => (
-  <div className="bg-surface-sunken px-panel flex flex-wrap items-center gap-x-2.5 gap-y-2 py-2.5">
+  <div className="bg-surface-sunken px-panel flex flex-wrap items-center gap-x-4 gap-y-2 py-2.5">
     {children}
   </div>
 );

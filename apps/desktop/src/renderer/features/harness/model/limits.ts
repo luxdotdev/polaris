@@ -16,7 +16,7 @@ const WINDOW_NAMES = new Map([
 
 const ORDER = ["five-hour", "weekly"];
 
-/** Values older than this read "as of …"; fresher ones read "live". */
+/** While a session of the Harness runs, values fresher than this read "live". */
 const LIVE_MS = 5 * 60_000;
 
 const windowName = (limit: LimitData) => {
@@ -65,21 +65,49 @@ export const limitLine = (limit: LimitData, now: number): string => {
   return parts.filter((p) => p !== null).join(" · ");
 };
 
-/** "live" while fresh, else "as of 40m ago" (the newest window's age). */
-export const freshness = (limits: ReadonlyArray<LimitData>, now: number): string | null => {
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/**
+ * A Plan Limit value's age (ENG-206, "the last known value with its age"): "live" only while
+ * a session of its Harness runs to refresh it and the value is fresh; else "as of 40m ago"
+ * within the hour, "as of 13:01" within the day (local time), "as of 2d ago" beyond.
+ */
+export const limitAge = (observedAt: number, now: number, running: boolean): string => {
+  const age = Math.max(0, now - observedAt);
+
+  if (running && age < LIVE_MS) return "live";
+
+  if (age < 3_600_000) return `as of ${Math.max(1, Math.round(age / 60_000))}m ago`;
+
+  if (age < 86_400_000) {
+    const at = new Date(observedAt);
+
+    return `as of ${pad(at.getHours())}:${pad(at.getMinutes())}`;
+  }
+
+  return `as of ${shortDuration(age)} ago`;
+};
+
+/** The newest window's age; `running`: a session of the Harness is running on the Host. */
+export const freshness = (
+  limits: ReadonlyArray<LimitData>,
+  now: number,
+  running: boolean
+): string | null => {
   const newest = Math.max(...limits.map((l) => Date.parse(l.observedAt)));
 
-  if (!Number.isFinite(newest)) return null;
-  const age = now - newest;
-
-  return age < LIVE_MS ? "live" : `as of ${shortDuration(age)} ago`;
+  return Number.isFinite(newest) ? limitAge(newest, now, running) : null;
 };
 
 /** Every window's line plus the freshness, for the picker's hint row. */
-export const limitHint = (limits: ReadonlyArray<LimitData>, now: number): string | null => {
+export const limitHint = (
+  limits: ReadonlyArray<LimitData>,
+  now: number,
+  running: boolean
+): string | null => {
   if (limits.length === 0) return null;
   const lines = limits.map((l) => limitLine(l, now));
-  const fresh = freshness(limits, now);
+  const fresh = freshness(limits, now, running);
 
   return [...lines, fresh].filter((p) => p !== null).join(" · ");
 };
