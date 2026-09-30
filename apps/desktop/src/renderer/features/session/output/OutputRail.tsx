@@ -68,13 +68,16 @@ export const SHOW_HINT = "⌘⌥B";
 const branchText = (git: GitFacts) => {
   if (git.kind === "ready") return git.branch ?? "detached HEAD";
 
-  return git.kind === "none" ? "not a git repository" : "";
+  return git.kind === "none" ? "Not a git repository" : "";
 };
+
+const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 const changesText = (git: GitFacts) => {
   if (git.kind !== "ready") return "";
 
-  return git.changed === 0 ? "no changes" : plural(git.changed, "changed file");
+  // git status folds a new directory into one entry, so these are changes, not files.
+  return git.changed === 0 ? "No changes" : plural(git.changed, "change");
 };
 
 export const OutputRail = ({ hostKey, sessionId }: SessionViewProps) => {
@@ -123,7 +126,7 @@ export const OutputRail = ({ hostKey, sessionId }: SessionViewProps) => {
         {session === null ? null : (
           <Fact icon={<SessionGlyph state={session.state} harness={session.harness} />}>
             <span className="text-label text-text-default truncate">
-              {sessionStateLabel[session.state]}
+              {capitalize(sessionStateLabel[session.state])}
             </span>
           </Fact>
         )}
@@ -154,9 +157,10 @@ export const OutputRail = ({ hostKey, sessionId }: SessionViewProps) => {
           <button
             type="button"
             onClick={open}
-            className="rounded-row hover:bg-fill-hover mx-gap h-row px-row-x gap-row-x flex cursor-default items-center text-left"
+            className="hover:bg-fill-hover h-row px-row-x gap-row-x flex cursor-default items-center text-left"
             data-testid="output-rail-changes"
           >
+            <span className="size-4 shrink-0" />
             <span className="text-label text-text-default tabular min-w-0 flex-1 truncate">
               {changesText(git)}
             </span>

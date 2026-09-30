@@ -21,6 +21,9 @@ interface Watch {
   epoch: number;
   close: (() => void) | null;
   settle: ReturnType<typeof setTimeout> | null;
+  retry: ReturnType<typeof setTimeout> | null;
+  /** Failed opens in a row, for the retry's backoff. */
+  attempt: number;
   linger: ReturnType<typeof setTimeout> | null;
 }
 
@@ -31,6 +34,9 @@ interface Watch {
  */
 export const counts = (path: string) =>
   !(path.includes("/.git/") || path.startsWith(".git/")) || path.endsWith(".git/logs/HEAD");
+
+/** 0.5 s, doubling, at most 8 s: a new Worktree appears within a second or two. */
+export const retryDelay = (attempt: number) => Math.min(8000, 500 * 2 ** attempt);
 
 const ticks = createStore<Readonly<Record<string, number>>>(() => ({}));
 
@@ -48,15 +54,29 @@ const open = (key: string, watch: Watch, hostKey: string, root: string) => {
     { hostKey, root },
     {
       items: (batches) => {
+        watch.attempt = 0;
+
         if (!batches.some((batch) => batch.some((change) => counts(change.path)))) return;
         watch.settle ??= setTimeout(() => {
           watch.settle = null;
           bump(key);
         }, SETTLE_MS);
       },
-      // The feed ends with its connection; the epoch effect below reopens it.
-      end: () => {
-        if (watch.close === close) watch.close = null;
+      // Ending with its connection, the epoch effect below reopens it. An error
+      // (the Worktree isn't there yet) retries, and the reopen refetches.
+      end: (error) => {
+        if (watch.close !== close) return;
+        watch.close = null;
+
+        if (error === null || watch.users === 0) return;
+        watch.retry = setTimeout(() => {
+          watch.retry = null;
+
+          if (watch.users === 0 || watch.close !== null) return;
+          watch.attempt++;
+          open(key, watch, hostKey, root);
+          bump(key);
+        }, retryDelay(watch.attempt));
       },
     }
   );
@@ -66,7 +86,16 @@ const open = (key: string, watch: Watch, hostKey: string, root: string) => {
 
 const acquire = (hostKey: string, root: string, epoch: number) => {
   const key = watchKey(hostKey, root);
-  const watch = watches.get(key) ?? { users: 0, epoch, close: null, settle: null, linger: null };
+
+  const watch = watches.get(key) ?? {
+    users: 0,
+    epoch,
+    close: null,
+    settle: null,
+    retry: null,
+    attempt: 0,
+    linger: null,
+  };
 
   watches.set(key, watch);
   watch.users++;
@@ -75,6 +104,8 @@ const acquire = (hostKey: string, root: string, epoch: number) => {
   watch.linger = null;
 
   if (watch.close === null || watch.epoch !== epoch) {
+    if (watch.retry !== null) clearTimeout(watch.retry);
+    watch.retry = null;
     watch.epoch = epoch;
     open(key, watch, hostKey, root);
     // Whatever changed while nobody watched shows now.
@@ -90,6 +121,8 @@ const acquire = (hostKey: string, root: string, epoch: number) => {
       watch.close?.();
 
       if (watch.settle !== null) clearTimeout(watch.settle);
+
+      if (watch.retry !== null) clearTimeout(watch.retry);
       watches.delete(key);
     }, LINGER_MS);
   };
