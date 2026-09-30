@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { _electron as electron, type Page } from "playwright-core";
 import { startDaemon } from "./lib/daemon.ts";
-import { APP_DIR, electronBinary } from "./lib/electron.ts";
+import { APP_DIR, electronBinary, sizeWindow } from "./lib/electron.ts";
 import { FAKE_ALIAS, prepareFakeHost } from "./lib/machineFlow.ts";
 
 const dir = process.argv[2];
@@ -91,7 +91,7 @@ const openHosts = async (page: Page) => {
 try {
   const page = await app.firstWindow();
 
-  await page.setViewportSize({ width: 1440, height: 900 });
+  await sizeWindow(app, 1440, 900);
   await page.emulateMedia({ colorScheme: null });
   await openHosts(page);
   await page.getByTestId("install-approval").waitFor({ timeout: 30_000 });
