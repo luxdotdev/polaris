@@ -14,6 +14,7 @@ import { polaris } from "../bridge.ts";
 import { type LimitData, upsertLimit } from "./model/limits.ts";
 import type { ModelData } from "./model/models.ts";
 import { type AvailabilityReport, type HarnessOption, harnessOptions } from "./model/options.ts";
+import { retryingFeed } from "./model/retry.ts";
 
 interface LiveState {
   readonly reports: Readonly<Record<string, AvailabilityReport>>;
@@ -43,23 +44,41 @@ const hold = (key: string, open: () => () => void) => {
 const setReport = (hostKey: string, report: AvailabilityReport) =>
   live.setState((s) => ({ reports: { ...s.reports, [hostKey]: report } }));
 
+// Both feeds reopen after an error (a Daemon that failed a probe, a dropped connection).
 const openAvailability = (hostKey: string) =>
-  polaris().subscribe(
-    "harness.availability",
-    { hostKey },
-    { items: (items) => items.forEach((report) => setReport(hostKey, report)) }
+  retryingFeed(({ delivered, failed }) =>
+    polaris().subscribe(
+      "harness.availability",
+      { hostKey },
+      {
+        items: (items) => {
+          delivered();
+          items.forEach((report) => setReport(hostKey, report));
+        },
+        end: (error) => {
+          if (error !== null) failed();
+        },
+      }
+    )
   );
 
 const openLimits = (hostKey: string) =>
-  polaris().subscribe(
-    "plan-limits",
-    { hostKey },
-    {
-      items: (items) =>
-        live.setState((s) => ({
-          limits: { ...s.limits, [hostKey]: items.reduce(upsertLimit, s.limits[hostKey] ?? []) },
-        })),
-    }
+  retryingFeed(({ delivered, failed }) =>
+    polaris().subscribe(
+      "plan-limits",
+      { hostKey },
+      {
+        items: (items) => {
+          delivered();
+          live.setState((s) => ({
+            limits: { ...s.limits, [hostKey]: items.reduce(upsertLimit, s.limits[hostKey] ?? []) },
+          }));
+        },
+        end: (error) => {
+          if (error !== null) failed();
+        },
+      }
+    )
   );
 
 const useHostView = (hostKey: string): HostView | undefined =>
