@@ -17,6 +17,7 @@ import { APP_DIR, electronBinary, OUT_DIR, REPO_ROOT } from "./lib/electron.ts";
 import { probeSource } from "./lib/probe.ts";
 import { startDaemon } from "./lib/daemon.ts";
 import { initRepo, sessionFlow } from "./lib/sessionFlow.ts";
+import { terminalFlow } from "./lib/terminalFlow.ts";
 
 const args = process.argv.slice(2);
 
@@ -287,6 +288,7 @@ try {
     shoot: (name) => shoot(page, name),
     atFirstApproval: () => inboxCheck(page),
   });
+  await terminalFlow({ page, step, shoot: (name) => shoot(page, name) });
   await timeSwitches(page);
   await jumpByTyping(page);
 
