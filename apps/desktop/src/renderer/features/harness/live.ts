@@ -101,6 +101,29 @@ export const useAvailability = (hostKey: string): Availability => {
   };
 };
 
+const NO_REPORTS: Readonly<Record<string, AvailabilityReport>> = {};
+
+/**
+ * The raw reports (versions, sign-in argv) of several Hosts, live, for Settings → Harnesses;
+ * pass only Hosts that are connected with `harness.availability`. Missing until the first report.
+ */
+export const useAvailabilityReports = (
+  hostKeys: ReadonlyArray<string>
+): Readonly<Record<string, AvailabilityReport>> => {
+  const joined = hostKeys.join("\u0000");
+
+  useEffect(() => {
+    const keys = joined === "" ? [] : joined.split("\u0000");
+    const releases = keys.map((k) => hold(`availability:${k}`, () => openAvailability(k)));
+
+    return () => {
+      for (const release of releases) release();
+    };
+  }, [joined]);
+
+  return useStore(live, (s) => s.reports) ?? NO_REPORTS;
+};
+
 const NO_LIMITS: ReadonlyArray<LimitData> = [];
 
 /** A Host's Plan Limits, live (capability `usage`); empty where the Daemon has none. */
