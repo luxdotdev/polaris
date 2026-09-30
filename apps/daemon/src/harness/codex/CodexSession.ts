@@ -55,6 +55,7 @@ import {
 } from "./mapping.ts";
 import * as P from "./protocol.ts";
 import { codexError, Incoming, type RpcConnection } from "./RpcConnection.ts";
+import { CodexSteers } from "./steers.ts";
 import { CodexSubagents } from "./subagents.ts";
 import { requestCompat } from "./compat.ts";
 
@@ -325,6 +326,7 @@ export const openSession = (
     const endedTurns = new Set<string>();
     let errorCount = 0;
     const subagents = new CodexSubagents();
+    const steers = new CodexSteers();
 
     const announce = (codexTurnId: string, prompt: string | null) => {
       const turnId = turns.get(codexTurnId);
@@ -407,9 +409,13 @@ export const openSession = (
     const ours = <T extends { readonly threadId: string }>(p: T | null): p is T =>
       p !== null && p.threadId === threadId;
 
-    const announceUserMessage = (p: ItemNotification) => {
-      turnFor(p.turnId, { announce: false });
-      announce(p.turnId, userMessageText(p.item));
+    const onUserMessage = (p: ItemNotification) => {
+      const turnId = turnFor(p.turnId, { announce: false });
+      const text = userMessageText(p.item);
+      announce(p.turnId, text);
+      const steer = steers.fromItem(p.turnId, p.item.id ?? `text:${text}`, text);
+
+      if (steer !== null) emit(HarnessEvent.ItemCompleted({ turnId, item: steer }));
     };
 
     const openAsyncQuestions = (turnId: TurnId, item: P.ThreadItem) => {
@@ -445,7 +451,7 @@ export const openSession = (
 
       if (p.threadId !== threadId) return onSubagentItem(p, false);
 
-      if (p.item.type === "userMessage") return announceUserMessage(p);
+      if (p.item.type === "userMessage") return onUserMessage(p);
       const turnId = turnFor(p.turnId);
       const item = progressOf(p.item);
 
@@ -461,7 +467,7 @@ export const openSession = (
 
       if (p.threadId !== threadId) return onSubagentItem(p, true);
 
-      if (p.item.type === "userMessage") return announceUserMessage(p);
+      if (p.item.type === "userMessage") return onUserMessage(p);
       const turnId = turnFor(p.turnId);
       const item = toTurnItem(p.item);
 
@@ -495,6 +501,7 @@ export const openSession = (
       }
 
       endedTurns.add(p.turn.id);
+      steers.end(p.turn.id);
 
       if (activeCodexTurn === p.turn.id) activeCodexTurn = null;
       emit(
@@ -680,12 +687,18 @@ export const openSession = (
 
     const steerText = (text: string) =>
       Effect.gen(function* () {
-        if (activeCodexTurn === null) return yield* codexError("No Turn is in progress to steer");
+        const codexTurnId = activeCodexTurn;
+
+        if (codexTurnId === null) return yield* codexError("No Turn is in progress to steer");
         yield* conn.request("turn/steer", {
           threadId,
           input: [{ type: "text", text, text_elements: [] }],
-          expectedTurnId: activeCodexTurn,
+          expectedTurnId: codexTurnId,
         } satisfies P.ClientParams["turn/steer"]);
+        const steer = steers.fromResponse(codexTurnId, text);
+
+        if (steer !== null)
+          emit(HarnessEvent.ItemCompleted({ turnId: turnFor(codexTurnId), item: steer }));
       });
 
     const session: HarnessSession = {

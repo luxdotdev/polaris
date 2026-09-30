@@ -6,7 +6,7 @@
  * and hands every payload to the translator. A TUI attached with
  * `opencode attach` works on the same session, so its Turns show up here too.
  */
-import type { ApprovalDecision, RequestId } from "@polaris/protocol";
+import { type ApprovalDecision, type RequestId, TurnItem } from "@polaris/protocol";
 import { type Cause, Deferred, Effect, Queue, Schema, type Scope, Stream } from "effect";
 import {
   type HarnessError,
@@ -204,6 +204,12 @@ export const openSession = (
 
         if (active.variant !== null) body.variant = active.variant;
         yield* prompt(body);
+        emit(
+          HarnessEvent.ItemCompleted({
+            turnId: active.id,
+            item: TurnItem.cases.UserMessage.make({ id: `steer:${crypto.randomUUID()}`, text }),
+          })
+        );
       });
 
     const respond = (requestId: RequestId, decision: ApprovalDecision) =>

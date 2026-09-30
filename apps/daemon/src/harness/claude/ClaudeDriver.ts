@@ -28,6 +28,7 @@ import {
   type PermissionMode,
   RequestId,
   type TurnId,
+  TurnItem,
 } from "@polaris/protocol";
 import {
   type Cause,
@@ -439,6 +440,13 @@ const openSession = Effect.fnUntraced(function* (
     const { uuid, message } = yield* send(text, null);
     turn.pending.add(uuid);
     inbox.push(message);
+    // Claude Code has taken it into the Turn's input: record it where it landed.
+    emit(
+      HarnessEvent.ItemCompleted({
+        turnId: turn.turnId,
+        item: TurnItem.cases.UserMessage.make({ id: `steer:${uuid}`, text }),
+      })
+    );
   });
 
   const interrupt = Effect.gen(function* () {

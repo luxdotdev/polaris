@@ -449,11 +449,23 @@ describe("Claude driver", () => {
     await t.run(t.session.steer("also rename foo"));
     const second = await t.fake.nextInput(1);
     expect(second.message.content).toEqual([{ type: "text", text: "also rename foo" }]);
+    // It shows in the Turn as soon as Claude Code has taken it.
+    await t.until(t.has("ItemCompleted"));
+    expect(t.events.filter(HarnessEvent.$is("ItemCompleted")).map((e) => e.item)).toEqual([
+      TurnItem.cases.UserMessage.make({
+        id: `steer:${inputUuid(second)}`,
+        text: "also rename foo",
+      }),
+    ]);
 
     // Claude finished the first run before it could fold the steer in.
     t.fake.emit(result([inputUuid(first)]));
     t.fake.emit(assistant("m9", [{ type: "text", text: "Renamed." }]));
-    await t.until(t.has("ItemCompleted"));
+    await t.until(() =>
+      t.events.some(
+        (e) => HarnessEvent.$is("ItemCompleted")(e) && TurnItem.guards.AssistantMessage(e.item)
+      )
+    );
     expect(t.events.some(HarnessEvent.$is("TurnEnded"))).toBe(false);
     t.fake.emit(result([inputUuid(second)]));
     await t.until(t.has("TurnEnded"));
