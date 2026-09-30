@@ -24,11 +24,12 @@ const fakeHost = () => {
   mkdirSync(join(home, ".codex"), { recursive: true });
   mkdirSync(bin);
   const signedIn = join(root, "signed-in");
+  const slow = join(root, "slow");
 
   writeFileSync(
     join(bin, "codex"),
     `#!/bin/sh
-if [ "$1" = "--version" ]; then echo x >> "${counter}"; echo 'codex-cli 0.158.0'; exit 0; fi
+if [ "$1" = "--version" ]; then [ -e "${slow}" ] && /bin/sleep 0.5; echo x >> "${counter}"; echo 'codex-cli 0.158.0'; exit 0; fi
 if [ -e "${signedIn}" ]; then exit 0; fi
 echo 'Not logged in' >&2; exit 1
 `
@@ -38,6 +39,8 @@ echo 'Not logged in' >&2; exit 1
   return {
     env: { HOME: home, PATH: bin },
     signIn: () => writeFileSync(signedIn, ""),
+    /** Makes each probe take half a second, so a caller can leave mid-probe. */
+    slowDown: () => writeFileSync(slow, ""),
     probes: async () =>
       (await Bun.file(counter).exists()) ? (await Bun.file(counter).text()).length / 2 : 0,
   };
@@ -158,5 +161,70 @@ describe("harness.availability", () => {
     expect(report.harnesses.find((h) => h.harness === "codex")?.version).toBe("bench");
     // The fake codex on PATH was never run: the bench stands in for it.
     expect(await host.probes()).toBe(0);
+  });
+
+  test("a caller interrupted mid-probe doesn't stop it, and nothing is poisoned", async () => {
+    const host = fakeHost();
+    host.slowDown();
+
+    const [report, probes] = await run(
+      host.env,
+      Effect.gen(function* () {
+        const availability = yield* Availability;
+        // What the RPC server does when the first asker's Client goes away mid-probe.
+        const first = yield* Effect.forkChild(availability.get(false));
+        yield* Effect.sleep("100 millis");
+        yield* Fiber.interrupt(first);
+        const report = yield* availability.get(false);
+
+        return [report, yield* Effect.promise(() => host.probes())] as const;
+      })
+    );
+
+    expect(statuses(report)).toMatchObject({ codex: "needs-sign-in" });
+    expect(probes).toBe(1);
+  });
+
+  test("a watcher unsubscribing mid-probe leaves availability working for the next one", async () => {
+    const host = fakeHost();
+    host.slowDown();
+
+    const [watched, asked] = await run(
+      host.env,
+      Effect.gen(function* () {
+        const availability = yield* Availability;
+        const watching = yield* Effect.forkChild(Stream.runDrain(availability.changes));
+        yield* Effect.sleep("100 millis");
+        yield* Fiber.interrupt(watching);
+        const watched = yield* availability.changes.pipe(Stream.take(1), Stream.runCollect);
+        const rpc = yield* client;
+
+        return [watched, yield* rpc["harness.availability"]({ refresh: false })] as const;
+      })
+    );
+
+    expect(statuses(watched[0]!)).toMatchObject({ codex: "needs-sign-in" });
+    expect(statuses(asked)).toMatchObject({ codex: "needs-sign-in" });
+  });
+
+  test("a refresh during a probe waits for a probe that starts after it", async () => {
+    const host = fakeHost();
+    host.slowDown();
+
+    const refreshed = await run(
+      host.env,
+      Effect.gen(function* () {
+        const rpc = yield* client;
+        const first = yield* Effect.forkChild(rpc["harness.availability"]({ refresh: false }));
+        yield* Effect.sleep("100 millis");
+        host.signIn();
+        const refreshed = yield* rpc["harness.availability"]({ refresh: true });
+        yield* Fiber.join(first);
+
+        return refreshed;
+      })
+    );
+
+    expect(statuses(refreshed)).toMatchObject({ codex: "ready" });
   });
 });
