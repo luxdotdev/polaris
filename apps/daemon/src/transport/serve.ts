@@ -21,6 +21,7 @@ import { Availability, AvailabilityRpcsLive } from "../harness/availability/inde
 import { HarnessRpcsLive } from "../harness/HarnessRpcs.ts";
 import { latestRolloutLimits, PlanLimitReporter } from "../harness/limits/index.ts";
 import { HarnessRegistryLive } from "../harness/registry.ts";
+import { userPath } from "../service/userPath.ts";
 import { EventStore } from "../store/EventStore.ts";
 import { TerminalRpcsLive } from "../terminal/TerminalRpcs.ts";
 import { TerminalsDaemonLive } from "../terminal/Terminals.ts";
@@ -110,5 +111,8 @@ export const serveProgram = Effect.scoped(
 
 export const runServe = () => {
   installDebugHooks();
+  // Harnesses live where the user's terminal finds them, not on the service's bare PATH.
+
+  if (!bench) process.env.PATH = userPath({ env: process.env });
   BunRuntime.runMain(serveProgram);
 };
