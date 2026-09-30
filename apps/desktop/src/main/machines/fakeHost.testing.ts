@@ -99,10 +99,17 @@ export const runOnFakeHost = (home: string, command: string, stdinFile?: string)
 };
 
 /**
- * A stand-in `ssh` for PATH: drops the options, then runs the remote command
- * in `sh` with HOME set to the fake Host's (the smoke test's "remote" Host).
+ * A stand-in `ssh` for PATH: for `alias` it drops the options and runs the
+ * remote command in `sh` with HOME at the fake Host's; any other alias goes
+ * to the real ssh.
  */
-export const fakeSshScript = (home: string): string => `#!/bin/sh
+export const fakeSshScript = (
+  alias: string,
+  home: string,
+  realSsh = "/usr/bin/ssh"
+): string => `#!/bin/sh
+for arg in "$@"; do [ "$arg" = ${quote(alias)} ] && fake=1; done
+[ -n "$fake" ] || exec ${quote(realSsh)} "$@"
 while [ $# -gt 0 ]; do
   case "$1" in
     --) shift; break ;;

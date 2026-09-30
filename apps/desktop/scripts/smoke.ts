@@ -16,6 +16,7 @@ import { spawnSync } from "node:child_process";
 import { APP_DIR, electronBinary, OUT_DIR, REPO_ROOT } from "./lib/electron.ts";
 import { probeSource } from "./lib/probe.ts";
 import { startDaemon } from "./lib/daemon.ts";
+import { machineFlow, prepareFakeHost } from "./lib/machineFlow.ts";
 import { initRepo, sessionFlow } from "./lib/sessionFlow.ts";
 
 const args = process.argv.slice(2);
@@ -57,6 +58,8 @@ const userData = join(home, "user-data");
 
 const daemon = await startDaemon({ home, benchHarness: true });
 
+const fakeHost = prepareFakeHost(join(home, "remote"));
+
 const UNREACHABLE = "polaris-smoke.invalid";
 
 // A remote Host that can't be reached: it must show a Connection State, never block the app.
@@ -78,6 +81,7 @@ const app = await electron.launch({
     POLARIS_DESKTOP_BENCH_HARNESS: "1",
     POLARIS_DESKTOP_USER_DATA: userData,
     POLARIS_DESKTOP_HIDDEN: flag("--show") ? "0" : "1",
+    ...fakeHost.env,
   },
 });
 
@@ -210,6 +214,14 @@ try {
   if (!JSON.stringify(probe).includes('"terminal":true'))
     throw new Error("terminal output missing");
 
+  await machineFlow({
+    page,
+    host: fakeHost,
+    step,
+    openHosts: null,
+    shoot: (name) => shoot(page, name),
+  });
+
   if (consoleErrors.length > 0) throw new Error(`renderer errors:\n${consoleErrors.join("\n")}`);
   step("ok");
 } catch (error) {
@@ -229,6 +241,7 @@ try {
 } finally {
   await app.close();
   await daemon.stop();
+  fakeHost.stop();
   rmSync(home, { recursive: true, force: true });
 }
 

@@ -75,7 +75,7 @@ export const HostsSettingsPage = ({ adding = false }: HostsSettingsPageProps) =>
   return (
     <div
       data-testid="hosts-settings"
-      className="gap-tree-row mx-auto flex w-[680px] max-w-full flex-col"
+      className="gap-tree-row mx-auto flex w-[680px] max-w-full flex-col py-10"
     >
       <div className="flex flex-col gap-1.5">
         <h1 className="text-title text-text-strong">Hosts</h1>
