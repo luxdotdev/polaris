@@ -6,6 +6,7 @@ import {
   elicitationDecision,
   permissionsDecision,
   policyFor,
+  readableError,
   sandboxPolicyFor,
   toPlanItem,
   toTurnItem,
@@ -242,5 +243,33 @@ describe("approval decisions", () => {
     expect(elicitationDecision(Allow.make({ remember: false }))).toMatchObject({
       action: "accept",
     });
+  });
+});
+
+describe("readable errors", () => {
+  test("the API's JSON body gives its inner message", () => {
+    expect(
+      readableError(
+        'unexpected status 500: {"type":"error","error":{"message":"The server had an error","type":"server_error"}}'
+      )
+    ).toBe("The server had an error");
+  });
+
+  test("a Model the account can't use says so, with what Codex said", () => {
+    expect(
+      readableError(
+        '{"type":"error","error":{"message":"model \'gpt-6-luna\' is not supported","type":"invalid_request_error"}}'
+      )
+    ).toBe(
+      "gpt-6-luna isn't available on this Codex account or plan. Choose another Model. " +
+        "Codex said: model 'gpt-6-luna' is not supported"
+    );
+  });
+
+  test("plain messages and bodies it can't read pass through", () => {
+    expect(readableError("stream disconnected before completion")).toBe(
+      "stream disconnected before completion"
+    );
+    expect(readableError("bad {not json")).toBe("bad {not json");
   });
 });

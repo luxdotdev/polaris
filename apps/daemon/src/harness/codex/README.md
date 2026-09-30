@@ -48,13 +48,15 @@ Tests: `AppServer.test.ts` runs the real lifecycle against a fake `codex` execut
 | `item/commandExecution/outputDelta` | `ItemDelta { field: "output" }` |
 | `item/completed` | `ItemCompleted`: agentMessage/plan → AssistantMessage, reasoning → Reasoning (summary, else raw content), commandExecution → CommandExecution, fileChange → FileChange (`update` → `modify`), mcpToolCall → ToolCall `server.tool`, dynamicToolCall/collabAgentToolCall/webSearch/imageView → ToolCall. User messages, compaction and review markers are skipped. |
 | `turn/plan/updated` | `ItemUpdated` with the `Plan` (id `<codexTurn>:plan`) each time; the latest plan is completed once, just before `TurnEnded` |
-| `error` with `willRetry: false` | `ItemCompleted` with an `Error` item |
-| `turn/completed` | `TurnEnded { status, error }` |
+| `error` with `willRetry: false` | `ItemCompleted` with an `Error` item, its message made readable (below) |
+| `turn/completed` | `TurnEnded { status, error }`, the error made readable (below) |
 | `thread/name/updated` | `TitleSuggested` |
 | `serverRequest/resolved` for a request Polaris didn't answer | `ApprovalWithdrawn` |
 | connection closed by the server | `Exited { error }`; scope close gives `Exited { error: null }` |
 
 Notifications for other threads on the shared server are ignored, except a Subagent's.
+
+**Readable errors** (`readableError` in `mapping.ts`): Codex forwards the provider's error body as the message (`{"type":"error","error":{"message":…}}`, sometimes after a prefix such as `unexpected status 400:`), so the inner `error.message` is used. A rejected Model (`model '<id>' is not …`) becomes "<id> isn't available on this Codex account or plan. Choose another Model." followed by what Codex said. `model/list` has no per-account flag to filter such Models out beforehand (checked with codex-cli 0.158.0 on a "prolite" account: every listed Model has the same `hidden`, `upgrade`, `availabilityNux` and `availableAccessPrograms`).
 
 ### Subagents
 

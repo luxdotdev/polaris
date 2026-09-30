@@ -8,7 +8,7 @@ import {
   type PermissionMode,
   TurnItem,
 } from "@polaris/protocol";
-import { Match } from "effect";
+import { Match, Option, Schema } from "effect";
 import type * as Gen from "./generated/index.ts";
 import type * as P from "./protocol.ts";
 
@@ -321,3 +321,36 @@ export const elicitationDecision = (
     Answer: ({ text }) => ({ action: "accept", content: { answer: text }, _meta: null }),
     Deny: () => ({ action: "decline", content: null, _meta: null }),
   });
+
+/** A provider error body, as Codex passes it through in an error's message. */
+const ApiErrorBody = Schema.fromJsonString(
+  Schema.Struct({ error: Schema.Struct({ message: Schema.String }) })
+);
+
+const decodeApiError = Schema.decodeUnknownOption(ApiErrorBody);
+
+/** The model a "model '<id>' is not …" rejection names. */
+const REJECTED_MODEL = /model '([^']+)' is not/;
+
+/**
+ * An error as a person reads it. Codex forwards the API's JSON body as the
+ * message (`{"type":"error","error":{"message":…}}`), so the inner message is
+ * taken; a Model the account can't use says so and names what to do.
+ */
+export const readableError = (message: string): string => {
+  const start = message.indexOf("{");
+
+  const inner =
+    start === -1
+      ? message
+      : Option.match(decodeApiError(message.slice(start)), {
+          onNone: () => message,
+          onSome: (body) => body.error.message,
+        });
+
+  const model = REJECTED_MODEL.exec(inner)?.[1];
+
+  return model === undefined
+    ? inner
+    : `${model} isn't available on this Codex account or plan. Choose another Model. Codex said: ${inner}`;
+};
