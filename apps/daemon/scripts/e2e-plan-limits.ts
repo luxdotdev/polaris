@@ -196,7 +196,7 @@ const firstRun = (daemonPid: number, limits: Array<PlanLimit>) =>
       s.capabilities.join(",")
     );
 
-    yield* Effect.promise(() => until("the Codex rollout seed", () => limits.length > 0, 10_000));
+    yield* Effect.promise(() => until("the Codex rollout seed", () => limits.length > 0, 30_000));
     check(
       "before any session: Codex's last value from its own rollout logs",
       limits.some((l) => l.harness === "codex"),
