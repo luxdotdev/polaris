@@ -1,0 +1,84 @@
+/**
+ * The user's own messages after the prompt: a steer where it landed in the
+ * Turn, and a steer or queued follow-up still on its way, faded, with what it
+ * waits for, or why it didn't land and how to send it again.
+ */
+import { Button, cn, PixelFailedIcon } from "@polaris/ui";
+import type { ReactNode } from "react";
+import type { Outgoing } from "../model/outbox.ts";
+import { softWrap } from "./softWrap.tsx";
+
+const BUBBLE =
+  "rounded-card bg-fill-selected text-body text-text-strong py-row-x max-w-[340px] px-3.5 break-words whitespace-pre-wrap";
+
+const Bubble = ({
+  text,
+  faded = false,
+  children,
+  testId,
+}: {
+  readonly text: string;
+  readonly faded?: boolean;
+  readonly children: ReactNode;
+  readonly testId: string;
+}) => (
+  <div className="flex flex-col items-end gap-1.5" data-testid={testId}>
+    <p className={cn(BUBBLE, "transition-opacity duration-200", faded && "opacity-60")}>
+      {softWrap(text)}
+    </p>
+    <div className="text-caption text-text-subtle flex h-5 max-w-[340px] items-center gap-2">
+      {children}
+    </div>
+  </div>
+);
+
+/** A steer the Harness took, in the Turn where it landed. */
+export const Steered = ({ text }: { readonly text: string }) => (
+  <Bubble text={text} testId="steered">
+    Steered this turn
+  </Bubble>
+);
+
+export interface OutgoingProps {
+  readonly entry: Outgoing;
+  /** A Turn is in flight that takes steers: a failed steer retries as one. */
+  readonly canSteer: boolean;
+  readonly onRetry: () => void;
+  readonly onEdit: () => void;
+}
+
+const waitingLabel = (entry: Outgoing): string => {
+  if (entry.kind === "steer") return "Steering…";
+
+  return entry.status === "waiting" ? "Queued for after this turn" : "Sending…";
+};
+
+export const OutgoingMessage = ({ entry, canSteer, onRetry, onEdit }: OutgoingProps) => {
+  if (entry.status !== "failed")
+    return (
+      <Bubble text={entry.text} faded testId="outgoing">
+        <span data-testid="outgoing-status">{waitingLabel(entry)}</span>
+        {entry.status === "waiting" ? (
+          <Button variant="ghost" size="sm" onClick={onEdit}>
+            Cancel
+          </Button>
+        ) : null}
+      </Bubble>
+    );
+  const again = entry.kind === "steer" && !canSteer ? "Send as next turn" : "Retry";
+
+  return (
+    <Bubble text={entry.text} testId="outgoing-failed">
+      <PixelFailedIcon size={12} className="text-failed shrink-0" />
+      <span className="min-w-0 truncate" data-testid="outgoing-status">
+        {entry.error ?? (entry.kind === "steer" ? "Couldn't steer" : "Couldn't send")}
+      </span>
+      <Button variant="ghost" size="sm" onClick={onEdit}>
+        Edit
+      </Button>
+      <Button variant="secondary" size="sm" onClick={onRetry}>
+        {again}
+      </Button>
+    </Bubble>
+  );
+};

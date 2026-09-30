@@ -466,6 +466,18 @@ describe("Codex driver against a fake app-server", () => {
     const handler = scripted((request, conn) => {
       if (request.method === "turn/steer") {
         conn.reply({ turnId: "t_tui" });
+
+        // Codex also reports the steer as a user message of the Turn: recorded once.
+        for (const method of ["item/started", "item/completed"])
+          conn.notify(method, {
+            threadId: THREAD,
+            turnId: "t_tui",
+            item: {
+              type: "userMessage",
+              id: "u2",
+              content: [{ type: "text", text: "also run lint", text_elements: [] }],
+            },
+          });
         conn.notify("turn/completed", { threadId: THREAD, turn: turn("t_tui", "completed") });
       }
     });
@@ -541,6 +553,14 @@ describe("Codex driver against a fake app-server", () => {
     });
     expect(events[0]).toEqual(HarnessEvent.CursorAssigned({ cursor: THREAD }));
     expect(ofTag(events, "TurnStarted")).toHaveLength(1);
+    expect(
+      ofTag(events, "ItemCompleted").filter((e) => TurnItem.guards.UserMessage(e.item))
+    ).toEqual([
+      HarnessEvent.ItemCompleted({
+        turnId: ofTag(events, "TurnStarted")[0]?.turnId ?? TurnId.make("missing"),
+        item: TurnItem.cases.UserMessage.make({ id: "steer:t_tui:1", text: "also run lint" }),
+      }),
+    ]);
     expect(ofTag(events, "TitleSuggested")).toEqual([
       HarnessEvent.TitleSuggested({ title: "Fix the tests" }),
     ]);

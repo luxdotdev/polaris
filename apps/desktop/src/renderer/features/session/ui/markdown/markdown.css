@@ -1,0 +1,155 @@
+/* Assistant Markdown in Night watch type: body text, code in the code font, quiet rules. */
+.polaris-md {
+  color: var(--color-text-default);
+  font-size: var(--text-body);
+  line-height: 19px;
+  overflow-wrap: anywhere;
+
+  & > * + * {
+    margin-top: 8px;
+  }
+
+  & :is(h1, h2, h3, h4, h5, h6) {
+    color: var(--color-text-strong);
+    font-weight: 600;
+    margin-top: 14px;
+  }
+
+  & h1 {
+    font-size: var(--text-heading);
+    line-height: var(--text-heading--line-height);
+  }
+
+  & h2 {
+    font-size: var(--text-heading-sm);
+    line-height: var(--text-heading-sm--line-height);
+  }
+
+  & :is(h3, h4, h5, h6) {
+    font-size: var(--text-body);
+  }
+
+  & > :first-child {
+    margin-top: 0;
+  }
+
+  & :is(ul, ol) {
+    padding-left: 18px;
+  }
+
+  & ul {
+    list-style: disc;
+  }
+
+  & ol {
+    list-style: decimal;
+  }
+
+  & li + li,
+  & li > :is(ul, ol) {
+    margin-top: 2px;
+  }
+
+  & li::marker {
+    color: var(--color-text-subtle);
+  }
+
+  & strong {
+    color: var(--color-text-strong);
+    font-weight: 600;
+  }
+
+  & blockquote {
+    border-left: 2px solid var(--color-hairline);
+    color: var(--color-text-subtle);
+    padding-left: 10px;
+  }
+
+  & hr {
+    border: 0;
+    border-top: 1px solid var(--color-hairline);
+    margin-block: 12px;
+  }
+
+  & [data-streamdown="inline-code"] {
+    background: var(--color-surface-sunken);
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: var(--text-code-inline);
+    padding: 1px 4px;
+  }
+
+  & [data-streamdown="code-block"],
+  & [data-streamdown="mermaid-block"] {
+    background: var(--color-surface-sunken);
+    border: 1px solid var(--color-hairline);
+    border-radius: var(--radius-row);
+    gap: 0;
+    margin-block: 8px;
+    padding: 0;
+  }
+
+  & [data-streamdown="code-block-header"] {
+    color: var(--color-text-subtle);
+    font-size: var(--text-caption);
+    height: 28px;
+    padding-inline: 8px;
+  }
+
+  & [data-streamdown="code-block-body"] {
+    background: transparent;
+    border: 0;
+    border-top: 1px solid var(--color-hairline);
+    border-radius: 0;
+    font-family: var(--font-mono);
+    font-size: var(--text-code-inline);
+    line-height: var(--text-code-inline--line-height);
+    padding: 8px 12px;
+  }
+
+  & [data-streamdown="code-block-body"] :is(pre, code) {
+    background: transparent;
+    font-family: inherit;
+    font-size: inherit;
+  }
+
+  & [data-streamdown="code-block-actions"] {
+    background: transparent;
+    border: 0;
+    backdrop-filter: none;
+  }
+
+  & [data-streamdown="mermaid"] {
+    padding: 12px;
+  }
+
+  & [data-streamdown="table-wrapper"] {
+    border-radius: var(--radius-row);
+    margin-block: 8px;
+  }
+
+  & [data-streamdown="table"] {
+    font-size: var(--text-caption);
+  }
+
+  & :is([data-streamdown="table-header-cell"], [data-streamdown="table-cell"]) {
+    border-color: var(--color-hairline);
+    padding: 4px 8px;
+    text-align: left;
+  }
+
+  & [data-streamdown="table-header"] {
+    background: var(--color-surface-sunken);
+    color: var(--color-text-subtle);
+  }
+
+  & .katex {
+    font-size: 1.05em;
+  }
+
+  & .katex-display {
+    margin-block: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+}

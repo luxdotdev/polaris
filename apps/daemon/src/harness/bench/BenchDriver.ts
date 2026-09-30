@@ -303,7 +303,15 @@ const openBenchSession = Effect.fn("BenchDriver.open")(function* (options: OpenO
         const fiber = yield* Effect.forkIn(runTurn(input), scope);
         current = { turnId: input.turnId, fiber };
       }),
-    steer: () => Effect.void,
+    steer: (text) =>
+      current === null
+        ? Effect.void
+        : emit(
+            HarnessEvent.ItemCompleted({
+              turnId: current.turnId,
+              item: TurnItem.cases.UserMessage.make({ id: `steer:${crypto.randomUUID()}`, text }),
+            })
+          ).pipe(Effect.asVoid),
     interrupt: Effect.suspend(() =>
       current === null ? Effect.void : Fiber.interrupt(current.fiber)
     ),

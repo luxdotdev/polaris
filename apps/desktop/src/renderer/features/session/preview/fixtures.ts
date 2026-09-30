@@ -20,6 +20,8 @@ import {
   WorktreeId,
 } from "@polaris/protocol";
 import type { LiveItem, SessionModel, TurnView } from "../../../store/sessionModel.ts";
+import { MISSED_STEER, type Outgoing, queuedOutgoing, steerOutgoing } from "../model/outbox.ts";
+import type { StagedAttachment } from "../state.ts";
 
 const I = TurnItem.cases;
 
@@ -310,6 +312,104 @@ export const failed = (): SessionModel => {
     ],
   });
 };
+
+const MARKDOWN = [
+  "## What changed",
+  "",
+  "The **resume** path now replays from the last acknowledged `Sequence`, so a",
+  "dropped connection never loses a frame. See the [spec](https://github.com/lucasdoell/polaris) for the model.",
+  "",
+  "1. `resume.ts` keeps the cursor per Host",
+  "2. The Daemon answers with a `Snapshot` when the gap is too large",
+  "   - older Clients still get the full replay",
+  "",
+  "```ts",
+  'export const resume = Effect.fn("resume")(function* (cursor: Sequence) {',
+  "  const gap = yield* store.gapSince(cursor);",
+  "  // A large gap is cheaper as a snapshot.",
+  "  return gap > 500 ? yield* snapshot() : yield* replay(cursor);",
+  "});",
+  "```",
+  "",
+  "| Case | Frames | Time |",
+  "| --- | ---: | ---: |",
+  "| Replay | 480 | 12 ms |",
+  "| Snapshot | 1 | 4 ms |",
+  "",
+  "```mermaid",
+  "graph LR",
+  "  C[Client] -->|resume cursor| D[Daemon]",
+  "  D -->|gap small| R[Replay]",
+  "  D -->|gap large| S[Snapshot]",
+  "```",
+  "",
+  "The cost is linear: $$T(n) = c \\cdot n + k$$",
+  "",
+  "> Replays past 500 frames are rare in practice.",
+].join("\n");
+
+/** Rich assistant prose: headings, lists, code, a table, a diagram and math; a folded command. */
+export const markdown = (): SessionModel => {
+  const s = session("s-markdown", { title: "Resume from the last Sequence", state: "idle" });
+
+  return model({
+    session: s,
+    turns: [
+      view(turn(s.id, 4, "Make resume survive a dropped connection", "completed"), [
+        I.CommandExecution.make({
+          id: "c4",
+          command: "bun test packages/client",
+          cwd: s.cwd,
+          output: Array.from({ length: 14 }, (_, n) => `(pass) resume > case ${n + 1}`).join("\n"),
+          exitCode: 0,
+          status: "completed",
+        }),
+        I.AssistantMessage.make({ id: "m4", text: MARKDOWN }),
+      ]),
+    ],
+  });
+};
+
+/** A Turn steered once (landed), with a steer on its way and a follow-up queued. */
+export const steer = (): SessionModel => {
+  const s = session("s-steer", { title: "Tighten the session rows" });
+
+  return model({
+    session: s,
+    turns: [
+      view(turn(s.id, 6, "Tighten the session rows to 32px", "working"), [
+        I.AssistantMessage.make({ id: "m6", text: "Reading `SessionRow.tsx` first." }),
+        I.CommandExecution.make({
+          id: "c6",
+          command: 'rg -n "h-row" packages/ui/src',
+          cwd: s.cwd,
+          output: "packages/ui/src/rows.tsx:12: h-row\npackages/ui/src/tokens.css:40: --row: 32px",
+          exitCode: 0,
+          status: "completed",
+        }),
+        I.UserMessage.make({ id: "steer:1", text: "Keep the 28px variant for compact density" }),
+        I.AssistantMessage.make({
+          id: "m6b",
+          text: "Got it: compact keeps **28px**, the rest go to 32px.",
+        }),
+      ]),
+    ],
+  });
+};
+
+/** The steer scene's outbox: a steer on its way, one refused, and a queued follow-up. */
+export const steerOutbox = (turnId: string): ReadonlyArray<Outgoing<StagedAttachment>> => [
+  {
+    ...steerOutgoing<StagedAttachment>([], turnId, "And drop the hover shadow"),
+    status: "sent",
+  },
+  {
+    ...steerOutgoing<StagedAttachment>([], turnId, "Use the token, not a literal"),
+    status: "failed",
+    error: MISSED_STEER,
+  },
+  queuedOutgoing<StagedAttachment>("Then run the gallery and screenshot both themes", []),
+];
 
 /** 150 Turns of mixed items, for scrolling the virtualized conversation. */
 export const long = (): SessionModel => {

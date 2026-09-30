@@ -177,6 +177,8 @@ export class Subagent extends Schema.Class<Subagent>("Subagent")({
 /** One normalized piece of Harness output within a Turn. `raw` keeps the native frame. */
 export const TurnItem = Schema.TaggedUnion({
   AssistantMessage: { id: Schema.String, text: Schema.String },
+  /** Guidance the user sent into the Turn in flight (a steer), once the Harness took it. */
+  UserMessage: { id: Schema.String, text: Schema.String },
   Reasoning: {
     id: Schema.String,
     text: Schema.String,
