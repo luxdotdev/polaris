@@ -3,10 +3,11 @@ import type { HTMLAttributes, ReactNode } from "react";
 import { ArrowUpIcon, ChevronDownIcon, PlusIcon } from "../../icons/chrome";
 import { cn } from "../../lib/cn";
 import type { CssVars } from "../../lib/css";
-import { harnessHue, haloVar, harnessTextVar, hueVar, type Harness } from "../../lib/hue";
+import { harnessHue, harnessTextVar, hueVar, type Harness } from "../../lib/hue";
 import { Button } from "../ui/button";
 import { Textarea, type TextareaProps } from "../ui/textarea";
 import { Dither } from "./dither";
+import { DitherField } from "./dither/field";
 import { Kbd } from "./kbd";
 import { Tile } from "./tile";
 
@@ -72,19 +73,21 @@ export interface WorkingStripProps {
   readonly onStop?: (() => void) | undefined;
   /** Override the line, as in the Editor ("Claude Code is editing this file"). */
   readonly children?: ReactNode;
+  /** Names the status the line shows; a change re-blooms the dither field. */
+  readonly status?: string | undefined;
 }
 
-/** The composer's 34px Working strip: the loudest thing on a Working screen; no spinner. */
-export function WorkingStrip({ harness, elapsed, onStop, children }: WorkingStripProps) {
+/**
+ * The composer's 34px Working strip: the loudest thing on a Working screen; no spinner. Its
+ * dither field has no band behind it and answers the pointer over any `[data-dither-hover]` ancestor.
+ */
+export function WorkingStrip({ harness, elapsed, onStop, children, status }: WorkingStripProps) {
   return (
     <div
       data-slot="working-strip"
-      className="bg-surface-sunken relative flex h-[34px] shrink-0 items-center gap-2 overflow-clip border-b border-[color-mix(in_oklab,var(--harness)_16%,transparent)] pr-2.5 pl-3"
+      className="relative flex h-[34px] shrink-0 items-center gap-2 overflow-clip pr-2.5 pl-3"
     >
-      <span
-        aria-hidden="true"
-        className="pixelated pointer-events-none absolute -top-[70px] -left-[120px] h-[150px] w-[320px] bg-(image:--halo) bg-size-[100%_100%] opacity-90"
-      />
+      <DitherField hue={harness} bloom={status} />
       <Dither hue={harness} size={14} moving className="relative" />
       <span className="text-caption relative font-medium text-(--harness-text)">
         {children ?? `${harnessHue(harness).name} is working`}
@@ -149,7 +152,6 @@ export function Composer({
   const vars: CssVars = {
     "--harness": hueVar(harness),
     "--harness-text": harnessTextVar(harness),
-    "--halo": haloVar(harness),
   };
 
   const isWorking = working !== undefined;
@@ -158,6 +160,7 @@ export function Composer({
     <div
       data-slot="composer"
       data-working={isWorking ? "" : undefined}
+      data-dither-hover={isWorking ? "" : undefined}
       className={cn(
         "flex flex-col overflow-clip rounded-card border bg-surface-raised",
         isWorking

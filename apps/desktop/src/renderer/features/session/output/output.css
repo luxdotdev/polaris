@@ -1,0 +1,8 @@
+/* Output opening (DESIGN.md, Output): the panel slides in from the rail on transform, 200ms ease-out. */
+.output-slide-in {
+  transition: transform 200ms var(--ease-out);
+
+  @starting-style {
+    transform: translateX(calc(100% - 240px));
+  }
+}

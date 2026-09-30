@@ -25,7 +25,13 @@ export interface CommandDialogProps extends ComponentProps<typeof Dialog> {
   readonly shouldFilter?: boolean | undefined;
   /** An element that opens it, such as the title bar's jump field. */
   readonly trigger?: ReactNode;
+  /** The highlighted item's value, when the caller controls it. */
+  readonly value?: string | undefined;
+  readonly onValueChange?: ((value: string) => void) | undefined;
 }
+
+/** cmdk's highlighted item, when a dialog's caller controls it. */
+type ControlledHighlight = Pick<ComponentProps<typeof CommandPrimitive>, "value" | "onValueChange">;
 
 /** The K jump menu (artboard 3): a 620px card hung from the top over a flat scrim. */
 export function CommandDialog({
@@ -35,15 +41,25 @@ export function CommandDialog({
   className,
   shouldFilter,
   trigger,
+  value,
+  onValueChange,
   ...props
 }: CommandDialogProps) {
+  const controlled: ControlledHighlight = {};
+
+  if (value !== undefined) controlled.value = value;
+
+  if (onValueChange !== undefined) controlled.onValueChange = onValueChange;
+
   return (
     <Dialog {...props}>
       {trigger === undefined ? null : <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent placement="top" className={cn("w-[620px]", className)}>
         <DialogTitle className="sr-only">{title}</DialogTitle>
         <DialogDescription className="sr-only">{description}</DialogDescription>
-        <Command shouldFilter={shouldFilter ?? true}>{children}</Command>
+        <Command shouldFilter={shouldFilter ?? true} {...controlled}>
+          {children}
+        </Command>
       </DialogContent>
     </Dialog>
   );

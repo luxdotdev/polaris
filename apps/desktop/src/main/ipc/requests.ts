@@ -31,6 +31,7 @@ export interface RequestContext {
   readonly prices: Prices;
   readonly setAppearance: (patch: Partial<Appearance>) => void;
   readonly setSessionDefault: (harness: string, value: SessionDefault | null) => void;
+  readonly setNewWorktree: (on: boolean) => void;
   readonly openExternal: (url: string) => Promise<void>;
   /** A fresh temp directory, or null when the local Daemon doesn't run the bench Harness. */
   readonly proofWorkspace: () => string | null;
@@ -100,6 +101,7 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
       return {
         ...appearanceOf(settings),
         sessionDefaults: settings.sessionDefaults ?? {},
+        newWorktree: settings.newWorktree ?? false,
         version: ctx.appVersion,
         welcomeSeen: settings.welcomeSeen ?? false,
         hosts: (settings.hosts ?? []).map((h) => ({
@@ -118,6 +120,7 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
   "settings.setAppearance": ({ patch }) => Effect.sync(() => ctx.setAppearance(patch)).pipe(done),
   "settings.setSessionDefault": ({ harness, value }) =>
     Effect.sync(() => ctx.setSessionDefault(harness, value)).pipe(done),
+  "settings.setNewWorktree": ({ on }) => Effect.sync(() => ctx.setNewWorktree(on)).pipe(done),
   "shell.openExternal": ({ url }) =>
     Effect.tryPromise({
       try: () => ctx.openExternal(url),

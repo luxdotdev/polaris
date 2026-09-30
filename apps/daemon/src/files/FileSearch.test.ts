@@ -193,6 +193,24 @@ for (const useFff of [true, false]) {
 }
 
 describe("FileSearch lifecycle", () => {
+  test("watching a missing root fails instead of hanging", async () => {
+    const root = join(await fixture(), "not-yet");
+
+    const exit = await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const search = yield* FileSearch;
+
+          return yield* search
+            .watch(root)
+            .pipe(Stream.runDrain, Effect.timeout("2 seconds"), Effect.flip);
+        }).pipe(Effect.provide(FileSearchLive()))
+      )
+    );
+
+    expect(exit).toBeInstanceOf(FileError);
+  });
+
   test("indexes are dropped when idle and rebuilt lazily", async () => {
     const root = await fixture();
     await Effect.runPromise(

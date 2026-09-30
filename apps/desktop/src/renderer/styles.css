@@ -1,6 +1,7 @@
 /* The renderer's one stylesheet: Night watch from @polaris/ui, plus this app's sources. */
 @import "@polaris/ui/styles.css";
 @import "./features/onboarding/onboarding.css";
+@import "./features/session/output/output.css";
 
 @source "./";
 /* Streamdown's own layout classes (the Markdown chunk); Polaris restyles them in markdown.css. */
@@ -11,6 +12,11 @@ body,
 #root {
   height: 100%;
   margin: 0;
+}
+
+:root {
+  /* Toasts sit bottom-right, above the 28px Terminal strip; the Output rail adds its width. */
+  --toast-inset-bottom: 44px;
 }
 
 body {

@@ -38,6 +38,8 @@ export const Settings = Schema.Struct({
   codeFontSize: Schema.optionalKey(CodeFontSize),
   /** By Harness kind. */
   sessionDefaults: Schema.optionalKey(Schema.Record(Schema.String, SessionDefault)),
+  /** New sessions start on a new Worktree; off (in the Workspace directory) unless switched on. */
+  newWorktree: Schema.optionalKey(Schema.Boolean),
   hosts: Schema.optionalKey(Schema.Array(RemoteHostSetting)),
   /** The local Host on this machine; on unless switched off. */
   local: Schema.optionalKey(Schema.Struct({ enabled: Schema.Boolean })),

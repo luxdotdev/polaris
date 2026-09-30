@@ -40,22 +40,6 @@ export interface ReadyHarness {
   readonly version: string | null;
 }
 
-/** A path the user typed: trimmed, `~` kept for the Host to expand, trailing slashes dropped. */
-export const cleanPath = (typed: string): string | null => {
-  const path = typed.trim().replace(/(.)\/+$/, "$1");
-
-  return path === "~" || path.startsWith("/") || path.startsWith("~/") ? path : null;
-};
-
-/** `~/x` → `<home>/x` when the Host's home is known; the Daemon wants an absolute path. */
-export const absolutePath = (path: string, homeDir: string | null): string | null => {
-  if (path.startsWith("/")) return path;
-
-  if (homeDir === null) return null;
-
-  return path === "~" ? homeDir : `${homeDir}${path.slice(1)}`;
-};
-
 /** "Claude Code 2.1.4 and Codex 0.52.0 are ready on Mac Studio" (Paper 57Q-1). */
 export const readyLine = (ready: ReadonlyArray<ReadyHarness>, host: string): string => {
   if (ready.length === 0) return `No harness is ready on ${host} yet`;
