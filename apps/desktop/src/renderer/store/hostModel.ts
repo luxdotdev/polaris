@@ -16,9 +16,23 @@ import type {
 import { Match } from "effect";
 import type { SessionData } from "./plain.ts";
 
+/** An approval a Client answered: who, when, and what it was (for "Answered on <device>"). */
+export interface ResolvedApproval {
+  readonly request: ApprovalRequest;
+  /** The device label of the Client that answered first (`ApprovalResolved.resolvedBy`). */
+  readonly resolvedBy: string;
+  readonly decision: "Allow" | "Deny" | "Answer";
+  readonly at: string;
+}
+
+/** How many resolutions a session keeps. */
+const RESOLVED_KEPT = 3;
+
 export interface SessionEntry {
   readonly session: SessionData;
   readonly pendingApprovals: ReadonlyArray<ApprovalRequest>;
+  /** The latest resolutions this Client saw live, newest last; not in snapshots. */
+  readonly resolved?: ReadonlyArray<ResolvedApproval>;
   readonly lastTurnPreview: string | null;
   /** Subagents still working in this session. */
   readonly subagents: ReadonlyArray<Subagent>;
@@ -186,8 +200,26 @@ const fold = (event: DomainEvent): Fold =>
           ...entry,
           pendingApprovals: [...withoutRequest(request.id)(entry).pendingApprovals, request],
         })),
-      ApprovalResolved: ({ sessionId, requestId }) =>
-        onSession(sessionId, withoutRequest(requestId)),
+      ApprovalResolved:
+        ({ sessionId, requestId, resolvedBy, decision }): Fold =>
+        (m, at) =>
+          updateSession({
+            model: m,
+            sessionId,
+            at,
+            change: (entry) => {
+              const request = entry.pendingApprovals.find((r) => r.id === requestId);
+              const next = withoutRequest(requestId)(entry);
+
+              if (request === undefined) return next;
+              const resolution = { request, resolvedBy, decision: decision._tag, at };
+
+              return {
+                ...next,
+                resolved: [...(entry.resolved ?? []), resolution].slice(-RESOLVED_KEPT),
+              };
+            },
+          }),
       ApprovalWithdrawn: ({ sessionId, requestId }) =>
         onSession(sessionId, withoutRequest(requestId)),
     })

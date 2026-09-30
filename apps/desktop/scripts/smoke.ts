@@ -137,6 +137,60 @@ const shoot = async (page: Page, name: string) => {
   await setTheme(page, "dark");
 };
 
+/** The main process's Needs You probe (src/main/notifications). */
+const needsYouProbe = () =>
+  app.evaluate(() => {
+    const probe = globalThis.__polarisNeedsYou;
+
+    return probe === undefined
+      ? null
+      : {
+          count: probe.count(),
+          tray: probe.trayTitle(),
+          notified: probe.notified(),
+          requests: [...probe.requests()],
+        };
+  });
+
+interface Probe {
+  readonly count: number;
+  readonly tray: string;
+  readonly notified: number;
+  readonly requests: ReadonlyArray<string>;
+}
+
+const waitForProbe = async (want: (p: Probe) => boolean, what: string) => {
+  for (let i = 0; i < 50; i++) {
+    const probe = await needsYouProbe();
+
+    if (probe !== null && want(probe)) return probe;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+
+  throw new Error(`Needs You: ${what} never happened (${JSON.stringify(await needsYouProbe())})`);
+};
+
+/** The first approval shows in the inbox and the menu bar count; approving it there resolves it. */
+const inboxCheck = async (page: Page) => {
+  const before = await waitForProbe(
+    (p) => p.count > 0 && p.tray === String(p.count),
+    "the tray count"
+  );
+
+  step(`menu bar star: ${before.tray} waiting; ${before.notified} notification(s) planned`);
+  await page.getByRole("radio", { name: /^Needs you/ }).click();
+  const card = page.getByTestId("needs-you-card").first();
+
+  await card.waitFor({ timeout: 5_000 });
+  await shoot(page, "needs-you-inbox");
+  await card.getByRole("button", { name: /^Approve/ }).click();
+  const answered = before.requests[0];
+
+  await waitForProbe((p) => !p.requests.includes(answered ?? ""), "the answer");
+  step("approved from the inbox; the request left the menu bar summary");
+  await page.getByRole("radio", { name: /^Sessions/ }).click();
+};
+
 let failed = false;
 
 const consoleErrors: Array<string> = [];
@@ -191,7 +245,13 @@ try {
   const repo = join(home, "smoke-repo");
 
   initRepo(repo);
-  await sessionFlow({ page, repo, step, shoot: (name) => shoot(page, name) });
+  await sessionFlow({
+    page,
+    repo,
+    step,
+    shoot: (name) => shoot(page, name),
+    atFirstApproval: () => inboxCheck(page),
+  });
   await timeSwitches(page);
 
   const probe = await Promise.race([

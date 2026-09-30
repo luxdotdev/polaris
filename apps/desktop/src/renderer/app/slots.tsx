@@ -4,9 +4,10 @@
  * wire a feature in, replace its default below with the feature's component.
  */
 import type { SessionId, WorkspaceId } from "@polaris/protocol";
-import type { ComponentType } from "react";
+import type { ComponentType, ReactElement } from "react";
+import { NeedsYouHover, NeedsYouInbox } from "../features/needs-you/index.ts";
 import { NewSessionPage, SessionIntent, SessionOutput } from "../features/session/index.ts";
-import { DefaultJumpMenu, DefaultNeedsYouInbox, DefaultNoSession } from "./defaultSlots.tsx";
+import { DefaultJumpMenu, DefaultNoSession } from "./defaultSlots.tsx";
 
 /** A selected Agent Session: which Host it lives on and its id. */
 export interface SessionSlotProps {
@@ -31,6 +32,14 @@ export interface NewSessionProps extends WorkspaceSlotProps {
   readonly onCancel: () => void;
 }
 
+/** Wraps a session row or Workspace chip that needs you with its hover card. */
+export interface NeedsYouHoverSlotProps {
+  readonly hostKey: string;
+  readonly sessionId?: SessionId;
+  readonly workspaceId?: WorkspaceId;
+  readonly children: ReactElement;
+}
+
 export interface ShellSlots {
   /** The Intent column (448px): the conversation and composer of the selected session. */
   readonly SessionIntent: ComponentType<SessionSlotProps>;
@@ -44,6 +53,8 @@ export interface ShellSlots {
   readonly NeedsYouInbox: ComponentType;
   /** The K jump menu; the shell owns its open state (`useShellActions().openJump`). */
   readonly JumpMenu: ComponentType<JumpMenuProps>;
+  /** The Needs You hover card around a waiting session's row or its Workspace chip. */
+  readonly NeedsYouHover: ComponentType<NeedsYouHoverSlotProps>;
 }
 
 export const slots: ShellSlots = {
@@ -51,6 +62,7 @@ export const slots: ShellSlots = {
   SessionOutput,
   NewSession: NewSessionPage,
   NoSession: DefaultNoSession,
-  NeedsYouInbox: DefaultNeedsYouInbox,
+  NeedsYouInbox,
   JumpMenu: DefaultJumpMenu,
+  NeedsYouHover,
 };
