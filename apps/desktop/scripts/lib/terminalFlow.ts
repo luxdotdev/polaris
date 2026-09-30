@@ -2,7 +2,8 @@
  * The terminal in the smoke test, on the open session's Workspace: open the
  * drawer (⌃`), echo a round trip through the Daemon's PTY, hand the session
  * off to its terminal UI (the bench Harness runs `sh`) and take it back, and
- * paste an image into the composer so it is staged on the Host.
+ * paste an image into the composer so it is staged on the Host, and ⌥-drop a
+ * file so it is copied into the Workspace.
  */
 import type { Page } from "playwright-core";
 
@@ -45,6 +46,15 @@ const PASTE_IMAGE = `(() => {
   input.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
 })()`;
 
+/** ⌥-drop a text file on the composer: it is copied into the session's directory on the Host. */
+const ALT_DROP = `(() => {
+  const data = new DataTransfer();
+  data.items.add(new File(["hello from the smoke test\\n"], "smoke-note.txt", { type: "text/plain" }));
+  const input = document.querySelector('[data-testid="composer-input"]');
+  for (const type of ["dragenter", "dragover", "drop"])
+    input.dispatchEvent(new DragEvent(type, { dataTransfer: data, altKey: true, bubbles: true, cancelable: true }));
+})()`;
+
 export const terminalFlow = async ({
   page,
   step,
@@ -85,7 +95,11 @@ export const terminalFlow = async ({
   await page.evaluate(PASTE_IMAGE);
   await page
     .getByTestId("attachments")
-    .getByRole("button", { name: /^Remove pasted/ })
+    .getByRole("button", { name: "Remove pasted-1.png" })
     .waitFor({ timeout: 10_000 });
   step("pasted image staged on the Host");
+
+  await page.evaluate(ALT_DROP);
+  await page.getByText("Copied smoke-note.txt").waitFor({ timeout: 10_000 });
+  step("⌥-dropped file copied into the workspace");
 };

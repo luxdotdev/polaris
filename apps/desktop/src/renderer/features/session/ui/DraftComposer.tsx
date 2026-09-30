@@ -2,9 +2,14 @@
  * `@polaris/ui`'s Composer wired for typing: ↵ sends, ⇧↵ breaks the line, esc
  * stops a Working Turn, and pasted or dropped files become attachment chips.
  */
-import { Chip, CloseIcon, Composer, type Harness } from "@polaris/ui";
-import type { ClipboardEvent, DragEvent, KeyboardEvent, ReactNode } from "react";
-import { filesOf } from "../attachments.ts";
+import { Composer, type Harness } from "@polaris/ui";
+import type { KeyboardEvent, ReactNode } from "react";
+import {
+  AttachmentDrop,
+  AttachmentTray,
+  type DropMode,
+  type Upload,
+} from "../../attachments/index.ts";
 import type { StagedAttachment } from "../state.ts";
 
 export interface DraftComposerProps {
@@ -18,8 +23,10 @@ export interface DraftComposerProps {
   readonly working?: { readonly elapsed: ReactNode; readonly onStop: () => void } | undefined;
   readonly onEscape?: (() => void) | undefined;
   readonly attachments: ReadonlyArray<StagedAttachment>;
-  readonly staging: number;
-  readonly onFiles?: ((files: ReadonlyArray<File>) => void) | undefined;
+  readonly uploads: ReadonlyArray<Upload>;
+  readonly onFiles?: ((files: ReadonlyArray<File>, mode: DropMode) => void) | undefined;
+  /** Where ⌥-drop copies files, as shown; null or unset turns copying off. */
+  readonly copyTo?: string | null;
   readonly onRemoveAttachment: (attachment: StagedAttachment) => void;
   readonly branch?: string | undefined;
   readonly tools?: ReactNode;
@@ -28,32 +35,6 @@ export interface DraftComposerProps {
   readonly autoFocus?: boolean;
   readonly className?: string;
 }
-
-const AttachmentChips = ({
-  attachments,
-  staging,
-  onRemove,
-}: {
-  readonly attachments: ReadonlyArray<StagedAttachment>;
-  readonly staging: number;
-  readonly onRemove: (attachment: StagedAttachment) => void;
-}) =>
-  attachments.length === 0 && staging === 0 ? null : (
-    <div className="flex flex-wrap gap-1.5" data-testid="attachments">
-      {attachments.map((a) => (
-        <Chip
-          key={a.id}
-          variant="source"
-          onClick={() => onRemove(a)}
-          aria-label={`Remove ${a.name}`}
-        >
-          <span className="text-micro font-regular max-w-48 truncate font-mono">{a.name}</span>
-          <CloseIcon size={10} className="text-text-faint" />
-        </Chip>
-      ))}
-      {staging > 0 ? <span className="text-caption text-text-faint">Attaching…</span> : null}
-    </div>
-  );
 
 export const DraftComposer = ({
   harness,
@@ -66,8 +47,9 @@ export const DraftComposer = ({
   working,
   onEscape,
   attachments,
-  staging,
+  uploads,
   onFiles,
+  copyTo = null,
   onRemoveAttachment,
   branch,
   tools,
@@ -89,49 +71,36 @@ export const DraftComposer = ({
     }
   };
 
-  const take = (event: ClipboardEvent | DragEvent, data: DataTransfer | null) => {
-    const files = filesOf(data);
-
-    if (files.length === 0 || onFiles === undefined) return;
-    event.preventDefault();
-    onFiles(files);
-  };
-
   return (
-    <div
-      className={className}
-      onDragOver={(event) => {
-        if (onFiles !== undefined) event.preventDefault();
-      }}
-      onDrop={(event) => take(event, event.dataTransfer)}
-    >
-      <Composer
-        harness={harness}
-        model=""
-        picker={picker}
-        working={working}
-        branch={branch}
-        tools={tools}
-        prominentSend={prominentSend}
-        sendDisabled={!canSubmit}
-        onSend={onSubmit}
-        attachments={
-          <AttachmentChips
-            attachments={attachments}
-            staging={staging}
-            onRemove={onRemoveAttachment}
-          />
-        }
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        onKeyDown={onKeyDown}
-        onPaste={(event) => take(event, event.clipboardData)}
-        placeholder={placeholder}
-        disabled={disabled}
-        autoFocus={autoFocus}
-        aria-label="Prompt"
-        data-testid="composer-input"
-      />
+    <div className={className}>
+      <AttachmentDrop onFiles={onFiles} copyTo={copyTo}>
+        <Composer
+          harness={harness}
+          model=""
+          picker={picker}
+          working={working}
+          branch={branch}
+          tools={tools}
+          prominentSend={prominentSend}
+          sendDisabled={!canSubmit}
+          onSend={onSubmit}
+          attachments={
+            <AttachmentTray
+              attachments={attachments}
+              uploads={uploads}
+              onRemove={onRemoveAttachment}
+            />
+          }
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          onKeyDown={onKeyDown}
+          placeholder={placeholder}
+          disabled={disabled}
+          autoFocus={autoFocus}
+          aria-label="Prompt"
+          data-testid="composer-input"
+        />
+      </AttachmentDrop>
     </div>
   );
 };
