@@ -12,7 +12,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { HARNESS_CATALOGUE, type KnownHarnessKind } from "@polaris/protocol";
 import { Effect } from "effect";
-import { parseVersion, type ProbeEnv, probeHarness } from "./probe.ts";
+import {
+  claudeSignInKind,
+  codexSignInKind,
+  parseVersion,
+  type ProbeEnv,
+  probeHarness,
+} from "./probe.ts";
 
 const dirs: Array<string> = [];
 
@@ -390,4 +396,21 @@ test("probing loads no driver, so the Agent SDK, Codex bindings, OpenCode and AC
 
   expect(JSON.parse(await new Response(proc.stdout).text())).toEqual([]);
   expect(await proc.exited).toBe(0);
+});
+
+describe("sign-in kind", () => {
+  test("Claude Code: the plan, an API key, or a cloud provider; never an identity", () => {
+    expect(
+      claudeSignInKind({ loggedIn: true, authMethod: "claude.ai", subscriptionType: "max" })
+    ).toBe("Claude Max");
+    expect(claudeSignInKind({ loggedIn: true, authMethod: "api_key" })).toBe("API key");
+    expect(claudeSignInKind({ loggedIn: true, apiProvider: "bedrock" })).toBe("Amazon Bedrock");
+    expect(claudeSignInKind({ loggedIn: true, authMethod: "claude.ai" })).toBeNull();
+  });
+
+  test("Codex: how `codex login status` says it's signed in, never the key", () => {
+    expect(codexSignInKind("Logged in using ChatGPT\n")).toBe("ChatGPT");
+    expect(codexSignInKind("Logged in using an API key - sk-proj-***abcd\n")).toBe("API key");
+    expect(codexSignInKind("")).toBeNull();
+  });
 });

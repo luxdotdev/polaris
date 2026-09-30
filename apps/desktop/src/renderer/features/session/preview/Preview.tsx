@@ -133,6 +133,7 @@ const availability = (scene: Scene) => {
         status,
         version,
         minVersion: entry.minVersion,
+        signInKind: status === "ready" && entry.kind === "claude" ? "Claude Max" : null,
         detail: null,
         signInArgv: status === "not-installed" ? null : [...entry.setup.signInCommand],
       };

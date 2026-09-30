@@ -28,6 +28,8 @@ export interface RunResult {
 interface SignInState {
   readonly status: Extract<HarnessStatus, "ready" | "needs-sign-in" | "unknown">;
   readonly detail: string | null;
+  /** How it's signed in, when its status command says ("Claude Max", "ChatGPT"). */
+  readonly kind?: string | null;
 }
 
 interface Prober {
@@ -76,7 +78,43 @@ export const runProbe = (argv: ReadonlyArray<string>, env: ProbeEnv): Effect.Eff
 export const parseVersion = (text: string): string | null =>
   text.match(/(\d+\.\d+\.\d+(?:[-+][\w.-]*\w)?)/)?.[1] ?? null;
 
-const ClaudeAuthStatus = Schema.fromJsonString(Schema.Struct({ loggedIn: Schema.Boolean }));
+const ClaudeAuthStatus = Schema.fromJsonString(
+  Schema.Struct({
+    loggedIn: Schema.Boolean,
+    authMethod: Schema.optional(Schema.NullOr(Schema.String)),
+    apiProvider: Schema.optional(Schema.NullOr(Schema.String)),
+    subscriptionType: Schema.optional(Schema.NullOr(Schema.String)),
+  })
+);
+
+const PROVIDERS = new Map([
+  ["bedrock", "Amazon Bedrock"],
+  ["vertex", "Google Vertex AI"],
+  ["foundry", "Microsoft Foundry"],
+]);
+
+const titled = (word: string) => word.charAt(0).toUpperCase() + word.slice(1);
+
+/** "Claude Max", "API key", "Amazon Bedrock"; null when the status doesn't say. */
+export const claudeSignInKind = (status: typeof ClaudeAuthStatus.Type): string | null => {
+  const provider = status.apiProvider ?? "firstParty";
+
+  if (provider !== "firstParty") return PROVIDERS.get(provider) ?? provider;
+
+  if (status.subscriptionType) return `Claude ${titled(status.subscriptionType)}`;
+
+  return status.authMethod && /api/i.test(status.authMethod) ? "API key" : null;
+};
+
+/** "Logged in using ChatGPT" → "ChatGPT"; "…using an API key - sk-…" → "API key" (never the key). */
+export const codexSignInKind = (output: string): string | null => {
+  const match = /logged in using (?:an? )?([^\n-]+?)\s*(?:-|$)/im.exec(output);
+  const kind = match?.[1]?.trim() ?? "";
+
+  if (kind === "") return null;
+
+  return /^api key$/i.test(kind) ? "API key" : kind;
+};
 
 const decodeClaudeAuth = Schema.decodeUnknownOption(ClaudeAuthStatus);
 
@@ -103,9 +141,9 @@ const claude: Prober = {
           status: "unknown",
           detail: firstLine(result.stderr) ?? "`claude auth status` gave no answer",
         }),
-        onSome: ({ loggedIn }): SignInState =>
-          loggedIn
-            ? { status: "ready", detail: null }
+        onSome: (status): SignInState =>
+          status.loggedIn
+            ? { status: "ready", detail: null, kind: claudeSignInKind(status) }
             : { status: "needs-sign-in", detail: "not signed in" },
       });
     }),
@@ -127,7 +165,12 @@ const codex: Prober = {
         return { status: "needs-sign-in", detail: "Codex hasn't been run on this host yet" };
       const result = yield* runProbe([path, "login", "status"], env);
 
-      if (result.exitCode === 0) return { status: "ready", detail: null };
+      if (result.exitCode === 0)
+        return {
+          status: "ready",
+          detail: null,
+          kind: codexSignInKind(`${result.stdout}\n${result.stderr}`),
+        };
 
       if (/not logged in/i.test(`${result.stderr}\n${result.stdout}`))
         return { status: "needs-sign-in", detail: "not signed in" };
@@ -210,11 +253,14 @@ export const olderThanTested = (entry: HarnessEntry, version: string | null): st
 
 const availability = (
   entry: HarnessEntry<KnownHarnessKind>,
-  fields: Pick<HarnessAvailability, "status" | "version" | "detail" | "signInArgv">
+  fields: Pick<HarnessAvailability, "status" | "version" | "detail" | "signInArgv"> & {
+    readonly signInKind?: string | null;
+  }
 ) =>
   new HarnessAvailability({
     harness: entry.kind,
     minVersion: entry.minVersion,
+    signInKind: null,
     olderThanTested: fields.status === "outdated" ? null : olderThanTested(entry, fields.version),
     ...fields,
   });
@@ -260,5 +306,7 @@ export const probeHarness = Effect.fn("harness.availability.probe")(function* (
     });
   const signIn = yield* prober.signIn(path, probeEnv);
 
-  return availability(entry, { ...signIn, version, signInArgv });
+  const { kind, ...state } = signIn;
+
+  return availability(entry, { ...state, signInKind: kind ?? null, version, signInArgv });
 });

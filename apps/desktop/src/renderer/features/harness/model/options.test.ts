@@ -21,6 +21,7 @@ const probe = (
   status,
   version,
   minVersion: "2.0.0",
+  signInKind: null,
   olderThanTested,
   detail: status === "ready" ? null : "said the Harness",
   signInArgv: status === "not-installed" ? null : [harness, "login"],

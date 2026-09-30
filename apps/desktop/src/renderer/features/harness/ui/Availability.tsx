@@ -88,7 +88,11 @@ const Row = ({
         {option.version ?? ""}
       </span>
       <span className="text-caption text-text-subtle flex w-36 shrink-0 flex-col">
-        <span>{STATUS_LABELS[option.status]}</span>
+        <span>
+          {option.signInKind === null
+            ? STATUS_LABELS[option.status]
+            : `${STATUS_LABELS[option.status]} · ${option.signInKind}`}
+        </span>
         {option.note === null ? null : (
           <span data-testid={`note-${option.kind}`}>{option.note}</span>
         )}

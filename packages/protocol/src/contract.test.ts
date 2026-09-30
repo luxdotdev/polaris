@@ -238,6 +238,22 @@ describe("contract compatibility", () => {
     expect(roundTrip(UsageStreamItem, limit)).toEqual(limit);
   });
 
+  test("a report from before signInKind decodes with it null", () => {
+    const old = {
+      harness: "claude",
+      status: "ready",
+      version: "2.1.283",
+      minVersion: "2.1.283",
+      detail: null,
+      signInArgv: null,
+    };
+
+    expect(Schema.decodeUnknownSync(HarnessAvailability)(old).signInKind).toBeNull();
+    expect(
+      Schema.decodeUnknownSync(HarnessAvailability)({ ...old, signInKind: "Claude Max" }).signInKind
+    ).toBe("Claude Max");
+  });
+
   test("Harness availability round-trips; a status from a newer Daemon decodes as unknown", () => {
     const report = new HostHarnesses({
       checkedAt: "2026-01-01T00:00:00Z",
@@ -249,6 +265,7 @@ describe("contract compatibility", () => {
             version: "9.9.9",
             minVersion: harness.minVersion,
             olderThanTested: harness.testedVersion,
+            signInKind: null,
             detail: "Not logged in",
             signInArgv: [`/usr/local/bin/${harness.kind}`, ...harness.setup.signInCommand.slice(1)],
           })

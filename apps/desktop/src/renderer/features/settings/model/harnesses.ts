@@ -83,11 +83,21 @@ const STATUS_ROW: Readonly<
     HarnessStatus,
     (
       entry: Entry,
-      found: { minVersion: string; signInArgv: ReadonlyArray<string> | null }
+      found: {
+        minVersion: string;
+        signInArgv: ReadonlyArray<string> | null;
+        signInKind?: string | null;
+      }
     ) => Omit<HostRow, "hostKey" | "hostLabel" | "version" | "note">
   >
 > = {
-  ready: () => ({ glyph: "ready", text: "Ready", ready: true, action: null }),
+  // DESIGN.md S1: "ready with its sign-in kind" ("Ready · Claude Max") when the Harness says.
+  ready: (_entry, found) => ({
+    glyph: "ready",
+    text: found.signInKind ? `Ready · ${found.signInKind}` : "Ready",
+    ready: true,
+    action: null,
+  }),
   "needs-sign-in": (_entry, found) => ({
     glyph: "sign-in",
     text: "Needs sign-in",

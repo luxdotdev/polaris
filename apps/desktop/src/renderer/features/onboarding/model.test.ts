@@ -62,6 +62,7 @@ const reported = (
     status,
     version,
     minVersion: "0",
+    signInKind: null,
     olderThanTested,
     detail: null,
     signInArgv: null,

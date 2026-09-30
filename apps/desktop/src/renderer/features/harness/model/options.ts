@@ -37,6 +37,8 @@ export interface HarnessOption {
   readonly detail: string | null;
   /** Its setup guide; null for a kind this build's catalogue doesn't list. */
   readonly docsUrl: string | null;
+  /** How it's signed in ("Claude Max", "ChatGPT"), when it says; null otherwise. */
+  readonly signInKind: string | null;
   /** Its own sign-in, to run in a terminal on the Host; null unless it needs signing in. */
   readonly signInArgv: ReadonlyArray<string> | null;
   /** "older than tested (2.1.283)" for a usable version below the tested one; null otherwise. */
@@ -71,6 +73,7 @@ interface Probe {
   readonly olderThanTested: string | null;
   readonly detail: string | null;
   readonly signInArgv: ReadonlyArray<string> | null;
+  readonly signInKind?: string | null;
 }
 
 const installed = (name: string, version: string | null) =>
@@ -108,6 +111,7 @@ const option = (probe: Probe, listed = LISTED.has(probe.status)): HarnessOption 
     detail: probe.status === "ready" ? null : probe.detail,
     docsUrl: entry?.setup.docsUrl ?? null,
     signInArgv: probe.status === "needs-sign-in" ? probe.signInArgv : null,
+    signInKind: probe.status === "ready" ? (probe.signInKind ?? null) : null,
     note: olderThanTestedNote(probe.olderThanTested),
   };
 };
