@@ -198,9 +198,14 @@ export const HostDetails = ({ machine }: { readonly machine: MachineView }) => {
         <Attention machine={machine} />
       )}
       {note === null ? null : (
-        <p className="text-caption text-text-subtle" data-testid="install-outcome">
-          {note}
-        </p>
+        <div className="flex flex-col gap-0.5" data-testid="install-outcome">
+          <p className="text-caption text-text-subtle">{note}</p>
+          {(machine.install?.outcome?.notes ?? []).map((line) => (
+            <p key={line} className="text-caption text-text-faint">
+              {line}
+            </p>
+          ))}
+        </div>
       )}
       {machine.status?.state === "connected" ? <Harnesses machine={machine} /> : null}
       <div className="border-hairline flex flex-col gap-3 border-t pt-3">

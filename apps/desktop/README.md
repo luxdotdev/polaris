@@ -22,8 +22,9 @@ node scripts/sessionScreens.ts --out <dir> [--frames]   # the shell with the ses
 | `src/shared/api.ts` | Outputs, feed items, `AppEvent`, channel names and `PolarisApi` (`window.polaris`). Types and constants only. |
 | `src/preload/index.ts` | `contextBridge` exposes `PolarisApi`; one listener demultiplexes every subscription's batches. CommonJS, sandboxed. |
 | `src/main/index.ts` | App lifecycle, settings, appearance, window, protocol, IPC; prints `polaris: ready` once painted and the local Host is up. |
-| `src/main/hosts.ts` | `HostDirectory`: the Hosts from settings on the HostRegistry, and their `HostView`s (Connection States) for the renderers. |
-| `src/main/ipc/` | `requests.ts` (one handler per method; blobs taken here and sent as bytes), `feeds.ts` (host, session, terminal, files.watch, hosts), `subscriptions.ts` (per window), `batcher.ts` (one IPC message per 4 ms window per window), `install.ts` (`install.ensure`). |
+| `src/main/hosts.ts` | `HostDirectory`: the Hosts on the HostRegistry (added and removed at runtime), and their `HostView`s (Connection States) for the renderers. |
+| `src/main/machines/` | `Machines`: remote Hosts by `~/.ssh/config` alias, each one's install flow (probe, one-time approval, install, upgrade), approvals, the Daemon builds, the local Host switch; the `machines` feed (its README). |
+| `src/main/ipc/` | `requests.ts` (one handler per method; blobs taken here and sent as bytes), `feeds.ts` (host, session, terminal, files.watch, hosts, machines), `subscriptions.ts` (per window), `batcher.ts` (one IPC message per 4 ms window per window), `install.ts` (`install.ensure`). |
 | `src/main/localDaemon.ts` | Which socket the local Host uses; the dev Daemon. |
 | `src/main/protocol.ts`, `window.ts`, `menu.ts` | `app://polaris` with a strict CSP, the `hiddenInset` window, the native menu (⌘1–3, appearance, density). |
 | `src/main/snapshotCache.ts` | The last synchronized Host snapshots, painted at launch and then revalidated (ENG-175). |
@@ -75,13 +76,34 @@ To wire a feature: in `slots.tsx`, import its component and replace the default,
 
 ## Settings
 
-`<userData>/settings.json`: `theme` (`system` | `dark` | `light`), `density` (`calm` | `balanced` | `compact`), and `hosts`: `[{ alias, label?, colour?, forwardAgent? }]` by `~/.ssh/config` alias. The renderer sets `data-theme` (unset for system) and `data-density` on the root.
+`<userData>/settings.json`: `theme` (`system` | `dark` | `light`), `density` (`calm` | `balanced` | `compact`), `hosts`: `[{ alias, label?, colour?, forwardAgent?, remoteCommand? }]` by `~/.ssh/config` alias (edited from Settings → Hosts), and `local: { enabled }` (this Mac as a Host; on by default). `<userData>/approvals.json` holds the approved Daemon builds per alias. The renderer sets `data-theme` (unset for system) and `data-density` on the root.
 
-Environment: `POLARIS_DESKTOP_EXTRA_HOSTS` (screenshots and tests: `[{ key, label, socket }]`, more Hosts on local sockets), `POLARIS_DESKTOP_LOCAL_LABEL`, `POLARIS_DESKTOP_USER_DATA`, `POLARIS_DESKTOP_HIDDEN=1`, `POLARIS_DESKTOP_LOCAL_SOCKET` (+ `POLARIS_DESKTOP_BENCH_HARNESS=1`), `POLARIS_DESKTOP_DAEMON=system|dev`.
+Environment: `POLARIS_DESKTOP_EXTRA_HOSTS` (screenshots and tests: `[{ key, label, socket }]`, more Hosts on local sockets), `POLARIS_DESKTOP_LOCAL_LABEL`, `POLARIS_DESKTOP_USER_DATA`, `POLARIS_DESKTOP_HIDDEN=1`, `POLARIS_DESKTOP_LOCAL_SOCKET` (+ `POLARIS_DESKTOP_BENCH_HARNESS=1`), `POLARIS_DESKTOP_DAEMON=system|dev`, `POLARIS_DESKTOP_DAEMON_DIST` (the Daemon builds to upload), `POLARIS_DESKTOP_SSH_HOME` (whose `~/.ssh/config` lists aliases; tests).
+
+## Test from another machine
+
+The Desktop App on your laptop, driving a Mac Studio (or a Linux VM, or a Pi) over SSH.
+
+**Prerequisites**
+
+- The Studio: Remote Login on (System Settings → General → Sharing), and your laptop's key in its `~/.ssh/authorized_keys` (`ssh-copy-id studio`). Polaris never answers a password or 2FA prompt.
+- The laptop: a `Host studio` block in `~/.ssh/config` (HostName, User, and IdentityFile or an agent key). Polaris only ever uses the alias. Run `ssh studio true` once to trust its host key (or use "Open in Terminal" on the host-key-unknown card).
+- Daemon builds: a packaged app carries them. In dev (`bun run --cwd apps/desktop dev`), the app builds the Studio's platform from source the first time (`bun scripts/build-daemon.ts darwin-arm64`, needs this repo, Bun and, for darwin, `codesign`), or prebuild all with `bun run --cwd apps/daemon build`.
+- A Harness on the Studio (Claude Code or Codex), installed and signed in there. Polaris never installs one; Settings → Hosts links its setup docs and hands sign-in to Terminal.
+
+**What to expect**
+
+1. Settings → Hosts → **Add a host**: pick `studio`, name it "Mac Studio", leave agent forwarding off. The row appears and says it's checking.
+2. No Daemon there yet: the row expands to the approval card with the platform, version, full SHA-256 and `~/.polaris on studio`. **Approve and install** copies the build over SSH, checks its SHA-256 on the Studio and runs `polaris install` (a LaunchAgent; over SSH with nobody logged in at the console it runs in the user domain, and the row's note says so). Nothing is downloaded on the Studio, and nothing needs sudo.
+3. The row turns Connected with the Daemon's version; the Studio's Workspaces appear in the machine bar. Later upgrades install on their own and say so under the row; a reconnect never installs.
+4. If something needs you, the row says what inline, with ssh's own line and at most one fix: host key unknown (Open in Terminal) or changed (copy `ssh-keygen -R studio`, never a one-click fix), key refused, daemon not running (Start daemon), older daemon (Upgrade).
+
+The remote command defaults to `~/.polaris/bin/current/polaris bridge` (not on PATH in a non-interactive shell); a row's details can override it.
 
 ## Known gaps
 
-- Settings for Hosts have no UI yet; edit the file. The install / upgrade approval flow is exposed (`install.ensure`) but has no UI, and approvals are not stored.
+- Install progress is per step (checking, copying and checking the SHA-256), not per byte; the client reports no byte progress.
+- Terminal hand-offs (Open in Terminal, sign-in) use macOS Terminal through a `.command` file.
 - The macOS window closes the app (no dock-only mode yet); no vibrancy.
 - The production CSP allows `style-src 'unsafe-inline'` (Radix and sonner inject `<style>` elements); accepted for now, scripts stay `'self'` only.
 - The dev server is `http://127.0.0.1:5198` (strict): the `@polaris/ui` gallery holds 5199.
@@ -89,4 +111,4 @@ Environment: `POLARIS_DESKTOP_EXTRA_HOSTS` (screenshots and tests: `[{ key, labe
 - The session view's diff is a lightweight unified renderer (no syntax or word highlights, long lines truncate); Pierre Diffs arrives with Review. Diffs over 4 MB aren't parsed here.
 - The conversation shows a session's last 20 Turns (the feed's `turnLimit`); older ones aren't paged in yet. Assistant text is plain (no Markdown yet).
 - `@polaris/ui`'s `Row` can't be used with `asChild` (its Slot gets several children), so session rows are `role="button"` divs.
-- No Sources chips, "Add machine" or per-session age of last activity yet; ages are since the session was created.
+- No Sources chips or per-session age of last activity yet; ages are since the session was created.
