@@ -131,8 +131,12 @@ const resize = (inst: Instance, cols: number, rows: number) => {
   }, RESIZE_DEBOUNCE_MS);
 };
 
-const monoFamily = () =>
-  `"SF Mono", SFMono-Regular, ${getComputedStyle(document.documentElement).getPropertyValue("--font-mono") || "ui-monospace, Menlo, monospace"}`;
+/** SF Mono, then the token's stack; a Nerd Font, when installed, draws prompt glyphs SF Mono lacks. */
+const monoFamily = () => {
+  const token = getComputedStyle(document.documentElement).getPropertyValue("--font-mono").trim();
+
+  return `"SF Mono", SFMono-Regular, ${token === "" ? "ui-monospace, Menlo" : token}, "Symbols Nerd Font Mono", monospace`;
+};
 
 const create = (hostKey: string, terminalId: string): Instance => {
   const term = new Terminal({

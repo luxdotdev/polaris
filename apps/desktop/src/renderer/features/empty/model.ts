@@ -48,8 +48,12 @@ export const absolutePath = (path: string, homeDir: string | null): string | nul
 export const readyLine = (names: ReadonlyArray<string>, host: string): string => {
   if (names.length === 0) return `No harness is ready on ${host} yet`;
 
+  const [first, second] = names;
+
   const list =
-    names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+    names.length > 2
+      ? `${first}, ${second} and ${plural(names.length - 2, "other")}`
+      : names.join(" and ");
 
   return `${list} ${names.length === 1 ? "is" : "are"} ready on ${host}`;
 };

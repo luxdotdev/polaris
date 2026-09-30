@@ -33,8 +33,9 @@ describe("empty-state copy", () => {
   test("ready harnesses read as a list", () => {
     expect(readyLine([], "Pi")).toBe("No harness is ready on Pi yet");
     expect(readyLine(["Codex"], "Pi")).toBe("Codex is ready on Pi");
+    expect(readyLine(["Claude Code", "Codex"], "Pi")).toBe("Claude Code and Codex are ready on Pi");
     expect(readyLine(["Claude Code", "Codex", "OpenCode"], "Pi")).toBe(
-      "Claude Code, Codex and OpenCode are ready on Pi"
+      "Claude Code, Codex and 1 other are ready on Pi"
     );
   });
 
