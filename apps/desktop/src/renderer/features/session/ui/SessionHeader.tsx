@@ -25,7 +25,7 @@ import { useState } from "react";
 import { Commands } from "../../../commands.ts";
 import type { SessionData } from "../../../store/plain.ts";
 import { sessionStateLabel } from "../../../shell/copy.ts";
-import { OpenInTerminalItem } from "../../terminal/index.ts";
+import { keepTerminalFocus, OpenInTerminalItem } from "../../terminal/index.ts";
 import { send } from "../dispatch.ts";
 import {
   archiveCommand,
@@ -108,7 +108,7 @@ const SessionMenu = ({
           <ChevronDownIcon size={14} />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-52">
+      <DropdownMenuContent align="end" className="min-w-52" onCloseAutoFocus={keepTerminalFocus}>
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             Permissions
