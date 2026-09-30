@@ -87,8 +87,11 @@ const Row = ({
       <span className="text-code-inline text-text-subtle w-24 shrink-0 truncate font-mono">
         {option.version ?? ""}
       </span>
-      <span className="text-caption text-text-subtle w-36 shrink-0">
-        {STATUS_LABELS[option.status]}
+      <span className="text-caption text-text-subtle flex w-36 shrink-0 flex-col">
+        <span>{STATUS_LABELS[option.status]}</span>
+        {option.note === null ? null : (
+          <span data-testid={`note-${option.kind}`}>{option.note}</span>
+        )}
       </span>
       <span className="flex w-36 shrink-0 justify-end">
         <HarnessAction option={option} onSignIn={onSignIn} />

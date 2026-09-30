@@ -248,6 +248,7 @@ describe("contract compatibility", () => {
             status: "needs-sign-in",
             version: "9.9.9",
             minVersion: harness.minVersion,
+            olderThanTested: harness.testedVersion,
             detail: "Not logged in",
             signInArgv: [`/usr/local/bin/${harness.kind}`, ...harness.setup.signInCommand.slice(1)],
           })
@@ -268,9 +269,24 @@ describe("contract compatibility", () => {
     });
   });
 
-  test("every catalogue entry declares a minimum version", () => {
-    for (const harness of HARNESS_CATALOGUE)
+  test("every catalogue entry declares a tested version at or above its minimum", () => {
+    for (const harness of HARNESS_CATALOGUE) {
       expect(Bun.semver.satisfies(harness.minVersion, "*")).toBe(true);
+      expect(Bun.semver.order(harness.minVersion, harness.testedVersion)).toBeLessThanOrEqual(0);
+    }
+  });
+
+  test("availability from a Daemon before the tested version decodes with no note", () => {
+    const legacy = Schema.decodeUnknownSync(HarnessAvailability)({
+      harness: "claude",
+      status: "ready",
+      version: "2.1.283",
+      minVersion: "2.1.283",
+      detail: null,
+      signInArgv: ["/usr/local/bin/claude", "auth", "login"],
+    });
+
+    expect(legacy.olderThanTested).toBeNull();
   });
 
   test("items and Turn details from before Subagents decode as the Turn's own", () => {

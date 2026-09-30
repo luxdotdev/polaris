@@ -143,4 +143,38 @@ describe("Claude Models", () => {
     expect(fake.inputs).toEqual([]);
     await Effect.runPromise(Scope.close(scope, Exit.void));
   });
+
+  test("an older Claude Code that refuses a control request still runs the Turn", async () => {
+    const fake = new FakeClaude();
+    fake.refuses.add("applyFlagSettings");
+    fake.refuses.add("setModel");
+    const scope = Effect.runSync(Scope.make());
+
+    const session = await Effect.runPromise(
+      makeClaudeDriver({ query: fake.query, claudePath })
+        .open({
+          sessionId: SessionId.make("s1"),
+          cwd: "/work",
+          permissionMode: "supervised",
+          model: null,
+          effort: null,
+          resumeCursor: null,
+        })
+        .pipe(Scope.provide(scope))
+    );
+
+    const sent = await Effect.runPromiseExit(
+      session.sendTurn({
+        turnId: TurnId.make("t1"),
+        prompt: "hi",
+        attachments: [],
+        model: "sonnet",
+        effort: "high",
+      })
+    );
+
+    expect(Exit.isSuccess(sent)).toBe(true);
+    expect((await fake.nextInput(0)).message).toMatchObject({ role: "user" });
+    await Effect.runPromise(Scope.close(scope, Exit.void));
+  });
 });

@@ -106,10 +106,13 @@ const HarnessCard = ({
   const { models } = useHarnessModels(hostKey, option.kind, option.startable);
   const choice = picked ?? defaultChoice(option.kind, models);
 
-  const caption =
+  const status =
     option.status === "ready" || option.status === "unknown"
       ? modelLabel(models, choice?.model ?? null, choice?.effort ?? null)
       : STATUS_LABELS[option.status];
+
+  // The Model comes first, so a truncated caption keeps it.
+  const caption = option.note === null ? status : `${status} · ${option.note}`;
 
   return (
     <Card

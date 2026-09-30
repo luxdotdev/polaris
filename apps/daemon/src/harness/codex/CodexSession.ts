@@ -55,6 +55,7 @@ import {
 import * as P from "./protocol.ts";
 import { codexError, Incoming, type RpcConnection } from "./RpcConnection.ts";
 import { CodexSubagents } from "./subagents.ts";
+import { requestCompat } from "./compat.ts";
 
 export interface SessionConfig {
   readonly appServer: AppServer;
@@ -281,17 +282,30 @@ export const openSession = (
 
     if (options.model !== null) common.model = options.model;
 
+    // Without the fields an older app-server may refuse (compat.ts): approvals go to the user.
+    const { approvalsReviewer: _reviewer, ...olderCommon } = common;
+
     const threadResult =
       options.resumeCursor === null
-        ? yield* conn.request("thread/start", {
-            ...common,
-            serviceName: "polaris",
-          } satisfies P.ClientParams["thread/start"])
-        : yield* conn.request("thread/resume", {
-            ...common,
-            threadId: options.resumeCursor,
-            excludeTurns: true,
-          } satisfies P.ClientParams["thread/resume"]);
+        ? yield* requestCompat(
+            conn,
+            "thread/start",
+            { ...common, serviceName: "polaris" } satisfies P.ClientParams["thread/start"],
+            olderCommon satisfies P.ClientParams["thread/start"]
+          )
+        : yield* requestCompat(
+            conn,
+            "thread/resume",
+            {
+              ...common,
+              threadId: options.resumeCursor,
+              excludeTurns: true,
+            } satisfies P.ClientParams["thread/resume"],
+            {
+              ...olderCommon,
+              threadId: options.resumeCursor,
+            } satisfies P.ClientParams["thread/resume"]
+          );
 
     const thread = decodeThread(threadResult);
 
@@ -647,9 +661,11 @@ export const openSession = (
 
         if (chosen.effort !== null) params.effort = chosen.effort;
 
-        const result = yield* conn
-          .request("turn/start", params)
-          .pipe(Effect.ensuring(Effect.sync(() => (pendingLocalTurn = null))));
+        const { approvalsReviewer: _reviewer, effort: _effort, ...older } = params;
+
+        const result = yield* requestCompat(conn, "turn/start", params, older).pipe(
+          Effect.ensuring(Effect.sync(() => (pendingLocalTurn = null)))
+        );
 
         const started = decodeTurnStart(result);
 

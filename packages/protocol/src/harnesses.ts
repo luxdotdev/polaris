@@ -34,7 +34,12 @@ export interface HarnessEntry<K extends string = string> {
   readonly name: string;
   /** The capability a Daemon announces in `hello` when it has this Harness's driver. */
   readonly capability: `harness.${K}`;
-  /** The oldest version its driver supports; older installs report `outdated`. */
+  /**
+   * The version its driver was built and tested against. An install between
+   * `minVersion` and this one works, with a quiet "older than tested" note.
+   */
+  readonly testedVersion: string;
+  /** The oldest version its driver works with; older installs report `outdated`. */
   readonly minVersion: string;
   /** False until DESIGN.md gives the Harness an identity hue; Clients show a neutral tile. */
   readonly hued?: false;
@@ -50,7 +55,9 @@ export const HARNESS_CATALOGUE = [
   entry("claude", {
     name: "Claude Code",
     // The Claude Code the pinned Agent SDK is built for (`claudeCodeVersion`).
-    minVersion: "2.1.283",
+    testedVersion: "2.1.283",
+    // Every flag and control request the driver uses exists in 2.1.272 (availability README).
+    minVersion: "2.1.0",
     setup: {
       install: "Claude Code isn't installed on this host. See its setup guide.",
       signIn: "Sign in to Claude Code in its own terminal.",
@@ -61,7 +68,9 @@ export const HARNESS_CATALOGUE = [
   entry("codex", {
     name: "Codex",
     // The codex-cli the app-server bindings were generated from.
-    minVersion: "0.157.1",
+    testedVersion: "0.158.0",
+    // Unknown params are ignored by older app-servers; see the availability README.
+    minVersion: "0.154.0",
     setup: {
       install: "Codex isn't installed on this host. See its setup guide.",
       signIn: "Sign in to Codex in its own terminal.",
@@ -72,6 +81,7 @@ export const HARNESS_CATALOGUE = [
   entry("opencode", {
     name: "OpenCode",
     // The opencode the server types in the Daemon's `opencode/generated/` came from.
+    testedVersion: "1.18.33",
     minVersion: "1.18.33",
     setup: {
       install: "OpenCode isn't installed on this host. See its setup guide.",
@@ -85,6 +95,7 @@ export const HARNESS_CATALOGUE = [
   entry("gemini", {
     name: "Gemini CLI",
     hued: false,
+    testedVersion: "0.61.0",
     // The first release with `--acp` (before it, only `--experimental-acp`).
     minVersion: "0.33.0",
     setup: {
@@ -97,6 +108,7 @@ export const HARNESS_CATALOGUE = [
   entry("copilot", {
     name: "GitHub Copilot CLI",
     hued: false,
+    testedVersion: "1.0.89",
     // The first general-availability release; ACP, session load and effort predate it.
     minVersion: "1.0.0",
     setup: {

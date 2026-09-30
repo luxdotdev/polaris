@@ -170,6 +170,52 @@ describe("probeHarness", () => {
     });
   });
 
+  test("between the minimum and the tested version it's usable, with a quiet note", async () => {
+    // The versions real Hosts ran (B4c): Claude Code 2.1.272 and 2.1.282, Codex 0.154.0.
+    for (const version of ["2.1.272", "2.1.282"]) {
+      const host = fakeHost();
+      writeFileSync(join(host.home, ".claude.json"), "{}");
+      fakeBinary(host, "claude", {
+        version: `echo '${version} (Claude Code)'; exit 0`,
+        status: claudeStatus(true),
+      });
+
+      expect(await probe("claude", host.env)).toMatchObject({
+        status: "ready",
+        version,
+        olderThanTested: entry("claude").testedVersion,
+      });
+    }
+
+    const host = fakeHost();
+    mkdirSync(join(host.home, ".codex"));
+    fakeBinary(host, "codex", { version: "echo 'codex-cli 0.154.0'; exit 0", status: "exit 0" });
+
+    expect(await probe("codex", host.env)).toMatchObject({
+      status: "ready",
+      version: "0.154.0",
+      olderThanTested: entry("codex").testedVersion,
+    });
+  });
+
+  test("the tested version or newer carries no note; a note survives needs-sign-in", async () => {
+    const host = fakeHost();
+    writeFileSync(join(host.home, ".claude.json"), "{}");
+    const tested = entry("claude").testedVersion;
+    fakeBinary(host, "claude", { version: `echo ${tested}; exit 0`, status: claudeStatus(true) });
+
+    expect(await probe("claude", host.env)).toMatchObject({ olderThanTested: null });
+
+    const old = fakeHost();
+    writeFileSync(join(old.home, ".claude.json"), "{}");
+    fakeBinary(old, "claude", { version: "echo 2.1.272; exit 0", status: claudeStatus(false) });
+
+    expect(await probe("claude", old.env)).toMatchObject({
+      status: "needs-sign-in",
+      olderThanTested: tested,
+    });
+  });
+
   test("below the declared minimum is outdated, and sign-in isn't checked", async () => {
     const host = fakeHost();
     mkdirSync(join(host.home, ".codex"));
@@ -179,6 +225,7 @@ describe("probeHarness", () => {
       status: "outdated",
       version: "0.100.0",
       minVersion: entry("codex").minVersion,
+      olderThanTested: null,
     });
     expect(host.calls()).toEqual(["--version"]);
   });

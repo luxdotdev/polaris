@@ -48,6 +48,8 @@ export class FakeClaude {
   /** `setModel` calls; undefined is "back to the default". */
   readonly models: Array<string | undefined> = [];
   readonly flagSettings: Array<Parameters<Query["applyFlagSettings"]>[0]> = [];
+  /** Control requests this fake Claude Code refuses, as an older one would. */
+  readonly refuses = new Set<"setModel" | "applyFlagSettings">();
   /** What `supportedModels()` answers. */
   modelInfos: Awaited<ReturnType<Query["supportedModels"]>> = [];
   interrupts = 0;
@@ -78,9 +80,12 @@ export class FakeClaude {
         this.permissionModes.push(mode);
       },
       setModel: async (model) => {
+        if (this.refuses.has("setModel")) throw new Error("Unsupported control request: set_model");
         this.models.push(model);
       },
       applyFlagSettings: async (settings) => {
+        if (this.refuses.has("applyFlagSettings"))
+          throw new Error("Unsupported control request: apply_flag_settings");
         this.flagSettings.push(settings);
       },
       supportedModels: async () => this.modelInfos,

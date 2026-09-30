@@ -19,7 +19,16 @@ Checked in this order, stopping at the first that applies:
 
 `signInArgv` is the catalogue's `setup.signInCommand` with the binary the Daemon found as `argv[0]`, for `terminal.open` on the Host. That matters under launchd / systemd, whose PATH often lacks nvm or Homebrew. Polaris never signs in for the user; the Harness does, in its own terminal. Once that terminal exits, a Client asks `harness.availability` with `refresh: true`.
 
-`minVersion`: Claude Code `2.1.283`, the `claudeCodeVersion` the pinned Agent SDK (0.3.283) is built for. Codex `0.157.1`, the codex-cli the app-server bindings in `../codex/generated/` came from. OpenCode `1.18.33`, the opencode the server types in `../opencode/generated/` came from. Raise them with the SDK or the bindings. The ACP Harnesses' are explained in `../acp/README.md`.
+## Versions: a tested version and a soft floor
+
+Each catalogue entry has a `testedVersion`, the one its driver was built and tested against, and a `minVersion`, the oldest it works with. A version below `minVersion` is `outdated`. One at or above it but below `testedVersion` gets its status as usual (usually `ready`) with `olderThanTested` set to the tested version, which Clients show as a quiet "older than tested (2.1.283)" caption, never a signal colour or an update action (DESIGN.md, Settings S1). Polaris never updates a Harness.
+
+| Harness | `testedVersion` | `minVersion` | What was checked |
+|---|---|---|---|
+| Claude Code | `2.1.283`, the `claudeCodeVersion` the pinned Agent SDK (0.3.283) is built for | `2.1.0` | The SDK checks no CLI version. The flags our options make it pass (`--output-format`, `--input-format`, `--verbose`, `--effort`, `--model`, `--permission-prompt-tool`, `--resume`, `--setting-sources`, `--permission-mode`, `--allow-dangerously-skip-permissions`, `--include-partial-messages`, `--add-dir`; for listing Models `--strict-mcp-config`, `--no-session-persistence`, `--settings`) are all in `claude --help` of 2.1.272 (the oldest on a real Host), and so are the control requests (`initialize` with `forwardSubagentText`, `set_model`, `set_permission_mode`, `apply_flag_settings`) and messages (`task_started`, `task_notification`, `user_message_uuids`) we use. Nothing was checked below 2.1.272; 2.1.0 is the same minor. If an older one refuses `set_model` or `apply_flag_settings`, the Turn still runs on what the query had (`ClaudeDriver.ts`, `tryControl`). |
+| Codex | `0.158.0`, the codex-cli the app-server bindings in `../codex/generated/` came from | `0.154.0` | The app-server's params (the JSON schemas `codex app-server generate-json-schema` writes) allow unknown fields, so an older one ignores the newer optional ones. An enum value it doesn't know (`approvalsReviewer: "auto_review"`) is refused with "invalid params": then `thread/start`, `thread/resume` and `turn/start` are sent once more without `approvalsReviewer` (approvals go to the user), `effort` and `excludeTurns` (`../codex/compat.ts`). `model/list` failing leaves the Model list unavailable; Subagents need multi-agent items, which an older one simply doesn't send. |
+| OpenCode | `1.18.33`, the opencode the server types in `../opencode/generated/` came from | `1.18.33` | Not relaxed: its HTTP API is unstable (ENG-197). |
+| Gemini CLI, Copilot CLI | `0.61.0`, `1.0.89` (measured) | see `../acp/README.md` | Their floors are the ACP features they need. |
 
 ## Detecting sign-in without credentials
 

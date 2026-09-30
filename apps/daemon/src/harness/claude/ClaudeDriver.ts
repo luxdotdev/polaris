@@ -375,25 +375,39 @@ const openSession = Effect.fnUntraced(function* (
   /** The Model and effort the live query runs with; a Turn that asks for others switches first. */
   const running = { model: options.model, effort: options.effort };
 
+  /**
+   * A control request an older Claude Code may not know: on failure the Turn still runs, on
+   * what the query already had. See the availability README for the versions checked.
+   */
+  const tryControl = (what: string, request: () => Promise<void>) =>
+    Effect.tryPromise(request).pipe(
+      Effect.as(true),
+      Effect.catch((cause) =>
+        Effect.logWarning(`Claude Code: ${what} failed; the Turn runs without it`, cause).pipe(
+          Effect.as(false)
+        )
+      )
+    );
+
   const switchTo = Effect.fnUntraced(function* (model: string | null, effort: string | null) {
     if (model !== running.model) {
-      yield* Effect.tryPromise({
-        try: () => q.setModel(model ?? undefined),
-        catch: (cause) =>
-          harnessError(`Could not switch to ${model ?? "the default Model"}`, cause),
-      });
-      running.model = model;
+      const switched = yield* tryControl(`switching to ${model ?? "the default Model"}`, () =>
+        q.setModel(model ?? undefined)
+      );
+
+      if (switched) running.model = model;
     }
 
     if (effort === running.effort) return;
 
     if (effort !== null && !isEffortLevel(effort)) return yield* unknownEffort(effort);
+
     // A null effortLevel goes back to the Model's default effort.
-    yield* Effect.tryPromise({
-      try: () => q.applyFlagSettings({ effortLevel: effort }),
-      catch: (cause) => harnessError(`Could not set the effort to ${effort ?? "default"}`, cause),
-    });
-    running.effort = effort;
+    const set = yield* tryControl(`setting the effort to ${effort ?? "default"}`, () =>
+      q.applyFlagSettings({ effortLevel: effort })
+    );
+
+    if (set) running.effort = effort;
   });
 
   const sendTurn = Effect.fn("ClaudeSession.sendTurn")(function* (input: TurnInput) {

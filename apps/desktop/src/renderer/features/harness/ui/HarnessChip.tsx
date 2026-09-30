@@ -147,7 +147,11 @@ const HarnessItems = ({
         >
           <HarnessMark harness={option.kind} size={20} />
           <span className="flex-1">{harnesses.verb(option)}</span>
-          {option.status === "ready" ? null : (
+          {option.status === "ready" ? (
+            option.note === null ? null : (
+              <span className="text-caption text-text-subtle pl-3">{option.note}</span>
+            )
+          ) : (
             <span className="text-caption text-text-faint pl-3">
               {STATUS_LABELS[option.status]}
             </span>

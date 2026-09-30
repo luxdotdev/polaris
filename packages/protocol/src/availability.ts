@@ -6,6 +6,7 @@
 import { Schema, SchemaTransformation } from "effect";
 import { Timestamp } from "./domain.ts";
 import { HarnessKind } from "./harnesses.ts";
+import { addedNullable } from "./models.ts";
 
 /**
  * `not-installed`, `outdated` (below the catalogue's `minVersion`),
@@ -39,8 +40,13 @@ export class HarnessAvailability extends Schema.Class<HarnessAvailability>("Harn
   status: HarnessStatusWire,
   /** The installed version, when the Harness reported one. */
   version: Schema.NullOr(Schema.String),
-  /** The oldest version this Daemon's driver supports. */
+  /** The oldest version this Daemon's driver works with. */
   minVersion: Schema.String,
+  /**
+   * Set when the installed version works but is older than the one the driver
+   * was tested with: that tested version, for a quiet note. Null otherwise.
+   */
+  olderThanTested: addedNullable(Schema.String),
   /** Why it isn't ready, in the Harness's words where it gave some; null when ready. */
   detail: Schema.NullOr(Schema.String),
   /**
