@@ -30,6 +30,11 @@ export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
   "attachments",
 ];
 
+/** The ⌘O dialog (DESIGN.md, Open folder): which Host it opens on; null for the selected one. */
+export interface FolderRoute {
+  readonly hostKey: string | null;
+}
+
 /** Settings, open over the three zones; null when closed. */
 export interface SettingsRoute {
   readonly section: SettingsSection;
@@ -47,6 +52,8 @@ export interface NavState {
   readonly jumpOpen: boolean;
   /** The keyboard shortcut overlay (⌘/ or ?). */
   readonly helpOpen: boolean;
+  /** The ⌘O dialog, one of the shell's overlays; null when closed. */
+  readonly folder: FolderRoute | null;
   readonly settings: SettingsRoute | null;
   readonly topBar: TopBarMode;
   /** Sessions and Workspaces opened lately, newest first (`recentKey`), for the jump menu. */
@@ -66,6 +73,7 @@ export const initialNav: NavState = {
   sidebar: "sessions",
   jumpOpen: false,
   helpOpen: false,
+  folder: null,
   settings: null,
   topBar: "workspaces",
   recent: [],

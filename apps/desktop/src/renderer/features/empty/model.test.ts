@@ -1,8 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
   captionPath,
-  absolutePath,
-  cleanPath,
   connectHostCaption,
   hostStageLine,
   noSelectionFact,
@@ -53,24 +51,6 @@ describe("empty-state copy", () => {
     const copy = [noSelectionFact(1, "x"), noSelectionFact(3, "x"), hostStageLine(1)];
 
     for (const line of copy) expect(line).not.toMatch(/\b(Workspace|Session|Host)s?\b/);
-  });
-});
-
-describe("workspace paths", () => {
-  test("typed paths are absolute or home-relative", () => {
-    expect(cleanPath("  ~/code/polaris/ ")).toBe("~/code/polaris");
-    expect(cleanPath("/srv/app")).toBe("/srv/app");
-    expect(cleanPath("~")).toBe("~");
-    expect(cleanPath("/")).toBe("/");
-    expect(cleanPath("code/polaris")).toBeNull();
-    expect(cleanPath("")).toBeNull();
-  });
-
-  test("home-relative paths expand on the Host's home", () => {
-    expect(absolutePath("~/code", "/Users/me")).toBe("/Users/me/code");
-    expect(absolutePath("~", "/home/pi")).toBe("/home/pi");
-    expect(absolutePath("/srv", null)).toBe("/srv");
-    expect(absolutePath("~/code", null)).toBeNull();
   });
 });
 

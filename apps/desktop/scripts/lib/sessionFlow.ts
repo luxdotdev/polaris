@@ -12,7 +12,7 @@ import type { Page } from "playwright-core";
 const bench = (script: Record<string, number>) => `bench:${JSON.stringify(script)}`;
 
 /** Items 2, 5 and 8 ask first; two files are written, so the Turn has a diff. */
-const FIRST_TURN = bench({
+export const FIRST_TURN = bench({
   items: 9,
   deltasPerItem: 30,
   deltaBytes: 48,
@@ -63,7 +63,7 @@ export const frameStats = (times: ReadonlyArray<number>) => {
   };
 };
 
-const approveAll = async (page: Page, step: (m: string) => void) => {
+export const approveAll = async (page: Page, step: (m: string) => void) => {
   const state = page.getByTestId("session-state");
   let approved = 0;
 

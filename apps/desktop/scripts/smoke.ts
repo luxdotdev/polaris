@@ -19,6 +19,7 @@ import { startDaemon } from "./lib/daemon.ts";
 import { freshStartFlow } from "./lib/freshStartFlow.ts";
 import { machineFlow, prepareFakeHost } from "./lib/machineFlow.ts";
 import { checkNoneReady, initRepo, sessionFlow } from "./lib/sessionFlow.ts";
+import { remoteFlow } from "./lib/remoteFlow.ts";
 import { settingsFlow } from "./lib/settingsFlow.ts";
 import { attachmentsFlow } from "./lib/attachmentsFlow.ts";
 import { terminalFlow } from "./lib/terminalFlow.ts";
@@ -58,6 +59,9 @@ if (flag("--build")) {
 
 // First, its own launch: New session the moment the local Host connects (V2 bug 1).
 await freshStartFlow({ step, show: flag("--show") });
+
+// Then only a remote Host: ⌘O a folder there, New session, a Turn on the remote Host.
+await remoteFlow({ step, show: flag("--show"), shots: screenshots });
 
 const home = mkdtempSync(join(tmpdir(), "polaris-smoke-"));
 

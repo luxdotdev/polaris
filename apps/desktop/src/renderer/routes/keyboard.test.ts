@@ -24,6 +24,9 @@ const setup = () => {
     toggleFolded: noop,
     openSettings: noop,
     closeSettings: noop,
+    openFolder: noop,
+    closeFolder: noop,
+    startNewSessionIn: noop,
   };
 
   const registry = createCommandRegistry({ mac: true });

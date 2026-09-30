@@ -2,6 +2,8 @@
  * What a Host's Connection State means, in words (rule/say-what-happened,
  * rule/glossary-lowercase): never the client's raw error or a socket path.
  */
+import type { ConnectionState } from "@polaris/protocol";
+import { Match } from "effect";
 import type { HostView } from "../../shared/api.ts";
 
 /** A round trip this slow makes typing into a remote agent feel it: shown as "Slow link". */
@@ -54,3 +56,12 @@ export const hostSentence = (host: HostView, since: string | undefined): string 
 
   return `${what} Reconnecting${since === undefined ? "" : ` for ${since}`}; its sessions are kept.`;
 };
+
+/** A Connection State as a short caption after a Host's name; null when connected. */
+export const stateWords = (state: ConnectionState): string | null =>
+  Match.value(state).pipe(
+    Match.when("reconnecting", () => "reconnecting"),
+    Match.when("offline", () => "offline"),
+    Match.when("needs-attention", () => "needs attention"),
+    Match.orElse(() => null)
+  );

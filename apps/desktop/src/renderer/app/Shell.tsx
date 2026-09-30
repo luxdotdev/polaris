@@ -55,6 +55,7 @@ export const Shell = () => {
       <TitleBar />
       <Body />
       <slots.JumpMenu open={jumpOpen} onOpenChange={setJumpOpen} />
+      <slots.OpenFolder />
       <ShortcutHelp />
     </div>
   );

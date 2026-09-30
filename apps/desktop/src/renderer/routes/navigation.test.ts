@@ -167,6 +167,81 @@ describe("navigation", () => {
   });
 });
 
+describe("new session on another Host", () => {
+  test("a remote Host with Workspaces: its first, with nothing asked", () => {
+    const asked: Array<string> = [];
+
+    const nav = createNavigation({
+      app: withData({ local: 2, studio: 1 }),
+      storage: null,
+      ensureWorkspace: (hostKey) => {
+        asked.push(hostKey);
+
+        return Promise.resolve(null);
+      },
+    });
+
+    nav.actions.selectWorkspace({ hostKey: "local", workspaceId: WorkspaceId.make("local1") });
+    nav.actions.startNewSessionIn("studio", WorkspaceId.make("studio0"));
+    expect(asked).toEqual([]);
+    expect(nav.current()).toMatchObject({
+      hostKey: "studio",
+      workspaceId: "studio0",
+      pane: "new-session",
+    });
+  });
+
+  test("a remote Host with no Workspace: its home, while a local Workspace is selected", async () => {
+    const app = withData({ local: 2, studio: 0 });
+    const asked: Array<string> = [];
+
+    const nav = createNavigation({
+      app,
+      storage: null,
+      ensureWorkspace: (hostKey) => {
+        asked.push(hostKey);
+
+        return Promise.resolve().then(() => {
+          app.setState(withData({ local: 2, studio: 1 }).getState());
+
+          return WorkspaceId.make("studio0");
+        });
+      },
+    });
+
+    nav.actions.selectWorkspace({ hostKey: "local", workspaceId: WorkspaceId.make("local0") });
+    nav.actions.startNewSessionIn("studio");
+    // Meanwhile the stage is the remote Host's, busy.
+    expect(nav.current()).toMatchObject({ hostKey: "studio", workspaceId: null });
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(asked).toEqual(["studio"]);
+    expect(nav.current()).toMatchObject({
+      hostKey: "studio",
+      workspaceId: "studio0",
+      pane: "new-session",
+    });
+  });
+
+  test("moving on before the home arrives keeps where the user went", async () => {
+    const app = withData({ local: 1, studio: 0 });
+    let resolve: (id: WorkspaceId | null) => void = () => undefined;
+
+    const nav = createNavigation({
+      app,
+      storage: null,
+      ensureWorkspace: () => new Promise((r) => (resolve = r)),
+    });
+
+    nav.actions.startNewSessionIn("studio");
+    nav.actions.startNewSessionIn("local", WorkspaceId.make("local0"));
+    resolve(WorkspaceId.make("studio0"));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(nav.current()).toMatchObject({ hostKey: "local", workspaceId: "local0" });
+  });
+});
+
 describe("shell overlays", () => {
   test("one at a time: opening one closes the other; Escape closes whichever is open", () => {
     const nav = createNavigation({ app: withData({ local: 1 }), storage: null });
@@ -180,6 +255,19 @@ describe("shell overlays", () => {
     expect(handleOverlayEscape({ key: "Escape", isComposing: false }, nav.actions)).toBe(true);
     expect(open()).toEqual([false, false]);
     expect(handleOverlayEscape({ key: "Escape", isComposing: false }, nav.actions)).toBe(false);
+  });
+
+  test("the ⌘O dialog is one of them, on the Host asked for", () => {
+    const nav = createNavigation({ app: withData({ local: 1, studio: 1 }), storage: null });
+
+    nav.actions.openJump();
+    nav.actions.openFolder("studio");
+    expect(nav.store.getState()).toMatchObject({ jumpOpen: false, folder: { hostKey: "studio" } });
+    nav.actions.setHelpOpen(true);
+    expect(nav.store.getState().folder).toBeNull();
+    nav.actions.openFolder();
+    expect(handleOverlayEscape({ key: "Escape", isComposing: false }, nav.actions)).toBe(true);
+    expect(nav.store.getState().folder).toBeNull();
   });
 
   test("Escape during IME composition, or another key, leaves the overlay open", () => {
