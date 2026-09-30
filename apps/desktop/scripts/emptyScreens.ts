@@ -88,8 +88,10 @@ try {
   const repo = join(home, "code", "polaris");
 
   initRepo(repo);
-  await page.getByTestId("add-workspace").click();
-  await page.getByTestId("workspace-path").fill(repo);
+  await page.getByTestId("host-stage").getByTestId("add-workspace").click();
+  await page.getByTestId("folder-path").fill(`${repo}/`);
+  await page.getByTestId("folder-open").waitFor({ timeout: 10_000 });
+  await shoot(page, "open-folder");
   await page.keyboard.press("Enter");
   await page.getByTestId("workspace-stage").waitFor({ timeout: 10_000 });
   await page.waitForTimeout(500);
