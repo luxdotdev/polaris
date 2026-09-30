@@ -11,3 +11,5 @@ export { AttachmentTray, type AttachmentTrayProps } from "./ui/AttachmentTray.ts
 export { useUploads, type UploadTarget } from "./useUploads.ts";
 
 export type { DropMode, Upload } from "./model.ts";
+
+export { AttachmentsPage } from "./ui/AttachmentsPage.tsx";

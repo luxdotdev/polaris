@@ -28,17 +28,7 @@ import {
   type Wire,
   type WireOptions,
 } from "@polaris/protocol";
-import {
-  Data,
-  Deferred,
-  Effect,
-  Exit,
-  Latch,
-  Option,
-  Predicate,
-  type Scope,
-  type Stream,
-} from "effect";
+import { Data, Deferred, Effect, Exit, Latch, Predicate, type Scope, type Stream } from "effect";
 import { RpcClient, type RpcGroup, RpcSchema, RpcSerialization } from "effect/rpc";
 import { RpcClientDefect, RpcClientError } from "effect/rpc/RpcClientError";
 import { constPing, type FromServerEncoded } from "effect/rpc/RpcMessage";
@@ -64,11 +54,8 @@ export interface RpcConnection {
   readonly wire: Wire;
   /** Fails when the connection is gone: closed, broken, or the peer stopped answering pings. */
   readonly lost: Effect.Effect<never, RpcClientError>;
-  /**
-   * One protocol ping, timed to its pong: the link's round trip in ms, or null
-   * after 5 s. The Daemon answers it without running a handler.
-   */
-  readonly roundTrip: Effect.Effect<number | null>;
+  /** One ping and its pong: the link's round trip in ms (the Daemon answers without other work). */
+  readonly roundTrip: Effect.Effect<number>;
 }
 
 export interface RpcConnectionOptions {
@@ -106,12 +93,12 @@ export const connectRpc = Effect.fnUntraced(function* (
   const pingInterval = options.pingIntervalMs ?? 15_000;
   let lastHeard = Date.now();
   let wire!: Wire;
-  /** Waiting for the next pong (`roundTrip`). */
-  let pongWaiters: Array<Deferred.Deferred<void>> = [];
   /** Requests (not streams) sent and not yet answered with an Exit. */
   const awaiting = new Set<string | number>();
   /** Open while `awaiting` is non-empty: the ping loop runs only then. */
   const pinging = Latch.makeUnsafe(false);
+  /** Waiting for the next pong (`roundTrip`); every pong answers all of them. */
+  let pongWaiters: Array<() => void> = [];
 
   const settled = (requestId: string | number) => {
     awaiting.delete(requestId);
@@ -151,11 +138,10 @@ export const connectRpc = Effect.fnUntraced(function* (
             (response) => {
               if (isPong(response)) {
                 const waiters = pongWaiters;
+
                 pongWaiters = [];
 
-                return Effect.forEach(waiters, (w) => Deferred.succeed(w, undefined), {
-                  discard: true,
-                });
+                return Effect.sync(() => waiters.forEach((resume) => resume()));
               }
 
               if ("requestId" in response) {
@@ -274,15 +260,23 @@ export const connectRpc = Effect.fnUntraced(function* (
     lost: Deferred.await(lost),
     roundTrip: Effect.gen(function* () {
       const pong = yield* Deferred.make<void>();
+      const waiter = () => void Deferred.doneUnsafe(pong, Effect.void);
       const ping = parser.encode(constPing);
-
-      if (!Predicate.isString(ping)) return null;
-      pongWaiters.push(pong);
       const started = performance.now();
-      yield* Effect.ignore(wire.sendJson(ping));
-      const answered = yield* Deferred.await(pong).pipe(Effect.timeoutOption(5000));
 
-      return Option.isSome(answered) ? Math.round(performance.now() - started) : null;
+      // Waiting before sending: on a local socket the pong can beat the next line.
+      pongWaiters.push(waiter);
+
+      if (Predicate.isString(ping)) yield* Effect.ignore(wire.sendJson(ping));
+      yield* Deferred.await(pong).pipe(
+        Effect.ensuring(
+          Effect.sync(() => {
+            pongWaiters = pongWaiters.filter((w) => w !== waiter);
+          })
+        )
+      );
+
+      return performance.now() - started;
     }),
   };
 });

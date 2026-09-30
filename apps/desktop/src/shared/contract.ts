@@ -5,6 +5,7 @@
  * code reaches its bundle.
  */
 import {
+  AttachmentSettings,
   Command,
   CommandId,
   GitDiffSpec,
@@ -53,6 +54,11 @@ export const CodeFont = Schema.Literals(["sf-mono", "menlo"]);
 
 export type CodeFont = typeof CodeFont.Type;
 
+/** The code face's size in px at the default text size (`--code-size`). */
+export const CodeFontSize = Schema.Literals([12, 13, 14, 15]);
+
+export type CodeFontSize = typeof CodeFontSize.Type;
+
 /** Any subset of the appearance settings, applied over the current ones. */
 export const AppearancePatch = Schema.Struct({
   theme: Schema.optionalKey(ThemeSource),
@@ -61,6 +67,7 @@ export const AppearancePatch = Schema.Struct({
   diffPalette: Schema.optionalKey(DiffPalette),
   motion: Schema.optionalKey(MotionSource),
   codeFont: Schema.optionalKey(CodeFont),
+  codeFontSize: Schema.optionalKey(CodeFontSize),
 });
 
 export type AppearancePatch = typeof AppearancePatch.Type;
@@ -159,6 +166,11 @@ export const RequestInputs = {
     mimeType: Schema.String,
     bytes: Schema.Uint8Array,
   }),
+  /** Attachment cleanup (Settings → Attachments): the Host's policy and what it has staged. */
+  "attachments.settings": onHost({}),
+  "attachments.setSettings": onHost({ settings: AttachmentSettings }),
+  /** Deletes staged attachments now: one Workspace's, or all of them (null). */
+  "attachments.clear": onHost({ workspaceId: Schema.NullOr(WorkspaceId) }),
   /** Probe a remote Host and plan an install or upgrade; installs only with an approved SHA-256. */
   "install.ensure": onHost({ approvedSha256: Schema.NullOr(Schema.String) }),
   /** The literal `Host` aliases in `~/.ssh/config` (Includes followed, wildcards skipped). */

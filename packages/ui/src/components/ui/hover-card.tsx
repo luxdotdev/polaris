@@ -15,7 +15,10 @@ export function HoverCard({
 
 export const HoverCardTrigger = HoverCardPrimitive.Trigger;
 
-/** A floating card (340px by default, as the Needs You hover card). Layout is the caller's. */
+/**
+ * A floating card (340px by default, as the Needs You hover card). Layout is the caller's.
+ * It sits below modals (z-50): a jump menu or dialog always covers a hover card.
+ */
 export function HoverCardContent({
   className,
   align = "start",
@@ -28,7 +31,7 @@ export function HoverCardContent({
         data-slot="hover-card-content"
         align={align}
         sideOffset={sideOffset}
-        className={cn("z-50 w-[340px] overflow-clip", FLOAT_SURFACE, FLOAT_MOTION, className)}
+        className={cn("z-40 w-[340px] overflow-clip", FLOAT_SURFACE, FLOAT_MOTION, className)}
         {...props}
       />
     </HoverCardPrimitive.Portal>

@@ -59,11 +59,11 @@ export function ApprovalCard({
           Approve
           <Kbd variant="plain">↵</Kbd>
         </Button>
-        <Button variant="secondary" onClick={onAlwaysAllow}>
+        <Button variant="secondary" className="px-2.5" onClick={onAlwaysAllow}>
           Always here
         </Button>
         <span className="flex-1" />
-        <Button variant="ghost" onClick={onDeny}>
+        <Button variant="ghost" className="px-2.5" onClick={onDeny}>
           Deny
         </Button>
       </div>

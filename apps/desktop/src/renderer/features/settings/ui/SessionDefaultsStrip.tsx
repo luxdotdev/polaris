@@ -41,7 +41,7 @@ const Chip = ({
   <Select value={value} onValueChange={onChange} disabled={disabled}>
     <SelectTrigger aria-label={label} className="px-gap h-[26px] gap-1.5 bg-transparent">
       <span className="text-caption text-text-subtle">{label}</span>
-      <span className="text-body text-text-default font-medium">
+      <span className="text-label text-text-default">
         <SelectValue />
       </span>
     </SelectTrigger>
@@ -84,7 +84,7 @@ export const SessionDefaultsStrip = ({
 
   return (
     <FooterStrip>
-      <span className="text-caption text-text-subtle w-[146px] shrink-0">
+      <span className="text-caption text-text-subtle w-[152px] shrink-0">
         New sessions start with
       </span>
       <Chip

@@ -57,11 +57,13 @@ try {
   await page.setViewportSize({ width: 1440, height: 900 });
   mkdirSync(out, { recursive: true });
 
-  for (const scene of ["inbox", "hover"]) {
+  for (const scene of ["inbox", "hover", "empty"] as const) {
     await page.evaluate(`location.hash = "#needs-you/${scene}"; location.reload()`);
     await page.waitForLoadState("domcontentloaded");
     await page
-      .getByTestId(scene === "inbox" ? "needs-you-inbox" : "row-state")
+      .getByTestId(
+        ({ inbox: "needs-you-inbox", hover: "row-state", empty: "needs-you-empty" } as const)[scene]
+      )
       .first()
       .waitFor();
 
@@ -83,6 +85,42 @@ try {
       }
     }
   }
+
+  // V1 B6: click a waiting Workspace chip, then another session, then open the jump menu.
+  await page.evaluate(`location.hash = "#needs-you/hover"; location.reload()`);
+  await page.waitForLoadState("domcontentloaded");
+  await page.getByTestId("row-state").first().waitFor();
+  await appearance(page, "dark", "calm");
+  await page
+    .getByRole("navigation", { name: "Workspaces" })
+    .getByRole("button", { name: /polaris/ })
+    .click();
+  await page
+    .getByRole("button", { name: /Polaris planning/ })
+    .first()
+    .click();
+  await page.mouse.move(1300, 850);
+  await page.waitForTimeout(700);
+  const stuck = await page.getByTestId("needs-you-hover").count();
+
+  await page.screenshot({ path: join(out, "stuck-dark.png") });
+  // The preview has its own navigation, so open the jump menu from the title bar's field.
+  await page.getByText("Jump to a session or workspace").first().click();
+  await page.getByRole("dialog").waitFor();
+  await page.waitForTimeout(300);
+
+  const covered = await page.evaluate(`(() => {
+    const input = document.querySelector('[role="dialog"] input');
+    if (input === null) return "no input";
+    const r = input.getBoundingClientRect();
+    const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return top !== null && top.closest('[data-testid="needs-you-hover"]') !== null;
+  })()`);
+
+  console.log(
+    `screens: layering: hover cards open after leaving: ${stuck}; covering the jump field: ${String(covered)}`
+  );
+  await page.screenshot({ path: join(out, "layering-dark.png") });
 } finally {
   await app.close();
   await daemon.stop();

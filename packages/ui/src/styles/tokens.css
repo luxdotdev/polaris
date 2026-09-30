@@ -27,6 +27,8 @@
 
   /* Brand: focus rings, Polaris's own activity, the mark, the star. Nothing else. */
   --color-starlight: light-dark(#4f82e8, #bcd3ff);
+  /* Starlight set as words: kickers, including on the dawn clearing. */
+  --color-starlight-text: light-dark(#2f5fc4, #bcd3ff);
 
   /* Session State signals. */
   --color-needs-you: light-dark(#b98a00, #f2c84b);
@@ -83,6 +85,8 @@
   --color-diff-removed: #f85149;
   --color-diff-added-cvd: #388bfd;
   --color-diff-removed-cvd: #db8b2c;
+  --color-diff-added-cvd-text: light-dark(#0860c9, #5c9eff);
+  --color-diff-removed-cvd-text: light-dark(#9a5a0e, #db8b2c);
   --color-diff-added-bg: light-dark(#1a7f3714, #3fb9501a);
   --color-diff-removed-bg: light-dark(#cf222e12, #f851491a);
   --color-diff-added-emphasis: light-dark(#1a7f3729, #3fb95040);

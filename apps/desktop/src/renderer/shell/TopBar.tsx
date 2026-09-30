@@ -4,15 +4,16 @@
  * nothing with a single machine in machine mode. A Host's Connection State
  * shows inline, never as a modal.
  */
-import { Badge, Chip, cn, Kbd } from "@polaris/ui";
+import { Badge, Chip, cn, Kbd, PlusIcon } from "@polaris/ui";
 import { Fragment, useMemo } from "react";
 import type { HostView } from "../../shared/api.ts";
 import { type BarHost, barHosts, shortcutLabel } from "../routes/topBar.ts";
 import { slots } from "../app/slots.tsx";
 import { plural } from "./copy.ts";
-import { HostStateLabel } from "./HostState.tsx";
+import { HostBarLabel, HostStateCaption } from "./HostState.tsx";
+import { isSlowLink } from "./hostCopy.ts";
 import { SummaryGlyph } from "./glyphs.tsx";
-import { useApp, useSelection, useShellActions } from "./hooks.ts";
+import { useApp, useCommands, useSelection, useShellActions } from "./hooks.ts";
 
 /** ⌃N, only on the first ten chips (Chip takes no undefined shortcut). */
 interface ChipShortcut {
@@ -28,35 +29,80 @@ const useBar = () => {
 
 const connected = (host: HostView) => host.status.state === "connected";
 
+/** The Host's chips show last known state, dimmed, while it isn't connected (rule/remote-is-normal). */
+const dimmed = (host: HostView) =>
+  host.status.state === "reconnecting" || host.status.state === "offline";
+
+/** Paper 57Q-1: a dashed chip that adds a Workspace (⌘O on this Mac). */
+const AddWorkspaceChip = ({ hostKey }: { readonly hostKey: string | null }) => {
+  const commands = useCommands();
+
+  if (hostKey === null) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={() => commands.run("workspace.add")}
+      data-testid="add-workspace"
+      className="hover:bg-fill-hover rounded-control border-text-subtle/30 ml-1 flex h-7 shrink-0 cursor-default items-center gap-1.5 border border-dashed px-2.5"
+    >
+      <span className="text-label text-text-subtle">+ Add workspace</span>
+      <Kbd variant="plain" className="text-text-subtle">
+        ⌘O
+      </Kbd>
+    </button>
+  );
+};
+
+const HostLabel = ({ group }: { readonly group: BarHost }) => {
+  const { host } = group;
+  const selection = useSelection();
+  const { selectHost, selectWorkspace } = useShellActions();
+  const first = group.workspaces[0];
+
+  // Its first Workspace, or the Host itself when it has none (the stage to add one).
+  const open = (at?: number) =>
+    first === undefined
+      ? selectHost(host.key, at)
+      : selectWorkspace({ hostKey: host.key, workspaceId: first.workspace.id }, at);
+
+  // Needs Attention is its own bordered chip (a button); the others are a label to select the Host.
+  if (host.status.state === "needs-attention") {
+    return (
+      <span className="flex shrink-0" data-host={host.key} data-connection={host.status.state}>
+        <HostBarLabel host={host} onOpen={() => open()} />
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      aria-pressed={host.key === selection.hostKey && selection.workspaceId === null}
+      onClick={(event) => open(event.timeStamp)}
+      className="hover:bg-fill-hover rounded-control flex h-7 shrink-0 cursor-default items-center"
+      data-host={host.key}
+      data-connection={host.status.state}
+    >
+      <HostBarLabel host={host} onOpen={() => open()} />
+    </button>
+  );
+};
+
 const WorkspaceBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
   const selection = useSelection();
-  const { selectWorkspace, selectHost } = useShellActions();
+  const { selectWorkspace } = useShellActions();
   let index = 0;
 
   return (
     <nav
       aria-label="Workspaces"
-      className="border-hairline bg-surface-sunken flex h-10 shrink-0 items-center gap-1 overflow-x-auto border-b px-3"
+      className="border-hairline bg-surface-sunken flex h-10 shrink-0 [scrollbar-width:none] items-center gap-1 overflow-x-auto border-b px-3"
     >
       {bar.map((group, groupIndex) => (
         <Fragment key={group.host.key}>
           {groupIndex === 0 ? null : <span className="bg-text-faint/25 mx-1.5 h-4 w-px shrink-0" />}
-          {/* A button, so a Host with no Workspace yet can be selected to add one (its stage). */}
-          <button
-            type="button"
-            aria-pressed={group.host.key === selection.hostKey && selection.workspaceId === null}
-            onClick={(event) => selectHost(group.host.key, event.timeStamp)}
-            className={cn(
-              "hover:bg-fill-hover flex shrink-0 cursor-default items-center gap-1.5 rounded-control pr-1.5 pl-1",
-              group.host.status.state === "reconnecting" && "opacity-(--opacity-dimmed)"
-            )}
-            title={group.host.status.failure?.detail}
-            data-host={group.host.key}
-            data-connection={group.host.status.state}
-          >
-            <span className="text-caption text-text-faint">{group.host.label}</span>
-            <HostStateLabel host={group.host} />
-          </button>
+          <HostLabel group={group} />
           {group.workspaces.map(({ hostKey, workspace, summary }) => {
             const shortcut = shortcutLabel(index++);
             const extra: ChipShortcut = {};
@@ -67,6 +113,7 @@ const WorkspaceBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
               <slots.NeedsYouHover key={workspace.id} hostKey={hostKey} workspaceId={workspace.id}>
                 <Chip
                   title={workspace.path}
+                  className={cn(dimmed(group.host) && "opacity-(--opacity-dimmed)")}
                   selected={hostKey === selection.hostKey && workspace.id === selection.workspaceId}
                   needsYou={summary.needsYou}
                   {...extra}
@@ -82,29 +129,35 @@ const WorkspaceBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
           })}
         </Fragment>
       ))}
+      <AddWorkspaceChip hostKey={selection.hostKey} />
     </nav>
   );
 };
 
-const machineCaption = (group: BarHost) => {
-  if (!connected(group.host)) return null;
+/** "5 workspaces", or the state when that is the news (Paper MX-0: "Slow link"). */
+const MachineCaption = ({ group }: { readonly group: BarHost }) => {
+  if (!connected(group.host) || isSlowLink(group.host))
+    return <HostStateCaption host={group.host} />;
 
-  return plural(group.workspaces.length, "workspace");
+  return (
+    <span className="text-caption text-text-subtle">
+      {plural(group.workspaces.length, "workspace")}
+    </span>
+  );
 };
 
 const MachineBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
   const selection = useSelection();
-  const { selectHost } = useShellActions();
+  const { selectHost, openSettings } = useShellActions();
 
   return (
     <nav
       aria-label="Machines"
-      className="h-session-row border-hairline bg-surface-sunken flex shrink-0 items-center gap-1.5 overflow-x-auto border-b px-3"
+      className="h-session-row border-hairline bg-surface-sunken flex shrink-0 [scrollbar-width:none] items-center gap-1.5 overflow-x-auto border-b px-3"
     >
       {bar.map((group, index) => {
         const selected = group.host.key === selection.hostKey;
         const shortcut = shortcutLabel(index);
-        const caption = machineCaption(group);
 
         return (
           <button
@@ -115,28 +168,17 @@ const MachineBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
             data-connection={group.host.status.state}
             onClick={(event) => selectHost(group.host.key, event.timeStamp)}
             className={cn(
-              "flex h-[34px] shrink-0 cursor-default items-center gap-gap rounded-[8px] border border-transparent px-row-x",
+              "gap-gap px-row-x flex h-[34px] shrink-0 cursor-default items-center rounded-[8px] border border-transparent",
               selected
                 ? "border-hairline bg-surface-raised shadow-[0_1px_2px_#0000000a]"
-                : "hover:bg-fill-hover",
-              group.host.status.state === "reconnecting" &&
-                !selected &&
-                "opacity-(--opacity-dimmed)"
+                : "hover:bg-fill-hover"
             )}
           >
             <SummaryGlyph summary={group.summary} />
             <span className={cn("text-label", selected ? "text-text-strong" : "text-text-default")}>
               {group.host.label}
             </span>
-            {caption === null ? (
-              <HostStateLabel host={group.host} />
-            ) : (
-              <span
-                className={cn("text-caption", selected ? "text-text-subtle" : "text-text-faint")}
-              >
-                {caption}
-              </span>
-            )}
+            <MachineCaption group={group} />
             {group.summary.needsYou > 0 ? (
               <Badge tone="needs-you" size="count">
                 {group.summary.needsYou}
@@ -146,6 +188,15 @@ const MachineBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
           </button>
         );
       })}
+      <button
+        type="button"
+        onClick={() => openSettings("hosts", { adding: true })}
+        data-testid="add-machine"
+        className="px-row-x hover:bg-fill-hover flex h-[34px] shrink-0 cursor-default items-center gap-1.5 rounded-[8px]"
+      >
+        <PlusIcon size={14} className="text-text-subtle" />
+        <span className="text-label font-regular text-text-subtle">Add machine</span>
+      </button>
     </nav>
   );
 };

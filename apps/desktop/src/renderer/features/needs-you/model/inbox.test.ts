@@ -9,11 +9,14 @@ import {
   RequestId,
   SessionId,
   SessionSummary,
+  Worktree,
+  WorktreeId,
 } from "@polaris/protocol";
 import type { HostView } from "../../../../shared/api.ts";
 import { at, seq, session, turnId, workspace } from "../../../store/fixtures.testing.ts";
 import { applyHostItems, emptyHostModel, type HostModel } from "../../../store/hostModel.ts";
 import { ANSWERED_FOR_MS, buildInbox } from "./inbox.ts";
+import { quietFact } from "./quiet.ts";
 import { toSummary } from "./summary.ts";
 
 const H = HostStreamItem.cases;
@@ -236,5 +239,48 @@ describe("Needs You inbox", () => {
       ["a", 1, "Claude Code"],
       ["i", 0, "Claude Code"],
     ]);
+  });
+});
+
+describe("the quiet inbox", () => {
+  test("says what is running, without a trailing period", () => {
+    const working = hostModel([{ session: sessionWith("w", { state: "working" }) }]);
+    const idle = hostModel([{ session: sessionWith("i", { state: "idle" }) }]);
+
+    expect(quietFact({ hosts: 2, models: [working, idle] })).toBe("1 session working on 2 hosts");
+    expect(quietFact({ hosts: 1, models: [idle] })).toBe("1 session on 1 host, none waiting");
+    expect(quietFact({ hosts: 1, models: [] })).toBe("No agent sessions yet");
+  });
+});
+
+describe("where a waiting session runs", () => {
+  test("names its Worktree's branch, else the main checkout's", () => {
+    const withBranch = applyHostItems(emptyHostModel, [
+      H.Snapshot.make({
+        sequence: seq(1),
+        workspaces: [workspace],
+        worktrees: [
+          new Worktree({
+            id: WorktreeId.make("main"),
+            workspaceId: workspace.id,
+            path: workspace.path,
+            branch: "main",
+            head: "abc1234",
+            createdBySessionId: null,
+            isMain: true,
+          }),
+        ],
+        sessions: [
+          new SessionSummary({
+            session: sessionWith("a", { state: "needs-you" }),
+            pendingApprovals: [request("r1", "a", at)],
+            lastTurnPreview: null,
+            subagents: [],
+          }),
+        ],
+      }),
+    ]);
+
+    expect(inbox({ local: withBranch }).waiting[0]?.branch).toBe("main");
   });
 });

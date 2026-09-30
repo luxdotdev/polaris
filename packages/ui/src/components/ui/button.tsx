@@ -33,7 +33,7 @@ export const buttonVariants = cva(
          * the float shadow, the one button that casts one. End it with a ButtonKeycap.
          */
         brand:
-          "h-9 gap-2.5 rounded-[8px] pr-3.5 pl-[18px] shadow-[0_8px_24px_light-dark(rgb(0_0_0/12%),rgb(0_0_0/35%))]",
+          "h-9 gap-2.5 rounded-[8px] pr-3.5 pl-[18px] text-[color:light-dark(#ffffff,#17181a)] shadow-[0_8px_24px_light-dark(rgb(0_0_0/12%),rgb(0_0_0/35%))]",
         /** A 16px icon in a 28px square. */
         icon: "size-7",
         "icon-sm": "size-[26px]",
@@ -78,7 +78,8 @@ export function ButtonKeycap({ className, ...props }: ComponentProps<"kbd">) {
       data-slot="button-keycap"
       className={cn(
         "inline-flex size-[18px] shrink-0 items-center justify-center rounded-[4px] font-sans text-micro font-medium",
-        "bg-[color-mix(in_oklab,var(--color-primary-foreground)_8%,transparent)] text-[color-mix(in_oklab,var(--color-primary-foreground)_55%,var(--color-primary))]",
+        // Paper 571-1 / 5OY-1: ink at 8% on the Snow button, white at 12% on the Ink one.
+        "bg-[light-dark(#ffffff1f,#17181a14)] text-[color:light-dark(#a4a6ac,#74767d)]",
         className
       )}
       {...props}

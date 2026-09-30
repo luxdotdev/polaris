@@ -22,6 +22,7 @@ import { Decisions } from "../../../commands.ts";
 import type { Row } from "../model/conversation.ts";
 import { plural } from "../model/format.ts";
 import { Item } from "./items.tsx";
+import { softWrap } from "./softWrap.tsx";
 
 export interface RowContext {
   readonly harness: Harness | null;
@@ -65,7 +66,7 @@ const Prompt = ({ row, ctx }: { row: Extract<Row, { kind: "prompt" }>; ctx: RowC
   <div className="flex flex-col items-end gap-1.5" data-testid="prompt">
     {row.text === "" ? null : (
       <p className="rounded-card bg-fill-selected text-body text-text-strong py-row-x max-w-[340px] px-3.5 break-words whitespace-pre-wrap">
-        {row.text}
+        {softWrap(row.text)}
       </p>
     )}
     <p className="text-caption text-text-faint max-w-[340px] truncate" data-testid="turn-model">

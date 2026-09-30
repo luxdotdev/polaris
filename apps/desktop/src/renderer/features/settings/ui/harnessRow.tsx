@@ -4,7 +4,7 @@
  * Settings → Harnesses and a Host's row in Settings → Hosts, so both say it
  * the same way.
  */
-import { ArrowUpIcon, ArrowUpRightIcon, Button, CheckIcon, TerminalIcon } from "@polaris/ui";
+import { ArrowUpIcon, Button, CheckIcon, PixelTerminalIcon } from "@polaris/ui";
 import type { ReactNode } from "react";
 import type { RowAction, RowGlyph } from "../model/harnesses.ts";
 
@@ -40,8 +40,8 @@ export const Action = ({
 }) => {
   if (action.kind === "sign-in") {
     return (
-      <Button variant="secondary" size="sm" onClick={onSignIn}>
-        <TerminalIcon size={14} />
+      <Button variant="secondary" className="text-label gap-1.5 px-2.5" onClick={onSignIn}>
+        <PixelTerminalIcon size={14} />
         Sign in in terminal
       </Button>
     );
@@ -50,12 +50,10 @@ export const Action = ({
   return (
     <Button
       variant="ghost"
-      size="sm"
-      className="text-text-default"
+      className="text-label text-text-default px-2.5"
       onClick={() => void window.polaris.request("shell.openExternal", { url: action.url })}
     >
       Open setup guide
-      <ArrowUpRightIcon size={12} />
     </Button>
   );
 };

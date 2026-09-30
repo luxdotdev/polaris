@@ -22,18 +22,20 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, open, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { Attachment, AttachmentId, type SessionId, type WorkspaceId } from "@polaris/protocol";
+import {
+  Attachment,
+  AttachmentCleanup,
+  AttachmentId,
+  type SessionId,
+  type WorkspaceId,
+} from "@polaris/protocol";
 import { Context, Effect, Layer, Schema, Stream } from "effect";
 import { paths } from "../paths.ts";
 import { AttachmentStore, ServiceError } from "../services.ts";
 
-const CleanupPolicy = Schema.Union([
-  Schema.Struct({ kind: Schema.Literal("on-archive") }),
-  Schema.Struct({ kind: Schema.Literal("after-days"), days: Schema.Number }),
-  Schema.Struct({ kind: Schema.Literal("never") }),
-]);
+const CleanupPolicy = AttachmentCleanup;
 
-export type CleanupPolicy = typeof CleanupPolicy.Type;
+export type CleanupPolicy = AttachmentCleanup;
 
 export interface AttachmentSettings {
   readonly default: CleanupPolicy;
@@ -81,6 +83,11 @@ export class AttachmentMaintenance extends Context.Service<
     readonly settings: Effect.Effect<AttachmentSettings>;
     readonly setSettings: (settings: AttachmentSettings) => Effect.Effect<void, ServiceError>;
     readonly usage: Effect.Effect<AttachmentUsage, ServiceError>;
+    /** `usage` split by Workspace id; Workspaces with nothing staged are left out. */
+    readonly usageByWorkspace: Effect.Effect<
+      Readonly<Record<string, AttachmentUsage>>,
+      ServiceError
+    >;
     /** Deletes staged attachments now: all of them, or one Workspace's. */
     readonly clearNow: (options?: {
       readonly workspaceId?: WorkspaceId;
@@ -467,6 +474,22 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
         }),
       usage: Effect.tryPromise({
         try: async () => usageOf(await attachmentDirs()),
+        catch: toServiceError("measuring attachments"),
+      }),
+      usageByWorkspace: Effect.tryPromise({
+        try: async () => {
+          const dirs = new Map<string, Array<string>>();
+
+          for (const { dir, meta } of await allMetas()) {
+            dirs.set(meta.workspaceId, [...(dirs.get(meta.workspaceId) ?? []), dir]);
+          }
+
+          const byWorkspace: Record<string, AttachmentUsage> = {};
+
+          for (const [workspaceId, list] of dirs) byWorkspace[workspaceId] = await usageOf(list);
+
+          return byWorkspace;
+        },
         catch: toServiceError("measuring attachments"),
       }),
       clearNow: (clear = {}) =>

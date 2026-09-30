@@ -25,7 +25,7 @@ describe("top bar mode (ENG-177)", () => {
 });
 
 describe("bar contents", () => {
-  test("every shown Workspace on every Host, in Host order; hidden ones left out", () => {
+  test("every shown Workspace on every Host, remote Hosts first and this Mac last; hidden ones left out", () => {
     const bar = barHosts({
       hosts: [hostView("local"), hostView("studio")],
       models: {
@@ -35,9 +35,9 @@ describe("bar contents", () => {
     });
 
     expect(barWorkspaces(bar).map((w) => `${w.hostKey}/${w.workspace.name}`)).toEqual([
-      "local/a",
       "studio/s0",
       "studio/s1",
+      "local/a",
     ]);
   });
 

@@ -52,6 +52,8 @@ export interface HostEntry {
   readonly target: HostTarget;
   /** The remote command's argv; null for the default (`~/.polaris/bin/current/polaris bridge`). */
   readonly remoteCommand: ReadonlyArray<string> | null;
+  /** Screenshots and tests only: report this round trip instead of the measured one. */
+  readonly simulatedLatencyMs: number | null;
 }
 
 export const statusView = (status: ConnectionStatus): ConnectionStatusView => ({
@@ -80,7 +82,13 @@ export const hostView = (entry: HostEntry, status: ConnectionStatus): HostView =
   colour: entry.colour,
   alias: entry.alias,
   proofHarness: entry.proofHarness,
-  status: statusView(status),
+  status: {
+    ...statusView(status),
+    latencyMs:
+      entry.simulatedLatencyMs !== null && status.state === "connected"
+        ? entry.simulatedLatencyMs
+        : status.latencyMs,
+  },
 });
 
 /** A Host on a local socket under its own name: screenshots and tests only (`POLARIS_DESKTOP_EXTRA_HOSTS`). */
@@ -88,6 +96,8 @@ export const ExtraHost = Schema.Struct({
   key: Schema.String.check(Schema.isMinLength(1)),
   label: Schema.String,
   socket: Schema.String,
+  /** Pretend the link has this round trip ("Slow link" in screenshots). */
+  latencyMs: Schema.optionalKey(Schema.Number),
 });
 
 export type ExtraHost = typeof ExtraHost.Type;
@@ -128,6 +138,7 @@ export const hostEntries = ({
       proofHarness: false,
       target: HostTarget.Local({ socketPath: extra.socket }),
       remoteCommand: null,
+      simulatedLatencyMs: extra.latencyMs ?? null,
     });
   }
 
@@ -148,6 +159,7 @@ export const localEntry = (local: LocalDaemon, label = "This Mac"): HostEntry =>
   proofHarness: local.benchHarness,
   target: HostTarget.Local({ socketPath: local.socketPath }),
   remoteCommand: null,
+  simulatedLatencyMs: null,
 });
 
 /** Splits a remote command line on whitespace; the remote shell parses it again anyway. */
@@ -168,6 +180,7 @@ export const remoteEntry = (remote: RemoteHostSetting): HostEntry => ({
   proofHarness: false,
   target: HostTarget.Ssh({ alias: remote.alias, forwardAgent: remote.forwardAgent ?? false }),
   remoteCommand: remoteCommandArgv(remote.remoteCommand),
+  simulatedLatencyMs: null,
 });
 
 export const clientIdentity = (version: string): ClientIdentity => ({

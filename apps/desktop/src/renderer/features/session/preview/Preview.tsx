@@ -31,6 +31,7 @@ import { standInBridge } from "../../bridge.ts";
 import { patchSessionUi, uiKey } from "../state.ts";
 import {
   approval,
+  failed,
   interrupted,
   long,
   MODELS,
@@ -71,13 +72,14 @@ const host: HostView = {
   },
 };
 
-const SCENES = { session: planning, approval, question, interrupted, long } as const;
+const SCENES = { session: planning, approval, question, interrupted, failed, long } as const;
 
 const SCENE_NAMES = [
   "session",
   "approval",
   "question",
   "interrupted",
+  "failed",
   "long",
   "new",
   "setup",

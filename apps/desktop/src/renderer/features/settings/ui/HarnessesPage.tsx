@@ -27,8 +27,8 @@ const Row = ({
   readonly onClose: () => void;
 }) => (
   <div className="flex flex-col" data-testid="harness-host-row">
-    <div className="px-panel flex h-10 shrink-0 items-center">
-      <span className="text-body text-text-default w-[168px] shrink-0 truncate pr-3 font-medium">
+    <div className="px-panel flex h-[39px] shrink-0 items-center">
+      <span className="text-label text-text-default w-[168px] shrink-0 truncate pr-3">
         {row.hostLabel}
       </span>
       <span className="text-caption text-text-subtle w-24 shrink-0 truncate font-mono">
@@ -36,7 +36,7 @@ const Row = ({
       </span>
       <span
         className={cn(
-          "text-body flex min-w-0 flex-1 items-center gap-1.5",
+          "text-label font-regular flex min-w-0 flex-1 items-center gap-1.5",
           row.ready ? "text-text-subtle" : "text-text-default"
         )}
       >

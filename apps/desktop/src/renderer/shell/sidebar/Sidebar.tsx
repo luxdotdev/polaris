@@ -58,7 +58,9 @@ const ViewSwitch = () => {
           value: "needs-you",
           label: "Needs you",
           badge:
-            waiting > 0 ? <span className="text-micro text-needs-you">{waiting}</span> : undefined,
+            waiting > 0 ? (
+              <span className="text-micro text-needs-you-text">{waiting}</span>
+            ) : undefined,
         },
       ]}
     />
@@ -69,7 +71,7 @@ interface HeaderProps {
   readonly title: string;
   readonly caption: string;
   readonly canStart: boolean;
-  readonly host?: HostView;
+  readonly host?: HostView | undefined;
 }
 
 const Header = ({ title, caption, canStart, host }: HeaderProps) => {
@@ -80,7 +82,7 @@ const Header = ({ title, caption, canStart, host }: HeaderProps) => {
       <div className="flex items-center gap-2">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <h1 className="text-heading text-text-strong truncate">{title}</h1>
-          <p className="text-caption text-text-faint truncate">{caption}</p>
+          <p className="text-caption text-text-subtle truncate">{caption}</p>
         </div>
         {canStart ? (
           <IconButton
@@ -183,7 +185,7 @@ const MachineGroup = ({
         >
           {workspace.name}
         </span>
-        <span className="text-text-faint tabular">{entries.length}</span>
+        <span className="text-text-subtle tabular">{entries.length}</span>
       </button>
       {open
         ? shown.map((entry) => (
@@ -197,7 +199,7 @@ const MachineGroup = ({
           ))
         : null}
       {open && rest.length > 0 ? (
-        <p className="text-caption text-text-faint pt-1 pr-2 pl-[34px]">{hiddenSummary(rest)}</p>
+        <p className="text-caption text-text-subtle pt-1 pr-2 pl-[34px]">{hiddenSummary(rest)}</p>
       ) : null}
     </div>
   );
@@ -213,7 +215,7 @@ const Footer = ({ caption }: { readonly caption: string }) => {
         <span className="text-caption text-text-subtle">Jump</span>
       </button>
       <span className="flex-1" />
-      <span className="text-caption text-text-faint truncate">{caption}</span>
+      <span className="text-caption text-text-subtle min-w-0 truncate">{caption}</span>
       <IconButton
         label="Settings"
         shortcut="⌘,"
@@ -230,7 +232,12 @@ const WorkspaceSidebar = () => {
   const { hostKey, workspaceId, sidebar } = useSelection();
   const model = useHostModel(hostKey);
   const host = useApp((s) => s.hosts.find((h) => h.key === hostKey));
-  const shown = useApp((s) => s.hosts.find((h) => h.key === hostKey || h.alias === null));
+
+  // The chosen Host; with none chosen yet, this Mac.
+  const shown = useApp(
+    (s) => s.hosts.find((h) => h.key === hostKey) ?? s.hosts.find((h) => h.alias === null)
+  );
+
   const hostCount = useApp((s) => s.hosts.length);
   const workspace = workspaceId === null ? undefined : model.workspaces.get(workspaceId);
 
@@ -241,13 +248,12 @@ const WorkspaceSidebar = () => {
         header={
           <Header
             title="No workspace yet"
-            caption={
-              shown === undefined ? "No machines yet" : `${shown.label} · ${shown.status.state}`
-            }
-            canStart={shown !== undefined}
+            caption={shown === undefined ? "No machines yet" : shown.label}
+            canStart={shown?.status.state === "connected"}
+            host={shown}
           />
         }
-        footer={hostCount === 0 ? "" : `${plural(hostCount, "host")} · no workspaces`}
+        footer={hostCount === 0 ? "" : plural(hostCount, "host")}
       >
         <div className="flex flex-col px-2 pt-2">
           <SectionHeader empty="None yet">Sessions</SectionHeader>
@@ -272,7 +278,11 @@ const WorkspaceSidebar = () => {
           host={host}
         />
       }
-      footer={`${plural(sessions.length, "session")} · ${plural(worktrees.length, "worktree")}`}
+      footer={
+        worktrees.length === 0
+          ? plural(sessions.length, "session")
+          : `${plural(sessions.length, "session")} · ${plural(worktrees.length, "worktree")}`
+      }
     >
       {sidebar === "needs-you" ? (
         <slots.NeedsYouInbox />
@@ -314,7 +324,7 @@ const MachineSidebar = () => {
           host={host}
         />
       }
-      footer={`${plural(workspaces.length, "workspace")} · ${plural(sessions, "session")}`}
+      footer={plural(workspaces.length, "workspace")}
     >
       {sidebar === "needs-you" ? (
         <slots.NeedsYouInbox />

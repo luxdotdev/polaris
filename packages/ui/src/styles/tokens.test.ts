@@ -115,6 +115,7 @@ describe("accessibility hooks", () => {
 
     for (const name of ["added", "removed"]) {
       expect(block).toContain(`--color-diff-${name}: var(--color-diff-${name}-cvd);`);
+      expect(block).toContain(`--color-diff-${name}-text: var(--color-diff-${name}-cvd-text);`);
       expect(block).toContain(`--color-diff-${name}-bg:`);
       expect(block).toContain(`--color-diff-${name}-emphasis:`);
     }

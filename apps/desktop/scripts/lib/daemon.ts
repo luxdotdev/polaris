@@ -1,5 +1,5 @@
 /** A throwaway Daemon from source for the smoke test; runs under Bun and Node. */
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { connect } from "node:net";
 import { join } from "node:path";
@@ -60,6 +60,20 @@ const testEnv = (
   };
 };
 
+/**
+ * The Codex app-server a Daemon starts is detached and outlives it by design
+ * (`AppServer.ts`); stop the one this home's Daemon started, and no other.
+ */
+const stopCodexAppServer = (home: string) => {
+  const result = spawnSync(
+    "bun",
+    [join(REPO_ROOT, "apps/daemon/scripts/stop-codex-app-server.ts"), home],
+    { cwd: REPO_ROOT, stdio: ["ignore", "ignore", "inherit"] }
+  );
+
+  if (result.status !== 0) console.error(`could not stop the Codex app-server under ${home}`);
+};
+
 export const startDaemon = async ({
   home,
   benchHarness,
@@ -101,6 +115,7 @@ export const startDaemon = async ({
 
       await exited;
       clearTimeout(killed);
+      stopCodexAppServer(home);
     },
   };
 };

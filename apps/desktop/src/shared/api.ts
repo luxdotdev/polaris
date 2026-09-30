@@ -6,6 +6,9 @@
  */
 import type {
   Attachment,
+  AttachmentSettings,
+  AttachmentUsage,
+  StagedAmount,
   Capability,
   ConnectionState,
   FileChangeEvent,
@@ -30,6 +33,7 @@ import type { NeedsYouAction } from "./needsYou.ts";
 import type {
   CachedHost,
   CodeFont,
+  CodeFontSize,
   Density,
   DiffPalette,
   MotionSource,
@@ -46,6 +50,7 @@ export type {
   AppearancePatch,
   CachedHost,
   CodeFont,
+  CodeFontSize,
   Density,
   DiffPalette,
   MotionSource,
@@ -197,6 +202,7 @@ export interface Appearance {
   readonly diffPalette: DiffPalette;
   readonly motion: MotionSource;
   readonly codeFont: CodeFont;
+  readonly codeFontSize: CodeFontSize;
 }
 
 /** Each Harness's defaults for new sessions, by kind. */
@@ -278,6 +284,12 @@ export interface RequestOutputs {
   "terminal.resize": null;
   "terminal.close": null;
   "attachments.stage": Attachment;
+  "attachments.settings": {
+    readonly settings: Plain<AttachmentSettings>;
+    readonly usage: Plain<AttachmentUsage>;
+  };
+  "attachments.setSettings": null;
+  "attachments.clear": Plain<StagedAmount>;
   "install.ensure": InstallView;
   "machines.sshAliases": ReadonlyArray<SshAliasView>;
   "machines.add": { readonly key: string };

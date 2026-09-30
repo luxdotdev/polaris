@@ -100,7 +100,10 @@ export interface ConnectionStatus {
   readonly capabilities: ReadonlyArray<Capability>;
   /** Increments on every successful connection. */
   readonly epoch: number;
-  /** The link's round trip when this connection opened (one protocol ping), in ms; null if unmeasured. */
+  /**
+   * The link's round trip in ms, measured once per connection right after
+   * `hello` (one ping; nothing periodic, so an idle Daemon stays asleep). Null until measured.
+   */
   readonly latencyMs: number | null;
   /** When the last good connection ended (ms since epoch); null while connected or never. */
   readonly lastSeenAt: number | null;
@@ -264,12 +267,8 @@ export const makeHostConnection = Effect.fnUntraced(function* (
         yield* Effect.addFinalizer(() =>
           SubscriptionRef.update(live, (current) => (current === session ? null : current))
         );
-        // After hello, so ssh's own handshake isn't counted.
-        const latencyMs = yield* connection.roundTrip;
         const connected = step({ type: "connected", epoch });
         yield* setStatus({
-          latencyMs,
-          lastSeenAt: null,
           state: connected.value,
           failure: null,
           attempt: connected.context.attempt,
@@ -277,8 +276,15 @@ export const makeHostConnection = Effect.fnUntraced(function* (
           host: hello.host,
           capabilities,
           epoch,
+          lastSeenAt: null,
         });
         yield* SubscriptionRef.set(live, session);
+        yield* connection.roundTrip.pipe(
+          Effect.flatMap((ms) => setStatus({ latencyMs: Math.round(ms) })),
+          Effect.timeout(policy.helloTimeoutMs),
+          Effect.ignore,
+          Effect.forkScoped
+        );
 
         return yield* connection.lost.pipe(Effect.catch(() => Effect.flip(transport.diagnose)));
       })

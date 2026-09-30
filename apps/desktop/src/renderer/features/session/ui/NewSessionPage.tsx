@@ -228,7 +228,7 @@ export const NewSessionPage = ({
       data-testid="new-session"
     >
       <Clearing className="flex flex-col items-center gap-2 px-20 pt-7 pb-8 text-center">
-        <p className="text-caption text-starlight font-medium tracking-[0.02em]">
+        <p className="text-caption text-starlight-text font-medium tracking-[0.02em]">
           New session · {workspace.name}
         </p>
         <h1 className="text-display text-text-strong tracking-[-0.015em]">

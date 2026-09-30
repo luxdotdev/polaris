@@ -32,6 +32,8 @@
  */
 :root {
   --text-scale: 1;
+  /* The code face's size at the default text size (Settings → Appearance → Code font). */
+  --code-size: 13px;
 }
 
 [data-text-size="small"] {
@@ -62,10 +64,10 @@
   --text-label--line-height: round(calc(16px * var(--text-scale)), 1px);
   --text-caption: round(calc(12px * var(--text-scale)), 1px);
   --text-caption--line-height: round(calc(16px * var(--text-scale)), 1px);
-  --text-code: round(calc(13px * var(--text-scale)), 1px);
-  --text-code--line-height: round(calc(20px * var(--text-scale)), 1px);
-  --text-code-inline: round(calc(12px * var(--text-scale)), 1px);
-  --text-code-inline--line-height: round(calc(16px * var(--text-scale)), 1px);
+  --text-code: round(calc(var(--code-size) * var(--text-scale)), 1px);
+  --text-code--line-height: round(calc((var(--code-size) + 7px) * var(--text-scale)), 1px);
+  --text-code-inline: round(calc((var(--code-size) - 1px) * var(--text-scale)), 1px);
+  --text-code-inline--line-height: round(calc((var(--code-size) + 3px) * var(--text-scale)), 1px);
   --text-micro: round(calc(11px * var(--text-scale)), 1px);
   --text-micro--line-height: round(calc(12px * var(--text-scale)), 1px);
 }
@@ -74,8 +76,8 @@
 [data-diff-palette="cvd"] {
   --color-diff-added: var(--color-diff-added-cvd);
   --color-diff-removed: var(--color-diff-removed-cvd);
-  --color-diff-added-text: var(--color-diff-added-cvd);
-  --color-diff-removed-text: var(--color-diff-removed-cvd);
+  --color-diff-added-text: var(--color-diff-added-cvd-text);
+  --color-diff-removed-text: var(--color-diff-removed-cvd-text);
   --color-diff-added-bg: color-mix(in oklab, var(--color-diff-added-cvd) 10%, transparent);
   --color-diff-removed-bg: color-mix(in oklab, var(--color-diff-removed-cvd) 10%, transparent);
   --color-diff-added-emphasis: color-mix(in oklab, var(--color-diff-added-cvd) 25%, transparent);

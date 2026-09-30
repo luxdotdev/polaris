@@ -5,7 +5,7 @@
  * follows, and restores its measurements and offset when a session reopens.
  */
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import type { Row } from "../model/conversation.ts";
 import { ConversationRow, type RowContext } from "./rows.tsx";
 
@@ -47,13 +47,8 @@ export const Conversation = ({ scrollKey, rows, ctx }: ConversationProps) => {
       restore === undefined || restore.atEnd ? Number.MAX_SAFE_INTEGER : restore.offset,
   });
 
-  // Streaming grows the last row rather than appending one: keep the end in view.
-  const last = rows.at(-1);
-
-  useLayoutEffect(() => {
-    if (virtualizer.isAtEnd(48)) virtualizer.scrollToEnd();
-  }, [last, virtualizer]);
-
+  // Streaming grows the last row: `anchorTo: "end"` follows it as the row is re-measured.
+  // No per-commit isAtEnd/scrollToEnd: each one forces a layout of the whole list.
   useEffect(
     () => () => {
       saved.set(scrollKey, {

@@ -10,6 +10,7 @@ import {
   ContrastIcon,
   GridIcon,
   Kbd,
+  PaperclipIcon,
   PixelPolarisIcon,
   ServerIcon,
 } from "@polaris/ui";
@@ -19,6 +20,7 @@ import type { SettingsRoute, SettingsSection } from "../../../routes/selection.t
 import { useShellActions } from "../../../shell/hooks.ts";
 import { SECTION_GROUPS, sectionInfo } from "../model/sections.ts";
 import { useSettings } from "../store.ts";
+import { AttachmentsPage } from "../../attachments/index.ts";
 import { AppearancePage } from "./AppearancePage.tsx";
 import { HarnessesPage } from "./HarnessesPage.tsx";
 import { UsagePage } from "./UsagePage.tsx";
@@ -28,6 +30,7 @@ const ICONS: Readonly<Record<SettingsSection, ReactNode>> = {
   harnesses: <GridIcon />,
   usage: <ChartColumnIcon />,
   hosts: <ServerIcon />,
+  attachments: <PaperclipIcon />,
 };
 
 /** An open popover, menu, select or dialog takes esc first. */
@@ -63,7 +66,7 @@ const NavItem = ({
     aria-current={selected ? "page" : undefined}
     onClick={onSelect}
     className={cn(
-      "h-row px-row-x rounded-row text-body flex w-full shrink-0 cursor-default items-center gap-2.5 font-medium",
+      "h-row px-row-x rounded-row text-label flex w-full shrink-0 cursor-default items-center gap-2.5",
       selected
         ? "bg-fill-selected text-text-strong"
         : "text-text-default hover:bg-fill-hover [&>svg]:text-text-subtle"
@@ -87,7 +90,7 @@ const SettingsNav = ({ current }: { readonly current: SettingsSection }) => {
         <button
           type="button"
           onClick={closeSettings}
-          className="text-body text-text-subtle hover:text-text-default flex h-6 cursor-default items-center gap-1.5"
+          className="text-label font-regular text-text-subtle hover:text-text-default flex h-6 cursor-default items-center gap-1.5"
         >
           <ChevronLeftIcon size={14} />
           <span className="flex-1 text-left">Back to orchestrate</span>
@@ -109,10 +112,10 @@ const SettingsNav = ({ current }: { readonly current: SettingsSection }) => {
         </div>
       ))}
       <span className="flex-1" />
-      <div className="h-row px-row-x text-body text-text-default flex shrink-0 items-center gap-2.5 font-medium">
+      <div className="h-row px-row-x text-label text-text-default flex shrink-0 items-center gap-2.5">
         <PixelPolarisIcon size={16} className="text-starlight" />
         About Polaris
-        <span className="text-caption text-text-subtle font-normal">{version}</span>
+        <span className="text-caption text-text-subtle font-regular">{version}</span>
       </div>
     </nav>
   );
@@ -128,6 +131,8 @@ const Page = ({ route }: { readonly route: SettingsRoute }) => {
       return <UsagePage />;
     case "hosts":
       return <slots.SettingsHosts adding={route.adding} />;
+    case "attachments":
+      return <AttachmentsPage />;
   }
 };
 
@@ -139,7 +144,10 @@ export const SettingsPage = ({ route }: { readonly route: SettingsRoute }) => {
   return (
     <main className="flex min-h-0 flex-1" data-testid="settings">
       <SettingsNav current={route.section} />
-      <div className="bg-bg min-w-0 flex-1 overflow-y-auto" data-section={route.section}>
+      <div
+        className="bg-bg min-w-0 flex-1 [scrollbar-gutter:stable_both-edges] overflow-y-auto"
+        data-section={route.section}
+      >
         <Page route={route} />
       </div>
     </main>

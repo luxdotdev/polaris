@@ -29,6 +29,9 @@ colors:
   # Brand: starlight. Focus rings, Polaris's own activity, logo, the star. Nothing else.
   starlight-dark: "#BCD3FF"
   starlight-light: "#4F82E8"
+  # Starlight set as words (kickers, including on the dawn clearing): 5.5:1 on the clearing's worst pixel, 5.0:1+ on every light surface.
+  starlight-text-dark: "#BCD3FF"
+  starlight-text-light: "#2F5FC4"
   # Session State signals.
   needs-you-dark: "#F2C84B"
   needs-you-light: "#B98A00"
@@ -73,6 +76,11 @@ colors:
   diff-removed: "#F85149"
   diff-added-cvd: "#388BFD"
   diff-removed-cvd: "#DB8B2C"
+  # Colourblind diff text (counts, letters): 4.5:1+ on bg, sunken, raised, fill-selected and the cvd fills.
+  diff-added-cvd-text-dark: "#5C9EFF"
+  diff-added-cvd-text-light: "#0860C9"
+  diff-removed-cvd-text-dark: "#DB8B2C"
+  diff-removed-cvd-text-light: "#9A5A0E"
   # Pierre Diffs line fills (see Diff section for the variable map)
   diff-added-bg-dark: "#3FB9501A"
   diff-removed-bg-dark: "#F851491A"
@@ -259,7 +267,7 @@ components:
     height: "20px"
     padding: "0 6px"
   tile:
-    rounded: "{rounded.row}"
+    rounded: "{rounded.row}" # at 32 and 40px; 8px at 28px and 12px at 48px (see Pixel tiles)
     size: "32px"
   toast:
     rounded: "{rounded.card}"
@@ -303,7 +311,7 @@ The Desktop App is Electron (Chromium 152, React). CSS effects are available: sh
 
 ### Primary
 
-**Starlight** (`starlight-dark` #BCD3FF, `starlight-light` #4F82E8) is the brand: a cool white-blue. It appears in exactly four places: keyboard focus rings, the activity indicator and dither for Polaris's own work (such as the Risk Summary reviewer), the logo mark, and the star in the night-sky scene.
+**Starlight** (`starlight-dark` #BCD3FF, `starlight-light` #4F82E8) is the brand: a cool white-blue. It appears in exactly four places: keyboard focus rings, the activity indicator and dither for Polaris's own work (such as the Risk Summary reviewer), the logo mark, and the star in the night-sky scene. Where Starlight is set as words (the Starlight kicker over a scene), it uses `starlight-text`: the same #BCD3FF in dark, and #2F5FC4 in light, because #4F82E8 is 3.5:1 on the dawn clearing (rule/scene-text-contrast).
 
 ### Neutral
 
@@ -325,7 +333,7 @@ Faintly cool greys (a trace of blue, never readable as blue). Dark background is
 | High ▲ | `severity-high` (orange) | Review and Output. |
 | Medium ● | `severity-medium` (yellow) | Review and Output. |
 | Low ○ | `severity-low` (slate) | Review and Output. |
-| Diff added / removed | `diff-added`, `diff-removed` at ~12% line fill, ~25% word highlight; counts and letters in `diff-*-text` | Review and Editor. `-cvd` blue/orange set in settings. |
+| Diff added / removed | `diff-added`, `diff-removed` at ~12% line fill, ~25% word highlight; counts and letters in `diff-*-text` | Review and Editor. `-cvd` blue/orange set in settings, with `diff-*-cvd-text` for counts and letters. |
 
 ### Harness identity
 
@@ -437,6 +445,8 @@ The main unit of the app. A row is an optional 16px icon or tile, a `label` titl
 
 The Orchestrator's sidebar unit, and the Harness's home in the chrome. A session row is a Harness tile (size per density step), a `label` title, a `caption` second line saying what the session is doing right now ("Wants to run cargo build", "Writing layout variants…", "Ready to review · 3 files"), and a trailing age. The Session State lives *inside* the tile, so one square carries both who (the wash) and what (the glyph). Needs You tints the second line `needs-you-text`; other second lines and the age are `text-subtle`. The selected row is a raised card (`row-selected`): `#26272C` dark, white in light, hairline border, `row` radius. Light chose white over `fill-selected` because text on it keeps more contrast (`text-subtle` 5.6:1 vs 4.8:1, `needs-you-text` 5.6:1 vs 4.8:1) and it separates more from the sunken sidebar. Dormant tiles drop the wash and use a dashed hairline.
 
+**Exception, machine mode (Paper MX-0):** with the machine bar, the sidebar groups a machine's sessions by Workspace, and those grouped rows are 32px single-line glyph rows (a 16px state glyph, the title, the age), not tile rows, so many Workspaces fit. The two-line tile row is for a single Workspace's sessions.
+
 ### Session State indicators
 
 Each Agent Session shows its state as a glyph inside its Harness tile (session rows) or in a fixed 16px slot (chips, menus, compact lists):
@@ -479,7 +489,7 @@ The Review view mirrors the Orchestrator's three zones: **queue** (left), **risk
 
 ### Pixel tiles
 
-A square tile holding a Nucleo pixel icon over a watercolour wash. Sizes are 24, 32 (default), and 40px, at the `row` radius, with a 1px hairline. The wash is a soft, slightly grainy tint of the identity hue (a Harness hue, or Starlight for Polaris). Tiles represent identities and Polaris-owned concepts: Harnesses, Agent Sessions, toast sources. They are never used as generic decoration on list rows.
+A square tile holding a Nucleo pixel icon over a watercolour wash. Sizes are 24, 32 (default), and 40px, with a 1px hairline. The radius scales with the tile, as built: 8px on 28px tiles (session rows, inbox cards), `row` (10px) on 32 and 40px tiles, and 12px on 48px tiles (pane empty states, setup rows); a small tile at 10px would read as a status dot. The wash is a soft, slightly grainy tint of the identity hue (a Harness hue, or Starlight for Polaris). Tiles represent identities and Polaris-owned concepts: Harnesses, Agent Sessions, toast sources. They are never used as generic decoration on list rows.
 
 ### Toasts
 
@@ -524,7 +534,7 @@ Full-bleed pixel illustrations: a night sky with Polaris for dark mode, a meadow
 
 ### New session
 
-The empty-state page for starting an Agent Session. Night-sky scene (dawn in light mode) fills the stage; the sidebar stays. A clearing holds a Starlight kicker ("New session · polaris"), the `display` headline "What should happen next?", and one line saying where it runs (Host, path, Worktree). Below it, the composer on a `surface-raised` card. Below that, the Harness choice as **one balanced row of three equal cards spanning the composer's width**: Claude Code, Codex, Fork a Turn. Each is 56px tall with a 48px watercolour tile on its leading edge, a 14px title and a one-line `caption`; the selected card gets `text-strong`, a brighter hairline and a check. No staggering or cascade.
+The empty-state page for starting an Agent Session. Night-sky scene (dawn in light mode) fills the stage; the sidebar stays. A clearing holds a Starlight kicker in `starlight-text` ("New session · polaris"), the `display` headline "What should happen next?", and one line saying where it runs (Host, path, Worktree). Below it, the composer on a `surface-raised` card. Below that, the Harness choice as **one balanced row of three equal cards spanning the composer's width**: Claude Code, Codex, Fork a Turn. Each is 56px tall with a 48px watercolour tile on its leading edge, a 14px title and a one-line `caption`; the selected card gets `text-strong`, a brighter hairline and a check. No staggering or cascade.
 
 ### Settings
 Settings replaces the three zones inside the one main window (no separate window); ⌘, (Polaris → Settings…), the gear at the right of the sidebar's footer and the K menu ("Settings", "Settings: Appearance"…) open it, and esc returns to where you were. Mockups: Settings page, S1 Harnesses (dark), S2 Usage (dark), S3 Appearance (light), S4 Hosts (dark).
@@ -534,6 +544,7 @@ Settings replaces the three zones inside the one main window (no separate window
 - **Usage (S2).** Plan limits first: one row per Harness with the plan, freshness ("live" or "as of 40m ago") and each window as a pixel-cell meter (40 cells, 4×10px, lit cells in the Harness hue, unlit at white 7%) with the percentage and the reset time. Near a limit the words change, never the colour. Then tokens: a 7 / 30 / 90 days segmented control, a "Split by Polaris sessions" switch, three `display` figures (tokens, API-equivalent cost marked estimated, share in Polaris sessions), a stacked daily bar chart in Harness hues with usage outside Polaris at ~32% of the hue, and a by-model table where estimated costs carry a leading "~" and Harness-reported costs do not.
 - **Appearance (S3).** Theme is three cards previewed with the real scenes: Night (dark), Dawn (light) and Match macOS (split). The density slider has three stops and a live session-row preview beside it; text size is its own slider; code font, colourblind-safe diffs (with a +/− swatch) and Reduce motion follow as rows.
 - **Hosts (S4).** A table of hosts (name, ssh alias in mono, workspace count, daemon version, Connection State, overflow menu). Connected is a filled `text-subtle` dot with latency; Reconnecting dims the row to ~55% with a hollow dot and elapsed time; Offline is a dashed dot with "last seen"; Needs Attention expands inline under its row with what happened, the evidence in a sunken well, and at most one fix. A changed host key only offers to copy the command. "Add a host" is the page's one primary button. A row opened because something needs the user shows only that (the approval card or the one reason card) and stays open afterwards to say what the install or upgrade did; its settings (name, agent forwarding, off by default, and the remote command) show only when the user opens the row. "Add a host" opens inline under the table: `~/.ssh/config` aliases as a list (wildcards left out), a name, an optional mark and the forwarding switch. Install progress is Polaris's own work, so it is the Starlight dither and the step in words ("Copying the build over SSH and checking its SHA-256"), never a guessed byte bar. The local host row carries "Use this Mac as a host" instead of remove.
+- **Attachments.** Under Machines, after Hosts. One section per host (each keeps its own settings, ENG-180): the host's name as the heading, then a group. The first row is "Delete attachments", the host's default: when the session is archived (the default), after 1, 7, 30 or 90 days, or never, until cleared. Then one row per workspace on that host, its name and what it has staged ("94 B in 2 files", "Nothing staged"), with a select whose first choice is "Default · …". The sunken footer strip says what the host holds and offers "Clear now" (danger), which asks once more in place ("Cancel", "Delete 2 files") before deleting. A host that isn't connected, or whose daemon predates it, gets one caption line instead of the group.
 - **Harness hue in Settings.** Beyond tiles and dither, a Harness hue may fill plan-limit meter cells, chart series and 8px legend squares, since those are identity. It still never colours text, buttons or selection.
 
 ### Onboarding
