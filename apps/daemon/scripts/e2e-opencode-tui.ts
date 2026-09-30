@@ -19,9 +19,10 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ApprovalDecision, SessionId, TurnId } from "@polaris/protocol";
-import { Effect, Stream } from "effect";
+import { Effect, Layer, Stream } from "effect";
 import { HarnessEvent } from "../src/harness/HarnessDriver.ts";
 import { scratchXdg } from "../src/harness/opencode/OpenCodeDriver.ts";
+import { PlanLimitReporter } from "../src/harness/limits/PlanLimitReporter.ts";
 import { HarnessRegistryLive } from "../src/harness/registry.ts";
 import { HarnessRegistry } from "../src/services.ts";
 
@@ -208,7 +209,11 @@ const program = Effect.gen(function* () {
 });
 
 try {
-  await Effect.runPromise(Effect.scoped(program).pipe(Effect.provide(HarnessRegistryLive)));
+  await Effect.runPromise(
+    Effect.scoped(program).pipe(
+      Effect.provide(HarnessRegistryLive.pipe(Layer.provide(PlanLimitReporter.none)))
+    )
+  );
   check("the server stopped with the session", !existsSync(stateFile));
 } finally {
   writeFileSync(join(out, "events.json"), JSON.stringify(events, null, 2));

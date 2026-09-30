@@ -31,6 +31,7 @@ type FakeQuery = Pick<
   | "applyFlagSettings"
   | "supportedModels"
   | "close"
+  | "usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET"
 >;
 
 /** What the fake's permission callback is asked about. */
@@ -51,6 +52,9 @@ export class FakeClaude {
   modelInfos: Awaited<ReturnType<Query["supportedModels"]>> = [];
   interrupts = 0;
   closed = false;
+  /** How often the driver asked `get_usage`, and what the fake answers (a reply or a failure). */
+  usageCalls = 0;
+  usageReply: Json | Error = { rate_limits_available: false, rate_limits: null };
   private readonly out = new Inbox<SDKMessage>();
   private inputWaiters: Array<() => void> = [];
 
@@ -83,6 +87,16 @@ export class FakeClaude {
       close: () => {
         this.closed = true;
         this.out.end();
+      },
+      usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET: async () => {
+        this.usageCalls++;
+
+        if (this.usageReply instanceof Error) throw this.usageReply;
+
+        // SAFETY: the driver decodes the reply with its own schema before reading it.
+        return this.usageReply as Awaited<
+          ReturnType<Query["usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET"]>
+        >;
       },
     };
 
@@ -233,6 +247,13 @@ export const result = (uuids: string[] | null, options: ResultOptions = {}) => {
   return message;
 };
 
+export const rateLimitEvent = (info: Json) => ({
+  type: "rate_limit_event" as const,
+  rate_limit_info: info,
+  uuid: crypto.randomUUID(),
+  session_id: "s",
+});
+
 /** A Subagent starts, spawned by the Agent call `toolUseId`. */
 export const taskStarted = (
   toolUseId: string,
@@ -274,6 +295,7 @@ export const inSubagent = <M extends ReturnType<typeof assistant> | ReturnType<t
 
 /** A message the fake Claude sends: one of the builders' shapes. */
 export type FakeMessage =
+  | ReturnType<typeof rateLimitEvent>
   | ReturnType<typeof init>
   | ReturnType<typeof assistant>
   | ReturnType<typeof toolResult>
