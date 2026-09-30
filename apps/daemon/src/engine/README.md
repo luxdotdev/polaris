@@ -95,6 +95,17 @@ Not drawn: `model.set` changes no Session State (it records `SessionModelChanged
 | `terminal.open` / `terminal.return` | Idle, Dormant, Failed / In Terminal | "the session is \<state\>" / "not In Terminal" |
 | `model.set` (`SetModel`) | no Turn in flight, not In Terminal or Archived; a Harness that can't switch Model mid-session (driver `switchModel: false`) only before it has a cursor. The same Model and effort again is accepted and records nothing | "the session is \<state\>; wait for the Turn to end", "… In Terminal; return it first", "the session is Archived", "\<harness\> can't switch Model mid-session; fork instead" |
 | `session.start` / `session.fork` | before the session exists | "session … already exists" |
+| `harness.subagentStarted` / `harness.subagentEnded` | a start only for the Turn in flight, once; an end only for an open Subagent (anything else is ignored, never refused) | — |
+
+### Subagents
+
+A Subagent (CONTEXT.md) is a helper the Harness spawns inside a Turn (Claude's Agent tool, a Codex agent thread, an OpenCode child session). The rules, in `session.subagents.ts`:
+
+- `harness.subagentStarted` records `SubagentStarted` only for the Turn in flight, and once per id (like `harness.approvalRequested`). No Session State changes.
+- It **may outlive its Turn** (Claude runs agents in the background by default): the Turn ending leaves it open, and its items still arrive for that Turn. `harness.subagentEnded` records `SubagentEnded` with the Harness's status, only for an open Subagent.
+- When the Harness goes away, so do its Subagents: `harness.exited`, `daemon.recover`, `session.fail`, `turn.interruptUnattended` and `session.archive` end every open one `interrupted`, first in their events. So no Subagent stays working without a Harness, as no approval stays pending without its Turn.
+
+**For drivers** (`HarnessEvent.SubagentStarted` / `SubagentEnded`, and `subagentId` on `ItemDelta` / `ItemUpdated` / `ItemCompleted`): mint the `subagentId` from the Harness's own id for it, report the start before its items, report its items under the Turn that spawned it, and report its end when the Harness does. Claude (`harness/claude/translate.ts`) and Codex (`harness/codex/subagents.ts`) do. **OpenCode** (the driver is ENG-203): a child session (`parentID` = the Polaris session's OpenCode session, created by the `task` tool) is a Subagent: `SubagentStarted { subagentId: child session id, parentItemId: the task tool part's id, title: the task's description, agent: its subagent type }` when the child appears (`session.created` / the task part running), its message parts as items with that `subagentId` (the same mapping as the parent's), and `SubagentEnded` when the task part completes or errors (`completed` / `failed`) or the child is aborted (`interrupted`).
 
 ### Terminal hand-off
 

@@ -27,6 +27,12 @@ export const Capability = Schema.Literals([
    * announces it in `hello`; the Daemon only sends `ItemProgress` to Clients that did.
    */
   "session.live-items",
+  /**
+   * Subagents: `SubagentStarted`/`SubagentEnded`, a Subagent's own items (with a
+   * `subagentId`), and `TurnDetail.subagents`. A Client announces it in `hello`;
+   * the Daemon leaves all of these out for Clients that didn't.
+   */
+  "session.subagents",
   "files.read",
   "files.search",
   "files.watch",

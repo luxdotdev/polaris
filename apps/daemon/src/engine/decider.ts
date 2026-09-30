@@ -381,7 +381,7 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
       onSession(d, c.sessionId, { type: "permissionMode.set", permissionMode: c.permissionMode }),
     SetModel: (c) => setModel(d, c),
     ForkSession: (c) => forkSession(d, c),
-    ArchiveSession: (c) => onSession(d, c.sessionId, { type: "session.archive" }),
+    ArchiveSession: (c) => onSession(d, c.sessionId, { type: "session.archive", at: ctx.now }),
     UnarchiveSession: (c) => onSession(d, c.sessionId, { type: "session.unarchive" }),
     OpenInTerminal: (c) => onSession(d, c.sessionId, { type: "terminal.open" }),
     ReturnFromTerminal: (c) => onSession(d, c.sessionId, { type: "terminal.return" }),

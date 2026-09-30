@@ -6,6 +6,7 @@
 import type {
   Sequence,
   ApprovalRequest,
+  Subagent,
   DomainEvent,
   EventEnvelope,
   HostStreamItem,
@@ -19,6 +20,8 @@ export interface SessionEntry {
   readonly session: SessionData;
   readonly pendingApprovals: ReadonlyArray<ApprovalRequest>;
   readonly lastTurnPreview: string | null;
+  /** Subagents still working in this session. */
+  readonly subagents: ReadonlyArray<Subagent>;
 }
 
 export interface HostModel {
@@ -55,6 +58,7 @@ const entryOf = (summary: SessionEntry): SessionEntry => ({
   session: summary.session,
   pendingApprovals: summary.pendingApprovals,
   lastTurnPreview: summary.lastTurnPreview,
+  subagents: summary.subagents,
 });
 
 type SessionChange = (entry: SessionEntry) => SessionEntry;
@@ -157,6 +161,7 @@ const fold = (event: DomainEvent): Fold =>
             session,
             pendingApprovals: [],
             lastTurnPreview: null,
+            subagents: [],
           }),
         }),
       SessionStateChanged: ({ sessionId, state, reason }) =>
@@ -173,6 +178,8 @@ const fold = (event: DomainEvent): Fold =>
       TurnStarted: ({ turn }) => onTurn(turn),
       TurnEnded: ({ turn }) => onTurn(turn),
       TurnItemCompleted: () => unchanged,
+      SubagentStarted: () => unchanged,
+      SubagentEnded: () => unchanged,
       CheckpointRecorded: () => unchanged,
       ApprovalRequested: ({ request }) =>
         onSession(request.sessionId, (entry) => ({

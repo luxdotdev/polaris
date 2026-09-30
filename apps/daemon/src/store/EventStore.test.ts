@@ -98,6 +98,7 @@ const seed = (store: EventStore["Service"]) =>
           sessionId: sId,
           turnId: tId,
           item: TurnItem.cases.AssistantMessage.make({ id: "m1", text: "hello" }),
+          subagentId: null,
         }),
         DomainEvent.cases.SessionRenamed.make({ sessionId: sId, title: "Renamed" }),
       ]),

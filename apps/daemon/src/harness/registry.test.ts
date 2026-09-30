@@ -7,6 +7,7 @@ import { makeBenchDriver } from "./bench/BenchDriver.ts";
 import { makeClaudeDriver } from "./claude/ClaudeDriver.ts";
 import { makeCodexDriver } from "./codex/CodexDriver.ts";
 import type { HarnessDriver } from "./HarnessDriver.ts";
+import { makeOpenCodeDriver } from "./opencode/OpenCodeDriver.ts";
 import { DRIVER_CAPABILITIES, lazyDriver } from "./registry.ts";
 
 describe("lazyDriver", () => {
@@ -54,6 +55,12 @@ describe("lazyDriver", () => {
       );
 
       expect(codex.capabilities).toEqual(DRIVER_CAPABILITIES.codex);
+
+      const opencode = await Effect.runPromise(
+        Effect.scoped(makeOpenCodeDriver({ opencodePath: () => null, stateDir: dir }))
+      );
+
+      expect(opencode.capabilities).toEqual(DRIVER_CAPABILITIES.opencode);
       expect(makeClaudeDriver().capabilities).toEqual(DRIVER_CAPABILITIES.claude);
       expect(makeBenchDriver("claude").capabilities).toEqual(DRIVER_CAPABILITIES.bench);
       expect(makeBenchDriver("codex").capabilities).toEqual(DRIVER_CAPABILITIES.bench);

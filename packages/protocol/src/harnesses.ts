@@ -67,6 +67,18 @@ export const HARNESS_CATALOGUE = [
       docsUrl: "https://developers.openai.com/codex/cli",
     },
   }),
+  entry("opencode", {
+    name: "OpenCode",
+    // The opencode the server types in the Daemon's `opencode/generated/` came from.
+    minVersion: "1.18.33",
+    setup: {
+      install: "OpenCode isn't installed on this host. See its setup guide.",
+      signIn:
+        "Connect a provider to OpenCode in its own terminal. Its free models work without one.",
+      signInCommand: ["opencode", "auth", "login"],
+      docsUrl: "https://opencode.ai/docs",
+    },
+  }),
 ] as const;
 
 /** The kinds this build's catalogue lists. */

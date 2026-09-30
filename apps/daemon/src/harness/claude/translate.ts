@@ -15,7 +15,7 @@ import type {
   SDKPartialAssistantMessage,
   SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
-import { type TurnId, TurnItem } from "@polaris/protocol";
+import { SubagentId, type TurnId, TurnItem } from "@polaris/protocol";
 import { Option, Predicate } from "effect";
 import { HarnessEvent } from "../HarnessDriver.ts";
 import {
@@ -26,12 +26,32 @@ import {
   decodeToolResults,
   present,
   type ToolPayload,
+  type ToolResult,
   toolFields,
 } from "./payloads.ts";
 
 type ToolStatus = "running" | "completed" | "failed" | "declined";
 
-const { CursorAssigned, ItemCompleted, ItemDelta, ItemUpdated } = HarnessEvent;
+const { CursorAssigned, ItemCompleted, ItemDelta, ItemUpdated, SubagentEnded, SubagentStarted } =
+  HarnessEvent;
+
+/** Where an item belongs: the Turn, or one of its Subagents. */
+interface Scope {
+  readonly turnId: TurnId;
+  readonly subagentId: SubagentId | null;
+}
+
+/** An item event's `turnId`, and its `subagentId` when it is a Subagent's. */
+const scoped = (scope: Scope) =>
+  scope.subagentId === null
+    ? { turnId: scope.turnId }
+    : { turnId: scope.turnId, subagentId: scope.subagentId };
+
+/** The key of a scope's live plan: its Turn's, or its Subagent's own. */
+const planKey = (scope: Scope): string => scope.subagentId ?? scope.turnId;
+
+/** The tool that spawns a Subagent: `Agent`, called `Task` before Claude Code 2.1. */
+const SPAWNS_SUBAGENT = new Set(["Agent", "Task"]);
 
 type BlockDelta = Extract<
   SDKPartialAssistantMessage["event"],
@@ -75,9 +95,9 @@ export const planSteps = (input: ToolPayload) =>
       present(todos).map((todo) => ({ text: todo.content, status: PLAN_STATUS[todo.status] })),
   });
 
-/** The live plan of a Turn, from a TodoWrite call's input. */
-export const planItem = (turnId: TurnId, input: ToolPayload): TurnItem =>
-  TurnItem.cases.Plan.make({ id: `plan:${turnId}`, steps: planSteps(input) });
+/** The live plan of a Turn (or of a Subagent: its key), from a TodoWrite call's input. */
+export const planItem = (key: string, input: ToolPayload): TurnItem =>
+  TurnItem.cases.Plan.make({ id: `plan:${key}`, steps: planSteps(input) });
 
 /** One tool call, in any state. */
 export interface ToolCall {
@@ -152,20 +172,28 @@ export const toolItem = (call: ToolCall): TurnItem => {
 interface OpenTool {
   readonly name: string;
   readonly input: ToolPayload;
+  readonly scope: Scope;
+}
+
+/** A Subagent Claude Code is running: where it belongs, and whether it runs in the background. */
+interface OpenSubagent {
   readonly turnId: TurnId;
+  readonly background: boolean;
 }
 
 export class ClaudeTranslator {
   private cursor: string | null;
   private turnId: TurnId | null = null;
-  /** Top-level message id of the stream currently being delivered. */
-  private streamMessageId: string | null = null;
+  /** Message id of the stream currently being delivered, per scope (`""` for the Turn's own). */
+  private readonly streamMessageIds = new Map<string, string>();
   /** How many content blocks of each assistant message id were delivered. */
   private readonly delivered = new Map<string, number>();
   private readonly tools = new Map<string, OpenTool>();
   private readonly declined = new Set<string>();
-  /** The latest TodoWrite plan of each Turn, completed when the Turn ends. */
-  private readonly plans = new Map<TurnId, TurnItem>();
+  /** The latest TodoWrite plan of each Turn or Subagent (`planKey`), completed when it ends. */
+  private readonly plans = new Map<string, { readonly scope: Scope; readonly item: TurnItem }>();
+  /** Subagents by the id of the tool call that spawned them. */
+  private readonly subagents = new Map<string, OpenSubagent>();
 
   constructor(
     private readonly cwd: string,
@@ -184,8 +212,10 @@ export class ClaudeTranslator {
 
   endTurn(): void {
     this.turnId = null;
-    this.streamMessageId = null;
-    this.delivered.clear();
+    this.streamMessageIds.delete("");
+
+    // A background Subagent may still be delivering blocks.
+    if (this.subagents.size === 0) this.delivered.clear();
   }
 
   /** The user (or an interrupt) declined this tool call; its result reads as `declined`. */
@@ -198,19 +228,30 @@ export class ClaudeTranslator {
    * declined, and the Turn's plan completes with its last state.
    */
   closeOpenTools(turnId: TurnId, status: "failed" | "declined"): HarnessEvent[] {
+    return this.closeScope({ turnId, subagentId: null }, status);
+  }
+
+  /** What a Turn or Subagent left open completes: its plan, and its tool calls as `status`. */
+  private closeScope(scope: Scope, status: "failed" | "declined"): HarnessEvent[] {
     const events: HarnessEvent[] = [];
-    const plan = this.plans.get(turnId);
+    const plan = this.plans.get(planKey(scope));
 
     if (plan !== undefined) {
-      this.plans.delete(turnId);
-      events.push(ItemCompleted({ turnId, item: plan }));
+      this.plans.delete(planKey(scope));
+      events.push(ItemCompleted({ ...scoped(scope), item: plan.item }));
     }
 
     for (const [id, tool] of this.tools) {
-      if (tool.turnId !== turnId || tool.name === "TodoWrite") continue;
+      if (tool.scope.turnId !== scope.turnId || tool.scope.subagentId !== scope.subagentId) {
+        continue;
+      }
+
+      this.tools.delete(id);
+
+      if (tool.name === "TodoWrite") continue;
       events.push(
         ItemCompleted({
-          turnId,
+          ...scoped(scope),
           item: toolItem({
             id,
             name: tool.name,
@@ -222,7 +263,6 @@ export class ClaudeTranslator {
           }),
         })
       );
-      this.tools.delete(id);
     }
 
     return events;
@@ -231,61 +271,140 @@ export class ClaudeTranslator {
   onMessage(message: SDKMessage): HarnessEvent[] {
     switch (message.type) {
       case "system":
-        if (message.subtype === "init" && message.session_id !== this.cursor) {
-          this.cursor = message.session_id;
-
-          return [CursorAssigned({ cursor: message.session_id })];
-        }
-
-        return [];
+        return this.onSystem(message);
       case "stream_event":
-        return message.parent_tool_use_id === null ? this.onStreamEvent(message.event) : [];
+        return this.withScope(message.parent_tool_use_id, (scope) =>
+          this.onStreamEvent(scope, message.event)
+        );
       case "assistant":
-        return message.parent_tool_use_id === null
-          ? this.onAssistant(message.message.id, message.message.content)
-          : [];
+        return this.withScope(message.parent_tool_use_id, (scope) =>
+          this.onAssistant(scope, message.message.id, message.message.content)
+        );
       case "user":
-        return message.parent_tool_use_id === null && !("isReplay" in message && message.isReplay)
-          ? this.onUser(message.message.content, message.tool_use_result)
-          : [];
+        // Tool results read their scope from the tool call they answer.
+        return ("isReplay" in message && message.isReplay) ||
+          (message.parent_tool_use_id !== null && !this.subagents.has(message.parent_tool_use_id))
+          ? []
+          : this.onUser(message.message.content, message.tool_use_result);
       default:
         return [];
     }
   }
 
+  /**
+   * The scope of a frame: the Turn in flight for the Turn's own frames, the
+   * Subagent's for frames with its `parent_tool_use_id`; none for others.
+   */
+  private withScope(parent: string | null, f: (scope: Scope) => HarnessEvent[]): HarnessEvent[] {
+    if (parent === null)
+      return this.turnId === null ? [] : f({ turnId: this.turnId, subagentId: null });
+    const subagent = this.subagents.get(parent);
+
+    return subagent === undefined
+      ? []
+      : f({ turnId: subagent.turnId, subagentId: SubagentId.make(parent) });
+  }
+
+  private onSystem(message: Extract<SDKMessage, { type: "system" }>): HarnessEvent[] {
+    if (message.subtype === "init") {
+      if (message.session_id === this.cursor) return [];
+      this.cursor = message.session_id;
+
+      return [CursorAssigned({ cursor: message.session_id })];
+    }
+
+    if (message.subtype === "task_started") return this.onTaskStarted(message);
+
+    return message.subtype === "task_notification" ? this.onTaskNotification(message) : [];
+  }
+
+  /** A Subagent starts: only one an Agent tool call spawned in the Turn in flight. */
+  private onTaskStarted(message: Extract<SDKMessage, { subtype: "task_started" }>): HarnessEvent[] {
+    const toolUseId = message.tool_use_id;
+    const tool = toolUseId === undefined ? undefined : this.tools.get(toolUseId);
+
+    if (toolUseId === undefined || tool === undefined || !SPAWNS_SUBAGENT.has(tool.name)) return [];
+
+    if (tool.scope.subagentId !== null || this.subagents.has(toolUseId)) return [];
+    this.subagents.set(toolUseId, {
+      turnId: tool.scope.turnId,
+      background: message.is_backgrounded === true,
+    });
+    const input = toolFields(tool.input);
+
+    return [
+      SubagentStarted({
+        turnId: tool.scope.turnId,
+        subagentId: SubagentId.make(toolUseId),
+        parentItemId: toolUseId,
+        title: message.description,
+        agent: message.subagent_type ?? input.subagent_type,
+        model: input.model,
+      }),
+    ];
+  }
+
+  private onTaskNotification(
+    message: Extract<SDKMessage, { subtype: "task_notification" }>
+  ): HarnessEvent[] {
+    const toolUseId = message.tool_use_id;
+
+    if (toolUseId === undefined) return [];
+
+    return this.endSubagent(
+      toolUseId,
+      message.status === "stopped" ? "interrupted" : message.status
+    );
+  }
+
+  /** A Subagent ends: its open items close, then `SubagentEnded`. */
+  private endSubagent(
+    toolUseId: string,
+    status: "completed" | "failed" | "interrupted"
+  ): HarnessEvent[] {
+    const subagent = this.subagents.get(toolUseId);
+
+    if (subagent === undefined) return [];
+    this.subagents.delete(toolUseId);
+    const subagentId = SubagentId.make(toolUseId);
+    const scope = { turnId: subagent.turnId, subagentId };
+
+    return [
+      ...this.closeScope(scope, status === "completed" ? "failed" : "declined"),
+      SubagentEnded({ subagentId, status }),
+    ];
+  }
+
   /** Runs once per streamed chunk; the SDK types these events, so they need no parsing. */
-  private onStreamEvent(event: SDKPartialAssistantMessage["event"]): HarnessEvent[] {
-    if (this.turnId === null) return [];
+  private onStreamEvent(scope: Scope, event: SDKPartialAssistantMessage["event"]): HarnessEvent[] {
+    const key = scope.subagentId ?? "";
 
     if (event.type === "message_start") {
-      this.streamMessageId = event.message.id;
+      this.streamMessageIds.set(key, event.message.id);
 
       return [];
     }
 
-    if (event.type !== "content_block_delta" || this.streamMessageId === null) return [];
+    const messageId = this.streamMessageIds.get(key);
+
+    if (event.type !== "content_block_delta" || messageId === undefined) return [];
     const text = deltaText(event.delta);
 
     if (text === null || text === "") return [];
 
     return [
-      ItemDelta({
-        turnId: this.turnId,
-        itemId: `${this.streamMessageId}:${event.index}`,
-        field: "text",
-        text,
-      }),
+      ItemDelta({ ...scoped(scope), itemId: `${messageId}:${event.index}`, field: "text", text }),
     ];
   }
 
   private onAssistant(
+    scope: Scope,
     messageId: string,
     content: SDKAssistantMessage["message"]["content"]
   ): HarnessEvent[] {
-    const turnId = this.turnId;
     const blocks = decodeAssistantContent(content);
 
-    if (turnId === null || Option.isNone(blocks)) return [];
+    if (Option.isNone(blocks)) return [];
 
     return blocks.value.flatMap((block) => {
       // Blocks of one message arrive in order, one or more per SDK message, so the running
@@ -293,18 +412,18 @@ export class ClaudeTranslator {
       const index = this.delivered.get(messageId) ?? 0;
       this.delivered.set(messageId, index + 1);
 
-      return block === null ? [] : this.onAssistantBlock(turnId, `${messageId}:${index}`, block);
+      return block === null ? [] : this.onAssistantBlock(scope, `${messageId}:${index}`, block);
     });
   }
 
-  private onAssistantBlock(turnId: TurnId, id: string, block: AssistantBlock): HarnessEvent[] {
+  private onAssistantBlock(scope: Scope, id: string, block: AssistantBlock): HarnessEvent[] {
     switch (block.type) {
       case "text":
         return block.text === ""
           ? []
           : [
               ItemCompleted({
-                turnId,
+                ...scoped(scope),
                 item: TurnItem.cases.AssistantMessage.make({ id, text: block.text }),
               }),
             ];
@@ -313,28 +432,28 @@ export class ClaudeTranslator {
           ? []
           : [
               ItemCompleted({
-                turnId,
+                ...scoped(scope),
                 item: TurnItem.cases.Reasoning.make({ id, text: block.thinking }),
               }),
             ];
       case "tool_use":
-        return this.onToolUse(turnId, block.id, block.name ?? "unknown", block.input);
+        return this.onToolUse(scope, block.id, block.name ?? "unknown", block.input);
     }
   }
 
-  private onToolUse(turnId: TurnId, id: string, name: string, input: ToolPayload): HarnessEvent[] {
-    this.tools.set(id, { name, input, turnId });
+  private onToolUse(scope: Scope, id: string, name: string, input: ToolPayload): HarnessEvent[] {
+    this.tools.set(id, { name, input, scope });
 
     if (name === "TodoWrite") {
-      const plan = planItem(turnId, input);
-      this.plans.set(turnId, plan);
+      const plan = planItem(planKey(scope), input);
+      this.plans.set(planKey(scope), { scope, item: plan });
 
-      return [ItemUpdated({ turnId, item: plan })];
+      return [ItemUpdated({ ...scoped(scope), item: plan })];
     }
 
     return [
       ItemUpdated({
-        turnId,
+        ...scoped(scope),
         item: toolItem({
           id,
           name,
@@ -357,40 +476,47 @@ export class ClaudeTranslator {
     if (Option.isNone(decoded)) return [];
     const results = present(decoded.value);
 
-    const events: HarnessEvent[] = [];
+    // The SDK attaches one structured result per message; trust it only when unambiguous.
+    const only = results.length === 1 ? structured : null;
 
-    for (const block of results) {
-      const id = block.tool_use_id;
-      const tool = this.tools.get(id);
+    return results.flatMap((block) => this.onToolResult(block, only));
+  }
 
-      if (!tool) continue;
-      this.tools.delete(id);
+  /** One tool call's result: its final item, and the end of a foreground Subagent it ran. */
+  private onToolResult(
+    block: ToolResult,
+    structured: SDKUserMessage["tool_use_result"]
+  ): HarnessEvent[] {
+    const id = block.tool_use_id;
+    const tool = this.tools.get(id);
 
-      if (tool.name === "TodoWrite") continue;
+    if (!tool) return [];
+    this.tools.delete(id);
 
-      const status: ToolStatus = this.declined.delete(id)
-        ? "declined"
-        : block.is_error === true
-          ? "failed"
-          : "completed";
+    if (tool.name === "TodoWrite") return [];
 
-      events.push(
-        ItemCompleted({
-          turnId: tool.turnId,
-          item: toolItem({
-            id,
-            name: tool.name,
-            input: tool.input,
-            cwd: this.cwd,
-            status,
-            resultText: toolResultText(block.content),
-            // The SDK attaches one structured result per message; trust it only when unambiguous.
-            structured: results.length === 1 ? structured : null,
-          }),
-        })
-      );
-    }
+    const status: ToolStatus = this.declined.delete(id)
+      ? "declined"
+      : block.is_error === true
+        ? "failed"
+        : "completed";
 
-    return events;
+    const completed = ItemCompleted({
+      ...scoped(tool.scope),
+      item: toolItem({
+        id,
+        name: tool.name,
+        input: tool.input,
+        cwd: this.cwd,
+        status,
+        resultText: toolResultText(block.content),
+        structured,
+      }),
+    });
+
+    // A foreground Subagent ends with its Agent call; a background one with its notification.
+    if (this.subagents.get(id)?.background !== false) return [completed];
+
+    return [completed, ...this.endSubagent(id, status === "completed" ? "completed" : "failed")];
   }
 }
