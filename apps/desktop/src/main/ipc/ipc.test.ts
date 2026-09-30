@@ -45,11 +45,13 @@ const context: RequestContext = {
   settings: () => ({ theme: "dark", hosts: [{ alias: "studio" }] }),
   version: "0.4.0",
   cache: { get: () => [], put: () => undefined },
+  prices: { table: () => Promise.reject(new Error("no prices in tests")) },
   setAppearance: () => undefined,
   setSessionDefault: () => undefined,
   openExternal: () => Promise.resolve(),
   proofWorkspace: () => null,
   daemonDist: null,
+  needsYou: () => undefined,
 };
 
 const handlers = requestHandlers(context);

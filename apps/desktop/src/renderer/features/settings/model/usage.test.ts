@@ -4,7 +4,7 @@ import {
   type Bucket,
   compactTokens,
   costLabel,
-  mergeBuckets,
+  pricedEstimate,
   rangeWindow,
   usageSummary,
 } from "./usage.ts";
@@ -17,6 +17,7 @@ const tokens = (input: number, output = 0) => ({
   cacheWrite: 0,
   output,
   reasoning: 0,
+  cacheWrite1h: 0,
 });
 
 const bucket = (patch: Partial<Bucket> & Pick<Bucket, "hour">): Bucket => ({
@@ -25,6 +26,7 @@ const bucket = (patch: Partial<Bucket> & Pick<Bucket, "hour">): Bucket => ({
   sessionId: null,
   tokens: tokens(100),
   reportedCost: null,
+  longContext: [],
   ...patch,
 });
 
@@ -87,11 +89,26 @@ describe("usageSummary", () => {
     expect(costLabel(estimated.cost)).toBe("~$22.40");
   });
 
-  test("a changed bucket replaces the one with the same key", () => {
-    const a = bucket({ hour: "2026-09-30T10:00:00Z" });
-    const b = bucket({ hour: "2026-09-30T10:00:00Z", tokens: tokens(500) });
+  test("main's estimate prices a bucket; one with unpriced tokens stays unpriced", () => {
+    const summary = usageSummary({
+      days: 7,
+      now: NOW,
+      estimate: pricedEstimate,
+      buckets: [
+        bucket({
+          hour: "2026-09-30T10:00:00Z",
+          estimate: { estimatedUsd: 3.5, unpricedTokens: 0 },
+        }),
+        bucket({
+          hour: "2026-09-30T11:00:00Z",
+          model: "mystery",
+          estimate: { estimatedUsd: 0, unpricedTokens: 100 },
+        }),
+      ],
+    });
 
-    expect(mergeBuckets([a], [b])).toEqual([b]);
+    expect(costLabel(summary.cost)).toBe("~$3.50");
+    expect(summary.cost.partial).toBe(true);
   });
 
   test("the query window starts at the first day's midnight, UTC", () => {

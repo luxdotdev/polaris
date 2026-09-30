@@ -25,6 +25,7 @@ import { useState } from "react";
 import { Commands } from "../../../commands.ts";
 import type { SessionData } from "../../../store/plain.ts";
 import { sessionStateLabel } from "../../../shell/copy.ts";
+import { OpenInTerminalItem } from "../../terminal/index.ts";
 import { send } from "../dispatch.ts";
 import {
   archiveCommand,
@@ -138,6 +139,15 @@ const SessionMenu = ({
         <DropdownMenuItem disabled={!canFork} onSelect={onFork}>
           Fork…
         </DropdownMenuItem>
+        <OpenInTerminalItem
+          session={{
+            hostKey,
+            workspaceId: session.workspaceId,
+            sessionId: session.id,
+            state: session.state,
+            title: session.title === "" ? session.harness : session.title,
+          }}
+        />
         <DropdownMenuSeparator />
         <DropdownMenuItem
           data-testid="archive-session"

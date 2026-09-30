@@ -24,6 +24,8 @@ import type {
   UsageStreamItem,
 } from "@polaris/protocol";
 import type { Rpc } from "effect/rpc";
+import type { CommandId } from "./keymap.ts";
+import type { NeedsYouAction } from "./needsYou.ts";
 import type {
   CachedHost,
   CodeFont,
@@ -144,6 +146,21 @@ export interface SettingsView extends Appearance {
   }>;
 }
 
+/** What a bucket's tokens not covered by a reported cost would cost at API prices (ENG-207). */
+export interface BucketEstimate {
+  readonly estimatedUsd: number;
+  /** Tokens whose Model no price list has; not in `estimatedUsd`. */
+  readonly unpricedTokens: number;
+}
+
+/** `usage.query`'s report, with each bucket's estimate (same order) and when prices were fetched. */
+export interface UsageQueryView {
+  readonly report: Plain<UsageReport>;
+  readonly estimates: ReadonlyArray<BucketEstimate>;
+  /** Null when no price table could be read. */
+  readonly pricesFetchedAt: string | null;
+}
+
 /** What `files.read` returns: inline text, or the bytes the Daemon sent as a blob. */
 export type FileContentView =
   | { readonly kind: "text"; readonly text: string }
@@ -185,13 +202,14 @@ export interface RequestOutputs {
   "harness.models": Plain<HarnessModels>;
   "harness.availability": Plain<HostHarnesses>;
   "session.terminalCommand": TerminalLaunch | null;
-  "usage.query": Plain<UsageReport>;
+  "usage.query": UsageQueryView;
   "terminal.open": { readonly terminalId: TerminalId };
   "terminal.input": null;
   "terminal.resize": null;
   "terminal.close": null;
   "attachments.stage": Attachment;
   "install.ensure": InstallView;
+  "needsYou.publish": null;
   "dev.proofWorkspace": { readonly path: string };
 }
 
@@ -234,13 +252,14 @@ export interface SubscriptionListener<A> {
 export type Route = "orchestrate" | "review" | "edit";
 
 export type AppEvent =
-  | { readonly kind: "route"; readonly route: Route }
+  /** A command from the native menu (`shared/keymap.ts`); the renderer runs it. */
+  | { readonly kind: "command"; readonly id: CommandId }
   | { readonly kind: "appearance"; readonly appearance: Appearance }
   | { readonly kind: "session-defaults"; readonly sessionDefaults: SessionDefaults }
-  /** Polaris → Settings… (⌘,). */
-  | { readonly kind: "settings" }
   /** Dev only (Develop menu): start the bench-Harness proof session on this Host. */
-  | { readonly kind: "proof"; readonly hostKey: string };
+  | { readonly kind: "proof"; readonly hostKey: string }
+  /** The menu bar star or a notification: open a waiting session, or answer it. */
+  | ({ readonly kind: "needs-you" } & NeedsYouAction);
 
 // ── The API on `window.polaris` ─────────────────────────────────────────────
 

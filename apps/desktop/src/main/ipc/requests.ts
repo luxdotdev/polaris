@@ -16,7 +16,9 @@ import type {
 } from "../../shared/api.ts";
 import { RequestInputs, type RequestInput, type RequestMethod } from "../../shared/contract.ts";
 import { HostDirectory, toIpcError } from "../hosts.ts";
+import type { NeedsYouSummary } from "../../shared/needsYou.ts";
 import { appearanceOf, type Settings } from "../settings.ts";
+import { estimate, type Prices } from "../prices.ts";
 import type { SnapshotCache } from "../snapshotCache.ts";
 import { ensureInstalled } from "./install.ts";
 
@@ -25,6 +27,8 @@ export interface RequestContext {
   readonly settings: () => Settings;
   readonly version: string;
   readonly cache: SnapshotCache;
+  /** The price table for Usage estimates. */
+  readonly prices: Prices;
   readonly setAppearance: (patch: Partial<Appearance>) => void;
   readonly setSessionDefault: (harness: string, value: SessionDefault | null) => void;
   readonly openExternal: (url: string) => Promise<void>;
@@ -32,6 +36,8 @@ export interface RequestContext {
   readonly proofWorkspace: () => string | null;
   /** The bundled Daemon builds (`manifest.json`), or null when this build has none. */
   readonly daemonDist: string | null;
+  /** The renderer's Needs You summary, for the menu bar star, Dock badge and notifications. */
+  readonly needsYou: (summary: NeedsYouSummary) => void;
 }
 
 type Handler<M extends RequestMethod> = (
@@ -140,7 +146,17 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
   "session.terminalCommand": ({ hostKey, sessionId }) =>
     onLive(hostKey, (s) => s.client["session.terminalCommand"]({ sessionId })),
   "usage.query": ({ hostKey, ...payload }) =>
-    onLive(hostKey, (s) => s.client["usage.query"](payload)),
+    onLive(hostKey, (s) => s.client["usage.query"](payload)).pipe(
+      Effect.flatMap((report) =>
+        Effect.promise(() => ctx.prices.table().catch(() => null)).pipe(
+          Effect.map((table) => ({
+            report,
+            estimates: table === null ? [] : estimate(report.buckets, table),
+            pricesFetchedAt: table?.fetchedAt ?? null,
+          }))
+        )
+      )
+    ),
   "terminal.open": ({ hostKey, ...payload }) =>
     onLive(hostKey, (s) => s.client["terminal.open"](payload)),
   "terminal.input": ({ hostKey, ...payload }) =>
@@ -161,6 +177,7 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
 
       return ensureInstalled({ alias, approvedSha256, dist: ctx.daemonDist });
     }),
+  "needsYou.publish": (summary) => Effect.sync(() => ctx.needsYou(summary)).pipe(Effect.as(null)),
   "dev.proofWorkspace": () =>
     Effect.suspend(() => {
       const path = ctx.proofWorkspace();

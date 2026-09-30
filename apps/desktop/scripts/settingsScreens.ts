@@ -77,7 +77,7 @@ try {
     .locator('[data-host="local"][data-connection="connected"]')
     .waitFor({ timeout: 20_000 });
   await app.evaluate(({ Menu }) => {
-    Menu.getApplicationMenu()?.getMenuItemById("settings")?.click();
+    Menu.getApplicationMenu()?.getMenuItemById("settings.open")?.click();
   });
   await page.getByTestId("settings").waitFor({ timeout: 5_000 });
 

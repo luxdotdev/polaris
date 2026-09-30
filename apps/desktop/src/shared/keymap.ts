@@ -1,0 +1,107 @@
+/**
+ * Every keyboard shortcut in one table: the renderer's dispatcher runs them,
+ * the native menu shows them (without registering, so the renderer stays the
+ * one handler), the help overlay lists them, and a test checks for conflicts.
+ * Chords use Electron's accelerator syntax ("CmdOrCtrl+Shift+A").
+ */
+
+export type CommandId =
+  | "view.orchestrate"
+  | "view.review"
+  | "view.edit"
+  | "jump.open"
+  | "help.shortcuts"
+  | "session.new"
+  | "session.next"
+  | "session.previous"
+  | "session.focusComposer"
+  | "session.interrupt"
+  | "approval.approve"
+  | "approval.deny"
+  | "session.archive"
+  | "session.openInTerminal"
+  | "theme.toggle"
+  | "settings.open"
+  | "settings.appearance"
+  | "settings.harnesses"
+  | "settings.usage"
+  | "settings.hosts";
+
+export type MenuName = "App" | "View" | "Go" | "Session" | "Help";
+
+export interface KeyBinding {
+  readonly id: CommandId;
+  readonly title: string;
+  /** Accelerators; the first is the one menus and hints show. Empty: menu or jump menu only. */
+  readonly keys: ReadonlyArray<string>;
+  /** Bare keys (no ⌘/⌃/⌥) never fire while typing in a field; chords do unless this is false. */
+  readonly inFields?: boolean;
+  /** Where the native menu lists it, if anywhere. */
+  readonly menu?: MenuName;
+}
+
+export const KEYMAP: ReadonlyArray<KeyBinding> = [
+  { id: "view.orchestrate", title: "Orchestrate", keys: ["CmdOrCtrl+1"], menu: "View" },
+  { id: "view.review", title: "Review", keys: ["CmdOrCtrl+2"], menu: "View" },
+  { id: "view.edit", title: "Edit", keys: ["CmdOrCtrl+3"], menu: "View" },
+  { id: "jump.open", title: "Jump to…", keys: ["CmdOrCtrl+K", "K"], menu: "Go" },
+  { id: "session.next", title: "Next session", keys: ["CmdOrCtrl+Alt+Down"], menu: "Go" },
+  { id: "session.previous", title: "Previous session", keys: ["CmdOrCtrl+Alt+Up"], menu: "Go" },
+  { id: "session.new", title: "New session", keys: ["CmdOrCtrl+N"], menu: "Session" },
+  {
+    id: "session.focusComposer",
+    title: "Focus the composer",
+    keys: ["CmdOrCtrl+L"],
+    menu: "Session",
+  },
+  { id: "session.interrupt", title: "Stop the turn", keys: ["CmdOrCtrl+."], menu: "Session" },
+  { id: "approval.approve", title: "Approve", keys: ["CmdOrCtrl+Shift+A"], menu: "Session" },
+  { id: "approval.deny", title: "Deny", keys: ["CmdOrCtrl+Shift+D"], menu: "Session" },
+  { id: "session.openInTerminal", title: "Open in terminal", keys: [], menu: "Session" },
+  { id: "session.archive", title: "Archive session", keys: [], menu: "Session" },
+  { id: "theme.toggle", title: "Toggle dark and light", keys: [] },
+  // macOS's own Settings… chord, in the app menu (DESIGN.md, Settings).
+  { id: "settings.open", title: "Settings…", keys: ["CmdOrCtrl+,"], menu: "App" },
+  { id: "settings.appearance", title: "Settings: Appearance", keys: [] },
+  { id: "settings.harnesses", title: "Settings: Harnesses", keys: [] },
+  { id: "settings.usage", title: "Settings: Usage", keys: [] },
+  { id: "settings.hosts", title: "Settings: Hosts", keys: [] },
+  {
+    id: "help.shortcuts",
+    title: "Keyboard shortcuts",
+    keys: ["CmdOrCtrl+/", "Shift+/"],
+    menu: "Help",
+  },
+];
+
+/** Chords macOS, Electron or the standard menus own; nothing here may take them. */
+export const RESERVED: ReadonlyArray<string> = [
+  "CmdOrCtrl+Q",
+  "CmdOrCtrl+W",
+  "CmdOrCtrl+H",
+  "CmdOrCtrl+Alt+H",
+  "CmdOrCtrl+M",
+  "CmdOrCtrl+C",
+  "CmdOrCtrl+V",
+  "CmdOrCtrl+X",
+  "CmdOrCtrl+A",
+  "CmdOrCtrl+Z",
+  "CmdOrCtrl+Shift+Z",
+  "CmdOrCtrl+`",
+  "CmdOrCtrl+R",
+  "CmdOrCtrl+Alt+I",
+  "CmdOrCtrl+Shift+/",
+  "CmdOrCtrl+Shift+3",
+  "CmdOrCtrl+Shift+4",
+  "CmdOrCtrl+Shift+5",
+  "CmdOrCtrl+Ctrl+F",
+  "CmdOrCtrl+Ctrl+Q",
+  "CmdOrCtrl+Space",
+  "Ctrl+Space",
+  "CmdOrCtrl+Tab",
+];
+
+/** ⌃1…⌃0 and ⌥1…⌥0 pick Workspace chips or machines; they are data-driven, so outside KEYMAP. */
+export const SHORTCUT_DIGIT_MODIFIERS: ReadonlyArray<string> = ["Ctrl", "Alt"];
+
+export const bindingOf = (id: CommandId): KeyBinding | undefined => KEYMAP.find((b) => b.id === id);

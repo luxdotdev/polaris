@@ -11,6 +11,7 @@ import { sectionInfo } from "../model/sections.ts";
 import {
   compactTokens,
   costLabel,
+  pricedEstimate,
   type Day,
   RANGES,
   type RangeDays,
@@ -209,10 +210,14 @@ const ModelTable = ({ summary }: { readonly summary: UsageSummary }) => (
 );
 
 const costCaption = (summary: UsageSummary) => {
-  if (summary.cost.estimated) return "API-equivalent · estimated";
+  if (summary.cost.estimated) {
+    return summary.cost.partial
+      ? "API-equivalent · estimated · some models unpriced"
+      : "API-equivalent · estimated";
+  }
 
   return summary.cost.partial
-    ? "Reported by harnesses · estimates not yet available"
+    ? "Reported by harnesses · some models unpriced"
     : "Reported by harnesses";
 };
 
@@ -282,7 +287,7 @@ export const UsagePage = () => {
   const data = useUsage(days);
   const now = useNow();
   const info = sectionInfo("usage");
-  const summary = usageSummary({ buckets: data.buckets, days, now });
+  const summary = usageSummary({ buckets: data.buckets, days, now, estimate: pricedEstimate });
 
   return (
     <Column>

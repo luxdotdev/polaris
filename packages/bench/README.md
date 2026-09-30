@@ -51,7 +51,7 @@ Scenarios are independent and each starts its own Daemons, so any subset can run
 
 ## The scripted Harness
 
-`POLARIS_BENCH_HARNESS=1` makes `HarnessRegistryLive` (`apps/daemon/src/harness/registry.ts`) register `apps/daemon/src/harness/bench/BenchDriver.ts` for every Harness kind instead of Codex and Claude. It spends no tokens and starts no vendor process, but its events go through the real engine, store, streams and transport. A prompt `bench:{json}` sets the Turn's script (`TurnScript` in `src/drive.ts` mirrors it):
+`POLARIS_BENCH_HARNESS=1` makes `HarnessRegistryLive` (`apps/daemon/src/harness/registry.ts`) register `apps/daemon/src/harness/bench/BenchDriver.ts` for Codex and Claude (`bench/kinds.ts`) instead of their real drivers. Every other Harness (OpenCode, Gemini CLI, Copilot CLI) keeps its real driver and its probed availability. It spends no tokens and starts no vendor process, but its events go through the real engine, store, streams and transport. A prompt `bench:{json}` sets the Turn's script (`TurnScript` in `src/drive.ts` mirrors it):
 
 | Field | Default | What |
 |---|---|---|
