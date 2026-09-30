@@ -8,7 +8,6 @@ import {
   isKnownHarness,
   type PermissionMode,
   type SessionId,
-  type Workspace,
   type WorkspaceId,
 } from "@polaris/protocol";
 import { Clearing, type Harness, Scene } from "@polaris/ui";
@@ -33,10 +32,12 @@ import {
 } from "../../harness/index.ts";
 import { hasCapability, useHost } from "../hooks.ts";
 import {
-  branchFromPrompt,
+  defaultPlacement,
   forkStartCommands,
   type HarnessChoice,
   type PlacementChoice,
+  placementDir,
+  resolvePlacement,
   startCommand,
 } from "../model/newSession.ts";
 import { patchSessionUi, type SessionUi, uiKey, useSessionUi } from "../state.ts";
@@ -76,12 +77,6 @@ const harnessOf = (choices: Pick<Choices, "choice" | "fork">): Harness | null =>
   return isKnownHarness(kind) ? kind : null;
 };
 
-/** A new worktree with no branch named yet takes one from the prompt. */
-const resolvePlacement = (placement: PlacementChoice, prompt: string): PlacementChoice =>
-  placement.kind === "new-worktree" && placement.branch === ""
-    ? { ...placement, branch: branchFromPrompt(prompt, "session") }
-    : placement;
-
 /** The commands a submit sends, in order; null while the page can't start anything. */
 const commandsFor = (
   sessionId: SessionId,
@@ -114,7 +109,7 @@ const commandsFor = (
     sessionId,
     workspaceId,
     harness,
-    placement: resolvePlacement(choices.placement, ui.draft),
+    placement: resolvePlacement(choices.placement, ui.draft, sessionId),
     permissionMode: choices.permissionMode,
     model,
     prompt: ui.draft,
@@ -137,11 +132,6 @@ const sendAll = async (hostKey: string, commands: ReadonlyArray<Command>) => {
 
   return true;
 };
-
-const defaultPlacement = (workspace: Workspace): PlacementChoice =>
-  workspace.isGitRepo ? { kind: "new-worktree", branch: "", base: null } : { kind: "in-place" };
-
-const PREVIEW_ID = newSessionId();
 
 /** When each Harness last ran a session on this Host (its newest session's last update). */
 const lastUsedOn = (model: HostModel): LastUsed => {
@@ -189,7 +179,10 @@ export const NewSessionPage = ({
   const signIn = useSignIn(hostKey);
   const [permissionPick, setPermissionMode] = useState<PermissionMode | null>(null);
   const defaults = useSettings((s) => s.sessionDefaults);
+  const newWorktree = useSettings((s) => s.newWorktree);
   const [placement, setPlacement] = useState<PlacementChoice | null>(null);
+  // Chosen up front so the branch the composer shows is the one the session gets.
+  const [sessionId, setSessionId] = useState(newSessionId);
   const [forkSession, setForkSession] = useState<SessionId | null>(null);
   const [fork, setFork] = useState<ForkSourceValue | null>(null);
   const [busy, setBusy] = useState(false);
@@ -200,12 +193,21 @@ export const NewSessionPage = ({
   );
 
   if (workspace === undefined) return <Scene className="h-full flex-1" data-testid="new-session" />;
-  const where = placement ?? defaultPlacement(workspace);
+  const where = placement ?? defaultPlacement(workspace.isGitRepo, newWorktree);
   // The checked-out branch: a new Worktree with no base picked starts there.
 
   const head =
     [...hostModel.worktrees.values()].find((w) => w.workspaceId === workspaceId && w.isMain)
       ?.branch ?? null;
+
+  const dir = placementDir(where, workspace.path);
+
+  const others =
+    dir === null
+      ? 0
+      : [...hostModel.sessions.values()].filter(
+          ({ session }) => session.cwd === dir && session.state !== "archived"
+        ).length;
 
   const lastUsed = lastUsedOn(hostModel);
   const fallback = defaultHarness(options, lastUsed);
@@ -234,13 +236,12 @@ export const NewSessionPage = ({
   const harness = chosen;
   // No Harness chosen (none ready, or still checking): a neutral composer, never @claude.
   const hue: Harness | null = harness ?? option?.kind ?? null;
-  const canSubmit = !busy && commandsFor(PREVIEW_ID, workspaceId, choices, ui) !== null;
-  const shown = resolvePlacement(where, ui.draft);
+  const canSubmit = !busy && commandsFor(sessionId, workspaceId, choices, ui) !== null;
+  const shown = resolvePlacement(where, ui.draft, sessionId);
 
   const whereMenu = { host, hostKey, workspaceId, draft: ui.draft };
 
   const submit = () => {
-    const sessionId = newSessionId();
     const commands = commandsFor(sessionId, workspaceId, choices, ui);
 
     if (busy || commands === null) return;
@@ -250,6 +251,7 @@ export const NewSessionPage = ({
 
       if (!started) return;
       patchSessionUi(key, () => ({ draft: "", attachments: [] }));
+      setSessionId(newSessionId());
       onStarted(sessionId);
     });
   };
@@ -275,6 +277,7 @@ export const NewSessionPage = ({
           )}
           canWorktree={workspace.isGitRepo}
           head={head}
+          others={others}
           onChange={setPlacement}
         />
       </Clearing>

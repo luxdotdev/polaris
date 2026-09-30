@@ -16,7 +16,7 @@ import {
 } from "@polaris/ui";
 import type { ReactNode } from "react";
 import { PERMISSION_MODES, permissionLabel } from "../model/intent.ts";
-import { placementPhrase, type PlacementChoice } from "../model/newSession.ts";
+import { placementPhrase, type PlacementChoice, sharingPhrase } from "../model/newSession.ts";
 
 export interface WhereLineProps {
   /** The Host, as text or its menu (whereMenus.tsx). */
@@ -28,6 +28,8 @@ export interface WhereLineProps {
   readonly canWorktree: boolean;
   /** The Workspace's checked-out branch, where a new Worktree starts; null if unknown. */
   readonly head: string | null;
+  /** Other open sessions already working in the chosen directory. */
+  readonly others: number;
   readonly onChange: (placement: PlacementChoice) => void;
 }
 
@@ -39,6 +41,7 @@ export const WhereLine = ({
   worktrees,
   canWorktree,
   head,
+  others,
   onChange,
 }: WhereLineProps) => (
   <p className="text-body text-text-default" data-testid="where-line">
@@ -76,7 +79,7 @@ export const WhereLine = ({
         )}
       </DropdownMenuContent>
     </DropdownMenu>
-    .
+    {sharingPhrase(others)}.
   </p>
 );
 

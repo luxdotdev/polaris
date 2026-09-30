@@ -5,6 +5,8 @@ import type { CssVars } from "../../../lib/css";
 import { hueVar, type TintHue } from "../../../lib/hue";
 import { DITHER_FRAMES, ditherStillMask, ditherStripMask } from "./frames";
 
+export { DitherField, type DitherFieldProps } from "./field";
+
 export { DITHER_CELL, DITHER_EXIT_MS, DITHER_FRAME_MS, DITHER_FRAMES, ditherFrame } from "./frames";
 
 export interface DitherProps extends HTMLAttributes<HTMLSpanElement> {

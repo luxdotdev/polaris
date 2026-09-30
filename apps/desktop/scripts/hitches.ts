@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 /**
- * Frame hitches on two paths, with attribution: the first Harness chip menu
- * open while a Turn streams, and fast scrolling through a heavy session.
+ * Frame hitches with attribution: the first Harness chip menu open while a
+ * Turn streams, the pointer sweeping the Working composer's dither field,
+ * and fast scrolling through a heavy session.
  * Long frames come from rAF gaps; their causes from long-animation-frame
  * entries (script, source, duration), a main-process lag monitor, and
  * optionally a renderer CPU profile or a Chromium trace of every process.
  *
- *   node scripts/hitches.ts <chip|usage|scroll> [--real-home] [--turns N] [--pinned]
- *     [--screenshot] [--profile <file.cpuprofile>] [--trace <file.json>]
+ *   node scripts/hitches.ts <chip|usage|hover|scroll> [--real-home] [--turns N] [--pinned]
+ *     [--screenshot] [--shots <dir>] [--profile <file.cpuprofile>] [--trace <file.json>]
  *
  * Instrumentation moves the hitches it measures: judge budgets on plain runs.
  *
@@ -25,8 +26,8 @@ const args = process.argv.slice(2);
 
 const mode = args[0];
 
-if (mode !== "chip" && mode !== "scroll" && mode !== "usage")
-  throw new Error("usage: hitches.ts <chip|usage|scroll> …");
+if (mode !== "chip" && mode !== "scroll" && mode !== "usage" && mode !== "hover")
+  throw new Error("usage: hitches.ts <chip|usage|hover|scroll> …");
 
 const option = (name: string) => {
   const at = args.indexOf(name);
@@ -352,6 +353,69 @@ const chip = async (page: Page) => {
   report("chip", await stop(page), marks);
 };
 
+/** Saves the Working composer in both themes, still and hovered, under `--shots <dir>`. */
+const composerShots = async (page: Page, dir: string) => {
+  mkdirSync(dir, { recursive: true });
+  const composer = page.locator('[data-slot="composer"][data-working]').first();
+  const box = await composer.boundingBox();
+
+  for (const theme of ["dark", "light"] as const) {
+    await page.evaluate(`document.documentElement.dataset.theme = "${theme}"`);
+    await page.mouse.move(box === null ? 0 : box.x - 40, box === null ? 0 : box.y - 40);
+    await page.waitForTimeout(600);
+    await composer.screenshot({ path: join(dir, `composer-${theme}-still.png`) });
+
+    if (box !== null) await page.mouse.move(box.x + box.width * 0.55, box.y + 14, { steps: 8 });
+    await page.waitForTimeout(700);
+    await composer.screenshot({ path: join(dir, `composer-${theme}-hover.png`) });
+  }
+
+  // With the Daemon gone, a steer can't be sent, which toasts (bottom-right).
+  await daemon.stop();
+  await page.waitForTimeout(1500);
+
+  for (const theme of ["dark", "light"] as const) {
+    await page.evaluate(`document.documentElement.dataset.theme = "${theme}"`);
+    await page.getByTestId("composer-input").fill("steer");
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(1200);
+    await page.screenshot({ path: join(dir, `window-${theme}.png`) });
+  }
+};
+
+/** While a Turn streams: the pointer sweeps back and forth over the composer's dither field. */
+const hover = async (page: Page) => {
+  await streaming(page);
+  const composer = page.locator('[data-slot="composer"][data-working]').first();
+  const box = await composer.boundingBox();
+
+  if (box === null) throw new Error("no Working composer");
+  await page.mouse.move(box.x - 40, box.y - 40);
+  await page.evaluate(OBSERVE);
+  const endProfile = await startProfile(page);
+
+  await startMainLag();
+
+  for (let pass = 0; pass < 6; pass++) {
+    const [from, to] = pass % 2 === 0 ? [4, box.width - 4] : [box.width - 4, 4];
+
+    await page.mouse.move(box.x + from, box.y + 10 + pass * 4, { steps: 4 });
+    await page.mouse.move(box.x + to, box.y + 30 - pass * 3, { steps: 60 });
+
+    if (pass === 2) await page.mouse.down().then(() => page.mouse.up());
+  }
+
+  await page.mouse.move(box.x - 40, box.y - 40, { steps: 4 });
+  await page.waitForTimeout(800);
+  await endProfile?.();
+  await stopMainLag();
+  report("hover", await stop(page), []);
+
+  const shots = option("--shots");
+
+  if (shots !== null) await composerShots(page, shots);
+};
+
 const scroll = async (page: Page) => {
   const repo = join(home, "heavy");
 
@@ -431,7 +495,7 @@ try {
     .locator('[data-host="local"][data-connection="connected"]')
     .first()
     .waitFor({ timeout: 30_000 });
-  await { chip, usage, scroll }[mode](page);
+  await { chip, usage, hover, scroll }[mode](page);
 } catch (error) {
   failed = true;
   console.error("hitches: FAILED", error);

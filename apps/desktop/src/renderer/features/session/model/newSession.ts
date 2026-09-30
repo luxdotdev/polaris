@@ -51,13 +51,28 @@ export const placementPhrase = (choice: PlacementChoice, head: string | null = n
     })
   );
 
+/** " alongside 2 other sessions": the directory is shared, which is fine; empty when it isn't. */
+export const sharingPhrase = (others: number): string =>
+  others === 0 ? "" : ` alongside ${others} other session${others === 1 ? "" : "s"}`;
+
+/** The directory a placement works in, when it is known before the session starts. */
+export const placementDir = (choice: PlacementChoice, workspacePath: string): string | null =>
+  Match.value(choice).pipe(
+    Match.discriminatorsExhaustive("kind")({
+      "in-place": () => workspacePath,
+      "new-worktree": () => null,
+      existing: (c) => c.path,
+    })
+  );
+
 /** DESIGN.md, New session: one line saying where it runs (Host, path, Worktree). */
 export const whereLine = (
   hostLabel: string,
   path: string,
   choice: PlacementChoice,
-  head: string | null = null
-) => `Runs on ${hostLabel} in ${path}, ${placementPhrase(choice, head)}.`;
+  head: string | null = null,
+  others = 0
+) => `Runs on ${hostLabel} in ${path}, ${placementPhrase(choice, head)}${sharingPhrase(others)}.`;
 
 /** A branch name a new Worktree can take: git's rules, loosely (no spaces, no `..`). */
 export const isBranchName = (branch: string): boolean => {
@@ -98,10 +113,24 @@ export const startCommand = (input: StartInput): Command | null => {
   });
 };
 
+/**
+ * Where a new session works unless the user picks: the Workspace directory, or a new
+ * Worktree when Settings asks for one and the Workspace is a git repository.
+ */
+export const defaultPlacement = (isGitRepo: boolean, newWorktree: boolean): PlacementChoice =>
+  isGitRepo && newWorktree
+    ? { kind: "new-worktree", branch: "", base: null }
+    : { kind: "in-place" };
+
 const BRANCH_WORDS = 5;
 
-/** A branch for a new Worktree from the prompt's first words: "polaris/fix-the-login-form". */
-export const branchFromPrompt = (prompt: string, fallback: string): string => {
+const SUFFIX_LENGTH = 4;
+
+/**
+ * A branch for a new Worktree from the prompt's first words and the session's id, so the
+ * same prompt twice never names the same branch: "polaris/fix-the-login-form-3f9a".
+ */
+export const branchFromPrompt = (prompt: string, sessionId: SessionId): string => {
   const words = prompt
     .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, " ")
@@ -109,8 +138,23 @@ export const branchFromPrompt = (prompt: string, fallback: string): string => {
     .filter((w) => w !== "")
     .slice(0, BRANCH_WORDS);
 
-  return `polaris/${words.length === 0 ? fallback : words.join("-")}`;
+  const suffix = sessionId
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "")
+    .slice(0, SUFFIX_LENGTH);
+
+  return `polaris/${[...(words.length === 0 ? ["session"] : words), suffix].join("-")}`;
 };
+
+/** A new worktree with no branch named yet takes one from the prompt. */
+export const resolvePlacement = (
+  placement: PlacementChoice,
+  prompt: string,
+  sessionId: SessionId
+): PlacementChoice =>
+  placement.kind === "new-worktree" && placement.branch === ""
+    ? { ...placement, branch: branchFromPrompt(prompt, sessionId) }
+    : placement;
 
 export interface ForkStartInput {
   readonly sessionId: SessionId;

@@ -5,11 +5,19 @@ import { parseUnifiedDiff, totals } from "./diff.ts";
 import { formatElapsed, tildePath } from "./format.ts";
 import {
   branchFromPrompt,
+  defaultPlacement,
   forkStartCommands,
   isBranchName,
+  type PlacementChoice,
+  placementDir,
+  resolvePlacement,
   startCommand,
   whereLine,
 } from "./newSession.ts";
+
+const ID_A = SessionId.make("3F9A2C1D-0000-4000-8000-000000000000");
+
+const ID_B = SessionId.make("b71e04aa-0000-4000-8000-000000000000");
 
 describe("new session", () => {
   const input = {
@@ -94,12 +102,51 @@ describe("new session", () => {
     ]);
   });
 
-  test("a branch from the prompt", () => {
-    expect(branchFromPrompt("Fix the login form's validation, please now", "x")).toBe(
-      "polaris/fix-the-login-form-s"
+  test("a branch from the prompt and the session's id", () => {
+    expect(branchFromPrompt("Fix the login form's validation, please now", ID_A)).toBe(
+      "polaris/fix-the-login-form-s-3f9a"
     );
-    expect(branchFromPrompt("  ", "1234")).toBe("polaris/1234");
-    expect(isBranchName(branchFromPrompt("Add ~weird: chars?", "x"))).toBe(true);
+    expect(branchFromPrompt("  ", ID_A)).toBe("polaris/session-3f9a");
+    expect(isBranchName(branchFromPrompt("Add ~weird: chars?", ID_A))).toBe(true);
+  });
+
+  test("the same prompt twice never names the same branch", () => {
+    const prompt = "Fix the flaky test";
+
+    expect(branchFromPrompt(prompt, ID_A)).not.toBe(branchFromPrompt(prompt, ID_B));
+    const worktree: PlacementChoice = { kind: "new-worktree", branch: "", base: null };
+    const a = resolvePlacement(worktree, prompt, ID_A);
+    const b = resolvePlacement(worktree, prompt, ID_B);
+
+    expect(a).not.toEqual(b);
+    // A branch the user named is kept as is; the Daemon refuses a taken one.
+    const named: PlacementChoice = { kind: "new-worktree", branch: "spike/x", base: null };
+
+    expect(resolvePlacement(named, prompt, ID_A)).toEqual(named);
+  });
+
+  test("the where line says when other sessions share the directory", () => {
+    const here: PlacementChoice = { kind: "in-place" };
+
+    expect(whereLine("Mac Studio", "~/code/polaris", here)).toBe(
+      "Runs on Mac Studio in ~/code/polaris, in place."
+    );
+    expect(whereLine("Mac Studio", "~/code/polaris", here, null, 1)).toBe(
+      "Runs on Mac Studio in ~/code/polaris, in place alongside 1 other session."
+    );
+    expect(whereLine("Mac Studio", "~/code/polaris", here, null, 2)).toBe(
+      "Runs on Mac Studio in ~/code/polaris, in place alongside 2 other sessions."
+    );
+    expect(placementDir(here, "/w")).toBe("/w");
+    expect(placementDir({ kind: "existing", path: "/w/t", branch: null }, "/w")).toBe("/w/t");
+    expect(placementDir({ kind: "new-worktree", branch: "", base: null }, "/w")).toBeNull();
+  });
+
+  test("new sessions work in the Workspace directory unless Settings asks for a worktree", () => {
+    expect(defaultPlacement(true, false)).toEqual({ kind: "in-place" });
+    expect(defaultPlacement(false, true)).toEqual({ kind: "in-place" });
+    expect(defaultPlacement(true, true)).toEqual({ kind: "new-worktree", branch: "", base: null });
+    expect(resolvePlacement({ kind: "in-place" }, "Fix it", ID_A)).toEqual({ kind: "in-place" });
   });
 
   test("branch names", () => {

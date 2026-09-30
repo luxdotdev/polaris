@@ -406,16 +406,18 @@ try {
   await timeSwitches(page);
   await jumpByTyping(page);
 
+  let probeTimer: ReturnType<typeof setTimeout> | undefined;
+
   const probe = await Promise.race([
     page.evaluate(probeSource({ bigFile: bigAsset(), repo: REPO_ROOT })),
-    new Promise((_, reject) =>
-      setTimeout(async () => {
+    new Promise((_, reject) => {
+      probeTimer = setTimeout(async () => {
         const steps = await page.evaluate("JSON.stringify(window.__probeSteps)");
 
         reject(new Error(`RPC probe timed out after ${String(steps)}`));
-      }, 20_000)
-    ),
-  ]);
+      }, 20_000);
+    }),
+  ]).finally(() => clearTimeout(probeTimer));
 
   step(`RPC round trips: ${JSON.stringify(probe)}`);
 

@@ -11,6 +11,7 @@ export {
   connectSettings,
   DEFAULT_APPEARANCE,
   setAppearance,
+  setNewWorktree,
   setSessionDefault,
   settingsStore,
   useSessionDefault,
