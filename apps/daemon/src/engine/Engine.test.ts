@@ -495,6 +495,34 @@ describe("supervision", () => {
     );
   });
 
+  test("Retry sends a Failed Turn's prompt again as a new Turn", async () => {
+    const codex = makeFakeDriver("codex");
+    const { layer } = setup({ drivers: [codex] });
+    await run(
+      layer,
+      Effect.gen(function* () {
+        const workspace = yield* registerWorkspace;
+        const s = sid("s-retry");
+        yield* startSession(workspace, s, "codex");
+        yield* waitFor((m) => m.sessions.get(s)?.session.state === "working");
+
+        const early = yield* Effect.flip(dispatch(Command.cases.Retry.make({ sessionId: s })));
+        expect(early._tag).toBe("CommandRejected");
+        codex.latest(s)!.emit(HarnessEvent.Exited({ error: "segfault" }));
+        yield* waitFor((m) => m.sessions.get(s)?.session.state === "failed");
+        yield* dispatch(Command.cases.Retry.make({ sessionId: s }));
+
+        const model = yield* waitFor((m) => m.sessions.get(s)?.session.state === "working");
+        const turns = model.sessions.get(s)!.turns;
+        expect(turns.map((t) => [t.index, t.status, t.prompt])).toEqual([
+          [0, "failed", "Fix the flaky test"],
+          [1, "working", "Fix the flaky test"],
+        ]);
+        expect(codex.latest(s)!.turns.at(-1)?.prompt).toBe("Fix the flaky test");
+      })
+    );
+  });
+
   test("Open in terminal closes Claude's Harness but keeps Codex attached", async () => {
     const claude = makeFakeDriver("claude", { onTurn: completesTurns("c1") });
     const codex = makeFakeDriver("codex", { liveCoAttach: true, onTurn: completesTurns("x1") });

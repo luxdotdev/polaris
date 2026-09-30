@@ -141,8 +141,8 @@ describe("session machine", () => {
 
     // Update README.md when these move.
     expect(counts).toEqual([
-      [29, 127],
-      [35, 174],
+      [29, 131],
+      [35, 178],
     ]);
   });
 
@@ -164,6 +164,22 @@ describe("session machine", () => {
         "there is no Interrupted Turn to continue"
       );
       expect(refusal(run(["start", "interrupt"]), "continue")).toBeNull();
+    });
+
+    test("Retry only for a Failed Turn, as a new Turn", () => {
+      expect(refusal(run(["start", "complete"]), "retry")).toBe("there is no Failed Turn to retry");
+      expect(refusal(run(["start", "interrupt"]), "retry")).toBe(
+        "there is no Failed Turn to retry"
+      );
+      const failed = run(["start", "failTurn"]);
+      expect(stateOf(failed.machine)).toBe("failed");
+      const retried = run(["start", "failTurn", "retry"]);
+      expect(stateOf(retried.machine)).toBe("working");
+      expect(retried.machine.context.record?.turns.map((t) => t.status)).toEqual([
+        "failed",
+        "working",
+      ]);
+      expect(refusal(retried, "retry")).toBe("there is no Failed Turn to retry");
     });
 
     test("In Terminal and Archived take no Turns", () => {

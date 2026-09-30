@@ -8,6 +8,11 @@ import type { AppEvent } from "../../shared/api.ts";
 import type { NeedsYouAction, NeedsYouSummary } from "../../shared/needsYou.ts";
 import { createStarTray, type StarTray } from "../tray/index.ts";
 import {
+  NOTIFICATION_BUTTONS,
+  type NotificationHandlers,
+  notificationHandlers,
+} from "./actions.ts";
+import {
   emptyNotificationState,
   type NotificationContent,
   notificationKey,
@@ -34,6 +39,19 @@ export interface NeedsYouProbe {
   readonly requests: () => ReadonlyArray<string>;
   /** Notifications planned so far (shown, or counted when `notify` is off). */
   readonly notified: () => number;
+  /** The notifications standing now (shown, or only planned when `notify` is off). */
+  readonly standing: () => ReadonlyArray<StandingNotification>;
+  /** Presses a standing notification's button (0 Approve, 1 Deny) through its own handler. */
+  readonly press: (key: string, index: number) => boolean;
+  /** Sends a standing notification's inline reply through its own handler. */
+  readonly reply: (key: string, text: string) => boolean;
+}
+
+export interface StandingNotification {
+  readonly key: string;
+  readonly requestId: string;
+  readonly actions: boolean;
+  readonly reply: boolean;
 }
 
 declare global {
@@ -49,6 +67,7 @@ export const createNeedsYouCenter = ({
   let summary: NeedsYouSummary = { count: 0, sessions: [], focused: null };
   let planned = 0;
   const live = new Map<string, Notification>();
+  const standing = new Map<string, { content: NotificationContent; on: NotificationHandlers }>();
 
   const focusWindow = () => {
     const win = window();
@@ -77,39 +96,36 @@ export const createNeedsYouCenter = ({
   const close = (key: string) => {
     live.get(key)?.close();
     live.delete(key);
+    standing.delete(key);
   };
 
   const show = (content: NotificationContent) => {
     planned++;
     close(content.key);
+    const on = notificationHandlers(content, act);
+
+    standing.set(content.key, { content, on });
 
     if (!notify || !Notification.isSupported()) return;
-    const { hostKey, sessionId } = content.session;
-    const requestId = content.request.requestId;
 
     const notification = new Notification({
       title: content.title,
       subtitle: content.subtitle,
       body: content.body,
       actions: content.actions
-        ? [
-            { type: "button", text: "Approve" },
-            { type: "button", text: "Deny" },
-          ]
+        ? NOTIFICATION_BUTTONS.map((text) => ({ type: "button" as const, text }))
         : [],
       hasReply: content.reply,
       replyPlaceholder: "Answer",
     });
 
-    notification.on("click", () => open(hostKey, sessionId));
-    notification.on("action", (_event, index) =>
-      act({ action: index === 0 ? "approve" : "deny", hostKey, sessionId, requestId })
-    );
-    notification.on("reply", (_event, text) =>
-      act({ action: "answer", hostKey, sessionId, requestId, text })
-    );
+    notification.on("click", on.click);
+    notification.on("action", (_event, index) => on.action(index));
+    notification.on("reply", (_event, text) => on.reply(text));
     notification.on("close", () => {
-      if (live.get(content.key) === notification) live.delete(content.key);
+      if (live.get(content.key) !== notification) return;
+      live.delete(content.key);
+      standing.delete(content.key);
     });
     live.set(content.key, notification);
     notification.show();
@@ -138,6 +154,29 @@ export const createNeedsYouCenter = ({
     trayTitle: tray.title,
     requests: () => summary.sessions.flatMap((s) => s.requests.map((r) => r.requestId)),
     notified: () => planned,
+    standing: () =>
+      [...standing.values()].map(({ content }) => ({
+        key: content.key,
+        requestId: content.request.requestId,
+        actions: content.actions,
+        reply: content.reply,
+      })),
+    press: (key, index) => {
+      const entry = standing.get(key);
+
+      if (entry === undefined || !entry.content.actions) return false;
+      entry.on.action(index);
+
+      return true;
+    },
+    reply: (key, text) => {
+      const entry = standing.get(key);
+
+      if (entry === undefined || !entry.content.reply) return false;
+      entry.on.reply(text);
+
+      return true;
+    },
   };
 
   return {
