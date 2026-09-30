@@ -7,6 +7,7 @@ bun run --cwd apps/desktop dev      # Vite dev server + hot reload; main rebuilt
 bun run --cwd apps/desktop build    # out/{main,preload,renderer} and an unpacked out/Polaris.app (macOS)
 bun run --cwd apps/desktop start    # electron . against the last build
 bun run --cwd apps/desktop smoke    # build, then the end-to-end smoke test (Node; Playwright)
+node scripts/samePrompt.ts [--build] [--screenshots <dir>]   # two sessions, same prompt, one Workspace: in place, then on two new worktrees
 node scripts/budgets.ts [--json <path>] [--markdown <path>]   # the M1 budgets (memory, Workspace switch, frames); CI runs it under Xvfb
 bun run bench desktop-idle          # memory and CPU of the built app, settled (packages/bench)
 node scripts/screens.ts <dir>       # screenshots against Paper 11U-0 / MX-0, from four seeded local Daemons
