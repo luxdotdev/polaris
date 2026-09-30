@@ -78,11 +78,9 @@ const shoot = async (page: Page, name: string) => {
   }
 };
 
-/** Settings → Hosts: Polaris → Settings… (⌘,), then Machines → Hosts in the nav. */
+/** Settings → Hosts: the sidebar's Settings button (as ⌘, does), then Hosts in the nav. */
 const openHosts = async (page: Page) => {
-  await app.evaluate(({ Menu }) => {
-    Menu.getApplicationMenu()?.getMenuItemById("settings")?.click();
-  });
+  await page.getByRole("button", { name: "Settings" }).click();
   await page
     .getByRole("navigation", { name: "Settings" })
     .getByRole("button", { name: "Hosts" })
@@ -122,6 +120,9 @@ try {
   await page.getByRole("button", { name: "Add a host" }).click();
   await page.getByTestId("add-machine").scrollIntoViewIfNeeded();
   await shoot(page, "add-host");
+} catch (error) {
+  await app.windows()[0]?.screenshot({ path: join(tmpdir(), "polaris-screens-failure.png") });
+  throw error;
 } finally {
   await app.close();
   await daemon.stop();

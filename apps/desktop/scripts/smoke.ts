@@ -149,6 +149,9 @@ try {
   const page = await app.firstWindow();
 
   page.on("pageerror", (error) => consoleErrors.push(`pageerror: ${error.message}`));
+  page.on("requestfailed", (request) =>
+    console.log(`smoke: request failed: ${request.url()} ${request.failure()?.errorText ?? ""}`)
+  );
   page.on("console", (message) => {
     if (message.type() === "error") consoleErrors.push(message.text());
   });
@@ -215,9 +218,7 @@ try {
     throw new Error("terminal output missing");
 
   const openHosts = async () => {
-    await app.evaluate(({ Menu }) => {
-      Menu.getApplicationMenu()?.getMenuItemById("settings")?.click();
-    });
+    await page.getByRole("button", { name: "Settings" }).click();
     await page
       .getByRole("navigation", { name: "Settings" })
       .getByRole("button", { name: "Hosts" })
