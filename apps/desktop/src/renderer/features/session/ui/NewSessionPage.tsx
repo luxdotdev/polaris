@@ -16,7 +16,9 @@ import { Clearing, type Harness, Scene } from "@polaris/ui";
 import { useState } from "react";
 import { newSessionId } from "../../../commands.ts";
 import { emptyHostModel } from "../../../store/hostModel.ts";
+import type { SessionDefaults } from "../../../../shared/api.ts";
 import { useApp } from "../../../shell/hooks.ts";
+import { useSettings } from "../../settings/index.ts";
 import { useStaging } from "../attachments.ts";
 import { send } from "../dispatch.ts";
 import { hasCapability, useHarnessOptions, useHost } from "../hooks.ts";
@@ -59,7 +61,7 @@ interface Choices {
 }
 
 /** The Harness the session runs on: the chosen one, or the forked session's. */
-const harnessOf = (choices: Choices): Harness | null => {
+const harnessOf = (choices: Pick<Choices, "choice" | "fork">): Harness | null => {
   if (choices.choice === null) return null;
 
   if (choices.choice.kind === "harness") return choices.choice.harness;
@@ -130,6 +132,17 @@ const sendAll = async (hostKey: string, commands: ReadonlyArray<Command>) => {
   return true;
 };
 
+/** Settings → Harnesses' saved Model for each Harness the user hasn't picked one for here. */
+const withSavedModels = (models: Models, defaults: SessionDefaults): Models => {
+  const saved = Object.entries(defaults).flatMap(([kind, d]) =>
+    d.model === null || models[kind] !== undefined
+      ? []
+      : [[kind, { model: d.model, effort: d.effort }] as const]
+  );
+
+  return saved.length === 0 ? models : { ...Object.fromEntries(saved), ...models };
+};
+
 const defaultPlacement = (workspace: Workspace): PlacementChoice =>
   workspace.isGitRepo ? { kind: "new-worktree", branch: "", base: null } : { kind: "in-place" };
 
@@ -156,7 +169,8 @@ export const NewSessionPage = ({
   const [picked, setPicked] = useState<HarnessChoice | null>(null);
   const [models, setModels] = useState<Models>({});
   const { options } = useHarnessOptions(hostKey);
-  const [permissionMode, setPermissionMode] = useState<PermissionMode>("supervised");
+  const [permissionPick, setPermissionMode] = useState<PermissionMode | null>(null);
+  const defaults = useSettings((s) => s.sessionDefaults);
   const [placement, setPlacement] = useState<PlacementChoice | null>(null);
   const [forkSession, setForkSession] = useState<SessionId | null>(null);
   const [fork, setFork] = useState<ForkSourceValue | null>(null);
@@ -175,16 +189,23 @@ export const NewSessionPage = ({
 
   const option = options.find((o) => choice?.kind === "harness" && o.kind === choice.harness);
 
+  const chosen = harnessOf({ choice, fork });
+
+  const permissionMode =
+    permissionPick ??
+    (chosen === null ? undefined : defaults[chosen]?.permissionMode) ??
+    "supervised";
+
   const choices: Choices = {
     choice,
     startable: option?.startable ?? choice?.kind === "fork",
-    models,
+    models: withSavedModels(models, defaults),
     permissionMode,
     placement: where,
     fork,
   };
 
-  const harness = harnessOf(choices);
+  const harness = chosen;
   // The composer takes a Harness hue even before one is chosen (or when a fork has none).
   const hue: Harness = harness ?? option?.kind ?? HARNESS_CATALOGUE[0].kind;
   const canSubmit = !busy && commandsFor(PREVIEW_ID, workspaceId, choices, ui) !== null;
@@ -237,8 +258,8 @@ export const NewSessionPage = ({
             <ModelPicker
               hostKey={hostKey}
               harness={hue}
-              model={models[hue]?.model ?? null}
-              effort={models[hue]?.effort ?? null}
+              model={choices.models[hue]?.model ?? null}
+              effort={choices.models[hue]?.effort ?? null}
               disabled={!choices.startable}
               onChoose={(next) => setModels({ ...models, [hue]: next })}
             />
