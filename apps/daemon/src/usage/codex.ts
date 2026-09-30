@@ -5,7 +5,7 @@
  * subagent thread's replayed parent history skipped (see README).
  */
 import { Option, Schema, type Types } from "effect";
-import { firstLine, scanLines } from "./scan.ts";
+import { firstLine, scanLines, writeInSlices } from "./scan.ts";
 import type { UsageWriter } from "./writer.ts";
 
 /** Codex writes compact JSON; history quoted inside another line has escaped quotes and won't match. */
@@ -485,35 +485,33 @@ export const indexCodexFile = async (
   const atHead = state.replay.kind === "matching" && state.replay.index === 0;
   const burst = atHead && events.length > 0 ? await detectRewrittenBurst(path, size) : null;
 
-  writer.transaction(() => {
-    writer.addThread(state.thread, path);
-    const context = { prefix: replayPrefix(writer, state, path), burst };
+  writer.addThread(state.thread, path);
+  const context = { prefix: replayPrefix(writer, state, path), burst };
 
-    for (const event of events) {
-      writer.appendStream(path, state.seq++, event.ts, encodeStreamUsage(event.usage));
+  await writeInSlices(events, writer.transaction, (event) => {
+    writer.appendStream(path, state.seq++, event.ts, encodeStreamUsage(event.usage));
 
-      if (isReplayed(state, event, context)) continue;
-      const u = event.usage;
+    if (isReplayed(state, event, context)) return;
+    const u = event.usage;
 
-      writer.insertCodex(
-        {
-          harness: "codex",
-          native: state.thread,
-          ts: event.ts,
-          // Priced apart, like Claude's fast mode; the dedup key keeps the logged Model.
-          model: event.fast ? `${event.model}-fast` : event.model,
-          input: u.input - u.cached - u.cacheCreation,
-          cacheRead: u.cached,
-          cacheWrite: u.cacheCreation,
-          output: u.output,
-          reasoning: u.reasoning,
-          cacheWrite1h: 0,
-          context: u.input,
-          cost: null,
-        },
-        dedupeKey(event)
-      );
-    }
+    writer.insertCodex(
+      {
+        harness: "codex",
+        native: state.thread,
+        ts: event.ts,
+        // Priced apart, like Claude's fast mode; the dedup key keeps the logged Model.
+        model: event.fast ? `${event.model}-fast` : event.model,
+        input: u.input - u.cached - u.cacheCreation,
+        cacheRead: u.cached,
+        cacheWrite: u.cacheCreation,
+        output: u.output,
+        reasoning: u.reasoning,
+        cacheWrite1h: 0,
+        context: u.input,
+        cost: null,
+      },
+      dedupeKey(event)
+    );
   });
 
   return scanned.offset;

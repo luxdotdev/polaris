@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { PlanLimit, SessionId, UsageStreamItem } from "@polaris/protocol";
@@ -94,6 +95,17 @@ const isUsageChanged = Schema.is(UsageStreamItem.cases.UsageChanged);
 
 const isPlanLimitChanged = Schema.is(UsageStreamItem.cases.PlanLimitChanged);
 
+/** Responses in the index file, read beside the Daemon's own connection. */
+const rowsIn = (dbPath: string) => {
+  const db = new Database(dbPath, { readonly: true });
+
+  try {
+    return db.query<{ n: number }, []>("SELECT COUNT(*) AS n FROM usage").get()?.n ?? 0;
+  } finally {
+    db.close();
+  }
+};
+
 describe("UsageIndex", () => {
   test("opens nothing until a Client asks", async () => {
     const { dbPath, run } = setup();
@@ -101,6 +113,29 @@ describe("UsageIndex", () => {
     await run(() => Effect.void);
 
     expect(existsSync(dbPath)).toBe(false);
+  });
+
+  test("a watch for Plan Limits alone reads no logs; the first query starts indexing", async () => {
+    const { host, dbPath, transcript, run } = setup();
+    host.append(
+      transcript("n"),
+      claudeLine({ session: "n", ts: "2026-09-01T10:00:00Z", msg: "a" })
+    );
+
+    const indexedBeforeQuery = await run(() =>
+      Effect.gen(function* () {
+        const sink = yield* PlanLimitSink;
+        yield* sink.report(limit(5));
+        const client = yield* RpcTest.makeClient(UsageRpcs);
+        const first = yield* client["usage.watch"]({}).pipe(Stream.take(1), Stream.runCollect);
+        yield* Effect.sleep("300 millis");
+
+        return { first, rows: rowsIn(dbPath) };
+      })
+    );
+
+    expect(isPlanLimitChanged(indexedBeforeQuery.first[0])).toBe(true);
+    expect(indexedBeforeQuery.rows).toBe(0);
   });
 
   test("usage.query catches up, and splits Usage Polaris drove from the rest", async () => {

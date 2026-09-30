@@ -68,10 +68,19 @@ export class UsageBucket extends Schema.Class<UsageBucket>("UsageBucket")({
   ),
 }) {}
 
+/** Added later: absent (an older Daemon, which always answered caught up) decodes as false. */
+const indexingFlag = Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(false)));
+
 export class UsageReport extends Schema.Class<UsageReport>("UsageReport")({
   buckets: Schema.Array(UsageBucket),
   /** When the Daemon's index of the Harness logs last caught up; null before its first pass. */
   indexedAt: Schema.NullOr(Timestamp),
+  /**
+   * The Daemon is still reading logs (a first pass over large logs takes a
+   * while): the buckets are what it has indexed so far. `usage.watch` sends a
+   * `UsageChanged` whose `indexing` is false when it is done; query again then.
+   */
+  indexing: indexingFlag,
 }) {}
 
 /**
@@ -115,7 +124,17 @@ export class PlanLimit extends Schema.Class<PlanLimit>("PlanLimit")({
  */
 export const UsageStreamItem = Schema.TaggedUnion({
   /** Buckets whose totals changed, each replacing the Client's bucket with the same key. */
-  UsageChanged: { buckets: Schema.Array(UsageBucket), indexedAt: Timestamp },
+  UsageChanged: {
+    buckets: Schema.Array(UsageBucket),
+    indexedAt: Timestamp,
+    /**
+     * A pass that takes a while is announced with `indexing` true and no
+     * buckets. It ends with `indexing` false and, since it may have changed
+     * thousands of buckets, none listed: query again for what it indexed.
+     * A short pass is never announced and lists the buckets it changed.
+     */
+    indexing: indexingFlag,
+  },
   /** A Plan Limit's latest value. On subscribe, the Daemon first sends every one it knows. */
   PlanLimitChanged: { limit: PlanLimit },
 });

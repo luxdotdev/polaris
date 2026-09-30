@@ -19,6 +19,7 @@ import {
   ReportedCost,
   TokenCounts,
   UsageBucket,
+  UsageReport,
   UsageStreamItem,
 } from "./usage.ts";
 
@@ -199,6 +200,7 @@ describe("contract compatibility", () => {
 
     const usage = UsageStreamItem.cases.UsageChanged.make({
       indexedAt: "2026-01-01T01:00:00Z",
+      indexing: false,
       buckets: [
         new UsageBucket({
           hour: "2026-01-01T00:00:00Z",
@@ -328,5 +330,27 @@ describe("contract compatibility", () => {
 
     expect(bucket.tokens.cacheWrite1h).toBe(0);
     expect(bucket.longContext).toEqual([]);
+  });
+
+  test("Usage from a Daemon without the indexing marker reads as caught up", () => {
+    const report = Schema.decodeUnknownSync(Schema.toCodecJson(UsageReport))({
+      buckets: [],
+      indexedAt: null,
+    });
+
+    const codec = Schema.toCodecJson(UsageStreamItem);
+
+    const { indexing: _dropped, ...older } = Schema.encodeSync(UsageStreamItem.cases.UsageChanged)(
+      UsageStreamItem.cases.UsageChanged.make({
+        buckets: [],
+        indexedAt: "2026-01-01T00:00:00Z",
+        indexing: true,
+      })
+    );
+
+    const changed = Schema.decodeUnknownSync(codec)(older);
+
+    expect(report.indexing).toBe(false);
+    expect(changed).toMatchObject({ indexing: false });
   });
 });

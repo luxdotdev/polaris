@@ -1,13 +1,14 @@
 /**
- * usage: the Usage index over a synthetic log set (~600 / ~60 MB of Claude
- * transcripts and Codex rollouts). The first `usage.query` builds the index
- * from nothing; later ones read only what was appended.
+ * usage: the Usage index over a synthetic log set (1.1 GB / 89 MB of Claude
+ * transcripts and Codex rollouts). The first `usage.query` starts building
+ * the index in the background (timed to `usage.watch`'s end marker); later
+ * ones read only what was appended.
  */
 import { appendFileSync, mkdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { Effect } from "effect";
+import { Effect, Predicate, Stream } from "effect";
 import { awaitReady, cleanup, connect, createTempDir } from "../daemon.ts";
-import { settle } from "../drive.ts";
+import { settle, waitUntil } from "../drive.ts";
 import { type Metric, memory, peakMemory, type Scenario, throughput, time } from "../types.ts";
 import { usageLogs } from "../usage-logs.ts";
 
@@ -66,10 +67,27 @@ export const usage: Scenario = {
       yield* settle(1000);
       const base = sampler.sample();
 
+      const tokens = (report: {
+        readonly buckets: ReadonlyArray<{ tokens: { output: number } }>;
+      }) => report.buckets.reduce((sum, b) => sum + b.tokens.output, 0);
+
+      // The first query answers at once (marked `indexing`); the build ends with the watch's marker.
+      let buildEnd = 0;
+
+      yield* Effect.forkScoped(
+        client.connection.client["usage.watch"]({}).pipe(
+          Stream.filter((item) => Predicate.isTagged(item, "UsageChanged") && !item.indexing),
+          Stream.take(1),
+          Stream.runForEach(() => Effect.sync(() => (buildEnd = performance.now())))
+        )
+      );
+
       const t0 = performance.now();
-      const built = yield* query(ALL_TIME);
-      const buildMs = performance.now() - t0;
+      yield* query(ALL_TIME);
+      yield* waitUntil(() => buildEnd > 0, 600_000, "the first index pass");
+      const buildMs = buildEnd - t0;
       const buildReport = sampler.report(base.t - 1, sampler.sample().t);
+      const built = yield* query(ALL_TIME);
 
       const t1 = performance.now();
       yield* query(ALL_TIME);
@@ -77,17 +95,20 @@ export const usage: Scenario = {
 
       for (let i = 1; i <= 100; i++)
         appendFileSync(liveFile, `${appended("2026-07-01T01:00:00Z", i)}\n`);
+
+      // Until a query shows every appended response.
       const t2 = performance.now();
-      const after = yield* query(ALL_TIME);
+      let after = yield* query(ALL_TIME);
+
+      while (tokens(after) - tokens(built) < 100 * 200 && performance.now() - t2 < 30_000)
+        after = yield* query(ALL_TIME);
+
       const appendMs = performance.now() - t2;
       yield* settle(2000);
       const settled = sampler.sample();
       yield* ctx.peak(daemon, "after-build");
 
       const indexBytes = statSync(join(daemon.home, "usage.sqlite")).size;
-
-      const tokens = (report: typeof built) =>
-        report.buckets.reduce((sum, b) => sum + b.tokens.output, 0);
 
       if (tokens(after) - tokens(built) !== 100 * 200)
         return yield* Effect.die(new Error("the appended responses were not all indexed"));

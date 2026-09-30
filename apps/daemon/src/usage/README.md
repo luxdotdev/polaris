@@ -8,13 +8,16 @@ Polaris never reads credentials here (ADR 0001). It reads the transcripts and ro
 
 | File | Role |
 |---|---|
-| `scan.ts` | Reads what was appended to a log since a byte offset, in 1 MiB chunks, through one shared buffer. It decodes only lines containing a marker, and leaves a line without its newline for the next pass. |
+| `scan.ts` | Reads what was appended to a log since a byte offset, in 256 KiB chunks, through one shared buffer, yielding to the event loop after each. It decodes only lines containing a marker, and leaves a line without its newline for the next pass. `writeInSlices` commits a file's rows ~4 ms at a time, yielding between. |
 | `claude.ts` | Claude Code transcripts: line parsing and ccusage's dedup rules. |
 | `codex.ts` | Codex rollouts: cumulative diffs, fork replay skipping, and the per-file parser state saved with the offset. |
 | `indexer.ts` | Finding the logs, one pass per file (restarting a file that shrank or was replaced), and `indexLogs` with its garbage cadence. |
 | `writer.ts` | Every statement the index runs, plus the bucket keys a pass touched. |
 | `query.ts` | Hourly `UsageBucket`s: a `GROUP BY` joined to the Agent Session map. |
 | `sessions.ts` | `UsageSessions`: Harness session ids (cursors) mapped to Agent Sessions, and Turn ends, taken from the event store. |
+| `runner.ts` | `inProcessRunner`: one pass (link cursors, index the logs, record when it caught up) and the changes it made. |
+| `passes.ts` | `passScheduler`: background passes, one at a time, requests coalescing into the next; the `indexing` announcement and end marker. |
+| `changes.ts` | The `UsageChanged` buckets a short pass touched, and zero buckets for keys it emptied. |
 | `UsageIndex.ts` | The `UsageIndex` service (refresh, query, changes) and the `PlanLimitSink` it implements. |
 | `UsageRpcs.ts` | The `usage.query` and `usage.watch` handlers. |
 
@@ -68,10 +71,17 @@ The map lives in the index (`session_map`). A new index backfills it once from e
 
 Nothing runs on a timer. An idle Daemon never opens the index: the `idle` scenario is unchanged.
 
-- **`usage.query`** runs an incremental pass (only bytes appended since the last one, per file), then answers.
-- **After each Turn** (`TurnEnded` from the event store), once the index exists in this Daemon, a pass runs over that Harness's logs. A Turn never builds the index from nothing.
-- **While at least one Client is subscribed to `usage.watch`**, the Daemon runs `fs.watch` (recursive) on the log roots. Changes settle for a second, then a pass runs. The watchers close with the last subscriber.
-- **Passes run one at a time.** Each publishes `UsageChanged` with every bucket in the hours it touched (a Client replaces buckets by key), plus zero buckets for keys it emptied. That happens when a replaced Claude response moves to another Model, or a relink moves Usage to an Agent Session.
+**Passes never block the Daemon** (ADR 0009). A pass runs in the background, on the Daemon's thread, in bounded steps: a 256 KiB chunk of one log, or ~4 ms of writes in one transaction, then a yield to the event loop. The WAL checkpoints every 64 pages, so no commit stalls on a big checkpoint. Session streams and RPCs keep flowing while it reads gigabytes. Passes run one at a time; a request made during a pass joins the next one.
+
+- **`usage.query`** starts a pass (only the bytes appended since the last one, per file). It waits up to ~250 ms for the pass, then answers from what is indexed, with `indexing` true while the pass still runs.
+- **`usage.watch`** doesn't index by itself. A Client that only wants Plan Limits (the Desktop's Harness menu) costs no log reading.
+- **Once a Client has queried the index in this Daemon:**
+  - **After each Turn** (`TurnEnded` from the event store), a pass runs over that Harness's logs.
+  - **While at least one Client watches,** the Daemon runs `fs.watch` (recursive) on the log roots. Changes settle for a second, then a pass runs; the watchers close with the last subscriber.
+  - **A new watcher** starts a catch-up pass.
+- **What watchers hear:**
+  - **A short pass** (under 300 ms) publishes a `UsageChanged` with every bucket in the hours it touched (a Client replaces buckets by key). It also sends zero buckets for keys it emptied: that happens when a replaced Claude response moves to another Model, or a relink moves Usage to an Agent Session.
+  - **A longer pass** (the first over large logs) is announced: `UsageChanged` with `indexing` true and no buckets. It ends with `indexing` false and no buckets, because it may have changed thousands, and building and encoding them would stall the Daemon. A Client showing Usage queries again on that end marker.
 
 ## `usage.watch` and Plan Limits (the ENG-206 interface)
 
@@ -89,21 +99,31 @@ yield* sink.report(new PlanLimit({ harness: "claude", kind: "five-hour", ... }))
 
 ## Cost
 
-Measured with `bun run bench usage`, synthetic logs:
+Measured with `bun run bench usage usage-contention` on synthetic logs (M2 Max, 3 runs, medians):
 
-| Log set | First build | Peak RSS over base | No-op refresh | 100 lines appended | Index file |
+| Log set | First build | Peak footprint over base | No-op refresh | 100 lines appended | Index file |
 |---|---|---|---|---|---|
-| 1.1 GB (full) | 9.1 s (120 MB/s) | 67 MiB (footprint 29 MiB) | 81 ms | 79 ms | 25 MiB |
-| 89 MB (quick) | 0.7 s | 38 MiB | 9 ms | 12 ms | 1.2 MiB |
+| 1.1 GB (full) | 4.5 s (242 MB/s) | 24 MiB (RSS 59 MiB) | 105 ms | 107 ms | 26 MiB |
+| 89 MB (quick) | 0.4 s | 26 MiB (RSS 42 MiB) | 11 ms | 13 ms | 2 MiB |
 
-On this Mac's real logs (3.6 GB: 1.5 GB Claude, 2.1 GB Codex), `scripts/usage-vs-ccusage.ts` builds the index in 17–18 s with a 150–170 MiB peak process RSS (Bun itself is about 75 MiB of that).
+**While the first pass runs** (`usage-contention`, 2.7 GB): a Client streams a session and times an RPC every 50 ms on the same connection that opens the Usage view.
+
+| | Before (one blocking pass) | After (bounded steps) |
+|---|---|---|
+| First `usage.query` | 26 s | 280 ms |
+| First pass | 26 s | 12.9 s |
+| RPC p99 / worst during the pass | 34 / 687 ms | 11 / 18 ms |
+| Session delta, worst lateness | 50 ms | 13.5 ms |
+
+On this Mac's real logs (3.6 GB: 1.5 GB Claude, 2.1 GB Codex), `scripts/usage-vs-ccusage.ts` builds the index in 17–24 s, with a 140–170 MiB peak process RSS (Bun itself is about 75 MiB of that).
 
 What keeps memory flat, which matters on a Pi 4:
 
-- **Chunked reads:** 1 MiB reads into one shared buffer.
+- **Chunked reads:** 256 KiB reads into one shared buffer.
 - **Codex's long lines are skipped:** its usage types always sit in a line's first bytes, so a multi-megabyte tool output without one is never buffered or decoded.
-- **Garbage cadence:** a full GC after every 64 MiB of logs read.
+- **Garbage cadence:** a full GC after every 64 MiB of logs read (a few ms at most, even with a busy Daemon's heap).
 - **Nothing held in memory:** dedup state lives in SQLite, not in maps.
+- **No second thread:** a Bun Worker costs ~45 MiB more, because it loads its own Effect (ADR 0009).
 
 A later pass reads only appended bytes. Its cost is mostly the bucket query: about 0.7 µs per row in the range, 98k rows in 70 ms. An hourly rollup table would make wide ranges cheaper if that ever matters.
 
@@ -118,8 +138,9 @@ The script builds a fresh index from this Host's real logs. It compares per-day 
 ## Tests
 
 - `indexer.test.ts`: fixture logs for every rule above, plus incremental passes (a line without its newline yet, truncation, a huge Codex line).
+- `nonBlocking.test.ts`: a session stream (real engine and event store, a fake Harness streaming a delta every 10 ms) keeps delivering while the first pass runs over ~220 MB. Deltas arrive at most ~45 ms late, where the same pass without yields and write slices holds them ~300 ms. `usage.query` answers from a partial index, marked `indexing`, and the end marker comes with every response indexed.
 - `UsageIndex.test.ts`: the service through its RPCs:
-  - It opens nothing until asked.
+  - It opens nothing until asked, and a watch for Plan Limits alone reads no logs.
   - The Polaris / outside split and the filters.
   - `usage.watch` with the file watcher and Plan Limits.
   - A relink moving Usage, and a Turn end catching up.

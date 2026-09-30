@@ -5,7 +5,7 @@
  */
 import { open } from "node:fs/promises";
 
-const CHUNK_BYTES = 1 << 20;
+const CHUNK_BYTES = 1 << 18;
 
 const NEWLINE = 0x0a;
 
@@ -28,9 +28,41 @@ export interface ScanResult {
 const decoder = new TextDecoder();
 
 /**
+ * Lets the rest of the process run: a pass does at most a chunk's work
+ * between these, so on the Daemon's thread it never holds up a stream.
+ */
+export const yieldToLoop = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
+
+/** Writing time per transaction: a file's rows commit a few milliseconds' worth at a time. */
+const WRITE_SLICE_MS = 4;
+
+/** Runs `write` on every item, a transaction per ~4 ms slice, yielding between slices. */
+export const writeInSlices = async <A>(
+  items: ReadonlyArray<A>,
+  transaction: (body: () => void) => void,
+  write: (item: A) => void
+) => {
+  let at = 0;
+
+  while (at < items.length) {
+    const started = performance.now();
+
+    transaction(() => {
+      while (at < items.length && performance.now() - started < WRITE_SLICE_MS) {
+        const item = items[at++];
+
+        if (item !== undefined) write(item);
+      }
+    });
+
+    await yieldToLoop();
+  }
+};
+/**
  * Every scan reads into this one buffer: fresh buffers per file stay resident
  * until a late GC. It grows only for a line longer than it, and shrinks back.
  */
+
 let shared = Buffer.allocUnsafe(CHUNK_BYTES);
 
 /** Each complete line in `buffer[0, end)` that contains a marker; false when `onLine` stopped. */
@@ -158,6 +190,7 @@ export const scanLines = async (
 
       scan.buffer.copy(scan.buffer, 0, from + end, filled);
       scan.carried = filled - from - end;
+      await yieldToLoop();
     }
   } finally {
     await handle.close();

@@ -19,6 +19,12 @@ export interface UsageLogSize {
 }
 
 export const USAGE_SIZES = {
+  large: {
+    claudeSessions: 500,
+    responsesPerSession: 400,
+    codexRollouts: 150,
+    turnsPerRollout: 300,
+  },
   full: { claudeSessions: 200, responsesPerSession: 400, codexRollouts: 60, turnsPerRollout: 300 },
   quick: { claudeSessions: 30, responsesPerSession: 200, codexRollouts: 10, turnsPerRollout: 150 },
 } as const satisfies Record<string, UsageLogSize>;
