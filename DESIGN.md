@@ -8,21 +8,23 @@ colors:
   surface-raised-dark: "#222327"
   fill-selected-dark: "#2B2C31"
   fill-hover-dark: "#242529"
+  row-selected-dark: "#26272C"   # the selected session row: a raised card
   hairline-dark: "#FFFFFF0F"
   text-strong-dark: "#F4F5F7"
   text-default-dark: "#E3E4E8"
   text-subtle-dark: "#9A9CA4"
-  text-faint-dark: "#686A72"
+  text-faint-dark: "#686A72"     # placeholders and disabled text only (rule/faint-is-not-content)
   # Neutrals, light.
   bg-light: "#FBFBFC"
   surface-sunken-light: "#F3F3F5"
   surface-raised-light: "#FFFFFF"
   fill-selected-light: "#EDEDEF"
   fill-hover-light: "#F4F4F6"
+  row-selected-light: "#FFFFFF"  # a white card on the sunken sidebar (see Session rows)
   hairline-light: "#0000000F"
   text-strong-light: "#17181A"
   text-default-light: "#333438"
-  text-subtle-light: "#74767D"
+  text-subtle-light: "#66686F"   # 5.0:1 on surface-sunken, 4.8:1 on fill-selected
   text-faint-light: "#A4A6AC"
   # Brand: starlight. Focus rings, Polaris's own activity, logo, the star. Nothing else.
   starlight-dark: "#BCD3FF"
@@ -32,6 +34,12 @@ colors:
   needs-you-light: "#B98A00"
   failed-dark: "#F0645A"
   failed-light: "#D23B30"
+  # Text variants: signal hues set as words (labels, second lines, badge text, the danger button).
+  # Glyphs, washes, dither and line fills keep the base hues above. See rule/signal-text-variants.
+  needs-you-text-dark: "#F2C84B"
+  needs-you-text-light: "#856300"
+  failed-text-dark: "#F37B72"
+  failed-text-light: "#BF3228"
   # Severity.
   # Severity. Always a filled badge: shape + label + colour.
   severity-critical: "#E5484D"   # red, diamond
@@ -41,11 +49,25 @@ colors:
   severity-medium-light: "#9C7A06"
   severity-low-dark: "#8A93A6"    # slate, hollow circle
   severity-low-light: "#626B7D"
+  # Severity text variants: badge labels and glyphs set in text. Badge fill is the base hue at 12% (dark) / 10% (light).
+  severity-critical-text-dark: "#F2787C"
+  severity-critical-text-light: "#BE2C36"
+  severity-high-text-dark: "#F2894A"
+  severity-high-text-light: "#A6490C"
+  severity-medium-text-dark: "#E6C04A"
+  severity-medium-text-light: "#7A5E00"
+  severity-low-text-dark: "#9AA2B3"
+  severity-low-text-light: "#5A6273"
   # Harness identity hues (provisional).
   harness-claude-code: "#D97757"
+  harness-claude-code-light: "#C4562F"
   harness-codex: "#6FCBA0"
+  harness-codex-light: "#1E8A5C"
   harness-opencode: "#E58FA8"   # provisional, rose
   harness-opencode-light: "#B8466A"
+  # Harness text in light mode (Working strip, picker chip, the Editor's agent flag); dark text uses the hue itself.
+  harness-claude-code-text-light: "#AC4824"
+  harness-codex-text-light: "#167550"
   # Diffs. Applied as low-opacity line fills; word-level highlights use ~2x opacity.
   diff-added: "#3FB950"
   diff-removed: "#F85149"
@@ -63,6 +85,12 @@ colors:
   # Git status (Editor file tree, tabs, gutter). Added/untracked use diff-added, deleted uses diff-removed.
   git-modified-dark: "#D6B37E"
   git-modified-light: "#9A6B16"
+  # Diff and git text: +/− counts, status letters and tinted file names. Line fills keep diff-added / diff-removed.
+  diff-added-text-dark: "#57C46A"
+  diff-removed-text-dark: "#F07A7E"
+  diff-added-text-light: "#1A7F37"
+  diff-removed-text-light: "#CF222E"
+  git-modified-text-light: "#8A5F12"
   # Syntax: "moonlit". Low chroma so signals still stand out over code.
   syntax-keyword-dark: "#A3AFCB"
   syntax-string-dark: "#D9C9A3"   # strings and numbers
@@ -187,6 +215,36 @@ components:
     rounded: "{rounded.control}"
     height: "28px"
     padding: "0 12px"
+  button-danger-dark:
+    backgroundColor: "{colors.fill-selected-dark}"
+    textColor: "{colors.failed-text-dark}"
+    typography: "{typography.label}"
+    rounded: "{rounded.control}"
+    height: "28px"
+    padding: "0 12px"
+  button-danger-light:
+    backgroundColor: "{colors.fill-selected-light}"
+    textColor: "{colors.failed-text-light}"
+    typography: "{typography.label}"
+    rounded: "{rounded.control}"
+    height: "28px"
+    padding: "0 12px"
+  button-brand-moment-dark:
+    backgroundColor: "{colors.text-strong-dark}"
+    textColor: "{colors.text-strong-light}"
+    typography: "{typography.label}"
+    rounded: "8px"
+    height: "36px"
+    padding: "0 14px 0 18px"
+    shadow: "0 8px 24px #00000059"
+  button-brand-moment-light:
+    backgroundColor: "{colors.text-strong-light}"
+    textColor: "{colors.surface-raised-light}"
+    typography: "{typography.label}"
+    rounded: "8px"
+    height: "36px"
+    padding: "0 14px 0 18px"
+    shadow: "0 8px 24px #0000001F"
   row-selected-dark:
     backgroundColor: "{colors.fill-selected-dark}"
     textColor: "{colors.text-strong-dark}"
@@ -251,7 +309,8 @@ The Desktop App is Electron (Chromium 152, React). CSS effects are available: sh
 
 Faintly cool greys (a trace of blue, never readable as blue). Dark background is a soft charcoal (#1A1B1D), never pure black; light background is off-white (#FBFBFC).
 
-- Hierarchy comes from **text colour**, not weight: `text-strong` for titles and selected items, `text-default` for content, `text-subtle` for secondary labels and section headers, `text-faint` for placeholders and disabled text.
+- Hierarchy comes from **text colour**, not weight: `text-strong` for titles and selected items, `text-default` for content, `text-subtle` for secondary labels, section headers, metadata, ages, second lines and key hints, `text-faint` for placeholders and disabled text only.
+- **rule/faint-is-not-content:** `text-faint` is for placeholders, disabled controls, ignored files and ghost text, never for text the user must read. It is below 4.5:1 in both themes by design; anything informative (ages, counts, empty-state lines, line numbers, key hints) is at least `text-subtle`, which clears 4.5:1 on every surface in both themes.
 - Layers are tonal: `surface-sunken` for sidebars and wells, `bg` for the main canvas, `surface-raised` for popovers and toasts.
 - Selection is a soft grey fill (`fill-selected`), never an accent colour.
 - Borders are 1px `hairline` (white or black at ~6%).
@@ -266,11 +325,11 @@ Faintly cool greys (a trace of blue, never readable as blue). Dark background is
 | High ▲ | `severity-high` (orange) | Review and Output. |
 | Medium ● | `severity-medium` (yellow) | Review and Output. |
 | Low ○ | `severity-low` (slate) | Review and Output. |
-| Diff added / removed | `diff-added`, `diff-removed` at ~12% line fill, ~25% word highlight | Review and Editor. `-cvd` blue/orange set in settings. |
+| Diff added / removed | `diff-added`, `diff-removed` at ~12% line fill, ~25% word highlight; counts and letters in `diff-*-text` | Review and Editor. `-cvd` blue/orange set in settings. |
 
 ### Harness identity
 
-Each Harness has one fixed hue; every Agent Session with that Harness uses it. Claude Code is `harness-claude-code` (coral orange). Codex is `harness-codex` (mint). OpenCode is `harness-opencode` (rose, provisional; wash and dither generated by `gen_textures.py` and `gen_dither.py`). These are provisional until checked against the signal colours in real screens. Harness hue appears in the dither, the session's Harness tile, and toasts that Harness sent. It may also colour text and borders in exactly three places: the Working strip (in the composer, and across the top of an Editor file an agent is editing), the Harness picker chip, and an agent's live caret and lines in the Editor (see Components). It never appears on buttons, selection, or body text.
+Each Harness has one fixed hue; every Agent Session with that Harness uses it. Claude Code is `harness-claude-code` (coral orange; `-light` #C4562F). Codex is `harness-codex` (mint; `-light` #1E8A5C). Where the hue is text in light mode, it uses `harness-*-text-light` (rule/signal-text-variants). OpenCode is `harness-opencode` (rose, provisional; wash and dither generated by `gen_textures.py` and `gen_dither.py`). These are provisional until checked against the signal colours in real screens. Harness hue appears in the dither, the session's Harness tile, and toasts that Harness sent. It may also colour text and borders in exactly three places: the Working strip (in the composer, and across the top of an Editor file an agent is editing), the Harness picker chip, and an agent's live caret and lines in the Editor (see Components). It never appears on buttons, selection, or body text.
 
 ### Named Rules
 
@@ -279,13 +338,14 @@ Each Harness has one fixed hue; every Agent Session with that Harness uses it. C
 - **rule/git-is-a-letter:** a git status is always its letter (M, A, U, D, R, C, !) in a fixed slot, with the file name tinted to match. It never uses a dot or icon alone, so modified tan never reads as Needs You yellow (which is always a pixel icon).
 - **rule/starlight-is-rare:** Starlight never appears on buttons, links, selection, or hover.
 - **rule/no-colour-alone:** every colour signal also has an icon, shape, or label.
+- **rule/signal-text-variants:** a signal hue set as words (a label, a second line, badge text, a count, a git letter, the danger button) uses its `-text` variant, which clears 4.5:1 on `bg`, `surface-sunken`, `surface-raised` and its own badge fill in that theme. Glyphs, washes, dither, rules and line fills keep the base hue. Where a pair has no `-text` variant (needs-you, severity-medium and failed in dark; diff and git-modified in dark), the base value already clears 4.5:1 and is the text colour.
 - **rule/severity-is-a-badge:** a Severity is always a filled badge with its shape (◆ ▲ ● ○), its label, and its colour. Never colour alone, never a bare dot.
 - **rule/severity-vs-state:** Severity badges and Session State indicators never share a form. State uses 16px pixel icons and dots with no label; Severity uses labelled badges. This keeps Medium yellow apart from Needs You yellow and Critical red apart from Failed red.
 - **rule/low-confidence-dims:** non-Critical Findings under 50% confidence render at reduced emphasis (text-subtle, badge at 60%). Critical is never dimmed.
 
 ## Typography
 
-**SF Pro** for all UI; **SF Mono** for code (the Editor's font and size are user settings; SF Mono 13/20 is the default). Two weights only: Regular (400) for content, Medium (500) for labels, headings, and emphasis. No Semibold or Bold. Letter spacing stays at the system default.
+**SF Pro** for all UI; **SF Mono** for code (the Editor's font and size are user settings; SF Mono 13/20 is the default). Two weights only: Regular (400) for content, Medium (500) for labels, headings, and emphasis. No Semibold or Bold. Letter spacing stays at the system default, except on brand moments: the onboarding tagline and scene headlines (`display`) take −0.015em and the wordmark −0.01em, as in the Paper O1 artboards. Working UI never tightens.
 
 ### Hierarchy
 
@@ -345,7 +405,7 @@ Flat. Depth comes from tonal layers (`surface-sunken` < `bg` < `surface-raised`)
 ### Shadow Vocabulary
 
 - **float:** menus, popovers, command palette, toasts. A soft, low-contrast shadow (dark: y 8, blur 24, black 40%; light: y 8, blur 24, black 10%) plus a hairline.
-- Nothing else gets a shadow: not cards, rows, tiles, or panels.
+- Nothing else gets a shadow: not cards, rows, tiles, or panels. The one exception is the brand-moment button (see Buttons).
 
 ## Shapes
 
@@ -365,6 +425,8 @@ The window uses the native macOS corner radius. Pixel icons and dither are drawn
 - **Primary:** monochrome fill (near-black in light mode, near-white in dark), `label` type, 28px tall, 6px radius. At most one per view.
 - **Secondary:** `fill-selected` fill, `text-default`.
 - **Ghost:** no fill until hover (`fill-hover`). Icon buttons are ghost buttons with a 16px icon in a 28px square.
+- **Danger:** the secondary shape (`fill-selected`, 28px, 6px radius) with its label in `failed-text` (#F37B72 dark, 5.2:1 on `fill-selected`; #BF3228 light, 4.9:1). For destructive actions that name their object ("Remove host"); never a red fill, and never the view's primary.
+- **Brand moment:** the primary button, larger, for onboarding and brand moments only (the welcome "Get started", the marketing site): 36px tall, 8px radius, 18px/14px padding, `label` type, a trailing 18px keycap (↵) at 4px radius, and the float shadow (dark black 35%, light black 12%). This is the one place a button casts a shadow. Working UI always uses the 28px primary.
 - Focus is always a 2px Starlight ring with a 2px offset.
 
 ### Rows and lists
@@ -373,7 +435,7 @@ The main unit of the app. A row is an optional 16px icon or tile, a `label` titl
 
 ### Session rows
 
-The Orchestrator's sidebar unit, and the Harness's home in the chrome. A session row is a Harness tile (size per density step), a `label` title, a `caption` second line saying what the session is doing right now ("Wants to run cargo build", "Writing layout variants…", "Ready to review · 3 files"), and a trailing age. The Session State lives *inside* the tile, so one square carries both who (the wash) and what (the glyph). Needs You tints the second line `needs-you`. The selected row is a raised card: `#26272C` dark, hairline border, `row` radius. Dormant tiles drop the wash and use a dashed hairline.
+The Orchestrator's sidebar unit, and the Harness's home in the chrome. A session row is a Harness tile (size per density step), a `label` title, a `caption` second line saying what the session is doing right now ("Wants to run cargo build", "Writing layout variants…", "Ready to review · 3 files"), and a trailing age. The Session State lives *inside* the tile, so one square carries both who (the wash) and what (the glyph). Needs You tints the second line `needs-you-text`; other second lines and the age are `text-subtle`. The selected row is a raised card (`row-selected`): `#26272C` dark, white in light, hairline border, `row` radius. Light chose white over `fill-selected` because text on it keeps more contrast (`text-subtle` 5.6:1 vs 4.8:1, `needs-you-text` 5.6:1 vs 4.8:1) and it separates more from the sunken sidebar. Dormant tiles drop the wash and use a dashed hairline.
 
 ### Session State indicators
 
@@ -388,7 +450,7 @@ Each Agent Session shows its state as a glyph inside its Harness tile (session r
 | In Terminal | Pixel terminal icon in `text-subtle` | No |
 | Dormant | Hollow dot in `text-faint` | No |
 | Failed | Pixel "failed" icon in `failed` | No |
-| Archived | Hidden from active lists; shown in `text-faint` where listed | No |
+| Archived | Hidden from active lists; shown in `text-subtle` where listed | No |
 
 - **rule/only-working-moves:** nothing loops except the Working dither.
 - **rule/needs-you-is-loudest:** Needs You is the only Session State with an attention colour, and it sorts to the top.
@@ -413,7 +475,7 @@ The Review view mirrors the Orchestrator's three zones: **queue** (left), **risk
 
 ### Badges
 
-20px tall, 6px radius, `caption` type, soft tinted fill with a darker text of the same hue (like "New" or "Connected"). Used for counts, Severity, and short status words; never for decoration.
+20px tall, 6px radius, `caption` type, a soft fill of the base hue at 12% (dark) / 10% (light) with the label in the hue's `-text` variant (like "New" or "Connected"). Every label clears 4.5:1 on its fill. Used for counts, Severity, and short status words; never for decoration.
 
 ### Pixel tiles
 
@@ -476,7 +538,7 @@ Settings replaces the three zones inside the one main window (no separate window
 
 ### Onboarding
 
-One brand moment, then the real shell; never a wizard. First launch shows a full-bleed scene (night or dawn) with the horizontal lockup, the tagline, one line saying what Polaris drives, and a single "Get started" button. A footer states what was found on this Mac (Harness versions, hosts in `~/.ssh/config`). After that, the app opens to the empty Orchestrator. The stage holds a clearing, the headline "Where does your code live?", and a `surface-raised` setup card with three rows: add a workspace (primary), connect a host (optional), and start a session (locked until a workspace exists). Adding a host uses the same inline components on day 1 and day 60. The first install shows platform, version, SHA-256 and install path in a sunken well, with "Approve and install" and "Not now". Each needs-attention reason (`host-key-unknown`, `host-key-changed`, `auth-failed`, `daemon-not-running`, `protocol-mismatch`) gets an inline card: what happened, the command or stderr line in a well, and at most one fix. A changed host key never gets a one-click fix. Mockups: Onboarding page, O1–O4.
+One brand moment, then the real shell; never a wizard. First launch shows a full-bleed scene (night or dawn) with the horizontal lockup, the tagline, one line saying what Polaris drives, and a single "Get started" button in the brand-moment size (see Buttons). A footer states what was found on this Mac (Harness versions, hosts in `~/.ssh/config`). After that, the app opens to the empty Orchestrator. The stage holds a clearing, the headline "Where does your code live?", and a `surface-raised` setup card with three rows: add a workspace (primary), connect a host (optional), and start a session (locked until a workspace exists). Adding a host uses the same inline components on day 1 and day 60. The first install shows platform, version, SHA-256 and install path in a sunken well, with "Approve and install" and "Not now". Each needs-attention reason (`host-key-unknown`, `host-key-changed`, `auth-failed`, `daemon-not-running`, `protocol-mismatch`) gets an inline card: what happened, the command or stderr line in a well, and at most one fix. A changed host key never gets a one-click fix. Mockups: Onboarding page, O1–O4.
 
 ### Empty states
 
@@ -489,6 +551,8 @@ The sidebar's second view, across all machines. Each waiting session is a `card`
 ### Icons
 
 Nucleo UI outline, 1px stroke, 16px, in `text-subtle` (or `text-strong` when selected), for all chrome. Nucleo pixel icons are only for Polaris-owned concepts (Session States, Harnesses, toast types) and always sit on the pixel grid. Never mix icon families within a component.
+
+**Licence.** The icons are Nucleo (UI outline and pixel), vendored into the repo under Nucleo's licence (at most 100 icons, with its copyright notice). They are excluded from Polaris's Apache-2.0 licence and listed as such in `ATTRIBUTION.md`. The decision may be revisited (original icons, or a permissively licensed set) before the repo goes public.
 
 **Feature marks.** A Polaris feature may get its own 16×16 pixel mark, drawn on the same grid as the north star and generated by `gen_dither.py`. The Constellation mark (`design/assets/icons/px-constellation-*.svg`) is three stars (a 5px sparkle, two 3px crosses and one lone pixel) joined by dotted lines, in Starlight because the graph is Polaris's own work. Feature marks label the feature on the marketing site, in docs and at the Constellation tab. They never stand in for a Session State.
 
@@ -510,7 +574,7 @@ A native take on herdr-dagr (ENG-169), planned for M4 · DAG automation. Terms a
 - **Rows, not a canvas.** The graph is a rail list in the spirit of `git log --graph`: a constellation trunk, collapsible project groups with their counts, tasks, and the attempts and subagents nested under them. Rows use the tree-row height. Fixed lanes, left to right: rail (60px), id in `code-inline`, title, actor (harness · model, "polaris reviewer" or "subagent"), and state.
 - **Rail glyphs reuse Session State.** Working is a 10px dither in the harness hue (Starlight for Polaris's own reviewer); needs you is the pixel hand; done is a filled `text-subtle` dot; waiting is a hollow `text-faint` dot; a future is a dashed dot on a dashed branch; a gate is a small outlined square, never a diamond (that is Critical). Rail lines are white at ~14%.
 - **Gates** show their inputs inline as small dots in each input's state colour, then an arrow and the gate's title; the state column says what they wait on ("waits A1R A2R").
-- **State column.** `text-default` for working, `text-subtle` for done with its evidence ("done · verified"; tiers verified, reported, heuristic, asserted), `needs-you` for needs you, `text-faint` for "waits X" and future.
+- **State column.** `text-default` for working, `text-subtle` for done with its evidence ("done · verified"; tiers verified, reported, heuristic, asserted), `needs-you-text` for needs you, `text-subtle` for "waits X" and future (the hollow and dashed rail glyphs tell them apart).
 - **Individual agent viewing is a focus swap.** Selecting a node (a task's attempt, a review, a subagent) swaps the middle column to that agent's own live session: a breadcrumb back to the orchestrator ("Polaris planning › Session rows v2 › A2"), the title and attempt, the brief it received (labelled "Brief from {orchestrator}"), its transcript and steps, and a composer that steers that agent directly. Every direct steer is also reported to the orchestrating session, so the orchestrator always knows what changed and why. The graph stays put; the selected row takes a translucent fill (lines show through) and a second line saying what the agent is doing now. There is no detail card.
 - **Subagents are nodes.** Subagents a session spawns (from SubagentStart/Stop) nest under their parent with a smaller glyph and "subagent" as actor, and can be focused like any other agent.
 - **Attention.** The constellation header carries the next thing that needs you as a needs-you chip ("B1 wants to run pnpm test", tab to jump). A key hint row sits at the foot: move, focus, fold, next that needs you, message orchestrator.
@@ -520,10 +584,10 @@ A native take on herdr-dagr (ENG-169), planned for M4 · DAG automation. Terms a
 The third mode (title-bar switch: Orchestrate, Review, Edit). Two zones: the explorer (264px, `surface-sunken`) and the editor pane. The code is the content; chrome stays neutral and quiet.
 
 - **Explorer.** Workspace header (name, Host and path) and a Files / Changes segmented control, then the file tree in tree rows. Each row has two fixed trailing slots: an agent slot (a 12px dither in the Harness hue while a Working agent is changing that file, or the pixel needs-you hand on a folder where an agent is blocked) and a git slot (the status letter, or a 5px `git-modified` dot on a folder that contains changes). Below the tree, "Agents in {workspace}" lists that Workspace's sessions as session rows; the footer keeps the jump hint.
-- **Git status.** Modified `M` (`git-modified`), added `A` and untracked `U` (`diff-added`), deleted `D` (`diff-removed`, name struck through), renamed `R` (`git-modified`), conflicted `C` (`diff-removed`), ignored (`text-faint`, no letter). The file name takes the same tint unless the row is selected. In the gutter, a 2px bar marks changed lines (`git-modified` or `diff-added`) and a small `diff-removed` wedge marks where lines were deleted.
+- **Git status.** Modified `M` (`git-modified`), added `A` and untracked `U` (`diff-added`), deleted `D` (`diff-removed`, name struck through), renamed `R` (`git-modified`), conflicted `C` (`diff-removed`), ignored (`text-faint`, no letter). Letters and the tinted file name use the `-text` variants (`git-modified-text`, `diff-*-text`). The file name takes the same tint unless the row is selected. In the gutter, a 2px bar marks changed lines (`git-modified` or `diff-added`) and a small `diff-removed` wedge marks where lines were deleted.
 - **Tabs.** 36px, `label` type. The active tab joins the editor surface; others sit on `surface-sunken`. A dot means unsaved, a close mark shows on the active tab, and a 12px dither leads the tab while an agent is changing that file.
-- **Breadcrumbs.** `caption` path and symbol in `text-faint`/`text-subtle`, with the "Ask about this file ⌘I" hint on the right.
-- **Code.** `code` type, moonlit syntax, line numbers right-aligned in `text-faint` (the current line in `text-default` on `fill-hover`). Ligatures off. Tab completion is ghost text in `text-faint` with a small "Tab" keycap after it.
+- **Breadcrumbs.** `caption` path and symbol in `text-subtle`/`text-default`, with the "Ask about this file ⌘I" hint on the right.
+- **Code.** `code` type, moonlit syntax, line numbers right-aligned in `text-subtle` (the current line in `text-default` on `fill-hover`). Ligatures off. Tab completion is ghost text in `text-faint` with a small "Tab" keycap after it.
 - **Selection actions.** Selecting code shows a small floating bar (`surface-raised`, `row` radius, float shadow) at the end of the selection's first line, clear of the code: "Edit or ask ⌘I" (inline chat on the selected lines) and "Add to agent session ⌘L" (attach the lines as a source). It disappears when the selection collapses and never covers selected text.
 - **Inline chat (⌘I).** Opens as a `card`-radius raised card above the selection, aligned to the code's left edge: the Harness picker chip, the prompt, and the selected range. The selection keeps a Starlight fill at ~11%. The proposal renders inline as a diff (removed line on `diff-removed` fill, added lines on `diff-added` fill), and the card's footer says what changed ("1 change +2 −1 · Thought for 4s") with "Open as agent session", Reject (esc) and Accept (⌘↵, the view's one primary button).
 - **An agent editing your file.** When a Working agent session is changing the open file, a Working strip runs across the top of the editor: dither glyph, "Claude Code is editing this file" in the Harness hue, "{session} · turn N · elapsed" in `caption`, a Follow checkbox (on by default: the view scrolls with the agent) and "Open session". Lines the agent wrote this turn get a 2px Harness-hue bar and a ~5% Harness-hue fill; its live caret is a Harness-hue bar with a name flag ("Claude Code"). No dither in the text area.
@@ -542,8 +606,8 @@ Review renders diffs with Pierre Diffs inside shadow DOM, so Polaris styles it o
 | `--diffs-font-family` / `--diffs-font-size` / `--diffs-line-height` | `font-mono` / 13px (`code`) / 20px |
 | `--diffs-header-font-family` | `font-sans` |
 | `--diffs-bg` | `surface-sunken` (dark) / `surface-raised` (light) |
-| `--diffs-fg` / `--diffs-fg-number` | `text-default` / `text-faint` |
-| `--diffs-addition-color-override` / `--diffs-deletion-color-override` | `diff-added` / `diff-removed` (or the `-cvd` pair) |
+| `--diffs-fg` / `--diffs-fg-number` | `text-default` / `text-subtle` |
+| `--diffs-addition-color-override` / `--diffs-deletion-color-override` | `diff-added-text` / `diff-removed-text` (or the `-cvd` pair) |
 | `--diffs-bg-addition-override` / `--diffs-bg-deletion-override` | `diff-added` / `diff-removed` at ~10% over `--diffs-bg` |
 | `--diffs-bg-addition-emphasis-override` / `--diffs-bg-deletion-emphasis-override` | the same at ~25% (word-level changes) |
 | `--diffs-bg-separator-override` | `bg` (the "N unmodified lines" bands) |
