@@ -162,6 +162,10 @@ export interface MachineView {
 /** A Harness on one Host (`harness.availability`), flattened. */
 export interface HarnessAvailabilityView {
   readonly harness: string;
+  /** The product's name ("Claude Code"). */
+  readonly name: string;
+  /** Its own setup docs: Polaris never installs a Harness, it links these. */
+  readonly docsUrl: string | null;
   readonly status: "not-installed" | "outdated" | "needs-sign-in" | "ready" | "unknown";
   readonly version: string | null;
   readonly minVersion: string;

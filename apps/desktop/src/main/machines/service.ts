@@ -5,7 +5,7 @@
  * Settings rows. A background check (a reconnect) never installs.
  */
 import type { InstallTrigger, Ssh } from "@polaris/client/install";
-import type { HarnessKind } from "@polaris/protocol";
+import { type HarnessKind, harnessEntry } from "@polaris/protocol";
 import { Context, Effect, Fiber, Layer, Schema, Stream, SubscriptionRef } from "effect";
 import type { HarnessAvailabilityView, MachineView, SshAliasView } from "../../shared/api.ts";
 import { HostDirectory, LOCAL_HOST_KEY, localEntry, remoteEntry } from "../hosts.ts";
@@ -342,6 +342,8 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
         ? null
         : found.map((h): HarnessAvailabilityView => ({
             harness: h.harness,
+            name: harnessEntry(h.harness)?.name ?? h.harness,
+            docsUrl: harnessEntry(h.harness)?.setup.docsUrl ?? null,
             status: h.status,
             version: h.version,
             minVersion: h.minVersion,
