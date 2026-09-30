@@ -1,0 +1,66 @@
+/**
+ * The live feeds behind `window.polaris.subscribe`. Host and session feeds are
+ * `@polaris/client`'s resumable feeds, so every window shares one upstream
+ * subscription per stream: a new subscriber gets the cached Snapshot at once,
+ * then events, and the feed survives reconnects.
+ */
+import { attachTerminal, type HostConnection, type LiveSession } from "@polaris/client";
+import { Effect, flow, Schema, Stream, SubscriptionRef } from "effect";
+import type { IpcError, SubscriptionItem } from "../../shared/api.ts";
+import {
+  SubscriptionInputs,
+  type SubscriptionInput,
+  type SubscriptionKind,
+} from "../../shared/contract.ts";
+import { HostDirectory, toIpcError } from "../hosts.ts";
+
+export type Feed<K extends SubscriptionKind> = Stream.Stream<
+  SubscriptionItem<K>,
+  IpcError,
+  HostDirectory
+>;
+
+const onHost = <A, E extends { readonly _tag: string; readonly message: string }>(
+  hostKey: string,
+  use: (connection: HostConnection) => Stream.Stream<A, E>
+): Stream.Stream<A, IpcError, HostDirectory> =>
+  Stream.unwrap(
+    Effect.map(
+      HostDirectory.use((dir) => dir.connection(hostKey)),
+      (connection) => use(connection)
+    )
+  ).pipe(Stream.mapError(toIpcError));
+
+/** Streams bound to one live connection end when it drops; the renderer resubscribes. */
+const onLive = <A, E extends { readonly _tag: string; readonly message: string }>(
+  hostKey: string,
+  use: (session: LiveSession) => Stream.Stream<A, E>
+) =>
+  onHost(hostKey, (connection) =>
+    Stream.unwrap(Effect.map(connection.session, (session) => use(session)))
+  );
+
+type Openers = { readonly [K in SubscriptionKind]: (input: SubscriptionInput<K>) => Feed<K> };
+
+const openers: Openers = {
+  hosts: () => Stream.unwrap(HostDirectory.useSync((dir) => SubscriptionRef.changes(dir.views))),
+  host: ({ hostKey }) => onHost(hostKey, (connection) => connection.subscribeHost),
+  session: ({ hostKey, sessionId, turnLimit }) =>
+    onHost(hostKey, (connection) => connection.subscribeSession(sessionId, { turnLimit })),
+  terminal: ({ hostKey, terminalId }) =>
+    onLive(hostKey, (session) => attachTerminal(session, terminalId)),
+  "files.watch": ({ hostKey, root }) =>
+    onLive(hostKey, (session) => session.client["files.watch"]({ root })),
+};
+
+export const isSubscriptionKind = (kind: string): kind is SubscriptionKind =>
+  Object.hasOwn(SubscriptionInputs, kind);
+
+/** Decodes a renderer's input for `kind` (untrusted), then opens the feed. */
+export const feedOpener = <K extends SubscriptionKind>(kind: K) =>
+  flow(
+    Schema.decodeUnknownEffect(SubscriptionInputs[kind]),
+    Effect.mapError((error): IpcError => ({ code: "InvalidInput", message: error.message })),
+    Effect.map((input): Feed<K> => openers[kind](input)),
+    Stream.unwrap
+  );

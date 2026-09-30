@@ -1,6 +1,7 @@
 import type { Scenario } from "../types.ts";
 import { blobs } from "./blobs.ts";
 import { coldStart } from "./cold-start.ts";
+import { desktopIdle } from "./desktop-idle.ts";
 import { files } from "./files.ts";
 import { gitScenario } from "./git.ts";
 import { history } from "./history.ts";
@@ -18,4 +19,5 @@ export const SCENARIOS: ReadonlyArray<Scenario> = [
   files,
   gitScenario,
   terminal,
+  desktopIdle,
 ];

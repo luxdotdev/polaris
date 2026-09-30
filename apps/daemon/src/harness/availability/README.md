@@ -12,7 +12,7 @@ Tells Clients, per Host, whether each catalogue Harness is usable (ENG-201, deci
 
 Checked in this order, stopping at the first that applies:
 
-1. **`not-installed`**: no binary. `signInArgv` is null; Clients show the catalogue's `setup.install` / `installCommand`.
+1. **`not-installed`**: no binary. `signInArgv` is null; Clients show the catalogue's `setup.install` line and link `setup.docsUrl`; Polaris never installs a Harness.
 2. **`unknown`**: `<binary> --version` failed. `detail` is its first stderr line.
 3. **`outdated`**: the version is below the catalogue entry's `minVersion` (`Bun.semver.order`). Sign-in isn't checked: an old binary may not have the status command.
 4. **`needs-sign-in`** / **`ready`** / **`unknown`**, from the Harness's own status command (below).

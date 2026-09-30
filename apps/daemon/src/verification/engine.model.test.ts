@@ -75,6 +75,7 @@ type DispatchKind =
   | "Respond"
   | "Interrupt"
   | "Rename"
+  | "SetModel"
   | "Archive"
   | "Unarchive";
 
@@ -148,6 +149,8 @@ const commandFor = (world: World, action: DispatchAction): Command | null => {
       return Command.cases.Interrupt.make({ sessionId });
     case "Rename":
       return Command.cases.RenameSession.make({ sessionId, title: `t${idCounter}` });
+    case "SetModel":
+      return Command.cases.SetModel.make({ sessionId, model: `m${idCounter}`, effort: null });
     case "Archive":
       return Command.cases.ArchiveSession.make({ sessionId, deleteMergedBranch: false });
     case "Unarchive":
@@ -331,6 +334,7 @@ const actionArb: fc.Arbitrary<Action> = fc.oneof(
               "Respond",
               "Interrupt",
               "Rename",
+              "SetModel",
               "Archive",
               "Unarchive"
             )
@@ -340,6 +344,7 @@ const actionArb: fc.Arbitrary<Action> = fc.oneof(
               "Respond",
               "Respond",
               "Rename",
+              "SetModel",
               "Archive",
               "Unarchive"
             ),

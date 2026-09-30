@@ -14,12 +14,13 @@ export const HarnessKind = Schema.String.check(Schema.isPattern(/^[a-z][a-z0-9-]
 
 export type HarnessKind = typeof HarnessKind.Type;
 
-/** How a user sets a Harness up on a Host. Polaris never signs in for them (ADR 0001). */
+/**
+ * How a user sets a Harness up on a Host. Polaris only drives Harnesses the user
+ * already has: it never installs one (it links the docs) and never signs in for them (ADR 0001).
+ */
 export interface HarnessSetup {
-  /** One line for a host where the Harness is not installed. */
+  /** One line for a host where the Harness is not installed, pointing at its docs. */
   readonly install: string;
-  /** The shell command that installs it. */
-  readonly installCommand: string;
   /** One line for a host where it is installed but not signed in. */
   readonly signIn: string;
   /** The argv that starts its own sign-in, run in a Harness terminal on the Host. */
@@ -49,10 +50,9 @@ export const HARNESS_CATALOGUE = [
     // The Claude Code the pinned Agent SDK is built for (`claudeCodeVersion`).
     minVersion: "2.1.283",
     setup: {
-      install: "Install Claude Code on this host.",
-      installCommand: "curl -fsSL https://claude.ai/install.sh | bash",
-      signIn: "Sign in to Claude Code in its own terminal: run claude, then /login.",
-      signInCommand: ["claude"],
+      install: "Claude Code isn't installed on this host. See its setup guide.",
+      signIn: "Sign in to Claude Code in its own terminal.",
+      signInCommand: ["claude", "auth", "login"],
       docsUrl: "https://code.claude.com/docs/en/setup",
     },
   }),
@@ -61,8 +61,7 @@ export const HARNESS_CATALOGUE = [
     // The codex-cli the app-server bindings were generated from.
     minVersion: "0.157.1",
     setup: {
-      install: "Install Codex on this host.",
-      installCommand: "npm install -g @openai/codex",
+      install: "Codex isn't installed on this host. See its setup guide.",
       signIn: "Sign in to Codex in its own terminal.",
       signInCommand: ["codex", "login"],
       docsUrl: "https://developers.openai.com/codex/cli",

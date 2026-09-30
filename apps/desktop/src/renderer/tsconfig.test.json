@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": { "types": ["bun"] },
+  "include": ["**/*.test.ts", "**/*.testing.ts", "global.d.ts"],
+  "exclude": []
+}
