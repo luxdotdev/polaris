@@ -73,19 +73,21 @@ export interface WorkingStripProps {
   readonly onStop?: (() => void) | undefined;
   /** Override the line, as in the Editor ("Claude Code is editing this file"). */
   readonly children?: ReactNode;
+  /** Names the status the line shows; a change re-blooms the dither field. */
+  readonly status?: string | undefined;
 }
 
 /**
  * The composer's 34px Working strip: the loudest thing on a Working screen; no spinner. Its
  * dither field has no band behind it and answers the pointer over any `[data-dither-hover]` ancestor.
  */
-export function WorkingStrip({ harness, elapsed, onStop, children }: WorkingStripProps) {
+export function WorkingStrip({ harness, elapsed, onStop, children, status }: WorkingStripProps) {
   return (
     <div
       data-slot="working-strip"
       className="relative flex h-[34px] shrink-0 items-center gap-2 overflow-clip pr-2.5 pl-3"
     >
-      <DitherField hue={harness} />
+      <DitherField hue={harness} bloom={status} />
       <Dither hue={harness} size={14} moving className="relative" />
       <span className="text-caption relative font-medium text-(--harness-text)">
         {children ?? `${harnessHue(harness).name} is working`}
