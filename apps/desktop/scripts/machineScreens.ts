@@ -99,6 +99,14 @@ try {
   });
   await shoot(page, "hosts-attention");
 
+  for (const density of ["balanced", "compact"] as const) {
+    await page.evaluate(`window.polaris.request("settings.setDensity", { density: "${density}" })`);
+    await page.locator(`html[data-density="${density}"]`).waitFor({ state: "attached" });
+    await shoot(page, `hosts-attention-${density}`);
+  }
+
+  await page.evaluate(`window.polaris.request("settings.setDensity", { density: "calm" })`);
+
   await page.getByTestId("install-approval").scrollIntoViewIfNeeded();
   await shoot(page, "approve-install");
   await page.getByRole("button", { name: "Approve and install" }).click();
