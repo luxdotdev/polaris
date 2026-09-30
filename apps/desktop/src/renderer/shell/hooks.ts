@@ -2,6 +2,7 @@
 import type { SessionId } from "@polaris/protocol";
 import { createContext, useContext, useEffect, useSyncExternalStore } from "react";
 import { useStore } from "zustand";
+import type { CommandRegistry } from "../routes/commands.ts";
 import type { Navigation, ShellActions } from "../routes/navigation.ts";
 import type { NavState, Selection } from "../routes/selection.ts";
 import type { AppState, Connection } from "../store/store.ts";
@@ -9,6 +10,7 @@ import type { AppState, Connection } from "../store/store.ts";
 export interface AppContextValue {
   readonly connection: Connection;
   readonly navigation: Navigation;
+  readonly commands: CommandRegistry;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -33,6 +35,9 @@ export const useNav = <A>(select: (state: NavState) => A): A =>
   useStore(useAppContext().navigation.store, select);
 
 export const useShellActions = (): ShellActions => useAppContext().navigation.actions;
+
+/** The command registry: run a command by id, or register handlers while mounted. */
+export const useCommands = (): CommandRegistry => useAppContext().commands;
 
 /** The current selection, resolved against the data; stable until it changes. */
 export const useSelection = (): Selection => {
