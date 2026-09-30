@@ -4,8 +4,9 @@ import type { KeyboardEvent, ReactElement } from "react";
 import { slots } from "../../app/slots.tsx";
 import type { SessionEntry } from "../../store/hostModel.ts";
 import { needsYou, shownState } from "../../routes/topBar.ts";
-import { age, sessionLine, sessionStateLabel } from "../copy.ts";
+import { activityOf, age, sessionLine, sessionStateLabel } from "../copy.ts";
 import { SessionGlyph, SessionTile } from "../glyphs.tsx";
+import { sessionKey } from "../../store/store.ts";
 import { useApp, useSelection, useShellActions } from "../hooks.ts";
 
 export interface SessionRowProps {
@@ -81,6 +82,11 @@ export const SessionRow = ({ hostKey, entry, now }: SessionRowProps) => {
   const { session } = entry;
   const state = shownState(entry);
 
+  // What a Working session is doing now, from its feed if open; a string, so deltas don't re-render.
+  const activity = useApp((s) =>
+    session.state === "working" ? activityOf(s.sessions[sessionKey(hostKey, session.id)]) : null
+  );
+
   return (
     <WithHover hostKey={hostKey} entry={entry}>
       <Row
@@ -92,7 +98,7 @@ export const SessionRow = ({ hostKey, entry, now }: SessionRowProps) => {
         tone={needsYou(entry) ? "needs-you" : session.state === "dormant" ? "quiet" : "default"}
         leading={<SessionTile state={state} harness={session.harness} density={density} />}
         title={session.title || "Untitled session"}
-        description={sessionLine(entry)}
+        description={sessionLine(entry, activity)}
         meta={
           <span data-testid="row-state" data-state={state} aria-label={sessionStateLabel[state]}>
             {age(session.createdAt, now)}
@@ -120,8 +126,14 @@ export const CompactSessionRow = ({
         aria-current={selected}
         data-state={state}
         selected={selected}
+        // DESIGN.md Session rows: the selected row is the raised card, grouped rows too.
+        className={cn(selected && "border-hairline bg-row-selected hover:bg-row-selected")}
         tone={needsYou(entry) ? "needs-you" : "default"}
-        leading={<SessionGlyph state={state} harness={entry.session.harness} size={14} />}
+        leading={
+          <span className="flex size-4 items-center justify-center">
+            <SessionGlyph state={state} harness={entry.session.harness} size={14} />
+          </span>
+        }
         title={entry.session.title || "Untitled session"}
         meta={meta}
       />

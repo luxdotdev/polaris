@@ -2,6 +2,8 @@
 import type { ConnectionState, SessionState } from "@polaris/protocol";
 import type { SessionEntry } from "../store/hostModel.ts";
 
+export { activityOf } from "./activity.ts";
+
 export const connectionLabel: Readonly<Record<ConnectionState, string>> = {
   connected: "connected",
   reconnecting: "reconnecting",
@@ -33,12 +35,21 @@ const STATE_LINES: Readonly<Record<SessionState, (entry: SessionEntry) => string
   archived: () => "Archived",
 };
 
-/** A session row's second line: what the session is doing right now. */
-export const sessionLine = (entry: SessionEntry): string => {
+const lowerFirst = (text: string) => `${text.charAt(0).toLowerCase()}${text.slice(1)}`;
+
+/**
+ * A session row's second line: what the session is doing right now. A question is
+ * the ask itself; an approval says what it wants to do; a Working session says
+ * its current step (`activity`, from its open feed) when there is one.
+ */
+export const sessionLine = (entry: SessionEntry, activity: string | null = null): string => {
   const request = entry.pendingApprovals[0];
 
-  if (request !== undefined)
-    return `Wants to ${request.title.charAt(0).toLowerCase()}${request.title.slice(1)}`;
+  if (request !== undefined) {
+    return request.kind === "question" ? request.title : `Wants to ${lowerFirst(request.title)}`;
+  }
+
+  if (entry.session.state === "working" && activity !== null) return activity;
 
   return STATE_LINES[entry.session.state](entry);
 };
