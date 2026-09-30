@@ -1,14 +1,19 @@
-import { type ApprovalDecision, type ApprovalRequest, type TurnItem } from "@polaris/protocol";
-import { ApprovalCard, isHued } from "@polaris/ui";
+import {
+  type ApprovalDecision,
+  type ApprovalRequest,
+  isKnownHarness,
+  type TurnItem,
+} from "@polaris/protocol";
+import { ApprovalCard } from "@polaris/ui";
 import { Match } from "effect";
 import { Commands, Decisions, newCommandId } from "../commands.ts";
 import type { SessionData } from "../store/plain.ts";
 import type { LiveItem, TurnView } from "../store/sessionModel.ts";
 import { sessionKey } from "../store/store.ts";
-import type { Selection } from "./App.tsx";
-import { sessionStateLabel } from "./copy.ts";
-import { SessionIcon } from "./SessionIcon.tsx";
-import { useApp, useSessionFeed } from "./hooks.ts";
+import { sessionStateLabel } from "../shell/copy.ts";
+import { SessionGlyph } from "../shell/glyphs.tsx";
+import { useApp, useSessionFeed } from "../shell/hooks.ts";
+import type { SessionSlotProps } from "./slots.tsx";
 
 const itemSummary = (item: TurnItem): string =>
   Match.value(item).pipe(
@@ -77,7 +82,7 @@ const Approval = ({ hostKey, session, request }: ApprovalProps) => {
 
   const { harness } = session;
 
-  if (!isHued(harness)) {
+  if (!isKnownHarness(harness)) {
     return <p className="text-caption text-needs-you">Needs you: {request.title}</p>;
   }
 
@@ -96,18 +101,17 @@ const Approval = ({ hostKey, session, request }: ApprovalProps) => {
 };
 
 const Placeholder = ({ children }: { readonly children: string }) => (
-  <section className="text-body text-text-faint grid place-items-center">{children}</section>
+  <section className="text-body text-text-faint grid flex-1 place-items-center">{children}</section>
 );
 
-/** The open Agent Session: its Turns, completed items, and items still streaming. */
-export const SessionPanel = ({ selection }: { readonly selection: Selection | null }) => {
-  useSessionFeed(selection?.hostKey ?? "", selection?.sessionId ?? null);
+/**
+ * The placeholder Intent: the session's Turns, completed items and items still
+ * streaming, until the session view (task B1) fills this slot.
+ */
+export const SessionPreview = ({ hostKey, sessionId }: SessionSlotProps) => {
+  useSessionFeed(hostKey, sessionId);
 
-  const model = useApp((s) =>
-    selection === null ? undefined : s.sessions[sessionKey(selection.hostKey, selection.sessionId)]
-  );
-
-  if (selection === null) return <Placeholder>Select an agent session</Placeholder>;
+  const model = useApp((s) => s.sessions[sessionKey(hostKey, sessionId)]);
 
   if (model?.session == null) return <Placeholder>Loading…</Placeholder>;
 
@@ -117,22 +121,19 @@ export const SessionPanel = ({ selection }: { readonly selection: Selection | nu
     <section
       aria-label={session.title}
       data-testid="session-panel"
-      className="gap-section p-panel flex flex-col overflow-y-auto px-6 select-text"
+      className="gap-section p-panel flex min-h-0 flex-1 flex-col overflow-y-auto select-text"
     >
       <header className="flex items-center gap-3">
-        <SessionIcon state={session.state} harness={session.harness} />
-        <h1 className="text-title text-text-strong">{session.title || "untitled"}</h1>
+        <SessionGlyph state={session.state} harness={session.harness} />
+        <h1 className="text-heading text-text-strong truncate">
+          {session.title || "Untitled session"}
+        </h1>
         <span className="text-caption text-text-subtle" data-testid="session-state">
           {sessionStateLabel[session.state]}
         </span>
       </header>
       {model.pendingApprovals.map((request) => (
-        <Approval
-          key={request.id}
-          hostKey={selection.hostKey}
-          session={session}
-          request={request}
-        />
+        <Approval key={request.id} hostKey={hostKey} session={session} request={request} />
       ))}
       <ol className="flex flex-col gap-4">
         {model.turns.map((view) => (

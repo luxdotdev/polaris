@@ -16,6 +16,9 @@ export const DITHER_FRAMES = 12;
 
 export const DITHER_FRAME_MS = 83;
 
+/** Fades in on entering Working and out on leaving it (DESIGN.md, Dither). */
+export const DITHER_EXIT_MS = 200;
+
 export interface DitherField {
   readonly width: number;
   readonly height: number;

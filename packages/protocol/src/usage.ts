@@ -99,3 +99,35 @@ export const UsageStreamItem = Schema.TaggedUnion({
 });
 
 export type UsageStreamItem = typeof UsageStreamItem.Type;
+
+const addTokens = (a: TokenCounts, b: TokenCounts): TokenCounts =>
+  new TokenCounts({
+    input: a.input + b.input,
+    cacheRead: a.cacheRead + b.cacheRead,
+    cacheWrite: a.cacheWrite + b.cacheWrite,
+    output: a.output + b.output,
+    reasoning: a.reasoning + b.reasoning,
+  });
+
+const noTokens = new TokenCounts({
+  input: 0,
+  cacheRead: 0,
+  cacheWrite: 0,
+  output: 0,
+  reasoning: 0,
+});
+
+/**
+ * The tokens in `buckets`: all of them, and the part that ran in Agent
+ * Sessions (through Polaris). The rest is Harness work outside Polaris.
+ */
+export const usageShare = (
+  buckets: ReadonlyArray<UsageBucket>
+): { readonly all: TokenCounts; readonly polaris: TokenCounts } =>
+  buckets.reduce(
+    (share, bucket) => ({
+      all: addTokens(share.all, bucket.tokens),
+      polaris: bucket.sessionId === null ? share.polaris : addTokens(share.polaris, bucket.tokens),
+    }),
+    { all: noTokens, polaris: noTokens }
+  );

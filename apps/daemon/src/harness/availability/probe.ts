@@ -139,6 +139,24 @@ const codex: Prober = {
     }),
 };
 
+const opencodeScratch = join(tmpdir(), "polaris-opencode-probe");
+
+/**
+ * OpenCode: `--version` only, with XDG directories in a scratch dir (it creates
+ * them on any run). It needs no sign-in: its free models work without a provider.
+ */
+const opencode: Prober = {
+  binaryEnv: "POLARIS_OPENCODE",
+  binary: "opencode",
+  probeEnv: () => ({
+    XDG_DATA_HOME: join(opencodeScratch, "data"),
+    XDG_CONFIG_HOME: join(opencodeScratch, "config"),
+    XDG_STATE_HOME: join(opencodeScratch, "state"),
+    XDG_CACHE_HOME: join(opencodeScratch, "cache"),
+  }),
+  signIn: () => Effect.succeed({ status: "ready", detail: null }),
+};
+
 /**
  * An ACP Harness has no sign-in status command; it says so only when a session
  * starts. So a Host where it has never run needs sign-in, and otherwise it's `unknown`.
@@ -159,6 +177,7 @@ const acpProber = (harness: AcpHarness, name: string): Prober => ({
 const PROBERS: Record<KnownHarnessKind, Prober> = {
   claude,
   codex,
+  opencode,
   gemini: acpProber(GEMINI, "Gemini CLI"),
   copilot: acpProber(COPILOT, "GitHub Copilot CLI"),
 };

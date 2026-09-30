@@ -1,6 +1,7 @@
 /**
  * The Harness drivers this Daemon runs. The Codex driver owns the Host's shared
- * `codex app-server`, which lives as long as this layer's scope.
+ * `codex app-server`, and the OpenCode driver its `opencode serve`; neither
+ * outlives this layer's scope.
  *
  * Each driver's module is loaded on first use (`probe`, `open`), not at start:
  * the Claude Agent SDK and the Codex protocol schemas would otherwise sit in
@@ -9,8 +10,8 @@
  * follow-along comes from the hook receiver, which does not need the SDK.
  *
  * Under launchd / systemd a user's PATH often lacks nvm or Homebrew bins, so
- * `POLARIS_CODEX`, `POLARIS_CLAUDE`, `POLARIS_GEMINI` and `POLARIS_COPILOT` can
- * point at the binaries explicitly.
+ * `POLARIS_CODEX`, `POLARIS_CLAUDE`, `POLARIS_OPENCODE`, `POLARIS_GEMINI` and
+ * `POLARIS_COPILOT` can point at the binaries explicitly.
  */
 import type { HarnessKind, KnownHarnessKind } from "@polaris/protocol";
 import { Effect, Layer, Scope } from "effect";
@@ -26,6 +27,7 @@ const binary = (env: string, name: string): string | null =>
 export const DRIVER_CAPABILITIES = {
   codex: { steer: true, liveCoAttach: true, switchModel: true },
   claude: { steer: true, liveCoAttach: false, switchModel: true },
+  opencode: { steer: true, liveCoAttach: true, switchModel: true },
   gemini: { steer: false, liveCoAttach: false, switchModel: true },
   copilot: { steer: false, liveCoAttach: false, switchModel: true },
   bench: { steer: true, liveCoAttach: true, switchModel: true },
@@ -75,7 +77,10 @@ export const HarnessRegistryLive = Layer.effect(
       );
 
     const drivers: ReadonlyArray<HarnessDriver> = bench
-      ? yield* Effect.forEach(["codex", "claude", ...ACP_HARNESSES.map((h) => h.kind)], benchDriver)
+      ? yield* Effect.forEach(
+          ["codex", "claude", "opencode", ...ACP_HARNESSES.map((h) => h.kind)],
+          benchDriver
+        )
       : [
           yield* lazyDriver(
             "codex",
@@ -99,6 +104,16 @@ export const HarnessRegistryLive = Layer.effect(
             ),
             // While In Terminal, Polaris follows the TUI through its HTTP hooks (hooks.ts).
             { terminalFollow: { events: hookReceiver.events, release: hookReceiver.release } }
+          ),
+          yield* lazyDriver(
+            "opencode",
+            DRIVER_CAPABILITIES.opencode,
+            Effect.promise(() => import("./opencode/OpenCodeDriver.ts")).pipe(
+              Effect.flatMap(({ makeOpenCodeDriver }) =>
+                makeOpenCodeDriver({ opencodePath: () => binary("POLARIS_OPENCODE", "opencode") })
+              ),
+              Scope.provide(scope)
+            )
           ),
           ...(yield* Effect.forEach(ACP_HARNESSES, (harness) =>
             lazyDriver(

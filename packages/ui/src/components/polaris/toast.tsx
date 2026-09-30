@@ -65,7 +65,7 @@ export function Toast({
           <div className="flex items-baseline gap-2">
             <p className="text-heading text-text-strong min-w-0 flex-1 truncate">{title}</p>
             {time === undefined ? null : (
-              <span className="text-caption text-text-faint shrink-0">{time}</span>
+              <span className="text-caption text-text-subtle shrink-0">{time}</span>
             )}
           </div>
           {message === undefined ? null : (

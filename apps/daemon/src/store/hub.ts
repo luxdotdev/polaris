@@ -7,7 +7,7 @@
  * are only buffered while the buffer is less than half full; a Client that
  * falls behind loses some live output but still gets every item's final state.
  */
-import type { EventEnvelope, SessionId, TurnId, TurnItem } from "@polaris/protocol";
+import type { EventEnvelope, SessionId, SubagentId, TurnId, TurnItem } from "@polaris/protocol";
 import { type Cause, Data, Effect, Predicate, Queue, Stream } from "effect";
 
 /** What subscribers receive: committed events, and ephemeral output deltas and item progress. */
@@ -24,12 +24,15 @@ export type LiveItem =
       readonly itemId: string;
       readonly field: "text" | "output";
       readonly text: string;
+      /** Set for a Subagent's own item. */
+      readonly subagentId: SubagentId | null;
     }
   | {
       readonly _tag: "ItemProgress";
       readonly sessionId: SessionId;
       readonly turnId: TurnId;
       readonly item: TurnItem;
+      readonly subagentId: SubagentId | null;
     };
 
 /** Constructors and matchers for `LiveItem`. */

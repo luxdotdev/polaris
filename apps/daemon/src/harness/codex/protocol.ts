@@ -131,6 +131,24 @@ export const CollabAgentToolCallItem = Schema.Struct({
   tool: Schema.String,
   status: Schema.String,
   prompt: NullableString,
+  /** For `spawnAgent`: the new agents' threads (each one a Subagent). */
+  receiverThreadIds: Schema.Array(Schema.String),
+  model: NullableString,
+  /** The last known status of each agent it addressed, by thread id. */
+  agentsStates: Schema.Record(
+    Schema.String,
+    Schema.UndefinedOr(Schema.Struct({ status: Schema.String }))
+  ),
+});
+
+/** Multi-agent v2: an agent (a Subagent) started, was addressed, stopped or finished. */
+export const SubAgentActivityItem = Schema.Struct({
+  type: Schema.Literal("subAgentActivity"),
+  id: Schema.String,
+  kind: Schema.Literals(["started", "interacted", "interrupted", "completed"]),
+  agentThreadId: Schema.String,
+  /** Where it sits in the agent tree, ending with its name (`/root/pong`). */
+  agentPath: Schema.String,
 });
 
 export const WebSearchItem = Schema.Struct({
@@ -167,6 +185,7 @@ export const ThreadItem = Schema.Union([
   McpToolCallItem,
   DynamicToolCallItem,
   CollabAgentToolCallItem,
+  SubAgentActivityItem,
   WebSearchItem,
   ImageViewItem,
   OtherItem,
@@ -349,6 +368,8 @@ conforms<Conforms<Item<"mcpToolCall">, typeof McpToolCallItem>>();
 conforms<Conforms<Item<"dynamicToolCall">, typeof DynamicToolCallItem>>();
 
 conforms<Conforms<Item<"collabAgentToolCall">, typeof CollabAgentToolCallItem>>();
+
+conforms<Conforms<Item<"subAgentActivity">, typeof SubAgentActivityItem>>();
 
 conforms<Conforms<Item<"webSearch">, typeof WebSearchItem>>();
 

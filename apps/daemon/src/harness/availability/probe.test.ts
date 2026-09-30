@@ -93,7 +93,7 @@ describe("probeHarness", () => {
   test("a Harness missing from PATH is not installed, with no sign-in", async () => {
     const host = fakeHost();
 
-    for (const kind of ["claude", "codex"] as const) {
+    for (const kind of ["claude", "codex", "opencode"] as const) {
       expect(await probe(kind, host.env)).toMatchObject({
         harness: kind,
         status: "not-installed",
@@ -227,6 +227,36 @@ describe("probeHarness", () => {
     });
   });
 
+  test("OpenCode is ready once installed; --version writes nothing under the user's home", async () => {
+    const host = fakeHost();
+    fakeBinary(host, "opencode", {
+      version: `mkdir -p "$XDG_DATA_HOME/opencode"; echo "data=$XDG_DATA_HOME" >> "$POLARIS_TEST_CALLS"; echo 1.18.33; exit 0`,
+      status: "exit 0",
+    });
+
+    expect(await probe("opencode", host.env)).toMatchObject({
+      status: "ready",
+      version: "1.18.33",
+      minVersion: entry("opencode").minVersion,
+      signInArgv: [join(host.bin, "opencode"), "auth", "login"],
+    });
+    expect(host.calls()).toEqual([
+      "--version",
+      `data=${join(tmpdir(), "polaris-opencode-probe", "data")}`,
+    ]);
+    expect(readdirSync(host.home)).toEqual([]);
+  });
+
+  test("an OpenCode older than the driver's minimum is outdated", async () => {
+    const host = fakeHost();
+    fakeBinary(host, "opencode", { version: "echo 1.15.5; exit 0", status: "exit 0" });
+
+    expect(await probe("opencode", host.env)).toMatchObject({
+      status: "outdated",
+      version: "1.15.5",
+    });
+  });
+
   test("an ACP Harness never run on the Host needs sign-in; otherwise it can't say", async () => {
     const host = fakeHost();
     fakeBinary(host, "copilot", {
@@ -290,7 +320,7 @@ describe("probeHarness", () => {
   });
 });
 
-test("probing loads no driver, so the Agent SDK, Codex bindings and ACP driver stay unloaded (ENG-196)", async () => {
+test("probing loads no driver, so the Agent SDK, Codex bindings, OpenCode and ACP drivers stay unloaded (ENG-196)", async () => {
   const script = `
     const { Effect } = await import("effect");
     const { Availability } = await import("./availability/index.ts");
@@ -300,7 +330,7 @@ test("probing loads no driver, so the Agent SDK, Codex bindings and ACP driver s
       )
     );
     const loaded = Object.keys(require.cache).filter((k) =>
-      /claude-agent-sdk|harness\\/(claude|codex)\\/|harness\\/acp\\/(?!harnesses\\.ts)/.test(k)
+      /claude-agent-sdk|harness\\/(claude|codex|opencode)\\/|harness\\/acp\\/(?!harnesses\\.ts)/.test(k)
     );
     console.log(JSON.stringify(loaded));
   `;

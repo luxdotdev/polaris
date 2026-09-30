@@ -36,6 +36,8 @@ export interface HarnessEntry<K extends string = string> {
   readonly capability: `harness.${K}`;
   /** The oldest version its driver supports; older installs report `outdated`. */
   readonly minVersion: string;
+  /** False until DESIGN.md gives the Harness an identity hue; Clients show a neutral tile. */
+  readonly hued?: false;
   readonly setup: HarnessSetup;
 }
 
@@ -67,9 +69,22 @@ export const HARNESS_CATALOGUE = [
       docsUrl: "https://developers.openai.com/codex/cli",
     },
   }),
+  entry("opencode", {
+    name: "OpenCode",
+    // The opencode the server types in the Daemon's `opencode/generated/` came from.
+    minVersion: "1.18.33",
+    setup: {
+      install: "OpenCode isn't installed on this host. See its setup guide.",
+      signIn:
+        "Connect a provider to OpenCode in its own terminal. Its free models work without one.",
+      signInCommand: ["opencode", "auth", "login"],
+      docsUrl: "https://opencode.ai/docs",
+    },
+  }),
   // Driven through the Agent Client Protocol (ACP v1).
   entry("gemini", {
     name: "Gemini CLI",
+    hued: false,
     // The first release with `--acp` (before it, only `--experimental-acp`).
     minVersion: "0.33.0",
     setup: {
@@ -81,6 +96,7 @@ export const HARNESS_CATALOGUE = [
   }),
   entry("copilot", {
     name: "GitHub Copilot CLI",
+    hued: false,
     // The first general-availability release; ACP, session load and effort predate it.
     minVersion: "1.0.0",
     setup: {

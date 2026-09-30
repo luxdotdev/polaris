@@ -31,7 +31,7 @@ import { CheckpointPruning } from "./pruning.ts";
 import { Reactors } from "./reactors.ts";
 import { prepareForUpgrade as prepareSessionsForUpgrade, recoverOnStart } from "./recovery.ts";
 import { EngineRuntime } from "./runtime.ts";
-import { type SessionSubscription, Streams } from "./streams.ts";
+import { type HostSubscription, type SessionSubscription, Streams } from "./streams.ts";
 import { Supervisor } from "./supervisor.ts";
 import { TerminalHandoff } from "./terminal.ts";
 import { Worktrees } from "./worktrees.ts";
@@ -44,7 +44,10 @@ export class Engine extends Context.Service<
     readonly dispatch: (
       input: DispatchInput
     ) => Effect.Effect<{ readonly sequence: Sequence | null }, CommandRejected | NotFound>;
-    readonly subscribeHost: (afterSequence: Sequence | null) => Stream.Stream<HostStreamItem>;
+    readonly subscribeHost: (
+      afterSequence: Sequence | null,
+      options?: HostSubscription
+    ) => Stream.Stream<HostStreamItem>;
     readonly subscribeSession: (
       options: SessionSubscription
     ) => Stream.Stream<SessionStreamItem, NotFound>;

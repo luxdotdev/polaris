@@ -35,10 +35,12 @@ export interface SeverityGlyphProps {
   readonly severity: Severity;
   readonly size?: number;
   readonly className?: string;
+  /** "text" sets it in the -text variant, beside a label; the base hue marks a gutter or rule. */
+  readonly tone?: "hue" | "text";
 }
 
 /** The bare shape, for a diff gutter or a tally cell. Always beside a label or count. */
-export function SeverityGlyph({ severity, size = 8, className }: SeverityGlyphProps) {
+export function SeverityGlyph({ severity, size = 8, className, tone = "hue" }: SeverityGlyphProps) {
   return (
     <svg
       width={size}
@@ -47,7 +49,7 @@ export function SeverityGlyph({ severity, size = 8, className }: SeverityGlyphPr
       aria-hidden="true"
       data-mark={SEVERITY_MARKS[severity]}
       className={cn("shrink-0", className)}
-      style={{ color: `var(--color-severity-${severity})` }}
+      style={{ color: `var(--color-severity-${severity}${tone === "text" ? "-text" : ""})` }}
     >
       {MARKS[SEVERITY_MARKS[severity]]}
     </svg>
@@ -75,7 +77,12 @@ export function SeverityBadge({
   ...props
 }: SeverityBadgeProps) {
   const dimmed = lowConfidence && severity !== "critical";
-  const vars: CssVars = { "--severity": `var(--color-severity-${severity})`, ...style };
+
+  const vars: CssVars = {
+    "--severity-text": `var(--color-severity-${severity}-text)`,
+    "--severity-fill": `var(--color-severity-${severity}-fill)`,
+    ...style,
+  };
 
   return (
     <span
@@ -84,14 +91,14 @@ export function SeverityBadge({
       data-dimmed={dimmed ? "" : undefined}
       className={cn(
         "inline-flex h-5 shrink-0 items-center gap-[5px] rounded-control px-1.5 text-caption font-medium tabular",
-        "bg-[color-mix(in_oklab,var(--severity)_16%,transparent)] text-(--severity)",
+        "bg-(--severity-fill) text-(--severity-text)",
         dimmed && "opacity-60",
         className
       )}
       style={vars}
       {...props}
     >
-      <SeverityGlyph severity={severity} />
+      <SeverityGlyph severity={severity} tone="text" />
       {count === undefined ? (
         SEVERITY_LABELS[severity]
       ) : (

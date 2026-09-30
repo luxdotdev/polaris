@@ -26,6 +26,66 @@
   color: var(--color-text-default);
 }
 
+/*
+ * Text size: an accessibility setting, independent of density. It scales the whole type table;
+ * set data-text-size on the root (or any subtree), where the roles are recomputed.
+ */
+:root {
+  --text-scale: 1;
+}
+
+[data-text-size="small"] {
+  --text-scale: calc(12 / 13);
+}
+
+[data-text-size="large"] {
+  --text-scale: calc(14 / 13);
+}
+
+[data-text-size="larger"] {
+  --text-scale: calc(15 / 13);
+}
+
+:root,
+[data-text-size] {
+  --text-display: round(calc(24px * var(--text-scale)), 1px);
+  --text-display--line-height: round(calc(30px * var(--text-scale)), 1px);
+  --text-title: round(calc(18px * var(--text-scale)), 1px);
+  --text-title--line-height: round(calc(24px * var(--text-scale)), 1px);
+  --text-heading: round(calc(16px * var(--text-scale)), 1px);
+  --text-heading--line-height: round(calc(20px * var(--text-scale)), 1px);
+  --text-heading-sm: round(calc(14px * var(--text-scale)), 1px);
+  --text-heading-sm--line-height: round(calc(20px * var(--text-scale)), 1px);
+  --text-body: round(calc(13px * var(--text-scale)), 1px);
+  --text-body--line-height: round(calc(18px * var(--text-scale)), 1px);
+  --text-label: round(calc(13px * var(--text-scale)), 1px);
+  --text-label--line-height: round(calc(16px * var(--text-scale)), 1px);
+  --text-caption: round(calc(12px * var(--text-scale)), 1px);
+  --text-caption--line-height: round(calc(16px * var(--text-scale)), 1px);
+  --text-code: round(calc(13px * var(--text-scale)), 1px);
+  --text-code--line-height: round(calc(20px * var(--text-scale)), 1px);
+  --text-code-inline: round(calc(12px * var(--text-scale)), 1px);
+  --text-code-inline--line-height: round(calc(16px * var(--text-scale)), 1px);
+  --text-micro: round(calc(11px * var(--text-scale)), 1px);
+  --text-micro--line-height: round(calc(12px * var(--text-scale)), 1px);
+}
+
+/* The colourblind-safe diff palette (blue / orange), for diffs, their fills and git letters. */
+[data-diff-palette="cvd"] {
+  --color-diff-added: var(--color-diff-added-cvd);
+  --color-diff-removed: var(--color-diff-removed-cvd);
+  --color-diff-added-text: var(--color-diff-added-cvd);
+  --color-diff-removed-text: var(--color-diff-removed-cvd);
+  --color-diff-added-bg: color-mix(in oklab, var(--color-diff-added-cvd) 10%, transparent);
+  --color-diff-removed-bg: color-mix(in oklab, var(--color-diff-removed-cvd) 10%, transparent);
+  --color-diff-added-emphasis: color-mix(in oklab, var(--color-diff-added-cvd) 25%, transparent);
+  --color-diff-removed-emphasis: color-mix(
+    in oklab,
+    var(--color-diff-removed-cvd) 25%,
+    transparent
+  );
+}
+
 /* shadcn's semantic variables, mapped onto Night watch so stock components pick it up. */
 @theme inline {
   --color-background: var(--color-bg);

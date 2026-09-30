@@ -1,0 +1,15 @@
+Polaris
+Copyright 2026 lux.dev LLC
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE), except for
+the following, which are under their own licences:
+
+- Nucleo icons, Copyright © Nucleo (https://nucleoapp.com), under the Nucleo License, not
+  Apache-2.0: packages/ui/src/icons/nucleo/ (see LICENSE.md there), and the icon paths in
+  design/scripts/gen_dither.py and design/assets/icons/px-{hand-needs,term,x-failed}-*.svg.
+  They may not be redistributed apart from Polaris.
+- Geist Pixel font, Copyright (c) 2023 Vercel, in collaboration with basement.studio, under
+  the SIL Open Font License 1.1: packages/ui/src/fonts/ (see GeistPixel-OFL.txt there).
+
+Code adapted from other open-source projects is listed in ATTRIBUTION.md; dependencies are
+listed in THIRD_PARTY_NOTICES.md.

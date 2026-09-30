@@ -6,11 +6,16 @@ export { cn } from "./lib/cn";
 
 export type { CssVars } from "./lib/css";
 
+export { useExitPresence } from "./lib/presence";
+
 export {
-  HARNESS_HANDLES,
-  HARNESS_NAMES,
+  haloVar,
+  harnessHue,
+  hueSlug,
+  resolveTint,
+  type HarnessIdentity,
+  harnessTextVar,
   hueVar,
-  isHued,
   washVar,
   type Harness,
   type IdentityHue,
@@ -88,3 +93,13 @@ export * from "./components/polaris/tile";
 export * from "./components/polaris/toast";
 
 export * from "./components/polaris/wordmark";
+
+export * from "./components/polaris/harness-choice";
+
+export * from "./components/polaris/host-state";
+
+export * from "./components/polaris/machine-bar";
+
+export * from "./components/polaris/needs-you";
+
+export * from "./components/polaris/onboarding";
