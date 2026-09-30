@@ -112,4 +112,25 @@ describe("harnessGroups", () => {
     ]);
     expect(group(hosts, "claude").summary).toBe("Not ready on any host yet");
   });
+
+  test("a Host still checking is counted apart, never as not ready (V1 B5)", () => {
+    const checking: ProbedHost = {
+      hostKey: "local",
+      label: "MacBook Pro",
+      probe: { kind: "checking" },
+    };
+
+    expect(
+      group(
+        [checking, reported("studio", [availability("opencode", "not-installed", null)])],
+        "opencode"
+      ).summary
+    ).toBe("Checking 1 host…");
+    expect(
+      group(
+        [checking, reported("studio", [availability("claude", "ready")]), reported("vm", [])],
+        "claude"
+      ).summary
+    ).toBe("Ready on 1 of 3 hosts · 1 checking");
+  });
 });

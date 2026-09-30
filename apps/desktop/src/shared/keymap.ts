@@ -25,7 +25,8 @@ export type CommandId =
   | "settings.appearance"
   | "settings.harnesses"
   | "settings.usage"
-  | "settings.hosts";
+  | "settings.hosts"
+  | "workspace.add";
 
 export type MenuName = "App" | "View" | "Go" | "Session" | "Help";
 
@@ -60,6 +61,7 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   { id: "session.openInTerminal", title: "Open in terminal", keys: [], menu: "Session" },
   { id: "session.archive", title: "Archive session", keys: [], menu: "Session" },
   { id: "theme.toggle", title: "Toggle dark and light", keys: [] },
+  { id: "workspace.add", title: "Add workspace…", keys: ["CmdOrCtrl+O"], menu: "Go" },
   // macOS's own Settings… chord, in the app menu (DESIGN.md, Settings).
   { id: "settings.open", title: "Settings…", keys: ["CmdOrCtrl+,"], menu: "App" },
   { id: "settings.appearance", title: "Settings: Appearance", keys: [] },

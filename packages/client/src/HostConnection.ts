@@ -100,6 +100,11 @@ export interface ConnectionStatus {
   readonly capabilities: ReadonlyArray<Capability>;
   /** Increments on every successful connection. */
   readonly epoch: number;
+  /**
+   * The link's round trip in ms, measured once per connection right after
+   * `hello` (one ping; nothing periodic, so an idle Daemon stays asleep). Null until measured.
+   */
+  readonly latencyMs: number | null;
 }
 
 /** One live connection: an RPC client and its blob channel. Invalid once the epoch changes. */
@@ -190,6 +195,7 @@ export const makeHostConnection = Effect.fnUntraced(function* (
     host: null,
     capabilities: [],
     epoch: 0,
+    latencyMs: null,
   });
 
   const live = yield* SubscriptionRef.make<LiveSession | null>(null);
@@ -269,6 +275,12 @@ export const makeHostConnection = Effect.fnUntraced(function* (
           epoch,
         });
         yield* SubscriptionRef.set(live, session);
+        yield* connection.roundTrip.pipe(
+          Effect.flatMap((ms) => setStatus({ latencyMs: Math.round(ms) })),
+          Effect.timeout(policy.helloTimeoutMs),
+          Effect.ignore,
+          Effect.forkScoped
+        );
 
         return yield* connection.lost.pipe(Effect.catch(() => Effect.flip(transport.diagnose)));
       })

@@ -15,6 +15,7 @@ import {
 } from "@polaris/ui";
 import { type ReactNode, useState } from "react";
 import { type FileChangeKind, type ItemView, outputTail, type PlanStep } from "../model/items.ts";
+import { softWrap } from "./softWrap.tsx";
 
 type Hue = Harness | null;
 
@@ -57,7 +58,7 @@ const Message = ({ text, live }: { readonly text: string; readonly live: boolean
     data-testid={live ? "live-item" : "message"}
     className="text-body text-text-default leading-[19px] break-words whitespace-pre-wrap"
   >
-    {text}
+    {softWrap(text)}
   </p>
 );
 
@@ -71,7 +72,9 @@ const Reasoning = ({ text, live, hue }: { text: string; live: boolean; hue: Hue 
         {live ? "Thinking" : "Thought"}
       </Disclosure>
       {open ? (
-        <p className="text-body text-text-subtle break-words whitespace-pre-wrap">{text}</p>
+        <p className="text-body text-text-subtle break-words whitespace-pre-wrap">
+          {softWrap(text)}
+        </p>
       ) : null}
     </div>
   );
@@ -222,7 +225,9 @@ const Plan = ({ steps, hue }: { readonly steps: ReadonlyArray<PlanStep>; readonl
 const ErrorItem = ({ message }: { readonly message: string }) => (
   <div className="flex items-start gap-2" data-testid="item-error">
     <PixelFailedIcon size={14} className="text-failed mt-0.5 shrink-0" />
-    <p className="text-body text-text-default break-words whitespace-pre-wrap">{message}</p>
+    <p className="text-body text-text-default min-w-0 wrap-anywhere whitespace-pre-wrap">
+      {softWrap(message)}
+    </p>
   </div>
 );
 

@@ -48,14 +48,15 @@ describe("navigation", () => {
     expect(nav.store.getState().topBar).toBe("machines");
 
     nav.actions.selectShortcut(1);
-    expect(nav.current().hostKey).toBe("studio");
+    // Remote Hosts first, this Mac last: ⌃2 is the local machine.
+    expect(nav.current().hostKey).toBe("local");
   });
 
   test("⌃N in the Workspace bar picks the Nth chip across Hosts", () => {
     const nav = createNavigation({ app: withData({ local: 2, studio: 2 }), storage: null });
 
     nav.actions.selectShortcut(2);
-    expect([nav.current().hostKey, nav.current().workspaceId]).toEqual(["studio", "studio0"]);
+    expect([nav.current().hostKey, nav.current().workspaceId]).toEqual(["local", "local0"]);
   });
 
   test("the selection survives a relaunch through storage", async () => {

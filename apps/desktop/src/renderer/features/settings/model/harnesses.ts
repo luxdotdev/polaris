@@ -42,6 +42,8 @@ export interface HostRow {
   /** "older than tested (2.1.283)", a quiet caption after `text`; null otherwise. */
   readonly note: string | null;
   readonly ready: boolean;
+  /** Still waiting for the Host's first report: counted apart in the summary. */
+  readonly checking: boolean;
   readonly action: RowAction | null;
 }
 
@@ -88,7 +90,7 @@ const STATUS_ROW: Readonly<
         signInArgv: ReadonlyArray<string> | null;
         signInKind?: string | null;
       }
-    ) => Omit<HostRow, "hostKey" | "hostLabel" | "version" | "note">
+    ) => Omit<HostRow, "hostKey" | "hostLabel" | "version" | "note" | "checking">
   >
 > = {
   // DESIGN.md S1: "ready with its sign-in kind" ("Ready · Claude Max") when the Harness says.
@@ -120,7 +122,11 @@ const STATUS_ROW: Readonly<
 };
 
 const hostRow = (entry: Entry, host: ProbedHost): HostRow => {
-  const base = { hostKey: host.hostKey, hostLabel: host.label };
+  const base = {
+    hostKey: host.hostKey,
+    hostLabel: host.label,
+    checking: host.probe.kind === "checking",
+  };
 
   if (host.probe.kind !== "reported") {
     return {
@@ -165,12 +171,22 @@ const sharedVersion = (rows: ReadonlyArray<HostRow>): string | null => {
   return versions.size === 1 ? (rows[0]?.version ?? null) : null;
 };
 
+/** " · 1 checking" while some Hosts haven't reported; never counted as not ready. */
+const stillChecking = (checking: number) => (checking === 0 ? "" : ` · ${checking} checking`);
+
 const summary = (rows: ReadonlyArray<HostRow>, ready: number): string => {
+  const checking = rows.filter((r) => r.checking).length;
+
   if (rows.length === 0) return "No hosts yet";
+
+  if (ready === 0 && checking > 0) return `Checking ${plural(checking, "host")}…`;
 
   if (ready === 0) return "Not ready on any host yet";
 
-  if (ready < rows.length) return `Ready on ${ready} of ${plural(rows.length, "host")}`;
+  if (ready < rows.length) {
+    return `Ready on ${ready} of ${plural(rows.length, "host")}${stillChecking(checking)}`;
+  }
+
   const version = sharedVersion(rows);
   const all = rows.length === 1 ? "Ready on its host" : `Ready on all ${rows.length} hosts`;
 

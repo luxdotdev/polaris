@@ -8,6 +8,7 @@ import { dirname, join } from "node:path";
 import { Option, Schema } from "effect";
 import {
   CodeFont,
+  CodeFontSize,
   Density,
   DiffPalette,
   MotionSource,
@@ -34,6 +35,7 @@ export const Settings = Schema.Struct({
   diffPalette: Schema.optionalKey(DiffPalette),
   motion: Schema.optionalKey(MotionSource),
   codeFont: Schema.optionalKey(CodeFont),
+  codeFontSize: Schema.optionalKey(CodeFontSize),
   /** By Harness kind. */
   sessionDefaults: Schema.optionalKey(Schema.Record(Schema.String, SessionDefault)),
   hosts: Schema.optionalKey(Schema.Array(RemoteHostSetting)),
@@ -82,4 +84,5 @@ export const appearanceOf = (settings: Settings) => ({
   diffPalette: settings.diffPalette ?? "default",
   motion: settings.motion ?? "system",
   codeFont: settings.codeFont ?? "sf-mono",
+  codeFontSize: settings.codeFontSize ?? 13,
 });

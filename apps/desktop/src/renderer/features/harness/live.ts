@@ -22,14 +22,40 @@ interface LiveState {
 
 const live = createStore<LiveState>(() => ({ reports: {}, limits: {} }));
 
-const feeds = new Map<string, { refs: number; close: () => void }>();
+interface Held {
+  refs: number;
+  close: () => void;
+}
 
-/** Keeps a feed open while any view holds it; the last release closes it. */
-const hold = (key: string, open: () => () => void) => {
-  const feed = feeds.get(key);
+const feeds = new Map<string, Held>();
 
-  if (feed !== undefined) feed.refs++;
-  else feeds.set(key, { refs: 1, close: open() });
+/** A held feed that ended (its connection dropped before or after it opened) opens again after this. */
+const REOPEN_MS = 1_000;
+
+/**
+ * Keeps a feed open while any view holds it; the last release closes it. `open` gets a
+ * callback for the feed's end, and a feed that ends while still held is opened again.
+ */
+const hold = (key: string, open: (ended: () => void) => () => void) => {
+  const existing = feeds.get(key);
+
+  if (existing !== undefined) existing.refs++;
+  else {
+    const held: Held = { refs: 1, close: () => undefined };
+
+    const start = () => {
+      held.close = open(() => {
+        if (feeds.get(key) !== held) return;
+
+        setTimeout(() => {
+          if (feeds.get(key) === held) start();
+        }, REOPEN_MS);
+      });
+    };
+
+    feeds.set(key, held);
+    start();
+  }
 
   return () => {
     const held = feeds.get(key);
@@ -43,52 +69,42 @@ const hold = (key: string, open: () => () => void) => {
 const setReport = (hostKey: string, report: AvailabilityReport) =>
   live.setState((s) => ({ reports: { ...s.reports, [hostKey]: report } }));
 
-/** Feeds bound to a connection end when it drops; one still held is opened again after this. */
-const REOPEN_MS = 3000;
+/**
+ * The watch, plus a plain ask: a watch whose first attempt was interrupted before its first
+ * report can hang on some connections (see FX-settings report), and the ask always answers.
+ */
+const openAvailability = (hostKey: string) => (ended: () => void) => {
+  let open = true;
 
-/** Keeps a feed open while held: reopened whenever it ends, closed on release. */
-const resilient = (open: (onEnd: () => void) => () => void) => {
-  let stopped = false;
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  let close: () => void = () => undefined;
-
-  const start = () => {
-    close = open(() => {
-      if (!stopped) timer = setTimeout(start, REOPEN_MS);
+  void polaris()
+    .request("harness.availability", { hostKey, refresh: false })
+    .then((result) => {
+      if (open && result.ok) setReport(hostKey, result.value);
     });
-  };
 
-  start();
+  const close = polaris().subscribe(
+    "harness.availability",
+    { hostKey },
+    { items: (items) => items.forEach((report) => setReport(hostKey, report)), end: ended }
+  );
 
   return () => {
-    stopped = true;
-    clearTimeout(timer);
+    open = false;
     close();
   };
 };
 
-const openAvailability = (hostKey: string) =>
-  resilient((onEnd) =>
-    polaris().subscribe(
-      "harness.availability",
-      { hostKey },
-      { items: (items) => items.forEach((report) => setReport(hostKey, report)), end: onEnd }
-    )
-  );
-
-const openLimits = (hostKey: string) =>
-  resilient((onEnd) =>
-    polaris().subscribe(
-      "plan-limits",
-      { hostKey },
-      {
-        items: (items) =>
-          live.setState((s) => ({
-            limits: { ...s.limits, [hostKey]: items.reduce(upsertLimit, s.limits[hostKey] ?? []) },
-          })),
-        end: onEnd,
-      }
-    )
+const openLimits = (hostKey: string) => (ended: () => void) =>
+  polaris().subscribe(
+    "plan-limits",
+    { hostKey },
+    {
+      end: ended,
+      items: (items) =>
+        live.setState((s) => ({
+          limits: { ...s.limits, [hostKey]: items.reduce(upsertLimit, s.limits[hostKey] ?? []) },
+        })),
+    }
   );
 
 const useHostView = (hostKey: string): HostView | undefined =>
@@ -119,7 +135,7 @@ export const useAvailability = (hostKey: string): Availability => {
   const report = useStore(live, (s) => s.reports[hostKey]);
 
   useEffect(
-    () => (canWatch ? hold(`availability:${hostKey}`, () => openAvailability(hostKey)) : undefined),
+    () => (canWatch ? hold(`availability:${hostKey}`, openAvailability(hostKey)) : undefined),
     [canWatch, hostKey]
   );
 
@@ -143,7 +159,7 @@ export const useAvailabilityReports = (
 
   useEffect(() => {
     const keys = joined === "" ? [] : joined.split("\u0000");
-    const releases = keys.map((k) => hold(`availability:${k}`, () => openAvailability(k)));
+    const releases = keys.map((k) => hold(`availability:${k}`, openAvailability(k)));
 
     return () => {
       for (const release of releases) release();
@@ -161,11 +177,48 @@ export const usePlanLimits = (hostKey: string): ReadonlyArray<LimitData> => {
   const canWatch = host?.status.state === "connected" && has(host, "usage");
 
   useEffect(
-    () => (canWatch ? hold(`limits:${hostKey}`, () => openLimits(hostKey)) : undefined),
+    () => (canWatch ? hold(`limits:${hostKey}`, openLimits(hostKey)) : undefined),
     [canWatch, hostKey]
   );
 
   return useStore(live, (s) => s.limits[hostKey]) ?? NO_LIMITS;
+};
+
+/** Session States in which a Harness is running a Turn, and so refreshing its Plan Limits. */
+const RUNNING: ReadonlySet<string> = new Set(["starting", "working", "needs-you"]);
+
+/**
+ * Whether a session of `harness` is running on `hostKey` (on any Host when null): only then
+ * does a fresh Plan Limit read "live" (`limitAge`).
+ */
+export const useHarnessRunning = (hostKey: string | null, harness: HarnessKind): boolean =>
+  useApp((s) =>
+    Object.entries(s.hostModels).some(
+      ([key, model]) =>
+        (hostKey === null || key === hostKey) &&
+        [...model.sessions.values()].some(
+          (e) => e.session.harness === harness && RUNNING.has(e.session.state)
+        )
+    )
+  );
+
+/** The Harnesses with a session running on any Host, e.g. for Settings → Usage's Plan Limits. */
+export const useRunningHarnesses = (): ReadonlySet<string> => {
+  const joined = useApp((s) =>
+    [
+      ...new Set(
+        Object.values(s.hostModels).flatMap((model) =>
+          [...model.sessions.values()].flatMap((e) =>
+            RUNNING.has(e.session.state) ? [e.session.harness] : []
+          )
+        )
+      ),
+    ]
+      .sort()
+      .join("\u0000")
+  );
+
+  return new Set(joined === "" ? [] : joined.split("\u0000"));
 };
 
 export interface ModelsState {

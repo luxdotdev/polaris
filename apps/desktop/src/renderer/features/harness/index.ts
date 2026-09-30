@@ -8,8 +8,12 @@ export {
   useAvailability,
   useAvailabilityReports,
   useHarnessModels,
+  useHarnessRunning,
+  useRunningHarnesses,
   usePlanLimits,
 } from "./live.ts";
+
+export { limitAge } from "./model/limits.ts";
 
 export {
   choose,

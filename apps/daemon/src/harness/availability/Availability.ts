@@ -1,14 +1,14 @@
 /**
  * Harness availability on this Host, cached: probed on the first ask, again
  * only when a Client asks to refresh. No timers, so an idle Daemon stays idle.
+ * A probe that fails or whose callers all left is never cached.
  */
 import { HARNESS_CATALOGUE, HarnessAvailability, HostHarnesses } from "@polaris/protocol";
 import {
   Clock,
   Context,
-  Duration,
+  Deferred,
   Effect,
-  Fiber,
   Layer,
   Predicate,
   Stream,
@@ -76,21 +76,46 @@ const makeAvailability = Effect.fnUntraced(function* (options: AvailabilityOptio
     return report;
   });
 
-  // Concurrent asks share one probe, on its own fiber: a caller that stops waiting (a view
-  // unmounting mid-probe) must not interrupt it, or the cache would keep the interruption.
+  // One probe at a time, run in the layer's scope: a caller that goes away (a
+  // Client unsubscribing mid-probe) never stops it, and only a report is kept.
   const scope = yield* Effect.scope;
+  let inFlight: Deferred.Deferred<HostHarnesses> | null = null;
 
-  const [probing, invalidate] = yield* Effect.cachedInvalidateWithTTL(
-    Effect.forkIn(probeAll, scope),
-    Duration.infinity
+  const probe = Effect.suspend(() => {
+    if (inFlight !== null) return Deferred.await(inFlight);
+    const done = Deferred.makeUnsafe<HostHarnesses>();
+    inFlight = done;
+
+    return Effect.forkIn(
+      probeAll.pipe(
+        Effect.exit,
+        Effect.flatMap((exit) =>
+          Effect.suspend(() => {
+            inFlight = null;
+
+            return Deferred.done(done, exit);
+          })
+        )
+      ),
+      scope
+    ).pipe(Effect.andThen(Deferred.await(done)));
+  });
+
+  const current = Effect.suspend(() => {
+    const report = SubscriptionRef.getUnsafe(latest);
+
+    return report === null ? probe : Effect.succeed(report);
+  });
+
+  // A refresh wants a probe that started after it: one already running may predate a sign-in.
+  const fresh = Effect.suspend(() =>
+    inFlight === null ? probe : Deferred.await(inFlight).pipe(Effect.exit, Effect.andThen(probe))
   );
 
-  const cached = Effect.flatMap(probing, Fiber.join);
-
   return Availability.of({
-    get: (refresh) => (refresh ? Effect.andThen(invalidate, cached) : cached),
+    get: (refresh) => (refresh ? fresh : current),
     changes: Stream.unwrap(
-      Effect.as(cached, SubscriptionRef.changes(latest).pipe(Stream.filter(Predicate.isNotNull)))
+      Effect.as(current, SubscriptionRef.changes(latest).pipe(Stream.filter(Predicate.isNotNull)))
     ),
   });
 });

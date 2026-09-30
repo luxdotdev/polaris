@@ -23,7 +23,7 @@ import {
 } from "@polaris/ui";
 import { useState } from "react";
 import { useNow } from "../../../shell/useNow.ts";
-import { useAvailability, useHarnessModels, usePlanLimits } from "../live.ts";
+import { useAvailability, useHarnessModels, useHarnessRunning, usePlanLimits } from "../live.ts";
 import { limitHint, limitsFor } from "../model/limits.ts";
 import {
   choose,
@@ -212,7 +212,8 @@ const ModelSection = ({ props, onPicked }: { props: HarnessChipProps; onPicked: 
 const LimitsHint = ({ hostKey, harness }: { hostKey: string; harness: HarnessKind }) => {
   const limits = limitsFor(usePlanLimits(hostKey), harness);
   const now = useNow(60_000);
-  const hint = limitHint(limits, now);
+  const running = useHarnessRunning(hostKey, harness);
+  const hint = limitHint(limits, now, running);
 
   return hint === null ? null : (
     <>

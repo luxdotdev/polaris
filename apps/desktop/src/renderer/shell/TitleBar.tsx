@@ -1,4 +1,4 @@
-import { Badge, Button, Kbd, PlusIcon, SearchIcon, SegmentedControl, Wordmark } from "@polaris/ui";
+import { Button, Kbd, PlusIcon, SearchIcon, SegmentedControl, Wordmark } from "@polaris/ui";
 import type { Route } from "../../shared/api.ts";
 import { needsYou } from "../routes/topBar.ts";
 import { useApp, useSelection, useShellActions } from "./hooks.ts";
@@ -34,9 +34,13 @@ export const TitleBar = () => {
       label: "Orchestrate",
       badge:
         waiting > 0 ? (
-          <Badge tone="needs-you" size="count" aria-label={`${waiting} need you`}>
+          <span
+            aria-label={`${waiting} need you`}
+            // Paper 11U-0: 18px, radius 6, 5px sides, the needs-you wash.
+            className="rounded-control bg-needs-you/12 text-micro text-needs-you-text tabular flex h-[18px] min-w-[18px] items-center justify-center px-[5px] font-medium"
+          >
             {waiting}
-          </Badge>
+          </span>
         ) : undefined,
     },
     { value: "review", label: "Review" },
