@@ -9,7 +9,8 @@ import {
 } from "../../icons/pixel";
 import { cn } from "../../lib/cn";
 import type { Harness } from "../../lib/hue";
-import { Dither } from "./dither";
+import { useExitPresence } from "../../lib/presence";
+import { DITHER_EXIT_MS, Dither } from "./dither";
 
 export type { SessionState };
 
@@ -84,7 +85,7 @@ function glyph(state: SessionState, harness: Harness, size: number): ReactNode {
       <span className="border-text-faint rounded-full border" style={{ width: dot, height: dot }} />
     ),
     "pixel-failed": () => <PixelFailedIcon size={pixel} className="text-failed" />,
-    "pixel-archive": () => <PixelArchiveIcon size={pixel} className="text-text-faint" />,
+    "pixel-archive": () => <PixelArchiveIcon size={pixel} className="text-text-subtle" />,
   };
 
   return glyphs[STATE_GLYPHS[state]]();
@@ -95,6 +96,8 @@ function glyph(state: SessionState, harness: Harness, size: number): ReactNode {
  * (rule/only-working-moves), and Needs You is the only attention colour.
  */
 export function StateIcon({ state, harness, size = 16, className, ...props }: StateIconProps) {
+  const leavingWorking = useExitPresence(state === "working", DITHER_EXIT_MS);
+
   return (
     <span
       role="img"
@@ -102,11 +105,20 @@ export function StateIcon({ state, harness, size = 16, className, ...props }: St
       data-slot="state-icon"
       data-state={state}
       data-glyph={STATE_GLYPHS[state]}
-      className={cn("inline-flex shrink-0 items-center justify-center", className)}
+      className={cn("relative inline-flex shrink-0 items-center justify-center", className)}
       style={{ width: size, height: size }}
       {...props}
     >
       {glyph(state, harness, size)}
+      {leavingWorking ? (
+        <Dither
+          hue={harness}
+          size={size - (size % 2)}
+          moving
+          leaving
+          className="absolute inset-0 m-auto"
+        />
+      ) : null}
     </span>
   );
 }

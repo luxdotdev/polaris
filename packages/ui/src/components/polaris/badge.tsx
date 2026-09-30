@@ -13,9 +13,8 @@ export const badgeVariants = cva(
     variants: {
       tone: {
         neutral: "bg-fill-selected text-text-subtle",
-        "needs-you": "bg-needs-you/16 text-needs-you",
-        failed: "bg-failed/16 text-failed",
-        starlight: "bg-starlight/16 text-starlight",
+        "needs-you": "bg-needs-you-fill text-needs-you-text",
+        failed: "bg-failed-fill text-failed-text",
       },
       size: {
         default: "h-5 px-1.5 text-caption",

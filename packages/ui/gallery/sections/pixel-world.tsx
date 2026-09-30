@@ -1,10 +1,11 @@
 import {
   Button,
+  ButtonKeycap,
   Clearing,
   Dither,
   EmptyState,
-  PixelHandIcon,
-  PixelPolarisIcon,
+  PixelSparkleIcon,
+  PixelFolderIcon,
   Scene,
   Wordmark,
 } from "../../src";
@@ -35,30 +36,30 @@ export function PixelWorldSection() {
       </div>
       <Scene className="rounded-card flex h-72 flex-col items-center justify-center">
         <Clearing className="flex flex-col items-center gap-2 text-center">
-          <Wordmark size={32} />
-          <p className="text-heading text-text-strong">The north star for your agents.</p>
+          <Wordmark size={32} moment />
+          <p className="text-heading text-text-strong tracking-[-0.015em]">
+            The north star for your agents.
+          </p>
           <p className="text-caption text-text-default">
             Launch, steer and review Claude Code and Codex on this Mac and every host you reach over
             SSH.
           </p>
-          <Button variant="primary" className="mt-2">
-            Get started
+          <Button variant="primary" size="brand" className="mt-2">
+            Get started <ButtonKeycap>↵</ButtonKeycap>
           </Button>
         </Clearing>
       </Scene>
       <div className="rounded-card border-hairline grid grid-cols-2 gap-3 border">
         <EmptyState
-          hue="starlight"
-          icon={<PixelPolarisIcon size={24} className="text-starlight" />}
+          icon={<PixelSparkleIcon size={24} className="text-text-strong" />}
           title="Nothing needs you"
           fact="4 sessions on 2 hosts are working or idle."
         />
         <EmptyState
-          hue="claude"
-          icon={<PixelHandIcon size={24} className="text-text-subtle" />}
-          title="No agent sessions in polaris"
-          fact="Mac Studio · ~/code/polaris"
-          action={<Button>New session</Button>}
+          icon={<PixelFolderIcon size={24} className="text-text-strong" />}
+          title="Nothing to review"
+          fact="No pull requests or finished turns in polaris."
+          action={<Button>Review a PR by URL</Button>}
         />
       </div>
     </Section>

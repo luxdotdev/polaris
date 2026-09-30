@@ -18,6 +18,8 @@
   --color-fill-hover: light-dark(#f4f4f6, #242529);
   --color-row-selected: light-dark(#ffffff, #26272c);
   --color-hairline: light-dark(#0000000f, #ffffff0f);
+  /* The flat scrim under a modal (Paper's jump menu, "no blur"). */
+  --color-scrim: light-dark(#0a0b0c33, #0a0b0c8c);
   --color-text-strong: light-dark(#17181a, #f4f5f7);
   --color-text-default: light-dark(#333438, #e3e4e8);
   --color-text-subtle: light-dark(#66686f, #9a9ca4);
@@ -42,6 +44,32 @@
   --color-severity-high-text: light-dark(#a6490c, #f2894a);
   --color-severity-medium-text: light-dark(#7a5e00, #e6c04a);
   --color-severity-low-text: light-dark(#5a6273, #9aa2b3);
+
+  /* Badge fills: the base hue at 12% (dark) / 10% (light), under its -text label (DESIGN.md, Badges). */
+  --color-needs-you-fill: light-dark(
+    color-mix(in oklab, #b98a00 10%, transparent),
+    color-mix(in oklab, #f2c84b 12%, transparent)
+  );
+  --color-failed-fill: light-dark(
+    color-mix(in oklab, #d23b30 10%, transparent),
+    color-mix(in oklab, #f0645a 12%, transparent)
+  );
+  --color-severity-critical-fill: light-dark(
+    color-mix(in oklab, #e5484d 10%, transparent),
+    color-mix(in oklab, #e5484d 12%, transparent)
+  );
+  --color-severity-high-fill: light-dark(
+    color-mix(in oklab, #c85a12 10%, transparent),
+    color-mix(in oklab, #f2894a 12%, transparent)
+  );
+  --color-severity-medium-fill: light-dark(
+    color-mix(in oklab, #9c7a06 10%, transparent),
+    color-mix(in oklab, #e6c04a 12%, transparent)
+  );
+  --color-severity-low-fill: light-dark(
+    color-mix(in oklab, #626b7d 10%, transparent),
+    color-mix(in oklab, #8a93a6 12%, transparent)
+  );
 
   /* Harness identity hues; the light variants come from the Paper file. */
   --color-harness-claude-code: light-dark(#c4562f, #d97757);

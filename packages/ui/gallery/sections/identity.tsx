@@ -1,4 +1,7 @@
+import { useState } from "react";
+
 import {
+  Button,
   GIT_STATUSES,
   GIT_TINTS,
   GitStatusLetter,
@@ -58,9 +61,26 @@ export function IdentitySection() {
   );
 }
 
+function WorkingToggle() {
+  const [working, setWorking] = useState(true);
+  const state = working ? "working" : "idle";
+
+  return (
+    <div className="flex items-center gap-3">
+      <HarnessMark harness="claude" size={32} state={state} />
+      <StateIcon state={state} harness="codex" />
+      <Button size="sm" data-testid="toggle-working" onClick={() => setWorking(!working)}>
+        {working ? "Stop working" : "Start working"}
+      </Button>
+      <span className="text-caption text-text-subtle">the dither fades in and out over 200ms</span>
+    </div>
+  );
+}
+
 export function SignalSection() {
   return (
     <Section title="Session states (glyphs, never labels) and severities (badges, always labelled)">
+      <WorkingToggle />
       <div className="grid grid-cols-8 gap-2">
         {SESSION_STATES.map((state) => (
           <Swatch key={state} label={STATE_LABELS[state].toLowerCase()}>
@@ -86,11 +106,11 @@ export function SignalSection() {
         ))}
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-caption text-text-faint">under 50% confidence:</span>
+        <span className="text-caption text-text-subtle">under 50% confidence:</span>
         {SEVERITIES.map((severity) => (
           <SeverityBadge key={`low-${severity}`} severity={severity} lowConfidence />
         ))}
-        <span className="text-caption text-text-faint">critical never dims</span>
+        <span className="text-caption text-text-subtle">critical never dims</span>
       </div>
       <div className="text-code-inline flex items-center gap-3 font-mono">
         {SEVERITIES.map((severity) => (

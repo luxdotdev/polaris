@@ -13,6 +13,8 @@ export interface ChipProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /** The switch shortcut, such as "⌃1". */
   readonly shortcut?: string;
   readonly selected?: boolean;
+  /** A workspace on a Reconnecting Host shows its last known state, dimmed. */
+  readonly dimmed?: boolean;
   /** "workspace" is the machine-bar chip; "source" and "add" are the session's Sources. */
   readonly variant?: "workspace" | "source" | "add";
   readonly asChild?: boolean;
@@ -30,6 +32,7 @@ export function Chip({
   needsYou = 0,
   shortcut,
   selected = false,
+  dimmed = false,
   variant = "workspace",
   asChild = false,
   className,
@@ -56,7 +59,8 @@ export function Chip({
         variant === "source" &&
           "h-[26px] gap-1.5 bg-row-selected pr-2 pl-1.5 text-caption font-medium text-text-default",
         variant === "add" &&
-          "h-[26px] gap-1.5 border border-dashed border-text-faint/40 px-2 text-caption text-text-faint hover:text-text-subtle",
+          "h-[26px] gap-1.5 border border-dashed border-text-faint/40 px-2 text-caption text-text-subtle hover:text-text-default",
+        dimmed && "opacity-(--opacity-dimmed)",
         className
       )}
       {...props}
@@ -64,7 +68,7 @@ export function Chip({
       {leading === undefined ? null : (
         <span className="flex w-3 shrink-0 items-center justify-center">{leading}</span>
       )}
-      {children}
+      <Slot.Slottable>{children}</Slot.Slottable>
       {needsYou > 0 ? (
         <Badge tone="needs-you" size="count" aria-label={`${needsYou} need you`}>
           {needsYou}
