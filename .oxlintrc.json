@@ -11,6 +11,7 @@
     "docs/**",
     "packages/lint-config/plugins/anti-slop/**",
     "packages/lint-config/plugins/*/test/fixtures/**",
-    "apps/daemon/src/harness/codex/generated/**"
+    "apps/daemon/src/harness/codex/generated/**",
+    "apps/daemon/src/harness/opencode/generated/**"
   ]
 }

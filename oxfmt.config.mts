@@ -14,6 +14,7 @@ export default {
     "design/**",
     "docs/**",
     "apps/daemon/src/harness/codex/generated/**",
+    "apps/daemon/src/harness/opencode/generated/**",
     "packages/bench/baselines/**",
     "packages/lint-config/plugins/anti-slop/**",
     "tooling/lint/baseline.json",

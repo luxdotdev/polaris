@@ -1,14 +1,17 @@
 /**
  * End-to-end smoke test of the whole Daemon, driven like a Client would:
  *
- *   bun --cwd apps/daemon scripts/smoke.ts [codex|claude]
+ *   bun --cwd apps/daemon scripts/smoke.ts [codex|claude|opencode]
  *
  * Starts `polaris serve` with a throwaway POLARIS_HOME, connects through
  * `polaris bridge` (standing in for `ssh <host> polaris bridge`), registers a
  * temp git repo as a Workspace, runs one tiny real Turn with the chosen
  * Harness, then fetches the Turn's diff from its checkpoints.
  *
- * It uses the Harness's own sign-in, so one tiny Turn is billed to it.
+ * It uses the Harness's own sign-in, so one tiny Turn is billed to it. OpenCode
+ * instead runs on its free `opencode/big-pickle` with throwaway XDG directories
+ * (no config, no credentials); `POLARIS_SMOKE_MODEL` picks another Model.
+ * It also asks `harness.availability` and `harness.models` for the Harness.
  */
 import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -39,7 +42,21 @@ const home = mkdtempSync("/tmp/pls-");
 
 const repo = mkdtempSync("/tmp/plr-");
 
+const xdg = (root: string) => ({
+  XDG_DATA_HOME: join(root, "data"),
+  XDG_CONFIG_HOME: join(root, "config"),
+  XDG_STATE_HOME: join(root, "state"),
+  XDG_CACHE_HOME: join(root, "cache"),
+});
+
 const env = { ...process.env, POLARIS_HOME: home };
+
+if (harness === "opencode") Object.assign(env, xdg(join(home, "xdg")));
+
+const MODELS = new Map([
+  ["claude", "haiku"],
+  ["opencode", process.env.POLARIS_SMOKE_MODEL ?? "opencode/big-pickle"],
+]);
 
 const sh = (cmd: string) => Bun.spawnSync(["sh", "-c", cmd], { cwd: repo });
 
@@ -79,6 +96,18 @@ const program = Effect.gen(function* () {
   const s = yield* conn.awaitSession;
   log("connected", s.host.hostname, s.host.platform, "capabilities:", s.capabilities.join(", "));
 
+  const availability = yield* s.client["harness.availability"]({ refresh: true });
+  const mine = availability.harnesses.find((h) => h.harness === harness);
+  log("availability", harness, mine?.status, mine?.version, `min ${mine?.minVersion}`);
+
+  const models = yield* s.client["harness.models"]({ harness, refresh: false });
+  log(
+    "models",
+    harness,
+    `${models.models.length} Model(s), switches: ${models.switchesModel}, default:`,
+    models.models.find((m) => m.isDefault)?.id ?? "(none)"
+  );
+
   yield* s.client.dispatch({
     commandId: cmd(),
     command: Command.cases.RegisterWorkspace.make({ path: repo, name: "smoke" }),
@@ -103,7 +132,7 @@ const program = Effect.gen(function* () {
       harness,
       placement: SessionPlacement.cases.InPlace.make({}),
       permissionMode: "full-access",
-      model: harness === "claude" ? "haiku" : null,
+      model: MODELS.get(harness) ?? null,
       effort: null,
       prompt:
         "Create a file named ok.txt containing the single word ok, then reply with the word done.",
