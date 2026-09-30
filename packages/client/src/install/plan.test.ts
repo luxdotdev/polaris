@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { compareVersions, type DaemonBuild, platformFromUname } from "./builds.ts";
+import {
+  compareVersions,
+  type DaemonBuild,
+  isDevVersion,
+  platformFromUname,
+  upgradeDue,
+} from "./builds.ts";
 import { type HostProbe, InstallPlan, planInstall } from "./plan.ts";
 
 const build = (platform: DaemonBuild["platform"], version = "1.2.0"): DaemonBuild => ({
@@ -37,6 +43,46 @@ describe("compareVersions", () => {
     expect(compareVersions("1.2.0", "1.2")).toBe(0);
     expect(compareVersions("1.2.0-rc.1", "1.2.0")).toBeLessThan(0);
     expect(compareVersions("1.2.0-rc.10", "1.2.0-rc.9")).toBeGreaterThan(0);
+  });
+});
+
+describe("dev builds", () => {
+  test("are recognised by their version", () => {
+    expect(isDevVersion("0.0.0-dev.412.5821ca0")).toBe(true);
+    expect(isDevVersion("0.0.0-dev.412.5821ca0.dirty1790787600")).toBe(true);
+    expect(isDevVersion("1.2.0")).toBe(false);
+    expect(isDevVersion("0.0.1-d210")).toBe(false);
+  });
+
+  test("replace any other version; releases only an older one", () => {
+    const dev = "0.0.0-dev.412.5821ca0";
+
+    // Newer, older, another branch's dev build, a hand-made prerelease: all replaced.
+    for (const installed of ["0.0.0", "0.0.1-d210", "0.0.0-dev.413.aaaaaaa", "1.2.0"]) {
+      expect(upgradeDue(installed, dev)).toBe(true);
+    }
+
+    expect(upgradeDue(dev, dev)).toBe(false);
+    expect(upgradeDue("1.1.0", "1.2.0")).toBe(true);
+    expect(upgradeDue("2.0.0", "1.2.0")).toBe(false);
+    expect(upgradeDue("0.0.0-dev.412.5821ca0", "0.0.0")).toBe(true);
+  });
+
+  test("a Host on another build upgrades without a new approval", () => {
+    const dev = build("linux-x64", "0.0.0-dev.412.5821ca0");
+
+    for (const installed of ["0.0.1-d210", "0.0.0-dev.500.bbbbbbb"]) {
+      expect(
+        planInstall(linux({ version: installed, platform: "linux-x64" }), [dev], {
+          trigger: "background",
+          approvedSha256: new Set(),
+        })
+      ).toEqual(InstallPlan.Upgrade({ from: installed, build: dev }));
+    }
+
+    expect(
+      planInstall(linux({ version: dev.version, platform: "linux-x64" }), [dev], user)
+    ).toEqual(InstallPlan.UpToDate({ version: dev.version }));
   });
 });
 
