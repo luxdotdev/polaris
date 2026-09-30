@@ -4,13 +4,13 @@
  * prompt, each item and the Turn's ending. Rows are cached per Turn view, so
  * a streaming Turn rebuilds only its own rows each frame.
  */
-import type { ApprovalRequest, TurnItem, TurnStatus } from "@polaris/protocol";
+import type { ApprovalRequest, TurnId, TurnItem, TurnStatus } from "@polaris/protocol";
 import { Predicate } from "effect";
 import type { TurnView } from "../../../store/sessionModel.ts";
 import { completedItemView, type ItemView, liveItemView } from "./items.ts";
 
 export interface TurnSummary {
-  readonly turnId: string;
+  readonly turnId: TurnId;
   /** One-based, as the UI numbers Turns. */
   readonly number: number;
   readonly status: TurnStatus;

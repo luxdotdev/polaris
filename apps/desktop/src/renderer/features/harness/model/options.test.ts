@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { HARNESS_CATALOGUE, type HarnessStatus } from "@polaris/protocol";
 import {
   type AvailabilityReport,
+  cardOptions,
   defaultHarness,
   harnessOptions,
   listedOptions,
@@ -21,6 +22,7 @@ const probe = (
   status,
   version,
   minVersion: "2.0.0",
+  signInKind: null,
   olderThanTested,
   detail: status === "ready" ? null : "said the Harness",
   signInArgv: status === "not-installed" ? null : [harness, "login"],
@@ -161,6 +163,40 @@ describe("Harness options", () => {
       "zed · couldn't check",
     ]);
     expect(noneReady(harnessOptions(report(probe(first.kind, "ready")), []))).toBe(false);
+  });
+
+  test("more than three ready: the three most recently used get cards, the rest are other", () => {
+    const [a, b, c, d] = HARNESS_CATALOGUE;
+
+    const options = harnessOptions(
+      report(
+        probe(a.kind, "ready"),
+        probe(b.kind, "ready"),
+        probe(c.kind, "ready"),
+        probe(d.kind, "ready"),
+        probe("zed", "not-installed")
+      ),
+      []
+    );
+
+    const lastUsed = new Map([
+      [d.kind, "2026-09-30T10:00:00.000Z"],
+      [b.kind, "2026-09-29T10:00:00.000Z"],
+    ]);
+
+    expect(cardOptions(options, lastUsed, null).map((o) => o.kind)).toEqual([
+      d.kind,
+      b.kind,
+      a.kind,
+    ]);
+    expect(defaultHarness(options, lastUsed)).toBe(d.kind);
+    expect(otherCount(options, cardOptions(options, lastUsed, null))).toBe(2);
+    // The chosen one always keeps its card.
+    expect(cardOptions(options, lastUsed, c.kind).map((o) => o.kind)).toEqual([
+      d.kind,
+      b.kind,
+      c.kind,
+    ]);
   });
 
   test("ready on N of M hosts", () => {

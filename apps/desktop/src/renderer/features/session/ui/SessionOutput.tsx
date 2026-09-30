@@ -3,20 +3,19 @@
  * diff as file cards, virtualized by line. A lightweight unified renderer:
  * no syntax or word highlights, which come with Pierre Diffs in Review (M2).
  */
-import { isKnownHarness, type TurnId } from "@polaris/protocol";
+import type { TurnId } from "@polaris/protocol";
 import {
   Button,
   ChevronDownIcon,
   ChevronRightIcon,
   cn,
-  Dither,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
   EmptyState,
-  type Harness,
+  PixelSparkleIcon,
 } from "@polaris/ui";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Predicate } from "effect";
@@ -38,8 +37,8 @@ const SIGN = { add: "+", remove: "−", context: "" } as const;
 
 const Counts = ({ added, removed }: { readonly added: number; readonly removed: number }) => (
   <>
-    <span className="text-code-inline text-diff-added tabular font-mono">+{added}</span>
-    <span className="text-code-inline text-diff-removed tabular font-mono">−{removed}</span>
+    <span className="text-code-inline text-diff-added-text tabular font-mono">+{added}</span>
+    <span className="text-code-inline text-diff-removed-text tabular font-mono">−{removed}</span>
   </>
 );
 
@@ -69,7 +68,7 @@ const RowView = ({ row, onFold }: { row: DiffRow; onFold: (path: string) => void
           <Counts added={row.file.added} removed={row.file.removed} />
           <span className="flex-1" />
           {row.file.status === "modified" ? null : (
-            <span className="text-caption text-text-faint">{row.file.status}</span>
+            <span className="text-caption text-text-subtle">{row.file.status}</span>
           )}
         </button>
       );
@@ -78,7 +77,7 @@ const RowView = ({ row, onFold }: { row: DiffRow; onFold: (path: string) => void
         <div
           className={cn(
             CARD,
-            "text-code-inline text-text-faint flex h-6 items-center truncate px-3 font-mono"
+            "text-code-inline text-text-subtle flex h-6 items-center truncate px-3 font-mono"
           )}
         >
           {row.header}
@@ -93,13 +92,13 @@ const RowView = ({ row, onFold }: { row: DiffRow; onFold: (path: string) => void
             LINE_FILL[row.line.kind]
           )}
         >
-          <span className="text-text-faint tabular w-[42px] shrink-0 pr-2 text-right">
+          <span className="text-text-subtle tabular w-[42px] shrink-0 pr-2 text-right">
             {row.line.newNumber ?? ""}
           </span>
           <span
             className={cn(
               "w-[22px] shrink-0 text-center",
-              row.line.kind === "add" ? "text-diff-added" : "text-diff-removed"
+              row.line.kind === "add" ? "text-diff-added-text" : "text-diff-removed-text"
             )}
           >
             {SIGN[row.line.kind]}
@@ -109,7 +108,7 @@ const RowView = ({ row, onFold }: { row: DiffRow; onFold: (path: string) => void
       );
     case "note":
       return (
-        <div className={cn(CARD, "text-caption text-text-faint flex h-7 items-center px-3")}>
+        <div className={cn(CARD, "text-caption text-text-subtle flex h-7 items-center px-3")}>
           {row.text}
         </div>
       );
@@ -183,7 +182,7 @@ const TurnMenu = ({
         {turns.toReversed().map((t) => (
           <DropdownMenuRadioItem key={t.turn.id} value={t.turn.id}>
             <span className="tabular">Turn {t.turn.index + 1}</span>
-            <span className="text-caption text-text-faint max-w-56 truncate pl-3">
+            <span className="text-caption text-text-subtle max-w-56 truncate pl-3">
               {t.turn.prompt}
             </span>
           </DropdownMenuRadioItem>
@@ -201,19 +200,11 @@ const errorText = (state: Extract<DiffState, { kind: "error" }>) => {
   return state.message;
 };
 
-const Empty = ({
-  harness,
-  title,
-  fact,
-}: {
-  harness: Harness | null;
-  title: string;
-  fact?: string;
-}) => (
+const Empty = ({ title, fact }: { title: string; fact?: string }) => (
   <div className="grid flex-1 place-items-center" data-testid="diff-empty">
+    {/* The pane tier (Paper 5SH-1): a Starlight tile with the pixel sparkle, never blank. */}
     <EmptyState
-      hue={harness ?? "starlight"}
-      icon={harness === null ? null : <Dither hue={harness} size={16} />}
+      icon={<PixelSparkleIcon size={24} className="text-text-strong" />}
       title={title}
       fact={fact}
     />
@@ -222,12 +213,10 @@ const Empty = ({
 
 const Body = ({
   state,
-  harness,
   folded,
   onFold,
 }: {
   state: DiffState;
-  harness: Harness | null;
   folded: ReadonlySet<string>;
   onFold: (path: string) => void;
 }) => {
@@ -235,18 +224,17 @@ const Body = ({
     case "loading":
       return <div className="flex-1" />;
     case "error":
-      return <Empty harness={harness} title="No diff to show" fact={errorText(state)} />;
+      return <Empty title="No diff to show" fact={errorText(state)} />;
     case "too-large":
       return (
         <Empty
-          harness={harness}
           title="This diff is too large to show here"
           fact={`${Math.round(state.bytes / 1024)} KB · open it in review`}
         />
       );
     case "ready":
       return state.files.length === 0 ? (
-        <Empty harness={harness} title="This turn changed no files" />
+        <Empty title="This turn changed no files" />
       ) : (
         <DiffList rows={diffRows(state.files, folded)} onFold={onFold} />
       );
@@ -258,8 +246,6 @@ const revisionOf = (view: TurnView) =>
 
 export const SessionOutput = ({ hostKey, sessionId }: SessionViewProps) => {
   const model = useSession(hostKey, sessionId);
-  const kind = model.session?.harness ?? "";
-  const harness: Harness | null = isKnownHarness(kind) ? kind : null;
   const key = uiKey(hostKey, sessionId);
   const ui = useSessionUi(key);
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
@@ -302,7 +288,7 @@ export const SessionOutput = ({ hostKey, sessionId }: SessionViewProps) => {
         )}
         {sum === null ? null : (
           <>
-            <span className="text-caption text-text-faint tabular">
+            <span className="text-caption text-text-subtle tabular">
               · {plural(sum.files, "file")}
             </span>
             <Counts added={sum.added} removed={sum.removed} />
@@ -310,9 +296,9 @@ export const SessionOutput = ({ hostKey, sessionId }: SessionViewProps) => {
         )}
       </div>
       {current === null ? (
-        <Empty harness={harness} title="No changes yet" fact="Each turn's diff shows here" />
+        <Empty title="No changes yet" fact="Each turn's diff shows here" />
       ) : (
-        <Body state={state} harness={harness} folded={folded} onFold={fold} />
+        <Body state={state} folded={folded} onFold={fold} />
       )}
     </section>
   );

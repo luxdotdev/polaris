@@ -47,6 +47,7 @@ const benchReady = (entry: (typeof HARNESS_CATALOGUE)[number]) =>
       status: "ready",
       version: "bench",
       minVersion: entry.minVersion,
+      signInKind: null,
       olderThanTested: null,
       detail: null,
       signInArgv: null,

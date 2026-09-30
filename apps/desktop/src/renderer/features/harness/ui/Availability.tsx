@@ -88,7 +88,11 @@ const Row = ({
         {option.version ?? ""}
       </span>
       <span className="text-caption text-text-subtle flex w-36 shrink-0 flex-col">
-        <span>{STATUS_LABELS[option.status]}</span>
+        <span>
+          {option.signInKind === null
+            ? STATUS_LABELS[option.status]
+            : `${STATUS_LABELS[option.status]} · ${option.signInKind}`}
+        </span>
         {option.note === null ? null : (
           <span data-testid={`note-${option.kind}`}>{option.note}</span>
         )}
@@ -111,14 +115,14 @@ export const AvailabilityList = ({ hostKey }: { readonly hostKey: string }) => {
 
   return (
     <div className="flex flex-col gap-3">
-      {loading ? <p className="text-caption text-text-faint">Checking harnesses…</p> : null}
+      {loading ? <p className="text-caption text-text-subtle">Checking harnesses…</p> : null}
       <ul className="rounded-card border-hairline flex flex-col border">
         {options.map((option) => (
           <Row key={option.kind} option={option} onSignIn={signIn.begin} />
         ))}
       </ul>
       <div className="flex items-center gap-2">
-        <p className="text-caption text-text-faint flex-1">
+        <p className="text-caption text-text-subtle flex-1">
           Polaris drives the harnesses you already have; it never installs one.
         </p>
         <Button variant="ghost" size="sm" onClick={refresh} data-testid="availability-refresh">
@@ -163,12 +167,15 @@ export const AvailabilitySheet = ({
 export const OtherHarnessesLink = ({
   hostKey,
   options,
+  shown,
 }: {
   readonly hostKey: string;
   readonly options: ReadonlyArray<HarnessOption>;
+  /** The Harnesses that have a card; the rest are counted here. */
+  readonly shown?: ReadonlyArray<HarnessOption>;
 }) => {
   const [open, setOpen] = useState(false);
-  const others = otherCount(options);
+  const others = otherCount(options, shown);
 
   return (
     <>

@@ -27,6 +27,7 @@ export {
 
 export {
   defaultHarness,
+  type LastUsed,
   noneReady,
   reasonLine,
   type HarnessOption,

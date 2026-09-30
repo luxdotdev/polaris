@@ -63,7 +63,10 @@ describe("items", () => {
   });
 
   test("tool input on one line", () => {
-    expect(toolSummary({ path: "src/index.ts" })).toBe('{"path":"src/index.ts"}');
+    expect(toolSummary({ path: "src/index.ts" })).toBe("src/index.ts");
+    expect(toolSummary({ file_path: "a.ts", limit: 20 })).toBe("a.ts");
+    expect(toolSummary({ command: "bun test", timeout: 5 })).toBe("bun test");
+    expect(toolSummary({ n: 1 })).toBe('{"n":1}');
     expect(toolSummary("x".repeat(300)).length).toBe(160);
     expect(toolSummary(null)).toBe("");
   });

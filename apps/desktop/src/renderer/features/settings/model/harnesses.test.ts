@@ -13,6 +13,7 @@ const availability = (
   status,
   version,
   minVersion: "2.1.0",
+  signInKind: null,
   olderThanTested,
   detail: null,
   signInArgv: status === "not-installed" ? null : [`/usr/local/bin/${harness}`, "login"],

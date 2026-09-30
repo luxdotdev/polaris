@@ -14,7 +14,7 @@ import {
 import { Clearing, type Harness, Scene } from "@polaris/ui";
 import { useState } from "react";
 import { newSessionId } from "../../../commands.ts";
-import { emptyHostModel } from "../../../store/hostModel.ts";
+import { emptyHostModel, type HostModel } from "../../../store/hostModel.ts";
 import { useApp } from "../../../shell/hooks.ts";
 import { useUploads } from "../../attachments/index.ts";
 import { useSettings, withSavedModels } from "../../settings/index.ts";
@@ -25,6 +25,7 @@ import {
   NoHarnessChip,
   noneReady,
   HarnessChoiceRow,
+  type LastUsed,
   type ModelChoice,
   SetupNote,
   useAvailability,
@@ -142,11 +143,33 @@ const defaultPlacement = (workspace: Workspace): PlacementChoice =>
 
 const PREVIEW_ID = newSessionId();
 
+/** When each Harness last ran a session on this Host (its newest session's last update). */
+const lastUsedOn = (model: HostModel): LastUsed => {
+  const used = new Map<string, string>();
+
+  for (const { session } of model.sessions.values()) {
+    const seen = used.get(session.harness);
+
+    if (seen === undefined || seen < session.updatedAt)
+      used.set(session.harness, session.updatedAt);
+  }
+
+  return used;
+};
+
 /** The composer's mono hint: the branch a new Worktree will take, once there's a prompt. */
-const branchLabel = (placement: PlacementChoice, choice: HarnessChoice | null, draft: string) => {
+const branchLabel = (
+  placement: PlacementChoice,
+  choice: HarnessChoice | null,
+  draft: string,
+  head: string | null
+) => {
   if (placement.kind !== "new-worktree" || choice?.kind === "fork") return undefined;
 
-  return draft.trim() === "" ? "new worktree" : placement.branch;
+  if (draft.trim() !== "") return placement.branch;
+  const base = placement.base ?? head;
+
+  return base === null ? "new worktree" : `new worktree from ${base}`;
 };
 
 export const NewSessionPage = ({
@@ -178,7 +201,14 @@ export const NewSessionPage = ({
 
   if (workspace === undefined) return <Scene className="h-full flex-1" data-testid="new-session" />;
   const where = placement ?? defaultPlacement(workspace);
-  const fallback = defaultHarness(options);
+  // The checked-out branch: a new Worktree with no base picked starts there.
+
+  const head =
+    [...hostModel.worktrees.values()].find((w) => w.workspaceId === workspaceId && w.isMain)
+      ?.branch ?? null;
+
+  const lastUsed = lastUsedOn(hostModel);
+  const fallback = defaultHarness(options, lastUsed);
 
   const choice: HarnessChoice | null =
     picked ?? (fallback === null ? null : { kind: "harness", harness: fallback });
@@ -242,12 +272,13 @@ export const NewSessionPage = ({
             (w) => w.workspaceId === workspaceId && !w.isMain
           )}
           canWorktree={workspace.isGitRepo}
+          head={head}
           onChange={setPlacement}
         />
       </Clearing>
       <div className="flex w-full max-w-[640px] flex-col gap-3.5 pt-1 pb-10">
         <DraftComposer
-          className="shadow-float rounded-card"
+          className="rounded-card"
           harness={hue ?? ""}
           autoFocus
           picker={
@@ -281,12 +312,13 @@ export const NewSessionPage = ({
           onRemoveAttachment={(a) =>
             patchSessionUi(key, (u) => ({ attachments: u.attachments.filter((x) => x !== a) }))
           }
-          branch={branchLabel(shown, choice, ui.draft)}
+          branch={branchLabel(shown, choice, ui.draft, head)}
           prominentSend
         />
         <HarnessChoiceRow
           hostKey={hostKey}
           options={options}
+          lastUsed={lastUsed}
           picked={choices.models}
           value={choice}
           onChange={setPicked}

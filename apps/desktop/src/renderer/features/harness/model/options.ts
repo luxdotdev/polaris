@@ -37,6 +37,8 @@ export interface HarnessOption {
   readonly detail: string | null;
   /** Its setup guide; null for a kind this build's catalogue doesn't list. */
   readonly docsUrl: string | null;
+  /** How it's signed in ("Claude Max", "ChatGPT"), when it says; null otherwise. */
+  readonly signInKind: string | null;
   /** Its own sign-in, to run in a terminal on the Host; null unless it needs signing in. */
   readonly signInArgv: ReadonlyArray<string> | null;
   /** "older than tested (2.1.283)" for a usable version below the tested one; null otherwise. */
@@ -71,6 +73,7 @@ interface Probe {
   readonly olderThanTested: string | null;
   readonly detail: string | null;
   readonly signInArgv: ReadonlyArray<string> | null;
+  readonly signInKind?: string | null;
 }
 
 const installed = (name: string, version: string | null) =>
@@ -108,6 +111,7 @@ const option = (probe: Probe, listed = LISTED.has(probe.status)): HarnessOption 
     detail: probe.status === "ready" ? null : probe.detail,
     docsUrl: entry?.setup.docsUrl ?? null,
     signInArgv: probe.status === "needs-sign-in" ? probe.signInArgv : null,
+    signInKind: probe.status === "ready" ? (probe.signInKind ?? null) : null,
     note: olderThanTestedNote(probe.olderThanTested),
   };
 };
@@ -144,13 +148,58 @@ export const harnessOptions = (
 export const listedOptions = (options: ReadonlyArray<HarnessOption>) =>
   options.filter((o) => o.listed);
 
-/** How many aren't listed, for the "Other harnesses" link. */
-export const otherCount = (options: ReadonlyArray<HarnessOption>) =>
-  options.filter((o) => !o.listed).length;
+/** How many Harnesses don't have a card, for the "Other harnesses" link. */
+export const otherCount = (
+  options: ReadonlyArray<HarnessOption>,
+  shown: ReadonlyArray<HarnessOption> = listedOptions(options)
+) => options.length - shown.length;
 
-/** The Harness a new session starts on by default: the first ready one, never one that isn't. */
-export const defaultHarness = (options: ReadonlyArray<HarnessOption>): HarnessKind | null =>
-  options.find((o) => o.status === "ready")?.kind ?? null;
+/** When each Harness last ran a session on the Host (ISO time), for ordering the cards. */
+export type LastUsed = ReadonlyMap<HarnessKind, string>;
+
+const NEVER: LastUsed = new Map();
+
+/** Ready ones first, most recently used first; then the rest, in the Host's order. */
+const byUse = (options: ReadonlyArray<HarnessOption>, lastUsed: LastUsed) =>
+  options
+    .map((option, order) => ({ option, order }))
+    .toSorted((a, b) => {
+      const ready = Number(b.option.status === "ready") - Number(a.option.status === "ready");
+
+      const used = (lastUsed.get(b.option.kind) ?? "").localeCompare(
+        lastUsed.get(a.option.kind) ?? ""
+      );
+
+      return ready !== 0 ? ready : used !== 0 ? used : a.order - b.order;
+    })
+    .map(({ option }) => option);
+
+/** The Harness a new session starts on by default: the most recently used ready one, never one that isn't. */
+export const defaultHarness = (
+  options: ReadonlyArray<HarnessOption>,
+  lastUsed: LastUsed = NEVER
+): HarnessKind | null => byUse(options, lastUsed).find((o) => o.status === "ready")?.kind ?? null;
+
+/** Cards on the new-session page (DESIGN.md: one row); the rest wait behind "Other harnesses". */
+export const MAX_HARNESS_CARDS = 3;
+
+/**
+ * The listed Harnesses that get a card: the most recently used ready ones first, up to three,
+ * always including the chosen one.
+ */
+export const cardOptions = (
+  options: ReadonlyArray<HarnessOption>,
+  lastUsed: LastUsed,
+  chosen: HarnessKind | null
+): ReadonlyArray<HarnessOption> => {
+  const ordered = byUse(listedOptions(options), lastUsed);
+  const shown = ordered.slice(0, MAX_HARNESS_CARDS);
+  const picked = ordered.find((o) => o.kind === chosen);
+
+  if (picked === undefined || shown.includes(picked)) return shown;
+
+  return [...shown.slice(0, MAX_HARNESS_CARDS - 1), picked];
+};
 
 /** Nothing on the Host can start a session now (its report is in, and none is ready). */
 export const noneReady = (options: ReadonlyArray<HarnessOption>) =>

@@ -29,6 +29,14 @@ describe("new session", () => {
         base: "main",
       })
     ).toBe("Runs on Mac Studio in ~/code/polaris, on a new worktree from main.");
+    expect(
+      whereLine(
+        "Mac Studio",
+        "~/code/polaris",
+        { kind: "new-worktree", branch: "", base: null },
+        "main"
+      )
+    ).toBe("Runs on Mac Studio in ~/code/polaris, on a new worktree from main.");
     expect(whereLine("this Mac", "~/p", { kind: "in-place" })).toBe(
       "Runs on this Mac in ~/p, in place."
     );

@@ -23,16 +23,19 @@ export interface WhereLineProps {
   readonly placement: PlacementChoice;
   readonly worktrees: ReadonlyArray<Worktree>;
   readonly canWorktree: boolean;
+  /** The Workspace's checked-out branch, where a new Worktree starts; null if unknown. */
+  readonly head: string | null;
   readonly onChange: (placement: PlacementChoice) => void;
 }
 
-/** "Runs on Mac Studio in ~/code/polaris, on a new worktree." with the placement as a menu. */
+/** "Runs on Mac Studio in ~/code/polaris, on a new worktree from main.", placement as a menu. */
 export const WhereLine = ({
   hostLabel,
   path,
   placement,
   worktrees,
   canWorktree,
+  head,
   onChange,
 }: WhereLineProps) => (
   <p className="text-body text-text-default" data-testid="where-line">
@@ -42,7 +45,7 @@ export const WhereLine = ({
         className="decoration-text-faint cursor-default underline decoration-dotted underline-offset-4"
         data-testid="placement"
       >
-        {placementPhrase(placement)}
+        {placementPhrase(placement, head)}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="center">
         <DropdownMenuItem onSelect={() => onChange({ kind: "in-place" })}>
@@ -103,7 +106,7 @@ export const PermissionChip = ({
           <DropdownMenuRadioItem key={p.mode} value={p.mode}>
             <span className="flex flex-col">
               <span>{p.label}</span>
-              <span className="text-caption text-text-faint">{p.detail}</span>
+              <span className="text-caption text-text-subtle">{p.detail}</span>
             </span>
           </DropdownMenuRadioItem>
         ))}

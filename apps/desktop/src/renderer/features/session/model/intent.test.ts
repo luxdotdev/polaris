@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
+  ApprovalRequest,
   AttachmentId,
+  RequestId,
   type SessionState,
   SessionId,
   TurnId,
@@ -8,14 +10,17 @@ import {
 } from "@polaris/protocol";
 import {
   archiveCommand,
+  canQueue,
   composerMode,
   forkCommand,
   interruptCommand,
+  openQuestion,
   placeholderFor,
+  queuedCommand,
   renameCommand,
   submitCommand,
 } from "./intent.ts";
-import { Commands } from "../../../commands.ts";
+import { Commands, Decisions } from "../../../commands.ts";
 
 const sessionId = SessionId.make("s1");
 
@@ -23,8 +28,9 @@ const mode = (
   state: SessionState,
   lastTurn: TurnStatus | null,
   pendingApprovals = 0,
-  canSteer = true
-) => composerMode({ state, lastTurn, pendingApprovals, canSteer });
+  canSteer = true,
+  question: RequestId | null = null
+) => composerMode({ state, lastTurn, pendingApprovals, question, canSteer });
 
 describe("composer mode", () => {
   test("idle, dormant and failed sessions take a new Turn", () => {
@@ -34,13 +40,71 @@ describe("composer mode", () => {
     expect(mode("idle", null).kind).toBe("send");
   });
 
-  test("a Turn in flight is steered", () => {
+  test("a Turn in flight is steered with ↵; ⌘↵ queues a follow-up", () => {
     expect(mode("working", "working")).toEqual({ kind: "steer" });
-    expect(placeholderFor(mode("working", "working"))).toBe("Steer this turn");
+    expect(placeholderFor(mode("working", "working"))).toBe(
+      "Steer this turn · ⌘↵ to queue a follow-up"
+    );
+    expect(canQueue(mode("working", "working"))).toBe(true);
   });
 
-  test("without steering, a Turn in flight blocks the composer", () => {
-    expect(mode("working", "working", 0, false).kind).toBe("blocked");
+  test("without steering, ↵ queues a follow-up for after the Turn", () => {
+    expect(mode("working", "working", 0, false)).toEqual({ kind: "queue" });
+    expect(placeholderFor(mode("working", "working", 0, false))).toBe(
+      "Queue a follow-up for after this turn"
+    );
+    expect(canQueue(mode("idle", "completed"))).toBe(false);
+  });
+
+  test("an open question is answered in the composer's own words", () => {
+    const question = RequestId.make("q1");
+
+    expect(mode("needs-you", "working", 1, true, question)).toEqual({
+      kind: "answer",
+      requestId: question,
+    });
+    expect(placeholderFor({ kind: "answer", requestId: question })).toBe(
+      "Or answer in your own words"
+    );
+    expect(
+      submitCommand({ kind: "answer", requestId: question }, sessionId, {
+        text: " keep 20px ",
+        attachments: [],
+      })
+    ).toEqual(
+      Commands.RespondToApproval({
+        sessionId,
+        requestId: question,
+        decision: Decisions.Answer({ text: "keep 20px" }),
+      })
+    );
+  });
+
+  test("only questions open the composer; a pending command still blocks it", () => {
+    const at = "2026-09-30T00:00:00.000Z";
+
+    const request = (id: string, kind: "question" | "command") =>
+      new ApprovalRequest({
+        id: RequestId.make(id),
+        sessionId,
+        turnId: TurnId.make("t1"),
+        kind,
+        title: id,
+        detail: null,
+        options: [],
+        openedAt: at,
+      });
+
+    expect(openQuestion([request("q", "question")])).toBe(RequestId.make("q"));
+    expect(openQuestion([request("q", "question"), request("c", "command")])).toBeNull();
+    expect(openQuestion([])).toBeNull();
+  });
+
+  test("a queued follow-up becomes the next Turn", () => {
+    expect(queuedCommand(sessionId, { text: " next ", attachments: [] })).toEqual(
+      Commands.SendTurn({ sessionId, prompt: "next", attachments: [] })
+    );
+    expect(queuedCommand(sessionId, { text: " ", attachments: [] })).toBeNull();
   });
 
   test("an open approval blocks until answered", () => {

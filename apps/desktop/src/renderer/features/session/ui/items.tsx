@@ -106,7 +106,7 @@ const Command = ({ item, hue }: { item: Extract<ItemView, { kind: "command" }>; 
         <span className="text-code-inline text-text-default flex-1 truncate font-mono">
           {item.command === "" ? "Running a command" : `$ ${item.command}`}
         </span>
-        <span className="text-caption text-text-faint tabular">{exitLabel(item)}</span>
+        <span className="text-caption text-text-subtle tabular">{exitLabel(item)}</span>
       </div>
       {item.output === "" ? null : (
         <div className="border-hairline border-t">
@@ -159,7 +159,7 @@ const Files = ({
           {change.path}
         </span>
         {item.status === "running" ? (
-          <span className="text-caption text-text-faint">writing</span>
+          <span className="text-caption text-text-subtle">writing</span>
         ) : null}
       </button>
     ))}
@@ -174,7 +174,7 @@ const Tool = ({ item, hue }: { item: Extract<ItemView, { kind: "tool" }>; hue: H
       <CheckIcon size={12} className="text-text-faint" />
     )}
     <span className="text-caption text-text-subtle shrink-0 font-medium">{item.name}</span>
-    <span className="text-code-inline text-text-faint truncate font-mono">{item.summary}</span>
+    <span className="text-code-inline text-text-subtle truncate font-mono">{item.summary}</span>
   </div>
 );
 
@@ -205,7 +205,7 @@ const Step = ({ step, hue }: { readonly step: PlanStep; readonly hue: Hue }) => 
           "text-body flex-1 truncate",
           step.status === "completed" && "text-text-subtle",
           current && "text-text-strong font-medium",
-          step.status === "pending" && "text-text-faint"
+          step.status === "pending" && "text-text-subtle"
         )}
       >
         {step.text}

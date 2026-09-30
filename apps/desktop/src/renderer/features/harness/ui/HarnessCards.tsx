@@ -7,7 +7,13 @@ import { CheckIcon, ChoiceTile, cn, Dither, type Harness } from "@polaris/ui";
 import type { ReactNode } from "react";
 import { useHarnessModels } from "../live.ts";
 import { defaultChoice, type ModelChoice, modelLabel } from "../model/models.ts";
-import { type HarnessOption, listedOptions, noneReady, STATUS_LABELS } from "../model/options.ts";
+import {
+  cardOptions,
+  type HarnessOption,
+  type LastUsed,
+  noneReady,
+  STATUS_LABELS,
+} from "../model/options.ts";
 import { NotReadyPanel, OtherHarnessesLink } from "./Availability.tsx";
 
 import type { HarnessChoice } from "../model/choice.ts";
@@ -49,9 +55,7 @@ const Card = ({ selected, tile, title, caption, onSelect, testId }: CardProps) =
     data-testid={testId}
     className={cn(
       "rounded-card bg-surface-raised flex h-14 min-w-0 cursor-default items-stretch overflow-clip border text-left",
-      selected
-        ? "border-text-strong/15 shadow-float"
-        : "border-hairline hover:border-text-strong/10"
+      selected ? "border-text-strong/15" : "border-hairline hover:border-text-strong/10"
     )}
   >
     {tile}
@@ -126,7 +130,7 @@ const HarnessCard = ({
   );
 };
 
-/** One balanced row of up to three cards (DESIGN.md); more wrap two to a row so names fit. */
+/** One balanced row of up to three cards (DESIGN.md); four wrap two to a row so names fit. */
 const columns = (cards: number) => (cards <= 3 ? Math.max(cards, 1) : 2);
 
 export interface HarnessChoiceProps {
@@ -140,6 +144,8 @@ export interface HarnessChoiceProps {
   /** The Host's first availability report hasn't arrived. */
   readonly loading: boolean;
   readonly onSignIn: (option: HarnessOption) => void;
+  /** When each Harness last ran a session here: the most recent ready ones get the cards. */
+  readonly lastUsed: LastUsed;
 }
 
 export const HarnessChoiceRow = ({
@@ -151,9 +157,11 @@ export const HarnessChoiceRow = ({
   canFork,
   loading,
   onSignIn,
+  lastUsed,
 }: HarnessChoiceProps) => {
-  const listed = listedOptions(options);
-  const cards = listed.length + (canFork ? 1 : 0);
+  // Up to three Harness cards (DESIGN.md New session), then Fork a turn.
+  const listed = cardOptions(options, lastUsed, value?.kind === "harness" ? value.harness : null);
+  const cards = columns(listed.length + (canFork ? 1 : 0));
 
   return (
     <div className="flex w-full flex-col gap-2">
@@ -161,7 +169,7 @@ export const HarnessChoiceRow = ({
         role="radiogroup"
         aria-label="Harness"
         className="grid w-full gap-2.5"
-        style={{ gridTemplateColumns: `repeat(${columns(cards)}, minmax(0, 1fr))` }}
+        style={{ gridTemplateColumns: `repeat(${cards}, minmax(0, 1fr))` }}
       >
         {listed.map((option) => (
           <HarnessCard
@@ -192,7 +200,7 @@ export const HarnessChoiceRow = ({
       {!loading && noneReady(options) ? (
         <NotReadyPanel hostKey={hostKey} options={options} onSignIn={onSignIn} />
       ) : (
-        <OtherHarnessesLink hostKey={hostKey} options={options} />
+        <OtherHarnessesLink hostKey={hostKey} options={options} shown={listed} />
       )}
     </div>
   );

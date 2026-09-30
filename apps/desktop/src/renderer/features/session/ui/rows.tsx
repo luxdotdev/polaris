@@ -3,7 +3,7 @@
  * item (the first one carries the Harness avatar), an inline approval or
  * question, and how an interrupted or failed Turn ended.
  */
-import type { ApprovalDecision, ApprovalRequest, SessionState } from "@polaris/protocol";
+import type { ApprovalDecision, ApprovalRequest, SessionId, SessionState } from "@polaris/protocol";
 import {
   ApprovalCard,
   Button,
@@ -12,15 +12,19 @@ import {
   type Harness,
   harnessHue,
   HarnessMark,
-  Input,
   PixelFailedIcon,
   PixelHandIcon,
+  QuestionCard,
   Tile,
 } from "@polaris/ui";
-import { useState } from "react";
+import { age } from "../../../shell/copy.ts";
+import { useNow } from "../../../shell/useNow.ts";
 import { Decisions } from "../../../commands.ts";
 import type { Row } from "../model/conversation.ts";
+import { totals } from "../model/diff.ts";
 import { plural } from "../model/format.ts";
+import { useTurnDiff } from "../turnDiff.ts";
+import { questionAnswers } from "../model/question.ts";
 import { Item } from "./items.tsx";
 import { softWrap } from "./softWrap.tsx";
 
@@ -36,9 +40,44 @@ export interface RowContext {
   readonly onContinue: () => void;
   /** "Opus 5 · high", as the Harness names them. */
   readonly modelLabel: (model: string | null, effort: string | null) => string;
+  /** Where a folded Turn's diff comes from, for its +/− counts. */
+  readonly diff: { readonly hostKey: string; readonly cwd: string; readonly sessionId: SessionId };
 }
 
 const AVATAR = "w-6 shrink-0";
+
+/** A folded Turn's +/− from its diff (cached, so reopening a session paints them at once). */
+const SummaryCounts = ({
+  row,
+  ctx,
+}: {
+  row: Extract<Row, { kind: "summary" }>;
+  ctx: RowContext;
+}) => {
+  const state = useTurnDiff(
+    ctx.diff.hostKey,
+    ctx.diff.cwd,
+    ctx.diff.sessionId,
+    row.turnId,
+    row.status
+  );
+
+  if (state.kind !== "ready" || state.files.length === 0)
+    return row.files === 0 ? null : (
+      <span className="text-caption text-text-subtle tabular">{plural(row.files, "file")}</span>
+    );
+  const sum = totals(state.files);
+
+  return (
+    <span
+      className="text-code-inline tabular flex shrink-0 gap-1.5 font-mono"
+      data-testid="turn-counts"
+    >
+      <span className="text-diff-added-text">+{sum.added}</span>
+      <span className="text-diff-removed-text">−{sum.removed}</span>
+    </span>
+  );
+};
 
 const Summary = ({ row, ctx }: { row: Extract<Row, { kind: "summary" }>; ctx: RowContext }) => (
   <button
@@ -53,11 +92,9 @@ const Summary = ({ row, ctx }: { row: Extract<Row, { kind: "summary" }>; ctx: Ro
     </span>
     <span className="text-body text-text-subtle flex-1 truncate">{row.summary}</span>
     {row.status === "completed" ? null : (
-      <span className="text-caption text-text-faint">{row.status}</span>
+      <span className="text-caption text-text-subtle">{row.status}</span>
     )}
-    {row.files === 0 ? null : (
-      <span className="text-caption text-text-faint tabular">{plural(row.files, "file")}</span>
-    )}
+    <SummaryCounts row={row} ctx={ctx} />
     <ChevronRightIcon size={10} className="text-text-faint shrink-0" />
   </button>
 );
@@ -69,7 +106,7 @@ const Prompt = ({ row, ctx }: { row: Extract<Row, { kind: "prompt" }>; ctx: RowC
         {softWrap(row.text)}
       </p>
     )}
-    <p className="text-caption text-text-faint max-w-[340px] truncate" data-testid="turn-model">
+    <p className="text-caption text-text-subtle max-w-[340px] truncate" data-testid="turn-model">
       {[...row.attachments, ctx.modelLabel(row.model, row.effort)].join(" · ")}
     </p>
   </div>
@@ -99,55 +136,25 @@ const KIND_WANTS: Record<ApprovalRequest["kind"], string> = {
   question: "has a question",
 };
 
+/** DESIGN.md Needs You: the washed header strip and numbered rows; free text goes in the composer. */
 const Question = ({ request, ctx }: { request: ApprovalRequest; ctx: RowContext }) => {
-  const [answer, setAnswer] = useState("");
-
-  const submit = (text: string) => {
-    if (text.trim() !== "") ctx.onRespond(request, Decisions.Answer({ text: text.trim() }));
-  };
+  const now = useNow(60_000);
+  const answers = questionAnswers(request.options);
 
   return (
-    <div className="rounded-card border-hairline bg-surface-raised flex flex-col overflow-clip border">
-      <div aria-hidden="true" className="pixelated h-1.5 bg-(image:--wash-needs-you) bg-cover" />
-      <div className="flex items-center gap-2.5 px-3.5 pt-3">
-        <PixelHandIcon size={16} className="text-needs-you shrink-0" />
-        <p className="text-label text-text-strong flex-1">{request.title}</p>
-      </div>
-      {request.detail === null ? null : (
-        <p className="text-body text-text-default px-3.5 pt-3">{request.detail}</p>
-      )}
-      <ol className="flex flex-col px-2 py-2">
-        {request.options.map((option, n) => (
-          <li key={option}>
-            <button
-              type="button"
-              onClick={() => submit(option)}
-              className="rounded-row hover:bg-fill-hover h-row flex w-full cursor-default items-center gap-2.5 px-2 text-left"
-            >
-              <span className="text-caption text-text-subtle tabular w-4">{n + 1}</span>
-              <span className="text-body text-text-default">{option}</span>
-            </button>
-          </li>
-        ))}
-      </ol>
-      <form
-        className="border-hairline flex gap-1.5 border-t px-3.5 py-2.5"
-        onSubmit={(event) => {
-          event.preventDefault();
-          submit(answer);
-        }}
-      >
-        <Input
-          value={answer}
-          onChange={(event) => setAnswer(event.target.value)}
-          placeholder={request.options.length === 0 ? "Your answer" : "Another answer"}
-          aria-label="Answer"
-        />
-        <Button type="submit" disabled={answer.trim() === ""}>
-          Answer
-        </Button>
-      </form>
-    </div>
+    <QuestionCard
+      data-testid="question"
+      harness={ctx.harness ?? ""}
+      age={age(request.openedAt, now)}
+      question={request.title}
+      {...(request.detail === null ? {} : { context: request.detail })}
+      answers={answers}
+      onAnswer={(index) => {
+        const chosen = answers[index];
+
+        if (chosen !== undefined) ctx.onRespond(request, Decisions.Answer({ text: chosen.value }));
+      }}
+    />
   );
 };
 

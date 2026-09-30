@@ -47,6 +47,11 @@ export class HarnessAvailability extends Schema.Class<HarnessAvailability>("Harn
    * was tested with: that tested version, for a quiet note. Null otherwise.
    */
   olderThanTested: addedNullable(Schema.String),
+  /**
+   * How it's signed in, as its own status command says ("Claude Max", "ChatGPT", "API key"),
+   * for "Ready · Claude Max"; null when it doesn't say. Never a credential.
+   */
+  signInKind: addedNullable(Schema.String),
   /** Why it isn't ready, in the Harness's words where it gave some; null when ready. */
   detail: Schema.NullOr(Schema.String),
   /**

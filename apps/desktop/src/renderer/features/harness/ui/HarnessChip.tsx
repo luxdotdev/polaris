@@ -73,7 +73,7 @@ const EffortItems = ({
   return (
     <>
       {note === null ? null : (
-        <p className="text-caption text-text-faint max-w-64 px-2 py-1.5">{note}</p>
+        <p className="text-caption text-text-subtle max-w-64 px-2 py-1.5">{note}</p>
       )}
       <DropdownMenuRadioGroup
         value={effortFor(model, current) ?? ""}
@@ -152,7 +152,7 @@ const HarnessItems = ({
               <span className="text-caption text-text-subtle pl-3">{option.note}</span>
             )
           ) : (
-            <span className="text-caption text-text-faint pl-3">
+            <span className="text-caption text-text-subtle pl-3">
               {STATUS_LABELS[option.status]}
             </span>
           )}
@@ -170,12 +170,14 @@ const ModelSection = ({ props, onPicked }: { props: HarnessChipProps; onPicked: 
     <>
       <DropdownMenuLabel>Model</DropdownMenuLabel>
       {modelNote === undefined ? null : (
-        <p className="text-caption text-text-faint max-w-64 px-2 pb-1.5">{modelNote}</p>
+        <p className="text-caption text-text-subtle max-w-64 px-2 pb-1.5">{modelNote}</p>
       )}
       {modelBlocked === undefined ? null : (
         <p className="text-caption text-text-subtle max-w-64 px-2 py-1.5">{modelBlocked}</p>
       )}
-      {models.loading ? <p className="text-caption text-text-faint px-2 py-1.5">Loading…</p> : null}
+      {models.loading ? (
+        <p className="text-caption text-text-subtle px-2 py-1.5">Loading…</p>
+      ) : null}
       {models.error === null ? null : (
         <p className="text-caption text-text-subtle max-w-64 px-2 py-1.5">{models.error}</p>
       )}

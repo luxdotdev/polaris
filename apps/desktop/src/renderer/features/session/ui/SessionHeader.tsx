@@ -112,7 +112,7 @@ const SessionMenu = ({
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             Permissions
-            <span className="text-caption text-text-faint ml-auto pl-3">
+            <span className="text-caption text-text-subtle ml-auto pl-3">
               {permissionLabel(session.permissionMode)}
             </span>
           </DropdownMenuSubTrigger>
@@ -129,7 +129,7 @@ const SessionMenu = ({
                 <DropdownMenuRadioItem key={p.mode} value={p.mode}>
                   <span className="flex flex-col">
                     <span>{p.label}</span>
-                    <span className="text-caption text-text-faint">{p.detail}</span>
+                    <span className="text-caption text-text-subtle">{p.detail}</span>
                   </span>
                 </DropdownMenuRadioItem>
               ))}
@@ -193,7 +193,7 @@ export const SessionHeader = (props: SessionHeaderProps) => {
           {turnNumber === null ? state : `${state} · turn ${turnNumber}`}
         </span>
         <span className="flex-1" />
-        <span className="text-caption text-text-faint">
+        <span className="text-caption text-text-subtle">
           {permissionLabel(session.permissionMode)}
         </span>
       </div>
