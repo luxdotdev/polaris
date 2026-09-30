@@ -30,7 +30,7 @@ const connected = (host: HostView) => host.status.state === "connected";
 
 const WorkspaceBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
   const selection = useSelection();
-  const { selectWorkspace } = useShellActions();
+  const { selectWorkspace, selectHost } = useShellActions();
   let index = 0;
 
   return (
@@ -41,9 +41,13 @@ const WorkspaceBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
       {bar.map((group, groupIndex) => (
         <Fragment key={group.host.key}>
           {groupIndex === 0 ? null : <span className="bg-text-faint/25 mx-1.5 h-4 w-px shrink-0" />}
-          <span
+          {/* A button, so a Host with no Workspace yet can be selected to add one (its stage). */}
+          <button
+            type="button"
+            aria-pressed={group.host.key === selection.hostKey && selection.workspaceId === null}
+            onClick={(event) => selectHost(group.host.key, event.timeStamp)}
             className={cn(
-              "flex shrink-0 items-center gap-1.5 pr-1.5 pl-1",
+              "hover:bg-fill-hover flex shrink-0 cursor-default items-center gap-1.5 rounded-control pr-1.5 pl-1",
               group.host.status.state === "reconnecting" && "opacity-(--opacity-dimmed)"
             )}
             title={group.host.status.failure?.detail}
@@ -52,7 +56,7 @@ const WorkspaceBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
           >
             <span className="text-caption text-text-faint">{group.host.label}</span>
             <HostStateLabel host={group.host} />
-          </span>
+          </button>
           {group.workspaces.map(({ hostKey, workspace, summary }) => {
             const shortcut = shortcutLabel(index++);
             const extra: ChipShortcut = {};

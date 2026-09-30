@@ -56,6 +56,9 @@ export interface MachinePatch {
 
 type Failure = { readonly message: string };
 
+/** What a check is doing while it runs, under the card's "Checking <host>". */
+const PROBING = "Asking over SSH for the platform and any installed daemon.";
+
 const fail = (message: string) => Effect.fail(new MachineError({ message }));
 
 const asMachineError = (error: Failure) => new MachineError({ message: failureMessage(error) });
@@ -204,7 +207,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
 
   const runCheck = (alias: string, trigger: InstallTrigger) =>
     Effect.gen(function* () {
-      const started = yield* step(alias, { type: "check", trigger }, `Checking ${alias}`);
+      const started = yield* step(alias, { type: "check", trigger }, PROBING);
 
       if (started.value === "checking") yield* launch(alias, checkBody(alias, trigger));
     });
@@ -300,7 +303,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
       }
 
       input.approvals.approve(key, { ...offer, approvedAt: Date.now() });
-      const approved = yield* step(key, { type: "approve" }, `Checking ${key}`);
+      const approved = yield* step(key, { type: "approve" }, PROBING);
 
       if (approved.value === "checking") yield* launch(key, checkBody(key, "user"));
     });
