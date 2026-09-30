@@ -21,6 +21,8 @@ const recorder = () => {
     startNewSession: record("startNewSession"),
     closeNewSession: record("closeNewSession"),
     toggleFolded: record("toggleFolded"),
+    openSettings: record("openSettings"),
+    closeSettings: record("closeSettings"),
   };
 
   return { calls, actions };

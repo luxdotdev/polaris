@@ -25,6 +25,10 @@ const Pending = ({ children }: { readonly children: string }) => (
   </div>
 );
 
+export const DefaultSettingsHosts = () => (
+  <Pending>Hosts are listed in settings.json for now.</Pending>
+);
+
 export const DefaultNoSession = () => <Pending>No agent sessions in this workspace yet.</Pending>;
 
 export const DefaultNeedsYouInbox = () => {
