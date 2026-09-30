@@ -20,6 +20,11 @@ export interface SessionUi {
   readonly diffTurnId: string | null;
   readonly draft: string;
   readonly attachments: ReadonlyArray<StagedAttachment>;
+  /** A follow-up queued (⌘↵) while a Turn runs; sent as the next Turn when it ends. */
+  readonly queued: {
+    readonly text: string;
+    readonly attachments: ReadonlyArray<StagedAttachment>;
+  } | null;
 }
 
 const EMPTY: SessionUi = {
@@ -27,6 +32,7 @@ const EMPTY: SessionUi = {
   diffTurnId: null,
   draft: "",
   attachments: [],
+  queued: null,
 };
 
 type UiState = Readonly<Record<string, SessionUi>>;

@@ -4,21 +4,27 @@
  * the composer never offers what the Daemon would refuse; a refusal still wins.
  */
 import type {
+  ApprovalRequest,
   AttachmentId,
   Command,
   PermissionMode,
+  RequestId,
   SessionId,
   SessionState,
   TurnId,
   TurnStatus,
 } from "@polaris/protocol";
-import { Commands } from "../../../commands.ts";
+import { Commands, Decisions } from "../../../commands.ts";
 
 export type ComposerMode =
   /** A new Turn: `SendTurn`. */
   | { readonly kind: "send" }
-  /** Guidance for the Turn in flight: `Steer`. */
+  /** Guidance for the Turn in flight: `Steer` (↵); ⌘↵ queues a follow-up instead. */
   | { readonly kind: "steer" }
+  /** A Turn is in flight and can't be steered: ↵ queues a follow-up for after it. */
+  | { readonly kind: "queue" }
+  /** A question is open: the draft answers it in free text (`RespondToApproval` Answer). */
+  | { readonly kind: "answer"; readonly requestId: RequestId }
   /** Nothing can be sent now; `reason` says why, as the placeholder. */
   | { readonly kind: "blocked"; readonly reason: string };
 
@@ -26,9 +32,17 @@ export interface ComposerContext {
   readonly state: SessionState;
   readonly lastTurn: TurnStatus | null;
   readonly pendingApprovals: number;
+  /** The first open question, when every open request is a question; null otherwise. */
+  readonly question: RequestId | null;
   /** The Daemon has `session.steer`. */
   readonly canSteer: boolean;
 }
+
+/** The first open question, when every open request is a question (else null). */
+export const openQuestion = (pending: ReadonlyArray<ApprovalRequest>): RequestId | null =>
+  pending.length > 0 && pending.every((r) => r.kind === "question")
+    ? (pending[0]?.id ?? null)
+    : null;
 
 const blocked = (reason: string): ComposerMode => ({ kind: "blocked", reason });
 
@@ -40,10 +54,12 @@ export const composerMode = (ctx: ComposerContext): ComposerMode => {
 
   if (ctx.state === "in-terminal") return blocked("In terminal · take it back to send a turn");
 
+  if (ctx.question !== null) return { kind: "answer", requestId: ctx.question };
+
   if (ctx.lastTurn === "working") {
     if (ctx.pendingApprovals > 0) return blocked("Answer the request above to go on");
 
-    return ctx.canSteer ? { kind: "steer" } : blocked("Wait for this turn, or stop it");
+    return ctx.canSteer ? { kind: "steer" } : { kind: "queue" };
   }
 
   if (ctx.state === "starting") return blocked("Starting…");
@@ -54,11 +70,18 @@ export const composerMode = (ctx: ComposerContext): ComposerMode => {
   return SEND;
 };
 
-export const placeholderFor = (mode: ComposerMode): string => {
-  if (mode.kind === "blocked") return mode.reason;
-
-  return mode.kind === "steer" ? "Steer this turn" : "Ask for a change";
+const PLACEHOLDERS: Readonly<Record<Exclude<ComposerMode["kind"], "blocked">, string>> = {
+  send: "Ask for a change",
+  steer: "Steer this turn · ⌘↵ to queue a follow-up",
+  queue: "Queue a follow-up for after this turn",
+  answer: "Or answer in your own words",
 };
+
+export const placeholderFor = (mode: ComposerMode): string =>
+  mode.kind === "blocked" ? mode.reason : PLACEHOLDERS[mode.kind];
+
+/** ⌘↵ queues a follow-up while a Turn runs (and ↵ does when it can't be steered). */
+export const canQueue = (mode: ComposerMode) => mode.kind === "steer" || mode.kind === "queue";
 
 export interface Draft {
   readonly text: string;
@@ -73,13 +96,32 @@ export const submitCommand = (
 ): Command | null => {
   const text = draft.text.trim();
 
-  if (mode.kind === "blocked") return null;
+  if (mode.kind === "blocked" || mode.kind === "queue") return null;
 
   if (mode.kind === "steer") return text === "" ? null : Commands.Steer({ sessionId, text });
+
+  if (mode.kind === "answer") {
+    if (text === "") return null;
+
+    return Commands.RespondToApproval({
+      sessionId,
+      requestId: mode.requestId,
+      decision: Decisions.Answer({ text }),
+    });
+  }
 
   if (text === "" && draft.attachments.length === 0) return null;
 
   return Commands.SendTurn({ sessionId, prompt: text, attachments: draft.attachments });
+};
+
+/** A queued follow-up, sent as the next Turn once the one in flight ends. */
+export const queuedCommand = (sessionId: SessionId, draft: Draft): Command | null => {
+  const prompt = draft.text.trim();
+
+  if (prompt === "" && draft.attachments.length === 0) return null;
+
+  return Commands.SendTurn({ sessionId, prompt, attachments: draft.attachments });
 };
 
 /** Esc while Working interrupts the Turn in flight; otherwise it does nothing. */

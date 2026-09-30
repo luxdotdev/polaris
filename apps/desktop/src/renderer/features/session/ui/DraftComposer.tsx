@@ -22,6 +22,10 @@ export interface DraftComposerProps {
   readonly canSubmit: boolean;
   readonly working?: { readonly elapsed: ReactNode; readonly onStop: () => void } | undefined;
   readonly onEscape?: (() => void) | undefined;
+  /** ⌘↵: queue the draft as a follow-up for after the Turn in flight. */
+  readonly onQueue?: (() => void) | undefined;
+  /** Above the composer: the queued follow-up, when there is one. */
+  readonly notice?: ReactNode;
   readonly attachments: ReadonlyArray<StagedAttachment>;
   readonly uploads: ReadonlyArray<Upload>;
   readonly onFiles?: ((files: ReadonlyArray<File>, mode: DropMode) => void) | undefined;
@@ -46,6 +50,8 @@ export const DraftComposer = ({
   canSubmit,
   working,
   onEscape,
+  onQueue,
+  notice,
   attachments,
   uploads,
   onFiles,
@@ -61,7 +67,10 @@ export const DraftComposer = ({
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.nativeEvent.isComposing) return;
 
-    if (event.key === "Enter" && !event.shiftKey) {
+    if (event.key === "Enter" && (event.metaKey || event.ctrlKey) && onQueue !== undefined) {
+      event.preventDefault();
+      onQueue();
+    } else if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
 
       if (canSubmit) onSubmit();
@@ -73,6 +82,7 @@ export const DraftComposer = ({
 
   return (
     <div className={className}>
+      {notice}
       <AttachmentDrop onFiles={onFiles} copyTo={copyTo}>
         <Composer
           harness={harness}

@@ -4,7 +4,8 @@
  * the Harness can't switch).
  */
 import type { SessionId } from "@polaris/protocol";
-import type { Harness } from "@polaris/ui";
+import { Button, type Harness } from "@polaris/ui";
+import { useEffect } from "react";
 import { Commands, newSessionId } from "../../../commands.ts";
 import type { SessionData } from "../../../store/plain.ts";
 import type { SessionModel } from "../../../store/sessionModel.ts";
@@ -22,10 +23,14 @@ import {
 import { hasCapability, useElapsed, useHost } from "../hooks.ts";
 import { formatElapsed, tildePath } from "../model/format.ts";
 import {
+  canQueue,
+  type ComposerMode,
   composerMode,
   forkCommand,
   interruptCommand,
+  openQuestion,
   placeholderFor,
+  queuedCommand,
   submitCommand,
 } from "../model/intent.ts";
 import { patchSessionUi, useSessionUi } from "../state.ts";
@@ -111,6 +116,59 @@ const useModelChange = ({ hostKey, session, model, onOpenSession }: SessionCompo
   };
 };
 
+const SEND_FAILURES: Readonly<Record<ComposerMode["kind"], string>> = {
+  send: "Couldn't send",
+  steer: "Couldn't steer",
+  queue: "Couldn't queue",
+  answer: "Couldn't answer",
+  blocked: "Couldn't send",
+};
+
+/** Sends the queued follow-up as the next Turn once the session takes one again. */
+const useSendQueued = ({
+  hostKey,
+  uiKey,
+  sessionId,
+  ready,
+}: {
+  readonly hostKey: string;
+  readonly uiKey: string;
+  readonly sessionId: SessionId;
+  readonly ready: boolean;
+}) => {
+  const queued = useSessionUi(uiKey).queued;
+
+  useEffect(() => {
+    if (!ready || queued === null) return;
+
+    const command = queuedCommand(sessionId, {
+      text: queued.text,
+      attachments: queued.attachments.map((a) => a.id),
+    });
+
+    patchSessionUi(uiKey, () => ({ queued: null }));
+
+    if (command !== null)
+      void send(hostKey, command, "Couldn't send the queued follow-up").then((ok) => {
+        if (!ok) patchSessionUi(uiKey, () => ({ queued }));
+      });
+  }, [ready, queued, hostKey, uiKey, sessionId]);
+};
+
+/** The follow-up waiting for the Turn in flight, above the composer. */
+const Queued = ({ text, onCancel }: { readonly text: string; readonly onCancel: () => void }) => (
+  <div
+    className="rounded-row border-hairline bg-surface-raised mb-1.5 flex h-8 items-center gap-2 border pr-1 pl-3"
+    data-testid="queued-follow-up"
+  >
+    <span className="text-caption text-text-subtle shrink-0">Queued for after this turn</span>
+    <span className="text-caption text-text-default min-w-0 flex-1 truncate">{text}</span>
+    <Button variant="ghost" size="sm" onClick={onCancel}>
+      Cancel
+    </Button>
+  </div>
+);
+
 export const SessionComposer = (props: SessionComposerProps) => {
   const { hostKey, uiKey, harness, session, model, branch } = props;
   const host = useHost(hostKey);
@@ -123,6 +181,7 @@ export const SessionComposer = (props: SessionComposerProps) => {
     state: session.state,
     lastTurn: lastTurn?.status ?? null,
     pendingApprovals: model.pendingApprovals.length,
+    question: openQuestion(model.pendingApprovals),
     canSteer: hasCapability(host, "session.steer"),
   });
 
@@ -143,17 +202,28 @@ export const SessionComposer = (props: SessionComposerProps) => {
 
   const change = useModelChange(props);
 
+  const queue = () => {
+    if (!canQueue(mode) || (ui.draft.trim() === "" && ui.attachments.length === 0)) return;
+
+    patchSessionUi(uiKey, (u) => ({
+      queued: { text: u.draft, attachments: u.attachments },
+      draft: "",
+      attachments: [],
+    }));
+  };
+
+  useSendQueued({ hostKey, uiKey, sessionId: session.id, ready: mode.kind === "send" });
+
   const submit = () => {
+    if (mode.kind === "queue") return queue();
+
     if (command === null) return;
     const kept = ui;
 
     patchSessionUi(uiKey, () => ({ draft: "", attachments: [] }));
-    void send(hostKey, command, mode.kind === "steer" ? "Couldn't steer" : "Couldn't send").then(
-      (ok) => {
-        if (!ok)
-          patchSessionUi(uiKey, () => ({ draft: kept.draft, attachments: kept.attachments }));
-      }
-    );
+    void send(hostKey, command, SEND_FAILURES[mode.kind]).then((ok) => {
+      if (!ok) patchSessionUi(uiKey, () => ({ draft: kept.draft, attachments: kept.attachments }));
+    });
   };
 
   const stop = () => {
@@ -185,7 +255,21 @@ export const SessionComposer = (props: SessionComposerProps) => {
       value={ui.draft}
       onChange={(text) => patchSessionUi(uiKey, () => ({ draft: text }))}
       onSubmit={submit}
-      canSubmit={command !== null}
+      onQueue={canQueue(mode) ? queue : undefined}
+      notice={
+        ui.queued === null ? null : (
+          <Queued
+            text={ui.queued.text}
+            onCancel={() =>
+              patchSessionUi(uiKey, (u) => ({
+                queued: null,
+                draft: u.draft === "" ? (u.queued?.text ?? "") : u.draft,
+              }))
+            }
+          />
+        )
+      }
+      canSubmit={command !== null || (mode.kind === "queue" && ui.draft.trim() !== "")}
       placeholder={placeholderFor(mode)}
       working={
         isWorking && session.state === "working"
