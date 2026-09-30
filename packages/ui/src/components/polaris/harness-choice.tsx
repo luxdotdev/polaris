@@ -129,11 +129,11 @@ function ChoiceCard({
       disabled={disabled}
       data-slot="harness-choice-card"
       className={cn(
-        "flex min-h-14 min-w-0 flex-1 cursor-default overflow-clip rounded-card border bg-surface-raised text-left select-none disabled:opacity-(--opacity-dimmed)",
+        "flex h-14 min-w-0 flex-1 cursor-default items-stretch overflow-clip rounded-card border bg-surface-raised text-left select-none disabled:opacity-(--opacity-dimmed)",
         selected ? "border-text-subtle/40" : "border-hairline hover:border-text-subtle/25"
       )}
     >
-      <CardTile hue={hue}>{icon}</CardTile>
+      <ChoiceTile hue={hue}>{icon}</ChoiceTile>
       <span className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 pr-2 pl-3">
         <span
           className={cn(
@@ -172,9 +172,9 @@ function NotInstalledCard({ kind }: NotInstalledCardProps) {
       aria-disabled="true"
       className="rounded-card border-text-subtle/30 bg-surface-raised flex min-h-14 min-w-0 flex-1 overflow-clip border border-dashed"
     >
-      <CardTile hue={kind} muted>
+      <ChoiceTile hue={kind} muted>
         <Dither hue={kind} size={24} dim />
-      </CardTile>
+      </ChoiceTile>
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 py-2 pr-3 pl-3">
         <span className="flex items-baseline gap-2">
           <span className="text-heading-sm text-text-subtle min-w-0 flex-1 truncate leading-[18px]">
@@ -199,13 +199,18 @@ function NotInstalledCard({ kind }: NotInstalledCardProps) {
   );
 }
 
-interface CardTileProps {
+export interface ChoiceTileProps {
   readonly hue: TintHue;
   readonly muted?: boolean;
-  readonly children: ReactNode;
+  readonly className?: string;
+  readonly children?: ReactNode;
 }
 
-function CardTile({ hue, muted = false, children }: CardTileProps) {
+/**
+ * The leading tile of a choice card (Paper VG-0): 48px wide, flush with the card's leading
+ * edge and full height, so the card's radius and overflow clip its corners; a hue hairline right.
+ */
+export function ChoiceTile({ hue, muted = false, className, children }: ChoiceTileProps) {
   const resolved = resolveTint(hue);
 
   const vars: CssVars =
@@ -217,11 +222,12 @@ function CardTile({ hue, muted = false, children }: CardTileProps) {
     <span
       aria-hidden="true"
       className={cn(
-        "pixelated flex w-12 shrink-0 items-center justify-center border-r bg-cover bg-center bg-origin-border",
+        "pixelated flex w-12 shrink-0 items-center justify-center self-stretch border-r bg-cover bg-center bg-origin-border",
         resolved === "neutral"
           ? "border-hairline bg-fill-selected"
-          : "border-[color-mix(in_oklab,var(--choice-hue)_20%,transparent)]",
-        muted && "opacity-60"
+          : "border-[color-mix(in_oklab,var(--choice-hue)_22%,transparent)]",
+        muted && "opacity-60",
+        className
       )}
       style={vars}
     >
