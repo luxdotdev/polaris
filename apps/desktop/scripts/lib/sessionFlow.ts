@@ -209,7 +209,7 @@ export const checkNoneReady = async (page: Page, step: (m: string) => void) => {
 
   if (!sendOff) throw new Error("Start is enabled though no Harness is ready");
 
-  if (claude?.includes("needs 2.1.283 or newer") !== true)
+  if (claude?.includes("needs 2.1.0 or newer") !== true)
     throw new Error(`Claude Code's reason reads "${claude}"`);
 
   if (installs !== 0) throw new Error("an install or update action is offered");

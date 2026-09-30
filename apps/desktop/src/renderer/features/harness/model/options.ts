@@ -156,7 +156,7 @@ export const defaultHarness = (options: ReadonlyArray<HarnessOption>): HarnessKi
 export const noneReady = (options: ReadonlyArray<HarnessOption>) =>
   !options.some((o) => o.status === "ready");
 
-/** Why a Harness can't start, in one line: "Claude Code 2.1.272 · needs 2.1.283 or newer". */
+/** Why a Harness can't start, in one line: "Claude Code 2.0.9 · needs 2.1.0 or newer". */
 export const reasonLine = (option: HarnessOption): string => {
   const named = option.version === null ? option.name : `${option.name} ${option.version}`;
 

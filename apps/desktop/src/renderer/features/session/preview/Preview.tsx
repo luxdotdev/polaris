@@ -91,7 +91,7 @@ type Probe = readonly [status: HarnessStatus, version: string | null];
 
 /**
  * What each scene's Host has: mostly ready; on "setup" a sign-in and not-installed ones;
- * on "none-ready" nothing ready (the Raspberry Pi test: an outdated Claude Code).
+ * on "none-ready" nothing ready (an outdated Claude Code, below the floor).
  */
 const HOSTS: Readonly<Record<"default" | "setup" | "none-ready", Readonly<Record<string, Probe>>>> =
   {
@@ -110,7 +110,7 @@ const HOSTS: Readonly<Record<"default" | "setup" | "none-ready", Readonly<Record
       copilot: ["not-installed", null],
     },
     "none-ready": {
-      claude: ["outdated", "2.1.272"],
+      claude: ["outdated", "2.0.9"],
       codex: ["not-installed", null],
       opencode: ["needs-sign-in", "1.18.33"],
       gemini: ["not-installed", null],
