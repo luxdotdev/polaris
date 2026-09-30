@@ -139,9 +139,12 @@ const fold = (event: DomainEvent): Fold =>
         (m) =>
           updateTurn(upsertTurn(m, turn), turn.id, (view) => ({ ...view, live: noLive })),
       TurnItemCompleted:
-        ({ turnId, item }): Fold =>
+        ({ turnId, item, subagentId }): Fold =>
         (m) =>
-          updateTurn(m, turnId, (view) => completeItem(view, item)),
+          // A Subagent's own items belong to its view, not the Turn's (session view, later).
+          subagentId === null ? updateTurn(m, turnId, (view) => completeItem(view, item)) : m,
+      SubagentStarted: () => same,
+      SubagentEnded: () => same,
       CheckpointRecorded: () => same,
       ApprovalRequested:
         ({ request }): Fold =>
