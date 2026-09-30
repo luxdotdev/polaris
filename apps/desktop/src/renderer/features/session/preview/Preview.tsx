@@ -139,6 +139,7 @@ const stateFor = (models: ReadonlyArray<SessionModel>): AppState => {
                     session: m.session,
                     pendingApprovals: m.pendingApprovals,
                     lastTurnPreview: m.turns.at(-1)?.turn.prompt ?? null,
+                    subagents: [],
                   },
                 ]
           ),

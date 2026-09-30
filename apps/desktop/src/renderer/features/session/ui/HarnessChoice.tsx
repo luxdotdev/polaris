@@ -44,7 +44,7 @@ const Card = ({ selected, tile, title, caption, onSelect, testId }: CardProps) =
     onClick={onSelect}
     data-testid={testId}
     className={cn(
-      "rounded-card bg-surface-raised flex h-14 min-w-0 flex-1 basis-0 cursor-default items-stretch overflow-clip border text-left",
+      "rounded-card bg-surface-raised flex h-14 min-w-0 cursor-default items-stretch overflow-clip border text-left",
       selected
         ? "border-text-strong/15 shadow-float"
         : "border-hairline hover:border-text-strong/10"
@@ -146,6 +146,9 @@ export const SetupNote = ({ option }: { readonly option: HarnessOption }) => (
   </div>
 );
 
+/** One balanced row of up to three cards (DESIGN.md); more wrap two to a row so names fit. */
+const columns = (cards: number) => (cards <= 3 ? Math.max(cards, 1) : 2);
+
 export interface HarnessChoiceProps {
   readonly hostKey: string;
   readonly options: ReadonlyArray<HarnessOption>;
@@ -164,7 +167,14 @@ export const HarnessChoiceRow = ({
   onChange,
   canFork,
 }: HarnessChoiceProps) => (
-  <div role="radiogroup" aria-label="Harness" className="flex w-full gap-2.5">
+  <div
+    role="radiogroup"
+    aria-label="Harness"
+    className="grid w-full gap-2.5"
+    style={{
+      gridTemplateColumns: `repeat(${columns(options.length + (canFork ? 1 : 0))}, minmax(0, 1fr))`,
+    }}
+  >
     {options.map((option) => (
       <HarnessCard
         key={option.kind}
