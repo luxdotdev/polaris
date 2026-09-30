@@ -10,6 +10,7 @@ import {
   ContrastIcon,
   GridIcon,
   Kbd,
+  PaperclipIcon,
   PixelPolarisIcon,
   ServerIcon,
 } from "@polaris/ui";
@@ -19,6 +20,7 @@ import type { SettingsRoute, SettingsSection } from "../../../routes/selection.t
 import { useShellActions } from "../../../shell/hooks.ts";
 import { SECTION_GROUPS, sectionInfo } from "../model/sections.ts";
 import { useSettings } from "../store.ts";
+import { AttachmentsPage } from "../../attachments/index.ts";
 import { AppearancePage } from "./AppearancePage.tsx";
 import { HarnessesPage } from "./HarnessesPage.tsx";
 import { UsagePage } from "./UsagePage.tsx";
@@ -28,6 +30,7 @@ const ICONS: Readonly<Record<SettingsSection, ReactNode>> = {
   harnesses: <GridIcon />,
   usage: <ChartColumnIcon />,
   hosts: <ServerIcon />,
+  attachments: <PaperclipIcon />,
 };
 
 /** An open popover, menu, select or dialog takes esc first. */
@@ -128,6 +131,8 @@ const Page = ({ route }: { readonly route: SettingsRoute }) => {
       return <UsagePage />;
     case "hosts":
       return <slots.SettingsHosts adding={route.adding} />;
+    case "attachments":
+      return <AttachmentsPage />;
   }
 };
 

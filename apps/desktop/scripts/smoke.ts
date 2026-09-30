@@ -19,6 +19,7 @@ import { startDaemon } from "./lib/daemon.ts";
 import { machineFlow, prepareFakeHost } from "./lib/machineFlow.ts";
 import { checkNoneReady, initRepo, sessionFlow } from "./lib/sessionFlow.ts";
 import { settingsFlow } from "./lib/settingsFlow.ts";
+import { attachmentsFlow } from "./lib/attachmentsFlow.ts";
 import { terminalFlow } from "./lib/terminalFlow.ts";
 
 const args = process.argv.slice(2);
@@ -333,6 +334,7 @@ try {
   });
   await settingsFlow({ app, page, step, shoot: (name) => shoot(page, name) });
   await terminalFlow({ page, step, shoot: (name) => shoot(page, name) });
+  await attachmentsFlow({ app, page, step, shoot: (name) => shoot(page, name) });
   await timeSwitches(page);
   await jumpByTyping(page);
 

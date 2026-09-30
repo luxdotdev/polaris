@@ -19,13 +19,14 @@ export type SidebarView = "sessions" | "needs-you";
 export type Pane = "session" | "new-session";
 
 /** The Settings pages (DESIGN.md, Settings); features/machines fills "hosts". */
-export type SettingsSection = "appearance" | "harnesses" | "usage" | "hosts";
+export type SettingsSection = "appearance" | "harnesses" | "usage" | "hosts" | "attachments";
 
 export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
   "appearance",
   "harnesses",
   "usage",
   "hosts",
+  "attachments",
 ];
 
 /** Settings, open over the three zones; null when closed. */

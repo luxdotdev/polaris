@@ -180,6 +180,12 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
     onHost(hostKey, (c) =>
       c.withBlob(bytes, (blobId, s) => s.client["attachments.stage"]({ ...payload, blobId }))
     ),
+  "attachments.settings": ({ hostKey }) =>
+    onLive(hostKey, (s) => s.client["attachments.settings"]({})),
+  "attachments.setSettings": ({ hostKey, settings }) =>
+    onLive(hostKey, (s) => s.client["attachments.setSettings"]({ settings })).pipe(done),
+  "attachments.clear": ({ hostKey, workspaceId }) =>
+    onLive(hostKey, (s) => s.client["attachments.clear"]({ workspaceId })),
   "install.ensure": ({ hostKey, approvedSha256 }) =>
     HostDirectory.use((dir) => {
       const alias = dir.entry(hostKey)?.alias ?? null;

@@ -5,6 +5,7 @@
  * code reaches its bundle.
  */
 import {
+  AttachmentSettings,
   Command,
   CommandId,
   GitDiffSpec,
@@ -159,6 +160,11 @@ export const RequestInputs = {
     mimeType: Schema.String,
     bytes: Schema.Uint8Array,
   }),
+  /** Attachment cleanup (Settings → Attachments): the Host's policy and what it has staged. */
+  "attachments.settings": onHost({}),
+  "attachments.setSettings": onHost({ settings: AttachmentSettings }),
+  /** Deletes staged attachments now: one Workspace's, or all of them (null). */
+  "attachments.clear": onHost({ workspaceId: Schema.NullOr(WorkspaceId) }),
   /** Probe a remote Host and plan an install or upgrade; installs only with an approved SHA-256. */
   "install.ensure": onHost({ approvedSha256: Schema.NullOr(Schema.String) }),
   /** The literal `Host` aliases in `~/.ssh/config` (Includes followed, wildcards skipped). */

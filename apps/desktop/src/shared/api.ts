@@ -6,6 +6,9 @@
  */
 import type {
   Attachment,
+  AttachmentSettings,
+  AttachmentUsage,
+  StagedAmount,
   Capability,
   ConnectionState,
   FileChangeEvent,
@@ -291,6 +294,12 @@ export interface RequestOutputs {
   "terminal.resize": null;
   "terminal.close": null;
   "attachments.stage": Attachment;
+  "attachments.settings": {
+    readonly settings: Plain<AttachmentSettings>;
+    readonly usage: Plain<AttachmentUsage>;
+  };
+  "attachments.setSettings": null;
+  "attachments.clear": Plain<StagedAmount>;
   "install.ensure": InstallView;
   "machines.sshAliases": ReadonlyArray<SshAliasView>;
   "machines.add": { readonly key: string };
