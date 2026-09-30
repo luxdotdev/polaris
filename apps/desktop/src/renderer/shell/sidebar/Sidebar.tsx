@@ -225,10 +225,17 @@ const WorkspaceSidebar = () => {
   const host = useApp((s) => s.hosts.find((h) => h.key === hostKey));
   const workspace = workspaceId === null ? undefined : model.workspaces.get(workspaceId);
 
+  // New session still works here: it starts in the Host's home directory (onboarding).
   if (hostKey === null || workspace === undefined || host === undefined) {
     return (
       <SidebarFrame
-        header={<Header title="Polaris" caption="No workspaces yet" canStart={false} />}
+        header={
+          <Header
+            title="No workspace yet"
+            caption={host === undefined ? "No host yet" : host.label}
+            canStart={host !== undefined}
+          />
+        }
         footer=""
       />
     );

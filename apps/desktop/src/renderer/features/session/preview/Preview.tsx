@@ -18,6 +18,7 @@ import type { SessionModel } from "../../../store/sessionModel.ts";
 import { App } from "../../../app/App.tsx";
 import { createNavigation } from "../../../routes/navigation.ts";
 import { type AppState, type Connection, initialState, sessionKey } from "../../../store/store.ts";
+import { settledOnboarding } from "../../onboarding/index.ts";
 import { standInBridge } from "../bridge.ts";
 import { patchSessionUi, uiKey } from "../state.ts";
 import {
@@ -193,7 +194,9 @@ export const mountPreview = (root: HTMLElement, hash: string) => {
     patchSessionUi(uiKey(HOST, shown.session.id), () => ({ unfolded }));
   }
 
-  createRoot(root).render(<App value={{ connection, navigation }} />);
+  createRoot(root).render(
+    <App value={{ connection, navigation }} onboarding={settledOnboarding()} />
+  );
 
   return connection.setDensity;
 };

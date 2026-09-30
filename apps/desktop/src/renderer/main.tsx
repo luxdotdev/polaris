@@ -2,6 +2,7 @@ import "./styles.css";
 import { createRoot } from "react-dom/client";
 import { App } from "./app/App.tsx";
 import { applyAppearance } from "./appearance.ts";
+import { createOnboarding } from "./features/onboarding/index.ts";
 import { startProofSession } from "./proof.ts";
 import { installKeyboard } from "./routes/keyboard.ts";
 import { createNavigation } from "./routes/navigation.ts";
@@ -19,7 +20,13 @@ const storage = (() => {
   }
 })();
 
-const navigation = createNavigation({ app: connection.store, storage });
+const onboarding = createOnboarding({ api: window.polaris, store: connection.store });
+
+const navigation = createNavigation({
+  app: connection.store,
+  storage,
+  ensureWorkspace: onboarding.workspaceFor,
+});
 
 // `#preview/<scene>`: the shell on fixtures, for screenshots (features/session/preview).
 const preview = location.hash.startsWith("#preview/");
@@ -59,5 +66,5 @@ if (root !== null && preview) {
     setPreviewDensity = m.mountPreview(root, location.hash);
   });
 } else if (root !== null) {
-  createRoot(root).render(<App value={{ connection, navigation }} />);
+  createRoot(root).render(<App value={{ connection, navigation }} onboarding={onboarding} />);
 }

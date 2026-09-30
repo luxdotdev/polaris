@@ -1,4 +1,5 @@
 /** Layout F: title bar, the adaptive top bar, then Input → Intent → Output (ENG-177). */
+import { useOnboardingState, Welcome } from "../features/onboarding/index.ts";
 import { Columns } from "../shell/Columns.tsx";
 import { useNav, useSelection, useShellActions } from "../shell/hooks.ts";
 import { Sidebar } from "../shell/sidebar/Sidebar.tsx";
@@ -15,6 +16,12 @@ export const Shell = () => {
   const { mode } = useSelection();
   const jumpOpen = useNav((s) => s.jumpOpen);
   const { setJumpOpen } = useShellActions();
+  const welcome = useOnboardingState((s) => s.welcome);
+
+  // Until the settings say, a plain frame: the welcome never flashes for a returning user.
+  if (welcome === "unknown") return <div className="bg-bg h-full" />;
+
+  if (welcome === "show") return <Welcome />;
 
   return (
     <div className="flex h-full flex-col">

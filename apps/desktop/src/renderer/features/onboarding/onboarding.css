@@ -1,0 +1,21 @@
+/*
+ * The welcome's theme-dependent pieces (Paper 571-1 night, 5OY-1 dawn): the lockup's star
+ * and the footer notes, which sit on a pale plate at dawn and straight on the night sky.
+ */
+:root,
+[data-theme="dark"] {
+  --onboarding-star: url("../../../../../../design/assets/brand/polaris-logo-starlight.svg");
+  --onboarding-note: transparent;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --onboarding-star: url("../../../../../../design/assets/brand/polaris-logo-blue.svg");
+    --onboarding-note: color-mix(in oklab, var(--scene-clearing) 90%, transparent);
+  }
+}
+
+[data-theme="light"] {
+  --onboarding-star: url("../../../../../../design/assets/brand/polaris-logo-blue.svg");
+  --onboarding-note: color-mix(in oklab, var(--scene-clearing) 90%, transparent);
+}
