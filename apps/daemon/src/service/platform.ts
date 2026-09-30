@@ -31,7 +31,11 @@ export const BUN_TARGETS: Record<Platform, string> = {
   "linux-arm64-musl": "bun-linux-arm64-musl",
 };
 
-export const VERSION: string = pkg.version;
+/**
+ * This build's version: the one `scripts/build-daemon.ts` compiled in (it replaces
+ * `process.env.POLARIS_BUILD_VERSION` with a constant), else the package's, from source.
+ */
+export const VERSION: string = process.env.POLARIS_BUILD_VERSION ?? pkg.version;
 
 export const isPlatform = (value: string): value is Platform =>
   PLATFORMS.some((platform) => platform === value);
