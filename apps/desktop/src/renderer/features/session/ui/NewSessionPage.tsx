@@ -16,15 +16,21 @@ import { Clearing, type Harness, Scene } from "@polaris/ui";
 import { useState } from "react";
 import { newSessionId } from "../../../commands.ts";
 import { emptyHostModel } from "../../../store/hostModel.ts";
-import type { SessionDefaults } from "../../../../shared/api.ts";
 import { useApp } from "../../../shell/hooks.ts";
 import { useUploads } from "../../attachments/index.ts";
-import { useSettings } from "../../settings/index.ts";
+import { useSettings, withSavedModels } from "../../settings/index.ts";
 import { send } from "../dispatch.ts";
-import { hasCapability, useHarnessOptions, useHost } from "../hooks.ts";
+import {
+  defaultHarness,
+  HarnessChip,
+  HarnessChoiceRow,
+  type ModelChoice,
+  SetupNote,
+  useAvailability,
+  useSignIn,
+} from "../../harness/index.ts";
+import { hasCapability, useHost } from "../hooks.ts";
 import { tildePath } from "../model/format.ts";
-import { defaultHarness } from "../model/harnesses.ts";
-import type { ModelChoice } from "../model/models.ts";
 import {
   branchFromPrompt,
   forkStartCommands,
@@ -35,8 +41,6 @@ import {
 import { patchSessionUi, type SessionUi, uiKey, useSessionUi } from "../state.ts";
 import { DraftComposer } from "./DraftComposer.tsx";
 import { ForkSource, type ForkSourceValue } from "./ForkSource.tsx";
-import { HarnessChoiceRow, SetupNote } from "./HarnessChoice.tsx";
-import { ModelPicker } from "./ModelPicker.tsx";
 import { PermissionChip, WhereLine } from "./placement.tsx";
 
 export interface NewSessionPageProps {
@@ -132,17 +136,6 @@ const sendAll = async (hostKey: string, commands: ReadonlyArray<Command>) => {
   return true;
 };
 
-/** Settings → Harnesses' saved Model for each Harness the user hasn't picked one for here. */
-const withSavedModels = (models: Models, defaults: SessionDefaults): Models => {
-  const saved = Object.entries(defaults).flatMap(([kind, d]) =>
-    d.model === null || models[kind] !== undefined
-      ? []
-      : [[kind, { model: d.model, effort: d.effort }] as const]
-  );
-
-  return saved.length === 0 ? models : { ...Object.fromEntries(saved), ...models };
-};
-
 const defaultPlacement = (workspace: Workspace): PlacementChoice =>
   workspace.isGitRepo ? { kind: "new-worktree", branch: "", base: null } : { kind: "in-place" };
 
@@ -168,7 +161,8 @@ export const NewSessionPage = ({
   const ui = useSessionUi(key);
   const [picked, setPicked] = useState<HarnessChoice | null>(null);
   const [models, setModels] = useState<Models>({});
-  const { options } = useHarnessOptions(hostKey);
+  const { options } = useAvailability(hostKey);
+  const signIn = useSignIn(hostKey);
   const [permissionPick, setPermissionMode] = useState<PermissionMode | null>(null);
   const defaults = useSettings((s) => s.sessionDefaults);
   const [placement, setPlacement] = useState<PlacementChoice | null>(null);
@@ -256,13 +250,17 @@ export const NewSessionPage = ({
           harness={hue}
           autoFocus
           picker={
-            <ModelPicker
+            <HarnessChip
               hostKey={hostKey}
               harness={hue}
               model={choices.models[hue]?.model ?? null}
               effort={choices.models[hue]?.effort ?? null}
               disabled={!choices.startable}
-              onChoose={(next) => setModels({ ...models, [hue]: next })}
+              onModel={(next) => setModels({ ...models, [hue]: next })}
+              harnesses={{
+                onPick: (o) => setPicked({ kind: "harness", harness: o.kind }),
+                verb: (o) => o.name,
+              }}
             />
           }
           tools={<PermissionChip value={permissionMode} onChange={setPermissionMode} />}
@@ -284,12 +282,15 @@ export const NewSessionPage = ({
         <HarnessChoiceRow
           hostKey={hostKey}
           options={options}
-          picked={models}
+          picked={choices.models}
           value={choice}
           onChange={setPicked}
           canFork={hasCapability(host, "session.fork")}
         />
-        {option !== undefined && !option.startable ? <SetupNote option={option} /> : null}
+        {option !== undefined && !option.startable ? (
+          <SetupNote option={option} onSignIn={signIn.begin} />
+        ) : null}
+        {signIn.dialog}
         {choice?.kind === "fork" ? (
           <ForkSource
             hostKey={hostKey}

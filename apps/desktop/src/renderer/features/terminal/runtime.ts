@@ -10,7 +10,7 @@ import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import type { TerminalId } from "@polaris/protocol";
 import { Predicate } from "effect";
-import { polaris } from "../session/bridge.ts";
+import { polaris } from "../bridge.ts";
 import { loaded } from "./loaded.ts";
 import { applyStatus } from "./store.ts";
 import { terminalTheme } from "./theme.ts";

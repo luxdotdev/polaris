@@ -20,7 +20,7 @@ const useNeedsYouCount = () =>
  * lights, the mode switch (⌘1–3), the jump field (K) and New session (⌘N).
  */
 export const TitleBar = () => {
-  const { mode, workspaceId } = useSelection();
+  const { mode, hostKey } = useSelection();
   const { setMode, openJump, startNewSession } = useShellActions();
   const waiting = useNeedsYouCount();
 
@@ -68,7 +68,7 @@ export const TitleBar = () => {
       <Button
         variant="ghost"
         className="app-no-drag text-text-default px-2.5"
-        disabled={workspaceId === null}
+        disabled={hostKey === null}
         onClick={startNewSession}
       >
         <PlusIcon size={14} />

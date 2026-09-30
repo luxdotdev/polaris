@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { WorkspaceId } from "@polaris/protocol";
 import { createStore } from "zustand/vanilla";
 import { type AppState, initialState } from "../store/store.ts";
 import { hostModel, hostView, workspaces } from "./fixtures.testing.ts";
@@ -104,5 +105,62 @@ describe("navigation", () => {
     nav.actions.openSettings("usage");
     nav.actions.selectShortcut(1);
     expect(nav.current().settings).toBeNull();
+  });
+
+  test("a new session with no Workspace falls back to the one onboarding makes", async () => {
+    const app = withData({ local: 0 });
+    const asked: Array<string> = [];
+
+    const nav = createNavigation({
+      app,
+      storage: null,
+      ensureWorkspace: (hostKey) => {
+        asked.push(hostKey);
+        app.setState(withData({ local: 1 }).getState());
+
+        return Promise.resolve(WorkspaceId.make("local0"));
+      },
+    });
+
+    expect(nav.current().workspaceId).toBeNull();
+    nav.actions.startNewSession();
+    expect(nav.current().pane).toBe("new-session");
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(asked).toEqual(["local"]);
+    expect(nav.current()).toMatchObject({ workspaceId: "local0", pane: "new-session" });
+  });
+
+  test("when no Workspace can be made, the stage goes back to the setup", async () => {
+    const nav = createNavigation({
+      app: withData({ local: 0 }),
+      storage: null,
+      ensureWorkspace: () => Promise.resolve(null),
+    });
+
+    nav.actions.startNewSession();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(nav.current()).toMatchObject({ workspaceId: null, pane: "session" });
+  });
+
+  test("with a Workspace selected, a new session asks for nothing", () => {
+    const asked: Array<string> = [];
+
+    const nav = createNavigation({
+      app: withData({ local: 2 }),
+      storage: null,
+      ensureWorkspace: (hostKey) => {
+        asked.push(hostKey);
+
+        return Promise.resolve(null);
+      },
+    });
+
+    nav.actions.startNewSession();
+    expect(asked).toEqual([]);
+    expect(nav.current()).toMatchObject({ workspaceId: "local0", pane: "new-session" });
   });
 });

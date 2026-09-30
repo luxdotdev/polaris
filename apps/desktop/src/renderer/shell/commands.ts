@@ -123,7 +123,8 @@ export const shellCommands = ({
     "help.shortcuts": { run: () => actions.setHelpOpen(true) },
     "session.new": {
       run: actions.startNewSession,
-      enabled: () => navigation.current().workspaceId !== null,
+      // With no Workspace, onboarding starts it in the Host's home directory.
+      enabled: () => navigation.current().hostKey !== null,
     },
     "session.next": { run: step(1) },
     "session.previous": { run: step(-1) },

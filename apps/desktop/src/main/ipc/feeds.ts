@@ -5,7 +5,7 @@
  * then events, and the feed survives reconnects.
  */
 import { attachTerminal, type HostConnection, type LiveSession } from "@polaris/client";
-import { Effect, flow, Schema, Stream, SubscriptionRef } from "effect";
+import { Effect, flow, Predicate, Schema, Stream, SubscriptionRef } from "effect";
 import type { IpcError, SubscriptionItem } from "../../shared/api.ts";
 import {
   SubscriptionInputs,
@@ -55,6 +55,16 @@ const openers: Openers = {
   "files.watch": ({ hostKey, root }) =>
     onLive(hostKey, (session) => session.client["files.watch"]({ root })),
   usage: ({ hostKey }) => onLive(hostKey, (session) => session.client["usage.watch"]({})),
+  "harness.availability": ({ hostKey }) =>
+    onLive(hostKey, (session) => session.client["harness.watchAvailability"]({})),
+  "plan-limits": ({ hostKey }) =>
+    onLive(hostKey, (session) =>
+      session.client["usage.watch"]({}).pipe(
+        Stream.flatMap((item) =>
+          Predicate.isTagged(item, "PlanLimitChanged") ? Stream.make(item.limit) : Stream.empty
+        )
+      )
+    ),
 };
 
 export const isSubscriptionKind = (kind: string): kind is SubscriptionKind =>

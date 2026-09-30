@@ -1,17 +1,15 @@
 /**
  * A Harness group's footer strip: what new sessions start with (Model, effort,
  * permissions). Saved in settings and read by the new-session page through
- * `useSessionDefault`. Models come from `harness.models` on a Host where the
- * Harness is ready.
+ * `useSessionDefault` and the Harness picker. Models and efforts come from the
+ * picker's own `useHarnessModels` on a Host where the Harness is ready.
  */
-import type { Model, PermissionMode } from "@polaris/protocol";
+import type { PermissionMode } from "@polaris/protocol";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@polaris/ui";
-import { useEffect, useState } from "react";
-import type { Plain, SessionDefault } from "../../../../shared/api.ts";
+import type { SessionDefault } from "../../../../shared/api.ts";
+import { choose, type ModelData, useHarnessModels } from "../../harness/index.ts";
 import { setSessionDefault, useSessionDefault } from "../store.ts";
 import { FooterStrip } from "./parts.tsx";
-
-type ModelData = Plain<Model>;
 
 /** The Select value meaning "the Harness's own default" (null). */
 const DEFAULT = "default";
@@ -23,31 +21,9 @@ const PERMISSIONS: ReadonlyArray<{ readonly mode: PermissionMode; readonly label
   { mode: "full-access", label: "Full access" },
 ];
 
-const useModels = (hostKey: string | null, harness: string): ReadonlyArray<ModelData> => {
-  const [models, setModels] = useState<{ key: string; list: ReadonlyArray<ModelData> } | null>(
-    null
-  );
-
-  const key = `${hostKey ?? ""}\u0000${harness}`;
-
-  useEffect(() => {
-    if (hostKey === null) return undefined;
-    let live = true;
-
-    void window.polaris
-      .request("harness.models", { hostKey, harness, refresh: false })
-      .then((result) => {
-        if (live && result.ok) setModels({ key, list: result.value.models });
-      });
-
-    return () => {
-      live = false;
-    };
-  }, [hostKey, harness, key]);
-
-  // Claude Code's `default` row means "whatever it picks": that is our Default already.
-  return (models?.key === key ? models.list : []).filter((m) => m.id !== DEFAULT);
-};
+/** The Harness picker's Models (shared cache); Claude Code's `default` row is our Default already. */
+const useModels = (hostKey: string | null, harness: string): ReadonlyArray<ModelData> =>
+  useHarnessModels(hostKey ?? "", harness, hostKey !== null).models.filter((m) => m.id !== DEFAULT);
 
 const Chip = ({
   label,
@@ -118,7 +94,7 @@ export const SessionDefaultsStrip = ({
         onChange={(v) => {
           const next = models.find((m) => m.id === v);
 
-          save({ model: v === DEFAULT ? null : v, effort: next?.defaultEffort ?? null });
+          save(next === undefined ? { model: null, effort: null } : choose(next));
         }}
       />
       <Chip

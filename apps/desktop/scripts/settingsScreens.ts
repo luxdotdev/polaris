@@ -37,7 +37,10 @@ const userData = join(home, "user-data");
 
 mkdirSync(userData, { recursive: true });
 
-writeFileSync(join(userData, "settings.json"), JSON.stringify({ theme: "dark" }));
+writeFileSync(
+  join(userData, "settings.json"),
+  JSON.stringify({ theme: "dark", welcomeSeen: true })
+);
 
 const app = await electron.launch({
   executablePath: electronBinary(),

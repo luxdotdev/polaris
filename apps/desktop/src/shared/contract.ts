@@ -196,6 +196,12 @@ export const RequestInputs = {
    */
   "machines.openSsh": onHost({}),
   "clipboard.write": Schema.Struct({ text: Schema.String }),
+  /** What onboarding found on this Mac: the Host aliases in `~/.ssh/config`, and the app's version. */
+  "onboarding.found": Schema.Struct({}),
+  /** "Get started": the welcome isn't shown again. */
+  "onboarding.welcomeSeen": Schema.Struct({}),
+  /** The native folder picker, for a Workspace on the local Host; null when cancelled. */
+  "dialog.pickFolder": Schema.Struct({}),
   /** The renderer's Needs You summary, for the menu bar star, Dock badge and notifications. */
   "needsYou.publish": Schema.Struct({
     count: Schema.Int,
@@ -256,6 +262,10 @@ export const SubscriptionInputs = {
   "files.watch": onHost({ root: Schema.String }),
   /** Plan Limits (every known one first) and Usage changes on a Host (capability `usage`). */
   usage: onHost({}),
+  /** Each catalogue Harness's status as it changes (`harness.watchAvailability`). */
+  "harness.availability": onHost({}),
+  /** Plan Limits as they change (`usage.watch`, its `PlanLimitChanged` items). */
+  "plan-limits": onHost({}),
 } as const;
 
 export type SubscriptionKind = keyof typeof SubscriptionInputs;

@@ -5,7 +5,7 @@
  * Build it first: `bun run --cwd apps/desktop build`.
  */
 import { type ChildProcess, spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { Effect } from "effect";
@@ -30,6 +30,15 @@ const appCommand = (): ReadonlyArray<string> | null => {
 };
 
 const READY_LINE = "polaris: ready";
+
+/** Fresh settings with the welcome already seen, so the idle app is the Orchestrator. */
+const seenUserData = () => {
+  const dir = createTempDir("desktop");
+
+  writeFileSync(join(dir, "settings.json"), JSON.stringify({ welcomeSeen: true }));
+
+  return dir;
+};
 
 const READY_TIMEOUT_MS = 30_000;
 
@@ -119,7 +128,7 @@ export const desktopIdle: Scenario = {
             ...process.env,
             POLARIS_DESKTOP_LOCAL_SOCKET: daemon.socketPath,
             POLARIS_DESKTOP_BENCH_HARNESS: "1",
-            POLARIS_DESKTOP_USER_DATA: createTempDir("desktop"),
+            POLARIS_DESKTOP_USER_DATA: seenUserData(),
             POLARIS_DESKTOP_HIDDEN: hidden ? "1" : "0",
           },
         }),

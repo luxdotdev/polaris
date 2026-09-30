@@ -39,6 +39,8 @@ export const Settings = Schema.Struct({
   hosts: Schema.optionalKey(Schema.Array(RemoteHostSetting)),
   /** The local Host on this machine; on unless switched off. */
   local: Schema.optionalKey(Schema.Struct({ enabled: Schema.Boolean })),
+  /** Set once "Get started" is pressed on the welcome (onboarding O1). */
+  welcomeSeen: Schema.optionalKey(Schema.Boolean),
 });
 
 export type Settings = typeof Settings.Type;

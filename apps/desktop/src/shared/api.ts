@@ -16,6 +16,7 @@ import type {
   HostHarnesses,
   HostInfo,
   HostStreamItem,
+  PlanLimit,
   SearchPaths,
   SessionStreamItem,
   TerminalId,
@@ -216,6 +217,8 @@ export interface SettingsView extends Appearance {
   readonly sessionDefaults: SessionDefaults;
   /** This build's version, for About Polaris. */
   readonly version: string;
+  /** False until the user pressed "Get started" on the welcome. */
+  readonly welcomeSeen: boolean;
   readonly hosts: ReadonlyArray<{
     readonly alias: string;
     readonly label: string;
@@ -300,6 +303,9 @@ export interface RequestOutputs {
   "machines.harnesses": ReadonlyArray<HarnessAvailabilityView> | null;
   "machines.openSsh": null;
   "clipboard.write": null;
+  "onboarding.found": { readonly sshHosts: ReadonlyArray<string>; readonly version: string };
+  "onboarding.welcomeSeen": null;
+  "dialog.pickFolder": { readonly path: string | null };
   "needsYou.publish": null;
   "dev.proofWorkspace": { readonly path: string };
 }
@@ -321,6 +327,8 @@ export interface SubscriptionItems {
   terminal: TerminalItem;
   "files.watch": ReadonlyArray<typeof FileChangeEvent.Type>;
   usage: UsageStreamItem;
+  "harness.availability": Plain<HostHarnesses>;
+  "plan-limits": Plain<PlanLimit>;
 }
 
 export type SubscriptionItem<K extends SubscriptionKind> = SubscriptionItems[K];

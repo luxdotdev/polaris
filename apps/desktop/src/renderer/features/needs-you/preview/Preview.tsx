@@ -9,7 +9,7 @@ import { App } from "../../../app/App.tsx";
 import { createCommandRegistry } from "../../../routes/commands.ts";
 import { createNavigation } from "../../../routes/navigation.ts";
 import { type AppState, type Connection, initialState } from "../../../store/store.ts";
-import { standInBridge } from "../../session/bridge.ts";
+import { standInBridge } from "../../bridge.ts";
 import { APPROVAL, HOSTS, MODELS, QUESTION } from "./fixtures.ts";
 
 const bridge: PolarisApi = {

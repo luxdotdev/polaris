@@ -1,7 +1,8 @@
 /**
- * A Host with no Workspaces (and first run): "Where does your code live?"
- * with the setup card (Paper 57Q-1): add a workspace by its path on the Host,
- * connect a host, and start a session once a workspace exists.
+ * A Host with no Workspaces, and first run (onboarding O2): "Where does your
+ * code live?" with the setup card (Paper 57Q-1): add a workspace (the native
+ * folder picker on this Mac, a typed path anywhere), connect a host, and start
+ * a session, which with no workspace starts in the Host's home directory.
  */
 import {
   Button,
@@ -11,53 +12,59 @@ import {
   PixelSparkleIcon,
   SetupCard,
   SetupRow,
+  showToast,
 } from "@polaris/ui";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { HostView } from "../../../../shared/api.ts";
 import { Commands } from "../../../commands.ts";
-import { useApp } from "../../../shell/hooks.ts";
+import { useApp, useSelection, useShellActions } from "../../../shell/hooks.ts";
+import { useOnboardingState } from "../../onboarding/index.ts";
 import { send } from "../../session/dispatch.ts";
 import { useReadyLine } from "../hooks.ts";
 import { absolutePath, cleanPath, hostStageLine, stageKicker } from "../model.ts";
 import { Stage } from "./Stage.tsx";
 
-const AddWorkspaceRow = ({ host }: { readonly host: HostView }) => {
-  const [path, setPath] = useState<string | null>(null);
+const register = (host: HostView, path: string) =>
+  send(host.key, Commands.RegisterWorkspace({ path, name: null }), "Couldn't add the workspace");
+
+/** The native folder picker (main process); the stage gives way once the Workspace arrives. */
+const pickFolder = async (host: HostView) => {
+  const picked = await window.polaris.request("dialog.pickFolder", {});
+
+  if (picked.ok && picked.value.path !== null) await register(host, picked.value.path);
+};
+
+/** ⌘O opens the picker while the stage shows this Mac. */
+const usePickShortcut = (host: HostView, local: boolean) =>
+  useEffect(() => {
+    if (!local) return undefined;
+
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== "o" || !event.metaKey || event.defaultPrevented) return;
+      event.preventDefault();
+      void pickFolder(host);
+    };
+
+    window.addEventListener("keydown", onKey);
+
+    return () => window.removeEventListener("keydown", onKey);
+  }, [host, local]);
+
+const PathForm = ({ host, onClose }: { readonly host: HostView; readonly onClose: () => void }) => {
+  const [path, setPath] = useState("~/");
   const [busy, setBusy] = useState(false);
-  const homeDir = host.status.host?.homeDir ?? null;
-  const cleaned = path === null ? null : cleanPath(path);
-  const absolute = cleaned === null ? null : absolutePath(cleaned, homeDir);
+  const cleaned = cleanPath(path);
+
+  const absolute =
+    cleaned === null ? null : absolutePath(cleaned, host.status.host?.homeDir ?? null);
+
   const connected = host.status.state === "connected";
 
   const add = () => {
     if (absolute === null) return;
     setBusy(true);
-    void send(
-      host.key,
-      Commands.RegisterWorkspace({ path: absolute, name: null }),
-      "Couldn't add the workspace"
-    ).finally(() => setBusy(false));
+    void register(host, absolute).finally(() => setBusy(false));
   };
-
-  if (path === null) {
-    return (
-      <SetupRow
-        icon={<PixelFolderIcon size={20} />}
-        title="Add a workspace"
-        caption={`A repository on ${host.label}`}
-        action={
-          <Button
-            variant="primary"
-            disabled={!connected}
-            onClick={() => setPath("~/")}
-            data-testid="add-workspace"
-          >
-            Choose folder
-          </Button>
-        }
-      />
-    );
-  }
 
   return (
     <form
@@ -73,7 +80,7 @@ const AddWorkspaceRow = ({ host }: { readonly host: HostView }) => {
         value={path}
         onChange={(event) => setPath(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key === "Escape") setPath(null);
+          if (event.key === "Escape") onClose();
         }}
         placeholder="~/code/polaris"
         className="text-code-inline flex-1 font-mono"
@@ -86,14 +93,111 @@ const AddWorkspaceRow = ({ host }: { readonly host: HostView }) => {
   );
 };
 
-const StartRow = ({ host }: { readonly host: HostView }) => (
-  <SetupRow
-    icon={<PixelSparkleIcon size={20} />}
-    title="Start a session"
-    caption={useReadyLine(host)}
-    locked="Needs a workspace"
-  />
-);
+const AddWorkspaceRow = ({ host }: { readonly host: HostView }) => {
+  const [typing, setTyping] = useState(false);
+  const connected = host.status.state === "connected";
+  const local = host.alias === null;
+
+  usePickShortcut(host, local && connected && !typing);
+
+  if (typing) return <PathForm host={host} onClose={() => setTyping(false)} />;
+
+  const typePath = (
+    <Button
+      variant={local ? "ghost" : "primary"}
+      disabled={!connected}
+      onClick={() => setTyping(true)}
+      data-testid="add-workspace"
+    >
+      {local ? "Type a path" : "Choose folder"}
+    </Button>
+  );
+
+  return (
+    <SetupRow
+      icon={<PixelFolderIcon size={20} />}
+      title="Add a workspace"
+      caption={`A repository on ${host.label}`}
+      action={
+        local ? (
+          <div className="flex shrink-0 items-center gap-1.5">
+            {typePath}
+            <Button
+              variant="primary"
+              disabled={!connected}
+              onClick={() => void pickFolder(host)}
+              data-testid="choose-folder"
+            >
+              Choose folder <span className="text-micro opacity-60">⌘O</span>
+            </Button>
+          </div>
+        ) : (
+          typePath
+        )
+      }
+    />
+  );
+};
+
+const ConnectHostRow = ({ hostCount }: { readonly hostCount: number }) => {
+  const sshHosts = useOnboardingState((s) => s.sshHosts?.length ?? 0);
+
+  const caption =
+    hostCount > 1
+      ? `${hostCount - 1} more in settings · optional`
+      : sshHosts > 0
+        ? `${sshHosts} ${sshHosts === 1 ? "host" : "hosts"} in ~/.ssh/config · optional`
+        : "Any machine you can reach over SSH · optional";
+
+  // Stub until the add-machine flow (features/machines) lands; then it opens Settings → Hosts.
+  const browse = () =>
+    showToast({
+      source: "starlight",
+      icon: <PixelServerIcon size={16} />,
+      title: "Adding a host comes with Settings → Hosts",
+      message: "Until then, list the host by its ~/.ssh/config alias under hosts in settings.json.",
+    });
+
+  return (
+    <SetupRow
+      icon={<PixelServerIcon size={20} />}
+      title="Connect a host"
+      caption={caption}
+      action={<Button onClick={browse}>Browse hosts</Button>}
+    />
+  );
+};
+
+/** Not locked on a workspace: with none, New session registers the Host's home (onboarding). */
+const StartRow = ({ host }: { readonly host: HostView }) => {
+  const { startNewSession } = useShellActions();
+  const starting = useSelection().pane === "new-session";
+  const readyLine = useReadyLine(host);
+
+  if (host.status.host === null) {
+    return (
+      <SetupRow
+        icon={<PixelSparkleIcon size={20} />}
+        title="Start a session"
+        caption={readyLine}
+        locked="Needs a connected host"
+      />
+    );
+  }
+
+  return (
+    <SetupRow
+      icon={<PixelSparkleIcon size={20} />}
+      title="Start a session"
+      caption={`${readyLine} · starts in ~`}
+      action={
+        <Button data-testid="setup-start-session" disabled={starting} onClick={startNewSession}>
+          {starting ? "Starting…" : "Start session"}
+        </Button>
+      }
+    />
+  );
+};
 
 /** The Host in view, else the local one: a workspace needs a machine to live on. */
 const useStageHost = (hostKey: string | null) =>
@@ -114,15 +218,7 @@ export const HostStage = ({ hostKey }: { readonly hostKey: string | null }) => {
     >
       <SetupCard className="shadow-float">
         <AddWorkspaceRow host={host} />
-        <SetupRow
-          icon={<PixelServerIcon size={20} />}
-          title="Connect a host"
-          caption={
-            hostCount > 1
-              ? `${hostCount - 1} more in settings · optional`
-              : "Any machine you can reach over SSH · optional"
-          }
-        />
+        <ConnectHostRow hostCount={hostCount} />
         <StartRow host={host} />
       </SetupCard>
     </Stage>

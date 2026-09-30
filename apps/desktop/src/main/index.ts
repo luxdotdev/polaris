@@ -12,7 +12,7 @@ import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, clipboard, nativeTheme, session, shell } from "electron";
+import { app, BrowserWindow, clipboard, dialog, nativeTheme, session, shell } from "electron";
 import { type AppEvent, type Appearance, CHANNELS, type SessionDefault } from "../shared/api.ts";
 import {
   clientIdentity,
@@ -44,6 +44,7 @@ import {
   settingsPath,
   writeSettings,
 } from "./settings.ts";
+import { readSshHosts } from "./sshHosts.ts";
 import { createMainWindow } from "./window.ts";
 
 const env = process.env;
@@ -97,8 +98,11 @@ const start = async () => {
     writeSettings({ path: file, settings });
   };
 
-  const setAppearance = (patch: Partial<Appearance>) => {
+  const saveSettings = (patch: Partial<Settings>) =>
     updateSettings((current) => ({ ...current, ...patch }));
+
+  const setAppearance = (patch: Partial<Appearance>) => {
+    saveSettings(patch);
     applyAppearance();
   };
 
@@ -109,11 +113,26 @@ const start = async () => {
       value === null ? others : [...others, [harness, value]]
     );
 
-    settings = { ...settings, sessionDefaults };
-    writeSettings({ path: file, settings });
+    saveSettings({ sessionDefaults });
     const event: AppEvent = { kind: "session-defaults", sessionDefaults };
 
     for (const win of BrowserWindow.getAllWindows()) win.webContents.send(CHANNELS.app, event);
+  };
+
+  const pickFolder = async () => {
+    const options: Electron.OpenDialogOptions = {
+      title: "Add a workspace",
+      buttonLabel: "Add workspace",
+      properties: ["openDirectory", "createDirectory"],
+    };
+
+    const win = BrowserWindow.getFocusedWindow();
+
+    const picked = await (win === null
+      ? dialog.showOpenDialog(options)
+      : dialog.showOpenDialog(win, options));
+
+    return picked.canceled ? null : (picked.filePaths[0] ?? null);
   };
 
   const applyAppearance = () => {
@@ -168,12 +187,15 @@ const start = async () => {
     trusted,
     context: {
       settings: () => settings,
-      version: app.getVersion(),
       cache: openSnapshotCache(app.getPath("userData")),
       prices: openPrices(app.getPath("userData")),
       setAppearance,
       setSessionDefault,
       openExternal: (url) => shell.openExternal(url),
+      sshHosts: () => readSshHosts(),
+      setWelcomeSeen: () => saveSettings({ welcomeSeen: true }),
+      pickFolder,
+      appVersion: app.getVersion(),
       proofWorkspace: () =>
         localDaemon?.benchHarness === true ? mkdtempSync(join(tmpdir(), "polaris-proof-")) : null,
       daemonDist: existsSync(join(daemonDist, "manifest.json")) ? daemonDist : null,

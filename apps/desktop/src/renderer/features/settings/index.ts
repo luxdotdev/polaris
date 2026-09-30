@@ -5,6 +5,8 @@
  */
 export { settingsCommands } from "./actions.ts";
 
+export { withSavedModels } from "./model/defaults.ts";
+
 export {
   connectSettings,
   DEFAULT_APPEARANCE,

@@ -3,7 +3,14 @@
  * (`scripts/sessionScreens.ts`): `#preview/<scene>` renders the shell with one
  * scene selected, on a stand-in bridge and store, no Daemon involved. Its own chunk.
  */
-import { Capability, HARNESS_CATALOGUE, HostId, Sequence } from "@polaris/protocol";
+import {
+  Capability,
+  HARNESS_CATALOGUE,
+  type HarnessStatus,
+  HostId,
+  PlanLimit,
+  Sequence,
+} from "@polaris/protocol";
 import { createRoot } from "react-dom/client";
 import { createStore } from "zustand/vanilla";
 import type {
@@ -12,6 +19,7 @@ import type {
   RequestInput,
   RequestMethod,
   Result,
+  SubscriptionKind,
 } from "../../../../shared/api.ts";
 import { modelFromSnapshot } from "../../../store/hostModel.ts";
 import type { SessionModel } from "../../../store/sessionModel.ts";
@@ -19,7 +27,7 @@ import { App } from "../../../app/App.tsx";
 import { createCommandRegistry } from "../../../routes/commands.ts";
 import { createNavigation } from "../../../routes/navigation.ts";
 import { type AppState, type Connection, initialState, sessionKey } from "../../../store/store.ts";
-import { standInBridge } from "../bridge.ts";
+import { standInBridge } from "../../bridge.ts";
 import { patchSessionUi, uiKey } from "../state.ts";
 import {
   approval,
@@ -79,17 +87,85 @@ const harnessOf = (input: RequestInput<RequestMethod>) =>
   "harness" in input && input.harness === "codex" ? "codex" : "claude";
 
 /** Every catalogue Harness ready, except Codex on the setup scene. */
-const availability = (scene: Scene) => ({
-  harnesses: HARNESS_CATALOGUE.map((entry) => ({
-    harness: entry.kind,
-    status: scene === "setup" && entry.kind === "codex" ? "not-installed" : "ready",
-    version: scene === "setup" && entry.kind === "codex" ? null : entry.minVersion,
-    minVersion: entry.minVersion,
-    detail: null,
-    signInArgv: null,
-  })),
-  checkedAt: "2026-09-30T00:00:00.000Z",
-});
+/** What each scene's Host has: most ready, a sign-in and not-installed ones on "setup". */
+const STATUSES: Readonly<Record<"default" | "setup", Readonly<Record<string, HarnessStatus>>>> = {
+  default: {
+    claude: "ready",
+    codex: "ready",
+    opencode: "ready",
+    gemini: "outdated",
+    copilot: "not-installed",
+  },
+  setup: {
+    claude: "ready",
+    codex: "needs-sign-in",
+    opencode: "not-installed",
+    gemini: "outdated",
+    copilot: "not-installed",
+  },
+};
+
+/** Installed versions: none when not installed, an old one when outdated. */
+const VERSIONS = new Map<HarnessStatus, string | null>([
+  ["not-installed", null],
+  ["outdated", "0.21.0"],
+]);
+
+const availability = (scene: Scene) => {
+  const statuses = STATUSES[scene === "setup" ? "setup" : "default"];
+
+  return {
+    harnesses: HARNESS_CATALOGUE.map((entry) => {
+      const status = statuses[entry.kind] ?? "ready";
+
+      return {
+        harness: entry.kind,
+        status,
+        version: VERSIONS.get(status) ?? entry.minVersion,
+        minVersion: entry.minVersion,
+        detail: null,
+        signInArgv: status === "not-installed" ? null : [...entry.setup.signInCommand],
+      };
+    }),
+    checkedAt: "2026-09-30T00:00:00.000Z",
+  };
+};
+
+const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+
+const later = (minutes: number) => new Date(Date.now() + minutes * 60_000).toISOString();
+
+const LIMITS = [
+  new PlanLimit({
+    harness: "claude",
+    kind: "five-hour",
+    scope: null,
+    windowMinutes: 300,
+    usedPercent: 42,
+    status: "ok",
+    resetsAt: later(130),
+    observedAt: ago(1),
+    plan: "max",
+  }),
+  new PlanLimit({
+    harness: "claude",
+    kind: "weekly",
+    scope: null,
+    windowMinutes: 10_080,
+    usedPercent: 18,
+    status: "ok",
+    resetsAt: later(4 * 24 * 60),
+    observedAt: ago(1),
+    plan: "max",
+  }),
+];
+
+/** The feeds the session view opens: availability and Plan Limits, sent once. */
+const feed = (scene: Scene, kind: SubscriptionKind): ReadonlyArray<unknown> => {
+  if (kind === "harness.availability") return [availability(scene)];
+
+  return kind === "plan-limits" ? LIMITS : [];
+};
 
 const answer = (
   scene: Scene,
@@ -118,7 +194,15 @@ const answer = (
 const bridgeFor = (scene: Scene): PolarisApi => ({
   // SAFETY: fixture answers match RequestOutputs for the methods the session feature calls.
   request: (method, input) => Promise.resolve(answer(scene, method, input) as never),
-  subscribe: () => () => undefined,
+  subscribe: (kind, _input, listener) => {
+    // SAFETY: each fixture feed's items match SubscriptionItems for its kind.
+    const items = feed(scene, kind) as never;
+    const deliver = () => listener.items(items);
+
+    if (feed(scene, kind).length > 0) queueMicrotask(deliver);
+
+    return () => undefined;
+  },
   onAppEvent: () => () => undefined,
 });
 
