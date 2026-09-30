@@ -25,7 +25,9 @@ import { totals } from "../model/diff.ts";
 import { plural } from "../model/format.ts";
 import { useTurnDiff } from "../turnDiff.ts";
 import { questionAnswers } from "../model/question.ts";
+import type { OutboxActions } from "../outbox.ts";
 import { Item } from "./items.tsx";
+import { OutgoingMessage, Steered } from "./outgoing.tsx";
 import { softWrap } from "./softWrap.tsx";
 
 export interface RowContext {
@@ -41,6 +43,9 @@ export interface RowContext {
   readonly onRetry: () => void;
   /** "Opus 5 · high", as the Harness names them. */
   readonly modelLabel: (model: string | null, effort: string | null) => string;
+  /** A Turn is in flight that takes steers (a failed steer retries as one). */
+  readonly canSteer: boolean;
+  readonly outbox: Pick<OutboxActions, "retry" | "edit">;
   /** Where a folded Turn's diff comes from, for its +/− counts. */
   readonly diff: { readonly hostKey: string; readonly cwd: string; readonly sessionId: SessionId };
 }
@@ -220,7 +225,20 @@ export const ConversationRow = ({ row, ctx }: { row: Row; ctx: RowContext }) => 
     case "prompt":
       return <Prompt row={row} ctx={ctx} />;
     case "item":
-      return <Agent row={row} ctx={ctx} />;
+      return row.item.kind === "user" ? (
+        <Steered text={row.item.text} />
+      ) : (
+        <Agent row={row} ctx={ctx} />
+      );
+    case "outgoing":
+      return (
+        <OutgoingMessage
+          entry={row.entry}
+          canSteer={ctx.canSteer}
+          onRetry={() => ctx.outbox.retry(row.entry.id)}
+          onEdit={() => ctx.outbox.edit(row.entry.id)}
+        />
+      );
     case "approval":
       return <Approval request={row.request} ctx={ctx} />;
     case "ending":

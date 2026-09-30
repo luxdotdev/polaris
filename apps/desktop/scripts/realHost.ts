@@ -186,6 +186,7 @@ const harnesses = async (page: Page) => {
 const session = async (page: Page, kind: string, text: string) => {
   await page.keyboard.press("Meta+N");
   await page.getByTestId("new-session").waitFor({ timeout: 10_000 });
+  step(`where: ${await page.getByTestId("where-line").innerText()}`);
   await page.getByTestId(`harness-${kind}`).click();
   await page.getByTestId("composer-input").fill(text);
   await shoot(page, `09-${kind}-prompt`);
@@ -214,30 +215,31 @@ const session = async (page: Page, kind: string, text: string) => {
   if (!ended.startsWith("Idle")) throw new Error(`${kind} session ended ${ended}`);
 };
 
-/** Leaves Settings, selects the Host, and registers its home directory as a Workspace. */
+/** Leaves Settings, selects the Host, and opens its home directory with ⌘O, as a user does. */
 const workspace = async (page: Page, homeDir: string | null) => {
   if (homeDir === null) throw new Error("no home directory reported");
   await page.keyboard.press("Escape");
   // The Workspace bar's host label (the machine bar's button from 11 Workspaces).
   await page.locator(`button[data-host="${alias}"]`).first().click();
   await page.waitForTimeout(1500);
+  await page.keyboard.press("Meta+O");
+  await page.getByTestId("folder-path").waitFor({ timeout: 10_000 });
 
-  // A Host installed before (an upgrade) keeps its Workspaces: use the one it has.
-  const add = page.getByTestId("host-stage").getByTestId("add-workspace");
+  const selected = await page
+    .locator('[role="dialog"] [data-slot="segmented-control"] [data-state="on"]')
+    .innerText();
 
-  if (await add.isVisible()) {
-    // ⌘O's dialog on this Host: its home is where it starts; ↵ on "Open ~" adds it.
-    await add.click();
-    await page.getByTestId("folder-open").waitFor({ timeout: 30_000 });
-    await shoot(page, "06-open-folder");
-    await page.keyboard.press("Enter");
-    await page.getByTestId("host-stage").waitFor({ state: "detached", timeout: 30_000 });
-    await page.waitForTimeout(800);
-    step(`workspace ${homeDir} registered on ${alias}`);
-  } else {
-    step(`${alias} already has a workspace; using it`);
-  }
+  step(`⌘O opened on ${selected.trim()}`);
+  // Its home is where it starts; the listing comes over the Host's own Daemon.
+  const open = page.getByTestId("folder-open");
 
+  await open.waitFor({ timeout: 30_000 });
+  step(`⌘O lists ${homeDir}:\n${await page.locator("[cmdk-list]").innerText()}`);
+  await shoot(page, "06-open-folder");
+  await page.keyboard.press("Enter");
+  await page.getByTestId("folder-path").waitFor({ state: "detached", timeout: 30_000 });
+  await page.waitForTimeout(800);
+  step(`workspace ${homeDir} open on ${alias}`);
   await shoot(page, "07-workspace");
   await page.keyboard.press("Meta+N");
   await page.waitForTimeout(1500);

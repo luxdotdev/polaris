@@ -356,6 +356,17 @@ describe("contract compatibility", () => {
     expect(detail.subagents).toEqual([]);
   });
 
+  test("a steer's UserMessage item round-trips", () => {
+    const event = DomainEvent.cases.TurnItemCompleted.make({
+      sessionId: SessionId.make("s"),
+      turnId: TurnId.make("t"),
+      item: TurnItem.cases.UserMessage.make({ id: "steer:1", text: "also run lint" }),
+      subagentId: null,
+    });
+
+    expect(decodeEvent(encodeEvent(event))).toEqual(event);
+  });
+
   test("SubagentStarted and SubagentEnded round-trip", () => {
     const at = (status: "working" | "completed", endedAt: string | null) =>
       new Subagent({

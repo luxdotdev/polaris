@@ -4,6 +4,7 @@ import { approval, turnWith } from "../../../store/fixtures.testing.ts";
 import type { LiveItem, TurnView } from "../../../store/sessionModel.ts";
 import { conversationRows, summarize, turnRows } from "./conversation.ts";
 import { completedItemView, liveItemView, outputTail, toolSummary } from "./items.ts";
+import { queuedOutgoing } from "./outbox.ts";
 
 const I = TurnItem.cases;
 
@@ -150,5 +151,39 @@ describe("conversation rows", () => {
     expect(turnRows(view(0, [], new Map(), "failed"), true, false).at(-1)).toMatchObject({
       canRetry: false,
     });
+  });
+});
+
+describe("steers in the conversation", () => {
+  test("a landed steer is its own row; the next agent item carries the avatar again", () => {
+    const rows = turnRows(
+      view(0, [
+        message("m1", "a"),
+        I.UserMessage.make({ id: "u1", text: "b" }),
+        message("m2", "c"),
+      ]),
+      true,
+      true
+    ).filter((r) => r.kind === "item");
+
+    expect(rows.map((r) => [r.item.kind, r.lead])).toEqual([
+      ["message", true],
+      ["user", false],
+      ["message", true],
+    ]);
+  });
+
+  test("outgoing messages close the list", () => {
+    const entry = queuedOutgoing("next", []);
+    const outbox = [entry];
+
+    const rows = conversationRows({
+      turns: [view(0, [])],
+      approvals: [],
+      unfolded: new Set(),
+      outbox,
+    });
+
+    expect(rows.at(-1)).toMatchObject({ kind: "outgoing", key: `outgoing:${entry.id}`, entry });
   });
 });

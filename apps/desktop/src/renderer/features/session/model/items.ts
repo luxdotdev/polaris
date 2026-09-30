@@ -25,6 +25,8 @@ interface Base {
 
 export type ItemView =
   | (Base & { readonly kind: "message"; readonly text: string })
+  /** A steer the Harness took, where it landed in the Turn. */
+  | (Base & { readonly kind: "user"; readonly text: string })
   | (Base & {
       readonly kind: "reasoning";
       readonly text: string;
@@ -90,6 +92,7 @@ const fromItem = (item: TurnItem, live: boolean): ItemView =>
   Match.value(item).pipe(
     Match.tagsExhaustive({
       AssistantMessage: (i): ItemView => ({ kind: "message", id: i.id, live, text: i.text }),
+      UserMessage: (i): ItemView => ({ kind: "user", id: i.id, live, text: i.text }),
       Reasoning: (i): ItemView => ({
         kind: "reasoning",
         id: i.id,

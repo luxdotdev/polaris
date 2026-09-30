@@ -4,8 +4,7 @@
  * the Harness can't switch).
  */
 import type { SessionId } from "@polaris/protocol";
-import { Button, type Harness } from "@polaris/ui";
-import { useEffect } from "react";
+import type { Harness } from "@polaris/ui";
 import { Commands, newSessionId } from "../../../commands.ts";
 import type { SessionData } from "../../../store/plain.ts";
 import type { SessionModel } from "../../../store/sessionModel.ts";
@@ -30,10 +29,10 @@ import {
   interruptCommand,
   openQuestion,
   placeholderFor,
-  queuedCommand,
   submitCommand,
 } from "../model/intent.ts";
 import { patchSessionUi, useSessionUi } from "../state.ts";
+import type { OutboxActions } from "../outbox.ts";
 import { DraftComposer } from "./DraftComposer.tsx";
 
 export interface SessionComposerProps {
@@ -44,6 +43,8 @@ export interface SessionComposerProps {
   readonly model: SessionModel;
   readonly branch: string | undefined;
   readonly onOpenSession?: ((sessionId: SessionId) => void) | undefined;
+  /** Steers and follow-ups go through the session's outbox, which shows them until they land. */
+  readonly outbox: OutboxActions;
 }
 
 const CHANGE_NOTES: Readonly<Record<ModelChange["kind"], string | undefined>> = {
@@ -124,51 +125,6 @@ const SEND_FAILURES: Readonly<Record<ComposerMode["kind"], string>> = {
   blocked: "Couldn't send",
 };
 
-/** Sends the queued follow-up as the next Turn once the session takes one again. */
-const useSendQueued = ({
-  hostKey,
-  uiKey,
-  sessionId,
-  ready,
-}: {
-  readonly hostKey: string;
-  readonly uiKey: string;
-  readonly sessionId: SessionId;
-  readonly ready: boolean;
-}) => {
-  const queued = useSessionUi(uiKey).queued;
-
-  useEffect(() => {
-    if (!ready || queued === null) return;
-
-    const command = queuedCommand(sessionId, {
-      text: queued.text,
-      attachments: queued.attachments.map((a) => a.id),
-    });
-
-    patchSessionUi(uiKey, () => ({ queued: null }));
-
-    if (command !== null)
-      void send(hostKey, command, "Couldn't send the queued follow-up").then((ok) => {
-        if (!ok) patchSessionUi(uiKey, () => ({ queued }));
-      });
-  }, [ready, queued, hostKey, uiKey, sessionId]);
-};
-
-/** The follow-up waiting for the Turn in flight, above the composer. */
-const Queued = ({ text, onCancel }: { readonly text: string; readonly onCancel: () => void }) => (
-  <div
-    className="rounded-row border-hairline bg-surface-raised mb-1.5 flex h-8 items-center gap-2 border pr-1 pl-3"
-    data-testid="queued-follow-up"
-  >
-    <span className="text-caption text-text-subtle shrink-0">Queued for after this turn</span>
-    <span className="text-caption text-text-default min-w-0 flex-1 truncate">{text}</span>
-    <Button variant="ghost" size="sm" onClick={onCancel}>
-      Cancel
-    </Button>
-  </div>
-);
-
 export const SessionComposer = (props: SessionComposerProps) => {
   const { hostKey, uiKey, harness, session, model, branch } = props;
   const host = useHost(hostKey);
@@ -205,19 +161,22 @@ export const SessionComposer = (props: SessionComposerProps) => {
   const queue = () => {
     if (!canQueue(mode) || (ui.draft.trim() === "" && ui.attachments.length === 0)) return;
 
-    patchSessionUi(uiKey, (u) => ({
-      queued: { text: u.draft, attachments: u.attachments },
-      draft: "",
-      attachments: [],
-    }));
+    props.outbox.queue(ui.draft, ui.attachments);
+    patchSessionUi(uiKey, () => ({ draft: "", attachments: [] }));
   };
-
-  useSendQueued({ hostKey, uiKey, sessionId: session.id, ready: mode.kind === "send" });
 
   const submit = () => {
     if (mode.kind === "queue") return queue();
 
     if (command === null) return;
+
+    if (mode.kind === "steer") {
+      props.outbox.steer(ui.draft);
+      patchSessionUi(uiKey, () => ({ draft: "" }));
+
+      return;
+    }
+
     const kept = ui;
 
     patchSessionUi(uiKey, () => ({ draft: "", attachments: [] }));
@@ -256,19 +215,6 @@ export const SessionComposer = (props: SessionComposerProps) => {
       onChange={(text) => patchSessionUi(uiKey, () => ({ draft: text }))}
       onSubmit={submit}
       onQueue={canQueue(mode) ? queue : undefined}
-      notice={
-        ui.queued === null ? null : (
-          <Queued
-            text={ui.queued.text}
-            onCancel={() =>
-              patchSessionUi(uiKey, (u) => ({
-                queued: null,
-                draft: u.draft === "" ? (u.queued?.text ?? "") : u.draft,
-              }))
-            }
-          />
-        )
-      }
       canSubmit={command !== null || (mode.kind === "queue" && ui.draft.trim() !== "")}
       placeholder={placeholderFor(mode)}
       working={

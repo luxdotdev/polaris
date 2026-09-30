@@ -8,6 +8,7 @@ import type { ApprovalRequest, TurnId, TurnItem, TurnStatus } from "@polaris/pro
 import { Predicate } from "effect";
 import type { TurnView } from "../../../store/sessionModel.ts";
 import { completedItemView, type ItemView, liveItemView } from "./items.ts";
+import type { Outgoing } from "./outbox.ts";
 
 export interface TurnSummary {
   readonly turnId: TurnId;
@@ -40,6 +41,8 @@ export type Row =
       readonly lead: boolean;
     }
   | { readonly kind: "approval"; readonly key: string; readonly request: ApprovalRequest }
+  /** A steer or queued follow-up that hasn't landed yet (`outbox.ts`). */
+  | { readonly kind: "outgoing"; readonly key: string; readonly entry: Outgoing }
   | {
       readonly kind: "ending";
       readonly key: string;
@@ -94,12 +97,13 @@ const itemRows = (view: TurnView): ReadonlyArray<Row> => {
     ...[...view.live].map(([id, live]) => liveItemView(id, live)),
   ];
 
+  // The first agent item carries the avatar, and so does the first one after a steer.
   return items.map((item, n) => ({
     kind: "item",
     key: `${turnId}:${item.id}`,
     turnId,
     item,
-    lead: n === 0,
+    lead: item.kind !== "user" && (n === 0 || items[n - 1]?.kind === "user"),
   }));
 };
 
@@ -163,6 +167,8 @@ export interface ConversationInput {
   readonly approvals: ReadonlyArray<ApprovalRequest>;
   /** Turns the user unfolded; the last Turn is always open. */
   readonly unfolded: ReadonlySet<string>;
+  /** Steers and follow-ups not landed yet; they close the list. */
+  readonly outbox?: ReadonlyArray<Outgoing>;
 }
 
 const approvalRow = (request: ApprovalRequest): Row => ({
@@ -176,6 +182,7 @@ export const conversationRows = ({
   turns,
   approvals,
   unfolded,
+  outbox = [],
 }: ConversationInput): ReadonlyArray<Row> => {
   const rows: Array<Row> = [];
   const placed = new Set<string>();
@@ -194,6 +201,8 @@ export const conversationRows = ({
   });
 
   for (const request of approvals) if (!placed.has(request.id)) rows.push(approvalRow(request));
+
+  for (const entry of outbox) rows.push({ kind: "outgoing", key: `outgoing:${entry.id}`, entry });
 
   return rows;
 };

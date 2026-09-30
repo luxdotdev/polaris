@@ -46,7 +46,7 @@ Tests: `AppServer.test.ts` runs the real lifecycle against a fake `codex` execut
 | `item/started` (commands, file changes, tool calls) | `ItemUpdated` (live progress, `running`) |
 | `item/agentMessage/delta`, `item/plan/delta`, `item/reasoning/summaryTextDelta`, `item/reasoning/textDelta` | `ItemDelta { field: "text" }` |
 | `item/commandExecution/outputDelta` | `ItemDelta { field: "output" }` |
-| `item/completed` | `ItemCompleted`: agentMessage/plan → AssistantMessage, reasoning → Reasoning (summary, else raw content), commandExecution → CommandExecution, fileChange → FileChange (`update` → `modify`), mcpToolCall → ToolCall `server.tool`, dynamicToolCall/collabAgentToolCall/webSearch/imageView → ToolCall. User messages, compaction and review markers are skipped. |
+| `item/completed` | `ItemCompleted`: agentMessage/plan → AssistantMessage, reasoning → Reasoning (summary, else raw content), commandExecution → CommandExecution, fileChange → FileChange (`update` → `modify`), mcpToolCall → ToolCall `server.tool`, dynamicToolCall/collabAgentToolCall/webSearch/imageView → ToolCall. A Turn's first user message (its prompt), compaction and review markers are skipped; later user messages are steers (`UserMessage`). |
 | `turn/plan/updated` | `ItemUpdated` with the `Plan` (id `<codexTurn>:plan`, its `explanation` when not blank) each time; the latest plan is completed once, just before `TurnEnded` |
 | `error` with `willRetry: false` | `ItemCompleted` with an `Error` item, its message made readable (below) |
 | `turn/completed` | `TurnEnded { status, error }`, the error made readable (below) |
@@ -105,7 +105,7 @@ The table follows T3 Code's runtime modes. These values go on `thread/start`/`th
 ### Other commands
 
 - `sendTurn`: `turn/start` with a text input, plus a `localImage` input (staged Host path) per image attachment. Other attachments are listed by path at the end of the prompt. Fails if a Turn is already in flight.
-- `steer`: `turn/steer` with `expectedTurnId` set to the in-flight turn. Fails if none is in flight.
+- `steer`: `turn/steer` with `expectedTurnId` set to the in-flight turn. Fails if none is in flight. Codex's answer records it as a `UserMessage` item; a Turn's later `userMessage` items (a steer from a co-attached TUI) do too, and `steers.ts` keeps one item when both report the same steer. The Turn's first user message is its prompt.
 - `interrupt`: `turn/interrupt`, or nothing when idle. The Turn then ends `interrupted`, and open approvals come back as `ApprovalWithdrawn`.
 
 ## Regenerating the bindings
