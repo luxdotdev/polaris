@@ -36,6 +36,8 @@ export interface HarnessEntry<K extends string = string> {
   readonly capability: `harness.${K}`;
   /** The oldest version its driver supports; older installs report `outdated`. */
   readonly minVersion: string;
+  /** False until DESIGN.md gives the Harness an identity hue; Clients show a neutral tile. */
+  readonly hued?: false;
   readonly setup: HarnessSetup;
 }
 
@@ -77,6 +79,31 @@ export const HARNESS_CATALOGUE = [
         "Connect a provider to OpenCode in its own terminal. Its free models work without one.",
       signInCommand: ["opencode", "auth", "login"],
       docsUrl: "https://opencode.ai/docs",
+    },
+  }),
+  // Driven through the Agent Client Protocol (ACP v1).
+  entry("gemini", {
+    name: "Gemini CLI",
+    hued: false,
+    // The first release with `--acp` (before it, only `--experimental-acp`).
+    minVersion: "0.33.0",
+    setup: {
+      install: "Gemini CLI isn't installed on this host. See its setup guide.",
+      signIn: "Sign in to Gemini CLI in its own terminal: run gemini and pick how to sign in.",
+      signInCommand: ["gemini"],
+      docsUrl: "https://geminicli.com/docs/get-started/",
+    },
+  }),
+  entry("copilot", {
+    name: "GitHub Copilot CLI",
+    hued: false,
+    // The first general-availability release; ACP, session load and effort predate it.
+    minVersion: "1.0.0",
+    setup: {
+      install: "GitHub Copilot CLI isn't installed on this host. See its setup guide.",
+      signIn: "Sign in to GitHub Copilot CLI in its own terminal.",
+      signInCommand: ["copilot", "login"],
+      docsUrl: "https://docs.github.com/en/copilot/how-tos/copilot-cli",
     },
   }),
 ] as const;

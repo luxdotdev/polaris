@@ -86,6 +86,7 @@ describe("probeHarness", () => {
     expect(parseVersion("2.1.284 (Claude Code)\n")).toBe("2.1.284");
     expect(parseVersion("codex-cli 0.158.0\n")).toBe("0.158.0");
     expect(parseVersion("codex-cli 0.159.0-alpha.2")).toBe("0.159.0-alpha.2");
+    expect(parseVersion("GitHub Copilot CLI 1.0.89.\nRun 'copilot update'")).toBe("1.0.89");
     expect(parseVersion("dev build")).toBeNull();
   });
 
@@ -256,6 +257,57 @@ describe("probeHarness", () => {
     });
   });
 
+  test("an ACP Harness never run on the Host needs sign-in; otherwise it can't say", async () => {
+    const host = fakeHost();
+    fakeBinary(host, "copilot", {
+      version: "echo 'GitHub Copilot CLI 1.0.89.'; exit 0",
+      status: "",
+    });
+
+    expect(await probe("copilot", host.env)).toMatchObject({
+      status: "needs-sign-in",
+      version: "1.0.89",
+      signInArgv: [join(host.bin, "copilot"), "login"],
+    });
+
+    mkdirSync(join(host.home, ".copilot"));
+    expect(await probe("copilot", host.env)).toMatchObject({
+      status: "unknown",
+      detail: "GitHub Copilot CLI reports its sign-in when a session starts",
+    });
+    // Only `--version` ran: an ACP Harness has no status command to ask.
+    expect(host.calls()).toEqual(["--version", "--version"]);
+  });
+
+  test("Gemini CLI's --version writes into a scratch home, never the user's", async () => {
+    const host = fakeHost();
+    fakeBinary(host, "gemini", {
+      version:
+        '/bin/mkdir -p "${GEMINI_CLI_HOME:-$HOME}/.gemini" && echo "$GEMINI_CLI_HOME" >> "$POLARIS_TEST_CALLS"; echo 0.61.0; exit 0',
+      status: "",
+    });
+
+    expect(await probe("gemini", host.env)).toMatchObject({
+      status: "needs-sign-in",
+      version: "0.61.0",
+      signInArgv: [join(host.bin, "gemini")],
+    });
+    expect(readdirSync(host.home)).toEqual([]);
+    const [, scratch] = host.calls();
+    expect(scratch).toContain("polaris-probe-");
+    expect(() => readdirSync(scratch ?? "")).toThrow();
+  });
+
+  test("Gemini CLI below --acp is outdated", async () => {
+    const host = fakeHost();
+    fakeBinary(host, "gemini", { version: "echo 0.32.0; exit 0", status: "" });
+
+    expect(await probe("gemini", host.env)).toMatchObject({
+      status: "outdated",
+      version: "0.32.0",
+    });
+  });
+
   test("a failing --version is unknown", async () => {
     const host = fakeHost();
     fakeBinary(host, "codex", { version: "echo 'segfault' >&2; exit 139", status: "exit 0" });
@@ -268,7 +320,7 @@ describe("probeHarness", () => {
   });
 });
 
-test("probing loads no driver, so the Agent SDK, Codex bindings and OpenCode driver stay unloaded (ENG-196)", async () => {
+test("probing loads no driver, so the Agent SDK, Codex bindings, OpenCode and ACP drivers stay unloaded (ENG-196)", async () => {
   const script = `
     const { Effect } = await import("effect");
     const { Availability } = await import("./availability/index.ts");
@@ -278,7 +330,7 @@ test("probing loads no driver, so the Agent SDK, Codex bindings and OpenCode dri
       )
     );
     const loaded = Object.keys(require.cache).filter((k) =>
-      /claude-agent-sdk|harness\\/(claude|codex|opencode)\\//.test(k)
+      /claude-agent-sdk|harness\\/(claude|codex|opencode)\\/|harness\\/acp\\/(?!harnesses\\.ts)/.test(k)
     );
     console.log(JSON.stringify(loaded));
   `;

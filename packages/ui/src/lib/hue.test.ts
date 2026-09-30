@@ -18,8 +18,8 @@ describe("harnessHue", () => {
     expect(harnessHue("codex").hue).toBe("codex");
   });
 
-  test("every catalogue Harness has its hue, wash and halo in both themes", () => {
-    for (const entry of HARNESS_CATALOGUE) {
+  test("every hued catalogue Harness has its hue, wash and halo in both themes", () => {
+    for (const entry of HARNESS_CATALOGUE.filter((harness) => harness.hued !== false)) {
       const slug = hueSlug(entry.name);
 
       expect(tokens).toContain(`--color-harness-${slug}: light-dark(`);
@@ -35,6 +35,17 @@ describe("harnessHue", () => {
     expect(tokens).toContain(`--color-harness-${slug}: light-dark(`);
     expect(assets).toContain(`--wash-${slug}: url`);
     expect(assets).toContain(`--halo-${slug}: url`);
+  });
+
+  test("a catalogue Harness without a hue yet is neutral, named from the catalogue", () => {
+    expect(harnessHue("gemini")).toMatchObject({
+      name: "Gemini CLI",
+      handle: "@gemini",
+      hue: null,
+    });
+    expect(harnessHue("copilot").setup?.docsUrl).toContain("docs.github.com");
+    expect(resolveTint("copilot")).toBe("neutral");
+    expect(washVar("gemini")).toBe("none");
   });
 
   test("an unknown kind is neutral, named by its kind", () => {

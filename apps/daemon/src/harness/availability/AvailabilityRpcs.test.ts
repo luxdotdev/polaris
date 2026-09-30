@@ -79,12 +79,16 @@ describe("harness.availability", () => {
       claude: "not-installed",
       codex: "needs-sign-in",
       opencode: "not-installed",
+      gemini: "not-installed",
+      copilot: "not-installed",
     });
     expect(second).toEqual(first);
     expect(statuses(refreshed)).toEqual({
       claude: "not-installed",
       codex: "ready",
       opencode: "not-installed",
+      gemini: "not-installed",
+      copilot: "not-installed",
     });
     expect(await host.probes()).toBe(2);
   });

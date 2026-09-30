@@ -22,7 +22,7 @@ export interface HarnessIdentity {
   readonly name: string;
   /** How a composer addresses it ("@claude"). */
   readonly handle: string;
-  /** The token slug for its hue, wash and halo ("claude-code"); null for an unknown kind. */
+  /** The token slug for its hue, wash and halo ("claude-code"); null for an unknown or unhued kind. */
   readonly hue: string | null;
   /** How to set it up where it isn't installed or signed in; null for an unknown kind. */
   readonly setup: HarnessSetup | null;
@@ -44,7 +44,8 @@ export function harnessHue(kind: HarnessKind): HarnessIdentity {
     kind,
     name: entry?.name ?? kind,
     handle: `@${kind}`,
-    hue: entry === undefined ? null : hueSlug(entry.name),
+    // A catalogue Harness without a hue yet (`hued: false`) takes the neutral tile.
+    hue: entry === undefined || entry.hued === false ? null : hueSlug(entry.name),
     setup: entry?.setup ?? null,
   };
 }

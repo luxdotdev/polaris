@@ -3,7 +3,7 @@
  * `--version`, then its own sign-in status command. Polaris never reads the
  * credentials (ADR 0001) and never imports a driver here (ENG-196).
  */
-import { existsSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -13,6 +13,7 @@ import {
   type KnownHarnessKind,
 } from "@polaris/protocol";
 import { Effect, Option, Schema } from "effect";
+import { type AcpHarness, COPILOT, GEMINI } from "../acp/harnesses.ts";
 
 /** The environment a probe resolves binaries and homes from (the Daemon's by default). */
 export type ProbeEnv = Readonly<Record<string, string | undefined>>;
@@ -35,6 +36,8 @@ interface Prober {
   readonly binary: string;
   /** Variables set on every probe command, on top of `env`. */
   readonly probeEnv: (env: ProbeEnv) => ProbeEnv;
+  /** A variable `--version` gets pointed at an empty scratch directory (see `../acp/harnesses.ts`). */
+  readonly scratchHomeEnv?: string | null;
   readonly signIn: (path: string, env: ProbeEnv) => Effect.Effect<SignInState>;
 }
 
@@ -69,9 +72,9 @@ export const runProbe = (argv: ReadonlyArray<string>, env: ProbeEnv): Effect.Eff
     }
   });
 
-/** `2.1.283 (Claude Code)`, `codex-cli 0.158.0` → the version. */
+/** `2.1.283 (Claude Code)`, `codex-cli 0.158.0`, `GitHub Copilot CLI 1.0.89.` → the version. */
 export const parseVersion = (text: string): string | null =>
-  text.match(/(\d+\.\d+\.\d+[^\s)]*)/)?.[1] ?? null;
+  text.match(/(\d+\.\d+\.\d+(?:[-+][\w.-]*\w)?)/)?.[1] ?? null;
 
 const ClaudeAuthStatus = Schema.fromJsonString(Schema.Struct({ loggedIn: Schema.Boolean }));
 
@@ -154,7 +157,30 @@ const opencode: Prober = {
   signIn: () => Effect.succeed({ status: "ready", detail: null }),
 };
 
-const PROBERS: Record<KnownHarnessKind, Prober> = { claude, codex, opencode };
+/**
+ * An ACP Harness has no sign-in status command; it says so only when a session
+ * starts. So a Host where it has never run needs sign-in, and otherwise it's `unknown`.
+ */
+const acpProber = (harness: AcpHarness, name: string): Prober => ({
+  binaryEnv: harness.binaryEnv,
+  binary: harness.binary,
+  probeEnv: () => ({}),
+  scratchHomeEnv: harness.scratchHomeEnv,
+  signIn: (_path, env) =>
+    Effect.succeed(
+      existsSync(harness.configDir(env, home(env)))
+        ? { status: "unknown", detail: `${name} reports its sign-in when a session starts` }
+        : { status: "needs-sign-in", detail: `${name} hasn't been run on this host yet` }
+    ),
+});
+
+const PROBERS: Record<KnownHarnessKind, Prober> = {
+  claude,
+  codex,
+  opencode,
+  gemini: acpProber(GEMINI, "Gemini CLI"),
+  copilot: acpProber(COPILOT, "GitHub Copilot CLI"),
+};
 
 /** The binary a Harness runs as on this Host, or null when it isn't installed. */
 export const harnessBinary = (kind: KnownHarnessKind, env: ProbeEnv): string | null => {
@@ -165,6 +191,16 @@ export const harnessBinary = (kind: KnownHarnessKind, env: ProbeEnv): string | n
 
   return Bun.which(prober.binary, { PATH: env.PATH ?? "" });
 };
+
+/** `<binary> --version`, with `scratchHomeEnv` on a fresh empty directory removed afterwards. */
+const versionRun = (path: string, env: ProbeEnv, scratchHomeEnv: string | null) =>
+  scratchHomeEnv === null
+    ? runProbe([path, "--version"], env)
+    : Effect.acquireUseRelease(
+        Effect.sync(() => mkdtempSync(join(tmpdir(), "polaris-probe-"))),
+        (scratch) => runProbe([path, "--version"], { ...env, [scratchHomeEnv]: scratch }),
+        (scratch) => Effect.sync(() => rmSync(scratch, { recursive: true, force: true }))
+      );
 
 const availability = (
   entry: HarnessEntry<KnownHarnessKind>,
@@ -188,7 +224,7 @@ export const probeHarness = Effect.fn("harness.availability.probe")(function* (
     });
   const probeEnv = { ...env, ...prober.probeEnv(env) };
   const signInArgv = [path, ...entry.setup.signInCommand.slice(1)];
-  const run = yield* runProbe([path, "--version"], probeEnv);
+  const run = yield* versionRun(path, probeEnv, prober.scratchHomeEnv ?? null);
 
   if (run.exitCode !== 0)
     return availability(entry, {
