@@ -157,6 +157,14 @@ export const sessionFlow = async ({ page, repo, step, shoot, atFirstApproval }: 
   step(`Turn diff: ${files} files`);
 
   if (files < 2) throw new Error(`expected the 2 bench files in the diff, saw ${files}`);
+  // The bench Harness fills 15% of its window a Turn and times its thinking.
+  await page.getByTestId("session-context").filter({ hasText: "Context 15%" }).waitFor();
+  await page
+    .getByTestId("thought-label")
+    .filter({ hasText: /^Thought for \d/ })
+    .first()
+    .waitFor();
+  step("header shows Context 15%; thinking reads Thought for Ns");
   await shoot("session-idle");
   await switchModel(page, step, shoot);
 
