@@ -8,7 +8,9 @@ import { Effect, Exit, Layer, ManagedRuntime, SubscriptionRef } from "effect";
 import type { BatchEntry, HostView } from "../../shared/api.ts";
 import { RequestInputs, SubscriptionInputs } from "../../shared/contract.ts";
 import { CommandId, CommandRejected } from "@polaris/protocol";
-import { HostDirectory, toIpcError, UnknownHost } from "../hosts.ts";
+import { type ClientServices, HostDirectory, toIpcError, UnknownHost } from "../hosts.ts";
+import { Ssh } from "@polaris/client/install";
+import { Machines } from "../machines/service.ts";
 import { type RequestContext, requestHandlers, requestRunner } from "./requests.ts";
 import { windowSubscriptions } from "./subscriptions.ts";
 
@@ -37,8 +39,23 @@ const directory = Layer.effect(
       views,
       entry: () => undefined,
       connection: (key) => Effect.fail(new UnknownHost(key)),
+      add: () => Effect.void,
+      remove: () => Effect.void,
     })
   )
+);
+
+const services = Layer.provideMerge(
+  Machines.layer({
+    settings: { get: () => ({ hosts: [{ alias: "studio" }] }), update: () => undefined },
+    approvals: { approved: () => new Set(), approve: () => undefined, forget: () => undefined },
+    builds: { source: "none", forPlatform: () => Effect.succeed([]) },
+    aliases: () => [{ alias: "studio", hostName: null, user: null }],
+    localDaemon: () => Promise.reject(new Error("no local daemon in tests")),
+    openTerminal: () => Promise.resolve(),
+    ssh: Layer.succeed(Ssh, Ssh.of({ exec: () => Effect.die("no ssh in tests") })),
+  }),
+  directory
 );
 
 const context: RequestContext = {
@@ -54,13 +71,14 @@ const context: RequestContext = {
   appVersion: "0.1.0",
   pickFolder: () => Promise.resolve(null),
   daemonDist: null,
+  writeClipboard: () => Promise.resolve(),
   needsYou: () => undefined,
 };
 
 const handlers = requestHandlers(context);
 
-const run = <A, E>(effect: Effect.Effect<A, E, HostDirectory>) =>
-  ManagedRuntime.make(directory).runPromiseExit(effect);
+const run = <A, E>(effect: Effect.Effect<A, E, ClientServices>) =>
+  ManagedRuntime.make(services).runPromiseExit(effect);
 
 describe("requests", () => {
   test("every method in the contract has a handler", () => {
@@ -117,6 +135,22 @@ describe("requests", () => {
     expect(Exit.isFailure(exit) && JSON.stringify(exit.cause)).toContain("InvalidInput");
   });
 
+  test("an ssh alias that reads as an option never reaches ssh", async () => {
+    const exit = await run(
+      requestRunner(
+        handlers,
+        "machines.add"
+      )({
+        alias: "-oProxyCommand=evil",
+        label: "x",
+        colour: null,
+        forwardAgent: false,
+      })
+    );
+
+    expect(Exit.isFailure(exit) && JSON.stringify(exit.cause)).toContain("InvalidInput");
+  });
+
   test("a Host that doesn't exist fails as an IpcError", async () => {
     const exit = await run(
       requestRunner(handlers, "files.stat")({ hostKey: "nowhere", path: "/" })
@@ -128,7 +162,7 @@ describe("requests", () => {
 
 describe("subscriptions", () => {
   const open = () => {
-    const runtime = ManagedRuntime.make(directory);
+    const runtime = ManagedRuntime.make(services);
     const sent: Array<BatchEntry> = [];
 
     const subs = windowSubscriptions({
@@ -146,6 +180,7 @@ describe("subscriptions", () => {
         "harness.availability",
         "host",
         "hosts",
+        "machines",
         "plan-limits",
         "session",
         "terminal",
@@ -162,6 +197,19 @@ describe("subscriptions", () => {
     subs.dispose();
 
     expect(sent[0]).toEqual({ id: 1, items: [[view]] });
+  });
+
+  test("the machines list arrives: this Mac, then the remote Hosts from settings", async () => {
+    const { sent, subs } = open();
+
+    subs.subscribe({ id: 1, kind: "machines", input: {} });
+    await Bun.sleep(20);
+    subs.dispose();
+
+    // SAFETY: the machines feed's items are MachineView lists.
+    const machines = sent[0]?.items[0] as ReadonlyArray<{ key: string; status: unknown }>;
+    expect(machines.map((m) => m.key)).toEqual(["local", "studio"]);
+    expect(machines[1]?.status).toBeNull();
   });
 
   test("an unknown kind or undecodable input ends the subscription with an error", async () => {

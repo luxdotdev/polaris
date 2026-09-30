@@ -38,7 +38,6 @@ const result = yield* ensureDaemon(alias, builds, { trigger: "user", approvedSha
 
 ## Known gaps / TODO
 
-- Storing approvals (`approvedSha256` per Host) belongs to the Desktop App.
 - Each file is a separate ssh invocation. Use ControlMaster (the connection workstream's multiplexed session) to avoid repeated handshakes.
 - Uploads are not resumable; a dropped connection re-uploads from the start.
 - musl `linux-x64-musl` is built but was only exercised under x64 emulation, where Bun crashes for lack of AVX (as its glibc build would); a real x64 Alpine Host is untested. Bun's `*-baseline` targets would cover CPUs without AVX.

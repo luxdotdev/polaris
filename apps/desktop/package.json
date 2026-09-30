@@ -25,6 +25,7 @@
     "effect": "4.0.0-rc.118",
     "react": "19.3.0",
     "react-dom": "19.3.0",
+    "xstate": "6.0.0-alpha.61",
     "zustand": "5.0.15"
   },
   "devDependencies": {

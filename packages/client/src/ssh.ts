@@ -28,11 +28,20 @@ export interface SshOptions {
   readonly connectTimeoutSeconds?: number;
   readonly serverAliveIntervalSeconds?: number;
   readonly serverAliveCountMax?: number;
-  /** The remote command; default `polaris bridge`. */
+  /**
+   * The remote command; default `DEFAULT_REMOTE_COMMAND`, the installed Daemon, since
+   * `polaris` is not on PATH in a non-interactive SSH shell.
+   */
   readonly remoteCommand?: ReadonlyArray<string>;
   /** The ssh binary; default `ssh` from PATH. */
   readonly sshBinary?: string;
 }
+
+/** Where `polaris install` puts the current Daemon; the remote shell expands `~`. */
+export const DEFAULT_REMOTE_COMMAND: ReadonlyArray<string> = [
+  "~/.polaris/bin/current/polaris",
+  "bridge",
+];
 
 export const defaultControlDir = (): string => join(homedir(), ".polaris", "ssh");
 
@@ -63,6 +72,6 @@ export const sshArgv = (alias: string, options: SshOptions = {}): Array<string> 
     "none",
     "--",
     alias,
-    ...(options.remoteCommand ?? ["polaris", "bridge"]),
+    ...(options.remoteCommand ?? DEFAULT_REMOTE_COMMAND),
   ];
 };

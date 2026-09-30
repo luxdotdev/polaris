@@ -21,6 +21,8 @@ export const RemoteHostSetting = Schema.Struct({
   label: Schema.optionalKey(Schema.String),
   colour: Schema.optionalKey(Schema.NullOr(Schema.String)),
   forwardAgent: Schema.optionalKey(Schema.Boolean),
+  /** The remote command as one shell line; absent for `~/.polaris/bin/current/polaris bridge`. */
+  remoteCommand: Schema.optionalKey(Schema.String),
 });
 
 export type RemoteHostSetting = typeof RemoteHostSetting.Type;
@@ -35,6 +37,8 @@ export const Settings = Schema.Struct({
   /** By Harness kind. */
   sessionDefaults: Schema.optionalKey(Schema.Record(Schema.String, SessionDefault)),
   hosts: Schema.optionalKey(Schema.Array(RemoteHostSetting)),
+  /** The local Host on this machine; on unless switched off. */
+  local: Schema.optionalKey(Schema.Struct({ enabled: Schema.Boolean })),
   /** Set once "Get started" is pressed on the welcome (onboarding O1). */
   welcomeSeen: Schema.optionalKey(Schema.Boolean),
 });

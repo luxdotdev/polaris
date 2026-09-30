@@ -114,6 +114,84 @@ export interface HostView {
   readonly status: ConnectionStatusView;
 }
 
+// ── Machines ────────────────────────────────────────────────────────────────
+
+/** A literal alias from `~/.ssh/config`, with where it points when its block says. */
+export interface SshAliasView {
+  readonly alias: string;
+  readonly hostName: string | null;
+  readonly user: string | null;
+}
+
+/** The install flow's step (`src/main/machines/installFlow.ts`). */
+export type InstallStepView =
+  | "idle"
+  | "checking"
+  | "approval"
+  | "dismissed"
+  | "installing"
+  | "ready"
+  | "blocked";
+
+export interface InstallFlowView {
+  readonly step: InstallStepView;
+  /** Checking or installing: what is happening now, for the progress line. */
+  readonly activity: string | null;
+  readonly offer: {
+    readonly platform: string;
+    readonly version: string;
+    readonly sha256: string;
+    readonly sizeBytes: number | null;
+  } | null;
+  readonly outcome: {
+    readonly kind: "current" | "newer" | "installed" | "upgraded";
+    readonly version: string;
+    readonly from: string | null;
+    readonly notes: ReadonlyArray<string>;
+    readonly adminCommand: string | null;
+  } | null;
+  readonly problem: {
+    readonly kind: "unsupported" | "missing-build" | "host-setup" | "ssh" | "failed";
+    readonly message: string;
+    readonly command: string | null;
+  } | null;
+}
+
+/** One machine in Settings: the local Host or a remote one by alias. */
+export interface MachineView {
+  readonly key: string;
+  readonly label: string;
+  readonly colour: string | null;
+  /** Null for the local Host. */
+  readonly alias: string | null;
+  /** Where the alias points, from `~/.ssh/config`. */
+  readonly target: { readonly hostName: string | null; readonly user: string | null } | null;
+  /** The local Host can be switched off on this machine; remote Hosts are always on. */
+  readonly enabled: boolean;
+  readonly forwardAgent: boolean;
+  /** The remote command override as one shell line; null for the default. */
+  readonly remoteCommand: string | null;
+  /** Null while the local Host is switched off. */
+  readonly status: ConnectionStatusView | null;
+  /** Null for the local Host (Polaris never installs on this Mac from here). */
+  readonly install: InstallFlowView | null;
+}
+
+/** A Harness on one Host (`harness.availability`), flattened. */
+export interface HarnessAvailabilityView {
+  readonly harness: string;
+  /** The product's name ("Claude Code"). */
+  readonly name: string;
+  /** Its own setup docs: Polaris never installs a Harness, it links these. */
+  readonly docsUrl: string | null;
+  readonly status: "not-installed" | "outdated" | "needs-sign-in" | "ready" | "unknown";
+  readonly version: string | null;
+  readonly minVersion: string;
+  readonly detail: string | null;
+  /** The Harness's own sign-in, run on the Host in a terminal; null when it can't. */
+  readonly signInArgv: ReadonlyArray<string> | null;
+}
+
 /** A Schema class instance after structured clone: its fields, without the prototype. */
 export type Plain<T> = { readonly [K in keyof T]: T[K] };
 
@@ -212,6 +290,19 @@ export interface RequestOutputs {
   "terminal.close": null;
   "attachments.stage": Attachment;
   "install.ensure": InstallView;
+  "machines.sshAliases": ReadonlyArray<SshAliasView>;
+  "machines.add": { readonly key: string };
+  "machines.update": null;
+  "machines.remove": null;
+  "machines.check": null;
+  "machines.approve": null;
+  "machines.dismiss": null;
+  "machines.startDaemon": null;
+  "machines.setLocalEnabled": null;
+  /** Null when the Host's Daemon doesn't report availability (capability missing). */
+  "machines.harnesses": ReadonlyArray<HarnessAvailabilityView> | null;
+  "machines.openSsh": null;
+  "clipboard.write": null;
   "onboarding.found": { readonly sshHosts: ReadonlyArray<string>; readonly version: string };
   "onboarding.welcomeSeen": null;
   "dialog.pickFolder": { readonly path: string | null };
@@ -230,6 +321,7 @@ export type TerminalItem =
 
 export interface SubscriptionItems {
   hosts: ReadonlyArray<HostView>;
+  machines: ReadonlyArray<MachineView>;
   host: HostStreamItem;
   session: SessionStreamItem;
   terminal: TerminalItem;

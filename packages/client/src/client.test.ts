@@ -16,6 +16,12 @@ describe("classifyExit", () => {
     ["auth", 255, "git@example: Permission denied (publickey).", "auth-failed"],
     ["bad perms", 255, "Bad owner or permissions on /Users/x/.ssh/config", "ssh-config-error"],
     ["no polaris", 127, "bash: line 1: polaris: command not found", "polaris-not-installed"],
+    [
+      "no installed Daemon",
+      127,
+      "bash: line 1: /home/u/.polaris/bin/current/polaris: No such file or directory",
+      "polaris-not-installed",
+    ],
     ["no daemon", 69, "polaris bridge: no Daemon is running on this Host", "daemon-not-running"],
     [
       "dns",
@@ -62,8 +68,16 @@ describe("sshArgv", () => {
       "ClearAllForwardings=yes",
     ])
       expect(joined).toContain(`-o ${option}`);
-    expect(argv.slice(-3)).toEqual(["studio", "polaris", "bridge"]);
+    expect(argv.slice(-3)).toEqual(["studio", "~/.polaris/bin/current/polaris", "bridge"]);
     expect(joined).not.toMatch(/HostName|IdentityFile|User=|Port=/);
+  });
+
+  test("the remote command can be replaced per Host", () => {
+    expect(sshArgv("vm", { remoteCommand: ["polaris", "bridge"] }).slice(-3)).toEqual([
+      "vm",
+      "polaris",
+      "bridge",
+    ]);
   });
 
   test("agent forwarding is a per-Host toggle", () => {
