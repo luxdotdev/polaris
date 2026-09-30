@@ -493,7 +493,7 @@ A square tile holding a Nucleo pixel icon over a watercolour wash. Sizes are 24,
 
 ### Toasts
 
-Top-right, 360px wide, `card` radius, `surface-raised` with a float shadow. Leading edge: a pixel tile, full toast height, washed in the **source's** hue (the Harness that sent it, or Starlight for Polaris). Title in `heading`, one line of `body` in `text-subtle`, at most one action. Whether the news is good or bad is carried by the pixel icon and the words, never by the wash.
+Bottom-right, 360px wide, 16px in from the window's edges, and clear of the 28px Terminal strip under Output (44px up) and the collapsed Output rail (its width further in; the shell sets `--toast-inset-right` and `--toast-inset-bottom`). They never cover the composer. `card` radius, `surface-raised` with a float shadow. Leading edge: a pixel tile, full toast height, washed in the **source's** hue (the Harness that sent it, or Starlight for Polaris). Title in `heading`, one line of `body` in `text-subtle`, at most one action. Whether the news is good or bad is carried by the pixel icon and the words, never by the wash.
 
 ### Harness picker
 
@@ -501,7 +501,9 @@ A chip in every composer: a small Harness tile, `@claude` or `@codex` in `label`
 
 ### Working strip
 
-While a Turn runs, the composer grows a 34px strip across its top: a dither glyph, "Claude Code is working" in the Harness hue, elapsed time in `text-subtle`, and a Stop control (esc) on the right. A dither halo in the Harness hue bleeds from the strip's top-left corner. The composer's border takes the Harness hue at ~28% with a 3px outer ring at ~6%. This strip is the loudest thing on a Working screen and replaces any spinner.
+While a Turn runs, the composer grows a 34px strip across its top: a dither glyph, "Claude Code is working" in the Harness hue, elapsed time in `text-subtle`, and a Stop control (esc) on the right. The strip has no band of its own (no sunken fill, no rule under it): it sits on the composer's surface, and its only ground is a dither field in the Harness hue, a halo from the top-left corner that thins out over the strip's last 14px. The composer's border takes the Harness hue at ~28% with a 3px outer ring at ~6%. This strip is the loudest thing on a Working screen and replaces any spinner.
+
+- **The field answers the pointer.** While the pointer is over the Working composer, cells brighten in a soft glow around it (fading in over 160ms, out over 320ms after it leaves), and a one-ring ripple spreads from where it enters or presses (~520ms). Still cells never move on their own; only the glyph loops (rule/only-working-moves). It is drawn on a canvas, one canvas pixel per 2px cell, painted only while the glow or a ripple moves: no frames while the pointer is away or resting, and none under Reduce Motion, where the field stays a still halo.
 
 - **Keys while a Turn runs.** ↵ steers the Turn in flight; ⌘↵ queues the draft as a follow-up that is sent as the next Turn when this one ends. The placeholder says both: "Steer this turn · ⌘↵ to queue a follow-up". A Harness that can't be steered takes ↵ as queue, and the placeholder reads "Queue a follow-up for after this turn". A queued follow-up sits above the composer as a one-line `row`-radius strip ("Queued for after this turn", the text, Cancel); cancelling puts it back in the draft.
 - **While a question is open,** the composer answers it in free text: "Or answer in your own words". While an approval is open it is locked with "Answer the request above to go on".
@@ -516,7 +518,7 @@ Earlier Turns collapse to a one-line card (Turn number, summary, +/−, chevron)
 
 ### Dither halo
 
-The only way Polaris adds glow or emphasis: an ordered-dither radial field in a single hue (Starlight or a Harness hue), drawn as pixels at ~35% alpha. Glow is always a dither halo, never a blur or a soft coloured shadow, because the pixel field is the brand. Used behind the working strip corner and around Polaris in scenes. Never behind text that must be read.
+The only way Polaris adds glow or emphasis: an ordered-dither radial field in a single hue (Starlight or a Harness hue), drawn as pixels at ~35% alpha. Glow is always a dither halo, never a blur or a soft coloured shadow, because the pixel field is the brand. Used as the Working strip's field (see Working strip) and around Polaris in scenes. Never behind text that must be read.
 
 ### Dither
 
@@ -525,7 +527,7 @@ The signature component: a field of square cells lit on a strict pixel grid.
 - **Geometry:** cells are 2pt squares on a fixed grid, lit by an ordered (Bayer 4x4) threshold pattern. No blur, no anti-aliasing, no gradients.
 - **Timing:** a new frame every ~83ms (12 fps), so it reads as pixel animation, not video. It fades in over 200ms on entering Working and fades out over 200ms on leaving it.
 - **Colour:** the Harness hue, or Starlight for Polaris's own work.
-- **Implementation:** frames of lit cells baked into a horizontal sprite strip, stepped by translating the strip (`transform`) inside a clipped box, so the animation stays on the compositor. Canvas is acceptable for large fields such as scenes.
+- **Implementation:** frames of lit cells baked into a horizontal sprite strip, stepped by translating the strip (`transform`) inside a clipped box, so the animation stays on the compositor. Canvas is acceptable for large fields such as scenes and for the Working strip's pointer field, which follows the pointer at display rate (on the cell grid) rather than at 12 fps.
 - **Where:** the Working indicator, the composer while a Turn is being sent, mode or Harness activation moments, and 12px marks in the Editor's file tree and tabs on files a Working agent is changing. Never in the Editor's text area or behind diffs.
 - **Reduce Motion:** replaced by a still pixel pattern.
 
