@@ -43,7 +43,7 @@ describe("session model", () => {
       S.Snapshot.make({
         sequence: seq(9),
         session,
-        turns: [new TurnDetail({ turn, items: [message] })],
+        turns: [new TurnDetail({ turn, items: [message], subagents: [] })],
         pendingApprovals: [approval],
       }),
     ]);
@@ -55,15 +55,15 @@ describe("session model", () => {
 
   test("deltas stream into the live item until it completes", () => {
     const streaming = applySessionItems(started, [
-      S.Delta.make({ turnId, itemId: "m1", field: "text", text: "one " }),
-      S.Delta.make({ turnId, itemId: "m1", field: "text", text: "two" }),
+      S.Delta.make({ turnId, itemId: "m1", field: "text", text: "one ", subagentId: null }),
+      S.Delta.make({ turnId, itemId: "m1", field: "text", text: "two", subagentId: null }),
     ]);
 
     expect(streaming.turns[0]?.live.get("m1")?.text).toBe("one two");
 
     const done = applySessionItems(streaming, [
-      event(4, E.TurnItemCompleted.make({ sessionId, turnId, item: message })),
-      S.Delta.make({ turnId, itemId: "m1", field: "text", text: " late" }),
+      event(4, E.TurnItemCompleted.make({ sessionId, turnId, item: message, subagentId: null })),
+      S.Delta.make({ turnId, itemId: "m1", field: "text", text: " late", subagentId: null }),
     ]);
 
     expect(done.turns[0]?.items).toEqual([message]);
@@ -81,8 +81,8 @@ describe("session model", () => {
     });
 
     const progressed = applySessionItems(started, [
-      S.ItemProgress.make({ turnId, item: running }),
-      S.Delta.make({ turnId, itemId: "c1", field: "output", text: "ok\n" }),
+      S.ItemProgress.make({ turnId, item: running, subagentId: null }),
+      S.Delta.make({ turnId, itemId: "c1", field: "output", text: "ok\n", subagentId: null }),
     ]);
 
     const live = progressed.turns[0]?.live.get("c1");

@@ -87,6 +87,7 @@ export const hostModel = (workspaces: ReadonlyArray<WorkspaceSpec>): HostModel =
             }),
             pendingApprovals: [],
             lastTurnPreview: null,
+            subagents: [],
           })
       )
     ),
