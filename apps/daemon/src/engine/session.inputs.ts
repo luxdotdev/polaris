@@ -32,6 +32,7 @@ export const eventSchemas = {
   "session.fork": standard(Schema.Struct({ session: AgentSession })),
   "turn.send": standard(Schema.Struct({ turn: Turn })),
   "turn.continue": Nothing,
+  "turn.retry": standard(Schema.Struct({ turn: Turn })),
   "turn.steer": standard(Schema.Struct({ canSteer: Schema.Boolean })),
   "turn.interrupt": Nothing,
   "approval.respond": standard(

@@ -33,7 +33,7 @@ record (folded from the log) ─▶ snapshotOf(record) ─▶ transition(machine
 - **The context update is the fold.** A transition emits its `DomainEvent`s and moves to the state `foldSession` of those events gives (`store/model.ts`, the same reducer `project` uses). So a transition's next snapshot is exactly what the log folds to once its events commit, and the target state and the recorded `SessionStateChanged` can't disagree. `session.test.ts` checks this for every reachable snapshot and input.
 - **Inputs** (`SessionInput`) are Client commands, validated (a state that doesn't accept one rejects it with the reason a user reads), and engine signals from the reactors: the Harness (`harness.opened`, `harness.turnStarted`, `harness.approvalRequested`, `harness.turnEnded`, `harness.exited`, …), the terminal hand-off (`terminal.closed`, `harness.resumed`), the idle timer (`idle.timeout`), failures (`session.fail`) and restart / upgrade recovery (`daemon.recover`). Their payloads (`session.inputs.ts`, with what the machine emits) are Effect Schemas passed to XState as Standard Schemas (`Schema.toStandardSchemaV1`), which types every handler's `event`.
 - **Effects**: entering Idle emits `scheduleIdleStop` (the engine arms the idle timer); `idle.timeout` emits `stopHarness`. Everything else the reactors do (opening Harnesses, checkpoints, Worktrees) stays in the reactors and the supervisor, keyed off the command or Harness event as before.
-- **Where it runs**: `decider.ts` builds the input for each lifecycle command (`StartSession`, `SendTurn`, `Continue`, `Steer`, `Interrupt`, `RespondToApproval`, `SetPermissionMode`, `SetModel`, `ForkSession`, `ArchiveSession`, `UnarchiveSession`, `OpenInTerminal`, `ReturnFromTerminal`) and returns what the machine emits; the runtime's `signal(sessionId, input)` (`runtime.ts`) does the same for engine signals inside `store.commit`, then runs the effects. Workspaces, Worktrees, renames and Turn items are not lifecycle and stay where they were.
+- **Where it runs**: `decider.ts` builds the input for each lifecycle command (`StartSession`, `SendTurn`, `Continue`, `Retry`, `Steer`, `Interrupt`, `RespondToApproval`, `SetPermissionMode`, `SetModel`, `ForkSession`, `ArchiveSession`, `UnarchiveSession`, `OpenInTerminal`, `ReturnFromTerminal`) and returns what the machine emits; the runtime's `signal(sessionId, input)` (`runtime.ts`) does the same for engine signals inside `store.commit`, then runs the effects. Workspaces, Worktrees, renames and Turn items are not lifecycle and stay where they were.
 - **Cost**: one `resolveState` + `transition` is ~10 µs, and snapshots are cached per record (`WeakMap`), so a record is resolved once. Deltas and item events never touch the machine.
 
 How XState v6 transition functions read in `session.ts`: returning `undefined` means "not taken" and the event bubbles to the machine-level default (usually a rejection); returning an object takes the transition, even `HANDLED` (no target), which is how a state ignores a signal. A state change targets `#<state>` with `reenter: true`, so an entry action runs for every recorded `SessionStateChanged`.
@@ -50,7 +50,7 @@ stateDiagram-v2
   state "live (Harness running)" as live {
     state "Idle" as idle
     state "Working" as working
-    idle --> working: turn.send, harness.turnStarted
+    idle --> working: turn.send, turn.retry, harness.turnStarted
     working --> needs_you: harness.approvalRequested (for the Turn in flight)
     needs_you --> working: approval.respond, harness.approvalWithdrawn (last request, Turn in flight)
     working --> idle: harness.turnEnded
@@ -60,9 +60,9 @@ stateDiagram-v2
   [*] --> dormant: session.fork
   starting --> working: harness.opened, harness.resumed (Turn open)
   starting --> idle: harness.resumed (no Turn)
-  dormant --> starting: turn.send, turn.continue
-  failed --> starting: turn.send, turn.continue
-  needs_you --> starting: turn.send, turn.continue (after a restart, nothing pending)
+  dormant --> starting: turn.send, turn.continue, turn.retry
+  failed --> starting: turn.send, turn.continue, turn.retry
+  needs_you --> starting: turn.send, turn.continue, turn.retry (after a restart, nothing pending)
   dormant --> working: harness.turnStarted
   idle --> dormant: idle.timeout
   idle --> in_terminal: terminal.open
@@ -89,6 +89,7 @@ Not drawn: `model.set` changes no Session State (it records `SessionModelChanged
 |---|---|---|
 | `turn.send` | Idle (→ Working), Dormant, Failed, Needs You after a restart with nothing pending (→ Starting); never with a Turn in flight | "the session is Archived", "… In Terminal; return it first", "the session is working; wait for the Turn to end" |
 | `turn.continue` | the same states, and only when the last Turn is Interrupted | "there is no Interrupted Turn to continue", "the session is \<state\>" |
+| `turn.retry` | the same states, and only when the last Turn Failed; a new Turn with its prompt and attachments | "there is no Failed Turn to retry", "the session is \<state\>" |
 | `turn.steer` / `turn.interrupt` | a Turn in flight (steer: not In Terminal, and the Harness supports it) | "there is no Turn in flight …" |
 | `approval.respond` | a pending request (the last answer in Needs You → Working, if a Turn is in flight) | "request … is already resolved" (first Client wins) |
 | `session.archive` | any state but Archived, only with no Turn in flight (withdraws anything still pending) | "interrupt the Turn in flight before archiving", "already Archived" |
@@ -131,8 +132,8 @@ Deliberate, and only in races the old code let through: Archived now ignores wha
 
 | Driver | States (shortest paths) | State-changing transitions (one path each) |
 |---|---|---|
-| Claude (sequential hand-off) | 29 | 127 |
-| Codex (live co-attach) | 35 | 174 |
+| Claude (sequential hand-off) | 29 | 131 |
+| Codex (live co-attach) | 35 | 178 |
 
 Simple paths are too many to replay (455k and 2.4M), so every transition is covered instead. Not replayed: `idle.timeout` (the Engine's timer; covered by `Engine.test.ts`) and `session.fail` (a failing Worktree or Harness open). `session.test.ts` checks the machine on its own: all eight Session States are reachable, the rebuild-from-fold property, the guards, recovery and effects.
 

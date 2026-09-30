@@ -47,6 +47,8 @@ export const Command = Schema.TaggedUnion({
   Interrupt: { sessionId: SessionId },
   /** Continue an Interrupted Turn after a Daemon restart. Never done automatically. */
   Continue: { sessionId: SessionId },
+  /** Send a Failed Turn's prompt and attachments again, as a new Turn. */
+  Retry: { sessionId: SessionId },
   RespondToApproval: {
     sessionId: SessionId,
     requestId: RequestId,
