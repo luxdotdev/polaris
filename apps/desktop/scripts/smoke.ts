@@ -135,6 +135,12 @@ const jumpByTyping = async (page: Page) => {
     .locator('[role="dialog"][data-state="open"]')
     .waitFor({ state: "detached", timeout: 5000 });
   step("shortcut help opens with ⌘/ and closes with esc");
+
+  await page.keyboard.press("Meta+2");
+  await page.getByText(/Review arrives/).waitFor({ timeout: 5000 });
+  await page.keyboard.press("Meta+1");
+  await page.getByTestId("session-panel").waitFor({ timeout: 5000 });
+  step("⌘2 and ⌘1 switch views");
 };
 
 /** Develop → Start proof session, as the menu does it. */
