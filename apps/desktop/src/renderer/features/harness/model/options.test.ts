@@ -5,8 +5,10 @@ import {
   defaultHarness,
   harnessOptions,
   listedOptions,
+  noneReady,
   otherCount,
   readyOn,
+  reasonLine,
 } from "./options.ts";
 
 const probe = (harness: string, status: HarnessStatus, version: string | null = "1.0.0") => ({
@@ -101,10 +103,10 @@ describe("Harness options", () => {
     ]);
   });
 
-  test("the default is the first listed Harness that can start", () => {
+  test("the default is the first ready Harness, never one that isn't ready", () => {
     const options = harnessOptions(
       report(
-        probe(first.kind, "not-installed"),
+        probe(first.kind, "outdated", "2.1.272"),
         probe(second.kind, "needs-sign-in"),
         probe(third.kind, "ready")
       ),
@@ -112,10 +114,34 @@ describe("Harness options", () => {
     );
 
     expect(defaultHarness(options)).toBe(third.kind);
-    expect(defaultHarness(harnessOptions(report(probe(first.kind, "needs-sign-in")), []))).toBe(
-      first.kind
-    );
+    expect(
+      defaultHarness(harnessOptions(report(probe(first.kind, "needs-sign-in")), []))
+    ).toBeNull();
+    expect(defaultHarness(harnessOptions(report(probe(first.kind, "outdated")), []))).toBeNull();
+    // An older Daemon can't say: its drivers are offered but nothing is pre-selected.
+    expect(defaultHarness(harnessOptions(null, [first.capability]))).toBeNull();
     expect(defaultHarness([])).toBeNull();
+  });
+
+  test("none ready: every Harness says why in one line", () => {
+    const options = harnessOptions(
+      report(
+        probe(first.kind, "outdated", "2.1.272"),
+        probe(second.kind, "not-installed", null),
+        probe(third.kind, "needs-sign-in", "1.18.33"),
+        probe("zed", "unknown", null)
+      ),
+      []
+    );
+
+    expect(noneReady(options)).toBe(true);
+    expect(options.map(reasonLine)).toEqual([
+      `${first.name} 2.1.272 · needs 2.0.0 or newer`,
+      `${second.name} · not installed`,
+      `${third.name} 1.18.33 · needs sign-in`,
+      "zed · couldn't check",
+    ]);
+    expect(noneReady(harnessOptions(report(probe(first.kind, "ready")), []))).toBe(false);
   });
 
   test("ready on N of M hosts", () => {

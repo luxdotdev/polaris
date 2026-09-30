@@ -16,7 +16,7 @@ import {
 import { useState } from "react";
 import { useApp } from "../../../shell/hooks.ts";
 import { useAvailability } from "../live.ts";
-import { type HarnessOption, otherCount, STATUS_LABELS } from "../model/options.ts";
+import { type HarnessOption, otherCount, reasonLine, STATUS_LABELS } from "../model/options.ts";
 import { SignInTerminal, type SignInTarget } from "./SignInTerminal.tsx";
 
 /** Starts a Harness's sign-in hand-off on a Host; render `dialog` once. */
@@ -205,3 +205,60 @@ export const SetupNote = ({
     <HarnessAction option={option} onSignIn={onSignIn} />
   </div>
 );
+
+/**
+ * When no Harness on the Host is ready: each one's reason in a line, its setup guide, and
+ * sign-in where that's all it needs. Never an install or update action; Start stays off.
+ */
+export const NotReadyPanel = ({
+  hostKey,
+  options,
+  onSignIn,
+}: {
+  readonly hostKey: string;
+  readonly options: ReadonlyArray<HarnessOption>;
+  readonly onSignIn: (option: HarnessOption) => void;
+}) => {
+  const host = useApp((s) => s.hosts.find((h) => h.key === hostKey));
+  const { refresh } = useAvailability(hostKey);
+
+  return (
+    <div
+      className="rounded-card border-hairline bg-surface-raised flex flex-col border"
+      data-testid="harness-not-ready"
+    >
+      <div className="flex flex-col gap-0.5 px-4 pt-3 pb-2">
+        <p className="text-label text-text-strong">
+          No harness is ready on {host?.label ?? hostKey}
+        </p>
+        <p className="text-caption text-text-subtle">
+          Polaris drives the harnesses you already have. Set one up, then check again.
+        </p>
+      </div>
+      <ul className="flex flex-col">
+        {options.map((option) => (
+          <li
+            key={option.kind}
+            className="border-hairline flex items-center gap-3 border-t px-4 py-2"
+            data-testid={`not-ready-${option.kind}`}
+          >
+            <HarnessMark harness={option.kind} size={20} />
+            <span className="text-body text-text-default min-w-0 flex-1 truncate">
+              {reasonLine(option)}
+            </span>
+            {option.signInArgv === null ? (
+              <DocsLink option={option} />
+            ) : (
+              <HarnessAction option={option} onSignIn={onSignIn} />
+            )}
+          </li>
+        ))}
+      </ul>
+      <div className="border-hairline flex justify-end border-t px-2 py-1.5">
+        <Button variant="ghost" size="sm" onClick={refresh} data-testid="availability-refresh">
+          Check again
+        </Button>
+      </div>
+    </div>
+  );
+};

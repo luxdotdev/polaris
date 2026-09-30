@@ -123,6 +123,15 @@ export const sessionFlow = async ({ page, repo, step, shoot, atFirstApproval }: 
   await page.getByRole("button", { name: "New session" }).first().click();
   await page.getByTestId("new-session").waitFor();
   await page.getByTestId("where-line").filter({ hasText: "on a new worktree" }).waitFor();
+  // Only a ready Harness is pre-selected (bench mode: Claude Code and Codex).
+  const picked = page.locator('[role="radiogroup"][aria-label="Harness"] [aria-checked="true"]');
+
+  await picked.waitFor();
+  const pickedId = await picked.getAttribute("data-testid");
+
+  if (pickedId !== "harness-claude" && pickedId !== "harness-codex")
+    throw new Error(`the new-session page pre-selected ${pickedId}, which isn't ready`);
+  step(`pre-selected a ready harness: ${pickedId}`);
   const input = page.getByTestId("composer-input");
 
   await input.fill("Remove stale review checkouts once their pull request merges");
@@ -175,4 +184,34 @@ export const sessionFlow = async ({ page, repo, step, shoot, atFirstApproval }: 
   step("follow-up Turn finished; the first folded");
 
   return frames;
+};
+
+/**
+ * A Host with no ready Harness (the Raspberry Pi case, on fixtures): nothing pre-selected, a
+ * neutral chip, Start off, and each Harness's reason with its docs, never an install.
+ */
+export const checkNoneReady = async (page: Page, step: (m: string) => void) => {
+  await page.evaluate(`location.hash = "#preview/none-ready"; location.reload()`);
+  await page.getByTestId("harness-not-ready").waitFor();
+
+  const checked = await page
+    .locator('[role="radiogroup"][aria-label="Harness"] [aria-checked="true"]')
+    .count();
+
+  const chip = await page.getByTestId("model-picker").textContent();
+  const sendOff = await page.getByRole("button", { name: "Send" }).isDisabled();
+  const claude = await page.getByTestId("not-ready-claude").textContent();
+  const installs = await page.getByRole("button", { name: /install|update/i }).count();
+
+  if (checked !== 0) throw new Error("a Harness was pre-selected though none is ready");
+
+  if (chip !== "No harness ready") throw new Error(`the chip reads "${chip}"`);
+
+  if (!sendOff) throw new Error("Start is enabled though no Harness is ready");
+
+  if (claude?.includes("needs 2.1.283 or newer") !== true)
+    throw new Error(`Claude Code's reason reads "${claude}"`);
+
+  if (installs !== 0) throw new Error("an install or update action is offered");
+  step(`none ready: no pre-selection, Start off, "${claude?.replace("Setup guide", "").trim()}"`);
 };

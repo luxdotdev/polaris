@@ -5,7 +5,6 @@
  */
 import {
   type Command,
-  HARNESS_CATALOGUE,
   isKnownHarness,
   type PermissionMode,
   type SessionId,
@@ -23,6 +22,8 @@ import { send } from "../dispatch.ts";
 import {
   defaultHarness,
   HarnessChip,
+  NoHarnessChip,
+  noneReady,
   HarnessChoiceRow,
   type ModelChoice,
   SetupNote,
@@ -161,7 +162,7 @@ export const NewSessionPage = ({
   const ui = useSessionUi(key);
   const [picked, setPicked] = useState<HarnessChoice | null>(null);
   const [models, setModels] = useState<Models>({});
-  const { options } = useAvailability(hostKey);
+  const { options, loading } = useAvailability(hostKey);
   const signIn = useSignIn(hostKey);
   const [permissionPick, setPermissionMode] = useState<PermissionMode | null>(null);
   const defaults = useSettings((s) => s.sessionDefaults);
@@ -201,8 +202,8 @@ export const NewSessionPage = ({
   };
 
   const harness = chosen;
-  // The composer takes a Harness hue even before one is chosen (or when a fork has none).
-  const hue: Harness = harness ?? option?.kind ?? HARNESS_CATALOGUE[0].kind;
+  // No Harness chosen (none ready, or still checking): a neutral composer, never @claude.
+  const hue: Harness | null = harness ?? option?.kind ?? null;
   const canSubmit = !busy && commandsFor(PREVIEW_ID, workspaceId, choices, ui) !== null;
   const shown = resolvePlacement(where, ui.draft);
 
@@ -247,21 +248,25 @@ export const NewSessionPage = ({
       <div className="flex w-full max-w-[640px] flex-col gap-3.5 pt-1 pb-10">
         <DraftComposer
           className="shadow-float rounded-card"
-          harness={hue}
+          harness={hue ?? ""}
           autoFocus
           picker={
-            <HarnessChip
-              hostKey={hostKey}
-              harness={hue}
-              model={choices.models[hue]?.model ?? null}
-              effort={choices.models[hue]?.effort ?? null}
-              disabled={!choices.startable}
-              onModel={(next) => setModels({ ...models, [hue]: next })}
-              harnesses={{
-                onPick: (o) => setPicked({ kind: "harness", harness: o.kind }),
-                verb: (o) => o.name,
-              }}
-            />
+            hue === null ? (
+              <NoHarnessChip loading={loading} />
+            ) : (
+              <HarnessChip
+                hostKey={hostKey}
+                harness={hue}
+                model={choices.models[hue]?.model ?? null}
+                effort={choices.models[hue]?.effort ?? null}
+                disabled={!choices.startable}
+                onModel={(next) => setModels({ ...models, [hue]: next })}
+                harnesses={{
+                  onPick: (o) => setPicked({ kind: "harness", harness: o.kind }),
+                  verb: (o) => o.name,
+                }}
+              />
+            )
           }
           tools={<PermissionChip value={permissionMode} onChange={setPermissionMode} />}
           value={ui.draft}
@@ -286,8 +291,10 @@ export const NewSessionPage = ({
           value={choice}
           onChange={setPicked}
           canFork={hasCapability(host, "session.fork")}
+          loading={loading}
+          onSignIn={signIn.begin}
         />
-        {option !== undefined && !option.startable ? (
+        {option !== undefined && !option.startable && !noneReady(options) ? (
           <SetupNote option={option} onSignIn={signIn.begin} />
         ) : null}
         {signIn.dialog}

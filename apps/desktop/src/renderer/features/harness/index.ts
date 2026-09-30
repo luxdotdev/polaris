@@ -23,6 +23,8 @@ export {
 
 export {
   defaultHarness,
+  noneReady,
+  reasonLine,
   type HarnessOption,
   listedOptions,
   STATUS_LABELS,
@@ -36,6 +38,6 @@ export {
   useSignIn,
 } from "./ui/Availability.tsx";
 
-export { HarnessChip, type HarnessChipProps } from "./ui/HarnessChip.tsx";
+export { HarnessChip, type HarnessChipProps, NoHarnessChip } from "./ui/HarnessChip.tsx";
 
 export { type HarnessChoice, HarnessChoiceRow } from "./ui/HarnessCards.tsx";

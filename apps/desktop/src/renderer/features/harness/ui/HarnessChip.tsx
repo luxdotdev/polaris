@@ -262,3 +262,13 @@ export const HarnessChip = (props: HarnessChipProps) => {
     </>
   );
 };
+
+/** The chip before a Harness is chosen: while the Host is checked, or when none is ready. */
+export const NoHarnessChip = ({ loading }: { readonly loading: boolean }) => (
+  <span
+    className="rounded-control bg-fill-selected text-caption text-text-subtle inline-flex h-[26px] shrink-0 items-center px-2"
+    data-testid="model-picker"
+  >
+    {loading ? "Checking harnesses…" : "No harness ready"}
+  </span>
+);

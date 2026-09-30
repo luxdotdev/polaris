@@ -79,6 +79,7 @@ const SCENE_NAMES = [
   "long",
   "new",
   "setup",
+  "none-ready",
 ] as const;
 
 type Scene = (typeof SCENE_NAMES)[number];
@@ -86,42 +87,51 @@ type Scene = (typeof SCENE_NAMES)[number];
 const harnessOf = (input: RequestInput<RequestMethod>) =>
   "harness" in input && input.harness === "codex" ? "codex" : "claude";
 
-/** Every catalogue Harness ready, except Codex on the setup scene. */
-/** What each scene's Host has: most ready, a sign-in and not-installed ones on "setup". */
-const STATUSES: Readonly<Record<"default" | "setup", Readonly<Record<string, HarnessStatus>>>> = {
-  default: {
-    claude: "ready",
-    codex: "ready",
-    opencode: "ready",
-    gemini: "outdated",
-    copilot: "not-installed",
-  },
-  setup: {
-    claude: "ready",
-    codex: "needs-sign-in",
-    opencode: "not-installed",
-    gemini: "outdated",
-    copilot: "not-installed",
-  },
-};
+type Probe = readonly [status: HarnessStatus, version: string | null];
 
-/** Installed versions: none when not installed, an old one when outdated. */
-const VERSIONS = new Map<HarnessStatus, string | null>([
-  ["not-installed", null],
-  ["outdated", "0.21.0"],
-]);
+/**
+ * What each scene's Host has: mostly ready; on "setup" a sign-in and not-installed ones;
+ * on "none-ready" nothing ready (the Raspberry Pi test: an outdated Claude Code).
+ */
+const HOSTS: Readonly<Record<"default" | "setup" | "none-ready", Readonly<Record<string, Probe>>>> =
+  {
+    default: {
+      claude: ["ready", "2.1.283"],
+      codex: ["ready", "0.157.1"],
+      opencode: ["ready", "1.18.33"],
+      gemini: ["outdated", "0.21.0"],
+      copilot: ["not-installed", null],
+    },
+    setup: {
+      claude: ["ready", "2.1.283"],
+      codex: ["needs-sign-in", "0.157.1"],
+      opencode: ["not-installed", null],
+      gemini: ["outdated", "0.21.0"],
+      copilot: ["not-installed", null],
+    },
+    "none-ready": {
+      claude: ["outdated", "2.1.272"],
+      codex: ["not-installed", null],
+      opencode: ["needs-sign-in", "1.18.33"],
+      gemini: ["not-installed", null],
+      copilot: ["not-installed", null],
+    },
+  };
+
+const hostFor = (scene: Scene) =>
+  HOSTS[scene === "setup" || scene === "none-ready" ? scene : "default"];
 
 const availability = (scene: Scene) => {
-  const statuses = STATUSES[scene === "setup" ? "setup" : "default"];
+  const probes = hostFor(scene);
 
   return {
     harnesses: HARNESS_CATALOGUE.map((entry) => {
-      const status = statuses[entry.kind] ?? "ready";
+      const [status, version] = probes[entry.kind] ?? ["ready", entry.minVersion];
 
       return {
         harness: entry.kind,
         status,
-        version: VERSIONS.get(status) ?? entry.minVersion,
+        version,
         minVersion: entry.minVersion,
         detail: null,
         signInArgv: status === "not-installed" ? null : [...entry.setup.signInCommand],
@@ -261,7 +271,8 @@ export const mountPreview = (root: HTMLElement, hash: string) => {
   };
 
   const navigation = createNavigation({ app: store, storage: null });
-  const shown = scene === "new" || scene === "setup" ? null : models[SCENE_NAMES.indexOf(scene)];
+  const isNew = scene === "new" || scene === "setup" || scene === "none-ready";
+  const shown = isNew ? null : models[SCENE_NAMES.indexOf(scene)];
 
   standInBridge(bridgeFor(scene));
 
