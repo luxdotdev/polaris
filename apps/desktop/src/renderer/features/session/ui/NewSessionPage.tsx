@@ -32,7 +32,6 @@ import {
   useSignIn,
 } from "../../harness/index.ts";
 import { hasCapability, useHost } from "../hooks.ts";
-import { tildePath } from "../model/format.ts";
 import {
   branchFromPrompt,
   forkStartCommands,
@@ -44,6 +43,7 @@ import { patchSessionUi, type SessionUi, uiKey, useSessionUi } from "../state.ts
 import { DraftComposer } from "./DraftComposer.tsx";
 import { ForkSource, type ForkSourceValue } from "./ForkSource.tsx";
 import { PermissionChip, WhereLine } from "./placement.tsx";
+import { HostMenu, WorkspaceMenu } from "./whereMenus.tsx";
 
 export interface NewSessionPageProps {
   readonly hostKey: string;
@@ -237,6 +237,8 @@ export const NewSessionPage = ({
   const canSubmit = !busy && commandsFor(PREVIEW_ID, workspaceId, choices, ui) !== null;
   const shown = resolvePlacement(where, ui.draft);
 
+  const whereMenu = { host, hostKey, workspaceId, draft: ui.draft };
+
   const submit = () => {
     const sessionId = newSessionId();
     const commands = commandsFor(sessionId, workspaceId, choices, ui);
@@ -265,8 +267,8 @@ export const NewSessionPage = ({
           What should happen next?
         </h1>
         <WhereLine
-          hostLabel={host?.label ?? hostKey}
-          path={tildePath(workspace.path, host?.status.host?.homeDir ?? null)}
+          hostLabel={<HostMenu {...whereMenu} />}
+          path={<WorkspaceMenu {...whereMenu} path={workspace.path} />}
           placement={where}
           worktrees={[...hostModel.worktrees.values()].filter(
             (w) => w.workspaceId === workspaceId && !w.isMain

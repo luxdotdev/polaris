@@ -14,12 +14,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@polaris/ui";
+import type { ReactNode } from "react";
 import { PERMISSION_MODES, permissionLabel } from "../model/intent.ts";
 import { placementPhrase, type PlacementChoice } from "../model/newSession.ts";
 
 export interface WhereLineProps {
-  readonly hostLabel: string;
-  readonly path: string;
+  /** The Host, as text or its menu (whereMenus.tsx). */
+  readonly hostLabel: ReactNode;
+  /** The Workspace's path, as text or its menu. */
+  readonly path: ReactNode;
   readonly placement: PlacementChoice;
   readonly worktrees: ReadonlyArray<Worktree>;
   readonly canWorktree: boolean;

@@ -24,6 +24,8 @@ import { barHosts, barWorkspaces, type BarHost, topBarMode } from "./topBar.ts";
 
 export type NavStore = StoreApi<NavState>;
 
+const NO_OVERLAY = { jumpOpen: false, helpOpen: false, folder: null } as const;
+
 const STORAGE_KEY = "polaris.navigation.v1";
 
 const Persisted = Schema.Struct({
@@ -93,9 +95,14 @@ export interface ShellActions {
   readonly openJump: () => void;
   readonly setJumpOpen: (open: boolean) => void;
   readonly setHelpOpen: (open: boolean) => void;
-  /** Closes the shell's overlay (jump menu or shortcut help); true when one was open. */
+  /** The ⌘O dialog, on `hostKey` (the selected Host when omitted). */
+  readonly openFolder: (hostKey?: string | null) => void;
+  readonly closeFolder: () => void;
+  /** Closes the shell's overlay (jump menu, shortcut help, ⌘O); true when one was open. */
   readonly closeOverlay: () => boolean;
   readonly startNewSession: () => void;
+  /** New session on another Host or Workspace: its first Workspace, or its home, when none is given. */
+  readonly startNewSessionIn: (hostKey: string, workspaceId?: WorkspaceId | null) => void;
   readonly closeNewSession: () => void;
   readonly toggleFolded: (key: string, open: boolean) => void;
   /** Settings over the three zones (⌘,); the last section when none is given. */
@@ -212,6 +219,32 @@ export const createNavigation = ({
     timeSwitch(inputAt);
   };
 
+  const startNewSessionIn = (hostKey: string, workspaceId: WorkspaceId | null = null) => {
+    const shown = barOf(app.getState())
+      .find((h) => h.host.key === hostKey)
+      ?.workspaces.some((w) => w.workspace.id === workspaceId);
+
+    set({
+      pane: "new-session",
+      mode: "orchestrate",
+      settings: null,
+      hostKey,
+      workspaceId: shown === true ? workspaceId : null,
+      sessionId: null,
+    });
+
+    if (shown === true || ensureWorkspace === undefined) return;
+
+    // The stage shows the setup, busy, until the Host's Workspace (or its home) arrives.
+    void ensureWorkspace(hostKey).then((id) => {
+      const nav = store.getState();
+
+      if (nav.pane !== "new-session" || nav.hostKey !== hostKey) return;
+
+      set(id === null ? { pane: "session" } : { workspaceId: id, sessionId: null });
+    });
+  };
+
   const actions: ShellActions = {
     setMode: (mode) => set({ mode, settings: null }),
     selectSession: ({ hostKey, sessionId }) => {
@@ -247,32 +280,27 @@ export const createNavigation = ({
       if (host !== undefined) selectHost(host.host.key, inputAt);
     },
     showSidebar: (sidebar) => set({ sidebar }),
-    // One shell overlay at a time: opening one closes the other.
-    openJump: () => set({ jumpOpen: true, helpOpen: false }),
-    setJumpOpen: (jumpOpen) => set(jumpOpen ? { jumpOpen, helpOpen: false } : { jumpOpen }),
-    setHelpOpen: (helpOpen) => set(helpOpen ? { helpOpen, jumpOpen: false } : { helpOpen }),
+    // One shell overlay at a time: opening one closes the others.
+    openJump: () => set({ ...NO_OVERLAY, jumpOpen: true }),
+    setJumpOpen: (jumpOpen) => set(jumpOpen ? { ...NO_OVERLAY, jumpOpen } : { jumpOpen }),
+    setHelpOpen: (helpOpen) => set(helpOpen ? { ...NO_OVERLAY, helpOpen } : { helpOpen }),
+    openFolder: (hostKey = null) => set({ ...NO_OVERLAY, folder: { hostKey } }),
+    closeFolder: () => set({ folder: null }),
     closeOverlay: () => {
-      const { jumpOpen, helpOpen } = store.getState();
+      const { jumpOpen, helpOpen, folder } = store.getState();
 
-      if (!jumpOpen && !helpOpen) return false;
-      set({ jumpOpen: false, helpOpen: false });
+      if (!jumpOpen && !helpOpen && folder === null) return false;
+      set(NO_OVERLAY);
 
       return true;
     },
     startNewSession: () => {
       const { hostKey, workspaceId } = current();
 
-      set({ pane: "new-session", mode: "orchestrate", settings: null });
-
-      if (workspaceId !== null || hostKey === null || ensureWorkspace === undefined) return;
-
-      // The stage shows the setup, busy, until the home Workspace arrives.
-      void ensureWorkspace(hostKey).then((id) => {
-        if (store.getState().pane !== "new-session") return;
-
-        set(id === null ? { pane: "session" } : { hostKey, workspaceId: id, sessionId: null });
-      });
+      if (hostKey === null) set({ pane: "new-session", mode: "orchestrate", settings: null });
+      else startNewSessionIn(hostKey, workspaceId);
     },
+    startNewSessionIn,
     closeNewSession: () => set({ pane: "session" }),
     toggleFolded: (key, open) => set({ folded: { ...store.getState().folded, [key]: !open } }),
     openSettings: (section, options) => {
