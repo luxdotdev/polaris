@@ -9,6 +9,7 @@
  */
 import { Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/rpc";
+import { AttachmentSettings, AttachmentUsage, StagedAmount } from "./attachments.ts";
 import { HostHarnesses } from "./availability.ts";
 import { CapabilityList } from "./capabilities.ts";
 import { Command } from "./commands.ts";
@@ -430,6 +431,26 @@ export const StageAttachment = Rpc.make("attachments.stage", {
   error: FileError,
 });
 
+/** The Host's cleanup settings and what it has staged (capability `attachments.settings`). */
+export const GetAttachmentSettings = Rpc.make("attachments.settings", {
+  payload: {},
+  success: Schema.Struct({ settings: AttachmentSettings, usage: AttachmentUsage }),
+  error: Schema.Union([Unsupported, FileError]),
+});
+
+/** Replaces the cleanup settings; they apply from the next sweep or archive. */
+export const SetAttachmentSettings = Rpc.make("attachments.setSettings", {
+  payload: { settings: AttachmentSettings },
+  error: Schema.Union([Unsupported, FileError]),
+});
+
+/** Deletes staged attachments now, all of them or one Workspace's; answers what it removed. */
+export const ClearAttachments = Rpc.make("attachments.clear", {
+  payload: { workspaceId: Schema.NullOr(WorkspaceId) },
+  success: StagedAmount,
+  error: Schema.Union([Unsupported, FileError]),
+});
+
 // ── Terminal (one per Workspace, via Bun.Terminal) ──────────────────────────
 
 export const TerminalOpen = Rpc.make("terminal.open", {
@@ -511,6 +532,9 @@ export class DaemonRpcs extends RpcGroup.make(
   GitStatus,
   GitDiff,
   StageAttachment,
+  GetAttachmentSettings,
+  SetAttachmentSettings,
+  ClearAttachments,
   TerminalOpen,
   TerminalAttach,
   TerminalAttachBinary,

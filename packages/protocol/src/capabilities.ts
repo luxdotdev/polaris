@@ -38,6 +38,8 @@ export const Capability = Schema.Literals([
   "files.watch",
   "git.diff",
   "attachments.stage",
+  /** `attachments.settings`, `attachments.setSettings`, `attachments.clear`: cleanup in Settings. */
+  "attachments.settings",
   "terminal",
   /** `terminal.attachBinary`: terminal output as raw bytes on the blob channel, not base64 JSON. */
   "terminal.binary",

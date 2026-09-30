@@ -12,9 +12,10 @@
   - `after-days` with N: the sweeper deletes attachments staged more than N days ago.
   - `never`: attachments are kept until "clear now".
 - The sweeper runs hourly while the layer is alive. `AttachmentMaintenance.sweep` runs it on demand.
-- **Settings operations** (additive; not in `services.ts`): `settings`, `setSettings`, `usage` (bytes and files staged on this Host), and `clearNow({ workspaceId? })`, which returns what it removed.
+- **Settings operations** (additive; not in `services.ts`): `settings`, `setSettings`, `usage` (bytes and files staged on this Host), `usageByWorkspace`, and `clearNow({ workspaceId? })`, which returns what it removed. The policy schema is the protocol's `AttachmentCleanup`.
+- **Settings RPCs** (capability `attachments.settings`): `attachments.settings` (the settings plus usage, in total and per Workspace), `attachments.setSettings`, and `attachments.clear({ workspaceId })` (null clears everything), all in `AttachmentRpcs.ts`. Settings → Attachments in the Desktop App uses them.
 - **Streaming**: `stage` takes the bytes whole or as a stream. `AttachmentRpcsLive` passes `BlobChannel.takeStream(blobId)`, so an upload is written to `<attachment id>/.partial` chunk by chunk as it arrives and renamed into place when complete: the Daemon holds a few 256 KiB chunks, whatever the size. A failed or oversized upload removes its directory. `maxBytes` (default `MAX_ATTACHMENT_BYTES`, 512 MiB, the Wire's own per-blob limit) is checked as the chunks arrive.
-- **Handlers**: `AttachmentRpcsLive` needs `AttachmentStore` (`AttachmentStoreLive()` provides both services) and `BlobChannel`.
+- **Handlers**: `AttachmentRpcsLive` needs `AttachmentStore` and `AttachmentMaintenance` (`AttachmentStoreLive()` provides both) and `BlobChannel`.
 
 ## Known gaps / TODOs
 
