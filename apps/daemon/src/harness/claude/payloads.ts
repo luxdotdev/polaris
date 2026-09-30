@@ -117,9 +117,16 @@ const decodeToolFields = Schema.decodeUnknownOption(ToolFields);
 export const toolFields = (payload: ToolPayload): ToolFields =>
   Option.getOrElse(decodeToolFields(payload), () => NO_FIELDS);
 
+/** A result's `modelUsage`: each Model's context window (older CLIs may leave it out). */
+export const decodeModelUsage = Schema.decodeUnknownOption(
+  Schema.Record(Schema.String, Schema.Struct({ contextWindow: Schema.Number }))
+);
+
 const Todo = Schema.Struct({
   content: Schema.String,
   status: Schema.Literals(["pending", "in_progress", "completed"]),
+  /** The step in the present tense ("Running the tests"), shown while it is the current one. */
+  activeForm: StringOrNull,
 });
 
 /** TodoWrite's input: its todos, without the ones that don't read as a todo. */

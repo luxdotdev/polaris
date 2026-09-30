@@ -83,6 +83,7 @@ export const sessionOf: (event: DomainEvent) => SessionId | null =
     SessionCursorUpdated: bySessionId,
     SessionPermissionModeChanged: bySessionId,
     SessionModelChanged: bySessionId,
+    SessionContextUsed: bySessionId,
     TurnStarted: byTurn,
     TurnItemCompleted: bySessionId,
     TurnEnded: byTurn,
@@ -95,12 +96,13 @@ export const sessionOf: (event: DomainEvent) => SessionId | null =
   });
 
 /**
- * Event types the Host stream leaves out: per-item output and checkpoints only
- * matter to a Client that has the session open.
+ * Event types the Host stream leaves out: per-item output, checkpoints and
+ * context usage only matter to a Client that has the session open.
  */
 export const sessionOnlyEventTypes: ReadonlyArray<DomainEvent["_tag"]> = [
   "TurnItemCompleted",
   "CheckpointRecorded",
+  "SessionContextUsed",
 ];
 
 export const isHostStreamEvent = (event: DomainEvent): boolean =>
@@ -154,6 +156,7 @@ export const patchSession = (session: AgentSession, patch: SessionPatch): AgentS
     forkedFromTurnId: session.forkedFromTurnId,
     harnessCursor: session.harnessCursor,
     turnCount: session.turnCount,
+    contextUsage: session.contextUsage,
     lastError: session.lastError,
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
@@ -362,6 +365,8 @@ const apply: (event: DomainEvent) => Reducer = DomainEvent.match<Reducer>({
     updateSession(fold, event.sessionId, () => ({
       session: { model: event.model, effort: event.effort },
     })),
+  SessionContextUsed: (event) => (fold) =>
+    updateSession(fold, event.sessionId, () => ({ session: { contextUsage: event.usage } })),
   TurnStarted: recordTurn,
   TurnEnded: recordTurn,
   TurnItemCompleted:

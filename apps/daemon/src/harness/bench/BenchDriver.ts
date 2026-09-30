@@ -117,7 +117,7 @@ const itemFor = (kind: number, seed: ItemSeed): TurnItem => {
     case 0:
       return TurnItem.cases.AssistantMessage.make({ id, text });
     case 1:
-      return TurnItem.cases.Reasoning.make({ id, text });
+      return TurnItem.cases.Reasoning.make({ id, text, startedAt: null, endedAt: null });
     case 2:
       return TurnItem.cases.CommandExecution.make({
         id,

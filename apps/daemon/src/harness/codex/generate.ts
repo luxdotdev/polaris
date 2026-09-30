@@ -40,6 +40,7 @@ const ROOTS = [
   "v2/TurnStartedNotification",
   "v2/TurnCompletedNotification",
   "v2/TurnPlanUpdatedNotification",
+  "v2/ThreadTokenUsageUpdatedNotification",
   "v2/ItemStartedNotification",
   "v2/ItemCompletedNotification",
   "v2/AgentMessageDeltaNotification",

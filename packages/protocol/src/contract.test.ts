@@ -7,7 +7,7 @@ import { Predicate, Schema } from "effect";
 import { HarnessAvailability, HostHarnesses } from "./availability.ts";
 import { CapabilityList } from "./capabilities.ts";
 import { Command } from "./commands.ts";
-import { ApprovalDecision, Subagent, TurnItem } from "./domain.ts";
+import { ApprovalDecision, ContextUsage, Subagent, TurnItem } from "./domain.ts";
 import { DomainEvent } from "./events.ts";
 import { HARNESS_CATALOGUE, harnessEntry } from "./harnesses.ts";
 import { RequestId, Sequence, SessionId, SubagentId, TurnId } from "./ids.ts";
@@ -52,6 +52,36 @@ describe("contract compatibility", () => {
     );
   });
 
+  test("reasoning, plans and sessions logged before their meta fields decode with them null", () => {
+    const reasoning =
+      '{"_tag":"TurnItemCompleted","sessionId":"s","turnId":"t",' +
+      '"item":{"_tag":"Reasoning","id":"r","text":"Hmm"}}';
+
+    const plan =
+      '{"_tag":"TurnItemCompleted","sessionId":"s","turnId":"t",' +
+      '"item":{"_tag":"Plan","id":"p","steps":[{"text":"a","status":"pending"}]}}';
+
+    expect(decodeEventJson(reasoning)).toMatchObject({
+      item: TurnItem.cases.Reasoning.make({ id: "r", text: "Hmm", startedAt: null, endedAt: null }),
+    });
+    expect(decodeEventJson(plan)).toMatchObject({
+      item: TurnItem.cases.Plan.make({
+        id: "p",
+        steps: [{ text: "a", status: "pending", detail: null }],
+        explanation: null,
+      }),
+    });
+  });
+
+  test("SessionContextUsed round-trips", () => {
+    const event = DomainEvent.cases.SessionContextUsed.make({
+      sessionId: SessionId.make("s"),
+      usage: new ContextUsage({ usedTokens: 84_000, windowTokens: null }),
+    });
+
+    expect(decodeEvent(JSON.parse(JSON.stringify(encodeEvent(event))))).toEqual(event);
+  });
+
   test("ApprovalWithdrawn round-trips", () => {
     const event = DomainEvent.cases.ApprovalWithdrawn.make({
       sessionId: SessionId.make("s"),
@@ -72,7 +102,11 @@ describe("contract compatibility", () => {
     ).toEqual(
       SessionStreamItem.cases.ItemProgress.make({
         turnId: TurnId.make("t"),
-        item: TurnItem.cases.Plan.make({ id: "p", steps: [{ text: "a", status: "in-progress" }] }),
+        item: TurnItem.cases.Plan.make({
+          id: "p",
+          steps: [{ text: "a", status: "in-progress", detail: null }],
+          explanation: null,
+        }),
         subagentId: null,
       })
     );
@@ -106,6 +140,7 @@ describe("contract compatibility", () => {
     expect(Predicate.isTagged(created, "SessionCreated") && created.session).toMatchObject({
       model: "opus",
       effort: null,
+      contextUsage: null,
     });
     expect(Predicate.isTagged(started, "TurnStarted") && started.turn).toMatchObject({
       model: null,

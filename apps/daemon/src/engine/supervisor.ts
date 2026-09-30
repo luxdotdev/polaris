@@ -7,6 +7,7 @@ import {
   type AgentSession,
   ApprovalRequest,
   type Attachment,
+  ContextUsage,
   DomainEvent,
   NotFound,
   type SessionId,
@@ -19,6 +20,7 @@ import { type HarnessError, HarnessEvent } from "../harness/HarnessDriver.ts";
 import type { ServiceError } from "../services.ts";
 import { LiveItem } from "../store/EventStore.ts";
 import { worktreeIdFor } from "./decider.ts";
+import { contextChanged } from "./context.ts";
 import { finalReply, forkPreamble } from "./fork.ts";
 import { EngineRuntime, type EventSource, type LiveHarness, type Progress } from "./runtime.ts";
 
@@ -216,6 +218,17 @@ const make = (rt: EngineRuntime["Service"]): Supervisor["Service"] => {
             ? []
             : [DomainEvent.cases.SessionRenamed.make({ sessionId, title: e.title })]
         ),
+      ContextUsed: (e) =>
+        rt.recordFor(sessionId, (record) => {
+          const usage = new ContextUsage({
+            usedTokens: e.usedTokens,
+            windowTokens: e.windowTokens,
+          });
+
+          return contextChanged(record.session.contextUsage, usage)
+            ? [DomainEvent.cases.SessionContextUsed.make({ sessionId, usage })]
+            : [];
+        }),
       WorktreeCreated: (e) => onWorktreeCreated(sessionId, e.path),
       Exited: (e) => onExited(sessionId, entry, e.error, at),
     }).pipe(Effect.asVoid);

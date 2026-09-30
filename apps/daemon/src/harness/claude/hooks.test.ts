@@ -192,14 +192,16 @@ describe("HookTranslator", () => {
         turnId: t1,
         item: TurnItem.cases.Plan.make({
           id: "plan:t1",
-          steps: [{ text: "a", status: "in-progress" }],
+          steps: [{ text: "a", status: "in-progress", detail: null }],
+          explanation: null,
         }),
       }),
       HarnessEvent.ItemCompleted({
         turnId: t1,
         item: TurnItem.cases.Plan.make({
           id: "plan:t1",
-          steps: [{ text: "a", status: "in-progress" }],
+          steps: [{ text: "a", status: "in-progress", detail: null }],
+          explanation: null,
         }),
       }),
       HarnessEvent.TurnEnded({ turnId: t1, status: "interrupted", error: null }),

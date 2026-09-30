@@ -14,6 +14,7 @@ interface TextSegment {
   readonly kind: "text" | "reasoning";
   readonly id: string;
   readonly messageId: string | null;
+  readonly startedAt: string;
   text: string;
 }
 
@@ -107,7 +108,9 @@ const planItem = (id: string, entries: ReadonlyArray<P.PlanEntry>) =>
     steps: entries.map((entry) => ({
       text: entry.content,
       status: entry.status === "in_progress" ? "in-progress" : entry.status,
+      detail: null,
     })),
+    explanation: null,
   });
 
 /** Merges an update into what is known of a tool call; `null` and absent leave a field as it was. */
@@ -140,7 +143,11 @@ export interface Translator {
   readonly endTurn: (turnId: TurnId) => void;
 }
 
-export const newTranslator = (cwd: string, hooks: TranslatorHooks): Translator => {
+export const newTranslator = (
+  cwd: string,
+  hooks: TranslatorHooks,
+  now: () => string = () => new Date().toISOString()
+): Translator => {
   let segment: TextSegment | null = null;
   let segments = 0;
   let errors = 0;
@@ -149,7 +156,7 @@ export const newTranslator = (cwd: string, hooks: TranslatorHooks): Translator =
 
   const closeSegment = (turnId: TurnId) => {
     if (segment === null) return;
-    const { id, text, kind } = segment;
+    const { id, text, kind, startedAt } = segment;
     segment = null;
     hooks.emit(
       ItemCompleted({
@@ -157,7 +164,7 @@ export const newTranslator = (cwd: string, hooks: TranslatorHooks): Translator =
         item:
           kind === "text"
             ? TurnItem.cases.AssistantMessage.make({ id, text })
-            : TurnItem.cases.Reasoning.make({ id, text }),
+            : TurnItem.cases.Reasoning.make({ id, text, startedAt, endedAt: now() }),
       })
     );
   };
@@ -171,8 +178,18 @@ export const newTranslator = (cwd: string, hooks: TranslatorHooks): Translator =
     if (segment !== null && (segment.kind !== kind || segment.messageId !== messageId))
       closeSegment(turnId);
 
-    if (segment === null)
-      segment = { kind, id: `${turnId}:${kind}:${++segments}`, messageId, text: "" };
+    if (segment === null) {
+      const id = `${turnId}:${kind}:${++segments}`;
+      segment = { kind, id, messageId, startedAt: now(), text: "" };
+
+      // Thinking shows live (and timed) from its first chunk.
+      if (kind === "reasoning") {
+        const { startedAt } = segment;
+        const item = TurnItem.cases.Reasoning.make({ id, text: "", startedAt, endedAt: null });
+        hooks.emit(ItemUpdated({ turnId, item }));
+      }
+    }
+
     segment.text += text;
     hooks.emit(ItemDelta({ turnId, itemId: segment.id, field: "text", text }));
   };
@@ -242,6 +259,13 @@ export const newTranslator = (cwd: string, hooks: TranslatorHooks): Translator =
           return hooks.onModeChanged(update.currentModeId);
         case "config_option_update":
           return hooks.onConfigOptions(update.configOptions);
+        case "usage_update":
+          return hooks.emit(
+            HarnessEvent.ContextUsed({
+              usedTokens: update.used,
+              windowTokens: update.size > 0 ? update.size : null,
+            })
+          );
         default:
           if (turnId !== null) turnUpdate(turnId, update);
       }

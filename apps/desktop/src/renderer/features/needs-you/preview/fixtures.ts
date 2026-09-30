@@ -93,6 +93,7 @@ const session = (seed: SessionSeed) =>
     forkedFromTurnId: null,
     harnessCursor: null,
     turnCount: 9,
+    contextUsage: null,
     lastError: seed.lastError ?? null,
     createdAt: ago(seed.minutes + 60),
     updatedAt: ago(seed.minutes),

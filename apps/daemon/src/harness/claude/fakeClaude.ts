@@ -32,6 +32,7 @@ type FakeQuery = Pick<
   | "supportedModels"
   | "close"
   | "usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET"
+  | "getContextUsage"
 >;
 
 /** What the fake's permission callback is asked about. */
@@ -57,6 +58,9 @@ export class FakeClaude {
   /** How often the driver asked `get_usage`, and what the fake answers (a reply or a failure). */
   usageCalls = 0;
   usageReply: Json | Error = { rate_limits_available: false, rate_limits: null };
+  /** How often the driver asked `getContextUsage`, and what the fake answers (null: it refuses). */
+  contextCalls = 0;
+  contextReply: { totalTokens: number; maxTokens: number } | null = null;
   private readonly out = new Inbox<SDKMessage>();
   private inputWaiters: Array<() => void> = [];
 
@@ -102,6 +106,14 @@ export class FakeClaude {
         return this.usageReply as Awaited<
           ReturnType<Query["usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET"]>
         >;
+      },
+      getContextUsage: async () => {
+        this.contextCalls++;
+
+        if (this.contextReply === null) throw new Error("Unsupported control request");
+
+        // SAFETY: the driver reads only `totalTokens` and `maxTokens` of the reply.
+        return this.contextReply as Awaited<ReturnType<Query["getContextUsage"]>>;
       },
     };
 
@@ -168,9 +180,9 @@ export const init = (sessionId: string) => ({
 /** A top-level frame's parent; `inSubagent` sets a Subagent's. */
 const NO_PARENT: string | null = null;
 
-export const assistant = (id: string, content: ReadonlyArray<Json>) => ({
+export const assistant = (id: string, content: ReadonlyArray<Json>, usage?: Json) => ({
   type: "assistant" as const,
-  message: { id, role: "assistant" as const, content },
+  message: { id, role: "assistant" as const, content, usage },
   parent_tool_use_id: NO_PARENT,
   uuid: crypto.randomUUID(),
   session_id: "s",
@@ -216,6 +228,8 @@ export const streamEvent = (event: Json) => ({
 
 interface ResultOptions {
   readonly subtype?: string;
+  /** Each Model's usage, as `modelUsage` reports it (its context window). */
+  readonly modelUsage?: Json;
   readonly isError?: boolean;
   readonly text?: string;
   readonly errors?: string[];
@@ -231,6 +245,7 @@ interface FakeResult {
   uuid: string;
   user_message_uuids?: string[];
   user_message_uuid?: string | undefined;
+  modelUsage?: Json;
 }
 
 export const result = (uuids: string[] | null, options: ResultOptions = {}) => {
@@ -243,6 +258,8 @@ export const result = (uuids: string[] | null, options: ResultOptions = {}) => {
     session_id: "s",
     uuid: crypto.randomUUID(),
   };
+
+  if (options.modelUsage !== undefined) message.modelUsage = options.modelUsage;
 
   if (uuids) {
     message.user_message_uuids = uuids;
@@ -277,6 +294,14 @@ export const taskStarted = (
   session_id: "s",
 });
 
+export const compactBoundary = (preTokens: number, postTokens: number) => ({
+  type: "system" as const,
+  subtype: "compact_boundary" as const,
+  compact_metadata: { trigger: "auto" as const, pre_tokens: preTokens, post_tokens: postTokens },
+  uuid: crypto.randomUUID(),
+  session_id: "s",
+});
+
 export const taskNotification = (
   toolUseId: string,
   status: "completed" | "failed" | "stopped"
@@ -307,4 +332,5 @@ export type FakeMessage =
   | ReturnType<typeof streamEvent>
   | ReturnType<typeof result>
   | ReturnType<typeof taskStarted>
-  | ReturnType<typeof taskNotification>;
+  | ReturnType<typeof taskNotification>
+  | ReturnType<typeof compactBoundary>;

@@ -81,6 +81,7 @@ const session = (id: string, patch: Partial<AgentSession>) =>
     forkedFromTurnId: null,
     harnessCursor: null,
     turnCount: 24,
+    contextUsage: null,
     lastError: null,
     createdAt: ago(18_000),
     updatedAt: ago(10),
@@ -109,11 +110,12 @@ const earlierTurn = (sessionId: SessionId) =>
 const PLAN = I.Plan.make({
   id: "p24",
   steps: [
-    { text: "Moved ENG-177 to In Progress", status: "completed" },
-    { text: "Read the Orchestrator notes and mock data", status: "completed" },
-    { text: "Writing index.html", status: "in-progress" },
-    { text: "Publish the prototype as an artifact", status: "pending" },
+    { text: "Moved ENG-177 to In Progress", status: "completed", detail: null },
+    { text: "Read the Orchestrator notes and mock data", status: "completed", detail: null },
+    { text: "Writing index.html", status: "in-progress", detail: null },
+    { text: "Publish the prototype as an artifact", status: "pending", detail: null },
   ],
+  explanation: null,
 });
 
 const model = (patch: Partial<SessionModel>): SessionModel => ({
@@ -144,6 +146,8 @@ export const planning = (): SessionModel => {
           I.Reasoning.make({
             id: "r24",
             text: "Four layouts from one mock data set; arrow keys flip between them.",
+            startedAt: null,
+            endedAt: null,
           }),
           I.AssistantMessage.make({
             id: "m24",
@@ -304,7 +308,12 @@ export const long = (): SessionModel => {
 
   const turns = Array.from({ length: 150 }, (_, n) =>
     view(turn(s.id, n, `Step ${n + 1}: move the next module onto the new store`, "completed"), [
-      I.Reasoning.make({ id: `r${n}`, text: "Checking the callers first." }),
+      I.Reasoning.make({
+        id: `r${n}`,
+        text: "Checking the callers first.",
+        startedAt: null,
+        endedAt: null,
+      }),
       I.AssistantMessage.make({
         id: `m${n}`,
         text: `Moved module ${n + 1}. Its callers now read through the selector, and the old subscription is gone.\n\nNext I'll run the tests for this package.`,

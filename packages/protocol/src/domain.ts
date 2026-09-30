@@ -77,6 +77,16 @@ export class Worktree extends Schema.Class<Worktree>("Worktree")({
   isMain: Schema.Boolean,
 }) {}
 
+/**
+ * How full the Agent Session's context window is, as its Harness last reported
+ * it: the tokens the latest model call carried, of the window its Model has.
+ */
+export class ContextUsage extends Schema.Class<ContextUsage>("ContextUsage")({
+  usedTokens: Schema.Int,
+  /** The Model's context window; null while the Harness hasn't said. */
+  windowTokens: Schema.NullOr(Schema.Int),
+}) {}
+
 export const PermissionMode = Schema.Literals(["supervised", "auto-edits", "auto", "full-access"]);
 
 export type PermissionMode = typeof PermissionMode.Type;
@@ -101,6 +111,8 @@ export class AgentSession extends Schema.Class<AgentSession>("AgentSession")({
   /** Opaque Harness-native resume handle (Claude session id, Codex thread id). */
   harnessCursor: Schema.NullOr(Schema.String),
   turnCount: Schema.Int,
+  /** Null until the Harness reports it; some Harnesses never do. */
+  contextUsage: addedNullable(ContextUsage),
   lastError: Schema.NullOr(Schema.String),
   createdAt: Timestamp,
   updatedAt: Timestamp,
@@ -165,7 +177,13 @@ export class Subagent extends Schema.Class<Subagent>("Subagent")({
 /** One normalized piece of Harness output within a Turn. `raw` keeps the native frame. */
 export const TurnItem = Schema.TaggedUnion({
   AssistantMessage: { id: Schema.String, text: Schema.String },
-  Reasoning: { id: Schema.String, text: Schema.String },
+  Reasoning: {
+    id: Schema.String,
+    text: Schema.String,
+    /** When the Harness began and finished thinking, as its driver saw it; null when unknown. */
+    startedAt: addedNullable(Timestamp),
+    endedAt: addedNullable(Timestamp),
+  },
   CommandExecution: {
     id: Schema.String,
     command: Schema.String,
@@ -194,8 +212,12 @@ export const TurnItem = Schema.TaggedUnion({
       Schema.Struct({
         text: Schema.String,
         status: Schema.Literals(["pending", "in-progress", "completed"]),
+        /** What the step is doing now (Claude's `activeForm`), when it says more than `text`. */
+        detail: addedNullable(Schema.String),
       })
     ),
+    /** Why the plan is what it is (Codex's plan explanation), when the Harness gives one. */
+    explanation: addedNullable(Schema.String),
   },
   Error: { id: Schema.String, message: Schema.String },
 });

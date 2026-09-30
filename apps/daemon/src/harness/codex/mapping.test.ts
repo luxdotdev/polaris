@@ -87,7 +87,7 @@ describe("thread items", () => {
       TurnItem.cases.AssistantMessage.make({ id: "a", text: "ok" })
     );
     expect(item({ type: "reasoning", id: "r", summary: ["one", "two"], content: ["raw"] })).toEqual(
-      TurnItem.cases.Reasoning.make({ id: "r", text: "one\n\ntwo" })
+      TurnItem.cases.Reasoning.make({ id: "r", text: "one\n\ntwo", startedAt: null, endedAt: null })
     );
     expect(item({ type: "reasoning", id: "r", summary: [], content: ["raw"] })).toMatchObject({
       text: "raw",
@@ -173,21 +173,35 @@ describe("thread items", () => {
 
   test("plan updates become a Plan item", () => {
     expect(
-      toPlanItem("t1:plan", [
-        { step: "read", status: "completed" },
-        { step: "write", status: "inProgress" },
-        { step: "test", status: "pending" },
-      ])
+      toPlanItem("t1:plan", {
+        plan: [
+          { step: "read", status: "completed" },
+          { step: "write", status: "inProgress" },
+          { step: "test", status: "pending" },
+        ],
+        explanation: null,
+      })
     ).toEqual(
       TurnItem.cases.Plan.make({
         id: "t1:plan",
         steps: [
-          { text: "read", status: "completed" },
-          { text: "write", status: "in-progress" },
-          { text: "test", status: "pending" },
+          { text: "read", status: "completed", detail: null },
+          { text: "write", status: "in-progress", detail: null },
+          { text: "test", status: "pending", detail: null },
         ],
+        explanation: null,
       })
     );
+  });
+
+  test("a plan's explanation rides along; a blank one is none", () => {
+    const plan = [{ step: "read", status: "inProgress" as const }];
+
+    expect(toPlanItem("p", { plan, explanation: "Tests first, then the fix." })).toMatchObject({
+      explanation: "Tests first, then the fix.",
+    });
+    expect(toPlanItem("p", { plan, explanation: "  " })).toMatchObject({ explanation: null });
+    expect(toPlanItem("p", { plan })).toMatchObject({ explanation: null });
   });
 });
 

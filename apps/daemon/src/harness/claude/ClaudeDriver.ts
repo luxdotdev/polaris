@@ -53,6 +53,7 @@ import {
 import { emptyClaudeLimitContext } from "../limits/claude.ts";
 import type { PlanLimitReporter } from "../limits/PlanLimitReporter.ts";
 import { ClaudeHookReceiver } from "./hooks.ts";
+import { decodeModelUsage } from "./payloads.ts";
 import { Inbox } from "./inbox.ts";
 import { buildUserMessage } from "./input.ts";
 import { isEffortLevel, listClaudeModels } from "./models.ts";
@@ -126,6 +127,17 @@ interface TurnOutcome {
   readonly status: "completed" | "failed";
   readonly error: string | null;
 }
+
+/** The largest context window among the Models a result used: the Turn's own Model. */
+const contextWindowOf = (result: SDKResultMessage): number | null => {
+  const usage = decodeModelUsage(result.modelUsage);
+
+  const windows = Option.isSome(usage)
+    ? Object.values(usage.value).map((model) => model.contextWindow)
+    : [];
+
+  return windows.length === 0 ? null : Math.max(...windows);
+};
 
 const resultOutcome = (result: SDKResultMessage): TurnOutcome => {
   if (result.subtype === "success")
@@ -210,6 +222,7 @@ const openSession = Effect.fnUntraced(function* (
     translator.endTurn();
     emit(HarnessEvent.TurnEnded({ turnId: turn.turnId, status, error }));
     limits?.refresh();
+    readContext();
   };
 
   const canUseTool: CanUseTool = async (toolName, input, context) => {
@@ -294,6 +307,21 @@ const openSession = Effect.fnUntraced(function* (
   const limits = driver.limits ? claudePlanLimitReader(driver.limits, q) : null;
   limits?.read();
 
+  /** Claude Code's own count of the context (as `/context` shows it), where the SDK offers it. */
+  const readContext = () => {
+    // A Claude Code without it rejects, and the header shows no Context.
+    void Promise.resolve()
+      .then(() => q.getContextUsage({ detail: "summary" }))
+      .then(
+        (usage) => {
+          if (!exited) emitAll(translator.onContextUsage(usage.totalTokens, usage.maxTokens));
+        },
+        () => {}
+      );
+  };
+
+  if (options.resumeCursor !== null) readContext();
+
   const finish = (error: string | null) => {
     if (exited) return;
     exited = true;
@@ -315,6 +343,7 @@ const openSession = Effect.fnUntraced(function* (
     if (uuids === null) turn.pending.clear();
     else for (const u of uuids) turn.pending.delete(u);
     turn.outcome = resultOutcome(result);
+    emitAll(translator.onContextUsage(null, contextWindowOf(result)));
 
     if (turn.interrupting) {
       for (const u of turn.pending) cancelled.add(u);

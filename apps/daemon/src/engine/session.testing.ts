@@ -128,6 +128,7 @@ const newSession = (harness: HarnessKind, state: SessionState): AgentSession =>
     forkedFromTurnId: null,
     harnessCursor: null,
     turnCount: 0,
+    contextUsage: null,
     lastError: null,
     createdAt: AT,
     updatedAt: AT,

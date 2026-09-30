@@ -241,6 +241,12 @@ export const SessionUpdate = Schema.Union([
     sessionUpdate: Schema.Literal("session_info_update"),
     title: OptionalNullableString,
   }),
+  /** How full the context window is: `used` tokens of `size`. */
+  Schema.Struct({
+    sessionUpdate: Schema.Literal("usage_update"),
+    used: Schema.Number,
+    size: Schema.Number,
+  }),
   Schema.Struct({
     sessionUpdate: Schema.Literal("notice"),
     severity: Schema.String,
@@ -253,7 +259,7 @@ export type SessionUpdate = typeof SessionUpdate.Type;
 
 export const SessionNotification = Schema.Struct({
   sessionId: Schema.String,
-  /** Decoded apart: updates this driver doesn't read (usage, commands) are skipped. */
+  /** Decoded apart: updates this driver doesn't read (commands) are skipped. */
   update: Schema.Unknown,
 });
 

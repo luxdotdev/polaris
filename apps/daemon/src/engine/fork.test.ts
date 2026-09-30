@@ -41,7 +41,7 @@ describe("forkPreamble", () => {
     expect(
       finalReply([
         TurnItem.cases.AssistantMessage.make({ id: "a", text: "first" }),
-        TurnItem.cases.Reasoning.make({ id: "r", text: "hmm" }),
+        TurnItem.cases.Reasoning.make({ id: "r", text: "hmm", startedAt: null, endedAt: null }),
         TurnItem.cases.AssistantMessage.make({ id: "b", text: "last" }),
         TurnItem.cases.AssistantMessage.make({ id: "c", text: "  " }),
       ])
