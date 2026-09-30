@@ -29,6 +29,7 @@ const view: HostView = {
     host: null,
     capabilities: [],
     epoch: 0,
+    latencyMs: null,
   },
 };
 

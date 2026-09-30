@@ -100,6 +100,8 @@ export interface ConnectionStatusView {
   readonly host: HostInfo | null;
   readonly capabilities: ReadonlyArray<Capability>;
   readonly epoch: number;
+  /** Round trip measured when the connection opened; null until then. */
+  readonly latencyMs: number | null;
 }
 
 export interface HostView {

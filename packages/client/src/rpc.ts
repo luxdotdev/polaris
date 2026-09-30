@@ -54,6 +54,8 @@ export interface RpcConnection {
   readonly wire: Wire;
   /** Fails when the connection is gone: closed, broken, or the peer stopped answering pings. */
   readonly lost: Effect.Effect<never, RpcClientError>;
+  /** One ping and its pong: the link's round trip in ms (the Daemon answers without other work). */
+  readonly roundTrip: Effect.Effect<number>;
 }
 
 export interface RpcConnectionOptions {
@@ -95,6 +97,8 @@ export const connectRpc = Effect.fnUntraced(function* (
   const awaiting = new Set<string | number>();
   /** Open while `awaiting` is non-empty: the ping loop runs only then. */
   const pinging = Latch.makeUnsafe(false);
+  /** Waiting for the next pong (`roundTrip`); every pong answers all of them. */
+  let pongWaiters: Array<() => void> = [];
 
   const settled = (requestId: string | number) => {
     awaiting.delete(requestId);
@@ -132,7 +136,13 @@ export const connectRpc = Effect.fnUntraced(function* (
           return Effect.forEach(
             responses,
             (response) => {
-              if (isPong(response)) return Effect.void;
+              if (isPong(response)) {
+                const waiters = pongWaiters;
+
+                pongWaiters = [];
+
+                return Effect.sync(() => waiters.forEach((resume) => resume()));
+              }
 
               if ("requestId" in response) {
                 const clientId = requestClient.get(response.requestId);
@@ -248,5 +258,25 @@ export const connectRpc = Effect.fnUntraced(function* (
       takeStream: (blobId, takeOptions) => wire.takeBlobStream(blobId, takeOptions),
     },
     lost: Deferred.await(lost),
+    roundTrip: Effect.gen(function* () {
+      const pong = yield* Deferred.make<void>();
+      const waiter = () => void Deferred.doneUnsafe(pong, Effect.void);
+      const ping = parser.encode(constPing);
+      const started = performance.now();
+
+      // Waiting before sending: on a local socket the pong can beat the next line.
+      pongWaiters.push(waiter);
+
+      if (Predicate.isString(ping)) yield* Effect.ignore(wire.sendJson(ping));
+      yield* Deferred.await(pong).pipe(
+        Effect.ensuring(
+          Effect.sync(() => {
+            pongWaiters = pongWaiters.filter((w) => w !== waiter);
+          })
+        )
+      );
+
+      return performance.now() - started;
+    }),
   };
 });
