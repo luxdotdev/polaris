@@ -77,6 +77,19 @@ export const compareMetric = (
  */
 export const BUSY_BACKGROUND_CORES = 2;
 
+/**
+ * The kinds that gate a comparison: `failOn`, or none with `sameMachineOnly` when the two
+ * results come from different machines. CI uses it: GitHub's runners come with different CPU
+ * models, and a baseline only gates runs on the CPU it was recorded on.
+ */
+export const gatingKinds = (
+  baseline: BenchResult,
+  current: BenchResult,
+  failOn: ReadonlySet<MetricKind>,
+  sameMachineOnly: boolean
+): ReadonlySet<MetricKind> =>
+  sameMachineOnly && baseline.env.machineSlug !== current.env.machineSlug ? new Set() : failOn;
+
 /** Differences in how the two results were produced that make them less comparable. */
 const environmentWarnings = (baseline: BenchResult, current: BenchResult): Array<string> => {
   const warnings: Array<string> = [];

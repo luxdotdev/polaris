@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { compare, compareMetric } from "./compare.ts";
+import { compare, compareMetric, gatingKinds } from "./compare.ts";
 import { summarize } from "./stats.ts";
 import type { AggregatedMetric, BenchResult, Metric, MetricKind } from "./types.ts";
 
@@ -115,5 +115,24 @@ describe("compare", () => {
     expect(compare(busy, quiet, new Set(["memory"])).warnings[0]).toStartWith(
       "baseline started with 4.2"
     );
+  });
+});
+
+describe("gatingKinds", () => {
+  const memoryOnly = new Set<MetricKind>(["memory"]);
+
+  test("gates as asked on the baseline's machine", () => {
+    expect(gatingKinds(result({}, "epyc-7763"), result({}, "epyc-7763"), memoryOnly, true)).toEqual(
+      memoryOnly
+    );
+  });
+
+  test("reports without gating on another CPU with --gate-same-machine, gates without it", () => {
+    expect(
+      gatingKinds(result({}, "epyc-7763"), result({}, "epyc-9v74"), memoryOnly, true).size
+    ).toBe(0);
+    expect(
+      gatingKinds(result({}, "epyc-7763"), result({}, "epyc-9v74"), memoryOnly, false)
+    ).toEqual(memoryOnly);
   });
 });
