@@ -1,7 +1,6 @@
 /**
  * Placeholder slot contents, until each feature lands (see app/slots.tsx).
- * They keep the shell usable end to end: a plain jump list, the sessions
- * that need you.
+ * They keep the shell usable end to end: a plain jump list.
  */
 import {
   CommandDialog,
@@ -12,11 +11,10 @@ import {
   CommandList,
 } from "@polaris/ui";
 import { useMemo } from "react";
-import { barHosts, needsYou, shownState } from "../routes/topBar.ts";
+import { barHosts, shownState } from "../routes/topBar.ts";
 import { sessionStateLabel } from "../shell/copy.ts";
 import { SessionGlyph, SummaryGlyph } from "../shell/glyphs.tsx";
 import { useApp, useShellActions } from "../shell/hooks.ts";
-import { CompactSessionRow } from "../shell/sidebar/SessionRow.tsx";
 import type { JumpMenuProps } from "./slots.tsx";
 
 const Pending = ({ children }: { readonly children: string }) => (
@@ -26,33 +24,6 @@ const Pending = ({ children }: { readonly children: string }) => (
 );
 
 export const DefaultNoSession = () => <Pending>No agent sessions in this workspace yet.</Pending>;
-
-export const DefaultNeedsYouInbox = () => {
-  const hosts = useApp((s) => s.hosts);
-  const models = useApp((s) => s.hostModels);
-
-  const waiting = hosts.flatMap((host) =>
-    [...(models[host.key]?.sessions.values() ?? [])].flatMap((entry) =>
-      needsYou(entry) ? [{ host, entry }] : []
-    )
-  );
-
-  if (waiting.length === 0) return <Pending>Nothing needs you.</Pending>;
-
-  return (
-    <div className="flex flex-col px-2 pt-2">
-      {waiting.map(({ host, entry }) => (
-        <CompactSessionRow
-          key={`${host.key}/${entry.session.id}`}
-          hostKey={host.key}
-          entry={entry}
-          now={0}
-          meta={host.label}
-        />
-      ))}
-    </div>
-  );
-};
 
 export const DefaultJumpMenu = ({ open, onOpenChange }: JumpMenuProps) => {
   const hosts = useApp((s) => s.hosts);

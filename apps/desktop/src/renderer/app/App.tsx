@@ -2,6 +2,7 @@
 import { Toaster, TooltipProvider } from "@polaris/ui";
 import { StrictMode } from "react";
 import { type AppContextValue, AppProvider } from "../shell/hooks.ts";
+import { NeedsYouPublisher } from "../features/needs-you/index.ts";
 import { Shell } from "./Shell.tsx";
 
 export const App = ({ value }: { readonly value: AppContextValue }) => (
@@ -9,6 +10,7 @@ export const App = ({ value }: { readonly value: AppContextValue }) => (
     <AppProvider value={value}>
       <TooltipProvider>
         <Shell />
+        <NeedsYouPublisher />
         <Toaster />
       </TooltipProvider>
     </AppProvider>

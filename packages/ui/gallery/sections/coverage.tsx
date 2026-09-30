@@ -108,7 +108,29 @@ function Choice() {
         harnesses={[
           { kind: "claude", caption: "Opus 5", status: "ready" },
           { kind: "codex", caption: "GPT-5.4 High", status: "not-installed" },
-          { kind: "opencode", caption: "Not in this build's catalogue", status: "ready" },
+          { kind: "aider", caption: "Not in this build's catalogue", status: "ready" },
+        ]}
+      />
+      <HarnessChoice
+        aria-label="Harness, wrapping past three"
+        className="grid grid-cols-2"
+        value="claude"
+        onValueChange={() => undefined}
+        harnesses={[
+          { kind: "claude", caption: "Opus 5" },
+          { kind: "codex", caption: "GPT-5.4 High" },
+          { kind: "opencode", caption: "Bench Large · medium" },
+          { kind: "gemini", caption: "Bench Large · medium" },
+          { kind: "copilot", caption: "Bench Large · medium" },
+        ]}
+        others={[
+          {
+            value: "fork",
+            hue: "starlight",
+            icon: <PixelForkIcon size={22} className="text-starlight" />,
+            title: "Fork a turn",
+            caption: "From a checkpoint",
+          },
         ]}
       />
     </div>
