@@ -88,7 +88,16 @@ const startOne = async (page: Page, where: RegExp, shot: string | null) => {
   await page.getByTestId("session-panel").waitFor({ timeout: 15_000 });
 };
 
-const sessionRows = (page: Page) => page.getByTestId("row-state").count();
+/** Waits for at least `n` session rows in the sidebar; false if they never show. */
+const sessionRows = (page: Page, n: number) =>
+  page
+    .getByTestId("row-state")
+    .nth(n - 1)
+    .waitFor({ timeout: 10_000 })
+    .then(
+      () => true,
+      () => false
+    );
 
 try {
   const page = await app.firstWindow();
@@ -108,7 +117,7 @@ try {
   await startOne(page, /, in place\.$/, "in-place-first");
   await startOne(page, /in place alongside 1 other session\.$/, "in-place-second");
 
-  if ((await sessionRows(page)) < 2) throw new Error("expected two sessions in the sidebar");
+  if (!(await sessionRows(page, 2))) throw new Error("expected two sessions in the sidebar");
 
   if (worktreeBranches().length !== 0) throw new Error("an in-place session created a worktree");
   step("two sessions with the same prompt run in the workspace directory");
@@ -132,7 +141,7 @@ try {
   if (branches.length !== 2 || branches[0] === branches[1])
     throw new Error("the same prompt should get two distinct worktrees");
 
-  if ((await sessionRows(page)) < 4) throw new Error("expected four sessions in the sidebar");
+  if (!(await sessionRows(page, 4))) throw new Error("expected four sessions in the sidebar");
   step("ok");
 } finally {
   await app.close();
