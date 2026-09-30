@@ -51,8 +51,8 @@ export const HARNESS_CATALOGUE = [
     setup: {
       install: "Install Claude Code on this host.",
       installCommand: "curl -fsSL https://claude.ai/install.sh | bash",
-      signIn: "Sign in to Claude Code in its own terminal: run claude, then /login.",
-      signInCommand: ["claude"],
+      signIn: "Sign in to Claude Code in its own terminal.",
+      signInCommand: ["claude", "auth", "login"],
       docsUrl: "https://code.claude.com/docs/en/setup",
     },
   }),
