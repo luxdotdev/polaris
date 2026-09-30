@@ -105,9 +105,18 @@ export interface BarInput {
   readonly models: Readonly<Record<string, HostModel>>;
 }
 
-/** Every Host in settings order with its shown Workspaces; the source of both bars. */
+/** The local Host's key (main/hosts.ts `LOCAL_HOST_KEY`). */
+export const LOCAL_HOST = "local";
+
+/** Remote Hosts first in settings order, this Mac last (Paper 11U-0, MX-0), so ⌃N match. */
+const barOrder = (hosts: ReadonlyArray<HostView>) => [
+  ...hosts.filter((h) => h.key !== LOCAL_HOST),
+  ...hosts.filter((h) => h.key === LOCAL_HOST),
+];
+
+/** Every Host with its shown Workspaces; the source of both bars. */
 export const barHosts = ({ hosts, models }: BarInput): ReadonlyArray<BarHost> =>
-  hosts.map((host) => {
+  barOrder(hosts).map((host) => {
     const model = models[host.key];
     const workspaces = model === undefined ? [] : shownWorkspaces(model);
 

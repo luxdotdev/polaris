@@ -16,7 +16,7 @@ import { type SeedWorkspace, seedSource } from "./lib/seed.ts";
 
 const out = process.argv[2] ?? join(tmpdir(), "polaris-screens");
 
-/** `--only jump|bars` runs one set. */
+/** `--only jump|bars|states` runs one set. */
 const only = process.argv.includes("--only")
   ? (process.argv[process.argv.indexOf("--only") + 1] ?? null)
   : null;
@@ -96,7 +96,15 @@ interface Rig {
   readonly home: string;
 }
 
-const launch = async (theme: "dark" | "light"): Promise<Rig> => {
+interface LaunchOptions {
+  /** Add a Host whose Daemon never answers (its socket doesn't exist): it needs attention. */
+  readonly broken?: boolean;
+}
+
+/** Pi 4's link, pretended slow (Paper MX-0 "Slow link"). */
+const PI_LATENCY_MS = 380;
+
+const launch = async (theme: "dark" | "light", options: LaunchOptions = {}): Promise<Rig> => {
   const home = mkdtempSync(join(tmpdir(), "polaris-screens-"));
 
   const daemons = await Promise.all(
@@ -107,6 +115,15 @@ const launch = async (theme: "dark" | "light"): Promise<Rig> => {
 
   const [local, ...rest] = daemons;
   const userData = join(home, "user-data");
+
+  const extras: Array<{ key: string; label: string; socket: string; latencyMs?: number }> =
+    MACHINES.map((m, i) => ({ ...m, socket: rest[i]?.socketPath ?? "" }));
+
+  for (const extra of extras) if (extra.key === "pi") extra.latencyMs = PI_LATENCY_MS;
+
+  if (options.broken === true) {
+    extras.push({ key: "lab", label: "Lab box", socket: join(home, "nowhere.sock") });
+  }
 
   mkdirSync(userData, { recursive: true });
   writeFileSync(join(userData, "settings.json"), JSON.stringify({ theme, welcomeSeen: true }));
@@ -119,9 +136,7 @@ const launch = async (theme: "dark" | "light"): Promise<Rig> => {
       POLARIS_DESKTOP_LOCAL_SOCKET: local?.socketPath ?? "",
       POLARIS_DESKTOP_BENCH_HARNESS: "1",
       POLARIS_DESKTOP_LOCAL_LABEL: "MacBook Pro",
-      POLARIS_DESKTOP_EXTRA_HOSTS: JSON.stringify(
-        MACHINES.map((m, i) => ({ ...m, socket: rest[i]?.socketPath ?? "" }))
-      ),
+      POLARIS_DESKTOP_EXTRA_HOSTS: JSON.stringify(extras),
       POLARIS_DESKTOP_USER_DATA: userData,
       POLARIS_DESKTOP_HIDDEN: "1",
     },
@@ -145,6 +160,11 @@ const close = async ({ app, daemons, home }: Rig) => {
 };
 
 const shoot = async (page: Page, name: string) => {
+  // Park the pointer and focus off the chips, so no hover card covers the shot.
+  await page.mouse.move(1300, 860);
+  await page.evaluate(
+    "document.activeElement instanceof HTMLElement && document.activeElement.blur()"
+  );
   await page.waitForTimeout(600);
   await page.screenshot({ path: join(out, `${name}.png`) });
   step(`saved ${name}.png`);
@@ -217,5 +237,30 @@ if (only === null || only === "bars") {
     .locator('[data-host="pi"][data-connection="reconnecting"]')
     .waitFor({ timeout: 20_000 });
   await shoot(rig.page, "host-reconnecting-dark");
+  await close(rig);
+}
+
+// 5PM-1: Host states in the Workspace bar: reconnecting (chips dimmed), needs attention, and
+// the sidebar's note in words; then the attention Host opened.
+if (only === null || only === "states") {
+  const rig = await launch("dark", { broken: true });
+
+  await rig.page.evaluate(seedSource(FEW));
+  await rig.page.locator('[data-slot="chip"]', { hasText: "polaris" }).first().click();
+  await rig.page
+    .locator('[data-host="lab"][data-connection="needs-attention"]')
+    .waitFor({ timeout: 20_000 });
+  await rig.daemons[2]?.stop();
+  await rig.page
+    .locator('[data-host="vm"][data-connection="reconnecting"]')
+    .waitFor({ timeout: 20_000 });
+  await rig.page.waitForTimeout(3000);
+  await shoot(rig.page, "5PM-1-workspace-bar-states-dark");
+  await rig.page.locator('[data-host="vm"]').click();
+  await shoot(rig.page, "5PM-1-reconnecting-sidebar-dark");
+  await rig.page.getByTestId("connection-lab").click();
+  await shoot(rig.page, "5PM-1-needs-attention-sidebar-dark");
+  await rig.page.evaluate(`window.polaris.request("settings.setTheme", { theme: "light" })`);
+  await shoot(rig.page, "5PM-1-needs-attention-sidebar-light");
   await close(rig);
 }
