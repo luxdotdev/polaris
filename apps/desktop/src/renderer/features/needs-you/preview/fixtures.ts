@@ -14,6 +14,8 @@ import {
   TurnId,
   Workspace,
   WorkspaceId,
+  Worktree,
+  WorktreeId,
 } from "@polaris/protocol";
 import type { HostView } from "../../../../shared/api.ts";
 import { modelFromSnapshot, type HostModel, type SessionEntry } from "../../../store/hostModel.ts";
@@ -70,6 +72,7 @@ interface SessionSeed {
   readonly state: AgentSession["state"];
   readonly minutes: number;
   readonly lastError?: string;
+  readonly worktreeId?: string;
 }
 
 const session = (seed: SessionSeed) =>
@@ -79,7 +82,7 @@ const session = (seed: SessionSeed) =>
     harness: seed.harness,
     title: seed.title,
     cwd: "/Users/lucas/code",
-    worktreeId: null,
+    worktreeId: seed.worktreeId === undefined ? null : WorktreeId.make(seed.worktreeId),
     state: seed.state,
     permissionMode: "supervised",
     model: null,
@@ -129,9 +132,10 @@ const entry = (
 
 const model = (
   workspaces: ReadonlyArray<Workspace>,
-  entries: ReadonlyArray<SessionEntry>
+  entries: ReadonlyArray<SessionEntry>,
+  worktrees: ReadonlyArray<Worktree> = []
 ): HostModel => ({
-  ...modelFromSnapshot({ sequence: Sequence.make(40), workspaces, worktrees: [], sessions: [] }),
+  ...modelFromSnapshot({ sequence: Sequence.make(40), workspaces, worktrees, sessions: [] }),
   sessions: new Map(entries.map((e) => [e.session.id, e])),
   synchronized: true,
 });
@@ -143,6 +147,18 @@ const spike = session({
   title: "Spike GPUI review screen",
   state: "needs-you",
   minutes: 42,
+  worktreeId: "wt-spike",
+});
+
+/** The spike's Worktree, whose branch the hover card names (Paper 1-0). */
+const spikeWorktree = new Worktree({
+  id: WorktreeId.make("wt-spike"),
+  workspaceId: WorkspaceId.make("w-polaris"),
+  path: "/Users/lucas/code/polaris.worktrees/spike-gpui-review",
+  branch: "spike/gpui-review",
+  head: "9c1e2d4",
+  createdBySessionId: SessionId.make("spike"),
+  isMain: false,
 });
 
 const eligibility = session({
@@ -222,7 +238,8 @@ export const MODELS = {
           ],
         }
       ),
-    ]
+    ],
+    [spikeWorktree]
   ),
   "linux-vm": model(
     [workspace("w-nj", "nj-homes")],
@@ -263,6 +280,25 @@ export const MODELS = {
           state: "failed",
           minutes: 60,
           lastError: "out of memory on Pi 4",
+        })
+      ),
+    ]
+  ),
+} satisfies Readonly<Record<string, HostModel>>;
+
+/** Nothing waiting anywhere: the pane empty state (Paper 5SH-1). */
+export const QUIET_MODELS = {
+  local: model(
+    [workspace("w-polaris", "polaris")],
+    [
+      entry(
+        session({
+          id: "planning",
+          workspaceId: "w-polaris",
+          harness: "claude",
+          title: "Polaris planning",
+          state: "working",
+          minutes: 1,
         })
       ),
     ]

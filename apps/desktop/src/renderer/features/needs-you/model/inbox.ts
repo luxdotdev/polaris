@@ -12,6 +12,8 @@ export interface Place {
   readonly hostKey: string;
   readonly hostLabel: string;
   readonly workspace: string | null;
+  /** The branch the session works on: its Worktree's, else the Workspace's main checkout. */
+  readonly branch: string | null;
 }
 
 export interface WaitingSession extends Place {
@@ -75,6 +77,17 @@ const alsoKind = (entry: SessionEntry): AlsoKind | null => {
   return state === "needs-you" && entry.pendingApprovals.length === 0 ? "interrupted" : null;
 };
 
+const branchOf = (model: HostModel, entry: SessionEntry): string | null => {
+  const { worktreeId, workspaceId } = entry.session;
+
+  const worktree =
+    worktreeId === null
+      ? [...model.worktrees.values()].find((w) => w.workspaceId === workspaceId && w.isMain)
+      : model.worktrees.get(worktreeId);
+
+  return worktree?.branch ?? null;
+};
+
 const byOpened = (a: ApprovalRequest, b: ApprovalRequest) => a.openedAt.localeCompare(b.openedAt);
 
 interface Collected {
@@ -118,6 +131,7 @@ const collectHost = ({ host, model, input, into }: HostInput) => {
       hostKey: host.key,
       hostLabel: host.label,
       workspace: model.workspaces.get(entry.session.workspaceId)?.name ?? null,
+      branch: branchOf(model, entry),
     };
 
     const key = inboxKey(host.key, entry.session.id);
