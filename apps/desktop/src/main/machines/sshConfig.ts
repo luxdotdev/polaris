@@ -18,7 +18,9 @@ export interface SshAlias {
 /** ssh's own limit on nested Include. */
 const MAX_DEPTH = 16;
 
-const isWildcard = (pattern: string) => /[*?]/.test(pattern) || pattern.startsWith("!");
+/** Wildcards, negations, and names ssh would read as an option: never an alias to offer. */
+const isWildcard = (pattern: string) =>
+  /[*?]/.test(pattern) || pattern.startsWith("!") || pattern.startsWith("-");
 
 /** Splits a config line's arguments, honouring double quotes. */
 export const splitArgs = (text: string): Array<string> => {

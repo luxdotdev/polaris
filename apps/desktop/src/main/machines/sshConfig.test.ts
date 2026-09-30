@@ -32,7 +32,7 @@ describe("parseSshConfig", () => {
     const text = [
       "Host *",
       "  ServerAliveInterval 30",
-      "Host studio pi !bastion *.internal dev-?",
+      "Host studio pi !bastion *.internal dev-? -oProxyCommand=x",
       "  HostName 10.0.0.2",
       "  User lucas",
       "Host vm",

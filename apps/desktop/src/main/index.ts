@@ -24,7 +24,7 @@ import {
   whenConnected,
 } from "./hosts.ts";
 import { registerIpc } from "./ipc/index.ts";
-import { machinesLayer } from "./machines/index.ts";
+import { machinesLayer, sshAliasNames } from "./machines/index.ts";
 import { type LocalDaemon, resolveLocalDaemon } from "./localDaemon.ts";
 import { buildMenu } from "./menu.ts";
 import { createNeedsYouCenter, type NeedsYouCenter } from "./notifications/index.ts";
@@ -44,7 +44,6 @@ import {
   settingsPath,
   writeSettings,
 } from "./settings.ts";
-import { readSshHosts } from "./sshHosts.ts";
 import { createMainWindow } from "./window.ts";
 
 const env = process.env;
@@ -192,7 +191,7 @@ const start = async () => {
       setAppearance,
       setSessionDefault,
       openExternal: (url) => shell.openExternal(url),
-      sshHosts: () => readSshHosts(),
+      sshHosts: () => sshAliasNames(env),
       setWelcomeSeen: () => saveSettings({ welcomeSeen: true }),
       pickFolder,
       appVersion: app.getVersion(),

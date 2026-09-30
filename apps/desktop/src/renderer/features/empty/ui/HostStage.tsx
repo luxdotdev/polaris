@@ -12,7 +12,6 @@ import {
   PixelSparkleIcon,
   SetupCard,
   SetupRow,
-  showToast,
 } from "@polaris/ui";
 import { useEffect, useState } from "react";
 import type { HostView } from "../../../../shared/api.ts";
@@ -149,14 +148,9 @@ const ConnectHostRow = ({ hostCount }: { readonly hostCount: number }) => {
         ? `${sshHosts} ${sshHosts === 1 ? "host" : "hosts"} in ~/.ssh/config · optional`
         : "Any machine you can reach over SSH · optional";
 
-  // Stub until the add-machine flow (features/machines) lands; then it opens Settings → Hosts.
-  const browse = () =>
-    showToast({
-      source: "starlight",
-      icon: <PixelServerIcon size={16} />,
-      title: "Adding a host comes with Settings → Hosts",
-      message: "Until then, list the host by its ~/.ssh/config alias under hosts in settings.json.",
-    });
+  const { openSettings } = useShellActions();
+  // The same add-a-host flow as Settings → Hosts, on day 1 and day 60 (DESIGN.md, Onboarding).
+  const browse = () => openSettings("hosts", { adding: true });
 
   return (
     <SetupRow

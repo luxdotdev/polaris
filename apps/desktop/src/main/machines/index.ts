@@ -17,6 +17,14 @@ import { terminalScript } from "./terminal.ts";
 
 export { Machines } from "./service.ts";
 
+/** Whose `~/.ssh/config` lists the aliases: `POLARIS_DESKTOP_SSH_HOME` in tests, else the user's. */
+const sshHome = (env: Record<string, string | undefined>) =>
+  env.POLARIS_DESKTOP_SSH_HOME ?? homedir();
+
+/** The literal Host aliases (Include followed), for onboarding's "found on this Mac". */
+export const sshAliasNames = (env: Record<string, string | undefined>): ReadonlyArray<string> =>
+  readSshAliases(sshHome(env)).map((a) => a.alias);
+
 export interface MachinesLayerInput {
   readonly settings: SettingsStore;
   readonly userData: string;
@@ -50,7 +58,7 @@ export const machinesLayer = (input: MachinesLayerInput) =>
       repoRoot: input.repoRoot,
       buildOnDemand: input.dev,
     }),
-    aliases: () => readSshAliases(input.env.POLARIS_DESKTOP_SSH_HOME ?? homedir()),
+    aliases: () => readSshAliases(sshHome(input.env)),
     localDaemon: input.localDaemon,
     openTerminal,
     ssh: Ssh.layer,
