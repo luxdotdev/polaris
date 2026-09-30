@@ -16,6 +16,8 @@ export interface StartDaemonInput {
   /** The Daemon's `POLARIS_HOME`. */
   readonly home: string;
   readonly benchHarness: boolean;
+  /** The user's home directory as the Daemon sees it (`HOME`); the real one when absent. */
+  readonly userHome?: string;
 }
 
 const live = (socketPath: string) =>
@@ -35,9 +37,25 @@ const live = (socketPath: string) =>
     socket.once("error", () => resolve(false));
   });
 
+/**
+ * The test Daemon's environment: its own POLARIS_HOME and HOME, so it never reads (or
+ * indexes, for Usage) the developer's real Harness logs and settings.
+ */
+const testEnv = (home: string, benchHarness: boolean, userHome: string | undefined) => {
+  const { CLAUDE_CONFIG_DIR: _claude, CODEX_HOME: _codex, ...env } = process.env;
+
+  return {
+    ...env,
+    HOME: userHome ?? home,
+    POLARIS_HOME: home,
+    POLARIS_BENCH_HARNESS: benchHarness ? "1" : "0",
+  };
+};
+
 export const startDaemon = async ({
   home,
   benchHarness,
+  userHome,
 }: StartDaemonInput): Promise<TestDaemon> => {
   const socketPath = join(home, "daemon.sock");
 
@@ -46,7 +64,7 @@ export const startDaemon = async ({
     [join(REPO_ROOT, "apps/daemon/src/main.ts"), "serve", "--foreground"],
     {
       cwd: REPO_ROOT,
-      env: { ...process.env, POLARIS_HOME: home, POLARIS_BENCH_HARNESS: benchHarness ? "1" : "0" },
+      env: testEnv(home, benchHarness, userHome),
       stdio: ["ignore", "ignore", "inherit"],
     }
   );

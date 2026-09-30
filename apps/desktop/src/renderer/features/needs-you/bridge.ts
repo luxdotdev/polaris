@@ -6,7 +6,7 @@ import type { SessionId } from "@polaris/protocol";
 import type { AppEvent } from "../../../shared/api.ts";
 import type { NeedsYouSummary } from "../../../shared/needsYou.ts";
 import type { ShellActions } from "../../routes/navigation.ts";
-import { polaris } from "../session/bridge.ts";
+import { polaris } from "../bridge.ts";
 import { answer, approve, deny } from "./respond.ts";
 
 let last = "";

@@ -7,7 +7,7 @@ import type { SessionId, TerminalId, WorkspaceId } from "@polaris/protocol";
 import { PixelFailedIcon, PixelFolderIcon, showToast } from "@polaris/ui";
 import { Predicate } from "effect";
 import { createElement } from "react";
-import { polaris } from "../session/bridge.ts";
+import { polaris } from "../bridge.ts";
 import { showRefusal } from "../session/dispatch.ts";
 import { copyArgv, copyOutcome, joinPath } from "./model.ts";
 

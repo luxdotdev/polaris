@@ -7,7 +7,7 @@ import type { TerminalId } from "@polaris/protocol";
 import { Button, IconButton, CloseIcon } from "@polaris/ui";
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "../../../shell/hooks.ts";
-import { polaris } from "../../session/bridge.ts";
+import { polaris } from "../../bridge.ts";
 import { loaded } from "../loaded.ts";
 import { endedLine } from "../model/launch.ts";
 import type { TabStatus } from "../model/tabs.ts";

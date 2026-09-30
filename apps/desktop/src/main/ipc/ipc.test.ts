@@ -43,13 +43,16 @@ const directory = Layer.effect(
 
 const context: RequestContext = {
   settings: () => ({ theme: "dark", hosts: [{ alias: "studio" }] }),
-  version: "0.4.0",
   cache: { get: () => [], put: () => undefined },
   prices: { table: () => Promise.reject(new Error("no prices in tests")) },
   setAppearance: () => undefined,
   setSessionDefault: () => undefined,
   openExternal: () => Promise.resolve(),
   proofWorkspace: () => null,
+  sshHosts: () => ["studio", "pi"],
+  setWelcomeSeen: () => undefined,
+  appVersion: "0.1.0",
+  pickFolder: () => Promise.resolve(null),
   daemonDist: null,
   needsYou: () => undefined,
 };
@@ -76,7 +79,8 @@ describe("requests", () => {
         motion: "system",
         codeFont: "sf-mono",
         sessionDefaults: {},
-        version: "0.4.0",
+        version: "0.1.0",
+        welcomeSeen: false,
         hosts: [{ alias: "studio", label: "studio", colour: null, forwardAgent: false }],
       })
     );
@@ -87,6 +91,12 @@ describe("requests", () => {
 
     expect(Exit.isSuccess(await run(open({ url: "https://opencode.ai/docs" })))).toBe(true);
     expect(Exit.isFailure(await run(open({ url: "file:///etc/passwd" })))).toBe(true);
+  });
+
+  test("onboarding.found lists the ssh config's Host aliases", async () => {
+    const exit = await run(requestRunner(handlers, "onboarding.found")({}));
+
+    expect(exit).toEqual(Exit.succeed({ sshHosts: ["studio", "pi"], version: "0.1.0" }));
   });
 
   test("a refusal crosses with the Daemon's reason as its message", () => {
@@ -131,7 +141,16 @@ describe("subscriptions", () => {
 
   test("every feed kind in the contract can be opened", () => {
     expect(Object.keys(SubscriptionInputs).sort()).toEqual(
-      ["files.watch", "host", "hosts", "session", "terminal", "usage"].sort()
+      [
+        "files.watch",
+        "harness.availability",
+        "host",
+        "hosts",
+        "plan-limits",
+        "session",
+        "terminal",
+        "usage",
+      ].sort()
     );
   });
 

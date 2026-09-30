@@ -5,7 +5,7 @@
  */
 import type { TerminalId } from "@polaris/protocol";
 import { showRefusal } from "../session/dispatch.ts";
-import { polaris } from "../session/bridge.ts";
+import { polaris } from "../bridge.ts";
 import {
   holdsProcess,
   patchTab,

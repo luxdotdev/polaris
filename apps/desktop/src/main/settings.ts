@@ -35,6 +35,8 @@ export const Settings = Schema.Struct({
   /** By Harness kind. */
   sessionDefaults: Schema.optionalKey(Schema.Record(Schema.String, SessionDefault)),
   hosts: Schema.optionalKey(Schema.Array(RemoteHostSetting)),
+  /** Set once "Get started" is pressed on the welcome (onboarding O1). */
+  welcomeSeen: Schema.optionalKey(Schema.Boolean),
 });
 
 export type Settings = typeof Settings.Type;

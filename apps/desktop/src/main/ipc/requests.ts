@@ -25,7 +25,6 @@ import { ensureInstalled } from "./install.ts";
 /** What the handlers need from the app outside the Client runtime. */
 export interface RequestContext {
   readonly settings: () => Settings;
-  readonly version: string;
   readonly cache: SnapshotCache;
   /** The price table for Usage estimates. */
   readonly prices: Prices;
@@ -34,6 +33,12 @@ export interface RequestContext {
   readonly openExternal: (url: string) => Promise<void>;
   /** A fresh temp directory, or null when the local Daemon doesn't run the bench Harness. */
   readonly proofWorkspace: () => string | null;
+  /** The literal Host aliases in `~/.ssh/config`. */
+  readonly sshHosts: () => ReadonlyArray<string>;
+  readonly setWelcomeSeen: () => void;
+  readonly appVersion: string;
+  /** The native folder picker on the focused window; null when cancelled. */
+  readonly pickFolder: () => Promise<string | null>;
   /** The bundled Daemon builds (`manifest.json`), or null when this build has none. */
   readonly daemonDist: string | null;
   /** The renderer's Needs You summary, for the menu bar star, Dock badge and notifications. */
@@ -90,7 +95,8 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
       return {
         ...appearanceOf(settings),
         sessionDefaults: settings.sessionDefaults ?? {},
-        version: ctx.version,
+        version: ctx.appVersion,
+        welcomeSeen: settings.welcomeSeen ?? false,
         hosts: (settings.hosts ?? []).map((h) => ({
           alias: h.alias,
           label: h.label ?? h.alias,
@@ -177,6 +183,10 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
 
       return ensureInstalled({ alias, approvedSha256, dist: ctx.daemonDist });
     }),
+  "onboarding.found": () =>
+    Effect.sync(() => ({ sshHosts: ctx.sshHosts(), version: ctx.appVersion })),
+  "onboarding.welcomeSeen": () => Effect.sync(ctx.setWelcomeSeen).pipe(done),
+  "dialog.pickFolder": () => Effect.promise(ctx.pickFolder).pipe(Effect.map((path) => ({ path }))),
   "needsYou.publish": (summary) => Effect.sync(() => ctx.needsYou(summary)).pipe(Effect.as(null)),
   "dev.proofWorkspace": () =>
     Effect.suspend(() => {

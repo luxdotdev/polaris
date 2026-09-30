@@ -33,6 +33,8 @@ export interface RowContext {
   readonly onOpenDiff: (turnId: string) => void;
   readonly onRespond: (request: ApprovalRequest, decision: ApprovalDecision) => void;
   readonly onContinue: () => void;
+  /** "Opus 5 · high", as the Harness names them. */
+  readonly modelLabel: (model: string | null, effort: string | null) => string;
 }
 
 const AVATAR = "w-6 shrink-0";
@@ -59,16 +61,16 @@ const Summary = ({ row, ctx }: { row: Extract<Row, { kind: "summary" }>; ctx: Ro
   </button>
 );
 
-const Prompt = ({ row }: { readonly row: Extract<Row, { kind: "prompt" }> }) => (
+const Prompt = ({ row, ctx }: { row: Extract<Row, { kind: "prompt" }>; ctx: RowContext }) => (
   <div className="flex flex-col items-end gap-1.5" data-testid="prompt">
     {row.text === "" ? null : (
       <p className="rounded-card bg-fill-selected text-body text-text-strong py-row-x max-w-[340px] px-3.5 break-words whitespace-pre-wrap">
         {row.text}
       </p>
     )}
-    {row.attachments.length === 0 ? null : (
-      <p className="text-caption text-text-faint truncate">{row.attachments.join(" · ")}</p>
-    )}
+    <p className="text-caption text-text-faint max-w-[340px] truncate" data-testid="turn-model">
+      {[...row.attachments, ctx.modelLabel(row.model, row.effort)].join(" · ")}
+    </p>
   </div>
 );
 
@@ -202,7 +204,7 @@ export const ConversationRow = ({ row, ctx }: { row: Row; ctx: RowContext }) => 
     case "summary":
       return <Summary row={row} ctx={ctx} />;
     case "prompt":
-      return <Prompt row={row} />;
+      return <Prompt row={row} ctx={ctx} />;
     case "item":
       return <Agent row={row} ctx={ctx} />;
     case "approval":

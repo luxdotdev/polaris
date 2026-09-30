@@ -6,6 +6,7 @@
 import type { SessionId } from "@polaris/protocol";
 import { slots } from "../app/slots.tsx";
 import { HostStage } from "../features/empty/index.ts";
+import { useStage, WaitingStage } from "../features/onboarding/index.ts";
 import { TerminalDock } from "../features/terminal/index.ts";
 import { useSelection, useShellActions } from "./hooks.ts";
 
@@ -13,10 +14,13 @@ export const Columns = () => {
   const { hostKey, workspaceId, sessionId, pane } = useSelection();
   const { selectSession, closeNewSession } = useShellActions();
 
+  const stage = useStage();
+
+  // No Workspace here: the setup (onboarding O2), also while a new session waits for "home".
   if (hostKey === null || workspaceId === null) {
     return (
       <section className="flex min-w-0 flex-1 flex-col">
-        <HostStage hostKey={hostKey} />
+        {stage === "waiting" ? <WaitingStage /> : <HostStage hostKey={hostKey} />}
       </section>
     );
   }

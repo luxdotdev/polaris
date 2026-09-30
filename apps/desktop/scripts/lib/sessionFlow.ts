@@ -83,6 +83,25 @@ const approveAll = async (page: Page, step: (m: string) => void) => {
   throw new Error("the first Turn never finished");
 };
 
+/** The bench Harness's stand-in Models: pick Bench Large at high effort between Turns. */
+const MODEL = "Bench Large · high";
+
+const switchModel = async (
+  page: Page,
+  step: (m: string) => void,
+  shoot: (name: string) => Promise<void>
+) => {
+  const chip = page.getByTestId("model-picker");
+
+  await chip.click();
+  await page.getByTestId("model-option").filter({ hasText: "Bench Large" }).click();
+  await page.getByTestId("effort-high").waitFor();
+  await shoot("model-picker");
+  await page.getByTestId("effort-high").click();
+  await chip.filter({ hasText: MODEL }).waitFor({ timeout: 10_000 });
+  step(`SetModel between Turns: ${MODEL}`);
+};
+
 export interface FlowInput {
   readonly page: Page;
   readonly repo: string;
@@ -130,6 +149,7 @@ export const sessionFlow = async ({ page, repo, step, shoot, atFirstApproval }: 
 
   if (files < 2) throw new Error(`expected the 2 bench files in the diff, saw ${files}`);
   await shoot("session-idle");
+  await switchModel(page, step, shoot);
 
   await input.fill(FOLLOW_UP);
   await input.press("Enter");
@@ -137,6 +157,9 @@ export const sessionFlow = async ({ page, repo, step, shoot, atFirstApproval }: 
     .getByTestId("session-state")
     .filter({ hasText: /^Working/ })
     .waitFor();
+  // The new Turn records the Model it runs on, under its prompt (before streaming scrolls it away).
+  await page.getByTestId("turn-model").filter({ hasText: MODEL }).first().waitFor();
+  step(`the follow-up Turn runs on ${MODEL}`);
   await page.getByTestId("live-item").first().waitFor();
   await page.waitForTimeout(300);
   await shoot("session-working");

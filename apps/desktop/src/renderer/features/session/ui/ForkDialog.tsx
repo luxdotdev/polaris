@@ -17,10 +17,16 @@ import {
 import { useState } from "react";
 import { newSessionId } from "../../../commands.ts";
 import { send } from "../dispatch.ts";
-import { useHarnessOptions } from "../hooks.ts";
+import {
+  HarnessChip,
+  listedOptions,
+  type ModelChoice,
+  OtherHarnessesLink,
+  SetupNote,
+  useAvailability,
+  useSignIn,
+} from "../../harness/index.ts";
 import { forkCommand } from "../model/intent.ts";
-import type { ModelChoice } from "../model/models.ts";
-import { ModelPicker } from "./ModelPicker.tsx";
 
 export interface ForkTarget {
   readonly sessionId: SessionId;
@@ -48,11 +54,17 @@ const ForkForm = ({
   const [choice, setChoice] = useState<ModelChoice | null>(null);
   const [busy, setBusy] = useState(false);
   const sameHarness = harness === target.harness;
-  // Any Harness the Host can run now; the session's own stays listed so the default holds.
+  const { options } = useAvailability(hostKey);
+  const signIn = useSignIn(hostKey);
+  // Ready or needing sign-in (the rest are under "Other harnesses"); the session's own stays.
+  const listed = listedOptions(options);
 
-  const harnesses = useHarnessOptions(hostKey)
-    .options.filter((o) => o.startable || o.kind === target.harness)
+  const harnesses = options
+    .filter((o) => listed.includes(o) || o.kind === target.harness)
     .map((o) => ({ value: o.kind, label: o.name }));
+
+  const chosen = options.find((o) => o.kind === harness);
+  const blocked = chosen !== undefined && !chosen.startable;
 
   const fork = () => {
     const sessionId = newSessionId();
@@ -98,23 +110,29 @@ const ForkForm = ({
           options={harnesses}
         />
         <div className="flex items-center gap-2">
-          <ModelPicker
+          <HarnessChip
             hostKey={hostKey}
             harness={harness}
             model={choice?.model ?? (sameHarness ? target.model : null)}
             effort={choice?.effort ?? (sameHarness ? target.effort : null)}
-            onChoose={setChoice}
+            disabled={blocked}
+            onModel={setChoice}
           />
           <span className="text-caption text-text-faint">
             {choice === null && sameHarness ? "Keeps this session's model" : null}
           </span>
         </div>
+        {blocked && chosen !== undefined ? (
+          <SetupNote option={chosen} onSignIn={signIn.begin} />
+        ) : null}
+        <OtherHarnessesLink hostKey={hostKey} options={options} />
+        {signIn.dialog}
       </div>
       <DialogFooter>
         <Button variant="ghost" onClick={onClose}>
           Cancel
         </Button>
-        <Button variant="primary" disabled={busy} onClick={fork}>
+        <Button variant="primary" disabled={busy || blocked} onClick={fork}>
           Fork
         </Button>
       </DialogFooter>
