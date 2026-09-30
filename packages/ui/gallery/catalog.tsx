@@ -26,7 +26,7 @@ function Column({ theme, density, textSize, palette, only }: ColumnProps) {
       data-diff-palette={palette}
       className="gap-section flex min-w-0 flex-1 flex-col p-6"
     >
-      <p className="text-caption text-text-faint">
+      <p className="text-caption text-text-subtle">
         {theme} · {density} · text {textSize} · {palette} diffs
       </p>
       {only === "coverage" ? (

@@ -74,6 +74,8 @@
 [data-diff-palette="cvd"] {
   --color-diff-added: var(--color-diff-added-cvd);
   --color-diff-removed: var(--color-diff-removed-cvd);
+  --color-diff-added-text: var(--color-diff-added-cvd);
+  --color-diff-removed-text: var(--color-diff-removed-cvd);
   --color-diff-added-bg: color-mix(in oklab, var(--color-diff-added-cvd) 10%, transparent);
   --color-diff-removed-bg: color-mix(in oklab, var(--color-diff-removed-cvd) 10%, transparent);
   --color-diff-added-emphasis: color-mix(in oklab, var(--color-diff-added-cvd) 25%, transparent);

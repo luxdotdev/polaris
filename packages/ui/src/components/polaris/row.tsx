@@ -87,7 +87,7 @@ export function Row({
           <span
             className={cn(
               "truncate text-caption in-data-[density=compact]:hidden",
-              tone === "needs-you" ? "text-needs-you" : "text-text-subtle"
+              tone === "needs-you" ? "text-needs-you-text" : "text-text-subtle"
             )}
           >
             {description}

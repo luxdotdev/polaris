@@ -171,7 +171,7 @@ export function CommandItem({
           {meta}
         </span>
       )}
-      <kbd className="text-micro text-text-faint hidden w-3 font-sans group-data-[selected=true]/item:inline">
+      <kbd className="text-micro text-text-subtle hidden w-3 font-sans group-data-[selected=true]/item:inline">
         ↵
       </kbd>
     </CommandPrimitive.Item>
@@ -183,7 +183,7 @@ export function CommandFooter({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       className={cn(
-        "flex h-9 shrink-0 items-center gap-4 border-t border-hairline bg-[color-mix(in_oklab,var(--color-surface-raised),var(--color-surface-sunken)_40%)] px-4 text-caption text-text-faint",
+        "flex h-9 shrink-0 items-center gap-4 border-t border-hairline bg-[color-mix(in_oklab,var(--color-surface-raised),var(--color-surface-sunken)_40%)] px-4 text-caption text-text-subtle",
         className
       )}
       {...props}

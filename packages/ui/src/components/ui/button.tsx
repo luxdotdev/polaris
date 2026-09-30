@@ -19,8 +19,8 @@ export const buttonVariants = cva(
         secondary: "bg-fill-selected text-text-default hover:bg-fill-selected/70",
         /** No fill until hover. */
         ghost: "text-text-subtle hover:bg-fill-hover hover:text-text-default",
-        /** A destructive action: secondary shape, failed text (see the F1 report's questions). */
-        danger: "bg-fill-selected text-failed hover:bg-fill-selected/70",
+        /** A destructive action that names its object: secondary shape, failed-text label. */
+        danger: "bg-fill-selected text-failed-text hover:bg-fill-selected/70",
       },
       size: {
         default: "h-7 px-3",
@@ -28,6 +28,12 @@ export const buttonVariants = cva(
         sm: "h-[26px] px-2.5 text-caption font-medium",
         /** Inside inbox cards (Paper 1G2-0: 24px, 12px). */
         xs: "h-6 px-2.5 text-caption font-medium",
+        /**
+         * Brand moments only (onboarding, the site): with variant "primary", 36px, 8px radius and
+         * the float shadow, the one button that casts one. End it with a ButtonKeycap.
+         */
+        brand:
+          "h-9 gap-2.5 rounded-[8px] pr-3.5 pl-[18px] shadow-[0_8px_24px_light-dark(rgb(0_0_0/12%),rgb(0_0_0/35%))]",
         /** A 16px icon in a 28px square. */
         icon: "size-7",
         "icon-sm": "size-[26px]",
@@ -60,6 +66,21 @@ export function Button({
       data-size={size}
       type={asChild ? undefined : type}
       className={cn(buttonVariants({ variant, size, className }))}
+      {...props}
+    />
+  );
+}
+
+/** The trailing 18px keycap of a brand-moment button ("Get started ↵"). */
+export function ButtonKeycap({ className, ...props }: ComponentProps<"kbd">) {
+  return (
+    <kbd
+      data-slot="button-keycap"
+      className={cn(
+        "inline-flex size-[18px] shrink-0 items-center justify-center rounded-[4px] font-sans text-micro font-medium",
+        "bg-[color-mix(in_oklab,var(--color-primary-foreground)_8%,transparent)] text-[color-mix(in_oklab,var(--color-primary-foreground)_55%,var(--color-primary))]",
+        className
+      )}
       {...props}
     />
   );

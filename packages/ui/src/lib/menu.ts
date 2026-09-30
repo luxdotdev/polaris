@@ -13,4 +13,4 @@ export const MENU_LABEL = "px-row-x pt-2 pb-1.5 text-caption text-text-subtle";
 
 export const MENU_SEPARATOR = "-mx-1.5 my-1.5 h-px bg-hairline";
 
-export const MENU_SHORTCUT = "ml-auto pl-4 font-sans text-micro tabular text-text-faint";
+export const MENU_SHORTCUT = "ml-auto pl-4 font-sans text-micro tabular text-text-subtle";

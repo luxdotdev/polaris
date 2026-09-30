@@ -85,7 +85,7 @@ function glyph(state: SessionState, harness: Harness, size: number): ReactNode {
       <span className="border-text-faint rounded-full border" style={{ width: dot, height: dot }} />
     ),
     "pixel-failed": () => <PixelFailedIcon size={pixel} className="text-failed" />,
-    "pixel-archive": () => <PixelArchiveIcon size={pixel} className="text-text-faint" />,
+    "pixel-archive": () => <PixelArchiveIcon size={pixel} className="text-text-subtle" />,
   };
 
   return glyphs[STATE_GLYPHS[state]]();

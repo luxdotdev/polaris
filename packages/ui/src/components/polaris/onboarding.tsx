@@ -22,7 +22,7 @@ export function StageHeading({ kicker, title, line, className, ...props }: Stage
       {...props}
     >
       <p className="text-caption text-starlight font-medium">{kicker}</p>
-      <h1 className="text-display text-text-strong">{title}</h1>
+      <h1 className="text-display text-text-strong tracking-[-0.015em]">{title}</h1>
       {line === undefined ? null : <p className="text-body text-text-default">{line}</p>}
     </Clearing>
   );

@@ -31,6 +31,16 @@ export function hueVar(hue: TintHue): string {
   return HUE_VARS[hue];
 }
 
+const HARNESS_TEXT_VARS: Record<Harness, string> = {
+  claude: "var(--color-harness-claude-code-text)",
+  codex: "var(--color-harness-codex-text)",
+};
+
+/** A Harness hue set as words: the Working strip, the picker chip (rule/signal-text-variants). */
+export function harnessTextVar(harness: Harness): string {
+  return HARNESS_TEXT_VARS[harness];
+}
+
 const WASH_VARS: Record<TintHue, string> = {
   claude: "var(--wash-claude-code)",
   codex: "var(--wash-codex)",

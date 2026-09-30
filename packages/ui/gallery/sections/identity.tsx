@@ -72,7 +72,7 @@ function WorkingToggle() {
       <Button size="sm" data-testid="toggle-working" onClick={() => setWorking(!working)}>
         {working ? "Stop working" : "Start working"}
       </Button>
-      <span className="text-caption text-text-faint">the dither fades in and out over 200ms</span>
+      <span className="text-caption text-text-subtle">the dither fades in and out over 200ms</span>
     </div>
   );
 }
@@ -106,11 +106,11 @@ export function SignalSection() {
         ))}
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-caption text-text-faint">under 50% confidence:</span>
+        <span className="text-caption text-text-subtle">under 50% confidence:</span>
         {SEVERITIES.map((severity) => (
           <SeverityBadge key={`low-${severity}`} severity={severity} lowConfidence />
         ))}
-        <span className="text-caption text-text-faint">critical never dims</span>
+        <span className="text-caption text-text-subtle">critical never dims</span>
       </div>
       <div className="text-code-inline flex items-center gap-3 font-mono">
         {SEVERITIES.map((severity) => (

@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 
 import {
+  Badge,
   ApprovalCard,
   Button,
   Chip,
@@ -44,15 +45,19 @@ function TitleBar() {
             value: "orchestrate",
             label: "Orchestrate",
             badge: (
-              <span className="rounded-control bg-needs-you/16 text-micro text-needs-you flex h-[18px] min-w-[18px] items-center justify-center px-[5px] font-medium">
+              <Badge
+                tone="needs-you"
+                size="count"
+                className="rounded-control h-[18px] min-w-[18px]"
+              >
                 2
-              </span>
+              </Badge>
             ),
           },
           {
             value: "review",
             label: "Review",
-            badge: <span className="text-micro font-regular text-text-faint">3</span>,
+            badge: <span className="text-micro font-regular text-text-subtle">3</span>,
           },
           { value: "edit", label: "Edit" },
         ]}
@@ -63,7 +68,7 @@ function TitleBar() {
         trigger={
           <button
             type="button"
-            className="rounded-control border-hairline bg-bg text-body text-text-faint flex h-7 w-[280px] shrink-0 cursor-default items-center gap-2 border pr-1.5 pl-2.5"
+            className="rounded-control border-hairline bg-bg text-body text-text-subtle flex h-7 w-[280px] shrink-0 cursor-default items-center gap-2 border pr-1.5 pl-2.5"
           >
             <SearchIcon size={14} />
             <span className="flex-1 text-left">Jump to a session or workspace</span>

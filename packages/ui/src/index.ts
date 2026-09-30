@@ -13,6 +13,7 @@ export {
   HARNESS_NAMES,
   haloVar,
   harnessHue,
+  harnessTextVar,
   hueVar,
   washVar,
   type Harness,

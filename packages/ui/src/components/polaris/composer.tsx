@@ -3,7 +3,14 @@ import type { HTMLAttributes, ReactNode } from "react";
 import { ArrowUpIcon, ChevronDownIcon, PlusIcon } from "../../icons/chrome";
 import { cn } from "../../lib/cn";
 import type { CssVars } from "../../lib/css";
-import { HARNESS_HANDLES, HARNESS_NAMES, haloVar, hueVar, type Harness } from "../../lib/hue";
+import {
+  HARNESS_HANDLES,
+  HARNESS_NAMES,
+  haloVar,
+  harnessTextVar,
+  hueVar,
+  type Harness,
+} from "../../lib/hue";
 import { Button } from "../ui/button";
 import { Textarea, type TextareaProps } from "../ui/textarea";
 import { Dither } from "./dither";
@@ -27,7 +34,11 @@ export function HarnessPicker({
   style,
   ...props
 }: HarnessPickerProps) {
-  const vars: CssVars = { "--harness": hueVar(harness), ...style };
+  const vars: CssVars = {
+    "--harness": hueVar(harness),
+    "--harness-text": harnessTextVar(harness),
+    ...style,
+  };
 
   return (
     <button
@@ -50,7 +61,7 @@ export function HarnessPicker({
       <span
         className={cn(
           "text-caption font-medium",
-          working ? "text-(--harness)" : "text-text-default"
+          working ? "text-(--harness-text)" : "text-text-default"
         )}
       >
         {HARNESS_HANDLES[harness]}
@@ -82,7 +93,7 @@ export function WorkingStrip({ harness, elapsed, onStop, children }: WorkingStri
         className="pixelated pointer-events-none absolute -top-[70px] -left-[120px] h-[150px] w-[320px] bg-(image:--halo) bg-size-[100%_100%] opacity-90"
       />
       <Dither hue={harness} size={14} moving className="relative" />
-      <span className="text-caption relative font-medium text-(--harness)">
+      <span className="text-caption relative font-medium text-(--harness-text)">
         {children ?? `${HARNESS_NAMES[harness]} is working`}
       </span>
       <span className="text-caption text-text-subtle tabular relative">· {elapsed}</span>
@@ -126,7 +137,12 @@ export function Composer({
   placeholder,
   ...props
 }: ComposerProps) {
-  const vars: CssVars = { "--harness": hueVar(harness), "--halo": haloVar(harness) };
+  const vars: CssVars = {
+    "--harness": hueVar(harness),
+    "--harness-text": harnessTextVar(harness),
+    "--halo": haloVar(harness),
+  };
+
   const isWorking = working !== undefined;
 
   return (
