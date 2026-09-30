@@ -3,6 +3,8 @@
 @import "./features/onboarding/onboarding.css";
 
 @source "./";
+/* Streamdown's own layout classes (the Markdown chunk); Polaris restyles them in markdown.css. */
+@source "../../node_modules/streamdown/dist/*.js";
 
 html,
 body,

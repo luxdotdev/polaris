@@ -14,14 +14,14 @@ import {
   PixelFailedIcon,
 } from "@polaris/ui";
 import { type ReactNode, useState } from "react";
-import { type FileChangeKind, type ItemView, outputTail, type PlanStep } from "../model/items.ts";
+import { type FileChangeKind, type ItemView, type PlanStep } from "../model/items.ts";
+import { Command } from "./command.tsx";
+import { Markdown } from "./markdown/index.tsx";
 import { softWrap } from "./softWrap.tsx";
 
-type Hue = Harness | null;
+export type Hue = Harness | null;
 
-const TAIL_LINES = 8;
-
-const WELL = "rounded-row border-hairline bg-surface-raised/50 border";
+export const WELL = "rounded-row border-hairline bg-surface-raised/50 border";
 
 const Disclosure = ({
   open,
@@ -50,16 +50,16 @@ const Disclosure = ({
   </button>
 );
 
-const LiveMark = ({ hue }: { readonly hue: Hue }) =>
+export const LiveMark = ({ hue }: { readonly hue: Hue }) =>
   hue === null ? null : <Dither hue={hue} size={12} moving />;
 
 const Message = ({ text, live }: { readonly text: string; readonly live: boolean }) => (
-  <p
+  <div
     data-testid={live ? "live-item" : "message"}
-    className="text-body text-text-default leading-[19px] break-words whitespace-pre-wrap"
+    className="text-body text-text-default min-w-0 leading-[19px]"
   >
-    {softWrap(text)}
-  </p>
+    <Markdown text={text} live={live} />
+  </div>
 );
 
 const Reasoning = ({ text, live, hue }: { text: string; live: boolean; hue: Hue }) => {
@@ -76,54 +76,6 @@ const Reasoning = ({ text, live, hue }: { text: string; live: boolean; hue: Hue 
           {softWrap(text)}
         </p>
       ) : null}
-    </div>
-  );
-};
-
-const exitLabel = (item: Extract<ItemView, { kind: "command" }>): string => {
-  if (item.status === "declined") return "declined";
-
-  if (item.live || item.status === "running") return "running";
-
-  return item.exitCode === null ? item.status : `exit ${item.exitCode}`;
-};
-
-const Command = ({ item, hue }: { item: Extract<ItemView, { kind: "command" }>; hue: Hue }) => {
-  const [all, setAll] = useState(false);
-  const tail = outputTail(item.output, TAIL_LINES);
-  const failed = item.status === "failed" || (item.exitCode !== null && item.exitCode !== 0);
-
-  return (
-    <div className={cn(WELL, "flex flex-col overflow-clip")} data-testid="command">
-      <div className="h-row gap-row-x flex items-center px-3">
-        {item.live ? (
-          <LiveMark hue={hue} />
-        ) : failed ? (
-          <PixelFailedIcon size={14} className="text-failed" />
-        ) : (
-          <CheckIcon size={14} className="text-text-subtle" />
-        )}
-        <span className="text-code-inline text-text-default flex-1 truncate font-mono">
-          {item.command === "" ? "Running a command" : `$ ${item.command}`}
-        </span>
-        <span className="text-caption text-text-subtle tabular">{exitLabel(item)}</span>
-      </div>
-      {item.output === "" ? null : (
-        <div className="border-hairline border-t">
-          {tail.hidden > 0 ? (
-            <button
-              type="button"
-              onClick={() => setAll(!all)}
-              className="text-caption text-text-subtle hover:text-text-default w-full cursor-default px-3 pt-1.5 text-left"
-            >
-              {all ? "Show the last lines" : `Show ${tail.hidden} earlier lines`}
-            </button>
-          ) : null}
-          <pre className="text-code-inline text-text-subtle max-h-[480px] overflow-auto px-3 py-2 font-mono leading-[18px] break-all whitespace-pre-wrap">
-            {all ? item.output : tail.text}
-          </pre>
-        </div>
-      )}
     </div>
   );
 };

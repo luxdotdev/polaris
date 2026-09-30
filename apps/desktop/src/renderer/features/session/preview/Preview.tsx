@@ -34,10 +34,13 @@ import {
   failed,
   interrupted,
   long,
+  markdown,
   MODELS,
   PATCH,
   planning,
   question,
+  steer,
+  steerOutbox,
   workspace,
   workspaceId,
   worktree,
@@ -72,7 +75,16 @@ const host: HostView = {
   },
 };
 
-const SCENES = { session: planning, approval, question, interrupted, failed, long } as const;
+const SCENES = {
+  session: planning,
+  approval,
+  question,
+  interrupted,
+  failed,
+  long,
+  markdown,
+  steer,
+} as const;
 
 const SCENE_NAMES = [
   "session",
@@ -81,6 +93,8 @@ const SCENE_NAMES = [
   "interrupted",
   "failed",
   "long",
+  "markdown",
+  "steer",
   "new",
   "setup",
   "none-ready",
@@ -286,6 +300,13 @@ export const mountPreview = (root: HTMLElement, hash: string) => {
     navigation.actions.startNewSession();
   } else {
     navigation.actions.selectSession({ hostKey: HOST, sessionId: shown.session.id });
+  }
+
+  if (scene === "steer" && shown?.session != null) {
+    const key = uiKey(HOST, shown.session.id);
+    const turnId = shown.turns.at(-1)?.turn.id ?? "";
+
+    patchSessionUi(key, () => ({ outbox: steerOutbox(turnId) }));
   }
 
   // The long scene opens every Turn, so scrolling crosses thousands of rows.

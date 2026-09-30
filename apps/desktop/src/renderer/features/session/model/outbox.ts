@@ -39,7 +39,7 @@ export interface Outgoing<A extends OutboxAttachment = OutboxAttachment> {
 }
 
 /** Said when a steer's Turn ended without the Harness reporting it. */
-export const MISSED_STEER = "The turn ended before the agent took this";
+export const MISSED_STEER = "The turn ended before it landed";
 
 let counter = 0;
 

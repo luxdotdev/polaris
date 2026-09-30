@@ -7,6 +7,7 @@
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
 import { useEffect, useRef } from "react";
 import type { Row } from "../model/conversation.ts";
+import { preloadMarkdown } from "./markdown/index.tsx";
 import { ConversationRow, type RowContext } from "./rows.tsx";
 
 interface Saved {
@@ -46,6 +47,8 @@ export const Conversation = ({ scrollKey, rows, ctx }: ConversationProps) => {
     initialOffset: () =>
       restore === undefined || restore.atEnd ? Number.MAX_SAFE_INTEGER : restore.offset,
   });
+
+  useEffect(preloadMarkdown, []);
 
   // Streaming grows the last row: `anchorTo: "end"` follows it as the row is re-measured.
   // No per-commit isAtEnd/scrollToEnd: each one forces a layout of the whole list.
