@@ -92,8 +92,9 @@ Settings adds `settings.open` (⌘,, shown in the app menu as Settings…) and `
 **Budgets** (`scripts/budgets.ts`, CI job `desktop-budgets` under `xvfb-run`): the built app against a Daemon on the bench Harness. It seeds a heavy session (25 Turns × 60 items × 6 KB, 3 files per Turn) and two light Workspaces, then fails when:
 - the app's process tree plus the Daemon's reach 1 GB (peak footprint over 3 s, sampled by `@polaris/bench`'s sampler in `scripts/lib/sampleTree.ts` under Bun; on Linux footprint is RssAnon + RssShmem);
 - a Workspace switch between two ordinary Workspaces has p95 ≥ 100 ms;
-- while streaming, frame p95 is over 1.5 display refresh intervals or more than 2% of frames take over two, relative to the idle median interval, so a 120 Hz Mac is held to ~8.3 ms and Xvfb (60 Hz) to ~16.7 ms.
-The switch into and out of the heavy session is measured and reported, not gated: about 60 ms on a Mac today.
+- while streaming, frame p95 is over 1.5 display refresh intervals or more than 2% of frames take over two, relative to the idle median interval, so a 120 Hz Mac is held to ~8.3 ms and Xvfb (60 Hz) to ~16.7 ms;
+- the idle interval is over 34 ms: frames are throttled (Linux runs a hidden window at 1 Hz, so on Linux the window is shown; Xvfb keeps it off-screen) and can't be judged.
+The switch into and out of the heavy session is measured and reported, not gated: about 20 ms on a Mac today.
 
 **Onboarding** (`src/renderer/features/onboarding/`, DESIGN.md Onboarding): O1 Welcome replaces the whole window until "Get started" (↵), which sets `welcomeSeen` in the settings; the Orchestrator's stage is the O2 setup (`features/empty`'s `HostStage`, with onboarding's native folder picker, ⌘O and an unlocked Start session) whenever the selected Host has no Workspace, and an empty scene (`WaitingStage`) until some Host has said what it holds, so the setup never flashes. `startNewSession` (sidebar +, title bar, ⌘N, the K menu) with no Workspace asks `createNavigation`'s `ensureWorkspace`, which registers the Host's home directory (`HostInfo.homeDir`) as the Workspace "home", or shows it again if hidden, then opens New session in it. Features use `useEnsureWorkspace()` for the same. `model.ts` (stage, found-on-this-Mac lines) and `ensureWorkspace.ts` are tested; the smoke test walks O1 → O2 → Start session → New session in "home".
 

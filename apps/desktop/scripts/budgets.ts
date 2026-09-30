@@ -45,6 +45,8 @@ const BUDGET = {
   frameP95Intervals: 1.5,
   /** Share of frames longer than two refresh intervals. */
   droppedShare: 0.02,
+  /** Slower than 30 Hz idle means rAF is throttled (a hidden window): frames can't be judged. */
+  maxIntervalMs: 34,
 } as const;
 
 /** V2's heavy session: 25 Turns of 60 items of ~6 KB, 3 files touched per Turn. */
@@ -90,7 +92,8 @@ const app = await electron.launch({
     POLARIS_DESKTOP_LOCAL_SOCKET: daemon.socketPath,
     POLARIS_DESKTOP_BENCH_HARNESS: "1",
     POLARIS_DESKTOP_USER_DATA: userData,
-    POLARIS_DESKTOP_HIDDEN: args.includes("--show") ? "0" : "1",
+    // Linux throttles a hidden window's frames to 1 Hz; under Xvfb a shown one is off-screen anyway.
+    POLARIS_DESKTOP_HIDDEN: args.includes("--show") || process.platform === "linux" ? "0" : "1",
   },
 });
 
@@ -323,6 +326,12 @@ try {
     max: percentile(gaps, 1),
     droppedShare: dropped,
   };
+  check(
+    "Display paced (idle frame interval; else the window is throttled)",
+    `${interval.toFixed(2)} ms`,
+    `≤ ${BUDGET.maxIntervalMs} ms`,
+    interval <= BUDGET.maxIntervalMs
+  );
   check(
     `Streaming frame p95 (display interval ${interval.toFixed(2)} ms)`,
     `${p95.toFixed(2)} ms`,
