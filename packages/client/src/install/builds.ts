@@ -140,3 +140,17 @@ export const compareVersions = (a: string, b: string): number => {
 
   return preA.localeCompare(preB, undefined, { numeric: true });
 };
+
+/** A dev build's version (`scripts/buildVersion.ts`): `<version>-dev.<commit count>.<sha>…`. */
+export const isDevVersion = (version: string): boolean => /-dev\.\d+\.[0-9a-f]+/.test(version);
+
+/**
+ * Whether a Host running `installed` should get the `bundled` build. A release
+ * replaces only an older version. A dev build replaces any other version, newer
+ * or older: a dev Client installs exactly the build it carries.
+ */
+export const upgradeDue = (installed: string, bundled: string): boolean => {
+  if (installed === bundled) return false;
+
+  return isDevVersion(bundled) || compareVersions(installed, bundled) < 0;
+};

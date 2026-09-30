@@ -2,7 +2,7 @@
 /**
  * Screenshots of the empty states and the terminal drawer, from a fresh
  * Daemon: the Host with no workspaces, a workspace with no sessions, the
- * drawer, nothing needs you, and a mode that arrives later. Every theme and
+ * drawer, nothing needs you, and the modes that arrive later. Every theme and
  * density; compare with Paper 57Q-1, VG-0 and 5SH-1.
  *
  *   node scripts/emptyScreens.ts --out <dir> [--build]
@@ -32,7 +32,8 @@ mkdirSync(out, { recursive: true });
 
 const home = mkdtempSync(join(tmpdir(), "polaris-empty-"));
 
-const daemon = await startDaemon({ home, benchHarness: true });
+// The Daemon's home is the temp dir, so the workspace reads as ~/code/polaris.
+const daemon = await startDaemon({ home, benchHarness: true, userHome: home });
 
 const app = await electron.launch({
   executablePath: electronBinary(),
@@ -111,15 +112,14 @@ try {
   await page.getByTestId("terminal-ended").waitFor({ timeout: 10_000 });
   await shoot(page, "terminal-ended");
 
-  // What View → Review (⌘2) sends from the native menu.
-  await app.evaluate(({ BrowserWindow }) => {
-    BrowserWindow.getAllWindows()[0]?.webContents.send("polaris:app", {
-      kind: "route",
-      route: "review",
-    });
-  });
-  await page.waitForTimeout(400);
-  await shoot(page, "later-mode");
+  // Modes that arrive later (5SH-1): ⌘2 Review and ⌘3 Edit, as the smoke test switches them.
+  await page.keyboard.press("Meta+2");
+  await page.getByText(/Review arrives/).waitFor({ timeout: 5000 });
+  await shoot(page, "later-review");
+  await page.keyboard.press("Meta+3");
+  await page.getByText(/editor arrives/).waitFor({ timeout: 5000 });
+  await shoot(page, "later-edit");
+  await page.keyboard.press("Meta+1");
 } finally {
   await app.close();
   await daemon.stop();

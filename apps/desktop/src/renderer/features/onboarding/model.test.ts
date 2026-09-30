@@ -96,13 +96,13 @@ describe("found on this Mac", () => {
 
   test("names join the way a sentence does", () => {
     expect(listed(["Claude Code 2.1.4"])).toBe("Claude Code 2.1.4");
-    expect(listed(["A", "B", "C"])).toBe("A, B and C");
-    expect(listed(["A", "B", "C", "D"], 2)).toBe("A, B and 2 more");
+    expect(listed(["A", "B", "C"])).toBe("A, B, and C");
+    expect(listed(["A", "B", "C", "D"], 2)).toBe("A, B, and 2 more");
   });
 
   test("the welcome names what Polaris drives in a line that fits", () => {
     expect(drivesLine([], ["Claude Code", "Codex", "OpenCode"])).toBe(
-      "Claude Code, Codex and more"
+      "Claude Code, Codex, and more"
     );
     expect(drivesLine(["Codex"], ["Claude Code", "Codex"])).toBe("Codex");
   });

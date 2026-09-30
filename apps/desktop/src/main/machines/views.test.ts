@@ -73,6 +73,12 @@ describe("backgroundCheckKey", () => {
     expect(backgroundCheckKey(older, null)).toBeNull();
     expect(backgroundCheckKey(host("studio", { host: info("0.2.0") }), "0.2.0")).toBeNull();
   });
+
+  test("a dev build replaces a Daemon on any other build, even a newer-looking one", () => {
+    const d210 = host("studio", { host: info("0.0.1-d210"), epoch: 7 });
+    expect(backgroundCheckKey(d210, "0.0.0-dev.412.5821ca0")).toBe("upgrade:7");
+    expect(backgroundCheckKey(d210, "0.0.0")).toBeNull();
+  });
 });
 
 describe("machineViews", () => {

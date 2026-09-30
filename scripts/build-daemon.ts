@@ -12,7 +12,11 @@
  * default; this script installs them from the lockfile when missing), and
  * Linux builds need `--define FFF_LIBC="gnu"` (or `"musl"`) to pick the library.
  *
- *   bun scripts/build-daemon.ts [darwin-arm64|linux-x64|linux-arm64|linux-x64-musl|linux-arm64-musl ...]
+ *   bun scripts/build-daemon.ts [--release] [darwin-arm64|linux-x64|linux-arm64|linux-x64-musl|linux-arm64-musl ...]
+ *
+ * Without `--release` it is a dev build: its version names the commit
+ * (`buildVersion.ts`), so a Client upgrades a Host from one dev build to the next.
+ * The version is compiled in (`process.env.POLARIS_BUILD_VERSION`, read by `service/platform.ts`).
  */
 import { createHash } from "node:crypto";
 import {
@@ -27,6 +31,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { Option, Schema } from "effect";
+import { buildVersion } from "./buildVersion.ts";
 
 const root = join(import.meta.dir, "..");
 
@@ -197,6 +202,7 @@ const build = async (platform: Platform, version: string): Promise<PlatformBuild
     // when imported: `serve` never parses the Claude Agent SDK, `bridge` not the Daemon.
     "--splitting",
     ...define.map((value) => `--define=${value}`),
+    `--define=process.env.POLARIS_BUILD_VERSION=${JSON.stringify(version)}`,
     `--outfile=${binary}`,
   ]);
 
@@ -223,16 +229,27 @@ const build = async (platform: Platform, version: string): Promise<PlatformBuild
 };
 
 const main = async () => {
-  const requested = process.argv.slice(2);
+  const args = process.argv.slice(2);
+  const release = args.includes("--release");
+  const requested = args.filter((arg) => arg !== "--release");
   const unknown = requested.filter((platform) => !isPlatform(platform));
 
   if (unknown.length > 0) throw new Error(`unknown platform(s): ${unknown.join(", ")}`);
   const platforms = (requested.length > 0 ? requested : Object.keys(PLATFORMS)).filter(isPlatform);
 
-  const version = readVersion(join(daemonDir, "package.json"));
+  const commit = (await run(["git", "rev-parse", "HEAD"]).catch(() => "unknown")).trim();
+
+  const version = buildVersion(readVersion(join(daemonDir, "package.json")), {
+    release,
+    commit: {
+      count: Number((await run(["git", "rev-list", "--count", "HEAD"]).catch(() => "0")).trim()),
+      sha: commit.slice(0, 7),
+      dirty: (await run(["git", "status", "--porcelain"]).catch(() => "")).trim() !== "",
+    },
+    now: new Date(),
+  });
 
   const fff = readVersion(fffBunPackage());
-  const commit = (await run(["git", "rev-parse", "HEAD"]).catch(() => "unknown")).trim();
   await ensureTargetPackages(platforms);
 
   const manifestPath = join(distDir, "manifest.json");

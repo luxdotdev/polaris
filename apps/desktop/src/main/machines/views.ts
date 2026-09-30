@@ -3,7 +3,7 @@
  * the settings, the Host list and each Host's install flow, and when a
  * Connection State calls for a background check.
  */
-import { compareVersions, type DaemonReport } from "@polaris/client/install";
+import { type DaemonReport, upgradeDue } from "@polaris/client/install";
 import { Predicate } from "effect";
 import type { HostView, InstallFlowView, MachineView, SshAliasView } from "../../shared/api.ts";
 import { LOCAL_HOST_KEY } from "../hosts.ts";
@@ -93,7 +93,7 @@ const INSTALL_REASONS: ReadonlySet<string> = new Set([
  * Whether this status calls for a background check, as a key that changes
  * once per occasion (so a Needs Attention retry every 2 min doesn't probe
  * again): entering Needs Attention for a reason the install flow fixes, or a
- * new connection to a Daemon older than the bundled build. Null otherwise.
+ * new connection to a Daemon the bundled build should replace (`upgradeDue`). Null otherwise.
  */
 export const backgroundCheckKey = (
   view: HostView,
@@ -110,9 +110,7 @@ export const backgroundCheckKey = (
   }
 
   if (status.state === "connected" && status.host !== null && bundledVersion !== null) {
-    return compareVersions(status.host.daemonVersion, bundledVersion) < 0
-      ? `upgrade:${status.epoch}`
-      : null;
+    return upgradeDue(status.host.daemonVersion, bundledVersion) ? `upgrade:${status.epoch}` : null;
   }
 
   return null;

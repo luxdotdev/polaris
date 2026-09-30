@@ -4,7 +4,7 @@ Everything that gets a `polaris` binary onto a Host, keeps it running as a user 
 
 | File | What |
 |---|---|
-| `platform.ts` | `VERSION` (from `apps/daemon/package.json`), the three shipped platforms, `polaris version` output and its parser. |
+| `platform.ts` | `VERSION`: the version `scripts/build-daemon.ts` compiled in (`process.env.POLARIS_BUILD_VERSION`, replaced by a constant), else `apps/daemon/package.json`'s when run from source; a dev build is `<version>-dev.<commit count>.<sha>` (with `.dirty<seconds>` from an uncommitted tree), a `--release` build the package version as it is; the three shipped platforms, `polaris version` output and its parser. |
 | `templates.ts` | Pure launchd plist and systemd `--user` unit renderers. |
 | `install.ts` | `install` / `uninstall` / `stageBinary` / `pointCurrentAt`. |
 | `CommandRunner.ts` | Service for running `launchctl`, `systemctl`, `loginctl` and `<binary> version`; tests replace it. |
@@ -15,7 +15,7 @@ Everything that gets a `polaris` binary onto a Host, keeps it running as a user 
 
 ## Builds
 
-`bun run build` (the turbo `build` task of `@polaris/daemon`, via `scripts/build-daemon.ts`) writes:
+`bun run build` (the turbo `build` task of `@polaris/daemon`, via `scripts/build-daemon.ts`) writes a dev build; `bun scripts/build-daemon.ts --release` a release (the package version, unchanged). Each Client upgrades a Host from one dev build to any other (`@polaris/client/install`, `upgradeDue`). It writes:
 
 ```
 apps/daemon/dist/manifest.json        version, commit, fff version, SHA-256 and size per platform
