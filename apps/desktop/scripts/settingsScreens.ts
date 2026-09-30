@@ -101,8 +101,10 @@ try {
   await page.getByTestId("harness-group").first().waitFor({ timeout: 10_000 });
   await page.waitForTimeout(3_000);
   await shoot(page, "S1-harnesses-dark-collapsed");
-  // Bench Daemons report every Harness ready, so the groups fold; open Claude Code's.
-  await page.getByRole("button", { name: /Claude Code/ }).click();
+  // A Harness ready everywhere folds; open Claude Code's if it did.
+  const folded = page.locator('button[aria-expanded="false"]', { hasText: "Claude Code" });
+
+  if ((await folded.count()) > 0) await folded.click();
   await shoot(page, "S1-harnesses-dark");
   await setAppearance(page, { theme: "light" });
   await shoot(page, "S1-harnesses-light");

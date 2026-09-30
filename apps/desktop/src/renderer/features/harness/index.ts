@@ -3,7 +3,13 @@
  * sign-in hand-off, the availability view), and the Harness and Model picker
  * every composer, the new-session page and Fork use. Polaris never installs one.
  */
-export { refreshAvailability, useAvailability, useHarnessModels, usePlanLimits } from "./live.ts";
+export {
+  refreshAvailability,
+  useAvailability,
+  useAvailabilityReports,
+  useHarnessModels,
+  usePlanLimits,
+} from "./live.ts";
 
 export {
   choose,
