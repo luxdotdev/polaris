@@ -2,7 +2,7 @@ import type { HTMLAttributes } from "react";
 
 import { cn } from "../../lib/cn";
 import type { CssVars } from "../../lib/css";
-import { hueVar, washVar, type TintHue } from "../../lib/hue";
+import { hueVar, resolveTint, washVar, type TintHue } from "../../lib/hue";
 
 /** 24, 32 and 40 are the DESIGN.md sizes; 20 and 28 are the Compact and Calm session-row tiles. */
 export type TileSize = 20 | 24 | 28 | 32 | 40 | 48;
@@ -19,7 +19,7 @@ const RADII: Record<TileSize, string> = {
 
 export interface TileProps extends HTMLAttributes<HTMLSpanElement> {
   /** The identity hue of the wash; "neutral" is an unwashed tile (a pull request, say). */
-  readonly hue: TintHue | "neutral";
+  readonly hue: TintHue;
   readonly size?: TileSize;
   /** Dormant tiles drop the wash and take a dashed hairline. */
   readonly dormant?: boolean;
@@ -34,7 +34,7 @@ export interface TileProps extends HTMLAttributes<HTMLSpanElement> {
  * Polaris-owned concepts only: Harnesses, Agent Sessions, toast sources.
  */
 export function Tile({
-  hue,
+  hue: requested,
   size = 32,
   dormant = false,
   muted = false,
@@ -44,6 +44,7 @@ export function Tile({
   children,
   ...props
 }: TileProps) {
+  const hue = resolveTint(requested);
   const washed = hue !== "neutral" && !dormant;
 
   const vars: CssVars = {

@@ -9,10 +9,11 @@ export type { CssVars } from "./lib/css";
 export { useExitPresence } from "./lib/presence";
 
 export {
-  HARNESS_HANDLES,
-  HARNESS_NAMES,
   haloVar,
   harnessHue,
+  hueSlug,
+  resolveTint,
+  type HarnessIdentity,
   harnessTextVar,
   hueVar,
   washVar,

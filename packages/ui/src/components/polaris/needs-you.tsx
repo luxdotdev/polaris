@@ -2,7 +2,7 @@ import type { HTMLAttributes, ReactNode } from "react";
 
 import { PixelHandIcon } from "../../icons/pixel";
 import { cn } from "../../lib/cn";
-import { HARNESS_NAMES, type Harness } from "../../lib/hue";
+import { harnessHue, type Harness } from "../../lib/hue";
 import { Button } from "../ui/button";
 import { CodeWell } from "./code-well";
 import { Tile } from "./tile";
@@ -185,7 +185,7 @@ export function QuestionCard({
       <div className="pixelated border-needs-you/14 flex h-10 shrink-0 items-center gap-2.5 border-b bg-(image:--wash-needs-you) bg-cover bg-center px-3.5">
         <PixelHandIcon size={14} className="text-needs-you" />
         <span className="text-caption text-text-strong font-medium">
-          {HARNESS_NAMES[harness]} needs an answer
+          {harnessHue(harness).name} needs an answer
         </span>
         <span className="flex-1" />
         {age === undefined ? null : (

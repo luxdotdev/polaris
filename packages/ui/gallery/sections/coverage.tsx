@@ -79,37 +79,39 @@ function HostStates() {
 }
 
 function Choice() {
-  const [choice, setChoice] = useState<"claude" | "codex" | "fork">("claude");
+  const [choice, setChoice] = useState("claude");
 
   return (
-    <HarnessChoice
-      aria-label="Harness"
-      value={choice}
-      onValueChange={setChoice}
-      options={[
-        {
-          value: "claude",
-          hue: "claude",
-          icon: <Dither hue="claude" size={24} />,
-          title: "Claude Code",
-          caption: "Opus 5",
-        },
-        {
-          value: "codex",
-          hue: "codex",
-          icon: <PixelTerminalIcon size={22} className="text-harness-codex" />,
-          title: "Codex",
-          caption: "GPT-5.4 High",
-        },
-        {
-          value: "fork",
-          hue: "starlight",
-          icon: <PixelForkIcon size={22} className="text-starlight" />,
-          title: "Fork a turn",
-          caption: "From a checkpoint",
-        },
-      ]}
-    />
+    <div className="flex flex-col gap-3">
+      <HarnessChoice
+        aria-label="Harness"
+        value={choice}
+        onValueChange={setChoice}
+        harnesses={[
+          { kind: "claude", caption: "Opus 5", status: "ready" },
+          { kind: "codex", caption: "GPT-5.4 High", status: "ready" },
+        ]}
+        others={[
+          {
+            value: "fork",
+            hue: "starlight",
+            icon: <PixelForkIcon size={22} className="text-starlight" />,
+            title: "Fork a turn",
+            caption: "From a checkpoint",
+          },
+        ]}
+      />
+      <HarnessChoice
+        aria-label="Harness on a host without Codex"
+        value="claude"
+        onValueChange={() => undefined}
+        harnesses={[
+          { kind: "claude", caption: "Opus 5", status: "ready" },
+          { kind: "codex", caption: "GPT-5.4 High", status: "not-installed" },
+          { kind: "opencode", caption: "Not in this build's catalogue", status: "ready" },
+        ]}
+      />
+    </div>
   );
 }
 

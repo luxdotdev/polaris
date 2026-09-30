@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, mock, test } from "bun:test";
 
+import { harnessEntry } from "@polaris/protocol";
+
 import { HarnessChoice } from "./harness-choice";
 import { HostStateCard, HostStateChip } from "./host-state";
 import { MachineBar } from "./machine-bar";
@@ -84,7 +86,7 @@ describe("HostStateCard", () => {
 });
 
 describe("HarnessChoice", () => {
-  test("is a radio group with one checked card", () => {
+  test("is a radio group of catalogue Harnesses, named from the catalogue", () => {
     const onValueChange = mock((_value: string) => undefined);
 
     const { getAllByRole } = render(
@@ -92,21 +94,63 @@ describe("HarnessChoice", () => {
         aria-label="Harness"
         value="claude"
         onValueChange={onValueChange}
-        options={[
-          { value: "claude", hue: "claude", icon: null, title: "Claude Code", caption: "Opus 5" },
-          { value: "codex", hue: "codex", icon: null, title: "Codex", caption: "GPT-5.4" },
+        harnesses={[
+          { kind: "claude", caption: "Opus 5" },
+          { kind: "codex", caption: "GPT-5.4" },
         ]}
       />
     );
 
     const radios = getAllByRole("radio");
 
+    expect(radios.map((radio) => radio.textContent)).toEqual(["Claude CodeOpus 5", "CodexGPT-5.4"]);
     expect(radios.map((radio) => radio.getAttribute("aria-checked"))).toEqual(["true", "false"]);
+
     const [, codex] = radios;
 
     if (codex === undefined) throw new Error("no Codex card");
     fireEvent.click(codex);
     expect(onValueChange).toHaveBeenCalledWith("codex");
+  });
+
+  test("a Harness that isn't installed shows the setup line and a docs link only", () => {
+    const { container, getAllByRole, getByRole } = render(
+      <HarnessChoice
+        aria-label="Harness"
+        value="claude"
+        onValueChange={() => undefined}
+        harnesses={[
+          { kind: "claude", caption: "Opus 5" },
+          { kind: "codex", caption: "GPT-5.4", status: "not-installed" },
+        ]}
+      />
+    );
+
+    const card = container.querySelector("[data-status=not-installed]");
+    const codex = harnessEntry("codex");
+
+    expect(getAllByRole("radio").length).toBe(1);
+    expect(card?.textContent).toBe(`CodexSetup guide${codex?.setup.install}`);
+    expect(getByRole("link", { name: "Setup guide" }).getAttribute("href")).toBe(
+      codex?.setup.docsUrl ?? null
+    );
+    expect(card?.querySelectorAll("button").length).toBe(0);
+  });
+
+  test("a Harness that isn't ready can't be chosen", () => {
+    const { getAllByRole } = render(
+      <HarnessChoice
+        aria-label="Harness"
+        value="claude"
+        onValueChange={() => undefined}
+        harnesses={[
+          { kind: "claude", caption: "Opus 5" },
+          { kind: "codex", caption: "GPT-5.4", status: "needs-sign-in", detail: "Sign in first" },
+        ]}
+      />
+    );
+
+    expect(getAllByRole("radio")[1]?.hasAttribute("disabled")).toBe(true);
   });
 });
 

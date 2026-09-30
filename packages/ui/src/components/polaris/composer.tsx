@@ -3,14 +3,7 @@ import type { HTMLAttributes, ReactNode } from "react";
 import { ArrowUpIcon, ChevronDownIcon, PlusIcon } from "../../icons/chrome";
 import { cn } from "../../lib/cn";
 import type { CssVars } from "../../lib/css";
-import {
-  HARNESS_HANDLES,
-  HARNESS_NAMES,
-  haloVar,
-  harnessTextVar,
-  hueVar,
-  type Harness,
-} from "../../lib/hue";
+import { harnessHue, haloVar, harnessTextVar, hueVar, type Harness } from "../../lib/hue";
 import { Button } from "../ui/button";
 import { Textarea, type TextareaProps } from "../ui/textarea";
 import { Dither } from "./dither";
@@ -44,7 +37,7 @@ export function HarnessPicker({
     <button
       type="button"
       data-slot="harness-picker"
-      aria-label={`${HARNESS_NAMES[harness]}, ${model}`}
+      aria-label={`${harnessHue(harness).name}, ${model}`}
       className={cn(
         "inline-flex h-[26px] shrink-0 cursor-default items-center gap-1.5 rounded-control border bg-fill-selected pr-2 pl-1 select-none",
         working
@@ -64,7 +57,7 @@ export function HarnessPicker({
           working ? "text-(--harness-text)" : "text-text-default"
         )}
       >
-        {HARNESS_HANDLES[harness]}
+        {harnessHue(harness).handle}
       </span>
       <span className="text-caption text-text-subtle">{model}</span>
       <ChevronDownIcon size={10} className="text-text-subtle" />
@@ -94,7 +87,7 @@ export function WorkingStrip({ harness, elapsed, onStop, children }: WorkingStri
       />
       <Dither hue={harness} size={14} moving className="relative" />
       <span className="text-caption relative font-medium text-(--harness-text)">
-        {children ?? `${HARNESS_NAMES[harness]} is working`}
+        {children ?? `${harnessHue(harness).name} is working`}
       </span>
       <span className="text-caption text-text-subtle tabular relative">· {elapsed}</span>
       <span className="flex-1" />
