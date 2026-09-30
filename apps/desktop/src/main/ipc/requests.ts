@@ -15,6 +15,7 @@ import type {
 } from "../../shared/api.ts";
 import { RequestInputs, type RequestInput, type RequestMethod } from "../../shared/contract.ts";
 import { HostDirectory, toIpcError } from "../hosts.ts";
+import type { NeedsYouSummary } from "../../shared/needsYou.ts";
 import type { Settings } from "../settings.ts";
 import type { SnapshotCache } from "../snapshotCache.ts";
 import { ensureInstalled } from "./install.ts";
@@ -28,6 +29,8 @@ export interface RequestContext {
   readonly proofWorkspace: () => string | null;
   /** The bundled Daemon builds (`manifest.json`), or null when this build has none. */
   readonly daemonDist: string | null;
+  /** The renderer's Needs You summary, for the menu bar star, Dock badge and notifications. */
+  readonly needsYou: (summary: NeedsYouSummary) => void;
 }
 
 type Handler<M extends RequestMethod> = (
@@ -146,6 +149,7 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
 
       return ensureInstalled({ alias, approvedSha256, dist: ctx.daemonDist });
     }),
+  "needsYou.publish": (summary) => Effect.sync(() => ctx.needsYou(summary)).pipe(Effect.as(null)),
   "dev.proofWorkspace": () =>
     Effect.suspend(() => {
       const path = ctx.proofWorkspace();

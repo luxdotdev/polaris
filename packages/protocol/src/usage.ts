@@ -4,7 +4,7 @@
  * and label it as an estimate. Both come only from what the Harness exposes or
  * writes on the Host, never from provider credentials (ADR 0001).
  */
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { Timestamp } from "./domain.ts";
 import { HarnessKind } from "./harnesses.ts";
 import { SessionId } from "./ids.ts";
@@ -20,6 +20,21 @@ export class TokenCounts extends Schema.Class<TokenCounts>("TokenCounts")({
   output: Schema.Int,
   /** The part of `output` spent on reasoning, where the Harness reports it (else 0). */
   reasoning: Schema.Int,
+  /**
+   * The part of `cacheWrite` cached for an hour rather than five minutes
+   * (Claude), which is priced higher. Added later: absent decodes as 0.
+   */
+  cacheWrite1h: Schema.Int.pipe(Schema.withDecodingDefaultKey(Effect.succeed(0))),
+}) {}
+
+/**
+ * The tokens of the requests whose prompt (input, cached or not) was longer
+ * than `above`. Vendors price such a request entirely at long-context rates:
+ * above 200k for some Claude Models, above 272k for OpenAI's.
+ */
+export class LongContextTokens extends Schema.Class<LongContextTokens>("LongContextTokens")({
+  above: Schema.Int,
+  tokens: TokenCounts,
 }) {}
 
 /** A cost the Harness itself reported, and the tokens it covers. */
@@ -44,6 +59,13 @@ export class UsageBucket extends Schema.Class<UsageBucket>("UsageBucket")({
   tokens: TokenCounts,
   /** Null when the Harness reported no cost for any of it. */
   reportedCost: Schema.NullOr(ReportedCost),
+  /**
+   * Long-context subsets of `tokens`, one per threshold the Daemon tracks
+   * (200k and 272k), each counting only its long requests. Absent decodes as none.
+   */
+  longContext: Schema.Array(LongContextTokens).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed([]))
+  ),
 }) {}
 
 export class UsageReport extends Schema.Class<UsageReport>("UsageReport")({
@@ -100,21 +122,25 @@ export const UsageStreamItem = Schema.TaggedUnion({
 
 export type UsageStreamItem = typeof UsageStreamItem.Type;
 
-const addTokens = (a: TokenCounts, b: TokenCounts): TokenCounts =>
+/** `a` + `b`, kind by kind. */
+export const addTokens = (a: TokenCounts, b: TokenCounts): TokenCounts =>
   new TokenCounts({
     input: a.input + b.input,
     cacheRead: a.cacheRead + b.cacheRead,
     cacheWrite: a.cacheWrite + b.cacheWrite,
     output: a.output + b.output,
     reasoning: a.reasoning + b.reasoning,
+    cacheWrite1h: a.cacheWrite1h + b.cacheWrite1h,
   });
 
-const noTokens = new TokenCounts({
+/** No tokens at all: the start of a sum. */
+export const noTokens = new TokenCounts({
   input: 0,
   cacheRead: 0,
   cacheWrite: 0,
   output: 0,
   reasoning: 0,
+  cacheWrite1h: 0,
 });
 
 /**

@@ -3,18 +3,16 @@
  * cards, one per Harness the Host has ready or needing sign-in, and Fork a
  * turn. The rest are under "Other harnesses", never offered as an install.
  */
-import type { HarnessKind } from "@polaris/protocol";
-import { CheckIcon, cn, Dither, type Harness, Tile } from "@polaris/ui";
+import { CheckIcon, ChoiceTile, cn, Dither, type Harness } from "@polaris/ui";
 import type { ReactNode } from "react";
 import { useHarnessModels } from "../live.ts";
 import { defaultChoice, type ModelChoice, modelLabel } from "../model/models.ts";
 import { type HarnessOption, listedOptions, STATUS_LABELS } from "../model/options.ts";
 import { OtherHarnessesLink } from "./Availability.tsx";
 
-/** A catalogue Harness, or "Fork a turn". */
-export type HarnessChoice =
-  | { readonly kind: "harness"; readonly harness: HarnessKind }
-  | { readonly kind: "fork" };
+import type { HarnessChoice } from "../model/choice.ts";
+
+export type { HarnessChoice };
 
 /** Paper's fork glyph (artboard 4), on the 24px pixel grid. */
 const ForkGlyph = () => (
@@ -67,7 +65,7 @@ const Card = ({ selected, tile, title, caption, onSelect, testId }: CardProps) =
         {title}
       </span>
       <span
-        className={cn("text-caption truncate", selected ? "text-text-subtle" : "text-text-faint")}
+        className={cn("text-caption truncate", selected ? "text-text-default" : "text-text-subtle")}
       >
         {caption}
       </span>
@@ -87,14 +85,9 @@ const HarnessTile = ({
   readonly harness: Harness;
   readonly muted: boolean;
 }) => (
-  <Tile
-    hue={harness}
-    size={48}
-    muted={muted}
-    className="h-full w-12 rounded-none border-0 border-r"
-  >
-    <Dither hue={harness} size={20} />
-  </Tile>
+  <ChoiceTile hue={harness} muted={muted}>
+    <Dither hue={harness} size={24} />
+  </ChoiceTile>
 );
 
 const HarnessCard = ({
@@ -177,13 +170,9 @@ export const HarnessChoiceRow = ({
             testId="harness-fork"
             selected={value?.kind === "fork"}
             tile={
-              <Tile
-                hue="starlight"
-                size={48}
-                className="h-full w-12 rounded-none border-0 border-r"
-              >
+              <ChoiceTile hue="starlight">
                 <ForkGlyph />
-              </Tile>
+              </ChoiceTile>
             }
             title="Fork a turn"
             caption="From a checkpoint"

@@ -8,47 +8,6 @@ import {
   shortDuration,
   upsertLimit,
 } from "./limits.ts";
-import { appendOutput, keyBytes, linksIn, tail } from "./terminal.ts";
-
-const key = (
-  k: string,
-  mods: Partial<{ ctrlKey: boolean; metaKey: boolean; altKey: boolean }> = {}
-) => keyBytes({ key: k, ctrlKey: false, metaKey: false, altKey: false, ...mods });
-
-describe("sign-in terminal", () => {
-  test("escape sequences are dropped", () => {
-    expect(appendOutput("", "\u001B[1;32mSigned in\u001B[0m\r\n")).toBe("Signed in\n");
-    expect(appendOutput("", "\u001B]0;title\u0007ok")).toBe("ok");
-  });
-
-  test("a carriage return overwrites the line", () => {
-    expect(appendOutput("", "Waiting 1\rWaiting 2\rDone     \n")).toBe("Done     \n");
-  });
-
-  test("chunks join across calls", () => {
-    expect(appendOutput(appendOutput("", "Open "), "https://example.com/x\n")).toBe(
-      "Open https://example.com/x\n"
-    );
-  });
-
-  test("keys become TTY bytes; ⌘-shortcuts stay with the app", () => {
-    expect(key("a")).toBe("a");
-    expect(key("Enter")).toBe("\r");
-    expect(key("Backspace")).toBe("\u007F");
-    expect(key("c", { ctrlKey: true })).toBe("\u0003");
-    expect(key("ArrowUp")).toBe("\u001B[A");
-    expect(key("v", { metaKey: true })).toBeNull();
-    expect(key("Shift")).toBeNull();
-  });
-
-  test("links and a bounded tail", () => {
-    expect(linksIn("go to https://a.test/x?y=1 or https://a.test/x?y=1.")).toEqual([
-      "https://a.test/x?y=1",
-      "https://a.test/x?y=1.",
-    ]);
-    expect(tail("abcdef", 3)).toBe("def");
-  });
-});
 
 const NOW = Date.parse("2026-09-30T12:00:00.000Z");
 

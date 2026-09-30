@@ -23,6 +23,8 @@ import type {
   TerminalLaunch,
 } from "@polaris/protocol";
 import type { Rpc } from "effect/rpc";
+import type { CommandId } from "./keymap.ts";
+import type { NeedsYouAction } from "./needsYou.ts";
 import type {
   CachedHost,
   Density,
@@ -163,6 +165,7 @@ export interface RequestOutputs {
   "terminal.close": null;
   "attachments.stage": Attachment;
   "install.ensure": InstallView;
+  "needsYou.publish": null;
   "dev.proofWorkspace": { readonly path: string };
 }
 
@@ -206,10 +209,13 @@ export interface SubscriptionListener<A> {
 export type Route = "orchestrate" | "review" | "edit";
 
 export type AppEvent =
-  | { readonly kind: "route"; readonly route: Route }
+  /** A command from the native menu (`shared/keymap.ts`); the renderer runs it. */
+  | { readonly kind: "command"; readonly id: CommandId }
   | { readonly kind: "appearance"; readonly appearance: Appearance }
   /** Dev only (Develop menu): start the bench-Harness proof session on this Host. */
-  | { readonly kind: "proof"; readonly hostKey: string };
+  | { readonly kind: "proof"; readonly hostKey: string }
+  /** The menu bar star or a notification: open a waiting session, or answer it. */
+  | ({ readonly kind: "needs-you" } & NeedsYouAction);
 
 // ── The API on `window.polaris` ─────────────────────────────────────────────
 

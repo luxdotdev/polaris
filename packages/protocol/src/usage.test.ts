@@ -8,8 +8,16 @@ const bucket = (sessionId: string | null, output: number) =>
     harness: "claude",
     model: "claude-opus-5-5",
     sessionId: sessionId === null ? null : SessionId.make(sessionId),
-    tokens: new TokenCounts({ input: 1, cacheRead: 2, cacheWrite: 3, output, reasoning: 0 }),
+    tokens: new TokenCounts({
+      input: 1,
+      cacheRead: 2,
+      cacheWrite: 3,
+      output,
+      reasoning: 0,
+      cacheWrite1h: 1,
+    }),
     reportedCost: null,
+    longContext: [],
   });
 
 test("usageShare splits the tokens Polaris drove from all of them", () => {
@@ -18,5 +26,6 @@ test("usageShare splits the tokens Polaris drove from all of them", () => {
   expect(share.all.output).toBe(45);
   expect(share.polaris.output).toBe(15);
   expect(share.polaris.input).toBe(2);
+  expect(share.all.cacheWrite1h).toBe(3);
   expect(usageShare([]).all.output).toBe(0);
 });

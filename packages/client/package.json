@@ -7,11 +7,13 @@
   "exports": {
     ".": "./src/index.ts",
     "./install": "./src/install/index.ts",
-    "./testing": "./src/connection.testing.ts"
+    "./testing": "./src/connection.testing.ts",
+    "./usage": "./src/usage/index.ts"
   },
   "scripts": {
     "typecheck": "tsc -p .",
-    "test": "bun test --pass-with-no-tests"
+    "test": "bun test --pass-with-no-tests",
+    "prices": "bun scripts/update-prices.ts"
   },
   "dependencies": {
     "@polaris/protocol": "workspace:*",

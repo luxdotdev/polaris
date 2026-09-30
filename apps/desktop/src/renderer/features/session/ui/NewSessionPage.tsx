@@ -17,7 +17,7 @@ import { useState } from "react";
 import { newSessionId } from "../../../commands.ts";
 import { emptyHostModel } from "../../../store/hostModel.ts";
 import { useApp } from "../../../shell/hooks.ts";
-import { useStaging } from "../attachments.ts";
+import { useUploads } from "../../attachments/index.ts";
 import { send } from "../dispatch.ts";
 import {
   defaultHarness,
@@ -168,8 +168,9 @@ export const NewSessionPage = ({
   const [fork, setFork] = useState<ForkSourceValue | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const { stage, pending } = useStaging({ hostKey, workspaceId, sessionId: null }, (staged) =>
-    patchSessionUi(key, (u) => ({ attachments: [...u.attachments, staged] }))
+  const { upload, uploads } = useUploads(
+    { hostKey, workspaceId, sessionId: null, copyTo: null },
+    (staged) => patchSessionUi(key, (u) => ({ attachments: [...u.attachments, staged] }))
   );
 
   if (workspace === undefined) return <Scene className="h-full flex-1" data-testid="new-session" />;
@@ -261,8 +262,8 @@ export const NewSessionPage = ({
           placeholder="Describe the change"
           onEscape={onCancel}
           attachments={ui.attachments}
-          staging={pending}
-          onFiles={hasCapability(host, "attachments.stage") ? stage : undefined}
+          uploads={uploads}
+          onFiles={hasCapability(host, "attachments.stage") ? upload : undefined}
           onRemoveAttachment={(a) =>
             patchSessionUi(key, (u) => ({ attachments: u.attachments.filter((x) => x !== a) }))
           }

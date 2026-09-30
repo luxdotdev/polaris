@@ -8,7 +8,7 @@ import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
 
 /** Bump when the schema or what a row means changes; the next open rebuilds. */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 const SCHEMA = `
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -36,6 +36,10 @@ CREATE TABLE usage (
   cache_write INTEGER NOT NULL,
   output INTEGER NOT NULL,
   reasoning INTEGER NOT NULL,
+  -- The part of cache_write cached for an hour (Claude).
+  cache_write_1h INTEGER NOT NULL DEFAULT 0,
+  -- The request's whole prompt (input, cached or not): what long-context pricing looks at.
+  context INTEGER NOT NULL DEFAULT 0,
   cost REAL,
   -- Codex: the cross-file dedup key. Claude keys live in claude_keys.
   dedupe TEXT UNIQUE,

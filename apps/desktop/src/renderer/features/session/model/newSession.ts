@@ -14,14 +14,14 @@ import type {
 } from "@polaris/protocol";
 import { Match } from "effect";
 import { Commands, Placement } from "../../../commands.ts";
-import type { ModelChoice } from "../../harness/index.ts";
+import type { ModelChoice } from "../../harness/model/models.ts";
 
 export type PlacementChoice =
   | { readonly kind: "in-place" }
   | { readonly kind: "new-worktree"; readonly branch: string; readonly base: string | null }
   | { readonly kind: "existing"; readonly path: string; readonly branch: string | null };
 
-export type { HarnessChoice } from "../../harness/index.ts";
+export type { HarnessChoice } from "../../harness/model/choice.ts";
 
 export const toPlacement = (choice: PlacementChoice): SessionPlacement =>
   Match.value(choice).pipe(

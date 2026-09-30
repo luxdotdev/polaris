@@ -86,8 +86,8 @@ export function NeedsYouCard({
 }
 
 export interface WaitingCardProps extends Omit<HTMLAttributes<HTMLDivElement>, "title"> {
-  /** Failed sessions need a retry; In Terminal ones need taking back. */
-  readonly kind: "failed" | "in-terminal";
+  /** Failed needs a retry, In Terminal taking back, an Interrupted Turn (after a restart) Continue. */
+  readonly kind: "failed" | "in-terminal" | "interrupted";
   /** A 14px glyph: the pixel failed or terminal icon. */
   readonly icon: ReactNode;
   readonly title: ReactNode;

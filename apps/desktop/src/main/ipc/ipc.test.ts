@@ -47,6 +47,7 @@ const context: RequestContext = {
   setAppearance: () => undefined,
   proofWorkspace: () => null,
   daemonDist: null,
+  needsYou: () => undefined,
 };
 
 const handlers = requestHandlers(context);

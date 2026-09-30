@@ -10,6 +10,8 @@ bun run --cwd apps/desktop smoke    # build, then the end-to-end smoke test (Nod
 bun run bench desktop-idle          # memory and CPU of the built app, settled (packages/bench)
 node scripts/screens.ts <dir>       # screenshots against Paper 11U-0 / MX-0, from four seeded local Daemons
 node scripts/sessionScreens.ts --out <dir> [--frames]   # the shell with the session view on fixtures (#preview/<scene>), every theme and density
+node scripts/needsYouScreens.ts --out <dir>   # the Needs You inbox and hover card on fixtures (#needs-you/<scene>) against Paper 1G2-0 / 1-0
+node scripts/emptyScreens.ts --out <dir> [--build]      # the empty states and the terminal drawer from a fresh Daemon, every theme and density
 ```
 
 `dev` connects the local Host to `~/.polaris/daemon.sock` when a Daemon answers there; otherwise it starts a dev Daemon from source with its own home and the scripted bench Harness, and keeps it across restarts (ADR 0007). Builds: Vite for the renderer, `Bun.build` for main and preload (ADR 0008).
@@ -27,6 +29,7 @@ node scripts/sessionScreens.ts --out <dir> [--frames]   # the shell with the ses
 | `src/main/localDaemon.ts` | Which socket the local Host uses; the dev Daemon. |
 | `src/main/protocol.ts`, `window.ts`, `menu.ts` | `app://polaris` with a strict CSP, the `hiddenInset` window, the native menu (⌘1–3, appearance, density). |
 | `src/main/snapshotCache.ts` | The last synchronized Host snapshots, painted at launch and then revalidated (ENG-175). |
+| `src/main/notifications/`, `src/main/tray/` | Needs You outside the window: native notifications (`plan.ts` decides, tested), the menu bar star with the count and a menu of waiting sessions, the Dock badge. Fed by the renderer's `needsYou.publish`. |
 | `src/renderer/store/` | Pure reducers for Host and session feeds (`hostModel.ts`, `sessionModel.ts`), a zustand vanilla store applying one frame's updates at a time (`store.ts`, `frameQueue.ts`). |
 | `scripts/` | `build.ts`, `dev.ts`, `smoke.ts` and their helpers. |
 
@@ -48,9 +51,10 @@ The renderer is split into the **shell** (owned by the app shell: layout, select
 | `SessionIntent` | `{ hostKey, sessionId }` | The Intent column, for the selected Agent Session. |
 | `SessionOutput` | `{ hostKey, sessionId }` | The Output column, for the same session. |
 | `NewSession` | `{ hostKey, workspaceId, onStarted(sessionId), onCancel() }` | Spans Intent + Output while starting a session ("New session", ⌘N, the sidebar +). |
-| `NoSession` | `{ hostKey, workspaceId }` | Spans Intent + Output when nothing is selected. |
+| `NoSession` | `{ hostKey, workspaceId }` | Spans Intent + Output when nothing is selected (`features/empty`'s `WorkspaceStage`). |
 | `NeedsYouInbox` | none | The sidebar's "Needs you" view (the Sessions / Needs you switch). |
 | `JumpMenu` | `{ open, onOpenChange }` | The K jump menu; the shell owns `open` (K, ⌘K, the title bar's jump field). |
+| `NeedsYouHover` | `{ hostKey, sessionId?, workspaceId?, children }` | Wraps a session row, or a Workspace chip, that needs you with its hover card. |
 
 To wire a feature: in `slots.tsx`, import its component and replace the default, e.g. `SessionIntent: SessionIntentView` from `../features/session/index.ts`. Slots receive ids, not data: read the store with `useApp(selector)` (Host models, open sessions) and open a session's feed with `useSessionFeed(hostKey, sessionId)` (`src/renderer/shell/hooks.ts`).
 
@@ -58,7 +62,22 @@ To wire a feature: in `slots.tsx`, import its component and replace the default,
 
 **Top bar** (`routes/topBar.ts`, ENG-177): the Workspace bar (every shown Workspace on every Host as a chip, ⌃1…⌃9, ⌃0) up to 10 Workspaces; the machine bar (⌃N per machine, the sidebar then groups that machine's sessions by Workspace, three per group then "N more") from 11, back only at 9 (hysteresis); hidden in machine mode with a single machine. Hidden Workspaces (CONTEXT.md: hidden when idle) are left out.
 
-**Keyboard** (`routes/keyboard.ts`): ⌘1/2/3 modes (native menu); ⌃1…⌃0, or ⌥1…⌥0 since macOS may bind ⌃N to Spaces; K (outside text fields) and ⌘K the jump menu; ⌘N a new session. Develop → Start proof session (dev, or a bench-Harness local Daemon) runs the proof flow.
+**Keyboard and commands.** Every shortcut is one row in `src/shared/keymap.ts` (id, title, accelerators, menu). The renderer's registry (`routes/commands.ts`) runs commands by id; the shell registers its handlers in `shell/commands.ts`, and a feature can take a command over while mounted with `useCommands().register({ "session.interrupt": { run, enabled } })` (the latest registration wins until removed). The native menu (View, Go, Session, Help) is built from the same table: its accelerators are shown but not registered, so key presses reach the renderer, the one handler, and a menu click sends `{ kind: "command", id }`. `routes/keyboard.ts` adds ⌃1…⌃0 / ⌥1…⌥0 (Workspace chips or machines). Bare keys (K, ?) never fire while typing. `shared/keymap.test.ts` checks for duplicate chords, reserved macOS/Electron chords (⌘Q, ⌘W, ⌘H, ⌘M, ⌘,, ⌘⇧3/4/5, ⌘⇧/ …) and the ⌃/⌥ digits.
+
+| Keys | Command |
+|---|---|
+| ⌘1 / ⌘2 / ⌘3 | Orchestrate / Review / Edit |
+| ⌘K, K | Jump menu |
+| ⌃1…⌃0, ⌥1…⌥0 | Workspace chip (Workspace bar) or machine (machine bar) |
+| ⌥⌘↓ / ⌥⌘↑ | Next / previous session in the sidebar |
+| ↑ / ↓ on a session row | Move between rows; ↵ opens |
+| ⌘N | New session |
+| ⌘L | Focus the composer |
+| ⌘. | Stop the Turn in flight (esc in the composer too) |
+| ⇧⌘A / ⇧⌘D | Approve / deny the selected session's oldest pending approval |
+| ⌘/, ? | Keyboard shortcuts |
+
+**Jump menu** (`features/jump/`, Paper AR-0): across every Host, Agent Sessions (title, Workspace, Host, state, Harness), Workspaces, Worktrees, machines and actions (new session, open in terminal, archive, views, theme, shortcuts). With no query: Recent, Needs you, Actions; with one: Sessions (Needs You first), Workspaces, Worktrees, Machines, Actions, ranked by `ranking.ts` (prefix > word start > scattered letters, which count only in titles and for 3+ letters). ↵ opens, ⌘↵ opens in Review. Results follow live state.
 
 **Workspace switch timing** (`routes/switchTimer.ts`): input event → second animation frame after it, kept in `window.__polaris.switchTimes()`; the smoke test switches 40 times and fails over 100 ms at p95.
 
@@ -66,7 +85,15 @@ To wire a feature: in `slots.tsx`, import its component and replace the default,
 
 **Harness picker** (`src/renderer/features/harness/`): which Harnesses a Host has, live (`harness.availability` feed over `harness.watchAvailability`), and the picker every composer, the new-session page and Fork use. Pickers list only Harnesses that are ready or need sign-in; the rest are under "Other harnesses", an availability sheet with each one's setup line and docs link (Polaris never installs a Harness). Needs sign-in runs the Harness's own `signInArgv` in a Polaris terminal and probes again when it exits. The chip's menu holds the Models (`harness.models`, with refresh; a concrete effort always sent, medium when the Harness gives no default), Fork on another Harness, and the Plan Limits (`plan-limits` feed over `usage.watch`).
 
+**Needs You** (`src/renderer/features/needs-you/`, wired into `NeedsYouInbox` and `NeedsYouHover`, with `NeedsYouPublisher` mounted in `App.tsx`): the inbox across every Host (a card per waiting session, approvals answered inline, questions shown; "Also waiting on you" with Retry, Take back, Continue; "Approved on <device>" for a minute when another Client answered first, from `ApprovalResolved.resolvedBy`), the hover card on waiting rows and chips, and a summary published to main (`needsYou.publish`). Main shows a notification per new request (one per session, never repeated, none for the session the focused window shows; Approve / Deny buttons on a single approval, a reply field on a question; click opens the session), the menu bar star with the count, and the Dock badge. Answers from notifications and the star come back as `needs-you` app events and are dispatched by the renderer, so every answer from this device takes one path. `POLARIS_DESKTOP_HIDDEN=1` plans notifications without showing them. `#needs-you/inbox` and `#needs-you/hover` render fixtures for screenshots. The smoke test checks the menu bar count, answers the first approval from the inbox and waits for it to leave the summary.
+
 **Session view** (`src/renderer/features/session/`, wired into `SessionIntent`, `SessionOutput` and `NewSession`): the header, the virtualized conversation (Turns streaming live, inline approvals and questions) and the composer (send, steer, stop, attachments, Model) in Intent; the chosen Turn's diff in Output (Changes); the new-session page, whose Harness choice comes from the catalogue and the Host's `harness.availability`. `index.ts` is its interface; pure view models under `model/` are tested. `#preview/<scene>` renders the shell on fixtures (a lazy chunk) for `scripts/sessionScreens.ts`. The smoke test reads its `data-testid`s (`session-state`, `live-item`, `turn-item`, `approval`, `diff-file`, `turn-summary`, `composer-input`, `where-line`, `new-session`).
+
+**Empty states** (`src/renderer/features/empty/`, DESIGN.md's three tiers): `HostStage` (a Host with no Workspaces; the path is typed, `~` expanded with the Host's home, then `RegisterWorkspace`), `WorkspaceStage` (the `NoSession` slot: a stage when the Workspace has no sessions, a pane when none is open), `NothingNeedsYou` and `LaterMode` panes. Copy lives in `model.ts`, tested.
+
+**Terminal** (`src/renderer/features/terminal/`): `TerminalDock` wraps a pane (Columns wraps Output and `NoSession`) with the Workspace's drawer; ⌃` toggles it. Tabs persist per Workspace in `localStorage` (`store.ts`), so a relaunch reattaches to the same Daemon terminals with their scrollback. `runtime.ts` (xterm.js, WebGL, a lazy chunk) keeps up to four hidden instances, serializes input so keystrokes reach the PTY in order, debounces resizes, and reattaches feeds when the Host reconnects. Other features call `runInTerminal(place, { key, title, cwd, argv })` (e.g. a Harness sign-in) or `toggleTerminal`; `HarnessTerminal` (`{ hostKey, argv, onExit, onClose }`) is an inline terminal for pages, matching B7's `HarnessTerminal` slot (Settings → Harnesses sign-in). "Open in terminal" (`handoff.ts`): `OpenInTerminal`, poll `session.terminalCommand`, run it (its `env` goes through `env(1)`, since `terminal.open` takes none); `InTerminalBar` and `OpenInTerminalItem` are mounted by the session view. `window.__polarisTerminal.text(id)` exposes a terminal's buffer to the smoke test.
+
+**Attachments** (`src/renderer/features/attachments/`): `useUploads` stages pasted or dropped files (`attachments.stage`) and keeps image thumbnails; `AttachmentDrop` wraps the composer (paste, drop, the drag hint, ⌥ to copy) and `AttachmentTray` renders the chips. ⌥-drop copies into the session's cwd by running `cp` on the Host through `terminal.open` (no file write in M1) and toasts the outcome.
 
 ## The bridge
 
@@ -90,5 +117,9 @@ Environment: `POLARIS_DESKTOP_EXTRA_HOSTS` (screenshots and tests: `[{ key, labe
 - Navigation persists in `localStorage`, shared by every window of the app; per-window keys come with multiple windows.
 - The session view's diff is a lightweight unified renderer (no syntax or word highlights, long lines truncate); Pierre Diffs arrives with Review. Diffs over 4 MB aren't parsed here.
 - The conversation shows a session's last 20 Turns (the feed's `turnLimit`); older ones aren't paged in yet. Assistant text is plain (no Markdown yet).
-- `@polaris/ui`'s `Row` can't be used with `asChild` (its Slot gets several children), so session rows are `role="button"` divs.
+- Session rows are still `role="button"` divs; `@polaris/ui`'s `Row` takes `asChild` now, so they can become buttons.
+- Retry on a Failed session opens it (the conversation holds the prompt); there is no Retry command yet.
+- The sidebar header keeps the Workspace's name in the Needs you view (Paper 1G2-0 shows "Inbox · All machines").
 - No Sources chips, "Add machine" or per-session age of last activity yet; ages are since the session was created.
+- Attachments have no byte-level progress (one IPC call per file), no folder picker for ⌥-drop (it copies into the session's cwd), and no "Open locally" / "Save to Downloads" for remote files yet.
+- Adding a workspace takes a typed path (no native folder dialog: remote Hosts need a path anyway); "Connect a host" on the first-run card has no action until the add-a-machine flow lands.

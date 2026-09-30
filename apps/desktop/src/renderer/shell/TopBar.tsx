@@ -8,6 +8,7 @@ import { Badge, Chip, cn, Kbd } from "@polaris/ui";
 import { Fragment, useMemo } from "react";
 import type { HostView } from "../../shared/api.ts";
 import { type BarHost, barHosts, shortcutLabel } from "../routes/topBar.ts";
+import { slots } from "../app/slots.tsx";
 import { plural } from "./copy.ts";
 import { HostStateLabel } from "./HostState.tsx";
 import { SummaryGlyph } from "./glyphs.tsx";
@@ -59,19 +60,20 @@ const WorkspaceBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
             if (shortcut !== undefined) extra.shortcut = shortcut;
 
             return (
-              <Chip
-                key={workspace.id}
-                title={workspace.path}
-                selected={hostKey === selection.hostKey && workspace.id === selection.workspaceId}
-                needsYou={summary.needsYou}
-                {...extra}
-                leading={<SummaryGlyph summary={summary} />}
-                onClick={(event) =>
-                  selectWorkspace({ hostKey, workspaceId: workspace.id }, event.timeStamp)
-                }
-              >
-                {workspace.name}
-              </Chip>
+              <slots.NeedsYouHover key={workspace.id} hostKey={hostKey} workspaceId={workspace.id}>
+                <Chip
+                  title={workspace.path}
+                  selected={hostKey === selection.hostKey && workspace.id === selection.workspaceId}
+                  needsYou={summary.needsYou}
+                  {...extra}
+                  leading={<SummaryGlyph summary={summary} />}
+                  onClick={(event) =>
+                    selectWorkspace({ hostKey, workspaceId: workspace.id }, event.timeStamp)
+                  }
+                >
+                  {workspace.name}
+                </Chip>
+              </slots.NeedsYouHover>
             );
           })}
         </Fragment>

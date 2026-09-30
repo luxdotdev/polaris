@@ -31,7 +31,6 @@ export const useSignIn = (hostKey: string) => {
       hostLabel: host?.label ?? hostKey,
       harnessName: option.name,
       argv: option.signInArgv,
-      cwd: host?.status.host?.homeDir ?? "~",
     });
   };
 

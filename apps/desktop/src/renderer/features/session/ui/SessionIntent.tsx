@@ -16,6 +16,7 @@ import { emptyHostModel } from "../../../store/hostModel.ts";
 import type { SessionData } from "../../../store/plain.ts";
 import { useApp, useShellActions } from "../../../shell/hooks.ts";
 import { modelLabel, useHarnessModels } from "../../harness/index.ts";
+import { InTerminalBar } from "../../terminal/index.ts";
 import { send } from "../dispatch.ts";
 import { useHost, useSession, hasCapability } from "../hooks.ts";
 import { conversationRows } from "../model/conversation.ts";
@@ -117,6 +118,15 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
         }}
       />
       <Conversation scrollKey={key} rows={rows} ctx={ctx} />
+      <InTerminalBar
+        session={{
+          hostKey,
+          workspaceId: session.workspaceId,
+          sessionId,
+          state: session.state,
+          title: session.title === "" ? session.harness : session.title,
+        }}
+      />
       {harness === null ? null : (
         <SessionComposer
           hostKey={hostKey}
