@@ -119,9 +119,18 @@ const sameSelection = (a: Selection, b: Selection) =>
 export interface NavigationInput {
   readonly app: AppStore;
   readonly storage: Storage | null;
+  /**
+   * A new session with no Workspace on the Host asks for one (onboarding's home fallback);
+   * null when none could be made, which the callee has already told the user.
+   */
+  readonly ensureWorkspace?: (hostKey: string) => Promise<WorkspaceId | null>;
 }
 
-export const createNavigation = ({ app, storage }: NavigationInput): Navigation => {
+export const createNavigation = ({
+  app,
+  storage,
+  ensureWorkspace,
+}: NavigationInput): Navigation => {
   const store = createStore<NavState>(() => loadNav(storage));
   const set = (patch: Partial<NavState>) => store.setState(patch);
 
@@ -225,7 +234,20 @@ export const createNavigation = ({ app, storage }: NavigationInput): Navigation 
     openJump: () => set({ jumpOpen: true }),
     setJumpOpen: (jumpOpen) => set({ jumpOpen }),
     setHelpOpen: (helpOpen) => set({ helpOpen }),
-    startNewSession: () => set({ pane: "new-session", mode: "orchestrate" }),
+    startNewSession: () => {
+      const { hostKey, workspaceId } = current();
+
+      set({ pane: "new-session", mode: "orchestrate" });
+
+      if (workspaceId !== null || hostKey === null || ensureWorkspace === undefined) return;
+
+      // The stage shows the setup, busy, until the home Workspace arrives.
+      void ensureWorkspace(hostKey).then((id) => {
+        if (store.getState().pane !== "new-session") return;
+
+        set(id === null ? { pane: "session" } : { hostKey, workspaceId: id, sessionId: null });
+      });
+    },
     closeNewSession: () => set({ pane: "session" }),
     toggleFolded: (key, open) => set({ folded: { ...store.getState().folded, [key]: !open } }),
   };

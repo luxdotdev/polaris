@@ -16,6 +16,8 @@ export interface StartDaemonInput {
   /** The Daemon's `POLARIS_HOME`. */
   readonly home: string;
   readonly benchHarness: boolean;
+  /** The user's home directory as the Daemon sees it (`HOME`); the real one when absent. */
+  readonly userHome?: string;
 }
 
 const live = (socketPath: string) =>
@@ -38,15 +40,24 @@ const live = (socketPath: string) =>
 export const startDaemon = async ({
   home,
   benchHarness,
+  userHome,
 }: StartDaemonInput): Promise<TestDaemon> => {
   const socketPath = join(home, "daemon.sock");
+
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    POLARIS_HOME: home,
+    POLARIS_BENCH_HARNESS: benchHarness ? "1" : "0",
+  };
+
+  if (userHome !== undefined) env.HOME = userHome;
 
   const child = spawn(
     "bun",
     [join(REPO_ROOT, "apps/daemon/src/main.ts"), "serve", "--foreground"],
     {
       cwd: REPO_ROOT,
-      env: { ...process.env, POLARIS_HOME: home, POLARIS_BENCH_HARNESS: benchHarness ? "1" : "0" },
+      env,
       stdio: ["ignore", "ignore", "inherit"],
     }
   );

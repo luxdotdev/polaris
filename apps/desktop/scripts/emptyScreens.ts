@@ -12,6 +12,7 @@ import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { _electron as electron, type Page } from "playwright-core";
+import { seenUserData } from "./lib/userData.ts";
 import { startDaemon } from "./lib/daemon.ts";
 import { APP_DIR, electronBinary } from "./lib/electron.ts";
 import { initRepo } from "./lib/sessionFlow.ts";
@@ -41,7 +42,7 @@ const app = await electron.launch({
     POLARIS_DESKTOP_LOCAL_SOCKET: daemon.socketPath,
     POLARIS_DESKTOP_LOCAL_LABEL: "Mac Studio",
     POLARIS_DESKTOP_BENCH_HARNESS: "1",
-    POLARIS_DESKTOP_USER_DATA: join(home, "user-data"),
+    POLARIS_DESKTOP_USER_DATA: seenUserData(join(home, "user-data")),
     POLARIS_DESKTOP_HIDDEN: "1",
   },
 });

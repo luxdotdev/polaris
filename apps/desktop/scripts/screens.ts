@@ -109,7 +109,7 @@ const launch = async (theme: "dark" | "light"): Promise<Rig> => {
   const userData = join(home, "user-data");
 
   mkdirSync(userData, { recursive: true });
-  writeFileSync(join(userData, "settings.json"), JSON.stringify({ theme }));
+  writeFileSync(join(userData, "settings.json"), JSON.stringify({ theme, welcomeSeen: true }));
 
   const app = await electron.launch({
     executablePath: electronBinary(),

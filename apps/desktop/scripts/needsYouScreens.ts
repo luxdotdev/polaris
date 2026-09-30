@@ -11,6 +11,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { _electron as electron, type Page } from "playwright-core";
 import { APP_DIR, electronBinary } from "./lib/electron.ts";
+import { seenUserData } from "./lib/userData.ts";
 import { startDaemon } from "./lib/daemon.ts";
 
 const args = process.argv.slice(2);
@@ -35,7 +36,7 @@ const app = await electron.launch({
     ...process.env,
     POLARIS_DESKTOP_LOCAL_SOCKET: daemon.socketPath,
     POLARIS_DESKTOP_BENCH_HARNESS: "1",
-    POLARIS_DESKTOP_USER_DATA: join(home, "user-data"),
+    POLARIS_DESKTOP_USER_DATA: seenUserData(join(home, "user-data")),
     POLARIS_DESKTOP_HIDDEN: "1",
   },
 });

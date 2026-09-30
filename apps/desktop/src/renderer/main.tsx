@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./app/App.tsx";
 import { onNeedsYouEvent } from "./features/needs-you/index.ts";
 import { applyAppearance } from "./appearance.ts";
+import { createOnboarding } from "./features/onboarding/index.ts";
 import { startProofSession } from "./proof.ts";
 import { createCommandRegistry } from "./routes/commands.ts";
 import { installKeyboard } from "./routes/keyboard.ts";
@@ -22,7 +23,13 @@ const storage = (() => {
   }
 })();
 
-const navigation = createNavigation({ app: connection.store, storage });
+const onboarding = createOnboarding({ api: window.polaris, store: connection.store });
+
+const navigation = createNavigation({
+  app: connection.store,
+  storage,
+  ensureWorkspace: onboarding.workspaceFor,
+});
 
 const commands = createCommandRegistry({ mac: /Mac/.test(navigator.userAgent) });
 
@@ -86,5 +93,7 @@ if (root !== null && preview) {
     setPreviewDensity = m.mountNeedsYouPreview(root, location.hash);
   });
 } else if (root !== null) {
-  createRoot(root).render(<App value={{ connection, navigation, commands }} />);
+  createRoot(root).render(
+    <App value={{ connection, navigation, commands }} onboarding={onboarding} />
+  );
 }

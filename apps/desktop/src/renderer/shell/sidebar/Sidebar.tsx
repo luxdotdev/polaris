@@ -225,6 +225,7 @@ const WorkspaceSidebar = () => {
   const hostCount = useApp((s) => s.hosts.length);
   const workspace = workspaceId === null ? undefined : model.workspaces.get(workspaceId);
 
+  // New session still works here: it starts in the Host's home directory (onboarding).
   if (hostKey === null || workspace === undefined || host === undefined) {
     return (
       <SidebarFrame
@@ -234,7 +235,7 @@ const WorkspaceSidebar = () => {
             caption={
               shown === undefined ? "No machines yet" : `${shown.label} · ${shown.status.state}`
             }
-            canStart={false}
+            canStart={shown !== undefined}
           />
         }
         footer={hostCount === 0 ? "" : `${plural(hostCount, "host")} · no workspaces`}
