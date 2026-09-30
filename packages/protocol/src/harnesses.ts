@@ -73,8 +73,7 @@ export const HARNESS_CATALOGUE = [
     // The first release with `--acp` (before it, only `--experimental-acp`).
     minVersion: "0.33.0",
     setup: {
-      install: "Install Gemini CLI on this host.",
-      installCommand: "npm install -g @google/gemini-cli",
+      install: "Gemini CLI isn't installed on this host. See its setup guide.",
       signIn: "Sign in to Gemini CLI in its own terminal: run gemini and pick how to sign in.",
       signInCommand: ["gemini"],
       docsUrl: "https://geminicli.com/docs/get-started/",
@@ -85,8 +84,7 @@ export const HARNESS_CATALOGUE = [
     // The first general-availability release; ACP, session load and effort predate it.
     minVersion: "1.0.0",
     setup: {
-      install: "Install GitHub Copilot CLI on this host.",
-      installCommand: "npm install -g @github/copilot",
+      install: "GitHub Copilot CLI isn't installed on this host. See its setup guide.",
       signIn: "Sign in to GitHub Copilot CLI in its own terminal.",
       signInCommand: ["copilot", "login"],
       docsUrl: "https://docs.github.com/en/copilot/how-tos/copilot-cli",

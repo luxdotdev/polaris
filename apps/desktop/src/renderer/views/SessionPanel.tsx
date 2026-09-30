@@ -1,10 +1,5 @@
-import {
-  type ApprovalDecision,
-  type ApprovalRequest,
-  isKnownHarness,
-  type TurnItem,
-} from "@polaris/protocol";
-import { ApprovalCard } from "@polaris/ui";
+import { type ApprovalDecision, type ApprovalRequest, type TurnItem } from "@polaris/protocol";
+import { ApprovalCard, isHued } from "@polaris/ui";
 import { Match } from "effect";
 import { Commands, Decisions, newCommandId } from "../commands.ts";
 import type { SessionData } from "../store/plain.ts";
@@ -82,7 +77,7 @@ const Approval = ({ hostKey, session, request }: ApprovalProps) => {
 
   const { harness } = session;
 
-  if (!isKnownHarness(harness)) {
+  if (!isHued(harness)) {
     return <p className="text-caption text-needs-you">Needs you: {request.title}</p>;
   }
 

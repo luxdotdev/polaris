@@ -10,6 +10,7 @@ export {
   HARNESS_HANDLES,
   HARNESS_NAMES,
   hueVar,
+  isHued,
   washVar,
   type Harness,
   type IdentityHue,

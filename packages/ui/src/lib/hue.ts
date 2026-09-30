@@ -46,9 +46,10 @@ export function washVar(hue: TintHue): string {
   return WASH_VARS[hue];
 }
 
-/** The identity hue for any Harness kind a Daemon reports; unknown kinds get no hue. */
-const isHued = (kind: HarnessKind): kind is Harness => Object.hasOwn(HARNESS_NAMES, kind);
+/** Whether a Harness kind has an identity hue; others (and unknown kinds) take the neutral tile. */
+export const isHued = (kind: HarnessKind): kind is Harness => Object.hasOwn(HARNESS_NAMES, kind);
 
+/** The identity hue for any Harness kind a Daemon reports; unknown kinds get no hue. */
 export function harnessHue(kind: HarnessKind): Harness | "neutral" {
   return isHued(kind) ? kind : "neutral";
 }
