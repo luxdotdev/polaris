@@ -5,14 +5,33 @@
  * while it streams.
  */
 import { execFileSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Page } from "playwright-core";
 
 const bench = (script: Record<string, number>) => `bench:${JSON.stringify(script)}`;
 
+/** A file written under the session's cwd shows in the rail's count without a reload (files.watch). */
+const liveChanges = async (page: Page, step: (line: string) => void) => {
+  const changes = page.getByTestId("output-rail-changes");
+  const before = (await changes.textContent()) ?? "";
+
+  const cwd = await page
+    .getByTestId("output-rail")
+    .locator("[title]")
+    .first()
+    .getAttribute("title");
+
+  if (cwd === null) throw new Error("the rail shows no path");
+  writeFileSync(join(cwd, "smoke-live.txt"), "written while output watched\n");
+  await changes.filter({ hasNotText: before }).waitFor({ timeout: 5_000 });
+  step(`rail updated live: ${before} → ${await changes.textContent()}`);
+  rmSync(join(cwd, "smoke-live.txt"));
+  await changes.filter({ hasText: before }).waitFor({ timeout: 5_000 });
+};
+
 /** Items 2, 5 and 8 ask first; two files are written, so the Turn has a diff. */
-const FIRST_TURN = bench({
+export const FIRST_TURN = bench({
   items: 9,
   deltasPerItem: 30,
   deltaBytes: 48,
@@ -63,7 +82,7 @@ export const frameStats = (times: ReadonlyArray<number>) => {
   };
 };
 
-const approveAll = async (page: Page, step: (m: string) => void) => {
+export const approveAll = async (page: Page, step: (m: string) => void) => {
   const state = page.getByTestId("session-state");
   let approved = 0;
 
@@ -140,6 +159,9 @@ export const sessionFlow = async ({ page, repo, step, shoot, atFirstApproval }: 
   await page.getByRole("button", { name: "Send" }).click();
   await page.getByTestId("session-panel").waitFor({ timeout: 15_000 });
   step("session started from the new-session page");
+  // A new session starts with Output collapsed to its rail; the first edit opens it.
+  await page.getByTestId("output-rail").waitFor();
+  step("output collapsed to the rail");
 
   await page.getByTestId("live-item").first().waitFor({ timeout: 15_000 });
   step("first Turn streaming");
@@ -155,6 +177,8 @@ export const sessionFlow = async ({ page, repo, step, shoot, atFirstApproval }: 
   const files = await page.getByTestId("diff-file").count();
 
   step(`Turn diff: ${files} files`);
+  await page.getByTestId("output-panel").waitFor();
+  step("the first edit opened output");
 
   if (files < 2) throw new Error(`expected the 2 bench files in the diff, saw ${files}`);
   // The bench Harness fills 15% of its window a Turn and times its thinking.
@@ -166,6 +190,13 @@ export const sessionFlow = async ({ page, repo, step, shoot, atFirstApproval }: 
     .waitFor();
   step("header shows Context 15%; thinking reads Thought for Ns");
   await shoot("session-idle");
+  await page.keyboard.press("Meta+Alt+KeyB");
+  await page.getByTestId("output-rail").waitFor();
+  await shoot("output-rail");
+  await liveChanges(page, step);
+  await page.keyboard.press("Meta+Alt+KeyB");
+  await page.getByTestId("output-panel").waitFor();
+  step("⌘⌥B hides and shows output");
   await switchModel(page, step, shoot);
 
   await input.fill(FOLLOW_UP);

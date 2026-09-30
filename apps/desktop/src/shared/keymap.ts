@@ -9,6 +9,7 @@ export type CommandId =
   | "view.orchestrate"
   | "view.review"
   | "view.edit"
+  | "view.output"
   | "jump.open"
   | "help.shortcuts"
   | "session.new"
@@ -45,6 +46,7 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   { id: "view.orchestrate", title: "Orchestrate", keys: ["CmdOrCtrl+1"], menu: "View" },
   { id: "view.review", title: "Review", keys: ["CmdOrCtrl+2"], menu: "View" },
   { id: "view.edit", title: "Edit", keys: ["CmdOrCtrl+3"], menu: "View" },
+  { id: "view.output", title: "Show or hide output", keys: ["CmdOrCtrl+Alt+B"], menu: "View" },
   { id: "jump.open", title: "Jump to…", keys: ["CmdOrCtrl+K", "K"], menu: "Go" },
   { id: "session.next", title: "Next session", keys: ["CmdOrCtrl+Alt+Down"], menu: "Go" },
   { id: "session.previous", title: "Previous session", keys: ["CmdOrCtrl+Alt+Up"], menu: "Go" },

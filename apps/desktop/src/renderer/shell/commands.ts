@@ -7,6 +7,7 @@
 import type { SessionId } from "@polaris/protocol";
 import { Commands, Decisions } from "../commands.ts";
 import { send } from "../features/session/dispatch.ts";
+import { toggleOutput } from "../features/session/index.ts";
 import { archiveCommand, interruptCommand } from "../features/session/model/intent.ts";
 import type { CommandHandlers } from "../routes/commands.ts";
 import type { Navigation } from "../routes/navigation.ts";
@@ -119,6 +120,18 @@ export const shellCommands = ({
     "view.orchestrate": { run: () => actions.setMode("orchestrate") },
     "view.review": { run: () => actions.setMode("review") },
     "view.edit": { run: () => actions.setMode("edit") },
+    "view.output": {
+      run: () => {
+        const s = selected();
+
+        if (s !== null) {
+          const { id, workspaceId } = s.entry.session;
+
+          toggleOutput({ hostKey: s.hostKey, workspaceId }, id);
+        }
+      },
+      enabled: () => selected() !== null,
+    },
     "jump.open": { run: actions.openJump },
     "help.shortcuts": { run: () => actions.setHelpOpen(true) },
     "session.new": {
@@ -176,29 +189,9 @@ export const shellCommands = ({
       },
     },
     "workspace.add": {
-      run: () => {
-        const { hostKey } = navigation.current();
-        const host = app().hosts.find((h) => h.key === hostKey);
-
-        if (host === undefined) return;
-
-        // This Mac: the native folder picker. Elsewhere: the Host's stage, with a typed path.
-        if (host.alias !== null) {
-          actions.selectHost(host.key);
-
-          return;
-        }
-
-        void window.polaris.request("dialog.pickFolder", {}).then((picked) => {
-          if (!picked.ok || picked.value.path === null) return;
-          void send(
-            host.key,
-            Commands.RegisterWorkspace({ path: picked.value.path, name: null }),
-            "Couldn't add the workspace"
-          );
-        });
-      },
-      enabled: () => navigation.current().hostKey !== null,
+      // The ⌘O dialog, on the selected Host; any Host can be picked in it.
+      run: () => actions.openFolder(navigation.current().hostKey),
+      enabled: () => app().hosts.length > 0,
     },
     "theme.toggle": {
       run: () =>

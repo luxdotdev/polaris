@@ -353,21 +353,41 @@ const chip = async (page: Page) => {
   report("chip", await stop(page), marks);
 };
 
-/** Saves the Working composer in both themes, still and hovered, under `--shots <dir>`. */
+/** Saves the Working composer in both themes: at rest, hovered after a sweep, and blooming. */
 const composerShots = async (page: Page, dir: string) => {
   mkdirSync(dir, { recursive: true });
   const composer = page.locator('[data-slot="composer"][data-working]').first();
   const box = await composer.boundingBox();
 
+  if (box === null) throw new Error("no Working composer");
+
   for (const theme of ["dark", "light"] as const) {
     await page.evaluate(`document.documentElement.dataset.theme = "${theme}"`);
-    await page.mouse.move(box === null ? 0 : box.x - 40, box === null ? 0 : box.y - 40);
-    await page.waitForTimeout(600);
-    await composer.screenshot({ path: join(dir, `composer-${theme}-still.png`) });
-
-    if (box !== null) await page.mouse.move(box.x + box.width * 0.55, box.y + 14, { steps: 8 });
-    await page.waitForTimeout(700);
+    await page.mouse.move(box.x - 40, box.y - 40);
+    await page.waitForTimeout(1500);
+    await composer.screenshot({ path: join(dir, `composer-${theme}-rest.png`) });
+    await page.mouse.move(box.x + 12, box.y + 16, { steps: 4 });
+    await page.mouse.move(box.x + box.width * 0.4, box.y + 14, { steps: 24 });
+    await page.waitForTimeout(60);
     await composer.screenshot({ path: join(dir, `composer-${theme}-hover.png`) });
+  }
+
+  // A new Turn mounts the strip, which blooms; catch it near its peak.
+  for (const theme of ["dark", "light"] as const) {
+    await page.evaluate(`document.documentElement.dataset.theme = "${theme}"`);
+    await page.mouse.move(box.x - 40, box.y - 40);
+    await page.keyboard.press("Escape");
+    await page
+      .getByTestId("session-state")
+      .filter({ hasText: /^Idle/ })
+      .waitFor({ timeout: 30_000 });
+    await page
+      .getByTestId("composer-input")
+      .fill(bench({ items: 30, deltasPerItem: 100, deltaBytes: 64, deltaIntervalMs: 10 }));
+    await page.keyboard.press("Enter");
+    await composer.waitFor({ timeout: 15_000 });
+    await page.waitForTimeout(420);
+    await composer.screenshot({ path: join(dir, `composer-${theme}-bloom.png`) });
   }
 
   // With the Daemon gone, a steer can't be sent, which toasts (bottom-right).

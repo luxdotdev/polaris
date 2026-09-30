@@ -176,7 +176,10 @@ export const makeFileSearch = (options: FileSearchOptions) =>
               }),
               (stop) => Effect.sync(stop)
             );
-          })
+          }).pipe(
+            // The callback runs forked: without this a missing root would hang the stream silently.
+            Effect.catch((error) => Queue.fail(queue, error))
+          )
         ),
       backendOf: (input) =>
         Effect.promise(async () => {

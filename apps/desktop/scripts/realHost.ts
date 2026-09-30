@@ -223,11 +223,14 @@ const workspace = async (page: Page, homeDir: string | null) => {
   await page.waitForTimeout(1500);
 
   // A Host installed before (an upgrade) keeps its Workspaces: use the one it has.
-  if (await page.getByTestId("add-workspace").isVisible()) {
-    await page.getByTestId("add-workspace").click();
-    await page.getByTestId("workspace-path").fill(homeDir);
-    await shoot(page, "06-workspace-path");
-    await page.getByRole("button", { name: "Add", exact: true }).click();
+  const add = page.getByTestId("host-stage").getByTestId("add-workspace");
+
+  if (await add.isVisible()) {
+    // ⌘O's dialog on this Host: its home is where it starts; ↵ on "Open ~" adds it.
+    await add.click();
+    await page.getByTestId("folder-open").waitFor({ timeout: 30_000 });
+    await shoot(page, "06-open-folder");
+    await page.keyboard.press("Enter");
     await page.getByTestId("host-stage").waitFor({ state: "detached", timeout: 30_000 });
     await page.waitForTimeout(800);
     step(`workspace ${homeDir} registered on ${alias}`);
