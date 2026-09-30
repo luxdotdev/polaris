@@ -49,9 +49,7 @@ const Card = ({ selected, tile, title, caption, onSelect, testId }: CardProps) =
     data-testid={testId}
     className={cn(
       "rounded-card bg-surface-raised flex h-14 min-w-0 cursor-default items-stretch overflow-clip border text-left",
-      selected
-        ? "border-text-strong/15 shadow-float"
-        : "border-hairline hover:border-text-strong/10"
+      selected ? "border-text-strong/15" : "border-hairline hover:border-text-strong/10"
     )}
   >
     {tile}

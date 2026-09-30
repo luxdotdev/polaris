@@ -118,7 +118,7 @@ const ForkForm = ({
             disabled={blocked}
             onModel={setChoice}
           />
-          <span className="text-caption text-text-faint">
+          <span className="text-caption text-text-subtle">
             {choice === null && sameHarness ? "Keeps this session's model" : null}
           </span>
         </div>

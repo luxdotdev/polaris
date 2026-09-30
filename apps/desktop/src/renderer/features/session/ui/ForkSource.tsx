@@ -42,7 +42,8 @@ const TurnSelect = ({
     onChange(session === null || first === null ? null : { session, turnId: first });
   }, [session, first, onChange]);
 
-  if (session === null) return <span className="text-caption text-text-faint">Loading turns…</span>;
+  if (session === null)
+    return <span className="text-caption text-text-subtle">Loading turns…</span>;
 
   return (
     <Select

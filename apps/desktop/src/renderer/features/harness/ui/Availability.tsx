@@ -115,14 +115,14 @@ export const AvailabilityList = ({ hostKey }: { readonly hostKey: string }) => {
 
   return (
     <div className="flex flex-col gap-3">
-      {loading ? <p className="text-caption text-text-faint">Checking harnesses…</p> : null}
+      {loading ? <p className="text-caption text-text-subtle">Checking harnesses…</p> : null}
       <ul className="rounded-card border-hairline flex flex-col border">
         {options.map((option) => (
           <Row key={option.kind} option={option} onSignIn={signIn.begin} />
         ))}
       </ul>
       <div className="flex items-center gap-2">
-        <p className="text-caption text-text-faint flex-1">
+        <p className="text-caption text-text-subtle flex-1">
           Polaris drives the harnesses you already have; it never installs one.
         </p>
         <Button variant="ghost" size="sm" onClick={refresh} data-testid="availability-refresh">

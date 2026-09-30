@@ -49,7 +49,9 @@ const useWhere = (hostKey: string, session: SessionData | null) => {
 };
 
 const Placeholder = ({ children }: { readonly children: string }) => (
-  <section className="text-body text-text-faint grid flex-1 place-items-center">{children}</section>
+  <section className="text-body text-text-subtle grid flex-1 place-items-center">
+    {children}
+  </section>
 );
 
 export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
@@ -81,6 +83,7 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
     state: session.state,
     liveTurnId: lastTurn?.status === "working" && session.state === "working" ? lastTurn.id : null,
     where,
+    diff: { hostKey, cwd: session.cwd, sessionId },
     onToggleTurn: (turnId) => toggleUnfolded(key, turnId),
     onOpenDiff: (turnId) => showTurnDiff(key, turnId),
     onRespond: (request: ApprovalRequest, decision: ApprovalDecision) =>

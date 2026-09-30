@@ -143,10 +143,18 @@ const defaultPlacement = (workspace: Workspace): PlacementChoice =>
 const PREVIEW_ID = newSessionId();
 
 /** The composer's mono hint: the branch a new Worktree will take, once there's a prompt. */
-const branchLabel = (placement: PlacementChoice, choice: HarnessChoice | null, draft: string) => {
+const branchLabel = (
+  placement: PlacementChoice,
+  choice: HarnessChoice | null,
+  draft: string,
+  head: string | null
+) => {
   if (placement.kind !== "new-worktree" || choice?.kind === "fork") return undefined;
 
-  return draft.trim() === "" ? "new worktree" : placement.branch;
+  if (draft.trim() !== "") return placement.branch;
+  const base = placement.base ?? head;
+
+  return base === null ? "new worktree" : `new worktree from ${base}`;
 };
 
 export const NewSessionPage = ({
@@ -178,6 +186,12 @@ export const NewSessionPage = ({
 
   if (workspace === undefined) return <Scene className="h-full flex-1" data-testid="new-session" />;
   const where = placement ?? defaultPlacement(workspace);
+  // The checked-out branch: a new Worktree with no base picked starts there.
+
+  const head =
+    [...hostModel.worktrees.values()].find((w) => w.workspaceId === workspaceId && w.isMain)
+      ?.branch ?? null;
+
   const fallback = defaultHarness(options);
 
   const choice: HarnessChoice | null =
@@ -242,12 +256,13 @@ export const NewSessionPage = ({
             (w) => w.workspaceId === workspaceId && !w.isMain
           )}
           canWorktree={workspace.isGitRepo}
+          head={head}
           onChange={setPlacement}
         />
       </Clearing>
       <div className="flex w-full max-w-[640px] flex-col gap-3.5 pt-1 pb-10">
         <DraftComposer
-          className="shadow-float rounded-card"
+          className="rounded-card"
           harness={hue ?? ""}
           autoFocus
           picker={
@@ -281,7 +296,7 @@ export const NewSessionPage = ({
           onRemoveAttachment={(a) =>
             patchSessionUi(key, (u) => ({ attachments: u.attachments.filter((x) => x !== a) }))
           }
-          branch={branchLabel(shown, choice, ui.draft)}
+          branch={branchLabel(shown, choice, ui.draft, head)}
           prominentSend
         />
         <HarnessChoiceRow

@@ -3,7 +3,7 @@
  * item (the first one carries the Harness avatar), an inline approval or
  * question, and how an interrupted or failed Turn ended.
  */
-import type { ApprovalDecision, ApprovalRequest, SessionState } from "@polaris/protocol";
+import type { ApprovalDecision, ApprovalRequest, SessionId, SessionState } from "@polaris/protocol";
 import {
   ApprovalCard,
   Button,
@@ -21,7 +21,9 @@ import { age } from "../../../shell/copy.ts";
 import { useNow } from "../../../shell/useNow.ts";
 import { Decisions } from "../../../commands.ts";
 import type { Row } from "../model/conversation.ts";
+import { totals } from "../model/diff.ts";
 import { plural } from "../model/format.ts";
+import { useTurnDiff } from "../turnDiff.ts";
 import { questionAnswers } from "../model/question.ts";
 import { Item } from "./items.tsx";
 
@@ -37,9 +39,44 @@ export interface RowContext {
   readonly onContinue: () => void;
   /** "Opus 5 · high", as the Harness names them. */
   readonly modelLabel: (model: string | null, effort: string | null) => string;
+  /** Where a folded Turn's diff comes from, for its +/− counts. */
+  readonly diff: { readonly hostKey: string; readonly cwd: string; readonly sessionId: SessionId };
 }
 
 const AVATAR = "w-6 shrink-0";
+
+/** A folded Turn's +/− from its diff (cached, so reopening a session paints them at once). */
+const SummaryCounts = ({
+  row,
+  ctx,
+}: {
+  row: Extract<Row, { kind: "summary" }>;
+  ctx: RowContext;
+}) => {
+  const state = useTurnDiff(
+    ctx.diff.hostKey,
+    ctx.diff.cwd,
+    ctx.diff.sessionId,
+    row.turnId,
+    row.status
+  );
+
+  if (state.kind !== "ready" || state.files.length === 0)
+    return row.files === 0 ? null : (
+      <span className="text-caption text-text-subtle tabular">{plural(row.files, "file")}</span>
+    );
+  const sum = totals(state.files);
+
+  return (
+    <span
+      className="text-code-inline tabular flex shrink-0 gap-1.5 font-mono"
+      data-testid="turn-counts"
+    >
+      <span className="text-diff-added-text">+{sum.added}</span>
+      <span className="text-diff-removed-text">−{sum.removed}</span>
+    </span>
+  );
+};
 
 const Summary = ({ row, ctx }: { row: Extract<Row, { kind: "summary" }>; ctx: RowContext }) => (
   <button
@@ -54,11 +91,9 @@ const Summary = ({ row, ctx }: { row: Extract<Row, { kind: "summary" }>; ctx: Ro
     </span>
     <span className="text-body text-text-subtle flex-1 truncate">{row.summary}</span>
     {row.status === "completed" ? null : (
-      <span className="text-caption text-text-faint">{row.status}</span>
+      <span className="text-caption text-text-subtle">{row.status}</span>
     )}
-    {row.files === 0 ? null : (
-      <span className="text-caption text-text-faint tabular">{plural(row.files, "file")}</span>
-    )}
+    <SummaryCounts row={row} ctx={ctx} />
     <ChevronRightIcon size={10} className="text-text-faint shrink-0" />
   </button>
 );
@@ -70,7 +105,7 @@ const Prompt = ({ row, ctx }: { row: Extract<Row, { kind: "prompt" }>; ctx: RowC
         {row.text}
       </p>
     )}
-    <p className="text-caption text-text-faint max-w-[340px] truncate" data-testid="turn-model">
+    <p className="text-caption text-text-subtle max-w-[340px] truncate" data-testid="turn-model">
       {[...row.attachments, ctx.modelLabel(row.model, row.effort)].join(" · ")}
     </p>
   </div>

@@ -50,14 +50,28 @@ const SUMMARY_MAX = 160;
 /** Whatever the Harness passed the tool, as it arrived (the protocol keeps it opaque). */
 export type ToolInput = Extract<TurnItem, { readonly _tag: "ToolCall" }>["input"];
 
-/** A tool call's input on one line: a string as is, anything else as compact JSON. */
+/** The argument that says what a tool call touched, in the order Harnesses name them. */
+const SUBJECT_KEYS = ["file_path", "path", "command", "pattern", "query", "url", "description"];
+
+const clip = (text: string) =>
+  text.length > SUMMARY_MAX ? `${text.slice(0, SUMMARY_MAX - 1)}…` : text;
+
+/**
+ * What a tool call touched, on one line (rule/say-what-happened): its path, command or
+ * query when it has one, else a string input as is, else compact JSON.
+ */
 export const toolSummary = (input: ToolInput): string => {
   if (input === null || input === undefined) return "";
 
-  if (Predicate.isString(input)) return input.slice(0, SUMMARY_MAX);
-  const text = JSON.stringify(input) ?? "";
+  if (Predicate.isString(input)) return clip(input);
 
-  return text.length > SUMMARY_MAX ? `${text.slice(0, SUMMARY_MAX - 1)}…` : text;
+  const subject = SUBJECT_KEYS.map((key) =>
+    Predicate.hasProperty(input, key) ? input[key] : undefined
+  ).find(Predicate.isString);
+
+  if (subject !== undefined) return clip(subject);
+
+  return clip(JSON.stringify(input) ?? "");
 };
 
 const fromItem = (item: TurnItem, live: boolean): ItemView =>

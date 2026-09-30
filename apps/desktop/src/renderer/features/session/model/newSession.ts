@@ -34,19 +34,30 @@ export const toPlacement = (choice: PlacementChoice): SessionPlacement =>
   );
 
 /** "on a new worktree from main", "in place", "on the worktree spike/gpui". */
-export const placementPhrase = (choice: PlacementChoice): string =>
+/**
+ * `head` is the Workspace's checked-out branch: a new Worktree with no base picked starts
+ * there, so the line names it ("on a new worktree from main").
+ */
+export const placementPhrase = (choice: PlacementChoice, head: string | null = null): string =>
   Match.value(choice).pipe(
     Match.discriminatorsExhaustive("kind")({
       "in-place": () => "in place",
-      "new-worktree": (c) =>
-        c.base === null ? "on a new worktree" : `on a new worktree from ${c.base}`,
+      "new-worktree": (c) => {
+        const base = c.base ?? head;
+
+        return base === null ? "on a new worktree" : `on a new worktree from ${base}`;
+      },
       existing: (c) => `on the worktree ${c.branch ?? c.path}`,
     })
   );
 
 /** DESIGN.md, New session: one line saying where it runs (Host, path, Worktree). */
-export const whereLine = (hostLabel: string, path: string, choice: PlacementChoice) =>
-  `Runs on ${hostLabel} in ${path}, ${placementPhrase(choice)}.`;
+export const whereLine = (
+  hostLabel: string,
+  path: string,
+  choice: PlacementChoice,
+  head: string | null = null
+) => `Runs on ${hostLabel} in ${path}, ${placementPhrase(choice, head)}.`;
 
 /** A branch name a new Worktree can take: git's rules, loosely (no spaces, no `..`). */
 export const isBranchName = (branch: string): boolean => {
