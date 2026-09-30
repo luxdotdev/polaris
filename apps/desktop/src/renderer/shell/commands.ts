@@ -7,6 +7,7 @@
 import type { SessionId } from "@polaris/protocol";
 import { Commands, Decisions } from "../commands.ts";
 import { send } from "../features/session/dispatch.ts";
+import { toggleOutput } from "../features/session/index.ts";
 import { archiveCommand, interruptCommand } from "../features/session/model/intent.ts";
 import type { CommandHandlers } from "../routes/commands.ts";
 import type { Navigation } from "../routes/navigation.ts";
@@ -119,6 +120,18 @@ export const shellCommands = ({
     "view.orchestrate": { run: () => actions.setMode("orchestrate") },
     "view.review": { run: () => actions.setMode("review") },
     "view.edit": { run: () => actions.setMode("edit") },
+    "view.output": {
+      run: () => {
+        const s = selected();
+
+        if (s !== null) {
+          const { id, workspaceId } = s.entry.session;
+
+          toggleOutput({ hostKey: s.hostKey, workspaceId }, id);
+        }
+      },
+      enabled: () => selected() !== null,
+    },
     "jump.open": { run: actions.openJump },
     "help.shortcuts": { run: () => actions.setHelpOpen(true) },
     "session.new": {

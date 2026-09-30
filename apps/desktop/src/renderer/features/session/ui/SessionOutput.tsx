@@ -15,10 +15,10 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
   EmptyState,
+  IconButton,
   PixelSparkleIcon,
 } from "@polaris/ui";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Predicate } from "effect";
 import { useRef, useState } from "react";
 import type { TurnView } from "../../../store/sessionModel.ts";
 import { type DiffRow, diffRows, ROW_HEIGHT } from "../diffRows.ts";
@@ -26,7 +26,10 @@ import { useSession } from "../hooks.ts";
 import { totals } from "../model/diff.ts";
 import { plural } from "../model/format.ts";
 import { showTurnDiff, uiKey, useSessionUi } from "../state.ts";
-import { type DiffState, useTurnDiff } from "../turnDiff.ts";
+import { type DiffState, diffRevision, useTurnDiff } from "../turnDiff.ts";
+import { hideOutput } from "../output/actions.ts";
+import { SHOW_HINT } from "../output/OutputRail.tsx";
+import { useFilesTick } from "../output/watch.ts";
 import type { SessionViewProps } from "./SessionIntent.tsx";
 
 const CARD = "mx-4 border-x border-hairline bg-surface-sunken";
@@ -241,9 +244,6 @@ const Body = ({
   }
 };
 
-const revisionOf = (view: TurnView) =>
-  `${view.turn.status}:${view.turn.checkpointAfter ?? ""}:${view.items.filter((i) => Predicate.isTagged(i, "FileChange")).length}`;
-
 export const SessionOutput = ({ hostKey, sessionId }: SessionViewProps) => {
   const model = useSession(hostKey, sessionId);
   const key = uiKey(hostKey, sessionId);
@@ -255,12 +255,16 @@ export const SessionOutput = ({ hostKey, sessionId }: SessionViewProps) => {
 
   const turnId: TurnId | null = current?.turn.id ?? null;
 
+  const session = model.session;
+  const cwd = session?.cwd ?? null;
+  const files = useFilesTick(hostKey, cwd);
+
   const state = useTurnDiff(
     hostKey,
-    model.session?.cwd ?? "",
+    cwd ?? "",
     sessionId,
     turnId,
-    current === null ? "" : revisionOf(current)
+    current === null ? "" : diffRevision(current, files)
   );
 
   const sum = state.kind === "ready" ? totals(state.files) : null;
@@ -293,6 +297,15 @@ export const SessionOutput = ({ hostKey, sessionId }: SessionViewProps) => {
             </span>
             <Counts added={sum.added} removed={sum.removed} />
           </>
+        )}
+        {session === null ? null : (
+          <IconButton
+            size="sm"
+            label="Hide output"
+            shortcut={SHOW_HINT}
+            icon={<ChevronRightIcon size={14} />}
+            onClick={() => hideOutput({ hostKey, workspaceId: session.workspaceId }, sessionId)}
+          />
         )}
       </div>
       {current === null ? (

@@ -171,6 +171,11 @@ const ACTIONS: ReadonlyArray<{
     title: (c) => `Archive ${c.session ?? "session"}`,
     keywords: ["close", "hide"],
   },
+  {
+    id: "view.output",
+    title: () => "Show or hide output",
+    keywords: ["changes", "diff", "panel", "rail"],
+  },
   { id: "view.orchestrate", title: () => "Go to Orchestrate", keywords: ["view", "mode"] },
   { id: "view.review", title: () => "Go to Review", keywords: ["view", "mode", "diff"] },
   { id: "view.edit", title: () => "Go to Edit", keywords: ["view", "mode", "editor"] },

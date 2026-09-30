@@ -4,10 +4,11 @@
  * in flight diffs against the working tree, so it's fetched again as it goes.
  */
 import type { GitDiffSpec, SessionId, TurnId } from "@polaris/protocol";
-import { Data } from "effect";
+import { Data, Predicate } from "effect";
 import { useEffect, useState } from "react";
 import { type DiffFile, parseUnifiedDiff } from "./model/diff.ts";
 import { polaris } from "../bridge.ts";
+import type { TurnView } from "../../store/sessionModel.ts";
 
 export type DiffState =
   | { readonly kind: "loading" }
@@ -89,4 +90,20 @@ export const useTurnDiff = (
   if (state?.key === key) return state.value;
 
   return cache.get(key) ?? { kind: "loading" };
+};
+
+/**
+ * When a Turn's diff may have changed: its status and checkpoint, its file
+ * changes, and, while it has no `after` checkpoint (it diffs the working
+ * tree), every burst of file changes under its cwd (`files` from `useFilesTick`).
+ */
+export const diffRevision = (view: TurnView, files: number) => {
+  const edits = view.items
+    .filter((i) => Predicate.isTagged(i, "FileChange"))
+    .map((i) => i.status)
+    .join(",");
+
+  const live = view.turn.checkpointAfter === null ? files : "";
+
+  return `${view.turn.status}:${view.turn.checkpointAfter ?? ""}:${edits}:${live}`;
 };

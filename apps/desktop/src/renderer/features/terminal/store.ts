@@ -74,6 +74,16 @@ export const updateDrawer = (key: string, update: (drawer: Drawer) => Drawer) =>
 export const useDrawer = (key: string | null): Drawer =>
   useStore(drawers, (s) => (key === null ? emptyDrawer : (s[key] ?? emptyDrawer)));
 
+/** Whether a Workspace's drawer is showing terminals (the Output lane opens for it). */
+const shows = (drawer: Drawer | undefined) =>
+  drawer !== undefined && drawer.open && drawer.tabs.length > 0;
+
+export const useTerminalShown = (hostKey: string, workspaceId: string): boolean =>
+  useStore(drawers, (s) => shows(s[drawerKey(hostKey, workspaceId)]));
+
+export const isTerminalShown = (hostKey: string, workspaceId: string): boolean =>
+  shows(drawers.getState()[drawerKey(hostKey, workspaceId)]);
+
 /** A terminal exited or ended: every tab showing it says so. */
 type StatusListener = (status: TabStatus) => void;
 
