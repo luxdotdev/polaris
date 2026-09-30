@@ -9,7 +9,10 @@
  * It installs a real Daemon on the Host (~/.polaris, a user service), so it
  * refuses to run unless asked:
  *
- *   POLARIS_REAL_HOST=1 node scripts/realHost.ts <alias> <dir> [--session "<prompt>"]
+ *   POLARIS_REAL_HOST=1 node scripts/realHost.ts <alias> <dir> [--session "<prompt>" [--harness claude,codex]]
+ *
+ * With --session it runs one Turn per Harness (default claude) from the new-session page
+ * and waits for Idle. A Harness that isn't ready stops the run: it never signs in.
  *
  * Uses the real ssh and ~/.ssh/config, read only; Polaris's ssh never writes
  * known_hosts and never forwards the agent. The builds come from
@@ -32,6 +35,12 @@ const [alias, dir] = process.argv.slice(2);
 const at = process.argv.indexOf("--session");
 
 const prompt = at === -1 ? null : (process.argv[at + 1] ?? null);
+
+const harnessAt = process.argv.indexOf("--harness");
+
+const sessionHarnesses = (harnessAt === -1 ? "claude" : (process.argv[harnessAt + 1] ?? "claude"))
+  .split(",")
+  .filter((h) => h !== "");
 
 if (process.env.POLARIS_REAL_HOST !== "1" || alias === undefined || dir === undefined) {
   console.error(
@@ -164,6 +173,45 @@ const harnesses = async (page: Page) => {
   await row(page).scrollIntoViewIfNeeded();
   step(`harnesses:\n${await list.innerText()}`);
   await shoot(page, "05-harnesses");
+
+  // Never sign in for the user: a Harness the session needs must already be ready.
+  for (const kind of prompt === null ? [] : sessionHarnesses) {
+    const status = await list.getByTestId(`harness-${kind}`).innerText();
+
+    if (!/\bReady\b/.test(status)) throw new Error(`${kind} isn't ready on ${alias}: ${status}`);
+  }
+};
+
+/** One short Turn on `kind` from the new-session page, until the session is Idle again. */
+const session = async (page: Page, kind: string, text: string) => {
+  await page.keyboard.press("Meta+N");
+  await page.getByTestId("new-session").waitFor({ timeout: 10_000 });
+  await page.getByTestId(`harness-${kind}`).click();
+  await page.getByTestId("composer-input").fill(text);
+  await shoot(page, `09-${kind}-prompt`);
+  const started = Date.now();
+
+  await page.getByTestId("composer-input").press("Enter");
+  // Earlier sessions stay mounted, hidden, for instant switching: only the visible one counts.
+  const state = page.locator('[data-testid="session-state"]:visible');
+  const deadline = Date.now() + 5 * 60_000;
+
+  await page.waitForTimeout(2000);
+
+  while (!/^(Idle|Needs you|Failed)/.test(await state.innerText())) {
+    if (Date.now() > deadline) throw new Error(`${kind} session still ${await state.innerText()}`);
+    await page.waitForTimeout(1000);
+  }
+
+  const items = [await page.locator('[data-testid="session-panel"]:visible').innerText()];
+
+  await shoot(page, `10-${kind}-done`);
+  const ended = await state.innerText();
+
+  step(`${kind} session: ${ended} in ${Math.round((Date.now() - started) / 1000)} s`);
+  step(`${kind} items:\n${items.join("\n---\n").slice(0, 1200)}`);
+
+  if (!ended.startsWith("Idle")) throw new Error(`${kind} session ended ${ended}`);
 };
 
 /** Leaves Settings, selects the Host, and registers its home directory as a Workspace. */
@@ -172,13 +220,21 @@ const workspace = async (page: Page, homeDir: string | null) => {
   await page.keyboard.press("Escape");
   // The Workspace bar's host label (the machine bar's button from 11 Workspaces).
   await page.locator(`button[data-host="${alias}"]`).first().click();
-  await page.getByTestId("add-workspace").click();
-  await page.getByTestId("workspace-path").fill(homeDir);
-  await shoot(page, "06-workspace-path");
-  await page.getByRole("button", { name: "Add", exact: true }).click();
-  await page.getByTestId("host-stage").waitFor({ state: "detached", timeout: 30_000 });
-  await page.waitForTimeout(800);
-  step(`workspace ${homeDir} registered on ${alias}`);
+  await page.waitForTimeout(1500);
+
+  // A Host installed before (an upgrade) keeps its Workspaces: use the one it has.
+  if (await page.getByTestId("add-workspace").isVisible()) {
+    await page.getByTestId("add-workspace").click();
+    await page.getByTestId("workspace-path").fill(homeDir);
+    await shoot(page, "06-workspace-path");
+    await page.getByRole("button", { name: "Add", exact: true }).click();
+    await page.getByTestId("host-stage").waitFor({ state: "detached", timeout: 30_000 });
+    await page.waitForTimeout(800);
+    step(`workspace ${homeDir} registered on ${alias}`);
+  } else {
+    step(`${alias} already has a workspace; using it`);
+  }
+
   await shoot(page, "07-workspace");
   await page.keyboard.press("Meta+N");
   await page.waitForTimeout(1500);
@@ -203,7 +259,7 @@ try {
 
   await workspace(page, connected.status?.host?.homeDir ?? null);
 
-  if (prompt !== null) step(`session prompt given: ${prompt} (driven separately)`);
+  for (const kind of prompt === null ? [] : sessionHarnesses) await session(page, kind, prompt!);
 } catch (error) {
   await app.windows()[0]?.screenshot({ path: join(dir, "failure.png") });
   console.error(
