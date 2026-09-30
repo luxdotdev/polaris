@@ -7,7 +7,7 @@ export { TerminalDock, type TerminalDockProps } from "./ui/TerminalDock.tsx";
 
 export { InTerminalBar, OpenInTerminalItem, type HandoffSession } from "./ui/InTerminal.tsx";
 
-export { keepTerminalFocus } from "./focus.ts";
+export { claimFocusFromMenu, keepTerminalFocus } from "./focus.ts";
 
 export { runInTerminal, toggleTerminal, type TerminalPlace, type TerminalRun } from "./actions.ts";
 
