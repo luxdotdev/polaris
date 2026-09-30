@@ -17,7 +17,7 @@ const attached = (page: Page, selector: string) =>
 
 export const settingsFlow = async ({ app, page, step, shoot }: SettingsFlowInput) => {
   await app.evaluate(({ Menu }) => {
-    Menu.getApplicationMenu()?.getMenuItemById("settings")?.click();
+    Menu.getApplicationMenu()?.getMenuItemById("settings.open")?.click();
   });
   await page.getByTestId("settings").waitFor({ timeout: 5_000 });
   step("⌘, opened Settings");

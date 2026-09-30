@@ -10,8 +10,8 @@ import type { UsageWriter } from "./writer.ts";
 
 /** Codex writes compact JSON; history quoted inside another line has escaped quotes and won't match. */
 export const CODEX_SCAN = {
-  markers: ['"type":"token_count"', '"type":"turn_context"'],
-  // Both types sit in a line's first few hundred bytes.
+  markers: ['"type":"token_count"', '"type":"turn_context"', '"type":"thread_settings_applied"'],
+  // These types sit in a line's first few hundred bytes.
   markerWithin: 64 * 1024,
 };
 
@@ -117,6 +117,11 @@ const CodexLine = Schema.Struct({
             })
           )
         ),
+        thread_settings: Schema.optionalKey(
+          Schema.NullOr(
+            Schema.Struct({ service_tier: Schema.optionalKey(Schema.NullOr(Schema.String)) })
+          )
+        ),
       })
     )
   ),
@@ -185,6 +190,8 @@ const CodexState = Schema.Struct({
   seq: Schema.Number,
   previous: Schema.NullOr(RawUsageSchema),
   model: Schema.NullOr(Schema.String),
+  /** Priority processing (Codex's "fast" service tier), from the latest thread settings. */
+  fast: Schema.Boolean,
   thread: Schema.String,
   parent: Schema.NullOr(Schema.String),
   forkedAt: Schema.NullOr(Schema.Number),
@@ -270,8 +277,19 @@ export interface CodexEvent {
   readonly ts: number;
   readonly timestamp: string;
   readonly model: string;
+  /** Run at the priority tier. */
+  readonly fast: boolean;
   readonly usage: RawUsage;
 }
+
+/**
+ * ccusage's tier rule: a settings event without `service_tier` leaves the tier
+ * as it was; one Codex doesn't name a known tier resets it to standard.
+ */
+const applyServiceTier = (state: CodexState, tier: string | null | undefined) => {
+  if (tier === undefined) return;
+  state.fast = tier === "priority" || tier === "fast";
+};
 
 /** One rollout line through ccusage's visitor: a usage event, or null. Updates `state`. */
 export const visitCodexLine = (text: string, state: CodexState): CodexEvent | null => {
@@ -286,7 +304,15 @@ export const visitCodexLine = (text: string, state: CodexState): CodexEvent | nu
     return null;
   }
 
-  if (line.type !== "event_msg" || payload?.type !== "token_count" || !line.timestamp) return null;
+  if (line.type !== "event_msg" || !line.timestamp) return null;
+
+  if (payload?.type === "thread_settings_applied") {
+    applyServiceTier(state, payload.thread_settings?.service_tier);
+
+    return null;
+  }
+
+  if (payload?.type !== "token_count") return null;
   const info = payload.info;
   const total = info?.total_token_usage ? toRawUsage(info.total_token_usage) : null;
   const advanced = total === null || state.previous === null || !sameUsage(state.previous, total);
@@ -305,6 +331,7 @@ export const visitCodexLine = (text: string, state: CodexState): CodexEvent | nu
     ts: Number.isNaN(ts) ? 0 : ts,
     timestamp: line.timestamp,
     model: state.model ?? "unknown",
+    fast: state.fast,
     usage,
   };
 };
@@ -315,6 +342,7 @@ const detectRewrittenBurst = async (path: string, size: number): Promise<number 
     seq: 0,
     previous: null,
     model: null,
+    fast: false,
     thread: "",
     parent: null,
     forkedAt: null,
@@ -424,6 +452,7 @@ export const newCodexState = async (path: string, fallbackThread: string): Promi
     seq: 0,
     previous: null,
     model: null,
+    fast: false,
     ...meta,
     replay: meta.parent === null ? { kind: "done" } : { kind: "matching", index: 0 },
   };
@@ -471,12 +500,15 @@ export const indexCodexFile = async (
           harness: "codex",
           native: state.thread,
           ts: event.ts,
-          model: event.model,
+          // Priced apart, like Claude's fast mode; the dedup key keeps the logged Model.
+          model: event.fast ? `${event.model}-fast` : event.model,
           input: u.input - u.cached - u.cacheCreation,
           cacheRead: u.cached,
           cacheWrite: u.cacheCreation,
           output: u.output,
           reasoning: u.reasoning,
+          cacheWrite1h: 0,
+          context: u.input,
           cost: null,
         },
         dedupeKey(event)

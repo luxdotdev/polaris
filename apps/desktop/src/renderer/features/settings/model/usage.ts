@@ -5,9 +5,10 @@
  * needs an estimate from a price list (ENG-207), passed in as `estimate`.
  */
 import type { TokenCounts, UsageBucket } from "@polaris/protocol";
-import type { Plain } from "../../../../shared/api.ts";
+import type { BucketEstimate, Plain } from "../../../../shared/api.ts";
 
-export type Bucket = Plain<UsageBucket>;
+/** A bucket as `usage.query` returns it, with main's API-price estimate when it has one. */
+export type Bucket = Plain<UsageBucket> & { readonly estimate?: BucketEstimate };
 
 export type Tokens = Plain<TokenCounts>;
 
@@ -28,6 +29,7 @@ const minus = (a: Tokens, b: Tokens): Tokens => ({
   cacheWrite: Math.max(0, a.cacheWrite - b.cacheWrite),
   output: Math.max(0, a.output - b.output),
   reasoning: Math.max(0, a.reasoning - b.reasoning),
+  cacheWrite1h: Math.max(0, a.cacheWrite1h - b.cacheWrite1h),
 });
 
 /** A cost: exact when the Harness reported all of it, estimated when any part is priced by us. */
@@ -60,6 +62,12 @@ const addCost = (a: Cost, b: Cost): Cost => ({
 });
 
 export const noEstimate: Estimator = () => null;
+
+/** Main's estimate from the price book (ENG-207); a bucket with unpriced tokens stays unpriced. */
+export const pricedEstimate: Estimator = (bucket) =>
+  bucket.estimate === undefined || bucket.estimate.unpricedTokens > 0
+    ? null
+    : bucket.estimate.estimatedUsd;
 
 export interface HarnessDay {
   readonly harness: string;
@@ -198,21 +206,6 @@ export const usageSummary = ({
     days: dailySeries(buckets, dates, harnesses),
     byModel: modelRows(buckets, estimate),
   };
-};
-
-/** Replaces buckets with the same key (`hour`, `harness`, `model`, `sessionId`), as `UsageChanged` says. */
-export const mergeBuckets = (
-  current: ReadonlyArray<Bucket>,
-  changed: ReadonlyArray<Bucket>
-): ReadonlyArray<Bucket> => {
-  const key = (b: Bucket) =>
-    `${b.hour}\u0000${b.harness}\u0000${b.model}\u0000${b.sessionId ?? ""}`;
-
-  const merged = new Map(current.map((b) => [key(b), b]));
-
-  for (const b of changed) merged.set(key(b), b);
-
-  return [...merged.values()];
 };
 
 /** "48.2M", "912K", "640". */

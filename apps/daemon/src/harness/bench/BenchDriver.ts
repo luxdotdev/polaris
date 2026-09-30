@@ -5,7 +5,7 @@
  * tool calls, file changes and approvals that wait for a Client's answer.
  *
  * Loaded only when `POLARIS_BENCH_HARNESS=1` (see `../registry.ts`); it then
- * stands in for every Harness kind. Never enabled in production.
+ * stands in for Claude Code and Codex (`./kinds.ts`). Never enabled in production.
  *
  * Each Turn follows a script: a prompt of the form `bench:{...json...}` sets
  * any field of `BenchTurnScript`; any other prompt gets `DEFAULT_SCRIPT`.

@@ -196,6 +196,30 @@ export const RequestInputs = {
    */
   "machines.openSsh": onHost({}),
   "clipboard.write": Schema.Struct({ text: Schema.String }),
+  /** The renderer's Needs You summary, for the menu bar star, Dock badge and notifications. */
+  "needsYou.publish": Schema.Struct({
+    count: Schema.Int,
+    sessions: Schema.Array(
+      Schema.Struct({
+        hostKey: HostKey,
+        hostLabel: Schema.String,
+        workspace: Schema.NullOr(Schema.String),
+        sessionId: Schema.String,
+        title: Schema.String,
+        harness: Schema.String,
+        requests: Schema.Array(
+          Schema.Struct({
+            requestId: Schema.String,
+            kind: Schema.Literals(["command", "file-change", "tool", "question"]),
+            title: Schema.String,
+            detail: Schema.NullOr(Schema.String),
+            options: Schema.Array(Schema.String),
+          })
+        ),
+      })
+    ),
+    focused: Schema.NullOr(Schema.Struct({ hostKey: HostKey, sessionId: Schema.String })),
+  }),
   /** Dev only: a fresh temporary directory on the dev Daemon's Host for the proof session. */
   "dev.proofWorkspace": Schema.Struct({}),
 } as const;

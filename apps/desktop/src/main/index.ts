@@ -27,6 +27,7 @@ import { registerIpc } from "./ipc/index.ts";
 import { machinesLayer } from "./machines/index.ts";
 import { type LocalDaemon, resolveLocalDaemon } from "./localDaemon.ts";
 import { buildMenu } from "./menu.ts";
+import { createNeedsYouCenter, type NeedsYouCenter } from "./notifications/index.ts";
 import {
   APP_ORIGIN,
   applyDevCsp,
@@ -34,6 +35,7 @@ import {
   registerAppScheme,
   serveRenderer,
 } from "./protocol.ts";
+import { openPrices } from "./prices.ts";
 import { openSnapshotCache } from "./snapshotCache.ts";
 import {
   appearanceOf,
@@ -74,6 +76,8 @@ let runtime: ClientRuntime | null = null;
 let localDaemon: LocalDaemon | null = null;
 
 let ipc: { readonly dispose: () => void } | null = null;
+
+let needsYou: NeedsYouCenter | null = null;
 
 const trusted = (url: string) => isTrustedUrl(url, devUrl);
 
@@ -166,6 +170,7 @@ const start = async () => {
       settings: () => settings,
       version: app.getVersion(),
       cache: openSnapshotCache(app.getPath("userData")),
+      prices: openPrices(app.getPath("userData")),
       setAppearance,
       setSessionDefault,
       openExternal: (url) => shell.openExternal(url),
@@ -173,6 +178,7 @@ const start = async () => {
         localDaemon?.benchHarness === true ? mkdtempSync(join(tmpdir(), "polaris-proof-")) : null,
       daemonDist: existsSync(join(daemonDist, "manifest.json")) ? daemonDist : null,
       writeClipboard: async (text) => clipboard.writeText(text),
+      needsYou: (summary) => needsYou?.publish(summary),
     },
   });
 
@@ -190,6 +196,12 @@ const start = async () => {
     show: env.POLARIS_DESKTOP_HIDDEN !== "1",
   });
 
+  needsYou = createNeedsYouCenter({
+    window: () => (win.isDestroyed() ? null : win),
+    send: (event) => win.webContents.send(CHANNELS.app, event),
+    notify: env.POLARIS_DESKTOP_HIDDEN !== "1",
+  });
+
   // Benchmarks and scripts wait for this line: the window is painted and the local Host is up.
   const shown = new Promise<void>((resolve) => win.once("ready-to-show", () => resolve()));
 
@@ -205,6 +217,7 @@ app.on("will-quit", (event) => {
   quitting = true;
   event.preventDefault();
   ipc?.dispose();
+  needsYou?.dispose();
   // The dev Daemon (if this app started it) goes down with the app.
   void Promise.allSettled([runtime?.dispose(), localDaemon?.stop()]).then(() => app.exit(0));
 });

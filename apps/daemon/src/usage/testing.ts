@@ -56,6 +56,8 @@ export interface ClaudeFixture {
   readonly cacheWrite?: number;
   readonly sidechain?: boolean;
   readonly speed?: string;
+  /** Of `cacheWrite`, the part cached for an hour (written as the 5m / 1h split). */
+  readonly cacheWrite1h?: number;
   readonly costUSD?: number;
 }
 
@@ -77,6 +79,7 @@ interface ClaudeLineJson {
       output_tokens: number;
       cache_read_input_tokens: number;
       cache_creation_input_tokens: number;
+      cache_creation?: { ephemeral_5m_input_tokens: number; ephemeral_1h_input_tokens: number };
       speed?: string;
     };
   };
@@ -110,6 +113,13 @@ export const claudeLine = (f: ClaudeFixture): ClaudeLineJson => {
   if (f.costUSD !== undefined) line.costUSD = f.costUSD;
 
   if (f.speed !== undefined) line.message.usage.speed = f.speed;
+
+  if (f.cacheWrite1h !== undefined) {
+    line.message.usage.cache_creation = {
+      ephemeral_5m_input_tokens: (f.cacheWrite ?? 5) - f.cacheWrite1h,
+      ephemeral_1h_input_tokens: f.cacheWrite1h,
+    };
+  }
 
   return line;
 };
@@ -162,3 +172,10 @@ export const codexTokenCount = (ts: string, total: CodexUsageFixture, last?: Cod
 
   return { timestamp: ts, type: "event_msg", payload: { type: "token_count", info } };
 };
+
+/** Codex's thread settings event: the service tier later Turns run at. */
+export const codexSettings = (ts: string, serviceTier: string) => ({
+  timestamp: ts,
+  type: "event_msg",
+  payload: { type: "thread_settings_applied", thread_settings: { service_tier: serviceTier } },
+});

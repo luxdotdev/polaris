@@ -1,15 +1,20 @@
 /**
  * Usage and Plan Limits across every Host that reports them (capability
- * `usage`): `usage.query` for the chosen range, and `usage.watch` for Plan
- * Limits (every known one first) and live bucket changes.
+ * `usage`): `usage.query` for the chosen range, priced in main, and
+ * `usage.watch` for Plan Limits (every known one first). A Usage change asks
+ * that range again after a quiet moment, so estimates stay attached.
  */
 import { Match } from "effect";
 import { useEffect, useState } from "react";
+import type { RequestOutput } from "../../../../shared/api.ts";
 import { useApp } from "../../../shell/hooks.ts";
 import type { Limit } from "../model/planLimits.ts";
-import { type Bucket, mergeBuckets, type RangeDays, rangeWindow } from "../model/usage.ts";
+import { type Bucket, type RangeDays, rangeWindow } from "../model/usage.ts";
 
 type PerHost<A> = Readonly<Record<string, A>>;
+
+/** Usage changes while an Agent Session works; re-querying on each would be wasteful. */
+const REQUERY_MS = 5_000;
 
 const sameWindow = (a: Limit, b: Limit) =>
   a.harness === b.harness && a.kind === b.kind && a.scope === b.scope;
@@ -17,6 +22,16 @@ const sameWindow = (a: Limit, b: Limit) =>
 const joinKeys = (keys: ReadonlyArray<string>) => keys.join("\u0000");
 
 const splitKeys = (joined: string) => (joined === "" ? [] : joined.split("\u0000"));
+
+const priced = (view: RequestOutput<"usage.query">): ReadonlyArray<Bucket> =>
+  view.report.buckets.map((bucket, i) => {
+    const estimate = view.estimates[i];
+
+    if (estimate === undefined) return bucket;
+    const { hour, harness, model, sessionId, tokens, reportedCost, longContext } = bucket;
+
+    return { hour, harness, model, sessionId, tokens, reportedCost, longContext, estimate };
+  });
 
 export interface UsageData {
   readonly buckets: ReadonlyArray<Bucket>;
@@ -39,17 +54,18 @@ export const useUsage = (days: RangeDays): UsageData => {
   const [buckets, setBuckets] = useState<PerHost<ReadonlyArray<Bucket>>>({});
   const [limits, setLimits] = useState<PerHost<ReadonlyArray<Limit>>>({});
   const [queried, setQueried] = useState<string>("");
+  const [changes, setChanges] = useState(0);
 
   useEffect(() => {
     let live = true;
     const hosts = splitKeys(hostKeys);
-    const window_ = rangeWindow(days, Date.now());
+    const range = rangeWindow(days, Date.now());
 
     void Promise.all(
       hosts.map((hostKey) =>
         window.polaris
-          .request("usage.query", { hostKey, ...window_, harness: null, sessionId: null })
-          .then((result) => [hostKey, result.ok ? result.value.buckets : []] as const)
+          .request("usage.query", { hostKey, ...range, harness: null, sessionId: null })
+          .then((result) => [hostKey, result.ok ? priced(result.value) : []] as const)
       )
     ).then((entries) => {
       if (!live) return;
@@ -60,9 +76,18 @@ export const useUsage = (days: RangeDays): UsageData => {
     return () => {
       live = false;
     };
-  }, [days, hostKeys]);
+  }, [days, hostKeys, changes]);
 
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const changed = () => {
+      timer ??= setTimeout(() => {
+        timer = null;
+        setChanges((n) => n + 1);
+      }, REQUERY_MS);
+    };
+
     const offs = splitKeys(hostKeys).map((hostKey) =>
       window.polaris.subscribe(
         "usage",
@@ -80,11 +105,7 @@ export const useUsage = (days: RangeDays): UsageData => {
                         limit,
                       ],
                     })),
-                  UsageChanged: ({ buckets: changed }) =>
-                    setBuckets((b) => ({
-                      ...b,
-                      [hostKey]: mergeBuckets(b[hostKey] ?? [], changed),
-                    })),
+                  UsageChanged: changed,
                 })
               );
             }
@@ -94,6 +115,8 @@ export const useUsage = (days: RangeDays): UsageData => {
     );
 
     return () => {
+      if (timer !== null) clearTimeout(timer);
+
       for (const off of offs) off();
     };
   }, [hostKeys]);

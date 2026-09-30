@@ -3,7 +3,7 @@
  * (⌘,, the sidebar's gear, the K menu), Appearance, Harnesses and Usage.
  * Hosts is the `SettingsHosts` slot, filled by features/machines.
  */
-export { registerSettingsActions, settingsActions } from "./actions.ts";
+export { settingsCommands } from "./actions.ts";
 
 export {
   connectSettings,
@@ -14,7 +14,5 @@ export {
   useSessionDefault,
   useSettings,
 } from "./store.ts";
-
-export { LineTerminal } from "./ui/LineTerminal.tsx";
 
 export { SettingsPage } from "./ui/SettingsPage.tsx";

@@ -136,13 +136,27 @@ describe("harness.availability", () => {
     expect(reports.map((r) => statuses(r).codex)).toEqual(["needs-sign-in", "ready"]);
   });
 
-  test("the bench Daemon reports every Harness ready without probing", async () => {
+  test("the bench Daemon reports Claude Code and Codex ready; the others are probed", async () => {
+    const host = fakeHost();
+    writeFileSync(join(host.env.PATH, "gemini"), "#!/bin/sh\necho 0.61.0\n");
+    chmodSync(join(host.env.PATH, "gemini"), 0o755);
+
     const report = await Effect.runPromise(
       Effect.flatMap(Availability, (availability) => availability.get(false)).pipe(
-        Effect.provide(Availability.layer({ env: { PATH: "" }, bench: true }))
+        Effect.provide(Availability.layer({ env: host.env, bench: true }))
       )
     );
 
-    expect(new Set(report.harnesses.map((h) => h.status))).toEqual(new Set(["ready"]));
+    expect(statuses(report)).toEqual({
+      claude: "ready",
+      codex: "ready",
+      opencode: "not-installed",
+      gemini: "needs-sign-in",
+      copilot: "not-installed",
+    });
+    expect(report.harnesses.find((h) => h.harness === "gemini")?.version).toBe("0.61.0");
+    expect(report.harnesses.find((h) => h.harness === "codex")?.version).toBe("bench");
+    // The fake codex on PATH was never run: the bench stands in for it.
+    expect(await host.probes()).toBe(0);
   });
 });

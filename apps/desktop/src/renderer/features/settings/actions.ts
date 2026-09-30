@@ -1,25 +1,11 @@
-/** Settings in the K menu: "Settings" (⌘,) and one action per section. */
-import { registerActions, type ShellAction } from "../../routes/actions.ts";
+/** Settings' commands (`shared/keymap.ts`): "Settings…" (⌘,) and one per section, for the K menu. */
+import type { CommandHandlers } from "../../routes/commands.ts";
 import type { ShellActions } from "../../routes/navigation.ts";
-import { SECTIONS } from "./model/sections.ts";
 
-export const settingsActions = (shell: ShellActions): ReadonlyArray<ShellAction> => [
-  {
-    id: "settings.open",
-    title: "Settings",
-    group: "Settings",
-    keywords: ["preferences"],
-    shortcut: "⌘,",
-    run: () => shell.openSettings(),
-  },
-  ...SECTIONS.map((section): ShellAction => ({
-    id: `settings.${section.id}`,
-    title: `Settings: ${section.title}`,
-    group: "Settings",
-    keywords: section.keywords,
-    run: () => shell.openSettings(section.id),
-  })),
-];
-
-export const registerSettingsActions = (shell: ShellActions) =>
-  registerActions(settingsActions(shell));
+export const settingsCommands = (shell: ShellActions): CommandHandlers => ({
+  "settings.open": { run: () => shell.openSettings() },
+  "settings.appearance": { run: () => shell.openSettings("appearance") },
+  "settings.harnesses": { run: () => shell.openSettings("harnesses") },
+  "settings.usage": { run: () => shell.openSettings("usage") },
+  "settings.hosts": { run: () => shell.openSettings("hosts") },
+});

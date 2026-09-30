@@ -1,7 +1,8 @@
 /**
- * The native menu: the standard macOS menus with Polaris → Settings… (⌘,),
- * View → Orchestrate / Review / Edit (⌘1–3, routed in the renderer), and the
- * appearance and density overrides.
+ * The native menu: the standard macOS menus, plus Polaris → Settings… (⌘,),
+ * View, Go, Session and Help built from the keymap (`shared/keymap.ts`). Their
+ * accelerators are shown but not registered, so key presses reach the
+ * renderer, the one place that handles shortcuts; a menu click sends the command there.
  */
 import { BrowserWindow, Menu, type MenuItemConstructorOptions } from "electron";
 import {
@@ -9,9 +10,10 @@ import {
   type Appearance,
   CHANNELS,
   type Density,
-  type Route,
   type ThemeSource,
 } from "../shared/api.ts";
+import { isBare, parseChord } from "../shared/chord.ts";
+import { KEYMAP, type MenuName } from "../shared/keymap.ts";
 
 export interface MenuInput {
   readonly appearance: Appearance;
@@ -27,6 +29,25 @@ const send = (event: AppEvent) =>
     CHANNELS.app,
     event
   );
+
+/** A menu's items from the keymap; the first chord with a modifier is the one shown. */
+const commandItems = (menu: MenuName): Array<MenuItemConstructorOptions> =>
+  KEYMAP.filter((b) => b.menu === menu).map((b) => {
+    const shown = b.keys.find((k) => !isBare(parseChord(k)));
+
+    const item: MenuItemConstructorOptions = {
+      id: b.id,
+      label: b.title,
+      click: () => send({ kind: "command", id: b.id }),
+    };
+
+    if (shown !== undefined) {
+      item.accelerator = shown;
+      item.registerAccelerator = false;
+    }
+
+    return item;
+  });
 
 const develop = (proofHostKey: string | null): MenuItemConstructorOptions => ({
   label: "Develop",
@@ -45,18 +66,13 @@ const develop = (proofHostKey: string | null): MenuItemConstructorOptions => ({
   ],
 });
 
-/** The macOS app menu, as `role: "appMenu"` builds it, plus Settings… (⌘,). */
-const appMenu: MenuItemConstructorOptions = {
+/** The macOS app menu, as `role: "appMenu"` builds it, plus the keymap's App items (Settings…). */
+const appMenu = (): MenuItemConstructorOptions => ({
   role: "appMenu",
   submenu: [
     { role: "about" },
     { type: "separator" },
-    {
-      id: "settings",
-      label: "Settings…",
-      accelerator: "CmdOrCtrl+,",
-      click: () => send({ kind: "settings" }),
-    },
+    ...commandItems("App"),
     { type: "separator" },
     { role: "services" },
     { type: "separator" },
@@ -66,19 +82,7 @@ const appMenu: MenuItemConstructorOptions = {
     { type: "separator" },
     { role: "quit" },
   ],
-};
-
-const route = (to: Route) => () => send({ kind: "route", route: to });
-
-const MODES: ReadonlyArray<{
-  readonly label: string;
-  readonly route: Route;
-  readonly key: string;
-}> = [
-  { label: "Orchestrate", route: "orchestrate", key: "CmdOrCtrl+1" },
-  { label: "Review", route: "review", key: "CmdOrCtrl+2" },
-  { label: "Edit", route: "edit", key: "CmdOrCtrl+3" },
-];
+});
 
 const THEMES: ReadonlyArray<{ readonly label: string; readonly theme: ThemeSource }> = [
   { label: "System", theme: "system" },
@@ -94,7 +98,7 @@ const DENSITIES: ReadonlyArray<{ readonly label: string; readonly density: Densi
 
 export const buildMenu = ({ appearance, setAppearance, dev, proofHostKey }: MenuInput) => {
   const view: Array<MenuItemConstructorOptions> = [
-    ...MODES.map((m) => ({ label: m.label, accelerator: m.key, click: route(m.route) })),
+    ...commandItems("View"),
     { type: "separator" },
     {
       label: "Appearance",
@@ -120,12 +124,15 @@ export const buildMenu = ({ appearance, setAppearance, dev, proofHostKey }: Menu
 
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
-      appMenu,
+      appMenu(),
       { role: "fileMenu" },
       { role: "editMenu" },
       { label: "View", submenu: view },
+      { label: "Go", submenu: commandItems("Go") },
+      { label: "Session", submenu: commandItems("Session") },
       { role: "windowMenu" },
       ...(dev || proofHostKey !== null ? [develop(proofHostKey)] : []),
+      { role: "help", submenu: commandItems("Help") },
     ])
   );
 };

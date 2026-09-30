@@ -6,5 +6,5 @@
     "jsx": "react-jsx"
   },
   "include": [".", "../shared"],
-  "exclude": ["**/*.test.ts", "**/*.testing.ts"]
+  "exclude": ["**/*.test.ts", "**/*.testing.ts", "../shared/**/*.test.ts"]
 }

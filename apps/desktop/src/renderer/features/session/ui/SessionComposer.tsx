@@ -8,10 +8,10 @@ import type { Harness } from "@polaris/ui";
 import { Commands, newSessionId } from "../../../commands.ts";
 import type { SessionData } from "../../../store/plain.ts";
 import type { SessionModel } from "../../../store/sessionModel.ts";
-import { useStaging } from "../attachments.ts";
+import { useUploads } from "../../attachments/index.ts";
 import { send } from "../dispatch.ts";
 import { hasCapability, useElapsed, useHarnessModels, useHost } from "../hooks.ts";
-import { formatElapsed } from "../model/format.ts";
+import { formatElapsed, tildePath } from "../model/format.ts";
 import {
   composerMode,
   forkCommand,
@@ -92,8 +92,15 @@ export const SessionComposer = (props: SessionComposerProps) => {
   const draft = { text: ui.draft, attachments: ui.attachments.map((a) => a.id) };
   const command = submitCommand(mode, session.id, draft);
 
-  const { stage, pending } = useStaging(
-    { hostKey, workspaceId: session.workspaceId, sessionId: session.id },
+  const shownCwd = tildePath(session.cwd, host?.status.host?.homeDir ?? null);
+
+  const { upload, uploads } = useUploads(
+    {
+      hostKey,
+      workspaceId: session.workspaceId,
+      sessionId: session.id,
+      copyTo: { path: session.cwd, shown: shownCwd },
+    },
     (staged) => patchSessionUi(uiKey, (u) => ({ attachments: [...u.attachments, staged] }))
   );
 
@@ -146,8 +153,9 @@ export const SessionComposer = (props: SessionComposerProps) => {
       }
       onEscape={isWorking ? stop : undefined}
       attachments={ui.attachments}
-      staging={pending}
-      onFiles={hasCapability(host, "attachments.stage") ? stage : undefined}
+      uploads={uploads}
+      copyTo={shownCwd}
+      onFiles={hasCapability(host, "attachments.stage") ? upload : undefined}
       onRemoveAttachment={(a) =>
         patchSessionUi(uiKey, (u) => ({ attachments: u.attachments.filter((x) => x !== a) }))
       }

@@ -43,8 +43,12 @@ export interface NavState {
   readonly pane: Pane;
   readonly sidebar: SidebarView;
   readonly jumpOpen: boolean;
+  /** The keyboard shortcut overlay (⌘/ or ?). */
+  readonly helpOpen: boolean;
   readonly settings: SettingsRoute | null;
   readonly topBar: TopBarMode;
+  /** Sessions and Workspaces opened lately, newest first (`recentKey`), for the jump menu. */
+  readonly recent: ReadonlyArray<string>;
   /** The session last open in each Workspace (`workspaceKey`), restored on switching back. */
   readonly lastSession: Readonly<Record<string, SessionId>>;
   /** Machine-mode Workspace groups the user folded or unfolded (`workspaceKey`). */
@@ -59,14 +63,28 @@ export const initialNav: NavState = {
   pane: "session",
   sidebar: "sessions",
   jumpOpen: false,
+  helpOpen: false,
   settings: null,
   topBar: "workspaces",
+  recent: [],
   lastSession: {},
   folded: {},
 };
 
 export const workspaceKey = (hostKey: string, workspaceId: string) =>
   `${hostKey}\u0000${workspaceId}`;
+
+export type RecentKind = "session" | "workspace";
+
+/** One recent item: its kind, Host and id. */
+export const recentKey = (kind: RecentKind, hostKey: string, id: string) =>
+  `${kind}\u0000${hostKey}\u0000${id}`;
+
+export const RECENT_LIMIT = 8;
+
+/** `key` moved to the front, without duplicates, capped. */
+export const withRecent = (recent: ReadonlyArray<string>, key: string) =>
+  [key, ...recent.filter((k) => k !== key)].slice(0, RECENT_LIMIT);
 
 export interface Selection {
   readonly mode: Route;

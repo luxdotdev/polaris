@@ -5,6 +5,8 @@
  */
 import type { SessionId } from "@polaris/protocol";
 import { slots } from "../app/slots.tsx";
+import { HostStage } from "../features/empty/index.ts";
+import { TerminalDock } from "../features/terminal/index.ts";
 import { useSelection, useShellActions } from "./hooks.ts";
 
 export const Columns = () => {
@@ -13,8 +15,8 @@ export const Columns = () => {
 
   if (hostKey === null || workspaceId === null) {
     return (
-      <section className="text-body text-text-faint grid min-w-0 flex-1 place-items-center">
-        No workspaces yet
+      <section className="flex min-w-0 flex-1 flex-col">
+        <HostStage hostKey={hostKey} />
       </section>
     );
   }
@@ -35,7 +37,9 @@ export const Columns = () => {
   if (sessionId === null) {
     return (
       <section className="flex min-w-0 flex-1 flex-col">
-        <slots.NoSession hostKey={hostKey} workspaceId={workspaceId} />
+        <TerminalDock hostKey={hostKey} workspaceId={workspaceId}>
+          <slots.NoSession hostKey={hostKey} workspaceId={workspaceId} />
+        </TerminalDock>
       </section>
     );
   }
@@ -49,7 +53,9 @@ export const Columns = () => {
         <slots.SessionIntent hostKey={hostKey} sessionId={sessionId} />
       </section>
       <section aria-label="Output" className="flex min-w-0 flex-1 flex-col">
-        <slots.SessionOutput hostKey={hostKey} sessionId={sessionId} />
+        <TerminalDock hostKey={hostKey} workspaceId={workspaceId}>
+          <slots.SessionOutput hostKey={hostKey} sessionId={sessionId} />
+        </TerminalDock>
       </section>
     </>
   );

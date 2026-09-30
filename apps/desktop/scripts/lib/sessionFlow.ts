@@ -88,9 +88,11 @@ export interface FlowInput {
   readonly repo: string;
   readonly step: (message: string) => void;
   readonly shoot: (name: string) => Promise<void>;
+  /** Runs once the first approval is up, before the conversation approves the rest. */
+  readonly atFirstApproval?: () => Promise<void>;
 }
 
-export const sessionFlow = async ({ page, repo, step, shoot }: FlowInput) => {
+export const sessionFlow = async ({ page, repo, step, shoot, atFirstApproval }: FlowInput) => {
   await page.evaluate(
     `window.polaris.request("dispatch", { hostKey: "local", commandId: crypto.randomUUID(), command: { _tag: "RegisterWorkspace", path: ${JSON.stringify(repo)}, name: "smoke-repo" } })`
   );
@@ -115,7 +117,8 @@ export const sessionFlow = async ({ page, repo, step, shoot }: FlowInput) => {
   step("first Turn streaming");
   await page.getByTestId("approval").first().waitFor({ timeout: 20_000 });
   await shoot("approval");
-  const approved = await approveAll(page, step);
+  const inboxApproved = atFirstApproval === undefined ? 0 : (await atFirstApproval(), 1);
+  const approved = inboxApproved + (await approveAll(page, step));
 
   if (approved === 0) throw new Error("no approval was asked");
   step("first Turn finished");
