@@ -3,6 +3,7 @@ import { WorkspaceId } from "@polaris/protocol";
 import { createStore } from "zustand/vanilla";
 import { type AppState, initialState } from "../store/store.ts";
 import { hostModel, hostView, workspaces } from "./fixtures.testing.ts";
+import { handleOverlayEscape } from "./keyboard.ts";
 import { createNavigation, loadNav } from "./navigation.ts";
 
 const memoryStorage = () => {
@@ -162,5 +163,30 @@ describe("navigation", () => {
     nav.actions.startNewSession();
     expect(asked).toEqual([]);
     expect(nav.current()).toMatchObject({ workspaceId: "local0", pane: "new-session" });
+  });
+});
+
+describe("shell overlays", () => {
+  test("one at a time: opening one closes the other; Escape closes whichever is open", () => {
+    const nav = createNavigation({ app: withData({ local: 1 }), storage: null });
+    const open = () => [nav.store.getState().jumpOpen, nav.store.getState().helpOpen];
+
+    nav.actions.openJump();
+    nav.actions.setHelpOpen(true);
+    expect(open()).toEqual([false, true]);
+    nav.actions.openJump();
+    expect(open()).toEqual([true, false]);
+    expect(handleOverlayEscape({ key: "Escape", isComposing: false }, nav.actions)).toBe(true);
+    expect(open()).toEqual([false, false]);
+    expect(handleOverlayEscape({ key: "Escape", isComposing: false }, nav.actions)).toBe(false);
+  });
+
+  test("Escape during IME composition, or another key, leaves the overlay open", () => {
+    const nav = createNavigation({ app: withData({ local: 1 }), storage: null });
+
+    nav.actions.openJump();
+    expect(handleOverlayEscape({ key: "Escape", isComposing: true }, nav.actions)).toBe(false);
+    expect(handleOverlayEscape({ key: "k", isComposing: false }, nav.actions)).toBe(false);
+    expect(nav.store.getState().jumpOpen).toBe(true);
   });
 });

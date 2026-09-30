@@ -45,8 +45,11 @@ export const ShortcutHelp = () => {
   const open = useNav((s) => s.helpOpen);
   const { setHelpOpen } = useShellActions();
 
+  // Only while open, like the jump menu: no lingering layer to take the next Escape.
+  if (!open) return null;
+
   return (
-    <Dialog open={open} onOpenChange={setHelpOpen}>
+    <Dialog open onOpenChange={setHelpOpen}>
       <DialogContent
         showClose
         className="max-h-[calc(100vh-96px)] w-[560px] overflow-y-auto p-6"
