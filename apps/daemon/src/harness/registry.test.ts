@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 import { makeBenchDriver } from "./bench/BenchDriver.ts";
 import { isBenchKind } from "./bench/kinds.ts";
 import { makeClaudeDriver } from "./claude/ClaudeDriver.ts";
@@ -10,6 +10,7 @@ import { makeCodexDriver } from "./codex/CodexDriver.ts";
 import type { HarnessDriver } from "./HarnessDriver.ts";
 import { makeOpenCodeDriver } from "./opencode/OpenCodeDriver.ts";
 import { HarnessRegistry } from "../services.ts";
+import { PlanLimitReporter } from "./limits/PlanLimitReporter.ts";
 import { DRIVER_CAPABILITIES, harnessRegistryLayer, lazyDriver } from "./registry.ts";
 
 describe("lazyDriver", () => {
@@ -109,7 +110,11 @@ describe("bench mode", () => {
               })
             );
           })
-        ).pipe(Effect.provide(harnessRegistryLayer({ bench: true })))
+        ).pipe(
+          Effect.provide(
+            harnessRegistryLayer({ bench: true }).pipe(Layer.provide(PlanLimitReporter.none))
+          )
+        )
       );
 
       const byKind = Object.fromEntries(report.map((r) => [r.kind, r]));

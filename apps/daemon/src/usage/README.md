@@ -74,7 +74,8 @@ yield* sink.report(new PlanLimit({ harness: "claude", kind: "five-hour", ... }))
 
 - A limit's key is (`harness`, `kind`, `scope`). `report` keeps the latest value per key, persists it in the index (`plan_limits`), and publishes `PlanLimitChanged` to every watcher.
 - A new subscriber first gets every known limit, persisted ones included, so Clients can show the last value with its age after a restart. Then it gets live `UsageChanged` and `PlanLimitChanged` items.
-- `serve.ts` provides `PlanLimitSink` beside the other Daemon services. A driver that reports limits takes it from its layer's context.
+- `serve.ts` provides `PlanLimitSink` beside the other Daemon services. The drivers report through `PlanLimitReporter` (`../harness/limits/`), which sits in front of it and drops stale and repeated readings.
+- `UsageIndexOptions.planLimitSeed` gives last known values from the Harnesses' own logs (Codex's rollouts). It runs once, on the first `usage.watch`, before the known values are sent, and never replaces a newer value.
 
 ## Cost
 

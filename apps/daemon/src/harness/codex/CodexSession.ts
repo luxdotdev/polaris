@@ -35,6 +35,12 @@ import {
 } from "../HarnessDriver.ts";
 import type { AppServer } from "./AppServer.ts";
 import {
+  type CodexPlanLimits,
+  onRateLimitsUpdated,
+  RATE_LIMITS_UPDATED,
+  readRateLimits,
+} from "./planLimits.ts";
+import {
   approvalDecision,
   elicitationDecision,
   permissionsDecision,
@@ -54,6 +60,8 @@ export interface SessionConfig {
   readonly appServer: AppServer;
   readonly codexPath: string;
   readonly clientVersion: string;
+  /** Where the account's Plan Limits go; null, they aren't read. */
+  readonly planLimits: CodexPlanLimits | null;
 }
 
 type PendingRequest = Data.TaggedEnum<{
@@ -255,6 +263,8 @@ export const openSession = (
       capabilities: { experimentalApi: false, requestAttestation: false },
     } satisfies P.ClientParams["initialize"]);
     yield* conn.notify("initialized");
+
+    if (config.planLimits) yield* Effect.forkScoped(readRateLimits(conn, config.planLimits));
 
     let permissionMode: PermissionMode = options.permissionMode;
     const policy = policyFor(permissionMode);
@@ -570,6 +580,9 @@ export const openSession = (
       ],
       ["turn/completed", onTurnCompleted],
     ]);
+
+    if (config.planLimits)
+      notificationHandlers.set(RATE_LIMITS_UPDATED, onRateLimitsUpdated(config.planLimits));
 
     const handle = Incoming.$match({
       Request: (message) => handleRequest(message.id, message.method, message.params),
