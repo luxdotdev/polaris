@@ -13,7 +13,14 @@ import { HARNESS_CATALOGUE, harnessEntry } from "./harnesses.ts";
 import { RequestId, Sequence, SessionId, SubagentId, TurnId } from "./ids.ts";
 import { Model } from "./models.ts";
 import { HarnessModels, SessionStreamItem, TerminalLaunch, TurnDetail } from "./rpc.ts";
-import { PlanLimit, ReportedCost, TokenCounts, UsageBucket, UsageStreamItem } from "./usage.ts";
+import {
+  LongContextTokens,
+  PlanLimit,
+  ReportedCost,
+  TokenCounts,
+  UsageBucket,
+  UsageStreamItem,
+} from "./usage.ts";
 
 const decodeEvent = Schema.decodeUnknownSync(Schema.toCodecJson(DomainEvent));
 
@@ -187,6 +194,7 @@ describe("contract compatibility", () => {
       cacheWrite: 5,
       output: 40,
       reasoning: 12,
+      cacheWrite1h: 2,
     });
 
     const usage = UsageStreamItem.cases.UsageChanged.make({
@@ -199,6 +207,7 @@ describe("contract compatibility", () => {
           sessionId: null,
           tokens,
           reportedCost: new ReportedCost({ tokens, usd: 0.12 }),
+          longContext: [new LongContextTokens({ above: 200_000, tokens })],
         }),
       ],
     });
@@ -303,5 +312,21 @@ describe("contract compatibility", () => {
     for (const event of [started, ended]) {
       expect(decodeEvent(JSON.parse(JSON.stringify(encodeEvent(event))))).toEqual(event);
     }
+  });
+
+  test("a Usage bucket from before cacheWrite1h and longContext still decodes", () => {
+    const decode = Schema.decodeUnknownSync(Schema.toCodecJson(UsageBucket));
+
+    const bucket = decode({
+      hour: "2026-01-01T00:00:00Z",
+      harness: "claude",
+      model: "claude-opus-5-5",
+      sessionId: null,
+      tokens: { input: 1, cacheRead: 2, cacheWrite: 3, output: 4, reasoning: 0 },
+      reportedCost: null,
+    });
+
+    expect(bucket.tokens.cacheWrite1h).toBe(0);
+    expect(bucket.longContext).toEqual([]);
   });
 });

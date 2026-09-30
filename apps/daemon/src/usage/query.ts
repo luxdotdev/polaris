@@ -3,40 +3,82 @@
  * Session, where a Harness session id Polaris drove maps to its Agent Session.
  */
 import type { Database } from "bun:sqlite";
-import { ReportedCost, SessionId, TokenCounts, UsageBucket } from "@polaris/protocol";
+import {
+  LongContextTokens,
+  noTokens,
+  ReportedCost,
+  SessionId,
+  TokenCounts,
+  UsageBucket,
+} from "@polaris/protocol";
 import { hourOf } from "./writer.ts";
 
-interface BucketRow {
-  hour: number;
-  harness: string;
-  model: string;
-  session_id: string | null;
-  input: number;
-  cache_read: number;
-  cache_write: number;
-  output: number;
-  reasoning: number;
-  cost: number | null;
-  costed_input: number;
-  costed_cache_read: number;
-  costed_cache_write: number;
-  costed_output: number;
-  costed_reasoning: number;
-}
+/** The long-context thresholds buckets report: Claude's 200k and OpenAI's 272k. */
+export const LONG_CONTEXT_THRESHOLDS = [200_000, 272_000] as const;
+
+const COLUMNS = {
+  input: "input",
+  cacheRead: "cache_read",
+  cacheWrite: "cache_write",
+  output: "output",
+  reasoning: "reasoning",
+  cacheWrite1h: "cache_write_1h",
+} as const;
+
+type Kind = keyof typeof COLUMNS;
+
+/** Each sum a bucket needs: all its tokens, those with a reported cost, and each long-context subset. */
+const SUBSETS = {
+  all: "1",
+  costed: "u.cost IS NOT NULL",
+  long200k: `u.context > ${LONG_CONTEXT_THRESHOLDS[0]}`,
+  long272k: `u.context > ${LONG_CONTEXT_THRESHOLDS[1]}`,
+} as const;
+
+type Subset = keyof typeof SUBSETS;
+
+type BucketRow = {
+  readonly hour: number;
+  readonly harness: string;
+  readonly model: string;
+  readonly session_id: string | null;
+  readonly cost: number | null;
+} & { readonly [K in `${Subset}_${Kind}`]: number };
+
+const sums = Object.entries(SUBSETS).flatMap(([subset, condition]) =>
+  Object.entries(COLUMNS).map(
+    ([kind, column]) =>
+      `SUM(CASE WHEN ${condition} THEN u.${column} ELSE 0 END) AS ${subset}_${kind}`
+  )
+);
 
 const SELECT = `
 SELECT u.hour AS hour, u.harness AS harness, u.model AS model, m.session_id AS session_id,
-  SUM(u.input) AS input, SUM(u.cache_read) AS cache_read, SUM(u.cache_write) AS cache_write,
-  SUM(u.output) AS output, SUM(u.reasoning) AS reasoning, SUM(u.cost) AS cost,
-  SUM(CASE WHEN u.cost IS NULL THEN 0 ELSE u.input END) AS costed_input,
-  SUM(CASE WHEN u.cost IS NULL THEN 0 ELSE u.cache_read END) AS costed_cache_read,
-  SUM(CASE WHEN u.cost IS NULL THEN 0 ELSE u.cache_write END) AS costed_cache_write,
-  SUM(CASE WHEN u.cost IS NULL THEN 0 ELSE u.output END) AS costed_output,
-  SUM(CASE WHEN u.cost IS NULL THEN 0 ELSE u.reasoning END) AS costed_reasoning
+  SUM(u.cost) AS cost, ${sums.join(",\n  ")}
 FROM usage u LEFT JOIN session_map m ON m.harness = u.harness AND m.native = u.native`;
 
 const GROUP =
   "GROUP BY u.hour, u.harness, u.model, m.session_id ORDER BY u.hour, u.harness, u.model";
+
+const tokensOf = (row: BucketRow, subset: Subset) =>
+  new TokenCounts({
+    input: row[`${subset}_input`],
+    cacheRead: row[`${subset}_cacheRead`],
+    cacheWrite: row[`${subset}_cacheWrite`],
+    output: row[`${subset}_output`],
+    reasoning: row[`${subset}_reasoning`],
+    cacheWrite1h: row[`${subset}_cacheWrite1h`],
+  });
+
+const longContext = (row: BucketRow): Array<LongContextTokens> =>
+  (["long200k", "long272k"] as const).flatMap((subset, index) => {
+    const tokens = tokensOf(row, subset);
+    const above = LONG_CONTEXT_THRESHOLDS[index] ?? 0;
+
+    return tokens.input + tokens.cacheRead + tokens.cacheWrite + tokens.output === 0
+      ? []
+      : [new LongContextTokens({ above, tokens })];
+  });
 
 const toBucket = (row: BucketRow): UsageBucket =>
   new UsageBucket({
@@ -44,26 +86,12 @@ const toBucket = (row: BucketRow): UsageBucket =>
     harness: row.harness,
     model: row.model,
     sessionId: row.session_id === null ? null : SessionId.make(row.session_id),
-    tokens: new TokenCounts({
-      input: row.input,
-      cacheRead: row.cache_read,
-      cacheWrite: row.cache_write,
-      output: row.output,
-      reasoning: row.reasoning,
-    }),
+    tokens: tokensOf(row, "all"),
     reportedCost:
       row.cost === null
         ? null
-        : new ReportedCost({
-            usd: row.cost,
-            tokens: new TokenCounts({
-              input: row.costed_input,
-              cacheRead: row.costed_cache_read,
-              cacheWrite: row.costed_cache_write,
-              output: row.costed_output,
-              reasoning: row.costed_reasoning,
-            }),
-          }),
+        : new ReportedCost({ usd: row.cost, tokens: tokensOf(row, "costed") }),
+    longContext: longContext(row),
   });
 
 /** A type alias, not an interface: bun:sqlite's bindings need an index signature. */
@@ -129,6 +157,7 @@ export const zeroBucket = (key: {
     harness: key.harness,
     model: key.model,
     sessionId: key.sessionId === null ? null : SessionId.make(key.sessionId),
-    tokens: new TokenCounts({ input: 0, cacheRead: 0, cacheWrite: 0, output: 0, reasoning: 0 }),
+    tokens: noTokens,
     reportedCost: null,
+    longContext: [],
   });
