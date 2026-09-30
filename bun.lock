@@ -39,6 +39,7 @@
       "name": "@polaris/desktop",
       "version": "0.0.0",
       "dependencies": {
+        "@polaris/bench": "workspace:*",
         "@polaris/client": "workspace:*",
         "@polaris/protocol": "workspace:*",
         "@polaris/ui": "workspace:*",

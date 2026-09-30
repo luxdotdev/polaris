@@ -99,7 +99,11 @@ bun run bench --quick --runs 3 --save-baseline        # writes baselines/<machin
 
 and commit it with a message saying why the numbers moved. Never regenerate a baseline to make a regression disappear: fix it, or explain it in the commit.
 
-**CI** (`.github/workflows/ci.yml`, job `bench`): `--quick` on `ubuntu-latest`, summary in the job's step summary, result JSON uploaded as the `bench-result` artifact. It is **report only**, on purpose. GitHub hands out different CPU models from run to run (the first two runs landed on AMD EPYC 7763 and 9V74), and retained and peak memory moved 30–80% between them, so a runner baseline can't gate anything reliably. Gate on a fixed machine instead: compare locally against `baselines/<machine>.json`, or (later) a self-hosted runner with its own committed baseline. If a stable runner exists, commit its artifact as `baselines/ci-ubuntu-latest-quick.json` and the job fails on memory regressions beyond tolerance (`--fail-on memory`). Latency and CPU never gate CI: shared runners are too noisy.
+**CI** (`.github/workflows/ci.yml`, job `bench`): `--quick` on `ubuntu-latest`, summary in the job's step summary, result JSON uploaded as the `bench-result` artifact. **Memory gates** against `baselines/ci-ubuntu-latest-quick.json` (`--fail-on memory --gate-same-machine`); latency and CPU never gate, shared runners being too noisy.
+
+- GitHub hands out different CPU models: 6 of the first 7 runs landed on AMD EPYC 7763 and one on EPYC 9V74. The baseline is the median of four EPYC 7763 runs, taken from their `bench-result` artifacts (runs 36520536925, 36520918737, 36726922076 and 36728856352, commits `9804a16` to `3b8b28d`). With `--gate-same-machine`, a run on another CPU model is compared and reported but doesn't fail.
+- Across those four runs, steady memory agreed within a few percent (idle RSS 100–104 MiB). The 30–80% jump seen earlier was the ENG-196 performance work landing between runs, not the CPU.
+- **Refreshing it** (after an intended change): download the `bench-result` artifacts of a few `main` runs on the same CPU (`gh run download <id> -n bench-result`), take each metric's median, and commit the file with a message saying why the numbers moved. A single run also works, since its `env` names its CPU. Never refresh it to make a regression disappear.
 
 ## Comparing and tolerances
 

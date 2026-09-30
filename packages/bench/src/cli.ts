@@ -11,7 +11,7 @@
  */
 import { appendFileSync, copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
-import { BUSY_BACKGROUND_CORES, type Comparison, compare } from "./compare.ts";
+import { BUSY_BACKGROUND_CORES, type Comparison, compare, gatingKinds } from "./compare.ts";
 import { REPO_ROOT, type TransportKind } from "./daemon.ts";
 import { environment, measureBackgroundCores } from "./env.ts";
 import { renderComparison, renderMarkdown, renderResult } from "./report.ts";
@@ -45,6 +45,8 @@ scenarios: ${SCENARIOS.map((s) => s.name).join(", ")} (default: all)
   --compare PATH        compare with a baseline; exit 1 on regressions beyond tolerance
   --fail-on KINDS       comma-separated kinds that gate --compare (default: all):
                         ${ALL_KINDS.join(",")}
+  --gate-same-machine   gate --compare only when the baseline is from this machine (CPU model);
+                        otherwise compare and report without failing (CI)
   --save-baseline       write the result to packages/bench/baselines/<machine>.json
   --markdown PATH       append a Markdown summary to PATH (e.g. $GITHUB_STEP_SUMMARY)
   --profile             CPU profile + heap snapshot at peak for each scenario run
@@ -59,6 +61,7 @@ interface Args {
   json: string | null;
   compare: string | null;
   failOn: Set<MetricKind>;
+  gateSameMachine: boolean;
   saveBaseline: boolean;
   markdown: string | null;
   profile: boolean;
@@ -99,6 +102,7 @@ const parseArgs = (argv: ReadonlyArray<string>): Args => {
     json: null,
     compare: null,
     failOn: new Set(ALL_KINDS),
+    gateSameMachine: false,
     saveBaseline: false,
     markdown: null,
     profile: false,
@@ -133,6 +137,9 @@ const parseArgs = (argv: ReadonlyArray<string>): Args => {
         break;
       case "--fail-on":
         args.failOn = parseFailOn(value());
+        break;
+      case "--gate-same-machine":
+        args.gateSameMachine = true;
         break;
 
       case "--save-baseline":
@@ -197,10 +204,18 @@ const writeResult = (result: BenchResult, args: Args, runDir: string, log: (m: s
 const compareWithBaseline = (
   baselinePath: string,
   result: BenchResult,
-  failOn: ReadonlySet<MetricKind>,
+  args: Pick<Args, "failOn" | "gateSameMachine">,
   runDir: string
 ): Comparison => {
   const baseline = parseBenchResult(readFileSync(baselinePath, "utf8"));
+  const failOn = gatingKinds(baseline, result, args.failOn, args.gateSameMachine);
+
+  if (failOn.size === 0 && args.failOn.size > 0) {
+    console.log(
+      `\nnot gating: the baseline is from ${baseline.env.machineSlug}, this run is ${result.env.machineSlug}`
+    );
+  }
+
   const comparison = compare(baseline, result, failOn);
   const rendered = renderComparison(comparison);
   console.log(`\ncompared with ${baselinePath}\n${rendered}`);
@@ -304,9 +319,7 @@ const main = async () => {
 
   writeResult(result, args, runDir, log);
 
-  const comparison = args.compare
-    ? compareWithBaseline(args.compare, result, args.failOn, runDir)
-    : null;
+  const comparison = args.compare ? compareWithBaseline(args.compare, result, args, runDir) : null;
 
   if (args.markdown) appendFileSync(args.markdown, `${renderMarkdown(result, comparison)}\n`);
 

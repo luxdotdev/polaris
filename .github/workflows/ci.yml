@@ -117,14 +117,15 @@ jobs:
           echo "$expected  dist/${{ matrix.platform }}/polaris" | sha256sum -c -
 
   bench:
-    name: Daemon benchmarks (quick, report only)
-    # Runs the real Daemon (from source) through every scenario at --quick sizes and
-    # posts the numbers to the job summary. Report only for now: shared runners are
-    # too noisy to gate latency, and there is no baseline recorded on this runner yet.
-    # To gate memory, commit a baseline from this job's artifact as
-    # packages/bench/baselines/ci-ubuntu-latest-quick.json (see packages/bench/README.md):
-    # the step below then fails on memory regressions beyond tolerance.
+    name: Daemon benchmarks (quick; memory gated)
+    # Runs the real Daemon (from source) through every scenario at --quick sizes and posts the
+    # numbers to the job summary. Memory gates against packages/bench/baselines/
+    # ci-ubuntu-latest-quick.json, the median of four runner results on AMD EPYC 7763 (most
+    # runners); a run on another CPU model reports without gating (--gate-same-machine).
+    # Latency and CPU never gate: shared runners are too noisy. To refresh the baseline, see
+    # packages/bench/README.md ("CI").
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -133,13 +134,9 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: Run benchmarks
         run: |
-          baseline=packages/bench/baselines/ci-ubuntu-latest-quick.json
-          if [ -f "$baseline" ]; then
-            bun run bench --quick --json bench-result.json --markdown "$GITHUB_STEP_SUMMARY" \
-              --compare "$baseline" --fail-on memory
-          else
-            bun run bench --quick --json bench-result.json --markdown "$GITHUB_STEP_SUMMARY"
-          fi
+          bun run bench --quick --json bench-result.json --markdown "$GITHUB_STEP_SUMMARY" \
+            --compare packages/bench/baselines/ci-ubuntu-latest-quick.json \
+            --fail-on memory --gate-same-machine
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -147,6 +144,38 @@ jobs:
           path: bench-result.json
           if-no-files-found: warn
 
-  # Desktop App memory budget: once apps/desktop exists, add a scenario that launches
-  # it against a local Daemon with N Agent Sessions and samples its whole process tree
-  # with packages/bench's sampler (the Electron main process as the root).
+  desktop-budgets:
+    name: Desktop budgets (memory, Workspace switch, frames)
+    # The built Desktop App under Xvfb against a Daemon on the bench Harness
+    # (apps/desktop/scripts/budgets.ts): a heavy session (25 Turns × 60 items × 6 KB) must
+    # keep the app plus the Daemon under 1 GB, a Workspace switch under 100 ms (p95), and
+    # streaming frames paced to the display (Xvfb's refresh here, not 120 Hz).
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      # Playwright's Electron launcher runs under Node.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: bun install --frozen-lockfile
+      - name: Electron's runtime libraries and Xvfb
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb libnss3 libgbm1 libasound2t64 \
+            libgtk-3-0t64 libxss1 libxtst6
+      - run: bun run --cwd apps/desktop build
+      - name: Budgets
+        run: |
+          xvfb-run -a --server-args="-screen 0 1920x1080x24" \
+            node apps/desktop/scripts/budgets.ts --json desktop-budgets.json \
+            --markdown "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: desktop-budgets
+          path: desktop-budgets.json
+          if-no-files-found: warn

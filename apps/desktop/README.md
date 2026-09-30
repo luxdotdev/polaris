@@ -7,6 +7,7 @@ bun run --cwd apps/desktop dev      # Vite dev server + hot reload; main rebuilt
 bun run --cwd apps/desktop build    # out/{main,preload,renderer} and an unpacked out/Polaris.app (macOS)
 bun run --cwd apps/desktop start    # electron . against the last build
 bun run --cwd apps/desktop smoke    # build, then the end-to-end smoke test (Node; Playwright)
+node scripts/budgets.ts [--json <path>] [--markdown <path>]   # the M1 budgets (memory, Workspace switch, frames); CI runs it under Xvfb
 bun run bench desktop-idle          # memory and CPU of the built app, settled (packages/bench)
 node scripts/screens.ts <dir>       # screenshots against Paper 11U-0 / MX-0, from four seeded local Daemons
 node scripts/sessionScreens.ts --out <dir> [--frames]   # the shell with the session view on fixtures (#preview/<scene>), every theme and density
@@ -87,6 +88,13 @@ Settings adds `settings.open` (⌘,, shown in the app menu as Settings…) and `
 **Jump menu** (`features/jump/`, Paper AR-0): across every Host, Agent Sessions (title, Workspace, Host, state, Harness), Workspaces, Worktrees, machines and actions (new session, open in terminal, archive, views, theme, shortcuts). With no query: Recent, Needs you, Actions; with one: Sessions (Needs You first), Workspaces, Worktrees, Machines, Actions, ranked by `ranking.ts` (prefix > word start > scattered letters, which count only in titles and for 3+ letters). ↵ opens, ⌘↵ opens in Review. Results follow live state.
 
 **Workspace switch timing** (`routes/switchTimer.ts`): input event → second animation frame after it, kept in `window.__polaris.switchTimes()`; the smoke test switches 40 times and fails over 100 ms at p95.
+
+**Budgets** (`scripts/budgets.ts`, CI job `desktop-budgets` under `xvfb-run`): the built app against a Daemon on the bench Harness. It seeds a heavy session (25 Turns × 60 items × 6 KB, 3 files per Turn) and two light Workspaces, then fails when:
+- the app's process tree plus the Daemon's reach 1 GB (peak footprint over 3 s, sampled by `@polaris/bench`'s sampler in `scripts/lib/sampleTree.ts` under Bun; on Linux footprint is RssAnon + RssShmem);
+- a Workspace switch between two ordinary Workspaces has p95 ≥ 100 ms;
+- while streaming, frame p95 is over 1.5 display refresh intervals or more than 2% of frames take over two, relative to the idle median interval, so a 120 Hz Mac is held to ~8.3 ms and Xvfb (60 Hz) to ~16.7 ms;
+- the idle interval is over 34 ms: frames are throttled (Linux runs a hidden window at 1 Hz, so on Linux the window is shown; Xvfb keeps it off-screen) and can't be judged.
+The switch into and out of the heavy session is measured and reported, not gated: about 20 ms on a Mac today.
 
 **Onboarding** (`src/renderer/features/onboarding/`, DESIGN.md Onboarding): O1 Welcome replaces the whole window until "Get started" (↵), which sets `welcomeSeen` in the settings; the Orchestrator's stage is the O2 setup (`features/empty`'s `HostStage`, with onboarding's native folder picker, ⌘O and an unlocked Start session) whenever the selected Host has no Workspace, and an empty scene (`WaitingStage`) until some Host has said what it holds, so the setup never flashes. `startNewSession` (sidebar +, title bar, ⌘N, the K menu) with no Workspace asks `createNavigation`'s `ensureWorkspace`, which registers the Host's home directory (`HostInfo.homeDir`) as the Workspace "home", or shows it again if hidden, then opens New session in it. Features use `useEnsureWorkspace()` for the same. `model.ts` (stage, found-on-this-Mac lines) and `ensureWorkspace.ts` are tested; the smoke test walks O1 → O2 → Start session → New session in "home".
 

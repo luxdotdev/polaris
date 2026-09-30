@@ -14,6 +14,7 @@
     "test": "bun test --pass-with-no-tests"
   },
   "dependencies": {
+    "@polaris/bench": "workspace:*",
     "@polaris/client": "workspace:*",
     "@polaris/protocol": "workspace:*",
     "@polaris/ui": "workspace:*",
