@@ -22,7 +22,7 @@ import {
   indexCodexFile,
   newCodexState,
 } from "./codex.ts";
-import { scanLines } from "./scan.ts";
+import { scanLines, writeInSlices } from "./scan.ts";
 import type { UsageWriter } from "./writer.ts";
 
 export type UsageHarness = "claude" | "codex";
@@ -93,9 +93,7 @@ const indexClaudeFile = async (
     return false;
   });
 
-  writer.transaction(() => {
-    for (const entry of entries) recordClaudeEntry(writer, entry);
-  });
+  await writeInSlices(entries, writer.transaction, (entry) => recordClaudeEntry(writer, entry));
 
   return scanned.offset;
 };
@@ -160,7 +158,9 @@ export const GC_EVERY_BYTES = 64 * 1024 * 1024;
 export const indexLogs = async (
   writer: UsageWriter,
   files: ReadonlyArray<LogFile>,
-  gcEveryBytes = GC_EVERY_BYTES
+  gcEveryBytes = GC_EVERY_BYTES,
+  /** Called after each file, e.g. to report progress. */
+  afterFile: () => void = () => {}
 ): Promise<number> => {
   let total = 0;
   let sinceGc = 0;
@@ -174,6 +174,8 @@ export const indexLogs = async (
       Bun.gc(true);
       sinceGc = 0;
     }
+
+    afterFile();
   }
 
   return total;

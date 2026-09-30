@@ -112,6 +112,10 @@ export const openUsageDb = (path: string): Database => {
 
   db.run("PRAGMA journal_mode = WAL");
   db.run("PRAGMA synchronous = NORMAL");
+  // The worker writes passes while the Daemon writes Plan Limits: wait out the other's transaction.
+  db.run("PRAGMA busy_timeout = 5000");
+  // Checkpoint the WAL in small steps: one after 4 MB of writes stalls a pass tens of ms.
+  db.run("PRAGMA wal_autocheckpoint = 64");
 
   if (version(db) === null) {
     db.transaction(() => {

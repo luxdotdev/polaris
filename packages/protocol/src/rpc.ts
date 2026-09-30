@@ -259,7 +259,9 @@ export const WatchHarnessAvailability = Rpc.make("harness.watchAvailability", {
 
 /**
  * Hourly Usage buckets that overlap `[from, to)` (capability `usage`),
- * optionally for one Harness or one Agent Session.
+ * optionally for one Harness or one Agent Session. Starts an index pass and
+ * answers within ~250 ms from what is indexed; `indexing` says whether the
+ * pass (e.g. the first over large logs) is still running.
  */
 export const QueryUsage = Rpc.make("usage.query", {
   payload: {
@@ -274,8 +276,10 @@ export const QueryUsage = Rpc.make("usage.query", {
 
 /**
  * Usage and Plan Limit changes as they happen (capability `usage`): every
- * known Plan Limit first, then changes. A new item kind needs its own
- * capability, sent only to Clients that announce it, as `ItemProgress` does.
+ * known Plan Limit first, then changes. It doesn't index by itself: Usage
+ * changes flow once a Client has queried (`usage.query`). A new item kind
+ * needs its own capability, sent only to Clients that announce it, as
+ * `ItemProgress` does.
  */
 export const WatchUsage = Rpc.make("usage.watch", {
   payload: {},
