@@ -1,4 +1,5 @@
 /** Layout F: title bar, the adaptive top bar, then Input → Intent → Output (ENG-177). */
+import { SettingsPage } from "../features/settings/index.ts";
 import { Columns } from "../shell/Columns.tsx";
 import { useNav, useSelection, useShellActions } from "../shell/hooks.ts";
 import { Sidebar } from "../shell/sidebar/Sidebar.tsx";
@@ -11,27 +12,39 @@ const LATER: Readonly<Record<"review" | "edit", string>> = {
   edit: "The editor arrives in a later release. ⌘1 goes back to Orchestrate.",
 };
 
+/** Settings replaces the three zones (DESIGN.md, Settings); otherwise the mode's view. */
+const Body = () => {
+  const { mode, settings } = useSelection();
+
+  if (settings !== null) return <SettingsPage route={settings} />;
+
+  if (mode !== "orchestrate") {
+    return (
+      <main className="text-body text-text-faint grid flex-1 place-items-center">
+        {LATER[mode]}
+      </main>
+    );
+  }
+
+  return (
+    <>
+      <TopBar />
+      <main className="flex min-h-0 flex-1">
+        <Sidebar />
+        <Columns />
+      </main>
+    </>
+  );
+};
+
 export const Shell = () => {
-  const { mode } = useSelection();
   const jumpOpen = useNav((s) => s.jumpOpen);
   const { setJumpOpen } = useShellActions();
 
   return (
     <div className="flex h-full flex-col">
       <TitleBar />
-      {mode === "orchestrate" ? (
-        <>
-          <TopBar />
-          <main className="flex min-h-0 flex-1">
-            <Sidebar />
-            <Columns />
-          </main>
-        </>
-      ) : (
-        <main className="text-body text-text-faint grid flex-1 place-items-center">
-          {LATER[mode]}
-        </main>
-      )}
+      <Body />
       <slots.JumpMenu open={jumpOpen} onOpenChange={setJumpOpen} />
     </div>
   );

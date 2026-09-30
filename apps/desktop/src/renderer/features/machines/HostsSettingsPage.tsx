@@ -63,6 +63,11 @@ export interface HostsSettingsPageProps {
 export const HostsSettingsPage = ({ adding = false }: HostsSettingsPageProps) => {
   const machines = useMachines();
   const [adder, setAdder] = useState(adding);
+
+  // "Connect a host" can open this page again while it is showing.
+  useEffect(() => {
+    if (adding) setAdder(true);
+  }, [adding]);
   // Rows the user opened or closed; others follow whether they need the user.
   const [toggled, setToggled] = useState<Readonly<Record<string, boolean>>>({});
   // Rows opened because they needed the user stay open after, to show the outcome.

@@ -54,7 +54,7 @@
 
 /* Reduce Motion replaces the dither with a still pixel pattern. */
 @media (prefers-reduced-motion: reduce) {
-  .polaris-dither[data-moving] > span {
+  :root:not([data-reduce-motion="false"]) .polaris-dither[data-moving] > span {
     width: 100%;
     mask-image: var(--dither-still);
     animation: none;

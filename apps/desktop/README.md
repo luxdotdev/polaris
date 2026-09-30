@@ -26,7 +26,7 @@ node scripts/sessionScreens.ts --out <dir> [--frames]   # the shell with the ses
 | `src/main/machines/` | `Machines`: remote Hosts by `~/.ssh/config` alias, each one's install flow (probe, one-time approval, install, upgrade), approvals, the Daemon builds, the local Host switch; the `machines` feed (its README). |
 | `src/main/ipc/` | `requests.ts` (one handler per method; blobs taken here and sent as bytes), `feeds.ts` (host, session, terminal, files.watch, hosts, machines), `subscriptions.ts` (per window), `batcher.ts` (one IPC message per 4 ms window per window), `install.ts` (`install.ensure`). |
 | `src/main/localDaemon.ts` | Which socket the local Host uses; the dev Daemon. |
-| `src/main/protocol.ts`, `window.ts`, `menu.ts` | `app://polaris` with a strict CSP, the `hiddenInset` window, the native menu (⌘1–3, appearance, density). |
+| `src/main/protocol.ts`, `window.ts`, `menu.ts` | `app://polaris` with a strict CSP, the `hiddenInset` window, the native menu (Settings… ⌘,, ⌘1–3, appearance, density). |
 | `src/main/snapshotCache.ts` | The last synchronized Host snapshots, painted at launch and then revalidated (ENG-175). |
 | `src/renderer/store/` | Pure reducers for Host and session feeds (`hostModel.ts`, `sessionModel.ts`), a zustand vanilla store applying one frame's updates at a time (`store.ts`, `frameQueue.ts`). |
 | `scripts/` | `build.ts`, `dev.ts`, `smoke.ts` and their helpers. |
@@ -52,10 +52,16 @@ The renderer is split into the **shell** (owned by the app shell: layout, select
 | `NoSession` | `{ hostKey, workspaceId }` | Spans Intent + Output when nothing is selected. |
 | `NeedsYouInbox` | none | The sidebar's "Needs you" view (the Sessions / Needs you switch). |
 | `JumpMenu` | `{ open, onOpenChange }` | The K jump menu; the shell owns `open` (K, ⌘K, the title bar's jump field). |
+| `SettingsHosts` | `{ adding }` | Settings → Hosts (Paper S4), for features/machines; centres its own 680px column. |
+| `HarnessTerminal` | `{ hostKey, argv, onExit, onClose }` | Settings → Harnesses' "Sign in in terminal": the Harness's own sign-in on its Host. The default (`features/settings`) is line by line, without an emulator. |
 
 To wire a feature: in `slots.tsx`, import its component and replace the default, e.g. `SessionIntent: SessionIntentView` from `../features/session/index.ts`. Slots receive ids, not data: read the store with `useApp(selector)` (Host models, open sessions) and open a session's feed with `useSessionFeed(hostKey, sessionId)` (`src/renderer/shell/hooks.ts`).
 
-**Shell actions** for features (`useShellActions()` from `src/renderer/routes/navigation.ts`): `selectSession({ hostKey, sessionId })`, `selectWorkspace({ hostKey, workspaceId })`, `selectHost(hostKey)`, `openJump()`, `startNewSession()`, `showSidebar("sessions" | "needs-you")`. `useSelection()` returns the current `{ mode, hostKey, workspaceId, sessionId, pane }`.
+**Shell actions** for features (`useShellActions()` from `src/renderer/routes/navigation.ts`): `selectSession({ hostKey, sessionId })`, `selectWorkspace({ hostKey, workspaceId })`, `selectHost(hostKey)`, `openJump()`, `startNewSession()`, `showSidebar("sessions" | "needs-you")`, `openSettings(section?, { adding? })`, `closeSettings()`. `useSelection()` returns the current `{ mode, hostKey, workspaceId, sessionId, pane, settings }`; `settings` is `{ section, adding }` while Settings is open.
+
+**Actions** (`routes/actions.ts`): the registry features add K menu commands to: `registerActions([{ id, title, group, keywords?, shortcut?, run }])` returns their removal; the jump menu reads `useRegisteredActions()`. Settings registers "Settings" (⌘,) and "Settings: <section>".
+
+**Settings** (`src/renderer/features/settings/`, DESIGN.md Settings, Paper S1–S4): replaces the three zones below the title bar; ⌘, (Polaris → Settings…), the gear at the right of the sidebar's footer, or the K menu open it, esc (outside an open menu or dialog) closes it. Sections: Appearance, Harnesses, Usage, and Hosts (the `SettingsHosts` slot). `useSessionDefault(harness)` (from `features/settings/index.ts`) is what a new session of that Harness starts with; the new-session page applies it.
 
 **Top bar** (`routes/topBar.ts`, ENG-177): the Workspace bar (every shown Workspace on every Host as a chip, ⌃1…⌃9, ⌃0) up to 10 Workspaces; the machine bar (⌃N per machine, the sidebar then groups that machine's sessions by Workspace, three per group then "N more") from 11, back only at 9 (hysteresis); hidden in machine mode with a single machine. Hidden Workspaces (CONTEXT.md: hidden when idle) are left out.
 
@@ -69,14 +75,20 @@ To wire a feature: in `slots.tsx`, import its component and replace the default,
 
 ## The bridge
 
-- **Requests**: `window.polaris.request(method, input)` → `Result` (`{ ok, value }` or `{ ok: false, error: { code, message } }`). Methods: settings, `dispatch` (a Client-generated `commandId`; a refusal's message is the Daemon's reason), files, git, `harness.models`, `harness.availability`, `session.terminalCommand`, terminal, `attachments.stage` (bytes → `withBlob` → stage on one connection), `install.ensure`, the snapshot cache, and dev's `dev.proofWorkspace`.
-- **Feeds**: `window.polaris.subscribe(kind, input, { items, end })`. `host` and `session` are the client's resumable feeds, so every window shares one upstream subscription per stream: Snapshot (cached) first, then events, `Delta`s and `ItemProgress` (the app announces `session.live-items`). Feeds bound to one connection (`terminal`, `files.watch`) end when it drops; resubscribe.
+- **Requests**: `window.polaris.request(method, input)` → `Result` (`{ ok, value }` or `{ ok: false, error: { code, message } }`). Methods: settings, `dispatch` (a Client-generated `commandId`; a refusal's message is the Daemon's reason), files, git, `harness.models`, `harness.availability`, `session.terminalCommand`, `usage.query`, `shell.openExternal` (https only), terminal, `attachments.stage` (bytes → `withBlob` → stage on one connection), `install.ensure`, the snapshot cache, and dev's `dev.proofWorkspace`.
+- **Feeds**: `window.polaris.subscribe(kind, input, { items, end })`. `host` and `session` are the client's resumable feeds, so every window shares one upstream subscription per stream: Snapshot (cached) first, then events, `Delta`s and `ItemProgress` (the app announces `session.live-items`). Feeds bound to one connection (`terminal`, `files.watch`, `usage`, which is `usage.watch`) end when it drops; resubscribe.
 - **Batching**: main coalesces every feed's items for a window into one message per 4 ms; the renderer applies them once per animation frame (or every 100 ms while hidden).
 - Payloads are structured-clone plain data: class instances lose their prototype, so the renderer types domain values as plain records (`store/plain.ts`).
 
 ## Settings
 
+<<<<<<< HEAD
 `<userData>/settings.json`: `theme` (`system` | `dark` | `light`), `density` (`calm` | `balanced` | `compact`), `hosts`: `[{ alias, label?, colour?, forwardAgent?, remoteCommand? }]` by `~/.ssh/config` alias (edited from Settings → Hosts), and `local: { enabled }` (this Mac as a Host; on by default). `<userData>/approvals.json` holds the approved Daemon builds per alias. The renderer sets `data-theme` (unset for system) and `data-density` on the root.
+||||||| 3b8b28d
+`<userData>/settings.json`: `theme` (`system` | `dark` | `light`), `density` (`calm` | `balanced` | `compact`), and `hosts`: `[{ alias, label?, colour?, forwardAgent? }]` by `~/.ssh/config` alias. The renderer sets `data-theme` (unset for system) and `data-density` on the root.
+=======
+`<userData>/settings.json`: `theme` (`system` | `dark` | `light`), `density` (`calm` | `balanced` | `compact`), `textSize` (`small` | `default` | `large` | `larger`), `diffPalette` (`default` | `cvd`), `motion` (`system` | `reduce` | `full`), `codeFont` (`sf-mono` | `menlo`), `sessionDefaults` (by Harness kind: `{ model, effort, permissionMode }`), and `hosts`: `[{ alias, label?, colour?, forwardAgent? }]` by `~/.ssh/config` alias. The renderer sets `data-theme` (unset for system), `data-density`, `data-text-size`, `data-diff-palette`, `data-reduce-motion` (unset follows macOS; `false` keeps motion) and `--font-mono` on the root. `settings.setAppearance` takes any subset; every window hears the change as an `AppEvent`.
+>>>>>>> desk/settings
 
 Environment: `POLARIS_DESKTOP_EXTRA_HOSTS` (screenshots and tests: `[{ key, label, socket }]`, more Hosts on local sockets), `POLARIS_DESKTOP_LOCAL_LABEL`, `POLARIS_DESKTOP_USER_DATA`, `POLARIS_DESKTOP_HIDDEN=1`, `POLARIS_DESKTOP_LOCAL_SOCKET` (+ `POLARIS_DESKTOP_BENCH_HARNESS=1`), `POLARIS_DESKTOP_DAEMON=system|dev`, `POLARIS_DESKTOP_DAEMON_DIST` (the Daemon builds to upload), `POLARIS_DESKTOP_SSH_HOME` (whose `~/.ssh/config` lists aliases; tests).
 
@@ -102,8 +114,14 @@ The remote command defaults to `~/.polaris/bin/current/polaris bridge` (not on P
 
 ## Known gaps
 
+<<<<<<< HEAD
 - Install progress is per step (checking, copying and checking the SHA-256), not per byte; the client reports no byte progress.
 - Terminal hand-offs (Open in Terminal, sign-in) use macOS Terminal through a `.command` file.
+||||||| 3b8b28d
+- Settings for Hosts have no UI yet; edit the file. The install / upgrade approval flow is exposed (`install.ensure`) but has no UI, and approvals are not stored.
+=======
+- Settings → Hosts comes with features/machines; until then edit the file. Cost estimates (ENG-207) aren't in yet: Usage shows reported costs and marks the rest unpriced. The install / upgrade approval flow is exposed (`install.ensure`) but has no UI, and approvals are not stored.
+>>>>>>> desk/settings
 - The macOS window closes the app (no dock-only mode yet); no vibrancy.
 - The production CSP allows `style-src 'unsafe-inline'` (Radix and sonner inject `<style>` elements); accepted for now, scripts stay `'self'` only.
 - The dev server is `http://127.0.0.1:5198` (strict): the `@polaris/ui` gallery holds 5199.

@@ -7,7 +7,7 @@ import { RpcTest } from "effect/rpc";
 import { PlanLimitSink } from "../services.ts";
 import { SessionActivity, type SessionLink, UsageSessions } from "./sessions.ts";
 import { claudeLine, type FixtureHost, fixtureHost } from "./testing.ts";
-import { UsageIndexLive } from "./UsageIndex.ts";
+import { UsageIndexLive, type UsageIndexOptions } from "./UsageIndex.ts";
 import { UsageRpcs, UsageRpcsLive } from "./UsageRpcs.ts";
 
 const hosts: Array<FixtureHost> = [];
@@ -33,16 +33,17 @@ const layerFor = (
   host: FixtureHost,
   dbPath: string,
   links: ReadonlyArray<SessionLink>,
-  activity: Queue.Queue<SessionActivity>
+  activity: Queue.Queue<SessionActivity>,
+  options: UsageIndexOptions = {}
 ) =>
   UsageRpcsLive.pipe(
-    Layer.provideMerge(UsageIndexLive({ env: host.env, dbPath, settleMs: 10 })),
+    Layer.provideMerge(UsageIndexLive({ env: host.env, dbPath, settleMs: 10, ...options })),
     Layer.provide(fakeSessions(links, activity))
   );
 
 type Services = Layer.Success<ReturnType<typeof layerFor>> | Scope.Scope;
 
-const setup = (links: ReadonlyArray<SessionLink> = []) => {
+const setup = (links: ReadonlyArray<SessionLink> = [], options: UsageIndexOptions = {}) => {
   const host = fixtureHost();
   hosts.push(host);
   const dbPath = join(host.root, "usage.sqlite");
@@ -57,7 +58,7 @@ const setup = (links: ReadonlyArray<SessionLink> = []) => {
           const activity = yield* Queue.unbounded<SessionActivity>();
 
           return yield* body(activity).pipe(
-            Effect.provide(layerFor(host, dbPath, links, activity))
+            Effect.provide(layerFor(host, dbPath, links, activity, options))
           );
         })
       )
@@ -73,7 +74,7 @@ const day = {
   sessionId: null,
 };
 
-const limit = (usedPercent: number) =>
+const limitWith = (usedPercent: number, overrides: Partial<PlanLimit> = {}) =>
   new PlanLimit({
     harness: "claude",
     kind: "five-hour",
@@ -84,7 +85,10 @@ const limit = (usedPercent: number) =>
     resetsAt: "2026-09-01T15:00:00Z",
     observedAt: "2026-09-01T10:00:00Z",
     plan: "max",
+    ...overrides,
   });
+
+const limit = (usedPercent: number) => limitWith(usedPercent);
 
 const isUsageChanged = Schema.is(UsageStreamItem.cases.UsageChanged);
 
@@ -260,5 +264,40 @@ describe("UsageIndex", () => {
     );
 
     expect(isPlanLimitChanged(first[0]) && first[0].limit.usedPercent).toBe(33);
+  });
+
+  test("usage.watch seeds Plan Limits from the Harness logs once, never over a newer value", async () => {
+    let reads = 0;
+
+    const planLimitSeed = Effect.sync(() => {
+      reads++;
+
+      return [
+        limitWith(5, { observedAt: "2026-09-01T09:00:00Z" }),
+        limitWith(7, { harness: "codex", kind: "weekly" }),
+      ];
+    });
+
+    const { run } = setup([], { planLimitSeed });
+
+    const items = await run(() =>
+      Effect.gen(function* () {
+        yield* Effect.flatMap(PlanLimitSink, (sink) => sink.report(limit(40)));
+        const client = yield* RpcTest.makeClient(UsageRpcs);
+        const watch = client["usage.watch"]({}).pipe(Stream.take(2), Stream.runCollect);
+        const first = yield* watch;
+        yield* watch;
+
+        return first;
+      })
+    );
+
+    expect(reads).toBe(1);
+    expect(
+      items.map((i) => (isPlanLimitChanged(i) ? [i.limit.harness, i.limit.usedPercent] : null))
+    ).toEqual([
+      ["claude", 40],
+      ["codex", 7],
+    ]);
   });
 });

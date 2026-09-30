@@ -2,11 +2,16 @@ import "./styles.css";
 import { createRoot } from "react-dom/client";
 import { App } from "./app/App.tsx";
 import { applyAppearance } from "./appearance.ts";
+import {
+  connectSettings,
+  registerSettingsActions,
+  settingsStore,
+} from "./features/settings/index.ts";
 import { startProofSession } from "./proof.ts";
 import { installKeyboard } from "./routes/keyboard.ts";
 import { createNavigation } from "./routes/navigation.ts";
 import { exposeSwitchTimes } from "./routes/switchTimer.ts";
-import type { Density } from "../shared/api.ts";
+import type { Appearance, Density } from "../shared/api.ts";
 import { connect } from "./store/store.ts";
 
 const connection = connect(window.polaris);
@@ -26,22 +31,24 @@ const preview = location.hash.startsWith("#preview/");
 
 let setPreviewDensity: ((density: Density) => void) | null = null;
 
-const appearance = (value: Parameters<typeof applyAppearance>[0]) => {
+const appearance = (value: Appearance) => {
   applyAppearance(value);
   connection.setDensity(value.density);
   setPreviewDensity?.(value.density);
 };
 
-appearance({ theme: "system", density: "calm" });
+appearance(settingsStore.getState().appearance);
 
-void window.polaris.request("settings.get", {}).then((result) => {
-  if (result.ok) appearance(result.value);
+settingsStore.subscribe((state, prev) => {
+  if (state.appearance !== prev.appearance) appearance(state.appearance);
 });
+
+connectSettings(window.polaris);
 
 window.polaris.onAppEvent((event) => {
   if (event.kind === "route") navigation.actions.setMode(event.route);
-  else if (event.kind === "appearance") appearance(event.appearance);
-  else {
+  else if (event.kind === "settings") navigation.actions.openSettings();
+  else if (event.kind === "proof") {
     void startProofSession({ api: window.polaris, store: connection.store, hostKey: event.hostKey })
       .then((sessionId) => navigation.actions.selectSession({ hostKey: event.hostKey, sessionId }))
       .catch((cause: unknown) => console.error("polaris: proof session failed", cause));
@@ -49,6 +56,8 @@ window.polaris.onAppEvent((event) => {
 });
 
 installKeyboard(navigation.actions);
+
+registerSettingsActions(navigation.actions);
 
 exposeSwitchTimes();
 

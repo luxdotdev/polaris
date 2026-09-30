@@ -18,6 +18,23 @@ export type SidebarView = "sessions" | "needs-you";
 
 export type Pane = "session" | "new-session";
 
+/** The Settings pages (DESIGN.md, Settings); features/machines fills "hosts". */
+export type SettingsSection = "appearance" | "harnesses" | "usage" | "hosts";
+
+export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
+  "appearance",
+  "harnesses",
+  "usage",
+  "hosts",
+];
+
+/** Settings, open over the three zones; null when closed. */
+export interface SettingsRoute {
+  readonly section: SettingsSection;
+  /** Hosts only: open the add-a-host form at once. */
+  readonly adding: boolean;
+}
+
 export interface NavState {
   readonly mode: Route;
   readonly hostKey: string | null;
@@ -26,6 +43,7 @@ export interface NavState {
   readonly pane: Pane;
   readonly sidebar: SidebarView;
   readonly jumpOpen: boolean;
+  readonly settings: SettingsRoute | null;
   readonly topBar: TopBarMode;
   /** The session last open in each Workspace (`workspaceKey`), restored on switching back. */
   readonly lastSession: Readonly<Record<string, SessionId>>;
@@ -41,6 +59,7 @@ export const initialNav: NavState = {
   pane: "session",
   sidebar: "sessions",
   jumpOpen: false,
+  settings: null,
   topBar: "workspaces",
   lastSession: {},
   folded: {},
@@ -57,6 +76,7 @@ export interface Selection {
   readonly sessionId: SessionId | null;
   readonly pane: Pane;
   readonly sidebar: SidebarView;
+  readonly settings: SettingsRoute | null;
 }
 
 /** Sidebar order: Needs You first (rule/needs-you-is-loudest), then newest first; stable while working. */
@@ -157,5 +177,6 @@ export const resolveSelection = (raw: ResolveInput): Selection => {
     sessionId,
     pane: nav.pane,
     sidebar: nav.sidebar,
+    settings: nav.settings,
   };
 };

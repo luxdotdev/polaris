@@ -71,6 +71,11 @@ export interface UsageIndexOptions {
   readonly gcEveryBytes?: number;
   /** How long log changes settle before a pass, while watched. */
   readonly settleMs?: number;
+  /**
+   * Last known Plan Limits from the Harnesses' own logs (ENG-206), read once
+   * on the first `usage.watch`; they never replace a newer value.
+   */
+  readonly planLimitSeed?: Effect.Effect<ReadonlyArray<PlanLimit>>;
 }
 
 const planLimitKey = (limit: PlanLimit) =>
@@ -220,6 +225,19 @@ export const makeUsageIndex = Effect.fnUntraced(function* (options: UsageIndexOp
     yield* PubSub.publish(pubsub, UsageStreamItem.cases.PlanLimitChanged.make({ limit }));
   });
 
+  const seededLimits = yield* Effect.cached(
+    Effect.gen(function* () {
+      yield* loadedLimits;
+
+      for (const limit of options.planLimitSeed === undefined ? [] : yield* options.planLimitSeed) {
+        const known = limits.get(planLimitKey(limit));
+
+        if (known === undefined || known.observedAt < limit.observedAt)
+          yield* reportPlanLimit(limit);
+      }
+    })
+  );
+
   // Watching: fs.watch on the log roots while at least one Client is subscribed.
   let watchers: Array<FSWatcher> = [];
   let subscribers = 0;
@@ -251,8 +269,9 @@ export const makeUsageIndex = Effect.fnUntraced(function* (options: UsageIndexOp
   const changes = Stream.unwrap(
     Effect.gen(function* () {
       yield* Effect.acquireRelease(startWatching, () => stopWatching);
+      // Seeded before subscribing, so seeded values come once, with the known ones.
+      yield* seededLimits;
       const subscription = yield* PubSub.subscribe(pubsub);
-      yield* loadedLimits;
 
       const known = [...limits.values()].map((limit) =>
         UsageStreamItem.cases.PlanLimitChanged.make({ limit })

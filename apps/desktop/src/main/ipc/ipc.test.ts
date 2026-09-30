@@ -60,8 +60,11 @@ const services = Layer.provideMerge(
 
 const context: RequestContext = {
   settings: () => ({ theme: "dark", hosts: [{ alias: "studio" }] }),
+  version: "0.4.0",
   cache: { get: () => [], put: () => undefined },
   setAppearance: () => undefined,
+  setSessionDefault: () => undefined,
+  openExternal: () => Promise.resolve(),
   proofWorkspace: () => null,
   daemonDist: null,
   writeClipboard: () => Promise.resolve(),
@@ -84,9 +87,22 @@ describe("requests", () => {
       Exit.succeed({
         theme: "dark",
         density: "calm",
+        textSize: "default",
+        diffPalette: "default",
+        motion: "system",
+        codeFont: "sf-mono",
+        sessionDefaults: {},
+        version: "0.4.0",
         hosts: [{ alias: "studio", label: "studio", colour: null, forwardAgent: false }],
       })
     );
+  });
+
+  test("only https URLs open in the browser", async () => {
+    const open = requestRunner(handlers, "shell.openExternal");
+
+    expect(Exit.isSuccess(await run(open({ url: "https://opencode.ai/docs" })))).toBe(true);
+    expect(Exit.isFailure(await run(open({ url: "file:///etc/passwd" })))).toBe(true);
   });
 
   test("a refusal crosses with the Daemon's reason as its message", () => {
@@ -147,7 +163,7 @@ describe("subscriptions", () => {
 
   test("every feed kind in the contract can be opened", () => {
     expect(Object.keys(SubscriptionInputs).sort()).toEqual(
-      ["files.watch", "host", "hosts", "machines", "session", "terminal"].sort()
+      ["files.watch", "host", "hosts", "machines", "session", "terminal", "usage"].sort()
     );
   });
 

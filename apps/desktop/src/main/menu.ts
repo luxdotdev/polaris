@@ -1,6 +1,7 @@
 /**
- * The native menu: the standard macOS menus, View → Orchestrate / Review /
- * Edit (⌘1–3, routed in the renderer), and the appearance and density overrides.
+ * The native menu: the standard macOS menus with Polaris → Settings… (⌘,),
+ * View → Orchestrate / Review / Edit (⌘1–3, routed in the renderer), and the
+ * appearance and density overrides.
  */
 import { BrowserWindow, Menu, type MenuItemConstructorOptions } from "electron";
 import {
@@ -43,6 +44,29 @@ const develop = (proofHostKey: string | null): MenuItemConstructorOptions => ({
     { role: "toggleDevTools" },
   ],
 });
+
+/** The macOS app menu, as `role: "appMenu"` builds it, plus Settings… (⌘,). */
+const appMenu: MenuItemConstructorOptions = {
+  role: "appMenu",
+  submenu: [
+    { role: "about" },
+    { type: "separator" },
+    {
+      id: "settings",
+      label: "Settings…",
+      accelerator: "CmdOrCtrl+,",
+      click: () => send({ kind: "settings" }),
+    },
+    { type: "separator" },
+    { role: "services" },
+    { type: "separator" },
+    { role: "hide" },
+    { role: "hideOthers" },
+    { role: "unhide" },
+    { type: "separator" },
+    { role: "quit" },
+  ],
+};
 
 const route = (to: Route) => () => send({ kind: "route", route: to });
 
@@ -96,7 +120,7 @@ export const buildMenu = ({ appearance, setAppearance, dev, proofHostKey }: Menu
 
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
-      { role: "appMenu" },
+      appMenu,
       { role: "fileMenu" },
       { role: "editMenu" },
       { label: "View", submenu: view },
