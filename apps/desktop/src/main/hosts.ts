@@ -13,7 +13,16 @@ import {
   HostTarget,
 } from "@polaris/client";
 import { Capability } from "@polaris/protocol";
-import { Context, Effect, Layer, ManagedRuntime, Option, Stream, SubscriptionRef } from "effect";
+import {
+  Context,
+  Effect,
+  Layer,
+  ManagedRuntime,
+  Option,
+  Schema,
+  Stream,
+  SubscriptionRef,
+} from "effect";
 import type { ConnectionStatusView, HostView, IpcError } from "../shared/api.ts";
 import type { LocalDaemon } from "./localDaemon.ts";
 import type { RemoteHostSetting } from "./settings.ts";
@@ -65,25 +74,60 @@ export const hostView = (entry: HostEntry, status: ConnectionStatus): HostView =
   status: statusView(status),
 });
 
+/** A Host on a local socket under its own name: screenshots and tests only (`POLARIS_DESKTOP_EXTRA_HOSTS`). */
+export const ExtraHost = Schema.Struct({
+  key: Schema.String.check(Schema.isMinLength(1)),
+  label: Schema.String,
+  socket: Schema.String,
+});
+
+export type ExtraHost = typeof ExtraHost.Type;
+
+const decodeExtras = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.Array(ExtraHost)));
+
+export const extraHosts = (json: string | undefined): ReadonlyArray<ExtraHost> =>
+  json === undefined || json === "" ? [] : Option.getOrElse(decodeExtras(json), () => []);
+
 export interface HostEntriesInput {
   readonly local: LocalDaemon;
   readonly remotes: ReadonlyArray<RemoteHostSetting>;
+  readonly extras?: ReadonlyArray<ExtraHost>;
+  /** The local Host's name; "This Mac" by default. */
+  readonly localLabel?: string;
 }
 
 /** The local Host first, then the remote Hosts in settings order; duplicate aliases dropped. */
-export const hostEntries = ({ local, remotes }: HostEntriesInput): ReadonlyArray<HostEntry> => {
+export const hostEntries = ({
+  local,
+  remotes,
+  extras = [],
+  localLabel = "This Mac",
+}: HostEntriesInput): ReadonlyArray<HostEntry> => {
   const seen = new Set<string>([LOCAL_HOST_KEY]);
 
   const entries: Array<HostEntry> = [
     {
       key: LOCAL_HOST_KEY,
-      label: "This Mac",
+      label: localLabel,
       colour: null,
       alias: null,
       proofHarness: local.benchHarness,
       target: HostTarget.Local({ socketPath: local.socketPath }),
     },
   ];
+
+  for (const extra of extras) {
+    if (seen.has(extra.key)) continue;
+    seen.add(extra.key);
+    entries.push({
+      key: extra.key,
+      label: extra.label,
+      colour: null,
+      alias: null,
+      proofHarness: false,
+      target: HostTarget.Local({ socketPath: extra.socket }),
+    });
+  }
 
   for (const remote of remotes) {
     if (seen.has(remote.alias)) continue;

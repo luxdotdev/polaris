@@ -25,7 +25,8 @@ export const createMainWindow = ({ url, preload, trusted, show }: MainWindowInpu
     title: "Polaris",
     backgroundColor: windowBackground(),
     titleBarStyle: "hiddenInset",
-    trafficLightPosition: { x: 16, y: 16 },
+    // Centred on the 44px title bar (Paper 1BC-0).
+    trafficLightPosition: { x: 16, y: 15 },
     webPreferences: {
       preload,
       contextIsolation: true,

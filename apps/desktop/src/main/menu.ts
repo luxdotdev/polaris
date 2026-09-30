@@ -16,13 +16,35 @@ export interface MenuInput {
   readonly appearance: Appearance;
   readonly setAppearance: (patch: Partial<Appearance>) => void;
   readonly dev: boolean;
+  /** The local Host runs the bench Harness: offer Develop → Start proof session. */
+  readonly proofHostKey: string | null;
 }
 
-const route = (to: Route) => () => {
-  const event: AppEvent = { kind: "route", route: to };
+/** To the focused window, else the first (a hidden window, in smoke tests, is never focused). */
+const send = (event: AppEvent) =>
+  (BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0])?.webContents.send(
+    CHANNELS.app,
+    event
+  );
 
-  BrowserWindow.getFocusedWindow()?.webContents.send(CHANNELS.app, event);
-};
+const develop = (proofHostKey: string | null): MenuItemConstructorOptions => ({
+  label: "Develop",
+  submenu: [
+    {
+      id: "dev-proof",
+      label: "Start proof session",
+      enabled: proofHostKey !== null,
+      click: () => {
+        if (proofHostKey !== null) send({ kind: "proof", hostKey: proofHostKey });
+      },
+    },
+    { type: "separator" },
+    { role: "reload" },
+    { role: "toggleDevTools" },
+  ],
+});
+
+const route = (to: Route) => () => send({ kind: "route", route: to });
 
 const MODES: ReadonlyArray<{
   readonly label: string;
@@ -46,7 +68,7 @@ const DENSITIES: ReadonlyArray<{ readonly label: string; readonly density: Densi
   { label: "Compact", density: "compact" },
 ];
 
-export const buildMenu = ({ appearance, setAppearance, dev }: MenuInput) => {
+export const buildMenu = ({ appearance, setAppearance, dev, proofHostKey }: MenuInput) => {
   const view: Array<MenuItemConstructorOptions> = [
     ...MODES.map((m) => ({ label: m.label, accelerator: m.key, click: route(m.route) })),
     { type: "separator" },
@@ -72,8 +94,6 @@ export const buildMenu = ({ appearance, setAppearance, dev }: MenuInput) => {
     { role: "togglefullscreen" },
   ];
 
-  if (dev) view.push({ type: "separator" }, { role: "reload" }, { role: "toggleDevTools" });
-
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
       { role: "appMenu" },
@@ -81,6 +101,7 @@ export const buildMenu = ({ appearance, setAppearance, dev }: MenuInput) => {
       { role: "editMenu" },
       { label: "View", submenu: view },
       { role: "windowMenu" },
+      ...(dev || proofHostKey !== null ? [develop(proofHostKey)] : []),
     ])
   );
 };

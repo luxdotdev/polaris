@@ -75,6 +75,39 @@ const app = await electron.launch({
   },
 });
 
+const SWITCHES = 40;
+
+/** ⌃1 / ⌃2 back and forth; input → second frame after it, per routes/switchTimer.ts. M1: < 100 ms. */
+const timeSwitches = async (page: Page) => {
+  for (let i = 0; i < SWITCHES; i++) {
+    await page.keyboard.press(i % 2 === 0 ? "Control+Digit1" : "Control+Digit2");
+    await page.waitForTimeout(40);
+  }
+
+  await page.waitForTimeout(200);
+  // SAFETY: switchTimes() returns an array of numbers (routes/switchTimer.ts).
+  const times = (await page.evaluate("window.__polaris.switchTimes()")) as Array<number>;
+  const sorted = [...times].sort((a, b) => a - b);
+
+  const at = (q: number) =>
+    sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))] ?? NaN;
+
+  step(
+    `Workspace switch (${sorted.length}): p50 ${at(0.5).toFixed(1)} ms, p95 ${at(0.95).toFixed(1)} ms, max ${at(1).toFixed(1)} ms`
+  );
+
+  if (sorted.length < SWITCHES / 2)
+    throw new Error("the Workspace switch timer recorded too few switches");
+
+  if (at(0.95) > 100) throw new Error("Workspace switch p95 is over the 100 ms budget");
+};
+
+/** Develop → Start proof session, as the menu does it. */
+const startProof = () =>
+  app.evaluate(({ Menu }) => {
+    Menu.getApplicationMenu()?.getMenuItemById("dev-proof")?.click();
+  });
+
 const shoot = async (page: Page, theme: "dark" | "light") => {
   if (screenshots === null) return;
   mkdirSync(screenshots, { recursive: true });
@@ -95,6 +128,7 @@ const consoleErrors: Array<string> = [];
 try {
   const page = await app.firstWindow();
 
+  page.on("pageerror", (error) => consoleErrors.push(`pageerror: ${error.message}`));
   page.on("console", (message) => {
     if (message.type() === "error") consoleErrors.push(message.text());
   });
@@ -103,19 +137,22 @@ try {
   // Playwright emulates a light colour scheme by default; follow the app's own theme instead.
   await page.emulateMedia({ colorScheme: null });
   await page
-    .getByTestId("connection-local")
-    .filter({ hasText: /^connected$/ })
+    .locator('[data-host="local"][data-connection="connected"]')
     .waitFor({ timeout: 15_000 });
   step("local Host connected");
 
   const remote = page.getByTestId(`connection-${UNREACHABLE}`);
 
-  await remote
-    .filter({ hasText: /^(reconnecting|needs attention|offline)$/ })
-    .waitFor({ timeout: 20_000 });
+  await remote.waitFor({ timeout: 20_000 });
   step(`unreachable remote Host: ${await remote.textContent()}`);
 
-  await page.getByRole("button", { name: "Start proof session" }).click();
+  // A second, idle Workspace first, so the Workspace switch can be timed.
+  await startProof();
+  await page
+    .locator('[data-testid="row-state"][data-state="idle"]')
+    .first()
+    .waitFor({ timeout: 60_000 });
+  await startProof();
   await page.getByTestId("session-panel").waitFor({ timeout: 15_000 });
   step("proof session open");
 
@@ -138,6 +175,7 @@ try {
 
   if (items !== "6 items") throw new Error(`expected 6 items, saw ${items}`);
   await shoot(page, "light");
+  await timeSwitches(page);
 
   const probe = await Promise.race([
     page.evaluate(probeSource({ bigFile: bigAsset(), repo: REPO_ROOT })),
@@ -163,7 +201,12 @@ try {
   const page = app.windows()[0];
 
   if (page !== undefined) {
-    console.error(`smoke: screen text:\n${await page.locator("body").innerText()}`);
+    const shot = join(tmpdir(), "polaris-smoke-failure.png");
+
+    await page.screenshot({ path: shot }).catch(() => undefined);
+    console.error(
+      `smoke: screenshot at ${shot}; screen text:\n${await page.locator("body").innerText()}`
+    );
     console.error(`smoke: renderer errors:\n${consoleErrors.join("\n")}`);
   }
 } finally {
