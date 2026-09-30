@@ -7,6 +7,7 @@
 import {
   Button,
   Input,
+  Kbd,
   PixelFolderIcon,
   PixelServerIcon,
   PixelSparkleIcon,
@@ -20,7 +21,13 @@ import { useApp, useSelection, useShellActions } from "../../../shell/hooks.ts";
 import { useOnboardingState } from "../../onboarding/index.ts";
 import { send } from "../../session/dispatch.ts";
 import { useReadyLine } from "../hooks.ts";
-import { absolutePath, cleanPath, hostStageLine, stageKicker } from "../model.ts";
+import {
+  absolutePath,
+  cleanPath,
+  connectHostCaption,
+  hostStageLine,
+  stageKicker,
+} from "../model.ts";
 import { Stage } from "./Stage.tsx";
 
 const register = (host: HostView, path: string) =>
@@ -127,7 +134,7 @@ const AddWorkspaceRow = ({ host }: { readonly host: HostView }) => {
               onClick={() => void pickFolder(host)}
               data-testid="choose-folder"
             >
-              Choose folder <span className="text-micro opacity-60">⌘O</span>
+              Choose folder <Kbd variant="plain">⌘O</Kbd>
             </Button>
           </div>
         ) : (
@@ -141,12 +148,7 @@ const AddWorkspaceRow = ({ host }: { readonly host: HostView }) => {
 const ConnectHostRow = ({ hostCount }: { readonly hostCount: number }) => {
   const sshHosts = useOnboardingState((s) => s.sshHosts?.length ?? 0);
 
-  const caption =
-    hostCount > 1
-      ? `${hostCount - 1} more in settings · optional`
-      : sshHosts > 0
-        ? `${sshHosts} ${sshHosts === 1 ? "host" : "hosts"} in ~/.ssh/config · optional`
-        : "Any machine you can reach over SSH · optional";
+  const caption = connectHostCaption(sshHosts, hostCount - 1);
 
   const { openSettings } = useShellActions();
   // The same add-a-host flow as Settings → Hosts, on day 1 and day 60 (DESIGN.md, Onboarding).
@@ -183,7 +185,7 @@ const StartRow = ({ host }: { readonly host: HostView }) => {
     <SetupRow
       icon={<PixelSparkleIcon size={20} />}
       title="Start a session"
-      caption={`${readyLine} · starts in ~`}
+      caption={readyLine}
       action={
         <Button data-testid="setup-start-session" disabled={starting} onClick={startNewSession}>
           {starting ? "Starting…" : "Start session"}

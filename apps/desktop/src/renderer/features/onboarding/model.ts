@@ -85,20 +85,20 @@ export const foundLine = (availability: Availability | null, sshHosts: number | 
   return parts.length === 0 ? "No agents yet" : parts.join(" · ");
 };
 
-/** "Claude Code 2.1.4 and Codex 0.52.0"; past `max` names, "A, B and 3 more". */
+/** "A and B", "A, B, and C"; past `max` names, "A, B, and 3 more" (the serial comma). */
 export const listed = (names: ReadonlyArray<string>, max = names.length): string => {
-  if (names.length > max) return `${names.slice(0, max).join(", ")} and ${names.length - max} more`;
+  const shown = names.length > max ? [...names.slice(0, max), `${names.length - max} more`] : names;
 
-  return names.length <= 1
-    ? (names[0] ?? "")
-    : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  return shown.length <= 2
+    ? shown.join(" and ")
+    : `${shown.slice(0, -1).join(", ")}, and ${shown[shown.length - 1]}`;
 };
 
 /** O1's line on what Polaris drives: the Harnesses found here, or the catalogue's first two. */
 export const drivesLine = (installed: ReadonlyArray<string>, catalogue: ReadonlyArray<string>) => {
   const names = installed.length > 0 ? installed : catalogue;
 
-  return names.length > 2 ? `${names.slice(0, 2).join(", ")} and more` : listed(names);
+  return names.length > 2 ? `${names.slice(0, 2).join(", ")}, and more` : listed(names);
 };
 
 /** The Workspace already registered at a path, shown or hidden. */
