@@ -4,66 +4,12 @@ import { Commands, Placement } from "../../../commands.ts";
 import { parseUnifiedDiff, totals } from "./diff.ts";
 import { formatElapsed, tildePath } from "./format.ts";
 import {
-  choose,
-  defaultChoice,
-  effortFor,
-  type ModelData,
-  modelLabel,
-  pickableModels,
-} from "./models.ts";
-import {
   branchFromPrompt,
   forkStartCommands,
   isBranchName,
   startCommand,
   whereLine,
 } from "./newSession.ts";
-
-const model = (id: string, patch: Partial<ModelData> = {}): ModelData => ({
-  id,
-  name: id.toUpperCase(),
-  description: null,
-  efforts: ["low", "medium", "high"],
-  defaultEffort: "medium",
-  isDefault: false,
-  ...patch,
-});
-
-const claude = [
-  model("default", { name: "Default (recommended)", isDefault: true, defaultEffort: null }),
-  model("opus", { name: "Opus 5", defaultEffort: null }),
-  model("haiku", { name: "Haiku", efforts: [], defaultEffort: null }),
-];
-
-describe("model picker", () => {
-  test("Claude's default row is hidden; other Harnesses keep every row", () => {
-    expect(pickableModels("claude", claude).map((m) => m.id)).toEqual(["opus", "haiku"]);
-    expect(pickableModels("codex", claude)).toHaveLength(3);
-  });
-
-  test("the effort sent is the pick if supported, else the Model's default", () => {
-    const gpt = model("gpt-5.5", { defaultEffort: "medium" });
-
-    expect(effortFor(gpt, "high")).toBe("high");
-    expect(effortFor(gpt, "xhigh")).toBe("medium");
-    expect(effortFor(gpt, null)).toBe("medium");
-    expect(choose(gpt)).toEqual({ model: "gpt-5.5", effort: "medium" });
-  });
-
-  test("a null Model reads as Default", () => {
-    expect(modelLabel(claude, null, null)).toBe("Default");
-    expect(modelLabel(claude, "opus", "high")).toBe("Opus 5 · high");
-    expect(modelLabel([], "gpt-9", null)).toBe("gpt-9");
-  });
-
-  test("a new session starts on the Harness's default; Claude sends null", () => {
-    expect(defaultChoice("claude", claude)).toBeNull();
-    expect(defaultChoice("codex", [model("a"), model("b", { isDefault: true })])).toEqual({
-      model: "b",
-      effort: "medium",
-    });
-  });
-});
 
 describe("new session", () => {
   const input = {

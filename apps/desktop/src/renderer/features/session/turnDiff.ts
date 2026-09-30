@@ -7,7 +7,7 @@ import type { GitDiffSpec, SessionId, TurnId } from "@polaris/protocol";
 import { Data } from "effect";
 import { useEffect, useState } from "react";
 import { type DiffFile, parseUnifiedDiff } from "./model/diff.ts";
-import { polaris } from "./bridge.ts";
+import { polaris } from "../bridge.ts";
 
 export type DiffState =
   | { readonly kind: "loading" }

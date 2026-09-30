@@ -10,7 +10,16 @@ import type { SessionData } from "../../../store/plain.ts";
 import type { SessionModel } from "../../../store/sessionModel.ts";
 import { useStaging } from "../attachments.ts";
 import { send } from "../dispatch.ts";
-import { hasCapability, useElapsed, useHarnessModels, useHost } from "../hooks.ts";
+import {
+  HarnessChip,
+  type HarnessOption,
+  type ModelChange,
+  modelChange,
+  type ModelChoice,
+  useHarnessModels,
+  useSignIn,
+} from "../../harness/index.ts";
+import { hasCapability, useElapsed, useHost } from "../hooks.ts";
 import { formatElapsed } from "../model/format.ts";
 import {
   composerMode,
@@ -19,10 +28,8 @@ import {
   placeholderFor,
   submitCommand,
 } from "../model/intent.ts";
-import type { ModelChoice } from "../model/models.ts";
 import { patchSessionUi, useSessionUi } from "../state.ts";
 import { DraftComposer } from "./DraftComposer.tsx";
-import { ModelPicker } from "./ModelPicker.tsx";
 
 export interface SessionComposerProps {
   readonly hostKey: string;
@@ -34,44 +41,74 @@ export interface SessionComposerProps {
   readonly onOpenSession?: ((sessionId: SessionId) => void) | undefined;
 }
 
+const CHANGE_NOTES: Readonly<Record<ModelChange["kind"], string | undefined>> = {
+  fork: "This harness can't switch model in a session; picking one forks a new session",
+  set: "Applies from the next turn",
+  blocked: undefined,
+};
+
+/** Picking a Model: `SetModel` between Turns, else a Fork on it; another Harness forks too. */
 const useModelChange = ({ hostKey, session, model, onOpenSession }: SessionComposerProps) => {
   const host = useHost(hostKey);
   const { switchesModel } = useHarnessModels(hostKey, session.harness);
-  const canSet = switchesModel && hasCapability(host, "session.set-model");
   const lastDone = model.turns.findLast((t) => t.turn.status !== "working")?.turn;
+  const signIn = useSignIn(hostKey);
 
-  const change = (choice: ModelChoice) => {
-    if (canSet) {
+  const change = modelChange({
+    switchesModel,
+    canSetModel: hasCapability(host, "session.set-model"),
+    canFork: hasCapability(host, "session.fork"),
+    turnInFlight: model.turns.at(-1)?.turn.status === "working",
+    hasFinishedTurn: lastDone !== undefined,
+  });
+
+  const fork = (harness: string, choice: ModelChoice | null) => {
+    if (lastDone === undefined) return;
+    const sessionId = newSessionId();
+
+    const command = forkCommand({
+      sessionId,
+      fromSessionId: session.id,
+      fromTurnId: lastDone.id,
+      harness,
+      model: choice?.model ?? null,
+      effort: choice?.effort ?? null,
+    });
+
+    void send(hostKey, command, "Couldn't fork").then((ok) => {
+      if (ok) onOpenSession?.(sessionId);
+    });
+  };
+
+  const onModel = (choice: ModelChoice) => {
+    if (change.kind === "set")
       void send(
         hostKey,
         Commands.SetModel({ sessionId: session.id, ...choice }),
         "Couldn't switch"
       );
-
-      return;
-    }
-
-    if (lastDone === undefined) return;
-    const sessionId = newSessionId();
-
-    const fork = forkCommand({
-      sessionId,
-      fromSessionId: session.id,
-      fromTurnId: lastDone.id,
-      harness: session.harness,
-      ...choice,
-    });
-
-    void send(hostKey, fork, "Couldn't fork").then((ok) => {
-      if (ok) onOpenSession?.(sessionId);
-    });
+    else if (change.kind === "fork") fork(session.harness, choice);
   };
 
-  const note = canSet
-    ? "Applies from the next turn"
-    : "This harness can't switch model mid-session; picking one forks a new session";
+  const onPick = (option: HarnessOption) =>
+    option.status === "needs-sign-in" ? signIn.begin(option) : fork(option.kind, null);
 
-  return { change, note };
+  const note = CHANGE_NOTES[change.kind];
+
+  return {
+    onModel,
+    note,
+    blocked: change.kind === "blocked" ? change.reason : undefined,
+    harnesses:
+      lastDone !== undefined && hasCapability(host, "session.fork")
+        ? {
+            onPick,
+            verb: (o: HarnessOption) =>
+              o.status === "needs-sign-in" ? `Sign in to ${o.name}` : `Fork on ${o.name}`,
+          }
+        : undefined,
+    dialog: signIn.dialog,
+  };
 };
 
 export const SessionComposer = (props: SessionComposerProps) => {
@@ -97,7 +134,7 @@ export const SessionComposer = (props: SessionComposerProps) => {
     (staged) => patchSessionUi(uiKey, (u) => ({ attachments: [...u.attachments, staged] }))
   );
 
-  const modelChange = useModelChange(props);
+  const change = useModelChange(props);
 
   const submit = () => {
     if (command === null) return;
@@ -123,16 +160,20 @@ export const SessionComposer = (props: SessionComposerProps) => {
       className="px-panel pb-panel"
       harness={harness}
       picker={
-        <ModelPicker
-          hostKey={hostKey}
-          harness={harness}
-          model={session.model}
-          effort={session.effort}
-          working={isWorking && session.state === "working"}
-          disabled={isWorking}
-          note={modelChange.note}
-          onChoose={modelChange.change}
-        />
+        <>
+          <HarnessChip
+            hostKey={hostKey}
+            harness={harness}
+            model={session.model}
+            effort={session.effort}
+            working={isWorking && session.state === "working"}
+            modelNote={change.note}
+            modelBlocked={change.blocked}
+            onModel={change.onModel}
+            {...(change.harnesses === undefined ? {} : { harnesses: change.harnesses })}
+          />
+          {change.dialog}
+        </>
       }
       value={ui.draft}
       onChange={(text) => patchSessionUi(uiKey, () => ({ draft: text }))}

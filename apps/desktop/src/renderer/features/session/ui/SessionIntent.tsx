@@ -15,6 +15,7 @@ import { Commands } from "../../../commands.ts";
 import { emptyHostModel } from "../../../store/hostModel.ts";
 import type { SessionData } from "../../../store/plain.ts";
 import { useApp, useShellActions } from "../../../shell/hooks.ts";
+import { modelLabel, useHarnessModels } from "../../harness/index.ts";
 import { send } from "../dispatch.ts";
 import { useHost, useSession, hasCapability } from "../hooks.ts";
 import { conversationRows } from "../model/conversation.ts";
@@ -60,6 +61,7 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
   const host = useHost(hostKey);
   const { where, branch } = useWhere(hostKey, model.session);
   const [forking, setForking] = useState<ForkTarget | null>(null);
+  const models = useHarnessModels(hostKey, model.session?.harness ?? "", model.session !== null);
   const { session } = model;
 
   if (session === null) return <Placeholder>Loading the session…</Placeholder>;
@@ -87,6 +89,7 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
         "Couldn't answer"
       ),
     onContinue: () => void send(hostKey, continueCommand(sessionId), "Couldn't continue"),
+    modelLabel: (model, effort) => modelLabel(models.models, model, effort),
   };
 
   return (

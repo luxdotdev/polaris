@@ -1,14 +1,20 @@
 /**
- * The new-session page's Harness choice (DESIGN.md, New session): one row of
- * equal 56px cards, one per Harness the Host has (catalogue + availability)
- * and Fork a turn. A Harness that isn't ready shows why, never an install.
+ * The new-session page's Harness choice (DESIGN.md, New session): equal 56px
+ * cards, one per Harness the Host has ready or needing sign-in, and Fork a
+ * turn. The rest are under "Other harnesses", never offered as an install.
  */
+import type { HarnessKind } from "@polaris/protocol";
 import { CheckIcon, cn, Dither, type Harness, Tile } from "@polaris/ui";
 import type { ReactNode } from "react";
-import { useHarnessModels } from "../hooks.ts";
-import { type HarnessOption, STATUS_CAPTIONS } from "../model/harnesses.ts";
+import { useHarnessModels } from "../live.ts";
 import { defaultChoice, type ModelChoice, modelLabel } from "../model/models.ts";
-import type { HarnessChoice as Choice } from "../model/newSession.ts";
+import { type HarnessOption, listedOptions, STATUS_LABELS } from "../model/options.ts";
+import { OtherHarnessesLink } from "./Availability.tsx";
+
+/** A catalogue Harness, or "Fork a turn". */
+export type HarnessChoice =
+  | { readonly kind: "harness"; readonly harness: HarnessKind }
+  | { readonly kind: "fork" };
 
 /** Paper's fork glyph (artboard 4), on the 24px pixel grid. */
 const ForkGlyph = () => (
@@ -108,8 +114,9 @@ const HarnessCard = ({
   const choice = picked ?? defaultChoice(option.kind, models);
 
   const caption =
-    STATUS_CAPTIONS[option.status] ??
-    modelLabel(models, choice?.model ?? null, choice?.effort ?? null);
+    option.status === "ready" || option.status === "unknown"
+      ? modelLabel(models, choice?.model ?? null, choice?.effort ?? null)
+      : STATUS_LABELS[option.status];
 
   return (
     <Card
@@ -123,29 +130,6 @@ const HarnessCard = ({
   );
 };
 
-/** Under the row when the chosen Harness can't start: its setup line and its docs. */
-export const SetupNote = ({ option }: { readonly option: HarnessOption }) => (
-  <div
-    className="rounded-card border-hairline bg-surface-raised flex flex-col gap-1 border px-4 py-3"
-    data-testid="harness-setup"
-  >
-    <p className="text-body text-text-default">
-      {option.setupLine ?? `${option.name} can't start yet.`}
-    </p>
-    {option.detail === null ? null : (
-      <p className="text-caption text-text-subtle">{option.detail}</p>
-    )}
-    <a
-      href={option.docsUrl}
-      target="_blank"
-      rel="noreferrer"
-      className="text-label text-text-strong decoration-text-faint self-start underline underline-offset-4"
-    >
-      {option.name} setup guide
-    </a>
-  </div>
-);
-
 /** One balanced row of up to three cards (DESIGN.md); more wrap two to a row so names fit. */
 const columns = (cards: number) => (cards <= 3 ? Math.max(cards, 1) : 2);
 
@@ -154,8 +138,8 @@ export interface HarnessChoiceProps {
   readonly options: ReadonlyArray<HarnessOption>;
   /** The Model the user picked per Harness; absent means its default. */
   readonly picked: Readonly<Partial<Record<Harness, ModelChoice | null>>>;
-  readonly value: Choice | null;
-  readonly onChange: (choice: Choice) => void;
+  readonly value: HarnessChoice | null;
+  readonly onChange: (choice: HarnessChoice) => void;
   readonly canFork: boolean;
 }
 
@@ -166,38 +150,51 @@ export const HarnessChoiceRow = ({
   value,
   onChange,
   canFork,
-}: HarnessChoiceProps) => (
-  <div
-    role="radiogroup"
-    aria-label="Harness"
-    className="grid w-full gap-2.5"
-    style={{
-      gridTemplateColumns: `repeat(${columns(options.length + (canFork ? 1 : 0))}, minmax(0, 1fr))`,
-    }}
-  >
-    {options.map((option) => (
-      <HarnessCard
-        key={option.kind}
-        hostKey={hostKey}
-        option={option}
-        picked={picked[option.kind] ?? null}
-        selected={value?.kind === "harness" && value.harness === option.kind}
-        onSelect={() => onChange({ kind: "harness", harness: option.kind })}
-      />
-    ))}
-    {canFork ? (
-      <Card
-        testId="harness-fork"
-        selected={value?.kind === "fork"}
-        tile={
-          <Tile hue="starlight" size={48} className="h-full w-12 rounded-none border-0 border-r">
-            <ForkGlyph />
-          </Tile>
-        }
-        title="Fork a turn"
-        caption="From a checkpoint"
-        onSelect={() => onChange({ kind: "fork" })}
-      />
-    ) : null}
-  </div>
-);
+}: HarnessChoiceProps) => {
+  const listed = listedOptions(options);
+  const cards = listed.length + (canFork ? 1 : 0);
+
+  return (
+    <div className="flex w-full flex-col gap-2">
+      <div
+        role="radiogroup"
+        aria-label="Harness"
+        className="grid w-full gap-2.5"
+        style={{ gridTemplateColumns: `repeat(${columns(cards)}, minmax(0, 1fr))` }}
+      >
+        {listed.map((option) => (
+          <HarnessCard
+            key={option.kind}
+            hostKey={hostKey}
+            option={option}
+            picked={picked[option.kind] ?? null}
+            selected={value?.kind === "harness" && value.harness === option.kind}
+            onSelect={() => onChange({ kind: "harness", harness: option.kind })}
+          />
+        ))}
+        {canFork ? (
+          <Card
+            testId="harness-fork"
+            selected={value?.kind === "fork"}
+            tile={
+              <Tile
+                hue="starlight"
+                size={48}
+                className="h-full w-12 rounded-none border-0 border-r"
+              >
+                <ForkGlyph />
+              </Tile>
+            }
+            title="Fork a turn"
+            caption="From a checkpoint"
+            onSelect={() => onChange({ kind: "fork" })}
+          />
+        ) : null}
+      </div>
+      {listed.length === 0 ? (
+        <p className="text-caption text-text-default">No harness is ready on this host yet.</p>
+      ) : null}
+      <OtherHarnessesLink hostKey={hostKey} options={options} />
+    </div>
+  );
+};

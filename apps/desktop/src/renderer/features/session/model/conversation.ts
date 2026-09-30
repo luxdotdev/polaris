@@ -27,6 +27,9 @@ export type Row =
       readonly turnId: string;
       readonly text: string;
       readonly attachments: ReadonlyArray<string>;
+      /** The Model and effort the Turn ran on; null for the Harness's defaults. */
+      readonly model: string | null;
+      readonly effort: string | null;
     }
   | {
       readonly kind: "item";
@@ -122,6 +125,8 @@ const expandedRows = (view: TurnView, isLast: boolean): ReadonlyArray<Row> => [
     turnId: view.turn.id,
     text: view.turn.prompt,
     attachments: view.turn.attachments.map((a) => a.name),
+    model: view.turn.model,
+    effort: view.turn.effort,
   },
   ...itemRows(view),
   ...endingRow(view, isLast),
