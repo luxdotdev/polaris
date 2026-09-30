@@ -130,7 +130,8 @@ const HarnessCard = ({
   );
 };
 
-/** One balanced row of up to three cards (DESIGN.md); more wrap two to a row so names fit. */
+/** One balanced row of up to three cards (DESIGN.md); four wrap two to a row so names fit. */
+const columns = (cards: number) => (cards <= 3 ? Math.max(cards, 1) : 2);
 
 export interface HarnessChoiceProps {
   readonly hostKey: string;
@@ -158,9 +159,9 @@ export const HarnessChoiceRow = ({
   onSignIn,
   lastUsed,
 }: HarnessChoiceProps) => {
-  // One row (DESIGN.md New session): up to three Harness cards, then Fork a turn.
+  // Up to three Harness cards (DESIGN.md New session), then Fork a turn.
   const listed = cardOptions(options, lastUsed, value?.kind === "harness" ? value.harness : null);
-  const cards = Math.max(listed.length + (canFork ? 1 : 0), 1);
+  const cards = columns(listed.length + (canFork ? 1 : 0));
 
   return (
     <div className="flex w-full flex-col gap-2">
