@@ -180,6 +180,7 @@ const make = Effect.gen(function* () {
       StartSession: (command) => startSession(command, committed),
       SendTurn: (command) => runStartedTurn(command.sessionId, committed.result.envelopes),
       Continue: (command) => continueTurn(command.sessionId, committed),
+      Retry: (command) => runStartedTurn(command.sessionId, committed.result.envelopes),
       Steer: (command) =>
         Effect.suspend(
           () => live.get(command.sessionId)?.session.steer(command.text) ?? Effect.void
