@@ -615,6 +615,7 @@ Quiet. Standard transitions are 120ms (hover, press), 160ms (small reveals), and
 ### Performance
 
 - Animate `transform` and `opacity` only. Anything that triggers layout or paint per frame (width, height, top, box-shadow, blur radius) does not animate.
+- Dialogs and the jump menu are opaque `surface-raised` cards at every moment, their input row included: the card scales in from 98% over 200ms and closes at once, and only the scrim fades. Nothing behind ever shows through a dialog, even mid-animation.
 - Springs are fine for panels and toasts when they drive `transform`. The Working dither steps a sprite strip by `transform`.
 - Long lists and diffs are virtualised; nothing animates on scroll.
 

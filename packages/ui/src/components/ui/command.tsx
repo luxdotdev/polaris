@@ -72,7 +72,7 @@ export interface CommandInputProps extends ComponentProps<typeof CommandPrimitiv
 
 export function CommandInput({ className, hint, ...props }: CommandInputProps) {
   return (
-    <div className="border-hairline flex h-[52px] shrink-0 items-center gap-2.5 border-b px-4">
+    <div className="border-hairline bg-surface-raised flex h-[52px] shrink-0 items-center gap-2.5 border-b px-4">
       <SearchIcon className="text-text-subtle" />
       <CommandPrimitive.Input
         data-slot="command-input"

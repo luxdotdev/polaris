@@ -57,7 +57,8 @@ export function DialogContent({
           "fixed left-1/2 z-50 flex w-[440px] max-w-[calc(100%-32px)] -translate-x-1/2 flex-col overflow-clip",
           placement === "center" ? "top-1/2 -translate-y-1/2" : "top-[132px]",
           FLOAT_SURFACE,
-          "duration-200 ease-out data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0",
+          // The card stays opaque while it enters: it scales in, only the scrim fades.
+          "duration-200 ease-out data-[state=open]:animate-in data-[state=open]:zoom-in-[0.98]",
           className
         )}
         {...props}
