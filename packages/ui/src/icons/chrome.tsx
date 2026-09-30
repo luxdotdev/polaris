@@ -6,6 +6,8 @@ import type { SVGProps } from "react";
  */
 export * from "./nucleo/ui";
 
+export * from "./nucleo/ui-more";
+
 export type IconProps = SVGProps<SVGSVGElement> & { readonly size?: number };
 
 const STROKE = 1;
