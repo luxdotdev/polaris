@@ -214,11 +214,24 @@ try {
   if (!JSON.stringify(probe).includes('"terminal":true'))
     throw new Error("terminal output missing");
 
+  const openHosts = async () => {
+    await app.evaluate(({ Menu }) => {
+      Menu.getApplicationMenu()?.getMenuItemById("settings")?.click();
+    });
+    await page
+      .getByRole("navigation", { name: "Settings" })
+      .getByRole("button", { name: "Hosts" })
+      .click();
+    await page.getByTestId("hosts-settings").waitFor({ timeout: 10_000 });
+
+    return true;
+  };
+
   await machineFlow({
     page,
     host: fakeHost,
     step,
-    openHosts: null,
+    openHosts,
     shoot: (name) => shoot(page, name),
   });
 

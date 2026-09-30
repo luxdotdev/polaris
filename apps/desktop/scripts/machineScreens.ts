@@ -3,7 +3,8 @@
  * Screenshots of Settings → Hosts against Paper S4 / O3 / O4, both themes:
  * this Mac, a fake remote Host awaiting install approval (then installed),
  * `localhost` over the real ssh (host key not trusted here), and an
- * unreachable alias (reconnecting). Also the add-a-host form.
+ * unreachable alias (reconnecting). Also the add-a-host form. Opens the
+ * page the way a user does, from Settings….
  *
  *   node scripts/machineScreens.ts <dir> [--build]
  */
@@ -77,13 +78,15 @@ const shoot = async (page: Page, name: string) => {
   }
 };
 
-/** Settings → Hosts through the shell's ⌘, and the nav, else the preview route. */
+/** Settings → Hosts: Polaris → Settings… (⌘,), then Machines → Hosts in the nav. */
 const openHosts = async (page: Page) => {
-  await page.keyboard.press("Meta+Comma");
-  const nav = page.getByRole("button", { name: "Hosts", exact: true });
-
-  if (await nav.isVisible().catch(() => false)) await nav.click();
-  else await page.evaluate(`location.hash = "#hosts"; location.reload()`);
+  await app.evaluate(({ Menu }) => {
+    Menu.getApplicationMenu()?.getMenuItemById("settings")?.click();
+  });
+  await page
+    .getByRole("navigation", { name: "Settings" })
+    .getByRole("button", { name: "Hosts" })
+    .click();
   await page.getByTestId("hosts-settings").waitFor({ timeout: 10_000 });
 };
 
