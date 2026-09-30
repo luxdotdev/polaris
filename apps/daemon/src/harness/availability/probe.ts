@@ -202,12 +202,28 @@ const versionRun = (path: string, env: ProbeEnv, scratchHomeEnv: string | null) 
         (scratch) => Effect.sync(() => rmSync(scratch, { recursive: true, force: true }))
       );
 
+/** The tested version, when `version` is older than it (but still at or above the minimum). */
+export const olderThanTested = (entry: HarnessEntry, version: string | null): string | null =>
+  version !== null && Bun.semver.order(version, entry.testedVersion) < 0
+    ? entry.testedVersion
+    : null;
+
 const availability = (
   entry: HarnessEntry<KnownHarnessKind>,
   fields: Pick<HarnessAvailability, "status" | "version" | "detail" | "signInArgv">
-) => new HarnessAvailability({ harness: entry.kind, minVersion: entry.minVersion, ...fields });
+) =>
+  new HarnessAvailability({
+    harness: entry.kind,
+    minVersion: entry.minVersion,
+    olderThanTested: fields.status === "outdated" ? null : olderThanTested(entry, fields.version),
+    ...fields,
+  });
 
-/** Not installed → outdated → the Harness's own sign-in status. */
+/**
+ * Not installed → outdated (below `minVersion`) → the Harness's own sign-in
+ * status. A version between `minVersion` and `testedVersion` is usable, noted
+ * with `olderThanTested`.
+ */
 export const probeHarness = Effect.fn("harness.availability.probe")(function* (
   entry: HarnessEntry<KnownHarnessKind>,
   env: ProbeEnv
