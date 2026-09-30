@@ -167,12 +167,15 @@ export const AvailabilitySheet = ({
 export const OtherHarnessesLink = ({
   hostKey,
   options,
+  shown,
 }: {
   readonly hostKey: string;
   readonly options: ReadonlyArray<HarnessOption>;
+  /** The Harnesses that have a card; the rest are counted here. */
+  readonly shown?: ReadonlyArray<HarnessOption>;
 }) => {
   const [open, setOpen] = useState(false);
-  const others = otherCount(options);
+  const others = otherCount(options, shown);
 
   return (
     <>

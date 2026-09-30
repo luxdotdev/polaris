@@ -501,7 +501,10 @@ A chip in every composer: a small Harness tile, `@claude` or `@codex` in `label`
 
 ### Working strip
 
-While a Turn runs, the composer grows a 34px strip across its top: a dither glyph, "Claude Code is working" in the Harness hue, elapsed time in `text-subtle`, and a Stop control (esc) on the right. A dither halo in the Harness hue bleeds from the strip's top-left corner. The composer's border takes the Harness hue at ~28% with a 3px outer ring at ~6%. The placeholder becomes "Queue a follow-up for after this Turn". This strip is the loudest thing on a Working screen and replaces any spinner.
+While a Turn runs, the composer grows a 34px strip across its top: a dither glyph, "Claude Code is working" in the Harness hue, elapsed time in `text-subtle`, and a Stop control (esc) on the right. A dither halo in the Harness hue bleeds from the strip's top-left corner. The composer's border takes the Harness hue at ~28% with a 3px outer ring at ~6%. This strip is the loudest thing on a Working screen and replaces any spinner.
+
+- **Keys while a Turn runs.** ↵ steers the Turn in flight; ⌘↵ queues the draft as a follow-up that is sent as the next Turn when this one ends. The placeholder says both: "Steer this turn · ⌘↵ to queue a follow-up". A Harness that can't be steered takes ↵ as queue, and the placeholder reads "Queue a follow-up for after this turn". A queued follow-up sits above the composer as a one-line `row`-radius strip ("Queued for after this turn", the text, Cancel); cancelling puts it back in the draft.
+- **While a question is open,** the composer answers it in free text: "Or answer in your own words". While an approval is open it is locked with "Answer the request above to go on".
 
 ### Sources
 
@@ -534,7 +537,7 @@ Full-bleed pixel illustrations: a night sky with Polaris for dark mode, a meadow
 
 ### New session
 
-The empty-state page for starting an Agent Session. Night-sky scene (dawn in light mode) fills the stage; the sidebar stays. A clearing holds a Starlight kicker in `starlight-text` ("New session · polaris"), the `display` headline "What should happen next?", and one line saying where it runs (Host, path, Worktree). Below it, the composer on a `surface-raised` card. Below that, the Harness choice as **one balanced row of three equal cards spanning the composer's width**: Claude Code, Codex, Fork a Turn. Each is 56px tall with a 48px watercolour tile on its leading edge, a 14px title and a one-line `caption`; the selected card gets `text-strong`, a brighter hairline and a check. No staggering or cascade.
+The empty-state page for starting an Agent Session. Night-sky scene (dawn in light mode) fills the stage; the sidebar stays. A clearing holds a Starlight kicker in `starlight-text` ("New session · polaris"), the `display` headline "What should happen next?", and one line saying where it runs (Host, path, Worktree). Below it, the composer on a `surface-raised` card. Below that, the Harness choice as **one balanced row of equal cards spanning the composer's width**: up to three Harness cards, then Fork a Turn. Only Harnesses that are ready or need sign-in get a card; with more than three, the three most recently used ready ones do, and the rest wait behind "Other harnesses (N)", which opens the Host's Harness availability (each with its setup line and docs). With none ready, a panel lists every Harness with its reason in one line ("Claude Code 2.1.272 · needs 2.1.283 or newer") and Start stays off. Each is 56px tall with a 48px watercolour tile on its leading edge, a 14px title and a one-line `caption`; the selected card gets `text-strong`, a brighter hairline and a check. No staggering or cascade.
 
 ### Settings
 Settings replaces the three zones inside the one main window (no separate window); ⌘, (Polaris → Settings…), the gear at the right of the sidebar's footer and the K menu ("Settings", "Settings: Appearance"…) open it, and esc returns to where you were. Mockups: Settings page, S1 Harnesses (dark), S2 Usage (dark), S3 Appearance (light), S4 Hosts (dark).

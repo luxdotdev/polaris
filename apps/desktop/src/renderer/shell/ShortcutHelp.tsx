@@ -34,6 +34,7 @@ const SECTIONS: ReadonlyArray<{ readonly heading: string; readonly rows: Readonl
     rows: [
       ...fromKeymap("Session"),
       { title: "Send, or steer while working", keys: ["↵"] },
+      { title: "Queue a follow-up for after the turn", keys: ["⌘↵"] },
       { title: "New line", keys: ["⇧↵"] },
       { title: "Stop from the composer", keys: ["esc"] },
     ],

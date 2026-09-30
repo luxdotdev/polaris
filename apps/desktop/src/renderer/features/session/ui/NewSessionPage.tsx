@@ -14,7 +14,7 @@ import {
 import { Clearing, type Harness, Scene } from "@polaris/ui";
 import { useState } from "react";
 import { newSessionId } from "../../../commands.ts";
-import { emptyHostModel } from "../../../store/hostModel.ts";
+import { emptyHostModel, type HostModel } from "../../../store/hostModel.ts";
 import { useApp } from "../../../shell/hooks.ts";
 import { useUploads } from "../../attachments/index.ts";
 import { useSettings, withSavedModels } from "../../settings/index.ts";
@@ -25,6 +25,7 @@ import {
   NoHarnessChip,
   noneReady,
   HarnessChoiceRow,
+  type LastUsed,
   type ModelChoice,
   SetupNote,
   useAvailability,
@@ -142,6 +143,20 @@ const defaultPlacement = (workspace: Workspace): PlacementChoice =>
 
 const PREVIEW_ID = newSessionId();
 
+/** When each Harness last ran a session on this Host (its newest session's last update). */
+const lastUsedOn = (model: HostModel): LastUsed => {
+  const used = new Map<string, string>();
+
+  for (const { session } of model.sessions.values()) {
+    const seen = used.get(session.harness);
+
+    if (seen === undefined || seen < session.updatedAt)
+      used.set(session.harness, session.updatedAt);
+  }
+
+  return used;
+};
+
 /** The composer's mono hint: the branch a new Worktree will take, once there's a prompt. */
 const branchLabel = (
   placement: PlacementChoice,
@@ -192,7 +207,8 @@ export const NewSessionPage = ({
     [...hostModel.worktrees.values()].find((w) => w.workspaceId === workspaceId && w.isMain)
       ?.branch ?? null;
 
-  const fallback = defaultHarness(options);
+  const lastUsed = lastUsedOn(hostModel);
+  const fallback = defaultHarness(options, lastUsed);
 
   const choice: HarnessChoice | null =
     picked ?? (fallback === null ? null : { kind: "harness", harness: fallback });
@@ -302,6 +318,7 @@ export const NewSessionPage = ({
         <HarnessChoiceRow
           hostKey={hostKey}
           options={options}
+          lastUsed={lastUsed}
           picked={choices.models}
           value={choice}
           onChange={setPicked}
