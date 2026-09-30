@@ -251,19 +251,28 @@ const Tokens = ({
           }}
         />
       </div>
-      <div className="flex gap-10">
-        <Figure
-          value={compactTokens(summary.tokens)}
-          caption={`tokens on ${hostCount} host${hostCount === 1 ? "" : "s"}`}
-        />
-        <Figure value={costLabel(summary.cost)} caption={costCaption(summary)} />
-        <Figure
-          value={share === null ? "—" : `${Math.round(share * 100)}%`}
-          caption="in Polaris sessions"
-        />
-      </div>
-      <Chart summary={summary} split={split} />
-      {summary.byModel.length === 0 ? null : <ModelTable summary={summary} />}
+      {summary.tokens === 0 ? (
+        <p className="text-caption text-text-subtle">
+          No tokens in the last {days} days on{" "}
+          {hostCount === 1 ? "this host" : `${hostCount} hosts`}.
+        </p>
+      ) : (
+        <>
+          <div className="flex gap-10">
+            <Figure
+              value={compactTokens(summary.tokens)}
+              caption={`tokens on ${hostCount} host${hostCount === 1 ? "" : "s"}`}
+            />
+            <Figure value={costLabel(summary.cost)} caption={costCaption(summary)} />
+            <Figure
+              value={share === null ? "—" : `${Math.round(share * 100)}%`}
+              caption="in Polaris sessions"
+            />
+          </div>
+          <Chart summary={summary} split={split} />
+          <ModelTable summary={summary} />
+        </>
+      )}
     </div>
   );
 };
