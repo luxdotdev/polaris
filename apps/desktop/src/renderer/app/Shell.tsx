@@ -1,6 +1,7 @@
 /** Layout F: title bar, the adaptive top bar, then Input → Intent → Output (ENG-177). */
 import { useOnboardingState, Welcome } from "../features/onboarding/index.ts";
 import { Columns } from "../shell/Columns.tsx";
+import { ShortcutHelp } from "../shell/ShortcutHelp.tsx";
 import { useNav, useSelection, useShellActions } from "../shell/hooks.ts";
 import { Sidebar } from "../shell/sidebar/Sidebar.tsx";
 import { TitleBar } from "../shell/TitleBar.tsx";
@@ -40,6 +41,7 @@ export const Shell = () => {
         </main>
       )}
       <slots.JumpMenu open={jumpOpen} onOpenChange={setJumpOpen} />
+      <ShortcutHelp />
     </div>
   );
 };

@@ -13,6 +13,7 @@ The Client runtime: one `HostConnection` per Host, many at once in a `HostRegist
 | `transport.ts` | Transports: a spawned command's stdio (`ssh … polaris bridge`) or the local Unix socket. `Connector` is injectable. |
 | `ssh.ts` | The `ssh` argv. |
 | `failures.ts` | `ConnectFailure` and the stderr / exit-status classifier. |
+| `usage/` | Usage cost estimates (`@polaris/client/usage`): the price book, per-bucket cost, and the summaries the Usage view shows. See "Usage cost" below. |
 
 ## Usage
 
@@ -90,3 +91,39 @@ stateDiagram-v2
 - Deltas for an item in progress are not replayed after a reconnect; the Turn catches up at its next sequenced event.
 - The remote command is `polaris bridge` on the user's PATH; the install flow may need `~/.polaris/bin/current/polaris bridge` (`SshOptions.remoteCommand`).
 - The ssh stderr classifier is based on OpenSSH messages; other clients (e.g. Tailscale SSH banners) may land in the generic "connection-lost".
+
+## Usage cost
+
+`@polaris/client/usage` estimates what Usage (CONTEXT.md) would cost at API prices (ENG-207; decisions in ENG-199 Q18 and Q26). Estimates are made in the Client, which fetches the prices itself, so a Host never needs network access for them. No credentials are involved.
+
+| File | What |
+|---|---|
+| `prices.ts` | The price table: LiteLLM's `model_prices_and_context_window.json` first, then models.dev for Models LiteLLM lacks (both MIT). It is normalized to USD per token: `Rates` for input, output, cache read, five-minute cache write and one-hour cache write, plus a Model's long-context rates and its fast / priority rates. `resolvePrice` finds a Model's rates. |
+| `fast-multipliers.ts` | How much fast mode / the priority tier costs over standard, for Models whose list has no priority rates. Adapted from ccusage@0dd85c1 (MIT). |
+| `PriceBook.ts` | The `PriceBook` service: `current` (the cached fetch, else the bundled snapshot), `refresh` (fetch both lists, cache to `cacheFile`), `refreshIfStale` (after a day; keeps the old table if the fetch fails). |
+| `prices.snapshot.json` | The bundled table, for offline use and before the first fetch. Refresh it with `bun run --cwd packages/client prices` (generated; the formatter skips it). |
+| `cost.ts` | `bucketCost(bucket, table)`: the cost of one `UsageBucket`. |
+| `summary.ts` | `summarizeUsage({ hosts, prices, timeZone })`: what the Usage view shows. |
+
+**Rules** (checked against ccusage below):
+
+- **A cost the Harness reported wins** for the tokens it covers (`reportedCost`). Only the rest is estimated.
+- **Per-token pricing.** A five-minute cache write is priced at the list's `cache_creation` rate. A one-hour write uses LiteLLM's `…_above_1hr` rate, else 2× input. Where a list omits a cache rate, ccusage's defaults apply: writes 1.25× input, reads 0.1× input. Reasoning is billed as output, so it is inside `output`.
+- **Long context.** A Model whose list has long-context rates (LiteLLM's `…_above_200k_tokens` / `…_above_272k_tokens`, or a models.dev context tier) has its bucket's `longContext` tokens at that threshold priced entirely at the long rates. That is how Anthropic and OpenAI bill a long request. The Daemon tracks 200k and 272k; a Model with another threshold is priced at its base rates.
+- **Fast mode.** A `<model>-fast` id (Claude fast mode, the Codex priority tier) uses the list's priority rates, else the base rates times a known multiplier.
+- **Unknown Models are never guessed.** A Model no list prices, or a fast Model with no priority rates and no known multiplier, contributes `unpricedTokens` and is named in `unpricedModels`. Its cost is left out.
+- **Model ids.** Provider-prefixed ids (`anthropic/claude-…`) match the plain id. LiteLLM's reseller keys (`bedrock/…`, `openrouter/…`) are left out, and models.dev lists the Model's vendor first.
+
+**Summaries.** `summarizeUsage` takes each Host's buckets (`usage.query`) and gives:
+
+- The total, and the part that ran in Agent Sessions (`polaris`: the share through Polaris).
+- Totals by Harness, Model, Host, and local day. A bucket goes to the day, in `timeZone`, its hour starts in.
+- `pricesFetchedAt`, to show with every estimate.
+
+Each total has `tokens`, `cost` (`usd` = `reportedUsd` + `estimatedUsd`, plus `unpricedTokens`), and `unpricedModels`. The UI labels every cost as an estimate, and labels subscription Usage "API-equivalent", never as money spent (ENG-199 Q18).
+
+**Checked against ccusage.** `bun --cwd apps/daemon scripts/usage-cost-vs-ccusage.ts` builds a fresh Usage index from this Host's logs and prices it here. It then compares, per UTC day, with ccusage 20.0.26 running online (both sides on today's lists). On 2026-09-30 on this Mac:
+
+- **Claude:** $4,339.10 over 28 days, the same as ccusage to the cent.
+- **Codex:** $4,202.95 against ccusage's $4,290.89. The $87.94 gap is exactly `codex-auto-review` (245M tokens). ccusage prices it from a hand-kept timeline of which Model the alias meant (gpt-5.4, then gpt-5.6-luna); here it is unpriced.
+

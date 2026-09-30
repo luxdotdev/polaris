@@ -1,6 +1,7 @@
 import type { Worktree } from "@polaris/protocol";
 import { BranchIcon, cn, Row } from "@polaris/ui";
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, ReactElement } from "react";
+import { slots } from "../../app/slots.tsx";
 import type { SessionEntry } from "../../store/hostModel.ts";
 import { needsYou, shownState } from "../../routes/topBar.ts";
 import { age, sessionLine, sessionStateLabel } from "../copy.ts";
@@ -14,16 +15,53 @@ export interface SessionRowProps {
 }
 
 /** Row's `asChild` can't slot (it renders several children), so the row itself is the button. */
+/** ↑/↓ move focus to the previous or next session row in the same sidebar. */
+const moveFocus = (from: HTMLElement, by: number) => {
+  const rows = [
+    ...(from.closest("aside")?.querySelectorAll<HTMLElement>("[data-session-row]") ?? []),
+  ];
+
+  const next = rows[rows.indexOf(from) + by];
+
+  next?.focus();
+};
+
 const buttonProps = (select: () => void) => ({
   role: "button",
   tabIndex: 0,
+  "data-session-row": "",
   onClick: select,
-  onKeyDown: (event: KeyboardEvent) => {
+  onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      moveFocus(event.currentTarget, event.key === "ArrowDown" ? 1 : -1);
+
+      return;
+    }
+
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
     select();
   },
 });
+
+/** A row that needs you gets its hover card (the NeedsYouHover slot). */
+const WithHover = ({
+  hostKey,
+  entry,
+  children,
+}: {
+  readonly hostKey: string;
+  readonly entry: SessionEntry;
+  readonly children: ReactElement;
+}) =>
+  needsYou(entry) ? (
+    <slots.NeedsYouHover hostKey={hostKey} sessionId={entry.session.id}>
+      {children}
+    </slots.NeedsYouHover>
+  ) : (
+    children
+  );
 
 const useSelectedSession = (hostKey: string, entry: SessionEntry) => {
   const selection = useSelection();
@@ -44,22 +82,24 @@ export const SessionRow = ({ hostKey, entry, now }: SessionRowProps) => {
   const state = shownState(entry);
 
   return (
-    <Row
-      {...buttonProps(() => selectSession({ hostKey, sessionId: session.id }))}
-      aria-current={selected}
-      data-state={state}
-      variant="session"
-      selected={selected}
-      tone={needsYou(entry) ? "needs-you" : session.state === "dormant" ? "quiet" : "default"}
-      leading={<SessionTile state={state} harness={session.harness} density={density} />}
-      title={session.title || "Untitled session"}
-      description={sessionLine(entry)}
-      meta={
-        <span data-testid="row-state" data-state={state} aria-label={sessionStateLabel[state]}>
-          {age(session.createdAt, now)}
-        </span>
-      }
-    />
+    <WithHover hostKey={hostKey} entry={entry}>
+      <Row
+        {...buttonProps(() => selectSession({ hostKey, sessionId: session.id }))}
+        aria-current={selected}
+        data-state={state}
+        variant="session"
+        selected={selected}
+        tone={needsYou(entry) ? "needs-you" : session.state === "dormant" ? "quiet" : "default"}
+        leading={<SessionTile state={state} harness={session.harness} density={density} />}
+        title={session.title || "Untitled session"}
+        description={sessionLine(entry)}
+        meta={
+          <span data-testid="row-state" data-state={state} aria-label={sessionStateLabel[state]}>
+            {age(session.createdAt, now)}
+          </span>
+        }
+      />
+    </WithHover>
   );
 };
 
@@ -74,16 +114,18 @@ export const CompactSessionRow = ({
   const state = shownState(entry);
 
   return (
-    <Row
-      {...buttonProps(() => selectSession({ hostKey, sessionId: entry.session.id }))}
-      aria-current={selected}
-      data-state={state}
-      selected={selected}
-      tone={needsYou(entry) ? "needs-you" : "default"}
-      leading={<SessionGlyph state={state} harness={entry.session.harness} size={14} />}
-      title={entry.session.title || "Untitled session"}
-      meta={meta}
-    />
+    <WithHover hostKey={hostKey} entry={entry}>
+      <Row
+        {...buttonProps(() => selectSession({ hostKey, sessionId: entry.session.id }))}
+        aria-current={selected}
+        data-state={state}
+        selected={selected}
+        tone={needsYou(entry) ? "needs-you" : "default"}
+        leading={<SessionGlyph state={state} harness={entry.session.harness} size={14} />}
+        title={entry.session.title || "Untitled session"}
+        meta={meta}
+      />
+    </WithHover>
   );
 };
 

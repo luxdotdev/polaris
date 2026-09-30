@@ -2,13 +2,16 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 import { makeBenchDriver } from "./bench/BenchDriver.ts";
+import { isBenchKind } from "./bench/kinds.ts";
 import { makeClaudeDriver } from "./claude/ClaudeDriver.ts";
 import { makeCodexDriver } from "./codex/CodexDriver.ts";
 import type { HarnessDriver } from "./HarnessDriver.ts";
 import { makeOpenCodeDriver } from "./opencode/OpenCodeDriver.ts";
-import { DRIVER_CAPABILITIES, lazyDriver } from "./registry.ts";
+import { HarnessRegistry } from "../services.ts";
+import { PlanLimitReporter } from "./limits/PlanLimitReporter.ts";
+import { DRIVER_CAPABILITIES, harnessRegistryLayer, lazyDriver } from "./registry.ts";
 
 describe("lazyDriver", () => {
   test("loads the real driver once, on first probe, not when built", async () => {
@@ -66,6 +69,69 @@ describe("lazyDriver", () => {
       expect(makeBenchDriver("codex").capabilities).toEqual(DRIVER_CAPABILITIES.bench);
     } finally {
       rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("bench mode", () => {
+  test("the bench stands in for Claude Code and Codex only; the other drivers are real", async () => {
+    // Point the real Harnesses at binaries that don't exist, so nothing real starts.
+    const missing = {
+      POLARIS_OPENCODE: "/nonexistent/opencode",
+      POLARIS_GEMINI: "/nonexistent/gemini",
+      POLARIS_COPILOT: "/nonexistent/copilot",
+    };
+
+    const saved = Object.fromEntries(Object.keys(missing).map((k) => [k, process.env[k]]));
+    Object.assign(process.env, missing);
+
+    try {
+      const report = await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const registry = yield* HarnessRegistry;
+            const drivers = yield* registry.all;
+
+            return yield* Effect.forEach(drivers, (driver) =>
+              Effect.gen(function* () {
+                const probe = yield* driver.probe;
+
+                // Only the bench kinds are asked for Models: a real driver would start its Harness.
+                const models = isBenchKind(driver.kind)
+                  ? yield* driver.listModels ?? Effect.succeed([])
+                  : [];
+
+                return {
+                  kind: driver.kind,
+                  version: probe.version,
+                  available: probe.available,
+                  models: models.map((m) => m.id),
+                };
+              })
+            );
+          })
+        ).pipe(
+          Effect.provide(
+            harnessRegistryLayer({ bench: true }).pipe(Layer.provide(PlanLimitReporter.none))
+          )
+        )
+      );
+
+      const byKind = Object.fromEntries(report.map((r) => [r.kind, r]));
+
+      for (const kind of ["claude", "codex"])
+        expect(byKind[kind]).toMatchObject({
+          version: "bench",
+          available: true,
+          models: ["bench-large", "bench-small"],
+        });
+
+      for (const kind of ["opencode", "gemini", "copilot"])
+        expect(byKind[kind]).toMatchObject({ available: false });
+    } finally {
+      for (const [key, value] of Object.entries(saved))
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
     }
   });
 });

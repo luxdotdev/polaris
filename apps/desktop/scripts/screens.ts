@@ -4,7 +4,7 @@
  * MX-0 (machine bar, light), from real Daemons: four local Daemons on the
  * bench Harness stand in for four machines. Needs a built app.
  *
- *   node scripts/screens.ts <out dir>
+ *   node scripts/screens.ts <out dir> [--only jump|bars]
  */
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -15,6 +15,11 @@ import { APP_DIR, electronBinary } from "./lib/electron.ts";
 import { type SeedWorkspace, seedSource } from "./lib/seed.ts";
 
 const out = process.argv[2] ?? join(tmpdir(), "polaris-screens");
+
+/** `--only jump|bars` runs one set. */
+const only = process.argv.includes("--only")
+  ? (process.argv[process.argv.indexOf("--only") + 1] ?? null)
+  : null;
 
 const step = (message: string) => console.log(`screens: ${message}`);
 
@@ -151,7 +156,7 @@ const density = async (page: Page, value: "calm" | "balanced" | "compact") => {
 };
 
 // 11U-0: the Workspace bar, dark, polaris selected with Polaris planning working.
-{
+if (only === null || only === "bars") {
   const rig = await launch("dark");
 
   await rig.page.evaluate(seedSource(FEW));
@@ -168,8 +173,35 @@ const density = async (page: Page, value: "calm" | "balanced" | "compact") => {
   await close(rig);
 }
 
+// AR-0: the K jump menu over artboard 5, typed "po"; empty (Recent, Needs you, Actions); help.
+if (only === null || only === "jump") {
+  const rig = await launch("dark");
+
+  await rig.page.evaluate(seedSource(FEW));
+  await rig.page.locator('[data-slot="chip"]', { hasText: "polaris" }).first().click();
+  await rig.page.getByText("Polaris planning", { exact: true }).first().click();
+  await rig.page.getByText("Orchestrator layout prototype", { exact: true }).first().click();
+  await rig.page.getByText("Polaris planning", { exact: true }).first().click();
+  await rig.page.keyboard.press("Meta+K");
+  await rig.page.getByRole("combobox").waitFor();
+  await shoot(rig.page, "AR-0-jump-empty-dark");
+  await rig.page.getByRole("combobox").pressSequentially("po", { delay: 30 });
+  await shoot(rig.page, "AR-0-jump-po-dark");
+  await rig.page.getByRole("combobox").fill("working");
+  await shoot(rig.page, "AR-0-jump-working-dark");
+  await rig.page.keyboard.press("Escape");
+  await rig.page.evaluate(`window.polaris.request("settings.setTheme", { theme: "light" })`);
+  await rig.page.keyboard.press("Meta+K");
+  await rig.page.getByRole("combobox").pressSequentially("po", { delay: 30 });
+  await shoot(rig.page, "AR-0-jump-po-light");
+  await rig.page.keyboard.press("Escape");
+  await rig.page.keyboard.press("Meta+Slash");
+  await shoot(rig.page, "shortcut-help-light");
+  await close(rig);
+}
+
 // MX-0: the machine bar, light, Linux VM selected; then a machine going away.
-{
+if (only === null || only === "bars") {
   const rig = await launch("light");
 
   await rig.page.evaluate(seedSource(MANY));

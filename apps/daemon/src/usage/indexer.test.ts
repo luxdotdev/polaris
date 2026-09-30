@@ -3,9 +3,11 @@ import { renameSync, truncateSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { openUsageDb } from "./db.ts";
 import { discoverLogs, indexFile } from "./indexer.ts";
+import { queryBuckets } from "./query.ts";
 import {
   claudeLine,
   codexMeta,
+  codexSettings,
   codexTokenCount,
   codexTurnContext,
   type FixtureHost,
@@ -370,5 +372,52 @@ describe("incremental passes", () => {
     await idx.pass();
 
     expect(idx.rows("codex").map((r) => r.input)).toEqual([100]);
+  });
+});
+
+describe("what pricing needs", () => {
+  const allTime = { from: 0, to: 4e12, harness: null, sessionId: null };
+
+  test("1-hour cache writes and long-context requests are counted apart", async () => {
+    const host = newHost();
+    host.append(
+      claudeFile(host),
+      claudeLine({ ts: "2026-09-01T10:00:00Z", msg: "a", cacheWrite: 50, cacheWrite1h: 30 }),
+      claudeLine({ ts: "2026-09-01T10:10:00Z", msg: "b", cacheRead: 250_000, output: 7 }),
+      claudeLine({ ts: "2026-09-01T10:20:00Z", msg: "c", cacheRead: 300_000, output: 9 })
+    );
+
+    const idx = index(host);
+    await idx.pass();
+    const [bucket] = queryBuckets(idx.db, allTime);
+
+    expect(bucket?.tokens.cacheWrite1h).toBe(30);
+    expect(bucket?.longContext.map((l) => [l.above, l.tokens.output, l.tokens.cacheRead])).toEqual([
+      [200_000, 16, 550_000],
+      [272_000, 9, 300_000],
+    ]);
+  });
+
+  test("Codex's priority tier is its own Model, from the latest thread settings", async () => {
+    const host = newHost();
+    host.append(
+      join(host.codexSessions, "2026", "09", "01", "rollout-tier.jsonl"),
+      codexMeta("t", "2026-09-01T10:00:00Z"),
+      codexTurnContext("2026-09-01T10:00:00Z", "gpt-5.5"),
+      codexTokenCount("2026-09-01T10:00:01Z", { input: 100, output: 10 }),
+      codexSettings("2026-09-01T10:00:02Z", "priority"),
+      codexTokenCount("2026-09-01T10:00:03Z", { input: 300, output: 30 }),
+      codexSettings("2026-09-01T10:00:04Z", "default"),
+      codexTokenCount("2026-09-01T10:00:05Z", { input: 600, output: 60 })
+    );
+
+    const idx = index(host);
+    await idx.pass();
+
+    expect(idx.rows("codex").map((r) => [r.model, r.output])).toEqual([
+      ["gpt-5.5", 10],
+      ["gpt-5.5-fast", 20],
+      ["gpt-5.5", 30],
+    ]);
   });
 });

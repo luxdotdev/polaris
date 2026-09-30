@@ -30,7 +30,7 @@ Adapted from ccusage/ccusage@0dd85c1 (MIT; see `ATTRIBUTION.md`). The goal is cc
 
 - **Claude**
   - **Which lines count:** a line counts if it carries `message.usage` and a timestamp, and passes ccusage's validity checks: `version` is semver, and none of the ids or the model is empty.
-  - **Tokens:** `input` = `input_tokens`, `cacheRead` = `cache_read_input_tokens`, `cacheWrite` = the 5-minute plus 1-hour `cache_creation` split (else `cache_creation_input_tokens`), `output` = `output_tokens`.
+  - **Tokens:** `input` = `input_tokens`, `cacheRead` = `cache_read_input_tokens`, `cacheWrite` = the 5-minute plus 1-hour `cache_creation` split (else `cache_creation_input_tokens`), with the 1-hour part also in `cacheWrite1h`, `output` = `output_tokens`.
   - **Models:** `<synthetic>` replies are skipped. Fast mode is reported as `<model>-fast`, because it is priced apart. Advisor iterations count separately, under their own Model.
   - **Dedup:**
     - With a request id, a response is `message.id` + `requestId`, across sessions (Claude Code copies responses into resumed transcripts). Without one, it is message id + session + timestamp.
@@ -40,13 +40,23 @@ Adapted from ccusage/ccusage@0dd85c1 (MIT; see `ATTRIBUTION.md`). The goal is cc
 - **Codex**
   - **Deltas:** `event_msg`/`token_count` lines. `last_token_usage` is the Turn's delta. A total that didn't advance is skipped. Without a delta, the previous cumulative total is subtracted.
   - **Tokens and Model:** cached and written input are part of `input_tokens`, so `input` is what remains after both. Reasoning is part of `output`. The Model comes from the latest `turn_context`. A usage event with no Model yet reports `unknown`: ccusage's `gpt-5` fallback is only a pricing guess.
+  - **Service tier:** `thread_settings_applied` sets it, as ccusage reads it. `priority` or `fast` makes later responses `<model>-fast` (priced apart, like Claude's fast mode). `default` or `standard` resets it, and a settings event without a tier leaves it unchanged. The dedup key keeps the logged Model.
   - **Forks and subagents** (`forked_from_id`, `source.subagent.thread_spawn.parent_thread_id`):
     - The child's head replays the parent's usage stream, up to the fork's time, and that part isn't counted.
     - When nothing matches (the parent log is gone, or Codex rewrote the history), a burst of usage events less than a second apart at the child's head is skipped instead.
     - Every file's raw stream is kept (`codex_stream`) so a later child can match it.
   - **Dedup across files:** the same timestamp, Model and token counts is one response. This also keeps a rollout that moved to `archived_sessions/` from counting twice.
 
-Two ccusage behaviours are not carried over. OpenAI's `codex-auto-review` Model-alias timeline is left out: we report the Model the log names. Codex's service tier is also not tracked yet.
+One ccusage behaviour is not carried over: OpenAI's `codex-auto-review` Model-alias timeline. We report the Model the log names, and the Client leaves it unpriced.
+
+## What pricing needs (ENG-207)
+
+A price list bills per request, and a bucket is an hour's sum. So each row also keeps what a sum can't recover:
+
+- **`cacheWrite1h`**: one-hour cache writes cost more than five-minute ones.
+- **`context`**: the request's whole prompt (input, cached or not).
+
+A bucket reports `longContext`: the tokens of its requests whose prompt was over 200k, and over 272k. These are the thresholds where Anthropic and OpenAI switch a request to long-context rates. The Client prices those tokens at the long rates and the rest at the base rates (`packages/client/src/usage/`). Adding these fields bumped `SCHEMA_VERSION` to 2, so the index rebuilds once.
 
 ## Linking Usage to Agent Sessions
 

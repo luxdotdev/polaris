@@ -76,6 +76,8 @@ export interface ClaudeEntry {
   readonly input: number;
   readonly cacheRead: number;
   readonly cacheWrite: number;
+  /** The part of `cacheWrite` cached for an hour. */
+  readonly cacheWrite1h: number;
   readonly output: number;
   readonly cost: number | null;
 }
@@ -134,6 +136,7 @@ const toEntry = (
     input: usage.input_tokens,
     cacheRead: usage.cache_read_input_tokens ?? 0,
     cacheWrite: cacheWrite(usage),
+    cacheWrite1h: usage.cache_creation?.ephemeral_1h_input_tokens ?? 0,
     output: usage.output_tokens,
     cost: null,
   };

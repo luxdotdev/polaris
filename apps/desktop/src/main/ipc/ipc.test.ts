@@ -51,6 +51,7 @@ const context: RequestContext = {
   appVersion: "0.1.0",
   pickFolder: () => Promise.resolve(null),
   daemonDist: null,
+  needsYou: () => undefined,
 };
 
 const handlers = requestHandlers(context);

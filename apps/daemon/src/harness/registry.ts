@@ -18,6 +18,7 @@ import type { HarnessKind, KnownHarnessKind } from "@polaris/protocol";
 import { Effect, Layer, Scope } from "effect";
 import { HarnessRegistry, ServiceError } from "../services.ts";
 import { ACP_HARNESSES } from "./acp/harnesses.ts";
+import { isBenchKind } from "./bench/kinds.ts";
 import { ClaudeHookReceiver } from "./claude/hooks.ts";
 import { type HarnessDriver, HarnessError } from "./HarnessDriver.ts";
 import { PlanLimitReporter } from "./limits/PlanLimitReporter.ts";
@@ -59,95 +60,108 @@ export const lazyDriver = (
     open: (options) => Effect.flatMap(loaded, (driver) => driver.open(options)),
   }));
 
-export const HarnessRegistryLive = Layer.effect(
-  HarnessRegistry,
-  Effect.gen(function* () {
-    const hookReceiver = yield* ClaudeHookReceiver;
-    const { report } = yield* PlanLimitReporter;
-    const planLimits = { report };
-    // The app-server the Codex driver may start belongs to this layer, not to the first `open`.
-    const scope = yield* Effect.scope;
-    const codexPath = binary("POLARIS_CODEX", "codex");
-    // Benchmarks only (packages/bench): a scripted Harness stands in for every kind.
-    const bench = process.env.POLARIS_BENCH_HARNESS === "1";
+export interface RegistryOptions {
+  /**
+   * Benchmarks and the dev Desktop App: the scripted bench Harness stands in for
+   * Claude Code and Codex (`bench/kinds.ts`); the others stay real. Defaults to
+   * `POLARIS_BENCH_HARNESS=1`.
+   */
+  readonly bench?: boolean;
+}
 
-    const benchDriver = (kind: HarnessKind) =>
-      lazyDriver(
-        kind,
-        DRIVER_CAPABILITIES.bench,
-        Effect.promise(() => import("./bench/BenchDriver.ts")).pipe(
-          Effect.map(({ makeBenchDriver }) => makeBenchDriver(kind))
-        )
-      );
+export const harnessRegistryLayer = (options: RegistryOptions = {}) =>
+  Layer.effect(
+    HarnessRegistry,
+    Effect.gen(function* () {
+      const hookReceiver = yield* ClaudeHookReceiver;
+      const { report } = yield* PlanLimitReporter;
+      const planLimits = { report };
+      // The app-server the Codex driver may start belongs to this layer, not to the first `open`.
+      const scope = yield* Effect.scope;
+      const codexPath = binary("POLARIS_CODEX", "codex");
+      const bench = options.bench ?? process.env.POLARIS_BENCH_HARNESS === "1";
 
-    const drivers: ReadonlyArray<HarnessDriver> = bench
-      ? yield* Effect.forEach(
-          ["codex", "claude", "opencode", ...ACP_HARNESSES.map((h) => h.kind)],
-          benchDriver
-        )
-      : [
-          yield* lazyDriver(
-            "codex",
-            DRIVER_CAPABILITIES.codex,
-            Effect.promise(() => import("./codex/CodexDriver.ts")).pipe(
-              Effect.flatMap(({ makeCodexDriver }) => makeCodexDriver({ codexPath, planLimits })),
-              Scope.provide(scope)
+      const benchDriver = (kind: HarnessKind) =>
+        lazyDriver(
+          kind,
+          DRIVER_CAPABILITIES.bench,
+          Effect.promise(() => import("./bench/BenchDriver.ts")).pipe(
+            Effect.map(({ makeBenchDriver }) => makeBenchDriver(kind))
+          )
+        );
+
+      // Every driver is lazy, so building the real ones the bench replaces costs nothing.
+      const real: ReadonlyArray<HarnessDriver> = [
+        yield* lazyDriver(
+          "codex",
+          DRIVER_CAPABILITIES.codex,
+          Effect.promise(() => import("./codex/CodexDriver.ts")).pipe(
+            Effect.flatMap(({ makeCodexDriver }) => makeCodexDriver({ codexPath, planLimits })),
+            Scope.provide(scope)
+          )
+        ),
+        yield* lazyDriver(
+          "claude",
+          DRIVER_CAPABILITIES.claude,
+          Effect.promise(() => import("./claude/ClaudeDriver.ts")).pipe(
+            Effect.map(({ makeClaudeDriver }) =>
+              // Looked up per session, so a Claude Code installed after start is found.
+              makeClaudeDriver({
+                hookReceiver,
+                claudePath: () => binary("POLARIS_CLAUDE", "claude"),
+                planLimits,
+              })
             )
           ),
-          yield* lazyDriver(
-            "claude",
-            DRIVER_CAPABILITIES.claude,
-            Effect.promise(() => import("./claude/ClaudeDriver.ts")).pipe(
-              Effect.map(({ makeClaudeDriver }) =>
-                // Looked up per session, so a Claude Code installed after start is found.
-                makeClaudeDriver({
-                  hookReceiver,
-                  claudePath: () => binary("POLARIS_CLAUDE", "claude"),
-                  planLimits,
-                })
-              )
+          // While In Terminal, Polaris follows the TUI through its HTTP hooks (hooks.ts).
+          { terminalFollow: { events: hookReceiver.events, release: hookReceiver.release } }
+        ),
+        yield* lazyDriver(
+          "opencode",
+          DRIVER_CAPABILITIES.opencode,
+          Effect.promise(() => import("./opencode/OpenCodeDriver.ts")).pipe(
+            Effect.flatMap(({ makeOpenCodeDriver }) =>
+              makeOpenCodeDriver({ opencodePath: () => binary("POLARIS_OPENCODE", "opencode") })
             ),
-            // While In Terminal, Polaris follows the TUI through its HTTP hooks (hooks.ts).
-            { terminalFollow: { events: hookReceiver.events, release: hookReceiver.release } }
-          ),
-          yield* lazyDriver(
-            "opencode",
-            DRIVER_CAPABILITIES.opencode,
-            Effect.promise(() => import("./opencode/OpenCodeDriver.ts")).pipe(
-              Effect.flatMap(({ makeOpenCodeDriver }) =>
-                makeOpenCodeDriver({ opencodePath: () => binary("POLARIS_OPENCODE", "opencode") })
+            Scope.provide(scope)
+          )
+        ),
+        ...(yield* Effect.forEach(ACP_HARNESSES, (harness) =>
+          lazyDriver(
+            harness.kind,
+            DRIVER_CAPABILITIES[harness.kind],
+            Effect.promise(() => import("./acp/AcpDriver.ts")).pipe(
+              Effect.flatMap(({ makeAcpDriver }) =>
+                makeAcpDriver({
+                  harness,
+                  binaryPath: () => binary(harness.binaryEnv, harness.binary),
+                })
               ),
               Scope.provide(scope)
             )
-          ),
-          ...(yield* Effect.forEach(ACP_HARNESSES, (harness) =>
-            lazyDriver(
-              harness.kind,
-              DRIVER_CAPABILITIES[harness.kind],
-              Effect.promise(() => import("./acp/AcpDriver.ts")).pipe(
-                Effect.flatMap(({ makeAcpDriver }) =>
-                  makeAcpDriver({
-                    harness,
-                    binaryPath: () => binary(harness.binaryEnv, harness.binary),
-                  })
-                ),
-                Scope.provide(scope)
-              )
-            )
-          )),
-        ];
+          )
+        )),
+      ];
 
-    const byKind = new Map<HarnessKind, HarnessDriver>(drivers.map((d) => [d.kind, d]));
+      const drivers = bench
+        ? yield* Effect.forEach(real, (driver) =>
+            isBenchKind(driver.kind) ? benchDriver(driver.kind) : Effect.succeed(driver)
+          )
+        : real;
 
-    return HarnessRegistry.of({
-      get: (kind) => {
-        const driver = byKind.get(kind);
+      const byKind = new Map<HarnessKind, HarnessDriver>(drivers.map((d) => [d.kind, d]));
 
-        return driver
-          ? Effect.succeed(driver)
-          : Effect.fail(new ServiceError({ service: "harness", message: `no ${kind} driver` }));
-      },
-      all: Effect.succeed(drivers),
-    });
-  })
-).pipe(Layer.provide(ClaudeHookReceiver.layer));
+      return HarnessRegistry.of({
+        get: (kind) => {
+          const driver = byKind.get(kind);
+
+          return driver
+            ? Effect.succeed(driver)
+            : Effect.fail(new ServiceError({ service: "harness", message: `no ${kind} driver` }));
+        },
+        all: Effect.succeed(drivers),
+      });
+    })
+  ).pipe(Layer.provide(ClaudeHookReceiver.layer));
+
+export const HarnessRegistryLive = harnessRegistryLayer();

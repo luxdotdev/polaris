@@ -16,9 +16,9 @@ import type {
 import { modelFromSnapshot } from "../../../store/hostModel.ts";
 import type { SessionModel } from "../../../store/sessionModel.ts";
 import { App } from "../../../app/App.tsx";
+import { createCommandRegistry } from "../../../routes/commands.ts";
 import { createNavigation } from "../../../routes/navigation.ts";
 import { type AppState, type Connection, initialState, sessionKey } from "../../../store/store.ts";
-import { settledOnboarding } from "../../onboarding/index.ts";
 import { standInBridge } from "../bridge.ts";
 import { patchSessionUi, uiKey } from "../state.ts";
 import {
@@ -173,6 +173,7 @@ export const mountPreview = (root: HTMLElement, hash: string) => {
     store,
     openSession: () => () => undefined,
     setDensity: (density) => store.setState({ density }),
+    setAppearance: ({ density, theme }) => store.setState({ density, theme }),
   };
 
   const navigation = createNavigation({ app: store, storage: null });
@@ -194,9 +195,9 @@ export const mountPreview = (root: HTMLElement, hash: string) => {
     patchSessionUi(uiKey(HOST, shown.session.id), () => ({ unfolded }));
   }
 
-  createRoot(root).render(
-    <App value={{ connection, navigation }} onboarding={settledOnboarding()} />
-  );
+  const commands = createCommandRegistry({ mac: true });
+
+  createRoot(root).render(<App value={{ connection, navigation, commands }} />);
 
   return connection.setDensity;
 };
