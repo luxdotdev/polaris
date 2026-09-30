@@ -2,7 +2,7 @@
  * The bridge the session feature talks through: `window.polaris`, unless the
  * fixture preview (`preview/`) has put a stand-in in its place.
  */
-import type { PolarisApi } from "../../../shared/api.ts";
+import type { PolarisApi } from "../../shared/api.ts";
 
 let standIn: PolarisApi | null = null;
 

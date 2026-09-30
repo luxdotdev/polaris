@@ -19,10 +19,17 @@ import { emptyHostModel } from "../../../store/hostModel.ts";
 import { useApp } from "../../../shell/hooks.ts";
 import { useUploads } from "../../attachments/index.ts";
 import { send } from "../dispatch.ts";
-import { hasCapability, useHarnessOptions, useHost } from "../hooks.ts";
+import {
+  defaultHarness,
+  HarnessChip,
+  HarnessChoiceRow,
+  type ModelChoice,
+  SetupNote,
+  useAvailability,
+  useSignIn,
+} from "../../harness/index.ts";
+import { hasCapability, useHost } from "../hooks.ts";
 import { tildePath } from "../model/format.ts";
-import { defaultHarness } from "../model/harnesses.ts";
-import type { ModelChoice } from "../model/models.ts";
 import {
   branchFromPrompt,
   forkStartCommands,
@@ -33,8 +40,6 @@ import {
 import { patchSessionUi, type SessionUi, uiKey, useSessionUi } from "../state.ts";
 import { DraftComposer } from "./DraftComposer.tsx";
 import { ForkSource, type ForkSourceValue } from "./ForkSource.tsx";
-import { HarnessChoiceRow, SetupNote } from "./HarnessChoice.tsx";
-import { ModelPicker } from "./ModelPicker.tsx";
 import { PermissionChip, WhereLine } from "./placement.tsx";
 
 export interface NewSessionPageProps {
@@ -155,7 +160,8 @@ export const NewSessionPage = ({
   const ui = useSessionUi(key);
   const [picked, setPicked] = useState<HarnessChoice | null>(null);
   const [models, setModels] = useState<Models>({});
-  const { options } = useHarnessOptions(hostKey);
+  const { options } = useAvailability(hostKey);
+  const signIn = useSignIn(hostKey);
   const [permissionMode, setPermissionMode] = useState<PermissionMode>("supervised");
   const [placement, setPlacement] = useState<PlacementChoice | null>(null);
   const [forkSession, setForkSession] = useState<SessionId | null>(null);
@@ -235,13 +241,17 @@ export const NewSessionPage = ({
           harness={hue}
           autoFocus
           picker={
-            <ModelPicker
+            <HarnessChip
               hostKey={hostKey}
               harness={hue}
               model={models[hue]?.model ?? null}
               effort={models[hue]?.effort ?? null}
               disabled={!choices.startable}
-              onChoose={(next) => setModels({ ...models, [hue]: next })}
+              onModel={(next) => setModels({ ...models, [hue]: next })}
+              harnesses={{
+                onPick: (o) => setPicked({ kind: "harness", harness: o.kind }),
+                verb: (o) => o.name,
+              }}
             />
           }
           tools={<PermissionChip value={permissionMode} onChange={setPermissionMode} />}
@@ -268,7 +278,10 @@ export const NewSessionPage = ({
           onChange={setPicked}
           canFork={hasCapability(host, "session.fork")}
         />
-        {option !== undefined && !option.startable ? <SetupNote option={option} /> : null}
+        {option !== undefined && !option.startable ? (
+          <SetupNote option={option} onSignIn={signIn.begin} />
+        ) : null}
+        {signIn.dialog}
         {choice?.kind === "fork" ? (
           <ForkSource
             hostKey={hostKey}

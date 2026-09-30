@@ -16,6 +16,7 @@ import type {
   HostHarnesses,
   HostInfo,
   HostStreamItem,
+  PlanLimit,
   SearchPaths,
   SessionStreamItem,
   TerminalId,
@@ -188,6 +189,8 @@ export interface SubscriptionItems {
   session: SessionStreamItem;
   terminal: TerminalItem;
   "files.watch": ReadonlyArray<typeof FileChangeEvent.Type>;
+  "harness.availability": Plain<HostHarnesses>;
+  "plan-limits": Plain<PlanLimit>;
 }
 
 export type SubscriptionItem<K extends SubscriptionKind> = SubscriptionItems[K];

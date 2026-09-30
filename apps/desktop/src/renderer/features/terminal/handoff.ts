@@ -7,7 +7,7 @@
 import type { SessionId, TerminalLaunch } from "@polaris/protocol";
 import { Commands } from "../../commands.ts";
 import { send, showRefusal } from "../session/dispatch.ts";
-import { polaris } from "../session/bridge.ts";
+import { polaris } from "../bridge.ts";
 import { closeTab, runInTerminal, type TerminalPlace } from "./actions.ts";
 import { argvOf } from "./model/launch.ts";
 import { handoffKey } from "./model/tabs.ts";

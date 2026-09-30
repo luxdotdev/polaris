@@ -125,7 +125,15 @@ describe("subscriptions", () => {
 
   test("every feed kind in the contract can be opened", () => {
     expect(Object.keys(SubscriptionInputs).sort()).toEqual(
-      ["files.watch", "host", "hosts", "session", "terminal"].sort()
+      [
+        "files.watch",
+        "harness.availability",
+        "host",
+        "hosts",
+        "plan-limits",
+        "session",
+        "terminal",
+      ].sort()
     );
   });
 

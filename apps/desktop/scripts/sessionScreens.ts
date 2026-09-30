@@ -10,7 +10,7 @@ import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { _electron as electron } from "playwright-core";
+import { _electron as electron, type Page } from "playwright-core";
 import { APP_DIR, electronBinary } from "./lib/electron.ts";
 import { startDaemon } from "./lib/daemon.ts";
 import { frameStats } from "./lib/sessionFlow.ts";
@@ -30,7 +30,9 @@ if (out === null) throw new Error("--out <dir> is required");
 if (args.includes("--build"))
   spawnSync("bun", [join(APP_DIR, "scripts/build.ts"), "--no-app"], { stdio: "inherit" });
 
-const scenes = (option("--scenes") ?? "session,approval,question,interrupted,new,setup").split(",");
+const scenes = (
+  option("--scenes") ?? "session,approval,question,interrupted,new,setup,picker,availability"
+).split(",");
 
 /** Scroll the long scene's conversation at 4000 px/s for 5 s and report frame intervals. */
 const scrollFrames = `new Promise((resolve) => {
@@ -45,6 +47,28 @@ const scrollFrames = `new Promise((resolve) => {
   };
   requestAnimationFrame(tick);
 })`;
+
+const SHOT_SCENES = new Map([
+  ["picker", "interrupted"],
+  ["availability", "new"],
+]);
+
+/** Opens what a shot shows, again after each theme or density change closes it. */
+const open = async (page: Page, scene: string) => {
+  // Close what's open first; esc elsewhere would leave the new-session page.
+  if ((await page.locator('[role="dialog"], [role="menu"]').count()) > 0) {
+    await page.keyboard.press("Escape");
+    await page.locator('[role="dialog"], [role="menu"]').first().waitFor({ state: "detached" });
+  }
+
+  if (scene === "picker") {
+    await page.getByTestId("model-picker").first().click();
+    await page.getByTestId("plan-limits").waitFor();
+  } else if (scene === "availability") {
+    await page.getByTestId("other-harnesses").first().click();
+    await page.getByTestId("availability-sheet").waitFor();
+  }
+};
 
 const densities = (option("--densities") ?? "calm,balanced,compact").split(",");
 
@@ -84,13 +108,16 @@ try {
   }
 
   for (const scene of scenes) {
-    await page.evaluate(`location.hash = "#preview/${scene}"; location.reload()`);
+    // Shots that open something: the chip's menu on the session, the availability sheet.
+    const base = SHOT_SCENES.get(scene) ?? scene;
+
+    await page.evaluate(`location.hash = "#preview/${base}"; location.reload()`);
     await page.waitForLoadState("domcontentloaded");
-    const isNew = scene === "new" || scene === "setup";
+    const isNew = base === "new" || base === "setup";
 
     await page.getByTestId(isNew ? "new-session" : "session-panel").waitFor();
 
-    // The setup scene shows a Harness that isn't installed: choose it to show its setup line.
+    // The setup scene's Codex needs sign-in: choose it to show its setup line.
     if (scene === "setup") await page.getByTestId("harness-codex").click();
 
     for (const density of densities) {
@@ -102,6 +129,8 @@ try {
           state: "attached",
         });
         await page.waitForTimeout(400);
+        await open(page, scene);
+        await page.waitForTimeout(200);
         const path = join(out, `${scene}-${theme}-${density}.png`);
 
         await page.screenshot({ path });
