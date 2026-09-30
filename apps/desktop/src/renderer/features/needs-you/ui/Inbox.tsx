@@ -9,15 +9,16 @@ import {
   NeedsYouCard,
   PixelFailedIcon,
   PixelHandIcon,
-  PixelSparkleIcon,
+  PixelCheckIcon,
   PixelTerminalIcon,
   WaitingCard,
 } from "@polaris/ui";
 import type { ReactNode } from "react";
-import { age, plural } from "../../../shell/copy.ts";
+import { age } from "../../../shell/copy.ts";
 import { useApp, useSelection, useShellActions } from "../../../shell/hooks.ts";
 import { useNow } from "../../../shell/useNow.ts";
 import { useInbox } from "../hooks.ts";
+import { quietFact } from "../model/quiet.ts";
 import type {
   AlsoKind,
   AlsoWaiting,
@@ -145,18 +146,12 @@ const Empty = () => {
   const hosts = useApp((s) => s.hosts);
   const models = useApp((s) => s.hostModels);
 
-  const active = Object.values(models).reduce(
-    (n, model) =>
-      n + [...model.sessions.values()].filter((e) => e.session.state !== "archived").length,
-    0
-  );
-
   return (
     <EmptyState
       data-testid="needs-you-empty"
-      icon={<PixelSparkleIcon size={24} className="text-text-strong" />}
+      icon={<PixelCheckIcon size={24} className="text-text-strong" />}
       title="Nothing needs you"
-      fact={`${plural(active, "session")} on ${plural(hosts.length, "host")}, none waiting.`}
+      fact={quietFact({ hosts: hosts.length, models: Object.values(models) })}
     />
   );
 };

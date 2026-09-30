@@ -15,7 +15,7 @@ export function CodeWell({ size = "default", className, ...props }: CodeWellProp
       className={cn(
         "overflow-x-auto border border-hairline bg-surface-sunken font-mono whitespace-pre-wrap text-text-default",
         size === "default"
-          ? "rounded-[8px] px-3 py-2 text-code-inline leading-[18px]"
+          ? "rounded-control px-2.5 py-2 text-code-inline leading-[18px]"
           : "rounded-control px-2 py-1.5 text-micro leading-4",
         className
       )}

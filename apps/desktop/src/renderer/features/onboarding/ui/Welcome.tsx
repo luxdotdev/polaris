@@ -16,7 +16,7 @@ const LOCAL_HOST = "local";
 const CATALOGUE = HARNESS_CATALOGUE.map((h) => h.name);
 
 const Note = ({ children }: { readonly children: ReactNode }) => (
-  <p className="text-caption flex items-center gap-2 rounded-[8px] bg-(--onboarding-note) px-2.5 py-1.5">
+  <p className="text-caption flex items-center gap-2 rounded-[8px] bg-(--onboarding-note) p-(--onboarding-note-pad)">
     {children}
   </p>
 );
@@ -65,7 +65,7 @@ export const Welcome = () => {
           <p className="text-display text-text-strong font-medium tracking-[-0.015em]">
             The north star for your agents.
           </p>
-          <p className="text-heading-sm text-text-default font-normal">
+          <p className="text-heading-sm text-text-default font-regular">
             Launch, steer, and review {drivesLine(installed, CATALOGUE)} on this Mac and every host
             you reach over SSH.
           </p>

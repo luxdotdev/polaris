@@ -10,7 +10,7 @@ import { createCommandRegistry } from "../../../routes/commands.ts";
 import { createNavigation } from "../../../routes/navigation.ts";
 import { type AppState, type Connection, initialState } from "../../../store/store.ts";
 import { standInBridge } from "../../bridge.ts";
-import { APPROVAL, HOSTS, MODELS, QUESTION } from "./fixtures.ts";
+import { APPROVAL, HOSTS, MODELS, QUESTION, QUIET_MODELS } from "./fixtures.ts";
 
 const bridge: PolarisApi = {
   request: () => Promise.resolve({ ok: false, error: { code: "Unsupported", message: "preview" } }),
@@ -23,8 +23,8 @@ export const mountNeedsYouPreview = (root: HTMLElement, hash: string) => {
 
   const store = createStore<AppState>(() => ({
     ...initialState,
-    hosts: HOSTS,
-    hostModels: MODELS,
+    hosts: scene === "empty" ? HOSTS.slice(0, 1) : HOSTS,
+    hostModels: scene === "empty" ? QUIET_MODELS : MODELS,
   }));
 
   const connection: Connection = {
@@ -38,12 +38,13 @@ export const mountNeedsYouPreview = (root: HTMLElement, hash: string) => {
 
   standInBridge(bridge);
 
-  if (scene === "hover") {
+  if (scene === "hover" || scene === "empty") {
     navigation.actions.selectSession({ hostKey: APPROVAL.hostKey, sessionId: APPROVAL.sessionId });
   } else {
     navigation.actions.selectSession({ hostKey: QUESTION.hostKey, sessionId: QUESTION.sessionId });
-    navigation.actions.showSidebar("needs-you");
   }
+
+  if (scene !== "hover") navigation.actions.showSidebar("needs-you");
 
   const commands = createCommandRegistry({ mac: true });
 

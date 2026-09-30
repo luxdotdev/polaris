@@ -5,6 +5,7 @@
 import { Data } from "effect";
 import {
   compareVersions,
+  upgradeDue,
   type DaemonBuild,
   type Libc,
   MUSL_RUNTIME_PACKAGES,
@@ -89,19 +90,18 @@ export const planInstall = (
   }
 
   if (probe.installed !== null && probe.installed.platform === platform) {
-    const order = compareVersions(probe.installed.version, build.version);
+    const installed = probe.installed.version;
 
-    if (order === 0) return InstallPlan.UpToDate({ version: build.version });
+    // An installed Daemon was approved when it was first installed; upgrades need no new
+    // approval. A dev build replaces any other version (`upgradeDue`).
+    if (upgradeDue(installed, build.version))
+      return InstallPlan.Upgrade({ from: installed, build });
 
-    if (order > 0) {
-      return InstallPlan.InstalledNewer({
-        installed: probe.installed.version,
-        bundled: build.version,
-      });
+    if (compareVersions(installed, build.version) > 0) {
+      return InstallPlan.InstalledNewer({ installed, bundled: build.version });
     }
 
-    // An installed Daemon was approved when it was first installed; upgrades need no new approval.
-    return InstallPlan.Upgrade({ from: probe.installed.version, build });
+    return InstallPlan.UpToDate({ version: build.version });
   }
 
   const needsApproval = (reason: "first-install" | "background") =>

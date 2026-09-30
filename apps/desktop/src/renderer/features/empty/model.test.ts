@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
+  captionPath,
   absolutePath,
   cleanPath,
+  connectHostCaption,
   hostStageLine,
   noSelectionFact,
   readyLine,
@@ -19,16 +21,31 @@ describe("empty-state copy", () => {
   });
 
   test("the host stage line changes once there are several hosts", () => {
-    expect(hostStageLine(1)).toMatch(/^Add a workspace to start your first session/);
-    expect(hostStageLine(3)).toBe("Add a workspace on any of your hosts to start a session");
+    expect(hostStageLine(1)).toBe(
+      "Add a workspace, or start a session in your home folder. Remote hosts can come now or later."
+    );
+    expect(hostStageLine(3)).toBe(
+      "Add a workspace on any of your hosts, or start a session in your home folder."
+    );
+  });
+
+  test("the connect-a-host caption says what it counts", () => {
+    expect(connectHostCaption(14, 0)).toBe("14 hosts in ~/.ssh/config · optional");
+    expect(connectHostCaption(0, 1)).toBe("1 other host added · optional");
+    expect(connectHostCaption(0, 0)).toBe("Any machine you can reach over SSH · optional");
   });
 
   test("ready harnesses read as a list", () => {
     expect(readyLine([], "Pi")).toBe("No harness is ready on Pi yet");
-    expect(readyLine(["Codex"], "Pi")).toBe("Codex is ready on Pi");
-    expect(readyLine(["Claude Code", "Codex"], "Pi")).toBe("Claude Code and Codex are ready on Pi");
-    expect(readyLine(["Claude Code", "Codex", "OpenCode"], "Pi")).toBe(
-      "Claude Code, Codex and 1 other are ready on Pi"
+    const claude = { name: "Claude Code", version: "2.1.4" };
+    const codex = { name: "Codex", version: "0.52.0" };
+
+    expect(readyLine([{ name: "Codex", version: null }], "Pi")).toBe("Codex is ready on Pi");
+    expect(readyLine([claude, codex], "Pi")).toBe(
+      "Claude Code 2.1.4 and Codex 0.52.0 are ready on Pi"
+    );
+    expect(readyLine([claude, codex, { name: "OpenCode", version: "1.15.5" }], "Pi")).toBe(
+      "Claude Code 2.1.4, Codex 0.52.0, and 1 other are ready on Pi"
     );
   });
 
@@ -54,5 +71,18 @@ describe("workspace paths", () => {
     expect(absolutePath("~", "/home/pi")).toBe("/home/pi");
     expect(absolutePath("/srv", null)).toBe("/srv");
     expect(absolutePath("~/code", null)).toBeNull();
+  });
+});
+
+describe("captionPath", () => {
+  test("home-relative under home; otherwise the last folders survive, never the start", () => {
+    expect(captionPath("/Users/ada/code/polaris", "/Users/ada")).toBe("~/code/polaris");
+    expect(captionPath("/srv/app", "/Users/ada")).toBe("/srv/app");
+    expect(
+      captionPath(
+        "/var/folders/rx/45btddts0f19z547h16vy6r40000gn/T/polaris-empty-x/code/polaris",
+        null
+      )
+    ).toBe("…/T/polaris-empty-x/code/polaris");
   });
 });
