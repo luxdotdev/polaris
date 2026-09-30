@@ -14,7 +14,7 @@ import { join } from "node:path";
 import { _electron as electron, type Page } from "playwright-core";
 import { seenUserData } from "./lib/userData.ts";
 import { startDaemon } from "./lib/daemon.ts";
-import { APP_DIR, electronBinary } from "./lib/electron.ts";
+import { APP_DIR, electronBinary, sizeWindow } from "./lib/electron.ts";
 import { initRepo } from "./lib/sessionFlow.ts";
 
 const args = process.argv.slice(2);
@@ -76,10 +76,7 @@ const shoot = async (page: Page, name: string) => {
 try {
   const page = await app.firstWindow();
 
-  // Size the real window: viewport emulation reports DPR 1 while WebGL still draws at 2x.
-  await app.evaluate(({ BrowserWindow }) => {
-    BrowserWindow.getAllWindows()[0]?.setContentSize(1440, 900);
-  });
+  await sizeWindow(app, 1440, 900);
   await page
     .locator('[data-host="local"][data-connection="connected"]')
     .waitFor({ timeout: 15_000 });

@@ -1,5 +1,6 @@
 /** Paths shared by the build, dev, smoke and bench scripts; runs under Bun and Node. */
 import { spawnSync } from "node:child_process";
+import type { ElectronApplication } from "playwright-core";
 import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
@@ -25,3 +26,17 @@ export const electronBinary = (): string => {
   // SAFETY: electron's main module exports the binary's path as a string.
   return require("electron") as string;
 };
+
+/**
+ * Sizes the app's window's content, hidden or not. Use it instead of
+ * `page.setViewportSize`: that emulation reports devicePixelRatio 1 on a 2x
+ * display while xterm's WebGL canvas still sizes itself in real device pixels,
+ * so terminal text renders at half size in screenshots (never in the app).
+ */
+export const sizeWindow = (app: ElectronApplication, width: number, height: number) =>
+  app.evaluate(
+    ({ BrowserWindow }, size) => {
+      BrowserWindow.getAllWindows()[0]?.setContentSize(size.width, size.height);
+    },
+    { width, height }
+  );

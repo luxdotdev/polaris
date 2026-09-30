@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { _electron as electron, type Page } from "playwright-core";
 import { spawnSync } from "node:child_process";
-import { APP_DIR, electronBinary, OUT_DIR, REPO_ROOT } from "./lib/electron.ts";
+import { APP_DIR, electronBinary, OUT_DIR, REPO_ROOT, sizeWindow } from "./lib/electron.ts";
 import { probeSource } from "./lib/probe.ts";
 import { startDaemon } from "./lib/daemon.ts";
 import { machineFlow, prepareFakeHost } from "./lib/machineFlow.ts";
@@ -281,7 +281,7 @@ try {
     if (message.type() === "error") consoleErrors.push(message.text());
   });
 
-  await page.setViewportSize({ width: 1280, height: 800 });
+  await sizeWindow(app, 1280, 800);
   // Playwright emulates a light colour scheme by default; follow the app's own theme instead.
   await page.emulateMedia({ colorScheme: null });
   await onboarding(page);
