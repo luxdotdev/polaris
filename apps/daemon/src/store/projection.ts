@@ -14,6 +14,7 @@ import {
   RequestId,
   Sequence,
   type SessionId,
+  Subagent,
   Turn,
   TurnItem,
   Workspace,
@@ -56,6 +57,8 @@ export const TurnJson = json(Turn);
 export const TurnItemJson = json(TurnItem);
 
 export const ApprovalJson = json(ApprovalRequest);
+
+export const SubagentJson = json(Subagent);
 
 export const RejectionJson = json(Schema.Union([CommandRejected, NotFound]));
 
@@ -155,6 +158,19 @@ const withdrawnRequest = (event: {
     ({ sql }) => sql`DELETE FROM pending_approvals WHERE request_id = ${event.requestId}`
   );
 
+const subagentRow = (subagent: Subagent) =>
+  sessionRow(
+    subagent.sessionId,
+    ({ sql }) =>
+      sql`INSERT OR REPLACE INTO subagents ${sql.insert({
+        id: subagent.id,
+        session_id: subagent.sessionId,
+        turn_id: subagent.turnId,
+        status: subagent.status,
+        data: SubagentJson.encode(subagent),
+      })}`
+  );
+
 const projectionOf: (event: DomainEvent) => Projection = DomainEvent.match<Projection>({
   WorkspaceRegistered: (event) => (target) => setWorkspace(target, event.workspace),
   WorkspaceUpdated: (event) => (target) => setWorkspace(target, event.workspace),
@@ -201,6 +217,7 @@ const projectionOf: (event: DomainEvent) => Projection = DomainEvent.match<Proje
           session_id: event.sessionId,
           turn_id: event.turnId,
           item_id: event.item.id,
+          subagent_id: event.subagentId,
           data: TurnItemJson.encode(event.item),
         })}`
     ),
@@ -216,6 +233,8 @@ const projectionOf: (event: DomainEvent) => Projection = DomainEvent.match<Proje
     ),
   ApprovalResolved: withdrawnRequest,
   ApprovalWithdrawn: withdrawnRequest,
+  SubagentStarted: ({ subagent }) => subagentRow(subagent),
+  SubagentEnded: ({ subagent }) => subagentRow(subagent),
 });
 
 /** Persist what `envelope` changed in the read model `after` it. */
@@ -253,6 +272,10 @@ export const loadModel = (sql: SqlClient.SqlClient) =>
 
     const pending = yield* sql<{ data: string }>`SELECT data FROM pending_approvals`;
 
+    const working = yield* sql<{
+      data: string;
+    }>`SELECT data FROM subagents WHERE status = 'working'`;
+
     const turnsBySession = new Map<string, Array<Turn>>();
 
     for (const row of turns) {
@@ -271,6 +294,15 @@ export const loadModel = (sql: SqlClient.SqlClient) =>
       pendingBySession.set(request.sessionId, map);
     }
 
+    const subagentsBySession = new Map<string, Map<Subagent["id"], Subagent>>();
+
+    for (const row of working) {
+      const subagent = SubagentJson.decode(row.data);
+      const map = subagentsBySession.get(subagent.sessionId) ?? new Map<Subagent["id"], Subagent>();
+      map.set(subagent.id, subagent);
+      subagentsBySession.set(subagent.sessionId, map);
+    }
+
     const records = sessions.map((row): SessionRecord => {
       const session = SessionJson.decode(row.data);
 
@@ -279,6 +311,7 @@ export const loadModel = (sql: SqlClient.SqlClient) =>
         titleLocked: row.title_locked === 1,
         turns: turnsBySession.get(session.id) ?? [],
         pending: pendingBySession.get(session.id) ?? new Map(),
+        subagents: subagentsBySession.get(session.id) ?? new Map(),
       };
     });
 

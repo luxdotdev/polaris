@@ -95,6 +95,8 @@ const DROPPED = new Set([
   "SessionRenamed",
   "SessionPermissionModeChanged",
   "SessionModelChanged",
+  "SubagentStarted",
+  "SubagentEnded",
   "WorkspaceRegistered",
   "WorkspaceUpdated",
   "WorkspaceRemoved",
@@ -385,6 +387,10 @@ class Replayer {
     });
   }
 
+  /**
+   * Whether the harness withdrawal at `from` opens a Turn's end. That block records
+   * its checkpoint before its withdrawals, so one followed by a checkpoint stood alone.
+   */
   private endsTurnAfter(from: number, s: string): boolean {
     const log = this.log;
     let j = from;
@@ -394,8 +400,10 @@ class Replayer {
       log[j]!.commandId === null &&
       log[j]!.session === s &&
       (log[j]!.tag === "ApprovalWithdrawn" || DROPPED.has(log[j]!.tag))
-    )
+    ) {
+      if (j > from && log[j]!.tag === "CheckpointRecorded") return false;
       j++;
+    }
 
     return (
       j < log.length &&

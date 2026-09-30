@@ -11,6 +11,8 @@ import {
   PermissionMode,
   ReasoningEffort,
   RequestId,
+  Subagent,
+  SubagentId,
   Turn,
   TurnId,
 } from "@polaris/protocol";
@@ -43,7 +45,7 @@ export const eventSchemas = {
       canSwitchModel: Schema.Boolean,
     })
   ),
-  "session.archive": Nothing,
+  "session.archive": standard(Schema.Struct(At)),
   "session.unarchive": Nothing,
   "terminal.open": Nothing,
   "terminal.return": Nothing,
@@ -52,6 +54,14 @@ export const eventSchemas = {
   "harness.turnStarted": standard(Schema.Struct({ turnId: TurnId, prompt: Schema.String, ...At })),
   "harness.approvalRequested": standard(Schema.Struct({ request: ApprovalRequest })),
   "harness.approvalWithdrawn": standard(Schema.Struct({ requestId: RequestId })),
+  "harness.subagentStarted": standard(Schema.Struct({ subagent: Subagent })),
+  "harness.subagentEnded": standard(
+    Schema.Struct({
+      subagentId: SubagentId,
+      status: Schema.Literals(["completed", "failed", "interrupted"]),
+      ...At,
+    })
+  ),
   "harness.turnEnded": standard(
     Schema.Struct({
       turnId: TurnId,

@@ -10,11 +10,19 @@ import {
   type SessionId,
   SessionStreamItem,
   SessionSummary,
+  type DomainEvent,
+  type SubagentDetail,
   TurnDetail,
+  type TurnId,
 } from "@polaris/protocol";
 import { Context, Effect, Layer, Predicate, Result, Stream } from "effect";
 import type { LiveItem } from "../store/EventStore.ts";
-import { isHostStreamEvent, lastTurn, type SessionRecord } from "../store/model.ts";
+import {
+  isHostStreamEvent,
+  isSubagentEvent,
+  lastTurn,
+  type SessionRecord,
+} from "../store/model.ts";
 import { EngineRuntime } from "./runtime.ts";
 
 export interface SessionSubscription {
@@ -23,27 +31,59 @@ export interface SessionSubscription {
   readonly turnLimit: number | null;
   /** Send `ItemProgress` (the Client announced `session.live-items`). Default false. */
   readonly liveItems?: boolean;
+  /** Send Subagents and their items (the Client announced `session.subagents`). Default false. */
+  readonly subagents?: boolean;
 }
 
-const summaryOf = (record: SessionRecord) =>
+export interface HostSubscription {
+  /** Send Subagents (the Client announced `session.subagents`). Default false. */
+  readonly subagents?: boolean;
+}
+
+const summaryOf = (record: SessionRecord, subagents: boolean) =>
   new SessionSummary({
     session: record.session,
     pendingApprovals: [...record.pending.values()],
     lastTurnPreview: lastTurn(record)?.prompt.slice(0, 140) ?? null,
+    subagents: subagents ? [...record.subagents.values()] : [],
   });
 
-const isHostItem = (item: LiveItem) =>
-  Predicate.isTagged(item, "Event") && isHostStreamEvent(item.envelope.event);
+/** Whether a Client that didn't announce `session.subagents` may see this item. */
+const withoutSubagents = (item: LiveItem): boolean =>
+  Predicate.isTagged(item, "Event")
+    ? !isSubagentEvent(item.envelope.event)
+    : item.subagentId === null;
 
-const withoutProgress = (item: LiveItem) => !Predicate.isTagged(item, "ItemProgress");
+const hostItem =
+  (subagents: boolean) =>
+  (item: LiveItem): boolean =>
+    Predicate.isTagged(item, "Event") &&
+    isHostStreamEvent(item.envelope.event) &&
+    (subagents || !isSubagentEvent(item.envelope.event));
+
+/** What a session stream sends live, by what the Client announced. */
+const sessionFilter = (liveItems: boolean, subagents: boolean) => {
+  if (liveItems && subagents) return undefined;
+
+  return (item: LiveItem): boolean =>
+    (liveItems || !Predicate.isTagged(item, "ItemProgress")) &&
+    (subagents || withoutSubagents(item));
+};
+
+const allowedEvent = (subagents: boolean) => (envelope: { readonly event: DomainEvent }) =>
+  subagents || !isSubagentEvent(envelope.event);
 
 const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
   const { store } = rt;
 
-  const subscribeHost = (afterSequence: Sequence | null): Stream.Stream<HostStreamItem> =>
+  const subscribeHost = (
+    afterSequence: Sequence | null,
+    options: HostSubscription = {}
+  ): Stream.Stream<HostStreamItem> =>
     Stream.unwrap(
       Effect.gen(function* () {
-        const subscription = yield* store.subscribe({ filter: isHostItem });
+        const withSubagents = options.subagents === true;
+        const subscription = yield* store.subscribe({ filter: hostItem(withSubagents) });
         const model = yield* store.model;
         const cut = Sequence.make(model.sequence);
         const head: Array<HostStreamItem> = [];
@@ -54,7 +94,7 @@ const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
               sequence: cut,
               workspaces: [...model.workspaces.values()],
               worktrees: [...model.worktrees.values()],
-              sessions: [...model.sessions.values()].map(summaryOf),
+              sessions: [...model.sessions.values()].map((r) => summaryOf(r, withSubagents)),
             })
           );
         } else {
@@ -64,7 +104,8 @@ const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
             sessionId: null,
           });
 
-          for (const envelope of events) head.push(HostStreamItem.cases.Event.make({ envelope }));
+          for (const envelope of events.filter(allowedEvent(withSubagents)))
+            head.push(HostStreamItem.cases.Event.make({ envelope }));
         }
 
         head.push(HostStreamItem.cases.Synchronized.make({ sequence: cut }));
@@ -82,7 +123,12 @@ const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
     );
 
   /** Recent Turns come from the model (consistent with the cut); older, finished ones from SQL. */
-  const sessionSnapshot = (record: SessionRecord, cut: Sequence, turnLimit: number | null) =>
+  const sessionSnapshot = (
+    record: SessionRecord,
+    cut: Sequence,
+    turnLimit: number | null,
+    withSubagents: boolean
+  ) =>
     Effect.gen(function* () {
       const total = record.session.turnCount;
       const wanted = turnLimit === null ? total : Math.min(turnLimit, total);
@@ -98,13 +144,23 @@ const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
           : [];
 
       const turns = [...older, ...recent];
-      const items = yield* store.readTurnItems({ turnIds: turns.map((t) => t.id), upTo: cut });
+      const turnIds = turns.map((t) => t.id);
+      const items = yield* store.readTurnItems({ turnIds, upTo: cut });
+
+      const subagents = withSubagents
+        ? yield* store.readSubagents({ turnIds, upTo: cut })
+        : new Map<TurnId, ReadonlyArray<SubagentDetail>>();
 
       return SessionStreamItem.cases.Snapshot.make({
         sequence: cut,
         session: record.session,
         turns: turns.map(
-          (turn) => new TurnDetail({ turn, items: [...(items.get(turn.id) ?? [])] })
+          (turn) =>
+            new TurnDetail({
+              turn,
+              items: [...(items.get(turn.id) ?? [])],
+              subagents: [...(subagents.get(turn.id) ?? [])],
+            })
         ),
         pendingApprovals: [...record.pending.values()],
       });
@@ -132,9 +188,11 @@ const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
       Effect.gen(function* () {
         const { sessionId, afterSequence } = options;
         const withProgress = options.liveItems === true;
+        const withSubagents = options.subagents === true;
+        const filter = sessionFilter(withProgress, withSubagents);
 
         const subscription = yield* store.subscribe(
-          withProgress ? { sessionId } : { sessionId, filter: withoutProgress }
+          filter === undefined ? { sessionId } : { sessionId, filter }
         );
 
         const model = yield* store.model;
@@ -148,13 +206,13 @@ const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
         const head: Array<SessionStreamItem> = [];
 
         if (afterSequence === null || afterSequence > cut) {
-          head.push(yield* sessionSnapshot(record, cut, options.turnLimit));
+          head.push(yield* sessionSnapshot(record, cut, options.turnLimit, withSubagents));
         } else {
           const events = yield* store
             .readEvents({ after: afterSequence, upTo: cut, sessionId })
             .pipe(Effect.orDie);
 
-          for (const envelope of events)
+          for (const envelope of events.filter(allowedEvent(withSubagents)))
             head.push(SessionStreamItem.cases.Event.make({ envelope }));
         }
 
@@ -162,8 +220,10 @@ const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
 
         // Items still running, so a Client that subscribes mid-Turn sees them at once.
         if (withProgress) {
-          for (const { turnId, item } of rt.progress.get(sessionId)?.values() ?? []) {
-            head.push(SessionStreamItem.cases.ItemProgress.make({ turnId, item }));
+          for (const { turnId, item, subagentId } of rt.progress.get(sessionId)?.values() ?? []) {
+            if (subagentId === null || withSubagents) {
+              head.push(SessionStreamItem.cases.ItemProgress.make({ turnId, item, subagentId }));
+            }
           }
         }
 
@@ -179,7 +239,10 @@ const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
 export class Streams extends Context.Service<
   Streams,
   {
-    readonly subscribeHost: (afterSequence: Sequence | null) => Stream.Stream<HostStreamItem>;
+    readonly subscribeHost: (
+      afterSequence: Sequence | null,
+      options?: HostSubscription
+    ) => Stream.Stream<HostStreamItem>;
     readonly subscribeSession: (
       options: SessionSubscription
     ) => Stream.Stream<SessionStreamItem, NotFound>;

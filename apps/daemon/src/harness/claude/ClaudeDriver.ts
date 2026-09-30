@@ -257,6 +257,8 @@ const openSession = Effect.fnUntraced(function* (
     // SDK's CLAUDE_SDK_CAN_USE_TOOL_SHADOWED warning is expected. See this driver's README.
     canUseTool,
     includePartialMessages: true,
+    // Subagents' own text and thinking, not only their tool calls (see translate.ts).
+    forwardSubagentText: true,
     systemPrompt: { type: "preset", preset: "claude_code" },
     settingSources: ["user", "project", "local"],
     additionalDirectories: [join(driver.stagingDir ?? paths().staging, options.sessionId)],

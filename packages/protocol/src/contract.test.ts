@@ -7,12 +7,12 @@ import { Predicate, Schema } from "effect";
 import { HarnessAvailability, HostHarnesses } from "./availability.ts";
 import { CapabilityList } from "./capabilities.ts";
 import { Command } from "./commands.ts";
-import { ApprovalDecision, TurnItem } from "./domain.ts";
+import { ApprovalDecision, Subagent, TurnItem } from "./domain.ts";
 import { DomainEvent } from "./events.ts";
 import { HARNESS_CATALOGUE, harnessEntry } from "./harnesses.ts";
-import { RequestId, Sequence, SessionId, TurnId } from "./ids.ts";
+import { RequestId, Sequence, SessionId, SubagentId, TurnId } from "./ids.ts";
 import { Model } from "./models.ts";
-import { HarnessModels, SessionStreamItem, TerminalLaunch } from "./rpc.ts";
+import { HarnessModels, SessionStreamItem, TerminalLaunch, TurnDetail } from "./rpc.ts";
 import { PlanLimit, ReportedCost, TokenCounts, UsageBucket, UsageStreamItem } from "./usage.ts";
 
 const decodeEvent = Schema.decodeUnknownSync(Schema.toCodecJson(DomainEvent));
@@ -65,6 +65,7 @@ describe("contract compatibility", () => {
       SessionStreamItem.cases.ItemProgress.make({
         turnId: TurnId.make("t"),
         item: TurnItem.cases.Plan.make({ id: "p", steps: [{ text: "a", status: "in-progress" }] }),
+        subagentId: null,
       })
     );
     expect(decodeItemJson('{"_tag":"Synchronized","sequence":3,"somethingNewer":true}')).toEqual(
@@ -257,5 +258,48 @@ describe("contract compatibility", () => {
   test("every catalogue entry declares a minimum version", () => {
     for (const harness of HARNESS_CATALOGUE)
       expect(Bun.semver.satisfies(harness.minVersion, "*")).toBe(true);
+  });
+
+  test("items and Turn details from before Subagents decode as the Turn's own", () => {
+    const completed = decodeEventJson(
+      '{"_tag":"TurnItemCompleted","sessionId":"s","turnId":"t",' +
+        '"item":{"_tag":"AssistantMessage","id":"m","text":"hi"}}'
+    );
+
+    expect(completed).toMatchObject({ subagentId: null });
+
+    const detail = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.toCodecJson(TurnDetail)))(
+      `{"turn":${legacyTurn},"items":[]}`
+    );
+
+    expect(detail.subagents).toEqual([]);
+  });
+
+  test("SubagentStarted and SubagentEnded round-trip", () => {
+    const at = (status: "working" | "completed", endedAt: string | null) =>
+      new Subagent({
+        id: SubagentId.make("toolu_1"),
+        sessionId: SessionId.make("s"),
+        turnId: TurnId.make("t"),
+        parentItemId: "toolu_1",
+        title: "Check frame timing at 180 Hz",
+        agent: "Explore",
+        model: "haiku",
+        status,
+        startedAt: "2026-01-01T00:00:00Z",
+        endedAt,
+      });
+
+    const subagent = at("working", null);
+
+    const started = DomainEvent.cases.SubagentStarted.make({ subagent });
+
+    const ended = DomainEvent.cases.SubagentEnded.make({
+      subagent: at("completed", "2026-01-01T00:01:00Z"),
+    });
+
+    for (const event of [started, ended]) {
+      expect(decodeEvent(JSON.parse(JSON.stringify(encodeEvent(event))))).toEqual(event);
+    }
   });
 });
