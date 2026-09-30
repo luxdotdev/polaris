@@ -13,7 +13,7 @@ import {
   CommandList,
   FolderIcon,
 } from "@polaris/ui";
-import { type KeyboardEvent, useState } from "react";
+import { type KeyboardEvent, useEffect, useState } from "react";
 import type { HostView } from "../../../../shared/api.ts";
 import { hostSentence } from "../../../shell/hostCopy.ts";
 import { useNav, useShellActions } from "../../../shell/hooks.ts";
@@ -32,13 +32,19 @@ interface BrowserProps {
   readonly host: HostView;
   readonly hosts: ReadonlyArray<HostView>;
   readonly onHost: (hostKey: string) => void;
+  /** Moves cmdk's highlight: to the first row whenever the rows change under it. */
+  readonly onHighlight: (id: string) => void;
 }
 
-const Browser = ({ host, hosts, onHost }: BrowserProps) => {
+const Browser = ({ host, hosts, onHost, onHighlight }: BrowserProps) => {
   const [typed, setTyped] = useState(START);
   const homeDir = host.status.host?.homeDir ?? null;
   const { open, busy, error } = useOpenFolder(host);
   const { groups, empty, byId } = useFolderRows(host, typed);
+  const first = groups[0]?.rows[0]?.id ?? "";
+
+  // A listing arrives after the Finder row: ↵ must mean the first row, never a stale one.
+  useEffect(() => onHighlight(first), [first, onHighlight]);
 
   const run = (target: Target, direct: boolean) => {
     if (target.kind === "finder") return void open.finder();
@@ -147,7 +153,7 @@ const Unavailable = ({ host, hosts, onHost }: BrowserProps) => (
   </div>
 );
 
-const Body = () => {
+const Body = ({ onHighlight }: Pick<BrowserProps, "onHighlight">) => {
   const route = useNav((s) => s.folder);
   const hosts = useDialogHosts();
   const [picked, setPicked] = useState<string | null>(null);
@@ -156,7 +162,7 @@ const Body = () => {
 
   if (host === undefined) return <CommandEmpty>No hosts yet</CommandEmpty>;
 
-  const props = { host, hosts, onHost: setPicked };
+  const props = { host, hosts, onHost: setPicked, onHighlight };
 
   // Keyed by Host: each starts at its own home.
   return browsable(host) ? (
@@ -170,6 +176,7 @@ const Body = () => {
 export const OpenFolderDialog = () => {
   const open = useNav((s) => s.folder !== null);
   const { closeFolder } = useShellActions();
+  const [highlight, setHighlight] = useState("");
 
   if (!open) return null;
 
@@ -180,10 +187,12 @@ export const OpenFolderDialog = () => {
         if (!next) closeFolder();
       }}
       shouldFilter={false}
+      value={highlight}
+      onValueChange={setHighlight}
       title="Open a folder"
       description="Choose a host, then a folder on it to add as a workspace"
     >
-      <Body />
+      <Body onHighlight={setHighlight} />
     </CommandDialog>
   );
 };
