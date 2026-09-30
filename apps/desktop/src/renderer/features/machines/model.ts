@@ -147,6 +147,16 @@ const problemCard = (label: string, problem: Problem): CardModel => {
     );
   }
 
+  if (problem.kind === "ssh") {
+    return card(
+      "ssh",
+      `Polaris couldn't reach ${label} over SSH`,
+      "Check that ssh reaches it from a terminal, then retry.",
+      problem.message,
+      { label: "Retry", action: "check" }
+    );
+  }
+
   if (problem.kind === "failed") {
     return card(
       "install-failed",
@@ -213,7 +223,10 @@ export const attentionCard = (machine: MachineView): CardModel | null => {
   if (step === "approval") return null;
   const install = installCard(machine);
 
-  if (install !== null && step !== "ready") return install;
+  // ssh's own failure is better told by the Connection State's reason, when there is one.
+  const sshFailed = machine.install?.problem?.kind === "ssh";
+
+  if (install !== null && step !== "ready" && !sshFailed) return install;
 
   return connectionCard(machine) ?? install;
 };

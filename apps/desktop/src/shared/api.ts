@@ -135,7 +135,7 @@ export interface InstallFlowView {
     readonly adminCommand: string | null;
   } | null;
   readonly problem: {
-    readonly kind: "unsupported" | "missing-build" | "host-setup" | "failed";
+    readonly kind: "unsupported" | "missing-build" | "host-setup" | "ssh" | "failed";
     readonly message: string;
     readonly command: string | null;
   } | null;

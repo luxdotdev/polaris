@@ -185,6 +185,12 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
       yield* retryConnection(alias);
     }).pipe(
       Effect.provide(input.ssh),
+      Effect.catchTag("SshError", (error) =>
+        step(alias, {
+          type: "failed",
+          problem: { kind: "ssh", message: failureMessage(error), command: null },
+        })
+      ),
       Effect.catch((error) =>
         step(alias, {
           type: "failed",

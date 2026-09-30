@@ -107,6 +107,19 @@ describe("attention cards", () => {
     expect(needsUser(approval)).toBe(true);
   });
 
+  test("an ssh failure during the check defers to the Connection State's card", () => {
+    const failed = {
+      ...attention("host-key-unknown"),
+      install: install({
+        step: "blocked",
+        problem: { kind: "ssh", message: "Host key verification failed.", command: null },
+      }),
+    };
+
+    expect(attentionCard(failed)?.reason).toBe("host-key-unknown");
+    expect(attentionCard({ ...failed, status: status() })?.reason).toBe("ssh");
+  });
+
   test("problems: host setup, failures, unsupported, and linger's admin command", () => {
     const setup = machine({
       install: install({

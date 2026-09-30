@@ -37,7 +37,8 @@ export interface InstallOutcome {
 }
 
 export interface InstallProblem {
-  readonly kind: "unsupported" | "missing-build" | "host-setup" | "failed";
+  /** `ssh`: ssh itself failed (host key, auth, unreachable); the Connection State says why. */
+  readonly kind: "unsupported" | "missing-build" | "host-setup" | "ssh" | "failed";
   readonly message: string;
   /** What an administrator must run on the Host (host setup, linger). */
   readonly command: string | null;

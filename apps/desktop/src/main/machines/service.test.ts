@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Ssh } from "@polaris/client/install";
+import { Ssh, SshError } from "@polaris/client/install";
 import { HostId, HostInfo } from "@polaris/protocol";
 import { Effect, Layer, ManagedRuntime, Option, Stream, SubscriptionRef } from "effect";
 import type { ConnectionStatusView, HostView, MachineView } from "../../shared/api.ts";
@@ -47,7 +47,7 @@ const status = (patch: Partial<ConnectionStatusView>): ConnectionStatusView => (
   ...patch,
 });
 
-const setup = () => {
+const setup = (sshFails = false) => {
   let settings: Settings = {};
   const hostViews = Effect.runSync(SubscriptionRef.make<ReadonlyArray<HostView>>([]));
   const entries = new Map<string, HostEntry>();
@@ -83,8 +83,16 @@ const setup = () => {
     ssh: Layer.succeed(
       Ssh,
       Ssh.of({
-        exec: (_alias, command, options) =>
-          Effect.sync(() => runOnFakeHost(home, command, options?.stdinFile)),
+        exec: (alias, command, options) =>
+          sshFails
+            ? Effect.fail(
+                new SshError({
+                  alias,
+                  failure: "host-key",
+                  message: "Host key verification failed.",
+                })
+              )
+            : Effect.sync(() => runOnFakeHost(home, command, options?.stdinFile)),
       })
     ),
   });
@@ -220,6 +228,19 @@ describe("Machines", () => {
     await call((m) => m.update("studio", { remoteCommand: null }));
     expect(settings().hosts?.[0]?.remoteCommand).toBeUndefined();
     expect(settings().hosts?.[0]?.forwardAgent).toBe(true);
+    await runtime.dispose();
+  });
+
+  test("ssh failing during the check is an ssh problem, not a failed install", async () => {
+    writeDist(dist, { version: "0.2.0", platform });
+    const { runtime, studio, call } = setup(true);
+    await call((m) => m.add({ alias: "studio", label: "", colour: null, forwardAgent: false }));
+    const blocked = await studio((v) => v.install?.step === "blocked");
+    expect(blocked?.install?.problem).toEqual({
+      kind: "ssh",
+      message: "Host key verification failed.",
+      command: null,
+    });
     await runtime.dispose();
   });
 
