@@ -115,9 +115,7 @@ const WorkspaceSessions = ({ hostKey, model, workspace }: WorkspaceListProps) =>
 
   return (
     <div className="flex flex-col gap-0.5 px-2 pt-2">
-      <SectionHeader
-        empty={entries.length === 0 ? `No agent sessions in ${workspace.name}` : undefined}
-      >
+      <SectionHeader empty={entries.length === 0 ? `None in ${workspace.name}` : undefined}>
         Sessions
       </SectionHeader>
       {entries.map((entry) => (
@@ -223,6 +221,8 @@ const WorkspaceSidebar = () => {
   const { hostKey, workspaceId, sidebar } = useSelection();
   const model = useHostModel(hostKey);
   const host = useApp((s) => s.hosts.find((h) => h.key === hostKey));
+  const shown = useApp((s) => s.hosts.find((h) => h.key === hostKey || h.alias === null));
+  const hostCount = useApp((s) => s.hosts.length);
   const workspace = workspaceId === null ? undefined : model.workspaces.get(workspaceId);
 
   // New session still works here: it starts in the Host's home directory (onboarding).
@@ -232,12 +232,18 @@ const WorkspaceSidebar = () => {
         header={
           <Header
             title="No workspace yet"
-            caption={host === undefined ? "No host yet" : host.label}
-            canStart={host !== undefined}
+            caption={
+              shown === undefined ? "No machines yet" : `${shown.label} · ${shown.status.state}`
+            }
+            canStart={shown !== undefined}
           />
         }
-        footer=""
-      />
+        footer={hostCount === 0 ? "" : `${plural(hostCount, "host")} · no workspaces`}
+      >
+        <div className="flex flex-col px-2 pt-2">
+          <SectionHeader empty="None yet">Sessions</SectionHeader>
+        </div>
+      </SidebarFrame>
     );
   }
 

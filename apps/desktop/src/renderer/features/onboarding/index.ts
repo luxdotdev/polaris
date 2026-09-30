@@ -17,6 +17,6 @@ export type { Stage, Welcome as WelcomeState } from "./model.ts";
 
 export { createOnboarding, type Onboarding, settledOnboarding } from "./onboarding.ts";
 
-export { SetupStage, type SetupStageProps, WaitingStage } from "./ui/SetupStage.tsx";
+export { WaitingStage } from "./ui/WaitingStage.tsx";
 
 export { Welcome } from "./ui/Welcome.tsx";

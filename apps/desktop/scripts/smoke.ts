@@ -17,6 +17,7 @@ import { APP_DIR, electronBinary, OUT_DIR, REPO_ROOT } from "./lib/electron.ts";
 import { probeSource } from "./lib/probe.ts";
 import { startDaemon } from "./lib/daemon.ts";
 import { initRepo, sessionFlow } from "./lib/sessionFlow.ts";
+import { terminalFlow } from "./lib/terminalFlow.ts";
 
 const args = process.argv.slice(2);
 
@@ -115,7 +116,12 @@ const timeSwitches = async (page: Page) => {
 
 /** ⌘K, type the other Workspace's name, ↵: its session opens (Sessions rank first); then ⌘/ help. */
 const jumpByTyping = async (page: Page) => {
-  const chip = page.locator('[data-slot="chip"][aria-pressed="false"]').first();
+  // Not onboarding's "home": it has no session to open.
+  const chip = page
+    .locator('[data-slot="chip"][aria-pressed="false"]')
+    .filter({ hasNotText: /^\s*home/ })
+    .first();
+
   const name = ((await chip.textContent()) ?? "").replace(/\s*⌃\d.*$/, "").trim();
 
   await page.keyboard.press("Meta+K");
@@ -317,6 +323,7 @@ try {
     shoot: (name) => shoot(page, name),
     atFirstApproval: () => inboxCheck(page),
   });
+  await terminalFlow({ page, step, shoot: (name) => shoot(page, name) });
   await timeSwitches(page);
   await jumpByTyping(page);
 

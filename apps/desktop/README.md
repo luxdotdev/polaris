@@ -11,6 +11,7 @@ bun run bench desktop-idle          # memory and CPU of the built app, settled (
 node scripts/screens.ts <dir>       # screenshots against Paper 11U-0 / MX-0, from four seeded local Daemons
 node scripts/sessionScreens.ts --out <dir> [--frames]   # the shell with the session view on fixtures (#preview/<scene>), every theme and density
 node scripts/needsYouScreens.ts --out <dir>   # the Needs You inbox and hover card on fixtures (#needs-you/<scene>) against Paper 1G2-0 / 1-0
+node scripts/emptyScreens.ts --out <dir> [--build]      # the empty states and the terminal drawer from a fresh Daemon, every theme and density
 ```
 
 `dev` connects the local Host to `~/.polaris/daemon.sock` when a Daemon answers there; otherwise it starts a dev Daemon from source with its own home and the scripted bench Harness, and keeps it across restarts (ADR 0007). Builds: Vite for the renderer, `Bun.build` for main and preload (ADR 0008).
@@ -50,7 +51,7 @@ The renderer is split into the **shell** (owned by the app shell: layout, select
 | `SessionIntent` | `{ hostKey, sessionId }` | The Intent column, for the selected Agent Session. |
 | `SessionOutput` | `{ hostKey, sessionId }` | The Output column, for the same session. |
 | `NewSession` | `{ hostKey, workspaceId, onStarted(sessionId), onCancel() }` | Spans Intent + Output while starting a session ("New session", ⌘N, the sidebar +). |
-| `NoSession` | `{ hostKey, workspaceId }` | Spans Intent + Output when nothing is selected. |
+| `NoSession` | `{ hostKey, workspaceId }` | Spans Intent + Output when nothing is selected (`features/empty`'s `WorkspaceStage`). |
 | `NeedsYouInbox` | none | The sidebar's "Needs you" view (the Sessions / Needs you switch). |
 | `JumpMenu` | `{ open, onOpenChange }` | The K jump menu; the shell owns `open` (K, ⌘K, the title bar's jump field). |
 | `NeedsYouHover` | `{ hostKey, sessionId?, workspaceId?, children }` | Wraps a session row, or a Workspace chip, that needs you with its hover card. |
@@ -80,13 +81,19 @@ To wire a feature: in `slots.tsx`, import its component and replace the default,
 
 **Workspace switch timing** (`routes/switchTimer.ts`): input event → second animation frame after it, kept in `window.__polaris.switchTimes()`; the smoke test switches 40 times and fails over 100 ms at p95.
 
-**Onboarding** (`src/renderer/features/onboarding/`, DESIGN.md Onboarding): O1 Welcome replaces the whole window until "Get started" (↵), which sets `welcomeSeen` in the settings; the Orchestrator's stage is the O2 setup (`SetupStage`) whenever the selected Host has no Workspace, and an empty scene (`WaitingStage`) until some Host has said what it holds, so the setup never flashes. `startNewSession` (sidebar +, title bar, ⌘N, the K menu) with no Workspace asks `createNavigation`'s `ensureWorkspace`, which registers the Host's home directory (`HostInfo.homeDir`) as the Workspace "home", or shows it again if hidden, then opens New session in it. Features use `useEnsureWorkspace()` for the same. `model.ts` (stage, found-on-this-Mac lines) and `ensureWorkspace.ts` are tested; the smoke test walks O1 → O2 → Start session → New session in "home".
+**Onboarding** (`src/renderer/features/onboarding/`, DESIGN.md Onboarding): O1 Welcome replaces the whole window until "Get started" (↵), which sets `welcomeSeen` in the settings; the Orchestrator's stage is the O2 setup (`features/empty`'s `HostStage`, with onboarding's native folder picker, ⌘O and an unlocked Start session) whenever the selected Host has no Workspace, and an empty scene (`WaitingStage`) until some Host has said what it holds, so the setup never flashes. `startNewSession` (sidebar +, title bar, ⌘N, the K menu) with no Workspace asks `createNavigation`'s `ensureWorkspace`, which registers the Host's home directory (`HostInfo.homeDir`) as the Workspace "home", or shows it again if hidden, then opens New session in it. Features use `useEnsureWorkspace()` for the same. `model.ts` (stage, found-on-this-Mac lines) and `ensureWorkspace.ts` are tested; the smoke test walks O1 → O2 → Start session → New session in "home".
 
 **Connection State** stays inline: the Host's row dims only while reconnecting and shows how long; the reason sits in a code well under the sidebar header (to be replaced by `@polaris/ui`'s HostStateCard).
 
 **Needs You** (`src/renderer/features/needs-you/`, wired into `NeedsYouInbox` and `NeedsYouHover`, with `NeedsYouPublisher` mounted in `App.tsx`): the inbox across every Host (a card per waiting session, approvals answered inline, questions shown; "Also waiting on you" with Retry, Take back, Continue; "Approved on <device>" for a minute when another Client answered first, from `ApprovalResolved.resolvedBy`), the hover card on waiting rows and chips, and a summary published to main (`needsYou.publish`). Main shows a notification per new request (one per session, never repeated, none for the session the focused window shows; Approve / Deny buttons on a single approval, a reply field on a question; click opens the session), the menu bar star with the count, and the Dock badge. Answers from notifications and the star come back as `needs-you` app events and are dispatched by the renderer, so every answer from this device takes one path. `POLARIS_DESKTOP_HIDDEN=1` plans notifications without showing them. `#needs-you/inbox` and `#needs-you/hover` render fixtures for screenshots. The smoke test checks the menu bar count, answers the first approval from the inbox and waits for it to leave the summary.
 
 **Session view** (`src/renderer/features/session/`, wired into `SessionIntent`, `SessionOutput` and `NewSession`): the header, the virtualized conversation (Turns streaming live, inline approvals and questions) and the composer (send, steer, stop, attachments, Model) in Intent; the chosen Turn's diff in Output (Changes); the new-session page, whose Harness choice comes from the catalogue and the Host's `harness.availability`. `index.ts` is its interface; pure view models under `model/` are tested. `#preview/<scene>` renders the shell on fixtures (a lazy chunk) for `scripts/sessionScreens.ts`. The smoke test reads its `data-testid`s (`session-state`, `live-item`, `turn-item`, `approval`, `diff-file`, `turn-summary`, `composer-input`, `where-line`, `new-session`).
+
+**Empty states** (`src/renderer/features/empty/`, DESIGN.md's three tiers): `HostStage` (a Host with no Workspaces; the path is typed, `~` expanded with the Host's home, then `RegisterWorkspace`), `WorkspaceStage` (the `NoSession` slot: a stage when the Workspace has no sessions, a pane when none is open), `NothingNeedsYou` and `LaterMode` panes. Copy lives in `model.ts`, tested.
+
+**Terminal** (`src/renderer/features/terminal/`): `TerminalDock` wraps a pane (Columns wraps Output and `NoSession`) with the Workspace's drawer; ⌃` toggles it. Tabs persist per Workspace in `localStorage` (`store.ts`), so a relaunch reattaches to the same Daemon terminals with their scrollback. `runtime.ts` (xterm.js, WebGL, a lazy chunk) keeps up to four hidden instances, serializes input so keystrokes reach the PTY in order, debounces resizes, and reattaches feeds when the Host reconnects. Other features call `runInTerminal(place, { key, title, cwd, argv })` (e.g. a Harness sign-in) or `toggleTerminal`; `HarnessTerminal` (`{ hostKey, argv, onExit, onClose }`) is an inline terminal for pages, matching B7's `HarnessTerminal` slot (Settings → Harnesses sign-in). "Open in terminal" (`handoff.ts`): `OpenInTerminal`, poll `session.terminalCommand`, run it (its `env` goes through `env(1)`, since `terminal.open` takes none); `InTerminalBar` and `OpenInTerminalItem` are mounted by the session view. `window.__polarisTerminal.text(id)` exposes a terminal's buffer to the smoke test.
+
+**Attachments** (`src/renderer/features/attachments/`): `useUploads` stages pasted or dropped files (`attachments.stage`) and keeps image thumbnails; `AttachmentDrop` wraps the composer (paste, drop, the drag hint, ⌥ to copy) and `AttachmentTray` renders the chips. ⌥-drop copies into the session's cwd by running `cp` on the Host through `terminal.open` (no file write in M1) and toasts the outcome.
 
 ## The bridge
 
@@ -97,7 +104,7 @@ To wire a feature: in `slots.tsx`, import its component and replace the default,
 
 ## Settings
 
-`<userData>/settings.json`: `theme` (`system` | `dark` | `light`), `density` (`calm` | `balanced` | `compact`), `welcomeSeen` (scripts that launch the app past the welcome set it), and `hosts`: `[{ alias, label?, colour?, forwardAgent? }]` by `~/.ssh/config` alias. The renderer sets `data-theme` (unset for system) and `data-density` on the root.
+`<userData>/settings.json`: `theme` (`system` | `dark` | `light`), `density` (`calm` | `balanced` | `compact`), `welcomeSeen` (scripts that launch the app past the welcome use `scripts/lib/userData.ts`), and `hosts`: `[{ alias, label?, colour?, forwardAgent? }]` by `~/.ssh/config` alias. The renderer sets `data-theme` (unset for system) and `data-density` on the root.
 
 Environment: `POLARIS_DESKTOP_EXTRA_HOSTS` (screenshots and tests: `[{ key, label, socket }]`, more Hosts on local sockets), `POLARIS_DESKTOP_LOCAL_LABEL`, `POLARIS_DESKTOP_USER_DATA`, `POLARIS_DESKTOP_HIDDEN=1`, `POLARIS_DESKTOP_LOCAL_SOCKET` (+ `POLARIS_DESKTOP_BENCH_HARNESS=1`), `POLARIS_DESKTOP_DAEMON=system|dev`.
 
@@ -114,3 +121,5 @@ Environment: `POLARIS_DESKTOP_EXTRA_HOSTS` (screenshots and tests: `[{ key, labe
 - Retry on a Failed session opens it (the conversation holds the prompt); there is no Retry command yet.
 - The sidebar header keeps the Workspace's name in the Needs you view (Paper 1G2-0 shows "Inbox · All machines").
 - No Sources chips, "Add machine" or per-session age of last activity yet; ages are since the session was created.
+- Attachments have no byte-level progress (one IPC call per file), no folder picker for ⌥-drop (it copies into the session's cwd), and no "Open locally" / "Save to Downloads" for remote files yet.
+- Adding a workspace takes a typed path (no native folder dialog: remote Hosts need a path anyway); "Connect a host" on the first-run card has no action until the add-a-machine flow lands.

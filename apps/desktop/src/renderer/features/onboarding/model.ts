@@ -63,10 +63,6 @@ export const installedNames = (availability: Availability | null): ReadonlyArray
     .filter((h) => h.status !== "not-installed")
     .map((h) => harnessName(h.harness));
 
-/** Harnesses that can start a session now. */
-export const readyHarnesses = (availability: Availability | null): ReadonlyArray<string> =>
-  named((availability?.harnesses ?? []).filter((h) => h.status === "ready"));
-
 export const hostsLine = (count: number) =>
   count === 1 ? "1 host in ~/.ssh/config" : `${count} hosts in ~/.ssh/config`;
 
@@ -98,12 +94,3 @@ export const drivesLine = (installed: ReadonlyArray<string>, catalogue: Readonly
 /** The Workspace already registered at a path, shown or hidden. */
 export const workspaceAt = (model: HostModel | undefined, path: string): Workspace | undefined =>
   model === undefined ? undefined : [...model.workspaces.values()].find((w) => w.path === path);
-
-/** A typed path with `~` for the Host's home directory, made absolute for RegisterWorkspace. */
-export const expandHome = (path: string, home: string | null): string => {
-  const trimmed = path.trim();
-
-  if (home === null || (trimmed !== "~" && !trimmed.startsWith("~/"))) return trimmed;
-
-  return `${home.replace(/\/$/, "")}${trimmed.slice(1)}`;
-};

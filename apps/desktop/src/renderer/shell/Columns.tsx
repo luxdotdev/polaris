@@ -5,7 +5,9 @@
  */
 import type { SessionId } from "@polaris/protocol";
 import { slots } from "../app/slots.tsx";
-import { SetupStage, useStage, WaitingStage } from "../features/onboarding/index.ts";
+import { HostStage } from "../features/empty/index.ts";
+import { useStage, WaitingStage } from "../features/onboarding/index.ts";
+import { TerminalDock } from "../features/terminal/index.ts";
 import { useSelection, useShellActions } from "./hooks.ts";
 
 export const Columns = () => {
@@ -16,7 +18,11 @@ export const Columns = () => {
 
   // No Workspace here: the setup (onboarding O2), also while a new session waits for "home".
   if (hostKey === null || workspaceId === null) {
-    return stage === "waiting" ? <WaitingStage /> : <SetupStage hostKey={hostKey} />;
+    return (
+      <section className="flex min-w-0 flex-1 flex-col">
+        {stage === "waiting" ? <WaitingStage /> : <HostStage hostKey={hostKey} />}
+      </section>
+    );
   }
 
   if (pane === "new-session") {
@@ -35,7 +41,9 @@ export const Columns = () => {
   if (sessionId === null) {
     return (
       <section className="flex min-w-0 flex-1 flex-col">
-        <slots.NoSession hostKey={hostKey} workspaceId={workspaceId} />
+        <TerminalDock hostKey={hostKey} workspaceId={workspaceId}>
+          <slots.NoSession hostKey={hostKey} workspaceId={workspaceId} />
+        </TerminalDock>
       </section>
     );
   }
@@ -49,7 +57,9 @@ export const Columns = () => {
         <slots.SessionIntent hostKey={hostKey} sessionId={sessionId} />
       </section>
       <section aria-label="Output" className="flex min-w-0 flex-1 flex-col">
-        <slots.SessionOutput hostKey={hostKey} sessionId={sessionId} />
+        <TerminalDock hostKey={hostKey} workspaceId={workspaceId}>
+          <slots.SessionOutput hostKey={hostKey} sessionId={sessionId} />
+        </TerminalDock>
       </section>
     </>
   );

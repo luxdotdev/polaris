@@ -2,14 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { HarnessAvailability, HostHarnesses } from "@polaris/protocol";
 import { hostModel, hostView, workspaces } from "../../routes/fixtures.testing.ts";
 import type { HostModel } from "../../store/hostModel.ts";
-import {
-  drivesLine,
-  expandHome,
-  foundLine,
-  listed,
-  onboardingStage,
-  readyHarnesses,
-} from "./model.ts";
+import { drivesLine, foundLine, listed, onboardingStage } from "./model.ts";
 
 const synced = (model: HostModel): HostModel => ({ ...model, synchronized: true });
 
@@ -86,10 +79,6 @@ describe("found on this Mac", () => {
     expect(foundLine(null, 0)).toBe("No agents yet");
   });
 
-  test("only ready Harnesses can start a session", () => {
-    expect(readyHarnesses(availability)).toEqual(["Claude Code 2.1.4"]);
-  });
-
   test("names join the way a sentence does", () => {
     expect(listed(["Claude Code 2.1.4"])).toBe("Claude Code 2.1.4");
     expect(listed(["A", "B", "C"])).toBe("A, B and C");
@@ -101,15 +90,5 @@ describe("found on this Mac", () => {
       "Claude Code, Codex and more"
     );
     expect(drivesLine(["Codex"], ["Claude Code", "Codex"])).toBe("Codex");
-  });
-});
-
-describe("expandHome", () => {
-  test("~ is the Host's home directory; anything else is left as typed", () => {
-    expect(expandHome("~", "/home/ada")).toBe("/home/ada");
-    expect(expandHome(" ~/code/polaris ", "/home/ada/")).toBe("/home/ada/code/polaris");
-    expect(expandHome("/srv/app", "/home/ada")).toBe("/srv/app");
-    expect(expandHome("~bob/x", "/home/ada")).toBe("~bob/x");
-    expect(expandHome("~/x", null)).toBe("~/x");
   });
 });
