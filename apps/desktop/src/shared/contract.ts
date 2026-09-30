@@ -8,6 +8,7 @@ import {
   Command,
   CommandId,
   GitDiffSpec,
+  HarnessKind,
   Sequence,
   SessionId,
   SessionSummary,
@@ -32,6 +33,12 @@ export type Density = typeof Density.Type;
 
 const onHost = <F extends Schema.Struct.Fields>(fields: F) =>
   Schema.Struct({ hostKey: HostKey, ...fields });
+
+/** A `~/.ssh/config` alias; never starts with "-" (it would read as an ssh option). */
+export const SshAlias = Schema.String.check(Schema.isPattern(/^[^-\s][^\s]*$/));
+
+/** A machine's colour: an identity hue name from `@polaris/ui` or a hex colour. */
+export const MachineColour = Schema.String.check(Schema.isPattern(/^(#[0-9a-fA-F]{6}|[a-z-]+)$/));
 
 /** A Host's last synchronized state, painted at launch before its Daemon answers (ENG-175). */
 export const CachedHost = Schema.Struct({
@@ -90,6 +97,40 @@ export const RequestInputs = {
   }),
   /** Probe a remote Host and plan an install or upgrade; installs only with an approved SHA-256. */
   "install.ensure": onHost({ approvedSha256: Schema.NullOr(Schema.String) }),
+  /** The literal `Host` aliases in `~/.ssh/config` (Includes followed, wildcards skipped). */
+  "machines.sshAliases": Schema.Struct({}),
+  /** Adds a remote Host by alias and checks it: probe, then ask to install. */
+  "machines.add": Schema.Struct({
+    alias: SshAlias,
+    label: Schema.String,
+    colour: Schema.NullOr(MachineColour),
+    forwardAgent: Schema.Boolean,
+  }),
+  /** Changes a remote Host's settings; a changed transport reconnects it. */
+  "machines.update": onHost({
+    label: Schema.optionalKey(Schema.String),
+    colour: Schema.optionalKey(Schema.NullOr(MachineColour)),
+    forwardAgent: Schema.optionalKey(Schema.Boolean),
+    /** The remote command as one shell line; null restores the default. */
+    remoteCommand: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  }),
+  "machines.remove": onHost({}),
+  /** Probe the Host and plan again (the user asked): may install an approved build. */
+  "machines.check": onHost({}),
+  /** "Approve and install": records the SHA-256 for this Host, then installs. */
+  "machines.approve": onHost({ sha256: Schema.String }),
+  /** "Not now". */
+  "machines.dismiss": onHost({}),
+  /** Restart the installed Daemon's service (`polaris install` with the current build). */
+  "machines.startDaemon": onHost({}),
+  /** Switch the local Host on or off on this machine. */
+  "machines.setLocalEnabled": Schema.Struct({ enabled: Schema.Boolean }),
+  "machines.harnesses": onHost({ refresh: Schema.Boolean }),
+  /** Opens Terminal on this Mac: `ssh <alias>` (to accept a host key or check auth). */
+  "machines.openSsh": onHost({}),
+  /** Opens Terminal running the Harness's own sign-in on the Host. */
+  "machines.signIn": onHost({ harness: HarnessKind }),
+  "clipboard.write": Schema.Struct({ text: Schema.String }),
   /** Dev only: a fresh temporary directory on the dev Daemon's Host for the proof session. */
   "dev.proofWorkspace": Schema.Struct({}),
 } as const;
@@ -118,6 +159,8 @@ export const UnsubscribeEnvelope = Schema.Struct({ id: Schema.Int });
 export const SubscriptionInputs = {
   /** The Host list with each Host's Connection State; the whole list on every change. */
   hosts: Schema.Struct({}),
+  /** The machines for Settings: each Host's settings, Connection State and install flow. */
+  machines: Schema.Struct({}),
   host: onHost({}),
   session: onHost({ sessionId: SessionId, turnLimit: Schema.NullOr(Schema.Int) }),
   terminal: onHost({ terminalId: TerminalId }),

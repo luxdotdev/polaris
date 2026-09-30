@@ -8,14 +8,26 @@ import {
   type ClientIdentity,
   type ConnectionStatus,
   type HostConnection,
+  type HostConnectionOptions,
   HostConnector,
   HostRegistry,
   HostTarget,
 } from "@polaris/client";
 import { Capability } from "@polaris/protocol";
-import { Context, Effect, Layer, ManagedRuntime, Option, Stream, SubscriptionRef } from "effect";
+import {
+  Context,
+  Effect,
+  Equal,
+  Fiber,
+  Layer,
+  ManagedRuntime,
+  Option,
+  Stream,
+  SubscriptionRef,
+} from "effect";
 import type { ConnectionStatusView, HostView, IpcError } from "../shared/api.ts";
 import type { LocalDaemon } from "./localDaemon.ts";
+import type { Machines } from "./machines/service.ts";
 import type { RemoteHostSetting } from "./settings.ts";
 
 export const LOCAL_HOST_KEY = "local";
@@ -36,6 +48,8 @@ export interface HostEntry {
   readonly alias: string | null;
   readonly proofHarness: boolean;
   readonly target: HostTarget;
+  /** The remote command's argv; null for the default (`~/.polaris/bin/current/polaris bridge`). */
+  readonly remoteCommand: ReadonlyArray<string> | null;
 }
 
 export const statusView = (status: ConnectionStatus): ConnectionStatusView => ({
@@ -66,7 +80,8 @@ export const hostView = (entry: HostEntry, status: ConnectionStatus): HostView =
 });
 
 export interface HostEntriesInput {
-  readonly local: LocalDaemon;
+  /** Null while the local Host is switched off on this machine. */
+  readonly local: LocalDaemon | null;
   readonly remotes: ReadonlyArray<RemoteHostSetting>;
 }
 
@@ -74,32 +89,46 @@ export interface HostEntriesInput {
 export const hostEntries = ({ local, remotes }: HostEntriesInput): ReadonlyArray<HostEntry> => {
   const seen = new Set<string>([LOCAL_HOST_KEY]);
 
-  const entries: Array<HostEntry> = [
-    {
-      key: LOCAL_HOST_KEY,
-      label: "This Mac",
-      colour: null,
-      alias: null,
-      proofHarness: local.benchHarness,
-      target: HostTarget.Local({ socketPath: local.socketPath }),
-    },
-  ];
+  const entries: Array<HostEntry> = local === null ? [] : [localEntry(local)];
 
   for (const remote of remotes) {
     if (seen.has(remote.alias)) continue;
     seen.add(remote.alias);
-    entries.push({
-      key: remote.alias,
-      label: remote.label ?? remote.alias,
-      colour: remote.colour ?? null,
-      alias: remote.alias,
-      proofHarness: false,
-      target: HostTarget.Ssh({ alias: remote.alias, forwardAgent: remote.forwardAgent ?? false }),
-    });
+    entries.push(remoteEntry(remote));
   }
 
   return entries;
 };
+
+export const localEntry = (local: LocalDaemon): HostEntry => ({
+  key: LOCAL_HOST_KEY,
+  label: "This Mac",
+  colour: null,
+  alias: null,
+  proofHarness: local.benchHarness,
+  target: HostTarget.Local({ socketPath: local.socketPath }),
+  remoteCommand: null,
+});
+
+/** Splits a remote command line on whitespace; the remote shell parses it again anyway. */
+export const remoteCommandArgv = (line: string | undefined): ReadonlyArray<string> | null => {
+  const argv = (line ?? "")
+    .trim()
+    .split(/\s+/)
+    .filter((part) => part !== "");
+
+  return argv.length === 0 ? null : argv;
+};
+
+export const remoteEntry = (remote: RemoteHostSetting): HostEntry => ({
+  key: remote.alias,
+  label: remote.label ?? remote.alias,
+  colour: remote.colour ?? null,
+  alias: remote.alias,
+  proofHarness: false,
+  target: HostTarget.Ssh({ alias: remote.alias, forwardAgent: remote.forwardAgent ?? false }),
+  remoteCommand: remoteCommandArgv(remote.remoteCommand),
+});
 
 export const clientIdentity = (version: string): ClientIdentity => ({
   name: "Polaris",
@@ -129,6 +158,9 @@ export class HostDirectory extends Context.Service<
     readonly views: SubscriptionRef.SubscriptionRef<ReadonlyArray<HostView>>;
     readonly entry: (key: string) => HostEntry | undefined;
     readonly connection: (key: string) => Effect.Effect<HostConnection, UnknownHost>;
+    /** Adds a Host, or replaces the one with the same key (reconnecting it). */
+    readonly add: (entry: HostEntry) => Effect.Effect<void>;
+    readonly remove: (key: string) => Effect.Effect<void>;
   }
 >()("polaris/desktop/HostDirectory") {
   static readonly layer = ({ entries, identity }: HostDirectoryInput) =>
@@ -137,25 +169,76 @@ export class HostDirectory extends Context.Service<
       Effect.gen(function* () {
         const registry = yield* HostRegistry;
         const views = yield* SubscriptionRef.make<ReadonlyArray<HostView>>([]);
-        const byKey = new Map(entries.map((e) => [e.key, e]));
+        const byKey = new Map<string, HostEntry>();
+        const trackers = new Map<string, Fiber.Fiber<void>>();
+        const scope = yield* Effect.scope;
 
-        for (const entry of entries) {
-          const connection = yield* registry.add({
-            key: entry.key,
-            name: entry.label,
-            target: entry.target,
-            identity,
+        const stop = (key: string) =>
+          Effect.gen(function* () {
+            const tracker = trackers.get(key);
+            trackers.delete(key);
+
+            if (tracker !== undefined) yield* Fiber.interrupt(tracker);
+            yield* registry.remove(key);
           });
 
-          yield* connection.changes.pipe(
-            Stream.runForEach((status) =>
-              SubscriptionRef.update(views, (current) =>
-                replaceView(current, hostView(entry, status))
-              )
-            ),
-            Effect.forkScoped
-          );
-        }
+        const remove = (key: string) =>
+          Effect.gen(function* () {
+            byKey.delete(key);
+            yield* stop(key);
+            yield* SubscriptionRef.update(views, (current) => current.filter((v) => v.key !== key));
+          });
+
+        const sameTransport = (a: HostEntry, b: HostEntry) =>
+          Equal.equals(a.target, b.target) &&
+          (a.remoteCommand ?? []).join(" ") === (b.remoteCommand ?? []).join(" ");
+
+        // A replaced Host keeps its place in the list; a new name alone doesn't reconnect it.
+        const add = (entry: HostEntry) =>
+          Effect.gen(function* () {
+            const previous = byKey.get(entry.key);
+
+            if (
+              previous !== undefined &&
+              trackers.has(entry.key) &&
+              sameTransport(previous, entry)
+            ) {
+              byKey.set(entry.key, entry);
+              yield* SubscriptionRef.update(views, (current) =>
+                current.map((v) =>
+                  v.key === entry.key ? { ...v, label: entry.label, colour: entry.colour } : v
+                )
+              );
+
+              return;
+            }
+
+            yield* stop(entry.key);
+            byKey.set(entry.key, entry);
+
+            const options: HostConnectionOptions = {
+              key: entry.key,
+              name: entry.label,
+              target: entry.target,
+              identity,
+              ssh: entry.remoteCommand === null ? {} : { remoteCommand: entry.remoteCommand },
+            };
+
+            const connection = yield* registry.add(options);
+
+            const tracker = yield* connection.changes.pipe(
+              Stream.runForEach((status) =>
+                SubscriptionRef.update(views, (current) =>
+                  replaceView(current, hostView(byKey.get(entry.key) ?? entry, status))
+                )
+              ),
+              Effect.forkIn(scope)
+            );
+
+            trackers.set(entry.key, tracker);
+          });
+
+        for (const entry of entries) yield* add(entry);
 
         const connection = (key: string) =>
           Effect.flatMap(
@@ -166,16 +249,21 @@ export class HostDirectory extends Context.Service<
             })
           );
 
-        return HostDirectory.of({ views, entry: (key) => byKey.get(key), connection });
+        return HostDirectory.of({ views, entry: (key) => byKey.get(key), connection, add, remove });
       })
     ).pipe(Layer.provide(HostRegistry.layer), Layer.provide(HostConnector.layer));
 }
 
-export type ClientRuntime = ManagedRuntime.ManagedRuntime<HostDirectory, never>;
+/** The services the IPC handlers run on. */
+export type ClientServices = HostDirectory | Machines;
+
+export type ClientRuntime = ManagedRuntime.ManagedRuntime<ClientServices, never>;
 
 /** Starts connecting to every Host; the runtime owns every connection until disposed. */
-export const startClientRuntime = (input: HostDirectoryInput): ClientRuntime =>
-  ManagedRuntime.make(HostDirectory.layer(input));
+export const startClientRuntime = (
+  input: HostDirectoryInput,
+  machines: Layer.Layer<Machines, never, HostDirectory>
+): ClientRuntime => ManagedRuntime.make(Layer.provideMerge(machines, HostDirectory.layer(input)));
 
 /** Every failure crossing IPC becomes its tag and message. */
 export const toIpcError = (error: {

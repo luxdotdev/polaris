@@ -14,7 +14,8 @@ import type {
   RequestOutput,
 } from "../../shared/api.ts";
 import { RequestInputs, type RequestInput, type RequestMethod } from "../../shared/contract.ts";
-import { HostDirectory, toIpcError } from "../hosts.ts";
+import { type ClientServices, HostDirectory, toIpcError } from "../hosts.ts";
+import { Machines } from "../machines/service.ts";
 import type { Settings } from "../settings.ts";
 import type { SnapshotCache } from "../snapshotCache.ts";
 import { ensureInstalled } from "./install.ts";
@@ -28,11 +29,12 @@ export interface RequestContext {
   readonly proofWorkspace: () => string | null;
   /** The bundled Daemon builds (`manifest.json`), or null when this build has none. */
   readonly daemonDist: string | null;
+  readonly writeClipboard: (text: string) => Promise<void>;
 }
 
 type Handler<M extends RequestMethod> = (
   input: RequestInput<M>
-) => Effect.Effect<RequestOutput<M>, IpcError, HostDirectory>;
+) => Effect.Effect<RequestOutput<M>, IpcError, ClientServices>;
 
 export type Handlers = { readonly [M in RequestMethod]: Handler<M> };
 
@@ -49,6 +51,9 @@ const onLive = <A, E extends Failure>(
   hostKey: string,
   use: (session: LiveSession) => Effect.Effect<A, E>
 ) => onHost(hostKey, (c) => Effect.flatMap(c.session, use));
+
+const machines = <A, E extends Failure>(use: (m: Machines["Service"]) => Effect.Effect<A, E>) =>
+  Machines.use(use).pipe(Effect.mapError(toIpcError));
 
 const done = <E, R>(effect: Effect.Effect<unknown, E, R>) => Effect.as(effect, null);
 
@@ -142,6 +147,23 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
 
       return ensureInstalled({ alias, approvedSha256, dist: ctx.daemonDist });
     }),
+  "machines.sshAliases": () => machines((m) => m.sshAliases),
+  "machines.add": (input) => machines((m) => Effect.map(m.add(input), (key) => ({ key }))),
+  "machines.update": ({ hostKey, ...patch }) =>
+    machines((m) => m.update(hostKey, patch)).pipe(done),
+  "machines.remove": ({ hostKey }) => machines((m) => m.remove(hostKey)).pipe(done),
+  "machines.check": ({ hostKey }) => machines((m) => m.check(hostKey)).pipe(done),
+  "machines.approve": ({ hostKey, sha256 }) =>
+    machines((m) => m.approve(hostKey, sha256)).pipe(done),
+  "machines.dismiss": ({ hostKey }) => machines((m) => m.dismiss(hostKey)).pipe(done),
+  "machines.startDaemon": ({ hostKey }) => machines((m) => m.startDaemon(hostKey)).pipe(done),
+  "machines.setLocalEnabled": ({ enabled }) =>
+    machines((m) => m.setLocalEnabled(enabled)).pipe(done),
+  "machines.harnesses": ({ hostKey, refresh }) => machines((m) => m.harnesses(hostKey, refresh)),
+  "machines.openSsh": ({ hostKey }) => machines((m) => m.openSsh(hostKey)).pipe(done),
+  "machines.signIn": ({ hostKey, harness }) =>
+    machines((m) => m.signIn(hostKey, harness)).pipe(done),
+  "clipboard.write": ({ text }) => Effect.promise(() => ctx.writeClipboard(text)).pipe(done),
   "dev.proofWorkspace": () =>
     Effect.suspend(() => {
       const path = ctx.proofWorkspace();

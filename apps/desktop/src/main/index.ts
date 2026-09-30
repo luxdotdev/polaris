@@ -10,7 +10,7 @@ import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, nativeTheme, session } from "electron";
+import { app, BrowserWindow, clipboard, nativeTheme, session } from "electron";
 import { type AppEvent, type Appearance, CHANNELS } from "../shared/api.ts";
 import {
   clientIdentity,
@@ -21,6 +21,7 @@ import {
   whenConnected,
 } from "./hosts.ts";
 import { registerIpc } from "./ipc/index.ts";
+import { machinesLayer } from "./machines/index.ts";
 import { type LocalDaemon, resolveLocalDaemon } from "./localDaemon.ts";
 import { buildMenu } from "./menu.ts";
 import {
@@ -76,9 +77,13 @@ const start = async () => {
     density: settings.density ?? "calm",
   });
 
-  const setAppearance = (patch: Partial<Appearance>) => {
-    settings = { ...settings, ...patch };
+  const updateSettings = (change: (current: Settings) => Settings) => {
+    settings = change(settings);
     writeSettings({ path: file, settings });
+  };
+
+  const setAppearance = (patch: Partial<Appearance>) => {
+    updateSettings((current) => ({ ...current, ...patch }));
     applyAppearance();
   };
 
@@ -94,13 +99,31 @@ const start = async () => {
 
   applyAppearance();
 
-  localDaemon = await resolveLocalDaemon({ dev, repoRoot, env });
-  const benchHarness = localDaemon.benchHarness;
+  const localEnabled = settings.local?.enabled ?? true;
 
-  runtime = startClientRuntime({
-    entries: hostEntries({ local: localDaemon, remotes: settings.hosts ?? [] }),
-    identity: clientIdentity(app.getVersion()),
-  });
+  const startLocal = async () => {
+    localDaemon ??= await resolveLocalDaemon({ dev, repoRoot, env });
+
+    return localDaemon;
+  };
+
+  const local = localEnabled ? await startLocal() : null;
+
+  runtime = startClientRuntime(
+    {
+      entries: hostEntries({ local, remotes: settings.hosts ?? [] }),
+      identity: clientIdentity(app.getVersion()),
+    },
+    machinesLayer({
+      settings: { get: () => settings, update: updateSettings },
+      userData: app.getPath("userData"),
+      env,
+      resources: app.isPackaged ? process.resourcesPath : null,
+      repoRoot,
+      dev,
+      localDaemon: startLocal,
+    })
+  );
 
   const daemonDist = join(repoRoot, "apps/daemon/dist");
 
@@ -111,8 +134,10 @@ const start = async () => {
       settings: () => settings,
       cache: openSnapshotCache(app.getPath("userData")),
       setAppearance,
-      proofWorkspace: () => (benchHarness ? mkdtempSync(join(tmpdir(), "polaris-proof-")) : null),
+      proofWorkspace: () =>
+        localDaemon?.benchHarness === true ? mkdtempSync(join(tmpdir(), "polaris-proof-")) : null,
       daemonDist: existsSync(join(daemonDist, "manifest.json")) ? daemonDist : null,
+      writeClipboard: async (text) => clipboard.writeText(text),
     },
   });
 
@@ -133,9 +158,9 @@ const start = async () => {
   // Benchmarks and scripts wait for this line: the window is painted and the local Host is up.
   const shown = new Promise<void>((resolve) => win.once("ready-to-show", () => resolve()));
 
-  void Promise.all([shown, runtime.runPromise(whenConnected(LOCAL_HOST_KEY))]).then(() =>
-    console.log("polaris: ready")
-  );
+  const localUp = localEnabled ? runtime.runPromise(whenConnected(LOCAL_HOST_KEY)) : null;
+
+  void Promise.all([shown, localUp]).then(() => console.log("polaris: ready"));
 };
 
 let quitting = false;

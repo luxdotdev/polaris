@@ -12,12 +12,13 @@ import {
   type SubscriptionInput,
   type SubscriptionKind,
 } from "../../shared/contract.ts";
-import { HostDirectory, toIpcError } from "../hosts.ts";
+import { type ClientServices, HostDirectory, toIpcError } from "../hosts.ts";
+import { Machines } from "../machines/service.ts";
 
 export type Feed<K extends SubscriptionKind> = Stream.Stream<
   SubscriptionItem<K>,
   IpcError,
-  HostDirectory
+  ClientServices
 >;
 
 const onHost = <A, E extends { readonly _tag: string; readonly message: string }>(
@@ -44,6 +45,8 @@ type Openers = { readonly [K in SubscriptionKind]: (input: SubscriptionInput<K>)
 
 const openers: Openers = {
   hosts: () => Stream.unwrap(HostDirectory.useSync((dir) => SubscriptionRef.changes(dir.views))),
+  machines: () =>
+    Stream.unwrap(Machines.useSync((machines) => SubscriptionRef.changes(machines.views))),
   host: ({ hostKey }) => onHost(hostKey, (connection) => connection.subscribeHost),
   session: ({ hostKey, sessionId, turnLimit }) =>
     onHost(hostKey, (connection) => connection.subscribeSession(sessionId, { turnLimit })),
