@@ -21,6 +21,7 @@ import { Availability, AvailabilityRpcsLive } from "../harness/availability/inde
 import { HarnessRpcsLive } from "../harness/HarnessRpcs.ts";
 import { latestRolloutLimits, PlanLimitReporter } from "../harness/limits/index.ts";
 import { HarnessRegistryLive } from "../harness/registry.ts";
+import { releaseWhenQuiet } from "../memory/index.ts";
 import { userPath } from "../service/userPath.ts";
 import { EventStore } from "../store/EventStore.ts";
 import { TerminalRpcsLive } from "../terminal/TerminalRpcs.ts";
@@ -46,8 +47,11 @@ const usageServices = UsageIndexLive(bench ? {} : { planLimitSeed: latestRollout
 /** The drivers report Plan Limits through the reporter, in front of the Usage index's sink. */
 const harnesses = HarnessRegistryLive.pipe(Layer.provide(PlanLimitReporter.layer));
 
-/** The services behind the handlers: the event store and engine, git, attachments, Harnesses, Usage. */
-const daemonServices = Engine.layer.pipe(
+/**
+ * The services behind the handlers: the event store and engine, git,
+ * attachments, Harnesses, Usage, and giving memory back once work settles.
+ */
+const daemonServices = Layer.merge(Engine.layer, releaseWhenQuiet()).pipe(
   Layer.provideMerge(
     Layer.mergeAll(harnesses, CheckpointsLive, WorktreeTrackerLive, AttachmentStoreLive())
   ),
