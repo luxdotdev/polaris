@@ -512,7 +512,7 @@ The selected session's Sources show as chips, not rows: a brand mark tinted by i
 
 ### Turns in the conversation
 
-Earlier Turns collapse to a one-line card (Turn number, summary, +/−, chevron). The live Turn shows the Harness tile as its avatar, a "Thought for Ns" disclosure, a stacked sources pill, the prose, and a step checklist in a `row`-radius well: done steps get a check in `text-subtle`, the current step gets the dither and a faint Harness-hue fill, and pending steps get a hollow dot in `text-faint`.
+Earlier Turns collapse to a one-line card (Turn number, summary, +/−, chevron). Assistant prose is Markdown (Streamdown): headings step down to `heading`/`heading-sm`, lists, tables in `caption`, blockquotes with a hairline rule, inline code on `surface-sunken`, and fenced code in a `row`-radius sunken well with the language and a copy action, coloured by the syntax tokens (rule/syntax-is-moonlit). Mermaid diagrams and KaTeX math render in place, on the same tokens in both themes; links open in the browser. The user's own prompts stay plain text. A command that succeeds folds its output to its one line (command, "N lines", exit, chevron) two seconds after it finishes, never while it runs, never when it failed, and never under the pointer; a click opens it again, and the user's choice sticks. The live Turn shows the Harness tile as its avatar, a "Thought for Ns" disclosure, a stacked sources pill, the prose, and a step checklist in a `row`-radius well: done steps get a check in `text-subtle`, the current step gets the dither and a faint Harness-hue fill, and pending steps get a hollow dot in `text-faint`.
 
 ### Dither halo
 

@@ -170,6 +170,7 @@ export const sessionFlow = async ({ page, repo, step, shoot, atFirstApproval }: 
   await page.getByTestId("turn-model").filter({ hasText: MODEL }).first().waitFor();
   step(`the follow-up Turn runs on ${MODEL}`);
   await page.getByTestId("live-item").first().waitFor();
+  await steer(page, step);
   await page.waitForTimeout(300);
   await shoot("session-working");
   const frames = frameStats(await sampleFrames(page, 5000));
@@ -184,6 +185,26 @@ export const sessionFlow = async ({ page, repo, step, shoot, atFirstApproval }: 
   step("follow-up Turn finished; the first folded");
 
   return frames;
+};
+
+const STEER = "Keep the change to one file";
+
+/** ↵ while Working steers: the message shows at once and lands in the Turn, never vanishing. */
+const steer = async (page: Page, step: (m: string) => void) => {
+  const input = page.getByTestId("composer-input");
+
+  await input.fill(STEER);
+  await input.press("Enter");
+  await page
+    .locator('[data-testid="outgoing"], [data-testid="steered"]')
+    .filter({ hasText: STEER })
+    .first()
+    .waitFor({ timeout: 2_000 });
+  await page.getByTestId("steered").filter({ hasText: STEER }).waitFor({ timeout: 10_000 });
+
+  if ((await page.getByTestId("outgoing").count()) > 0)
+    throw new Error("the steer landed but its pending message stayed");
+  step("steer shown at once, then landed in the Turn");
 };
 
 /**
