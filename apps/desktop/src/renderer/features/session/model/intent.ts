@@ -130,6 +130,8 @@ export const interruptCommand = (sessionId: SessionId, lastTurn: TurnStatus | nu
 
 export const continueCommand = (sessionId: SessionId) => Commands.Continue({ sessionId });
 
+export const retryCommand = (sessionId: SessionId) => Commands.Retry({ sessionId });
+
 export const renameCommand = (sessionId: SessionId, title: string): Command | null => {
   const trimmed = title.trim();
 

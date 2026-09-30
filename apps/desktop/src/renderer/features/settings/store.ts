@@ -1,6 +1,6 @@
 /**
- * The app settings the renderer reads and changes: appearance and each
- * Harness's defaults for new sessions. Main owns the file; a change is shown
+ * The app settings the renderer reads and changes: appearance, each Harness's
+ * defaults for new sessions, and whether they start on a new Worktree. Main owns the file; a change is shown
  * at once here, then saved, and every window hears it back as an `AppEvent`.
  */
 import { useStore } from "zustand";
@@ -16,6 +16,8 @@ import type {
 export interface SettingsState {
   readonly appearance: Appearance;
   readonly sessionDefaults: SessionDefaults;
+  /** New sessions start on a new Worktree; off means in the Workspace directory. */
+  readonly newWorktree: boolean;
   /** Empty until main answers. */
   readonly version: string;
 }
@@ -33,6 +35,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
 export const settingsStore = createStore<SettingsState>(() => ({
   appearance: DEFAULT_APPEARANCE,
   sessionDefaults: {},
+  newWorktree: false,
   version: "",
 }));
 
@@ -57,6 +60,7 @@ export const connectSettings = (api: PolarisApi) => {
         codeFontSize: v.codeFontSize,
       },
       sessionDefaults: v.sessionDefaults,
+      newWorktree: v.newWorktree,
       version: v.version,
     });
   });
@@ -67,6 +71,8 @@ export const connectSettings = (api: PolarisApi) => {
     if (event.kind === "session-defaults") {
       settingsStore.setState({ sessionDefaults: event.sessionDefaults });
     }
+
+    if (event.kind === "new-worktree") settingsStore.setState({ newWorktree: event.on });
   });
 };
 
@@ -84,6 +90,11 @@ export const setSessionDefault = (harness: string, value: SessionDefault | null)
     };
   });
   void bridge?.request("settings.setSessionDefault", { harness, value });
+};
+
+export const setNewWorktree = (on: boolean) => {
+  settingsStore.setState({ newWorktree: on });
+  void bridge?.request("settings.setNewWorktree", { on });
 };
 
 export const useSettings = <A>(select: (state: SettingsState) => A): A =>

@@ -55,9 +55,9 @@ module polaris {
 
   type EventKind =
     | TurnStarted(bool) // true: a Continue of an Interrupted Turn
-    | TurnEnded(str) // "completed" | "interrupted"
+    | TurnEnded(str) // "completed" | "interrupted" | "failed"
     | ItemCompleted // session-only: the host stream leaves it out
-    | StateChanged(str) // "working" | "needs-you" | "idle" | "dormant" | "archived"
+    | StateChanged(str) // "working" | "needs-you" | "idle" | "dormant" | "failed" | "archived"
     | ApprovalRequested(str)
     | ApprovalResolved({ req: str, by: str })
     | ApprovalWithdrawn({ req: str, by: str }) // by "harness" | "daemon"
@@ -68,6 +68,7 @@ module polaris {
   type Command =
     | SendTurn(str)
     | Continue(str)
+    | Retry(str)
     | Respond({ session: str, req: str })
     | Archive(str)
     | Unarchive(str)
@@ -77,6 +78,7 @@ module polaris {
     | HWithdraw(str)
     | HItem
     | HTurnEnded
+    | HTurnFailed
 
   /**
    * Something waiting for the next group commit. A Harness report carries the
@@ -188,7 +190,7 @@ module polaris {
   // ── The decider (engine/session.ts: commands and Harness events) ─────────
 
   /**
-   * `takesTurn`: no Turn in flight, Idle or Dormant (or Failed, not modelled),
+   * `takesTurn`: no Turn in flight, Idle, Dormant or Failed,
    * or Needs You with nothing pending (after a restart).
    */
   pure def acceptsTurn(v: SessionView): bool =
@@ -211,6 +213,11 @@ module polaris {
       | Continue(_) =>
         if (v.turn == "interrupted" and acceptsTurn(v))
           Accept([TurnStarted(true), StateChanged("working")])
+        else Refuse
+      | Retry(_) =>
+        // A new Turn with the Failed Turn's prompt.
+        if (v.turn == "failed" and acceptsTurn(v))
+          Accept([TurnStarted(false), StateChanged("working")])
         else Refuse
       | Respond(x) =>
         // First answer wins: a request no longer pending is rejected.
@@ -254,12 +261,19 @@ module polaris {
             if (v.state == "archived") [] else [StateChanged("idle")]
           )
         else []
+      | HTurnFailed =>
+        if (inFlight(v, turn))
+          withdrawAll(v, "harness").concat([TurnEnded("failed")]).concat(
+            if (v.state == "archived") [] else [StateChanged("failed")]
+          )
+        else []
     }
 
   pure def sessionOfCmd(cmd: Command): str =
     match cmd {
       | SendTurn(s) => s
       | Continue(s) => s
+      | Retry(s) => s
       | Respond(x) => x.session
       | Archive(s) => s
       | Unarchive(s) => s
@@ -270,6 +284,7 @@ module polaris {
     match cmd {
       | SendTurn(_) => true
       | Continue(_) => true
+      | Retry(_) => true
       | Respond(_) => false
       | Archive(_) => true
       | Unarchive(_) => false
@@ -296,7 +311,7 @@ module polaris {
       val interrupted = if (v.turn == "working") [TurnEnded("interrupted")] else []
       val closing =
         if (v.turn == "working") [StateChanged("needs-you")]
-        else if (v.state == "needs-you" and v.turn == "interrupted") []
+        else if (v.state == "failed" or (v.state == "needs-you" and v.turn == "interrupted")) []
         else [StateChanged("dormant")]
       appendEvents(events, s, "", interrupted.concat(withdrawAll(v, "daemon")).concat(closing))
     }
@@ -444,6 +459,7 @@ module polaris {
       | HWithdraw(r) => v.pending.contains(r)
       | HItem => v.turn == "working"
       | HTurnEnded => v.turn == "working"
+      | HTurnFailed => v.turn == "working"
     },
     queue' = queue.append(HarnessEv({ session: s, ev: ev, turn: viewOf(log, s).turns })),
     unchangedClients,
@@ -501,7 +517,7 @@ module polaris {
   }
 
   /**
-   * The reactor of a SendTurn / Continue opens the Harness (`runTurn`), if the
+   * The reactor of a SendTurn / Continue / Retry opens the Harness (`runTurn`), if the
    * Turn is still in flight; Archive's stops it (`stopHarness`).
    */
   action reactorRuns(s: str): bool = all {
@@ -634,12 +650,13 @@ module polaris {
   pure val COMMANDS: Set[Command] =
     SESSIONS.map(s => SendTurn(s))
       .union(SESSIONS.map(s => Continue(s)))
+      .union(SESSIONS.map(s => Retry(s)))
       .union(REQUESTS.map(r => Respond({ session: REQUEST_SESSION.get(r), req: r })))
       .union(SESSIONS.map(s => Archive(s)))
       .union(SESSIONS.map(s => Unarchive(s)))
 
   pure val HARNESS_EVENTS: Set[HarnessEvent] =
-    REQUESTS.map(r => HRequest(r)).union(REQUESTS.map(r => HWithdraw(r))).union(Set(HItem, HTurnEnded))
+    REQUESTS.map(r => HRequest(r)).union(REQUESTS.map(r => HWithdraw(r))).union(Set(HItem, HTurnEnded, HTurnFailed))
 
   action step = any {
     nondet c = CLIENTS.oneOf()
@@ -825,6 +842,10 @@ module polaris {
   val witnessRestartWithdrew: bool =
     log.indices().exists(i => match log[i].kind { | ApprovalWithdrawn(x) => x.by == "daemon" | _ => false })
   val witnessContinued: bool = log.indices().exists(i => log[i].kind == TurnStarted(true))
+  /** A Turn started right after a Failed one: a Retry. */
+  val witnessRetried: bool =
+    log.indices().exists(i => i > 0 and log[i].kind == TurnStarted(false) and log[i].cmd != ""
+      and viewOf(log.slice(0, i), log[i].session).turn == "failed")
   val witnessBatchOfTwo: bool = toSettle.length() + toPublish.length() > 0 and toSettle.length() >= 2
   val witnessArchived: bool = log.indices().exists(i => log[i].kind == StateChanged("archived"))
   val witnessUnarchived: bool =

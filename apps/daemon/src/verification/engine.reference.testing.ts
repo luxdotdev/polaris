@@ -156,10 +156,11 @@ const turnStart = (v: View): Reference => [
   v.state === "idle" ? "state:working" : "state:starting",
 ];
 
-const decideContinue = (v: View): Reference => {
+/** Continue resumes an Interrupted last Turn; Retry sends a Failed one again. */
+const decideAfter = (v: View, status: "interrupted" | "failed"): Reference => {
   const last = v.order.at(-1);
 
-  return last !== undefined && v.turns.get(last) === "interrupted" && acceptsTurn(v)
+  return last !== undefined && v.turns.get(last) === status && acceptsTurn(v)
     ? turnStart(v)
     : "reject";
 };
@@ -184,7 +185,8 @@ export const referenceDecide = (v: View, command: Command, device: string): Refe
     command,
     {
       SendTurn: () => (acceptsTurn(v) ? turnStart(v) : "reject"),
-      Continue: () => decideContinue(v),
+      Continue: () => decideAfter(v, "interrupted"),
+      Retry: () => decideAfter(v, "failed"),
       RespondToApproval: (c) => decideRespond(v, c.requestId, device),
       Interrupt: () => (workingTurnOf(v) === undefined ? "reject" : []),
       ArchiveSession: () => decideArchive(v),

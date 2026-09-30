@@ -79,6 +79,9 @@ let ipc: { readonly dispose: () => void } | null = null;
 
 let needsYou: NeedsYouCenter | null = null;
 
+/** Set once Polaris is quitting (⌘Q, the star's Quit): the window may then really close. */
+let exiting = false;
+
 const trusted = (url: string) => isTrustedUrl(url, devUrl);
 
 const localLabel = (label: string | undefined): { localLabel?: string } =>
@@ -114,6 +117,13 @@ const start = async () => {
 
     saveSettings({ sessionDefaults });
     const event: AppEvent = { kind: "session-defaults", sessionDefaults };
+
+    for (const win of BrowserWindow.getAllWindows()) win.webContents.send(CHANNELS.app, event);
+  };
+
+  const setNewWorktree = (on: boolean) => {
+    saveSettings({ newWorktree: on });
+    const event: AppEvent = { kind: "new-worktree", on };
 
     for (const win of BrowserWindow.getAllWindows()) win.webContents.send(CHANNELS.app, event);
   };
@@ -190,6 +200,7 @@ const start = async () => {
       prices: openPrices(app.getPath("userData")),
       setAppearance,
       setSessionDefault,
+      setNewWorktree,
       openExternal: (url) => shell.openExternal(url),
       sshHosts: () => sshAliasNames(env),
       setWelcomeSeen: () => saveSettings({ welcomeSeen: true }),
@@ -217,6 +228,16 @@ const start = async () => {
     show: env.POLARIS_DESKTOP_HIDDEN !== "1",
   });
 
+  // macOS: closing the window hides it, so the star, notifications and badge keep counting.
+  if (process.platform === "darwin") {
+    win.on("close", (event) => {
+      if (exiting) return;
+      event.preventDefault();
+      win.hide();
+    });
+    app.on("activate", () => win.show());
+  }
+
   needsYou = createNeedsYouCenter({
     window: () => (win.isDestroyed() ? null : win),
     send: (event) => win.webContents.send(CHANNELS.app, event),
@@ -232,6 +253,10 @@ const start = async () => {
 };
 
 let quitting = false;
+
+app.on("before-quit", () => {
+  exiting = true;
+});
 
 app.on("will-quit", (event) => {
   if (quitting) return;

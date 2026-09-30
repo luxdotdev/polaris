@@ -43,6 +43,7 @@ export type Step =
   | { readonly type: "fork" }
   | { readonly type: "send" }
   | { readonly type: "continue" }
+  | { readonly type: "retry" }
   | { readonly type: "interrupt" }
   | { readonly type: "approve" }
   | { readonly type: "archive" }
@@ -67,6 +68,7 @@ export type Step =
 export const COMMAND_STEPS = [
   "send",
   "continue",
+  "retry",
   "interrupt",
   "approve",
   "archive",
@@ -221,6 +223,7 @@ const INPUTS = {
   fork: (c) => [{ type: "session.fork", session: newSession(c.options.harness, "dormant") }],
   send: (c) => [{ type: "turn.send", turn: newTurn(`t${c.n}`, c.turnCount) }],
   continue: () => [{ type: "turn.continue" }],
+  retry: (c) => [{ type: "turn.retry", turn: newTurn(`t${c.n}`, c.turnCount) }],
   interrupt: () => [{ type: "turn.interrupt" }],
   approve: (c) => {
     const first = firstPending(c.record);
@@ -334,6 +337,7 @@ export const stepModel = (
     case "start":
     case "send":
     case "continue":
+    case "retry":
       // The reactor opens (or reuses) the Harness and hands it the Turn.
       live = true;
       run({ type: "harness.opened" });

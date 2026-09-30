@@ -26,7 +26,7 @@ import type {
   Place,
   WaitingSession,
 } from "../model/inbox.ts";
-import { approve, continueTurn, deny, takeBack } from "../respond.ts";
+import { approve, continueTurn, deny, retryTurn, takeBack } from "../respond.ts";
 
 /** "Host · Workspace · age"; without `iso`, just where. */
 export const where = (place: Place, iso: string | null, now: number) =>
@@ -105,8 +105,8 @@ const Also = ({ item }: { readonly item: AlsoWaiting }) => {
   const run = () => {
     if (item.kind === "in-terminal") void takeBack(item.hostKey, id);
     else if (item.kind === "interrupted") void continueTurn(item.hostKey, id);
-    // Retrying a failed Turn happens in its conversation, where its prompt is.
-    else open();
+    // Failed with no Failed Turn (the Harness never started one): the toast says why; open it.
+    else void retryTurn(item.hostKey, id).then((ok) => ok || open());
   };
 
   return (

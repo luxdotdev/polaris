@@ -1,6 +1,6 @@
 /**
  * The session view in the smoke test: register a git Workspace, start a bench
- * session from the new-session page on a new Worktree, approve what it asks,
+ * session from the new-session page in the Workspace directory, approve what it asks,
  * see its Turn diff, then send a follow-up Turn and sample frame intervals
  * while it streams.
  */
@@ -11,9 +11,9 @@ import type { Page } from "playwright-core";
 
 const bench = (script: Record<string, number>) => `bench:${JSON.stringify(script)}`;
 
-/** Items 0 and 3 ask first; two files are written, so the Turn has a diff. */
+/** Items 2, 5 and 8 ask first; two files are written, so the Turn has a diff. */
 const FIRST_TURN = bench({
-  items: 6,
+  items: 9,
   deltasPerItem: 30,
   deltaBytes: 48,
   deltaIntervalMs: 20,
@@ -107,8 +107,8 @@ export interface FlowInput {
   readonly repo: string;
   readonly step: (message: string) => void;
   readonly shoot: (name: string) => Promise<void>;
-  /** Runs once the first approval is up, before the conversation approves the rest. */
-  readonly atFirstApproval?: () => Promise<void>;
+  /** Runs at the first approval; returns how many it answered. The conversation does the rest. */
+  readonly atFirstApproval?: () => Promise<number>;
 }
 
 export const sessionFlow = async ({ page, repo, step, shoot, atFirstApproval }: FlowInput) => {
@@ -122,7 +122,7 @@ export const sessionFlow = async ({ page, repo, step, shoot, atFirstApproval }: 
     .click();
   await page.getByRole("button", { name: "New session" }).first().click();
   await page.getByTestId("new-session").waitFor();
-  await page.getByTestId("where-line").filter({ hasText: "on a new worktree" }).waitFor();
+  await page.getByTestId("where-line").filter({ hasText: "in place" }).waitFor();
   // Only a ready Harness is pre-selected (bench mode: Claude Code and Codex).
   const picked = page.locator('[role="radiogroup"][aria-label="Harness"] [aria-checked="true"]');
 
@@ -145,7 +145,7 @@ export const sessionFlow = async ({ page, repo, step, shoot, atFirstApproval }: 
   step("first Turn streaming");
   await page.getByTestId("approval").first().waitFor({ timeout: 20_000 });
   await shoot("approval");
-  const inboxApproved = atFirstApproval === undefined ? 0 : (await atFirstApproval(), 1);
+  const inboxApproved = atFirstApproval === undefined ? 0 : await atFirstApproval();
   const approved = inboxApproved + (await approveAll(page, step));
 
   if (approved === 0) throw new Error("no approval was asked");

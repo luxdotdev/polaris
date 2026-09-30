@@ -150,15 +150,18 @@ const takesTurn = (record: SessionRecord): boolean => {
 };
 
 /** Why a new or continued Turn is refused, in the order the checks read to a user. */
-const turnRefusal = (record: SessionRecord, kind: "send" | "continue"): string => {
+const turnRefusal = (record: SessionRecord, kind: "send" | "continue" | "retry"): string => {
   const { state } = record.session;
 
-  if (kind === "continue") {
-    if (lastTurn(record)?.status !== "interrupted")
-      return "there is no Interrupted Turn to continue";
+  const last = lastTurn(record)?.status;
 
-    return `the session is ${state}`;
+  if (kind === "retry" && last !== "failed") return "there is no Failed Turn to retry";
+
+  if (kind === "continue" && last !== "interrupted") {
+    return "there is no Interrupted Turn to continue";
   }
+
+  if (kind !== "send") return `the session is ${state}`;
 
   if (state === "archived") return "the session is Archived";
 
@@ -194,6 +197,16 @@ const continueTurn = ({ context }: { context: Context }, enq: Enqueue) => {
   return settle(enq, record, [DomainEvent.cases.TurnStarted.make({ turn })], {
     state: record.session.state === "idle" ? "working" : "starting",
   });
+};
+
+/** A Failed last Turn's prompt goes again as a new Turn, like a sent one. */
+const retryTurn = (
+  { context, event }: { context: Context; event: { type: "turn.retry"; turn: Turn } },
+  enq: Enqueue
+) => {
+  if (lastTurn(need(context))?.status !== "failed") return undefined;
+
+  return sendTurn({ context, event: { type: "turn.send", turn: event.turn } }, enq);
 };
 
 /** Turns started by the Harness itself (a co-attached or followed terminal UI). */
@@ -420,6 +433,7 @@ export const sessionMachine = createMachine({
     "session.fork": ({ event }, enq) => reject(enq, `session ${event.session.id} already exists`),
     "turn.send": ({ context }, enq) => reject(enq, turnRefusal(need(context), "send")),
     "turn.continue": ({ context }, enq) => reject(enq, turnRefusal(need(context), "continue")),
+    "turn.retry": ({ context }, enq) => reject(enq, turnRefusal(need(context), "retry")),
     "turn.steer": ({ context, event }, enq) => {
       const record = need(context);
 
@@ -595,6 +609,7 @@ export const sessionMachine = createMachine({
           on: {
             "turn.send": sendTurn,
             "turn.continue": continueTurn,
+            "turn.retry": retryTurn,
             "terminal.open": ({ context }, enq) =>
               settle(enq, need(context), [], { state: "in-terminal" }),
             "harness.turnStarted": ({ context, event }, enq) => {
@@ -619,6 +634,7 @@ export const sessionMachine = createMachine({
             // After a restart: an Interrupted Turn waits here for Continue (or a new Turn).
             "turn.send": sendTurn,
             "turn.continue": continueTurn,
+            "turn.retry": retryTurn,
             "harness.approvalRequested": ({ context, event }, enq) =>
               approvalRequested(need(context), event, enq),
             "approval.respond": ({ context, event }, enq) => {
@@ -684,6 +700,7 @@ export const sessionMachine = createMachine({
       on: {
         "turn.send": sendTurn,
         "turn.continue": continueTurn,
+        "turn.retry": retryTurn,
         "terminal.open": ({ context }, enq) =>
           settle(enq, need(context), [], { state: "in-terminal" }),
         "harness.turnStarted": ({ context, event }, enq) => {
@@ -702,6 +719,7 @@ export const sessionMachine = createMachine({
       on: {
         "turn.send": sendTurn,
         "turn.continue": continueTurn,
+        "turn.retry": retryTurn,
         "terminal.open": ({ context }, enq) =>
           settle(enq, need(context), [], { state: "in-terminal" }),
       },
