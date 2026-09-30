@@ -108,3 +108,37 @@ describe("theming", () => {
     );
   });
 });
+
+describe("accessibility hooks", () => {
+  test("the cvd palette remaps the diff colours, fills and emphasis", () => {
+    const block = /\[data-diff-palette="cvd"\]\s*\{([^}]*)\}/.exec(theme)?.[1] ?? "";
+
+    for (const name of ["added", "removed"]) {
+      expect(block).toContain(`--color-diff-${name}: var(--color-diff-${name}-cvd);`);
+      expect(block).toContain(`--color-diff-${name}-bg:`);
+      expect(block).toContain(`--color-diff-${name}-emphasis:`);
+    }
+  });
+
+  test("text size scales every type role, independent of density", () => {
+    const block = /:root,\s*\[data-text-size\]\s*\{([^}]*)\}/.exec(theme)?.[1] ?? "";
+
+    for (const role of [
+      "display",
+      "title",
+      "heading",
+      "heading-sm",
+      "body",
+      "label",
+      "caption",
+      "code",
+      "code-inline",
+      "micro",
+    ]) {
+      expect(block).toContain(`--text-${role}: round(calc(`);
+      expect(block).toContain(`--text-${role}--line-height: round(calc(`);
+    }
+
+    expect(theme).toMatch(/\[data-text-size="large"\]\s*\{\s*--text-scale: calc\(14 \/ 13\);/);
+  });
+});

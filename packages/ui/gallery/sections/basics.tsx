@@ -35,24 +35,24 @@ export function TypeSection() {
       <div className="flex flex-col gap-2">
         {TYPE_ROLES.map(([role, scale, sample]) => (
           <div key={role} className="flex items-baseline gap-4">
-            <span className="text-caption text-text-faint w-20 shrink-0">{role}</span>
+            <span className="text-caption text-text-subtle w-20 shrink-0">{role}</span>
             <span className={`${scale} text-text-strong`}>{sample}</span>
           </div>
         ))}
         <div className="flex items-baseline gap-4">
-          <span className="text-caption text-text-faint w-20 shrink-0">code</span>
+          <span className="text-caption text-text-subtle w-20 shrink-0">code</span>
           <span className="text-code font-mono">const API_TOKEN = process.env.API_TOKEN;</span>
         </div>
         <div className="flex items-baseline gap-4">
-          <span className="text-caption text-text-faint w-20 shrink-0">code-inline</span>
+          <span className="text-caption text-text-subtle w-20 shrink-0">code-inline</span>
           <span className="text-code-inline text-text-default font-mono">spike/gpui-review</span>
         </div>
         <div className="flex items-baseline gap-4">
-          <span className="text-caption text-text-faint w-20 shrink-0">text colours</span>
+          <span className="text-caption text-text-subtle w-20 shrink-0">text colours</span>
           <span className="text-label text-text-strong">strong</span>
           <span className="text-label text-text-default">default</span>
           <span className="text-label text-text-subtle">subtle</span>
-          <span className="text-label text-text-faint">faint</span>
+          <span className="text-label text-text-subtle">faint</span>
         </div>
       </div>
     </Section>

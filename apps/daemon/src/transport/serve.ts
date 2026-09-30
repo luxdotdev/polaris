@@ -19,33 +19,39 @@ import { GitRpcsLive } from "../git/GitRpcs.ts";
 import { WorktreeTrackerLive } from "../git/WorktreeTracker.ts";
 import { Availability, AvailabilityRpcsLive } from "../harness/availability/index.ts";
 import { HarnessRpcsLive } from "../harness/HarnessRpcs.ts";
-import { latestRolloutLimits, PlanLimitRpcsLive, PlanLimits } from "../harness/limits/index.ts";
+import { latestRolloutLimits, PlanLimitReporter } from "../harness/limits/index.ts";
 import { HarnessRegistryLive } from "../harness/registry.ts";
 import { EventStore } from "../store/EventStore.ts";
 import { TerminalRpcsLive } from "../terminal/TerminalRpcs.ts";
 import { TerminalsDaemonLive } from "../terminal/Terminals.ts";
+import { UsageIndexLive, UsageRpcsLive, UsageSessions } from "../usage/index.ts";
 import { startServer } from "./server.ts";
 
 /** Exit status when another Daemon already holds the lock or answers on the socket. */
 export const SERVE_EXIT_ALREADY_RUNNING = 75;
 
-/** Seeded from Codex's rollout logs; benchmarks skip that, their Harness is scripted. */
-const PlanLimitsLive = PlanLimits.layer(
-  process.env.POLARIS_BENCH_HARNESS === "1" ? {} : { seed: latestRolloutLimits() }
+/** Benchmarks script their Harness, so they skip Codex's rollout logs. */
+const bench = process.env.POLARIS_BENCH_HARNESS === "1";
+
+/**
+ * The Usage index and the Plan Limit sink the drivers report to. The index
+ * opens nothing until a Client asks for Usage; `usage.watch` seeds Codex's
+ * last Plan Limits from its rollout logs.
+ */
+const usageServices = UsageIndexLive(bench ? {} : { planLimitSeed: latestRolloutLimits() }).pipe(
+  Layer.provide(UsageSessions.layer)
 );
 
-/** The services behind the handlers: the event store and engine, git, attachments, Harnesses. */
+/** The drivers report Plan Limits through the reporter, in front of the Usage index's sink. */
+const harnesses = HarnessRegistryLive.pipe(Layer.provide(PlanLimitReporter.layer));
+
+/** The services behind the handlers: the event store and engine, git, attachments, Harnesses, Usage. */
 const daemonServices = Engine.layer.pipe(
   Layer.provideMerge(
-    Layer.mergeAll(
-      EventStore.layerLive,
-      HarnessRegistryLive,
-      CheckpointsLive,
-      WorktreeTrackerLive,
-      AttachmentStoreLive()
-    )
+    Layer.mergeAll(harnesses, CheckpointsLive, WorktreeTrackerLive, AttachmentStoreLive())
   ),
-  Layer.provideMerge(PlanLimitsLive)
+  Layer.provideMerge(usageServices),
+  Layer.provideMerge(EventStore.layerLive)
 );
 
 /** Every real handler layer the Daemon mounts. Compose new modules' layers here. */
@@ -55,17 +61,16 @@ export const daemonHandlers = Layer.mergeAll(
   GitRpcsLive,
   AttachmentRpcsLive,
   HarnessRpcsLive,
-  PlanLimitRpcsLive,
   AvailabilityRpcsLive.pipe(Layer.provide(Availability.layer())),
+  UsageRpcsLive,
   TerminalRpcsLive.pipe(Layer.provide(TerminalsDaemonLive))
 ).pipe(Layer.provide(daemonServices));
 
-// `harness.models` and `session.set-model` wait for the drivers (ENG-202). `usage` has Plan
-// Limits; `usage.query` answers "not indexed yet" until the Usage index (ENG-205).
 export const daemonCapabilities: ReadonlyArray<Capability> = [
   ...HARNESS_CATALOGUE.map((harness) => harness.capability),
   "harness.availability",
-  "usage",
+  "harness.models",
+  "session.set-model",
   "session.steer",
   "session.fork",
   "session.terminal-handoff",
@@ -78,6 +83,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "attachments.stage",
   "terminal",
   "terminal.binary",
+  "usage",
 ];
 
 export const serveProgram = Effect.scoped(

@@ -9,9 +9,10 @@ import { Effect, type Scope } from "effect";
 import { polarisHome } from "../../paths.ts";
 import type { HarnessDriver, HarnessProbe } from "../HarnessDriver.ts";
 import { CodexLimitTracker } from "../limits/codex.ts";
-import type { PlanLimitSink } from "../limits/PlanLimits.ts";
+import type { PlanLimitReporter } from "../limits/PlanLimitReporter.ts";
 import { acquireAppServer } from "./AppServer.ts";
 import { openSession } from "./CodexSession.ts";
+import { listCodexModels } from "./models.ts";
 import { codexError } from "./RpcConnection.ts";
 
 export interface CodexDriverOptions {
@@ -27,7 +28,7 @@ export interface CodexDriverOptions {
   /** Reported to Codex as `clientInfo.version`. */
   readonly clientVersion?: string;
   /** Receives the account's Plan Limits as Codex reports them. */
-  readonly planLimits?: PlanLimitSink;
+  readonly planLimits?: PlanLimitReporter["Service"];
 }
 
 /** `codex --version` only: never starts a session, a server, MCP servers or a login. */
@@ -70,9 +71,12 @@ export const makeCodexDriver = (
   Effect.gen(function* () {
     const codexPath = options.codexPath === undefined ? Bun.which("codex") : options.codexPath;
 
+    const socketPath = options.socketPath ?? join(polarisHome(), "codex.sock");
+    const clientVersion = options.clientVersion ?? "0.0.0";
+
     const appServer = yield* acquireAppServer({
       codexPath,
-      socketPath: options.socketPath ?? join(polarisHome(), "codex.sock"),
+      socketPath,
       spawn: options.spawnAppServer ?? true,
     });
 
@@ -84,17 +88,10 @@ export const makeCodexDriver = (
       kind: "codex",
       capabilities: { steer: true, liveCoAttach: true, switchModel: true },
       probe: probeCodex(codexPath),
+      listModels: listCodexModels({ codexPath, socketPath, clientVersion }),
       open: (openOptions) =>
         codexPath === null
           ? Effect.fail(codexError("codex was not found on PATH; install Codex to use it"))
-          : openSession(
-              {
-                appServer,
-                codexPath,
-                clientVersion: options.clientVersion ?? "0.0.0",
-                planLimits,
-              },
-              openOptions
-            ),
+          : openSession({ appServer, codexPath, clientVersion, planLimits }, openOptions),
     } satisfies HarnessDriver;
   });

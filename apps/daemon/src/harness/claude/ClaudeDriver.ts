@@ -51,10 +51,11 @@ import {
   type TurnInput,
 } from "../HarnessDriver.ts";
 import { emptyClaudeLimitContext } from "../limits/claude.ts";
-import type { PlanLimitSink } from "../limits/PlanLimits.ts";
+import type { PlanLimitReporter } from "../limits/PlanLimitReporter.ts";
 import { ClaudeHookReceiver } from "./hooks.ts";
 import { Inbox } from "./inbox.ts";
 import { buildUserMessage } from "./input.ts";
+import { isEffortLevel, listClaudeModels } from "./models.ts";
 import {
   approvalKind,
   describeToolCall,
@@ -90,7 +91,7 @@ export interface ClaudeDriverOptions {
   /** Receives the `claude` child's stderr lines (for the Daemon log). */
   readonly onStderr?: (line: string) => void;
   /** Receives the account's Plan Limits as Claude Code reports them. */
-  readonly planLimits?: PlanLimitSink;
+  readonly planLimits?: PlanLimitReporter["Service"];
 }
 
 const HARNESS = "claude";
@@ -99,6 +100,9 @@ const harnessError = (message: string, cause?: unknown) =>
   new HarnessError(
     cause === undefined ? { harness: HARNESS, message } : { harness: HARNESS, message, cause }
   );
+
+const unknownEffort = (effort: string) =>
+  harnessError(`Claude Code has no "${effort}" effort level`);
 
 const defaultRunVersion = async (path: string) => {
   const proc = Bun.spawn([path, "--version"], {
@@ -271,6 +275,11 @@ const openSession = Effect.fnUntraced(function* (
 
   if (options.model !== null) sdkOptions.model = options.model;
 
+  if (options.effort !== null) {
+    if (!isEffortLevel(options.effort)) return yield* unknownEffort(options.effort);
+    sdkOptions.effort = options.effort;
+  }
+
   if (options.resumeCursor !== null) sdkOptions.resume = options.resumeCursor;
 
   if (driver.onStderr) sdkOptions.stderr = driver.onStderr;
@@ -361,10 +370,35 @@ const openSession = Effect.fnUntraced(function* (
     return { uuid, message };
   });
 
+  /** The Model and effort the live query runs with; a Turn that asks for others switches first. */
+  const running = { model: options.model, effort: options.effort };
+
+  const switchTo = Effect.fnUntraced(function* (model: string | null, effort: string | null) {
+    if (model !== running.model) {
+      yield* Effect.tryPromise({
+        try: () => q.setModel(model ?? undefined),
+        catch: (cause) =>
+          harnessError(`Could not switch to ${model ?? "the default Model"}`, cause),
+      });
+      running.model = model;
+    }
+
+    if (effort === running.effort) return;
+
+    if (effort !== null && !isEffortLevel(effort)) return yield* unknownEffort(effort);
+    // A null effortLevel goes back to the Model's default effort.
+    yield* Effect.tryPromise({
+      try: () => q.applyFlagSettings({ effortLevel: effort }),
+      catch: (cause) => harnessError(`Could not set the effort to ${effort ?? "default"}`, cause),
+    });
+    running.effort = effort;
+  });
+
   const sendTurn = Effect.fn("ClaudeSession.sendTurn")(function* (input: TurnInput) {
     if (exited || closing) return yield* harnessError("The Claude session has ended");
 
     if (active) return yield* harnessError("A Turn is already in progress; steer it instead");
+    yield* switchTo(input.model, input.effort);
     const { uuid, message } = yield* send(input.prompt, input);
     active = {
       turnId: input.turnId,
@@ -501,6 +535,7 @@ export const makeClaudeDriver = (options: ClaudeDriverOptions = {}): HarnessDriv
     kind: "claude",
     capabilities: { steer: true, liveCoAttach: false, switchModel: true },
     probe,
+    listModels: listClaudeModels(driver),
     open: (open) => openSession(driver, open),
   };
 

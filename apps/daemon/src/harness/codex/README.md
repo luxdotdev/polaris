@@ -11,8 +11,9 @@ Implements `HarnessDriver` (`../HarnessDriver.ts`) for Codex by driving the user
 | `RpcConnection.ts` | JSON-RPC 2.0 over app-server's Unix-socket transport, which is **WebSocket over the socket** (HTTP Upgrade, one message per text frame). Bun's WebSocket client speaks it as `ws+unix://<path>`. |
 | `CodexSession.ts` | One Agent Session = one connection + one Codex thread. Translates notifications and server→client requests into `HarnessEvent`s. |
 | `mapping.ts` | Pure translations: permission modes, turn input, thread items → `TurnItem`s, approval decisions. |
+| `models.ts` | `listModels`: `model/list` (every page, hidden Models left out) on the shared app-server when it's running, else on a private `codex app-server` over stdio that exits right after (`connectStdio` in `RpcConnection.ts`). |
 | `protocol.ts` | Effect Schemas that validate the fields the driver reads, each checked at compile time against the generated type. |
-| `generated/` | TypeScript bindings from `codex app-server generate-ts`, trimmed to the import closure of what the driver uses. Generated from **codex-cli 0.157.1** (`generated/version.ts`). |
+| `generated/` | TypeScript bindings from `codex app-server generate-ts`, trimmed to the import closure of what the driver uses. Generated from **codex-cli 0.158.0** (`generated/version.ts`). |
 | `planLimits.ts` | With `planLimits` set, each session sends `account/rateLimits/read` once it has connected and reports `account/rateLimits/updated` notifications, merged through one `CodexLimitTracker` per driver. See `../limits/README.md`. |
 | `testing/FakeAppServer.ts` | A scriptable fake app-server on a real Unix socket (same WebSocket transport) and a replayer for recorded traffic. |
 
@@ -79,6 +80,11 @@ Notifications for other threads on the shared server are ignored.
 
 The table follows T3 Code's runtime modes. These values go on `thread/start`/`thread/resume` and on every `turn/start` (as `sandboxPolicy`); Codex persists turn overrides on the thread. `setPermissionMode` takes effect from the next `turn/start`.
 
+### Models and effort
+
+- **Listing** (`models.ts`): `model/list`, `includeHidden: false`, following `nextCursor`. `Model.id` is the entry's `model` (what `turn/start` takes), `efforts` its `supportedReasoningEfforts`, `defaultEffort` its `defaultReasoningEffort`, `isDefault` as reported. Asking never starts a thread. When the shared server isn't running it is **not** started for a listing (it is detached and would outlive the Daemon): a private `codex app-server` on stdio answers and is killed with the request's scope. Cost measured with codex-cli 0.158.0: ~0.13 s to `initialize`, ~0.5 s for `model/list` (Codex fetches the catalogue for the signed-in account). The Daemon caches the answer per Host (`../HarnessRpcs.ts`).
+- **Switching** (`switchModel: true`): each `turn/start` carries the Turn's `model` and `effort`. Codex applies overrides "for this turn and subsequent turns" of the thread, so a Model changed with `SetModel` takes effect at the next Turn without reopening. A null field is omitted, which keeps whatever the thread last ran with; Codex has no way to clear an effort override back to the Model's default, so a Client should send a concrete effort (the Model's `defaultEffort`) rather than null after choosing one. Answers to async questions reuse the last Turn's Model and effort.
+
 ### Other commands
 
 - `sendTurn`: `turn/start` with a text input, plus a `localImage` input (staged Host path) per image attachment. Other attachments are listed by path at the end of the prompt. Fails if a Turn is already in flight.
@@ -99,6 +105,7 @@ It runs `codex app-server generate-ts` (stable surface, no `--experimental`) int
 
 - `mapping.test.ts`: the pure rules.
 - `CodexDriver.test.ts`: the driver against `FakeAppServer` on a real Unix socket. It covers a full Turn replayed from `fixtures/full-turn.jsonl` (recorded from a real codex 0.157.1 Turn, with paths and account notifications scrubbed), a command approval round-trip, interrupt with a withdrawn file-change approval, resume that rejoins a TUI-started Turn and steers it, a TUI-typed Turn with its prompt and live command and plan progress, an async question answered by a new Turn, refusal of a credential request, a dropped server, and a side-effect-free `probe`.
+- `models.test.ts`: `model/list` paging and mapping against `FakeAppServer`, the stdio fallback against a stand-in `codex` script (and that its process is gone afterwards), and each Turn's `model`/`effort` on `turn/start`.
 - `e2e.test.ts`: one real tiny Turn against the installed codex in a temp git repo. It uses your Codex sign-in and quota:
 
   ```sh

@@ -197,6 +197,10 @@ def halo(hue,name,w=200,h=90,cell=1,peak=0.5):
     rgba=np.zeros((h,w,4),np.uint8)
     rgba[...,:3]=hexc(hue); rgba[...,3]=np.where(on,90,0)
     up(Image.fromarray(rgba,'RGBA'),4).save(OUTP('halos',name))
-halo('#D97757','halo-claude.png')
+# one per identity hue and theme; light halos use the -light hue on bg-light
+for n,dark,light in (('claude','#D97757','#C4562F'),('codex','#6FCBA0','#1E8A5C'),('opencode','#E58FA8','#B8466A')):
+    halo(dark,f'halo-{n}.png')
+    halo(light,f'halo-{n}-light.png')
 halo('#BCD3FF','halo-starlight.png',peak=0.6)
+halo('#4F82E8','halo-starlight-light.png',peak=0.6)
 print('done')

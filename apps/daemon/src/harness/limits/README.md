@@ -1,16 +1,17 @@
 # Plan Limits
 
-Reports each Harness's Plan Limits (the five-hour and weekly windows: used %, resets at, observed at) using only what the Harness itself exposes. Polaris never reads a credential ([ADR 0001](../../../../../docs/adr/0001-polaris-never-touches-provider-credentials.md)). Linear ENG-206; decisions in ENG-199 (Q19, Q22, Q25); research in `docs/research/usage-sources.md`. Capability `usage`, stream `usage.watch`.
+Reports each Harness's Plan Limits (the five-hour and weekly windows: used %, resets at, observed at) using only what the Harness itself exposes. Polaris never reads a credential ([ADR 0001](../../../../../docs/adr/0001-polaris-never-touches-provider-credentials.md)). Linear ENG-206; decisions in ENG-199 (Q19, Q22, Q25); research in `docs/research/usage-sources.md`. Capability `usage`.
+
+The Usage index (`../../usage/`, ENG-205) owns `usage.watch`: it persists each Plan Limit and sends `PlanLimitChanged`. This module only produces the values and hands them to the index's `PlanLimitSink` (the interface in `../../usage/README.md`).
 
 | File | Role |
 |---|---|
-| `PlanLimits.ts` | The `PlanLimits` service: the last known value per (`harness`, `kind`, `scope`), its changes, and `~/.polaris/plan-limits.json`. `PlanLimitSink` is what drivers get: a synchronous `report(limits)`. |
+| `PlanLimitReporter.ts` | The `PlanLimitReporter` service the drivers get: a synchronous `report(limits)` in front of the index's `PlanLimitSink`. It keeps the newest reading per (`harness`, `kind`, `scope`) and drops repeats (see below). |
 | `claude.ts` | Schemas for the Agent SDK's `get_usage` reply and `rate_limit_event` message, and their mapping to `PlanLimit`s. |
 | `codex.ts` | Schemas for app-server's `account/rateLimits/read` and `account/rateLimits/updated`, their mapping, `CodexLimitTracker` (merges sparse updates), and the rollout-log reader. |
 | `rollout.ts` | `latestRolloutLimits`: the last `token_count.rate_limits` in the newest rollout file under `$CODEX_HOME/sessions`. |
-| `PlanLimitRpcs.ts` | `usage.watch` (every known Plan Limit, then each change, as `PlanLimitChanged`) and a `usage.query` that answers "not indexed yet". |
 
-The drivers feed it: `../claude/planLimits.ts` and `../codex/planLimits.ts`, wired through `../registry.ts`.
+The drivers feed it: `../claude/planLimits.ts` and `../codex/planLimits.ts`, wired through `../registry.ts`. `serve.ts` builds the layers in order: event store, Usage index (with `planLimitSeed: latestRolloutLimits()`), the reporter and the Harness registry, then the engine.
 
 ## Sources, and which are credential-free
 
@@ -38,24 +39,23 @@ Measured on this Mac (Claude Code 2.1.284 with SDK 0.3.283, Max plan; codex-cli 
 
 ## Keeping values current, and their age
 
-- Every `PlanLimit` carries `observedAt`. A new reading replaces the stored one unless it is older. Clients hear about it when the value changed, or when the same value is confirmed and the last announcement is at least a minute old (`REANNOUNCE_AFTER_MS`), so the age they show is never more than a minute stale while a session runs.
-- With no session of a Harness running, the last known value stays, with its `observedAt`. It is persisted on every change (written to a temp file, then renamed; mode 0600), so a restarted Daemon still has it.
-- The Codex rollout seed runs once, on the first `usage.watch` or `current`, and never replaces a newer value.
+- Every `PlanLimit` carries `observedAt`. The reporter drops a reading older than the last one it sent for that window, and one that only confirms it unless the last one sent is at least a minute old (`REANNOUNCE_AFTER_MS`). So the age Clients show is never more than a minute stale while a session runs, without a report per SDK message.
+- The Usage index keeps the last value of each window in `usage.sqlite` (`plan_limits`) and sends every known one to a new `usage.watch` subscriber, so with no session running (or after a restart) Clients still get the last value with its age.
+- The Codex rollout seed (`UsageIndexOptions.planLimitSeed`) runs once, on the first `usage.watch`, before the subscriber gets the known values, and never replaces a newer one.
 
 ## Cost
 
-- **No timers, no watchers, no polling.** Values arrive with Agent Sessions (SDK messages, app-server notifications, one read at open). `get_usage` runs at most once per session open plus once per Turn end if the last answer is ≥ 5 min old.
-- The layer reads `plan-limits.json` once at start. The rollout seed stats at most 7 day directories and reads the last 512 KiB of one file, once per Daemon.
+- **No timers, no watchers, no polling.** Values arrive with Agent Sessions (SDK messages, app-server notifications, one read at open). `get_usage` runs at most once per session open plus once per Turn end if the last answer is ≥ 5 min old. The reporter's fiber waits on a queue.
+- The rollout seed stats at most 7 day directories and reads the last 512 KiB of one file, once per Daemon.
 - The mappers import neither the Agent SDK nor the Codex bindings, so an idle Daemon loads neither (drivers still load on first use).
-- `bun run bench idle cold-start --runs 3 --compare …/mac14-13-apple-m2-max-12c.json`: no regression (idle wakeups 9.3/s against 10.6/s, footprint +1.2 %).
+- A report opens the Usage index's database (its `PlanLimitSink` persists there), so the first Agent Session opens it, not only a Client asking for Usage.
 
 ## Verifying nothing touches a credential
 
-- The code reads nothing but the Harnesses' programmatic answers, Codex's rollout logs and its own `plan-limits.json`. `rg -i 'credentials|auth\.json|keychain|oauth|cookie|api\.anthropic|chatgpt\.com'` over this folder and the two `planLimits.ts` files finds nothing but a field name in a fixture.
+- The code reads nothing but the Harnesses' programmatic answers and Codex's rollout logs. `rg -i 'credentials|auth\.json|keychain|oauth|cookie|api\.anthropic|chatgpt\.com'` over this folder and the two `planLimits.ts` files finds nothing but a field name in a fixture.
 - `scripts/e2e-plan-limits.ts` (`POLARIS_E2E_PLAN_LIMITS=1`, one tiny Turn per Harness) runs the real Daemon and, while both sessions are live, records the Daemon process's open files (`lsof -p`: no credential file), its sockets (`lsof -a -p -i`: only the loopback listener for Claude's In Terminal hooks, no outbound connection) and its children (only `claude`; app-server is detached). The Harness processes read their own sign-in, which is theirs to do.
 
 ## Gaps
 
-- **Statusline while In Terminal.** A `statusLine` in our `--settings` would keep Claude's limits fresh while the TUI owns the session, but it replaces the user's own statusline, and chaining to theirs means reading their settings file, which may hold an `apiKeyHelper` or keys in `env`. Left for a decision; until then, a Claude session In Terminal leaves the last value (with its age).
-- **`usage.query`** answers with no buckets and `indexedAt: null` until the Usage index (ENG-205) lands; ENG-205 also merges its `UsageChanged` items into `usage.watch`.
+- **No statusline while In Terminal** (decided: the user's own statusline is never overridden). A `statusLine` in our `--settings` would keep Claude's limits fresh while the TUI owns the session, but it replaces the user's, and chaining to theirs means reading their settings file, which may hold an `apiKeyHelper` or keys in `env`. A Claude session In Terminal leaves the last value, with its age.
 - **Stale windows.** A window whose `resetsAt` has passed is still shown as last seen; Clients should read it as reset.

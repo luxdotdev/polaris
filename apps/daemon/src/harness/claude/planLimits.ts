@@ -12,13 +12,13 @@ import {
   fromRateLimitEvent,
   fromUsageResponse,
 } from "../limits/claude.ts";
-import type { PlanLimitSink } from "../limits/PlanLimits.ts";
+import type { PlanLimitReporter } from "../limits/PlanLimitReporter.ts";
 
 /** How often a Turn's end may ask `get_usage` again; the events cover the main windows between. */
 export const USAGE_REFRESH_MS = 5 * 60_000;
 
 export interface ClaudePlanLimits {
-  readonly sink: PlanLimitSink;
+  readonly sink: PlanLimitReporter["Service"];
   /** Shared by every session of the driver: the plan and scoped window names `get_usage` taught it. */
   readonly context: ClaudeLimitContext;
 }

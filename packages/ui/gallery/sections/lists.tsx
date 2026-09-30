@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import {
+  Badge,
   BranchIcon,
   Chip,
   Dither,
@@ -34,15 +35,19 @@ export function ListSection() {
               value: "orchestrate",
               label: "Orchestrate",
               badge: (
-                <span className="rounded-control bg-needs-you/16 text-micro text-needs-you flex h-[18px] min-w-[18px] items-center justify-center px-1 font-medium">
+                <Badge
+                  tone="needs-you"
+                  size="count"
+                  className="rounded-control h-[18px] min-w-[18px]"
+                >
                   2
-                </span>
+                </Badge>
               ),
             },
             {
               value: "review",
               label: "Review",
-              badge: <span className="text-micro font-regular text-text-faint">3</span>,
+              badge: <span className="text-micro font-regular text-text-subtle">3</span>,
             },
             { value: "edit", label: "Edit" },
           ]}
@@ -58,14 +63,14 @@ export function ListSection() {
               {
                 value: "needs-you",
                 label: "Needs you",
-                badge: <span className="text-micro text-needs-you">2</span>,
+                badge: <span className="text-micro text-needs-you-text">2</span>,
               },
             ]}
           />
         </div>
       </div>
       <div className="rounded-control bg-surface-sunken flex flex-wrap items-center gap-1 p-1.5">
-        <span className="text-caption text-text-faint px-1.5">Mac Studio</span>
+        <span className="text-caption text-text-subtle px-1.5">Mac Studio</span>
         <Chip
           selected
           needsYou={1}

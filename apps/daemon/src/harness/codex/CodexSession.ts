@@ -585,6 +585,12 @@ export const openSession = (
     );
 
     // --- Commands ---------------------------------------------------------
+    /** The Model and effort of the latest Turn Polaris sent; answers to async questions reuse them. */
+    let chosen: Pick<TurnInput, "model" | "effort"> = {
+      model: options.model,
+      effort: options.effort,
+    };
+
     const startTurn = (turnId: TurnId, prompt: string, input: ReturnType<typeof turnInput>) =>
       Effect.gen(function* () {
         if (activeCodexTurn !== null || pendingLocalTurn !== null)
@@ -600,7 +606,10 @@ export const openSession = (
           sandboxPolicy: sandboxPolicyFor(policy.sandbox),
         };
 
-        if (options.model !== null) params.model = options.model;
+        // Codex keeps a Turn's overrides for the thread's later Turns; null leaves them as they are.
+        if (chosen.model !== null) params.model = chosen.model;
+
+        if (chosen.effort !== null) params.effort = chosen.effort;
 
         const result = yield* conn
           .request("turn/start", params)
@@ -629,7 +638,11 @@ export const openSession = (
     const session: HarnessSession = {
       events: Stream.fromQueue(events),
       sendTurn: (input: TurnInput) =>
-        startTurn(input.turnId, input.prompt, turnInput(input.prompt, input.attachments)),
+        Effect.suspend(() => {
+          chosen = { model: input.model, effort: input.effort };
+
+          return startTurn(input.turnId, input.prompt, turnInput(input.prompt, input.attachments));
+        }),
       steer: steerText,
       interrupt: Effect.suspend(() =>
         activeCodexTurn === null

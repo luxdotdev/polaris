@@ -11,12 +11,13 @@
  *    Harnesses' five-hour and weekly windows must arrive as `PlanLimitChanged`.
  * 3. While they run, the Daemon process's open files and sockets (`lsof`) and
  *    its children (`ps`) are recorded: no credential file, no TCP socket.
- * 4. The Daemon restarts; `usage.watch` must send the persisted values again.
+ * 4. The Daemon restarts; `usage.watch` must send the values the Usage index
+ *    persisted again.
  *
  * Evidence goes to `POLARIS_E2E_OUT` (default: a temp dir, printed at the end).
  */
 import { spawn } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type HostTarget, makeHostConnection, spawnTransport } from "@polaris/client";
@@ -24,12 +25,12 @@ import {
   Command,
   CommandId,
   HostStreamItem,
-  PlanLimit,
+  type PlanLimit,
   SessionId,
   SessionPlacement,
   UsageStreamItem,
 } from "@polaris/protocol";
-import { Cause, Data, Effect, Exit, Option, Schema, Stream } from "effect";
+import { Cause, Data, Effect, Exit, Option, Stream } from "effect";
 import { defaultStateFile, stopAppServer } from "../src/harness/codex/AppServer.ts";
 
 if (process.env.POLARIS_E2E_PLAN_LIMITS !== "1") {
@@ -241,14 +242,25 @@ const firstRun = (daemonPid: number, limits: Array<PlanLimit>) =>
 
     yield* Effect.promise(() =>
       until(
-        "Claude's limits",
-        () => has(fresh(), "claude", "five-hour") && has(fresh(), "claude", "weekly")
+        "both Harnesses' limits",
+        () =>
+          has(fresh(), "claude", "five-hour") &&
+          has(fresh(), "claude", "weekly") &&
+          fresh().some((l) => l.harness === "codex" && l.observedAt >= startedAt)
       )
     );
 
     inspectDaemon(daemonPid);
     check("Claude: five-hour window", has(fresh(), "claude", "five-hour"));
     check("Claude: weekly window", has(fresh(), "claude", "weekly"));
+
+    const codex = fresh().filter((l) => l.harness === "codex" && l.observedAt >= startedAt);
+
+    check(
+      "Codex: the app-server's read, after the session started",
+      codex.length > 0,
+      codex.map(describeLimit).join("; ")
+    );
     // Give the Turns' rate-limit events time to arrive, then settle.
     yield* Effect.sleep("20 seconds");
   });
@@ -273,31 +285,6 @@ let outcome: Exit.Exit<void, unknown> = await Effect.runPromise(
 );
 
 await stopDaemon(daemon);
-
-const persisted = readFileSync(join(home, "plan-limits.json"), "utf8");
-
-writeFileSync(join(out, "plan-limits.json"), persisted);
-
-// An unchanged value only refreshes `observedAt`, so Codex's read shows up here, not as a change.
-const persistedLimits = Schema.decodeUnknownSync(
-  Schema.fromJsonString(Schema.Struct({ limits: Schema.Array(PlanLimit) }))
-)(persisted).limits;
-
-const codexRead = persistedLimits.filter(
-  (l) => l.harness === "codex" && startedAt !== "" && l.observedAt >= startedAt
-);
-
-check(
-  "Codex: the app-server's read landed after the session started",
-  codexRead.length > 0,
-  codexRead.map(describeLimit).join("; ")
-);
-
-check(
-  "the persisted file holds only Plan Limits",
-  !/token|secret|key|cookie|password/i.test(persisted),
-  `${persisted.length} bytes`
-);
 
 const second: Array<PlanLimit> = [];
 

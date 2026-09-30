@@ -29,7 +29,7 @@ export function Sidebar() {
         <div className="flex items-center gap-2">
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <p className="text-heading text-text-strong">polaris</p>
-            <p className="text-caption text-text-faint">Mac Studio · ~/code/polaris</p>
+            <p className="text-caption text-text-subtle">Mac Studio · ~/code/polaris</p>
           </div>
           <IconButton label="New session" icon={<PlusIcon />} shortcut="⌘N" />
         </div>
@@ -43,7 +43,7 @@ export function Sidebar() {
             {
               value: "needs-you",
               label: "Needs you",
-              badge: <span className="text-micro text-needs-you">2</span>,
+              badge: <span className="text-micro text-needs-you-text">2</span>,
             },
           ]}
         />
@@ -108,7 +108,7 @@ export function Sidebar() {
         <Kbd>K</Kbd>
         <span className="text-caption text-text-subtle">Jump</span>
         <span className="flex-1" />
-        <span className="text-caption text-text-faint">4 sessions · 1 worktree</span>
+        <span className="text-caption text-text-subtle">4 sessions · 1 worktree</span>
       </div>
     </aside>
   );
@@ -133,11 +133,11 @@ function Step({
         </span>
       )}
       <span
-        className={`text-label font-regular flex-1 ${done ? "text-text-subtle" : "text-text-faint"}`}
+        className={`text-label font-regular flex-1 ${done ? "text-text-subtle" : "text-text-subtle"}`}
       >
         {children}
       </span>
-      {meta === undefined ? null : <span className="text-caption text-text-faint">{meta}</span>}
+      {meta === undefined ? null : <span className="text-caption text-text-subtle">{meta}</span>}
     </div>
   );
 }
@@ -151,7 +151,7 @@ export function Intent() {
           <HarnessMark harness="claude" named state="working" />
           <span className="text-caption text-text-subtle">Working · turn 24</span>
           <span className="flex-1" />
-          <span className="text-caption text-text-faint">Context 17%</span>
+          <span className="text-caption text-text-subtle">Context 17%</span>
         </div>
       </header>
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-5">
@@ -160,9 +160,9 @@ export function Intent() {
           <span className="text-body text-text-subtle flex-1 truncate">
             Recorded the Review decision, closed ENG-185
           </span>
-          <span className="text-code-inline text-diff-added font-mono">+6</span>
-          <span className="text-code-inline text-diff-removed font-mono">−1</span>
-          <ChevronRightIcon size={10} className="text-text-faint" />
+          <span className="text-code-inline text-diff-added-text font-mono">+6</span>
+          <span className="text-code-inline text-diff-removed-text font-mono">−1</span>
+          <ChevronRightIcon size={10} className="text-text-subtle" />
         </div>
         <p className="rounded-card bg-fill-selected text-body text-text-strong max-w-[340px] self-end px-3.5 py-2.5">
           Let's go on to 177. Prototype the Orchestrator layouts so I can compare them side by side.
@@ -171,7 +171,7 @@ export function Intent() {
           <HarnessMark harness="claude" size={24} state="working" />
           <div className="flex min-w-0 flex-1 flex-col gap-3">
             <div className="text-body text-text-subtle flex h-6 items-center gap-2">
-              Thought for 6s <ChevronRightIcon size={10} className="text-text-faint" />
+              Thought for 6s <ChevronRightIcon size={10} className="text-text-subtle" />
             </div>
             <p className="text-body text-text-default">
               I'll build four structurally different variants from the same mock data, so you can
@@ -224,9 +224,9 @@ function DiffLine({
       <span className="flex w-[22px] justify-center">
         {flag === true ? <SeverityGlyph severity="critical" /> : null}
       </span>
-      <span className="text-text-faint w-[30px] text-right">{n}</span>
+      <span className="text-text-subtle w-[30px] text-right">{n}</span>
       <span
-        className={`w-[22px] text-center ${sign === "+" ? "text-diff-added" : "text-diff-removed"}`}
+        className={`w-[22px] text-center ${sign === "+" ? "text-diff-added-text" : "text-diff-removed-text"}`}
       >
         {sign}
       </span>
@@ -249,9 +249,9 @@ export function Output() {
         </Button>
         <span className="flex-1" />
         <span className="text-caption text-text-subtle">Turn 24</span>
-        <span className="text-caption text-text-faint">· 3 files</span>
-        <span className="text-code-inline text-diff-added font-mono">+88</span>
-        <span className="text-code-inline text-diff-removed font-mono">−14</span>
+        <span className="text-caption text-text-subtle">· 3 files</span>
+        <span className="text-code-inline text-diff-added-text font-mono">+88</span>
+        <span className="text-code-inline text-diff-removed-text font-mono">−14</span>
         <span className="w-3" />
         <Button>
           Open in Review <Kbd variant="plain">⌘2</Kbd>
@@ -264,8 +264,8 @@ export function Output() {
             <span className="text-code-inline text-text-default font-mono">
               prototypes/orchestrator-layout/serve.ts
             </span>
-            <span className="text-code-inline text-diff-added font-mono">+4</span>
-            <span className="text-code-inline text-diff-removed font-mono">−1</span>
+            <span className="text-code-inline text-diff-added-text font-mono">+4</span>
+            <span className="text-code-inline text-diff-removed-text font-mono">−1</span>
             <span className="flex-1" />
             <SeverityBadge severity="critical" />
           </div>
@@ -285,11 +285,11 @@ export function Output() {
                 <span className="text-label text-text-strong flex-1">
                   Secret-like value committed
                 </span>
-                <span className="text-caption text-text-faint">Rule · 97%</span>
+                <span className="text-caption text-text-subtle">Rule · 97%</span>
               </div>
               <p className="text-body text-text-subtle">
                 An Anthropic API key is hard-coded and will ship with the prototype. Read it from
-                the environment instead. No Risk Memory can hide this.
+                the environment instead. No risk memory can hide this.
               </p>
               <div className="flex items-center gap-1">
                 <Button size="sm">Ask Claude Code to fix</Button>
@@ -311,8 +311,8 @@ export function Output() {
           <span className="text-code-inline text-text-default font-mono">
             prototypes/orchestrator-layout/index.html
           </span>
-          <span className="text-code-inline text-diff-added font-mono">+78</span>
-          <span className="text-code-inline text-diff-removed font-mono">−12</span>
+          <span className="text-code-inline text-diff-added-text font-mono">+78</span>
+          <span className="text-code-inline text-diff-removed-text font-mono">−12</span>
           <span className="flex-1" />
           <SeverityBadge severity="high" />
           <SeverityBadge severity="medium" />
@@ -320,10 +320,10 @@ export function Output() {
         <div className="rounded-row border-hairline bg-surface-sunken flex h-9 items-center gap-2.5 border px-3">
           <ChevronRightIcon size={12} className="text-text-subtle" />
           <span className="text-code-inline text-text-default font-mono">CONTEXT.md</span>
-          <span className="text-code-inline text-diff-added font-mono">+6</span>
-          <span className="text-code-inline text-diff-removed font-mono">−1</span>
+          <span className="text-code-inline text-diff-added-text font-mono">+6</span>
+          <span className="text-code-inline text-diff-removed-text font-mono">−1</span>
           <span className="flex-1" />
-          <span className="text-caption text-text-faint">38%</span>
+          <span className="text-caption text-text-subtle">38%</span>
           <SeverityBadge severity="low" lowConfidence />
         </div>
       </div>

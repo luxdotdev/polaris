@@ -181,6 +181,23 @@ export const ThreadResponse = Schema.Struct({ thread: Schema.Struct({ id: Schema
 
 export const TurnStartResponse = Schema.Struct({ turn: Schema.Struct({ id: Schema.String }) });
 
+/** `model/list`: one page of the Models Codex offers. */
+export const ModelListResponse = Schema.Struct({
+  data: Schema.Array(
+    Schema.Struct({
+      /** What `turn/start` takes as `model`. */
+      model: Schema.String,
+      displayName: Schema.String,
+      description: Schema.String,
+      hidden: Schema.Boolean,
+      supportedReasoningEfforts: Schema.Array(Schema.Struct({ reasoningEffort: Schema.String })),
+      defaultReasoningEffort: Schema.String,
+      isDefault: Schema.Boolean,
+    })
+  ),
+  nextCursor: NullableString,
+});
+
 export const TurnSteerResponse = Schema.Struct({ turnId: Schema.String });
 
 export const ThreadLoadedListResponse = Schema.Struct({
@@ -343,6 +360,8 @@ conforms<Conforms<Gen.ThreadResumeResponse, typeof ThreadResponse>>();
 
 conforms<Conforms<Gen.TurnStartResponse, typeof TurnStartResponse>>();
 
+conforms<Conforms<Gen.ModelListResponse, typeof ModelListResponse>>();
+
 conforms<Conforms<Gen.TurnSteerResponse, typeof TurnSteerResponse>>();
 
 conforms<Conforms<Gen.TurnStartedNotification, typeof TurnStartedNotification>>();
@@ -403,6 +422,7 @@ export type ClientParams = {
   readonly "turn/start": Gen.TurnStartParams;
   readonly "turn/steer": Gen.TurnSteerParams;
   readonly "turn/interrupt": Gen.TurnInterruptParams;
+  readonly "model/list": Gen.ModelListParams;
 };
 
 /** The permissions a grant gives: parts of the requested profile, as Codex sent them. */

@@ -24,11 +24,17 @@ const DENSITIES: readonly Density[] = ["calm", "balanced", "compact"];
 
 const THEMES: readonly Theme[] = ["dark", "light"];
 
+const TEXT_SIZES = ["small", "default", "large", "larger"] as const;
+
+type TextSize = (typeof TEXT_SIZES)[number];
+
 /** Query params make every state reachable for screenshots: ?page, ?density, ?theme, ?chrome=0. */
 export function App() {
   const [page, setPage] = useState<Page>(param("page", PAGES, "components"));
   const [density, setDensity] = useState<Density>(param("density", DENSITIES, "calm"));
   const [theme, setTheme] = useState<Theme>(param("theme", THEMES, "dark"));
+  const [textSize, setTextSize] = useState<TextSize>(param("text", TEXT_SIZES, "default"));
+  const [cvd, setCvd] = useState(params.get("cvd") === "1");
   const [reduceMotion, setReduceMotion] = useState(params.get("reduce") === "1");
   const chrome = params.get("chrome") !== "0";
 
@@ -64,6 +70,16 @@ export function App() {
               onValueChange={setTheme}
               options={THEMES.map((value) => ({ value, label: value }))}
             />
+            <SegmentedControl
+              aria-label="Text size"
+              value={textSize}
+              onValueChange={setTextSize}
+              options={TEXT_SIZES.map((value) => ({ value, label: value }))}
+            />
+            <label className="text-caption text-text-subtle flex items-center gap-2">
+              <Switch checked={cvd} onCheckedChange={setCvd} />
+              CVD diffs
+            </label>
             <label className="text-caption text-text-subtle flex items-center gap-2">
               <Switch checked={reduceMotion} onCheckedChange={setReduceMotion} />
               Reduce motion
@@ -71,7 +87,12 @@ export function App() {
           </header>
         ) : null}
         {page === "components" ? (
-          <Catalog density={density} />
+          <Catalog
+            density={density}
+            textSize={textSize}
+            palette={cvd ? "cvd" : "default"}
+            only={params.get("only")}
+          />
         ) : (
           <Orchestrate density={density} theme={theme} />
         )}

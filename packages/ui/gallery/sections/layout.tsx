@@ -25,7 +25,7 @@ export function Swatch({
   return (
     <div className="flex flex-col items-start gap-1.5">
       {children}
-      <span className="text-caption text-text-faint">{label}</span>
+      <span className="text-caption text-text-subtle">{label}</span>
     </div>
   );
 }

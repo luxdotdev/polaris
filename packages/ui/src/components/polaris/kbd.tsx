@@ -7,7 +7,7 @@ export interface KbdProps extends HTMLAttributes<HTMLElement> {
   readonly variant?: "cap" | "plain";
 }
 
-/** A key hint. Keycaps sit in text-subtle; plain hints in text-faint. */
+/** A key hint, in text-subtle: hints are read, so never faint (rule/faint-is-not-content). */
 export function Kbd({ variant = "cap", className, ...props }: KbdProps) {
   return (
     <kbd
@@ -16,7 +16,7 @@ export function Kbd({ variant = "cap", className, ...props }: KbdProps) {
         "inline-flex shrink-0 items-center justify-center font-sans text-micro tabular",
         variant === "cap"
           ? "h-[18px] min-w-[18px] rounded-[4px] border border-text-subtle/25 px-1 font-medium text-text-subtle"
-          : "text-text-faint",
+          : "text-text-subtle",
         className
       )}
       {...props}

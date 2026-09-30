@@ -16,6 +16,8 @@ Implements `HarnessDriver` (`../HarnessDriver.ts`) for Claude Code (ENG-192, dec
 - **Close**: closing the scope ends the input, withdraws approvals, calls `query.close()` (ends the `claude` child), and emits `Exited{error: null}`. If `claude` dies on its own, the open Turn fails and `Exited` carries the error.
 - **Plan Limits** (`planLimits.ts`, with `planLimits` set): each `rate_limit_event` is reported, and the SDK's experimental `get_usage` is called when the session opens and after a Turn if the last answer is ≥ 5 min old, only if the `Query` has the method. The `claude` child answers from its own sign-in. See `../limits/README.md`.
 - **probe** runs `claude --version` only.
+- **Models** (`models.ts`): `listModels` starts `claude` through the SDK with no prompt, asks `supportedModels()` and closes it. The child runs from `~/.polaris` with `persistSession: false` (no transcript), `mcpServers: {}` + `strictMcpConfig` (no MCP servers), `settingSources: ["user"]` (so the user's model settings still apply) and `settings: { disableAllHooks: true }` (no SessionStart or other hooks). Nothing is sent to a model; measured ~0.5 s with Claude Code 2.1.284. Each `ModelInfo` becomes a `Model`: `id` = `value` (an alias such as `opus`, or `default` for Claude Code's own pick, which is `isDefault`), `efforts` = `supportedEffortLevels` when `supportsEffort`, `defaultEffort` null (Claude Code doesn't report it). The Daemon caches the answer per Host (`../HarnessRpcs.ts`).
+- **Switching** (`switchModel: true`): a session opens with `model` and `effort` (SDK `Options`). Before a Turn whose Model or effort differs from what the live query runs with, the driver calls `setModel(model)` (undefined = Claude Code's default) and `applyFlagSettings({ effortLevel })` (null = the Model's default effort); both work mid-session in streaming input mode. An effort outside Claude Code's levels (`low`, `medium`, `high`, `xhigh`, `max`) fails the Turn before anything is sent.
 - **Loaded on first use.** `HarnessRegistryLive` (`../registry.ts`) imports this module, and with it the Agent SDK, on the first `probe` or `open`; an idle Daemon never loads it. The registry declares the driver's `capabilities` up front (checked against the real driver in `registry.test.ts`) and builds `terminalFollow` from the hook receiver, which does not need the SDK.
 
 ### Terminal handoff (`hooks.ts`)
@@ -28,7 +30,7 @@ Engine wiring: with a hook receiver the driver offers `terminalFollow` (`receive
 
 ## Tests
 
-`bun test` covers a full Turn with streaming and tools, error results, approval round-trip with remember, deny → declined, a question, interrupt with a pending approval, steer, resume + terminal command, attachments, close and unexpected exit (fake `query` in `fakeClaude.ts`), and hook translation plus the real loopback listener. `POLARIS_E2E_CLAUDE=1 bun test ClaudeDriver.e2e` runs one real Turn with `haiku` in a temp dir.
+`models.test.ts` covers listing (options, mapping, no input, the child closed), a missing `claude`, switching Model and effort only when they change, and an unknown effort. `bun test` covers a full Turn with streaming and tools, error results, approval round-trip with remember, deny → declined, a question, interrupt with a pending approval, steer, resume + terminal command, attachments, close and unexpected exit (fake `query` in `fakeClaude.ts`), and hook translation plus the real loopback listener. `POLARIS_E2E_CLAUDE=1 bun test ClaudeDriver.e2e` runs one real Turn with `haiku` in a temp dir.
 
 ## Known gaps / TODO
 

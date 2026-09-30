@@ -9,12 +9,12 @@ import {
   CodexRateLimitsRead,
   CodexRateLimitsUpdated,
 } from "../limits/codex.ts";
-import type { PlanLimitSink } from "../limits/PlanLimits.ts";
+import type { PlanLimitReporter } from "../limits/PlanLimitReporter.ts";
 import type { RpcPayload } from "./protocol.ts";
 import type { RpcConnection } from "./RpcConnection.ts";
 
 export interface CodexPlanLimits {
-  readonly sink: PlanLimitSink;
+  readonly sink: PlanLimitReporter["Service"];
   /** Shared by every session of the driver, so sparse updates merge into one snapshot. */
   readonly tracker: CodexLimitTracker;
 }
