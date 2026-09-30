@@ -190,10 +190,11 @@ export const RequestInputs = {
   /** Switch the local Host on or off on this machine. */
   "machines.setLocalEnabled": Schema.Struct({ enabled: Schema.Boolean }),
   "machines.harnesses": onHost({ refresh: Schema.Boolean }),
-  /** Opens Terminal on this Mac: `ssh <alias>` (to accept a host key or check auth). */
+  /**
+   * Opens macOS Terminal on this Mac running `ssh <alias>` (to trust a host key); the
+   * fallback when the local Host is off, since the in-app terminal runs on a Daemon.
+   */
   "machines.openSsh": onHost({}),
-  /** Opens Terminal running the Harness's own sign-in on the Host. */
-  "machines.signIn": onHost({ harness: HarnessKind }),
   "clipboard.write": Schema.Struct({ text: Schema.String }),
   /** Dev only: a fresh temporary directory on the dev Daemon's Host for the proof session. */
   "dev.proofWorkspace": Schema.Struct({}),

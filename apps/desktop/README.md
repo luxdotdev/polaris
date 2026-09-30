@@ -99,9 +99,9 @@ The Desktop App on your laptop, driving a Mac Studio (or a Linux VM, or a Pi) ov
 **Prerequisites**
 
 - The Studio: Remote Login on (System Settings → General → Sharing), and your laptop's key in its `~/.ssh/authorized_keys` (`ssh-copy-id studio`). Polaris never answers a password or 2FA prompt.
-- The laptop: a `Host studio` block in `~/.ssh/config` (HostName, User, and IdentityFile or an agent key). Polaris only ever uses the alias. Run `ssh studio true` once to trust its host key (or use "Open in Terminal" on the host-key-unknown card).
+- The laptop: a `Host studio` block in `~/.ssh/config` (HostName, User, and IdentityFile or an agent key). Polaris only ever uses the alias. Run `ssh studio true` once to trust its host key (or use "Open in Terminal" on the host-key-unknown card, which runs it in the app).
 - Daemon builds: a packaged app carries them. In dev (`bun run --cwd apps/desktop dev`), the app builds the Studio's platform from source the first time (`bun scripts/build-daemon.ts darwin-arm64`, needs this repo, Bun and, for darwin, `codesign`), or prebuild all with `bun run --cwd apps/daemon build`.
-- A Harness on the Studio (Claude Code or Codex), installed and signed in there. Polaris never installs one; Settings → Hosts links its setup docs and hands sign-in to Terminal.
+- A Harness on the Studio (Claude Code or Codex), installed and signed in there. Polaris never installs one; Settings → Hosts links its setup docs and runs its own sign-in in a terminal on the Studio.
 
 **What to expect**
 
@@ -116,7 +116,7 @@ The remote command defaults to `~/.polaris/bin/current/polaris bridge` (not on P
 
 <<<<<<< HEAD
 - Install progress is per step (checking, copying and checking the SHA-256), not per byte; the client reports no byte progress.
-- Terminal hand-offs (Open in Terminal, sign-in) use macOS Terminal through a `.command` file.
+- "Open in Terminal" for a host key falls back to macOS Terminal (a `.command` file) while this Mac's local Host is off; otherwise it and Harness sign-in run in the in-app terminal.
 ||||||| 3b8b28d
 - Settings for Hosts have no UI yet; edit the file. The install / upgrade approval flow is exposed (`install.ensure`) but has no UI, and approvals are not stored.
 =======

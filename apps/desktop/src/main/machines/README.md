@@ -4,14 +4,14 @@ The Hosts in Settings: adding and removing remote Hosts by `~/.ssh/config` alias
 
 | File | What |
 |---|---|
-| `service.ts` | `Machines` (Context.Service): `add`, `update`, `remove`, `check`, `approve`, `dismiss`, `startDaemon`, `setLocalEnabled`, `harnesses`, `openSsh`, `signIn`, and `views` (the feed). Runs the probes and uploads, and the background checks. |
+| `service.ts` | `Machines` (Context.Service): `add`, `update`, `remove`, `check`, `approve`, `dismiss`, `startDaemon`, `setLocalEnabled`, `harnesses`, `openSsh` (the macOS Terminal fallback), and `views` (the feed). Runs the probes and uploads, and the background checks. |
 | `installFlow.ts` | The install flow as an `xstate/fsm` machine; pure. |
 | `views.ts` | `MachineView`s from settings, Host list and install flows; `backgroundCheckKey`; the Daemon report's notes. Pure. |
 | `remote.ts` | The side effects over ssh: probe and plan, apply (upload, SHA-256 check, `polaris install|upgrade`), restart the service. |
 | `sshConfig.ts` | The literal `Host` aliases in `~/.ssh/config`: `Include` followed (globs, `~`, relative to `~/.ssh`, 16 deep), wildcards and negations skipped, `Match` blocks ignored. |
 | `approvals.ts` | `<userData>/approvals.json`: approved SHA-256 per alias. |
 | `builds.ts` | Where the Daemon builds come from (below). |
-| `terminal.ts` | Terminal hand-offs: `ssh <alias>` (accept a host key), a Harness's own sign-in on the Host. Opened as a `.command` file in Terminal. |
+| `terminal.ts` | The macOS Terminal fallback for `ssh <alias>` (a `.command` file) when this Mac's local Host is off. Otherwise the renderer runs it, and a Harness's sign-in, in the shell's `HarnessTerminal` slot on a Daemon. |
 | `fakeHost.testing.ts` | A fake remote Host for `service.test.ts` and the smoke test; not shipped. |
 
 ## The install flow

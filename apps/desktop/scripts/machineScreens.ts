@@ -108,6 +108,19 @@ try {
 
   await page.evaluate(`window.polaris.request("settings.setDensity", { density: "calm" })`);
 
+  // Trusting a host key: `ssh localhost` in a terminal on this Mac's local Host (left unanswered).
+  await page
+    .getByTestId("machine-localhost")
+    .getByRole("button", { name: "Open in Terminal" })
+    .click();
+  await page
+    .getByTestId("machine-localhost")
+    .getByText(/authenticity|known hosts|Host key/)
+    .first()
+    .waitFor({ timeout: 15_000 });
+  await page.getByTestId("machine-localhost").scrollIntoViewIfNeeded();
+  await shoot(page, "ssh-terminal");
+
   await page.getByTestId("install-approval").scrollIntoViewIfNeeded();
   await shoot(page, "approve-install");
   await page.getByRole("button", { name: "Approve and install" }).click();

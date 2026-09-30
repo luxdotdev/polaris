@@ -5,7 +5,7 @@
  * Settings rows. A background check (a reconnect) never installs.
  */
 import type { InstallTrigger, Ssh } from "@polaris/client/install";
-import { type HarnessKind, harnessEntry } from "@polaris/protocol";
+import { harnessEntry } from "@polaris/protocol";
 import { Context, Effect, Fiber, Layer, Schema, Stream, SubscriptionRef } from "effect";
 import type { HarnessAvailabilityView, MachineView, SshAliasView } from "../../shared/api.ts";
 import { HostDirectory, LOCAL_HOST_KEY, localEntry, remoteEntry } from "../hosts.ts";
@@ -15,7 +15,7 @@ import type { Approvals } from "./approvals.ts";
 import type { DaemonBuilds } from "./builds.ts";
 import { type InstallEvent, initialInstall, stepInstall } from "./installFlow.ts";
 import { applyWork, failureMessage, planFor, startDaemon } from "./remote.ts";
-import { onHostArgv, sshArgv } from "./terminal.ts";
+import { sshArgv } from "./terminal.ts";
 import { backgroundCheckKey, type InstallRecord, machineViews } from "./views.ts";
 
 export class MachineError extends Schema.TaggedError<MachineError>()("MachineError", {
@@ -94,7 +94,6 @@ export class Machines extends Context.Service<
       refresh: boolean
     ) => Effect.Effect<ReadonlyArray<HarnessAvailabilityView> | null, MachineError>;
     readonly openSsh: (key: string) => Effect.Effect<void, MachineError>;
-    readonly signIn: (key: string, harness: HarnessKind) => Effect.Effect<void, MachineError>;
   }
 >()("polaris/desktop/Machines") {
   static readonly layer = (input: MachinesInput) => Layer.effect(Machines, makeMachines(input));
@@ -363,7 +362,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
             version: h.version,
             minVersion: h.minVersion,
             detail: h.detail,
-            canSignIn: h.signInArgv !== null,
+            signInArgv: h.signInArgv,
           }))
     );
 
@@ -371,14 +370,6 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
     Effect.tryPromise({
       try: () => input.openTerminal(argv),
       catch: (cause) => new MachineError({ message: `Terminal didn't open: ${String(cause)}` }),
-    });
-
-  const signIn = (key: string, harness: HarnessKind) =>
-    Effect.gen(function* () {
-      const found = (yield* availability(key, false))?.find((h) => h.harness === harness);
-
-      if (found?.signInArgv == null) return yield* fail(`${harness} can't sign in on ${key}`);
-      yield* terminal(onHostArgv(dir.entry(key)?.alias ?? null, found.signInArgv));
     });
 
   yield* publish;
@@ -400,6 +391,5 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
     setLocalEnabled,
     harnesses,
     openSsh: (key) => Effect.andThen(requireRemote(key), terminal(sshArgv(key))),
-    signIn,
   });
 });

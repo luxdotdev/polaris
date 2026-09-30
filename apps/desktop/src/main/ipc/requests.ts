@@ -180,8 +180,6 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
     machines((m) => m.setLocalEnabled(enabled)).pipe(done),
   "machines.harnesses": ({ hostKey, refresh }) => machines((m) => m.harnesses(hostKey, refresh)),
   "machines.openSsh": ({ hostKey }) => machines((m) => m.openSsh(hostKey)).pipe(done),
-  "machines.signIn": ({ hostKey, harness }) =>
-    machines((m) => m.signIn(hostKey, harness)).pipe(done),
   "clipboard.write": ({ text }) => Effect.promise(() => ctx.writeClipboard(text)).pipe(done),
   "dev.proofWorkspace": () =>
     Effect.suspend(() => {

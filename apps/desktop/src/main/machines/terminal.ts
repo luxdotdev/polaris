@@ -1,7 +1,7 @@
 /**
- * Hand-offs to the user's own Terminal: `ssh <alias>` to accept a host key or
- * see an auth prompt, and a Harness's own sign-in on a Host. Polaris never
- * answers those prompts itself (ADR 0001, ENG-179).
+ * The fallback hand-off to macOS Terminal: `ssh <alias>` to trust a host key
+ * when the local Host is off (the in-app terminal runs on a Daemon). Polaris
+ * never answers the prompt itself (ENG-179).
  */
 import { shellQuote } from "@polaris/client/install";
 
@@ -16,10 +16,3 @@ export const terminalScript = (argv: ReadonlyArray<string>): string =>
 
 /** `ssh <alias>`, interactive, so ssh can ask to trust the key or for a password. */
 export const sshArgv = (alias: string): ReadonlyArray<string> => ["ssh", "--", alias];
-
-/** A command run on `alias` in a terminal (`ssh -t`); null alias runs it on this Mac. */
-export const onHostArgv = (
-  alias: string | null,
-  argv: ReadonlyArray<string>
-): ReadonlyArray<string> =>
-  alias === null ? argv : ["ssh", "-t", "--", alias, argv.map(shellQuote).join(" ")];

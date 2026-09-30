@@ -185,7 +185,8 @@ export interface HarnessAvailabilityView {
   readonly version: string | null;
   readonly minVersion: string;
   readonly detail: string | null;
-  readonly canSignIn: boolean;
+  /** The Harness's own sign-in, run on the Host in a terminal; null when it can't. */
+  readonly signInArgv: ReadonlyArray<string> | null;
 }
 
 /** A Schema class instance after structured clone: its fields, without the prototype. */
@@ -281,7 +282,6 @@ export interface RequestOutputs {
   /** Null when the Host's Daemon doesn't report availability (capability missing). */
   "machines.harnesses": ReadonlyArray<HarnessAvailabilityView> | null;
   "machines.openSsh": null;
-  "machines.signIn": null;
   "clipboard.write": null;
   "dev.proofWorkspace": { readonly path: string };
 }
