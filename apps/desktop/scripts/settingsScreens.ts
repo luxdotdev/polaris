@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { _electron as electron, type Page } from "playwright-core";
 import { startDaemon } from "./lib/daemon.ts";
-import { APP_DIR, electronBinary } from "./lib/electron.ts";
+import { APP_DIR, electronBinary, sizeWindow } from "./lib/electron.ts";
 
 const out = process.argv[2] ?? join(tmpdir(), "polaris-settings-screens");
 
@@ -74,7 +74,7 @@ const shoot = async (page: Page, name: string) => {
 try {
   const page = await app.firstWindow();
 
-  await page.setViewportSize({ width: 1440, height: 900 });
+  await sizeWindow(app, 1440, 900);
   await page.emulateMedia({ colorScheme: null });
   await page
     .locator('[data-host="local"][data-connection="connected"]')
