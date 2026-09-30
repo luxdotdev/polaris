@@ -22,14 +22,40 @@ interface LiveState {
 
 const live = createStore<LiveState>(() => ({ reports: {}, limits: {} }));
 
-const feeds = new Map<string, { refs: number; close: () => void }>();
+interface Held {
+  refs: number;
+  close: () => void;
+}
 
-/** Keeps a feed open while any view holds it; the last release closes it. */
-const hold = (key: string, open: () => () => void) => {
-  const feed = feeds.get(key);
+const feeds = new Map<string, Held>();
 
-  if (feed !== undefined) feed.refs++;
-  else feeds.set(key, { refs: 1, close: open() });
+/** A held feed that ended (its connection dropped before or after it opened) opens again after this. */
+const REOPEN_MS = 1_000;
+
+/**
+ * Keeps a feed open while any view holds it; the last release closes it. `open` gets a
+ * callback for the feed's end, and a feed that ends while still held is opened again.
+ */
+const hold = (key: string, open: (ended: () => void) => () => void) => {
+  const existing = feeds.get(key);
+
+  if (existing !== undefined) existing.refs++;
+  else {
+    const held: Held = { refs: 1, close: () => undefined };
+
+    const start = () => {
+      held.close = open(() => {
+        if (feeds.get(key) !== held) return;
+
+        setTimeout(() => {
+          if (feeds.get(key) === held) start();
+        }, REOPEN_MS);
+      });
+    };
+
+    feeds.set(key, held);
+    start();
+  }
 
   return () => {
     const held = feeds.get(key);
@@ -43,18 +69,37 @@ const hold = (key: string, open: () => () => void) => {
 const setReport = (hostKey: string, report: AvailabilityReport) =>
   live.setState((s) => ({ reports: { ...s.reports, [hostKey]: report } }));
 
-const openAvailability = (hostKey: string) =>
-  polaris().subscribe(
+/**
+ * The watch, plus a plain ask: a watch whose first attempt was interrupted before its first
+ * report can hang on some connections (see FX-settings report), and the ask always answers.
+ */
+const openAvailability = (hostKey: string) => (ended: () => void) => {
+  let open = true;
+
+  void polaris()
+    .request("harness.availability", { hostKey, refresh: false })
+    .then((result) => {
+      if (open && result.ok) setReport(hostKey, result.value);
+    });
+
+  const close = polaris().subscribe(
     "harness.availability",
     { hostKey },
-    { items: (items) => items.forEach((report) => setReport(hostKey, report)) }
+    { items: (items) => items.forEach((report) => setReport(hostKey, report)), end: ended }
   );
 
-const openLimits = (hostKey: string) =>
+  return () => {
+    open = false;
+    close();
+  };
+};
+
+const openLimits = (hostKey: string) => (ended: () => void) =>
   polaris().subscribe(
     "plan-limits",
     { hostKey },
     {
+      end: ended,
       items: (items) =>
         live.setState((s) => ({
           limits: { ...s.limits, [hostKey]: items.reduce(upsertLimit, s.limits[hostKey] ?? []) },
@@ -90,7 +135,7 @@ export const useAvailability = (hostKey: string): Availability => {
   const report = useStore(live, (s) => s.reports[hostKey]);
 
   useEffect(
-    () => (canWatch ? hold(`availability:${hostKey}`, () => openAvailability(hostKey)) : undefined),
+    () => (canWatch ? hold(`availability:${hostKey}`, openAvailability(hostKey)) : undefined),
     [canWatch, hostKey]
   );
 
@@ -114,7 +159,7 @@ export const useAvailabilityReports = (
 
   useEffect(() => {
     const keys = joined === "" ? [] : joined.split("\u0000");
-    const releases = keys.map((k) => hold(`availability:${k}`, () => openAvailability(k)));
+    const releases = keys.map((k) => hold(`availability:${k}`, openAvailability(k)));
 
     return () => {
       for (const release of releases) release();
@@ -132,7 +177,7 @@ export const usePlanLimits = (hostKey: string): ReadonlyArray<LimitData> => {
   const canWatch = host?.status.state === "connected" && has(host, "usage");
 
   useEffect(
-    () => (canWatch ? hold(`limits:${hostKey}`, () => openLimits(hostKey)) : undefined),
+    () => (canWatch ? hold(`limits:${hostKey}`, openLimits(hostKey)) : undefined),
     [canWatch, hostKey]
   );
 
