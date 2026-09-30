@@ -10,6 +10,7 @@ bun run --cwd apps/desktop smoke    # build, then the end-to-end smoke test (Nod
 bun run bench desktop-idle          # memory and CPU of the built app, settled (packages/bench)
 node scripts/screens.ts <dir>       # screenshots against Paper 11U-0 / MX-0, from four seeded local Daemons
 node scripts/sessionScreens.ts --out <dir> [--frames]   # the shell with the session view on fixtures (#preview/<scene>), every theme and density
+node scripts/emptyScreens.ts --out <dir> [--build]      # the empty states and the terminal drawer from a fresh Daemon, every theme and density
 ```
 
 `dev` connects the local Host to `~/.polaris/daemon.sock` when a Daemon answers there; otherwise it starts a dev Daemon from source with its own home and the scripted bench Harness, and keeps it across restarts (ADR 0007). Builds: Vite for the renderer, `Bun.build` for main and preload (ADR 0008).
@@ -48,7 +49,7 @@ The renderer is split into the **shell** (owned by the app shell: layout, select
 | `SessionIntent` | `{ hostKey, sessionId }` | The Intent column, for the selected Agent Session. |
 | `SessionOutput` | `{ hostKey, sessionId }` | The Output column, for the same session. |
 | `NewSession` | `{ hostKey, workspaceId, onStarted(sessionId), onCancel() }` | Spans Intent + Output while starting a session ("New session", ⌘N, the sidebar +). |
-| `NoSession` | `{ hostKey, workspaceId }` | Spans Intent + Output when nothing is selected. |
+| `NoSession` | `{ hostKey, workspaceId }` | Spans Intent + Output when nothing is selected (`features/empty`'s `WorkspaceStage`). |
 | `NeedsYouInbox` | none | The sidebar's "Needs you" view (the Sessions / Needs you switch). |
 | `JumpMenu` | `{ open, onOpenChange }` | The K jump menu; the shell owns `open` (K, ⌘K, the title bar's jump field). |
 
@@ -65,6 +66,12 @@ To wire a feature: in `slots.tsx`, import its component and replace the default,
 **Connection State** stays inline: the Host's row dims only while reconnecting and shows how long; the reason sits in a code well under the sidebar header (to be replaced by `@polaris/ui`'s HostStateCard).
 
 **Session view** (`src/renderer/features/session/`, wired into `SessionIntent`, `SessionOutput` and `NewSession`): the header, the virtualized conversation (Turns streaming live, inline approvals and questions) and the composer (send, steer, stop, attachments, Model) in Intent; the chosen Turn's diff in Output (Changes); the new-session page, whose Harness choice comes from the catalogue and the Host's `harness.availability`. `index.ts` is its interface; pure view models under `model/` are tested. `#preview/<scene>` renders the shell on fixtures (a lazy chunk) for `scripts/sessionScreens.ts`. The smoke test reads its `data-testid`s (`session-state`, `live-item`, `turn-item`, `approval`, `diff-file`, `turn-summary`, `composer-input`, `where-line`, `new-session`).
+
+**Empty states** (`src/renderer/features/empty/`, DESIGN.md's three tiers): `HostStage` (a Host with no Workspaces; the path is typed, `~` expanded with the Host's home, then `RegisterWorkspace`), `WorkspaceStage` (the `NoSession` slot: a stage when the Workspace has no sessions, a pane when none is open), `NothingNeedsYou` and `LaterMode` panes. Copy lives in `model.ts`, tested.
+
+**Terminal** (`src/renderer/features/terminal/`): `TerminalDock` wraps a pane (Columns wraps Output and `NoSession`) with the Workspace's drawer; ⌃` toggles it. Tabs persist per Workspace in `localStorage` (`store.ts`), so a relaunch reattaches to the same Daemon terminals with their scrollback. `runtime.ts` (xterm.js, WebGL, a lazy chunk) keeps up to four hidden instances, serializes input so keystrokes reach the PTY in order, debounces resizes, and reattaches feeds when the Host reconnects. Other features call `runInTerminal(place, { key, title, cwd, argv })` (e.g. a Harness sign-in) or `toggleTerminal`. "Open in terminal" (`handoff.ts`): `OpenInTerminal`, poll `session.terminalCommand`, run it (its `env` goes through `env(1)`, since `terminal.open` takes none); `InTerminalBar` and `OpenInTerminalItem` are mounted by the session view. `window.__polarisTerminal.text(id)` exposes a terminal's buffer to the smoke test.
+
+**Attachments** (`src/renderer/features/attachments/`): `useUploads` stages pasted or dropped files (`attachments.stage`) and keeps image thumbnails; `AttachmentDrop` wraps the composer (paste, drop, the drag hint, ⌥ to copy) and `AttachmentTray` renders the chips. ⌥-drop copies into the session's cwd by running `cp` on the Host through `terminal.open` (no file write in M1) and toasts the outcome.
 
 ## The bridge
 
@@ -90,3 +97,5 @@ Environment: `POLARIS_DESKTOP_EXTRA_HOSTS` (screenshots and tests: `[{ key, labe
 - The conversation shows a session's last 20 Turns (the feed's `turnLimit`); older ones aren't paged in yet. Assistant text is plain (no Markdown yet).
 - `@polaris/ui`'s `Row` can't be used with `asChild` (its Slot gets several children), so session rows are `role="button"` divs.
 - No Sources chips, "Add machine" or per-session age of last activity yet; ages are since the session was created.
+- Attachments have no byte-level progress (one IPC call per file), no folder picker for ⌥-drop (it copies into the session's cwd), and no "Open locally" / "Save to Downloads" for remote files yet.
+- Adding a workspace takes a typed path (no native folder dialog: remote Hosts need a path anyway); "Connect a host" on the first-run card has no action until the add-a-machine flow lands.
