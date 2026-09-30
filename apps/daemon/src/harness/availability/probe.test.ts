@@ -117,7 +117,7 @@ describe("probeHarness", () => {
       version: "2.1.290",
       minVersion: entry("claude").minVersion,
       detail: null,
-      signInArgv: [join(host.bin, "claude")],
+      signInArgv: [join(host.bin, "claude"), "auth", "login"],
     });
     expect(JSON.stringify(result)).not.toContain("example.com");
     expect(host.calls()).toEqual(["--version", "auth status --json"]);
@@ -130,7 +130,7 @@ describe("probeHarness", () => {
 
     expect(await probe("claude", host.env)).toMatchObject({
       status: "needs-sign-in",
-      signInArgv: [join(host.bin, "claude")],
+      signInArgv: [join(host.bin, "claude"), "auth", "login"],
     });
   });
 
