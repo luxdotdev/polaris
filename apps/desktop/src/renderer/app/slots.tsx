@@ -10,6 +10,7 @@ import { NeedsYouHover, NeedsYouInbox } from "../features/needs-you/index.ts";
 import { NewSessionPage, SessionIntent, SessionOutput } from "../features/session/index.ts";
 import { WorkspaceStage } from "../features/empty/index.ts";
 import { JumpMenu } from "../features/jump/index.ts";
+import { OpenFolderDialog } from "../features/open-folder/index.ts";
 import { HarnessTerminal, type HarnessTerminalProps } from "../features/terminal/index.ts";
 
 /** A selected Agent Session: which Host it lives on and its id. */
@@ -61,6 +62,8 @@ export interface ShellSlots {
   readonly NeedsYouInbox: ComponentType;
   /** The K jump menu; the shell owns its open state (`useShellActions().openJump`). */
   readonly JumpMenu: ComponentType<JumpMenuProps>;
+  /** The ⌘O dialog (a folder on any Host); it reads its open state from navigation (`folder`). */
+  readonly OpenFolder: ComponentType;
   /** The Needs You hover card around a waiting session's row or its Workspace chip. */
   readonly NeedsYouHover: ComponentType<NeedsYouHoverSlotProps>;
   /** Settings → Hosts (Paper S4): the page centres its own 680px column. */
@@ -76,6 +79,7 @@ export const slots: ShellSlots = {
   NoSession: WorkspaceStage,
   NeedsYouInbox,
   JumpMenu,
+  OpenFolder: OpenFolderDialog,
   NeedsYouHover,
   SettingsHosts: HostsSettingsPage,
   HarnessTerminal,

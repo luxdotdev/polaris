@@ -176,29 +176,9 @@ export const shellCommands = ({
       },
     },
     "workspace.add": {
-      run: () => {
-        const { hostKey } = navigation.current();
-        const host = app().hosts.find((h) => h.key === hostKey);
-
-        if (host === undefined) return;
-
-        // This Mac: the native folder picker. Elsewhere: the Host's stage, with a typed path.
-        if (host.alias !== null) {
-          actions.selectHost(host.key);
-
-          return;
-        }
-
-        void window.polaris.request("dialog.pickFolder", {}).then((picked) => {
-          if (!picked.ok || picked.value.path === null) return;
-          void send(
-            host.key,
-            Commands.RegisterWorkspace({ path: picked.value.path, name: null }),
-            "Couldn't add the workspace"
-          );
-        });
-      },
-      enabled: () => navigation.current().hostKey !== null,
+      // The ⌘O dialog, on the selected Host; any Host can be picked in it.
+      run: () => actions.openFolder(navigation.current().hostKey),
+      enabled: () => app().hosts.length > 0,
     },
     "theme.toggle": {
       run: () =>
