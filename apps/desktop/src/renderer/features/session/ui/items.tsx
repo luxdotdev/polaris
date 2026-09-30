@@ -242,6 +242,9 @@ export const Item = ({ item, hue, onOpenDiff }: ItemProps) => {
   switch (item.kind) {
     case "message":
       return <Message text={item.text} live={item.live} />;
+    // A landed steer is the user's own row (`rows.tsx`), not an agent item.
+    case "user":
+      return null;
     case "reasoning":
       return <Reasoning text={item.text} live={item.live} hue={hue} />;
     case "command":

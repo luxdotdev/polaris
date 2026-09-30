@@ -6,6 +6,7 @@
 import type { AttachmentId } from "@polaris/protocol";
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
+import type { Outgoing } from "./model/outbox.ts";
 
 export interface StagedAttachment {
   readonly id: AttachmentId;
@@ -20,11 +21,8 @@ export interface SessionUi {
   readonly diffTurnId: string | null;
   readonly draft: string;
   readonly attachments: ReadonlyArray<StagedAttachment>;
-  /** A follow-up queued (⌘↵) while a Turn runs; sent as the next Turn when it ends. */
-  readonly queued: {
-    readonly text: string;
-    readonly attachments: ReadonlyArray<StagedAttachment>;
-  } | null;
+  /** Steers and queued follow-ups (⌘↵) not in the conversation yet (`model/outbox.ts`). */
+  readonly outbox: ReadonlyArray<Outgoing<StagedAttachment>>;
 }
 
 const EMPTY: SessionUi = {
@@ -32,7 +30,7 @@ const EMPTY: SessionUi = {
   diffTurnId: null,
   draft: "",
   attachments: [],
-  queued: null,
+  outbox: [],
 };
 
 type UiState = Readonly<Record<string, SessionUi>>;
@@ -61,3 +59,16 @@ export const toggleUnfolded = (key: string, turnId: string) =>
 
 export const showTurnDiff = (key: string, turnId: string | null) =>
   patchSessionUi(key, () => ({ diffTurnId: turnId }));
+
+/** Change one outbox entry; a no-op once it's gone. */
+export const patchOutgoing = (
+  key: string,
+  id: string,
+  patch: (entry: Outgoing<StagedAttachment>) => Partial<Outgoing<StagedAttachment>>
+) =>
+  patchSessionUi(key, ({ outbox }) => ({
+    outbox: outbox.map((e) => (e.id === id ? { ...e, ...patch(e) } : e)),
+  }));
+
+export const dropOutgoing = (key: string, id: string) =>
+  patchSessionUi(key, ({ outbox }) => ({ outbox: outbox.filter((e) => e.id !== id) }));

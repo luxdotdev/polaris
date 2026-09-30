@@ -21,6 +21,7 @@ const itemActivity = (item: TurnItem): string | null =>
   Match.value(item).pipe(
     Match.tagsExhaustive({
       AssistantMessage: () => "Writing a reply…",
+      UserMessage: () => null,
       Reasoning: () => "Thinking…",
       CommandExecution: (i) => `Running ${clip(i.command)}`,
       FileChange: (i) => {

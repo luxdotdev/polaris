@@ -21,7 +21,8 @@ import { send } from "../dispatch.ts";
 import { useHost, useSession, hasCapability } from "../hooks.ts";
 import { conversationRows } from "../model/conversation.ts";
 import { tildePath } from "../model/format.ts";
-import { continueCommand } from "../model/intent.ts";
+import { composerMode, continueCommand, openQuestion } from "../model/intent.ts";
+import { useOutbox } from "../outbox.ts";
 import { showTurnDiff, toggleUnfolded, uiKey, useSessionUi } from "../state.ts";
 import { Conversation } from "./Conversation.tsx";
 import { ForkDialog, type ForkTarget } from "./ForkDialog.tsx";
@@ -67,6 +68,26 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
   const models = useHarnessModels(hostKey, model.session?.harness ?? "", model.session !== null);
   const { session } = model;
 
+  const mode =
+    session === null
+      ? null
+      : composerMode({
+          state: session.state,
+          lastTurn: model.turns.at(-1)?.turn.status ?? null,
+          pendingApprovals: model.pendingApprovals.length,
+          question: openQuestion(model.pendingApprovals),
+          canSteer: hasCapability(host, "session.steer"),
+        });
+
+  const outbox = useOutbox({
+    hostKey,
+    uiKey: key,
+    sessionId,
+    model,
+    ready: mode?.kind === "send",
+    canSteer: mode?.kind === "steer",
+  });
+
   if (session === null) return <Placeholder>Loading the session…</Placeholder>;
   const harness: Harness | null = isKnownHarness(session.harness) ? session.harness : null;
   const lastTurn = model.turns.at(-1)?.turn ?? null;
@@ -76,6 +97,7 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
     turns: model.turns,
     approvals: model.pendingApprovals,
     unfolded: ui.unfolded,
+    outbox: ui.outbox,
   });
 
   const ctx: RowContext = {
@@ -94,6 +116,8 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
       ),
     onContinue: () => void send(hostKey, continueCommand(sessionId), "Couldn't continue"),
     modelLabel: (model, effort) => modelLabel(models.models, model, effort),
+    canSteer: mode?.kind === "steer",
+    outbox,
   };
 
   return (
@@ -139,6 +163,7 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
           model={model}
           branch={branch}
           onOpenSession={onOpenSession}
+          outbox={outbox}
         />
       )}
       <ForkDialog
