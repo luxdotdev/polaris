@@ -94,7 +94,7 @@ export const prepareFakeHost = (root: string): FakeHost => {
   };
 };
 
-type Wanted = { readonly step?: string; readonly state?: string };
+type Wanted = { readonly step?: string; readonly state?: string; readonly updateVersion?: string };
 
 /** Resolves with the machine once its install step and Connection State are as wanted. */
 const waitForMachine = (page: Page, wanted: Wanted, timeout: number) =>
@@ -105,7 +105,10 @@ const waitForMachine = (page: Page, wanted: Wanted, timeout: number) =>
 
         const matches = (m: MachineView) =>
           (wanted.step === undefined || m.install?.step === wanted.step) &&
-          (wanted.state === undefined || m.status?.state === wanted.state);
+          (wanted.state === undefined || m.status?.state === wanted.state) &&
+          (wanted.updateVersion === undefined ||
+            (m.daemon?.progress?.stage === "done" &&
+              m.daemon.lastUpdate?.version === wanted.updateVersion));
 
         const stop = window.polaris.subscribe(
           "machines",
@@ -207,4 +210,51 @@ export const machineFlow = async (input: MachineFlowInput) => {
   );
 
   if (onPage) await shoot("hosts");
+  await updateFlow(input);
+};
+
+const updateFlow = async ({ page, host, step }: MachineFlowInput) => {
+  const off = await page.evaluate(() =>
+    window.polaris.request("machines.setKeepDaemonsUpToDate", { enabled: false })
+  );
+
+  if (!off.ok) throw new Error(off.error.message);
+
+  const override = await page.evaluate(
+    (hostKey) =>
+      window.polaris.request("machines.setDaemonUpdateOverride", { hostKey, enabled: false }),
+    FAKE_ALIAS
+  );
+
+  if (!override.ok) throw new Error(override.error.message);
+
+  const version = "0.0.0-dev.900.abc1234";
+  writeDist(host.env.POLARIS_DESKTOP_DAEMON_DIST!, {
+    version,
+    platform: hostPlatform(),
+    daemon: ["bun", join(REPO_ROOT, "apps/daemon/src/main.ts")],
+    paddingBytes: 400_000,
+  });
+
+  const requested = await page.evaluate(
+    (hostKey) => window.polaris.request("machines.updateDaemon", { hostKey }),
+    FAKE_ALIAS
+  );
+
+  if (!requested.ok) throw new Error(requested.error.message);
+
+  const updated = await waitForMachine(page, { updateVersion: version }, 60_000);
+  const facts = updated.daemon;
+
+  if (facts?.lastUpdate?.result !== "updated" || facts.lastUpdate.from === null)
+    throw new Error(`missing update result: ${JSON.stringify(facts)}`);
+
+  if (facts.keepUpToDate || facts.keepDaemonsUpToDate || facts.keepUpToDateOverride !== false)
+    throw new Error("explicit Update ignored the settings contract");
+
+  if (facts.progress?.bytes !== facts.progress?.total || (facts.progress?.total ?? 0) < 400_000)
+    throw new Error("upload progress did not report the real build size");
+  step(
+    `fake Host Update: ${facts.lastUpdate.from} → ${facts.lastUpdate.version}, ${facts.progress?.bytes} bytes; automatic updates off`
+  );
 };

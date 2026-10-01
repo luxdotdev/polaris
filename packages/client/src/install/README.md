@@ -11,7 +11,7 @@ const result = yield* ensureDaemon(alias, builds, { trigger: "user", approvedSha
 
 | File | What |
 |---|---|
-| `Ssh.ts` | `Ssh` service: one non-interactive command over the system `ssh` (`-T -o BatchMode=yes -o StrictHostKeyChecking=yes -o UpdateHostKeys=no -o ForwardAgent=no -o ConnectTimeout=15 -- <alias>`), with optional stdin streamed from a local file. ssh's own failures (exit 255) become `SshError` with a `failure` of `host-key`, `auth`, `unreachable`, `spawn` or `unknown`. `needsAttention` is true for the first two. Remote commands are wrapped in `sh -c '…'`, so the user's login shell does not matter. `Ssh.local(home)` runs the same commands in a local `/bin/sh` with `HOME` set, for the Client's own machine (the Desktop App upgrading this Mac's installed Daemon). |
+| `Ssh.ts` | `Ssh` service: one non-interactive command over the system `ssh` (`-T -o BatchMode=yes -o StrictHostKeyChecking=yes -o UpdateHostKeys=no -o ForwardAgent=no -o ConnectTimeout=15 -- <alias>`), with optional stdin streamed from a local file and an `onStdinBytes` callback for actual upload progress. ssh's own failures (exit 255) become `SshError` with a `failure` of `host-key`, `auth`, `unreachable`, `spawn` or `unknown`. `needsAttention` is true for the first two. Remote commands are wrapped in `sh -c '…'`, so the user's login shell does not matter. `Ssh.local(home)` runs the same commands in a local `/bin/sh` with `HOME` set, for the Client's own machine (the Desktop App upgrading this Mac's installed Daemon). |
 | `builds.ts` | `loadBuilds(distDir)` reads `manifest.json`. Also `platformFromUname`, `compareVersions`. |
 | `plan.ts` | `planInstall(probe, builds, options)`, a pure function; every branch is unit-tested. |
 | `remote.ts` | `probeHost`, `applyPlan`, `ensureDaemon`. |
@@ -30,7 +30,7 @@ const result = yield* ensureDaemon(alias, builds, { trigger: "user", approvedSha
    - Install: `<upload>/polaris install --json`
    - Upgrade: `~/.polaris/bin/current/polaris upgrade <upload>/polaris --json` (execve hand-off, same PID; Harnesses keep running)
 
-   The upload directory is always removed afterwards. The JSON line the Daemon prints is returned in `applied.report`. Show its `notes` to the user; in particular `supervisor: "fallback"` means the Linux Host has no systemd user bus and the Daemon runs under Polaris' own supervisor, which only returns after a reboot if `autostart` includes `cron`.
+   `applyPlan` accepts an optional progress callback: uploading byte counts across all files, then switching after all hashes match. Progress is throttled to 10 updates/s and has no idle timer. The upload directory is removed after a failed upload as well as after a completed install/upgrade. The JSON line the Daemon prints is returned in `applied.report`. Show its `notes` to the user; in particular `supervisor: "fallback"` means the Linux Host has no systemd user bus and the Daemon runs under Polaris' own supervisor, which only returns after a reboot if `autostart` includes `cron`.
 
 ## Tests
 

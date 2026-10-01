@@ -19,6 +19,7 @@ import {
   ThemeSource,
 } from "../shared/contract.ts";
 import { DEFAULT_SESSION_PREFS } from "../shared/sessionPrefs.ts";
+import { DaemonUpdateResultSchema } from "../shared/daemonUpdates.ts";
 
 export const RemoteHostSetting = Schema.Struct({
   keepDaemonUpToDate: Schema.optionalKey(Schema.Boolean),
@@ -34,6 +35,7 @@ export type RemoteHostSetting = typeof RemoteHostSetting.Type;
 
 export const Settings = Schema.Struct({
   keepDaemonsUpToDate: Schema.optionalKey(Schema.Boolean),
+  daemonUpdates: Schema.optionalKey(Schema.Record(Schema.String, DaemonUpdateResultSchema)),
   theme: Schema.optionalKey(ThemeSource),
   density: Schema.optionalKey(Density),
   textSize: Schema.optionalKey(TextSize),

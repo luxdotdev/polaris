@@ -2,6 +2,7 @@
 import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { APP_DIR, OUT_DIR, REPO_ROOT, stockElectronBinary } from "./electron.ts";
+import { prepareDaemonBuilds } from "./daemonBuilds.ts";
 
 export { APP_DIR, electronBinary, OUT_DIR, REPO_ROOT } from "./electron.ts";
 
@@ -51,6 +52,7 @@ export const buildRenderer = async () => {
 
 /** Copies Electron.app to `out/Polaris.app` with the built app in `Resources/app`. */
 export const bundleApp = async (): Promise<string> => {
+  await prepareDaemonBuilds();
   const electronApp = join(dirname(stockElectronBinary()), "../..");
   const target = join(OUT_DIR, "Polaris.app");
 
@@ -58,6 +60,11 @@ export const bundleApp = async (): Promise<string> => {
   cpSync(electronApp, target, { recursive: true, verbatimSymlinks: true });
 
   const resources = join(target, "Contents/Resources/app");
+  cpSync(
+    process.env.POLARIS_DESKTOP_DAEMON_DIST ?? join(REPO_ROOT, "apps/daemon/dist"),
+    join(target, "Contents/Resources/daemon"),
+    { recursive: true }
+  );
 
   mkdirSync(resources, { recursive: true });
   // SAFETY: our own package.json, which always has a version.

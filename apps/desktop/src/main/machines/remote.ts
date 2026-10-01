@@ -6,6 +6,7 @@
 import {
   applyPlan,
   type DaemonBuild,
+  type ApplyProgress,
   type InstallPlan,
   type InstallTrigger,
   planInstall,
@@ -29,6 +30,9 @@ export interface PlanInput {
 }
 
 export interface Planned {
+  readonly platform: string | null;
+  readonly installedVersion: string | null;
+  readonly bundledVersion: string | null;
   readonly plan: InstallPlan;
   /** The size of the build the plan would install, for the approval card. */
   readonly size: number | null;
@@ -52,12 +56,24 @@ export const planFor = Effect.fn("planFor")(function* (input: PlanInput) {
     approvedSha256: input.approved,
   });
 
-  return { plan, size: sizeOf(builds.find((b) => b.platform === platform)) } satisfies Planned;
+  const build = builds.find((b) => b.platform === platform);
+
+  return {
+    platform,
+    plan,
+    installedVersion: probe.installed?.version ?? null,
+    bundledVersion: build?.version ?? null,
+    size: sizeOf(build),
+  } satisfies Planned;
 });
 
 /** Upload the build, check its SHA-256 on the Host, and run `polaris install|upgrade`. */
-export const applyWork = (alias: string, work: InstallWork) =>
-  Effect.map(applyPlan(alias, work), (applied): InstallOutcome =>
+export const applyWork = (
+  alias: string,
+  work: InstallWork,
+  progress?: (value: ApplyProgress) => void
+) =>
+  Effect.map(applyPlan(alias, work, progress), (applied): InstallOutcome =>
     Match.value(applied).pipe(
       Match.tagsExhaustive({
         Installed: ({ version, report }) =>

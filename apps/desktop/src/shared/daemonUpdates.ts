@@ -1,3 +1,22 @@
+import { Schema } from "effect";
+
+export const DaemonUpdateResultSchema = Schema.Struct({
+  at: Schema.Number,
+  result: Schema.Literals(["updated", "current", "newer", "failed"]),
+  from: Schema.NullOr(Schema.String),
+  version: Schema.NullOr(Schema.String),
+  problem: Schema.NullOr(
+    Schema.Struct({
+      kind: Schema.Literals(["unsupported", "missing-build", "host-setup", "ssh", "failed"]),
+      message: Schema.String,
+      command: Schema.NullOr(Schema.String),
+      sshFailure: Schema.NullOr(
+        Schema.Literals(["host-key", "auth", "unreachable", "spawn", "unknown"])
+      ),
+    })
+  ),
+});
+
 /** Update progress travels on the existing `machines` feed, including for this Mac. */
 export interface DaemonUpdateProgress {
   readonly stage: "checking" | "uploading" | "switching" | "done" | "failed";
@@ -5,18 +24,7 @@ export interface DaemonUpdateProgress {
   readonly total: number;
 }
 
-export interface DaemonUpdateResult {
-  readonly at: number;
-  readonly result: "updated" | "current" | "newer" | "failed";
-  readonly from: string | null;
-  readonly version: string | null;
-  readonly problem: {
-    readonly kind: "unsupported" | "missing-build" | "host-setup" | "ssh" | "failed";
-    readonly message: string;
-    readonly command: string | null;
-    readonly sshFailure: "host-key" | "auth" | "unreachable" | "spawn" | "unknown" | null;
-  } | null;
-}
+export type DaemonUpdateResult = typeof DaemonUpdateResultSchema.Type;
 
 export interface DaemonUpdateView {
   /** False for the app's own dev Daemon or an unmanaged socket. */

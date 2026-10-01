@@ -8,7 +8,7 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { type DaemonBuild, loadBuilds, type Platform } from "@polaris/client/install";
-import { Effect, Schema } from "effect";
+import { Effect, Schema, Semaphore } from "effect";
 
 export class BuildUnavailable extends Schema.TaggedError<BuildUnavailable>()("BuildUnavailable", {
   message: Schema.String,
@@ -49,10 +49,10 @@ const load = (dir: string) =>
       new BuildUnavailable({ message: `unreadable daemon builds in ${dir}: ${String(cause)}` }),
   });
 
-/** `bun scripts/build-daemon.ts <platform>`; merges into `apps/daemon/dist`. */
+/** Rebuild every target together so one new version cannot drop the other platforms. */
 const buildFromSource = (repoRoot: string, platform: Platform) =>
   Effect.callback<void, BuildUnavailable>((resume) => {
-    const child = spawn("bun", [join(repoRoot, "scripts/build-daemon.ts"), platform], {
+    const child = spawn("bun", [join(repoRoot, "scripts/build-daemon.ts")], {
       cwd: repoRoot,
       stdio: ["ignore", "ignore", "pipe"],
     });
@@ -99,6 +99,8 @@ export const locateBuilds = ({
     return { source: "none", forPlatform: () => Effect.succeed([]) };
   }
 
+  const buildGate = Semaphore.makeUnsafe(1);
+
   return {
     source: "repo",
     forPlatform: (platform, options) =>
@@ -112,6 +114,6 @@ export const locateBuilds = ({
               Effect.andThen(buildFromSource(repoRoot, platform)),
               Effect.andThen(load(repo))
             )
-      ),
+      ).pipe((effect) => buildGate.withPermit(effect)),
   };
 };
