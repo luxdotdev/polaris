@@ -7,6 +7,7 @@ import { HarnessEvent } from "../harness/HarnessDriver.ts";
 import { join } from "node:path";
 import { type Feed, makeFeed, type SequenceMark } from "@polaris/client";
 import {
+  type Capability,
   type Command,
   CommandId,
   type CommandRejected,
@@ -56,6 +57,10 @@ import {
 } from "./engine.reference.testing.ts";
 
 /** What the runs reached, printed with POLARIS_PBT_STATS=1. */
+
+/** The Clients here are current: they decode every event, Review's included. */
+const ANNOUNCED: ReadonlyArray<Capability> = ["session.accept", "review.checkouts"];
+
 export const reached = {
   commands: 0,
   rejected: 0,
@@ -68,6 +73,7 @@ export const reached = {
   retried: 0,
   archived: 0,
   unarchived: 0,
+  accepted: 0,
   lateRequests: 0,
   crashes: 0,
   crashesMidBurst: 0,
@@ -369,7 +375,8 @@ export class World {
       return Effect.runPromise(
         makeFeed<Conn, HostStreamItem, Disconnected>({
           source,
-          open: (conn, after) => wire(conn, conn.engine.subscribeHost(toSequence(after))),
+          open: (conn, after) =>
+            wire(conn, conn.engine.subscribeHost(toSequence(after), { capabilities: ANNOUNCED })),
           mark: markHost,
           isDisconnect: (e) => e instanceof Disconnected,
           // As HostConnection opens it: the host stream leaves out session-only
@@ -390,6 +397,7 @@ export class World {
               sessionId: SessionId.make(stream),
               afterSequence: toSequence(after),
               turnLimit: null,
+              capabilities: ANNOUNCED,
             })
           ),
         mark: markSession,

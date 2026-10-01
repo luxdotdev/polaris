@@ -103,9 +103,47 @@ const subagents = Effect.gen(function* () {
   yield* sql`CREATE INDEX subagents_turn ON subagents (turn_id)`;
 });
 
+/** Review (M2): open Review Checkouts, Risk Summaries and Verdicts (`review.ts`). */
+const review = Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient;
+  yield* sql`
+    CREATE TABLE review_checkouts (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      data TEXT NOT NULL
+    )
+  `;
+  yield* sql`
+    CREATE TABLE risk_summaries (
+      id TEXT PRIMARY KEY,
+      repo TEXT NOT NULL,
+      merge_base TEXT NOT NULL,
+      head TEXT NOT NULL,
+      since TEXT,
+      started_sequence INTEGER NOT NULL,
+      data TEXT NOT NULL
+    )
+  `;
+  yield* sql`CREATE INDEX risk_summaries_key ON risk_summaries (repo, merge_base, head)`;
+  yield* sql`
+    CREATE TABLE verdicts (
+      id TEXT PRIMARY KEY,
+      repo TEXT NOT NULL,
+      summary_id TEXT NOT NULL,
+      identity TEXT NOT NULL,
+      recorded_sequence INTEGER NOT NULL,
+      data TEXT NOT NULL
+    )
+  `;
+  yield* sql`CREATE INDEX verdicts_repo ON verdicts (repo, recorded_sequence)`;
+  yield* sql`CREATE INDEX verdicts_summary ON verdicts (summary_id)`;
+  yield* sql`CREATE INDEX verdicts_identity ON verdicts (identity)`;
+});
+
 export const migrations = SqliteMigrator.fromRecord({
   "0001_event_store": init,
   "0002_subagents": subagents,
+  "0003_review": review,
 });
 
 export const MigrationsLayer = SqliteMigrator.layer({ loader: migrations });

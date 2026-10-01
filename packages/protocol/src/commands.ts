@@ -6,8 +6,26 @@
 import { Schema } from "effect";
 import { ApprovalDecision, PermissionMode } from "./domain.ts";
 import { HarnessKind } from "./harnesses.ts";
-import { AttachmentId, RequestId, SessionId, TurnId, WorkspaceId } from "./ids.ts";
+import {
+  AttachmentId,
+  RequestId,
+  ReviewCheckoutId,
+  RiskFindingId,
+  RiskSummaryId,
+  SessionId,
+  TurnId,
+  VerdictId,
+  WorkspaceId,
+} from "./ids.ts";
 import { addedNullable, ModelId, ReasoningEffort } from "./models.ts";
+import {
+  FeedbackBatch,
+  PullRequestRef,
+  ReviewSubject,
+  VerdictReason,
+  VerdictScope,
+  VerdictThumb,
+} from "./review.ts";
 
 export const SessionPlacement = Schema.TaggedUnion({
   /** Work directly in the Workspace directory (the default). */
@@ -78,6 +96,59 @@ export const Command = Schema.TaggedUnion({
   OpenInTerminal: { sessionId: SessionId },
   /** Take the session back from the terminal UI. */
   ReturnFromTerminal: { sessionId: SessionId },
+
+  // ── Review (protocol README, "Review") ──
+
+  /**
+   * Send a Review's feedback batch as one Turn (capability `session.feedback`):
+   * accepted where `SendTurn` is, with `feedbackPrompt(feedback)` as its prompt.
+   */
+  SendFeedback: {
+    sessionId: SessionId,
+    feedback: FeedbackBatch,
+    attachments: Schema.Array(AttachmentId),
+  },
+  /**
+   * Accept the session's Turns through `throughTurnId`, a contiguous prefix
+   * (capability `session.accept`). Refused with a Turn in flight or for a Turn
+   * before one already accepted. `revertLaterTurns` restores the working tree
+   * to that Turn's after-checkpoint, undoing the Turns after it.
+   */
+  AcceptTurns: { sessionId: SessionId, throughTurnId: TurnId, revertLaterTurns: Schema.Boolean },
+  /** The pull request the accepted work was opened as; it archives the session once merged. */
+  LinkPullRequest: { sessionId: SessionId, pullRequest: PullRequestRef },
+
+  /**
+   * Open a Review Checkout (capability `review.checkouts`). `head` and `base`
+   * are the code host's commits for a pull request; null for Agent Session
+   * Turns, whose checkpoints the Daemon reads.
+   */
+  OpenReviewCheckout: {
+    checkoutId: ReviewCheckoutId,
+    workspaceId: WorkspaceId,
+    subject: ReviewSubject,
+    head: Schema.NullOr(Schema.String),
+    base: Schema.NullOr(Schema.String),
+  },
+  /** The code host reports the pull request's current head and base; a new head makes it stale. */
+  ReportReviewHead: { checkoutId: ReviewCheckoutId, head: Schema.String, base: Schema.String },
+  /** Move the checkout to the latest head. `discardChanges` drops local edits first. */
+  UpdateReviewCheckout: { checkoutId: ReviewCheckoutId, discardChanges: Schema.Boolean },
+  /** Remove it: the pull request merged or closed (the Client detects it), or the user asked. */
+  RemoveReviewCheckout: {
+    checkoutId: ReviewCheckoutId,
+    reason: Schema.Literals(["merged", "closed", "user"]),
+  },
+  /** A thumbs-up or thumbs-down on a Risk Finding (capability `review.verdicts`). */
+  RecordVerdict: {
+    verdictId: VerdictId,
+    summaryId: RiskSummaryId,
+    findingId: RiskFindingId,
+    thumb: VerdictThumb,
+    reasons: Schema.Array(VerdictReason),
+    text: Schema.NullOr(Schema.String),
+    scope: VerdictScope,
+  },
 });
 
 export type Command = typeof Command.Type;

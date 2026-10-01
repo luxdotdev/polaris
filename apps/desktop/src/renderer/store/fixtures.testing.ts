@@ -65,6 +65,7 @@ const turnFields = {
   endedAt: null,
   model: null,
   effort: null,
+  feedback: null,
 } satisfies Turn;
 
 export const turn = new Turn(turnFields);

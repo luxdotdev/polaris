@@ -10,6 +10,7 @@ import {
   type CommandId,
   CommandRejected,
   type NotFound,
+  RiskSummaryRef,
   type Sequence,
   TurnId,
   WorkspaceId,
@@ -57,7 +58,11 @@ const make = Effect.gen(function* () {
 
   const resolveAttachments = (commandId: CommandId, command: Command) =>
     Effect.gen(function* () {
-      if (!Predicate.isTagged(command, "StartSession") && !Predicate.isTagged(command, "SendTurn"))
+      if (
+        !Predicate.isTagged(command, "StartSession") &&
+        !Predicate.isTagged(command, "SendTurn") &&
+        !Predicate.isTagged(command, "SendFeedback")
+      )
         return [];
 
       if (command.attachments.length === 0) return [];
@@ -96,9 +101,19 @@ const make = Effect.gen(function* () {
       return Option.isSome(driver) && driver.value.capabilities[can];
     });
 
-  const forkTurn = (command: Command) =>
-    Predicate.isTagged(command, "ForkSession")
-      ? rt.findTurn(command.fromSessionId, command.fromTurnId).pipe(Effect.orDie)
+  const namedTurn = (command: Command) => {
+    if (Predicate.isTagged(command, "ForkSession"))
+      return rt.findTurn(command.fromSessionId, command.fromTurnId).pipe(Effect.orDie);
+
+    if (Predicate.isTagged(command, "AcceptTurns"))
+      return rt.findTurn(command.sessionId, command.throughTurnId).pipe(Effect.orDie);
+
+    return Effect.succeed(null);
+  };
+
+  const judgedSummary = (command: Command) =>
+    Predicate.isTagged(command, "RecordVerdict")
+      ? store.review.riskSummary(RiskSummaryRef.cases.ById.make({ summaryId: command.summaryId }))
       : Effect.succeed(null);
 
   const dispatch: Dispatch = Effect.fn("Engine.dispatch")(function* (input: DispatchInput) {
@@ -114,7 +129,8 @@ const make = Effect.gen(function* () {
       pathProbe: Predicate.isTagged(command, "RegisterWorkspace") ? probePath(command.path) : null,
       canSteer: yield* driverCan(command, "Steer", "steer"),
       canSwitchModel: yield* driverCan(command, "SetModel", "switchModel"),
-      forkTurn: yield* forkTurn(command),
+      namedTurn: yield* namedTurn(command),
+      judgedSummary: yield* judgedSummary(command),
     };
 
     let before: ReadModel | null = null;

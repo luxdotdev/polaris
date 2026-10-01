@@ -158,7 +158,7 @@ const readBytes = async (handle: FileHandle, start: number, end: number): Promis
 };
 
 /** Inline text when `bytes` is small, text-typed and valid UTF-8; the bytes otherwise. */
-const toContent = (mimeType: string, bytes: Uint8Array): ReadContent => {
+export const toContent = (mimeType: string, bytes: Uint8Array): ReadContent => {
   if (isTextMime(mimeType) && bytes.length <= INLINE_TEXT_MAX_BYTES) {
     try {
       const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);

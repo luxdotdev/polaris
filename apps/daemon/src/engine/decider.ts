@@ -18,6 +18,7 @@ import {
   DomainEvent,
   isKnownHarness,
   NotFound,
+  type RiskSummary,
   type SessionId,
   SessionPlacement,
   Turn,
@@ -28,6 +29,7 @@ import {
 } from "@polaris/protocol";
 import { Effect, Result } from "effect";
 import { lastTurn, type ReadModel, type SessionRecord } from "../store/model.ts";
+import { reviewDeciders } from "./review.ts";
 import { decideSession, type SessionInput } from "./session.ts";
 
 export { stateChanged } from "./session.ts";
@@ -48,11 +50,16 @@ export interface DecideContext {
   readonly canSteer: boolean;
   /** For SetModel: whether the session's Harness can change Model mid-session. */
   readonly canSwitchModel: boolean;
-  /** For ForkSession: the Turn forked from, looked up in memory or SQL (null if unknown). */
-  readonly forkTurn: Turn | null;
+  /**
+   * The Turn the command names, looked up in memory or SQL (null if unknown):
+   * ForkSession's `fromTurnId`, AcceptTurns' `throughTurnId`.
+   */
+  readonly namedTurn: Turn | null;
+  /** For RecordVerdict: the Risk Summary it names (null if unknown). */
+  readonly judgedSummary: RiskSummary | null;
 }
 
-type Decision = Effect.Effect<ReadonlyArray<DomainEvent>, CommandRejected | NotFound>;
+export type Decision = Effect.Effect<ReadonlyArray<DomainEvent>, CommandRejected | NotFound>;
 
 /** Worktree ids are derived from the path, so every observer of a path agrees on its id. */
 export const worktreeIdFor = (path: string): WorktreeId =>
@@ -79,7 +86,7 @@ export const CONTINUE_PROMPT = "Continue from where you left off.";
 type CommandOf<Tag extends Command["_tag"]> = Extract<Command, { _tag: Tag }>;
 
 /** What each command's decision can use: the model, the context, and the verdicts. */
-interface Deciding {
+export interface Deciding {
   readonly model: ReadModel;
   readonly ctx: DecideContext;
   readonly reject: (reason: string) => Decision;
@@ -287,7 +294,7 @@ const forkSession = (d: Deciding, command: CommandOf<"ForkSession">): Decision =
   return d.withSession(command.fromSessionId, (parent) => {
     const turn =
       parent.turns.find((t) => t.id === command.fromTurnId) ??
-      (d.ctx.forkTurn?.id === command.fromTurnId ? d.ctx.forkTurn : undefined);
+      (d.ctx.namedTurn?.id === command.fromTurnId ? d.ctx.namedTurn : undefined);
 
     if (turn === undefined) return d.notFound("turn", command.fromTurnId);
 
@@ -404,5 +411,6 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
     UnarchiveSession: (c) => onSession(d, c.sessionId, { type: "session.unarchive" }),
     OpenInTerminal: (c) => onSession(d, c.sessionId, { type: "terminal.open" }),
     ReturnFromTerminal: (c) => onSession(d, c.sessionId, { type: "terminal.return" }),
+    ...reviewDeciders(d),
   });
 };

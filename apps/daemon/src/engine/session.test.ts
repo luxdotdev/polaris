@@ -23,7 +23,7 @@ import {
   serialize,
   stepModel,
 } from "./session.testing.ts";
-import { decideSession, snapshotOf, stateOf } from "./session.ts";
+import { decideSession, type SessionInput, snapshotOf, stateOf } from "./session.ts";
 
 const claude: ModelOptions = { harness: "claude", liveCoAttach: false, switchModel: false };
 
@@ -164,6 +164,35 @@ describe("session machine", () => {
         "there is no Interrupted Turn to continue"
       );
       expect(refusal(run(["start", "interrupt"]), "continue")).toBeNull();
+    });
+
+    test("accepting waits for the Turn to end; an accepted Interrupted Turn can't be continued", () => {
+      const interrupted = record(run(["start", "interrupt"]));
+      const last = interrupted.turns.at(-1)!;
+
+      const accept: SessionInput = {
+        type: "turns.accept",
+        turnId: last.id,
+        index: last.index,
+        status: last.status,
+        revertLaterTurns: false,
+        acceptedBy: "Mac",
+      };
+
+      const accepted = decideSession(interrupted, accept);
+      expect(accepted.rejection).toBeNull();
+      expect(
+        decideSession(folded(interrupted, accepted.events), { type: "turn.continue" })
+      ).toMatchObject({
+        rejection: "the Interrupted Turn is accepted; send a new Turn instead",
+      });
+
+      const working = record(run(["start"]));
+      const inFlight = working.turns.at(-1)!;
+      expect(
+        decideSession(working, { ...accept, turnId: inFlight.id, status: inFlight.status })
+          .rejection
+      ).toBe("the session is working; wait for the Turn to end");
     });
 
     test("Retry only for a Failed Turn, as a new Turn", () => {

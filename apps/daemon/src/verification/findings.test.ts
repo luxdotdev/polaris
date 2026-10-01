@@ -282,3 +282,65 @@ test("a late approval request cannot leave a session Working without a Turn", as
     })
   );
 });
+
+/**
+ * Finding 4 (M2, found while specifying `AcceptTurns`). Accepting an
+ * Interrupted Turn, then Continue, resumed that same Turn: work the user had
+ * accepted changed after they accepted it. Spec: `acceptedNeverInFlight`
+ * (mutant `finding4`).
+ *
+ * Fixed in the same change: Continue is refused once the Interrupted Turn is
+ * accepted; a new Turn carries on instead.
+ */
+test("an accepted Interrupted Turn is not continued", async () => {
+  const filename = join(tempDir(), "state.sqlite");
+  const fakes = makeFakes();
+  const s = SessionId.make("s-accept");
+  await run(
+    engineLayer({ filename, fakes, drivers: [makeFakeDriver("claude")] }),
+    Effect.gen(function* () {
+      const repo = fakeRepo();
+      yield* dispatch(Command.cases.RegisterWorkspace.make({ path: repo, name: null }));
+      const model = yield* waitFor((m) => m.workspaces.size === 1);
+      yield* dispatch(
+        Command.cases.StartSession.make({
+          sessionId: s,
+          workspaceId: [...model.workspaces.values()][0]!.id,
+          harness: "claude",
+          placement: SessionPlacement.cases.InPlace.make({}),
+          permissionMode: "supervised",
+          model: null,
+          effort: null,
+          prompt: "Fix the flaky test",
+          attachments: [],
+        })
+      );
+      yield* waitFor((m) => m.sessions.get(s)?.turns[0]?.status === "working");
+    })
+  );
+  // The Daemon restarts with the Turn in flight: it ends Interrupted, and the session Needs You.
+  await run(
+    engineLayer({ filename, fakes, drivers: [makeFakeDriver("claude")] }),
+    Effect.gen(function* () {
+      const record = (yield* waitFor(
+        (m) => m.sessions.get(s)?.session.state === "needs-you"
+      )).sessions.get(s)!;
+
+      const turn = record.turns[0]!;
+      expect(turn.status).toBe("interrupted");
+
+      yield* dispatch(
+        Command.cases.AcceptTurns.make({
+          sessionId: s,
+          throughTurnId: turn.id,
+          revertLaterTurns: false,
+        })
+      );
+
+      const refused = yield* Effect.flip(dispatch(Command.cases.Continue.make({ sessionId: s })));
+      expect(refused).toMatchObject({
+        reason: "the Interrupted Turn is accepted; send a new Turn instead",
+      });
+    })
+  );
+});

@@ -34,6 +34,7 @@ const TEvent = Schema.Struct({
   state: Schema.optional(Schema.String),
   requestId: Schema.optional(Schema.String),
   reason: Schema.optional(Schema.NullOr(Schema.String)),
+  index: Schema.optional(Schema.Number),
 });
 
 type TEvent = typeof TEvent.Type;
@@ -52,6 +53,7 @@ const TCommand = Schema.Union([
   }),
   SessionCommand("ArchiveSession"),
   SessionCommand("UnarchiveSession"),
+  Schema.TaggedStruct("AcceptTurns", { sessionId: Schema.String, throughTurnId: Schema.String }),
   Schema.Struct({ _tag: Schema.String, sessionId: Schema.optional(Schema.String) }),
 ]);
 
@@ -138,8 +140,15 @@ const recoveryPoints = (trace: Trace): Map<number, number> => {
   return recoveryOf;
 };
 
-/** The spec's command for a Client command in session `s`; null if the spec has none. */
-const specCommand = (command: TCommand, s: string): string | null =>
+/**
+ * The spec's command for a Client command in session `s`; null if the spec has
+ * none. `turnNumber` is the spec's number of a Turn (0 for one it never saw).
+ */
+const specCommand = (
+  command: TCommand,
+  s: string,
+  turnNumber: (turnId: string) => number
+): string | null =>
   Match.value(command).pipe(
     Match.tag("SendTurn", () => `SendTurn(${q(s)})`),
     Match.tag("Continue", () => `Continue(${q(s)})`),
@@ -147,6 +156,10 @@ const specCommand = (command: TCommand, s: string): string | null =>
     Match.tag("RespondToApproval", (c) => `Respond({ session: ${q(s)}, req: ${q(c.requestId)} })`),
     Match.tag("ArchiveSession", () => `Archive(${q(s)})`),
     Match.tag("UnarchiveSession", () => `Unarchive(${q(s)})`),
+    Match.tag(
+      "AcceptTurns",
+      (c) => `AcceptTurns({ session: ${q(s)}, through: ${turnNumber(c.throughTurnId)} })`
+    ),
     Match.orElse(() => null)
   );
 
@@ -212,9 +225,16 @@ class Replayer {
         return out(`ApprovalResolved({ req: ${q(e.requestId!)}, by: ${q(byOf(e))} })`);
       case "ApprovalWithdrawn":
         return out(`ApprovalWithdrawn({ req: ${q(e.requestId!)}, by: ${q(byOf(e))} })`);
+      case "TurnsAccepted":
+        return out(`TurnsAccepted(${e.index! + 1})`);
       default:
         throw new Error(`seq ${e.seq}: no spec event for ${e.tag}`);
     }
+  }
+
+  /** The spec's number of a Turn: its position among the session's Turns, from 1 (0: unknown). */
+  private turnNumber(s: string, turnId: string): number {
+    return [...(this.turns.get(s) ?? [])].indexOf(turnId) + 1;
   }
 
   /** Records a Turn as started; true if it had started before (a continuation). */
@@ -286,7 +306,7 @@ class Replayer {
 
     if (sent === undefined) throw new Error(`seq ${e.seq}: unknown command ${id}`);
     const s = sent.command.sessionId!;
-    const command = specCommand(sent.command, s);
+    const command = specCommand(sent.command, s, (turnId) => this.turnNumber(s, turnId));
 
     if (command === null) throw new Error(`seq ${e.seq}: no spec command for ${sent.command._tag}`);
     this.units.push({
@@ -463,6 +483,8 @@ module ${name} {
     HOST_FEED_GAPLESS = false,
     ARCHIVE_IGNORES_TURN = false,
     RECORDS_LATE_REQUESTS = false,
+    CONTINUES_ACCEPTED = false,
+    REVIEW_COMMANDS = true,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set(${[...cmdIds].map(q).join(", ")}),

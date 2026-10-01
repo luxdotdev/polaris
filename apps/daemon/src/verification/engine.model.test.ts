@@ -78,7 +78,8 @@ type DispatchKind =
   | "Rename"
   | "SetModel"
   | "Archive"
-  | "Unarchive";
+  | "Unarchive"
+  | "Accept";
 
 type Action =
   | {
@@ -138,6 +139,19 @@ const respondCommand = (world: World, action: DispatchAction, sessionId: Session
   });
 };
 
+/** Accept through one of the session's Turns (any: in flight, older than accepted, the latest). */
+const acceptCommand = (world: World, action: DispatchAction, sessionId: SessionId) => {
+  const turns = world.model().sessions.get(sessionId)?.turns ?? [];
+
+  if (turns.length === 0) return null;
+
+  return Command.cases.AcceptTurns.make({
+    sessionId,
+    throughTurnId: turns[action.pick % turns.length]!.id,
+    revertLaterTurns: false,
+  });
+};
+
 const commandFor = (world: World, action: DispatchAction): Command | null => {
   const sessionId = SessionId.make(action.s);
 
@@ -158,6 +172,8 @@ const commandFor = (world: World, action: DispatchAction): Command | null => {
       return Command.cases.ArchiveSession.make({ sessionId, deleteMergedBranch: false });
     case "Unarchive":
       return Command.cases.UnarchiveSession.make({ sessionId });
+    case "Accept":
+      return acceptCommand(world, action, sessionId);
     case "Respond":
       return respondCommand(world, action, sessionId);
   }
@@ -340,7 +356,8 @@ const actionArb: fc.Arbitrary<Action> = fc.oneof(
               "Rename",
               "SetModel",
               "Archive",
-              "Unarchive"
+              "Unarchive",
+              "Accept"
             )
           : fc.constantFrom(
               "SendTurn",
@@ -351,7 +368,8 @@ const actionArb: fc.Arbitrary<Action> = fc.oneof(
               "Rename",
               "SetModel",
               "Archive",
-              "Unarchive"
+              "Unarchive",
+              "Accept"
             ),
       s: sessionArb,
       pick: fc.nat(40),
@@ -413,6 +431,8 @@ const tallyLog = (log: ReadonlyArray<AEvent>) => {
     if (e.what === "state:archived") reached.archived++;
 
     if (e.what === "state:dormant" && e.commandId !== null) reached.unarchived++;
+
+    if (e.tag === "TurnsAccepted") reached.accepted++;
   }
 };
 

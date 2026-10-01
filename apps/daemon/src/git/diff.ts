@@ -18,6 +18,8 @@ type TurnSpec = typeof DiffSpec.cases.Turn.Type;
 
 type RangeSpec = typeof DiffSpec.cases.Range.Type;
 
+type TurnsSpec = typeof DiffSpec.cases.Turns.Type;
+
 export class DiffNotFound extends Error {
   constructor(
     readonly what: string,
@@ -106,6 +108,23 @@ const diffTurn = async (cwd: string, root: string, spec: TurnSpec) => {
   return diffTrees(root, before, after);
 };
 
+/** A run of Turns: the first one's before-checkpoint to the last one's after (or the working tree). */
+const diffTurns = async (cwd: string, root: string, spec: TurnsSpec) => {
+  const before = await requireCommit(
+    root,
+    checkpointRef(spec.sessionId, spec.firstTurnId, "before"),
+    "checkpoint"
+  );
+
+  const after =
+    (await resolveCommit(root, checkpointRef(spec.sessionId, spec.lastTurnId, "after"))) ??
+    (await snapshotWorkingTree(root))?.tree;
+
+  if (after === undefined) throw new NotARepository(cwd);
+
+  return diffTrees(root, before, after);
+};
+
 const diffRange = async (root: string, spec: RangeSpec) => {
   const base = await requireCommit(root, spec.base, "ref");
   const head = await requireCommit(root, spec.head, "ref");
@@ -122,5 +141,6 @@ export const computeDiff = async (cwd: string, spec: DiffSpec): Promise<DiffResu
     WorkingTree: (workingTree) => diffWorkingTree(cwd, root, workingTree),
     Turn: (turn) => diffTurn(cwd, root, turn),
     Range: (range) => diffRange(root, range),
+    Turns: (turns) => diffTurns(cwd, root, turns),
   });
 };

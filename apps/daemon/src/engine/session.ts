@@ -23,7 +23,7 @@ import {
   Turn,
   type TurnId,
 } from "@polaris/protocol";
-import { Predicate } from "effect";
+import { Predicate, Result } from "effect";
 import { createMachine, isUnhandled, transition, types } from "xstate";
 import {
   foldSession,
@@ -39,6 +39,7 @@ import {
   type SessionEffect,
   type SessionInput,
 } from "./session.inputs.ts";
+import { acceptTurns, lastIsAccepted } from "./session.accept.ts";
 import { endSubagents, subagentEnded, subagentStarted } from "./session.subagents.ts";
 
 export type { SessionEffect, SessionInput } from "./session.inputs.ts";
@@ -161,6 +162,10 @@ const turnRefusal = (record: SessionRecord, kind: "send" | "continue" | "retry")
     return "there is no Interrupted Turn to continue";
   }
 
+  if (kind === "continue" && lastIsAccepted(record)) {
+    return "the Interrupted Turn is accepted; send a new Turn instead";
+  }
+
   if (kind !== "send") return `the session is ${state}`;
 
   if (state === "archived") return "the session is Archived";
@@ -190,7 +195,10 @@ const continueTurn = ({ context }: { context: Context }, enq: Enqueue) => {
   const record = need(context);
   const last = lastTurn(record);
 
-  if (last === undefined || last.status !== "interrupted" || !takesTurn(record)) return undefined;
+  if (last?.status !== "interrupted" || lastIsAccepted(record) || !takesTurn(record)) {
+    return undefined;
+  }
+
   // The same Turn resumes: back to working, keeping its before-checkpoint.
   const turn = patchTurn(last, { status: "working", endedAt: null });
 
@@ -497,6 +505,14 @@ export const sessionMachine = createMachine({
         }),
       ]);
     },
+    "turns.accept": ({ context, event }, enq) => {
+      const record = need(context);
+      const accepted = acceptTurns(record, event);
+
+      return Result.isSuccess(accepted)
+        ? settle(enq, record, accepted.success)
+        : reject(enq, accepted.failure);
+    },
     "session.archive": archive,
     "session.unarchive": (_, enq) => reject(enq, "the session is not Archived"),
     "terminal.open": ({ context }, enq) =>
@@ -683,6 +699,7 @@ export const sessionMachine = createMachine({
         "terminal.return": ({ context }, enq) =>
           settle(enq, need(context), [], { state: "starting" }),
         "model.set": (_, enq) => reject(enq, "the session is In Terminal; return it first"),
+        "turns.accept": (_, enq) => reject(enq, "the session is In Terminal; return it first"),
         // Polaris follows along without changing the state.
         "harness.approvalRequested": ({ context, event }, enq) =>
           approvalRequested(need(context), event, enq),
@@ -732,6 +749,7 @@ export const sessionMachine = createMachine({
           settle(enq, need(context), [], { state: "dormant" }),
         "permissionMode.set": (_, enq) => reject(enq, "the session is Archived"),
         "model.set": (_, enq) => reject(enq, "the session is Archived"),
+        "turns.accept": (_, enq) => reject(enq, "the session is Archived"),
         // Its Harness is being stopped: record a Turn's end, nothing else moves it.
         "harness.turnEnded": ({ context, event }, enq) =>
           turnEnded(need(context), event, enq, false),

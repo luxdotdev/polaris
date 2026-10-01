@@ -20,6 +20,9 @@ import {
 import {
   CommandId,
   RequestId,
+  ReviewCheckoutId,
+  RiskFindingId,
+  RiskSummaryId,
   Sequence,
   SessionId,
   SubagentId,
@@ -28,6 +31,18 @@ import {
   WorktreeId,
 } from "./ids.ts";
 import { addedNullable, ModelId, ReasoningEffort } from "./models.ts";
+import {
+  FindingResolution,
+  LayerRun,
+  PullRequestRef,
+  ReviewCheckout,
+  ReviewCost,
+  ReviewerRun,
+  RiskFinding,
+  RiskSummary,
+  SummaryLayer,
+  Verdict,
+} from "./review.ts";
 
 export const DomainEvent = Schema.TaggedUnion({
   WorkspaceRegistered: { workspace: Workspace },
@@ -99,6 +114,54 @@ export const DomainEvent = Schema.TaggedUnion({
     ref: Schema.String,
     commit: Schema.String,
   },
+
+  // ── Review (protocol README, "Review") ──
+
+  /** `AcceptTurns`: the Turns through `throughIndex` are accepted (capability `session.accept`). */
+  TurnsAccepted: {
+    sessionId: SessionId,
+    throughTurnId: TurnId,
+    throughIndex: Schema.Int,
+    revertLaterTurns: Schema.Boolean,
+    /** Label of the Client device that accepted. */
+    acceptedBy: Schema.String,
+  },
+  /** The working tree was restored to `toTurnId`'s after-checkpoint, undoing the Turns listed. */
+  TurnsReverted: {
+    sessionId: SessionId,
+    toTurnId: TurnId,
+    revertedTurnIds: Schema.Array(TurnId),
+    checkpoint: Schema.String,
+  },
+  SessionPullRequestLinked: { sessionId: SessionId, pullRequest: PullRequestRef },
+
+  /** Review Checkouts (capability `review.checkouts`): the whole checkout each time. */
+  ReviewCheckoutOpened: { checkout: ReviewCheckout },
+  ReviewCheckoutChanged: { checkout: ReviewCheckout },
+  ReviewCheckoutRemoved: { checkoutId: ReviewCheckoutId, workspaceId: WorkspaceId },
+
+  /**
+   * Risk Summaries and Verdicts: review-only, left out of the Host stream and
+   * served by `review.riskSummary` / `review.watchRiskSummary` / `review.verdicts`.
+   */
+  RiskSummaryStarted: { summary: RiskSummary },
+  RiskSummaryLayerChanged: { summaryId: RiskSummaryId, layer: SummaryLayer, run: LayerRun },
+  /** Adds Findings, or replaces those with the same id (a Reviewer follow-up revising one). */
+  RiskFindingsRecorded: { summaryId: RiskSummaryId, findings: Schema.Array(RiskFinding) },
+  RiskFindingResolved: {
+    summaryId: RiskSummaryId,
+    findingId: RiskFindingId,
+    resolution: FindingResolution,
+    note: Schema.NullOr(Schema.String),
+  },
+  RiskSummaryEnded: {
+    summaryId: RiskSummaryId,
+    status: Schema.Literals(["completed", "failed"]),
+    reviewer: Schema.NullOr(ReviewerRun),
+    cost: Schema.NullOr(ReviewCost),
+    note: Schema.NullOr(Schema.String),
+  },
+  VerdictRecorded: { verdict: Verdict },
 });
 
 export type DomainEvent = typeof DomainEvent.Type;

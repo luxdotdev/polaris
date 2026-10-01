@@ -8,6 +8,8 @@ module polaris_test {
     HOST_FEED_GAPLESS = false,
     ARCHIVE_IGNORES_TURN = false,
     RECORDS_LATE_REQUESTS = false,
+    CONTINUES_ACCEPTED = false,
+    REVIEW_COMMANDS = true,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -67,6 +69,7 @@ module polaris_test {
           requested: [],
           turns: 1,
           archivedSinceTurn: false,
+          accepted: 0,
         },
         harness == Set(),
         safety,
@@ -302,6 +305,84 @@ module polaris_test {
         viewOf(log, "s1").pending == Set(),
         safety,
       })
+
+  /** s1's first Turn completed and its Harness running. */
+  action turnCompleted =
+    turnRunning
+      .then(harnessReports("s1", HTurnEnded))
+      .then(commitBatch)
+      .then(publishBatch)
+
+  run acceptTurnsTest =
+    turnRunning
+      // Not while the Turn is in flight.
+      .then(clientSends("mac", "k2", AcceptTurns({ session: "s1", through: 1 })))
+      .then(commitBatch)
+      .then(publishBatch)
+      .expect(answers.get("k2") == [Rejected])
+      .then(harnessReports("s1", HTurnEnded))
+      .then(commitBatch)
+      .then(publishBatch)
+      // A Turn that doesn't exist yet is refused; the one that does is accepted, once.
+      .then(clientSends("mac", "k3", AcceptTurns({ session: "s1", through: 2 })))
+      .then(clientSends("phone", "k4", AcceptTurns({ session: "s1", through: 1 })))
+      .then(commitBatch)
+      .then(publishBatch)
+      .expect(all {
+        answers.get("k3") == [Rejected],
+        answers.get("k4") == [Ok(log.length())],
+        viewOf(log, "s1").accepted == 1,
+        log[log.length() - 1].kind == TurnsAccepted(1),
+        safety,
+      })
+
+  run acceptingMovesForwardTest =
+    turnCompleted
+      .then(clientSends("mac", "k2", AcceptTurns({ session: "s1", through: 1 })))
+      .then(clientSends("mac", "k3", SendTurn("s1")))
+      .then(commitBatch)
+      .then(publishBatch)
+      .then(reactorRuns("s1"))
+      .then(harnessReports("s1", HTurnEnded))
+      .then(commitBatch)
+      .then(publishBatch)
+      .then(clientSends("phone", "k4", AcceptTurns({ session: "s1", through: 2 })))
+      .then(commitBatch)
+      .then(publishBatch)
+      .expect(all {
+        viewOf(log, "s1").accepted == 2,
+        log.indices().filter(i => match log[i].kind { | TurnsAccepted(_) => true | _ => false }).size() == 2,
+        acceptedOnlyForward,
+        safety,
+      })
+
+  run verdictsStayOffTheHostStreamTest =
+    turnCompleted
+      .then(clientSends("mac", "k2", RecordVerdict))
+      .then(commitBatch)
+      .then(publishBatch)
+      .then(subscribe("phone", HOST))
+      .then(readCut("phone", HOST))
+      .then(deliver("phone", HOST))
+      .expect(all {
+        log[log.length() - 1].kind == ReviewRecorded,
+        streamSeqs(log, HOST).select(x => x == log.length()).length() == 0,
+        streamSeqs(log, "s1").select(x => x == log.length()).length() == 0,
+        safety,
+      })
+
+  run acceptedInterruptedTurnIsNotContinuedTest =
+    turnRunning
+      .then(crash)
+      .then(restart)
+      .expect(viewOf(log, "s1").turn == "interrupted")
+      .then(clientSends("mac", "k2", AcceptTurns({ session: "s1", through: 1 })))
+      .then(commitBatch)
+      .then(publishBatch)
+      .then(clientSends("mac", "k3", Continue("s1")))
+      .then(commitBatch)
+      .then(publishBatch)
+      .expect(all { answers.get("k3") == [Rejected], acceptedNeverInFlight, safety })
 }
 
 /** Finding 1: the host feed with the gap check `HostConnection` used before the fix. */
@@ -310,6 +391,8 @@ module polaris_finding1_test {
     HOST_FEED_GAPLESS = true,
     ARCHIVE_IGNORES_TURN = false,
     RECORDS_LATE_REQUESTS = false,
+    CONTINUES_ACCEPTED = false,
+    REVIEW_COMMANDS = true,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -355,6 +438,8 @@ module polaris_finding2_test {
     HOST_FEED_GAPLESS = false,
     ARCHIVE_IGNORES_TURN = true,
     RECORDS_LATE_REQUESTS = false,
+    CONTINUES_ACCEPTED = false,
+    REVIEW_COMMANDS = true,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -385,6 +470,7 @@ module polaris_finding2_test {
           requested: ["r1"],
           turns: 1,
           archivedSinceTurn: true,
+          accepted: 0,
         },
         not(archivedIsClosed),
       })
@@ -396,6 +482,8 @@ module polaris_finding3_test {
     HOST_FEED_GAPLESS = false,
     ARCHIVE_IGNORES_TURN = false,
     RECORDS_LATE_REQUESTS = true,
+    CONTINUES_ACCEPTED = false,
+    REVIEW_COMMANDS = true,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -433,4 +521,38 @@ module polaris_finding3_test {
       .then(commitBatch)
       .then(publishBatch)
       .expect(answers.get("k3") == [Rejected])
+}
+
+/** Finding 4: Continue reopened an accepted Interrupted Turn. */
+module polaris_finding4_test {
+  import polaris(
+    HOST_FEED_GAPLESS = false,
+    ARCHIVE_IGNORES_TURN = false,
+    RECORDS_LATE_REQUESTS = false,
+    CONTINUES_ACCEPTED = true,
+    REVIEW_COMMANDS = true,
+    CLIENTS = Set("mac", "phone"),
+    SESSION_LIST = ["s1", "s2"],
+    CMD_IDS = Set("k1", "k2", "k3", "k4"),
+    REQUESTS = Set("r1", "r2"),
+    REQUEST_SESSION = Map("r1" -> "s1", "r2" -> "s1"),
+    CAPACITY = 2,
+    MAX_LOG = 10,
+    MAX_CRASHES = 2,
+  ).* from "./polaris"
+
+  run continueReopensAnAcceptedTurnTest =
+    init
+      .then(clientSends("mac", "k1", SendTurn("s1")))
+      .then(commitBatch)
+      .then(publishBatch)
+      .then(crash)
+      .then(restart)
+      .then(clientSends("mac", "k2", AcceptTurns({ session: "s1", through: 1 })))
+      .then(commitBatch)
+      .then(publishBatch)
+      .then(clientSends("mac", "k3", Continue("s1")))
+      .then(commitBatch)
+      .then(publishBatch)
+      .expect(all { viewOf(log, "s1").turn == "working", not(acceptedNeverInFlight) })
 }

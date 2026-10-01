@@ -41,6 +41,12 @@ export const Capability = Schema.Literals([
   "files.search",
   "files.watch",
   "git.diff",
+  /** `git.diff` answers `fileIndex`: each file's byte range in the patch, and its counts. */
+  "git.diff-files",
+  /** The `Turns` diff spec: a contiguous run of an Agent Session's Turns. */
+  "git.diff-turns",
+  /** `git.show`: a file's content at a revision (context expansion in Review). */
+  "git.show",
   "attachments.stage",
   /** `attachments.settings`, `attachments.setSettings`, `attachments.clear`: cleanup in Settings. */
   "attachments.settings",
@@ -50,6 +56,22 @@ export const Capability = Schema.Literals([
   "blobs",
   /** `usage.query` and `usage.watch`: Usage and Plan Limits on this Host. */
   "usage",
+  /**
+   * The Review commands and events below each need their capability on both
+   * sides: a Daemon sends their events only to Clients that announced it.
+   */
+  /** `SendFeedback` and `Turn.feedback`. */
+  "session.feedback",
+  /** `AcceptTurns`, `LinkPullRequest`, and `TurnsAccepted` / `TurnsReverted` / `SessionPullRequestLinked`. */
+  "session.accept",
+  /** The Review Checkout commands, their events, the Host snapshot's checkouts, `review.checkoutStatus`. */
+  "review.checkouts",
+  /** `review.runRiskSummary`, `review.riskSummary`, `review.watchRiskSummary`. */
+  "review.risk-summary",
+  /** `review.askFinding`: follow-up questions to the Reviewer. */
+  "review.ask",
+  /** `RecordVerdict` and `review.verdicts`. */
+  "review.verdicts",
 ]);
 
 export type Capability = typeof Capability.Type;

@@ -50,11 +50,19 @@ const WITNESSES = [
   "witnessLateRequest",
 ];
 
+/** The same for the `review` instance (Clients accepting Turns and recording Verdicts). */
+const REVIEW_WITNESSES = ["witnessAccepted", "witnessAcceptRefused", "witnessVerdict"];
+
 /** Each ENG-209 finding: the instance of the code before its fix, and the property it breaks. */
 const FINDINGS = [
   { main: "finding1", invariant: "hostFeedCanProgress", what: "the host feed stalls on a gap" },
   { main: "finding2", invariant: "archivedIsClosed", what: "Archive leaves a Turn in flight" },
   { main: "finding3", invariant: "approvalsNeedATurn", what: "a late request is recorded" },
+  {
+    main: "finding4",
+    invariant: "acceptedNeverInFlight",
+    what: "Continue reopens an accepted Turn",
+  },
 ];
 
 let failed = false;
@@ -92,7 +100,7 @@ run("typecheck polaris_test.qnt", ["typecheck", "polaris_test.qnt"]);
 
 run("scenario tests", ["test", "polaris_test.qnt", "--main=polaris_test"]);
 
-for (const n of [1, 2, 3]) {
+for (const n of [1, 2, 3, 4]) {
   run(`scenario tests (finding ${n}, before its fix)`, [
     "test",
     "polaris_test.qnt",
@@ -100,7 +108,11 @@ for (const n of [1, 2, 3]) {
   ]);
 }
 
-const simulate = (main: string, invariants: ReadonlyArray<string>, witnesses = false) => [
+const simulate = (
+  main: string,
+  invariants: ReadonlyArray<string>,
+  witnesses: ReadonlyArray<string> = []
+) => [
   "run",
   "polaris.qnt",
   `--main=${main}`,
@@ -110,20 +122,27 @@ const simulate = (main: string, invariants: ReadonlyArray<string>, witnesses = f
   "--max-steps=60",
   `--seed=${seed}`,
   "--verbosity=1",
-  ...(witnesses ? ["--witnesses", ...WITNESSES] : []),
+  ...(witnesses.length > 0 ? ["--witnesses", ...witnesses] : []),
 ];
 
-const simulated = run(
-  `simulate current: safety, ${samples} traces of up to 60 steps`,
-  simulate("current", ["safety"], true)
-);
+/** Simulate `main` against `safety` and fail if a witness is never reached. */
+const simulateWitnessed = (main: string, witnesses: ReadonlyArray<string>) => {
+  const simulated = run(
+    `simulate ${main}: safety, ${samples} traces of up to 60 steps`,
+    simulate(main, ["safety"], witnesses)
+  );
 
-for (const witness of WITNESSES) {
-  if (new RegExp(`${witness} was witnessed in 0 trace`).test(simulated)) {
-    failed = true;
-    console.log(`✗ ${witness} was never reached: the simulation no longer covers it`);
+  for (const witness of witnesses) {
+    if (new RegExp(`${witness} was witnessed in 0 trace`).test(simulated)) {
+      failed = true;
+      console.log(`✗ ${witness} was never reached: the simulation no longer covers it`);
+    }
   }
-}
+};
+
+simulateWitnessed("current", WITNESSES);
+
+simulateWitnessed("review", REVIEW_WITNESSES);
 
 // The mutants: the simulator must still find each finding, or `safety` no longer guards it.
 for (const finding of FINDINGS) {

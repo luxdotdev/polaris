@@ -22,9 +22,20 @@ export type ReasoningEffort = typeof ReasoningEffort.Type;
 export const addedNullable = <S extends Schema.Top>(schema: S) =>
   Schema.NullOr(schema).pipe(Schema.withDecodingDefaultKey(Effect.succeed(null)));
 
+/**
+ * `addedNullable` that constructors may also leave out, for a field most code
+ * never sets (Review's additions to sessions and Turns).
+ */
+export const optionalNullable = <S extends Schema.Top>(schema: S) =>
+  addedNullable(schema).pipe(Schema.withConstructorDefault(Effect.succeed(null)));
+
 /** An array field added after logs were written: absent decodes as empty. */
 export const addedArray = <S extends Schema.Top>(schema: S) =>
   Schema.Array(schema).pipe(Schema.withDecodingDefaultKey(Effect.succeed([])));
+
+/** `addedArray` that constructors may also leave out (empty). */
+export const optionalArray = <S extends Schema.Top>(schema: S) =>
+  addedArray(schema).pipe(Schema.withConstructorDefault(Effect.succeed([])));
 
 export class Model extends Schema.Class<Model>("Model")({
   id: ModelId,

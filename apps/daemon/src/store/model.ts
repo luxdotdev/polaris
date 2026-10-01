@@ -12,9 +12,12 @@
 import {
   AgentSession,
   type ApprovalRequest,
+  type Capability,
   DomainEvent,
   type EventEnvelope,
   type RequestId,
+  type ReviewCheckout,
+  type ReviewCheckoutId,
   type SessionId,
   type Subagent,
   type SubagentId,
@@ -46,6 +49,8 @@ export interface ReadModel {
   readonly workspaces: ReadonlyMap<WorkspaceId, Workspace>;
   readonly worktrees: ReadonlyMap<WorktreeId, Worktree>;
   readonly sessions: ReadonlyMap<SessionId, SessionRecord>;
+  /** Review Checkouts not yet removed. Risk Summaries and Verdicts are in SQL only (`review.ts`). */
+  readonly reviewCheckouts: ReadonlyMap<ReviewCheckoutId, ReviewCheckout>;
 }
 
 export const emptyModel: ReadModel = {
@@ -53,6 +58,7 @@ export const emptyModel: ReadModel = {
   workspaces: new Map(),
   worktrees: new Map(),
   sessions: new Map(),
+  reviewCheckouts: new Map(),
 };
 
 /**
@@ -93,6 +99,18 @@ export const sessionOf: (event: DomainEvent) => SessionId | null =
     ApprovalResolved: bySessionId,
     ApprovalWithdrawn: bySessionId,
     CheckpointRecorded: bySessionId,
+    TurnsAccepted: bySessionId,
+    TurnsReverted: bySessionId,
+    SessionPullRequestLinked: bySessionId,
+    ReviewCheckoutOpened: hostEvent,
+    ReviewCheckoutChanged: hostEvent,
+    ReviewCheckoutRemoved: hostEvent,
+    RiskSummaryStarted: hostEvent,
+    RiskSummaryLayerChanged: hostEvent,
+    RiskFindingsRecorded: hostEvent,
+    RiskFindingResolved: hostEvent,
+    RiskSummaryEnded: hostEvent,
+    VerdictRecorded: hostEvent,
   });
 
 /**
@@ -105,8 +123,50 @@ export const sessionOnlyEventTypes: ReadonlyArray<DomainEvent["_tag"]> = [
   "SessionContextUsed",
 ];
 
+/**
+ * Risk Summaries and Verdicts: recorded on the Host, but served by the
+ * review RPCs (`review.watchRiskSummary`, `review.verdicts`), not the Host stream.
+ */
+export const reviewOnlyEventTypes: ReadonlyArray<DomainEvent["_tag"]> = [
+  "RiskSummaryStarted",
+  "RiskSummaryLayerChanged",
+  "RiskFindingsRecorded",
+  "RiskFindingResolved",
+  "RiskSummaryEnded",
+  "VerdictRecorded",
+];
+
+/** Everything the Host stream leaves out. */
+export const hostOmittedEventTypes: ReadonlyArray<DomainEvent["_tag"]> = [
+  ...sessionOnlyEventTypes,
+  ...reviewOnlyEventTypes,
+];
+
 export const isHostStreamEvent = (event: DomainEvent): boolean =>
-  !sessionOnlyEventTypes.includes(event._tag);
+  !hostOmittedEventTypes.includes(event._tag);
+
+/** Every capability `eventCapability` can ask for. */
+export const gatingCapabilities: ReadonlyArray<Capability> = ["session.accept", "review.checkouts"];
+
+const needs = (capability: Capability) => (): Capability => capability;
+
+/**
+ * The capability a Client must have announced to be sent an event, or null
+ * for events every Client decodes. An older Client can't decode newer tags.
+ */
+export const eventCapability = (event: DomainEvent): Capability | null =>
+  DomainEvent.matchOrElse(
+    event,
+    {
+      TurnsAccepted: needs("session.accept"),
+      TurnsReverted: needs("session.accept"),
+      SessionPullRequestLinked: needs("session.accept"),
+      ReviewCheckoutOpened: needs("review.checkouts"),
+      ReviewCheckoutChanged: needs("review.checkouts"),
+      ReviewCheckoutRemoved: needs("review.checkouts"),
+    },
+    () => null
+  );
 
 /**
  * Events only Clients that announced `session.subagents` get: a Subagent's
@@ -158,6 +218,8 @@ export const patchSession = (session: AgentSession, patch: SessionPatch): AgentS
     turnCount: session.turnCount,
     contextUsage: session.contextUsage,
     lastError: session.lastError,
+    acceptedThroughIndex: session.acceptedThroughIndex,
+    pullRequest: session.pullRequest,
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     ...patch,
@@ -176,6 +238,7 @@ export const patchTurn = (turn: Turn, patch: TurnPatch): Turn =>
     model: turn.model,
     effort: turn.effort,
     status: turn.status,
+    feedback: turn.feedback,
     checkpointBefore: turn.checkpointBefore,
     checkpointAfter: turn.checkpointAfter,
     startedAt: turn.startedAt,
@@ -329,6 +392,15 @@ const resolveRequest =
       pending: withMap(r.pending, event.requestId, undefined),
     }));
 
+const setCheckout =
+  ({ checkout }: { readonly checkout: ReviewCheckout }): Reducer =>
+  ({ model }) => ({
+    ...model,
+    reviewCheckouts: withMap(model.reviewCheckouts, checkout.id, checkout),
+  });
+
+const keep: Reducer = ({ model }) => model;
+
 const apply: (event: DomainEvent) => Reducer = DomainEvent.match<Reducer>({
   WorkspaceRegistered: setWorkspace,
   WorkspaceUpdated: setWorkspace,
@@ -394,6 +466,28 @@ const apply: (event: DomainEvent) => Reducer = DomainEvent.match<Reducer>({
       updateSession(fold, subagent.sessionId, (r) => ({
         subagents: withMap(r.subagents, subagent.id, undefined),
       })),
+  TurnsAccepted: (event) => (fold) =>
+    updateSession(fold, event.sessionId, () => ({
+      session: { acceptedThroughIndex: event.throughIndex },
+    })),
+  TurnsReverted: (event) => (fold) => updateSession(fold, event.sessionId, () => ({})),
+  SessionPullRequestLinked: (event) => (fold) =>
+    updateSession(fold, event.sessionId, () => ({ session: { pullRequest: event.pullRequest } })),
+  ReviewCheckoutOpened: setCheckout,
+  ReviewCheckoutChanged: setCheckout,
+  ReviewCheckoutRemoved:
+    ({ checkoutId }) =>
+    ({ model }) => ({
+      ...model,
+      reviewCheckouts: withMap(model.reviewCheckouts, checkoutId, undefined),
+    }),
+  // Review-only events change SQL (`review.ts`), not the read model.
+  RiskSummaryStarted: () => keep,
+  RiskSummaryLayerChanged: () => keep,
+  RiskFindingsRecorded: () => keep,
+  RiskFindingResolved: () => keep,
+  RiskSummaryEnded: () => keep,
+  VerdictRecorded: () => keep,
 });
 
 export const project = (model: ReadModel, envelope: EventEnvelope): ReadModel => {

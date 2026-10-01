@@ -16,6 +16,7 @@ import { FileSearchLive } from "../files/FileSearch.ts";
 import { FilesRpcsLive } from "../files/FilesRpcs.ts";
 import { CheckpointsLive } from "../git/Checkpoints.ts";
 import { GitRpcsLive } from "../git/GitRpcs.ts";
+import { ReviewReadRpcsLive } from "../review/ReviewRpcs.ts";
 import { WorktreeTrackerLive } from "../git/WorktreeTracker.ts";
 import { Availability, AvailabilityRpcsLive } from "../harness/availability/index.ts";
 import { HarnessRpcsLive } from "../harness/HarnessRpcs.ts";
@@ -68,6 +69,7 @@ export const daemonHandlers = Layer.mergeAll(
   HarnessRpcsLive,
   AvailabilityRpcsLive.pipe(Layer.provide(Availability.layer())),
   UsageRpcsLive,
+  ReviewReadRpcsLive,
   TerminalRpcsLive.pipe(Layer.provide(TerminalsDaemonLive))
 ).pipe(Layer.provide(daemonServices));
 
@@ -88,6 +90,13 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "files.search",
   "files.watch",
   "git.diff",
+  "git.diff-files",
+  "git.diff-turns",
+  "git.show",
+  // TODO(M2-C checkout, M2-R rules, M2-V reviewer, M2-A accept): announce "review.checkouts",
+  // "review.risk-summary", "review.ask" and "session.accept" once their behaviour lands.
+  "session.feedback",
+  "review.verdicts",
   "attachments.stage",
   "attachments.settings",
   "terminal",
