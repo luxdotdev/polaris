@@ -7,7 +7,8 @@ import {
   settledOnboarding,
 } from "../features/onboarding/index.ts";
 import { type AppContextValue, AppProvider } from "../shell/hooks.ts";
-import { UpgradeToasts } from "../features/machines/index.ts";
+// Not the feature's index: it reaches slots.tsx, which must load after the shell's features.
+import { UpgradeToasts } from "../features/machines/UpgradeToasts.tsx";
 import { NeedsYouPublisher } from "../features/needs-you/index.ts";
 import { Shell } from "./Shell.tsx";
 

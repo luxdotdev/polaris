@@ -6,7 +6,8 @@
 import type { HarnessKind, PolarisAction } from "@polaris/protocol";
 import { useCommands } from "../../../shell/hooks.ts";
 import { daemonNotice, useHarnessCommands } from "../../composer/index.ts";
-import { callMachines, useMachineInstall } from "../../machines/index.ts";
+// The machines feed alone: the feature's index reaches slots.tsx, an import cycle from here.
+import { call as callMachines, useMachineInstall } from "../../machines/hooks.tsx";
 import { hasCapability, useHost } from "../hooks.ts";
 import type { ComposerCommands } from "./DraftComposer.tsx";
 
