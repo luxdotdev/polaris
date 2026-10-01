@@ -10,6 +10,8 @@ import { Approval, Attention } from "./Attention.tsx";
 import { call } from "./hooks.tsx";
 import { Harnesses } from "./Harnesses.tsx";
 import { outcomeNote } from "./model.ts";
+import { setDaemonUpdateOverride } from "./updates/actions.ts";
+import { OverrideSelect } from "./updates/Controls.tsx";
 
 export const DEFAULT_REMOTE_COMMAND = "~/.polaris/bin/current/polaris bridge";
 
@@ -157,6 +159,17 @@ const Settings = ({ machine }: { readonly machine: MachineView }) => {
           </Field>
         ) : (
           <RemoteSettings machine={machine} />
+        )}
+        {machine.daemon === null || !machine.daemon.managed ? null : (
+          <Field
+            label="Daemon updates"
+            caption="Whether this host's daemon upgrades on its own when it connects."
+          >
+            <OverrideSelect
+              daemon={machine.daemon}
+              onChange={(enabled) => setDaemonUpdateOverride(machine.key, enabled)}
+            />
+          </Field>
         )}
       </div>
       {local ? null : (
