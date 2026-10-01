@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loginShellPath, mergePaths, parseMarkedPath, userPath } from "./userPath.ts";
+import { loginShellPath, mergePaths, parseMarkedPath, userPath, which } from "./userPath.ts";
 
 let dir: string;
 
@@ -65,5 +65,23 @@ describe("userPath", () => {
     expect(
       userPath({ env: { POLARIS_USER_PATH: "off", PATH: "/only", SHELL: fakeShell("/x") } })
     ).toBe("/only");
+  });
+});
+
+describe("which", () => {
+  test("finds a binary on the PATH set after start, which a bare Bun.which misses", () => {
+    const dir = mkdtempSync(join(tmpdir(), "polaris-which-"));
+    const bin = join(dir, "polaris-which-probe");
+    writeFileSync(bin, "#!/bin/sh\n");
+    chmodSync(bin, 0o755);
+    const previous = process.env.PATH;
+
+    try {
+      process.env.PATH = `${dir}:${previous ?? ""}`;
+      expect(which("polaris-which-probe")).toBe(bin);
+    } finally {
+      process.env.PATH = previous;
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

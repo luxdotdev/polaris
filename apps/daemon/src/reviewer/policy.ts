@@ -5,6 +5,7 @@
  */
 import { ApprovalDecision, type HarnessKind } from "@polaris/protocol";
 import type { PolicyRequest } from "../services.ts";
+import { which } from "../service/userPath.ts";
 
 const READ_COMMANDS = new Set([
   "cat",
@@ -197,7 +198,7 @@ export const canRunChecks = (harness: HarnessKind, platform = process.platform):
 
   if (platform === "darwin") return true;
 
-  return platform === "linux" && Bun.which("bwrap") !== null && Bun.which("socat") !== null;
+  return platform === "linux" && which("bwrap") !== null && which("socat") !== null;
 };
 
 /** The Reviewer's answer to an approval: never null, since nobody else is asked. */

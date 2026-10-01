@@ -309,6 +309,9 @@ export const openFallbackBackend = (root: string): SearchBackend => {
         timer ??= setTimeout(flush, WATCH_BATCH_MS);
       });
 
+      // A Workspace at ~ holds sockets; Bun's watcher reports opening one (ENXIO) as an error event.
+      watcher.on("error", () => undefined);
+
       const stop = () => {
         clearTimeout(timer);
         watcher.close();

@@ -15,6 +15,7 @@ import { openSession } from "./CodexSession.ts";
 import { listCodexCommands } from "./commands.ts";
 import { listCodexModels } from "./models.ts";
 import { codexError } from "./RpcConnection.ts";
+import { which } from "../../service/userPath.ts";
 
 export interface CodexDriverOptions {
   /** The `codex` binary; defaults to the one on PATH. */
@@ -70,7 +71,7 @@ export const makeCodexDriver = (
   options: CodexDriverOptions = {}
 ): Effect.Effect<HarnessDriver, never, Scope.Scope> =>
   Effect.gen(function* () {
-    const codexPath = options.codexPath === undefined ? Bun.which("codex") : options.codexPath;
+    const codexPath = options.codexPath === undefined ? which("codex") : options.codexPath;
 
     const socketPath = options.socketPath ?? join(polarisHome(), "codex.sock");
     const clientVersion = options.clientVersion ?? "0.0.0";

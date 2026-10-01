@@ -90,3 +90,10 @@ export const userPath = (input: UserPathInput): string => {
     wellKnownDirs(env.HOME ?? homedir()).join(":")
   );
 };
+
+/**
+ * `Bun.which` on the PATH this process has now. A bare `Bun.which(name)` reads
+ * the PATH the process started with and misses what `runServe` merged in.
+ */
+export const which = (name: string): string | null =>
+  Bun.which(name, { PATH: process.env.PATH ?? "" });

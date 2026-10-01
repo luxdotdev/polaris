@@ -266,7 +266,14 @@ export const makeUsageIndex = Effect.fnUntraced(function* (options: UsageIndexOp
     if (wanted && watchers.length === 0) {
       watchers = roots().flatMap(([harness, root]) => {
         try {
-          return [watch(root, { recursive: true }, () => Queue.offerUnsafe(wakeups, harness))];
+          const watcher = watch(root, { recursive: true }, () =>
+            Queue.offerUnsafe(wakeups, harness)
+          );
+
+          // Unhandled, a watcher's error event (a socket it can't open) kills the Daemon.
+          watcher.on("error", () => undefined);
+
+          return [watcher];
         } catch {
           return [];
         }

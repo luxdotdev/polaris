@@ -28,6 +28,7 @@ import { Effect, Option, Schema, type Scope, Semaphore } from "effect";
 import type { HarnessError } from "../HarnessDriver.ts";
 import { ThreadLoadedListResponse } from "./protocol.ts";
 import { codexError, connectUnix, type RpcConnection } from "./RpcConnection.ts";
+import { which } from "../../service/userPath.ts";
 
 export interface AppServerOptions {
   readonly codexPath: string | null;
@@ -158,7 +159,7 @@ export const installedCodexVersion = (codexPath: string): Effect.Effect<string |
  * Daemon runs as a systemd unit (systemd sets `INVOCATION_ID`); else null.
  */
 export const detectSystemdRun = (env: NodeJS.ProcessEnv = process.env): string | null =>
-  process.platform === "linux" && env.INVOCATION_ID ? (Bun.which("systemd-run") ?? null) : null;
+  process.platform === "linux" && env.INVOCATION_ID ? which("systemd-run") : null;
 
 /**
  * The argv that starts a detached server and prints its pid. `sh` backgrounds

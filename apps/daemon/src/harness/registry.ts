@@ -22,9 +22,10 @@ import { isBenchKind } from "./bench/kinds.ts";
 import { ClaudeHookReceiver } from "./claude/hooks.ts";
 import { type HarnessDriver, HarnessError } from "./HarnessDriver.ts";
 import { PlanLimitReporter } from "./limits/PlanLimitReporter.ts";
+import { which } from "../service/userPath.ts";
 
 const binary = (env: string, name: string): string | null =>
-  process.env[env] || Bun.which(name) || null;
+  process.env[env] || which(name) || null;
 
 /** What each driver declares; checked against the loaded drivers in registry.test.ts. */
 export const DRIVER_CAPABILITIES = {

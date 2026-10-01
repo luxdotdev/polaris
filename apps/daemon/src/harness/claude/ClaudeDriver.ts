@@ -70,6 +70,7 @@ import {
 } from "./permissions.ts";
 import { type ClaudePlanLimits, claudePlanLimitReader } from "./planLimits.ts";
 import { ClaudeTranslator } from "./translate.ts";
+import { which } from "../../service/userPath.ts";
 
 export type QueryFn = (params: {
   prompt: string | AsyncIterable<SDKUserMessage>;
@@ -581,7 +582,7 @@ export const makeClaudeDriver = (options: ClaudeDriverOptions = {}): HarnessDriv
   const driver = {
     ...options,
     query: options.query ?? sdkQuery,
-    claudePath: options.claudePath ?? (() => Bun.which("claude")),
+    claudePath: options.claudePath ?? (() => which("claude")),
     limits: options.planLimits
       ? { sink: options.planLimits, context: emptyClaudeLimitContext() }
       : null,
