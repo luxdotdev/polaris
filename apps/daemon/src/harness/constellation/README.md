@@ -1,0 +1,15 @@
+# Constellation Harness attachment
+
+C1-H implements spec §3–4. The Engine still owns the Agent Session machine and commits; these modules supply instructions, a first-Turn brief and observed liveness facts.
+
+`selectWorker(dispatch, task.suggested, defaults, user)` resolves Harness/Model/Effort precedence. Defaults from another Harness do not supply a model or effort after a Harness override. The caller selects the Constellation's backend or UI defaults and supplies the user's permission mode.
+
+After `AttemptStarted` commits, call `startWorker(assignment, startup)`. `WorkerAssignment` carries the prepared Attempt, Task, accepted dependency Claims, selection, Workspace and user permissions. `WorkerStartup.attach` creates the bound attachment; `startSession` commits the title `<taskId> · <title>` and routes the returned prompt as the first Turn through the Agent Session machine. Provisioning the Worktree belongs to W/L before the decider. A reused session receives the next Attempt's prompt as a new Turn; a fresh session receives it as its first Turn. Review feedback may be appended by the caller.
+
+Pass `OpenOptions.constellation` on both start and resume. Codex gets `developerInstructions` and a per-thread `mcp_servers.polaris.url` config override. Claude gets `systemPrompt.append`, an in-process `createSdkMcpServer`, `strictMcpConfig: true` and `allowedTools: ["mcp__polaris__*"]`. Reviewer sessions receive no attachment. No repository Skill or MCP configuration file is created.
+
+The instruction variants share one versioned source. The original example loops are grounded in M2's accepted work and send-back reports (`.dagr/reports/m2/A.md`, `FX-accept.md`): assignment, checks, commit and report; then review, follow-up and revalidation. No upstream prompt is copied. Raw M2 conversation transcripts are not checked into this worktree.
+
+`observeLiveness` folds normalized Harness events with their observed timestamp. A repeated running update preserves its start time; completion, interruption and exit clear activity. `projectLiveness(facts, now, queuedInput)` computes elapsed time when viewed. The queued count comes from E's delivery journal. `restoreLiveness` folds persisted output/context facts; an unfinished tool's timing after restart remains unknown because item progress is ephemeral. Call it only with this session's events. Worker progress notes never supply liveness. No timers, watchers or polling are added.
+
+Verification: fake Harness start/resume tests, real MCP client tests, and `idle.bench.ts` for 0 versus 128 idle bindings in one Host endpoint. Run the benchmark under the shared bench lock. It uses temporary `POLARIS_HOME` directories and no vendor processes.
