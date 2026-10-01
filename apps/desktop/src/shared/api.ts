@@ -187,6 +187,8 @@ export interface InstallFlowView {
 
 /** One machine in Settings: the local Host or a remote one by alias. */
 export interface MachineView {
+  /** Null until update facts have loaded; updates never perform a first install. */
+  readonly daemon: import("./daemonUpdates.ts").DaemonUpdateView | null;
   readonly key: string;
   readonly label: string;
   readonly colour: string | null;
@@ -342,6 +344,9 @@ export interface RequestOutputs extends GitHubRequestOutputs {
   "machines.update": null;
   "machines.remove": null;
   "machines.check": null;
+  "machines.updateDaemon": null;
+  "machines.setKeepDaemonsUpToDate": null;
+  "machines.setDaemonUpdateOverride": null;
   "machines.approve": null;
   "machines.dismiss": null;
   "machines.startDaemon": null;

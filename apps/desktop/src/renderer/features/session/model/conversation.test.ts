@@ -194,6 +194,10 @@ describe("steers in the conversation", () => {
   });
 });
 
+/** An entry's item id, or its kind for a run. */
+const entryId = (entry: { readonly kind: string; readonly item?: { readonly id: string } }) =>
+  entry.item?.id ?? entry.kind;
+
 describe("subagents and tool runs in the conversation", () => {
   const agent = I.ToolCall.make({
     id: "toolu_agent",
@@ -203,7 +207,11 @@ describe("subagents and tool runs in the conversation", () => {
     status: "completed",
   });
 
-  const sub = (id: string, parent: string | null): SubagentView => ({
+  const sub = (
+    id: string,
+    parent: string | null,
+    status: "completed" | "interrupted" = "completed"
+  ): SubagentView => ({
     subagent: new Subagent({
       id: SubagentId.make(id),
       sessionId: SessionId.make("s1"),
@@ -212,7 +220,7 @@ describe("subagents and tool runs in the conversation", () => {
       title: "Explore",
       agent: null,
       model: null,
-      status: "completed",
+      status,
       startedAt: "2026-10-01T00:00:00.000Z",
       endedAt: "2026-10-01T00:00:05.000Z",
     }),
@@ -234,4 +242,35 @@ describe("subagents and tool runs in the conversation", () => {
 
     expect(rows).toEqual(["item", "subagent:toolu_agent", "item", "subagent:bg"]);
   });
+
+  test.each(["completed", "interrupted"] as const)(
+    "a %s Codex Subagent sits at its spawn, before the final messages",
+    (status) => {
+      const spawn = I.ToolCall.make({
+        id: "call_spawn",
+        name: "agent.spawn",
+        input: { agent: "/root/spec_review" },
+        output: null,
+        status: "completed",
+      });
+
+      const turn = {
+        ...view(0, [
+          message("m0", "Reviewing"),
+          spawn,
+          message("m1", "I found no regression."),
+          message("m2", '{"findings":[]}'),
+        ]),
+        subagents: [sub("child", "call_spawn", status)],
+      };
+
+      const rows = turnRows(turn, true, true).flatMap((r) =>
+        r.kind === "item"
+          ? [r.entry.kind === "subagent" ? `subagent:${r.entry.card.id}` : entryId(r.entry)]
+          : []
+      );
+
+      expect(rows).toEqual(["m0", "subagent:child", "m1", "m2"]);
+    }
+  );
 });

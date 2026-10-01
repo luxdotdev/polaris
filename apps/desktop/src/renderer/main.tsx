@@ -66,6 +66,9 @@ const reviewPreview = location.hash.startsWith("#review/");
 // `#checkout/<scene>`: the Review Checkout chip and menu on fixtures (features/review/checkout/preview).
 const checkoutPreview = location.hash.startsWith("#checkout/");
 
+// `#hosts/<scene>`: Settings → Hosts on fixtures, every daemon update state (features/machines/preview).
+const hostsPreview = location.hash.startsWith("#hosts/");
+
 let setPreviewDensity: ((density: Density) => void) | null = null;
 
 const appearance = (value: Appearance) => {
@@ -118,6 +121,10 @@ if (root !== null && preview) {
 } else if (root !== null && checkoutPreview) {
   void import("./features/review/checkout/preview/Preview.tsx").then((m) => {
     setPreviewDensity = m.mountCheckoutPreview(root, location.hash);
+  });
+} else if (root !== null && hostsPreview) {
+  void import("./features/machines/preview/Preview.tsx").then((m) => {
+    setPreviewDensity = m.mountHostsPreview(root, location.hash);
   });
 } else if (root !== null) {
   createRoot(root).render(

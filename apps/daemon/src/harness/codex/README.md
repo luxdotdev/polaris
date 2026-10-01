@@ -66,12 +66,12 @@ A Codex agent spawned from the Polaris thread runs in a thread of its own on the
 
 | parent-thread item | HarnessEvent |
 |---|---|
-| `subAgentActivity` `started` (multi-agent v2) | `SubagentStarted { subagentId: agentThreadId, title and agent: the agent's name (the last segment of `agentPath`) }` |
+| `subAgentActivity` `started` (multi-agent v2) | a `ToolCall` `agent.spawn` of the Turn (its id is the spawning call's), and `SubagentStarted { subagentId: agentThreadId, parentItemId: that item, title and agent: the agent's name (the last segment of `agentPath`) }`, so the card sits where it was spawned and the Turn's later messages come after it |
 | `subAgentActivity` `completed` / `interrupted` | `SubagentEnded` |
 | `collabAgentToolCall` `spawnAgent` (v1) | one `SubagentStarted` per `receiverThreadIds` entry (title: the prompt's first line, `model`) |
 | `collabAgentToolCall` `agentsStates` | `SubagentEnded` for each agent `completed` / `errored` (→ failed) / `interrupted` / `shutdown` / `notFound` |
 
-Items, deltas and progress on a Subagent's thread are its own (`subagentId` = its thread), under the Polaris Turn that spawned it. Its own Codex turns map to that Turn too, so an approval it asks for belongs to the Turn, and its `turn/completed` ends nothing. The collab call itself stays a `ToolCall` of the Turn. `subagents.test.ts` replays `fixtures/subagent-turn.jsonl`, a real Turn that spawned one agent (scrubbed).
+Items, deltas and progress on a Subagent's thread are its own (`subagentId` = its thread), under the Polaris Turn that spawned it. Its own Codex turns map to that Turn too, and its `turn/completed` ends nothing. A server request (approval, question) carries its thread: one from a Subagent's thread goes to the Turn that spawned it, or to the Turn in flight when the parent hasn't reported the spawn yet (codex-cli 0.159 asks before it does). It never starts a Polaris Turn: one did, and left two empty Turns stuck working after a Reviewer's real one (`subagentTurns.test.ts`). The collab call itself stays a `ToolCall` of the Turn. `subagents.test.ts` replays `fixtures/subagent-turn.jsonl`, a real Turn that spawned one agent (scrubbed).
 
 ### Approvals
 
@@ -101,6 +101,8 @@ The table follows T3 Code's runtime modes. These values go on `thread/start`/`th
 
 - **Listing** (`models.ts`): `model/list`, `includeHidden: false`, following `nextCursor`. `Model.id` is the entry's `model` (what `turn/start` takes), `efforts` its `supportedReasoningEfforts`, `defaultEffort` its `defaultReasoningEffort`, `isDefault` as reported. Asking never starts a thread. When the shared server isn't running it is **not** started for a listing (it is detached and would outlive the Daemon): a private `codex app-server` on stdio answers and is killed with the request's scope. Cost measured with codex-cli 0.158.0: ~0.13 s to `initialize`, ~0.5 s for `model/list` (Codex fetches the catalogue for the signed-in account). The Daemon caches the answer per Host (`../HarnessRpcs.ts`).
 - **Switching** (`switchModel: true`): each `turn/start` carries the Turn's `model` and `effort`. Codex applies overrides "for this turn and subsequent turns" of the thread, so a Model changed with `SetModel` takes effect at the next Turn without reopening. A null field is omitted, which keeps whatever the thread last ran with; Codex has no way to clear an effort override back to the Model's default, so a Client should send a concrete effort (the Model's `defaultEffort`) rather than null after choosing one. Answers to async questions reuse the last Turn's Model and effort.
+
+`OpenOptions.readOnly` overrides every permission mode: `never` approvals, `user` reviewer, and `read-only` sandbox (network off), on thread start/resume and each Turn. Codex Subagents inherit the thread's policy. Late server requests from any thread on the session connection are declined without emitting `ApprovalRequested`; changing the permission mode cannot widen the sandbox.
 
 ### Other commands
 

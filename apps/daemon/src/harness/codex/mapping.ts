@@ -34,7 +34,9 @@ export interface CodexPolicy {
  *
  * Same table as T3 Code's runtime modes (design followed, no code copied).
  */
-export const policyFor = (mode: PermissionMode): CodexPolicy => {
+export const policyFor = (mode: PermissionMode, readOnly = false): CodexPolicy => {
+  if (readOnly) return { approvalPolicy: "never", approvalsReviewer: "user", sandbox: "read-only" };
+
   switch (mode) {
     case "supervised":
       return { approvalPolicy: "untrusted", approvalsReviewer: "user", sandbox: "read-only" };
@@ -204,6 +206,20 @@ const itemMappers = new Map<string, ItemMapper>([
             input: { prompt: item.prompt },
             output: null,
             status: collabStatus(item.status),
+          })
+        : null,
+  ],
+  [
+    // The spawn (its id is the spawning call's), so the Subagent's card can sit where it began.
+    "subAgentActivity",
+    (item) =>
+      "agentPath" in item && item.kind === "started"
+        ? ToolCall.make({
+            id: item.id,
+            name: "agent.spawn",
+            input: { agent: item.agentPath },
+            output: null,
+            status: "completed",
           })
         : null,
   ],

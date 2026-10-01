@@ -47,3 +47,5 @@ Wiring: `Engine.layer` needs `EventStore` (`EventStore.layerLive`), `HarnessRegi
 - Replay (`afterSequence`) still reads the whole `(after, cut]` range at once; a Client far behind should get a fresh snapshot instead.
 - `Steer`, `Interrupt`, `RespondToApproval` and `SetPermissionMode` reach the Harness only while it runs. Otherwise they are logged.
 - `SetModel` is recorded, and each Turn records its Model and effort and hands them to the driver (`TurnInput`), which applies them before the Turn (see the Claude and Codex driver READMEs).
+
+`review.recovery` reads running Risk Summaries and durable Reviewer session ids once at Reviewer startup. It does not change store replay or Engine recovery; the Reviewer uses existing domain events to end abandoned summaries.

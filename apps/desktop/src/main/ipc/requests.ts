@@ -252,6 +252,11 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
     machines((m) => m.update(hostKey, patch)).pipe(done),
   "machines.remove": ({ hostKey }) => machines((m) => m.remove(hostKey)).pipe(done),
   "machines.check": ({ hostKey }) => machines((m) => m.check(hostKey)).pipe(done),
+  "machines.updateDaemon": ({ hostKey }) => machines((m) => m.updateDaemon(hostKey)).pipe(done),
+  "machines.setKeepDaemonsUpToDate": ({ enabled }) =>
+    machines((m) => m.setKeepDaemonsUpToDate(enabled)).pipe(done),
+  "machines.setDaemonUpdateOverride": ({ hostKey, enabled }) =>
+    machines((m) => m.setDaemonUpdateOverride(hostKey, enabled)).pipe(done),
   "machines.approve": ({ hostKey, sha256 }) =>
     machines((m) => m.approve(hostKey, sha256)).pipe(done),
   "machines.dismiss": ({ hostKey }) => machines((m) => m.dismiss(hostKey)).pipe(done),

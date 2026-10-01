@@ -12,7 +12,30 @@ import { AddMachine } from "./AddMachine.tsx";
 import { call, useMachines, useNow } from "./hooks.tsx";
 import { HostDetails } from "./HostDetails.tsx";
 import { HostRow, LANES } from "./HostRow.tsx";
-import { needsUser } from "./model.ts";
+import { attentionCard, needsUser } from "./model.ts";
+import {
+  setDaemonUpdateOverride,
+  setKeepDaemonsUpToDate,
+  updateDaemon,
+} from "./updates/actions.ts";
+import { KeepUpToDate, OverrideMenuItems } from "./updates/Controls.tsx";
+import { type FailureAction, type UpdateLine, updateLine } from "./updates/model.ts";
+import { UpdateStrip } from "./updates/UpdateStrip.tsx";
+
+const failureAction = (machine: MachineView, line: UpdateLine, action: FailureAction) => {
+  if (action === "retry") return updateDaemon(machine.key);
+
+  if (action === "open-ssh") return void call("machines.openSsh", { hostKey: machine.key });
+  const detail = line.kind === "failed" ? line.failure.detail : null;
+
+  if (detail !== null) void call("clipboard.write", { text: detail });
+};
+
+/** This Mac first, then the remote Hosts in the order they were added. */
+const thisMacFirst = (machines: ReadonlyArray<MachineView>) => [
+  ...machines.filter((m) => m.alias === null),
+  ...machines.filter((m) => m.alias !== null),
+];
 
 const Header = () => (
   <div className="h-row px-panel border-hairline bg-surface-sunken flex shrink-0 items-center border-b">
@@ -39,6 +62,18 @@ const Row = ({
   const model = useApp((s) => s.hostModels[machine.key]);
   const workspaces = model === undefined ? null : visibleWorkspaces(model ?? emptyHostModel).length;
   const remote = machine.alias !== null;
+  const daemon = machine.daemon;
+
+  const line = updateLine({
+    label: machine.label,
+    alias: machine.alias,
+    connected: machine.status?.state === "connected",
+    daemon,
+    now,
+  });
+
+  // A connection the user must fix is told once, by its own card.
+  const shown = line.kind === "failed" && attentionCard(machine) !== null ? null : line;
 
   return (
     <HostRow
@@ -49,6 +84,24 @@ const Row = ({
       onToggle={onToggle}
       onRetry={() => void call("host.retryNow", { hostKey: machine.key })}
       onRemove={remote ? () => void call("machines.remove", { hostKey: machine.key }) : null}
+      daemonVersion={daemon?.installedVersion ?? null}
+      update={
+        shown === null ? null : (
+          <UpdateStrip
+            line={shown}
+            onUpdate={() => updateDaemon(machine.key)}
+            onFailureAction={(action) => failureAction(machine, shown, action)}
+          />
+        )
+      }
+      menu={
+        daemon === null || !daemon.managed ? null : (
+          <OverrideMenuItems
+            daemon={daemon}
+            onChange={(enabled) => setDaemonUpdateOverride(machine.key, enabled)}
+          />
+        )
+      }
     >
       <HostDetails machine={machine} settings={settings} />
     </HostRow>
@@ -87,6 +140,7 @@ export const HostsSettingsPage = ({ adding = false }: HostsSettingsPageProps) =>
   const toggle = (machine: MachineView) =>
     setToggled((current) => ({ ...current, [machine.key]: !isOpen(machine) }));
 
+  const keep = machines?.find((m) => m.daemon !== null)?.daemon?.keepDaemonsUpToDate ?? null;
   const taken = new Set((machines ?? []).flatMap((m) => (m.alias === null ? [] : [m.alias])));
 
   return (
@@ -104,7 +158,7 @@ export const HostsSettingsPage = ({ adding = false }: HostsSettingsPageProps) =>
       <div className="border-hairline rounded-card flex flex-col overflow-clip border">
         <Header />
         <ul className="flex flex-col">
-          {(machines ?? []).map((machine) => (
+          {thisMacFirst(machines ?? []).map((machine) => (
             <Row
               key={machine.key}
               machine={machine}
@@ -115,6 +169,7 @@ export const HostsSettingsPage = ({ adding = false }: HostsSettingsPageProps) =>
             />
           ))}
         </ul>
+        {keep === null ? null : <KeepUpToDate checked={keep} onChange={setKeepDaemonsUpToDate} />}
       </div>
       {adder ? (
         <AddMachine

@@ -27,11 +27,11 @@ import { Engine } from "../engine/Engine.ts";
 import { Availability } from "../harness/availability/index.ts";
 import { ApprovalPolicy, ReviewCheckoutGit, Rules, type ServiceError } from "../services.ts";
 import { EventStore } from "../store/EventStore.ts";
-import { REVIEWER_MARKER } from "./prompt.ts";
 import { WALKTHROUGH_MARKER } from "./walkthroughPrompt.ts";
 import { askReviewer } from "./ask.ts";
 import { ReviewerSessions } from "./sessions.ts";
-import { canRunChecks, reviewerDecision } from "./policy.ts";
+import { recoverReviewer } from "./recovery.ts";
+import { reviewerDecision } from "./policy.ts";
 import { resolveRange } from "./range.ts";
 import { type RunRequest, runLayers, startRun } from "./run.ts";
 import {
@@ -55,11 +55,7 @@ export const ReviewerPolicyLive = Layer.effect(
 
     return ApprovalPolicy.of({
       decide: (request) =>
-        Effect.sync(() =>
-          sessions.has(request.sessionId)
-            ? reviewerDecision(request, { runChecks: canRunChecks(request.harness) })
-            : null
-        ),
+        Effect.sync(() => (sessions.has(request.sessionId) ? reviewerDecision(request) : null)),
       readOnly: (sessionId) => sessions.has(sessionId),
     });
   })
@@ -177,6 +173,8 @@ const make = (options: ReviewerOptions) =>
     const sessions = yield* ReviewerSessions;
     const availability = yield* Effect.serviceOption(Availability);
 
+    yield* recoverReviewer;
+
     const context = yield* Effect.context<
       EventStore | Engine | ReviewerSessions | ReviewCheckoutGit | Rules
     >();
@@ -188,12 +186,7 @@ const make = (options: ReviewerOptions) =>
     const model = yield* store.model;
 
     for (const record of model.sessions.values()) {
-      if (
-        record.turns.some(
-          (turn) =>
-            turn.prompt.startsWith(REVIEWER_MARKER) || turn.prompt.startsWith(WALKTHROUGH_MARKER)
-        )
-      )
+      if (record.turns.some((turn) => turn.prompt.startsWith(WALKTHROUGH_MARKER)))
         yield* sessions.register(record.session.id);
     }
 

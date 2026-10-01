@@ -11,18 +11,18 @@ const flow = (patch: Partial<InstallFlowView>): InstallFlowView => ({
   ...patch,
 });
 
-const upgrade = () => undefined;
+const openHosts = () => undefined;
 
 describe("the / menu on a Host whose daemon can't list commands", () => {
-  test("says so in words, with one action that upgrades it", () => {
-    const notice = daemonNotice("This Mac", null, upgrade);
+  test("says so in words, with one action that opens Settings → Hosts", () => {
+    const notice = daemonNotice("This Mac", null, openHosts);
 
     expect(notice.message).toBe("Skills need a newer daemon on This Mac");
-    expect(notice.action?.label).toBe("Upgrade daemon");
+    expect(notice.action?.label).toBe("Update daemon");
   });
 
   test("follows the upgrade: running, failed, done", () => {
-    expect(daemonNotice("pi", flow({ step: "installing" }), upgrade)).toEqual({
+    expect(daemonNotice("pi", flow({ step: "installing" }), openHosts)).toEqual({
       message: "Upgrading the daemon on pi…",
       action: null,
     });
@@ -33,11 +33,11 @@ describe("the / menu on a Host whose daemon can't list commands", () => {
           step: "blocked",
           problem: { kind: "ssh", message: "Permission denied", command: null },
         }),
-        upgrade
+        openHosts
       )
     ).toMatchObject({
       message: "Couldn't upgrade the daemon on pi: Permission denied",
-      action: { label: "Try again" },
+      action: { label: "See why" },
     });
     expect(
       daemonNotice(
@@ -46,7 +46,7 @@ describe("the / menu on a Host whose daemon can't list commands", () => {
           step: "ready",
           outcome: { kind: "upgraded", version: "2", from: "1", notes: [], adminCommand: null },
         }),
-        upgrade
+        openHosts
       ).action
     ).toBeNull();
   });

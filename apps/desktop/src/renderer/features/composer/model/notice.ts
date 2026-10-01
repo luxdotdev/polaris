@@ -1,7 +1,7 @@
 /**
  * What the `/` menu says instead of a list when the Host's Daemon is too old
  * to list Skills and Slash Commands (no `harness.commands`), and the one action
- * that fixes it: the Host's own upgrade, as Settings → Hosts runs it.
+ * that fixes it: Settings → Hosts, where the Host's daemon updates.
  */
 import type { InstallFlowView } from "../../../../shared/api.ts";
 import { type CommandToken, sigilOpen } from "./commands.ts";
@@ -14,7 +14,7 @@ export interface CommandNotice {
 export const daemonNotice = (
   hostLabel: string,
   install: InstallFlowView | null,
-  upgrade: () => void
+  openHosts: () => void
 ): CommandNotice => {
   const step = install?.step ?? "idle";
 
@@ -24,7 +24,7 @@ export const daemonNotice = (
   if (step === "blocked")
     return {
       message: `Couldn't upgrade the daemon on ${hostLabel}: ${install?.problem?.message ?? "it failed"}`,
-      action: { label: "Try again", run: upgrade },
+      action: { label: "See why", run: openHosts },
     };
 
   // Upgraded: the Host reconnects, and with it come the Skills.
@@ -33,7 +33,7 @@ export const daemonNotice = (
 
   return {
     message: `Skills need a newer daemon on ${hostLabel}`,
-    action: { label: "Upgrade daemon", run: upgrade },
+    action: { label: "Update daemon", run: openHosts },
   };
 };
 

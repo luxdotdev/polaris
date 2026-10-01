@@ -16,7 +16,7 @@ import {
   useHarnessCommands,
 } from "../../composer/index.ts";
 // The machines feed alone: the feature's index reaches slots.tsx, an import cycle from here.
-import { call as callMachines, useMachineInstall } from "../../machines/hooks.tsx";
+import { useMachineInstall } from "../../machines/hooks.tsx";
 import { hasCapability, useHost } from "../hooks.ts";
 import type { ComposerCommands } from "./DraftComposer.tsx";
 
@@ -70,7 +70,7 @@ export const useComposerCommands = ({
   const install = useMachineInstall(hostKey, outdated);
   const listing = useHarnessCommands(hostKey, harness, cwd, listed);
 
-  const upgrade = () => void callMachines("machines.check", { hostKey });
+  const openHosts = () => void registry.run("settings.hosts");
 
   const actions: Readonly<Record<PolarisAction, () => void>> = {
     "new-session": () => void registry.run("session.new"),
@@ -84,7 +84,7 @@ export const useComposerCommands = ({
     loading: listing.loading,
     want: listing.want,
     onAction: (action) => afterRelease(actions[action]),
-    notice: outdated ? daemonNotice(host?.label ?? hostKey, install, upgrade) : null,
+    notice: outdated ? daemonNotice(host?.label ?? hostKey, install, openHosts) : null,
     frecency,
     onPicked: (option) => {
       if (harness !== null)

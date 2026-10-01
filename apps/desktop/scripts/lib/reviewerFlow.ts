@@ -46,6 +46,30 @@ const source = () => `(async () => {
   const cached = must(await api.request("review.runRiskSummary", request), "review.runRiskSummary");
   const asked = must(await api.request("review.askFinding", { hostKey, summaryId: summary.id, findingId: null, question: "Anything else worth a look?" }), "review.askFinding");
 
+  const snapshot = () => new Promise((resolve, reject) => {
+    let latest;
+    const timer = setTimeout(() => { close(); reject(new Error("Reviewer snapshot timed out")); }, 5000);
+    const close = api.subscribe("session", { hostKey, sessionId: asked.sessionId, turnLimit: null }, { items: (items) => {
+      for (const item of items) {
+        if (item._tag === "Snapshot") latest = item;
+        if (item._tag === "Event" && latest) {
+          const event = item.envelope.event;
+          if (event._tag === "SessionStateChanged") latest = { ...latest, session: { ...latest.session, state: event.state } };
+          if (event._tag === "TurnStarted" || event._tag === "TurnEnded") latest = { ...latest, turns: [...latest.turns.filter(({ turn }) => turn.id !== event.turn.id), { turn: event.turn }] };
+          if (event._tag === "ApprovalRequested") latest = { ...latest, pendingApprovals: [...latest.pendingApprovals, event.request] };
+          if (event._tag === "ApprovalResolved" || event._tag === "ApprovalWithdrawn") latest = { ...latest, pendingApprovals: latest.pendingApprovals.filter((approval) => approval.id !== event.requestId) };
+        }
+        if (item._tag === "Synchronized") { clearTimeout(timer); close(); resolve(latest); return; }
+      }
+    }, end: (error) => { clearTimeout(timer); reject(new Error("Reviewer snapshot ended: " + JSON.stringify(error))); } });
+  });
+  let reviewed;
+  for (let i = 0; i < 200; i++) {
+    reviewed = await snapshot();
+    if (reviewed && reviewed.turns.some(({ turn }) => turn.id === asked.turnId && turn.status !== "working")) break;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
   return {
     auto: before.resolved.choice && before.resolved.choice.harness,
     override: overridden.resolved.source + ":" + overridden.resolved.choice.model,
@@ -56,6 +80,8 @@ const source = () => `(async () => {
     reviewerSession: summary.reviewer && summary.reviewer.sessionId,
     cached: cached.id === summary.id,
     followUp: asked.sessionId === (summary.reviewer && summary.reviewer.sessionId),
+    finished: reviewed && reviewed.session.state === "idle" && reviewed.turns.every(({ turn }) => turn.status !== "working"),
+    noApprovals: reviewed && reviewed.pendingApprovals.length === 0,
   };
 })()`;
 
@@ -76,6 +102,8 @@ export const reviewerFlow = async ({
     readonly reviewerSession: string | null;
     readonly cached: boolean;
     readonly followUp: boolean;
+    readonly finished: boolean;
+    readonly noApprovals: boolean;
   };
 
   step(`Reviewer: ${JSON.stringify(result)}`);
@@ -88,7 +116,9 @@ export const reviewerFlow = async ({
     result.findings.some((f) => f.startsWith("agent ")) &&
     result.reviewerSession !== null &&
     result.cached &&
-    result.followUp;
+    result.followUp &&
+    result.finished &&
+    result.noApprovals;
 
   if (!ok) throw new Error("the Reviewer flow didn't complete as expected");
 };
