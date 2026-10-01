@@ -54,6 +54,12 @@ export interface PullRowModel {
   readonly updated: string;
 }
 
+/** Lines added and removed. */
+export interface Changes {
+  readonly additions: number;
+  readonly deletions: number;
+}
+
 /** An Agent Session whose last Turn ended with Turns not yet accepted (R3, R2). */
 export interface SessionRowModel {
   readonly kind: "session";
@@ -62,9 +68,11 @@ export interface SessionRowModel {
   readonly sessionId: SessionId;
   readonly harness: string;
   readonly title: string;
-  /** "Claude Code · turns 22–24". */
+  /** "Claude Code · turns 22–24 · 3 since your last review". */
   readonly meta: string;
   readonly workspace: WorkspaceLane | null;
+  /** Its not-yet-committed Turns' lines; null until the Host says. */
+  readonly changes: Changes | null;
   readonly risk: RiskLane;
   readonly updated: string;
 }
@@ -106,6 +114,8 @@ export interface ListInput {
   readonly riskOf: (subjectKey: string) => RiskLane;
   /** Every Agent Session, for "Agent sessions ready". */
   readonly sessions: ReadonlyArray<SessionInfo>;
+  /** A ready session's changes at its Turn count, when known. */
+  readonly changesOf: (hostKey: string, sessionId: string, turnCount: number) => Changes | null;
   /** A Host by key, for a session's workspace lane. */
   readonly hostOf: (hostKey: string) => Omit<PlaceInfo, "workspace"> | null;
   /** Groups the user expanded past their first rows. */
@@ -187,39 +197,50 @@ const turnsOf = (info: SessionInfo) => {
   return first >= info.turnCount ? `turn ${info.turnCount}` : `turns ${first}–${info.turnCount}`;
 };
 
-const sessionRows = (input: ListInput): ReadonlyArray<SessionRowModel> => {
-  const byId = new Map(input.sessions.map((s) => [`${s.hostKey}:${s.id}`, s]));
+/** Accepting is an Agent Session's review: Turns since the last accept, once there was one. */
+const sinceReview = (info: SessionInfo) =>
+  info.acceptedThroughIndex === null
+    ? null
+    : `${info.turnCount - info.acceptedThroughIndex - 1} since your last review`;
 
-  return readySessions(input.sessions).flatMap((ready) => {
+/** The sessions "Agent sessions ready" shows, newest first, as the queue picks them. */
+export const readyInfos = (sessions: ReadonlyArray<SessionInfo>): ReadonlyArray<SessionInfo> => {
+  const byId = new Map(sessions.map((s) => [`${s.hostKey}:${s.id}`, s]));
+
+  return readySessions(sessions).flatMap((ready) => {
     const info = byId.get(ready.id);
 
-    if (info === undefined) return [];
-
-    const host = input.hostOf(info.hostKey);
-
-    return [
-      {
-        kind: "session",
-        id: ready.id,
-        hostKey: info.hostKey,
-        sessionId: info.id,
-        harness: info.harness,
-        title: info.title || "Untitled session",
-        meta: `${harnessHue(info.harness).name} · ${turnsOf(info)}`,
-        workspace:
-          host === null
-            ? null
-            : {
-                name: info.workspaceName ?? host.hostLabel,
-                where: host.connected ? host.hostLabel : `${host.hostLabel} · ${host.state}`,
-                away: !host.connected,
-              },
-        risk: input.riskOf(`session:${info.hostKey}:${info.id}`),
-        updated: age(info.updatedAt, input.now),
-      },
-    ];
+    return info === undefined ? [] : [info];
   });
 };
+
+const sessionRows = (input: ListInput): ReadonlyArray<SessionRowModel> =>
+  readyInfos(input.sessions).map((info) => {
+    const host = input.hostOf(info.hostKey);
+
+    return {
+      kind: "session",
+      id: `${info.hostKey}:${info.id}`,
+      hostKey: info.hostKey,
+      sessionId: info.id,
+      harness: info.harness,
+      title: info.title || "Untitled session",
+      meta: [harnessHue(info.harness).name, turnsOf(info), sinceReview(info)]
+        .filter((part) => part !== null)
+        .join(" · "),
+      changes: input.changesOf(info.hostKey, info.id, info.turnCount),
+      workspace:
+        host === null
+          ? null
+          : {
+              name: info.workspaceName ?? host.hostLabel,
+              where: host.connected ? host.hostLabel : `${host.hostLabel} · ${host.state}`,
+              away: !host.connected,
+            },
+      risk: input.riskOf(`session:${info.hostKey}:${info.id}`),
+      updated: age(info.updatedAt, input.now),
+    };
+  });
 
 const captionOf = (rows: ReadonlyArray<PullRowView>, input: ListInput) => {
   const repos = new Set(rows.map((r) => r.repo.toLowerCase())).size;

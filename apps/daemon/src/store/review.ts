@@ -256,6 +256,14 @@ export const reviewReads = (sql: SqlClient.SqlClient): ReviewReads => ({
     RiskSummaryRef.match(ref, {
       ById: ({ summaryId }) => readSummaryRow(sql, summaryId),
       ByKey: ({ key }) => latestFor(sql, key),
+      LatestAt: ({ repo, head }) =>
+        sql<{ data: string }>`
+          SELECT data FROM risk_summaries WHERE repo = ${repo} AND head = ${head}
+          ORDER BY started_sequence DESC LIMIT 1`.pipe(
+          Effect.map((rows) =>
+            rows[0] === undefined ? null : RiskSummaryJson.decode(rows[0].data)
+          )
+        ),
     }).pipe(Effect.mapError(storeError("read a Risk Summary")), Effect.orDie),
   riskSummariesAt: (repo, head, limit) =>
     sql<{ data: string }>`

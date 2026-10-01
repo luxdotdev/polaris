@@ -5,6 +5,7 @@
  */
 import { Button, cn, EmptyState, PixelCheckIcon, PixelForkIcon, PixelKeyIcon } from "@polaris/ui";
 import { type KeyboardEvent, useMemo, useState } from "react";
+import type { Capability } from "@polaris/protocol";
 import type { OpenPull } from "../../../../shared/api.ts";
 import type { WorkspaceRef } from "../../../../shared/github.ts";
 import { openPull, openSessionReview } from "../../../routes/review.ts";
@@ -14,7 +15,7 @@ import { useNow } from "../../../shell/useNow.ts";
 import type { AppState } from "../../../store/store.ts";
 import { sessionsOf } from "../../review/model/sessions.ts";
 import { checkoutsByPull } from "../model/checkouts.ts";
-import { type GroupId, listModel, type PlaceOf, type RowModel } from "../model/list.ts";
+import { type GroupId, listModel, type PlaceOf, readyInfos, type RowModel } from "../model/list.ts";
 import { noticesOf } from "../model/notices.ts";
 import { usePulls } from "../store.ts";
 import { AccountMark } from "./AccountMark.tsx";
@@ -22,6 +23,7 @@ import { ByUrl } from "./ByUrl.tsx";
 import { NoticeRow } from "./Notice.tsx";
 import { LANES, PullRow, ROW_X } from "./PullRow.tsx";
 import { useRiskLanes } from "./useRiskLanes.ts";
+import { useSessionChanges } from "./useSessionChanges.ts";
 
 const placeOfFrom =
   (hosts: AppState["hosts"], models: AppState["hostModels"]): PlaceOf =>
@@ -200,8 +202,20 @@ export const PullList = ({ onAddAccount }: PullListProps) => {
 
   const placeOf = useMemo(() => placeOfFrom(hosts, models), [hosts, models]);
   const found = useMemo(() => checkoutsByPull(models), [models]);
-  const riskOf = useRiskLanes(found);
+
+  const can = useMemo(() => {
+    const capable = new Map(hosts.map((h) => [h.key, new Set(h.status.capabilities)]));
+
+    return (capability: Capability) => (hostKey: string) =>
+      capable.get(hostKey)?.has(capability) ?? false;
+  }, [hosts]);
+
+  const latest = useMemo(() => can("review.latest-summary"), [can]);
+  const acceptLatest = useMemo(() => can("session.accept-latest"), [can]);
+  const riskOf = useRiskLanes(found, latest);
   const sessions = useMemo(() => sessionsOf(models), [models]);
+  const ready = useMemo(() => readyInfos(sessions), [sessions]);
+  const changesOf = useSessionChanges(ready, acceptLatest);
 
   const model = useMemo(() => {
     if (list === null) return null;
@@ -234,10 +248,23 @@ export const PullList = ({ onAddAccount }: PullListProps) => {
       riskOf,
       sessions,
       hostOf,
+      changesOf,
       expanded,
       now,
     });
-  }, [list, accounts, accountId, placeOf, found, riskOf, sessions, hosts, expanded, now]);
+  }, [
+    list,
+    accounts,
+    accountId,
+    placeOf,
+    found,
+    riskOf,
+    sessions,
+    changesOf,
+    hosts,
+    expanded,
+    now,
+  ]);
 
   const notices = useMemo(
     () =>

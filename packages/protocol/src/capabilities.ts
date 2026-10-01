@@ -77,6 +77,10 @@ export const Capability = Schema.Literals([
   "review.verdicts",
   /** `review.reviewerSettings` and `review.setReviewerSettings`: Settings → Reviewer. */
   "review.reviewer-settings",
+  /** `review.riskSummary` by `LatestAt`: a repository's newest summary at a head, incremental ones too. */
+  "review.latest-summary",
+  /** `session.acceptPlan` with a null `throughTurnId`: through the latest Turn. */
+  "session.accept-latest",
 ]);
 
 export type Capability = typeof Capability.Type;

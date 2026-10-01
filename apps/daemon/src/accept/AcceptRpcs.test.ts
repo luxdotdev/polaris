@@ -187,6 +187,11 @@ describe("accepting an Agent Session's work", () => {
           });
           expect(plan.remote?.name).toBe("origin");
 
+          // Null: through the latest Turn, so the later one is in the plan too.
+          const latest = yield* client["session.acceptPlan"]({ sessionId, throughTurnId: null });
+          expect(latest).toMatchObject({ laterTurns: 0 });
+          expect(latest.turns).toHaveLength(plan.turns.length + 1);
+
           const draft = yield* client["session.draftAccept"]({ sessionId, throughTurnId: through });
           expect(draft).toMatchObject({
             source: "harness",
