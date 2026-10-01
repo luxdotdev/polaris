@@ -159,3 +159,121 @@ Findings 1–3 are fixed on `fix/verification-findings`, finding 4 on `m2/protoc
 - A late approval request is dropped without an answer to the Harness. That is right for the Turn-scoped requests the drivers send today; a Harness that asked about an ended Turn and blocked on the answer would wait until its next Turn or exit.
 - Interrupt with no Harness running (`turn.interruptUnattended`) moves an In Terminal session to Dormant, even though its terminal UI may still be open (the Claude hand-off follows the TUI without a Harness). It is how a user ends a Turn the TUI left open before archiving; a follow-up could keep In Terminal there.
 - Checked against the ENG-210 session machine (merged at `1285069`).
+
+## Constellations v1 (C1-P, ENG-236/ENG-243/ENG-244)
+
+`constellations.qnt` is the reference model for the Constellation contract in
+`packages/protocol/src/constellation/` and ADRs 0004/0011. It runs alongside the
+existing store/session spec. `constellations_test.qnt` contains 18 command/race
+scenarios and 16 malformed-event probes that must violate the corresponding
+property. `scripts/check.ts` typechecks both files, runs both test modules, then
+simulates the Constellation `safety` conjunction with required witnesses for
+Claim, acceptance, Gate, handover, delivery, relay, recovery and lease grants.
+
+The default `current_constellations` instance has three Tasks, four sessions, six resource/outbox request IDs, one
+Constellation owner and one capacity-two Host resource. Dependency closure is
+bounded by the Task set, not by a hard-coded depth. Commands allocate append-only
+Attempt indices and relative revision counters (wire revision numbers are checked by the real decider tests); batches either append all operations or none.
+`log` is the durable owner stream. `view`, including pending notification IDs,
+is always `foldEvents(log)`. Worker `outbox` and interruption markers survive
+`restart`; app connection, owner availability and Offline sessions are separate
+inputs. The simulator explores up to 60 actions per trace; temporal obligations
+do not have a log-size cap that could artificially prevent a grant or digest.
+
+| Model | Contract / implementation responsibility |
+| --- | --- |
+| `planEvents`, `opEvents`, `validGraph` | `ConstellationCommand.Plan`, `PlanOperation`: atomic Add/Edit/Cancel with revisions; reject cycles, missing/canceled deps and cancellation with dependents |
+| `start`, `current`, `change`, `latest`, `taskState` | `AttemptStarted`, Attempt revision, linked `AttemptCause.ref`, `TaskProjection`; engine decider folds the graph rather than persisting Task state |
+| `claim`, `accept`, `reject`, `stop`, `harnessFail` | worker Claim, ReviewAction, AttemptClaimed/Accepted/Rejected/Settled; Claim requires clean branch/current revision and acceptance requires the claimed head |
+| `promote` | decider-only `GatePromoted`, counting latest accepted Attempts, not Claims or mechanical settles |
+| `ask`, `finish`, `deliver` | NotificationQueued and LeadNotified; committed notification IDs, one durable digest Turn, retained across restart and handover |
+| `handover`, `setState` | atomic LeadChanged and the planning/running/paused/completed/archived lifecycle; workers are unchanged |
+| `commit`, `enqueue`, `relay`, `availability` | owner-only events, ConstellationOutboxEntry stable IDs, app relay and unavailable owner; the owner journals both apply and refusal receipts |
+| `interrupt`, `recover`, `restart` | AttemptRecoveryContinued: one automatic Continue for a delegated Attempt's first infrastructure interruption, with durable replay marker; second interruption is attention |
+| `request`, `grant`, `release`, `cancelLease` | Host ResourceDeclared/ResourceLeaseQueued/ResourceLeased/ResourceReleased/ResourceLeaseCanceled/ResourceRemoved: request IDs are lease IDs, FIFO capacity, explicit or process-bound release |
+
+The 15 spec properties (§11) map as follows. Safety checks every explored state;
+FIFO eventual grant and eventual delivery are temporal formulas with explicit
+availability/fairness assumptions, not claims proved by a finite simulator.
+
+| §11 property | Quint property | Scenario |
+| --- | --- | --- |
+| Graph is acyclic | `graphAcyclic` | `atomicPlanRejectsEveryOperationOnACycleTest` |
+| Causes point backward | `causesPointBackward` | `linkedCausesPointBackwardTest` |
+| Task follows latest Attempt | `taskFollowsLatestAttempt` (derived by construction) | `taskFollowsItsLatestAttemptTest` |
+| Gate only after every dep accepted, once | `gatePromotedOnlyAfterAccepted` | `gateCountsOnlyAcceptedAttemptsAndPromotesOnceTest` |
+| One Lead, atomic handover | `oneLead` (one folded Lead identity) | `handoverIsAtomicAndDoesNotTouchWorkersTest` |
+| One active Attempt per session | `oneActiveAttemptPerSession` | `sessionCannotCarryTwoActiveAttemptsTest` |
+| Every settle/question delivered exactly once | `exactlyOnceDelivery`, `everyNotificationEventuallyDelivered` | `settlesAndQuestionsAreDeliveredOnceAcrossRestartTest` |
+| Settled Attempt cannot change | `settledAttemptImmutable` | `settledAttemptsNeverChangeTest` |
+| Outbox entry applied once | `outboxAppliedExactlyOnce` | `outboxRetriesSurviveAppDisconnectAndLostAckTest` |
+| Only owning Daemon commits | `onlyOwnerCommits` | `onlyTheOwnerDaemonCommitsTest` |
+| At most one auto-Continue per interruption | `recoveryAtMostOnce` (also one total per Attempt) | `delegatedRecoveryContinuesOnlyOnceTest` |
+| Stale never settles without a command | `staleNeverSettlesWithoutCommand` | `staleHostCannotMechanicallySettleTest` |
+| No delivery to old Lead | `noOldLeadDelivery` | `oldLeadNeverReceivesAnInTransitDigestTest` |
+| Holders never exceed capacity | `resourceCapacity` | `resourceCapacityCannotBeExceededTest` |
+| FIFO waiter eventually granted | `fifoGrantOrder`, `fifoWaiterEventuallyGranted` | `fifoWaiterIsGrantedWhenAHolderReleasesTest` |
+
+The FIFO liveness premise requires the owner to be available and the grant and
+holder-release actions to run fairly. A holder that never exits or releases can
+hold forever by product design; this model does not kill it to satisfy liveness.
+Delivery similarly requires a running Lead, an available owner and fair digest
+execution. Pause/offline states retain pending IDs and make no progress promise.
+The scenario tests discharge these obligations once availability/release returns.
+The temporal formulas are typechecked; the current `--verify` path continues to
+verify the existing `small` session model, not Constellation temporal liveness.
+
+This abstraction leaves out prose, bundled git bytes, receipt output, permission
+binding cryptography, notification wall-clock coalescing and the actual Harness
+Turn queue. Stale is an external Connection State input, never an LLM decision.
+Recovery tests capture the durable allowance, while the session spec retains the
+standalone user-Continue rule. `OutboxApplied` is a ghost representation of the
+owner's idempotent decision receipt, not a new public Constellation event.
+
+The existing real Engine trace-validation command above still checks sessions,
+store commits and approvals. Constellation and resource traces use:
+
+```sh
+bun packages/spec/scripts/replay-constellation.ts /tmp/constellation-traces
+# A single .json file is also accepted.
+```
+
+The exported Effect Schema and JSON decoder are in
+`scripts/constellation-replay/index.ts`. A trace has this shape:
+
+```json
+{
+  "version": 1,
+  "ownerHostId": "lead-host",
+  "batches": [{
+    "hostId": "lead-host",
+    "events": [],
+    "context": { "offlineSessionIds": [], "commanded": true },
+    "outboxId": "newly-committed-receipt-id",
+    "constellationId": "graph-id"
+  }]
+}
+```
+
+`events` contains protocol DomainEvents in committed order. Every graph must
+start with `ConstellationStarted` containing an empty planning graph, not a
+snapshot. Linked causes reference an earlier Attempt of the same Task.
+`context` is required for each batch containing `AttemptSettled`; Connection
+State and command authority cannot be inferred from graph events. `outboxId`
+represents a newly committed owner receipt, including a refusal with zero graph
+events, never an RPC retry. An empty receipt batch can infer its sole graph;
+use `constellationId` when multiple graphs exist.
+
+The reader separates Constellation streams and each Host resource stream,
+checking the resource's own Host rather than the Lead's Host. It maps capacity
+changes, FIFO requests/grants, release, cancellation and removal. Removing a
+resource with holders/waiters or granting out of order fails replay. Additional
+process identity/command fields are accepted but process liveness and PID reuse
+are tested by the resource service, not inferred from this abstract log.
+
+Replay checks each committed batch against `safety`; generated Quint sources
+are retained on failure. The reader tests exercise the JSON boundary, CLI and
+malformed logs. It omits metadata prose and abstracts wire revisions; actual
+command refusals, role/revision checks, Harness execution and relay idempotency
+remain the engine/harness/resource model-based and integration tests. A passing
+abstract simulation alone does not verify those runtime paths.
