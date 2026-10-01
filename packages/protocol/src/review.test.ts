@@ -326,7 +326,7 @@ describe("Review contract", () => {
   test("a runRiskSummary request from before ReviewContext decodes with no context", () => {
     const codec = Schema.toCodecJson(RunRiskSummary.payloadSchema);
 
-    const { context: _dropped, ...older } = Schema.encodeSync(codec)({
+    const encoded = Schema.encodeSync(codec)({
       workspaceId: WorkspaceId.make("ws-1"),
       subject: summary.subject,
       checkoutId: null,
@@ -334,6 +334,9 @@ describe("Review contract", () => {
       refresh: false,
       context: ReviewContext.make({ title: "t", body: "b" }),
     });
+
+    const record = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Unknown))(encoded);
+    const { context: _dropped, ...older } = record;
 
     expect(Schema.decodeUnknownSync(codec)(older).context).toBeNull();
   });
