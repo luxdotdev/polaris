@@ -101,6 +101,12 @@ export class Machines extends Context.Service<
     readonly remove: (key: string) => Effect.Effect<void, MachineError>;
     /** The user asked: probe and plan, and install an approved build. */
     readonly check: (key: string) => Effect.Effect<void, MachineError>;
+    readonly updateDaemon: (key: string) => Effect.Effect<void, MachineError>;
+    readonly setKeepDaemonsUpToDate: (enabled: boolean) => Effect.Effect<void>;
+    readonly setDaemonUpdateOverride: (
+      key: string,
+      enabled: boolean | null
+    ) => Effect.Effect<void, MachineError>;
     readonly approve: (key: string, sha256: string) => Effect.Effect<void, MachineError>;
     readonly dismiss: (key: string) => Effect.Effect<void, MachineError>;
     readonly startDaemon: (key: string) => Effect.Effect<void, MachineError>;
@@ -186,7 +192,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
     });
 
   /** The flow after `check` moved to checking: plan, then maybe install. */
-  const checkBody = (key: string, trigger: InstallTrigger) => {
+  const checkBody = (key: string, trigger: InstallTrigger, updateOnly = false) => {
     const to = target(key);
 
     return Effect.gen(function* () {
@@ -201,10 +207,16 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
         ),
       });
 
-      if (to.local && installsAnew(plan)) {
+      if ((to.local || updateOnly) && installsAnew(plan)) {
         yield* step(key, {
           type: "failed",
-          problem: { kind: "failed", message: NO_LOCAL_INSTALL, command: null },
+          problem: {
+            kind: "failed",
+            message: to.local
+              ? NO_LOCAL_INSTALL
+              : "No daemon is installed. Use Install daemon first.",
+            command: null,
+          },
         });
 
         return;
@@ -244,11 +256,13 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
     );
   };
 
-  const runCheck = (key: string, trigger: InstallTrigger) =>
+  const runCheck = (key: string, trigger: InstallTrigger, updateOnly = false) =>
     Effect.gen(function* () {
+      const previous = record(key).snapshot;
       const started = yield* step(key, { type: "check", trigger }, target(key).probing);
 
-      if (started.value === "checking") yield* launch(key, checkBody(key, trigger));
+      if (started !== previous && started.value === "checking")
+        yield* launch(key, checkBody(key, trigger, updateOnly));
     });
 
   // Read once, not on every Connection State change; a dev build refreshes it.
@@ -358,7 +372,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
 
   const setLocalEnabled = (enabled: boolean) =>
     Effect.gen(function* () {
-      input.settings.update((s) => ({ ...s, local: { enabled } }));
+      input.settings.update((s) => ({ ...s, local: { ...s.local, enabled } }));
 
       if (!enabled) {
         yield* dir.remove(LOCAL_HOST_KEY);
@@ -383,6 +397,23 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
 
   yield* publish;
 
+  const setDaemonUpdateOverride = (key: string, enabled: boolean | null) =>
+    Effect.gen(function* () {
+      if (key !== LOCAL_HOST_KEY) yield* requireRemote(key);
+      input.settings.update((s) => {
+        const override = <T extends { readonly keepDaemonUpToDate?: boolean }>(host: T) => {
+          const { keepDaemonUpToDate: _previous, ...rest } = host;
+
+          return enabled === null ? rest : { ...rest, keepDaemonUpToDate: enabled };
+        };
+
+        return key === LOCAL_HOST_KEY
+          ? { ...s, local: override(s.local ?? { enabled: true }) }
+          : { ...s, hosts: (s.hosts ?? []).map((h) => (h.alias === key ? override(h) : h)) };
+      });
+      yield* publish;
+    });
+
   return Machines.of({
     views,
     sshAliases: Effect.sync(() => {
@@ -394,6 +425,12 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
     update,
     remove,
     check: (key) => Effect.andThen(requireCheckable(key), runCheck(key, "user")),
+    updateDaemon: (key) => Effect.andThen(requireCheckable(key), runCheck(key, "user", true)),
+    setKeepDaemonsUpToDate: (enabled) =>
+      Effect.sync(() =>
+        input.settings.update((s) => ({ ...s, keepDaemonsUpToDate: enabled }))
+      ).pipe(Effect.andThen(publish)),
+    setDaemonUpdateOverride,
     approve,
     dismiss: (key) => Effect.asVoid(step(key, { type: "dismiss" })),
     startDaemon: restart,

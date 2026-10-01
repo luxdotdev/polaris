@@ -36,6 +36,7 @@ const install = (patch: Partial<InstallFlowView> = {}): InstallFlowView => ({
 });
 
 const machine = (patch: Partial<MachineView> = {}): MachineView => ({
+  daemon: null,
   key: "pi",
   label: "Raspberry Pi 4",
   colour: null,

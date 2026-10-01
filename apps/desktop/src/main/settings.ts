@@ -21,6 +21,7 @@ import {
 import { DEFAULT_SESSION_PREFS } from "../shared/sessionPrefs.ts";
 
 export const RemoteHostSetting = Schema.Struct({
+  keepDaemonUpToDate: Schema.optionalKey(Schema.Boolean),
   alias: Schema.String.check(Schema.isMinLength(1)),
   label: Schema.optionalKey(Schema.String),
   colour: Schema.optionalKey(Schema.NullOr(Schema.String)),
@@ -32,6 +33,7 @@ export const RemoteHostSetting = Schema.Struct({
 export type RemoteHostSetting = typeof RemoteHostSetting.Type;
 
 export const Settings = Schema.Struct({
+  keepDaemonsUpToDate: Schema.optionalKey(Schema.Boolean),
   theme: Schema.optionalKey(ThemeSource),
   density: Schema.optionalKey(Density),
   textSize: Schema.optionalKey(TextSize),
@@ -47,7 +49,12 @@ export const Settings = Schema.Struct({
   newWorktree: Schema.optionalKey(Schema.Boolean),
   hosts: Schema.optionalKey(Schema.Array(RemoteHostSetting)),
   /** The local Host on this machine; on unless switched off. */
-  local: Schema.optionalKey(Schema.Struct({ enabled: Schema.Boolean })),
+  local: Schema.optionalKey(
+    Schema.Struct({
+      enabled: Schema.Boolean,
+      keepDaemonUpToDate: Schema.optionalKey(Schema.Boolean),
+    })
+  ),
   /** Set once "Get started" is pressed on the welcome (onboarding O1). */
   welcomeSeen: Schema.optionalKey(Schema.Boolean),
 });
