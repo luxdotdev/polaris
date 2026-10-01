@@ -21,6 +21,7 @@ import {
   Worktree,
 } from "@polaris/protocol";
 import { Schema } from "effect";
+import { BRANCH_PREFIX } from "./sessionPrefs.ts";
 
 /** A Host's stable key in the HostRegistry: "local", or an SSH alias. */
 export const HostKey = Schema.String.check(Schema.isMinLength(1));
@@ -81,6 +82,34 @@ export const SessionDefault = Schema.Struct({
 
 export type SessionDefault = typeof SessionDefault.Type;
 
+export const BranchPrefix = Schema.String.check(Schema.isPattern(BRANCH_PREFIX));
+
+/** Settings → Sessions: how every new Agent Session starts and what happens around it. */
+export const SessionPrefs = Schema.Struct({
+  /** Start on a new Worktree rather than in the Workspace directory. */
+  newWorktree: Schema.Boolean,
+  /** What a branch taken from the prompt starts with ("polaris/"). */
+  branchPrefix: BranchPrefix,
+  /** A Turn's first edit opens Output. */
+  openOutputOnEdit: Schema.Boolean,
+  /** Native notifications when a session needs you. */
+  notifyNeedsYou: Schema.Boolean,
+  /** Archive deletes a session's branch once it is merged; unmerged branches always stay. */
+  deleteMergedBranch: Schema.Boolean,
+});
+
+export type SessionPrefs = typeof SessionPrefs.Type;
+
+export const SessionPrefsPatch = Schema.Struct({
+  newWorktree: Schema.optionalKey(Schema.Boolean),
+  branchPrefix: Schema.optionalKey(BranchPrefix),
+  openOutputOnEdit: Schema.optionalKey(Schema.Boolean),
+  notifyNeedsYou: Schema.optionalKey(Schema.Boolean),
+  deleteMergedBranch: Schema.optionalKey(Schema.Boolean),
+});
+
+export type SessionPrefsPatch = typeof SessionPrefsPatch.Type;
+
 const onHost = <F extends Schema.Struct.Fields>(fields: F) =>
   Schema.Struct({ hostKey: HostKey, ...fields });
 
@@ -114,7 +143,7 @@ export const RequestInputs = {
     harness: HarnessKind,
     value: Schema.NullOr(SessionDefault),
   }),
-  "settings.setNewWorktree": Schema.Struct({ on: Schema.Boolean }),
+  "settings.setSessions": Schema.Struct({ patch: SessionPrefsPatch }),
   /** Opens a URL in the user's browser; https only (a catalogue `docsUrl`). */
   "shell.openExternal": Schema.Struct({
     url: Schema.String.check(Schema.isPattern(/^https:\/\//)),

@@ -13,9 +13,12 @@ import {
   DiffPalette,
   MotionSource,
   SessionDefault,
+  type SessionPrefs,
+  SessionPrefsPatch,
   TextSize,
   ThemeSource,
 } from "../shared/contract.ts";
+import { DEFAULT_SESSION_PREFS } from "../shared/sessionPrefs.ts";
 
 export const RemoteHostSetting = Schema.Struct({
   alias: Schema.String.check(Schema.isMinLength(1)),
@@ -38,7 +41,9 @@ export const Settings = Schema.Struct({
   codeFontSize: Schema.optionalKey(CodeFontSize),
   /** By Harness kind. */
   sessionDefaults: Schema.optionalKey(Schema.Record(Schema.String, SessionDefault)),
-  /** New sessions start on a new Worktree; off (in the Workspace directory) unless switched on. */
+  /** Settings → Sessions; each missing field takes its default. */
+  sessions: Schema.optionalKey(SessionPrefsPatch),
+  /** Before Settings → Sessions: read as `sessions.newWorktree`, never written. */
   newWorktree: Schema.optionalKey(Schema.Boolean),
   hosts: Schema.optionalKey(Schema.Array(RemoteHostSetting)),
   /** The local Host on this machine; on unless switched off. */
@@ -87,4 +92,11 @@ export const appearanceOf = (settings: Settings) => ({
   motion: settings.motion ?? "system",
   codeFont: settings.codeFont ?? "sf-mono",
   codeFontSize: settings.codeFontSize ?? 13,
+});
+
+/** Settings → Sessions as a settings file asks for it, with the defaults filled in. */
+export const sessionPrefsOf = (settings: Settings): SessionPrefs => ({
+  ...DEFAULT_SESSION_PREFS,
+  newWorktree: settings.newWorktree ?? DEFAULT_SESSION_PREFS.newWorktree,
+  ...settings.sessions,
 });

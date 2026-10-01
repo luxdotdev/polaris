@@ -151,6 +151,31 @@ const setAppearance = async (page: Page, patch: Record<string, string>) => {
   await page.waitForTimeout(400);
 };
 
+/** The chart's tooltip: hover the busiest day, then the keyboard (focus, ←), both themes. */
+const usageTooltip = async (page: Page) => {
+  const chart = page.getByTestId("usage-chart");
+  const box = await chart.boundingBox();
+
+  if (box === null) throw new Error("no usage chart");
+  await page.mouse.move(box.x + box.width - 4, box.y + box.height - 4);
+  await page.getByTestId("usage-tooltip").waitFor({ timeout: 5_000 });
+  const tip = (await page.getByTestId("usage-tooltip").textContent()) ?? "";
+
+  if (!tip.startsWith("Today") || !tip.includes("Total"))
+    throw new Error(`the usage tooltip reads: ${tip}`);
+  console.log(`settings-screens: tooltip ${tip}`);
+  await shoot(page, "S2-usage-tooltip-dark");
+  await setAppearance(page, { theme: "light" });
+  await page.mouse.move(box.x + box.width - 6, box.y + box.height - 4);
+  await shoot(page, "S2-usage-tooltip-light");
+  await setAppearance(page, { theme: "dark" });
+  await page.mouse.move(0, 0);
+  await chart.focus();
+  await page.keyboard.press("ArrowLeft");
+  await page.getByTestId("usage-tooltip").waitFor({ timeout: 5_000 });
+  await shoot(page, "S2-usage-tooltip-keyboard-dark");
+};
+
 const shoot = async (page: Page, name: string) => {
   await page.waitForTimeout(800);
   await page.screenshot({ path: join(out, `${name}.png`) });
@@ -182,8 +207,16 @@ try {
   await setAppearance(page, { density: "calm", theme: "dark" });
   await shoot(page, "S3-appearance-dark-calm");
 
+  // Sessions, both themes.
+  await page.getByRole("button", { name: "Sessions" }).click();
+  await page.locator('[data-section="sessions"]').waitFor({ timeout: 5_000 });
+  await shoot(page, "sessions-dark");
+  await setAppearance(page, { theme: "light" });
+  await shoot(page, "sessions-light");
+  await setAppearance(page, { theme: "dark" });
+
   // S1: Harnesses, dark.
-  await page.getByRole("button", { name: "Harnesses" }).click();
+  await page.getByRole("button", { name: "Harnesses", exact: true }).click();
   await page.getByTestId("harness-group").first().waitFor({ timeout: 10_000 });
   await page.waitForTimeout(3_000);
   await shoot(page, "S1-harnesses-dark-collapsed");
@@ -200,6 +233,7 @@ try {
   await page.getByRole("button", { name: "Usage" }).click();
   await page.getByText(/tokens on \d+ host/).waitFor({ timeout: 30_000 });
   await shoot(page, "S2-usage-dark");
+  await usageTooltip(page);
 
   // The gear in the sidebar footer and the K menu's Settings actions.
   await page.keyboard.press("Escape");

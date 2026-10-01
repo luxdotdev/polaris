@@ -7,6 +7,7 @@ import { describe, expect, test } from "bun:test";
 import { Effect, Exit, Layer, ManagedRuntime, SubscriptionRef } from "effect";
 import type { BatchEntry, HostView } from "../../shared/api.ts";
 import { RequestInputs, SubscriptionInputs } from "../../shared/contract.ts";
+import { DEFAULT_SESSION_PREFS } from "../../shared/sessionPrefs.ts";
 import { CommandId, CommandRejected } from "@polaris/protocol";
 import { type ClientServices, HostDirectory, toIpcError, UnknownHost } from "../hosts.ts";
 import { Ssh } from "@polaris/client/install";
@@ -66,7 +67,7 @@ const context: RequestContext = {
   prices: { table: () => Promise.reject(new Error("no prices in tests")) },
   setAppearance: () => undefined,
   setSessionDefault: () => undefined,
-  setNewWorktree: () => undefined,
+  setSessions: () => undefined,
   openExternal: () => Promise.resolve(),
   proofWorkspace: () => null,
   sshHosts: () => ["studio", "pi"],
@@ -101,7 +102,7 @@ describe("requests", () => {
         codeFont: "sf-mono",
         codeFontSize: 13,
         sessionDefaults: {},
-        newWorktree: false,
+        sessions: DEFAULT_SESSION_PREFS,
         version: "0.1.0",
         welcomeSeen: false,
         hosts: [{ alias: "studio", label: "studio", colour: null, forwardAgent: false }],

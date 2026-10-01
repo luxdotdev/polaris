@@ -196,6 +196,11 @@ const ACTIONS: ReadonlyArray<{
     keywords: ["theme", "density", "text size", "font", "motion", "colourblind"],
   },
   {
+    id: "settings.sessions",
+    title: () => "Settings: Sessions",
+    keywords: ["worktree", "branch", "prefix", "output", "notifications", "archive"],
+  },
+  {
     id: "settings.harnesses",
     title: () => "Settings: Harnesses",
     keywords: ["claude", "codex", "opencode", "sign in", "model", "permissions"],
