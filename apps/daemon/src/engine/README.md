@@ -134,7 +134,7 @@ Deliberate, and only in races the old code let through: Archived now ignores wha
 
 ### Accepting Turns
 
-`AcceptTurns` (ENG-224) accepts a contiguous prefix of a session's Turns, through the one it names, and records `TurnsAccepted`; `AgentSession.acceptedThroughIndex` is its fold. It changes no Session State (`session.accept.ts`). `SendFeedback` is `turn.send` with the feedback batch rendered by `feedbackPrompt` as its prompt, and the batch kept on the Turn. **TODO(M2-A)**: with `revertLaterTurns`, the reactor restores the working tree to the accepted Turn's after-checkpoint and records `TurnsReverted`.
+`AcceptTurns` (ENG-224) accepts a contiguous prefix of a session's Turns, through the one it names, and records `TurnsAccepted`; `AgentSession.acceptedThroughIndex` is its fold. It changes no Session State (`session.accept.ts`). `SendFeedback` is `turn.send` with the feedback batch rendered by `feedbackPrompt` as its prompt, and the batch kept on the Turn. With `revertLaterTurns`, the reactor (`../accept/reactor.ts`) restores every file a later Turn changed to the accepted Turn's after-checkpoint, deletes the ones only later Turns created, and records `TurnsReverted`. Committing and pushing accepted work are RPCs in `../accept/`.
 
 ## The Review Checkout machine
 

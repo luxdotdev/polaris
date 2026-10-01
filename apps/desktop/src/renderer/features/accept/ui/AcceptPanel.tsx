@@ -45,7 +45,7 @@ const Choice = ({
       }
     }}
     className={cn(
-      "rounded-control px-gap gap-row-pad flex items-start py-[7px]",
+      "rounded-control px-gap gap-row-x flex items-start py-[7px]",
       on && "bg-fill-selected"
     )}
   >
@@ -71,7 +71,7 @@ const Check = ({
   readonly caption: string;
   readonly onChange: (next: boolean) => void;
 }) => (
-  <label className="rounded-control px-gap gap-row-pad flex items-start py-[7px]">
+  <label className="rounded-control px-gap gap-row-x flex items-start py-[7px]">
     <input
       type="checkbox"
       className="mt-[3px] size-3.5 shrink-0 accent-current"
@@ -86,7 +86,7 @@ const Check = ({
 );
 
 const Section = ({ label, children }: { readonly label: string; readonly children: ReactNode }) => (
-  <div className="py-row-pad border-hairline flex flex-col gap-[2px] border-t px-[6px]">
+  <div className="border-hairline flex flex-col gap-[2px] border-t px-[6px] py-2.5">
     <div className="px-gap text-caption text-text-faint pb-[6px]">{label}</div>
     {children}
   </div>
@@ -222,14 +222,14 @@ const Footer = ({
           : SUBMIT_LABELS[end];
 
   return (
-    <div className="py-row-pad gap-gap bg-surface-sunken border-hairline flex items-center border-t px-[14px]">
+    <div className="gap-gap bg-surface-sunken border-hairline flex items-center border-t px-[14px] py-2.5">
       <span className="text-caption text-text-subtle min-w-0 flex-1 truncate">{account}</span>
       <button
         type="button"
         data-testid="accept-submit"
         disabled={!state.canSubmit || run.kind === "running"}
         onClick={() => void state.submit()}
-        className="h-tree-row px-row-pad rounded-control gap-gap bg-text-strong text-bg text-caption flex items-center font-medium disabled:opacity-(--opacity-dimmed)"
+        className="h-tree-row px-row-x rounded-control gap-gap bg-text-strong text-bg text-caption flex items-center font-medium disabled:opacity-(--opacity-dimmed)"
       >
         {label}
         <span className="text-micro opacity-60">⌘↵</span>
@@ -276,7 +276,7 @@ const PlanBody = ({
         <span className="text-micro text-text-faint">{draftCaption(state, harness)}</span>
       )}
     </div>
-    <div className="pb-row-pad flex flex-col gap-[2px] px-[6px]">
+    <div className="flex flex-col gap-[2px] px-[6px] pb-2.5">
       {state.choice !== null && (
         <BranchChoices
           plan={plan}
@@ -370,16 +370,18 @@ export const AcceptPanel = ({ state, harness, turns, newBranchName }: AcceptPane
         }
       }}
     >
-      <div className="pb-row-pad flex flex-col gap-[2px] px-[14px] pt-[14px]">
+      <div className="flex flex-col gap-[2px] px-[14px] pt-[14px] pb-2.5">
         <h2 className="text-heading-sm text-text-strong font-medium">Accept {turnsLabel(turns)}</h2>
-        <p
-          className={cn(
-            "text-caption",
-            plan.kind === "failed" ? "text-failed-text" : "text-text-subtle"
-          )}
-        >
-          {caption}
-        </p>
+        {run.kind !== "done" && (
+          <p
+            className={cn(
+              "text-caption",
+              plan.kind === "failed" ? "text-failed-text" : "text-text-subtle"
+            )}
+          >
+            {caption}
+          </p>
+        )}
       </div>
       {run.kind === "done" ? (
         <Done state={state} />
