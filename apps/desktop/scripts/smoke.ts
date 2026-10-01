@@ -88,18 +88,21 @@ writeFileSync(
 
 step(`Daemon up at ${daemon.socketPath}`);
 
-const app = await electron.launch({
-  executablePath: electronBinary(),
-  args: [APP_DIR],
-  env: {
-    ...process.env,
-    POLARIS_DESKTOP_LOCAL_SOCKET: daemon.socketPath,
-    POLARIS_DESKTOP_BENCH_HARNESS: "1",
-    POLARIS_DESKTOP_USER_DATA: userData,
-    POLARIS_DESKTOP_HIDDEN: flag("--show") ? "0" : "1",
-    ...fakeHost.env,
-  },
-});
+const launch = () =>
+  electron.launch({
+    executablePath: electronBinary(),
+    args: [APP_DIR],
+    env: {
+      ...process.env,
+      POLARIS_DESKTOP_LOCAL_SOCKET: daemon.socketPath,
+      POLARIS_DESKTOP_BENCH_HARNESS: "1",
+      POLARIS_DESKTOP_USER_DATA: userData,
+      POLARIS_DESKTOP_HIDDEN: flag("--show") ? "0" : "1",
+      ...fakeHost.env,
+    },
+  });
+
+let app = await launch();
 
 const SWITCHES = 40;
 
@@ -335,6 +338,24 @@ const closeKeepsRunning = async () => {
   step("closed the window: hidden, the menu bar star still running");
 };
 
+/** Output stays as the user left it across a relaunch (the smoke-repo session's, left open). */
+const relaunchKeepsOutput = async () => {
+  await app.close();
+  app = await launch();
+  const page = await app.firstWindow();
+
+  await page
+    .locator('[data-host="local"][data-connection="connected"]')
+    .waitFor({ timeout: 15_000 });
+  await page
+    .getByRole("button", { name: /smoke-repo/ })
+    .first()
+    .click();
+  await page.locator("[data-session-row]").filter({ hasText: "bench:" }).first().click();
+  await page.getByTestId("output-panel").waitFor({ timeout: 10_000 });
+  step("a relaunch keeps output open for the session that had it open");
+};
+
 let failed = false;
 
 const consoleErrors: Array<string> = [];
@@ -446,6 +467,7 @@ try {
   if (consoleErrors.length > 0) throw new Error(`renderer errors:\n${consoleErrors.join("\n")}`);
   await checkNoneReady(page, step);
   await closeKeepsRunning();
+  await relaunchKeepsOutput();
   step("ok");
 } catch (error) {
   failed = true;
