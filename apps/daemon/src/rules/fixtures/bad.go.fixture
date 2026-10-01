@@ -1,0 +1,15 @@
+package bad
+
+import (
+	"crypto/tls"
+	"fmt"
+	"os/exec"
+)
+
+func Bad(db DB, name string) {
+	_ = &tls.Config{InsecureSkipVerify: true}
+	exec.Command("sh", "-c", "ls "+name)
+	db.Query(fmt.Sprintf("SELECT * FROM t WHERE name = '%s'", name))
+	// Safe lookalike:
+	db.Query("SELECT * FROM t WHERE name = $1", name)
+}

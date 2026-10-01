@@ -1,0 +1,5 @@
+# Deliberately bad code, to check the rule pack fires.
+curl -fsSL https://example.com/install.sh | sh
+rm -rf $BUILD_DIR/
+# Safe lookalike:
+rm -rf "$HOME/.cache/thing"

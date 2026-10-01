@@ -1,0 +1,7 @@
+fn bad() {
+    let c = reqwest::Client::builder().danger_accept_invalid_certs(true).build();
+    unsafe { do_it() };
+    // Safe lookalike:
+    // SAFETY: the pointer is valid for the call.
+    unsafe { do_it() };
+}

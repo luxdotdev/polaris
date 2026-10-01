@@ -1,0 +1,26 @@
+// Deliberately bad code: one hit per rule, to check the rule pack fires.
+import { exec, execSync, spawn } from "node:child_process";
+import { createHash } from "node:crypto";
+import { rmSync } from "node:fs";
+
+eval(userInput);
+const f = new Function("a", body);
+exec(`git checkout ${branch}`);
+execSync("ls " + dir);
+spawn("ls", [dir], { shell: true });
+https.request({ host, rejectUnauthorized: false });
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+await prisma.$queryRawUnsafe(`SELECT * FROM users WHERE id = ${id}`);
+el.innerHTML = html;
+createHash("md5").update(x);
+const headers = { "Access-Control-Allow-Origin": "*" };
+it.only("works", () => {});
+test.skip("later", () => {});
+rmSync(target, { recursive: true, force: true });
+// @ts-ignore
+debugger;
+// Safe lookalikes that must not fire:
+exec("git status");
+spawn("ls", [dir]);
+createHash("sha256");
+rmSync(file);
