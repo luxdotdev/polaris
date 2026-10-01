@@ -38,6 +38,8 @@ const WorkspaceIoRpcs = DaemonRpcs.omit(
   "usage.watch",
   "review.checkoutStatus",
   "review.runRiskSummary",
+  "review.runWalkthrough",
+  "review.stopWalkthrough",
   "review.riskSummary",
   "review.watchRiskSummary",
   "review.askFinding",

@@ -5,9 +5,11 @@
  * follow-up answers, and withdraws the Finding it names when asked to.
  */
 import type { ReviewerOutput } from "../../reviewer/output.ts";
+import { WALKTHROUGH_MARKER } from "../../reviewer/walkthroughPrompt.ts";
 import { REVIEWER_MARKER } from "../../reviewer/prompt.ts";
 
-export const isReviewerPrompt = (prompt: string): boolean => prompt.startsWith(REVIEWER_MARKER);
+export const isReviewerPrompt = (prompt: string): boolean =>
+  prompt.startsWith(REVIEWER_MARKER) || prompt.startsWith(WALKTHROUGH_MARKER);
 
 const HUNK = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/;
 
@@ -45,6 +47,9 @@ const fenced = (document: ReviewerOutput) =>
 const empty: ReviewerOutput = { findings: [], revised: [], withdrawn: [], answer: null };
 
 export const benchReviewReply = (prompt: string): string => {
+  if (prompt.startsWith(WALKTHROUGH_MARKER))
+    return "## Why the change\nThis change makes the behavior shown in the diff possible.\n\n## Special things to note\n- Check the changed paths before accepting.\n\n## Change outline\n```diff\n- previous behavior\n+ behavior in the composed diff\n```";
+
   if (prompt.includes("couldn't be read")) return fenced(empty);
 
   if (prompt.includes("A question about")) {

@@ -9,6 +9,7 @@ import {
   NotFound,
   type ReviewCheckoutId,
   ReviewSubject,
+  ReviewPrompt,
   repoKey,
   RiskSummaryKey,
   type SessionId,
@@ -16,7 +17,7 @@ import {
   type TurnId,
   type WorkspaceId,
 } from "@polaris/protocol";
-import { Effect } from "effect";
+import { Effect, Predicate } from "effect";
 import { checkoutGit } from "../git/review/refs.ts";
 import { ReviewCheckoutGit } from "../services.ts";
 import { EventStore } from "../store/EventStore.ts";
@@ -39,6 +40,7 @@ export interface ReviewRange {
   readonly title: string;
   /** For Agent Sessions: the Turns' prompts, in order. */
   readonly prompts: ReadonlyArray<string>;
+  readonly promptViews: ReadonlyArray<ReviewPrompt>;
   /** When "only the new changes" fell back to a full summary: why, as a user reads it. */
   readonly note: string | null;
 }
@@ -90,6 +92,7 @@ const pullRequestRange = Effect.fn("pullRequestRange")(function* (
     checkoutId: checkout.id,
     title: `Pull request #${subject.pullRequest.number}`,
     prompts: [],
+    promptViews: [],
     note: null,
   };
 
@@ -181,6 +184,20 @@ const sessionRange = Effect.fn("sessionRange")(function* (
     catch: (cause) => new GitError({ cwd, message: String(cause) }),
   });
 
+  const items = yield* store
+    .readTurnItems({ turnIds: covered.map((turn) => turn.id), upTo: model.sequence })
+    .pipe(Effect.mapError(gitError(cwd)));
+
+  const promptViews = covered.map((turn) => {
+    const files = new Set(
+      (items.get(turn.id) ?? []).flatMap((item) =>
+        Predicate.isTagged(item, "FileChange") ? item.changes.map((change) => change.path) : []
+      )
+    );
+
+    return ReviewPrompt.make({ turnIndex: turn.index, prompt: turn.prompt, files: files.size });
+  });
+
   const range: ReviewRange = {
     key: RiskSummaryKey.make({ repo: workspace.path, mergeBase: first, head: last, since: null }),
     workspaceId: workspace.id,
@@ -192,6 +209,7 @@ const sessionRange = Effect.fn("sessionRange")(function* (
     checkoutId: checkout?.id ?? null,
     title: record.session.title,
     prompts: covered.map((t) => t.prompt),
+    promptViews,
     note: null,
   };
 

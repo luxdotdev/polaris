@@ -92,6 +92,10 @@ export const defaultHandlers = (options: {
     // TODO(M2-C checkout): the live status of a Review Checkout.
     "review.checkoutStatus": () => Effect.fail(new Unsupported({ capability: "review.checkouts" })),
     // TODO(M2-R rules, M2-V reviewer): run the Rules and the Reviewer.
+    "review.runWalkthrough": () =>
+      Effect.fail(new Unsupported({ capability: "review.walkthrough" })),
+    "review.stopWalkthrough": () =>
+      Effect.fail(new Unsupported({ capability: "review.walkthrough" })),
     "review.runRiskSummary": () =>
       Effect.fail(new Unsupported({ capability: "review.risk-summary" })),
     "review.riskSummary": () => Effect.fail(new Unsupported({ capability: "review.risk-summary" })),

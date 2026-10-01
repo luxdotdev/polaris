@@ -77,6 +77,8 @@ export const Capability = Schema.Literals([
   "review.verdicts",
   /** `review.reviewerSettings` and `review.setReviewerSettings`: Settings → Reviewer. */
   "review.reviewer-settings",
+  /** Independent walkthrough state, Run/Stop RPCs and optional Reviewer settings. */
+  "review.walkthrough",
   /** `review.riskSummary` by `LatestAt`: a repository's newest summary at a head, incremental ones too. */
   "review.latest-summary",
   /** `session.acceptPlan` with a null `throughTurnId`: through the latest Turn. */

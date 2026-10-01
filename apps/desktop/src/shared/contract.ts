@@ -6,6 +6,7 @@
  */
 import {
   AcceptBranch,
+  addedNullable,
   AttachmentSettings,
   Command,
   CommandId,
@@ -251,6 +252,11 @@ export const RequestInputs = {
     refresh: Schema.Boolean,
     context: Schema.NullOr(ReviewContext),
   }),
+  "review.runWalkthrough": onHost({
+    summaryId: RiskSummaryId,
+    context: addedNullable(ReviewContext),
+  }),
+  "review.stopWalkthrough": onHost({ summaryId: RiskSummaryId }),
   "review.riskSummary": onHost({ ref: RiskSummaryRef }),
   /** Verdicts on this Host, newest first: a repo's, a summary's, or one Finding's history. */
   "review.verdicts": onHost({
