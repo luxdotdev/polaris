@@ -54,11 +54,9 @@ const commentOn = (subjectKey: string, finding: Finding) => {
     end: finding.lines.end,
   };
 
-  openComposer(
-    subjectKey,
-    { ...range, code: surfaceOf(subjectKey).quote?.(range) ?? "" },
-    { text: finding.reason, findingId: finding.id }
-  );
+  const anchor = { ...range, code: surfaceOf(subjectKey).quote?.(range) ?? "", turn: null };
+
+  openComposer(subjectKey, anchor, { text: finding.reason, findingId: finding.id });
   revealInDiff(finding.path, finding.lines.end, finding.lines.side);
 };
 
