@@ -2,12 +2,13 @@
 /**
  * Frame hitches with attribution: the first Harness chip menu open while a
  * Turn streams, the pointer sweeping the Working composer's dither field,
- * and fast scrolling through a heavy session.
+ * typing in the composer (key-to-paint latency, idle and while a Turn
+ * streams), and fast scrolling through a heavy session.
  * Long frames come from rAF gaps; their causes from long-animation-frame
  * entries (script, source, duration), a main-process lag monitor, and
  * optionally a renderer CPU profile or a Chromium trace of every process.
  *
- *   node scripts/hitches.ts <chip|usage|hover|scene|scroll> [--real-home] [--turns N] [--pinned]
+ *   node scripts/hitches.ts <chip|usage|hover|typing|scene|scroll> [--real-home] [--turns N] [--pinned]
  *     [--screenshot] [--shots <dir>] [--profile <file.cpuprofile>] [--trace <file.json>]
  *
  * Instrumentation moves the hitches it measures: judge budgets on plain runs.
@@ -31,9 +32,10 @@ if (
   mode !== "scroll" &&
   mode !== "usage" &&
   mode !== "hover" &&
+  mode !== "typing" &&
   mode !== "scene"
 )
-  throw new Error("usage: hitches.ts <chip|usage|hover|scene|scroll> …");
+  throw new Error("usage: hitches.ts <chip|usage|hover|typing|scene|scroll> …");
 
 const option = (name: string) => {
   const at = args.indexOf(name);
@@ -442,6 +444,78 @@ const hover = async (page: Page) => {
   if (shots !== null) await composerShots(page, shots);
 };
 
+/** From each keydown to the frame that shows it: after the next rAF, once that frame is painted. */
+const KEY_LATENCY = `(() => {
+  const lat = [];
+  const onKey = (e) => {
+    const t = e.timeStamp;
+    requestAnimationFrame(() => setTimeout(() => lat.push(performance.now() - t), 0));
+  };
+  document.addEventListener("keydown", onKey, { capture: true });
+  window.__keys = { stop: () => { document.removeEventListener("keydown", onKey, { capture: true }); return lat; } };
+})()`;
+
+const TYPED =
+  "Tighten the session rows so long titles truncate cleanly, keep the state dot aligned, " +
+  "and check the compact density.";
+
+/** Types into the composer as a person would (~25 ms a key) and reports key-to-paint latency. */
+const typeAndMeasure = async (page: Page, label: string) => {
+  const input = page.locator('[data-testid="composer-input"]:visible');
+
+  await input.click();
+  await page.evaluate(OBSERVE);
+  await page.evaluate(KEY_LATENCY);
+  // Opens the / menu, picks the first match with ⇥ (a chip), then types the prompt.
+  await page.keyboard.type("/com", { delay: 25 });
+  const menu = await page.getByTestId("command-menu").count();
+
+  await page.keyboard.press("Tab");
+  await page.keyboard.type(TYPED, { delay: 25 });
+  await page.waitForTimeout(300);
+
+  const lat = [...(await page.evaluate<ReadonlyArray<number>>("window.__keys.stop()"))].sort(
+    (a, b) => a - b
+  );
+
+  const at = (q: number) =>
+    (lat[Math.min(lat.length - 1, Math.floor(q * lat.length))] ?? 0).toFixed(1);
+
+  log(
+    `${label} key-to-paint: p50 ${at(0.5)} ms, p95 ${at(0.95)} ms, max ${at(1)} ms over ${lat.length} keys`
+  );
+  report(label, await stop(page), []);
+  const chips = await page.locator('[data-testid="composer-input"]:visible .composer-chip').count();
+
+  log(`${label}: / menu opened ${menu > 0 ? "yes" : "no"}, chips after ⇥ ${chips}`);
+  await page.keyboard.press("Escape");
+  await input.fill("");
+};
+
+/** Typing a prompt with the / menu: on an Idle session, then while a Turn streams. */
+const typing = async (page: Page) => {
+  await app.evaluate(({ Menu }) => {
+    Menu.getApplicationMenu()?.getMenuItemById("dev-proof")?.click();
+  });
+  await page.getByTestId("session-panel").waitFor({ timeout: 30_000 });
+  await page.getByTestId("session-state").filter({ hasText: /^Idle/ }).waitFor({ timeout: 90_000 });
+  await page.waitForTimeout(500);
+  await typeAndMeasure(page, "typing idle");
+  await page
+    .getByTestId("composer-input")
+    .fill(bench({ items: 30, deltasPerItem: 100, deltaBytes: 64, deltaIntervalMs: 10 }));
+  await page.keyboard.press("Enter");
+  await page
+    .getByTestId("session-state")
+    .filter({ hasText: /^Working/ })
+    .waitFor({ timeout: 15_000 });
+  await page.waitForTimeout(1000);
+  const endProfile = await startProfile(page);
+
+  await typeAndMeasure(page, "typing while streaming");
+  await endProfile?.();
+};
+
 /** Every 120ms for `ms`, a window frame into `dir` (for a short recording of the scene). */
 const record = async (page: Page, dir: string, name: string, ms: number) => {
   mkdirSync(dir, { recursive: true });
@@ -578,7 +652,7 @@ try {
     .locator('[data-host="local"][data-connection="connected"]')
     .first()
     .waitFor({ timeout: 30_000 });
-  await { chip, usage, hover, scene, scroll }[mode](page);
+  await { chip, usage, hover, typing, scene, scroll }[mode](page);
 } catch (error) {
   failed = true;
   console.error("hitches: FAILED", error);

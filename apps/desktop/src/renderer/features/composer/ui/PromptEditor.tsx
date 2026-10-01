@@ -15,6 +15,7 @@ import {
   EMPTY_DRAFT,
   insertsChip,
   matchMenu,
+  type Menu,
 } from "../model/commands.ts";
 import { CommandMenu } from "./CommandMenu.tsx";
 import "./composer.css";
@@ -58,24 +59,27 @@ const useMenu = (options: ReadonlyArray<CommandOption>, draft: Draft) => {
 
   const active = menu === null ? 0 : Math.min(index, menu.options.length - 1);
 
-  return { typed, setTyped, menu, active, setIndex, setDismissed };
+  return { typed, setTyped, menu, active, index, setIndex, dismissed, setDismissed };
 };
 
 export default function PromptEditor(props: PromptEditorProps) {
   const [draft, setDraft] = useState<Draft>(() => ({ ...EMPTY_DRAFT, text: props.value }));
-  const { typed, setTyped, menu, active, setIndex, setDismissed } = useMenu(props.options, draft);
+
+  const { typed, setTyped, menu, active, index, setIndex, dismissed, setDismissed } = useMenu(
+    props.options,
+    draft
+  );
+
   const waiting = typed !== null && props.loading && props.options.length === 0;
   const open = menu !== null;
-  const latest = useRef({ props, menu, active, open, word: typed?.word ?? null });
+  const latest = useRef({ props, menu, index, dismissed });
   const emitted = useRef<string | null>(null);
 
   useEffect(() => {
-    latest.current = { props, menu, active, open, word: typed?.word ?? null };
+    latest.current = { props, menu, index, dismissed };
   });
 
-  const pick = (i: number) => {
-    const option: CommandOption | undefined = latest.current.menu?.options[i];
-
+  const run = (option: CommandOption | undefined) => {
     if (option === undefined) return;
     setIndex(0);
 
@@ -90,6 +94,21 @@ export default function PromptEditor(props: PromptEditorProps) {
     if (option.action !== null) latest.current.props.onAction(option.action);
   };
 
+  /**
+   * The menu as the editor stands now. Keys read this rather than the last
+   * render, so ↵ right after a keystroke still picks instead of sending.
+   */
+  const live = (): Menu | null => {
+    const now = handle.read();
+    const { props: current, dismissed: was } = latest.current;
+
+    if (now.typed === null || now.typed.word === was) return null;
+
+    return matchMenu(now.typed.word, now.typed.atHead, current.options, now.draft.tokens);
+  };
+
+  const at = (m: Menu) => Math.min(latest.current.index, m.options.length - 1);
+
   const [handle] = useState(() => {
     const hooks = (): EditorHooks => ({
       options: () => latest.current.props.options,
@@ -103,14 +122,19 @@ export default function PromptEditor(props: PromptEditorProps) {
         setDismissed((was) => (was === word?.word ? was : null));
       },
       menu: {
-        open: () => latest.current.open,
+        open: () => live() !== null,
         move: (by) => {
-          const count = latest.current.menu?.options.length ?? 1;
+          const m = live();
+          const count = m?.options.length ?? 1;
 
-          setIndex((latest.current.active + by + count) % count);
+          setIndex(((m === null ? 0 : at(m)) + by + count) % count);
         },
-        pick: () => pick(latest.current.active),
-        dismiss: () => setDismissed(latest.current.word),
+        pick: () => {
+          const m = live();
+
+          if (m !== null) run(m.options[at(m)]);
+        },
+        dismiss: () => setDismissed(handle.read().typed?.word ?? null),
       },
       onSubmit: (queue) => latest.current.props.onSubmit(queue),
       onEscape: () => latest.current.props.onEscape(),
@@ -151,7 +175,13 @@ export default function PromptEditor(props: PromptEditorProps) {
 
   const menuView =
     open || waiting ? (
-      <CommandMenu menu={menu} loading={waiting} active={active} onPick={pick} onHover={setIndex} />
+      <CommandMenu
+        menu={menu}
+        loading={waiting}
+        active={active}
+        onPick={(i) => run(latest.current.menu?.options[i])}
+        onHover={setIndex}
+      />
     ) : null;
 
   return (

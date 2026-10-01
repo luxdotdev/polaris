@@ -76,6 +76,8 @@ export interface PromptEditor {
   readonly removeTypedWord: () => void;
   readonly retokenize: () => void;
   readonly focus: () => void;
+  /** The word under the caret and the draft, as the editor stands now. */
+  readonly read: () => { readonly typed: TypedWord | null; readonly draft: Draft };
 }
 
 /** The keys: the menu's first while it is open, then ↵ to send and esc to stop. */
@@ -251,6 +253,8 @@ export const createPromptEditor = (hooks: () => EditorHooks, label: string): Pro
     insertChip: (option) => editor.update(() => $insertChip(option)),
     removeTypedWord: () => editor.update(() => $removeTypedWord()),
     retokenize: () => editor.update(() => $retokenize()),
+    read: () =>
+      editor.getEditorState().read(() => ({ typed: $readTypedWord(), draft: $readDraft() })),
     focus: () =>
       editor.focus(undefined, {
         defaultSelection:

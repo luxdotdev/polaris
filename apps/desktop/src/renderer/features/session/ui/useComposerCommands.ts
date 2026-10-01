@@ -9,6 +9,21 @@ import { useHarnessCommands } from "../../composer/index.ts";
 import { hasCapability, useHost } from "../hooks.ts";
 import type { ComposerCommands } from "./DraftComposer.tsx";
 
+/**
+ * Runs once the key or pointer that picked the command is released: a menu
+ * opened on ↵'s keydown would otherwise take its keyup and pick its first item.
+ */
+const afterRelease = (run: () => void) => {
+  const done = () => {
+    window.removeEventListener("keyup", done, true);
+    window.removeEventListener("pointerup", done, true);
+    requestAnimationFrame(run);
+  };
+
+  window.addEventListener("keyup", done, { capture: true, once: true });
+  window.addEventListener("pointerup", done, { capture: true, once: true });
+};
+
 export interface ComposerCommandsInput {
   readonly hostKey: string;
   /** Null until a Harness is chosen (the new-session page). */
@@ -44,6 +59,6 @@ export const useComposerCommands = ({
     options: listing.options,
     loading: listing.loading,
     want: listing.want,
-    onAction: (action) => actions[action](),
+    onAction: (action) => afterRelease(actions[action]),
   };
 };

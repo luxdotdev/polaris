@@ -36,6 +36,16 @@ const $beyond = (chip: CommandNode, direction: Direction) => {
   return { target, offset: atStart ? 0 : target.getTextContentSize() };
 };
 
+/** The chip an arrow press would step into from an element-level caret (a line's start or end). */
+const $chipBesideElementPoint = (point: PointType, direction: Direction): CommandNode | null => {
+  const parent = point.getNode();
+
+  if (!$isElementNode(parent)) return null;
+  const child = parent.getChildAtIndex(direction === "right" ? point.offset : point.offset - 1);
+
+  return $isCommandNode(child) ? child : null;
+};
+
 /** Moves the caret (or, extending, the focus) across a whole chip. True when it moved. */
 export const $caretAcrossChip = (direction: Direction, extend: boolean): boolean => {
   const selection = $getSelection();
@@ -43,9 +53,10 @@ export const $caretAcrossChip = (direction: Direction, extend: boolean): boolean
   if (!$isRangeSelection(selection) || (!selection.isCollapsed() && !extend)) return false;
   const { focus } = selection;
   const node = focus.getNode();
+  let chip: CommandNode | null = null;
 
-  if (focus.type !== "text" || !$isTextNode(node)) return false;
-  const chip = $crossed(node, focus.offset, direction);
+  if (focus.type === "element") chip = $chipBesideElementPoint(focus, direction);
+  else if ($isTextNode(node)) chip = $crossed(node, focus.offset, direction);
 
   if (chip === null) return false;
   const { target, offset } = $beyond(chip, direction);
