@@ -35,7 +35,7 @@ export const Heading = ({
   readonly aside?: ReactNode;
 }) => (
   <div className="flex min-h-5 items-center justify-between gap-4">
-    <h2 className="text-heading-sm text-text-strong font-medium">{children}</h2>
+    <h2 className="text-heading-sm text-text-strong leading-[18px] font-medium">{children}</h2>
     {aside}
   </div>
 );

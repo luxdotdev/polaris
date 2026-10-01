@@ -96,7 +96,7 @@ const GroupHeader = ({
     </>
   );
 
-  const className = "px-panel flex w-full items-center gap-3 py-3";
+  const className = "px-panel flex w-full items-center gap-3 py-[calc(var(--spacing-gap)+4px)]";
 
   if (onToggle === null) return <div className={className}>{body}</div>;
 

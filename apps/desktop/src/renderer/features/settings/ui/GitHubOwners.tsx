@@ -22,6 +22,7 @@ import { useApp } from "../../../shell/hooks.ts";
 import { polaris } from "../../bridge.ts";
 import { AccountMark } from "../../pulls/index.ts";
 import { type OwnerRow, ownerTable, workspaceOverrides } from "../model/github.ts";
+import { Heading } from "./parts.tsx";
 import { workspaceLabel } from "../model/workspaces.ts";
 import {
   OverrideStrip,
@@ -220,7 +221,7 @@ export const OwnerTable = ({
     <>
       <section aria-label="Account per owner" className="flex flex-col gap-3 pt-3">
         <div className="flex flex-col gap-1">
-          <h2 className="text-heading-sm text-text-strong font-medium">Account per owner</h2>
+          <Heading>Account per owner</Heading>
           <p className="text-body text-text-subtle">
             Matched by each workspace&apos;s git remote. New owners use the default until you
             choose.

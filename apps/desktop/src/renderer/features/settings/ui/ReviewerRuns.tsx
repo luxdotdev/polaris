@@ -14,7 +14,7 @@ import {
 } from "@polaris/ui";
 import { useShellActions } from "../../../shell/hooks.ts";
 import { type RunPolicy, THRESHOLDS, thresholdLabel } from "../model/reviewer.ts";
-import { Group, SettingRow } from "./parts.tsx";
+import { Group, Heading, SettingRow } from "./parts.tsx";
 
 const NEVER = "never";
 
@@ -54,7 +54,7 @@ export const WhenItRuns = ({
   readonly onChange: (patch: Partial<RunPolicy>) => void;
 }) => (
   <section aria-label="When it runs" className="flex flex-col gap-3">
-    <h2 className="text-heading-sm text-text-strong leading-[18px] font-medium">When it runs</h2>
+    <Heading>When it runs</Heading>
     <Group>
       <SettingRow
         title="When a pull request opens in Review"
@@ -117,9 +117,7 @@ export const ChecksAgainst = () => {
   return (
     <section aria-label="What it checks against" className="flex flex-col gap-3">
       <div className="flex flex-col gap-1">
-        <h2 className="text-heading-sm text-text-strong leading-[18px] font-medium">
-          What it checks against
-        </h2>
+        <Heading>What it checks against</Heading>
         <p className="text-body text-text-subtle">
           Rules run on the host without the reviewer and use no tokens. No rule or instruction can
           hide a critical finding.

@@ -32,7 +32,7 @@ const AddVerb = ({ app }: { readonly app: ReadonlyArray<string> | null }) => {
 
   return (
     <form
-      className="px-panel flex items-center gap-3 py-3"
+      className="px-panel flex items-center gap-3 py-[calc(var(--spacing-gap)+4px)]"
       onSubmit={(event) => {
         event.preventDefault();
         add();
@@ -60,9 +60,9 @@ export const WorkingVerbs = () => {
 
   return (
     <Group label="Working verbs">
-      <div className="px-panel flex flex-col gap-2.5 py-3">
+      <div className="px-panel flex flex-col gap-2.5 py-[calc(var(--spacing-gap)+4px)]">
         <div className="flex flex-col gap-0.5">
-          <span className="text-label text-text-strong">Working verbs</span>
+          <span className="text-label font-regular text-text-default">Working verbs</span>
           <span className="text-caption text-text-subtle">
             The Working strip shows one at a time while a turn runs, a new one every few seconds
           </span>

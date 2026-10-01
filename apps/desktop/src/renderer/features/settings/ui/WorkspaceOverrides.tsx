@@ -133,6 +133,7 @@ export const OverrideStrip = ({
         <Button
           variant="ghost"
           size="xs"
+          className="text-text-default"
           aria-expanded={editing}
           onClick={() => setEditing(!editing)}
         >
