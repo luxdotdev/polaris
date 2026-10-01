@@ -27,6 +27,7 @@ import { imageAfterRelaunch, sendImage } from "./lib/previewFlow.ts";
 import { runSubagent, subagentAfterRelaunch } from "./lib/subagentFlow.ts";
 import { terminalFlow } from "./lib/terminalFlow.ts";
 import { githubFlow, MOCK_KEYCHAIN, serveGitHubFake } from "./lib/githubFlow.ts";
+import { addRemotes, pullsFlow } from "./lib/pullsFlow.ts";
 
 const args = process.argv.slice(2);
 
@@ -180,7 +181,7 @@ const jumpByTyping = async (page: Page) => {
   step("shortcut help opens with ⌘/ and closes with esc");
 
   await page.keyboard.press("Meta+2");
-  await page.getByText(/Review arrives/).waitFor({ timeout: 5000 });
+  await page.getByTestId("pull-list").waitFor({ timeout: 5000 });
   await page.keyboard.press("Meta+1");
   await page.getByTestId("session-panel").waitFor({ timeout: 5000 });
   step("⌘2 and ⌘1 switch views");
@@ -441,6 +442,11 @@ try {
   const repo = join(home, "smoke-repo");
 
   initRepo(repo);
+  // Its remotes are how the PR list finds acme/widgets (and a repository nobody may see).
+  addRemotes(repo, {
+    origin: "git@github.com:acme/widgets.git",
+    upstream: "https://github.com/lockedorg/vault",
+  });
   await sessionFlow({
     page,
     repo,
@@ -454,7 +460,12 @@ try {
   await attachmentsFlow({ app, page, step, shoot: (name) => shoot(page, name) });
   await timeSwitches(page);
   await jumpByTyping(page);
-  await githubFlow({ page, fake: github.fake, step });
+  await githubFlow({
+    page,
+    fake: github.fake,
+    step,
+    afterList: () => pullsFlow({ app, page, fake: github.fake, step }),
+  });
 
   let probeTimer: ReturnType<typeof setTimeout> | undefined;
 

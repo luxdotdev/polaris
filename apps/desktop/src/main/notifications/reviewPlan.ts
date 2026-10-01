@@ -1,18 +1,23 @@
 /**
  * Which native notifications to show and close for review requests (ENG-229): one per new
- * entry in the PR list's `requested`, never twice while the request stands. Requests already
- * there when the list first loads only seed the state. Pure, so it is unit-tested.
+ * entry in the PR list's `requested`, never twice while the request stands. A request last
+ * updated before Polaris saw its account (this launch, or a sign-in) was already there: it
+ * is marked without a banner. Pure, so it is unit-tested.
  */
 import type { PullListView, PullRowView } from "../../shared/github.ts";
 
 export interface ReviewNotificationState {
-  /** False until the first loaded list: what it holds was there before this launch. */
-  readonly seeded: boolean;
-  /** Requested pull request ids already notified (or seeded); pruned as requests go. */
+  /** Requested pull request ids already notified (or already there); pruned as requests go. */
   readonly notified: ReadonlySet<string>;
 }
 
-export const emptyReviewState: ReviewNotificationState = { seeded: false, notified: new Set() };
+export const emptyReviewState: ReviewNotificationState = { notified: new Set() };
+
+/** GitHub's clock and this Mac's can disagree by this much. */
+export const SKEW_MS = 60_000;
+
+/** When Polaris first saw each account signed in (ms); null for one it hasn't seen yet. */
+export type SeenSince = (accountId: number) => number | null;
 
 /** More new requests than this in one poll make one notification, not a burst. */
 export const BURST = 3;
@@ -50,19 +55,24 @@ const burstOf = (rows: ReadonlyArray<PullRowView>): ReviewNotification => ({
   pull: null,
 });
 
+/** Requested since Polaris saw the account: worth a banner. */
+const isNew = (row: PullRowView, since: SeenSince) => {
+  const seen = since(row.accountId);
+
+  return seen !== null && Date.parse(row.updatedAt) >= seen - SKEW_MS;
+};
+
 export const planReviewNotifications = (
   state: ReviewNotificationState,
-  list: PullListView
+  list: PullListView,
+  since: SeenSince
 ): ReviewPlan => {
   if (list.updatedAt === null) return { show: [], close: [], state };
 
   const live = new Set(list.requested.map((r) => r.id));
   const close = [...state.notified].filter((id) => !live.has(id));
-
-  if (!state.seeded) return { show: [], close, state: { seeded: true, notified: live } };
-
-  const fresh = list.requested.filter((r) => !state.notified.has(r.id));
+  const fresh = list.requested.filter((r) => !state.notified.has(r.id) && isNew(r, since));
   const show = fresh.length > BURST ? [burstOf(fresh)] : fresh.map(contentOf);
 
-  return { show, close, state: { seeded: true, notified: live } };
+  return { show, close, state: { notified: live } };
 };

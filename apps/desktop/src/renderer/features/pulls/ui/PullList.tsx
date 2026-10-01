@@ -47,12 +47,14 @@ const moveFocus = (event: KeyboardEvent<HTMLElement>) => {
   next.focus();
 };
 
-const Header = ({ caption }: { readonly caption: string }) => (
+const Header = ({ caption }: { readonly caption: string | null }) => (
   <div className="flex flex-col gap-1">
     <h1 className="text-display text-text-strong font-medium tracking-[-0.015em]">Pull requests</h1>
-    <p className="text-caption text-text-subtle" data-testid="pulls-caption">
-      {caption}
-    </p>
+    {caption === null ? null : (
+      <p className="text-caption text-text-subtle" data-testid="pulls-caption">
+        {caption}
+      </p>
+    )}
   </div>
 );
 
@@ -248,7 +250,13 @@ export const PullList = ({ onAddAccount }: PullListProps) => {
     >
       <div className="flex items-end gap-4">
         <div className="min-w-0 flex-1">
-          <Header caption={model?.caption ?? "Checking GitHub…"} />
+          <Header
+            caption={
+              empty === "signed-out" || empty === "no-keychain"
+                ? null
+                : (model?.caption ?? "Checking GitHub…")
+            }
+          />
         </div>
         <AccountFilter accounts={model?.accounts ?? []} value={accountId} onChange={setAccountId} />
         <ByUrl onOpen={open} />

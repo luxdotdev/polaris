@@ -5,7 +5,7 @@
  */
 import { type BrowserWindow, Notification } from "electron";
 import type { AppEvent } from "../../shared/api.ts";
-import type { PullListView } from "../../shared/github.ts";
+import type { GitHubAccountsView, PullListView } from "../../shared/github.ts";
 import {
   emptyReviewState,
   planReviewNotifications,
@@ -22,6 +22,8 @@ export interface ReviewNotifierInput {
 
 export interface ReviewNotifier {
   readonly update: (list: PullListView) => void;
+  /** The signed-in accounts, as the GitHub client reports them: each is seen from now on. */
+  readonly accounts: (accounts: GitHubAccountsView) => void;
   readonly dispose: () => void;
 }
 
@@ -50,6 +52,7 @@ export const createReviewNotifier = ({
   notify,
 }: ReviewNotifierInput): ReviewNotifier => {
   let state = emptyReviewState;
+  const seenSince = new Map<number, number>();
   const planned: Array<string> = [];
   const live = new Map<string, Notification>();
   const standing = new Map<string, () => void>();
@@ -65,7 +68,8 @@ export const createReviewNotifier = ({
     planned.push(content.key);
 
     const click = () => {
-      focusWindow(window());
+      // Hidden runs (the smoke) click through the probe: open the pull request, show nothing.
+      if (notify()) focusWindow(window());
       send({ kind: "open-pull", pull: pullOf(content) });
     };
 
@@ -102,13 +106,20 @@ export const createReviewNotifier = ({
 
   return {
     update: (list) => {
-      const plan = planReviewNotifications(state, list);
+      const plan = planReviewNotifications(state, list, (id) => seenSince.get(id) ?? null);
 
       state = plan.state;
 
       for (const key of plan.close) close(key);
 
       for (const content of plan.show) show(content);
+    },
+    accounts: (view) => {
+      const now = Date.now();
+
+      for (const account of view.accounts) {
+        if (account.state === "ok" && !seenSince.has(account.id)) seenSince.set(account.id, now);
+      }
     },
     dispose: () => {
       for (const key of live.keys()) close(key);

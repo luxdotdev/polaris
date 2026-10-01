@@ -266,7 +266,7 @@ const start = async () => {
     notify: () =>
       env.POLARIS_DESKTOP_HIDDEN !== "1" && sessionPrefsOf(settings).notifyReviewRequests,
   });
-  followReviewRequests(runtime, (list) => reviews?.update(list));
+  followReviewRequests(runtime, reviews);
 
   // Benchmarks and scripts wait for this line: the window is painted and the local Host is up.
   const shown = new Promise<void>((resolve) => win.once("ready-to-show", () => resolve()));
