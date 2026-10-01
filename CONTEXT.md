@@ -136,8 +136,16 @@ A stable unit of work in a Constellation, with dependencies on other Tasks; it i
 _Avoid_: Job, step, ticket
 
 **Attempt**:
-One try at a Task, carried out by one Agent Session and linked to the earlier Attempt it follows (for example, sent back after review); a retry is a new Attempt, never a rewrite of an old one.
+One try at a Task, carried out by one Agent Session and linked to the earlier Attempt it follows (for example, sent back after review); a retry is a new Attempt, never a rewrite of an old one. An Agent Session carries at most one active Attempt at a time, but may carry Attempts on several Tasks over its life.
 _Avoid_: Retry, run
+
+**Claim**:
+A worker's typed statement that its Attempt is done, carrying its report (branch, head, checks run, what isn't done, questions); it puts the Attempt in review until the Lead or the user accepts it or sends it back.
+_Avoid_: Report ready, done (a claim isn't done until it's accepted)
+
+**Area**:
+The paths a Task expects to change, declared so that overlapping work in the same Constellation is visible before it conflicts.
+_Avoid_: Ownership, scope
 
 **Gate**:
 A Task that waits for several other Tasks to finish (fan-in), such as "tiles merged to main", before the Constellation moves on.
