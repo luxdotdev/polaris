@@ -3,6 +3,8 @@
  * every read model a Client sees is a projection of these.
  */
 import { Schema } from "effect";
+import { constellationEventFields, resourceEventFields } from "./constellation/events.ts";
+import { ConstellationId } from "./constellation/domain.ts";
 import {
   AgentSession,
   ApprovalDecision,
@@ -46,6 +48,8 @@ import {
 } from "./review.ts";
 
 export const DomainEvent = Schema.TaggedUnion({
+  ...constellationEventFields,
+  ...resourceEventFields,
   WorkspaceRegistered: { workspace: Workspace },
   WorkspaceUpdated: { workspace: Workspace },
   WorkspaceRemoved: { workspaceId: WorkspaceId },
@@ -175,10 +179,11 @@ export const DomainEvent = Schema.TaggedUnion({
 export type DomainEvent = typeof DomainEvent.Type;
 
 /** Which stream an event belongs to. Host-level events use `host`. */
-export const StreamKey = Schema.Union([
-  Schema.TaggedStruct("host", {}),
-  Schema.TaggedStruct("session", { sessionId: SessionId }),
-]);
+export const StreamKey = Schema.TaggedUnion({
+  host: {},
+  session: { sessionId: SessionId },
+  constellation: { constellationId: ConstellationId },
+});
 
 export type StreamKey = typeof StreamKey.Type;
 

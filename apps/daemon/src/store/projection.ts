@@ -189,6 +189,34 @@ const reviewRow =
     projectReviewEvent(sql, event, envelope.sequence, envelope.occurredAt);
 
 const projectionOf: (event: DomainEvent) => Projection = DomainEvent.match<Projection>({
+  // Graph and lease events persist in the log; they do not change session tables.
+  ConstellationStarted: () => () => Effect.void,
+  ConstellationStateChanged: () => () => Effect.void,
+  LeadChanged: () => () => Effect.void,
+  TaskDeclared: () => () => Effect.void,
+  TaskEdited: () => () => Effect.void,
+  TaskCanceled: () => () => Effect.void,
+  TaskProposed: () => () => Effect.void,
+  ProposalAccepted: () => () => Effect.void,
+  ProposalDeclined: () => () => Effect.void,
+  AttemptStarted: () => () => Effect.void,
+  AttemptProgressed: () => () => Effect.void,
+  AttemptClaimed: () => () => Effect.void,
+  AttemptAccepted: () => () => Effect.void,
+  AttemptRejected: () => () => Effect.void,
+  AttemptSettled: () => () => Effect.void,
+  GatePromoted: () => () => Effect.void,
+  NotificationQueued: () => () => Effect.void,
+  LeadNotified: () => () => Effect.void,
+  OperatorMessageSent: () => () => Effect.void,
+  OperatorMessageResolved: () => () => Effect.void,
+  PeerMessage: () => () => Effect.void,
+  AttemptRecoveryContinued: () => () => Effect.void,
+  ResourceDeclared: () => () => Effect.void,
+  ResourceLeaseQueued: () => () => Effect.void,
+  ResourceLeased: () => () => Effect.void,
+  ResourceReleased: () => () => Effect.void,
+
   WorkspaceRegistered: (event) => (target) => setWorkspace(target, event.workspace),
   WorkspaceUpdated: (event) => (target) => setWorkspace(target, event.workspace),
   WorkspaceRemoved:

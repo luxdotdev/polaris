@@ -153,6 +153,34 @@ const withCheckout =
 const fold = (event: DomainEvent): Fold =>
   Match.value(event).pipe(
     Match.tagsExhaustive({
+      // Constellation events are projected in their own view.
+      ConstellationStarted: () => unchanged,
+      ConstellationStateChanged: () => unchanged,
+      LeadChanged: () => unchanged,
+      TaskDeclared: () => unchanged,
+      TaskEdited: () => unchanged,
+      TaskCanceled: () => unchanged,
+      TaskProposed: () => unchanged,
+      ProposalAccepted: () => unchanged,
+      ProposalDeclined: () => unchanged,
+      AttemptStarted: () => unchanged,
+      AttemptProgressed: () => unchanged,
+      AttemptClaimed: () => unchanged,
+      AttemptAccepted: () => unchanged,
+      AttemptRejected: () => unchanged,
+      AttemptSettled: () => unchanged,
+      GatePromoted: () => unchanged,
+      NotificationQueued: () => unchanged,
+      LeadNotified: () => unchanged,
+      OperatorMessageSent: () => unchanged,
+      OperatorMessageResolved: () => unchanged,
+      PeerMessage: () => unchanged,
+      AttemptRecoveryContinued: () => unchanged,
+      ResourceDeclared: () => unchanged,
+      ResourceLeaseQueued: () => unchanged,
+      ResourceLeased: () => unchanged,
+      ResourceReleased: () => unchanged,
+
       WorkspaceRegistered:
         ({ workspace }): Fold =>
         (m) => ({

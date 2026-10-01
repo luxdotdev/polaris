@@ -6,6 +6,8 @@
 import {
   type Capability,
   CommandRejected,
+  ConstellationRejected,
+  ConstellationFinding,
   FileError,
   GitError,
   type HostInfo,
@@ -19,6 +21,19 @@ import { ClientCapabilities, DeviceLabel } from "../engine/rpc.ts";
 import { BlobChannel } from "../services.ts";
 import { ServerRpcs } from "./rpcs.ts";
 
+const constellationUnavailable = () =>
+  new ConstellationRejected({
+    findings: [
+      new ConstellationFinding({
+        code: "E-UNAVAILABLE",
+        message: "Constellations are not available on this Daemon yet",
+        fix: "Connect to a Daemon with the constellation capability",
+      }),
+    ],
+    graph: null,
+    revision: 0,
+  });
+
 const notYet = (what: string) => `${what} is not available on this Daemon yet`;
 
 const fileError = (path: string, what: string) =>
@@ -29,6 +44,19 @@ export const defaultHandlers = (options: {
   readonly capabilities: ReadonlyArray<Capability>;
 }) =>
   ServerRpcs.toLayer({
+    "constellation.plan": () => Effect.fail(constellationUnavailable()),
+    "constellation.dispatch": () => Effect.fail(constellationUnavailable()),
+    "constellation.review": () => Effect.fail(constellationUnavailable()),
+    "constellation.answer": () => Effect.fail(constellationUnavailable()),
+    "constellation.message": () => Effect.fail(constellationUnavailable()),
+    "constellation.status": () => Effect.fail(constellationUnavailable()),
+    "constellation.set_state": () => Effect.fail(constellationUnavailable()),
+    "constellation.worker.claim": () => Effect.fail(constellationUnavailable()),
+    "constellation.worker.ask": () => Effect.fail(constellationUnavailable()),
+    "constellation.worker.progress": () => Effect.fail(constellationUnavailable()),
+    "constellation.worker.propose": () => Effect.fail(constellationUnavailable()),
+    "constellation.worker.message": () => Effect.fail(constellationUnavailable()),
+    "constellation.subscribe": () => Stream.fail(constellationUnavailable()),
     // Record which device this connection is (for ApprovalResolved.resolvedBy) and
     // what it understands (e.g. whether to send it ItemProgress).
     hello: ({ deviceLabel, capabilities }, { client }) =>

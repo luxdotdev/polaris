@@ -9,6 +9,8 @@ export const PROTOCOL_VERSION = 1;
  * older Daemon keeps working until the Desktop App upgrades it.
  */
 export const Capability = Schema.Literals([
+  "constellation",
+  "host.resources",
   /** `harness.<kind>`: the Daemon has that Harness's driver (one per catalogue entry). */
   ...HARNESS_CATALOGUE.map((harness) => harness.capability),
   /** `harness.models`: each Harness's Models on this Host. */

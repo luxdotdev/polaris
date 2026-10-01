@@ -78,6 +78,33 @@ const byTurn = (event: { readonly turn: Turn }) => event.turn.sessionId;
 /** The Agent Session an event belongs to, or null for Host-level events. */
 export const sessionOf: (event: DomainEvent) => SessionId | null =
   DomainEvent.match<SessionId | null>({
+    ConstellationStarted: hostEvent,
+    ConstellationStateChanged: hostEvent,
+    LeadChanged: hostEvent,
+    TaskDeclared: hostEvent,
+    TaskEdited: hostEvent,
+    TaskCanceled: hostEvent,
+    TaskProposed: hostEvent,
+    ProposalAccepted: hostEvent,
+    ProposalDeclined: hostEvent,
+    AttemptStarted: hostEvent,
+    AttemptProgressed: hostEvent,
+    AttemptClaimed: hostEvent,
+    AttemptAccepted: hostEvent,
+    AttemptRejected: hostEvent,
+    AttemptSettled: hostEvent,
+    GatePromoted: hostEvent,
+    NotificationQueued: hostEvent,
+    LeadNotified: hostEvent,
+    OperatorMessageSent: hostEvent,
+    OperatorMessageResolved: hostEvent,
+    PeerMessage: hostEvent,
+    AttemptRecoveryContinued: hostEvent,
+    ResourceDeclared: hostEvent,
+    ResourceLeaseQueued: hostEvent,
+    ResourceLeased: hostEvent,
+    ResourceReleased: hostEvent,
+
     WorkspaceRegistered: hostEvent,
     WorkspaceUpdated: hostEvent,
     WorkspaceRemoved: hostEvent,
@@ -146,7 +173,12 @@ export const isHostStreamEvent = (event: DomainEvent): boolean =>
   !hostOmittedEventTypes.includes(event._tag);
 
 /** Every capability `eventCapability` can ask for. */
-export const gatingCapabilities: ReadonlyArray<Capability> = ["session.accept", "review.checkouts"];
+export const gatingCapabilities: ReadonlyArray<Capability> = [
+  "session.accept",
+  "review.checkouts",
+  "constellation",
+  "host.resources",
+];
 
 const needs = (capability: Capability) => (): Capability => capability;
 
@@ -158,6 +190,32 @@ export const eventCapability = (event: DomainEvent): Capability | null =>
   DomainEvent.matchOrElse(
     event,
     {
+      ConstellationStarted: needs("constellation"),
+      ConstellationStateChanged: needs("constellation"),
+      LeadChanged: needs("constellation"),
+      TaskDeclared: needs("constellation"),
+      TaskEdited: needs("constellation"),
+      TaskCanceled: needs("constellation"),
+      TaskProposed: needs("constellation"),
+      ProposalAccepted: needs("constellation"),
+      ProposalDeclined: needs("constellation"),
+      AttemptStarted: needs("constellation"),
+      AttemptProgressed: needs("constellation"),
+      AttemptClaimed: needs("constellation"),
+      AttemptAccepted: needs("constellation"),
+      AttemptRejected: needs("constellation"),
+      AttemptSettled: needs("constellation"),
+      GatePromoted: needs("constellation"),
+      NotificationQueued: needs("constellation"),
+      LeadNotified: needs("constellation"),
+      OperatorMessageSent: needs("constellation"),
+      OperatorMessageResolved: needs("constellation"),
+      PeerMessage: needs("constellation"),
+      AttemptRecoveryContinued: needs("constellation"),
+      ResourceDeclared: needs("host.resources"),
+      ResourceLeaseQueued: needs("host.resources"),
+      ResourceLeased: needs("host.resources"),
+      ResourceReleased: needs("host.resources"),
       TurnsAccepted: needs("session.accept"),
       TurnsReverted: needs("session.accept"),
       SessionPullRequestLinked: needs("session.accept"),
@@ -402,6 +460,34 @@ const setCheckout =
 const keep: Reducer = ({ model }) => model;
 
 const apply: (event: DomainEvent) => Reducer = DomainEvent.match<Reducer>({
+  // Constellation projections are folded separately by their graph decider.
+  ConstellationStarted: () => keep,
+  ConstellationStateChanged: () => keep,
+  LeadChanged: () => keep,
+  TaskDeclared: () => keep,
+  TaskEdited: () => keep,
+  TaskCanceled: () => keep,
+  TaskProposed: () => keep,
+  ProposalAccepted: () => keep,
+  ProposalDeclined: () => keep,
+  AttemptStarted: () => keep,
+  AttemptProgressed: () => keep,
+  AttemptClaimed: () => keep,
+  AttemptAccepted: () => keep,
+  AttemptRejected: () => keep,
+  AttemptSettled: () => keep,
+  GatePromoted: () => keep,
+  NotificationQueued: () => keep,
+  LeadNotified: () => keep,
+  OperatorMessageSent: () => keep,
+  OperatorMessageResolved: () => keep,
+  PeerMessage: () => keep,
+  AttemptRecoveryContinued: () => keep,
+  ResourceDeclared: () => keep,
+  ResourceLeaseQueued: () => keep,
+  ResourceLeased: () => keep,
+  ResourceReleased: () => keep,
+
   WorkspaceRegistered: setWorkspace,
   WorkspaceUpdated: setWorkspace,
   WorkspaceRemoved: removeWorkspace,
