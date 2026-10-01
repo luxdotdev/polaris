@@ -235,6 +235,7 @@ describe("subscriptions", () => {
         "hosts",
         "machines",
         "plan-limits",
+        "review.watchRiskSummary",
         "session",
         "terminal",
         "usage",
