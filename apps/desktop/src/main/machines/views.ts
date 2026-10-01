@@ -51,6 +51,7 @@ export const machineViews = ({
   const localInstall = installs.get(LOCAL_HOST_KEY);
 
   const localView: MachineView = {
+    daemon: null,
     key: LOCAL_HOST_KEY,
     label: local?.label ?? "This Mac",
     colour: null,
@@ -68,6 +69,7 @@ export const machineViews = ({
     const install = installs.get(remote.alias);
 
     return {
+      daemon: null,
       key: remote.alias,
       label: remote.label ?? remote.alias,
       colour: remote.colour ?? null,
