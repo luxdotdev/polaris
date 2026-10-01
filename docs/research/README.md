@@ -15,6 +15,7 @@ Source research behind the Polaris planning map ([ENG-167](https://linear.app/lu
 | [risk-summary.md](risk-summary.md) | [ENG-186](https://linear.app/luxdev/issue/ENG-186): building blocks for Risk Summaries |
 | [weakness-razor.md](weakness-razor.md) | [ENG-187](https://linear.app/luxdev/issue/ENG-187): Bennett's Razor applied to the reviewer's learning loop |
 | [multi-model-harnesses.md](multi-model-harnesses.md) | [ENG-197](https://linear.app/luxdev/issue/ENG-197): OpenCode, ACP and other multi-model Harnesses |
+| [rules-layer.md](rules-layer.md) | [ENG-220](https://linear.app/luxdev/issue/ENG-220): Betterleaks and ast-grep as the Rules layer on every Host |
 | [usage-sources.md](usage-sources.md) | [ENG-198](https://linear.app/luxdev/issue/ENG-198): where Usage and Plan Limits come from without touching credentials |
 
 The prototype and spike code is throwaway and stays on its own branches, not on `main`:
