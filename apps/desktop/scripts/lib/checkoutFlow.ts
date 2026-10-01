@@ -149,6 +149,8 @@ export const checkoutFlow = async ({ page, fake, codeHost, step, shoot }: Checko
   step(`Remove checkout with an edit inside: "${blocked}"`);
   await shoot("checkout-blocked-dirty");
   await page.getByTestId("checkout-chip-action").click();
+  await page.getByTestId("checkout-fix-confirm").waitFor();
+  await shoot("checkout-menu-blocked");
   await page.getByTestId("checkout-fix-confirm").click();
 
   const removed = await chipIn(page, "removed");
@@ -163,7 +165,11 @@ export const checkoutFlow = async ({ page, fake, codeHost, step, shoot }: Checko
 };
 
 /** After githubFlow merged #42 on GitHub: its checkout goes on its own. */
-export const afterMerge = async ({ page, step }: Pick<CheckoutFlowInput, "page" | "step">) => {
+export const afterMerge = async ({
+  page,
+  step,
+  shoot,
+}: Pick<CheckoutFlowInput, "page" | "step" | "shoot">) => {
   // Merged, #42 has left the open list: by URL, as anyone would reach it.
   await page.getByRole("radio", { name: /^Review/ }).click();
 
@@ -179,5 +185,6 @@ export const afterMerge = async ({ page, step }: Pick<CheckoutFlowInput, "page" 
 
   if (!merged.startsWith("Merged")) throw new Error(`expected a merged removal, saw "${merged}"`);
   step(`merging #42 on GitHub removed its checkout: "${merged}"`);
+  await shoot("checkout-merged");
   await page.getByRole("radio", { name: /^Orchestrate/ }).click();
 };

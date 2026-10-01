@@ -491,7 +491,7 @@ try {
       });
     },
   });
-  await afterMerge({ page, step });
+  await afterMerge({ page, step, shoot: (name) => shoot(page, name) });
 
   let probeTimer: ReturnType<typeof setTimeout> | undefined;
 
