@@ -3,6 +3,7 @@ import { type HTMLAttributes, useEffect, useRef } from "react";
 import { cn } from "../../../lib/cn";
 import type { CssVars } from "../../../lib/css";
 import { hueVar, type TintHue } from "../../../lib/hue";
+import { reducedMotion } from "../../../lib/motion";
 import {
   BLOOM_MS,
   bloomAt,
@@ -52,14 +53,6 @@ function resolveColors(canvas: HTMLCanvasElement): FieldColors {
     hueAlpha: light ? HUE_ALPHA * 1.25 : HUE_ALPHA,
     washAlpha: light ? WASH_ALPHA * 0.6 : WASH_ALPHA,
   };
-}
-
-function reducedMotion(): boolean {
-  const setting = document.documentElement.dataset.reduceMotion;
-
-  if (setting !== undefined) return setting === "true";
-
-  return matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 const PRESENCE_IN_MS = 90;

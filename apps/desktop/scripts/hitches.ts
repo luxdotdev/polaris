@@ -7,7 +7,7 @@
  * entries (script, source, duration), a main-process lag monitor, and
  * optionally a renderer CPU profile or a Chromium trace of every process.
  *
- *   node scripts/hitches.ts <chip|usage|hover|scroll> [--real-home] [--turns N] [--pinned]
+ *   node scripts/hitches.ts <chip|usage|hover|scene|scroll> [--real-home] [--turns N] [--pinned]
  *     [--screenshot] [--shots <dir>] [--profile <file.cpuprofile>] [--trace <file.json>]
  *
  * Instrumentation moves the hitches it measures: judge budgets on plain runs.
@@ -26,8 +26,14 @@ const args = process.argv.slice(2);
 
 const mode = args[0];
 
-if (mode !== "chip" && mode !== "scroll" && mode !== "usage" && mode !== "hover")
-  throw new Error("usage: hitches.ts <chip|usage|hover|scroll> …");
+if (
+  mode !== "chip" &&
+  mode !== "scroll" &&
+  mode !== "usage" &&
+  mode !== "hover" &&
+  mode !== "scene"
+)
+  throw new Error("usage: hitches.ts <chip|usage|hover|scene|scroll> …");
 
 const option = (name: string) => {
   const at = args.indexOf(name);
@@ -436,6 +442,63 @@ const hover = async (page: Page) => {
   if (shots !== null) await composerShots(page, shots);
 };
 
+/** Every 120ms for `ms`, a window frame into `dir` (for a short recording of the scene). */
+const record = async (page: Page, dir: string, name: string, ms: number) => {
+  mkdirSync(dir, { recursive: true });
+  const end = Date.now() + ms;
+
+  for (let i = 0; Date.now() < end; i++) {
+    await page.screenshot({
+      path: join(dir, `${name}-${String(i).padStart(3, "0")}.png`),
+      scale: "css",
+    });
+    await page.waitForTimeout(120);
+  }
+};
+
+/** The first-run stage's scene: frames while it lives (twinkles, lamp, smoke) and a meteor or flock passes. */
+const scene = async (page: Page) => {
+  await page
+    .locator('[data-slot="scene-motion"]')
+    .first()
+    .waitFor({ state: "attached", timeout: 30_000 });
+  await page.waitForTimeout(1500);
+
+  for (const theme of ["dark", "light"] as const) {
+    await page.evaluate(`document.documentElement.dataset.theme = "${theme}"`);
+    await page.waitForTimeout(500);
+    await page.evaluate(OBSERVE);
+    await page.evaluate("window.__polarisScene?.summon()");
+    await page.waitForTimeout(700);
+    log(
+      `scene ${theme} visitor: ${JSON.stringify(await page.evaluate("window.__polarisScene?.flying()"))}`
+    );
+    await page.waitForTimeout(theme === "dark" ? 3300 : 7300);
+    report(`scene ${theme}`, await stop(page), []);
+  }
+
+  // Reduce Motion: the layer stops and clears, so only the still scene shows.
+  const lit = `(() => { const c = document.querySelector('[data-slot="scene-motion"] canvas'); const d = c.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 0) n++; return n; })()`;
+
+  log(`scene lit pixels moving: ${await page.evaluate<number>(lit)}`);
+  await page.evaluate(`document.documentElement.dataset.reduceMotion = "true"`);
+  await page.waitForTimeout(1200);
+  log(`scene lit pixels under Reduce Motion: ${await page.evaluate<number>(lit)}`);
+  await page.evaluate(`delete document.documentElement.dataset.reduceMotion`);
+
+  const shots = option("--shots");
+
+  if (shots === null) return;
+
+  for (const theme of ["dark", "light"] as const) {
+    await page.evaluate(`document.documentElement.dataset.theme = "${theme}"`);
+    await page.waitForTimeout(400);
+    await page.evaluate("window.__polarisScene?.summon()");
+    await page.waitForTimeout(theme === "dark" ? 200 : 4500);
+    await record(page, join(shots, "frames"), theme, theme === "dark" ? 3500 : 14_000);
+  }
+};
+
 const scroll = async (page: Page) => {
   const repo = join(home, "heavy");
 
@@ -515,7 +578,7 @@ try {
     .locator('[data-host="local"][data-connection="connected"]')
     .first()
     .waitFor({ timeout: 30_000 });
-  await { chip, usage, hover, scroll }[mode](page);
+  await { chip, usage, hover, scene, scroll }[mode](page);
 } catch (error) {
   failed = true;
   console.error("hitches: FAILED", error);
