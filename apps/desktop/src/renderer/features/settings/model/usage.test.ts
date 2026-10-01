@@ -3,6 +3,7 @@ import { SessionId } from "@polaris/protocol";
 import {
   type Bucket,
   compactTokens,
+  costCaption,
   costLabel,
   dayTip,
   pricedEstimate,
@@ -117,6 +118,26 @@ describe("usageSummary", () => {
       from: "2026-09-24T00:00:00.000Z",
       to: "2026-09-30T15:00:00.000Z",
     });
+  });
+
+  test("the cost figure: '~' and 'estimated' only for estimates; unpriced Models said once", () => {
+    const estimated = { usd: 7526.651, estimated: true, partial: false };
+    const reported = { usd: 21.4, estimated: false, partial: false };
+
+    expect([costLabel(estimated), costCaption(estimated)]).toEqual([
+      "~$7,526.65",
+      "API-equivalent · estimated",
+    ]);
+    expect(costCaption({ ...estimated, partial: true })).toBe(
+      "API-equivalent · estimated · some models unpriced"
+    );
+    expect([costLabel(reported), costCaption(reported)]).toEqual([
+      "$21.40",
+      "Reported by harnesses",
+    ]);
+    expect(costCaption({ ...reported, partial: true })).toBe(
+      "Reported by harnesses · some models unpriced"
+    );
   });
 
   test("costs over a thousand dollars group their digits", () => {

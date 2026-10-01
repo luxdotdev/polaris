@@ -245,6 +245,13 @@ export const costLabel = (cost: Cost): string => {
   return cost.estimated ? `~${usd}` : usd;
 };
 
+/** The cost figure's caption (Paper S2): what the number is, and whether some Models had no price. */
+export const costCaption = (cost: Cost): string => {
+  const what = cost.estimated ? "API-equivalent · estimated" : "Reported by harnesses";
+
+  return cost.partial ? `${what} · some models unpriced` : what;
+};
+
 /** A tooltip's cost: "~$1.20" estimated, "$1.20" reported, "no price" when nothing could price it. */
 export const tipCost = (cost: Cost): string => {
   if (cost.usd === 0 && cost.partial) return "no price";
