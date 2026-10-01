@@ -17,6 +17,7 @@ import type { ReactNode } from "react";
 import { age } from "../../../shell/copy.ts";
 import { useApp, useSelection, useShellActions } from "../../../shell/hooks.ts";
 import { useNow } from "../../../shell/useNow.ts";
+import { ReviewsGroup, useRequestedCount } from "../../pulls/index.ts";
 import { useInbox } from "../hooks.ts";
 import { quietFact } from "../model/quiet.ts";
 import type {
@@ -159,9 +160,13 @@ const Empty = () => {
 export const NeedsYouInbox = () => {
   const inbox = useInbox();
   const now = useNow(30_000);
+  const reviews = useRequestedCount();
 
   const nothing =
-    inbox.waiting.length === 0 && inbox.also.length === 0 && inbox.answered.length === 0;
+    inbox.waiting.length === 0 &&
+    inbox.also.length === 0 &&
+    inbox.answered.length === 0 &&
+    reviews === 0;
 
   if (nothing) return <Empty />;
 
@@ -179,6 +184,7 @@ export const NeedsYouInbox = () => {
       {inbox.also.map((item) => (
         <Also key={item.key} item={item} />
       ))}
+      <ReviewsGroup />
     </div>
   );
 };

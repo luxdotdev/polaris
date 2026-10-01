@@ -2,6 +2,7 @@
 import { useOnboardingState, Welcome } from "../features/onboarding/index.ts";
 import { LaterMode, type LaterModeProps } from "../features/empty/index.ts";
 import { SettingsPage } from "../features/settings/index.ts";
+import { closeReviewSubject, useReviewSubject } from "../routes/review.ts";
 import { Columns } from "../shell/Columns.tsx";
 import { ShortcutHelp } from "../shell/ShortcutHelp.tsx";
 import { useNav, useSelection, useShellActions } from "../shell/hooks.ts";
@@ -10,9 +11,25 @@ import { TitleBar } from "../shell/TitleBar.tsx";
 import { TopBar } from "../shell/TopBar.tsx";
 import { slots } from "./slots.tsx";
 
-const LATER: Readonly<Record<"review" | "edit", LaterModeProps>> = {
-  review: { title: "Review arrives in a later release", fact: "⌘1 goes back to orchestrate" },
-  edit: { title: "The editor arrives in a later release", fact: "⌘1 goes back to orchestrate" },
+const LATER: LaterModeProps = {
+  title: "The editor arrives in a later release",
+  fact: "⌘1 goes back to orchestrate",
+};
+
+/** Review: the subject open (`routes/review.ts`), or the pull request list. */
+const Review = () => {
+  const subject = useReviewSubject();
+  const { openSettings } = useShellActions();
+
+  return (
+    <main className="flex min-h-0 flex-1 flex-col">
+      {subject === null ? (
+        <slots.PullRequests onAddAccount={() => openSettings()} />
+      ) : (
+        <slots.PullReview subject={subject} onBack={closeReviewSubject} />
+      )}
+    </main>
+  );
 };
 
 /** Settings replaces the three zones (DESIGN.md, Settings); otherwise the mode's view. */
@@ -21,10 +38,12 @@ const Body = () => {
 
   if (settings !== null) return <SettingsPage route={settings} />;
 
-  if (mode !== "orchestrate") {
+  if (mode === "review") return <Review />;
+
+  if (mode === "edit") {
     return (
       <main className="flex flex-1 flex-col">
-        <LaterMode {...LATER[mode]} />
+        <LaterMode {...LATER} />
       </main>
     );
   }
