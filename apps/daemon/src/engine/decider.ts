@@ -241,6 +241,19 @@ const place = (d: Deciding, workspace: Workspace, placement: SessionPlacement): 
 
       return Result.succeed({ cwd: worktree.path, worktreeId: worktree.id });
     },
+    ReviewCheckout: ({ checkoutId }) => {
+      const checkout = d.model.reviewCheckouts.get(checkoutId);
+
+      if (checkout === undefined || checkout.workspaceId !== workspace.id) {
+        return Result.fail(d.notFound("review checkout", checkoutId));
+      }
+
+      if (checkout.head === null) {
+        return Result.fail(d.reject("the Review Checkout isn't checked out yet"));
+      }
+
+      return Result.succeed({ cwd: checkout.path, worktreeId: null });
+    },
   });
 
 const startSession = (d: Deciding, command: CommandOf<"StartSession">): Decision => {

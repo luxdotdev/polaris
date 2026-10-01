@@ -4,6 +4,8 @@
  * tested independently. Change a contract here, in one place, when needed.
  */
 import type {
+  ApprovalDecision,
+  ApprovalKind,
   Attachment,
   AttachmentId,
   BlobId,
@@ -210,3 +212,24 @@ export class PlanLimitSink extends Context.Service<
     readonly report: (limit: PlanLimit) => Effect.Effect<void>;
   }
 >()("polaris/daemon/PlanLimitSink") {}
+
+/** An approval a Harness asked for, as an `ApprovalPolicy` sees it. */
+export interface PolicyRequest {
+  readonly sessionId: SessionId;
+  readonly harness: HarnessKind;
+  readonly kind: ApprovalKind;
+  readonly title: string;
+  readonly detail: string | null;
+}
+
+/**
+ * Answers some sessions' approvals without asking the user (the Reviewer's
+ * read-only session). The Supervisor consults it before an approval reaches
+ * Needs You; null asks the user as usual. Implemented by `reviewer/`.
+ */
+export class ApprovalPolicy extends Context.Service<
+  ApprovalPolicy,
+  {
+    readonly decide: (request: PolicyRequest) => Effect.Effect<ApprovalDecision | null>;
+  }
+>()("polaris/daemon/ApprovalPolicy") {}

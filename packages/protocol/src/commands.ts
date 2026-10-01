@@ -34,6 +34,8 @@ export const SessionPlacement = Schema.TaggedUnion({
   NewWorktree: { branch: Schema.String, baseRef: Schema.NullOr(Schema.String) },
   /** Use a Worktree that already exists. */
   ExistingWorktree: { path: Schema.String },
+  /** Work in a Review Checkout: the Reviewer's own read-only session (capability `review.risk-summary`). */
+  ReviewCheckout: { checkoutId: ReviewCheckoutId },
 });
 
 export type SessionPlacement = typeof SessionPlacement.Type;

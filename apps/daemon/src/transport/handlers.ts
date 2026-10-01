@@ -100,6 +100,10 @@ export const defaultHandlers = (options: {
     // TODO(M2-V reviewer): continue the Reviewer's own Agent Session.
     "review.askFinding": () => Effect.fail(new Unsupported({ capability: "review.ask" })),
     "review.verdicts": () => Effect.fail(new Unsupported({ capability: "review.verdicts" })),
+    "review.reviewerSettings": () =>
+      Effect.fail(new Unsupported({ capability: "review.reviewer-settings" })),
+    "review.setReviewerSettings": () =>
+      Effect.fail(new Unsupported({ capability: "review.reviewer-settings" })),
 
     // Drain the bytes the Client already sent so they don't sit in the connection buffer.
     "attachments.stage": ({ name, blobId }) =>
