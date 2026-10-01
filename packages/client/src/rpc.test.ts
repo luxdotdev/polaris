@@ -96,6 +96,8 @@ describe("keepalive", () => {
           )
         );
         yield* Fiber.join(hello);
+        // A ping already on the wire when the reply landed is still counted: let it arrive.
+        yield* Effect.sleep(40);
         const afterReply = pings();
         yield* Effect.sleep(100);
         const later = pings();
