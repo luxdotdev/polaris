@@ -3,13 +3,50 @@
  * quoting each comment's lines, an optional message, and "Send to session", which sends the
  * whole batch as one Turn (ENG-223).
  */
-import { Button, Textarea, Tile } from "@polaris/ui";
+import { cn, type CssVars, harnessHue, harnessTextVar, hueVar, Textarea, Tile } from "@polaris/ui";
 import { useState } from "react";
 import { revealInDiff } from "../../review/index.ts";
 import { sendFeedback, setFeedbackMessage } from "../data/actions.ts";
 import { useComments } from "../data/store.ts";
 import { useSessionHarness } from "./hooks.ts";
 import { batchCaption, draftPlace, emptyBatch } from "../model/feedback.ts";
+
+/**
+ * "Send to @claude" (DESIGN.md, Feedback for the next turn): the Harness picker chip's form,
+ * its tile and handle in the Harness hue, sending the batch as the session's next Turn.
+ */
+const SendChip = ({
+  harness,
+  disabled,
+  onSend,
+}: {
+  readonly harness: string | null;
+  readonly disabled: boolean;
+  readonly onSend: () => void;
+}) => {
+  const vars: CssVars = {
+    "--chip-hue": harness === null ? "var(--color-hairline)" : hueVar(harness),
+    "--chip-text": harness === null ? "var(--color-text-default)" : harnessTextVar(harness),
+  };
+
+  return (
+    <button
+      type="button"
+      data-testid="feedback-send"
+      disabled={disabled}
+      onClick={onSend}
+      className={cn(
+        "rounded-control bg-surface-raised text-caption flex h-6 cursor-default items-center gap-1.5 border pr-2 pl-1 font-medium",
+        "border-[color-mix(in_oklab,var(--chip-hue)_28%,transparent)] text-(--chip-text)",
+        "hover:bg-fill-hover disabled:opacity-(--opacity-dimmed)"
+      )}
+      style={vars}
+    >
+      {harness !== null && <Tile hue={harness} size={20} style={{ width: 16, height: 16 }} />}
+      Send to {harness === null ? "session" : harnessHue(harness).handle}
+    </button>
+  );
+};
 
 export const FeedbackCard = ({ subjectKey }: { readonly subjectKey: string }) => {
   const batch = useComments((s) => s.batches[subjectKey] ?? emptyBatch);
@@ -66,16 +103,7 @@ export const FeedbackCard = ({ subjectKey }: { readonly subjectKey: string }) =>
       />
       {state.error !== null && <p className="text-caption text-failed-text">{state.error}</p>}
       <div className="flex items-center gap-1.5">
-        <Button
-          size="xs"
-          variant="secondary"
-          data-testid="feedback-send"
-          disabled={empty || state.busy}
-          onClick={() => void send()}
-        >
-          {harness !== null && <Tile hue={harness} size={20} />}
-          Send to session
-        </Button>
+        <SendChip harness={harness} disabled={empty || state.busy} onSend={() => void send()} />
         <span className="text-caption text-text-subtle">quotes the lines</span>
       </div>
     </section>
