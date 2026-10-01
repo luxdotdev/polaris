@@ -12,6 +12,8 @@ import { UpgradeToasts } from "../features/machines/UpgradeToasts.tsx";
 import { LinkedPullsPublisher } from "../features/accept/index.ts";
 import { NeedsYouPublisher } from "../features/needs-you/index.ts";
 import { PullsPublisher } from "../features/pulls/index.ts";
+// Not the feature's index: that loads the Review view's chunk.
+import { CheckoutPublisher } from "../features/review/checkout/Publisher.tsx";
 import { Shell } from "./Shell.tsx";
 
 export interface AppProps {
@@ -30,6 +32,7 @@ export const App = ({ value, onboarding = settled }: AppProps) => (
           <Shell />
           <NeedsYouPublisher />
           <PullsPublisher />
+          <CheckoutPublisher />
           <LinkedPullsPublisher />
           <UpgradeToasts />
           <Toaster />

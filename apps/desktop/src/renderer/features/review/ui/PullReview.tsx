@@ -9,29 +9,16 @@ import { useEffect } from "react";
 import type { HostView } from "../../../../shared/api.ts";
 import type { PullSubject } from "../../../routes/review.ts";
 import { useApp } from "../../../shell/hooks.ts";
-import { usePulls } from "../../pulls/store.ts";
-import { checkOutOnce, firstPlace } from "../data/autoCheckout.ts";
+import { placeToOpen } from "../checkout/model/hosts.ts";
+import { usePlaces } from "../checkout/useCheckout.ts";
+import { checkoutMemory, repoName, useCheckoutMemory } from "../checkout/store.ts";
+import { checkOutOnce } from "../data/autoCheckout.ts";
 import { usePullDetail } from "../data/pullDetail.ts";
-import { type CheckoutPlace, type CheckoutWait, pullSource } from "../data/source.ts";
+import { type CheckoutWait, pullSource } from "../data/source.ts";
 import { useReviewDiff } from "../data/useReviewDiff.ts";
 import { reviewSlots, subjectKey } from "../surface.ts";
 import { type Placeholder, ReviewBody } from "./ReviewBody.tsx";
 import { PullHeader } from "./SubjectHeader.tsx";
-
-const NO_PLACES: ReadonlyArray<CheckoutPlace> = [];
-
-/** The Workspaces the PR list matched to this pull request's repository. */
-const usePlaces = (subject: PullSubject): ReadonlyArray<CheckoutPlace> =>
-  usePulls((s) => {
-    const { repo, number } = subject.pull;
-    const name = `${repo.owner}/${repo.name}`.toLowerCase();
-    const rows = [...(s.list?.requested ?? []), ...(s.list?.mine ?? []), ...(s.list?.other ?? [])];
-
-    return (
-      rows.find((r) => r.number === number && r.repo.toLowerCase() === name)?.workspaces ??
-      NO_PLACES
-    );
-  });
 
 const labelOf = (hosts: ReadonlyArray<HostView>, hostKey: string) =>
   hosts.find((h) => h.key === hostKey)?.label ?? hostKey;
@@ -80,19 +67,25 @@ export const PullReview = ({ subject }: { readonly subject: PullSubject }) => {
   const detail = usePullDetail(pull);
   const models = useApp((s) => s.hostModels);
   const hosts = useApp((s) => s.hosts);
-  const places = usePlaces(subject);
-  const state = pullSource(pull, models, places);
+  const places = usePlaces(pull);
+  const lastHost = useCheckoutMemory((s) => s.lastHost[repoName(pull.repo)] ?? null);
+  const state = pullSource(pull, models, places, lastHost);
   const diff = useReviewDiff(state.kind === "ready" ? state.source : null);
   const loaded = detail.kind === "ok" ? detail.detail : null;
   const waitingForNone = state.kind === "waiting" && state.wait.kind === "none";
 
   useEffect(() => {
-    if (!waitingForNone || loaded === null) return;
+    // A merged or closed pull request, or one whose checkout was just removed, isn't checked out again.
+    if (!waitingForNone || loaded === null || loaded.state !== "open") return;
 
     const connected = (key: string) =>
       hosts.some((h) => h.key === key && h.status.state === "connected");
 
-    const place = firstPlace(places, connected);
+    const place = placeToOpen(
+      places,
+      checkoutMemory.getState().lastHost[repoName(pull.repo)] ?? null,
+      connected
+    );
 
     if (place !== null) checkOutOnce(place, pull, loaded);
   }, [waitingForNone, loaded, places, hosts, pull]);

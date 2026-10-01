@@ -66,9 +66,16 @@ export const checkoutsOf = (
 export const pullSource = (
   pull: OpenPull,
   models: Readonly<Record<string, HostModel>>,
-  places: ReadonlyArray<CheckoutPlace>
+  places: ReadonlyArray<CheckoutPlace>,
+  /** The Host the user chose (the repository's last used): its checkout wins. */
+  preferHost: string | null = null
 ): PullSourceState => {
-  const found = checkoutsOf(pull, models);
+  const all = checkoutsOf(pull, models);
+
+  const found = [
+    ...all.filter((f) => f.hostKey === preferHost),
+    ...all.filter((f) => f.hostKey !== preferHost),
+  ];
 
   // A checkout that has fetched once keeps its diff while it updates or is blocked.
   const [usable] = found.flatMap(({ hostKey, checkout }) =>

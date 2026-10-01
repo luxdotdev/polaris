@@ -11,6 +11,7 @@ import {
 } from "../../../routes/review.ts";
 import { useApp, useShellActions } from "../../../shell/hooks.ts";
 import { usePulls } from "../../pulls/store.ts";
+import "../checkout/install.ts";
 import { DiffWorkers } from "../data/pierre.tsx";
 import { queueGroups, type QueueRow, type SessionInfo } from "../model/queue.ts";
 import type { AppState } from "../../../store/store.ts";
