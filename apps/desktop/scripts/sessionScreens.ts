@@ -74,7 +74,8 @@ const open = async (page: Page, scene: string) => {
     const input = page.locator('[data-testid="composer-input"]:visible');
 
     await input.click();
-    await input.fill("");
+    await page.keyboard.press("Meta+A");
+    await page.keyboard.press("Backspace");
     await page.keyboard.type(scene === "commands" ? "/s" : "/simplify the parser, keep its API");
     await (scene === "commands"
       ? page.getByTestId("command-menu").waitFor()

@@ -23,6 +23,7 @@ the full text is in the named canonical file; do not restate it.
 | rule/tabular-numbers | DESIGN.md, Typography, Named Rules | agent |
 | rule/density-through-tokens | DESIGN.md, Layout, Named Rules | agent |
 | rule/no-dashboard-clutter | DESIGN.md, Layout, Named Rules | agent |
+| rule/commands-are-chips | DESIGN.md, Layout, Named Rules; Skills and Slash Commands in the composer | agent + `composerFlow.ts` smoke |
 | rule/only-working-moves | DESIGN.md, Session State indicators | agent |
 | rule/needs-you-is-loudest | DESIGN.md, Session State indicators | agent |
 | rule/scene-text-contrast | DESIGN.md, Pixel scenes | agent |
