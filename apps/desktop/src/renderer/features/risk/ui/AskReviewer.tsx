@@ -85,11 +85,11 @@ const AskItem = ({
   return (
     <div className="flex flex-col gap-1" data-testid="reviewer-ask">
       <p className="text-caption text-text-subtle">
-        {about !== undefined && <span className="text-text-faint">On “{about.title}”: </span>}
+        {about !== undefined && <span className="text-text-subtle">On “{about.title}”: </span>}
         {ask.question}
       </p>
       {ask.state.kind === "sending" && (
-        <span className="text-caption text-text-faint">Asking…</span>
+        <span className="text-caption text-text-subtle">Asking…</span>
       )}
       {ask.state.kind === "failed" && (
         <p className="text-caption text-failed-text">{ask.state.message}</p>
@@ -102,7 +102,7 @@ const AskItem = ({
 };
 
 const placeholderOf = (canAsk: boolean, aboutFinding: boolean) => {
-  if (!canAsk) return "No reviewer ran: rules only";
+  if (!canAsk) return "Rules only: there’s no reviewer to ask";
 
   return aboutFinding ? "Ask about this finding" : "Ask the reviewer about this change";
 };

@@ -8,6 +8,7 @@ import {
   emptyBook,
   isViewed,
   KEPT_SUBJECTS,
+  localViewed,
   progressOf,
   pullFileViewed,
   setViewed,
@@ -185,11 +186,20 @@ describe("viewed", () => {
     expect(isViewed(book, `s${KEPT_SUBJECTS}`, "f", "x")).toBe(true);
   });
 
-  test("a pull request's pending click wins over GitHub", () => {
-    expect(pullFileViewed("viewed", undefined)).toBe(true);
-    expect(pullFileViewed("dismissed", undefined)).toBe(false);
-    expect(pullFileViewed("viewed", false)).toBe(false);
-    expect(pullFileViewed(undefined, true)).toBe(true);
+  test("a pull request's pending click wins over GitHub; dismissed reads as changed", () => {
+    expect(pullFileViewed("viewed", undefined)).toBe("viewed");
+    expect(pullFileViewed("dismissed", undefined)).toBe("changed");
+    expect(pullFileViewed("unviewed", undefined)).toBe("unviewed");
+    expect(pullFileViewed("viewed", false)).toBe("unviewed");
+    expect(pullFileViewed("dismissed", true)).toBe("viewed");
+  });
+
+  test("a session's mark for another fingerprint reads as changed", () => {
+    const book = setViewed(emptyBook, "s", "a.ts", "abc");
+
+    expect(localViewed(book, "s", "a.ts", "abc")).toBe("viewed");
+    expect(localViewed(book, "s", "a.ts", "def")).toBe("changed");
+    expect(localViewed(book, "s", "b.ts", "abc")).toBe("unviewed");
   });
 
   test("progress", () => {
@@ -211,7 +221,7 @@ describe("layoutRows", () => {
 
   const turn = (id: string, ...indices: ReadonlyArray<number>): ReviewSection => ({
     id,
-    divider: { label: `Turn ${id}`, quote: "Go" },
+    divider: { turn: Number(id), harness: "claude", quote: "Go" },
     files: indices.map((i) => reviewFile(id, i)),
   });
 
@@ -235,23 +245,60 @@ describe("layoutRows", () => {
     expect(rows[0]?.divider?.caption).toBe("2 files");
   });
 
-  test("a Turn with every file viewed folds to one line until opened", () => {
-    const viewed = (f: ReviewFile) => f.section === "1";
-    const rows = layoutRows(input({ viewed }));
+  test("the newest Turn is open; older Turns fold, a run of them to one line", () => {
+    const sections = [turn("4", 0), turn("3", 1), turn("2", 2), turn("1", 4)];
+    const rows = layoutRows(input({ sections }));
 
-    expect(rows.map((r) => r.file.key)).toEqual(["1:src/a.ts", "2:new.ts"]);
-    expect(rows[0]?.divider).toMatchObject({ folded: true, caption: "2 files · all viewed" });
-    const opened = layoutRows(input({ viewed, openedSections: new Set(["1"]) }));
+    expect(rows.map((r) => [r.file.key, r.divider?.label, r.divider?.folded])).toEqual([
+      ["4:src/a.ts", "Turn 4", false],
+      ["3:new.ts", "Turns 1–3", true],
+    ]);
+    expect(rows[1]?.divider).toMatchObject({
+      sectionIds: ["3", "2", "1"],
+      caption: "3 files",
+      quote: null,
+      reviewed: false,
+    });
+
+    const opened = layoutRows(input({ sections, openedSections: new Set(["3", "2"]) }));
+
+    expect(opened.map((r) => [r.file.key, r.divider?.label ?? null])).toEqual([
+      ["4:src/a.ts", "Turn 4"],
+      ["3:new.ts", "Turn 3"],
+      ["2:gone.ts", "Turn 2"],
+      ["1:run.sh", "Turn 1"],
+    ]);
+  });
+
+  test("a reviewed newest Turn folds with a check; opening it shows its files", () => {
+    const viewed = () => true;
+    const rows = layoutRows(input({ sections: [turn("2", 0, 2)], viewed }));
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.divider).toMatchObject({
+      folded: true,
+      reviewed: true,
+      caption: "2 files · all viewed",
+    });
+
+    const opened = layoutRows(
+      input({ sections: [turn("2", 0, 2)], viewed, openedSections: new Set(["2"]) })
+    );
 
     expect(opened.map((r) => [r.file.key, r.collapsed])).toEqual([
-      ["1:src/a.ts", true],
-      ["1:gone.ts", true],
-      ["2:new.ts", false],
+      ["2:src/a.ts", true],
+      ["2:gone.ts", true],
     ]);
   });
 
   test("large Reviews open collapsed; the user's toggle wins", () => {
-    const rows = layoutRows(input({ scale: "collapsed", toggled: new Map([["1:gone.ts", true]]) }));
+    const rows = layoutRows(
+      input({
+        sections: [turn("1", 0, 2, 1)],
+        scale: "collapsed",
+        toggled: new Map([["1:gone.ts", true]]),
+      })
+    );
 
     expect(rows.map((r) => r.collapsed)).toEqual([true, false, true]);
   });

@@ -313,7 +313,11 @@ export const engineLayer = (options: {
   return Engine.layer.pipe(
     Layer.provideMerge(store),
     Layer.provide(options.checkpoints ?? Layer.empty),
-    Layer.provide(fakeServices(options.fakes, options.drivers)),
+    Layer.provide(
+      options.checkpoints === undefined
+        ? fakeServices(options.fakes, options.drivers)
+        : Layer.merge(fakeServices(options.fakes, options.drivers), options.checkpoints)
+    ),
     Layer.provide(options.reviewCheckoutGit ?? pendingReviewCheckoutGit),
     Layer.provide(
       Layer.succeed(EngineConfig)(

@@ -64,6 +64,8 @@ export interface RiskRequest {
   readonly checkoutId: ReviewCheckoutId | null;
   readonly since: string | null;
   readonly context: Plain<ReviewContext> | null;
+  /** Client-side: a change runs again (an Agent Session's finished Turns); not sent. */
+  readonly revision?: string;
 }
 
 /** The feed following each subject's summary, closed when the subject closes or moves on. */
@@ -108,7 +110,8 @@ export const runRiskSummary = async (subjectKey: string, request: RiskRequest, r
 
   if (before.kind !== "ready") set(subjectKey, { kind: "starting" });
 
-  const result = await polaris().request("review.runRiskSummary", { ...request, refresh });
+  const { revision: _revision, ...payload } = request;
+  const result = await polaris().request("review.runRiskSummary", { ...payload, refresh });
 
   if (!result.ok) {
     if (before.kind !== "ready") set(subjectKey, { kind: "failed", message: result.error.message });
@@ -128,6 +131,7 @@ const requestKey = (request: RiskRequest) =>
     request.workspaceId,
     request.checkoutId ?? "",
     request.since ?? "",
+    request.revision ?? "",
     JSON.stringify(request.subject),
   ].join("\u0000");
 

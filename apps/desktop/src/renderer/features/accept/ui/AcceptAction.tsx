@@ -47,7 +47,7 @@ const FILLS: Readonly<Record<HeaderAction["kind"], string>> = {
   none: "",
 };
 
-const SPLIT = "rounded-control flex h-[30px] items-center overflow-clip text-caption";
+const SPLIT = "rounded-control flex h-[30px] items-center overflow-clip text-label";
 
 const PanelBody = ({
   subject,

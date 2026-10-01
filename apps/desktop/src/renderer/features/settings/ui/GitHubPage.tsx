@@ -22,10 +22,12 @@ import { AccountMark, usePulls } from "../../pulls/index.ts";
 import { type AccountRow, accountRows } from "../model/github.ts";
 import { sectionInfo } from "../model/sections.ts";
 import { AddGitHubAccount } from "./AddGitHubAccount.tsx";
+import { GitHubEnterprise } from "./GitHubEnterprise.tsx";
 import { OwnerTable } from "./GitHubOwners.tsx";
 import { Column, PageHeader } from "./parts.tsx";
 
-const startSignIn = () => void polaris().request("github.signIn.start", {});
+const startSignIn = (host?: string) =>
+  void polaris().request("github.signIn.start", host === undefined ? {} : { host });
 
 const openExternal = (url: string) => void polaris().request("shell.openExternal", { url });
 
@@ -52,8 +54,12 @@ const AccountMenu = ({
       {row.isDefault ? null : (
         <DropdownMenuItem onSelect={() => makeDefault(view, row.id)}>Make default</DropdownMenuItem>
       )}
-      <DropdownMenuItem onSelect={startSignIn}>Sign in again</DropdownMenuItem>
-      <DropdownMenuItem onSelect={() => openExternal(view.manageUrl)}>
+      <DropdownMenuItem onSelect={() => startSignIn(row.host)}>Sign in again</DropdownMenuItem>
+      <DropdownMenuItem
+        onSelect={() =>
+          openExternal(view.hosts?.find((h) => h.host === row.host)?.manageUrl ?? view.manageUrl)
+        }
+      >
         Manage Polaris on GitHub
       </DropdownMenuItem>
       <DropdownMenuSeparator />
@@ -92,7 +98,7 @@ const Account = ({
       </span>
     </span>
     {row.signedOut ? (
-      <Button size="xs" onClick={startSignIn}>
+      <Button size="xs" onClick={() => startSignIn(row.host)}>
         Sign in again
       </Button>
     ) : null}
@@ -102,7 +108,7 @@ const Account = ({
 
 const AddRow = ({ view }: { readonly view: GitHubAccountsView }) => (
   <div className="flex items-center gap-3">
-    <Button variant="primary" disabled={!view.storageAvailable} onClick={startSignIn}>
+    <Button variant="primary" disabled={!view.storageAvailable} onClick={() => startSignIn()}>
       <PlusIcon size={12} />
       Add account
     </Button>
@@ -151,13 +157,14 @@ const Body = ({
       {view.signIn === null ? null : (
         <p className="text-caption text-text-subtle flex flex-col gap-1 px-1">
           <span>
-            Already signed in to github.com as another account? Open the link in a private window,
-            or switch accounts on GitHub first.
+            Already signed in to {view.signIn.host ?? "github.com"} as another account? Open the
+            link in a private window, or switch accounts on GitHub first.
           </span>
           <span>Next you choose which owners use the new account.</span>
         </p>
       )}
       {rows.length === 0 ? null : <OwnerTable view={view} pulls={pulls} />}
+      <GitHubEnterprise view={view} />
     </>
   );
 };

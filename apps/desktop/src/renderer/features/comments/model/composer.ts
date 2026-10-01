@@ -19,3 +19,12 @@ export const suggestionBlock = (code: string) => {
 
   return `${marker}suggestion\n${code}\n${marker}`;
 };
+
+/** "serve.ts:4", "index.html:410–412": an Agent Session comment's place (Paper R8). */
+export const placeLabel = (anchor: Pick<ComposerAnchor, "path" | "start" | "end">) => {
+  const name = anchor.path.slice(anchor.path.lastIndexOf("/") + 1);
+
+  return anchor.start === anchor.end
+    ? `${name}:${anchor.start}`
+    : `${name}:${anchor.start}–${anchor.end}`;
+};

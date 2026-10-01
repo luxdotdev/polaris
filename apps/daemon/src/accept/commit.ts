@@ -43,6 +43,26 @@ export const committedTurnIds = async (
   );
 };
 
+/** Deletes the session's committed-Turn marks (on archive, or when its Workspace goes). */
+export const dropCommittedRefs = async (
+  root: string,
+  sessionId: string
+): Promise<ReadonlyArray<string>> => {
+  const refs = (
+    await gitText(root, ["for-each-ref", "--format=%(refname)", `${COMMITTED_PREFIX}${sessionId}/`])
+  )
+    .split("\n")
+    .filter((ref) => ref !== "");
+
+  if (refs.length > 0) {
+    await gitText(root, ["update-ref", "--stdin"], {
+      stdin: `${refs.map((ref) => `delete ${ref}`).join("\n")}\n`,
+    });
+  }
+
+  return refs;
+};
+
 /** Why the change could not be committed, in words for the user. */
 export class CommitRefused extends Error {}
 

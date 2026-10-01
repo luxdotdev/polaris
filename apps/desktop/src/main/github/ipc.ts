@@ -16,13 +16,15 @@ const done = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.as(effect, null
 type GitHubHandlers = { readonly [M in keyof typeof GitHubRequestInputs]: Handler<M> };
 
 export const githubHandlers: GitHubHandlers = {
-  "github.signIn.start": () => gh((g) => g.startSignIn),
+  "github.signIn.start": ({ host }) => gh((g) => g.startSignIn(host)),
+  "github.hosts.add": (input) => gh((g) => Effect.map(g.addHost(input), (host) => ({ host }))),
+  "github.hosts.remove": ({ host }) => gh((g) => g.removeHost(host)).pipe(done),
   "github.signIn.cancel": () => gh((g) => g.cancelSignIn).pipe(done),
   "github.accounts.remove": ({ accountId }) => gh((g) => g.removeAccount(accountId)).pipe(done),
   "github.accounts.reorder": ({ accountIds }) =>
     gh((g) => g.reorderAccounts(accountIds)).pipe(done),
-  "github.routing.setOwner": ({ owner, accountId }) =>
-    gh((g) => g.setOwner(owner, accountId)).pipe(done),
+  "github.routing.setOwner": ({ host, owner, accountId }) =>
+    gh((g) => g.setOwner(owner, accountId, host)).pipe(done),
   "github.routing.setWorkspace": ({ workspace, accountId }) =>
     gh((g) => g.setWorkspace(workspace, accountId)).pipe(done),
   "github.watch": ({ workspaces }) => gh((g) => g.watch(workspaces)).pipe(done),

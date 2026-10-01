@@ -8,6 +8,8 @@ import { useState } from "react";
 import type { ReviewCommentView, ReviewThreadView } from "../../../../shared/github.ts";
 import { deleteComment, type Done, reply, resolveThread } from "../data/actions.ts";
 import { useComments } from "../data/store.ts";
+import { ANNOTATION_INSET } from "../../review/index.ts";
+import { Avatar } from "./Avatar.tsx";
 
 interface Props {
   readonly subjectKey: string;
@@ -17,15 +19,6 @@ interface Props {
   /** Extra actions for a listed thread (an outdated draft's "Move to selection"). */
   readonly extra?: React.ReactNode;
 }
-
-const Avatar = ({ name }: { readonly name: string }) => (
-  <span
-    aria-hidden="true"
-    className="bg-fill-selected text-text-subtle text-micro flex size-5 shrink-0 items-center justify-center rounded-full font-medium uppercase"
-  >
-    {name.slice(0, 1)}
-  </span>
-);
 
 const Comment = ({
   comment,
@@ -55,7 +48,7 @@ const Comment = ({
         )}
         <span className="flex-1" />
         {comment.pending ? (
-          <span className="text-caption text-text-faint">Goes out with your review</span>
+          <span className="text-caption text-text-subtle">Goes out with your review</span>
         ) : null}
         {onDiscard !== null && (
           <Button size="xs" variant="ghost" onClick={onDiscard}>
@@ -133,7 +126,7 @@ const Folded = ({
     {thread.isResolved ? "Resolved" : "Outdated"} · {thread.comments.length}{" "}
     {thread.comments.length === 1 ? "comment" : "comments"}
     <span className="flex-1" />
-    <span className="text-text-faint">Show</span>
+    <span className="text-text-subtle">Show</span>
   </button>
 );
 
@@ -198,7 +191,10 @@ export const ThreadCard = ({ subjectKey, threadId, variant = "inline", extra }: 
     <div
       data-testid="review-thread"
       data-thread={threadId}
-      className={cn("flex font-sans", variant === "inline" ? "pr-panel py-gap pl-[78px]" : "py-1")}
+      className={cn(
+        "flex font-sans",
+        variant === "inline" ? cn("py-gap", ANNOTATION_INSET) : "py-1"
+      )}
     >
       <div className="min-w-0 flex-1">
         {folds ? (

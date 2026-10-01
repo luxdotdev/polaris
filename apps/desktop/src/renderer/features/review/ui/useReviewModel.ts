@@ -12,7 +12,13 @@ import { markLocal, markPull, pendingKey, useViewed } from "../data/viewedStore.
 import { type FindingInfo, findingsIn, lineMarks, severityByPath } from "../model/findings.ts";
 import { layoutRows, type LayoutRow, type ReviewFile, rowSignature } from "../model/layout.ts";
 import { itemKey, marksCss } from "../model/marks.ts";
-import { isViewed, progressOf, pullFileViewed, type RemoteViewed } from "../model/viewed.ts";
+import {
+  type FileViewed,
+  localViewed,
+  progressOf,
+  pullFileViewed,
+  type RemoteViewed,
+} from "../model/viewed.ts";
 import type { ReviewAnnotation } from "../surface.ts";
 import type { PaneItem, RowMeta } from "./DiffPane.tsx";
 import { type HeaderModel, headerStore } from "./FileHeader.tsx";
@@ -69,14 +75,15 @@ const annotationSignature = (annotations: ReadonlyArray<DiffLineAnnotation<RowMe
     .map((a) => (a.metadata.kind === "finding" ? a.metadata.finding.id : a.metadata.annotation.id))
     .join(",");
 
-const useViewedOf = (input: ReviewModelInput) => {
+/** Each file's Viewed state: GitHub's for a pull request, this window's for a session. */
+const useViewedStateOf = (input: ReviewModelInput): ((file: ReviewFile) => FileViewed) => {
   const book = useViewed((s) => s.book);
   const pending = useViewed((s) => s.pending);
   const { pullViewed, subjectKey } = input;
 
   return useMemo(() => {
     if (pullViewed === null) {
-      return (file: ReviewFile) => isViewed(book, subjectKey, file.key, file.fingerprint);
+      return (file: ReviewFile) => localViewed(book, subjectKey, file.key, file.fingerprint);
     }
 
     const remote = new Map<string, RemoteViewed>(pullViewed.files.map((f) => [f.path, f.viewed]));
@@ -91,7 +98,7 @@ const useViewedOf = (input: ReviewModelInput) => {
 
 const headerOf = (
   row: LayoutRow,
-  viewed: boolean,
+  viewed: FileViewed,
   severity: HeaderModel["severity"]
 ): HeaderModel => ({
   path: row.file.file.path,
@@ -101,7 +108,8 @@ const headerOf = (
   deletions: row.file.file.deletions,
   binary: row.file.file.binary,
   collapsed: row.collapsed,
-  viewed,
+  viewed: viewed === "viewed",
+  changed: viewed === "changed",
   severity,
   divider: row.divider,
   note: null,
@@ -113,7 +121,13 @@ export const useReviewModel = (input: ReviewModelInput) => {
   const [openedSections, setOpenedSections] = useState<ReadonlySet<string>>(new Set());
   const [openFile, setOpenFile] = useState<string | null>(null);
   const [opened, setOpened] = useState<ReadonlyMap<string, FileDiffMetadata>>(new Map());
-  const viewedOf = useViewedOf(input);
+  const viewedStateOf = useViewedStateOf(input);
+
+  const viewedOf = useMemo(
+    () => (file: ReviewFile) => viewedStateOf(file) === "viewed",
+    [viewedStateOf]
+  );
+
   const files = useMemo(() => diff.sections.flatMap((s) => s.files), [diff.sections]);
   const byKey = useMemo(() => new Map(files.map((f) => [f.key, f])), [files]);
 
@@ -182,12 +196,12 @@ export const useReviewModel = (input: ReviewModelInput) => {
     const models = Object.fromEntries(
       rows.map((row) => [
         row.file.key,
-        headerOf(row, viewedOf(row.file), severities.get(row.file.file.path) ?? null),
+        headerOf(row, viewedStateOf(row.file), severities.get(row.file.file.path) ?? null),
       ])
     );
 
     headerStore.setState({ rows: models });
-  }, [rows, viewedOf, severities]);
+  }, [rows, viewedStateOf, severities]);
 
   const setViewed = (key: string, viewed: boolean) => {
     const file = byKey.get(key);
@@ -213,7 +227,7 @@ export const useReviewModel = (input: ReviewModelInput) => {
           if (row !== undefined) setToggled((t) => new Map(t).set(key, row.collapsed));
         },
         setViewed,
-        openSection: (sectionId) => setOpenedSections((s) => new Set(s).add(sectionId)),
+        openSections: (ids) => setOpenedSections((s) => new Set([...s, ...ids])),
       },
     });
   });
@@ -246,6 +260,7 @@ export const useReviewModel = (input: ReviewModelInput) => {
     loadDiffFiles,
     severities,
     viewedOf,
+    viewedStateOf,
     progress: progressOf(viewedCount, files.length),
     setViewed,
     openFile,

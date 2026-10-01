@@ -10,6 +10,7 @@ import {
   type ReviewContext,
   type ReviewCheckoutId,
   type ReviewerChoice,
+  type ReviewerSettings,
   ReviewerRun,
   type ReviewSubject,
   RiskSummary,
@@ -33,7 +34,10 @@ import {
   toRiskFindings,
 } from "./output.ts";
 import { repairPrompt, reviewPrompt } from "./prompt.ts";
+import { carryForward, previousReviewerSession, previousSummary } from "./merge.ts";
+import { canRunChecks } from "./policy.ts";
 import { type ReviewRange, resolveRange } from "./range.ts";
+import { askFirst, changedLines, switchedOff } from "./when.ts";
 import { continueReviewerSession, startReviewerSession, type TurnOutcome } from "./session.ts";
 
 export interface RunRequest {
@@ -43,6 +47,8 @@ export interface RunRequest {
   readonly since: string | null;
   readonly refresh: boolean;
   readonly context: ReviewContext | null;
+  /** The Rules alone, as after each Agent Session Turn; skipped when the Turn changed nothing. */
+  readonly rulesOnly?: boolean;
 }
 
 const commit = (events: ReadonlyArray<DomainEvent>) =>
@@ -73,10 +79,23 @@ export const linesAt =
       return result.code === 0 ? decoder.decode(result.stdout).split("\n") : null;
     });
 
+/** True when `base` and `head` hold the same files (a Turn that changed nothing). */
+const sameTree = (range: ReviewRange) =>
+  Effect.promise(async () => {
+    const result = await checkoutGitRaw(range.cwd, ["diff", "--quiet", range.base, range.head]);
+
+    return result.code === 0;
+  });
+
 // ── Starting ────────────────────────────────────────────────────────────────
 
 /** The summary to answer: the cached one for the key (unless refreshed or failed), else null. */
-const cached = (range: ReviewRange, refresh: boolean) =>
+/**
+ * The summary to answer: the cached one for the key, unless refreshed or
+ * failed, or it skipped the Reviewer and this run would not (Rules after a
+ * Turn, then the session opened in Review; a switch turned back on).
+ */
+const cached = (range: ReviewRange, refresh: boolean, plan: ReviewerPlan) =>
   Effect.gen(function* () {
     if (refresh) return null;
     const store = yield* EventStore;
@@ -85,16 +104,42 @@ const cached = (range: ReviewRange, refresh: boolean) =>
       RiskSummaryRef.cases.ByKey.make({ key: range.key })
     );
 
-    return summary !== null && summary.status !== "failed" ? summary : null;
+    if (summary === null || summary.status === "failed") return null;
+    const runsReviewer = plan.resolved.choice !== null && plan.off === null;
+
+    return summary.layers.agent.status === "skipped" && runsReviewer ? null : summary;
   });
+
+/** The agent layer's note on the Rules run after each Agent Session Turn. */
+export const RULES_AFTER_TURN =
+  "Rules after this Turn. The Reviewer runs when you open the session in Review or accept its Turns.";
+
+/** Who reviews this summary, and whether "When it runs" lets them now. */
+export interface ReviewerPlan {
+  readonly resolved: ResolvedReviewer;
+  /** Why the Reviewer doesn't run by itself here (a switch is off); null when it does. */
+  readonly off: string | null;
+  /** Ask first above this many changed lines; null never asks. */
+  readonly askAboveLines: number | null;
+}
+
+const agentAtStart = ({ resolved, off }: ReviewerPlan) => {
+  if (resolved.choice === null) return LayerRun.make({ status: "skipped", note: resolved.note });
+
+  return off === null
+    ? LayerRun.make({ status: "pending", note: null })
+    : LayerRun.make({ status: "skipped", note: off });
+};
 
 const startedSummary = (
   request: RunRequest,
   range: ReviewRange,
-  resolved: ResolvedReviewer,
+  plan: ReviewerPlan,
   now: string
-) =>
-  RiskSummary.make({
+) => {
+  const { resolved } = plan;
+
+  return RiskSummary.make({
     id: RiskSummaryId.make(`rs_${crypto.randomUUID()}`),
     key: range.key,
     workspaceId: range.workspaceId,
@@ -103,10 +148,7 @@ const startedSummary = (
     status: "running",
     layers: RiskSummaryLayers.make({
       rules: LayerRun.make({ status: "pending", note: null }),
-      agent: LayerRun.make({
-        status: resolved.choice === null ? "skipped" : "pending",
-        note: resolved.note,
-      }),
+      agent: agentAtStart(plan),
     }),
     reviewer:
       resolved.choice === null
@@ -123,6 +165,7 @@ const startedSummary = (
     startedAt: now,
     endedAt: null,
   });
+};
 
 // ── The Reviewer's layer ────────────────────────────────────────────────────
 
@@ -147,18 +190,13 @@ const whyOf = (range: ReviewRange, context: ReviewContext | null): string | null
 /** The previous summary's open Reviewer Findings and session, for "only the new changes". */
 const previousRun = (range: ReviewRange) =>
   Effect.gen(function* () {
-    if (range.previousKey === null) return { findings: [], sessionId: null };
-    const store = yield* EventStore;
-
-    const previous = yield* store.review.riskSummary(
-      RiskSummaryRef.cases.ByKey.make({ key: range.previousKey })
-    );
+    const previous = yield* previousSummary(range);
 
     return {
       findings: (previous?.findings ?? []).filter(
         (f) => f.source === "agent" && f.status === "open"
       ),
-      sessionId: previous?.reviewer?.sessionId ?? null,
+      sessionId: yield* previousReviewerSession(range),
     };
   });
 
@@ -200,6 +238,7 @@ const askReviewer = Effect.fn("askReviewer")(function* (input: AgentInput) {
     head: range.head,
     since: range.key.since,
     earlierFindings: previous.findings,
+    runChecks: canRunChecks(choice.harness),
   });
 
   const outcome =
@@ -328,11 +367,19 @@ const ended = (summary: RiskSummary, sessionId: SessionId | null, resolved: Reso
   });
 
 /** The layers of a started summary, then its end. Never fails: a broken layer is recorded. */
+/** The "Ask first" note when the change is over the threshold, else null. */
+const overThreshold = (range: ReviewRange, askAboveLines: number | null) =>
+  askAboveLines === null
+    ? Effect.succeed(null)
+    : Effect.promise(() => readDiff(range.cwd, range.base, range.head)).pipe(
+        Effect.map((diff) => askFirst(changedLines(diff), askAboveLines))
+      );
+
 export const runLayers = (
   summary: RiskSummary,
   range: ReviewRange,
   input: {
-    readonly resolved: ResolvedReviewer;
+    readonly plan: ReviewerPlan;
     readonly context: ReviewContext | null;
   }
 ) =>
@@ -344,28 +391,60 @@ export const runLayers = (
       mode: range.mode,
     }).pipe(Effect.catchCause((cause) => Effect.logWarning("the Rules failed", cause)));
 
-    const choice = input.resolved.choice;
+    const { plan } = input;
+    const choice = plan.off === null ? plan.resolved.choice : null;
+    const waiting = choice === null ? null : yield* overThreshold(range, plan.askAboveLines);
+
+    if (waiting !== null)
+      yield* agentLayer(summary.id, LayerRun.make({ status: "pending", note: waiting }));
 
     const sessionId =
-      choice === null
+      choice === null || waiting !== null
         ? null
         : yield* runAgentLayer({ summary, range, choice, context: input.context });
 
-    return yield* ended(summary, sessionId, input.resolved);
+    const since = range.key.since;
+
+    if (since !== null) {
+      yield* carryForward(summary, range, {
+        before: linesAt(range.cwd, since, since),
+        after: linesAt(range.cwd, range.base, range.head),
+      });
+    }
+
+    return yield* ended(summary, sessionId, plan.resolved);
   });
 
 export const startRun = (
   request: RunRequest,
-  resolve: (workspaceId: WorkspaceId) => Effect.Effect<ResolvedReviewer>
+  resolve: (
+    workspaceId: WorkspaceId
+  ) => Effect.Effect<{ readonly resolved: ResolvedReviewer; readonly settings: ReviewerSettings }>
 ) =>
   Effect.gen(function* () {
     const range = yield* resolveRange(request.subject, request.checkoutId, request.since);
-    const existing = yield* cached(range, request.refresh);
 
-    if (existing !== null) return { summary: existing, range, resolved: null };
-    const resolved = yield* resolve(range.workspaceId);
-    const summary = startedSummary(request, range, resolved, new Date().toISOString());
+    if (request.rulesOnly === true && (yield* sameTree(range))) {
+      return { summary: null, range, plan: null };
+    }
+
+    const { resolved, settings } = yield* resolve(range.workspaceId);
+
+    const plan: ReviewerPlan = {
+      resolved,
+      off:
+        request.rulesOnly === true
+          ? RULES_AFTER_TURN
+          : switchedOff(request.subject, settings, request.refresh),
+      askAboveLines: request.refresh ? null : settings.askAboveLines,
+    };
+
+    const existing = yield* cached(range, request.refresh, plan);
+
+    if (existing !== null) return { summary: existing, range, plan: null };
+
+    const summary = startedSummary(request, range, plan, new Date().toISOString());
     yield* commit([DomainEvent.cases.RiskSummaryStarted.make({ summary })]);
 
-    return { summary, range, resolved };
+    return { summary, range, plan };
   });

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { anchorLabel, suggestionBlock } from "./composer.ts";
+import { anchorLabel, placeLabel, suggestionBlock } from "./composer.ts";
 import type { PullDetailView, ReviewThreadView } from "../../../../shared/github.ts";
 import {
   addDraft,
@@ -166,6 +166,8 @@ describe("the composer", () => {
   test("labels its range", () => {
     expect(anchorLabel({ start: 38, end: 39, side: "new" })).toBe("Lines 38–39");
     expect(anchorLabel({ start: 41, end: 41, side: "old" })).toBe("Line 41 (removed)");
+    expect(placeLabel({ path: "prototypes/serve.ts", start: 7, end: 7 })).toBe("serve.ts:7");
+    expect(placeLabel({ path: "index.html", start: 410, end: 412 })).toBe("index.html:410–412");
   });
 
   test("a suggestion block outlasts the code's own fences", () => {

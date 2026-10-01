@@ -151,8 +151,9 @@ export interface World {
 
 const decodeFixture = Schema.decodeUnknownSync(Schema.fromJsonString(Fixture));
 
-export const loadFixture = (): Fixture =>
-  decodeFixture(readFileSync(new URL("./fixtures/world.json", import.meta.url), "utf8"));
+/** `world` is github.com's; `ghe` a GitHub Enterprise host's (its mona has the same user id). */
+export const loadFixture = (name: "world" | "ghe" = "world"): Fixture =>
+  decodeFixture(readFileSync(new URL(`./fixtures/${name}.json`, import.meta.url), "utf8"));
 
 export const worldFrom = (fixture: Fixture): World => ({
   users: fixture.users,

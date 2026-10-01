@@ -34,9 +34,11 @@ const host = (hostKey: string, label: string, status: "ready" | "needs-sign-in")
   },
 });
 
+const WHEN = { onPullRequests: true, onSessions: true, askAboveLines: 2000 };
+
 const loaded = (choice = SOL, workspaces = {}): HostReviewer => ({
   kind: "loaded",
-  settings: { default: choice, workspaces },
+  settings: { default: choice, workspaces, ...WHEN },
   resolved: { choice, source: "settings", note: null },
 });
 
@@ -82,7 +84,7 @@ describe("the Reviewer every host runs", () => {
   test("automatic with nothing available is rules only, with the Daemon's note", () => {
     const none: HostReviewer = {
       kind: "loaded",
-      settings: { default: null, workspaces: {} },
+      settings: { default: null, workspaces: {}, ...WHEN },
       resolved: { choice: null, source: "auto", note: "No reviewer harness is ready" },
     };
 
@@ -92,10 +94,10 @@ describe("the Reviewer every host runs", () => {
   });
 
   test("changing the default keeps overrides; overrides are set and cleared per Workspace", () => {
-    const settings = { default: null, workspaces: { w1: SOL } };
+    const settings = { default: null, workspaces: { w1: SOL }, ...WHEN };
 
-    expect(withDefault(settings, SOL)).toEqual({ default: SOL, workspaces: { w1: SOL } });
-    expect(withOverride(settings, "w1", null)).toEqual({ default: null, workspaces: {} });
+    expect(withDefault(settings, SOL)).toEqual({ default: SOL, workspaces: { w1: SOL }, ...WHEN });
+    expect(withOverride(settings, "w1", null)).toEqual({ default: null, workspaces: {}, ...WHEN });
     expect(withOverride(settings, "w2", SOL).workspaces).toEqual({ w1: SOL, w2: SOL });
     expect(overridesOf({ local: loaded(SOL, { w1: SOL }) })).toEqual({ "local/w1": SOL });
   });

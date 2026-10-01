@@ -1,8 +1,8 @@
 /**
  * What the diff shows, as rows for Pierre's CodeView: one per file, grouped into sections
- * (an Agent Session's Turns; a pull request is one section with no divider). The first
- * file of a section carries its divider in its header (ENG-218 option a); a reviewed Turn
- * (every file viewed) folds to that one line with a check until it is opened again.
+ * (an Agent Session's Turns, newest first; a pull request is one section with no divider).
+ * The first file of a section carries its divider in its header (ENG-218 option a). Older
+ * Turns and reviewed ones fold, a run of them to one line ("Turns 22–23"), until opened.
  */
 import type { PatchFile } from "./patch.ts";
 import type { ReviewScale } from "./policy.ts";
@@ -25,8 +25,10 @@ export interface ReviewSection {
 }
 
 export interface SectionDivider {
-  /** "Turn 24", "Turns 22–23". */
-  readonly label: string;
+  /** The Turn's number (its index + 1). */
+  readonly turn: number;
+  /** Its Harness, for the divider's tile. */
+  readonly harness: string;
   /** The Turn's prompt, quoted; null when there is none. */
   readonly quote: string | null;
 }
@@ -40,11 +42,16 @@ export interface LayoutRow {
 }
 
 export interface DividerRow extends SectionDivider {
-  readonly sectionId: string;
+  /** "Turn 24", "Turns 22–23" for a folded run. */
+  readonly label: string;
+  /** The sections this row stands for: one, or a folded run. */
+  readonly sectionIds: ReadonlyArray<string>;
   /** "2 files", "2 files · all viewed". */
   readonly caption: string;
-  /** Every file viewed and the section not opened again: this row stands for it. */
+  /** Folded: this row stands for its sections until opened. */
   readonly folded: boolean;
+  /** Every file in its sections viewed: the folded row shows a check. */
+  readonly reviewed: boolean;
 }
 
 export interface LayoutInput {
@@ -65,32 +72,65 @@ const filesCaption = (count: number, allViewed: boolean) =>
 const defaultCollapsed = (input: LayoutInput, file: ReviewFile) =>
   input.scale !== "full" || input.viewed(file) || file.file.binary;
 
-const sectionRows = (input: LayoutInput, section: ReviewSection): ReadonlyArray<LayoutRow> => {
-  const [first] = section.files;
+const turnsLabel = (turns: ReadonlyArray<number>) => {
+  const low = Math.min(...turns);
+  const high = Math.max(...turns);
 
-  if (first === undefined) return [];
+  return low === high ? `Turn ${low}` : `Turns ${low}–${high}`;
+};
 
-  const allViewed = section.files.every(input.viewed);
-  const folded = section.divider !== null && allViewed && !input.openedSections.has(section.id);
+/** A section's place in the layout: open with its files, or folded into a one-line row. */
+interface Placed {
+  readonly section: ReviewSection;
+  readonly first: ReviewFile;
+  readonly allViewed: boolean;
+  readonly folded: boolean;
+}
 
-  const divider = (file: ReviewFile): DividerRow | null =>
-    section.divider === null || file !== first
-      ? null
-      : {
-          ...section.divider,
-          sectionId: section.id,
-          caption: filesCaption(section.files.length, allViewed),
-          folded,
-        };
+/** The newest Turn (first) stays open unless reviewed; older and reviewed Turns fold. */
+const place = (input: LayoutInput): ReadonlyArray<Placed> =>
+  input.sections.flatMap((section, index) => {
+    const [first] = section.files;
 
-  if (folded) return [{ file: first, collapsed: true, divider: divider(first) }];
+    if (first === undefined) return [];
 
-  return section.files.map((file) => ({
+    const allViewed = section.files.every(input.viewed);
+    const foldable = section.divider !== null && (index > 0 || allViewed);
+
+    return [
+      { section, first, allViewed, folded: foldable && !input.openedSections.has(section.id) },
+    ];
+  });
+
+const dividerOf = (run: ReadonlyArray<Placed>, folded: boolean): DividerRow | null => {
+  const [head] = run;
+  const divider = head?.section.divider;
+
+  if (head === undefined || divider === undefined || divider === null) return null;
+
+  const allViewed = run.every((p) => p.allViewed);
+  const turns = run.map((p) => p.section.divider?.turn ?? 0);
+
+  return {
+    ...divider,
+    label: turnsLabel(turns),
+    quote: run.length === 1 ? divider.quote : null,
+    sectionIds: run.map((p) => p.section.id),
+    caption: filesCaption(
+      run.reduce((n, p) => n + p.section.files.length, 0),
+      allViewed
+    ),
+    folded,
+    reviewed: allViewed,
+  };
+};
+
+const openRows = (input: LayoutInput, placed: Placed): ReadonlyArray<LayoutRow> =>
+  placed.section.files.map((file) => ({
     file,
     collapsed: !(input.toggled.get(file.key) ?? !defaultCollapsed(input, file)),
-    divider: divider(file),
+    divider: file === placed.first ? dividerOf([placed], false) : null,
   }));
-};
 
 export const layoutRows = (input: LayoutInput): ReadonlyArray<LayoutRow> => {
   if (input.scale === "list-only") {
@@ -99,7 +139,31 @@ export const layoutRows = (input: LayoutInput): ReadonlyArray<LayoutRow> => {
     return file === undefined ? [] : [{ file, collapsed: false, divider: null }];
   }
 
-  return input.sections.flatMap((section) => sectionRows(input, section));
+  const rows: Array<LayoutRow> = [];
+  let run: Array<Placed> = [];
+
+  const flush = () => {
+    const [head] = run;
+
+    if (head !== undefined)
+      rows.push({ file: head.first, collapsed: true, divider: dividerOf(run, true) });
+
+    run = [];
+  };
+
+  for (const placed of place(input)) {
+    if (placed.folded) {
+      run.push(placed);
+      continue;
+    }
+
+    flush();
+    rows.push(...openRows(input, placed));
+  }
+
+  flush();
+
+  return rows;
 };
 
 /** A row's identity for CodeView's `version` bump: what its rendering depends on. */
@@ -107,5 +171,7 @@ export const rowSignature = (row: LayoutRow, viewed: boolean) =>
   [
     row.collapsed ? "c" : "o",
     viewed ? "v" : "-",
-    row.divider === null ? "" : `${row.divider.folded ? "f" : "d"}${row.divider.caption}`,
+    row.divider === null
+      ? ""
+      : `${row.divider.folded ? "f" : "d"}${row.divider.label}${row.divider.caption}`,
   ].join("|");

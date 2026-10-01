@@ -99,6 +99,21 @@ const findingScenes = async (page: Page) => {
     await open(page, "pull", "risk-finding");
     await appearance(page, "dark", density);
     await shoot(page, `findings-pull-dark-${density}`);
+
+    await open(page, "pull-comments", "comment-composer");
+    await appearance(page, "dark", density);
+    await shoot(page, `findings-composer-dark-${density}`);
+
+    await open(page, "pull-submit", "submit-review-open");
+    await appearance(page, "dark", density);
+    await page.getByTestId("submit-review-open").click();
+    await page.getByTestId("submit-review").waitFor();
+    await page.waitForTimeout(400);
+    await shoot(page, `findings-submit-dark-${density}`);
+
+    await open(page, "session-feedback", "feedback-card");
+    await appearance(page, "dark", density);
+    await shoot(page, `findings-feedback-dark-${density}`);
   }
 };
 

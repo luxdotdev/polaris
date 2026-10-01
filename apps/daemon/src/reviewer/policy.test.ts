@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { SessionId } from "@polaris/protocol";
-import { isAllowedCommand, reviewerDecision } from "./policy.ts";
+import { canRunChecks, isAllowedCommand, reviewerDecision } from "./policy.ts";
 
 const sessionId = SessionId.make("ses-r");
+
+const checks = { runChecks: true };
 
 describe("the Reviewer's read-only policy", () => {
   test.each([
@@ -49,21 +51,27 @@ describe("the Reviewer's read-only policy", () => {
   });
 
   test("reads the command where each driver puts it", () => {
-    const allow = reviewerDecision({
-      sessionId,
-      harness: "codex",
-      kind: "command",
-      title: "git diff",
-      detail: "rm -rf /",
-    });
+    const allow = reviewerDecision(
+      {
+        sessionId,
+        harness: "codex",
+        kind: "command",
+        title: "git diff",
+        detail: "rm -rf /",
+      },
+      checks
+    );
 
-    const deny = reviewerDecision({
-      sessionId,
-      harness: "claude",
-      kind: "command",
-      title: "git diff",
-      detail: "rm -rf /",
-    });
+    const deny = reviewerDecision(
+      {
+        sessionId,
+        harness: "claude",
+        kind: "command",
+        title: "git diff",
+        detail: "rm -rf /",
+      },
+      checks
+    );
 
     expect(allow._tag).toBe("Allow");
     expect(deny._tag).toBe("Deny");
@@ -72,8 +80,32 @@ describe("the Reviewer's read-only policy", () => {
   test("denies edits and other tools, and answers questions itself", () => {
     const base = { sessionId, harness: "claude" as const, title: "x", detail: "a.ts" };
 
-    expect(reviewerDecision({ ...base, kind: "file-change" })._tag).toBe("Deny");
-    expect(reviewerDecision({ ...base, kind: "tool" })._tag).toBe("Deny");
-    expect(reviewerDecision({ ...base, kind: "question" })._tag).toBe("Answer");
+    expect(reviewerDecision({ ...base, kind: "file-change" }, checks)._tag).toBe("Deny");
+    expect(reviewerDecision({ ...base, kind: "tool" }, checks)._tag).toBe("Deny");
+    expect(reviewerDecision({ ...base, kind: "question" }, checks)._tag).toBe("Answer");
+  });
+
+  test("without network isolation, tests, lint and typecheck are refused; reading isn't", () => {
+    for (const line of ["bun run test", "npx tsc --noEmit", "cargo test", "python -m pytest"]) {
+      expect(isAllowedCommand(line, false)).toBe(false);
+    }
+
+    for (const line of ["git diff HEAD~1", "rg -n foo src", "cat a.ts | head -5"]) {
+      expect(isAllowedCommand(line, false)).toBe(true);
+    }
+
+    const decision = reviewerDecision(
+      { sessionId, harness: "claude", kind: "command", title: "Run tests", detail: "bun test" },
+      { runChecks: false }
+    );
+
+    expect(decision._tag).toBe("Deny");
+  });
+
+  test("checks run where the Harness keeps them off the network", () => {
+    expect(canRunChecks("codex", "linux")).toBe(true);
+    expect(canRunChecks("claude", "darwin")).toBe(true);
+    expect(canRunChecks("opencode", "darwin")).toBe(false);
+    expect(canRunChecks("claude", "win32")).toBe(false);
   });
 });

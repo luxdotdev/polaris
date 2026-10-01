@@ -4,7 +4,7 @@
  * the Viewed count), and the account it goes out as. GitHub's pending review is submitted.
  */
 import { Button, cn, Popover, PopoverContent, PopoverTrigger, Textarea } from "@polaris/ui";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useStore } from "zustand";
 import type { PullDetailView, ReviewEvent } from "../../../../shared/github.ts";
 import {
@@ -14,6 +14,7 @@ import {
   surfaceStore,
 } from "../../review/index.ts";
 import { discardReview, submitReview } from "../data/actions.ts";
+import { Avatar } from "./Avatar.tsx";
 import { useComments } from "../data/store.ts";
 import {
   type OpenRisk,
@@ -60,7 +61,7 @@ const Choice = ({
     data-testid="submit-choice"
     data-event={choice.event}
     className={cn(
-      "rounded-control px-gap gap-row-x flex cursor-default items-start py-[7px] text-left",
+      "rounded-control gap-row-x flex cursor-default items-start px-2 py-[7px] text-left",
       chosen ? "bg-fill-selected" : "hover:bg-fill-hover",
       "disabled:opacity-(--opacity-dimmed)"
     )}
@@ -89,20 +90,21 @@ const GoesOut = ({ detail }: { readonly detail: PullDetailView }) => {
   const left = detail.files.length - viewed;
 
   return (
-    <div className="border-hairline flex flex-col gap-0.5 border-t px-1.5 py-2">
-      <span className="text-caption text-text-faint px-gap pb-1.5">Goes out with it</span>
-      {pending.map((p) => (
-        <div key={p.comment.id} className="px-gap gap-row-x flex h-[26px] items-center">
-          <span className="text-text-subtle w-[150px] shrink-0 truncate font-mono text-[11px] leading-4">
-            {p.place}
-          </span>
-          <span className="text-caption text-text-default min-w-0 flex-1 truncate">
-            {p.comment.body}
-          </span>
-        </div>
-      ))}
-      <div className="px-gap gap-row-x flex h-[26px] items-center">
-        <span className="text-caption text-text-subtle w-[150px] shrink-0">Viewed</span>
+    <div className="border-hairline flex flex-col border-t px-1.5 py-2">
+      <span className="text-caption text-text-subtle px-gap pb-1.5">Goes out with it</span>
+      {/* One lane for places, as wide as the longest (up to 60%), so nothing truncates early. */}
+      <div className="px-gap gap-x-row-x grid grid-cols-[fit-content(60%)_1fr] items-center">
+        {pending.map((p) => (
+          <Fragment key={p.comment.id}>
+            <span className="text-text-subtle flex h-[26px] min-w-[150px] items-center truncate font-mono text-[11px] leading-4">
+              {p.place}
+            </span>
+            <span className="text-caption text-text-default min-w-0 truncate">
+              {p.comment.body}
+            </span>
+          </Fragment>
+        ))}
+        <span className="text-caption text-text-subtle flex h-[26px] items-center">Viewed</span>
         <span className="text-caption text-text-default">
           {viewed} of {detail.files.length} files{left > 0 ? ` · ${left} not viewed yet` : ""}
         </span>
@@ -149,7 +151,19 @@ const Dialog = ({
         <span className="text-heading-sm text-text-strong font-medium">
           Submit review on #{detail.number}
         </span>
-        <span className="text-caption text-text-subtle">{pendingCaption(pending)}</span>
+        <span className="text-caption text-text-subtle gap-gap flex items-center">
+          {pendingCaption(pending)}
+          {pending > 0 && (
+            <button
+              type="button"
+              disabled={state.busy}
+              onClick={() => void discardReview(subjectKey).then(onDone)}
+              className="text-text-subtle hover:text-text-default cursor-default underline-offset-2 hover:underline"
+            >
+              Discard them
+            </button>
+          )}
+        </span>
       </div>
       <div className="px-3.5 pb-3">
         <Textarea
@@ -158,7 +172,7 @@ const Dialog = ({
           placeholder={
             event === "request-changes" ? "Say what needs to change" : "Leave a summary (optional)"
           }
-          className="min-h-[72px]"
+          className="bg-surface-sunken min-h-[72px] rounded-[8px] px-3 py-2.5"
           value={body}
           onChange={(e) => setBody(e.target.value)}
           onKeyDown={(e) => {
@@ -180,22 +194,12 @@ const Dialog = ({
       {state.error !== null && (
         <p className="text-caption text-failed-text px-3.5 pb-2">{state.error}</p>
       )}
-      <div className="border-hairline bg-surface-sunken gap-gap flex items-center border-t px-3.5 py-2">
-        <span className="text-caption text-text-subtle min-w-0 flex-1 truncate">
+      <div className="border-hairline bg-surface-sunken gap-gap flex items-center border-t px-3.5 py-2.5">
+        <Avatar name={detail.viewerLogin} />
+        <span className="text-caption text-text-subtle min-w-0 flex-1">
           As {detail.viewerLogin}, for {owner}
         </span>
-        {pending > 0 && (
-          <Button
-            size="xs"
-            variant="ghost"
-            disabled={state.busy}
-            onClick={() => void discardReview(subjectKey).then(onDone)}
-          >
-            Discard pending
-          </Button>
-        )}
         <Button
-          size="xs"
           variant="primary"
           data-testid="submit-review-send"
           disabled={problem !== null || state.busy}

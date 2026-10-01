@@ -8,26 +8,8 @@ import { Subjects } from "../../../commands.ts";
 import { useApp } from "../../../shell/hooks.ts";
 import { useComments } from "../../comments/index.ts";
 import { type ReviewSlotProps, subjectKey as keyOf } from "../../review/index.ts";
+import { finishedTurns, sinceFor } from "../model/request.ts";
 import type { RiskRequest } from "./riskStore.ts";
-
-/** The head each subject was first summarised at, and the one before its latest move. */
-const heads = new Map<string, { readonly head: string; readonly since: string | null }>();
-
-/** `since` for a checkout at `head`: null at first, then the head it moved from. */
-export const sinceFor = (key: string, head: string): string | null => {
-  const seen = heads.get(key);
-
-  if (seen === undefined) {
-    heads.set(key, { head, since: null });
-
-    return null;
-  }
-
-  if (seen.head === head) return seen.since;
-  heads.set(key, { head, since: seen.head });
-
-  return seen.head;
-};
 
 const usePullRequest = (props: ReviewSlotProps): RiskRequest | null => {
   const key = keyOf(props.subject);
@@ -60,7 +42,11 @@ const useSessionRequest = (props: ReviewSlotProps): RiskRequest | null => {
     return undefined;
   });
 
-  if (props.subject.kind !== "session" || session === undefined || session.turnCount === 0) {
+  if (
+    props.subject.kind !== "session" ||
+    session === undefined ||
+    finishedTurns(session.state, session.turnCount) === 0
+  ) {
     return null;
   }
 
@@ -75,6 +61,8 @@ const useSessionRequest = (props: ReviewSlotProps): RiskRequest | null => {
     checkoutId: null,
     since: null,
     context: null,
+    // A Turn that finishes while the Review is open runs the summary again (ENG-185).
+    revision: `${finishedTurns(session.state, session.turnCount)}`,
   };
 };
 

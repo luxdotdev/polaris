@@ -39,6 +39,8 @@ export interface AuthOptions {
   /** Whether polling faster than the interval answers `slow_down`. */
   readonly enforceInterval: boolean;
   readonly clientId: string;
+  /** Where users enter the code: `<web>/login/device`. */
+  readonly webUrl: string;
 }
 
 const Form = Schema.Record(Schema.String, Schema.String);
@@ -93,7 +95,7 @@ export const newAuth = (world: World, options: AuthOptions) => {
     return json(200, {
       device_code: code,
       user_code: userCode,
-      verification_uri: "https://github.com/login/device",
+      verification_uri: `${options.webUrl}/login/device`,
       expires_in: 900,
       interval: options.interval,
     });

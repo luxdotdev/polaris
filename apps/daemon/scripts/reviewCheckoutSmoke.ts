@@ -31,6 +31,7 @@ import {
   createForge,
   publishPullRequest,
   pushMain,
+  pushMainCommits,
   userClone,
 } from "../src/git/review/testing.ts";
 import { commitAll, write } from "../src/git/testing.ts";
@@ -47,7 +48,10 @@ const env = { ...process.env, POLARIS_HOME: home };
 
 const forge = await createForge();
 
-const author = await contributor(forge, forge.mainCommits[1] ?? "main");
+// Enough history that deepening a shallow clone to the branch point keeps it shallow.
+const branchPoint = await pushMainCommits(forge, "history", 40);
+
+const author = await contributor(forge, branchPoint);
 
 write(author, "feature.txt", "v1\n");
 
@@ -58,6 +62,9 @@ const v1 = await publishPullRequest(forge, author, 7);
 const user = await userClone(forge);
 
 await pushMain(forge, "later.txt", "main moved on\n");
+
+/** A depth-1 clone made after main moved past the PR's branch point (Q-check B2). */
+const shallow = await userClone(forge, { depth: 1 });
 
 const originMain = await resolveCommit(user, "refs/remotes/origin/main");
 
@@ -107,11 +114,15 @@ const program = Effect.gen(function* () {
   if (workspace === undefined) return yield* Effect.die("workspace not registered");
 
   /** Follow the host stream until the checkout satisfies `done` (undefined: removed). */
-  const until = (label: string, done: (checkout: ReviewCheckout | undefined) => boolean) =>
+  const until = (
+    label: string,
+    done: (checkout: ReviewCheckout | undefined) => boolean,
+    id: ReviewCheckoutId = checkoutId
+  ) =>
     s.client.subscribeHost({ afterSequence: null }).pipe(
       Stream.filterMap((item): Result.Result<ReviewCheckout | undefined, void> => {
         if (HostStreamItem.guards.Snapshot(item)) {
-          return Result.succeed(item.reviewCheckouts.find((c) => c.id === checkoutId));
+          return Result.succeed(item.reviewCheckouts.find((c) => c.id === id));
         }
 
         if (!HostStreamItem.guards.Event(item)) return Result.failVoid;
@@ -173,6 +184,44 @@ const program = Effect.gen(function* () {
 
   if (after !== originMain) return yield* Effect.die("the user's origin/main moved");
   log("the user's refs are untouched; the worktree is gone");
+
+  // Opened as the Desktop does, with GitHub's baseRefOid (the base branch's tip).
+  yield* dispatch(Command.cases.RegisterWorkspace.make({ path: shallow, name: "shallow" }));
+
+  const host = yield* s.client
+    .subscribeHost({ afterSequence: null })
+    .pipe(Stream.filter(HostStreamItem.guards.Snapshot), Stream.runHead);
+
+  const shallowWorkspace = Option.getOrUndefined(host)?.workspaces.find((w) => w.path === shallow);
+
+  if (shallowWorkspace === undefined) return yield* Effect.die("shallow workspace not registered");
+  const shallowId = ReviewCheckoutId.make("smoke-review-shallow");
+  yield* dispatch(
+    Command.cases.OpenReviewCheckout.make({
+      checkoutId: shallowId,
+      workspaceId: shallowWorkspace.id,
+      subject: ReviewSubject.cases.PullRequest.make({
+        pullRequest: new PullRequestRef({ repo: BASE_REPO, number: 7 }),
+        baseRef: "main",
+      }),
+      head: v2,
+      base: forge.mainCommits.at(-1) ?? "",
+    })
+  );
+
+  const opened = yield* until(
+    "shallow:",
+    (c) => c?.state === "ready" || c?.state === "blocked",
+    shallowId
+  );
+
+  if (opened?.state !== "ready") return yield* Effect.die("the shallow clone was blocked");
+
+  const stillShallow = yield* Effect.promise(() =>
+    gitText(shallow, ["rev-parse", "--is-shallow-repository"])
+  );
+
+  log("shallow clone checked out without asking; still shallow:", stillShallow);
 });
 
 await Effect.runPromise(Effect.scoped(program)).then(
@@ -187,6 +236,6 @@ daemon.kill("SIGTERM");
 
 await new Promise((r) => daemon.once("exit", r));
 
-for (const dir of [home, forge.root, dirname(user), dirname(author)]) {
+for (const dir of [home, forge.root, dirname(user), dirname(shallow), dirname(author)]) {
   rmSync(dir, { recursive: true, force: true });
 }

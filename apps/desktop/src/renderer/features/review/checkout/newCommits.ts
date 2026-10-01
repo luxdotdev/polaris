@@ -22,8 +22,13 @@ const pairOf = (held: Held | null) => {
 
 export const useNewCommits = (held: Held | null, pull: OpenPull): CompareView | null => {
   const pair = pairOf(held);
-  const { owner, name } = pull.repo;
-  const key = pair === null ? null : `${owner}/${name}:${pair.base}...${pair.head}`.toLowerCase();
+  const { owner, name, host } = pull.repo;
+
+  const key =
+    pair === null
+      ? null
+      : `${host ?? ""}/${owner}/${name}:${pair.base}...${pair.head}`.toLowerCase();
+
   const view = useStore(comparisons, (s) => (key === null ? null : (s[key] ?? null)));
 
   const base = pair?.base ?? null;
@@ -33,9 +38,13 @@ export const useNewCommits = (held: Held | null, pull: OpenPull): CompareView | 
     if (key === null || base === null || head === null || key in comparisons.getState()) return;
 
     void polaris()
-      .request("github.pull.compare", { repo: { owner, name }, base, head })
+      .request("github.pull.compare", {
+        repo: host === undefined ? { owner, name } : { host, owner, name },
+        base,
+        head,
+      })
       .then((result) => comparisons.setState({ [key]: result.ok ? result.value : null }));
-  }, [key, owner, name, base, head]);
+  }, [key, host, owner, name, base, head]);
 
   return view;
 };
