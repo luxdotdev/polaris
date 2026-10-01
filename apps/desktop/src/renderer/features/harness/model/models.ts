@@ -27,6 +27,81 @@ export const pickableModels = (
 ): ReadonlyArray<ModelData> =>
   harness === "claude" ? models.filter((m) => m.id !== CLAUDE_DEFAULT_ROW) : models;
 
+/** How many Models the picker shows before "More models…". */
+export const SHORTLIST = 4;
+
+export interface Lineage {
+  /** "opus", "gpt sol": the name without its version. */
+  readonly family: string;
+  /** [5, 5] for "Opus 5.5"; null when the name carries none. */
+  readonly version: readonly number[] | null;
+}
+
+/** A Model's family and version, read from its name as the Harness shows it. */
+export const lineage = (name: string): Lineage => {
+  const match = /\d+(?:\.\d+)*/.exec(name);
+
+  const family = name
+    .replace(match?.[0] ?? "", " ")
+    .toLowerCase()
+    .replace(/[^a-z]+/g, " ")
+    .trim();
+
+  return { family, version: match === null ? null : match[0].split(".").map(Number) };
+};
+
+/** Whether version `a` is newer than `b` ([5, 5] over [5] over [4, 8]). */
+const newer = (a: readonly number[] | null, b: readonly number[] | null): boolean => {
+  if (a === null || b === null) return a !== null && b === null;
+
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const d = (a[i] ?? 0) - (b[i] ?? 0);
+
+    if (d !== 0) return d > 0;
+  }
+
+  return false;
+};
+
+const sameVersion = (a: readonly number[] | null, b: readonly number[] | null) =>
+  !newer(a, b) && !newer(b, a);
+
+/** Whether a newer Model of the same family is listed, or the same one is listed earlier. */
+const superseded = (lines: ReadonlyArray<Lineage>, i: number): boolean => {
+  const self = lines[i];
+
+  return lines.some(
+    (other, j) =>
+      j !== i &&
+      self !== undefined &&
+      other.family === self.family &&
+      (newer(other.version, self.version) || (j < i && sameVersion(other.version, self.version)))
+  );
+};
+
+export interface Shortlist {
+  /** The newest Model of each family, in the Harness's order, at most SHORTLIST. */
+  readonly top: ReadonlyArray<ModelData>;
+  /** Everything else the Harness lists, in its order. */
+  readonly more: ReadonlyArray<ModelData>;
+}
+
+/**
+ * The picker's Models: a Model a newer one of its family supersedes moves to "More models…", and
+ * the first four left, in the Harness's own order, are shown. The Harness's default always is.
+ */
+export const shortlist = (harness: string, models: ReadonlyArray<ModelData>): Shortlist => {
+  const pickable = pickableModels(harness, models);
+  const lines = pickable.map((m) => lineage(m.name));
+  const newest = pickable.filter((_, i) => !superseded(lines, i));
+  const top = newest.slice(0, SHORTLIST);
+  const fallback = pickable.find((m) => m.isDefault);
+
+  if (fallback !== undefined && !top.includes(fallback)) top.splice(SHORTLIST - 1, 1, fallback);
+
+  return { top, more: pickable.filter((m) => !top.includes(m)) };
+};
+
 /** The effort a Model runs with when none is picked: its default, else medium, else its first. */
 export const defaultEffort = (model: ModelData): string | null => {
   if (model.defaultEffort !== null) return model.defaultEffort;

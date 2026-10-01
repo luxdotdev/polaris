@@ -23,6 +23,7 @@ export {
   type ModelChoice,
   type ModelData,
   modelLabel,
+  shortlist,
 } from "./model/models.ts";
 
 export {

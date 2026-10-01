@@ -42,8 +42,8 @@
 .polaris-dither[data-moving] > span {
   width: calc(100% * var(--dither-frames));
   mask-image: var(--dither-strip);
-  animation: polaris-dither-step calc(var(--dither-frames) * 83ms) steps(var(--dither-frames))
-    infinite;
+  animation: polaris-dither-step calc(var(--dither-frames) * var(--dither-frame-ms, 83ms))
+    steps(var(--dither-frames)) infinite;
   will-change: transform;
 }
 

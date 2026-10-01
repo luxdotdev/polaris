@@ -76,7 +76,14 @@ export interface DitherSize {
   readonly height: number;
 }
 
-function fieldFor(size: DitherSize, phase: number): DitherField {
+/**
+ * The field's lit share. Without `intensity` it is the Working dither's own (a band or a glyph);
+ * with one (0–1, the effort bar) it runs from sparse and faint to dense and bright.
+ */
+function fieldFor(size: DitherSize, phase: number, intensity?: number): DitherField {
+  if (intensity !== undefined)
+    return { ...size, base: 0.04 + 0.46 * intensity, amp: 0.18 + 0.42 * intensity, k: 2.6, phase };
+
   const band = size.height < size.width / 4;
 
   return band
@@ -99,14 +106,14 @@ function cached(key: string, build: () => string): string {
 }
 
 /** A CSS mask of every frame side by side; stepped by translating it (DESIGN.md, Dither). */
-export function ditherStripMask(size: DitherSize): string {
-  return cached(`strip:${size.width}x${size.height}`, () => {
+export function ditherStripMask(size: DitherSize, intensity?: number): string {
+  return cached(`strip:${size.width}x${size.height}:${intensity ?? ""}`, () => {
     let body = "";
 
     for (let frame = 0; frame < DITHER_FRAMES; frame++) {
       const phase = (frame / DITHER_FRAMES) * Math.PI * 2;
 
-      body += rects(ditherFrame(fieldFor(size, phase)), frame * size.width);
+      body += rects(ditherFrame(fieldFor(size, phase, intensity)), frame * size.width);
     }
 
     return dataUrl(svg(size.width * DITHER_FRAMES, size.height, body));
@@ -114,8 +121,8 @@ export function ditherStripMask(size: DitherSize): string {
 }
 
 /** One still frame: the Starting pattern and the Reduce Motion stand-in. */
-export function ditherStillMask(size: DitherSize): string {
-  return cached(`still:${size.width}x${size.height}`, () =>
-    dataUrl(svg(size.width, size.height, rects(ditherFrame(fieldFor(size, 0)), 0)))
+export function ditherStillMask(size: DitherSize, intensity?: number): string {
+  return cached(`still:${size.width}x${size.height}:${intensity ?? ""}`, () =>
+    dataUrl(svg(size.width, size.height, rects(ditherFrame(fieldFor(size, 0, intensity)), 0)))
   );
 }
