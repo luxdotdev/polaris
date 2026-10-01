@@ -51,7 +51,7 @@ import {
 } from "../git/review/testing.ts";
 import { commitAll, removeDir, write } from "../git/testing.ts";
 import { Availability } from "../harness/availability/index.ts";
-import { benchReviewReply } from "../harness/bench/review.ts";
+import { benchReviewReply, isReviewerPrompt } from "../harness/bench/review.ts";
 import { HarnessEvent, type TurnInput } from "../harness/HarnessDriver.ts";
 import { Rules } from "../services.ts";
 import { EventStore } from "../store/EventStore.ts";
@@ -152,7 +152,7 @@ const reviewerLayer = (options: {
 
   const driver = makeFakeDriver("claude", {
     onTurn: (input, session) =>
-      input.prompt.startsWith(REVIEWER_MARKER)
+      isReviewerPrompt(input.prompt)
         ? options.reviewerFails === undefined
           ? reviewerTurn(input)
           : [
@@ -257,6 +257,8 @@ const summaryWhen = (summaryId: RiskSummaryId, done: (summary: RiskSummary) => b
 
 const ended = (summary: RiskSummary) => summary.status !== "running";
 
+const walked = (summary: RiskSummary) => ended(summary) && summary.walkthrough?.state === "ready";
+
 describe("the Reviewer", () => {
   test("reviews a pull request in its own read-only session, then answers a follow-up", async () => {
     const s = await scenario();
@@ -279,7 +281,12 @@ describe("the Reviewer", () => {
 
         expect(started.status).toBe("running");
 
-        const done = yield* summaryWhen(started.id, ended);
+        const done = yield* summaryWhen(started.id, walked);
+        expect(done.walkthrough?.head).toBe(s.v1);
+        expect(done.walkthrough?.sessionId).not.toBe(done.reviewer?.sessionId);
+        expect(done.walkthrough?.markdown).toContain("## Why the change");
+        expect(driver.latest(done.walkthrough!.sessionId!)?.options.readOnly).toBe(true);
+        expect(done.deltaWalkthrough).toBeUndefined();
         expect(done.status).toBe("completed");
         expect(done.layers.rules.status).toBe("completed");
         expect(done.layers.agent.status).toBe("completed");
@@ -338,6 +345,10 @@ describe("the Reviewer", () => {
         });
 
         expect(again.id).toBe(done.id);
+        expect(again.walkthrough?.sessionId).toBe(done.walkthrough?.sessionId);
+        const written = yield* reviewer.runWalkthrough(done.id, context);
+        expect(written.walkthrough?.sessionId).toBe(done.walkthrough?.sessionId);
+        expect(written.deltaWalkthrough).toBeUndefined();
 
         // A follow-up continues the same session and can withdraw the Finding.
         const finding = done.findings[0]!;
@@ -401,7 +412,13 @@ describe("the Reviewer", () => {
 
       expect(next?.key.since).toBe(s.v1);
 
-      return { done, incremental: yield* summaryWhen(next!.id, ended) };
+      return {
+        done,
+        incremental: yield* summaryWhen(
+          next!.id,
+          (value) => walked(value) && value.deltaWalkthrough?.state === "ready"
+        ),
+      };
     });
 
   test("new commits are reviewed on their own, in the same session, with earlier Findings carried", async () => {
@@ -423,6 +440,17 @@ describe("the Reviewer", () => {
         const prompt = driver.latest(done.reviewer!.sessionId!)?.turns.at(-1)?.prompt ?? "";
         expect(prompt).toContain("Only the new changes");
         expect(prompt).not.toContain("+v1");
+        const full = driver.latest(incremental.walkthrough!.sessionId!)?.turns[0]?.prompt ?? "";
+
+        const delta =
+          driver.latest(incremental.deltaWalkthrough!.sessionId!)?.turns[0]?.prompt ?? "";
+
+        expect(full).toContain("+v1");
+        expect(full).toContain("+added later");
+        expect(delta).not.toContain("+v1");
+        expect(delta).toContain("+added later");
+        expect(delta).toContain(done.findings[0]!.id);
+        expect(incremental.deltaWalkthrough?.fromHead).toBe(s.v1);
       })
     );
   }, 60_000);
@@ -508,12 +536,13 @@ describe("when it runs", () => {
         expect(waiting.layers.agent.note).toContain("1 changed lines is over 0");
         // Waiting isn't "Reviewed by": no Reviewer is named until one runs.
         expect(waiting.reviewer).toBeNull();
+        expect(waiting.walkthrough?.state).toBe("waiting");
         expect(driver.sessions).toHaveLength(0);
 
         // "Run reviewer": the user asks, so the threshold doesn't apply.
         const ran = yield* summaryWhen(
           (yield* reviewer.run(openRequest(workspace, true))).id,
-          ended
+          walked
         );
 
         expect(ran.id).not.toBe(waiting.id);
@@ -675,6 +704,12 @@ describe("the session's change, exactly", () => {
         expect(prompt).toContain("+++ b/b.txt");
         expect(prompt).not.toContain("other.ts");
         expect(done.findings.map((f) => f.path)).toEqual(["a.txt"]);
+        expect(done.prompts?.map((entry) => entry.prompt)).toEqual(["write a.txt", "write b.txt"]);
+        const complete = yield* summaryWhen(done.id, walked);
+        const walkthrough = driver.latest(complete.walkthrough!.sessionId!)?.turns[0]?.prompt ?? "";
+        expect(walkthrough).toContain("+++ b/a.txt");
+        expect(walkthrough).toContain("+++ b/b.txt");
+        expect(walkthrough).not.toContain("other.ts");
       })
     );
   }, 60_000);

@@ -41,6 +41,7 @@ import {
   RiskFinding,
   RiskSummary,
   SummaryLayer,
+  Walkthrough,
   Verdict,
 } from "./review.ts";
 
@@ -145,7 +146,14 @@ export const DomainEvent = Schema.TaggedUnion({
    * served by `review.riskSummary` / `review.watchRiskSummary` / `review.verdicts`.
    */
   RiskSummaryStarted: { summary: RiskSummary },
-  RiskSummaryLayerChanged: { summaryId: RiskSummaryId, layer: SummaryLayer, run: LayerRun },
+  RiskSummaryLayerChanged: {
+    summaryId: RiskSummaryId,
+    layer: SummaryLayer,
+    run: LayerRun,
+    /** Walkthrough metadata does not change a Rules or Agent layer. */
+    walkthrough: Schema.optionalKey(Walkthrough),
+    deltaWalkthrough: Schema.optionalKey(Walkthrough),
+  },
   /** Adds Findings, or replaces those with the same id (a Reviewer follow-up revising one). */
   RiskFindingsRecorded: { summaryId: RiskSummaryId, findings: Schema.Array(RiskFinding) },
   RiskFindingResolved: {

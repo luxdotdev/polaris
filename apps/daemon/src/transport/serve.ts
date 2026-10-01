@@ -122,6 +122,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "review.ask",
   "review.verdicts",
   "review.reviewer-settings",
+  "review.walkthrough",
   "review.latest-summary",
   "session.accept-latest",
   "attachments.stage",

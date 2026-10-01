@@ -216,6 +216,10 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
     onLive(hostKey, (s) => s.client["attachments.clear"]({ workspaceId })),
   "review.runRiskSummary": ({ hostKey, ...payload }) =>
     onLive(hostKey, (s) => s.client["review.runRiskSummary"](payload)),
+  "review.runWalkthrough": ({ hostKey, ...payload }) =>
+    onLive(hostKey, (s) => s.client["review.runWalkthrough"](payload)),
+  "review.stopWalkthrough": ({ hostKey, summaryId }) =>
+    onLive(hostKey, (s) => s.client["review.stopWalkthrough"]({ summaryId })).pipe(done),
   "review.riskSummary": ({ hostKey, ref }) =>
     onLive(hostKey, (s) => s.client["review.riskSummary"]({ ref })),
   "review.verdicts": ({ hostKey, ...payload }) =>
