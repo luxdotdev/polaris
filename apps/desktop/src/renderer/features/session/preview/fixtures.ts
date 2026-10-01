@@ -5,6 +5,8 @@
  */
 import {
   AgentSession,
+  Subagent,
+  SubagentId,
   Attachment,
   AttachmentId,
   ContextUsage,
@@ -21,7 +23,12 @@ import {
   Worktree,
   WorktreeId,
 } from "@polaris/protocol";
-import type { LiveItem, SessionModel, TurnView } from "../../../store/sessionModel.ts";
+import type {
+  LiveItem,
+  SessionModel,
+  SubagentView,
+  TurnView,
+} from "../../../store/sessionModel.ts";
 import { MISSED_STEER, type Outgoing, queuedOutgoing, steerOutgoing } from "../model/outbox.ts";
 import type { StagedAttachment } from "../state.ts";
 
@@ -102,8 +109,9 @@ const session = (id: string, patch: Partial<AgentSession>) =>
 const view = (
   t: Turn,
   items: ReadonlyArray<TurnItem>,
-  live: ReadonlyArray<readonly [string, LiveItem]> = []
-): TurnView => ({ turn: t, items, live: new Map(live) });
+  live: ReadonlyArray<readonly [string, LiveItem]> = [],
+  subagents: ReadonlyArray<SubagentView> = []
+): TurnView => ({ turn: t, items, live: new Map(live), subagents });
 
 const earlierTurn = (sessionId: SessionId) =>
   view(turn(sessionId, 22, "Record the Review decision and close ENG-185", "completed"), [
@@ -467,6 +475,153 @@ export const attachments = (): SessionModel => {
     turns: [
       view(one, [I.AssistantMessage.make({ id: "m2", text: "Tightened them to 32px." })]),
       view(two, [I.AssistantMessage.make({ id: "m3", text: "Both variants now match." })]),
+    ],
+  });
+};
+
+const read = (id: string, path: string) =>
+  I.ToolCall.make({
+    id,
+    name: "Read",
+    input: { file_path: path },
+    output: null,
+    status: "completed",
+  });
+
+const subagentOf = (
+  s: SessionId,
+  t: TurnId,
+  id: string,
+  title: string,
+  status: "working" | "completed",
+  items: ReadonlyArray<TurnItem>,
+  live: ReadonlyArray<readonly [string, LiveItem]> = []
+): SubagentView => ({
+  subagent: new Subagent({
+    id: SubagentId.make(id),
+    sessionId: s,
+    turnId: t,
+    parentItemId: id,
+    title,
+    agent: id.includes("explore") ? "Explore" : "general-purpose",
+    model: null,
+    status,
+    startedAt: ago(status === "working" ? 24 : 95),
+    endedAt: status === "working" ? null : ago(61),
+  }),
+  items,
+  live: new Map(live),
+});
+
+const agentCall = (id: string, description: string, prompt: string, done: boolean) =>
+  I.ToolCall.make({
+    id,
+    name: "Agent",
+    input: { description, prompt },
+    output: null,
+    status: done ? "completed" : "running",
+  });
+
+/** A Turn that reads in a run of calls and fans out to two Subagents, one done, one working. */
+export const subagents = (): SessionModel => {
+  const s = session("s-subagents", { title: "Audit the session store" });
+
+  const t = turn(
+    s.id,
+    7,
+    "Audit the session store for places that drop Subagent items.",
+    "working"
+  );
+
+  const explore = subagentOf(
+    s.id,
+    t.id,
+    "toolu_explore",
+    "Find where Subagent events are folded",
+    "completed",
+    [
+      I.ToolCall.make({
+        id: "x1",
+        name: "Grep",
+        input: { pattern: "SubagentStarted" },
+        output: null,
+        status: "completed",
+      }),
+      read("x2", "apps/desktop/src/renderer/store/sessionModel.ts"),
+      read("x3", "packages/protocol/src/rpc.ts"),
+      I.AssistantMessage.make({
+        id: "x4",
+        text: "**Found it.** `sessionModel.ts` folds `SubagentStarted` and `SubagentEnded` to nothing, and drops every `TurnItemCompleted` that has a `subagentId`.\n\n- Deltas with a `subagentId` land in the Turn's live items\n- `TurnEnded` then clears them, so a Subagent's final text disappears",
+      }),
+    ]
+  );
+
+  const tests = subagentOf(
+    s.id,
+    t.id,
+    "toolu_tests",
+    "Run the store tests",
+    "working",
+    [read("y1", "apps/desktop/src/renderer/store/sessionModel.test.ts")],
+    [
+      [
+        "y2",
+        {
+          item: I.CommandExecution.make({
+            id: "y2",
+            command: "bun test apps/desktop/src/renderer/store",
+            cwd: s.cwd,
+            output: "",
+            exitCode: null,
+            status: "running",
+          }),
+          text: "",
+          output: "",
+        },
+      ],
+    ]
+  );
+
+  return model({
+    session: s,
+    turns: [
+      view(
+        t,
+        [
+          I.AssistantMessage.make({ id: "m1", text: "I'll read the store and its tests first." }),
+          read("r1", "apps/desktop/src/renderer/store/sessionModel.ts"),
+          read("r2", "apps/desktop/src/renderer/store/store.ts"),
+          I.ToolCall.make({
+            id: "g1",
+            name: "Grep",
+            input: { pattern: "subagentId" },
+            output: null,
+            status: "completed",
+          }),
+          I.CommandExecution.make({
+            id: "c1",
+            command: "git log --oneline -5 -- apps/desktop/src/renderer/store",
+            cwd: s.cwd,
+            output: "a1b2c3d Fold host feeds",
+            exitCode: 0,
+            status: "completed",
+          }),
+          agentCall(
+            "toolu_explore",
+            "Find where Subagent events are folded",
+            "Find every place the renderer folds Subagent events and report what is dropped.",
+            true
+          ),
+          agentCall(
+            "toolu_tests",
+            "Run the store tests",
+            "Run the store's tests and report failures.",
+            false
+          ),
+        ],
+        [],
+        [explore, tests]
+      ),
     ],
   });
 };

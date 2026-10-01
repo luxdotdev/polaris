@@ -23,6 +23,7 @@ import { remoteFlow } from "./lib/remoteFlow.ts";
 import { settingsFlow } from "./lib/settingsFlow.ts";
 import { attachmentsFlow } from "./lib/attachmentsFlow.ts";
 import { imageAfterRelaunch, sendImage } from "./lib/previewFlow.ts";
+import { runSubagent, subagentAfterRelaunch } from "./lib/subagentFlow.ts";
 import { terminalFlow } from "./lib/terminalFlow.ts";
 
 const args = process.argv.slice(2);
@@ -359,12 +360,14 @@ const relaunchKeepsOutput = async () => {
   return page;
 };
 
-/** Send an image in the open session, relaunch, and find its thumbnail again. */
-const imagesSurviveRelaunch = async (page: Page) => {
+/** Send an image and run a Subagent in the open session, relaunch, and find both again. */
+const sentWorkSurvivesRelaunch = async (page: Page) => {
+  await runSubagent(page, step);
   await sendImage(page, step);
   const again = await relaunchKeepsOutput();
 
   await imageAfterRelaunch(again, step);
+  await subagentAfterRelaunch(again, step);
 };
 
 let failed = false;
@@ -478,7 +481,7 @@ try {
   if (consoleErrors.length > 0) throw new Error(`renderer errors:\n${consoleErrors.join("\n")}`);
   await checkNoneReady(page, step);
   await closeKeepsRunning();
-  await imagesSurviveRelaunch(await relaunchKeepsOutput());
+  await sentWorkSurvivesRelaunch(await relaunchKeepsOutput());
   step("ok");
 } catch (error) {
   failed = true;

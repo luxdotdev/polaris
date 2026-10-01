@@ -41,6 +41,7 @@ import {
   type OpenOptions,
   type TurnInput,
 } from "../HarnessDriver.ts";
+import { runSubagent } from "./subagent.ts";
 
 const BenchTurnScriptSchema = Schema.Struct({
   /** Completed TurnItems per Turn; kinds rotate message, reasoning, command, tool call, file change. */
@@ -59,6 +60,8 @@ const BenchTurnScriptSchema = Schema.Struct({
   itemBytes: Schema.Number,
   /** Wait before the Turn starts, e.g. to model a Harness thinking. */
   startDelayMs: Schema.Number,
+  /** Foreground Subagents run after the items, each reporting back through an Agent call. */
+  subagents: Schema.Number,
 });
 
 export type BenchTurnScript = typeof BenchTurnScriptSchema.Type;
@@ -72,6 +75,7 @@ export const DEFAULT_SCRIPT: BenchTurnScript = {
   touchFiles: 0,
   itemBytes: 0,
   startDelayMs: 0,
+  subagents: 0,
 };
 
 export const BENCH_PROMPT_PREFIX = "bench:";
@@ -277,6 +281,8 @@ const openBenchSession = Effect.fn("BenchDriver.open")(function* (options: OpenO
       const files = touchFiles(options.cwd, turnId, script.touchFiles);
 
       for (let i = 0; i < script.items; i++) yield* runItem(script, turnId, i, files);
+
+      for (let n = 0; n < script.subagents; n++) yield* runSubagent(emit, turnId, n);
 
       yield* emit(
         HarnessEvent.ContextUsed({
