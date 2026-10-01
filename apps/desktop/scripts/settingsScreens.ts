@@ -233,6 +233,15 @@ try {
   await page.getByRole("button", { name: "Usage" }).click();
   await page.getByText(/tokens on \d+ host/).waitFor({ timeout: 30_000 });
   await shoot(page, "S2-usage-dark");
+  const figures = (await page.getByTestId("usage-figures").innerText()).split("\n");
+
+  // Paper S2 (6R2-1): tokens, cost, share, each a figure with its caption.
+  if (figures.length !== 6 || !figures[3]?.startsWith("API-equivalent"))
+    throw new Error(`usage figures: ${figures.join(" | ")}`);
+  console.log(`settings-screens: figures ${figures.join(" | ")}`);
+  await setAppearance(page, { theme: "light" });
+  await shoot(page, "S2-usage-light");
+  await setAppearance(page, { theme: "dark" });
   await usageTooltip(page);
 
   // The gear in the sidebar footer and the K menu's Settings actions.

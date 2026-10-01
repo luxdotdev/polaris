@@ -1,8 +1,8 @@
 /**
  * Settings → Usage (DESIGN.md, Settings; Paper S2): Plan Limits first, then
- * tokens over 7 / 30 / 90 days (tokens and the share in Polaris as figures, the cost
- * a quieter line under them), a stacked daily chart in Harness hues with a per-day
- * tooltip, and a by-model table where estimated costs carry a "~".
+ * tokens over 7 / 30 / 90 days, the three figures (tokens, cost, share in Polaris), a
+ * stacked daily chart in Harness hues with a per-day tooltip, and a by-model table where
+ * estimated costs carry a "~".
  */
 import { hueVar, SegmentedControl, Switch, Tile, Dither, harnessHue } from "@polaris/ui";
 import { useState } from "react";
@@ -12,6 +12,7 @@ import { type LimitRow, type LimitWindow, limitRows, METER_CELLS } from "../mode
 import { sectionInfo } from "../model/sections.ts";
 import {
   compactTokens,
+  costCaption,
   costLabel,
   formatShare,
   splitByDefault,
@@ -140,18 +141,6 @@ const ModelTable = ({ summary }: { readonly summary: UsageSummary }) => (
   </Group>
 );
 
-const costCaption = (summary: UsageSummary) => {
-  if (summary.cost.estimated) {
-    return summary.cost.partial
-      ? "API-equivalent · estimated · some models unpriced"
-      : "API-equivalent · estimated";
-  }
-
-  return summary.cost.partial
-    ? "Reported by harnesses · some models unpriced"
-    : "Reported by harnesses";
-};
-
 const RANGE_OPTIONS = RANGES.map((d) => ({ value: String(d), label: `${d} days` }));
 
 const Tokens = ({
@@ -207,18 +196,13 @@ const Tokens = ({
         )
       ) : (
         <>
-          <div className="flex flex-col gap-2">
-            <div className="flex gap-10">
-              <Figure
-                value={compactTokens(summary.tokens)}
-                caption={`tokens on ${hostCount} host${hostCount === 1 ? "" : "s"}`}
-              />
-              <Figure value={formatShare(share)} caption="in Polaris sessions" />
-            </div>
-            <p className="text-caption text-text-subtle tabular" data-testid="usage-cost">
-              <span className="text-text-default">{costLabel(summary.cost)}</span> ·{" "}
-              {costCaption(summary)}
-            </p>
+          <div className="flex gap-10" data-testid="usage-figures">
+            <Figure
+              value={compactTokens(summary.tokens)}
+              caption={`tokens on ${hostCount} host${hostCount === 1 ? "" : "s"}`}
+            />
+            <Figure value={costLabel(summary.cost)} caption={costCaption(summary.cost)} />
+            <Figure value={formatShare(share)} caption="in Polaris sessions" />
           </div>
           <UsageChart summary={summary} split={split} />
           <ModelTable summary={summary} />
