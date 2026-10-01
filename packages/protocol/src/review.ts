@@ -266,7 +266,27 @@ export class ReviewerChoice extends Schema.Class<ReviewerChoice>("ReviewerChoice
  * `review.reviewer-settings`): a default, and overrides keyed by Workspace id.
  * A null default picks automatically (`ResolvedReviewer`).
  */
+export class WalkthroughSettings extends Schema.Class<WalkthroughSettings>("WalkthroughSettings")({
+  enabled: Schema.Boolean.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(true)),
+    Schema.withConstructorDefault(Effect.succeed(true))
+  ),
+  harness: Schema.NullOr(HarnessKind).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(null)),
+    Schema.withConstructorDefault(Effect.succeed(null))
+  ),
+  model: Schema.NullOr(ModelId).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(null)),
+    Schema.withConstructorDefault(Effect.succeed(null))
+  ),
+  effort: Schema.NullOr(ReasoningEffort).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(null)),
+    Schema.withConstructorDefault(Effect.succeed(null))
+  ),
+}) {}
+
 export class ReviewerSettings extends Schema.Class<ReviewerSettings>("ReviewerSettings")({
+  walkthrough: Schema.optionalKey(WalkthroughSettings),
   default: Schema.NullOr(ReviewerChoice),
   workspaces: Schema.Record(Schema.String, ReviewerChoice),
   /** When it runs: a pull request when its Review opens (kept per head commit). */
@@ -317,7 +337,38 @@ export const SummaryLayer = Schema.Literals(["rules", "agent"]);
 
 export type SummaryLayer = typeof SummaryLayer.Type;
 
+/** The separate read-only walkthrough, persisted with the Risk Summary for its head. */
+export class Walkthrough extends Schema.Class<Walkthrough>("Walkthrough")({
+  state: Schema.Literals(["off", "waiting", "writing", "ready", "failed"]),
+  markdown: Schema.String,
+  head: Schema.String,
+  fromHead: Schema.NullOr(Schema.String),
+  fullSummaryId: Schema.NullOr(RiskSummaryId),
+  harness: Schema.NullOr(HarnessKind),
+  model: Schema.NullOr(ModelId),
+  effort: Schema.NullOr(ReasoningEffort),
+  sessionId: Schema.NullOr(SessionId),
+  lines: Schema.Int,
+  tokensEstimate: Schema.NullOr(Schema.Int),
+  filesRead: Schema.Int,
+  filesTotal: Schema.Int,
+  startedAt: Schema.NullOr(Timestamp),
+  durationMs: Schema.NullOr(Schema.Number),
+  tokens: Schema.NullOr(Schema.Int),
+  reason: Schema.NullOr(Schema.String),
+  evidence: Schema.NullOr(Schema.String),
+}) {}
+
+export class ReviewPrompt extends Schema.Class<ReviewPrompt>("ReviewPrompt")({
+  turnIndex: Schema.Int,
+  prompt: Schema.String,
+  files: Schema.Int,
+}) {}
+
 export class RiskSummary extends Schema.Class<RiskSummary>("RiskSummary")({
+  walkthrough: Schema.optionalKey(Walkthrough),
+  deltaWalkthrough: Schema.optionalKey(Walkthrough),
+  prompts: Schema.optionalKey(Schema.Array(ReviewPrompt)),
   id: RiskSummaryId,
   key: RiskSummaryKey,
   workspaceId: WorkspaceId,
