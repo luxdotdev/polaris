@@ -135,6 +135,7 @@ export type ReviewDecision = "approved" | "changes-requested" | "review-required
 export interface PullAuthor {
   readonly login: string;
   readonly avatarUrl: string;
+  readonly bot?: boolean;
 }
 
 export interface PullRowView {
@@ -283,6 +284,7 @@ export interface ReviewCommentView {
   readonly url: string;
   /** Pending comments are only visible to the viewer until the review is submitted. */
   readonly pending: boolean;
+  readonly person?: PersonView;
 }
 
 export interface ReviewThreadView {
@@ -290,6 +292,8 @@ export interface ReviewThreadView {
   readonly path: string;
   readonly isResolved: boolean;
   readonly isOutdated: boolean;
+  readonly resolvedBy?: string | null;
+  readonly diffHunk?: string;
   readonly anchor: ThreadAnchor;
   readonly comments: ReadonlyArray<ReviewCommentView>;
 }
@@ -300,7 +304,105 @@ export interface PendingReviewView {
   readonly comments: number;
 }
 
+export interface PersonView {
+  readonly login: string;
+  readonly bot: boolean;
+  readonly avatarUrl?: string;
+}
+
+export type TimelineItemView = {
+  readonly id: string;
+  readonly at: string;
+  readonly url: string;
+} & (
+  | { readonly kind: "comment"; readonly author: PersonView; readonly body: string }
+  | {
+      readonly kind: "review";
+      readonly author: PersonView;
+      readonly state: "approved" | "changes-requested" | "commented" | "dismissed";
+      readonly body: string;
+    }
+  | {
+      readonly kind: "push";
+      readonly author: PersonView | null;
+      readonly commits: ReadonlyArray<{ readonly oid: string; readonly headline: string }>;
+      readonly forced: boolean;
+    }
+  | {
+      readonly kind: "thread";
+      readonly threadId: string;
+      readonly path: string;
+      readonly line: number | null;
+      readonly isResolved: boolean;
+      readonly isOutdated: boolean;
+      readonly resolvedBy: string | null;
+      readonly diffHunk: string;
+      readonly comments: ReadonlyArray<{
+        readonly id: string;
+        readonly author: PersonView;
+        readonly body: string;
+        readonly at: string;
+        readonly url: string;
+      }>;
+    }
+);
+
+export interface CommitView {
+  readonly oid: string;
+  readonly headline: string;
+  readonly body: string;
+  readonly author: PersonView | null;
+  readonly at: string;
+  readonly checks: ChecksView | null;
+}
+
+export interface CheckRunView {
+  readonly name: string;
+  readonly workflow: string | null;
+  readonly status: "queued" | "in-progress" | "completed";
+  readonly conclusion:
+    | "success"
+    | "failure"
+    | "neutral"
+    | "skipped"
+    | "cancelled"
+    | "timed-out"
+    | "action-required"
+    | "stale"
+    | null;
+  readonly startedAt: string | null;
+  readonly completedAt: string | null;
+  readonly durationMs?: number | null;
+  readonly url: string | null;
+}
+
+export interface BotSummaryView {
+  readonly bot: string;
+  readonly commentId: string;
+  readonly url: string;
+  readonly body: string;
+  readonly verdict: {
+    readonly alert: "note" | "tip" | "important" | "warning" | "caution";
+    readonly word: string;
+  } | null;
+  readonly reviewedHead: string | null;
+  readonly reviewedBase: string | null;
+  readonly updatedAt: string;
+}
+
+export interface PublishedDescriptionView {
+  readonly hash: string;
+  readonly head: string;
+  readonly at: string;
+}
+
 export interface PullDetailView {
+  readonly timeline?: ReadonlyArray<TimelineItemView>;
+  readonly commitList?: ReadonlyArray<CommitView>;
+  readonly checkRuns?: ReadonlyArray<CheckRunView>;
+  readonly botSummary?: BotSummaryView | null;
+  readonly viewerLastReview?: { readonly at: string; readonly commitOid: string | null } | null;
+  readonly published?: PublishedDescriptionView | null;
   readonly id: string;
   readonly number: number;
   readonly title: string;
