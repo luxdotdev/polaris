@@ -22,3 +22,8 @@
   --diffs-bg-selection-override: var(--color-diff-selection);
   --diffs-bg-selection-number-override: var(--color-diff-selection);
 }
+
+/* Pierre's `:host` picks light or dark from macOS; each file follows the app's theme instead. */
+.review-diff diffs-container {
+  color-scheme: inherit;
+}

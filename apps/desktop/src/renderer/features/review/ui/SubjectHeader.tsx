@@ -51,7 +51,7 @@ export const PullHeader = ({ name, number, detail, actions }: PullHeaderProps) =
             <span>{name}</span>
           ) : (
             <>
-              {detail.author !== null && (
+              {detail.author !== null && detail.author.avatarUrl !== "" && (
                 <img
                   src={detail.author.avatarUrl}
                   alt=""

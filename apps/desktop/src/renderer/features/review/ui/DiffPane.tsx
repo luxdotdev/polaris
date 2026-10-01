@@ -18,7 +18,7 @@ import { useStore } from "zustand";
 import type { ReviewAnnotation } from "../surface.ts";
 import { revealStore } from "../surface.ts";
 import type { FindingInfo } from "../model/findings.ts";
-import { THEME_NAME } from "../model/theme.ts";
+import { THEMES } from "../model/theme.ts";
 import { MAX_LINE_LENGTH } from "../data/pierre.tsx";
 import { FileHeader } from "./FileHeader.tsx";
 import { FindingRow } from "./FindingRow.tsx";
@@ -39,8 +39,9 @@ export interface PaneItem {
   readonly path: string;
 }
 
-/** The card around each file and the gutter's room for a Severity glyph. */
-const BASE_CSS = `:host { display: block; }
+/** The page shows between files; each file's code sits in a card under its header (Paper R1). */
+const BASE_CSS = `[data-diffs-header][data-sticky] { background-color: var(--color-bg); }
+[data-diff] { border: 1px solid var(--color-hairline); border-top: 0; border-radius: 0 0 10px 10px; overflow: clip; }
 [data-gutter] { padding-left: 14px; }`;
 
 export interface DiffPaneProps {
@@ -142,7 +143,7 @@ export const DiffPane = ({
 
   const options = useMemo(
     () => ({
-      theme: THEME_NAME,
+      theme: THEMES,
       themeType,
       diffStyle: "unified" as const,
       diffIndicators: "classic" as const,

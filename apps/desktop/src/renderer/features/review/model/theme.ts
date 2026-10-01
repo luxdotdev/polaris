@@ -5,7 +5,8 @@
  */
 import type { ThemeRegistration } from "@pierre/diffs";
 
-export const THEME_NAME = "polaris-moonlit";
+/** One theme registered twice: Pierre sets the shadow root's colour scheme from a theme's type. */
+export const THEMES = { dark: "polaris-moonlit-dark", light: "polaris-moonlit-light" } as const;
 
 const token = (scope: ReadonlyArray<string>, name: string) => ({
   scope: [...scope],
@@ -13,9 +14,9 @@ const token = (scope: ReadonlyArray<string>, name: string) => ({
 });
 
 /** Pierre writes `--diffs-bg` from `bg`, so `bg` names a Polaris token, never `--diffs-bg`. */
-export const moonlitTheme = (): ThemeRegistration => ({
-  name: THEME_NAME,
-  type: "dark",
+export const moonlitTheme = (type: "dark" | "light"): ThemeRegistration => ({
+  name: THEMES[type],
+  type,
   fg: "var(--color-text-default)",
   bg: "var(--review-diff-bg)",
   colors: {

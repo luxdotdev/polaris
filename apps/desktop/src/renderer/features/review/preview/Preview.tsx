@@ -1,0 +1,132 @@
+/**
+ * Review on fixtures, for screenshots against Paper R1 / R2 (`scripts/reviewScreens.ts`)
+ * and the large-Review bench: `#review/pull`, `#review/session`, `#review/large` (2,500
+ * files, collapsed) and `#review/list-only` (12,000 files). A stand-in bridge serves the
+ * patches; no Daemon or GitHub is involved. Its own chunk.
+ */
+import type { GitDiffSpec } from "@polaris/protocol";
+import { Predicate } from "effect";
+import { createRoot } from "react-dom/client";
+import { createStore } from "zustand/vanilla";
+import type { OpenPull, PolarisApi, Result } from "../../../../shared/api.ts";
+import { App } from "../../../app/App.tsx";
+import { createCommandRegistry } from "../../../routes/commands.ts";
+import { createNavigation } from "../../../routes/navigation.ts";
+import { openPull, openSessionReview } from "../../../routes/review.ts";
+import { type AppState, type Connection, initialState, sessionKey } from "../../../store/store.ts";
+import { standInBridge } from "../../bridge.ts";
+import { pullsStore } from "../../pulls/store.ts";
+import { ACCOUNTS, HOSTS, LIST, MODELS } from "../../pulls/preview/fixtures.ts";
+import { subjectKey, updateSurface } from "../surface.ts";
+import {
+  CHECKOUT,
+  manyFilesPatch,
+  PULL_DETAIL,
+  PULL_FINDINGS,
+  PULL_PATCH,
+  SESSION,
+  SESSION_FINDINGS,
+  sessionModel,
+  TURN_PATCHES,
+} from "./fixtures.ts";
+
+const encode = (text: string) => new TextEncoder().encode(text);
+
+const patchFor = (scene: string, spec: GitDiffSpec) => {
+  if (scene === "large") return manyFilesPatch(2500);
+
+  if (scene === "list-only") return manyFilesPatch(12_000);
+
+  return Predicate.isTagged(spec, "Turn") ? (TURN_PATCHES.get(spec.turnId) ?? "") : PULL_PATCH;
+};
+
+/** What the stand-in reads of a request's input. */
+interface PreviewInput {
+  readonly spec?: GitDiffSpec;
+}
+
+const ok = <A,>(value: A): Promise<Result<A>> => Promise.resolve({ ok: true, value });
+
+const request = (scene: string) => (method: string, input: PreviewInput) => {
+  if (method === "git.diff" && input.spec !== undefined) {
+    return ok({ bytes: encode(patchFor(scene, input.spec)), files: 0, fileIndex: [] });
+  }
+
+  if (method === "git.show" || method === "files.read") {
+    return ok({ size: 0, mimeType: "text/plain", content: { kind: "text", text: "" } });
+  }
+
+  if (method === "github.pull.detail") return ok(PULL_DETAIL);
+
+  if (method === "github.files.setViewed" || method === "dispatch") return ok(null);
+
+  return Promise.resolve({ ok: false, error: { code: "Unsupported", message: "preview" } });
+};
+
+const bridge = (scene: string): PolarisApi => ({
+  // SAFETY: the stand-in answers every method the Review view asks with its declared shape.
+  request: request(scene) as PolarisApi["request"],
+  subscribe: () => () => undefined,
+  onAppEvent: () => () => undefined,
+});
+
+const PULL: OpenPull = {
+  repo: { owner: "work-org", name: "nj-homes-choice-next" },
+  number: 88,
+  pullId: "PR_88",
+};
+
+export const mountReviewPreview = (root: HTMLElement, hash: string) => {
+  const scene = hash.replace(/^#review\//, "");
+  const studio = MODELS.studio;
+  const local = MODELS.local;
+
+  const store = createStore<AppState>(() => ({
+    ...initialState,
+    hosts: HOSTS,
+    hostModels: {
+      ...MODELS,
+      studio: { ...studio, reviewCheckouts: new Map([[CHECKOUT.id, CHECKOUT]]) },
+      local: {
+        ...local,
+        sessions: new Map([
+          [
+            SESSION.id,
+            { session: SESSION, pendingApprovals: [], lastTurnPreview: null, subagents: [] },
+          ],
+        ]),
+      },
+    },
+    sessions: { [sessionKey("local", SESSION.id)]: sessionModel() },
+  }));
+
+  const connection: Connection = {
+    store,
+    openSession: () => () => undefined,
+    setDensity: (density) => store.setState({ density }),
+    setAppearance: ({ density, theme }) => store.setState({ density, theme }),
+  };
+
+  const navigation = createNavigation({ app: store, storage: null });
+
+  standInBridge(bridge(scene));
+  pullsStore.setState({ list: LIST, accounts: ACCOUNTS });
+
+  if (scene === "session") {
+    openSessionReview(navigation.actions, "local", SESSION.id);
+    updateSurface(subjectKey({ kind: "session", hostKey: "local", sessionId: SESSION.id }), {
+      findings: SESSION_FINDINGS,
+    });
+  } else {
+    openPull(navigation.actions, PULL);
+    updateSurface(subjectKey({ kind: "pull", pull: PULL }), {
+      findings: scene === "pull" ? PULL_FINDINGS : [],
+    });
+  }
+
+  const commands = createCommandRegistry({ mac: true });
+
+  createRoot(root).render(<App value={{ connection, navigation, commands }} />);
+
+  return connection.setDensity;
+};

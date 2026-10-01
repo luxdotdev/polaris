@@ -7,9 +7,11 @@ import { registerCustomTheme } from "@pierre/diffs";
 import { WorkerPoolContextProvider } from "@pierre/diffs/react";
 import PierreWorker from "@pierre/diffs/worker/worker.js?worker";
 import type { ReactNode } from "react";
-import { moonlitTheme, THEME_NAME } from "../model/theme.ts";
+import { moonlitTheme, THEMES } from "../model/theme.ts";
 
-registerCustomTheme(THEME_NAME, () => Promise.resolve(moonlitTheme()));
+registerCustomTheme(THEMES.dark, () => Promise.resolve(moonlitTheme("dark")));
+
+registerCustomTheme(THEMES.light, () => Promise.resolve(moonlitTheme("light")));
 
 /** Four workers: the spike measured 50 MB more for 4 than 1, and fewer dropped frames. */
 export const POOL_SIZE = 4;
@@ -20,7 +22,7 @@ export const MAX_LINE_LENGTH = 1000;
 const poolOptions = { workerFactory: () => new PierreWorker(), poolSize: POOL_SIZE };
 
 const highlighterOptions = {
-  theme: THEME_NAME,
+  theme: THEMES,
   lineDiffType: "word-alt" as const,
   tokenizeMaxLineLength: MAX_LINE_LENGTH,
   maxLineDiffLength: MAX_LINE_LENGTH,

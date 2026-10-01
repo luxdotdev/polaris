@@ -93,7 +93,7 @@ export const Queue = ({ groups, caption, selected, onOpen, onOpenPull, onList }:
                 onClick={() => onOpen(row)}
                 className={cn(
                   "rounded-row flex shrink-0 cursor-default items-center gap-row-x border px-gap",
-                  group.compact ? "h-row" : "h-session-row",
+                  group.compact ? "h-row" : "min-h-session-row py-1",
                   isSelected
                     ? "bg-row-selected border-hairline"
                     : "hover:bg-fill-hover border-transparent"
