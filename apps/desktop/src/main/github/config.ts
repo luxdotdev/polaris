@@ -16,14 +16,12 @@ export const GITHUB_DOT_COM: GitHubEndpoints = {
   api: "https://api.github.com",
 };
 
-export interface EndpointEnv {
-  readonly POLARIS_GITHUB_WEB_URL?: string | undefined;
-  readonly POLARIS_GITHUB_API_URL?: string | undefined;
-}
+/** The process environment. */
+export type EndpointEnv = NodeJS.ProcessEnv;
 
 export const endpointsFrom = (env: EndpointEnv): GitHubEndpoints => ({
-  web: env.POLARIS_GITHUB_WEB_URL ?? GITHUB_DOT_COM.web,
-  api: env.POLARIS_GITHUB_API_URL ?? GITHUB_DOT_COM.api,
+  web: env["POLARIS_GITHUB_WEB_URL"] ?? GITHUB_DOT_COM.web,
+  api: env["POLARIS_GITHUB_API_URL"] ?? GITHUB_DOT_COM.api,
 });
 
 /** Authorized OAuth Apps → Polaris: review, revoke, or request an org's approval. */

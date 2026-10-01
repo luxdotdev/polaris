@@ -31,6 +31,7 @@ import type {
 } from "@polaris/protocol";
 import type { Rpc } from "effect/rpc";
 import type { CommandId } from "./keymap.ts";
+import type { GitHubRequestOutputs, GitHubSubscriptionItems } from "./githubContract.ts";
 import type { NeedsYouAction } from "./needsYou.ts";
 import type {
   CachedHost,
@@ -260,7 +261,7 @@ export interface InstallView {
   readonly command: string | null;
 }
 
-export interface RequestOutputs {
+export interface RequestOutputs extends GitHubRequestOutputs {
   "settings.get": SettingsView;
   "cache.get": ReadonlyArray<CachedHost>;
   "cache.put": null;
@@ -328,7 +329,7 @@ export type TerminalItem =
   | { readonly _tag: "Output"; readonly data: Uint8Array }
   | { readonly _tag: "Exit"; readonly code: number | null };
 
-export interface SubscriptionItems {
+export interface SubscriptionItems extends GitHubSubscriptionItems {
   hosts: ReadonlyArray<HostView>;
   machines: ReadonlyArray<MachineView>;
   host: HostStreamItem;
