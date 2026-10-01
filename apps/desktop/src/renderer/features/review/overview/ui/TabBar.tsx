@@ -54,7 +54,7 @@ export const TabBar = ({ tabs, current, figures, hints, news, onPick, jumpLabel 
               data-testid={`review-tab-${tab}`}
               onClick={() => onPick(tab)}
               className={cn(
-                "rounded-control h-tree-row px-row-pad flex shrink-0 cursor-default items-center gap-1.5",
+                "rounded-control h-tree-row px-row-x flex shrink-0 cursor-default items-center gap-1.5",
                 tab === current ? "bg-fill-selected" : "hover:bg-fill-hover"
               )}
             >
@@ -87,7 +87,7 @@ export const TabBar = ({ tabs, current, figures, hints, news, onPick, jumpLabel 
         type="button"
         data-testid="review-jump-changes"
         onClick={() => onPick("changes")}
-        className="rounded-control h-tree-row pr-row-pad bg-fill-selected text-body text-text-strong hover:bg-fill-selected/70 gap-gap flex shrink-0 cursor-default items-center pl-3 font-medium"
+        className="rounded-control h-tree-row pr-row-x bg-fill-selected text-body text-text-strong hover:bg-fill-selected/70 gap-gap flex shrink-0 cursor-default items-center pl-3 font-medium"
       >
         {jumpLabel} →{current === "overview" && <Kbd>{NEXT}</Kbd>}
       </button>

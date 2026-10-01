@@ -51,7 +51,7 @@ export const Checks = ({ runs }: { readonly runs: ReadonlyArray<CheckRunView> })
               key={`${run.workflow ?? ""}/${run.name}`}
               data-testid="check-row"
               data-failing={isFailingRun(run) ? "" : undefined}
-              className="border-hairline gap-gap h-row px-row-pad flex items-center [&+&]:border-t"
+              className="border-hairline gap-gap h-row px-row-x flex items-center [&+&]:border-t"
             >
               <span
                 className={cn(

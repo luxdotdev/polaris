@@ -79,7 +79,7 @@ const Body = ({
 /** Over "Ask first for large changes": one choice runs the Reviewer and the walkthrough. */
 const Waiting = ({ walkthrough: w, onRun, onNotNow }: WalkthroughProps) => (
   <Card data-testid="walkthrough" data-state="waiting">
-    <div className="gap-gap pr-row-pad py-row-pad flex items-center pl-3.5">
+    <div className="gap-gap pr-row-x py-row-x flex items-center pl-3.5">
       <PolarisMark />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-body text-text-strong font-medium">
@@ -111,7 +111,7 @@ const Waiting = ({ walkthrough: w, onRun, onNotNow }: WalkthroughProps) => (
 
 const Failed = ({ walkthrough: w, onRetry, onOtherHost }: WalkthroughProps) => (
   <Card data-testid="walkthrough" data-state="failed">
-    <div className="gap-gap pr-row-pad py-row-pad flex items-start pl-3.5">
+    <div className="gap-gap pr-row-x py-row-x flex items-start pl-3.5">
       <PolarisMark />
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="gap-gap flex items-center">

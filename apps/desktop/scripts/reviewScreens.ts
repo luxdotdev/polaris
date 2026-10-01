@@ -5,9 +5,10 @@
  * and the large-Review scenes (2,500 files collapsed, 12,000 files list-only).
  *
  * With `--findings`, only M2-F's scenes: the risk column and composer (R6), a Verdict (R1),
- * Submit review (R7) and an Agent Session's feedback (R8).
+ * Submit review (R7) and an Agent Session's feedback (R8). With `--overview`, the tabs
+ * against Paper R9: Overview in each state, Conversation, Commits, Checks.
  *
- *   node scripts/reviewScreens.ts --out <dir> [--build] [--findings]
+ *   node scripts/reviewScreens.ts --out <dir> [--build] [--findings | --overview]
  */
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -117,6 +118,79 @@ const findingScenes = async (page: Page) => {
   }
 };
 
+const click = async (page: Page, testId: string) => {
+  await page.getByTestId(testId).first().click();
+  await page.waitForTimeout(400);
+};
+
+/** Overview (Paper R9): every walkthrough state, re-review, own PR, the other tabs, ⌃ held. */
+const overviewScenes = async (page: Page) => {
+  for (const theme of ["dark", "light"]) {
+    await open(page, "ov", "walkthrough");
+    await appearance(page, theme, "balanced");
+    await shoot(page, `ov-${theme}`);
+    await page.getByTestId("walkthrough").scrollIntoViewIfNeeded();
+    await shoot(page, `ov-walkthrough-${theme}`);
+
+    await open(page, "ov-conversation", "conversation");
+    await appearance(page, theme, "balanced");
+    await shoot(page, `ov-conversation-${theme}`);
+  }
+
+  await appearance(page, "dark", "balanced");
+
+  for (const state of ["writing", "waiting", "failed"]) {
+    await open(page, `ov-${state}`, "walkthrough");
+    await page.getByTestId("walkthrough").scrollIntoViewIfNeeded();
+    await shoot(page, `ov-${state}-dark`);
+  }
+
+  await open(page, "ov", "bot-summary");
+  await click(page, "bot-summary-toggle");
+  await shoot(page, "ov-summary-open-dark");
+  await page.keyboard.down("Control");
+  await page.getByTestId("review-tab-changes").hover();
+  await page.waitForTimeout(900);
+  await shoot(page, "ov-ctrl-held-tooltip-dark");
+  await page.keyboard.up("Control");
+
+  await open(page, "ov-rereview", "overview");
+  await shoot(page, "ov-rereview-dark");
+  await click(page, "bot-menu-trigger");
+  await shoot(page, "ov-rereview-menu-dark");
+  await click(page, "bot-command-review");
+  await shoot(page, "ov-bot-confirm-dark");
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
+  await click(page, "bot-menu-trigger");
+  await page.getByTestId("bot-menu").waitFor({ timeout: 3000 });
+  await page.keyboard.press("Escape");
+
+  await open(page, "ov-own", "publish-description");
+  await click(page, "publish-description");
+  await shoot(page, "ov-own-publish-dark");
+
+  await open(page, "ov-conversation", "conversation");
+  await page.getByRole("radio", { name: "Bots" }).click();
+  await page.waitForTimeout(300);
+  await shoot(page, "ov-conversation-bots-dark");
+
+  for (const tab of ["commits", "checks"]) {
+    await open(page, `ov-${tab}`, tab);
+    await shoot(page, `ov-${tab}-dark`);
+  }
+
+  await open(page, "session-ov", "overview");
+  await appearance(page, "light", "balanced");
+  await shoot(page, "ov-session-light");
+
+  for (const density of ["calm", "compact"]) {
+    await open(page, "ov", "walkthrough");
+    await appearance(page, "dark", density);
+    await shoot(page, `ov-dark-${density}`);
+  }
+};
+
 /** M2-D: the pull request and session in every theme and density, and the large Reviews. */
 const diffScenes = async (page: Page) => {
   for (const [scene, testId] of [
@@ -161,6 +235,7 @@ try {
   mkdirSync(out, { recursive: true });
 
   if (args.includes("--findings")) await findingScenes(page);
+  else if (args.includes("--overview")) await overviewScenes(page);
   else await diffScenes(page);
 } finally {
   await app.close();

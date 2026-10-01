@@ -28,6 +28,10 @@ import {
 import { markLocal } from "../data/viewedStore.ts";
 import { fingerprint, indexPatch } from "../model/patch.ts";
 import { subjectKey, updateSurface } from "../surface.ts";
+import { poster } from "../overview/data/actions.ts";
+import { walkthroughScenes } from "../overview/data/overview.ts";
+import { setTab } from "../overview/model/tabs.ts";
+import { openSceneTab, overviewDetail, walkthroughsFor } from "../overview/preview/fixtures.ts";
 import {
   CHECKOUT,
   manyFilesPatch,
@@ -59,6 +63,8 @@ const ok = <A,>(value: A): Promise<Result<A>> => Promise.resolve({ ok: true, val
 
 const detailFor = (scene: string) => {
   if (scene === "stacked") return stackedDetail(PULL_DETAIL);
+
+  if (scene.startsWith("ov")) return overviewDetail(PULL_DETAIL, scene);
 
   return scene.startsWith("pull-") ? withThreads(PULL_DETAIL) : PULL_DETAIL;
 };
@@ -150,6 +156,29 @@ const markOlderTurnsViewed = (subject: string) => {
   }
 };
 
+/** `#review/ov-…` and `#review/session-ov…`: Overview's scenes (overview/preview/fixtures.ts). */
+const setUpOverview = (scene: string) => {
+  const overview = scene.startsWith("ov") || scene.startsWith("session-ov");
+
+  const key = scene.startsWith("session")
+    ? subjectKey({ kind: "session", hostKey: "local", sessionId: SESSION.id })
+    : subjectKey({ kind: "pull", pull: scene === "stacked" ? STACKED_PULL : PULL });
+
+  // The diff's scenes (Paper R1, R2) open on Changes; the real app opens every Review on Overview.
+  if (!overview) {
+    setTab(key, "changes");
+
+    return;
+  }
+
+  poster.current = {
+    command: () => Promise.resolve({ ok: true }),
+    publish: () => Promise.resolve({ ok: true }),
+  };
+  walkthroughScenes.setState({ [key]: walkthroughsFor(scene) });
+  openSceneTab(scene, key);
+};
+
 export const mountReviewPreview = (root: HTMLElement, hash: string) => {
   const [scene = "", search = ""] = hash.replace(/^#review\//, "").split("?");
   const bench = scene === "bench";
@@ -197,6 +226,7 @@ export const mountReviewPreview = (root: HTMLElement, hash: string) => {
   }
 
   setUpScene(scene, subjectKey({ kind: "session", hostKey: "local", sessionId: SESSION.id }));
+  setUpOverview(scene);
 
   if (scene.startsWith("session")) {
     openSessionReview(navigation.actions, "local", SESSION.id);
@@ -210,7 +240,7 @@ export const mountReviewPreview = (root: HTMLElement, hash: string) => {
 
     openPull(navigation.actions, pull);
     updateSurface(subjectKey({ kind: "pull", pull }), {
-      findings: scene.startsWith("pull") ? PULL_FINDINGS : [],
+      findings: scene.startsWith("pull") || scene.startsWith("ov") ? PULL_FINDINGS : [],
       selectedFinding:
         scene === "pull" || scene === "pull-verdict" ? (PULL_FINDINGS[0]?.id ?? null) : null,
     });

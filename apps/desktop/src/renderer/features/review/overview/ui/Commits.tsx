@@ -75,7 +75,7 @@ export const Commits = ({ subjectKey, commits, mergeBase, now, onPicked }: Commi
               disabled={index === 0 && mergeBase === null}
               onClick={() => pick(index)}
               className={cn(
-                "gap-gap h-row px-row-pad flex w-full cursor-default items-center text-left",
+                "gap-gap h-row px-row-x flex w-full cursor-default items-center text-left",
                 scope?.oid === commit.oid ? "bg-fill-selected" : "hover:bg-fill-hover"
               )}
             >

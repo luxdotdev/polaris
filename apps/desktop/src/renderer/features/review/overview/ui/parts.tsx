@@ -23,8 +23,8 @@ export const CardHead = ({
 }) => (
   <div
     className={cn(
-      "gap-gap pr-row-pad flex min-h-11 items-center pl-3.5",
-      ruled ? "border-hairline py-row-pad border-b" : "pt-row-pad pb-1.5"
+      "gap-gap pr-row-x flex min-h-11 items-center pl-3.5",
+      ruled ? "border-hairline py-row-x border-b" : "pt-row-x pb-1.5"
     )}
   >
     {children}

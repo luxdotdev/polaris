@@ -119,7 +119,7 @@ export const BotSummaryCard = (props: BotSummaryCardProps) => {
       ) : (
         <>
           <p className="text-body text-text-default pr-3.5 pl-[42px] leading-5">
-            {firstParagraph(summary.body)}
+            {firstParagraph(summary.body).replace(/[`*_]/g, "")}
           </p>
           {line !== null && (
             <p className="text-caption text-text-subtle pt-gap flex items-center gap-1.5 pr-3.5 pl-[42px]">
@@ -129,7 +129,7 @@ export const BotSummaryCard = (props: BotSummaryCardProps) => {
           )}
         </>
       )}
-      <div className="pt-row-pad flex items-center gap-3.5 pr-3.5 pb-3 pl-[42px]">
+      <div className="pt-row-x flex items-center gap-3.5 pr-3.5 pb-3 pl-[42px]">
         {open && summary.reviewedHead !== null && (
           <span className="text-caption text-text-subtle flex-1">
             Reviewed {shortSha(summary.reviewedHead)}

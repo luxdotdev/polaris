@@ -31,14 +31,18 @@ export interface BotMenuProps {
   readonly stale: boolean;
 }
 
+const titleCase = (name: string) => `${name.slice(0, 1).toUpperCase()}${name.slice(1)}`;
+
 const labelOf = (command: BotCommand, bot: string, head: string) => {
   if (command.command === "review") return head === "" ? "Re-run" : `Re-run on ${shortSha(head)}`;
 
-  return command.command === "memory" ? `Teach ${bot}…` : command.label;
+  return command.command === "memory" ? `Teach ${titleCase(bot)}…` : command.label;
 };
 
 const titleOf = (command: BotCommand, bot: string) =>
-  command.command === "memory" ? `What should ${bot} remember?` : `Post ${command.slash}?`;
+  command.command === "memory"
+    ? `What should ${titleCase(bot)} remember?`
+    : `Post ${command.slash}?`;
 
 export const BotMenu = ({ bot, pull, head, viewer }: BotMenuProps) => {
   const confirmed = useBotConfirmed(bot);
