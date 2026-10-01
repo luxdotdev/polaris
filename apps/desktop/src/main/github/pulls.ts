@@ -57,6 +57,8 @@ export const rowOf = (
   headRefName: pull.headRefName,
   headRefOid: pull.headRefOid,
   baseRefName: pull.baseRefName,
+  additions: pull.additions,
+  deletions: pull.deletions,
   updatedAt: pull.updatedAt,
   reviewDecision: DECISIONS.get(pull.reviewDecision ?? "") ?? null,
   viewerLatestReview: pull.viewerLatestReview?.state ?? null,

@@ -107,6 +107,9 @@ export interface PullRowView {
   readonly headRefName: string;
   readonly headRefOid: string;
   readonly baseRefName: string;
+  /** Lines added and removed across the pull request. */
+  readonly additions: number;
+  readonly deletions: number;
   readonly updatedAt: string;
   readonly reviewDecision: ReviewDecision;
   /** The viewer's latest submitted review: APPROVED, CHANGES_REQUESTED, COMMENTED… */

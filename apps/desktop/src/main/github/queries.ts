@@ -54,7 +54,7 @@ export const pullSearch = op(
     nodes {
       ... on PullRequest {
         id number title url isDraft state updatedAt
-        headRefName headRefOid baseRefName
+        headRefName headRefOid baseRefName additions deletions
         repository { nameWithOwner }
         author { login avatarUrl }
         reviewDecision
@@ -78,6 +78,8 @@ export const SearchPull = Schema.Struct({
   headRefName: Schema.String,
   headRefOid: Schema.String,
   baseRefName: Schema.String,
+  additions: Schema.Number,
+  deletions: Schema.Number,
   repository: Schema.Struct({ nameWithOwner: Schema.String }),
   author: Author,
   reviewDecision: Schema.NullOr(Schema.String),

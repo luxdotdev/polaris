@@ -3,7 +3,9 @@
  * the endpoints from the environment, and window focus setting the poll rate.
  */
 import { join } from "node:path";
+import { Effect, Stream, SubscriptionRef } from "effect";
 import { app, BrowserWindow, safeStorage } from "electron";
+import type { GitHubAccountsView, PullListView } from "../../shared/github.ts";
 import type { ClientRuntime } from "../hosts.ts";
 import { type EndpointEnv, endpointsFrom } from "./config.ts";
 import { GitHub } from "./index.ts";
@@ -47,5 +49,29 @@ export const followFocus = (runtime: ClientRuntime) => {
     setImmediate(() => {
       if (BrowserWindow.getFocusedWindow() === null) set(false);
     })
+  );
+};
+
+/** The accounts and every PR list the client publishes, for review-request notifications. */
+export const followReviewRequests = (
+  runtime: ClientRuntime,
+  notifier: {
+    readonly accounts: (view: GitHubAccountsView) => void;
+    readonly update: (list: PullListView) => void;
+  }
+) => {
+  runtime.runFork(
+    GitHub.use((g) =>
+      SubscriptionRef.changes(g.accounts).pipe(
+        Stream.runForEach((view) => Effect.sync(() => notifier.accounts(view)))
+      )
+    )
+  );
+  runtime.runFork(
+    GitHub.use((g) =>
+      SubscriptionRef.changes(g.pulls).pipe(
+        Stream.runForEach((list) => Effect.sync(() => notifier.update(list)))
+      )
+    )
   );
 };

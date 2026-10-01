@@ -8,6 +8,7 @@ import { createOnboarding } from "./features/onboarding/index.ts";
 import { startProofSession } from "./proof.ts";
 import { createCommandRegistry } from "./routes/commands.ts";
 import { installKeyboard } from "./routes/keyboard.ts";
+import { onOpenPullEvent } from "./routes/review.ts";
 import { createNavigation } from "./routes/navigation.ts";
 import { exposeSwitchTimes } from "./routes/switchTimer.ts";
 import type { Appearance, Density } from "../shared/api.ts";
@@ -56,6 +57,9 @@ const preview = location.hash.startsWith("#preview/");
 // `#needs-you/<scene>`: the inbox and hover card on fixtures (features/needs-you/preview).
 const needsYouPreview = location.hash.startsWith("#needs-you/");
 
+// `#pulls/<scene>`: the pull request list on fixtures (features/pulls/preview).
+const pullsPreview = location.hash.startsWith("#pulls/");
+
 let setPreviewDensity: ((density: Density) => void) | null = null;
 
 const appearance = (value: Appearance) => {
@@ -75,6 +79,7 @@ connectSettings(window.polaris);
 window.polaris.onAppEvent((event) => {
   if (event.kind === "command") commands.run(event.id);
   else if (event.kind === "needs-you") onNeedsYouEvent(event, navigation.actions);
+  else if (event.kind === "open-pull") onOpenPullEvent(event.pull, navigation.actions);
   else if (event.kind === "proof") {
     void startProofSession({ api: window.polaris, store: connection.store, hostKey: event.hostKey })
       .then((sessionId) => navigation.actions.selectSession({ hostKey: event.hostKey, sessionId }))
@@ -95,6 +100,10 @@ if (root !== null && preview) {
 } else if (root !== null && needsYouPreview) {
   void import("./features/needs-you/preview/Preview.tsx").then((m) => {
     setPreviewDensity = m.mountNeedsYouPreview(root, location.hash);
+  });
+} else if (root !== null && pullsPreview) {
+  void import("./features/pulls/preview/Preview.tsx").then((m) => {
+    setPreviewDensity = m.mountPullsPreview(root, location.hash);
   });
 } else if (root !== null) {
   createRoot(root).render(

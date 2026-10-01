@@ -206,6 +206,8 @@ const searchNode = (world: World, pull: FakePull, viewer: FakeUser) => {
     headRefName: pull.headRefName,
     headRefOid: pull.headRefOid,
     baseRefName: pull.baseRefName,
+    additions: pull.files.reduce((n, f) => n + f.additions, 0),
+    deletions: pull.files.reduce((n, f) => n + f.deletions, 0),
     repository: { nameWithOwner: pull.repo },
     author: author(world, pull.author),
     reviewDecision: pull.reviewDecision,

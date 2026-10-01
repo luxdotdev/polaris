@@ -10,6 +10,7 @@ import { type AppContextValue, AppProvider } from "../shell/hooks.ts";
 // Not the feature's index: it reaches slots.tsx, which must load after the shell's features.
 import { UpgradeToasts } from "../features/machines/UpgradeToasts.tsx";
 import { NeedsYouPublisher } from "../features/needs-you/index.ts";
+import { PullsPublisher } from "../features/pulls/index.ts";
 import { Shell } from "./Shell.tsx";
 
 export interface AppProps {
@@ -27,6 +28,7 @@ export const App = ({ value, onboarding = settled }: AppProps) => (
         <TooltipProvider>
           <Shell />
           <NeedsYouPublisher />
+          <PullsPublisher />
           <UpgradeToasts />
           <Toaster />
         </TooltipProvider>

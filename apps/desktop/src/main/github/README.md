@@ -23,7 +23,7 @@ The Desktop App calls GitHub itself; the Daemon never sees a GitHub token (ENG-1
 
 Requests: `github.signIn.start|cancel`, `github.accounts.remove|reorder`, `github.routing.setOwner|setWorkspace`, `github.watch` (every Workspace's remotes), `github.refresh`, `github.recheck`, `github.pull.detail|create`, `github.review.addThread|reply|resolve|editComment|submit|discard`, `github.files.setViewed`, `github.checkouts.watch`. Feeds: `github.accounts`, `github.pulls`, `github.checkouts`. `parseGitHubRemote` and `parsePullUrl` ("Review PR by URL") are pure helpers in `shared/github.ts`.
 
-Who acts on what it reports: the PR list and the Reviews group in Needs You (one notification per new entry in `requested`) diff `github.pulls`; whoever owns Review Checkouts removes one when `github.checkouts` says merged or closed (a closed one can reopen, so removal may wait).
+Who acts on what it reports: the renderer's `features/pulls` sends `github.watch` from every git Workspace's remotes and shows `github.pulls` (rows carry `additions`/`deletions` for the Changes lane) as the PR list and Needs You's Reviews group; `notifications/reviews.ts` in main follows `pulls` and `accounts` directly for one notification per new entry in `requested`; whoever owns Review Checkouts removes one when `github.checkouts` says merged or closed (a closed one can reopen, so removal may wait).
 
 ## Testing
 

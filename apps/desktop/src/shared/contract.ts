@@ -95,6 +95,8 @@ export const SessionPrefs = Schema.Struct({
   openOutputOnEdit: Schema.Boolean,
   /** Native notifications when a session needs you. */
   notifyNeedsYou: Schema.Boolean,
+  /** Native notifications when someone requests your review on GitHub (ENG-229). */
+  notifyReviewRequests: Schema.Boolean,
   /** Archive deletes a session's branch once it is merged; unmerged branches always stay. */
   deleteMergedBranch: Schema.Boolean,
   /** The Working strip's verbs; null for the built-in ones (Claude Code's own settings come first). */
@@ -108,6 +110,7 @@ export const SessionPrefsPatch = Schema.Struct({
   branchPrefix: Schema.optionalKey(BranchPrefix),
   openOutputOnEdit: Schema.optionalKey(Schema.Boolean),
   notifyNeedsYou: Schema.optionalKey(Schema.Boolean),
+  notifyReviewRequests: Schema.optionalKey(Schema.Boolean),
   deleteMergedBranch: Schema.optionalKey(Schema.Boolean),
   spinnerVerbs: Schema.optionalKey(Schema.NullOr(Schema.Array(Schema.String))),
 });

@@ -48,6 +48,7 @@ const GROUPS: ReadonlyArray<GroupSource> = [
           "output",
           "notifications",
           "needs you",
+          "review requested",
           "archive",
         ],
       },

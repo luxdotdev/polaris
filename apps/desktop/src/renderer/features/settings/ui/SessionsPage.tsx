@@ -94,6 +94,17 @@ export const SessionsPage = () => {
             onCheckedChange={(on) => setSessionPrefs({ notifyNeedsYou: on })}
           />
         </SettingRow>
+        <SettingRow
+          title="Notify when your review is requested"
+          caption="A macOS notification per new request on GitHub. Reviews in needs you still lists them."
+          htmlFor="notify-review-requests"
+        >
+          <Switch
+            id="notify-review-requests"
+            checked={prefs.notifyReviewRequests}
+            onCheckedChange={(on) => setSessionPrefs({ notifyReviewRequests: on })}
+          />
+        </SettingRow>
       </Group>
       <WorkingVerbs />
       <Group label="Archive">

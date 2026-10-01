@@ -12,6 +12,7 @@ import {
   type NotificationHandlers,
   notificationHandlers,
 } from "./actions.ts";
+import { focusWindow } from "./focus.ts";
 import {
   emptyNotificationState,
   type NotificationContent,
@@ -70,19 +71,10 @@ export const createNeedsYouCenter = ({
   const live = new Map<string, Notification>();
   const standing = new Map<string, { content: NotificationContent; on: NotificationHandlers }>();
 
-  const focusWindow = () => {
-    const win = window();
-
-    if (win === null) return;
-
-    if (win.isMinimized()) win.restore();
-    win.show();
-    win.focus();
-    app.focus({ steal: true });
-  };
+  const focus = () => focusWindow(window());
 
   const act = (action: NeedsYouAction) => {
-    if (action.action === "open") focusWindow();
+    if (action.action === "open") focus();
     send({ kind: "needs-you", ...action });
   };
 
@@ -90,7 +82,7 @@ export const createNeedsYouCenter = ({
 
   const tray: StarTray = createStarTray({
     onOpenSession: (session) => open(session.hostKey, session.sessionId),
-    onOpenApp: focusWindow,
+    onOpenApp: focus,
     onQuit: () => app.quit(),
   });
 

@@ -1,7 +1,8 @@
 /**
  * The GitHub client in the smoke test, against the fake served on 127.0.0.1 (no
  * real network, no real account): sign in with the device flow, watch a Workspace's
- * remote, see the pull request list, review one, and see a merge reach its checkout.
+ * remote (the smoke repo's own, watched by the renderer), see the pull request list, review
+ * one, and see a merge reach its checkout.
  */
 import type { Page } from "playwright-core";
 import type { RequestInput, RequestMethod, RequestOutput } from "../../src/shared/api.ts";
@@ -33,6 +34,8 @@ interface GitHubFlowInput {
   readonly page: Page;
   readonly fake: GitHubFake;
   readonly step: (message: string) => void;
+  /** Runs once the PR list is in, before #42 is reviewed and merged. */
+  readonly afterList: () => Promise<void>;
 }
 
 const request = <M extends RequestMethod>(page: Page, method: M, input: RequestInput<M>) =>
@@ -57,7 +60,7 @@ const feedUntil = <A>(page: Page, kind: string, holds: string, timeoutMs = 15_00
 
 const PR = { repo: { owner: "acme", name: "widgets" }, number: 42 };
 
-export const githubFlow = async ({ page, fake, step }: GitHubFlowInput) => {
+export const githubFlow = async ({ page, fake, step, afterList }: GitHubFlowInput) => {
   const started = await request(page, "github.signIn.start", {});
 
   fake.approveDevice(started.userCode, "mona");
@@ -68,24 +71,13 @@ export const githubFlow = async ({ page, fake, step }: GitHubFlowInput) => {
   );
   step(`GitHub: signed in as mona with code ${started.userCode}; tokens sealed by safeStorage`);
 
-  await request(page, "github.watch", {
-    workspaces: [
-      {
-        workspace: { hostKey: "local", workspaceId: "smoke" },
-        remotes: ["git@github.com:acme/widgets.git"],
-      },
-      {
-        workspace: { hostKey: "local", workspaceId: "locked" },
-        remotes: ["https://github.com/lockedorg/vault"],
-      },
-    ],
-  });
   await feedUntil(
     page,
     "github.pulls",
     'v.requested.some((p) => p.number === 42) && v.repos.some((r) => r.state === "blocked")'
   );
   step("GitHub: PR list has acme/widgets#42 under review requested; lockedorg/vault is blocked");
+  await afterList();
 
   const detail = await request(page, "github.pull.detail", { pull: PR });
 

@@ -1,5 +1,6 @@
 import { Button, Kbd, PlusIcon, SearchIcon, SegmentedControl, Wordmark } from "@polaris/ui";
 import type { Route } from "../../shared/api.ts";
+import { useRequestedCount } from "../features/pulls/store.ts";
 import { needsYou } from "../routes/topBar.ts";
 import { useApp, useSelection, useShellActions } from "./hooks.ts";
 
@@ -23,6 +24,7 @@ export const TitleBar = () => {
   const { mode, hostKey } = useSelection();
   const { setMode, openJump, startNewSession } = useShellActions();
   const waiting = useNeedsYouCount();
+  const requested = useRequestedCount();
 
   const modes: ReadonlyArray<{
     readonly value: Route;
@@ -43,7 +45,20 @@ export const TitleBar = () => {
           </span>
         ) : undefined,
     },
-    { value: "review", label: "Review" },
+    {
+      value: "review",
+      label: "Review",
+      badge:
+        requested > 0 ? (
+          // Paper R3: a plain count, no wash; review requests aren't sessions that need you.
+          <span
+            aria-label={`${requested} review requested`}
+            className="text-micro text-text-subtle tabular"
+          >
+            {requested}
+          </span>
+        ) : undefined,
+    },
     { value: "edit", label: "Edit" },
   ];
 

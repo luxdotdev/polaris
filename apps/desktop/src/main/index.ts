@@ -23,13 +23,14 @@ import {
   startClientRuntime,
   whenConnected,
 } from "./hosts.ts";
-import { followFocus, githubLayer } from "./github/electron.ts";
+import { followFocus, followReviewRequests, githubLayer } from "./github/electron.ts";
 import { iconPng, nameApp, showIcon } from "./identity.ts";
 import { registerIpc } from "./ipc/index.ts";
 import { machinesLayer, sshAliasNames } from "./machines/index.ts";
 import { type LocalDaemon, resolveLocalDaemon } from "./localDaemon.ts";
 import { buildMenu } from "./menu.ts";
 import { createNeedsYouCenter, type NeedsYouCenter } from "./notifications/index.ts";
+import { createReviewNotifier, type ReviewNotifier } from "./notifications/reviews.ts";
 import {
   APP_ORIGIN,
   applyDevCsp,
@@ -84,6 +85,8 @@ let localDaemon: LocalDaemon | null = null;
 let ipc: { readonly dispose: () => void } | null = null;
 
 let needsYou: NeedsYouCenter | null = null;
+
+let reviews: ReviewNotifier | null = null;
 
 /** Set once Polaris is quitting (⌘Q, the star's Quit): the window may then really close. */
 let exiting = false;
@@ -257,6 +260,14 @@ const start = async () => {
     notify: () => env.POLARIS_DESKTOP_HIDDEN !== "1" && sessionPrefsOf(settings).notifyNeedsYou,
   });
 
+  reviews = createReviewNotifier({
+    window: () => (win.isDestroyed() ? null : win),
+    send: (event) => win.webContents.send(CHANNELS.app, event),
+    notify: () =>
+      env.POLARIS_DESKTOP_HIDDEN !== "1" && sessionPrefsOf(settings).notifyReviewRequests,
+  });
+  followReviewRequests(runtime, reviews);
+
   // Benchmarks and scripts wait for this line: the window is painted and the local Host is up.
   const shown = new Promise<void>((resolve) => win.once("ready-to-show", () => resolve()));
 
@@ -277,6 +288,7 @@ app.on("will-quit", (event) => {
   event.preventDefault();
   ipc?.dispose();
   needsYou?.dispose();
+  reviews?.dispose();
   // The dev Daemon (if this app started it) goes down with the app.
   void Promise.allSettled([runtime?.dispose(), localDaemon?.stop()]).then(() => app.exit(0));
 });
