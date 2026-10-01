@@ -27,7 +27,7 @@ const moveFocus = (from: HTMLElement, by: number) => {
   next?.focus();
 };
 
-const buttonProps = (select: () => void) => ({
+export const buttonProps = (select: () => void) => ({
   role: "button",
   tabIndex: 0,
   "data-session-row": "",
@@ -47,7 +47,7 @@ const buttonProps = (select: () => void) => ({
 });
 
 /** A row that needs you gets its hover card (the NeedsYouHover slot). */
-const WithHover = ({
+export const WithHover = ({
   hostKey,
   entry,
   children,

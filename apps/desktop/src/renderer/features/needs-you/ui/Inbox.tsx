@@ -18,7 +18,8 @@ import { age } from "../../../shell/copy.ts";
 import { useApp, useSelection, useShellActions } from "../../../shell/hooks.ts";
 import { useNow } from "../../../shell/useNow.ts";
 import { ReviewsGroup, useRequestedCount } from "../../pulls/index.ts";
-import { useInbox } from "../hooks.ts";
+import { useConstellationInbox, useInbox } from "../hooks.ts";
+import { ConstellationGroups } from "./ConstellationGroups.tsx";
 import { quietFact } from "../model/quiet.ts";
 import type {
   AlsoKind,
@@ -158,11 +159,20 @@ const Empty = () => {
 };
 
 export const NeedsYouInbox = () => {
-  const inbox = useInbox();
+  const all = useInbox();
+  const constellations = useConstellationInbox();
   const now = useNow(30_000);
   const reviews = useRequestedCount();
 
+  // Constellation sessions are shown under their Lead instead.
+  const inbox = {
+    ...all,
+    waiting: all.waiting.filter((w) => !constellations.sessions.has(w.key)),
+    also: all.also.filter((a) => !constellations.sessions.has(a.key)),
+  };
+
   const nothing =
+    constellations.groups.length === 0 &&
     inbox.waiting.length === 0 &&
     inbox.also.length === 0 &&
     inbox.answered.length === 0 &&
@@ -175,6 +185,10 @@ export const NeedsYouInbox = () => {
       {inbox.answered.map((item) => (
         <Answered key={item.key} item={item} />
       ))}
+      <ConstellationGroups groups={constellations.groups} now={now} />
+      {inbox.waiting.length > 0 && constellations.groups.length > 0 ? (
+        <p className="text-caption text-text-subtle px-1.5 pt-2.5 pb-0.5">Sessions</p>
+      ) : null}
       {inbox.waiting.map((item) => (
         <Waiting key={item.key} item={item} now={now} />
       ))}

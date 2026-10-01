@@ -1,17 +1,37 @@
 import { useMemo, useSyncExternalStore } from "react";
 import { useApp } from "../../shell/hooks.ts";
 import { useNow } from "../../shell/useNow.ts";
+import { useAllConstellations } from "../sessions/source.ts";
 import { answeredHere } from "./answered.ts";
+import {
+  buildConstellationInbox,
+  type ConstellationInbox,
+  withConstellations,
+} from "./model/constellation.ts";
 import { buildInbox, type Inbox } from "./model/inbox.ts";
+
+/** Constellation items grouped under their Leads (Paper C5). */
+export const useConstellationInbox = (): ConstellationInbox => {
+  const hosts = useApp((s) => s.hosts);
+  const models = useApp((s) => s.hostModels);
+  const views = useAllConstellations();
+
+  return useMemo(() => buildConstellationInbox({ hosts, models, views }), [hosts, models, views]);
+};
 
 const useInboxAt = (now: number): Inbox => {
   const hosts = useApp((s) => s.hosts);
   const models = useApp((s) => s.hostModels);
   const answered = useSyncExternalStore(answeredHere.subscribe, answeredHere.get);
+  const constellations = useConstellationInbox();
 
   return useMemo(
-    () => buildInbox({ hosts, models, now, answeredHere: answered }),
-    [hosts, models, now, answered]
+    () =>
+      withConstellations(
+        buildInbox({ hosts, models, now, answeredHere: answered }),
+        constellations
+      ),
+    [hosts, models, now, answered, constellations]
   );
 };
 
@@ -23,3 +43,6 @@ export const useInbox = (): Inbox => useInboxAt(useNow(30_000));
  * an idle app doesn't wake for it.
  */
 export const useInboxUntimed = (): Inbox => useInboxAt(0);
+
+/** What needs you on every Host, Constellation items included: the Orchestrate and sidebar badges. */
+export const useNeedsYouCount = (): number => useInboxUntimed().count;

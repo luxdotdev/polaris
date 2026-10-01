@@ -1,21 +1,9 @@
 import { Button, Kbd, PlusIcon, SearchIcon, SegmentedControl, Wordmark } from "@polaris/ui";
 import type { Route } from "../../shared/api.ts";
 import { useRequestedCount } from "../features/pulls/store.ts";
-import { needsYou } from "../routes/topBar.ts";
+import { useNeedsYouCount } from "../features/needs-you/index.ts";
 import { jumpCopy } from "../features/jump/copy.ts";
-import { useApp, useSelection, useShellActions } from "./hooks.ts";
-
-/** Sessions that need you, across every Host: the Orchestrate badge. */
-const useNeedsYouCount = () =>
-  useApp((s) => {
-    let n = 0;
-
-    for (const model of Object.values(s.hostModels)) {
-      for (const entry of model.sessions.values()) if (needsYou(entry)) n++;
-    }
-
-    return n;
-  });
+import { useSelection, useShellActions } from "./hooks.ts";
 
 /**
  * The `hiddenInset` title bar (DESIGN.md, Titlebar): the lockup after the traffic

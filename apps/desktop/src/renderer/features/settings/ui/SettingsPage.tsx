@@ -30,11 +30,14 @@ import { HarnessesPage } from "./HarnessesPage.tsx";
 import { ReviewerPage } from "./ReviewerPage.tsx";
 import { SessionsPage } from "./SessionsPage.tsx";
 import { UsagePage } from "./UsagePage.tsx";
+import { ConstellationsPage } from "./ConstellationsPage.tsx";
+import { ConstellationMark } from "../../sessions/glyphs.tsx";
 
 const ICONS: Readonly<Record<SettingsSection, ReactNode>> = {
   appearance: <ContrastIcon />,
   sessions: <BranchIcon />,
   harnesses: <GridIcon />,
+  constellations: <ConstellationMark size={16} className="opacity-90" />,
   usage: <ChartColumnIcon />,
   hosts: <ServerIcon />,
   attachments: <PaperclipIcon />,
@@ -138,6 +141,8 @@ const Page = ({ route }: { readonly route: SettingsRoute }) => {
       return <SessionsPage />;
     case "harnesses":
       return <HarnessesPage />;
+    case "constellations":
+      return <ConstellationsPage />;
     case "usage":
       return <UsagePage />;
     case "hosts":
