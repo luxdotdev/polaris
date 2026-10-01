@@ -494,7 +494,7 @@ The Review view mirrors the Orchestrator's three zones: **queue** (left), **risk
 
 ### Pixel tiles
 
-A square tile holding a Nucleo pixel icon over a watercolour wash. Sizes are 24, 32 (default), and 40px, with a 1px hairline. The radius scales with the tile, as built: 8px on 28px tiles (session rows, inbox cards), `row` (10px) on 32 and 40px tiles, and 12px on 48px tiles (pane empty states, setup rows); a small tile at 10px would read as a status dot. The wash is a soft, slightly grainy tint of the identity hue (a Harness hue, or Starlight for Polaris). Tiles represent identities and Polaris-owned concepts: Harnesses, Agent Sessions, toast sources. They are never used as generic decoration on list rows.
+A square tile holding a Nucleo pixel icon over a watercolour wash. Sizes are 24, 32 (default), and 40px, with a 1px hairline; Review's Turn divider uses 18px and its session header 36px (Paper R2). The radius scales with the tile, as built: 5px on 18px tiles, 8px on 28px tiles (session rows, inbox cards), `row` (10px) on 32, 36 and 40px tiles, and 12px on 48px tiles (pane empty states, setup rows); a small tile at 10px would read as a status dot. The wash is a soft, slightly grainy tint of the identity hue (a Harness hue, or Starlight for Polaris). Tiles represent identities and Polaris-owned concepts: Harnesses, Agent Sessions, toast sources. They are never used as generic decoration on list rows.
 
 ### Toasts
 

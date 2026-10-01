@@ -100,6 +100,7 @@ const Ready = ({
     diff,
     findings: surface.findings,
     annotations: surface.annotations,
+    selection: surface.selection,
     pullViewed,
   });
 

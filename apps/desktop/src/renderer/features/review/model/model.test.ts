@@ -1,7 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { fileListRows } from "./fileList.ts";
 import { layoutRows, type LayoutInput, type ReviewFile, type ReviewSection } from "./layout.ts";
-import { itemKey, type LineMark, marksCss, MAX_MARKED_LINES } from "./marks.ts";
+import {
+  hunkLabel,
+  itemKey,
+  type LineMark,
+  marksCss,
+  MAX_MARKED_LINES,
+  selectionCss,
+} from "./marks.ts";
 import { fileText, fingerprint, indexPatch, type PatchFile } from "./patch.ts";
 import { scaleNotice, scaleOf } from "./policy.ts";
 import {
@@ -256,7 +263,7 @@ describe("layoutRows", () => {
     expect(rows[1]?.divider).toMatchObject({
       sectionIds: ["3", "2", "1"],
       caption: "3 files",
-      quote: null,
+      quote: "Go",
       reviewed: false,
     });
 
@@ -347,5 +354,30 @@ describe("fileListRows", () => {
       { kind: "file", viewed: true, file: { key: "img.png" } },
     ]);
     expect(fileListRows(files, () => false, false)).toHaveLength(5);
+  });
+});
+
+describe("selection tint and hunk labels", () => {
+  test("tints the anchored lines in every file with the path, on their side", () => {
+    const css = selectionCss({ items: ["f1", "f4"], side: "new", start: 7, end: 8 });
+
+    expect(css).toContain(
+      ':host([data-review-item="f1"]) [data-line="7"]:not([data-line-type="change-deletion"])'
+    );
+    expect(css).toContain(':host([data-review-item="f4"]) [data-column-number="8"]');
+    expect(css).toContain("var(--color-diff-selection)");
+    expect(selectionCss({ items: ["f1"], side: "old", start: 3, end: 3 })).toContain(
+      '[data-line="3"][data-line-type="change-deletion"]'
+    );
+    expect(selectionCss(null)).toBe("");
+    expect(selectionCss({ items: [], side: "new", start: 1, end: 2 })).toBe("");
+  });
+
+  test("a hunk's band reads its header line", () => {
+    expect(hunkLabel("@@ -36,7 +36,8 @@ submitEligibility\n")).toBe(
+      "@@ -36,7 +36,8 @@ submitEligibility"
+    );
+    expect(hunkLabel(undefined)).toBeNull();
+    expect(hunkLabel("\n")).toBeNull();
   });
 });

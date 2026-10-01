@@ -157,7 +157,7 @@ export const SessionHeader = ({
 
   return (
     <Shell centred>
-      <Tile hue={harness} size={40} aria-label={harnessHue(harness).name} />
+      <Tile hue={harness} size={36} aria-label={harnessHue(harness).name} />
       <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
         <h1
           data-testid="session-review-title"

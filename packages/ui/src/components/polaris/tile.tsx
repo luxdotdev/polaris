@@ -4,15 +4,20 @@ import { cn } from "../../lib/cn";
 import type { CssVars } from "../../lib/css";
 import { hueVar, resolveTint, washVar, type TintHue } from "../../lib/hue";
 
-/** 24, 32 and 40 are the DESIGN.md sizes; 20 and 28 are the Compact and Calm session-row tiles. */
-export type TileSize = 20 | 24 | 28 | 32 | 40 | 48;
+/**
+ * 24, 32 and 40 are the DESIGN.md sizes; 20 and 28 are the Compact and Calm session-row tiles;
+ * 18 and 36 are Review's Turn divider and session header (Paper R2).
+ */
+export type TileSize = 18 | 20 | 24 | 28 | 32 | 36 | 40 | 48;
 
 /** The row radius at 32 and 40; Paper scales it below (a round tile would read as a dot) and above. */
 const RADII: Record<TileSize, string> = {
+  18: "rounded-[5px]",
   20: "rounded-control",
   24: "rounded-[7px]",
   28: "rounded-[8px]",
   32: "rounded-row",
+  36: "rounded-row",
   40: "rounded-row",
   48: "rounded-[12px]",
 };
