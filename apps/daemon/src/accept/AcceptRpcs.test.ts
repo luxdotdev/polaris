@@ -253,4 +253,39 @@ describe("accepting an Agent Session's work", () => {
       )
     );
   }, 30_000);
+
+  test("archiving the session drops its committed-Turn marks", async () => {
+    const { repo } = await withRepo();
+    const marks = () => gitText(repo, ["for-each-ref", "refs/polaris/committed/"]);
+
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const turns = yield* runTurns(repo, ["one"]);
+          const client = yield* RpcTest.makeClient(AcceptRpcs);
+
+          yield* accept(turns[0]!, false);
+          yield* client["session.commitAccepted"]({
+            sessionId,
+            throughTurnId: turns[0]!,
+            branch: AcceptBranch.cases.Current.make({}),
+            granularity: "single",
+            title: "One",
+            body: "",
+            turnTitles: [],
+          });
+          expect(yield* Effect.promise(marks)).not.toBe("");
+
+          yield* dispatch(
+            Command.cases.ArchiveSession.make({ sessionId, deleteMergedBranch: false })
+          );
+          yield* waitFor((m) => m.sessions.get(sessionId)?.session.state === "archived");
+          yield* Effect.promise(async () => {
+            for (let i = 0; i < 100 && (await marks()) !== ""; i++) await Bun.sleep(20);
+          });
+          expect(yield* Effect.promise(marks)).toBe("");
+        }).pipe(Effect.provide(setup(repo)))
+      )
+    );
+  }, 30_000);
 });
