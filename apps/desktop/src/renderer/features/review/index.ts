@@ -9,6 +9,7 @@ export type { ReviewViewProps } from "./ui/ReviewView.tsx";
 
 export {
   type DiffRange,
+  fillPrimaryAction,
   fillReviewSlots,
   revealInDiff,
   type ReviewAnnotation,

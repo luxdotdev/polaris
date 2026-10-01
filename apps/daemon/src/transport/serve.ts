@@ -7,6 +7,7 @@
 import * as BunRuntime from "@effect/platform-bun/BunRuntime";
 import { type Capability, HARNESS_CATALOGUE } from "@polaris/protocol";
 import { Effect, Layer } from "effect";
+import { AcceptRpcsLive } from "../accept/AcceptRpcs.ts";
 import { AttachmentRpcsLive } from "../attachments/AttachmentRpcs.ts";
 import { AttachmentStoreLive } from "../attachments/AttachmentStore.ts";
 import { installDebugHooks } from "../debug.ts";
@@ -89,6 +90,7 @@ export const daemonHandlers = Layer.mergeAll(
   AvailabilityRpcsLive,
   UsageRpcsLive,
   ReviewReadRpcsLive,
+  AcceptRpcsLive,
   ReviewerRpcsLive,
   TerminalRpcsLive.pipe(Layer.provide(TerminalsDaemonLive))
 ).pipe(Layer.provide(daemonServices));
@@ -113,8 +115,8 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "git.diff-files",
   "git.diff-turns",
   "git.show",
-  // TODO(M2-A accept): announce "session.accept" once its behaviour lands.
   "session.feedback",
+  "session.accept",
   "review.checkouts",
   "review.risk-summary",
   "review.ask",

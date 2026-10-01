@@ -42,6 +42,10 @@ const WorkspaceIoRpcs = DaemonRpcs.omit(
   "review.watchRiskSummary",
   "review.askFinding",
   "review.verdicts",
+  "session.acceptPlan",
+  "session.draftAccept",
+  "session.commitAccepted",
+  "session.pushAccepted",
   "review.reviewerSettings",
   "review.setReviewerSettings"
 );

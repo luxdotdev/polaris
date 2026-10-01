@@ -42,6 +42,7 @@ import {
   type OpenOptions,
   type TurnInput,
 } from "../HarnessDriver.ts";
+import { benchDraftReply, isAcceptDraftPrompt } from "./accept.ts";
 import { benchReviewReply, isReviewerPrompt } from "./review.ts";
 import { runSubagent } from "./subagent.ts";
 
@@ -267,7 +268,11 @@ const openBenchSession = Effect.fn("BenchDriver.open")(function* (options: OpenO
   const runTurn = (input: TurnInput) =>
     Effect.gen(function* () {
       const reviewer = isReviewerPrompt(input.prompt);
-      const script = reviewer ? { ...DEFAULT_SCRIPT, items: 1 } : parseScript(input.prompt);
+      const drafting = isAcceptDraftPrompt(input.prompt);
+
+      const script =
+        reviewer || drafting ? { ...DEFAULT_SCRIPT, items: 1 } : parseScript(input.prompt);
+
       const { turnId } = input;
       turns++;
 
@@ -287,9 +292,9 @@ const openBenchSession = Effect.fn("BenchDriver.open")(function* (options: OpenO
 
       for (let n = 0; n < script.subagents; n++) yield* runSubagent(emit, turnId, n);
 
-      if (reviewer) {
-        const text = benchReviewReply(input.prompt);
-        const item = TurnItem.cases.AssistantMessage.make({ id: `${turnId}-review`, text });
+      if (reviewer || drafting) {
+        const text = reviewer ? benchReviewReply(input.prompt) : benchDraftReply(input.prompt);
+        const item = TurnItem.cases.AssistantMessage.make({ id: `${turnId}-reply`, text });
         yield* emit(HarnessEvent.ItemCompleted({ turnId, item }));
       }
 
