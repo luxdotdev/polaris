@@ -121,6 +121,8 @@ const pullRequest = async (input: FindingsFlowInput) => {
   step(
     "Comment on this: a draft in GitHub's pending review (AddPullRequestReviewThread), Submit review shows 1"
   );
+  await page.getByTestId("review-thread").filter({ hasText: "Linked to" }).first().waitFor();
+  step('the draft names the finding it answers ("Linked to …") and offers Suggest change');
   await shoot("findings-pull");
 
   await page.getByTestId("verdict-down").first().click();
