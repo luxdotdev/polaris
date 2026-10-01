@@ -1,4 +1,5 @@
 /** Carrying out a jump: select what was chosen (in Review with ⌘↵) or run the action. */
+import { openSessionReview } from "../../routes/review.ts";
 import { barHosts } from "../../routes/topBar.ts";
 import { useApp, useCommands, useSelection, useShellActions } from "../../shell/hooks.ts";
 import type { JumpTarget } from "./items.ts";
@@ -17,8 +18,16 @@ export const useRunJump = () => {
       return;
     }
 
-    if (target.kind === "session") actions.selectSession(target);
-    else if (target.kind === "workspace") actions.selectWorkspace(target);
+    if (target.kind === "session") {
+      actions.selectSession(target);
+
+      // ⌘↵ on a session reviews its Turns.
+      if (review) {
+        openSessionReview(actions, target.hostKey, target.sessionId);
+
+        return;
+      }
+    } else if (target.kind === "workspace") actions.selectWorkspace(target);
     else if (target.kind === "worktree") {
       if (target.sessionId === null) actions.selectWorkspace(target);
       else actions.selectSession({ hostKey: target.hostKey, sessionId: target.sessionId });

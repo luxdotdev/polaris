@@ -26,7 +26,7 @@ const Review = () => {
       {subject === null ? (
         <slots.PullRequests onAddAccount={() => openSettings()} />
       ) : (
-        <slots.PullReview subject={subject} onBack={closeReviewSubject} />
+        <slots.ReviewSubject subject={subject} onBack={closeReviewSubject} />
       )}
     </main>
   );

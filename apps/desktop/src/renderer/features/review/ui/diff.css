@@ -1,0 +1,24 @@
+/*
+ * Pierre Diffs on Polaris tokens (DESIGN.md, Diff (Pierre Diffs)). Custom properties
+ * inherit into each file's shadow root; the stylesheet injected there is `diffStyles` (DiffPane.tsx).
+ */
+.review-diff {
+  --review-diff-bg: light-dark(var(--color-surface-raised), var(--color-surface-sunken));
+  --diffs-font-family: var(--font-mono);
+  --diffs-font-size: var(--text-code, 13px);
+  --diffs-line-height: var(--text-code--line-height);
+  --diffs-header-font-family: var(--font-sans);
+  --diffs-fg-number-override: var(--color-text-faint);
+  --diffs-addition-color-override: var(--color-diff-added-text);
+  --diffs-deletion-color-override: var(--color-diff-removed-text);
+  --diffs-bg-addition-override: var(--color-diff-added-bg);
+  --diffs-bg-deletion-override: var(--color-diff-removed-bg);
+  --diffs-bg-addition-number-override: var(--color-diff-added-bg);
+  --diffs-bg-deletion-number-override: var(--color-diff-removed-bg);
+  --diffs-bg-addition-emphasis-override: var(--color-diff-added-emphasis);
+  --diffs-bg-deletion-emphasis-override: var(--color-diff-removed-emphasis);
+  --diffs-bg-separator-override: var(--color-bg);
+  --diffs-bg-hover-override: var(--color-fill-hover);
+  --diffs-bg-selection-override: var(--color-diff-selection);
+  --diffs-bg-selection-number-override: var(--color-diff-selection);
+}
