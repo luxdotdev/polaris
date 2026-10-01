@@ -20,9 +20,11 @@ M2's Review (Linear ENG-217; decisions ENG-185, ENG-218–230). A Review judges 
 | `RiskFinding` | One flagged place: `source` (`rule`, `classifier` (M6), `agent`), `ruleId`, `path`, `lines` (`LineRange`, 1-based inclusive, `new` or `old` side), `severity` (`critical`, `high`, `medium`, `low`; `SEVERITY_RANK`), `confidence` 0–1, `title`, `reason`, `suggestion`, `status` (`open`, `dismissed`, `resolved`) and `resolution` (`withdrawn` by the Reviewer, or `fixed`: a later summary no longer finds it). `identity` is stable across commits: source, rule, file and a hash of the flagged code with its context, never line numbers. |
 | `RiskSummary` | The Findings for one `RiskSummaryKey` (`repo`, `mergeBase`, `head`, and `since` for an incremental one), with each layer's `LayerRun` (`rules`, `agent`), the `ReviewerRun` (Harness, Model, effort, its own Agent Session), the cost line (`ReviewCost`) and a `note` ("Rules only: no Reviewer is available"). `rankFindings` orders them: Severity, confidence, rules before the agent. |
 | `Verdict` | A thumbs-up or thumbs-down on a Finding, keyed by repo, with the `JudgedFinding` as it was (so learning never needs the summary), `reasons` (`false-positive`, `not-important`, `intended`, `already-handled`, `wrong-severity`, `out-of-scope`, `other`), `text`, `scope` (`change`, `repo`, `everywhere`) and the device. In M2 a thumbs-down only moves the Finding to Dismissed. |
+| `ReviewContext` | A pull request's title and description, which the Client passes to `review.runRiskSummary` (the Daemon has no GitHub token). |
+| `ReviewerChoice`, `ReviewerSettings`, `ResolvedReviewer` | Settings → Harnesses → Reviewer, kept on the Host: a default and per-Workspace overrides (Harness, Model, effort). `ResolvedReviewer` is what a Workspace's Reviews run: the override, else the default, else automatic (Claude Code Opus 5.5 high, else Codex GPT-6.1-Sol), else none (Rules only, with a `note`). |
 | `FeedbackBatch`, `FeedbackComment`, `feedbackPrompt` | Comments on an Agent Session's diff, sent as one Turn: the message, then each comment as `path:lines`, the quoted code and the note. Drafts stay in the Client until sent; the sent batch is kept on its `Turn` (`Turn.feedback`), which is how the diff marks a comment "sent with Turn N". |
 
-Additions to existing types: `AgentSession.acceptedThroughIndex` and `AgentSession.pullRequest`, `Turn.feedback`, `HostStreamItem.Snapshot.reviewCheckouts`, `git.diff`'s `fileIndex` and its `Turns` spec.
+Additions to existing types: `AgentSession.acceptedThroughIndex` and `AgentSession.pullRequest`, `Turn.feedback`, `SessionPlacement.ReviewCheckout` (the Reviewer's own session works in a Review Checkout), `review.runRiskSummary`'s `context`, `HostStreamItem.Snapshot.reviewCheckouts`, `git.diff`'s `fileIndex` and its `Turns` spec.
 
 ### Commands, events, RPCs
 
@@ -33,6 +35,7 @@ Additions to existing types: `AgentSession.acceptedThroughIndex` and `AgentSessi
 | `review.checkouts` | `OpenReviewCheckout`, `ReportReviewHead`, `UpdateReviewCheckout`, `RemoveReviewCheckout` | `ReviewCheckoutOpened`, `ReviewCheckoutChanged`, `ReviewCheckoutRemoved` (the whole checkout each time; on the Host stream) | `review.checkoutStatus` |
 | `review.risk-summary` | | `RiskSummaryStarted`, `RiskSummaryLayerChanged`, `RiskFindingsRecorded`, `RiskFindingResolved`, `RiskSummaryEnded` (review-only: off the Host stream) | `review.runRiskSummary`, `review.riskSummary`, `review.watchRiskSummary` |
 | `review.ask` | | | `review.askFinding` (continues the Reviewer's Agent Session) |
+| `review.reviewer-settings` | | | `review.reviewerSettings` (the settings and the Reviewer a Workspace would run), `review.setReviewerSettings` |
 | `review.verdicts` | `RecordVerdict` | `VerdictRecorded` (review-only) | `review.verdicts` |
 | `git.diff-files` | | | `git.diff`'s `fileIndex`: each file's byte range in the patch, status and counts, for parsing in batches and very large Reviews |
 | `git.diff-turns` | | | `git.diff` with `GitDiffSpec.Turns`: a run of Turns, first before-checkpoint to last after-checkpoint |
@@ -43,3 +46,5 @@ Daemon-side events with no command (the Checkout, Rules and Reviewer modules com
 ### Status
 
 On `m2/protocol`: the Daemon records every command above (the checkout machine and the session machine decide them), folds and persists the events, serves `review.riskSummary`, `review.watchRiskSummary` and `review.verdicts` from the store, `git.show`, `fileIndex` and `Turns` diffs, and gates events per Client. It announces `session.feedback`, `review.verdicts`, `git.diff-files`, `git.diff-turns` and `git.show`. Still answering `Unsupported`, with TODO owners in the code: `review.checkoutStatus` and the checkout reactors (M2-C), `review.runRiskSummary` (M2-R, M2-V), `review.askFinding` (M2-V), and `revertLaterTurns` (M2-A). Each slice announces its capability once it lands.
+
+On `m2/reviewer` (M2-V): `review.runRiskSummary`, `review.askFinding` and the Reviewer settings are served by `apps/daemon/src/reviewer/`; the Daemon announces `review.risk-summary`, `review.ask` and `review.reviewer-settings`.
