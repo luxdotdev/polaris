@@ -68,6 +68,7 @@ export const defaultHandlers = (options: {
       Effect.fail(new NotFound({ what: "session", id: sessionId })),
 
     "harness.models": () => Effect.fail(new Unsupported({ capability: "harness.models" })),
+    "harness.commands": () => Effect.fail(new Unsupported({ capability: "harness.commands" })),
     "harness.spinnerVerbs": () => Effect.succeed(null),
     "harness.availability": () =>
       Effect.fail(new Unsupported({ capability: "harness.availability" })),

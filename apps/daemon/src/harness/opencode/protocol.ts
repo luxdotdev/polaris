@@ -277,6 +277,28 @@ conforms<Conforms<Gen.EventQuestionRejected["properties"], typeof QuestionResolv
 
 conforms<Conforms<Gen.ConfigProvidersResponse, typeof ConfigProviders>>();
 
+/**
+ * `GET /command`: the commands OpenCode offers in a directory. Not in
+ * `generated/`: written from opencode 1.15.5's `/doc`, as the field names there.
+ */
+export const Command = Schema.Struct({
+  name: Schema.String,
+  description: Schema.optional(Schema.String),
+  source: Schema.optional(Schema.Literals(["command", "mcp", "skill"])),
+  template: Schema.String,
+  hints: Schema.Array(Schema.String),
+});
+
+export const Commands = Schema.Array(Command);
+
+/** `POST /session/{id}/command`: runs a command, expanding its template, as OpenCode's TUI does. */
+export interface CommandBody {
+  command: string;
+  arguments: string;
+  model?: string;
+  variant?: string;
+}
+
 /** Wire shapes the driver sends; typed against the generated request bodies. */
 export type SessionCreateBody = Gen.SessionCreateBody;
 
@@ -292,6 +314,7 @@ export type PermissionRuleset = Gen.PermissionRuleset;
 
 /** Every body the driver sends. */
 export type Outgoing =
+  | CommandBody
   | SessionCreateBody
   | SessionUpdateBody
   | PromptAsyncBody

@@ -19,6 +19,7 @@ import {
   type HarnessKind,
   Model,
   RequestId,
+  SlashCommand,
   type TurnId,
   TurnItem,
 } from "@polaris/protocol";
@@ -354,10 +355,48 @@ const BENCH_MODELS = [
   }),
 ];
 
+const benchCommand = (
+  fields: Pick<SlashCommand, "name" | "description" | "kind" | "run" | "action">
+): SlashCommand =>
+  new SlashCommand({
+    sigil: "/",
+    argumentHint: null,
+    source: fields.kind === "skill" ? "project" : "built-in",
+    plugin: null,
+    template: null,
+    ...fields,
+  });
+
+/** A skill, a text command and a Polaris one, so Clients can exercise the `/` menu. */
+const BENCH_COMMANDS = [
+  benchCommand({
+    name: "bench-skill",
+    description: "A stand-in Skill the bench Harness lists",
+    kind: "skill",
+    run: "text",
+    action: null,
+  }),
+  benchCommand({
+    name: "compact",
+    description: "Free up context by summarizing the conversation so far",
+    kind: "command",
+    run: "text",
+    action: null,
+  }),
+  benchCommand({
+    name: "model",
+    description: "Choose the Model and effort",
+    kind: "command",
+    run: "polaris",
+    action: "model",
+  }),
+];
+
 export const makeBenchDriver = (kind: HarnessKind): HarnessDriver => ({
   kind,
   capabilities: { steer: true, liveCoAttach: true, switchModel: true },
   probe: Effect.succeed({ available: true, version: "bench", detail: "scripted bench Harness" }),
   listModels: Effect.succeed(BENCH_MODELS),
+  listCommands: () => Effect.succeed(BENCH_COMMANDS),
   open: openBenchSession,
 });

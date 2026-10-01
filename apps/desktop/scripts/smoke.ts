@@ -22,6 +22,7 @@ import { checkNoneReady, initRepo, sessionFlow } from "./lib/sessionFlow.ts";
 import { remoteFlow } from "./lib/remoteFlow.ts";
 import { settingsFlow } from "./lib/settingsFlow.ts";
 import { attachmentsFlow } from "./lib/attachmentsFlow.ts";
+import { composerFlow } from "./lib/composerFlow.ts";
 import { imageAfterRelaunch, sendImage } from "./lib/previewFlow.ts";
 import { runSubagent, subagentAfterRelaunch } from "./lib/subagentFlow.ts";
 import { terminalFlow } from "./lib/terminalFlow.ts";
@@ -443,6 +444,7 @@ try {
     shoot: (name) => shoot(page, name),
     atFirstApproval: () => inboxCheck(page),
   });
+  await composerFlow({ page, step });
   await settingsFlow({ app, page, step, shoot: (name) => shoot(page, name) });
   await terminalFlow({ page, step, shoot: (name) => shoot(page, name) });
   await attachmentsFlow({ app, page, step, shoot: (name) => shoot(page, name) });

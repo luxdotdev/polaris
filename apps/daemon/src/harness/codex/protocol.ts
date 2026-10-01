@@ -219,6 +219,29 @@ export const ModelListResponse = Schema.Struct({
 
 export const TurnSteerResponse = Schema.Struct({ turnId: Schema.String });
 
+/** `review/start`: the Turn the review runs in. */
+export const ReviewStartResponse = Schema.Struct({ turn: Schema.Struct({ id: Schema.String }) });
+
+/** `skills/list`: the Skills Codex finds for each directory asked about. */
+export const SkillsListResponse = Schema.Struct({
+  data: Schema.Array(
+    Schema.Struct({
+      cwd: Schema.String,
+      skills: Schema.Array(
+        Schema.Struct({
+          name: Schema.String,
+          description: Schema.String,
+          shortDescription: Schema.optional(Schema.String),
+          path: Schema.String,
+          scope: Schema.Literals(["user", "repo", "system", "admin"]),
+          enabled: Schema.Boolean,
+          pluginId: NullableString,
+        })
+      ),
+    })
+  ),
+});
+
 export const ThreadLoadedListResponse = Schema.Struct({
   data: Schema.optional(Schema.Array(Schema.String)),
 });
@@ -400,6 +423,10 @@ conforms<Conforms<Gen.ModelListResponse, typeof ModelListResponse>>();
 
 conforms<Conforms<Gen.TurnSteerResponse, typeof TurnSteerResponse>>();
 
+conforms<Conforms<Gen.ReviewStartResponse, typeof ReviewStartResponse>>();
+
+conforms<Conforms<Gen.SkillsListResponse, typeof SkillsListResponse>>();
+
 conforms<Conforms<Gen.TurnStartedNotification, typeof TurnStartedNotification>>();
 
 conforms<Conforms<Gen.TurnCompletedNotification, typeof TurnCompletedNotification>>();
@@ -463,6 +490,9 @@ export type ClientParams = {
   readonly "turn/steer": Gen.TurnSteerParams;
   readonly "turn/interrupt": Gen.TurnInterruptParams;
   readonly "model/list": Gen.ModelListParams;
+  readonly "skills/list": Gen.SkillsListParams;
+  readonly "thread/compact/start": Gen.ThreadCompactStartParams;
+  readonly "review/start": Gen.ReviewStartParams;
 };
 
 /** The permissions a grant gives: parts of the requested profile, as Codex sent them. */

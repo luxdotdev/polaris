@@ -460,6 +460,39 @@ describe("ACP driver", () => {
     ]);
   });
 
+  test("listCommands returns what a session in that directory last reported", async () => {
+    const agent = await start({
+      prompts: [
+        {
+          steps: [
+            {
+              update: {
+                sessionUpdate: "available_commands_update",
+                availableCommands: [
+                  { name: "web", description: "Search the web", input: { hint: "<query>" } },
+                  { name: "explain", description: "Explain the code" },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    const list = agent.driver.listCommands ?? (() => Effect.die("no listCommands"));
+    expect(await run(list(agent.dir))).toEqual([]);
+
+    const open = await agent.open();
+    await run(open.session.sendTurn(turn("t-1")));
+    await open.waitFor("TurnEnded");
+
+    expect((await run(list(agent.dir))).map((c) => [c.name, c.argumentHint, c.run])).toEqual([
+      ["explain", null, "text"],
+      ["web", "<query>", "text"],
+    ]);
+    expect(await run(list("/elsewhere"))).toEqual([]);
+  });
+
   test("the permission mode selects the matching session mode", async () => {
     const agent = await start({
       setup: {

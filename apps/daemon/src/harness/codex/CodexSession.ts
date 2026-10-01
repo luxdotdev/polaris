@@ -59,6 +59,7 @@ import { ReasoningTimes } from "./reasoning.ts";
 import { CodexSteers } from "./steers.ts";
 import { CodexSubagents } from "./subagents.ts";
 import { requestCompat } from "./compat.ts";
+import { type HarnessCall, harnessCallOf } from "./slash.ts";
 
 export interface SessionConfig {
   readonly appServer: AppServer;
@@ -102,6 +103,8 @@ const decode = <S extends Schema.Decoder<unknown>>(schema: S) => {
 const decodeThread = decode(P.ThreadResponse);
 
 const decodeTurnStart = decode(P.TurnStartResponse);
+
+const decodeReviewStart = decode(P.ReviewStartResponse);
 
 const decodeTurnStarted = decode(P.TurnStartedNotification);
 
@@ -328,6 +331,8 @@ export const openSession = (
     /** A Turn Polaris is starting (`turn/start` in flight), with the prompt it sent. */
     let pendingLocalTurn: { readonly turnId: TurnId; readonly prompt: string } | null = null;
     const endedTurns = new Set<string>();
+    /** A review's Codex turn: Codex runs it under a second turn id, whose events join it. */
+    let reviewTurn: string | null = null;
     let errorCount = 0;
     const subagents = new CodexSubagents();
     const steers = new CodexSteers();
@@ -337,6 +342,9 @@ export const openSession = (
 
       if (turnId === undefined || announced.has(codexTurnId)) return;
       announced.add(codexTurnId);
+
+      for (const [other, bound] of turns)
+        if (bound === turnId && other !== codexTurnId && announced.has(other)) return;
       emit(HarnessEvent.TurnStarted({ turnId, prompt }));
     };
 
@@ -513,6 +521,8 @@ export const openSession = (
       steers.end(p.turn.id);
 
       if (activeCodexTurn === p.turn.id) activeCodexTurn = null;
+
+      if (reviewTurn === p.turn.id) reviewTurn = null;
       emit(
         HarnessEvent.TurnEnded({
           turnId,
@@ -546,6 +556,14 @@ export const openSession = (
               turns.set(p.turn.id, scope.turnId);
               announced.add(p.turn.id);
             }
+
+            return;
+          }
+
+          if (reviewTurn !== null && p.turn.id !== reviewTurn) {
+            turns.set(p.turn.id, turnFor(reviewTurn, { announce: false }));
+            announced.add(p.turn.id);
+            activeCodexTurn = reviewTurn;
 
             return;
           }
@@ -673,12 +691,45 @@ export const openSession = (
       effort: options.effort,
     };
 
+    /** Binds the Codex turn a request started to the Polaris Turn, and announces it. */
+    const bindStarted = (codexTurnId: string, turnId: TurnId, prompt: string) => {
+      if (!turns.has(codexTurnId)) turns.set(codexTurnId, turnId);
+      announce(codexTurnId, prompt);
+
+      if (!endedTurns.has(codexTurnId)) activeCodexTurn ??= codexTurnId;
+    };
+
+    /** `/compact` and `/review` (`slash.ts`): Codex's own calls, each running as a Turn. */
+    const startHarnessCall = (turnId: TurnId, prompt: string, call: HarnessCall) =>
+      Effect.gen(function* () {
+        const result = yield* conn
+          .request(call.method, call.params)
+          .pipe(Effect.onError(() => Effect.sync(() => (pendingLocalTurn = null))));
+
+        // Compaction's Turn arrives as `turn/started` and takes the pending Turn there.
+        if (call.method === "thread/compact/start") return;
+        pendingLocalTurn = null;
+        const started = decodeReviewStart(result);
+
+        if (started === null)
+          return yield* codexError("Unexpected review/start response from Codex");
+        bindStarted(started.turn.id, turnId, prompt);
+
+        if (endedTurns.has(started.turn.id)) return;
+        // Its inner turn may have started first and taken the Turn; the review's id is the one that ends.
+        reviewTurn = started.turn.id;
+        activeCodexTurn = started.turn.id;
+      });
+
     const startTurn = (turnId: TurnId, prompt: string, input: ReturnType<typeof turnInput>) =>
       Effect.gen(function* () {
         if (activeCodexTurn !== null || pendingLocalTurn !== null)
           return yield* codexError("A Turn is already in progress; steer or interrupt it");
         const policy = policyFor(permissionMode);
         pendingLocalTurn = { turnId, prompt };
+        const call = harnessCallOf(prompt, threadId);
+
+        if (call !== null) return yield* startHarnessCall(turnId, prompt, call);
 
         const params: P.ClientParams["turn/start"] = {
           threadId,
@@ -702,11 +753,7 @@ export const openSession = (
         const started = decodeTurnStart(result);
 
         if (started === null) return yield* codexError("Unexpected turn/start response from Codex");
-
-        if (!turns.has(started.turn.id)) turns.set(started.turn.id, turnId);
-        announce(started.turn.id, prompt);
-
-        if (!endedTurns.has(started.turn.id)) activeCodexTurn ??= started.turn.id;
+        bindStarted(started.turn.id, turnId, prompt);
       });
 
     const steerText = (text: string) =>

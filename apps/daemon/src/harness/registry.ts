@@ -57,6 +57,8 @@ export const lazyDriver = (
         driver.listModels ??
         Effect.fail(new HarnessError({ harness: kind, message: "it doesn't list its Models yet" }))
     ),
+    listCommands: (cwd) =>
+      Effect.flatMap(loaded, (driver) => driver.listCommands?.(cwd) ?? Effect.succeed([])),
     open: (options) => Effect.flatMap(loaded, (driver) => driver.open(options)),
   }));
 

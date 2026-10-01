@@ -17,6 +17,7 @@ import type {
   ReasoningEffort,
   RequestId,
   SessionId,
+  SlashCommand,
   SubagentId,
   TurnId,
   TurnItem,
@@ -185,6 +186,11 @@ export interface HarnessDriver {
   readonly probe: Effect.Effect<HarnessProbe>;
   /** The Models the Harness offers on this Host, as it reports them; absent until the driver asks. */
   readonly listModels?: Effect.Effect<ReadonlyArray<Model>, HarnessError>;
+  /**
+   * The Skills and Slash Commands the Harness offers in `cwd`, read without side
+   * effects; absent when it offers none Polaris can run.
+   */
+  readonly listCommands?: (cwd: string) => Effect.Effect<ReadonlyArray<SlashCommand>, HarnessError>;
   /** Starts or resumes a Harness session. Closing the scope stops it (the session goes Dormant). */
   readonly open: (options: OpenOptions) => Effect.Effect<HarnessSession, HarnessError, Scope.Scope>;
 }

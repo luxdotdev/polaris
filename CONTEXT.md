@@ -61,6 +61,14 @@ _Avoid_: Spend, billing, credits
 A cap a provider's subscription puts on Usage over a time window (such as five hours or a week), shown as how much is used and when it resets; known only from what the Harness reports.
 _Avoid_: Rate limit, quota, allowance
 
+**Skill**:
+A packaged set of instructions a Harness loads by name when asked (a `SKILL.md` folder for Claude Code and Codex); the user invokes one from the composer and it rides in the Turn.
+_Avoid_: Plugin, tool (when meaning a Skill)
+
+**Slash Command**:
+A named action a Harness offers as `/name` (built in, the user's own, the Workspace's, or a plugin's); Polaris runs each the way the Harness expects: as Turn text, through the Harness's own call, as a Polaris action, or not at all when only its terminal UI can.
+_Avoid_: Command (that is what a Client sends the Daemon), macro
+
 **Workspace**:
 A directory on a Host that the user has registered with Polaris, usually a git repository; Agent Sessions and Review Checkouts belong to one. It persists (hidden when idle) until the user removes it.
 _Avoid_: Project, folder, repo (when meaning the registered directory)

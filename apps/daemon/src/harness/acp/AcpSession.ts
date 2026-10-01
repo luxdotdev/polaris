@@ -23,6 +23,7 @@ import {
   type TurnInput,
 } from "../HarnessDriver.ts";
 import type { AgentConnection } from "./AgentConnection.ts";
+import type { AcpCommands } from "./commands.ts";
 import { type AcpHarness, MODE_IDS } from "./harnesses.ts";
 import { choices, configChange, effortOption, modelOption } from "./models.ts";
 import {
@@ -39,6 +40,8 @@ export interface SessionConfig {
   readonly harness: AcpHarness;
   readonly binaryPath: string;
   readonly conn: AgentConnection;
+  /** Where the commands the session reports go (`commands.ts`). */
+  readonly commands?: AcpCommands;
 }
 
 interface PendingApproval {
@@ -49,6 +52,8 @@ interface PendingApproval {
 }
 
 const decodeUpdate = Schema.decodeUnknownOption(P.SessionUpdate);
+
+const decodeCommands = Schema.decodeUnknownOption(P.AvailableCommandsUpdate);
 
 const decodePermission = Schema.decodeUnknownOption(P.RequestPermissionParams);
 
@@ -212,6 +217,9 @@ export const openSession = (
           const update = decodeUpdate(raw);
 
           if (Option.isSome(update) && !replaying) translator.update(activeTurn, update.value);
+          const commands = decodeCommands(raw);
+
+          if (Option.isSome(commands)) config.commands?.record(options.cwd, commands.value);
         },
         onRequest,
       });

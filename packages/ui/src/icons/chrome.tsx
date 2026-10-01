@@ -8,6 +8,8 @@ export * from "./nucleo/ui";
 
 export * from "./nucleo/ui-more";
 
+export { ICON_MASKS } from "./nucleo/masks";
+
 export type IconProps = SVGProps<SVGSVGElement> & { readonly size?: number };
 
 const STROKE = 1;

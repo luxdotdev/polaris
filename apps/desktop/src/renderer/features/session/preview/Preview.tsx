@@ -30,6 +30,7 @@ import { createNavigation } from "../../../routes/navigation.ts";
 import { type AppState, type Connection, initialState, sessionKey } from "../../../store/store.ts";
 import { standInBridge } from "../../bridge.ts";
 import { patchSessionUi, uiKey } from "../state.ts";
+import { COMMANDS } from "./commands.ts";
 import {
   approval,
   attachments,
@@ -257,6 +258,13 @@ const answer = (
     return {
       ok: true,
       value: { harness, models: MODELS[harness], switchesModel: true, fetchedAt: "" },
+    };
+  }
+
+  if (method === "harness.commands") {
+    return {
+      ok: true,
+      value: { harness: harnessOf(input), cwd: "", commands: COMMANDS, fetchedAt: "" },
     };
   }
 

@@ -52,6 +52,8 @@ const SHOT_SCENES = new Map([
   ["picker", "interrupted"],
   ["availability", "new"],
   ["viewer", "attachments"],
+  ["commands", "interrupted"],
+  ["chip", "interrupted"],
   ["subagent-open", "subagents"],
 ]);
 
@@ -69,6 +71,16 @@ const open = async (page: Page, scene: string) => {
   } else if (scene === "availability") {
     await page.getByTestId("other-harnesses").first().click();
     await page.getByTestId("availability-sheet").waitFor();
+  } else if (scene === "commands" || scene === "chip") {
+    const input = page.locator('[data-testid="composer-input"]:visible');
+
+    await input.click();
+    await page.keyboard.press("Meta+A");
+    await page.keyboard.press("Backspace");
+    await page.keyboard.type(scene === "commands" ? "/s" : "/simplify the parser, keep its API");
+    await (scene === "commands"
+      ? page.getByTestId("command-menu").waitFor()
+      : page.locator(".composer-chip").first().waitFor());
   } else if (scene === "subagent-open") {
     for (const target of ['[data-testid="tool-run"] > button', '[data-testid="subagent"] > button'])
       if ((await page.locator(`${target}[aria-expanded="true"]`).count()) === 0)

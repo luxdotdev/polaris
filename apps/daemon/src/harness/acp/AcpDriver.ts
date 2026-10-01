@@ -12,6 +12,7 @@ import { Deferred, Effect, RcRef, type Scope } from "effect";
 import { polarisHome } from "../../paths.ts";
 import { probeHarness } from "../availability/probe.ts";
 import { HarnessError, type HarnessDriver, type HarnessProbe } from "../HarnessDriver.ts";
+import { AcpCommands } from "./commands.ts";
 import { newSession, openSession } from "./AcpSession.ts";
 import { type AgentConnection, spawnAgent } from "./AgentConnection.ts";
 import type { AcpHarness } from "./harnesses.ts";
@@ -84,6 +85,7 @@ export const makeAcpDriver = (
     });
 
     invalidate = RcRef.invalidate(agent);
+    const commands = new AcpCommands();
 
     const listModels = Effect.scoped(
       Effect.gen(function* () {
@@ -108,11 +110,12 @@ export const makeAcpDriver = (
       capabilities: { steer: false, liveCoAttach: false, switchModel: true },
       probe: probeAcp(harness),
       listModels,
+      listCommands: (cwd) => Effect.sync(() => commands.list(cwd)),
       open: (openOptions) =>
         Effect.gen(function* () {
           const { conn, path } = yield* RcRef.get(agent);
 
-          return yield* openSession({ harness, binaryPath: path, conn }, openOptions);
+          return yield* openSession({ harness, binaryPath: path, conn, commands }, openOptions);
         }),
     } satisfies HarnessDriver;
   });

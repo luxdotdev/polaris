@@ -399,6 +399,7 @@ Every screen must be checked at all three steps. Components read spacing only th
 
 - **rule/density-through-tokens:** no hard-coded row heights or paddings; use the active density's tokens.
 - **rule/no-dashboard-clutter:** lists before cards. A view gets cards only when each card is an object the user acts on.
+- **rule/commands-are-chips:** a Skill or Slash Command in the composer is an atomic, neutral chip with its kind's icon, never raw `/text` or a coloured pill; one Polaris runs itself leaves no chip, and one only a Harness's terminal UI can run is never offered.
 
 ## Elevation & Depth
 
@@ -612,6 +613,22 @@ A drawer of Daemon terminals per Workspace, docked under Output (under the stage
 ### Attachments in the composer
 
 Pasted and dropped files stage on the session's Host straight away and show as source chips: a 16px thumbnail for images, the name in mono, the size in `text-subtle`, removable. While uploads run, one `caption` line says so ("Attaching 2 files…"). Dragging files over the composer shows a quiet hint over it (dashed hairline, `surface-raised` at 90%): "Drop to attach", and "Hold ⌥ to copy into the workspace instead". ⌥-drop copies the file into the session's directory on the Host and says so in a Polaris toast ("Copied notes.txt · Into ~/code/polaris"); it never overwrites.
+
+### Skills and Slash Commands in the composer
+
+The composer is a plain-text editor (Lexical) where the Harness's **Skills** and **Slash Commands** (CONTEXT.md) become chips (rule/commands-are-chips).
+
+- **The list.** Typing `/` at the start of the message (or `$` anywhere, for a Codex Skill) opens a floating list just above the composer, left-aligned with it, up to 560px wide and 320px tall: `surface-raised`, `card` radius, hairline and the float shadow, fading in over 160ms. Rows are two lines: a 16px icon (Skills: a file with a sparkle; commands: a bolt) in `text-subtle`, the name with its sigil in `label` medium, a faint argument hint (`<optional instructions>`) and, trailing in `micro`, where it comes from (`project`, `user`, the plugin's name; nothing for built-in ones); then its description in one truncated `caption` line. Skills come first, then commands, each under a `caption` header when both are shown. Typing filters it: prefixes of the name, then of a part (`codex:re` → `codex:review`), then from two letters on anywhere inside. It shows at most 50 rows with "N more · keep typing to narrow" under them. While the Host is still reading the list: one `caption` line, "Reading skills and commands…". Nothing matching closes it; a Harness that lists nothing never opens it.
+- **Keyboard-first.** The editor keeps focus: ↑ ↓ move the highlight (`fill-selected`), ↵ or ⇥ pick, esc closes the list for that word (a second esc stops a Working Turn as before). A click picks too; hovering moves the highlight.
+- **The chip.** Picking one replaces the typed word with a chip: its name in `label` medium `text-strong` on `fill-selected`, `control` radius, 1px by 5px padding, with its kind's icon in `text-subtle` standing in for the sigil. It sits inline in the text and never changes the line height. The caret and Backspace take it whole; copying it gives its sigil and name. A listed name typed through with a space after it (`/compact `) becomes a chip too, as does a restored draft's. Chips are neutral: the Harness hue stays in its three places.
+- **What runs.** Each entry carries how it runs (`harness.commands`): sent as text in the Turn (most Skills and commands; a Codex custom prompt goes expanded), turned by the driver into the Harness's own call (Codex `/compact`, `/review`; OpenCode's commands), or done by Polaris itself, in which case picking it leaves no chip and no text: `/model` and `/effort` open the Model menu, `/clear` and `/new` start a new session, `/diff` shows Output, `/usage` and `/cost` open Settings → Usage. Commands only a Harness's terminal UI can run (themes, `/config`, `/mcp`, `/heapdump`…) are never listed. The per-Harness table is in `apps/daemon/src/harness/README.md` and each driver's README.
+
+| Harness | Listed from | Sent as text | Run by the driver | Polaris does it |
+|---|---|---|---|---|
+| Claude Code | the Agent SDK's `supportedCommands()` in the session's directory | Skills, custom and plugin commands, `/compact`, `/init`, `/review`, `/security-review`, `/pr-comments` | none | `/clear` `/new`, `/model` `/effort`, `/usage` `/cost` |
+| Codex | app-server `skills/list`, `~/.codex/prompts` | `$skill`, `/prompts:name` (expanded) | `/compact`, `/review` | `/model`, `/new`, `/diff` |
+| OpenCode | its server's `/command` | none | every listed command (`session/command`) | none |
+| ACP (Gemini, Copilot) | the agent's `available_commands_update` | every listed command | none | none |
 
 ### Attachments in the conversation
 

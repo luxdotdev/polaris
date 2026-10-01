@@ -23,6 +23,7 @@ import {
   questionReply,
   rulesetFor,
 } from "./mapping.ts";
+import { readCommands, slashCommandOf } from "./commands.ts";
 import * as P from "./protocol.ts";
 import { type OpenCodeServer, opencodeError } from "./Server.ts";
 import { translatorFor, type Translator } from "./translate.ts";
@@ -176,18 +177,44 @@ export const openSession = (
     const prompt = (body: P.PromptAsyncBody) =>
       client.send("POST", `${sessionPath}/prompt_async`, body).pipe(Effect.asVoid);
 
+    /** `/name args` naming one of OpenCode's commands; it answers once the Turn is done, so it runs aside. */
+    const runCommand = (input: TurnInput, call: P.CommandBody) =>
+      client.send("POST", `${sessionPath}/command`, call).pipe(
+        Effect.catch((error) =>
+          Effect.sync(() => translator.failLocalTurn(input.turnId, error.message))
+        ),
+        Effect.forkDetach,
+        Effect.asVoid
+      );
+
     const sendTurn = (input: TurnInput) =>
       Effect.gen(function* () {
         if (translator.turn() !== null)
           return yield* opencodeError("A Turn is already in progress; steer or interrupt it");
         const model = yield* modelOf(input.model);
         const variant = input.effort;
+
+        const slash = input.prompt.trimStart().startsWith("/")
+          ? slashCommandOf(input.prompt, yield* readCommands(client))
+          : null;
+
+        translator.beginLocalTurn({ id: input.turnId, model, variant });
+
+        if (slash !== null) {
+          const call: P.CommandBody = { ...slash };
+
+          if (model !== null) call.model = `${model.providerID}/${model.modelID}`;
+
+          if (variant !== null) call.variant = variant;
+
+          return yield* runCommand(input, call);
+        }
+
         const body: P.PromptAsyncBody = { parts: promptParts(input.prompt, input.attachments) };
 
         if (model !== null) body.model = model;
 
         if (variant !== null) body.variant = variant;
-        translator.beginLocalTurn({ id: input.turnId, model, variant });
         yield* prompt(body).pipe(
           Effect.tapError(() => Effect.sync(() => translator.abandonLocalTurn(input.turnId)))
         );

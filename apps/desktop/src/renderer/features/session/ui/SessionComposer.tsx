@@ -4,6 +4,7 @@
  * the Harness can't switch).
  */
 import type { SessionId } from "@polaris/protocol";
+import { useState } from "react";
 import { type Harness, harnessHue } from "@polaris/ui";
 import { Commands, newSessionId } from "../../../commands.ts";
 import type { SessionData } from "../../../store/plain.ts";
@@ -33,8 +34,10 @@ import {
 } from "../model/intent.ts";
 import { patchSessionUi, useSessionUi } from "../state.ts";
 import type { OutboxActions } from "../outbox.ts";
+import { promptFor } from "../../composer/index.ts";
 import { RotatingVerb, useWorkingVerbs } from "../verbs/index.ts";
-import { DraftComposer } from "./DraftComposer.tsx";
+import { type ComposerCommands, DraftComposer } from "./DraftComposer.tsx";
+import { useComposerCommands } from "./useComposerCommands.ts";
 
 export interface SessionComposerProps {
   readonly hostKey: string;
@@ -149,7 +152,18 @@ export const SessionComposer = (props: SessionComposerProps) => {
     canSteer: hasCapability(host, "session.steer"),
   });
 
-  const draft = { text: ui.draft, attachments: ui.attachments.map((a) => a.id) };
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  const commands: ComposerCommands = useComposerCommands({
+    hostKey,
+    harness: session.harness,
+    cwd: session.cwd,
+    openModels: () => setPickerOpen(true),
+  });
+  // What the Turn sends: a Codex custom prompt goes expanded (`promptFor`).
+
+  const text = promptFor(ui.draft, commands.options);
+  const draft = { text, attachments: ui.attachments.map((a) => a.id) };
   const command = submitCommand(mode, session.id, draft);
 
   const shownCwd = tildePath(session.cwd, host?.status.host?.homeDir ?? null);
@@ -169,7 +183,7 @@ export const SessionComposer = (props: SessionComposerProps) => {
   const queue = () => {
     if (!canQueue(mode) || (ui.draft.trim() === "" && ui.attachments.length === 0)) return;
 
-    props.outbox.queue(ui.draft, ui.attachments);
+    props.outbox.queue(text, ui.attachments);
     patchSessionUi(uiKey, () => ({ draft: "", attachments: [] }));
   };
 
@@ -179,7 +193,7 @@ export const SessionComposer = (props: SessionComposerProps) => {
     if (command === null) return;
 
     if (mode.kind === "steer") {
-      props.outbox.steer(ui.draft);
+      props.outbox.steer(text);
       patchSessionUi(uiKey, () => ({ draft: "" }));
 
       return;
@@ -214,6 +228,8 @@ export const SessionComposer = (props: SessionComposerProps) => {
             modelNote={change.note}
             modelBlocked={change.blocked}
             onModel={change.onModel}
+            open={pickerOpen}
+            onOpenChange={setPickerOpen}
             {...(change.harnesses === undefined ? {} : { harnesses: change.harnesses })}
           />
           {change.dialog}
@@ -245,6 +261,7 @@ export const SessionComposer = (props: SessionComposerProps) => {
         patchSessionUi(uiKey, (u) => ({ attachments: u.attachments.filter((x) => x !== a) }))
       }
       branch={branch}
+      commands={commands}
     />
   );
 };

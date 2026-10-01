@@ -57,6 +57,7 @@ import { ClaudeHookReceiver } from "./hooks.ts";
 import { decodeModelUsage } from "./payloads.ts";
 import { Inbox } from "./inbox.ts";
 import { buildUserMessage } from "./input.ts";
+import { listClaudeCommands } from "./commands.ts";
 import { isEffortLevel, listClaudeModels } from "./models.ts";
 import {
   approvalKind,
@@ -589,6 +590,7 @@ export const makeClaudeDriver = (options: ClaudeDriverOptions = {}): HarnessDriv
     capabilities: { steer: true, liveCoAttach: false, switchModel: true },
     probe,
     listModels: listClaudeModels(driver),
+    listCommands: listClaudeCommands(driver),
     open: (open) => openSession(driver, open),
   };
 
