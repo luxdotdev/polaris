@@ -177,8 +177,9 @@ const turnStart = (v: View): Reference => [
 const decideAfter = (v: View, status: "interrupted" | "failed"): Reference => {
   const last = v.order.at(-1);
 
-  // An accepted Interrupted Turn is never continued (spec finding 4).
-  const accepted = v.accepted !== null && v.order.length - 1 <= v.accepted;
+  // An accepted Interrupted Turn is never continued (spec finding 4); Retry starts a new Turn.
+  const accepted =
+    status === "interrupted" && v.accepted !== null && v.order.length - 1 <= v.accepted;
 
   return last !== undefined && v.turns.get(last) === status && acceptsTurn(v) && !accepted
     ? turnStart(v)
