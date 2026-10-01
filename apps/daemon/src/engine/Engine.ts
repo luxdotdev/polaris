@@ -111,6 +111,7 @@ const make = Effect.gen(function* () {
 
   yield* recoverOnStart(runtime);
   yield* checkouts.recover;
+  yield* checkouts.followSessions;
 
   // Runs before every exec into a new binary; a failed exec needs nothing undone.
   // See docs/adr/0004-restart-recovery-never-continues-a-turn.md.

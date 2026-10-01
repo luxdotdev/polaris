@@ -19,8 +19,9 @@ import {
   type Workspace,
 } from "@polaris/protocol";
 import { Effect, type Layer } from "effect";
+import { CheckpointsLive } from "../git/Checkpoints.ts";
 import { gitText, resolveCommit } from "../git/git.ts";
-import { ReviewCheckoutGitLive } from "../git/ReviewCheckoutGit.ts";
+import { ReviewCheckoutGitLive, reviewCheckoutGitLayer } from "../git/ReviewCheckoutGit.ts";
 import { reviewRef } from "../git/review/refs.ts";
 import {
   BASE_REPO,
@@ -28,10 +29,12 @@ import {
   type Forge,
   createForge,
   publishPullRequest,
+  pushMainCommits,
   userClone,
 } from "../git/review/testing.ts";
 import { commitAll, removeDir, write } from "../git/testing.ts";
 import { listWorktrees } from "../git/WorktreeTracker.ts";
+import type { ReviewCheckoutGit } from "../services.ts";
 import { EventStore } from "../store/EventStore.ts";
 import type { ReadModel } from "../store/model.ts";
 import { Engine } from "./Engine.ts";
@@ -57,13 +60,13 @@ afterEach(() => {
 const run = <A, E>(layer: Layer.Layer<Env>, program: Effect.Effect<A, E, Env>) =>
   Effect.runPromise(program.pipe(Effect.provide(layer)));
 
-/** The engine with the real Review Checkout git, or (`pending`) one that never finishes a fetch. */
-const layerOver = (filename: string, git: "live" | "pending" = "live") =>
+/** The engine with the real Review Checkout git, or another (`pendingReviewCheckoutGit` never finishes a fetch). */
+const layerOver = (filename: string, git: Layer.Layer<ReviewCheckoutGit> = ReviewCheckoutGitLive) =>
   engineLayer({
     filename,
     fakes: makeFakes(),
     drivers: [makeFakeDriver("claude", { onTurn: completesTurns() })],
-    reviewCheckoutGit: git === "live" ? ReviewCheckoutGitLive : pendingReviewCheckoutGit,
+    reviewCheckoutGit: git,
   });
 
 const dispatch = (command: Command) =>
@@ -109,13 +112,15 @@ const openPr = (workspace: Workspace, head: string, base: string) =>
   );
 
 /** A code host with PR #7 (one commit on main~1) and a user clone registered as a Workspace. */
-const scenario = async (options: { readonly depth?: number } = {}) => {
+const scenario = async (options: { readonly depth?: number; readonly mainAfter?: number } = {}) => {
   const forge = await createForge();
   const author = await contributor(forge, forge.mainCommits[1] ?? "main");
   write(author, "feature.txt", "v1\n");
   await commitAll(author, "feature v1");
   const v1 = await publishPullRequest(forge, author, 7);
-  const user = await userClone(forge, options);
+
+  if (options.mainAfter !== undefined) await pushMainCommits(forge, "later", options.mainAfter);
+  const user = await userClone(forge, options.depth === undefined ? {} : { depth: options.depth });
   cleanup.push(forge.root, user, `${user}.worktrees`);
 
   return { forge, author, user, v1 };
@@ -265,17 +270,37 @@ describe("Review Checkouts on the Host", () => {
     );
   }, 30_000);
 
-  test("a shallow clone is reported, and an update then fetches full history", async () => {
-    const s = await scenario({ depth: 1 });
+  // What the Desktop sends: GitHub's baseRefOid, the base branch's tip (Q-check B2).
+  test("a shallow clone opened with the base branch's tip is checked out without asking", async () => {
+    const s = await scenario({ depth: 1, mainAfter: 5 });
     await run(
       layerOver(join(tempDir(), "state.sqlite")),
       Effect.gen(function* () {
         const workspace = yield* registerWorkspace(s.user);
-        yield* openPr(workspace, s.v1, "");
+        yield* openPr(workspace, s.v1, s.forge.mainCommits.at(-1) ?? "");
+
+        expect(yield* inState("ready")).toMatchObject({
+          head: s.v1,
+          mergeBase: s.forge.mainCommits[1],
+        });
+      })
+    );
+  }, 30_000);
+
+  test("past the deepening budget it is a shallow clone, and an update fetches full history", async () => {
+    const s = await scenario({ depth: 1, mainAfter: 5 });
+    await run(
+      layerOver(join(tempDir(), "state.sqlite"), reviewCheckoutGitLayer({ deepenSteps: [1] })),
+      Effect.gen(function* () {
+        const workspace = yield* registerWorkspace(s.user);
+        yield* openPr(workspace, s.v1, s.forge.mainCommits.at(-1) ?? "");
 
         expect(blockOf(yield* inState("blocked"))?.blocker).toEqual(
           ReviewCheckoutBlocker.cases.ShallowClone.make({})
         );
+        expect(
+          yield* Effect.promise(() => gitText(s.user, ["rev-parse", "--is-shallow-repository"]))
+        ).toBe("true");
 
         yield* dispatch(
           Command.cases.UpdateReviewCheckout.make({ checkoutId, discardChanges: false })
@@ -292,7 +317,7 @@ describe("Review Checkouts on the Host", () => {
     const s = await scenario();
     const filename = join(tempDir(), "state.sqlite");
     await run(
-      layerOver(filename, "pending"),
+      layerOver(filename, pendingReviewCheckoutGit),
       Effect.gen(function* () {
         const workspace = yield* registerWorkspace(s.user);
         yield* openPr(workspace, s.v1, "");
@@ -381,6 +406,85 @@ describe("Review Checkouts on the Host", () => {
             resolveCommit(s.user, reviewRef(`session-${sessionId}`, "head"))
           )
         ).toBe(after);
+      })
+    );
+  }, 30_000);
+
+  test("an Agent Session's checkout of its latest Turn goes stale on a new Turn, and an update follows", async () => {
+    const s = await scenario();
+    const sessionId = SessionId.make("s-follow");
+    const id = ReviewCheckoutId.make("rc-follow");
+
+    const layer = engineLayer({
+      filename: join(tempDir(), "state.sqlite"),
+      fakes: makeFakes(),
+      drivers: [makeFakeDriver("claude", { onTurn: completesTurns() })],
+      reviewCheckoutGit: ReviewCheckoutGitLive,
+      checkpoints: CheckpointsLive,
+    });
+
+    const checkoutNow = (m: ReadModel) => m.reviewCheckouts.get(id);
+
+    const lastAfter = (m: ReadModel) =>
+      m.sessions.get(sessionId)?.turns.at(-1)?.checkpointAfter ?? "";
+
+    await run(
+      layer,
+      Effect.gen(function* () {
+        const workspace = yield* registerWorkspace(s.user);
+        yield* dispatch(
+          Command.cases.StartSession.make({
+            sessionId,
+            workspaceId: workspace.id,
+            harness: "claude",
+            placement: SessionPlacement.cases.InPlace.make({}),
+            permissionMode: "supervised",
+            model: null,
+            effort: null,
+            prompt: "turn 0",
+            attachments: [],
+          })
+        );
+        const first = yield* waitFor((m) => m.sessions.get(sessionId)?.session.state === "idle");
+        const after0 = yield* Effect.promise(() => resolveCommit(s.user, lastAfter(first)));
+
+        yield* dispatch(
+          Command.cases.OpenReviewCheckout.make({
+            checkoutId: id,
+            workspaceId: workspace.id,
+            subject: ReviewSubject.cases.SessionTurns.make({
+              sessionId,
+              firstTurnId: null,
+              lastTurnId: null,
+            }),
+            head: null,
+            base: null,
+          })
+        );
+        yield* waitFor((m) => checkoutNow(m)?.state === "ready", 15_000);
+
+        // The next Turn changes the working tree, so its after-checkpoint is a new commit.
+        write(s.user, "turn-1.txt", "made in turn 1\n");
+        yield* dispatch(
+          Command.cases.SendTurn.make({ sessionId, prompt: "turn 1", attachments: [] })
+        );
+        const stale = yield* waitFor((m) => checkoutNow(m)?.state === "stale", 15_000);
+        const after1 = yield* Effect.promise(() => resolveCommit(s.user, lastAfter(stale)));
+        expect(after1).not.toBe(after0);
+        expect(checkoutNow(stale)).toMatchObject({ head: after0, latestHead: after1 });
+
+        yield* dispatch(
+          Command.cases.UpdateReviewCheckout.make({ checkoutId: id, discardChanges: false })
+        );
+
+        const updated = yield* waitFor(
+          (m) => checkoutNow(m)?.state === "ready" && checkoutNow(m)?.head === after1,
+          15_000
+        );
+
+        expect(
+          yield* Effect.promise(() => resolveCommit(checkoutNow(updated)?.path ?? "", "HEAD"))
+        ).toBe(after1);
       })
     );
   }, 30_000);
