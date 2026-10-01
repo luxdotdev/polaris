@@ -11,6 +11,7 @@ import {
   Command,
   CommandId,
   CommitGranularity,
+  ConstellationId,
   GitDiffSpec,
   HarnessKind,
   PermissionMode,
@@ -32,6 +33,7 @@ import {
   Worktree,
 } from "@polaris/protocol";
 import { Schema } from "effect";
+import { ConstellationRequestInputs } from "./constellationContract.ts";
 import { GitHubRequestInputs, GitHubSubscriptionInputs } from "./githubContract.ts";
 import { BRANCH_PREFIX } from "./sessionPrefs.ts";
 
@@ -104,6 +106,20 @@ export const AcceptBranchMode = Schema.Literals(["auto", "current", "create"]);
 
 export type AcceptBranchMode = typeof AcceptBranchMode.Type;
 
+/** One role's worker defaults in a new Constellation (spec §4, precedence 3). */
+export const RoleDefault = Schema.Struct({
+  harness: HarnessKind,
+  model: Schema.NullOr(Schema.String),
+  effort: Schema.NullOr(Schema.String),
+});
+
+export type RoleDefault = typeof RoleDefault.Type;
+
+/** Settings → Constellations: the workers' Harness/Model per role, backend and UI/design. */
+export const ConstellationDefaults = Schema.Struct({ backend: RoleDefault, ui: RoleDefault });
+
+export type ConstellationDefaults = typeof ConstellationDefaults.Type;
+
 /** Settings → Sessions: how every new Agent Session starts and what happens around it. */
 export const SessionPrefs = Schema.Struct({
   /** Start on a new Worktree rather than in the Workspace directory. */
@@ -124,6 +140,8 @@ export const SessionPrefs = Schema.Struct({
   acceptBranch: AcceptBranchMode,
   /** Per-Workspace overrides of `acceptBranch`, keyed `hostKey/workspaceId`. */
   workspaceAcceptBranch: Schema.Record(Schema.String, AcceptBranchMode),
+  /** What a new Constellation's workers start on, per role (Settings → Constellations). */
+  constellationDefaults: ConstellationDefaults,
 });
 
 export type SessionPrefs = typeof SessionPrefs.Type;
@@ -139,6 +157,7 @@ export const SessionPrefsPatch = Schema.Struct({
   acceptBranch: Schema.optionalKey(AcceptBranchMode),
   /** Replaces every override. */
   workspaceAcceptBranch: Schema.optionalKey(Schema.Record(Schema.String, AcceptBranchMode)),
+  constellationDefaults: Schema.optionalKey(ConstellationDefaults),
 });
 
 export type SessionPrefsPatch = typeof SessionPrefsPatch.Type;
@@ -361,6 +380,7 @@ export const RequestInputs = {
   /** Dev only: a fresh temporary directory on the dev Daemon's Host for the proof session. */
   "dev.proofWorkspace": Schema.Struct({}),
   ...GitHubRequestInputs,
+  ...ConstellationRequestInputs,
 } as const;
 
 export type RequestMethod = keyof typeof RequestInputs;
@@ -402,6 +422,12 @@ export const SubscriptionInputs = {
   /** A Risk Summary as it fills in (`review.watchRiskSummary`): the whole summary on each change. */
   "review.watchRiskSummary": onHost({ summaryId: RiskSummaryId }),
   ...GitHubSubscriptionInputs,
+  /** One Constellation's stream (`constellation.subscribe`): Snapshot, Synchronized, then events. */
+  constellation: Schema.Struct({
+    hostKey: HostKey,
+    constellationId: ConstellationId,
+    afterSequence: Schema.NullOr(Sequence),
+  }),
 } as const;
 
 export type SubscriptionKind = keyof typeof SubscriptionInputs;

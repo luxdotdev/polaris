@@ -9,6 +9,7 @@ import type { MachineView } from "../../../shared/api.ts";
 import { Approval, Attention } from "./Attention.tsx";
 import { call } from "./hooks.tsx";
 import { Harnesses } from "./Harnesses.tsx";
+import { HostResources } from "../settings/ui/HostResources.tsx";
 import { outcomeNote } from "./model.ts";
 import { setDaemonUpdateOverride } from "./updates/actions.ts";
 import { OverrideSelect } from "./updates/Controls.tsx";
@@ -135,6 +136,9 @@ export const HostDetails = ({ machine, settings }: HostDetailsProps) => {
         </div>
       )}
       {machine.status?.state === "connected" ? <Harnesses machine={machine} /> : null}
+      {settings && machine.status?.state === "connected" ? (
+        <HostResources hostKey={machine.key} />
+      ) : null}
       {settings ? <Settings machine={machine} /> : null}
     </>
   );

@@ -69,6 +69,9 @@ const checkoutPreview = location.hash.startsWith("#checkout/");
 // `#hosts/<scene>`: Settings → Hosts on fixtures, every daemon update state (features/machines/preview).
 const hostsPreview = location.hash.startsWith("#hosts/");
 
+// `#constellations/<scene>`: the sidebar, Needs you, Review, Settings and Usage parts of Constellations (features/sessions/preview).
+const constellationsPreview = location.hash.startsWith("#constellations/");
+
 let setPreviewDensity: ((density: Density) => void) | null = null;
 
 const appearance = (value: Appearance) => {
@@ -109,6 +112,10 @@ if (root !== null && preview) {
 } else if (root !== null && needsYouPreview) {
   void import("./features/needs-you/preview/Preview.tsx").then((m) => {
     setPreviewDensity = m.mountNeedsYouPreview(root, location.hash);
+  });
+} else if (root !== null && constellationsPreview) {
+  void import("./features/sessions/preview/Preview.tsx").then((m) => {
+    setPreviewDensity = m.mountConstellationsPreview(root, location.hash);
   });
 } else if (root !== null && pullsPreview) {
   void import("./features/pulls/preview/Preview.tsx").then((m) => {

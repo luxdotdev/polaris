@@ -226,6 +226,7 @@ describe("subscriptions", () => {
   test("every feed kind in the contract can be opened", () => {
     expect(Object.keys(SubscriptionInputs).sort()).toEqual(
       [
+        "constellation",
         "files.watch",
         "github.accounts",
         "github.checkouts",

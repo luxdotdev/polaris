@@ -29,7 +29,7 @@ export interface QueueSession {
 export type QueueRow = QueuePull | QueueSession;
 
 export interface QueueGroup {
-  readonly id: "requested" | "sessions" | "mine" | "other";
+  readonly id: "requested" | "claims" | "sessions" | "mine" | "other";
   readonly label: string;
   readonly rows: ReadonlyArray<QueueRow>;
   /** Two-line rows with a tile (requested, sessions) or one-line rows with the number. */
@@ -88,10 +88,21 @@ export const readySessions = (sessions: ReadonlyArray<SessionInfo>): ReadonlyArr
         .join(" · "),
     }));
 
+/** Worker sessions of Constellations: their Claims in review, and every worker to leave out. */
+export interface Workers {
+  readonly claims: ReadonlyArray<QueueSession>;
+  readonly workers: ReadonlySet<string>;
+}
+
+const NO_WORKERS: Workers = { claims: [], workers: new Set() };
+
 export const queueGroups = (
   list: PullListView | null,
-  sessions: ReadonlyArray<SessionInfo>
+  all: ReadonlyArray<SessionInfo>,
+  workers: Workers = NO_WORKERS
 ): ReadonlyArray<QueueGroup> => {
+  const sessions = all.filter((s) => !workers.workers.has(`${s.hostKey}:${s.id}`));
+
   const groups: ReadonlyArray<QueueGroup> = [
     {
       id: "requested",
@@ -99,6 +110,7 @@ export const queueGroups = (
       rows: (list?.requested ?? []).map(pullRow),
       compact: false,
     },
+    { id: "claims", label: "Workers' claims", rows: workers.claims, compact: false },
     {
       id: "sessions",
       label: "Agent sessions ready",
