@@ -28,6 +28,9 @@ export type CommandId =
   | "settings.harnesses"
   | "settings.usage"
   | "settings.hosts"
+  | "settings.reviewer"
+  | "settings.github"
+  | "github.addAccount"
   | "workspace.add";
 
 export type MenuName = "App" | "View" | "Go" | "Session" | "Help";
@@ -72,6 +75,9 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   { id: "settings.harnesses", title: "Settings: Harnesses", keys: [] },
   { id: "settings.usage", title: "Settings: Usage", keys: [] },
   { id: "settings.hosts", title: "Settings: Hosts", keys: [] },
+  { id: "settings.reviewer", title: "Settings: Reviewer", keys: [] },
+  { id: "settings.github", title: "Settings: GitHub accounts", keys: [] },
+  { id: "github.addAccount", title: "Add GitHub account…", keys: [] },
   {
     id: "help.shortcuts",
     title: "Keyboard shortcuts",

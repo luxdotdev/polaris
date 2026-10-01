@@ -9,4 +9,7 @@ export const settingsCommands = (shell: ShellActions): CommandHandlers => ({
   "settings.harnesses": { run: () => shell.openSettings("harnesses") },
   "settings.usage": { run: () => shell.openSettings("usage") },
   "settings.hosts": { run: () => shell.openSettings("hosts") },
+  "settings.reviewer": { run: () => shell.openSettings("reviewer") },
+  "settings.github": { run: () => shell.openSettings("github") },
+  "github.addAccount": { run: () => shell.openSettings("github", { adding: true }) },
 });

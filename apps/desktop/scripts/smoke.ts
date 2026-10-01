@@ -25,6 +25,7 @@ import { attachmentsFlow } from "./lib/attachmentsFlow.ts";
 import { composerFlow } from "./lib/composerFlow.ts";
 import { imageAfterRelaunch, sendImage } from "./lib/previewFlow.ts";
 import { reviewerFlow } from "./lib/reviewerFlow.ts";
+import { reviewSettingsFlow } from "./lib/reviewSettingsFlow.ts";
 import { runSubagent, subagentAfterRelaunch } from "./lib/subagentFlow.ts";
 import { terminalFlow } from "./lib/terminalFlow.ts";
 import { githubFlow, MOCK_KEYCHAIN, serveGitHubFake } from "./lib/githubFlow.ts";
@@ -508,6 +509,7 @@ try {
     throw new Error("terminal output missing");
 
   await reviewerFlow({ page, step });
+  await reviewSettingsFlow({ page, step });
 
   const openHosts = async () => {
     await page.getByRole("button", { name: "Settings" }).click();
