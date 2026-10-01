@@ -149,8 +149,9 @@ export const useCheckout = (pull: OpenPull): CheckoutModel => {
     now,
     command: command.kind === "found" ? command.command : null,
     run,
+    fetchingCommits: held?.checkout.head === null ? (newCommits?.total ?? null) : null,
     newCommits:
-      newCommits === null
+      newCommits === null || held?.checkout.head === null
         ? null
         : { total: newCommits.total, rewritten: newCommits.status === "diverged" },
     clone,

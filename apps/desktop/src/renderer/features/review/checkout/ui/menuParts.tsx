@@ -28,7 +28,7 @@ export const Well = ({ children }: { readonly children: ReactNode }) => (
 );
 
 export const WellLine = ({ text }: { readonly text: string }) => (
-  <p className="text-text-default font-mono text-[11px] leading-4 break-all">{text}</p>
+  <p className="text-text-default font-mono text-[11px] leading-4 break-words">{text}</p>
 );
 
 export const Primary = ({
@@ -76,7 +76,9 @@ export const Group = ({
       title === null ? "py-1.5" : "pt-row-x pb-gap"
     )}
   >
-    {title !== null && <p className="text-caption text-text-faint px-gap pt-0.5 pb-1.5">{title}</p>}
+    {title !== null && (
+      <p className="text-caption text-text-subtle px-gap pt-0.5 pb-1.5">{title}</p>
+    )}
     {children}
   </div>
 );

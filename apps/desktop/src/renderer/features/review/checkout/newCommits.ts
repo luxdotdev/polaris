@@ -13,11 +13,18 @@ import type { Held } from "./actions.ts";
 /** By `owner/name:base...head`; null when GitHub couldn't compare them. */
 const comparisons = createStore<Readonly<Record<string, CompareView | null>>>(() => ({}));
 
+/**
+ * What to compare: the checkout's commit with the head (what an update brings), or, before
+ * the first fetch, the base with the head (what the checkout is fetching).
+ */
 const pairOf = (held: Held | null) => {
-  const head = held?.checkout.head ?? null;
-  const latest = held?.checkout.latestHead ?? "";
+  if (held === null) return null;
+  const { head, latestHead, latestBase } = held.checkout;
+  const base = head ?? latestBase;
 
-  return head === null || latest === "" || head === latest ? null : { base: head, head: latest };
+  return base === "" || latestHead === "" || base === latestHead
+    ? null
+    : { base, head: latestHead };
 };
 
 export const useNewCommits = (held: Held | null, pull: OpenPull): CompareView | null => {

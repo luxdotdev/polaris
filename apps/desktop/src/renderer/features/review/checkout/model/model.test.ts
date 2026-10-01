@@ -16,6 +16,7 @@ import {
   type ChipInput,
   chipView,
   elapsed,
+  fetchingText,
   newCommitsText,
   removedText,
 } from "./chip.ts";
@@ -62,6 +63,7 @@ const input = (patch: Partial<ChipInput> = {}): ChipInput => ({
   command: null,
   run: null,
   newCommits: null,
+  fetchingCommits: null,
   clone: null,
   ...patch,
 });
@@ -71,7 +73,11 @@ describe("chipView", () => {
     expect(chipView(input({ checkout: checkout({ state: "fetching", head: null }) }))).toEqual({
       kind: "checking-out",
       host: "Linux VM",
+      commits: null,
     });
+    expect(
+      chipView(input({ checkout: checkout({ state: "fetching", head: null }), fetchingCommits: 3 }))
+    ).toMatchObject({ kind: "checking-out", commits: 3 });
     expect(chipView(input())).toEqual({
       kind: "ready",
       host: "Linux VM",
@@ -419,6 +425,14 @@ describe("Run", () => {
       "bun run dev",
     ]);
   });
+});
+
+test("a first checkout counts the commits it fetches once GitHub has", () => {
+  expect([fetchingText(null), fetchingText(1), fetchingText(3)]).toEqual([
+    "fetching",
+    "fetching 1 commit",
+    "fetching 3 commits",
+  ]);
 });
 
 test("new commits read with their count, or as a force-push", () => {
