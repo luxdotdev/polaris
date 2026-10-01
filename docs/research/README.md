@@ -18,9 +18,11 @@ Source research behind the Polaris planning map ([ENG-167](https://linear.app/lu
 | [usage-sources.md](usage-sources.md) | [ENG-198](https://linear.app/luxdev/issue/ENG-198): where Usage and Plan Limits come from without touching credentials |
 | [github-review-apis.md](github-review-apis.md) | [ENG-219](https://linear.app/luxdev/issue/ENG-219): GitHub's OAuth device flow and the pull request APIs M2 needs |
 | [review-checkout.md](review-checkout.md) | [ENG-221](https://linear.app/luxdev/issue/ENG-221): how the Daemon fetches, checks out, updates and removes a Review Checkout |
+| [pierre-diffs.md](pierre-diffs.md) | [ENG-218](https://linear.app/luxdev/issue/ENG-218): whether Pierre Diffs can carry M2's Review view |
 
 The prototype and spike code is throwaway and stays on its own branches, not on `main`:
 - `prototype/orchestrator-layout` ([ENG-177](https://linear.app/luxdev/issue/ENG-177))
 - `prototype/spike-electron` and `prototype/spike-gpui` ([ENG-184](https://linear.app/luxdev/issue/ENG-184))
+- `prototype/pierre-diffs-spike` ([ENG-218](https://linear.app/luxdev/issue/ENG-218))
 
 The original `research/*` branches remain.
