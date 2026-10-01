@@ -5,6 +5,7 @@
  */
 import type { AnnotationSide, DiffLineAnnotation, FileDiffMetadata } from "@pierre/diffs";
 import { useEffect, useMemo, useState } from "react";
+import { useStore } from "zustand";
 import type { PullFileView } from "../../../../shared/github.ts";
 import { contentsLoader } from "../data/expand.ts";
 import { parseOne, type ReviewDiff } from "../data/useReviewDiff.ts";
@@ -19,7 +20,7 @@ import {
   pullFileViewed,
   type RemoteViewed,
 } from "../model/viewed.ts";
-import type { DiffRange, ReviewAnnotation } from "../surface.ts";
+import { type DiffRange, revealStore, type ReviewAnnotation } from "../surface.ts";
 import type { PaneItem, RowMeta } from "./DiffPane.tsx";
 import { type HeaderModel, headerStore } from "./FileHeader.tsx";
 
@@ -253,6 +254,25 @@ export const useReviewModel = (input: ReviewModelInput) => {
       },
     });
   });
+
+  const reveal = useStore(revealStore, (st) => st.request);
+  const [revealed, setRevealed] = useState<number | null>(null);
+
+  // A jump or a finding asks for a file: open it, its folded Turns, or (list-only) it alone.
+  useEffect(() => {
+    if (reveal === null || reveal.nonce === revealed) return;
+
+    const asked = files.filter((f) => f.file.path === reveal.path);
+    const [first] = asked;
+
+    if (first === undefined) return;
+
+    setRevealed(reveal.nonce);
+    setToggled((t) => new Map([...t, ...asked.map((f) => [f.key, true] as const)]));
+    setOpenedSections((o) => new Set([...o, ...asked.map((f) => f.section)]));
+
+    if (diff.scale === "list-only") setOpenFile(first.key);
+  }, [reveal, revealed, files, diff.scale]);
 
   const parsedFiles = useMemo(() => {
     const map = new Map<FileDiffMetadata, ReviewFile>();

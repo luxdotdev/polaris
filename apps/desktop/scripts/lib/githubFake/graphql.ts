@@ -271,6 +271,7 @@ const pullDetail = (world: World, viewer: FakeUser, variables: Variables) => {
               headRefOid: pull.headRefOid,
               baseRefName: pull.baseRefName,
               baseRefOid: pull.baseRefOid,
+              commits: { totalCount: world.commits.get(pull.id)?.length ?? 1 },
               files: page(filesOf(world, pull, viewer), null),
               reviewThreads: page(threadsOf(world, pull, viewer), null),
               reviews: pendingOf(world, pull, viewer),

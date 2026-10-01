@@ -5,7 +5,7 @@
  */
 import { EmptyState, PixelForkIcon } from "@polaris/ui";
 import type { FileDiffMetadata, SelectedLineRange } from "@pierre/diffs";
-import { type ReactNode, useEffect } from "react";
+import { type ReactNode, useEffect, useMemo } from "react";
 import { useStore } from "zustand";
 import type { ReviewDiff } from "../data/useReviewDiff.ts";
 import { scaleNotice } from "../model/policy.ts";
@@ -103,6 +103,10 @@ const Ready = ({
     selection: surface.selection,
     pullViewed,
   });
+
+  const paths = useMemo(() => model.files.map((f) => f.file.path), [model.files]);
+
+  useEffect(() => updateSurface(subjectKey, { paths }), [subjectKey, paths]);
 
   useEffect(() => {
     const diffs = new Map(

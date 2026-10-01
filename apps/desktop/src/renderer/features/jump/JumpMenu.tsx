@@ -14,13 +14,23 @@ import {
   CommandList,
   FolderIcon,
   PlusIcon,
+  SEVERITIES,
+  SEVERITY_LABELS,
+  SeverityGlyph,
 } from "@polaris/ui";
 import { type KeyboardEvent, useMemo, useState } from "react";
+import { useStore } from "zustand";
+import { useReviewSubject } from "../../routes/review.ts";
+import { PullGlyph } from "../pulls/ui/glyphs.tsx";
+import { usePulls } from "../pulls/store.ts";
+import { subjectKey, surfaceStore } from "../review/index.ts";
 import type { JumpMenuProps } from "../../app/slots.tsx";
 import { barHosts } from "../../routes/topBar.ts";
 import { SessionGlyph, SummaryGlyph } from "../../shell/glyphs.tsx";
 import { useApp, useCommands, useNav, useSelection, useShellActions } from "../../shell/hooks.ts";
-import { jumpGroups } from "./groups.ts";
+import { jumpCopy } from "./copy.ts";
+import { jumpGroups, type ReviewSources } from "./groups.ts";
+import { fileItems, findingItems, pullItems } from "./reviewItems.ts";
 import {
   actionItems,
   hostItems,
@@ -33,6 +43,14 @@ import { useRunJump } from "./run.ts";
 
 const Leading = ({ item }: { readonly item: JumpItem }) => {
   const { target } = item;
+
+  if (target.kind === "pull") return <PullGlyph className="text-text-subtle" />;
+
+  if (target.kind === "finding") {
+    const severity = SEVERITIES.find((s) => SEVERITY_LABELS[s] === item.meta);
+
+    return severity === undefined ? null : <SeverityGlyph severity={severity} tone="text" />;
+  }
 
   if (target.kind === "workspace") return <FolderIcon size={14} className="text-text-subtle" />;
 
@@ -55,12 +73,33 @@ const Leading = ({ item }: { readonly item: JumpItem }) => {
   return <SessionGlyph state={item.state} harness={item.harness} size={14} />;
 };
 
+/** In Review: pull requests, and the open Review's files and findings. */
+const useReviewSources = (mode: string): ReviewSources | undefined => {
+  const list = usePulls((s) => s.list);
+  const subject = useReviewSubject();
+  const surfaces = useStore(surfaceStore, (s) => s);
+  const surface = subject === null ? undefined : surfaces[subjectKey(subject)];
+
+  return useMemo(
+    () =>
+      mode !== "review"
+        ? undefined
+        : {
+            pulls: pullItems(list),
+            files: fileItems(surface?.paths ?? []),
+            findings: findingItems(surface?.findings ?? []),
+          },
+    [mode, list, surface]
+  );
+};
+
 const useSources = () => {
   const hosts = useApp((s) => s.hosts);
   const models = useApp((s) => s.hostModels);
-  const { topBar, hostKey, workspaceId, sessionId } = useSelection();
+  const { topBar, hostKey, workspaceId, sessionId, mode } = useSelection();
   const commands = useCommands();
   const dark = useDark();
+  const review = useReviewSources(mode);
 
   return useMemo(() => {
     const data = { bar: barHosts({ hosts, models }), models, machineBar: topBar !== "workspaces" };
@@ -78,8 +117,9 @@ const useSources = () => {
         enabled: commands.enabled,
         nextTheme: dark ? "light" : "dark",
       }),
+      review,
     };
-  }, [hosts, models, topBar, hostKey, workspaceId, sessionId, commands, dark]);
+  }, [hosts, models, topBar, hostKey, workspaceId, sessionId, commands, dark, review]);
 };
 
 /** Whether the window is dark now: the theme setting, or the system's when it follows it. */
@@ -92,6 +132,7 @@ const useDark = () => {
 const Results = ({ onClose }: { readonly onClose: () => void }) => {
   const [query, setQuery] = useState("");
   const sources = useSources();
+  const copy = jumpCopy(useSelection().mode);
   const recent = useNav((s) => s.recent);
   const groups = jumpGroups({ query, sources, recent });
   const byId = new Map(groups.flatMap((g) => g.items.map((i) => [i.id, i])));
@@ -119,9 +160,9 @@ const Results = ({ onClose }: { readonly onClose: () => void }) => {
       <CommandInput
         value={query}
         onValueChange={setQuery}
-        placeholder="Jump to a session or workspace"
-        hint="Sessions, workspaces, hosts, actions"
-        aria-label="Jump to a session, workspace, worktree, machine or action"
+        placeholder={copy.placeholder}
+        hint={copy.hint}
+        aria-label={copy.label}
       />
       <CommandList aria-label="Results">
         <CommandEmpty>Nothing matches</CommandEmpty>

@@ -151,6 +151,7 @@ export const DiffPane = ({
   const synced = useRef<Synced>({ order: [], signatures: new Map(), versions: new Map() });
   const keys = useRef(itemKeys);
   const reveal = useStore(revealStore, (s) => s.request);
+  const revealed = useRef<number | null>(null);
 
   useEffect(() => {
     keys.current = itemKeys;
@@ -161,19 +162,28 @@ export const DiffPane = ({
   }, [items]);
 
   useEffect(() => {
-    if (reveal === null || handle.current === null) return;
+    if (reveal === null || handle.current === null || revealed.current === reveal.nonce) return;
 
-    const target = items.find((p) => p.path === reveal.path);
+    // The model opens the file first; scroll once it's there (and expanded, for a line).
+    const target = items.find(
+      (p) => p.path === reveal.path && (reveal.line === 0 || p.item.collapsed !== true)
+    );
 
     if (target === undefined) return;
-    handle.current.scrollTo({
-      type: "line",
-      id: target.item.id,
-      lineNumber: reveal.line,
-      side: reveal.side === "old" ? "deletions" : "additions",
-      align: "center",
-      behavior: "smooth-auto",
-    });
+
+    revealed.current = reveal.nonce;
+    handle.current.scrollTo(
+      reveal.line === 0
+        ? { type: "item", id: target.item.id, behavior: "smooth-auto" }
+        : {
+            type: "line",
+            id: target.item.id,
+            lineNumber: reveal.line,
+            side: reveal.side === "old" ? "deletions" : "additions",
+            align: "center",
+            behavior: "smooth-auto",
+          }
+    );
   }, [reveal, items]);
 
   const options = useMemo(

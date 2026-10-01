@@ -78,6 +78,7 @@ const detail = (patch: Partial<PullDetailView> = {}): PullDetailView => ({
   headRefOid: "h1",
   baseRefName: "main",
   baseRefOid: "b1",
+  commits: 1,
   files: [],
   threads: [line, outdated, file],
   pendingReview: { id: "R1", commitOid: "h1", comments: 2 },

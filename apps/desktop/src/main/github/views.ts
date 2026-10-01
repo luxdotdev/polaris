@@ -111,6 +111,7 @@ export const detailView = ({
     headRefOid: pull.headRefOid,
     baseRefName: pull.baseRefName,
     baseRefOid: pull.baseRefOid,
+    commits: pull.commits.totalCount,
     files: files.map(fileView),
     threads: threads.map(threadView),
     pendingReview:

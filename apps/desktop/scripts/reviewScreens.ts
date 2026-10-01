@@ -137,6 +137,17 @@ const diffScenes = async (page: Page) => {
     await appearance(page, "dark", "calm");
   }
 
+  // The jump menu in Review: pull requests, files and findings (Paper R1's title bar).
+  await open(page, "pull", "review-file");
+  await appearance(page, "dark", "calm");
+  await page.getByRole("button", { name: /Jump to a PR, file, or finding/ }).click();
+  await page.getByRole("dialog").waitFor();
+  await shoot(page, "jump-review-dark");
+  await page.keyboard.type("elig");
+  await page.waitForTimeout(300);
+  await shoot(page, "jump-review-query-dark");
+  await page.keyboard.press("Escape");
+
   for (const scene of ["large", "list-only"]) {
     await open(page, scene, "review-file-row");
     await shoot(page, `${scene}-dark`);

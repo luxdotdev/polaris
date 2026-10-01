@@ -261,6 +261,8 @@ export interface PullDetailView {
   readonly headRefOid: string;
   readonly baseRefName: string;
   readonly baseRefOid: string;
+  /** How many commits the pull request has ("wants to merge 3 commits"). */
+  readonly commits: number;
   readonly files: ReadonlyArray<PullFileView>;
   readonly threads: ReadonlyArray<ReviewThreadView>;
   readonly pendingReview: PendingReviewView | null;
