@@ -17,6 +17,8 @@ The orchestration engine: `decider.ts` validates Client commands, the `Engine` s
 | `reactors.ts` | `Reactors`: what runs after each command commits. |
 | `dispatch.ts` | `Dispatcher`: resolves the decider's inputs, commits, acks and forks the reactor. |
 | `streams.ts` | `Streams`: the Host and session streams (snapshot or replay, `Synchronized`, live). |
+| `review.ts` | The decider's Review commands: `SendFeedback` and `AcceptTurns` through the session machine, the Review Checkout commands through the checkout machine, `LinkPullRequest`, `RecordVerdict`. |
+| `checkout.ts` | The Review Checkout lifecycle machine (below). |
 | `recovery.ts` | `daemon.recover` on start and before an upgrade (`docs/adr/0004-restart-recovery-never-continues-a-turn.md`). |
 
 ## The session machine
@@ -97,6 +99,8 @@ Not drawn: `model.set` changes no Session State (it records `SessionModelChanged
 | `terminal.open` / `terminal.return` | Idle, Dormant, Failed / In Terminal | "the session is \<state\>" / "not In Terminal" |
 | `model.set` (`SetModel`) | no Turn in flight, not In Terminal or Archived; a Harness that can't switch Model mid-session (driver `switchModel: false`) only before it has a cursor. The same Model and effort again is accepted and records nothing | "the session is \<state\>; wait for the Turn to end", "… In Terminal; return it first", "the session is Archived", "\<harness\> can't switch Model mid-session; fork instead" |
 | `session.start` / `session.fork` | before the session exists | "session … already exists" |
+| `turns.accept` (`AcceptTurns`) | no Turn in flight, not In Terminal or Archived; a Turn at or after the one already accepted (the same one again records nothing) | "the session is working; wait for the Turn to end", "the Turns through Turn N are already accepted", "… In Terminal; return it first", "the session is Archived" |
+| `turn.continue` after `AcceptTurns` | never for an accepted Interrupted Turn (spec finding 4) | "the Interrupted Turn is accepted; send a new Turn instead" |
 | `harness.subagentStarted` / `harness.subagentEnded` | a start only for the Turn in flight, once; an end only for an open Subagent (anything else is ignored, never refused) | — |
 
 ### Subagents
@@ -126,6 +130,35 @@ Deliberate, and only in races the old code let through: Archived now ignores wha
 - Archive is refused while a Turn is in flight in every state (Starting, In Terminal, Dormant and Failed too), with the reason the live states already gave. Before, only Idle, Working and Needs You checked, so archiving In Terminal mid-Turn left the Turn `working` and its approvals pending for good (recovery skips Archived). We refuse rather than end the Turn on Archive: Archive never discards a Turn the user may still be watching in the terminal UI, the rule is one guard for every state, and Interrupt (from Polaris or the terminal UI) is always there to end the Turn first.
 - `harness.approvalRequested` for a Turn that is not the Turn in flight is ignored, and answering or withdrawing the last request moves to Working only with a Turn in flight. Before, a request that arrived after its Turn ended put the session in Needs You with no Turn, and answering it left it Working with no Turn, refusing new Turns until a restart.
 - The graph counts dropped (35 → 29 and 41 → 35 states, 149 → 127 and 196 → 174 transitions): the states "Archived with a Turn in flight" (and pending approvals) are gone.
+
+### Accepting Turns
+
+`AcceptTurns` (ENG-224) accepts a contiguous prefix of a session's Turns, through the one it names, and records `TurnsAccepted`; `AgentSession.acceptedThroughIndex` is its fold. It changes no Session State (`session.accept.ts`). `SendFeedback` is `turn.send` with the feedback batch rendered by `feedbackPrompt` as its prompt, and the batch kept on the Turn. **TODO(M2-A)**: with `revertLaterTurns`, the reactor restores the working tree to the accepted Turn's after-checkpoint and records `TurnsReverted`.
+
+## The Review Checkout machine
+
+`checkout.ts` holds the Review Checkout lifecycle (ENG-221, ENG-228) as a second XState statechart, used exactly like the session machine: `checkoutSnapshotOf(checkout)` derives the snapshot from the folded `ReviewCheckout` (its `state` is the state value), one `transition` runs per input, and what it emits (`ReviewCheckoutOpened` / `Changed` / `Removed`, the whole checkout each time) is what the store commits. Nothing keeps a live actor.
+
+```mermaid
+stateDiagram-v2
+  direction LR
+  [*] --> fetching: checkout.open (OpenReviewCheckout)
+  fetching --> ready: checkout.fetched (head = latest)
+  fetching --> stale: checkout.fetched (the code host moved on)
+  fetching --> blocked: checkout.blocked
+  ready --> stale: checkout.reportHead (a new head)
+  ready --> fetching: checkout.update (behind the latest head)
+  stale --> fetching: checkout.update
+  blocked --> fetching: checkout.update
+  ready --> removing: checkout.remove
+  stale --> removing: checkout.remove
+  blocked --> removing: checkout.remove
+  fetching --> removing: checkout.remove
+  removing --> blocked: checkout.blocked (dirty, in use, local commits)
+  removing --> [*]: checkout.removed
+```
+
+Every state but `absent` and `removing` takes `checkout.reportHead` (it records the latest head; only `ready` turns `stale`) and `checkout.reviewed` (the head and merge base the last Risk Summary covered). A signal for a state not waiting on it (`fetched` after a removal began, a repeated `removed`) changes nothing; Client commands that don't apply are refused with the reason a user reads ("the Review Checkout is being removed", "… is already being fetched", "there is no such Review Checkout"). `OpenReviewCheckout` places a pull request's checkout at `<worktreeRoot>/.review/pr-<n>` and an Agent Session's at `…/session-<id>`. **TODO(M2-C)**: the reactors for the four commands fetch, add, update and remove the worktree (hooks off), then send `checkout.fetched` / `blocked` / `removed` through `store.commit`; `RemoveWorkspace` leaves its checkouts for that module to remove.
 
 ## Model-based tests
 
