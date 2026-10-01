@@ -162,8 +162,8 @@ export const readySummary = (rows: ReadonlyArray<ReviewerHostRow>) => {
 
 /** A Host's settings with a new default, its overrides kept. */
 export const withDefault = (settings: Settings, choice: Choice | null): Settings => ({
+  ...settings,
   default: choice,
-  workspaces: settings.workspaces,
 });
 
 /** A Host's settings with a Workspace's override set, or cleared with null. */
@@ -172,7 +172,7 @@ export const withOverride = (
   workspaceId: string,
   choice: Choice | null
 ): Settings => ({
-  default: settings.default,
+  ...settings,
   workspaces: Object.fromEntries([
     ...Object.entries(settings.workspaces).filter(([id]) => id !== workspaceId),
     ...(choice === null ? [] : [[workspaceId, choice] as const]),

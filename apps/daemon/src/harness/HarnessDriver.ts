@@ -121,6 +121,8 @@ export interface OpenOptions {
   readonly effort: ReasoningEffort | null;
   /** Resume an existing Harness-native session; null starts a fresh one. */
   readonly resumeCursor: string | null;
+  /** A read-only session (the Reviewer): no network and no writes, where the Harness can enforce them. */
+  readonly readOnly?: boolean;
 }
 
 export interface TurnInput {

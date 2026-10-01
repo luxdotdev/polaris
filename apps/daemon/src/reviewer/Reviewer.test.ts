@@ -16,6 +16,7 @@ import {
   type RiskSummaryId,
   ReviewCheckoutId,
   ReviewContext,
+  ReviewerSettings,
   ReviewSubject,
   RiskSummaryRef,
   RequestId,
@@ -264,6 +265,7 @@ describe("the Reviewer", () => {
         });
         const harness = driver.latest(sessionId!);
         expect(harness?.turns[0]?.prompt.startsWith(REVIEWER_MARKER)).toBe(true);
+        expect(harness?.options.readOnly).toBe(true);
         expect(harness?.turns[0]?.prompt).toContain("Add the feature");
         expect(harness?.turns[0]?.prompt).toContain("+v1");
         expect(harness?.responses.map((r) => r.decision._tag).toSorted()).toEqual([
@@ -397,6 +399,86 @@ describe("the Reviewer", () => {
         expect(done).toMatchObject({ status: "completed", reviewer: null, note: RULES_ONLY_NOTE });
         expect(done.layers.agent).toMatchObject({ status: "skipped", note: RULES_ONLY_NOTE });
         expect((yield* (yield* EventStore).model).sessions.size).toBe(0);
+      })
+    );
+  }, 60_000);
+});
+
+describe("when it runs", () => {
+  const openRequest = (workspace: Workspace, refresh: boolean) => ({
+    workspaceId: workspace.id,
+    subject,
+    checkoutId,
+    since: null,
+    refresh,
+    context,
+  });
+
+  test("over the Ask first threshold the rules run and the Reviewer waits for Run reviewer", async () => {
+    const s = await scenario();
+    const { layer, driver } = reviewerLayer({ ready: true });
+
+    await run(
+      layer,
+      Effect.gen(function* () {
+        const reviewer = yield* Reviewer;
+        yield* reviewer.setSettings(
+          ReviewerSettings.make({ default: null, workspaces: {}, askAboveLines: 0 })
+        );
+        const workspace = yield* openReview(s.user, s.v1);
+
+        const waiting = yield* summaryWhen(
+          (yield* reviewer.run(openRequest(workspace, false))).id,
+          ended
+        );
+
+        expect(waiting.status).toBe("completed");
+        expect(waiting.layers.rules.status).toBe("completed");
+        expect(waiting.layers.agent.status).toBe("pending");
+        expect(waiting.layers.agent.note).toContain("1 changed lines is over 0");
+        expect(driver.sessions).toHaveLength(0);
+
+        // "Run reviewer": the user asks, so the threshold doesn't apply.
+        const ran = yield* summaryWhen(
+          (yield* reviewer.run(openRequest(workspace, true))).id,
+          ended
+        );
+
+        expect(ran.id).not.toBe(waiting.id);
+        expect(ran.layers.agent.status).toBe("completed");
+        expect(ran.findings).toHaveLength(1);
+      })
+    );
+  }, 60_000);
+
+  test("with pull requests switched off the Reviewer is skipped unless asked", async () => {
+    const s = await scenario();
+    const { layer } = reviewerLayer({ ready: true });
+
+    await run(
+      layer,
+      Effect.gen(function* () {
+        const reviewer = yield* Reviewer;
+        yield* reviewer.setSettings(
+          ReviewerSettings.make({ default: null, workspaces: {}, onPullRequests: false })
+        );
+        const workspace = yield* openReview(s.user, s.v1);
+
+        const off = yield* summaryWhen(
+          (yield* reviewer.run(openRequest(workspace, false))).id,
+          ended
+        );
+
+        expect(off.layers.agent.status).toBe("skipped");
+        expect(off.layers.agent.note).toContain("doesn't run on pull requests by itself");
+        expect(off.layers.rules.status).toBe("completed");
+
+        const asked = yield* summaryWhen(
+          (yield* reviewer.run(openRequest(workspace, true))).id,
+          ended
+        );
+
+        expect(asked.layers.agent.status).toBe("completed");
       })
     );
   }, 60_000);

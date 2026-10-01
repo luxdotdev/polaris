@@ -96,6 +96,7 @@ const make = (
           model: record.session.model,
           effort: record.session.effort,
           resumeCursor: record.session.harnessCursor,
+          readOnly: Option.isSome(policy) && policy.value.readOnly(sessionId),
         })
         .pipe(
           Scope.provide(scope),

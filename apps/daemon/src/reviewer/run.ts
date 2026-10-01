@@ -10,6 +10,7 @@ import {
   type ReviewContext,
   type ReviewCheckoutId,
   type ReviewerChoice,
+  type ReviewerSettings,
   ReviewerRun,
   type ReviewSubject,
   RiskSummary,
@@ -33,7 +34,9 @@ import {
   toRiskFindings,
 } from "./output.ts";
 import { repairPrompt, reviewPrompt } from "./prompt.ts";
+import { canRunChecks } from "./policy.ts";
 import { type ReviewRange, resolveRange } from "./range.ts";
+import { askFirst, changedLines, switchedOff } from "./when.ts";
 import { continueReviewerSession, startReviewerSession, type TurnOutcome } from "./session.ts";
 
 export interface RunRequest {
@@ -88,13 +91,32 @@ const cached = (range: ReviewRange, refresh: boolean) =>
     return summary !== null && summary.status !== "failed" ? summary : null;
   });
 
+/** Who reviews this summary, and whether "When it runs" lets them now. */
+export interface ReviewerPlan {
+  readonly resolved: ResolvedReviewer;
+  /** Why the Reviewer doesn't run by itself here (a switch is off); null when it does. */
+  readonly off: string | null;
+  /** Ask first above this many changed lines; null never asks. */
+  readonly askAboveLines: number | null;
+}
+
+const agentAtStart = ({ resolved, off }: ReviewerPlan) => {
+  if (resolved.choice === null) return LayerRun.make({ status: "skipped", note: resolved.note });
+
+  return off === null
+    ? LayerRun.make({ status: "pending", note: null })
+    : LayerRun.make({ status: "skipped", note: off });
+};
+
 const startedSummary = (
   request: RunRequest,
   range: ReviewRange,
-  resolved: ResolvedReviewer,
+  plan: ReviewerPlan,
   now: string
-) =>
-  RiskSummary.make({
+) => {
+  const { resolved } = plan;
+
+  return RiskSummary.make({
     id: RiskSummaryId.make(`rs_${crypto.randomUUID()}`),
     key: range.key,
     workspaceId: range.workspaceId,
@@ -103,10 +125,7 @@ const startedSummary = (
     status: "running",
     layers: RiskSummaryLayers.make({
       rules: LayerRun.make({ status: "pending", note: null }),
-      agent: LayerRun.make({
-        status: resolved.choice === null ? "skipped" : "pending",
-        note: resolved.note,
-      }),
+      agent: agentAtStart(plan),
     }),
     reviewer:
       resolved.choice === null
@@ -123,6 +142,7 @@ const startedSummary = (
     startedAt: now,
     endedAt: null,
   });
+};
 
 // ── The Reviewer's layer ────────────────────────────────────────────────────
 
@@ -200,6 +220,7 @@ const askReviewer = Effect.fn("askReviewer")(function* (input: AgentInput) {
     head: range.head,
     since: range.key.since,
     earlierFindings: previous.findings,
+    runChecks: canRunChecks(choice.harness),
   });
 
   const outcome =
@@ -328,11 +349,19 @@ const ended = (summary: RiskSummary, sessionId: SessionId | null, resolved: Reso
   });
 
 /** The layers of a started summary, then its end. Never fails: a broken layer is recorded. */
+/** The "Ask first" note when the change is over the threshold, else null. */
+const overThreshold = (range: ReviewRange, askAboveLines: number | null) =>
+  askAboveLines === null
+    ? Effect.succeed(null)
+    : Effect.promise(() => readDiff(range.cwd, range.base, range.head)).pipe(
+        Effect.map((diff) => askFirst(changedLines(diff), askAboveLines))
+      );
+
 export const runLayers = (
   summary: RiskSummary,
   range: ReviewRange,
   input: {
-    readonly resolved: ResolvedReviewer;
+    readonly plan: ReviewerPlan;
     readonly context: ReviewContext | null;
   }
 ) =>
@@ -344,28 +373,42 @@ export const runLayers = (
       mode: range.mode,
     }).pipe(Effect.catchCause((cause) => Effect.logWarning("the Rules failed", cause)));
 
-    const choice = input.resolved.choice;
+    const { plan } = input;
+    const choice = plan.off === null ? plan.resolved.choice : null;
+    const waiting = choice === null ? null : yield* overThreshold(range, plan.askAboveLines);
+
+    if (waiting !== null)
+      yield* agentLayer(summary.id, LayerRun.make({ status: "pending", note: waiting }));
 
     const sessionId =
-      choice === null
+      choice === null || waiting !== null
         ? null
         : yield* runAgentLayer({ summary, range, choice, context: input.context });
 
-    return yield* ended(summary, sessionId, input.resolved);
+    return yield* ended(summary, sessionId, plan.resolved);
   });
 
 export const startRun = (
   request: RunRequest,
-  resolve: (workspaceId: WorkspaceId) => Effect.Effect<ResolvedReviewer>
+  resolve: (
+    workspaceId: WorkspaceId
+  ) => Effect.Effect<{ readonly resolved: ResolvedReviewer; readonly settings: ReviewerSettings }>
 ) =>
   Effect.gen(function* () {
     const range = yield* resolveRange(request.subject, request.checkoutId, request.since);
     const existing = yield* cached(range, request.refresh);
 
-    if (existing !== null) return { summary: existing, range, resolved: null };
-    const resolved = yield* resolve(range.workspaceId);
-    const summary = startedSummary(request, range, resolved, new Date().toISOString());
+    if (existing !== null) return { summary: existing, range, plan: null };
+    const { resolved, settings } = yield* resolve(range.workspaceId);
+
+    const plan: ReviewerPlan = {
+      resolved,
+      off: switchedOff(request.subject, settings, request.refresh),
+      askAboveLines: request.refresh ? null : settings.askAboveLines,
+    };
+
+    const summary = startedSummary(request, range, plan, new Date().toISOString());
     yield* commit([DomainEvent.cases.RiskSummaryStarted.make({ summary })]);
 
-    return { summary, range, resolved };
+    return { summary, range, plan };
   });

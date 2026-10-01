@@ -28,7 +28,7 @@ import { ApprovalPolicy, ReviewCheckoutGit, Rules, type ServiceError } from "../
 import { EventStore } from "../store/EventStore.ts";
 import { askReviewer } from "./ask.ts";
 import { ReviewerSessions } from "./sessions.ts";
-import { reviewerDecision } from "./policy.ts";
+import { canRunChecks, reviewerDecision } from "./policy.ts";
 import { type RunRequest, runLayers, startRun } from "./run.ts";
 import { loadSettings, resolveReviewer, saveSettings, settingsPath } from "./settings.ts";
 
@@ -44,7 +44,12 @@ export const ReviewerPolicyLive = Layer.effect(
 
     return ApprovalPolicy.of({
       decide: (request) =>
-        Effect.sync(() => (sessions.has(request.sessionId) ? reviewerDecision(request) : null)),
+        Effect.sync(() =>
+          sessions.has(request.sessionId)
+            ? reviewerDecision(request, { runChecks: canRunChecks(request.harness) })
+            : null
+        ),
+      readOnly: (sessionId) => sessions.has(sessionId),
     });
   })
 );
@@ -151,7 +156,9 @@ const make = (options: ReviewerOptions) =>
           ? yield* availability.value.get(false)
           : NO_HARNESSES;
 
-        return resolveReviewer(yield* loadSettings(path), workspaceId, harnesses);
+        const settings = yield* loadSettings(path);
+
+        return { settings, resolved: resolveReviewer(settings, workspaceId, harnesses) };
       });
 
     const fork = <R>(work: Effect.Effect<void, never, R>) =>
@@ -161,11 +168,11 @@ const make = (options: ReviewerOptions) =>
       Effect.gen(function* () {
         const started = yield* starting.withPermits(1)(startRun(request, resolve));
 
-        if (started.resolved === null) return started.summary;
-        const { summary, range, resolved } = started;
+        if (started.plan === null) return started.summary;
+        const { summary, range, plan } = started;
 
         const work = Effect.gen(function* () {
-          const ok = yield* runLayers(summary, range, { resolved, context: request.context });
+          const ok = yield* runLayers(summary, range, { plan, context: request.context });
 
           if (
             ok &&
@@ -234,7 +241,7 @@ const make = (options: ReviewerOptions) =>
       ask,
       settings: (workspaceId) =>
         Effect.gen(function* () {
-          return { settings: yield* loadSettings(path), resolved: yield* resolve(workspaceId) };
+          return yield* resolve(workspaceId);
         }),
       setSettings: (settings) => saveSettings(path, settings),
     });

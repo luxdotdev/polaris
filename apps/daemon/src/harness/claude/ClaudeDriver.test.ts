@@ -278,6 +278,23 @@ describe("Claude driver", () => {
     await t.close();
   });
 
+  test("a read-only session runs Bash in the sandbox with no network and no web tools", async () => {
+    const t = await openFake({ readOnly: true });
+    const o = t.fake.options!;
+
+    expect(o.sandbox).toMatchObject({
+      enabled: true,
+      allowUnsandboxedCommands: false,
+      network: { allowedDomains: [], strictAllowlist: true },
+    });
+    expect(o.disallowedTools).toEqual(["WebFetch", "WebSearch"]);
+    await t.close();
+
+    const plain = await openFake();
+    expect(plain.fake.options!.sandbox).toBeUndefined();
+    await plain.close();
+  });
+
   test("full-access keeps canUseTool, so leaving it mid-session still asks", async () => {
     const t = await openFake({ permissionMode: "full-access" });
     expect(t.fake.options!.permissionMode).toBe("bypassPermissions");
