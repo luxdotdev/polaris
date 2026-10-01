@@ -12,6 +12,7 @@ import { closeTab, runInTerminal } from "../../terminal/actions.ts";
 import { emptyDrawer, tabOf, type TerminalTab } from "../../terminal/model/tabs.ts";
 import { drawerKey, drawers } from "../../terminal/store.ts";
 import type { Held } from "./actions.ts";
+import { followExit } from "./exit.ts";
 import { LOCKFILES, loginShellArgv, runCommandOf } from "./model/run.ts";
 
 export const runTabKey = (held: Pick<Held, "checkout">) => `review-run:${held.checkout.id}`;
@@ -116,17 +117,22 @@ export const useRun = (held: Held | null): RunState | null => {
   return { command, startedAt: started.get(runTabKey(held)) ?? Date.now() };
 };
 
-export const startRun = (held: Held, command: string) => {
+export const startRun = async (held: Held, command: string) => {
   const key = runTabKey(held);
 
   started.set(key, Date.now());
 
-  return runInTerminal(placeOf(held), {
+  const terminalId = await runInTerminal(placeOf(held), {
     key,
     title: command,
     cwd: held.checkout.path,
     argv: loginShellArgv(command),
   });
+
+  // A command that ends on its own (a crash, a build that finishes) returns the chip to Run.
+  if (terminalId !== null) followExit(held.hostKey, terminalId, () => started.delete(key));
+
+  return terminalId;
 };
 
 /** Ends the run and waits for the Host to close its terminal, so an update or removal isn't refused. */

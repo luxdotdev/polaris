@@ -12,8 +12,7 @@ import { Commands } from "../../../commands.ts";
 import { polaris } from "../../bridge.ts";
 import { send } from "../../session/dispatch.ts";
 import { runInTerminal } from "../../terminal/actions.ts";
-import { emptyDrawer, tabOf } from "../../terminal/model/tabs.ts";
-import { drawerKey, drawers } from "../../terminal/store.ts";
+import { followExit } from "./exit.ts";
 import { cloneCommand, clonePath, cloneUrl } from "./model/clone.ts";
 import { loginShellArgv } from "./model/run.ts";
 import { rememberHost, repoName } from "./store.ts";
@@ -57,42 +56,37 @@ const freePath = async (target: CloneTarget, name: string) => {
   return clonePath(target.homeDir, name, 10);
 };
 
-/** Follows the clone's terminal until it ends, then adds the Workspace or says what failed. */
-const follow = (repo: string, target: CloneTarget, path: string, name: string, tabKey: string) => {
-  const off = drawers.subscribe((all) => {
-    const tab = tabOf(all[drawerKey(target.hostKey, CLONE_DRAWER)] ?? emptyDrawer, tabKey);
-    const status = tab?.status;
-
-    if (status === undefined || status.kind === "opening" || status.kind === "live") return;
-    off();
-
-    if (status.kind === "exited" && status.code === 0) {
-      setClone(repo, {
-        hostKey: target.hostKey,
-        host: target.label,
-        path,
-        status: "added",
-        message: null,
-      });
-      void send(
-        target.hostKey,
-        Commands.RegisterWorkspace({ path, name }),
-        "Couldn’t add the cloned folder as a workspace"
-      );
-
-      return;
-    }
-
+/** Once git exits: the folder becomes a Workspace, or the chip says what failed. */
+const finished = (
+  repo: string,
+  target: CloneTarget,
+  path: string,
+  name: string,
+  code: number | null
+) => {
+  if (code === 0) {
     setClone(repo, {
       hostKey: target.hostKey,
       host: target.label,
       path,
-      status: "failed",
-      message:
-        status.kind === "failed"
-          ? status.message
-          : `git clone exited with code ${status.code ?? "?"}; its output is in the terminal`,
+      status: "added",
+      message: null,
     });
+    void send(
+      target.hostKey,
+      Commands.RegisterWorkspace({ path, name }),
+      "Couldn’t add the cloned folder as a workspace"
+    );
+
+    return;
+  }
+
+  setClone(repo, {
+    hostKey: target.hostKey,
+    host: target.label,
+    path,
+    status: "failed",
+    message: `git clone exited with code ${code ?? "?"}; its output is in the terminal`,
   });
 };
 
@@ -110,7 +104,6 @@ export const cloneOn = async (target: CloneTarget, pull: OpenPull, codeHost: str
     status: "cloning",
     message: null,
   });
-  follow(repo, target, path, name, tabKey);
 
   const terminal = await runInTerminal(
     { hostKey: target.hostKey, workspaceId: CLONE_DRAWER },
@@ -122,15 +115,19 @@ export const cloneOn = async (target: CloneTarget, pull: OpenPull, codeHost: str
     }
   );
 
-  if (terminal === null) {
-    setClone(repo, {
-      hostKey: target.hostKey,
-      host: target.label,
-      path,
-      status: "failed",
-      message: "Couldn’t open a terminal on the host",
-    });
+  if (terminal !== null) {
+    followExit(target.hostKey, terminal, (code) => finished(repo, target, path, name, code));
+
+    return;
   }
+
+  setClone(repo, {
+    hostKey: target.hostKey,
+    host: target.label,
+    path,
+    status: "failed",
+    message: "Couldn’t open a terminal on the host",
+  });
 };
 
 /** Forgets a finished clone once its Workspace holds the repository. */

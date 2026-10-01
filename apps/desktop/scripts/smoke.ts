@@ -30,7 +30,7 @@ import { runSubagent, subagentAfterRelaunch } from "./lib/subagentFlow.ts";
 import { terminalFlow } from "./lib/terminalFlow.ts";
 import { githubFlow, MOCK_KEYCHAIN, serveGitHubFake } from "./lib/githubFlow.ts";
 import { addRemotes, pullsFlow } from "./lib/pullsFlow.ts";
-import { afterMerge, checkoutFlow, setFakeHead } from "./lib/checkoutFlow.ts";
+import { afterMerge, checkoutFlow, cloneFlow, setFakeHead } from "./lib/checkoutFlow.ts";
 import { reviewFlow, setupCodeHost } from "./lib/reviewFlow.ts";
 import { findingsFlow } from "./lib/findingsFlow.ts";
 import { acceptFlow } from "./lib/acceptFlow.ts";
@@ -503,6 +503,14 @@ try {
     },
   });
   await afterMerge({ page, step, shoot: (name) => shoot(page, name) });
+  await cloneFlow({
+    page,
+    fake: github.fake,
+    codeHostRoot: codeHost.root,
+    userHome,
+    step,
+    shoot: (name) => shoot(page, name),
+  });
 
   let probeTimer: ReturnType<typeof setTimeout> | undefined;
 
