@@ -31,6 +31,7 @@ import type {
   HostInfo,
   HostStreamItem,
   ConstellationResult,
+  HostResourcesSnapshot,
   ConstellationStreamItem,
   PlanLimit,
   RiskSummary,
@@ -47,6 +48,7 @@ import type { Rpc } from "effect/rpc";
 import type { CommandId } from "./keymap.ts";
 import type { PullRef } from "./github.ts";
 import type { ConstellationMethod } from "./constellationContract.ts";
+import type { ResourceMethod } from "./resourcesContract.ts";
 import type { GitHubRequestOutputs, GitHubSubscriptionItems } from "./githubContract.ts";
 import type { NeedsYouAction } from "./needsYou.ts";
 import type {
@@ -284,7 +286,13 @@ export type ConstellationRequestOutputs = {
   readonly [M in ConstellationMethod]: Plain<ConstellationResult>;
 };
 
-export interface RequestOutputs extends GitHubRequestOutputs, ConstellationRequestOutputs {
+/** Every Host resource request answers with the Host's whole resources snapshot. */
+export type ResourceRequestOutputs = {
+  readonly [M in ResourceMethod]: Plain<HostResourcesSnapshot>;
+};
+
+export interface RequestOutputs
+  extends GitHubRequestOutputs, ConstellationRequestOutputs, ResourceRequestOutputs {
   "settings.get": SettingsView;
   "cache.get": ReadonlyArray<CachedHost>;
   "cache.put": null;

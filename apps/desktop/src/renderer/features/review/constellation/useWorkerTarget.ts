@@ -13,8 +13,8 @@ export interface Worker {
 
 /** The worker this session is, with the Lead's Host its commands go to; null for any other session. */
 export const useWorkerTarget = (hostKey: string, sessionId: SessionId | null): Worker | null => {
-  // SAFETY: no session has the empty id, so with none open the lookup finds no worker.
-  const worker = useWorkerAttempt(hostKey, sessionId ?? ("" as SessionId));
+  // No session has the empty id, so with none open the lookup finds no worker.
+  const worker = useWorkerAttempt(hostKey, sessionId ?? "");
   const hostId = worker?.view.constellation.hostId;
 
   const leadHostKey = useApp(

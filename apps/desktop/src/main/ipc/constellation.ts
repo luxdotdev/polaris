@@ -46,6 +46,20 @@ export const constellationHandlers = {
     live(hostKey, (s) => s.client["constellation.status"](payload)),
 };
 
+/** Settings → Hosts: resources and the worker cap; every call answers with the whole snapshot. */
+export const resourceHandlers = {
+  "host.resources.get": ({ hostKey }: RequestInput<"host.resources.get">) =>
+    live(hostKey, (s) => s.client["host.resources.get"]({})),
+  "host.resources.declare": ({ hostKey, ...payload }: RequestInput<"host.resources.declare">) =>
+    live(hostKey, (s) => s.client["host.resources.declare"](payload)),
+  "host.resources.remove": ({ hostKey, ...payload }: RequestInput<"host.resources.remove">) =>
+    live(hostKey, (s) => s.client["host.resources.remove"](payload)),
+  "host.resources.release": ({ hostKey, ...payload }: RequestInput<"host.resources.release">) =>
+    live(hostKey, (s) => s.client["host.resources.release"](payload)),
+  "host.workers.setCap": ({ hostKey, ...payload }: RequestInput<"host.workers.setCap">) =>
+    live(hostKey, (s) => s.client["host.workers.setCap"](payload)),
+};
+
 /** The Constellation's stream; it ends when the connection drops (resubscribe with `afterSequence`). */
 export const constellationFeed = ({ hostKey, ...payload }: SubscriptionInput<"constellation">) =>
   Stream.unwrap(
