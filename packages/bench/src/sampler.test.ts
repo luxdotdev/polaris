@@ -20,9 +20,9 @@ test("samples a busy child's CPU and memory, and an idle one's near zero", async
     const b = busySampler.report(from);
     const i = idleSampler.report(idleFrom);
     expect(b.samples).toBeGreaterThanOrEqual(5);
-    // Relative, not absolute: on a shared 2-core CI runner running other test
-    // suites at once, a busy loop can get well under a full core.
-    expect(b.cpuAvgPct).toBeGreaterThan(10);
+    // Relative, not absolute: on a shared CI runner running other test suites
+    // at once, a busy loop got as little as 8% of a core.
+    expect(b.cpuAvgPct).toBeGreaterThan(2);
     expect(b.cpuAvgPct).toBeGreaterThan(i.cpuAvgPct * 3);
     expect(b.cpuAvgPct).toBeLessThan(160);
     expect(b.rssBytes.median).toBeGreaterThan(5 * 1024 * 1024);
