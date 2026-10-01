@@ -8,6 +8,7 @@ the full text is in the named canonical file; do not restate it.
 | ID | Source | Enforcement |
 | --- | --- | --- |
 | rule/colour-means-something | DESIGN.md, Colors, Named Rules | agent |
+| rule/constellation-colour | DESIGN.md, Colors, Named Rules; Constellation (DAG) | agent |
 | rule/starlight-is-rare | DESIGN.md, Colors, Named Rules | agent |
 | rule/no-colour-alone | DESIGN.md, Colors, Named Rules | agent |
 | rule/context-is-quiet | DESIGN.md, Components, Turns in the conversation | agent (`contextLabel` tests) |

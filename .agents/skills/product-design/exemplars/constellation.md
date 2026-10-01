@@ -50,6 +50,7 @@ for viewing any single agent, including subagents, inside a larger effort.
 
 ## Known flaws
 
-- Authoring, send-back, and retry flows are undesigned.
-- Only dark; no empty Constellation; long Constellations (100+ Tasks)
-  untested for folding and scroll.
+- Superseded in part by the Paper page "C1 · Constellation per Lead"
+  (ENG-242, proposed): one Constellation per Lead, state colours, Claims.
+- No empty Constellation; long Constellations (100+ Tasks) untested for
+  folding and scroll.

@@ -14,9 +14,10 @@ instead of inventing a standard inline. Promote through `intake.md`.
 - Onboarding and first Host setup (SSH, Daemon install approval).
 - Two agents or you and an agent editing the same lines in the Editor (E3
   shows presence only).
-- Constellation authoring: how the orchestrator or user creates and edits
-  Tasks and Gates; send-back and retry flows for an Attempt.
-- Light-mode Constellation and light-mode inline chat: only dark exists.
+- Constellation authoring: how the Lead or user creates and edits Tasks and
+  Gates in the UI (the Lead plans through tools; send-back is drawn in C3).
+- Constellation: the Accept panel and Balanced/Compact density are undrawn.
+  Light-mode inline chat: only dark exists.
 - Density: no artboard at Balanced or Compact; the token tables are
   untested visually.
 - Terminal view (Bun.Terminal) styling: no artboard.
