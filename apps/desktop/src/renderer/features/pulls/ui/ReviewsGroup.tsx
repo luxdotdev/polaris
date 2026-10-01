@@ -6,7 +6,7 @@ import { useShellActions } from "../../../shell/hooks.ts";
 import { age } from "../../../shell/copy.ts";
 import { useNow } from "../../../shell/useNow.ts";
 import { openPull } from "../../../routes/review.ts";
-import type { PullRowView } from "../../../../shared/github.ts";
+import { type PullRowView, repoOfRow } from "../../../../shared/github.ts";
 import { usePulls } from "../store.ts";
 import { PullGlyph } from "./glyphs.tsx";
 
@@ -17,10 +17,10 @@ export const useRequested = () => usePulls((s) => s.list?.requested ?? EMPTY);
 
 const Card = ({ row, now }: { readonly row: PullRowView; readonly now: number }) => {
   const actions = useShellActions();
-  const [owner = "", name = ""] = row.repo.split("/");
+  const repo = repoOfRow(row);
+  const { name } = repo;
 
-  const open = () =>
-    openPull(actions, { repo: { owner, name }, number: row.number, pullId: row.id });
+  const open = () => openPull(actions, { repo, number: row.number, pullId: row.id });
 
   const detail = [`#${row.number}`, name, row.author?.login]
     .filter((part) => part !== undefined)

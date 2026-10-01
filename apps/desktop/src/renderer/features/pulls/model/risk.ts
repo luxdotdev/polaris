@@ -43,6 +43,10 @@ export const laneOf = (summary: SummaryFacts | null): RiskLane => {
   return summary.status === "running" ? { kind: "running" } : NOT_RUN;
 };
 
-/** A pull request's key across the list, Review Checkouts and Risk Summaries. */
+/** A pull request's Review subject key part (`owner/name#n`), as `subjectKey` spells it. */
 export const pullKey = (owner: string, name: string, number: number) =>
   `${owner}/${name}#${number}`.toLowerCase();
+
+/** A pull request across Hosts' Review Checkouts: its code host too (GitHub Enterprise). */
+export const checkoutKey = (host: string, owner: string, name: string, number: number) =>
+  `${host}/${owner}/${name}#${number}`.toLowerCase();

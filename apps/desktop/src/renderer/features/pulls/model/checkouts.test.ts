@@ -46,9 +46,10 @@ describe("checkoutsByPull", () => {
       linux: model([checkout("new", { updatedAt: "2026-10-01T05:00:00.000Z" })]),
     });
 
-    expect([...found.keys()]).toEqual(["acme/widgets#42"]);
-    expect(found.get("acme/widgets#42")?.hostKey).toBe("linux");
-    expect(found.get("acme/widgets#42")?.repo).toBe("github.com/acme/widgets");
+    expect([...found.keys()]).toEqual(["github.com/acme/widgets#42"]);
+    expect(found.get("github.com/acme/widgets#42")?.hostKey).toBe("linux");
+    expect(found.get("github.com/acme/widgets#42")?.repo).toBe("github.com/acme/widgets");
+    expect(found.get("github.com/acme/widgets#42")?.subjectKey).toBe("pull:acme/widgets#42");
   });
 
   test("a checkout being removed, or an Agent Session's, isn't one", () => {

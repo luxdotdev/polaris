@@ -6,15 +6,17 @@
 import { harnessHue } from "@polaris/ui";
 import type { SessionId } from "@polaris/protocol";
 import type { OpenPull } from "../../../../shared/api.ts";
-import type {
-  GitHubAccountsView,
-  PullListView,
-  PullRowView,
-  WorkspaceRef,
+import {
+  type GitHubAccountsView,
+  type PullListView,
+  type PullRowView,
+  type WorkspaceRef,
+  hostOf,
+  repoOfRow,
 } from "../../../../shared/github.ts";
 import { age, plural } from "../../../shell/copy.ts";
 import { readySessions, type SessionInfo } from "../../review/model/queue.ts";
-import { pullKey, type RiskLane } from "./risk.ts";
+import { checkoutKey, pullKey, type RiskLane } from "./risk.ts";
 
 export type GroupId = "requested" | "sessions" | "mine" | "other";
 
@@ -98,7 +100,7 @@ export interface ListInput {
   /** Null for all accounts. */
   readonly accountId: number | null;
   readonly placeOf: PlaceOf;
-  /** `pullKey` → the Host label of its Review Checkout, when one exists. */
+  /** `checkoutKey` → the Host label of its Review Checkout, when one exists. */
   readonly checkouts: ReadonlyMap<string, string>;
   /** A Review subject's key (`pull:owner/name#n`, `session:host:id`) → its risk lane. */
   readonly riskOf: (subjectKey: string) => RiskLane;
@@ -121,11 +123,7 @@ const LABELS: Readonly<Record<GroupId, string>> = {
   other: "Other open",
 };
 
-const repoRef = (row: PullRowView) => {
-  const [owner = "", name = ""] = row.repo.split("/");
-
-  return { owner, name };
-};
+const repoRef = (row: PullRowView) => repoOfRow(row);
 
 const metaOf = (row: PullRowView, group: PullGroupId) => {
   const who = group === "mine" ? row.headRefName : (row.author?.login ?? null);
@@ -161,16 +159,21 @@ const laneOf = (row: PullRowView, placeOf: PlaceOf, checkout: string | undefined
 type PullGroupId = Exclude<GroupId, "sessions">;
 
 const rowOf = (row: PullRowView, group: PullGroupId, input: ListInput): PullRowModel => {
-  const { owner, name } = repoRef(row);
+  const repo = repoRef(row);
+  const { owner, name } = repo;
   const key = pullKey(owner, name, row.number);
 
   return {
     kind: "pull",
     id: row.id,
-    pull: { repo: { owner, name }, number: row.number, pullId: row.id },
+    pull: { repo, number: row.number, pullId: row.id },
     title: row.title,
     meta: metaOf(row, group),
-    workspace: laneOf(row, input.placeOf, input.checkouts.get(key)),
+    workspace: laneOf(
+      row,
+      input.placeOf,
+      input.checkouts.get(checkoutKey(hostOf(repo), owner, name, row.number))
+    ),
     additions: row.additions,
     deletions: row.deletions,
     risk: input.riskOf(`pull:${key}`),

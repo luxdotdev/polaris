@@ -125,7 +125,7 @@ describe("listModel", () => {
     const model = listModel(
       input({
         list: list({ other: [row("x", { workspaces: [ws("away")] }), row("y", { number: 89 })] }),
-        checkouts: new Map([["acme/widgets#89", "Linux VM"]]),
+        checkouts: new Map([["github.com/acme/widgets#89", "Linux VM"]]),
       })
     );
 
@@ -133,6 +133,24 @@ describe("listModel", () => {
 
     expect(x?.workspace).toEqual({ name: "sightline", where: "Pi · reconnecting", away: true });
     expect(y?.workspace?.where).toBe("Linux VM · checked out");
+  });
+
+  test("a GitHub Enterprise pull request keeps its host, for opening and its checkout", () => {
+    const model = listModel(
+      input({
+        list: list({ requested: [row("g", { host: "ghe.acme.com" })] }),
+        checkouts: new Map([["ghe.acme.com/acme/widgets#88", "Mac Studio"]]),
+      })
+    );
+
+    const [g] = model.groups[0]?.rows ?? [];
+
+    expect(g?.kind === "pull" ? g.pull.repo : null).toEqual({
+      host: "ghe.acme.com",
+      owner: "acme",
+      name: "widgets",
+    });
+    expect(g?.workspace?.where).toBe("Mac Studio · checked out");
   });
 
   test("the risk lane comes from the pull request's or session's subject key", () => {

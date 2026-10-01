@@ -63,12 +63,12 @@ export const useRiskLanes = (
   const cached = useStore(cachedStore);
 
   useEffect(() => {
-    for (const [pull, found] of checkouts) ask(`pull:${pull}`, found);
+    for (const found of checkouts.values()) ask(found.subjectKey, found);
   }, [checkouts]);
 
   return useMemo(() => {
     const heads = new Map(
-      [...checkouts].map(([pull, found]) => [`pull:${pull}`, found.checkout.head])
+      [...checkouts.values()].map((found) => [found.subjectKey, found.checkout.head])
     );
 
     return (subjectKey: string) => {

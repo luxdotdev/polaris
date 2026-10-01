@@ -23,6 +23,15 @@ export interface RepoRef {
 
 export const hostOf = (repo: RepoRef) => repo.host ?? GITHUB_HOST;
 
+/** A list row's repository (`owner/name` and its host) as a `RepoRef`; github.com stays implicit. */
+export const repoOfRow = (row: { readonly repo: string; readonly host?: string }): RepoRef => {
+  const [owner = "", name = ""] = row.repo.split("/");
+
+  return row.host === undefined || row.host === GITHUB_HOST
+    ? { owner, name }
+    : { host: row.host, owner, name };
+};
+
 /** A Workspace on a Host: where a repository's pull requests are reviewed. */
 export interface WorkspaceRef {
   readonly hostKey: string;
