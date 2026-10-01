@@ -9,6 +9,7 @@ import { Match } from "effect";
 import { useEffect, useState } from "react";
 import type { RequestOutput } from "../../../../shared/api.ts";
 import { useApp } from "../../../shell/hooks.ts";
+import { polaris } from "../../bridge.ts";
 import { usageChangeAction } from "../model/indexing.ts";
 import type { Limit } from "../model/planLimits.ts";
 import { type Bucket, type RangeDays, rangeWindow } from "../model/usage.ts";
@@ -68,7 +69,7 @@ export const useUsage = (days: RangeDays): UsageData => {
 
     void Promise.all(
       hosts.map((hostKey) =>
-        window.polaris
+        polaris()
           .request("usage.query", { hostKey, ...range, harness: null, sessionId: null })
           .then((result) => ({ hostKey, view: result.ok ? result.value : null }))
       )
@@ -110,7 +111,7 @@ export const useUsage = (days: RangeDays): UsageData => {
     };
 
     const offs = splitKeys(hostKeys).map((hostKey) =>
-      window.polaris.subscribe(
+      polaris().subscribe(
         "usage",
         { hostKey },
         {

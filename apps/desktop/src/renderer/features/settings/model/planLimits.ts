@@ -1,10 +1,10 @@
 /**
  * Plan Limits for Settings → Usage (DESIGN.md, Settings): one row per Harness
- * with its plan, freshness, and each window as a 40-cell meter. Near a limit
- * the words change, never the colour.
+ * with its plan, freshness, and each window as a 40-cell meter of what's left,
+ * emptying as it's used. Near a limit the words change, never the colour.
  */
 import { harnessEntry, type PlanLimit } from "@polaris/protocol";
-import { limitAge } from "../../harness/model/limits.ts";
+import { leftCells, leftPhrase, limitAge } from "../../harness/model/limits.ts";
 import type { Plain } from "../../../../shared/api.ts";
 
 export type Limit = Plain<PlanLimit>;
@@ -15,9 +15,10 @@ export interface LimitWindow {
   readonly key: string;
   /** "5-hour window", "Weekly", "Weekly · Opus". */
   readonly label: string;
-  /** "62%", or null when the Harness reported only a status. */
-  readonly percent: string | null;
-  readonly litCells: number;
+  /** "38% left", "<1% left", or null when the Harness reported only a status. */
+  readonly left: string | null;
+  /** Cells filled with what's left: 40 unused, 0 at the limit; status-only readings fill by status. */
+  readonly filledCells: number;
   /** "Resets in 1h 48m", "Near the limit · resets Thu 09:00", "Limit reached". */
   readonly note: string;
 }
@@ -89,21 +90,21 @@ const note = (limit: Limit, now: number): string => {
   return reset === null ? words : `${words} · ${reset}`;
 };
 
-/** A status-only reading lights the whole meter when reached, none otherwise. */
-const litCells = (used: number | null, status: Limit["status"]) => {
-  if (used !== null) return Math.round((used / 100) * METER_CELLS);
+/** A status-only reading (OpenCode): empty when reached, else full; its words say the rest. */
+const filledCells = (used: number | null, status: Limit["status"]) => {
+  if (used !== null) return leftCells(used, METER_CELLS);
 
-  return status === "reached" ? METER_CELLS : 0;
+  return status === "reached" ? 0 : METER_CELLS;
 };
 
 const limitWindow = (limit: Limit, now: number): LimitWindow => {
-  const used = limit.usedPercent === null ? null : Math.min(100, Math.max(0, limit.usedPercent));
+  const used = limit.usedPercent;
 
   return {
     key: `${limit.kind}\u0000${limit.scope ?? ""}`,
     label: windowLabel(limit),
-    percent: used === null ? null : `${Math.round(used)}%`,
-    litCells: litCells(used, limit.status),
+    left: used === null ? null : leftPhrase(used),
+    filledCells: filledCells(used, limit.status),
     note: note(limit, now),
   };
 };
