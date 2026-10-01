@@ -30,6 +30,7 @@ const WorkspaceIoRpcs = DaemonRpcs.omit(
   "subscribeSession",
   "session.terminalCommand",
   "harness.models",
+  "harness.commands",
   "harness.availability",
   "harness.watchAvailability",
   "usage.query",

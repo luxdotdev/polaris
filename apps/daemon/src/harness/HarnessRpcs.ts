@@ -1,21 +1,24 @@
 /**
  * Handler for `harness.models`: each Harness's Models, asked of the Harness
  * itself through its driver (ENG-202) and cached per Host for the Daemon's
- * lifetime. `refresh` asks again; a failed listing is never cached.
+ * lifetime. `refresh` asks again; a failed listing is never cached. Also mounts
+ * `harness.commands` (`CommandLists.ts`).
  */
 import {
   type HarnessKind,
   HarnessModels,
   HarnessUnavailable,
   isKnownHarness,
+  ListHarnessCommands,
   ListModels,
   NotFound,
 } from "@polaris/protocol";
 import { Clock, Effect } from "effect";
 import { RpcGroup } from "effect/rpc";
 import { HarnessRegistry } from "../services.ts";
+import { commandLists } from "./CommandLists.ts";
 
-export class HarnessRpcs extends RpcGroup.make(ListModels) {}
+export class HarnessRpcs extends RpcGroup.make(ListModels, ListHarnessCommands) {}
 
 type Listing = Effect.Effect<HarnessModels, NotFound | HarnessUnavailable>;
 
@@ -72,5 +75,5 @@ export const makeModelLists = Effect.gen(function* () {
 
 /** Requires `HarnessRegistry`. */
 export const HarnessRpcsLive = HarnessRpcs.toLayer(
-  Effect.map(makeModelLists, (list) => ({ "harness.models": list }))
+  Effect.all({ "harness.models": makeModelLists, "harness.commands": commandLists })
 );
