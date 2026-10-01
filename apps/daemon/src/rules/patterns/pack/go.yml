@@ -1,0 +1,34 @@
+id: go-tls-verification-off
+language: go
+severity: error
+message: TLS certificate verification is turned off
+note: "Without certificate checks, anyone on the network path can impersonate the server. Configure RootCAs instead."
+metadata: { polaris-severity: Critical, category: security }
+rule:
+  kind: keyed_element
+  regex: '^InsecureSkipVerify:\s*true$'
+---
+id: go-shell-command
+language: go
+severity: warning
+message: A command run through sh -c can be injected
+note: "The command string goes through a shell, where untrusted text can run commands. Call the program directly with its arguments."
+metadata: { polaris-severity: High, category: security }
+rule:
+  pattern: exec.Command($SH, "-c", $$$)
+---
+id: go-sql-sprintf
+language: go
+severity: error
+message: SQL built with fmt.Sprintf can be injected
+note: "Values formatted into SQL can change the query. Use placeholders and pass the values as arguments."
+metadata: { polaris-severity: Critical, category: security }
+rule:
+  kind: call_expression
+  all:
+    - has:
+        {
+          field: function,
+          regex: '\.(Query|QueryRow|Exec|QueryContext|ExecContext|QueryRowContext)$',
+        }
+    - has: { field: arguments, has: { kind: call_expression, regex: '^fmt\.Sprintf\(' } }

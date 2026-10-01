@@ -9,6 +9,7 @@
  *   polaris upgrade <path>         install <path> and hand the running Daemon over to it in place
  *   polaris version                print the version and platform
  *   polaris selftest               check this build's native libraries work here (exit 1 if not)
+ *   polaris rules-scan             (internal) run the Rules' pattern scan; the Daemon starts it
  */
 // Every command loads only what it needs: `bridge` runs once per remote Client for as
 // long as it stays connected, and `serve` should not carry the install code.
@@ -39,6 +40,12 @@ switch (command) {
     const result = await selfTest();
     console.log(result.lines.join("\n"));
     process.exitCode = result.ok ? 0 : 1;
+    break;
+  }
+
+  case "rules-scan": {
+    const { runRulesScan } = await import("./rules/patterns/child.ts");
+    process.exit(await runRulesScan());
     break;
   }
 

@@ -13,6 +13,7 @@ import {
   readFileSync,
   readlinkSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -81,7 +82,7 @@ case "$1" in
   version) echo "polaris ${version} ${platform}" ;;
   install)
     dir="$HOME/.polaris/bin/${version}"; mkdir -p "$dir"
-    cp "$0" "$dir/polaris"; cp "$(dirname "$0")/libnative.so" "$dir/"
+    cp "$0" "$dir/polaris"; cp "$(dirname "$0")/libnative.so" "$(dirname "$0")/betterleaks" "$dir/"
     ln -sfn "${version}" "$HOME/.polaris/bin/current"
     echo '{"ok":true,"action":"install","version":"${version}"}' ;;
   upgrade)
@@ -97,10 +98,12 @@ const sha = (content: string) => createHash("sha256").update(content).digest("he
 const writeDist = (version: string): ReadonlyArray<DaemonBuild> => {
   const binary = fakePolaris(version);
   const native = `native library ${version}`;
+  const scanner = `#!/bin/sh\necho betterleaks ${version}\n`;
   mkdirSync(join(dist, platform), { recursive: true });
   writeFileSync(join(dist, platform, "polaris"), binary);
   chmodSync(join(dist, platform, "polaris"), 0o755);
   writeFileSync(join(dist, platform, "libnative.so"), native);
+  writeFileSync(join(dist, platform, "betterleaks"), scanner);
   writeFileSync(
     join(dist, "manifest.json"),
     JSON.stringify({
@@ -114,6 +117,7 @@ const writeDist = (version: string): ReadonlyArray<DaemonBuild> => {
           files: {
             polaris: { sha256: sha(binary), size: binary.length },
             "libnative.so": { sha256: sha(native), size: native.length },
+            betterleaks: { sha256: sha(scanner), size: scanner.length, executable: true },
           },
         },
       },
@@ -180,6 +184,9 @@ describe("ensureDaemon", () => {
     expect(readFileSync(join(host, ".polaris/bin/1.0.0/libnative.so"), "utf8")).toBe(
       "native library 1.0.0"
     );
+    // Files the manifest marks executable upload as 755, others as 644.
+    expect(statSync(join(host, ".polaris/bin/1.0.0/betterleaks")).mode & 0o777).toBe(0o755);
+    expect(statSync(join(host, ".polaris/bin/1.0.0/libnative.so")).mode & 0o777).toBe(0o644);
     // The upload directory is cleaned up.
     expect(
       Bun.spawnSync(["ls", join(host, ".polaris")])

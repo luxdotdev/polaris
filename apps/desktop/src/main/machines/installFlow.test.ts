@@ -12,7 +12,15 @@ const build: DaemonBuild = {
   platform: "linux-arm64",
   version: "0.2.0",
   sha256: "abc123",
-  files: [{ name: "polaris", path: "/dist/linux-arm64/polaris", sha256: "abc123", size: 1 }],
+  files: [
+    {
+      name: "polaris",
+      path: "/dist/linux-arm64/polaris",
+      sha256: "abc123",
+      size: 1,
+      executable: true,
+    },
+  ],
 };
 
 const run = (...events: ReadonlyArray<InstallEvent>): InstallSnapshot =>

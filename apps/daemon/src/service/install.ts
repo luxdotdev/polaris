@@ -178,10 +178,14 @@ const placeFile = (source: string, target: string, sha256: string, mode: number)
     return true;
   });
 
+/** Executables that travel beside `polaris` in a build (`scripts/build-daemon.ts`) and are installed with it. */
+export const SIBLING_EXECUTABLES = ["betterleaks"] as const;
+
 /**
  * Copies `source` to `~/.polaris/bin/<version>/polaris` (a no-op if an
- * identical file is there). The binary is self-contained: native libraries
- * such as fff's are embedded by `bun build --compile`.
+ * identical file is there), and each sibling executable found next to
+ * `source` beside it. Native libraries such as fff's and ast-grep's are
+ * embedded by `bun build --compile`; Betterleaks is a separate Go binary.
  */
 export const stageBinary = Effect.fn("stageBinary")(function* (
   ctx: InstallContext,
@@ -189,7 +193,16 @@ export const stageBinary = Effect.fn("stageBinary")(function* (
 ) {
   const path = layout(ctx, options.version).installed!;
   const sha256 = yield* fsStep("hash binary", () => sha256File(options.source));
-  const changed = yield* placeFile(options.source, path, sha256, 0o755);
+  let changed = yield* placeFile(options.source, path, sha256, 0o755);
+
+  for (const name of SIBLING_EXECUTABLES) {
+    const sibling = join(dirname(options.source), name);
+
+    if (!existsSync(sibling)) continue;
+    const siblingSha = yield* fsStep(`hash ${name}`, () => sha256File(sibling));
+    const placed = yield* placeFile(sibling, join(dirname(path), name), siblingSha, 0o755);
+    changed = changed || placed;
+  }
 
   return { path, sha256, changed };
 });

@@ -26,7 +26,7 @@ const result = yield* ensureDaemon(alias, builds, { trigger: "user", approvedSha
    - `NeedsApproval`: no Daemon yet. It carries the **platform, version and SHA-256** for the one-time approval, shown inline on the Host as Needs Attention. A **background reconnect never installs**, even for an approved SHA (`reason: "background"`).
    - `Install`: no Daemon, the user asked, and this build's SHA-256 is in `approvedSha256`.
    - `Upgrade`: an older Daemon is installed, or (`upgradeDue`) the bundled build is a **dev build** (`0.0.0-dev.<commit count>.<sha>`, from `scripts/build-daemon.ts` without `--release`) and the Host runs any other version, newer-looking or not: a dev Client installs exactly the build it carries. Approval was given at first install, so no new approval is needed, and it may run on a background reconnect. The Desktop App's background check (`backgroundCheckKey`) uses the same rule.
-3. **Apply**: upload every file of the build into `~/.polaris/upload-<random>/` through ssh stdin (`cat > f.part && chmod && mv`). Check each file's SHA-256 on the Host (`sha256sum`, or `shasum -a 256` on macOS), then run:
+3. **Apply**: upload every file of the build into `~/.polaris/upload-<random>/` through ssh stdin (`cat > f.part && chmod && mv`; mode 755 for the binary and files the manifest marks `executable`, such as `betterleaks`, else 644). Check each file's SHA-256 on the Host (`sha256sum`, or `shasum -a 256` on macOS), then run:
    - Install: `<upload>/polaris install --json`
    - Upgrade: `~/.polaris/bin/current/polaris upgrade <upload>/polaris --json` (execve hand-off, same PID; Harnesses keep running)
 
