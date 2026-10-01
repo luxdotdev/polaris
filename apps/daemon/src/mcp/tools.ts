@@ -226,20 +226,26 @@ export const constellationTools = (
       ),
       define(
         "dispatch",
-        "Start named Tasks on a Host, or in an existing worker Agent Session.",
+        "Start named Tasks, or all ready Tasks with defaultWorker, on a Host or in an existing worker Agent Session.",
         Schema.Struct({
-          tasks: Schema.Array(Schema.Struct({ taskId: TaskId, worker: FriendlyWorker })),
+          tasks: Schema.optionalKey(
+            Schema.Array(Schema.Struct({ taskId: TaskId, worker: FriendlyWorker }))
+          ),
+          defaultWorker: Schema.optionalKey(FriendlyWorker),
         }),
         Effect.fnUntraced(function* (input) {
           const tasks = yield* Effect.forEach(
-            input.tasks,
+            input.tasks ?? [],
             Effect.fnUntraced(function* (task) {
               return { taskId: task.taskId, worker: yield* worker(task.worker) };
             })
           );
 
+          const defaultWorker =
+            input.defaultWorker === undefined ? null : yield* worker(input.defaultWorker);
+
           return yield* submit(
-            C.Dispatch.make({ constellationId: binding.constellationId, tasks })
+            C.Dispatch.make({ constellationId: binding.constellationId, tasks, defaultWorker })
           );
         })
       ),

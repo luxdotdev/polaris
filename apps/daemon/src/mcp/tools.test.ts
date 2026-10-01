@@ -85,6 +85,22 @@ test("Lead dispatch resolves Host, model and worker names; review requires revis
   expect(fake.calls[1]?.command).toMatchObject({ attemptId: "attempt-A1", revision: 7 });
 });
 
+test("Lead dispatch supplies a resolved default worker for all ready Tasks", async () => {
+  const fake = fakeCommands();
+
+  const result = await invoke(constellationTools(leadBinding, fake.commands), "dispatch", {
+    defaultWorker: { host: "local" },
+  });
+
+  expect(result.isError).not.toBe(true);
+  expect(fake.references).toEqual(["host:local"]);
+  expect(fake.calls[0]?.command).toMatchObject({
+    constellationId: leadBinding.constellationId,
+    tasks: [],
+    defaultWorker: { hostId: "host-local" },
+  });
+});
+
 test("domain rejections retain every finding and current revision", async () => {
   const fake = fakeCommands();
 
