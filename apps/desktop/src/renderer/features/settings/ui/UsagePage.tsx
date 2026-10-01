@@ -11,6 +11,7 @@ import { useRunningHarnesses } from "../../harness/index.ts";
 import { type LimitRow, type LimitWindow, limitRows, METER_CELLS } from "../model/planLimits.ts";
 import { sectionInfo } from "../model/sections.ts";
 import {
+  type Bucket,
   compactTokens,
   costCaption,
   costLabel,
@@ -23,6 +24,7 @@ import {
   type UsageSummary,
 } from "../model/usage.ts";
 import { Column, Group, Heading, PageHeader } from "./parts.tsx";
+import { UsageByConstellation } from "./UsageByConstellation.tsx";
 import { UsageChart } from "./UsageChart.tsx";
 import { useUsage } from "./useUsage.ts";
 
@@ -204,12 +206,16 @@ const RANGE_OPTIONS = RANGES.map((d) => ({ value: String(d), label: `${d} days` 
 
 const Tokens = ({
   summary,
+  buckets,
+  now,
   hostCount,
   indexing,
   days,
   onDays,
 }: {
   readonly summary: UsageSummary;
+  readonly buckets: ReadonlyArray<Bucket>;
+  readonly now: number;
   readonly hostCount: number;
   readonly days: RangeDays;
   readonly onDays: (days: RangeDays) => void;
@@ -265,6 +271,7 @@ const Tokens = ({
           </div>
           <UsageChart summary={summary} split={split} />
           <ModelTable summary={summary} />
+          <UsageByConstellation buckets={buckets} now={now} estimate={pricedEstimate} />
         </>
       )}
     </div>
@@ -289,6 +296,8 @@ export const UsagePage = () => {
           <PlanLimits rows={limitRows(data.limits, now, running)} harnesses={summary.harnesses} />
           <Tokens
             summary={summary}
+            buckets={data.buckets}
+            now={now}
             hostCount={data.hostCount}
             indexing={data.indexing}
             days={days}

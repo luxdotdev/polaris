@@ -30,6 +30,8 @@ import type {
   HostHarnesses,
   HostInfo,
   HostStreamItem,
+  ConstellationResult,
+  ConstellationStreamItem,
   PlanLimit,
   RiskSummary,
   RunRiskSummary,
@@ -44,6 +46,7 @@ import type {
 import type { Rpc } from "effect/rpc";
 import type { CommandId } from "./keymap.ts";
 import type { PullRef } from "./github.ts";
+import type { ConstellationMethod } from "./constellationContract.ts";
 import type { GitHubRequestOutputs, GitHubSubscriptionItems } from "./githubContract.ts";
 import type { NeedsYouAction } from "./needsYou.ts";
 import type {
@@ -276,7 +279,12 @@ export interface InstallView {
   readonly command: string | null;
 }
 
-export interface RequestOutputs extends GitHubRequestOutputs {
+/** Every Constellation request answers with the RPC's result: summary, next, revision. */
+export type ConstellationRequestOutputs = {
+  readonly [M in ConstellationMethod]: Plain<ConstellationResult>;
+};
+
+export interface RequestOutputs extends GitHubRequestOutputs, ConstellationRequestOutputs {
   "settings.get": SettingsView;
   "cache.get": ReadonlyArray<CachedHost>;
   "cache.put": null;
@@ -380,6 +388,7 @@ export interface SubscriptionItems extends GitHubSubscriptionItems {
   "harness.availability": Plain<HostHarnesses>;
   "plan-limits": Plain<PlanLimit>;
   "review.watchRiskSummary": RiskSummary;
+  constellation: ConstellationStreamItem;
 }
 
 export type SubscriptionItem<K extends SubscriptionKind> = SubscriptionItems[K];

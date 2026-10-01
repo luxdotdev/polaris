@@ -648,3 +648,42 @@ describe("probe", () => {
     expect(parseVersion("nonsense")).toBeNull();
   });
 });
+
+describe("Constellation instructions", () => {
+  const attachment = {
+    sessionId: SessionId.make("session-1"),
+    instructions: "Polaris worker instructions",
+    url: "http://127.0.0.1:12345/mcp/test",
+    tools: [],
+  };
+
+  test("fresh and resumed sessions append the skill and bind only Polaris tools", async () => {
+    for (const resumeCursor of [null, "claude-existing"]) {
+      const h = await openFake({ constellation: attachment, resumeCursor });
+
+      try {
+        expect(h.fake.options?.systemPrompt).toMatchObject({ append: attachment.instructions });
+        expect(h.fake.options?.strictMcpConfig).toBe(true);
+        expect(h.fake.options?.allowedTools).toEqual(["mcp__polaris__*"]);
+        expect(h.fake.options?.mcpServers).toHaveProperty("polaris");
+      } finally {
+        await h.close();
+      }
+    }
+  });
+  test("Reviewer remains without Constellation tools", async () => {
+    const h = await openFake({ constellation: attachment, readOnly: true });
+
+    try {
+      expect(h.fake.options?.mcpServers).toEqual({});
+      expect(h.fake.options?.systemPrompt).not.toHaveProperty("append");
+    } finally {
+      await h.close();
+    }
+  });
+  test("an attachment from another session cannot start a Claude query", async () => {
+    expect(
+      openFake({ constellation: { ...attachment, sessionId: SessionId.make("other") } })
+    ).rejects.toThrow("another session");
+  });
+});

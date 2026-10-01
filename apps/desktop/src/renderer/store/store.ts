@@ -17,6 +17,11 @@ import type {
 import { frameQueue } from "./frameQueue.ts";
 import { applyHostItems, emptyHostModel, type HostModel, modelFromSnapshot } from "./hostModel.ts";
 import { applySessionItems, emptySessionModel, type SessionModel } from "./sessionModel.ts";
+import {
+  applyConstellationHostItems,
+  type ConstellationsModel,
+  emptyConstellations,
+} from "../features/constellation/model/index.ts";
 
 export interface AppState {
   readonly hosts: ReadonlyArray<HostView>;
@@ -27,6 +32,8 @@ export interface AppState {
   readonly density: Density;
   /** The theme setting ("system" follows macOS); the jump menu's toggle reads it. */
   readonly theme: ThemeSource;
+  /** Each Host's Constellations, folded from its feed (features/constellation). */
+  readonly constellations: Readonly<Record<string, ConstellationsModel>>;
 }
 
 export const initialState: AppState = {
@@ -35,6 +42,7 @@ export const initialState: AppState = {
   sessions: {},
   density: "calm",
   theme: "system",
+  constellations: {},
 };
 
 export const sessionKey = (hostKey: string, sessionId: string) => `${hostKey}\u0000${sessionId}`;
@@ -95,6 +103,16 @@ export const reduceUpdates = (state: AppState, updates: ReadonlyArray<Update>): 
       ),
   });
 
+  const constellations = foldGroups({
+    current: state.constellations,
+    groups: groupBy(hostItems, (h) => h.hostKey),
+    apply: (model, group) =>
+      applyConstellationHostItems(
+        model ?? emptyConstellations,
+        group.map((g) => g.item)
+      ),
+  });
+
   const sessions = foldGroups({
     current: state.sessions,
     groups: groupBy(sessionItems, (s) => s.key),
@@ -105,7 +123,7 @@ export const reduceUpdates = (state: AppState, updates: ReadonlyArray<Update>): 
       ),
   });
 
-  return { ...state, hosts, hostModels, sessions };
+  return { ...state, hosts, hostModels, sessions, constellations };
 };
 
 /** A Host model painted from the cache, marked so, until its live Snapshot arrives. */

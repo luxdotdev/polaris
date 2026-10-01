@@ -14,6 +14,7 @@ import {
 } from "../../shared/contract.ts";
 import { type ClientServices, HostDirectory, toIpcError } from "../hosts.ts";
 import { githubOpeners } from "../github/ipc.ts";
+import { constellationFeed } from "./constellation.ts";
 import { Machines } from "../machines/service.ts";
 
 export type Feed<K extends SubscriptionKind> = Stream.Stream<
@@ -69,6 +70,7 @@ const openers: Openers = {
     ),
   "review.watchRiskSummary": ({ hostKey, summaryId }) =>
     onLive(hostKey, (session) => session.client["review.watchRiskSummary"]({ summaryId })),
+  constellation: constellationFeed,
 };
 
 export const isSubscriptionKind = (kind: string): kind is SubscriptionKind =>

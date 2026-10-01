@@ -1,0 +1,432 @@
+import { describe, expect, test } from "bun:test";
+import {
+  AttemptId,
+  DomainEvent,
+  EventEnvelope,
+  HostStreamItem,
+  Sequence,
+  NotificationItem,
+  ConstellationNotification,
+  SessionId,
+  TaskId,
+  TurnId,
+} from "@polaris/protocol";
+import { c1Record, constellationOf, LEAD, task, attempt } from "../preview/graph.ts";
+import { largeRecord } from "../preview/large.ts";
+import { areaOverlaps, globsOverlap, type Overlap } from "./areas.ts";
+import { attentionItems, nextNeedingYou } from "./attention.ts";
+import { claimGlance, headMatches } from "./claim.ts";
+import { idRanges, span } from "./copy.ts";
+import { plainFacts } from "./facts.ts";
+import { applyEnvelopes, applyHostItems, merged, recordFrom } from "./fold.ts";
+import { railKey } from "./keys.ts";
+import { deriveProjections } from "./project.ts";
+import { buildRail, DEFAULT_RAIL, LARGE, type RailRow } from "./rail.ts";
+import type { TaskRow } from "./task.ts";
+import { emptyConstellations } from "./types.ts";
+
+const E = DomainEvent.cases;
+
+/** Branded ids compare as plain strings. */
+const plain = (o: Overlap | null | undefined) =>
+  o == null ? null : { with: String(o.with), glob: o.glob };
+
+const tasksOf = (rows: ReadonlyArray<RailRow>) =>
+  rows.filter((r): r is TaskRow => r.kind === "task");
+
+const rowFor = (rows: ReadonlyArray<RailRow>, id: string) =>
+  tasksOf(rows).find((r) => r.task.id === id);
+
+describe("copy", () => {
+  test("folds consecutive ids into ranges", () => {
+    expect(idRanges(["B1", "B2", "B3", "B4", "B5"])).toBe("B1–B5");
+    expect(idRanges(["C1", "C7", "C9", "C10", "C11", "C12"])).toBe("C1, C7, C9–C12");
+    expect(idRanges(["A1", "A2"])).toBe("A1, A2");
+  });
+
+  test("spans read as minutes and hours", () => {
+    const now = Date.parse("2026-10-01T12:00:00Z");
+
+    expect(span("2026-10-01T11:56:00Z", now)).toBe("4m");
+    expect(span("2026-10-01T10:00:00Z", now)).toBe("2h");
+    expect(span("2026-10-01T09:55:00Z", now)).toBe("2h 5m");
+    expect(span("2026-10-01T11:59:40Z", now)).toBe("now");
+  });
+});
+
+describe("projections", () => {
+  test("a Task follows its latest Attempt and waits on unfinished deps", () => {
+    const c = constellationOf();
+    const p = new Map(deriveProjections(c).map((x) => [x.taskId, x]));
+
+    expect(p.get(TaskId.make("A1"))?.state).toBe("done");
+    expect(p.get(TaskId.make("B1"))?.state).toBe("review");
+    expect(p.get(TaskId.make("B2"))?.state).toBe("working");
+    expect(p.get(TaskId.make("G2"))?.state).toBe("waiting");
+    expect(p.get(TaskId.make("G2"))?.blockedBy.map(String)).toEqual(["B1", "B2", "B3", "B4", "B5"]);
+    expect(p.get(TaskId.make("G1"))?.gatePromoted).toBe(true);
+  });
+
+  test("keeps the Daemon's stale, fetched and future flags", () => {
+    const c = constellationOf();
+
+    const known = deriveProjections(c).map((x) =>
+      x.taskId === "B4" ? { ...x, branchFetched: false, stale: true } : x
+    );
+
+    const b4 = deriveProjections(c, known).find((x) => x.taskId === "B4");
+
+    expect(b4?.branchFetched).toBe(false);
+    expect(b4?.stale).toBe(true);
+  });
+});
+
+describe("fold", () => {
+  const graph = { constellationId: constellationOf().id };
+
+  test("ConstellationStarted creates a record from a Host feed event", () => {
+    const model = applyHostItems(emptyConstellations, [
+      HostStreamItem.cases.Event.make({
+        envelope: new EventEnvelope({
+          sequence: Sequence.make(1),
+          occurredAt: "2026-10-01T12:00:00Z",
+          commandId: null,
+          event: E.ConstellationStarted.make({
+            ...graph,
+            revision: 1,
+            constellation: constellationOf(),
+          }),
+        }),
+      }),
+    ]);
+
+    expect(model.byId.get(graph.constellationId)?.constellation.name).toBe("Constellations v1");
+  });
+
+  test("a Claim moves the Attempt to review; acceptance makes the Task done", () => {
+    const start = { byId: new Map([[graph.constellationId, recordFrom(constellationOf(), 1)]]) };
+    const id = AttemptId.make("att-B2-1");
+    const claim = c1Record().constellation.attempts.find((a) => a.taskId === "B1")?.claim;
+
+    const claimed = applyEnvelopes(start, [
+      {
+        sequence: 2,
+        occurredAt: "2026-10-01T12:00:00Z",
+        event: E.AttemptClaimed.make({
+          ...graph,
+          revision: 38,
+          attemptId: id,
+          attemptRevision: 3,
+          claim: claim!,
+        }),
+      },
+    ]);
+
+    const r1 = claimed.byId.get(graph.constellationId);
+
+    expect(r1?.projections.find((p) => p.taskId === "B2")?.state).toBe("review");
+    expect(r1?.claimedAt.get(id)).toBe("2026-10-01T12:00:00Z");
+    expect(r1?.constellation.revision).toBe(38);
+
+    const accepted = applyEnvelopes(claimed, [
+      {
+        sequence: 3,
+        occurredAt: "2026-10-01T12:05:00Z",
+        event: E.AttemptAccepted.make({
+          ...graph,
+          revision: 39,
+          attemptId: id,
+          attemptRevision: 4,
+          mergedHead: "3f9c2e1",
+          receipts: [],
+          evidence: "asserted",
+        }),
+      },
+    ]);
+
+    expect(
+      accepted.byId.get(graph.constellationId)?.projections.find((p) => p.taskId === "B2")?.state
+    ).toBe("done");
+  });
+
+  test("a digest names its notifications and clears them from pending", () => {
+    const n = new ConstellationNotification({
+      id: "n-1",
+      item: NotificationItem.cases.Settled.make({
+        attemptId: AttemptId.make("att-B1-1"),
+        state: "review",
+      }),
+      queuedAt: "2026-10-01T12:00:00Z",
+    });
+
+    const start = {
+      byId: new Map([
+        [graph.constellationId, recordFrom(constellationOf({ pendingNotifications: [] }), 1)],
+      ]),
+    };
+
+    const model = applyEnvelopes(start, [
+      {
+        sequence: 2,
+        occurredAt: "2026-10-01T12:00:00Z",
+        event: E.NotificationQueued.make({ ...graph, revision: 38, notification: n }),
+      },
+      {
+        sequence: 3,
+        occurredAt: "2026-10-01T12:00:20Z",
+        event: E.LeadNotified.make({
+          ...graph,
+          revision: 39,
+          leadSessionId: LEAD,
+          items: ["n-1"],
+          turnId: TurnId.make("t-9"),
+        }),
+      },
+    ]);
+
+    const r = model.byId.get(graph.constellationId);
+
+    expect(r?.digests.at(-1)?.items.map((i) => i.id)).toEqual(["n-1"]);
+    expect(r?.constellation.pendingNotifications).toEqual([]);
+  });
+
+  test("a handover records the old Lead and the graph as it stood", () => {
+    const start = { byId: new Map([[graph.constellationId, recordFrom(constellationOf(), 1)]]) };
+    const to = SessionId.make("s-lead-2");
+
+    const model = applyEnvelopes(start, [
+      {
+        sequence: 2,
+        occurredAt: "2026-10-01T12:00:00Z",
+        event: E.LeadChanged.make({ ...graph, revision: 38, from: LEAD, to, summary: "Carry on." }),
+      },
+    ]);
+
+    const r = model.byId.get(graph.constellationId);
+
+    expect(r?.constellation.leadSessionId).toBe(to);
+    expect(r?.handovers[0]?.before.inFlight.map((a) => String(a.taskId))).toEqual([
+      "B1",
+      "B2",
+      "B3",
+      "B4",
+      "B5",
+    ]);
+  });
+
+  test("events for an unknown graph are ignored", () => {
+    const model = applyEnvelopes(emptyConstellations, [
+      {
+        sequence: 1,
+        occurredAt: "2026-10-01T12:00:00Z",
+        event: E.ConstellationStateChanged.make({ ...graph, revision: 2, state: "paused" }),
+      },
+    ]);
+
+    expect(model).toBe(emptyConstellations);
+  });
+});
+
+describe("rail", () => {
+  const facts = plainFacts({
+    receipt: (ref) =>
+      ref.itemId === "i-trace" ? { command: "trace", exitCode: 1 } : { command: "x", exitCode: 0 },
+  });
+
+  test("C1: groups, a handover row, the proposal and the Future", () => {
+    const rail = buildRail(c1Record(), facts);
+    const kinds = rail.rows.map((r) => r.kind);
+
+    expect(kinds[0]).toBe("handover");
+    expect(
+      rail.rows.filter((r) => r.kind === "group").map((r) => (r.kind === "group" ? r.label : ""))
+    ).toEqual(["A · Events and decider", "B · Spec and tools"]);
+    expect(kinds).toContain("proposal");
+    expect(rail.large).toBe(false);
+  });
+
+  test("a Claim row shows the Claim at a glance", () => {
+    const b1 = rowFor(buildRail(c1Record(), facts).rows, "B1");
+
+    expect(b1?.look.word).toBe("in review");
+    expect(b1?.line?.kind).toBe("claim");
+
+    if (b1?.line?.kind === "claim") {
+      expect(b1.line.glance.checks.map((c) => c.ok)).toEqual([true, true, false]);
+      expect(b1.line.glance.notDone).toBe(1);
+      expect(b1.line.glance.questions).toBe(1);
+    }
+  });
+
+  test("a gate waits on its inputs and lists receipts once accepted", () => {
+    const rows = buildRail(c1Record(), facts).rows;
+
+    expect(rowFor(rows, "G2")?.look.word).toBe("waits B1–B5");
+    expect(rowFor(rows, "G2")?.look.glyph).toBe("gate");
+    expect(rowFor(rows, "G1")?.look.glyph).toBe("gate-accepted");
+    expect(rowFor(rows, "G1")?.line?.kind).toBe("accepted");
+  });
+
+  test("an unfetched branch says so; an overlap warns once per pair", () => {
+    const rows = buildRail(c1Record(), facts).rows;
+
+    expect(rowFor(rows, "B4")?.look.glyph).toBe("review-unfetched");
+    expect(rowFor(rows, "B4")?.line).toMatchObject({ text: "review · branch not yet fetched" });
+    expect(plain(rowFor(rows, "B3")?.overlap)).toEqual({
+      with: "B2",
+      glob: "apps/daemon/src/mcp/**",
+    });
+    expect(rowFor(rows, "B2")?.overlap).toBeNull();
+  });
+
+  test("a stopped worker needs you; a handed-up Claim says so and is promoted", () => {
+    const record = c1Record();
+    const b1 = record.constellation.attempts.find((a) => a.taskId === "B1")!;
+
+    const withSignals = plainFacts({
+      worker: (a) => ({ ...facts.worker(a), stoppedWithoutClaiming: a.taskId === "B5" }),
+      handedUp: new Set([b1.id]),
+    });
+
+    const rows = buildRail(record, withSignals).rows;
+
+    expect(rowFor(rows, "B5")?.look).toMatchObject({ word: "needs you", glyph: "needs-you" });
+    expect(rowFor(rows, "B5")?.line).toMatchObject({
+      text: "stopped without claiming",
+      detail: "nudged once",
+    });
+    expect(rowFor(rows, "B1")?.look.word).toBe("handed to you");
+    expect(rowFor(rows, "B1")?.promoted).toBe(true);
+  });
+
+  test("a paused Constellation promotes Accept / Send back on every Claim", () => {
+    const rows = buildRail(c1Record({ state: "paused" }), facts).rows;
+
+    expect(rowFor(rows, "B1")?.promoted).toBe(true);
+    expect(rowFor(rows, "B2")?.promoted).toBe(false);
+  });
+
+  test("C8: 128 Tasks fold, the group that needs you opens, waiting folds to one line", () => {
+    const record = largeRecord();
+
+    expect(record.constellation.tasks.length).toBe(128);
+    expect(record.constellation.tasks.length).toBeGreaterThanOrEqual(LARGE);
+    const rail = buildRail(record, plainFacts());
+    const open = rail.rows.filter((r) => r.kind === "group" && r.open);
+
+    expect(rail.large).toBe(true);
+    expect(open.map((r) => (r.kind === "group" ? r.group : ""))).toEqual(["C · Tool surface"]);
+    expect(rail.rows.find((r) => r.kind === "waiting")).toMatchObject({ ids: "C7–C12", count: 6 });
+    expect(rail.counts).toMatchObject({ all: 128, "needs-you": 1, review: 6, done: 71 });
+    expect(tasksOf(rail.rows).every((r) => r.line === null)).toBe(true);
+  });
+
+  test("filters and queries flatten to matching Tasks", () => {
+    const rail = buildRail(largeRecord(), plainFacts(), { ...DEFAULT_RAIL, filter: "review" });
+
+    expect(tasksOf(rail.rows).every((r) => r.look.bucket === "review")).toBe(true);
+    expect(tasksOf(rail.rows)).toHaveLength(6);
+
+    const query = buildRail(c1Record(), facts, { ...DEFAULT_RAIL, query: "quint" });
+
+    expect(tasksOf(query.rows).map((r) => String(r.task.id))).toEqual(["B1"]);
+  });
+});
+
+describe("attention", () => {
+  test("ranks approvals before questions before stopped workers", () => {
+    const record = c1Record();
+
+    const facts = plainFacts({
+      worker: (a) => ({
+        ...plainFacts().worker(a),
+        stoppedWithoutClaiming: a.taskId === "B5",
+        approvalSince: a.taskId === "B2" ? "2026-10-01T12:00:00Z" : null,
+      }),
+    });
+
+    const items = attentionItems(buildRail(record, facts).tasks, facts);
+
+    expect(items.map((i) => i.text)).toEqual([
+      "B2 waiting on your approval",
+      "B5 stopped without claiming",
+    ]);
+    expect(nextNeedingYou(items, "B2")).toBe("B5");
+    expect(nextNeedingYou(items, "B5")).toBe("B2");
+  });
+
+  test("the Lead near its context limit is offered a handover", () => {
+    const facts = plainFacts({ lead: { harness: "claude", model: "opus", contextPercent: 88 } });
+
+    expect(attentionItems([], facts).map((i) => i.text)).toEqual([
+      "Lead at 88% context · hand over",
+    ]);
+  });
+});
+
+describe("keys", () => {
+  const rows = buildRail(c1Record(), plainFacts()).rows;
+
+  test("arrows move, enter focuses, tab looks for the next that needs you", () => {
+    expect(railKey("ArrowDown", rows, null)).toEqual({ kind: "select", key: rows[0]!.key });
+    expect(railKey("Enter", rows, "task:B1")).toMatchObject({ kind: "focus" });
+    expect(railKey("Tab", rows, null)).toEqual({ kind: "next-needs-you" });
+  });
+
+  test("a and s act only on a Claim in review", () => {
+    expect(railKey("a", rows, "task:B1")).toMatchObject({ kind: "review", mode: "accept" });
+    expect(railKey("s", rows, "task:B2")).toBeNull();
+  });
+
+  test("← from a nested Task selects its group, then folds it", () => {
+    expect(railKey("ArrowLeft", rows, "task:B2")).toEqual({
+      kind: "select",
+      key: "group:B · Spec and tools",
+    });
+    expect(railKey("ArrowLeft", rows, "group:B · Spec and tools")).toMatchObject({
+      kind: "toggle",
+      open: false,
+    });
+  });
+});
+
+describe("claims and areas", () => {
+  test("the merged head must match the claimed head", () => {
+    expect(headMatches("3f9c2e1a77", "3f9c2e1")).toBe(true);
+    expect(headMatches("3f9c2e1a77", "3f9c2e")).toBe(false);
+    expect(headMatches("3f9c2e1a77", "aaaaaaa")).toBe(false);
+  });
+
+  test("a Claim with no receipts is asserted", () => {
+    const claim = c1Record().constellation.attempts.find((a) => a.taskId === "B1")!.claim!;
+
+    expect(claimGlance(merged(claim, { receipts: [] }), plainFacts()).asserted).toBe(true);
+  });
+
+  test("globs overlap by their literal prefix", () => {
+    expect(globsOverlap("apps/daemon/src/mcp/**", "apps/daemon/**")).toBe(true);
+    expect(globsOverlap("packages/spec/**", "apps/**")).toBe(false);
+
+    const tasks = [
+      task({ id: "X1", title: "x", area: ["a/**"] }),
+      task({ id: "X2", title: "y", area: ["a/b/**"] }),
+    ];
+
+    const projections = new Map(
+      deriveProjections(
+        constellationOf({
+          tasks,
+          attempts: [
+            attempt({ taskId: "X1", state: "working", minutes: 1 }),
+            attempt({ taskId: "X2", state: "working", minutes: 1 }),
+          ],
+        })
+      ).map((p) => [p.taskId, p])
+    );
+
+    expect(plain(areaOverlaps(tasks, projections).get(TaskId.make("X2")))).toEqual({
+      with: "X1",
+      glob: "a/b/**",
+    });
+  });
+});

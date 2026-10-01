@@ -6,7 +6,12 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { type PermissionMode, SessionId } from "@polaris/protocol";
 import { Effect, Schema, type Scope, Stream } from "effect";
-import { type HarnessDriver, HarnessEvent, type HarnessSession } from "../../HarnessDriver.ts";
+import {
+  type OpenOptions,
+  type HarnessDriver,
+  HarnessEvent,
+  type HarnessSession,
+} from "../../HarnessDriver.ts";
 import type { CodexDriverOptions } from "../CodexDriver.ts";
 import type { Json } from "../protocol.ts";
 import {
@@ -62,6 +67,7 @@ export const sessionWith =
       readonly resumeCursor?: string;
       readonly permissionMode?: PermissionMode;
       readonly readOnly?: boolean;
+      readonly constellation?: OpenOptions["constellation"];
     } = {}
   ): Promise<{ result: A; events: Array<HarnessEvent>; server: FakeAppServer }> => {
     const path = socketPath();
@@ -84,6 +90,7 @@ export const sessionWith =
         effort: null,
         resumeCursor: options.resumeCursor ?? null,
         readOnly: options.readOnly ?? false,
+        ...attachmentOptions(options.constellation),
       });
 
       yield* session.events.pipe(
@@ -147,3 +154,7 @@ export const turn = (id: string, status = "inProgress", error: Json = null) => (
   completedAt: null,
   durationMs: null,
 });
+
+const attachmentOptions = (
+  constellation: OpenOptions["constellation"]
+): Pick<OpenOptions, "constellation"> => (constellation === undefined ? {} : { constellation });

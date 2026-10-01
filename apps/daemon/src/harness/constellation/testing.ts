@@ -1,0 +1,61 @@
+import {
+  AttemptId,
+  SessionId,
+  Attempt,
+  AttemptCause,
+  Claim,
+  HostId,
+  ModelId,
+  TaskDefinition,
+  TaskId,
+  Timestamp,
+  WorkspaceId,
+} from "@polaris/protocol";
+import { workerBinding } from "../../mcp/testing.ts";
+import type { WorkerAssignment } from "./worker.ts";
+
+export const assignment = (id = "A1"): WorkerAssignment => ({
+  constellationId: workerBinding.constellationId,
+  workspaceId: WorkspaceId.make("ws"),
+  task: new TaskDefinition({
+    id: TaskId.make(id),
+    title: "Build the Harness",
+    kind: "task",
+    area: ["apps/daemon/src/harness/**"],
+    brief: "Implement the assigned adapter.",
+    criteria: ["Tests pass"],
+  }),
+  attempt: new Attempt({
+    id: AttemptId.make(`attempt-${id}`),
+    taskId: TaskId.make(id),
+    sessionId: SessionId.make(`worker-${id}`),
+    hostId: HostId.make("host"),
+    by: workerBinding.sessionId,
+    revision: 1,
+    cause: AttemptCause.cases.Initial.make({}),
+    worktree: "/tmp/task",
+    branch: "polaris/c1/A1-harness",
+    base: "base-sha",
+    state: "working",
+    startedAt: Timestamp.make("2026-10-01T00:00:00Z"),
+  }),
+  acceptedDeps: [
+    {
+      taskId: TaskId.make("P"),
+      claim: new Claim({
+        branch: "protocol",
+        head: "dep-head",
+        commits: ["dep-head"],
+        receipts: [],
+        notDone: [],
+        followups: [],
+        questions: [],
+        outsideArea: [],
+        decisions: [],
+        summary: "Wire contract accepted",
+      }),
+    },
+  ],
+  selection: { harness: "codex", model: ModelId.make("Sol"), effort: "high" },
+  permissionMode: "supervised",
+});

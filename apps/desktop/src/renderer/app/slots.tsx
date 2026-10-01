@@ -7,13 +7,10 @@ import type { SessionId, WorkspaceId } from "@polaris/protocol";
 import type { ComponentType, ReactElement } from "react";
 import { HostsSettingsPage } from "../features/machines/index.ts";
 import { NeedsYouHover, NeedsYouInbox } from "../features/needs-you/index.ts";
-import {
-  NewSessionPage,
-  OutputRail,
-  SessionIntent,
-  SessionOutput,
-} from "../features/session/index.ts";
+import { NewSessionPage, OutputRail } from "../features/session/index.ts";
+import { ConstellationIntent, ConstellationOutput } from "../features/constellation/index.ts";
 import { WorkspaceStage } from "../features/empty/index.ts";
+import { SessionList, type SessionListProps } from "../features/sessions/index.ts";
 import { JumpMenu } from "../features/jump/index.ts";
 import { OpenFolderDialog } from "../features/open-folder/index.ts";
 import { HarnessTerminal, type HarnessTerminalProps } from "../features/terminal/index.ts";
@@ -67,6 +64,8 @@ export interface ShellSlots {
   readonly NewSession: ComponentType<NewSessionProps>;
   /** Spans Intent and Output when the Workspace has no session selected. */
   readonly NoSession: ComponentType<WorkspaceSlotProps>;
+  /** The sidebar's session list for one Workspace: rows, and each Lead with its workers. */
+  readonly SessionList: ComponentType<SessionListProps>;
   /** The sidebar's "Needs you" view, across every Host. */
   readonly NeedsYouInbox: ComponentType;
   /** The K jump menu; the shell owns its open state (`useShellActions().openJump`). */
@@ -86,11 +85,12 @@ export interface ShellSlots {
 }
 
 export const slots: ShellSlots = {
-  SessionIntent,
-  SessionOutput,
+  SessionIntent: ConstellationIntent,
+  SessionOutput: ConstellationOutput,
   OutputRail,
   NewSession: NewSessionPage,
   NoSession: WorkspaceStage,
+  SessionList,
   NeedsYouInbox,
   JumpMenu,
   OpenFolder: OpenFolderDialog,

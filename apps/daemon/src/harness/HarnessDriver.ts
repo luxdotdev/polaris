@@ -22,6 +22,7 @@ import type {
   TurnId,
   TurnItem,
 } from "@polaris/protocol";
+import type { ConstellationAttachment } from "./constellation/attachment.ts";
 import { Data, type Effect, Schema, type Scope, type Stream } from "effect";
 
 export class HarnessError extends Schema.TaggedError<HarnessError>()("HarnessError", {
@@ -123,6 +124,8 @@ export interface OpenOptions {
   readonly resumeCursor: string | null;
   /** A read-only session (the Reviewer): no network and no writes, where the Harness can enforce them. */
   readonly readOnly?: boolean;
+  /** Trusted per-session tools and instructions, rebuilt when the Harness resumes. */
+  readonly constellation?: ConstellationAttachment;
 }
 
 export interface TurnInput {

@@ -16,8 +16,10 @@ import {
 } from "@polaris/ui";
 import { useMemo } from "react";
 import { slots } from "../../app/slots.tsx";
+import { useNeedsYouCount } from "../../features/needs-you/index.ts";
+import { useConstellationCount } from "../../features/sessions/index.ts";
 import { type SidebarView, sessionOrder, workspaceKey } from "../../routes/selection.ts";
-import { activeSessions, needsYou, shownState, shownWorkspaces } from "../../routes/topBar.ts";
+import { activeSessions, shownState, shownWorkspaces } from "../../routes/topBar.ts";
 import { emptyHostModel, type HostModel, type SessionEntry } from "../../store/hostModel.ts";
 import type { HostView } from "../../../shared/api.ts";
 import { age, homePath, plural } from "../copy.ts";
@@ -25,26 +27,15 @@ import { HostStateNote } from "../HostState.tsx";
 import { useApp, useNav, useSelection, useShellActions } from "../hooks.ts";
 import { useNow } from "../useNow.ts";
 import { Elsewhere } from "./Elsewhere.tsx";
-import { CompactSessionRow, SessionRow, WorktreeRows } from "./SessionRow.tsx";
+import { CompactSessionRow } from "./SessionRow.tsx";
 
 const useHostModel = (hostKey: string | null) =>
   useApp((s) => (hostKey === null ? undefined : s.hostModels[hostKey])) ?? emptyHostModel;
 
-const useWaiting = () =>
-  useApp((s) => {
-    let n = 0;
-
-    for (const model of Object.values(s.hostModels)) {
-      for (const entry of model.sessions.values()) if (needsYou(entry)) n++;
-    }
-
-    return n;
-  });
-
 const ViewSwitch = () => {
   const { sidebar } = useSelection();
   const { showSidebar } = useShellActions();
-  const waiting = useWaiting();
+  const waiting = useNeedsYouCount();
 
   return (
     <SegmentedControl<SidebarView>
@@ -99,9 +90,6 @@ const Header = ({ title, caption, canStart, host }: HeaderProps) => {
   );
 };
 
-const worktreesBy = (model: HostModel, entry: SessionEntry) =>
-  [...model.worktrees.values()].filter((w) => w.createdBySessionId === entry.session.id);
-
 interface WorkspaceListProps {
   readonly hostKey: string;
   readonly model: HostModel;
@@ -121,12 +109,7 @@ const WorkspaceSessions = ({ hostKey, model, workspace }: WorkspaceListProps) =>
       <SectionHeader empty={entries.length === 0 ? `None in ${workspace.name}` : undefined}>
         Sessions
       </SectionHeader>
-      {entries.map((entry) => (
-        <div key={entry.session.id} className="flex flex-col">
-          <SessionRow hostKey={hostKey} entry={entry} now={now} />
-          <WorktreeRows worktrees={worktreesBy(model, entry)} />
-        </div>
-      ))}
+      <slots.SessionList hostKey={hostKey} model={model} entries={entries} now={now} />
     </div>
   );
 };
@@ -240,6 +223,7 @@ const WorkspaceSidebar = () => {
 
   const hostCount = useApp((s) => s.hosts.length);
   const workspace = workspaceId === null ? undefined : model.workspaces.get(workspaceId);
+  const constellations = useConstellationCount(hostKey, workspaceId);
 
   // New session still works here: it starts in the Host's home directory (onboarding).
   if (hostKey === null || workspace === undefined || host === undefined) {
@@ -268,6 +252,11 @@ const WorkspaceSidebar = () => {
     (w) => w.workspaceId === workspace.id && !w.isMain
   );
 
+  const sessionsLine =
+    worktrees.length === 0
+      ? plural(sessions.length, "session")
+      : `${plural(sessions.length, "session")} · ${plural(worktrees.length, "worktree")}`;
+
   return (
     <SidebarFrame
       header={
@@ -278,11 +267,7 @@ const WorkspaceSidebar = () => {
           host={host}
         />
       }
-      footer={
-        worktrees.length === 0
-          ? plural(sessions.length, "session")
-          : `${plural(sessions.length, "session")} · ${plural(worktrees.length, "worktree")}`
-      }
+      footer={constellations === 0 ? sessionsLine : plural(constellations, "constellation")}
     >
       {sidebar === "needs-you" ? (
         <slots.NeedsYouInbox />

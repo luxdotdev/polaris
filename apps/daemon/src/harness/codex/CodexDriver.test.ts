@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { ApprovalDecision, RequestId, TurnId, TurnItem } from "@polaris/protocol";
+import { ApprovalDecision, RequestId, SessionId, TurnId, TurnItem } from "@polaris/protocol";
 import { Effect, Schema } from "effect";
 import { HarnessEvent } from "../HarnessDriver.ts";
 import { makeCodexDriver, probeCodex } from "./CodexDriver.ts";
@@ -660,5 +660,55 @@ describe("probe", () => {
     expect(await Effect.runPromise(probeCodex("/nonexistent/codex"))).toMatchObject({
       available: false,
     });
+  });
+});
+
+describe("Constellation attachment", () => {
+  const attachment = {
+    sessionId: SessionId.make("s1"),
+    instructions: "Polaris worker instructions",
+    url: "http://127.0.0.1:12345/mcp/test",
+    tools: [],
+  };
+
+  test("thread start and resume receive per-thread MCP config and developer instructions", async () => {
+    for (const resumeCursor of [undefined, "existing-thread"]) {
+      const options =
+        resumeCursor === undefined
+          ? { constellation: attachment }
+          : { constellation: attachment, resumeCursor };
+
+      const { server } = await withSession(
+        scripted(() => {}),
+        () => Effect.void,
+        options
+      );
+
+      const method = resumeCursor === undefined ? "thread/start" : "thread/resume";
+      expect(server.requests(method)[0]?.params).toMatchObject({
+        developerInstructions: attachment.instructions,
+        config: { "mcp_servers.polaris": { url: attachment.url } },
+      });
+    }
+  });
+  test("the Reviewer receives no Constellation tools even with an attachment", async () => {
+    const { server } = await withSession(
+      scripted(() => {}),
+      () => Effect.void,
+      { constellation: attachment, readOnly: true }
+    );
+
+    const params = server.requests("thread/start")[0]?.params;
+    expect(params).not.toHaveProperty("developerInstructions");
+    expect(params).not.toHaveProperty("config");
+  });
+  test("an attachment from another session is refused before thread start", async () => {
+    expect(
+      withSession(
+        scripted(() => {}),
+        () => Effect.void,
+        { constellation: { ...attachment, sessionId: SessionId.make("other") } }
+      )
+    ).rejects.toThrow("another session");
   });
 });
