@@ -116,12 +116,14 @@ The table follows T3 Code's runtime modes. These values go on `thread/start`/`th
 |---|---|
 | a Skill (`$name`) | `text`: the Turn's text carries `$name`, which Codex's Skill instructions resolve; disabled Skills are left out. Source from its scope (`user`, `repo` → project, `system`/`admin` → built-in) or `plugin` with a `pluginId` |
 | `/prompts:<name>` (custom prompt) | `text`, with `template`: the file's body (after frontmatter), `$ARGUMENTS` standing for what follows. app-server doesn't expand prompts (only the TUI does), so the Client sends the body |
-| `/compact` | `harness`: a Turn whose prompt is exactly `/compact` runs `thread/compact/start`; the compaction Turn's `turn/started` takes the pending Polaris Turn |
-| `/review [instructions]` | `harness`: `review/start`, inline, target `uncommittedChanges` or `custom` instructions; its reply's Turn is bound like `turn/start`'s |
+| `/compact` | `harness`: a Turn whose prompt is exactly `/compact` runs `thread/compact/start`; the compaction Turn's `turn/started` takes the pending Polaris Turn. Its only item, `contextCompaction`, isn't shown; the new context size arrives as `ContextUsed` |
+| `/review [instructions]` | `harness`: `review/start`, inline, target `uncommittedChanges` or `custom` instructions; its reply's Turn is bound like `turn/start`'s. Codex then sends `turn/started` for a second turn id while items and `turn/completed` carry the first: that second id joins the review's Turn and never becomes the Turn in flight |
 | `/model` | `polaris` → `model` |
 | `/new` | `polaris` → `new-session` |
 | `/diff` | `polaris` → `diff` |
 | every other TUI command (`/init`, `/status`, `/mcp`, `/approvals`, `/logout`, `/quit`…) | not offered |
+
+Verified end to end with codex-cli 0.159.2 through the real Daemon (`POLARIS_E2E_CODEX_SLASH=1 bun --cwd apps/daemon scripts/e2e-codex-slash.ts [trace.jsonl]`, gpt-6-luna at low effort): "reply with ok" (~7 s), `/compact` (~1 s), `/review` of a one-line uncommitted change (~25 s, a command and the review as an `AssistantMessage`), then another Turn; each ends `completed`. `slash.test.ts` replays that traffic (`fixtures/slash-turns.jsonl`).
 
 ## Regenerating the bindings
 

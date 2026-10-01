@@ -331,6 +331,8 @@ export const openSession = (
     /** A Turn Polaris is starting (`turn/start` in flight), with the prompt it sent. */
     let pendingLocalTurn: { readonly turnId: TurnId; readonly prompt: string } | null = null;
     const endedTurns = new Set<string>();
+    /** A review's Codex turn: Codex runs it under a second turn id, whose events join it. */
+    let reviewTurn: string | null = null;
     let errorCount = 0;
     const subagents = new CodexSubagents();
     const steers = new CodexSteers();
@@ -340,6 +342,9 @@ export const openSession = (
 
       if (turnId === undefined || announced.has(codexTurnId)) return;
       announced.add(codexTurnId);
+
+      for (const [other, bound] of turns)
+        if (bound === turnId && other !== codexTurnId && announced.has(other)) return;
       emit(HarnessEvent.TurnStarted({ turnId, prompt }));
     };
 
@@ -516,6 +521,8 @@ export const openSession = (
       steers.end(p.turn.id);
 
       if (activeCodexTurn === p.turn.id) activeCodexTurn = null;
+
+      if (reviewTurn === p.turn.id) reviewTurn = null;
       emit(
         HarnessEvent.TurnEnded({
           turnId,
@@ -549,6 +556,14 @@ export const openSession = (
               turns.set(p.turn.id, scope.turnId);
               announced.add(p.turn.id);
             }
+
+            return;
+          }
+
+          if (reviewTurn !== null && p.turn.id !== reviewTurn) {
+            turns.set(p.turn.id, turnFor(reviewTurn, { announce: false }));
+            announced.add(p.turn.id);
+            activeCodexTurn = reviewTurn;
 
             return;
           }
@@ -699,6 +714,11 @@ export const openSession = (
         if (started === null)
           return yield* codexError("Unexpected review/start response from Codex");
         bindStarted(started.turn.id, turnId, prompt);
+
+        if (endedTurns.has(started.turn.id)) return;
+        // Its inner turn may have started first and taken the Turn; the review's id is the one that ends.
+        reviewTurn = started.turn.id;
+        activeCodexTurn = started.turn.id;
       });
 
     const startTurn = (turnId: TurnId, prompt: string, input: ReturnType<typeof turnInput>) =>

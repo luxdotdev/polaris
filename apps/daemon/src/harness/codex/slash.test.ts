@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { TurnId } from "@polaris/protocol";
+import { join } from "node:path";
+import { TurnId, TurnItem } from "@polaris/protocol";
 import { Effect } from "effect";
 import { makeCodexDriver } from "./CodexDriver.ts";
 import { harnessCallOf } from "./slash.ts";
+import { readFixture, replay } from "./testing/FakeAppServer.ts";
 import { cleanup, ofTag, scripted, sessionWith, THREAD, turn } from "./testing/session.ts";
 
 const withSession = sessionWith(makeCodexDriver);
@@ -102,5 +104,53 @@ describe("Codex slash commands", () => {
     );
 
     expect(result).toContain("nothing to compact");
+  });
+
+  test("real traffic: a Turn, /compact, then /review of an uncommitted change", async () => {
+    // Recorded from codex-cli 0.159.2 (gpt-6-luna, low) by scripts/e2e-codex-slash.ts; paths and account frames scrubbed.
+    const frames = await readFixture(join(import.meta.dir, "fixtures/slash-turns.jsonl"));
+
+    const turnN = (n: number, prompt: string) => ({
+      ...send(prompt),
+      turnId: TurnId.make(`turn-${n}`),
+    });
+
+    const { events, result } = await withSession(replay(frames), ({ session, waitFor }) =>
+      Effect.gen(function* () {
+        const ended = (n: number) => waitFor("TurnEnded", (e) => e.turnId === `turn-${n}`);
+
+        yield* session.sendTurn(turnN(1, "Reply with just the word ok."));
+        yield* ended(1);
+        yield* session.sendTurn(turnN(2, "/compact"));
+        yield* ended(2);
+        yield* session.sendTurn(turnN(3, "/review"));
+        yield* ended(3);
+
+        // Codex runs a review under a second turn id; the session must still be free afterwards.
+        return yield* session.sendTurn(turnN(4, "again")).pipe(Effect.flip);
+      })
+    );
+
+    expect(result.message).toContain("fixture has no further turn/start");
+    expect(ofTag(events, "TurnStarted").map((e) => String(e.turnId))).toEqual([
+      "turn-1",
+      "turn-2",
+      "turn-3",
+    ]);
+    expect(ofTag(events, "TurnEnded").map((e) => `${e.turnId} ${e.status}`)).toEqual([
+      "turn-1 completed",
+      "turn-2 completed",
+      "turn-3 completed",
+    ]);
+
+    const itemsOf = (turnId: string) =>
+      ofTag(events, "ItemCompleted")
+        .filter((e) => e.turnId === turnId)
+        .map((e) => e.item);
+
+    expect(itemsOf("turn-3").some(TurnItem.guards.CommandExecution)).toBe(true);
+    expect(itemsOf("turn-3").filter(TurnItem.guards.AssistantMessage).at(-1)?.text).toContain(
+      "hello, world"
+    );
   });
 });
