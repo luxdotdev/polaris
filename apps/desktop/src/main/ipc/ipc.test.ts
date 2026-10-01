@@ -100,6 +100,11 @@ const handlers = requestHandlers(context);
 const run = <A, E>(effect: Effect.Effect<A, E, ClientServices>) =>
   ManagedRuntime.make(services).runPromiseExit(effect);
 
+/** Waits until `ready` holds (up to 2 s): a loaded runner can take longer than a fixed sleep. */
+const until = async (ready: () => boolean) => {
+  for (let waited = 0; !ready() && waited < 2000; waited += 5) await Bun.sleep(5);
+};
+
 describe("requests", () => {
   test("every method in the contract has a handler", () => {
     expect(Object.keys(handlers).sort()).toEqual(Object.keys(RequestInputs).sort());
@@ -241,7 +246,7 @@ describe("subscriptions", () => {
     const { sent, subs } = open();
 
     subs.subscribe({ id: 1, kind: "hosts", input: {} });
-    await Bun.sleep(20);
+    await until(() => sent.length > 0);
     subs.dispose();
 
     expect(sent[0]).toEqual({ id: 1, items: [[view]] });
@@ -251,7 +256,7 @@ describe("subscriptions", () => {
     const { sent, subs } = open();
 
     subs.subscribe({ id: 1, kind: "machines", input: {} });
-    await Bun.sleep(20);
+    await until(() => sent.length > 0);
     subs.dispose();
 
     // SAFETY: the machines feed's items are MachineView lists.
@@ -265,7 +270,7 @@ describe("subscriptions", () => {
 
     subs.subscribe({ id: 1, kind: "nope", input: {} });
     subs.subscribe({ id: 2, kind: "session", input: { hostKey: "local" } });
-    await Bun.sleep(20);
+    await until(() => sent.some((e) => e.id === 1) && sent.some((e) => e.id === 2));
     subs.dispose();
 
     expect(sent.find((e) => e.id === 1)?.end?.code).toBe("UnknownSubscription");
