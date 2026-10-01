@@ -76,16 +76,29 @@ const openPull = async (page: Page) => {
   await page.getByTestId("pull-review-title").waitFor();
 };
 
-/** The chip once it reads `text` (a blocker replaces another without leaving `blocked`). */
-const chipWith = async (page: Page, text: string, timeout = 60_000) => {
-  await page.getByTestId("checkout-chip").filter({ hasText: text }).waitFor({ timeout });
-
-  return (await chip(page).textContent()) ?? "";
-};
-
 const removeFromMenu = async (page: Page) => {
   await openMenu(page);
   await page.getByTestId("checkout-remove").click();
+};
+
+/**
+ * Removes, then waits for `text`. A Reviewer session can still be ending its Turn inside the
+ * checkout just after its summary ends; that refusal ("A session is working…") is retried.
+ */
+const removeUntil = async (page: Page, text: string) => {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    await removeFromMenu(page);
+    const settled = page.getByTestId("checkout-chip").filter({ hasText: text });
+    const busy = page.getByTestId("checkout-chip").filter({ hasText: "A session is working" });
+
+    await settled.or(busy).first().waitFor({ timeout: 60_000 });
+
+    if ((await settled.count()) > 0) return (await chip(page).textContent()) ?? "";
+
+    await page.waitForTimeout(1000);
+  }
+
+  throw new Error(`removing the checkout never reached "${text}"`);
 };
 
 const openMenu = async (page: Page) => {
@@ -134,9 +147,7 @@ export const checkoutFlow = async ({ page, fake, codeHost, step, shoot }: Checko
   await openPull(page);
   // The update started an incremental Risk Summary; its Reviewer runs inside the checkout.
   await page.getByTestId("risk-caption").filter({ hasNotText: "…" }).waitFor({ timeout: 90_000 });
-  await removeFromMenu(page);
-
-  const inUse = await chipWith(page, "A terminal is open");
+  const inUse = await removeUntil(page, "A terminal is open");
 
   step(`Remove checkout with a terminal open in it: "${inUse}"`);
   await page.getByTestId("checkout-chip-action").click();
@@ -145,9 +156,8 @@ export const checkoutFlow = async ({ page, fake, codeHost, step, shoot }: Checko
 
   // Then the edit blocks it; discarding (after asking) lets removal go ahead.
   await openPull(page);
-  await removeFromMenu(page);
 
-  const blocked = await chipWith(page, "Edits in the checkout");
+  const blocked = await removeUntil(page, "Edits in the checkout");
 
   step(`Remove checkout with an edit inside: "${blocked}"`);
   await shoot("checkout-blocked-dirty");
