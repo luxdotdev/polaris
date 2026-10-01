@@ -32,6 +32,7 @@ export const githubHandlers: GitHubHandlers = {
   "github.recheck": ({ repo }) => gh((g) => g.recheck(repo)).pipe(done),
   "github.pull.detail": ({ pull }) => gh((g) => g.detail(pull)),
   "github.pull.create": (input) => gh((g) => g.createPull(input)),
+  "github.pull.compare": (input) => gh((g) => g.compare(input)),
   "github.review.addThread": (input) => gh((g) => g.addThread(input)),
   "github.review.reply": (input) => gh((g) => g.reply(input)),
   "github.review.resolve": (input) => gh((g) => g.resolveThread(input)).pipe(done),

@@ -271,6 +271,28 @@ export interface CheckoutWatch {
   readonly pullId: string;
 }
 
+/** What `github.pull.compare` asks: the commit a Review Checkout holds, and the head. */
+export interface PullCompare {
+  readonly repo: RepoRef;
+  readonly base: string;
+  readonly head: string;
+}
+
+export interface CompareCommitView {
+  readonly oid: string;
+  readonly headline: string;
+  /** The committer's date (ISO 8601); null when GitHub has none. */
+  readonly date: string | null;
+}
+
+/** The commits `head` adds over `base`, newest first (at most 20; `total` counts them all). */
+export interface CompareView {
+  /** `diverged`: the branch was rewritten (a force-push), so `head` doesn't contain `base`. */
+  readonly status: "ahead" | "behind" | "identical" | "diverged";
+  readonly total: number;
+  readonly commits: ReadonlyArray<CompareCommitView>;
+}
+
 export interface CheckoutStateView {
   readonly key: string;
   readonly pullId: string;

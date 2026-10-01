@@ -128,6 +128,13 @@ export type FakePull = Mutable<Omit<Fixture["pulls"][number], "threads" | "revie
   closedAt: string | null;
 };
 
+/** A commit on a pull request's branch, oldest first in `World.commits`. */
+export interface FakeCommit {
+  readonly oid: string;
+  readonly message: string;
+  readonly date: string;
+}
+
 export interface World {
   readonly users: ReadonlyArray<FakeUser>;
   readonly orgs: Array<Mutable<Fixture["orgs"][number]>>;
@@ -137,6 +144,8 @@ export interface World {
   readonly threads: Array<FakeThread>;
   /** `pullId:login:path` → VIEWED or DISMISSED; absent is UNVIEWED. */
   readonly viewed: Map<string, "VIEWED" | "DISMISSED">;
+  /** Pull request id → its commits, oldest first; the last is `headRefOid`. */
+  readonly commits: Map<string, Array<FakeCommit>>;
   nextId: number;
 }
 
@@ -157,6 +166,9 @@ export const worldFrom = (fixture: Fixture): World => ({
     closedAt: null,
   })),
   reviews: [],
+  commits: new Map(
+    fixture.pulls.map((p) => [p.id, [{ oid: p.headRefOid, message: p.title, date: p.updatedAt }]])
+  ),
   threads: fixture.pulls.flatMap((pull) =>
     pull.threads.map((t) => ({
       id: t.id,

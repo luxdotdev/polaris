@@ -7,7 +7,7 @@ import { createHash } from "node:crypto";
 import { Schema } from "effect";
 import type { FakeAuth } from "./auth.ts";
 import { type FakeRequest, type FakeResponse, json } from "./http.ts";
-import type { World } from "./world.ts";
+import type { FakeCommit, World } from "./world.ts";
 
 export interface ControlInput {
   readonly world: World;
@@ -39,6 +39,17 @@ export const newControl = ({ world, auth, failures, now }: ControlInput) => {
     if (found === undefined) throw new Error(`the fake has no pull ${repo}#${number}`);
 
     return found;
+  };
+
+  const commitsOf = (pullId: string) => {
+    const known = world.commits.get(pullId);
+
+    if (known !== undefined) return known;
+    const fresh: Array<FakeCommit> = [];
+
+    world.commits.set(pullId, fresh);
+
+    return fresh;
   };
 
   const touch = (repo: string, number: number) => {
@@ -74,12 +85,20 @@ export const newControl = ({ world, auth, failures, now }: ControlInput) => {
       const p = touch(repo, number);
 
       p.headRefOid = createHash("sha1").update(`${p.headRefOid}+`).digest("hex");
+      commitsOf(p.id).push({ oid: p.headRefOid, message: "New commits", date: p.updatedAt });
 
       for (const thread of world.threads)
         if (thread.pullId === p.id && thread.subjectType === "LINE") thread.line = null;
 
       for (const [key, state] of world.viewed)
         if (key.startsWith(`${p.id}:`) && state === "VIEWED") world.viewed.set(key, "DISMISSED");
+    },
+    /** A real commit on the pull request's branch (a code host the fake mirrors) becomes its head. */
+    pushCommit: (repo: string, number: number, oid: string, message: string) => {
+      const p = touch(repo, number);
+
+      p.headRefOid = oid;
+      commitsOf(p.id).push({ oid, message, date: p.updatedAt });
     },
     requestReview: (repo: string, number: number, login: string) => {
       const p = touch(repo, number);

@@ -3,6 +3,7 @@
  * heads to its Host, removes the checkouts of merged or closed pull requests (ENG-228), and
  * finishes "Discard edits and remove" once the discard has settled.
  */
+import type { ReviewCheckout } from "@polaris/protocol";
 import { useEffect, useMemo } from "react";
 import { Commands } from "../../../commands.ts";
 import { useApp, useConnection } from "../../../shell/hooks.ts";
@@ -21,10 +22,12 @@ import {
   watchList,
   type WatchAction,
 } from "./model/watch.ts";
+import { startRun } from "./run.ts";
 import {
   checkoutMemory,
   rememberPullIds,
   setRemoveAfterDiscard,
+  setRestartAfterUpdate,
   useCheckoutMemory,
 } from "./store.ts";
 
@@ -77,6 +80,21 @@ const run = (action: WatchAction, state: AppState) => {
   );
 };
 
+/** A run stopped for an update starts again once the checkout is at the new head. */
+const restartRun = (hostKey: string, checkout: ReviewCheckout, state: AppState) => {
+  const key = watchKey(hostKey, checkout);
+  const command = checkoutMemory.getState().restartAfterUpdate[key];
+
+  if (command === undefined) return;
+
+  if (checkout.state === "ready") {
+    setRestartAfterUpdate(key, null);
+    void startRun({ hostKey, hostLabel: labelOf(hostKey, state), checkout }, command);
+  } else if (checkout.state === "blocked" || checkout.state === "removing") {
+    setRestartAfterUpdate(key, null);
+  }
+};
+
 /** Removes checkouts whose discard has settled them; a blocked one keeps its blocker on screen. */
 const finishDiscards = (state: AppState) => {
   const waiting = checkoutMemory.getState().removeAfterDiscard;
@@ -84,6 +102,11 @@ const finishDiscards = (state: AppState) => {
   for (const { hostKey, checkout } of held) {
     const key = watchKey(hostKey, checkout);
     const pull = pullOf(checkout);
+
+    // A refused removal (a Reviewer still at work inside) is asked again on the next poll.
+    if (checkout.state === "blocked" && checkout.blocked?.during === "remove") sent.delete(key);
+
+    restartRun(hostKey, checkout, state);
 
     if (!waiting.has(key) || pull === null) continue;
 

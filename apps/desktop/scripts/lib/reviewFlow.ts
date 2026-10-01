@@ -59,6 +59,9 @@ export const setupCodeHost = (repo: string, home: string) => {
   git(work, "init", "-q", "-b", "main");
   write(work, "src/webhooks/deliver.ts", DELIVER_BEFORE);
   write(work, "test/webhooks/deliver.test.ts", 'test("delivers", () => {});\n');
+  // What the checkout chip's Run starts (`bun run dev`), outside the pull request's diff.
+  write(work, "package.json", JSON.stringify({ scripts: { dev: "echo serving && sleep 600" } }));
+  write(work, "bun.lock", "");
   git(work, "add", ".");
   git(work, "commit", "-qm", "webhooks");
   git(work, "push", "-q", bare, "main");
@@ -79,6 +82,7 @@ export const setupCodeHost = (repo: string, home: string) => {
   git(repo, "config", `url.${host}/.insteadOf`, "git@github.com:");
 
   return {
+    root: host,
     work,
     bare,
     head: git(work, "rev-parse", "HEAD"),

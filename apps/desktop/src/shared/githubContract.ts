@@ -6,6 +6,7 @@
 import { Schema } from "effect";
 import type {
   CheckoutStateView,
+  CompareView,
   GitHubAccountsView,
   PullDetailView,
   PullListView,
@@ -29,6 +30,8 @@ export const PullRef = Schema.Struct({
   repo: RepoRef,
   number: Schema.Int.check(Schema.isGreaterThan(0)),
 });
+
+const Sha = Schema.String.check(Schema.isPattern(/^[0-9a-f]{7,64}$/));
 
 const PullOp = { pull: PullRef, pullId: Schema.String };
 
@@ -68,6 +71,8 @@ export const GitHubRequestInputs = {
   /** Checks a blocked repository again (after requesting access or starting SSO). */
   "github.recheck": Schema.Struct({ repo: RepoRef }),
   "github.pull.detail": Schema.Struct({ pull: PullRef }),
+  /** The commits between two of a pull request's commits (a Review Checkout's and the head). */
+  "github.pull.compare": Schema.Struct({ repo: RepoRef, base: Sha, head: Sha }),
   "github.pull.create": Schema.Struct({
     repo: RepoRef,
     head: Schema.String,
@@ -137,6 +142,7 @@ export interface GitHubRequestOutputs {
   "github.refresh": null;
   "github.recheck": null;
   "github.pull.detail": PullDetailView;
+  "github.pull.compare": CompareView;
   "github.pull.create": { readonly id: string; readonly number: number; readonly url: string };
   "github.review.addThread": { readonly threadId: string; readonly reviewId: string };
   "github.review.reply": { readonly commentId: string };

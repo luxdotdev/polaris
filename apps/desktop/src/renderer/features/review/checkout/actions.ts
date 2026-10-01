@@ -14,12 +14,14 @@ import { openCheckout } from "../data/autoCheckout.ts";
 import type { CheckoutFix } from "./model/chip.ts";
 import type { Place } from "./model/hosts.ts";
 import { pullName, watchKey } from "./model/watch.ts";
+import { runningCommand, startRun, stopRun } from "./run.ts";
 import {
   forgetRemoved,
   rememberHost,
   rememberRemoved,
   repoName,
   setRemoveAfterDiscard,
+  setRestartAfterUpdate,
 } from "./store.ts";
 
 export interface Held {
@@ -30,18 +32,37 @@ export interface Held {
 
 type Nav = Pick<ShellActions, "selectWorkspace" | "selectSession">;
 
-export const updateCheckout = (held: Held, discardChanges = false) =>
+const sendUpdate = (held: Held, discardChanges: boolean) =>
   send(
     held.hostKey,
     Commands.UpdateReviewCheckout({ checkoutId: held.checkout.id, discardChanges }),
     "Couldn’t update the review checkout"
   );
 
+/** A running command is stopped first and started again once the checkout is at the new head. */
+export const updateCheckout = async (held: Held, discardChanges = false) => {
+  const running = runningCommand(held);
+
+  if (running !== null) {
+    await stopRun(held);
+    setRestartAfterUpdate(watchKey(held.hostKey, held.checkout), running);
+  }
+
+  return sendUpdate(held, discardChanges);
+};
+
+export const startRunIn = (held: Held, command: string) => startRun(held, command);
+
+export const stopRunIn = (held: Held) => stopRun(held);
+
 export const removeCheckout = async (
   held: Held,
   pull: OpenPull,
   reason: "merged" | "closed" | "user"
 ) => {
+  // A run inside would keep the checkout in use.
+  await stopRun(held);
+
   const sent = await send(
     held.hostKey,
     Commands.RemoveReviewCheckout({ checkoutId: held.checkout.id, reason }),

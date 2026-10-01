@@ -1,12 +1,13 @@
 /**
  * The Review Checkout chip in the smoke test, on #42's checkout from the local code host:
- * new commits on GitHub reach the Host and the chip offers Update; Update moves the worktree;
+ * Run starts its dev script; new commits on GitHub reach the Host, counted and listed, and
+ * the chip offers Update; Update moves the worktree and starts the run again; Stop ends it;
  * the menu opens a terminal in it; removing it with edits inside is blocked until the edits
  * are discarded; "Check out on" opens it again; and (`afterMerge`) merging #42 on GitHub
  * removes it on its own.
  */
 import { execFileSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Page } from "playwright-core";
 import type { GitHubFake } from "./githubFake/index.ts";
@@ -21,26 +22,37 @@ const git = (cwd: string, ...args: ReadonlyArray<string>) =>
     .trim();
 
 /**
- * Points the fake's pull request at real commits, as GitHub would report them. Only a push
- * (`base` absent) moves `updatedAt`: a fresh one would read as a new review request.
+ * Points the fake's pull request at the code host's real commits, as GitHub would report
+ * them; `updatedAt` stays, or it would read as a new review request.
  */
-export const setFakeHead = (fake: GitHubFake, number: number, head: string, base?: string) => {
-  const pull = fake.world.pulls.find((p) => p.repo === "acme/widgets" && p.number === number);
+export const setFakeHead = (
+  fake: GitHubFake,
+  number: number,
+  head: string,
+  base: string,
+  repo = "acme/widgets"
+) => {
+  const pull = fake.world.pulls.find((p) => p.repo === repo && p.number === number);
 
-  if (pull === undefined) throw new Error(`the fake has no acme/widgets#${number}`);
+  if (pull === undefined) throw new Error(`the fake has no ${repo}#${number}`);
   pull.headRefOid = head;
-
-  if (base === undefined) pull.updatedAt = new Date().toISOString();
-  else pull.baseRefOid = base;
+  pull.baseRefOid = base;
+  fake.world.commits.set(pull.id, [{ oid: head, message: pull.title, date: pull.updatedAt }]);
 };
 
-/** Another commit on #42 at the code host; returns its id. */
-const pushCommit = (work: string, bare: string) => {
+const PUSHED = "Simplify backoff";
+
+/** Another commit on #42 at the code host, which GitHub then reports; returns its id. */
+const pushCommit = (fake: GitHubFake, work: string, bare: string) => {
   writeFileSync(join(work, "src/webhooks/backoff.ts"), "export const backoff = async () => {};\n");
-  git(work, "commit", "-qam", "Simplify backoff");
+  git(work, "commit", "-qam", PUSHED);
   git(work, "push", "-q", bare, "HEAD:refs/pull/42/head");
 
-  return git(work, "rev-parse", "HEAD");
+  const oid = git(work, "rev-parse", "HEAD");
+
+  fake.pushCommit("acme/widgets", 42, oid, PUSHED);
+
+  return oid;
 };
 
 interface CheckoutFlowInput {
@@ -114,24 +126,41 @@ export const checkoutFlow = async ({ page, fake, codeHost, step, shoot }: Checko
   step(`checkout chip: "${ready}"`);
   await shoot("checkout-ready");
 
-  // New commits: the code host has them, GitHub reports them, the publisher relays the head.
-  const next = pushCommit(codeHost.work, codeHost.bare);
+  // Run: the checkout's dev script, from its package.json and bun.lock, in a terminal tab.
+  await page.getByTestId("checkout-chip-action").filter({ hasText: "Run" }).click();
 
-  setFakeHead(fake, 42, next);
+  const running = await chipIn(page, "running");
+
+  if (!running.includes("bun run dev")) throw new Error(`Run didn't start bun run dev: ${running}`);
+  step(`Run: "${running}"`);
+  await shoot("checkout-running");
+
+  // New commits: the code host has them, GitHub reports them, the publisher relays the head.
+  const next = pushCommit(fake, codeHost.work, codeHost.bare);
+
   await refresh(page);
 
   const stale = await chipIn(page, "new-commits", 90_000);
 
-  step(`new commits on GitHub reached the Host: "${stale}"`);
+  if (!stale.includes("1 new commit"))
+    throw new Error(`the chip doesn't count the commit: ${stale}`);
   await openMenu(page);
+  await page.getByTestId("checkout-commit").filter({ hasText: PUSHED }).waitFor();
+  step(`new commits on GitHub reached the Host: "${stale}", the menu lists "${PUSHED}"`);
   await shoot("checkout-menu-new-commits");
   await page.getByTestId("checkout-update").click();
+
+  // The run stops for the update and starts again at the new head.
+  await chipIn(page, "updating").catch(() => undefined);
+  await chipIn(page, "running");
+  step("Update checkout stopped the run and started it again at the new head");
+  await page.getByTestId("checkout-chip-action").filter({ hasText: "Stop" }).click();
 
   const updated = await chipIn(page, "ready");
 
   if (!updated.includes(next.slice(0, 7)))
     throw new Error(`Update didn't reach ${next}: ${updated}`);
-  step(`Update checkout: "${updated}"`);
+  step(`Stop, then: "${updated}"`);
 
   // A terminal in the checkout, in Orchestrate on its Workspace.
   await openMenu(page);
@@ -199,5 +228,85 @@ export const afterMerge = async ({
   if (!merged.startsWith("Merged")) throw new Error(`expected a merged removal, saw "${merged}"`);
   step(`merging #42 on GitHub removed its checkout: "${merged}"`);
   await shoot("checkout-merged");
+  await page.getByRole("radio", { name: /^Orchestrate/ }).click();
+};
+
+interface CloneFlowInput extends Pick<CheckoutFlowInput, "page" | "fake" | "step" | "shoot"> {
+  /** The local code host's root, which `git@github.com:` resolves to on the smoke Daemon. */
+  readonly codeHostRoot: string;
+  /** The smoke Daemon's `HOME`, whose git config gets that mapping. */
+  readonly userHome: string;
+}
+
+/** mona/dotfiles with pull request #7 at the code host; returns #7's head and base. */
+const dotfilesAtCodeHost = (root: string) => {
+  const bare = join(root, "mona", "dotfiles.git");
+  const work = mkdtempSync(join(root, "dotfiles-work-"));
+
+  mkdirSync(bare, { recursive: true });
+  git(bare, "init", "-q", "--bare", "-b", "main");
+  git(work, "init", "-q", "-b", "main");
+  writeFileSync(join(work, ".zshrc"), "export EDITOR=vim\n");
+  git(work, "add", ".");
+  git(work, "commit", "-qm", "zsh");
+  git(work, "push", "-q", bare, "main");
+
+  const base = git(work, "rev-parse", "HEAD");
+
+  writeFileSync(join(work, ".zshrc"), "export EDITOR=vim\nPROMPT='%~ %# '\n");
+  git(work, "commit", "-qam", "Add a zsh prompt for worktrees");
+  git(work, "push", "-q", bare, "HEAD:refs/pull/7/head");
+
+  return { head: git(work, "rev-parse", "HEAD"), base };
+};
+
+/**
+ * "Clone on…": mona/dotfiles#7, which no Workspace holds, is cloned into ~/code on the local
+ * Host, becomes a Workspace the PR list matches, and is checked out there.
+ */
+export const cloneFlow = async ({
+  page,
+  fake,
+  codeHostRoot,
+  userHome,
+  step,
+  shoot,
+}: CloneFlowInput) => {
+  const { head, base } = dotfilesAtCodeHost(codeHostRoot);
+
+  setFakeHead(fake, 7, head, base, "mona/dotfiles");
+  writeFileSync(
+    join(userHome, ".gitconfig"),
+    `[url "${codeHostRoot}/"]\n\tinsteadOf = git@github.com:\n`
+  );
+
+  await page.getByRole("radio", { name: /^Review/ }).click();
+
+  const back = page.getByRole("button", { name: "Pull requests" });
+
+  if ((await back.count()) > 0) await back.click();
+  await page.getByTestId("review-by-url").click();
+  await page.getByTestId("review-by-url-input").fill("https://github.com/mona/dotfiles/pull/7");
+  await page.keyboard.press("Enter");
+
+  const none = await chipIn(page, "none");
+
+  step(`a pull request no Workspace holds: "${none}"`);
+  await page.getByTestId("checkout-chip-action").click();
+  await page.getByTestId("checkout-clone-host").first().waitFor();
+  await shoot("checkout-menu-clone");
+  await page.getByTestId("checkout-clone-host").first().click();
+
+  // git clone, the new Workspace's remotes reach the PR list, then the checkout opens there.
+  for (let i = 0; i < 45; i++) {
+    if ((await page.locator('[data-testid="checkout-chip"][data-state="ready"]').count()) > 0)
+      break;
+    await refresh(page);
+    await page.waitForTimeout(2000);
+  }
+
+  const ready = await chipIn(page, "ready", 10_000);
+
+  step(`Clone on…: cloned into ~/code/dotfiles, added as a workspace, then "${ready}"`);
   await page.getByRole("radio", { name: /^Orchestrate/ }).click();
 };

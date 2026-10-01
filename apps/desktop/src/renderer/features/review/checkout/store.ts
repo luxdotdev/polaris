@@ -29,6 +29,8 @@ export interface CheckoutMemory {
   readonly removed: Readonly<Record<string, RemovedFacts>>;
   /** Checkouts (`hostKey checkoutId`) to remove once a discard has settled them. */
   readonly removeAfterDiscard: ReadonlySet<string>;
+  /** Checkouts (`hostKey checkoutId`) whose run starts again, with its command, after an update. */
+  readonly restartAfterUpdate: Readonly<Record<string, string>>;
 }
 
 const storage = () => {
@@ -54,6 +56,7 @@ export const checkoutMemory = createStore<CheckoutMemory>(() => ({
   ...load(),
   removed: {},
   removeAfterDiscard: new Set(),
+  restartAfterUpdate: {},
 }));
 
 checkoutMemory.subscribe((now, before) => {
@@ -110,4 +113,11 @@ export const setRemoveAfterDiscard = (key: string, on: boolean) =>
     else next.delete(key);
 
     return { removeAfterDiscard: next };
+  });
+
+export const setRestartAfterUpdate = (key: string, command: string | null) =>
+  checkoutMemory.setState((s) => {
+    const { [key]: _, ...rest } = s.restartAfterUpdate;
+
+    return { restartAfterUpdate: command === null ? rest : { ...rest, [key]: command } };
   });

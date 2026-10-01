@@ -4,7 +4,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { HostView, OpenPull } from "../../../../shared/api.ts";
-import type { PullDetailView } from "../../../../shared/github.ts";
+import type { CompareView, PullDetailView } from "../../../../shared/github.ts";
 import { Commands } from "../../../commands.ts";
 import { useApp } from "../../../shell/hooks.ts";
 import { usePulls } from "../../pulls/store.ts";
@@ -12,6 +12,7 @@ import { send } from "../../session/dispatch.ts";
 import { refreshPullDetail, useLoadedPullDetail } from "../data/pullDetail.ts";
 import { checkoutsOf } from "../data/source.ts";
 import type { Held } from "./actions.ts";
+import { type CloneState, type CloneTarget, forgetClone, useClone } from "./clone.ts";
 import { chipView, type ChipView, type HostFacts } from "./model/chip.ts";
 import {
   type HostChoice,
@@ -21,6 +22,8 @@ import {
   type PlaceHost,
 } from "./model/hosts.ts";
 import { pullName } from "./model/watch.ts";
+import { useNewCommits } from "./newCommits.ts";
+import { type RunCommand, useRun, useRunCommand } from "./run.ts";
 import { repoName, useCheckoutMemory } from "./store.ts";
 
 const NO_PLACES: ReadonlyArray<Place> = [];
@@ -56,24 +59,42 @@ export interface CheckoutModel {
   readonly detail: PullDetailView | null;
   /** The first connected place other than the held checkout's Host. */
   readonly nextPlace: Place | null;
+  /** What Run starts in the checkout. */
+  readonly command: RunCommand;
+  /** The commits an update would bring, once GitHub has compared them. */
+  readonly newCommits: CompareView | null;
+  /** Connected Hosts "Clone on…" can use, when no Workspace has the repository. */
+  readonly cloneTargets: ReadonlyArray<CloneTarget>;
+  readonly clone: CloneState | null;
+  /** The held checkout's Host's home, for `~/` paths. */
+  readonly home: string | null;
 }
 
-/** Reconnecting time ticks once a second, only while it shows: an idle chip never wakes. */
-const TICK_MS = 1000;
+/** Reconnecting time ticks each second and a run's every 15 s, only while they show. */
+const RECONNECTING_TICK_MS = 1000;
 
-const useTick = (active: boolean): number => {
+const RUNNING_TICK_MS = 15_000;
+
+const useTick = (ms: number | null): number => {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    if (!active) return;
+    if (ms === null) return;
     setNow(Date.now());
-    const timer = setInterval(() => setNow(Date.now()), TICK_MS);
+    const timer = setInterval(() => setNow(Date.now()), ms);
 
     return () => clearInterval(timer);
-  }, [active]);
+  }, [ms]);
 
   return now;
 };
+
+const cloneTargetsOf = (hosts: ReadonlyArray<HostView>): ReadonlyArray<CloneTarget> =>
+  hosts.flatMap((h) =>
+    h.status.state === "connected" && h.status.host !== null
+      ? [{ hostKey: h.key, label: h.label, homeDir: h.status.host.homeDir }]
+      : []
+  );
 
 export const useCheckout = (pull: OpenPull): CheckoutModel => {
   const models = useApp((s) => s.hostModels);
@@ -87,17 +108,25 @@ export const useCheckout = (pull: OpenPull): CheckoutModel => {
   const found = useMemo(() => checkoutsOf(pull, models), [pull, models]);
   const chosen = found.find((f) => f.hostKey === lastHostKey) ?? found[0] ?? null;
   const host = chosen === null ? undefined : hosts.find((h) => h.key === chosen.hostKey);
-  const reconnecting = host?.status.state === "reconnecting";
-  const now = useTick(reconnecting);
 
-  const held: Held | null =
-    chosen === null
-      ? null
-      : {
-          hostKey: chosen.hostKey,
-          hostLabel: host?.label ?? chosen.hostKey,
-          checkout: chosen.checkout,
-        };
+  const held: Held | null = useMemo(
+    () =>
+      chosen === null
+        ? null
+        : {
+            hostKey: chosen.hostKey,
+            hostLabel: host?.label ?? chosen.hostKey,
+            checkout: chosen.checkout,
+          },
+    [chosen, host?.label]
+  );
+
+  const command = useRunCommand(held);
+  const run = useRun(held);
+  const newCommits = useNewCommits(held, pull);
+  const clone = useClone(pull);
+  const reconnecting = host?.status.state === "reconnecting";
+  const now = useTick(reconnecting ? RECONNECTING_TICK_MS : run === null ? null : RUNNING_TICK_MS);
 
   const connected = (key: string) =>
     hosts.some((h) => h.key === key && h.status.state === "connected");
@@ -118,6 +147,13 @@ export const useCheckout = (pull: OpenPull): CheckoutModel => {
     firstPlace: labelOf(orderPlaces(places, lastHostKey)[0]?.hostKey),
     removed,
     now,
+    command: command.kind === "found" ? command.command : null,
+    run,
+    newCommits:
+      newCommits === null
+        ? null
+        : { total: newCommits.total, rewritten: newCommits.status === "diverged" },
+    clone,
   });
 
   const choices = hostChoices({
@@ -131,7 +167,23 @@ export const useCheckout = (pull: OpenPull): CheckoutModel => {
   useReportHead(held, detail);
   useRefreshOnHead(pull, held?.checkout.head ?? null);
 
-  return { view, held, choices, detail, nextPlace };
+  // Once a cloned folder is a Workspace that holds the repository, the clone is done.
+  useEffect(() => {
+    if (clone !== null && clone.status === "added" && places.length > 0) forgetClone(pull);
+  }, [clone, places.length, pull]);
+
+  return {
+    view,
+    held,
+    choices,
+    detail,
+    nextPlace,
+    command,
+    newCommits,
+    cloneTargets: cloneTargetsOf(hosts),
+    clone,
+    home: host?.status.host?.homeDir ?? null,
+  };
 };
 
 const reported = new Map<string, string>();

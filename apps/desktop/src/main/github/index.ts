@@ -20,6 +20,7 @@ import { openAccounts } from "./accounts.ts";
 import { type BudgetPolicy, DEFAULT_POLICY, newBudget } from "./budget.ts";
 import { newCheckouts } from "./checkouts.ts";
 import { newClient } from "./client.ts";
+import { newCompare } from "./compare.ts";
 import type { EndpointConfig } from "./config.ts";
 import { newCreate } from "./create.ts";
 import { newCredentials } from "./credentials.ts";
@@ -186,6 +187,7 @@ const make = Effect.fn("GitHub.make")(function* (input: GitHubInput) {
     discardReview: reviews.discard,
     setViewed: reviews.setViewed,
     createPull: newCreate(client, routing),
+    compare: newCompare(client, routing),
   };
 });
 
