@@ -10,6 +10,7 @@
   --wash-starlight: url("../../../../design/assets/washes/wash-starlight-dark.png");
   --wash-needs-you: url("../../../../design/assets/washes/wash-needs-dark.png");
   --scene: url("../../../../design/assets/scenes/scene-night.png");
+  --scene-kind: night;
   --scene-clearing: #070912;
   --halo-claude-code: url("../../../../design/assets/halos/halo-claude.png");
   --halo-codex: url("../../../../design/assets/halos/halo-codex.png");
@@ -25,6 +26,7 @@
     --wash-starlight: url("../../../../design/assets/washes/wash-starlight-light.png");
     --wash-needs-you: url("../../../../design/assets/washes/wash-needs-light.png");
     --scene: url("../../../../design/assets/scenes/scene-dawn.png");
+    --scene-kind: dawn;
     --scene-clearing: #fbfbfc;
     --halo-claude-code: url("../../../../design/assets/halos/halo-claude-light.png");
     --halo-codex: url("../../../../design/assets/halos/halo-codex-light.png");
@@ -40,6 +42,7 @@
   --wash-starlight: url("../../../../design/assets/washes/wash-starlight-light.png");
   --wash-needs-you: url("../../../../design/assets/washes/wash-needs-light.png");
   --scene: url("../../../../design/assets/scenes/scene-dawn.png");
+  --scene-kind: dawn;
   --scene-clearing: #fbfbfc;
   --halo-claude-code: url("../../../../design/assets/halos/halo-claude-light.png");
   --halo-codex: url("../../../../design/assets/halos/halo-codex-light.png");

@@ -2,9 +2,10 @@
 
 Deterministic. Requires numpy and pillow:
     uv run --with numpy --with pillow design/scripts/gen_textures.py
-Writes into design/assets/{scenes,washes,halos}.
+Writes into design/assets/{scenes,washes,halos}. Each scene also gets a map (scene-*.json) of
+what its ambient motion animates: stars, the sky line, the cabin's lamp, door gap and smoke.
 """
-import numpy as np, random, math
+import numpy as np, random, math, json
 from PIL import Image
 import os
 ASSETS=os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','assets')
@@ -43,18 +44,23 @@ def fbm(w,h,seed,scales=(24,12,6,3)):
     v=sum(noise2(w,h,s,seed+i)*(0.5**i) for i,s in enumerate(scales))
     return (v-v.min())/(v.max()-v.min())
 
+def tohex(c): return '#%02X%02X%02X'%tuple(int(round(v)) for v in c)
+
 def scene(w,h,sky,hills,star,night=True,seed=1,name='scene'):
-    """Returns (image, ground) where ground[x] is the top row of the nearest hill layer."""
+    """Returns (image, ground, motion) where ground[x] is the top row of the nearest hill layer
+    and motion maps what may animate: the stars (with the sky under each) and the sky line."""
     ys,xs=np.mgrid[0:h,0:w]
     grad=ys/(h*0.78)
     img=quant(grad+ (fbm(w,h,seed)-0.5)*0.12,sky,xs,ys)
     r=random.Random(seed)
+    stars=[]
     # stars
     if night:
         for _ in range(int(w*h*0.004)):
             x=r.randrange(w); y=r.randrange(int(h*0.62))
             b=r.random()
             c=hexc('#E8EEFF') if b>0.85 else hexc('#8A96B8') if b>0.4 else hexc('#4A5578')
+            stars.append((x,y,tohex(c),tohex(img[y,x])))
             img[y,x]=c
     # Polaris
     px,py=int(w*0.72),int(h*0.18)
@@ -68,11 +74,13 @@ def scene(w,h,sky,hills,star,night=True,seed=1,name='scene'):
             img[y,x]=img[y,x]*(1-a)+np.array([245,248,255])*a
     for (x,y) in ((px-1,py-1),(px+1,py-1),(px-1,py+1),(px+1,py+1)): img[y,x]=img[y,x]*0.5+hc*0.5
     # hills
+    skyline=np.full(w,h)
     for i,(col,base,amp,sd) in enumerate(hills):
         prof=base*h + amp*h*(noise2(w,1,40,sd+i)[0]-0.5) + amp*0.35*h*(noise2(w,1,9,sd+10+i)[0]-0.5)
         for x in range(w):
             top=int(prof[x])
             img[top:,x]=hexc(col)
+            skyline[x]=min(skyline[x],top)
         # pines on the nearest two layers
         if i>=len(hills)-2:
             rr=random.Random(sd)
@@ -82,7 +90,13 @@ def scene(w,h,sky,hills,star,night=True,seed=1,name='scene'):
                     half=max(0,(k*3)//th)
                     y=top-th+k
                     img[y,max(0,x-half):x+half+1]=hexc(col)
-    return img, prof.astype(int)
+                    for xx in range(max(0,x-half),min(w,x+half+1)): skyline[xx]=min(skyline[xx],y)
+    # a star survives where nothing (Polaris's halo, a hill) was drawn over it
+    seen={}
+    for x,y,c,under in stars:
+        if tohex(img[y,x])==c: seen[(x,y)]=(x,y,c,under)
+    motion={'width':w,'height':h,'polaris':[px,py],'stars':[list(v) for v in seen.values()],'skyline':[int(v) for v in skyline]}
+    return img, prof.astype(int), motion
 
 def save(img,name,s,sub):
     im=Image.fromarray(np.clip(img,0,255).astype('uint8'))
@@ -150,25 +164,42 @@ def place_cabin(img, ground, x0, x1, colours):
     best = min(range(x0, x1 - cw), key=lambda x: np.ptp(ground[x:x + cw]))
     base = int(ground[best:best + cw].max())  # lowest ground point, so no corner floats
     top = base - ch + 1
+    cells = {"L": [], "d": [], "S": [], "C": []}
     for j, row in enumerate(CABIN):
         for i, ch_ in enumerate(row):
             if ch_ != ".":
                 img[top + j, best + i] = hexc(colours[ch_])
+                if ch_ in cells: cells[ch_].append([best + i, top + j])
     # fill any gap between the foundation and higher ground
     img[base + 1:base + 2, best + 1:best + cw - 2] = hexc(colours["F"])
+    return {
+        "lamp": cells["L"], "lampColor": colours["L"],
+        "door": cells["d"], "doorColor": colours["d"],
+        "smoke": cells["S"], "smokeColor": colours["S"],
+        "chimney": min(cells["C"], key=lambda c: c[1]),
+    }
 
-night, night_ground = night
-place_cabin(night, night_ground, int(W * 0.14), int(W * 0.34), CABIN_NIGHT)
+def save_motion(motion, cabin, name, extra):
+    with open(OUTP('scenes', name), 'w') as f:
+        json.dump({**motion, 'cabin': cabin, **extra}, f, separators=(',', ':'))
+        f.write('\n')
+
+night, night_ground, night_motion = night
+night_cabin = place_cabin(night, night_ground, int(W * 0.14), int(W * 0.34), CABIN_NIGHT)
 save(night,'scene-night.png',4,'scenes')
-dawn,dawn_ground=scene(W,H,['#C9D8F2','#D8E1F4','#E9E6F0','#F6E4DA','#FBE3CC','#FCE9D2'],
+# A meteor is the star palette: a white head and a tail that cools into the sky.
+save_motion(night_motion, night_cabin, 'scene-night.json', {'kind': 'night', 'meteor': ['#E8EEFF', '#BCD3FF', '#8A96B8', '#4A5578']})
+dawn,dawn_ground,dawn_motion=scene(W,H,['#C9D8F2','#D8E1F4','#E9E6F0','#F6E4DA','#FBE3CC','#FCE9D2'],
     [('#B7C9A8',0.70,0.18,3),('#9DB78F',0.78,0.14,5),('#7FA074',0.86,0.10,9)],'#FFFFFF',False,12)
 # meadow flowers
 r=random.Random(4)
 for _ in range(260):
     x=r.randrange(W); y=r.randrange(int(H*0.88),H)
     dawn[y,x]=hexc(r.choice(['#F4D35E','#FFFFFF','#F2B5C4']))
-place_cabin(dawn, dawn_ground, int(W * 0.14), int(W * 0.34), CABIN_DAWN)
+dawn_cabin = place_cabin(dawn, dawn_ground, int(W * 0.14), int(W * 0.34), CABIN_DAWN)
 save(dawn,'scene-dawn.png',4,'scenes')
+# Birds at dawn are distant silhouettes in the cabin's roof brown.
+save_motion(dawn_motion, dawn_cabin, 'scene-dawn.json', {'kind': 'dawn', 'bird': CABIN_DAWN['R']})
 
 # pixel watercolour washes (tile textures)
 def wash(hue,ground,name,w=40,h=40,seed=3,strength=(0.10,0.42)):

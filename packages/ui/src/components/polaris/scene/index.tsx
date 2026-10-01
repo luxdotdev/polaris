@@ -1,10 +1,12 @@
 import type { HTMLAttributes } from "react";
 
-import { cn } from "../../lib/cn";
+import { cn } from "../../../lib/cn";
+import { SceneLayer } from "./layer";
 
 /**
  * The full-bleed pixel scene: a night sky with Polaris in dark mode, a meadow at dawn in light.
- * Only in onboarding, first run and stage empty states; never behind working surfaces.
+ * Only in onboarding, first run and stage empty states; never behind working surfaces. It lives
+ * a little: stars twinkle, the lamp breathes, smoke drifts, and now and then a meteor or birds.
  */
 export function Scene({ className, children, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
@@ -16,6 +18,7 @@ export function Scene({ className, children, ...props }: HTMLAttributes<HTMLDivE
       )}
       {...props}
     >
+      <SceneLayer />
       {children}
     </div>
   );
