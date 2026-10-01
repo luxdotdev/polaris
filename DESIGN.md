@@ -462,7 +462,7 @@ Each Agent Session shows its state as a glyph inside its Harness tile (session r
 | Failed | Pixel "failed" icon in `failed` | No |
 | Archived | Hidden from active lists; shown in `text-subtle` where listed | No |
 
-- **rule/only-working-moves:** on working surfaces nothing loops except the Working dither. The one other moving thing is a pixel scene's ambient life (see Pixel scenes), and scenes never sit behind working surfaces.
+- **rule/only-working-moves:** on working surfaces nothing loops except the Working dither. The other moving things are a pixel scene's ambient life (see Pixel scenes), and scenes never sit behind working surfaces, and the effort bar while the Harness picker is open (see Harness picker).
 - **rule/needs-you-is-loudest:** Needs You is the only Session State with an attention colour, and it sorts to the top.
 
 ### Risk Findings
@@ -498,6 +498,10 @@ Bottom-right, 360px wide, 16px in from the window's edges, and clear of the 28px
 ### Harness picker
 
 A chip in every composer: a small Harness tile, `@claude` or `@codex` in `label` type, the model in `caption`, and a chevron. It may take the Harness hue on its text and a 30% Harness-hue border while that Harness is Working. On the new-session page it expands into the Harness choice (see New session).
+
+- **Models: the newest four.** The menu shows four Models, the newest of each family in the Harness's own order: a Model is set aside when the Harness also lists a newer one of its family (read from the name it shows, "Opus 5.5" over "Opus 5", "GPT-6.1-Sol" over "GPT-6-Sol"), and the Harness's default is always among them. Today that is Opus 5.5, Fable 5.1, Sonnet 5.5 and Haiku 4.5 for Claude Code, and GPT-6.1-Sol, GPT-6-Astra, GPT-6-Luna and GPT-5.6-Terra for Codex. Everything else is under "More models…". Settings → Harnesses' "New sessions start with" offers the same four (plus a saved Model outside them).
+- **Effort: a dither bar.** Under the Models, the selected Model's effort is a row of 2px-cell dither segments in the Harness hue, one per level, lit up to the current one, with the level named on the right in `caption`. Each lit segment is denser than the one before; the lowest level is still and sparse, and each step up steps the field faster (from still to 70ms a frame at the top). ← and → move it, Home and End jump, a click on a segment picks that level. It moves only while the menu is open, and Reduce Motion stills it to its density alone.
+- **Picks are sent once.** Choosing a Model keeps the menu open so its effort can follow; what the menu shows is sent when it closes (click outside, Enter, or a click on a segment), as one `SetModel` or Fork. Escape closes it without sending.
 
 ### Working strip
 
