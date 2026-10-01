@@ -14,6 +14,7 @@ import {
   RiskSummaryRef,
   SessionId,
   Verdict,
+  type Walkthrough,
 } from "@polaris/protocol";
 import { Effect, Schema } from "effect";
 import type { SqlClient, SqlError } from "effect/sql";
@@ -38,8 +39,22 @@ export const VerdictJson = json(Verdict);
 
 type SummaryChange = (summary: RiskSummary, at: string) => RiskSummary;
 
-const patch = (summary: RiskSummary, change: Partial<typeof RiskSummary.Type>): RiskSummary =>
-  new RiskSummary({
+interface SummaryMetadata {
+  walkthrough?: Walkthrough;
+  deltaWalkthrough?: Walkthrough;
+  prompts?: NonNullable<RiskSummary["prompts"]>;
+}
+
+const patch = (summary: RiskSummary, change: Partial<typeof RiskSummary.Type>): RiskSummary => {
+  const metadata: SummaryMetadata = {};
+
+  if (summary.walkthrough !== undefined) metadata.walkthrough = summary.walkthrough;
+
+  if (summary.deltaWalkthrough !== undefined) metadata.deltaWalkthrough = summary.deltaWalkthrough;
+
+  if (summary.prompts !== undefined) metadata.prompts = summary.prompts;
+
+  return new RiskSummary({
     id: summary.id,
     key: summary.key,
     workspaceId: summary.workspaceId,
@@ -53,8 +68,24 @@ const patch = (summary: RiskSummary, change: Partial<typeof RiskSummary.Type>): 
     findings: summary.findings,
     startedAt: summary.startedAt,
     endedAt: summary.endedAt,
+    ...metadata,
     ...change,
   });
+};
+
+const patchWalkthrough = (
+  summary: RiskSummary,
+  walkthrough: Walkthrough | undefined,
+  delta: Walkthrough | undefined
+): RiskSummary => {
+  let next = summary;
+
+  if (walkthrough !== undefined) next = patch(next, { walkthrough });
+
+  if (delta !== undefined) next = patch(next, { deltaWalkthrough: delta });
+
+  return next;
+};
 
 const patchFinding = (finding: RiskFinding, change: Partial<typeof RiskFinding.Type>) =>
   new RiskFinding({
@@ -98,14 +129,16 @@ const summaryChange: (event: DomainEvent) => SummaryChange = (event) =>
     event,
     {
       RiskSummaryLayerChanged:
-        ({ layer, run }): SummaryChange =>
+        ({ layer, run, walkthrough, deltaWalkthrough }): SummaryChange =>
         (summary) =>
-          patch(summary, {
-            layers: new RiskSummaryLayers({
-              rules: layer === "rules" ? run : summary.layers.rules,
-              agent: layer === "agent" ? run : summary.layers.agent,
-            }),
-          }),
+          walkthrough !== undefined || deltaWalkthrough !== undefined
+            ? patchWalkthrough(summary, walkthrough, deltaWalkthrough)
+            : patch(summary, {
+                layers: new RiskSummaryLayers({
+                  rules: layer === "rules" ? run : summary.layers.rules,
+                  agent: layer === "agent" ? run : summary.layers.agent,
+                }),
+              }),
       RiskFindingsRecorded:
         ({ findings }): SummaryChange =>
         (summary) => {
@@ -232,11 +265,13 @@ export interface VerdictQuery {
 }
 
 export interface ReviewReads {
+  readonly writingWalkthroughs: () => Effect.Effect<ReadonlyArray<RiskSummary>>;
   /** Abandoned runs and durable Reviewer identities, read once when the Reviewer starts. */
   readonly recovery: Effect.Effect<{
     readonly running: ReadonlyArray<RiskSummary>;
     readonly sessions: ReadonlyArray<SessionId>;
   }>;
+
   readonly riskSummary: (ref: RiskSummaryRef) => Effect.Effect<RiskSummary | null>;
   /** A repo's summaries of one head, newest first (an incremental summary's predecessors). */
   readonly riskSummariesAt: (
@@ -258,6 +293,15 @@ const latestFor = (sql: SqlClient.SqlClient, key: RiskSummaryKey) =>
 
 /** Store errors are defects here, as for the other reads a Client can't act on. */
 export const reviewReads = (sql: SqlClient.SqlClient): ReviewReads => ({
+  writingWalkthroughs: () =>
+    sql<{ data: string }>`
+    SELECT data FROM risk_summaries
+    WHERE json_extract(data, '$.walkthrough.state') = 'writing'
+       OR json_extract(data, '$.deltaWalkthrough.state') = 'writing'`.pipe(
+      Effect.map((rows) => rows.map((row) => RiskSummaryJson.decode(row.data))),
+      Effect.mapError(storeError("recover walkthroughs")),
+      Effect.orDie
+    ),
   recovery: Effect.gen(function* () {
     const running = yield* sql<{ data: string }>`
       SELECT data FROM risk_summaries WHERE json_extract(data, '$.status') = 'running'`;
@@ -271,6 +315,7 @@ export const reviewReads = (sql: SqlClient.SqlClient): ReviewReads => ({
       sessions: sessions.map((row) => SessionId.make(row.session_id)),
     };
   }).pipe(Effect.mapError(storeError("recover Reviewers")), Effect.orDie),
+
   riskSummary: (ref) =>
     RiskSummaryRef.match(ref, {
       ById: ({ summaryId }) => readSummaryRow(sql, summaryId),

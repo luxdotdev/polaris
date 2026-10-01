@@ -233,3 +233,43 @@ export const THRESHOLDS: ReadonlyArray<number | null> = [500, 1000, 2000, 5000, 
 
 export const thresholdLabel = (lines: number | null) =>
   lines === null ? "Never" : `Over ${lines.toLocaleString("en-US")} lines`;
+
+/** The walkthrough (OVERVIEW.md): on unless switched off; the reviewer's model unless set. */
+export interface WalkthroughPrefs {
+  readonly enabled: boolean;
+  /** Null: the same Harness, Model and Effort as the reviewer. */
+  readonly choice: Choice | null;
+}
+
+const prefsOf = (settings: Settings): WalkthroughPrefs => {
+  const w = settings.walkthrough;
+
+  return {
+    enabled: w?.enabled ?? true,
+    choice:
+      w === undefined || w.harness === null
+        ? null
+        : { harness: w.harness, model: w.model, effort: w.effort },
+  };
+};
+
+/** The first loaded Host's, as `sharedPolicy` does. */
+export const sharedWalkthrough = (hosts: ReadonlyArray<HostReviewer>): WalkthroughPrefs => {
+  const first = hosts.find((h) => h.kind === "loaded");
+
+  return first?.kind === "loaded" ? prefsOf(first.settings) : { enabled: true, choice: null };
+};
+
+export const withWalkthrough = (settings: Settings, patch: Partial<WalkthroughPrefs>): Settings => {
+  const next = { ...prefsOf(settings), ...patch };
+
+  return {
+    ...settings,
+    walkthrough: {
+      enabled: next.enabled,
+      harness: next.choice?.harness ?? null,
+      model: next.choice?.model ?? null,
+      effort: next.choice?.effort ?? null,
+    },
+  };
+};

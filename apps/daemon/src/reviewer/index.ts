@@ -9,6 +9,7 @@ import {
   type NotFound,
   type ResolvedReviewer,
   type ReviewCheckout,
+  type ReviewContext,
   ReviewSubject,
   type ReviewerSettings,
   type RiskFindingId,
@@ -26,11 +27,20 @@ import { Engine } from "../engine/Engine.ts";
 import { Availability } from "../harness/availability/index.ts";
 import { ApprovalPolicy, ReviewCheckoutGit, Rules, type ServiceError } from "../services.ts";
 import { EventStore } from "../store/EventStore.ts";
+import { WALKTHROUGH_MARKER } from "./walkthroughPrompt.ts";
 import { askReviewer } from "./ask.ts";
 import { ReviewerSessions } from "./sessions.ts";
 import { recoverReviewer } from "./recovery.ts";
 import { reviewerDecision } from "./policy.ts";
+import { resolveRange } from "./range.ts";
 import { type RunRequest, runLayers, startRun } from "./run.ts";
+import {
+  recoverWalkthroughs,
+  requestWalkthroughs,
+  runWalkthroughs,
+  stopWalkthroughs,
+  walkthroughChoice,
+} from "./walkthrough.ts";
 import { loadSettings, resolveReviewer, saveSettings, settingsPath } from "./settings.ts";
 
 export type { RunRequest } from "./run.ts";
@@ -56,6 +66,11 @@ export class Reviewer extends Context.Service<
   {
     /** Start a Risk Summary (Rules, then the Reviewer), or answer the cached one. */
     readonly run: (request: RunRequest) => Effect.Effect<RiskSummary, NotFound | GitError>;
+    readonly runWalkthrough: (
+      summaryId: RiskSummaryId,
+      context: ReviewContext | null
+    ) => Effect.Effect<RiskSummary, NotFound | GitError>;
+    readonly stopWalkthrough: (summaryId: RiskSummaryId) => Effect.Effect<void, NotFound>;
     readonly ask: (
       summaryId: RiskSummaryId,
       findingId: RiskFindingId | null,
@@ -167,6 +182,15 @@ const make = (options: ReviewerOptions) =>
     const scope = yield* Effect.scope;
     const path = options.settingsPath ?? settingsPath();
     const starting = yield* Semaphore.make(1);
+    const activeWalkthroughs = new Set<string>();
+    const model = yield* store.model;
+
+    for (const record of model.sessions.values()) {
+      if (record.turns.some((turn) => turn.prompt.startsWith(WALKTHROUGH_MARKER)))
+        yield* sessions.register(record.session.id);
+    }
+
+    yield* recoverWalkthroughs();
 
     const resolve = (workspaceId: WorkspaceId | null) =>
       Effect.gen(function* () {
@@ -204,6 +228,17 @@ const make = (options: ReviewerOptions) =>
           Effect.provide(context)
         );
 
+        yield* fork(
+          runWalkthroughs(
+            summary,
+            range,
+            request.context?.body ?? range.prompts.join("\n\n"),
+            activeWalkthroughs
+          ).pipe(
+            Effect.catchCause((cause) => Effect.logError("a walkthrough failed", cause)),
+            Effect.provide(context)
+          )
+        );
         yield* fork(work);
 
         return summary;
@@ -235,6 +270,50 @@ const make = (options: ReviewerOptions) =>
         });
       }).pipe(Effect.provide(context));
 
+    const read = (summaryId: RiskSummaryId) =>
+      Effect.gen(function* () {
+        const summary = yield* store.review.riskSummary(
+          RiskSummaryRef.cases.ById.make({ summaryId })
+        );
+
+        if (summary === null)
+          return yield* new NotFoundError({ what: "risk summary", id: summaryId });
+
+        return summary;
+      });
+
+    const runWalkthrough = (summaryId: RiskSummaryId, reviewContext: ReviewContext | null) =>
+      starting.withPermits(1)(
+        Effect.gen(function* () {
+          const summary = yield* read(summaryId);
+          const { settings, resolved } = yield* resolve(summary.workspaceId);
+          const range = yield* resolveRange(summary.subject, summary.checkoutId, summary.key.since);
+
+          const next = yield* requestWalkthroughs(
+            summary,
+            walkthroughChoice(settings, resolved.choice),
+            activeWalkthroughs
+          );
+
+          yield* fork(
+            runWalkthroughs(
+              next,
+              range,
+              reviewContext?.body ?? range.prompts.join("\n\n"),
+              activeWalkthroughs
+            ).pipe(
+              Effect.catchCause((cause) => Effect.logError("a walkthrough failed", cause)),
+              Effect.provide(context)
+            )
+          );
+
+          return next;
+        }).pipe(Effect.provide(context))
+      );
+
+    const stopWalkthrough = (summaryId: RiskSummaryId) =>
+      Effect.flatMap(read(summaryId), stopWalkthroughs).pipe(Effect.provide(context));
+
     if (options.automatic ?? true) {
       const live = yield* store.subscribe({
         filter: (item) =>
@@ -264,6 +343,8 @@ const make = (options: ReviewerOptions) =>
     }
 
     return Reviewer.of({
+      runWalkthrough,
+      stopWalkthrough,
       run,
       ask,
       settings: (workspaceId) =>

@@ -1,10 +1,11 @@
 /**
  * The shell's keys: the command registry's shortcuts (`shared/keymap.ts`),
  * plus ⌃1…⌃0 (or ⌥1…⌥0, since macOS may bind ⌃N to Spaces), which pick a
- * Workspace chip or a machine and depend on the data.
+ * Workspace chip or a machine and depend on the data (in Review, ⌃1…⌃9 pick a review).
  */
 import type { CommandRegistry, KeyInput } from "./commands.ts";
 import type { ShellActions } from "./navigation.ts";
+import { reviewDigits } from "./review.ts";
 
 /** "Digit1" … "Digit9" → 0 … 8, "Digit0" → 9 (the tenth chip); layout-independent. */
 export const digitIndex = (code: string): number | null => {
@@ -33,6 +34,10 @@ export const handleKey = (
   { actions, registry }: KeyContext
 ): boolean => {
   const digit = digitIndex(event.code);
+  const ctrlOnly = event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey;
+
+  // In Review, ⌃N opens the queue's Nth review; Orchestrate keeps its Workspace chips.
+  if (digit !== null && ctrlOnly && reviewDigits.pick?.(digit) === true) return true;
 
   if (digit !== null && (event.ctrlKey || event.altKey) && !event.metaKey && !event.shiftKey) {
     actions.selectShortcut(digit, event.timeStamp);

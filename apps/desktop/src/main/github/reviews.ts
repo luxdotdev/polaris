@@ -9,6 +9,8 @@ import {
   GITHUB_HOST,
   hostOf,
   type PullRef,
+  type PullDetailView,
+  repoKey,
   type ReviewEvent,
 } from "../../shared/github.ts";
 import type { Client } from "./client.ts";
@@ -40,6 +42,7 @@ import {
 } from "./queries.ts";
 import type { Routing } from "./routing.ts";
 import type { GraphQLRequest, Json } from "./transport.ts";
+import { fetchOverview } from "./overview.ts";
 import { detailView } from "./views.ts";
 
 /** GitHub asks for at least a second between mutations. */
@@ -199,15 +202,18 @@ export const newReviews = ({ client, routing, gapMs }: ReviewsInput) => {
 
       if (wait > 0) yield* Effect.sleep(wait);
 
-      return yield* client
-        .graphql(accountId, schema, request)
-        .pipe(
-          Effect.ensuring(
-            Effect.flatMap(Clock.currentTimeMillis, (now) =>
-              Effect.sync(() => lastMutation.set(accountId, now))
-            )
+      return yield* client.graphql(accountId, schema, request).pipe(
+        Effect.tap(() =>
+          Effect.sync(() => {
+            for (const key of details.keys()) dirtyDetails.add(key);
+          })
+        ),
+        Effect.ensuring(
+          Effect.flatMap(Clock.currentTimeMillis, (now) =>
+            Effect.sync(() => lastMutation.set(accountId, now))
           )
-        );
+        )
+      );
     });
 
   /** One mutation, queued behind the account's others. */
@@ -241,59 +247,83 @@ export const newReviews = ({ client, routing, gapMs }: ReviewsInput) => {
       return all;
     });
 
+  const dirtyDetails = new Set<string>();
+  const details = new Map<string, { readonly pull: PullRef; readonly view: PullDetailView }>();
+  const detailLock = Semaphore.makeUnsafe(1);
+
+  const detailKey = (pull: PullRef, accountId: number) =>
+    `${accountId}:${repoKey(pull.repo)}#${pull.number}`;
+
   /** The pull request as the Review shows it: files with Viewed state, every thread, the pending review. */
-  const detail = (pull: PullRef) =>
-    Effect.gen(function* () {
-      const accountId = yield* accountFor(pull);
+  const detail = (pull: PullRef, fresh = false) =>
+    detailLock.withPermit(
+      Effect.gen(function* () {
+        const accountId = yield* accountFor(pull);
+        const key = detailKey(pull, accountId);
+        const cached = details.get(key);
 
-      const data = yield* client.graphql(
-        accountId,
-        PullDetailData,
-        pullDetail(
-          { owner: pull.repo.owner, name: pull.repo.name, number: pull.number },
-          hostOf(pull.repo) === GITHUB_HOST
-        )
-      );
+        if (!fresh && !dirtyDetails.has(key) && cached !== undefined) return cached.view;
 
-      const pr = data.repository?.pullRequest ?? null;
-
-      if (data.repository === null || pr === null) {
-        return yield* Effect.fail(
-          new GitHubNotFound({ message: `No pull request #${pull.number}.` })
+        const data = yield* client.graphql(
+          accountId,
+          PullDetailData,
+          pullDetail(
+            { owner: pull.repo.owner, name: pull.repo.name, number: pull.number },
+            hostOf(pull.repo) === GITHUB_HOST
+          )
         );
-      }
 
-      const files = yield* morePages(pr.files, (after) =>
-        Effect.map(
-          client.graphql(accountId, PullFilesData, pullFiles({ id: pr.id, after })),
-          (d) => d.node?.files ?? null
-        )
-      );
+        const pr = data.repository?.pullRequest ?? null;
 
-      const threads = yield* morePages(pr.reviewThreads, (after) =>
-        Effect.map(
-          client.graphql(accountId, PullThreadsData, pullThreads({ id: pr.id, after })),
-          (d) => d.node?.reviewThreads ?? null
-        )
-      );
+        if (data.repository === null || pr === null) {
+          return yield* Effect.fail(
+            new GitHubNotFound({ message: `No pull request #${pull.number}.` })
+          );
+        }
 
-      const view = detailView({
-        pull: pr,
-        repo: data.repository.nameWithOwner,
-        host: hostOf(pull.repo),
-        viewerLogin: data.viewer.login,
-        files,
-        threads,
-        accountId,
-      });
+        const files = yield* morePages(pr.files, (after) =>
+          Effect.map(
+            client.graphql(accountId, PullFilesData, pullFiles({ id: pr.id, after })),
+            (d) => d.node?.files ?? null
+          )
+        );
 
-      authors.set(pr.id, { author: pr.author?.login ?? null, viewer: data.viewer.login });
+        const threads = yield* morePages(pr.reviewThreads, (after) =>
+          Effect.map(
+            client.graphql(accountId, PullThreadsData, pullThreads({ id: pr.id, after })),
+            (d) => d.node?.reviewThreads ?? null
+          )
+        );
 
-      if (view.pendingReview === null) pending.delete(pr.id);
-      else pending.set(pr.id, view.pendingReview.id);
+        const view = detailView({
+          pull: pr,
+          repo: data.repository.nameWithOwner,
+          host: hostOf(pull.repo),
+          viewerLogin: data.viewer.login,
+          files,
+          threads,
+          accountId,
+        });
 
-      return view;
-    });
+        authors.set(pr.id, { author: pr.author?.login ?? null, viewer: data.viewer.login });
+
+        if (view.pendingReview === null) pending.delete(pr.id);
+        else pending.set(pr.id, view.pendingReview.id);
+
+        const full = { ...view, ...(yield* fetchOverview(client, accountId, view)) };
+        dirtyDetails.delete(key);
+        details.delete(key);
+        details.set(key, { pull, view: full });
+
+        if (details.size > 10) {
+          const oldest = details.keys().next().value;
+
+          if (oldest !== undefined) details.delete(oldest);
+        }
+
+        return full;
+      })
+    );
 
   /** The viewer's pending review: the cached one, one started elsewhere, or a new one. */
   const ensurePending = (accountId: number, pullId: string, commitOid: string | null) =>
@@ -488,7 +518,18 @@ export const newReviews = ({ client, routing, gapMs }: ReviewsInput) => {
       );
     });
 
+  const refreshDetails = Effect.gen(function* () {
+    for (const { pull, view } of Array.from(details.values())) {
+      if (client.budget.allows(view.accountId, "graphql", 2))
+        yield* detail(pull, true).pipe(Effect.ignore);
+    }
+  });
+
   return {
+    cachedDetails: () => Array.from(details.values(), (entry) => entry.view),
+    refreshDetails,
+    accountFor,
+    mutate,
     detail,
     addThread: addThreadTo,
     reply,

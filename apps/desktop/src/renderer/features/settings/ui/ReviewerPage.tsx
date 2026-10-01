@@ -3,7 +3,7 @@
  * effort, or automatic), whether it can run on each Host, its Workspace overrides, when it
  * runs, and what it checks against. Settings live on each Host; changes go to all of them.
  */
-import { PixelPolarisIcon, Tile } from "@polaris/ui";
+import { Button, PixelPolarisIcon, Tile } from "@polaris/ui";
 import { useState } from "react";
 import { slots } from "../../../app/slots.tsx";
 import { useApp } from "../../../shell/hooks.ts";
@@ -21,10 +21,12 @@ import {
   type Settings,
   sharedDefault,
   sharedPolicy,
+  sharedWalkthrough,
   SOL,
   withDefault,
   withOverride,
   withPolicy,
+  withWalkthrough,
 } from "../model/reviewer.ts";
 import { sectionInfo } from "../model/sections.ts";
 import { Action, GLYPHS } from "./harnessRow.tsx";
@@ -98,18 +100,57 @@ const useModelHost = () => {
     groups.find((g) => g.kind === harness)?.rows.find((r) => r.ready)?.hostKey ?? null;
 };
 
+/** "Walkthrough": its own Harness, Model and Effort, or the reviewer's (Reset). */
+const WalkthroughModel = ({
+  value,
+  fallback,
+  onChange,
+  modelHost,
+}: {
+  readonly value: Choice | null;
+  readonly fallback: Choice;
+  readonly onChange: (choice: Choice | null) => void;
+  readonly modelHost: (harness: string) => string | null;
+}) => (
+  <div className="flex items-center gap-3" data-testid="walkthrough-model">
+    <span className="text-caption text-text-subtle w-20 shrink-0">Walkthrough</span>
+    <div className="min-w-0 flex-1">
+      <ReviewerChoice
+        value={value ?? fallback}
+        onChange={onChange}
+        modelHost={modelHost}
+        allowAuto={false}
+      />
+    </div>
+    {value !== null && (
+      <Button
+        variant="ghost"
+        size="xs"
+        className="text-text-default"
+        title="Use the reviewer’s harness, model and effort"
+        onClick={() => onChange(null)}
+      >
+        Reset
+      </Button>
+    )}
+  </div>
+);
+
 const ReviewerCard = ({
   reviewers,
   saveAll,
+  onWalkthrough,
 }: {
   readonly reviewers: Readonly<Record<string, HostReviewer>>;
   readonly saveAll: (choice: Choice | null) => void;
+  readonly onWalkthrough: (choice: Choice | null) => void;
 }) => {
   const { hosts, refresh } = useHostProbes();
   const models = useApp((s) => s.hostModels);
   const [signingIn, setSigningIn] = useState<string | null>(null);
   const modelHost = useModelHost();
   const { choice, differs } = sharedDefault(Object.values(reviewers));
+  const walkthrough = sharedWalkthrough(Object.values(reviewers));
   const modelName = useModelName(modelHost(choice?.harness ?? ""), choice?.harness ?? "");
 
   const checkouts = Object.fromEntries(
@@ -144,7 +185,20 @@ const ReviewerCard = ({
         <span className="text-caption text-text-subtle shrink-0">{readySummary(rows)}</span>
       </div>
       <div className="px-panel flex flex-col gap-2 py-[calc(var(--spacing-gap)+4px)]">
-        <ReviewerChoice value={choice} onChange={saveAll} modelHost={modelHost} allowAuto />
+        <div className="flex items-center gap-3">
+          <span className="text-caption text-text-subtle w-20 shrink-0">Reviewer</span>
+          <div className="min-w-0 flex-1">
+            <ReviewerChoice value={choice} onChange={saveAll} modelHost={modelHost} allowAuto />
+          </div>
+        </div>
+        {walkthrough.enabled && (
+          <WalkthroughModel
+            value={walkthrough.choice}
+            fallback={choice ?? SOL}
+            onChange={onWalkthrough}
+            modelHost={modelHost}
+          />
+        )}
         {differs ? (
           <span className="text-caption text-text-subtle">
             Your hosts have different reviewers; a change here applies to all of them.
@@ -246,10 +300,13 @@ export const ReviewerPage = () => {
       <ReviewerCard
         reviewers={reviewers}
         saveAll={(choice) => saveAll((settings) => withDefault(settings, choice))}
+        onWalkthrough={(choice) => saveAll((settings) => withWalkthrough(settings, { choice }))}
       />
       <Overrides reviewers={reviewers} save={save} />
       <WhenItRuns
         policy={sharedPolicy(Object.values(reviewers))}
+        walkthrough={sharedWalkthrough(Object.values(reviewers)).enabled}
+        onWalkthrough={(enabled) => saveAll((settings) => withWalkthrough(settings, { enabled }))}
         onChange={(patch) => saveAll((settings) => withPolicy(settings, patch))}
       />
       <ChecksAgainst />

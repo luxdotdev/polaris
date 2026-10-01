@@ -12,6 +12,7 @@ import { type FakeRequest, type FakeResponse, json } from "./http.ts";
 import { MUTATIONS } from "./mutations.ts";
 import { rest } from "./rest.ts";
 import { type Fixture, type FakeUser, type World, loadFixture, worldFrom } from "./world.ts";
+import { seedOverview } from "./overview.ts";
 import { newControl } from "./control.ts";
 
 export type { FakeRequest, FakeResponse } from "./http.ts";
@@ -255,7 +256,15 @@ export const createGitHubFake = (options: GitHubFakeOptions = {}) => {
       });
     });
 
-  return { world, requests, fetch, handle, serve, ...control.api };
+  return {
+    world,
+    requests,
+    fetch,
+    handle,
+    serve,
+    seedOverview: () => seedOverview(world),
+    ...control.api,
+  };
 };
 
 export type GitHubFake = ReturnType<typeof createGitHubFake>;

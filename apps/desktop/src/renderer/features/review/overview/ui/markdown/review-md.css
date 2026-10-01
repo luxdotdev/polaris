@@ -1,0 +1,151 @@
+/* Review Markdown on top of .polaris-md: alerts, details, diff and plain blocks, path links. */
+.review-md {
+  & .md-alert {
+    background: var(--color-surface-sunken);
+    border-left: 2px solid var(--alert-hue, var(--color-hairline));
+    border-radius: 0 var(--radius-row) var(--radius-row) 0;
+    padding: 8px 12px;
+  }
+
+  & .md-alert > * + * {
+    margin-top: 4px;
+  }
+
+  & .md-alert-title {
+    color: var(--alert-text, var(--color-text-subtle));
+    font-size: var(--text-caption);
+    font-weight: 500;
+  }
+
+  & .md-alert[data-alert="note"],
+  & .md-alert[data-alert="tip"] {
+    --alert-hue: var(--color-severity-low);
+    --alert-text: var(--color-severity-low-text);
+  }
+
+  & .md-alert[data-alert="important"] {
+    --alert-hue: var(--color-severity-high);
+    --alert-text: var(--color-severity-high-text);
+  }
+
+  & .md-alert[data-alert="warning"] {
+    --alert-hue: var(--color-severity-medium);
+    --alert-text: var(--color-severity-medium-text);
+  }
+
+  & .md-alert[data-alert="caution"] {
+    --alert-hue: var(--color-severity-critical);
+    --alert-text: var(--color-severity-critical-text);
+  }
+
+  & details > summary {
+    color: var(--color-text-default);
+    cursor: default;
+    list-style: none;
+  }
+
+  & details > summary::before {
+    color: var(--color-text-subtle);
+    content: "▸";
+    display: inline-block;
+    margin-right: 6px;
+    transition: transform 120ms ease-out;
+  }
+
+  & details[open] > summary::before {
+    transform: rotate(90deg);
+  }
+
+  & details[open] > summary {
+    margin-bottom: 8px;
+  }
+
+  & details > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  & .md-block {
+    background: var(--color-surface-sunken);
+    border-radius: var(--radius-row);
+    font-family: var(--font-mono);
+    font-size: var(--text-code-inline);
+    line-height: var(--text-code-inline--line-height);
+    margin-block: 8px;
+    overflow-x: auto;
+    padding-block: 8px;
+  }
+
+  & .md-line {
+    display: flex;
+    min-width: max-content;
+    padding-inline: 12px;
+    white-space: pre;
+  }
+
+  & .md-block[data-diff] .md-line {
+    padding-left: 8px;
+  }
+
+  & .md-sign {
+    color: var(--color-text-subtle);
+    flex: none;
+    user-select: none;
+    width: 18px;
+  }
+
+  & .md-line[data-line="add"] {
+    background: var(--color-diff-added-bg);
+  }
+
+  & .md-line[data-line="add"] .md-sign {
+    color: var(--color-diff-added-text);
+  }
+
+  & .md-line[data-line="del"] {
+    background: var(--color-diff-removed-bg);
+  }
+
+  & .md-line[data-line="del"] .md-sign {
+    color: var(--color-diff-removed-text);
+  }
+
+  & .md-path {
+    color: var(--color-text-strong);
+    text-decoration: underline;
+    text-decoration-color: var(--color-text-faint);
+    text-underline-offset: 2px;
+  }
+
+  & .md-path:hover {
+    text-decoration-color: var(--color-text-subtle);
+  }
+}
+
+/* The walkthrough's sections: "Why the change" as a quiet label, sub-heads in body type. */
+.walkthrough-md .review-md {
+  & h2 {
+    color: var(--color-text-subtle);
+    font-size: var(--text-caption);
+    font-weight: 500;
+    line-height: var(--text-caption--line-height);
+    margin-top: 18px;
+  }
+
+  & h2 + p {
+    color: var(--color-text-strong);
+    font-size: var(--text-heading-sm);
+    line-height: 21px;
+    margin-top: 4px;
+  }
+
+  & h3 {
+    color: var(--color-text-strong);
+    font-size: var(--text-body);
+    font-weight: 500;
+    margin-top: 12px;
+  }
+
+  & h2 + * {
+    margin-top: 6px;
+  }
+}

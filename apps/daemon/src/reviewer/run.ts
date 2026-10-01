@@ -20,6 +20,7 @@ import {
   type SessionId,
   type WorkspaceId,
 } from "@polaris/protocol";
+import { changeWalkthrough, initialWalkthrough, walkthroughChoice } from "./walkthrough.ts";
 import { Cause, Effect, Option, Result, Schema } from "effect";
 import { checkoutGitRaw } from "../git/review/refs.ts";
 import { recordRulesLayer } from "../rules/index.ts";
@@ -105,6 +106,7 @@ const cached = (range: ReviewRange, refresh: boolean, plan: ReviewerPlan) =>
     );
 
     if (summary === null || summary.status === "failed") return null;
+
     const runsReviewer = plan.resolved.choice !== null && plan.off === null;
 
     return summary.layers.agent.status === "skipped" && runsReviewer ? null : summary;
@@ -145,17 +147,38 @@ const reviewerRun = (choice: ReviewerChoice, sessionId: SessionId | null) =>
     sessionId,
   });
 
+interface SummaryOverview {
+  walkthrough: NonNullable<RiskSummary["walkthrough"]>;
+  deltaWalkthrough?: NonNullable<RiskSummary["deltaWalkthrough"]>;
+  prompts: NonNullable<RiskSummary["prompts"]>;
+}
+
 const startedSummary = (
   request: RunRequest,
   range: ReviewRange,
   plan: ReviewerPlan,
-  now: string
+  now: string,
+  overview: {
+    readonly walkthrough: NonNullable<RiskSummary["walkthrough"]>;
+    readonly deltaWalkthrough?: NonNullable<RiskSummary["deltaWalkthrough"]>;
+    readonly prompts: NonNullable<RiskSummary["prompts"]>;
+  }
 ) => {
   const { resolved } = plan;
   const running = runningChoice(plan);
+  const id = RiskSummaryId.make(`rs_${crypto.randomUUID()}`);
+
+  const metadata: SummaryOverview = {
+    walkthrough: overview.walkthrough,
+    prompts: overview.prompts,
+  };
+
+  if (overview.deltaWalkthrough !== undefined)
+    metadata.deltaWalkthrough = changeWalkthrough(overview.deltaWalkthrough, { fullSummaryId: id });
 
   return RiskSummary.make({
-    id: RiskSummaryId.make(`rs_${crypto.randomUUID()}`),
+    ...metadata,
+    id,
     key: range.key,
     workspaceId: range.workspaceId,
     subject: request.subject,
@@ -390,14 +413,6 @@ const ended = (summary: RiskSummary, sessionId: SessionId | null, choice: Review
     return !(rulesFailed && agentFailed);
   });
 
-/** The "Ask first" note when the change is over the threshold, else null. */
-const overThreshold = (range: ReviewRange, askAboveLines: number | null) =>
-  askAboveLines === null
-    ? Effect.succeed(null)
-    : Effect.promise(() => readDiff(range.cwd, range.base, range.head)).pipe(
-        Effect.map((diff) => askFirst(changedLines(diff), askAboveLines))
-      );
-
 /** The layers of a started summary, then its end. Never fails: a broken layer is recorded. */
 export const runLayers = (
   summary: RiskSummary,
@@ -434,6 +449,11 @@ export const runLayers = (
     return yield* ended(summary, sessionId, choice);
   });
 
+const planningDiff = (range: ReviewRange, plan: ReviewerPlan, walkthroughRuns: boolean) =>
+  !walkthroughRuns && (runningChoice(plan) === null || plan.askAboveLines === null)
+    ? Effect.succeed<ChangeDiff>({ files: [] })
+    : Effect.promise(() => readDiff(range.cwd, range.base, range.head));
+
 export const startRun = (
   request: RunRequest,
   resolve: (
@@ -463,10 +483,63 @@ export const startRun = (
 
     if (existing !== null) return { summary: existing, range, plan: null };
 
-    const waiting =
-      runningChoice(plan) === null ? null : yield* overThreshold(range, plan.askAboveLines);
+    const walkChoice = walkthroughChoice(settings, resolved.choice);
 
-    const summary = startedSummary(request, range, { ...plan, waiting }, new Date().toISOString());
+    const off =
+      request.rulesOnly === true || plan.off !== null || settings.walkthrough?.enabled === false;
+
+    const diff = yield* planningDiff(range, plan, !off && walkChoice !== null);
+    const lines = changedLines(diff);
+
+    const waiting =
+      runningChoice(plan) === null && walkChoice === null
+        ? null
+        : askFirst(lines, plan.askAboveLines);
+
+    const initial = initialWalkthrough(range.key.head, walkChoice, {
+      off,
+      waiting: waiting !== null,
+      lines,
+      files: diff.files.length,
+    });
+
+    const store = yield* EventStore;
+    const atHead = yield* store.review.riskSummariesAt(range.key.repo, range.key.head, 30);
+
+    const same = atHead.find(
+      (candidate) =>
+        candidate.key.mergeBase === range.key.mergeBase &&
+        candidate.walkthrough !== undefined &&
+        ["writing", "ready", "failed"].includes(candidate.walkthrough.state)
+    );
+
+    const overview: SummaryOverview = {
+      walkthrough: off ? initial : (same?.walkthrough ?? initial),
+      prompts: range.promptViews,
+    };
+
+    if (range.key.since !== null)
+      overview.deltaWalkthrough =
+        atHead.find(
+          (candidate) =>
+            candidate.key.since === range.key.since && candidate.deltaWalkthrough?.state === "ready"
+        )?.deltaWalkthrough ??
+        initialWalkthrough(range.key.head, walkChoice, {
+          off,
+          waiting: waiting !== null,
+          lines,
+          files: diff.files.length,
+          fromHead: range.key.since,
+        });
+
+    const summary = startedSummary(
+      request,
+      range,
+      { ...plan, waiting },
+      new Date().toISOString(),
+      overview
+    );
+
     yield* commit([DomainEvent.cases.RiskSummaryStarted.make({ summary })]);
 
     return { summary, range, plan: { ...plan, waiting } };

@@ -48,9 +48,13 @@ const ThresholdSelect = ({
 
 export const WhenItRuns = ({
   policy,
+  walkthrough,
+  onWalkthrough,
   onChange,
 }: {
   readonly policy: RunPolicy;
+  readonly walkthrough: boolean;
+  readonly onWalkthrough: (enabled: boolean) => void;
   readonly onChange: (patch: Partial<RunPolicy>) => void;
 }) => (
   <section aria-label="When it runs" className="flex flex-col gap-3">
@@ -79,8 +83,19 @@ export const WhenItRuns = ({
         />
       </SettingRow>
       <SettingRow
+        title="Write a walkthrough"
+        caption="Its own read-only session beside the reviewer; lands first on Overview, rewritten when the head moves"
+        htmlFor="write-walkthrough"
+      >
+        <Switch id="write-walkthrough" checked={walkthrough} onCheckedChange={onWalkthrough} />
+      </SettingRow>
+      <SettingRow
         title="Ask first for large changes"
-        caption="Rules run at once; the reviewer waits for “Run reviewer”"
+        caption={
+          walkthrough
+            ? "Rules run at once; the reviewer and the walkthrough wait for “Run both”"
+            : "Rules run at once; the reviewer waits for “Run reviewer”"
+        }
         htmlFor="ask-first"
       >
         <ThresholdSelect

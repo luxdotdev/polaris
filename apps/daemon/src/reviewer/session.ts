@@ -79,7 +79,8 @@ const runTurn = <E>(
   sessionId: SessionId,
   fromIndex: number,
   send: Effect.Effect<unknown, E, Engine>,
-  onSent: (turnId: TurnId) => Effect.Effect<void> = () => Effect.void
+  onSent: (turnId: TurnId) => Effect.Effect<void> = () => Effect.void,
+  onAssistant?: (text: string) => Effect.Effect<void>
 ) =>
   Effect.scoped(
     Effect.gen(function* () {
@@ -97,7 +98,31 @@ const runTurn = <E>(
 
       if (sent !== undefined) yield* onSent(sent.id);
 
+      const partial = new Map<string, string>();
+
       const waited = yield* live.pipe(
+        Stream.tap((item) => {
+          if (onAssistant === undefined) return Effect.void;
+
+          if (
+            Predicate.isTagged(item, "Delta") &&
+            item.field === "text" &&
+            item.subagentId === null
+          ) {
+            const text = ((partial.get(item.itemId) ?? "") + item.text).slice(0, 240_000);
+            partial.set(item.itemId, text);
+
+            return text.startsWith("## Why the change") ? onAssistant(text) : Effect.void;
+          }
+
+          if (
+            Predicate.isTagged(item, "ItemProgress") &&
+            Predicate.isTagged(item.item, "AssistantMessage")
+          )
+            return onAssistant(item.item.text);
+
+          return Effect.void;
+        }),
         Stream.filterMap((item) => {
           const turn = ended(item);
 
@@ -158,6 +183,8 @@ export interface StartReviewer {
   readonly choice: ReviewerChoice;
   readonly title: string;
   readonly prompt: string;
+  readonly onStarted?: (sessionId: SessionId) => Effect.Effect<void>;
+  readonly onAssistant?: (text: string) => Effect.Effect<void>;
 }
 
 /** Starts the Reviewer's session with its first Turn, and waits for that Turn. */
@@ -184,9 +211,11 @@ export const startReviewerSession = (options: StartReviewer) =>
         })
       );
       yield* dispatch(Command.cases.RenameSession.make({ sessionId, title: options.title }));
+
+      if (options.onStarted !== undefined) yield* options.onStarted(sessionId);
     });
 
-    const outcome = yield* runTurn(sessionId, 0, start);
+    const outcome = yield* runTurn(sessionId, 0, start, undefined, options.onAssistant);
 
     return { sessionId, ...outcome };
   });

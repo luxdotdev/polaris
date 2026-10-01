@@ -15,7 +15,7 @@ import {
 } from "../../review/index.ts";
 import { discardReview, submitReview } from "../data/actions.ts";
 import { Avatar } from "./Avatar.tsx";
-import { useComments } from "../data/store.ts";
+import { setSummary, useComments } from "../data/store.ts";
 import {
   type OpenRisk,
   pendingCaption,
@@ -126,7 +126,8 @@ const Dialog = ({
   const choices = submitChoices(detail, risk);
   const pending = pendingCount(detail);
   const [event, setEvent] = useState<ReviewEvent>("comment");
-  const [body, setBody] = useState("");
+  const body = useComments((s) => s.summaries[subjectKey] ?? "");
+  const setBody = (text: string) => setSummary(subjectKey, text);
 
   const [state, setState] = useState<{ busy: boolean; error: string | null }>({
     busy: false,
@@ -141,8 +142,10 @@ const Dialog = ({
     setState({ busy: true, error: null });
     const done = await submitReview(subjectKey, event, body);
 
-    if (done.ok) onDone();
-    else setState({ busy: false, error: done.message });
+    if (done.ok) {
+      setSummary(subjectKey, "");
+      onDone();
+    } else setState({ busy: false, error: done.message });
   };
 
   return (

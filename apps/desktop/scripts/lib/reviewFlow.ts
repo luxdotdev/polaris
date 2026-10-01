@@ -111,10 +111,76 @@ const waitForHighlight = async (page: Page) => {
 
 const progress = (page: Page) => page.getByTestId("review-progress").textContent();
 
+const centre = (page: Page, tab: string) =>
+  page.locator(`[data-testid="review-centre"][data-tab="${tab}"]`);
+
+/**
+ * A pull request opens on Overview with the fake's Suzuka summary; its Re-run asks once, then
+ * posts `/review`; Comment now posts from Conversation; "Review changes →" jumps to Changes.
+ */
+const overviewSteps = async (page: Page, step: (message: string) => void) => {
+  await centre(page, "overview").waitFor({ timeout: 60_000 });
+
+  const verdict = page.getByTestId("bot-verdict");
+
+  await verdict.waitFor({ timeout: 30_000 });
+  // The cached detail is refreshed once on open; on a re-review the cards then move.
+  await page.waitForTimeout(1500);
+  await page.getByTestId("bot-summary-toggle").click();
+  await page.getByTestId("bot-summary-full").waitFor();
+  step(
+    `#42 opened on Overview: suzuka's summary pinned, verdict ${(await verdict.textContent()) ?? "?"}, full GFM on demand`
+  );
+
+  await page.getByTestId("bot-menu-trigger").click();
+  await page.getByTestId("bot-command-review").click();
+  await page.getByTestId("bot-confirm-post").click();
+  await page.getByTestId("bot-confirm").waitFor({ state: "detached", timeout: 15_000 });
+  step("Re-run asked once, then posted /review as the viewer");
+
+  await page.getByTestId("review-tab-conversation").click();
+  await page.getByTestId("conversation").waitFor({ timeout: 30_000 });
+  await page.getByTestId("timeline").getByText("/review").first().waitFor({ timeout: 30_000 });
+  await page
+    .getByTestId("conversation-composer")
+    .locator("textarea")
+    .fill("Overview smoke: comment now");
+  await page.getByTestId("conversation-comment-now").click();
+  await page
+    .getByTestId("timeline")
+    .getByText("Overview smoke: comment now")
+    .waitFor({ timeout: 30_000 });
+  await page.getByRole("radio", { name: "Bots", exact: true }).click();
+  await page.getByRole("radio", { name: "Bots", exact: true, checked: true }).waitFor();
+  await page
+    .getByTestId("timeline")
+    .getByText("Overview smoke: comment now")
+    .waitFor({ state: "detached" });
+  step("Conversation: /review in the timeline, Comment now posted, Bots hides people's comments");
+
+  await page.getByTestId("review-tab-overview").click();
+  await page.getByTestId("review-jump-changes").click();
+  await centre(page, "changes").waitFor();
+  step("Review changes → jumped from Overview to Changes");
+};
+
+/** ⌃2 opens the queue's second review, in its visible order. */
+const queueDigit = async (page: Page, step: (message: string) => void) => {
+  const second = page.getByTestId("review-queue-row").nth(1);
+  const id = await second.getAttribute("data-row");
+
+  await page.keyboard.press("Control+Digit2");
+  await page
+    .locator(`[data-testid="review-queue-row"][data-row="${id ?? ""}"][aria-current="page"]`)
+    .waitFor({ timeout: 10_000 });
+  step(`⌃2 opened the queue's second review (${id ?? "?"})`);
+};
+
 export const reviewFlow = async ({ page, fake, step, shoot }: ReviewFlowInput) => {
   await page.getByRole("radio", { name: /^Review/ }).click();
   // pullsFlow left #44 open: #42 is in the queue beside it.
   await page.getByTestId("review-queue-row").filter({ hasText: "#42" }).click();
+  await overviewSteps(page, step);
 
   const deliver = page.locator('[data-testid="review-file"][data-path="src/webhooks/deliver.ts"]');
 
@@ -136,19 +202,26 @@ export const reviewFlow = async ({ page, fake, step, shoot }: ReviewFlowInput) =
   await deliver.getByText("Viewed").click();
   await page.getByTestId("review-progress").filter({ hasText: "1 of 3 viewed" }).waitFor();
 
-  const marked = fake.requests.some((r) => r.kind === "graphql" && r.name === "MarkFileAsViewed");
+  // The mark shows at once; its GitHub write follows.
+  const sent = () =>
+    fake.requests.some((r) => r.kind === "graphql" && r.name === "MarkFileAsViewed");
 
-  if (!marked) throw new Error("Viewed didn't reach GitHub (no MarkFileAsViewed)");
+  for (let i = 0; i < 50 && !sent(); i++) await page.waitForTimeout(200);
+
+  if (!sent()) throw new Error("Viewed didn't reach GitHub (no MarkFileAsViewed)");
 
   step(`Viewed: ${before ?? ""} → 1 of 3 viewed, sent to GitHub as MarkFileAsViewed`);
 
   const session = page
     .getByTestId("review-queue-row")
     .filter({ hasText: "smoke-repo" })
-    .filter({ hasNotText: "Reviewer ·" });
+    .filter({ hasNotText: "Reviewer ·" })
+    .filter({ hasNotText: "Walkthrough ·" });
 
   if ((await session.count()) > 0) {
     await session.first().click();
+    await page.locator('[data-testid="review-centre"][data-tab="overview"]').waitFor();
+    await page.getByTestId("review-tab-changes").click();
     await page.getByTestId("turn-divider").first().waitFor({ timeout: 30_000 });
     step(
       `an Agent Session from the queue: ${await page.getByTestId("turn-divider").count()} Turn dividers`
@@ -156,6 +229,7 @@ export const reviewFlow = async ({ page, fake, step, shoot }: ReviewFlowInput) =
     await shoot("review-session");
   } else step("no Agent Session ready for review in the queue");
 
+  await queueDigit(page, step);
   await page.getByRole("button", { name: "Pull requests" }).click();
   await page.getByRole("radio", { name: /^Orchestrate/ }).click();
 };

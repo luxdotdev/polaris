@@ -552,6 +552,19 @@ export const RunRiskSummary = Rpc.make("review.runRiskSummary", {
   error: Schema.Union([NotFound, GitError, Unsupported]),
 });
 
+/** Explicitly write/retry or stop the walkthrough on this head; ready output remains cached. */
+export const RunWalkthrough = Rpc.make("review.runWalkthrough", {
+  payload: { summaryId: RiskSummaryId, context: addedNullable(ReviewContext) },
+  success: RiskSummary,
+  error: Schema.Union([NotFound, GitError, Unsupported]),
+});
+
+export const StopWalkthrough = Rpc.make("review.stopWalkthrough", {
+  payload: { summaryId: RiskSummaryId },
+  success: Schema.Void,
+  error: Schema.Union([NotFound, Unsupported]),
+});
+
 /** A Risk Summary by id, or the latest for a key; null when there is none. */
 export const GetRiskSummary = Rpc.make("review.riskSummary", {
   payload: { ref: RiskSummaryRef },
@@ -789,6 +802,8 @@ export class DaemonRpcs extends RpcGroup.make(
   GitShow,
   ReviewCheckoutStatusQuery,
   RunRiskSummary,
+  RunWalkthrough,
+  StopWalkthrough,
   GetRiskSummary,
   WatchRiskSummary,
   AskFinding,

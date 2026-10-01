@@ -70,7 +70,18 @@ export const GitHubRequestInputs = {
   "github.refresh": Schema.Struct({}),
   /** Checks a blocked repository again (after requesting access or starting SSO). */
   "github.recheck": Schema.Struct({ repo: RepoRef }),
-  "github.pull.detail": Schema.Struct({ pull: PullRef }),
+  "github.pull.comment": Schema.Struct({ pull: PullRef, body: Schema.String }),
+  "github.bot.command": Schema.Struct({
+    pull: PullRef,
+    bot: Name,
+    command: Schema.Literals(["review", "retry", "memory"]),
+    text: Schema.optionalKey(Schema.String),
+  }),
+  "github.pull.publishDescription": Schema.Struct({ ...PullOp, body: Schema.String, head: Sha }),
+  "github.pull.detail": Schema.Struct({
+    pull: PullRef,
+    refresh: Schema.optionalKey(Schema.Boolean),
+  }),
   /** The commits between two of a pull request's commits (a Review Checkout's and the head). */
   "github.pull.compare": Schema.Struct({ repo: RepoRef, base: Sha, head: Sha }),
   "github.pull.create": Schema.Struct({
@@ -141,6 +152,9 @@ export interface GitHubRequestOutputs {
   "github.watch": null;
   "github.refresh": null;
   "github.recheck": null;
+  "github.pull.comment": { readonly id: string; readonly url: string };
+  "github.bot.command": null;
+  "github.pull.publishDescription": { readonly hash: string };
   "github.pull.detail": PullDetailView;
   "github.pull.compare": CompareView;
   "github.pull.create": { readonly id: string; readonly number: number; readonly url: string };
@@ -155,6 +169,7 @@ export interface GitHubRequestOutputs {
 }
 
 export const GitHubSubscriptionInputs = {
+  "github.details": Schema.Struct({}),
   /** The accounts for Settings, with any sign-in in progress; the whole view on every change. */
   "github.accounts": Schema.Struct({}),
   /** The pull request list with each repository's access state. */
@@ -164,6 +179,7 @@ export const GitHubSubscriptionInputs = {
 } as const;
 
 export interface GitHubSubscriptionItems {
+  "github.details": ReadonlyArray<PullDetailView>;
   "github.accounts": GitHubAccountsView;
   "github.pulls": PullListView;
   "github.checkouts": ReadonlyArray<CheckoutStateView>;

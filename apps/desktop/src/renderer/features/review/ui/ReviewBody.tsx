@@ -19,6 +19,7 @@ import {
   surfaceStore,
   updateSurface,
 } from "../surface.ts";
+import { CentrePane, setTab, type SessionInfo } from "../overview/index.ts";
 import { DiffPane } from "./DiffPane.tsx";
 import { FileList } from "./FileList.tsx";
 import { useThemeType } from "./theme.ts";
@@ -37,6 +38,10 @@ export interface ReviewBodyProps {
   readonly pullViewed: PullViewed | null;
   /** Shown instead of the diff (no checkout yet, a failure); null while loading or ready. */
   readonly placeholder: Placeholder | null;
+  /** An Agent Session's Overview; null for a pull request. */
+  readonly session: SessionInfo | null;
+  /** The checkout's merge base, for narrowing Changes to the first commit. */
+  readonly mergeBase: string | null;
 }
 
 const RiskColumn = ({
@@ -92,6 +97,8 @@ const Ready = ({
   slotProps,
   diff,
   pullViewed,
+  session,
+  mergeBase,
 }: ReviewBodyProps & { readonly diff: Extract<ReviewDiff, { readonly kind: "ready" }> }) => {
   const surface = useStore(surfaceStore, (s) => s[subjectKey] ?? emptySurface);
   const themeType = useThemeType();
@@ -145,44 +152,57 @@ const Ready = ({
           progress={model.progress}
           current={model.openFile}
           notice={scaleNotice(diff.scale, model.files.length)}
-          onOpen={model.open}
+          onOpen={(file) => {
+            setTab(subjectKey, "changes");
+            model.open(file);
+          }}
           onViewed={model.setViewed}
         />
       </RiskColumn>
-      <div
-        className="bg-bg flex min-w-0 flex-1 flex-col"
-        data-testid="review-diff"
-        data-complete={diff.complete ? "" : undefined}
-        data-files={model.files.length}
-      >
-        {pane.kind === "message" ? (
-          <Waiting placeholder={{ title: pane.title, fact: pane.fact }} />
-        ) : (
-          <DiffPane
-            items={model.items}
-            marksCss={model.marksCss}
-            themeType={themeType}
-            loadDiffFiles={model.loadDiffFiles}
-            itemKeys={model.itemKeys}
-            onSelect={(id, range) => {
-              const file = model.files.find((f) => f.key === id);
-              const parsed = model.items.find((p) => p.item.id === id)?.item;
+      <CentrePane
+        subjectKey={subjectKey}
+        slotProps={slotProps}
+        files={model.files.length}
+        viewed={model.progress.viewed}
+        session={session}
+        mergeBase={mergeBase}
+        changes={
+          <div
+            className="bg-bg flex min-h-0 min-w-0 flex-1 flex-col"
+            data-testid="review-diff"
+            data-complete={diff.complete ? "" : undefined}
+            data-files={model.files.length}
+          >
+            {pane.kind === "message" ? (
+              <Waiting placeholder={{ title: pane.title, fact: pane.fact }} />
+            ) : (
+              <DiffPane
+                items={model.items}
+                marksCss={model.marksCss}
+                themeType={themeType}
+                loadDiffFiles={model.loadDiffFiles}
+                itemKeys={model.itemKeys}
+                onSelect={(id, range) => {
+                  const file = model.files.find((f) => f.key === id);
+                  const parsed = model.items.find((p) => p.item.id === id)?.item;
 
-              updateSurface(subjectKey, {
-                selection:
-                  file === undefined || range === null
-                    ? null
-                    : selectionOf(
-                        file.file.path,
-                        range,
-                        parsed?.type === "diff" ? parsed : null,
-                        diff.sections.find((s) => s.id === file.section)?.divider?.turn ?? null
-                      ),
-              });
-            }}
-          />
-        )}
-      </div>
+                  updateSurface(subjectKey, {
+                    selection:
+                      file === undefined || range === null
+                        ? null
+                        : selectionOf(
+                            file.file.path,
+                            range,
+                            parsed?.type === "diff" ? parsed : null,
+                            diff.sections.find((s) => s.id === file.section)?.divider?.turn ?? null
+                          ),
+                  });
+                }}
+              />
+            )}
+          </div>
+        }
+      />
     </div>
   );
 };
@@ -200,7 +220,15 @@ export const ReviewBody = (props: ReviewBodyProps) => {
       <RiskColumn slotProps={props.slotProps}>
         <div className="flex-1" />
       </RiskColumn>
-      <Waiting placeholder={props.placeholder ?? failed} />
+      <CentrePane
+        subjectKey={props.subjectKey}
+        slotProps={props.slotProps}
+        files={null}
+        viewed={null}
+        session={props.session}
+        mergeBase={props.mergeBase}
+        changes={<Waiting placeholder={props.placeholder ?? failed} />}
+      />
     </div>
   );
 };

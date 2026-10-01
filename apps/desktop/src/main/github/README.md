@@ -30,3 +30,9 @@ Who acts on what it reports: the renderer's `features/pulls` sends `github.watch
 ## Testing
 
 `*.test.ts` here run the real service on the in-process fake (`scripts/lib/githubFake`, see its README) with a TestClock and an in-memory keychain (`github.testing.ts`). The smoke (`scripts/lib/githubFlow.ts`) serves the fake on 127.0.0.1 and points the app at it with `POLARIS_GITHUB_WEB_URL` / `POLARIS_GITHUB_API_URL`, launched with `--use-mock-keychain`. Nothing here touches the real GitHub.
+
+## Overview
+
+`github.pull.detail` caches up to ten routed PRs (optional `refresh: true` bypasses the cache). The existing poll cadence refreshes those details and emits `github.details`; no hover fetches or new timers. `overviewQueries.ts` paginates comments, submitted reviews, every commit and head check contexts. `overview.ts` builds chronological Conversation items (one push item per commit), folds inline comments into their thread, omits pending comments and pins the latest leading bot-summary marker. Bot people use `__typename` or `[bot]`; `botSummary.ts` reads the first GFM alert and reviewed-SHA footer.
+
+`github.pull.comment { pull, body }` returns `{ id, url }`. `github.bot.command { pull, bot, command, text? }` posts `/review`, `/retry`, or `/memory <text>` through that same paced comment path (returns null). The renderer stores the first confirmation per bot. `github.pull.publishDescription { pull, pullId, body, head }` requires a fresh detail with the viewer as author and the expected head, updates the body, and returns `{ hash }`. Atomic `published-descriptions.json` records hash/head/time; `published.matches` reports whether the current body still equals that hash, including after a restart or manual edit.

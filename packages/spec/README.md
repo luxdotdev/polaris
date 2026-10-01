@@ -62,6 +62,7 @@ cd packages/spec && bun scripts/replay.ts /tmp/polaris-traces
 | `ARCHIVE_IGNORES_TURN` | `session.archive` without the Turn-in-flight guard, as In Terminal and Starting had it (finding 2; now `false`) |
 | `RECORDS_LATE_REQUESTS` | `harness.approvalRequested` recorded whatever its Turn, and the last answer moving to Working with no Turn (finding 3; now `false`) |
 | `crash` / `restart` | the Daemon dying at any point (kill, crash, upgrade exec) and starting again on the same database |
+| Walkthrough metadata | Optional `walkthrough` / `deltaWalkthrough` on `RiskSummaryStarted` and `RiskSummaryLayerChanged` use the existing review-only event path (`store/review.ts`). Ready walkthrough heads stay cached across explicit Reviewer refreshes. Metadata changes preserve the Reviewer layer; no new event tags, receipt, ack, feed, or Session State semantics. Write/Retry starts a normal read-only Agent Session with `StartSession`; Stop uses the existing `Interrupt` machine command. Older Clients ignore optional metadata and do not advertise `review.walkthrough`. |
 | `CAPACITY` | `StoreConfig.subscriberCapacity` |
 
 **Properties** (all in `safety`, checked after every step):

@@ -33,6 +33,7 @@ import type {
   PlanLimit,
   RiskSummary,
   RunRiskSummary,
+  RunWalkthrough,
   SearchPaths,
   SessionStreamItem,
   TerminalId,
@@ -326,6 +327,8 @@ export interface RequestOutputs extends GitHubRequestOutputs {
   "attachments.setSettings": null;
   "attachments.clear": Plain<StagedAmount>;
   "review.runRiskSummary": Rpc.Success<typeof RunRiskSummary>;
+  "review.runWalkthrough": Rpc.Success<typeof RunWalkthrough>;
+  "review.stopWalkthrough": null;
   "review.riskSummary": Rpc.Success<typeof GetRiskSummary>;
   "review.verdicts": Rpc.Success<typeof ListVerdicts>;
   "review.askFinding": Rpc.Success<typeof AskFinding>;

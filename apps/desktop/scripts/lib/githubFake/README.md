@@ -32,3 +32,5 @@ const served = await fake.serve();                       // or over HTTP: POLARI
 ## Moving the world
 
 In-process: `approveDevice(userCode, login)`, `denyDevice`, `expireAccessTokens`, `revoke(login)`, `merge|close|push(repo, number)` (a push makes line threads outdated and Viewed files "changed since viewed"), `requestReview(repo, number, login)`, `restrictOrg(org, on)`, `failNext(status)`. Over HTTP, `POST /_fake/<approve|deny|expire|merge|close|push|request-review|restrict|fail>` with a JSON body. `fake.requests` logs every call (kind, path or operation, status) for assertions.
+
+`fake.seedOverview()` adds the brief's Suzuka Markdown format (realistic table subset in `fixtures/suzuka.md`), an inline bot thread, a submitted approval, a human top-level comment and a timed CI check. `PullOverview` independently paginates all four connections. `AddIssueComment` records top-level comments, and `PublishDescription` updates the fake PR body. The Electron smoke exercises the three new action IPCs and publication hash readback against this fixture.

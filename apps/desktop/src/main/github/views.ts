@@ -8,6 +8,7 @@ import type {
   ViewedState,
 } from "../../shared/github.ts";
 import type { PullDetailData, ReviewThread } from "./queries.ts";
+import { personView } from "./overview.ts";
 import { checksOf, githubStack } from "./stacks.ts";
 
 type Detail = NonNullable<NonNullable<PullDetailData["repository"]>["pullRequest"]>;
@@ -63,6 +64,8 @@ export const threadView = (thread: ReviewThread): ReviewThreadView => ({
   path: thread.path,
   isResolved: thread.isResolved,
   isOutdated: thread.isOutdated,
+  resolvedBy: thread.resolvedBy?.login ?? null,
+  diffHunk: thread.comments.nodes[0]?.diffHunk ?? "",
   anchor: anchorOf(thread),
   comments: thread.comments.nodes.map((c) => ({
     id: c.id,
@@ -71,6 +74,7 @@ export const threadView = (thread: ReviewThread): ReviewThreadView => ({
     createdAt: c.createdAt,
     url: c.url,
     pending: c.state === "PENDING",
+    person: personView(c.author),
   })),
 });
 

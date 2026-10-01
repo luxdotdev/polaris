@@ -393,6 +393,7 @@ const relaunchKeepsOutput = async () => {
     .locator("[data-session-row]")
     .filter({ hasText: "bench:" })
     .filter({ hasNotText: "Reviewer ·" })
+    .filter({ hasNotText: "Walkthrough ·" })
     .first()
     .click();
   await page.getByTestId("output-panel").waitFor({ timeout: 10_000 });

@@ -21,20 +21,58 @@ const details = createStore<Readonly<Record<string, PullDetail>>>(() => ({}));
 export const pullKey = (pull: Pick<OpenPull, "repo" | "number">) =>
   `${pull.repo.owner}/${pull.repo.name}#${pull.number}`.toLowerCase();
 
-/** Fetches the detail again (after a comment, a submit, or new commits); keeps the last while it loads. */
-export const refreshPullDetail = async (pull: Pick<OpenPull, "repo" | "number">) => {
+const store = (detail: PullDetailView) => {
+  const viewed = new Map(detail.files.map((f) => [f.path, f.viewed === "viewed"]));
+
+  settlePull(detail.id, (path) => viewed.get(path) ?? false);
+  details.setState({
+    [pullKey({ repo: repoOf(detail.repo), number: detail.number })]: { kind: "ok", detail },
+  });
+};
+
+const repoOf = (repo: string) => {
+  const [owner = "", name = ""] = repo.split("/");
+
+  return { owner, name };
+};
+
+/**
+ * The cached details main refreshes on its poll (`github.details`), while a Review is open:
+ * Overview's timeline, commits and checks follow GitHub without fetching per view.
+ */
+export const useDetailsFeed = () => {
+  useEffect(
+    () =>
+      polaris().subscribe(
+        "github.details",
+        {},
+        {
+          items: (batches) => {
+            for (const batch of batches) for (const detail of batch) store(detail);
+          },
+        }
+      ),
+    []
+  );
+};
+
+/**
+ * Fetches the detail again (after a comment, a submit, or new commits), past main's cache
+ * unless `refresh` is false; keeps the last while it loads.
+ */
+export const refreshPullDetail = async (
+  pull: Pick<OpenPull, "repo" | "number">,
+  refresh = true
+) => {
   const key = pullKey(pull);
 
   const result = await polaris().request("github.pull.detail", {
     pull: { repo: pull.repo, number: pull.number },
+    refresh,
   });
 
   if (result.ok) {
-    const detail = result.value;
-    const viewed = new Map(detail.files.map((f) => [f.path, f.viewed === "viewed"]));
-
-    settlePull(detail.id, (path) => viewed.get(path) ?? false);
-    details.setState({ [key]: { kind: "ok", detail } });
+    store(result.value);
   } else if (details.getState()[key]?.kind !== "ok") {
     details.setState({ [key]: { kind: "failed", error: result.error } });
   }
@@ -47,7 +85,7 @@ export const usePullDetail = (pull: Pick<OpenPull, "repo" | "number">): PullDeta
   const { number } = pull;
 
   useEffect(() => {
-    void refreshPullDetail({ repo: { owner, name }, number });
+    void refreshPullDetail({ repo: { owner, name }, number }, false);
   }, [owner, name, number]);
 
   return current ?? { kind: "loading" };

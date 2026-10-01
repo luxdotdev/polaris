@@ -56,6 +56,8 @@ export interface CommentsState {
   readonly pulls: Readonly<Record<string, PullComments>>;
   readonly sessions: Readonly<Record<string, SessionComments>>;
   readonly batches: Readonly<Record<string, DraftBatch>>;
+  /** The pending review's summary as drafted (Submit review, Conversation's "Add to review"). */
+  readonly summaries: Readonly<Record<string, string>>;
 }
 
 const KEY = "polaris.review.feedback.v1";
@@ -128,6 +130,7 @@ export const commentsStore = createStore<CommentsState>(() => ({
   pulls: {},
   sessions: {},
   batches: readBatches(),
+  summaries: {},
 }));
 
 export const useComments = <A>(select: (state: CommentsState) => A): A =>
@@ -211,3 +214,9 @@ export const setBatch = (subjectKey: string, batch: DraftBatch) => {
   });
   writeBatches(commentsStore.getState().batches);
 };
+
+export const summaryOf = (subjectKey: string) =>
+  commentsStore.getState().summaries[subjectKey] ?? "";
+
+export const setSummary = (subjectKey: string, text: string) =>
+  commentsStore.setState((s) => ({ summaries: { ...s.summaries, [subjectKey]: text } }));

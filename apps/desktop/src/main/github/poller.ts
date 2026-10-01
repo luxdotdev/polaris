@@ -33,6 +33,7 @@ export interface PollerInput {
   readonly list: SubscriptionRef.SubscriptionRef<PullListView>;
   readonly checkoutStates: SubscriptionRef.SubscriptionRef<ReadonlyArray<CheckoutStateView>>;
   readonly intervals: Intervals;
+  readonly refreshDetails?: Effect.Effect<void>;
 }
 
 export const accessView = (
@@ -148,9 +149,10 @@ export const newPoller = Effect.fn("newPoller")(function* (input: PollerInput) {
   });
 
   const cycle = (force: boolean) =>
-    Effect.andThen(pollList(force), pollCheckouts).pipe(
-      Effect.catchCause((cause) => Effect.logWarning("github: poll failed", cause))
-    );
+    Effect.andThen(
+      Effect.andThen(pollList(force), pollCheckouts),
+      input.refreshDetails ?? Effect.void
+    ).pipe(Effect.catchCause((cause) => Effect.logWarning("github: poll failed", cause)));
 
   const loop = Effect.gen(function* () {
     let force = true;

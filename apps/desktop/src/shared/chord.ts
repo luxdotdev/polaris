@@ -19,6 +19,8 @@ const NAMED = new Map<string, string>([
   [".", "Period"],
   [",", "Comma"],
   ["`", "Backquote"],
+  ["[", "BracketLeft"],
+  ["]", "BracketRight"],
   ["Up", "ArrowUp"],
   ["Down", "ArrowDown"],
   ["Left", "ArrowLeft"],
@@ -99,6 +101,8 @@ const GLYPHS = new Map<string, string>([
   ["Period", "."],
   ["Comma", ","],
   ["Backquote", "`"],
+  ["BracketLeft", "["],
+  ["BracketRight", "]"],
   ["Space", "Space"],
   ["Tab", "⇥"],
 ]);

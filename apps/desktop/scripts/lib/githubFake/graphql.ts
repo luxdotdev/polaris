@@ -2,6 +2,7 @@
  * The fake's GraphQL. It doesn't parse GraphQL: it answers the client's named
  * operations (`operationName`) from the world, in the shape GitHub's schema gives.
  */
+import { overviewQuery } from "./overview.ts";
 import { Schema } from "effect";
 import { type FakeResponse, type JsonValue, json } from "./http.ts";
 import {
@@ -133,10 +134,14 @@ export const page = <A>(items: ReadonlyArray<A>, after: string | null) => {
   };
 };
 
-const author = (world: World, login: string) => {
+export const author = (world: World, login: string) => {
   const user = world.users.find((u) => u.login === login);
 
-  return user === undefined ? null : { login: user.login, avatarUrl: user.avatar_url };
+  return {
+    login,
+    avatarUrl: user?.avatar_url ?? "",
+    __typename: login.endsWith("[bot]") ? "Bot" : "User",
+  };
 };
 
 export const pullById = (world: World, viewer: FakeUser, id: string) => {
@@ -155,6 +160,7 @@ const threadNode = (world: World, thread: FakeThread, viewer: FakeUser) => ({
   id: thread.id,
   path: thread.path,
   isResolved: thread.isResolved,
+  resolvedBy: thread.isResolved ? { login: "mona" } : null,
   isOutdated: thread.subjectType === "LINE" && thread.line === null,
   subjectType: thread.subjectType,
   line: thread.line,
@@ -174,7 +180,7 @@ const threadNode = (world: World, thread: FakeThread, viewer: FakeUser) => ({
           ? "PENDING"
           : "SUBMITTED",
       diffHunk: thread.diffHunk,
-      author: { login: c.author },
+      author: author(world, c.author),
       originalCommit: { oid: thread.originalCommit },
     })),
   },
@@ -404,6 +410,7 @@ export const QUERIES = new Map<string, Resolver>([
   ["ProbeRepo", probeRepo],
   ["OwnerKind", ownerKind],
   ["PullSearch", pullSearch],
+  ["PullOverview", overviewQuery],
   ["PullDetail", pullDetail],
   ["PullFiles", pullFiles],
   ["PullThreads", pullThreads],

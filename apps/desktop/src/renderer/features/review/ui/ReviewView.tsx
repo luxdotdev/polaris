@@ -14,6 +14,7 @@ import { useStore } from "zustand";
 import { usePulls } from "../../pulls/store.ts";
 import "../checkout/install.ts";
 import { DiffWorkers } from "../data/pierre.tsx";
+import { useDetailsFeed } from "../data/pullDetail.ts";
 import { riskMark } from "../model/findings.ts";
 import { queueGroups, type QueueRow } from "../model/queue.ts";
 import { sessionsOf } from "../model/sessions.ts";
@@ -46,6 +47,8 @@ export const ReviewView = ({ subject, onBack }: ReviewViewProps) => {
   const workspaces = Object.values(models).reduce((n, m) => n + m.workspaces.size, 0);
   const groups = queueGroups(list, sessionsOf(models));
   const surfaces = useStore(surfaceStore, (s) => s);
+
+  useDetailsFeed();
 
   const markOf = (row: QueueRow) =>
     riskMark(
