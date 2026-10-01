@@ -4,7 +4,7 @@
  * and a sunken footer with the worktree path and "Remove checkout".
  */
 import { Button, cn, PopoverContent, TerminalIcon } from "@polaris/ui";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, type RefObject, useEffect, useState } from "react";
 import type { OpenPull } from "../../../../../shared/api.ts";
 import { useShellActions } from "../../../../shell/hooks.ts";
 import {
@@ -24,6 +24,10 @@ type Nav = ReturnType<typeof useShellActions>;
 
 interface MenuProps {
   readonly model: CheckoutModel;
+  /** The chip: a click on it (its trigger, its action) is not a click outside the menu. */
+  readonly chip?: RefObject<HTMLDivElement | null>;
+  /** Open at a blocker's confirmation (the chip's action asked for it). */
+  readonly asking?: boolean;
   readonly pull: OpenPull;
   readonly onDone: () => void;
 }
@@ -111,15 +115,21 @@ const Blocked = ({
   held,
   pull,
   nav,
+  askFirst,
   onDone,
 }: {
   readonly block: BlockView;
   readonly held: Held;
   readonly pull: OpenPull;
   readonly nav: Nav;
+  readonly askFirst: boolean;
   readonly onDone: () => void;
 }) => {
-  const [asking, setAsking] = useState(false);
+  const [asking, setAsking] = useState(askFirst);
+
+  useEffect(() => {
+    if (askFirst) setAsking(true);
+  }, [askFirst]);
 
   const fix = () => {
     runFix(block.fix, held, pull, nav);
@@ -295,7 +305,7 @@ const Footer = ({
   </div>
 );
 
-const StateSection = ({ model, pull, nav, onDone }: MenuProps & { readonly nav: Nav }) => {
+const StateSection = ({ model, pull, nav, asking, onDone }: MenuProps & { readonly nav: Nav }) => {
   const { view, held, detail } = model;
 
   if (held === null) return null;
@@ -313,7 +323,16 @@ const StateSection = ({ model, pull, nav, onDone }: MenuProps & { readonly nav: 
   }
 
   if (view.kind === "blocked") {
-    return <Blocked block={view.block} held={held} pull={pull} nav={nav} onDone={onDone} />;
+    return (
+      <Blocked
+        block={view.block}
+        held={held}
+        pull={pull}
+        nav={nav}
+        askFirst={asking === true}
+        onDone={onDone}
+      />
+    );
   }
 
   if (view.kind === "checking-out" || view.kind === "updating") {
@@ -343,6 +362,11 @@ export const CheckoutMenu = (props: MenuProps) => {
       data-testid="checkout-menu"
       aria-label={held === null ? "Review checkout" : `Review checkout at ${at}`}
       className="flex w-[360px] flex-col overflow-clip p-0"
+      onInteractOutside={(event) => {
+        if (event.target instanceof Node && props.chip?.current?.contains(event.target) === true) {
+          event.preventDefault();
+        }
+      }}
     >
       <StateSection {...props} nav={nav} />
       <Hosts {...props} />

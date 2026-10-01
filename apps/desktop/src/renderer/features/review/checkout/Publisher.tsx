@@ -10,6 +10,7 @@ import type { AppState } from "../../../store/store.ts";
 import { polaris } from "../../bridge.ts";
 import { usePulls } from "../../pulls/store.ts";
 import { send } from "../../session/dispatch.ts";
+import { refreshPullDetail } from "../data/pullDetail.ts";
 import { removeCheckout } from "./actions.ts";
 import {
   actionKey,
@@ -63,6 +64,8 @@ const run = (action: WatchAction, state: AppState) => {
     return;
   }
 
+  // The open Review's detail follows, so its header and Viewed marks match the new head.
+  if (pull !== null) void refreshPullDetail(pull);
   void send(
     action.hostKey,
     Commands.ReportReviewHead({

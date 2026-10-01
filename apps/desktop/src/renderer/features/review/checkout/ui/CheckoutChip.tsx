@@ -4,7 +4,7 @@
  */
 import { cn, Popover, PopoverAnchor, PopoverTrigger } from "@polaris/ui";
 import { Match } from "effect";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import type { OpenPull } from "../../../../../shared/api.ts";
 import { useShellActions } from "../../../../shell/hooks.ts";
 import type { ReviewSlotProps } from "../../surface.ts";
@@ -101,6 +101,9 @@ const FRAMES: Readonly<Record<Face["frame"], string>> = {
   dashed: "border-hairline border-dashed",
 };
 
+const ACTION =
+  "text-text-default hover:text-text-strong focus-visible:ring-ring shrink-0 rounded-[4px] font-medium outline-hidden focus-visible:ring-2";
+
 const runAction = (
   model: CheckoutModel,
   pull: OpenPull,
@@ -122,10 +125,12 @@ const PullCheckoutChip = ({ pull }: { readonly pull: OpenPull }) => {
   const model = useCheckout(pull);
   const nav = useShellActions();
   const [open, setOpen] = useState(false);
+  // Opened by a fix that asks first: the menu opens at its confirmation.
+  const [asking, setAsking] = useState(false);
+  const chipRef = useRef<HTMLDivElement>(null);
   const { view } = model;
   const { glyph, label, fact, frame } = face(view);
   const action = chipAction(view);
-  // A fix that throws work away asks in the menu first.
   const confirms = view.kind === "blocked" && view.block.confirm !== null;
 
   const evidence =
@@ -133,7 +138,14 @@ const PullCheckoutChip = ({ pull }: { readonly pull: OpenPull }) => {
 
   return (
     <div className="flex max-w-[420px] min-w-0 flex-col items-end gap-1.5">
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+
+          if (!next) setAsking(false);
+        }}
+      >
         <PopoverAnchor asChild>
           <div
             data-testid="checkout-chip"
@@ -164,19 +176,36 @@ const PullCheckoutChip = ({ pull }: { readonly pull: OpenPull }) => {
             {action !== null && (
               <>
                 <span aria-hidden="true" className="bg-hairline h-3.5 w-px shrink-0" />
-                <button
-                  type="button"
-                  data-testid="checkout-chip-action"
-                  className="text-text-default hover:text-text-strong focus-visible:ring-ring shrink-0 rounded-[4px] font-medium outline-hidden focus-visible:ring-2"
-                  onClick={() => (confirms ? setOpen(true) : runAction(model, pull, nav))}
-                >
-                  {action.label}
-                </button>
+                {confirms ? (
+                  // A fix that throws work away opens the menu at its confirmation instead.
+                  <PopoverTrigger
+                    data-testid="checkout-chip-action"
+                    className={ACTION}
+                    onClick={() => setAsking(true)}
+                  >
+                    {action.label}
+                  </PopoverTrigger>
+                ) : (
+                  <button
+                    type="button"
+                    data-testid="checkout-chip-action"
+                    className={ACTION}
+                    onClick={() => runAction(model, pull, nav)}
+                  >
+                    {action.label}
+                  </button>
+                )}
               </>
             )}
           </div>
         </PopoverAnchor>
-        <CheckoutMenu model={model} pull={pull} onDone={() => setOpen(false)} />
+        <CheckoutMenu
+          model={model}
+          pull={pull}
+          chip={chipRef}
+          asking={asking}
+          onDone={() => setOpen(false)}
+        />
       </Popover>
       {evidence !== undefined && (
         <p

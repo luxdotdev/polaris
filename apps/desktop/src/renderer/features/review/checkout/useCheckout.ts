@@ -136,29 +136,37 @@ export const useCheckout = (pull: OpenPull): CheckoutModel => {
 
 const reported = new Map<string, string>();
 
-/** GitHub's head, from the detail this Review already loaded, reaches the Host holding the checkout. */
+/**
+ * GitHub's head, from the detail this Review loaded, reaches the Host holding the checkout.
+ * Only a newly fetched detail reports: an older one must never undo a head the feed relayed.
+ */
 const useReportHead = (held: Held | null, detail: PullDetailView | null) => {
-  const checkoutId = held?.checkout.id;
-  const latestHead = held?.checkout.latestHead;
-  const state = held?.checkout.state;
-  const hostKey = held?.hostKey;
+  const latest = useRef(held);
+  latest.current = held;
 
   useEffect(() => {
-    if (checkoutId === undefined || hostKey === undefined || detail === null) return;
+    const current = latest.current;
 
-    if (detail.state !== "open" || detail.headRefOid === latestHead) return;
+    if (current === null || detail === null || detail.state !== "open") return;
+    const { checkout, hostKey } = current;
 
-    if (state === "fetching" || state === "removing") return;
+    if (detail.headRefOid === checkout.latestHead) return;
 
-    if (reported.get(checkoutId) === detail.headRefOid) return;
-    reported.set(checkoutId, detail.headRefOid);
+    if (checkout.state === "fetching" || checkout.state === "removing") return;
+
+    if (reported.get(checkout.id) === detail.headRefOid) return;
+    reported.set(checkout.id, detail.headRefOid);
 
     void send(
       hostKey,
-      Commands.ReportReviewHead({ checkoutId, head: detail.headRefOid, base: detail.baseRefOid }),
+      Commands.ReportReviewHead({
+        checkoutId: checkout.id,
+        head: detail.headRefOid,
+        base: detail.baseRefOid,
+      }),
       "Couldn’t tell the host about new commits"
     );
-  }, [checkoutId, hostKey, latestHead, state, detail]);
+  }, [detail]);
 };
 
 /** After an update, GitHub's Viewed marks are read again: files the new commits touch lose theirs. */
