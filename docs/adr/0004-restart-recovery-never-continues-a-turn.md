@@ -1,6 +1,6 @@
-# Recovery after a restart or upgrade never continues a Turn
+# Standalone session recovery never continues a Turn
 
-When the Daemon starts, the Engine sends the session machine's `daemon.recover` (cause `restart`) to every session before it serves anything. Right before an upgrade exec, `prepareForUpgrade` stops the Harnesses that live in the Daemon process (`liveCoAttach: false`, i.e. Claude) and sends the same input with cause `upgrade`. The rule: a Turn in flight ends Interrupted and its session Needs You (reason `interrupted`, so the Client offers Continue); pending approvals are withdrawn; Failed stays Failed; other live sessions go Dormant and resume from their cursor on their next Turn. Only the user's `Continue` continues a Turn.
+When the Daemon starts, the Engine sends the session machine's `daemon.recover` (cause `restart`) to every session before it serves anything. Right before an upgrade exec, `prepareForUpgrade` stops the Harnesses that live in the Daemon process (`liveCoAttach: false`, i.e. Claude) and sends the same input with cause `upgrade`. The rule: a Turn in flight ends Interrupted and its session Needs You (reason `interrupted`, so the Client offers Continue); pending approvals are withdrawn; Failed stays Failed; other live sessions go Dormant and resume from their cursor on their next Turn. For standalone sessions, only the user's `Continue` continues a Turn. Delegated Attempts have the bounded exception below.
 
 ## Why
 
@@ -18,3 +18,36 @@ The upgrade path applies the same rule before the exec rather than after it, bec
 - If an upgrade exec fails, nothing is undone: the stopped sessions stay Dormant or Needs You and resume on their next Turn or Continue, exactly as after a restart.
 - A restart while a session is In Terminal moves it like any live session and does not restore the terminal follower (a known gap, see `apps/daemon/src/store/README.md`).
 - The rule lives in one place, the session machine (`apps/daemon/src/engine/session.ts`); it is specified as `recoverSession` / `restartIn` in `packages/spec/polaris.qnt`.
+
+
+## Amendment: one automatic Continue for a delegated Attempt (ENG-243)
+
+Constellations v1 already delegates a Task to a worker. When a restart or upgrade
+interrupts that worker's Turn, the owner may automatically Continue it once:
+"The Daemon restarted; continue your Task". It journals
+`AttemptRecoveryContinued` with cause `recover`, the Attempt, Turn and durable
+interruption ID. The continuation and its durable marker must be one idempotent
+decision, so a crash between recording and sending cannot generate another Turn.
+This resumes the same Attempt; it does not start a competing one on that session.
+
+A second interruption becomes attention. Re-folding the log consumes the marker,
+so another restart cannot reset the allowance. A settled or non-latest Attempt,
+a user-interrupted Turn, an unresolved worker approval, a standalone session and
+the Lead's own session are not eligible. A Host becoming stale never triggers
+Continue or settlement; only the user can approve worker approvals. The existing
+Session State machine still governs whether a Continue may run.
+
+The owner makes the graph decision; for a remote worker the Desktop App relays
+it to the worker's Daemon with a stable decision ID (ADR 0011). A disconnected
+app or unavailable owner delays delivery and cannot grant another allowance.
+Recovery restarts notification coalescing from zero, keeping queued IDs intact.
+
+This narrow exception lets already delegated work survive one infrastructure
+interruption. It does not change the standalone rule: an interrupted standalone
+Turn still Needs You, and only the user's Continue resumes it. A Lead failure
+also needs Continue the Lead or Hand over; it is not a worker auto-Continue.
+
+`packages/spec/constellations.qnt` specifies `interrupt`, `recover`,
+`recoveryAtMostOnce` and its scenario test; the original standalone rule remains
+in `polaris.qnt`. The engine slice must implement both through the session and
+Constellation deciders and test crash/replay around the durable marker.

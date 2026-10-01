@@ -98,6 +98,18 @@ run("typecheck polaris.qnt", ["typecheck", "polaris.qnt"]);
 
 run("typecheck polaris_test.qnt", ["typecheck", "polaris_test.qnt"]);
 
+run("typecheck constellations.qnt", ["typecheck", "constellations.qnt"]);
+
+run("typecheck constellations_test.qnt", ["typecheck", "constellations_test.qnt"]);
+
+run("Constellation scenarios", ["test", "constellations_test.qnt", "--main=constellations_test"]);
+
+run("Constellation property probes", [
+  "test",
+  "constellations_test.qnt",
+  "--main=constellations_property_test",
+]);
+
 run("scenario tests", ["test", "polaris_test.qnt", "--main=polaris_test"]);
 
 for (const n of [1, 2, 3, 4]) {
@@ -111,10 +123,11 @@ for (const n of [1, 2, 3, 4]) {
 const simulate = (
   main: string,
   invariants: ReadonlyArray<string>,
-  witnesses: ReadonlyArray<string> = []
+  witnesses: ReadonlyArray<string> = [],
+  file = "polaris.qnt"
 ) => [
   "run",
-  "polaris.qnt",
+  file,
   `--main=${main}`,
   "--invariants",
   ...invariants,
@@ -126,10 +139,14 @@ const simulate = (
 ];
 
 /** Simulate `main` against `safety` and fail if a witness is never reached. */
-const simulateWitnessed = (main: string, witnesses: ReadonlyArray<string>) => {
+const simulateWitnessed = (
+  main: string,
+  witnesses: ReadonlyArray<string>,
+  file = "polaris.qnt"
+) => {
   const simulated = run(
     `simulate ${main}: safety, ${samples} traces of up to 60 steps`,
-    simulate(main, ["safety"], witnesses)
+    simulate(main, ["safety"], witnesses, file)
   );
 
   for (const witness of witnesses) {
@@ -143,6 +160,21 @@ const simulateWitnessed = (main: string, witnesses: ReadonlyArray<string>) => {
 simulateWitnessed("current", WITNESSES);
 
 simulateWitnessed("review", REVIEW_WITNESSES);
+
+simulateWitnessed(
+  "current_constellations",
+  [
+    "witnessClaim",
+    "witnessAccepted",
+    "witnessGate",
+    "witnessHandover",
+    "witnessDelivery",
+    "witnessRelay",
+    "witnessRecovery",
+    "witnessLease",
+  ],
+  "constellations.qnt"
+);
 
 // The mutants: the simulator must still find each finding, or `safety` no longer guards it.
 for (const finding of FINDINGS) {
