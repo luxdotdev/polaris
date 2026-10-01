@@ -5,6 +5,7 @@
  */
 import type { SessionId, SessionState, WorkspaceId, WorktreeId } from "@polaris/protocol";
 import { harnessHue } from "@polaris/ui";
+import type { OpenPull } from "../../../shared/api.ts";
 import { formatChord, parseChord } from "../../../shared/chord.ts";
 import { bindingOf, type CommandId } from "../../../shared/keymap.ts";
 import { recentKey } from "../../routes/selection.ts";
@@ -30,7 +31,17 @@ export type JumpTarget =
       readonly sessionId: SessionId | null;
     }
   | { readonly kind: "host"; readonly hostKey: string }
-  | { readonly kind: "command"; readonly id: CommandId };
+  | { readonly kind: "command"; readonly id: CommandId }
+  /** Review: a pull request, a file of the open Review, or one of its Risk Findings. */
+  | { readonly kind: "pull"; readonly pull: OpenPull }
+  | { readonly kind: "file"; readonly path: string }
+  | {
+      readonly kind: "finding";
+      readonly findingId: string;
+      readonly path: string;
+      readonly line: number;
+      readonly side: "new" | "old";
+    };
 
 export interface JumpItem extends Searchable {
   /** Unique across the menu; also the recent-items key for sessions and Workspaces. */

@@ -83,8 +83,6 @@ export interface PullHeaderProps {
 }
 
 export const PullHeader = ({ name, number, detail, actions }: PullHeaderProps) => {
-  const fileCount = detail === null ? null : detail.files.length;
-
   return (
     <Shell>
       <div className="gap-gap flex min-w-0 flex-1 flex-col">
@@ -95,7 +93,7 @@ export const PullHeader = ({ name, number, detail, actions }: PullHeaderProps) =
           >
             {detail?.title ?? name}
           </h1>
-          <span className="text-title text-text-subtle shrink-0">#{number}</span>
+          <span className="text-title text-text-subtle shrink-0 font-normal">#{number}</span>
         </div>
         <div className="text-caption text-text-subtle gap-gap flex min-w-0 flex-wrap items-center">
           {detail === null ? (
@@ -109,14 +107,14 @@ export const PullHeader = ({ name, number, detail, actions }: PullHeaderProps) =
               >
                 {(detail.author?.login ?? "?").slice(0, 1).toUpperCase()}
               </span>
-              <span>{detail.author?.login ?? "ghost"} wants to merge into</span>
+              <span>
+                {detail.author?.login ?? "ghost"} wants to merge {detail.commits}{" "}
+                {detail.commits === 1 ? "commit" : "commits"} into
+              </span>
               <Chip>{detail.baseRefName}</Chip>
               <span>from</span>
               <Chip>{detail.headRefName}</Chip>
-              <span className="text-text-subtle truncate">
-                · {detail.repo}
-                {fileCount === null ? "" : ` · ${fileCount} ${fileCount === 1 ? "file" : "files"}`}
-              </span>
+              <span className="text-text-subtle truncate">· {detail.repo}</span>
             </>
           )}
         </div>

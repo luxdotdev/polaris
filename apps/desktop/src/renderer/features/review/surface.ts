@@ -109,6 +109,8 @@ export interface ReviewSurface {
   readonly selectedFinding: string | null;
   /** Lines the user selected in the diff (the composer opens under them, M2-F). */
   readonly selection: DiffSelection | null;
+  /** The Review's file paths, in Review order: the jump menu's "Files" (the view writes them). */
+  readonly paths: ReadonlyArray<string>;
   /** The code of a range in the diff as it shows it (lines it doesn't hold are skipped). */
   readonly quote: ((range: DiffRange) => string) | null;
 }
@@ -118,6 +120,7 @@ const emptySurface: ReviewSurface = {
   annotations: [],
   selectedFinding: null,
   selection: null,
+  paths: [],
   quote: null,
 };
 

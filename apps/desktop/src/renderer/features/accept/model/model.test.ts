@@ -185,6 +185,7 @@ const detail = (threads: ReadonlyArray<ReviewThreadView>): PullDetailView => ({
   headRefOid: "",
   baseRefName: "main",
   baseRefOid: "",
+  commits: 1,
   files: [],
   threads,
   pendingReview: null,

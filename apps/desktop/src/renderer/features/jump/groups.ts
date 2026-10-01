@@ -17,7 +17,18 @@ export interface JumpSources {
   readonly worktrees: ReadonlyArray<JumpItem>;
   readonly hosts: ReadonlyArray<JumpItem>;
   readonly actions: ReadonlyArray<JumpItem>;
+  /** Review only: pull requests, the open Review's files and its findings. */
+  readonly review?: ReviewSources | undefined;
 }
+
+export interface ReviewSources {
+  readonly pulls: ReadonlyArray<JumpItem>;
+  readonly files: ReadonlyArray<JumpItem>;
+  readonly findings: ReadonlyArray<JumpItem>;
+}
+
+/** Findings the menu shows with no query, in Review. */
+const FINDINGS_SHOWN = 5;
 
 export interface GroupsInput {
   readonly query: string;
@@ -56,6 +67,7 @@ export const jumpGroups = ({ query, sources, recent }: GroupsInput): ReadonlyArr
         heading: "Needs you",
         items: sources.sessions.filter((s) => s.needsYou && !shown.has(s.id)),
       },
+      { heading: "Findings", items: (sources.review?.findings ?? []).slice(0, FINDINGS_SHOWN) },
       { heading: "Actions", items: sources.actions },
     ]);
   }
@@ -64,6 +76,9 @@ export const jumpGroups = ({ query, sources, recent }: GroupsInput): ReadonlyArr
     rank({ query, items, recency, limit, urgent: (i: JumpItem) => urgent && i.needsYou });
 
   return nonEmpty([
+    { heading: "Pull requests", items: ranked(sources.review?.pulls ?? [], 5) },
+    { heading: "Files", items: ranked(sources.review?.files ?? [], 6) },
+    { heading: "Findings", items: ranked(sources.review?.findings ?? [], 5) },
     { heading: "Sessions", items: ranked(sources.sessions, 6, true) },
     { heading: "Workspaces", items: ranked(sources.workspaces, 5) },
     { heading: "Worktrees", items: ranked(sources.worktrees, 4) },

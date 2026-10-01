@@ -134,9 +134,30 @@ export const selectionCss = (tint: SelectionTint | null): string => {
     : `${selectors.join(",\n")} { background-image: linear-gradient(var(--color-diff-selection), var(--color-diff-selection)); }`;
 };
 
+/** A declaration's name after its keyword (`function x`, `class X`, `def x`, `fn x`…). */
+const DECLARED =
+  /\b(?:function\*?|def|fn|func|class|struct|interface|enum|trait|impl|module|type|record)\s+([A-Za-z_$][\w$]*)/;
+
+/** A name called or assigned a function (`x(`, `x = (`, `x = async (`). */
+const CALLED = /([A-Za-z_$][\w$.]*)\s*(?:=\s*(?:async\s*)?)?\(/;
+
+/** The symbol git found for a hunk (its `@@` context): the name, not the whole line. */
+export const hunkSymbol = (context: string): string => {
+  const name = DECLARED.exec(context)?.[1] ?? CALLED.exec(context)?.[1];
+
+  if (name !== undefined) return name;
+
+  return context.length > 60 ? `${context.slice(0, 59)}…` : context;
+};
+
 /** A hunk's header as the band above it shows it: `@@ -36,7 +36,8 @@ submitEligibility`. */
 export const hunkLabel = (hunkSpecs: string | undefined): string | null => {
-  const label = hunkSpecs?.split("\n")[0]?.trim() ?? "";
+  const line = hunkSpecs?.split("\n")[0]?.trim() ?? "";
+  const [, range = line, context = ""] = /^(@@ [^@]* @@)\s*(.*)$/.exec(line) ?? [];
 
-  return label === "" ? null : label;
+  if (line === "") return null;
+
+  const symbol = hunkSymbol(context.trim());
+
+  return symbol === "" ? range : `${range} ${symbol}`;
 };

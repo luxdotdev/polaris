@@ -379,5 +379,17 @@ describe("selection tint and hunk labels", () => {
     );
     expect(hunkLabel(undefined)).toBeNull();
     expect(hunkLabel("\n")).toBeNull();
+    expect(
+      hunkLabel(
+        "@@ -36,7 +36,8 @@ export async function submitEligibility(form: EligibilityForm) {\n"
+      )
+    ).toBe("@@ -36,7 +36,8 @@ submitEligibility");
+    expect(hunkLabel("@@ -1,4 +1,5 @@ class Limits extends Base {")).toBe("@@ -1,4 +1,5 @@ Limits");
+    expect(hunkLabel("@@ -9,3 +9,3 @@ def fetch_rows(cursor):")).toBe("@@ -9,3 +9,3 @@ fetch_rows");
+    expect(hunkLabel("@@ -9,3 +9,3 @@ export const incomeLimit = (household: number) =>")).toBe(
+      "@@ -9,3 +9,3 @@ incomeLimit"
+    );
+    expect(hunkLabel("@@ -3,3 +3,3 @@")).toBe("@@ -3,3 +3,3 @@");
+    expect(hunkLabel("@@ -3,3 +3,3 @@ ## Eligibility")).toBe("@@ -3,3 +3,3 @@ ## Eligibility");
   });
 });

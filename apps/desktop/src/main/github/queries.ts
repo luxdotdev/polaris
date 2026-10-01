@@ -127,6 +127,7 @@ export const pullDetail = op(
       id number title body url state isDraft
       author { login avatarUrl }
       headRefName headRefOid baseRefName baseRefOid
+      commits { totalCount }
       files(first: 100) { ${FILES} }
       reviewThreads(first: 100) { ${THREADS} }
       ${PENDING}
@@ -204,6 +205,7 @@ export const PullDetailData = Schema.Struct({
           headRefOid: Schema.String,
           baseRefName: Schema.String,
           baseRefOid: Schema.String,
+          commits: Schema.Struct({ totalCount: Schema.Number }),
           files: FilesPage,
           reviewThreads: ThreadsPage,
           reviews: PendingReviews,

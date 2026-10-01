@@ -120,6 +120,7 @@ export const PULL_DETAIL: PullDetailView = {
   headRefOid: HEAD,
   baseRefName: "nightly",
   baseRefOid: BASE,
+  commits: 3,
   files: [
     ["api/eligibility.ts", 6, 3, "unviewed"],
     ["forms/limits.ts", 22, 4, "unviewed"],

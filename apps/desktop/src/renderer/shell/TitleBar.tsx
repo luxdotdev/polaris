@@ -2,6 +2,7 @@ import { Button, Kbd, PlusIcon, SearchIcon, SegmentedControl, Wordmark } from "@
 import type { Route } from "../../shared/api.ts";
 import { useRequestedCount } from "../features/pulls/store.ts";
 import { needsYou } from "../routes/topBar.ts";
+import { jumpCopy } from "../features/jump/copy.ts";
 import { useApp, useSelection, useShellActions } from "./hooks.ts";
 
 /** Sessions that need you, across every Host: the Orchestrate badge. */
@@ -18,7 +19,7 @@ const useNeedsYouCount = () =>
 
 /**
  * The `hiddenInset` title bar (DESIGN.md, Titlebar): the lockup after the traffic
- * lights, the mode switch (⌘1–3), the jump field (K) and New session (⌘N).
+ * lights, the mode switch (⌘1–3), the jump field (K) and, outside Review, New session (⌘N).
  */
 export const TitleBar = () => {
   const { mode, hostKey } = useSelection();
@@ -81,18 +82,21 @@ export const TitleBar = () => {
         className="app-no-drag rounded-control border-hairline bg-bg text-body text-text-faint flex h-7 w-[280px] shrink-0 cursor-default items-center gap-2 border pr-1.5 pl-2.5"
       >
         <SearchIcon size={14} />
-        <span className="flex-1 truncate text-left">Jump to a session or workspace</span>
+        <span className="flex-1 truncate text-left">{jumpCopy(mode).placeholder}</span>
         <Kbd>K</Kbd>
       </button>
-      <Button
-        variant="ghost"
-        className="app-no-drag text-text-default px-2.5"
-        disabled={hostKey === null}
-        onClick={startNewSession}
-      >
-        <PlusIcon size={14} />
-        New session
-      </Button>
+      {/* Review has no New session (Paper R1); ⌘N still starts one. */}
+      {mode !== "review" && (
+        <Button
+          variant="ghost"
+          className="app-no-drag text-text-default px-2.5"
+          disabled={hostKey === null}
+          onClick={startNewSession}
+        >
+          <PlusIcon size={14} />
+          New session
+        </Button>
+      )}
     </header>
   );
 };
