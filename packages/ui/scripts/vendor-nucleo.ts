@@ -43,6 +43,8 @@ const UI_MORE: ReadonlyArray<readonly [string, string]> = [
   ["TerminalIcon", "SquareTerminalOutline18"],
   ["ArrowUpRightIcon", "ArrowUpRightOutline18"],
   ["PaperclipIcon", "Paperclip2Outline18"],
+  ["SkillIcon", "FileSparkleOutline18"],
+  ["CommandIcon", "BoltOutline18"],
 ];
 
 /** Polaris name → Nucleo pixel outline 24px component. Polaris-owned concepts only. */
@@ -203,5 +205,33 @@ writeFileSync(join(OUT, "ui.tsx"), uiFile(UI, false));
 writeFileSync(join(OUT, "ui-more.tsx"), uiFile(UI_MORE, true));
 
 writeFileSync(join(OUT, "pixel.tsx"), pixelFile());
+
+/** UI outline icons also needed as CSS masks, for DOM that React doesn't render (composer chips). */
+const MASKS: ReadonlyArray<readonly [string, string]> = [
+  ["skill", "FileSparkleOutline18"],
+  ["command", "BoltOutline18"],
+];
+
+function maskFile(): string {
+  const rows = MASKS.map(([name, component]) => {
+    const body = inner("ui", component)
+      .replace(/strokeWidth=\{strokeWidth\}/g, 'stroke-width="1.125"')
+      .replace(/stroke="currentColor"/g, 'stroke="black"')
+      .replace(/([a-z])([A-Z])/g, (_, a: string, b: string) => `${a}-${b.toLowerCase()}`);
+
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18">${body}</svg>`;
+
+    return `  ${name}: ${JSON.stringify(`url("data:image/svg+xml,${encodeURIComponent(svg)}")`)},`;
+  });
+
+  return `${HEADER}
+/** CSS \`mask-image\` values: Nucleo UI outline \`${MASKS.map(([, c]) => c).join("`, `")}\`. */
+export const ICON_MASKS = {
+${rows.join("\n")}
+} as const;
+`;
+}
+
+writeFileSync(join(OUT, "masks.ts"), maskFile());
 
 console.log(`vendored ${UI.length + UI_MORE.length + PIXEL.length} Nucleo icons into ${OUT}`);

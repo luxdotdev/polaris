@@ -130,6 +130,8 @@ export interface ComposerProps extends Omit<TextareaProps, "bare"> {
   readonly sendDisabled?: boolean;
   /** The new-session page's send: a round primary button (Paper artboard 4). */
   readonly prominentSend?: boolean;
+  /** Replaces the textarea with another prompt (the Desktop App's editor); textarea props are then unused. */
+  readonly input?: ReactNode;
 }
 
 /** The composer shell: the Harness picker, the prompt, and send (DESIGN.md, Working strip). */
@@ -145,6 +147,7 @@ export function Composer({
   tools,
   sendDisabled = false,
   prominentSend = false,
+  input,
   className,
   placeholder,
   ...props
@@ -175,16 +178,18 @@ export function Composer({
       )}
       <div className="flex flex-col gap-3.5 pt-3 pr-3 pb-2.5 pl-3.5">
         {attachments}
-        <Textarea
-          bare
-          rows={1}
-          className="max-h-60"
-          placeholder={
-            placeholder ??
-            (isWorking ? "Queue a follow-up for after this turn" : "Ask for a change")
-          }
-          {...props}
-        />
+        {input ?? (
+          <Textarea
+            bare
+            rows={1}
+            className="max-h-60"
+            placeholder={
+              placeholder ??
+              (isWorking ? "Queue a follow-up for after this turn" : "Ask for a change")
+            }
+            {...props}
+          />
+        )}
         <div className="flex items-center gap-1.5">
           {picker ?? <HarnessPicker harness={harness} model={model} working={isWorking} />}
           <Button variant="ghost" size="icon-sm" aria-label="Add a source" onClick={onAddSource}>
