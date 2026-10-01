@@ -14,11 +14,13 @@ import {
   compactTokens,
   costCaption,
   costLabel,
+  formatShare,
+  splitByDefault,
   pricedEstimate,
-  RANGES,
   type RangeDays,
-  type UsageSummary,
+  RANGES,
   usageSummary,
+  type UsageSummary,
 } from "../model/usage.ts";
 import { Column, Group, Heading, PageHeader } from "./parts.tsx";
 import { UsageChart } from "./UsageChart.tsx";
@@ -58,7 +60,7 @@ const HarnessTile = ({ harness, size }: { readonly harness: string; readonly siz
 
 const LimitRowView = ({ row }: { readonly row: LimitRow }) => (
   <div className="px-panel gap-section flex items-center py-3.5">
-    <div className="flex w-[152px] shrink-0 items-center gap-2.5">
+    <div className="flex w-[184px] shrink-0 items-center gap-2.5">
       <HarnessTile harness={row.harness} size={28} />
       <span className="flex min-w-0 flex-col">
         <span className="text-label text-text-default truncate">{row.name}</span>
@@ -155,8 +157,10 @@ const Tokens = ({
   /** A Daemon is still reading Harness logs: say so, and don't claim there are no tokens. */
   readonly indexing: boolean;
 }) => {
-  const [split, setSplit] = useState(true);
   const share = summary.polarisShare;
+  // Null until the user flips it: until then it follows `splitByDefault`.
+  const [chosen, setSplit] = useState<boolean | null>(null);
+  const split = chosen ?? splitByDefault(share);
 
   return (
     <div className="flex flex-col gap-3.5">
@@ -198,10 +202,7 @@ const Tokens = ({
               caption={`tokens on ${hostCount} host${hostCount === 1 ? "" : "s"}`}
             />
             <Figure value={costLabel(summary.cost)} caption={costCaption(summary.cost)} />
-            <Figure
-              value={share === null ? "—" : `${Math.round(share * 100)}%`}
-              caption="in Polaris sessions"
-            />
+            <Figure value={formatShare(share)} caption="in Polaris sessions" />
           </div>
           <UsageChart summary={summary} split={split} />
           <ModelTable summary={summary} />

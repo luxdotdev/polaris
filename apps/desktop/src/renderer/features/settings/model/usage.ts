@@ -287,3 +287,25 @@ export const dayTip = (day: Day): DayTip => ({
   tokens: compactTokens(day.total),
   cost: day.total === 0 ? "" : tipCost(day.cost),
 });
+
+/**
+ * The share in Polaris sessions as a figure: a share that rounds to 0% or 100%
+ * without being either reads "<1%" or ">99%", so a little is never "none".
+ */
+export const formatShare = (share: number | null): string => {
+  if (share === null) return "—";
+  const percent = Math.round(share * 100);
+
+  if (percent === 0 && share > 0) return "<1%";
+
+  if (percent === 100 && share < 1) return ">99%";
+
+  return `${percent}%`;
+};
+
+/** Below this share, splitting would draw every bar at the faint outside-Polaris tint. */
+export const SPLIT_FROM_SHARE = 0.01;
+
+/** The split starts on only when there is Polaris Usage to set apart. */
+export const splitByDefault = (share: number | null): boolean =>
+  share !== null && share >= SPLIT_FROM_SHARE;

@@ -37,8 +37,12 @@ const recentDays = async (sessions: string): Promise<Array<string>> => {
   return days;
 };
 
-const newestRollout = async (sessions: string): Promise<string | null> => {
-  let newest: { path: string; mtime: number } | null = null;
+/** Rollouts tried, newest first: a session that ended before any response has no reading. */
+const MAX_ROLLOUTS = 32;
+
+/** Rollouts in the recent day directories, newest (by modification time) first. */
+const recentRollouts = async (sessions: string): Promise<Array<string>> => {
+  const found: Array<{ path: string; mtime: number }> = [];
 
   for (const dir of await recentDays(sessions)) {
     const names = (await readdir(dir).catch((): Array<string> => [])).filter(
@@ -48,12 +52,14 @@ const newestRollout = async (sessions: string): Promise<string | null> => {
     for (const name of names) {
       const path = join(dir, name);
       const mtime = (await stat(path).catch(() => null))?.mtimeMs ?? 0;
-
-      if (newest === null || mtime > newest.mtime) newest = { path, mtime };
+      found.push({ path, mtime });
     }
   }
 
-  return newest?.path ?? null;
+  return found
+    .sort((a, b) => b.mtime - a.mtime)
+    .slice(0, MAX_ROLLOUTS)
+    .map((r) => r.path);
 };
 
 const tail = async (path: string): Promise<string> => {
@@ -75,14 +81,21 @@ const tail = async (path: string): Promise<string> => {
 export const codexHome = (env: NodeJS.ProcessEnv = process.env): string =>
   env.CODEX_HOME || join(env.HOME ?? homedir(), ".codex");
 
-/** Empty when Codex has no rollout with rate limits on this Host. */
+/**
+ * From the newest rollout that has a reading. Empty when none of the recent
+ * ones has rate limits on this Host.
+ */
 export const latestRolloutLimits = (
   home: string = codexHome()
 ): Effect.Effect<ReadonlyArray<PlanLimit>> =>
   Effect.promise(async () => {
-    const path = await newestRollout(join(home, "sessions"));
+    for (const path of await recentRollouts(join(home, "sessions"))) {
+      const limits = fromRolloutText(await tail(path).catch(() => ""));
 
-    return path === null ? [] : fromRolloutText(await tail(path));
+      if (limits.length > 0) return limits;
+    }
+
+    return [];
   }).pipe(
     Effect.catchCause(() => Effect.succeed([])),
     Effect.withSpan("PlanLimits.codexRollout")

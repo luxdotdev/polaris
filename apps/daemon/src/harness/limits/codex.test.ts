@@ -175,6 +175,36 @@ describe("rollout logs", () => {
     expect(limits.map((l) => [l.kind, l.usedPercent])).toEqual([["five-hour", 55]]);
   });
 
+  test("passes over newer rollouts without a reading (a session that ended before any response)", async () => {
+    const home = mkdtempSync(join(tmpdir(), "polaris-codex-home-"));
+    dirs.push(home);
+    const day = join(home, "sessions/2026/09/30");
+    mkdirSync(day, { recursive: true });
+
+    const reading = JSON.stringify({
+      timestamp: "2026-09-30T20:06:17.011Z",
+      type: "event_msg",
+      payload: {
+        type: "token_count",
+        rate_limits: {
+          limit_id: "codex",
+          primary: { used_percent: 15, window_minutes: 10080, resets_at: 1791098186 },
+          plan_type: "prolite",
+        },
+      },
+    });
+
+    writeFileSync(join(day, "rollout-with-reading.jsonl"), `${reading}\n`);
+    writeFileSync(
+      join(day, "rollout-empty.jsonl"),
+      `${JSON.stringify({ type: "session_meta", payload: { id: "empty" } })}\n`
+    );
+    utimesSync(join(day, "rollout-with-reading.jsonl"), 1000, 1000);
+
+    const limits = await Effect.runPromise(latestRolloutLimits(home));
+    expect(limits.map((l) => [l.kind, l.usedPercent, l.plan])).toEqual([["weekly", 15, "prolite"]]);
+  });
+
   test("nothing when Codex never ran", async () => {
     expect(await Effect.runPromise(latestRolloutLimits("/nonexistent/codex-home"))).toEqual([]);
   });

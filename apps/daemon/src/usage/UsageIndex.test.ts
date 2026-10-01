@@ -301,7 +301,7 @@ describe("UsageIndex", () => {
     expect(isPlanLimitChanged(first[0]) && first[0].limit.usedPercent).toBe(33);
   });
 
-  test("usage.watch seeds Plan Limits from the Harness logs once, never over a newer value", async () => {
+  test("usage.watch seeds Plan Limits from the Harness logs, never over a newer value", async () => {
     let reads = 0;
 
     const planLimitSeed = Effect.sync(() => {
@@ -327,6 +327,7 @@ describe("UsageIndex", () => {
       })
     );
 
+    // A second watch within a minute reuses the read.
     expect(reads).toBe(1);
     expect(
       items.map((i) => (isPlanLimitChanged(i) ? [i.limit.harness, i.limit.usedPercent] : null))
@@ -334,5 +335,32 @@ describe("UsageIndex", () => {
       ["claude", 40],
       ["codex", 7],
     ]);
+  });
+
+  test("a later watch reads the logs again: Codex used outside Polaris moves its limits", async () => {
+    const readings = [
+      limitWith(7, { harness: "codex", kind: "weekly", observedAt: "2026-09-01T10:00:00Z" }),
+      limitWith(15, { harness: "codex", kind: "weekly", observedAt: "2026-09-02T10:00:00Z" }),
+    ];
+
+    let reads = 0;
+    const planLimitSeed = Effect.sync(() => [readings[Math.min(reads++, 1)]!]);
+    const { run } = setup([], { planLimitSeed, seedEveryMs: 0 });
+
+    const [first, second] = await run(() =>
+      Effect.gen(function* () {
+        const client = yield* RpcTest.makeClient(UsageRpcs);
+        const watch = client["usage.watch"]({}).pipe(Stream.take(1), Stream.runCollect);
+
+        return [yield* watch, yield* watch];
+      })
+    );
+
+    const percent = (items: ReadonlyArray<unknown>) =>
+      items.map((i) => (isPlanLimitChanged(i) ? i.limit.usedPercent : null));
+
+    expect(reads).toBe(2);
+    expect(percent(first ?? [])).toEqual([7]);
+    expect(percent(second ?? [])).toEqual([15]);
   });
 });

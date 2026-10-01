@@ -6,6 +6,8 @@ import {
   costCaption,
   costLabel,
   dayTip,
+  formatShare,
+  splitByDefault,
   pricedEstimate,
   rangeWindow,
   usageSummary,
@@ -211,5 +213,26 @@ describe("usageSummary", () => {
     const idle = dayTip(summary.days[0]!);
 
     expect([idle.rows, idle.tokens, idle.cost]).toEqual([[], "0", ""]);
+  });
+});
+
+describe("formatShare", () => {
+  test('a little in Polaris sessions is never "0%"', () => {
+    // 252k of 16.3B tokens: two test sessions on a Host used mostly outside Polaris.
+    expect(formatShare(252_439 / 16_326_056_227)).toBe("<1%");
+    expect(formatShare(0)).toBe("0%");
+    expect(formatShare(0.42)).toBe("42%");
+    expect(formatShare(0.998)).toBe(">99%");
+    expect(formatShare(1)).toBe("100%");
+    expect(formatShare(null)).toBe("—");
+  });
+});
+
+describe("splitByDefault", () => {
+  test("the split starts on only with Polaris Usage worth setting apart", () => {
+    expect(splitByDefault(252_439 / 16_326_056_227)).toBe(false);
+    expect(splitByDefault(null)).toBe(false);
+    expect(splitByDefault(0.01)).toBe(true);
+    expect(splitByDefault(0.4)).toBe(true);
   });
 });
