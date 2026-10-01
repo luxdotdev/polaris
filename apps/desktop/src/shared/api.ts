@@ -31,6 +31,7 @@ import type {
 } from "@polaris/protocol";
 import type { Rpc } from "effect/rpc";
 import type { CommandId } from "./keymap.ts";
+import type { PullRef } from "./github.ts";
 import type { GitHubRequestOutputs, GitHubSubscriptionItems } from "./githubContract.ts";
 import type { NeedsYouAction } from "./needsYou.ts";
 import type {
@@ -370,7 +371,14 @@ export type AppEvent =
   /** Dev only (Develop menu): start the bench-Harness proof session on this Host. */
   | { readonly kind: "proof"; readonly hostKey: string }
   /** The menu bar star or a notification: open a waiting session, or answer it. */
-  | ({ readonly kind: "needs-you" } & NeedsYouAction);
+  | ({ readonly kind: "needs-you" } & NeedsYouAction)
+  /** A review-request notification: open its pull request in Review, or the list (null). */
+  | { readonly kind: "open-pull"; readonly pull: OpenPull | null };
+
+/** A pull request to open in Review, with its node id when known. */
+export interface OpenPull extends PullRef {
+  readonly pullId: string | null;
+}
 
 // ── The API on `window.polaris` ─────────────────────────────────────────────
 

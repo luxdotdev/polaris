@@ -8,6 +8,7 @@ import { createOnboarding } from "./features/onboarding/index.ts";
 import { startProofSession } from "./proof.ts";
 import { createCommandRegistry } from "./routes/commands.ts";
 import { installKeyboard } from "./routes/keyboard.ts";
+import { onOpenPullEvent } from "./routes/review.ts";
 import { createNavigation } from "./routes/navigation.ts";
 import { exposeSwitchTimes } from "./routes/switchTimer.ts";
 import type { Appearance, Density } from "../shared/api.ts";
@@ -75,6 +76,7 @@ connectSettings(window.polaris);
 window.polaris.onAppEvent((event) => {
   if (event.kind === "command") commands.run(event.id);
   else if (event.kind === "needs-you") onNeedsYouEvent(event, navigation.actions);
+  else if (event.kind === "open-pull") onOpenPullEvent(event.pull, navigation.actions);
   else if (event.kind === "proof") {
     void startProofSession({ api: window.polaris, store: connection.store, hostKey: event.hostKey })
       .then((sessionId) => navigation.actions.selectSession({ hostKey: event.hostKey, sessionId }))
