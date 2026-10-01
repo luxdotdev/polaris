@@ -173,6 +173,8 @@ export const DiffPane = ({
       },
       onLineSelectionEnd: (range: SelectedLineRange | null, context: ItemContext) =>
         onSelect(context.item.id, range),
+      onGutterUtilityClick: (range: SelectedLineRange, context: ItemContext) =>
+        onSelect(context.item.id, range),
     }),
     [themeType, marksCss, loadDiffFiles, onSelect]
   );

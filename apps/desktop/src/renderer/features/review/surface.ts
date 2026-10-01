@@ -4,7 +4,7 @@
  * the diff and the file list; each slot owns what renders inside it.
  */
 import type { ReviewCheckout, RiskFinding } from "@polaris/protocol";
-import type { ComponentType, ReactNode } from "react";
+import { type ComponentType, createElement, type ReactNode } from "react";
 import { createStore } from "zustand/vanilla";
 import type { Plain } from "../../store/plain.ts";
 import type { ReviewSubject } from "../../routes/review.ts";
@@ -23,6 +23,11 @@ export interface DiffRange {
   readonly side: "new" | "old";
   readonly start: number;
   readonly end: number;
+}
+
+/** A selection with the code it covers, as the diff shows it (quoted in feedback). */
+export interface DiffSelection extends DiffRange {
+  readonly code: string;
 }
 
 /** A row under a line in the diff (a comment thread, a draft, a composer). */
@@ -49,6 +54,15 @@ export interface ReviewSlots {
 
 const Nothing = () => null;
 
+/** The primary action per subject kind: "Submit review" (M2-F), accepting Turns (M2-A). */
+const primaryActions: Record<ReviewSlotProps["subject"]["kind"], ComponentType<ReviewSlotProps>> = {
+  pull: Nothing,
+  session: Nothing,
+};
+
+const PrimaryAction = (props: ReviewSlotProps) =>
+  createElement(primaryActions[props.subject.kind], props);
+
 /** Defaults until the slices land; a slice swaps its own in with `fillReviewSlots`. */
 interface SlotRegistry {
   current: ReviewSlots;
@@ -57,7 +71,7 @@ interface SlotRegistry {
 export const reviewSlots: SlotRegistry = {
   current: {
     CheckoutChip: Nothing,
-    PrimaryAction: Nothing,
+    PrimaryAction,
     RiskColumn: Nothing,
     RiskFooter: Nothing,
   },
@@ -65,6 +79,14 @@ export const reviewSlots: SlotRegistry = {
 
 export const fillReviewSlots = (slots: Partial<ReviewSlots>) => {
   reviewSlots.current = { ...reviewSlots.current, ...slots };
+};
+
+/** Fills the primary action for one kind of subject, leaving the other's. */
+export const fillPrimaryAction = (
+  kind: ReviewSlotProps["subject"]["kind"],
+  action: ComponentType<ReviewSlotProps>
+) => {
+  primaryActions[kind] = action;
 };
 
 /**
@@ -77,7 +99,9 @@ export interface ReviewSurface {
   /** The finding the risk column selected; the diff scrolls to it and expands its reason. */
   readonly selectedFinding: string | null;
   /** Lines the user selected in the diff (the composer opens under them, M2-F). */
-  readonly selection: DiffRange | null;
+  readonly selection: DiffSelection | null;
+  /** The code of a range in the diff as it shows it (lines it doesn't hold are skipped). */
+  readonly quote: ((range: DiffRange) => string) | null;
 }
 
 const emptySurface: ReviewSurface = {
@@ -85,6 +109,7 @@ const emptySurface: ReviewSurface = {
   annotations: [],
   selectedFinding: null,
   selection: null,
+  quote: null,
 };
 
 export const surfaceStore = createStore<Readonly<Record<string, ReviewSurface>>>(() => ({}));

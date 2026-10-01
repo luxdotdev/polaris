@@ -17,6 +17,7 @@ import type {
   DiffFile,
   GetReviewerSettings,
   GetRiskSummary,
+  ListVerdicts,
   GitStatus,
   Grep,
   HarnessCommands,
@@ -26,6 +27,7 @@ import type {
   HostInfo,
   HostStreamItem,
   PlanLimit,
+  RiskSummary,
   RunRiskSummary,
   SearchPaths,
   SessionStreamItem,
@@ -319,6 +321,7 @@ export interface RequestOutputs extends GitHubRequestOutputs {
   "attachments.clear": Plain<StagedAmount>;
   "review.runRiskSummary": Rpc.Success<typeof RunRiskSummary>;
   "review.riskSummary": Rpc.Success<typeof GetRiskSummary>;
+  "review.verdicts": Rpc.Success<typeof ListVerdicts>;
   "review.askFinding": Rpc.Success<typeof AskFinding>;
   "review.reviewerSettings": Rpc.Success<typeof GetReviewerSettings>;
   "review.setReviewerSettings": null;
@@ -360,6 +363,7 @@ export interface SubscriptionItems extends GitHubSubscriptionItems {
   usage: UsageStreamItem;
   "harness.availability": Plain<HostHarnesses>;
   "plan-limits": Plain<PlanLimit>;
+  "review.watchRiskSummary": RiskSummary;
 }
 
 export type SubscriptionItem<K extends SubscriptionKind> = SubscriptionItems[K];

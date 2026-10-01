@@ -67,6 +67,8 @@ const openers: Openers = {
         )
       )
     ),
+  "review.watchRiskSummary": ({ hostKey, summaryId }) =>
+    onLive(hostKey, (session) => session.client["review.watchRiskSummary"]({ summaryId })),
 };
 
 export const isSubscriptionKind = (kind: string): kind is SubscriptionKind =>
