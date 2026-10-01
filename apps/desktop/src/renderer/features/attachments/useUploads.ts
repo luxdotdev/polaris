@@ -38,7 +38,15 @@ export const useUploads = (
     if (staged === null) return;
 
     if (thumb !== null) thumbnails.set(staged.id, thumb);
-    onStaged({ id: staged.id, name: staged.name, mimeType: staged.mimeType, size: staged.size });
+    onStaged({
+      id: staged.id,
+      name: staged.name,
+      mimeType: staged.mimeType,
+      size: staged.size,
+      hostPath: staged.hostPath,
+      width: staged.width,
+      height: staged.height,
+    });
   };
 
   const upload = (files: ReadonlyArray<File>, mode: DropMode = "attach") => {

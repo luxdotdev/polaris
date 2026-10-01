@@ -26,6 +26,8 @@ const attachment = (name: string, mimeType: string) =>
     mimeType,
     size: 1,
     hostPath: `/home/user/.polaris/staging/s1/${name}`,
+    width: null,
+    height: null,
   });
 
 describe("permission modes", () => {

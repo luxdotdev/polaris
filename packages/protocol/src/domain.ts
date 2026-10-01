@@ -129,6 +129,9 @@ export class Attachment extends Schema.Class<Attachment>("Attachment")({
   size: Schema.Int,
   /** Absolute path on the Host under `~/.polaris/staging/<session>/`. */
   hostPath: Schema.String,
+  /** An image's pixel size, read from its header when staged; null otherwise or when unknown. */
+  width: addedNullable(Schema.Int),
+  height: addedNullable(Schema.Int),
 }) {}
 
 export class Turn extends Schema.Class<Turn>("Turn")({

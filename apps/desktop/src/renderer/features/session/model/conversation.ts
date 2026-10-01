@@ -4,7 +4,7 @@
  * prompt, each item and the Turn's ending. Rows are cached per Turn view, so
  * a streaming Turn rebuilds only its own rows each frame.
  */
-import type { ApprovalRequest, TurnId, TurnItem, TurnStatus } from "@polaris/protocol";
+import type { ApprovalRequest, Attachment, TurnId, TurnItem, TurnStatus } from "@polaris/protocol";
 import { Predicate } from "effect";
 import type { TurnView } from "../../../store/sessionModel.ts";
 import { completedItemView, type ItemView, liveItemView } from "./items.ts";
@@ -27,7 +27,8 @@ export type Row =
       readonly key: string;
       readonly turnId: string;
       readonly text: string;
-      readonly attachments: ReadonlyArray<string>;
+      /** What the prompt carried, in the order attached (previews above the bubble). */
+      readonly attachments: ReadonlyArray<Attachment>;
       /** The Model and effort the Turn ran on; null for the Harness's defaults. */
       readonly model: string | null;
       readonly effort: string | null;
@@ -131,7 +132,7 @@ const expandedRows = (view: TurnView, isLast: boolean): ReadonlyArray<Row> => [
     key: `${view.turn.id}:prompt`,
     turnId: view.turn.id,
     text: view.turn.prompt,
-    attachments: view.turn.attachments.map((a) => a.name),
+    attachments: view.turn.attachments,
     model: view.turn.model,
     effort: view.turn.effort,
   },

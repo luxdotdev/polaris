@@ -5,6 +5,7 @@
  */
 import { Button, cn, PixelFailedIcon } from "@polaris/ui";
 import type { ReactNode } from "react";
+import { SentAttachments } from "../../attachments/index.ts";
 import type { Outgoing } from "../model/outbox.ts";
 import { softWrap } from "./softWrap.tsx";
 
@@ -14,15 +15,19 @@ const BUBBLE =
 const Bubble = ({
   text,
   faded = false,
+  above = null,
   children,
   testId,
 }: {
   readonly text: string;
   readonly faded?: boolean;
+  /** What the message carries, above it. */
+  readonly above?: ReactNode;
   readonly children: ReactNode;
   readonly testId: string;
 }) => (
   <div className="flex flex-col items-end gap-1.5" data-testid={testId}>
+    {above}
     <p className={cn(BUBBLE, "transition-opacity duration-200", faded && "opacity-60")}>
       {softWrap(text)}
     </p>
@@ -41,6 +46,8 @@ export const Steered = ({ text }: { readonly text: string }) => (
 
 export interface OutgoingProps {
   readonly entry: Outgoing;
+  /** The session's Host, where its attachments are staged. */
+  readonly hostKey: string;
   /** A Turn is in flight that takes steers: a failed steer retries as one. */
   readonly canSteer: boolean;
   readonly onRetry: () => void;
@@ -53,10 +60,12 @@ const waitingLabel = (entry: Outgoing): string => {
   return entry.status === "waiting" ? "Queued for after this turn" : "Sending…";
 };
 
-export const OutgoingMessage = ({ entry, canSteer, onRetry, onEdit }: OutgoingProps) => {
+export const OutgoingMessage = ({ entry, hostKey, canSteer, onRetry, onEdit }: OutgoingProps) => {
+  const above = <SentAttachments hostKey={hostKey} attachments={entry.attachments} />;
+
   if (entry.status !== "failed")
     return (
-      <Bubble text={entry.text} faded testId="outgoing">
+      <Bubble text={entry.text} faded above={above} testId="outgoing">
         <span data-testid="outgoing-status">{waitingLabel(entry)}</span>
         {entry.status === "waiting" ? (
           <Button variant="ghost" size="sm" onClick={onEdit}>
@@ -68,7 +77,7 @@ export const OutgoingMessage = ({ entry, canSteer, onRetry, onEdit }: OutgoingPr
   const again = entry.kind === "steer" && !canSteer ? "Send as next turn" : "Retry";
 
   return (
-    <Bubble text={entry.text} testId="outgoing-failed">
+    <Bubble text={entry.text} above={above} testId="outgoing-failed">
       <PixelFailedIcon size={12} className="text-failed shrink-0" />
       <span className="min-w-0 truncate" data-testid="outgoing-status">
         {entry.error ?? (entry.kind === "steer" ? "Couldn't steer" : "Couldn't send")}

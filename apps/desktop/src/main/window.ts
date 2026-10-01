@@ -10,12 +10,14 @@ export interface MainWindowInput {
   readonly trusted: (url: string) => boolean;
   /** Smoke tests and benchmarks keep the window hidden. */
   readonly show: boolean;
+  /** Linux's window list and dock take the icon from the window; macOS uses the bundle's. */
+  readonly icon: string | null;
 }
 
 /** DESIGN.md `bg-dark` / `bg-light`, so the first frame matches the theme. */
 export const windowBackground = () => (nativeTheme.shouldUseDarkColors ? "#1A1B1D" : "#FBFBFC");
 
-export const createMainWindow = ({ url, preload, trusted, show }: MainWindowInput) => {
+export const createMainWindow = ({ url, preload, trusted, show, icon }: MainWindowInput) => {
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -37,6 +39,8 @@ export const createMainWindow = ({ url, preload, trusted, show }: MainWindowInpu
       v8CacheOptions: "bypassHeatCheck",
     },
   });
+
+  if (process.platform === "linux" && icon !== null) win.setIcon(icon);
 
   win.webContents.setWindowOpenHandler(({ url: target }) => {
     if (target.startsWith("https://")) void shell.openExternal(target);

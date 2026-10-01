@@ -5,6 +5,8 @@
  */
 import {
   AgentSession,
+  Attachment,
+  AttachmentId,
   ContextUsage,
   ApprovalRequest,
   RequestId,
@@ -51,13 +53,19 @@ export const worktree = new Worktree({
 
 const ago = (seconds: number) => new Date(Date.now() - seconds * 1000).toISOString();
 
-const turn = (sessionId: SessionId, index: number, prompt: string, status: TurnStatus) =>
+const turn = (
+  sessionId: SessionId,
+  index: number,
+  prompt: string,
+  status: TurnStatus,
+  attachments: ReadonlyArray<Attachment> = []
+) =>
   new Turn({
     id: TurnId.make(`${sessionId}-t${index}`),
     sessionId,
     index,
     prompt,
-    attachments: [],
+    attachments,
     model: "claude-opus-5",
     effort: "high",
     status,
@@ -411,39 +419,109 @@ export const steerOutbox = (turnId: string): ReadonlyArray<Outgoing<StagedAttach
   queuedOutgoing<StagedAttachment>("Then run the gallery and screenshot both themes", []),
 ];
 
+const attachment = (
+  id: string,
+  name: string,
+  mimeType: string,
+  size: number,
+  dims: readonly [number, number] | null
+) =>
+  new Attachment({
+    id: AttachmentId.make(id),
+    name,
+    mimeType,
+    size,
+    hostPath: `/Users/lucas/.polaris/staging/s-attach/${id}/${name}`,
+    width: dims?.[0] ?? null,
+    height: dims?.[1] ?? null,
+  });
+
+/** Sent images above their prompts: one wide screenshot, then two with a PDF. */
+export const attachments = (): SessionModel => {
+  const s = session("s-attach", { title: "Match the session rows to the mock", state: "idle" });
+
+  const one = turn(
+    s.id,
+    2,
+    "The rows in this screenshot are too tall; match the mock.",
+    "completed",
+    [
+      attachment(
+        "a1",
+        "CleanShot 2026-09-30 at 14.02.11@2x.png",
+        "image/png",
+        812_331,
+        [2880, 1800]
+      ),
+    ]
+  );
+
+  const two = turn(s.id, 3, "Here are the light and dark variants, and the spec.", "completed", [
+    attachment("a2", "rows-light.png", "image/png", 201_002, [1200, 1600]),
+    attachment("a3", "rows-dark.png", "image/png", 198_440, [1600, 1200]),
+    attachment("a4", "session-rows-spec.pdf", "application/pdf", 88_120, null),
+  ]);
+
+  return model({
+    session: s,
+    turns: [
+      view(one, [I.AssistantMessage.make({ id: "m2", text: "Tightened them to 32px." })]),
+      view(two, [I.AssistantMessage.make({ id: "m3", text: "Both variants now match." })]),
+    ],
+  });
+};
+
 /** 150 Turns of mixed items, for scrolling the virtualized conversation. */
 export const long = (): SessionModel => {
   const s = session("s-long", { title: "Long-running refactor", state: "idle", turnCount: 150 });
 
+  // Every third Turn sends two screenshots, so scrolling crosses thumbnails too.
+  const shots = (n: number) =>
+    n % 3 === 0
+      ? [
+          attachment(`l${n}x`, `step-${n}-before.png`, "image/png", 300_000, [1600, 1000]),
+          attachment(`l${n}y`, `step-${n}-after.png`, "image/png", 300_000, [1000, 1600]),
+        ]
+      : [];
+
   const turns = Array.from({ length: 150 }, (_, n) =>
-    view(turn(s.id, n, `Step ${n + 1}: move the next module onto the new store`, "completed"), [
-      I.Reasoning.make({
-        id: `r${n}`,
-        text: "Checking the callers first.",
-        startedAt: null,
-        endedAt: null,
-      }),
-      I.AssistantMessage.make({
-        id: `m${n}`,
-        text: `Moved module ${n + 1}. Its callers now read through the selector, and the old subscription is gone.\n\nNext I'll run the tests for this package.`,
-      }),
-      I.CommandExecution.make({
-        id: `c${n}`,
-        command: "bun test packages/store",
-        cwd: s.cwd,
-        output: Array.from({ length: 12 }, (_, k) => `  ✓ store › case ${k + 1}`).join("\n"),
-        exitCode: 0,
-        status: "completed",
-      }),
-      I.FileChange.make({
-        id: `f${n}`,
-        changes: [
-          { path: `packages/store/src/module-${n}.ts`, kind: "modify" },
-          { path: `packages/store/src/module-${n}.test.ts`, kind: "add" },
-        ],
-        status: "completed",
-      }),
-    ])
+    view(
+      turn(
+        s.id,
+        n,
+        `Step ${n + 1}: move the next module onto the new store`,
+        "completed",
+        shots(n)
+      ),
+      [
+        I.Reasoning.make({
+          id: `r${n}`,
+          text: "Checking the callers first.",
+          startedAt: null,
+          endedAt: null,
+        }),
+        I.AssistantMessage.make({
+          id: `m${n}`,
+          text: `Moved module ${n + 1}. Its callers now read through the selector, and the old subscription is gone.\n\nNext I'll run the tests for this package.`,
+        }),
+        I.CommandExecution.make({
+          id: `c${n}`,
+          command: "bun test packages/store",
+          cwd: s.cwd,
+          output: Array.from({ length: 12 }, (_, k) => `  ✓ store › case ${k + 1}`).join("\n"),
+          exitCode: 0,
+          status: "completed",
+        }),
+        I.FileChange.make({
+          id: `f${n}`,
+          changes: [
+            { path: `packages/store/src/module-${n}.ts`, kind: "modify" },
+            { path: `packages/store/src/module-${n}.test.ts`, kind: "add" },
+          ],
+          status: "completed",
+        }),
+      ]
+    )
   );
 
   return model({ session: s, turns });

@@ -523,6 +523,8 @@ describe("Claude driver", () => {
       mimeType: "image/png",
       size: 4,
       hostPath: "/stage/shot.png",
+      width: null,
+      height: null,
     });
 
     const pdf = new Attachment({
@@ -531,6 +533,8 @@ describe("Claude driver", () => {
       mimeType: "application/pdf",
       size: 9,
       hostPath: "/stage/spec.pdf",
+      width: null,
+      height: null,
     });
 
     await t.run(t.session.sendTurn(turn(T1, "see these", [png, pdf])));

@@ -1,7 +1,7 @@
 /** Build steps shared by `build.ts` and `dev.ts`. */
-import { cpSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { APP_DIR, electronBinary, OUT_DIR } from "./electron.ts";
+import { APP_DIR, electronBinary, OUT_DIR, REPO_ROOT } from "./electron.ts";
 
 export { APP_DIR, electronBinary, OUT_DIR, REPO_ROOT } from "./electron.ts";
 
@@ -89,6 +89,11 @@ export const bundleApp = async (): Promise<string> => {
   }
 
   Bun.spawnSync(["plutil", "-replace", "CFBundleIdentifier", "-string", "dev.lux.polaris", plist]);
+
+  // The generated app icon (design/scripts/gen_app_icon.py) over Electron's.
+  const icon = join(REPO_ROOT, "design/assets/app-icon/Polaris.icns");
+
+  if (existsSync(icon)) cpSync(icon, join(target, "Contents/Resources/electron.icns"));
 
   return target;
 };

@@ -23,6 +23,7 @@ import {
   startClientRuntime,
   whenConnected,
 } from "./hosts.ts";
+import { iconPng, nameApp, showIcon } from "./identity.ts";
 import { registerIpc } from "./ipc/index.ts";
 import { machinesLayer, sshAliasNames } from "./machines/index.ts";
 import { type LocalDaemon, resolveLocalDaemon } from "./localDaemon.ts";
@@ -59,6 +60,8 @@ const appRoot = join(dirname(fileURLToPath(import.meta.url)), "../..");
 
 const repoRoot = join(appRoot, "../..");
 
+nameApp();
+
 if (env.POLARIS_DESKTOP_USER_DATA !== undefined) {
   app.setPath("userData", env.POLARIS_DESKTOP_USER_DATA);
 }
@@ -90,6 +93,7 @@ const localLabel = (label: string | undefined): { localLabel?: string } =>
   label === undefined || label === "" ? {} : { localLabel: label };
 
 const start = async () => {
+  showIcon({ repoRoot });
   const file = settingsPath(app.getPath("userData"));
   let settings: Settings = readSettings(file);
 
@@ -230,6 +234,7 @@ const start = async () => {
     preload: join(appRoot, "out/preload/index.cjs"),
     trusted,
     show: env.POLARIS_DESKTOP_HIDDEN !== "1",
+    icon: iconPng({ repoRoot }),
   });
 
   // macOS: closing the window hides it, so the star, notifications and badge keep counting.

@@ -18,6 +18,7 @@ import {
   Tile,
 } from "@polaris/ui";
 import { age } from "../../../shell/copy.ts";
+import { SentAttachments } from "../../attachments/index.ts";
 import { useNow } from "../../../shell/useNow.ts";
 import { Decisions } from "../../../commands.ts";
 import type { Row } from "../model/conversation.ts";
@@ -107,13 +108,14 @@ const Summary = ({ row, ctx }: { row: Extract<Row, { kind: "summary" }>; ctx: Ro
 
 const Prompt = ({ row, ctx }: { row: Extract<Row, { kind: "prompt" }>; ctx: RowContext }) => (
   <div className="flex flex-col items-end gap-1.5" data-testid="prompt">
+    <SentAttachments hostKey={ctx.diff.hostKey} attachments={row.attachments} />
     {row.text === "" ? null : (
       <p className="rounded-card bg-fill-selected text-body text-text-strong py-row-x max-w-[340px] px-3.5 break-words whitespace-pre-wrap">
         {softWrap(row.text)}
       </p>
     )}
     <p className="text-caption text-text-subtle max-w-[340px] truncate" data-testid="turn-model">
-      {[...row.attachments, ctx.modelLabel(row.model, row.effort)].join(" · ")}
+      {ctx.modelLabel(row.model, row.effort)}
     </p>
   </div>
 );
@@ -234,6 +236,7 @@ export const ConversationRow = ({ row, ctx }: { row: Row; ctx: RowContext }) => 
       return (
         <OutgoingMessage
           entry={row.entry}
+          hostKey={ctx.diff.hostKey}
           canSteer={ctx.canSteer}
           onRetry={() => ctx.outbox.retry(row.entry.id)}
           onEdit={() => ctx.outbox.edit(row.entry.id)}

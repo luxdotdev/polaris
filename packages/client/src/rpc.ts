@@ -92,6 +92,8 @@ export const connectRpc = Effect.fnUntraced(function* (
   const lost = yield* Deferred.make<never, RpcClientError>();
   const pingInterval = options.pingIntervalMs ?? 15_000;
   let lastHeard = Date.now();
+  /** When the latest ping went out while a reply is due; null before the first. */
+  let lastPinged: number | null = null;
   let wire!: Wire;
   /** Requests (not streams) sent and not yet answered with an Exit. */
   const awaiting = new Set<string | number>();
@@ -199,11 +201,18 @@ export const connectRpc = Effect.fnUntraced(function* (
 
           if (awaiting.size === 0) continue;
 
-          if (Date.now() - lastHeard > pingInterval * 3) {
+          const now = Date.now();
+          // A late wake of our own timer (a starved process, a sleeping Mac) isn't the
+          // Daemon's silence: it's lost only once a ping has had an interval to be answered.
+          const pingUnanswered = lastPinged !== null && now - lastPinged >= pingInterval;
+
+          if (now - lastHeard > pingInterval * 3 && pingUnanswered) {
             yield* fail(lostError("the Daemon stopped answering"));
 
             return;
           }
+
+          if (lastPinged === null || lastHeard >= lastPinged) lastPinged = now;
 
           const ping = parser.encode(constPing);
 
@@ -222,7 +231,11 @@ export const connectRpc = Effect.fnUntraced(function* (
 
               if (!streamTags.has(request.tag)) {
                 // The silence clock starts now, not at the last traffic of an idle link.
-                if (awaiting.size === 0) lastHeard = Date.now();
+                if (awaiting.size === 0) {
+                  lastHeard = Date.now();
+                  lastPinged = null;
+                }
+
                 awaiting.add(request.id);
                 pinging.openUnsafe();
               }

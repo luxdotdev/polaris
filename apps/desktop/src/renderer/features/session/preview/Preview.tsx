@@ -31,6 +31,7 @@ import { standInBridge } from "../../bridge.ts";
 import { patchSessionUi, uiKey } from "../state.ts";
 import {
   approval,
+  attachments,
   failed,
   interrupted,
   long,
@@ -84,6 +85,7 @@ const SCENES = {
   long,
   markdown,
   steer,
+  attachments,
 } as const;
 
 const SCENE_NAMES = [
@@ -95,6 +97,7 @@ const SCENE_NAMES = [
   "long",
   "markdown",
   "steer",
+  "attachments",
   "new",
   "setup",
   "none-ready",
@@ -220,9 +223,54 @@ const answer = (
   return { ok: false, error: { code: "Unsupported", message: "preview" } };
 };
 
+const images = new Map<string, Promise<Result<unknown>>>();
+
+/** One stand-in per size, so the preview's own drawing doesn't weigh on scroll measurements. */
+const fixtureImage = (path: string): Promise<Result<unknown>> => {
+  const key = path.includes("a1") ? "a1" : path.includes("a2") ? "a2" : "other";
+  const known = images.get(key);
+
+  if (known !== undefined) return known;
+  const made = drawImage(path);
+
+  images.set(key, made);
+
+  return made;
+};
+
+/** A stand-in for a staged image: a gradient with its name, at the path's stored size. */
+const drawImage = async (path: string): Promise<Result<unknown>> => {
+  const [w, h] = path.includes("a1") ? [1440, 900] : path.includes("a2") ? [600, 800] : [800, 600];
+  const canvas = new OffscreenCanvas(w, h);
+  const g = canvas.getContext("2d");
+
+  if (g !== null) {
+    const fill = g.createLinearGradient(0, 0, w, h);
+
+    fill.addColorStop(0, "#2a3350");
+    fill.addColorStop(1, "#7b8bb8");
+    g.fillStyle = fill;
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = "#f4f5f7";
+    g.font = `${Math.round(h / 10)}px sans-serif`;
+    g.fillText(path.split("/").at(-1) ?? "", w / 20, h / 2);
+  }
+
+  const blob = await canvas.convertToBlob({ type: "image/png" });
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+
+  return {
+    ok: true,
+    value: { size: bytes.length, mimeType: "image/png", content: { kind: "bytes", bytes } },
+  };
+};
+
 const bridgeFor = (scene: Scene): PolarisApi => ({
   // SAFETY: fixture answers match RequestOutputs for the methods the session feature calls.
-  request: (method, input) => Promise.resolve(answer(scene, method, input) as never),
+  request: (method, input) =>
+    (method === "files.read" && "path" in input && input.path.endsWith(".png")
+      ? fixtureImage(input.path)
+      : Promise.resolve(answer(scene, method, input))) as never,
   subscribe: (kind, _input, listener) => {
     // SAFETY: each fixture feed's items match SubscriptionItems for its kind.
     const items = feed(scene, kind) as never;
@@ -307,6 +355,12 @@ export const mountPreview = (root: HTMLElement, hash: string) => {
     const turnId = shown.turns.at(-1)?.turn.id ?? "";
 
     patchSessionUi(key, () => ({ outbox: steerOutbox(turnId) }));
+  }
+
+  if (scene === "attachments" && shown?.session != null) {
+    const unfolded = new Set(shown.turns.map((t) => t.turn.id));
+
+    patchSessionUi(uiKey(HOST, shown.session.id), () => ({ unfolded }));
   }
 
   // The long scene opens every Turn, so scrolling crosses thousands of rows.

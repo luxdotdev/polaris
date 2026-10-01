@@ -304,6 +304,8 @@ describe("prompts and titles", () => {
         mimeType,
         size: 1,
         hostPath: `/home/u/.polaris/staging/s1/${name}`,
+        width: null,
+        height: null,
       });
 
     expect(

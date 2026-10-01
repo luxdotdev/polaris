@@ -7,6 +7,7 @@
 - The layout under `paths().staging`: `<session>/<attachment id>/<safe name>`, with a `.meta.json` beside it. Attachments staged before their Agent Session exists go under `_pending/<workspace>/<attachment id>/`. Files are written `0600`, in `0700` directories.
 - `safeFileName` keeps only the base name, replaces control and reserved characters, strips leading dots, and caps the name at 120 characters, keeping the extension. The original name is returned as `Attachment.name`.
 - `get(ids)` leaves out attachments that were already cleaned up.
+- **Image size**: staging an `image/*` file reads its header (`imageSize.ts`: PNG, GIF, JPEG, WebP; the first 256 KiB) and records `width`/`height` in `.meta.json` and on the `Attachment` (null for other files, or ones staged before this), so Clients reserve a thumbnail's box before its bytes arrive.
 - **Cleanup policy** (`AttachmentSettings`, persisted to `~/.polaris/attachment-settings.json`): a default policy, overridable per Workspace.
   - `on-archive` (the default): `onSessionArchived(sessionId)` deletes that session's attachments. `_pending` attachments are never archived, so the sweeper deletes them after `PENDING_MAX_AGE_DAYS` (7).
   - `after-days` with N: the sweeper deletes attachments staged more than N days ago.

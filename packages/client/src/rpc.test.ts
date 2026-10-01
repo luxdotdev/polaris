@@ -113,4 +113,29 @@ describe("keepalive", () => {
     expect(result.later).toBe(result.afterReply);
     expect(Exit.isFailure(result.lost)).toBe(true);
   });
+
+  test("a late wake of the Client's own timer pings before declaring the peer lost", async () => {
+    const result = await run(
+      Effect.gen(function* () {
+        const { connection, received, pings } = yield* silentPeer;
+
+        yield* connection.client
+          .hello({ clientName: "t", clientVersion: "0", deviceLabel: "t", capabilities: [] })
+          .pipe(Effect.forkScoped);
+
+        while (!received.some((m) => Predicate.isTagged(m, "Request"))) {
+          yield* Effect.sleep(1);
+        }
+
+        // Block the thread for 5 intervals, as a starved runner or a sleeping Mac does.
+        Bun.sleepSync(100);
+        const lost = yield* connection.lost.pipe(Effect.exit, Effect.timeout(1000));
+
+        return { pingsBeforeLost: pings(), lost };
+      })
+    );
+
+    expect(result.pingsBeforeLost).toBeGreaterThan(0);
+    expect(Exit.isFailure(result.lost)).toBe(true);
+  });
 });
