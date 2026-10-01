@@ -45,11 +45,21 @@ const listPages = (conn: RpcConnection) =>
     return models;
   });
 
-export const listCodexModels = (config: {
+export interface ListingConfig {
   readonly codexPath: string | null;
   readonly socketPath: string;
   readonly clientVersion: string;
-}): Effect.Effect<ReadonlyArray<Model>, HarnessError> => {
+}
+
+/**
+ * Runs `use` on an initialized connection: the shared app-server when it is
+ * running, else a private one on stdio that exits with the scope.
+ */
+export const askAppServer = <A>(
+  config: ListingConfig,
+  what: string,
+  use: (conn: RpcConnection) => Effect.Effect<A, HarnessError>
+): Effect.Effect<A, HarnessError> => {
   const { codexPath } = config;
 
   if (codexPath === null) {
@@ -68,12 +78,16 @@ export const listCodexModels = (config: {
       } satisfies P.ClientParams["initialize"]);
       yield* conn.notify("initialized");
 
-      return yield* listPages(conn);
+      return yield* use(conn);
     })
   ).pipe(
     Effect.timeoutOrElse({
       duration: "30 seconds",
-      orElse: () => Effect.fail(codexError("Codex took too long to list its Models")),
+      orElse: () => Effect.fail(codexError(`Codex took too long to list its ${what}`)),
     })
   );
 };
+
+export const listCodexModels = (
+  config: ListingConfig
+): Effect.Effect<ReadonlyArray<Model>, HarnessError> => askAppServer(config, "Models", listPages);

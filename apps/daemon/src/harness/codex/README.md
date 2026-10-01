@@ -13,7 +13,7 @@ Implements `HarnessDriver` (`../HarnessDriver.ts`) for Codex by driving the user
 | `mapping.ts` | Pure translations: permission modes, turn input, thread items → `TurnItem`s, approval decisions. |
 | `models.ts` | `listModels`: `model/list` (every page, hidden Models left out) on the shared app-server when it's running, else on a private `codex app-server` over stdio that exits right after (`connectStdio` in `RpcConnection.ts`). |
 | `protocol.ts` | Effect Schemas that validate the fields the driver reads, each checked at compile time against the generated type. |
-| `generated/` | TypeScript bindings from `codex app-server generate-ts`, trimmed to the import closure of what the driver uses. Generated from **codex-cli 0.158.0** (`generated/version.ts`). |
+| `generated/` | TypeScript bindings from `codex app-server generate-ts`, trimmed to the import closure of what the driver uses. Generated from **codex-cli 0.159.2** (`generated/version.ts`). |
 | `planLimits.ts` | With `planLimits` set, each session sends `account/rateLimits/read` once it has connected and reports `account/rateLimits/updated` notifications, merged through one `CodexLimitTracker` per driver. See `../limits/README.md`. |
 | `testing/FakeAppServer.ts` | A scriptable fake app-server on a real Unix socket (same WebSocket transport) and a replayer for recorded traffic. |
 
@@ -107,6 +107,21 @@ The table follows T3 Code's runtime modes. These values go on `thread/start`/`th
 - `sendTurn`: `turn/start` with a text input, plus a `localImage` input (staged Host path) per image attachment. Other attachments are listed by path at the end of the prompt. Fails if a Turn is already in flight.
 - `steer`: `turn/steer` with `expectedTurnId` set to the in-flight turn. Fails if none is in flight. Codex's answer records it as a `UserMessage` item; a Turn's later `userMessage` items (a steer from a co-attached TUI) do too, and `steers.ts` keeps one item when both report the same steer. The Turn's first user message is its prompt.
 - `interrupt`: `turn/interrupt`, or nothing when idle. The Turn then ends `interrupted`, and open approvals come back as `ApprovalWithdrawn`.
+
+### Skills and Slash Commands (`commands.ts`, `slash.ts`)
+
+`listCommands(cwd)` asks `skills/list` with `cwds: [cwd]` over the same connection as `model/list` (the shared server if it runs, else a private stdio one that exits; ~0.7 s with codex-cli 0.159.2), reads custom prompts from `$CODEX_HOME/prompts/*.md`, and adds the built-ins Polaris can run:
+
+| Command | How it runs |
+|---|---|
+| a Skill (`$name`) | `text`: the Turn's text carries `$name`, which Codex's Skill instructions resolve; disabled Skills are left out. Source from its scope (`user`, `repo` → project, `system`/`admin` → built-in) or `plugin` with a `pluginId` |
+| `/prompts:<name>` (custom prompt) | `text`, with `template`: the file's body (after frontmatter), `$ARGUMENTS` standing for what follows. app-server doesn't expand prompts (only the TUI does), so the Client sends the body |
+| `/compact` | `harness`: a Turn whose prompt is exactly `/compact` runs `thread/compact/start`; the compaction Turn's `turn/started` takes the pending Polaris Turn |
+| `/review [instructions]` | `harness`: `review/start`, inline, target `uncommittedChanges` or `custom` instructions; its reply's Turn is bound like `turn/start`'s |
+| `/model` | `polaris` → `model` |
+| `/new` | `polaris` → `new-session` |
+| `/diff` | `polaris` → `diff` |
+| every other TUI command (`/init`, `/status`, `/mcp`, `/approvals`, `/logout`, `/quit`…) | not offered |
 
 ## Regenerating the bindings
 

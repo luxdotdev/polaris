@@ -12,6 +12,7 @@ import { CodexLimitTracker } from "../limits/codex.ts";
 import type { PlanLimitReporter } from "../limits/PlanLimitReporter.ts";
 import { acquireAppServer } from "./AppServer.ts";
 import { openSession } from "./CodexSession.ts";
+import { listCodexCommands } from "./commands.ts";
 import { listCodexModels } from "./models.ts";
 import { codexError } from "./RpcConnection.ts";
 
@@ -89,6 +90,7 @@ export const makeCodexDriver = (
       capabilities: { steer: true, liveCoAttach: true, switchModel: true },
       probe: probeCodex(codexPath),
       listModels: listCodexModels({ codexPath, socketPath, clientVersion }),
+      listCommands: listCodexCommands({ codexPath, socketPath, clientVersion }),
       open: (openOptions) =>
         codexPath === null
           ? Effect.fail(codexError("codex was not found on PATH; install Codex to use it"))
