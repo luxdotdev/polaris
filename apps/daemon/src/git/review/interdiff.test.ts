@@ -8,7 +8,7 @@ import {
   BASE_REPO,
   contributor,
   lines,
-  makeForge,
+  createForge,
   publishPullRequest,
   pushMain,
   userClone,
@@ -22,7 +22,7 @@ afterEach(() => {
 
 /** A PR that changes line 7 of app.txt, fetched and marked reviewed. */
 const setup = async () => {
-  const forge = await makeForge();
+  const forge = await createForge();
   cleanup.push(forge.root);
   const author = await contributor(forge, "main");
   write(author, "app.txt", lines(10, { 7: "line 7 pr" }));

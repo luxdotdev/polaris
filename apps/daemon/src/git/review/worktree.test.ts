@@ -6,7 +6,7 @@ import { commitAll, removeDir, tempDir, write } from "../testing.ts";
 import { listWorktrees } from "../WorktreeTracker.ts";
 import { fetchPullRequest } from "./fetch.ts";
 import { lockReasonFor, reviewRef } from "./refs.ts";
-import { BASE_REPO, contributor, makeForge, publishPullRequest, userClone } from "./testing.ts";
+import { BASE_REPO, contributor, createForge, publishPullRequest, userClone } from "./testing.ts";
 import {
   ensureCheckout,
   inspectCheckout,
@@ -23,7 +23,7 @@ afterEach(() => {
 
 /** A PR that adds a husky-style `post-checkout` hook writing `marker`, and a user with husky set up. */
 const setup = async () => {
-  const forge = await makeForge();
+  const forge = await createForge();
   cleanup.push(forge.root);
   const markers = tempDir("polaris-marker-");
   cleanup.push(markers);

@@ -13,7 +13,7 @@ import {
   BASE_REPO,
   contributor,
   FORK_URL,
-  makeForge,
+  createForge,
   publishPullRequest,
   pushMain,
   userClone,
@@ -26,7 +26,7 @@ afterEach(() => {
 });
 
 const setup = async () => {
-  const forge = await makeForge();
+  const forge = await createForge();
   cleanup.push(forge.root);
   const author = await contributor(forge, forge.mainCommits[1] ?? "main");
   write(author, "feature.txt", "feature\n");
@@ -105,7 +105,7 @@ describe("fetchPullRequest", () => {
   });
 
   test("a fork's pull request comes from the base repository, not the user's fork remote", async () => {
-    const forge = await makeForge();
+    const forge = await createForge();
     cleanup.push(forge.root);
     const author = await contributor(forge, "main");
     write(author, "fork.txt", "from a fork\n");

@@ -26,7 +26,7 @@ import {
   BASE_REPO,
   contributor,
   type Forge,
-  makeForge,
+  createForge,
   publishPullRequest,
   userClone,
 } from "../git/review/testing.ts";
@@ -110,7 +110,7 @@ const openPr = (workspace: Workspace, head: string, base: string) =>
 
 /** A code host with PR #7 (one commit on main~1) and a user clone registered as a Workspace. */
 const scenario = async (options: { readonly depth?: number } = {}) => {
-  const forge = await makeForge();
+  const forge = await createForge();
   const author = await contributor(forge, forge.mainCommits[1] ?? "main");
   write(author, "feature.txt", "v1\n");
   await commitAll(author, "feature v1");

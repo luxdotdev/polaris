@@ -33,7 +33,7 @@ const identity = async (repo: string) => {
 };
 
 /** A base repository with three commits on `main`, and an empty fork. */
-export const makeForge = async (): Promise<Forge> => {
+export const createForge = async (): Promise<Forge> => {
   const root = tempDir("polaris-forge-");
   const base = join(root, "base.git");
   const fork = join(root, "fork.git");
