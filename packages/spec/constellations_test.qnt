@@ -1,0 +1,171 @@
+module constellations_test {
+  import constellations(
+    TASKS = Set(0, 1, 2), SESSIONS = Set(0, 1, 2, 3), IDS = Set(0, 1, 2, 3, 4, 5),
+    OWNER = "lead-host", CAPACITY = 2,
+  ).* from "./constellations"
+
+  action base = init.then(plan([
+    Add({ task: 0, deps: Set(), gate: false }),
+    Add({ task: 1, deps: Set(0), gate: false }),
+    Add({ task: 2, deps: Set(0, 1), gate: true }),
+  ])).then(setState("running")).expect(safety)
+  action working = base.then(start(0, 1, -1)).expect(safety)
+  action claimed = working.then(claim(0, 1, 42, false, true)).expect(safety)
+
+  run atomicPlanRejectsEveryOperationOnACycleTest = base
+    .then(plan([Edit({ task: 0, deps: Set(1), revision: 1 }), Add({ task: 1, deps: Set(), gate: false })]))
+    .expect(view.tasks.get(0).deps == Set() and view.tasks.get(0).revision == 1 and safety)
+    .then(plan([Edit({ task: 0, deps: Set(2), revision: 1 })]))
+    .expect(view.tasks.get(0).deps == Set() and graphAcyclic)
+
+  run cancelNamesDependentsAndStaleEditIsRefusedTest = base
+    .then(plan([Cancel({ task: 0, revision: 1 })]))
+    .expect(not(view.tasks.get(0).canceled) and safety)
+    .then(plan([Edit({ task: 1, deps: Set(), revision: 0 })]))
+    .expect(view.tasks.get(1).deps == Set(0) and view.tasks.get(1).revision == 1 and safety)
+
+  run linkedCausesPointBackwardTest = claimed
+    .then(reject(0, 2)).then(start(0, 2, 0))
+    .expect(view.attempts.length() == 2 and view.attempts[1].ref == 0 and causesPointBackward and safety)
+    .then(start(1, 3, 1)).expect(view.attempts.length() == 2 and safety)
+
+  run taskFollowsItsLatestAttemptTest = claimed
+    .then(reject(0, 2)).then(start(0, 2, 0))
+    .expect(taskState(view, 0) == "working" and taskFollowsLatestAttempt and safety)
+    .then(claim(0, 3, 42, false, true)).expect(taskState(view, 0) == "working" and safety)
+
+  run gateCountsOnlyAcceptedAttemptsAndPromotesOnceTest = claimed
+    .expect(view.promotions == [] and safety)
+    .then(accept(0, 2, 43)).expect(view.attempts[0].status == "review" and safety)
+    .then(accept(0, 2, 42)).then(start(1, 2, -1))
+    .then(claim(1, 1, 42, false, true)).expect(view.promotions == [] and safety)
+    .then(accept(1, 2, 42)).expect(view.promotions == [2] and gatePromotedOnlyAfterAccepted and safety)
+    .then(accept(1, 2, 42)).expect(view.promotions == [2] and safety)
+
+  run handoverIsAtomicAndDoesNotTouchWorkersTest = working
+    .then(ask(0, 0)).then(handover(3))
+    .expect(view.lead == 3 and view.attempts[0].session == 1 and view.attempts[0].status == "working" and pending.contains(0) and oneLead and safety)
+
+  run sessionCannotCarryTwoActiveAttemptsTest = claimed
+    .then(accept(0, 2, 42)).then(start(1, 1, -1))
+    .then(start(0, 1, 0)).expect(view.attempts.length() == 2 and oneActiveAttemptPerSession and safety)
+
+  run settlesAndQuestionsAreDeliveredOnceAcrossRestartTest = claimed
+    .then(ask(0, 0)).then(availability(true, false, Set()))
+    .then(deliver).expect(delivered.size() == 0 and safety)
+    .then(restart).then(deliver)
+    .expect(delivered == Set(0, 10) and pending == Set() and exactlyOnceDelivery and safety)
+    .then(restart).then(deliver).expect(view.deliveries.length() == 2 and safety)
+
+  run settledAttemptsNeverChangeTest = claimed.then(accept(0, 2, 42))
+    .then(progress(0, 3)).then(claim(0, 3, 43, false, true)).then(reject(0, 3)).then(stop(0, 3))
+    .expect(view.attempts[0].status == "accepted" and view.attempts[0].revision == 3 and settledAttemptImmutable and safety)
+
+  run claimRequiresCleanBranchAndLatestRevisionTest = working
+    .then(claim(0, 1, 42, true, true)).then(claim(0, 1, 42, false, false))
+    .then(progress(0, 1)).then(claim(0, 1, 42, false, true))
+    .expect(view.attempts[0].status == "working" and safety)
+    .then(claim(0, 2, 42, false, true)).expect(view.attempts[0].status == "review" and safety)
+
+  run outboxRetriesSurviveAppDisconnectAndLostAckTest = working
+    .then(enqueue(0, 0, 42)).then(availability(false, true, Set()))
+    .then(relay(0)).expect(view.applied == [] and view.attempts[0].status == "working" and safety)
+    .then(availability(true, true, Set())).then(relay(0))
+    .expect(view.applied == [0] and view.attempts[0].status == "review" and safety)
+    .then(restart).then(availability(false, true, Set())).then(availability(true, true, Set()))
+    .then(relay(0)).expect(view.applied == [0] and outboxAppliedExactlyOnce and safety)
+
+  run onlyTheOwnerDaemonCommitsTest = working
+    .then(commit("worker-host", [LeadChanged(3)]))
+    .expect(view.lead == 0 and onlyOwnerCommits and safety)
+    .then(availability(true, false, Set())).then(claim(0, 1, 42, false, true))
+    .expect(view.attempts[0].status == "working" and safety)
+
+  run delegatedRecoveryContinuesOnlyOnceTest = working
+    .then(interrupt(0)).then(restart).then(recover(0)).then(recover(0))
+    .expect(view.recoveries == [{ attempt: 0, interruption: 1 }] and recoveryAtMostOnce and safety)
+    .then(interrupt(0)).then(restart).then(recover(0))
+    .expect(view.recoveries.length() == 1 and view.attempts[0].status == "working" and safety)
+
+  run staleHostCannotMechanicallySettleTest = working
+    .then(availability(true, true, Set(1))).then(harnessFail(0)).then(restart)
+    .expect(view.attempts[0].status == "working" and safety)
+    .then(stop(0, 1)).expect(view.attempts[0].status == "lost" and staleNeverSettlesWithoutCommand and safety)
+
+  run oldLeadNeverReceivesAnInTransitDigestTest = claimed
+    .then(setState("paused")).then(deliver).expect(view.deliveries == [] and safety)
+    .then(handover(3)).then(restart).then(setState("running")).then(deliver)
+    .expect(view.deliveries == [{ id: 10, lead: 3 }] and noOldLeadDelivery and safety)
+
+  run resourceCapacityCannotBeExceededTest = init
+    .then(request(0)).then(request(1)).then(request(2))
+    .then(grant).then(grant).then(grant)
+    .expect(view.holders == Set(0, 1) and view.waiters == [2] and resourceCapacity and safety)
+
+  run fifoWaiterIsGrantedWhenAHolderReleasesTest = init
+    .then(request(0)).then(request(1)).then(request(2)).then(request(3))
+    .then(grant).then(grant).then(restart).then(release(0)).then(grant)
+    .expect(view.grants == [0, 1, 2] and view.waiters == [3] and safety)
+    .then(release(1)).then(grant)
+    .expect(view.grants == [0, 1, 2, 3] and view.waiters == [] and fifoGrantOrder and safety)
+  run canceledWaiterDoesNotBlockFifoRecoveryTest = init.then(request(0)).then(request(1))
+    .then(request(2)).then(cancelLease(0)).then(restart).then(grant).then(grant)
+    .expect(view.grants == [1, 2] and view.waiters == [] and safety)
+}
+
+module constellations_property_test {
+  import constellations(
+    TASKS = Set(0, 1, 2), SESSIONS = Set(0, 1, 2, 3), IDS = Set(0, 1, 2, 3, 4, 5),
+    OWNER = "lead-host", CAPACITY = 2,
+  ).* from "./constellations"
+
+  action base = init.then(plan([
+    Add({ task: 0, deps: Set(), gate: false }),
+    Add({ task: 1, deps: Set(0), gate: false }),
+    Add({ task: 2, deps: Set(0, 1), gate: true }),
+  ])).then(setState("running")).expect(safety)
+  action working = base.then(start(0, 1, -1)).expect(safety)
+  action claimed = working.then(claim(0, 1, 42, false, true)).expect(safety)
+
+  run detectsCycleTest = base.then(commit(OWNER, [TaskEdited({ task: 0, deps: Set(1) })]))
+    .expect(not(graphAcyclic))
+  run detectsForwardCauseTest = base.then(commit(OWNER, [AttemptStarted({ task: 0, session: 1, ref: 1 })]))
+    .expect(not(causesPointBackward))
+  run detectsPrematureGateTest = base.then(commit(OWNER, [GatePromoted(2)]))
+    .expect(not(gatePromotedOnlyAfterAccepted))
+  run detectsRepeatedGateTest = claimed.then(accept(0, 2, 42)).then(start(1, 2, -1))
+    .then(claim(1, 1, 42, false, true)).then(accept(1, 2, 42))
+    .then(commit(OWNER, [GatePromoted(2)])).expect(not(gatePromotedOnlyAfterAccepted))
+  run detectsSessionReuseRaceTest = working
+    .then(commit(OWNER, [AttemptStarted({ task: 1, session: 1, ref: -1 })]))
+    .expect(not(oneActiveAttemptPerSession))
+  run detectsRepeatedNotificationTest = claimed.then(deliver)
+    .then(commit(OWNER, [LeadNotified({ ids: Set(10), lead: 0 })]))
+    .expect(not(exactlyOnceDelivery))
+  run detectsDroppedSettleNotificationTest = working
+    .then(commit(OWNER, [AttemptClaimed({ attempt: 0, sha: 42 })]))
+    .expect(not(exactlyOnceDelivery))
+  run detectsSettledAttemptMutationTest = claimed.then(accept(0, 2, 42))
+    .then(commit(OWNER, [AttemptProgressed(0)])).expect(not(settledAttemptImmutable))
+  run detectsRepeatedOutboxApplyTest = working
+    .then(commit(OWNER, [OutboxApplied(0), OutboxApplied(0)]))
+    .expect(not(outboxAppliedExactlyOnce))
+  run detectsRepeatedRecoveryTest = working
+    .then(commit(OWNER, [AttemptRecoveryContinued({ attempt: 0, interruption: 1 }), AttemptRecoveryContinued({ attempt: 0, interruption: 2 })]))
+    .expect(not(recoveryAtMostOnce))
+  run detectsStaleMechanicalSettleTest = working
+    .then(commit(OWNER, [AttemptSettled({ attempt: 0, outcome: "lost", stale: true, commanded: false }), NotificationQueued({ id: 10, kind: "settle" })]))
+    .expect(not(staleNeverSettlesWithoutCommand))
+  run detectsOldLeadDeliveryTest = claimed.then(handover(3))
+    .then(commit(OWNER, [LeadNotified({ ids: Set(10), lead: 0 })]))
+    .expect(not(noOldLeadDelivery))
+  run detectsCapacityViolationTest = init.then(request(0)).then(request(1)).then(request(2))
+    .then(commit(OWNER, [ResourceLeased(0), ResourceLeased(1), ResourceLeased(2)]))
+    .expect(not(resourceCapacity))
+  run detectsMismatchedMergedHeadTest = claimed.then(commit(OWNER, [AttemptAccepted({ attempt: 0, sha: 43 })]))
+    .expect(not(acceptanceMatchesClaim))
+  run detectsForeignOwnerTest = working.then(replay([{ host: "worker-host", kind: LeadChanged(3) }]))
+    .expect(not(onlyOwnerCommits))
+  run detectsFifoViolationTest = init.then(request(0)).then(request(1))
+    .then(commit(OWNER, [ResourceLeased(1)])).expect(not(fifoGrantOrder))
+}
