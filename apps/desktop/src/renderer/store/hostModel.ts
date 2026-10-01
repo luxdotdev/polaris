@@ -54,8 +54,8 @@ export interface HostModel {
   readonly sessions: ReadonlyMap<string, SessionEntry>;
   /** Review Checkouts on this Host, by id. */
   readonly reviewCheckouts: ReadonlyMap<string, ReviewCheckout>;
-  /** Resources, leases and the queue (C1-R); absent until a feed that carries them. */
-  readonly resources?: HostResources;
+  /** Resources, leases and the queue on this Host (C1-R). */
+  readonly resources: HostResources;
 }
 
 export const emptyHostModel: HostModel = {
@@ -67,6 +67,7 @@ export const emptyHostModel: HostModel = {
   worktrees: new Map(),
   sessions: new Map(),
   reviewCheckouts: new Map(),
+  resources: resourcesFromSnapshot(),
 };
 
 const withEntry = <V>(map: ReadonlyMap<string, V>, key: string, value: V | undefined) => {
@@ -153,7 +154,7 @@ const onResources =
   (event: ResourceEvent): Fold =>
   (model) => ({
     ...model,
-    resources: applyResourceEvent(model.resources ?? resourcesFromSnapshot(), event),
+    resources: applyResourceEvent(model.resources, event),
   });
 
 const withCheckout =
@@ -314,24 +315,16 @@ export interface HostSnapshot {
 }
 
 /** A Snapshot resets the model; so does a cached one, marked `fromCache` by its caller. */
-export const modelFromSnapshot = (snapshot: HostSnapshot): HostModel => {
-  const model: HostModel = {
-    sequence: snapshot.sequence,
-    synchronized: false,
-    fromCache: false,
-    workspaces: new Map(snapshot.workspaces.map((w) => [w.id, w])),
-    worktrees: new Map(snapshot.worktrees.map((w) => [w.id, w])),
-    sessions: new Map(snapshot.sessions.map((s) => [s.session.id, entryOf(s)])),
-    reviewCheckouts: new Map((snapshot.reviewCheckouts ?? []).map((c) => [c.id, c])),
-  };
-
-  if (snapshot.resources === undefined) return model;
-
-  return {
-    ...model,
-    resources: resourcesFromSnapshot(snapshot.resources, snapshot.resourceLeases),
-  };
-};
+export const modelFromSnapshot = (snapshot: HostSnapshot): HostModel => ({
+  sequence: snapshot.sequence,
+  synchronized: false,
+  fromCache: false,
+  workspaces: new Map(snapshot.workspaces.map((w) => [w.id, w])),
+  worktrees: new Map(snapshot.worktrees.map((w) => [w.id, w])),
+  sessions: new Map(snapshot.sessions.map((s) => [s.session.id, entryOf(s)])),
+  reviewCheckouts: new Map((snapshot.reviewCheckouts ?? []).map((c) => [c.id, c])),
+  resources: resourcesFromSnapshot(snapshot.resources, snapshot.resourceLeases),
+});
 
 export const applyHostItem = (model: HostModel, item: HostStreamItem): HostModel =>
   Match.value(item).pipe(
