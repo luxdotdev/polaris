@@ -52,6 +52,8 @@ const SHOT_SCENES = new Map([
   ["picker", "interrupted"],
   ["availability", "new"],
   ["viewer", "attachments"],
+  ["commands", "interrupted"],
+  ["chip", "interrupted"],
 ]);
 
 /** Opens what a shot shows, again after each theme or density change closes it. */
@@ -68,6 +70,15 @@ const open = async (page: Page, scene: string) => {
   } else if (scene === "availability") {
     await page.getByTestId("other-harnesses").first().click();
     await page.getByTestId("availability-sheet").waitFor();
+  } else if (scene === "commands" || scene === "chip") {
+    const input = page.locator('[data-testid="composer-input"]:visible');
+
+    await input.click();
+    await input.fill("");
+    await page.keyboard.type(scene === "commands" ? "/s" : "/simplify the parser, keep its API");
+    await (scene === "commands"
+      ? page.getByTestId("command-menu").waitFor()
+      : page.locator(".composer-chip").first().waitFor());
   } else if (scene === "viewer") {
     await page.locator('[data-testid="sent-image"][data-state="ready"]').first().click();
     await page.getByTestId("attachment-viewer").locator("img").waitFor();

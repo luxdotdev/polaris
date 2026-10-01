@@ -1,16 +1,35 @@
 /**
  * `@polaris/ui`'s Composer wired for typing: ↵ sends, ⇧↵ breaks the line, esc
- * stops a Working Turn, and pasted or dropped files become attachment chips.
+ * stops a Working Turn, pasted or dropped files become attachment chips, and
+ * `/` lists the Harness's Skills and Slash Commands above it.
  */
+import type { PolarisAction } from "@polaris/protocol";
 import { Composer, type Harness } from "@polaris/ui";
-import type { KeyboardEvent, ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import {
   AttachmentDrop,
   AttachmentTray,
   type DropMode,
   type Upload,
 } from "../../attachments/index.ts";
+import { type CommandOption, Prompt } from "../../composer/index.ts";
 import type { StagedAttachment } from "../state.ts";
+
+/** The `/` menu's list, and what to do for a command Polaris runs itself. */
+export interface ComposerCommands {
+  readonly options: ReadonlyArray<CommandOption>;
+  readonly loading: boolean;
+  /** Called on focus: the list is read from the Host then. */
+  readonly want: () => void;
+  readonly onAction: (action: PolarisAction) => void;
+}
+
+const NO_COMMANDS: ComposerCommands = {
+  options: [],
+  loading: false,
+  want: () => undefined,
+  onAction: () => undefined,
+};
 
 export interface DraftComposerProps {
   readonly harness: Harness;
@@ -38,6 +57,7 @@ export interface DraftComposerProps {
   readonly disabled?: boolean;
   readonly autoFocus?: boolean;
   readonly className?: string;
+  readonly commands?: ComposerCommands;
 }
 
 export const DraftComposer = ({
@@ -63,54 +83,65 @@ export const DraftComposer = ({
   disabled = false,
   autoFocus = false,
   className,
+  commands = NO_COMMANDS,
 }: DraftComposerProps) => {
-  const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.nativeEvent.isComposing) return;
+  // The menu draws in this box, above the card (which clips what it holds).
+  const [menuSlot, setMenuSlot] = useState<HTMLDivElement | null>(null);
 
-    if (event.key === "Enter" && (event.metaKey || event.ctrlKey) && onQueue !== undefined) {
-      event.preventDefault();
-      onQueue();
-    } else if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
+  const submit = (queue: boolean) => {
+    if (queue && onQueue !== undefined) onQueue();
+    else if (canSubmit) onSubmit();
+  };
 
-      if (canSubmit) onSubmit();
-    } else if (event.key === "Escape" && onEscape !== undefined) {
-      event.preventDefault();
-      onEscape();
-    }
+  const escape = () => {
+    onEscape?.();
+
+    return onEscape !== undefined;
   };
 
   return (
     <div className={className}>
       {notice}
-      <AttachmentDrop onFiles={onFiles} copyTo={copyTo}>
-        <Composer
-          harness={harness}
-          model=""
-          picker={picker}
-          working={working}
-          branch={branch}
-          tools={tools}
-          prominentSend={prominentSend}
-          sendDisabled={!canSubmit}
-          onSend={onSubmit}
-          attachments={
-            <AttachmentTray
-              attachments={attachments}
-              uploads={uploads}
-              onRemove={onRemoveAttachment}
-            />
-          }
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          onKeyDown={onKeyDown}
-          placeholder={placeholder}
-          disabled={disabled}
-          autoFocus={autoFocus}
-          aria-label="Prompt"
-          data-testid="composer-input"
-        />
-      </AttachmentDrop>
+      <div className="relative">
+        <div ref={setMenuSlot} className="absolute inset-x-0 bottom-full z-20" />
+        <AttachmentDrop onFiles={onFiles} copyTo={copyTo}>
+          <Composer
+            harness={harness}
+            model=""
+            picker={picker}
+            working={working}
+            branch={branch}
+            tools={tools}
+            prominentSend={prominentSend}
+            sendDisabled={!canSubmit}
+            onSend={onSubmit}
+            attachments={
+              <AttachmentTray
+                attachments={attachments}
+                uploads={uploads}
+                onRemove={onRemoveAttachment}
+              />
+            }
+            input={
+              <Prompt
+                value={value}
+                onChange={onChange}
+                placeholder={placeholder}
+                disabled={disabled}
+                autoFocus={autoFocus}
+                options={commands.options}
+                loading={commands.loading}
+                onSubmit={submit}
+                onEscape={escape}
+                takesFiles={onFiles !== undefined}
+                onAction={commands.onAction}
+                onFocus={commands.want}
+                menuSlot={menuSlot}
+              />
+            }
+          />
+        </AttachmentDrop>
+      </div>
     </div>
   );
 };

@@ -160,6 +160,8 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
     ),
   "harness.models": ({ hostKey, ...payload }) =>
     onLive(hostKey, (s) => s.client["harness.models"](payload)),
+  "harness.commands": ({ hostKey, ...payload }) =>
+    onLive(hostKey, (s) => s.client["harness.commands"](payload)),
   "harness.availability": ({ hostKey, refresh }) =>
     onLive(hostKey, (s) => s.client["harness.availability"]({ refresh })),
   "session.terminalCommand": ({ hostKey, sessionId }) =>

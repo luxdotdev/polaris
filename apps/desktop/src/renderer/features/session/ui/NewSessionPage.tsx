@@ -41,7 +41,9 @@ import {
   startCommand,
 } from "../model/newSession.ts";
 import { patchSessionUi, type SessionUi, uiKey, useSessionUi } from "../state.ts";
+import { promptFor } from "../../composer/index.ts";
 import { DraftComposer } from "./DraftComposer.tsx";
+import { useComposerCommands } from "./useComposerCommands.ts";
 import { ForkSource, type ForkSourceValue } from "./ForkSource.tsx";
 import { PermissionChip, WhereLine } from "./placement.tsx";
 import { HostMenu, WorkspaceMenu } from "./whereMenus.tsx";
@@ -194,6 +196,27 @@ export const NewSessionPage = ({
     (staged) => patchSessionUi(key, (u) => ({ attachments: [...u.attachments, staged] }))
   );
 
+  const lastUsed = lastUsedOn(hostModel);
+  const fallback = defaultHarness(options, lastUsed);
+
+  const choice: HarnessChoice | null =
+    picked ?? (fallback === null ? null : { kind: "harness", harness: fallback });
+
+  const option = options.find((o) => choice?.kind === "harness" && o.kind === choice.harness);
+
+  const chosen = harnessOf({ choice, fork });
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  const commandList = useComposerCommands({
+    hostKey,
+    harness: chosen,
+    cwd: workspace?.path ?? null,
+    openModels: () => setPickerOpen(true),
+  });
+  // What the session's first Turn sends: a Codex custom prompt goes expanded.
+
+  const sent = { ...ui, draft: promptFor(ui.draft, commandList.options) };
+
   if (workspace === undefined) return <Scene className="h-full flex-1" data-testid="new-session" />;
   const where = placement ?? defaultPlacement(workspace.isGitRepo, prefs.newWorktree);
   // The checked-out branch: a new Worktree with no base picked starts there.
@@ -210,16 +233,6 @@ export const NewSessionPage = ({
       : [...hostModel.sessions.values()].filter(
           ({ session }) => session.cwd === dir && session.state !== "archived"
         ).length;
-
-  const lastUsed = lastUsedOn(hostModel);
-  const fallback = defaultHarness(options, lastUsed);
-
-  const choice: HarnessChoice | null =
-    picked ?? (fallback === null ? null : { kind: "harness", harness: fallback });
-
-  const option = options.find((o) => choice?.kind === "harness" && o.kind === choice.harness);
-
-  const chosen = harnessOf({ choice, fork });
 
   const permissionMode =
     permissionPick ??
@@ -239,13 +252,13 @@ export const NewSessionPage = ({
   const harness = chosen;
   // No Harness chosen (none ready, or still checking): a neutral composer, never @claude.
   const hue: Harness | null = harness ?? option?.kind ?? null;
-  const canSubmit = !busy && commandsFor(sessionId, workspaceId, choices, ui) !== null;
+  const canSubmit = !busy && commandsFor(sessionId, workspaceId, choices, sent) !== null;
   const shown = resolvePlacement(where, ui.draft, sessionId, prefs.branchPrefix);
 
   const whereMenu = { host, hostKey, workspaceId, draft: ui.draft };
 
   const submit = () => {
-    const commands = commandsFor(sessionId, workspaceId, choices, ui);
+    const commands = commandsFor(sessionId, workspaceId, choices, sent);
 
     if (busy || commands === null) return;
     setBusy(true);
@@ -300,6 +313,8 @@ export const NewSessionPage = ({
                 effort={choices.models[hue]?.effort ?? null}
                 disabled={!choices.startable}
                 onModel={(next) => setModels({ ...models, [hue]: next })}
+                open={pickerOpen}
+                onOpenChange={setPickerOpen}
                 harnesses={{
                   onPick: (o) => setPicked({ kind: "harness", harness: o.kind }),
                   verb: (o) => o.name,
@@ -322,6 +337,7 @@ export const NewSessionPage = ({
           }
           branch={branchLabel(shown, choice, ui.draft, head)}
           prominentSend
+          commands={commandList}
         />
         <HarnessChoiceRow
           hostKey={hostKey}

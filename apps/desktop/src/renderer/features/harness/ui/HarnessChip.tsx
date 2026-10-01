@@ -55,6 +55,9 @@ export interface HarnessChipProps {
     readonly onPick: (option: HarnessOption) => void;
     readonly verb: (option: HarnessOption) => string;
   };
+  /** Controls the menu, so `/model` in the composer can open it; uncontrolled when unset. */
+  readonly open?: boolean;
+  readonly onOpenChange?: (open: boolean) => void;
 }
 
 const EffortItems = ({
@@ -230,7 +233,9 @@ const LimitsHint = ({ hostKey, harness }: { hostKey: string; harness: HarnessKin
 
 export const HarnessChip = (props: HarnessChipProps) => {
   const { hostKey, harness, model, effort, working = false, disabled = false, harnesses } = props;
-  const [open, setOpen] = useState(false);
+  const [ownOpen, setOwnOpen] = useState(false);
+  const open = props.open ?? ownOpen;
+  const setOpen = props.onOpenChange ?? setOwnOpen;
   const [sheet, setSheet] = useState(false);
   const models = useHarnessModels(hostKey, harness);
   const { options } = useAvailability(hostKey);

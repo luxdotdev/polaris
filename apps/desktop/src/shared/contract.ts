@@ -169,6 +169,12 @@ export const RequestInputs = {
   "git.diff": onHost({ cwd: Schema.String, spec: GitDiffSpec }),
   /** A Harness's Models on the Host (capability `harness.models`); `refresh` asks the Harness again. */
   "harness.models": onHost({ harness: HarnessKind, refresh: Schema.Boolean }),
+  /** A Harness's Skills and Slash Commands in a directory (capability `harness.commands`). */
+  "harness.commands": onHost({
+    harness: HarnessKind,
+    cwd: Schema.String,
+    refresh: Schema.Boolean,
+  }),
   /** Each catalogue Harness's status on the Host (capability `harness.availability`). */
   "harness.availability": onHost({ refresh: Schema.Boolean }),
   "session.terminalCommand": onHost({ sessionId: SessionId }),
