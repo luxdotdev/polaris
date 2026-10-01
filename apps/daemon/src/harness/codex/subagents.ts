@@ -57,7 +57,11 @@ export class CodexSubagents {
       if (item.kind === "started") {
         const name = agentName(item.agentPath);
 
-        return this.start(turnId, item.agentThreadId, { title: name, agent: name, model: null });
+        return this.start(turnId, item.agentThreadId, item.id, {
+          title: name,
+          agent: name,
+          model: null,
+        });
       }
 
       return item.kind === "interacted" ? [] : this.end(item.agentThreadId, item.kind);
@@ -68,7 +72,7 @@ export class CodexSubagents {
     const spawned =
       item.tool === "spawnAgent"
         ? item.receiverThreadIds.flatMap((thread) =>
-            this.start(turnId, thread, {
+            this.start(turnId, thread, item.id, {
               title: firstLine(item.prompt) ?? "Subagent",
               agent: null,
               model: item.model,
@@ -85,9 +89,11 @@ export class CodexSubagents {
     return [...spawned, ...ended];
   }
 
+  /** `parentItemId`: the Turn's item that spawned it, where its card goes. */
   private start(
     turnId: TurnId,
     thread: string,
+    parentItemId: string,
     about: { readonly title: string; readonly agent: string | null; readonly model: string | null }
   ): HarnessEvent[] {
     if (this.known.has(thread)) return [];
@@ -98,7 +104,7 @@ export class CodexSubagents {
       SubagentStarted({
         turnId,
         subagentId: SubagentId.make(thread),
-        parentItemId: null,
+        parentItemId,
         ...about,
       }),
     ];

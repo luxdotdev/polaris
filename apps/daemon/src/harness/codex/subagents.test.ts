@@ -114,7 +114,7 @@ describe("Codex Subagents", () => {
       HarnessEvent.SubagentStarted({
         turnId: T1,
         subagentId: SubagentId.make("thr-a"),
-        parentItemId: null,
+        parentItemId: "call-spawnAgent",
         title: "Check the frame timing",
         agent: null,
         model: "gpt-6-luna",
@@ -122,7 +122,7 @@ describe("Codex Subagents", () => {
       HarnessEvent.SubagentStarted({
         turnId: T1,
         subagentId: SubagentId.make("thr-b"),
-        parentItemId: null,
+        parentItemId: "call-spawnAgent",
         title: "Check the frame timing",
         agent: null,
         model: "gpt-6-luna",

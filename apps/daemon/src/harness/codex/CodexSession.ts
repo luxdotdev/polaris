@@ -154,9 +154,11 @@ const asyncQuestions = (item: P.ThreadItem): AgentMessage["questions"] =>
 /** The approval shown for each server request Polaris answers; null when its params don't parse. */
 const approvalPrompts = new Map<
   string,
-  (
-    params: P.RpcPayload
-  ) => { readonly turnId: string | null; readonly prompt: ApprovalPrompt } | null
+  (params: P.RpcPayload) => {
+    readonly threadId: string;
+    readonly turnId: string | null;
+    readonly prompt: ApprovalPrompt;
+  } | null
 >([
   [
     "item/commandExecution/requestApproval",
@@ -166,6 +168,7 @@ const approvalPrompts = new Map<
       return p === null
         ? null
         : {
+            threadId: p.threadId,
             turnId: p.turnId,
             prompt: {
               kind: "command",
@@ -185,6 +188,7 @@ const approvalPrompts = new Map<
       return p === null
         ? null
         : {
+            threadId: p.threadId,
             turnId: p.turnId,
             prompt: {
               kind: "file-change",
@@ -204,6 +208,7 @@ const approvalPrompts = new Map<
       return p === null
         ? null
         : {
+            threadId: p.threadId,
             turnId: p.turnId,
             prompt: {
               kind: "tool",
@@ -223,6 +228,7 @@ const approvalPrompts = new Map<
       return p === null
         ? null
         : {
+            threadId: p.threadId,
             turnId: p.turnId,
             prompt: {
               kind: "question",
@@ -242,6 +248,7 @@ const approvalPrompts = new Map<
       return p === null
         ? null
         : {
+            threadId: p.threadId,
             turnId: p.turnId,
             prompt: {
               kind: "tool",
@@ -385,13 +392,28 @@ export const openSession = (
     const pending = new Map<RequestId, PendingRequest>();
     const byRpcId = new Map<string, RequestId>();
 
-    const openRequest = (rpcId: P.RpcId, codexTurnId: string, prompt: ApprovalPrompt) => {
+    /**
+     * The Polaris Turn a server request belongs to. A Subagent's request names its
+     * own thread's turn, never a Turn of ours: it goes to the Turn that spawned the
+     * Subagent, or the one in flight when the parent hasn't reported it yet.
+     */
+    const requestTurn = (requestThread: string, codexTurnId: string | null): TurnId => {
+      if (requestThread === threadId) return turnFor(codexTurnId ?? activeCodexTurn ?? "");
+      const scope = subagents.scopeOf(requestThread);
+
+      if (scope !== undefined) return scope.turnId;
+      const known = codexTurnId === null ? undefined : turns.get(codexTurnId);
+
+      return known ?? turnFor(activeCodexTurn ?? codexTurnId ?? "");
+    };
+
+    const openRequest = (rpcId: P.RpcId, turnId: TurnId, prompt: ApprovalPrompt) => {
       const requestId = newRequestId();
       pending.set(requestId, PendingRequest.Rpc({ rpcId, respond: prompt.respond }));
       byRpcId.set(String(rpcId), requestId);
       emit(
         HarnessEvent.ApprovalRequested({
-          turnId: turnFor(codexTurnId),
+          turnId,
           requestId,
           kind: prompt.kind,
           title: prompt.title,
@@ -412,7 +434,7 @@ export const openSession = (
 
       if (request === null)
         return conn.respondError(id, -32602, `Polaris could not read ${method}`);
-      openRequest(id, request.turnId ?? activeCodexTurn ?? "", request.prompt);
+      openRequest(id, requestTurn(request.threadId, request.turnId), request.prompt);
 
       return Effect.void;
     };

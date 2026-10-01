@@ -66,12 +66,12 @@ A Codex agent spawned from the Polaris thread runs in a thread of its own on the
 
 | parent-thread item | HarnessEvent |
 |---|---|
-| `subAgentActivity` `started` (multi-agent v2) | `SubagentStarted { subagentId: agentThreadId, title and agent: the agent's name (the last segment of `agentPath`) }` |
+| `subAgentActivity` `started` (multi-agent v2) | a `ToolCall` `agent.spawn` of the Turn (its id is the spawning call's), and `SubagentStarted { subagentId: agentThreadId, parentItemId: that item, title and agent: the agent's name (the last segment of `agentPath`) }`, so the card sits where it was spawned and the Turn's later messages come after it |
 | `subAgentActivity` `completed` / `interrupted` | `SubagentEnded` |
 | `collabAgentToolCall` `spawnAgent` (v1) | one `SubagentStarted` per `receiverThreadIds` entry (title: the prompt's first line, `model`) |
 | `collabAgentToolCall` `agentsStates` | `SubagentEnded` for each agent `completed` / `errored` (→ failed) / `interrupted` / `shutdown` / `notFound` |
 
-Items, deltas and progress on a Subagent's thread are its own (`subagentId` = its thread), under the Polaris Turn that spawned it. Its own Codex turns map to that Turn too, so an approval it asks for belongs to the Turn, and its `turn/completed` ends nothing. The collab call itself stays a `ToolCall` of the Turn. `subagents.test.ts` replays `fixtures/subagent-turn.jsonl`, a real Turn that spawned one agent (scrubbed).
+Items, deltas and progress on a Subagent's thread are its own (`subagentId` = its thread), under the Polaris Turn that spawned it. Its own Codex turns map to that Turn too, and its `turn/completed` ends nothing. A server request (approval, question) carries its thread: one from a Subagent's thread goes to the Turn that spawned it, or to the Turn in flight when the parent hasn't reported the spawn yet (codex-cli 0.159 asks before it does). It never starts a Polaris Turn: one did, and left two empty Turns stuck working after a Reviewer's real one (`subagentTurns.test.ts`). The collab call itself stays a `ToolCall` of the Turn. `subagents.test.ts` replays `fixtures/subagent-turn.jsonl`, a real Turn that spawned one agent (scrubbed).
 
 ### Approvals
 
