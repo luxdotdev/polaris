@@ -335,66 +335,92 @@ describe("the Reviewer", () => {
     );
   }, 60_000);
 
-  test("new commits after an update are reviewed on their own, in the same session", async () => {
+  /** Reviews v1, then pushes one more commit writing `file`, updates, and returns the incremental summary. */
+  const reviewThenPush = (s: Awaited<ReturnType<typeof scenario>>, file: string, content: string) =>
+    Effect.gen(function* () {
+      const workspace = yield* openReview(s.user, s.v1);
+      const reviewer = yield* Reviewer;
+
+      const first = yield* reviewer.run({
+        workspaceId: workspace.id,
+        subject,
+        checkoutId,
+        since: null,
+        refresh: false,
+        context,
+      });
+
+      const done = yield* summaryWhen(first.id, ended);
+      yield* waitFor((m) => m.reviewCheckouts.get(checkoutId)?.reviewedHead === s.v1);
+      const store = yield* EventStore;
+
+      const next = yield* Effect.scoped(
+        Effect.gen(function* () {
+          const live = yield* store.subscribe({
+            filter: (item) =>
+              Predicate.isTagged(item, "Event") &&
+              DomainEvent.guards.RiskSummaryStarted(item.envelope.event),
+          });
+
+          write(s.author, file, content);
+          yield* Effect.promise(() => commitAll(s.author, `edit ${file}`));
+          const v2 = yield* Effect.promise(() => publishPullRequest(s.forge, s.author, 7));
+          yield* dispatch(Command.cases.ReportReviewHead.make({ checkoutId, head: v2, base: "" }));
+          yield* dispatch(
+            Command.cases.UpdateReviewCheckout.make({ checkoutId, discardChanges: false })
+          );
+          const item = yield* Stream.runHead(live);
+
+          return Option.isSome(item) &&
+            Predicate.isTagged(item.value, "Event") &&
+            DomainEvent.guards.RiskSummaryStarted(item.value.envelope.event)
+            ? item.value.envelope.event.summary
+            : null;
+        })
+      );
+
+      expect(next?.key.since).toBe(s.v1);
+
+      return { done, incremental: yield* summaryWhen(next!.id, ended) };
+    });
+
+  test("new commits are reviewed on their own, in the same session, with earlier Findings carried", async () => {
     const s = await scenario();
     const { layer, driver } = reviewerLayer({ ready: true });
 
     await run(
       layer,
       Effect.gen(function* () {
-        const workspace = yield* openReview(s.user, s.v1);
-        const reviewer = yield* Reviewer;
+        const { done, incremental } = yield* reviewThenPush(s, "second.txt", "added later\n");
 
-        const first = yield* reviewer.run({
-          workspaceId: workspace.id,
-          subject,
-          checkoutId,
-          since: null,
-          refresh: false,
-          context,
-        });
-
-        const done = yield* summaryWhen(first.id, ended);
-        yield* waitFor((m) => m.reviewCheckouts.get(checkoutId)?.reviewedHead === s.v1);
-
-        const store = yield* EventStore;
-
-        const next = yield* Effect.scoped(
-          Effect.gen(function* () {
-            const live = yield* store.subscribe({
-              filter: (item) =>
-                Predicate.isTagged(item, "Event") &&
-                DomainEvent.guards.RiskSummaryStarted(item.envelope.event),
-            });
-
-            write(s.author, "second.txt", "added later\n");
-            yield* Effect.promise(() => commitAll(s.author, "second"));
-            const v2 = yield* Effect.promise(() => publishPullRequest(s.forge, s.author, 7));
-            yield* dispatch(
-              Command.cases.ReportReviewHead.make({ checkoutId, head: v2, base: "" })
-            );
-            yield* dispatch(
-              Command.cases.UpdateReviewCheckout.make({ checkoutId, discardChanges: false })
-            );
-
-            const item = yield* Stream.runHead(live);
-
-            return Option.isSome(item) &&
-              Predicate.isTagged(item.value, "Event") &&
-              DomainEvent.guards.RiskSummaryStarted(item.value.envelope.event)
-              ? item.value.envelope.event.summary
-              : null;
-          })
-        );
-
-        expect(next?.key.since).toBe(s.v1);
-        const incremental = yield* summaryWhen(next!.id, ended);
         expect(incremental.status).toBe("completed");
-        expect(incremental.findings.map((f) => f.path)).toEqual(["second.txt"]);
+        expect(incremental.findings.map((f) => [f.path, f.status, f.lines.start])).toEqual([
+          ["second.txt", "open", 1],
+          ["feature.txt", "open", 1],
+        ]);
+        expect(incremental.findings[1]?.id).toBe(done.findings[0]!.id);
         expect(incremental.reviewer?.sessionId).toBe(done.reviewer?.sessionId);
         const prompt = driver.latest(done.reviewer!.sessionId!)?.turns.at(-1)?.prompt ?? "";
         expect(prompt).toContain("Only the new changes");
         expect(prompt).not.toContain("+v1");
+      })
+    );
+  }, 60_000);
+
+  test("a Finding whose code a new commit changed is Resolved as fixed", async () => {
+    const s = await scenario();
+    const { layer } = reviewerLayer({ ready: true });
+
+    await run(
+      layer,
+      Effect.gen(function* () {
+        const { done, incremental } = yield* reviewThenPush(s, "feature.txt", "v2\n");
+        const old = incremental.findings.find((f) => f.id === done.findings[0]!.id);
+
+        expect(old).toMatchObject({ status: "resolved", resolution: "fixed" });
+        expect(incremental.findings.filter((f) => f.status === "open").map((f) => f.path)).toEqual([
+          "feature.txt",
+        ]);
       })
     );
   }, 60_000);

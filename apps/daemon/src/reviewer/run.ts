@@ -34,6 +34,7 @@ import {
   toRiskFindings,
 } from "./output.ts";
 import { repairPrompt, reviewPrompt } from "./prompt.ts";
+import { carryForward, previousReviewerSession, previousSummary } from "./merge.ts";
 import { canRunChecks } from "./policy.ts";
 import { type ReviewRange, resolveRange } from "./range.ts";
 import { askFirst, changedLines, switchedOff } from "./when.ts";
@@ -189,18 +190,13 @@ const whyOf = (range: ReviewRange, context: ReviewContext | null): string | null
 /** The previous summary's open Reviewer Findings and session, for "only the new changes". */
 const previousRun = (range: ReviewRange) =>
   Effect.gen(function* () {
-    if (range.previousKey === null) return { findings: [], sessionId: null };
-    const store = yield* EventStore;
-
-    const previous = yield* store.review.riskSummary(
-      RiskSummaryRef.cases.ByKey.make({ key: range.previousKey })
-    );
+    const previous = yield* previousSummary(range);
 
     return {
       findings: (previous?.findings ?? []).filter(
         (f) => f.source === "agent" && f.status === "open"
       ),
-      sessionId: previous?.reviewer?.sessionId ?? null,
+      sessionId: yield* previousReviewerSession(range),
     };
   });
 
@@ -406,6 +402,15 @@ export const runLayers = (
       choice === null || waiting !== null
         ? null
         : yield* runAgentLayer({ summary, range, choice, context: input.context });
+
+    const since = range.key.since;
+
+    if (since !== null) {
+      yield* carryForward(summary, range, {
+        before: linesAt(range.cwd, since, since),
+        after: linesAt(range.cwd, range.base, range.head),
+      });
+    }
 
     return yield* ended(summary, sessionId, plan.resolved);
   });

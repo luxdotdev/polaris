@@ -232,6 +232,12 @@ export interface VerdictQuery {
 
 export interface ReviewReads {
   readonly riskSummary: (ref: RiskSummaryRef) => Effect.Effect<RiskSummary | null>;
+  /** A repo's summaries of one head, newest first (an incremental summary's predecessors). */
+  readonly riskSummariesAt: (
+    repo: string,
+    head: string,
+    limit: number
+  ) => Effect.Effect<ReadonlyArray<RiskSummary>>;
   readonly verdicts: (query: VerdictQuery) => Effect.Effect<ReadonlyArray<Verdict>>;
 }
 
@@ -251,6 +257,14 @@ export const reviewReads = (sql: SqlClient.SqlClient): ReviewReads => ({
       ById: ({ summaryId }) => readSummaryRow(sql, summaryId),
       ByKey: ({ key }) => latestFor(sql, key),
     }).pipe(Effect.mapError(storeError("read a Risk Summary")), Effect.orDie),
+  riskSummariesAt: (repo, head, limit) =>
+    sql<{ data: string }>`
+      SELECT data FROM risk_summaries WHERE repo = ${repo} AND head = ${head}
+      ORDER BY started_sequence DESC LIMIT ${limit}`.pipe(
+      Effect.map((rows) => rows.map((row) => RiskSummaryJson.decode(row.data))),
+      Effect.mapError(storeError("read Risk Summaries")),
+      Effect.orDie
+    ),
   verdicts: (query) =>
     sql<{ data: string }>`
       SELECT data FROM verdicts

@@ -40,8 +40,6 @@ export interface ReviewRange {
   readonly prompts: ReadonlyArray<string>;
   /** When "only the new changes" fell back to a full summary: why, as a user reads it. */
   readonly note: string | null;
-  /** For "only the new changes": the key of the full summary of the head reviewed before. */
-  readonly previousKey: RiskSummaryKey | null;
 }
 
 const gitError = (cwd: string) => (cause: { readonly message: string }) =>
@@ -92,7 +90,6 @@ const pullRequestRange = Effect.fn("pullRequestRange")(function* (
     title: `Pull request #${subject.pullRequest.number}`,
     prompts: [],
     note: null,
-    previousKey: null,
   };
 
   if (since === null || since === checkout.head) return full;
@@ -109,16 +106,8 @@ const pullRequestRange = Effect.fn("pullRequestRange")(function* (
 
   if (interdiff.from === null) return { ...full, note: interdiff.reason };
 
-  const previousKey = RiskSummaryKey.make({
-    repo: full.key.repo,
-    mergeBase: checkout.reviewedMergeBase ?? checkout.mergeBase,
-    head: since,
-    since: null,
-  });
-
   const incremental: ReviewRange = {
     ...full,
-    previousKey,
     key: RiskSummaryKey.make({
       repo: full.key.repo,
       mergeBase: interdiff.from,
@@ -188,7 +177,6 @@ const sessionRange = Effect.fn("sessionRange")(function* (
     title: record.session.title,
     prompts: covered.map((t) => t.prompt),
     note: null,
-    previousKey: null,
   };
 
   return range;
