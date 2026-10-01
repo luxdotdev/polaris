@@ -93,6 +93,25 @@ export const automaticRun = (
   DomainEvent.matchOrElse(
     event,
     {
+      TurnEnded: ({ turn }): RunRequest | null => {
+        const workspaceId = workspaceOfSession(turn.sessionId);
+
+        return workspaceId === null || turn.status === "working"
+          ? null
+          : {
+              workspaceId,
+              subject: ReviewSubject.cases.SessionTurns.make({
+                sessionId: turn.sessionId,
+                firstTurnId: turn.id,
+                lastTurnId: turn.id,
+              }),
+              checkoutId: null,
+              since: null,
+              refresh: false,
+              context: null,
+              rulesOnly: true,
+            };
+      },
       TurnsAccepted: ({ sessionId, throughTurnId }): RunRequest | null => {
         const workspaceId = workspaceOfSession(sessionId);
 
@@ -164,11 +183,11 @@ const make = (options: ReviewerOptions) =>
     const fork = <R>(work: Effect.Effect<void, never, R>) =>
       Effect.asVoid(Effect.forkIn(work, scope));
 
-    const run = (request: RunRequest) =>
+    const start = (request: RunRequest) =>
       Effect.gen(function* () {
         const started = yield* starting.withPermits(1)(startRun(request, resolve));
 
-        if (started.plan === null) return started.summary;
+        if (started.summary === null || started.plan === null) return started.summary;
         const { summary, range, plan } = started;
 
         const work = Effect.gen(function* () {
@@ -190,6 +209,13 @@ const make = (options: ReviewerOptions) =>
 
         return summary;
       }).pipe(Effect.provide(context));
+
+    const run = (request: RunRequest) =>
+      Effect.flatMap(start(request), (summary) =>
+        summary === null
+          ? Effect.die(new Error("a Risk Summary the Client asked for always starts"))
+          : Effect.succeed(summary)
+      );
 
     const ask = (summaryId: RiskSummaryId, findingId: RiskFindingId | null, question: string) =>
       Effect.gen(function* () {
@@ -215,6 +241,7 @@ const make = (options: ReviewerOptions) =>
         filter: (item) =>
           Predicate.isTagged(item, "Event") &&
           (DomainEvent.guards.TurnsAccepted(item.envelope.event) ||
+            DomainEvent.guards.TurnEnded(item.envelope.event) ||
             DomainEvent.guards.ReviewCheckoutChanged(item.envelope.event)),
       });
 
@@ -227,10 +254,11 @@ const make = (options: ReviewerOptions) =>
             const request = automaticRun(
               item.envelope.event,
               (id) => model.reviewCheckouts.get(id),
-              (id) => model.sessions.get(id)?.session.workspaceId ?? null
+              (id) =>
+                sessions.has(id) ? null : (model.sessions.get(id)?.session.workspaceId ?? null)
             );
 
-            if (request !== null) yield* Effect.ignore(run(request));
+            if (request !== null) yield* Effect.ignore(start(request));
           })
         )
       );

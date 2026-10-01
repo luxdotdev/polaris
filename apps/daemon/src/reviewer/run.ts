@@ -46,6 +46,8 @@ export interface RunRequest {
   readonly since: string | null;
   readonly refresh: boolean;
   readonly context: ReviewContext | null;
+  /** The Rules alone, as after each Agent Session Turn; skipped when the Turn changed nothing. */
+  readonly rulesOnly?: boolean;
 }
 
 const commit = (events: ReadonlyArray<DomainEvent>) =>
@@ -76,10 +78,23 @@ export const linesAt =
       return result.code === 0 ? decoder.decode(result.stdout).split("\n") : null;
     });
 
+/** True when `base` and `head` hold the same files (a Turn that changed nothing). */
+const sameTree = (range: ReviewRange) =>
+  Effect.promise(async () => {
+    const result = await checkoutGitRaw(range.cwd, ["diff", "--quiet", range.base, range.head]);
+
+    return result.code === 0;
+  });
+
 // ── Starting ────────────────────────────────────────────────────────────────
 
 /** The summary to answer: the cached one for the key (unless refreshed or failed), else null. */
-const cached = (range: ReviewRange, refresh: boolean) =>
+/**
+ * The summary to answer: the cached one for the key, unless refreshed or
+ * failed, or it skipped the Reviewer and this run would not (Rules after a
+ * Turn, then the session opened in Review; a switch turned back on).
+ */
+const cached = (range: ReviewRange, refresh: boolean, plan: ReviewerPlan) =>
   Effect.gen(function* () {
     if (refresh) return null;
     const store = yield* EventStore;
@@ -88,8 +103,15 @@ const cached = (range: ReviewRange, refresh: boolean) =>
       RiskSummaryRef.cases.ByKey.make({ key: range.key })
     );
 
-    return summary !== null && summary.status !== "failed" ? summary : null;
+    if (summary === null || summary.status === "failed") return null;
+    const runsReviewer = plan.resolved.choice !== null && plan.off === null;
+
+    return summary.layers.agent.status === "skipped" && runsReviewer ? null : summary;
   });
+
+/** The agent layer's note on the Rules run after each Agent Session Turn. */
+export const RULES_AFTER_TURN =
+  "Rules after this Turn. The Reviewer runs when you open the session in Review or accept its Turns.";
 
 /** Who reviews this summary, and whether "When it runs" lets them now. */
 export interface ReviewerPlan {
@@ -396,16 +418,25 @@ export const startRun = (
 ) =>
   Effect.gen(function* () {
     const range = yield* resolveRange(request.subject, request.checkoutId, request.since);
-    const existing = yield* cached(range, request.refresh);
 
-    if (existing !== null) return { summary: existing, range, plan: null };
+    if (request.rulesOnly === true && (yield* sameTree(range))) {
+      return { summary: null, range, plan: null };
+    }
+
     const { resolved, settings } = yield* resolve(range.workspaceId);
 
     const plan: ReviewerPlan = {
       resolved,
-      off: switchedOff(request.subject, settings, request.refresh),
+      off:
+        request.rulesOnly === true
+          ? RULES_AFTER_TURN
+          : switchedOff(request.subject, settings, request.refresh),
       askAboveLines: request.refresh ? null : settings.askAboveLines,
     };
+
+    const existing = yield* cached(range, request.refresh, plan);
+
+    if (existing !== null) return { summary: existing, range, plan: null };
 
     const summary = startedSummary(request, range, plan, new Date().toISOString());
     yield* commit([DomainEvent.cases.RiskSummaryStarted.make({ summary })]);

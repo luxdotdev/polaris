@@ -21,6 +21,7 @@ import {
   RiskSummaryRef,
   RequestId,
   SessionId,
+  SessionPlacement,
   TurnId,
   TurnItem,
   type Workspace,
@@ -30,12 +31,15 @@ import { Effect, Layer, Option, Predicate, Stream } from "effect";
 import { Engine } from "../engine/Engine.ts";
 import {
   cid,
+  completesTurns,
   engineLayer,
+  type FakeHarnessSession,
   makeFakeDriver,
   makeFakes,
   tempDir,
   waitFor,
 } from "../engine/testing.ts";
+import { CheckpointsLive } from "../git/Checkpoints.ts";
 import { ReviewCheckoutGitLive } from "../git/ReviewCheckoutGit.ts";
 import {
   BASE_REPO,
@@ -58,6 +62,7 @@ import {
   ReviewerSessions,
 } from "./index.ts";
 import { REVIEWER_MARKER } from "./prompt.ts";
+import { RULES_AFTER_TURN } from "./run.ts";
 import { RULES_ONLY_NOTE } from "./settings.ts";
 
 type Env = Engine | EventStore | Reviewer;
@@ -125,17 +130,36 @@ const noRules = Layer.succeed(Rules)({
   run: () => Effect.succeed({ findings: [], notes: [], ok: true }),
 });
 
-const reviewerLayer = (options: { readonly ready: boolean }) => {
+/** A user's Turn: "write <file>" writes it in the session's directory first. */
+const userTurn = (input: TurnInput, session: FakeHarnessSession) => {
+  const file = /^write (\S+)/.exec(input.prompt)?.[1];
+
+  if (file !== undefined) write(session.options.cwd, file, `written by ${input.turnId}\n`);
+
+  return completesTurns()(input);
+};
+
+const reviewerLayer = (options: { readonly ready: boolean; readonly checkpoints?: boolean }) => {
   const dir = tempDir();
   cleanup.push(dir);
-  const driver = makeFakeDriver("claude", { onTurn: reviewerTurn });
 
-  const engine = engineLayer({
+  const driver = makeFakeDriver("claude", {
+    onTurn: (input, session) =>
+      input.prompt.startsWith(REVIEWER_MARKER) ? reviewerTurn(input) : userTurn(input, session),
+  });
+
+  const base = {
     filename: join(dir, "state.sqlite"),
     fakes: makeFakes(),
     drivers: [driver],
     reviewCheckoutGit: ReviewCheckoutGitLive,
-  }).pipe(Layer.provide(ReviewerPolicyLive), Layer.provideMerge(ReviewerSessions.layer));
+  };
+
+  const engine = (
+    options.checkpoints === true
+      ? engineLayer({ ...base, checkpoints: CheckpointsLive })
+      : engineLayer(base)
+  ).pipe(Layer.provide(ReviewerPolicyLive), Layer.provideMerge(ReviewerSessions.layer));
 
   const layer = ReviewerLive({ settingsPath: join(dir, "reviewer-settings.json") }).pipe(
     Layer.provideMerge(engine),
@@ -479,6 +503,102 @@ describe("when it runs", () => {
         );
 
         expect(asked.layers.agent.status).toBe("completed");
+      })
+    );
+  }, 60_000);
+});
+
+describe("rules after every Turn", () => {
+  test("a Turn that changed files gets a Rules-only summary; opening it in Review runs the Reviewer", async () => {
+    const s = await scenario();
+    const { layer } = reviewerLayer({ ready: true, checkpoints: true });
+
+    await run(
+      layer,
+      Effect.gen(function* () {
+        const store = yield* EventStore;
+        const reviewer = yield* Reviewer;
+        yield* dispatch(Command.cases.RegisterWorkspace.make({ path: s.user, name: null }));
+
+        const registered = yield* waitFor((m) =>
+          [...m.workspaces.values()].some((w) => w.path === s.user)
+        );
+        // SAFETY: waitFor returned once a Workspace at `s.user` was registered.
+
+        const workspace = [...registered.workspaces.values()].find(
+          (w) => w.path === s.user
+        ) as Workspace;
+
+        const sessionId = SessionId.make("ses-user");
+
+        const nextSummary = (send: Effect.Effect<unknown, unknown, Engine>) =>
+          Effect.scoped(
+            Effect.gen(function* () {
+              const live = yield* store.subscribe({
+                filter: (item) =>
+                  Predicate.isTagged(item, "Event") &&
+                  DomainEvent.guards.RiskSummaryStarted(item.envelope.event),
+              });
+
+              yield* send;
+              const item = yield* Stream.runHead(live).pipe(Effect.timeoutOption("3 seconds"));
+              const value = Option.flatten(item);
+
+              return Option.isSome(value) &&
+                Predicate.isTagged(value.value, "Event") &&
+                DomainEvent.guards.RiskSummaryStarted(value.value.envelope.event)
+                ? value.value.envelope.event.summary
+                : null;
+            })
+          );
+
+        const first = yield* nextSummary(
+          dispatch(
+            Command.cases.StartSession.make({
+              sessionId,
+              workspaceId: workspace.id,
+              harness: "claude",
+              placement: SessionPlacement.cases.InPlace.make({}),
+              permissionMode: "auto",
+              model: null,
+              effort: null,
+              prompt: "write a.txt please",
+              attachments: [],
+            })
+          )
+        );
+
+        expect(first !== null && Predicate.isTagged(first.subject, "SessionTurns")).toBe(true);
+        expect(first?.subject).toMatchObject({ sessionId });
+        const rulesOnly = yield* summaryWhen(first!.id, ended);
+        expect(rulesOnly.layers.rules.status).toBe("completed");
+        expect(rulesOnly.layers.agent).toMatchObject({ status: "skipped", note: RULES_AFTER_TURN });
+
+        // A Turn that changes nothing gets none.
+        yield* waitFor((m) => m.sessions.get(sessionId)?.session.state === "idle");
+
+        const quiet = yield* nextSummary(
+          dispatch(
+            Command.cases.SendTurn.make({ sessionId, prompt: "just look around", attachments: [] })
+          )
+        );
+
+        expect(quiet).toBeNull();
+
+        // Opening that Turn in Review runs the Reviewer instead of answering the Rules-only summary.
+        const opened = yield* reviewer.run({
+          workspaceId: workspace.id,
+          subject: first!.subject,
+          checkoutId: null,
+          since: null,
+          refresh: false,
+          context: null,
+        });
+
+        expect(opened.id).not.toBe(rulesOnly.id);
+        const reviewed = yield* summaryWhen(opened.id, ended);
+        expect(reviewed.layers.agent.status).toBe("completed");
+        expect(reviewed.findings.map((f) => f.path)).toEqual(["a.txt"]);
       })
     );
   }, 60_000);
