@@ -1,6 +1,6 @@
 /**
  * The session view's own UI state, per Agent Session: which earlier Turns are
- * unfolded, whether Output is open and which Turn it shows, and the composer's draft. It outlives the
+ * unfolded, which Turn Output shows, and the composer's draft. It outlives the
  * view, so switching back to a session paints it as it was left.
  */
 import type { AttachmentId } from "@polaris/protocol";
@@ -19,10 +19,6 @@ export interface SessionUi {
   readonly unfolded: ReadonlySet<string>;
   /** The Turn whose diff Output shows; null follows the latest Turn. */
   readonly diffTurnId: string | null;
-  /** Output open as a panel; a new session starts with the collapsed rail. */
-  readonly outputOpen: boolean;
-  /** The Turn whose first edit last opened Output: each Turn opens it at most once. */
-  readonly autoOpenedTurn: string | null;
   readonly draft: string;
   readonly attachments: ReadonlyArray<StagedAttachment>;
   /** Steers and queued follow-ups (⌘↵) not in the conversation yet (`model/outbox.ts`). */
@@ -32,8 +28,6 @@ export interface SessionUi {
 const EMPTY: SessionUi = {
   unfolded: new Set(),
   diffTurnId: null,
-  outputOpen: false,
-  autoOpenedTurn: null,
   draft: "",
   attachments: [],
   outbox: [],
@@ -78,14 +72,3 @@ export const patchOutgoing = (
 
 export const dropOutgoing = (key: string, id: string) =>
   patchSessionUi(key, ({ outbox }) => ({ outbox: outbox.filter((e) => e.id !== id) }));
-
-export const setOutputOpen = (key: string, open: boolean) =>
-  patchSessionUi(key, () => ({ outputOpen: open }));
-
-/** A Turn's first edit opens Output, unless this Turn already did (the user may have closed it). */
-export const openForEdit = (key: string, turnId: string) => {
-  if ((store.getState()[key] ?? EMPTY).autoOpenedTurn === turnId) return;
-  patchSessionUi(key, () => ({ outputOpen: true, autoOpenedTurn: turnId }));
-};
-
-export const getSessionUi = (key: string): SessionUi => store.getState()[key] ?? EMPTY;
