@@ -51,7 +51,7 @@ const sideFilter = (side: "new" | "old") =>
     ? '[data-line-type="change-deletion"]'
     : ':not([data-line-type="change-deletion"])';
 
-const gutterSelector = (mark: LineMark, line: number) =>
+const gutterSelector = (mark: Pick<LineMark, "item" | "side">, line: number) =>
   `${scope(mark.item)} [data-column-number="${line}"]${sideFilter(mark.side)}`;
 
 /** One line keeps only its most severe mark. */
@@ -97,4 +97,46 @@ export const marksCss = (marks: ReadonlyArray<LineMark>): string => {
   });
 
   return `${BASE}\n${rules.join("\n")}`;
+};
+
+/** Lines the comment composer is open on, in one or more files of the Review. */
+export interface SelectionTint {
+  readonly items: ReadonlyArray<string>;
+  readonly side: "new" | "old";
+  readonly start: number;
+  readonly end: number;
+}
+
+const contentSelector = (item: string, side: "new" | "old", line: number) =>
+  `${scope(item)} [data-line="${line}"]${sideFilter(side)}`;
+
+/**
+ * The `diff-selection` tint on the lines a comment is anchored to (DESIGN.md, Comment
+ * composer), layered over the line's own diff fill.
+ */
+export const selectionCss = (tint: SelectionTint | null): string => {
+  if (tint === null) return "";
+
+  const end = Math.min(tint.end, tint.start + MAX_MARKED_LINES - 1);
+  const selectors: Array<string> = [];
+
+  for (const item of tint.items) {
+    for (let line = tint.start; line <= end; line++) {
+      selectors.push(
+        contentSelector(item, tint.side, line),
+        gutterSelector({ item, side: tint.side }, line)
+      );
+    }
+  }
+
+  return selectors.length === 0
+    ? ""
+    : `${selectors.join(",\n")} { background-image: linear-gradient(var(--color-diff-selection), var(--color-diff-selection)); }`;
+};
+
+/** A hunk's header as the band above it shows it: `@@ -36,7 +36,8 @@ submitEligibility`. */
+export const hunkLabel = (hunkSpecs: string | undefined): string | null => {
+  const label = hunkSpecs?.split("\n")[0]?.trim() ?? "";
+
+  return label === "" ? null : label;
 };

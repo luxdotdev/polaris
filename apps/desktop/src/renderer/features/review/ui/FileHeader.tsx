@@ -91,7 +91,7 @@ const Divider = ({ divider }: { readonly divider: DividerRow }) => {
       onClick={() => actions?.openSections(divider.sectionIds)}
       className="text-caption gap-row-x h-tree-row flex w-full cursor-default items-center text-left"
     >
-      <Tile hue={divider.harness} size={20} />
+      <Tile hue={divider.harness} size={18} />
       <span className="text-text-default font-medium">{divider.label}</span>
       <span className="text-text-subtle min-w-0 flex-1 truncate">
         {divider.quote === null ? "" : `“${divider.quote}”`}

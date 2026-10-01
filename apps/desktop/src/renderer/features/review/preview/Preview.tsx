@@ -24,6 +24,8 @@ import {
   setUpScene,
   withThreads,
 } from "../../risk/preview/fixtures.ts";
+import { markLocal } from "../data/viewedStore.ts";
+import { fingerprint, indexPatch } from "../model/patch.ts";
 import { subjectKey, updateSurface } from "../surface.ts";
 import {
   CHECKOUT,
@@ -129,6 +131,17 @@ const benchModels = (query: URLSearchParams): AppState["hostModels"] => {
   };
 };
 
+/** Turns 22 and 23 already reviewed, as Paper R2 shows them ("2 files · all viewed"). */
+const markOlderTurnsViewed = (subject: string) => {
+  for (const turnId of ["t21", "t22"]) {
+    const bytes = encode(TURN_PATCHES.get(turnId) ?? "");
+
+    for (const file of indexPatch(bytes, [])) {
+      markLocal(subject, `${turnId}:${file.path}`, fingerprint(bytes, file));
+    }
+  }
+};
+
 export const mountReviewPreview = (root: HTMLElement, hash: string) => {
   const [scene = "", search = ""] = hash.replace(/^#review\//, "").split("?");
   const bench = scene === "bench";
@@ -142,7 +155,12 @@ export const mountReviewPreview = (root: HTMLElement, hash: string) => {
       ? benchModels(new URLSearchParams(search))
       : {
           ...MODELS,
-          studio: { ...studio, reviewCheckouts: new Map([[CHECKOUT.id, CHECKOUT]]) },
+          // The pull list's preview gives studio a session of its own; Review shows only ours.
+          studio: {
+            ...studio,
+            sessions: new Map(),
+            reviewCheckouts: new Map([[CHECKOUT.id, CHECKOUT]]),
+          },
           local: {
             ...local,
             sessions: new Map([
@@ -174,6 +192,7 @@ export const mountReviewPreview = (root: HTMLElement, hash: string) => {
 
   if (scene.startsWith("session")) {
     openSessionReview(navigation.actions, "local", SESSION.id);
+    markOlderTurnsViewed(subjectKey({ kind: "session", hostKey: "local", sessionId: SESSION.id }));
     updateSurface(subjectKey({ kind: "session", hostKey: "local", sessionId: SESSION.id }), {
       findings: SESSION_FINDINGS,
       selectedFinding: SESSION_FINDINGS[0]?.id ?? null,

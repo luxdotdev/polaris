@@ -114,7 +114,8 @@ const dividerOf = (run: ReadonlyArray<Placed>, folded: boolean): DividerRow | nu
   return {
     ...divider,
     label: turnsLabel(turns),
-    quote: run.length === 1 ? divider.quote : null,
+    // A folded run quotes its newest Turn (sections come newest first).
+    quote: divider.quote,
     sectionIds: run.map((p) => p.section.id),
     caption: filesCaption(
       run.reduce((n, p) => n + p.section.files.length, 0),

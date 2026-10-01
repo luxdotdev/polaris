@@ -11,7 +11,7 @@ import { parseOne, type ReviewDiff } from "../data/useReviewDiff.ts";
 import { markLocal, markPull, pendingKey, useViewed } from "../data/viewedStore.ts";
 import { type FindingInfo, findingsIn, lineMarks, severityByPath } from "../model/findings.ts";
 import { layoutRows, type LayoutRow, type ReviewFile, rowSignature } from "../model/layout.ts";
-import { itemKey, marksCss } from "../model/marks.ts";
+import { itemKey, marksCss, selectionCss } from "../model/marks.ts";
 import {
   type FileViewed,
   localViewed,
@@ -19,7 +19,7 @@ import {
   pullFileViewed,
   type RemoteViewed,
 } from "../model/viewed.ts";
-import type { ReviewAnnotation } from "../surface.ts";
+import type { DiffRange, ReviewAnnotation } from "../surface.ts";
 import type { PaneItem, RowMeta } from "./DiffPane.tsx";
 import { type HeaderModel, headerStore } from "./FileHeader.tsx";
 
@@ -40,6 +40,8 @@ export interface ReviewModelInput {
   readonly diff: ReadyDiff;
   readonly findings: ReadonlyArray<FindingInfo>;
   readonly annotations: ReadonlyArray<ReviewAnnotation>;
+  /** Lines the comment composer is open on: the diff tints them. */
+  readonly selection: DiffRange | null;
   /** Null for an Agent Session (Viewed is local). */
   readonly pullViewed: PullViewed | null;
 }
@@ -163,7 +165,27 @@ export const useReviewModel = (input: ReviewModelInput) => {
   );
 
   const severities = useMemo(() => severityByPath(findings), [findings]);
-  const css = useMemo(() => marksCss(lineMarks(findings, files)), [findings, files]);
+  const marks = useMemo(() => marksCss(lineMarks(findings, files)), [findings, files]);
+  const { selection } = input;
+
+  const tint = useMemo(
+    () =>
+      selectionCss(
+        selection === null
+          ? null
+          : {
+              items: files.flatMap((f) =>
+                f.file.path === selection.path ? [itemKey(f.index)] : []
+              ),
+              side: selection.side,
+              start: selection.start,
+              end: selection.end,
+            }
+      ),
+    [selection, files]
+  );
+
+  const css = tint === "" ? marks : `${marks}\n${tint}`;
   const itemKeys = useMemo(() => new Map(files.map((f) => [f.key, itemKey(f.index)])), [files]);
 
   const items = useMemo(

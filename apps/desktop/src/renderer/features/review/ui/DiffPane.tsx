@@ -18,6 +18,7 @@ import { useStore } from "zustand";
 import type { ReviewAnnotation } from "../surface.ts";
 import { revealStore } from "../surface.ts";
 import type { FindingInfo } from "../model/findings.ts";
+import { hunkLabel } from "../model/marks.ts";
 import { THEMES } from "../model/theme.ts";
 import { MAX_LINE_LENGTH } from "../data/pierre.tsx";
 import { FileHeader } from "./FileHeader.tsx";
@@ -39,11 +40,22 @@ export interface PaneItem {
   readonly path: string;
 }
 
+/** Hunks per file whose band carries its header; later ones show only the line count. */
+const LABELLED_HUNKS = 64;
+
+/** Pierre draws a band's text from its gutter-side separator; the code-side one has no width. */
+const HUNK_CSS = Array.from(
+  { length: LABELLED_HUNKS },
+  (_, i) =>
+    `[data-separator][data-expand-index="${i}"]:not([data-separator-last]) [data-separator-content]::before { content: var(--review-hunk-${i}, none); margin-right: 12px; }`
+).join("\n");
+
 /** The page shows between files; each file's code sits in a card under its header (Paper R1). */
 const BASE_CSS = `[data-diffs-header][data-sticky] { background-color: var(--color-bg); }
 [data-diff] { border: 1px solid var(--color-hairline); border-top: 0; border-radius: 0 0 10px 10px; overflow: clip; }
 [data-gutter] { padding-left: 14px; }
-[data-separator-content] { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-subtle); }`;
+[data-separator-content] { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-subtle); }
+${HUNK_CSS}`;
 
 export interface DiffPaneProps {
   readonly items: ReadonlyArray<PaneItem>;
@@ -59,8 +71,28 @@ type Handle = CodeViewHandle<RowMeta, undefined>;
 
 /** The item a CodeView callback is about (its last argument). */
 interface ItemContext {
-  readonly item: { readonly id: string };
+  readonly item: {
+    readonly id: string;
+    readonly fileDiff?: { readonly hunks: ReadonlyArray<{ readonly hunkSpecs?: string }> };
+  };
 }
+
+/**
+ * Labels each hunk's band with its header (`@@ -36,7 +36,8 @@ fn`, Paper R1). Pierre's
+ * expandable separators know their hunk (`data-expand-index`) but rebuild their nodes, so
+ * the labels live on the host as `--review-hunk-N`, which `HUNK_CSS` reads.
+ */
+const labelHunks = (element: HTMLElement, context: ItemContext) => {
+  const hunks = context.item.fileDiff?.hunks ?? [];
+
+  for (const [index, hunk] of hunks.slice(0, LABELLED_HUNKS).entries()) {
+    const label = hunkLabel(hunk.hunkSpecs);
+    const value = label === null ? "" : JSON.stringify(label);
+
+    if (element.style.getPropertyValue(`--review-hunk-${index}`) !== value)
+      element.style.setProperty(`--review-hunk-${index}`, value);
+  }
+};
 
 interface Synced {
   order: Array<string>;
@@ -169,6 +201,8 @@ export const DiffPane = ({
         _phase: PostRenderPhase,
         context: ItemContext
       ) => {
+        labelHunks(element, context);
+
         const key = keys.current.get(context.item.id);
 
         if (key !== undefined && element.dataset.reviewItem !== key)
