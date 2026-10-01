@@ -273,6 +273,16 @@ describe("laneOf", () => {
     expect(laneOf({ status: "running", findings: [] }).kind).toBe("running");
     expect(laneOf({ status: "failed", findings: [] }).kind).toBe("not-run");
     expect(laneOf(null).kind).toBe("not-run");
+    // "Ask first" waiting, or the Reviewer switched off: Rules alone found nothing open.
+    expect(
+      laneOf({ status: "completed", layers: { agent: { status: "pending" } }, findings: [] }).kind
+    ).toBe("rules-only");
+    expect(
+      laneOf({ status: "completed", layers: { agent: { status: "skipped" } }, findings: [] }).kind
+    ).toBe("rules-only");
+    expect(
+      laneOf({ status: "completed", layers: { agent: { status: "completed" } }, findings: [] }).kind
+    ).toBe("none");
   });
 });
 

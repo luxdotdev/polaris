@@ -62,7 +62,12 @@ const SEVERITY_TEXT = {
   low: "text-severity-low-text",
 } as const;
 
-const QUIET_WORDS = { "not-run": "Not run", running: "Running…", none: "None open" } as const;
+const QUIET_WORDS = {
+  "not-run": "Not run",
+  running: "Running…",
+  none: "None open",
+  "rules-only": "Rules only",
+} as const;
 
 /** The highest open Severity and how many; "Not run" never implies the change is safe. */
 const Risk = ({ risk }: { readonly risk: RiskLane }) => {

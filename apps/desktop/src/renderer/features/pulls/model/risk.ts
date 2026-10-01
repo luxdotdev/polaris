@@ -9,6 +9,8 @@ export type RiskLane =
   | { readonly kind: "not-run" }
   | { readonly kind: "running" }
   | { readonly kind: "none" }
+  /** Rules ran but the Reviewer didn't (asking first, switched off, failed): no open Finding yet. */
+  | { readonly kind: "rules-only" }
   | { readonly kind: "found"; readonly severity: Severity; readonly count: number };
 
 export const NOT_RUN: RiskLane = { kind: "not-run" };
@@ -16,6 +18,7 @@ export const NOT_RUN: RiskLane = { kind: "not-run" };
 /** What the lane needs of a summary (`RiskSummary`). */
 export interface SummaryFacts {
   readonly status: string;
+  readonly layers?: { readonly agent: { readonly status: string } };
   readonly findings: ReadonlyArray<{ readonly severity: Severity; readonly status: string }>;
 }
 
@@ -31,7 +34,11 @@ export const laneOf = (summary: SummaryFacts | null): RiskLane => {
     return { kind: "found", severity, count: open.filter((f) => f.severity === severity).length };
   }
 
-  if (summary.status === "completed") return { kind: "none" };
+  if (summary.status === "completed") {
+    return summary.layers === undefined || summary.layers.agent.status === "completed"
+      ? { kind: "none" }
+      : { kind: "rules-only" };
+  }
 
   return summary.status === "running" ? { kind: "running" } : NOT_RUN;
 };
