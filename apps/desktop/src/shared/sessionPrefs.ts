@@ -14,4 +14,6 @@ export const DEFAULT_SESSION_PREFS: SessionPrefs = {
   notifyReviewRequests: true,
   deleteMergedBranch: false,
   spinnerVerbs: null,
+  acceptBranch: "auto",
+  workspaceAcceptBranch: {},
 };
