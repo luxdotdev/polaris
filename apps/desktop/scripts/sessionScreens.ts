@@ -54,6 +54,7 @@ const SHOT_SCENES = new Map([
   ["viewer", "attachments"],
   ["commands", "interrupted"],
   ["chip", "interrupted"],
+  ["subagent-open", "subagents"],
 ]);
 
 /** Opens what a shot shows, again after each theme or density change closes it. */
@@ -80,6 +81,11 @@ const open = async (page: Page, scene: string) => {
     await (scene === "commands"
       ? page.getByTestId("command-menu").waitFor()
       : page.locator(".composer-chip").first().waitFor());
+  } else if (scene === "subagent-open") {
+    for (const target of ['[data-testid="tool-run"] > button', '[data-testid="subagent"] > button'])
+      if ((await page.locator(`${target}[aria-expanded="true"]`).count()) === 0)
+        await page.locator(target).first().click();
+    await page.getByTestId("subagent-transcript").first().waitFor();
   } else if (scene === "viewer") {
     await page.locator('[data-testid="sent-image"][data-state="ready"]').first().click();
     await page.getByTestId("attachment-viewer").locator("img").waitFor();
@@ -131,7 +137,13 @@ try {
     await page.waitForLoadState("domcontentloaded");
     const isNew = ["new", "setup", "none-ready"].includes(base);
 
-    await page.getByTestId(isNew ? "new-session" : "session-panel").waitFor();
+    const ready = base.startsWith("usage-")
+      ? "plan-meter"
+      : isNew
+        ? "new-session"
+        : "session-panel";
+
+    await page.getByTestId(ready).first().waitFor();
 
     // The setup scene's Codex needs sign-in: choose it to show its setup line.
     if (scene === "setup") await page.getByTestId("harness-codex").click();

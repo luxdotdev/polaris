@@ -27,7 +27,8 @@ import { plural } from "../model/format.ts";
 import { useTurnDiff } from "../turnDiff.ts";
 import { questionAnswers } from "../model/question.ts";
 import type { OutboxActions } from "../outbox.ts";
-import { Item } from "./items.tsx";
+import type { Entry } from "../model/runs.ts";
+import { EntryView } from "./entries.tsx";
 import { OutgoingMessage, Steered } from "./outgoing.tsx";
 import { softWrap } from "./softWrap.tsx";
 
@@ -120,8 +121,11 @@ const Prompt = ({ row, ctx }: { row: Extract<Row, { kind: "prompt" }>; ctx: RowC
   </div>
 );
 
+/** An item's kind, or "run" / "subagent" for those rows (tests and smoke read it). */
+const entryKind = (entry: Entry) => (entry.kind === "item" ? entry.item.kind : entry.kind);
+
 const Agent = ({ row, ctx }: { row: Extract<Row, { kind: "item" }>; ctx: RowContext }) => (
-  <div className="flex gap-3" data-testid="turn-item" data-kind={row.item.kind}>
+  <div className="flex gap-3" data-testid="turn-item" data-kind={entryKind(row.entry)}>
     <div className={AVATAR}>
       {row.lead && ctx.harness !== null ? (
         <HarnessMark
@@ -132,7 +136,10 @@ const Agent = ({ row, ctx }: { row: Extract<Row, { kind: "item" }>; ctx: RowCont
       ) : null}
     </div>
     <div className="flex min-w-0 flex-1 flex-col">
-      <Item item={row.item} hue={ctx.harness} onOpenDiff={() => ctx.onOpenDiff(row.turnId)} />
+      <EntryView
+        entry={row.entry}
+        ctx={{ hue: ctx.harness, onOpenDiff: () => ctx.onOpenDiff(row.turnId) }}
+      />
     </div>
   </div>
 );
@@ -227,8 +234,8 @@ export const ConversationRow = ({ row, ctx }: { row: Row; ctx: RowContext }) => 
     case "prompt":
       return <Prompt row={row} ctx={ctx} />;
     case "item":
-      return row.item.kind === "user" ? (
-        <Steered text={row.item.text} />
+      return row.entry.kind === "item" && row.entry.item.kind === "user" ? (
+        <Steered text={row.entry.item.text} />
       ) : (
         <Agent row={row} ctx={ctx} />
       );

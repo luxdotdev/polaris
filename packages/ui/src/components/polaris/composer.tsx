@@ -115,7 +115,12 @@ export interface ComposerProps extends Omit<TextareaProps, "bare"> {
   readonly model: string;
   /** Set while a Turn runs: grows the Working strip and tints the edge in the Harness hue. */
   readonly working?:
-    | { readonly elapsed: ReactNode; readonly onStop?: (() => void) | undefined }
+    | {
+        readonly elapsed: ReactNode;
+        readonly onStop?: (() => void) | undefined;
+        /** The strip's line instead of "Claude Code is working" (a rotating verb). */
+        readonly label?: ReactNode;
+      }
     | undefined;
   /** The branch or worktree the Turn runs on, in mono. */
   readonly branch?: string | undefined;
@@ -174,7 +179,9 @@ export function Composer({
       style={vars}
     >
       {working === undefined ? null : (
-        <WorkingStrip harness={harness} elapsed={working.elapsed} onStop={working.onStop} />
+        <WorkingStrip harness={harness} elapsed={working.elapsed} onStop={working.onStop}>
+          {working.label}
+        </WorkingStrip>
       )}
       <div className="flex flex-col gap-3.5 pt-3 pr-3 pb-2.5 pl-3.5">
         {attachments}

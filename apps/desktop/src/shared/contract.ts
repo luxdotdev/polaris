@@ -96,6 +96,8 @@ export const SessionPrefs = Schema.Struct({
   notifyNeedsYou: Schema.Boolean,
   /** Archive deletes a session's branch once it is merged; unmerged branches always stay. */
   deleteMergedBranch: Schema.Boolean,
+  /** The Working strip's verbs; null for the built-in ones (Claude Code's own settings come first). */
+  spinnerVerbs: Schema.NullOr(Schema.Array(Schema.String)),
 });
 
 export type SessionPrefs = typeof SessionPrefs.Type;
@@ -106,6 +108,7 @@ export const SessionPrefsPatch = Schema.Struct({
   openOutputOnEdit: Schema.optionalKey(Schema.Boolean),
   notifyNeedsYou: Schema.optionalKey(Schema.Boolean),
   deleteMergedBranch: Schema.optionalKey(Schema.Boolean),
+  spinnerVerbs: Schema.optionalKey(Schema.NullOr(Schema.Array(Schema.String))),
 });
 
 export type SessionPrefsPatch = typeof SessionPrefsPatch.Type;
@@ -175,6 +178,7 @@ export const RequestInputs = {
     cwd: Schema.String,
     refresh: Schema.Boolean,
   }),
+  "harness.spinnerVerbs": onHost({ cwd: Schema.NullOr(Schema.String) }),
   /** Each catalogue Harness's status on the Host (capability `harness.availability`). */
   "harness.availability": onHost({ refresh: Schema.Boolean }),
   "session.terminalCommand": onHost({ sessionId: SessionId }),

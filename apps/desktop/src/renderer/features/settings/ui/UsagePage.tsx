@@ -4,7 +4,7 @@
  * stacked daily chart in Harness hues with a per-day tooltip, and a by-model table where
  * estimated costs carry a "~".
  */
-import { hueVar, SegmentedControl, Switch, Tile, Dither, harnessHue } from "@polaris/ui";
+import { cn, hueVar, SegmentedControl, Switch, Tile, Dither, harnessHue } from "@polaris/ui";
 import { useState } from "react";
 import { useNow } from "../../../shell/useNow.ts";
 import { useRunningHarnesses } from "../../harness/index.ts";
@@ -26,29 +26,80 @@ import { Column, Group, Heading, PageHeader } from "./parts.tsx";
 import { UsageChart } from "./UsageChart.tsx";
 import { useUsage } from "./useUsage.ts";
 
-/** A 40-cell pixel meter (4×10px cells): lit in the Harness hue, unlit at 7%. */
-const Meter = ({ harness, lit }: { readonly harness: string; readonly lit: number }) => (
-  <span aria-hidden className="flex h-2.5 gap-px">
-    {Array.from({ length: METER_CELLS }, (_, i) => (
-      <span
-        key={i}
-        className="h-2.5 w-1 shrink-0"
-        style={{
-          background: i < lit ? hueVar(harness) : "light-dark(#0000000f, #ffffff12)",
-        }}
-      />
-    ))}
-  </span>
+/** Paper S2's meter: 40 cells of 4×10px with 1px gaps. */
+const CELL = 4;
+
+const PITCH = CELL + 1;
+
+const METER_WIDTH = METER_CELLS * PITCH - 1;
+
+const cellFill = (harness: string, i: number, filled: number) =>
+  i < filled ? hueVar(harness) : "light-dark(#0000000f, #ffffff12)";
+
+/**
+ * What's left as discrete cells: filled in the Harness hue, empty as faint
+ * tracks. One SVG with crisp edges (`pixelated`), so the 1px gaps survive a
+ * fractional x. The pace marker is one of the cells in `text-strong`, a pixel
+ * taller each way: where the fill would end if used evenly. Never a signal colour.
+ */
+const Meter = ({
+  harness,
+  filled,
+  pace,
+}: {
+  readonly harness: string;
+  readonly filled: number;
+  readonly pace: number | null;
+}) => (
+  <svg
+    aria-hidden
+    width={METER_WIDTH}
+    height={12}
+    viewBox={`0 0 ${METER_WIDTH} 12`}
+    className="pixelated block shrink-0"
+    data-testid="plan-meter"
+    data-filled={filled}
+    data-pace={pace ?? undefined}
+  >
+    {Array.from({ length: METER_CELLS }, (_, i) =>
+      i === pace ? (
+        <rect
+          key={i}
+          x={i * PITCH}
+          width={CELL}
+          height={12}
+          style={{ fill: "var(--color-text-strong)" }}
+        />
+      ) : (
+        <rect
+          key={i}
+          x={i * PITCH}
+          y={1}
+          width={CELL}
+          height={10}
+          style={{ fill: cellFill(harness, i, filled) }}
+        />
+      )
+    )}
+  </svg>
 );
 
 const WindowCell = ({ harness, win }: { readonly harness: string; readonly win: LimitWindow }) => (
-  <div className="flex min-w-0 flex-1 flex-col gap-1.5" data-testid="plan-window">
-    <div className="flex justify-between gap-2" style={{ maxWidth: 199 }}>
+  <div
+    className="flex min-w-0 flex-col gap-1.5"
+    style={{ flex: `1 0 ${METER_WIDTH}px` }}
+    data-testid="plan-window"
+  >
+    <div className="flex justify-between gap-2" style={{ maxWidth: METER_WIDTH }}>
       <span className="text-caption text-text-subtle truncate">{win.label}</span>
-      <span className="text-caption text-text-default tabular">{win.percent ?? ""}</span>
+      <span className="text-caption text-text-default tabular shrink-0">{win.left ?? ""}</span>
     </div>
-    <Meter harness={harness} lit={win.litCells} />
-    <span className="text-caption text-text-subtle">{win.note}</span>
+    <Meter harness={harness} filled={win.filledCells} pace={win.pace?.cell ?? null} />
+    <span className="text-caption text-text-subtle flex flex-col">
+      <span>{win.note}</span>
+      {win.pace === null ? null : <span data-testid="plan-forecast">{win.pace.words}</span>}
+      {win.pace?.sessions == null ? null : <span>{win.pace.sessions}</span>}
+    </span>
   </div>
 );
 
@@ -59,7 +110,12 @@ const HarnessTile = ({ harness, size }: { readonly harness: string; readonly siz
 );
 
 const LimitRowView = ({ row }: { readonly row: LimitRow }) => (
-  <div className="px-panel gap-section flex items-center py-3.5">
+  <div
+    className={cn(
+      "px-panel gap-section flex py-3.5",
+      row.windows.length > 2 ? "items-start" : "items-center"
+    )}
+  >
     <div className="flex w-[184px] shrink-0 items-center gap-2.5">
       <HarnessTile harness={row.harness} size={28} />
       <span className="flex min-w-0 flex-col">
@@ -67,9 +123,12 @@ const LimitRowView = ({ row }: { readonly row: LimitRow }) => (
         <span className="text-caption text-text-subtle truncate">{row.caption}</span>
       </span>
     </div>
-    {row.windows.map((win) => (
-      <WindowCell key={win.key} harness={row.harness} win={win} />
-    ))}
+    {/* Windows wrap to another line rather than clip: two fit beside the label, a third goes under. */}
+    <div className="gap-x-section flex min-w-0 flex-1 flex-wrap gap-y-3">
+      {row.windows.map((win) => (
+        <WindowCell key={win.key} harness={row.harness} win={win} />
+      ))}
+    </div>
   </div>
 );
 

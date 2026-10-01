@@ -1,10 +1,18 @@
 /**
  * Plan Limits for Settings → Usage (DESIGN.md, Settings): one row per Harness
- * with its plan, freshness, and each window as a 40-cell meter. Near a limit
- * the words change, never the colour.
+ * with its plan, freshness, and each window as a 40-cell meter of what's left,
+ * emptying as it's used. Near a limit the words change, never the colour.
  */
 import { harnessEntry, type PlanLimit } from "@polaris/protocol";
-import { limitAge } from "../../harness/model/limits.ts";
+import {
+  type Forecast,
+  forecast,
+  paceCell,
+  paceWords,
+  runWords,
+  sessionWords,
+} from "../../harness/model/forecast.ts";
+import { leftCells, leftPhrase, limitAge } from "../../harness/model/limits.ts";
 import type { Plain } from "../../../../shared/api.ts";
 
 export type Limit = Plain<PlanLimit>;
@@ -15,11 +23,20 @@ export interface LimitWindow {
   readonly key: string;
   /** "5-hour window", "Weekly", "Weekly · Opus". */
   readonly label: string;
-  /** "62%", or null when the Harness reported only a status. */
-  readonly percent: string | null;
-  readonly litCells: number;
+  /** "38% left", "<1% left", or null when the Harness reported only a status. */
+  readonly left: string | null;
+  /** Cells filled with what's left: 40 unused, 0 at the limit; status-only readings fill by status. */
+  readonly filledCells: number;
   /** "Resets in 1h 48m", "Near the limit · resets Thu 09:00", "Limit reached". */
   readonly note: string;
+  /** The pace marker's cell and the forecast's words; null when it isn't well-founded. */
+  readonly pace: {
+    readonly cell: number;
+    /** "10% in reserve · Lasts until reset", "12% in deficit · Runs out in 2d 22h". */
+    readonly words: string;
+    /** "About 2.6 full 5-hour windows left · 23 until reset", weekly only. */
+    readonly sessions: string | null;
+  } | null;
 }
 
 export interface LimitRow {
@@ -89,22 +106,32 @@ const note = (limit: Limit, now: number): string => {
   return reset === null ? words : `${words} · ${reset}`;
 };
 
-/** A status-only reading lights the whole meter when reached, none otherwise. */
-const litCells = (used: number | null, status: Limit["status"]) => {
-  if (used !== null) return Math.round((used / 100) * METER_CELLS);
+/** A status-only reading (OpenCode): empty when reached, else full; its words say the rest. */
+const filledCells = (used: number | null, status: Limit["status"]) => {
+  if (used !== null) return leftCells(used, METER_CELLS);
 
-  return status === "reached" ? METER_CELLS : 0;
+  return status === "reached" ? 0 : METER_CELLS;
 };
 
-const limitWindow = (limit: Limit, now: number): LimitWindow => {
-  const used = limit.usedPercent === null ? null : Math.min(100, Math.max(0, limit.usedPercent));
+const paceOf = (f: Forecast | null): LimitWindow["pace"] =>
+  f === null
+    ? null
+    : {
+        cell: paceCell(f, METER_CELLS),
+        words: [paceWords(f), runWords(f)].filter((w) => w !== null).join(" · "),
+        sessions: sessionWords(f),
+      };
+
+const limitWindow = (limit: Limit, now: number, hasFiveHour: boolean): LimitWindow => {
+  const used = limit.usedPercent;
 
   return {
     key: `${limit.kind}\u0000${limit.scope ?? ""}`,
     label: windowLabel(limit),
-    percent: used === null ? null : `${Math.round(used)}%`,
-    litCells: litCells(used, limit.status),
+    left: used === null ? null : leftPhrase(used),
+    filledCells: filledCells(used, limit.status),
     note: note(limit, now),
+    pace: paceOf(forecast(limit, now, hasFiveHour)),
   };
 };
 
@@ -143,7 +170,13 @@ export const limitRows = (
       harness,
       name: harnessEntry(harness)?.name ?? harness,
       caption: plan === null ? capitalize(fresh) : `${capitalize(plan)} · ${fresh}`,
-      windows: sorted.map((l) => limitWindow(l, now)),
+      windows: sorted.map((l) =>
+        limitWindow(
+          l,
+          now,
+          list.some((w) => w.kind === "five-hour" && w.scope === null)
+        )
+      ),
     };
   });
 };

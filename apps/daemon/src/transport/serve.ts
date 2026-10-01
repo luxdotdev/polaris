@@ -76,6 +76,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "harness.availability",
   "harness.models",
   "harness.commands",
+  "harness.spinner-verbs",
   "session.set-model",
   "session.steer",
   "session.fork",

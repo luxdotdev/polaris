@@ -64,6 +64,7 @@ Scenarios are independent and each starts its own Daemons, so any subset can run
 | `touchFiles` | 0 | Files written under `<cwd>/polaris-bench/` during the Turn (for checkpoints and diffs). |
 | `itemBytes` | 0 | Minimum text size of each completed text item. |
 | `startDelayMs` | 0 | Pause before `TurnStarted`. |
+| `subagents` | 0 | Foreground Subagents after the items, each started by an Agent call that completes with its streamed report (`bench/subagent.ts`). |
 
 ## The sampler (reusable)
 

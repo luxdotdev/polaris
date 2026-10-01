@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { TurnId, TurnItem } from "@polaris/protocol";
+import { SessionId, Subagent, SubagentId, TurnId, TurnItem } from "@polaris/protocol";
 import { approval, turnWith } from "../../../store/fixtures.testing.ts";
-import type { LiveItem, TurnView } from "../../../store/sessionModel.ts";
+import type { LiveItem, SubagentView, TurnView } from "../../../store/sessionModel.ts";
 import { conversationRows, summarize, turnRows } from "./conversation.ts";
 import { completedItemView, liveItemView, outputTail, toolSummary } from "./items.ts";
 import { queuedOutgoing } from "./outbox.ts";
@@ -17,6 +17,7 @@ const view = (
   turn: turnWith({ id: TurnId.make(`t${index}`), index, prompt: `prompt ${index}`, status }),
   items,
   live,
+  subagents: [],
 });
 
 const message = (id: string, text: string) => I.AssistantMessage.make({ id, text });
@@ -103,11 +104,11 @@ describe("conversation rows", () => {
     const live = new Map([["m2", { item: null, text: "stream", output: "" }]]);
     const rows = turnRows(view(1, [message("m1", "a")], live, "working"), true, true);
 
-    expect(rows.map((r) => (r.kind === "item" ? [r.item.id, r.item.live] : r.kind))).toEqual([
-      "prompt",
-      ["m1", false],
-      ["m2", true],
-    ]);
+    expect(
+      rows.map((r) =>
+        r.kind === "item" && r.entry.kind === "item" ? [r.entry.item.id, r.entry.item.live] : r.kind
+      )
+    ).toEqual(["prompt", ["m1", false], ["m2", true]]);
   });
 
   test("rows are cached per Turn view and fold state", () => {
@@ -166,7 +167,12 @@ describe("steers in the conversation", () => {
       true
     ).filter((r) => r.kind === "item");
 
-    expect(rows.map((r) => [r.item.kind, r.lead])).toEqual([
+    expect(
+      rows.map((r) => [
+        r.kind === "item" && r.entry.kind === "item" ? r.entry.item.kind : "",
+        r.lead,
+      ])
+    ).toEqual([
       ["message", true],
       ["user", false],
       ["message", true],
@@ -185,5 +191,47 @@ describe("steers in the conversation", () => {
     });
 
     expect(rows.at(-1)).toMatchObject({ kind: "outgoing", key: `outgoing:${entry.id}`, entry });
+  });
+});
+
+describe("subagents and tool runs in the conversation", () => {
+  const agent = I.ToolCall.make({
+    id: "toolu_agent",
+    name: "Agent",
+    input: { description: "Explore" },
+    output: null,
+    status: "completed",
+  });
+
+  const sub = (id: string, parent: string | null): SubagentView => ({
+    subagent: new Subagent({
+      id: SubagentId.make(id),
+      sessionId: SessionId.make("s1"),
+      turnId: TurnId.make("t0"),
+      parentItemId: parent,
+      title: "Explore",
+      agent: null,
+      model: null,
+      status: "completed",
+      startedAt: "2026-10-01T00:00:00.000Z",
+      endedAt: "2026-10-01T00:00:05.000Z",
+    }),
+    items: [message(`${id}-m`, "found it")],
+    live: new Map(),
+  });
+
+  test("a Subagent takes its Agent call's place; one without a call closes the Turn", () => {
+    const turn = {
+      ...view(0, [message("m1", "a"), agent, message("m2", "b")]),
+      subagents: [sub("toolu_agent", "toolu_agent"), sub("bg", null)],
+    };
+
+    const rows = turnRows(turn, true, true).flatMap((r) =>
+      r.kind === "item"
+        ? [r.entry.kind === "subagent" ? `subagent:${r.entry.card.id}` : r.entry.kind]
+        : []
+    );
+
+    expect(rows).toEqual(["item", "subagent:toolu_agent", "item", "subagent:bg"]);
   });
 });

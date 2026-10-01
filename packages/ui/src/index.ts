@@ -80,6 +80,8 @@ export * from "./components/polaris/row";
 
 export * from "./components/polaris/scene";
 
+export * from "./components/polaris/effort-bar";
+
 export * from "./components/polaris/section-header";
 
 export * from "./components/polaris/segmented-control";

@@ -17,6 +17,7 @@ import type {
   Grep,
   HarnessCommands,
   HarnessModels,
+  SpinnerVerbs,
   HostHarnesses,
   HostInfo,
   HostStreamItem,
@@ -284,6 +285,7 @@ export interface RequestOutputs {
   "git.diff": { readonly bytes: Uint8Array; readonly files: number };
   "harness.models": Plain<HarnessModels>;
   "harness.commands": Plain<HarnessCommands>;
+  "harness.spinnerVerbs": Plain<SpinnerVerbs> | null;
   "harness.availability": Plain<HostHarnesses>;
   "session.terminalCommand": TerminalLaunch | null;
   "usage.query": UsageQueryView;

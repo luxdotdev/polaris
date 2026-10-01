@@ -5,6 +5,8 @@
  */
 import {
   AgentSession,
+  Subagent,
+  SubagentId,
   Attachment,
   AttachmentId,
   ContextUsage,
@@ -21,7 +23,12 @@ import {
   Worktree,
   WorktreeId,
 } from "@polaris/protocol";
-import type { LiveItem, SessionModel, TurnView } from "../../../store/sessionModel.ts";
+import type {
+  LiveItem,
+  SessionModel,
+  SubagentView,
+  TurnView,
+} from "../../../store/sessionModel.ts";
 import { MISSED_STEER, type Outgoing, queuedOutgoing, steerOutgoing } from "../model/outbox.ts";
 import type { StagedAttachment } from "../state.ts";
 
@@ -66,7 +73,7 @@ const turn = (
     index,
     prompt,
     attachments,
-    model: "claude-opus-5",
+    model: "opus",
     effort: "high",
     status,
     checkpointBefore: `refs/polaris/checkpoints/${sessionId}/${index}/before`,
@@ -86,7 +93,7 @@ const session = (id: string, patch: Partial<AgentSession>) =>
     worktreeId: worktree.id,
     state: "working",
     permissionMode: "auto-edits",
-    model: "claude-opus-5",
+    model: "opus",
     effort: "high",
     parentSessionId: null,
     forkedFromTurnId: null,
@@ -102,8 +109,9 @@ const session = (id: string, patch: Partial<AgentSession>) =>
 const view = (
   t: Turn,
   items: ReadonlyArray<TurnItem>,
-  live: ReadonlyArray<readonly [string, LiveItem]> = []
-): TurnView => ({ turn: t, items, live: new Map(live) });
+  live: ReadonlyArray<readonly [string, LiveItem]> = [],
+  subagents: ReadonlyArray<SubagentView> = []
+): TurnView => ({ turn: t, items, live: new Map(live), subagents });
 
 const earlierTurn = (sessionId: SessionId) =>
   view(turn(sessionId, 22, "Record the Review decision and close ENG-185", "completed"), [
@@ -191,7 +199,7 @@ export const approval = (): SessionModel => {
     title: "Spike GPUI review screen",
     harness: "codex",
     state: "needs-you",
-    model: "gpt-5.5",
+    model: "gpt-6.1-sol",
     effort: "high",
     contextUsage: new ContextUsage({ usedTokens: 236_000, windowTokens: 258_000 }),
   });
@@ -471,6 +479,153 @@ export const attachments = (): SessionModel => {
   });
 };
 
+const read = (id: string, path: string) =>
+  I.ToolCall.make({
+    id,
+    name: "Read",
+    input: { file_path: path },
+    output: null,
+    status: "completed",
+  });
+
+const subagentOf = (
+  s: SessionId,
+  t: TurnId,
+  id: string,
+  title: string,
+  status: "working" | "completed",
+  items: ReadonlyArray<TurnItem>,
+  live: ReadonlyArray<readonly [string, LiveItem]> = []
+): SubagentView => ({
+  subagent: new Subagent({
+    id: SubagentId.make(id),
+    sessionId: s,
+    turnId: t,
+    parentItemId: id,
+    title,
+    agent: id.includes("explore") ? "Explore" : "general-purpose",
+    model: null,
+    status,
+    startedAt: ago(status === "working" ? 24 : 95),
+    endedAt: status === "working" ? null : ago(61),
+  }),
+  items,
+  live: new Map(live),
+});
+
+const agentCall = (id: string, description: string, prompt: string, done: boolean) =>
+  I.ToolCall.make({
+    id,
+    name: "Agent",
+    input: { description, prompt },
+    output: null,
+    status: done ? "completed" : "running",
+  });
+
+/** A Turn that reads in a run of calls and fans out to two Subagents, one done, one working. */
+export const subagents = (): SessionModel => {
+  const s = session("s-subagents", { title: "Audit the session store" });
+
+  const t = turn(
+    s.id,
+    7,
+    "Audit the session store for places that drop Subagent items.",
+    "working"
+  );
+
+  const explore = subagentOf(
+    s.id,
+    t.id,
+    "toolu_explore",
+    "Find where Subagent events are folded",
+    "completed",
+    [
+      I.ToolCall.make({
+        id: "x1",
+        name: "Grep",
+        input: { pattern: "SubagentStarted" },
+        output: null,
+        status: "completed",
+      }),
+      read("x2", "apps/desktop/src/renderer/store/sessionModel.ts"),
+      read("x3", "packages/protocol/src/rpc.ts"),
+      I.AssistantMessage.make({
+        id: "x4",
+        text: "**Found it.** `sessionModel.ts` folds `SubagentStarted` and `SubagentEnded` to nothing, and drops every `TurnItemCompleted` that has a `subagentId`.\n\n- Deltas with a `subagentId` land in the Turn's live items\n- `TurnEnded` then clears them, so a Subagent's final text disappears",
+      }),
+    ]
+  );
+
+  const tests = subagentOf(
+    s.id,
+    t.id,
+    "toolu_tests",
+    "Run the store tests",
+    "working",
+    [read("y1", "apps/desktop/src/renderer/store/sessionModel.test.ts")],
+    [
+      [
+        "y2",
+        {
+          item: I.CommandExecution.make({
+            id: "y2",
+            command: "bun test apps/desktop/src/renderer/store",
+            cwd: s.cwd,
+            output: "",
+            exitCode: null,
+            status: "running",
+          }),
+          text: "",
+          output: "",
+        },
+      ],
+    ]
+  );
+
+  return model({
+    session: s,
+    turns: [
+      view(
+        t,
+        [
+          I.AssistantMessage.make({ id: "m1", text: "I'll read the store and its tests first." }),
+          read("r1", "apps/desktop/src/renderer/store/sessionModel.ts"),
+          read("r2", "apps/desktop/src/renderer/store/store.ts"),
+          I.ToolCall.make({
+            id: "g1",
+            name: "Grep",
+            input: { pattern: "subagentId" },
+            output: null,
+            status: "completed",
+          }),
+          I.CommandExecution.make({
+            id: "c1",
+            command: "git log --oneline -5 -- apps/desktop/src/renderer/store",
+            cwd: s.cwd,
+            output: "a1b2c3d Fold host feeds",
+            exitCode: 0,
+            status: "completed",
+          }),
+          agentCall(
+            "toolu_explore",
+            "Find where Subagent events are folded",
+            "Find every place the renderer folds Subagent events and report what is dropped.",
+            true
+          ),
+          agentCall(
+            "toolu_tests",
+            "Run the store tests",
+            "Run the store's tests and report failures.",
+            false
+          ),
+        ],
+        [],
+        [explore, tests]
+      ),
+    ],
+  });
+};
+
 /** 150 Turns of mixed items, for scrolling the virtualized conversation. */
 export const long = (): SessionModel => {
   const s = session("s-long", { title: "Long-running refactor", state: "idle", turnCount: 150 });
@@ -526,76 +681,3 @@ export const long = (): SessionModel => {
 
   return model({ session: s, turns });
 };
-
-export const PATCH = `diff --git a/prototypes/orchestrator-layout/serve.ts b/prototypes/orchestrator-layout/serve.ts
---- a/prototypes/orchestrator-layout/serve.ts
-+++ b/prototypes/orchestrator-layout/serve.ts
-@@ -1,7 +1,8 @@
- import { publish } from "./artifact";
-
--const ARTIFACT_URL = process.env.ARTIFACT_URL;
-+const ARTIFACT_URL = "https://claude.ai/artifact/V6EMS2kK78";
-+const API_TOKEN = process.env.API_TOKEN;
-
- export async function main() {
--  await publish(ARTIFACT_URL);
-+  await publish(ARTIFACT_URL, { token: API_TOKEN });
- }
-diff --git a/prototypes/orchestrator-layout/index.html b/prototypes/orchestrator-layout/index.html
---- a/prototypes/orchestrator-layout/index.html
-+++ b/prototypes/orchestrator-layout/index.html
-@@ -410,5 +410,7 @@
- <script type="module">
-   import { variants } from "./variants.js";
-+  document.addEventListener("keydown", (e) => { if (e.key === "ArrowRight") next(); });
-+  document.addEventListener("keydown", (e) => { if (e.key === "ArrowLeft") previous(); });
-   render(variants[0]);
- </script>
-diff --git a/CONTEXT.md b/CONTEXT.md
---- a/CONTEXT.md
-+++ b/CONTEXT.md
-@@ -140,4 +140,4 @@
- **Orchestrator**:
--The view for launching and monitoring Agent Sessions.
-+The view for launching, monitoring, and steering Agent Sessions.
- _Avoid_: Dashboard, agent manager
-`;
-
-export const MODELS = {
-  claude: [
-    {
-      id: "default",
-      name: "Default",
-      description: null,
-      efforts: [],
-      defaultEffort: null,
-      isDefault: true,
-    },
-    {
-      id: "claude-opus-5",
-      name: "Opus 5",
-      description: null,
-      efforts: ["low", "medium", "high", "xhigh", "max"],
-      defaultEffort: null,
-      isDefault: false,
-    },
-    {
-      id: "claude-sonnet-5",
-      name: "Sonnet 5",
-      description: null,
-      efforts: ["low", "medium", "high"],
-      defaultEffort: null,
-      isDefault: false,
-    },
-  ],
-  codex: [
-    {
-      id: "gpt-5.5",
-      name: "GPT-5.5",
-      description: null,
-      efforts: ["low", "medium", "high", "xhigh"],
-      defaultEffort: "high",
-      isDefault: true,
-    },
-  ],
-} as const;

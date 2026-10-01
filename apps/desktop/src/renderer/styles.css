@@ -2,6 +2,7 @@
 @import "@polaris/ui/styles.css";
 @import "./features/onboarding/onboarding.css";
 @import "./features/session/output/output.css";
+@import "./features/session/verbs/verbs.css";
 
 @source "./";
 /* Streamdown's own layout classes (the Markdown chunk); Polaris restyles them in markdown.css. */

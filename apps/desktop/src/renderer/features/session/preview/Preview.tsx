@@ -10,6 +10,7 @@ import {
   HostId,
   PlanLimit,
   Sequence,
+  UsageStreamItem,
 } from "@polaris/protocol";
 import { createRoot } from "react-dom/client";
 import { createStore } from "zustand/vanilla";
@@ -37,16 +38,16 @@ import {
   interrupted,
   long,
   markdown,
-  MODELS,
-  PATCH,
   planning,
   question,
   steer,
   steerOutbox,
+  subagents,
   workspace,
   workspaceId,
   worktree,
 } from "./fixtures.ts";
+import { MODELS, PATCH } from "./fixtureData.ts";
 
 const HOST = "local";
 
@@ -87,6 +88,7 @@ const SCENES = {
   markdown,
   steer,
   attachments,
+  subagents,
 } as const;
 
 const SCENE_NAMES = [
@@ -99,9 +101,12 @@ const SCENE_NAMES = [
   "markdown",
   "steer",
   "attachments",
+  "subagents",
   "new",
   "setup",
   "none-ready",
+  "usage-2",
+  "usage-3",
 ] as const;
 
 type Scene = (typeof SCENE_NAMES)[number];
@@ -193,9 +198,49 @@ const LIMITS = [
   }),
 ];
 
+const window_ = (
+  harness: string,
+  kind: string,
+  scope: string | null,
+  usedPercent: number,
+  status: "ok" | "warning" = "ok"
+) =>
+  new PlanLimit({
+    harness,
+    kind,
+    scope,
+    windowMinutes: kind === "weekly" ? 10_080 : 300,
+    usedPercent,
+    status,
+    resetsAt: later(kind === "weekly" ? 4 * 24 * 60 : 228),
+    observedAt: ago(1),
+    plan: harness === "claude" ? "max" : "pro",
+    // The Daemon's typical 5-hour window, on Claude's whole-plan weekly.
+    weeklyPerSession: harness === "claude" && kind === "weekly" && scope === null ? 14.6 : null,
+  });
+
+/**
+ * Settings → Usage: Claude with two windows (Paper S2) or three (its model-scoped weekly), and
+ * Codex. Forecasts: 5-hour in reserve, weekly in deficit (runs out), a near-limit run-out.
+ */
+const usageLimits = (scene: Scene) => [
+  window_("claude", "five-hour", null, 16),
+  window_("claude", "weekly", null, 62),
+  ...(scene === "usage-3" ? [window_("claude", "weekly", "Fable", 92, "warning")] : []),
+  window_("codex", "five-hour", null, 99.6, "warning"),
+  window_("codex", "weekly", null, 0.4),
+];
+
+const isUsage = (scene: Scene) => scene === "usage-2" || scene === "usage-3";
+
 /** The feeds the session view opens: availability and Plan Limits, sent once. */
 const feed = (scene: Scene, kind: SubscriptionKind): ReadonlyArray<unknown> => {
   if (kind === "harness.availability") return [availability(scene)];
+
+  if (kind === "usage" && isUsage(scene))
+    return usageLimits(scene).map((limit) =>
+      UsageStreamItem.cases.PlanLimitChanged.make({ limit })
+    );
 
   return kind === "plan-limits" ? LIMITS : [];
 };
@@ -227,6 +272,17 @@ const answer = (
     return { ok: true, value: { bytes: new TextEncoder().encode(PATCH), files: 3 } };
 
   if (method === "dispatch") return { ok: true, value: { sequence: null } };
+
+  if (method === "usage.query") {
+    return {
+      ok: true,
+      value: {
+        report: { buckets: [], indexedAt: null, indexing: false },
+        estimates: [],
+        pricesFetchedAt: null,
+      },
+    };
+  }
 
   return { ok: false, error: { code: "Unsupported", message: "preview" } };
 };
@@ -377,6 +433,8 @@ export const mountPreview = (root: HTMLElement, hash: string) => {
 
     patchSessionUi(uiKey(HOST, shown.session.id), () => ({ unfolded }));
   }
+
+  if (isUsage(scene)) navigation.actions.openSettings("usage");
 
   const commands = createCommandRegistry({ mac: true });
 

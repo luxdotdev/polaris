@@ -25,6 +25,10 @@ export interface DitherProps extends HTMLAttributes<HTMLSpanElement> {
   readonly dim?: boolean;
   /** Fading out over 200ms after leaving Working; see useExitPresence. */
   readonly leaving?: boolean;
+  /** How dense and bright the field is (0–1), for the effort bar; unset is the Working field. */
+  readonly intensity?: number | undefined;
+  /** Milliseconds per frame while moving; 83 (12 fps) unless the effort bar paces it. */
+  readonly frameMs?: number | undefined;
 }
 
 /** The signature dither: a field of 2px cells on a strict grid, stepped on the compositor. */
@@ -36,6 +40,8 @@ export function Dither({
   moving = false,
   dim = false,
   leaving = false,
+  intensity,
+  frameMs,
   className,
   style,
   ...props
@@ -45,8 +51,9 @@ export function Dither({
   const vars: CssVars = {
     "--dither-hue": hueVar(hue),
     "--dither-frames": DITHER_FRAMES,
-    "--dither-still": ditherStillMask(field),
-    "--dither-strip": moving ? ditherStripMask(field) : undefined,
+    "--dither-still": ditherStillMask(field, intensity),
+    "--dither-strip": moving ? ditherStripMask(field, intensity) : undefined,
+    "--dither-frame-ms": frameMs === undefined ? undefined : `${frameMs}ms`,
     width,
     height,
     opacity: dim ? 0.5 : undefined,

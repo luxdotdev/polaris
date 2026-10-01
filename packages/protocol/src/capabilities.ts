@@ -17,6 +17,8 @@ export const Capability = Schema.Literals([
   "harness.commands",
   /** `harness.availability` and `harness.watchAvailability`: each Harness's status on this Host. */
   "harness.availability",
+  /** `harness.spinnerVerbs`: Claude Code's `spinnerVerbs` setting on this Host. */
+  "harness.spinner-verbs",
   "session.steer",
   "session.fork",
   /** The `SetModel` command. */

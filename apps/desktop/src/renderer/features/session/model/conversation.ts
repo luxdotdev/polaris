@@ -7,8 +7,10 @@
 import type { ApprovalRequest, Attachment, TurnId, TurnItem, TurnStatus } from "@polaris/protocol";
 import { Predicate } from "effect";
 import type { TurnView } from "../../../store/sessionModel.ts";
-import { completedItemView, type ItemView, liveItemView } from "./items.ts";
+import { completedItemView, liveItemView } from "./items.ts";
 import type { Outgoing } from "./outbox.ts";
+import { type Entry, groupItems } from "./runs.ts";
+import { subagentCard } from "./subagents.ts";
 
 export interface TurnSummary {
   readonly turnId: TurnId;
@@ -37,7 +39,8 @@ export type Row =
       readonly kind: "item";
       readonly key: string;
       readonly turnId: string;
-      readonly item: ItemView;
+      /** One item, a folded tool run, or a Subagent. */
+      readonly entry: Entry;
       /** The first agent row of its Turn carries the Harness avatar. */
       readonly lead: boolean;
     }
@@ -90,21 +93,70 @@ export const summarize = (view: TurnView): TurnSummary => {
   };
 };
 
-const itemRows = (view: TurnView): ReadonlyArray<Row> => {
-  const turnId = view.turn.id;
+type ToolCallItem = Extract<TurnItem, { readonly _tag: "ToolCall" }>;
+
+/** The Turn's items with each Subagent in place of the call that spawned it (else at the end). */
+const turnEntries = (view: TurnView): ReadonlyArray<Entry> => {
+  const byParent = new Map(
+    view.subagents.map((s) => [s.subagent.parentItemId ?? s.subagent.id, s])
+  );
+
+  const placed = new Set<string>();
+
+  const calls = new Map(
+    view.items.flatMap((i): Array<readonly [string, ToolCallItem]> =>
+      Predicate.isTagged(i, "ToolCall") ? [[i.id, i]] : []
+    )
+  );
 
   const items = [
     ...view.items.map(completedItemView),
     ...[...view.live].map(([id, live]) => liveItemView(id, live)),
   ];
 
-  // The first agent item carries the avatar, and so does the first one after a steer.
-  return items.map((item, n) => ({
+  const entries = groupItems(items).map((entry): Entry => {
+    const sub = entry.kind === "item" ? byParent.get(entry.item.id) : undefined;
+
+    if (sub === undefined) return entry;
+    placed.add(sub.subagent.id);
+
+    return {
+      kind: "subagent",
+      card: subagentCard(sub, calls.get(sub.subagent.parentItemId ?? "")),
+    };
+  });
+
+  const orphans = view.subagents
+    .filter((s) => !placed.has(s.subagent.id))
+    .map((s): Entry => ({ kind: "subagent", card: subagentCard(s, undefined) }));
+
+  return [...entries, ...orphans];
+};
+
+const entryKey = (entry: Entry) => {
+  switch (entry.kind) {
+    case "item":
+      return entry.item.id;
+    case "run":
+      return `run:${entry.id}`;
+    case "subagent":
+      return `subagent:${entry.card.id}`;
+  }
+};
+
+const isSteer = (entry: Entry | undefined) => entry?.kind === "item" && entry.item.kind === "user";
+
+const itemRows = (view: TurnView): ReadonlyArray<Row> => {
+  const turnId = view.turn.id;
+  const entries = turnEntries(view);
+
+  // The first agent row carries the avatar, and so does the first one after a steer.
+  return entries.map((entry, n) => ({
     kind: "item",
-    key: `${turnId}:${item.id}`,
+    key: `${turnId}:${entryKey(entry)}`,
     turnId,
-    item,
-    lead: item.kind !== "user" && (n === 0 || items[n - 1]?.kind === "user"),
+    entry,
+    lead: !isSteer(entry) && (n === 0 || isSteer(entries[n - 1])),
   }));
 };
 
