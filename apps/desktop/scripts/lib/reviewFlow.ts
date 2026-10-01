@@ -77,6 +77,13 @@ export const setupCodeHost = (repo: string, home: string) => {
   git(work, "commit", "-qm", "Retry webhook deliveries with backoff");
   git(work, "push", "-q", bare, "HEAD:refs/pull/42/head");
   git(repo, "config", `url.${host}/.insteadOf`, "git@github.com:");
+
+  return {
+    work,
+    bare,
+    head: git(work, "rev-parse", "HEAD"),
+    base: git(work, "rev-parse", "HEAD~1"),
+  };
 };
 
 interface ReviewFlowInput {

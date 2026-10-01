@@ -52,3 +52,13 @@ export const usePullDetail = (pull: Pick<OpenPull, "repo" | "number">): PullDeta
 
   return current ?? { kind: "loading" };
 };
+
+/** The detail if something in this Review already loaded it; never fetches. */
+export const useLoadedPullDetail = (
+  pull: Pick<OpenPull, "repo" | "number">
+): PullDetailView | null =>
+  useStore(details, (s) => {
+    const current = s[pullKey(pull)];
+
+    return current?.kind === "ok" ? current.detail : null;
+  });
