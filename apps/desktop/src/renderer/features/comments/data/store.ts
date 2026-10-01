@@ -17,6 +17,8 @@ export interface ComposerAnchor {
   readonly start: number;
   readonly end: number;
   readonly code: string;
+  /** The Turn the lines are in, when the diff knows it ("serve.ts:7 · turn 24"). */
+  readonly turn?: number | null;
 }
 
 export interface ComposerState {

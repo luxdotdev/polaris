@@ -167,6 +167,7 @@ export const setUpScene = (scene: string, sessionKey: string) => {
         start: 4,
         end: 4,
         code: 'const API_TOKEN = "sk-ant-…";',
+        turn: 24,
       },
       {
         text: "Read the token from the environment here too, and stop with a clear error when it’s missing",

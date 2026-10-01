@@ -28,13 +28,15 @@ export interface DiffRange {
 /** A selection with the code it covers, as the diff shows it (quoted in feedback). */
 export interface DiffSelection extends DiffRange {
   readonly code: string;
+  /** The Turn whose section holds it (an Agent Session's diff); null for a pull request. */
+  readonly turn: number | null;
 }
 
 /**
- * The inset of a row under a line: indented to the code, and clear of the file card's
- * right edge (Pierre's annotation slot runs 12px past the card, under the page padding).
+ * The inset of a row under a line: on the code's edge (the slot starts 16px before the code
+ * column) and clear of the file card's right edge (the slot runs 12px past the card).
  */
-export const ANNOTATION_INSET = "pl-[78px] pr-[calc(var(--spacing-panel)+12px)]";
+export const ANNOTATION_INSET = "pl-4 pr-[calc(var(--spacing-panel)+12px)]";
 
 /** A row under a line in the diff (a comment thread, a draft, a composer). */
 export interface ReviewAnnotation {

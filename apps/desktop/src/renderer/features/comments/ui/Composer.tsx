@@ -28,7 +28,7 @@ import {
 } from "../data/actions.ts";
 import { type ComposerState, patchComposer, useComments } from "../data/store.ts";
 import { pendingCount } from "../model/threads.ts";
-import { anchorLabel, placeLabel, suggestionBlock } from "../model/composer.ts";
+import { anchorLabel, sessionPlace, suggestionBlock } from "../model/composer.ts";
 import { Avatar } from "./Avatar.tsx";
 import { useSessionHarness } from "./hooks.ts";
 
@@ -59,10 +59,9 @@ const useDestination = (subjectKey: string, kind: "pull" | "session") => {
   };
 };
 
-/** A finding chip washed in its Severity (Paper R8). */
+/** A finding chip in a 6% wash of its Severity; the glyph carries the colour (Paper R8). */
 const washOf = (severity: string): CssVars => ({
-  "--severity-fill": `var(--color-severity-${severity}-fill)`,
-  "--severity-text": `var(--color-severity-${severity}-text)`,
+  "--severity-wash": `color-mix(in oklab, var(--color-severity-${severity}) 6%, transparent)`,
 });
 
 const FindingLink = ({ subjectKey, composer }: Props & { readonly composer: ComposerState }) => {
@@ -76,7 +75,7 @@ const FindingLink = ({ subjectKey, composer }: Props & { readonly composer: Comp
       <Button
         size="xs"
         variant="secondary"
-        className="max-w-56 min-w-0 bg-(--severity-fill) text-(--severity-text) hover:bg-(--severity-fill)"
+        className="text-text-default max-w-56 min-w-0 bg-(--severity-wash) hover:bg-(--severity-wash)"
         style={washOf(linked.severity)}
         title="Unlink this finding"
         onClick={() => patchComposer(subjectKey, { findingId: null })}
@@ -125,7 +124,7 @@ const Actions = ({ subjectKey, composer }: Props & { readonly composer: Composer
   const run = (action: (key: string) => Promise<Done>) => () => void action(subjectKey);
 
   return (
-    <div className="border-hairline pr-gap py-gap flex items-center gap-1.5 border-t pl-3">
+    <div className="border-hairline flex flex-wrap items-center gap-1.5 border-t py-2 pr-2 pl-3">
       <Button
         size="xs"
         variant="secondary"
@@ -141,46 +140,48 @@ const Actions = ({ subjectKey, composer }: Props & { readonly composer: Composer
         Suggest change
       </Button>
       <FindingLink subjectKey={subjectKey} composer={composer} />
-      <span className="flex-1" />
-      <Button size="sm" variant="ghost" onClick={() => closeComposer(subjectKey)}>
-        Cancel <span className="text-text-subtle font-regular">esc</span>
-      </Button>
-      {kind === "session" ? (
-        <Button
-          size="sm"
-          variant="secondary"
-          disabled={empty || composer.busy}
-          onClick={run(sendNow)}
-        >
-          Send now
+      {/* The send actions wrap together, right-aligned, when the card is narrow. */}
+      <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
+        <Button size="sm" variant="ghost" onClick={() => closeComposer(subjectKey)}>
+          Cancel
         </Button>
-      ) : (
-        composer.moving === null && (
+        {kind === "session" ? (
           <Button
             size="sm"
             variant="secondary"
             disabled={empty || composer.busy}
-            title={
-              pending === 0
-                ? "Publish this comment now"
-                : `Publishes your ${pending} pending ${pending === 1 ? "comment" : "comments"} with it`
-            }
-            onClick={run(commentNow)}
+            onClick={run(sendNow)}
           >
-            Comment now
+            Send now
           </Button>
-        )
-      )}
-      <Button
-        size="sm"
-        variant="primary"
-        disabled={empty || composer.busy}
-        data-testid="composer-add"
-        onClick={run(kind === "pull" ? addToReview : addToFeedback)}
-      >
-        {kind === "pull" ? "Add to review" : "Add to feedback"}
-        <span className="opacity-60">⌘↵</span>
-      </Button>
+        ) : (
+          composer.moving === null && (
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={empty || composer.busy}
+              title={
+                pending === 0
+                  ? "Publish this comment now"
+                  : `Publishes your ${pending} pending ${pending === 1 ? "comment" : "comments"} with it`
+              }
+              onClick={run(commentNow)}
+            >
+              Comment now
+            </Button>
+          )
+        )}
+        <Button
+          size="sm"
+          variant="primary"
+          disabled={empty || composer.busy}
+          data-testid="composer-add"
+          onClick={run(kind === "pull" ? addToReview : addToFeedback)}
+        >
+          {kind === "pull" ? "Add to review" : "Add to feedback"}
+          <span className="opacity-60">⌘↵</span>
+        </Button>
+      </div>
     </div>
   );
 };
@@ -204,7 +205,7 @@ export const Composer = ({ subjectKey }: Props) => {
       >
         <div className="gap-gap flex items-center px-3 pt-2.5">
           <span className="text-text-subtle font-mono text-[11px] leading-4">
-            {kind === "pull" ? anchorLabel(composer.anchor) : placeLabel(composer.anchor)}
+            {kind === "pull" ? anchorLabel(composer.anchor) : sessionPlace(composer.anchor)}
             {composer.moving === null ? "" : " · moving an outdated draft here"}
           </span>
           <span className="flex-1" />
