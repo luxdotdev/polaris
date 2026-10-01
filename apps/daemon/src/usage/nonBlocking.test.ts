@@ -48,6 +48,35 @@ afterEach(() => {
 
 const isUsageChanged = Schema.is(UsageStreamItem.cases.UsageChanged);
 
+/** This process's CPU time so far, in ms: it advances only while the process runs. */
+const cpuMs = () => {
+  const { user, system } = process.cpuUsage();
+
+  return (user + system) / 1000;
+};
+
+/** When a delta arrived, in wall time and in this process's CPU time. */
+interface Arrival {
+  readonly wallMs: number;
+  readonly cpuMs: number;
+}
+
+const gaps = (arrivals: ReadonlyArray<Arrival>, key: keyof Arrival) =>
+  arrivals.slice(1).map((arrival, i) => arrival[key] - arrivals[i]![key]);
+
+/**
+ * The longest the session waited between deltas because this process was busy.
+ * A stall on the Daemon's thread is long in wall time and in CPU time. A loaded
+ * machine pausing the process is long in wall time only, and the process's other
+ * threads (GC, I/O) add CPU time without delaying anything, so each gap counts
+ * as the lesser of the two.
+ */
+const worstBusyGap = (arrivals: ReadonlyArray<Arrival>) => {
+  const cpu = gaps(arrivals, "cpuMs");
+
+  return Math.max(...gaps(arrivals, "wallMs").map((wall, i) => Math.min(wall, cpu[i]!)));
+};
+
 /** ~220 MB of logs: Codex rollouts whose usage lines sit among large tool outputs, and a long Claude transcript. */
 const largeLogs = (host: FixtureHost) => {
   const filler = JSON.stringify({ type: "response_item", payload: { output: "x".repeat(20_000) } });
@@ -144,15 +173,15 @@ test("a session keeps streaming while the first index pass runs over large logs"
         const harness = codex.latest(sessionId)!;
         const turnId = harness.turns[0]!.turnId;
 
-        // Deltas carry their emit time; the subscriber records how late each arrives.
-        const lateness: Array<number> = [];
+        // The subscriber records when each delta arrives (one is emitted every 10 ms).
+        const arrivals: Array<Arrival> = [];
 
         const subscriber = yield* Stream.runForEach(
           engineService.subscribeSession({ sessionId, afterSequence: null, turnLimit: 1 }),
           (item: SessionStreamItem) =>
             Effect.sync(() => {
               if (Predicate.isTagged(item, "Delta"))
-                lateness.push(performance.now() - Number(item.text));
+                arrivals.push({ wallMs: performance.now(), cpuMs: cpuMs() });
             })
         ).pipe(Effect.forkChild);
 
@@ -165,14 +194,14 @@ test("a session keeps streaming while the first index pass runs over large logs"
                 turnId,
                 itemId: "m1",
                 field: "text",
-                text: String(performance.now()),
+                text: "x",
               })
             );
             yield* Effect.sleep(Duration.millis(10));
           }
         }).pipe(Effect.forkChild);
 
-        yield* waitUntil(() => lateness.length > 10, 5000);
+        yield* waitUntil(() => arrivals.length > 10, 5000);
 
         // The Usage view opens: the first watch and query start the first pass.
         const client = yield* RpcTest.makeClient(UsageRpcs);
@@ -185,7 +214,8 @@ test("a session keeps streaming while the first index pass runs over large logs"
           Effect.forkChild
         );
 
-        const duringFrom = lateness.length;
+        // From the last delta before the pass, so a stall at its start counts.
+        const duringFrom = arrivals.length - 1;
 
         const all = {
           from: "2026-01-01T00:00:00Z",
@@ -198,7 +228,7 @@ test("a session keeps streaming while the first index pass runs over large logs"
         const first = yield* client["usage.query"](all);
         const queryMs = performance.now() - t0;
         yield* waitUntil(() => passEnded, 120_000);
-        const during = lateness.slice(duringFrom);
+        const during = arrivals.slice(duringFrom);
         const final = yield* client["usage.query"](all);
         streaming = false;
         yield* Fiber.interrupt(emitter);
@@ -213,10 +243,10 @@ test("a session keeps streaming while the first index pass runs over large logs"
   expect(result.queryMs).toBeLessThan(2000);
   expect(result.first.indexing).toBe(true);
 
-  // The session kept streaming the whole time, never far behind (20–45 ms at
-  // worst here). Without the pass's yields and write slices: ~300 ms.
+  // Never held up for long: 30–70 ms here, loaded or not; 260–490 ms without the
+  // pass's yields and write slices (docs/adr/0009, Testing).
   expect(result.during.length).toBeGreaterThan(20);
-  expect(Math.max(...result.during)).toBeLessThan(100);
+  expect(worstBusyGap(result.during)).toBeLessThan(100);
 
   // And the pass finished with every response indexed.
   expect(result.final.indexing).toBe(false);
