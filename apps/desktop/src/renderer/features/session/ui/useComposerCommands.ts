@@ -5,7 +5,18 @@
  */
 import type { HarnessKind, PolarisAction } from "@polaris/protocol";
 import { useCommands } from "../../../shell/hooks.ts";
-import { useHarnessCommands } from "../../composer/index.ts";
+import { useState } from "react";
+import {
+  daemonNotice,
+  frecencyKey,
+  type FrecencyTable,
+  loadFrecency,
+  recordFrecency,
+  scopeKey,
+  useHarnessCommands,
+} from "../../composer/index.ts";
+// The machines feed alone: the feature's index reaches slots.tsx, an import cycle from here.
+import { call as callMachines, useMachineInstall } from "../../machines/hooks.tsx";
 import { hasCapability, useHost } from "../hooks.ts";
 import type { ComposerCommands } from "./DraftComposer.tsx";
 
@@ -26,6 +37,8 @@ const afterRelease = (run: () => void) => {
 
 export interface ComposerCommandsInput {
   readonly hostKey: string;
+  /** Frecency is kept per Host, Workspace and Harness. */
+  readonly workspaceId: string;
   /** Null until a Harness is chosen (the new-session page). */
   readonly harness: HarnessKind | null;
   readonly cwd: string | null;
@@ -34,19 +47,30 @@ export interface ComposerCommandsInput {
 
 export const useComposerCommands = ({
   hostKey,
+  workspaceId,
   harness,
   cwd,
   openModels,
 }: ComposerCommandsInput): ComposerCommands => {
+  const scope = { hostKey, workspaceId, harness: harness ?? "" };
+  const scopeId = scopeKey(scope);
+
+  const [picked, setPicked] = useState<{
+    readonly id: string;
+    readonly table: FrecencyTable;
+  } | null>(null);
+  // Read from storage until this composer records a pick of its own.
+
+  const frecency = picked?.id === scopeId ? picked.table : loadFrecency(scope);
   const host = useHost(hostKey);
   const registry = useCommands();
+  const listed = hasCapability(host, "harness.commands");
+  // A connected Host whose Daemon predates the list: say so, never an empty menu.
+  const outdated = host?.status.state === "connected" && !listed;
+  const install = useMachineInstall(hostKey, outdated);
+  const listing = useHarnessCommands(hostKey, harness, cwd, listed);
 
-  const listing = useHarnessCommands(
-    hostKey,
-    harness,
-    cwd,
-    hasCapability(host, "harness.commands")
-  );
+  const upgrade = () => void callMachines("machines.check", { hostKey });
 
   const actions: Readonly<Record<PolarisAction, () => void>> = {
     "new-session": () => void registry.run("session.new"),
@@ -60,5 +84,11 @@ export const useComposerCommands = ({
     loading: listing.loading,
     want: listing.want,
     onAction: (action) => afterRelease(actions[action]),
+    notice: outdated ? daemonNotice(host?.label ?? hostKey, install, upgrade) : null,
+    frecency,
+    onPicked: (option) => {
+      if (harness !== null)
+        setPicked({ id: scopeId, table: recordFrecency(scope, frecencyKey(option)) });
+    },
   };
 };

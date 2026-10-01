@@ -5,6 +5,7 @@
  */
 import type { SlashCommand } from "@polaris/protocol";
 import type { Plain } from "../../../../shared/api.ts";
+import { type FrecencyTable, frecencyScore, topFrecent } from "./frecency.ts";
 
 export type CommandOption = Plain<SlashCommand>;
 
@@ -39,7 +40,16 @@ export interface Menu {
   readonly options: ReadonlyArray<CommandOption>;
   /** How many more matched than the menu shows. */
   readonly more: number;
+  /** For a bare sigil: how many of the first options are the user's frecent picks. */
+  readonly recent: number;
 }
+
+/** How many frecent picks lead the menu before anything is typed. */
+export const RECENT_LIMIT = 5;
+
+/** What frecency counts a pick under: its sigil and name. */
+export const frecencyKey = (option: Pick<CommandOption, "sigil" | "name">) =>
+  `${option.sigil}${option.name}`;
 
 /**
  * Where a sigil may open: `/` commands only lead the message, as the Harness
@@ -63,12 +73,46 @@ const rank = (option: CommandOption, query: string): number | null => {
   return query.length > 1 && name.includes(query) ? group + 2 : null;
 };
 
-/** The menu for the word under the caret, or null when it isn't a command word or nothing matches. */
+/** A bare sigil: the user's frecent picks first ("Recent"), then the rest in the Daemon's order. */
+const bareMenu = (
+  sigil: Sigil,
+  options: ReadonlyArray<CommandOption>,
+  frecency: FrecencyTable,
+  now: number
+): Menu | null => {
+  const listed = options.filter((o) => o.sigil === sigil);
+
+  if (listed.length === 0) return null;
+  const byKey = new Map(listed.map((o) => [frecencyKey(o), o]));
+
+  const recent = topFrecent(frecency, RECENT_LIMIT * 2, now)
+    .flatMap((key) => byKey.get(key) ?? [])
+    .slice(0, RECENT_LIMIT);
+
+  const rest = listed.filter((o) => !recent.includes(o));
+  const all = [...recent, ...rest];
+
+  return {
+    sigil,
+    query: "",
+    options: all.slice(0, MENU_LIMIT),
+    more: Math.max(0, all.length - MENU_LIMIT),
+    recent: recent.length,
+  };
+};
+
+/**
+ * The menu for the word under the caret, or null when it isn't a command word
+ * or nothing matches. Match quality ranks first (Skills before commands at each
+ * level); the user's frecency of picks breaks ties within a level.
+ */
 export const matchMenu = (
   word: string,
   atHead: boolean,
   options: ReadonlyArray<CommandOption>,
-  tokens: ReadonlyArray<CommandToken>
+  tokens: ReadonlyArray<CommandToken>,
+  frecency: FrecencyTable = {},
+  now = Date.now()
 ): Menu | null => {
   const match = TYPING.exec(word);
 
@@ -78,24 +122,33 @@ export const matchMenu = (
   const query = (match[2] ?? "").toLowerCase();
 
   if (!sigilOpen(sigil, atHead, tokens)) return null;
-  const ranked: Array<{ readonly option: CommandOption; readonly rank: number }> = [];
+
+  if (query === "") return bareMenu(sigil, options, frecency, now);
+
+  const ranked: Array<{
+    readonly option: CommandOption;
+    readonly rank: number;
+    readonly frecent: number;
+  }> = [];
 
   for (const option of options) {
     if (option.sigil !== sigil) continue;
     const r = rank(option, query);
 
-    if (r !== null) ranked.push({ option, rank: r });
+    if (r !== null)
+      ranked.push({ option, rank: r, frecent: frecencyScore(frecency[frecencyKey(option)], now) });
   }
 
   if (ranked.length === 0) return null;
-  // Stable: within a rank the Daemon's order (by name) holds.
-  ranked.sort((a, b) => a.rank - b.rank);
+  // Stable: with equal rank and frecency the Daemon's order (by name) holds.
+  ranked.sort((a, b) => a.rank - b.rank || b.frecent - a.frecent);
 
   return {
     sigil,
     query,
     options: ranked.slice(0, MENU_LIMIT).map((r) => r.option),
     more: Math.max(0, ranked.length - MENU_LIMIT),
+    recent: 0,
   };
 };
 

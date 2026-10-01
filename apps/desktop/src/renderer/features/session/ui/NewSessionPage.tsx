@@ -209,6 +209,7 @@ export const NewSessionPage = ({
 
   const commandList = useComposerCommands({
     hostKey,
+    workspaceId,
     harness: chosen,
     cwd: workspace?.path ?? null,
     openModels: () => setPickerOpen(true),

@@ -65,6 +65,19 @@ const menuAndChips = async (page: Page, step: (m: string) => void) => {
   await page.locator('[role="menu"]').waitFor({ state: "detached" });
   await expectText(page, "", "after /model");
   step("/model opens the Model menu and leaves no text");
+
+  // Frecency: what was just picked leads a bare /, under "Recent".
+  await clear(page);
+  await page.keyboard.type("/");
+  const menu = page.getByTestId("command-menu");
+
+  await menu.waitFor({ timeout: 2_000 });
+  const rows = (await menu.innerText()).split("\n");
+
+  if (rows[0] !== "Recent" || !rows.slice(1, 5).join(" ").includes("/compact"))
+    throw new Error(`a bare / should lead with Recent picks: ${rows.slice(0, 6).join(" | ")}`);
+  await page.keyboard.press("Escape");
+  step("a bare / leads with the frecent picks (Recent)");
 };
 
 const undoAndIme = async (page: Page, step: (m: string) => void) => {

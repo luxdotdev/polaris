@@ -156,6 +156,7 @@ export const SessionComposer = (props: SessionComposerProps) => {
 
   const commands: ComposerCommands = useComposerCommands({
     hostKey,
+    workspaceId: session.workspaceId,
     harness: session.harness,
     cwd: session.cwd,
     openModels: () => setPickerOpen(true),

@@ -357,3 +357,35 @@ export const offerFacts = (machine: MachineView) => {
     { label: "Installs to", value: `~/.polaris on ${machine.alias ?? machine.label}` },
   ];
 };
+
+/** An upgrade to tell the user about, keyed so each shows once. */
+export interface UpgradeNote {
+  readonly key: string;
+  readonly title: string;
+  readonly message: string;
+}
+
+/**
+ * The upgrades in `machines` not in `seen` (outcome keys), for a toast: the
+ * local Host's happen without the user asking, so they must say so.
+ */
+export const upgradeNotes = (
+  machines: ReadonlyArray<MachineView>,
+  seen: ReadonlySet<string>
+): ReadonlyArray<UpgradeNote> =>
+  machines.flatMap((machine) => {
+    const outcome = machine.install?.outcome;
+
+    if (outcome?.kind !== "upgraded") return [];
+    const key = `${machine.key}\u0000${outcome.from ?? ""}\u0000${outcome.version}`;
+
+    return seen.has(key)
+      ? []
+      : [
+          {
+            key,
+            title: "Daemon upgraded",
+            message: `${machine.label} · ${outcome.from ?? "?"} → ${outcome.version}`,
+          },
+        ];
+  });

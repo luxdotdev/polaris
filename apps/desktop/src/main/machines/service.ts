@@ -4,8 +4,8 @@
  * approval, install or upgrade), switches the local Host, and publishes the
  * Settings rows. A background check (a reconnect) never installs.
  */
-import type { InstallTrigger, Ssh } from "@polaris/client/install";
-import { Context, Effect, Fiber, Layer, Schema, Stream, SubscriptionRef } from "effect";
+import { type InstallPlan, type InstallTrigger, Ssh } from "@polaris/client/install";
+import { Context, Effect, Fiber, Layer, Predicate, Schema, Stream, SubscriptionRef } from "effect";
 import type { MachineView, SshAliasView } from "../../shared/api.ts";
 import { HostDirectory, LOCAL_HOST_KEY, localEntry, remoteEntry } from "../hosts.ts";
 import type { LocalDaemon } from "../localDaemon.ts";
@@ -15,7 +15,7 @@ import type { DaemonBuilds } from "./builds.ts";
 import { type InstallEvent, initialInstall, stepInstall } from "./installFlow.ts";
 import { applyWork, failureMessage, planFor, startDaemon } from "./remote.ts";
 import { sshArgv } from "./terminal.ts";
-import { backgroundCheckKey, type InstallRecord, machineViews } from "./views.ts";
+import { backgroundCheckKey, type InstallRecord, localUpgradeKey, machineViews } from "./views.ts";
 
 export class MachineError extends Schema.TaggedError<MachineError>()("MachineError", {
   message: Schema.String,
@@ -33,6 +33,11 @@ export interface MachinesInput {
   readonly aliases: () => ReadonlyArray<SshAliasView>;
   /** Finds or starts the local Daemon when the local Host is switched on. */
   readonly localDaemon: () => Promise<LocalDaemon>;
+  /**
+   * The home whose installed Daemon (`~/.polaris`) serves the local Host, so
+   * it upgrades like a remote one; null when this app runs its own or was given a socket.
+   */
+  readonly localHome: () => string | null;
   /** Opens Terminal on this Mac running `argv`. */
   readonly openTerminal: (argv: ReadonlyArray<string>) => Promise<void>;
   /** How install commands reach a Host (`Ssh.layer`; tests replace it). */
@@ -57,6 +62,15 @@ type Failure = { readonly message: string };
 
 /** What a check is doing while it runs, under the card's "Checking <host>". */
 const PROBING = "Asking over SSH for the platform and any installed daemon.";
+
+const PROBING_LOCAL = "Checking the daemon installed on this Mac.";
+
+/** The local Host only ever upgrades: installing a Daemon here is the user's own step. */
+const NO_LOCAL_INSTALL =
+  "This Mac has no daemon Polaris installed, so there is nothing to upgrade.";
+
+const installsAnew = (plan: InstallPlan) =>
+  Predicate.isTagged(plan, "NeedsApproval") || Predicate.isTagged(plan, "Install");
 
 const fail = (message: string) => Effect.fail(new MachineError({ message }));
 
@@ -121,6 +135,22 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
     return remote === undefined ? fail(`no remote host "${key}"`) : Effect.succeed(remote);
   };
 
+  /** How a check reaches the Host: ssh to a remote alias, or a local shell for this Mac. */
+  const target = (key: string) => {
+    const home = key === LOCAL_HOST_KEY ? input.localHome() : null;
+
+    return home === null
+      ? { alias: key, ssh: input.ssh, local: false, probing: PROBING }
+      : { alias: "local", ssh: Ssh.local(home), local: true, probing: PROBING_LOCAL };
+  };
+
+  const requireCheckable = (key: string) =>
+    key !== LOCAL_HOST_KEY
+      ? requireRemote(key)
+      : input.localHome() === null
+        ? fail("this Mac's daemon is the app's own, not one Polaris installed")
+        : Effect.void;
+
   const record = (key: string): InstallRecord =>
     installs.get(key) ?? { snapshot: initialInstall(), activity: null, offerSize: null };
 
@@ -156,55 +186,69 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
     });
 
   /** The flow after `check` moved to checking: plan, then maybe install. */
-  const checkBody = (alias: string, trigger: InstallTrigger) =>
-    Effect.gen(function* () {
+  const checkBody = (key: string, trigger: InstallTrigger) => {
+    const to = target(key);
+
+    return Effect.gen(function* () {
       const { plan, size } = yield* planFor({
-        alias,
+        alias: to.alias,
         trigger,
-        approved: input.approvals.approved(alias),
+        approved: to.local ? new Set<string>() : input.approvals.approved(key),
         builds: input.builds,
         onBuild: Effect.andThen(
           Effect.sync(() => void (bundled = undefined)),
-          setRecord(alias, { activity: "Building the daemon for this host from source" })
+          setRecord(key, { activity: "Building the daemon for this host from source" })
         ),
       });
 
-      yield* setRecord(alias, { offerSize: size });
+      if (to.local && installsAnew(plan)) {
+        yield* step(key, {
+          type: "failed",
+          problem: { kind: "failed", message: NO_LOCAL_INSTALL, command: null },
+        });
+
+        return;
+      }
+
+      yield* setRecord(key, { offerSize: size });
 
       const planned = yield* step(
-        alias,
+        key,
         { type: "planned", plan },
-        "Copying the build over SSH and checking its SHA-256"
+        to.local
+          ? "Copying the build and checking its SHA-256"
+          : "Copying the build over SSH and checking its SHA-256"
       );
 
       const pending = planned.value === "installing" ? planned.context.work : null;
 
       if (pending === null) return;
-      const outcome = yield* applyWork(alias, pending);
-      yield* step(alias, { type: "applied", outcome });
-      yield* retryConnection(alias);
+      const outcome = yield* applyWork(to.alias, pending);
+      yield* step(key, { type: "applied", outcome });
+      yield* retryConnection(key);
     }).pipe(
-      Effect.provide(input.ssh),
+      Effect.provide(to.ssh),
       Effect.catchTag("SshError", (error) =>
-        step(alias, {
+        step(key, {
           type: "failed",
           problem: { kind: "ssh", message: failureMessage(error), command: null },
         })
       ),
       Effect.catch((error) =>
-        step(alias, {
+        step(key, {
           type: "failed",
           problem: { kind: "failed", message: failureMessage(error), command: null },
         })
       ),
       Effect.asVoid
     );
+  };
 
-  const runCheck = (alias: string, trigger: InstallTrigger) =>
+  const runCheck = (key: string, trigger: InstallTrigger) =>
     Effect.gen(function* () {
-      const started = yield* step(alias, { type: "check", trigger }, PROBING);
+      const started = yield* step(key, { type: "check", trigger }, target(key).probing);
 
-      if (started.value === "checking") yield* launch(alias, checkBody(alias, trigger));
+      if (started.value === "checking") yield* launch(key, checkBody(key, trigger));
     });
 
   // Read once, not on every Connection State change; a dev build refreshes it.
@@ -228,12 +272,14 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
         const bundled = yield* bundledVersion();
 
         for (const host of hosts) {
-          const occasion = backgroundCheckKey(host, bundled);
+          const occasion =
+            host.key === LOCAL_HOST_KEY
+              ? localUpgradeKey(host, bundled, input.localHome())
+              : backgroundCheckKey(host, bundled);
 
-          if (occasion === null || host.alias === null || occasions.get(host.key) === occasion)
-            continue;
+          if (occasion === null || occasions.get(host.key) === occasion) continue;
           occasions.set(host.key, occasion);
-          yield* runCheck(host.alias, "background");
+          yield* runCheck(host.alias ?? host.key, "background");
         }
       })
     ),
@@ -347,7 +393,7 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
     add,
     update,
     remove,
-    check: (key) => Effect.andThen(requireRemote(key), runCheck(key, "user")),
+    check: (key) => Effect.andThen(requireCheckable(key), runCheck(key, "user")),
     approve,
     dismiss: (key) => Effect.asVoid(step(key, { type: "dismiss" })),
     startDaemon: restart,

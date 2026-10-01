@@ -40,15 +40,15 @@ export const useHarnessCommands = (
   enabled: boolean
 ): Listing & { readonly want: () => void } => {
   const key = harness === null || cwd === null ? null : `${hostKey}\u0000${harness}\u0000${cwd}`;
-  const [wanted, setWanted] = useState<string | null>(null);
+  // Once focused, whatever the Harness and directory become (the new-session page picks later).
+  const [wanted, setWanted] = useState(false);
 
   const [state, setState] = useState<{ readonly key: string; readonly listing: Listing } | null>(
     null
   );
 
   useEffect(() => {
-    if (!enabled || key === null || wanted !== key || harness === null || cwd === null)
-      return undefined;
+    if (!enabled || key === null || !wanted || harness === null || cwd === null) return undefined;
     let current = true;
 
     void ask(hostKey, harness, cwd).then((options) => {
@@ -66,8 +66,8 @@ export const useHarnessCommands = (
   const listing =
     fetched ??
     (cached === undefined
-      ? { options: [], loading: enabled && wanted === key }
+      ? { options: [], loading: enabled && wanted }
       : { options: cached, loading: false });
 
-  return { ...(enabled ? listing : NONE), want: () => setWanted(key) };
+  return { ...(enabled ? listing : NONE), want: () => setWanted(true) };
 };

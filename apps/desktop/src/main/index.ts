@@ -194,6 +194,7 @@ const start = async () => {
       repoRoot,
       dev,
       localDaemon: startLocal,
+      localHome: () => localDaemon?.installedHome ?? null,
     })
   );
 

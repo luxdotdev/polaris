@@ -3,12 +3,15 @@
  * Slash Commands, filtered as you type. Keyboard-first: the editor keeps focus
  * and owns ↑ ↓ ↵ ⇥ esc; a click picks too (DESIGN.md, Skills and Slash Commands).
  */
-import { CommandIcon, cn, SkillIcon } from "@polaris/ui";
+import { Button, CommandIcon, cn, Kbd, SkillIcon } from "@polaris/ui";
 import { useEffect, useRef } from "react";
 import type { CommandOption, Menu } from "../model/commands.ts";
+import type { CommandNotice } from "../model/notice.ts";
 import { describe, sourceLabel } from "../model/labels.ts";
 
 export interface CommandMenuProps {
+  /** Said instead of the list when the Host can't list commands. */
+  readonly notice: CommandNotice | null;
   /** Null while the list is still being read from the Host. */
   readonly menu: Menu | null;
   readonly loading: boolean;
@@ -77,7 +80,39 @@ const Row = ({
   );
 };
 
-export const CommandMenu = ({ menu, loading, active, onPick, onHover }: CommandMenuProps) => {
+const NoticeRow = ({ notice }: { readonly notice: CommandNotice }) => (
+  <div className="px-row-x flex items-center gap-3 py-1.5" data-testid="command-notice">
+    <SkillIcon size={16} className="text-text-subtle shrink-0" />
+    <p
+      className="text-caption text-text-default line-clamp-2 min-w-0 flex-1"
+      title={notice.message}
+    >
+      {notice.message}
+    </p>
+    {notice.action === null ? null : (
+      <Button
+        variant="secondary"
+        size="sm"
+        className="h-[22px] shrink-0 gap-1.5 px-2"
+        // The editor keeps focus: a mouse press must not move it.
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={notice.action.run}
+      >
+        {notice.action.label}
+        <Kbd variant="plain">↵</Kbd>
+      </Button>
+    )}
+  </div>
+);
+
+export const CommandMenu = ({
+  notice,
+  menu,
+  loading,
+  active,
+  onPick,
+  onHover,
+}: CommandMenuProps) => {
   const list = useRef<HTMLDivElement>(null);
 
   // Keeps the highlighted row in view as ↑ ↓ move it.
@@ -85,10 +120,34 @@ export const CommandMenu = ({ menu, loading, active, onPick, onHover }: CommandM
     list.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
   }, [active]);
 
+  if (notice !== null) {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className="rounded-card border-hairline bg-surface-raised shadow-float animate-in fade-in-0 mb-2 max-w-[560px] border p-1.5 duration-160 ease-out"
+      >
+        <NoticeRow notice={notice} />
+      </div>
+    );
+  }
+
   if (menu === null && !loading) return null;
 
   const options = menu?.options ?? [];
-  const grouped = new Set(options.map((o) => o.kind)).size > 1;
+  const recent = menu?.recent ?? 0;
+  const grouped = recent > 0 || new Set(options.map((o) => o.kind)).size > 1;
+
+  /** The header a row starts, if any: "Recent" over the frecent picks, then by kind. */
+  const header = (i: number, option: CommandOption) => {
+    if (!grouped) return null;
+
+    if (i === 0 && recent > 0) return "Recent";
+
+    if (i < recent) return null;
+
+    return i === recent || options[i - 1]?.kind !== option.kind ? GROUP_LABELS[option.kind] : null;
+  };
 
   return (
     <div
@@ -105,11 +164,11 @@ export const CommandMenu = ({ menu, loading, active, onPick, onHover }: CommandM
       ) : null}
       {options.map((option, i) => (
         <div key={`${option.sigil}${option.name}`}>
-          {grouped && (i === 0 || options[i - 1]?.kind !== option.kind) ? (
+          {header(i, option) === null ? null : (
             <div role="presentation" className="px-row-x text-caption text-text-subtle pt-2 pb-1">
-              {GROUP_LABELS[option.kind]}
+              {header(i, option)}
             </div>
-          ) : null}
+          )}
           <Row
             option={option}
             selected={i === active}

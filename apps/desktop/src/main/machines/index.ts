@@ -34,6 +34,7 @@ export interface MachinesLayerInput {
   readonly repoRoot: string;
   readonly dev: boolean;
   readonly localDaemon: () => Promise<LocalDaemon>;
+  readonly localHome: () => string | null;
 }
 
 /** Runs `argv` in a new Terminal window, through a `.command` file macOS opens there. */
@@ -60,6 +61,7 @@ export const machinesLayer = (input: MachinesLayerInput) =>
     }),
     aliases: () => readSshAliases(sshHome(input.env)),
     localDaemon: input.localDaemon,
+    localHome: input.localHome,
     openTerminal,
     ssh: Ssh.layer,
   });

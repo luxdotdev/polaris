@@ -55,6 +55,7 @@ const services = Layer.provideMerge(
     builds: { source: "none", forPlatform: () => Effect.succeed([]) },
     aliases: () => [{ alias: "studio", hostName: null, user: null }],
     localDaemon: () => Promise.reject(new Error("no local daemon in tests")),
+    localHome: () => null,
     openTerminal: () => Promise.resolve(),
     ssh: Layer.succeed(Ssh, Ssh.of({ exec: () => Effect.die("no ssh in tests") })),
   }),

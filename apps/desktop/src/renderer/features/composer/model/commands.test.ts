@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { recordPick } from "./frecency.ts";
 import {
   type CommandOption,
   findComplete,
@@ -115,5 +116,45 @@ describe("what a Turn sends", () => {
     expect(promptFor("/prompts:fix 42 in the parser", prompts)).toBe(
       "Fix issue 42 carefully.\nContext: 42 in the parser"
     );
+  });
+});
+
+describe("frecency in the / menu", () => {
+  const NOW = Date.UTC(2026, 9, 1, 12);
+
+  const picked = (...keys: ReadonlyArray<string>) =>
+    keys.reduce((table, key) => recordPick(table, key, NOW - 60_000), {});
+
+  test("a bare / leads with the user's frecent picks, then the rest", () => {
+    const menu = matchMenu("/", true, OPTIONS, [], picked("/compact", "/compact", "/model"), NOW);
+
+    expect(names(menu)).toEqual([
+      "compact",
+      "model",
+      "simplify",
+      "security-review",
+      "codex:review",
+    ]);
+    expect(menu?.recent).toBe(2);
+  });
+
+  test("a pick only breaks ties: match quality still ranks first", () => {
+    // "security-review" is a prefix match, "codex:review" a part's: frecency can't swap them.
+    expect(names(matchMenu("/s", true, OPTIONS, [], picked("/simplify"), NOW))).toEqual([
+      "simplify",
+      "security-review",
+    ]);
+    expect(names(matchMenu("/s", true, OPTIONS, [], picked("/security-review"), NOW))).toEqual([
+      "security-review",
+      "simplify",
+    ]);
+    expect(names(matchMenu("/re", true, OPTIONS, [], picked("/codex:review"), NOW))).toEqual([
+      "codex:review",
+      "security-review",
+    ]);
+  });
+
+  test("picks of commands the Harness no longer lists are skipped", () => {
+    expect(matchMenu("/", true, OPTIONS, [], picked("/gone"), NOW)?.recent).toBe(0);
   });
 });

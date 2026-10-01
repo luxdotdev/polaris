@@ -49,7 +49,7 @@ const status = (patch: Partial<ConnectionStatusView>): ConnectionStatusView => (
   ...patch,
 });
 
-const setup = (sshFails = false) => {
+const setup = (sshFails = false, localHome: string | null = null) => {
   let settings: Settings = {};
   const hostViews = Effect.runSync(SubscriptionRef.make<ReadonlyArray<HostView>>([]));
   const entries = new Map<string, HostEntry>();
@@ -61,7 +61,7 @@ const setup = (sshFails = false) => {
       views: hostViews,
       entry: (key) => entries.get(key),
       connection: (key) =>
-        key === "studio"
+        key === "studio" || key === "local"
           ? // SAFETY: the service only calls `retryNow` on the connection here.
             Effect.succeed({ retryNow: Effect.sync(() => void retried.push(key)) } as never)
           : Effect.fail(new UnknownHost(key)),
@@ -81,6 +81,7 @@ const setup = (sshFails = false) => {
     }),
     aliases: () => [{ alias: "studio", hostName: "studio.lan", user: null }],
     localDaemon: () => Promise.reject(new Error("unused")),
+    localHome: () => localHome,
     openTerminal: () => Promise.resolve(),
     ssh: Layer.succeed(
       Ssh,
@@ -129,10 +130,48 @@ const setup = (sshFails = false) => {
       ])
     );
 
+  /** Waits until this Mac's row satisfies `predicate`. */
+  const local = (predicate: (view: MachineView) => boolean) =>
+    runtime.runPromise(
+      Machines.use((m) =>
+        SubscriptionRef.changes(m.views).pipe(
+          Stream.map((views) => views.find((v) => v.key === "local")),
+          Stream.filter((view): view is MachineView => view !== undefined && predicate(view)),
+          Stream.runHead,
+          Effect.map(Option.getOrUndefined),
+          Effect.timeout(5000)
+        )
+      )
+    );
+
+  const setLocal = (patch: Partial<ConnectionStatusView>) =>
+    runtime.runPromise(
+      SubscriptionRef.set(hostViews, [
+        {
+          key: "local",
+          label: "This Mac",
+          colour: null,
+          alias: null,
+          proofHarness: false,
+          status: status(patch),
+        },
+      ])
+    );
+
   const call = <A, E>(use: (m: Machines["Service"]) => Effect.Effect<A, E>) =>
     runtime.runPromise(Machines.use(use));
 
-  return { runtime, studio, setStatus, call, retried, settings: () => settings, entries };
+  return {
+    runtime,
+    studio,
+    setStatus,
+    local,
+    setLocal,
+    call,
+    retried,
+    settings: () => settings,
+    entries,
+  };
 };
 
 const installed = () => existsSync(join(home, ".polaris", "bin", "current", "polaris"));
@@ -260,6 +299,56 @@ describe("Machines", () => {
     await call((m) => m.remove("studio"));
     expect(settings().hosts).toEqual([]);
     expect(openApprovals(join(root, "approvals.json")).approved("studio").size).toBe(0);
+    await runtime.dispose();
+  });
+});
+
+describe("this Mac's own Daemon", () => {
+  const installedVersion = () =>
+    runOnFakeHost(home, '"$HOME/.polaris/bin/current/polaris" version').stdout.trim();
+
+  test("an older installed Daemon upgrades on connection, with no approval, and says so", async () => {
+    writeDist(dist, { version: "0.1.0", platform });
+    runOnFakeHost(home, `mkdir -p "$HOME" && "${join(dist, platform, "polaris")}" install`);
+    writeDist(dist, { version: "0.0.0-dev.412.abc1234", platform });
+    const { runtime, local, setLocal, retried } = setup(false, home);
+
+    await setLocal({ state: "connected", epoch: 3, host: info("0.1.0") });
+    const upgraded = await local((v) => v.install?.outcome?.kind === "upgraded");
+
+    // A dev build replaces any other version, newer-looking or not (`upgradeDue`).
+    expect(upgraded?.install?.outcome).toMatchObject({
+      from: "0.1.0",
+      version: "0.0.0-dev.412.abc1234",
+    });
+    expect(installedVersion()).toContain("0.0.0-dev.412.abc1234");
+    expect(retried).toContain("local");
+    await runtime.dispose();
+  });
+
+  test("the app's own dev Daemon is never touched", async () => {
+    writeDist(dist, { version: "0.2.0", platform });
+    const { runtime, local, setLocal, call } = setup(false, null);
+
+    await setLocal({ state: "connected", epoch: 1, host: info("0.1.0") });
+    const row = await local(() => true);
+
+    expect(row?.install).toBeNull();
+    const refused = await call((m) => Effect.flip(m.check("local")));
+
+    expect(refused.message).toContain("not one Polaris installed");
+    await runtime.dispose();
+  });
+
+  test("a check with nothing installed here never installs", async () => {
+    writeDist(dist, { version: "0.2.0", platform });
+    const { runtime, local, call } = setup(false, home);
+
+    await call((m) => m.check("local"));
+    const blocked = await local((v) => v.install?.step === "blocked");
+
+    expect(blocked?.install?.problem?.message).toContain("no daemon Polaris installed");
+    expect(installed()).toBe(false);
     await runtime.dispose();
   });
 });

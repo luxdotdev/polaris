@@ -48,6 +48,7 @@ export const machineViews = ({
 }: MachineViewsInput): ReadonlyArray<MachineView> => {
   const status = (key: string) => hosts.find((h) => h.key === key)?.status ?? null;
   const local = hosts.find((h) => h.key === LOCAL_HOST_KEY);
+  const localInstall = installs.get(LOCAL_HOST_KEY);
 
   const localView: MachineView = {
     key: LOCAL_HOST_KEY,
@@ -59,7 +60,7 @@ export const machineViews = ({
     forwardAgent: false,
     remoteCommand: null,
     status: status(LOCAL_HOST_KEY),
-    install: null,
+    install: localInstall === undefined ? null : installFlowView(localInstall),
   };
 
   const remotes = (settings.hosts ?? []).map((remote): MachineView => {
@@ -114,6 +115,24 @@ export const backgroundCheckKey = (
   }
 
   return null;
+};
+
+/**
+ * The local Host's background check: only an upgrade (`upgradeDue`) of the
+ * Daemon installed in `home`, once per connection. Null when the app runs its own.
+ */
+export const localUpgradeKey = (
+  view: HostView,
+  bundledVersion: string | null,
+  home: string | null
+): string | null => {
+  const { status } = view;
+
+  if (home === null || bundledVersion === null) return null;
+
+  if (status.state !== "connected" || status.host === null) return null;
+
+  return upgradeDue(status.host.daemonVersion, bundledVersion) ? `upgrade:${status.epoch}` : null;
 };
 
 const LINGER_COMMAND = /sudo loginctl enable-linger \S+/;
