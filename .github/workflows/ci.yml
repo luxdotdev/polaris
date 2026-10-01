@@ -110,7 +110,7 @@ jobs:
           path: dist
       - name: Run polaris selftest (embedded fff loads) and check the manifest hash
         run: |
-          chmod +x dist/${{ matrix.platform }}/polaris
+          chmod +x dist/${{ matrix.platform }}/polaris dist/${{ matrix.platform }}/betterleaks
           dist/${{ matrix.platform }}/polaris version | grep -x "polaris .* ${{ matrix.platform }}"
           dist/${{ matrix.platform }}/polaris selftest
           expected=$(jq -r '.platforms["${{ matrix.platform }}"].sha256' dist/manifest.json)
