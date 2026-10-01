@@ -135,7 +135,19 @@ export const CommandMenu = ({
   if (menu === null && !loading) return null;
 
   const options = menu?.options ?? [];
-  const grouped = new Set(options.map((o) => o.kind)).size > 1;
+  const recent = menu?.recent ?? 0;
+  const grouped = recent > 0 || new Set(options.map((o) => o.kind)).size > 1;
+
+  /** The header a row starts, if any: "Recent" over the frecent picks, then by kind. */
+  const header = (i: number, option: CommandOption) => {
+    if (!grouped) return null;
+
+    if (i === 0 && recent > 0) return "Recent";
+
+    if (i < recent) return null;
+
+    return i === recent || options[i - 1]?.kind !== option.kind ? GROUP_LABELS[option.kind] : null;
+  };
 
   return (
     <div
@@ -152,11 +164,11 @@ export const CommandMenu = ({
       ) : null}
       {options.map((option, i) => (
         <div key={`${option.sigil}${option.name}`}>
-          {grouped && (i === 0 || options[i - 1]?.kind !== option.kind) ? (
+          {header(i, option) === null ? null : (
             <div role="presentation" className="px-row-x text-caption text-text-subtle pt-2 pb-1">
-              {GROUP_LABELS[option.kind]}
+              {header(i, option)}
             </div>
-          ) : null}
+          )}
           <Row
             option={option}
             selected={i === active}

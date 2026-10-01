@@ -36,7 +36,8 @@ stateDiagram-v2
 ```
 
 - **Only the user installs.** A check is `user` (added the Host, Install, Approve, Try again) or `background`. A background check that finds no Daemon asks for approval, even when this build's SHA-256 was approved before: the planner returns `NeedsApproval(background)`, and the machine turns even an `Install` plan on a background check into a question (tested from every state).
-- **Upgrades need no new approval**, on any trigger; the outcome (`upgraded`, from → to) shows under the row.
+- **Upgrades need no new approval**, on any trigger; the outcome (`upgraded`, from → to) shows under the row, and the renderer toasts "Daemon upgraded".
+- **This Mac follows the same rule** when its local Host is the installed system Daemon (`LocalDaemon.installedHome`; never the app's own dev Daemon or a given socket): a connection to an older Daemon, or to any other version under a dev build (`upgradeDue`, D211), upgrades it with `polaris upgrade` (execve, sessions keep running), through the same planner, upload and SHA-256 check run in a local shell (`Ssh.local(home)`). The local Host only ever upgrades: a plan to install becomes a failed check ("no daemon Polaris installed"). `check("local")` runs it on demand (the composer's "Upgrade daemon"). `POLARIS_DESKTOP_LOCAL_HOME` marks a given socket's Daemon as installed in that home (tests: `scripts/oldDaemon.ts`).
 - **Background checks** run once per occasion (`backgroundCheckKey`): entering Needs Attention for `polaris-not-installed` or `protocol-mismatch`, or a new connection to a Daemon older than the bundled build. Not every 2-minute retry.
 - "Not now" parks the Host (`dismissed`); background checks leave it parked.
 - An ssh failure during the check (`SshError`) is problem `ssh`: the row shows the Connection State's own card (host key, auth) instead.

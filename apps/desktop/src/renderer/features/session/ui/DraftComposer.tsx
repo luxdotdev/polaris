@@ -12,7 +12,12 @@ import {
   type DropMode,
   type Upload,
 } from "../../attachments/index.ts";
-import { type CommandNotice, type CommandOption, Prompt } from "../../composer/index.ts";
+import {
+  type CommandNotice,
+  type CommandOption,
+  type FrecencyTable,
+  Prompt,
+} from "../../composer/index.ts";
 import type { StagedAttachment } from "../state.ts";
 
 /** The `/` menu's list, and what to do for a command Polaris runs itself. */
@@ -24,6 +29,9 @@ export interface ComposerCommands {
   readonly onAction: (action: PolarisAction) => void;
   /** Said instead of a list when the Host can't list them (its Daemon is too old). */
   readonly notice: CommandNotice | null;
+  /** The user's frecency of picks where this composer runs, and recording a pick. */
+  readonly frecency: FrecencyTable;
+  readonly onPicked: (option: CommandOption) => void;
 }
 
 const NO_COMMANDS: ComposerCommands = {
@@ -32,6 +40,8 @@ const NO_COMMANDS: ComposerCommands = {
   want: () => undefined,
   onAction: () => undefined,
   notice: null,
+  frecency: {},
+  onPicked: () => undefined,
 };
 
 export interface DraftComposerProps {
@@ -141,6 +151,8 @@ export const DraftComposer = ({
                 takesFiles={onFiles !== undefined}
                 onAction={commands.onAction}
                 notice={commands.notice}
+                frecency={commands.frecency}
+                onPicked={commands.onPicked}
                 onFocus={commands.want}
                 menuSlot={menuSlot}
               />
