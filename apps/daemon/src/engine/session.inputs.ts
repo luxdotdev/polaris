@@ -15,6 +15,7 @@ import {
   SubagentId,
   Turn,
   TurnId,
+  TurnStatus,
 } from "@polaris/protocol";
 import { Schema } from "effect";
 import type { EventObject } from "xstate";
@@ -44,6 +45,15 @@ export const eventSchemas = {
       model: ModelId,
       effort: Schema.NullOr(ReasoningEffort),
       canSwitchModel: Schema.Boolean,
+    })
+  ),
+  "turns.accept": standard(
+    Schema.Struct({
+      turnId: TurnId,
+      index: Schema.Int,
+      status: TurnStatus,
+      revertLaterTurns: Schema.Boolean,
+      acceptedBy: Schema.String,
     })
   ),
   "session.archive": standard(Schema.Struct(At)),

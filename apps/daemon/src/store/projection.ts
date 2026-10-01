@@ -12,6 +12,7 @@ import {
   EventEnvelope,
   NotFound,
   RequestId,
+  ReviewCheckout,
   Sequence,
   type SessionId,
   Subagent,
@@ -22,7 +23,8 @@ import {
 } from "@polaris/protocol";
 import { Effect, Schema } from "effect";
 import type { SqlClient, SqlError } from "effect/sql";
-import { ServiceError } from "../services.ts";
+import { storeError } from "./errors.ts";
+import { projectReviewEvent } from "./review.ts";
 import {
   emptyModel,
   RECENT_TURNS,
@@ -60,10 +62,11 @@ export const ApprovalJson = json(ApprovalRequest);
 
 export const SubagentJson = json(Subagent);
 
+export const ReviewCheckoutJson = json(ReviewCheckout);
+
 export const RejectionJson = json(Schema.Union([CommandRejected, NotFound]));
 
-export const storeError = (what: string) => (cause: unknown) =>
-  new ServiceError({ service: "store", message: `failed to ${what}`, cause });
+export { storeError };
 
 // ── Events ──────────────────────────────────────────────────────────────────
 
@@ -171,6 +174,20 @@ const subagentRow = (subagent: Subagent) =>
       })}`
   );
 
+const checkoutRow =
+  (checkout: ReviewCheckout): Projection =>
+  ({ sql }) =>
+    sql`INSERT OR REPLACE INTO review_checkouts ${sql.insert({
+      id: checkout.id,
+      workspace_id: checkout.workspaceId,
+      data: ReviewCheckoutJson.encode(checkout),
+    })}`;
+
+const reviewRow =
+  (event: DomainEvent): Projection =>
+  ({ sql, envelope }) =>
+    projectReviewEvent(sql, event, envelope.sequence, envelope.occurredAt);
+
 const projectionOf: (event: DomainEvent) => Projection = DomainEvent.match<Projection>({
   WorkspaceRegistered: (event) => (target) => setWorkspace(target, event.workspace),
   WorkspaceUpdated: (event) => (target) => setWorkspace(target, event.workspace),
@@ -236,6 +253,21 @@ const projectionOf: (event: DomainEvent) => Projection = DomainEvent.match<Proje
   ApprovalWithdrawn: withdrawnRequest,
   SubagentStarted: ({ subagent }) => subagentRow(subagent),
   SubagentEnded: ({ subagent }) => subagentRow(subagent),
+  TurnsAccepted: (event) => sessionRow(event.sessionId),
+  TurnsReverted: (event) => sessionRow(event.sessionId),
+  SessionPullRequestLinked: (event) => sessionRow(event.sessionId),
+  ReviewCheckoutOpened: ({ checkout }) => checkoutRow(checkout),
+  ReviewCheckoutChanged: ({ checkout }) => checkoutRow(checkout),
+  ReviewCheckoutRemoved:
+    ({ checkoutId }) =>
+    ({ sql }) =>
+      sql`DELETE FROM review_checkouts WHERE id = ${checkoutId}`,
+  RiskSummaryStarted: reviewRow,
+  RiskSummaryLayerChanged: reviewRow,
+  RiskFindingsRecorded: reviewRow,
+  RiskFindingResolved: reviewRow,
+  RiskSummaryEnded: reviewRow,
+  VerdictRecorded: reviewRow,
 });
 
 /** Persist what `envelope` changed in the read model `after` it. */
@@ -272,6 +304,7 @@ export const loadModel = (sql: SqlClient.SqlClient) =>
       ORDER BY session_id, turn_index`;
 
     const pending = yield* sql<{ data: string }>`SELECT data FROM pending_approvals`;
+    const checkouts = yield* sql<{ data: string }>`SELECT data FROM review_checkouts`;
 
     const working = yield* sql<{
       data: string;
@@ -322,6 +355,7 @@ export const loadModel = (sql: SqlClient.SqlClient) =>
       workspaces: byId(workspaces.map((row) => WorkspaceJson.decode(row.data))),
       worktrees: byId(worktrees.map((row) => WorktreeJson.decode(row.data))),
       sessions: new Map(records.map((record) => [record.session.id, record])),
+      reviewCheckouts: byId(checkouts.map((row) => ReviewCheckoutJson.decode(row.data))),
     };
 
     return model;

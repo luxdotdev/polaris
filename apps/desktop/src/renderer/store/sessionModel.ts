@@ -146,6 +146,25 @@ const fold = (event: DomainEvent): Fold =>
       WorkspaceRemoved: () => same,
       WorktreeDetected: () => same,
       WorktreeRemoved: () => same,
+      TurnsAccepted:
+        ({ throughIndex }): Fold =>
+        (m) =>
+          patchSession(m, { acceptedThroughIndex: throughIndex }),
+      TurnsReverted: () => same,
+      SessionPullRequestLinked:
+        ({ pullRequest }): Fold =>
+        (m) =>
+          patchSession(m, { pullRequest }),
+      // Review Checkouts, Risk Summaries and Verdicts: the Review UI keeps its own (M2-K, M2-F).
+      ReviewCheckoutOpened: () => same,
+      ReviewCheckoutChanged: () => same,
+      ReviewCheckoutRemoved: () => same,
+      RiskSummaryStarted: () => same,
+      RiskSummaryLayerChanged: () => same,
+      RiskFindingsRecorded: () => same,
+      RiskFindingResolved: () => same,
+      RiskSummaryEnded: () => same,
+      VerdictRecorded: () => same,
       SessionCreated:
         ({ session }): Fold =>
         (m) => ({ ...m, session }),

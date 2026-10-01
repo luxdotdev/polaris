@@ -48,7 +48,8 @@ import { paths } from "../paths.ts";
 import type { ServiceError } from "../services.ts";
 import { type EphemeralItem, LiveHub, LiveItem } from "./hub.ts";
 import { MigrationsLayer } from "./migrations.ts";
-import { project, type ReadModel, sessionOf, sessionOnlyEventTypes } from "./model.ts";
+import { hostOmittedEventTypes, project, type ReadModel, sessionOf } from "./model.ts";
+import { type ReviewReads, reviewReads } from "./review.ts";
 import {
   decodeEventRow,
   EventJson,
@@ -167,6 +168,8 @@ export class EventStore extends Context.Service<
       readonly turnIds: ReadonlyArray<TurnId>;
       readonly upTo: number;
     }) => Effect.Effect<ReadonlyMap<TurnId, ReadonlyArray<SubagentDetail>>, ServiceError>;
+    /** Risk Summaries and Verdicts, which live in SQL only (`review.ts`). */
+    readonly review: ReviewReads;
   }
 >()("polaris/daemon/store/EventStore") {
   static readonly layer = Layer.effect(
@@ -190,7 +193,7 @@ export class EventStore extends Context.Service<
           ? sql<EventRow>`
               SELECT sequence, occurred_at, command_id, payload FROM events
               WHERE sequence > ${options.after} AND sequence <= ${options.upTo}
-                AND event_type NOT IN ${sql.in(sessionOnlyEventTypes)}
+                AND event_type NOT IN ${sql.in(hostOmittedEventTypes)}
               ORDER BY sequence`
           : sql<EventRow>`
               SELECT sequence, occurred_at, command_id, payload FROM events
@@ -314,6 +317,7 @@ export class EventStore extends Context.Service<
         lastKnownWorktree,
         readTurnItems,
         readSubagents,
+        review: reviewReads(sql),
       });
     })
   );

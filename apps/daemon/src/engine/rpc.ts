@@ -31,9 +31,13 @@ export class ClientCapabilities extends Context.Service<
 
 export const UNKNOWN_DEVICE = "Unknown device";
 
+/** Everything the Client announced in its `hello`. */
+const announcedAll = (annotations: Context.Context<never>): ReadonlyArray<Capability> =>
+  Context.getOrUndefined(annotations, ClientCapabilities) ?? [];
+
 /** Whether the Client announced `capability` in its `hello`. */
 const announced = (annotations: Context.Context<never>, capability: Capability) =>
-  (Context.getOrUndefined(annotations, ClientCapabilities) ?? []).includes(capability);
+  announcedAll(annotations).includes(capability);
 
 const DispatchHandler = DaemonRpcs.toLayerHandler(
   "dispatch",
@@ -57,6 +61,7 @@ const SubscribeHostHandler = DaemonRpcs.toLayerHandler(
     return ({ afterSequence }, { client }) =>
       engine.subscribeHost(afterSequence, {
         subagents: announced(client.annotations, "session.subagents"),
+        capabilities: announcedAll(client.annotations),
       });
   })
 );
@@ -73,6 +78,7 @@ const SubscribeSessionHandler = DaemonRpcs.toLayerHandler(
         turnLimit,
         liveItems: announced(client.annotations, "session.live-items"),
         subagents: announced(client.annotations, "session.subagents"),
+        capabilities: announcedAll(client.annotations),
       });
   })
 );

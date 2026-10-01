@@ -197,6 +197,21 @@ const fold = (event: DomainEvent): Fold =>
       SubagentStarted: () => unchanged,
       SubagentEnded: () => unchanged,
       CheckpointRecorded: () => unchanged,
+      TurnsAccepted: ({ sessionId, throughIndex }) =>
+        onSession(sessionId, patch({ acceptedThroughIndex: throughIndex })),
+      TurnsReverted: () => unchanged,
+      SessionPullRequestLinked: ({ sessionId, pullRequest }) =>
+        onSession(sessionId, patch({ pullRequest })),
+      // Review Checkouts, Risk Summaries and Verdicts: the Review UI keeps its own (M2-K, M2-F).
+      ReviewCheckoutOpened: () => unchanged,
+      ReviewCheckoutChanged: () => unchanged,
+      ReviewCheckoutRemoved: () => unchanged,
+      RiskSummaryStarted: () => unchanged,
+      RiskSummaryLayerChanged: () => unchanged,
+      RiskFindingsRecorded: () => unchanged,
+      RiskFindingResolved: () => unchanged,
+      RiskSummaryEnded: () => unchanged,
+      VerdictRecorded: () => unchanged,
       ApprovalRequested: ({ request }) =>
         onSession(request.sessionId, (entry) => ({
           ...entry,

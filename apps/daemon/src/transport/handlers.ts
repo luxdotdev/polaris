@@ -56,6 +56,7 @@ export const defaultHandlers = (options: {
             workspaces: [],
             worktrees: [],
             sessions: [],
+            reviewCheckouts: [],
           },
           { _tag: "Synchronized" as const, sequence: Sequence.make(0) },
         ]),
@@ -86,6 +87,19 @@ export const defaultHandlers = (options: {
 
     "git.status": ({ cwd }) => Effect.fail(new GitError({ cwd, message: notYet("git") })),
     "git.diff": ({ cwd }) => Effect.fail(new GitError({ cwd, message: notYet("git") })),
+    "git.show": ({ cwd }) => Effect.fail(new GitError({ cwd, message: notYet("git") })),
+
+    // TODO(M2-C checkout): the live status of a Review Checkout.
+    "review.checkoutStatus": () => Effect.fail(new Unsupported({ capability: "review.checkouts" })),
+    // TODO(M2-R rules, M2-V reviewer): run the Rules and the Reviewer.
+    "review.runRiskSummary": () =>
+      Effect.fail(new Unsupported({ capability: "review.risk-summary" })),
+    "review.riskSummary": () => Effect.fail(new Unsupported({ capability: "review.risk-summary" })),
+    "review.watchRiskSummary": () =>
+      Stream.fail(new Unsupported({ capability: "review.risk-summary" })),
+    // TODO(M2-V reviewer): continue the Reviewer's own Agent Session.
+    "review.askFinding": () => Effect.fail(new Unsupported({ capability: "review.ask" })),
+    "review.verdicts": () => Effect.fail(new Unsupported({ capability: "review.verdicts" })),
 
     // Drain the bytes the Client already sent so they don't sit in the connection buffer.
     "attachments.stage": ({ name, blobId }) =>

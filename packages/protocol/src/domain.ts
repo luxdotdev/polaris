@@ -9,15 +9,15 @@ import {
   RequestId,
   SessionId,
   SubagentId,
+  Timestamp,
   TurnId,
   WorkspaceId,
   WorktreeId,
 } from "./ids.ts";
-import { addedNullable, ModelId, ReasoningEffort } from "./models.ts";
+import { addedNullable, ModelId, optionalNullable, ReasoningEffort } from "./models.ts";
+import { FeedbackBatch, PullRequestRef } from "./review.ts";
 
-export const Timestamp = Schema.String; // ISO-8601, UTC
-
-export type Timestamp = typeof Timestamp.Type;
+export { Timestamp } from "./ids.ts";
 
 export const SessionState = Schema.Literals([
   "starting",
@@ -114,6 +114,10 @@ export class AgentSession extends Schema.Class<AgentSession>("AgentSession")({
   /** Null until the Harness reports it; some Harnesses never do. */
   contextUsage: addedNullable(ContextUsage),
   lastError: Schema.NullOr(Schema.String),
+  /** The index of the last Turn the user accepted (`AcceptTurns`); null before any. */
+  acceptedThroughIndex: optionalNullable(Schema.Int),
+  /** The pull request the accepted work was opened as (`LinkPullRequest`). */
+  pullRequest: optionalNullable(PullRequestRef),
   createdAt: Timestamp,
   updatedAt: Timestamp,
 }) {}
@@ -144,6 +148,8 @@ export class Turn extends Schema.Class<Turn>("Turn")({
   model: addedNullable(ModelId),
   effort: addedNullable(ReasoningEffort),
   status: TurnStatus,
+  /** Set when the Turn was sent from Review feedback (`SendFeedback`); `prompt` is its rendering. */
+  feedback: optionalNullable(FeedbackBatch),
   /** `refs/polaris/checkpoints/<session>/<turn>` taken before and after the Turn. */
   checkpointBefore: Schema.NullOr(Schema.String),
   checkpointAfter: Schema.NullOr(Schema.String),

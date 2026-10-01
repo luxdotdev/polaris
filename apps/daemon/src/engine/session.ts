@@ -23,7 +23,7 @@ import {
   Turn,
   type TurnId,
 } from "@polaris/protocol";
-import { Predicate } from "effect";
+import { Predicate, Result } from "effect";
 import { createMachine, isUnhandled, transition, types } from "xstate";
 import {
   foldSession,
@@ -39,6 +39,7 @@ import {
   type SessionEffect,
   type SessionInput,
 } from "./session.inputs.ts";
+import { acceptTurns } from "./session.accept.ts";
 import { endSubagents, subagentEnded, subagentStarted } from "./session.subagents.ts";
 
 export type { SessionEffect, SessionInput } from "./session.inputs.ts";
@@ -497,6 +498,14 @@ export const sessionMachine = createMachine({
         }),
       ]);
     },
+    "turns.accept": ({ context, event }, enq) => {
+      const record = need(context);
+      const accepted = acceptTurns(record, event);
+
+      return Result.isSuccess(accepted)
+        ? settle(enq, record, accepted.success)
+        : reject(enq, accepted.failure);
+    },
     "session.archive": archive,
     "session.unarchive": (_, enq) => reject(enq, "the session is not Archived"),
     "terminal.open": ({ context }, enq) =>
@@ -683,6 +692,7 @@ export const sessionMachine = createMachine({
         "terminal.return": ({ context }, enq) =>
           settle(enq, need(context), [], { state: "starting" }),
         "model.set": (_, enq) => reject(enq, "the session is In Terminal; return it first"),
+        "turns.accept": (_, enq) => reject(enq, "the session is In Terminal; return it first"),
         // Polaris follows along without changing the state.
         "harness.approvalRequested": ({ context, event }, enq) =>
           approvalRequested(need(context), event, enq),
@@ -732,6 +742,7 @@ export const sessionMachine = createMachine({
           settle(enq, need(context), [], { state: "dormant" }),
         "permissionMode.set": (_, enq) => reject(enq, "the session is Archived"),
         "model.set": (_, enq) => reject(enq, "the session is Archived"),
+        "turns.accept": (_, enq) => reject(enq, "the session is Archived"),
         // Its Harness is being stopped: record a Turn's end, nothing else moves it.
         "harness.turnEnded": ({ context, event }, enq) =>
           turnEnded(need(context), event, enq, false),

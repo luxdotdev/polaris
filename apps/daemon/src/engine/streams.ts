@@ -4,6 +4,7 @@
  * the Client's sequence) up to the cut, `Synchronized`, then live items after it.
  */
 import {
+  type Capability,
   HostStreamItem,
   NotFound,
   Sequence,
@@ -18,6 +19,8 @@ import {
 import { Context, Effect, Layer, Predicate, Result, Stream } from "effect";
 import type { LiveItem } from "../store/EventStore.ts";
 import {
+  eventCapability,
+  gatingCapabilities,
   isHostStreamEvent,
   isSubagentEvent,
   lastTurn,
@@ -33,12 +36,25 @@ export interface SessionSubscription {
   readonly liveItems?: boolean;
   /** Send Subagents and their items (the Client announced `session.subagents`). Default false. */
   readonly subagents?: boolean;
+  /** What the Client announced: events that need another capability are left out. Default none. */
+  readonly capabilities?: ReadonlyArray<Capability>;
 }
 
 export interface HostSubscription {
   /** Send Subagents (the Client announced `session.subagents`). Default false. */
   readonly subagents?: boolean;
+  /** What the Client announced (see `eventCapability`). Default none. */
+  readonly capabilities?: ReadonlyArray<Capability>;
 }
+
+/** Whether a Client with `capabilities` can decode `event` (`eventCapability`). */
+const decodes =
+  (capabilities: ReadonlyArray<Capability>) =>
+  (event: DomainEvent): boolean => {
+    const needed = eventCapability(event);
+
+    return needed === null || capabilities.includes(needed);
+  };
 
 const summaryOf = (record: SessionRecord, subagents: boolean) =>
   new SessionSummary({
@@ -55,23 +71,35 @@ const withoutSubagents = (item: LiveItem): boolean =>
     : item.subagentId === null;
 
 const hostItem =
-  (subagents: boolean) =>
+  (subagents: boolean, capabilities: ReadonlyArray<Capability>) =>
   (item: LiveItem): boolean =>
     Predicate.isTagged(item, "Event") &&
     isHostStreamEvent(item.envelope.event) &&
-    (subagents || !isSubagentEvent(item.envelope.event));
+    (subagents || !isSubagentEvent(item.envelope.event)) &&
+    decodes(capabilities)(item.envelope.event);
 
 /** What a session stream sends live, by what the Client announced. */
-const sessionFilter = (liveItems: boolean, subagents: boolean) => {
-  if (liveItems && subagents) return undefined;
+const sessionFilter = (
+  liveItems: boolean,
+  subagents: boolean,
+  capabilities: ReadonlyArray<Capability>
+) => {
+  const known = decodes(capabilities);
+  const decodesAll = gatingCapabilities.every((c) => capabilities.includes(c));
+
+  // No filter at all is cheaper: this would run for every Delta.
+  if (liveItems && subagents && decodesAll) return undefined;
 
   return (item: LiveItem): boolean =>
     (liveItems || !Predicate.isTagged(item, "ItemProgress")) &&
-    (subagents || withoutSubagents(item));
+    (subagents || withoutSubagents(item)) &&
+    (!Predicate.isTagged(item, "Event") || known(item.envelope.event));
 };
 
-const allowedEvent = (subagents: boolean) => (envelope: { readonly event: DomainEvent }) =>
-  subagents || !isSubagentEvent(envelope.event);
+const allowedEvent =
+  (subagents: boolean, capabilities: ReadonlyArray<Capability>) =>
+  (envelope: { readonly event: DomainEvent }) =>
+    (subagents || !isSubagentEvent(envelope.event)) && decodes(capabilities)(envelope.event);
 
 const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
   const { store } = rt;
@@ -83,7 +111,12 @@ const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
     Stream.unwrap(
       Effect.gen(function* () {
         const withSubagents = options.subagents === true;
-        const subscription = yield* store.subscribe({ filter: hostItem(withSubagents) });
+        const capabilities = options.capabilities ?? [];
+
+        const subscription = yield* store.subscribe({
+          filter: hostItem(withSubagents, capabilities),
+        });
+
         const model = yield* store.model;
         const cut = Sequence.make(model.sequence);
         const head: Array<HostStreamItem> = [];
@@ -95,6 +128,9 @@ const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
               workspaces: [...model.workspaces.values()],
               worktrees: [...model.worktrees.values()],
               sessions: [...model.sessions.values()].map((r) => summaryOf(r, withSubagents)),
+              reviewCheckouts: capabilities.includes("review.checkouts")
+                ? [...model.reviewCheckouts.values()]
+                : [],
             })
           );
         } else {
@@ -104,7 +140,7 @@ const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
             sessionId: null,
           });
 
-          for (const envelope of events.filter(allowedEvent(withSubagents)))
+          for (const envelope of events.filter(allowedEvent(withSubagents, capabilities)))
             head.push(HostStreamItem.cases.Event.make({ envelope }));
         }
 
@@ -189,7 +225,8 @@ const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
         const { sessionId, afterSequence } = options;
         const withProgress = options.liveItems === true;
         const withSubagents = options.subagents === true;
-        const filter = sessionFilter(withProgress, withSubagents);
+        const capabilities = options.capabilities ?? [];
+        const filter = sessionFilter(withProgress, withSubagents, capabilities);
 
         const subscription = yield* store.subscribe(
           filter === undefined ? { sessionId } : { sessionId, filter }
@@ -212,7 +249,7 @@ const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
             .readEvents({ after: afterSequence, upTo: cut, sessionId })
             .pipe(Effect.orDie);
 
-          for (const envelope of events.filter(allowedEvent(withSubagents)))
+          for (const envelope of events.filter(allowedEvent(withSubagents, capabilities)))
             head.push(SessionStreamItem.cases.Event.make({ envelope }));
         }
 

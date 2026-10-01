@@ -20,6 +20,8 @@ export * from "./ids.ts";
 
 export * from "./models.ts";
 
+export * from "./review.ts";
+
 export * from "./rpc.ts";
 
 export * from "./slashCommands.ts";

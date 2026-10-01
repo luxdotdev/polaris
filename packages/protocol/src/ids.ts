@@ -1,5 +1,9 @@
 import { Schema } from "effect";
 
+export const Timestamp = Schema.String; // ISO-8601, UTC
+
+export type Timestamp = typeof Timestamp.Type;
+
 export const HostId = Schema.String.pipe(Schema.brand("HostId"));
 
 export type HostId = typeof HostId.Type;
@@ -52,3 +56,22 @@ export type BlobId = typeof BlobId.Type;
 export const Sequence = Schema.Int.pipe(Schema.brand("Sequence"));
 
 export type Sequence = typeof Sequence.Type;
+
+/** A Review Checkout, chosen by the Client that opens it. */
+export const ReviewCheckoutId = Schema.String.pipe(Schema.brand("ReviewCheckoutId"));
+
+export type ReviewCheckoutId = typeof ReviewCheckoutId.Type;
+
+export const RiskSummaryId = Schema.String.pipe(Schema.brand("RiskSummaryId"));
+
+export type RiskSummaryId = typeof RiskSummaryId.Type;
+
+/** A Risk Finding within its Risk Summary; `RiskFinding.identity` is what survives commits. */
+export const RiskFindingId = Schema.String.pipe(Schema.brand("RiskFindingId"));
+
+export type RiskFindingId = typeof RiskFindingId.Type;
+
+/** Chosen by the Client that records the Verdict. */
+export const VerdictId = Schema.String.pipe(Schema.brand("VerdictId"));
+
+export type VerdictId = typeof VerdictId.Type;

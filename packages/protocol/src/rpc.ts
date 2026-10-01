@@ -30,6 +30,9 @@ import { HarnessKind } from "./harnesses.ts";
 import {
   BlobId,
   CommandId,
+  ReviewCheckoutId,
+  RiskFindingId,
+  RiskSummaryId,
   Sequence,
   SessionId,
   SubagentId,
@@ -37,7 +40,15 @@ import {
   TurnId,
   WorkspaceId,
 } from "./ids.ts";
-import { addedArray, addedNullable, Model } from "./models.ts";
+import { addedArray, addedNullable, Model, optionalArray } from "./models.ts";
+import {
+  ReviewCheckout,
+  ReviewCheckoutStatus,
+  ReviewSubject,
+  RiskSummary,
+  RiskSummaryRef,
+  Verdict,
+} from "./review.ts";
 import { HarnessCommands } from "./slashCommands.ts";
 import { UsageReport, UsageStreamItem } from "./usage.ts";
 
@@ -116,6 +127,8 @@ export const HostStreamItem = Schema.TaggedUnion({
     workspaces: Schema.Array(Workspace),
     worktrees: Schema.Array(Worktree),
     sessions: Schema.Array(SessionSummary),
+    /** Open Review Checkouts, for Clients that announced `review.checkouts`. */
+    reviewCheckouts: optionalArray(ReviewCheckout),
   },
   Event: { envelope: EventEnvelope },
   /** Everything up to now has been sent; later items are live. */
@@ -435,9 +448,40 @@ export const GitDiffSpec = Schema.TaggedUnion({
   WorkingTree: { base: Schema.NullOr(Schema.String) },
   Turn: { sessionId: SessionId, turnId: TurnId },
   Range: { base: Schema.String, head: Schema.String },
+  /**
+   * A contiguous run of an Agent Session's Turns (capability `git.diff-turns`):
+   * the first one's before-checkpoint to the last one's after-checkpoint.
+   */
+  Turns: { sessionId: SessionId, firstTurnId: TurnId, lastTurnId: TurnId },
 });
 
 export type GitDiffSpec = typeof GitDiffSpec.Type;
+
+export const DiffFileStatus = Schema.Literals([
+  "added",
+  "modified",
+  "deleted",
+  "renamed",
+  "copied",
+  "mode-changed",
+]);
+
+export type DiffFileStatus = typeof DiffFileStatus.Type;
+
+/** One file of a `git.diff` patch: where its bytes are, so a Client can parse files in batches. */
+export class DiffFile extends Schema.Class<DiffFile>("DiffFile")({
+  /** The new path (the old one for a deletion). */
+  path: Schema.String,
+  /** Set for renames and copies. */
+  oldPath: Schema.NullOr(Schema.String),
+  status: DiffFileStatus,
+  /** Byte offset of its `diff --git` line in the patch, and its length in bytes. */
+  offset: Schema.Int,
+  length: Schema.Int,
+  additions: Schema.Int,
+  deletions: Schema.Int,
+  binary: Schema.Boolean,
+}) {}
 
 /** A unified diff; delivered as a blob because diffs can be very large. */
 export const GitDiff = Rpc.make("git.diff", {
@@ -445,8 +489,103 @@ export const GitDiff = Rpc.make("git.diff", {
     cwd: Schema.String,
     spec: GitDiffSpec,
   },
-  success: Schema.Struct({ blobId: BlobId, size: Schema.Int, files: Schema.Int }),
+  success: Schema.Struct({
+    blobId: BlobId,
+    size: Schema.Int,
+    files: Schema.Int,
+    /** Each file in patch order (capability `git.diff-files`; empty from older Daemons). */
+    fileIndex: optionalArray(DiffFile),
+  }),
   error: Schema.Union([GitError, NotFound]),
+});
+
+/**
+ * A file's content at a revision (capability `git.show`), for expanding
+ * context around a hunk. Like `files.read`: inline text, or a blob when large or binary.
+ */
+export const GitShow = Rpc.make("git.show", {
+  payload: { cwd: Schema.String, revision: Schema.String, path: Schema.String },
+  success: Schema.Struct({ size: Schema.Int, mimeType: Schema.String, content: FileContent }),
+  error: Schema.Union([GitError, NotFound]),
+});
+
+// ── Review (README, "Review") ───────────────────────────────────────────────
+
+/**
+ * What a Review Checkout looks like on disk now (capability `review.checkouts`):
+ * local edits, commits and what runs inside, which block an update or removal.
+ */
+export const ReviewCheckoutStatusQuery = Rpc.make("review.checkoutStatus", {
+  payload: { checkoutId: ReviewCheckoutId },
+  success: ReviewCheckoutStatus,
+  error: Schema.Union([NotFound, GitError, Unsupported]),
+});
+
+/**
+ * Start a Risk Summary, or answer the cached one for the same key
+ * (capability `review.risk-summary`). `since` asks for only the changes
+ * after that head; `refresh` runs again even when one is cached.
+ */
+export const RunRiskSummary = Rpc.make("review.runRiskSummary", {
+  payload: {
+    workspaceId: WorkspaceId,
+    subject: ReviewSubject,
+    checkoutId: Schema.NullOr(ReviewCheckoutId),
+    since: Schema.NullOr(Schema.String),
+    refresh: Schema.Boolean,
+  },
+  success: RiskSummary,
+  error: Schema.Union([NotFound, GitError, Unsupported]),
+});
+
+/** A Risk Summary by id, or the latest for a key; null when there is none. */
+export const GetRiskSummary = Rpc.make("review.riskSummary", {
+  payload: { ref: RiskSummaryRef },
+  success: Schema.NullOr(RiskSummary),
+  error: Unsupported,
+});
+
+/**
+ * A Risk Summary as it fills in: the current one first, then the whole
+ * summary again after each change (layers, Findings, Verdicts, its end).
+ */
+export const WatchRiskSummary = Rpc.make("review.watchRiskSummary", {
+  payload: { summaryId: RiskSummaryId },
+  success: RiskSummary,
+  error: Schema.Union([NotFound, Unsupported]),
+  stream: true,
+});
+
+/**
+ * Ask the Reviewer about a Finding, or the whole change when `findingId` is
+ * null (capability `review.ask`). It continues the Reviewer's own read-only
+ * Agent Session, whose stream carries the answer; Findings it adds, revises
+ * or withdraws arrive on the summary.
+ */
+export const AskFinding = Rpc.make("review.askFinding", {
+  payload: {
+    summaryId: RiskSummaryId,
+    findingId: Schema.NullOr(RiskFindingId),
+    question: Schema.String,
+  },
+  success: Schema.Struct({ sessionId: SessionId, turnId: TurnId }),
+  error: Schema.Union([NotFound, Unsupported, HarnessUnavailable]),
+});
+
+/**
+ * Verdicts recorded on this Host, newest first (capability `review.verdicts`):
+ * one repo's, or one summary's; `identity` narrows to one Finding's history
+ * ("You dismissed a similar finding here").
+ */
+export const ListVerdicts = Rpc.make("review.verdicts", {
+  payload: {
+    repo: Schema.NullOr(Schema.String),
+    summaryId: Schema.NullOr(RiskSummaryId),
+    identity: Schema.NullOr(Schema.String),
+    limit: Schema.Int,
+  },
+  success: Schema.Array(Verdict),
+  error: Unsupported,
 });
 
 // ── Attachments ─────────────────────────────────────────────────────────────
@@ -566,6 +705,13 @@ export class DaemonRpcs extends RpcGroup.make(
   WatchFiles,
   GitStatus,
   GitDiff,
+  GitShow,
+  ReviewCheckoutStatusQuery,
+  RunRiskSummary,
+  GetRiskSummary,
+  WatchRiskSummary,
+  AskFinding,
+  ListVerdicts,
   StageAttachment,
   GetAttachmentSettings,
   SetAttachmentSettings,

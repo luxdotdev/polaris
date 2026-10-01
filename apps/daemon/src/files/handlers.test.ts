@@ -35,7 +35,13 @@ const WorkspaceIoRpcs = DaemonRpcs.omit(
   "harness.availability",
   "harness.watchAvailability",
   "usage.query",
-  "usage.watch"
+  "usage.watch",
+  "review.checkoutStatus",
+  "review.runRiskSummary",
+  "review.riskSummary",
+  "review.watchRiskSummary",
+  "review.askFinding",
+  "review.verdicts"
 );
 
 describe("handler layers", () => {

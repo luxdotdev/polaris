@@ -204,6 +204,17 @@ const make = Effect.gen(function* () {
       RemoveWorkspace: (command) => removeWorkspace(command, committed),
       SetWorkspaceHidden: () => Effect.void,
       RenameSession: () => Effect.void,
+      SendFeedback: (command) => runStartedTurn(command.sessionId, committed.result.envelopes),
+      // TODO(M2-A accept): restore the working tree for `revertLaterTurns` and record TurnsReverted.
+      AcceptTurns: () => Effect.void,
+      LinkPullRequest: () => Effect.void,
+      // TODO(M2-C checkout): fetch, create, update and remove the worktree, then signal the
+      // checkout machine (`checkout.fetched` / `blocked` / `removed`) through `store.commit`.
+      OpenReviewCheckout: () => Effect.void,
+      ReportReviewHead: () => Effect.void,
+      UpdateReviewCheckout: () => Effect.void,
+      RemoveReviewCheckout: () => Effect.void,
+      RecordVerdict: () => Effect.void,
     });
 
   return Reactors.of({ react });
