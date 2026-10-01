@@ -1,7 +1,7 @@
 /**
- * A Harness's Plan Limits as the picker shows them (DESIGN.md, Usage S2): each
- * window's use and reset, and how fresh the numbers are. Near a limit the
- * words change, never the colour.
+ * A Harness's Plan Limits as the picker shows them (DESIGN.md, Usage S2): what
+ * each window has left and when it resets, and how fresh the numbers are. Near
+ * a limit the words change, never the colour.
  */
 import type { HarnessKind, PlanLimit } from "@polaris/protocol";
 import { Match } from "effect";
@@ -45,13 +45,39 @@ export const shortDuration = (ms: number): string => {
   return hours < 48 ? `${hours}h` : `${Math.round(hours / 24)}d`;
 };
 
-const used = (limit: LimitData) =>
-  limit.usedPercent === null ? null : `${Math.round(limit.usedPercent)}%`;
+/** The share of a window still left, 0–100, from the share used (clamped). */
+export const remaining = (usedPercent: number) => 100 - Math.min(100, Math.max(0, usedPercent));
 
-/** "5-hour 42% · resets in 2h", "Near the weekly limit · 91%", "5-hour limit reached · resets in 40m". */
+/**
+ * "84% left". Rounded down, so it never promises more than there is; a sliver
+ * reads "<1% left" rather than "0% left", which means the limit.
+ */
+export const leftPhrase = (usedPercent: number): string => {
+  const left = remaining(usedPercent);
+
+  return left > 0 && left < 1 ? "<1% left" : `${Math.floor(left)}% left`;
+};
+
+/**
+ * How many of `cells` stay filled: rounded, but any share left keeps one cell
+ * and any share used empties one, so the meter agrees with the words at the edges.
+ */
+export const leftCells = (usedPercent: number, cells: number): number => {
+  const left = remaining(usedPercent);
+  const filled = Math.round((left / 100) * cells);
+
+  if (left > 0 && left < 100) return Math.min(cells - 1, Math.max(1, filled));
+
+  return filled;
+};
+
+const left = (limit: LimitData) =>
+  limit.usedPercent === null ? null : leftPhrase(limit.usedPercent);
+
+/** "5-hour 58% left · resets in 2h", "Near the weekly limit · 9% left", "5-hour limit reached · resets in 40m". */
 export const limitLine = (limit: LimitData, now: number): string => {
   const name = windowName(limit);
-  const percent = used(limit);
+  const percent = left(limit);
 
   const reset =
     limit.resetsAt === null ? null : `resets in ${shortDuration(Date.parse(limit.resetsAt) - now)}`;
