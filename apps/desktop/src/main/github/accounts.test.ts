@@ -24,8 +24,8 @@ describe("signing in with the device flow", () => {
     const h = open();
     const view = await h.run(signIn(h, "mona"));
 
-    expect(view.accounts).toEqual([
-      expect.objectContaining({ id: 1001, login: "mona", state: "ok", missingScopes: [] }),
+    expect(view.accounts).toMatchObject([
+      { id: 1001, login: "mona", state: "ok", missingScopes: [] },
     ]);
     expect(view.manageUrl).toBe(
       "https://github.test/settings/connections/applications/Ov23lix8h2ldBZFwXqek"

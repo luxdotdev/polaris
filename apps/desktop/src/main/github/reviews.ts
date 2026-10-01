@@ -145,9 +145,10 @@ export const threadInput = (thread: NewThread, reviewId: string): Json => {
 export interface ReviewsInput {
   readonly client: Client;
   readonly routing: Routing;
+  readonly gapMs: number;
 }
 
-export const newReviews = ({ client, routing }: ReviewsInput) => {
+export const newReviews = ({ client, routing, gapMs }: ReviewsInput) => {
   const pending = new Map<string, string>();
   const authors = new Map<string, { readonly author: string | null; readonly viewer: string }>();
   const locks = new Map<number, Semaphore.Semaphore>();
@@ -187,8 +188,8 @@ export const newReviews = ({ client, routing }: ReviewsInput) => {
     request: GraphQLRequest
   ) =>
     Effect.gen(function* () {
-      const wait =
-        (lastMutation.get(accountId) ?? 0) + MUTATION_GAP_MS - (yield* Clock.currentTimeMillis);
+      const last = lastMutation.get(accountId);
+      const wait = last === undefined ? 0 : last + gapMs - (yield* Clock.currentTimeMillis);
 
       if (wait > 0) yield* Effect.sleep(wait);
 

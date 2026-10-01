@@ -38,6 +38,7 @@ export interface HarnessOptions {
   readonly dir?: string;
   /** Another harness's fake: a second app on the same GitHub. */
   readonly sharedFake?: GitHubFake;
+  readonly mutationGapMs?: number;
 }
 
 export const harness = (options: HarnessOptions = {}) => {
@@ -52,6 +53,7 @@ export const harness = (options: HarnessOptions = {}) => {
     endpoints: { web: "https://github.test", api: "https://api.github.test" },
     now: () => now,
     policy: options.policy ?? DEFAULT_POLICY,
+    mutationGapMs: options.mutationGapMs ?? 0,
   }).pipe(Layer.provideMerge(TestClock.layer({ warningDelay: "1 hour" })));
 
   /** Moves the TestClock and the fake's clock together. */

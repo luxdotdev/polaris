@@ -25,7 +25,7 @@ import { newCreate } from "./create.ts";
 import { newCredentials } from "./credentials.ts";
 import { DEFAULT_INTERVALS, type Intervals, newPoller } from "./poller.ts";
 import { EMPTY_LIST, newPulls, type Watched } from "./pulls.ts";
-import { newReviews } from "./reviews.ts";
+import { MUTATION_GAP_MS, newReviews } from "./reviews.ts";
 import { newRouting } from "./routing.ts";
 import { type Crypto, openStore } from "./store.ts";
 import { type Fetch, newTransport } from "./transport.ts";
@@ -50,6 +50,8 @@ export interface GitHubInput {
   readonly endpoints: GitHubEndpoints;
   readonly policy?: BudgetPolicy;
   readonly intervals?: Intervals;
+  /** The pause between one account's mutations (GitHub asks for a second). */
+  readonly mutationGapMs?: number;
   /** Wall-clock ms for rate-limit windows; tests share it with the fake. */
   readonly now?: () => number;
 }
@@ -91,7 +93,7 @@ const make = Effect.fn("GitHub.make")(function* (input: GitHubInput) {
   const credentials = newCredentials({ store, transport, signedOut: accounts.signedOut });
   const client = newClient(transport, credentials);
   const routing = newRouting({ client, accounts, endpoints: input.endpoints });
-  const reviews = newReviews({ client, routing });
+  const reviews = newReviews({ client, routing, gapMs: input.mutationGapMs ?? MUTATION_GAP_MS });
   const list = yield* SubscriptionRef.make<PullListView>(EMPTY_LIST);
   const checkoutStates = yield* SubscriptionRef.make<ReadonlyArray<CheckoutStateView>>([]);
 
