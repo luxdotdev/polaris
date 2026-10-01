@@ -67,6 +67,7 @@ const input = (patch: Partial<ListInput> = {}): ListInput => ({
   riskOf: () => NOT_RUN,
   sessions: [],
   hostOf: (hostKey) => PLACES.get(hostKey) ?? null,
+  changesOf: () => null,
   expanded: new Set(),
   now: NOW,
   ...patch,
@@ -197,10 +198,27 @@ describe("listModel", () => {
     const rows = all.groups[1]?.rows ?? [];
 
     expect(rows.map((r) => r.id)).toEqual(["studio:s1", "away:s4"]);
-    expect(rows[0]?.meta).toBe("Claude Code · turns 22–24");
+    expect(rows[0]?.meta).toBe("Claude Code · turns 22–24 · 3 since your last review");
     expect(rows[0]?.workspace).toEqual({ name: "polaris", where: "Mac Studio", away: false });
-    expect(rows[1]?.meta).toBe("Claude Code · turn 24");
+    expect(rows[1]?.meta).toBe("Claude Code · turn 24 · 1 since your last review");
     expect(rows[1]?.workspace?.where).toBe("Pi · reconnecting");
+    // Never accepted: no "since your last review"; changes once the Host says.
+
+    const fresh = listModel(
+      input({
+        sessions: [session("s5", { acceptedThroughIndex: null, turnCount: 2 })],
+        changesOf: (host, id, turns) =>
+          host === "studio" && id === "s5" && turns === 2
+            ? { additions: 214, deletions: 30 }
+            : null,
+      })
+    ).groups[0]?.rows[0];
+
+    expect(fresh?.meta).toBe("Claude Code · turns 1–2");
+    expect(fresh?.kind === "session" ? fresh.changes : null).toEqual({
+      additions: 214,
+      deletions: 30,
+    });
     expect(all.total).toBe(4);
     expect(
       listModel(input({ list: list({ mine: [row("m")] }), sessions, accountId: 1 })).groups.map(

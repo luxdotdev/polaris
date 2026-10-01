@@ -348,6 +348,11 @@ export const rankFindings = (findings: ReadonlyArray<RiskFinding>): ReadonlyArra
 export const RiskSummaryRef = Schema.TaggedUnion({
   ById: { summaryId: RiskSummaryId },
   ByKey: { key: RiskSummaryKey },
+  /**
+   * The newest summary of `repo` at `head`, full or incremental (an incremental one
+   * carries the earlier Findings forward); capability `review.latest-summary`.
+   */
+  LatestAt: { repo: Schema.String, head: Schema.String },
 });
 
 export type RiskSummaryRef = typeof RiskSummaryRef.Type;

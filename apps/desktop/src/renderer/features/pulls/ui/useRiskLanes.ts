@@ -1,7 +1,8 @@
 /**
  * The PR list's risk lanes: a summary this window follows (`riskStore`, from an open Review)
- * wins; otherwise the Host's cached summary for the pull request's Review Checkout at its
- * head (`review.riskSummary` by key), asked once per checkout head. "Not run" without either.
+ * wins; otherwise the Host's newest summary for the pull request's Review Checkout at its
+ * head (`LatestAt`, so an incremental one counts; by full key from older Daemons), asked
+ * once per checkout head. "Not run" without either.
  */
 import { RiskSummaryKey, RiskSummaryRef } from "@polaris/protocol";
 import { useEffect, useMemo } from "react";
@@ -22,7 +23,7 @@ const cachedStore = createStore<Readonly<Record<string, Cached>>>(() => ({}));
 
 const asked = new Set<string>();
 
-const ask = (subjectKey: string, found: FoundCheckout) => {
+const ask = (subjectKey: string, found: FoundCheckout, latest: boolean) => {
   const { checkout, hostKey, repo } = found;
 
   if (checkout.head === null || checkout.mergeBase === null) return;
@@ -32,17 +33,16 @@ const ask = (subjectKey: string, found: FoundCheckout) => {
   if (asked.has(once)) return;
   asked.add(once);
 
-  const key = RiskSummaryKey.make({
-    repo,
-    mergeBase: checkout.mergeBase,
-    head: checkout.head,
-    since: null,
-  });
-
   const head = checkout.head;
 
+  const ref = latest
+    ? RiskSummaryRef.cases.LatestAt.make({ repo, head })
+    : RiskSummaryRef.cases.ByKey.make({
+        key: RiskSummaryKey.make({ repo, mergeBase: checkout.mergeBase, head, since: null }),
+      });
+
   void polaris()
-    .request("review.riskSummary", { hostKey, ref: RiskSummaryRef.cases.ByKey.make({ key }) })
+    .request("review.riskSummary", { hostKey, ref })
     .then((result) => {
       // An older Daemon or a Host away: try again on the next head or launch.
       if (!result.ok) {
@@ -57,14 +57,16 @@ const ask = (subjectKey: string, found: FoundCheckout) => {
 
 /** `riskOf` for the list model; asks the Hosts for what isn't known yet. */
 export const useRiskLanes = (
-  checkouts: ReadonlyMap<string, FoundCheckout>
+  checkouts: ReadonlyMap<string, FoundCheckout>,
+  /** The Host answers `LatestAt` (capability `review.latest-summary`). */
+  latest: (hostKey: string) => boolean
 ): ((subjectKey: string) => RiskLane) => {
   const live = useStore(riskStore);
   const cached = useStore(cachedStore);
 
   useEffect(() => {
-    for (const found of checkouts.values()) ask(found.subjectKey, found);
-  }, [checkouts]);
+    for (const found of checkouts.values()) ask(found.subjectKey, found, latest(found.hostKey));
+  }, [checkouts, latest]);
 
   return useMemo(() => {
     const heads = new Map(

@@ -31,12 +31,17 @@ const feeds = (scene: string): Feeds => ({
 
 const UNSUPPORTED = { ok: false, error: { code: "Unsupported", message: "preview" } } as const;
 
+/**
+ * SAFETY: the list reads only a summary's status and findings, and a plan's additions and
+ * deletions; the rest of each type is left out of the fixtures.
+ */
+const ANSWERS = new Map<string, never>([
+  ["review.riskSummary", { ok: true, value: RISK.pull88 } as never],
+  ["session.acceptPlan", { ok: true, value: { additions: 214, deletions: 30 } } as never],
+]);
+
 const bridgeFor = (scene: string): PolarisApi => ({
-  request: (method) =>
-    // SAFETY: the list's risk lane reads only a summary's status and its findings' severity and status.
-    Promise.resolve(
-      method === "review.riskSummary" ? ({ ok: true, value: RISK.pull88 } as never) : UNSUPPORTED
-    ),
+  request: (method) => Promise.resolve(ANSWERS.get(method) ?? UNSUPPORTED),
   subscribe: (kind, _input, listener) => {
     const item = feeds(scene)[kind];
 

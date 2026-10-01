@@ -239,7 +239,7 @@ export const AcceptRpcsLive = AcceptRpcs.toLayer(
 
     const withContext =
       <A, E>(f: (ctx: AcceptContext) => Effect.Effect<A, E, EventStore | HarnessRegistry>) =>
-      (payload: { readonly sessionId: SessionId; readonly throughTurnId: TurnId }) =>
+      (payload: { readonly sessionId: SessionId; readonly throughTurnId: TurnId | null }) =>
         loadAccept(store, payload.sessionId, payload.throughTurnId).pipe(
           Effect.flatMap(f),
           Effect.provideService(EventStore, store),

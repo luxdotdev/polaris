@@ -269,7 +269,7 @@ export const RequestInputs = {
   "review.reviewerSettings": onHost({ workspaceId: Schema.NullOr(WorkspaceId) }),
   "review.setReviewerSettings": onHost({ settings: ReviewerSettings }),
   /** Accepting a session's work (capability `session.accept`): plan, draft, commit, push. */
-  "session.acceptPlan": onHost({ sessionId: SessionId, throughTurnId: TurnId }),
+  "session.acceptPlan": onHost({ sessionId: SessionId, throughTurnId: Schema.NullOr(TurnId) }),
   "session.draftAccept": onHost({ sessionId: SessionId, throughTurnId: TurnId }),
   "session.commitAccepted": onHost({
     sessionId: SessionId,

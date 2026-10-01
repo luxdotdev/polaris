@@ -345,14 +345,14 @@ describe("Risk Summaries and Verdicts", () => {
     resolution: null,
   });
 
-  const started = (workspace: Workspace) =>
+  const started = (workspace: Workspace, id = summaryId, since: string | null = null) =>
     new RiskSummary({
-      id: summaryId,
+      id,
       key: new RiskSummaryKey({
         repo: "github.com/acme/app",
         mergeBase: "m",
         head: "h",
-        since: null,
+        since,
       }),
       workspaceId: workspace.id,
       subject: ReviewSubject.cases.SessionTurns.make({
@@ -418,6 +418,26 @@ describe("Risk Summaries and Verdicts", () => {
         expect(
           yield* store.review.riskSummary(RiskSummaryRef.cases.ByKey.make({ key: summary!.key }))
         ).toEqual(summary);
+
+        // An incremental summary at the same head: `LatestAt` answers it, `ByKey` still the full one.
+        const incremental = started(workspace, RiskSummaryId.make("sum-2"), "h0");
+        yield* record(DomainEvent.cases.RiskSummaryStarted.make({ summary: incremental }));
+
+        const latestAt = RiskSummaryRef.cases.LatestAt.make({
+          repo: "github.com/acme/app",
+          head: "h",
+        });
+
+        expect((yield* store.review.riskSummary(latestAt))?.id).toBe(RiskSummaryId.make("sum-2"));
+        expect(
+          (yield* store.review.riskSummary(RiskSummaryRef.cases.ByKey.make({ key: summary!.key })))
+            ?.id
+        ).toBe(summaryId);
+        expect(
+          yield* store.review.riskSummary(
+            RiskSummaryRef.cases.LatestAt.make({ repo: "github.com/acme/app", head: "other" })
+          )
+        ).toBeNull();
 
         expect(yield* rejection(verdict("down"))).toBe("a thumbs-down needs a reason");
         yield* dispatch(verdict("down", ["intended"]), "Studio");

@@ -61,7 +61,8 @@ export const sessionRoot = Effect.fn("accept.root")(function* (store: Store, ses
 export const loadAccept = Effect.fn("accept.load")(function* (
   store: Store,
   sessionId: SessionId,
-  throughTurnId: TurnId
+  /** Null: through the latest Turn. */
+  throughTurnId: TurnId | null
 ) {
   const model = yield* store.model;
   const record = model.sessions.get(sessionId);
@@ -72,9 +73,13 @@ export const loadAccept = Effect.fn("accept.load")(function* (
     .readTurns({ sessionId, beforeIndex: null, limit: null })
     .pipe(Effect.mapError((e) => new GitError({ cwd: record.session.cwd, message: e.message })));
 
-  const through = turns.find((turn) => turn.id === throughTurnId);
+  const through =
+    throughTurnId === null ? turns.at(-1) : turns.find((turn) => turn.id === throughTurnId);
 
-  if (through === undefined) return yield* new NotFound({ what: "turn", id: throughTurnId });
+  if (through === undefined) {
+    return yield* new NotFound({ what: "turn", id: throughTurnId ?? "latest" });
+  }
+
   const root = yield* sessionRoot(store, sessionId);
 
   const committed = yield* tryGit(root, () => committedTurnIds(root, sessionId));

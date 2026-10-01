@@ -37,6 +37,8 @@ Additions to existing types: `AgentSession.acceptedThroughIndex` and `AgentSessi
 | `review.ask` | | | `review.askFinding` (continues the Reviewer's Agent Session) |
 | `review.reviewer-settings` | | | `review.reviewerSettings` (the settings and the Reviewer a Workspace would run), `review.setReviewerSettings` |
 | `review.verdicts` | `RecordVerdict` | `VerdictRecorded` (review-only) | `review.verdicts` |
+| `review.latest-summary` | | | `review.riskSummary` by `RiskSummaryRef.LatestAt` (`repo`, `head`): the newest summary at that head, incremental ones included (the PR list's risk lane) |
+| `session.accept-latest` | | | `session.acceptPlan` with `throughTurnId: null`: through the latest Turn (the PR list's changes for a ready Agent Session) |
 | `git.diff-files` | | | `git.diff`'s `fileIndex`: each file's byte range in the patch, status and counts, for parsing in batches and very large Reviews |
 | `git.diff-turns` | | | `git.diff` with `GitDiffSpec.Turns`: a run of Turns, first before-checkpoint to last after-checkpoint |
 | `git.show` | | | `git.show`: a file at a revision (Pierre's context expansion) |

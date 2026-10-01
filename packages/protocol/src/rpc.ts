@@ -606,9 +606,12 @@ export const ListVerdicts = Rpc.make("review.verdicts", {
 
 const AcceptErrors = Schema.Union([NotFound, GitError, AcceptRefused, Unsupported]);
 
-/** Which Turns committing through `throughTurnId` takes, and the branch and remote it would use. */
+/**
+ * Which Turns committing through `throughTurnId` takes, and the branch and remote it would use.
+ * A null `throughTurnId` means the latest Turn (capability `session.accept-latest`).
+ */
 export const GetAcceptPlan = Rpc.make("session.acceptPlan", {
-  payload: { sessionId: SessionId, throughTurnId: TurnId },
+  payload: { sessionId: SessionId, throughTurnId: Schema.NullOr(TurnId) },
   success: AcceptPlan,
   error: AcceptErrors,
 });

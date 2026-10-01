@@ -5,7 +5,7 @@
  * insets follow density (rule/density-through-tokens).
  */
 import { cn, SeverityGlyph, Tile } from "@polaris/ui";
-import type { RowModel, WorkspaceLane } from "../model/list.ts";
+import type { Changes, RowModel, WorkspaceLane } from "../model/list.ts";
 import type { RiskLane } from "../model/risk.ts";
 import { PullGlyph } from "./glyphs.tsx";
 
@@ -97,6 +97,17 @@ const Risk = ({ risk }: { readonly risk: RiskLane }) => {
   );
 };
 
+/** A session's changes stay blank until its Host says (an older Daemon never does). */
+const ChangesLane = ({ changes }: { readonly changes: Changes | null }) =>
+  changes === null ? (
+    <span className={cn(LANES.changes, "shrink-0")} />
+  ) : (
+    <span className={cn(LANES.changes, "text-caption tabular flex shrink-0 gap-2 font-mono")}>
+      <span className="text-diff-added-text">+{count(changes.additions)}</span>
+      <span className="text-diff-removed-text">−{count(changes.deletions)}</span>
+    </span>
+  );
+
 /** The neutral PR tile; in light a hairline keeps it off the near-white page. */
 const PullTile = () => (
   <span className="bg-surface-raised text-text-subtle in-data-[theme=light]:border-hairline group-hover/pull:bg-fill-selected group-hover/pull:text-text-strong group-focus-visible/pull:bg-fill-selected flex size-(--spacing-tree-row) shrink-0 items-center justify-center rounded-[8px] border border-transparent">
@@ -132,14 +143,7 @@ export const PullRow = ({ row, onOpen }: PullRowProps) => (
       <span className="text-caption text-text-subtle truncate">{row.meta}</span>
     </span>
     <Workspace lane={row.workspace} />
-    {row.kind === "pull" ? (
-      <span className={cn(LANES.changes, "text-caption tabular flex shrink-0 gap-2 font-mono")}>
-        <span className="text-diff-added-text">+{count(row.additions)}</span>
-        <span className="text-diff-removed-text">−{count(row.deletions)}</span>
-      </span>
-    ) : (
-      <span className={cn(LANES.changes, "shrink-0")} />
-    )}
+    <ChangesLane changes={row.kind === "pull" ? row : row.changes} />
     <Risk risk={row.risk} />
     <span
       className={cn(LANES.updated, "text-caption text-text-subtle tabular shrink-0 text-right")}
