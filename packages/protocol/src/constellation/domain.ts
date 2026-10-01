@@ -256,5 +256,6 @@ export class ResourceLease extends Schema.Class<ResourceLease>("ResourceLease")(
   attemptId: optionalNullable(AttemptId),
   command: Schema.Array(Schema.String),
   processId: Schema.Int,
+  processIdentity: Schema.optionalKey(Schema.String),
   acquiredAt: Timestamp,
 }) {}

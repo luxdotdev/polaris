@@ -9,12 +9,19 @@ import {
   useTerminalShown,
 } from "../../terminal/index.ts";
 import { uiKey } from "../state.ts";
-import { isOutputOpen, setOutputOpen, useOutputOpen } from "./open.ts";
+import { isOutputOpen, openForEdit, setOutputOpen, useOutputOpen } from "./open.ts";
 
 export const hideOutput = (place: TerminalPlace, sessionId: string) => {
   setOutputOpen(uiKey(place.hostKey, sessionId), false);
   hideTerminal(place);
 };
+
+/** Opens Output unless the user has chosen for this session (a Lead's Constellation tab). */
+export const offerOutput = (hostKey: string, sessionId: string) =>
+  openForEdit(uiKey(hostKey, sessionId));
+
+export const showOutput = (place: TerminalPlace, sessionId: string) =>
+  setOutputOpen(uiKey(place.hostKey, sessionId), true);
 
 export const toggleOutput = (place: TerminalPlace, sessionId: string) => {
   const shown =

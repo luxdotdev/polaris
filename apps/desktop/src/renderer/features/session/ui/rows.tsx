@@ -31,6 +31,7 @@ import type { Entry } from "../model/runs.ts";
 import { EntryView } from "./entries.tsx";
 import { OutgoingMessage, Steered } from "./outgoing.tsx";
 import { softWrap } from "./softWrap.tsx";
+import type { SessionChrome } from "../chrome.ts";
 
 export interface RowContext {
   readonly harness: Harness | null;
@@ -50,6 +51,8 @@ export interface RowContext {
   readonly outbox: Pick<OutboxActions, "retry" | "edit">;
   /** Where a folded Turn's diff comes from, for its +/− counts. */
   readonly diff: { readonly hostKey: string; readonly cwd: string; readonly sessionId: SessionId };
+  /** Polaris-authored Turns and the closing row, from the session's chrome (`chrome.ts`). */
+  readonly chrome: SessionChrome;
 }
 
 const AVATAR = "w-6 shrink-0";
@@ -230,9 +233,23 @@ const Ending = ({ row, ctx }: { row: Extract<Row, { kind: "ending" }>; ctx: RowC
 export const ConversationRow = ({ row, ctx }: { row: Row; ctx: RowContext }) => {
   switch (row.kind) {
     case "summary":
-      return <Summary row={row} ctx={ctx} />;
+      return (
+        ctx.chrome.promptCard?.({
+          turnId: row.turnId,
+          folded: true,
+          onToggle: () => ctx.onToggleTurn(row.turnId),
+        }) ?? <Summary row={row} ctx={ctx} />
+      );
     case "prompt":
-      return <Prompt row={row} ctx={ctx} />;
+      return (
+        ctx.chrome.promptCard?.({
+          turnId: row.turnId,
+          folded: false,
+          onToggle: () => ctx.onToggleTurn(row.turnId),
+        }) ?? <Prompt row={row} ctx={ctx} />
+      );
+    case "trailer":
+      return ctx.chrome.trailer ?? null;
     case "item":
       return row.entry.kind === "item" && row.entry.item.kind === "user" ? (
         <Steered text={row.entry.item.text} />

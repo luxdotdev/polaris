@@ -287,13 +287,26 @@ export const openSession = (
 
     const common: Pick<
       P.ClientParams["thread/start"],
-      "cwd" | "approvalPolicy" | "approvalsReviewer" | "sandbox" | "model"
+      | "cwd"
+      | "approvalPolicy"
+      | "approvalsReviewer"
+      | "sandbox"
+      | "model"
+      | "developerInstructions"
+      | "config"
     > = {
       cwd: options.cwd,
       approvalPolicy: policy.approvalPolicy,
       approvalsReviewer: policy.approvalsReviewer,
       sandbox: policy.sandbox,
     };
+
+    if (options.constellation !== undefined && options.readOnly !== true) {
+      if (options.constellation.sessionId !== options.sessionId)
+        return yield* codexError("Constellation attachment belongs to another session");
+      common.developerInstructions = options.constellation.instructions;
+      common.config = { "mcp_servers.polaris": { url: options.constellation.url } };
+    }
 
     if (options.model !== null) common.model = options.model;
 

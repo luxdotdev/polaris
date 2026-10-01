@@ -12,7 +12,8 @@ import { createCommandRegistry } from "../../../routes/commands.ts";
 import { createNavigation } from "../../../routes/navigation.ts";
 import { type AppState, type Connection, initialState } from "../../../store/store.ts";
 import { standInBridge } from "../../bridge.ts";
-import { constellationSource, focusTask } from "../source.ts";
+import { focusTask } from "../../constellation/hooks.ts";
+import { modelsFromViews } from "../../constellation/model/fold.ts";
 import { openSessionReview } from "../../../routes/review.ts";
 import { setBatch, setSessionComments } from "../../comments/data/store.ts";
 import { subjectKey } from "../../review/surface.ts";
@@ -58,6 +59,7 @@ export const mountConstellationsPreview = (root: HTMLElement, hash: string) => {
     ...initialState,
     hosts: HOSTS,
     hostModels: MODELS,
+    constellations: modelsFromViews(VIEWS),
   }));
 
   const connection: Connection = {
@@ -71,7 +73,6 @@ export const mountConstellationsPreview = (root: HTMLElement, hash: string) => {
 
   standInBridge(bridge);
   setResourcesClient(fakeResources);
-  constellationSource.setState({ byHost: VIEWS });
   navigation.actions.selectSession(LEAD_SESSION);
 
   if (scene === "focus") {

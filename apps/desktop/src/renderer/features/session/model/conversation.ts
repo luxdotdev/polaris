@@ -47,6 +47,8 @@ export type Row =
   | { readonly kind: "approval"; readonly key: string; readonly request: ApprovalRequest }
   /** A steer or queued follow-up that hasn't landed yet (`outbox.ts`). */
   | { readonly kind: "outgoing"; readonly key: string; readonly entry: Outgoing }
+  /** Whatever the session's chrome closes the list with (a Claim card). */
+  | { readonly kind: "trailer"; readonly key: string }
   | {
       readonly kind: "ending";
       readonly key: string;

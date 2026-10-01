@@ -55,6 +55,7 @@ import { emptyClaudeLimitContext } from "../limits/claude.ts";
 import type { PlanLimitReporter } from "../limits/PlanLimitReporter.ts";
 import { ClaudeHookReceiver } from "./hooks.ts";
 import { decodeModelUsage } from "./payloads.ts";
+import { claudeConstellationOptions } from "./constellation.ts";
 import { Inbox } from "./inbox.ts";
 import { buildUserMessage } from "./input.ts";
 import { listClaudeCommands } from "./commands.ts";
@@ -292,6 +293,12 @@ const openSession = Effect.fnUntraced(function* (
       CLAUDE_AGENT_SDK_CLIENT_APP: driver.clientApp ?? "polaris-daemon",
     },
   };
+
+  if (options.constellation !== undefined && options.readOnly !== true) {
+    if (options.constellation.sessionId !== options.sessionId)
+      return yield* harnessError("Constellation attachment belongs to another session");
+    Object.assign(sdkOptions, claudeConstellationOptions(options.constellation));
+  }
 
   if (options.readOnly === true) Object.assign(sdkOptions, READ_ONLY_OPTIONS);
 

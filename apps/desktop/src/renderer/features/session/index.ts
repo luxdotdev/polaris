@@ -7,12 +7,20 @@ export { NewSessionPage, type NewSessionPageProps } from "./ui/NewSessionPage.ts
 
 export { SessionIntent, type SessionViewProps } from "./ui/SessionIntent.tsx";
 
-export { SessionOutput } from "./ui/SessionOutput.tsx";
+export { SessionOutput, type SessionOutputProps } from "./ui/SessionOutput.tsx";
 
 export { OutputRail } from "./output/OutputRail.tsx";
 
-export { hideOutput, toggleOutput, useOutputShown } from "./output/actions.ts";
+export {
+  hideOutput,
+  offerOutput,
+  showOutput,
+  toggleOutput,
+  useOutputShown,
+} from "./output/actions.ts";
 
 export { clampWidth, defaultWidth, KEY_STEP, RAIL_WIDTH, widthCss } from "./output/layout.ts";
 
 export { setOutputWidth, useOutputWidth } from "./output/width.ts";
+
+export { SessionChromeContext, type PolarisCardArgs, type SessionChrome } from "./chrome.ts";

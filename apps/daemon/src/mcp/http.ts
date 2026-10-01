@@ -1,0 +1,160 @@
+import { Effect, Option, Schema } from "effect";
+import type { McpBinding } from "./binding.ts";
+import { type ConstellationCommands, constellationTools } from "./tools.ts";
+import { McpTokens } from "./tokens.ts";
+
+const Message = Schema.Struct({
+  jsonrpc: Schema.Literal("2.0"),
+  id: Schema.optionalKey(Schema.Union([Schema.String, Schema.Number])),
+  method: Schema.String,
+  params: Schema.optionalKey(Schema.Unknown),
+});
+
+const Initialize = Schema.Struct({ protocolVersion: Schema.String });
+
+const Call = Schema.Struct({ name: Schema.String, arguments: Schema.optionalKey(Schema.Json) });
+
+const decodeJson = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.Json));
+
+const decodeMessage = Schema.decodeUnknownOption(Message);
+
+const decodeInitialize = Schema.decodeUnknownOption(Initialize);
+
+const decodeCall = Schema.decodeUnknownOption(Call);
+
+const versions = ["2025-11-25", "2025-06-18", "2025-03-26"];
+
+const protocolVersion = "2025-11-25";
+
+const rpcError = (id: string | number | null, code: number, message: string) =>
+  Response.json({ jsonrpc: "2.0", id, error: { code, message } });
+
+const safeOrigin = (request: Request) => {
+  const origin = request.headers.get("origin");
+
+  if (origin === null) return true;
+
+  try {
+    const url = new URL(origin);
+
+    return (
+      url.protocol === "http:" &&
+      url.hostname === "127.0.0.1" &&
+      url.host === new URL(request.url).host
+    );
+  } catch {
+    return false;
+  }
+};
+
+const responseFor = async (
+  binding: McpBinding,
+  message: typeof Message.Type,
+  commands: ConstellationCommands
+): Promise<Response> => {
+  const id = message.id;
+
+  if (id === undefined) {
+    return message.method.startsWith("notifications/")
+      ? new Response(null, { status: 202 })
+      : rpcError(null, -32600, "A request needs an id");
+  }
+
+  const result = <A>(value: A) => Response.json({ jsonrpc: "2.0", id, result: value });
+
+  switch (message.method) {
+    case "initialize": {
+      const params = decodeInitialize(message.params);
+
+      if (Option.isNone(params)) return rpcError(id, -32602, "Invalid initialize parameters");
+
+      return result({
+        protocolVersion: versions.includes(params.value.protocolVersion)
+          ? params.value.protocolVersion
+          : protocolVersion,
+        capabilities: { tools: {} },
+        serverInfo: { name: "polaris", version: "1" },
+      });
+    }
+
+    case "ping":
+      return result({});
+    case "tools/list":
+      return result({
+        tools: constellationTools(binding, commands).map(({ name, description, inputSchema }) => ({
+          name,
+          description,
+          inputSchema,
+        })),
+      });
+    case "tools/call": {
+      const params = decodeCall(message.params);
+
+      if (Option.isNone(params)) return rpcError(id, -32602, "Invalid tool call parameters");
+
+      const tool = constellationTools(binding, commands).find(
+        (item) => item.name === params.value.name
+      );
+
+      if (tool === undefined) return rpcError(id, -32602, "This binding has no such tool");
+
+      return result(await tool.call(params.value.arguments ?? {}));
+    }
+
+    default:
+      return rpcError(id, -32601, "Method not found");
+  }
+};
+
+/** One listener per Host; JSON responses only, with no SSE connection or per-session process. */
+export const mcpHttp = (commands: ConstellationCommands, port = 0) =>
+  Effect.gen(function* () {
+    const tokens = yield* McpTokens;
+
+    const server = yield* Effect.acquireRelease(
+      Effect.sync(() =>
+        Bun.serve({
+          hostname: "127.0.0.1",
+          port,
+          maxRequestBodySize: 1024 * 1024,
+          fetch: async (request) => {
+            const url = new URL(request.url);
+
+            if (url.hostname !== "127.0.0.1" || !safeOrigin(request))
+              return new Response(null, { status: 403 });
+            const token = /^\/mcp\/([a-f0-9]{64})$/.exec(url.pathname)?.[1];
+
+            const binding =
+              token === undefined ? null : await Effect.runPromise(tokens.authenticate(token));
+
+            if (binding === null) return new Response(null, { status: 401 });
+
+            if (request.method !== "POST")
+              return new Response(null, { status: 405, headers: { Allow: "POST" } });
+
+            if (!request.headers.get("content-type")?.startsWith("application/json"))
+              return new Response(null, { status: 415 });
+            const version = request.headers.get("mcp-protocol-version");
+
+            if (version !== null && !versions.includes(version))
+              return new Response(null, { status: 400 });
+            const json = decodeJson(await request.text());
+
+            if (Option.isNone(json)) return rpcError(null, -32700, "Invalid JSON");
+            const message = decodeMessage(json.value);
+
+            if (Option.isNone(message)) return rpcError(null, -32600, "Invalid JSON-RPC message");
+
+            return responseFor(binding, message.value, commands);
+          },
+          error: () => new Response("MCP request failed", { status: 500 }),
+        })
+      ),
+      (listener) =>
+        Effect.promise(async () => {
+          await listener.stop(true);
+        })
+    );
+
+    return { origin: `http://127.0.0.1:${server.port}` };
+  });
