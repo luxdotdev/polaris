@@ -8,6 +8,12 @@
  * `subscribeThread` with `afterSequence`.
  */
 import { Schema } from "effect";
+import {
+  Constellation,
+  ConstellationRpcs,
+  HostResource,
+  ResourceLease,
+} from "./constellation/index.ts";
 import { Rpc, RpcGroup } from "effect/rpc";
 import {
   AcceptBranch,
@@ -141,6 +147,9 @@ export const HostStreamItem = Schema.TaggedUnion({
     sessions: Schema.Array(SessionSummary),
     /** Open Review Checkouts, for Clients that announced `review.checkouts`. */
     reviewCheckouts: optionalArray(ReviewCheckout),
+    constellations: Schema.optionalKey(Schema.Array(Constellation)),
+    resources: Schema.optionalKey(Schema.Array(HostResource)),
+    resourceLeases: Schema.optionalKey(Schema.Array(ResourceLease)),
   },
   Event: { envelope: EventEnvelope },
   /** Everything up to now has been sent; later items are live. */
@@ -824,4 +833,4 @@ export class DaemonRpcs extends RpcGroup.make(
   TerminalInput,
   TerminalResize,
   TerminalClose
-) {}
+).merge(ConstellationRpcs) {}

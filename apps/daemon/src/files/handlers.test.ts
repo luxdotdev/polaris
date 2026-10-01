@@ -24,6 +24,19 @@ afterEach(() => {
 });
 
 const WorkspaceIoRpcs = DaemonRpcs.omit(
+  "constellation.plan",
+  "constellation.dispatch",
+  "constellation.review",
+  "constellation.answer",
+  "constellation.message",
+  "constellation.status",
+  "constellation.set_state",
+  "constellation.worker.claim",
+  "constellation.worker.ask",
+  "constellation.worker.progress",
+  "constellation.worker.propose",
+  "constellation.worker.message",
+  "constellation.subscribe",
   "hello",
   "dispatch",
   "subscribeHost",
