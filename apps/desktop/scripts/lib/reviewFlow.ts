@@ -175,7 +175,8 @@ export const reviewFlow = async ({ page, fake, step, shoot }: ReviewFlowInput) =
   const session = page
     .getByTestId("review-queue-row")
     .filter({ hasText: "smoke-repo" })
-    .filter({ hasNotText: "Reviewer ·" });
+    .filter({ hasNotText: "Reviewer ·" })
+    .filter({ hasNotText: "Walkthrough ·" });
 
   if ((await session.count()) > 0) {
     await session.first().click();

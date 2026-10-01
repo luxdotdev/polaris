@@ -231,7 +231,8 @@ const session = async ({ page, step, shoot }: FindingsFlowInput) => {
   const row = page
     .getByTestId("review-queue-row")
     .filter({ hasText: "smoke-repo" })
-    .filter({ hasNotText: "Reviewer ·" });
+    .filter({ hasNotText: "Reviewer ·" })
+    .filter({ hasNotText: "Walkthrough ·" });
 
   if ((await row.count()) === 0) {
     step("no Agent Session ready for review: feedback not exercised");
