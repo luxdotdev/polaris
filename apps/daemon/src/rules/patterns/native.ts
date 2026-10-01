@@ -8,7 +8,7 @@
  * so the grammars are copied to `~/.polaris/lib/grammars/` on first use.
  * Linux builds pick glibc or musl with `--define process.env.POLARIS_LIBC='"musl"'`.
  */
-import { copyFileSync, existsSync, mkdirSync, readdirSync, renameSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, renameSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import type * as Napi from "@ast-grep/napi";
 import { paths } from "../../paths.ts";
@@ -16,12 +16,10 @@ import type { PackLanguage } from "./pack.ts";
 
 export type AstGrep = typeof Napi;
 
-const onMusl = (): boolean => {
-  // Compiled builds have it defined (`scripts/build-daemon.ts`); from source, look for musl's loader.
-  const libc = process.env.POLARIS_LIBC;
+type LangRegistration = Parameters<AstGrep["registerDynamicLanguage"]>[0][string];
 
-  if (libc === "musl" || libc === "gnu") return libc === "musl";
-
+/** From source, where no libc is defined: musl if its loader is there. */
+const muslHost = (): boolean => {
   try {
     return readdirSync("/lib").some((name) => name.startsWith("ld-musl-"));
   } catch {
@@ -37,13 +35,18 @@ const requireAddon = (): AstGrep => {
   if (process.platform === "darwin" && process.arch === "arm64") {
     addon = require("@ast-grep/napi-darwin-arm64/ast-grep-napi.darwin-arm64.node");
   } else if (process.platform === "linux" && process.arch === "x64") {
-    addon = onMusl()
-      ? require("@ast-grep/napi-linux-x64-musl/ast-grep-napi.linux-x64-musl.node")
-      : require("@ast-grep/napi-linux-x64-gnu/ast-grep-napi.linux-x64-gnu.node");
+    // `process.env.POLARIS_LIBC` is replaced at build time, so the bundler keeps one addon.
+    if (process.env.POLARIS_LIBC === "musl" || (process.env.POLARIS_LIBC !== "gnu" && muslHost())) {
+      addon = require("@ast-grep/napi-linux-x64-musl/ast-grep-napi.linux-x64-musl.node");
+    } else {
+      addon = require("@ast-grep/napi-linux-x64-gnu/ast-grep-napi.linux-x64-gnu.node");
+    }
   } else if (process.platform === "linux" && process.arch === "arm64") {
-    addon = onMusl()
-      ? require("@ast-grep/napi-linux-arm64-musl/ast-grep-napi.linux-arm64-musl.node")
-      : require("@ast-grep/napi-linux-arm64-gnu/ast-grep-napi.linux-arm64-gnu.node");
+    if (process.env.POLARIS_LIBC === "musl" || (process.env.POLARIS_LIBC !== "gnu" && muslHost())) {
+      addon = require("@ast-grep/napi-linux-arm64-musl/ast-grep-napi.linux-arm64-musl.node");
+    } else {
+      addon = require("@ast-grep/napi-linux-arm64-gnu/ast-grep-napi.linux-arm64-gnu.node");
+    }
   } else {
     addon = require("@ast-grep/napi");
   }
@@ -152,7 +155,7 @@ const REGISTRATION = {
  * A path native code can open: the file itself from source, or a copy under
  * `~/.polaris/lib/grammars/` named by its embedded name (which carries a content hash).
  */
-const onDisk = (path: string, language: string): string => {
+const onDisk = async (path: string, language: string): Promise<string> => {
   if (!path.startsWith("/$bunfs/")) return path;
   const dir = join(paths().root, "lib", "grammars");
   const target = join(dir, `${language}-${basename(path)}`);
@@ -160,7 +163,8 @@ const onDisk = (path: string, language: string): string => {
   if (existsSync(target)) return target;
   mkdirSync(dir, { recursive: true });
   const temp = `${target}.tmp-${process.pid}`;
-  copyFileSync(path, temp);
+  // `copyFileSync` can't read from `$bunfs`; Bun's own file API can.
+  writeFileSync(temp, await Bun.file(path).bytes(), { mode: 0o755 });
   renameSync(temp, target);
 
   return target;
@@ -175,18 +179,18 @@ export const loadAstGrep = (): Promise<AstGrep> =>
     const files = await grammarFiles();
 
     if (files !== null) {
-      napi.registerDynamicLanguage(
-        Object.fromEntries(
-          DYNAMIC.map((language) => [
-            language,
-            {
-              ...REGISTRATION[language],
-              extensions: [...REGISTRATION[language].extensions],
-              libraryPath: onDisk(files[language], language),
-            },
-          ])
-        )
+      const registrations = await Promise.all(
+        DYNAMIC.map(async (language): Promise<readonly [string, LangRegistration]> => [
+          language,
+          {
+            ...REGISTRATION[language],
+            extensions: [...REGISTRATION[language].extensions],
+            libraryPath: await onDisk(files[language], language),
+          },
+        ])
       );
+
+      napi.registerDynamicLanguage(Object.fromEntries(registrations));
     }
 
     return napi;

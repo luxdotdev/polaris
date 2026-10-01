@@ -1,5 +1,4 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { randomBytes } from "node:crypto";
 import { readdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { gitText } from "../git/git.ts";
@@ -109,7 +108,8 @@ describe("runRules on Agent Session Turns (snapshot)", () => {
   test("low-confidence generic secrets are Medium; i18n catalogues are skipped", async () => {
     const root = await repo({ "README.md": "hi\n" });
     const base = await head(root);
-    write(root, "config.yaml", `api_key: ${randomBytes(16).toString("hex")}\n`);
+    // Fixed: some random values fall under Betterleaks' entropy filter. Not a credential.
+    write(root, "config.yaml", "api_key: 9f86d081884c7d659a2feaa0c55ad015\n");
     write(root, "messages/en.json", '{ "password": "Password (at least 8 characters)" }\n');
     const tip = await commitAll(root, "config");
 

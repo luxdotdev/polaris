@@ -1,13 +1,15 @@
 /**
  * `polaris selftest`: checks that this build's native pieces work on this
- * Host. Today that is fff's library, which `bun build --compile` embeds
- * (see scripts/build-daemon.ts); without it, file search silently falls back
- * to git. The build and CI run this against every binary they can execute.
+ * Host: fff's library, which `bun build --compile` embeds (see
+ * scripts/build-daemon.ts; without it, file search silently falls back to
+ * git), and the Rules' ast-grep addon, grammars and Betterleaks binary. The
+ * build and CI run this against every binary they can execute.
  */
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fffLoadError, openFffBackend } from "../files/search/fff.ts";
+import { rulesSelfTest } from "../rules/selftest.ts";
 import { versionLine } from "./platform.ts";
 
 export interface SelfTestResult {
@@ -46,13 +48,15 @@ export const selfTest = async (): Promise<SelfTestResult> => {
       });
 
       const grepped = grep.length === 1 && grep[0]!.path.endsWith("polaris-selftest-needle.txt");
-      const ok = found && grepped;
+      const fffOk = found && grepped;
+      const rules = await rulesSelfTest(scratch);
 
       return {
-        ok,
+        ok: fffOk && rules.ok,
         lines: [
           versionLine(),
-          ok ? "fff: ok" : `fff: loaded but ${found ? "grep" : "search"} found nothing`,
+          fffOk ? "fff: ok" : `fff: loaded but ${found ? "grep" : "search"} found nothing`,
+          rules.line,
         ],
       };
     } finally {

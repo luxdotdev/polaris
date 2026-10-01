@@ -28,8 +28,8 @@ import { classifyLicense, type GoModuleLicense } from "./goLicenses.ts";
 
 const auditPath = join(import.meta.dir, "betterleaks-licenses.json");
 
-const run = async (argv: ReadonlyArray<string>, cwd?: string): Promise<string> => {
-  const proc = Bun.spawn([...argv], { cwd, stdout: "pipe", stderr: "pipe" });
+const run = async (argv: ReadonlyArray<string>): Promise<string> => {
+  const proc = Bun.spawn([...argv], { stdout: "pipe", stderr: "pipe" });
 
   const [stdout, stderr, code] = await Promise.all([
     new Response(proc.stdout).text(),

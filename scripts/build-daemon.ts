@@ -2,8 +2,9 @@
 /**
  * Build the `polaris` Daemon for every platform it ships on (ENG-181):
  *
- *   apps/daemon/dist/<platform>/polaris   bun build --compile, one self-contained file
- *   apps/daemon/dist/manifest.json        version, commit and SHA-256 per platform
+ *   apps/daemon/dist/<platform>/polaris       bun build --compile, one self-contained file
+ *   apps/daemon/dist/<platform>/betterleaks   the pinned secrets scanner, checksum-verified
+ *   apps/daemon/dist/manifest.json            version, commit and SHA-256 per platform
  *
  * fff's native library (`@ff-labs/fff-bun`, MIT) is embedded by the compile
  * step: fff-bun imports `@ff-labs/fff-bin-<platform>/libfff_c.*` with
@@ -11,6 +12,11 @@
  * build time (optional dependencies for other platforms are not installed by
  * default; this script installs them from the lockfile when missing), and
  * Linux builds need `--define FFF_LIBC="gnu"` (or `"musl"`) to pick the library.
+ * ast-grep's addon and grammars (the Rules, `apps/daemon/src/rules/`) are
+ * embedded the same way, from `@ast-grep/napi-<platform>` and `@ast-grep/lang-*`.
+ * Betterleaks is a Go binary that can't run from inside `polaris`: it is
+ * downloaded at its pinned version (`apps/daemon/src/rules/secrets/pin.ts`),
+ * checked against its SHA-256, and listed in the manifest as an executable.
  *
  *   bun scripts/build-daemon.ts [--release] [darwin-arm64|linux-x64|linux-arm64|linux-x64-musl|linux-arm64-musl ...]
  *
@@ -20,6 +26,8 @@
  */
 import { createHash } from "node:crypto";
 import {
+  chmodSync,
+  copyFileSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -31,6 +39,8 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { Option, Schema } from "effect";
+import { fetchBetterleaks } from "../apps/daemon/src/rules/secrets/fetch.ts";
+import { BETTERLEAKS_VERSION, betterleaksAsset } from "../apps/daemon/src/rules/secrets/pin.ts";
 import { buildVersion } from "./buildVersion.ts";
 
 const root = join(import.meta.dir, "..");
@@ -39,25 +49,21 @@ const daemonDir = join(root, "apps", "daemon");
 
 const distDir = join(daemonDir, "dist");
 
+const GNU = ['FFF_LIBC="gnu"', 'process.env.POLARIS_LIBC="gnu"'];
+
+const MUSL = ['FFF_LIBC="musl"', 'process.env.POLARIS_LIBC="musl"'];
+
 const PLATFORMS = {
   "darwin-arm64": { target: "bun-darwin-arm64", fffBin: "darwin-arm64", define: [] },
-  "linux-x64": { target: "bun-linux-x64", fffBin: "linux-x64-gnu", define: ['FFF_LIBC="gnu"'] },
-  "linux-arm64": {
-    target: "bun-linux-arm64",
-    fffBin: "linux-arm64-gnu",
-    define: ['FFF_LIBC="gnu"'],
-  },
+  "linux-x64": { target: "bun-linux-x64", fffBin: "linux-x64-gnu", define: GNU },
+  "linux-arm64": { target: "bun-linux-arm64", fffBin: "linux-arm64-gnu", define: GNU },
   // musl (Alpine). Bun's musl runtime links libstdc++ and libgcc dynamically,
   // so the Host needs `apk add libstdc++ libgcc`; the Client's probe checks.
-  "linux-x64-musl": {
-    target: "bun-linux-x64-musl",
-    fffBin: "linux-x64-musl",
-    define: ['FFF_LIBC="musl"'],
-  },
+  "linux-x64-musl": { target: "bun-linux-x64-musl", fffBin: "linux-x64-musl", define: MUSL },
   "linux-arm64-musl": {
     target: "bun-linux-arm64-musl",
     fffBin: "linux-arm64-musl",
-    define: ['FFF_LIBC="musl"'],
+    define: MUSL,
   },
 } as const;
 
@@ -69,7 +75,11 @@ const decodeVersioned = Schema.decodeUnknownSync(
   Schema.fromJsonString(Schema.Struct({ version: Schema.String }))
 );
 
-const FileEntry = Schema.Struct({ sha256: Schema.String, size: Schema.Number });
+const FileEntry = Schema.Struct({
+  sha256: Schema.String,
+  size: Schema.Number,
+  executable: Schema.optional(Schema.Boolean),
+});
 
 const PlatformBuild = Schema.Struct({
   target: Schema.String,
@@ -141,19 +151,28 @@ const fffBinInstalled = (platform: Platform): boolean => {
   return bin !== null && readVersion(bin) === readVersion(fffBun);
 };
 
-/** Install the target platforms' optional packages (fff-bin-*) from the lockfile. */
+/** ast-grep's addon for `platform`: `@ast-grep/napi-<fffBin>`, an optional dependency of the Daemon. */
+const astGrepInstalled = (platform: Platform): boolean =>
+  findPackage(daemonDir, `@ast-grep/napi-${PLATFORMS[platform].fffBin}`) !== null;
+
+const targetPackagesInstalled = (platform: Platform) =>
+  fffBinInstalled(platform) && astGrepInstalled(platform);
+
+/** Install the target platforms' optional packages (fff-bin-*, ast-grep's napi-*) from the lockfile. */
 const ensureTargetPackages = async (platforms: ReadonlyArray<Platform>) => {
-  const missing = platforms.filter((platform) => !fffBinInstalled(platform));
+  const missing = platforms.filter((platform) => !targetPackagesInstalled(platform));
 
   if (missing.length === 0) return;
   console.log(
     `installing optional packages for ${missing.join(", ")} (bun install --os=* --cpu=*)`
   );
   await run([process.execPath, "install", "--frozen-lockfile", "--os=*", "--cpu=*"]);
-  const still = missing.filter((platform) => !fffBinInstalled(platform));
+  const still = missing.filter((platform) => !targetPackagesInstalled(platform));
 
   if (still.length > 0) {
-    throw new Error(`@ff-labs/fff-bin-* still missing for ${still.join(", ")} after install`);
+    throw new Error(
+      `@ff-labs/fff-bin-* or @ast-grep/napi-* still missing for ${still.join(", ")} after install`
+    );
   }
 };
 
@@ -207,6 +226,9 @@ const build = async (platform: Platform, version: string): Promise<PlatformBuild
   ]);
 
   if (platform.startsWith("darwin")) await signAdHoc(binary);
+  const betterleaks = join(outDir, "betterleaks");
+  copyFileSync(await fetchBetterleaks(betterleaksAsset(platform)!), betterleaks);
+  chmodSync(betterleaks, 0o755);
 
   if (platform === hostPlatform) {
     // `selftest` also proves the embedded fff library loads and searches.
@@ -224,7 +246,14 @@ const build = async (platform: Platform, version: string): Promise<PlatformBuild
     target,
     binary: "polaris",
     sha256: sha256(binary),
-    files: { polaris: { sha256: sha256(binary), size: statSync(binary).size } },
+    files: {
+      polaris: { sha256: sha256(binary), size: statSync(binary).size },
+      betterleaks: {
+        sha256: sha256(betterleaks),
+        size: statSync(betterleaks).size,
+        executable: true,
+      },
+    },
   };
 };
 
@@ -250,6 +279,7 @@ const main = async () => {
   });
 
   const fff = readVersion(fffBunPackage());
+  const astGrep = readVersion(findPackage(daemonDir, "@ast-grep/napi")!);
   await ensureTargetPackages(platforms);
 
   const manifestPath = join(distDir, "manifest.json");
@@ -272,6 +302,8 @@ const main = async () => {
     version,
     commit,
     fff: { package: "@ff-labs/fff-bun", version: fff, embedded: true },
+    astGrep: { package: "@ast-grep/napi", version: astGrep, embedded: true },
+    betterleaks: { version: BETTERLEAKS_VERSION, file: "betterleaks" },
     platforms: built,
   };
 

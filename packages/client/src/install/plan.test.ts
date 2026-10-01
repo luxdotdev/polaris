@@ -12,7 +12,9 @@ const build = (platform: DaemonBuild["platform"], version = "1.2.0"): DaemonBuil
   platform,
   version,
   sha256: `sha-${platform}-${version}`,
-  files: [{ name: "polaris", path: `/dist/${platform}/polaris`, sha256: "x", size: 1 }],
+  files: [
+    { name: "polaris", path: `/dist/${platform}/polaris`, sha256: "x", size: 1, executable: true },
+  ],
 });
 
 const linuxX64 = build("linux-x64");

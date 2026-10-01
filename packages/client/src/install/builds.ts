@@ -61,6 +61,8 @@ export interface BuildFile {
   readonly path: string;
   readonly sha256: string;
   readonly size: number;
+  /** Uploaded with mode 755 (the binary always is; Betterleaks beside it too). */
+  readonly executable: boolean;
 }
 
 export interface DaemonBuild {
@@ -72,7 +74,12 @@ export interface DaemonBuild {
   readonly files: ReadonlyArray<BuildFile>;
 }
 
-const FileEntry = Schema.Struct({ sha256: Schema.String, size: Schema.Number });
+const FileEntry = Schema.Struct({
+  sha256: Schema.String,
+  size: Schema.Number,
+  /** Absent in manifests from before executables travelled beside the binary. */
+  executable: Schema.optional(Schema.Boolean),
+});
 
 const Manifest = Schema.Struct({
   version: Schema.String,
@@ -110,6 +117,7 @@ export const loadBuilds = (distDir: string): ReadonlyArray<DaemonBuild> => {
           path: join(distDir, platform, name),
           sha256: build.files[name]!.sha256,
           size: build.files[name]!.size,
+          executable: name === build.binary || build.files[name]!.executable === true,
         })),
       },
     ];
