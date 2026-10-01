@@ -13,6 +13,9 @@ import { createServer } from "vite";
 import { devHome, socketLive, systemSocket } from "../src/main/localDaemon.ts";
 import { APP_DIR, buildMain, electronBinary, REPO_ROOT } from "./lib/build.ts";
 import { startDaemon, type TestDaemon } from "./lib/daemon.ts";
+import { prepareDaemonBuilds } from "./lib/daemonBuilds.ts";
+
+await prepareDaemonBuilds();
 
 const server = await createServer({ configFile: join(APP_DIR, "vite.config.ts") });
 
@@ -39,6 +42,8 @@ await buildMain();
 let electron: ChildProcess | null = null;
 
 let restarting = false;
+
+let daemonChanged = false;
 
 const shutdown = async () => {
   setTimeout(() => process.exit(1), 5000).unref();
@@ -75,8 +80,13 @@ const launch = () => {
   electron = child;
 };
 
-const restart = async () => {
+const restartOnce = async () => {
   try {
+    if (daemonChanged) {
+      daemonChanged = false;
+      await prepareDaemonBuilds();
+    }
+
     await buildMain();
   } catch (error) {
     console.error("dev: main build failed; keeping the running app", error);
@@ -98,6 +108,26 @@ const restart = async () => {
   launch();
 };
 
+let restartRunning = false;
+
+let restartQueued = false;
+
+const restart = async () => {
+  restartQueued = true;
+
+  if (restartRunning) return;
+  restartRunning = true;
+
+  try {
+    while (restartQueued) {
+      restartQueued = false;
+      await restartOnce();
+    }
+  } finally {
+    restartRunning = false;
+  }
+};
+
 let timer: ReturnType<typeof setTimeout> | null = null;
 
 const watcher = [
@@ -106,8 +136,16 @@ const watcher = [
   "apps/desktop/src/shared",
   "packages/client/src",
   "packages/protocol/src",
+  "apps/daemon/src",
 ].map((dir) =>
   watch(join(REPO_ROOT, dir), { recursive: true }, () => {
+    if (
+      dir !== "apps/desktop/src/main" &&
+      dir !== "apps/desktop/src/preload" &&
+      dir !== "apps/desktop/src/shared"
+    )
+      daemonChanged = true;
+
     if (timer !== null) clearTimeout(timer);
     timer = setTimeout(() => void restart(), 150);
   })

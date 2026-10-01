@@ -27,11 +27,11 @@ const host = (key: string, patch: Partial<ConnectionStatusView> = {}): HostView 
   status: status(patch),
 });
 
-const info = (daemonVersion: string) =>
+const info = (daemonVersion: string, platform: HostInfo["platform"] = "darwin-arm64") =>
   new HostInfo({
     hostId: HostId.make("h"),
     hostname: "studio",
-    platform: "darwin-arm64",
+    platform,
     daemonVersion,
     homeDir: "/Users/x",
     startedAt: "2026-09-30T00:00:00Z",
@@ -82,6 +82,63 @@ describe("backgroundCheckKey", () => {
 });
 
 describe("machineViews", () => {
+  test("a musl probe does not offer a glibc build from the Hello platform", () => {
+    const views = machineViews({
+      settings: { hosts: [{ alias: "alpine" }] },
+      hosts: [host("alpine", { host: info("0.1.0", "linux-x64") })],
+      installs: new Map(),
+      aliases: [],
+      updates: new Map([
+        [
+          "alpine",
+          {
+            platform: "linux-x64-musl",
+            installedVersion: "0.1.0",
+            bundledVersion: null,
+            epoch: 1,
+            progress: null,
+            lastUpdate: null,
+          },
+        ],
+      ]),
+      bundledVersions: new Map([["linux-x64", "0.2.0"]]),
+    });
+
+    expect(views[1]?.daemon).toMatchObject({ bundledVersion: null, updateAvailable: false });
+  });
+
+  test("facts use the current target's bundled version and the same app default on every Host", () => {
+    const views = machineViews({
+      settings: {
+        keepDaemonsUpToDate: false,
+        local: { enabled: true, keepDaemonUpToDate: true },
+        hosts: [{ alias: "studio" }, { alias: "other" }],
+      },
+      hosts: [
+        host("local", { host: info("0.1.0") }),
+        host("studio", { host: info("0.1.0") }),
+        host("other", { host: info("0.1.0", "linux-arm64") }),
+      ],
+      installs: new Map(),
+      aliases: [],
+      localManaged: true,
+      bundledVersions: new Map([["darwin-arm64", "0.2.0"]]),
+    });
+
+    expect(views.every((v) => v.daemon?.keepDaemonsUpToDate === false)).toBe(true);
+    expect(views[0]?.daemon).toMatchObject({
+      managed: true,
+      keepUpToDate: true,
+      updateAvailable: true,
+    });
+    expect(views[1]?.daemon).toMatchObject({
+      installedVersion: "0.1.0",
+      bundledVersion: "0.2.0",
+      updateAvailable: true,
+      keepUpToDate: false,
+    });
+    expect(views[2]?.daemon).toMatchObject({ bundledVersion: null, updateAvailable: false });
+  });
   test("this Mac first, even switched off, then remotes in settings order", () => {
     const views = machineViews({
       settings: {

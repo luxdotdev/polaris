@@ -4,8 +4,18 @@
  * approval, install or upgrade), switches the local Host, and publishes the
  * Settings rows. A background check (a reconnect) never installs.
  */
-import { type InstallPlan, type InstallTrigger, Ssh } from "@polaris/client/install";
-import { Context, Effect, Fiber, Layer, Predicate, Schema, Stream, SubscriptionRef } from "effect";
+import { InstallPlan, type InstallTrigger, Ssh } from "@polaris/client/install";
+import {
+  Context,
+  Effect,
+  Fiber,
+  Layer,
+  Predicate,
+  Queue,
+  Schema,
+  Stream,
+  SubscriptionRef,
+} from "effect";
 import type { MachineView, SshAliasView } from "../../shared/api.ts";
 import { HostDirectory, LOCAL_HOST_KEY, localEntry, remoteEntry } from "../hosts.ts";
 import type { LocalDaemon } from "../localDaemon.ts";
@@ -16,6 +26,8 @@ import { type InstallEvent, initialInstall, stepInstall } from "./installFlow.ts
 import { applyWork, failureMessage, planFor, startDaemon } from "./remote.ts";
 import { sshArgv } from "./terminal.ts";
 import { backgroundCheckKey, type InstallRecord, localUpgradeKey, machineViews } from "./views.ts";
+import { type UpdateFacts, updatePolicy } from "./updateFacts.ts";
+import type { DaemonUpdateProgress, DaemonUpdateResult } from "../../shared/daemonUpdates.ts";
 
 export class MachineError extends Schema.TaggedError<MachineError>()("MachineError", {
   message: Schema.String,
@@ -122,13 +134,30 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
   const scope = yield* Effect.scope;
   const installs = new Map<string, InstallRecord>();
   const work = new Map<string, Fiber.Fiber<void>>();
+  const updates = new Map<string, UpdateFacts>();
+  const progressChanges = yield* Queue.unbounded<void>();
   const views = yield* SubscriptionRef.make<ReadonlyArray<MachineView>>([]);
   let aliases = input.aliases();
+
+  let bundledBuilds = yield* input.builds
+    .forPlatform(null, { build: false, onBuild: Effect.void })
+    .pipe(Effect.orElseSucceed(() => []));
+
+  let bundled = bundledBuilds[0]?.version ?? null;
 
   const publish = Effect.flatMap(SubscriptionRef.get(dir.views), (hosts) =>
     SubscriptionRef.set(
       views,
-      machineViews({ settings: input.settings.get(), hosts, installs, aliases })
+      machineViews({
+        settings: input.settings.get(),
+        hosts,
+        installs,
+        aliases,
+        updates,
+        bundledVersion: bundled,
+        bundledVersions: new Map(bundledBuilds.map((b) => [b.platform, b.version])),
+        localManaged: input.localHome() !== null,
+      })
     )
   );
 
@@ -164,6 +193,8 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
     Effect.suspend(() => {
       const previous = record(key);
       const snapshot = stepInstall(previous.snapshot, event);
+
+      if (snapshot === previous.snapshot) return Effect.succeed(snapshot);
       installs.set(key, { ...previous, snapshot, activity });
 
       return Effect.as(publish, snapshot);
@@ -175,6 +206,56 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
 
       return publish;
     });
+
+  const updateFacts = (key: string, patch: Partial<UpdateFacts>) =>
+    Effect.gen(function* () {
+      const hosts = yield* SubscriptionRef.get(dir.views);
+      const host = hosts.find((h) => h.key === key);
+      const previous = updates.get(key);
+      updates.set(key, {
+        platform: host?.status.host?.platform ?? null,
+        installedVersion: host?.status.host?.daemonVersion ?? null,
+        bundledVersion: bundled,
+        epoch: host?.status.epoch ?? 0,
+        progress: null,
+        lastUpdate: input.settings.get().daemonUpdates?.[key] ?? null,
+        ...previous,
+        ...patch,
+      });
+      yield* publish;
+    });
+
+  const finishUpdate = (key: string, result: DaemonUpdateResult) =>
+    Effect.gen(function* () {
+      input.settings.update((s) => ({
+        ...s,
+        daemonUpdates: { ...s.daemonUpdates, [key]: result },
+      }));
+      const progress = updates.get(key)?.progress;
+      yield* updateFacts(key, {
+        lastUpdate: result,
+        installedVersion:
+          result.problem === null ? result.version : (updates.get(key)?.installedVersion ?? null),
+        progress: {
+          stage: result.problem === null ? "done" : "failed",
+          bytes: progress?.bytes ?? 0,
+          total: progress?.total ?? 0,
+        },
+      });
+    });
+
+  const progress = (key: string) => (value: DaemonUpdateProgress) => {
+    const previous = updates.get(key);
+
+    if (previous === undefined) return;
+    updates.set(key, { ...previous, progress: value });
+    Queue.offerUnsafe(progressChanges, undefined);
+  };
+
+  yield* Stream.fromQueue(progressChanges).pipe(
+    Stream.runForEach(() => publish),
+    Effect.forkIn(scope)
+  );
 
   const retryConnection = (key: string) =>
     dir.connection(key).pipe(
@@ -191,21 +272,74 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
       work.set(key, yield* Effect.forkIn(effect, scope));
     });
 
+  const finishCheck = (
+    key: string,
+    snapshot: import("./installFlow.ts").InstallSnapshot,
+    installedVersion: string | null,
+    bundledVersion: string | null,
+    skipped: boolean
+  ) =>
+    Effect.gen(function* () {
+      const problem = snapshot.context.problem;
+
+      if (problem !== null) {
+        yield* finishUpdate(key, {
+          at: Date.now(),
+          result: "failed",
+          from: installedVersion,
+          version: bundledVersion,
+          problem: { ...problem, sshFailure: null },
+        });
+      } else if (snapshot.context.outcome !== null && !skipped) {
+        yield* finishUpdate(key, {
+          at: Date.now(),
+          result: snapshot.context.outcome.kind === "newer" ? "newer" : "current",
+          from: installedVersion,
+          version: installedVersion,
+          problem: null,
+        });
+      } else {
+        yield* updateFacts(key, { progress: null });
+      }
+    });
+
   /** The flow after `check` moved to checking: plan, then maybe install. */
   const checkBody = (key: string, trigger: InstallTrigger, updateOnly = false) => {
     const to = target(key);
 
     return Effect.gen(function* () {
-      const { plan, size } = yield* planFor({
+      const {
+        platform,
+        plan: proposed,
+        size,
+        installedVersion,
+        bundledVersion,
+      } = yield* planFor({
         alias: to.alias,
         trigger,
         approved: to.local ? new Set<string>() : input.approvals.approved(key),
         builds: input.builds,
-        onBuild: Effect.andThen(
-          Effect.sync(() => void (bundled = undefined)),
-          setRecord(key, { activity: "Building the daemon for this host from source" })
-        ),
+        onBuild: setRecord(key, { activity: "Building the daemon for this host from source" }),
       });
+
+      bundledBuilds = yield* input.builds
+        .forPlatform(null, { build: false, onBuild: Effect.void })
+        .pipe(Effect.orElseSucceed(() => []));
+      bundled = bundledBuilds[0]?.version ?? null;
+      const hosts = yield* SubscriptionRef.get(dir.views);
+      yield* updateFacts(key, {
+        platform,
+        installedVersion,
+        bundledVersion,
+        epoch: hosts.find((h) => h.key === key)?.status.epoch ?? 0,
+      });
+
+      const plan =
+        trigger === "background" &&
+        !updatePolicy(input.settings.get(), key).keepUpToDate &&
+        Predicate.isTagged(proposed, "Upgrade")
+          ? InstallPlan.UpToDate({ version: proposed.from })
+          : proposed;
 
       if ((to.local || updateOnly) && installsAnew(plan)) {
         yield* step(key, {
@@ -216,6 +350,20 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
               ? NO_LOCAL_INSTALL
               : "No daemon is installed. Use Install daemon first.",
             command: null,
+          },
+        });
+        yield* finishUpdate(key, {
+          at: Date.now(),
+          result: "failed",
+          from: installedVersion,
+          version: bundledVersion,
+          problem: {
+            kind: "failed",
+            message: to.local
+              ? NO_LOCAL_INSTALL
+              : "No daemon is installed. Use Install daemon first.",
+            command: null,
+            sshFailure: null,
           },
         });
 
@@ -234,9 +382,21 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
 
       const pending = planned.value === "installing" ? planned.context.work : null;
 
-      if (pending === null) return;
-      const outcome = yield* applyWork(to.alias, pending);
+      if (pending === null) {
+        yield* finishCheck(key, planned, installedVersion, bundledVersion, proposed !== plan);
+
+        return;
+      }
+
+      const outcome = yield* applyWork(to.alias, pending, progress(key));
       yield* step(key, { type: "applied", outcome });
+      yield* finishUpdate(key, {
+        at: Date.now(),
+        result: "updated",
+        from: outcome.from,
+        version: outcome.version,
+        problem: null,
+      });
       yield* retryConnection(key);
     }).pipe(
       Effect.provide(to.ssh),
@@ -244,13 +404,43 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
         step(key, {
           type: "failed",
           problem: { kind: "ssh", message: failureMessage(error), command: null },
-        })
+        }).pipe(
+          Effect.andThen(
+            finishUpdate(key, {
+              at: Date.now(),
+              result: "failed",
+              from: updates.get(key)?.installedVersion ?? null,
+              version: updates.get(key)?.bundledVersion ?? bundled,
+              problem: {
+                kind: "ssh",
+                message: failureMessage(error),
+                command: null,
+                sshFailure: error.failure,
+              },
+            })
+          )
+        )
       ),
       Effect.catch((error) =>
         step(key, {
           type: "failed",
           problem: { kind: "failed", message: failureMessage(error), command: null },
-        })
+        }).pipe(
+          Effect.andThen(
+            finishUpdate(key, {
+              at: Date.now(),
+              result: "failed",
+              from: updates.get(key)?.installedVersion ?? null,
+              version: bundled,
+              problem: {
+                kind: "failed",
+                message: failureMessage(error),
+                command: null,
+                sshFailure: null,
+              },
+            })
+          )
+        )
       ),
       Effect.asVoid
     );
@@ -261,42 +451,54 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
       const previous = record(key).snapshot;
       const started = yield* step(key, { type: "check", trigger }, target(key).probing);
 
-      if (started !== previous && started.value === "checking")
+      if (started !== previous && started.value === "checking") {
+        yield* updateFacts(key, { progress: { stage: "checking", bytes: 0, total: 0 } });
         yield* launch(key, checkBody(key, trigger, updateOnly));
+      }
     });
-
-  // Read once, not on every Connection State change; a dev build refreshes it.
-  let bundled: string | null | undefined;
-
-  const bundledVersion = () =>
-    bundled !== undefined
-      ? Effect.succeed(bundled)
-      : input.builds.forPlatform(null, { build: false, onBuild: Effect.void }).pipe(
-          Effect.map((builds) => builds[0]?.version ?? null),
-          Effect.orElseSucceed(() => null),
-          Effect.tap((version) => Effect.sync(() => void (bundled = version)))
-        );
 
   // Background checks: once per occasion a Host's Connection State calls for one.
   const occasions = new Map<string, string>();
+  let buildsOccasion = "";
+
+  const background = (hosts: ReadonlyArray<import("../../shared/api.ts").HostView>) =>
+    Effect.gen(function* () {
+      const nextOccasion = hosts
+        .map((h) => `${h.key}:${h.status.state}:${h.status.epoch}:${h.status.since}`)
+        .join("|");
+
+      if (buildsOccasion !== nextOccasion) {
+        buildsOccasion = nextOccasion;
+        bundledBuilds = yield* input.builds
+          .forPlatform(null, { build: false, onBuild: Effect.void })
+          .pipe(Effect.orElseSucceed(() => []));
+        bundled = bundledBuilds[0]?.version ?? null;
+      }
+
+      yield* publish;
+
+      for (const host of hosts) {
+        const policy = updatePolicy(input.settings.get(), host.key);
+        const missing = host.status.failure?.reason === "polaris-not-installed";
+
+        if (!policy.keepUpToDate && !missing) continue;
+
+        const occasion =
+          host.key === LOCAL_HOST_KEY
+            ? localUpgradeKey(host, bundled, input.localHome())
+            : backgroundCheckKey(host, bundled);
+
+        if (occasion === null) continue;
+        const key = `${occasion}:${bundled}`;
+
+        if (occasions.get(host.key) === key) continue;
+        occasions.set(host.key, key);
+        yield* runCheck(host.alias ?? host.key, "background");
+      }
+    });
+
   yield* SubscriptionRef.changes(dir.views).pipe(
-    Stream.runForEach((hosts) =>
-      Effect.gen(function* () {
-        yield* publish;
-        const bundled = yield* bundledVersion();
-
-        for (const host of hosts) {
-          const occasion =
-            host.key === LOCAL_HOST_KEY
-              ? localUpgradeKey(host, bundled, input.localHome())
-              : backgroundCheckKey(host, bundled);
-
-          if (occasion === null || occasions.get(host.key) === occasion) continue;
-          occasions.set(host.key, occasion);
-          yield* runCheck(host.alias ?? host.key, "background");
-        }
-      })
-    ),
+    Stream.runForEach(background),
     Effect.forkIn(scope)
   );
 
@@ -337,6 +539,9 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
       input.settings.update((s) => ({
         ...s,
         hosts: (s.hosts ?? []).filter((h) => h.alias !== key),
+        daemonUpdates: Object.fromEntries(
+          Object.entries(s.daemonUpdates ?? {}).filter(([alias]) => alias !== key)
+        ),
       }));
       input.approvals.forget(key);
       const running = work.get(key);
@@ -344,7 +549,9 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
 
       if (running !== undefined) yield* Fiber.interrupt(running);
       installs.delete(key);
+      updates.delete(key);
       occasions.delete(key);
+      buildsOccasion = "";
       yield* dir.remove(key);
       yield* publish;
     });
@@ -360,7 +567,10 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
       input.approvals.approve(key, { ...offer, approvedAt: Date.now() });
       const approved = yield* step(key, { type: "approve" }, PROBING);
 
-      if (approved.value === "checking") yield* launch(key, checkBody(key, "user"));
+      if (approved.value === "checking") {
+        yield* updateFacts(key, { progress: { stage: "checking", bytes: 0, total: 0 } });
+        yield* launch(key, checkBody(key, "user"));
+      }
     });
 
   const restart = (key: string) =>
@@ -386,6 +596,8 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
         yield* dir.add(localEntry(local));
       }
 
+      occasions.delete(LOCAL_HOST_KEY);
+      yield* Effect.flatMap(SubscriptionRef.get(dir.views), background);
       yield* publish;
     });
 
@@ -411,6 +623,9 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
           ? { ...s, local: override(s.local ?? { enabled: true }) }
           : { ...s, hosts: (s.hosts ?? []).map((h) => (h.alias === key ? override(h) : h)) };
       });
+      occasions.delete(key);
+      buildsOccasion = "";
+      yield* Effect.flatMap(SubscriptionRef.get(dir.views), background);
       yield* publish;
     });
 
@@ -429,7 +644,16 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
     setKeepDaemonsUpToDate: (enabled) =>
       Effect.sync(() =>
         input.settings.update((s) => ({ ...s, keepDaemonsUpToDate: enabled }))
-      ).pipe(Effect.andThen(publish)),
+      ).pipe(
+        Effect.andThen(
+          Effect.sync(() => {
+            occasions.clear();
+            buildsOccasion = "";
+          })
+        ),
+        Effect.andThen(Effect.flatMap(SubscriptionRef.get(dir.views), background)),
+        Effect.andThen(publish)
+      ),
     setDaemonUpdateOverride,
     approve,
     dismiss: (key) => Effect.asVoid(step(key, { type: "dismiss" })),
