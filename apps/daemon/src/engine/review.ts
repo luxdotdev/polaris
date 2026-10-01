@@ -99,7 +99,9 @@ const openReviewCheckout = (d: Deciding, command: CommandOf<"OpenReviewCheckout"
   const path = join(workspace.worktreeRoot, ".review", checkoutDirectory(command.subject));
 
   for (const open of d.model.reviewCheckouts.values()) {
-    if (open.path === path) return d.reject(`Review Checkout ${open.id} is already open there`);
+    if (open.path === path && open.id !== command.checkoutId) {
+      return d.reject(`Review Checkout ${open.id} is already open there`);
+    }
   }
 
   const checkout = new ReviewCheckout({
