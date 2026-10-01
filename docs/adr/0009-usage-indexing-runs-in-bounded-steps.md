@@ -22,3 +22,14 @@ The Usage index reads the Harness logs on the Daemon's own thread, in the backgr
 - A pass is slower to finish than one that never yields. A single line longer than a chunk (tens of MB) is still parsed in one go.
 - `UsageReport.indexing` and `UsageChanged.indexing` are additive, and default to false for an older Daemon. After a `UsageChanged` with `indexing` false and no buckets, a Client showing Usage queries again.
 - A Host whose Usage is never looked at never indexes its logs, even with a Plan Limit feed open.
+
+## Testing
+
+`apps/daemon/src/usage/nonBlocking.test.ts` streams a delta every 10 ms through a first pass over ~220 MB and bounds the longest the session waited between deltas because the Daemon was busy. That wait is measured as the lesser of the wall-clock gap and this process's CPU time in the gap:
+
+- A stall on the Daemon's thread is long in both: 260–490 ms with the pass's yields and write slices removed, loaded or not.
+- A loaded machine pausing the process is long in wall time only. On GitHub's 2-core runner the wall-clock gap reached 127 ms (run 36808352850), and locally, with 48 busy loops on 12 cores, 250–340 ms; the CPU time in those gaps stayed at 45–70 ms.
+- The process's other threads (GC, I/O) add CPU time without holding anything up, so the CPU time alone runs higher than the wall-clock gap on a quiet machine (55–60 ms against 33–41).
+
+The bound stays at 100 ms. The test used to bound how late each delta arrived, which also missed a stall that began while no delta was in flight (one run in three, with the yields removed); a gap between arrivals catches those.
+
