@@ -2,6 +2,7 @@ id: js-eval
 language: tsx
 severity: error
 message: eval runs a string as code
+note: "Code built from a string runs with the app's full rights; if any part comes from input, it can run anything. Parse data (JSON.parse) or dispatch on a known set instead."
 metadata: { polaris-severity: Critical, category: security }
 rule:
   any:
@@ -12,6 +13,7 @@ id: js-shell-interpolation
 language: tsx
 severity: error
 message: A shell command built from interpolated values can be injected
+note: "The interpolated value reaches a shell, where quotes, ; and $( ) are live. Use execFile or spawn with an argument array."
 metadata: { polaris-severity: Critical, category: security }
 rule:
   any:
@@ -31,6 +33,7 @@ id: js-shell-true
 language: tsx
 severity: warning
 message: "spawn with shell: true passes arguments through a shell"
+note: "With shell: true every argument goes through a shell, so one untrusted argument can run commands. Drop the option and pass arguments as an array."
 metadata: { polaris-severity: High, category: security }
 rule:
   kind: pair
@@ -41,6 +44,7 @@ id: js-tls-verification-off
 language: tsx
 severity: error
 message: TLS certificate verification is turned off
+note: "Without certificate checks, anyone on the network path can impersonate the server and read or change the traffic. Trust the right CA instead."
 metadata: { polaris-severity: Critical, category: security }
 rule:
   any:
@@ -52,6 +56,7 @@ id: js-raw-sql-unsafe
 language: tsx
 severity: error
 message: Raw SQL built from interpolated values can be injected
+note: "Values spliced into SQL can change the query. Use the driver's parameters or a tagged template that escapes them."
 metadata: { polaris-severity: Critical, category: security }
 rule:
   any:
@@ -67,6 +72,7 @@ id: js-dangerous-html
 language: tsx
 severity: warning
 message: Raw HTML is inserted into the page
+note: "HTML from a variable can carry scripts (XSS). Render text, or sanitise the HTML with a vetted library first."
 metadata: { polaris-severity: High, category: security }
 rule:
   any:
@@ -87,6 +93,7 @@ id: js-weak-hash
 language: tsx
 severity: warning
 message: MD5 and SHA-1 are broken for security uses
+note: "MD5 and SHA-1 collisions are practical. Fine for a cache key; for anything security-related use SHA-256 or better."
 metadata: { polaris-severity: Medium, category: security }
 rule:
   any:
@@ -99,6 +106,7 @@ id: js-cors-wildcard
 language: tsx
 severity: warning
 message: CORS allows every origin
+note: "Any website can read these responses from a visitor's browser. List the origins that need access."
 metadata: { polaris-severity: Medium, category: security }
 rule:
   kind: pair
@@ -110,6 +118,7 @@ id: js-focused-test
 language: tsx
 severity: error
 message: A focused test (.only) silently skips every other test
+note: "Only this test runs, so the rest of the suite silently stops guarding the code. Remove .only before merging."
 metadata: { polaris-severity: High, category: correctness }
 rule:
   pattern: $T.only($$$)
@@ -120,6 +129,7 @@ id: js-skipped-test
 language: tsx
 severity: warning
 message: A test is skipped
+note: "A skipped test guards nothing. Fine while in progress; make sure it is meant to ship skipped."
 metadata: { polaris-severity: Medium, category: correctness }
 rule:
   any:
@@ -132,6 +142,7 @@ id: js-recursive-delete
 language: tsx
 severity: hint
 message: Recursive delete; check the path cannot be empty or user-controlled
+note: "If the path is empty, relative or built from input, this deletes more than intended. Check how the path is built."
 metadata: { polaris-severity: Low, category: data-loss }
 ignores:
   ["**/*.test.*", "**/*.spec.*", "**/test/**", "**/tests/**", "**/testing/**", "**/scripts/**"]
@@ -148,6 +159,7 @@ id: js-ts-suppression
 language: tsx
 severity: hint
 message: A type error is suppressed
+note: "The type error is hidden, not fixed, and so is any later one on this line. Prefer @ts-expect-error with a reason, or fix the type."
 metadata: { polaris-severity: Low, category: maintainability }
 rule:
   kind: comment
@@ -157,6 +169,7 @@ id: js-debugger
 language: tsx
 severity: warning
 message: A debugger statement was left in
+note: "A debugger statement pauses anyone running with devtools open. Remove it."
 metadata: { polaris-severity: Medium, category: correctness }
 rule:
   kind: debugger_statement

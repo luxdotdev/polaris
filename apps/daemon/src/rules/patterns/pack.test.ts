@@ -36,6 +36,7 @@ describe("the built-in pack", () => {
     const rules = builtinPack();
     expect(rules).toHaveLength(28);
     expect(new Set(rules.map((r) => r.id)).size).toBe(28);
+    expect(rules.filter((r) => r.note === null).map((r) => r.id)).toEqual([]);
     expect(rules.filter((r) => r.severity === "critical").map((r) => r.id)).toContain(
       "sh-rm-rf-variable"
     );

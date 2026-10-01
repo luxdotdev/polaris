@@ -2,6 +2,7 @@ id: py-eval
 language: python
 severity: error
 message: eval/exec runs a string as code
+note: "Code built from a string runs with the program's full rights. Use ast.literal_eval for literals, or dispatch on a known set."
 metadata: { polaris-severity: Critical, category: security }
 rule:
   any:
@@ -12,6 +13,7 @@ id: py-shell-true
 language: python
 severity: error
 message: subprocess with shell=True passes the command through a shell
+note: "With shell=True the command goes through a shell, where untrusted text can run commands. Pass a list of arguments without shell=True."
 metadata: { polaris-severity: High, category: security }
 rule:
   kind: call
@@ -25,6 +27,7 @@ id: py-os-system
 language: python
 severity: warning
 message: os.system runs its argument through a shell
+note: "The argument runs through a shell. Use subprocess.run with a list of arguments."
 metadata: { polaris-severity: High, category: security }
 rule:
   any:
@@ -35,6 +38,7 @@ id: py-unsafe-deserialization
 language: python
 severity: error
 message: Deserialising untrusted data can execute code
+note: "Loading pickle, marshal or full YAML from untrusted data can run code. Use JSON, or yaml.safe_load."
 metadata: { polaris-severity: Critical, category: security }
 rule:
   any:
@@ -48,6 +52,7 @@ id: py-tls-verification-off
 language: python
 severity: error
 message: TLS certificate verification is turned off
+note: "Without certificate checks, anyone on the network path can impersonate the server. Point verify at the right CA bundle instead."
 metadata: { polaris-severity: Critical, category: security }
 rule:
   kind: keyword_argument
@@ -57,6 +62,7 @@ id: py-sql-format
 language: python
 severity: error
 message: SQL built with string formatting can be injected
+note: "Values formatted into SQL can change the query. Pass them as parameters to execute."
 metadata: { polaris-severity: Critical, category: security }
 rule:
   kind: call
@@ -75,6 +81,7 @@ id: py-weak-hash
 language: python
 severity: warning
 message: MD5 and SHA-1 are broken for security uses
+note: "MD5 and SHA-1 collisions are practical. For a non-security checksum, say so with usedforsecurity=False."
 metadata: { polaris-severity: Medium, category: security }
 rule:
   any:
@@ -86,6 +93,7 @@ id: py-bare-except
 language: python
 severity: hint
 message: A bare except swallows every error, including KeyboardInterrupt
+note: "It also catches KeyboardInterrupt and SystemExit and hides real bugs. Catch the exceptions you expect."
 metadata: { polaris-severity: Low, category: correctness }
 rule:
   kind: except_clause

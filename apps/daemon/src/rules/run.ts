@@ -117,7 +117,8 @@ export const runRules = async (
   signal: AbortSignal = new AbortController().signal
 ): Promise<RulesOutcome> => {
   const added = await addedLines(request.cwd, request.base, request.head);
-  const { dir, paths } = await materialize(request.cwd, request.head, [...added.keys()]);
+  const materialized = await materialize(request.cwd, request.head, [...added.keys()]);
+  const { dir, paths } = materialized;
 
   try {
     const [secrets, patterns] = await Promise.allSettled([
@@ -146,6 +147,6 @@ export const runRules = async (
       ok: secrets.status === "fulfilled" || patterns.status === "fulfilled",
     };
   } finally {
-    removeMaterialized(dir);
+    removeMaterialized(materialized);
   }
 };

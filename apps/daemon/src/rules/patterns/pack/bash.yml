@@ -2,6 +2,7 @@ id: sh-curl-pipe-shell
 language: bash
 severity: error
 message: A downloaded script is piped straight into a shell
+note: "Whatever the server returns runs immediately, unverified. Download, check a checksum or signature, then run."
 metadata: { polaris-severity: High, category: security }
 rule:
   kind: pipeline
@@ -13,6 +14,7 @@ id: sh-rm-rf-variable
 language: bash
 severity: error
 message: rm -rf on a variable path deletes the wrong tree when the variable is empty
+note: "If the variable is empty or unset this becomes rm -rf /. Use ${VAR:?} so the script stops instead."
 metadata: { polaris-severity: Critical, category: data-loss }
 rule:
   kind: command
