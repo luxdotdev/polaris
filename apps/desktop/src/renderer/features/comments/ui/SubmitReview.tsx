@@ -60,7 +60,7 @@ const Choice = ({
     data-testid="submit-choice"
     data-event={choice.event}
     className={cn(
-      "rounded-control px-gap gap-row-pad flex cursor-default items-start py-[7px] text-left",
+      "rounded-control px-gap gap-row-x flex cursor-default items-start py-[7px] text-left",
       chosen ? "bg-fill-selected" : "hover:bg-fill-hover",
       "disabled:opacity-(--opacity-dimmed)"
     )}
@@ -92,7 +92,7 @@ const GoesOut = ({ detail }: { readonly detail: PullDetailView }) => {
     <div className="border-hairline flex flex-col gap-0.5 border-t px-1.5 py-2">
       <span className="text-caption text-text-faint px-gap pb-1.5">Goes out with it</span>
       {pending.map((p) => (
-        <div key={p.comment.id} className="px-gap gap-row-pad flex h-[26px] items-center">
+        <div key={p.comment.id} className="px-gap gap-row-x flex h-[26px] items-center">
           <span className="text-text-subtle w-[150px] shrink-0 truncate font-mono text-[11px] leading-4">
             {p.place}
           </span>
@@ -101,7 +101,7 @@ const GoesOut = ({ detail }: { readonly detail: PullDetailView }) => {
           </span>
         </div>
       ))}
-      <div className="px-gap gap-row-pad flex h-[26px] items-center">
+      <div className="px-gap gap-row-x flex h-[26px] items-center">
         <span className="text-caption text-text-subtle w-[150px] shrink-0">Viewed</span>
         <span className="text-caption text-text-default">
           {viewed} of {detail.files.length} files{left > 0 ? ` · ${left} not viewed yet` : ""}

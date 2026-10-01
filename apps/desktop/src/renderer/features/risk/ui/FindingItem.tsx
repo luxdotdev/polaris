@@ -97,40 +97,47 @@ const Card = ({ subjectKey, hostKey, summary, finding }: FindingItemProps) => {
     });
 
   return (
-    <div className="flex flex-col gap-2 pl-[88px]">
-      {finding.reason !== "" && (
-        <p className="text-caption text-text-subtle leading-[17px]">{finding.reason}</p>
-      )}
-      {finding.status === "dismissed" && finding.severity === "critical" && (
-        <p className="text-caption text-text-subtle">
-          Dismissed, but nothing hides a critical finding.
-        </p>
-      )}
-      {history !== null && <p className="text-caption text-text-faint">{historyLine(history)}</p>}
-      <div className="flex items-center gap-1.5">
-        <span className="text-text-default font-mono text-[11px] leading-4">
-          {placeOf(finding)}
-        </span>
-        <span className="text-caption text-text-faint">· {provenanceOf(finding)}</span>
-        <span className="flex-1" />
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          aria-label={`Confirm: ${finding.title}`}
-          data-testid="verdict-up"
-          onClick={() => void verdict("up", null)}
-        >
-          <ThumbUpIcon size={14} />
-        </Button>
-        <ThumbDown title={finding.title} onSave={(draft) => verdict("down", draft)} />
-      </div>
-      <div className="flex items-center gap-1.5">
-        <Button size="xs" variant="secondary" onClick={() => commentOn(subjectKey, finding)}>
-          Comment on this
-        </Button>
-        <Button size="xs" variant="ghost" onClick={() => setAskAbout(subjectKey, finding.id)}>
-          Ask about this
-        </Button>
+    // The hanging indent: everything lines up on the title's edge, past the badge slot.
+    <div className="gap-row-x flex">
+      <span className="w-20 shrink-0" />
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        {finding.reason !== "" && (
+          <p className="text-caption text-text-subtle leading-[17px]">{finding.reason}</p>
+        )}
+        {finding.status === "dismissed" && finding.severity === "critical" && (
+          <p className="text-caption text-text-subtle">
+            Dismissed, but nothing hides a critical finding.
+          </p>
+        )}
+        {history !== null && <p className="text-caption text-text-faint">{historyLine(history)}</p>}
+        <div className="flex items-center gap-1.5">
+          <span
+            className="text-text-default min-w-0 truncate font-mono text-[11px] leading-4"
+            title={placeOf(finding)}
+          >
+            {placeOf(finding)}
+          </span>
+          <span className="text-caption text-text-faint shrink-0">· {provenanceOf(finding)}</span>
+          <span className="min-w-0 flex-1" />
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label={`Confirm: ${finding.title}`}
+            data-testid="verdict-up"
+            onClick={() => void verdict("up", null)}
+          >
+            <ThumbUpIcon size={14} />
+          </Button>
+          <ThumbDown title={finding.title} onSave={(draft) => verdict("down", draft)} />
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Button size="xs" variant="secondary" onClick={() => commentOn(subjectKey, finding)}>
+            Comment on this
+          </Button>
+          <Button size="xs" variant="ghost" onClick={() => setAskAbout(subjectKey, finding.id)}>
+            Ask about this
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -148,7 +155,7 @@ export const FindingItem = (props: FindingItemProps) => {
       className={cn(
         "rounded-row flex flex-col border",
         selected
-          ? cn("bg-row-selected gap-row-pad p-3", SEVERITY_BORDER[finding.severity])
+          ? cn("bg-row-selected gap-row-x p-3", SEVERITY_BORDER[finding.severity])
           : "hover:bg-fill-hover border-transparent",
         dimmed && "opacity-(--opacity-dimmed)"
       )}
@@ -158,8 +165,8 @@ export const FindingItem = (props: FindingItemProps) => {
         onClick={() => select(subjectKey, finding)}
         aria-expanded={selected}
         className={cn(
-          "gap-row-pad flex cursor-default items-start text-left",
-          !selected && "py-row-pad px-3"
+          "gap-row-x flex cursor-default items-start text-left",
+          !selected && "py-row-x px-3"
         )}
       >
         <span className="flex w-20 shrink-0">

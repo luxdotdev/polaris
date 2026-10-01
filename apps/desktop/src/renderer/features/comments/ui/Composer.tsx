@@ -173,7 +173,7 @@ export const Composer = ({ subjectKey }: Props) => {
           "shadow-[0_0_0_2px_color-mix(in_oklab,var(--color-starlight)_35%,transparent)]"
         )}
       >
-        <div className="pt-row-pad gap-gap flex items-center px-3">
+        <div className="pt-row-x gap-gap flex items-center px-3">
           <span className="text-text-subtle font-mono text-[11px] leading-4">
             {anchorLabel(composer.anchor)}
             {composer.moving === null ? "" : " · moving an outdated draft here"}

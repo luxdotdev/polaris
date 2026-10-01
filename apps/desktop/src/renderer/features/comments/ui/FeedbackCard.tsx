@@ -36,7 +36,7 @@ export const FeedbackCard = ({ subjectKey }: { readonly subjectKey: string }) =>
   return (
     <section
       data-testid="feedback-card"
-      className="bg-surface-sunken rounded-row gap-row-pad mx-gap mt-3 flex flex-col p-3"
+      className="bg-surface-sunken rounded-row gap-row-x mx-gap mt-3 flex flex-col p-3"
     >
       <div className="gap-gap flex items-center">
         <span className="text-body text-text-strong flex-1 font-medium">
@@ -49,7 +49,7 @@ export const FeedbackCard = ({ subjectKey }: { readonly subjectKey: string }) =>
           key={c.id}
           type="button"
           onClick={() => revealInDiff(c.path, c.lines.end, c.lines.side)}
-          className="border-hairline pl-row-pad hover:bg-fill-hover flex cursor-default flex-col gap-1 border-l-2 text-left"
+          className="border-hairline pl-row-x hover:bg-fill-hover flex cursor-default flex-col gap-1 border-l-2 text-left"
         >
           <span className="text-text-subtle font-mono text-[11px] leading-4">{draftPlace(c)}</span>
           <span className="text-caption text-text-default line-clamp-3">{c.note}</span>

@@ -146,7 +146,7 @@ export const AskReviewer = ({ subjectKey, hostKey, summary }: AskReviewerProps) 
           </Button>
         </div>
       )}
-      <div className="rounded-card bg-surface-raised border-hairline pl-row-pad gap-gap flex h-10 items-center border pr-1.5">
+      <div className="rounded-card bg-surface-raised border-hairline pl-row-x gap-gap flex h-10 items-center border pr-1.5">
         <PixelPolarisIcon size={16} className="text-starlight shrink-0" />
         <input
           aria-label="Ask the reviewer"

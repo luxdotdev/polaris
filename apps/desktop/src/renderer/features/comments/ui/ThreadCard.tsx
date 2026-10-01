@@ -148,7 +148,7 @@ const Body = ({
   const draft = thread.comments.some((c) => c.pending);
 
   return (
-    <div className="rounded-row bg-surface-raised border-hairline gap-row-pad flex flex-col border p-3">
+    <div className="rounded-row bg-surface-raised border-hairline gap-row-x flex flex-col border p-3">
       {thread.comments.map((comment) => (
         <Comment
           key={comment.id}

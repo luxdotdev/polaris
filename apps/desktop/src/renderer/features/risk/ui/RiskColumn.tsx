@@ -62,7 +62,7 @@ const Tally = ({ tally }: { readonly tally: Readonly<Record<Severity, number>> }
           style={n === 0 ? undefined : { color: `var(--color-severity-${severity}-text)` }}
         >
           {n === 0 ? (
-            <SeverityGlyph severity={severity} className="text-text-faint opacity-60" />
+            <SeverityGlyph severity={severity} className="opacity-40 grayscale" />
           ) : (
             <SeverityGlyph severity={severity} tone="text" />
           )}
@@ -108,7 +108,7 @@ const Header = ({
   );
 
   return (
-    <div className="gap-row-pad flex items-center">
+    <div className="gap-row-x flex items-center">
       <Tile hue="starlight" size={32}>
         <PixelPolarisIcon size={16} />
       </Tile>
@@ -248,7 +248,7 @@ export const RiskColumnSlot = (props: ReviewSlotProps) => {
 
   return (
     <div
-      className="flex max-h-[62%] min-h-0 shrink-0 flex-col overflow-y-auto pb-3"
+      className="flex max-h-[62%] min-h-0 shrink-0 flex-col overflow-x-hidden overflow-y-auto pb-3"
       data-testid="risk-summary"
       data-state={state.kind}
     >

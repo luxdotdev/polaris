@@ -40,7 +40,7 @@ const Reason = ({
     aria-pressed={on}
     onClick={onToggle}
     className={cn(
-      "text-caption px-row-pad flex h-[26px] cursor-default items-center rounded-full font-medium",
+      "text-caption px-row-x flex h-[26px] cursor-default items-center rounded-full font-medium",
       on
         ? "bg-text-strong text-bg"
         : cn(
