@@ -28,7 +28,9 @@ const pullIdOf = async (linked: LinkedSession): Promise<string | null> => {
 };
 
 export const LinkedPullsPublisher = () => {
-  const signature = useApp((s) => JSON.stringify(linkedSessions(s.hostModels)));
+  // Host models change with Host events, not with a Turn's streaming deltas.
+  const hostModels = useApp((s) => s.hostModels);
+  const signature = useMemo(() => JSON.stringify(linkedSessions(hostModels)), [hostModels]);
   // SAFETY: `signature` is `linkedSessions`' result, serialized above.
   const linked = useMemo(() => JSON.parse(signature) as ReadonlyArray<LinkedSession>, [signature]);
   const current = useRef(linked);
