@@ -14,6 +14,7 @@ export {
   fillReviewSlots,
   revealInDiff,
   revealStore,
+  emptySurface,
   type ReviewAnnotation,
   type ReviewSlotProps,
   type ReviewSlots,

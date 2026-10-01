@@ -17,6 +17,7 @@ import type { AppState } from "../../../store/store.ts";
 import { PullReview } from "./PullReview.tsx";
 import { Queue } from "./Queue.tsx";
 import { SessionReview } from "./SessionReview.tsx";
+import "../../risk/install.ts";
 
 export interface ReviewViewProps {
   readonly subject: ReviewSubject;

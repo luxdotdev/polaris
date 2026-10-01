@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { SessionId } from "@polaris/protocol";
 import { Subjects } from "../../../commands.ts";
 import {
   captionOf,
@@ -38,7 +39,12 @@ const summary = (patch: Partial<Summary> = {}): Summary =>
     id: "s1",
     key: { repo: "acme/widgets", mergeBase: "base000", head: "4f2c1a9e", since: null },
     workspaceId: "w1",
-    subject: Subjects.SessionTurns({ sessionId: "x", firstTurnId: null, lastTurnId: null }),
+    subject: Subjects.SessionTurns({
+      // SAFETY: a test id; SessionId is a branded string.
+      sessionId: "x" as SessionId,
+      firstTurnId: null,
+      lastTurnId: null,
+    }),
     checkoutId: null,
     status: "completed",
     layers: {

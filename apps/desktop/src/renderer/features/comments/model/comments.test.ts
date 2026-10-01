@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { anchorLabel, suggestionBlock } from "./composer.ts";
 import type { PullDetailView, ReviewThreadView } from "../../../../shared/github.ts";
 import {
   addDraft,
@@ -158,5 +159,17 @@ describe("Agent Session feedback", () => {
     expect(sentComments(turns)).toEqual([{ comment: draft("a"), turnNumber: 2 }]);
     expect(nextTurnNumber(turns)).toBe(3);
     expect(nextTurnNumber([])).toBe(1);
+  });
+});
+
+describe("the composer", () => {
+  test("labels its range", () => {
+    expect(anchorLabel({ start: 38, end: 39, side: "new" })).toBe("Lines 38–39");
+    expect(anchorLabel({ start: 41, end: 41, side: "old" })).toBe("Line 41 (removed)");
+  });
+
+  test("a suggestion block outlasts the code's own fences", () => {
+    expect(suggestionBlock("a = 1")).toBe("```suggestion\na = 1\n```");
+    expect(suggestionBlock("```js")).toBe("````suggestion\n```js\n````");
   });
 });

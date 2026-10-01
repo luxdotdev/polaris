@@ -8,7 +8,7 @@ import { Option, Schema } from "effect";
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 import type { PullDetailView, PullRef } from "../../../../shared/github.ts";
-import { type DraftBatch, emptyBatch } from "../model/feedback.ts";
+import { type DraftBatch, emptyBatch, type SentComment } from "../model/feedback.ts";
 
 /** Where the composer opens: a line range and the code it quotes. */
 export interface ComposerAnchor {
@@ -36,12 +36,16 @@ export interface PullComments {
   /** The checkout's head: new threads are written on the commit the diff shows. */
   readonly commitOid: string | null;
   readonly detail: PullDetailView | null;
+  /** GitHub answered, with the detail or a failure (the Reviewer then runs without the PR text). */
+  readonly settled: boolean;
 }
 
 export interface SessionComments {
   readonly hostKey: string;
   readonly sessionId: string;
   readonly nextTurn: number;
+  /** Comments already sent, each with its Turn ("sent with turn 25"). */
+  readonly sent: ReadonlyArray<SentComment>;
 }
 
 export interface CommentsState {
