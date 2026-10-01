@@ -20,7 +20,7 @@ import { openAccounts } from "./accounts.ts";
 import { type BudgetPolicy, DEFAULT_POLICY, newBudget } from "./budget.ts";
 import { newCheckouts } from "./checkouts.ts";
 import { newClient } from "./client.ts";
-import type { GitHubEndpoints } from "./config.ts";
+import type { EndpointConfig } from "./config.ts";
 import { newCreate } from "./create.ts";
 import { newCredentials } from "./credentials.ts";
 import { DEFAULT_INTERVALS, type Intervals, newPoller } from "./poller.ts";
@@ -47,7 +47,7 @@ export interface GitHubInput {
   readonly dir: string;
   readonly crypto: Crypto;
   readonly fetch: Fetch;
-  readonly endpoints: GitHubEndpoints;
+  readonly endpoints: EndpointConfig;
   readonly policy?: BudgetPolicy;
   readonly intervals?: Intervals;
   /** The pause between one account's mutations (GitHub asks for a second). */
@@ -62,12 +62,15 @@ export interface WorkspaceRemotes {
   readonly remotes: ReadonlyArray<string>;
 }
 
-/** Groups Workspaces by the github.com repository their remotes point at. */
-export const watchedFrom = (entries: ReadonlyArray<WorkspaceRemotes>): ReadonlyArray<Watched> => {
+/** Groups Workspaces by the repository (on github.com or an Enterprise `hosts`) their remotes point at. */
+export const watchedFrom = (
+  entries: ReadonlyArray<WorkspaceRemotes>,
+  hosts: ReadonlyArray<string> = []
+): ReadonlyArray<Watched> => {
   const byRepo = new Map<string, { repo: RepoRef; workspaces: Array<WorkspaceRef> }>();
 
   for (const { workspace, remotes } of entries) {
-    for (const repo of remotes.map(parseGitHubRemote)) {
+    for (const repo of remotes.map((remote) => parseGitHubRemote(remote, hosts))) {
       if (repo === null) continue;
 
       const entry = byRepo.get(repoKey(repo)) ?? { repo, workspaces: [] };
@@ -91,11 +94,18 @@ const make = Effect.fn("GitHub.make")(function* (input: GitHubInput) {
   const now = input.now ?? Date.now;
   const store = openStore({ dir: input.dir, crypto: input.crypto });
   const budget = newBudget(now, input.policy ?? DEFAULT_POLICY);
-  const transport = newTransport({ endpoints: input.endpoints, fetch: input.fetch, budget, now });
+  const transport = newTransport({ fetch: input.fetch, budget, now });
   const accounts = yield* openAccounts({ store, transport, endpoints: input.endpoints, scope });
-  const credentials = newCredentials({ store, transport, signedOut: accounts.signedOut });
-  const client = newClient(transport, credentials);
-  const routing = newRouting({ client, accounts, endpoints: input.endpoints });
+
+  const credentials = newCredentials({
+    store,
+    transport,
+    signedOut: accounts.signedOut,
+    accessOf: accounts.accessOf,
+  });
+
+  const client = newClient(transport, credentials, accounts);
+  const routing = newRouting({ client, accounts });
   const reviews = newReviews({ client, routing, gapMs: input.mutationGapMs ?? MUTATION_GAP_MS });
   const list = yield* SubscriptionRef.make<PullListView>(EMPTY_LIST);
   const checkoutStates = yield* SubscriptionRef.make<ReadonlyArray<CheckoutStateView>>([]);
@@ -110,15 +120,26 @@ const make = Effect.fn("GitHub.make")(function* (input: GitHubInput) {
     intervals: input.intervals ?? DEFAULT_INTERVALS,
   });
 
-  // Signing in, out or reordering changes which account sees what.
+  let remotes: ReadonlyArray<WorkspaceRemotes> = [];
+
+  const rewatch = Effect.flatMap(accounts.hostNames, (hosts) =>
+    poller.watch(watchedFrom(remotes, hosts))
+  );
+
+  // Signing in, out, reordering or adding a host changes which account sees what.
   const signature = (view: GitHubAccountsView) =>
-    JSON.stringify([view.accounts.map((a) => [a.id, a.state]), view.owners, view.workspaces]);
+    JSON.stringify([
+      (view.hosts ?? []).map((h) => [h.host, h.clientId]),
+      view.accounts.map((a) => [a.id, a.state]),
+      view.owners,
+      view.workspaces,
+    ]);
 
   yield* SubscriptionRef.changes(accounts.view).pipe(
     Stream.map(signature),
     Stream.changes,
     Stream.drop(1),
-    Stream.runForEach(() => Effect.andThen(routing.reset, poller.poke(true))),
+    Stream.runForEach(() => Effect.andThen(routing.reset, rewatch)),
     Effect.forkIn(scope)
   );
   yield* Effect.forkIn(poller.loop, scope);
@@ -128,14 +149,23 @@ const make = Effect.fn("GitHub.make")(function* (input: GitHubInput) {
     accounts: accounts.view,
     pulls: list,
     checkouts: checkoutStates,
-    startSignIn: accounts.startSignIn(credentials),
+    /** Signs in to github.com, or to an Enterprise host added with `addHost`. */
+    startSignIn: (host?: string) => accounts.startSignIn(credentials, host),
+    addHost: accounts.addHost,
+    removeHost: (host: string) => accounts.removeHost(host, credentials),
     cancelSignIn: accounts.cancelSignIn,
     removeAccount: (accountId: number) => accounts.remove(accountId, credentials),
     reorderAccounts: accounts.reorder,
     setOwner: accounts.setOwner,
     setWorkspace: (workspace: WorkspaceRef, accountId: number | null) =>
       accounts.setWorkspace(workspaceKey(workspace), accountId),
-    watch: (entries: ReadonlyArray<WorkspaceRemotes>) => poller.watch(watchedFrom(entries)),
+    watch: (entries: ReadonlyArray<WorkspaceRemotes>) =>
+      Effect.andThen(
+        Effect.sync(() => {
+          remotes = entries;
+        }),
+        rewatch
+      ),
     /** Each caller (Review Checkouts, accepted sessions' pull requests) keeps its own group. */
     watchCheckouts: (watches: ReadonlyArray<CheckoutWatch>, group: WatchGroup = "checkouts") =>
       Effect.suspend(() => {

@@ -4,7 +4,7 @@
  * serialized per account and the new pair is written before it is used.
  */
 import { Clock, Effect, Option, Semaphore } from "effect";
-import { GITHUB_CLIENT_ID } from "../../shared/github.ts";
+import type { HostAccess } from "./accounts.ts";
 import { GitHubAuthError, GitHubStorageError } from "./errors.ts";
 import type { Store, TokenPair } from "./store.ts";
 import type { Transport } from "./transport.ts";
@@ -18,6 +18,8 @@ export interface CredentialsInput {
   readonly transport: Transport;
   /** The refresh token is dead or missing: the account must sign in again. */
   readonly signedOut: (accountId: number) => Effect.Effect<void>;
+  /** The account's host: refreshes go to its OAuth App. */
+  readonly accessOf: (accountId: number) => Effect.Effect<HostAccess, GitHubAuthError>;
 }
 
 export const tokenPairFrom = (response: TokenResponse, now: number): TokenPair | null =>
@@ -33,7 +35,7 @@ export const tokenPairFrom = (response: TokenResponse, now: number): TokenPair |
             : now + response.refresh_token_expires_in * 1000,
       };
 
-export const newCredentials = ({ store, transport, signedOut }: CredentialsInput) => {
+export const newCredentials = ({ store, transport, signedOut, accessOf }: CredentialsInput) => {
   const cache = new Map<number, TokenPair>();
   const locks = new Map<number, Semaphore.Semaphore>();
 
@@ -71,9 +73,11 @@ export const newCredentials = ({ store, transport, signedOut }: CredentialsInput
     Effect.gen(function* () {
       if (pair.refreshToken === null) return yield* authError(accountId, "the token expired");
 
+      const host = yield* accessOf(accountId);
+
       const response = yield* transport
-        .oauth("/login/oauth/access_token", TokenResponse, {
-          client_id: GITHUB_CLIENT_ID,
+        .oauth(host.endpoints, "/login/oauth/access_token", TokenResponse, {
+          client_id: host.clientId,
           grant_type: "refresh_token",
           refresh_token: pair.refreshToken,
         })

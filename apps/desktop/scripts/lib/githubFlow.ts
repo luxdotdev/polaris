@@ -6,7 +6,12 @@
  */
 import type { Page } from "playwright-core";
 import type { RequestInput, RequestMethod, RequestOutput } from "../../src/shared/api.ts";
-import { createGitHubFake, type GitHubFake } from "./githubFake/index.ts";
+import {
+  createGitHubEnterpriseFake,
+  createGitHubFake,
+  FAKE_GHE_CLIENT_ID,
+  type GitHubFake,
+} from "./githubFake/index.ts";
 
 export interface ServedFake {
   readonly fake: GitHubFake;
@@ -134,4 +139,96 @@ export const githubFlow = async ({ page, fake, step, afterList }: GitHubFlowInpu
     `v.some((c) => c.pullId === ${JSON.stringify(detail.id)} && c.state === "merged")`
   );
   step("GitHub: merging #42 on GitHub reached its Review Checkout's state");
+};
+
+const GHE_HOST = "ghe.acme.test";
+
+/** A GitHub Enterprise Server fake on 127.0.0.1, which the app reaches as `https://ghe.acme.test`. */
+export const serveGitHubEnterpriseFake = async (): Promise<ServedFake> => {
+  const fake = createGitHubEnterpriseFake({ interval: 1, enforceInterval: false });
+  const served = await fake.serve();
+
+  return {
+    fake,
+    env: { POLARIS_GITHUB_HOST_URLS: JSON.stringify({ [GHE_HOST]: served.url }) },
+    close: served.close,
+  };
+};
+
+interface EnterpriseFlowInput {
+  readonly page: Page;
+  readonly fake: GitHubFake;
+  readonly step: (message: string) => void;
+  /** Saves a screenshot of the window under `name`, when the run keeps them. */
+  readonly shoot: (name: string) => Promise<void>;
+}
+
+const PR12 = { repo: { host: GHE_HOST, owner: "platform", name: "api" }, number: 12 };
+
+/** Settings: add the GHE server and sign in to it; then its pull request is listed and reviewed. */
+export const githubEnterpriseFlow = async ({ page, fake, step, shoot }: EnterpriseFlowInput) => {
+  await page.getByRole("button", { name: "Settings" }).click();
+  await page
+    .getByRole("navigation", { name: "Settings" })
+    .getByRole("button", { name: "GitHub accounts", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Add a GitHub Enterprise server" }).click();
+  await page.getByLabel("Server", { exact: true }).fill(`https://${GHE_HOST}/api/v3`);
+  await page.getByLabel("Client ID", { exact: true }).fill(FAKE_GHE_CLIENT_ID);
+  await page.getByRole("button", { name: "Add server" }).click();
+  await page
+    .getByTestId("github-server")
+    .filter({ hasText: GHE_HOST })
+    .waitFor({ timeout: 10_000 });
+  await shoot("github-enterprise-server");
+  step(`GitHub Enterprise: added ${GHE_HOST} from its API URL in Settings`);
+
+  await page.getByTestId("github-server").getByRole("button", { name: "Add account" }).click();
+  await page
+    .getByTestId("github-sign-in")
+    .filter({ hasText: `Sign in on ${GHE_HOST}` })
+    .waitFor({ timeout: 10_000 });
+
+  const code = (await page.getByTestId("github-user-code").textContent()) ?? "";
+
+  await shoot("github-enterprise-sign-in");
+  fake.approveDevice(code.trim(), "mona-ent");
+  await page
+    .getByTestId("github-account")
+    .filter({ hasText: "mona-ent" })
+    .filter({ hasText: GHE_HOST })
+    .waitFor({ timeout: 15_000 });
+  await shoot("github-enterprise-accounts");
+  step(
+    `GitHub Enterprise: signed in as mona-ent on ${GHE_HOST} with code ${code.trim()} (device flow at /login/device)`
+  );
+  await page.keyboard.press("Escape");
+
+  await feedUntil(
+    page,
+    "github.pulls",
+    `v.requested.some((p) => p.host === "${GHE_HOST}" && p.number === 12)`
+  );
+
+  const detail = await request(page, "github.pull.detail", { pull: PR12 });
+
+  await request(page, "github.review.submit", {
+    pull: PR12,
+    pullId: detail.id,
+    event: "approve",
+    body: "",
+  });
+
+  const approved = fake.world.reviews.filter(
+    (r) => r.author === "mona-ent" && r.state === "APPROVED"
+  ).length;
+
+  const wrongPaths = fake.requests
+    .filter((r) => r.kind !== "control" && r.status === 404)
+    .map((r) => r.name);
+
+  if (approved !== 1) throw new Error(`expected one approval on GHE, the fake has ${approved}`);
+
+  if (wrongPaths.length > 0) throw new Error(`GHE got github.com paths: ${wrongPaths.join(", ")}`);
+  step(`GitHub Enterprise: platform/api#12 listed and approved over /api/v3 and /api/graphql`);
 };

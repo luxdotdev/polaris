@@ -3,8 +3,10 @@
  * mapping, then each account in order until one has a `viewerPermission`. An
  * org repo no account sees is `blocked` (OAuth App restrictions or SSO).
  */
-import { Clock, Effect } from "effect";
+import { Clock, Effect, Option } from "effect";
 import {
+  hostOf,
+  ownerKey,
   type RepoAccessState,
   type RepoRef,
   repoKey,
@@ -13,7 +15,7 @@ import {
 } from "../../shared/github.ts";
 import type { Accounts } from "./accounts.ts";
 import type { Client } from "./client.ts";
-import { type GitHubEndpoints, manageUrl, ssoUrl } from "./config.ts";
+import { manageUrl, ssoUrl } from "./config.ts";
 import { OwnerKindData, ownerKind, ProbeRepoData, probeRepo } from "./queries.ts";
 import type { AccountRecord } from "./store.ts";
 
@@ -34,7 +36,6 @@ export interface RepoAccess {
 export interface RoutingInput {
   readonly client: Client;
   readonly accounts: Accounts;
-  readonly endpoints: GitHubEndpoints;
 }
 
 type Probe =
@@ -52,7 +53,7 @@ export const candidates = (
   return [...new Set(ids)].flatMap((id) => accounts.filter((a) => a.id === id));
 };
 
-export const newRouting = ({ client, accounts, endpoints }: RoutingInput) => {
+export const newRouting = ({ client, accounts }: RoutingInput) => {
   const cache = new Map<string, RepoAccess>();
 
   const probe = (accountId: number, repo: RepoRef) =>
@@ -97,31 +98,37 @@ export const newRouting = ({ client, accounts, endpoints }: RoutingInput) => {
   });
 
   const nobody = (repo: RepoRef, first: AccountRecord, now: number) =>
-    Effect.map(isOrg(first.id, repo.owner), (org) =>
-      org
-        ? access(
-            repo,
-            {
-              state: "blocked",
-              login: first.login,
-              approvalUrl: manageUrl(endpoints),
-              ssoUrl: ssoUrl(endpoints, repo.owner),
-            },
-            now
-          )
-        : access(repo, { state: "not-found", login: first.login }, now)
-    );
+    Effect.gen(function* () {
+      if (!(yield* isOrg(first.id, repo.owner))) {
+        return access(repo, { state: "not-found", login: first.login }, now);
+      }
+
+      const host = yield* accounts.accessOf(first.id).pipe(Effect.option);
+      const endpoints = Option.getOrNull(host)?.endpoints;
+
+      return access(
+        repo,
+        {
+          state: "blocked",
+          login: first.login,
+          approvalUrl:
+            endpoints === undefined ? null : manageUrl(endpoints, Option.getOrThrow(host).clientId),
+          ssoUrl: endpoints === undefined ? null : ssoUrl(endpoints, repo.owner),
+        },
+        now
+      );
+    });
 
   const route = (repo: RepoRef, workspace: WorkspaceRef | null) =>
     Effect.gen(function* () {
       const now = yield* Clock.currentTimeMillis;
       const file = yield* accounts.file;
-      const active = yield* accounts.active;
+      const active = (yield* accounts.active).filter((a) => a.host === hostOf(repo));
       const previous = cache.get(repoKey(repo));
 
       const order = candidates(active, [
         workspace === null ? undefined : file.workspaces[workspaceKey(workspace)],
-        file.owners[repo.owner.toLowerCase()],
+        file.owners[ownerKey(hostOf(repo), repo.owner)],
         previous?.accountId ?? undefined,
       ]);
 

@@ -28,7 +28,13 @@ import { reviewerFlow } from "./lib/reviewerFlow.ts";
 import { reviewSettingsFlow } from "./lib/reviewSettingsFlow.ts";
 import { runSubagent, subagentAfterRelaunch } from "./lib/subagentFlow.ts";
 import { terminalFlow } from "./lib/terminalFlow.ts";
-import { githubFlow, MOCK_KEYCHAIN, serveGitHubFake } from "./lib/githubFlow.ts";
+import {
+  githubEnterpriseFlow,
+  githubFlow,
+  MOCK_KEYCHAIN,
+  serveGitHubEnterpriseFake,
+  serveGitHubFake,
+} from "./lib/githubFlow.ts";
 import { addRemotes, pullsFlow } from "./lib/pullsFlow.ts";
 import { afterMerge, checkoutFlow, setFakeHead } from "./lib/checkoutFlow.ts";
 import { reviewFlow, setupCodeHost } from "./lib/reviewFlow.ts";
@@ -97,6 +103,8 @@ const fakeHost = prepareFakeHost(join(home, "remote"));
 
 const github = await serveGitHubFake();
 
+const enterprise = await serveGitHubEnterpriseFake();
+
 const UNREACHABLE = "polaris-smoke.invalid";
 
 // A remote Host that can't be reached: it must show a Connection State, never block the app.
@@ -121,6 +129,7 @@ const launch = () =>
       POLARIS_DESKTOP_HIDDEN: flag("--show") ? "0" : "1",
       ...fakeHost.env,
       ...github.env,
+      ...enterprise.env,
     },
   });
 
@@ -503,6 +512,12 @@ try {
     },
   });
   await afterMerge({ page, step, shoot: (name) => shoot(page, name) });
+  await githubEnterpriseFlow({
+    page,
+    fake: enterprise.fake,
+    step,
+    shoot: (name) => shoot(page, name),
+  });
 
   let probeTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -568,6 +583,7 @@ try {
   await daemon.stop();
   fakeHost.stop();
   await github.close();
+  await enterprise.close();
   rmSync(home, { recursive: true, force: true });
 }
 

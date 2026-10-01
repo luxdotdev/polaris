@@ -68,7 +68,7 @@ export const AddGitHubAccount = ({ flow }: { readonly flow: SignInView }) => {
         </Button>
       </div>
       <p className="text-body text-text-subtle px-5 pb-4">
-        Sign in on github.com as the account you want to add, then enter this code.
+        Sign in on {flow.host ?? "github.com"} as the account you want to add, then enter this code.
       </p>
       <div className="border-hairline bg-surface-sunken flex flex-wrap items-center gap-4 border-y px-5 py-[18px]">
         <span
@@ -94,7 +94,15 @@ export const AddGitHubAccount = ({ flow }: { readonly flow: SignInView }) => {
         {status.waiting ? <WaitGlyph /> : null}
         <span className="text-caption text-text-default flex-1">{status.text}</span>
         {status.aside === null ? (
-          <Button size="xs" onClick={() => void polaris().request("github.signIn.start", {})}>
+          <Button
+            size="xs"
+            onClick={() =>
+              void polaris().request(
+                "github.signIn.start",
+                flow.host === undefined ? {} : { host: flow.host }
+              )
+            }
+          >
             Get a new code
           </Button>
         ) : (
