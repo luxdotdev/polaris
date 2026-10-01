@@ -31,8 +31,8 @@ const xmlEscape = (value: string): string =>
 const sortedEnv = (spec: ServiceSpec): Array<[string, string]> =>
   Object.entries({ POLARIS_HOME: spec.home, ...spec.env }).sort(([a], [b]) => (a < b ? -1 : 1));
 
-/** A launchd LaunchAgent for `~/Library/LaunchAgents/dev.lux.polaris.plist`. */
-export const launchdPlist = (spec: ServiceSpec): string => {
+/** A launchd LaunchAgent for `~/Library/LaunchAgents/<label>.plist`. */
+export const launchdPlist = (spec: ServiceSpec, label: string = LAUNCHD_LABEL): string => {
   const string = (value: string) => `<string>${xmlEscape(value)}</string>`;
 
   const envEntries = sortedEnv(spec)
@@ -46,7 +46,7 @@ export const launchdPlist = (spec: ServiceSpec): string => {
 <plist version="1.0">
   <dict>
     <key>Label</key>
-    ${string(LAUNCHD_LABEL)}
+    ${string(label)}
     <key>ProgramArguments</key>
     <array>
 ${argv}

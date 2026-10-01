@@ -69,7 +69,12 @@ const ctx = (os: InstallContext["os"]): InstallContext => ({
   uid: 501,
   user: "ada",
   path: "/usr/bin:/bin",
+  launchdLabel: "dev.lux.polaris",
 });
+
+/** launchd with the GUI domain present and the label loaded nowhere. */
+const notLoaded = (argv: ReadonlyArray<string>): Partial<CommandResult> =>
+  argv[1] === "print" && argv[2]?.endsWith("/dev.lux.polaris") === true ? { code: 113 } : {};
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "polaris-install-"));
@@ -81,8 +86,7 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("install on macOS", () => {
   test("lays out the binary, links current and bootstraps the LaunchAgent", async () => {
-    // Not loaded yet: `launchctl print` fails in both domains.
-    const runner = fakeRunner((argv) => (argv[1] === "print" ? { code: 113 } : {}));
+    const runner = fakeRunner(notLoaded);
 
     const report = await Effect.runPromise(
       install(ctx("darwin"), { source, version: "1.2.3" }).pipe(Effect.provide(runner.layer))
@@ -104,7 +108,7 @@ describe("install on macOS", () => {
   });
 
   test("is idempotent: a second run changes and restarts nothing", async () => {
-    const first = fakeRunner((argv) => (argv[1] === "print" ? { code: 113 } : {}));
+    const first = fakeRunner(notLoaded);
     await Effect.runPromise(
       install(ctx("darwin"), { source, version: "1.2.3" }).pipe(Effect.provide(first.layer))
     );
@@ -124,7 +128,7 @@ describe("install on macOS", () => {
   });
 
   test("a new version restarts the loaded service in place", async () => {
-    const first = fakeRunner((argv) => (argv[1] === "print" ? { code: 113 } : {}));
+    const first = fakeRunner(notLoaded);
     await Effect.runPromise(
       install(ctx("darwin"), { source, version: "1.2.3" }).pipe(Effect.provide(first.layer))
     );
@@ -306,7 +310,7 @@ describe("install on Linux without systemd --user", () => {
 
 describe("uninstall", () => {
   test("removes the service and binaries but keeps state", async () => {
-    const runner = fakeRunner((argv) => (argv[1] === "print" ? { code: 113 } : {}));
+    const runner = fakeRunner(notLoaded);
     await Effect.runPromise(
       install(ctx("darwin"), { source, version: "1.2.3" }).pipe(Effect.provide(runner.layer))
     );
@@ -354,7 +358,7 @@ describe("uninstall", () => {
     expect(isOurAppServer(pid, socketPath)).toBe(true);
 
     const report = await Effect.runPromise(
-      uninstall(ctx("darwin"), { purge: false }).pipe(Effect.provide(fakeRunner().layer))
+      uninstall(ctx("darwin"), { purge: false }).pipe(Effect.provide(fakeRunner(notLoaded).layer))
     );
 
     expect(report.codexAppServerStopped).toBe(pid);

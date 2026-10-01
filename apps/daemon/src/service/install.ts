@@ -20,9 +20,11 @@ import {
 } from "node:fs";
 import { homedir, userInfo } from "node:os";
 import { basename, dirname, join } from "node:path";
-import { Effect, Schema } from "effect";
+import { Effect } from "effect";
 import { defaultStateFile, stopAppServer } from "../harness/codex/AppServer.ts";
 import { CommandRunner } from "./CommandRunner.ts";
+import { InstallError } from "./errors.ts";
+import { activateLaunchd, type LaunchdTiming, unloadEverywhere } from "./launchd.ts";
 import {
   LAUNCHD_LABEL,
   launchdPlist,
@@ -34,10 +36,7 @@ import {
   systemdUnit,
 } from "./templates.ts";
 
-export class InstallError extends Schema.TaggedError<InstallError>()("InstallError", {
-  step: Schema.String,
-  message: Schema.String,
-}) {}
+export { InstallError };
 
 export type ServiceOs = "darwin" | "linux";
 
@@ -53,6 +52,8 @@ export interface InstallContext {
   readonly user: string;
   /** PATH for the service, so the Daemon finds Harnesses and git. */
   readonly path: string;
+  /** The LaunchAgent's label (`dev.lux.polaris`); tests use their own. */
+  readonly launchdLabel: string;
 }
 
 export const defaultInstallContext = (polarisHome: string): InstallContext => {
@@ -66,6 +67,7 @@ export const defaultInstallContext = (polarisHome: string): InstallContext => {
     uid: info.uid,
     user: info.username,
     path: process.env.PATH ?? "/usr/local/bin:/usr/bin:/bin",
+    launchdLabel: LAUNCHD_LABEL,
   };
 };
 
@@ -83,7 +85,7 @@ export const layout = (ctx: InstallContext, version?: string) => {
     supervisor: join(bin, "polaris-supervise"),
     serviceFile:
       ctx.os === "darwin"
-        ? join(ctx.userHome, "Library", "LaunchAgents", `${LAUNCHD_LABEL}.plist`)
+        ? join(ctx.userHome, "Library", "LaunchAgents", `${ctx.launchdLabel}.plist`)
         : join(ctx.xdgConfigHome ?? join(ctx.userHome, ".config"), "systemd", "user", SYSTEMD_UNIT),
   };
 };
@@ -101,7 +103,9 @@ export const serviceSpec = (ctx: InstallContext): ServiceSpec => {
 };
 
 export const renderServiceFile = (ctx: InstallContext): string =>
-  ctx.os === "darwin" ? launchdPlist(serviceSpec(ctx)) : systemdUnit(serviceSpec(ctx));
+  ctx.os === "darwin"
+    ? launchdPlist(serviceSpec(ctx), ctx.launchdLabel)
+    : systemdUnit(serviceSpec(ctx));
 
 export const sha256File = (path: string): string =>
   createHash("sha256").update(readFileSync(path)).digest("hex");
@@ -237,66 +241,6 @@ const runOrFail = Effect.fnUntraced(function* (step: string, argv: ReadonlyArray
   }
 
   return result;
-});
-
-/**
- * Load (or reload) the LaunchAgent. `gui/<uid>` exists only while the user
- * is logged in at the console; over SSH to a Mac with nobody logged in we
- * fall back to the `user/<uid>` domain, which runs without a GUI session.
- */
-const activateLaunchd = Effect.fnUntraced(function* (
-  ctx: InstallContext,
-  serviceFile: string,
-  changed: { readonly binary: boolean; readonly serviceFile: boolean }
-) {
-  const notes: Array<string> = [];
-  let domain = `gui/${ctx.uid}`;
-
-  const loaded = (d: string) =>
-    run(["launchctl", "print", `${d}/${LAUNCHD_LABEL}`]).pipe(Effect.map((r) => r.code === 0));
-
-  let isLoaded = yield* loaded(domain);
-
-  if (!isLoaded && (yield* loaded(`user/${ctx.uid}`))) {
-    domain = `user/${ctx.uid}`;
-    isLoaded = true;
-  }
-
-  if (isLoaded && !changed.serviceFile) {
-    // Same definition: start it if stopped, restart only if the binary changed.
-    const kick = changed.binary ? ["-k"] : [];
-    yield* runOrFail("start service", [
-      "launchctl",
-      "kickstart",
-      ...kick,
-      `${domain}/${LAUNCHD_LABEL}`,
-    ]);
-
-    return { domain, restarted: changed.binary, linger: "not-applicable" as const, notes };
-  }
-
-  if (isLoaded) yield* run(["launchctl", "bootout", `${domain}/${LAUNCHD_LABEL}`]);
-  let boot = yield* run(["launchctl", "bootstrap", domain, serviceFile]);
-
-  if (boot.code !== 0 && domain.startsWith("gui/")) {
-    notes.push(
-      `No GUI login session (launchctl bootstrap ${domain}: ${boot.stderr.trim()}); using user/${ctx.uid}.`
-    );
-    domain = `user/${ctx.uid}`;
-    boot = yield* run(["launchctl", "bootstrap", domain, serviceFile]);
-  }
-
-  if (boot.code !== 0) {
-    return yield* new InstallError({
-      step: "load service",
-      message: `launchctl bootstrap ${domain} exited ${boot.code}: ${boot.stderr.trim()}`,
-    });
-  }
-
-  yield* run(["launchctl", "enable", `${domain}/${LAUNCHD_LABEL}`]);
-  yield* runOrFail("start service", ["launchctl", "kickstart", `${domain}/${LAUNCHD_LABEL}`]);
-
-  return { domain, restarted: isLoaded, linger: "not-applicable" as const, notes };
 });
 
 // ── Linux without systemd --user ───────────────────────────────────────────
@@ -501,7 +445,52 @@ export interface InstallOptions {
   /** The compiled `polaris` binary to install (normally this process's own executable). */
   readonly source: string;
   readonly version: string;
+  /** macOS: how long to wait for a booted-out Daemon (tests shorten it). */
+  readonly launchdTiming?: LaunchdTiming;
 }
+
+/** What `current` and the service file were before an install, to roll back to. */
+interface PreviousInstall {
+  readonly current: string | null;
+  readonly serviceFile: string | null;
+}
+
+const readPrevious = (ctx: InstallContext) =>
+  fsStep("read previous install", (): PreviousInstall => {
+    const paths = layout(ctx);
+    let current: string | null = null;
+
+    try {
+      current = readlinkSync(paths.current);
+    } catch {}
+
+    const serviceFile = existsSync(paths.serviceFile)
+      ? readFileSync(paths.serviceFile, "utf8")
+      : null;
+
+    return { current, serviceFile };
+  });
+
+/** Puts `previous` back; true if anything changed. */
+const restorePrevious = (ctx: InstallContext, previous: PreviousInstall) =>
+  Effect.gen(function* () {
+    const relinked =
+      previous.current === null ? false : yield* pointCurrentAt(ctx, previous.current);
+
+    const { serviceFile } = layout(ctx);
+
+    const rewritten =
+      previous.serviceFile === null
+        ? yield* fsStep("remove service file", () => {
+            const existed = existsSync(serviceFile);
+            rmSync(serviceFile, { force: true });
+
+            return existed;
+          })
+        : yield* writeIfChanged(serviceFile, previous.serviceFile);
+
+    return relinked || rewritten;
+  });
 
 export const install = Effect.fn("install")(function* (
   ctx: InstallContext,
@@ -511,6 +500,7 @@ export const install = Effect.fn("install")(function* (
   yield* fsStep("create directories", () =>
     mkdirSync(paths.logs, { recursive: true, mode: 0o700 })
   );
+  const previous = yield* readPrevious(ctx);
   const staged = yield* stageBinary(ctx, options);
   const sha256 = staged.sha256;
   const binaryChanged = staged.changed;
@@ -528,7 +518,15 @@ export const install = Effect.fn("install")(function* (
 
   const activation =
     ctx.os === "darwin"
-      ? yield* activateLaunchd(ctx, paths.serviceFile, changed)
+      ? {
+          ...(yield* activateLaunchd(
+            { uid: ctx.uid, label: ctx.launchdLabel, serviceFile: paths.serviceFile },
+            changed,
+            restorePrevious(ctx, previous),
+            options.launchdTiming
+          )),
+          linger: "not-applicable" as const,
+        }
       : fallback
         ? yield* activateFallback(ctx, changed, plan, linux!)
         : yield* activateSystemd(ctx, changed);
@@ -575,8 +573,7 @@ export const uninstall = Effect.fn("uninstall")(function* (
   let supervisorStopped = false;
 
   if (ctx.os === "darwin") {
-    yield* run(["launchctl", "bootout", `gui/${ctx.uid}/${LAUNCHD_LABEL}`]);
-    yield* run(["launchctl", "bootout", `user/${ctx.uid}/${LAUNCHD_LABEL}`]);
+    yield* unloadEverywhere({ uid: ctx.uid, label: ctx.launchdLabel });
   } else {
     yield* run(["systemctl", "--user", "disable", "--now", SYSTEMD_UNIT]);
     supervisorStopped = yield* removeFallback(ctx);
