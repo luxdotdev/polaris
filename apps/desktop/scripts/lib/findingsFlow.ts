@@ -14,8 +14,46 @@ interface FindingsFlowInput {
   readonly shoot: (name: string) => Promise<void>;
 }
 
-const sent = (fake: GitHubFake, name: string) =>
-  fake.requests.some((r) => r.kind === "graphql" && r.name === name);
+const sent = (fake: GitHubFake, name: string) => count(fake, name) > 0;
+
+const count = (fake: GitHubFake, name: string) =>
+  fake.requests.filter((r) => r.kind === "graphql" && r.name === name && r.status < 400).length;
+
+const PULL_ID = "PR_kwDOacme42";
+
+const TEST_FILE = "test/webhooks/deliver.test.ts";
+
+/** The line-number cells of one file's diff (Pierre's shadow DOM; Playwright pierces it). */
+const lineNumber = (page: Page, path: string, line: number) =>
+  page
+    .locator("diffs-container", {
+      has: page.locator(`[data-testid="review-file"][data-path="${path}"]`),
+    })
+    .locator("[data-column-number]")
+    .filter({ hasText: new RegExp(`^${line}$`) })
+    .first();
+
+/** Opens #42 again, so its detail is fetched fresh from the fake. */
+const reopen = async (page: Page) => {
+  await page.getByRole("button", { name: "Pull requests" }).click();
+  await page.locator(`[data-testid="pull-row"][data-pull="${PULL_ID}"]`).click();
+  await page
+    .locator('[data-testid="risk-summary"][data-state="ready"]')
+    .waitFor({ timeout: 60_000 });
+};
+
+/** Makes a thread outdated on the fake without moving the head, as a push would. */
+const outdate = (
+  fake: GitHubFake,
+  match: (t: GitHubFake["world"]["threads"][number]) => boolean
+) => {
+  const thread = fake.world.threads.find(
+    (t) => t.pullId === PULL_ID && t.line !== null && match(t)
+  );
+
+  if (thread === undefined) throw new Error("no thread to make outdated on the fake");
+  thread.line = null;
+};
 
 const until = async (what: string, check: () => boolean | Promise<boolean>, ms = 30_000) => {
   for (let waited = 0; waited < ms; waited += 200) {
@@ -50,7 +88,9 @@ const commentOnFirst = async (page: Page, add: string) => {
   await page.getByTestId("comment-composer").waitFor({ state: "detached", timeout: 15_000 });
 };
 
-const pullRequest = async ({ page, fake, step, shoot }: FindingsFlowInput) => {
+const pullRequest = async (input: FindingsFlowInput) => {
+  const { page, fake, step, shoot } = input;
+
   await page.getByRole("radio", { name: /^Review/ }).click();
   // reviewFlow went back to the list: open #42 from it.
   await page.locator('[data-testid="pull-row"][data-pull="PR_kwDOacme42"]').click();
@@ -96,6 +136,96 @@ const pullRequest = async ({ page, fake, step, shoot }: FindingsFlowInput) => {
   await page.getByTestId("submit-review-send").click();
   await until("SubmitPullRequestReview on the fake", () => sent(fake, "SubmitPullRequestReview"));
   step("Submit review → Comment: SubmitPullRequestReview on the fake");
+  await threads(input);
+  await rangeAndOutdated(input);
+  await decisions(input);
+};
+
+/** Reply to the published thread, then resolve it. */
+const threads = async ({ page, fake, step }: FindingsFlowInput) => {
+  const thread = page.getByTestId("review-thread").filter({ hasText: "(smoke)" }).first();
+
+  await thread.getByRole("button", { name: "Reply", exact: true }).click();
+  await thread.getByRole("textbox", { name: "Reply" }).fill("Replying from the smoke");
+  await thread.getByRole("button", { name: /^Reply ⌘/ }).click();
+  await until("a reply on the fake", () => sent(fake, "AddPullRequestReviewThreadReply"));
+  await thread.getByRole("button", { name: "Resolve", exact: true }).click();
+  await until("ResolveReviewThread on the fake", () => sent(fake, "ResolveReviewThread"));
+  await page.getByTestId("review-thread").filter({ hasText: "Resolved" }).first().waitFor();
+  step(
+    "reply and resolve on the published thread (AddPullRequestReviewThreadReply, ResolveReviewThread)"
+  );
+};
+
+/** A range comment from the line numbers; made outdated, moved to the selection, then discarded. */
+const rangeAndOutdated = async ({ page, fake, step }: FindingsFlowInput) => {
+  await lineNumber(page, TEST_FILE, 1).click();
+  await lineNumber(page, TEST_FILE, 2).click({ modifiers: ["Shift"] });
+  await page.getByTestId("comment-composer").filter({ hasText: "Lines 1–2" }).waitFor();
+  await page.getByTestId("composer-text").fill("Range comment from the smoke");
+  await page.getByTestId("composer-add").click();
+  await until("the range thread on the fake", () =>
+    fake.world.threads.some((t) => t.path === TEST_FILE && t.startLine === 1 && t.line === 2)
+  );
+  step("selected lines 1–2 by their numbers: a range draft (startLine 1, line 2) on the fake");
+
+  outdate(fake, (t) => t.path === TEST_FILE && t.startLine === 1);
+  await reopen(page);
+  await page.locator('[data-testid="comments-group"][data-group="Outdated drafts"]').waitFor();
+
+  const deletesBefore = count(fake, "DeletePullRequestReviewComment");
+
+  await lineNumber(page, TEST_FILE, 2).click();
+  await page.getByTestId("comment-composer").waitFor();
+  await page.getByRole("button", { name: "Move to selection" }).click();
+  await page
+    .getByTestId("comment-composer")
+    .filter({ hasText: "moving an outdated draft" })
+    .waitFor();
+  await page.getByTestId("composer-add").click();
+  await until(
+    "the moved draft (new thread, old comment deleted)",
+    () =>
+      count(fake, "DeletePullRequestReviewComment") === deletesBefore + 1 &&
+      fake.world.threads.some((t) => t.path === TEST_FILE && t.startLine === null && t.line === 2)
+  );
+  step("an outdated draft moved to the selected line: re-added there, the old one deleted");
+
+  outdate(fake, (t) => t.path === TEST_FILE && t.startLine === null && t.line === 2);
+  await reopen(page);
+
+  const outdated = page.locator('[data-testid="comments-group"][data-group="Outdated drafts"]');
+
+  await outdated.getByRole("button", { name: "Discard", exact: true }).click();
+  await until(
+    "the discarded draft deleted",
+    () => count(fake, "DeletePullRequestReviewComment") === deletesBefore + 2
+  );
+  await outdated.waitFor({ state: "detached", timeout: 15_000 });
+  step("an outdated draft discarded (DeletePullRequestReviewComment)");
+};
+
+const submitAs = async (page: Page, event: "request-changes" | "approve", body: string) => {
+  await page.getByTestId("submit-review-open").click();
+  await page.getByTestId("submit-review").waitFor();
+  await page.locator(`[data-testid="submit-choice"][data-event="${event}"]`).click();
+  await page.getByTestId("submit-review").getByRole("textbox", { name: "Summary" }).fill(body);
+  await page.getByTestId("submit-review-send").click();
+  await page.getByTestId("submit-review").waitFor({ state: "detached", timeout: 15_000 });
+};
+
+/** Request changes, then approve, as mona (not the author). */
+const decisions = async ({ page, fake, step }: FindingsFlowInput) => {
+  const states = () =>
+    fake.world.reviews
+      .filter((r) => r.author === "mona" && r.pullId === PULL_ID)
+      .map((r) => r.state);
+
+  await submitAs(page, "request-changes", "Cap the retries before this merges.");
+  await until("CHANGES_REQUESTED on the fake", () => states().includes("CHANGES_REQUESTED"));
+  await submitAs(page, "approve", "");
+  await until("APPROVED on the fake", () => states().includes("APPROVED"));
+  step("Submit review → Request changes, then Approve: CHANGES_REQUESTED and APPROVED on the fake");
 };
 
 const session = async ({ page, step, shoot }: FindingsFlowInput) => {

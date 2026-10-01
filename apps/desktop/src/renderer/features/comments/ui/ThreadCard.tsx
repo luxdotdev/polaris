@@ -8,6 +8,7 @@ import { useState } from "react";
 import type { ReviewCommentView, ReviewThreadView } from "../../../../shared/github.ts";
 import { deleteComment, type Done, reply, resolveThread } from "../data/actions.ts";
 import { useComments } from "../data/store.ts";
+import { isDraft } from "../model/threads.ts";
 import { ANNOTATION_INSET } from "../../review/index.ts";
 import { Avatar } from "./Avatar.tsx";
 
@@ -138,7 +139,7 @@ const Body = ({
 }: Props & { readonly thread: ReviewThreadView }) => {
   const viewer = useComments((s) => s.pulls[subjectKey]?.detail?.viewerLogin ?? null);
   const [replying, setReplying] = useState(false);
-  const draft = thread.comments.some((c) => c.pending);
+  const draft = isDraft(thread);
 
   return (
     <div className="rounded-row bg-surface-raised border-hairline gap-row-x flex flex-col border p-3">

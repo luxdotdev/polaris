@@ -12,6 +12,7 @@ import {
   toFeedback,
 } from "./feedback.ts";
 import {
+  isDraft,
   pendingCaption,
   pendingComments,
   pendingCount,
@@ -93,6 +94,11 @@ describe("pull request threads", () => {
     ]);
     expect(places.outdated.map((t) => t.id)).toEqual(["t2"]);
     expect(places.files.map((t) => t.id)).toEqual(["t3"]);
+  });
+
+  test("a thread is a draft when the pending review starts it, not for a pending reply", () => {
+    expect(isDraft(line)).toBe(true);
+    expect(isDraft({ ...file, comments: [comment("c4", false), comment("c5", true)] })).toBe(false);
   });
 
   test("pending comments list by place", () => {
