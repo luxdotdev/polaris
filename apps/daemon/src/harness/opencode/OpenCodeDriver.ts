@@ -13,6 +13,7 @@ import type { HarnessDriver, HarnessProbe } from "../HarnessDriver.ts";
 import { clientFor } from "./Client.ts";
 import { toModels } from "./mapping.ts";
 import { openSession } from "./OpenCodeSession.ts";
+import { listOpenCodeCommands } from "./commands.ts";
 import * as P from "./protocol.ts";
 import { acquireServer, type OpenCodeServer, type ServerOptions } from "./Server.ts";
 
@@ -94,11 +95,19 @@ export const makeOpenCodeDriver = (
       })
     );
 
+    const listCommands = (cwd: string) =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          return yield* listOpenCodeCommands(clientFor(yield* server.lease, cwd));
+        })
+      );
+
     return {
       kind: "opencode",
       capabilities: { steer: true, liveCoAttach: true, switchModel: true },
       probe: Effect.suspend(() => probeOpenCode(options.opencodePath())),
       listModels,
+      listCommands,
       open: (openOptions) => openSession(server, openOptions),
     } satisfies HarnessDriver;
   });

@@ -88,6 +88,10 @@ A session carries a permission ruleset (`POST /session { permission }`, then `PA
 
 A session's Model is set on `POST /session` (`model: { providerID, id, variant }`), so an attached TUI shows it, and every Turn carries its own Model and variant. `switchModel` is true.
 
+### Commands (`commands.ts`)
+
+`listCommands(cwd)` leases the server (starting it if no session holds it, as `listModels` does) and reads `GET /command` with the directory `cwd`: custom commands, MCP prompts and Skills (`source: "skill"` → a Skill). `hints` become the argument hint. Every one runs as `text`: a Turn whose prompt starts with `/<name>` naming a listed command goes to `POST /session/{id}/command` `{ command, arguments, model, variant }`, which expands the template as OpenCode's TUI does (`prompt_async` would send `/name` to the model literally). That request answers only once the Turn is done, so it runs aside; if it fails before OpenCode takes the Turn up, the Turn ends `failed`. Attachments aren't sent with a command. Built-in TUI commands (`/compact`, `/undo`, `/share`…) are not offered. `Command` is written by hand in `protocol.ts` from opencode 1.15.5's `/doc` (the installed one; `generated/` is from 1.18.33 and was not regenerated).
+
 ### In Terminal: live co-attach
 
 `terminalCommand` is `/bin/sh -c 'OPENCODE_SERVER_PASSWORD="$(cat "$1")" exec "$2" attach "$3" --session "$4" --dir "$5"' opencode-attach <password file> <opencode> <url> <session> <cwd>`: the TUI attaches to the same server and session while Polaris stays attached, like Codex.

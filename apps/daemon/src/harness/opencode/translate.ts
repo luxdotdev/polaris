@@ -72,6 +72,8 @@ export interface Translator {
   /** A Turn Polaris is about to send; it begins when OpenCode records its user message. */
   readonly beginLocalTurn: (turn: Pick<ActiveTurn, "id" | "model" | "variant">) => void;
   readonly abandonLocalTurn: (turnId: TurnId) => void;
+  /** A local Turn OpenCode never took up failed to start: it ends `failed` with `error`. */
+  readonly failLocalTurn: (turnId: TurnId, error: string) => void;
   /** OpenCode was already busy when Polaris attached (a Turn started in the terminal). */
   readonly adoptRunningTurn: () => void;
   readonly openPermission: (request: P.PermissionRequest) => void;
@@ -388,6 +390,11 @@ export const translatorFor = (
     },
     abandonLocalTurn: (turnId) => {
       if (turn?.id === turnId) turn = null;
+    },
+    failLocalTurn: (turnId, error) => {
+      if (turn?.id !== turnId || turn.begun) return;
+      turn = null;
+      emit(HarnessEvent.TurnEnded({ turnId, status: "failed", error }));
     },
     adoptRunningTurn: () => {
       turn ??= newTurn();
