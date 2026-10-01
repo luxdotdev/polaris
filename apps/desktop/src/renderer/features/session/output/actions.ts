@@ -8,7 +8,8 @@ import {
   type TerminalPlace,
   useTerminalShown,
 } from "../../terminal/index.ts";
-import { getSessionUi, setOutputOpen, uiKey, useSessionUi } from "../state.ts";
+import { uiKey } from "../state.ts";
+import { isOutputOpen, setOutputOpen, useOutputOpen } from "./open.ts";
 
 export const hideOutput = (place: TerminalPlace, sessionId: string) => {
   setOutputOpen(uiKey(place.hostKey, sessionId), false);
@@ -17,7 +18,7 @@ export const hideOutput = (place: TerminalPlace, sessionId: string) => {
 
 export const toggleOutput = (place: TerminalPlace, sessionId: string) => {
   const shown =
-    getSessionUi(uiKey(place.hostKey, sessionId)).outputOpen ||
+    isOutputOpen(uiKey(place.hostKey, sessionId)) ||
     isTerminalShown(place.hostKey, place.workspaceId);
 
   if (shown) hideOutput(place, sessionId);
@@ -26,7 +27,7 @@ export const toggleOutput = (place: TerminalPlace, sessionId: string) => {
 
 /** Whether Output shows as a panel (else the rail). */
 export const useOutputShown = (place: TerminalPlace, sessionId: string): boolean => {
-  const open = useSessionUi(uiKey(place.hostKey, sessionId)).outputOpen;
+  const open = useOutputOpen(uiKey(place.hostKey, sessionId));
   const terminal = useTerminalShown(place.hostKey, place.workspaceId);
 
   return open || terminal;

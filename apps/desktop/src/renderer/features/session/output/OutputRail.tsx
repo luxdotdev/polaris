@@ -12,7 +12,8 @@ import type { SessionModel } from "../../../store/sessionModel.ts";
 import { homePath, plural, sessionStateLabel } from "../../../shell/copy.ts";
 import { SessionGlyph } from "../../../shell/glyphs.tsx";
 import { useHost, useSession } from "../hooks.ts";
-import { openForEdit, setOutputOpen, uiKey } from "../state.ts";
+import { uiKey } from "../state.ts";
+import { openForEdit, setOutputOpen } from "./open.ts";
 import { diffRevision, useTurnDiff } from "../turnDiff.ts";
 import type { SessionViewProps } from "../ui/SessionIntent.tsx";
 import { type GitFacts, useGitFacts } from "./gitStatus.ts";
@@ -107,7 +108,7 @@ export const OutputRail = ({ hostKey, sessionId }: SessionViewProps) => {
   const autoOpen = useSettings((s) => s.sessions.openOutputOnEdit);
 
   useEffect(() => {
-    if (autoOpen && edited && turnId !== null) openForEdit(key, turnId);
+    if (autoOpen && edited && turnId !== null) openForEdit(key);
   }, [autoOpen, edited, key, turnId]);
 
   const open = () => setOutputOpen(key, true);

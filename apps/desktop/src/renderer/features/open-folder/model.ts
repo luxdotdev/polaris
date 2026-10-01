@@ -82,21 +82,21 @@ export interface FolderRow {
 
 type Entry = Pick<Plain<FileEntry>, "name" | "path" | "kind">;
 
-/** A name matching the filter: prefix matches first, then anywhere in the name. */
+/** A name matching the filter: prefix matches first (".config" starts with "con" too), then anywhere. */
 const rank = (name: string, filter: string) => {
   if (filter === "") return 0;
 
   const lower = name.toLowerCase();
   const wanted = filter.toLowerCase();
 
-  if (lower.startsWith(wanted)) return 0;
+  if (lower.startsWith(wanted) || lower.replace(/^\./, "").startsWith(wanted)) return 0;
 
   return lower.includes(wanted) ? 1 : -1;
 };
 
 /**
  * The folders to list: directories and links (a link may be one), filtered and ranked;
- * dot-folders only when the filter starts with ".".
+ * every one is shown, dot-folders after the others at the same rank.
  */
 export const folderRows = (
   entries: ReadonlyArray<Entry>,
@@ -104,17 +104,20 @@ export const folderRows = (
   workspaces: ReadonlyArray<Pick<Workspace, "path" | "name">>
 ): ReadonlyArray<FolderRow> => {
   const byPath = new Map(workspaces.map((w) => [w.path, w.name]));
-  const shown = (e: Entry) => !e.name.startsWith(".") || filter.startsWith(".");
+  const dot = (e: Entry) => Number(e.name.startsWith("."));
 
   const ranked = entries.flatMap((entry) => {
     const at = rank(entry.name, filter);
     const folder = entry.kind === "directory" || entry.kind === "symlink";
 
-    return folder && shown(entry) && at >= 0 ? [{ entry, at }] : [];
+    return folder && at >= 0 ? [{ entry, at }] : [];
   });
 
   return ranked
-    .sort((a, b) => a.at - b.at || a.entry.name.localeCompare(b.entry.name))
+    .sort(
+      (a, b) =>
+        a.at - b.at || dot(a.entry) - dot(b.entry) || a.entry.name.localeCompare(b.entry.name)
+    )
     .map(({ entry }) => ({
       name: entry.name,
       path: entry.path,

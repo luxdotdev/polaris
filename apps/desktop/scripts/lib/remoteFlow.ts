@@ -41,6 +41,13 @@ const openRemoteFolder = async (
 
   await field.waitFor({ timeout: 5000 });
   await page.locator(`[data-host="${FAKE_ALIAS}"]`).first().waitFor();
+  // Every folder shows, dot-folders after the others: the install's ~/.polaris is listed.
+  await page.getByTestId("folder-row").filter({ hasText: ".polaris" }).waitFor({ timeout: 10_000 });
+  const names = await page.getByTestId("folder-row").allInnerTexts();
+
+  if (names.indexOf(".polaris") < names.findIndex((n) => n.startsWith("project")))
+    throw new Error(`dot-folders should follow the others: ${names.join(", ")}`);
+  step(`⌘O lists every folder in ~: ${names.map((n) => n.split("\n")[0]).join(", ")}`);
   await field.fill("~/pro");
   await page.getByTestId("folder-row").filter({ hasText: "project" }).waitFor({ timeout: 10_000 });
   await page.keyboard.press("Enter");
