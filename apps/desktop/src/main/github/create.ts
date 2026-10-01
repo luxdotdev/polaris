@@ -3,7 +3,7 @@
  * Agent Session's work (ENG-224). The push itself uses the Host's git credentials.
  */
 import { Effect } from "effect";
-import type { RepoRef } from "../../shared/github.ts";
+import type { RepoRef, WorkspaceRef } from "../../shared/github.ts";
 import type { Client } from "./client.ts";
 import { GitHubNoAccount, GitHubRequestError } from "./errors.ts";
 import type { Routing } from "./routing.ts";
@@ -17,6 +17,7 @@ export interface NewPull {
   readonly title: string;
   readonly body: string;
   readonly draft: boolean;
+  readonly workspace?: WorkspaceRef;
 }
 
 export interface CreatedPullView {
@@ -27,7 +28,7 @@ export interface CreatedPullView {
 
 export const newCreate = (client: Client, routing: Routing) => (input: NewPull) =>
   Effect.gen(function* () {
-    const access = yield* routing.resolve(input.repo, null);
+    const access = yield* routing.resolve(input.repo, input.workspace ?? null);
     const name = `${input.repo.owner}/${input.repo.name}`;
 
     if (access.accountId === null) {

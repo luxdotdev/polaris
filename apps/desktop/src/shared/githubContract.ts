@@ -60,6 +60,8 @@ export const GitHubRequestInputs = {
     title: Schema.String.check(Schema.isMinLength(1)),
     body: Schema.String,
     draft: Schema.Boolean,
+    /** The Workspace it's opened from: its account override wins (ENG-185). */
+    workspace: Schema.optionalKey(WorkspaceRef),
   }),
   "github.review.addThread": Schema.Struct({
     ...PullOp,
@@ -95,11 +97,15 @@ export const GitHubRequestInputs = {
     path: Schema.String,
     viewed: Schema.Boolean,
   }),
-  /** Every Review Checkout's pull request, watched for merge, close and new commits. */
+  /**
+   * Pull requests watched for merge, close and new commits: every Review Checkout's, or
+   * (`group: "sessions"`) every accepted Agent Session's. Each group replaces only itself.
+   */
   "github.checkouts.watch": Schema.Struct({
     checkouts: Schema.Array(
       Schema.Struct({ key: Schema.String, pull: PullRef, pullId: Schema.String })
     ),
+    group: Schema.optionalKey(Schema.Literals(["checkouts", "sessions"])),
   }),
 } as const;
 

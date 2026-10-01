@@ -5,9 +5,11 @@
  * code reaches its bundle.
  */
 import {
+  AcceptBranch,
   AttachmentSettings,
   Command,
   CommandId,
+  CommitGranularity,
   GitDiffSpec,
   HarnessKind,
   PermissionMode,
@@ -23,6 +25,7 @@ import {
   Timestamp,
   SessionSummary,
   TerminalId,
+  TurnId,
   Workspace,
   WorkspaceId,
   Worktree,
@@ -92,6 +95,14 @@ export type SessionDefault = typeof SessionDefault.Type;
 
 export const BranchPrefix = Schema.String.check(Schema.isPattern(BRANCH_PREFIX));
 
+/**
+ * Where accepting a session's work commits (ENG-224): `auto` makes a branch only when
+ * on the default branch; `current` commits where it is, main included; `create` always branches.
+ */
+export const AcceptBranchMode = Schema.Literals(["auto", "current", "create"]);
+
+export type AcceptBranchMode = typeof AcceptBranchMode.Type;
+
 /** Settings → Sessions: how every new Agent Session starts and what happens around it. */
 export const SessionPrefs = Schema.Struct({
   /** Start on a new Worktree rather than in the Workspace directory. */
@@ -108,6 +119,10 @@ export const SessionPrefs = Schema.Struct({
   deleteMergedBranch: Schema.Boolean,
   /** The Working strip's verbs; null for the built-in ones (Claude Code's own settings come first). */
   spinnerVerbs: Schema.NullOr(Schema.Array(Schema.String)),
+  /** Where accepted work is committed, unless the Workspace says otherwise. */
+  acceptBranch: AcceptBranchMode,
+  /** Per-Workspace overrides of `acceptBranch`, keyed `hostKey/workspaceId`. */
+  workspaceAcceptBranch: Schema.Record(Schema.String, AcceptBranchMode),
 });
 
 export type SessionPrefs = typeof SessionPrefs.Type;
@@ -120,6 +135,9 @@ export const SessionPrefsPatch = Schema.Struct({
   notifyReviewRequests: Schema.optionalKey(Schema.Boolean),
   deleteMergedBranch: Schema.optionalKey(Schema.Boolean),
   spinnerVerbs: Schema.optionalKey(Schema.NullOr(Schema.Array(Schema.String))),
+  acceptBranch: Schema.optionalKey(AcceptBranchMode),
+  /** Replaces every override. */
+  workspaceAcceptBranch: Schema.optionalKey(Schema.Record(Schema.String, AcceptBranchMode)),
 });
 
 export type SessionPrefsPatch = typeof SessionPrefsPatch.Type;
@@ -243,6 +261,19 @@ export const RequestInputs = {
   /** Settings → Reviewer: the Host's settings and the Reviewer a Workspace would run. */
   "review.reviewerSettings": onHost({ workspaceId: Schema.NullOr(WorkspaceId) }),
   "review.setReviewerSettings": onHost({ settings: ReviewerSettings }),
+  /** Accepting a session's work (capability `session.accept`): plan, draft, commit, push. */
+  "session.acceptPlan": onHost({ sessionId: SessionId, throughTurnId: TurnId }),
+  "session.draftAccept": onHost({ sessionId: SessionId, throughTurnId: TurnId }),
+  "session.commitAccepted": onHost({
+    sessionId: SessionId,
+    throughTurnId: TurnId,
+    branch: AcceptBranch,
+    granularity: CommitGranularity,
+    title: Schema.String,
+    body: Schema.String,
+    turnTitles: Schema.Array(Schema.String),
+  }),
+  "session.pushAccepted": onHost({ sessionId: SessionId, branch: Schema.String }),
   /** Probe a remote Host and plan an install or upgrade; installs only with an approved SHA-256. */
   "install.ensure": onHost({ approvedSha256: Schema.NullOr(Schema.String) }),
   /** The literal `Host` aliases in `~/.ssh/config` (Includes followed, wildcards skipped). */

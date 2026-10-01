@@ -4,7 +4,7 @@
  * the diff and the file list; each slot owns what renders inside it.
  */
 import type { ReviewCheckout, RiskFinding } from "@polaris/protocol";
-import type { ComponentType, ReactNode } from "react";
+import { type ComponentType, createElement, type ReactNode } from "react";
 import { createStore } from "zustand/vanilla";
 import type { Plain } from "../../store/plain.ts";
 import type { ReviewSubject } from "../../routes/review.ts";
@@ -49,6 +49,24 @@ export interface ReviewSlots {
 
 const Nothing = () => null;
 
+/** The primary action per subject kind: M2-F's "Submit review" for a pull request, M2-A's accept. */
+const primaryActions: Partial<Record<ReviewSubject["kind"], ComponentType<ReviewSlotProps>>> = {};
+
+/** Renders the primary action registered for the subject's kind. */
+const PrimaryAction = (props: ReviewSlotProps) => {
+  const Action = primaryActions[props.subject.kind];
+
+  return Action === undefined ? null : createElement(Action, props);
+};
+
+/** Registers one kind's primary action without replacing the other's. */
+export const fillPrimaryAction = (
+  kind: ReviewSubject["kind"],
+  Action: ComponentType<ReviewSlotProps>
+) => {
+  primaryActions[kind] = Action;
+};
+
 /** Defaults until the slices land; a slice swaps its own in with `fillReviewSlots`. */
 interface SlotRegistry {
   current: ReviewSlots;
@@ -57,7 +75,7 @@ interface SlotRegistry {
 export const reviewSlots: SlotRegistry = {
   current: {
     CheckoutChip: Nothing,
-    PrimaryAction: Nothing,
+    PrimaryAction,
     RiskColumn: Nothing,
     RiskFooter: Nothing,
   },
