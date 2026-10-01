@@ -7,7 +7,7 @@
 import type { PermissionMode } from "@polaris/protocol";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@polaris/ui";
 import type { SessionDefault } from "../../../../shared/api.ts";
-import { choose, type ModelData, useHarnessModels } from "../../harness/index.ts";
+import { choose, type ModelData, shortlist, useHarnessModels } from "../../harness/index.ts";
 import { setSessionDefault, useSessionDefault } from "../store.ts";
 import { FooterStrip } from "./parts.tsx";
 
@@ -73,13 +73,14 @@ export const SessionDefaultsStrip = ({
   const save = (patch: Partial<SessionDefault>) =>
     setSessionDefault(harness, { ...current, ...patch });
 
+  // The picker's shortlist (its newest four); a saved Model outside it stays shown.
+  const { top } = shortlist(harness, models);
+  const saved = top.some((m) => m.id === current.model) ? null : current.model;
+
   const modelOptions = [
     { value: DEFAULT, label: "Default" },
-    ...models.map((m) => ({ value: m.id, label: m.name })),
-    // A saved Model this Host doesn't list stays shown by its id.
-    ...(current.model !== null && model === undefined
-      ? [{ value: current.model, label: current.model }]
-      : []),
+    ...top.map((m) => ({ value: m.id, label: m.name })),
+    ...(saved === null ? [] : [{ value: saved, label: model?.name ?? saved }]),
   ];
 
   return (
