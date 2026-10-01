@@ -21,7 +21,7 @@ export const PageHeader = ({
 
 /** The centred 680px column (Paper S1–S4); narrow windows keep 16px each side. */
 export const Column = ({ children }: { readonly children: ReactNode }) => (
-  <div className="mx-auto flex w-[680px] max-w-[calc(100%-2rem)] flex-col gap-7 py-10">
+  <div className="mx-auto flex w-[680px] max-w-[calc(100%-2rem)] flex-col gap-[calc(var(--spacing-section)+4px)] py-[calc(var(--spacing-section)+16px)]">
     {children}
   </div>
 );
