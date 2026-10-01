@@ -8,6 +8,7 @@ import type { FileDiffMetadata, SelectedLineRange } from "@pierre/diffs";
 import { type ReactNode, useEffect, useMemo } from "react";
 import { useStore } from "zustand";
 import type { ReviewDiff } from "../data/useReviewDiff.ts";
+import { paneState } from "../model/paneState.ts";
 import { scaleNotice } from "../model/policy.ts";
 import { quoteLines } from "../model/quote.ts";
 import {
@@ -104,6 +105,13 @@ const Ready = ({
     pullViewed,
   });
 
+  const pane = paneState({
+    files: model.files.length,
+    items: model.items.length,
+    complete: diff.complete,
+    scale: diff.scale,
+  });
+
   const paths = useMemo(() => model.files.map((f) => f.file.path), [model.files]);
 
   useEffect(() => updateSurface(subjectKey, { paths }), [subjectKey, paths]);
@@ -147,14 +155,8 @@ const Ready = ({
         data-complete={diff.complete ? "" : undefined}
         data-files={model.files.length}
       >
-        {model.items.length === 0 && diff.complete ? (
-          <Waiting
-            placeholder={
-              model.files.length === 0
-                ? { title: "No changes", fact: "Nothing differs between these revisions" }
-                : { title: "Pick a file", fact: "Open a file from the list to see its diff" }
-            }
-          />
+        {pane.kind === "message" ? (
+          <Waiting placeholder={{ title: pane.title, fact: pane.fact }} />
         ) : (
           <DiffPane
             items={model.items}

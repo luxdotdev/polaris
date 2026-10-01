@@ -38,6 +38,12 @@ import {
 import { addRemotes, pullsFlow } from "./lib/pullsFlow.ts";
 import { afterMerge, checkoutFlow, cloneFlow, setFakeHead } from "./lib/checkoutFlow.ts";
 import { reviewFlow, setupCodeHost } from "./lib/reviewFlow.ts";
+import {
+  checkSessionReview,
+  checkTurnPicker,
+  initSessionRepo,
+  runSessionTurns,
+} from "./lib/sessionReviewFlow.ts";
 import { findingsFlow } from "./lib/findingsFlow.ts";
 import { acceptFlow } from "./lib/acceptFlow.ts";
 
@@ -526,6 +532,15 @@ try {
     step,
     shoot: (name) => shoot(page, name),
   });
+
+  // An Agent Session whose Turns change one file while other commits move HEAD (UB diffview 1).
+  const sessionRepo = join(home, "review-session");
+
+  initSessionRepo(sessionRepo);
+  await runSessionTurns(page, sessionRepo);
+  await checkSessionReview(page, step);
+  await checkTurnPicker(page, step);
+  await page.getByRole("radio", { name: /^Orchestrate/ }).click();
 
   let probeTimer: ReturnType<typeof setTimeout> | undefined;
 
