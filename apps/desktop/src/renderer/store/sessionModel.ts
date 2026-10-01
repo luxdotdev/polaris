@@ -165,6 +165,8 @@ const fold = (event: DomainEvent): Fold =>
       PeerMessage: () => same,
       AttemptRecoveryContinued: () => same,
       ResourceDeclared: () => same,
+      ResourceRemoved: () => same,
+      ResourceLeaseCanceled: () => same,
       ResourceLeaseQueued: () => same,
       ResourceLeased: () => same,
       ResourceReleased: () => same,

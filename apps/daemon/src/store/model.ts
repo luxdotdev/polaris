@@ -29,6 +29,8 @@ import {
   type WorktreeId,
 } from "@polaris/protocol";
 
+import { emptyResources, foldResources, type ResourcesModel } from "../resources/model.ts";
+
 export interface SessionRecord {
   readonly session: AgentSession;
   /** Set once the user renames the session; Harness title suggestions are then ignored. */
@@ -46,6 +48,7 @@ export interface SessionRecord {
 export interface ReadModel {
   /** Sequence of the last event folded in; 0 for an empty store. */
   readonly sequence: number;
+  readonly hostResources?: ResourcesModel;
   readonly workspaces: ReadonlyMap<WorkspaceId, Workspace>;
   readonly worktrees: ReadonlyMap<WorktreeId, Worktree>;
   readonly sessions: ReadonlyMap<SessionId, SessionRecord>;
@@ -55,6 +58,7 @@ export interface ReadModel {
 
 export const emptyModel: ReadModel = {
   sequence: 0,
+  hostResources: emptyResources(),
   workspaces: new Map(),
   worktrees: new Map(),
   sessions: new Map(),
@@ -101,6 +105,8 @@ export const sessionOf: (event: DomainEvent) => SessionId | null =
     PeerMessage: hostEvent,
     AttemptRecoveryContinued: hostEvent,
     ResourceDeclared: hostEvent,
+    ResourceRemoved: hostEvent,
+    ResourceLeaseCanceled: hostEvent,
     ResourceLeaseQueued: hostEvent,
     ResourceLeased: hostEvent,
     ResourceReleased: hostEvent,
@@ -213,6 +219,8 @@ export const eventCapability = (event: DomainEvent): Capability | null =>
       PeerMessage: needs("constellation"),
       AttemptRecoveryContinued: needs("constellation"),
       ResourceDeclared: needs("host.resources"),
+      ResourceRemoved: needs("host.resources"),
+      ResourceLeaseCanceled: needs("host.resources"),
       ResourceLeaseQueued: needs("host.resources"),
       ResourceLeased: needs("host.resources"),
       ResourceReleased: needs("host.resources"),
@@ -409,6 +417,23 @@ const createSession =
     }),
   });
 
+const resourceProjection =
+  (event: DomainEvent): Reducer =>
+  ({ model }) => {
+    const current = model.hostResources ?? emptyResources();
+
+    const hostResources = foldResources(
+      {
+        resources: new Map(current.resources),
+        leases: new Map(current.leases),
+        waiting: new Map(current.waiting),
+      },
+      [event]
+    );
+
+    return { ...model, hostResources };
+  };
+
 const recordTurn =
   ({ turn }: { readonly turn: Turn }): Reducer =>
   (fold) =>
@@ -483,10 +508,12 @@ const apply: (event: DomainEvent) => Reducer = DomainEvent.match<Reducer>({
   OperatorMessageResolved: () => keep,
   PeerMessage: () => keep,
   AttemptRecoveryContinued: () => keep,
-  ResourceDeclared: () => keep,
-  ResourceLeaseQueued: () => keep,
-  ResourceLeased: () => keep,
-  ResourceReleased: () => keep,
+  ResourceDeclared: resourceProjection,
+  ResourceRemoved: resourceProjection,
+  ResourceLeaseCanceled: resourceProjection,
+  ResourceLeaseQueued: resourceProjection,
+  ResourceLeased: resourceProjection,
+  ResourceReleased: resourceProjection,
 
   WorkspaceRegistered: setWorkspace,
   WorkspaceUpdated: setWorkspace,

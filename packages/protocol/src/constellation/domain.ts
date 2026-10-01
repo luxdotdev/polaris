@@ -230,7 +230,7 @@ export class TaskProjection extends Schema.Class<TaskProjection>("ConstellationT
   gatePromoted: Schema.Boolean,
   stale: Schema.Boolean,
   branchFetched: Schema.Boolean,
-  /** Latest Attempt's observed facts; null when unavailable or from an older peer. */
+  /** Optional/nullable on the wire; decoded projections use null for unavailable facts. */
   liveness: optionalNullable(WorkerLiveness),
 }) {}
 
@@ -259,5 +259,6 @@ export class ResourceLease extends Schema.Class<ResourceLease>("ResourceLease")(
   attemptId: optionalNullable(AttemptId),
   command: Schema.Array(Schema.String),
   processId: Schema.Int,
+  processIdentity: Schema.optionalKey(Schema.String),
   acquiredAt: Timestamp,
 }) {}

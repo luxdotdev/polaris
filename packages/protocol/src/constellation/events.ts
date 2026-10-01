@@ -90,11 +90,22 @@ export type ConstellationEvent = typeof ConstellationEvent.Type;
 
 export const resourceEventFields = {
   ResourceDeclared: { resource: HostResource },
+  ResourceRemoved: { hostId: HostId, resource: Schema.String },
+  ResourceLeaseCanceled: {
+    hostId: HostId,
+    resource: Schema.String,
+    requestId: Schema.String,
+    reason: Schema.String,
+  },
   ResourceLeaseQueued: {
     hostId: HostId,
     resource: Schema.String,
     requestId: Schema.String,
     sessionId: optionalNullable(SessionId),
+    processId: Schema.optionalKey(Schema.Int),
+    processIdentity: Schema.optionalKey(Schema.String),
+    command: Schema.optionalKey(Schema.Array(Schema.String)),
+    attemptId: optionalNullable(AttemptId),
   },
   ResourceLeased: { lease: ResourceLease },
   ResourceReleased: {

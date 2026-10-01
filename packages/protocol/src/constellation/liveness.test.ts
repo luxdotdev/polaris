@@ -44,6 +44,15 @@ test("older Task projections decode unknown liveness; older codecs ignore the ad
   expect(Schema.decodeUnknownSync(TaskProjection)(oldValue).liveness).toBeNull();
   expect(new TaskProjection(oldValue).liveness).toBeNull();
   expect(Schema.decodeUnknownSync(legacy)(projection)).toEqual(oldValue);
+  expect(
+    Schema.decodeUnknownSync(TaskProjection)({ ...oldValue, liveness: null }).liveness
+  ).toBeNull();
+  const document = Schema.toJsonSchemaDocument(TaskProjection);
+
+  expect(document.definitions.ConstellationTaskProjectionEncoded).toHaveProperty(
+    "required",
+    expect.not.arrayContaining(["liveness"])
+  );
 });
 
 test("status and subscribe Snapshot carry the latest Attempt's liveness", () => {

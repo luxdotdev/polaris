@@ -29,6 +29,7 @@ import { ForkDialog, type ForkTarget } from "./ForkDialog.tsx";
 import type { RowContext } from "./rows.tsx";
 import { SessionComposer } from "./SessionComposer.tsx";
 import { SessionHeader } from "./SessionHeader.tsx";
+import { useSessionChrome } from "../chrome.ts";
 
 /** The shell's session slot props (`app/slots.tsx`). */
 export interface SessionViewProps {
@@ -65,6 +66,7 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
   const host = useHost(hostKey);
   const { where, branch } = useWhere(hostKey, model.session);
   const [forking, setForking] = useState<ForkTarget | null>(null);
+  const chrome = useSessionChrome();
   const models = useHarnessModels(hostKey, model.session?.harness ?? "", model.session !== null);
   const { session } = model;
 
@@ -93,12 +95,17 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
   const lastTurn = model.turns.at(-1)?.turn ?? null;
   const lastDone = model.turns.findLast((t) => t.turn.status !== "working")?.turn;
 
-  const rows = conversationRows({
+  const listed = conversationRows({
     turns: model.turns,
     approvals: model.pendingApprovals,
     unfolded: ui.unfolded,
     outbox: ui.outbox,
   });
+
+  const rows =
+    chrome.trailer === undefined
+      ? listed
+      : [...listed, { kind: "trailer" as const, key: "trailer" }];
 
   const ctx: RowContext = {
     harness,
@@ -119,6 +126,7 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
     modelLabel: (model, effort) => modelLabel(models.models, model, effort),
     canSteer: mode?.kind === "steer",
     outbox,
+    chrome,
   };
 
   return (
@@ -127,25 +135,29 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
       data-testid="session-panel"
       className="bg-bg flex h-full min-h-0 min-w-0 flex-col"
     >
-      <SessionHeader
-        hostKey={hostKey}
-        session={session}
-        harness={harness}
-        turnNumber={lastTurn === null ? null : lastTurn.index + 1}
-        canFork={harness !== null && lastDone !== undefined && hasCapability(host, "session.fork")}
-        onFork={() => {
-          if (harness === null || lastDone === undefined) return;
-          setForking({
-            sessionId,
-            turnId: lastDone.id,
-            turnNumber: lastDone.index + 1,
-            harness,
-            model: session.model,
-            effort: session.effort,
-          });
-        }}
-      />
-      <Conversation scrollKey={key} rows={rows} ctx={ctx} />
+      {chrome.header ?? (
+        <SessionHeader
+          hostKey={hostKey}
+          session={session}
+          harness={harness}
+          turnNumber={lastTurn === null ? null : lastTurn.index + 1}
+          canFork={
+            harness !== null && lastDone !== undefined && hasCapability(host, "session.fork")
+          }
+          onFork={() => {
+            if (harness === null || lastDone === undefined) return;
+            setForking({
+              sessionId,
+              turnId: lastDone.id,
+              turnNumber: lastDone.index + 1,
+              harness,
+              model: session.model,
+              effort: session.effort,
+            });
+          }}
+        />
+      )}
+      {chrome.body ?? <Conversation scrollKey={key} rows={rows} ctx={ctx} />}
       <InTerminalBar
         session={{
           hostKey,

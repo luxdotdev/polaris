@@ -69,7 +69,9 @@ Only the decider emits `GatePromoted`. Causes use tagged constructors (Initial,
 SentBack, MergeConflict, Recover, Followup, Superseded); every linked cause's
 `ref` must point backward in the same Task's Attempt history.
 
-`TaskProjection.liveness` is nullable `WorkerLiveness` for `latestAttemptId`.
+`TaskProjection.liveness` is optional and nullable on the wire, with
+`WorkerLiveness` describing `latestAttemptId`. Decoded projections always have
+the field; omission becomes null.
 It travels in `constellation.status` JSON results and `constellation.subscribe`
 Snapshot projections. Missing fields from older peers decode as null (unknown).
 The shape is `{current: null | {itemId, turnId, command, startedAt}, lastOutputAt,

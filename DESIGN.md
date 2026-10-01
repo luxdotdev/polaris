@@ -711,6 +711,7 @@ A native take on herdr-dagr (ENG-169), specified by the Constellations v1 map (E
 - **Large Constellations (100+ Tasks).** Filter chips sit under the header (All 128 · Needs you · In review · Working · Done, each with its count in its state colour) with "Filter tasks /". Groups fold by default, each with a 120×4px proportional bar and its counts; a group with something that needs you opens itself, and inside an open group the waiting Tasks fold into one "▸ 6 waiting · C1, C7, C9–C12" line. Rows drop to one line. The list is virtualised.
 - **Subagents are nodes.** As before: nested under their parent, smaller glyph, "subagent" as actor, focusable.
 - **Keys.** The foot row: move, focus, fold, next that needs you, a accept / s send back (from the row menu), m message lead.
+- **Narrow Output.** A Lead's Output opens on its own unless the user closed it for that session. Below about 42rem the actor lane hides first, and the header's needs-you chip wraps under the name rather than truncating; ids, titles and state words keep their lanes.
 
 ### Editor
 

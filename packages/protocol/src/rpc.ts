@@ -1,6 +1,5 @@
 /**
  * The Daemon's RPC surface. Every Client (Desktop App, later the Mobile App)
- * speaks this group; the transport is length-prefixed frames (see frame.ts).
  *
  * Streams open with a snapshot, then send sequenced events; a reconnecting
  * Client passes the last sequence it saw and resumes without gaps.
@@ -8,6 +7,7 @@
  * `subscribeThread` with `afterSequence`.
  */
 import { Schema } from "effect";
+import { ResourceRpcs } from "./resources.ts";
 import {
   Constellation,
   ConstellationRpcs,
@@ -785,8 +785,6 @@ export const TerminalClose = Rpc.make("terminal.close", {
   error: NotFound,
 });
 
-// ── Group ───────────────────────────────────────────────────────────────────
-
 export class DaemonRpcs extends RpcGroup.make(
   Hello,
   Dispatch,
@@ -833,4 +831,6 @@ export class DaemonRpcs extends RpcGroup.make(
   TerminalInput,
   TerminalResize,
   TerminalClose
-).merge(ConstellationRpcs) {}
+)
+  .merge(ConstellationRpcs)
+  .merge(ResourceRpcs) {}

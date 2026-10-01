@@ -1,0 +1,66 @@
+# Host resources
+
+`HostResources.layer` depends on `EventStore`. Resource declarations, FIFO requests,
+grants, cancellations, removals and releases live in the Host stream. The store's
+`ReadModel.hostResources` folds them for snapshots and reloads them on startup.
+`__workers` is reserved for the worker-cap setting; ordinary declarations and lease
+requests cannot use it.
+
+Settings → Hosts reads `host.resources.get`. The declare, remove, release and
+`host.workers.setCap` RPCs return that same `HostResourcesSnapshot`. Release frees
+a lease or cancels a queued request without sending a signal to its process.
+Removal rejects holders and waiters. Capacity reductions reject excess holders;
+worker-cap reductions reject excess working workers. A null worker cap restores
+`floor(available cores / 3)`, at least one. The default hold limit is 30 minutes.
+Every process grant rechecks capacity and the FIFO head under the EventStore commit
+lock, so a concurrent Lead plan cannot let a stale capacity grant an extra lease.
+Overdue lease IDs are computed when read and logged once while held; the warning
+offers Release and never kills the command.
+
+## Worker startup integration
+
+The startup runtime acquires `acquireWorker(sessionId)` in a scope **before** it
+starts Harness work. Keep that scope while the Attempt is working, then close it
+on Claim, settle or stop. It must not live for the entire Agent Session. Acquisition
+parks in a FIFO queue, is cancellable, and automatically grants the next waiter
+when a scope closes. `get.workerCap.waiting` supplies "waiting for a slot" to Clients.
+The Constellation startup adapter owns that scope and its lifecycle; this service
+does not decide Attempt or Session State.
+
+Pass `POLARIS_HOST_SOCKET`, `POLARIS_SESSION_ID`, and optionally `POLARIS_BINARY`
+to worker commands. `tooling/leases.ts` makes the bench and Desktop smoke entry
+points re-enter through `polaris lease` under that environment. Outside Polaris,
+they take `/tmp/polaris-bench-lock` and `/tmp/polaris-smoke-lock`, respectively.
+`POLARIS_LEASE_HELD` prevents an entry point from recursively taking its own lease.
+
+## Process lifetime
+
+`polaris lease <name> -- <command> [args...]` starts a gated `/bin/sh` child. The
+shell waits on a private descriptor until its FIFO request is granted, then execs
+the command in the same PID. Arguments are passed as an argv array. Standard input,
+output and error are inherited. The wrapper forwards SIGINT/SIGTERM and preserves
+the exit code.
+
+The persisted PID and process start time identify the child independently of the
+wrapper. A wrapper SIGKILL before grant closes the gate; after grant, the command
+keeps its lease. Queued wrappers reconnect to the same request after a Daemon
+restart. Recovery retains live holders, cancels dead waiters and releases dead or
+reused PIDs before granting a successor. Legacy records without process identity
+are released conservatively rather than treating a reused PID as their holder.
+
+Only while holders or waiters exist, a one-second monitor checks process identities.
+There is no idle monitor timer, per-session polling, or worker-slot timer. Release
+on normal exit is immediate; an unobserved exit is reclaimed at the next check.
+The identity probe uses `ps` and is covered on macOS here; Linux is unverified.
+
+## Verification
+
+`resources.test.ts` checks capacity, FIFO, cancellation, warning/Release, live and
+reused-PID recovery, worker scopes and externally committed Lead declarations.
+`cli.test.ts` uses only throwaway Daemons and test processes to exercise wrapper
+SIGKILL, child SIGKILL, FIFO after restart, dead waiters and command exit codes.
+The protocol tests decode old records and round-trip cancellation/removal.
+The C1-P Quint resource model and trace replayer map these same Host events.
+`resources.model.test.ts` compares the real broker with an independent queue across
+randomized capacity edits, cancellation and restart. Set `POLARIS_RESOURCE_TRACE_DIR`
+to capture its durable batches for `packages/spec/scripts/replay-constellation.ts`.
