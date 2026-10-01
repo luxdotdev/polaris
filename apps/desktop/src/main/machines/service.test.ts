@@ -49,8 +49,14 @@ const status = (patch: Partial<ConnectionStatusView>): ConnectionStatusView => (
   ...patch,
 });
 
-const setup = (sshFails = false, localHome: string | null = null) => {
-  let settings: Settings = {};
+const setup = (
+  sshFails = false,
+  localHome: string | null = null,
+  initial: Settings = {},
+  probeOutput?: string
+) => {
+  let settings: Settings = initial;
+  const commands: Array<string> = [];
   const hostViews = Effect.runSync(SubscriptionRef.make<ReadonlyArray<HostView>>([]));
   const entries = new Map<string, HostEntry>();
   const retried: Array<string> = [];
@@ -95,7 +101,15 @@ const setup = (sshFails = false, localHome: string | null = null) => {
                   message: "Host key verification failed.",
                 })
               )
-            : Effect.sync(() => runOnFakeHost(home, command, options?.stdinFile)),
+            : Effect.sync(() => void commands.push(command)).pipe(
+                Effect.andThen(
+                  probeOutput !== undefined && command.includes("uname -s")
+                    ? Effect.succeed({ code: 0, stdout: probeOutput, stderr: "" })
+                    : Ssh.use((ssh) => ssh.exec(alias, command, options)).pipe(
+                        Effect.provide(Ssh.local(home))
+                      )
+                )
+              ),
       })
     ),
   });
@@ -169,6 +183,7 @@ const setup = (sshFails = false, localHome: string | null = null) => {
     setLocal,
     call,
     retried,
+    commands,
     settings: () => settings,
     entries,
   };
@@ -187,6 +202,163 @@ const info = (daemonVersion: string) =>
   });
 
 describe("Machines", () => {
+  test.each([
+    {
+      probe: "os=Windows\narch=x86_64\n",
+      buildPlatform: "darwin-arm64",
+      kind: "unsupported",
+      command: null,
+    },
+    {
+      probe: "os=Linux\narch=aarch64\n",
+      buildPlatform: "darwin-arm64",
+      kind: "missing-build",
+      command: null,
+    },
+    {
+      probe: "os=Linux\narch=aarch64\nlibc=musl\nmissing=libstdc++.so.6\n",
+      buildPlatform: "linux-arm64-musl",
+      kind: "host-setup",
+      command: "apk add libstdc++ libgcc",
+    },
+  ])(
+    "Update reports $kind with an actionable result",
+    async ({ probe, buildPlatform, kind, command }) => {
+      writeDist(dist, { version: "0.2.0", platform: buildPlatform });
+
+      const { runtime, call, studio, commands } = setup(
+        false,
+        null,
+        { hosts: [{ alias: "studio" }] },
+        probe
+      );
+
+      try {
+        await call((m) => m.updateDaemon("studio"));
+        const row = await studio((v) => v.daemon?.progress?.stage === "failed");
+        expect(row?.daemon?.lastUpdate).toMatchObject({
+          result: "failed",
+          problem: { kind, command, sshFailure: null },
+        });
+        expect(commands).toHaveLength(1);
+      } finally {
+        await runtime.dispose();
+      }
+    }
+  );
+  test("Update refuses a first install even with an approved hash", async () => {
+    const sha = writeDist(dist, { version: "0.2.0", platform });
+    openApprovals(join(root, "approvals.json")).approve("studio", {
+      sha256: sha,
+      platform,
+      version: "0.2.0",
+      approvedAt: 1,
+    });
+    const { runtime, call, studio } = setup(false, null, { hosts: [{ alias: "studio" }] });
+
+    try {
+      await call((m) => m.updateDaemon("studio"));
+      const row = await studio((v) => v.daemon?.progress?.stage === "failed");
+      expect(row?.daemon?.lastUpdate?.problem?.message).toContain("Use Install daemon first");
+      expect(row?.daemon?.lastUpdate?.result).toBe("failed");
+      expect(installed()).toBe(false);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  test("automatic policy, overrides and explicit Update share facts and stay single flight", async () => {
+    writeDist(dist, { version: "0.1.0", platform });
+    runOnFakeHost(home, `mkdir -p "$HOME" && "${join(dist, platform, "polaris")}" install`);
+    writeDist(dist, { version: "0.2.0", platform });
+
+    const { runtime, call, studio, setStatus, commands, settings } = setup(false, null, {
+      keepDaemonsUpToDate: false,
+      hosts: [{ alias: "studio" }],
+    });
+
+    try {
+      await setStatus({ state: "connected", epoch: 1, host: info("0.1.0") });
+      const available = await studio((v) => v.daemon?.installedVersion === "0.1.0");
+      expect(available?.daemon).toMatchObject({
+        updateAvailable: true,
+        keepUpToDate: false,
+        keepUpToDateOverride: null,
+      });
+      expect(commands).toHaveLength(0);
+      await Promise.all([
+        call((m) => m.updateDaemon("studio")),
+        call((m) => m.updateDaemon("studio")),
+        call((m) => m.check("studio")),
+      ]);
+      const done = await studio((v) => v.daemon?.progress?.stage === "done");
+      expect(done?.daemon?.lastUpdate).toMatchObject({
+        result: "updated",
+        from: "0.1.0",
+        version: "0.2.0",
+        problem: null,
+      });
+      expect(done?.daemon?.lastUpdate?.at).toBeGreaterThan(0);
+      expect(done?.daemon?.installedVersion).toBe("0.2.0");
+      expect(done?.daemon?.updateAvailable).toBe(false);
+      expect(commands.filter((s) => s.includes(" upgrade "))).toHaveLength(1);
+      await call((m) => m.updateDaemon("studio"));
+      await studio((v) => v.daemon?.lastUpdate?.result === "current");
+      expect(commands.filter((s) => s.includes(" upgrade "))).toHaveLength(1);
+      expect(settings().daemonUpdates?.studio?.result).toBe("current");
+      runOnFakeHost(home, 'ln -sfn 0.1.0 "$HOME/.polaris/bin/current"');
+      await call((m) => m.setDaemonUpdateOverride("studio", true));
+      await studio((v) => v.daemon?.lastUpdate?.result === "updated");
+      expect(settings().hosts?.[0]?.keepDaemonUpToDate).toBe(true);
+      expect(commands.filter((s) => s.includes(" upgrade "))).toHaveLength(2);
+      await call((m) => m.setDaemonUpdateOverride("studio", null));
+      const inherited = await studio((v) => v.daemon?.keepUpToDateOverride === null);
+      expect(inherited?.daemon?.keepUpToDate).toBe(false);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  test("enabling the app default checks already connected Hosts; off overrides win", async () => {
+    writeDist(dist, { version: "0.1.0", platform });
+    runOnFakeHost(home, `mkdir -p "$HOME" && "${join(dist, platform, "polaris")}" install`);
+    writeDist(dist, { version: "0.0.0-dev.500.abc1234", platform });
+
+    const { runtime, call, studio, setStatus, commands } = setup(false, null, {
+      keepDaemonsUpToDate: false,
+      hosts: [{ alias: "studio", keepDaemonUpToDate: false }],
+    });
+
+    try {
+      await setStatus({ state: "connected", epoch: 4, host: info("0.1.0") });
+      await studio((v) => v.daemon?.installedVersion === "0.1.0");
+      await call((m) => m.setKeepDaemonsUpToDate(true));
+      const held = await studio((v) => v.daemon?.keepDaemonsUpToDate === true);
+      expect(held?.daemon?.keepUpToDate).toBe(false);
+      expect(commands).toHaveLength(0);
+      await call((m) => m.setDaemonUpdateOverride("studio", null));
+      const updated = await studio((v) => v.daemon?.lastUpdate?.result === "updated");
+      expect(updated?.daemon?.lastUpdate?.version).toBe("0.0.0-dev.500.abc1234");
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  test("SSH failure includes its actionable kind and result time", async () => {
+    writeDist(dist, { version: "0.2.0", platform });
+    const { runtime, call, studio } = setup(true, null, { hosts: [{ alias: "studio" }] });
+
+    try {
+      await call((m) => m.updateDaemon("studio"));
+      const failed = await studio((v) => v.daemon?.progress?.stage === "failed");
+      expect(failed?.daemon?.lastUpdate).toMatchObject({
+        result: "failed",
+        problem: { kind: "ssh", sshFailure: "host-key" },
+      });
+    } finally {
+      await runtime.dispose();
+    }
+  });
   test("add, approve and install; the approval persists and the Host reconnects", async () => {
     const sha = writeDist(dist, { version: "0.2.0", platform });
     const { runtime, studio, call, retried, settings, entries } = setup();
@@ -304,6 +476,29 @@ describe("Machines", () => {
 });
 
 describe("this Mac's own Daemon", () => {
+  test("the local override can opt out, and explicit Update still updates its temp home", async () => {
+    writeDist(dist, { version: "0.1.0", platform });
+    runOnFakeHost(home, `mkdir -p "$HOME" && "${join(dist, platform, "polaris")}" install`);
+    writeDist(dist, { version: "0.2.0", platform });
+
+    const { runtime, call, setLocal, local, settings } = setup(false, home, {
+      local: { enabled: true, keepDaemonUpToDate: false },
+    });
+
+    try {
+      await setLocal({ state: "connected", epoch: 1, host: info("0.1.0") });
+      const available = await local((v) => v.daemon?.installedVersion === "0.1.0");
+      expect(available?.daemon?.keepUpToDate).toBe(false);
+      await call((m) => m.updateDaemon("local"));
+      const updated = await local((v) => v.daemon?.lastUpdate?.result === "updated");
+      expect(updated?.daemon?.installedVersion).toBe("0.2.0");
+      await call((m) => m.setLocalEnabled(false));
+      expect(settings().local).toEqual({ enabled: false, keepDaemonUpToDate: false });
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   const installedVersion = () =>
     runOnFakeHost(home, '"$HOME/.polaris/bin/current/polaris" version').stdout.trim();
 

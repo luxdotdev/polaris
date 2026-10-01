@@ -9,6 +9,7 @@ import type { HostView, InstallFlowView, MachineView, SshAliasView } from "../..
 import { LOCAL_HOST_KEY } from "../hosts.ts";
 import type { Settings } from "../settings.ts";
 import type { InstallOutcome, InstallSnapshot } from "./installFlow.ts";
+import { daemonUpdateView, type UpdateFacts } from "./updateFacts.ts";
 
 /** A Host's install flow as `Machines` tracks it. */
 export interface InstallRecord {
@@ -37,6 +38,10 @@ export interface MachineViewsInput {
   readonly hosts: ReadonlyArray<HostView>;
   readonly installs: ReadonlyMap<string, InstallRecord>;
   readonly aliases: ReadonlyArray<SshAliasView>;
+  readonly updates?: ReadonlyMap<string, UpdateFacts>;
+  readonly bundledVersion?: string | null;
+  readonly bundledVersions?: ReadonlyMap<string, string>;
+  readonly localManaged?: boolean;
 }
 
 /** This Mac first (even while switched off), then the remote Hosts in settings order. */
@@ -45,12 +50,33 @@ export const machineViews = ({
   hosts,
   installs,
   aliases,
+  updates,
+  bundledVersion = null,
+  bundledVersions,
+  localManaged = false,
 }: MachineViewsInput): ReadonlyArray<MachineView> => {
   const status = (key: string) => hosts.find((h) => h.key === key)?.status ?? null;
   const local = hosts.find((h) => h.key === LOCAL_HOST_KEY);
   const localInstall = installs.get(LOCAL_HOST_KEY);
 
+  const versionFor = (key: string) =>
+    bundledVersions === undefined
+      ? bundledVersion
+      : (bundledVersions.get(
+          updates?.get(key)?.platform ??
+            hosts.find((h) => h.key === key)?.status.host?.platform ??
+            ""
+        ) ?? null);
+
   const localView: MachineView = {
+    daemon: daemonUpdateView(
+      settings,
+      LOCAL_HOST_KEY,
+      local,
+      updates?.get(LOCAL_HOST_KEY),
+      versionFor(LOCAL_HOST_KEY),
+      localManaged
+    ),
     key: LOCAL_HOST_KEY,
     label: local?.label ?? "This Mac",
     colour: null,
@@ -68,6 +94,14 @@ export const machineViews = ({
     const install = installs.get(remote.alias);
 
     return {
+      daemon: daemonUpdateView(
+        settings,
+        remote.alias,
+        hosts.find((h) => h.key === remote.alias),
+        updates?.get(remote.alias),
+        versionFor(remote.alias),
+        localManaged
+      ),
       key: remote.alias,
       label: remote.label ?? remote.alias,
       colour: remote.colour ?? null,

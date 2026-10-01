@@ -94,9 +94,23 @@ const failed = (
   });
 
 /** Upload every file of `build` into a fresh `~/.polaris/upload-<id>/`, verifying hashes there. */
-const upload = Effect.fn("upload")(function* (alias: string, build: DaemonBuild) {
+export interface ApplyProgress {
+  readonly stage: "uploading" | "switching";
+  readonly bytes: number;
+  readonly total: number;
+}
+
+const upload = Effect.fn("upload")(function* (
+  alias: string,
+  build: DaemonBuild,
+  dir: string,
+  progress?: (value: ApplyProgress) => void
+) {
   const ssh = yield* Ssh;
-  const dir = `.polaris/upload-${randomBytes(6).toString("hex")}`;
+  const total = build.files.reduce((sum, file) => sum + file.size, 0);
+  let sent = 0;
+  let reportedAt = 0;
+  progress?.({ stage: "uploading", bytes: 0, total });
 
   for (const file of build.files) {
     const target = `"$HOME/${dir}/${file.name}"`;
@@ -111,7 +125,16 @@ const upload = Effect.fn("upload")(function* (alias: string, build: DaemonBuild)
       `(sha256sum ${target} 2>/dev/null || shasum -a 256 ${target}) | cut -d' ' -f1`,
     ].join("; ");
 
-    const result = yield* ssh.exec(alias, shScript(script), { stdinFile: file.path });
+    const result = yield* ssh.exec(alias, shScript(script), {
+      stdinFile: file.path,
+      onStdinBytes: (bytes) => {
+        const now = Date.now();
+
+        if (now - reportedAt < 100 && bytes !== file.size) return;
+        reportedAt = now;
+        progress?.({ stage: "uploading", bytes: sent + bytes, total });
+      },
+    });
 
     if (result.code !== 0) return yield* failed(alias, `upload ${file.name}`, result);
     const remoteSha = result.stdout.trim();
@@ -123,7 +146,11 @@ const upload = Effect.fn("upload")(function* (alias: string, build: DaemonBuild)
         message: `SHA-256 on the Host is ${remoteSha || "missing"}, expected ${file.sha256}`,
       });
     }
+
+    sent += file.size;
   }
+
+  progress?.({ stage: "switching", bytes: sent, total });
 
   return { dir, binary: `"$HOME/${dir}/${build.files[0]!.name}"` };
 });
@@ -172,30 +199,35 @@ export const ApplyResult = Data.taggedEnum<ApplyResult>();
 /** Carry out an `Install` or `Upgrade` plan. */
 export const applyPlan = Effect.fn("applyPlan")(function* (
   alias: string,
-  plan: Extract<InstallPlan, { _tag: "Install" | "Upgrade" }>
+  plan: Extract<InstallPlan, { _tag: "Install" | "Upgrade" }>,
+  progress?: (value: ApplyProgress) => void
 ) {
-  const uploaded = yield* upload(alias, plan.build);
+  const dir = `.polaris/upload-${randomBytes(6).toString("hex")}`;
 
-  const run = Match.value(plan).pipe(
-    Match.tagsExhaustive({
-      Install: () =>
-        runPolaris(alias, "install", `${uploaded.binary} install --json`).pipe(
-          Effect.map((report) => ApplyResult.Installed({ version: plan.build.version, report }))
-        ),
-      Upgrade: (upgrade) =>
-        runPolaris(
-          alias,
-          "upgrade",
-          `"$HOME/.polaris/bin/current/polaris" upgrade ${uploaded.binary} --json`
-        ).pipe(
-          Effect.map((report) =>
-            ApplyResult.Upgraded({ from: upgrade.from, version: plan.build.version, report })
-          )
-        ),
-    })
-  );
+  return yield* Effect.gen(function* () {
+    const uploaded = yield* upload(alias, plan.build, dir, progress);
 
-  return yield* run.pipe(Effect.ensuring(cleanUp(alias, uploaded.dir)));
+    const run = Match.value(plan).pipe(
+      Match.tagsExhaustive({
+        Install: () =>
+          runPolaris(alias, "install", `${uploaded.binary} install --json`).pipe(
+            Effect.map((report) => ApplyResult.Installed({ version: plan.build.version, report }))
+          ),
+        Upgrade: (upgrade) =>
+          runPolaris(
+            alias,
+            "upgrade",
+            `"$HOME/.polaris/bin/current/polaris" upgrade ${uploaded.binary} --json`
+          ).pipe(
+            Effect.map((report) =>
+              ApplyResult.Upgraded({ from: upgrade.from, version: plan.build.version, report })
+            )
+          ),
+      })
+    );
+
+    return yield* run;
+  }).pipe(Effect.ensuring(cleanUp(alias, dir)));
 });
 
 export type EnsureResult = Data.TaggedEnum<{

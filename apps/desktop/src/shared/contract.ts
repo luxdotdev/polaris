@@ -303,6 +303,11 @@ export const RequestInputs = {
   "machines.remove": onHost({}),
   /** Probe the Host and plan again (the user asked): may install an approved build. */
   "machines.check": onHost({}),
+  /** Update an installed Daemon now; never performs a first install. */
+  "machines.updateDaemon": onHost({}),
+  "machines.setKeepDaemonsUpToDate": Schema.Struct({ enabled: Schema.Boolean }),
+  /** Null restores the app-wide default, including for this Mac. */
+  "machines.setDaemonUpdateOverride": onHost({ enabled: Schema.NullOr(Schema.Boolean) }),
   /** "Approve and install": records the SHA-256 for this Host, then installs. */
   "machines.approve": onHost({ sha256: Schema.String }),
   /** "Not now". */

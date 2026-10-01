@@ -17,6 +17,7 @@ export const hostPlatform = (): string => {
 };
 
 export interface StandIn {
+  readonly paddingBytes?: number;
   readonly version: string;
   readonly platform: string;
   /** Runs a real Daemon: `[bun, apps/daemon/src/main.ts]`; absent, install only lays files down. */
@@ -65,7 +66,10 @@ esac
 
 /** Writes `<dist>/manifest.json` and `<dist>/<platform>/polaris` as `build-daemon.ts` does. */
 export const writeDist = (dist: string, standIn: StandIn): string => {
-  const binary = standInPolaris(standIn);
+  const binary =
+    standInPolaris(standIn) +
+    (standIn.paddingBytes ? `#${"x".repeat(standIn.paddingBytes)}\n` : "");
+
   const sha256 = createHash("sha256").update(binary).digest("hex");
   mkdirSync(join(dist, standIn.platform), { recursive: true });
   writeFileSync(join(dist, standIn.platform, "polaris"), binary);
