@@ -1,8 +1,10 @@
 /**
  * The pull request list as Review shows it (Paper R3, DESIGN.md Review → Pull requests):
- * groups, fixed lanes, the header caption and the account filter. Pure, so it is tested;
- * the notices above the list are in `notices.ts`.
+ * groups (Agent Sessions with Turns to accept among them), fixed lanes, the header caption
+ * and the account filter. Pure, so it is tested; the notices above the list are in `notices.ts`.
  */
+import { harnessHue } from "@polaris/ui";
+import type { SessionId } from "@polaris/protocol";
 import type { OpenPull } from "../../../../shared/api.ts";
 import type {
   GitHubAccountsView,
@@ -11,8 +13,10 @@ import type {
   WorkspaceRef,
 } from "../../../../shared/github.ts";
 import { age, plural } from "../../../shell/copy.ts";
+import { readySessions, type SessionInfo } from "../../review/model/queue.ts";
+import { pullKey, type RiskLane } from "./risk.ts";
 
-export type GroupId = "requested" | "mine" | "other";
+export type GroupId = "requested" | "sessions" | "mine" | "other";
 
 /** Where a Workspace lives, as the list needs it. */
 export interface PlaceInfo {
@@ -34,7 +38,8 @@ export interface WorkspaceLane {
   readonly away: boolean;
 }
 
-export interface RowModel {
+export interface PullRowModel {
+  readonly kind: "pull";
   readonly id: string;
   readonly pull: OpenPull;
   readonly title: string;
@@ -43,8 +48,26 @@ export interface RowModel {
   readonly workspace: WorkspaceLane | null;
   readonly additions: number;
   readonly deletions: number;
+  readonly risk: RiskLane;
   readonly updated: string;
 }
+
+/** An Agent Session whose last Turn ended with Turns not yet accepted (R3, R2). */
+export interface SessionRowModel {
+  readonly kind: "session";
+  readonly id: string;
+  readonly hostKey: string;
+  readonly sessionId: SessionId;
+  readonly harness: string;
+  readonly title: string;
+  /** "Claude Code · turns 22–24". */
+  readonly meta: string;
+  readonly workspace: WorkspaceLane | null;
+  readonly risk: RiskLane;
+  readonly updated: string;
+}
+
+export type RowModel = PullRowModel | SessionRowModel;
 
 export interface GroupModel {
   readonly id: GroupId;
@@ -75,8 +98,14 @@ export interface ListInput {
   /** Null for all accounts. */
   readonly accountId: number | null;
   readonly placeOf: PlaceOf;
-  /** Pull request node id → the Host label of its Review Checkout, when one exists. */
+  /** `pullKey` → the Host label of its Review Checkout, when one exists. */
   readonly checkouts: ReadonlyMap<string, string>;
+  /** A Review subject's key (`pull:owner/name#n`, `session:host:id`) → its risk lane. */
+  readonly riskOf: (subjectKey: string) => RiskLane;
+  /** Every Agent Session, for "Agent sessions ready". */
+  readonly sessions: ReadonlyArray<SessionInfo>;
+  /** A Host by key, for a session's workspace lane. */
+  readonly hostOf: (hostKey: string) => Omit<PlaceInfo, "workspace"> | null;
   /** Groups the user expanded past their first rows. */
   readonly expanded: ReadonlySet<GroupId>;
   readonly now: number;
@@ -87,6 +116,7 @@ export const OTHER_LIMIT = 8;
 
 const LABELS: Readonly<Record<GroupId, string>> = {
   requested: "Review requested",
+  sessions: "Agent sessions ready",
   mine: "Mine",
   other: "Other open",
 };
@@ -97,7 +127,7 @@ const repoRef = (row: PullRowView) => {
   return { owner, name };
 };
 
-const metaOf = (row: PullRowView, group: GroupId) => {
+const metaOf = (row: PullRowView, group: PullGroupId) => {
   const who = group === "mine" ? row.headRefName : (row.author?.login ?? null);
 
   return [`#${row.number}`, row.repo, row.isDraft ? "draft" : null, who]
@@ -128,16 +158,65 @@ const laneOf = (row: PullRowView, placeOf: PlaceOf, checkout: string | undefined
   };
 };
 
-const rowOf = (row: PullRowView, group: GroupId, input: ListInput): RowModel => ({
-  id: row.id,
-  pull: { repo: repoRef(row), number: row.number, pullId: row.id },
-  title: row.title,
-  meta: metaOf(row, group),
-  workspace: laneOf(row, input.placeOf, input.checkouts.get(row.id)),
-  additions: row.additions,
-  deletions: row.deletions,
-  updated: age(row.updatedAt, input.now),
-});
+type PullGroupId = Exclude<GroupId, "sessions">;
+
+const rowOf = (row: PullRowView, group: PullGroupId, input: ListInput): PullRowModel => {
+  const { owner, name } = repoRef(row);
+  const key = pullKey(owner, name, row.number);
+
+  return {
+    kind: "pull",
+    id: row.id,
+    pull: { repo: { owner, name }, number: row.number, pullId: row.id },
+    title: row.title,
+    meta: metaOf(row, group),
+    workspace: laneOf(row, input.placeOf, input.checkouts.get(key)),
+    additions: row.additions,
+    deletions: row.deletions,
+    risk: input.riskOf(`pull:${key}`),
+    updated: age(row.updatedAt, input.now),
+  };
+};
+
+const turnsOf = (info: SessionInfo) => {
+  const first = (info.acceptedThroughIndex ?? -1) + 2;
+
+  return first >= info.turnCount ? `turn ${info.turnCount}` : `turns ${first}–${info.turnCount}`;
+};
+
+const sessionRows = (input: ListInput): ReadonlyArray<SessionRowModel> => {
+  const byId = new Map(input.sessions.map((s) => [`${s.hostKey}:${s.id}`, s]));
+
+  return readySessions(input.sessions).flatMap((ready) => {
+    const info = byId.get(ready.id);
+
+    if (info === undefined) return [];
+
+    const host = input.hostOf(info.hostKey);
+
+    return [
+      {
+        kind: "session",
+        id: ready.id,
+        hostKey: info.hostKey,
+        sessionId: info.id,
+        harness: info.harness,
+        title: info.title || "Untitled session",
+        meta: `${harnessHue(info.harness).name} · ${turnsOf(info)}`,
+        workspace:
+          host === null
+            ? null
+            : {
+                name: info.workspaceName ?? host.hostLabel,
+                where: host.connected ? host.hostLabel : `${host.hostLabel} · ${host.state}`,
+                away: !host.connected,
+              },
+        risk: input.riskOf(`session:${info.hostKey}:${info.id}`),
+        updated: age(info.updatedAt, input.now),
+      },
+    ];
+  });
+};
 
 const captionOf = (rows: ReadonlyArray<PullRowView>, input: ListInput) => {
   const repos = new Set(rows.map((r) => r.repo.toLowerCase())).size;
@@ -163,30 +242,42 @@ const updatedText = (at: number, now: number) => {
   return text === "now" ? "just now" : `${text} ago`;
 };
 
+const groupOf = (
+  id: GroupId,
+  rows: ReadonlyArray<RowModel>,
+  input: ListInput
+): ReadonlyArray<GroupModel> => {
+  if (rows.length === 0) return [];
+
+  const limit = id === "other" && !input.expanded.has(id) ? OTHER_LIMIT : rows.length;
+
+  return [
+    {
+      id,
+      label: LABELS[id],
+      count: rows.length,
+      rows: rows.slice(0, limit),
+      more: Math.max(0, rows.length - limit),
+    },
+  ];
+};
+
 export const listModel = (input: ListInput): ListModel => {
   const pick = (rows: ReadonlyArray<PullRowView>) =>
     input.accountId === null ? rows : rows.filter((r) => r.accountId === input.accountId);
 
-  const ids: ReadonlyArray<GroupId> = ["requested", "mine", "other"];
-  const all = ids.flatMap((id) => pick(input.list[id]));
+  const pulls = (id: PullGroupId) => pick(input.list[id]).map((r) => rowOf(r, id, input));
+  const all = (["requested", "mine", "other"] as const).flatMap((id) => pick(input.list[id]));
 
-  const groups = ids.flatMap((id): ReadonlyArray<GroupModel> => {
-    const rows = pick(input.list[id]);
+  // Agent Sessions belong to no GitHub account: only "All accounts" shows them.
+  const sessions = input.accountId === null ? sessionRows(input) : [];
 
-    if (rows.length === 0) return [];
-
-    const limit = id === "other" && !input.expanded.has(id) ? OTHER_LIMIT : rows.length;
-
-    return [
-      {
-        id,
-        label: LABELS[id],
-        count: rows.length,
-        rows: rows.slice(0, limit).map((r) => rowOf(r, id, input)),
-        more: Math.max(0, rows.length - limit),
-      },
-    ];
-  });
+  const groups = [
+    ...groupOf("requested", pulls("requested"), input),
+    ...groupOf("sessions", sessions, input),
+    ...groupOf("mine", pulls("mine"), input),
+    ...groupOf("other", pulls("other"), input),
+  ];
 
   const signedIn = (input.accounts?.accounts ?? []).filter((a) => a.state === "ok");
 
@@ -197,6 +288,6 @@ export const listModel = (input: ListInput): ListModel => {
         ? []
         : signedIn.map((a) => ({ id: a.id, login: a.login, avatarUrl: a.avatarUrl })),
     groups,
-    total: all.length,
+    total: all.length + sessions.length,
   };
 };

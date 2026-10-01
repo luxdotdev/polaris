@@ -7,18 +7,21 @@ import { Button, cn, EmptyState, PixelCheckIcon, PixelForkIcon, PixelKeyIcon } f
 import { type KeyboardEvent, useMemo, useState } from "react";
 import type { OpenPull } from "../../../../shared/api.ts";
 import type { WorkspaceRef } from "../../../../shared/github.ts";
-import { openPull } from "../../../routes/review.ts";
+import { openPull, openSessionReview } from "../../../routes/review.ts";
 import { connectionLabel } from "../../../shell/copy.ts";
 import { useApp, useShellActions } from "../../../shell/hooks.ts";
 import { useNow } from "../../../shell/useNow.ts";
 import type { AppState } from "../../../store/store.ts";
-import { type GroupId, listModel, type PlaceOf } from "../model/list.ts";
+import { sessionsOf } from "../../review/model/sessions.ts";
+import { checkoutsByPull } from "../model/checkouts.ts";
+import { type GroupId, listModel, type PlaceOf, type RowModel } from "../model/list.ts";
 import { noticesOf } from "../model/notices.ts";
 import { usePulls } from "../store.ts";
 import { AccountMark } from "./AccountMark.tsx";
 import { ByUrl } from "./ByUrl.tsx";
 import { NoticeRow } from "./Notice.tsx";
-import { LANES, PullRow } from "./PullRow.tsx";
+import { LANES, PullRow, ROW_X } from "./PullRow.tsx";
+import { useRiskLanes } from "./useRiskLanes.ts";
 
 const placeOfFrom =
   (hosts: AppState["hosts"], models: AppState["hostModels"]): PlaceOf =>
@@ -60,7 +63,12 @@ const Header = ({ caption }: { readonly caption: string | null }) => (
 );
 
 const ColumnHeads = () => (
-  <div className="border-hairline text-caption text-text-faint flex h-(--spacing-tree-row) shrink-0 items-center gap-3 border-b px-3">
+  <div
+    className={cn(
+      "border-hairline text-caption text-text-subtle flex h-(--spacing-tree-row) shrink-0 items-center border-b",
+      ROW_X
+    )}
+  >
     <span className="w-(--spacing-tree-row) shrink-0" />
     <span className="min-w-0 flex-1">Pull request</span>
     <span className={cn(LANES.workspace, "shrink-0")}>Workspace</span>
@@ -191,14 +199,45 @@ export const PullList = ({ onAddAccount }: PullListProps) => {
   const [expanded, setExpanded] = useState<ReadonlySet<GroupId>>(new Set());
 
   const placeOf = useMemo(() => placeOfFrom(hosts, models), [hosts, models]);
+  const found = useMemo(() => checkoutsByPull(models), [models]);
+  const riskOf = useRiskLanes(found);
+  const sessions = useMemo(() => sessionsOf(models), [models]);
 
-  const model = useMemo(
-    () =>
-      list === null
+  const model = useMemo(() => {
+    if (list === null) return null;
+
+    const hostOf = (hostKey: string) => {
+      const host = hosts.find((h) => h.key === hostKey);
+
+      return host === undefined
         ? null
-        : listModel({ list, accounts, accountId, placeOf, checkouts: new Map(), expanded, now }),
-    [list, accounts, accountId, placeOf, expanded, now]
-  );
+        : {
+            hostLabel: host.label,
+            connected: host.status.state === "connected",
+            state: connectionLabel[host.status.state],
+          };
+    };
+
+    const checkouts = new Map(
+      [...found].map(([pull, f]) => [
+        pull,
+        hosts.find((h) => h.key === f.hostKey)?.label ?? f.hostKey,
+      ])
+    );
+
+    return listModel({
+      list,
+      accounts,
+      accountId,
+      placeOf,
+      checkouts,
+      riskOf,
+      sessions,
+      hostOf,
+      expanded,
+      now,
+    });
+  }, [list, accounts, accountId, placeOf, found, riskOf, sessions, hosts, expanded, now]);
 
   const notices = useMemo(
     () =>
@@ -209,6 +248,10 @@ export const PullList = ({ onAddAccount }: PullListProps) => {
   );
 
   const open = (pull: OpenPull) => openPull(actions, pull);
+
+  const openRow = (row: RowModel) =>
+    row.kind === "pull" ? open(row.pull) : openSessionReview(actions, row.hostKey, row.sessionId);
+
   const signedIn = accounts?.accounts.some((a) => a.state === "ok") ?? false;
 
   const empty = (() => {
@@ -226,7 +269,7 @@ export const PullList = ({ onAddAccount }: PullListProps) => {
   return (
     <section
       data-testid="pull-list"
-      className="flex min-h-0 min-w-0 flex-1 flex-col gap-5 overflow-y-auto px-10 pt-(--spacing-tree-row) pb-10"
+      className="flex min-h-0 min-w-0 flex-1 flex-col gap-[calc(var(--spacing-section)-4px)] overflow-y-auto px-[calc(var(--spacing-section)+16px)] pt-(--spacing-tree-row) pb-[calc(var(--spacing-section)+16px)]"
     >
       <div className="flex items-end gap-4">
         <div className="min-w-0 flex-1">
@@ -255,17 +298,20 @@ export const PullList = ({ onAddAccount }: PullListProps) => {
               className="flex flex-col gap-0.5"
               data-testid={`pulls-group-${group.id}`}
             >
-              <h2 className="text-caption text-text-faint flex items-center gap-2 px-3 pt-3.5 pb-1.5">
+              <h2 className="text-caption text-text-subtle flex items-center gap-2 px-[calc(var(--spacing-row-x)+2px)] pt-[calc(var(--spacing-gap)+6px)] pb-[calc(var(--spacing-gap)-2px)]">
                 {group.label}
                 <span className="tabular">{group.count}</span>
               </h2>
               {group.rows.map((row) => (
-                <PullRow key={row.id} row={row} onOpen={(r) => open(r.pull)} />
+                <PullRow key={row.id} row={row} onOpen={openRow} />
               ))}
               {group.more === 0 ? null : (
                 <button
                   type="button"
-                  className="text-caption text-text-subtle hover:text-text-default flex h-9 cursor-default items-center gap-3 px-3 text-left"
+                  className={cn(
+                    "text-caption text-text-subtle hover:text-text-default flex h-[calc(var(--spacing-row)+4px)] cursor-default items-center text-left",
+                    ROW_X
+                  )}
                   onClick={() => setExpanded(new Set([...expanded, group.id]))}
                 >
                   <span className="w-(--spacing-tree-row) shrink-0" />

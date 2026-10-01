@@ -22,7 +22,7 @@ const Card = ({ row, now }: { readonly row: PullRowView; readonly now: number })
   const open = () =>
     openPull(actions, { repo: { owner, name }, number: row.number, pullId: row.id });
 
-  const detail = [`#${row.number}`, name, row.author?.login, age(row.updatedAt, now)]
+  const detail = [`#${row.number}`, name, row.author?.login]
     .filter((part) => part !== undefined)
     .join(" · ");
 
@@ -40,7 +40,11 @@ const Card = ({ row, now }: { readonly row: PullRowView; readonly now: number })
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-px">
         <span className="text-label text-text-strong line-clamp-2">{row.title}</span>
-        <span className="text-caption text-text-subtle truncate">{detail}</span>
+        <span className="text-caption text-text-subtle flex min-w-0 gap-1">
+          <span className="truncate">{detail}</span>
+          {/* The age stays when a long repo name truncates. */}
+          <span className="tabular shrink-0">· {age(row.updatedAt, now)}</span>
+        </span>
       </span>
     </button>
   );

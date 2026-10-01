@@ -13,8 +13,8 @@ import { useApp, useShellActions } from "../../../shell/hooks.ts";
 import { usePulls } from "../../pulls/store.ts";
 import "../checkout/install.ts";
 import { DiffWorkers } from "../data/pierre.tsx";
-import { queueGroups, type QueueRow, type SessionInfo } from "../model/queue.ts";
-import type { AppState } from "../../../store/store.ts";
+import { queueGroups, type QueueRow } from "../model/queue.ts";
+import { sessionsOf } from "../model/sessions.ts";
 import { PullReview } from "./PullReview.tsx";
 import { Queue } from "./Queue.tsx";
 import { SessionReview } from "./SessionReview.tsx";
@@ -27,34 +27,6 @@ export interface ReviewViewProps {
   /** Back to the pull request list. */
   readonly onBack: () => void;
 }
-
-/**
- * A Reviewer's own read-only session has nothing to review: it runs inside a Review
- * Checkout (`.review/pr-N`), or is titled "Reviewer · …" (an Agent Session's, in place).
- */
-const isReviewer = (cwd: string, title: string) =>
-  /[/\\]\.review[/\\]/.test(cwd) || title.startsWith("Reviewer · ");
-
-const sessionsOf = (models: AppState["hostModels"]): ReadonlyArray<SessionInfo> =>
-  Object.entries(models).flatMap(([hostKey, model]) =>
-    [...model.sessions.values()].flatMap(({ session }) =>
-      isReviewer(session.cwd, session.title)
-        ? []
-        : [
-            {
-              hostKey,
-              id: session.id,
-              title: session.title,
-              harness: session.harness,
-              state: session.state,
-              turnCount: session.turnCount,
-              acceptedThroughIndex: session.acceptedThroughIndex ?? null,
-              updatedAt: session.updatedAt,
-              workspaceName: model.workspaces.get(session.workspaceId)?.name ?? null,
-            },
-          ]
-    )
-  );
 
 const selectedId = (subject: ReviewSubject) =>
   subject.kind === "pull"

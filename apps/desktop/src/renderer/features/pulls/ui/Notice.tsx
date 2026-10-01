@@ -20,7 +20,7 @@ const Action = ({
     className={
       primary
         ? "rounded-control bg-fill-selected text-caption text-text-strong hover:bg-fill-selected/70 h-(--spacing-tree-row) shrink-0 cursor-default px-2.5 font-medium"
-        : "text-caption text-text-faint hover:text-text-subtle h-(--spacing-tree-row) shrink-0 cursor-default px-2"
+        : "text-caption text-text-subtle hover:text-text-default h-(--spacing-tree-row) shrink-0 cursor-default px-2"
     }
   >
     {children}

@@ -6,7 +6,10 @@ import type {
   RepoAccessView,
   WorkspaceRef,
 } from "../../../../shared/github.ts";
+import { SessionId } from "@polaris/protocol";
+import type { SessionInfo } from "../../review/model/queue.ts";
 import { listModel, type ListInput, OTHER_LIMIT, type PlaceInfo } from "./list.ts";
+import { laneOf, NOT_RUN } from "./risk.ts";
 import { noticesOf } from "./notices.ts";
 
 const NOW = Date.parse("2026-10-01T12:00:00Z");
@@ -61,6 +64,9 @@ const input = (patch: Partial<ListInput> = {}): ListInput => ({
   accountId: null,
   placeOf: (ref) => PLACES.get(ref.hostKey) ?? null,
   checkouts: new Map(),
+  riskOf: () => NOT_RUN,
+  sessions: [],
+  hostOf: (hostKey) => PLACES.get(hostKey) ?? null,
   expanded: new Set(),
   now: NOW,
   ...patch,
@@ -108,14 +114,18 @@ describe("listModel", () => {
     expect(model.groups[1]?.rows[0]?.meta).toBe("#88 · acme/widgets · draft · mchen/income");
     expect(model.groups[2]?.rows[0]?.workspace).toBeNull();
     expect(a?.updated).toBe("2h");
-    expect(a?.pull).toEqual({ repo: { owner: "acme", name: "widgets" }, number: 88, pullId: "a" });
+    expect(a?.kind === "pull" ? a.pull : null).toEqual({
+      repo: { owner: "acme", name: "widgets" },
+      number: 88,
+      pullId: "a",
+    });
   });
 
   test("a Host that isn't connected dims only the workspace lane; a checkout says so", () => {
     const model = listModel(
       input({
-        list: list({ other: [row("x", { workspaces: [ws("away")] }), row("y")] }),
-        checkouts: new Map([["y", "Linux VM"]]),
+        list: list({ other: [row("x", { workspaces: [ws("away")] }), row("y", { number: 89 })] }),
+        checkouts: new Map([["acme/widgets#89", "Linux VM"]]),
       })
     );
 
@@ -123,6 +133,60 @@ describe("listModel", () => {
 
     expect(x?.workspace).toEqual({ name: "sightline", where: "Pi · reconnecting", away: true });
     expect(y?.workspace?.where).toBe("Linux VM · checked out");
+  });
+
+  test("the risk lane comes from the pull request's or session's subject key", () => {
+    const model = listModel(
+      input({
+        list: list({ requested: [row("a", { repo: "Acme/Widgets" })] }),
+        riskOf: (key) =>
+          key === "pull:acme/widgets#88" ? { kind: "found", severity: "high", count: 1 } : NOT_RUN,
+      })
+    );
+
+    expect(model.groups[0]?.rows[0]?.risk).toEqual({ kind: "found", severity: "high", count: 1 });
+  });
+
+  test("Agent sessions ready sit after review requested, only for all accounts", () => {
+    const session = (id: string, patch: Partial<SessionInfo> = {}): SessionInfo => ({
+      hostKey: "studio",
+      id: SessionId.make(id),
+      title: `Session ${id}`,
+      harness: "claude",
+      state: "idle",
+      turnCount: 24,
+      acceptedThroughIndex: 20,
+      updatedAt: "2026-10-01T11:48:00Z",
+      workspaceName: "polaris",
+      ...patch,
+    });
+
+    const sessions = [
+      session("s1"),
+      session("s2", { state: "working" }),
+      session("s3", { acceptedThroughIndex: 23 }),
+      session("s4", { hostKey: "away", acceptedThroughIndex: 22 }),
+    ];
+
+    const all = listModel(
+      input({ list: list({ requested: [row("a")], mine: [row("m")] }), sessions })
+    );
+
+    expect(all.groups.map((g) => g.id)).toEqual(["requested", "sessions", "mine"]);
+
+    const rows = all.groups[1]?.rows ?? [];
+
+    expect(rows.map((r) => r.id)).toEqual(["studio:s1", "away:s4"]);
+    expect(rows[0]?.meta).toBe("Claude Code · turns 22–24");
+    expect(rows[0]?.workspace).toEqual({ name: "polaris", where: "Mac Studio", away: false });
+    expect(rows[1]?.meta).toBe("Claude Code · turn 24");
+    expect(rows[1]?.workspace?.where).toBe("Pi · reconnecting");
+    expect(all.total).toBe(4);
+    expect(
+      listModel(input({ list: list({ mine: [row("m")] }), sessions, accountId: 1 })).groups.map(
+        (g) => g.id
+      )
+    ).toEqual(["mine"]);
   });
 
   test("other open folds past its limit", () => {
@@ -180,6 +244,36 @@ const access = (
   ssoUrl: null,
   workspaces: [ws("studio"), ws("studio", "w2")],
   ...patch,
+});
+
+describe("laneOf", () => {
+  const finding = (severity: "critical" | "high" | "medium" | "low", status = "open") => ({
+    severity,
+    status,
+  });
+
+  test("the highest open Severity and how many share it", () => {
+    expect(
+      laneOf({
+        status: "completed",
+        findings: [
+          finding("low"),
+          finding("high"),
+          finding("high"),
+          finding("critical", "dismissed"),
+        ],
+      })
+    ).toEqual({ kind: "found", severity: "high", count: 2 });
+  });
+
+  test("never implies safe: none open, running, failed or none cached", () => {
+    expect(laneOf({ status: "completed", findings: [finding("high", "resolved")] }).kind).toBe(
+      "none"
+    );
+    expect(laneOf({ status: "running", findings: [] }).kind).toBe("running");
+    expect(laneOf({ status: "failed", findings: [] }).kind).toBe("not-run");
+    expect(laneOf(null).kind).toBe("not-run");
+  });
 });
 
 describe("noticesOf", () => {

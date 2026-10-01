@@ -10,7 +10,17 @@ import { createCommandRegistry } from "../../../routes/commands.ts";
 import { createNavigation } from "../../../routes/navigation.ts";
 import { type AppState, type Connection, initialState } from "../../../store/store.ts";
 import { standInBridge } from "../../bridge.ts";
-import { ACCOUNTS, EMPTY_LIST, HOSTS, LIST, MODELS, SIGNED_OUT } from "./fixtures.ts";
+import { riskStore } from "../../risk/data/riskStore.ts";
+import {
+  ACCOUNTS,
+  EMPTY_LIST,
+  HOSTS,
+  LIST,
+  MODELS,
+  ORCHESTRATOR_KEY,
+  RISK,
+  SIGNED_OUT,
+} from "./fixtures.ts";
 
 type Feeds = { readonly [K in SubscriptionKind]?: SubscriptionItem<K> };
 
@@ -19,8 +29,14 @@ const feeds = (scene: string): Feeds => ({
   "github.accounts": scene === "signed-out" ? SIGNED_OUT : ACCOUNTS,
 });
 
+const UNSUPPORTED = { ok: false, error: { code: "Unsupported", message: "preview" } } as const;
+
 const bridgeFor = (scene: string): PolarisApi => ({
-  request: () => Promise.resolve({ ok: false, error: { code: "Unsupported", message: "preview" } }),
+  request: (method) =>
+    // SAFETY: the list's risk lane reads only a summary's status and its findings' severity and status.
+    Promise.resolve(
+      method === "review.riskSummary" ? ({ ok: true, value: RISK.pull88 } as never) : UNSUPPORTED
+    ),
   subscribe: (kind, _input, listener) => {
     const item = feeds(scene)[kind];
 
@@ -50,6 +66,13 @@ export const mountPullsPreview = (root: HTMLElement, hash: string) => {
   const navigation = createNavigation({ app: store, storage: null });
 
   standInBridge(bridgeFor(scene));
+  // SAFETY: summaries this window would follow from an open Review; the lane reads only status and findings.
+  const followed = { session: RISK.session as never, mine: RISK.mine212 as never };
+
+  riskStore.setState({
+    [ORCHESTRATOR_KEY]: { kind: "ready", hostKey: "studio", summary: followed.session },
+    "pull:lucasdoell/polaris#212": { kind: "ready", hostKey: "local", summary: followed.mine },
+  });
 
   if (scene === "reviews") {
     navigation.actions.selectHost("studio");
