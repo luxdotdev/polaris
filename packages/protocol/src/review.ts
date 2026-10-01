@@ -245,6 +245,43 @@ export class ReviewerRun extends Schema.Class<ReviewerRun>("ReviewerRun")({
   sessionId: Schema.NullOr(SessionId),
 }) {}
 
+/**
+ * What the Client knows about a pull request and the Daemon can't fetch (the
+ * GitHub token stays in the Desktop App): its title and description.
+ */
+export class ReviewContext extends Schema.Class<ReviewContext>("ReviewContext")({
+  title: Schema.String,
+  body: Schema.String,
+}) {}
+
+/** A Reviewer as Settings picks it: Harness, Model and effort (null: their defaults). */
+export class ReviewerChoice extends Schema.Class<ReviewerChoice>("ReviewerChoice")({
+  harness: HarnessKind,
+  model: Schema.NullOr(ModelId),
+  effort: Schema.NullOr(ReasoningEffort),
+}) {}
+
+/**
+ * Settings → Harnesses → Reviewer, kept on the Host (capability
+ * `review.reviewer-settings`): a default, and overrides keyed by Workspace id.
+ * A null default picks automatically (`ResolvedReviewer`).
+ */
+export class ReviewerSettings extends Schema.Class<ReviewerSettings>("ReviewerSettings")({
+  default: Schema.NullOr(ReviewerChoice),
+  workspaces: Schema.Record(Schema.String, ReviewerChoice),
+}) {}
+
+/**
+ * The Reviewer a Workspace's Reviews run: its override, else the default,
+ * else automatic (Claude Code Opus 5.5 high, else Codex GPT-6.1-Sol). Null
+ * when none is available: Reviews are Rules only, and `note` says so.
+ */
+export class ResolvedReviewer extends Schema.Class<ResolvedReviewer>("ResolvedReviewer")({
+  choice: Schema.NullOr(ReviewerChoice),
+  source: Schema.Literals(["workspace", "settings", "auto"]),
+  note: Schema.NullOr(Schema.String),
+}) {}
+
 /** The cost line: "Reviewed by Codex · GPT-6.1-Sol · 182k tokens · ~$0.40". */
 export class ReviewCost extends Schema.Class<ReviewCost>("ReviewCost")({
   tokens: Schema.Int,

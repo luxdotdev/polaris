@@ -28,6 +28,7 @@ import {
   type TerminalLaunch,
 } from "@polaris/protocol";
 import { Context, Effect, Layer, type Stream } from "effect";
+import type { ServiceError } from "../services.ts";
 import { registerHandoffContributor } from "../service/upgrade.ts";
 import { Dispatcher, type DispatchInput } from "./dispatch.ts";
 import { CheckpointPruning } from "./pruning.ts";
@@ -71,6 +72,12 @@ export class Engine extends Context.Service<
     readonly checkoutStatus: (
       checkoutId: ReviewCheckoutId
     ) => Effect.Effect<ReviewCheckoutStatus, NotFound | GitError>;
+    /** For the Reviewer: a completed Risk Summary covered `head` of this checkout. */
+    readonly checkoutReviewed: (
+      checkoutId: ReviewCheckoutId,
+      head: string,
+      mergeBase: string
+    ) => Effect.Effect<void, ServiceError>;
   }
 >()("polaris/daemon/engine/Engine") {
   static readonly layer = Layer.effect(
@@ -128,6 +135,7 @@ const make = Effect.gen(function* () {
     terminalCommand: (sessionId) =>
       Effect.sync(() => runtime.terminalLaunch.get(sessionId) ?? null),
     prepareForUpgrade,
+    checkoutReviewed: checkouts.reviewed,
     checkoutStatus: (checkoutId) =>
       checkouts.status(checkoutId).pipe(
         Effect.catchTag("ServiceError", (error) =>

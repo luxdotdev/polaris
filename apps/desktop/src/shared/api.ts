@@ -5,6 +5,7 @@
  * only, so the renderer and the sandboxed preload can import it.
  */
 import type {
+  AskFinding,
   Attachment,
   AttachmentSettings,
   AttachmentUsage,
@@ -14,6 +15,8 @@ import type {
   FileChangeEvent,
   FileEntry,
   DiffFile,
+  GetReviewerSettings,
+  GetRiskSummary,
   GitStatus,
   Grep,
   HarnessCommands,
@@ -23,6 +26,7 @@ import type {
   HostInfo,
   HostStreamItem,
   PlanLimit,
+  RunRiskSummary,
   SearchPaths,
   SessionStreamItem,
   TerminalId,
@@ -313,6 +317,11 @@ export interface RequestOutputs extends GitHubRequestOutputs {
   };
   "attachments.setSettings": null;
   "attachments.clear": Plain<StagedAmount>;
+  "review.runRiskSummary": Rpc.Success<typeof RunRiskSummary>;
+  "review.riskSummary": Rpc.Success<typeof GetRiskSummary>;
+  "review.askFinding": Rpc.Success<typeof AskFinding>;
+  "review.reviewerSettings": Rpc.Success<typeof GetReviewerSettings>;
+  "review.setReviewerSettings": null;
   "install.ensure": InstallView;
   "machines.sshAliases": ReadonlyArray<SshAliasView>;
   "machines.add": { readonly key: string };

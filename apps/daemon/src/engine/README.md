@@ -9,7 +9,7 @@ The orchestration engine: `decider.ts` validates Client commands, the `Engine` s
 | Module | What |
 |---|---|
 | `runtime.ts` | `EngineRuntime`: the shared state (running Harnesses, terminal followers, live item progress, idle timers, per-session locks) and primitives: `serially`, `recordFor`, `signal` / `signalWith` (one machine input, committed, then its effects), `failSession`, `capture`, `stopHarness`, `findTurn`. |
-| `supervisor.ts` | `Supervisor`: opens Harnesses, hands them Turns (`runTurn`, with a Fork's preamble), and maps `HarnessEvent`s to domain events and machine inputs. |
+| `supervisor.ts` | `Supervisor`: opens Harnesses, hands them Turns (`runTurn`, with a Fork's preamble), and maps `HarnessEvent`s to domain events and machine inputs. An approval first goes to the optional `ApprovalPolicy` (`services.ts`; the Reviewer's read-only sessions, `../reviewer/`), which may answer it on the live Harness so it never reaches Needs You or the log. |
 | `terminal.ts` | `TerminalHandoff`: `OpenInTerminal` / `ReturnFromTerminal`, and following Claude's TUI while In Terminal. |
 | `worktrees.ts` | `Worktrees`: detection on register, creation for `NewWorktree` and Forks, removal on Archive, restore on Unarchive. |
 | `pruning.ts` | `CheckpointPruning`: the policy on Archive, a removed Workspace's checkpoints, and the sweeper's targets. |
@@ -19,7 +19,7 @@ The orchestration engine: `decider.ts` validates Client commands, the `Engine` s
 | `streams.ts` | `Streams`: the Host and session streams (snapshot or replay, `Synchronized`, live). |
 | `review.ts` | The decider's Review commands: `SendFeedback` and `AcceptTurns` through the session machine, the Review Checkout commands through the checkout machine, `LinkPullRequest`, `RecordVerdict`. |
 | `checkout.ts` | The Review Checkout lifecycle machine (below). |
-| `reviewCheckouts.ts` | `ReviewCheckouts`: the git side of the checkout commands (through `ReviewCheckoutGit`), the signals back to the machine, recovery after a restart, `review.checkoutStatus`, and `reviewed` for the Reviewer. |
+| `reviewCheckouts.ts` | `ReviewCheckouts`: the git side of the checkout commands (through `ReviewCheckoutGit`), the signals back to the machine, recovery after a restart, `review.checkoutStatus`, and `reviewed` for the Reviewer (`Engine.checkoutReviewed`). A session placed `ReviewCheckout` (the Reviewer's) works in a checkout's directory. |
 | `recovery.ts` | `daemon.recover` on start and before an upgrade (`docs/adr/0004-restart-recovery-never-continues-a-turn.md`). |
 
 ## The session machine

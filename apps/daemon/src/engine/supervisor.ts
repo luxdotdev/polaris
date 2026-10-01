@@ -15,9 +15,9 @@ import {
   type TurnId,
   Worktree,
 } from "@polaris/protocol";
-import { Context, Effect, Exit, Layer, Scope, Stream } from "effect";
+import { Context, Effect, Exit, Layer, Option, Scope, Stream } from "effect";
 import { type HarnessError, HarnessEvent } from "../harness/HarnessDriver.ts";
-import type { ServiceError } from "../services.ts";
+import { ApprovalPolicy, type ServiceError } from "../services.ts";
 import { LiveItem } from "../store/EventStore.ts";
 import { worktreeIdFor } from "./decider.ts";
 import { contextChanged } from "./context.ts";
@@ -33,8 +33,45 @@ export interface TurnToRun {
   readonly attachments: ReadonlyArray<Attachment>;
 }
 
-const make = (rt: EngineRuntime["Service"]): Supervisor["Service"] => {
+const make = (
+  rt: EngineRuntime["Service"],
+  policy: Option.Option<ApprovalPolicy["Service"]>
+): Supervisor["Service"] => {
   const { store, live, progress } = rt;
+
+  /** True when the policy answered the request itself, on the session's live Harness. */
+  const answeredByPolicy = (
+    sessionId: SessionId,
+    entry: EventSource,
+    e: HarnessEventOf<"ApprovalRequested">
+  ) =>
+    Effect.gen(function* () {
+      const harness = live.get(sessionId);
+
+      if (Option.isNone(policy) || harness === undefined || harness !== entry) return false;
+      const record = (yield* store.model).sessions.get(sessionId);
+
+      if (record === undefined) return false;
+
+      const decision = yield* policy.value.decide({
+        sessionId,
+        harness: record.session.harness,
+        kind: e.kind,
+        title: e.title,
+        detail: e.detail,
+      });
+
+      if (decision === null) return false;
+      yield* harness.session
+        .respond(e.requestId, decision)
+        .pipe(
+          Effect.catchCause((cause) =>
+            Effect.logWarning("answering an approval by policy failed", cause)
+          )
+        );
+
+      return true;
+    });
 
   const openHarness = (sessionId: SessionId) =>
     Effect.gen(function* () {
@@ -173,19 +210,25 @@ const make = (rt: EngineRuntime["Service"]): Supervisor["Service"] => {
           ]);
         }),
       ApprovalRequested: (e) =>
-        rt.signal(sessionId, {
-          type: "harness.approvalRequested",
-          request: new ApprovalRequest({
-            id: e.requestId,
-            sessionId,
-            turnId: e.turnId,
-            kind: e.kind,
-            title: e.title,
-            detail: e.detail,
-            options: [...e.options],
-            openedAt: at,
-          }),
-        }),
+        answeredByPolicy(sessionId, entry, e).pipe(
+          Effect.flatMap((answered) =>
+            answered
+              ? Effect.void
+              : rt.signal(sessionId, {
+                  type: "harness.approvalRequested",
+                  request: new ApprovalRequest({
+                    id: e.requestId,
+                    sessionId,
+                    turnId: e.turnId,
+                    kind: e.kind,
+                    title: e.title,
+                    detail: e.detail,
+                    options: [...e.options],
+                    openedAt: at,
+                  }),
+                })
+          )
+        ),
       ApprovalWithdrawn: (e) =>
         rt.signal(sessionId, { type: "harness.approvalWithdrawn", requestId: e.requestId }),
       TurnEnded: (e) => onTurnEnded(sessionId, e, at),
@@ -392,7 +435,7 @@ export class Supervisor extends Context.Service<
   static readonly layer = Layer.effect(
     Supervisor,
     Effect.gen(function* () {
-      return make(yield* EngineRuntime);
+      return make(yield* EngineRuntime, yield* Effect.serviceOption(ApprovalPolicy));
     })
   );
 }

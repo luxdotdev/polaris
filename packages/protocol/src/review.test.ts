@@ -6,7 +6,7 @@
 import { describe, expect, test } from "bun:test";
 import { Schema } from "effect";
 import { CapabilityList } from "./capabilities.ts";
-import { Command } from "./commands.ts";
+import { Command, SessionPlacement } from "./commands.ts";
 import { AgentSession, Turn } from "./domain.ts";
 import { DomainEvent } from "./events.ts";
 import {
@@ -29,6 +29,10 @@ import {
   rankFindings,
   RepoRef,
   repoKey,
+  ResolvedReviewer,
+  ReviewContext,
+  ReviewerChoice,
+  ReviewerSettings,
   ReviewCheckout,
   ReviewCheckoutBlock,
   ReviewCheckoutBlocker,
@@ -43,7 +47,7 @@ import {
   RiskSummaryRef,
   Verdict,
 } from "./review.ts";
-import { DiffFile, GitDiff, GitDiffSpec, HostStreamItem } from "./rpc.ts";
+import { DiffFile, GitDiff, GitDiffSpec, HostStreamItem, RunRiskSummary } from "./rpc.ts";
 
 const roundTrip = <A, I>(schema: Schema.Codec<A, I>, value: A) => {
   const codec = Schema.toCodecJson(schema);
@@ -301,6 +305,40 @@ describe("Review contract", () => {
     ]) {
       expect(roundTrip(ReviewCheckoutBlocker, blocker)).toEqual(blocker);
     }
+  });
+
+  test("the Reviewer's settings, context and placement round-trip", () => {
+    const sol = ReviewerChoice.make({ harness: "codex", model: "gpt-6.1-sol", effort: "high" });
+    const settings = ReviewerSettings.make({ default: sol, workspaces: { "ws-1": sol } });
+    const resolved = ResolvedReviewer.make({ choice: null, source: "auto", note: "Rules only" });
+    const context = ReviewContext.make({ title: "Fix", body: "Fixes it." });
+
+    const placement = SessionPlacement.cases.ReviewCheckout.make({
+      checkoutId: ReviewCheckoutId.make("rc-1"),
+    });
+
+    expect(roundTrip(ReviewerSettings, settings)).toEqual(settings);
+    expect(roundTrip(ResolvedReviewer, resolved)).toEqual(resolved);
+    expect(roundTrip(ReviewContext, context)).toEqual(context);
+    expect(roundTrip(SessionPlacement, placement)).toEqual(placement);
+  });
+
+  test("a runRiskSummary request from before ReviewContext decodes with no context", () => {
+    const codec = Schema.toCodecJson(RunRiskSummary.payloadSchema);
+
+    const encoded = Schema.encodeSync(codec)({
+      workspaceId: WorkspaceId.make("ws-1"),
+      subject: summary.subject,
+      checkoutId: null,
+      since: null,
+      refresh: false,
+      context: ReviewContext.make({ title: "t", body: "b" }),
+    });
+
+    const record = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Unknown))(encoded);
+    const { context: _dropped, ...older } = record;
+
+    expect(Schema.decodeUnknownSync(codec)(older).context).toBeNull();
   });
 
   test("sessions, Turns, Host snapshots and diffs from before Review decode with its fields empty", () => {

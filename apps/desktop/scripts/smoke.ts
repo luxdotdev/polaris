@@ -24,6 +24,7 @@ import { settingsFlow } from "./lib/settingsFlow.ts";
 import { attachmentsFlow } from "./lib/attachmentsFlow.ts";
 import { composerFlow } from "./lib/composerFlow.ts";
 import { imageAfterRelaunch, sendImage } from "./lib/previewFlow.ts";
+import { reviewerFlow } from "./lib/reviewerFlow.ts";
 import { runSubagent, subagentAfterRelaunch } from "./lib/subagentFlow.ts";
 import { terminalFlow } from "./lib/terminalFlow.ts";
 import { githubFlow, MOCK_KEYCHAIN, serveGitHubFake } from "./lib/githubFlow.ts";
@@ -368,7 +369,13 @@ const relaunchKeepsOutput = async () => {
     .getByRole("button", { name: /smoke-repo/ })
     .first()
     .click();
-  await page.locator("[data-session-row]").filter({ hasText: "bench:" }).first().click();
+  // The smoke session, not the Reviewer's session that reviewed it.
+  await page
+    .locator("[data-session-row]")
+    .filter({ hasText: "bench:" })
+    .filter({ hasNotText: "Reviewer ·" })
+    .first()
+    .click();
   await page.getByTestId("output-panel").waitFor({ timeout: 10_000 });
   step("a relaunch keeps output open for the session that had it open");
 
@@ -490,6 +497,8 @@ try {
 
   if (!JSON.stringify(probe).includes('"terminal":true'))
     throw new Error("terminal output missing");
+
+  await reviewerFlow({ page, step });
 
   const openHosts = async () => {
     await page.getByRole("button", { name: "Settings" }).click();
