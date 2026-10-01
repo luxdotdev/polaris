@@ -52,6 +52,11 @@ ${start}
   upgrade)
     new=$("$2" version | cut -d' ' -f2); dir="$HOME/.polaris/bin/$new"; mkdir -p "$dir"
     cp "$2" "$dir/polaris"; ln -sfn "$new" "$HOME/.polaris/bin/current"
+    # Like the real hand-off: a running Daemon is replaced by the new build's.
+    if [ -f "$HOME/.polaris/stand-in.pid" ]; then
+      kill "$(cat "$HOME/.polaris/stand-in.pid")" 2>/dev/null; rm -f "$HOME/.polaris/daemon.sock"
+      "$dir/polaris" install >/dev/null
+    fi
     echo "{\\"ok\\":true,\\"action\\":\\"handoff\\",\\"version\\":\\"$new\\"}" ;;
   bridge) ${bridge} ;;
 esac

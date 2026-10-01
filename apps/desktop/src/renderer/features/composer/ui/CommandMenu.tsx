@@ -83,7 +83,12 @@ const Row = ({
 const NoticeRow = ({ notice }: { readonly notice: CommandNotice }) => (
   <div className="px-row-x flex items-center gap-3 py-1.5" data-testid="command-notice">
     <SkillIcon size={16} className="text-text-subtle shrink-0" />
-    <p className="text-caption text-text-default min-w-0 flex-1">{notice.message}</p>
+    <p
+      className="text-caption text-text-default line-clamp-2 min-w-0 flex-1"
+      title={notice.message}
+    >
+      {notice.message}
+    </p>
     {notice.action === null ? null : (
       <Button
         variant="secondary"
