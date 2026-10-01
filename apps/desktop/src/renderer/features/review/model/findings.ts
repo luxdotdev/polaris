@@ -78,3 +78,18 @@ export const findingsIn = (findings: ReadonlyArray<FindingInfo>, path: string) =
   (byPath(findings).get(path) ?? []).toSorted(
     (a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity] || b.confidence - a.confidence
   );
+
+/** A queue row's mark: the highest shown Severity and how many findings have it. */
+export interface RiskMark {
+  readonly severity: MarkSeverity;
+  readonly count: number;
+}
+
+export const riskMark = (findings: ReadonlyArray<FindingInfo>): RiskMark | null => {
+  const shown = findings.filter(isShown);
+  const [top] = shown.toSorted((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
+
+  if (top === undefined) return null;
+
+  return { severity: top.severity, count: shown.filter((f) => f.severity === top.severity).length };
+};

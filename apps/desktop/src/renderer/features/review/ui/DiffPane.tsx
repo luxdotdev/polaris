@@ -42,7 +42,8 @@ export interface PaneItem {
 /** The page shows between files; each file's code sits in a card under its header (Paper R1). */
 const BASE_CSS = `[data-diffs-header][data-sticky] { background-color: var(--color-bg); }
 [data-diff] { border: 1px solid var(--color-hairline); border-top: 0; border-radius: 0 0 10px 10px; overflow: clip; }
-[data-gutter] { padding-left: 14px; }`;
+[data-gutter] { padding-left: 14px; }
+[data-separator-content] { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-subtle); }`;
 
 export interface DiffPaneProps {
   readonly items: ReadonlyArray<PaneItem>;

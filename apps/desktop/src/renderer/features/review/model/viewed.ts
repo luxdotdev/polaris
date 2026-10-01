@@ -41,12 +41,39 @@ export const setViewed = (
   return { subjects, order: order.slice(dropped.length) };
 };
 
+/**
+ * A file's Viewed mark as the view shows it: `changed` was viewed, then its diff changed
+ * (GitHub's `dismissed`; for a session, a mark held for another fingerprint).
+ */
+export type FileViewed = "viewed" | "unviewed" | "changed";
+
+export const localViewed = (
+  book: ViewedBook,
+  subject: string,
+  file: string,
+  fingerprint: string
+): FileViewed => {
+  const held = book.subjects[subject]?.[file];
+
+  if (held === undefined) return "unviewed";
+
+  return held === fingerprint ? "viewed" : "changed";
+};
+
 /** GitHub's Viewed state for a pull request's file (`PullFileView.viewed`). */
 export type RemoteViewed = "viewed" | "unviewed" | "dismissed";
 
 /** A pull request's file: the user's pending click wins, then GitHub. */
-export const pullFileViewed = (remote: RemoteViewed | undefined, pending: boolean | undefined) =>
-  pending ?? remote === "viewed";
+export const pullFileViewed = (
+  remote: RemoteViewed | undefined,
+  pending: boolean | undefined
+): FileViewed => {
+  if (pending !== undefined) return pending ? "viewed" : "unviewed";
+
+  if (remote === "dismissed") return "changed";
+
+  return remote === "viewed" ? "viewed" : "unviewed";
+};
 
 export interface ViewedProgress {
   readonly viewed: number;
