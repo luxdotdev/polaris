@@ -3,7 +3,9 @@
  * posted as the viewer, and the walkthrough published as an own pull request's description.
  * Which bots the viewer already confirmed is kept on this Mac.
  */
+import type { ReviewContext, RiskSummaryId } from "@polaris/protocol";
 import { useSyncExternalStore } from "react";
+import type { Plain } from "../../../../store/plain.ts";
 import type { IpcError, OpenPull } from "../../../../../shared/api.ts";
 import { polaris } from "../../../bridge.ts";
 import { refusalText } from "../../../session/dispatch.ts";
@@ -133,3 +135,13 @@ const subscribe = (listener: () => void) => {
 
 export const useBotConfirmed = (bot: string) =>
   useSyncExternalStore(subscribe, () => confirmed.includes(bot));
+
+/** The walkthrough's own controls on the Host that holds its Risk Summary. */
+export const runWalkthrough = (
+  hostKey: string,
+  summaryId: RiskSummaryId,
+  context: Plain<ReviewContext> | null
+) => polaris().request("review.runWalkthrough", { hostKey, summaryId, context });
+
+export const stopWalkthrough = (hostKey: string, summaryId: RiskSummaryId) =>
+  polaris().request("review.stopWalkthrough", { hostKey, summaryId });

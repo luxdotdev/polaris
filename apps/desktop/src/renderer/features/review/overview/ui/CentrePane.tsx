@@ -9,7 +9,8 @@ import type { PullDetailView } from "../../../../../shared/github.ts";
 import { useStore } from "zustand";
 import { useCommands, useShellActions } from "../../../../shell/hooks.ts";
 import type { ReviewSubject } from "../../../../routes/review.ts";
-import { runRiskSummary } from "../../../risk/data/riskStore.ts";
+import { runRiskSummary, useRisk } from "../../../risk/data/riskStore.ts";
+import { runWalkthrough, stopWalkthrough } from "../data/actions.ts";
 import { useRiskRequest } from "../../../risk/data/request.ts";
 import { useLoadedPullDetail } from "../../data/pullDetail.ts";
 import { emptySurface, type ReviewSlotProps, revealStore, surfaceStore } from "../../surface.ts";
@@ -171,13 +172,18 @@ const useWalkthroughModel = (
   const walkthroughs = useWalkthroughs(subjectKey);
   const request = useRiskRequest(slotProps);
   const [notNow, setNotNow] = useState<string | null>(null);
+  const risk = useRisk(subjectKey);
   const run = request === null ? null : () => void runRiskSummary(subjectKey, request, true);
+  const ran = risk.kind === "ready" ? { hostKey: risk.hostKey, summaryId: risk.summary.id } : null;
 
   const actionsOf: WalkthroughActions = {
     onRun: run,
     onNotNow: () => setNotNow(walkthroughs.full?.head ?? ""),
-    onStop: null,
-    onRetry: run,
+    onStop: ran === null ? null : () => void stopWalkthrough(ran.hostKey, ran.summaryId),
+    onRetry:
+      ran === null
+        ? run
+        : () => void runWalkthrough(ran.hostKey, ran.summaryId, request?.context ?? null),
     onOtherHost: () => actions.openSettings("reviewer"),
     onReviewChanges: () => pick("changes"),
   };
