@@ -11,6 +11,7 @@ import {
   type ChipView,
   elapsed,
   fetchingText,
+  inSentence,
   newCommitsText,
   removedText,
 } from "../model/chip.ts";
@@ -39,11 +40,11 @@ const face = (view: ChipView): Face =>
     Match.withReturnType<Face>(),
     Match.discriminatorsExhaustive("kind")({
       "checking-out": ({ host, commits }) =>
-        progress(`Checking out on ${host}`, fetchingText(commits)),
-      updating: ({ host, to }) => progress(`Updating ${host}`, `to ${to}`),
+        progress(`Checking out on ${inSentence(host)}`, fetchingText(commits)),
+      updating: ({ host, to }) => progress(`Updating ${inSentence(host)}`, `to ${to}`),
       ready: ({ host, at }) => ({
         glyph: <HostDot kind="on" />,
-        label: `Checked out on ${host}`,
+        label: `Checked out on ${inSentence(host)}`,
         fact: `at ${at}`,
         frame: "plain",
       }),
@@ -66,7 +67,7 @@ const face = (view: ChipView): Face =>
         fact: null,
         frame: "plain",
       }),
-      removing: ({ host }) => progress(`Removing from ${host}`),
+      removing: ({ host }) => progress(`Removing from ${inSentence(host)}`),
       reconnecting: ({ host, at, seconds }) => ({
         glyph: <HostDot kind="reconnecting" />,
         label: host,
@@ -82,7 +83,7 @@ const face = (view: ChipView): Face =>
       }),
       waiting: ({ host }) => ({
         glyph: <HostDot kind="away" />,
-        label: host === "" ? "Waiting for a host" : `Waiting for ${host}`,
+        label: host === "" ? "Waiting for a host" : `Waiting for ${inSentence(host)}`,
         fact: null,
         frame: "plain",
       }),
@@ -93,10 +94,10 @@ const face = (view: ChipView): Face =>
         frame: "plain",
         quiet: true,
       }),
-      cloning: ({ host }) => progress(`Cloning on ${host}`, "git clone"),
+      cloning: ({ host }) => progress(`Cloning on ${inSentence(host)}`, "git clone"),
       "clone-failed": ({ host }) => ({
         glyph: <WarningGlyph />,
-        label: `Couldn’t clone on ${host}`,
+        label: `Couldn’t clone on ${inSentence(host)}`,
         fact: null,
         frame: "plain",
       }),

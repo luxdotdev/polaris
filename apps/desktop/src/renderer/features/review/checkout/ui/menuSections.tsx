@@ -11,7 +11,7 @@ import type { useShellActions } from "../../../../shell/hooks.ts";
 import { type Held, runFix, updateCheckout } from "../actions.ts";
 import { type CloneTarget, cloneOn } from "../clone.ts";
 import type { BlockView } from "../model/chip.ts";
-import { shortSha } from "../model/chip.ts";
+import { inSentence, shortSha } from "../model/chip.ts";
 import {
   Group,
   Heading,
@@ -84,7 +84,7 @@ export const NewCommits = ({
     <Section testId="checkout-menu-new-commits">
       <Heading
         title={commitsTitle(count, branch, rewritten)}
-        fact={`Your checkout on ${held.hostLabel} is at ${shortSha(held.checkout.head)}`}
+        fact={`Your checkout on ${inSentence(held.hostLabel)} is at ${shortSha(held.checkout.head)}`}
       />
       {compare !== null && compare.commits.length > 0 && (
         <CommitRows compare={compare} now={Date.now()} />
@@ -139,14 +139,17 @@ export const Blocked = ({
         </Well>
       )}
       {asking && block.confirm !== null ? (
-        <div className="gap-row-x flex items-center">
-          <Button size="sm" variant="danger" data-testid="checkout-fix-confirm" onClick={fix}>
-            {block.fix.label}
-          </Button>
-          <p className="text-caption text-text-subtle flex-1">{block.confirm}</p>
-          <Button size="sm" variant="ghost" onClick={() => setAsking(false)}>
-            Keep them
-          </Button>
+        // The question on its own line, the two answers under it: one line each in 360px.
+        <div className="flex flex-col gap-1.5">
+          <p className="text-caption text-text-default">{block.confirm}</p>
+          <div className="gap-row-x flex items-center">
+            <Button size="sm" variant="danger" data-testid="checkout-fix-confirm" onClick={fix}>
+              {block.fix.label}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setAsking(false)}>
+              Keep them
+            </Button>
+          </div>
         </div>
       ) : (
         <Primary
@@ -186,7 +189,11 @@ export const CloneOn = ({
   <>
     <Section testId="checkout-menu-clone">
       <Heading
-        title={failed === null ? "No workspace has this repo" : `Couldn’t clone on ${failed.host}`}
+        title={
+          failed === null
+            ? "No workspace has this repo"
+            : `Couldn’t clone on ${inSentence(failed.host)}`
+        }
         fact={`Cloning adds ~/code/${pull.repo.name} as a workspace on the host you pick, with that host’s git credentials.`}
       />
       {failed !== null && (

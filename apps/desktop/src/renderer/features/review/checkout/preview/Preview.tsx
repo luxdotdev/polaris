@@ -1,6 +1,6 @@
 /**
  * The Review Checkout chip on fixtures, for screenshots against Paper R5 (8B5-0) and R4
- * (804-0): `#checkout/states` lists every state; `#checkout/menu-<scene>` opens one menu.
+ * (804-0): `#checkout/states` lists every state; `#checkout/menu-<scene>` opens one menu (`menu-discard` at its confirmation).
  */
 import { Popover, TooltipProvider } from "@polaris/ui";
 import { createRoot } from "react-dom/client";
@@ -54,7 +54,7 @@ const Menu = ({ scene }: { readonly scene: string }) => {
           actionOpensMenu={false}
           onAction={noop}
         />
-        <CheckoutMenu model={model} pull={PULL} onDone={noop} />
+        <CheckoutMenu model={model} pull={PULL} asking={scene === "menu-discard"} onDone={noop} />
       </Popover>
     </main>
   );
