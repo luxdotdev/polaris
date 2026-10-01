@@ -25,19 +25,28 @@ export interface ReviewViewProps {
   readonly onBack: () => void;
 }
 
+/** A Reviewer's own session runs inside a Review Checkout (`.review/pr-N`): nothing to review. */
+const isReviewer = (cwd: string) => /[/\\]\.review[/\\]/.test(cwd);
+
 const sessionsOf = (models: AppState["hostModels"]): ReadonlyArray<SessionInfo> =>
   Object.entries(models).flatMap(([hostKey, model]) =>
-    [...model.sessions.values()].map(({ session }) => ({
-      hostKey,
-      id: session.id,
-      title: session.title,
-      harness: session.harness,
-      state: session.state,
-      turnCount: session.turnCount,
-      acceptedThroughIndex: session.acceptedThroughIndex ?? null,
-      updatedAt: session.updatedAt,
-      workspaceName: model.workspaces.get(session.workspaceId)?.name ?? null,
-    }))
+    [...model.sessions.values()].flatMap(({ session }) =>
+      isReviewer(session.cwd)
+        ? []
+        : [
+            {
+              hostKey,
+              id: session.id,
+              title: session.title,
+              harness: session.harness,
+              state: session.state,
+              turnCount: session.turnCount,
+              acceptedThroughIndex: session.acceptedThroughIndex ?? null,
+              updatedAt: session.updatedAt,
+              workspaceName: model.workspaces.get(session.workspaceId)?.name ?? null,
+            },
+          ]
+    )
   );
 
 const selectedId = (subject: ReviewSubject) =>
