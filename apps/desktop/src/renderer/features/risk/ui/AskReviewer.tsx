@@ -102,7 +102,7 @@ const AskItem = ({
 };
 
 const placeholderOf = (canAsk: boolean, aboutFinding: boolean) => {
-  if (!canAsk) return "No reviewer ran: rules only";
+  if (!canAsk) return "Rules only: there’s no reviewer to ask";
 
   return aboutFinding ? "Ask about this finding" : "Ask the reviewer about this change";
 };

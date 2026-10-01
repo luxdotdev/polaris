@@ -40,7 +40,7 @@ const Reason = ({
     aria-pressed={on}
     onClick={onToggle}
     className={cn(
-      "text-caption px-row-x flex h-[26px] cursor-default items-center rounded-full font-medium",
+      "text-caption flex h-[26px] px-2.5 cursor-default items-center rounded-full font-medium",
       on
         ? "bg-text-strong text-bg"
         : cn(
@@ -112,11 +112,9 @@ const Form = ({ onSave }: { readonly onSave: (draft: VerdictDraft) => Promise<bo
           onValueChange={setScope}
         />
       </div>
-      <div className="border-hairline bg-surface-sunken gap-gap flex items-center border-t px-3.5 py-2">
+      <div className="border-hairline bg-surface-sunken gap-gap flex items-center border-t px-3.5 py-2.5">
         <PixelPolarisIcon size={16} className="text-starlight" />
-        <span className="text-caption text-text-subtle flex-1">
-          Polaris never changes its rules without you
-        </span>
+        <span className="text-caption text-text-subtle flex-1">Rules never change without you</span>
         <Button
           size="xs"
           variant="primary"

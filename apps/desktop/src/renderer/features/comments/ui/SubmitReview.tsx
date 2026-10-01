@@ -61,7 +61,7 @@ const Choice = ({
     data-testid="submit-choice"
     data-event={choice.event}
     className={cn(
-      "rounded-control px-gap gap-row-x flex cursor-default items-start py-[7px] text-left",
+      "rounded-control gap-row-x flex cursor-default items-start px-2 py-[7px] text-left",
       chosen ? "bg-fill-selected" : "hover:bg-fill-hover",
       "disabled:opacity-(--opacity-dimmed)"
     )}
@@ -172,7 +172,7 @@ const Dialog = ({
           placeholder={
             event === "request-changes" ? "Say what needs to change" : "Leave a summary (optional)"
           }
-          className="min-h-[72px]"
+          className="bg-surface-sunken min-h-[72px] rounded-[8px] px-3 py-2.5"
           value={body}
           onChange={(e) => setBody(e.target.value)}
           onKeyDown={(e) => {

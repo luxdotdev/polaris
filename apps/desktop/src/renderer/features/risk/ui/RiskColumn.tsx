@@ -120,7 +120,7 @@ const Header = ({
           data-testid="risk-caption"
         >
           {running && <Dither hue="starlight" size={12} moving />}
-          <span className="truncate">{caption}</span>
+          <span className="line-clamp-2">{caption}</span>
         </span>
       </div>
       {onRerun !== null && (

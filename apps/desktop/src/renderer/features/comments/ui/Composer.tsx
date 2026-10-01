@@ -111,6 +111,13 @@ const FindingLink = ({ subjectKey, composer }: Props & { readonly composer: Comp
   );
 };
 
+/** Paper R6's three-line mark for "Suggest change". */
+const SuggestIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
+    <path d="M3 4h10M3 8h6M3 12h8" fill="none" stroke="currentColor" strokeWidth="1.5" />
+  </svg>
+);
+
 const Actions = ({ subjectKey, composer }: Props & { readonly composer: ComposerState }) => {
   const kind = subjectKey.startsWith("pull:") ? "pull" : "session";
   const pending = useComments((s) => pendingCount(s.pulls[subjectKey]?.detail ?? null));
@@ -122,6 +129,7 @@ const Actions = ({ subjectKey, composer }: Props & { readonly composer: Composer
       <Button
         size="xs"
         variant="secondary"
+        className="px-2"
         disabled={composer.anchor.code === ""}
         onClick={() =>
           patchComposer(subjectKey, {
@@ -129,6 +137,7 @@ const Actions = ({ subjectKey, composer }: Props & { readonly composer: Composer
           })
         }
       >
+        <SuggestIcon />
         Suggest change
       </Button>
       <FindingLink subjectKey={subjectKey} composer={composer} />
@@ -193,7 +202,7 @@ export const Composer = ({ subjectKey }: Props) => {
           "shadow-[0_0_0_2px_color-mix(in_oklab,var(--color-starlight)_35%,transparent)]"
         )}
       >
-        <div className="pt-row-x gap-gap flex items-center px-3">
+        <div className="gap-gap flex items-center px-3 pt-2.5">
           <span className="text-text-subtle font-mono text-[11px] leading-4">
             {kind === "pull" ? anchorLabel(composer.anchor) : placeLabel(composer.anchor)}
             {composer.moving === null ? "" : " · moving an outdated draft here"}
