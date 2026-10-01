@@ -93,6 +93,10 @@ const answered = (questionId: string): Step =>
     ),
   }));
 
+/** Appends unless an item with the same key is there: an event can arrive on two feeds. */
+const appendOnce = <T>(list: ReadonlyArray<T>, item: T, key: (t: T) => string | number) =>
+  list.some((x) => key(x) === key(item)) ? list : [...list, item];
+
 const compose =
   (...steps: ReadonlyArray<Step>): Step =>
   (r) =>
@@ -118,10 +122,11 @@ const stepFor = (event: Event, at: string): Step =>
           graph((c) => ({ ...c, leadSessionId: to })),
           (r) => ({
             ...r,
-            handovers: [
-              ...r.handovers,
+            handovers: appendOnce(
+              r.handovers,
               { from, to, summary, revision, at, before: beforeHandover(r) },
-            ],
+              (h) => h.revision
+            ),
           })
         ),
       TaskDeclared: ({ task }) => upsertTask(task),
@@ -137,7 +142,7 @@ const stepFor = (event: Event, at: string): Step =>
         ({ proposalId, by, task }) =>
         (r: ConstellationRecord) => ({
           ...r,
-          proposals: [...r.proposals, { proposalId, by, task, at }],
+          proposals: appendOnce(r.proposals, { proposalId, by, task, at }, (x) => x.proposalId),
         }),
       ProposalAccepted: ({ proposalId, task }) =>
         compose(withoutProposal(proposalId), upsertTask(task)),
@@ -185,7 +190,11 @@ const stepFor = (event: Event, at: string): Step =>
         compose(
           graph((c) => ({
             ...c,
-            pendingNotifications: [...(c.pendingNotifications ?? []), notification],
+            pendingNotifications: appendOnce(
+              c.pendingNotifications ?? [],
+              notification,
+              (n) => n.id
+            ),
           })),
           (r) => ({
             ...r,
@@ -196,8 +205,8 @@ const stepFor = (event: Event, at: string): Step =>
         compose(
           (r) => ({
             ...r,
-            digests: [
-              ...r.digests,
+            digests: appendOnce(
+              r.digests,
               {
                 turnId,
                 leadSessionId,
@@ -209,7 +218,8 @@ const stepFor = (event: Event, at: string): Step =>
                   return n === undefined ? [] : [n];
                 }),
               },
-            ],
+              (d) => d.turnId
+            ),
           }),
           graph((c) => ({
             ...c,
@@ -220,7 +230,10 @@ const stepFor = (event: Event, at: string): Step =>
         ),
       OperatorMessageSent: ({ id, authority, target, text, questionId }) =>
         compose(
-          (r) => ({ ...r, messages: [...r.messages, { id, authority, target, text, at }] }),
+          (r) => ({
+            ...r,
+            messages: appendOnce(r.messages, { id, authority, target, text, at }, (m) => m.id),
+          }),
           questionId == null ? (r: ConstellationRecord) => r : answered(questionId)
         ),
       OperatorMessageResolved:
@@ -243,9 +256,10 @@ export const applyEvent = (
   sequence: number
 ): ConstellationRecord | undefined => {
   if (Predicate.isTagged(event, "ConstellationStarted"))
-    return recordFrom(event.constellation, sequence);
+    return record ?? recordFrom(event.constellation, sequence);
 
-  if (record === undefined) return undefined;
+  // Already folded from the other feed (Host feed and Constellation stream both carry it).
+  if (record === undefined || event.revision < record.constellation.revision) return record;
   const next = stepFor(event, at)(record);
 
   return {
@@ -342,10 +356,15 @@ export const applyStreamItems = (
     if (Predicate.isTagged(item, "Snapshot")) {
       const byId = new Map(next.byId);
       const { constellation, projections, sequence } = item;
+      const prior = byId.get(constellation.id);
+      // The Host feed may already be past this Snapshot: keep its graph, take the flags.
+      const ahead = prior !== undefined && prior.constellation.revision > constellation.revision;
 
       byId.set(
         constellation.id,
-        recordFrom(constellation, sequence, projections, byId.get(constellation.id))
+        ahead
+          ? { ...prior, projections: deriveProjections(prior.constellation, projections) }
+          : recordFrom(constellation, sequence, projections, prior)
       );
       next = { byId };
     } else if (Predicate.isTagged(item, "Event")) next = applyEnvelopes(next, [item.envelope]);

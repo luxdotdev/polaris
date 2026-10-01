@@ -6,6 +6,8 @@ export { ConstellationIntent, ConstellationOutput } from "./ui/slots.tsx";
 
 export { ConstellationTab } from "./ui/ConstellationTab.tsx";
 
+export { ConstellationFeeds } from "./feeds.tsx";
+
 export { ConstellationMark, TaskGlyph, type TaskGlyphProps } from "./ui/glyphs.tsx";
 
 export {

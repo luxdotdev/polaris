@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   AttemptId,
+  ConstellationStreamItem,
   DomainEvent,
   EventEnvelope,
   HostStreamItem,
@@ -18,7 +19,7 @@ import { attentionItems, nextNeedingYou } from "./attention.ts";
 import { claimGlance, headMatches } from "./claim.ts";
 import { idRanges, span } from "./copy.ts";
 import { plainFacts } from "./facts.ts";
-import { applyEnvelopes, applyHostItems, merged, recordFrom } from "./fold.ts";
+import { applyEnvelopes, applyHostItems, applyStreamItems, merged, recordFrom } from "./fold.ts";
 import { railKey } from "./keys.ts";
 import { deriveProjections } from "./project.ts";
 import { buildRail, DEFAULT_RAIL, LARGE, type RailRow } from "./rail.ts";
@@ -212,6 +213,47 @@ describe("fold", () => {
       "B4",
       "B5",
     ]);
+  });
+
+  test("an event folded from both feeds counts once", () => {
+    const start = { byId: new Map([[graph.constellationId, recordFrom(constellationOf(), 1)]]) };
+
+    const proposal = {
+      sequence: 2,
+      occurredAt: "2026-10-01T12:00:00Z",
+      event: E.TaskProposed.make({
+        ...graph,
+        revision: 38,
+        proposalId: "p-1",
+        by: AttemptId.make("att-B2-1"),
+        task: c1Record().proposals[0]!.task,
+      }),
+    };
+
+    const once = applyEnvelopes(start, [proposal]);
+    const twice = applyEnvelopes(once, [{ ...proposal, sequence: 900 }]);
+
+    expect(twice.byId.get(graph.constellationId)?.proposals).toHaveLength(1);
+  });
+
+  test("a stream Snapshot brings the Daemon's projections", () => {
+    const c = constellationOf();
+
+    const projections = deriveProjections(c).map((p) =>
+      p.taskId === "B4" ? merged(p, { branchFetched: false }) : p
+    );
+
+    const model = applyStreamItems(emptyConstellations, [
+      ConstellationStreamItem.cases.Snapshot.make({
+        sequence: Sequence.make(7),
+        constellation: c,
+        projections,
+      }),
+    ]);
+
+    const b4 = model.byId.get(c.id)?.projections.find((p) => p.taskId === "B4");
+
+    expect(b4?.branchFetched).toBe(false);
   });
 
   test("events for an unknown graph are ignored", () => {
