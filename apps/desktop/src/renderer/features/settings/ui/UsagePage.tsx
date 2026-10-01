@@ -4,7 +4,7 @@
  * stacked daily chart in Harness hues with a per-day tooltip, and a by-model table where
  * estimated costs carry a "~".
  */
-import { hueVar, SegmentedControl, Switch, Tile, Dither, harnessHue } from "@polaris/ui";
+import { cn, hueVar, SegmentedControl, Switch, Tile, Dither, harnessHue } from "@polaris/ui";
 import { useState } from "react";
 import { useNow } from "../../../shell/useNow.ts";
 import { useRunningHarnesses } from "../../harness/index.ts";
@@ -26,28 +26,50 @@ import { Column, Group, Heading, PageHeader } from "./parts.tsx";
 import { UsageChart } from "./UsageChart.tsx";
 import { useUsage } from "./useUsage.ts";
 
-/** A 40-cell pixel meter (4×10px cells): lit in the Harness hue, unlit at 7%. */
-const Meter = ({ harness, lit }: { readonly harness: string; readonly lit: number }) => (
-  <span aria-hidden className="flex h-2.5 gap-px">
+/** Paper S2's meter: 40 cells of 4×10px with 1px gaps. */
+const CELL = 4;
+
+const PITCH = CELL + 1;
+
+const METER_WIDTH = METER_CELLS * PITCH - 1;
+
+/**
+ * What's left as discrete cells: filled in the Harness hue, empty as faint
+ * tracks. One SVG with crisp edges (`pixelated`), so the 1px gaps survive a fractional x.
+ */
+const Meter = ({ harness, filled }: { readonly harness: string; readonly filled: number }) => (
+  <svg
+    aria-hidden
+    width={METER_WIDTH}
+    height={10}
+    viewBox={`0 0 ${METER_WIDTH} 10`}
+    className="pixelated block shrink-0"
+    data-testid="plan-meter"
+    data-filled={filled}
+  >
     {Array.from({ length: METER_CELLS }, (_, i) => (
-      <span
+      <rect
         key={i}
-        className="h-2.5 w-1 shrink-0"
-        style={{
-          background: i < lit ? hueVar(harness) : "light-dark(#0000000f, #ffffff12)",
-        }}
+        x={i * PITCH}
+        width={CELL}
+        height={10}
+        style={{ fill: i < filled ? hueVar(harness) : "light-dark(#0000000f, #ffffff12)" }}
       />
     ))}
-  </span>
+  </svg>
 );
 
 const WindowCell = ({ harness, win }: { readonly harness: string; readonly win: LimitWindow }) => (
-  <div className="flex min-w-0 flex-1 flex-col gap-1.5" data-testid="plan-window">
-    <div className="flex justify-between gap-2" style={{ maxWidth: 199 }}>
+  <div
+    className="flex min-w-0 flex-col gap-1.5"
+    style={{ flex: `1 0 ${METER_WIDTH}px` }}
+    data-testid="plan-window"
+  >
+    <div className="flex justify-between gap-2" style={{ maxWidth: METER_WIDTH }}>
       <span className="text-caption text-text-subtle truncate">{win.label}</span>
-      <span className="text-caption text-text-default tabular">{win.percent ?? ""}</span>
+      <span className="text-caption text-text-default tabular shrink-0">{win.left ?? ""}</span>
     </div>
-    <Meter harness={harness} lit={win.litCells} />
+    <Meter harness={harness} filled={win.filledCells} />
     <span className="text-caption text-text-subtle">{win.note}</span>
   </div>
 );
@@ -59,7 +81,12 @@ const HarnessTile = ({ harness, size }: { readonly harness: string; readonly siz
 );
 
 const LimitRowView = ({ row }: { readonly row: LimitRow }) => (
-  <div className="px-panel gap-section flex items-center py-3.5">
+  <div
+    className={cn(
+      "px-panel gap-section flex py-3.5",
+      row.windows.length > 2 ? "items-start" : "items-center"
+    )}
+  >
     <div className="flex w-[184px] shrink-0 items-center gap-2.5">
       <HarnessTile harness={row.harness} size={28} />
       <span className="flex min-w-0 flex-col">
@@ -67,9 +94,12 @@ const LimitRowView = ({ row }: { readonly row: LimitRow }) => (
         <span className="text-caption text-text-subtle truncate">{row.caption}</span>
       </span>
     </div>
-    {row.windows.map((win) => (
-      <WindowCell key={win.key} harness={row.harness} win={win} />
-    ))}
+    {/* Windows wrap to another line rather than clip: two fit beside the label, a third goes under. */}
+    <div className="gap-x-section flex min-w-0 flex-1 flex-wrap gap-y-3">
+      {row.windows.map((win) => (
+        <WindowCell key={win.key} harness={row.harness} win={win} />
+      ))}
+    </div>
   </div>
 );
 

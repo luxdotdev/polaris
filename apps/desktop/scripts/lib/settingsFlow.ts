@@ -19,6 +19,7 @@ interface SavedSessions {
   readonly deleteMergedBranch: boolean;
   readonly branchPrefix: string;
   readonly newWorktree: boolean;
+  readonly spinnerVerbs: ReadonlyArray<string> | null;
 }
 
 /** settings.get's `sessions` (SettingsView in src/shared/api.ts). */
@@ -52,6 +53,28 @@ const sessionsPage = async (
   await page.locator("#delete-merged").click();
   await prefix.fill("polaris/");
   await prefix.press("Enter");
+  await workingVerbs(page, step);
+};
+
+/** Working verbs: add one, remove one, reset; each is saved. Left as found (the built-in ones). */
+const workingVerbs = async (page: Page, step: (message: string) => void) => {
+  const list = page.getByTestId("verb-list");
+
+  await page.getByTestId("verb-input").fill("Smoke testing");
+  await page.getByTestId("verb-input").press("Enter");
+  await list.getByText("Smoke testing", { exact: true }).waitFor({ timeout: 5_000 });
+  await page.getByRole("button", { name: "Remove Working…" }).click();
+  await page.waitForTimeout(300);
+  const saved = (await savedSessions(page)).spinnerVerbs ?? [];
+
+  if (saved.at(-1) !== "Smoke testing" || saved.includes("Working…"))
+    throw new Error(`Working verbs not saved: ${JSON.stringify(saved)}`);
+  await page.getByRole("button", { name: "Reset to the built-in verbs" }).click();
+  await page.waitForTimeout(300);
+
+  if ((await savedSessions(page)).spinnerVerbs !== null)
+    throw new Error("Reset didn't go back to the built-in verbs");
+  step(`Working verbs: added, removed and reset (${saved.length} while edited)`);
 };
 
 export const settingsFlow = async ({ app, page, step, shoot }: SettingsFlowInput) => {

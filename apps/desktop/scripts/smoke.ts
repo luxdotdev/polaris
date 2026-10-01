@@ -74,6 +74,14 @@ const userHome = join(home, "user-home");
 
 mkdirSync(userHome, { recursive: true });
 
+// Claude Code's own spinnerVerbs, which the Working strip of a Claude Code session shows.
+mkdirSync(join(userHome, ".claude"), { recursive: true });
+
+writeFileSync(
+  join(userHome, ".claude", "settings.json"),
+  JSON.stringify({ spinnerVerbs: { mode: "replace", verbs: ["Flat out"] } })
+);
+
 const daemon = await startDaemon({ home, benchHarness: true, userHome });
 
 const fakeHost = prepareFakeHost(join(home, "remote"));

@@ -125,7 +125,13 @@ try {
     await page.waitForLoadState("domcontentloaded");
     const isNew = ["new", "setup", "none-ready"].includes(base);
 
-    await page.getByTestId(isNew ? "new-session" : "session-panel").waitFor();
+    const ready = base.startsWith("usage-")
+      ? "plan-meter"
+      : isNew
+        ? "new-session"
+        : "session-panel";
+
+    await page.getByTestId(ready).first().waitFor();
 
     // The setup scene's Codex needs sign-in: choose it to show its setup line.
     if (scene === "setup") await page.getByTestId("harness-codex").click();

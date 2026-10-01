@@ -16,6 +16,7 @@ import type {
   GitStatus,
   Grep,
   HarnessModels,
+  SpinnerVerbs,
   HostHarnesses,
   HostInfo,
   HostStreamItem,
@@ -282,6 +283,7 @@ export interface RequestOutputs {
   "git.status": Rpc.Success<typeof GitStatus>;
   "git.diff": { readonly bytes: Uint8Array; readonly files: number };
   "harness.models": Plain<HarnessModels>;
+  "harness.spinnerVerbs": Plain<SpinnerVerbs> | null;
   "harness.availability": Plain<HostHarnesses>;
   "session.terminalCommand": TerminalLaunch | null;
   "usage.query": UsageQueryView;
