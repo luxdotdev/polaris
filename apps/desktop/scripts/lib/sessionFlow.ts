@@ -165,6 +165,18 @@ export const sessionFlow = async ({ page, repo, step, shoot, atFirstApproval }: 
 
   await page.getByTestId("live-item").first().waitFor({ timeout: 15_000 });
   step("first Turn streaming");
+
+  // The Daemon's HOME sets Claude Code's spinnerVerbs (smoke.ts): the strip shows them.
+  if (pickedId === "harness-claude") {
+    await page
+      .getByTestId("working-verb")
+      .filter({ hasText: "Flat out…" })
+      .waitFor({ timeout: 5_000 });
+    step("the Working strip shows Claude Code's spinnerVerbs: Flat out…");
+  } else {
+    step(`the Working strip says: ${await page.getByTestId("working-verb").innerText()}`);
+  }
+
   await page.getByTestId("approval").first().waitFor({ timeout: 20_000 });
   await shoot("approval");
   const inboxApproved = atFirstApproval === undefined ? 0 : await atFirstApproval();

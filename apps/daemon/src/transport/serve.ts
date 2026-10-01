@@ -75,6 +75,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   ...HARNESS_CATALOGUE.map((harness) => harness.capability),
   "harness.availability",
   "harness.models",
+  "harness.spinner-verbs",
   "session.set-model",
   "session.steer",
   "session.fork",

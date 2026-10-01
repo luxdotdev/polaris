@@ -12,4 +12,5 @@ export const DEFAULT_SESSION_PREFS: SessionPrefs = {
   openOutputOnEdit: true,
   notifyNeedsYou: true,
   deleteMergedBranch: false,
+  spinnerVerbs: null,
 };

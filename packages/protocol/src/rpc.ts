@@ -233,6 +233,27 @@ export const ListModels = Rpc.make("harness.models", {
   error: Schema.Union([NotFound, Unsupported, HarnessUnavailable]),
 });
 
+export const SpinnerVerbsMode = Schema.Literals(["replace", "append"]);
+
+/** Claude Code's `spinnerVerbs` setting, as the settings file that wins defines it. */
+export class SpinnerVerbs extends Schema.Class<SpinnerVerbs>("SpinnerVerbs")({
+  /** `replace`: only these; `append`: after the built-in ones. */
+  mode: SpinnerVerbsMode,
+  verbs: Schema.Array(Schema.String),
+  /** The settings file it came from, as the Host spells it. */
+  source: Schema.String,
+}) {}
+
+/**
+ * Claude Code's spinner verbs on this Host (capability `harness.spinner-verbs`): `spinnerVerbs`
+ * from `~/.claude/settings.json`, overridden by `<cwd>/.claude/settings.json`, then
+ * `<cwd>/.claude/settings.local.json`; null when none sets it. Read-only, re-read when a file changes.
+ */
+export const ClaudeSpinnerVerbs = Rpc.make("harness.spinnerVerbs", {
+  payload: { cwd: Schema.NullOr(Schema.String) },
+  success: Schema.NullOr(SpinnerVerbs),
+});
+
 /**
  * Every Harness's availability on this Host (capability `harness.availability`).
  * Answered from the Daemon's cache; `refresh` probes again. Probing runs each
@@ -519,6 +540,7 @@ export class DaemonRpcs extends RpcGroup.make(
   SubscribeSession,
   SessionTerminalCommand,
   ListModels,
+  ClaudeSpinnerVerbs,
   HarnessAvailabilityQuery,
   WatchHarnessAvailability,
   QueryUsage,
