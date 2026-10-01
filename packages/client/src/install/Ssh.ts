@@ -63,11 +63,12 @@ interface Spawned {
   readonly args: ReadonlyArray<string>;
   readonly env?: NodeJS.ProcessEnv;
   readonly stdinFile?: string | undefined;
+  readonly onStdinBytes?: ((bytes: number) => void) | undefined;
   /** ssh's own exit code; a local shell has none, so every exit is the command's. */
   readonly transportFailure: number | null;
 }
 
-const run = ({ alias, file, args, env, stdinFile, transportFailure }: Spawned) =>
+const run = ({ alias, file, args, env, stdinFile, onStdinBytes, transportFailure }: Spawned) =>
   Effect.callback<SshResult, SshError>((resume) => {
     const child = spawn(file, args, {
       stdio: [stdinFile ? "pipe" : "ignore", "pipe", "pipe"],
@@ -83,16 +84,30 @@ const run = ({ alias, file, args, env, stdinFile, transportFailure }: Spawned) =
       stderr += chunk.toString();
     });
 
+    let input: ReturnType<typeof createReadStream> | undefined;
+
     if (stdinFile && child.stdin) {
       // The command exiting early (EPIPE) is reported through its exit code below.
       child.stdin.on("error", () => {});
-      createReadStream(stdinFile).pipe(child.stdin);
+      input = createReadStream(stdinFile);
+      let bytes = 0;
+      input.on("data", (chunk) => {
+        bytes += chunk.length;
+        onStdinBytes?.(bytes);
+      });
+      input.on("error", (error) => {
+        child.kill();
+        resume(Effect.fail(new SshError({ alias, failure: "spawn", message: error.message })));
+      });
+      input.pipe(child.stdin);
     }
 
     child.on("error", (error) =>
       resume(Effect.fail(new SshError({ alias, failure: "spawn", message: error.message })))
     );
     child.on("close", (code) => {
+      input?.destroy();
+
       if (code !== null && code === transportFailure) {
         resume(
           Effect.fail(
@@ -104,7 +119,10 @@ const run = ({ alias, file, args, env, stdinFile, transportFailure }: Spawned) =
       }
     });
 
-    return Effect.sync(() => child.kill());
+    return Effect.sync(() => {
+      input?.destroy();
+      child.kill();
+    });
   });
 
 export class Ssh extends Context.Service<
@@ -118,7 +136,7 @@ export class Ssh extends Context.Service<
     readonly exec: (
       alias: string,
       command: string,
-      options?: { readonly stdinFile?: string }
+      options?: { readonly stdinFile?: string; readonly onStdinBytes?: (bytes: number) => void }
     ) => Effect.Effect<SshResult, SshError>;
   }
 >()("polaris/client/install/Ssh") {
@@ -150,6 +168,7 @@ export class Ssh extends Context.Service<
                 command,
               ],
               stdinFile: options?.stdinFile,
+              onStdinBytes: options?.onStdinBytes,
               transportFailure: 255,
             }),
     })
@@ -170,6 +189,7 @@ export class Ssh extends Context.Service<
             args: ["-c", command],
             env: { ...process.env, HOME: home },
             stdinFile: options?.stdinFile,
+            onStdinBytes: options?.onStdinBytes,
             transportFailure: null,
           }),
       })

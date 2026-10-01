@@ -15,6 +15,7 @@ import {
 import type { ReactNode } from "react";
 import type { MachineView } from "../../../shared/api.ts";
 import { type ConnectionLine, connectionLine, workspacesText } from "./model.ts";
+import { platformLabel } from "./updates/model.ts";
 
 export const LANES = {
   daemon: "w-[84px] shrink-0",
@@ -51,14 +52,22 @@ const DotsIcon = () => (
 
 interface TrailingProps extends Pick<
   HostRowProps,
-  "machine" | "expanded" | "onToggle" | "onRetry" | "onRemove"
+  "machine" | "expanded" | "onToggle" | "onRetry" | "onRemove" | "menu"
 > {
   /** Show the chevron (expanded, or something needs the user) instead of the menu. */
   readonly open: boolean;
 }
 
 /** The chevron while open, else the overflow menu (Details, Retry now, Remove host). */
-const Trailing = ({ machine, open, expanded, onToggle, onRetry, onRemove }: TrailingProps) => (
+const Trailing = ({
+  machine,
+  open,
+  expanded,
+  onToggle,
+  onRetry,
+  onRemove,
+  menu,
+}: TrailingProps) => (
   <span className={LANES.trailing}>
     {open ? (
       <button
@@ -90,6 +99,7 @@ const Trailing = ({ machine, open, expanded, onToggle, onRetry, onRemove }: Trai
               Remove host
             </DropdownMenuItem>
           )}
+          {menu}
         </DropdownMenuContent>
       </DropdownMenu>
     )}
@@ -110,6 +120,12 @@ export interface HostRowProps {
   readonly onToggle: () => void;
   readonly onRetry: () => void;
   readonly onRemove: (() => void) | null;
+  /** The Daemon's version when the update feed knows it better than the connection. */
+  readonly daemonVersion?: string | null;
+  /** The Daemon update line, under the main line and always shown. */
+  readonly update?: ReactNode;
+  /** More items for the overflow menu (the Host's daemon updates). */
+  readonly menu?: ReactNode;
   readonly children?: ReactNode;
 }
 
@@ -121,11 +137,15 @@ export const HostRow = ({
   onToggle,
   onRetry,
   onRemove,
+  daemonVersion,
+  update,
+  menu,
   children,
 }: HostRowProps) => {
   const line = connectionLine(machine, now);
   const attention = line.state === "needs-attention";
   const quiet = line.state === "offline" || line.state === "off";
+  const platform = machine.status?.host?.platform ?? null;
 
   return (
     <li
@@ -166,11 +186,12 @@ export const HostRow = ({
                 ssh <span className="text-code-inline font-mono">{machine.alias}</span>
               </>
             )}
+            {platform === null ? null : ` · ${platformLabel(platform)}`}
             {workspaces === null ? null : ` · ${workspacesText(workspaces)}`}
           </span>
         </button>
         <span className={cn(LANES.daemon, "text-caption text-text-subtle tabular")}>
-          {machine.status?.host?.daemonVersion ?? "—"}
+          {daemonVersion ?? machine.status?.host?.daemonVersion ?? "—"}
         </span>
         <span
           className={cn(LANES.connection, "flex items-center gap-gap")}
@@ -210,8 +231,10 @@ export const HostRow = ({
           onToggle={onToggle}
           onRetry={onRetry}
           onRemove={onRemove}
+          menu={menu}
         />
       </div>
+      {update === undefined || update === null ? null : <div className="px-panel">{update}</div>}
       {expanded ? <div className="px-panel pb-panel flex flex-col gap-3">{children}</div> : null}
     </li>
   );

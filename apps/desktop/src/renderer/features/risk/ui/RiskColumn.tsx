@@ -269,6 +269,7 @@ export const RiskColumnSlot = (props: ReviewSlotProps) => {
   const request = useRiskRequest(props);
   const state = useRiskSummary(key, request);
   const capable = useCanSummarise(props);
+  const { openSettings } = useShellActions();
 
   const rerun =
     request !== null &&
@@ -295,7 +296,14 @@ export const RiskColumnSlot = (props: ReviewSlotProps) => {
       <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto" data-testid="risk-scroll">
         {!capable.ok && (
           <p className="text-caption text-text-subtle px-panel pb-3">
-            Risk summaries need a newer daemon on {capable.host}
+            Risk summaries need a newer daemon on {capable.host} ·{" "}
+            <button
+              type="button"
+              onClick={() => openSettings("hosts")}
+              className="text-text-default cursor-default hover:underline"
+            >
+              Update daemon
+            </button>
           </p>
         )}
         {state.kind === "ready" && (

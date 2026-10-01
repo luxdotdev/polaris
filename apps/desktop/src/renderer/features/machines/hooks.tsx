@@ -8,6 +8,7 @@ import type {
   RequestMethod,
   RequestOutput,
 } from "../../../shared/api.ts";
+import { polaris } from "../bridge.ts";
 
 /** Every machine for Settings, live; null until the first list arrives. */
 export const useMachines = (): ReadonlyArray<MachineView> | null => {
@@ -15,11 +16,7 @@ export const useMachines = (): ReadonlyArray<MachineView> | null => {
 
   useEffect(
     () =>
-      window.polaris.subscribe(
-        "machines",
-        {},
-        { items: (lists) => setMachines(lists.at(-1) ?? null) }
-      ),
+      polaris().subscribe("machines", {}, { items: (lists) => setMachines(lists.at(-1) ?? null) }),
     []
   );
 
@@ -31,7 +28,7 @@ export const call = async <M extends RequestMethod>(
   method: M,
   input: RequestInput<M>
 ): Promise<RequestOutput<M> | null> => {
-  const result = await window.polaris.request(method, input);
+  const result = await polaris().request(method, input);
 
   if (result.ok) return result.value;
   showToast({
@@ -65,7 +62,7 @@ export const useMachineInstall = (key: string, enabled: boolean): InstallFlowVie
   useEffect(() => {
     if (!enabled) return undefined;
 
-    return window.polaris.subscribe(
+    return polaris().subscribe(
       "machines",
       {},
       {

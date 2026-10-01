@@ -6,6 +6,31 @@ import { Schema } from "effect";
 import { RequestInputs } from "../shared/contract.ts";
 import { DEFAULT_SESSION_PREFS, isBranchPrefix } from "../shared/sessionPrefs.ts";
 import { readSettings, sessionPrefsOf, type Settings } from "./settings.ts";
+import { updatePolicy } from "./machines/updateFacts.ts";
+
+test("Daemon update settings and the last result survive an app restart", () => {
+  const saved: Settings = {
+    keepDaemonsUpToDate: false,
+    local: { enabled: false, keepDaemonUpToDate: true },
+    hosts: [{ alias: "pi", keepDaemonUpToDate: false }],
+    daemonUpdates: {
+      pi: {
+        at: 123,
+        result: "failed",
+        from: "0.1.0",
+        version: "0.2.0",
+        problem: { kind: "ssh", message: "Permission denied", command: null, sshFailure: "auth" },
+      },
+    },
+  };
+
+  const settings = readSettings(file(saved));
+
+  expect(settings).toEqual(saved);
+  expect(updatePolicy({}, "local").keepUpToDate).toBe(true);
+  expect(updatePolicy(settings, "local").keepUpToDate).toBe(true);
+  expect(updatePolicy(settings, "pi").keepUpToDate).toBe(false);
+});
 
 const file = (json: Settings) => {
   const path = join(mkdtempSync(join(tmpdir(), "polaris-settings-")), "settings.json");
