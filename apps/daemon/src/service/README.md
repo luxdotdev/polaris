@@ -7,6 +7,8 @@ Everything that gets a `polaris` binary onto a Host, keeps it running as a user 
 | `platform.ts` | `VERSION`: the version `scripts/build-daemon.ts` compiled in (`process.env.POLARIS_BUILD_VERSION`, replaced by a constant), else `apps/daemon/package.json`'s when run from source; a dev build is `<version>-dev.<commit count>.<sha>` (with `.dirty<seconds>` from an uncommitted tree), a `--release` build the package version as it is; the three shipped platforms, `polaris version` output and its parser. |
 | `templates.ts` | Pure launchd plist and systemd `--user` unit renderers. |
 | `install.ts` | `install` / `uninstall` / `stageBinary` / `pointCurrentAt`. |
+| `launchd.ts` | The macOS service step: `planLaunchd` (pure), `classifyBootstrap`, `activateLaunchd` with its rollback, `unloadEverywhere`. |
+| `errors.ts` | `InstallError`. |
 | `CommandRunner.ts` | Service for running `launchctl`, `systemctl`, `loginctl` and `<binary> version`; tests replace it. |
 | `libc.ts` | `bun:ffi` bindings: `execve`, close-on-exec, `poll`/`accept`, `socketpair`, `waitpid`. |
 | `upgrade.ts` | The execve hand-off: `prepareHandoff`, `execInto`, `adoptListener`, `bindAtomically`, `serveUpgrades`, `requestUpgrade`. |
@@ -40,10 +42,30 @@ No sudo; everything under `~/.polaris/` (`POLARIS_HOME`). Each step is idempoten
 1. Copy the binary to `~/.polaris/bin/<version>/polaris`: write a temp file, then rename. It is skipped if the SHA-256 already matches. Renaming matters on macOS: overwriting a signed binary in place gets it killed.
 2. Point `~/.polaris/bin/current` at `<version>` with an atomic symlink rename. The service always runs `~/.polaris/bin/current/polaris serve`.
 3. Write the service file only if its content changed:
-   - macOS: `~/Library/LaunchAgents/dev.lux.polaris.plist`, with `RunAtLoad` and `KeepAlive`, logs at `~/.polaris/logs/daemon.{out,err}.log`, and `POLARIS_HOME` and `PATH` set. It bootstraps into `gui/<uid>`. Over SSH to a Mac with nobody logged in at the console, that domain does not exist, so it falls back to `user/<uid>` and says so in `notes`.
+   - macOS: `~/Library/LaunchAgents/dev.lux.polaris.plist`, with `RunAtLoad` and `KeepAlive`, logs at `~/.polaris/logs/daemon.{out,err}.log`, and `POLARIS_HOME` and `PATH` set (a different `PATH` from the caller changes the file). See **launchd** below.
    - Linux: `~/.config/systemd/user/polaris.service` (`$XDG_CONFIG_HOME` honoured), with `Restart=always`. Then `daemon-reload`, `enable` and `start` (or `restart` if the binary or unit changed while it was running), then `loginctl enable-linger $USER`. If polkit refuses linger (common over SSH), the report says `linger: "needs-admin"` and gives the exact `sudo loginctl enable-linger <user>` for an administrator to run. The Daemon still runs, but it stops at logout.
    - Linux **without a systemd user bus** (`systemctl --user show-environment` fails: minimal containers, SSH sessions without `pam_systemd`, non-systemd distributions): Polaris' own **fallback supervisor**, decided by `planLinuxService` (pure, unit-tested). `~/.polaris/bin/polaris-supervise` (a POSIX sh script, `supervisorScript` in `templates.ts`) detaches itself (`setsid`, else `nohup`), keeps one instance through `~/.polaris/supervisor.pid`, runs `polaris serve`, restarts it when it exits (1 s backoff doubling to 60 s, reset after a minute up), and stops quietly when the Daemon exits 75 (another Daemon holds the lock) or the binary is gone. It comes back after a reboot through a `@reboot` crontab line when `crontab -l` works, and at login through a line in `~/.profile` (and `~/.bash_profile` / `~/.bash_login` when they exist); both lines end with `# polaris-supervisor`. Installing a new binary SIGTERMs the running Daemon and the supervisor restarts it on `current`. The report says `supervisor: "fallback"`, `autostart: ["cron", "profile"]` (or just `["profile"]`), `serviceDomain: "polaris-supervisor"`, and explains itself in `notes`. `polaris uninstall` stops the supervisor and its Daemon and removes both lines (keeping the rest of the crontab and profile). Verified end to end in Debian 13 (glibc, no cron) and Alpine 3.24 (musl, busybox cron): install, `kill -9` of the Daemon (restarted within a second), idempotent reinstall (still one supervisor), uninstall.
 4. `polaris install --json` prints the report as one JSON line for the Client, including `supervisor` (`launchd`, `systemd` or `fallback`) and `autostart`.
+
+### launchd
+
+`planLaunchd` (pure, unit-tested) decides from where the label is loaded (`launchctl print gui/<uid>/<label>`, then `user/<uid>/…`) and what changed:
+
+| Loaded in | Service file | Binary | Action |
+|---|---|---|---|
+| a domain | unchanged | unchanged / new | `kickstart` / `kickstart -k`, in that domain |
+| a domain | changed | either | **reload in that domain**: `bootout`, wait until `print` no longer finds the label (up to 30 s; the Daemon shuts down gracefully), `bootstrap`, `enable`, `kickstart` |
+| nowhere | either | either | `bootstrap` into `gui/<uid>` if that domain exists (`launchctl print gui/<uid>`), else `user/<uid>` with a note |
+
+Traps (`classifyBootstrap`):
+- `launchctl bootout` returns before the job has exited. A `bootstrap` meanwhile fails with **5 (Input/output error)**, the same answer as "already loaded", in *either* domain. 5 is retried after waiting, never read as "no GUI session".
+- A missing or unusable domain is 112 ("Could not find domain"), 113 or 125 ("Domain does not support specified action"). Only that, or a 5 for a label loaded nowhere, falls back from `gui/` to `user/`.
+
+**Rollback:** `install` reads the previous `current` target and service file first. If any launchd step fails, it puts both back, boots the label out of every domain, bootstraps the previous definition into the domain it was loaded in and starts it, then fails with the original error plus "the previous Daemon runs again in gui/501" (or "rollback failed too: …"). A service that was not loaded before is left unloaded.
+
+`uninstall` boots the label out of both domains and waits for the job to exit.
+
+Tests: `launchd.test.ts` (the planner, the classifier, and activation against a simulated launchd whose booted-out job lingers) and `launchd.e2e.test.ts`. The latter runs against the real launchd with a temp home and the label `dev.lux.polaris.e2e-<pid>`, never `dev.lux.polaris`: `POLARIS_LAUNCHD_E2E=1 bun test src/service/launchd.e2e.test.ts`. It covers a first load, a reload over a running service whose stand-in Daemon takes 2 s to stop, and a rollback after an injected bootstrap failure.
 
 `polaris uninstall [--purge]` stops and removes the service and `~/.polaris/bin`, stops the shared Codex app-server (which otherwise outlives the Daemon), and keeps the event store and logs unless `--purge` is passed.
 
