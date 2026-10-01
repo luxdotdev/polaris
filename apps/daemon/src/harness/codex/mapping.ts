@@ -208,6 +208,20 @@ const itemMappers = new Map<string, ItemMapper>([
         : null,
   ],
   [
+    // The spawn (its id is the spawning call's), so the Subagent's card can sit where it began.
+    "subAgentActivity",
+    (item) =>
+      "agentPath" in item && item.kind === "started"
+        ? ToolCall.make({
+            id: item.id,
+            name: "agent.spawn",
+            input: { agent: item.agentPath },
+            output: null,
+            status: "completed",
+          })
+        : null,
+  ],
+  [
     "webSearch",
     (item) =>
       "query" in item

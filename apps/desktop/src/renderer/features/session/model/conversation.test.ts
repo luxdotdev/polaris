@@ -194,6 +194,10 @@ describe("steers in the conversation", () => {
   });
 });
 
+/** An entry's item id, or its kind for a run. */
+const entryId = (entry: { readonly kind: string; readonly item?: { readonly id: string } }) =>
+  entry.item?.id ?? entry.kind;
+
 describe("subagents and tool runs in the conversation", () => {
   const agent = I.ToolCall.make({
     id: "toolu_agent",
@@ -233,5 +237,33 @@ describe("subagents and tool runs in the conversation", () => {
     );
 
     expect(rows).toEqual(["item", "subagent:toolu_agent", "item", "subagent:bg"]);
+  });
+
+  test("a Codex Subagent sits at its spawn, so the final messages come after its card", () => {
+    const spawn = I.ToolCall.make({
+      id: "call_spawn",
+      name: "agent.spawn",
+      input: { agent: "/root/spec_review" },
+      output: null,
+      status: "completed",
+    });
+
+    const turn = {
+      ...view(0, [
+        message("m0", "Reviewing"),
+        spawn,
+        message("m1", "I found no regression."),
+        message("m2", '{"findings":[]}'),
+      ]),
+      subagents: [sub("child", "call_spawn")],
+    };
+
+    const rows = turnRows(turn, true, true).flatMap((r) =>
+      r.kind === "item"
+        ? [r.entry.kind === "subagent" ? `subagent:${r.entry.card.id}` : entryId(r.entry)]
+        : []
+    );
+
+    expect(rows).toEqual(["m0", "subagent:child", "m1", "m2"]);
   });
 });
