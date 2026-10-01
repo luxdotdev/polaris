@@ -8,7 +8,7 @@ import { Effect, Schema } from "effect";
 import { Timestamp } from "./domain.ts";
 import { HarnessKind } from "./harnesses.ts";
 import { SessionId } from "./ids.ts";
-import { ModelId } from "./models.ts";
+import { addedNullable, ModelId } from "./models.ts";
 
 /** Tokens, normalized across Harnesses: the four kinds a price list prices apart. */
 export class TokenCounts extends Schema.Class<TokenCounts>("TokenCounts")({
@@ -116,6 +116,14 @@ export class PlanLimit extends Schema.Class<PlanLimit>("PlanLimit")({
   observedAt: Timestamp,
   /** The subscription as the Harness names it (`max`, `pro`, `plus`), when reported. */
   plan: Schema.NullOr(Schema.String),
+  /**
+   * On the whole-plan weekly window: the median share of it one full 5-hour
+   * window used lately, from the Daemon's history of readings; null until it
+   * has seen three finished 5-hour windows, and on every other window.
+   */
+  weeklyPerSession: addedNullable(Schema.Number).pipe(
+    Schema.withConstructorDefault(Effect.succeed(null))
+  ),
 }) {}
 
 /**

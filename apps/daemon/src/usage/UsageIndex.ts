@@ -27,6 +27,13 @@ import {
 } from "effect";
 import { paths } from "../paths.ts";
 import { PlanLimitSink } from "../services.ts";
+import {
+  historyKey,
+  type LimitHistory,
+  limitHistory,
+  RETAIN_MS,
+  weeklyPerSession,
+} from "./limitHistory.ts";
 import { claudeRoots } from "./claude.ts";
 import { openUsageDb } from "./db.ts";
 import { codexHome, type Env, GC_EVERY_BYTES, type UsageHarness } from "./indexer.ts";
@@ -112,7 +119,7 @@ export const makeUsageIndex = Effect.fnUntraced(function* (options: UsageIndexOp
     Effect.sync(() => {
       const db = openUsageDb(dbPath);
 
-      return { db, writer: writerOver(db) };
+      return { db, writer: writerOver(db), history: limitHistory(db) };
     })
   );
 
@@ -183,9 +190,38 @@ export const makeUsageIndex = Effect.fnUntraced(function* (options: UsageIndexOp
     })
   );
 
-  const reportPlanLimit = Effect.fn("usage.planLimit")(function* (limit: PlanLimit) {
-    const { writer } = yield* opened;
+  /** The whole-plan weekly window carries how much of it a 5-hour window uses (the forecast's estimate). */
+  const withSessionBurn = (limit: PlanLimit, history: LimitHistory): PlanLimit => {
+    if (limit.kind !== "weekly" || limit.scope !== null) return limit;
+    const now = Date.parse(limit.observedAt);
+    const since = now - RETAIN_MS;
+
+    const fiveHour = history.readings(
+      historyKey({ harness: limit.harness, kind: "five-hour", scope: null }),
+      since
+    );
+
+    const weekly = history.readings(historyKey(limit), since);
+
+    return new PlanLimit({
+      harness: limit.harness,
+      kind: limit.kind,
+      scope: limit.scope,
+      windowMinutes: limit.windowMinutes,
+      usedPercent: limit.usedPercent,
+      status: limit.status,
+      resetsAt: limit.resetsAt,
+      observedAt: limit.observedAt,
+      plan: limit.plan,
+      weeklyPerSession: weeklyPerSession(fiveHour, weekly, now),
+    });
+  };
+
+  const reportPlanLimit = Effect.fn("usage.planLimit")(function* (reported: PlanLimit) {
+    const { writer, history } = yield* opened;
     yield* loadedLimits;
+    history.record(reported);
+    const limit = withSessionBurn(reported, history);
     limits.set(planLimitKey(limit), limit);
     writer.putPlanLimit(planLimitKey(limit), encodePlanLimit(limit));
     yield* PubSub.publish(pubsub, UsageStreamItem.cases.PlanLimitChanged.make({ limit }));
