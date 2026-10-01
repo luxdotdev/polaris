@@ -4,6 +4,7 @@
  * sweeper's targets, built fresh from the read model for each sweep.
  */
 import type { SessionId, TurnId, Workspace } from "@polaris/protocol";
+import { dropCommittedRefs } from "../accept/commit.ts";
 import { Clock, Context, Effect, Layer, Predicate } from "effect";
 import {
   type CheckpointSession,
@@ -118,8 +119,21 @@ const make = (rt: EngineRuntime["Service"]): CheckpointPruning["Service"] => {
     return found;
   });
 
+  /** An archived session commits nothing more: its committed-Turn marks go (`accept/`). */
+  const dropCommitted = (repoPath: string, sessionId: SessionId) =>
+    Effect.tryPromise({
+      try: () => dropCommittedRefs(repoPath, sessionId),
+      catch: describeError,
+    }).pipe(
+      Effect.catch((message) =>
+        Effect.logWarning(`dropping committed marks of ${sessionId}: ${message}`)
+      )
+    );
+
   const onArchived = (record: SessionRecord, workspace: Workspace, model: ReadModel) =>
     Effect.gen(function* () {
+      yield* dropCommitted(workspace.path, record.session.id);
+
       if (underReview(model).has(record.session.id)) return;
       const at = yield* Clock.currentTimeMillis;
       const session = yield* checkpointSession(record, forkedTurns(model), at);
@@ -140,7 +154,8 @@ const make = (rt: EngineRuntime["Service"]): CheckpointPruning["Service"] => {
         }).pipe(
           Effect.catch((message) =>
             Effect.logWarning(`dropping checkpoints of ${sessionId}: ${message}`)
-          )
+          ),
+          Effect.andThen(dropCommitted(workspace.path, sessionId))
         ),
       { discard: true }
     );
