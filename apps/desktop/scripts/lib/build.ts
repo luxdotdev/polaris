@@ -1,7 +1,7 @@
 /** Build steps shared by `build.ts` and `dev.ts`. */
 import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { APP_DIR, electronBinary, OUT_DIR, REPO_ROOT } from "./electron.ts";
+import { APP_DIR, OUT_DIR, REPO_ROOT, stockElectronBinary } from "./electron.ts";
 
 export { APP_DIR, electronBinary, OUT_DIR, REPO_ROOT } from "./electron.ts";
 
@@ -51,7 +51,7 @@ export const buildRenderer = async () => {
 
 /** Copies Electron.app to `out/Polaris.app` with the built app in `Resources/app`. */
 export const bundleApp = async (): Promise<string> => {
-  const electronApp = join(dirname(electronBinary()), "../..");
+  const electronApp = join(dirname(stockElectronBinary()), "../..");
   const target = join(OUT_DIR, "Polaris.app");
 
   rmSync(target, { recursive: true, force: true });

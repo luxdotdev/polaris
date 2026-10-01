@@ -1,7 +1,7 @@
 /**
  * Polaris's name and icon wherever the OS shows them: the app menu, About, the Dock and the
- * window list. Packaged, Info.plist and the bundle's icon do most of it; in dev the running
- * binary is Electron's, so the name and the Dock icon are set here.
+ * window list. Packaged, Info.plist and the bundle's icon do most of it. In dev the binary is
+ * `Polaris Dev.app` on macOS (scripts/lib/devBundle.ts), and the Dock shows the dusk icon.
  */
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -14,13 +14,15 @@ export interface IconPaths {
   readonly repoRoot: string;
 }
 
-/** The app icon as a PNG: the bundled copy when packaged, else the generated one in the repo. */
+/** The app icon as a PNG: the bundled copy when packaged, else dev's dusk icon from the repo. */
 export const iconPng = ({ repoRoot }: IconPaths): string | null => {
-  const path = app.isPackaged
-    ? join(process.resourcesPath, "icon.png")
-    : join(repoRoot, "design/assets/app-icon/icon-1024.png");
+  const icons = join(repoRoot, "design/assets/app-icon");
 
-  return existsSync(path) ? path : null;
+  const candidates = app.isPackaged
+    ? [join(process.resourcesPath, "icon.png")]
+    : [join(icons, "dusk/icon-1024.png"), join(icons, "icon-1024.png")];
+
+  return candidates.find((path) => existsSync(path)) ?? null;
 };
 
 /** Call before `ready`: the app menu's title and About read the name then. */
@@ -38,7 +40,7 @@ export const nameApp = () => {
   });
 };
 
-/** After `ready`: the dev Dock shows the Polaris icon instead of Electron's. */
+/** After `ready`: the dev Dock shows the dusk icon, whatever binary runs it. */
 export const showIcon = (paths: IconPaths) => {
   const icon = iconPng(paths);
 

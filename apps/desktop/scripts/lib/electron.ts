@@ -5,6 +5,7 @@ import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { devBundleBinary } from "./devBundle.ts";
 
 export const APP_DIR = join(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -12,8 +13,8 @@ export const REPO_ROOT = join(APP_DIR, "../..");
 
 export const OUT_DIR = join(APP_DIR, "out");
 
-/** The Electron binary; downloads it first if `bun install` skipped electron's postinstall. */
-export const electronBinary = (): string => {
+/** node_modules' Electron binary; downloads it first if `bun install` skipped its postinstall. */
+export const stockElectronBinary = (): string => {
   const require = createRequire(join(APP_DIR, "package.json"));
   const pkgDir = dirname(require.resolve("electron/package.json"));
 
@@ -25,6 +26,26 @@ export const electronBinary = (): string => {
 
   // SAFETY: electron's main module exports the binary's path as a string.
   return require("electron") as string;
+};
+
+/** The dusk icon for the dev bundle, else the standard one. */
+const devIcon = () =>
+  [
+    join(REPO_ROOT, "design/assets/app-icon/dusk/PolarisDev.icns"),
+    join(REPO_ROOT, "design/assets/app-icon/Polaris.icns"),
+  ].find((path) => existsSync(path)) ?? null;
+
+/**
+ * The Electron binary dev and the Playwright scripts launch: on macOS `out/dev/Polaris Dev.app`
+ * (scripts/lib/devBundle.ts) unless POLARIS_DESKTOP_STOCK_ELECTRON=1; elsewhere the stock one.
+ */
+export const electronBinary = (): string => {
+  const stock = stockElectronBinary();
+
+  if (process.platform !== "darwin" || process.env.POLARIS_DESKTOP_STOCK_ELECTRON === "1")
+    return stock;
+
+  return devBundleBinary({ electron: stock, outDir: join(OUT_DIR, "dev"), icon: devIcon() });
 };
 
 /**
