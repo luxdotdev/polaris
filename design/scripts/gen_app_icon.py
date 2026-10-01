@@ -5,6 +5,10 @@ star centred; at 32px and below the sky flattens to Night and the star goes flat
 drawn natively so the star stays on whole pixels. Deterministic. Requires numpy and pillow:
     uv run --with numpy --with pillow design/scripts/gen_app_icon.py
 Writes design/assets/app-icon/{polaris.iconset,linux}/ and, on macOS, Polaris.icns (iconutil).
+
+The dev variant ("dusk", for Polaris Dev) keeps the squircle, star and size ladder but swaps the
+sky for a dithered pixel sunset: deep night at the top, violet behind the star, rose and a
+lamplight horizon under a dark ridge. It goes to design/assets/app-icon/dusk/ (PolarisDev.icns).
 """
 import os
 import shutil
@@ -84,7 +88,65 @@ def sky(body):
     return crop.resize((body, body), Image.BOX)
 
 
-def icon(size):
+# Dusk, top to bottom: Night, the night scene's navy, violet behind the star, rose, ember, Lamplight.
+DUSK = ["#0A0D1A", "#161B36", "#2A2350", "#4A2D63", "#7A3A6E", "#B5577A", "#E07F5F", "#F2C27A"]
+# Where each colour sits down the sky (0 top, 1 horizon); the star's centre stays on violet.
+DUSK_STOPS = [0.0, 0.18, 0.40, 0.58, 0.70, 0.80, 0.89, 0.97]
+RIDGE = (0x0D, 0x10, 0x22)
+BAYER4 = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]) / 16 + 1 / 32
+
+
+def hexc(h):
+    return tuple(int(h.lstrip("#")[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def dusk_index(v, t):
+    """The palette index for depth v (0 top, 1 horizon), dithered across each band by threshold t."""
+    i = int(np.searchsorted(DUSK_STOPS, v, side="right")) - 1
+    i = min(max(i, 0), len(DUSK) - 2)
+    span = DUSK_STOPS[i + 1] - DUSK_STOPS[i]
+    frac = min(max((v - DUSK_STOPS[i]) / span, 0.0), 1.0)
+    return i + 1 if frac > t else i
+
+
+def dusk_cells(n, flat):
+    """An n×n pixel sunset: dithered bands (flat: plain bands), a ridge, and early stars up top."""
+    img = Image.new("RGB", (n, n))
+    px = img.load()
+    ridge = [0.88 + 0.035 * np.sin(x / n * 7.1) + 0.02 * np.sin(x / n * 17.3 + 1.2) for x in range(n)]
+    for y in range(n):
+        v = y / (n - 1) * 1.04
+        for x in range(n):
+            if not flat and y / (n - 1) >= ridge[x]:
+                px[x, y] = RIDGE
+                continue
+            t = 0.5 if flat else BAYER4[y % 4][x % 4]
+            px[x, y] = hexc(DUSK[dusk_index(v, t)])
+    if flat and n >= 24:
+        for y in range(n - max(2, n // 10), n):
+            for x in range(n):
+                px[x, y] = RIDGE
+    if not flat:
+        rng = np.random.default_rng(11)
+        for _ in range(n // 6):
+            x, y = int(rng.integers(0, n)), int(rng.integers(1, int(n * 0.3)))
+            if abs(x - n / 2) > n * 0.22:
+                px[x, y] = (0xFF, 0xFF, 0xFF) if rng.random() < 0.5 else FLAT
+    return img
+
+
+def dusk_sky(body, flat):
+    side = body if flat else CROP[2]
+    cells = dusk_cells(side, flat)
+    if flat:
+        return cells
+    whole = int(np.ceil(body / side))
+    big = cells.resize((side * whole, side * whole), Image.NEAREST)
+    off = (big.width - body) // 2
+    return big.crop((off, off, off + body, off + body))
+
+
+def icon(size, dusk=False):
     body = round(size * BODY) if size > 16 else 14
     flat = size <= FLAT_AT
     canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
@@ -98,7 +160,12 @@ def icon(size):
         shadow.paste(shade, (o, o + max(1, size // 100)), mask)
         canvas = Image.alpha_composite(canvas, shadow.filter(ImageFilter.GaussianBlur(size / 100)))
 
-    ground = Image.new("RGBA", (body, body), (*NIGHT, 255)) if flat else sky(body).convert("RGBA")
+    if dusk:
+        ground = dusk_sky(body, flat).convert("RGBA")
+    elif flat:
+        ground = Image.new("RGBA", (body, body), (*NIGHT, 255))
+    else:
+        ground = sky(body).convert("RGBA")
     if size >= 64:
         # The brand deck's 8% white hairline along the inside of the edge.
         width = max(1, round(body / 360))
@@ -124,25 +191,32 @@ ICONSET = [(16, 1), (16, 2), (32, 1), (32, 2), (128, 1), (128, 2), (256, 1), (25
 LINUX = [16, 32, 48, 64, 128, 256, 512, 1024]
 
 
-def main():
-    iconset = os.path.join(OUT, "polaris.iconset")
-    linux = os.path.join(OUT, "linux")
+def write_set(out, iconset_name, icns_name, dusk):
+    iconset = os.path.join(out, iconset_name)
+    linux = os.path.join(out, "linux")
     for d in (iconset, linux):
         shutil.rmtree(d, ignore_errors=True)
         os.makedirs(d)
     cache = {}
+
     def get(px):
         if px not in cache:
-            cache[px] = icon(px)
+            cache[px] = icon(px, dusk)
         return cache[px]
+
     for pt, scale in ICONSET:
         suffix = "" if scale == 1 else "@2x"
         get(pt * scale).save(os.path.join(iconset, f"icon_{pt}x{pt}{suffix}.png"))
     for px in LINUX:
         get(px).save(os.path.join(linux, f"{px}x{px}.png"))
-    get(1024).save(os.path.join(OUT, "icon-1024.png"))
+    get(1024).save(os.path.join(out, "icon-1024.png"))
     if shutil.which("iconutil"):
-        subprocess.run(["iconutil", "-c", "icns", iconset, "-o", os.path.join(OUT, "Polaris.icns")], check=True)
+        subprocess.run(["iconutil", "-c", "icns", iconset, "-o", os.path.join(out, icns_name)], check=True)
+
+
+def main():
+    write_set(OUT, "polaris.iconset", "Polaris.icns", False)
+    write_set(os.path.join(OUT, "dusk"), "polaris-dev.iconset", "PolarisDev.icns", True)
 
 
 if __name__ == "__main__":
