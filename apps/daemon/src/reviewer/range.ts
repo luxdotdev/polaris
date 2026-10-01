@@ -20,6 +20,7 @@ import { Effect } from "effect";
 import { checkoutGit } from "../git/review/refs.ts";
 import { ReviewCheckoutGit } from "../services.ts";
 import { EventStore } from "../store/EventStore.ts";
+import { composeTurns, type TurnCommits } from "./compose.ts";
 import type { RulesMode } from "../rules/index.ts";
 
 export interface ReviewRange {
@@ -162,16 +163,31 @@ const sessionRange = Effect.fn("sessionRange")(function* (
 
   const checkout = checkoutId === null ? undefined : model.reviewCheckouts.get(checkoutId);
   const cwd = checkout?.path ?? record.session.cwd;
-  const base = yield* commitOf(cwd, before);
-  const head = yield* commitOf(cwd, after);
+  const first = yield* commitOf(cwd, before);
+  const last = yield* commitOf(cwd, after);
+  const commits: Array<TurnCommits> = [];
+
+  for (const turn of covered) {
+    if (turn.checkpointBefore === null || turn.checkpointAfter === null) continue;
+    commits.push({
+      before: yield* commitOf(cwd, turn.checkpointBefore),
+      after: yield* commitOf(cwd, turn.checkpointAfter),
+    });
+  }
+
+  // The Turns' own changes, not first-before..last-after: commits between Turns stay out.
+  const change = yield* Effect.tryPromise({
+    try: () => composeTurns(cwd, commits),
+    catch: (cause) => new GitError({ cwd, message: String(cause) }),
+  });
 
   const range: ReviewRange = {
-    key: RiskSummaryKey.make({ repo: workspace.path, mergeBase: base, head, since: null }),
+    key: RiskSummaryKey.make({ repo: workspace.path, mergeBase: first, head: last, since: null }),
     workspaceId: workspace.id,
     cwd,
-    base,
-    head,
-    mergeBase: base,
+    base: change.base,
+    head: change.head,
+    mergeBase: first,
     mode: "snapshot",
     checkoutId: checkout?.id ?? null,
     title: record.session.title,

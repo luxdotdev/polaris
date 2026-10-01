@@ -24,7 +24,7 @@ import {
   toRiskFindings,
 } from "./output.ts";
 import { followUpPrompt } from "./prompt.ts";
-import { reviewedSessionOf } from "./range.ts";
+import { resolveRange, reviewedSessionOf } from "./range.ts";
 import { linesAt } from "./run.ts";
 import { continueReviewerSession } from "./session.ts";
 
@@ -49,9 +49,9 @@ const ownFinding = (summary: RiskSummary, id: string): RiskFinding | undefined =
 export const followUpEvents = Effect.fn("followUpEvents")(function* (
   summary: RiskSummary,
   output: ReviewerOutput,
-  cwd: string
+  change: ReviewedChange
 ) {
-  const { mergeBase: base, head } = summary.key;
+  const { cwd, base, head } = change;
   const diff = yield* Effect.promise(() => readDiff(cwd, base, head));
   const readLines = linesAt(cwd, base, head);
   const added = yield* toRiskFindings(output.findings, diff, readLines);
@@ -89,13 +89,39 @@ export const followUpEvents = Effect.fn("followUpEvents")(function* (
   ];
 });
 
+/** Where and between what the summary's change is read. */
+interface ReviewedChange {
+  readonly cwd: string;
+  readonly base: string;
+  readonly head: string;
+}
+
+/**
+ * The change the summary reviewed: its range again (an Agent Session's is
+ * composed from its Turns), else its key's commits where they can be read.
+ */
+const changeOf = (summary: RiskSummary) =>
+  Effect.gen(function* () {
+    const range = yield* resolveRange(summary.subject, summary.checkoutId, summary.key.since).pipe(
+      Effect.option
+    );
+
+    if (Option.isSome(range) && range.value.key.head === summary.key.head) {
+      return { cwd: range.value.cwd, base: range.value.base, head: range.value.head };
+    }
+
+    const cwd = yield* cwdOf(summary);
+
+    return cwd === null ? null : { cwd, base: summary.key.mergeBase, head: summary.key.head };
+  });
+
 /** After the follow-up's Turn: decode its reply and record what it changed. */
 const applyReply = (summary: RiskSummary, reply: string | null) =>
   Effect.gen(function* () {
     const decoded = parseReviewerReply(reply ?? "");
-    const cwd = yield* cwdOf(summary);
+    const change = yield* changeOf(summary);
 
-    if (Result.isFailure(decoded) || cwd === null) return;
+    if (Result.isFailure(decoded) || change === null) return;
     const store = yield* EventStore;
 
     const latest =
@@ -103,7 +129,7 @@ const applyReply = (summary: RiskSummary, reply: string | null) =>
         RiskSummaryRef.cases.ById.make({ summaryId: summary.id })
       )) ?? summary;
 
-    const events = yield* followUpEvents(latest, decoded.success, cwd);
+    const events = yield* followUpEvents(latest, decoded.success, change);
 
     if (events.length > 0) {
       yield* store.commit({ commandId: null, decide: () => Effect.succeed(events) });

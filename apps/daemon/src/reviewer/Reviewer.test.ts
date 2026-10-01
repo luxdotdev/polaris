@@ -40,6 +40,7 @@ import {
   waitFor,
 } from "../engine/testing.ts";
 import { CheckpointsLive } from "../git/Checkpoints.ts";
+import { gitText } from "../git/git.ts";
 import { ReviewCheckoutGitLive } from "../git/ReviewCheckoutGit.ts";
 import {
   BASE_REPO,
@@ -139,7 +140,11 @@ const userTurn = (input: TurnInput, session: FakeHarnessSession) => {
   return completesTurns()(input);
 };
 
-const reviewerLayer = (options: { readonly ready: boolean; readonly checkpoints?: boolean }) => {
+const reviewerLayer = (options: {
+  readonly ready: boolean;
+  readonly checkpoints?: boolean;
+  readonly rules?: Layer.Layer<Rules>;
+}) => {
   const dir = tempDir();
   cleanup.push(dir);
 
@@ -163,7 +168,9 @@ const reviewerLayer = (options: { readonly ready: boolean; readonly checkpoints?
 
   const layer = ReviewerLive({ settingsPath: join(dir, "reviewer-settings.json") }).pipe(
     Layer.provideMerge(engine),
-    Layer.provide(Layer.mergeAll(noRules, ReviewCheckoutGitLive, availability(options.ready)))
+    Layer.provide(
+      Layer.mergeAll(options.rules ?? noRules, ReviewCheckoutGitLive, availability(options.ready))
+    )
   );
 
   return { layer, driver };
@@ -529,6 +536,100 @@ describe("when it runs", () => {
         );
 
         expect(asked.layers.agent.status).toBe("completed");
+      })
+    );
+  }, 60_000);
+});
+
+describe("the session's change, exactly", () => {
+  test("commits landing between Turns stay out of the Rules and the Reviewer's diff", async () => {
+    const s = await scenario();
+    const seen: Array<string> = [];
+
+    const rules = Layer.succeed(Rules)({
+      run: (request) =>
+        Effect.promise(async () => {
+          seen.push(
+            await gitText(request.cwd, ["diff", "--name-only", request.base, request.head])
+          );
+
+          return { findings: [], notes: [], ok: true };
+        }),
+    });
+
+    const { layer, driver } = reviewerLayer({ ready: true, checkpoints: true, rules });
+
+    await run(
+      layer,
+      Effect.gen(function* () {
+        const reviewer = yield* Reviewer;
+        yield* dispatch(Command.cases.RegisterWorkspace.make({ path: s.user, name: null }));
+
+        const registered = yield* waitFor((m) =>
+          [...m.workspaces.values()].some((w) => w.path === s.user)
+        );
+        // SAFETY: waitFor returned once a Workspace at `s.user` was registered.
+
+        const workspace = [...registered.workspaces.values()].find(
+          (w) => w.path === s.user
+        ) as Workspace;
+
+        const sessionId = SessionId.make("ses-scoped");
+
+        const idle = waitFor((m) => {
+          const record = m.sessions.get(sessionId);
+
+          return record?.session.state === "idle" && record.turns.at(-1)?.status === "completed";
+        });
+
+        yield* dispatch(
+          Command.cases.StartSession.make({
+            sessionId,
+            workspaceId: workspace.id,
+            harness: "claude",
+            placement: SessionPlacement.cases.InPlace.make({}),
+            permissionMode: "auto",
+            model: null,
+            effort: null,
+            prompt: "write a.txt",
+            attachments: [],
+          })
+        );
+        yield* idle;
+        // Someone else commits to the branch while the session is idle.
+        write(s.user, "other.ts", 'createHash("md5");\n');
+        yield* Effect.promise(() => commitAll(s.user, "someone else's work"));
+        yield* dispatch(
+          Command.cases.SendTurn.make({ sessionId, prompt: "write b.txt", attachments: [] })
+        );
+        yield* waitFor((m) => (m.sessions.get(sessionId)?.turns.length ?? 0) === 2);
+        yield* idle;
+
+        const summary = yield* reviewer.run({
+          workspaceId: workspace.id,
+          subject: ReviewSubject.cases.SessionTurns.make({
+            sessionId,
+            firstTurnId: null,
+            lastTurnId: null,
+          }),
+          checkoutId: null,
+          since: null,
+          refresh: false,
+          context: null,
+        });
+
+        const done = yield* summaryWhen(summary.id, ended);
+
+        const prompt =
+          driver.latest(done.reviewer?.sessionId ?? SessionId.make("none"))?.turns[0]?.prompt ?? "";
+
+        // Each Turn's own Rules run, and the whole session's: never someone else's file.
+        for (let i = 0; i < 100 && seen.length < 3; i++) yield* Effect.sleep("20 millis");
+        expect(seen.toSorted()).toEqual(["a.txt", "a.txt\nb.txt", "b.txt"]);
+        expect(prompt).toContain("+++ b/a.txt");
+        expect(prompt).toContain("+++ b/b.txt");
+        expect(prompt).not.toContain("other.ts");
+        expect(done.findings.map((f) => f.path)).toEqual(["a.txt"]);
       })
     );
   }, 60_000);
