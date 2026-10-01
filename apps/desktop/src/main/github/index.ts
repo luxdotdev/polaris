@@ -83,6 +83,9 @@ export const watchedFrom = (entries: ReadonlyArray<WorkspaceRemotes>): ReadonlyA
   return [...byRepo.values()];
 };
 
+/** Who a pull request watch belongs to. */
+type WatchGroup = "checkouts" | "sessions";
+
 const make = Effect.fn("GitHub.make")(function* (input: GitHubInput) {
   const scope = yield* Effect.scope;
   const now = input.now ?? Date.now;
@@ -119,6 +122,7 @@ const make = Effect.fn("GitHub.make")(function* (input: GitHubInput) {
     Effect.forkIn(scope)
   );
   yield* Effect.forkIn(poller.loop, scope);
+  const watchGroups = new Map<WatchGroup, ReadonlyArray<CheckoutWatch>>();
 
   return {
     accounts: accounts.view,
@@ -132,7 +136,13 @@ const make = Effect.fn("GitHub.make")(function* (input: GitHubInput) {
     setWorkspace: (workspace: WorkspaceRef, accountId: number | null) =>
       accounts.setWorkspace(workspaceKey(workspace), accountId),
     watch: (entries: ReadonlyArray<WorkspaceRemotes>) => poller.watch(watchedFrom(entries)),
-    watchCheckouts: (watches: ReadonlyArray<CheckoutWatch>) => poller.watchCheckouts(watches),
+    /** Each caller (Review Checkouts, accepted sessions' pull requests) keeps its own group. */
+    watchCheckouts: (watches: ReadonlyArray<CheckoutWatch>, group: WatchGroup = "checkouts") =>
+      Effect.suspend(() => {
+        watchGroups.set(group, watches);
+
+        return poller.watchCheckouts([...watchGroups.values()].flat());
+      }),
     refresh: poller.poke(true),
     /** The user asked to check a blocked repository again (after requesting access). */
     recheck: (repo: RepoRef) => Effect.andThen(routing.invalidate(repo), poller.poke(true)),

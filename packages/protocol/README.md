@@ -31,7 +31,7 @@ Additions to existing types: `AgentSession.acceptedThroughIndex` and `AgentSessi
 | Capability | Commands | Events | RPCs |
 |---|---|---|---|
 | `session.feedback` | `SendFeedback` | (a `TurnStarted` whose Turn has `feedback`) | |
-| `session.accept` | `AcceptTurns` (through a Turn; refused with a Turn in flight or before one already accepted), `LinkPullRequest` | `TurnsAccepted`, `TurnsReverted`, `SessionPullRequestLinked` | |
+| `session.accept` | `AcceptTurns` (through a Turn; refused with a Turn in flight or before one already accepted), `LinkPullRequest` | `TurnsAccepted`, `TurnsReverted`, `SessionPullRequestLinked` | `session.acceptPlan` (the not yet committed Turns through one, the branch, default branch and remote), `session.draftAccept` (the commit message and pull request text, drafted by the session's own Harness, else a template), `session.commitAccepted` (commits only those Turns' own changes, onto the current branch or a new one; `AcceptRefused` until they're accepted), `session.pushAccepted` (the Host's git credentials) — types in `accept.ts` |
 | `review.checkouts` | `OpenReviewCheckout`, `ReportReviewHead`, `UpdateReviewCheckout`, `RemoveReviewCheckout` | `ReviewCheckoutOpened`, `ReviewCheckoutChanged`, `ReviewCheckoutRemoved` (the whole checkout each time; on the Host stream) | `review.checkoutStatus` |
 | `review.risk-summary` | | `RiskSummaryStarted`, `RiskSummaryLayerChanged`, `RiskFindingsRecorded`, `RiskFindingResolved`, `RiskSummaryEnded` (review-only: off the Host stream) | `review.runRiskSummary`, `review.riskSummary`, `review.watchRiskSummary` |
 | `review.ask` | | | `review.askFinding` (continues the Reviewer's Agent Session) |
@@ -41,7 +41,9 @@ Additions to existing types: `AgentSession.acceptedThroughIndex` and `AgentSessi
 | `git.diff-turns` | | | `git.diff` with `GitDiffSpec.Turns`: a run of Turns, first before-checkpoint to last after-checkpoint |
 | `git.show` | | | `git.show`: a file at a revision (Pierre's context expansion) |
 
-Daemon-side events with no command (the Checkout, Rules and Reviewer modules commit them): `ReviewCheckoutChanged` after a fetch or a blocked update or removal, `ReviewCheckoutRemoved`, every Risk Summary event, `TurnsReverted`.
+Daemon-side events with no command (the Checkout, Rules and Reviewer modules commit them): `ReviewCheckoutChanged` after a fetch or a blocked update or removal, `ReviewCheckoutRemoved`, every Risk Summary event, `TurnsReverted` (after `AcceptTurns` with `revertLaterTurns`).
+
+**Accepting ends in a pull request** (ENG-224): the Client accepts (`AcceptTurns`), commits and pushes through the Daemon, opens the pull request itself as the routed GitHub account, then sends `LinkPullRequest`. Its Turns are committed once each (the Daemon marks them under `refs/polaris/committed/`), so later Turns, e.g. from the pull request's review comments, commit and push onto the same branch.
 
 ### Status
 

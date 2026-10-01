@@ -19,6 +19,8 @@ import { PullReview } from "./PullReview.tsx";
 import { Queue } from "./Queue.tsx";
 import { SessionReview } from "./SessionReview.tsx";
 import "../../risk/install.ts";
+// The session's accept action fills its slot (M2-A).
+import "../../accept/install.ts";
 
 export interface ReviewViewProps {
   readonly subject: ReviewSubject;

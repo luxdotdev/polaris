@@ -226,6 +226,14 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
     onLive(hostKey, (s) => s.client["review.reviewerSettings"]({ workspaceId })),
   "review.setReviewerSettings": ({ hostKey, settings }) =>
     onLive(hostKey, (s) => s.client["review.setReviewerSettings"]({ settings })).pipe(done),
+  "session.acceptPlan": ({ hostKey, ...payload }) =>
+    onLive(hostKey, (s) => s.client["session.acceptPlan"](payload)),
+  "session.draftAccept": ({ hostKey, ...payload }) =>
+    onLive(hostKey, (s) => s.client["session.draftAccept"](payload)),
+  "session.commitAccepted": ({ hostKey, ...payload }) =>
+    onLive(hostKey, (s) => s.client["session.commitAccepted"](payload)),
+  "session.pushAccepted": ({ hostKey, ...payload }) =>
+    onLive(hostKey, (s) => s.client["session.pushAccepted"](payload)),
   "install.ensure": ({ hostKey, approvedSha256 }) =>
     HostDirectory.use((dir) => {
       const alias = dir.entry(hostKey)?.alias ?? null;

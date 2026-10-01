@@ -62,7 +62,10 @@ export const Capability = Schema.Literals([
    */
   /** `SendFeedback` and `Turn.feedback`. */
   "session.feedback",
-  /** `AcceptTurns`, `LinkPullRequest`, and `TurnsAccepted` / `TurnsReverted` / `SessionPullRequestLinked`. */
+  /**
+   * `AcceptTurns`, `LinkPullRequest`, `TurnsAccepted` / `TurnsReverted` / `SessionPullRequestLinked`,
+   * and `session.acceptPlan` / `draftAccept` / `commitAccepted` / `pushAccepted`.
+   */
   "session.accept",
   /** The Review Checkout commands, their events, the Host snapshot's checkouts, `review.checkoutStatus`. */
   "review.checkouts",

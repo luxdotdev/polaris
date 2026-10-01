@@ -33,6 +33,7 @@ import { addRemotes, pullsFlow } from "./lib/pullsFlow.ts";
 import { afterMerge, checkoutFlow, setFakeHead } from "./lib/checkoutFlow.ts";
 import { reviewFlow, setupCodeHost } from "./lib/reviewFlow.ts";
 import { findingsFlow } from "./lib/findingsFlow.ts";
+import { acceptFlow } from "./lib/acceptFlow.ts";
 
 const args = process.argv.slice(2);
 
@@ -488,6 +489,14 @@ try {
         page,
         fake: github.fake,
         codeHost,
+        step,
+        shoot: (name) => shoot(page, name),
+      });
+      await acceptFlow({
+        page,
+        fake: github.fake,
+        repo,
+        home,
         step,
         shoot: (name) => shoot(page, name),
       });

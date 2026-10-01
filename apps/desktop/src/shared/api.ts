@@ -5,6 +5,10 @@
  * only, so the renderer and the sandboxed preload can import it.
  */
 import type {
+  AcceptCommitted,
+  AcceptDraft,
+  AcceptPlan,
+  AcceptPushed,
   AskFinding,
   Attachment,
   AttachmentSettings,
@@ -325,6 +329,10 @@ export interface RequestOutputs extends GitHubRequestOutputs {
   "review.askFinding": Rpc.Success<typeof AskFinding>;
   "review.reviewerSettings": Rpc.Success<typeof GetReviewerSettings>;
   "review.setReviewerSettings": null;
+  "session.acceptPlan": Plain<AcceptPlan>;
+  "session.draftAccept": Plain<AcceptDraft>;
+  "session.commitAccepted": Plain<AcceptCommitted>;
+  "session.pushAccepted": Plain<AcceptPushed>;
   "install.ensure": InstallView;
   "machines.sshAliases": ReadonlyArray<SshAliasView>;
   "machines.add": { readonly key: string };

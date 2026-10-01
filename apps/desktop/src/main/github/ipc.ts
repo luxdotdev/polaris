@@ -37,7 +37,8 @@ export const githubHandlers: GitHubHandlers = {
   "github.review.submit": (input) => gh((g) => g.submitReview(input)).pipe(done),
   "github.review.discard": (input) => gh((g) => g.discardReview(input)).pipe(done),
   "github.files.setViewed": (input) => gh((g) => g.setViewed(input)).pipe(done),
-  "github.checkouts.watch": ({ checkouts }) => gh((g) => g.watchCheckouts(checkouts)).pipe(done),
+  "github.checkouts.watch": ({ checkouts, group }) =>
+    gh((g) => g.watchCheckouts(checkouts, group)).pipe(done),
 };
 
 type GitHubOpeners = {

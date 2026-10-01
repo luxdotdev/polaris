@@ -14,6 +14,7 @@ import {
   type Turn,
 } from "@polaris/protocol";
 import { Context, Effect, Layer, Predicate } from "effect";
+import { revertAfterAccept } from "../accept/reactor.ts";
 import type { HarnessError } from "../harness/HarnessDriver.ts";
 import type { ServiceError } from "../services.ts";
 import type { CommitResult } from "../store/EventStore.ts";
@@ -210,8 +211,7 @@ const make = Effect.gen(function* () {
       SetWorkspaceHidden: () => Effect.void,
       RenameSession: () => Effect.void,
       SendFeedback: (command) => runStartedTurn(command.sessionId, committed.result.envelopes),
-      // TODO(M2-A accept): restore the working tree for `revertLaterTurns` and record TurnsReverted.
-      AcceptTurns: () => Effect.void,
+      AcceptTurns: (command) => revertAfterAccept(rt.store, command),
       LinkPullRequest: () => Effect.void,
       OpenReviewCheckout: (command) => checkouts.opened(command.checkoutId),
       // A new head makes the checkout stale; updating it is the user's call.

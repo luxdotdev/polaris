@@ -54,14 +54,23 @@ export interface ReviewSlots {
 
 const Nothing = () => null;
 
-/** The primary action per subject kind: "Submit review" (M2-F), accepting Turns (M2-A). */
-const primaryActions: Record<ReviewSlotProps["subject"]["kind"], ComponentType<ReviewSlotProps>> = {
-  pull: Nothing,
-  session: Nothing,
+/** The primary action per subject kind: M2-F's "Submit review" for a pull request, M2-A's accept. */
+const primaryActions: Partial<Record<ReviewSubject["kind"], ComponentType<ReviewSlotProps>>> = {};
+
+/** Renders the primary action registered for the subject's kind. */
+const PrimaryAction = (props: ReviewSlotProps) => {
+  const Action = primaryActions[props.subject.kind];
+
+  return Action === undefined ? null : createElement(Action, props);
 };
 
-const PrimaryAction = (props: ReviewSlotProps) =>
-  createElement(primaryActions[props.subject.kind], props);
+/** Registers one kind's primary action without replacing the other's. */
+export const fillPrimaryAction = (
+  kind: ReviewSubject["kind"],
+  Action: ComponentType<ReviewSlotProps>
+) => {
+  primaryActions[kind] = Action;
+};
 
 /** Defaults until the slices land; a slice swaps its own in with `fillReviewSlots`. */
 interface SlotRegistry {
@@ -79,14 +88,6 @@ export const reviewSlots: SlotRegistry = {
 
 export const fillReviewSlots = (slots: Partial<ReviewSlots>) => {
   reviewSlots.current = { ...reviewSlots.current, ...slots };
-};
-
-/** Fills the primary action for one kind of subject, leaving the other's. */
-export const fillPrimaryAction = (
-  kind: ReviewSlotProps["subject"]["kind"],
-  action: ComponentType<ReviewSlotProps>
-) => {
-  primaryActions[kind] = action;
 };
 
 /**

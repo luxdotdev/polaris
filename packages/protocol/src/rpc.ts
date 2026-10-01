@@ -9,6 +9,15 @@
  */
 import { Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/rpc";
+import {
+  AcceptBranch,
+  AcceptCommitted,
+  AcceptDraft,
+  AcceptPlan,
+  AcceptPushed,
+  AcceptRefused,
+  CommitGranularity,
+} from "./accept.ts";
 import { AttachmentSettings, AttachmentUsage, StagedAmount } from "./attachments.ts";
 import { HostHarnesses } from "./availability.ts";
 import { CapabilityList } from "./capabilities.ts";
@@ -593,6 +602,53 @@ export const ListVerdicts = Rpc.make("review.verdicts", {
   error: Unsupported,
 });
 
+// ── Accepting an Agent Session's work (README, "Review"; accept.ts) ─────────
+
+const AcceptErrors = Schema.Union([NotFound, GitError, AcceptRefused, Unsupported]);
+
+/** Which Turns committing through `throughTurnId` takes, and the branch and remote it would use. */
+export const GetAcceptPlan = Rpc.make("session.acceptPlan", {
+  payload: { sessionId: SessionId, throughTurnId: TurnId },
+  success: AcceptPlan,
+  error: AcceptErrors,
+});
+
+/**
+ * The commit message and pull request text, drafted by the session's own
+ * Harness in a short Turn kept out of the session; a template when it can't.
+ */
+export const DraftAccept = Rpc.make("session.draftAccept", {
+  payload: { sessionId: SessionId, throughTurnId: TurnId },
+  success: AcceptDraft,
+  error: AcceptErrors,
+});
+
+/**
+ * Commits the accepted, not yet committed Turns through `throughTurnId`: only
+ * their own changes, leaving the working tree and later Turns as they are.
+ */
+export const CommitAccepted = Rpc.make("session.commitAccepted", {
+  payload: {
+    sessionId: SessionId,
+    throughTurnId: TurnId,
+    branch: AcceptBranch,
+    granularity: CommitGranularity,
+    title: Schema.String,
+    body: Schema.String,
+    /** One per Turn of the plan, for `per-turn`. */
+    turnTitles: Schema.Array(Schema.String),
+  },
+  success: AcceptCommitted,
+  error: AcceptErrors,
+});
+
+/** Pushes the branch with the Host's own git credentials, setting its upstream. */
+export const PushAccepted = Rpc.make("session.pushAccepted", {
+  payload: { sessionId: SessionId, branch: Schema.String },
+  success: AcceptPushed,
+  error: AcceptErrors,
+});
+
 /**
  * The Reviewer settings on this Host, and the Reviewer `workspaceId`'s Reviews
  * would run now (capability `review.reviewer-settings`).
@@ -734,6 +790,10 @@ export class DaemonRpcs extends RpcGroup.make(
   WatchRiskSummary,
   AskFinding,
   ListVerdicts,
+  GetAcceptPlan,
+  DraftAccept,
+  CommitAccepted,
+  PushAccepted,
   GetReviewerSettings,
   SetReviewerSettings,
   StageAttachment,

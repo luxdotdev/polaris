@@ -5,9 +5,11 @@
  * code reaches its bundle.
  */
 import {
+  AcceptBranch,
   AttachmentSettings,
   Command,
   CommandId,
+  CommitGranularity,
   GitDiffSpec,
   HarnessKind,
   PermissionMode,
@@ -23,6 +25,7 @@ import {
   Timestamp,
   SessionSummary,
   TerminalId,
+  TurnId,
   Workspace,
   WorkspaceId,
   Worktree,
@@ -265,6 +268,19 @@ export const RequestInputs = {
   /** Settings → Reviewer: the Host's settings and the Reviewer a Workspace would run. */
   "review.reviewerSettings": onHost({ workspaceId: Schema.NullOr(WorkspaceId) }),
   "review.setReviewerSettings": onHost({ settings: ReviewerSettings }),
+  /** Accepting a session's work (capability `session.accept`): plan, draft, commit, push. */
+  "session.acceptPlan": onHost({ sessionId: SessionId, throughTurnId: TurnId }),
+  "session.draftAccept": onHost({ sessionId: SessionId, throughTurnId: TurnId }),
+  "session.commitAccepted": onHost({
+    sessionId: SessionId,
+    throughTurnId: TurnId,
+    branch: AcceptBranch,
+    granularity: CommitGranularity,
+    title: Schema.String,
+    body: Schema.String,
+    turnTitles: Schema.Array(Schema.String),
+  }),
+  "session.pushAccepted": onHost({ sessionId: SessionId, branch: Schema.String }),
   /** Probe a remote Host and plan an install or upgrade; installs only with an approved SHA-256. */
   "install.ensure": onHost({ approvedSha256: Schema.NullOr(Schema.String) }),
   /** The literal `Host` aliases in `~/.ssh/config` (Includes followed, wildcards skipped). */
