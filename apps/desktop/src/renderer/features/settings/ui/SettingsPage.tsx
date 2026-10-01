@@ -4,6 +4,7 @@
  * (outside an open menu or dialog) goes back to where the user was.
  */
 import {
+  BranchIcon,
   ChartColumnIcon,
   ChevronLeftIcon,
   cn,
@@ -23,10 +24,12 @@ import { useSettings } from "../store.ts";
 import { AttachmentsPage } from "../../attachments/index.ts";
 import { AppearancePage } from "./AppearancePage.tsx";
 import { HarnessesPage } from "./HarnessesPage.tsx";
+import { SessionsPage } from "./SessionsPage.tsx";
 import { UsagePage } from "./UsagePage.tsx";
 
 const ICONS: Readonly<Record<SettingsSection, ReactNode>> = {
   appearance: <ContrastIcon />,
+  sessions: <BranchIcon />,
   harnesses: <GridIcon />,
   usage: <ChartColumnIcon />,
   hosts: <ServerIcon />,
@@ -125,6 +128,8 @@ const Page = ({ route }: { readonly route: SettingsRoute }) => {
   switch (route.section) {
     case "appearance":
       return <AppearancePage />;
+    case "sessions":
+      return <SessionsPage />;
     case "harnesses":
       return <HarnessesPage />;
     case "usage":

@@ -123,7 +123,7 @@ try {
   step("two sessions with the same prompt run in the workspace directory");
 
   await page.keyboard.press("Meta+Comma");
-  await page.getByRole("button", { name: "Harnesses" }).first().click();
+  await page.getByRole("button", { name: "Sessions" }).first().click();
   await page.locator("#new-worktree").click();
   await page.locator('#new-worktree[data-state="checked"]').waitFor({ timeout: 5000 });
   await shoot(page, "settings-new-worktree");

@@ -14,6 +14,7 @@ import type { Navigation } from "../routes/navigation.ts";
 import { type Selection, sessionOrder } from "../routes/selection.ts";
 import { activeSessions, shownWorkspaces } from "../routes/topBar.ts";
 import type { SessionEntry } from "../store/hostModel.ts";
+import { settingsStore } from "../features/settings/index.ts";
 import { type AppState, type Connection, sessionKey } from "../store/store.ts";
 
 /** The sessions the sidebar lists, in its order: ⌘⌥↑/↓ walk them. */
@@ -161,7 +162,14 @@ export const shellCommands = ({
         const s = selected();
 
         if (s !== null)
-          void send(s.hostKey, archiveCommand(s.entry.session.id), "Couldn't archive");
+          void send(
+            s.hostKey,
+            archiveCommand(
+              s.entry.session.id,
+              settingsStore.getState().sessions.deleteMergedBranch
+            ),
+            "Couldn't archive"
+          );
       },
       enabled: () => selected() !== null,
     },

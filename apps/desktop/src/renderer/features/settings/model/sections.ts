@@ -35,6 +35,22 @@ const GROUPS: ReadonlyArray<GroupSource> = [
           "colourblind",
         ],
       },
+      {
+        id: "sessions",
+        title: "Sessions",
+        blurb:
+          "How new agent sessions start and what happens around them. These settings stay on this Mac.",
+        keywords: [
+          "worktree",
+          "branch",
+          "prefix",
+          "in place",
+          "output",
+          "notifications",
+          "needs you",
+          "archive",
+        ],
+      },
     ],
   },
   {
@@ -45,17 +61,7 @@ const GROUPS: ReadonlyArray<GroupSource> = [
         title: "Harnesses",
         blurb:
           "The agent programs Polaris drives on each host. Each harness keeps its own sign-in; Polaris never reads your keys or tokens.",
-        keywords: [
-          "claude",
-          "codex",
-          "opencode",
-          "sign in",
-          "model",
-          "effort",
-          "permissions",
-          "worktree",
-          "branch",
-        ],
+        keywords: ["claude", "codex", "opencode", "sign in", "model", "effort", "permissions"],
       },
       {
         id: "usage",

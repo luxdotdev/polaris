@@ -1,17 +1,16 @@
 /**
  * Settings → Harnesses (DESIGN.md, Settings; Paper S1): one group per catalogue
  * Harness with its tile, "Ready on N of M hosts", a row per Host with at most
- * one action, and the defaults new sessions start with, where they work first.
+ * one action, and the defaults new sessions start with.
  */
-import { ChevronRightIcon, cn, Dither, Switch, Tile } from "@polaris/ui";
+import { ChevronRightIcon, cn, Dither, Tile } from "@polaris/ui";
 import { useState } from "react";
 import { slots } from "../../../app/slots.tsx";
 import { type HarnessGroup, harnessGroups, type HostRow } from "../model/harnesses.ts";
 import { Action, GLYPHS } from "./harnessRow.tsx";
 import { sectionInfo } from "../model/sections.ts";
 import { useHostProbes } from "./hostProbes.ts";
-import { setNewWorktree, useSettings } from "../store.ts";
-import { Column, Group, PageHeader, SettingRow } from "./parts.tsx";
+import { Column, PageHeader } from "./parts.tsx";
 import { SessionDefaultsStrip } from "./SessionDefaultsStrip.tsx";
 
 const Row = ({
@@ -156,23 +155,6 @@ const GroupView = ({
   );
 };
 
-/** Off by default: a new session works in the Workspace directory unless it picks a worktree. */
-const PlacementDefault = () => {
-  const on = useSettings((s) => s.newWorktree);
-
-  return (
-    <Group label="New sessions">
-      <SettingRow
-        title="Start on a new worktree"
-        caption="Otherwise they work in the workspace directory. Each session can still choose."
-        htmlFor="new-worktree"
-      >
-        <Switch id="new-worktree" checked={on} onCheckedChange={setNewWorktree} />
-      </SettingRow>
-    </Group>
-  );
-};
-
 export const HarnessesPage = () => {
   const { hosts, refresh } = useHostProbes();
   const info = sectionInfo("harnesses");
@@ -180,7 +162,6 @@ export const HarnessesPage = () => {
   return (
     <Column>
       <PageHeader title={info.title} blurb={info.blurb} />
-      <PlacementDefault />
       {harnessGroups(hosts).map((group) => (
         <GroupView key={group.kind} group={group} refresh={refresh} />
       ))}

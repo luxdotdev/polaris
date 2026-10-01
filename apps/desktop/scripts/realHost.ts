@@ -162,7 +162,7 @@ const approve = async (page: Page, found: MachineView) => {
 };
 
 const harnesses = async (page: Page) => {
-  const list = row(page).getByRole("region", { name: "Harnesses" });
+  const list = row(page).getByRole("region", { name: "Harnesses", exact: true });
 
   await list
     .getByText(/Ready|Needs sign-in|Not installed|Needs a newer version/)
