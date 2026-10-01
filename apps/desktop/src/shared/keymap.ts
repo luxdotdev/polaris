@@ -24,6 +24,7 @@ export type CommandId =
   | "theme.toggle"
   | "settings.open"
   | "settings.appearance"
+  | "settings.sessions"
   | "settings.harnesses"
   | "settings.usage"
   | "settings.hosts"
@@ -67,6 +68,7 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   // macOS's own Settings… chord, in the app menu (DESIGN.md, Settings).
   { id: "settings.open", title: "Settings…", keys: ["CmdOrCtrl+,"], menu: "App" },
   { id: "settings.appearance", title: "Settings: Appearance", keys: [] },
+  { id: "settings.sessions", title: "Settings: Sessions", keys: [] },
   { id: "settings.harnesses", title: "Settings: Harnesses", keys: [] },
   { id: "settings.usage", title: "Settings: Usage", keys: [] },
   { id: "settings.hosts", title: "Settings: Hosts", keys: [] },

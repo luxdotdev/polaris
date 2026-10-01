@@ -122,15 +122,21 @@ export const defaultPlacement = (isGitRepo: boolean, newWorktree: boolean): Plac
     ? { kind: "new-worktree", branch: "", base: null }
     : { kind: "in-place" };
 
+export const DEFAULT_BRANCH_PREFIX = "polaris/";
+
 const BRANCH_WORDS = 5;
 
 const SUFFIX_LENGTH = 4;
 
 /**
- * A branch for a new Worktree from the prompt's first words and the session's id, so the
- * same prompt twice never names the same branch: "polaris/fix-the-login-form-3f9a".
+ * A branch for a new Worktree: the prefix (Settings → Sessions), the prompt's first words and
+ * the session's id, so the same prompt twice never names the same branch: "polaris/fix-the-login-form-3f9a".
  */
-export const branchFromPrompt = (prompt: string, sessionId: SessionId): string => {
+export const branchFromPrompt = (
+  prompt: string,
+  sessionId: SessionId,
+  prefix = DEFAULT_BRANCH_PREFIX
+): string => {
   const words = prompt
     .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, " ")
@@ -143,17 +149,18 @@ export const branchFromPrompt = (prompt: string, sessionId: SessionId): string =
     .replace(/[^a-z0-9]/g, "")
     .slice(0, SUFFIX_LENGTH);
 
-  return `polaris/${[...(words.length === 0 ? ["session"] : words), suffix].join("-")}`;
+  return `${prefix}${[...(words.length === 0 ? ["session"] : words), suffix].join("-")}`;
 };
 
 /** A new worktree with no branch named yet takes one from the prompt. */
 export const resolvePlacement = (
   placement: PlacementChoice,
   prompt: string,
-  sessionId: SessionId
+  sessionId: SessionId,
+  prefix = DEFAULT_BRANCH_PREFIX
 ): PlacementChoice =>
   placement.kind === "new-worktree" && placement.branch === ""
-    ? { ...placement, branch: branchFromPrompt(prompt, sessionId) }
+    ? { ...placement, branch: branchFromPrompt(prompt, sessionId, prefix) }
     : placement;
 
 export interface ForkStartInput {

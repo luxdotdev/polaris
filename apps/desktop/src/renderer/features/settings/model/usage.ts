@@ -81,6 +81,9 @@ export interface Day {
   /** In `harnesses` order; every Harness present, zero when idle. */
   readonly series: ReadonlyArray<HarnessDay>;
   readonly total: number;
+  /** The day's Models, most tokens first: the chart's tooltip. */
+  readonly models: ReadonlyArray<ModelRow>;
+  readonly cost: Cost;
 }
 
 export interface ModelRow {
@@ -123,11 +126,18 @@ const bump = <K>(map: Map<K, number>, key: K, n: number) => map.set(key, (map.ge
 const dailySeries = (
   buckets: ReadonlyArray<Bucket>,
   dates: ReadonlyArray<string>,
-  harnesses: ReadonlyArray<string>
+  harnesses: ReadonlyArray<string>,
+  estimate: Estimator
 ): ReadonlyArray<Day> => {
   const cells = new Map<string, number>();
+  const byDay = new Map<string, Array<Bucket>>();
 
   for (const b of buckets) {
+    const date = dayOf(b.hour);
+    const list = byDay.get(date);
+
+    if (list === undefined) byDay.set(date, [b]);
+    else list.push(b);
     bump(
       cells,
       `${dayOf(b.hour)}|${b.harness}|${b.sessionId === null ? "out" : "in"}`,
@@ -142,7 +152,15 @@ const dailySeries = (
       outside: cells.get(`${date}|${harness}|out`) ?? 0,
     }));
 
-    return { date, series, total: series.reduce((n, s) => n + s.polaris + s.outside, 0) };
+    const models = modelRows(byDay.get(date) ?? [], estimate);
+
+    return {
+      date,
+      series,
+      total: series.reduce((n, s) => n + s.polaris + s.outside, 0),
+      models,
+      cost: models.reduce((c, m) => addCost(c, m.cost), NO_COST),
+    };
   });
 };
 
@@ -203,7 +221,7 @@ export const usageSummary = ({
     cost,
     polarisShare: tokens === 0 ? null : inPolaris / tokens,
     harnesses,
-    days: dailySeries(buckets, dates, harnesses),
+    days: dailySeries(buckets, dates, harnesses, estimate),
     byModel: modelRows(buckets, estimate),
   };
 };
@@ -226,3 +244,39 @@ export const costLabel = (cost: Cost): string => {
 
   return cost.estimated ? `~${usd}` : usd;
 };
+
+/** A tooltip's cost: "~$1.20" estimated, "$1.20" reported, "no price" when nothing could price it. */
+export const tipCost = (cost: Cost): string => {
+  if (cost.usd === 0 && cost.partial) return "no price";
+
+  return cost.partial ? `${costLabel(cost)} + no price` : costLabel(cost);
+};
+
+export interface DayTipRow {
+  readonly key: string;
+  readonly model: string;
+  readonly harness: string;
+  readonly tokens: string;
+  readonly cost: string;
+}
+
+export interface DayTip {
+  readonly date: string;
+  readonly rows: ReadonlyArray<DayTipRow>;
+  readonly tokens: string;
+  readonly cost: string;
+}
+
+/** The chart's tooltip for one day: each Model with its tokens and cost, then the day's total. */
+export const dayTip = (day: Day): DayTip => ({
+  date: day.date,
+  rows: day.models.map((m) => ({
+    key: `${m.harness}/${m.model}`,
+    model: m.model,
+    harness: m.harness,
+    tokens: compactTokens(m.tokens),
+    cost: tipCost(m.cost),
+  })),
+  tokens: compactTokens(day.total),
+  cost: day.total === 0 ? "" : tipCost(day.cost),
+});

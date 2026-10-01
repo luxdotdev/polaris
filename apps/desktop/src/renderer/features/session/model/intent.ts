@@ -141,8 +141,9 @@ export const renameCommand = (sessionId: SessionId, title: string): Command | nu
 export const permissionCommand = (sessionId: SessionId, permissionMode: PermissionMode) =>
   Commands.SetPermissionMode({ sessionId, permissionMode });
 
-export const archiveCommand = (sessionId: SessionId) =>
-  Commands.ArchiveSession({ sessionId, deleteMergedBranch: false });
+/** `deleteMergedBranch` from Settings → Sessions; the Daemon never deletes an unmerged branch. */
+export const archiveCommand = (sessionId: SessionId, deleteMergedBranch: boolean) =>
+  Commands.ArchiveSession({ sessionId, deleteMergedBranch });
 
 export interface ForkInput {
   readonly sessionId: SessionId;

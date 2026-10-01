@@ -37,9 +37,11 @@ import {
 } from "./protocol.ts";
 import { openPrices } from "./prices.ts";
 import { openSnapshotCache } from "./snapshotCache.ts";
+import type { SessionPrefsPatch } from "../shared/contract.ts";
 import {
   appearanceOf,
   readSettings,
+  sessionPrefsOf,
   type Settings,
   settingsPath,
   writeSettings,
@@ -121,9 +123,11 @@ const start = async () => {
     for (const win of BrowserWindow.getAllWindows()) win.webContents.send(CHANNELS.app, event);
   };
 
-  const setNewWorktree = (on: boolean) => {
-    saveSettings({ newWorktree: on });
-    const event: AppEvent = { kind: "new-worktree", on };
+  const setSessions = (patch: SessionPrefsPatch) => {
+    const { newWorktree: _legacy, ...rest } = settings;
+
+    updateSettings(() => ({ ...rest, sessions: { ...sessionPrefsOf(settings), ...patch } }));
+    const event: AppEvent = { kind: "sessions", sessions: sessionPrefsOf(settings) };
 
     for (const win of BrowserWindow.getAllWindows()) win.webContents.send(CHANNELS.app, event);
   };
@@ -200,7 +204,7 @@ const start = async () => {
       prices: openPrices(app.getPath("userData")),
       setAppearance,
       setSessionDefault,
-      setNewWorktree,
+      setSessions,
       openExternal: (url) => shell.openExternal(url),
       sshHosts: () => sshAliasNames(env),
       setWelcomeSeen: () => saveSettings({ welcomeSeen: true }),
@@ -241,7 +245,7 @@ const start = async () => {
   needsYou = createNeedsYouCenter({
     window: () => (win.isDestroyed() ? null : win),
     send: (event) => win.webContents.send(CHANNELS.app, event),
-    notify: env.POLARIS_DESKTOP_HIDDEN !== "1",
+    notify: () => env.POLARIS_DESKTOP_HIDDEN !== "1" && sessionPrefsOf(settings).notifyNeedsYou,
   });
 
   // Benchmarks and scripts wait for this line: the window is painted and the local Host is up.

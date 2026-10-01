@@ -23,7 +23,8 @@ export interface NeedsYouCenterInput {
   readonly window: () => BrowserWindow | null;
   readonly send: (event: AppEvent) => void;
   /** Off for hidden runs (smoke tests, benchmarks): nothing pops up on the machine. */
-  readonly notify: boolean;
+  /** Asked before each banner: off when hidden (tests) or switched off in Settings → Sessions. */
+  readonly notify: () => boolean;
 }
 
 export interface NeedsYouCenter {
@@ -106,7 +107,7 @@ export const createNeedsYouCenter = ({
 
     standing.set(content.key, { content, on });
 
-    if (!notify || !Notification.isSupported()) return;
+    if (!notify() || !Notification.isSupported()) return;
 
     const notification = new Notification({
       title: content.title,

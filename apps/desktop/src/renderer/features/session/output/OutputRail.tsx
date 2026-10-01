@@ -18,6 +18,7 @@ import { diffRevision, useTurnDiff } from "../turnDiff.ts";
 import type { SessionViewProps } from "../ui/SessionIntent.tsx";
 import { type GitFacts, useGitFacts } from "./gitStatus.ts";
 import { RAIL_WIDTH } from "./layout.ts";
+import { useSettings } from "../../settings/index.ts";
 import { useFilesTick } from "./watch.ts";
 
 /** The toaster's right inset (polish): toasts clear the rail while it shows. */
@@ -104,9 +105,11 @@ export const OutputRail = ({ hostKey, sessionId }: SessionViewProps) => {
   const edited = edits || (diff.kind === "ready" && diff.files.length > 0);
 
   useToastInset();
+  const autoOpen = useSettings((s) => s.sessions.openOutputOnEdit);
+
   useEffect(() => {
-    if (edited && turnId !== null) openForEdit(key);
-  }, [edited, key, turnId]);
+    if (autoOpen && edited && turnId !== null) openForEdit(key);
+  }, [autoOpen, edited, key, turnId]);
 
   const open = () => setOutputOpen(key, true);
   const session = model.session;
