@@ -11,11 +11,13 @@ import {
   reviewerTitle,
   sharedDefault,
   sharedPolicy,
+  sharedWalkthrough,
   SOL,
   thresholdLabel,
   withDefault,
   withOverride,
   withPolicy,
+  withWalkthrough,
 } from "./reviewer.ts";
 
 const codex = (status: "ready" | "needs-sign-in"): Plain<HarnessAvailability> => ({
@@ -121,5 +123,32 @@ describe("the Reviewer every host runs", () => {
     expect(sharedPolicy([{ kind: "loading" }])).toEqual(DEFAULT_POLICY);
     expect(thresholdLabel(2000)).toBe("Over 2,000 lines");
     expect(thresholdLabel(null)).toBe("Never");
+  });
+});
+
+describe("the walkthrough's settings", () => {
+  const base = { default: null, workspaces: {}, ...DEFAULT_POLICY };
+
+  test("on, with the reviewer's model, until set", () => {
+    expect(sharedWalkthrough([loaded()])).toEqual({ enabled: true, choice: null });
+  });
+
+  test("a separate model, and back to the reviewer's", () => {
+    const sol = withWalkthrough(base, { choice: SOL });
+
+    const host: HostReviewer = {
+      kind: "loaded",
+      settings: sol,
+      resolved: { choice: null, source: "settings", note: null },
+    };
+
+    expect(sharedWalkthrough([host]).choice).toEqual(SOL);
+    expect(withWalkthrough(sol, { choice: null }).walkthrough).toEqual({
+      enabled: true,
+      harness: null,
+      model: null,
+      effort: null,
+    });
+    expect(withWalkthrough(sol, { enabled: false }).walkthrough?.harness).toBe("codex");
   });
 });

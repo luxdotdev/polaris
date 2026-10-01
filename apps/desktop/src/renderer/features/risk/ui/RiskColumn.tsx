@@ -17,7 +17,7 @@ import {
   Tile,
 } from "@polaris/ui";
 import { Match } from "effect";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { useStore } from "zustand";
 import { useShellActions } from "../../../shell/hooks.ts";
 import { CommentsSection, CommentsSync, FeedbackCard } from "../../comments/index.ts";
@@ -28,6 +28,7 @@ import {
   subjectKey as keyOf,
   surfaceStore,
 } from "../../review/index.ts";
+import { AlsoReviewed } from "../../review/overview/index.ts";
 import { useCanSummarise, useRiskRequest } from "../data/request.ts";
 import { type RiskState, runRiskSummary, useRiskSummary } from "../data/riskStore.ts";
 import {
@@ -181,10 +182,13 @@ const Findings = ({
   subjectKey,
   hostKey,
   summary,
+  after,
 }: {
   readonly subjectKey: string;
   readonly hostKey: string;
   readonly summary: Summary;
+  /** Under the tally: a review bot's verdict ("Also reviewed by Suzuka"). */
+  readonly after?: ReactNode;
 }) => {
   const selected = useStore(surfaceStore, (s) => (s[subjectKey] ?? emptySurface).selectedFinding);
   const groups = groupFindings(summary.findings);
@@ -204,6 +208,7 @@ const Findings = ({
     <>
       <div className="px-panel pb-3">
         <Tally tally={groups.tally} />
+        {after}
       </div>
       <div className="px-gap flex flex-col gap-0.5" data-testid="risk-findings">
         {groups.listed.length === 0 && summary.status !== "running" && (
@@ -294,7 +299,12 @@ export const RiskColumnSlot = (props: ReviewSlotProps) => {
           </p>
         )}
         {state.kind === "ready" && (
-          <Findings subjectKey={key} hostKey={state.hostKey} summary={state.summary} />
+          <Findings
+            subjectKey={key}
+            hostKey={state.hostKey}
+            summary={state.summary}
+            after={<AlsoReviewed subject={props.subject} />}
+          />
         )}
         {props.subject.kind === "pull" && <CommentsSection subjectKey={key} />}
       </div>

@@ -19,8 +19,7 @@ import {
   surfaceStore,
   updateSurface,
 } from "../surface.ts";
-import { CentrePane, type SessionInfo } from "../overview/ui/CentrePane.tsx";
-import { setTab } from "../overview/model/tabs.ts";
+import { CentrePane, setTab, type SessionInfo } from "../overview/index.ts";
 import { DiffPane } from "./DiffPane.tsx";
 import { FileList } from "./FileList.tsx";
 import { useThemeType } from "./theme.ts";
