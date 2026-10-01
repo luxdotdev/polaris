@@ -1,0 +1,5 @@
+// Deliberately bad code, to check the rule pack fires.
+export const A = ({ html }: { html: string }) => <div dangerouslySetInnerHTML={{ __html: html }} />;
+export const B = () => wrap(eval(source));
+// Safe lookalikes that must not fire:
+export const C = () => <style dangerouslySetInnerHTML={{ __html: THEME_CSS }} />;

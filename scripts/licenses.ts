@@ -16,6 +16,8 @@
 import { existsSync, readdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { Match, Schema } from "effect";
+import { BETTERLEAKS_VERSION } from "../apps/daemon/src/rules/secrets/pin.ts";
+import { auditProblems, GoAudit, renderGoNotices } from "./goLicenses.ts";
 
 export const ALLOWED = new Set([
   "MIT",
@@ -34,6 +36,9 @@ const root = join(import.meta.dir, "..");
 const noticesPath = join(root, "THIRD_PARTY_NOTICES.md");
 
 const exceptionsPath = join(import.meta.dir, "license-exceptions.json");
+
+/** The licence audit of the Go modules inside the shipped Betterleaks binary (`scripts/betterleaks.ts`). */
+const goAuditPath = join(import.meta.dir, "betterleaks-licenses.json");
 
 const LicenseObject = Schema.Struct({ type: Schema.optional(Schema.String) });
 
@@ -489,7 +494,18 @@ const main = () => {
     failed = true;
   }
 
-  const notices = renderNotices(verdicts);
+  const goAudit = Schema.decodeUnknownSync(Schema.fromJsonString(GoAudit))(
+    readFileSync(goAuditPath, "utf8")
+  );
+
+  const goProblems = auditProblems(goAudit, BETTERLEAKS_VERSION, (id) => isAllowed(id));
+
+  if (goProblems.length > 0) {
+    console.error(`Betterleaks' Go modules:\n  ${goProblems.join("\n  ")}`);
+    failed = true;
+  }
+
+  const notices = `${renderNotices(verdicts)}\n${renderGoNotices(goAudit)}`;
 
   if (check) {
     const current = existsSync(noticesPath) ? readFileSync(noticesPath, "utf8") : "";

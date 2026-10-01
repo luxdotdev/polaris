@@ -12,7 +12,7 @@ Everything that gets a `polaris` binary onto a Host, keeps it running as a user 
 | `CommandRunner.ts` | Service for running `launchctl`, `systemctl`, `loginctl` and `<binary> version`; tests replace it. |
 | `libc.ts` | `bun:ffi` bindings: `execve`, close-on-exec, `poll`/`accept`, `socketpair`, `waitpid`. |
 | `upgrade.ts` | The execve hand-off: `prepareHandoff`, `execInto`, `adoptListener`, `bindAtomically`, `serveUpgrades`, `requestUpgrade`. |
-| `selftest.ts` | `polaris selftest`: checks that the embedded fff library loads and searches on this Host. |
+| `selftest.ts` | `polaris selftest`: checks that the embedded fff library loads and searches on this Host, and that the Rules' ast-grep and Betterleaks work (`rules/selftest.ts`). |
 | `cli.ts` | The `install`, `uninstall` and `upgrade` subcommands wired into `main.ts`. |
 
 ## Builds
@@ -20,8 +20,9 @@ Everything that gets a `polaris` binary onto a Host, keeps it running as a user 
 `bun run build` (the turbo `build` task of `@polaris/daemon`, via `scripts/build-daemon.ts`) writes a dev build; `bun scripts/build-daemon.ts --release` a release (the package version, unchanged). Each Client upgrades a Host from one dev build to any other (`@polaris/client/install`, `upgradeDue`). It writes:
 
 ```
-apps/daemon/dist/manifest.json        version, commit, fff version, SHA-256 and size per platform
-apps/daemon/dist/<platform>/polaris   bun build --compile --target=bun-<platform>, self-contained
+apps/daemon/dist/manifest.json            version, commit, fff/ast-grep/Betterleaks versions, SHA-256 and size per file
+apps/daemon/dist/<platform>/polaris       bun build --compile --target=bun-<platform>, self-contained
+apps/daemon/dist/<platform>/betterleaks   the Rules' secrets scanner, pinned and checksum-verified (`executable` in the manifest)
 ```
 
 for `darwin-arm64`, `linux-x64` and `linux-arm64` (glibc), and `linux-x64-musl` and `linux-arm64-musl` (musl, for Alpine). The build runs `polaris selftest` on the host platform's binary. CI runs it on each glibc Linux binary on native runners (not yet on the musl ones).
@@ -34,6 +35,7 @@ On Linux the platform names the libc: a musl process reports `linux-<arch>-musl`
   2. `--define FFF_LIBC="gnu"` (or `"musl"`) for the Linux targets, or fff falls back to git grep at runtime. fff ships `fff-bin-linux-{x64,arm64}-musl`.
 
   Verified: the darwin binary copied outside the repo (no `node_modules` nearby), the linux-arm64 binary in a Debian container, and the linux-arm64-musl binary in Alpine 3.24 (with `libstdc++ libgcc`) all print `fff: ok` from `polaris selftest`. `POLARIS_FFF=off polaris selftest` exits 1.
+- **The Rules' ast-grep is embedded the same way** (`@ast-grep/napi-<platform>`, an optional dependency of the Daemon, plus the `@ast-grep/lang-*` grammars), with `--define process.env.POLARIS_LIBC="gnu"|"musl"` choosing one addon per Linux build. **Betterleaks is not**: it is a Go binary, downloaded at its pinned version, checked against its SHA-256 and placed beside `polaris` (`src/rules/README.md`). `polaris install` and `polaris upgrade` stage it next to the installed binary with mode 755 (`SIBLING_EXECUTABLES` in `install.ts`). `polaris selftest` prints `rules: ok (ast-grep, betterleaks <version>)`; verified on darwin-arm64, Debian 13 arm64 and Alpine 3.22 arm64. The x64 binaries could not be run here: Bun itself crashes under Rosetta (no AVX); Betterleaks' x64 binary runs there.
 
 ## Install (`polaris install`)
 

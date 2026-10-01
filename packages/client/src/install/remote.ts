@@ -98,9 +98,9 @@ const upload = Effect.fn("upload")(function* (alias: string, build: DaemonBuild)
   const ssh = yield* Ssh;
   const dir = `.polaris/upload-${randomBytes(6).toString("hex")}`;
 
-  for (const [index, file] of build.files.entries()) {
+  for (const file of build.files) {
     const target = `"$HOME/${dir}/${file.name}"`;
-    const mode = index === 0 ? "755" : "644";
+    const mode = file.executable ? "755" : "644";
 
     const script = [
       "set -e",

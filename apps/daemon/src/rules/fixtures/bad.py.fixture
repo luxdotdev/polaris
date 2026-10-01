@@ -1,0 +1,24 @@
+# Deliberately bad code, to check the rule pack fires.
+import hashlib, os, pickle, subprocess, yaml, requests
+
+eval(expr)
+subprocess.run(cmd, shell=True)
+os.system("rm " + path)
+pickle.loads(blob)
+yaml.load(text)
+requests.get(url, verify=False)
+cur.execute(f"SELECT * FROM t WHERE id = {id}")
+cur.execute("SELECT * FROM t WHERE id = %s" % id)
+hashlib.md5(data)
+try:
+    pass
+except:
+    pass
+# Safe lookalikes that must not fire:
+subprocess.run(["ls", path])
+yaml.load(text, Loader=yaml.SafeLoader)
+cur.execute("SELECT * FROM t WHERE id = %s", (id,))
+try:
+    pass
+except ValueError:
+    pass

@@ -5,6 +5,7 @@ import {
   readFileSync,
   readlinkSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -125,6 +126,30 @@ describe("install on macOS", () => {
       "launchctl print gui/501/dev.lux.polaris",
       "launchctl kickstart gui/501/dev.lux.polaris",
     ]);
+  });
+
+  test("installs Betterleaks from beside the binary as an executable", async () => {
+    const sibling = join(root, "betterleaks");
+    writeFileSync(sibling, "#!/bin/sh\necho betterleaks\n", { mode: 0o644 });
+
+    await Effect.runPromise(
+      install(ctx("darwin"), { source, version: "1.2.3" }).pipe(
+        Effect.provide(fakeRunner(notLoaded).layer)
+      )
+    );
+
+    const installed = join(layout(ctx("darwin"), "1.2.3").versionDir!, "betterleaks");
+    expect(readFileSync(installed, "utf8")).toBe(readFileSync(sibling, "utf8"));
+    expect(statSync(installed).mode & 0o777).toBe(0o755);
+
+    writeFileSync(sibling, "#!/bin/sh\necho betterleaks 2\n");
+
+    const again = await Effect.runPromise(
+      install(ctx("darwin"), { source, version: "1.2.3" }).pipe(Effect.provide(fakeRunner().layer))
+    );
+
+    expect(again.binaryChanged).toBe(true);
+    expect(readFileSync(installed, "utf8")).toContain("betterleaks 2");
   });
 
   test("a new version restarts the loaded service in place", async () => {

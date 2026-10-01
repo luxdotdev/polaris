@@ -2194,6 +2194,132 @@
         "run 3: 2.74 GB of logs; 243 RPCs and 568 deltas during the first pass"
       ],
       "durationMs": 48904.801208000004
+    },
+    "rules": {
+      "metrics": {
+        "history_ms": {
+          "value": 1716.9816250000001,
+          "unit": "ms",
+          "kind": "time",
+          "better": "lower",
+          "runs": [
+            1716.9816250000001,
+            1771.05,
+            1698.215625
+          ],
+          "min": 1698.215625,
+          "max": 1771.05
+        },
+        "history_peak_rss_mib": {
+          "value": 442.328125,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.25,
+            "absolute": 10
+          },
+          "runs": [
+            442.328125,
+            447.0625,
+            441.953125
+          ],
+          "min": 441.953125,
+          "max": 447.0625
+        },
+        "history_cpu_avg_pct": {
+          "value": 217.5873319924746,
+          "unit": "%",
+          "kind": "cpu",
+          "better": "lower",
+          "runs": [
+            217.5578175790176,
+            219.3180354915476,
+            217.5873319924746
+          ],
+          "min": 217.5578175790176,
+          "max": 219.3180354915476
+        },
+        "history_findings": {
+          "value": 20,
+          "unit": "findings",
+          "kind": "count",
+          "better": "higher",
+          "runs": [
+            20,
+            20,
+            20
+          ],
+          "min": 20,
+          "max": 20
+        },
+        "snapshot_ms": {
+          "value": 1551.839667,
+          "unit": "ms",
+          "kind": "time",
+          "better": "lower",
+          "runs": [
+            1539.876459,
+            1551.839667,
+            1589.8345
+          ],
+          "min": 1539.876459,
+          "max": 1589.8345
+        },
+        "snapshot_peak_rss_mib": {
+          "value": 445.28125,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.25,
+            "absolute": 10
+          },
+          "runs": [
+            445.1875,
+            445.28125,
+            447.578125
+          ],
+          "min": 445.1875,
+          "max": 447.578125
+        },
+        "snapshot_cpu_avg_pct": {
+          "value": 216.94039233836565,
+          "unit": "%",
+          "kind": "cpu",
+          "better": "lower",
+          "runs": [
+            216.94039233836565,
+            218.04339190049103,
+            216.9268710117477
+          ],
+          "min": 216.9268710117477,
+          "max": 218.04339190049103
+        },
+        "snapshot_findings": {
+          "value": 20,
+          "unit": "findings",
+          "kind": "count",
+          "better": "higher",
+          "runs": [
+            20,
+            20,
+            20
+          ],
+          "min": 20,
+          "max": 20
+        }
+      },
+      "notes": [
+        "1000 files changed, 40000 added lines",
+        "run 1: history peaks: bun 327 MiB, bun 117 MiB, betterleaks 36 MiB",
+        "run 1: snapshot peaks: bun 329 MiB, bun 118 MiB, betterleaks 31 MiB",
+        "run 2: history peaks: bun 331 MiB, bun 118 MiB, betterleaks 36 MiB",
+        "run 2: snapshot peaks: bun 331 MiB, bun 116 MiB, betterleaks 31 MiB",
+        "run 3: history peaks: bun 329 MiB, bun 115 MiB, betterleaks 36 MiB",
+        "run 3: snapshot peaks: bun 332 MiB, bun 117 MiB, betterleaks 34 MiB"
+      ],
+      "durationMs": 17073.801
     }
   }
 }
