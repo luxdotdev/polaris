@@ -97,6 +97,10 @@
   --color-diff-removed-text: light-dark(#cf222e, #f07a7e);
   --color-git-modified-text: light-dark(#8a5f12, #d6b37e);
 
+  /* Constellations only: accepted work (rule/constellation-colour). */
+  --color-accepted: light-dark(#6b9a1f, #a8d65e);
+  --color-accepted-text: light-dark(#4f7a0e, #a8d65e);
+
   /* Syntax: moonlit. */
   --color-syntax-keyword: light-dark(#4a5a80, #a3afcb);
   --color-syntax-string: light-dark(#86652e, #d9c9a3);
