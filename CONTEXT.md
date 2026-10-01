@@ -124,8 +124,12 @@ _Avoid_: Closed, deleted
 ### Constellations
 
 **Constellation**:
-A directed acyclic graph of Tasks in one Workspace, mapped by an orchestrating Agent Session or the user, that says what work exists, in what order, and what must pass before it ships.
+A directed acyclic graph of Tasks owned by one orchestrating Agent Session, mapped by that session or the user, that says what work exists, in what order, and what must pass before it ships; a Workspace can have several at once.
 _Avoid_: Plan, run, workflow, pipeline
+
+**Lead**:
+The Agent Session that owns a Constellation: it maps the Tasks, starts their Attempts, hears their outcomes and can hand the Constellation over to a new Lead.
+_Avoid_: Orchestrator (that is the view), conductor, parent
 
 **Task**:
 A stable unit of work in a Constellation, with dependencies on other Tasks; it is carried out by one or more Attempts, and its state follows its latest Attempt.

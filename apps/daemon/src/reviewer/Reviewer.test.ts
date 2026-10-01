@@ -319,10 +319,7 @@ describe("the Reviewer", () => {
         expect(harness?.options.readOnly).toBe(true);
         expect(harness?.turns[0]?.prompt).toContain("Add the feature");
         expect(harness?.turns[0]?.prompt).toContain("+v1");
-        expect(harness?.responses.map((r) => r.decision._tag).toSorted()).toEqual([
-          "Allow",
-          "Deny",
-        ]);
+        expect(harness?.responses.map((r) => r.decision._tag).toSorted()).toEqual(["Deny", "Deny"]);
 
         const events = yield* (yield* EventStore).readEvents({
           after: 0,

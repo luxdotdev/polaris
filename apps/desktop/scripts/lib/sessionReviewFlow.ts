@@ -152,10 +152,12 @@ export const checkTurnPicker = async (page: Page, step: (message: string) => voi
     const files = await page.getByTestId("review-file").count();
 
     const waiting =
-      (await page
-        .getByTestId("review-waiting")
-        .textContent()
-        .catch(() => null)) ?? "";
+      files > 0
+        ? ""
+        : ((await page
+            .getByTestId("review-waiting")
+            .textContent({ timeout: 1_000 })
+            .catch(() => null)) ?? "");
 
     seen.push(`${label}: ${files > 0 ? `${files} file` : waiting === "" ? "BLANK" : waiting}`);
   }

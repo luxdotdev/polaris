@@ -229,6 +229,8 @@ const openSession = Effect.fnUntraced(function* (
   };
 
   const canUseTool: CanUseTool = async (toolName, input, context) => {
+    if (options.readOnly === true)
+      return { behavior: "deny", message: "The Reviewer never requests permission." };
     const turn = active;
 
     if (!turn || turn.interrupting || closing)
@@ -508,7 +510,8 @@ const openSession = Effect.fnUntraced(function* (
     mode: PermissionMode
   ) {
     yield* Effect.tryPromise({
-      try: () => q.setPermissionMode(toClaudePermissionMode(mode)),
+      try: () =>
+        q.setPermissionMode(options.readOnly === true ? "dontAsk" : toClaudePermissionMode(mode)),
       catch: (cause) => harnessError("Could not change the permission mode", cause),
     });
     permissionMode = mode;
@@ -520,7 +523,7 @@ const openSession = Effect.fnUntraced(function* (
     if (cursor === null)
       return yield* harnessError("Claude has not started this session yet; send a Turn first");
     const argv: Array<string> = ["claude", "--resume", cursor];
-    const mode = toClaudePermissionMode(permissionMode);
+    const mode = options.readOnly === true ? "dontAsk" : toClaudePermissionMode(permissionMode);
 
     if (mode !== "default") argv.push("--permission-mode", mode);
 
@@ -564,18 +567,32 @@ const causeMessage = (cause: Cause.Cause<unknown>): string | null => {
 /**
  * A read-only session (the Reviewer): Bash runs in Claude Code's sandbox with
  * no network (an empty strict allowlist) and never outside it; no web tools.
- * Where the sandbox can't run, commands run unsandboxed and the approval
- * policy keeps network-capable ones out (`reviewer/policy.ts`).
+ * If the sandbox can't start, the session fails rather than running unsandboxed.
  */
 export const READ_ONLY_OPTIONS = {
+  permissionMode: "dontAsk",
+  settingSources: [],
+  settings: { disableAllHooks: true },
+  mcpServers: {},
+  strictMcpConfig: true,
+  tools: ["Read", "Glob", "Grep", "Bash", "Agent"],
   sandbox: {
     enabled: true,
-    failIfUnavailable: false,
-    autoAllowBashIfSandboxed: false,
+    failIfUnavailable: true,
+    autoAllowBashIfSandboxed: true,
     allowUnsandboxedCommands: false,
-    network: { allowedDomains: [], strictAllowlist: true, allowLocalBinding: false },
+    excludedCommands: [],
+    filesystem: { denyWrite: ["/"] },
+    network: {
+      allowedDomains: [],
+      deniedDomains: ["*"],
+      strictAllowlist: true,
+      allowLocalBinding: false,
+      allowAllUnixSockets: false,
+    },
   },
-  disallowedTools: ["WebFetch", "WebSearch"],
+  allowedTools: ["Read", "Glob", "Grep", "Agent"],
+  disallowedTools: ["Edit", "Write", "NotebookEdit", "WebFetch", "WebSearch"],
 } satisfies Partial<Options>;
 
 export const makeClaudeDriver = (options: ClaudeDriverOptions = {}): HarnessDriver => {

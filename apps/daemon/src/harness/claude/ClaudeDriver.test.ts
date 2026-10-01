@@ -284,10 +284,26 @@ describe("Claude driver", () => {
 
     expect(o.sandbox).toMatchObject({
       enabled: true,
+      failIfUnavailable: true,
+      autoAllowBashIfSandboxed: true,
       allowUnsandboxedCommands: false,
+      excludedCommands: [],
+      filesystem: { denyWrite: ["/"] },
       network: { allowedDomains: [], strictAllowlist: true },
     });
-    expect(o.disallowedTools).toEqual(["WebFetch", "WebSearch"]);
+    expect(o.permissionMode).toBe("dontAsk");
+    expect(o.disallowedTools).toEqual(["Edit", "Write", "NotebookEdit", "WebFetch", "WebSearch"]);
+    await t.run(t.session.sendTurn(turn(T1, "review")));
+
+    for (const tool of ["Bash", "Edit", "AskUserQuestion", "Agent"]) {
+      expect(await t.fake.askPermission(tool, {}, { toolUseID: `late-${tool}` })).toMatchObject({
+        behavior: "deny",
+      });
+    }
+
+    expect(t.events.some(HarnessEvent.$is("ApprovalRequested"))).toBe(false);
+    await t.run(t.session.setPermissionMode("full-access"));
+    expect(t.fake.permissionModes).toEqual(["dontAsk"]);
     await t.close();
 
     const plain = await openFake();

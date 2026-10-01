@@ -23,6 +23,10 @@ Implements `HarnessDriver` (`../HarnessDriver.ts`) for Claude Code (ENG-192, dec
 - **Switching** (`switchModel: true`): a session opens with `model` and `effort` (SDK `Options`). Before a Turn whose Model or effort differs from what the live query runs with, the driver calls `setModel(model)` (undefined = Claude Code's default) and `applyFlagSettings({ effortLevel })` (null = the Model's default effort); both work mid-session in streaming input mode. An effort outside Claude Code's levels (`low`, `medium`, `high`, `xhigh`, `max`) fails the Turn before anything is sent.
 - **Loaded on first use.** `HarnessRegistryLive` (`../registry.ts`) imports this module, and with it the Agent SDK, on the first `probe` or `open`; an idle Daemon never loads it. The registry declares the driver's `capabilities` up front (checked against the real driver in `registry.test.ts`) and builds `terminalFollow` from the hook receiver, which does not need the SDK.
 
+### Reviewer sessions
+
+`OpenOptions.readOnly` applies `READ_ONLY_OPTIONS`: `dontAsk`, read/search/Agent tools, sandboxed Bash with no filesystem writes or network, and no user/project settings, hooks or MCP servers. A missing sandbox fails closed. Subagents inherit these restrictions. A late `canUseTool` callback is denied before it can emit an approval, and a later permission mode change stays `dontAsk`.
+
 ### Skills and Slash Commands (`commands.ts`)
 
 `listCommands(cwd)` starts `claude` in `cwd` through the SDK with no prompt and asks `supportedCommands()`: `persistSession: false`, `mcpServers: {}` + `strictMcpConfig`, `settings: { disableAllHooks: true }`, but `settingSources: ["user", "project", "local"]` so the Workspace's own Skills and commands load. Nothing is sent to a model; ~0.75–0.9 s with Claude Code 2.1.286 (273 entries in this repo). The SDK lists one entry per command (aliases ride along), already including Skills, custom commands, plugin entries and Claude Code's bundled Skills. `classify` decides how each runs:

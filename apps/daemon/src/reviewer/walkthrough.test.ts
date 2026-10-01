@@ -5,6 +5,7 @@ import {
   LayerRun,
   ReviewerChoice,
   ReviewerSettings,
+  ReviewerRun,
   ReviewSubject,
   RiskSummary,
   RiskSummaryId,
@@ -28,6 +29,8 @@ import {
   walkthroughChoice,
   walkthroughKey,
 } from "./walkthrough.ts";
+import { recoverReviewer, RESTART_NOTE } from "./recovery.ts";
+import { ReviewerSessions } from "./sessions.ts";
 import { walkthroughProblem } from "./walkthroughPrompt.ts";
 
 const choice = ReviewerChoice.make({ harness: "claude", model: "model", effort: "high" });
@@ -158,6 +161,64 @@ describe("walkthrough persistence and controls", () => {
         const retry = yield* requestWalkthroughs(failed!, choice, new Set());
         expect(retry.walkthrough?.state).toBe("writing");
         expect(retry.deltaWalkthrough).toBeUndefined();
+      })
+    );
+  });
+
+  test("Reviewer recovery and walkthrough recovery preserve each other's state", async () => {
+    await run(
+      Effect.gen(function* () {
+        const store = yield* EventStore;
+
+        const abandoned = RiskSummary.make({
+          id: summary.id,
+          key: summary.key,
+          workspaceId: summary.workspaceId,
+          subject: summary.subject,
+          checkoutId: summary.checkoutId,
+          cost: summary.cost,
+          note: summary.note,
+          findings: summary.findings,
+          startedAt: summary.startedAt,
+          endedAt: null,
+          status: "running",
+          layers: RiskSummaryLayers.make({
+            rules: summary.layers.rules,
+            agent: LayerRun.make({ status: "running", note: null }),
+          }),
+          reviewer: ReviewerRun.make({
+            harness: "claude",
+            model: "model",
+            effort: "high",
+            sessionId: SessionId.make("durable-reviewer"),
+          }),
+          walkthrough: changeWalkthrough(initial, {
+            markdown: "## Why the change\nPartial",
+            sessionId: SessionId.make("walkthrough"),
+          }),
+        });
+
+        yield* store.commit({
+          commandId: null,
+          decide: () =>
+            Effect.succeed([DomainEvent.cases.RiskSummaryStarted.make({ summary: abandoned })]),
+        });
+
+        yield* recoverReviewer.pipe(Effect.provide(ReviewerSessions.layer));
+        const reviewRecovered = (yield* read)!;
+        expect(reviewRecovered.status).toBe("failed");
+        expect(reviewRecovered.layers.agent.note).toBe(RESTART_NOTE);
+        expect(reviewRecovered.walkthrough?.state).toBe("writing");
+        yield* recoverWalkthroughs();
+        const recovered = (yield* read)!;
+        expect(recovered.layers.rules.status).toBe("completed");
+        expect(recovered.layers.agent.note).toBe(RESTART_NOTE);
+        expect(recovered.walkthrough?.state).toBe("failed");
+        expect(recovered.walkthrough?.markdown).toBe("## Why the change\nPartial");
+        expect(recovered.walkthrough?.sessionId).toBe(SessionId.make("walkthrough"));
+        expect((yield* store.review.recovery).sessions).toContain(
+          SessionId.make("durable-reviewer")
+        );
       })
     );
   });
