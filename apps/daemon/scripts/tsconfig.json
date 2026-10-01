@@ -1,1 +1,4 @@
-{ "extends": "../../../tsconfig.base.json", "include": ["."] }
+{
+  "extends": "../../../tsconfig.base.json",
+  "include": [".", "../src/rules/patterns/grammars.d.ts"]
+}
