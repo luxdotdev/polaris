@@ -20,7 +20,7 @@ import {
   type SessionId,
   type WorkspaceId,
 } from "@polaris/protocol";
-import { Effect, Result } from "effect";
+import { Cause, Effect, Option, Result, Schema } from "effect";
 import { checkoutGitRaw } from "../git/review/refs.ts";
 import { recordRulesLayer } from "../rules/index.ts";
 import { EventStore } from "../store/EventStore.ts";
@@ -121,15 +121,29 @@ export interface ReviewerPlan {
   readonly off: string | null;
   /** Ask first above this many changed lines; null never asks. */
   readonly askAboveLines: number | null;
+  /** Set when the change is over that threshold: the Reviewer waits for "Run reviewer". */
+  readonly waiting: string | null;
 }
 
-const agentAtStart = ({ resolved, off }: ReviewerPlan) => {
+/** The Reviewer that runs on this summary now, or null (none, switched off, or waiting). */
+const runningChoice = (plan: ReviewerPlan) =>
+  plan.off === null && plan.waiting === null ? plan.resolved.choice : null;
+
+const agentAtStart = ({ resolved, off, waiting }: ReviewerPlan) => {
   if (resolved.choice === null) return LayerRun.make({ status: "skipped", note: resolved.note });
 
-  return off === null
-    ? LayerRun.make({ status: "pending", note: null })
-    : LayerRun.make({ status: "skipped", note: off });
+  if (off !== null) return LayerRun.make({ status: "skipped", note: off });
+
+  return LayerRun.make({ status: "pending", note: waiting });
 };
+
+const reviewerRun = (choice: ReviewerChoice, sessionId: SessionId | null) =>
+  ReviewerRun.make({
+    harness: choice.harness,
+    model: choice.model,
+    effort: choice.effort,
+    sessionId,
+  });
 
 const startedSummary = (
   request: RunRequest,
@@ -138,6 +152,7 @@ const startedSummary = (
   now: string
 ) => {
   const { resolved } = plan;
+  const running = runningChoice(plan);
 
   return RiskSummary.make({
     id: RiskSummaryId.make(`rs_${crypto.randomUUID()}`),
@@ -150,20 +165,31 @@ const startedSummary = (
       rules: LayerRun.make({ status: "pending", note: null }),
       agent: agentAtStart(plan),
     }),
-    reviewer:
-      resolved.choice === null
-        ? null
-        : ReviewerRun.make({
-            harness: resolved.choice.harness,
-            model: resolved.choice.model,
-            effort: resolved.choice.effort,
-            sessionId: null,
-          }),
+    // Only a Reviewer that runs is named: a waiting or switched-off one isn't "Reviewed by".
+    reviewer: running === null ? null : reviewerRun(running, null),
     cost: null,
     note: [range.note, resolved.note].filter((n) => n !== null).join(" ") || null,
     findings: [],
     startedAt: now,
     endedAt: null,
+  });
+};
+
+/** What a failure says: a rejection's `reason`, else an error's `message`. */
+const Said = Schema.Union([
+  Schema.Struct({ reason: Schema.String }),
+  Schema.Struct({ message: Schema.String }),
+]);
+
+const decodeSaid = Schema.decodeUnknownOption(Said);
+
+/** A failure as a user reads it: the error's own words, never a stack. */
+const causeMessage = (cause: Cause.Cause<unknown>): string => {
+  const error = Cause.squash(cause);
+
+  return Option.match(decodeSaid(error), {
+    onNone: () => String(error),
+    onSome: (said) => ("reason" in said ? said.reason : said.message),
   });
 };
 
@@ -212,7 +238,8 @@ const decodeWithRepair = (sessionId: SessionId, outcome: TurnOutcome) =>
   });
 
 interface AgentResult {
-  readonly sessionId: SessionId;
+  /** Null when it failed before its session started. */
+  readonly sessionId: SessionId | null;
   readonly output: ReviewerOutput | null;
   readonly note: string | null;
 }
@@ -259,7 +286,9 @@ const askReviewer = Effect.fn("askReviewer")(function* (input: AgentInput) {
     return {
       sessionId: outcome.sessionId,
       output: null,
-      note: `The Reviewer's Turn ${outcome.status === "interrupted" ? "was interrupted" : "failed"}.`,
+      note: `The Reviewer's Turn ${outcome.status === "interrupted" ? "was interrupted" : "failed"}${
+        outcome.error === null ? "." : `: ${outcome.error}`
+      }`,
     } satisfies AgentResult;
   }
 
@@ -281,19 +310,22 @@ const runAgentLayer = (input: AgentInput) =>
     yield* agentLayer(summary.id, LayerRun.make({ status: "running", note: null }));
 
     const result = yield* askReviewer(input).pipe(
-      Effect.catchCause((cause) => Effect.as(Effect.logWarning("the Reviewer failed", cause), null))
+      Effect.catchCause((cause) =>
+        Effect.as(Effect.logWarning("the Reviewer failed", cause), {
+          sessionId: null,
+          output: null,
+          note: `The Reviewer couldn't run: ${causeMessage(cause)}`,
+        } satisfies AgentResult)
+      )
     );
 
-    if (result === null || result.output === null) {
+    if (result.output === null) {
       yield* agentLayer(
         summary.id,
-        LayerRun.make({
-          status: "failed",
-          note: result?.note ?? "The Reviewer could not run.",
-        })
+        LayerRun.make({ status: "failed", note: result.note ?? "The Reviewer couldn't run." })
       );
 
-      return result?.sessionId ?? null;
+      return result.sessionId;
     }
 
     const converted = yield* toRiskFindings(
@@ -328,9 +360,9 @@ const runAgentLayer = (input: AgentInput) =>
 
 // ── The whole run ───────────────────────────────────────────────────────────
 
-const ended = (summary: RiskSummary, sessionId: SessionId | null, resolved: ResolvedReviewer) =>
+/** `choice` is the Reviewer that ran (or tried to); null when none did. */
+const ended = (summary: RiskSummary, sessionId: SessionId | null, choice: ReviewerChoice | null) =>
   Effect.gen(function* () {
-    const choice = resolved.choice;
     const after = yield* readSummary(summary.id);
     const rulesFailed = after?.layers.rules.status === "failed";
     const agentFailed = after?.layers.agent.status !== "completed";
@@ -349,15 +381,7 @@ const ended = (summary: RiskSummary, sessionId: SessionId | null, resolved: Reso
       DomainEvent.cases.RiskSummaryEnded.make({
         summaryId: summary.id,
         status: rulesFailed && agentFailed ? "failed" : "completed",
-        reviewer:
-          choice === null
-            ? null
-            : ReviewerRun.make({
-                harness: choice.harness,
-                model: choice.model,
-                effort: choice.effort,
-                sessionId,
-              }),
+        reviewer: choice === null ? null : reviewerRun(choice, sessionId),
         cost,
         note,
       }),
@@ -366,7 +390,6 @@ const ended = (summary: RiskSummary, sessionId: SessionId | null, resolved: Reso
     return !(rulesFailed && agentFailed);
   });
 
-/** The layers of a started summary, then its end. Never fails: a broken layer is recorded. */
 /** The "Ask first" note when the change is over the threshold, else null. */
 const overThreshold = (range: ReviewRange, askAboveLines: number | null) =>
   askAboveLines === null
@@ -375,6 +398,7 @@ const overThreshold = (range: ReviewRange, askAboveLines: number | null) =>
         Effect.map((diff) => askFirst(changedLines(diff), askAboveLines))
       );
 
+/** The layers of a started summary, then its end. Never fails: a broken layer is recorded. */
 export const runLayers = (
   summary: RiskSummary,
   range: ReviewRange,
@@ -391,15 +415,10 @@ export const runLayers = (
       mode: range.mode,
     }).pipe(Effect.catchCause((cause) => Effect.logWarning("the Rules failed", cause)));
 
-    const { plan } = input;
-    const choice = plan.off === null ? plan.resolved.choice : null;
-    const waiting = choice === null ? null : yield* overThreshold(range, plan.askAboveLines);
-
-    if (waiting !== null)
-      yield* agentLayer(summary.id, LayerRun.make({ status: "pending", note: waiting }));
+    const choice = runningChoice(input.plan);
 
     const sessionId =
-      choice === null || waiting !== null
+      choice === null
         ? null
         : yield* runAgentLayer({ summary, range, choice, context: input.context });
 
@@ -412,7 +431,7 @@ export const runLayers = (
       });
     }
 
-    return yield* ended(summary, sessionId, plan.resolved);
+    return yield* ended(summary, sessionId, choice);
   });
 
 export const startRun = (
@@ -437,14 +456,18 @@ export const startRun = (
           ? RULES_AFTER_TURN
           : switchedOff(request.subject, settings, request.refresh),
       askAboveLines: request.refresh ? null : settings.askAboveLines,
+      waiting: null,
     };
 
     const existing = yield* cached(range, request.refresh, plan);
 
     if (existing !== null) return { summary: existing, range, plan: null };
 
-    const summary = startedSummary(request, range, plan, new Date().toISOString());
+    const waiting =
+      runningChoice(plan) === null ? null : yield* overThreshold(range, plan.askAboveLines);
+
+    const summary = startedSummary(request, range, { ...plan, waiting }, new Date().toISOString());
     yield* commit([DomainEvent.cases.RiskSummaryStarted.make({ summary })]);
 
-    return { summary, range, plan };
+    return { summary, range, plan: { ...plan, waiting } };
   });

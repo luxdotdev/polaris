@@ -18,7 +18,7 @@ import { useSession } from "../../session/hooks.ts";
 import { type Ask, askReviewer, useAsks } from "../data/actions.ts";
 import { setAskAbout, useAskAbout } from "../data/ui.ts";
 import { answerOf, type TurnSnapshot } from "../model/answer.ts";
-import type { Summary } from "../model/summary.ts";
+import { askPlaceholder, canAskReviewer, type Summary } from "../model/summary.ts";
 
 const isMessage = Predicate.isTagged("AssistantMessage");
 
@@ -101,12 +101,6 @@ const AskItem = ({
   );
 };
 
-const placeholderOf = (canAsk: boolean, aboutFinding: boolean) => {
-  if (!canAsk) return "Rules only: there’s no reviewer to ask";
-
-  return aboutFinding ? "Ask about this finding" : "Ask the reviewer about this change";
-};
-
 export interface AskReviewerProps {
   readonly subjectKey: string;
   readonly hostKey: string;
@@ -118,7 +112,7 @@ export const AskReviewer = ({ subjectKey, hostKey, summary }: AskReviewerProps) 
   const aboutId = useAskAbout(subjectKey);
   const about = summary.findings.find((f) => f.id === aboutId) ?? null;
   const [question, setQuestion] = useState("");
-  const canAsk = summary.reviewer !== null && summary.reviewer.sessionId !== null;
+  const canAsk = canAskReviewer(summary);
 
   const ask = () => {
     if (question.trim() === "" || !canAsk) return;
@@ -153,7 +147,7 @@ export const AskReviewer = ({ subjectKey, hostKey, summary }: AskReviewerProps) 
           data-testid="ask-input"
           disabled={!canAsk}
           className="text-body text-text-default placeholder:text-text-faint min-w-0 flex-1 bg-transparent outline-none"
-          placeholder={placeholderOf(canAsk, about !== null)}
+          placeholder={askPlaceholder(summary, about !== null)}
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           onKeyDown={(e) => {

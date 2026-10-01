@@ -144,13 +144,26 @@ const reviewerLayer = (options: {
   readonly ready: boolean;
   readonly checkpoints?: boolean;
   readonly rules?: Layer.Layer<Rules>;
+  /** The Reviewer's Turns fail with this error. */
+  readonly reviewerFails?: string;
 }) => {
   const dir = tempDir();
   cleanup.push(dir);
 
   const driver = makeFakeDriver("claude", {
     onTurn: (input, session) =>
-      input.prompt.startsWith(REVIEWER_MARKER) ? reviewerTurn(input) : userTurn(input, session),
+      input.prompt.startsWith(REVIEWER_MARKER)
+        ? options.reviewerFails === undefined
+          ? reviewerTurn(input)
+          : [
+              HarnessEvent.TurnStarted({ turnId: input.turnId, prompt: input.prompt }),
+              HarnessEvent.TurnEnded({
+                turnId: input.turnId,
+                status: "failed",
+                error: options.reviewerFails,
+              }),
+            ]
+        : userTurn(input, session),
   });
 
   const base = {
@@ -493,6 +506,8 @@ describe("when it runs", () => {
         expect(waiting.layers.rules.status).toBe("completed");
         expect(waiting.layers.agent.status).toBe("pending");
         expect(waiting.layers.agent.note).toContain("1 changed lines is over 0");
+        // Waiting isn't "Reviewed by": no Reviewer is named until one runs.
+        expect(waiting.reviewer).toBeNull();
         expect(driver.sessions).toHaveLength(0);
 
         // "Run reviewer": the user asks, so the threshold doesn't apply.
@@ -504,6 +519,35 @@ describe("when it runs", () => {
         expect(ran.id).not.toBe(waiting.id);
         expect(ran.layers.agent.status).toBe("completed");
         expect(ran.findings).toHaveLength(1);
+      })
+    );
+  }, 60_000);
+
+  test("a Reviewer whose Turn fails says so, and why", async () => {
+    const s = await scenario();
+
+    const { layer } = reviewerLayer({
+      ready: true,
+      reviewerFails: "gpt-6.1-sol isn't available on this plan",
+    });
+
+    await run(
+      layer,
+      Effect.gen(function* () {
+        const reviewer = yield* Reviewer;
+        const workspace = yield* openReview(s.user, s.v1);
+
+        const done = yield* summaryWhen(
+          (yield* reviewer.run(openRequest(workspace, false))).id,
+          ended
+        );
+
+        expect(done.status).toBe("completed");
+        expect(done.layers.agent.status).toBe("failed");
+        expect(done.layers.agent.note).toBe(
+          "The Reviewer's Turn failed: gpt-6.1-sol isn't available on this plan"
+        );
+        expect(done.reviewer?.sessionId).toBeTruthy();
       })
     );
   }, 60_000);
@@ -529,6 +573,7 @@ describe("when it runs", () => {
         expect(off.layers.agent.status).toBe("skipped");
         expect(off.layers.agent.note).toContain("doesn't run on pull requests by itself");
         expect(off.layers.rules.status).toBe("completed");
+        expect(off.reviewer).toBeNull();
 
         const asked = yield* summaryWhen(
           (yield* reviewer.run(openRequest(workspace, true))).id,

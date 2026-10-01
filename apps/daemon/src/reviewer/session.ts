@@ -34,7 +34,27 @@ export interface TurnOutcome {
   readonly status: Turn["status"];
   /** The Turn's last assistant message; null when it wrote none. */
   readonly reply: string | null;
+  /** Why it didn't complete, as the session recorded it; null when it completed. */
+  readonly error: string | null;
 }
+
+/** The reason of the session's last state change after `after`: why a Turn failed. */
+const failureReason = (sessionId: SessionId, after: number) =>
+  Effect.gen(function* () {
+    const store = yield* EventStore;
+    const model = yield* store.model;
+
+    const events = yield* store
+      .readEvents({ after, upTo: model.sequence, sessionId })
+      .pipe(Effect.orElseSucceed(() => []));
+
+    return (
+      events
+        .map((envelope) => envelope.event)
+        .filter(DomainEvent.guards.SessionStateChanged)
+        .findLast((event) => event.reason !== null)?.reason ?? null
+    );
+  });
 
 const newCommandId = () => CommandId.make(`cmd_${crypto.randomUUID()}`);
 
@@ -68,6 +88,7 @@ const runTurn = <E>(
       const ended = turnEndedIn(sessionId, fromIndex);
       const live = yield* store.subscribe({ sessionId });
 
+      const sentAt = (yield* store.model).sequence;
       yield* send;
 
       const sent = (yield* store.model).sessions
@@ -114,6 +135,7 @@ const runTurn = <E>(
         turnId: turn.value.id,
         status: turn.value.status,
         reply: finalReply(items.get(turn.value.id)),
+        error: turn.value.status === "completed" ? null : yield* failureReason(sessionId, sentAt),
       } satisfies TurnOutcome;
     })
   );

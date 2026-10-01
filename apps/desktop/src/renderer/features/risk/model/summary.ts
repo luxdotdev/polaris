@@ -123,15 +123,42 @@ export const captionOf = (summary: Summary, now: number): string => {
 };
 
 /**
- * The header's action: "Run reviewer" when its layer waits (a change over the Ask-first
- * threshold) or was switched off, else "Review again". Both run with `refresh`.
+ * Where the Reviewer is on a summary, from its agent layer: the one fact the header's action,
+ * the cost line and the Ask box all read, so they never disagree.
+ * - `none`: no Reviewer is available on the Host (the Daemon's "Rules only…" note).
+ * - `off`: switched off for this kind of change, or the Rules after a single Turn.
+ * - `waiting`: over the Ask-first threshold, waiting for "Run reviewer".
+ * - `running`, `failed` (the agent layer's note says why), `ran`.
  */
-export const rerunLabel = (summary: Summary | null) =>
-  summary !== null &&
-  summary.status !== "running" &&
-  (summary.layers.agent.status === "pending" || summary.layers.agent.status === "skipped")
-    ? "Run reviewer"
-    : "Review again";
+export type ReviewerState = "none" | "off" | "waiting" | "running" | "failed" | "ran";
+
+export const reviewerState = (summary: Summary): ReviewerState => {
+  const { status, note } = summary.layers.agent;
+
+  switch (status) {
+    case "completed":
+      return "ran";
+    case "failed":
+      return "failed";
+    case "running":
+      return "running";
+    case "pending":
+      return summary.status === "running" ? "running" : "waiting";
+    case "skipped":
+      return note?.startsWith("Rules only") === true ? "none" : "off";
+  }
+};
+
+/**
+ * The header's action: "Run reviewer" when the Reviewer waits or was switched off,
+ * else "Review again". Both run with `refresh`.
+ */
+export const rerunLabel = (summary: Summary | null) => {
+  if (summary === null || summary.status === "running") return "Review again";
+  const state = reviewerState(summary);
+
+  return state === "waiting" || state === "off" ? "Run reviewer" : "Review again";
+};
 
 /** Why a layer didn't finish, and the summary's note (a Plan Limit, "Rules only…"), deduplicated. */
 export const notesOf = (summary: Summary): ReadonlyArray<string> => {
@@ -160,9 +187,15 @@ export interface CostNames {
   readonly model: string | null;
 }
 
-/** ENG-229's quiet line: "Reviewed by Codex · GPT-6.1-Sol · 182k tokens · ~$0.40". */
+/**
+ * ENG-229's quiet line: "Reviewed by Codex · GPT-6.1-Sol · 182k tokens · ~$0.40". Only
+ * for a Reviewer that ran: one named on a waiting or failed summary didn't review it.
+ */
 export const costLine = (summary: Summary, names: CostNames | null): string | null => {
-  if (summary.reviewer === null || names === null) return null;
+  if (reviewerState(summary) !== "ran" || summary.reviewer?.sessionId == null || names === null) {
+    return null;
+  }
+
   const parts = [`Reviewed by ${names.harness}`];
 
   if (names.model !== null) parts.push(names.model);
@@ -175,6 +208,49 @@ export const costLine = (summary: Summary, names: CostNames | null): string | nu
 
   return parts.join(" · ");
 };
+
+/** The line under the findings: the cost line once the Reviewer ran, else where it is. */
+export const reviewerLine = (summary: Summary, names: CostNames | null): string => {
+  const cost = costLine(summary, names);
+
+  if (cost !== null) return cost;
+
+  switch (reviewerState(summary)) {
+    case "none":
+      return "Rules only: no reviewer on this host";
+    case "off":
+      return "Rules only: the reviewer didn’t run on this change";
+    case "waiting":
+      return "The reviewer is waiting: Run reviewer to review this change";
+    case "running":
+      return "The reviewer is reading the change…";
+    case "failed":
+      return summary.layers.agent.note ?? "The reviewer couldn’t finish";
+    case "ran":
+      return "Reviewed";
+  }
+};
+
+/** The Ask box's placeholder: you can ask only a Reviewer that ran. */
+export const askPlaceholder = (summary: Summary, aboutFinding: boolean): string => {
+  switch (reviewerState(summary)) {
+    case "ran":
+      return aboutFinding ? "Ask about this finding" : "Ask the reviewer about this change";
+    case "none":
+      return "Rules only: there’s no reviewer to ask";
+    case "running":
+      return "The reviewer is still reading the change";
+    case "failed":
+      return "The reviewer couldn’t finish: review again to ask";
+    case "off":
+    case "waiting":
+      return "Run reviewer first to ask about this change";
+  }
+};
+
+/** True when a follow-up can go to the Reviewer's own session. */
+export const canAskReviewer = (summary: Summary): boolean =>
+  reviewerState(summary) === "ran" && summary.reviewer?.sessionId != null;
 
 /** The finding a stale selection pointed at, else null (a refreshed summary may drop it). */
 export const findingById = (summary: Summary | null, id: string | null): Finding | null =>

@@ -32,7 +32,8 @@ import { useCanSummarise, useRiskRequest } from "../data/request.ts";
 import { type RiskState, runRiskSummary, useRiskSummary } from "../data/riskStore.ts";
 import {
   captionOf,
-  costLine,
+  reviewerLine,
+  reviewerState,
   type Finding,
   groupFindings,
   notesOf,
@@ -238,7 +239,7 @@ const CostLine = ({
 }) => {
   const { openSettings } = useShellActions();
   const names = useCostNames(hostKey, summary);
-  const cost = costLine(summary, names) ?? "Rules only: no reviewer ran";
+  const cost = reviewerLine(summary, names);
 
   return (
     <div className="px-panel gap-gap flex items-baseline pt-2" data-testid="risk-cost-line">
@@ -252,7 +253,7 @@ const CostLine = ({
         data-testid="risk-reviewer-settings"
         onClick={() => openSettings("reviewer")}
       >
-        {summary.reviewer === null ? "Choose a reviewer" : "Change"}
+        {reviewerState(summary) === "none" ? "Choose a reviewer" : "Change"}
       </Button>
     </div>
   );

@@ -11,7 +11,11 @@ import {
   placeOf,
   provenanceOf,
   rank,
+  askPlaceholder,
+  canAskReviewer,
   rerunLabel,
+  reviewerLine,
+  reviewerState,
   type Summary,
 } from "./summary.ts";
 
@@ -186,5 +190,63 @@ describe("labels", () => {
       costLine(summary({ cost: { tokens: 900, costUsd: null } }), { ...names, model: null })
     ).toBe("Reviewed by Codex · 900 tokens");
     expect(costLine(summary({ reviewer: null }), names)).toBeNull();
+  });
+});
+
+describe("the Reviewer's state, said the same way everywhere", () => {
+  const names = { harness: "Codex", model: "GPT-6.1-Sol · high" };
+
+  const agent = (status: Summary["layers"]["agent"]["status"], note: string | null = null) => ({
+    rules: { status: "completed" as const, note: null },
+    agent: { status, note },
+  });
+
+  test("a Reviewer named on a waiting summary isn't \"Reviewed by\" (the user's screenshot)", () => {
+    const waiting = summary({
+      layers: agent("pending", "4,112 changed lines is over 2,000: the reviewer waits."),
+      reviewer: { harness: "codex", model: "gpt-6.1-sol", effort: "high", sessionId: null },
+      cost: null,
+    });
+
+    expect(reviewerState(waiting)).toBe("waiting");
+    expect(rerunLabel(waiting)).toBe("Run reviewer");
+    expect(reviewerLine(waiting, names)).toBe(
+      "The reviewer is waiting: Run reviewer to review this change"
+    );
+    expect(askPlaceholder(waiting, false)).toBe("Run reviewer first to ask about this change");
+    expect(canAskReviewer(waiting)).toBe(false);
+  });
+
+  test("a failed Reviewer says why, offers Review again, and can't be asked", () => {
+    const failed = summary({
+      layers: agent("failed", "The Reviewer's Turn failed: model not available"),
+      cost: null,
+    });
+
+    expect(reviewerLine(failed, names)).toBe("The Reviewer's Turn failed: model not available");
+    expect(rerunLabel(failed)).toBe("Review again");
+    expect(canAskReviewer(failed)).toBe(false);
+  });
+
+  test("Rules only: no Run reviewer when there is no reviewer to run", () => {
+    const none = summary({
+      layers: agent("skipped", "Rules only: no Reviewer is available on this Host."),
+      reviewer: null,
+      cost: null,
+    });
+
+    expect(reviewerState(none)).toBe("none");
+    expect(rerunLabel(none)).toBe("Review again");
+    expect(reviewerLine(none, names)).toBe("Rules only: no reviewer on this host");
+    expect(askPlaceholder(none, false)).toBe("Rules only: there’s no reviewer to ask");
+  });
+
+  test("a Reviewer that ran gets the cost line and can be asked", () => {
+    const ran = summary();
+
+    expect(reviewerLine(ran, names)).toBe(
+      "Reviewed by Codex · GPT-6.1-Sol · high · 182k tokens · ~$0.40"
+    );
+    expect(canAskReviewer(ran)).toBe(true);
   });
 });
