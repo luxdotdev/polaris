@@ -3,11 +3,14 @@
  * never leaves the caret inside one, and copying keeps their sigils.
  */
 import {
+  $createRangeSelectionFromDom,
   $getSelection,
   $isElementNode,
   $isLineBreakNode,
   $isRangeSelection,
   $isTextNode,
+  $setSelection,
+  type LexicalEditor,
   type PointType,
   type TextNode,
 } from "lexical";
@@ -65,6 +68,24 @@ export const $caretAcrossChip = (direction: Direction, extend: boolean): boolean
   else selection.setTextNodeRange(target, offset, target, offset);
 
   return true;
+};
+
+/**
+ * Takes the caret from the DOM when it moved there first. Lexical reads the DOM
+ * caret on selectionchange, which can land after the next keydown: a key pressed
+ * right after a native move (⌘←) would otherwise act on the old caret.
+ */
+export const $followDomCaret = (editor: LexicalEditor) => {
+  const root = editor.getRootElement();
+  const dom = root?.ownerDocument.defaultView?.getSelection() ?? null;
+
+  if (root === null || dom === null || !root.contains(dom.anchorNode)) return;
+  const fresh = $createRangeSelectionFromDom(dom, editor);
+  const current = $getSelection();
+
+  if (fresh === null || (current !== null && fresh.is(current))) return;
+  $setSelection(fresh);
+  $snapOutOfChip();
 };
 
 /** A collapsed caret strictly inside a chip snaps to its nearer edge. */

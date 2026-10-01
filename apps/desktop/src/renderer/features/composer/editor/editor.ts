@@ -8,6 +8,7 @@ import { registerPlainText } from "@lexical/plain-text";
 import { mergeRegister } from "@lexical/utils";
 import {
   $getRoot,
+  COMMAND_PRIORITY_CRITICAL,
   COMMAND_PRIORITY_HIGH,
   COMMAND_PRIORITY_LOW,
   COMMAND_PRIORITY_NORMAL,
@@ -19,6 +20,7 @@ import {
   KEY_ARROW_LEFT_COMMAND,
   KEY_ARROW_RIGHT_COMMAND,
   KEY_ARROW_UP_COMMAND,
+  KEY_DOWN_COMMAND,
   KEY_ENTER_COMMAND,
   KEY_ESCAPE_COMMAND,
   KEY_TAB_COMMAND,
@@ -32,7 +34,7 @@ import {
 } from "lexical";
 import type { CommandOption, Draft } from "../model/commands.ts";
 import { CommandNode } from "./node.ts";
-import { $caretAcrossChip, $selectionText, $snapOutOfChip } from "./selection.ts";
+import { $caretAcrossChip, $followDomCaret, $selectionText, $snapOutOfChip } from "./selection.ts";
 import {
   $insertChip,
   $readDraft,
@@ -102,6 +104,16 @@ const registerKeys = (editor: LexicalEditor, hooks: () => EditorHooks) => {
   const high = COMMAND_PRIORITY_HIGH;
 
   return mergeRegister(
+    // First on every key: the commands below act on the caret the user sees.
+    editor.registerCommand(
+      KEY_DOWN_COMMAND,
+      (event) => {
+        if (!event.isComposing) $followDomCaret(editor);
+
+        return false;
+      },
+      COMMAND_PRIORITY_CRITICAL
+    ),
     editor.registerCommand(
       KEY_ARROW_DOWN_COMMAND,
       whileMenu((h) => h.menu.move(1)),

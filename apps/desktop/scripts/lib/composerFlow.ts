@@ -32,17 +32,30 @@ const menuAndChips = async (page: Page, step: (m: string) => void) => {
   await expectText(page, "compact keep the tests", "after picking /compact");
 
   if ((await page.getByTestId("command-menu").count()) > 0) throw new Error("the menu stayed open");
-  // A chip is atomic: one Backspace after it takes it whole. Keys at a person's pace:
-  // the editor follows the caret through selectionchange, which lands after the keydown.
+  // A chip is atomic: one Backspace after it takes it whole. Keys back to back, so a
+  // key that beats the browser's selectionchange still acts on the caret the user sees.
 
-  for (const key of ["Meta+ArrowLeft", "ArrowRight", "Backspace"]) {
-    await page.keyboard.press(key);
-    await page.waitForTimeout(50);
+  for (let round = 0; round < 10; round++) {
+    if (round > 0) {
+      await clear(page);
+      await page.keyboard.type("/comp");
+      await page.keyboard.press("Enter");
+      await page.keyboard.type("keep the tests");
+    }
+
+    for (const key of ["Meta+ArrowLeft", "ArrowRight", "Backspace"]) await page.keyboard.press(key);
+
+    if ((await input(page).locator(".composer-chip").count()) !== 0)
+      throw new Error(`Backspace after the chip left part of it: ${await textOf(page)}`);
+    // The space after the chip stays; the rest of the text must be untouched.
+
+    if ((await textOf(page)).trim() !== "keep the tests")
+      throw new Error(`Backspace on the chip changed the text: ${await textOf(page)}`);
   }
 
-  if ((await input(page).locator(".composer-chip").count()) !== 0)
-    throw new Error(`Backspace after the chip left part of it: ${await textOf(page)}`);
-  step("/ menu: filtered, ↵ inserts a chip, Backspace takes it whole");
+  step(
+    "/ menu: filtered, ↵ inserts a chip, Backspace takes it whole (10 rounds, keys back to back)"
+  );
 
   await clear(page);
   await page.keyboard.type("/mod");
