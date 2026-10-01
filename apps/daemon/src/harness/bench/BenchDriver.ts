@@ -42,6 +42,7 @@ import {
   type OpenOptions,
   type TurnInput,
 } from "../HarnessDriver.ts";
+import { benchReviewReply, isReviewerPrompt } from "./review.ts";
 import { runSubagent } from "./subagent.ts";
 
 const BenchTurnScriptSchema = Schema.Struct({
@@ -265,7 +266,8 @@ const openBenchSession = Effect.fn("BenchDriver.open")(function* (options: OpenO
 
   const runTurn = (input: TurnInput) =>
     Effect.gen(function* () {
-      const script = parseScript(input.prompt);
+      const reviewer = isReviewerPrompt(input.prompt);
+      const script = reviewer ? { ...DEFAULT_SCRIPT, items: 1 } : parseScript(input.prompt);
       const { turnId } = input;
       turns++;
 
@@ -284,6 +286,12 @@ const openBenchSession = Effect.fn("BenchDriver.open")(function* (options: OpenO
       for (let i = 0; i < script.items; i++) yield* runItem(script, turnId, i, files);
 
       for (let n = 0; n < script.subagents; n++) yield* runSubagent(emit, turnId, n);
+
+      if (reviewer) {
+        const text = benchReviewReply(input.prompt);
+        const item = TurnItem.cases.AssistantMessage.make({ id: `${turnId}-review`, text });
+        yield* emit(HarnessEvent.ItemCompleted({ turnId, item }));
+      }
 
       yield* emit(
         HarnessEvent.ContextUsed({

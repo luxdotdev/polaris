@@ -1,0 +1,212 @@
+/**
+ * What a Risk Summary covers: the commits (or trees) to diff, the directory
+ * holding them, and the key it is cached under (ENG-185: per repo, merge base
+ * and head). A pull request reads its Review Checkout; Agent Session Turns
+ * read their checkpoints; "only the new changes" diffs from the interdiff.
+ */
+import {
+  GitError,
+  NotFound,
+  type ReviewCheckoutId,
+  ReviewSubject,
+  repoKey,
+  RiskSummaryKey,
+  type SessionId,
+  type Turn,
+  type TurnId,
+  type WorkspaceId,
+} from "@polaris/protocol";
+import { Effect } from "effect";
+import { checkoutGit } from "../git/review/refs.ts";
+import { ReviewCheckoutGit } from "../services.ts";
+import { EventStore } from "../store/EventStore.ts";
+import type { RulesMode } from "../rules/index.ts";
+
+export interface ReviewRange {
+  readonly key: RiskSummaryKey;
+  readonly workspaceId: WorkspaceId;
+  /** Where git and the Reviewer run: the Review Checkout, or the session's directory. */
+  readonly cwd: string;
+  /** What the diff starts from: the merge base, a Turn's before-checkpoint, or the interdiff's tree. */
+  readonly base: string;
+  readonly head: string;
+  /** The real merge base, recorded on the checkout once reviewed. */
+  readonly mergeBase: string;
+  readonly mode: RulesMode;
+  readonly checkoutId: ReviewCheckoutId | null;
+  /** "Pull request #12", or the session's title. */
+  readonly title: string;
+  /** For Agent Sessions: the Turns' prompts, in order. */
+  readonly prompts: ReadonlyArray<string>;
+  /** When "only the new changes" fell back to a full summary: why, as a user reads it. */
+  readonly note: string | null;
+  /** For "only the new changes": the key of the full summary of the head reviewed before. */
+  readonly previousKey: RiskSummaryKey | null;
+}
+
+const gitError = (cwd: string) => (cause: { readonly message: string }) =>
+  new GitError({ cwd, message: cause.message });
+
+const commitOf = (cwd: string, ref: string) =>
+  Effect.tryPromise({
+    try: () => checkoutGit(cwd, ["rev-parse", "--verify", `${ref}^{commit}`]),
+    catch: (cause) => new GitError({ cwd, message: String(cause) }),
+  });
+
+const pullRequestRange = Effect.fn("pullRequestRange")(function* (
+  subject: Extract<ReviewSubject, { _tag: "PullRequest" }>,
+  checkoutId: ReviewCheckoutId | null,
+  since: string | null
+) {
+  const store = yield* EventStore;
+  const git = yield* ReviewCheckoutGit;
+  const model = yield* store.model;
+  const checkout = checkoutId === null ? undefined : model.reviewCheckouts.get(checkoutId);
+  const workspace = checkout && model.workspaces.get(checkout.workspaceId);
+
+  if (checkout === undefined || workspace === undefined) {
+    return yield* new NotFound({ what: "review checkout", id: checkoutId ?? "none" });
+  }
+
+  if (checkout.head === null || checkout.mergeBase === null) {
+    return yield* new GitError({
+      cwd: checkout.path,
+      message: "The Review Checkout isn't checked out yet",
+    });
+  }
+
+  const full: ReviewRange = {
+    key: RiskSummaryKey.make({
+      repo: repoKey(subject.pullRequest.repo),
+      mergeBase: checkout.mergeBase,
+      head: checkout.head,
+      since: null,
+    }),
+    workspaceId: checkout.workspaceId,
+    cwd: checkout.path,
+    base: checkout.mergeBase,
+    head: checkout.head,
+    mergeBase: checkout.mergeBase,
+    mode: "history",
+    checkoutId: checkout.id,
+    title: `Pull request #${subject.pullRequest.number}`,
+    prompts: [],
+    note: null,
+    previousKey: null,
+  };
+
+  if (since === null || since === checkout.head) return full;
+
+  const interdiff = yield* git
+    .interdiff({
+      repoPath: workspace.path,
+      reviewed: since,
+      reviewedBase: checkout.reviewedMergeBase ?? checkout.mergeBase,
+      head: checkout.head,
+      base: checkout.latestBase || checkout.mergeBase,
+    })
+    .pipe(Effect.mapError(gitError(checkout.path)));
+
+  if (interdiff.from === null) return { ...full, note: interdiff.reason };
+
+  const previousKey = RiskSummaryKey.make({
+    repo: full.key.repo,
+    mergeBase: checkout.reviewedMergeBase ?? checkout.mergeBase,
+    head: since,
+    since: null,
+  });
+
+  const incremental: ReviewRange = {
+    ...full,
+    previousKey,
+    key: RiskSummaryKey.make({
+      repo: full.key.repo,
+      mergeBase: interdiff.from,
+      head: full.key.head,
+      since,
+    }),
+    base: interdiff.from,
+    mode: "snapshot",
+  };
+
+  return incremental;
+});
+
+const inRange = (
+  turns: ReadonlyArray<Turn>,
+  first: TurnId | null,
+  last: TurnId | null
+): ReadonlyArray<Turn> => {
+  const start = first === null ? 0 : turns.findIndex((t) => t.id === first);
+  const end = last === null ? turns.length - 1 : turns.findIndex((t) => t.id === last);
+
+  return start === -1 || end === -1 ? [] : turns.slice(start, end + 1);
+};
+
+const sessionRange = Effect.fn("sessionRange")(function* (
+  subject: Extract<ReviewSubject, { _tag: "SessionTurns" }>,
+  checkoutId: ReviewCheckoutId | null
+) {
+  const store = yield* EventStore;
+  const model = yield* store.model;
+  const record = model.sessions.get(subject.sessionId);
+  const workspace = record && model.workspaces.get(record.session.workspaceId);
+
+  if (record === undefined || workspace === undefined) {
+    return yield* new NotFound({ what: "session", id: subject.sessionId });
+  }
+
+  const turns = yield* store
+    .readTurns({ sessionId: subject.sessionId, beforeIndex: null, limit: null })
+    .pipe(Effect.mapError(gitError(record.session.cwd)));
+
+  const covered = inRange(turns, subject.firstTurnId, subject.lastTurnId).filter(
+    (t) => t.status !== "working"
+  );
+
+  const before = covered[0]?.checkpointBefore ?? null;
+  const after = covered.at(-1)?.checkpointAfter ?? null;
+
+  if (before === null || after === null) {
+    return yield* new NotFound({ what: "turn checkpoints", id: subject.sessionId });
+  }
+
+  const checkout = checkoutId === null ? undefined : model.reviewCheckouts.get(checkoutId);
+  const cwd = checkout?.path ?? record.session.cwd;
+  const base = yield* commitOf(cwd, before);
+  const head = yield* commitOf(cwd, after);
+
+  const range: ReviewRange = {
+    key: RiskSummaryKey.make({ repo: workspace.path, mergeBase: base, head, since: null }),
+    workspaceId: workspace.id,
+    cwd,
+    base,
+    head,
+    mergeBase: base,
+    mode: "snapshot",
+    checkoutId: checkout?.id ?? null,
+    title: record.session.title,
+    prompts: covered.map((t) => t.prompt),
+    note: null,
+    previousKey: null,
+  };
+
+  return range;
+});
+
+export const resolveRange = (
+  subject: ReviewSubject,
+  checkoutId: ReviewCheckoutId | null,
+  since: string | null
+): Effect.Effect<ReviewRange, NotFound | GitError, EventStore | ReviewCheckoutGit> =>
+  ReviewSubject.match(subject, {
+    PullRequest: (pr) => pullRequestRange(pr, checkoutId, since),
+    SessionTurns: (turns) => sessionRange(turns, checkoutId),
+  });
+
+/** The session a SessionTurns subject reviews, else null. */
+export const reviewedSessionOf = (subject: ReviewSubject): SessionId | null =>
+  ReviewSubject.match(subject, {
+    PullRequest: () => null,
+    SessionTurns: ({ sessionId }) => sessionId,
+  });
