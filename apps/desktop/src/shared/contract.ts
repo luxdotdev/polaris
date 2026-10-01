@@ -92,6 +92,14 @@ export type SessionDefault = typeof SessionDefault.Type;
 
 export const BranchPrefix = Schema.String.check(Schema.isPattern(BRANCH_PREFIX));
 
+/**
+ * Where accepting a session's work commits (ENG-224): `auto` makes a branch only when
+ * on the default branch; `current` commits where it is, main included; `create` always branches.
+ */
+export const AcceptBranchMode = Schema.Literals(["auto", "current", "create"]);
+
+export type AcceptBranchMode = typeof AcceptBranchMode.Type;
+
 /** Settings → Sessions: how every new Agent Session starts and what happens around it. */
 export const SessionPrefs = Schema.Struct({
   /** Start on a new Worktree rather than in the Workspace directory. */
@@ -108,6 +116,10 @@ export const SessionPrefs = Schema.Struct({
   deleteMergedBranch: Schema.Boolean,
   /** The Working strip's verbs; null for the built-in ones (Claude Code's own settings come first). */
   spinnerVerbs: Schema.NullOr(Schema.Array(Schema.String)),
+  /** Where accepted work is committed, unless the Workspace says otherwise. */
+  acceptBranch: AcceptBranchMode,
+  /** Per-Workspace overrides of `acceptBranch`, keyed `hostKey/workspaceId`. */
+  workspaceAcceptBranch: Schema.Record(Schema.String, AcceptBranchMode),
 });
 
 export type SessionPrefs = typeof SessionPrefs.Type;
@@ -120,6 +132,9 @@ export const SessionPrefsPatch = Schema.Struct({
   notifyReviewRequests: Schema.optionalKey(Schema.Boolean),
   deleteMergedBranch: Schema.optionalKey(Schema.Boolean),
   spinnerVerbs: Schema.optionalKey(Schema.NullOr(Schema.Array(Schema.String))),
+  acceptBranch: Schema.optionalKey(AcceptBranchMode),
+  /** Replaces every override. */
+  workspaceAcceptBranch: Schema.optionalKey(Schema.Record(Schema.String, AcceptBranchMode)),
 });
 
 export type SessionPrefsPatch = typeof SessionPrefsPatch.Type;

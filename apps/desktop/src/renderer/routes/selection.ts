@@ -26,7 +26,9 @@ export type SettingsSection =
   | "harnesses"
   | "usage"
   | "hosts"
-  | "attachments";
+  | "attachments"
+  | "reviewer"
+  | "github";
 
 export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
   "appearance",
@@ -35,6 +37,8 @@ export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
   "usage",
   "hosts",
   "attachments",
+  "reviewer",
+  "github",
 ];
 
 /** The ⌘O dialog (DESIGN.md, Open folder): which Host it opens on; null for the selected one. */
@@ -45,7 +49,7 @@ export interface FolderRoute {
 /** Settings, open over the three zones; null when closed. */
 export interface SettingsRoute {
   readonly section: SettingsSection;
-  /** Hosts only: open the add-a-host form at once. */
+  /** Hosts and GitHub accounts: start adding one at once. */
   readonly adding: boolean;
 }
 

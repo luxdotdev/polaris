@@ -50,6 +50,9 @@ const GROUPS: ReadonlyArray<GroupSource> = [
           "needs you",
           "review requested",
           "archive",
+          "accept",
+          "commit",
+          "main",
         ],
       },
     ],
@@ -88,6 +91,25 @@ const GROUPS: ReadonlyArray<GroupSource> = [
         blurb:
           "Pasted and dropped files are staged on the host that runs the session. Choose when each host deletes them.",
         keywords: ["files", "images", "staging", "cleanup", "clear", "disk"],
+      },
+    ],
+  },
+  {
+    title: "Review",
+    sections: [
+      {
+        id: "reviewer",
+        title: "Reviewer",
+        blurb:
+          "The agent that writes its part of every risk summary. It reads the review checkout on the host that holds it, and never edits anything.",
+        keywords: ["review", "risk summary", "model", "effort", "codex", "claude", "override"],
+      },
+      {
+        id: "github",
+        title: "GitHub accounts",
+        blurb:
+          "Accounts this Mac uses to list pull requests and send reviews. Tokens stay in the macOS keychain; hosts fetch code with their own git credentials.",
+        keywords: ["github", "account", "owner", "organization", "sign in", "sso", "access"],
       },
     ],
   },
