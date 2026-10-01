@@ -6,6 +6,7 @@
 import {
   Button,
   cn,
+  type CssVars,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -13,9 +14,10 @@ import {
   harnessHue,
   SeverityGlyph,
   Textarea,
+  Tile,
 } from "@polaris/ui";
 import { useStore } from "zustand";
-import { emptySurface, surfaceStore } from "../../review/index.ts";
+import { ANNOTATION_INSET, emptySurface, surfaceStore } from "../../review/index.ts";
 import {
   addToFeedback,
   addToReview,
@@ -26,7 +28,8 @@ import {
 } from "../data/actions.ts";
 import { type ComposerState, patchComposer, useComments } from "../data/store.ts";
 import { pendingCount } from "../model/threads.ts";
-import { anchorLabel, suggestionBlock } from "../model/composer.ts";
+import { anchorLabel, placeLabel, suggestionBlock } from "../model/composer.ts";
+import { Avatar } from "./Avatar.tsx";
 import { useSessionHarness } from "./hooks.ts";
 
 interface Props {
@@ -43,12 +46,24 @@ const useDestination = (subjectKey: string, kind: "pull" | "session") => {
 
   const harness = useSessionHarness(subjectKey);
 
-  if (kind === "pull") return login === null ? null : `as ${login}`;
+  if (kind === "pull") {
+    return login === null ? null : { text: `as ${login}`, mark: <Avatar name={login} /> };
+  }
 
-  return session === undefined
-    ? null
-    : `Goes to ${harness === null ? "the session" : harnessHue(harness).name} with turn ${session.nextTurn}`;
+  if (session === undefined) return null;
+
+  return {
+    text: `Goes to ${harness === null ? "the session" : harnessHue(harness).name} with turn ${session.nextTurn}`,
+    mark:
+      harness === null ? null : <Tile hue={harness} size={20} style={{ width: 14, height: 14 }} />,
+  };
 };
+
+/** A finding chip washed in its Severity (Paper R8). */
+const washOf = (severity: string): CssVars => ({
+  "--severity-fill": `var(--color-severity-${severity}-fill)`,
+  "--severity-text": `var(--color-severity-${severity}-text)`,
+});
 
 const FindingLink = ({ subjectKey, composer }: Props & { readonly composer: ComposerState }) => {
   const findings = useFindings(subjectKey);
@@ -61,7 +76,8 @@ const FindingLink = ({ subjectKey, composer }: Props & { readonly composer: Comp
       <Button
         size="xs"
         variant="secondary"
-        className="max-w-56 min-w-0"
+        className="max-w-56 min-w-0 bg-(--severity-fill) text-(--severity-text) hover:bg-(--severity-fill)"
+        style={washOf(linked.severity)}
         title="Unlink this finding"
         onClick={() => patchComposer(subjectKey, { findingId: null })}
       >
@@ -95,6 +111,13 @@ const FindingLink = ({ subjectKey, composer }: Props & { readonly composer: Comp
   );
 };
 
+/** Paper R6's three-line mark for "Suggest change". */
+const SuggestIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
+    <path d="M3 4h10M3 8h6M3 12h8" fill="none" stroke="currentColor" strokeWidth="1.5" />
+  </svg>
+);
+
 const Actions = ({ subjectKey, composer }: Props & { readonly composer: ComposerState }) => {
   const kind = subjectKey.startsWith("pull:") ? "pull" : "session";
   const pending = useComments((s) => pendingCount(s.pulls[subjectKey]?.detail ?? null));
@@ -106,6 +129,7 @@ const Actions = ({ subjectKey, composer }: Props & { readonly composer: Composer
       <Button
         size="xs"
         variant="secondary"
+        className="px-2"
         disabled={composer.anchor.code === ""}
         onClick={() =>
           patchComposer(subjectKey, {
@@ -113,12 +137,13 @@ const Actions = ({ subjectKey, composer }: Props & { readonly composer: Composer
           })
         }
       >
+        <SuggestIcon />
         Suggest change
       </Button>
       <FindingLink subjectKey={subjectKey} composer={composer} />
       <span className="flex-1" />
       <Button size="sm" variant="ghost" onClick={() => closeComposer(subjectKey)}>
-        Cancel <span className="text-text-faint font-regular">esc</span>
+        Cancel <span className="text-text-subtle font-regular">esc</span>
       </Button>
       {kind === "session" ? (
         <Button
@@ -130,12 +155,16 @@ const Actions = ({ subjectKey, composer }: Props & { readonly composer: Composer
           Send now
         </Button>
       ) : (
-        pending === 0 &&
         composer.moving === null && (
           <Button
             size="sm"
             variant="secondary"
             disabled={empty || composer.busy}
+            title={
+              pending === 0
+                ? "Publish this comment now"
+                : `Publishes your ${pending} pending ${pending === 1 ? "comment" : "comments"} with it`
+            }
             onClick={run(commentNow)}
           >
             Comment now
@@ -166,21 +195,24 @@ export const Composer = ({ subjectKey }: Props) => {
   const primary = kind === "pull" ? addToReview : addToFeedback;
 
   return (
-    <div className="pr-panel py-gap flex pl-[78px] font-sans" data-testid="comment-composer">
+    <div className={cn("py-gap flex font-sans", ANNOTATION_INSET)} data-testid="comment-composer">
       <div
         className={cn(
           "rounded-row bg-surface-raised border-hairline flex min-w-0 flex-1 flex-col border",
           "shadow-[0_0_0_2px_color-mix(in_oklab,var(--color-starlight)_35%,transparent)]"
         )}
       >
-        <div className="pt-row-x gap-gap flex items-center px-3">
+        <div className="gap-gap flex items-center px-3 pt-2.5">
           <span className="text-text-subtle font-mono text-[11px] leading-4">
-            {anchorLabel(composer.anchor)}
+            {kind === "pull" ? anchorLabel(composer.anchor) : placeLabel(composer.anchor)}
             {composer.moving === null ? "" : " · moving an outdated draft here"}
           </span>
           <span className="flex-1" />
           {destination !== null && (
-            <span className="text-caption text-text-faint">{destination}</span>
+            <span className="text-caption text-text-subtle gap-gap flex items-center">
+              {destination.mark}
+              {destination.text}
+            </span>
           )}
         </div>
         <div className="pt-gap px-3 pb-3">

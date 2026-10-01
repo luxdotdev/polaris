@@ -11,6 +11,7 @@ import {
   placeOf,
   provenanceOf,
   rank,
+  rerunLabel,
   type Summary,
 } from "./summary.ts";
 
@@ -132,7 +133,7 @@ describe("labels", () => {
         summary({ key: { repo: "r", mergeBase: "b", head: "bbbbbbbbb", since: "aaaaaaaaa" } }),
         now
       )
-    ).toBe("Reviewed new commits aaaaaaa..bbbbbbb · 1m ago");
+    ).toBe("Reviewed at bbbbbbb, new commits since aaaaaaa · 1m ago");
     expect(
       captionOf(
         summary({
@@ -147,6 +148,18 @@ describe("labels", () => {
       )
     ).toBe("Running rules…");
     expect(captionOf(summary({ status: "failed" }), now)).toBe("Couldn’t finish at 4f2c1a9");
+  });
+
+  test("a waiting or switched-off reviewer offers Run reviewer", () => {
+    const layers = (agent: "pending" | "skipped" | "completed") => ({
+      rules: { status: "completed" as const, note: null },
+      agent: { status: agent, note: null },
+    });
+
+    expect(rerunLabel(summary({ layers: layers("pending") }))).toBe("Run reviewer");
+    expect(rerunLabel(summary({ layers: layers("skipped") }))).toBe("Run reviewer");
+    expect(rerunLabel(summary({ layers: layers("completed") }))).toBe("Review again");
+    expect(rerunLabel(null)).toBe("Review again");
   });
 
   test("notes are deduplicated and skip blanks", () => {

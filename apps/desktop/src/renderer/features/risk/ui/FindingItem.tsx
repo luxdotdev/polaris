@@ -109,7 +109,9 @@ const Card = ({ subjectKey, hostKey, summary, finding }: FindingItemProps) => {
             Dismissed, but nothing hides a critical finding.
           </p>
         )}
-        {history !== null && <p className="text-caption text-text-faint">{historyLine(history)}</p>}
+        {history !== null && (
+          <p className="text-caption text-text-subtle">{historyLine(history)}</p>
+        )}
         <div className="flex items-center gap-1.5">
           <span
             className="text-text-default min-w-0 truncate font-mono text-[11px] leading-4"
@@ -117,7 +119,15 @@ const Card = ({ subjectKey, hostKey, summary, finding }: FindingItemProps) => {
           >
             {placeOf(finding)}
           </span>
-          <span className="text-caption text-text-faint shrink-0">· {provenanceOf(finding)}</span>
+          <span className="text-caption text-text-subtle shrink-0">· {provenanceOf(finding)}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Button size="xs" variant="secondary" onClick={() => commentOn(subjectKey, finding)}>
+            Comment on this
+          </Button>
+          <Button size="xs" variant="ghost" onClick={() => setAskAbout(subjectKey, finding.id)}>
+            Ask about this
+          </Button>
           <span className="min-w-0 flex-1" />
           <Button
             size="icon-sm"
@@ -129,14 +139,6 @@ const Card = ({ subjectKey, hostKey, summary, finding }: FindingItemProps) => {
             <ThumbUpIcon size={14} />
           </Button>
           <ThumbDown title={finding.title} onSave={(draft) => verdict("down", draft)} />
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Button size="xs" variant="secondary" onClick={() => commentOn(subjectKey, finding)}>
-            Comment on this
-          </Button>
-          <Button size="xs" variant="ghost" onClick={() => setAskAbout(subjectKey, finding.id)}>
-            Ask about this
-          </Button>
         </div>
       </div>
     </div>
@@ -157,6 +159,7 @@ export const FindingItem = (props: FindingItemProps) => {
         selected
           ? cn("bg-row-selected gap-row-x p-3", SEVERITY_BORDER[finding.severity])
           : "hover:bg-fill-hover border-transparent",
+        // Dimmed once, here; the badge isn't dimmed again (rule/low-confidence-dims).
         dimmed && "opacity-(--opacity-dimmed)"
       )}
     >
@@ -170,7 +173,7 @@ export const FindingItem = (props: FindingItemProps) => {
         )}
       >
         <span className="flex w-20 shrink-0">
-          <SeverityBadge severity={finding.severity} lowConfidence={finding.confidence < 0.5} />
+          <SeverityBadge severity={finding.severity} />
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span
@@ -182,7 +185,7 @@ export const FindingItem = (props: FindingItemProps) => {
             {finding.title}
           </span>
           {!selected && (
-            <span className="text-caption text-text-faint truncate">
+            <span className="text-caption text-text-subtle truncate">
               {fileName(finding.path)} · {provenanceOf(finding)}
             </span>
           )}

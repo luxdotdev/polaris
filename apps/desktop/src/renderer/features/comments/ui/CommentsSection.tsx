@@ -80,7 +80,7 @@ const Group = ({
 }) =>
   threads.length === 0 ? null : (
     <section className="flex flex-col gap-2" data-testid="comments-group" data-group={title}>
-      <h3 className="text-caption text-text-faint">
+      <h3 className="text-caption text-text-subtle">
         {title} · {threads.length}
       </h3>
       {threads.map((thread) => (
