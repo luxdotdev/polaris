@@ -13,6 +13,7 @@ const limit = (patch: Partial<Limit>): Limit => ({
   resetsAt: "2026-09-30T16:48:00Z",
   observedAt: "2026-09-30T14:58:00Z",
   plan: "max",
+  weeklyPerSession: null,
   ...patch,
 });
 

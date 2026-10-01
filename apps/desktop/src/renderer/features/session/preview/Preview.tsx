@@ -212,9 +212,14 @@ const window_ = (
     resetsAt: later(kind === "weekly" ? 4 * 24 * 60 : 228),
     observedAt: ago(1),
     plan: harness === "claude" ? "max" : "pro",
+    // The Daemon's typical 5-hour window, on Claude's whole-plan weekly.
+    weeklyPerSession: harness === "claude" && kind === "weekly" && scope === null ? 14.6 : null,
   });
 
-/** Settings → Usage: Claude with two windows (Paper S2) or three (its model-scoped weekly), and Codex. */
+/**
+ * Settings → Usage: Claude with two windows (Paper S2) or three (its model-scoped weekly), and
+ * Codex. Forecasts: 5-hour in reserve, weekly in deficit (runs out), a near-limit run-out.
+ */
 const usageLimits = (scene: Scene) => [
   window_("claude", "five-hour", null, 16),
   window_("claude", "weekly", null, 62),

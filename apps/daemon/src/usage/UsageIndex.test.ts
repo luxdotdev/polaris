@@ -107,6 +107,60 @@ const rowsIn = (dbPath: string) => {
 };
 
 describe("UsageIndex", () => {
+  test("a weekly reading carries how much of it a 5-hour window uses, from the history", async () => {
+    const { run } = setup();
+    const hour = 3_600_000;
+    const t0 = Date.parse("2026-09-01T00:00:00Z");
+    const iso = (ms: number) => new Date(ms).toISOString();
+    const weeklyResets = iso(t0 + 7 * 24 * hour);
+
+    const reported = await run(() =>
+      Effect.gen(function* () {
+        const sink = yield* PlanLimitSink;
+        let weekly = 0;
+
+        // Three finished 5-hour windows, each using 10% of the weekly for 50 points of its own.
+        for (const start of [0, 6, 12].map((h) => t0 + h * hour)) {
+          for (const [at, session, week] of [
+            [start + hour, 10, weekly],
+            [start + 4 * hour, 60, weekly + 10],
+          ] as const) {
+            const observedAt = iso(at);
+            yield* sink.report(limitWith(session, { resetsAt: iso(start + 5 * hour), observedAt }));
+            yield* sink.report(
+              limitWith(week, {
+                kind: "weekly",
+                windowMinutes: 10_080,
+                resetsAt: weeklyResets,
+                observedAt,
+              })
+            );
+          }
+
+          weekly += 10;
+        }
+
+        // Later, once all three have ended, the weekly moves again.
+        yield* sink.report(
+          limitWith(35, {
+            kind: "weekly",
+            windowMinutes: 10_080,
+            resetsAt: weeklyResets,
+            observedAt: iso(t0 + 20 * hour),
+          })
+        );
+
+        const client = yield* RpcTest.makeClient(UsageRpcs);
+        const known = yield* client["usage.watch"]({}).pipe(Stream.take(2), Stream.runCollect);
+
+        return known.flatMap((i) => (isPlanLimitChanged(i) ? [i.limit] : []));
+      })
+    );
+
+    expect(reported.find((l) => l.kind === "weekly")?.weeklyPerSession).toBeCloseTo(20);
+    expect(reported.find((l) => l.kind === "five-hour")?.weeklyPerSession).toBeNull();
+  });
+
   test("opens nothing until a Client asks", async () => {
     const { dbPath, run } = setup();
 

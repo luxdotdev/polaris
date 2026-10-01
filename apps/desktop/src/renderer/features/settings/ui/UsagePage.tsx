@@ -33,29 +33,54 @@ const PITCH = CELL + 1;
 
 const METER_WIDTH = METER_CELLS * PITCH - 1;
 
+const cellFill = (harness: string, i: number, filled: number) =>
+  i < filled ? hueVar(harness) : "light-dark(#0000000f, #ffffff12)";
+
 /**
  * What's left as discrete cells: filled in the Harness hue, empty as faint
- * tracks. One SVG with crisp edges (`pixelated`), so the 1px gaps survive a fractional x.
+ * tracks. One SVG with crisp edges (`pixelated`), so the 1px gaps survive a
+ * fractional x. The pace marker is one of the cells in `text-strong`, a pixel
+ * taller each way: where the fill would end if used evenly. Never a signal colour.
  */
-const Meter = ({ harness, filled }: { readonly harness: string; readonly filled: number }) => (
+const Meter = ({
+  harness,
+  filled,
+  pace,
+}: {
+  readonly harness: string;
+  readonly filled: number;
+  readonly pace: number | null;
+}) => (
   <svg
     aria-hidden
     width={METER_WIDTH}
-    height={10}
-    viewBox={`0 0 ${METER_WIDTH} 10`}
+    height={12}
+    viewBox={`0 0 ${METER_WIDTH} 12`}
     className="pixelated block shrink-0"
     data-testid="plan-meter"
     data-filled={filled}
+    data-pace={pace ?? undefined}
   >
-    {Array.from({ length: METER_CELLS }, (_, i) => (
-      <rect
-        key={i}
-        x={i * PITCH}
-        width={CELL}
-        height={10}
-        style={{ fill: i < filled ? hueVar(harness) : "light-dark(#0000000f, #ffffff12)" }}
-      />
-    ))}
+    {Array.from({ length: METER_CELLS }, (_, i) =>
+      i === pace ? (
+        <rect
+          key={i}
+          x={i * PITCH}
+          width={CELL}
+          height={12}
+          style={{ fill: "var(--color-text-strong)" }}
+        />
+      ) : (
+        <rect
+          key={i}
+          x={i * PITCH}
+          y={1}
+          width={CELL}
+          height={10}
+          style={{ fill: cellFill(harness, i, filled) }}
+        />
+      )
+    )}
   </svg>
 );
 
@@ -69,8 +94,12 @@ const WindowCell = ({ harness, win }: { readonly harness: string; readonly win: 
       <span className="text-caption text-text-subtle truncate">{win.label}</span>
       <span className="text-caption text-text-default tabular shrink-0">{win.left ?? ""}</span>
     </div>
-    <Meter harness={harness} filled={win.filledCells} />
-    <span className="text-caption text-text-subtle">{win.note}</span>
+    <Meter harness={harness} filled={win.filledCells} pace={win.pace?.cell ?? null} />
+    <span className="text-caption text-text-subtle flex flex-col">
+      <span>{win.note}</span>
+      {win.pace === null ? null : <span data-testid="plan-forecast">{win.pace.words}</span>}
+      {win.pace?.sessions == null ? null : <span>{win.pace.sessions}</span>}
+    </span>
   </div>
 );
 

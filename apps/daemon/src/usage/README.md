@@ -19,6 +19,7 @@ Polaris never reads credentials here (ADR 0001). It reads the transcripts and ro
 | `passes.ts` | `passScheduler`: background passes, one at a time, requests coalescing into the next; the `indexing` announcement and end marker. |
 | `changes.ts` | The `UsageChanged` buckets a short pass touched, and zero buckets for keys it emptied. |
 | `UsageIndex.ts` | The `UsageIndex` service (refresh, query, changes) and the `PlanLimitSink` it implements. |
+| `limitHistory.ts` | Plan Limit readings (`plan_limit_history`) and the weekly-per-5-hour-window estimate. |
 | `UsageRpcs.ts` | The `usage.query` and `usage.watch` handlers. |
 
 ## Sources
@@ -95,6 +96,7 @@ yield* sink.report(new PlanLimit({ harness: "claude", kind: "five-hour", ... }))
 - A limit's key is (`harness`, `kind`, `scope`). `report` keeps the latest value per key, persists it in the index (`plan_limits`), and publishes `PlanLimitChanged` to every watcher.
 - A new subscriber first gets every known limit, persisted ones included, so Clients can show the last value with its age after a restart. Then it gets live `UsageChanged` and `PlanLimitChanged` items.
 - `serve.ts` provides `PlanLimitSink` beside the other Daemon services. The drivers report through `PlanLimitReporter` (`../harness/limits/`), which sits in front of it and drops stale and repeated readings.
+- Each reading with a percentage and a reset also goes into `plan_limit_history` (`limitHistory.ts`): pruned on the same write to a week and 5,000 rows per window, so there's no timer and no idle cost. From it, a whole-plan weekly limit carries `weeklyPerSession`, the median weekly share a full 5-hour window used over the last seven finished ones (null below three), for the Client's "full 5-hour windows left" forecast. The pace and the run-out projection need no history: the Client derives them from one reading and the window's length.
 - `UsageIndexOptions.planLimitSeed` gives last known values from the Harnesses' own logs (Codex's rollouts). It runs on a new `usage.watch` (at most once a minute) before the known values are sent, and after a pass over that Harness's logs; it never replaces a newer value.
 
 ## Cost
