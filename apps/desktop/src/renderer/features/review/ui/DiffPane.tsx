@@ -13,7 +13,7 @@ import type {
   SelectedLineRange,
 } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
-import { useEffect, useMemo, useRef } from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
 import { useStore } from "zustand";
 import type { ReviewAnnotation } from "../surface.ts";
 import { revealStore } from "../surface.ts";
@@ -102,8 +102,10 @@ const sync = (handle: Handle, synced: Synced, items: ReadonlyArray<PaneItem>) =>
   }
 };
 
-const Annotation = ({ meta }: { readonly meta: RowMeta }) =>
-  meta.kind === "finding" ? <FindingRow finding={meta.finding} /> : meta.annotation.render();
+/** Memoised on its metadata, which only changes when the file's annotations do. */
+const Annotation = memo(({ meta }: { readonly meta: RowMeta }) =>
+  meta.kind === "finding" ? <FindingRow finding={meta.finding} /> : meta.annotation.render()
+);
 
 export const DiffPane = ({
   items,

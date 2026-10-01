@@ -30,7 +30,9 @@
       "blobs",
       "files",
       "git",
-      "terminal"
+      "terminal",
+      "desktop-idle",
+      "review"
     ]
   },
   "scenarios": {
@@ -2320,6 +2322,608 @@
         "run 3: snapshot peaks: bun 332 MiB, bun 117 MiB, betterleaks 34 MiB"
       ],
       "durationMs": 17073.801
+    },
+    "desktop-idle": {
+      "metrics": {
+        "ready_ms": {
+          "value": 480.9969579999961,
+          "unit": "ms",
+          "kind": "time",
+          "better": "lower",
+          "info": true,
+          "runs": [
+            2308.875625,
+            429.46337499999936,
+            480.9969579999961
+          ],
+          "min": 429.46337499999936,
+          "max": 2308.875625
+        },
+        "rss_mib": {
+          "value": 500.4453125,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "info": true,
+          "runs": [
+            489.296875,
+            500.4453125,
+            501.6171875
+          ],
+          "min": 489.296875,
+          "max": 501.6171875
+        },
+        "cpu_idle_pct": {
+          "value": 1.6947909408196289,
+          "unit": "%",
+          "kind": "cpu",
+          "better": "lower",
+          "runs": [
+            1.467080863247158,
+            1.6947909408196289,
+            1.6984353428963546
+          ],
+          "min": 1.467080863247158,
+          "max": 1.6984353428963546
+        },
+        "processes": {
+          "value": 4,
+          "unit": "processes",
+          "kind": "count",
+          "better": "lower",
+          "info": true,
+          "runs": [
+            4,
+            4,
+            4
+          ],
+          "min": 4,
+          "max": 4
+        },
+        "footprint_mib": {
+          "value": 182.4582748413086,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.15,
+            "absolute": 20
+          },
+          "runs": [
+            182.091064453125,
+            182.4582748413086,
+            183.4973373413086
+          ],
+          "min": 182.091064453125,
+          "max": 183.4973373413086
+        }
+      },
+      "notes": [
+        "window shown; Polaris.app",
+        "M1 budget: < 1 GB for the whole app (footprint; RSS double-counts shared framework pages)",
+        "run 1: Electron (95987): peak RSS 203 MiB, 0.54 s CPU",
+        "run 1: Electron Helper (Renderer) (95995): peak RSS 165 MiB, 0.37 s CPU",
+        "run 1: Electron Helper (95993): peak RSS 87 MiB, 0.39 s CPU",
+        "run 1: Electron Helper (95994): peak RSS 47 MiB, 0.07 s CPU",
+        "run 2: Electron (96086): peak RSS 203 MiB, 0.46 s CPU",
+        "run 2: Electron Helper (Renderer) (96092): peak RSS 164 MiB, 0.32 s CPU",
+        "run 2: Electron Helper (96090): peak RSS 87 MiB, 0.34 s CPU",
+        "run 2: Electron Helper (96091): peak RSS 47 MiB, 0.07 s CPU",
+        "run 3: Electron (96184): peak RSS 203 MiB, 0.46 s CPU",
+        "run 3: Electron Helper (Renderer) (96187): peak RSS 166 MiB, 0.33 s CPU",
+        "run 3: Electron Helper (96185): peak RSS 86 MiB, 0.34 s CPU",
+        "run 3: Electron Helper (96186): peak RSS 47 MiB, 0.07 s CPU"
+      ],
+      "durationMs": 63830.962667
+    },
+    "review": {
+      "metrics": {
+        "full_first_file_ms": {
+          "value": 1331,
+          "unit": "ms",
+          "kind": "time",
+          "better": "lower",
+          "runs": [
+            1331,
+            1324,
+            1335
+          ],
+          "min": 1324,
+          "max": 1335
+        },
+        "full_parsed_ms": {
+          "value": 1335,
+          "unit": "ms",
+          "kind": "time",
+          "better": "lower",
+          "runs": [
+            1335,
+            1328,
+            1338
+          ],
+          "min": 1328,
+          "max": 1338
+        },
+        "full_frame_p95_ms": {
+          "value": 6.799999999999272,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.2,
+            "absolute": 1
+          },
+          "runs": [
+            6.799999999999272,
+            6.800000000000182,
+            6.699999999999818
+          ],
+          "min": 6.699999999999818,
+          "max": 6.800000000000182
+        },
+        "full_frame_p99_ms": {
+          "value": 11.200000000000273,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "info": true,
+          "runs": [
+            11.5,
+            11.200000000000273,
+            11.199999999999818
+          ],
+          "min": 11.199999999999818,
+          "max": 11.5
+        },
+        "full_dropped_pct": {
+          "value": 1.5,
+          "unit": "%",
+          "kind": "count",
+          "better": "lower",
+          "info": true,
+          "runs": [
+            1.5,
+            1,
+            1.8333333333333333
+          ],
+          "min": 1,
+          "max": 1.8333333333333333
+        },
+        "full_app_mib": {
+          "value": 721.53125,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.15,
+            "absolute": 40
+          },
+          "runs": [
+            727.53125,
+            721.53125,
+            720.921875
+          ],
+          "min": 720.921875,
+          "max": 727.53125
+        },
+        "full_app_scrolled_mib": {
+          "value": 964.34375,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "info": true,
+          "runs": [
+            944.125,
+            977.6875,
+            964.34375
+          ],
+          "min": 944.125,
+          "max": 977.6875
+        },
+        "full_daemon_peak_rss_mib": {
+          "value": 196.6875,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.15,
+            "absolute": 40
+          },
+          "runs": [
+            190.25,
+            196.6875,
+            199.75
+          ],
+          "min": 190.25,
+          "max": 199.75
+        },
+        "collapsed_first_file_ms": {
+          "value": 822,
+          "unit": "ms",
+          "kind": "time",
+          "better": "lower",
+          "runs": [
+            822,
+            822,
+            820
+          ],
+          "min": 820,
+          "max": 822
+        },
+        "collapsed_parsed_ms": {
+          "value": 828,
+          "unit": "ms",
+          "kind": "time",
+          "better": "lower",
+          "runs": [
+            828,
+            828,
+            827
+          ],
+          "min": 827,
+          "max": 828
+        },
+        "collapsed_frame_p95_ms": {
+          "value": 6.299999999999727,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.2,
+            "absolute": 1
+          },
+          "runs": [
+            6.300000000000182,
+            6.299999999999727,
+            6.099999999999909
+          ],
+          "min": 6.099999999999909,
+          "max": 6.300000000000182
+        },
+        "collapsed_frame_p99_ms": {
+          "value": 6.899999999999636,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "info": true,
+          "runs": [
+            6.899999999999636,
+            6.900000000000091,
+            6.800000000000182
+          ],
+          "min": 6.800000000000182,
+          "max": 6.900000000000091
+        },
+        "collapsed_dropped_pct": {
+          "value": 0.16666666666666669,
+          "unit": "%",
+          "kind": "count",
+          "better": "lower",
+          "info": true,
+          "runs": [
+            0.16666666666666669,
+            0.16666666666666669,
+            0.33333333333333337
+          ],
+          "min": 0.16666666666666669,
+          "max": 0.33333333333333337
+        },
+        "collapsed_app_mib": {
+          "value": 786.625,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.15,
+            "absolute": 40
+          },
+          "runs": [
+            786.625,
+            784.015625,
+            789.34375
+          ],
+          "min": 784.015625,
+          "max": 789.34375
+        },
+        "collapsed_app_scrolled_mib": {
+          "value": 1180.53125,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "info": true,
+          "runs": [
+            1181.21875,
+            1175.5,
+            1180.53125
+          ],
+          "min": 1175.5,
+          "max": 1181.21875
+        },
+        "collapsed_daemon_peak_rss_mib": {
+          "value": 214.125,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.15,
+            "absolute": 40
+          },
+          "runs": [
+            188.21875,
+            215.90625,
+            214.125
+          ],
+          "min": 188.21875,
+          "max": 215.90625
+        },
+        "list_only_first_file_ms": {
+          "value": 829,
+          "unit": "ms",
+          "kind": "time",
+          "better": "lower",
+          "runs": [
+            834,
+            829,
+            822
+          ],
+          "min": 822,
+          "max": 834
+        },
+        "list_only_parsed_ms": {
+          "value": 831,
+          "unit": "ms",
+          "kind": "time",
+          "better": "lower",
+          "runs": [
+            836,
+            831,
+            827
+          ],
+          "min": 827,
+          "max": 836
+        },
+        "list_only_frame_p95_ms": {
+          "value": 6.199999999999818,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.2,
+            "absolute": 1
+          },
+          "runs": [
+            6.199999999999818,
+            6,
+            6.5
+          ],
+          "min": 6,
+          "max": 6.5
+        },
+        "list_only_frame_p99_ms": {
+          "value": 6.899999999999636,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "info": true,
+          "runs": [
+            6.699999999999818,
+            6.899999999999636,
+            6.899999999999636
+          ],
+          "min": 6.699999999999818,
+          "max": 6.899999999999636
+        },
+        "list_only_dropped_pct": {
+          "value": 0,
+          "unit": "%",
+          "kind": "count",
+          "better": "lower",
+          "info": true,
+          "runs": [
+            0,
+            0,
+            0
+          ],
+          "min": 0,
+          "max": 0
+        },
+        "list_only_app_mib": {
+          "value": 661.375,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.15,
+            "absolute": 40
+          },
+          "runs": [
+            661.1875,
+            662.1875,
+            661.375
+          ],
+          "min": 661.1875,
+          "max": 662.1875
+        },
+        "list_only_app_scrolled_mib": {
+          "value": 778.21875,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "info": true,
+          "runs": [
+            778.46875,
+            778.21875,
+            778.09375
+          ],
+          "min": 778.09375,
+          "max": 778.46875
+        },
+        "list_only_daemon_peak_rss_mib": {
+          "value": 233.296875,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.15,
+            "absolute": 40
+          },
+          "runs": [
+            212.9375,
+            241,
+            233.296875
+          ],
+          "min": 212.9375,
+          "max": 241
+        },
+        "huge_first_file_ms": {
+          "value": 821,
+          "unit": "ms",
+          "kind": "time",
+          "better": "lower",
+          "runs": [
+            820,
+            826,
+            821
+          ],
+          "min": 820,
+          "max": 826
+        },
+        "huge_parsed_ms": {
+          "value": 825,
+          "unit": "ms",
+          "kind": "time",
+          "better": "lower",
+          "runs": [
+            825,
+            829,
+            823
+          ],
+          "min": 823,
+          "max": 829
+        },
+        "huge_frame_p95_ms": {
+          "value": 6.300000000000182,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.2,
+            "absolute": 1
+          },
+          "runs": [
+            6.399999999999636,
+            6.300000000000182,
+            6.300000000000182
+          ],
+          "min": 6.300000000000182,
+          "max": 6.399999999999636
+        },
+        "huge_frame_p99_ms": {
+          "value": 6.800000000000182,
+          "unit": "ms",
+          "kind": "latency",
+          "better": "lower",
+          "info": true,
+          "runs": [
+            6.899999999999636,
+            6.800000000000182,
+            6.799999999999727
+          ],
+          "min": 6.799999999999727,
+          "max": 6.899999999999636
+        },
+        "huge_dropped_pct": {
+          "value": 0.16666666666666669,
+          "unit": "%",
+          "kind": "count",
+          "better": "lower",
+          "info": true,
+          "runs": [
+            0.16666666666666669,
+            0.16666666666666669,
+            0
+          ],
+          "min": 0,
+          "max": 0.16666666666666669
+        },
+        "huge_app_mib": {
+          "value": 762.109375,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.15,
+            "absolute": 40
+          },
+          "runs": [
+            763.890625,
+            761.828125,
+            762.109375
+          ],
+          "min": 761.828125,
+          "max": 763.890625
+        },
+        "huge_app_scrolled_mib": {
+          "value": 985.75,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "info": true,
+          "runs": [
+            982.953125,
+            985.75,
+            988.96875
+          ],
+          "min": 982.953125,
+          "max": 988.96875
+        },
+        "huge_daemon_peak_rss_mib": {
+          "value": 233.453125,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.15,
+            "absolute": 40
+          },
+          "runs": [
+            212.96875,
+            241.03125,
+            233.453125
+          ],
+          "min": 212.96875,
+          "max": 241.03125
+        }
+      },
+      "notes": [
+        "budgets: frame p95 ≤ 1.5 display intervals, ≤ 2% dropped, the app < 1 GB with the Review open",
+        "app_scrolled_mib: after 600 frames at 240 px, a GC forced (Pierre keeps pages it touched)",
+        "run 1: review-bench full: scrolled 1077 MiB before a GC, 944 after; main heap 55 MiB",
+        "run 1: review-bench full: 2000 files (4.9 MiB patch), first file 1331 ms, parsed 1335 ms; frames p50/p95/p99/max 5.6/6.8/11.5/16.3 ms (interval 5.6), dropped 1.5%; app 513 idle → 728 open → 944 MiB scrolled (Browser 221, GPU:GPU 96, Utility:network.mojom.NetworkService 42, Tab 585); daemon 131 → peak 190 MiB while diffing",
+        "run 1: review-bench collapsed: scrolled 1237 MiB before a GC, 1181 after; main heap 48 MiB",
+        "run 1: review-bench collapsed: 5000 files (3.0 MiB patch), first file 822 ms, parsed 828 ms; frames p50/p95/p99/max 5.6/6.3/6.9/12.2 ms (interval 5.6), dropped 0.2%; app 508 idle → 787 open → 1181 MiB scrolled (Browser 241, GPU:GPU 92, Utility:network.mojom.NetworkService 48, Tab 801); daemon 173 → peak 188 MiB while diffing",
+        "run 1: review-bench list-only: scrolled 786 MiB before a GC, 778 after; main heap 23 MiB",
+        "run 2: review-bench list-only: scrolled 786 MiB before a GC, 778 after; main heap 23 MiB",
+        "run 1: review-bench list-only: 12000 files (7.2 MiB patch), first file 834 ms, parsed 836 ms; frames p50/p95/p99/max 5.6/6.2/6.7/7.0 ms (interval 5.6), dropped 0.0%; app 509 idle → 661 open → 778 MiB scrolled (Browser 264, GPU:GPU 90, Utility:network.mojom.NetworkService 48, Tab 377); daemon 188 → peak 213 MiB while diffing",
+        "run 1: review-bench huge: scrolled 1011 MiB before a GC, 983 after; main heap 20 MiB",
+        "run 1: review-bench huge: 1 files (2.2 MiB patch), first file 820 ms, parsed 825 ms; frames p50/p95/p99/max 5.6/6.4/6.9/11.4 ms (interval 5.5), dropped 0.2%; app 510 idle → 764 open → 983 MiB scrolled (Browser 226, GPU:GPU 99, Utility:network.mojom.NetworkService 48, Tab 611); daemon 213 → peak 213 MiB while diffing",
+        "run 2: review-bench full: scrolled 1108 MiB before a GC, 978 after; main heap 55 MiB",
+        "run 2: review-bench full: 2000 files (4.9 MiB patch), first file 1324 ms, parsed 1328 ms; frames p50/p95/p99/max 5.6/6.8/11.2/12.2 ms (interval 5.6), dropped 1.0%; app 508 idle → 722 open → 978 MiB scrolled (Browser 247, GPU:GPU 99, Utility:network.mojom.NetworkService 48, Tab 584); daemon 139 → peak 197 MiB while diffing",
+        "run 2: review-bench collapsed: scrolled 1231 MiB before a GC, 1176 after; main heap 48 MiB",
+        "run 2: review-bench collapsed: 5000 files (3.0 MiB patch), first file 822 ms, parsed 828 ms; frames p50/p95/p99/max 5.6/6.3/6.9/11.6 ms (interval 5.6), dropped 0.2%; app 509 idle → 784 open → 1176 MiB scrolled (Browser 241, GPU:GPU 92, Utility:network.mojom.NetworkService 48, Tab 795); daemon 196 → peak 216 MiB while diffing",
+        "run 2: review-bench list-only: 12000 files (7.2 MiB patch), first file 829 ms, parsed 831 ms; frames p50/p95/p99/max 5.6/6.0/6.9/7.0 ms (interval 5.6), dropped 0.0%; app 509 idle → 662 open → 778 MiB scrolled (Browser 264, GPU:GPU 90, Utility:network.mojom.NetworkService 48, Tab 377); daemon 216 → peak 241 MiB while diffing",
+        "run 2: review-bench huge: scrolled 1007 MiB before a GC, 986 after; main heap 20 MiB",
+        "run 2: review-bench huge: 1 files (2.2 MiB patch), first file 826 ms, parsed 829 ms; frames p50/p95/p99/max 5.6/6.3/6.8/12.7 ms (interval 5.6), dropped 0.2%; app 509 idle → 762 open → 986 MiB scrolled (Browser 226, GPU:GPU 98, Utility:network.mojom.NetworkService 48, Tab 614); daemon 241 → peak 241 MiB while diffing",
+        "run 3: review-bench full: scrolled 1079 MiB before a GC, 964 after; main heap 55 MiB",
+        "run 3: review-bench full: 2000 files (4.9 MiB patch), first file 1335 ms, parsed 1338 ms; frames p50/p95/p99/max 5.6/6.7/11.2/16.4 ms (interval 5.5), dropped 1.8%; app 509 idle → 721 open → 964 MiB scrolled (Browser 248, GPU:GPU 100, Utility:network.mojom.NetworkService 48, Tab 569); daemon 142 → peak 200 MiB while diffing",
+        "run 3: review-bench collapsed: scrolled 1236 MiB before a GC, 1181 after; main heap 48 MiB",
+        "run 3: review-bench collapsed: 5000 files (3.0 MiB patch), first file 820 ms, parsed 827 ms; frames p50/p95/p99/max 5.6/6.1/6.8/11.3 ms (interval 5.5), dropped 0.3%; app 508 idle → 789 open → 1181 MiB scrolled (Browser 241, GPU:GPU 92, Utility:network.mojom.NetworkService 48, Tab 800); daemon 199 → peak 214 MiB while diffing",
+        "run 3: review-bench list-only: scrolled 785 MiB before a GC, 778 after; main heap 23 MiB",
+        "run 3: review-bench list-only: 12000 files (7.2 MiB patch), first file 822 ms, parsed 827 ms; frames p50/p95/p99/max 5.6/6.5/6.9/7.0 ms (interval 5.5), dropped 0.0%; app 509 idle → 661 open → 778 MiB scrolled (Browser 264, GPU:GPU 90, Utility:network.mojom.NetworkService 48, Tab 377); daemon 214 → peak 233 MiB while diffing",
+        "run 3: review-bench huge: scrolled 1006 MiB before a GC, 989 after; main heap 20 MiB",
+        "run 3: review-bench huge: 1 files (2.2 MiB patch), first file 821 ms, parsed 823 ms; frames p50/p95/p99/max 5.6/6.3/6.8/6.9 ms (interval 5.6), dropped 0.0%; app 509 idle → 762 open → 989 MiB scrolled (Browser 227, GPU:GPU 98, Utility:network.mojom.NetworkService 48, Tab 617); daemon 233 → peak 233 MiB while diffing"
+      ],
+      "durationMs": 164458.073417
     }
   }
 }

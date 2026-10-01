@@ -5,6 +5,7 @@
  * Rendered by Pierre into each file's header slot; it reads its row from `headerStore`.
  */
 import { CheckIcon, ChevronDownIcon, ChevronRightIcon, cn, SeverityBadge, Tile } from "@polaris/ui";
+import { memo } from "react";
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 import type { DividerRow } from "../model/layout.ts";
@@ -103,7 +104,7 @@ const Divider = ({ divider }: { readonly divider: DividerRow }) => {
   );
 };
 
-export const FileHeader = ({ id }: { readonly id: string }) => {
+const Header = ({ id }: { readonly id: string }) => {
   const row = useStore(headerStore, (s) => s.rows[id]);
   const actions = useStore(headerStore, (s) => s.actions);
 
@@ -165,3 +166,9 @@ export const FileHeader = ({ id }: { readonly id: string }) => {
     </div>
   );
 };
+
+/**
+ * Pierre re-renders every mounted header (with `flushSync`) whenever a file mounts while
+ * scrolling; memoised by id, only the new one renders.
+ */
+export const FileHeader = memo(Header);

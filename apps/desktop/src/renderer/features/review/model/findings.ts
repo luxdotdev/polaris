@@ -1,8 +1,8 @@
 /**
  * Risk Findings in the diff: which lines they flag (gutter marks), each file's highest
  * Severity (its header badge and the file list's glyph), and the reason row under each
- * flagged line. A dismissed or resolved finding drops out, except a Critical one, which
- * nothing hides (DESIGN.md, Review).
+ * flagged line. Dismissed findings drop out, except a Critical one, which nothing hides
+ * (DESIGN.md, Review); resolved ones (fixed, withdrawn) are gone.
  */
 import type { ReviewFile } from "./layout.ts";
 import { itemKey, type LineMark, type MarkSeverity, SEVERITY_ORDER } from "./marks.ts";
@@ -19,8 +19,9 @@ export interface FindingInfo {
   readonly status: "open" | "dismissed" | "resolved";
 }
 
+/** Open findings, and a dismissed Critical (nothing hides one); a fixed one is gone. */
 export const isShown = (finding: FindingInfo) =>
-  finding.status === "open" || finding.severity === "critical";
+  finding.status === "open" || (finding.status === "dismissed" && finding.severity === "critical");
 
 /** Non-Critical findings under 50% confidence are dimmed (ENG-185). */
 export const isDimmed = (finding: FindingInfo) =>

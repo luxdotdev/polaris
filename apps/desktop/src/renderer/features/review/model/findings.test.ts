@@ -46,6 +46,12 @@ const FINDINGS = [
 ];
 
 describe("findings in the diff", () => {
+  test("a resolved Critical (fixed) leaves no mark", () => {
+    expect(
+      severityByPath([finding("fixed", { severity: "critical", status: "resolved", path: "c.ts" })])
+    ).toEqual(new Map());
+  });
+
   test("dismissed findings drop out, except a Critical one", () => {
     expect(severityByPath(FINDINGS)).toEqual(
       new Map([

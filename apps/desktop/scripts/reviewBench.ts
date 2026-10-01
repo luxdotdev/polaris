@@ -14,7 +14,7 @@
  * the Daemon's peak RSS while it diffs. Budgets: frame p95 at most 1.5 intervals, at most
  * 2% dropped, the app under 1 GB.
  *
- *   node scripts/reviewBench.ts [--quick] [--scenes full,huge] [--json <path>]
+ *   node scripts/reviewBench.ts [--quick] [--scenes full,huge] [--json <path>] [--profile <prefix>]
  *
  * Build the app first (`bun run --cwd apps/desktop build`). Exits 1 when a budget is missed.
  */
@@ -326,7 +326,20 @@ const runScene = async (scene: SceneName): Promise<SceneResult> => {
     const target =
       scene === "list-only" ? "[data-testid=review-files] .overflow-y-auto" : ".review-diff";
 
+    const profile = option("--profile");
+    const cdp = profile === null ? null : await page.context().newCDPSession(page);
+
+    await cdp?.send("Profiler.enable");
+    await cdp?.send("Profiler.start");
+
     const deltas = await scrollFrames(page, target, 600);
+
+    if (cdp !== null && profile !== null) {
+      const { profile: cpu } = await cdp.send("Profiler.stop");
+
+      writeFileSync(`${profile}-${scene}.cpuprofile`, JSON.stringify(cpu));
+      console.log(`review-bench ${scene}: CPU profile at ${profile}-${scene}.cpuprofile`);
+    }
 
     await page.waitForTimeout(2000);
 
