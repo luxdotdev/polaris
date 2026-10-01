@@ -202,9 +202,13 @@ export const reviewFlow = async ({ page, fake, step, shoot }: ReviewFlowInput) =
   await deliver.getByText("Viewed").click();
   await page.getByTestId("review-progress").filter({ hasText: "1 of 3 viewed" }).waitFor();
 
-  const marked = fake.requests.some((r) => r.kind === "graphql" && r.name === "MarkFileAsViewed");
+  // The mark shows at once; its GitHub write follows.
+  const sent = () =>
+    fake.requests.some((r) => r.kind === "graphql" && r.name === "MarkFileAsViewed");
 
-  if (!marked) throw new Error("Viewed didn't reach GitHub (no MarkFileAsViewed)");
+  for (let i = 0; i < 50 && !sent(); i++) await page.waitForTimeout(200);
+
+  if (!sent()) throw new Error("Viewed didn't reach GitHub (no MarkFileAsViewed)");
 
   step(`Viewed: ${before ?? ""} → 1 of 3 viewed, sent to GitHub as MarkFileAsViewed`);
 
