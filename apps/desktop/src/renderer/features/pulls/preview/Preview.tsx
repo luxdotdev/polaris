@@ -53,7 +53,13 @@ export const mountPullsPreview = (root: HTMLElement, hash: string) => {
   const store = createStore<AppState>(() => ({
     ...initialState,
     hosts: HOSTS,
-    hostModels: MODELS,
+    // Nothing open and nothing ready: the empty scene drops the session too.
+    hostModels:
+      scene === "empty"
+        ? Object.fromEntries(
+            Object.entries(MODELS).map(([key, model]) => [key, { ...model, sessions: new Map() }])
+          )
+        : MODELS,
   }));
 
   const connection: Connection = {
