@@ -13,6 +13,7 @@ import type {
   ConnectionState,
   FileChangeEvent,
   FileEntry,
+  DiffFile,
   GitStatus,
   Grep,
   HarnessCommands,
@@ -284,7 +285,17 @@ export interface RequestOutputs extends GitHubRequestOutputs {
   "files.searchPaths": Rpc.Success<typeof SearchPaths>;
   "files.grep": Rpc.Success<typeof Grep>;
   "git.status": Rpc.Success<typeof GitStatus>;
-  "git.diff": { readonly bytes: Uint8Array; readonly files: number };
+  "git.diff": {
+    readonly bytes: Uint8Array;
+    readonly files: number;
+    /** Each file's byte range in `bytes` (empty from Daemons without `git.diff-files`). */
+    readonly fileIndex: ReadonlyArray<Plain<DiffFile>>;
+  };
+  "git.show": {
+    readonly size: number;
+    readonly mimeType: string;
+    readonly content: FileContentView;
+  };
   "harness.models": Plain<HarnessModels>;
   "harness.commands": Plain<HarnessCommands>;
   "harness.spinnerVerbs": Plain<SpinnerVerbs> | null;

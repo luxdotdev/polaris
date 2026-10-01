@@ -6,6 +6,7 @@ import { files } from "./files.ts";
 import { gitScenario } from "./git.ts";
 import { history } from "./history.ts";
 import { idle } from "./idle.ts";
+import { review } from "./review.ts";
 import { rules } from "./rules.ts";
 import { sessions } from "./sessions.ts";
 import { terminal } from "./terminal.ts";
@@ -24,6 +25,7 @@ export const SCENARIOS: ReadonlyArray<Scenario> = [
   terminal,
   rules,
   desktopIdle,
+  review,
   usage,
   usageContention,
 ];

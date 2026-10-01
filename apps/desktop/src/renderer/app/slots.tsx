@@ -17,12 +17,8 @@ import { WorkspaceStage } from "../features/empty/index.ts";
 import { JumpMenu } from "../features/jump/index.ts";
 import { OpenFolderDialog } from "../features/open-folder/index.ts";
 import { HarnessTerminal, type HarnessTerminalProps } from "../features/terminal/index.ts";
-import {
-  PullList,
-  type PullListProps,
-  type PullReviewProps,
-  PullReviewStandIn,
-} from "../features/pulls/index.ts";
+import { PullList, type PullListProps } from "../features/pulls/index.ts";
+import { ReviewView, type ReviewViewProps } from "../features/review/index.ts";
 
 /** A selected Agent Session: which Host it lives on and its id. */
 export interface SessionSlotProps {
@@ -85,8 +81,8 @@ export interface ShellSlots {
   readonly HarnessTerminal: ComponentType<HarnessTerminalProps>;
   /** Review with no subject open: the pull request list (Paper R3, features/pulls). */
   readonly PullRequests: ComponentType<PullListProps>;
-  /** Review of one pull request (R1); its subject comes from `routes/review.ts`. */
-  readonly PullReview: ComponentType<PullReviewProps>;
+  /** Review of one subject, a pull request (R1) or an Agent Session's Turns (R2); from `routes/review.ts`. */
+  readonly ReviewSubject: ComponentType<ReviewViewProps>;
 }
 
 export const slots: ShellSlots = {
@@ -102,5 +98,5 @@ export const slots: ShellSlots = {
   SettingsHosts: HostsSettingsPage,
   HarnessTerminal,
   PullRequests: PullList,
-  PullReview: PullReviewStandIn,
+  ReviewSubject: ReviewView,
 };

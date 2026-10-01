@@ -1,6 +1,8 @@
 /** Layout F: title bar, the adaptive top bar, then Input → Intent → Output (ENG-177). */
+import { useEffect } from "react";
 import { useOnboardingState, Welcome } from "../features/onboarding/index.ts";
 import { LaterMode, type LaterModeProps } from "../features/empty/index.ts";
+import { preloadReview } from "../features/review/index.ts";
 import { SettingsPage } from "../features/settings/index.ts";
 import { closeReviewSubject, useReviewSubject } from "../routes/review.ts";
 import { Columns } from "../shell/Columns.tsx";
@@ -21,12 +23,15 @@ const Review = () => {
   const subject = useReviewSubject();
   const { openSettings } = useShellActions();
 
+  // The Review view's chunk loads while the pull request list is on screen.
+  useEffect(preloadReview, []);
+
   return (
     <main className="flex min-h-0 flex-1 flex-col">
       {subject === null ? (
         <slots.PullRequests onAddAccount={() => openSettings()} />
       ) : (
-        <slots.PullReview subject={subject} onBack={closeReviewSubject} />
+        <slots.ReviewSubject subject={subject} onBack={closeReviewSubject} />
       )}
     </main>
   );

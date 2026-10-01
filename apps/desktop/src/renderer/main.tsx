@@ -60,6 +60,9 @@ const needsYouPreview = location.hash.startsWith("#needs-you/");
 // `#pulls/<scene>`: the pull request list on fixtures (features/pulls/preview).
 const pullsPreview = location.hash.startsWith("#pulls/");
 
+// `#review/<scene>`: Review on fixtures (features/review/preview).
+const reviewPreview = location.hash.startsWith("#review/");
+
 let setPreviewDensity: ((density: Density) => void) | null = null;
 
 const appearance = (value: Appearance) => {
@@ -104,6 +107,10 @@ if (root !== null && preview) {
 } else if (root !== null && pullsPreview) {
   void import("./features/pulls/preview/Preview.tsx").then((m) => {
     setPreviewDensity = m.mountPullsPreview(root, location.hash);
+  });
+} else if (root !== null && reviewPreview) {
+  void import("./features/review/preview/Preview.tsx").then((m) => {
+    setPreviewDensity = m.mountReviewPreview(root, location.hash);
   });
 } else if (root !== null) {
   createRoot(root).render(

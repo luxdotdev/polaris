@@ -1,0 +1,304 @@
+import { describe, expect, test } from "bun:test";
+import { fileListRows } from "./fileList.ts";
+import { layoutRows, type LayoutInput, type ReviewFile, type ReviewSection } from "./layout.ts";
+import { itemKey, type LineMark, marksCss, MAX_MARKED_LINES } from "./marks.ts";
+import { fileText, fingerprint, indexPatch, type PatchFile } from "./patch.ts";
+import { scaleNotice, scaleOf } from "./policy.ts";
+import {
+  emptyBook,
+  isViewed,
+  KEPT_SUBJECTS,
+  progressOf,
+  pullFileViewed,
+  setViewed,
+} from "./viewed.ts";
+
+const PATCH = `diff --git a/src/a.ts b/src/a.ts
+index 1111111..2222222 100644
+--- a/src/a.ts
++++ b/src/a.ts
+@@ -1,3 +1,4 @@
+ one
+-two
++TWO
++three
+ four
+diff --git a/old.ts b/new.ts
+similarity 90%
+rename from old.ts
+rename to new.ts
+diff --git a/gone.ts b/gone.ts
+deleted file mode 100644
+index 3333333..0000000
+--- a/gone.ts
++++ /dev/null
+@@ -1,2 +0,0 @@
+-x
+--- not a header
+diff --git a/img.png b/img.png
+new file mode 100644
+index 0000000..4444444
+Binary files /dev/null and b/img.png differ
+diff --git a/run.sh b/run.sh
+old mode 100644
+new mode 100755
+`;
+
+const bytes = new TextEncoder().encode(PATCH);
+
+/** The `i`th file of a patch the test wrote, which has it. */
+const at = (files: ReadonlyArray<PatchFile>, i: number): PatchFile => {
+  const file = files[i];
+
+  if (file === undefined) throw new Error(`no file ${i}`);
+
+  return file;
+};
+
+describe("indexPatch", () => {
+  test("finds every file, its status and counts without a fileIndex", () => {
+    const files = indexPatch(bytes, []);
+
+    expect(
+      files.map((f) => [f.path, f.oldPath, f.status, f.additions, f.deletions, f.binary])
+    ).toEqual([
+      ["src/a.ts", null, "modified", 2, 1, false],
+      ["new.ts", "old.ts", "renamed", 0, 0, false],
+      ["gone.ts", null, "deleted", 0, 2, false],
+      ["img.png", null, "added", 0, 0, true],
+      ["run.sh", null, "mode-changed", 0, 0, false],
+    ]);
+    expect(files.reduce((sum, f) => sum + f.length, 0)).toBe(bytes.length);
+    expect(fileText(bytes, at(files, 0)).startsWith("diff --git a/src/a.ts")).toBe(true);
+    expect(fileText(bytes, at(files, 0))).toContain(" four\n");
+  });
+
+  test("takes the Daemon's fileIndex as it is", () => {
+    const index = [
+      {
+        path: "x",
+        oldPath: null,
+        status: "added" as const,
+        offset: 0,
+        length: 3,
+        additions: 1,
+        deletions: 0,
+        binary: false,
+      },
+    ];
+
+    expect(indexPatch(bytes, index)).toBe(index);
+  });
+
+  test("a fingerprint changes with the file's bytes only", () => {
+    const before = indexPatch(bytes, []);
+    const changed = new TextEncoder().encode(PATCH.replace("+three", "+THREE"));
+    const after = indexPatch(changed, []);
+
+    expect(fingerprint(bytes, at(before, 0))).not.toBe(fingerprint(changed, at(after, 0)));
+    expect(fingerprint(bytes, at(before, 1))).toBe(fingerprint(changed, at(after, 1)));
+  });
+});
+
+describe("scaleOf", () => {
+  test.each([
+    [10, 1000, "full"],
+    [2000, 1000, "full"],
+    [2001, 1000, "collapsed"],
+    [10, 20 * 1024 * 1024 + 1, "collapsed"],
+    [10_000, 1, "collapsed"],
+    [10_001, 1, "list-only"],
+  ] as const)("%d files, %d bytes → %s", (files, size, scale) => {
+    expect(scaleOf(files, size)).toBe(scale);
+  });
+
+  test("says what a large Review does", () => {
+    expect(scaleNotice("full", 3)).toBeNull();
+    expect(scaleNotice("collapsed", 2500)).toBe("2,500 files: each opens collapsed");
+    expect(scaleNotice("list-only", 12000)).toContain("open one from the list");
+  });
+});
+
+describe("marksCss", () => {
+  const mark = (over: Partial<LineMark>): LineMark => ({
+    item: itemKey(3),
+    side: "new",
+    start: 41,
+    end: 41,
+    severity: "high",
+    ...over,
+  });
+
+  test("scopes a mark to its file and side, with the glyph on the first line only", () => {
+    const css = marksCss([mark({ start: 41, end: 42 })]);
+
+    expect(css).toContain(
+      ':host([data-review-item="f3"]) [data-column-number="41"]:not([data-line-type="change-deletion"]) { box-shadow: inset 2px 0 0 var(--color-severity-high); }'
+    );
+    expect(css).toContain(
+      '[data-column-number="41"]:not([data-line-type="change-deletion"])::before'
+    );
+    expect(css).not.toContain(
+      '[data-column-number="42"]:not([data-line-type="change-deletion"])::before'
+    );
+    expect(css).toContain('[data-column-number="42"]');
+  });
+
+  test("old-side marks target deleted lines", () => {
+    expect(marksCss([mark({ side: "old", start: 7, end: 7 })])).toContain(
+      '[data-column-number="7"][data-line-type="change-deletion"]'
+    );
+  });
+
+  test("the most severe mark wins a line, and long ranges are capped", () => {
+    const css = marksCss([mark({ severity: "low" }), mark({ severity: "critical" })]);
+
+    expect(css).toContain("var(--color-severity-critical)");
+    expect(css).not.toContain("var(--color-severity-low)");
+    const long = marksCss([mark({ start: 1, end: 10_000 })]);
+
+    expect(long.match(/box-shadow/g)?.length).toBe(MAX_MARKED_LINES);
+  });
+
+  test("no marks, no stylesheet; the same marks, the same string", () => {
+    expect(marksCss([])).toBe("");
+    expect(marksCss([mark({})])).toBe(marksCss([mark({})]));
+  });
+});
+
+describe("viewed", () => {
+  test("a mark holds while the file's diff is unchanged", () => {
+    const book = setViewed(emptyBook, "s", "a.ts", "abc");
+
+    expect(isViewed(book, "s", "a.ts", "abc")).toBe(true);
+    expect(isViewed(book, "s", "a.ts", "def")).toBe(false);
+    expect(isViewed(setViewed(book, "s", "a.ts", null), "s", "a.ts", "abc")).toBe(false);
+  });
+
+  test("forgets the oldest subjects", () => {
+    let book = emptyBook;
+
+    for (let i = 0; i <= KEPT_SUBJECTS; i++) book = setViewed(book, `s${i}`, "f", "x");
+
+    expect(book.order).toHaveLength(KEPT_SUBJECTS);
+    expect(book.subjects.s0).toBeUndefined();
+    expect(isViewed(book, `s${KEPT_SUBJECTS}`, "f", "x")).toBe(true);
+  });
+
+  test("a pull request's pending click wins over GitHub", () => {
+    expect(pullFileViewed("viewed", undefined)).toBe(true);
+    expect(pullFileViewed("dismissed", undefined)).toBe(false);
+    expect(pullFileViewed("viewed", false)).toBe(false);
+    expect(pullFileViewed(undefined, true)).toBe(true);
+  });
+
+  test("progress", () => {
+    expect(progressOf(3, 7)).toMatchObject({ label: "3 of 7 viewed" });
+    expect(progressOf(0, 0).fraction).toBe(0);
+  });
+});
+
+describe("layoutRows", () => {
+  const files = indexPatch(bytes, []);
+
+  const reviewFile = (section: string, i: number): ReviewFile => ({
+    key: `${section}:${files[i]?.path}`,
+    index: i,
+    section,
+    file: at(files, i),
+    fingerprint: "x",
+  });
+
+  const turn = (id: string, ...indices: ReadonlyArray<number>): ReviewSection => ({
+    id,
+    divider: { label: `Turn ${id}`, quote: "Go" },
+    files: indices.map((i) => reviewFile(id, i)),
+  });
+
+  const input = (over: Partial<LayoutInput>): LayoutInput => ({
+    sections: [turn("1", 0, 2), turn("2", 1)],
+    scale: "full",
+    viewed: () => false,
+    toggled: new Map(),
+    openedSections: new Set(),
+    openFile: null,
+    ...over,
+  });
+
+  test("the first file of each Turn carries its divider; binary files start collapsed", () => {
+    const rows = layoutRows(input({ sections: [turn("1", 0, 3)] }));
+
+    expect(rows.map((r) => [r.file.key, r.collapsed, r.divider?.label ?? null])).toEqual([
+      ["1:src/a.ts", false, "Turn 1"],
+      ["1:img.png", true, null],
+    ]);
+    expect(rows[0]?.divider?.caption).toBe("2 files");
+  });
+
+  test("a Turn with every file viewed folds to one line until opened", () => {
+    const viewed = (f: ReviewFile) => f.section === "1";
+    const rows = layoutRows(input({ viewed }));
+
+    expect(rows.map((r) => r.file.key)).toEqual(["1:src/a.ts", "2:new.ts"]);
+    expect(rows[0]?.divider).toMatchObject({ folded: true, caption: "2 files · all viewed" });
+    const opened = layoutRows(input({ viewed, openedSections: new Set(["1"]) }));
+
+    expect(opened.map((r) => [r.file.key, r.collapsed])).toEqual([
+      ["1:src/a.ts", true],
+      ["1:gone.ts", true],
+      ["2:new.ts", false],
+    ]);
+  });
+
+  test("large Reviews open collapsed; the user's toggle wins", () => {
+    const rows = layoutRows(input({ scale: "collapsed", toggled: new Map([["1:gone.ts", true]]) }));
+
+    expect(rows.map((r) => r.collapsed)).toEqual([true, false, true]);
+  });
+
+  test("list-only shows only the open file", () => {
+    expect(layoutRows(input({ scale: "list-only" }))).toEqual([]);
+    expect(
+      layoutRows(input({ scale: "list-only", openFile: "2:new.ts" })).map((r) => r.file.key)
+    ).toEqual(["2:new.ts"]);
+  });
+
+  test("a pull request has no divider", () => {
+    const rows = layoutRows(
+      input({ sections: [{ id: "pr", divider: null, files: [reviewFile("pr", 0)] }] })
+    );
+
+    expect(rows[0]?.divider).toBeNull();
+  });
+});
+
+describe("fileListRows", () => {
+  const files = indexPatch(bytes, []).map((file, index): ReviewFile => ({
+    key: file.path,
+    index,
+    section: "pr",
+    file,
+    fingerprint: "x",
+  }));
+
+  const viewed = (f: ReviewFile) => f.index % 2 === 1;
+
+  test("files to view first, then one row for the viewed ones", () => {
+    const rows = fileListRows(files, viewed, false);
+
+    expect(rows.map((r) => (r.kind === "file" ? r.file.key : `+${r.count}`))).toEqual([
+      "src/a.ts",
+      "gone.ts",
+      "run.sh",
+      "+2",
+    ]);
+  });
+
+  test("opened, the viewed files follow it", () => {
+    expect(fileListRows(files, viewed, true).slice(-2)).toMatchObject([
+      { kind: "file", viewed: true, file: { key: "new.ts" } },
+      { kind: "file", viewed: true, file: { key: "img.png" } },
+    ]);
+    expect(fileListRows(files, () => false, false)).toHaveLength(5);
+  });
+});
