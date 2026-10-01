@@ -36,6 +36,7 @@ import {
   type Finding,
   groupFindings,
   notesOf,
+  rerunLabel,
   type Summary,
 } from "../model/summary.ts";
 import { FindingItem } from "./FindingItem.tsx";
@@ -124,8 +125,8 @@ const Header = ({
         </span>
       </div>
       {onRerun !== null && (
-        <Button size="xs" variant="ghost" onClick={onRerun}>
-          Review again
+        <Button size="xs" variant="ghost" data-testid="risk-rerun" onClick={onRerun}>
+          {rerunLabel(state.kind === "ready" ? state.summary : null)}
         </Button>
       )}
     </div>
