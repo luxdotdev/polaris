@@ -43,7 +43,7 @@ export const ReviewCheckoutGitLive = Layer.succeed(
     fetchPullRequest: (options) => attemptBlocking(() => fetchPullRequest(options)),
     pinCommits: (options) => attemptBlocking(() => pinCommits(options)),
     ensure: (options) => attempt(() => ensureCheckout(options)),
-    inspect: (path) => attempt(() => inspectCheckout(path)),
+    inspect: (path, head) => attempt(() => inspectCheckout(path, head)),
     move: (options) => attempt(() => moveCheckout(options)),
     remove: ({ repoPath, path, key }) =>
       attempt(async () => {

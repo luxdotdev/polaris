@@ -4,7 +4,7 @@
  * sweeper's targets, built fresh from the read model for each sweep.
  */
 import type { SessionId, TurnId, Workspace } from "@polaris/protocol";
-import { Clock, Context, Effect, Layer } from "effect";
+import { Clock, Context, Effect, Layer, Predicate } from "effect";
 import {
   type CheckpointSession,
   DEFAULT_CHECKPOINT_POLICY,
@@ -30,6 +30,14 @@ const forkedTurns = (model: ReadModel): ReadonlyMap<SessionId, ReadonlyArray<Tur
 
   return pinned;
 };
+
+/** Sessions with a Review Checkout of their Turns: pruned as if live, so the checkpoints stay. */
+const underReview = (model: ReadModel): ReadonlySet<SessionId> =>
+  new Set(
+    [...model.reviewCheckouts.values()].flatMap(({ subject }) =>
+      Predicate.isTagged(subject, "SessionTurns") ? [subject.sessionId] : []
+    )
+  );
 
 const describeError = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause));
 
@@ -86,6 +94,7 @@ const make = (rt: EngineRuntime["Service"]): CheckpointPruning["Service"] => {
   const targets = Effect.gen(function* () {
     const model = yield* store.model;
     const pinned = forkedTurns(model);
+    const reviewed = underReview(model);
     const found: Array<SweepTarget> = [];
 
     for (const workspace of model.workspaces.values()) {
@@ -97,7 +106,9 @@ const make = (rt: EngineRuntime["Service"]): CheckpointPruning["Service"] => {
           checkpointSession(
             record,
             pinned,
-            record.session.state === "archived" ? Date.parse(record.session.updatedAt) : null
+            record.session.state === "archived" && !reviewed.has(record.session.id)
+              ? Date.parse(record.session.updatedAt)
+              : null
           )
       );
 
@@ -109,6 +120,7 @@ const make = (rt: EngineRuntime["Service"]): CheckpointPruning["Service"] => {
 
   const onArchived = (record: SessionRecord, workspace: Workspace, model: ReadModel) =>
     Effect.gen(function* () {
+      if (underReview(model).has(record.session.id)) return;
       const at = yield* Clock.currentTimeMillis;
       const session = yield* checkpointSession(record, forkedTurns(model), at);
       yield* pruneArchivedSession(workspace.path, session, { policy }).pipe(

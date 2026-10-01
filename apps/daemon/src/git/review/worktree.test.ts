@@ -117,16 +117,20 @@ describe("Review Checkout worktree", () => {
       head: s.v1,
       lockReason: "polaris review checkout",
     });
-    expect(await inspectCheckout(s.path)).toEqual({
+    expect(await inspectCheckout(s.path, s.v1)).toEqual({
       present: true,
       dirtyPaths: [],
       localCommits: 0,
     });
+    // After a force-push the old head is held by nothing but the checkout: still not the user's.
+    await gitText(s.user, ["update-ref", "-d", reviewRef("7", "head")]);
+    expect(await inspectCheckout(s.path, s.v1)).toMatchObject({ localCommits: 0 });
+    expect(await inspectCheckout(s.path, null)).toMatchObject({ localCommits: 1 });
 
     write(s.path, "node_modules/dep/index.js", "ignored\n");
     write(s.path, "feature.txt", "edited\n");
     write(s.path, "scratch.txt", "new\n");
-    expect(await inspectCheckout(s.path)).toEqual({
+    expect(await inspectCheckout(s.path, s.v1)).toEqual({
       present: true,
       dirtyPaths: ["feature.txt", "scratch.txt"],
       localCommits: 0,
@@ -134,12 +138,12 @@ describe("Review Checkout worktree", () => {
 
     await commitAll(s.path, "a local fix");
     await gitText(s.path, ["commit", "-q", "--allow-empty", "-m", "another"]);
-    expect(await inspectCheckout(s.path)).toEqual({
+    expect(await inspectCheckout(s.path, s.v1)).toEqual({
       present: true,
       dirtyPaths: [],
       localCommits: 2,
     });
-    expect(await inspectCheckout(join(s.path, "missing"))).toMatchObject({ present: false });
+    expect(await inspectCheckout(join(s.path, "missing"), null)).toMatchObject({ present: false });
   });
 
   test("discarding changes resets and cleans, keeping ignored files", async () => {
@@ -158,7 +162,7 @@ describe("Review Checkout worktree", () => {
     await moveCheckout({ path: s.path, head: v2, discardChanges: true });
 
     expect(await resolveCommit(s.path, "HEAD")).toBe(v2);
-    expect(await inspectCheckout(s.path)).toMatchObject({ dirtyPaths: [] });
+    expect(await inspectCheckout(s.path, s.v1)).toMatchObject({ dirtyPaths: [] });
     expect(existsSync(join(s.path, "node_modules/dep/index.js"))).toBe(true);
     expect(existsSync(s.marker)).toBe(false);
   });

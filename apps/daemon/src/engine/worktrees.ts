@@ -11,7 +11,9 @@ import {
   type WorkspaceId,
   Worktree,
 } from "@polaris/protocol";
+import { join, sep } from "node:path";
 import { Context, Effect, Layer } from "effect";
+import { isReviewCheckoutWorktree } from "../git/review/index.ts";
 import type { ServiceError } from "../services.ts";
 import type { ReadModel } from "../store/model.ts";
 import { forkBranch, worktreeIdFor } from "./decider.ts";
@@ -30,6 +32,11 @@ export interface ForkOrigin {
   readonly fromSessionId: SessionId;
   readonly fromTurnId: TurnId;
 }
+
+/** Review Checkouts live under `<worktreeRoot>/.review/`, which no branch name can collide with. */
+export const REVIEW_DIRECTORY = ".review";
+
+const isInside = (dir: string, path: string): boolean => path === dir || path.startsWith(dir + sep);
 
 const make = (rt: EngineRuntime["Service"]): Worktrees["Service"] => {
   const { store } = rt;
@@ -68,7 +75,13 @@ const make = (rt: EngineRuntime["Service"]): Worktrees["Service"] => {
 
   const detectExisting = (workspace: Workspace) =>
     Effect.gen(function* () {
-      const listed = yield* rt.worktrees.list(workspace.path);
+      // Review Checkouts are worktrees too, but the checkout records them, not a Worktree.
+      const listed = (yield* rt.worktrees.list(workspace.path)).filter(
+        (info) =>
+          !isReviewCheckoutWorktree(info) &&
+          !isInside(join(workspace.worktreeRoot, REVIEW_DIRECTORY), info.path)
+      );
+
       yield* store.commit({
         commandId: null,
         decide: (model) =>

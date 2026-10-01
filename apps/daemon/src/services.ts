@@ -130,7 +130,11 @@ export class ReviewCheckoutGit extends Context.Service<
       readonly head: string;
       readonly lockReason: string;
     }) => Effect.Effect<void, ServiceError>;
-    readonly inspect: (path: string) => Effect.Effect<CheckoutInspection, ServiceError>;
+    /** `head`: the commit Polaris checked out there (its history is never the user's). */
+    readonly inspect: (
+      path: string,
+      head: string | null
+    ) => Effect.Effect<CheckoutInspection, ServiceError>;
     /** Move to `head`; `discardChanges` resets and cleans first (ignored files stay). */
     readonly move: (options: {
       readonly path: string;

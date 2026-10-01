@@ -18,6 +18,7 @@ import { Predicate } from "effect";
 import { patchTurn } from "../store/model.ts";
 import { type CheckoutInput, decideCheckout } from "./checkout.ts";
 import type { Decision, Deciding } from "./decider.ts";
+import { REVIEW_DIRECTORY } from "./worktrees.ts";
 
 type CommandOf<Tag extends Command["_tag"]> = Extract<Command, { _tag: Tag }>;
 
@@ -96,7 +97,7 @@ const openReviewCheckout = (d: Deciding, command: CommandOf<"OpenReviewCheckout"
     return d.reject("a pull request's Review Checkout needs its head and base commits");
   }
 
-  const path = join(workspace.worktreeRoot, ".review", checkoutDirectory(command.subject));
+  const path = join(workspace.worktreeRoot, REVIEW_DIRECTORY, checkoutDirectory(command.subject));
 
   for (const open of d.model.reviewCheckouts.values()) {
     if (open.path === path && open.id !== command.checkoutId) {

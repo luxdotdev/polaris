@@ -69,8 +69,14 @@ const parsePorcelainPaths = (output: string): Array<string> => {
   return paths;
 };
 
-/** What blocks moving or removing the checkout, as it is on disk now. */
-export const inspectCheckout = async (path: string): Promise<CheckoutInspection> => {
+/**
+ * What blocks moving or removing the checkout, as it is on disk now. `head`
+ * is the commit Polaris checked out, whose history never counts as the user's.
+ */
+export const inspectCheckout = async (
+  path: string,
+  head: string | null
+): Promise<CheckoutInspection> => {
   if (!existsSync(path)) return { present: false, dirtyPaths: [], localCommits: 0 };
 
   const status = await checkoutGit(path, [
@@ -85,6 +91,7 @@ export const inspectCheckout = async (path: string): Promise<CheckoutInspection>
     "--count",
     "HEAD",
     "--not",
+    ...(head === null ? [] : [head]),
     "--branches",
     "--tags",
     "--remotes",
