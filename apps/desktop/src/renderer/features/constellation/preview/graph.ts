@@ -22,6 +22,8 @@ import {
   TaskId,
   ToolCallReference,
   TurnId,
+  WorkerActivity,
+  WorkerLiveness,
   WorkspaceId,
 } from "@polaris/protocol";
 import { merged, recordFrom } from "../model/fold.ts";
@@ -317,6 +319,20 @@ export const constellationOf = (patch: Partial<Constellation> = {}) =>
 const unfetched = (projections: ReadonlyArray<ProjectionData>) =>
   projections.map((p) => (p.taskId === "B4" ? { ...p, branchFetched: false } : p));
 
+/** B2 as the Daemon observes it: running the bench for 4 minutes, nothing queued. */
+const b2Liveness = () =>
+  new WorkerLiveness({
+    current: new WorkerActivity({
+      itemId: "i-bench",
+      turnId: TurnId.make("t-b2"),
+      command: "bun run bench",
+      startedAt: Date.now() - 4 * 60_000,
+    }),
+    lastOutputAt: Date.now() - 20_000,
+    contextPercent: 61,
+    queuedInput: 0,
+  });
+
 export const c1Record = (
   patch: Partial<Constellation> = {},
   digestTurn = "t-lead-digest"
@@ -326,9 +342,11 @@ export const c1Record = (
 
   return {
     ...base,
-    projections: unfetched(base.projections).map((p) =>
-      p.taskId === "C1" ? { ...p, state: "future" as const } : p
-    ),
+    projections: unfetched(base.projections).map((p) => {
+      if (p.taskId === "C1") return merged(p, { state: "future" });
+
+      return p.taskId === "B2" ? merged(p, { liveness: b2Liveness() }) : p;
+    }),
     proposals: [
       {
         proposalId: "p-lease",

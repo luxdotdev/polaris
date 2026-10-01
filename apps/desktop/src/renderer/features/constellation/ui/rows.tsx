@@ -87,6 +87,7 @@ const LivenessLine = ({ line }: { readonly line: Liveness }) => (
     {line.queued === 0 ? null : (
       <span className="text-text-faint shrink-0">{line.queued} queued</span>
     )}
+    {line.quiet === null ? null : <span className="text-text-faint shrink-0">{line.quiet}</span>}
     {line.away === null ? null : <span className="text-text-faint">{line.away}</span>}
   </Caption>
 );

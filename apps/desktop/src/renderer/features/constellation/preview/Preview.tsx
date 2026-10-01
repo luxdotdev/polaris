@@ -142,7 +142,6 @@ const signalsFor = (scene: Scene) => {
       [
         "att-B2-1",
         {
-          activity: { kind: "command", text: "bun run bench", since: ago(4) },
           subagents: [
             {
               id: "sa-b2",

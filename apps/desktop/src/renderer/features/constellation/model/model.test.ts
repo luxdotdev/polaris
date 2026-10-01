@@ -281,6 +281,38 @@ describe("fold", () => {
     expect(b4?.branchFetched).toBe(false);
   });
 
+  test("LivenessChanged lands on the latest Attempt's projection only", () => {
+    const c = constellationOf();
+    const start = { byId: new Map([[c.id, recordFrom(c, 1)]]) };
+
+    const liveness = new WorkerLiveness({
+      current: null,
+      lastOutputAt: 1_700_000_000_000,
+      contextPercent: 61,
+      queuedInput: 2,
+    });
+
+    const live = applyStreamItems(start, [
+      ConstellationStreamItem.cases.LivenessChanged.make({
+        attemptId: AttemptId.make("att-B2-1"),
+        liveness,
+      }),
+    ]);
+
+    const b2 = live.byId.get(c.id)?.projections.find((p) => p.taskId === "B2");
+
+    expect(b2?.liveness?.queuedInput).toBe(2);
+
+    const stale = applyStreamItems(start, [
+      ConstellationStreamItem.cases.LivenessChanged.make({
+        attemptId: AttemptId.make("att-B2-0"),
+        liveness,
+      }),
+    ]);
+
+    expect(stale).toBe(start);
+  });
+
   test("events for an unknown graph are ignored", () => {
     const model = applyEnvelopes(emptyConstellations, [
       {
@@ -414,6 +446,23 @@ describe("rail", () => {
     expect(buildRail(largeRecord(), withSubagent).rows.some((r) => r.kind === "subagent")).toBe(
       false
     );
+  });
+
+  test("a silent worker reads quiet; a running command doesn't", () => {
+    const now = Date.parse("2026-10-01T12:10:00Z");
+
+    const quiet = plainFacts({
+      now,
+      worker: (a) => ({
+        ...plainFacts().worker(a),
+        quietSince: a.taskId === "B2" ? "2026-10-01T12:06:00Z" : null,
+        queued: a.taskId === "B2" ? 2 : 0,
+      }),
+    });
+
+    const b2 = rowFor(buildRail(c1Record(), quiet).rows, "B2");
+
+    expect(b2?.line).toMatchObject({ kind: "liveness", quiet: "quiet 4m", queued: 2 });
   });
 
   test("filters and queries flatten to matching Tasks", () => {

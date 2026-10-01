@@ -11,6 +11,7 @@ import {
   type AttemptData,
   type ConstellationData,
   NO_FACTS,
+  type ProjectionData,
   type ReceiptResult,
   type WorkerFacts,
 } from "./model/index.ts";
@@ -43,11 +44,31 @@ const activityOf = (turn: TurnView | undefined): Activity | null => {
 
 const AWAY = { reconnecting: "reconnecting", offline: "offline" } as const;
 
+const iso = (epochMs: number) => new Date(epochMs).toISOString();
+
+/** The Daemon's observations win field by field; a null one is unknown, so the session's stays. */
+const observedOver = (derived: WorkerFacts, observed: ProjectionData["liveness"]): WorkerFacts => {
+  if (observed === null) return derived;
+  const { current } = observed;
+
+  return {
+    ...derived,
+    activity:
+      current === null
+        ? derived.activity
+        : { kind: "command", text: current.command, since: iso(current.startedAt) },
+    contextPercent: observed.contextPercent ?? derived.contextPercent,
+    queued: observed.queuedInput,
+    quietSince: observed.lastOutputAt === null ? null : iso(observed.lastOutputAt),
+  };
+};
+
 export const workerFactsFrom = (
   state: AppState,
   c: ConstellationData,
   attempt: AttemptData,
-  signals: Signals
+  signals: Signals,
+  observed: ProjectionData["liveness"] = null
 ): WorkerFacts => {
   const hostKey = hostKeyOf(state.hosts, attempt.hostId);
   const host = state.hosts.find((h) => h.key === hostKey);
@@ -84,7 +105,7 @@ export const workerFactsFrom = (
     })),
   };
 
-  return { ...derived, ...signals.workers.get(attempt.id) };
+  return { ...observedOver(derived, observed), ...signals.workers.get(attempt.id) };
 };
 
 /** A verified receipt's command and exit code, when the session that ran it is open. */

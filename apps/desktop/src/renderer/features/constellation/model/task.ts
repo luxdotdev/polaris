@@ -28,6 +28,8 @@ export interface Liveness {
   readonly progress: string | null;
   /** The worker's Host is away: "devbox reconnecting". */
   readonly away: string | null;
+  /** No command running and no output for a while: "quiet 3m". */
+  readonly quiet: string | null;
 }
 
 export type Line =
@@ -76,6 +78,12 @@ const progressText = (p: Progress | undefined) => {
 const awayText = (w: WorkerFacts) =>
   w.hostAway === null || w.remoteHost === null ? null : `${w.remoteHost} ${w.hostAway}`;
 
+const QUIET_AFTER_MS = 60_000;
+
+/** "quiet 3m" once a worker has been silent past a minute. */
+const quietFor = (since: string, now: number) =>
+  now - Date.parse(since) < QUIET_AFTER_MS ? null : `quiet ${span(since, now)}`;
+
 const liveness = (w: WorkerFacts, progress: Progress | undefined, now: number): Liveness | null => {
   const a = w.activity;
 
@@ -95,9 +103,11 @@ const liveness = (w: WorkerFacts, progress: Progress | undefined, now: number): 
     queued: w.queued,
     progress: progressText(progress),
     away: awayText(w),
+    quiet: a === null && w.quietSince !== null ? quietFor(w.quietSince, now) : null,
   };
 
-  const empty = activity === null && line.progress === null && line.away === null;
+  const empty =
+    activity === null && line.progress === null && line.away === null && line.quiet === null;
 
   return empty && (w.contextPercent ?? 0) < CONTEXT_WARN && w.queued === 0 ? null : line;
 };

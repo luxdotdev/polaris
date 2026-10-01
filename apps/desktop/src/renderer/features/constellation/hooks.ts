@@ -137,19 +137,22 @@ export const useFacts = (record: ConstellationRecord | null): Facts => {
   const signals = useSignals();
   const now = useNow();
   const c = record?.constellation ?? null;
+  const projections = record?.projections ?? null;
 
   const select = useMemo(
     () => (state: AppState) => {
       const map = new Map<string, WorkerFacts>();
 
-      if (c === null) return map;
+      if (c === null || projections === null) return map;
       const latest = new Map(c.attempts.map((a) => [a.taskId, a]));
+      const observed = new Map(projections.map((p) => [p.latestAttemptId, p.liveness]));
 
-      for (const a of latest.values()) map.set(a.id, workerFactsFrom(state, c, a, signals));
+      for (const a of latest.values())
+        map.set(a.id, workerFactsFrom(state, c, a, signals, observed.get(a.id) ?? null));
 
       return map;
     },
-    [c, signals]
+    [c, projections, signals]
   );
 
   const workers = useStable(select, printFacts);

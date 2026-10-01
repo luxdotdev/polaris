@@ -345,6 +345,24 @@ export const applyHostItems = (
 
 type StreamItem = Plainly<ConstellationStreamItem>;
 
+/** Ephemeral liveness lands on the projection whose latest Attempt it is; a replaced one is dropped. */
+const withLiveness = (
+  model: ConstellationsModel,
+  attemptId: string,
+  liveness: ProjectionData["liveness"]
+): ConstellationsModel => {
+  for (const [id, r] of model.byId) {
+    const at = r.projections.findIndex((p) => p.latestAttemptId === attemptId);
+
+    if (at === -1) continue;
+    const projections = r.projections.map((p, n) => (n === at ? merged(p, { liveness }) : p));
+
+    return { byId: new Map(model.byId).set(id, { ...r, projections }) };
+  }
+
+  return model;
+};
+
 /** One `constellation.subscribe` feed's items, for a graph on another Host's stream. */
 export const applyStreamItems = (
   model: ConstellationsModel,
@@ -368,6 +386,8 @@ export const applyStreamItems = (
       );
       next = { byId };
     } else if (Predicate.isTagged(item, "Event")) next = applyEnvelopes(next, [item.envelope]);
+    else if (Predicate.isTagged(item, "LivenessChanged"))
+      next = withLiveness(next, item.attemptId, item.liveness);
   }
 
   return next;
