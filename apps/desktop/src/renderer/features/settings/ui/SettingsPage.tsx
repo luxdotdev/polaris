@@ -4,6 +4,7 @@
  * (outside an open menu or dialog) goes back to where the user was.
  */
 import {
+  AsteriskIcon,
   BranchIcon,
   ChartColumnIcon,
   ChevronLeftIcon,
@@ -14,6 +15,7 @@ import {
   PaperclipIcon,
   PixelPolarisIcon,
   ServerIcon,
+  UsersIcon,
 } from "@polaris/ui";
 import { type ReactNode, useEffect } from "react";
 import { slots } from "../../../app/slots.tsx";
@@ -23,7 +25,9 @@ import { SECTION_GROUPS, sectionInfo } from "../model/sections.ts";
 import { useSettings } from "../store.ts";
 import { AttachmentsPage } from "../../attachments/index.ts";
 import { AppearancePage } from "./AppearancePage.tsx";
+import { GitHubPage } from "./GitHubPage.tsx";
 import { HarnessesPage } from "./HarnessesPage.tsx";
+import { ReviewerPage } from "./ReviewerPage.tsx";
 import { SessionsPage } from "./SessionsPage.tsx";
 import { UsagePage } from "./UsagePage.tsx";
 
@@ -34,6 +38,8 @@ const ICONS: Readonly<Record<SettingsSection, ReactNode>> = {
   usage: <ChartColumnIcon />,
   hosts: <ServerIcon />,
   attachments: <PaperclipIcon />,
+  reviewer: <AsteriskIcon />,
+  github: <UsersIcon />,
 };
 
 /** An open popover, menu, select or dialog takes esc first. */
@@ -138,6 +144,10 @@ const Page = ({ route }: { readonly route: SettingsRoute }) => {
       return <slots.SettingsHosts adding={route.adding} />;
     case "attachments":
       return <AttachmentsPage />;
+    case "reviewer":
+      return <ReviewerPage />;
+    case "github":
+      return <GitHubPage adding={route.adding} />;
   }
 };
 
