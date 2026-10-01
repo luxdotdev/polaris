@@ -17,6 +17,7 @@ Source research behind the Polaris planning map ([ENG-167](https://linear.app/lu
 | [multi-model-harnesses.md](multi-model-harnesses.md) | [ENG-197](https://linear.app/luxdev/issue/ENG-197): OpenCode, ACP and other multi-model Harnesses |
 | [usage-sources.md](usage-sources.md) | [ENG-198](https://linear.app/luxdev/issue/ENG-198): where Usage and Plan Limits come from without touching credentials |
 | [github-review-apis.md](github-review-apis.md) | [ENG-219](https://linear.app/luxdev/issue/ENG-219): GitHub's OAuth device flow and the pull request APIs M2 needs |
+| [review-checkout.md](review-checkout.md) | [ENG-221](https://linear.app/luxdev/issue/ENG-221): how the Daemon fetches, checks out, updates and removes a Review Checkout |
 
 The prototype and spike code is throwaway and stays on its own branches, not on `main`:
 - `prototype/orchestrator-layout` ([ENG-177](https://linear.app/luxdev/issue/ENG-177))
