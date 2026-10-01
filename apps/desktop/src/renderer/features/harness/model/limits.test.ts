@@ -28,9 +28,9 @@ const limit = (patch: Partial<PlanLimit> = {}) =>
 
 describe("Plan Limits", () => {
   test("one line per window: use and reset; near a limit, words change", () => {
-    expect(limitLine(limit(), NOW)).toBe("5-hour 58% left · resets in 2h");
+    expect(limitLine(limit(), NOW)).toBe("5-hour 58% left · 18% in reserve · resets in 2h");
     expect(limitLine(limit({ kind: "weekly", status: "warning", usedPercent: 91 }), NOW)).toBe(
-      "Near the weekly limit · 9% left · resets in 2h"
+      "Near the weekly limit · 9% left · runs out in 17m · resets in 2h"
     );
     expect(limitLine(limit({ status: "reached", resetsAt: "2026-09-30T12:40:00.000Z" }), NOW)).toBe(
       "5-hour limit reached · resets in 40m"
@@ -58,7 +58,9 @@ describe("Plan Limits", () => {
       "as of 40m ago"
     );
     expect(limitHint([], NOW, true)).toBeNull();
-    expect(limitHint([limit()], NOW, true)).toBe("5-hour 58% left · resets in 2h · live");
+    expect(limitHint([limit()], NOW, true)).toBe(
+      "5-hour 58% left · 18% in reserve · resets in 2h · live"
+    );
   });
 
   test("a fresh value with no session running shows its age (V2 bug 5, ENG-206)", () => {

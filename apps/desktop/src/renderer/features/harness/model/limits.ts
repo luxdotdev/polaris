@@ -6,6 +6,7 @@
 import type { HarnessKind, PlanLimit } from "@polaris/protocol";
 import { Match } from "effect";
 import type { Plain } from "../../../../shared/api.ts";
+import { forecast, shortForecast } from "./forecast.ts";
 
 export type LimitData = Plain<PlanLimit>;
 
@@ -74,7 +75,10 @@ export const leftCells = (usedPercent: number, cells: number): number => {
 const left = (limit: LimitData) =>
   limit.usedPercent === null ? null : leftPhrase(limit.usedPercent);
 
-/** "5-hour 58% left · resets in 2h", "Near the weekly limit · 9% left", "5-hour limit reached · resets in 40m". */
+/**
+ * "5-hour 58% left · 10% in reserve · resets in 2h", "Near the weekly limit · 9% left · runs out
+ * in 1d 4h · resets in 3d", "5-hour limit reached · resets in 40m".
+ */
 export const limitLine = (limit: LimitData, now: number): string => {
   const name = windowName(limit);
   const percent = left(limit);
@@ -82,10 +86,13 @@ export const limitLine = (limit: LimitData, now: number): string => {
   const reset =
     limit.resetsAt === null ? null : `resets in ${shortDuration(Date.parse(limit.resetsAt) - now)}`;
 
+  const ahead = forecast(limit, now);
+  const pace = ahead === null ? null : shortForecast(ahead);
+
   const parts: ReadonlyArray<string | null> = Match.value(limit.status).pipe(
     Match.when("reached", () => [`${name} limit reached`, reset]),
-    Match.when("warning", () => [`Near the ${name.toLowerCase()} limit`, percent, reset]),
-    Match.orElse(() => [percent === null ? name : `${name} ${percent}`, reset])
+    Match.when("warning", () => [`Near the ${name.toLowerCase()} limit`, percent, pace, reset]),
+    Match.orElse(() => [percent === null ? name : `${name} ${percent}`, pace, reset])
   );
 
   return parts.filter((p) => p !== null).join(" · ");

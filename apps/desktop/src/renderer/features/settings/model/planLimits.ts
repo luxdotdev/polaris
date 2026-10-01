@@ -4,6 +4,14 @@
  * emptying as it's used. Near a limit the words change, never the colour.
  */
 import { harnessEntry, type PlanLimit } from "@polaris/protocol";
+import {
+  type Forecast,
+  forecast,
+  paceCell,
+  paceWords,
+  runWords,
+  sessionWords,
+} from "../../harness/model/forecast.ts";
 import { leftCells, leftPhrase, limitAge } from "../../harness/model/limits.ts";
 import type { Plain } from "../../../../shared/api.ts";
 
@@ -21,6 +29,14 @@ export interface LimitWindow {
   readonly filledCells: number;
   /** "Resets in 1h 48m", "Near the limit · resets Thu 09:00", "Limit reached". */
   readonly note: string;
+  /** The pace marker's cell and the forecast's words; null when it isn't well-founded. */
+  readonly pace: {
+    readonly cell: number;
+    /** "10% in reserve · Lasts until reset", "12% in deficit · Runs out in 2d 22h". */
+    readonly words: string;
+    /** "About 2.6 full 5-hour windows left · 23 until reset", weekly only. */
+    readonly sessions: string | null;
+  } | null;
 }
 
 export interface LimitRow {
@@ -97,7 +113,16 @@ const filledCells = (used: number | null, status: Limit["status"]) => {
   return status === "reached" ? 0 : METER_CELLS;
 };
 
-const limitWindow = (limit: Limit, now: number): LimitWindow => {
+const paceOf = (f: Forecast | null): LimitWindow["pace"] =>
+  f === null
+    ? null
+    : {
+        cell: paceCell(f, METER_CELLS),
+        words: [paceWords(f), runWords(f)].filter((w) => w !== null).join(" · "),
+        sessions: sessionWords(f),
+      };
+
+const limitWindow = (limit: Limit, now: number, hasFiveHour: boolean): LimitWindow => {
   const used = limit.usedPercent;
 
   return {
@@ -106,6 +131,7 @@ const limitWindow = (limit: Limit, now: number): LimitWindow => {
     left: used === null ? null : leftPhrase(used),
     filledCells: filledCells(used, limit.status),
     note: note(limit, now),
+    pace: paceOf(forecast(limit, now, hasFiveHour)),
   };
 };
 
@@ -144,7 +170,13 @@ export const limitRows = (
       harness,
       name: harnessEntry(harness)?.name ?? harness,
       caption: plan === null ? capitalize(fresh) : `${capitalize(plan)} · ${fresh}`,
-      windows: sorted.map((l) => limitWindow(l, now)),
+      windows: sorted.map((l) =>
+        limitWindow(
+          l,
+          now,
+          list.some((w) => w.kind === "five-hour" && w.scope === null)
+        )
+      ),
     };
   });
 };
