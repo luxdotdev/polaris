@@ -22,6 +22,21 @@ Implements `HarnessDriver` (`../HarnessDriver.ts`) for Claude Code (ENG-192, dec
 - **Switching** (`switchModel: true`): a session opens with `model` and `effort` (SDK `Options`). Before a Turn whose Model or effort differs from what the live query runs with, the driver calls `setModel(model)` (undefined = Claude Code's default) and `applyFlagSettings({ effortLevel })` (null = the Model's default effort); both work mid-session in streaming input mode. An effort outside Claude Code's levels (`low`, `medium`, `high`, `xhigh`, `max`) fails the Turn before anything is sent.
 - **Loaded on first use.** `HarnessRegistryLive` (`../registry.ts`) imports this module, and with it the Agent SDK, on the first `probe` or `open`; an idle Daemon never loads it. The registry declares the driver's `capabilities` up front (checked against the real driver in `registry.test.ts`) and builds `terminalFollow` from the hook receiver, which does not need the SDK.
 
+### Skills and Slash Commands (`commands.ts`)
+
+`listCommands(cwd)` starts `claude` in `cwd` through the SDK with no prompt and asks `supportedCommands()`: `persistSession: false`, `mcpServers: {}` + `strictMcpConfig`, `settings: { disableAllHooks: true }`, but `settingSources: ["user", "project", "local"]` so the Workspace's own Skills and commands load. Nothing is sent to a model; ~0.75–0.9 s with Claude Code 2.1.286 (273 entries in this repo). The SDK lists one entry per command (aliases ride along), already including Skills, custom commands, plugin entries and Claude Code's bundled Skills. `classify` decides how each runs:
+
+| Command | How it runs |
+|---|---|
+| `/compact`, `/init`, `/security-review`, `/review`, `/pr-comments` | `text`: the Turn's text; Claude Code runs it (the SDK documents `/compact` as a prompt) |
+| `/clear` (`/reset`, `/new`) | `polaris` → `new-session` (the SDK would start a new native session under the same Agent Session) |
+| `/model`, `/effort` | `polaris` → `model` (the Harness chip's menu; `SetModel` between Turns) |
+| `/usage` (`/cost`, `/stats`) | `polaris` → `usage` (Settings → Usage) |
+| `/advisor`, `/agents`, `/auto-mode-setup`, `/autocompact`, `/color`, `/config`, `/output-style`, `/context`, `/fast`, `/focus`, `/heapdump`, `/mcp`, `/import`, `/reload-plugins`, `/reload-skills`, `/rename`, `/ultrareview`, `/usage-credits`, `/extra-usage`, `/insights`, `/recap`, `/skill-doctor`, `/goal`, `/design*`, `/list-agents`, `/team-onboarding`, `/workflow-launch-exec`, anything starting `__` | not offered: terminal UI, settings, or billed cloud runs |
+| everything else (Skills, custom commands, plugin entries, bundled Skills) | `text` |
+
+A description ending ` (user)`/` (project)` gives the source (stripped); it is a Skill when `~/.claude/skills/<name>` (or `.claude/skills/<name>` from `cwd` up to the git root) exists, else a command. A `plugin:name` name or alias makes it a plugin's (`(plugin) ` prefix stripped); a command when the plugin's install path (`~/.claude/plugins/installed_plugins.json`) has `commands/<name>.md`. Anything else is a Skill: the user's or project's when its folder exists, else bundled (`built-in`). The table was checked against Claude Code 2.1.286 (`fixtures/supported-commands-2.1.286.json`); a newer built-in that isn't in it is offered as `text`.
+
 ### Terminal handoff (`hooks.ts`)
 
 Sequential (`liveCoAttach = false`): the engine closes the session, then runs `terminalCommand` = `claude --resume <session id> [--permission-mode <mode>] [--settings <file>]` (flags checked against `claude --help` 2.1.283).

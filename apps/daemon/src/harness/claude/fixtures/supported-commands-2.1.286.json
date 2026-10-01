@@ -1,0 +1,137 @@
+[
+  {
+    "name": "grill-me",
+    "description": "A relentless interview to sharpen a plan or design. (user)",
+    "argumentHint": ""
+  },
+  {
+    "name": "handoff",
+    "description": "Compact the current conversation into a handoff document. (user)",
+    "argumentHint": "What will the next session be used for?"
+  },
+  {
+    "name": "tdd",
+    "description": "Test-driven development. Use when the user wants to build features or fix bugs test-first,",
+    "argumentHint": ""
+  },
+  {
+    "name": "product-design",
+    "description": "Single entry point for product design and user-facing work in Polaris (the Desktop App in ",
+    "argumentHint": ""
+  },
+  {
+    "name": "code-review:code-review",
+    "description": "(code-review) Code review a pull request",
+    "argumentHint": ""
+  },
+  {
+    "name": "codex:rescue",
+    "description": "(codex) Delegate investigation, an explicit fix request, or follow-up rescue work to the C",
+    "argumentHint": "[--background|--wait] [--resume|--fresh] [--model <model|spark>] [--effort <none|minimal|low|medium|high|xhigh>] [what Codex should investigate, solve, or continue]"
+  },
+  {
+    "name": "engineering:standup",
+    "description": "(engineering) Generate a standup update from recent activity. Use when preparing for daily",
+    "argumentHint": "[yesterday | today | blockers]",
+    "aliases": ["standup"]
+  },
+  {
+    "name": "simplify",
+    "description": "Review the changed code for reuse, simplification, efficiency, and altitude cleanups, then",
+    "argumentHint": "[<target>]",
+    "builtin": true
+  },
+  {
+    "name": "loop",
+    "description": "Run a prompt or slash command on a recurring interval (e.g. /loop 5m /foo). Omit the inter",
+    "argumentHint": "[interval] [prompt]",
+    "aliases": ["proactive"],
+    "builtin": true
+  },
+  {
+    "name": "clear",
+    "description": "Start a new session with empty context; previous session stays on disk (resumable with /re",
+    "argumentHint": "[name]",
+    "aliases": ["reset", "new"],
+    "builtin": true
+  },
+  {
+    "name": "color",
+    "description": "Set the prompt bar color for this session",
+    "argumentHint": "[red|blue|green|yellow|purple|orange|pink|cyan|default]",
+    "builtin": true
+  },
+  {
+    "name": "compact",
+    "description": "Free up context by summarizing the conversation so far",
+    "argumentHint": "<optional custom summarization instructions>",
+    "builtin": true
+  },
+  {
+    "name": "context",
+    "description": "Show current context usage",
+    "argumentHint": "",
+    "builtin": true
+  },
+  {
+    "name": "effort",
+    "description": "Set effort level for model usage",
+    "argumentHint": "<low|medium|high|xhigh|max|auto|ultracode [on|off]>",
+    "builtin": true
+  },
+  {
+    "name": "heapdump",
+    "description": "Dump the JS heap to the Desktop; on Linux with no Desktop folder, the home directory",
+    "argumentHint": "",
+    "builtin": true
+  },
+  {
+    "name": "init",
+    "description": "Initialize a new CLAUDE.md file with codebase documentation",
+    "argumentHint": "",
+    "builtin": true
+  },
+  {
+    "name": "model",
+    "description": "Set the AI model for Claude Code",
+    "argumentHint": "<model>",
+    "builtin": true
+  },
+  {
+    "name": "__remote-workflow",
+    "description": "Run the workflow script delivered in this session environment (server-launched sessions on",
+    "argumentHint": "",
+    "builtin": true
+  },
+  {
+    "name": "reload-skills",
+    "description": "Pick up skills added or changed on disk during this session",
+    "argumentHint": "",
+    "builtin": true
+  },
+  {
+    "name": "security-review",
+    "description": "Complete a security review of the pending changes on the current branch",
+    "argumentHint": "",
+    "builtin": true
+  },
+  {
+    "name": "usage",
+    "description": "Show session cost, plan usage, and what's contributing to your limits",
+    "argumentHint": "",
+    "aliases": ["cost", "stats"],
+    "builtin": true
+  },
+  {
+    "name": "built-in-browser",
+    "description": "Read this skill before the first step that uses the built-in browser, the browser pane ins",
+    "argumentHint": "",
+    "aliases": ["anthropic-skills:built-in-browser"]
+  },
+  {
+    "name": "docx",
+    "description": "Use this skill whenever the user wants to create, read, edit, or manipulate Word documents",
+    "argumentHint": "",
+    "aliases": ["anthropic-skills:docx"]
+  }
+]

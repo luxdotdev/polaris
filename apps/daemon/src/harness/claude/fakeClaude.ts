@@ -30,6 +30,7 @@ type FakeQuery = Pick<
   | "setModel"
   | "applyFlagSettings"
   | "supportedModels"
+  | "supportedCommands"
   | "close"
   | "usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET"
   | "getContextUsage"
@@ -53,6 +54,8 @@ export class FakeClaude {
   readonly refuses = new Set<"setModel" | "applyFlagSettings">();
   /** What `supportedModels()` answers. */
   modelInfos: Awaited<ReturnType<Query["supportedModels"]>> = [];
+  /** What `supportedCommands()` answers. */
+  commands: Awaited<ReturnType<Query["supportedCommands"]>> = [];
   interrupts = 0;
   closed = false;
   /** How often the driver asked `get_usage`, and what the fake answers (a reply or a failure). */
@@ -93,6 +96,7 @@ export class FakeClaude {
         this.flagSettings.push(settings);
       },
       supportedModels: async () => this.modelInfos,
+      supportedCommands: async () => this.commands,
       close: () => {
         this.closed = true;
         this.out.end();
