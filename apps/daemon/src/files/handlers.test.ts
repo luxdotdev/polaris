@@ -88,6 +88,8 @@ describe("handler layers", () => {
             spec: GitDiff.payloadSchema.fields.spec.cases.WorkingTree.make({ base: null }),
           });
 
+          const shown = yield* client["git.show"]({ cwd: repo, revision: "HEAD", path: "a.txt" });
+
           const attachment = yield* client["attachments.stage"]({
             sessionId: null,
             workspaceId: WorkspaceId.make("ws"),
@@ -108,7 +110,7 @@ describe("handler layers", () => {
             Effect.timeout("5 seconds")
           );
 
-          return { read, hits, status, diff, attachment, output };
+          return { read, hits, status, diff, shown, attachment, output };
         }).pipe(Effect.provide(handlers))
       )
     );
@@ -119,6 +121,13 @@ describe("handler layers", () => {
     expect(result.hits.map((h) => h.path)).toContain(join(repo, "a.txt"));
     expect(result.status.entries.map((e) => e.path)).toEqual(["a.txt"]);
     expect(new TextDecoder().decode(blobs.blobs.get(result.diff.blobId))).toContain("+two");
+    expect(result.diff.fileIndex.map((f) => [f.path, f.additions, f.deletions])).toEqual([
+      ["a.txt", 1, 1],
+    ]);
+    // The committed content, not the working tree's.
+    expect(result.shown.content).toEqual(
+      ReadFile.successSchema.fields.content.cases.Inline.make({ text: "one\n" })
+    );
     expect(result.attachment.name).toBe("note.txt");
 
     const Attached = TerminalAttach.successSchema.success;
