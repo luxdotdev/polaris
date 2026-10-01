@@ -5,8 +5,16 @@
  */
 import { DomainEvent } from "@polaris/protocol";
 import { Result } from "effect";
-import { workingTurn, type SessionRecord } from "../store/model.ts";
+import { type SessionRecord, workingTurn } from "../store/model.ts";
 import type { SessionInput } from "./session.inputs.ts";
+
+/** The last Turn is accepted, so Continue may not reopen it (spec: `acceptedNeverInFlight`). */
+export const lastIsAccepted = (record: SessionRecord): boolean => {
+  const accepted = record.session.acceptedThroughIndex;
+  const last = record.turns.at(-1);
+
+  return accepted !== null && last !== undefined && last.index <= accepted;
+};
 
 type AcceptInput = Extract<SessionInput, { type: "turns.accept" }>;
 

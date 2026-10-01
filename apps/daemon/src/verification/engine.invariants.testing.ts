@@ -215,6 +215,9 @@ const checkTurnsInFlight = (log: ReadonlyArray<AEvent>) => {
 
     if (v.state === "archived" && working)
       throw new Error(`${s} is Archived with a Turn in flight`);
+
+    if (working && v.accepted !== null && v.order.length - 1 <= v.accepted)
+      throw new Error(`${s} has an accepted Turn in flight`);
   }
 };
 

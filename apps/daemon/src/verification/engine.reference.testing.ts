@@ -32,6 +32,7 @@ export interface AEvent {
   readonly state?: string;
   readonly requestId?: string;
   readonly reason?: string | null;
+  readonly index?: number;
 }
 
 type TurnEvent =
@@ -78,6 +79,11 @@ export const abstractEvent = (envelope: EventEnvelope): AEvent => {
         what: `withdrawn:${c.requestId}:${c.withdrawnBy}`,
         requestId: c.requestId,
       }),
+      TurnsAccepted: (c) => ({
+        ...base,
+        what: `accepted:${c.throughIndex}`,
+        index: c.throughIndex,
+      }),
     },
     () => ({ ...base, what: e._tag })
   );
@@ -100,6 +106,8 @@ export interface View {
   readonly turns: Map<string, string>;
   readonly order: Array<string>;
   readonly pending: Set<string>;
+  /** The index of the last accepted Turn (its position in `order`). */
+  accepted: number | null;
 }
 
 const applyToView = (v: View, e: AEvent) => {
@@ -119,6 +127,9 @@ const applyToView = (v: View, e: AEvent) => {
     case "ApprovalWithdrawn":
       v.pending.delete(e.requestId!);
       break;
+    case "TurnsAccepted":
+      v.accepted = e.index!;
+      break;
   }
 };
 
@@ -129,7 +140,13 @@ export const fold = (log: ReadonlyArray<AEvent>, upTo = log.length): Map<string,
     if (e.session === null) continue;
 
     if (e.tag === "SessionCreated") {
-      views.set(e.session, { state: e.state!, turns: new Map(), order: [], pending: new Set() });
+      views.set(e.session, {
+        state: e.state!,
+        turns: new Map(),
+        order: [],
+        pending: new Set(),
+        accepted: null,
+      });
       continue;
     }
 
@@ -160,9 +177,25 @@ const turnStart = (v: View): Reference => [
 const decideAfter = (v: View, status: "interrupted" | "failed"): Reference => {
   const last = v.order.at(-1);
 
-  return last !== undefined && v.turns.get(last) === status && acceptsTurn(v)
+  // An accepted Interrupted Turn is never continued (spec finding 4).
+  const accepted = v.accepted !== null && v.order.length - 1 <= v.accepted;
+
+  return last !== undefined && v.turns.get(last) === status && acceptsTurn(v) && !accepted
     ? turnStart(v)
     : "reject";
+};
+
+/** A contiguous prefix, between Turns, never backwards; the same Turn again records nothing. */
+const decideAccept = (v: View, turnId: string): Reference => {
+  const index = v.order.indexOf(turnId);
+
+  if (index === -1 || ["archived", "in-terminal"].includes(v.state)) return "reject";
+
+  if (workingTurnOf(v) !== undefined) return "reject";
+
+  if (v.accepted !== null && index < v.accepted) return "reject";
+
+  return index === v.accepted ? [] : [`accepted:${index}`];
 };
 
 const decideRespond = (v: View, requestId: RequestId, device: string): Reference => {
@@ -191,6 +224,7 @@ export const referenceDecide = (v: View, command: Command, device: string): Refe
       Interrupt: () => (workingTurnOf(v) === undefined ? "reject" : []),
       ArchiveSession: () => decideArchive(v),
       UnarchiveSession: () => (v.state === "archived" ? ["state:dormant"] : "reject"),
+      AcceptTurns: (c) => decideAccept(v, c.throughTurnId),
       RenameSession: () => ["SessionRenamed"],
       // Between Turns only; each generated Model is new, so it always records a change.
       SetModel: () =>

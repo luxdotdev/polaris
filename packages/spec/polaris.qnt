@@ -29,6 +29,10 @@ module polaris {
   const ARCHIVE_IGNORES_TURN: bool
   /** Finding 3: the engine recorded an approval request whatever the state of its Turn. */
   const RECORDS_LATE_REQUESTS: bool
+  /** Finding 4: Continue reopened an Interrupted Turn the user had already accepted. */
+  const CONTINUES_ACCEPTED: bool
+  /** Clients also accept Turns and record Verdicts (the `review` and `finding4` instances). */
+  const REVIEW_COMMANDS: bool
   /** Client devices, each with a feed per stream. */
   const CLIENTS: Set[str]
   /** Agent Sessions; recovery visits them in this order (any order gives the same result). */
@@ -61,6 +65,8 @@ module polaris {
     | ApprovalRequested(str)
     | ApprovalResolved({ req: str, by: str })
     | ApprovalWithdrawn({ req: str, by: str }) // by "harness" | "daemon"
+    | TurnsAccepted(int) // accepted through this Turn number
+    | ReviewRecorded // a Verdict or Risk Summary event: no session, and off the host stream
 
   /** A committed event. `cmd` is the command id, "" for events the Daemon records on its own. */
   type Event = { seq: int, session: str, cmd: str, kind: EventKind }
@@ -72,6 +78,8 @@ module polaris {
     | Respond({ session: str, req: str })
     | Archive(str)
     | Unarchive(str)
+    | AcceptTurns({ session: str, through: int })
+    | RecordVerdict
 
   type HarnessEvent =
     | HRequest(str)
@@ -89,7 +97,7 @@ module polaris {
     | ClientCmd({ id: str, client: str, cmd: Command })
     | HarnessEv({ session: str, ev: HarnessEvent, turn: int })
 
-  /** `command_receipts`: the last sequence written (0 for none), or a rejection. */
+  /** `command_receipts`: the last sequence written (0: accepted, nothing written), or a rejection. */
   type Receipt = NoReceipt | Applied(int) | Refused
 
   /** What the Client hears back from `dispatch`. */
@@ -120,6 +128,7 @@ module polaris {
    * engine withdraws them in). `turns` counts the Turns started (the latest
    * one's number: a Continue resumes the same Turn, as it keeps its id).
    * `archivedSinceTurn`: archived after the last Turn started or ended.
+   * `accepted`: the Turn number accepted through (0: none).
    */
   type SessionView = {
     turn: str,
@@ -128,6 +137,7 @@ module polaris {
     requested: List[str],
     turns: int,
     archivedSinceTurn: bool,
+    accepted: int,
   }
 
   type Decision = Accept(List[EventKind]) | Refuse
@@ -158,7 +168,10 @@ module polaris {
   // ── The read model (model.ts `project`) ───────────────────────────────────
 
   pure val emptyView: SessionView =
-    { turn: "none", state: "dormant", pending: Set(), requested: [], turns: 0, archivedSinceTurn: false }
+    {
+      turn: "none", state: "dormant", pending: Set(), requested: [], turns: 0,
+      archivedSinceTurn: false, accepted: 0,
+    }
 
   pure def applyEvent(v: SessionView, e: Event): SessionView =
     match e.kind {
@@ -172,13 +185,15 @@ module polaris {
         { ...v, pending: v.pending.union(Set(r)), requested: v.requested.append(r) }
       | ApprovalResolved(x) => { ...v, pending: v.pending.exclude(Set(x.req)) }
       | ApprovalWithdrawn(x) => { ...v, pending: v.pending.exclude(Set(x.req)) }
+      | TurnsAccepted(n) => { ...v, accepted: n }
+      | ReviewRecorded => v
     }
 
   pure def viewOf(events: List[Event], s: str): SessionView =
     events.foldl(emptyView, (v, e) => if (e.session == s) applyEvent(v, e) else v)
 
   pure def inStream(e: Event, st: str): bool =
-    if (st == HOST) e.kind != ItemCompleted else e.session == st
+    if (st == HOST) e.kind != ItemCompleted and e.kind != ReviewRecorded else e.session == st
 
   pure def streamSeqs(events: List[Event], st: str): List[int] =
     events.foldl([], (acc, e) => if (inStream(e, st)) acc.append(e.seq) else acc)
@@ -211,7 +226,8 @@ module polaris {
       | SendTurn(_) =>
         if (acceptsTurn(v)) Accept([TurnStarted(false), StateChanged("working")]) else Refuse
       | Continue(_) =>
-        if (v.turn == "interrupted" and acceptsTurn(v))
+        // An accepted Interrupted Turn stays closed (finding 4).
+        if (v.turn == "interrupted" and acceptsTurn(v) and (CONTINUES_ACCEPTED or v.accepted < v.turns))
           Accept([TurnStarted(true), StateChanged("working")])
         else Refuse
       | Retry(_) =>
@@ -231,6 +247,13 @@ module polaris {
         else Accept(withdrawAll(v, "daemon").concat([StateChanged("archived")]))
       | Unarchive(_) =>
         if (v.state == "archived") Accept([StateChanged("dormant")]) else Refuse
+      | AcceptTurns(x) =>
+        // A contiguous prefix, only between Turns, never backwards; the same Turn again records nothing.
+        if (v.turn == "working" or v.state == "archived" or x.through < 1 or x.through > v.turns
+          or x.through < v.accepted) Refuse
+        else if (x.through == v.accepted) Accept([])
+        else Accept([TurnsAccepted(x.through)])
+      | RecordVerdict => Accept([ReviewRecorded])
     }
 
   pure def withdrawAll(v: SessionView, by: str): List[EventKind] =
@@ -277,6 +300,8 @@ module polaris {
       | Respond(x) => x.session
       | Archive(s) => s
       | Unarchive(s) => s
+      | AcceptTurns(x) => x.session
+      | RecordVerdict => ""
     }
 
   /** Commands whose reactor then runs: a Turn opens the Harness, Archive stops it. */
@@ -288,6 +313,8 @@ module polaris {
       | Respond(_) => false
       | Archive(_) => true
       | Unarchive(_) => false
+      | AcceptTurns(_) => false
+      | RecordVerdict => false
     }
 
   /** Append `kinds` to `events` with the next sequences (gapless by construction). */
@@ -341,10 +368,12 @@ module polaris {
               }
               | Accept(kinds) =>
                 val events = appendEvents(acc.events, s, c.id, kinds)
+                // A command that records nothing is acknowledged with no sequence (0).
+                val written = if (kinds.length() == 0) 0 else events.length()
                 {
                   events: events,
-                  receipts: acc.receipts.set(c.id, Applied(events.length())),
-                  settle: acc.settle.append({ id: c.id, outcome: Ok(events.length()) }),
+                  receipts: acc.receipts.set(c.id, Applied(written)),
+                  settle: acc.settle.append({ id: c.id, outcome: Ok(written) }),
                   react: if (reacts(c.cmd)) acc.react.union(Set(s)) else acc.react,
                 }
             }
@@ -654,6 +683,10 @@ module polaris {
       .union(REQUESTS.map(r => Respond({ session: REQUEST_SESSION.get(r), req: r })))
       .union(SESSIONS.map(s => Archive(s)))
       .union(SESSIONS.map(s => Unarchive(s)))
+      .union(if (REVIEW_COMMANDS) REVIEW_COMMAND_SET else Set())
+
+  pure val REVIEW_COMMAND_SET: Set[Command] =
+    Set(1, 2).map(n => AcceptTurns({ session: SESSION_LIST[0], through: n })).union(Set(RecordVerdict))
 
   pure val HARNESS_EVENTS: Set[HarnessEvent] =
     REQUESTS.map(r => HRequest(r)).union(REQUESTS.map(r => HWithdraw(r))).union(Set(HItem, HTurnEnded, HTurnFailed))
@@ -701,7 +734,7 @@ module polaris {
         | NoReceipt => false
         | Refused => answers.get(id).foldl(true, (ok, o) => ok and o == Rejected)
         | Applied(n) =>
-          n >= 1 and n <= log.length() and log[n - 1].cmd == id
+          (n == 0 or (n <= log.length() and log[n - 1].cmd == id))
             and answers.get(id).foldl(true, (ok, o) => ok and (o == Ok(n) or o == Dup(n)))
       })
 
@@ -798,6 +831,24 @@ module polaris {
    * last one it saw does not make it reopen (finding 1). When this fails the
    * feed reopens from `last`, the replay has the same gap, and it never advances.
    */
+  /**
+   * An accepted Turn is never in flight again, and acceptance never passes the
+   * Turns that exist (finding 4: Continue reopened an accepted Interrupted Turn).
+   */
+  val acceptedNeverInFlight: bool =
+    SESSIONS.forall(s => {
+      val v = viewOf(log, s)
+      v.accepted <= v.turns and not(v.turn == "working" and v.accepted == v.turns and v.accepted > 0)
+    })
+
+  /** Each session's `TurnsAccepted` events only move forward. */
+  val acceptedOnlyForward: bool =
+    log.indices().forall(i => log.indices().forall(j =>
+      (i < j and log[i].session == log[j].session) implies match log[i].kind {
+        | TurnsAccepted(a) => match log[j].kind { | TurnsAccepted(b) => a < b | _ => true }
+        | _ => true
+      }))
+
   val hostFeedCanProgress: bool =
     CLIENTS.forall(c => {
       val f = feeds.get((c, HOST))
@@ -820,6 +871,8 @@ module polaris {
     workingHasATurn,
     archivedIsClosed,
     hostFeedCanProgress,
+    acceptedNeverInFlight,
+    acceptedOnlyForward,
   }
 
   // ── Witnesses: states the checks must actually reach (`quint run --witnesses`) ──
@@ -863,6 +916,12 @@ module polaris {
       | _ => false
     })
 
+  val witnessAccepted: bool = log.indices().exists(i => match log[i].kind { | TurnsAccepted(_) => true | _ => false })
+  val witnessVerdict: bool = log.indices().exists(i => log[i].kind == ReviewRecorded)
+  val witnessAcceptRefused: bool =
+    CMD_IDS.exists(id => match sentCmd.get(id) { | AcceptTurns(_) => true | _ => false }
+      and sentBy.get(id) != "" and answers.get(id).indices().exists(i => answers.get(id)[i] == Rejected))
+
   // ── Liveness ──────────────────────────────────────────────────────────────
 
   val vars = (
@@ -899,6 +958,8 @@ module current {
     HOST_FEED_GAPLESS = false,
     ARCHIVE_IGNORES_TURN = false,
     RECORDS_LATE_REQUESTS = false,
+    CONTINUES_ACCEPTED = false,
+    REVIEW_COMMANDS = false,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -916,6 +977,8 @@ module finding1 {
     HOST_FEED_GAPLESS = true,
     ARCHIVE_IGNORES_TURN = false,
     RECORDS_LATE_REQUESTS = false,
+    CONTINUES_ACCEPTED = false,
+    REVIEW_COMMANDS = false,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -933,6 +996,8 @@ module finding2 {
     HOST_FEED_GAPLESS = false,
     ARCHIVE_IGNORES_TURN = true,
     RECORDS_LATE_REQUESTS = false,
+    CONTINUES_ACCEPTED = false,
+    REVIEW_COMMANDS = false,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -950,6 +1015,8 @@ module finding3 {
     HOST_FEED_GAPLESS = false,
     ARCHIVE_IGNORES_TURN = false,
     RECORDS_LATE_REQUESTS = true,
+    CONTINUES_ACCEPTED = false,
+    REVIEW_COMMANDS = false,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -961,12 +1028,58 @@ module finding3 {
   ).*
 }
 
+/**
+ * Finding 4: Continue of an accepted Interrupted Turn. Violates
+ * `acceptedNeverInFlight`. One session, so the simulator reaches it.
+ */
+module finding4 {
+  import polaris(
+    HOST_FEED_GAPLESS = false,
+    ARCHIVE_IGNORES_TURN = false,
+    RECORDS_LATE_REQUESTS = false,
+    CONTINUES_ACCEPTED = true,
+    REVIEW_COMMANDS = true,
+    CLIENTS = Set("mac", "phone"),
+    SESSION_LIST = ["s1"],
+    CMD_IDS = Set("k1", "k2", "k3", "k4"),
+    REQUESTS = Set("r1"),
+    REQUEST_SESSION = Map("r1" -> "s1"),
+    CAPACITY = 2,
+    MAX_LOG = 10,
+    MAX_CRASHES = 2,
+  ).*
+}
+
+/**
+ * The code as it is, with Clients also accepting Turns and recording Verdicts,
+ * in one session so accepting is reached often.
+ */
+module review {
+  import polaris(
+    HOST_FEED_GAPLESS = false,
+    ARCHIVE_IGNORES_TURN = false,
+    RECORDS_LATE_REQUESTS = false,
+    CONTINUES_ACCEPTED = false,
+    REVIEW_COMMANDS = true,
+    CLIENTS = Set("mac", "phone"),
+    SESSION_LIST = ["s1"],
+    CMD_IDS = Set("k1", "k2", "k3", "k4", "k5", "k6"),
+    REQUESTS = Set("r1"),
+    REQUEST_SESSION = Map("r1" -> "s1"),
+    CAPACITY = 2,
+    MAX_LOG = 14,
+    MAX_CRASHES = 2,
+  ).*
+}
+
 /** A smaller instance for Apalache (`quint verify`), which unrolls every step symbolically. */
 module small {
   import polaris(
     HOST_FEED_GAPLESS = false,
     ARCHIVE_IGNORES_TURN = false,
     RECORDS_LATE_REQUESTS = false,
+    CONTINUES_ACCEPTED = false,
+    REVIEW_COMMANDS = false,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1"],
     CMD_IDS = Set("k1", "k2"),
