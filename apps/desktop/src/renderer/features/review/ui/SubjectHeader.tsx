@@ -6,14 +6,9 @@
 import type { TurnId } from "@polaris/protocol";
 import { cn, harnessHue, Tile } from "@polaris/ui";
 import type { ReactNode } from "react";
-import type { PullDetailView } from "../../../../shared/github.ts";
+import { type PullDetailView, pullStatus, repoOfRow } from "../../../../shared/github.ts";
+import { BranchChip, StackChip, StatusPill } from "../../pulls/ui/StackParts.tsx";
 import type { TurnInfo, TurnPick } from "../data/source.ts";
-
-const Chip = ({ children }: { readonly children: ReactNode }) => (
-  <span className="bg-row-selected text-text-default text-micro rounded-[4px] px-1.5 py-px font-mono">
-    {children}
-  </span>
-);
 
 /** A pull request's header tops its two lines (R1); an Agent Session's centres on its tile (R2). */
 const Shell = ({
@@ -95,11 +90,15 @@ export const PullHeader = ({ name, number, detail, actions }: PullHeaderProps) =
           </h1>
           <span className="text-title text-text-subtle shrink-0 font-normal">#{number}</span>
         </div>
-        <div className="text-caption text-text-subtle gap-gap flex min-w-0 flex-wrap items-center">
+        <div className="text-caption text-text-subtle gap-gap flex min-w-0 items-center overflow-hidden whitespace-nowrap [contain:inline-size]">
           {detail === null ? (
             <span>{name}</span>
           ) : (
             <>
+              <StatusPill status={pullStatus(detail.state, detail.isDraft)} />
+              {detail.stack === null || detail.stack === undefined ? null : (
+                <StackChip stack={detail.stack} repo={repoOfRow(detail)} />
+              )}
               {/* Remote images are outside the CSP: the author's initial stands in for the avatar. */}
               <span
                 aria-hidden="true"
@@ -111,9 +110,10 @@ export const PullHeader = ({ name, number, detail, actions }: PullHeaderProps) =
                 {detail.author?.login ?? "ghost"} wants to merge {detail.commits}{" "}
                 {detail.commits === 1 ? "commit" : "commits"} into
               </span>
-              <Chip>{detail.baseRefName}</Chip>
-              <span>from</span>
-              <Chip>{detail.headRefName}</Chip>
+              {/* base ← head on one line: long branch names are cut, whole on hover. */}
+              <BranchChip name={detail.baseRefName} />
+              <span aria-label="from">←</span>
+              <BranchChip name={detail.headRefName} />
               <span className="text-text-subtle truncate">· {detail.repo}</span>
             </>
           )}

@@ -7,7 +7,7 @@
 import { cn, SeverityGlyph, Tile } from "@polaris/ui";
 import type { Changes, RowModel, WorkspaceLane } from "../model/list.ts";
 import type { RiskLane } from "../model/risk.ts";
-import { PullGlyph } from "./glyphs.tsx";
+import { PullGlyph, StackGlyph } from "./glyphs.tsx";
 
 /** Lane widths from Paper R3; the header uses the same ones. */
 export const LANES = {
@@ -137,8 +137,20 @@ export const PullRow = ({ row, onOpen }: PullRowProps) => (
       />
     )}
     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-      <span className="text-label text-text-default group-hover/pull:text-text-strong line-clamp-1 font-medium">
-        {row.title}
+      <span className="flex min-w-0 items-center gap-2">
+        <span className="text-label text-text-default group-hover/pull:text-text-strong line-clamp-1 font-medium">
+          {row.title}
+        </span>
+        {row.kind === "pull" && row.layer !== null ? (
+          <span
+            data-testid="row-layer"
+            aria-label={`layer ${row.layer} of a stack`}
+            className="border-hairline text-micro text-text-subtle tabular inline-flex h-[18px] shrink-0 items-center gap-1 rounded-full border px-1.5 font-medium"
+          >
+            <StackGlyph size={11} />
+            {row.layer}
+          </span>
+        ) : null}
       </span>
       <span className="text-caption text-text-subtle truncate">{row.meta}</span>
     </span>

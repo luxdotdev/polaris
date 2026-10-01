@@ -8,7 +8,7 @@ import type {
 } from "../../../../shared/github.ts";
 import { SessionId } from "@polaris/protocol";
 import type { SessionInfo } from "../../review/model/queue.ts";
-import { listModel, type ListInput, OTHER_LIMIT, type PlaceInfo } from "./list.ts";
+import { listModel, type ListInput, OTHER_LIMIT, type PlaceInfo, stacksTogether } from "./list.ts";
 import { laneOf, NOT_RUN } from "./risk.ts";
 import { noticesOf } from "./notices.ts";
 
@@ -282,6 +282,34 @@ const access = (
   ssoUrl: null,
   workspaces: [ws("studio"), ws("studio", "w2")],
   ...patch,
+});
+
+describe("stacks in the list", () => {
+  const layer = (id: string, position: number, minutes: number) =>
+    row(id, {
+      number: position,
+      updatedAt: new Date(NOW - minutes * 60_000).toISOString(),
+      stack: {
+        source: "github",
+        number: 635,
+        trunk: "nightly",
+        position,
+        size: 3,
+        members: [],
+      },
+    });
+
+  test("a stack's layers stay together, top first, where its newest stood; rows say their layer", () => {
+    const rows = stacksTogether([row("a"), layer("l1", 1, 5), row("b"), layer("l3", 3, 90)]);
+
+    expect(rows.map((r) => r.id)).toEqual(["a", "l3", "l1", "b"]);
+
+    const model = listModel(input({ list: list({ requested: [layer("l1", 1, 5), row("b")] }) }));
+    const [first, second] = model.groups[0]?.rows ?? [];
+
+    expect(first?.kind === "pull" ? first.layer : null).toBe("1/3");
+    expect(second?.kind === "pull" ? second.layer : "x").toBeNull();
+  });
 });
 
 describe("laneOf", () => {

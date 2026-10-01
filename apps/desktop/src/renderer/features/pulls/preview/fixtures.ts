@@ -22,6 +22,7 @@ import type {
 } from "../../../../shared/github.ts";
 import { emptyHostModel, type HostModel, type SessionEntry } from "../../../store/hostModel.ts";
 import { HOSTS as NEEDS_YOU_HOSTS } from "../../needs-you/preview/fixtures.ts";
+import { stackedRow } from "./stack.ts";
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
@@ -164,6 +165,17 @@ const POLARIS = [at("local", "w-polaris")];
 
 export const LIST: PullListView = {
   requested: [
+    stackedRow(
+      pull("PR_632", {
+        number: 632,
+        title: "",
+        repo: "work-org/nj-homes-choice-next",
+        by: "lpark",
+        minutes: 45,
+        accountId: 2,
+        workspaces: [at("studio", "w-nj")],
+      })
+    ),
     pull("PR_88", {
       number: 88,
       title: "Eligibility: annual income field",

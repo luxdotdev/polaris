@@ -4,6 +4,7 @@
  * files, collapsed) and `#review/list-only` (12,000 files). A stand-in bridge serves the
  * patches; no Daemon or GitHub is involved. Its own chunk.
  */
+import { stackedDetail } from "../../pulls/preview/stack.ts";
 import { type GitDiffSpec, ReviewCheckout } from "@polaris/protocol";
 import { Predicate } from "effect";
 import { createRoot } from "react-dom/client";
@@ -56,6 +57,12 @@ interface PreviewInput {
 
 const ok = <A,>(value: A): Promise<Result<A>> => Promise.resolve({ ok: true, value });
 
+const detailFor = (scene: string) => {
+  if (scene === "stacked") return stackedDetail(PULL_DETAIL);
+
+  return scene.startsWith("pull-") ? withThreads(PULL_DETAIL) : PULL_DETAIL;
+};
+
 const request = (scene: string) => (method: string, input: PreviewInput) => {
   if (method === "git.diff" && input.spec !== undefined) {
     return ok({ bytes: encode(patchFor(scene, input.spec)), files: 0, fileIndex: [] });
@@ -65,9 +72,7 @@ const request = (scene: string) => (method: string, input: PreviewInput) => {
     return ok({ size: 0, mimeType: "text/plain", content: { kind: "text", text: "" } });
   }
 
-  if (method === "github.pull.detail") {
-    return ok(scene.startsWith("pull-") ? withThreads(PULL_DETAIL) : PULL_DETAIL);
-  }
+  if (method === "github.pull.detail") return ok(detailFor(scene));
 
   if (method === "review.runRiskSummary") {
     return ok(
@@ -96,6 +101,9 @@ const PULL: OpenPull = {
   number: 88,
   pullId: "PR_88",
 };
+
+/** `#review/stacked`: layer 2 of a four-layer GitHub stack (features/pulls/preview/stack.ts). */
+const STACKED_PULL: OpenPull = { ...PULL, number: 632, pullId: "PR_632" };
 
 /**
  * `#review/bench?cwd=…&base=…&head=…`: a real repository through the real Daemon on the
@@ -198,8 +206,10 @@ export const mountReviewPreview = (root: HTMLElement, hash: string) => {
       selectedFinding: SESSION_FINDINGS[0]?.id ?? null,
     });
   } else {
-    openPull(navigation.actions, PULL);
-    updateSurface(subjectKey({ kind: "pull", pull: PULL }), {
+    const pull = scene === "stacked" ? STACKED_PULL : PULL;
+
+    openPull(navigation.actions, pull);
+    updateSurface(subjectKey({ kind: "pull", pull }), {
       findings: scene.startsWith("pull") ? PULL_FINDINGS : [],
       selectedFinding:
         scene === "pull" || scene === "pull-verdict" ? (PULL_FINDINGS[0]?.id ?? null) : null,

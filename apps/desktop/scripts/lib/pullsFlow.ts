@@ -88,6 +88,57 @@ export const pullsFlow = async ({ app, page, fake, step }: PullsFlowInput) => {
   step(
     "a new request for #44: one notification (none for #42, requested before mona signed in); clicking it opened #44 in Review"
   );
+  await stacksFlow({ app, page, fake, step });
   await page.getByRole("radio", { name: /^Orchestrate/ }).click();
   await page.getByRole("radio", { name: /^Sessions/ }).click();
+};
+
+const layerOf = (page: Page, pullId: string) =>
+  page.locator(`[data-testid="pull-row"][data-pull="${pullId}"] [data-testid="row-layer"]`);
+
+/**
+ * Stacks (DESIGN.md, Review → Stacks): GitHub's stack #635 and acme/infra's inferred chain
+ * show their layers in the list; layer 2's header has its status, stack chip and cut branch
+ * names; the popover lists the four layers over the trunk and opens another.
+ */
+const stacksFlow = async ({ page, fake, step }: PullsFlowInput) => {
+  fake.seedStacks();
+  await page.evaluate(`window.polaris.request("github.refresh", {})`);
+  await page.getByRole("button", { name: "Pull requests" }).click();
+  await layerOf(page, "PR_kwDOplat62").filter({ hasText: "2/4" }).waitFor({ timeout: 20_000 });
+  await layerOf(page, "PR_kwDOinfr12").filter({ hasText: "2/2" }).waitFor();
+
+  if ((await layerOf(page, "PR_kwDOinfr13").count()) !== 0) {
+    throw new Error("a pull request from a fork was put in a stack");
+  }
+
+  step(
+    "stacks in the list: acme/platform#62 is 2/4 (GitHub's #635), acme/infra#12 2/2 (inferred), the fork's #13 alone"
+  );
+
+  await page.locator('[data-testid="pull-row"][data-pull="PR_kwDOplat62"]').click();
+  await reviewTitle(page).filter({ hasText: "audit impersonation start and stop" }).waitFor();
+  await page.locator('[data-testid="pull-status"][data-status="open"]').waitFor();
+
+  const branches = await page.getByTestId("branch-chip").allTextContents();
+
+  if (!branches.every((b) => b.length <= 21) || !branches.some((b) => b.endsWith("…"))) {
+    throw new Error(`branch names aren't cut: ${branches.join(", ")}`);
+  }
+
+  await page.getByTestId("stack-chip").filter({ hasText: "2/4" }).hover();
+  await page.getByTestId("stack-popover").waitFor();
+
+  const members = await page.getByTestId("stack-member").count();
+  const trunk = await page.getByTestId("stack-trunk").textContent();
+
+  if (members !== 4 || trunk?.trim() !== "nightly") {
+    throw new Error(`the stack popover shows ${members} layers over "${trunk}"`);
+  }
+
+  await page.locator('[data-testid="stack-member"][data-number="63"]').click();
+  await reviewTitle(page).filter({ hasText: "sign in as a planner from Users" }).waitFor();
+  step(
+    `#62's header: Open, stack 2/4, branches ${branches.join(" ← ")}; the popover lists 4 layers over nightly and opened #63`
+  );
 };

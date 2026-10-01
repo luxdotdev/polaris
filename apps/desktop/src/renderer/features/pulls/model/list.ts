@@ -17,6 +17,7 @@ import {
 import { age, plural } from "../../../shell/copy.ts";
 import { readySessions, type SessionInfo } from "../../review/model/queue.ts";
 import { checkoutKey, pullKey, type RiskLane } from "./risk.ts";
+import { layerText } from "./stack.ts";
 
 export type GroupId = "requested" | "sessions" | "mine" | "other";
 
@@ -52,6 +53,8 @@ export interface PullRowModel {
   readonly deletions: number;
   readonly risk: RiskLane;
   readonly updated: string;
+  /** "2/4" when it's a layer of a stack. */
+  readonly layer: string | null;
 }
 
 /** Lines added and removed. */
@@ -188,7 +191,32 @@ const rowOf = (row: PullRowView, group: PullGroupId, input: ListInput): PullRowM
     deletions: row.deletions,
     risk: input.riskOf(`pull:${key}`),
     updated: age(row.updatedAt, input.now),
+    layer: row.stack === null || row.stack === undefined ? null : layerText(row.stack),
   };
+};
+
+/** A stack's key in its repository: GitHub's number, or its trunk and bottom layer. */
+const stackKey = (row: PullRowView) =>
+  row.stack === null || row.stack === undefined
+    ? null
+    : `${row.host ?? ""}/${row.repo}:${row.stack.number ?? `${row.stack.trunk}:${row.stack.members[0]?.number ?? 0}`}`;
+
+/** A group's rows with each stack's layers together, top layer first, where its newest stood. */
+export const stacksTogether = (rows: ReadonlyArray<PullRowView>): ReadonlyArray<PullRowView> => {
+  const placed = new Set<string>();
+
+  return rows.flatMap((row) => {
+    const key = stackKey(row);
+
+    if (key === null) return [row];
+
+    if (placed.has(key)) return [];
+    placed.add(key);
+
+    return rows
+      .filter((r) => stackKey(r) === key)
+      .toSorted((a, b) => (b.stack?.position ?? 0) - (a.stack?.position ?? 0));
+  });
 };
 
 const turnsOf = (info: SessionInfo) => {
@@ -290,7 +318,9 @@ export const listModel = (input: ListInput): ListModel => {
   const pick = (rows: ReadonlyArray<PullRowView>) =>
     input.accountId === null ? rows : rows.filter((r) => r.accountId === input.accountId);
 
-  const pulls = (id: PullGroupId) => pick(input.list[id]).map((r) => rowOf(r, id, input));
+  const pulls = (id: PullGroupId) =>
+    stacksTogether(pick(input.list[id])).map((r) => rowOf(r, id, input));
+
   const all = (["requested", "mine", "other"] as const).flatMap((id) => pick(input.list[id]));
 
   // Agent Sessions belong to no GitHub account: only "All accounts" shows them.
