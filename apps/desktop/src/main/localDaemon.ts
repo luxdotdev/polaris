@@ -5,6 +5,8 @@
  *   POLARIS_DESKTOP_LOCAL_SOCKET=<path>   use this socket (benchmarks, smoke tests)
  *   POLARIS_DESKTOP_BENCH_HARNESS=1       …and it runs the scripted bench Harness
  *   POLARIS_DESKTOP_DAEMON=system|dev     dev only: force the system or the dev Daemon
+ *   POLARIS_DESKTOP_LOCAL_HOME=<dir>      with a given socket: its Daemon is installed in
+ *                                         <dir>/.polaris and upgrades like the system one (tests)
  */
 import { type ChildProcess, spawn } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
@@ -16,6 +18,11 @@ export interface LocalDaemon {
   readonly socketPath: string;
   /** The Daemon runs `POLARIS_BENCH_HARNESS=1`, so the proof session spends no tokens. */
   readonly benchHarness: boolean;
+  /**
+   * The home whose installed Daemon (`~/.polaris/bin/current`) this is, so the
+   * app upgrades it like a remote Host's; null for the app's own dev Daemon.
+   */
+  readonly installedHome: string | null;
   /** Stops the Daemon if this app started it; a no-op otherwise. */
   readonly stop: () => Promise<void>;
 }
@@ -32,9 +39,14 @@ export const systemSocket = () => join(homedir(), ".polaris", "daemon.sock");
 /** The dev Daemon's own `POLARIS_HOME`, kept apart from the real `~/.polaris`. */
 export const devHome = () => join(tmpdir(), "polaris-desktop-dev");
 
-const external = (socketPath: string, benchHarness: boolean): LocalDaemon => ({
+const external = (
+  socketPath: string,
+  benchHarness: boolean,
+  installedHome: string | null
+): LocalDaemon => ({
   socketPath,
   benchHarness,
+  installedHome,
   stop: () => Promise.resolve(),
 });
 
@@ -105,7 +117,7 @@ export const startDevDaemon = async ({
   if (await socketLive(socketPath)) {
     console.log(`polaris: reusing the dev Daemon at ${socketPath}`);
 
-    return external(socketPath, true);
+    return external(socketPath, true, null);
   }
 
   const child = spawn("bun", [join(repoRoot, "apps/daemon/src/main.ts"), "serve", "--foreground"], {
@@ -117,7 +129,7 @@ export const startDevDaemon = async ({
   console.log(`polaris: started the dev Daemon (pid ${child.pid}, home ${home})`);
   await waitForSocket(socketPath, child, 15_000);
 
-  return { socketPath, benchHarness: true, stop: () => stopChild(child) };
+  return { socketPath, benchHarness: true, installedHome: null, stop: () => stopChild(child) };
 };
 
 export const resolveLocalDaemon = async (options: LocalDaemonOptions): Promise<LocalDaemon> => {
@@ -125,15 +137,22 @@ export const resolveLocalDaemon = async (options: LocalDaemonOptions): Promise<L
   const explicit = env.POLARIS_DESKTOP_LOCAL_SOCKET;
 
   if (explicit !== undefined && explicit !== "") {
-    return external(explicit, env.POLARIS_DESKTOP_BENCH_HARNESS === "1");
+    const home = env.POLARIS_DESKTOP_LOCAL_HOME;
+
+    return external(
+      explicit,
+      env.POLARIS_DESKTOP_BENCH_HARNESS === "1",
+      home === undefined || home === "" ? null : home
+    );
   }
 
   const system = systemSocket();
 
-  if (!options.dev || env.POLARIS_DESKTOP_DAEMON === "system") return external(system, false);
+  if (!options.dev || env.POLARIS_DESKTOP_DAEMON === "system")
+    return external(system, false, homedir());
 
   if (env.POLARIS_DESKTOP_DAEMON !== "dev" && (await socketLive(system))) {
-    return external(system, false);
+    return external(system, false, homedir());
   }
 
   return startDevDaemon(options);

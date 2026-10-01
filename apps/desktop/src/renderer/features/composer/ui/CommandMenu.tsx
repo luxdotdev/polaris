@@ -3,12 +3,15 @@
  * Slash Commands, filtered as you type. Keyboard-first: the editor keeps focus
  * and owns ↑ ↓ ↵ ⇥ esc; a click picks too (DESIGN.md, Skills and Slash Commands).
  */
-import { CommandIcon, cn, SkillIcon } from "@polaris/ui";
+import { Button, CommandIcon, cn, Kbd, SkillIcon } from "@polaris/ui";
 import { useEffect, useRef } from "react";
 import type { CommandOption, Menu } from "../model/commands.ts";
+import type { CommandNotice } from "../model/notice.ts";
 import { describe, sourceLabel } from "../model/labels.ts";
 
 export interface CommandMenuProps {
+  /** Said instead of the list when the Host can't list commands. */
+  readonly notice: CommandNotice | null;
   /** Null while the list is still being read from the Host. */
   readonly menu: Menu | null;
   readonly loading: boolean;
@@ -77,13 +80,52 @@ const Row = ({
   );
 };
 
-export const CommandMenu = ({ menu, loading, active, onPick, onHover }: CommandMenuProps) => {
+const NoticeRow = ({ notice }: { readonly notice: CommandNotice }) => (
+  <div className="px-row-x flex items-center gap-3 py-1.5" data-testid="command-notice">
+    <SkillIcon size={16} className="text-text-subtle shrink-0" />
+    <p className="text-caption text-text-default min-w-0 flex-1">{notice.message}</p>
+    {notice.action === null ? null : (
+      <Button
+        variant="secondary"
+        size="sm"
+        className="h-[22px] shrink-0 gap-1.5 px-2"
+        // The editor keeps focus: a mouse press must not move it.
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={notice.action.run}
+      >
+        {notice.action.label}
+        <Kbd variant="plain">↵</Kbd>
+      </Button>
+    )}
+  </div>
+);
+
+export const CommandMenu = ({
+  notice,
+  menu,
+  loading,
+  active,
+  onPick,
+  onHover,
+}: CommandMenuProps) => {
   const list = useRef<HTMLDivElement>(null);
 
   // Keeps the highlighted row in view as ↑ ↓ move it.
   useEffect(() => {
     list.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
   }, [active]);
+
+  if (notice !== null) {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className="rounded-card border-hairline bg-surface-raised shadow-float animate-in fade-in-0 mb-2 max-w-[560px] border p-1.5 duration-160 ease-out"
+      >
+        <NoticeRow notice={notice} />
+      </div>
+    );
+  }
 
   if (menu === null && !loading) return null;
 

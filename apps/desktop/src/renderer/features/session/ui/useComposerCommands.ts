@@ -5,7 +5,8 @@
  */
 import type { HarnessKind, PolarisAction } from "@polaris/protocol";
 import { useCommands } from "../../../shell/hooks.ts";
-import { useHarnessCommands } from "../../composer/index.ts";
+import { daemonNotice, useHarnessCommands } from "../../composer/index.ts";
+import { callMachines, useMachineInstall } from "../../machines/index.ts";
 import { hasCapability, useHost } from "../hooks.ts";
 import type { ComposerCommands } from "./DraftComposer.tsx";
 
@@ -40,13 +41,13 @@ export const useComposerCommands = ({
 }: ComposerCommandsInput): ComposerCommands => {
   const host = useHost(hostKey);
   const registry = useCommands();
+  const listed = hasCapability(host, "harness.commands");
+  // A connected Host whose Daemon predates the list: say so, never an empty menu.
+  const outdated = host?.status.state === "connected" && !listed;
+  const install = useMachineInstall(hostKey, outdated);
+  const listing = useHarnessCommands(hostKey, harness, cwd, listed);
 
-  const listing = useHarnessCommands(
-    hostKey,
-    harness,
-    cwd,
-    hasCapability(host, "harness.commands")
-  );
+  const upgrade = () => void callMachines("machines.check", { hostKey });
 
   const actions: Readonly<Record<PolarisAction, () => void>> = {
     "new-session": () => void registry.run("session.new"),
@@ -60,5 +61,6 @@ export const useComposerCommands = ({
     loading: listing.loading,
     want: listing.want,
     onAction: (action) => afterRelease(actions[action]),
+    notice: outdated ? daemonNotice(host?.label ?? hostKey, install, upgrade) : null,
   };
 };

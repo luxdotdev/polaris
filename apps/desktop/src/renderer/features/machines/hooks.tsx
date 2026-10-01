@@ -2,6 +2,7 @@
 import { PixelFailedIcon, showToast } from "@polaris/ui";
 import { useEffect, useState } from "react";
 import type {
+  InstallFlowView,
   MachineView,
   RequestInput,
   RequestMethod,
@@ -55,4 +56,23 @@ export const useNow = (live: boolean): number => {
   }, [live]);
 
   return live ? now : Date.now();
+};
+
+/** One Host's install flow, live, only while `enabled` (no feed otherwise). */
+export const useMachineInstall = (key: string, enabled: boolean): InstallFlowView | null => {
+  const [install, setInstall] = useState<InstallFlowView | null>(null);
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+
+    return window.polaris.subscribe(
+      "machines",
+      {},
+      {
+        items: (lists) => setInstall(lists.at(-1)?.find((m) => m.key === key)?.install ?? null),
+      }
+    );
+  }, [key, enabled]);
+
+  return enabled ? install : null;
 };

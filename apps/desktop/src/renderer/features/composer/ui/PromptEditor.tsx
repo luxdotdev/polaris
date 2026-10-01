@@ -17,6 +17,7 @@ import {
   matchMenu,
   type Menu,
 } from "../model/commands.ts";
+import { type CommandNotice, noticeOpens } from "../model/notice.ts";
 import { CommandMenu } from "./CommandMenu.tsx";
 import "./composer.css";
 
@@ -40,6 +41,8 @@ export interface PromptEditorProps {
   readonly onFocus?: (() => void) | undefined;
   /** Where the menu draws: a box above the composer's card, which clips its own content. */
   readonly menuSlot: HTMLElement | null;
+  /** Said instead of a list when the Host can't list commands; ↵ runs its action. */
+  readonly notice: CommandNotice | null;
 }
 
 const optionsKey = (options: ReadonlyArray<CommandOption>) =>
@@ -71,6 +74,15 @@ export default function PromptEditor(props: PromptEditorProps) {
   );
 
   const waiting = typed !== null && props.loading && props.options.length === 0;
+
+  const notice =
+    props.notice !== null &&
+    typed !== null &&
+    dismissed !== typed.word &&
+    noticeOpens(typed.word, typed.atHead, draft.tokens)
+      ? props.notice
+      : null;
+
   const open = menu !== null;
   const latest = useRef({ props, menu, index, dismissed });
   const emitted = useRef<string | null>(null);
@@ -107,6 +119,16 @@ export default function PromptEditor(props: PromptEditorProps) {
     return matchMenu(now.typed.word, now.typed.atHead, current.options, now.draft.tokens);
   };
 
+  /** The notice as the editor stands now, for the keys (like `live`). */
+  const liveNotice = (): CommandNotice | null => {
+    const now = handle.read();
+    const { props: current, dismissed: was } = latest.current;
+
+    if (current.notice === null || now.typed === null || now.typed.word === was) return null;
+
+    return noticeOpens(now.typed.word, now.typed.atHead, now.draft.tokens) ? current.notice : null;
+  };
+
   const at = (m: Menu) => Math.min(latest.current.index, m.options.length - 1);
 
   const [handle] = useState(() => {
@@ -122,7 +144,7 @@ export default function PromptEditor(props: PromptEditorProps) {
         setDismissed((was) => (was === word?.word ? was : null));
       },
       menu: {
-        open: () => live() !== null,
+        open: () => live() !== null || liveNotice() !== null,
         move: (by) => {
           const m = live();
           const count = m?.options.length ?? 1;
@@ -133,6 +155,7 @@ export default function PromptEditor(props: PromptEditorProps) {
           const m = live();
 
           if (m !== null) run(m.options[at(m)]);
+          else liveNotice()?.action?.run();
         },
         dismiss: () => setDismissed(handle.read().typed?.word ?? null),
       },
@@ -174,8 +197,9 @@ export default function PromptEditor(props: PromptEditorProps) {
   }, [handle, key]);
 
   const menuView =
-    open || waiting ? (
+    open || waiting || notice !== null ? (
       <CommandMenu
+        notice={notice}
         menu={menu}
         loading={waiting}
         active={active}

@@ -10,3 +10,5 @@ export type { PromptEditorProps } from "./ui/PromptEditor.tsx";
 export { type CommandOption, promptFor } from "./model/commands.ts";
 
 export { useHarnessCommands } from "./live.ts";
+
+export { type CommandNotice, daemonNotice } from "./model/notice.ts";

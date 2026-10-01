@@ -9,6 +9,7 @@ import {
   needsUser,
   offerFacts,
   outcomeNote,
+  upgradeNotes,
 } from "./model.ts";
 
 const status = (patch: Partial<ConnectionStatusView> = {}): ConnectionStatusView => ({
@@ -259,5 +260,32 @@ describe("rows", () => {
       "9f2c41d7 0be3a6f1 58c2e9d4 7a10b3e5\nc6d82f47 e19a0c3b 5d7f2e86 b4a1e41a",
       "~/.polaris on pi",
     ]);
+  });
+});
+
+describe("upgrade notes", () => {
+  const upgraded = machine({
+    key: "local",
+    label: "This Mac",
+    install: install({
+      step: "ready",
+      outcome: {
+        kind: "upgraded",
+        version: "0.0.0-dev.412.abc1234",
+        from: "0.0.0-dev.399.bcc2f38",
+        notes: [],
+        adminCommand: null,
+      },
+    }),
+  });
+
+  test("a new upgrade says which Host and from what to what, once", () => {
+    const [note] = upgradeNotes([upgraded, machine()], new Set());
+
+    expect(note).toMatchObject({
+      title: "Daemon upgraded",
+      message: "This Mac · 0.0.0-dev.399.bcc2f38 → 0.0.0-dev.412.abc1234",
+    });
+    expect(upgradeNotes([upgraded], new Set([note?.key ?? ""]))).toEqual([]);
   });
 });

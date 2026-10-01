@@ -57,6 +57,56 @@ export const shellQuote = (value: string): string => `'${value.replaceAll("'", `
  */
 export const shScript = (script: string): string => `sh -c ${shellQuote(script)}`;
 
+interface Spawned {
+  readonly alias: string;
+  readonly file: string;
+  readonly args: ReadonlyArray<string>;
+  readonly env?: NodeJS.ProcessEnv;
+  readonly stdinFile?: string | undefined;
+  /** ssh's own exit code; a local shell has none, so every exit is the command's. */
+  readonly transportFailure: number | null;
+}
+
+const run = ({ alias, file, args, env, stdinFile, transportFailure }: Spawned) =>
+  Effect.callback<SshResult, SshError>((resume) => {
+    const child = spawn(file, args, {
+      stdio: [stdinFile ? "pipe" : "ignore", "pipe", "pipe"],
+      env: env ?? process.env,
+    });
+
+    let stdout = "";
+    let stderr = "";
+    child.stdout?.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
+    child.stderr?.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+
+    if (stdinFile && child.stdin) {
+      // The command exiting early (EPIPE) is reported through its exit code below.
+      child.stdin.on("error", () => {});
+      createReadStream(stdinFile).pipe(child.stdin);
+    }
+
+    child.on("error", (error) =>
+      resume(Effect.fail(new SshError({ alias, failure: "spawn", message: error.message })))
+    );
+    child.on("close", (code) => {
+      if (code !== null && code === transportFailure) {
+        resume(
+          Effect.fail(
+            new SshError({ alias, failure: classifySshFailure(stderr), message: stderr.trim() })
+          )
+        );
+      } else {
+        resume(Effect.succeed({ code: code ?? 1, stdout, stderr }));
+      }
+    });
+
+    return Effect.sync(() => child.kill());
+  });
+
 export class Ssh extends Context.Service<
   Ssh,
   {
@@ -77,73 +127,51 @@ export class Ssh extends Context.Service<
     Ssh,
     Ssh.of({
       exec: (alias, command, options) =>
-        Effect.callback<SshResult, SshError>((resume) => {
-          if (alias.startsWith("-")) {
-            resume(
-              Effect.fail(new SshError({ alias, failure: "spawn", message: "invalid alias" }))
-            );
-
-            return;
-          }
-
-          const child = spawn(
-            "ssh",
-            [
-              "-T",
-              "-o",
-              "BatchMode=yes",
-              // Never write known_hosts (ssh.ts); no agent for install commands.
-              "-o",
-              "StrictHostKeyChecking=yes",
-              "-o",
-              "UpdateHostKeys=no",
-              "-o",
-              "ForwardAgent=no",
-              "-o",
-              "ConnectTimeout=15",
-              "--",
+        alias.startsWith("-")
+          ? Effect.fail(new SshError({ alias, failure: "spawn", message: "invalid alias" }))
+          : run({
               alias,
-              command,
-            ],
-            { stdio: [options?.stdinFile ? "pipe" : "ignore", "pipe", "pipe"] }
-          );
-
-          let stdout = "";
-          let stderr = "";
-          child.stdout?.on("data", (chunk: Buffer) => {
-            stdout += chunk.toString();
-          });
-          child.stderr?.on("data", (chunk: Buffer) => {
-            stderr += chunk.toString();
-          });
-
-          if (options?.stdinFile && child.stdin) {
-            // ssh exiting early (EPIPE) is reported through its exit code below.
-            child.stdin.on("error", () => {});
-            createReadStream(options.stdinFile).pipe(child.stdin);
-          }
-
-          child.on("error", (error) =>
-            resume(Effect.fail(new SshError({ alias, failure: "spawn", message: error.message })))
-          );
-          child.on("close", (code) => {
-            if (code === 255) {
-              resume(
-                Effect.fail(
-                  new SshError({
-                    alias,
-                    failure: classifySshFailure(stderr),
-                    message: stderr.trim(),
-                  })
-                )
-              );
-            } else {
-              resume(Effect.succeed({ code: code ?? 1, stdout, stderr }));
-            }
-          });
-
-          return Effect.sync(() => child.kill());
-        }),
+              file: "ssh",
+              args: [
+                "-T",
+                "-o",
+                "BatchMode=yes",
+                // Never write known_hosts (ssh.ts); no agent for install commands.
+                "-o",
+                "StrictHostKeyChecking=yes",
+                "-o",
+                "UpdateHostKeys=no",
+                "-o",
+                "ForwardAgent=no",
+                "-o",
+                "ConnectTimeout=15",
+                "--",
+                alias,
+                command,
+              ],
+              stdinFile: options?.stdinFile,
+              transportFailure: 255,
+            }),
     })
   );
+
+  /**
+   * This machine itself, for its own installed Daemon: the same commands in a
+   * local `sh`, with `HOME` as given (tests use a temporary one). The alias is ignored.
+   */
+  static readonly local = (home: string) =>
+    Layer.succeed(
+      Ssh,
+      Ssh.of({
+        exec: (alias, command, options) =>
+          run({
+            alias,
+            file: "/bin/sh",
+            args: ["-c", command],
+            env: { ...process.env, HOME: home },
+            stdinFile: options?.stdinFile,
+            transportFailure: null,
+          }),
+      })
+    );
 }
