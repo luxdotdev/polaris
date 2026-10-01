@@ -8,7 +8,7 @@
   --diffs-font-size: var(--text-code, 13px);
   --diffs-line-height: var(--text-code--line-height);
   --diffs-header-font-family: var(--font-sans);
-  --diffs-fg-number-override: var(--color-text-faint);
+  --diffs-fg-number-override: var(--color-text-subtle);
   --diffs-addition-color-override: var(--color-diff-added-text);
   --diffs-deletion-color-override: var(--color-diff-removed-text);
   --diffs-bg-addition-override: var(--color-diff-added-bg);

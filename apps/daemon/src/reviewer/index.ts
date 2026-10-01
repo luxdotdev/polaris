@@ -28,7 +28,7 @@ import { ApprovalPolicy, ReviewCheckoutGit, Rules, type ServiceError } from "../
 import { EventStore } from "../store/EventStore.ts";
 import { askReviewer } from "./ask.ts";
 import { ReviewerSessions } from "./sessions.ts";
-import { reviewerDecision } from "./policy.ts";
+import { canRunChecks, reviewerDecision } from "./policy.ts";
 import { type RunRequest, runLayers, startRun } from "./run.ts";
 import { loadSettings, resolveReviewer, saveSettings, settingsPath } from "./settings.ts";
 
@@ -44,7 +44,12 @@ export const ReviewerPolicyLive = Layer.effect(
 
     return ApprovalPolicy.of({
       decide: (request) =>
-        Effect.sync(() => (sessions.has(request.sessionId) ? reviewerDecision(request) : null)),
+        Effect.sync(() =>
+          sessions.has(request.sessionId)
+            ? reviewerDecision(request, { runChecks: canRunChecks(request.harness) })
+            : null
+        ),
+      readOnly: (sessionId) => sessions.has(sessionId),
     });
   })
 );
@@ -88,6 +93,25 @@ export const automaticRun = (
   DomainEvent.matchOrElse(
     event,
     {
+      TurnEnded: ({ turn }): RunRequest | null => {
+        const workspaceId = workspaceOfSession(turn.sessionId);
+
+        return workspaceId === null || turn.status === "working"
+          ? null
+          : {
+              workspaceId,
+              subject: ReviewSubject.cases.SessionTurns.make({
+                sessionId: turn.sessionId,
+                firstTurnId: turn.id,
+                lastTurnId: turn.id,
+              }),
+              checkoutId: null,
+              since: null,
+              refresh: false,
+              context: null,
+              rulesOnly: true,
+            };
+      },
       TurnsAccepted: ({ sessionId, throughTurnId }): RunRequest | null => {
         const workspaceId = workspaceOfSession(sessionId);
 
@@ -151,21 +175,23 @@ const make = (options: ReviewerOptions) =>
           ? yield* availability.value.get(false)
           : NO_HARNESSES;
 
-        return resolveReviewer(yield* loadSettings(path), workspaceId, harnesses);
+        const settings = yield* loadSettings(path);
+
+        return { settings, resolved: resolveReviewer(settings, workspaceId, harnesses) };
       });
 
     const fork = <R>(work: Effect.Effect<void, never, R>) =>
       Effect.asVoid(Effect.forkIn(work, scope));
 
-    const run = (request: RunRequest) =>
+    const start = (request: RunRequest) =>
       Effect.gen(function* () {
         const started = yield* starting.withPermits(1)(startRun(request, resolve));
 
-        if (started.resolved === null) return started.summary;
-        const { summary, range, resolved } = started;
+        if (started.summary === null || started.plan === null) return started.summary;
+        const { summary, range, plan } = started;
 
         const work = Effect.gen(function* () {
-          const ok = yield* runLayers(summary, range, { resolved, context: request.context });
+          const ok = yield* runLayers(summary, range, { plan, context: request.context });
 
           if (
             ok &&
@@ -183,6 +209,13 @@ const make = (options: ReviewerOptions) =>
 
         return summary;
       }).pipe(Effect.provide(context));
+
+    const run = (request: RunRequest) =>
+      Effect.flatMap(start(request), (summary) =>
+        summary === null
+          ? Effect.die(new Error("a Risk Summary the Client asked for always starts"))
+          : Effect.succeed(summary)
+      );
 
     const ask = (summaryId: RiskSummaryId, findingId: RiskFindingId | null, question: string) =>
       Effect.gen(function* () {
@@ -208,6 +241,7 @@ const make = (options: ReviewerOptions) =>
         filter: (item) =>
           Predicate.isTagged(item, "Event") &&
           (DomainEvent.guards.TurnsAccepted(item.envelope.event) ||
+            DomainEvent.guards.TurnEnded(item.envelope.event) ||
             DomainEvent.guards.ReviewCheckoutChanged(item.envelope.event)),
       });
 
@@ -220,10 +254,11 @@ const make = (options: ReviewerOptions) =>
             const request = automaticRun(
               item.envelope.event,
               (id) => model.reviewCheckouts.get(id),
-              (id) => model.sessions.get(id)?.session.workspaceId ?? null
+              (id) =>
+                sessions.has(id) ? null : (model.sessions.get(id)?.session.workspaceId ?? null)
             );
 
-            if (request !== null) yield* Effect.ignore(run(request));
+            if (request !== null) yield* Effect.ignore(start(request));
           })
         )
       );
@@ -234,7 +269,7 @@ const make = (options: ReviewerOptions) =>
       ask,
       settings: (workspaceId) =>
         Effect.gen(function* () {
-          return { settings: yield* loadSettings(path), resolved: yield* resolve(workspaceId) };
+          return yield* resolve(workspaceId);
         }),
       setSettings: (settings) => saveSettings(path, settings),
     });

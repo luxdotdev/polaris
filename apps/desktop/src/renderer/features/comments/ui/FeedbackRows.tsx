@@ -2,7 +2,8 @@
  * An Agent Session's comments in the diff: drafts waiting in the batch (removable), and
  * comments already sent, marked with their Turn ("sent with turn 25").
  */
-import { Button } from "@polaris/ui";
+import { Button, cn } from "@polaris/ui";
+import { ANNOTATION_INSET } from "../../review/index.ts";
 import { removeFeedback } from "../data/actions.ts";
 import { useComments } from "../data/store.ts";
 import type { SentComment } from "../model/feedback.ts";
@@ -14,7 +15,7 @@ const Row = ({
   readonly children: React.ReactNode;
   readonly testId: string;
 }) => (
-  <div className="pr-panel py-gap flex pl-[78px] font-sans" data-testid={testId}>
+  <div className={cn("py-gap flex font-sans", ANNOTATION_INSET)} data-testid={testId}>
     <div className="rounded-row bg-surface-raised border-hairline flex min-w-0 flex-1 flex-col gap-1.5 border p-3">
       {children}
     </div>
@@ -42,7 +43,7 @@ export const DraftRow = ({
         </span>
         <span className="flex-1" />
         {nextTurn !== null && (
-          <span className="text-caption text-text-faint">Goes with turn {nextTurn}</span>
+          <span className="text-caption text-text-subtle">Goes with turn {nextTurn}</span>
         )}
         <Button size="xs" variant="ghost" onClick={() => removeFeedback(subjectKey, draftId)}>
           Remove
@@ -58,7 +59,7 @@ export const SentRow = ({ sent }: { readonly sent: SentComment }) => (
     <div className="gap-gap flex items-center">
       <span className="text-body text-text-subtle font-medium">You</span>
       <span className="flex-1" />
-      <span className="text-caption text-text-faint">Sent with turn {sent.turnNumber}</span>
+      <span className="text-caption text-text-subtle">Sent with turn {sent.turnNumber}</span>
     </div>
     <p className="text-body text-text-subtle break-words whitespace-pre-wrap">
       {sent.comment.note}

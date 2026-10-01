@@ -13,7 +13,7 @@ import type {
   SelectedLineRange,
 } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
-import { useEffect, useMemo, useRef } from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
 import { useStore } from "zustand";
 import type { ReviewAnnotation } from "../surface.ts";
 import { revealStore } from "../surface.ts";
@@ -42,7 +42,8 @@ export interface PaneItem {
 /** The page shows between files; each file's code sits in a card under its header (Paper R1). */
 const BASE_CSS = `[data-diffs-header][data-sticky] { background-color: var(--color-bg); }
 [data-diff] { border: 1px solid var(--color-hairline); border-top: 0; border-radius: 0 0 10px 10px; overflow: clip; }
-[data-gutter] { padding-left: 14px; }`;
+[data-gutter] { padding-left: 14px; }
+[data-separator-content] { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-subtle); }`;
 
 export interface DiffPaneProps {
   readonly items: ReadonlyArray<PaneItem>;
@@ -101,8 +102,10 @@ const sync = (handle: Handle, synced: Synced, items: ReadonlyArray<PaneItem>) =>
   }
 };
 
-const Annotation = ({ meta }: { readonly meta: RowMeta }) =>
-  meta.kind === "finding" ? <FindingRow finding={meta.finding} /> : meta.annotation.render();
+/** Memoised on its metadata, which only changes when the file's annotations do. */
+const Annotation = memo(({ meta }: { readonly meta: RowMeta }) =>
+  meta.kind === "finding" ? <FindingRow finding={meta.finding} /> : meta.annotation.render()
+);
 
 export const DiffPane = ({
   items,

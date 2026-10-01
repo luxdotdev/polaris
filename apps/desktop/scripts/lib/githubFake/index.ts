@@ -20,7 +20,18 @@ export type { World } from "./world.ts";
 
 export const FAKE_CLIENT_ID = "Ov23lix8h2ldBZFwXqek";
 
+/** The OAuth App an Enterprise admin registered on the fake GHE host. */
+export const FAKE_GHE_CLIENT_ID = "0a1b2c3d4e5f6a7b8c9d";
+
 export interface GitHubFakeOptions {
+  /**
+   * Serve as GitHub Enterprise Server: REST only under `/api/v3`, GraphQL at
+   * `/api/graphql` (github.com's paths answer 404), OAuth at `/login/…`.
+   */
+  readonly enterprise?: boolean;
+  readonly clientId?: string;
+  /** The host's web URL, for `verification_uri`; github.com's by default. */
+  readonly webUrl?: string;
   /** The fake's clock (ms): token expiry, device codes, rate windows. */
   readonly now?: () => number;
   /** Seconds between device-flow polls; GitHub says 5. */
@@ -54,7 +65,8 @@ export const createGitHubFake = (options: GitHubFakeOptions = {}) => {
     now,
     interval: options.interval ?? 5,
     enforceInterval: options.enforceInterval ?? true,
-    clientId: FAKE_CLIENT_ID,
+    clientId: options.clientId ?? FAKE_CLIENT_ID,
+    webUrl: options.webUrl ?? "https://github.com",
   });
 
   const requests: Array<LoggedRequest> = [];
@@ -123,8 +135,30 @@ export const createGitHubFake = (options: GitHubFakeOptions = {}) => {
     );
   };
 
-  /** Answers one request, as GitHub (web and API hosts both) would. */
-  const handle = (request: FakeRequest): FakeResponse => {
+  /** GHE's API paths mapped onto github.com's; null for a path GHE doesn't serve. */
+  const enterprisePath = (path: string) => {
+    if (path.startsWith("/login/") || path.startsWith("/_fake/")) return path;
+
+    if (path === "/api/graphql") return "/graphql";
+
+    if (path.startsWith("/api/v3/")) return path.slice("/api/v3".length);
+
+    return null;
+  };
+
+  /** Answers one request, as GitHub (web and API hosts both, or a GHE host) would. */
+  const handle = (incoming: FakeRequest): FakeResponse => {
+    const path = options.enterprise === true ? enterprisePath(incoming.path) : incoming.path;
+
+    if (path === null) {
+      return log(
+        { kind: "rest", name: incoming.path, status: 404, login: null },
+        json(404, { message: "Not Found" })
+      );
+    }
+
+    const request = { ...incoming, path };
+
     if (request.path.startsWith("/_fake/")) {
       return log(
         { kind: "control", name: request.path, status: 200, login: null },
@@ -225,3 +259,13 @@ export const createGitHubFake = (options: GitHubFakeOptions = {}) => {
 };
 
 export type GitHubFake = ReturnType<typeof createGitHubFake>;
+
+/** A GitHub Enterprise Server fake with its own world and OAuth App. */
+export const createGitHubEnterpriseFake = (options: GitHubFakeOptions = {}) =>
+  createGitHubFake({
+    enterprise: true,
+    clientId: FAKE_GHE_CLIENT_ID,
+    webUrl: "https://ghe.acme.test",
+    fixture: loadFixture("ghe"),
+    ...options,
+  });

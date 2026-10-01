@@ -16,10 +16,12 @@ import {
   type RiskSummaryId,
   ReviewCheckoutId,
   ReviewContext,
+  ReviewerSettings,
   ReviewSubject,
   RiskSummaryRef,
   RequestId,
   SessionId,
+  SessionPlacement,
   TurnId,
   TurnItem,
   type Workspace,
@@ -29,12 +31,15 @@ import { Effect, Layer, Option, Predicate, Stream } from "effect";
 import { Engine } from "../engine/Engine.ts";
 import {
   cid,
+  completesTurns,
   engineLayer,
+  type FakeHarnessSession,
   makeFakeDriver,
   makeFakes,
   tempDir,
   waitFor,
 } from "../engine/testing.ts";
+import { CheckpointsLive } from "../git/Checkpoints.ts";
 import { ReviewCheckoutGitLive } from "../git/ReviewCheckoutGit.ts";
 import {
   BASE_REPO,
@@ -57,6 +62,7 @@ import {
   ReviewerSessions,
 } from "./index.ts";
 import { REVIEWER_MARKER } from "./prompt.ts";
+import { RULES_AFTER_TURN } from "./run.ts";
 import { RULES_ONLY_NOTE } from "./settings.ts";
 
 type Env = Engine | EventStore | Reviewer;
@@ -124,17 +130,36 @@ const noRules = Layer.succeed(Rules)({
   run: () => Effect.succeed({ findings: [], notes: [], ok: true }),
 });
 
-const reviewerLayer = (options: { readonly ready: boolean }) => {
+/** A user's Turn: "write <file>" writes it in the session's directory first. */
+const userTurn = (input: TurnInput, session: FakeHarnessSession) => {
+  const file = /^write (\S+)/.exec(input.prompt)?.[1];
+
+  if (file !== undefined) write(session.options.cwd, file, `written by ${input.turnId}\n`);
+
+  return completesTurns()(input);
+};
+
+const reviewerLayer = (options: { readonly ready: boolean; readonly checkpoints?: boolean }) => {
   const dir = tempDir();
   cleanup.push(dir);
-  const driver = makeFakeDriver("claude", { onTurn: reviewerTurn });
 
-  const engine = engineLayer({
+  const driver = makeFakeDriver("claude", {
+    onTurn: (input, session) =>
+      input.prompt.startsWith(REVIEWER_MARKER) ? reviewerTurn(input) : userTurn(input, session),
+  });
+
+  const base = {
     filename: join(dir, "state.sqlite"),
     fakes: makeFakes(),
     drivers: [driver],
     reviewCheckoutGit: ReviewCheckoutGitLive,
-  }).pipe(Layer.provide(ReviewerPolicyLive), Layer.provideMerge(ReviewerSessions.layer));
+  };
+
+  const engine = (
+    options.checkpoints === true
+      ? engineLayer({ ...base, checkpoints: CheckpointsLive })
+      : engineLayer(base)
+  ).pipe(Layer.provide(ReviewerPolicyLive), Layer.provideMerge(ReviewerSessions.layer));
 
   const layer = ReviewerLive({ settingsPath: join(dir, "reviewer-settings.json") }).pipe(
     Layer.provideMerge(engine),
@@ -264,6 +289,7 @@ describe("the Reviewer", () => {
         });
         const harness = driver.latest(sessionId!);
         expect(harness?.turns[0]?.prompt.startsWith(REVIEWER_MARKER)).toBe(true);
+        expect(harness?.options.readOnly).toBe(true);
         expect(harness?.turns[0]?.prompt).toContain("Add the feature");
         expect(harness?.turns[0]?.prompt).toContain("+v1");
         expect(harness?.responses.map((r) => r.decision._tag).toSorted()).toEqual([
@@ -309,66 +335,92 @@ describe("the Reviewer", () => {
     );
   }, 60_000);
 
-  test("new commits after an update are reviewed on their own, in the same session", async () => {
+  /** Reviews v1, then pushes one more commit writing `file`, updates, and returns the incremental summary. */
+  const reviewThenPush = (s: Awaited<ReturnType<typeof scenario>>, file: string, content: string) =>
+    Effect.gen(function* () {
+      const workspace = yield* openReview(s.user, s.v1);
+      const reviewer = yield* Reviewer;
+
+      const first = yield* reviewer.run({
+        workspaceId: workspace.id,
+        subject,
+        checkoutId,
+        since: null,
+        refresh: false,
+        context,
+      });
+
+      const done = yield* summaryWhen(first.id, ended);
+      yield* waitFor((m) => m.reviewCheckouts.get(checkoutId)?.reviewedHead === s.v1);
+      const store = yield* EventStore;
+
+      const next = yield* Effect.scoped(
+        Effect.gen(function* () {
+          const live = yield* store.subscribe({
+            filter: (item) =>
+              Predicate.isTagged(item, "Event") &&
+              DomainEvent.guards.RiskSummaryStarted(item.envelope.event),
+          });
+
+          write(s.author, file, content);
+          yield* Effect.promise(() => commitAll(s.author, `edit ${file}`));
+          const v2 = yield* Effect.promise(() => publishPullRequest(s.forge, s.author, 7));
+          yield* dispatch(Command.cases.ReportReviewHead.make({ checkoutId, head: v2, base: "" }));
+          yield* dispatch(
+            Command.cases.UpdateReviewCheckout.make({ checkoutId, discardChanges: false })
+          );
+          const item = yield* Stream.runHead(live);
+
+          return Option.isSome(item) &&
+            Predicate.isTagged(item.value, "Event") &&
+            DomainEvent.guards.RiskSummaryStarted(item.value.envelope.event)
+            ? item.value.envelope.event.summary
+            : null;
+        })
+      );
+
+      expect(next?.key.since).toBe(s.v1);
+
+      return { done, incremental: yield* summaryWhen(next!.id, ended) };
+    });
+
+  test("new commits are reviewed on their own, in the same session, with earlier Findings carried", async () => {
     const s = await scenario();
     const { layer, driver } = reviewerLayer({ ready: true });
 
     await run(
       layer,
       Effect.gen(function* () {
-        const workspace = yield* openReview(s.user, s.v1);
-        const reviewer = yield* Reviewer;
+        const { done, incremental } = yield* reviewThenPush(s, "second.txt", "added later\n");
 
-        const first = yield* reviewer.run({
-          workspaceId: workspace.id,
-          subject,
-          checkoutId,
-          since: null,
-          refresh: false,
-          context,
-        });
-
-        const done = yield* summaryWhen(first.id, ended);
-        yield* waitFor((m) => m.reviewCheckouts.get(checkoutId)?.reviewedHead === s.v1);
-
-        const store = yield* EventStore;
-
-        const next = yield* Effect.scoped(
-          Effect.gen(function* () {
-            const live = yield* store.subscribe({
-              filter: (item) =>
-                Predicate.isTagged(item, "Event") &&
-                DomainEvent.guards.RiskSummaryStarted(item.envelope.event),
-            });
-
-            write(s.author, "second.txt", "added later\n");
-            yield* Effect.promise(() => commitAll(s.author, "second"));
-            const v2 = yield* Effect.promise(() => publishPullRequest(s.forge, s.author, 7));
-            yield* dispatch(
-              Command.cases.ReportReviewHead.make({ checkoutId, head: v2, base: "" })
-            );
-            yield* dispatch(
-              Command.cases.UpdateReviewCheckout.make({ checkoutId, discardChanges: false })
-            );
-
-            const item = yield* Stream.runHead(live);
-
-            return Option.isSome(item) &&
-              Predicate.isTagged(item.value, "Event") &&
-              DomainEvent.guards.RiskSummaryStarted(item.value.envelope.event)
-              ? item.value.envelope.event.summary
-              : null;
-          })
-        );
-
-        expect(next?.key.since).toBe(s.v1);
-        const incremental = yield* summaryWhen(next!.id, ended);
         expect(incremental.status).toBe("completed");
-        expect(incremental.findings.map((f) => f.path)).toEqual(["second.txt"]);
+        expect(incremental.findings.map((f) => [f.path, f.status, f.lines.start])).toEqual([
+          ["second.txt", "open", 1],
+          ["feature.txt", "open", 1],
+        ]);
+        expect(incremental.findings[1]?.id).toBe(done.findings[0]!.id);
         expect(incremental.reviewer?.sessionId).toBe(done.reviewer?.sessionId);
         const prompt = driver.latest(done.reviewer!.sessionId!)?.turns.at(-1)?.prompt ?? "";
         expect(prompt).toContain("Only the new changes");
         expect(prompt).not.toContain("+v1");
+      })
+    );
+  }, 60_000);
+
+  test("a Finding whose code a new commit changed is Resolved as fixed", async () => {
+    const s = await scenario();
+    const { layer } = reviewerLayer({ ready: true });
+
+    await run(
+      layer,
+      Effect.gen(function* () {
+        const { done, incremental } = yield* reviewThenPush(s, "feature.txt", "v2\n");
+        const old = incremental.findings.find((f) => f.id === done.findings[0]!.id);
+
+        expect(old).toMatchObject({ status: "resolved", resolution: "fixed" });
+        expect(incremental.findings.filter((f) => f.status === "open").map((f) => f.path)).toEqual([
+          "feature.txt",
+        ]);
       })
     );
   }, 60_000);
@@ -397,6 +449,182 @@ describe("the Reviewer", () => {
         expect(done).toMatchObject({ status: "completed", reviewer: null, note: RULES_ONLY_NOTE });
         expect(done.layers.agent).toMatchObject({ status: "skipped", note: RULES_ONLY_NOTE });
         expect((yield* (yield* EventStore).model).sessions.size).toBe(0);
+      })
+    );
+  }, 60_000);
+});
+
+describe("when it runs", () => {
+  const openRequest = (workspace: Workspace, refresh: boolean) => ({
+    workspaceId: workspace.id,
+    subject,
+    checkoutId,
+    since: null,
+    refresh,
+    context,
+  });
+
+  test("over the Ask first threshold the rules run and the Reviewer waits for Run reviewer", async () => {
+    const s = await scenario();
+    const { layer, driver } = reviewerLayer({ ready: true });
+
+    await run(
+      layer,
+      Effect.gen(function* () {
+        const reviewer = yield* Reviewer;
+        yield* reviewer.setSettings(
+          ReviewerSettings.make({ default: null, workspaces: {}, askAboveLines: 0 })
+        );
+        const workspace = yield* openReview(s.user, s.v1);
+
+        const waiting = yield* summaryWhen(
+          (yield* reviewer.run(openRequest(workspace, false))).id,
+          ended
+        );
+
+        expect(waiting.status).toBe("completed");
+        expect(waiting.layers.rules.status).toBe("completed");
+        expect(waiting.layers.agent.status).toBe("pending");
+        expect(waiting.layers.agent.note).toContain("1 changed lines is over 0");
+        expect(driver.sessions).toHaveLength(0);
+
+        // "Run reviewer": the user asks, so the threshold doesn't apply.
+        const ran = yield* summaryWhen(
+          (yield* reviewer.run(openRequest(workspace, true))).id,
+          ended
+        );
+
+        expect(ran.id).not.toBe(waiting.id);
+        expect(ran.layers.agent.status).toBe("completed");
+        expect(ran.findings).toHaveLength(1);
+      })
+    );
+  }, 60_000);
+
+  test("with pull requests switched off the Reviewer is skipped unless asked", async () => {
+    const s = await scenario();
+    const { layer } = reviewerLayer({ ready: true });
+
+    await run(
+      layer,
+      Effect.gen(function* () {
+        const reviewer = yield* Reviewer;
+        yield* reviewer.setSettings(
+          ReviewerSettings.make({ default: null, workspaces: {}, onPullRequests: false })
+        );
+        const workspace = yield* openReview(s.user, s.v1);
+
+        const off = yield* summaryWhen(
+          (yield* reviewer.run(openRequest(workspace, false))).id,
+          ended
+        );
+
+        expect(off.layers.agent.status).toBe("skipped");
+        expect(off.layers.agent.note).toContain("doesn't run on pull requests by itself");
+        expect(off.layers.rules.status).toBe("completed");
+
+        const asked = yield* summaryWhen(
+          (yield* reviewer.run(openRequest(workspace, true))).id,
+          ended
+        );
+
+        expect(asked.layers.agent.status).toBe("completed");
+      })
+    );
+  }, 60_000);
+});
+
+describe("rules after every Turn", () => {
+  test("a Turn that changed files gets a Rules-only summary; opening it in Review runs the Reviewer", async () => {
+    const s = await scenario();
+    const { layer } = reviewerLayer({ ready: true, checkpoints: true });
+
+    await run(
+      layer,
+      Effect.gen(function* () {
+        const store = yield* EventStore;
+        const reviewer = yield* Reviewer;
+        yield* dispatch(Command.cases.RegisterWorkspace.make({ path: s.user, name: null }));
+
+        const registered = yield* waitFor((m) =>
+          [...m.workspaces.values()].some((w) => w.path === s.user)
+        );
+        // SAFETY: waitFor returned once a Workspace at `s.user` was registered.
+
+        const workspace = [...registered.workspaces.values()].find(
+          (w) => w.path === s.user
+        ) as Workspace;
+
+        const sessionId = SessionId.make("ses-user");
+
+        const nextSummary = (send: Effect.Effect<unknown, unknown, Engine>) =>
+          Effect.scoped(
+            Effect.gen(function* () {
+              const live = yield* store.subscribe({
+                filter: (item) =>
+                  Predicate.isTagged(item, "Event") &&
+                  DomainEvent.guards.RiskSummaryStarted(item.envelope.event),
+              });
+
+              yield* send;
+              const item = yield* Stream.runHead(live).pipe(Effect.timeoutOption("3 seconds"));
+              const value = Option.flatten(item);
+
+              return Option.isSome(value) &&
+                Predicate.isTagged(value.value, "Event") &&
+                DomainEvent.guards.RiskSummaryStarted(value.value.envelope.event)
+                ? value.value.envelope.event.summary
+                : null;
+            })
+          );
+
+        const first = yield* nextSummary(
+          dispatch(
+            Command.cases.StartSession.make({
+              sessionId,
+              workspaceId: workspace.id,
+              harness: "claude",
+              placement: SessionPlacement.cases.InPlace.make({}),
+              permissionMode: "auto",
+              model: null,
+              effort: null,
+              prompt: "write a.txt please",
+              attachments: [],
+            })
+          )
+        );
+
+        expect(first !== null && Predicate.isTagged(first.subject, "SessionTurns")).toBe(true);
+        expect(first?.subject).toMatchObject({ sessionId });
+        const rulesOnly = yield* summaryWhen(first!.id, ended);
+        expect(rulesOnly.layers.rules.status).toBe("completed");
+        expect(rulesOnly.layers.agent).toMatchObject({ status: "skipped", note: RULES_AFTER_TURN });
+
+        // A Turn that changes nothing gets none.
+        yield* waitFor((m) => m.sessions.get(sessionId)?.session.state === "idle");
+
+        const quiet = yield* nextSummary(
+          dispatch(
+            Command.cases.SendTurn.make({ sessionId, prompt: "just look around", attachments: [] })
+          )
+        );
+
+        expect(quiet).toBeNull();
+
+        // Opening that Turn in Review runs the Reviewer instead of answering the Rules-only summary.
+        const opened = yield* reviewer.run({
+          workspaceId: workspace.id,
+          subject: first!.subject,
+          checkoutId: null,
+          since: null,
+          refresh: false,
+          context: null,
+        });
+
+        expect(opened.id).not.toBe(rulesOnly.id);
+        const reviewed = yield* summaryWhen(opened.id, ended);
+        expect(reviewed.layers.agent.status).toBe("completed");
+        expect(reviewed.findings.map((f) => f.path)).toEqual(["a.txt"]);
       })
     );
   }, 60_000);

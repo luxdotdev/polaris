@@ -20,6 +20,8 @@ export interface AccountRow {
   readonly signedOut: boolean;
   /** One caption line: what it's used for, or why it needs a new sign-in. */
   readonly caption: string;
+  /** github.com or a GitHub Enterprise server: signing in again goes there. */
+  readonly host: string;
 }
 
 const list = (names: ReadonlyArray<string>) =>
@@ -47,8 +49,10 @@ export const accountRows = (view: GitHubAccountsView): ReadonlyArray<AccountRow>
     const isDefault = index === 0;
     const signedOut = account.state === "signed-out";
 
-    const lead =
-      account.name === null || account.name === account.login ? "" : `${account.name} · `;
+    const server =
+      account.host === undefined || account.host === "github.com" ? "" : `${account.host} · `;
+
+    const lead = `${server}${account.name === null || account.name === account.login ? "" : `${account.name} · `}`;
 
     const caption = signedOut
       ? "Signed out · GitHub no longer accepts its token"
@@ -56,7 +60,9 @@ export const accountRows = (view: GitHubAccountsView): ReadonlyArray<AccountRow>
         ? `Can't see private repos (no ${account.missingScopes.join(", ")} access) · sign in again`
         : `${lead}${usedFor(view, account.id, isDefault)}`;
 
-    return { id: account.id, login: account.login, index, isDefault, signedOut, caption };
+    const host = account.host ?? "github.com";
+
+    return { id: account.id, login: account.login, index, isDefault, signedOut, caption, host };
   });
 
 /** An owner's worst access problem, with what fixes it. */

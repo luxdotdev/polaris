@@ -12,10 +12,11 @@ import { parseRemoteUrl, pickFetchSource } from "./remotes.ts";
 import {
   BASE_REPO,
   contributor,
-  FORK_URL,
   createForge,
+  FORK_URL,
   publishPullRequest,
   pushMain,
+  pushMainCommits,
   userClone,
 } from "./testing.ts";
 
@@ -194,22 +195,60 @@ describe("fetchPullRequest", () => {
     );
   });
 
-  test("a shallow clone fetches the code host's base commit, else says it is shallow", async () => {
+  test("a shallow clone fetches the code host's base commit when it is the merge base", async () => {
     const { forge, head } = await setup();
     await pushMain(forge, "later.txt", "later\n");
     const user = await userClone(forge, { depth: 1 });
     cleanup.push(user);
+    const noDeepening = { deepenSteps: [] };
 
-    expect(await blockerOf(fetchPullRequest(pr(user)))).toEqual(
+    expect(await blockerOf(fetchPullRequest(pr(user, noDeepening)))).toEqual(
       ReviewCheckoutBlocker.cases.ShallowClone.make({})
     );
 
     const mergeBase = forge.mainCommits[1] ?? "";
-    const fetched = await fetchPullRequest(pr(user, { baseCommit: mergeBase }));
+    const fetched = await fetchPullRequest(pr(user, { ...noDeepening, baseCommit: mergeBase }));
 
     expect(fetched).toEqual({ head, mergeBase });
     expect(await gitText(user, ["rev-parse", "--is-shallow-repository"])).toBe("true");
   });
+
+  // The Desktop sends GitHub's baseRefOid: the base branch's tip, not the merge base (Q-check B2).
+  test("a shallow clone opened with the base branch's tip deepens to the merge base and stays shallow", async () => {
+    const forge = await createForge();
+    cleanup.push(forge.root);
+
+    const branchPoint = await pushMainCommits(forge, "old", 40);
+    const author = await contributor(forge, branchPoint);
+    write(author, "feature.txt", "feature\n");
+    await commitAll(author, "feature");
+    const head = await publishPullRequest(forge, author, 7);
+
+    const tip = await pushMainCommits(forge, "new", 15);
+    const user = await userClone(forge, { depth: 1 });
+    cleanup.push(user);
+
+    const fetched = await fetchPullRequest(pr(user, { baseCommit: tip }));
+
+    expect(fetched).toEqual({ head, mergeBase: branchPoint });
+    expect(await gitText(user, ["rev-parse", "--is-shallow-repository"])).toBe("true");
+    expect(Number(await gitText(user, ["rev-list", "--count", "main"]))).toBeLessThan(
+      forge.mainCommits.length
+    );
+  }, 30_000);
+
+  test("past the deepening budget it is a shallow clone, for the user to decide", async () => {
+    const { forge } = await setup();
+
+    const tip = await pushMainCommits(forge, "later", 6);
+    const user = await userClone(forge, { depth: 1 });
+    cleanup.push(user);
+
+    expect(
+      await blockerOf(fetchPullRequest(pr(user, { baseCommit: tip, deepenSteps: [1, 2] })))
+    ).toEqual(ReviewCheckoutBlocker.cases.ShallowClone.make({}));
+    expect(await gitText(user, ["rev-parse", "--is-shallow-repository"])).toBe("true");
+  }, 30_000);
 
   test("unshallow fetches full history, only when asked", async () => {
     const { forge, head } = await setup();

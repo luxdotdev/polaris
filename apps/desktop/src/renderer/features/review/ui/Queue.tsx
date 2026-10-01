@@ -2,7 +2,8 @@
  * The queue on Review's left (Paper R1 1TC-0): what's waiting to be reviewed, the open
  * subject selected, and "Review a PR by URL" at its foot. The header goes back to the list.
  */
-import { cn, Tile } from "@polaris/ui";
+import { cn, SEVERITY_LABELS, SeverityGlyph, Tile } from "@polaris/ui";
+import type { RiskMark } from "../model/findings.ts";
 import type { OpenPull } from "../../../../shared/api.ts";
 import { ByUrl } from "../../pulls/ui/ByUrl.tsx";
 import { PullGlyph } from "../../pulls/ui/glyphs.tsx";
@@ -15,7 +16,23 @@ export interface QueueProps {
   readonly onOpen: (row: QueueRow) => void;
   readonly onOpenPull: (pull: OpenPull) => void;
   readonly onList: () => void;
+  /** The row's Risk Summary, when one ran this launch: its highest Severity and count. */
+  readonly markOf: (row: QueueRow) => RiskMark | null;
 }
+
+/** "▲ 1": the highest Severity's glyph and how many findings have it (DESIGN.md, Review → Queue). */
+const Mark = ({ mark }: { readonly mark: RiskMark | null }) =>
+  mark === null ? null : (
+    <span
+      data-testid="review-queue-risk"
+      className="text-micro tabular flex shrink-0 items-center gap-1 font-medium"
+      style={{ color: `var(--color-severity-${mark.severity}-text)` }}
+    >
+      <SeverityGlyph severity={mark.severity} tone="text" />
+      <span className="sr-only">{SEVERITY_LABELS[mark.severity]}</span>
+      {mark.count}
+    </span>
+  );
 
 const TallRow = ({ row, selected }: { readonly row: QueueRow; readonly selected: boolean }) => (
   <>
@@ -40,25 +57,29 @@ const TallRow = ({ row, selected }: { readonly row: QueueRow; readonly selected:
       >
         {row.title}
       </span>
-      <span
-        className={cn("text-caption truncate", selected ? "text-text-subtle" : "text-text-faint")}
-      >
-        {row.meta}
-      </span>
+      <span className={cn("text-caption truncate", "text-text-subtle")}>{row.meta}</span>
     </span>
   </>
 );
 
 const ShortRow = ({ row }: { readonly row: QueueRow }) => (
   <>
-    <span className="text-text-faint text-micro w-tree-row shrink-0 text-center font-mono">
+    <span className="text-text-subtle text-micro w-tree-row shrink-0 text-center font-mono">
       {row.kind === "pull" ? row.number : ""}
     </span>
     <span className="text-body text-text-subtle line-clamp-1 flex-1 text-left">{row.title}</span>
   </>
 );
 
-export const Queue = ({ groups, caption, selected, onOpen, onOpenPull, onList }: QueueProps) => (
+export const Queue = ({
+  groups,
+  caption,
+  selected,
+  onOpen,
+  onOpenPull,
+  onList,
+  markOf,
+}: QueueProps) => (
   <nav
     aria-label="Review queue"
     data-testid="review-queue"
@@ -72,12 +93,12 @@ export const Queue = ({ groups, caption, selected, onOpen, onOpenPull, onList }:
       className="px-panel pt-panel flex cursor-default flex-col gap-0.5 pb-1.5 text-left"
     >
       <span className="text-heading text-text-strong font-medium">Review</span>
-      <span className="text-caption text-text-faint">{caption}</span>
+      <span className="text-caption text-text-subtle">{caption}</span>
     </button>
     <div className="pb-gap min-h-0 flex-1 overflow-y-auto">
       {groups.map((group) => (
         <section key={group.id} className="px-gap pt-gap flex flex-col gap-0.5">
-          <h2 className="text-caption text-text-faint px-gap pt-gap flex items-center pb-1.5 font-normal">
+          <h2 className="text-caption text-text-subtle px-gap pt-gap flex items-center pb-1.5 font-normal">
             <span className="flex-1">{group.label}</span>
             <span className="tabular">{group.rows.length}</span>
           </h2>
@@ -105,6 +126,7 @@ export const Queue = ({ groups, caption, selected, onOpen, onOpenPull, onList }:
                 ) : (
                   <TallRow row={row} selected={isSelected} />
                 )}
+                <Mark mark={markOf(row)} />
               </button>
             );
           })}

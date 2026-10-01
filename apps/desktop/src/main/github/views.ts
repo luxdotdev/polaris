@@ -76,6 +76,7 @@ export const threadView = (thread: ReviewThread): ReviewThreadView => ({
 export interface DetailParts {
   readonly pull: Detail;
   readonly repo: string;
+  readonly host: string;
   readonly viewerLogin: string;
   readonly files: ReadonlyArray<Detail["files"]["nodes"][number]>;
   readonly threads: ReadonlyArray<ReviewThread>;
@@ -85,6 +86,7 @@ export interface DetailParts {
 export const detailView = ({
   pull,
   repo,
+  host,
   viewerLogin,
   files,
   threads,
@@ -99,6 +101,7 @@ export const detailView = ({
     body: pull.body,
     url: pull.url,
     repo,
+    host,
     state: STATES.get(pull.state) ?? "open",
     isDraft: pull.isDraft,
     author: pull.author,

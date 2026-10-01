@@ -231,5 +231,7 @@ export class ApprovalPolicy extends Context.Service<
   ApprovalPolicy,
   {
     readonly decide: (request: PolicyRequest) => Effect.Effect<ApprovalDecision | null>;
+    /** The session is read-only: its Harness opens with no network or writes where it can enforce them. */
+    readonly readOnly: (sessionId: SessionId) => boolean;
   }
 >()("polaris/daemon/ApprovalPolicy") {}

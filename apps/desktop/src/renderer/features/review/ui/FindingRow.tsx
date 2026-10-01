@@ -4,19 +4,22 @@
  * pending comment. Low-confidence findings are dimmed; a Critical one never is.
  */
 import { cn, SeverityBadge } from "@polaris/ui";
+import { memo } from "react";
 import { type FindingInfo, isDimmed } from "../model/findings.ts";
+import { ANNOTATION_INSET } from "../surface.ts";
 
-export const FindingRow = ({ finding }: { readonly finding: FindingInfo }) => (
+const Row = ({ finding }: { readonly finding: FindingInfo }) => (
   <div
     data-testid="finding-row"
     data-finding={finding.id}
     className={cn(
-      "flex py-1.5 pr-panel pl-[78px] font-sans",
+      "flex py-1.5 font-sans",
+      ANNOTATION_INSET,
       isDimmed(finding) && "opacity-(--opacity-dimmed)"
     )}
   >
     <div className="border-hairline bg-surface-raised rounded-row gap-row-x flex min-w-0 flex-1 items-start border px-3 py-2">
-      <SeverityBadge severity={finding.severity} lowConfidence={finding.confidence < 0.5} />
+      <SeverityBadge severity={finding.severity} />
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className="text-body text-text-strong font-medium">{finding.title}</span>
         {finding.reason !== "" && (
@@ -26,3 +29,6 @@ export const FindingRow = ({ finding }: { readonly finding: FindingInfo }) => (
     </div>
   </div>
 );
+
+/** Memoised: Pierre re-renders every mounted annotation as files mount. */
+export const FindingRow = memo(Row);

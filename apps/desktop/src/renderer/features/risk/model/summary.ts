@@ -114,13 +114,24 @@ export const captionOf = (summary: Summary, now: number): string => {
   const scope =
     summary.key.since === null
       ? `at ${short(summary.key.head)}`
-      : `new commits ${short(summary.key.since)}..${short(summary.key.head)}`;
+      : `at ${short(summary.key.head)}, new commits since ${short(summary.key.since)}`;
 
   const when = summary.endedAt === null ? "" : ` · ${age(now - Date.parse(summary.endedAt))}`;
   const verb = summary.layers.agent.status === "completed" ? "Reviewed" : "Rules ran";
 
   return `${verb} ${scope}${when}`;
 };
+
+/**
+ * The header's action: "Run reviewer" when its layer waits (a change over the Ask-first
+ * threshold) or was switched off, else "Review again". Both run with `refresh`.
+ */
+export const rerunLabel = (summary: Summary | null) =>
+  summary !== null &&
+  summary.status !== "running" &&
+  (summary.layers.agent.status === "pending" || summary.layers.agent.status === "skipped")
+    ? "Run reviewer"
+    : "Review again";
 
 /** Why a layer didn't finish, and the summary's note (a Plan Limit, "Rules only…"), deduplicated. */
 export const notesOf = (summary: Summary): ReadonlyArray<string> => {

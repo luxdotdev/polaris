@@ -54,3 +54,9 @@ export type GitHubCallError =
   | GitHubNotFound
   | GitHubForbidden
   | GitHubRequestError;
+
+/** Not a GitHub Enterprise host Polaris can add, or one nobody added. */
+export class GitHubInvalidHost extends Schema.TaggedError<GitHubInvalidHost>()(
+  "GitHubInvalidHost",
+  { host: Schema.String, message: Schema.String }
+) {}

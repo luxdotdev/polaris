@@ -78,7 +78,7 @@ const Waiting = ({ placeholder }: { readonly placeholder: Placeholder | null }) 
     data-testid="review-waiting"
   >
     {placeholder === null ? (
-      <span className="text-caption text-text-faint">Reading the diff…</span>
+      <span className="text-caption text-text-subtle">Reading the diff…</span>
     ) : (
       <EmptyState icon={<PixelForkIcon size={24} />} {...placeholder} />
     )}
@@ -126,6 +126,7 @@ const Ready = ({
         <FileList
           files={model.files}
           viewedOf={model.viewedOf}
+          changedOf={(file) => model.viewedStateOf(file) === "changed"}
           severities={model.severities}
           progress={model.progress}
           current={model.openFile}
