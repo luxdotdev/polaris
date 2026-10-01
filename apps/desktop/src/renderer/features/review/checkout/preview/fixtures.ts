@@ -221,4 +221,11 @@ export const MENUS = new Map<string, CheckoutModel>([
     ),
   ],
   ["menu-clone", model({ kind: "none" }, null)],
+  [
+    "menu-discard",
+    model(
+      { kind: "blocked", host: "This Mac", block: blockView(dirty, "This Mac") },
+      { ...held({ state: "blocked", blocked: dirty }), hostKey: "local", hostLabel: "This Mac" }
+    ),
+  ],
 ]);

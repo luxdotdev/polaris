@@ -15,7 +15,7 @@ import {
   startRunIn,
   stopRunIn,
 } from "../actions.ts";
-import { shortSha } from "../model/chip.ts";
+import { inSentence, shortSha } from "../model/chip.ts";
 import type { HostChoice } from "../model/hosts.ts";
 import { runningFact } from "../model/run.ts";
 import type { RunCommand } from "../run.ts";
@@ -253,7 +253,8 @@ const StateSection = ({ model, pull, nav, asking, onDone }: MenuProps & { readon
     );
   }
 
-  if (view.kind === "checking-out") return <Fetching title={`Checking out on ${view.host}`} />;
+  if (view.kind === "checking-out")
+    return <Fetching title={`Checking out on ${inSentence(view.host)}`} />;
 
   if (view.kind === "updating") return <Fetching title={`Updating to ${view.to}`} />;
 

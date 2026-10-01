@@ -6,6 +6,12 @@
 import type { ReviewCheckout, ReviewCheckoutBlock, SessionId } from "@polaris/protocol";
 import { Match } from "effect";
 
+/**
+ * A Host's name inside a sentence: the local Host's default name is a description, not a
+ * proper noun, so "Checked out on this Mac" (rule/glossary-lowercase).
+ */
+export const inSentence = (host: string) => (host.toLowerCase() === "this mac" ? "this Mac" : host);
+
 /** Commits are shown by their first seven characters. */
 export const shortSha = (sha: string | null) => (sha === null ? "" : sha.slice(0, 7));
 
@@ -56,7 +62,7 @@ export const blockView = (block: ReviewCheckoutBlock, host: string): BlockView =
         const removing = block.during === "remove";
 
         return {
-          title: `Edits in the checkout on ${host}`,
+          title: `Edits in the checkout on ${inSentence(host)}`,
           fact: removing
             ? `${count(paths.length, "file")} changed in the checkout, so it was kept.`
             : `${count(paths.length, "file")} changed in the checkout, so it stayed at the old commit.`,
@@ -80,7 +86,7 @@ export const blockView = (block: ReviewCheckoutBlock, host: string): BlockView =
         return sessionId === undefined
           ? {
               title: `A terminal is open in the checkout`,
-              fact: `${count(terminals, "terminal")} on ${host} still run in it. Close them, then try again.`,
+              fact: `${count(terminals, "terminal")} on ${inSentence(host)} still run in it. Close them, then try again.`,
               evidence: [],
               fix: { kind: "show-terminal", label: "Show terminal" },
               confirm: null,
@@ -95,15 +101,17 @@ export const blockView = (block: ReviewCheckoutBlock, host: string): BlockView =
       },
       ShallowClone: (): BlockView => ({
         title: "This workspace is a shallow clone",
-        fact: `The pull request’s base isn’t in ${host}’s history. Fetching full history can take a while.`,
+        fact: `The pull request’s base isn’t in ${inSentence(host)}’s history. Fetching full history can take a while.`,
         evidence: [],
         fix: { kind: "fetch-full", label: "Fetch full history" },
         confirm: null,
       }),
       FetchFailed: ({ message }): BlockView => ({
-        title: NO_AGENT.test(message) ? `No ssh agent on ${host}` : `Couldn’t check out on ${host}`,
+        title: NO_AGENT.test(message)
+          ? `No ssh agent on ${inSentence(host)}`
+          : `Couldn’t check out on ${inSentence(host)}`,
         fact: NO_AGENT.test(message)
-          ? `The daemon on ${host} can’t reach an ssh agent. Start one for it, or use an https remote.`
+          ? `The daemon on ${inSentence(host)} can’t reach an ssh agent. Start one for it, or use an https remote.`
           : "Fetches use the host’s own git credentials, not your GitHub sign-in in Polaris.",
         evidence: [message],
         fix: { kind: "retry", label: "Retry" },
@@ -296,7 +304,7 @@ export const chipAction = (view: ChipView): ChipAction | null =>
       label: block.fix.label,
     })),
     Match.discriminator("kind")("offline", ({ next }) =>
-      next === null ? null : { kind: "move", label: `Check out on ${next}` }
+      next === null ? null : { kind: "move", label: `Check out on ${inSentence(next)}` }
     ),
     Match.discriminator("kind")("ready", ({ command }) =>
       command === null ? null : { kind: "run", label: "Run" }
@@ -310,9 +318,9 @@ export const chipAction = (view: ChipView): ChipAction | null =>
 /** "Merged · checkout removed from Linux VM". */
 export const removedText = (reason: RemovedFacts["reason"], host: string) =>
   Match.value(reason).pipe(
-    Match.when("merged", () => `Merged · checkout removed from ${host}`),
-    Match.when("closed", () => `Closed · checkout removed from ${host}`),
-    Match.when("user", () => `Checkout removed from ${host}`),
+    Match.when("merged", () => `Merged · checkout removed from ${inSentence(host)}`),
+    Match.when("closed", () => `Closed · checkout removed from ${inSentence(host)}`),
+    Match.when("user", () => `Checkout removed from ${inSentence(host)}`),
     Match.exhaustive
   );
 

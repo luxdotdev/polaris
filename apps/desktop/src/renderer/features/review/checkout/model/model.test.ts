@@ -17,6 +17,7 @@ import {
   chipView,
   elapsed,
   fetchingText,
+  inSentence,
   newCommitsText,
   removedText,
 } from "./chip.ts";
@@ -479,4 +480,22 @@ describe("Clone on…", () => {
       "mkdir -p '/home/l/code' && git clone 'git@github.com:acme/widgets.git' '/home/l/code/widgets'"
     );
   });
+});
+
+test("the local Host's default name is lowercased inside a sentence", () => {
+  expect([inSentence("This Mac"), inSentence("Linux VM")]).toEqual(["this Mac", "Linux VM"]);
+
+  const ready = chipView(input({ host: { label: "This Mac", state: "connected", since: 0 } }));
+
+  expect(ready).toMatchObject({ kind: "ready", host: "This Mac" });
+  expect(removedText("merged", "This Mac")).toBe("Merged · checkout removed from this Mac");
+  expect(
+    blockView(
+      new ReviewCheckoutBlock({
+        during: "remove",
+        blocker: ReviewCheckoutBlocker.cases.Dirty.make({ paths: ["a.ts"] }),
+      }),
+      "This Mac"
+    ).title
+  ).toBe("Edits in the checkout on this Mac");
 });

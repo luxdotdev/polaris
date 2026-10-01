@@ -71,6 +71,7 @@ const SCENES: ReadonlyArray<readonly [string, string]> = [
   ["menu-running", "checkout-menu"],
   ["menu-failed", "checkout-menu"],
   ["menu-clone", "checkout-menu"],
+  ["menu-discard", "checkout-menu"],
 ];
 
 try {
