@@ -243,10 +243,10 @@ test("a session keeps streaming while the first index pass runs over large logs"
   expect(result.queryMs).toBeLessThan(2000);
   expect(result.first.indexing).toBe(true);
 
-  // Never held up for long: 30–70 ms here, loaded or not; 260–490 ms without the
+  // Never held up for long: 30–70 ms here, up to 105 ms on a shared CI runner; 260–490 ms without the
   // pass's yields and write slices (docs/adr/0009, Testing).
   expect(result.during.length).toBeGreaterThan(20);
-  expect(worstBusyGap(result.during)).toBeLessThan(100);
+  expect(worstBusyGap(result.during)).toBeLessThan(150);
 
   // And the pass finished with every response indexed.
   expect(result.final.indexing).toBe(false);
