@@ -15,6 +15,7 @@ import type { AppState } from "../../../store/store.ts";
 import { type GroupId, listModel, type PlaceOf } from "../model/list.ts";
 import { noticesOf } from "../model/notices.ts";
 import { usePulls } from "../store.ts";
+import { AccountMark } from "./AccountMark.tsx";
 import { ByUrl } from "./ByUrl.tsx";
 import { NoticeRow } from "./Notice.tsx";
 import { LANES, PullRow } from "./PullRow.tsx";
@@ -86,27 +87,6 @@ const segment = (on: boolean) =>
       ? "bg-fill-selected text-text-strong font-medium"
       : "text-text-subtle hover:text-text-default"
   );
-
-/** Two-stop washes for account marks, as in Paper R3 (the CSP keeps GitHub avatars out). */
-const MARKS: ReadonlyArray<readonly [string, string]> = [
-  ["oklab(72.9% -0.010 -0.072)", "oklab(48.7% -0.006 -0.067)"],
-  ["oklab(73.8% 0.028 0.065)", "oklab(49.6% 0.026 0.053)"],
-  ["oklab(72% 0.045 -0.04)", "oklab(48% 0.04 -0.035)"],
-  ["oklab(73% -0.05 0.02)", "oklab(49% -0.045 0.015)"],
-];
-
-/** By the account's place in the user's order, so two accounts never share a mark. */
-const AccountMark = ({ index }: { readonly index: number }) => {
-  const [from, to] = MARKS[index % MARKS.length] ?? [];
-
-  return (
-    <span
-      aria-hidden
-      className="size-3.5 shrink-0 rounded-full"
-      style={{ backgroundImage: `linear-gradient(in oklab 135deg, ${from} 0%, ${to} 100%)` }}
-    />
-  );
-};
 
 const AccountFilter = ({ accounts, value, onChange }: AccountFilterProps) => {
   if (accounts.length === 0) return null;

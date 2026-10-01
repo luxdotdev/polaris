@@ -211,6 +211,21 @@ const ACTIONS: ReadonlyArray<{
     keywords: ["tokens", "cost", "plan limits", "rate limit"],
   },
   { id: "settings.hosts", title: () => "Settings: Hosts", keywords: ["machines", "ssh"] },
+  {
+    id: "settings.reviewer",
+    title: () => "Settings: Reviewer",
+    keywords: ["review", "risk summary", "model", "effort", "codex", "claude"],
+  },
+  {
+    id: "settings.github",
+    title: () => "Settings: GitHub accounts",
+    keywords: ["github", "account", "owner", "organization", "sign in", "pull requests"],
+  },
+  {
+    id: "github.addAccount",
+    title: () => "Add GitHub account…",
+    keywords: ["github", "sign in", "device code"],
+  },
 ];
 
 const shortcutOf = (id: CommandId) => {

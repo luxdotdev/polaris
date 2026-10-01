@@ -29,7 +29,7 @@ const Review = () => {
   return (
     <main className="flex min-h-0 flex-1 flex-col">
       {subject === null ? (
-        <slots.PullRequests onAddAccount={() => openSettings()} />
+        <slots.PullRequests onAddAccount={() => openSettings("github", { adding: true })} />
       ) : (
         <slots.ReviewSubject subject={subject} onBack={closeReviewSubject} />
       )}
