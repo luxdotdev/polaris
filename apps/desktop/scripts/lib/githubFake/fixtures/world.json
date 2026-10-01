@@ -1,0 +1,243 @@
+{
+  "users": [
+    {
+      "id": 1001,
+      "login": "mona",
+      "name": "Mona Lisa",
+      "avatar_url": "https://avatars.githubusercontent.com/u/1001"
+    },
+    {
+      "id": 2002,
+      "login": "hubot",
+      "name": "Hubot",
+      "avatar_url": "https://avatars.githubusercontent.com/u/2002"
+    },
+    {
+      "id": 3003,
+      "login": "octocat",
+      "name": "The Octocat",
+      "avatar_url": "https://avatars.githubusercontent.com/u/3003"
+    }
+  ],
+  "orgs": [
+    { "login": "acme", "restricted": false },
+    { "login": "lockedorg", "restricted": true }
+  ],
+  "repos": [
+    {
+      "id": "R_kgDOacme01",
+      "owner": "acme",
+      "name": "widgets",
+      "access": { "1001": "WRITE", "2002": "READ", "3003": "ADMIN" }
+    },
+    {
+      "id": "R_kgDOmona01",
+      "owner": "mona",
+      "name": "dotfiles",
+      "access": { "1001": "ADMIN", "3003": "READ" }
+    },
+    {
+      "id": "R_kgDOhubot1",
+      "owner": "hubot",
+      "name": "scripts",
+      "access": { "2002": "ADMIN", "3003": "WRITE" }
+    },
+    {
+      "id": "R_kgDOlock01",
+      "owner": "lockedorg",
+      "name": "vault",
+      "access": { "1001": "WRITE", "3003": "ADMIN" }
+    }
+  ],
+  "pulls": [
+    {
+      "id": "PR_kwDOacme42",
+      "repo": "acme/widgets",
+      "number": 42,
+      "title": "Retry webhook deliveries with backoff",
+      "body": "Webhook deliveries failed hard on the first 5xx. This retries them with exponential backoff and jitter.",
+      "author": "octocat",
+      "state": "OPEN",
+      "isDraft": false,
+      "headRefName": "octocat/webhook-retry",
+      "headRefOid": "9f2c4e1a7b3d5f60812a4c6e8b0d2f4a6c8e0b21",
+      "baseRefName": "main",
+      "baseRefOid": "1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d",
+      "createdAt": "2026-09-29T14:02:11Z",
+      "updatedAt": "2026-09-30T09:15:40Z",
+      "reviewRequests": ["mona"],
+      "reviewDecision": "REVIEW_REQUIRED",
+      "files": [
+        {
+          "path": "src/webhooks/deliver.ts",
+          "additions": 48,
+          "deletions": 9,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "src/webhooks/backoff.ts",
+          "additions": 31,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "test/webhooks/deliver.test.ts",
+          "additions": 62,
+          "deletions": 4,
+          "changeType": "MODIFIED"
+        }
+      ],
+      "threads": [
+        {
+          "id": "PRRT_kwDOacme01",
+          "path": "src/webhooks/deliver.ts",
+          "line": 27,
+          "startLine": null,
+          "side": "RIGHT",
+          "subjectType": "LINE",
+          "isResolved": false,
+          "originalCommit": "9f2c4e1a7b3d5f60812a4c6e8b0d2f4a6c8e0b21",
+          "diffHunk": "@@ -20,6 +20,14 @@ export const deliver = async (hook: Hook) => {\n   const response = await post(hook);\n+  if (response.status >= 500) {",
+          "comments": [
+            {
+              "id": "PRRC_kwDOacme01",
+              "author": "hubot",
+              "body": "Should this cap the attempts?",
+              "createdAt": "2026-09-30T08:01:00Z"
+            }
+          ]
+        },
+        {
+          "id": "PRRT_kwDOacme02",
+          "path": "src/webhooks/deliver.ts",
+          "line": null,
+          "startLine": null,
+          "originalLine": 12,
+          "side": "RIGHT",
+          "subjectType": "LINE",
+          "isResolved": true,
+          "originalCommit": "77aa11bb22cc33dd44ee55ff6600778899aabbcc",
+          "diffHunk": "@@ -10,4 +10,5 @@ import { post } from \"./http.ts\";\n+const MAX = 3;",
+          "comments": [
+            {
+              "id": "PRRC_kwDOacme02",
+              "author": "mona",
+              "body": "Name this MAX_ATTEMPTS?",
+              "createdAt": "2026-09-29T15:30:00Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "PR_kwDOacme43",
+      "repo": "acme/widgets",
+      "number": 43,
+      "title": "Document the widget lifecycle",
+      "body": "",
+      "author": "mona",
+      "state": "OPEN",
+      "isDraft": true,
+      "headRefName": "mona/lifecycle-docs",
+      "headRefOid": "c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00",
+      "baseRefName": "main",
+      "baseRefOid": "1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d",
+      "createdAt": "2026-09-28T10:00:00Z",
+      "updatedAt": "2026-09-30T11:00:00Z",
+      "reviewRequests": ["hubot"],
+      "reviewDecision": "REVIEW_REQUIRED",
+      "files": [
+        { "path": "docs/lifecycle.md", "additions": 120, "deletions": 0, "changeType": "ADDED" }
+      ],
+      "threads": []
+    },
+    {
+      "id": "PR_kwDOacme44",
+      "repo": "acme/widgets",
+      "number": 44,
+      "title": "Bump the parser to 4.2",
+      "body": "Routine dependency bump.",
+      "author": "octocat",
+      "state": "OPEN",
+      "isDraft": false,
+      "headRefName": "deps/parser-4.2",
+      "headRefOid": "abcdef0123456789abcdef0123456789abcdef01",
+      "baseRefName": "main",
+      "baseRefOid": "1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d",
+      "createdAt": "2026-09-27T09:00:00Z",
+      "updatedAt": "2026-09-29T09:00:00Z",
+      "reviewRequests": [],
+      "reviewDecision": "APPROVED",
+      "files": [
+        { "path": "package.json", "additions": 1, "deletions": 1, "changeType": "MODIFIED" }
+      ],
+      "threads": []
+    },
+    {
+      "id": "PR_kwDOmona07",
+      "repo": "mona/dotfiles",
+      "number": 7,
+      "title": "Add a zsh prompt for worktrees",
+      "body": "Shows the worktree name in the prompt.",
+      "author": "octocat",
+      "state": "OPEN",
+      "isDraft": false,
+      "headRefName": "octocat/zsh-worktrees",
+      "headRefOid": "0123456789abcdef0123456789abcdef01234567",
+      "baseRefName": "main",
+      "baseRefOid": "fedcba9876543210fedcba9876543210fedcba98",
+      "createdAt": "2026-09-30T07:00:00Z",
+      "updatedAt": "2026-09-30T07:30:00Z",
+      "reviewRequests": ["mona"],
+      "reviewDecision": "REVIEW_REQUIRED",
+      "files": [
+        { "path": "zsh/prompt.zsh", "additions": 14, "deletions": 2, "changeType": "MODIFIED" }
+      ],
+      "threads": []
+    },
+    {
+      "id": "PR_kwDOhubot3",
+      "repo": "hubot/scripts",
+      "number": 3,
+      "title": "Teach hubot to page on-call",
+      "body": "",
+      "author": "octocat",
+      "state": "OPEN",
+      "isDraft": false,
+      "headRefName": "octocat/page",
+      "headRefOid": "1111111111111111111111111111111111111111",
+      "baseRefName": "main",
+      "baseRefOid": "2222222222222222222222222222222222222222",
+      "createdAt": "2026-09-30T06:00:00Z",
+      "updatedAt": "2026-09-30T06:10:00Z",
+      "reviewRequests": ["hubot"],
+      "reviewDecision": "REVIEW_REQUIRED",
+      "files": [
+        { "path": "scripts/page.js", "additions": 40, "deletions": 0, "changeType": "ADDED" }
+      ],
+      "threads": []
+    },
+    {
+      "id": "PR_kwDOlock01",
+      "repo": "lockedorg/vault",
+      "number": 1,
+      "title": "Rotate the signing keys",
+      "body": "",
+      "author": "octocat",
+      "state": "OPEN",
+      "isDraft": false,
+      "headRefName": "octocat/rotate",
+      "headRefOid": "3333333333333333333333333333333333333333",
+      "baseRefName": "main",
+      "baseRefOid": "4444444444444444444444444444444444444444",
+      "createdAt": "2026-09-30T05:00:00Z",
+      "updatedAt": "2026-09-30T05:00:00Z",
+      "reviewRequests": ["mona"],
+      "reviewDecision": "REVIEW_REQUIRED",
+      "files": [
+        { "path": "keys/rotate.sh", "additions": 22, "deletions": 3, "changeType": "MODIFIED" }
+      ],
+      "threads": []
+    }
+  ]
+}
