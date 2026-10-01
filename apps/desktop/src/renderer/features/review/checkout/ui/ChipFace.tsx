@@ -143,8 +143,9 @@ export const ChipFace = ({ view, action, actionOpensMenu, onAction }: ChipFacePr
   const evidence = evidenceOf(view);
 
   return (
-    <div className="flex max-w-[420px] min-w-0 flex-col items-start gap-1.5">
-      <PopoverAnchor asChild>
+    // The menu hangs from the chip and its error line together, so neither pokes out beside it.
+    <PopoverAnchor asChild>
+      <div className="flex max-w-[420px] min-w-0 flex-col items-start gap-1.5 self-start">
         <div
           data-testid="checkout-chip"
           data-state={view.kind}
@@ -202,16 +203,16 @@ export const ChipFace = ({ view, action, actionOpensMenu, onAction }: ChipFacePr
             </>
           )}
         </div>
-      </PopoverAnchor>
-      {evidence !== null && (
-        <p
-          data-testid="checkout-chip-evidence"
-          title={evidence}
-          className="text-text-subtle max-w-full truncate pl-0.5 font-mono text-[11px] leading-4"
-        >
-          {evidence}
-        </p>
-      )}
-    </div>
+        {evidence !== null && (
+          <p
+            data-testid="checkout-chip-evidence"
+            title={evidence}
+            className="text-text-subtle max-w-full truncate pl-0.5 font-mono text-[11px] leading-4"
+          >
+            {evidence}
+          </p>
+        )}
+      </div>
+    </PopoverAnchor>
   );
 };
