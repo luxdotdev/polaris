@@ -196,9 +196,14 @@ const askHarness = (driver: HarnessDriver, cwd: string, input: DraftInput) =>
   );
 
 /** The Harness's draft, else the template with a note saying why. */
-export const draftAccept = (driver: HarnessDriver, cwd: string, input: DraftInput) =>
+export const draftAccept = (
+  driver: HarnessDriver,
+  cwd: string,
+  input: DraftInput,
+  timeout: Duration.Input = DRAFT_TIMEOUT
+) =>
   askHarness(driver, cwd, input).pipe(
-    Effect.timeoutOption(DRAFT_TIMEOUT),
+    Effect.timeoutOption(timeout),
     Effect.map((reply) => {
       if (Option.isNone(reply)) return templateDraft(input, "the agent took too long to answer");
 

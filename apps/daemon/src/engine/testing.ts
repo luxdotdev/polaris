@@ -296,6 +296,8 @@ export const engineLayer = (options: {
   readonly subscriberCapacity?: number;
   /** Default: `pendingReviewCheckoutGit`. */
   readonly reviewCheckoutGit?: Layer.Layer<ReviewCheckoutGit>;
+  /** Default: the fake, which writes no refs; `CheckpointsLive` snapshots real repositories. */
+  readonly checkpoints?: Layer.Layer<Checkpoints>;
 }) => {
   const store = EventStore.layerSqlite(options.filename).pipe(
     Layer.provide(
@@ -310,6 +312,7 @@ export const engineLayer = (options: {
 
   return Engine.layer.pipe(
     Layer.provideMerge(store),
+    Layer.provide(options.checkpoints ?? Layer.empty),
     Layer.provide(fakeServices(options.fakes, options.drivers)),
     Layer.provide(options.reviewCheckoutGit ?? pendingReviewCheckoutGit),
     Layer.provide(
