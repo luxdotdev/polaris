@@ -143,7 +143,7 @@ const Actions = ({ subjectKey, composer }: Props & { readonly composer: Composer
       {/* The send actions wrap together, right-aligned, when the card is narrow. */}
       <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
         <Button size="sm" variant="ghost" onClick={() => closeComposer(subjectKey)}>
-          Cancel
+          Cancel <span className="text-text-subtle font-regular">esc</span>
         </Button>
         {kind === "session" ? (
           <Button
@@ -196,17 +196,20 @@ export const Composer = ({ subjectKey }: Props) => {
   const primary = kind === "pull" ? addToReview : addToFeedback;
 
   return (
-    <div className={cn("py-gap flex font-sans", ANNOTATION_INSET)} data-testid="comment-composer">
+    <div
+      className={cn("flex pt-2 pb-2.5 font-sans", ANNOTATION_INSET)}
+      data-testid="comment-composer"
+    >
       <div
         className={cn(
           "rounded-row bg-surface-raised border-hairline flex min-w-0 flex-1 flex-col border",
-          "shadow-[0_0_0_2px_color-mix(in_oklab,var(--color-starlight)_35%,transparent)]"
+          "shadow-[0_0_0_2px_color-mix(in_oklab,var(--color-starlight)_40%,transparent),0_2px_8px_#0000000F]"
         )}
       >
         <div className="gap-gap flex items-center px-3 pt-2.5">
           <span className="text-text-subtle font-mono text-[11px] leading-4">
             {kind === "pull" ? anchorLabel(composer.anchor) : sessionPlace(composer.anchor)}
-            {composer.moving === null ? "" : " · moving an outdated draft here"}
+            {composer.moving === null ? "" : " · replaces your draft"}
           </span>
           <span className="flex-1" />
           {destination !== null && (

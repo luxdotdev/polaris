@@ -3,13 +3,15 @@
  * Goes out with your review", a reply field (a reply during a pending review joins it, as
  * on GitHub), resolve and unresolve. Resolved threads fold to one line, as on GitHub.
  */
-import { Button, cn, Textarea } from "@polaris/ui";
+import { Button, cn, SeverityGlyph, Textarea } from "@polaris/ui";
 import { useState } from "react";
 import type { ReviewCommentView, ReviewThreadView } from "../../../../shared/github.ts";
 import { deleteComment, type Done, reply, resolveThread } from "../data/actions.ts";
-import { useComments } from "../data/store.ts";
+import { openComposer, useComments } from "../data/store.ts";
+import { useThreadLink } from "../data/links.ts";
+import { suggestionBlock } from "../model/composer.ts";
 import { isDraft } from "../model/threads.ts";
-import { ANNOTATION_INSET } from "../../review/index.ts";
+import { ANNOTATION_INSET, surfaceOf } from "../../review/index.ts";
 import { Avatar } from "./Avatar.tsx";
 
 interface Props {
@@ -131,6 +133,62 @@ const Folded = ({
   </button>
 );
 
+/** Paper R6's arrow for "Suggest change" on a pending comment. */
+const ArrowIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
+    <path d="M2 8h9M8 4l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="1.5" />
+  </svg>
+);
+
+/**
+ * A pending comment's footer (Paper R6 8FR-0): "Suggest change" reopens it in the composer
+ * with a suggestion block, replacing the draft; "Linked to ▲ …" names the finding it answers.
+ */
+const DraftFooter = ({
+  subjectKey,
+  threadId,
+  thread,
+}: Props & { readonly thread: ReviewThreadView }) => {
+  const link = useThreadLink(threadId);
+  const first = thread.comments[0];
+
+  if (thread.anchor.kind !== "line" || first === undefined) return null;
+  const { anchor } = thread;
+
+  const suggest = () => {
+    const range = {
+      path: thread.path,
+      side: anchor.side === "left" ? ("old" as const) : ("new" as const),
+      start: anchor.startLine ?? anchor.line,
+      end: anchor.line,
+    };
+
+    const code = surfaceOf(subjectKey).quote?.(range) ?? "";
+
+    openComposer(
+      subjectKey,
+      { ...range, code },
+      { text: `${first.body}\n${suggestionBlock(code)}`, moving: first.id }
+    );
+  };
+
+  return (
+    <>
+      <Button size="xs" variant="secondary" className="px-2" onClick={suggest}>
+        <ArrowIcon />
+        Suggest change
+      </Button>
+      {link !== undefined && (
+        <span className="text-caption text-text-subtle flex min-w-0 items-center gap-1">
+          Linked to
+          <SeverityGlyph severity={link.severity} tone="text" />
+          <span className="truncate">{link.title}</span>
+        </span>
+      )}
+    </>
+  );
+};
+
 const Body = ({
   subjectKey,
   threadId,
@@ -155,6 +213,9 @@ const Body = ({
         <ReplyBox subjectKey={subjectKey} threadId={threadId} onDone={() => setReplying(false)} />
       ) : (
         <div className="flex items-center gap-1.5">
+          {draft && thread.anchor.kind === "line" && (
+            <DraftFooter subjectKey={subjectKey} threadId={threadId} thread={thread} />
+          )}
           {!draft && (
             <Button size="xs" variant="secondary" onClick={() => setReplying(true)}>
               Reply

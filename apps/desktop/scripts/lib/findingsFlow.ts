@@ -178,10 +178,7 @@ const rangeAndOutdated = async ({ page, fake, step }: FindingsFlowInput) => {
   await lineNumber(page, TEST_FILE, 2).click();
   await page.getByTestId("comment-composer").waitFor();
   await page.getByRole("button", { name: "Move to selection" }).click();
-  await page
-    .getByTestId("comment-composer")
-    .filter({ hasText: "moving an outdated draft" })
-    .waitFor();
+  await page.getByTestId("comment-composer").filter({ hasText: "replaces your draft" }).waitFor();
   await page.getByTestId("composer-add").click();
   await until(
     "the moved draft (new thread, old comment deleted)",

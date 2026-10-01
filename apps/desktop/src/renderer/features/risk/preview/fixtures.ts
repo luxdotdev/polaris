@@ -7,6 +7,7 @@
 import { type RiskFinding, RiskFindingId, SessionId } from "@polaris/protocol";
 import { Subjects } from "../../../commands.ts";
 import type { PullDetailView, ReviewThreadView } from "../../../../shared/github.ts";
+import { linkThread } from "../../comments/data/links.ts";
 import { openComposer, setBatch } from "../../comments/data/store.ts";
 import type { Summary } from "../model/summary.ts";
 
@@ -129,6 +130,10 @@ export const sessionSummary = (findings: ReadonlyArray<RiskFinding>, sessionId: 
 
 /** Opens each scene in the state its screenshot needs; the risk column fills the rest. */
 export const setUpScene = (scene: string, sessionKey: string) => {
+  if (scene.startsWith("pull-")) {
+    linkThread("T_41", { severity: "high", title: "API client still sends monthly income" });
+  }
+
   if (scene === "pull-comments" || scene === "pull-submit") {
     openComposer(
       PULL_KEY,

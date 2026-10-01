@@ -271,14 +271,11 @@ export const RiskColumnSlot = (props: ReviewSlotProps) => {
       ? () => void runRiskSummary(key, request, true)
       : null;
 
-  // The header, the cost line and the feedback card stay put; only the findings scroll.
+  // Sized to its content, leaving 16rem for the file list and the foot. Past that only the
+  // findings scroll: the header, the cost line and the feedback card stay put.
   return (
     <div
-      className={cn(
-        "flex min-h-0 shrink-0 flex-col pb-3",
-        // A session pins its feedback card here too, so its findings get more of the column.
-        props.subject.kind === "session" ? "max-h-[82%]" : "max-h-[62%]"
-      )}
+      className="flex max-h-[calc(100%-16rem)] min-h-0 shrink-0 flex-col pb-3"
       data-testid="risk-summary"
       data-state={state.kind}
     >

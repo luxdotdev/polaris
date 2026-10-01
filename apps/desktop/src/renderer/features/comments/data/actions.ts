@@ -9,7 +9,8 @@ import type { IpcError } from "../../../../shared/api.ts";
 import type { ReviewEvent } from "../../../../shared/github.ts";
 import { Commands } from "../../../commands.ts";
 import { polaris } from "../../bridge.ts";
-import { refreshPullDetail, updateSurface } from "../../review/index.ts";
+import { refreshPullDetail, surfaceOf, updateSurface } from "../../review/index.ts";
+import { linkThread } from "./links.ts";
 import { dispatch, refusalText } from "../../session/dispatch.ts";
 import { addDraft, emptyBatch, removeDraft, toFeedback } from "../model/feedback.ts";
 import {
@@ -35,6 +36,14 @@ const pullOf = (subjectKey: string): PullComments | undefined =>
   commentsStore.getState().pulls[subjectKey];
 
 const refresh = (pull: PullComments) => refreshPullDetail(pull.pull);
+
+/** A thread drafted from a finding remembers it, for "Linked to ▲ …" on its card. */
+const rememberLink = (subjectKey: string, threadId: string, composer: ComposerState) => {
+  const finding = surfaceOf(subjectKey).findings.find((f) => f.id === composer.findingId);
+
+  if (finding !== undefined)
+    linkThread(threadId, { severity: finding.severity, title: finding.title });
+};
 
 /** Closes the composer and the selection it was opened for. */
 export const closeComposer = (subjectKey: string) => {
@@ -90,6 +99,7 @@ export const addToReview = (subjectKey: string) =>
     const added = await addThread(pull, composer);
 
     if (!added.ok) return failed(added.error);
+    rememberLink(subjectKey, added.value.threadId, composer);
 
     if (composer.moving !== null) {
       await polaris().request("github.review.editComment", {
@@ -113,6 +123,7 @@ export const commentNow = (subjectKey: string) =>
     const added = await addThread(pull, composer);
 
     if (!added.ok) return failed(added.error);
+    rememberLink(subjectKey, added.value.threadId, composer);
 
     const submitted = await polaris().request("github.review.submit", {
       pull: pull.pull,
