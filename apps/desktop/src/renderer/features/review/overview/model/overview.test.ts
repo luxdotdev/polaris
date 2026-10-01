@@ -10,8 +10,16 @@ import {
   resolvePath,
   textOf,
 } from "./markdown.ts";
+import { publishedBody, publishOffer } from "./publish.ts";
+import { scopeOf } from "./scope.ts";
 import { checksLabel, commentCount, cycleTab, PULL_TABS, SESSION_TABS } from "./tabs.ts";
-import { filterTimeline, newSinceIndex, peopleLine, snippetOf } from "./timeline.ts";
+import {
+  filterTimeline,
+  newSinceIndex,
+  peopleLine,
+  snippetOf,
+  timelineEntries,
+} from "./timeline.ts";
 import type { BotSummaryView, CheckRunView, TimelineItemView } from "./types.ts";
 
 const person = (login: string, bot = false) => ({ login, bot });
@@ -266,5 +274,54 @@ describe("markdown", () => {
     expect(textOf(childrenOf(childrenOf(root)?.[0] ?? root)?.[0] ?? root)).toBe(
       "Bundle budget · 12 rows"
     );
+  });
+});
+
+describe("publish as description", () => {
+  test("finding links become file links, with the credit", () => {
+    expect(
+      publishedBody("See [Stop](finding:f2).", [{ id: "f2", path: "a.ts", line: 3 }], "Codex")
+    ).toBe("See Stop (`a.ts:3`).\n\n_Walkthrough by Polaris (Codex)_\n");
+  });
+
+  test("offered on own pull requests only, again after the head moves", () => {
+    expect(publishOffer(false, null, "h")).toBeNull();
+    expect(publishOffer(true, null, "h")).toBe("publish");
+    expect(publishOffer(true, { head: "h" }, "h")).toBeNull();
+    expect(publishOffer(true, { head: "g" }, "h")).toBe("republish");
+  });
+});
+
+describe("timeline entries", () => {
+  test("a run of one author's open threads shares a card; resolved ones fold", () => {
+    const [thread] = TIMELINE.filter((i) => i.kind === "thread");
+
+    if (thread?.kind !== "thread") throw new Error("fixture");
+    const second = { ...thread, id: "t2", threadId: "T2" };
+    const resolved = { ...thread, id: "t3", isResolved: true };
+
+    expect(timelineEntries([thread, second, resolved]).map((e) => e.kind)).toEqual([
+      "threads",
+      "resolved",
+    ]);
+  });
+});
+
+describe("commit scope", () => {
+  const commit = (oid: string) => ({
+    oid,
+    headline: oid,
+    body: "",
+    author: null,
+    at: "",
+    checks: null,
+  });
+
+  test("a commit's parent is the one before it, or the merge base", () => {
+    const commits = [commit("a"), commit("b")];
+
+    expect(scopeOf(commits, 0, "base")).toEqual({ oid: "a", parent: "base", headline: "a" });
+    expect(scopeOf(commits, 1, "base")?.parent).toBe("a");
+    expect(scopeOf(commits, 0, null)).toBeNull();
   });
 });

@@ -178,3 +178,21 @@ export const sessionSource = (
     ].join("\u0000"),
   };
 };
+
+/** A pull request's diff narrowed to one commit: its parent to it, on the same checkout. */
+export const scopeSource = (
+  source: DiffSource,
+  commit: { readonly oid: string; readonly parent: string }
+): DiffSource => ({
+  ...source,
+  sections: [
+    {
+      id: `commit:${commit.oid}`,
+      divider: null,
+      spec: Specs.Range({ base: commit.parent, head: commit.oid }),
+      base: commit.parent,
+      next: commit.oid,
+    },
+  ],
+  key: `${source.key}@${commit.oid}`,
+});

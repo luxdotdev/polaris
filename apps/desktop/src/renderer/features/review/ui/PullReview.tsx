@@ -14,7 +14,8 @@ import { usePlaces } from "../checkout/useCheckout.ts";
 import { checkoutMemory, repoName, useCheckoutMemory } from "../checkout/store.ts";
 import { checkOutOnce } from "../data/autoCheckout.ts";
 import { usePullDetail } from "../data/pullDetail.ts";
-import { type CheckoutWait, pullSource } from "../data/source.ts";
+import { type CheckoutWait, pullSource, scopeSource } from "../data/source.ts";
+import { useCommitScope } from "../overview/model/scope.ts";
 import { useReviewDiff } from "../data/useReviewDiff.ts";
 import { reviewSlots, subjectKey } from "../surface.ts";
 import { type Placeholder, ReviewBody } from "./ReviewBody.tsx";
@@ -70,7 +71,9 @@ export const PullReview = ({ subject }: { readonly subject: PullSubject }) => {
   const places = usePlaces(pull);
   const lastHost = useCheckoutMemory((s) => s.lastHost[repoName(pull.repo)] ?? null);
   const state = pullSource(pull, models, places, lastHost);
-  const diff = useReviewDiff(state.kind === "ready" ? state.source : null);
+  const scope = useCommitScope(subjectKey(subject));
+  const ready = state.kind === "ready" ? state.source : null;
+  const diff = useReviewDiff(ready === null || scope === null ? ready : scopeSource(ready, scope));
   const loaded = detail.kind === "ok" ? detail.detail : null;
   const waitingForNone = state.kind === "waiting" && state.wait.kind === "none";
 
@@ -122,11 +125,17 @@ export const PullReview = ({ subject }: { readonly subject: PullSubject }) => {
         subjectKey={key}
         slotProps={slotProps}
         diff={diff}
-        pullViewed={{
-          pull: { repo: pull.repo, number: pull.number },
-          pullId: loaded?.id ?? pull.pullId ?? "",
-          files: loaded?.files ?? [],
-        }}
+        session={null}
+        mergeBase={state.kind === "ready" ? state.checkout.mergeBase : null}
+        pullViewed={
+          scope !== null
+            ? null
+            : {
+                pull: { repo: pull.repo, number: pull.number },
+                pullId: loaded?.id ?? pull.pullId ?? "",
+                files: loaded?.files ?? [],
+              }
+        }
         placeholder={state.kind === "waiting" ? placeholderOf(state.wait, hosts) : null}
       />
     </section>

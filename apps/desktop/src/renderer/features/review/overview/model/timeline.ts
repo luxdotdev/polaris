@@ -122,3 +122,44 @@ export const snippetOf = (diffHunk: string, count = 2): ReadonlyArray<SnippetLin
 
   return lines.filter((l) => l.text.trim() !== "" || l.kind !== "ctx").slice(-count);
 };
+
+export type ThreadItem = Extract<TimelineItemView, { readonly kind: "thread" }>;
+
+/** What the timeline draws: an item, a run of one author's open threads, or a folded resolved one. */
+export type TimelineEntry =
+  | { readonly kind: "item"; readonly item: TimelineItemView }
+  | {
+      readonly kind: "threads";
+      readonly id: string;
+      readonly author: PersonView | null;
+      readonly at: string;
+      readonly threads: ReadonlyArray<ThreadItem>;
+    }
+  | { readonly kind: "resolved"; readonly thread: ThreadItem };
+
+const entryOf = (item: TimelineItemView): TimelineEntry => {
+  if (item.kind !== "thread") return { kind: "item", item };
+
+  if (item.isResolved) return { kind: "resolved", thread: item };
+
+  return { kind: "threads", id: item.id, author: authorOf(item), at: item.at, threads: [item] };
+};
+
+/** Consecutive open threads by one author share a card ("commented on 2 lines"). */
+export const timelineEntries = (
+  items: ReadonlyArray<TimelineItemView>
+): ReadonlyArray<TimelineEntry> =>
+  items.reduce<Array<TimelineEntry>>((entries, item) => {
+    const entry = entryOf(item);
+    const last = entries.at(-1);
+
+    if (
+      entry.kind === "threads" &&
+      last?.kind === "threads" &&
+      last.author?.login === entry.author?.login
+    ) {
+      entries[entries.length - 1] = { ...last, threads: [...last.threads, ...entry.threads] };
+    } else entries.push(entry);
+
+    return entries;
+  }, []);

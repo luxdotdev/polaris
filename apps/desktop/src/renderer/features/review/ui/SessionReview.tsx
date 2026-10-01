@@ -5,7 +5,7 @@
 import { harnessHue } from "@polaris/ui";
 import { useState } from "react";
 import type { SessionSubject } from "../../../routes/review.ts";
-import { useApp } from "../../../shell/hooks.ts";
+import { useApp, useShellActions } from "../../../shell/hooks.ts";
 import { useSession } from "../../session/hooks.ts";
 import { pendingTurns, sessionSource, type TurnInfo, type TurnPick } from "../data/source.ts";
 import { useReviewDiff } from "../data/useReviewDiff.ts";
@@ -27,6 +27,17 @@ export const SessionReview = ({ subject }: { readonly subject: SessionSubject })
   const diff = useReviewDiff(source);
   const pending = pendingTurns(turns, session?.acceptedThroughIndex ?? null);
   const slotProps = { subject, checkout: null };
+  const actions = useShellActions();
+  const first = pending[0];
+  const last = pending.at(-1);
+
+  const turnsScope =
+    first === undefined || last === undefined
+      ? ""
+      : first === last
+        ? `turn ${first.index + 1}`
+        : `turns ${first.index + 1}–${last.index + 1}`;
+
   const { CheckoutChip, PrimaryAction } = reviewSlots.current;
 
   const workspace =
@@ -64,6 +75,15 @@ export const SessionReview = ({ subject }: { readonly subject: SessionSubject })
         slotProps={slotProps}
         diff={diff}
         pullViewed={null}
+        mergeBase={null}
+        session={{
+          where:
+            session === null
+              ? ""
+              : `${harnessHue(session.harness).name} on ${host?.label ?? hostKey}`,
+          scope: turnsScope,
+          onOpenSession: () => actions.selectSession({ hostKey, sessionId }),
+        }}
         placeholder={
           session !== null && turns.length === 0
             ? { title: "No turns yet", fact: "This session hasn’t changed anything to review" }

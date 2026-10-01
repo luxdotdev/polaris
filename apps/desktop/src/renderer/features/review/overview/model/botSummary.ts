@@ -83,3 +83,15 @@ export const BOT_COMMANDS: ReadonlyArray<BotCommand> = [
   { command: "retry", label: "Retry the last run", slash: "/retry" },
   { command: "memory", label: "Teach", slash: "/memory" },
 ];
+
+const linkNamed = (body: string, name: string) =>
+  new RegExp(`\\[${name}\\]\\((https?://[^)\\s]+)\\)`, "i").exec(body)?.[1] ?? null;
+
+/** The summary's own "Full review" and "Review page" links, when it has them. */
+export const summaryLinks = (body: string) => ({
+  fullReview: linkNamed(body, "Full review"),
+  reviewPage: linkNamed(body, "Review page"),
+});
+
+/** The body without its marker comment. */
+export const summaryBody = (body: string) => body.replace(MARKER, "");
