@@ -263,6 +263,18 @@ export const SessionNotification = Schema.Struct({
   update: Schema.Unknown,
 });
 
+/** The commands the agent offers in this session; ACP agents read `/name args` in a prompt. */
+export const AvailableCommandsUpdate = Schema.Struct({
+  sessionUpdate: Schema.Literal("available_commands_update"),
+  availableCommands: Schema.Array(
+    Schema.Struct({
+      name: Schema.String,
+      description: Schema.String,
+      input: Schema.optional(Schema.NullOr(Schema.Struct({ hint: Schema.String }))),
+    })
+  ),
+});
+
 // ---------------------------------------------------------------------------
 // session/request_permission
 
@@ -323,6 +335,8 @@ conforms<Conforms<Acp.SessionModeState, typeof ModeState>>();
 conforms<Conforms<Acp.PermissionOption, typeof PermissionOption>>();
 
 conforms<Conforms<Acp.ToolKind, typeof ToolKind>>();
+
+conforms<Conforms<Update<"available_commands_update">, typeof AvailableCommandsUpdate>>();
 
 conforms<Conforms<Acp.ToolCallStatus, typeof ToolCallStatus>>();
 

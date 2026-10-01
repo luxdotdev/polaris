@@ -78,6 +78,10 @@ The Harness's own policy still applies on its side: when a session offers modes 
 
 Through session config options (ACP's current way; the unstable `session/set_model` is not used): the `select` option in the `model` category is the Model, the one in `thought_level` the effort. Before each Turn (and at open) the driver sends `session/set_config_option` for a Model or effort that differs from the session's and that the Harness offers; anything else is left as it is. `listModels` opens a throwaway session in `~/.polaris/acp/<kind>` (closed at once when the Harness declares `close`) and lists the Model choices. ACP gives effort choices for the current Model only, so every Model lists those.
 
+## Commands
+
+ACP agents announce their commands per session (`available_commands_update`); there is no way to ask without one. The driver keeps the latest report per directory (`commands.ts`) and `listCommands(cwd)` returns it: empty until a session in that directory has reported. Each is a `text` command (sent as `/name args` in the prompt, which ACP agents read), its `input.hint` the argument hint.
+
 ## In Terminal
 
 No co-attach (`liveCoAttach: false`): the engine closes the session and hands off. Copilot reopens it with `copilot --resume=<session id>`. Gemini CLI's `--resume` takes only `latest` or a list index, so it has no terminal command.
