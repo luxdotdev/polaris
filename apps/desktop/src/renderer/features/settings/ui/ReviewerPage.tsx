@@ -122,13 +122,12 @@ const WalkthroughModel = ({
         allowAuto={false}
       />
     </div>
-    {value === null ? (
-      <span className="text-caption text-text-subtle shrink-0">Same as the reviewer</span>
-    ) : (
+    {value !== null && (
       <Button
         variant="ghost"
         size="xs"
         className="text-text-default"
+        title="Use the reviewer’s harness, model and effort"
         onClick={() => onChange(null)}
       >
         Reset
