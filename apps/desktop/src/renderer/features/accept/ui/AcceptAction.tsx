@@ -52,11 +52,11 @@ const SPLIT = "rounded-control flex h-[30px] items-center overflow-clip text-cap
 const PanelBody = ({
   subject,
   through,
-  pending,
+  turns,
 }: {
   readonly subject: SessionSubject;
   readonly through: TurnId;
-  readonly pending: ReadonlyArray<PendingTurn>;
+  readonly turns: ReadonlyArray<PendingTurn>;
 }) => {
   const { session } = useSession(subject.hostKey, subject.sessionId);
   const prefix = useSettings((s) => s.sessions.branchPrefix);
@@ -73,15 +73,11 @@ const PanelBody = ({
     through
   );
 
-  const upTo = pending.filter(
-    (t) => t.index <= (pending.find((p) => p.id === through)?.index ?? 0)
-  );
-
   return (
     <AcceptPanel
       state={state}
       harness={session === null ? "The agent" : harnessHue(session.harness).name}
-      turns={upTo}
+      turns={turns}
       newBranchName={branchFromPrompt(title, subject.sessionId, prefix)}
     />
   );
@@ -97,7 +93,13 @@ const SessionAccept = ({ subject }: { readonly subject: SessionSubject }) => {
   const model = useSession(subject.hostKey, subject.sessionId);
   const findings = useStore(surfaceStore, (s) => s[subjectKey(subject)]?.findings);
   const [open, setOpen] = useState(false);
-  const [through, setThrough] = useState<TurnId | null>(null);
+
+  /** The Turn accepted through, and the Turns it takes, as they were when the popover opened. */
+  const [chosen, setChosen] = useState<{
+    readonly through: TurnId;
+    readonly turns: ReadonlyArray<PendingTurn>;
+  } | null>(null);
+
   const { session } = model;
   const accepted = session?.acceptedThroughIndex ?? -1;
   const pending = model.turns.map((t) => t.turn).filter((t) => t.index > accepted);
@@ -126,7 +128,9 @@ const SessionAccept = ({ subject }: { readonly subject: SessionSubject }) => {
 
   const openFor = (turnId: TurnId | undefined) => {
     if (turnId === undefined) return;
-    setThrough(turnId);
+    const index = pending.find((t) => t.id === turnId)?.index ?? 0;
+
+    setChosen({ through: turnId, turns: pending.filter((t) => t.index <= index) });
     setOpen(true);
   };
 
@@ -212,8 +216,8 @@ const SessionAccept = ({ subject }: { readonly subject: SessionSubject }) => {
         </div>
       </PopoverAnchor>
       <PopoverContent align="end" className="w-[400px] overflow-clip p-0">
-        {open && through !== null && (
-          <PanelBody subject={subject} through={through} pending={pending} />
+        {open && chosen !== null && (
+          <PanelBody subject={subject} through={chosen.through} turns={chosen.turns} />
         )}
       </PopoverContent>
     </Popover>

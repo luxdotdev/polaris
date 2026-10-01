@@ -19,7 +19,7 @@ interface AcceptFlowInput {
   readonly shoot: (name: string) => Promise<void>;
 }
 
-const PROMPT = `bench:${JSON.stringify({ items: 2, deltasPerItem: 2, touchFiles: 2, approvalEvery: 0, tag: "accept-smoke" })}`;
+const PROMPT = `bench:${JSON.stringify({ tag: "accept-smoke", items: 2, deltasPerItem: 2, touchFiles: 2, approvalEvery: 0 })}`;
 
 const git = (cwd: string, ...args: ReadonlyArray<string>) =>
   execFileSync("git", args, { cwd, stdio: "pipe" }).toString().trim();

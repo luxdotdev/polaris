@@ -10,6 +10,8 @@ import {
   type TurnId,
 } from "@polaris/protocol";
 import { useEffect, useMemo, useState } from "react";
+import { useStore } from "zustand";
+import { createStore } from "zustand/vanilla";
 import {
   type AcceptBranchChoice,
   acceptBranchFor,
@@ -60,6 +62,11 @@ export type RunState =
   | { readonly kind: "done"; readonly progress: AcceptProgress };
 
 const LOADING = { kind: "loading" } as const;
+
+const IDLE: RunState = { kind: "idle" };
+
+/** Runs by session and Turn: the popover remounts as the session changes under it. */
+const runs = createStore<Readonly<Record<string, RunState>>>(() => ({}));
 
 type Fetch<A> = (
   hostKey: string,
@@ -117,7 +124,8 @@ export const useAcceptPanel = (session: PanelSession, throughTurnId: TurnId) => 
   const [branchEdit, setBranchEdit] = useState<AcceptBranchChoice | null>(null);
   const [perTurn, setPerTurn] = useState(false);
   const [revertLater, setRevertLater] = useState(false);
-  const [run, setRun] = useState<RunState>({ kind: "idle" });
+  const run = useStore(runs, (all) => all[key] ?? IDLE);
+  const setRun = (next: RunState) => runs.setState({ [key]: next });
 
   const ready = plan.kind === "ready" ? plan.value : null;
 
