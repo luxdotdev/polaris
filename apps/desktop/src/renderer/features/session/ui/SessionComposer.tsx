@@ -4,7 +4,7 @@
  * the Harness can't switch).
  */
 import type { SessionId } from "@polaris/protocol";
-import type { Harness } from "@polaris/ui";
+import { type Harness, harnessHue } from "@polaris/ui";
 import { Commands, newSessionId } from "../../../commands.ts";
 import type { SessionData } from "../../../store/plain.ts";
 import type { SessionModel } from "../../../store/sessionModel.ts";
@@ -33,6 +33,7 @@ import {
 } from "../model/intent.ts";
 import { patchSessionUi, useSessionUi } from "../state.ts";
 import type { OutboxActions } from "../outbox.ts";
+import { RotatingVerb, useWorkingVerbs } from "../verbs/index.ts";
 import { DraftComposer } from "./DraftComposer.tsx";
 
 export interface SessionComposerProps {
@@ -133,6 +134,13 @@ export const SessionComposer = (props: SessionComposerProps) => {
   const isWorking = lastTurn?.status === "working";
   const elapsed = useElapsed(lastTurn?.startedAt ?? null, isWorking);
 
+  const verbs = useWorkingVerbs({
+    hostKey,
+    harness,
+    cwd: session.cwd,
+    turnId: isWorking ? (lastTurn?.id ?? null) : null,
+  });
+
   const mode = composerMode({
     state: session.state,
     lastTurn: lastTurn?.status ?? null,
@@ -219,7 +227,13 @@ export const SessionComposer = (props: SessionComposerProps) => {
       placeholder={placeholderFor(mode)}
       working={
         isWorking && session.state === "working"
-          ? { elapsed: formatElapsed(elapsed), onStop: stop }
+          ? {
+              elapsed: formatElapsed(elapsed),
+              onStop: stop,
+              label: (
+                <RotatingVerb verbs={verbs} spoken={`${harnessHue(harness).name} is working`} />
+              ),
+            }
           : undefined
       }
       onEscape={isWorking ? stop : undefined}

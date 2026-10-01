@@ -1,6 +1,7 @@
 /**
  * Settings → Sessions (DESIGN.md, Settings): where new sessions work, what a new worktree's
- * branch is called, Output on a Turn's first edit, Needs You notifications and Archive.
+ * branch is called, Output on a Turn's first edit, Needs You notifications, the Working
+ * strip's verbs and Archive.
  * Each Harness's Model, effort and permissions stay in Settings → Harnesses.
  */
 import { Button, Input, Switch } from "@polaris/ui";
@@ -10,6 +11,7 @@ import { useShellActions } from "../../../shell/hooks.ts";
 import { sectionInfo } from "../model/sections.ts";
 import { setSessionPrefs, useSettings } from "../store.ts";
 import { Column, Group, PageHeader, SettingRow } from "./parts.tsx";
+import { WorkingVerbs } from "./WorkingVerbs.tsx";
 
 /** Saved on blur or ↵ when git would take it; otherwise the field says why and keeps the old one. */
 const BranchPrefixField = ({ value }: { readonly value: string }) => {
@@ -93,6 +95,7 @@ export const SessionsPage = () => {
           />
         </SettingRow>
       </Group>
+      <WorkingVerbs />
       <Group label="Archive">
         <SettingRow
           title="Delete merged branches on archive"
