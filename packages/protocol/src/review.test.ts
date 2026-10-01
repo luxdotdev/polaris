@@ -309,7 +309,15 @@ describe("Review contract", () => {
 
   test("the Reviewer's settings, context and placement round-trip", () => {
     const sol = ReviewerChoice.make({ harness: "codex", model: "gpt-6.1-sol", effort: "high" });
-    const settings = ReviewerSettings.make({ default: sol, workspaces: { "ws-1": sol } });
+
+    const settings = ReviewerSettings.make({
+      default: sol,
+      workspaces: { "ws-1": sol },
+      onPullRequests: true,
+      onSessions: false,
+      askAboveLines: 2000,
+    });
+
     const resolved = ResolvedReviewer.make({ choice: null, source: "auto", note: "Rules only" });
     const context = ReviewContext.make({ title: "Fix", body: "Fixes it." });
 
@@ -318,6 +326,14 @@ describe("Review contract", () => {
     });
 
     expect(roundTrip(ReviewerSettings, settings)).toEqual(settings);
+    // A settings file from before "When it runs" reads with its defaults.
+    expect(
+      Schema.decodeUnknownSync(ReviewerSettings)({ default: null, workspaces: {} })
+    ).toMatchObject({
+      onPullRequests: true,
+      onSessions: true,
+      askAboveLines: 2000,
+    });
     expect(roundTrip(ResolvedReviewer, resolved)).toEqual(resolved);
     expect(roundTrip(ReviewContext, context)).toEqual(context);
     expect(roundTrip(SessionPlacement, placement)).toEqual(placement);

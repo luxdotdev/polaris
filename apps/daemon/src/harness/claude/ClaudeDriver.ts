@@ -290,6 +290,8 @@ const openSession = Effect.fnUntraced(function* (
     },
   };
 
+  if (options.readOnly === true) Object.assign(sdkOptions, READ_ONLY_OPTIONS);
+
   if (options.model !== null) sdkOptions.model = options.model;
 
   if (options.effort !== null) {
@@ -557,6 +559,23 @@ const causeMessage = (cause: Cause.Cause<unknown>): string | null => {
 
   return null;
 };
+
+/**
+ * A read-only session (the Reviewer): Bash runs in Claude Code's sandbox with
+ * no network (an empty strict allowlist) and never outside it; no web tools.
+ * Where the sandbox can't run, commands run unsandboxed and the approval
+ * policy keeps network-capable ones out (`reviewer/policy.ts`).
+ */
+export const READ_ONLY_OPTIONS = {
+  sandbox: {
+    enabled: true,
+    failIfUnavailable: false,
+    autoAllowBashIfSandboxed: false,
+    allowUnsandboxedCommands: false,
+    network: { allowedDomains: [], strictAllowlist: true, allowLocalBinding: false },
+  },
+  disallowedTools: ["WebFetch", "WebSearch"],
+} satisfies Partial<Options>;
 
 export const makeClaudeDriver = (options: ClaudeDriverOptions = {}): HarnessDriver => {
   const driver = {
