@@ -28,7 +28,8 @@ import { ApprovalPolicy, ReviewCheckoutGit, Rules, type ServiceError } from "../
 import { EventStore } from "../store/EventStore.ts";
 import { askReviewer } from "./ask.ts";
 import { ReviewerSessions } from "./sessions.ts";
-import { canRunChecks, reviewerDecision } from "./policy.ts";
+import { recoverReviewer } from "./recovery.ts";
+import { reviewerDecision } from "./policy.ts";
 import { type RunRequest, runLayers, startRun } from "./run.ts";
 import { loadSettings, resolveReviewer, saveSettings, settingsPath } from "./settings.ts";
 
@@ -44,11 +45,7 @@ export const ReviewerPolicyLive = Layer.effect(
 
     return ApprovalPolicy.of({
       decide: (request) =>
-        Effect.sync(() =>
-          sessions.has(request.sessionId)
-            ? reviewerDecision(request, { runChecks: canRunChecks(request.harness) })
-            : null
-        ),
+        Effect.sync(() => (sessions.has(request.sessionId) ? reviewerDecision(request) : null)),
       readOnly: (sessionId) => sessions.has(sessionId),
     });
   })
@@ -160,6 +157,8 @@ const make = (options: ReviewerOptions) =>
     const engine = yield* Engine;
     const sessions = yield* ReviewerSessions;
     const availability = yield* Effect.serviceOption(Availability);
+
+    yield* recoverReviewer;
 
     const context = yield* Effect.context<
       EventStore | Engine | ReviewerSessions | ReviewCheckoutGit | Rules
