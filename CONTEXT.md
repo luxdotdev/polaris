@@ -170,6 +170,14 @@ _Avoid_: Issue, warning, comment
 The Harness and Model the user chooses to write the Agent part of every Risk Summary, set once in Settings and independent of the Harness that made the change.
 _Avoid_: Review agent, review bot
 
+**Walkthrough**:
+Polaris's read-only account of a change under Review, written by its own session beside the Reviewer: why the change, the few things to note, and an outline of only the views that explain it. Kept per head commit; a re-review adds a short one covering only the new commits.
+_Avoid_: Summary (that is the Risk Summary), PR description
+
+**Overview**:
+The tab a Review opens on: a pull request's description, a review bot's pinned summary and the Walkthrough, or an Agent Session's prompts and the Walkthrough.
+_Avoid_: Summary tab, details
+
 **Severity**:
 How bad a Risk Finding would be if real: exactly one of Critical, High, Medium, or Low; a Risk Summary ranks by Severity, then confidence.
 _Avoid_: Priority, P0–P3 (in anything a user reads), level

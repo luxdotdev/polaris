@@ -111,10 +111,40 @@ const waitForHighlight = async (page: Page) => {
 
 const progress = (page: Page) => page.getByTestId("review-progress").textContent();
 
+const centre = (page: Page, tab: string) =>
+  page.locator(`[data-testid="review-centre"][data-tab="${tab}"]`);
+
+/** A pull request opens on Overview; Conversation filters; "Review changes →" jumps to Changes. */
+const overviewSteps = async (page: Page, step: (message: string) => void) => {
+  await centre(page, "overview").waitFor({ timeout: 60_000 });
+  await page.getByTestId("review-tab-conversation").click();
+  await page.getByTestId("conversation").waitFor({ timeout: 30_000 });
+  await page.getByRole("radio", { name: "Bots", exact: true }).click();
+  await page.getByRole("radio", { name: "Bots", exact: true, checked: true }).waitFor();
+  step("#42 opened on Overview; Conversation filtered to Bots");
+  await page.getByTestId("review-tab-overview").click();
+  await page.getByTestId("review-jump-changes").click();
+  await centre(page, "changes").waitFor();
+  step("Review changes → jumped from Overview to Changes");
+};
+
+/** ⌃2 opens the queue's second review, in its visible order. */
+const queueDigit = async (page: Page, step: (message: string) => void) => {
+  const second = page.getByTestId("review-queue-row").nth(1);
+  const id = await second.getAttribute("data-row");
+
+  await page.keyboard.press("Control+Digit2");
+  await page
+    .locator(`[data-testid="review-queue-row"][data-row="${id ?? ""}"][aria-current="page"]`)
+    .waitFor({ timeout: 10_000 });
+  step(`⌃2 opened the queue's second review (${id ?? "?"})`);
+};
+
 export const reviewFlow = async ({ page, fake, step, shoot }: ReviewFlowInput) => {
   await page.getByRole("radio", { name: /^Review/ }).click();
   // pullsFlow left #44 open: #42 is in the queue beside it.
   await page.getByTestId("review-queue-row").filter({ hasText: "#42" }).click();
+  await overviewSteps(page, step);
 
   const deliver = page.locator('[data-testid="review-file"][data-path="src/webhooks/deliver.ts"]');
 
@@ -149,6 +179,8 @@ export const reviewFlow = async ({ page, fake, step, shoot }: ReviewFlowInput) =
 
   if ((await session.count()) > 0) {
     await session.first().click();
+    await page.locator('[data-testid="review-centre"][data-tab="overview"]').waitFor();
+    await page.getByTestId("review-tab-changes").click();
     await page.getByTestId("turn-divider").first().waitFor({ timeout: 30_000 });
     step(
       `an Agent Session from the queue: ${await page.getByTestId("turn-divider").count()} Turn dividers`
@@ -156,6 +188,7 @@ export const reviewFlow = async ({ page, fake, step, shoot }: ReviewFlowInput) =
     await shoot("review-session");
   } else step("no Agent Session ready for review in the queue");
 
+  await queueDigit(page, step);
   await page.getByRole("button", { name: "Pull requests" }).click();
   await page.getByRole("radio", { name: /^Orchestrate/ }).click();
 };

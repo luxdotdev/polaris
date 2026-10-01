@@ -116,6 +116,7 @@ export const checkSessionReview = async (page: Page, step: (message: string) => 
     .waitFor();
   await page.keyboard.press("Meta+Enter");
   await page.getByTestId("session-review").waitFor();
+  await page.getByTestId("review-tab-changes").click();
 
   const file = page.locator('[data-testid="review-file"][data-path="polaris-bench/file-0.txt"]');
   const waiting = page.getByTestId("review-waiting");

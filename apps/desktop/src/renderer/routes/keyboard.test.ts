@@ -3,6 +3,7 @@ import type { CommandId } from "../../shared/keymap.ts";
 import { createCommandRegistry } from "./commands.ts";
 import { digitIndex, handleKey } from "./keyboard.ts";
 import type { ShellActions } from "./navigation.ts";
+import { reviewDigits } from "./review.ts";
 
 const setup = () => {
   const calls: Array<string> = [];
@@ -69,6 +70,29 @@ describe("keyboard", () => {
     handleKey(key("Digit0", { alt: true }), context);
     handleKey(key("Digit3", { ctrl: true, shift: true }), context);
     expect(calls).toEqual(["chip 1", "chip 9"]);
+  });
+
+  test("in Review, ⌃N opens the queue's Nth review; ⌥N and an empty slot still pick a chip", () => {
+    const { calls, context } = setup();
+
+    reviewDigits.pick = (index) => index < 3 && calls.push(`review ${index}`) > 0;
+    handleKey(key("Digit2", { ctrl: true }), context);
+    handleKey(key("Digit2", { alt: true }), context);
+    handleKey(key("Digit9", { ctrl: true }), context);
+    reviewDigits.pick = null;
+    expect(calls).toEqual(["review 1", "chip 1", "chip 8"]);
+  });
+
+  test("⇧⌘] and ⇧⌘[ cycle the review tabs", () => {
+    const { calls, context } = setup();
+
+    context.registry.register({
+      "review.nextTab": { run: () => void calls.push("next") },
+      "review.previousTab": { run: () => void calls.push("previous") },
+    });
+    handleKey(key("BracketRight", { meta: true, shift: true }), context);
+    handleKey(key("BracketLeft", { meta: true, shift: true }), context);
+    expect(calls).toEqual(["next", "previous"]);
   });
 
   test("K and ⌘K open the jump menu; bare K never fires while typing, ⌘K does", () => {
