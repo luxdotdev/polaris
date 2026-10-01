@@ -19,7 +19,7 @@ import {
   PixelSparkleIcon,
 } from "@polaris/ui";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useRef, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import type { TurnView } from "../../../store/sessionModel.ts";
 import { type DiffRow, diffRows, ROW_HEIGHT } from "../diffRows.ts";
 import { useSession } from "../hooks.ts";
@@ -244,7 +244,12 @@ const Body = ({
   }
 };
 
-export const SessionOutput = ({ hostKey, sessionId }: SessionViewProps) => {
+export interface SessionOutputProps extends SessionViewProps {
+  /** Tabs in place of the lone Changes label (a Lead's Constellation tab). */
+  readonly tabs?: ReactNode;
+}
+
+export const SessionOutput = ({ hostKey, sessionId, tabs }: SessionOutputProps) => {
   const model = useSession(hostKey, sessionId);
   const key = uiKey(hostKey, sessionId);
   const ui = useSessionUi(key);
@@ -283,9 +288,11 @@ export const SessionOutput = ({ hostKey, sessionId }: SessionViewProps) => {
       data-testid="session-output"
     >
       <div className="border-hairline flex h-11 shrink-0 items-center gap-1 border-b px-3">
-        <Button variant="secondary" className="text-text-strong" aria-pressed>
-          Changes
-        </Button>
+        {tabs ?? (
+          <Button variant="secondary" className="text-text-strong" aria-pressed>
+            Changes
+          </Button>
+        )}
         <span className="flex-1" />
         {current === null ? null : (
           <TurnMenu turns={model.turns} current={current} onPick={(id) => showTurnDiff(key, id)} />
