@@ -64,7 +64,7 @@ const dirty = new ReviewCheckoutBlock({
 
 /** Every state the chip can reach, in R5's order, with what it means. */
 export const STATES: ReadonlyArray<{ readonly name: string; readonly view: ChipView }> = [
-  { name: "Checking out", view: { kind: "checking-out", host: "Linux VM" } },
+  { name: "Checking out", view: { kind: "checking-out", host: "Linux VM", commits: 3 } },
   {
     name: "Ready",
     view: { kind: "ready", host: "Linux VM", at: "4f2c1a9", command: "bun run dev" },

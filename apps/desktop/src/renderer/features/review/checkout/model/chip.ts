@@ -126,7 +126,12 @@ export interface RemovedFacts {
 }
 
 export type ChipView =
-  | { readonly kind: "checking-out"; readonly host: string }
+  | {
+      readonly kind: "checking-out";
+      readonly host: string;
+      /** The pull request's commits being fetched, once GitHub has counted them. */
+      readonly commits: number | null;
+    }
   | { readonly kind: "updating"; readonly host: string; readonly to: string }
   | {
       readonly kind: "ready";
@@ -185,6 +190,8 @@ export interface ChipInput {
   readonly run: { readonly command: string; readonly startedAt: number } | null;
   /** GitHub's comparison of the checkout's commit with the pull request's head. */
   readonly newCommits: { readonly total: number; readonly rewritten: boolean } | null;
+  /** On a first checkout: how many commits the pull request has over its base. */
+  readonly fetchingCommits: number | null;
   /** A clone this window started because no Workspace had the repository. */
   readonly clone: {
     readonly host: string;
@@ -200,7 +207,7 @@ const fromCheckout = (checkout: ReviewCheckout, host: string, input: ChipInput):
     Match.withReturnType<ChipView>(),
     Match.when("fetching", () =>
       checkout.head === null
-        ? { kind: "checking-out", host }
+        ? { kind: "checking-out", host, commits: input.fetchingCommits }
         : { kind: "updating", host, to: shortSha(checkout.latestHead) }
     ),
     Match.when("ready", () =>
@@ -325,4 +332,11 @@ export const newCommitsText = (count: number | null, rewritten: boolean) => {
   if (count === null) return "new commits";
 
   return count === 1 ? "1 new commit" : `${count} new commits`;
+};
+
+/** "fetching", then "fetching 3 commits" once GitHub has counted them. */
+export const fetchingText = (commits: number | null) => {
+  if (commits === null) return "fetching";
+
+  return commits === 1 ? "fetching 1 commit" : `fetching ${commits} commits`;
 };
