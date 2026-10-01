@@ -10,10 +10,13 @@ import {
   type ReviewSubject,
 } from "../../../routes/review.ts";
 import { useApp, useShellActions } from "../../../shell/hooks.ts";
+import { useStore } from "zustand";
 import { usePulls } from "../../pulls/store.ts";
 import "../checkout/install.ts";
 import { DiffWorkers } from "../data/pierre.tsx";
+import { riskMark } from "../model/findings.ts";
 import { queueGroups, type QueueRow, type SessionInfo } from "../model/queue.ts";
+import { subjectKey, surfaceStore } from "../surface.ts";
 import type { AppState } from "../../../store/store.ts";
 import { PullReview } from "./PullReview.tsx";
 import { Queue } from "./Queue.tsx";
@@ -70,6 +73,18 @@ export const ReviewView = ({ subject, onBack }: ReviewViewProps) => {
   const hosts = useApp((s) => s.hosts.length);
   const workspaces = Object.values(models).reduce((n, m) => n + m.workspaces.size, 0);
   const groups = queueGroups(list, sessionsOf(models));
+  const surfaces = useStore(surfaceStore, (s) => s);
+
+  const markOf = (row: QueueRow) =>
+    riskMark(
+      surfaces[
+        subjectKey(
+          row.kind === "pull"
+            ? { kind: "pull", pull: row.pull }
+            : { kind: "session", hostKey: row.hostKey, sessionId: row.sessionId }
+        )
+      ]?.findings ?? []
+    );
 
   const open = (row: QueueRow) =>
     row.kind === "pull"
@@ -81,6 +96,7 @@ export const ReviewView = ({ subject, onBack }: ReviewViewProps) => {
       <div className="flex min-h-0 flex-1" data-testid="review-view">
         <Queue
           groups={groups}
+          markOf={markOf}
           caption={`${plural(hosts, "host")} · ${plural(workspaces, "workspace")}`}
           selected={selectedId(subject)}
           onOpen={open}

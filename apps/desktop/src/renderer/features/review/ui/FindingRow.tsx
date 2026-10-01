@@ -4,9 +4,10 @@
  * pending comment. Low-confidence findings are dimmed; a Critical one never is.
  */
 import { cn, SeverityBadge } from "@polaris/ui";
+import { memo } from "react";
 import { type FindingInfo, isDimmed } from "../model/findings.ts";
 
-export const FindingRow = ({ finding }: { readonly finding: FindingInfo }) => (
+const Row = ({ finding }: { readonly finding: FindingInfo }) => (
   <div
     data-testid="finding-row"
     data-finding={finding.id}
@@ -26,3 +27,6 @@ export const FindingRow = ({ finding }: { readonly finding: FindingInfo }) => (
     </div>
   </div>
 );
+
+/** Memoised: Pierre re-renders every mounted annotation as files mount. */
+export const FindingRow = memo(Row);

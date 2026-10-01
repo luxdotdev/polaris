@@ -4,7 +4,8 @@
  * Turn's divider above it, and a reviewed Turn folds to the divider alone with a check.
  * Rendered by Pierre into each file's header slot; it reads its row from `headerStore`.
  */
-import { CheckIcon, ChevronDownIcon, ChevronRightIcon, cn, SeverityBadge } from "@polaris/ui";
+import { CheckIcon, ChevronDownIcon, ChevronRightIcon, cn, SeverityBadge, Tile } from "@polaris/ui";
+import { memo } from "react";
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 import type { DividerRow } from "../model/layout.ts";
@@ -20,6 +21,8 @@ export interface HeaderModel {
   readonly binary: boolean;
   readonly collapsed: boolean;
   readonly viewed: boolean;
+  /** Viewed, then its diff changed (GitHub's `dismissed`). */
+  readonly changed: boolean;
   readonly severity: MarkSeverity | null;
   readonly divider: DividerRow | null;
   /** "1 comment": what a collapsed file hides. */
@@ -29,7 +32,7 @@ export interface HeaderModel {
 export interface HeaderActions {
   readonly toggle: (id: string) => void;
   readonly setViewed: (id: string, viewed: boolean) => void;
-  readonly openSection: (sectionId: string) => void;
+  readonly openSections: (sectionIds: ReadonlyArray<string>) => void;
 }
 
 /** Header models by item id, written by the DiffPane; each header subscribes to its own. */
@@ -85,20 +88,23 @@ const Divider = ({ divider }: { readonly divider: DividerRow }) => {
       data-testid="turn-divider"
       data-folded={divider.folded ? "" : undefined}
       disabled={!divider.folded}
-      onClick={() => actions?.openSection(divider.sectionId)}
-      className="text-caption gap-row-x flex h-7 w-full cursor-default items-center text-left"
+      onClick={() => actions?.openSections(divider.sectionIds)}
+      className="text-caption gap-row-x h-tree-row flex w-full cursor-default items-center text-left"
     >
+      <Tile hue={divider.harness} size={20} />
       <span className="text-text-default font-medium">{divider.label}</span>
-      <span className="text-text-faint min-w-0 flex-1 truncate">
+      <span className="text-text-subtle min-w-0 flex-1 truncate">
         {divider.quote === null ? "" : `“${divider.quote}”`}
       </span>
-      <span className="text-text-faint shrink-0">{divider.caption}</span>
-      {divider.folded && <CheckIcon size={14} className="text-diff-added-text shrink-0" />}
+      <span className="text-text-subtle shrink-0">{divider.caption}</span>
+      {divider.folded && divider.reviewed && (
+        <CheckIcon size={14} className="text-diff-added-text shrink-0" />
+      )}
     </button>
   );
 };
 
-export const FileHeader = ({ id }: { readonly id: string }) => {
+const Header = ({ id }: { readonly id: string }) => {
   const row = useStore(headerStore, (s) => s.rows[id]);
   const actions = useStore(headerStore, (s) => s.actions);
 
@@ -140,13 +146,18 @@ export const FileHeader = ({ id }: { readonly id: string }) => {
           </span>
         )}
         {(status !== null || row.binary) && (
-          <span className="text-caption text-text-faint shrink-0">
+          <span className="text-caption text-text-subtle shrink-0">
             {row.binary ? "binary" : status}
           </span>
         )}
         <span className="flex-1" />
         {row.note !== null && (
           <span className="text-caption text-text-subtle shrink-0">{row.note}</span>
+        )}
+        {row.changed && (
+          <span className="text-caption text-text-subtle shrink-0" data-testid="review-changed">
+            Changed since viewed
+          </span>
         )}
         {row.severity !== null && <SeverityBadge severity={row.severity} />}
         <span aria-hidden="true" className="bg-hairline h-4 w-px shrink-0" />
@@ -155,3 +166,9 @@ export const FileHeader = ({ id }: { readonly id: string }) => {
     </div>
   );
 };
+
+/**
+ * Pierre re-renders every mounted header (with `flushSync`) whenever a file mounts while
+ * scrolling; memoised by id, only the new one renders.
+ */
+export const FileHeader = memo(Header);

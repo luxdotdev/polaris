@@ -14,6 +14,8 @@ import type { ViewedProgress } from "../model/viewed.ts";
 export interface FileListProps {
   readonly files: ReadonlyArray<ReviewFile>;
   readonly viewedOf: (file: ReviewFile) => boolean;
+  /** Viewed, then changed: the row says so. */
+  readonly changedOf: (file: ReviewFile) => boolean;
   readonly severities: ReadonlyMap<string, MarkSeverity>;
   readonly progress: ViewedProgress;
   readonly current: string | null;
@@ -49,7 +51,7 @@ const Row = ({ row, props, onToggleViewed }: RowProps) => {
         type="button"
         onClick={onToggleViewed}
         data-testid="review-files-viewed"
-        className="text-caption text-text-faint hover:bg-fill-hover rounded-row h-tree-row gap-row-x px-gap flex w-full cursor-default items-center font-mono"
+        className="text-caption text-text-subtle hover:bg-fill-hover rounded-row h-tree-row gap-row-x px-gap flex w-full cursor-default items-center font-mono"
       >
         <Check checked />
         {row.open ? "Hide" : "+"} {row.count.toLocaleString("en-US")} viewed{" "}
@@ -85,13 +87,18 @@ const Row = ({ row, props, onToggleViewed }: RowProps) => {
         onClick={() => props.onOpen(file.key)}
         className={cn(
           "text-caption min-w-0 flex-1 cursor-default truncate text-left font-mono",
-          viewed ? "text-text-faint" : "text-text-default",
+          viewed ? "text-text-subtle" : "text-text-default",
           props.current === file.key && "text-text-strong"
         )}
         title={file.file.path}
       >
         {file.file.path}
       </button>
+      {props.changedOf(file) && (
+        <span className="text-caption text-text-subtle shrink-0" title="Changed since viewed">
+          changed
+        </span>
+      )}
       {severity !== undefined && <SeverityGlyph severity={severity} tone="text" />}
     </div>
   );
@@ -117,7 +124,7 @@ export const FileList = (props: FileListProps) => {
   return (
     <section data-testid="review-files" className="px-gap pt-panel flex min-h-0 flex-1 flex-col">
       <div className="gap-row-x px-gap pb-gap flex items-center">
-        <span className="text-caption text-text-faint">Files</span>
+        <span className="text-caption text-text-subtle">Files</span>
         <span className="bg-surface-sunken flex h-1 flex-1 rounded-full">
           <span
             className="bg-text-subtle h-1 rounded-full"

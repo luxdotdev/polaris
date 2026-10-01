@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { type FindingInfo, findingsIn, isDimmed, lineMarks, severityByPath } from "./findings.ts";
+import {
+  type FindingInfo,
+  findingsIn,
+  isDimmed,
+  lineMarks,
+  riskMark,
+  severityByPath,
+} from "./findings.ts";
 import type { ReviewFile } from "./layout.ts";
 
 const finding = (id: string, patch: Partial<FindingInfo>): FindingInfo => ({
@@ -39,6 +46,12 @@ const FINDINGS = [
 ];
 
 describe("findings in the diff", () => {
+  test("a resolved Critical (fixed) leaves no mark", () => {
+    expect(
+      severityByPath([finding("fixed", { severity: "critical", status: "resolved", path: "c.ts" })])
+    ).toEqual(new Map());
+  });
+
   test("dismissed findings drop out, except a Critical one", () => {
     expect(severityByPath(FINDINGS)).toEqual(
       new Map([
@@ -64,4 +77,11 @@ describe("findings in the diff", () => {
     expect(isDimmed(finding("x", { severity: "low", confidence: 0.3 }))).toBe(true);
     expect(isDimmed(finding("x", { severity: "critical", confidence: 0.1 }))).toBe(false);
   });
+});
+
+test("a queue row shows the highest shown Severity and its count", () => {
+  expect(riskMark(FINDINGS)).toEqual({ severity: "critical", count: 1 });
+  expect(riskMark(FINDINGS.slice(0, 2))).toEqual({ severity: "medium", count: 1 });
+  expect(riskMark([finding("a", {}), finding("b", {})])).toEqual({ severity: "medium", count: 2 });
+  expect(riskMark([])).toBeNull();
 });

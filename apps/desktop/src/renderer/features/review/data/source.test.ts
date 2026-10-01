@@ -115,16 +115,22 @@ describe("sessionSource", () => {
   });
 
   const turns = [0, 1, 2, 3].map(turn);
-  const session = { id: SessionId.make("s1"), cwd: "/ws", acceptedThroughIndex: 1 };
 
-  test("shows the Turns since the last accept, one section each", () => {
+  const session = {
+    id: SessionId.make("s1"),
+    cwd: "/ws",
+    harness: "claude",
+    acceptedThroughIndex: 1,
+  };
+
+  test("shows the Turns since the last accept, newest first, one section each", () => {
     const source = sessionSource("h", session, turns, { kind: "all" });
 
-    expect(source.sections.map((s) => [s.id, s.divider?.label, s.divider?.quote, s.next])).toEqual([
-      ["t2", "Turn 3", "Do step 2", "a2"],
-      ["t3", "Turn 4", null, null],
+    expect(source.sections.map((s) => [s.id, s.divider?.turn, s.divider?.quote, s.next])).toEqual([
+      ["t3", 4, null, null],
+      ["t2", 3, "Do step 2", "a2"],
     ]);
-    expect(source.sections[0]?.spec).toEqual(
+    expect(source.sections[1]?.spec).toEqual(
       Specs.Turn({ sessionId: session.id, turnId: TurnId.make("t2") })
     );
   });
