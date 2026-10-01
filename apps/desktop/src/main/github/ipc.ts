@@ -30,7 +30,10 @@ export const githubHandlers: GitHubHandlers = {
   "github.watch": ({ workspaces }) => gh((g) => g.watch(workspaces)).pipe(done),
   "github.refresh": () => gh((g) => g.refresh).pipe(done),
   "github.recheck": ({ repo }) => gh((g) => g.recheck(repo)).pipe(done),
-  "github.pull.detail": ({ pull }) => gh((g) => g.detail(pull)),
+  "github.pull.comment": (input) => gh((g) => g.comment(input)),
+  "github.bot.command": (input) => gh((g) => g.botCommand(input)).pipe(done),
+  "github.pull.publishDescription": (input) => gh((g) => g.publishDescription(input)),
+  "github.pull.detail": ({ pull, refresh }) => gh((g) => g.detail(pull, refresh)),
   "github.pull.create": (input) => gh((g) => g.createPull(input)),
   "github.pull.compare": (input) => gh((g) => g.compare(input)),
   "github.review.addThread": (input) => gh((g) => g.addThread(input)),
@@ -49,6 +52,7 @@ type GitHubOpeners = {
 };
 
 export const githubOpeners: GitHubOpeners = {
+  "github.details": () => Stream.unwrap(GitHub.useSync((g) => SubscriptionRef.changes(g.details))),
   "github.accounts": () =>
     Stream.unwrap(GitHub.useSync((g) => SubscriptionRef.changes(g.accounts))),
   "github.pulls": () => Stream.unwrap(GitHub.useSync((g) => SubscriptionRef.changes(g.pulls))),

@@ -308,7 +308,7 @@ describe("Viewed", () => {
 
           h.fake.push("acme/widgets", 42);
 
-          const pushed = yield* gh.detail(PR42);
+          const pushed = yield* gh.detail(PR42, true);
 
           return [marked, pushed].map((d) => d.files.map((f) => f.viewed));
         })

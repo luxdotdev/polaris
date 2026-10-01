@@ -2,6 +2,7 @@
  * The fake's review mutations: pending reviews, threads, replies, resolve,
  * submit (refusing what GitHub refuses), discard and Viewed marks.
  */
+import { addIssueComment, publishDescription } from "./overview.ts";
 import { Schema } from "effect";
 import { fail, inputOf, pullById, type Resolver } from "./graphql.ts";
 import {
@@ -342,6 +343,8 @@ const setViewed =
   };
 
 export const MUTATIONS = new Map<string, Resolver>([
+  ["AddIssueComment", addIssueComment],
+  ["PublishDescription", publishDescription],
   ["AddPullRequestReview", addReview],
   ["AddPullRequestReviewThread", addThread],
   ["AddPullRequestReviewThreadReply", addReply],

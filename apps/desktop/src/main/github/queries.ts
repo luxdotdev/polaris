@@ -187,8 +187,8 @@ const FILES = `pageInfo { hasNextPage endCursor } nodes { path additions deletio
 
 const THREADS = `pageInfo { hasNextPage endCursor }
 nodes {
-  id path isResolved isOutdated subjectType line startLine originalLine originalStartLine diffSide startDiffSide
-  comments(first: 100) { nodes { id body createdAt url state diffHunk author { login } originalCommit { oid } } }
+  id path isResolved isOutdated resolvedBy { login } subjectType line startLine originalLine originalStartLine diffSide startDiffSide
+  comments(first: 100) { nodes { id body createdAt url state diffHunk author { login avatarUrl __typename } originalCommit { oid } } }
 }`;
 
 const PENDING = `reviews(states: [PENDING], first: 1) { nodes { id commit { oid } comments { totalCount } } }`;
@@ -236,7 +236,13 @@ export const ReviewComment = Schema.Struct({
   url: Schema.String,
   state: Schema.String,
   diffHunk: Schema.String,
-  author: Schema.NullOr(Schema.Struct({ login: Schema.String })),
+  author: Schema.NullOr(
+    Schema.Struct({
+      login: Schema.String,
+      avatarUrl: Schema.optionalKey(Schema.String),
+      __typename: Schema.optionalKey(Schema.String),
+    })
+  ),
   originalCommit: Schema.NullOr(Schema.Struct({ oid: Schema.String })),
 });
 
@@ -245,6 +251,7 @@ export const ReviewThread = Schema.Struct({
   path: Schema.String,
   isResolved: Schema.Boolean,
   isOutdated: Schema.Boolean,
+  resolvedBy: Schema.optionalKey(Schema.NullOr(Schema.Struct({ login: Schema.String }))),
   subjectType: Schema.String,
   line: Schema.NullOr(Schema.Number),
   startLine: Schema.NullOr(Schema.Number),

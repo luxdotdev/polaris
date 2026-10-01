@@ -229,6 +229,7 @@ describe("subscriptions", () => {
         "files.watch",
         "github.accounts",
         "github.checkouts",
+        "github.details",
         "github.pulls",
         "harness.availability",
         "host",

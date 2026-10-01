@@ -33,8 +33,11 @@ const lineNumber = (page: Page, path: string, line: number) =>
     .filter({ hasText: new RegExp(`^${line}$`) })
     .first();
 
-/** Opens #42 again, so its detail is fetched fresh from the fake. */
+/** Refreshes the detail cache after a fixture edit, then opens #42 again. */
 const reopen = async (page: Page) => {
+  await page.evaluate(`window.polaris.request("github.pull.detail", {
+    pull: { repo: { owner: "acme", name: "widgets" }, number: 42 }, refresh: true
+  }).then((result) => { if (!result.ok) throw new Error(result.error.message); })`);
   await page.getByRole("button", { name: "Pull requests" }).click();
   await page.locator(`[data-testid="pull-row"][data-pull="${PULL_ID}"]`).click();
   await page
@@ -231,7 +234,8 @@ const session = async ({ page, step, shoot }: FindingsFlowInput) => {
   const row = page
     .getByTestId("review-queue-row")
     .filter({ hasText: "smoke-repo" })
-    .filter({ hasNotText: "Reviewer ·" });
+    .filter({ hasNotText: "Reviewer ·" })
+    .filter({ hasNotText: "Walkthrough ·" });
 
   if ((await row.count()) === 0) {
     step("no Agent Session ready for review: feedback not exercised");

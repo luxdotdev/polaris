@@ -150,7 +150,27 @@ export interface FakeCommit {
   readonly date: string;
 }
 
+export interface FakeIssueComment {
+  readonly id: string;
+  readonly author: string;
+  readonly body: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface FakeCheckRun {
+  readonly name: string;
+  readonly workflow: string | null;
+  readonly status: string;
+  readonly conclusion: string | null;
+  readonly startedAt: string | null;
+  readonly completedAt: string | null;
+  readonly url: string | null;
+}
+
 export interface World {
+  readonly issueComments: Map<string, Array<FakeIssueComment>>;
+  readonly checkRuns: Map<string, Array<FakeCheckRun>>;
   readonly users: ReadonlyArray<FakeUser>;
   readonly orgs: Array<Mutable<Fixture["orgs"][number]>>;
   readonly repos: Array<FakeRepo>;
@@ -183,6 +203,8 @@ export const worldFrom = (fixture: Fixture): World => ({
     closedAt: null,
   })),
   reviews: [],
+  issueComments: new Map(),
+  checkRuns: new Map(),
   commits: new Map(
     fixture.pulls.map((p) => [p.id, [{ oid: p.headRefOid, message: p.title, date: p.updatedAt }]])
   ),
