@@ -2,7 +2,9 @@
  * The queue on Review's left (Paper R1 1TC-0): what's waiting to be reviewed, the open
  * subject selected, and "Review a PR by URL" at its foot. The header goes back to the list.
  */
-import { cn, SEVERITY_LABELS, SeverityGlyph, Tile } from "@polaris/ui";
+import { cn, Kbd, SEVERITY_LABELS, SeverityGlyph, Tile } from "@polaris/ui";
+import { useEffect, useState } from "react";
+import { reviewDigits } from "../../../routes/review.ts";
 import type { RiskMark } from "../model/findings.ts";
 import type { OpenPull } from "../../../../shared/api.ts";
 import { ByUrl } from "../../pulls/ui/ByUrl.tsx";
@@ -33,6 +35,55 @@ const Mark = ({ mark }: { readonly mark: RiskMark | null }) =>
       {mark.count}
     </span>
   );
+
+/** Whether Control is held: the first nine rows show their ⌃N. */
+const useCtrlHeld = () => {
+  const [held, setHeld] = useState(false);
+
+  useEffect(() => {
+    const down = (event: KeyboardEvent) => {
+      if (event.key === "Control") setHeld(!event.metaKey && !event.altKey && !event.shiftKey);
+    };
+
+    const up = (event: KeyboardEvent) => {
+      if (event.key === "Control" || !event.ctrlKey) setHeld(false);
+    };
+
+    const blur = () => setHeld(false);
+
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    window.addEventListener("blur", blur);
+
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+      window.removeEventListener("blur", blur);
+    };
+  }, []);
+
+  return held;
+};
+
+/** ⌃1…⌃9 open the first nine rows in the order they show. */
+const useDigits = (rows: ReadonlyArray<QueueRow>, onOpen: (row: QueueRow) => void) => {
+  useEffect(() => {
+    const pick = (index: number) => {
+      const row = rows[index];
+
+      if (row === undefined) return false;
+      onOpen(row);
+
+      return true;
+    };
+
+    reviewDigits.pick = pick;
+
+    return () => {
+      if (reviewDigits.pick === pick) reviewDigits.pick = null;
+    };
+  }, [rows, onOpen]);
+};
 
 const TallRow = ({ row, selected }: { readonly row: QueueRow; readonly selected: boolean }) => (
   <>
@@ -79,62 +130,74 @@ export const Queue = ({
   onOpenPull,
   onList,
   markOf,
-}: QueueProps) => (
-  <nav
-    aria-label="Review queue"
-    data-testid="review-queue"
-    className="bg-surface-sunken border-hairline flex w-[264px] shrink-0 flex-col border-r"
-  >
-    <button
-      type="button"
-      onClick={onList}
-      aria-label="Pull requests"
-      title="All pull requests"
-      className="px-panel pt-panel flex cursor-default flex-col gap-0.5 pb-1.5 text-left"
-    >
-      <span className="text-heading text-text-strong font-medium">Review</span>
-      <span className="text-caption text-text-subtle">{caption}</span>
-    </button>
-    <div className="pb-gap min-h-0 flex-1 overflow-y-auto">
-      {groups.map((group) => (
-        <section key={group.id} className="px-gap pt-gap flex flex-col gap-0.5">
-          <h2 className="text-caption text-text-subtle px-gap pt-gap flex items-center pb-1.5 font-normal">
-            <span className="flex-1">{group.label}</span>
-            <span className="tabular">{group.rows.length}</span>
-          </h2>
-          {group.rows.map((row) => {
-            const isSelected = row.id === selected;
+}: QueueProps) => {
+  const held = useCtrlHeld();
+  const order = groups.flatMap((group) => group.rows);
 
-            return (
-              <button
-                type="button"
-                key={row.id}
-                data-testid="review-queue-row"
-                data-row={row.id}
-                aria-current={isSelected ? "page" : undefined}
-                onClick={() => onOpen(row)}
-                className={cn(
-                  "rounded-row flex shrink-0 cursor-default items-center gap-row-x border px-gap",
-                  group.compact ? "h-row" : "min-h-session-row py-1",
-                  isSelected
-                    ? "bg-row-selected border-hairline"
-                    : "hover:bg-fill-hover border-transparent"
-                )}
-              >
-                {group.compact ? (
-                  <ShortRow row={row} />
-                ) : (
-                  <TallRow row={row} selected={isSelected} />
-                )}
-                <Mark mark={markOf(row)} />
-              </button>
-            );
-          })}
-        </section>
-      ))}
-    </div>
-    <div className="border-hairline px-panel flex h-10 shrink-0 items-center border-t">
-      <ByUrl onOpen={onOpenPull} />
-    </div>
-  </nav>
-);
+  useDigits(order, onOpen);
+
+  return (
+    <nav
+      aria-label="Review queue"
+      data-testid="review-queue"
+      className="bg-surface-sunken border-hairline flex w-[264px] shrink-0 flex-col border-r"
+    >
+      <button
+        type="button"
+        onClick={onList}
+        aria-label="Pull requests"
+        title="All pull requests"
+        className="px-panel pt-panel flex cursor-default flex-col gap-0.5 pb-1.5 text-left"
+      >
+        <span className="text-heading text-text-strong font-medium">Review</span>
+        <span className="text-caption text-text-subtle">{caption}</span>
+      </button>
+      <div className="pb-gap min-h-0 flex-1 overflow-y-auto">
+        {groups.map((group) => (
+          <section key={group.id} className="px-gap pt-gap flex flex-col gap-0.5">
+            <h2 className="text-caption text-text-subtle px-gap pt-gap flex items-center pb-1.5 font-normal">
+              <span className="flex-1">{group.label}</span>
+              <span className="tabular">{group.rows.length}</span>
+            </h2>
+            {group.rows.map((row) => {
+              const isSelected = row.id === selected;
+              const digit = order.indexOf(row);
+
+              return (
+                <button
+                  type="button"
+                  key={row.id}
+                  data-testid="review-queue-row"
+                  data-row={row.id}
+                  aria-current={isSelected ? "page" : undefined}
+                  onClick={() => onOpen(row)}
+                  className={cn(
+                    "rounded-row flex shrink-0 cursor-default items-center gap-row-x border px-gap",
+                    group.compact ? "h-row" : "min-h-session-row py-1",
+                    isSelected
+                      ? "bg-row-selected border-hairline"
+                      : "hover:bg-fill-hover border-transparent"
+                  )}
+                >
+                  {group.compact ? (
+                    <ShortRow row={row} />
+                  ) : (
+                    <TallRow row={row} selected={isSelected} />
+                  )}
+                  {held && digit < 9 ? (
+                    <Kbd data-testid="review-queue-digit">⌃{digit + 1}</Kbd>
+                  ) : (
+                    <Mark mark={markOf(row)} />
+                  )}
+                </button>
+              );
+            })}
+          </section>
+        ))}
+      </div>
+      <div className="border-hairline px-panel flex h-10 shrink-0 items-center border-t">
+        <ByUrl onOpen={onOpenPull} />
+      </div>
+    </nav>
+  );
+};

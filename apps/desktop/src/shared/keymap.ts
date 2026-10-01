@@ -31,7 +31,9 @@ export type CommandId =
   | "settings.reviewer"
   | "settings.github"
   | "github.addAccount"
-  | "workspace.add";
+  | "workspace.add"
+  | "review.nextTab"
+  | "review.previousTab";
 
 export type MenuName = "App" | "View" | "Go" | "Session" | "Help";
 
@@ -67,6 +69,13 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   { id: "session.openInTerminal", title: "Open in terminal", keys: [], menu: "Session" },
   { id: "session.archive", title: "Archive session", keys: [], menu: "Session" },
   { id: "theme.toggle", title: "Toggle dark and light", keys: [] },
+  { id: "review.nextTab", title: "Next review tab", keys: ["CmdOrCtrl+Shift+]"], menu: "Go" },
+  {
+    id: "review.previousTab",
+    title: "Previous review tab",
+    keys: ["CmdOrCtrl+Shift+["],
+    menu: "Go",
+  },
   { id: "workspace.add", title: "Add workspace…", keys: ["CmdOrCtrl+O"], menu: "Go" },
   // macOS's own Settings… chord, in the app menu (DESIGN.md, Settings).
   { id: "settings.open", title: "Settings…", keys: ["CmdOrCtrl+,"], menu: "App" },

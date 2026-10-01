@@ -48,6 +48,16 @@ export const openSessionReview = (
   actions.setMode("review");
 };
 
+/**
+ * ⌃1…⌃9 while a Review is open: its queue's rows in visible order. Set by the queue while it
+ * is mounted (only in Review); true when the digit picked a row.
+ */
+export interface ReviewDigits {
+  pick: ((index: number) => boolean) | null;
+}
+
+export const reviewDigits: ReviewDigits = { pick: null };
+
 /** Back to the pull request list. */
 export const closeReviewSubject = () => reviewRoute.setState({ subject: null });
 
