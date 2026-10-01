@@ -12,23 +12,27 @@
  *
  * This module wires the parts (see README.md): `runtime.ts` (shared state and
  * `signal`), `supervisor.ts` (Harnesses), `terminal.ts` (hand-off),
- * `worktrees.ts`, `pruning.ts` (checkpoints), `reactors.ts`, `dispatch.ts`,
- * `streams.ts` and `recovery.ts`.
+ * `worktrees.ts`, `pruning.ts` (checkpoints), `reviewCheckouts.ts`, `reactors.ts`,
+ * `dispatch.ts`, `streams.ts` and `recovery.ts`.
  */
-import type {
-  CommandRejected,
-  HostStreamItem,
+import {
+  type CommandRejected,
+  GitError,
+  type HostStreamItem,
   NotFound,
-  Sequence,
-  SessionId,
-  SessionStreamItem,
-  TerminalLaunch,
+  type ReviewCheckoutId,
+  type ReviewCheckoutStatus,
+  type Sequence,
+  type SessionId,
+  type SessionStreamItem,
+  type TerminalLaunch,
 } from "@polaris/protocol";
 import { Context, Effect, Layer, type Stream } from "effect";
 import { registerHandoffContributor } from "../service/upgrade.ts";
 import { Dispatcher, type DispatchInput } from "./dispatch.ts";
 import { CheckpointPruning } from "./pruning.ts";
 import { Reactors } from "./reactors.ts";
+import { ReviewCheckouts } from "./reviewCheckouts.ts";
 import { prepareForUpgrade as prepareSessionsForUpgrade, recoverOnStart } from "./recovery.ts";
 import { EngineRuntime } from "./runtime.ts";
 import { type HostSubscription, type SessionSubscription, Streams } from "./streams.ts";
@@ -63,6 +67,10 @@ export class Engine extends Context.Service<
      * app-server, which outlives the Daemon, so they are left alone.
      */
     readonly prepareForUpgrade: Effect.Effect<void>;
+    /** A Review Checkout as it is on disk now: what would block an update or removal. */
+    readonly checkoutStatus: (
+      checkoutId: ReviewCheckoutId
+    ) => Effect.Effect<ReviewCheckoutStatus, NotFound | GitError>;
   }
 >()("polaris/daemon/engine/Engine") {
   static readonly layer = Layer.effect(
@@ -75,7 +83,12 @@ export class Engine extends Context.Service<
 const EngineParts = Layer.mergeAll(Dispatcher.layer, Streams.layer).pipe(
   Layer.provide(Reactors.layer),
   Layer.provideMerge(
-    Layer.mergeAll(TerminalHandoff.layer, Worktrees.layer, CheckpointPruning.layer)
+    Layer.mergeAll(
+      TerminalHandoff.layer,
+      Worktrees.layer,
+      CheckpointPruning.layer,
+      ReviewCheckouts.layer
+    )
   ),
   Layer.provideMerge(Supervisor.layer),
   Layer.provideMerge(EngineRuntime.layer)
@@ -86,9 +99,11 @@ const make = Effect.gen(function* () {
   const { dispatch } = yield* Dispatcher;
   const streams = yield* Streams;
   const pruning = yield* CheckpointPruning;
+  const checkouts = yield* ReviewCheckouts;
   const prepareForUpgrade = prepareSessionsForUpgrade(runtime);
 
   yield* recoverOnStart(runtime);
+  yield* checkouts.recover;
 
   // Runs before every exec into a new binary; a failed exec needs nothing undone.
   // See docs/adr/0004-restart-recovery-never-continues-a-turn.md.
@@ -113,5 +128,16 @@ const make = Effect.gen(function* () {
     terminalCommand: (sessionId) =>
       Effect.sync(() => runtime.terminalLaunch.get(sessionId) ?? null),
     prepareForUpgrade,
+    checkoutStatus: (checkoutId) =>
+      checkouts.status(checkoutId).pipe(
+        Effect.catchTag("ServiceError", (error) =>
+          Effect.fail(new GitError({ cwd: "", message: error.message }))
+        ),
+        Effect.flatMap((status) =>
+          status === null
+            ? Effect.fail(new NotFound({ what: "review checkout", id: checkoutId }))
+            : Effect.succeed(status)
+        )
+      ),
   });
 });

@@ -19,6 +19,8 @@ export interface GitOptions {
   readonly stdin?: Uint8Array | string;
   /** Treat these exit codes as success (e.g. `git diff --no-index` exits 1 on differences). */
   readonly okCodes?: ReadonlyArray<number>;
+  /** Kill git (SIGKILL) after this long; it then fails with exit code 137 or similar. */
+  readonly timeoutMs?: number;
 }
 
 /**
@@ -38,13 +40,20 @@ export const runGitRaw = async (
   args: ReadonlyArray<string>,
   options: GitOptions = {}
 ): Promise<GitResult> => {
-  const proc = Bun.spawn(["git", ...args], {
+  const spawnOptions: Bun.SpawnOptions.OptionsObject<"ignore" | Blob, "pipe", "pipe"> = {
     cwd,
     env: { ...baseEnv(), ...options.env },
     stdin: options.stdin === undefined ? "ignore" : new Blob([options.stdin]),
     stdout: "pipe",
     stderr: "pipe",
-  });
+  };
+
+  if (options.timeoutMs !== undefined) {
+    spawnOptions.timeout = options.timeoutMs;
+    spawnOptions.killSignal = "SIGKILL";
+  }
+
+  const proc = Bun.spawn(["git", ...args], spawnOptions);
 
   const [stdout, stderr, code] = await Promise.all([
     new Response(proc.stdout).arrayBuffer().then((b) => new Uint8Array(b)),

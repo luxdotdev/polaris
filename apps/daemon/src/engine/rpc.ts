@@ -1,6 +1,6 @@
 /**
  * Handlers for the engine's RPCs: `dispatch`, `subscribeHost`,
- * `subscribeSession` and `session.terminalCommand`. The transport mounts
+ * `subscribeSession`, `session.terminalCommand` and `review.checkoutStatus`. The transport mounts
  * `EngineRpcHandlers` next to the other modules' handlers when it builds the
  * `DaemonRpcs` server:
  *
@@ -99,9 +99,19 @@ const TerminalCommandHandler = DaemonRpcs.toLayerHandler(
   })
 );
 
+const CheckoutStatusHandler = DaemonRpcs.toLayerHandler(
+  "review.checkoutStatus",
+  Effect.gen(function* () {
+    const engine = yield* Engine;
+
+    return ({ checkoutId }) => engine.checkoutStatus(checkoutId);
+  })
+);
+
 export const EngineRpcHandlers = Layer.mergeAll(
   DispatchHandler,
   SubscribeHostHandler,
   SubscribeSessionHandler,
-  TerminalCommandHandler
+  TerminalCommandHandler,
+  CheckoutStatusHandler
 );

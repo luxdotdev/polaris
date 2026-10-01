@@ -38,6 +38,24 @@ const opened = new ReviewCheckout({
   updatedAt: at,
 });
 
+const patchOpened = (change: { readonly latestHead: string }) =>
+  new ReviewCheckout({
+    id: opened.id,
+    workspaceId: opened.workspaceId,
+    subject: opened.subject,
+    path: opened.path,
+    state: opened.state,
+    blocked: opened.blocked,
+    head: opened.head,
+    mergeBase: opened.mergeBase,
+    latestHead: change.latestHead,
+    latestBase: opened.latestBase,
+    reviewedHead: opened.reviewedHead,
+    reviewedMergeBase: opened.reviewedMergeBase,
+    openedAt: opened.openedAt,
+    updatedAt: opened.updatedAt,
+  });
+
 /** Apply inputs in order, folding each accepted change as the store would. */
 const drive = (inputs: ReadonlyArray<CheckoutInput>) => {
   let checkout: ReviewCheckout | undefined;
@@ -150,6 +168,15 @@ describe("the Review Checkout machine", () => {
     expect(drive([{ type: "checkout.remove", at }]).rejections).toEqual([
       "there is no such Review Checkout",
     ]);
+  });
+
+  test("with no head reported (an Agent Session's Turns), the fetched head is the latest", () => {
+    const { checkout } = drive([
+      { type: "checkout.open", checkout: patchOpened({ latestHead: "" }) },
+      fetched("h9"),
+    ]);
+
+    expect(checkout).toMatchObject({ state: "ready", head: "h9", latestHead: "h9" });
   });
 
   test("the reviewed head is recorded in any state", () => {

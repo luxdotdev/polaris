@@ -16,6 +16,7 @@ import { FileSearchLive } from "../files/FileSearch.ts";
 import { FilesRpcsLive } from "../files/FilesRpcs.ts";
 import { CheckpointsLive } from "../git/Checkpoints.ts";
 import { GitRpcsLive } from "../git/GitRpcs.ts";
+import { ReviewCheckoutGitLive } from "../git/ReviewCheckoutGit.ts";
 import { ReviewReadRpcsLive } from "../review/ReviewRpcs.ts";
 import { WorktreeTrackerLive } from "../git/WorktreeTracker.ts";
 import { Availability, AvailabilityRpcsLive } from "../harness/availability/index.ts";
@@ -50,11 +51,19 @@ const harnesses = HarnessRegistryLive.pipe(Layer.provide(PlanLimitReporter.layer
 
 /**
  * The services behind the handlers: the event store and engine, git,
- * attachments, Harnesses, Usage, and giving memory back once work settles.
+ * attachments, Harnesses, Usage, terminals (the engine asks which are open in
+ * a Review Checkout), and giving memory back once work settles.
  */
 const daemonServices = Layer.merge(Engine.layer, releaseWhenQuiet()).pipe(
   Layer.provideMerge(
-    Layer.mergeAll(harnesses, CheckpointsLive, WorktreeTrackerLive, AttachmentStoreLive())
+    Layer.mergeAll(
+      harnesses,
+      CheckpointsLive,
+      WorktreeTrackerLive,
+      ReviewCheckoutGitLive,
+      AttachmentStoreLive(),
+      TerminalsDaemonLive
+    )
   ),
   Layer.provideMerge(usageServices),
   Layer.provideMerge(EventStore.layerLive)
@@ -93,9 +102,10 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "git.diff-files",
   "git.diff-turns",
   "git.show",
-  // TODO(M2-C checkout, M2-R rules, M2-V reviewer, M2-A accept): announce "review.checkouts",
-  // "review.risk-summary", "review.ask" and "session.accept" once their behaviour lands.
+  // TODO(M2-R rules, M2-V reviewer, M2-A accept): announce "review.risk-summary",
+  // "review.ask" and "session.accept" once their behaviour lands.
   "session.feedback",
+  "review.checkouts",
   "review.verdicts",
   "attachments.stage",
   "attachments.settings",

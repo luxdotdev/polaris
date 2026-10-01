@@ -16,19 +16,43 @@ export const WATCH_DEBOUNCE_MS = 150;
 /** Safety net: re-read this often even without file-system events (fs events can be dropped). */
 export const WATCH_POLL_MS = 30_000;
 
+interface WorktreeRecord {
+  path: string;
+  head: string;
+  branch: string | null;
+  bare: boolean;
+  lockReason: string | null;
+}
+
+/** One `key value` field of a worktree record. */
+const applyField = (record: WorktreeRecord, key: string, value: string) => {
+  if (key === "HEAD") record.head = value;
+  else if (key === "branch") record.branch = value.replace(/^refs\/heads\//, "");
+  else if (key === "bare") record.bare = true;
+  else if (key === "locked") record.lockReason = value;
+};
+
+const toInfo = (record: WorktreeRecord, isMain: boolean): WorktreeInfo => {
+  const info: WorktreeInfo = {
+    path: record.path,
+    branch: record.branch,
+    head: record.head,
+    isMain,
+  };
+
+  if (record.lockReason === null) return info;
+
+  return { ...info, lockReason: record.lockReason };
+};
+
 /** Parses `git worktree list --porcelain -z`. The first record is the main worktree. */
 export const parseWorktreeList = (output: string): Array<WorktreeInfo> => {
   const worktrees: Array<WorktreeInfo> = [];
-  let current: { path: string; head: string; branch: string | null; bare: boolean } | null = null;
+  let current: WorktreeRecord | null = null;
 
   const flush = () => {
     if (current !== null && !current.bare) {
-      worktrees.push({
-        path: current.path,
-        branch: current.branch,
-        head: current.head,
-        isMain: worktrees.length === 0,
-      });
+      worktrees.push(toInfo(current, worktrees.length === 0));
     } else if (current?.bare) {
       // A bare main repository has no working tree; keep the "first is main" rule for the rest.
       worktrees.length = 0;
@@ -49,11 +73,9 @@ export const parseWorktreeList = (output: string): Array<WorktreeInfo> => {
 
     if (key === "worktree") {
       flush();
-      current = { path: value, head: "", branch: null, bare: false };
+      current = { path: value, head: "", branch: null, bare: false, lockReason: null };
     } else if (current !== null) {
-      if (key === "HEAD") current.head = value;
-      else if (key === "branch") current.branch = value.replace(/^refs\/heads\//, "");
-      else if (key === "bare") current.bare = true;
+      applyField(current, key, value);
     }
   }
 
@@ -73,27 +95,48 @@ const canonical = (path: string): string => {
   }
 };
 
-const samePath = (a: string, b: string): boolean => canonical(a) === canonical(b);
+export const samePath = (a: string, b: string): boolean => canonical(a) === canonical(b);
 
-export const createWorktree = async (options: {
-  readonly repoPath: string;
-  readonly path: string;
-  readonly branch: string;
-  readonly baseRef: string | null;
-}): Promise<WorktreeInfo> => {
+/** A new branch Worktree, or (with `detach`) a detached one at a commit, as a Review Checkout is. */
+export type CreateWorktreeOptions =
+  | {
+      readonly repoPath: string;
+      readonly path: string;
+      readonly branch: string;
+      readonly baseRef: string | null;
+    }
+  | {
+      readonly repoPath: string;
+      readonly path: string;
+      /** The commit to check out with a detached HEAD; no branch is created. */
+      readonly detach: string;
+      /** Extra `-c` settings for `worktree add`, e.g. `core.hooksPath=/dev/null`. */
+      readonly config?: ReadonlyArray<string>;
+    };
+
+const worktreeAddArgs = async (options: CreateWorktreeOptions): Promise<Array<string>> => {
+  if ("detach" in options) {
+    const config = (options.config ?? []).flatMap((setting) => ["-c", setting]);
+
+    return [...config, "worktree", "add", "--detach", options.path, options.detach];
+  }
+
   const { repoPath, path, branch, baseRef } = options;
-  await mkdir(dirname(resolve(repoPath, path)), { recursive: true });
 
   const exists =
     (await runGitRaw(repoPath, ["show-ref", "--verify", "--quiet", `refs/heads/${branch}`]))
       .code === 0;
 
-  const args = exists
+  return exists
     ? // An existing branch is checked out as-is (git refuses if it is checked out elsewhere).
       ["worktree", "add", path, branch]
     : ["worktree", "add", "-b", branch, path, ...(baseRef === null ? [] : [baseRef])];
+};
 
-  await gitText(repoPath, args);
+export const createWorktree = async (options: CreateWorktreeOptions): Promise<WorktreeInfo> => {
+  const { repoPath, path } = options;
+  await mkdir(dirname(resolve(repoPath, path)), { recursive: true });
+  await gitText(repoPath, await worktreeAddArgs(options));
 
   const created = (await listWorktrees(repoPath)).find((w) =>
     samePath(w.path, resolve(repoPath, path))

@@ -20,6 +20,7 @@ import type { CommitResult } from "../store/EventStore.ts";
 import type { ReadModel } from "../store/model.ts";
 import { CONTINUE_PROMPT } from "./decider.ts";
 import { CheckpointPruning } from "./pruning.ts";
+import { ReviewCheckouts } from "./reviewCheckouts.ts";
 import { EngineRuntime } from "./runtime.ts";
 import { Supervisor } from "./supervisor.ts";
 import { TerminalHandoff } from "./terminal.ts";
@@ -50,6 +51,7 @@ const make = Effect.gen(function* () {
   const terminal = yield* TerminalHandoff;
   const worktrees = yield* Worktrees;
   const pruning = yield* CheckpointPruning;
+  const checkouts = yield* ReviewCheckouts;
   const { live } = rt;
 
   const runStartedTurn = (sessionId: SessionId, envelopes: ReadonlyArray<EventEnvelope>) => {
@@ -170,7 +172,10 @@ const make = Effect.gen(function* () {
         record.session.workspaceId === workspace.id ? [record.session.id] : []
       );
 
-      return pruning.onWorkspaceRemoved(workspace, sessionIds);
+      return Effect.andThen(
+        pruning.onWorkspaceRemoved(workspace, sessionIds),
+        checkouts.workspaceRemoved(workspace)
+      );
     });
 
   /** Run the reactor for a command that committed. */
@@ -208,12 +213,12 @@ const make = Effect.gen(function* () {
       // TODO(M2-A accept): restore the working tree for `revertLaterTurns` and record TurnsReverted.
       AcceptTurns: () => Effect.void,
       LinkPullRequest: () => Effect.void,
-      // TODO(M2-C checkout): fetch, create, update and remove the worktree, then signal the
-      // checkout machine (`checkout.fetched` / `blocked` / `removed`) through `store.commit`.
-      OpenReviewCheckout: () => Effect.void,
+      OpenReviewCheckout: (command) => checkouts.opened(command.checkoutId),
+      // A new head makes the checkout stale; updating it is the user's call.
       ReportReviewHead: () => Effect.void,
-      UpdateReviewCheckout: () => Effect.void,
-      RemoveReviewCheckout: () => Effect.void,
+      UpdateReviewCheckout: (command) =>
+        checkouts.updated(command.checkoutId, command.discardChanges, committed.before),
+      RemoveReviewCheckout: (command) => checkouts.removed(command.checkoutId),
       RecordVerdict: () => Effect.void,
     });
 
