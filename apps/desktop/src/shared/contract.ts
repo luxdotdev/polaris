@@ -11,6 +11,13 @@ import {
   GitDiffSpec,
   HarnessKind,
   PermissionMode,
+  ReviewCheckoutId,
+  ReviewContext,
+  ReviewerSettings,
+  ReviewSubject,
+  RiskFindingId,
+  RiskSummaryId,
+  RiskSummaryRef,
   Sequence,
   SessionId,
   Timestamp,
@@ -217,6 +224,25 @@ export const RequestInputs = {
   "attachments.setSettings": onHost({ settings: AttachmentSettings }),
   /** Deletes staged attachments now: one Workspace's, or all of them (null). */
   "attachments.clear": onHost({ workspaceId: Schema.NullOr(WorkspaceId) }),
+  /** Start a Risk Summary (Rules, then the Reviewer), or answer the cached one. */
+  "review.runRiskSummary": onHost({
+    workspaceId: WorkspaceId,
+    subject: ReviewSubject,
+    checkoutId: Schema.NullOr(ReviewCheckoutId),
+    since: Schema.NullOr(Schema.String),
+    refresh: Schema.Boolean,
+    context: Schema.NullOr(ReviewContext),
+  }),
+  "review.riskSummary": onHost({ ref: RiskSummaryRef }),
+  /** A follow-up to the Reviewer, about one Finding or the whole change. */
+  "review.askFinding": onHost({
+    summaryId: RiskSummaryId,
+    findingId: Schema.NullOr(RiskFindingId),
+    question: Schema.String,
+  }),
+  /** Settings → Reviewer: the Host's settings and the Reviewer a Workspace would run. */
+  "review.reviewerSettings": onHost({ workspaceId: Schema.NullOr(WorkspaceId) }),
+  "review.setReviewerSettings": onHost({ settings: ReviewerSettings }),
   /** Probe a remote Host and plan an install or upgrade; installs only with an approved SHA-256. */
   "install.ensure": onHost({ approvedSha256: Schema.NullOr(Schema.String) }),
   /** The literal `Host` aliases in `~/.ssh/config` (Includes followed, wildcards skipped). */

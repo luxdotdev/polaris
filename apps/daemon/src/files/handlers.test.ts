@@ -45,7 +45,9 @@ const WorkspaceIoRpcs = DaemonRpcs.omit(
   "session.acceptPlan",
   "session.draftAccept",
   "session.commitAccepted",
-  "session.pushAccepted"
+  "session.pushAccepted",
+  "review.reviewerSettings",
+  "review.setReviewerSettings"
 );
 
 describe("handler layers", () => {

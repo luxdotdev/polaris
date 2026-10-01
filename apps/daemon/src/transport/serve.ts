@@ -19,6 +19,9 @@ import { CheckpointsLive } from "../git/Checkpoints.ts";
 import { GitRpcsLive } from "../git/GitRpcs.ts";
 import { ReviewCheckoutGitLive } from "../git/ReviewCheckoutGit.ts";
 import { ReviewReadRpcsLive } from "../review/ReviewRpcs.ts";
+import { ReviewerLive, ReviewerPolicyLive, ReviewerSessions } from "../reviewer/index.ts";
+import { ReviewerRpcsLive } from "../reviewer/ReviewerRpcs.ts";
+import { RulesLive } from "../rules/index.ts";
 import { WorktreeTrackerLive } from "../git/WorktreeTracker.ts";
 import { Availability, AvailabilityRpcsLive } from "../harness/availability/index.ts";
 import { HarnessRpcsLive } from "../harness/HarnessRpcs.ts";
@@ -53,9 +56,10 @@ const harnesses = HarnessRegistryLive.pipe(Layer.provide(PlanLimitReporter.layer
 /**
  * The services behind the handlers: the event store and engine, git,
  * attachments, Harnesses, Usage, terminals (the engine asks which are open in
- * a Review Checkout), and giving memory back once work settles.
+ * a Review Checkout), the Rules and the Reviewer (whose sessions' approvals the
+ * engine asks its policy about), and giving memory back once work settles.
  */
-const daemonServices = Layer.merge(Engine.layer, releaseWhenQuiet()).pipe(
+const engineServices = Layer.merge(Engine.layer, releaseWhenQuiet()).pipe(
   Layer.provideMerge(
     Layer.mergeAll(
       harnesses,
@@ -63,12 +67,18 @@ const daemonServices = Layer.merge(Engine.layer, releaseWhenQuiet()).pipe(
       WorktreeTrackerLive,
       ReviewCheckoutGitLive,
       AttachmentStoreLive(),
-      TerminalsDaemonLive
+      TerminalsDaemonLive,
+      ReviewerPolicyLive,
+      RulesLive,
+      Availability.layer()
     )
   ),
   Layer.provideMerge(usageServices),
+  Layer.provideMerge(ReviewerSessions.layer),
   Layer.provideMerge(EventStore.layerLive)
 );
+
+const daemonServices = ReviewerLive().pipe(Layer.provideMerge(engineServices));
 
 /** Every real handler layer the Daemon mounts. Compose new modules' layers here. */
 export const daemonHandlers = Layer.mergeAll(
@@ -77,10 +87,11 @@ export const daemonHandlers = Layer.mergeAll(
   GitRpcsLive,
   AttachmentRpcsLive,
   HarnessRpcsLive,
-  AvailabilityRpcsLive.pipe(Layer.provide(Availability.layer())),
+  AvailabilityRpcsLive,
   UsageRpcsLive,
   ReviewReadRpcsLive,
   AcceptRpcsLive,
+  ReviewerRpcsLive,
   TerminalRpcsLive.pipe(Layer.provide(TerminalsDaemonLive))
 ).pipe(Layer.provide(daemonServices));
 
@@ -104,12 +115,13 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "git.diff-files",
   "git.diff-turns",
   "git.show",
-  // TODO(M2-R rules, M2-V reviewer): announce "review.risk-summary" and
-  // "review.ask" once their behaviour lands.
   "session.feedback",
   "session.accept",
   "review.checkouts",
+  "review.risk-summary",
+  "review.ask",
   "review.verdicts",
+  "review.reviewer-settings",
   "attachments.stage",
   "attachments.settings",
   "terminal",
