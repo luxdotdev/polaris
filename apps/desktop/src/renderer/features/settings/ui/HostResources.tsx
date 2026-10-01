@@ -14,6 +14,7 @@ import { useAllConstellations } from "../../sessions/source.ts";
 import {
   capInForce,
   capLine,
+  isAutomatic,
   holdLine,
   RESOURCE_NAME,
   resourceRows,
@@ -81,7 +82,7 @@ const Stepper = ({
       <Button variant="ghost" size="xs" aria-label="More workers" onClick={() => set(value + 1)}>
         <PlusIcon size={12} />
       </Button>
-      {cap.cap === null ? (
+      {isAutomatic(cap) ? (
         <span className="text-caption text-text-subtle">automatic</span>
       ) : (
         <Button variant="ghost" size="xs" onClick={() => set(null)}>

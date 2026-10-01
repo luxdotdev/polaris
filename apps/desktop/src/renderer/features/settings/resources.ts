@@ -12,7 +12,7 @@ export interface ResourcesClient {
   readonly get: (hostKey: string) => Promise<Result<HostResourcesSnapshot>>;
   readonly declare: (
     hostKey: string,
-    input: { readonly name: string; readonly capacity: number; readonly holdLimitMs?: number }
+    input: { readonly name: string; readonly capacity?: number; readonly holdLimitMs?: number }
   ) => Promise<Result<HostResourcesSnapshot>>;
   readonly remove: (hostKey: string, name: string) => Promise<Result<HostResourcesSnapshot>>;
   readonly release: (hostKey: string, leaseId: string) => Promise<Result<HostResourcesSnapshot>>;

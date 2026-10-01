@@ -3,6 +3,7 @@ import { HostId } from "@polaris/protocol";
 import {
   capLine,
   holdLine,
+  isAutomatic,
   type HostResourcesSnapshot,
   RESOURCE_NAME,
   resourceRows,
@@ -40,7 +41,7 @@ const snapshot: HostResourcesSnapshot = {
   ],
   waiting: [{ resource: "bench", requestId: "r3" }],
   overdueLeaseIds: ["r1"],
-  workerCap: { cap: null, default: 4, working: 2, waiting: 0 },
+  workerCap: { cap: 4, default: 4, working: 2, waiting: 0 },
 };
 
 describe("resourceRows", () => {
@@ -62,6 +63,8 @@ describe("resourceRows", () => {
     );
     expect(rows[1] === undefined ? "" : holdLine(rows[1])).toBe("free");
     expect(capLine(snapshot.workerCap)).toBe("2 of 4 working");
+    expect(isAutomatic(snapshot.workerCap)).toBe(true);
+    expect(isAutomatic({ cap: 2, default: 4, working: 2, waiting: 1 })).toBe(false);
     expect(capLine({ cap: 2, default: 4, working: 2, waiting: 1 })).toBe(
       "2 of 2 working · 1 waiting for a slot"
     );
