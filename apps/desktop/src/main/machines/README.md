@@ -47,7 +47,7 @@ stateDiagram-v2
 `locateBuilds` picks, in order:
 
 1. `POLARIS_DESKTOP_DAEMON_DIST=<dir>` (tests, the smoke test).
-2. **Packaged app:** `<Polaris.app>/Contents/Resources/daemon/` (`process.resourcesPath`), holding `manifest.json` and `<platform>/polaris` exactly as `scripts/build-daemon.ts` writes `apps/daemon/dist`. The packaging step (not built yet) runs `bun run --cwd apps/daemon build` for every platform and copies `apps/daemon/dist` there (`extraResources`), so the app carries all five builds and nothing is downloaded on the Host.
+2. **Packaged app:** `<Polaris.app>/Contents/Resources/daemon/` (`process.resourcesPath`), holding `manifest.json` and `<platform>/polaris` exactly as `scripts/build-daemon.ts` writes `apps/daemon/dist`. The packaging step (`bun run --cwd apps/desktop package`) runs `bun run --cwd apps/daemon build` for every platform and copies `apps/daemon/dist` there (`extraResource`), so the app carries all five builds and nothing is downloaded on the Host.
 3. **Dev:** the repo's `apps/daemon/dist`. A platform missing there is built on demand with `bun scripts/build-daemon.ts <platform>` (a minute or so; the row says so), only on a check the user started.
 
 ## Tests

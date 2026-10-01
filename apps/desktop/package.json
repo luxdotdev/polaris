@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "bun scripts/dev.ts",
     "build": "bun scripts/build.ts",
+    "package": "bun scripts/package.ts",
     "start": "electron .",
     "smoke": "node scripts/smoke.ts --build",
     "typecheck": "tsc -p . && tsc -p src/renderer/tsconfig.app.json && tsc -p src/renderer/tsconfig.test.json",
@@ -36,6 +37,7 @@
   },
   "devDependencies": {
     "@babel/core": "8.0.6",
+    "@electron/packager": "20.3.0",
     "@rolldown/plugin-babel": "0.2.4",
     "@tailwindcss/vite": "4.3.3",
     "@types/react": "19.3.0",
