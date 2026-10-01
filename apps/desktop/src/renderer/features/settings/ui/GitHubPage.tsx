@@ -6,6 +6,7 @@
 import {
   Badge,
   Button,
+  cn,
   DotsIcon,
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +18,7 @@ import {
 import { useEffect, useRef } from "react";
 import type { GitHubAccountsView, PullListView } from "../../../../shared/github.ts";
 import { useApp } from "../../../shell/hooks.ts";
+import { useNow } from "../../../shell/useNow.ts";
 import { polaris } from "../../bridge.ts";
 import { AccountMark, usePulls } from "../../pulls/index.ts";
 import { type AccountRow, accountRows } from "../model/github.ts";
@@ -74,8 +76,15 @@ const Account = ({
   readonly row: AccountRow;
   readonly view: GitHubAccountsView;
 }) => (
-  <div className="px-panel flex h-14 shrink-0 items-center gap-3" data-testid="github-account">
-    <AccountMark index={row.index} size={24} className={row.signedOut ? "opacity-55" : undefined} />
+  <div
+    className="px-panel py-gap flex min-h-[calc(var(--spacing-session-row)+8px)] shrink-0 items-center gap-3"
+    data-testid="github-account"
+  >
+    <AccountMark
+      index={row.index}
+      size={null}
+      className={cn("size-harness-tile", row.signedOut && "opacity-(--opacity-dimmed)")}
+    />
     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
       <span className="flex items-center gap-2">
         <span className="text-body text-text-strong truncate font-medium">{row.login}</span>
@@ -91,6 +100,9 @@ const Account = ({
         {row.caption}
       </span>
     </span>
+    {row.since === null ? null : (
+      <span className="text-caption text-text-subtle shrink-0">{row.since}</span>
+    )}
     {row.signedOut ? (
       <Button size="xs" onClick={startSignIn}>
         Sign in again
@@ -133,7 +145,8 @@ const Body = ({
   readonly view: GitHubAccountsView;
   readonly pulls: PullListView | null;
 }) => {
-  const rows = accountRows(view);
+  const now = useNow();
+  const rows = accountRows(view, now);
 
   return (
     <>
@@ -149,13 +162,19 @@ const Body = ({
       )}
       {view.signIn === null ? <AddRow view={view} /> : <AddGitHubAccount flow={view.signIn} />}
       {view.signIn === null ? null : (
-        <p className="text-caption text-text-subtle flex flex-col gap-1 px-1">
-          <span>
+        <div className="text-caption text-text-subtle flex flex-col gap-1.5 px-1 leading-[18px] text-pretty">
+          <p>
+            GitHub asks you to grant <code className="font-mono">repo</code>, full read and write
+            access to every repository the account can reach (GitHub has no read-only scope for
+            private repositories), and <code className="font-mono">read:org</code>. Polaris uses it
+            to list pull requests, send your reviews and open pull requests you accept; hosts push
+            code with their own git credentials.
+          </p>
+          <p>
             Already signed in to github.com as another account? Open the link in a private window,
-            or switch accounts on GitHub first.
-          </span>
-          <span>Next you choose which owners use the new account.</span>
-        </p>
+            or switch accounts on GitHub first. Next you choose which owners use the new account.
+          </p>
+        </div>
       )}
       {rows.length === 0 ? null : <OwnerTable view={view} pulls={pulls} />}
     </>

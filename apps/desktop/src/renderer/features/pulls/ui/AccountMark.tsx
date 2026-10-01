@@ -1,5 +1,6 @@
 /** An account's mark (Paper R3, S5): a two-stop wash, as the CSP keeps GitHub avatars out. */
 import { cn } from "@polaris/ui";
+import type { CSSProperties } from "react";
 
 /** Paper R3's washes. */
 const MARKS: ReadonlyArray<readonly [string, string]> = [
@@ -16,20 +17,20 @@ export const AccountMark = ({
   className,
 }: {
   readonly index: number;
-  readonly size?: number;
+  /** Pixels; null sizes it by `className` (a density token). */
+  readonly size?: number | null;
   readonly className?: string | undefined;
 }) => {
   const [from, to] = MARKS[index % MARKS.length] ?? [];
 
-  return (
-    <span
-      aria-hidden
-      className={cn("shrink-0 rounded-full", className)}
-      style={{
-        width: size,
-        height: size,
-        backgroundImage: `linear-gradient(in oklab 135deg, ${from} 0%, ${to} 100%)`,
-      }}
-    />
-  );
+  const style: CSSProperties = {
+    backgroundImage: `linear-gradient(in oklab 135deg, ${from} 0%, ${to} 100%)`,
+  };
+
+  if (size !== null) {
+    style.width = size;
+    style.height = size;
+  }
+
+  return <span aria-hidden className={cn("shrink-0 rounded-full", className)} style={style} />;
 };

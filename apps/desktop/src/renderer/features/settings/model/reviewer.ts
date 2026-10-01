@@ -54,12 +54,15 @@ export const prettyModel = (id: string) =>
     .map((part) => (part === "gpt" ? "GPT" : part.charAt(0).toUpperCase() + part.slice(1)))
     .join("-");
 
-/** "Claude Code · Opus 5 · high". */
+/** "high" → "High", as Paper names efforts. */
+export const effortLabel = (effort: string) => effort.charAt(0).toUpperCase() + effort.slice(1);
+
+/** "Claude Code · Opus 5 · High". */
 export const choiceLabel = (choice: Choice, modelName: (id: string) => string = prettyModel) =>
   [
     harnessName(choice.harness),
     choice.model === null ? null : modelName(choice.model),
-    choice.effort,
+    choice.effort === null ? null : effortLabel(choice.effort),
   ]
     .filter((part) => part !== null)
     .join(" · ");
@@ -162,8 +165,8 @@ export const readySummary = (rows: ReadonlyArray<ReviewerHostRow>) => {
 
 /** A Host's settings with a new default, its overrides kept. */
 export const withDefault = (settings: Settings, choice: Choice | null): Settings => ({
+  ...settings,
   default: choice,
-  workspaces: settings.workspaces,
 });
 
 /** A Host's settings with a Workspace's override set, or cleared with null. */
@@ -172,7 +175,7 @@ export const withOverride = (
   workspaceId: string,
   choice: Choice | null
 ): Settings => ({
-  default: settings.default,
+  ...settings,
   workspaces: Object.fromEntries([
     ...Object.entries(settings.workspaces).filter(([id]) => id !== workspaceId),
     ...(choice === null ? [] : [[workspaceId, choice] as const]),
@@ -192,3 +195,41 @@ export const overridesOf = (
         : []
     )
   );
+
+/** "When it runs" (Paper S7): host-wide, written to every Host like the default. */
+export interface RunPolicy {
+  readonly onPullRequests: boolean;
+  readonly onSessions: boolean;
+  /** Ask first above this many changed lines; null never asks. */
+  readonly askAboveLines: number | null;
+}
+
+export const DEFAULT_POLICY: RunPolicy = {
+  onPullRequests: true,
+  onSessions: true,
+  askAboveLines: 2000,
+};
+
+/** The first loaded Host's policy, as `sharedDefault` does for the Reviewer. */
+export const sharedPolicy = (hosts: ReadonlyArray<HostReviewer>): RunPolicy => {
+  const first = hosts.find((h) => h.kind === "loaded");
+
+  return first?.kind === "loaded"
+    ? {
+        onPullRequests: first.settings.onPullRequests,
+        onSessions: first.settings.onSessions,
+        askAboveLines: first.settings.askAboveLines,
+      }
+    : DEFAULT_POLICY;
+};
+
+export const withPolicy = (settings: Settings, patch: Partial<RunPolicy>): Settings => ({
+  ...settings,
+  ...patch,
+});
+
+/** The "Ask first for large changes" choices; null never asks. */
+export const THRESHOLDS: ReadonlyArray<number | null> = [500, 1000, 2000, 5000, 10_000, null];
+
+export const thresholdLabel = (lines: number | null) =>
+  lines === null ? "Never" : `Over ${lines.toLocaleString("en-US")} lines`;

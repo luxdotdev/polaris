@@ -31,7 +31,6 @@ const CopyButton = ({ code }: { readonly code: string }) => {
 
   return (
     <Button
-      className="text-body h-[30px] px-3"
       onClick={() => {
         void polaris()
           .request("clipboard.write", { text: code })
@@ -55,7 +54,7 @@ export const AddGitHubAccount = ({ flow }: { readonly flow: SignInView }) => {
       data-testid="github-sign-in"
       className="rounded-card border-hairline flex flex-col overflow-clip border bg-[light-dark(var(--color-surface-raised),transparent)] shadow-[0_4px_16px_light-dark(#0000000f,#00000040)]"
     >
-      <div className="flex items-center gap-3 px-5 pt-4 pb-1">
+      <div className="pt-panel flex items-center gap-3 px-[calc(var(--spacing-panel)+4px)] pb-1">
         <h2 className="text-heading-sm text-text-strong flex-1 font-medium">
           Add a GitHub account
         </h2>
@@ -67,10 +66,10 @@ export const AddGitHubAccount = ({ flow }: { readonly flow: SignInView }) => {
           Cancel
         </Button>
       </div>
-      <p className="text-body text-text-subtle px-5 pb-4">
+      <p className="text-body text-text-subtle pb-panel px-[calc(var(--spacing-panel)+4px)]">
         Sign in on github.com as the account you want to add, then enter this code.
       </p>
-      <div className="border-hairline bg-surface-sunken flex flex-wrap items-center gap-4 border-y px-5 py-[18px]">
+      <div className="border-hairline bg-surface-sunken flex flex-wrap items-center gap-4 border-y px-[calc(var(--spacing-panel)+4px)] py-[calc(var(--spacing-panel)+2px)]">
         <span
           data-testid="github-user-code"
           className="text-text-strong flex-1 font-mono text-[28px] leading-[34px] font-medium tracking-[0.06em] select-all"
@@ -80,7 +79,6 @@ export const AddGitHubAccount = ({ flow }: { readonly flow: SignInView }) => {
         <CopyButton code={flow.userCode} />
         <Button
           variant="primary"
-          className="text-body h-[30px] px-3"
           disabled={!status.waiting}
           onClick={() =>
             void polaris().request("shell.openExternal", { url: flow.verificationUri })
@@ -90,7 +88,10 @@ export const AddGitHubAccount = ({ flow }: { readonly flow: SignInView }) => {
           <ArrowUpRightIcon size={12} />
         </Button>
       </div>
-      <div className="flex items-center gap-2 px-5 py-3" role="status">
+      <div
+        className="flex items-center gap-2.5 px-[calc(var(--spacing-panel)+4px)] py-[calc(var(--spacing-gap)+4px)]"
+        role="status"
+      >
         {status.waiting ? <WaitGlyph /> : null}
         <span className="text-caption text-text-default flex-1">{status.text}</span>
         {status.aside === null ? (

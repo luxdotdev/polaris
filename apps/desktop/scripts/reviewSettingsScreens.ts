@@ -91,6 +91,16 @@ const shoot = async (page: Page, name: string) => {
   console.log(`review-settings-screens: saved ${name}.png`);
 };
 
+/** Balanced and compact, dark; back to calm after. */
+const densities = async (page: Page, name: string) => {
+  for (const density of ["balanced", "compact"]) {
+    await setAppearance(page, { density });
+    await shoot(page, `${name}-dark-${density}`);
+  }
+
+  await setAppearance(page, { density: "calm" });
+};
+
 /** Both themes, dark first; back to dark after. */
 const pair = async (page: Page, name: string) => {
   await shoot(page, `${name}-dark`);
@@ -145,18 +155,28 @@ try {
   await shoot(page, "S6-add-account-light");
   await setAppearance(page, { theme: "dark" });
   await shoot(page, "S6-add-account-dark");
+  await densities(page, "S6-add-account");
   await page.getByRole("button", { name: "Cancel" }).click();
   await page.getByTestId("github-sign-in").waitFor({ state: "detached", timeout: 10_000 });
 
   // S5: two accounts, an owner mapped, a blocked org, a Workspace override.
   await signIn(page, "mona");
   await signIn(page, "hubot");
+  await signIn(page, "octocat");
+  github.fake.revoke("octocat");
+  await call(page, "github.refresh", {});
+  await page
+    .getByTestId("github-account")
+    .filter({ hasText: "Signed out" })
+    .waitFor({ timeout: 30_000 })
+    .catch(() => console.log("review-settings-screens: octocat not signed out yet"));
   await call(page, "github.routing.setOwner", { owner: "acme", accountId: 2002 });
   await page
     .getByTestId("github-owner")
     .filter({ hasText: "lockedorg" })
     .waitFor({ timeout: 30_000 });
   await pair(page, "S5-github-accounts");
+  await densities(page, "S5-github-accounts");
   await page
     .getByTestId("github-account")
     .filter({ hasText: "hubot" })
@@ -166,17 +186,37 @@ try {
   await shoot(page, "S5-account-menu-dark");
   await page.keyboard.press("Escape");
 
-  // S7: Reviewer, automatic, then Codex GPT-6.1-Sol in one click, then a Workspace override.
+  // S7: Reviewer, automatic, then Codex GPT-6.1-Sol, then a Workspace override.
   await nav(page, "Reviewer");
   await page.getByTestId("reviewer-host").first().waitFor({ timeout: 10_000 });
   await page.waitForTimeout(2_000);
   await pair(page, "S7-reviewer-auto");
-  await page.getByTestId("reviewer-use-sol").click();
+  // The bench Daemons list no GPT-6.1-Sol, so set it on each Host and reopen the page.
+
+  for (const hostKey of ["local", ...MACHINES.map((m) => m.key)]) {
+    await call(page, "review.setReviewerSettings", {
+      hostKey,
+      settings: {
+        default: { harness: "codex", model: "gpt-6.1-sol", effort: "high" },
+        workspaces: {},
+        onPullRequests: true,
+        onSessions: true,
+        askAboveLines: 2000,
+      },
+    });
+  }
+
+  await nav(page, "Sessions");
+  await nav(page, "Reviewer");
   await page
     .getByTestId("reviewer-title")
     .filter({ hasText: "Codex" })
     .waitFor({ timeout: 10_000 });
   await pair(page, "S7-reviewer-sol");
+  await densities(page, "S7-reviewer-sol");
+  await page.getByRole("region", { name: "When it runs" }).scrollIntoViewIfNeeded();
+  await pair(page, "S7-reviewer-runs");
+  await page.getByRole("button", { name: "Edit overrides" }).click();
   await page.getByRole("combobox", { name: /its own reviewer/ }).click();
   await page.getByRole("option", { name: "vault · Linux VM" }).click();
   await page.getByTestId("override").first().waitFor({ timeout: 10_000 });

@@ -3,7 +3,7 @@
  * Finding, Severity, Verdict, Reviewer). Decisions: Linear ENG-185 and
  * ENG-218–230; the protocol README's "Review" section maps them here.
  */
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { HarnessKind } from "./harnesses.ts";
 import {
   ReviewCheckoutId,
@@ -269,6 +269,21 @@ export class ReviewerChoice extends Schema.Class<ReviewerChoice>("ReviewerChoice
 export class ReviewerSettings extends Schema.Class<ReviewerSettings>("ReviewerSettings")({
   default: Schema.NullOr(ReviewerChoice),
   workspaces: Schema.Record(Schema.String, ReviewerChoice),
+  /** When it runs: a pull request when its Review opens (kept per head commit). */
+  onPullRequests: Schema.Boolean.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(true)),
+    Schema.withConstructorDefault(Effect.succeed(true))
+  ),
+  /** When it runs: an Agent Session when opened in Review or its Turns are accepted. */
+  onSessions: Schema.Boolean.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(true)),
+    Schema.withConstructorDefault(Effect.succeed(true))
+  ),
+  /** Ask first above this many changed lines (rules still run; the Reviewer waits for "Run reviewer"); null never asks. */
+  askAboveLines: Schema.NullOr(Schema.Int).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(2000)),
+    Schema.withConstructorDefault(Effect.succeed(2000))
+  ),
 }) {}
 
 /**

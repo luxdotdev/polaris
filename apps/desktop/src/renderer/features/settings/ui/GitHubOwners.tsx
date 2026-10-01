@@ -5,21 +5,30 @@
  */
 import {
   Button,
+  ChevronDownIcon,
   cn,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@polaris/ui";
-import { useState } from "react";
 import type { GitHubAccountsView, PullListView } from "../../../../shared/github.ts";
 import { useApp } from "../../../shell/hooks.ts";
 import { polaris } from "../../bridge.ts";
 import { AccountMark } from "../../pulls/index.ts";
 import { type OwnerRow, ownerTable, workspaceOverrides } from "../model/github.ts";
 import { workspaceLabel } from "../model/workspaces.ts";
-import { useWorkspaceOptions, WorkspaceOverrides } from "./WorkspaceOverrides.tsx";
+import {
+  OverrideStrip,
+  overrideCount,
+  useWorkspaceOptions,
+  WorkspaceOverrides,
+} from "./WorkspaceOverrides.tsx";
 
 /** The Select value that clears a mapping (the default account answers). */
 const DEFAULT = "default";
@@ -46,7 +55,9 @@ const AccountSelect = ({
         aria-label={label}
         className={cn(
           "px-gap w-[180px] gap-2",
-          value === null ? "border-dashed bg-transparent" : "bg-surface-sunken"
+          value === null
+            ? "text-caption text-text-default font-regular data-[placeholder]:text-text-default border-dashed bg-transparent"
+            : "bg-surface-sunken"
         )}
       >
         {index < 0 ? null : <AccountMark index={index} />}
@@ -91,30 +102,39 @@ const AccessLine = ({ row }: { readonly row: OwnerRow }) => {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 pt-1">
+    <div className="flex items-center gap-2 pt-1">
       <span className="text-caption text-text-subtle flex-1">
         {row.owner} hasn&apos;t approved Polaris, so {access.repo} is hidden
       </span>
-      {access.approvalUrl === null ? null : (
-        <Button size="xs" onClick={() => openExternal(access.approvalUrl ?? "")}>
-          Request access
-        </Button>
-      )}
-      {access.ssoUrl === null ? null : (
-        <Button variant="ghost" size="xs" onClick={() => openExternal(access.ssoUrl ?? "")}>
-          Sign in with SSO
-        </Button>
-      )}
-      <Button variant="ghost" size="xs" onClick={() => recheck(access.repo)}>
-        Check again
-      </Button>
+      {/* One action per row (DESIGN.md, Settings); its menu holds the three ways in. */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="xs">
+            Get access
+            <ChevronDownIcon size={12} />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {access.approvalUrl === null ? null : (
+            <DropdownMenuItem onSelect={() => openExternal(access.approvalUrl ?? "")}>
+              Request access from {row.owner}
+            </DropdownMenuItem>
+          )}
+          {access.ssoUrl === null ? null : (
+            <DropdownMenuItem onSelect={() => openExternal(access.ssoUrl ?? "")}>
+              Sign in with SSO
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem onSelect={() => recheck(access.repo)}>Check again</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 };
 
 const Owner = ({ row, view }: { readonly row: OwnerRow; readonly view: GitHubAccountsView }) => (
-  <div className="px-panel flex flex-col py-2" data-testid="github-owner">
-    <div className="flex min-h-7 items-center gap-3">
+  <div className="px-panel py-gap flex flex-col" data-testid="github-owner">
+    <div className="min-h-tree-row flex items-center gap-3">
       <span className="text-body text-text-default flex-1 truncate">{row.owner}</span>
       <span className="text-caption text-text-subtle w-[120px] shrink-0 truncate">
         {row.workspaces}
@@ -139,7 +159,6 @@ const Overrides = ({
   readonly view: GitHubAccountsView;
   readonly pulls: PullListView | null;
 }) => {
-  const [editing, setEditing] = useState(false);
   const options = useWorkspaceOptions().filter((o) => o.isGitRepo);
   const overrides = workspaceOverrides(view, pulls);
   const login = (id: number | null) => view.accounts.find((a) => a.id === id)?.login ?? "another";
@@ -158,51 +177,30 @@ const Overrides = ({
 
   const [first] = overrides;
 
-  const summary =
-    overrides.length === 0
-      ? "No workspace overrides its owner"
-      : `${overrides.length} workspace${overrides.length === 1 ? " overrides its" : "s override their"} owner`;
+  const detail =
+    first === undefined
+      ? null
+      : `${workspaceLabel(options, first.key)} uses ${login(first.accountId)}${first.insteadOf === null ? "" : ` instead of ${login(first.insteadOf)}`}`;
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="bg-surface-sunken rounded-card px-panel flex items-center gap-3 py-3">
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="text-body text-text-default">{summary}</span>
-          {first === undefined ? null : (
-            <span className="text-caption text-text-subtle truncate">
-              {workspaceLabel(options, first.key)} uses {login(first.accountId)}
-              {first.insteadOf === null ? "" : ` instead of ${login(first.insteadOf)}`}
-            </span>
-          )}
-        </span>
-        <Button
-          variant="ghost"
-          size="xs"
-          aria-expanded={editing}
-          onClick={() => setEditing(!editing)}
-        >
-          {editing ? "Done" : "Edit overrides"}
-        </Button>
-      </div>
-      {editing ? (
-        <WorkspaceOverrides
-          label="Workspace accounts"
-          keys={overrides.map((o) => o.key)}
-          options={options}
-          addLabel="A workspace can use another account than its owner's."
-          onAdd={(key) => set(key, view.accounts[0]?.id ?? null)}
-          onRemove={(key) => set(key, null)}
-          control={(key) => (
-            <AccountSelect
-              view={view}
-              value={view.workspaces[key] ?? null}
-              label="Account for this workspace"
-              onChange={(accountId) => set(key, accountId)}
-            />
-          )}
-        />
-      ) : null}
-    </div>
+    <OverrideStrip summary={overrideCount(overrides.length, "its owner")} detail={detail}>
+      <WorkspaceOverrides
+        label="Workspace accounts"
+        keys={overrides.map((o) => o.key)}
+        options={options}
+        addLabel="A workspace can use another account than its owner's."
+        onAdd={(key) => set(key, view.accounts[0]?.id ?? null)}
+        onRemove={(key) => set(key, null)}
+        control={(key) => (
+          <AccountSelect
+            view={view}
+            value={view.workspaces[key] ?? null}
+            label="Account for this workspace"
+            onChange={(accountId) => set(key, accountId)}
+          />
+        )}
+      />
+    </OverrideStrip>
   );
 };
 
@@ -237,8 +235,10 @@ export const OwnerTable = ({
           {table.rows.map((row) => (
             <Owner key={row.owner} row={row} view={view} />
           ))}
-          <div className="px-panel flex h-11 items-center gap-3">
-            <span className="text-body text-text-subtle flex-1">Everyone else</span>
+          <div className="px-panel py-gap flex items-center gap-3">
+            <span className="text-body text-text-subtle min-h-tree-row flex flex-1 items-center">
+              Everyone else
+            </span>
             <span className="text-caption text-text-subtle w-[120px] shrink-0">
               {table.everyoneElse}
             </span>

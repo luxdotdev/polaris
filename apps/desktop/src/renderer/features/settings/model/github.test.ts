@@ -15,6 +15,8 @@ const account = (id: number, login: string, extra: Partial<GitHubAccountView> = 
   scopes: ["repo", "read:org"],
   missingScopes: [],
   state: "ok" as const,
+  signedInAt: null,
+  signedOutAt: null,
   ...extra,
 });
 
@@ -50,9 +52,13 @@ const repo = (
 const labels = (key: string) =>
   ({ local: "Mac Studio", vm: "Linux VM", pi: "Raspberry Pi 4" })[key] ?? key;
 
+const NOW = 1_800_000_000_000;
+
+const DAY = 86_400_000;
+
 describe("GitHub account rows", () => {
   test("the first is the default; each says which owners use it", () => {
-    const rows = accountRows(view());
+    const rows = accountRows(view(), NOW);
 
     expect(rows.map((r) => [r.login, r.isDefault])).toEqual([
       ["lucasdoell", true],
@@ -63,15 +69,48 @@ describe("GitHub account rows", () => {
     expect(rows[1]?.caption).toBe("dcai-labs, work-org");
   });
 
-  test("a revoked account says so and needs a new sign-in", () => {
-    const row = accountRows(view())[2];
+  test("each says when it signed in; a named account leads with its name", () => {
+    const rows = accountRows(
+      view({ accounts: [account(1, "mona", { name: "Mona Lisa", signedInAt: NOW - 21 * DAY })] }),
+      NOW
+    );
+
+    expect(rows[0]).toMatchObject({
+      since: "signed in 3 weeks ago",
+      caption: "Mona Lisa · used for every owner",
+    });
+  });
+
+  test("a revoked account says when, and needs a new sign-in", () => {
+    const [, , revoked] = accountRows(
+      view({
+        accounts: [
+          account(1, "a"),
+          account(2, "b"),
+          account(3, "c", { state: "signed-out", signedOutAt: NOW - 2 * DAY, signedInAt: 0 }),
+        ],
+      }),
+      NOW
+    );
+
+    expect(revoked).toMatchObject({
+      since: null,
+      caption: "Signed out · GitHub refused its token 2 days ago",
+    });
+  });
+
+  test("an older revoked account says so and needs a new sign-in", () => {
+    const row = accountRows(view(), NOW)[2];
 
     expect(row?.signedOut).toBe(true);
     expect(row?.caption).toContain("Signed out");
   });
 
   test("an account without repo access says what it can't see", () => {
-    const rows = accountRows(view({ accounts: [account(1, "a", { missingScopes: ["repo"] })] }));
+    const rows = accountRows(
+      view({ accounts: [account(1, "a", { missingScopes: ["repo"] })] }),
+      NOW
+    );
 
     expect(rows[0]?.caption).toContain("no repo access");
   });

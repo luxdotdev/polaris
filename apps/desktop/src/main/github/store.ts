@@ -28,6 +28,13 @@ export const AccountRecord = Schema.Struct({
   avatarUrl: Schema.String,
   scopes: Schema.Array(Schema.String),
   signedOut: Schema.Boolean,
+  /** Epoch ms of the last sign-in, and of GitHub refusing its token; null in older files. */
+  signedInAt: Schema.NullOr(Schema.Number).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(null))
+  ),
+  signedOutAt: Schema.NullOr(Schema.Number).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(null))
+  ),
 });
 
 export type AccountRecord = typeof AccountRecord.Type;

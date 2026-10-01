@@ -40,6 +40,8 @@ const viewOf = (
     scopes: a.scopes,
     missingScopes: missingScopes(a.scopes),
     state: a.signedOut ? "signed-out" : "ok",
+    signedInAt: a.signedInAt,
+    signedOutAt: a.signedOutAt,
   })),
   signIn,
   owners: file.owners,
@@ -96,10 +98,16 @@ export const openAccounts = Effect.fn("openAccounts")(function* (input: Accounts
     });
 
   const signedOut = (accountId: number) =>
-    change((current) => ({
-      ...current,
-      accounts: current.accounts.map((a) => (a.id === accountId ? { ...a, signedOut: true } : a)),
-    })).pipe(Effect.ignore);
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis;
+
+      yield* change((current) => ({
+        ...current,
+        accounts: current.accounts.map((a) =>
+          a.id === accountId && !a.signedOut ? { ...a, signedOut: true, signedOutAt: now } : a
+        ),
+      }));
+    }).pipe(Effect.ignore);
 
   /** Stores a new account (or signs an existing one back in) with its first tokens. */
   const welcome = (tokens: TokenPair, scopes: ReadonlyArray<string>, credentials: Credentials) =>
@@ -114,6 +122,8 @@ export const openAccounts = Effect.fn("openAccounts")(function* (input: Accounts
       if (user.status !== "ok")
         return yield* Effect.fail(new GitHubStorageError({ message: "no user" }));
       yield* credentials.put(user.value.id, tokens);
+      const now = yield* Clock.currentTimeMillis;
+
       yield* change((current) =>
         withAccount(current, {
           id: user.value.id,
@@ -122,6 +132,8 @@ export const openAccounts = Effect.fn("openAccounts")(function* (input: Accounts
           avatarUrl: user.value.avatar_url,
           scopes,
           signedOut: false,
+          signedInAt: now,
+          signedOutAt: null,
         })
       );
     });

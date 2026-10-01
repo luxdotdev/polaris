@@ -183,6 +183,8 @@ const account = (id: number, login: string) => ({
   scopes: ["repo", "read:org"],
   missingScopes: [],
   state: "ok" as const,
+  signedInAt: null,
+  signedOutAt: null,
 });
 
 export const ACCOUNTS: GitHubAccountsView = {

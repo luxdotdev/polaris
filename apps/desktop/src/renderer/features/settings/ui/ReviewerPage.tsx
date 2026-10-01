@@ -1,9 +1,9 @@
 /**
  * Settings → Reviewer (Paper S7; ENG-222): the Reviewer every Host runs (Harness, Model,
- * effort, or automatic), whether it can run on each Host, and per-Workspace overrides.
- * The settings live on each Host; the default is written to all of them.
+ * effort, or automatic), whether it can run on each Host, its Workspace overrides, when it
+ * runs, and what it checks against. Settings live on each Host; changes go to all of them.
  */
-import { Button, PixelPolarisIcon, Tile } from "@polaris/ui";
+import { PixelPolarisIcon, Tile } from "@polaris/ui";
 import { useState } from "react";
 import { slots } from "../../../app/slots.tsx";
 import { useApp } from "../../../shell/hooks.ts";
@@ -18,20 +18,28 @@ import {
   type ReviewerHostRow,
   reviewerHostRows,
   reviewerTitle,
-  sameChoice,
   type Settings,
   sharedDefault,
+  sharedPolicy,
   SOL,
   withDefault,
   withOverride,
+  withPolicy,
 } from "../model/reviewer.ts";
 import { sectionInfo } from "../model/sections.ts";
 import { Action, GLYPHS } from "./harnessRow.tsx";
 import { useHostProbes } from "./hostProbes.ts";
-import { Column, FooterStrip, Heading, PageHeader } from "./parts.tsx";
+import { workspaceLabel } from "../model/workspaces.ts";
+import { Column, PageHeader } from "./parts.tsx";
 import { ReviewerChoice, useModelName } from "./ReviewerChoice.tsx";
+import { ChecksAgainst, WhenItRuns } from "./ReviewerRuns.tsx";
 import { useReviewers } from "./useReviewers.ts";
-import { useWorkspaceOptions, WorkspaceOverrides } from "./WorkspaceOverrides.tsx";
+import {
+  OverrideStrip,
+  overrideCount,
+  useWorkspaceOptions,
+  WorkspaceOverrides,
+} from "./WorkspaceOverrides.tsx";
 
 const HostLine = ({
   row,
@@ -48,7 +56,7 @@ const HostLine = ({
 
   return (
     <div className="flex flex-col" data-testid="reviewer-host">
-      <div className="px-panel flex min-h-10 items-center gap-3 py-1.5">
+      <div className="px-panel flex min-h-[calc(var(--spacing-row)+8px)] items-center gap-3 py-[calc(var(--spacing-gap)-2px)]">
         <span className="text-body text-text-default w-[156px] shrink-0 truncate font-medium">
           {row.hostLabel}
         </span>
@@ -64,7 +72,7 @@ const HostLine = ({
           )}
         </span>
         {action === null || row.row?.ready ? (
-          <span className="text-caption text-text-faint shrink-0">{row.aside}</span>
+          <span className="text-caption text-text-subtle shrink-0">{row.aside}</span>
         ) : (
           <Action action={action} onSignIn={onSignIn} />
         )}
@@ -116,7 +124,7 @@ const ReviewerCard = ({
       data-testid="reviewer-card"
       className="rounded-card border-hairline divide-hairline flex flex-col divide-y overflow-clip border bg-[light-dark(var(--color-surface-raised),transparent)]"
     >
-      <div className="px-panel flex items-center gap-3 py-3.5">
+      <div className="px-panel flex items-center gap-3 py-[calc(var(--spacing-panel)-2px)]">
         <Tile hue="starlight" size={32}>
           <PixelPolarisIcon size={16} className="text-starlight" />
         </Tile>
@@ -127,7 +135,7 @@ const ReviewerCard = ({
           >
             {reviewerTitle(choice, modelName)}
           </span>
-          <span className="text-caption text-text-subtle truncate">
+          <span className="text-caption text-text-subtle text-pretty">
             {choice === null
               ? AUTO_CAPTION
               : "For every change, whichever harness made it · read-only"}
@@ -135,7 +143,7 @@ const ReviewerCard = ({
         </span>
         <span className="text-caption text-text-subtle shrink-0">{readySummary(rows)}</span>
       </div>
-      <div className="px-panel flex flex-col gap-2 py-3">
+      <div className="px-panel flex flex-col gap-2 py-[calc(var(--spacing-gap)+4px)]">
         <ReviewerChoice value={choice} onChange={saveAll} modelHost={modelHost} allowAuto />
         {differs ? (
           <span className="text-caption text-text-subtle">
@@ -157,16 +165,6 @@ const ReviewerCard = ({
           />
         ))}
       </div>
-      {sameChoice(choice, SOL) ? null : (
-        <FooterStrip>
-          <span className="text-caption text-text-subtle flex-1">
-            Sets the same reviewer on every host.
-          </span>
-          <Button size="xs" onClick={() => saveAll(SOL)} data-testid="reviewer-use-sol">
-            Use {choiceLabel(SOL)}
-          </Button>
-        </FooterStrip>
-      )}
     </section>
   );
 };
@@ -200,17 +198,22 @@ const Overrides = ({
       save(hostKey, withOverride(reviewer.settings, workspaceId, next));
   };
 
+  const keys = Object.keys(overrides).toSorted();
+  const [first] = keys;
+  const firstChoice = first === undefined ? undefined : overrides[first];
+
+  const detail =
+    first === undefined || firstChoice === undefined
+      ? null
+      : `${workspaceLabel(options, first)} reviews with ${choiceLabel(firstChoice)}`;
+
   return (
-    <section aria-label="Workspace overrides" className="flex flex-col gap-3">
-      <Heading>Workspace overrides</Heading>
-      <p className="text-body text-text-subtle -mt-1.5">
-        A workspace can use its own reviewer, kept on the host it lives on.
-      </p>
+    <OverrideStrip summary={overrideCount(keys.length, "the reviewer")} detail={detail}>
       <WorkspaceOverrides
         label="Workspace reviewers"
-        keys={Object.keys(overrides).toSorted()}
+        keys={keys}
         options={options}
-        addLabel="Choose a workspace to give it its own reviewer."
+        addLabel="A workspace can use its own reviewer, kept on its host."
         onAdd={(key) => set(key, choice ?? SOL)}
         onRemove={(key) => set(key, null)}
         control={(key) => (
@@ -222,7 +225,7 @@ const Overrides = ({
           />
         )}
       />
-    </section>
+    </OverrideStrip>
   );
 };
 
@@ -230,17 +233,26 @@ export const ReviewerPage = () => {
   const info = sectionInfo("reviewer");
   const { reviewers, save } = useReviewers();
 
-  const saveAll = (choice: Choice | null) => {
+  /** Host-wide settings go to every Host that has a Reviewer. */
+  const saveAll = (change: (settings: Settings) => Settings) => {
     for (const [hostKey, reviewer] of Object.entries(reviewers)) {
-      if (reviewer.kind === "loaded") save(hostKey, withDefault(reviewer.settings, choice));
+      if (reviewer.kind === "loaded") save(hostKey, change(reviewer.settings));
     }
   };
 
   return (
     <Column>
       <PageHeader title={info.title} blurb={info.blurb} />
-      <ReviewerCard reviewers={reviewers} saveAll={saveAll} />
+      <ReviewerCard
+        reviewers={reviewers}
+        saveAll={(choice) => saveAll((settings) => withDefault(settings, choice))}
+      />
       <Overrides reviewers={reviewers} save={save} />
+      <WhenItRuns
+        policy={sharedPolicy(Object.values(reviewers))}
+        onChange={(patch) => saveAll((settings) => withPolicy(settings, patch))}
+      />
+      <ChecksAgainst />
     </Column>
   );
 };

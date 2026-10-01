@@ -1,7 +1,7 @@
 /**
  * Settings for Review in the smoke test, after the GitHub fake signed mona in: GitHub
- * accounts lists mona as the default and lockedorg's access fix; Reviewer sets Codex
- * GPT-6.1-Sol on the Host in one click (restored after); Sessions gives the smoke
+ * accounts lists mona as the default and lockedorg's access fix; Reviewer's "When it runs"
+ * reaches the Host's settings (restored after); Sessions gives the smoke
  * Workspace its own accept-branch setting, then removes it.
  */
 import type { Page } from "playwright-core";
@@ -45,7 +45,7 @@ const github = async (page: Page, step: ReviewSettingsFlowInput["step"]) => {
   await page
     .getByTestId("github-owner")
     .filter({ hasText: "lockedorg" })
-    .getByRole("button", { name: "Check again" })
+    .getByRole("button", { name: "Get access" })
     .waitFor({ timeout: 10_000 });
   step("Settings → GitHub accounts: mona is the default; lockedorg offers its access fix");
 };
@@ -58,18 +58,21 @@ const reviewer = async (page: Page, step: ReviewSettingsFlowInput["step"]) => {
 
   await nav(page, "Reviewer");
   await page.getByTestId("reviewer-host").first().waitFor({ timeout: 10_000 });
-  await page.getByTestId("reviewer-use-sol").click();
+  await page.getByRole("switch", { name: "When a pull request opens in Review" }).click();
+  await page.getByRole("combobox", { name: "Ask first for large changes" }).click();
+  await page.getByRole("option", { name: "Over 5,000 lines" }).click();
   await until(async () => {
     const now = await call(page, "review.reviewerSettings", {
       hostKey: "local",
       workspaceId: null,
     });
 
-    return now.settings.default?.model === "gpt-6.1-sol";
-  }, "the Reviewer default set to gpt-6.1-sol");
-  await page.getByTestId("reviewer-title").filter({ hasText: "Codex" }).waitFor({ timeout: 5_000 });
+    return !now.settings.onPullRequests && now.settings.askAboveLines === 5000;
+  }, "pull requests off and asking first over 5,000 lines on the host");
   await call(page, "review.setReviewerSettings", { hostKey: "local", settings: before.settings });
-  step("Settings → Reviewer: one click set Codex · GPT-6.1-Sol on the host (restored after)");
+  step(
+    "Settings → Reviewer: pull requests off, ask first over 5,000 lines, on the host (restored after)"
+  );
 };
 
 const acceptBranch = async (page: Page, step: ReviewSettingsFlowInput["step"]) => {

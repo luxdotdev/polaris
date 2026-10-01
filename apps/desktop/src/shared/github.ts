@@ -41,6 +41,10 @@ export interface GitHubAccountView {
   readonly missingScopes: ReadonlyArray<string>;
   /** `signed-out`: the token was revoked or its refresh token expired; sign in again. */
   readonly state: AccountState;
+  /** Epoch ms of the last sign-in; null for accounts added before Polaris kept it. */
+  readonly signedInAt: number | null;
+  /** Epoch ms GitHub refused its token, while `signed-out`. */
+  readonly signedOutAt: number | null;
 }
 
 export type SignInFailure = "expired" | "denied" | "disabled" | "network" | "unavailable";

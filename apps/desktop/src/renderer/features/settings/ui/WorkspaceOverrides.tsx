@@ -3,6 +3,7 @@
  * overridden Workspace with its control and a remove button, then a picker to add one.
  */
 import {
+  Button,
   CloseIcon,
   IconButton,
   Select,
@@ -11,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@polaris/ui";
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { useApp } from "../../../shell/hooks.ts";
 import { type WorkspaceOption, workspaceOptions } from "../model/workspaces.ts";
 import { Group } from "./parts.tsx";
@@ -96,3 +97,49 @@ export const WorkspaceOverrides = ({
     </Group>
   );
 };
+
+/**
+ * The sunken strip that counts a page's Workspace overrides (Paper S5), with their
+ * editor inline beneath it (DESIGN.md, Settings: overrides are edited in place).
+ */
+export const OverrideStrip = ({
+  summary,
+  detail,
+  children,
+}: {
+  readonly summary: string;
+  /** One example, e.g. "warehouse on Linux VM uses lucasdoell instead of lmd-work". */
+  readonly detail: string | null;
+  /** The inline editor, shown on "Edit overrides". */
+  readonly children: ReactNode;
+}) => {
+  const [editing, setEditing] = useState(false);
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="bg-surface-sunken rounded-card px-panel flex items-center gap-3 py-[calc(var(--spacing-gap)+4px)]">
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="text-body text-text-default">{summary}</span>
+          {detail === null ? null : (
+            <span className="text-caption text-text-subtle truncate">{detail}</span>
+          )}
+        </span>
+        <Button
+          variant="ghost"
+          size="xs"
+          aria-expanded={editing}
+          onClick={() => setEditing(!editing)}
+        >
+          {editing ? "Done" : "Edit overrides"}
+        </Button>
+      </div>
+      {editing ? children : null}
+    </div>
+  );
+};
+
+/** "1 workspace overrides its owner" / "No workspace overrides its owner". */
+export const overrideCount = (n: number, what: string) =>
+  n === 0
+    ? `No workspace overrides ${what}`
+    : `${n} workspace${n === 1 ? " overrides" : "s override"} ${what}`;

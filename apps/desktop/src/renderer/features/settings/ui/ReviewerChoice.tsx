@@ -14,7 +14,7 @@ import {
   Tile,
 } from "@polaris/ui";
 import { choose, type ModelData, shortlist, useHarnessModels } from "../../harness/index.ts";
-import { type Choice, prettyModel } from "../model/reviewer.ts";
+import { type Choice, effortLabel, prettyModel } from "../model/reviewer.ts";
 
 const AUTO = "auto";
 
@@ -41,7 +41,10 @@ const Chip = ({
   readonly disabled?: boolean;
 }) => (
   <Select value={value} onValueChange={onChange} disabled={disabled}>
-    <SelectTrigger aria-label={label} className="px-row-x bg-surface-sunken h-[30px] gap-2">
+    <SelectTrigger
+      aria-label={label}
+      className="px-row-x bg-surface-sunken h-[calc(var(--spacing-tree-row)+2px)] gap-2"
+    >
       <span className="text-caption text-text-subtle">{label}</span>
       {lead}
       <span className="text-body text-text-strong font-medium">
@@ -113,7 +116,7 @@ const ModelChips = ({
         disabled={efforts.length === 0}
         options={[
           { value: DEFAULT, label: "Default" },
-          ...efforts.map((e) => ({ value: e, label: e })),
+          ...efforts.map((e) => ({ value: e, label: effortLabel(e) })),
         ]}
         onChange={(v) => onChange({ ...choice, effort: v === DEFAULT ? null : v })}
       />

@@ -20,14 +20,36 @@ export interface AccountRow {
   readonly signedOut: boolean;
   /** One caption line: what it's used for, or why it needs a new sign-in. */
   readonly caption: string;
+  /** "signed in 3 weeks ago"; null when Polaris didn't keep the time, or signed out. */
+  readonly since: string | null;
 }
+
+const unit = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"} ago`;
+
+/** "just now", "5 minutes ago", "2 days ago", "3 weeks ago", "4 months ago". */
+export const timeAgo = (ms: number) => {
+  const minutes = Math.floor(Math.max(0, ms) / 60_000);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (minutes < 1) return "just now";
+
+  if (hours < 1) return unit(minutes, "minute");
+
+  if (days < 1) return unit(hours, "hour");
+
+  if (days < 14) return unit(days, "day");
+
+  return days < 60 ? unit(Math.floor(days / 7), "week") : unit(Math.floor(days / 30), "month");
+};
 
 const list = (names: ReadonlyArray<string>) =>
   names.length <= 3
     ? names.join(", ")
     : `${names.slice(0, 3).join(", ")} and ${names.length - 3} more`;
 
-const usedFor = (view: GitHubAccountsView, id: number, isDefault: boolean) => {
+/** After a "Name · " lead, the default's words start lowercase. */
+const usedFor = (view: GitHubAccountsView, id: number, isDefault: boolean, afterLead: boolean) => {
   const owners = Object.entries(view.owners)
     .filter(([, account]) => account === id)
     .map(([owner]) => owner)
@@ -35,14 +57,14 @@ const usedFor = (view: GitHubAccountsView, id: number, isDefault: boolean) => {
 
   if (isDefault) {
     return owners.length === 0
-      ? "Used for every owner"
+      ? `${afterLead ? "u" : "U"}sed for every owner`
       : `${list(owners)} · and every owner not listed below`;
   }
 
   return owners.length === 0 ? "Not used for any owner yet" : list(owners);
 };
 
-export const accountRows = (view: GitHubAccountsView): ReadonlyArray<AccountRow> =>
+export const accountRows = (view: GitHubAccountsView, now: number): ReadonlyArray<AccountRow> =>
   view.accounts.map((account, index) => {
     const isDefault = index === 0;
     const signedOut = account.state === "signed-out";
@@ -51,12 +73,17 @@ export const accountRows = (view: GitHubAccountsView): ReadonlyArray<AccountRow>
       account.name === null || account.name === account.login ? "" : `${account.name} · `;
 
     const caption = signedOut
-      ? "Signed out · GitHub no longer accepts its token"
+      ? `Signed out · GitHub refused its token${account.signedOutAt === null ? "" : ` ${timeAgo(now - account.signedOutAt)}`}`
       : account.missingScopes.length > 0
         ? `Can't see private repos (no ${account.missingScopes.join(", ")} access) · sign in again`
-        : `${lead}${usedFor(view, account.id, isDefault)}`;
+        : `${lead}${usedFor(view, account.id, isDefault, lead !== "")}`;
 
-    return { id: account.id, login: account.login, index, isDefault, signedOut, caption };
+    const since =
+      signedOut || account.signedInAt === null
+        ? null
+        : `signed in ${timeAgo(now - account.signedInAt)}`;
+
+    return { id: account.id, login: account.login, index, isDefault, signedOut, caption, since };
   });
 
 /** An owner's worst access problem, with what fixes it. */

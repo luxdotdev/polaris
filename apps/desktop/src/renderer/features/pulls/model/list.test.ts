@@ -74,6 +74,8 @@ const account = (id: number, login: string) => ({
   scopes: [],
   missingScopes: [],
   state: "ok" as const,
+  signedInAt: null,
+  signedOutAt: null,
 });
 
 describe("listModel", () => {
