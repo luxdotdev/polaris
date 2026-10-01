@@ -1,6 +1,6 @@
 /**
  * Needs You's "Reviews" group (ENG-229): pull requests that request the user's review,
- * apart from the sessions waiting on them. A card per pull request; Review opens it.
+ * apart from the sessions waiting on them. A card per pull request; a click opens it in Review.
  */
 import { useShellActions } from "../../../shell/hooks.ts";
 import { age } from "../../../shell/copy.ts";
@@ -22,37 +22,27 @@ const Card = ({ row, now }: { readonly row: PullRowView; readonly now: number })
   const open = () =>
     openPull(actions, { repo: { owner, name }, number: row.number, pullId: row.id });
 
-  const detail = [`#${row.number}`, row.repo, row.author?.login, age(row.updatedAt, now)]
+  const detail = [`#${row.number}`, name, row.author?.login, age(row.updatedAt, now)]
     .filter((part) => part !== undefined)
     .join(" · ");
 
   return (
-    <div
+    <button
+      type="button"
       data-testid="review-card"
       data-pull={row.id}
-      className="rounded-card border-hairline bg-surface-raised flex items-center gap-2.5 border px-3 py-2.5"
+      onClick={open}
+      aria-label={`Review ${row.title}, ${row.repo} #${row.number}`}
+      className="rounded-card border-hairline bg-surface-raised hover:bg-fill-hover flex w-full cursor-default items-start gap-2.5 border px-3 py-2.5 text-left"
     >
       <span className="bg-surface-sunken text-text-subtle flex size-7 shrink-0 items-center justify-center rounded-[8px]">
         <PullGlyph />
       </span>
-      <div className="flex min-w-0 flex-1 flex-col gap-px">
-        <button
-          type="button"
-          onClick={open}
-          className="text-label text-text-strong hover:decoration-text-faint cursor-default truncate text-left hover:underline hover:underline-offset-2"
-        >
-          {row.title}
-        </button>
-        <p className="text-caption text-text-subtle truncate">{detail}</p>
-      </div>
-      <button
-        type="button"
-        onClick={open}
-        className="rounded-control text-caption text-text-default hover:bg-fill-hover h-6 shrink-0 cursor-default px-1.5 font-medium"
-      >
-        Review
-      </button>
-    </div>
+      <span className="flex min-w-0 flex-1 flex-col gap-px">
+        <span className="text-label text-text-strong line-clamp-2">{row.title}</span>
+        <span className="text-caption text-text-subtle truncate">{detail}</span>
+      </span>
+    </button>
   );
 };
 
