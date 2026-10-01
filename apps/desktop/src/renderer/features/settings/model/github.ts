@@ -50,7 +50,7 @@ const list = (names: ReadonlyArray<string>) =>
     ? names.join(", ")
     : `${names.slice(0, 3).join(", ")} and ${names.length - 3} more`;
 
-/** After a "Name · " lead, the default's words start lowercase. */
+/** After a "server · Name · " lead, the words start lowercase. */
 const usedFor = (view: GitHubAccountsView, id: number, isDefault: boolean, afterLead: boolean) => {
   const owners = Object.entries(view.owners)
     .filter(([, account]) => account === id)
@@ -63,7 +63,7 @@ const usedFor = (view: GitHubAccountsView, id: number, isDefault: boolean, after
       : `${list(owners)} · and every owner not listed below`;
   }
 
-  return owners.length === 0 ? "Not used for any owner yet" : list(owners);
+  return owners.length === 0 ? `${afterLead ? "n" : "N"}ot used for any owner yet` : list(owners);
 };
 
 export const accountRows = (view: GitHubAccountsView, now: number): ReadonlyArray<AccountRow> =>
@@ -77,7 +77,7 @@ export const accountRows = (view: GitHubAccountsView, now: number): ReadonlyArra
     const lead = `${server}${account.name === null || account.name === account.login ? "" : `${account.name} · `}`;
 
     const caption = signedOut
-      ? `Signed out · GitHub refused its token${account.signedOutAt === null ? "" : ` ${timeAgo(now - account.signedOutAt)}`}`
+      ? `Signed out · ${server === "" ? "GitHub" : account.host} refused its token${account.signedOutAt === null ? "" : ` ${timeAgo(now - account.signedOutAt)}`}`
       : account.missingScopes.length > 0
         ? `Can't see private repos (no ${account.missingScopes.join(", ")} access) · sign in again`
         : `${lead}${usedFor(view, account.id, isDefault, lead !== "")}`;
@@ -253,7 +253,7 @@ export const signInStatus = (flow: SignInView, now: number): SignInStatus => {
 
   return {
     waiting: true,
-    text: "Waiting for GitHub",
+    text: `Waiting for ${flow.host === undefined || flow.host === "github.com" ? "GitHub" : flow.host}`,
     aside: `code expires in ${countdown(flow.expiresAt, now)}`,
   };
 };

@@ -64,6 +64,9 @@ const setTheme = async (page: Page, theme: "dark" | "light") => {
 };
 
 const shoot = async (page: Page, name: string) => {
+  // A pointer left over a ghost button would draw its hover fill.
+  await page.mouse.move(0, 0);
+
   for (const theme of ["dark", "light"] as const) {
     await setTheme(page, theme);
     await page.screenshot({ path: join(out, `${name}-${theme}.png`) });

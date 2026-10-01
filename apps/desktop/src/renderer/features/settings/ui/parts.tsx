@@ -78,9 +78,9 @@ export const SettingRow = ({
   /** The control's id, so the name labels it. */
   readonly htmlFor?: string;
 }) => (
-  <div className="px-panel flex items-center gap-4 py-3">
+  <div className="px-panel flex items-center gap-4 py-[calc(var(--spacing-gap)+4px)]">
     <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-      <label htmlFor={htmlFor} className="text-label text-text-strong">
+      <label htmlFor={htmlFor} className="text-label font-regular text-text-default">
         {title}
       </label>
       <span className="text-caption text-text-subtle">{caption}</span>
@@ -91,7 +91,7 @@ export const SettingRow = ({
 
 /** The sunken strip at a group's foot for secondary defaults. */
 export const FooterStrip = ({ children }: { readonly children: ReactNode }) => (
-  <div className="bg-surface-sunken px-panel flex flex-wrap items-center gap-x-4 gap-y-2 py-2.5">
+  <div className="bg-surface-sunken px-panel gap-y-gap flex flex-wrap items-center gap-x-4 py-[calc(var(--spacing-gap)+2px)]">
     {children}
   </div>
 );

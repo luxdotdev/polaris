@@ -93,17 +93,24 @@ const Account = ({
     />
     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
       <span className="flex items-center gap-2">
-        <span className="text-body text-text-strong truncate font-medium">{row.login}</span>
+        <span
+          className={cn(
+            "text-body truncate font-medium",
+            row.signedOut ? "text-text-default" : "text-text-strong"
+          )}
+        >
+          {row.login}
+        </span>
         {row.isDefault ? <Badge className="h-[18px] text-[11px]">Default</Badge> : null}
       </span>
       <span
-        className={
-          row.signedOut
-            ? "text-caption text-text-default truncate"
-            : "text-caption text-text-subtle truncate"
-        }
+        className={cn(
+          "text-caption flex min-w-0 items-center gap-1.5",
+          row.signedOut ? "text-text-default" : "text-text-subtle"
+        )}
       >
-        {row.caption}
+        {row.signedOut ? <WarnGlyph /> : null}
+        <span className="truncate">{row.caption}</span>
       </span>
     </span>
     {row.since === null ? null : (
@@ -116,6 +123,20 @@ const Account = ({
     ) : null}
     <AccountMenu row={row} view={view} />
   </div>
+);
+
+/** Paper S5's small neutral triangle before a signed-out caption (never a signal colour). */
+const WarnGlyph = () => (
+  <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden className="shrink-0">
+    <path
+      d="M8 2.5l6 10.5H2z"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinejoin="round"
+    />
+    <path d="M8 7v2.5M8 11.2v.3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+  </svg>
 );
 
 const AddRow = ({ view }: { readonly view: GitHubAccountsView }) => (
@@ -178,8 +199,8 @@ const Body = ({
           </p>
           <p>
             Already signed in to {view.signIn?.host ?? "github.com"} as another account? Open the
-            link in a private window, or switch accounts on GitHub first. Next you choose which
-            owners use the new account.
+            link in a private window, or switch accounts on {view.signIn?.host ?? "GitHub"} first.
+            Next you choose which owners use the new account.
           </p>
         </div>
       )}

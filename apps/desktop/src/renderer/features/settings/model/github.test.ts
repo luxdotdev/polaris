@@ -99,6 +99,27 @@ describe("GitHub account rows", () => {
     });
   });
 
+  test("an Enterprise account leads with its server; the words after stay lowercase", () => {
+    const ghe = account(9, "mona-ent", { name: "Mona at Acme", host: "ghe.acme.test" });
+    const [, row] = accountRows(view({ accounts: [account(1, "mona"), ghe] }), NOW);
+
+    expect(row?.caption).toBe("ghe.acme.test · Mona at Acme · not used for any owner yet");
+  });
+
+  test("an Enterprise sign-in waits for its server, not GitHub", () => {
+    const flow = {
+      flowId: "f",
+      userCode: "ABCD-1001",
+      verificationUri: "https://ghe.acme.test/login/device",
+      expiresAt: NOW + 60_000,
+      state: "waiting" as const,
+      failure: null,
+      host: "ghe.acme.test",
+    };
+
+    expect(signInStatus(flow, NOW).text).toBe("Waiting for ghe.acme.test");
+  });
+
   test("an older revoked account says so and needs a new sign-in", () => {
     const row = accountRows(view(), NOW)[2];
 

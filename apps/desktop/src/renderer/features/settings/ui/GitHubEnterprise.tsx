@@ -62,11 +62,15 @@ const Server = ({
   readonly server: GitHubHostView;
   readonly view: GitHubAccountsView;
 }) => (
-  <div className="px-panel flex items-center gap-3 py-3" data-testid="github-server">
+  <div
+    className="px-panel flex items-center gap-3 py-[calc(var(--spacing-gap)+4px)]"
+    data-testid="github-server"
+  >
     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
       <span className="text-body text-text-strong truncate font-medium">{server.host}</span>
       <span className="text-caption text-text-subtle truncate">
-        {accountCount(view, server.host)} · OAuth App {server.clientId}
+        {accountCount(view, server.host)} · OAuth App{" "}
+        <span className="font-mono">{server.clientId}</span>
       </span>
     </span>
     <Button
@@ -97,7 +101,7 @@ const AddServerForm = ({ onDone }: { readonly onDone: () => void }) => {
   return (
     <form
       aria-label="Add a GitHub Enterprise server"
-      className="px-panel flex flex-col gap-3 py-3"
+      className="px-panel flex flex-col gap-3 py-[calc(var(--spacing-gap)+4px)]"
       onSubmit={(event) => {
         event.preventDefault();
         add();
@@ -105,7 +109,7 @@ const AddServerForm = ({ onDone }: { readonly onDone: () => void }) => {
     >
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex min-w-[200px] flex-1 flex-col gap-1">
-          <span className="text-label text-text-strong">Server</span>
+          <span className="text-label font-regular text-text-default">Server</span>
           <Input
             value={host}
             placeholder="github.acme.com"
@@ -115,7 +119,7 @@ const AddServerForm = ({ onDone }: { readonly onDone: () => void }) => {
           />
         </label>
         <label className="flex min-w-[200px] flex-1 flex-col gap-1">
-          <span className="text-label text-text-strong">Client ID</span>
+          <span className="text-label font-regular text-text-default">Client ID</span>
           <Input
             className="font-mono"
             value={clientId}

@@ -33,7 +33,7 @@ const AddPicker = ({
   readonly label: string;
   readonly onAdd: (key: string) => void;
 }) => (
-  <div className="px-panel flex items-center gap-4 py-2.5">
+  <div className="px-panel flex items-center gap-4 py-[calc(var(--spacing-gap)+2px)]">
     <span className="text-caption text-text-subtle flex-1">
       {options.length === 0 ? "Every workspace has its own setting." : label}
     </span>
@@ -78,9 +78,15 @@ export const WorkspaceOverrides = ({
   return (
     <Group label={label}>
       {rows.map(({ key, option }) => (
-        <div key={key} className="px-panel flex items-center gap-3 py-2.5" data-testid="override">
+        <div
+          key={key}
+          className="px-panel flex items-center gap-3 py-[calc(var(--spacing-gap)+2px)]"
+          data-testid="override"
+        >
           <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="text-label text-text-strong truncate">{option?.name ?? key}</span>
+            <span className="text-label font-regular text-text-default truncate">
+              {option?.name ?? key}
+            </span>
             <span className="text-caption text-text-subtle truncate">
               {option?.hostLabel ?? "Not on any connected host"}
             </span>

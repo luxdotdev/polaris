@@ -32,7 +32,7 @@ const ThresholdSelect = ({
     <SelectTrigger
       id="ask-first"
       aria-label="Ask first for large changes"
-      className="text-caption bg-surface-sunken h-tree-row"
+      className="text-caption bg-surface-sunken h-tree-row px-2.5"
     >
       <SelectValue />
     </SelectTrigger>
@@ -54,7 +54,7 @@ export const WhenItRuns = ({
   readonly onChange: (patch: Partial<RunPolicy>) => void;
 }) => (
   <section aria-label="When it runs" className="flex flex-col gap-3">
-    <h2 className="text-heading-sm text-text-strong font-medium">When it runs</h2>
+    <h2 className="text-heading-sm text-text-strong leading-[18px] font-medium">When it runs</h2>
     <Group>
       <SettingRow
         title="When a pull request opens in Review"
@@ -117,7 +117,9 @@ export const ChecksAgainst = () => {
   return (
     <section aria-label="What it checks against" className="flex flex-col gap-3">
       <div className="flex flex-col gap-1">
-        <h2 className="text-heading-sm text-text-strong font-medium">What it checks against</h2>
+        <h2 className="text-heading-sm text-text-strong leading-[18px] font-medium">
+          What it checks against
+        </h2>
         <p className="text-body text-text-subtle">
           Rules run on the host without the reviewer and use no tokens. No rule or instruction can
           hide a critical finding.
@@ -126,17 +128,17 @@ export const ChecksAgainst = () => {
       <Group>
         <CheckRow
           name="Secrets"
-          what="Keys, tokens and credentials · critical; a low-confidence generic match is medium"
+          what="Keys, tokens and credentials · critical, weak matches medium"
           aside="Always on"
         />
         <CheckRow
           name="Dangerous patterns"
-          what={`${BUILT_IN_PATTERNS} built-in patterns over TypeScript, Python, Go, Rust and shell`}
+          what={`${BUILT_IN_PATTERNS} built-in · TypeScript, Python, Go, Rust, shell`}
           aside="Always on"
         />
         <CheckRow
           name="Review instructions"
-          what=".polaris/review.md in each repo, and a private file per repo on each host"
+          what=".polaris/review.md, and a private file on each host"
           aside="Read every run"
         />
       </Group>
@@ -144,7 +146,12 @@ export const ChecksAgainst = () => {
         <span className="text-caption text-text-subtle flex-1">
           The reviewer&apos;s tokens count in Usage and plan limits like any session&apos;s.
         </span>
-        <Button variant="ghost" size="xs" onClick={() => openSettings("usage")}>
+        <Button
+          variant="ghost"
+          size="xs"
+          className="text-text-default"
+          onClick={() => openSettings("usage")}
+        >
           Open usage
         </Button>
       </div>

@@ -216,6 +216,7 @@ try {
   await densities(page, "S7-reviewer-sol");
   await page.getByRole("region", { name: "When it runs" }).scrollIntoViewIfNeeded();
   await pair(page, "S7-reviewer-runs");
+  await densities(page, "S7-reviewer-runs");
   await page.getByRole("button", { name: "Edit overrides" }).click();
   await page.getByRole("combobox", { name: /its own reviewer/ }).click();
   await page.getByRole("option", { name: "vault · Linux VM" }).click();

@@ -175,6 +175,7 @@ export const githubEnterpriseFlow = async ({ page, fake, step, shoot }: Enterpri
   await page.getByRole("button", { name: "Add a GitHub Enterprise server" }).click();
   await page.getByLabel("Server", { exact: true }).fill(`https://${GHE_HOST}/api/v3`);
   await page.getByLabel("Client ID", { exact: true }).fill(FAKE_GHE_CLIENT_ID);
+  await shoot("github-enterprise-add-server");
   await page.getByRole("button", { name: "Add server" }).click();
   await page
     .getByTestId("github-server")
