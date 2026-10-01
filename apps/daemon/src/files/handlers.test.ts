@@ -41,7 +41,11 @@ const WorkspaceIoRpcs = DaemonRpcs.omit(
   "review.riskSummary",
   "review.watchRiskSummary",
   "review.askFinding",
-  "review.verdicts"
+  "review.verdicts",
+  "session.acceptPlan",
+  "session.draftAccept",
+  "session.commitAccepted",
+  "session.pushAccepted"
 );
 
 describe("handler layers", () => {

@@ -101,6 +101,11 @@ export const defaultHandlers = (options: {
     "review.askFinding": () => Effect.fail(new Unsupported({ capability: "review.ask" })),
     "review.verdicts": () => Effect.fail(new Unsupported({ capability: "review.verdicts" })),
 
+    "session.acceptPlan": () => Effect.fail(new Unsupported({ capability: "session.accept" })),
+    "session.draftAccept": () => Effect.fail(new Unsupported({ capability: "session.accept" })),
+    "session.commitAccepted": () => Effect.fail(new Unsupported({ capability: "session.accept" })),
+    "session.pushAccepted": () => Effect.fail(new Unsupported({ capability: "session.accept" })),
+
     // Drain the bytes the Client already sent so they don't sit in the connection buffer.
     "attachments.stage": ({ name, blobId }) =>
       Effect.gen(function* () {
