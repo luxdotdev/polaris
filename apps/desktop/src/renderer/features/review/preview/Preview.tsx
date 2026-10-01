@@ -4,7 +4,7 @@
  * files, collapsed) and `#review/list-only` (12,000 files). A stand-in bridge serves the
  * patches; no Daemon or GitHub is involved. Its own chunk.
  */
-import type { GitDiffSpec } from "@polaris/protocol";
+import { type GitDiffSpec, ReviewCheckout } from "@polaris/protocol";
 import { Predicate } from "effect";
 import { createRoot } from "react-dom/client";
 import { createStore } from "zustand/vanilla";
@@ -13,6 +13,7 @@ import { App } from "../../../app/App.tsx";
 import { createCommandRegistry } from "../../../routes/commands.ts";
 import { createNavigation } from "../../../routes/navigation.ts";
 import { openPull, openSessionReview } from "../../../routes/review.ts";
+import { emptyHostModel } from "../../../store/hostModel.ts";
 import { type AppState, type Connection, initialState, sessionKey } from "../../../store/store.ts";
 import { standInBridge } from "../../bridge.ts";
 import { pullsStore } from "../../pulls/store.ts";
@@ -76,27 +77,64 @@ const PULL: OpenPull = {
   pullId: "PR_88",
 };
 
+/**
+ * `#review/bench?cwd=…&base=…&head=…`: a real repository through the real Daemon on the
+ * local Host, as a Review Checkout would serve it (`scripts/reviewBench.ts`).
+ */
+const benchModels = (query: URLSearchParams): AppState["hostModels"] => {
+  const head = query.get("head") ?? "";
+  const base = query.get("base") ?? "";
+
+  const checkout = new ReviewCheckout({
+    id: CHECKOUT.id,
+    workspaceId: CHECKOUT.workspaceId,
+    subject: CHECKOUT.subject,
+    state: "ready",
+    blocked: null,
+    reviewedHead: null,
+    reviewedMergeBase: null,
+    openedAt: CHECKOUT.openedAt,
+    updatedAt: CHECKOUT.updatedAt,
+    path: query.get("cwd") ?? "",
+    head,
+    mergeBase: base,
+    latestHead: head,
+    latestBase: base,
+  });
+
+  return {
+    local: {
+      ...emptyHostModel,
+      synchronized: true,
+      reviewCheckouts: new Map([[checkout.id, checkout]]),
+    },
+  };
+};
+
 export const mountReviewPreview = (root: HTMLElement, hash: string) => {
-  const scene = hash.replace(/^#review\//, "");
+  const [scene = "", search = ""] = hash.replace(/^#review\//, "").split("?");
+  const bench = scene === "bench";
   const studio = MODELS.studio;
   const local = MODELS.local;
 
   const store = createStore<AppState>(() => ({
     ...initialState,
-    hosts: HOSTS,
-    hostModels: {
-      ...MODELS,
-      studio: { ...studio, reviewCheckouts: new Map([[CHECKOUT.id, CHECKOUT]]) },
-      local: {
-        ...local,
-        sessions: new Map([
-          [
-            SESSION.id,
-            { session: SESSION, pendingApprovals: [], lastTurnPreview: null, subagents: [] },
-          ],
-        ]),
-      },
-    },
+    hosts: bench ? [] : HOSTS,
+    hostModels: bench
+      ? benchModels(new URLSearchParams(search))
+      : {
+          ...MODELS,
+          studio: { ...studio, reviewCheckouts: new Map([[CHECKOUT.id, CHECKOUT]]) },
+          local: {
+            ...local,
+            sessions: new Map([
+              [
+                SESSION.id,
+                { session: SESSION, pendingApprovals: [], lastTurnPreview: null, subagents: [] },
+              ],
+            ]),
+          },
+        },
     sessions: { [sessionKey("local", SESSION.id)]: sessionModel() },
   }));
 
@@ -109,8 +147,10 @@ export const mountReviewPreview = (root: HTMLElement, hash: string) => {
 
   const navigation = createNavigation({ app: store, storage: null });
 
-  standInBridge(bridge(scene));
-  pullsStore.setState({ list: LIST, accounts: ACCOUNTS });
+  if (!bench) {
+    standInBridge(bridge(scene));
+    pullsStore.setState({ list: LIST, accounts: ACCOUNTS });
+  }
 
   if (scene === "session") {
     openSessionReview(navigation.actions, "local", SESSION.id);

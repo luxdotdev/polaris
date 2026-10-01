@@ -100,7 +100,12 @@ const Ready = ({
           onViewed={model.setViewed}
         />
       </RiskColumn>
-      <div className="bg-bg flex min-w-0 flex-1 flex-col" data-testid="review-diff">
+      <div
+        className="bg-bg flex min-w-0 flex-1 flex-col"
+        data-testid="review-diff"
+        data-complete={diff.complete ? "" : undefined}
+        data-files={model.files.length}
+      >
         {model.items.length === 0 && diff.complete ? (
           <Waiting
             placeholder={
