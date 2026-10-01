@@ -26,13 +26,17 @@ export interface ReviewViewProps {
   readonly onBack: () => void;
 }
 
-/** A Reviewer's own session runs inside a Review Checkout (`.review/pr-N`): nothing to review. */
-const isReviewer = (cwd: string) => /[/\\]\.review[/\\]/.test(cwd);
+/**
+ * A Reviewer's own read-only session has nothing to review: it runs inside a Review
+ * Checkout (`.review/pr-N`), or is titled "Reviewer · …" (an Agent Session's, in place).
+ */
+const isReviewer = (cwd: string, title: string) =>
+  /[/\\]\.review[/\\]/.test(cwd) || title.startsWith("Reviewer · ");
 
 const sessionsOf = (models: AppState["hostModels"]): ReadonlyArray<SessionInfo> =>
   Object.entries(models).flatMap(([hostKey, model]) =>
     [...model.sessions.values()].flatMap(({ session }) =>
-      isReviewer(session.cwd)
+      isReviewer(session.cwd, session.title)
         ? []
         : [
             {

@@ -69,7 +69,8 @@ const openPull = async (page: Page) => {
   await page.getByRole("radio", { name: /^Review/ }).click();
 
   const row = page.locator('[data-testid="pull-row"][data-pull="PR_kwDOacme42"]');
-  const queued = page.getByTestId("review-queue-row").filter({ hasText: "#42" }).first();
+  // Once reviewed (findingsFlow submits one), #42 leaves "Review requested" for a compact group.
+  const queued = page.locator('[data-testid="review-queue-row"][data-row="PR_kwDOacme42"]');
 
   await row.or(queued).first().click();
   await page.getByTestId("pull-review-title").waitFor();
@@ -131,6 +132,8 @@ export const checkoutFlow = async ({ page, fake, codeHost, step, shoot }: Checko
   // The open terminal blocks removal; its fix shows it, and closing it lets removal go on.
   writeFileSync(join(path, "src/webhooks/deliver.ts"), "// edited during review\n");
   await openPull(page);
+  // The update started an incremental Risk Summary; its Reviewer runs inside the checkout.
+  await page.getByTestId("risk-caption").filter({ hasNotText: "…" }).waitFor({ timeout: 90_000 });
   await removeFromMenu(page);
 
   const inUse = await chipWith(page, "A terminal is open");

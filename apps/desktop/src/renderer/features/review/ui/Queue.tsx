@@ -89,6 +89,7 @@ export const Queue = ({ groups, caption, selected, onOpen, onOpenPull, onList }:
                 type="button"
                 key={row.id}
                 data-testid="review-queue-row"
+                data-row={row.id}
                 aria-current={isSelected ? "page" : undefined}
                 onClick={() => onOpen(row)}
                 className={cn(
