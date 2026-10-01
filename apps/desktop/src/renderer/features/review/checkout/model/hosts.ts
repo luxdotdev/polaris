@@ -79,7 +79,8 @@ export const hostChoices = (input: ChoicesInput): ReadonlyArray<HostChoice> => {
 
       const caption = [
         place.hostKey === input.lastHostKey ? "last used" : null,
-        host.local ? "this Mac" : null,
+        // The local Host's own name may already say so ("This Mac").
+        host.local && host.label.toLowerCase() !== "this mac" ? "this Mac" : null,
         input.workspaceName(place),
       ]
         .filter((part) => part !== null)

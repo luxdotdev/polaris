@@ -69,3 +69,15 @@ export const HostDot = ({ kind }: { readonly kind: "on" | "reconnecting" | "away
     }
   />
 );
+
+export const PlayGlyph = () => (
+  <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" className="shrink-0">
+    <path
+      d="M3 2v8l7-4z"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.25"
+      strokeLinejoin="round"
+    />
+  </svg>
+);

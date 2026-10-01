@@ -128,12 +128,28 @@ export interface RemovedFacts {
 export type ChipView =
   | { readonly kind: "checking-out"; readonly host: string }
   | { readonly kind: "updating"; readonly host: string; readonly to: string }
-  | { readonly kind: "ready"; readonly host: string; readonly at: string }
+  | {
+      readonly kind: "ready";
+      readonly host: string;
+      readonly at: string;
+      /** What Run starts; null when the checkout has nothing to run. */
+      readonly command: string | null;
+    }
+  | {
+      readonly kind: "running";
+      readonly host: string;
+      readonly command: string;
+      readonly seconds: number;
+    }
   | {
       readonly kind: "new-commits";
       readonly host: string;
       readonly at: string;
       readonly latest: string;
+      /** Null until GitHub has compared the two commits. */
+      readonly count: number | null;
+      /** The branch was rewritten (a force-push): the checkout's commit isn't in it any more. */
+      readonly rewritten: boolean;
     }
   | { readonly kind: "blocked"; readonly host: string; readonly block: BlockView }
   | { readonly kind: "removing"; readonly host: string }
@@ -146,6 +162,8 @@ export type ChipView =
   | { readonly kind: "offline"; readonly host: string; readonly next: string | null }
   | { readonly kind: "waiting"; readonly host: string }
   | { readonly kind: "none" }
+  | { readonly kind: "cloning"; readonly host: string }
+  | { readonly kind: "clone-failed"; readonly host: string; readonly message: string }
   | { readonly kind: "removed"; readonly host: string; readonly reason: RemovedFacts["reason"] };
 
 export interface ChipInput {
@@ -161,9 +179,23 @@ export interface ChipInput {
   /** What this window last removed for the pull request, while none is checked out. */
   readonly removed: RemovedFacts | null;
   readonly now: number;
+  /** What Run would start in the checkout (null: nothing to run). */
+  readonly command: string | null;
+  /** The run going in the checkout, with when it started (ms). */
+  readonly run: { readonly command: string; readonly startedAt: number } | null;
+  /** GitHub's comparison of the checkout's commit with the pull request's head. */
+  readonly newCommits: { readonly total: number; readonly rewritten: boolean } | null;
+  /** A clone this window started because no Workspace had the repository. */
+  readonly clone: {
+    readonly host: string;
+    readonly status: "cloning" | "failed" | "added";
+    readonly message: string | null;
+  } | null;
 }
 
-const fromCheckout = (checkout: ReviewCheckout, host: string): ChipView =>
+const seconds = (now: number, since: number) => Math.max(0, Math.round((now - since) / 1000));
+
+const fromCheckout = (checkout: ReviewCheckout, host: string, input: ChipInput): ChipView =>
   Match.value(checkout.state).pipe(
     Match.withReturnType<ChipView>(),
     Match.when("fetching", () =>
@@ -171,40 +203,63 @@ const fromCheckout = (checkout: ReviewCheckout, host: string): ChipView =>
         ? { kind: "checking-out", host }
         : { kind: "updating", host, to: shortSha(checkout.latestHead) }
     ),
-    Match.when("ready", () => ({ kind: "ready", host, at: shortSha(checkout.head) })),
+    Match.when("ready", () =>
+      input.run === null
+        ? { kind: "ready", host, at: shortSha(checkout.head), command: input.command }
+        : {
+            kind: "running",
+            host,
+            command: input.run.command,
+            seconds: seconds(input.now, input.run.startedAt),
+          }
+    ),
     Match.when("stale", () => ({
       kind: "new-commits",
       host,
       at: shortSha(checkout.head),
       latest: shortSha(checkout.latestHead),
+      count: input.newCommits?.total ?? null,
+      rewritten: input.newCommits?.rewritten ?? false,
     })),
     Match.when("blocked", () =>
       checkout.blocked === null
-        ? { kind: "ready", host, at: shortSha(checkout.head) }
+        ? { kind: "ready", host, at: shortSha(checkout.head), command: input.command }
         : { kind: "blocked", host, block: blockView(checkout.blocked, host) }
     ),
     Match.when("removing", () => ({ kind: "removing", host })),
     Match.exhaustive
   );
 
+/** No checkout: what this window removed, a clone under way, or why it waits. */
+const withoutCheckout = (input: ChipInput): ChipView => {
+  if (input.removed !== null) return { kind: "removed", ...input.removed };
+
+  const { clone } = input;
+
+  if (clone?.status === "failed") {
+    return { kind: "clone-failed", host: clone.host, message: clone.message ?? "" };
+  }
+
+  // A clone that finished is a Workspace once the PR list matches it.
+  if (clone !== null && input.places === 0) return { kind: "cloning", host: clone.host };
+
+  if (input.places === 0) return { kind: "none" };
+
+  return { kind: "waiting", host: input.firstConnected ?? input.firstPlace ?? "" };
+};
+
 /** The chip's state: the checkout's own, unless its Host is away. */
 export const chipView = (input: ChipInput): ChipView => {
   const { checkout, host } = input;
 
-  if (checkout === null || host === null) {
-    if (input.removed !== null) return { kind: "removed", ...input.removed };
-
-    if (input.places === 0) return { kind: "none" };
-
-    return { kind: "waiting", host: input.firstConnected ?? input.firstPlace ?? "" };
-  }
+  if (checkout === null || host === null) return withoutCheckout(input);
 
   if (host.state === "reconnecting") {
     return {
       kind: "reconnecting",
       host: host.label,
       at: shortSha(checkout.head),
-      seconds: Math.max(0, Math.round((input.now - host.since) / 1000)),
+      seconds: seconds(input.now, host.since),
     };
   }
 
@@ -212,14 +267,18 @@ export const chipView = (input: ChipInput): ChipView => {
     return { kind: "offline", host: host.label, next: input.firstConnected };
   }
 
-  return fromCheckout(checkout, host.label);
+  return fromCheckout(checkout, host.label, input);
 };
 
 /** The chip's trailing action, after its divider; null when it has none. */
 export type ChipAction =
   | { readonly kind: "update"; readonly label: "Update" }
   | { readonly kind: "fix"; readonly label: string }
-  | { readonly kind: "move"; readonly label: string };
+  | { readonly kind: "move"; readonly label: string }
+  | { readonly kind: "run"; readonly label: "Run" }
+  | { readonly kind: "stop"; readonly label: "Stop" }
+  | { readonly kind: "clone"; readonly label: "Clone on…" }
+  | { readonly kind: "retry-clone"; readonly label: "Retry" };
 
 export const chipAction = (view: ChipView): ChipAction | null =>
   Match.value(view).pipe(
@@ -232,6 +291,12 @@ export const chipAction = (view: ChipView): ChipAction | null =>
     Match.discriminator("kind")("offline", ({ next }) =>
       next === null ? null : { kind: "move", label: `Check out on ${next}` }
     ),
+    Match.discriminator("kind")("ready", ({ command }) =>
+      command === null ? null : { kind: "run", label: "Run" }
+    ),
+    Match.discriminator("kind")("running", () => ({ kind: "stop", label: "Stop" })),
+    Match.discriminator("kind")("none", () => ({ kind: "clone", label: "Clone on…" })),
+    Match.discriminator("kind")("clone-failed", () => ({ kind: "retry-clone", label: "Retry" })),
     Match.orElse(() => null)
   );
 
@@ -251,4 +316,13 @@ export const elapsed = (seconds: number) => {
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
 
   return `${Math.floor(seconds / 3600)}h`;
+};
+
+/** "2 new commits", "1 new commit", "force-pushed"; "new commits" until GitHub has counted. */
+export const newCommitsText = (count: number | null, rewritten: boolean) => {
+  if (rewritten) return "force-pushed";
+
+  if (count === null) return "new commits";
+
+  return count === 1 ? "1 new commit" : `${count} new commits`;
 };

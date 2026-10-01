@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { Option, Schema } from "effect";
 import { type FakeRequest, type FakeResponse, json, notFound } from "./http.ts";
 import {
+  type FakeCommit,
   type FakePull,
   type FakeUser,
   type World,
@@ -111,6 +112,45 @@ const createPull = ({ world, user, request, now }: RestInput, owner: string, nam
   return json(201, restPull(pull, world));
 };
 
+const COMPARE = /^\/repos\/([^/]+)\/([^/]+)\/compare\/([0-9a-f]+)\.\.\.([0-9a-f]+)$/;
+
+const restCommit = (c: FakeCommit) => ({
+  sha: c.oid,
+  commit: { message: c.message, committer: { date: c.date } },
+});
+
+const compareStatus = (from: number, at: number) => {
+  if (from === -1) return "diverged";
+
+  if (from === at) return "identical";
+
+  return from < at ? "ahead" : "behind";
+};
+
+/** GitHub's comparison of two commits of one pull request's branch. */
+const compare = ({ world, user }: RestInput, match: RegExpExecArray) => {
+  const [, owner = "", name = "", base = "", head = ""] = match;
+  const repo = findRepo(world, owner, name);
+
+  if (repo === undefined || permissionOf(world, user, repo) === null) return notFound();
+
+  const full = `${repo.owner}/${repo.name}`.toLowerCase();
+
+  const branch = world.pulls
+    .filter((p) => p.repo.toLowerCase() === full)
+    .map((p) => world.commits.get(p.id) ?? [])
+    .find((commits) => commits.some((c) => c.oid === head));
+
+  if (branch === undefined) return notFound();
+
+  const at = branch.findIndex((c) => c.oid === head);
+  const from = branch.findIndex((c) => c.oid === base);
+  const status = compareStatus(from, at);
+  const commits = status === "behind" ? [] : branch.slice(from + 1, at + 1);
+
+  return json(200, { status, total_commits: commits.length, commits: commits.map(restCommit) });
+};
+
 /** Null when the path isn't one the fake serves. */
 export const rest = (input: RestInput): FakeResponse | null => {
   const { request, user } = input;
@@ -125,6 +165,10 @@ export const rest = (input: RestInput): FakeResponse | null => {
       type: "User",
     });
   }
+
+  const compared = COMPARE.exec(request.path);
+
+  if (request.method === "GET" && compared !== null) return compare(input, compared);
 
   if (pulls?.[1] === undefined || pulls[2] === undefined) return null;
 

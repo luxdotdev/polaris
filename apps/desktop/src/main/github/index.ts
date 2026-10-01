@@ -21,6 +21,7 @@ import { type BudgetPolicy, DEFAULT_POLICY, newBudget } from "./budget.ts";
 import { newCheckouts } from "./checkouts.ts";
 import { newClient } from "./client.ts";
 import type { GitHubEndpoints } from "./config.ts";
+import { newCompare } from "./compare.ts";
 import { newCreate } from "./create.ts";
 import { newCredentials } from "./credentials.ts";
 import { DEFAULT_INTERVALS, type Intervals, newPoller } from "./poller.ts";
@@ -156,6 +157,7 @@ const make = Effect.fn("GitHub.make")(function* (input: GitHubInput) {
     discardReview: reviews.discard,
     setViewed: reviews.setViewed,
     createPull: newCreate(client, routing),
+    compare: newCompare(client, routing),
   };
 });
 

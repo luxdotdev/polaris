@@ -53,3 +53,20 @@ export const CreatedPull = Schema.Struct({
 });
 
 export type CreatedPull = typeof CreatedPull.Type;
+
+/** `GET /repos/{owner}/{repo}/compare/{base}...{head}`: what a Review Checkout's update brings. */
+export const Comparison = Schema.Struct({
+  status: Schema.String,
+  total_commits: Schema.Number,
+  commits: Schema.Array(
+    Schema.Struct({
+      sha: Schema.String,
+      commit: Schema.Struct({
+        message: Schema.String,
+        committer: Schema.NullOr(Schema.Struct({ date: Schema.String })),
+      }),
+    })
+  ),
+});
+
+export type Comparison = typeof Comparison.Type;

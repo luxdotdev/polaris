@@ -10,7 +10,17 @@ import {
 import type { ReviewSubject } from "@polaris/protocol";
 import { Data } from "effect";
 import type { CheckoutStateView } from "../../../../../shared/github.ts";
-import { blockView, chipAction, type ChipInput, chipView, elapsed, removedText } from "./chip.ts";
+import {
+  blockView,
+  chipAction,
+  type ChipInput,
+  chipView,
+  elapsed,
+  newCommitsText,
+  removedText,
+} from "./chip.ts";
+import { cloneCommand, clonePath, cloneUrl, shellQuote } from "./clone.ts";
+import { loginShellArgv, runCommandOf, runningFact } from "./run.ts";
 import { hostChoices, orderPlaces, type PlaceHost, placeToOpen } from "./hosts.ts";
 import { CLOSED_GRACE_MS, decide, actionKey, watchKey, watchList } from "./watch.ts";
 
@@ -49,6 +59,10 @@ const input = (patch: Partial<ChipInput> = {}): ChipInput => ({
   firstPlace: "Linux VM",
   removed: null,
   now: 0,
+  command: null,
+  run: null,
+  newCommits: null,
+  clone: null,
   ...patch,
 });
 
@@ -58,7 +72,12 @@ describe("chipView", () => {
       kind: "checking-out",
       host: "Linux VM",
     });
-    expect(chipView(input())).toEqual({ kind: "ready", host: "Linux VM", at: "4f2c1a9" });
+    expect(chipView(input())).toEqual({
+      kind: "ready",
+      host: "Linux VM",
+      at: "4f2c1a9",
+      command: null,
+    });
     expect(
       chipView(input({ checkout: checkout({ state: "stale", latestHead: "9e07b3c" }) }))
     ).toEqual({
@@ -66,6 +85,8 @@ describe("chipView", () => {
       host: "Linux VM",
       at: "4f2c1a9",
       latest: "9e07b3c",
+      count: null,
+      rewritten: false,
     });
     expect(
       chipView(input({ checkout: checkout({ state: "fetching", latestHead: "9e07b3c11" }) }))
@@ -341,5 +362,107 @@ describe("watch", () => {
 
     expect(decide([view({ state: "merged" })], removing, new Map(), 0)).toEqual([]);
     expect(decide([view({ key: "other", state: "merged" })], held, new Map(), 0)).toEqual([]);
+  });
+});
+
+describe("Run", () => {
+  test("ready offers Run when the checkout has something to run; running offers Stop", () => {
+    const ready = chipView(input({ command: "bun run dev" }));
+
+    expect(chipAction(ready)).toEqual({ kind: "run", label: "Run" });
+
+    const running = chipView(
+      input({ command: "bun run dev", run: { command: "bun run dev", startedAt: 0 }, now: 125_000 })
+    );
+
+    expect(running).toEqual({
+      kind: "running",
+      host: "Linux VM",
+      command: "bun run dev",
+      seconds: 125,
+    });
+    expect(chipAction(running)).toEqual({ kind: "stop", label: "Stop" });
+    expect(runningFact("bun run dev", 125)).toBe("bun run dev · 2m");
+  });
+
+  test("new commits win over a run: the chip offers Update", () => {
+    const view = chipView(
+      input({
+        checkout: checkout({ state: "stale" }),
+        run: { command: "bun run dev", startedAt: 0 },
+        newCommits: { total: 2, rewritten: false },
+      })
+    );
+
+    expect(view).toMatchObject({ kind: "new-commits", count: 2 });
+    expect(chipAction(view)?.kind).toBe("update");
+  });
+
+  test("the command is the dev script, else start, with the lockfile's package manager", () => {
+    const both = JSON.stringify({ scripts: { dev: "vite", start: "node ." } });
+
+    expect(runCommandOf(both, new Set(["bun.lock"]))).toBe("bun run dev");
+    expect(
+      runCommandOf(JSON.stringify({ scripts: { start: "node ." } }), new Set(["pnpm-lock.yaml"]))
+    ).toBe("pnpm run start");
+    expect(runCommandOf(both, new Set())).toBe("npm run dev");
+    expect(runCommandOf(JSON.stringify({ scripts: { test: "x" } }), new Set())).toBeNull();
+    expect(runCommandOf("not json", new Set())).toBeNull();
+    expect(runCommandOf(null, new Set())).toBeNull();
+  });
+
+  test("it runs through the user's login shell", () => {
+    expect(loginShellArgv("bun run dev")).toEqual([
+      "/bin/sh",
+      "-c",
+      'exec "${SHELL:-/bin/sh}" -lc "$0"',
+      "bun run dev",
+    ]);
+  });
+});
+
+test("new commits read with their count, or as a force-push", () => {
+  expect(newCommitsText(null, false)).toBe("new commits");
+  expect(newCommitsText(1, false)).toBe("1 new commit");
+  expect(newCommitsText(2, false)).toBe("2 new commits");
+  expect(newCommitsText(3, true)).toBe("force-pushed");
+});
+
+describe("Clone on…", () => {
+  test("no Workspace has the repo: the chip offers Clone on…; a clone shows until matched", () => {
+    const none = chipView(input({ checkout: null, places: 0 }));
+
+    expect(chipAction(none)).toEqual({ kind: "clone", label: "Clone on…" });
+
+    const clone = { host: "Linux VM", status: "cloning" as const, message: null };
+
+    expect(chipView(input({ checkout: null, places: 0, clone }))).toEqual({
+      kind: "cloning",
+      host: "Linux VM",
+    });
+    expect(
+      chipView(input({ checkout: null, places: 0, clone: { ...clone, status: "added" } })).kind
+    ).toBe("cloning");
+
+    const failed = chipView(
+      input({
+        checkout: null,
+        places: 0,
+        clone: { ...clone, status: "failed", message: "exit 128" },
+      })
+    );
+
+    expect(failed).toEqual({ kind: "clone-failed", host: "Linux VM", message: "exit 128" });
+    expect(chipAction(failed)).toEqual({ kind: "retry-clone", label: "Retry" });
+  });
+
+  test("into ~/code over ssh, quoted for sh", () => {
+    expect(clonePath("/home/lucas/", "widgets", 1)).toBe("/home/lucas/code/widgets");
+    expect(clonePath("/home/lucas", "widgets", 2)).toBe("/home/lucas/code/widgets-2");
+    expect(cloneUrl("github.com", "acme", "widgets")).toBe("git@github.com:acme/widgets.git");
+    expect(shellQuote("it's")).toBe("'it'\\''s'");
+    expect(cloneCommand("git@github.com:acme/widgets.git", "/home/l/code/widgets")).toBe(
+      "mkdir -p '/home/l/code' && git clone 'git@github.com:acme/widgets.git' '/home/l/code/widgets'"
+    );
   });
 });
