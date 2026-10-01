@@ -23,6 +23,7 @@ export interface ServedFake {
 /** Device-flow polls every second instead of five, so the smoke doesn't wait. */
 export const serveGitHubFake = async (): Promise<ServedFake> => {
   const fake = createGitHubFake({ interval: 1, enforceInterval: false });
+  fake.seedOverview();
   const served = await fake.serve();
 
   return {
@@ -91,6 +92,8 @@ export const githubFlow = async ({ page, fake, step, afterList }: GitHubFlowInpu
   // The Review UI's own submits (findingsFlow) are counted before this one.
   const before = commented();
   const detail = await request(page, "github.pull.detail", { pull: PR });
+
+  await overviewActionsFlow(page, detail);
 
   await request(page, "github.files.setViewed", {
     pull: PR,
@@ -232,4 +235,31 @@ export const githubEnterpriseFlow = async ({ page, fake, step, shoot }: Enterpri
 
   if (wrongPaths.length > 0) throw new Error(`GHE got github.com paths: ${wrongPaths.join(", ")}`);
   step(`GitHub Enterprise: platform/api#12 listed and approved over /api/v3 and /api/graphql`);
+};
+
+const overviewActionsFlow = async (page: Page, detail: RequestOutput<"github.pull.detail">) => {
+  if (detail.botSummary?.verdict?.word !== "Caution" || detail.checkRuns?.[0]?.name !== "typecheck")
+    throw new Error("Overview did not load the bot summary and checks");
+
+  const posted = await request(page, "github.pull.comment", {
+    pull: PR,
+    body: "Overview smoke comment",
+  });
+
+  if (!posted.id || !posted.url) throw new Error("Comment now did not return its link");
+  await request(page, "github.bot.command", { pull: PR, bot: "suzuka", command: "review" });
+  const mine = { repo: PR.repo, number: 43 };
+  const own = await request(page, "github.pull.detail", { pull: mine });
+
+  const publication = await request(page, "github.pull.publishDescription", {
+    pull: mine,
+    pullId: own.id,
+    body: "## Why the change\nA smoke walkthrough.",
+    head: own.headRefOid,
+  });
+
+  const after = await request(page, "github.pull.detail", { pull: mine, refresh: true });
+
+  if (after.published?.hash !== publication.hash || after.published.matches !== true)
+    throw new Error("Published description was not persisted");
 };

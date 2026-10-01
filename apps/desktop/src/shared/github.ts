@@ -391,6 +391,7 @@ export interface BotSummaryView {
 }
 
 export interface PublishedDescriptionView {
+  readonly matches?: boolean;
   readonly hash: string;
   readonly head: string;
   readonly at: string;

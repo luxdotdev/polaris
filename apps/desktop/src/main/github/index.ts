@@ -16,6 +16,7 @@ import {
   type WorkspaceRef,
   workspaceKey,
   type PullRef,
+  type PullDetailView,
 } from "../../shared/github.ts";
 import { openAccounts } from "./accounts.ts";
 import { type BudgetPolicy, DEFAULT_POLICY, newBudget } from "./budget.ts";
@@ -27,6 +28,8 @@ import { newCreate } from "./create.ts";
 import { newCredentials } from "./credentials.ts";
 import { DEFAULT_INTERVALS, type Intervals, newPoller } from "./poller.ts";
 import { EMPTY_LIST, newPulls, type Watched } from "./pulls.ts";
+import { join } from "node:path";
+import { newOverviewActions } from "./overviewActions.ts";
 import { MUTATION_GAP_MS, newReviews } from "./reviews.ts";
 import { newRouting } from "./routing.ts";
 import { type Crypto, openStore } from "./store.ts";
@@ -109,7 +112,14 @@ const make = Effect.fn("GitHub.make")(function* (input: GitHubInput) {
   const client = newClient(transport, credentials, accounts);
   const routing = newRouting({ client, accounts });
   const reviews = newReviews({ client, routing, gapMs: input.mutationGapMs ?? MUTATION_GAP_MS });
+  const overview = newOverviewActions(reviews, join(input.dir, "published-descriptions.json"));
   const list = yield* SubscriptionRef.make<PullListView>(EMPTY_LIST);
+  const detailViews = yield* SubscriptionRef.make<ReadonlyArray<PullDetailView>>([]);
+
+  const publishDetails = Effect.flatMap(overview.cached(), (views) =>
+    SubscriptionRef.set(detailViews, views)
+  );
+
   const checkoutStates = yield* SubscriptionRef.make<ReadonlyArray<CheckoutStateView>>([]);
 
   const poller = yield* newPoller({
@@ -120,6 +130,7 @@ const make = Effect.fn("GitHub.make")(function* (input: GitHubInput) {
     list,
     checkoutStates,
     intervals: input.intervals ?? DEFAULT_INTERVALS,
+    refreshDetails: Effect.andThen(reviews.refreshDetails, publishDetails).pipe(Effect.ignore),
   });
 
   let remotes: ReadonlyArray<WorkspaceRemotes> = [];
@@ -180,9 +191,10 @@ const make = Effect.fn("GitHub.make")(function* (input: GitHubInput) {
     recheck: (repo: RepoRef) => Effect.andThen(routing.invalidate(repo), poller.poke(true)),
     setFocused: poller.setFocused,
     /** GitHub's stack when it has one, else the one the list inferred (no extra request). */
-    detail: (pull: PullRef) =>
+    detail: (pull: PullRef, fresh = false) =>
       Effect.gen(function* () {
-        const view = yield* reviews.detail(pull);
+        const view = yield* overview.detail(pull, fresh);
+        yield* publishDetails;
 
         if ((view.stack ?? null) !== null) return view;
 
@@ -194,6 +206,13 @@ const make = Effect.fn("GitHub.make")(function* (input: GitHubInput) {
 
         return { ...view, stack: row?.stack ?? null };
       }),
+    details: detailViews,
+    comment: (input: Parameters<typeof overview.comment>[0]) =>
+      overview.comment(input).pipe(Effect.tap(() => poller.poke(true))),
+    botCommand: (input: Parameters<typeof overview.botCommand>[0]) =>
+      overview.botCommand(input).pipe(Effect.tap(() => poller.poke(true))),
+    publishDescription: (input: Parameters<typeof overview.publishDescription>[0]) =>
+      overview.publishDescription(input).pipe(Effect.tap(() => poller.poke(true))),
     addThread: reviews.addThread,
     reply: reviews.reply,
     resolveThread: reviews.resolve,

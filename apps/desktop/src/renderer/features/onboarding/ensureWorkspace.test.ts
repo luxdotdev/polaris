@@ -64,7 +64,8 @@ const setup = (model: HostModel, host: HostView = connected(), refuse = false) =
 
   const api: Pick<PolarisApi, "request"> = {
     request: (method, input) => {
-      if (method !== "dispatch" || !("command" in input)) throw new Error(`unexpected ${method}`);
+      if (method !== "dispatch" || !("command" in input) || !("hostKey" in input))
+        throw new Error(`unexpected ${method}`);
       sent.push(input.command);
 
       if (refuse) {
