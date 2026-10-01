@@ -7,7 +7,7 @@ import { createHash } from "node:crypto";
 import { Schema } from "effect";
 import type { FakeAuth } from "./auth.ts";
 import { type FakeRequest, type FakeResponse, json } from "./http.ts";
-import type { FakeCommit, World } from "./world.ts";
+import { type FakeCommit, seedStacks, type World } from "./world.ts";
 
 export interface ControlInput {
   readonly world: World;
@@ -105,6 +105,8 @@ export const newControl = ({ world, auth, failures, now }: ControlInput) => {
 
       if (!p.reviewRequests.includes(login)) p.reviewRequests.push(login);
     },
+    /** Adds acme/platform's GitHub stack and acme/infra's inferred chain (`fixtures/stacks.json`). */
+    seedStacks: () => seedStacks(world),
     restrictOrg: (org: string, restricted: boolean) => {
       for (const o of world.orgs) if (o.login === org) o.restricted = restricted;
     },
@@ -124,6 +126,7 @@ export const newControl = ({ world, auth, failures, now }: ControlInput) => {
         api.approveDevice(b.userCode ?? api.pendingUserCodes().at(-1) ?? "", b.login ?? "mona"),
       deny: (b) => api.denyDevice(b.userCode ?? api.pendingUserCodes().at(-1) ?? ""),
       expire: () => api.expireAccessTokens(),
+      "seed-stacks": () => api.seedStacks(),
       merge: (b) => withPull(b, api.merge),
       close: (b) => withPull(b, api.close),
       push: (b) => withPull(b, api.push),

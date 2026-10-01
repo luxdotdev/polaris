@@ -8,6 +8,7 @@ import type {
   ViewedState,
 } from "../../shared/github.ts";
 import type { PullDetailData, ReviewThread } from "./queries.ts";
+import { checksOf, githubStack } from "./stacks.ts";
 
 type Detail = NonNullable<NonNullable<PullDetailData["repository"]>["pullRequest"]>;
 
@@ -123,5 +124,7 @@ export const detailView = ({
             comments: pending.comments.totalCount,
           },
     accountId,
+    checks: checksOf(pull.checks),
+    stack: githubStack(pull.stack, pull.stackEntry),
   };
 };

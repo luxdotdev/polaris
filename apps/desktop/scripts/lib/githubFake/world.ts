@@ -53,6 +53,18 @@ const FixturePull = Schema.Struct({
     })
   ),
   threads: Schema.Array(FixtureThread),
+  /** Its head lives in a fork. */
+  isCrossRepository: Schema.optionalKey(Schema.Boolean),
+  /** The head commit's checks rollup: SUCCESS, FAILURE, ERROR, PENDING. */
+  checks: Schema.optionalKey(Schema.Struct({ state: Schema.String, total: Schema.Number })),
+});
+
+/** A GitHub stack: its pull requests by number, bottom (closest to `base`) first. */
+const FixtureStack = Schema.Struct({
+  repo: Schema.String,
+  number: Schema.Number,
+  base: Schema.String,
+  pulls: Schema.Array(Schema.Number),
 });
 
 export const Fixture = Schema.Struct({
@@ -74,7 +86,10 @@ export const Fixture = Schema.Struct({
     })
   ),
   pulls: Schema.Array(FixturePull),
+  stacks: Schema.optionalKey(Schema.Array(FixtureStack)),
 });
+
+export type FakeStack = typeof FixtureStack.Type;
 
 export type Fixture = typeof Fixture.Type;
 
@@ -146,13 +161,15 @@ export interface World {
   readonly viewed: Map<string, "VIEWED" | "DISMISSED">;
   /** Pull request id → its commits, oldest first; the last is `headRefOid`. */
   readonly commits: Map<string, Array<FakeCommit>>;
+  /** GitHub's stacks (`seedStacks`); empty in the base world. */
+  readonly stacks: Array<FakeStack>;
   nextId: number;
 }
 
 const decodeFixture = Schema.decodeUnknownSync(Schema.fromJsonString(Fixture));
 
 /** `world` is github.com's; `ghe` a GitHub Enterprise host's (its mona has the same user id). */
-export const loadFixture = (name: "world" | "ghe" = "world"): Fixture =>
+export const loadFixture = (name: "world" | "ghe" | "stacks" = "world"): Fixture =>
   decodeFixture(readFileSync(new URL(`./fixtures/${name}.json`, import.meta.url), "utf8"));
 
 export const worldFrom = (fixture: Fixture): World => ({
@@ -188,8 +205,23 @@ export const worldFrom = (fixture: Fixture): World => ({
     }))
   ),
   viewed: new Map(),
+  stacks: [...(fixture.stacks ?? [])],
   nextId: 1,
 });
+
+/**
+ * Adds `fixtures/stacks.json` to a world: acme/platform's GitHub stack #635 of four layers
+ * (#62 asks mona's review) and acme/infra's chain of two with no GitHub stack (inferred).
+ */
+export const seedStacks = (world: World) => {
+  const extra = worldFrom(loadFixture("stacks"));
+
+  world.repos.push(...extra.repos);
+  world.pulls.push(...extra.pulls);
+  world.stacks.push(...extra.stacks);
+
+  for (const [id, commits] of extra.commits) world.commits.set(id, commits);
+};
 
 export const newId = (world: World, prefix: string) => `${prefix}_fake${world.nextId++}`;
 

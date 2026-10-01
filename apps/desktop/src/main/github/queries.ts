@@ -44,17 +44,90 @@ export const OwnerKindData = Schema.Struct({
   repositoryOwner: Schema.NullOr(Schema.Struct({ __typename: Schema.String })),
 });
 
+// ── Checks and stacks ────────────────────────────────────────────────────────
+
+/** The head commit's checks; `contexts` needs a page size, and only its total is read. */
+const CHECKS = `commits(last: 1) { nodes { commit { statusCheckRollup { state contexts(first: 1) { totalCount } } } } }`;
+
+const Checks = Schema.Struct({
+  nodes: Schema.Array(
+    Schema.Struct({
+      commit: Schema.Struct({
+        statusCheckRollup: Schema.NullOr(
+          Schema.Struct({
+            state: Schema.String,
+            contexts: Schema.Struct({ totalCount: Schema.Number }),
+          })
+        ),
+      }),
+    })
+  ),
+});
+
+/** Stacks larger than this show their first layers only. */
+export const STACK_ENTRIES = 20;
+
+/**
+ * GitHub's stack of a pull request (docs/research/github-stacks.md). github.com only: an
+ * Enterprise Server without the fields would refuse the whole query.
+ */
+const STACK = `stackEntry { position }
+stack { number size baseRefName entries(first: ${STACK_ENTRIES}) { nodes { position pullRequest {
+  id number title url headRefName state isDraft additions deletions ${CHECKS}
+} } } }`;
+
+const StackMember = Schema.Struct({
+  id: Schema.String,
+  number: Schema.Number,
+  title: Schema.String,
+  url: Schema.String,
+  headRefName: Schema.String,
+  state: Schema.String,
+  isDraft: Schema.Boolean,
+  additions: Schema.Number,
+  deletions: Schema.Number,
+  commits: Checks,
+});
+
+export type StackMember = typeof StackMember.Type;
+
+const StackFields = {
+  stackEntry: Schema.optionalKey(Schema.NullOr(Schema.Struct({ position: Schema.Number }))),
+  stack: Schema.optionalKey(
+    Schema.NullOr(
+      Schema.Struct({
+        number: Schema.Number,
+        size: Schema.Number,
+        baseRefName: Schema.String,
+        entries: Schema.Struct({
+          nodes: Schema.Array(
+            Schema.Struct({ position: Schema.Number, pullRequest: Schema.NullOr(StackMember) })
+          ),
+        }),
+      })
+    )
+  ),
+};
+
+export type GitHubStack = NonNullable<Schema.Struct<typeof StackFields>["Type"]["stack"]>;
+
+export type ChecksData = typeof Checks.Type;
+
 // ── The pull request list ────────────────────────────────────────────────────
 
-export const pullSearch = op(
-  "PullSearch",
-  `query PullSearch($q: String!) {
+/** `stacks`: ask for GitHub's stacks (github.com); Enterprise hosts infer them instead. */
+export const pullSearch = (variables: { readonly q: string }, stacks: boolean) =>
+  op(
+    "PullSearch",
+    `query PullSearch($q: String!) {
   search(type: ISSUE, query: $q, first: 50) {
     issueCount
     nodes {
       ... on PullRequest {
-        id number title url isDraft state updatedAt
+        id number title url isDraft state updatedAt isCrossRepository
         headRefName headRefOid baseRefName additions deletions
+        ${CHECKS}
+        ${stacks ? STACK : ""}
         repository { nameWithOwner }
         author { login avatarUrl }
         reviewDecision
@@ -65,7 +138,7 @@ export const pullSearch = op(
   }
   rateLimit { cost remaining resetAt }
 }`
-);
+  )(variables);
 
 export const SearchPull = Schema.Struct({
   id: Schema.String,
@@ -80,6 +153,9 @@ export const SearchPull = Schema.Struct({
   baseRefName: Schema.String,
   additions: Schema.Number,
   deletions: Schema.Number,
+  isCrossRepository: Schema.optionalKey(Schema.Boolean),
+  commits: Schema.optionalKey(Checks),
+  ...StackFields,
   repository: Schema.Struct({ nameWithOwner: Schema.String }),
   author: Author,
   reviewDecision: Schema.NullOr(Schema.String),
@@ -117,9 +193,14 @@ nodes {
 
 const PENDING = `reviews(states: [PENDING], first: 1) { nodes { id commit { oid } comments { totalCount } } }`;
 
-export const pullDetail = op(
-  "PullDetail",
-  `query PullDetail($owner: String!, $name: String!, $number: Int!) {
+/** `stacks` as for `pullSearch`. */
+export const pullDetail = (
+  variables: { readonly owner: string; readonly name: string; readonly number: number },
+  stacks: boolean
+) =>
+  op(
+    "PullDetail",
+    `query PullDetail($owner: String!, $name: String!, $number: Int!) {
   viewer { login }
   repository(owner: $owner, name: $name) {
     nameWithOwner
@@ -128,13 +209,15 @@ export const pullDetail = op(
       author { login avatarUrl }
       headRefName headRefOid baseRefName baseRefOid
       commits { totalCount }
+      checks: ${CHECKS}
+      ${stacks ? STACK : ""}
       files(first: 100) { ${FILES} }
       reviewThreads(first: 100) { ${THREADS} }
       ${PENDING}
     }
   }
 }`
-);
+  )(variables);
 
 export const PullFile = Schema.Struct({
   path: Schema.String,
@@ -206,6 +289,8 @@ export const PullDetailData = Schema.Struct({
           baseRefName: Schema.String,
           baseRefOid: Schema.String,
           commits: Schema.Struct({ totalCount: Schema.Number }),
+          checks: Schema.optionalKey(Checks),
+          ...StackFields,
           files: FilesPage,
           reviewThreads: ThreadsPage,
           reviews: PendingReviews,

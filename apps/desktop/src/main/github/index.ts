@@ -15,6 +15,7 @@ import {
   repoKey,
   type WorkspaceRef,
   workspaceKey,
+  type PullRef,
 } from "../../shared/github.ts";
 import { openAccounts } from "./accounts.ts";
 import { type BudgetPolicy, DEFAULT_POLICY, newBudget } from "./budget.ts";
@@ -178,7 +179,21 @@ const make = Effect.fn("GitHub.make")(function* (input: GitHubInput) {
     /** The user asked to check a blocked repository again (after requesting access). */
     recheck: (repo: RepoRef) => Effect.andThen(routing.invalidate(repo), poller.poke(true)),
     setFocused: poller.setFocused,
-    detail: reviews.detail,
+    /** GitHub's stack when it has one, else the one the list inferred (no extra request). */
+    detail: (pull: PullRef) =>
+      Effect.gen(function* () {
+        const view = yield* reviews.detail(pull);
+
+        if ((view.stack ?? null) !== null) return view;
+
+        const current = yield* SubscriptionRef.get(list);
+
+        const row = [...current.requested, ...current.mine, ...current.other].find(
+          (r) => r.id === view.id
+        );
+
+        return { ...view, stack: row?.stack ?? null };
+      }),
     addThread: reviews.addThread,
     reply: reviews.reply,
     resolveThread: reviews.resolve,

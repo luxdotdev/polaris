@@ -20,10 +20,13 @@ const served = await fake.serve();                       // or over HTTP: POLARI
 - `mona/dotfiles` #7 requests mona; `hubot/scripts` #3 requests hubot.
 - `lockedorg` restricts OAuth Apps: `lockedorg/vault` is a 404 / `NOT_FOUND` for everyone.
 
+`fake.seedStacks()` (HTTP `POST /_fake/seed-stacks`) adds `fixtures/stacks.json`: acme/platform's GitHub stack #635 (#61 → #64 on `nightly`; #62 asks mona's review) and acme/infra's chain #11 → #12 with no GitHub stack (inferred), plus #13 on top from a fork (never stacked).
+
 ## What it answers
 
 - `POST /login/device/code`, `POST /login/oauth/access_token` (device and refresh grants, with `authorization_pending`, `slow_down`, `access_denied`, `expired_token`, `bad_refresh_token`).
 - `GET /user`; `GET /repos/{o}/{r}/pulls` with ETags (a 304 doesn't count against the limit); `POST /repos/{o}/{r}/pulls`.
+- Stacks (`stack`, `stackEntry`) only when the query names them, as on github.com; checks as `commits(last: 1) { … statusCheckRollup }`.
 - `POST /graphql` by `operationName`: the operations in `src/main/github/queries.ts` (it doesn't parse GraphQL). Mutations refuse what GitHub refuses: a second pending review, approving or requesting changes on your own pull request, Request changes without a body, a path not in the pull request.
 
 ## Moving the world

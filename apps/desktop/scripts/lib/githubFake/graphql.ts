@@ -43,6 +43,71 @@ const Envelope = Schema.fromJsonString(
 
 const decodeEnvelope = Schema.decodeUnknownSync(Envelope);
 
+const QueryText = Schema.fromJsonString(
+  Schema.Struct({ query: Schema.optionalKey(Schema.String) })
+);
+
+/** Whether the query names `field`: stacks are answered only when asked, as on GitHub. */
+export const asks = (variables: Variables, field: string) =>
+  (Schema.decodeUnknownSync(QueryText)(variables.body).query ?? "").includes(field);
+
+/** The head commit's checks, as `commits(last: 1) { … statusCheckRollup }` gives them. */
+const checksOf = (pull: FakePull) => ({
+  nodes: [
+    {
+      commit: {
+        statusCheckRollup:
+          pull.checks === undefined
+            ? null
+            : { state: pull.checks.state, contexts: { totalCount: pull.checks.total } },
+      },
+    },
+  ],
+});
+
+/** `stack` and `stackEntry` for a pull request in one of the world's stacks; null when not asked. */
+const stackFields = (world: World, pull: FakePull, asked: boolean) => {
+  const stack = world.stacks.find((s) => s.repo === pull.repo && s.pulls.includes(pull.number));
+
+  if (!asked || stack === undefined) return { stack: null, stackEntry: null };
+
+  const member = (number: number) =>
+    world.pulls.find((p) => p.repo === pull.repo && p.number === number);
+
+  return {
+    stackEntry: { position: stack.pulls.indexOf(pull.number) + 1 },
+    stack: {
+      number: stack.number,
+      size: stack.pulls.length,
+      baseRefName: stack.base,
+      entries: {
+        nodes: stack.pulls.map((number, i) => {
+          const p = member(number);
+
+          return {
+            position: i + 1,
+            pullRequest:
+              p === undefined
+                ? null
+                : {
+                    id: p.id,
+                    number: p.number,
+                    title: p.title,
+                    url: `https://github.com/${p.repo}/pull/${p.number}`,
+                    headRefName: p.headRefName,
+                    state: p.state,
+                    isDraft: p.isDraft,
+                    additions: p.files.reduce((n, f) => n + f.additions, 0),
+                    deletions: p.files.reduce((n, f) => n + f.deletions, 0),
+                    commits: checksOf(p),
+                  },
+          };
+        }),
+      },
+    },
+  };
+};
+
 type Decodable = Schema.Top & { readonly DecodingServices: never };
 
 export const vars = <S extends Decodable>(schema: S, variables: Variables): S["Type"] =>
@@ -190,7 +255,7 @@ const matches = (pull: FakePull, viewer: FakeUser, terms: ReadonlyArray<string>)
   return repos.length === 0 || repos.includes(pull.repo.toLowerCase());
 };
 
-const searchNode = (world: World, pull: FakePull, viewer: FakeUser) => {
+const searchNode = (world: World, pull: FakePull, viewer: FakeUser, stacks: boolean) => {
   const latest = world.reviews
     .filter((r) => r.pullId === pull.id && r.author === viewer.login && r.state !== "PENDING")
     .at(-1);
@@ -208,6 +273,9 @@ const searchNode = (world: World, pull: FakePull, viewer: FakeUser) => {
     baseRefName: pull.baseRefName,
     additions: pull.files.reduce((n, f) => n + f.additions, 0),
     deletions: pull.files.reduce((n, f) => n + f.deletions, 0),
+    isCrossRepository: pull.isCrossRepository ?? false,
+    commits: checksOf(pull),
+    ...stackFields(world, pull, stacks),
     repository: { nameWithOwner: pull.repo },
     author: author(world, pull.author),
     reviewDecision: pull.reviewDecision,
@@ -228,7 +296,9 @@ const pullSearch = (world: World, viewer: FakeUser, variables: Variables) => {
   return {
     search: {
       issueCount: found.length,
-      nodes: found.slice(0, 50).map((p) => searchNode(world, p, viewer)),
+      nodes: found
+        .slice(0, 50)
+        .map((p) => searchNode(world, p, viewer, asks(variables, "stackEntry"))),
     },
     rateLimit: {
       cost: 1,
@@ -272,6 +342,8 @@ const pullDetail = (world: World, viewer: FakeUser, variables: Variables) => {
               baseRefName: pull.baseRefName,
               baseRefOid: pull.baseRefOid,
               commits: { totalCount: world.commits.get(pull.id)?.length ?? 1 },
+              checks: checksOf(pull),
+              ...stackFields(world, pull, asks(variables, "stackEntry")),
               files: page(filesOf(world, pull, viewer), null),
               reviewThreads: page(threadsOf(world, pull, viewer), null),
               reviews: pendingOf(world, pull, viewer),

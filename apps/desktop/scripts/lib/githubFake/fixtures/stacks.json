@@ -1,0 +1,251 @@
+{
+  "users": [],
+  "orgs": [],
+  "repos": [
+    {
+      "id": "R_kgDOplat01",
+      "owner": "acme",
+      "name": "platform",
+      "access": {
+        "1001": "WRITE",
+        "2002": "READ",
+        "3003": "ADMIN"
+      }
+    },
+    {
+      "id": "R_kgDOinfr01",
+      "owner": "acme",
+      "name": "infra",
+      "access": {
+        "1001": "WRITE",
+        "3003": "ADMIN"
+      }
+    }
+  ],
+  "pulls": [
+    {
+      "id": "PR_kwDOplat61",
+      "repo": "acme/platform",
+      "number": 61,
+      "title": "feat(auth): make impersonated sessions read-only (ENG-1843)",
+      "body": "feat(auth): make impersonated sessions read-only (ENG-1843).",
+      "author": "octocat",
+      "state": "OPEN",
+      "isDraft": false,
+      "headRefName": "octocat/eng-1843-admin-impersonation-sign-in-as-a-planner-read-only-and",
+      "headRefOid": "50525f6b77444f706c6174363150525f6b77444f",
+      "baseRefName": "nightly",
+      "baseRefOid": "b50525f6b77444f706c6174363150525f6b77444",
+      "createdAt": "2026-09-29T10:00:00Z",
+      "updatedAt": "2026-09-30T09:00:00Z",
+      "reviewRequests": [],
+      "reviewDecision": "REVIEW_REQUIRED",
+      "files": [
+        {
+          "path": "apps/web/src/lib/session.ts",
+          "additions": 109,
+          "deletions": 23,
+          "changeType": "MODIFIED"
+        }
+      ],
+      "threads": [],
+      "checks": {
+        "state": "SUCCESS",
+        "total": 13
+      }
+    },
+    {
+      "id": "PR_kwDOplat62",
+      "repo": "acme/platform",
+      "number": 62,
+      "title": "feat(auth): audit impersonation start and stop (ENG-1845)",
+      "body": "feat(auth): audit impersonation start and stop (ENG-1845).",
+      "author": "octocat",
+      "state": "OPEN",
+      "isDraft": false,
+      "headRefName": "octocat/eng-1845-admin-impersonation-record-every-start-and-stop-through-our",
+      "headRefOid": "50525f6b77444f706c6174363250525f6b77444f",
+      "baseRefName": "octocat/eng-1843-admin-impersonation-sign-in-as-a-planner-read-only-and",
+      "baseRefOid": "b50525f6b77444f706c6174363250525f6b77444",
+      "createdAt": "2026-09-29T10:00:00Z",
+      "updatedAt": "2026-09-30T10:00:00Z",
+      "reviewRequests": ["mona"],
+      "reviewDecision": "REVIEW_REQUIRED",
+      "files": [
+        {
+          "path": "apps/web/src/app/api/impersonation/handler.ts",
+          "additions": 474,
+          "deletions": 14,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "apps/web/src/app/api/impersonation/handler.test.ts",
+          "additions": 141,
+          "deletions": 0,
+          "changeType": "ADDED"
+        }
+      ],
+      "threads": [],
+      "checks": {
+        "state": "SUCCESS",
+        "total": 4
+      }
+    },
+    {
+      "id": "PR_kwDOplat63",
+      "repo": "acme/platform",
+      "number": 63,
+      "title": "feat(admin): sign in as a planner from Users (ENG-1846)",
+      "body": "feat(admin): sign in as a planner from Users (ENG-1846).",
+      "author": "octocat",
+      "state": "OPEN",
+      "isDraft": false,
+      "headRefName": "octocat/eng-1846-admin-impersonation-sign-in-as-a-planner-from-users",
+      "headRefOid": "50525f6b77444f706c6174363350525f6b77444f",
+      "baseRefName": "octocat/eng-1845-admin-impersonation-record-every-start-and-stop-through-our",
+      "baseRefOid": "b50525f6b77444f706c6174363350525f6b77444",
+      "createdAt": "2026-09-29T10:00:00Z",
+      "updatedAt": "2026-09-30T11:00:00Z",
+      "reviewRequests": [],
+      "reviewDecision": "REVIEW_REQUIRED",
+      "files": [
+        {
+          "path": "apps/web/src/app/admin/users/page.tsx",
+          "additions": 409,
+          "deletions": 34,
+          "changeType": "MODIFIED"
+        }
+      ],
+      "threads": [],
+      "checks": {
+        "state": "PENDING",
+        "total": 10
+      }
+    },
+    {
+      "id": "PR_kwDOplat64",
+      "repo": "acme/platform",
+      "number": 64,
+      "title": "feat(vacant-land): show planner controls disabled while impersonating",
+      "body": "feat(vacant-land): show planner controls disabled while impersonating.",
+      "author": "octocat",
+      "state": "OPEN",
+      "isDraft": true,
+      "headRefName": "octocat/eng-1847-admin-impersonation-show-planner-controls-disabled",
+      "headRefOid": "50525f6b77444f706c6174363450525f6b77444f",
+      "baseRefName": "octocat/eng-1846-admin-impersonation-sign-in-as-a-planner-from-users",
+      "baseRefOid": "b50525f6b77444f706c6174363450525f6b77444",
+      "createdAt": "2026-09-29T10:00:00Z",
+      "updatedAt": "2026-09-30T12:00:00Z",
+      "reviewRequests": [],
+      "reviewDecision": "REVIEW_REQUIRED",
+      "files": [
+        {
+          "path": "apps/web/src/app/vacant-land/planner.tsx",
+          "additions": 91,
+          "deletions": 19,
+          "changeType": "MODIFIED"
+        }
+      ],
+      "threads": [],
+      "checks": {
+        "state": "FAILURE",
+        "total": 2
+      }
+    },
+    {
+      "id": "PR_kwDOinfr11",
+      "repo": "acme/infra",
+      "number": 11,
+      "title": "Split the VPC into its own module",
+      "body": "Split the VPC into its own module.",
+      "author": "octocat",
+      "state": "OPEN",
+      "isDraft": false,
+      "headRefName": "infra/vpc-module",
+      "headRefOid": "50525f6b77444f696e6672313150525f6b77444f",
+      "baseRefName": "main",
+      "baseRefOid": "b50525f6b77444f696e6672313150525f6b77444",
+      "createdAt": "2026-09-29T10:00:00Z",
+      "updatedAt": "2026-09-30T09:00:00Z",
+      "reviewRequests": ["mona"],
+      "reviewDecision": "REVIEW_REQUIRED",
+      "files": [
+        {
+          "path": "terraform/vpc/main.tf",
+          "additions": 120,
+          "deletions": 40,
+          "changeType": "MODIFIED"
+        }
+      ],
+      "threads": [],
+      "checks": {
+        "state": "SUCCESS",
+        "total": 3
+      }
+    },
+    {
+      "id": "PR_kwDOinfr12",
+      "repo": "acme/infra",
+      "number": 12,
+      "title": "Private subnets on the new VPC module",
+      "body": "Private subnets on the new VPC module.",
+      "author": "octocat",
+      "state": "OPEN",
+      "isDraft": false,
+      "headRefName": "infra/private-subnets",
+      "headRefOid": "50525f6b77444f696e6672313250525f6b77444f",
+      "baseRefName": "infra/vpc-module",
+      "baseRefOid": "b50525f6b77444f696e6672313250525f6b77444",
+      "createdAt": "2026-09-29T10:00:00Z",
+      "updatedAt": "2026-09-30T10:00:00Z",
+      "reviewRequests": ["mona"],
+      "reviewDecision": "REVIEW_REQUIRED",
+      "files": [
+        {
+          "path": "terraform/vpc/subnets.tf",
+          "additions": 64,
+          "deletions": 2,
+          "changeType": "MODIFIED"
+        }
+      ],
+      "threads": []
+    },
+    {
+      "id": "PR_kwDOinfr13",
+      "repo": "acme/infra",
+      "number": 13,
+      "title": "Tag the subnets (from a fork)",
+      "body": "Tag the subnets (from a fork).",
+      "author": "octocat",
+      "state": "OPEN",
+      "isDraft": false,
+      "headRefName": "infra/tags",
+      "headRefOid": "50525f6b77444f696e6672313350525f6b77444f",
+      "baseRefName": "infra/private-subnets",
+      "baseRefOid": "b50525f6b77444f696e6672313350525f6b77444",
+      "createdAt": "2026-09-29T10:00:00Z",
+      "updatedAt": "2026-09-30T11:00:00Z",
+      "reviewRequests": ["mona"],
+      "reviewDecision": "REVIEW_REQUIRED",
+      "files": [
+        {
+          "path": "terraform/vpc/tags.tf",
+          "additions": 8,
+          "deletions": 0,
+          "changeType": "MODIFIED"
+        }
+      ],
+      "threads": [],
+      "isCrossRepository": true
+    }
+  ],
+  "stacks": [
+    {
+      "repo": "acme/platform",
+      "number": 635,
+      "base": "nightly",
+      "pulls": [61, 62, 63, 64]
+    }
+  ]
+}

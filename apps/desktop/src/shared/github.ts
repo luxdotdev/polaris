@@ -163,7 +163,65 @@ export interface PullRowView {
   readonly accountId: number;
   /** The Workspaces whose remotes match its repository; empty for other repos. */
   readonly workspaces: ReadonlyArray<WorkspaceRef>;
+  /** Its head is in a fork: never part of an inferred stack. Main always sets it. */
+  readonly fromFork?: boolean;
+  /** The head commit's checks; null when it has none. Main always sets it. */
+  readonly checks?: ChecksView | null;
+  /** The stack it's a layer of; null when it stands alone. Main always sets it. */
+  readonly stack?: StackView | null;
 }
+
+/** Open, Draft, Merged or Closed, as the status pill says it. */
+export type PullStatus = "open" | "draft" | "merged" | "closed";
+
+/** A head commit's checks rolled up: GitHub's `statusCheckRollup`. */
+export interface ChecksView {
+  readonly state: "success" | "failure" | "pending";
+  readonly total: number;
+}
+
+/** One layer of a stack. */
+export interface StackMemberView {
+  /** The pull request's node id; empty when GitHub didn't say (a member the viewer can't see). */
+  readonly id: string;
+  readonly number: number;
+  readonly title: string;
+  readonly url: string;
+  readonly headRefName: string;
+  readonly status: PullStatus;
+  readonly additions: number;
+  readonly deletions: number;
+  readonly checks: ChecksView | null;
+}
+
+/**
+ * A stack of pull requests, each targeting the one below (docs/research/github-stacks.md).
+ * `github`: GitHub's own stack; `inferred`: from the open pull requests' base and head
+ * branches (DESIGN.md, Review → Stacks).
+ */
+export interface StackView {
+  readonly source: "github" | "inferred";
+  /** GitHub's stack number ("Stack #635"); null for an inferred stack. */
+  readonly number: number | null;
+  /** The branch the bottom layer targets ("nightly"). */
+  readonly trunk: string;
+  /** This pull request's layer: 1 is the closest to the trunk. */
+  readonly position: number;
+  readonly size: number;
+  /** Bottom (position 1) to top. */
+  readonly members: ReadonlyArray<StackMemberView>;
+}
+
+/** The status pill's value from GitHub's state and draft flag. */
+export const pullStatus = (state: string, isDraft: boolean): PullStatus => {
+  const upper = state.toUpperCase();
+
+  if (upper === "MERGED") return "merged";
+
+  if (upper === "CLOSED") return "closed";
+
+  return isDraft ? "draft" : "open";
+};
 
 /**
  * `background`: the window isn't focused, so polls are slower. `throttled`:
@@ -267,6 +325,9 @@ export interface PullDetailView {
   readonly threads: ReadonlyArray<ReviewThreadView>;
   readonly pendingReview: PendingReviewView | null;
   readonly accountId: number;
+  /** Main always sets these two; see `PullRowView`. */
+  readonly checks?: ChecksView | null;
+  readonly stack?: StackView | null;
 }
 
 export type ReviewEvent = "approve" | "request-changes" | "comment";

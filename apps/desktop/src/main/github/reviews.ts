@@ -4,7 +4,13 @@
  * Mutations are serialized per account, a second apart (GitHub's content limits).
  */
 import { Clock, Effect, Semaphore } from "effect";
-import { type DiffSide, hostOf, type PullRef, type ReviewEvent } from "../../shared/github.ts";
+import {
+  type DiffSide,
+  GITHUB_HOST,
+  hostOf,
+  type PullRef,
+  type ReviewEvent,
+} from "../../shared/github.ts";
 import type { Client } from "./client.ts";
 import { GitHubInvalidReview, GitHubNoAccount, GitHubNotFound } from "./errors.ts";
 import {
@@ -243,7 +249,10 @@ export const newReviews = ({ client, routing, gapMs }: ReviewsInput) => {
       const data = yield* client.graphql(
         accountId,
         PullDetailData,
-        pullDetail({ owner: pull.repo.owner, name: pull.repo.name, number: pull.number })
+        pullDetail(
+          { owner: pull.repo.owner, name: pull.repo.name, number: pull.number },
+          hostOf(pull.repo) === GITHUB_HOST
+        )
       );
 
       const pr = data.repository?.pullRequest ?? null;

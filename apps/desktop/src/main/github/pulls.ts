@@ -15,6 +15,7 @@ import {
 } from "../../shared/github.ts";
 import type { Client } from "./client.ts";
 import { PullSearchData, pullSearch, type SearchPull } from "./queries.ts";
+import { checksOf, githubStack, withStacks } from "./stacks.ts";
 import type { RepoAccess, Routing } from "./routing.ts";
 import type { AccountRecord } from "./store.ts";
 import { RestPulls } from "./wire.ts";
@@ -72,6 +73,9 @@ export const rowOf = (
   }),
   accountId,
   workspaces,
+  fromFork: pull.isCrossRepository ?? false,
+  checks: checksOf(pull.commits),
+  stack: githubStack(pull.stack, pull.stackEntry),
 });
 
 /** Newest first, each pull request once (the first group that has it keeps it). */
@@ -124,7 +128,12 @@ export const groups = (found: ReadonlyArray<Found>, watched: ReadonlyArray<Watch
     new Set([...requested, ...mine].map((r) => r.id))
   );
 
-  return { requested, mine, other };
+  // A stack's layers can sit in different groups: infer across all of them at once.
+  const stacked = withStacks([...requested, ...mine, ...other]);
+  const byId = new Map(stacked.map((r) => [r.id, r]));
+  const back = (list: ReadonlyArray<PullRowView>) => list.map((r) => byId.get(r.id) ?? r);
+
+  return { requested: back(requested), mine: back(mine), other: back(other) };
 };
 
 export interface PullsInput {
@@ -165,17 +174,17 @@ export const newPulls = ({ client, routing }: PullsInput) => {
       return true;
     });
 
-  const search = (accountId: number, q: string) =>
+  const search = (account: AccountRecord, q: string) =>
     client
-      .graphql(accountId, PullSearchData, pullSearch({ q }))
+      .graphql(account.id, PullSearchData, pullSearch({ q }, account.host === GITHUB_HOST))
       .pipe(Effect.map(({ search: s }) => s.nodes));
 
   const searchAccount = (account: AccountRecord, repos: ReadonlyArray<string>) =>
     Effect.gen(function* () {
       const [requested, mine, other] = yield* Effect.all([
-        search(account.id, QUERIES.requested),
-        search(account.id, QUERIES.mine),
-        repos.length === 0 ? Effect.succeed([]) : search(account.id, QUERIES.other(repos)),
+        search(account, QUERIES.requested),
+        search(account, QUERIES.mine),
+        repos.length === 0 ? Effect.succeed([]) : search(account, QUERIES.other(repos)),
       ]);
 
       lastSearch.set(account.id, yield* Clock.currentTimeMillis);
