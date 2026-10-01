@@ -33,6 +33,7 @@ export interface TurnScript {
   readonly touchFiles?: number;
   readonly itemBytes?: number;
   readonly startDelayMs?: number;
+  readonly subagents?: number;
 }
 
 export const prompt = (script: TurnScript) => `bench:${JSON.stringify(script)}`;

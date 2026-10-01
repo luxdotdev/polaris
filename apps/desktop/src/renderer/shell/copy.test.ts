@@ -39,7 +39,7 @@ const working = (item: TurnItem | null, text = ""): SessionModel => ({
   synchronized: true,
   session: null,
   pendingApprovals: [],
-  turns: [{ turn, items: [], live: new Map([["x", { item, text, output: "" }]]) }],
+  turns: [{ turn, items: [], live: new Map([["x", { item, text, output: "" }]]), subagents: [] }],
 });
 
 describe("session row line", () => {

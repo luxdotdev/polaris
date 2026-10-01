@@ -5,6 +5,7 @@
  */
 import { CheckIcon, cn, Dither, GitStatusLetter, type Harness, PixelFailedIcon } from "@polaris/ui";
 import { type FileChangeKind, type ItemView } from "../model/items.ts";
+import { toolVerb } from "../model/runs.ts";
 import { Command } from "./command.tsx";
 import { Markdown } from "./markdown/index.tsx";
 import { Plan } from "./plan.tsx";
@@ -65,15 +66,30 @@ const Files = ({
   </div>
 );
 
+const ToolMark = ({ item, hue }: { item: Extract<ItemView, { kind: "tool" }>; hue: Hue }) => {
+  if (item.status === "running") return <LiveMark hue={hue} />;
+
+  return item.status === "completed" ? (
+    <CheckIcon size={12} className="text-text-faint" />
+  ) : (
+    <PixelFailedIcon size={12} className="text-failed" />
+  );
+};
+
 const Tool = ({ item, hue }: { item: Extract<ItemView, { kind: "tool" }>; hue: Hue }) => (
-  <div className="flex h-6 min-w-0 items-center gap-2" data-testid="tool-call">
-    {item.status === "running" ? (
-      <LiveMark hue={hue} />
-    ) : (
-      <CheckIcon size={12} className="text-text-faint" />
-    )}
-    <span className="text-caption text-text-subtle shrink-0 font-medium">{item.name}</span>
+  <div
+    className="flex h-6 min-w-0 items-center gap-2"
+    data-testid="tool-call"
+    data-status={item.status}
+  >
+    <ToolMark item={item} hue={hue} />
+    <span className="text-caption text-text-subtle shrink-0 font-medium">
+      {toolVerb(item.name, item.status === "running")}
+    </span>
     <span className="text-code-inline text-text-subtle truncate font-mono">{item.summary}</span>
+    {item.status === "declined" ? (
+      <span className="text-caption text-text-subtle shrink-0">declined</span>
+    ) : null}
   </div>
 );
 

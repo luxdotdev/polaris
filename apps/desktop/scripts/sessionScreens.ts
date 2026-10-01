@@ -52,6 +52,7 @@ const SHOT_SCENES = new Map([
   ["picker", "interrupted"],
   ["availability", "new"],
   ["viewer", "attachments"],
+  ["subagent-open", "subagents"],
 ]);
 
 /** Opens what a shot shows, again after each theme or density change closes it. */
@@ -68,6 +69,11 @@ const open = async (page: Page, scene: string) => {
   } else if (scene === "availability") {
     await page.getByTestId("other-harnesses").first().click();
     await page.getByTestId("availability-sheet").waitFor();
+  } else if (scene === "subagent-open") {
+    for (const target of ['[data-testid="tool-run"] > button', '[data-testid="subagent"] > button'])
+      if ((await page.locator(`${target}[aria-expanded="true"]`).count()) === 0)
+        await page.locator(target).first().click();
+    await page.getByTestId("subagent-transcript").first().waitFor();
   } else if (scene === "viewer") {
     await page.locator('[data-testid="sent-image"][data-state="ready"]').first().click();
     await page.getByTestId("attachment-viewer").locator("img").waitFor();

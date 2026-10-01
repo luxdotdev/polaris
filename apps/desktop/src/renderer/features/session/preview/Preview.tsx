@@ -43,6 +43,7 @@ import {
   question,
   steer,
   steerOutbox,
+  subagents,
   workspace,
   workspaceId,
   worktree,
@@ -87,6 +88,7 @@ const SCENES = {
   markdown,
   steer,
   attachments,
+  subagents,
 } as const;
 
 const SCENE_NAMES = [
@@ -99,6 +101,7 @@ const SCENE_NAMES = [
   "markdown",
   "steer",
   "attachments",
+  "subagents",
   "new",
   "setup",
   "none-ready",

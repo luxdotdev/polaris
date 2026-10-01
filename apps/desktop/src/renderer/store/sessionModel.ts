@@ -9,6 +9,7 @@ import type {
   DomainEvent,
   EventEnvelope,
   SessionStreamItem,
+  Subagent,
   Turn,
   TurnItem,
 } from "@polaris/protocol";
@@ -22,11 +23,20 @@ export interface LiveItem {
   readonly output: string;
 }
 
+/** A Subagent the Turn spawned, with its own items (completed and in progress). */
+export interface SubagentView {
+  readonly subagent: Subagent;
+  readonly items: ReadonlyArray<TurnItem>;
+  readonly live: ReadonlyMap<string, LiveItem>;
+}
+
 export interface TurnView {
   readonly turn: Turn;
   readonly items: ReadonlyArray<TurnItem>;
   /** Keyed by item id; an item leaves when its `TurnItemCompleted` arrives. */
   readonly live: ReadonlyMap<string, LiveItem>;
+  /** The Subagents it spawned, in the order they started; their items never mix with the Turn's. */
+  readonly subagents: ReadonlyArray<SubagentView>;
 }
 
 export interface SessionModel {
@@ -65,7 +75,7 @@ const upsertTurn = (model: SessionModel, turn: Turn): SessionModel => {
 
   if (at !== -1) return updateTurn(model, turn.id, (view) => ({ ...view, turn }));
 
-  const turns = [...model.turns, { turn, items: [], live: noLive }].sort(
+  const turns = [...model.turns, { turn, items: [], live: noLive, subagents: [] }].sort(
     (a, b) => a.turn.index - b.turn.index
   );
 
@@ -80,7 +90,13 @@ const withoutRequest = (model: SessionModel, requestId: string): SessionModel =>
   pendingApprovals: model.pendingApprovals.filter((r) => r.id !== requestId),
 });
 
-const completeItem = (view: TurnView, item: TurnItem): TurnView => {
+/** Turn or Subagent: what holds items and their live progress. */
+interface Holder {
+  readonly items: ReadonlyArray<TurnItem>;
+  readonly live: ReadonlyMap<string, LiveItem>;
+}
+
+const completeItem = <H extends Holder>(view: H, item: TurnItem): H => {
   const live = new Map(view.live);
 
   live.delete(item.id);
@@ -89,6 +105,34 @@ const completeItem = (view: TurnView, item: TurnItem): TurnView => {
 
   return { ...view, items, live };
 };
+
+/** Changes one Subagent of a Turn; a no-op when the Turn or the Subagent isn't known. */
+const updateSubagent = (
+  model: SessionModel,
+  turnId: string,
+  subagentId: string,
+  change: (view: SubagentView) => SubagentView
+): SessionModel =>
+  updateTurn(model, turnId, (view) => {
+    const at = view.subagents.findIndex((s) => s.subagent.id === subagentId);
+
+    if (at === -1) return view;
+
+    return { ...view, subagents: view.subagents.map((s, i) => (i === at ? change(s) : s)) };
+  });
+
+/** A Subagent started (or was restated): added to its Turn, or its record replaced. */
+const upsertSubagent = (model: SessionModel, subagent: Subagent): SessionModel =>
+  updateTurn(model, subagent.turnId, (view) =>
+    view.subagents.some((s) => s.subagent.id === subagent.id)
+      ? {
+          ...view,
+          subagents: view.subagents.map((s) =>
+            s.subagent.id === subagent.id ? { ...s, subagent } : s
+          ),
+        }
+      : { ...view, subagents: [...view.subagents, { subagent, items: [], live: noLive }] }
+  );
 
 type Fold = (model: SessionModel) => SessionModel;
 
@@ -145,10 +189,21 @@ const fold = (event: DomainEvent): Fold =>
       TurnItemCompleted:
         ({ turnId, item, subagentId }): Fold =>
         (m) =>
-          // A Subagent's own items belong to its view, not the Turn's (session view, later).
-          subagentId === null ? updateTurn(m, turnId, (view) => completeItem(view, item)) : m,
-      SubagentStarted: () => same,
-      SubagentEnded: () => same,
+          // A Subagent's own items belong to it, never to the Turn.
+          subagentId === null
+            ? updateTurn(m, turnId, (view) => completeItem(view, item))
+            : updateSubagent(m, turnId, subagentId, (view) => completeItem(view, item)),
+      SubagentStarted:
+        ({ subagent }): Fold =>
+        (m) =>
+          upsertSubagent(m, subagent),
+      SubagentEnded:
+        ({ subagent }): Fold =>
+        (m) =>
+          updateSubagent(upsertSubagent(m, subagent), subagent.turnId, subagent.id, (view) => ({
+            ...view,
+            live: noLive,
+          })),
       CheckpointRecorded: () => same,
       ApprovalRequested:
         ({ request }): Fold =>
@@ -173,15 +228,26 @@ const applyEnvelope = (model: SessionModel, envelope: EventEnvelope): SessionMod
   return { ...fold(envelope.event)(model), sequence: envelope.sequence };
 };
 
-const liveOf = (view: TurnView, itemId: string): LiveItem =>
+const liveOf = (view: Holder, itemId: string): LiveItem =>
   view.live.get(itemId) ?? { item: null, text: "", output: "" };
 
-const withLive = (view: TurnView, itemId: string, live: LiveItem): TurnView => {
+const withLive = <H extends Holder>(view: H, itemId: string, live: LiveItem): H => {
   // A delta can trail its item's completion by a frame; never resurrect it.
   if (view.items.some((i) => i.id === itemId)) return view;
 
   return { ...view, live: new Map(view.live).set(itemId, live) };
 };
+
+/** Applies a change to the Turn, or to its Subagent when the item is the Subagent's own. */
+const onHolder = (
+  model: SessionModel,
+  turnId: string,
+  subagentId: string | null,
+  change: <H extends Holder>(holder: H) => H
+): SessionModel =>
+  subagentId === null
+    ? updateTurn(model, turnId, (view) => change(view))
+    : updateSubagent(model, turnId, subagentId, (view) => change(view));
 
 export const applySessionItem = (model: SessionModel, item: SessionStreamItem): SessionModel =>
   Match.value(item).pipe(
@@ -194,18 +260,23 @@ export const applySessionItem = (model: SessionModel, item: SessionStreamItem): 
           turn: detail.turn,
           items: detail.items,
           live: noLive,
+          subagents: detail.subagents.map(({ subagent, items }) => ({
+            subagent,
+            items,
+            live: noLive,
+          })),
         })),
         pendingApprovals: snapshot.pendingApprovals,
       }),
       Event: ({ envelope }) => applyEnvelope(model, envelope),
-      Delta: ({ turnId, itemId, field, text }) =>
-        updateTurn(model, turnId, (view) => {
+      Delta: ({ turnId, itemId, field, text, subagentId }) =>
+        onHolder(model, turnId, subagentId, (view) => {
           const live = liveOf(view, itemId);
 
           return withLive(view, itemId, { ...live, [field]: live[field] + text });
         }),
-      ItemProgress: ({ turnId, item: progress }) =>
-        updateTurn(model, turnId, (view) =>
+      ItemProgress: ({ turnId, item: progress, subagentId }) =>
+        onHolder(model, turnId, subagentId, (view) =>
           withLive(view, progress.id, { ...liveOf(view, progress.id), item: progress })
         ),
       Synchronized: (): SessionModel => ({ ...model, synchronized: true }),

@@ -19,6 +19,7 @@ const turn = (
   turn: turnWith({ id: TurnId.make(`t${index}`), index, prompt: "go", status }),
   items: steers.map((text, n) => TurnItem.cases.UserMessage.make({ id: `u${n}`, text })),
   live: new Map(),
+  subagents: [],
 });
 
 const sent = (entry: Outgoing): Outgoing => ({ ...entry, status: "sent" });
