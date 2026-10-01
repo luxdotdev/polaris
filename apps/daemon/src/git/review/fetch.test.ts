@@ -105,6 +105,26 @@ describe("fetchPullRequest", () => {
     expect(before.originMain).not.toBe(newMain);
   });
 
+  test("a stacked layer's merge base is its base branch (the layer below), not the trunk", async () => {
+    const forge = await createForge();
+    cleanup.push(forge.root);
+    const author = await contributor(forge, "main");
+    write(author, "layer-1.txt", "one\n");
+    const layer1 = await commitAll(author, "layer 1");
+    await gitText(author, ["push", "-q", forge.base, "HEAD:refs/heads/stack/one"]);
+    write(author, "layer-2.txt", "two\n");
+    await commitAll(author, "layer 2");
+    const head = await publishPullRequest(forge, author, 8);
+    const user = await userClone(forge);
+    cleanup.push(user);
+
+    const fetched = await fetchPullRequest(pr(user, { key: "8", number: 8, baseRef: "stack/one" }));
+
+    // Layer 2 is reviewed against layer 1's head, as GitHub's diff is: only its own commit.
+    expect(fetched).toEqual({ head, mergeBase: layer1 });
+    expect(await gitText(user, ["rev-list", "--count", `${fetched.mergeBase}..${head}`])).toBe("1");
+  });
+
   test("a fork's pull request comes from the base repository, not the user's fork remote", async () => {
     const forge = await createForge();
     cleanup.push(forge.root);
