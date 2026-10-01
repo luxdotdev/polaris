@@ -37,8 +37,6 @@ import {
   interrupted,
   long,
   markdown,
-  MODELS,
-  PATCH,
   planning,
   question,
   steer,
@@ -48,6 +46,7 @@ import {
   workspaceId,
   worktree,
 } from "./fixtures.ts";
+import { MODELS, PATCH } from "./fixtureData.ts";
 
 const HOST = "local";
 
