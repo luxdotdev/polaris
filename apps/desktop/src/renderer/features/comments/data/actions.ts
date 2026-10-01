@@ -240,13 +240,16 @@ export const sendFeedback = async (subjectKey: string): Promise<Done> => {
   return ok;
 };
 
-/** "Send now": this comment and the rest of the batch, at once. */
-export const sendNow = (subjectKey: string) =>
+/** "Send now": this comment and the rest of the batch, at once (to a worker, its own way). */
+export const sendNow = (
+  subjectKey: string,
+  send: (subjectKey: string) => Promise<Done> = sendFeedback
+) =>
   withComposer(subjectKey, async (composer) => {
     const before = batchOf(subjectKey);
 
     setBatch(subjectKey, addDraft(before, draftFrom(composer)));
-    const done = await sendFeedback(subjectKey);
+    const done = await send(subjectKey);
 
     if (!done.ok) setBatch(subjectKey, before);
 

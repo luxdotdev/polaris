@@ -13,6 +13,8 @@ import { connectionLabel } from "../../../shell/copy.ts";
 import { useApp, useShellActions } from "../../../shell/hooks.ts";
 import { useNow } from "../../../shell/useNow.ts";
 import type { AppState } from "../../../store/store.ts";
+import { useWorkerQueue } from "../../review/constellation/useWorkerQueue.ts";
+import { notWorkers } from "../../review/model/queue.ts";
 import { sessionsOf } from "../../review/model/sessions.ts";
 import { checkoutsByPull } from "../model/checkouts.ts";
 import { type GroupId, listModel, type PlaceOf, readyInfos, type RowModel } from "../model/list.ts";
@@ -213,7 +215,8 @@ export const PullList = ({ onAddAccount }: PullListProps) => {
   const latest = useMemo(() => can("review.latest-summary"), [can]);
   const acceptLatest = useMemo(() => can("session.accept-latest"), [can]);
   const riskOf = useRiskLanes(found, latest);
-  const sessions = useMemo(() => sessionsOf(models), [models]);
+  const { workers } = useWorkerQueue();
+  const sessions = useMemo(() => notWorkers(sessionsOf(models), workers), [models, workers]);
   const ready = useMemo(() => readyInfos(sessions), [sessions]);
   const changesOf = useSessionChanges(ready, acceptLatest);
 

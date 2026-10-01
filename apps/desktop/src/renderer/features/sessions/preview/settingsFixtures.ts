@@ -4,6 +4,7 @@
  */
 import { AttemptId, HostId, SessionId } from "@polaris/protocol";
 import type { Result, UsageQueryView } from "../../../../shared/api.ts";
+import type { DraftBatch } from "../../comments/model/feedback.ts";
 import type { HostResourcesSnapshot } from "../../settings/model/resources.ts";
 import type { ResourcesClient } from "../../settings/resources.ts";
 
@@ -113,4 +114,19 @@ export const USAGE: UsageQueryView = {
   },
   estimates: SPEND.map(([, , , n]) => ({ estimatedUsd: n / 1_000_000, unpricedTokens: 0 })),
   pricesFetchedAt: ago(60),
+};
+
+/** B1's Review feedback (Paper C4): one comment on the Quint spec, waiting to go back. */
+export const B1_FEEDBACK: DraftBatch = {
+  message: "",
+  comments: [
+    {
+      id: "fb-1",
+      path: "packages/spec/polaris.qnt",
+      lines: { start: 212, end: 212, side: "new" },
+      code: "val gatePromotedOnce = promotions.size() <= gates.size()",
+      note: "gatePromotedOnce should count promotions per Gate, not globally.",
+      findingId: null,
+    },
+  ],
 };

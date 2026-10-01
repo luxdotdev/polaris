@@ -8,7 +8,7 @@ import { useState } from "react";
 import { revealInDiff } from "../../review/index.ts";
 import { sendFeedback, setFeedbackMessage } from "../data/actions.ts";
 import { useComments } from "../data/store.ts";
-import { useSessionHarness } from "./hooks.ts";
+import { useSessionHarness, useWorkerFeedback } from "./hooks.ts";
 import { batchCaption, draftPlace, emptyBatch } from "../model/feedback.ts";
 
 /**
@@ -19,10 +19,13 @@ const SendChip = ({
   harness,
   disabled,
   onSend,
+  to,
 }: {
   readonly harness: string | null;
   readonly disabled: boolean;
   readonly onSend: () => void;
+  /** A worker's Task id ("B1"); otherwise the Harness's handle. */
+  readonly to: string | null;
 }) => {
   const vars: CssVars = {
     "--chip-hue": harness === null ? "var(--color-hairline)" : hueVar(harness),
@@ -43,7 +46,7 @@ const SendChip = ({
       style={vars}
     >
       {harness !== null && <Tile hue={harness} size={20} style={{ width: 16, height: 16 }} />}
-      Send to {harness === null ? "session" : harnessHue(harness).handle}
+      Send to {to === null ? (harness === null ? "session" : harnessHue(harness).handle) : `@${to}`}
     </button>
   );
 };
@@ -53,6 +56,7 @@ export const FeedbackCard = ({ subjectKey }: { readonly subjectKey: string }) =>
   const drafting = useComments((s) => s.composers[subjectKey] !== undefined);
   const nextTurn = useComments((s) => s.sessions[subjectKey]?.nextTurn ?? null);
   const harness = useSessionHarness(subjectKey);
+  const worker = useWorkerFeedback(subjectKey);
 
   const [state, setState] = useState<{ busy: boolean; error: string | null }>({
     busy: false,
@@ -63,7 +67,7 @@ export const FeedbackCard = ({ subjectKey }: { readonly subjectKey: string }) =>
 
   const send = async () => {
     setState({ busy: true, error: null });
-    const done = await sendFeedback(subjectKey);
+    const done = await (worker?.send ?? sendFeedback)(subjectKey);
 
     setState({ busy: false, error: done.ok ? null : done.message });
   };
@@ -77,7 +81,9 @@ export const FeedbackCard = ({ subjectKey }: { readonly subjectKey: string }) =>
     >
       <div className="gap-gap flex items-center">
         <span className="text-body text-text-strong flex-1 font-medium">
-          Feedback for turn {nextTurn ?? "…"}
+          {worker === null
+            ? `Feedback for turn ${nextTurn ?? "…"}`
+            : `Feedback for ${worker.taskId}`}
         </span>
         <span className="text-caption text-text-subtle">{batchCaption(batch, drafting)}</span>
       </div>
@@ -103,8 +109,15 @@ export const FeedbackCard = ({ subjectKey }: { readonly subjectKey: string }) =>
       />
       {state.error !== null && <p className="text-caption text-failed-text">{state.error}</p>}
       <div className="flex items-center gap-1.5">
-        <SendChip harness={harness} disabled={empty || state.busy} onSend={() => void send()} />
-        <span className="text-caption text-text-subtle">quotes the lines</span>
+        <SendChip
+          harness={harness}
+          to={worker?.taskId ?? null}
+          disabled={empty || state.busy}
+          onSend={() => void send()}
+        />
+        <span className="text-caption text-text-subtle">
+          {worker === null ? "quotes the lines" : `${worker.how} · the lead is told`}
+        </span>
       </div>
     </section>
   );

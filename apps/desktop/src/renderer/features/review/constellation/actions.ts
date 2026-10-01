@@ -65,6 +65,28 @@ export const sendToWorker = async (target: WorkerTarget, subjectKey: string) => 
   return sent;
 };
 
+/** The Review feedback as a steer while the worker still works; journaled, so the Lead is told. */
+export const steerWorker = async (target: WorkerTarget, subjectKey: string) => {
+  const text = sendBackReason(batchOf(subjectKey));
+
+  if (text === null) return false;
+
+  const sent = await sendConstellation(
+    target.leadHostKey,
+    "constellation.message",
+    {
+      constellationId: target.constellationId,
+      target: MessageTarget.cases.Worker.make({ attemptId: target.attempt.id }),
+      text,
+    },
+    "Couldn't send it"
+  );
+
+  if (sent) setBatch(subjectKey, emptyBatch);
+
+  return sent;
+};
+
 export interface MergePlace {
   readonly workspaceId: string;
   /** The Lead's checkout: where its branch is. */

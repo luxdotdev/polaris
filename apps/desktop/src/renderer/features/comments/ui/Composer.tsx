@@ -30,7 +30,7 @@ import { type ComposerState, patchComposer, useComments } from "../data/store.ts
 import { pendingCount } from "../model/threads.ts";
 import { anchorLabel, sessionPlace, suggestionBlock } from "../model/composer.ts";
 import { Avatar } from "./Avatar.tsx";
-import { useSessionHarness } from "./hooks.ts";
+import { useSessionHarness, useWorkerFeedback } from "./hooks.ts";
 
 interface Props {
   readonly subjectKey: string;
@@ -45,12 +45,19 @@ const useDestination = (subjectKey: string, kind: "pull" | "session") => {
   const session = useComments((s) => s.sessions[subjectKey]);
 
   const harness = useSessionHarness(subjectKey);
+  const worker = useWorkerFeedback(subjectKey);
 
   if (kind === "pull") {
     return login === null ? null : { text: `as ${login}`, mark: <Avatar name={login} /> };
   }
 
   if (session === undefined) return null;
+
+  const mark =
+    harness === null ? null : <Tile hue={harness} size={20} style={{ width: 14, height: 14 }} />;
+
+  // A worker's feedback goes through its Constellation (C4): "Goes to B1 as a send-back".
+  if (worker !== null) return { text: `Goes to ${worker.taskId} as ${worker.how}`, mark };
 
   return {
     text: `Goes to ${harness === null ? "the session" : harnessHue(harness).name} with turn ${session.nextTurn}`,
@@ -122,6 +129,7 @@ const Actions = ({ subjectKey, composer }: Props & { readonly composer: Composer
   const pending = useComments((s) => pendingCount(s.pulls[subjectKey]?.detail ?? null));
   const empty = composer.text.trim() === "";
   const run = (action: (key: string) => Promise<Done>) => () => void action(subjectKey);
+  const worker = useWorkerFeedback(subjectKey);
 
   return (
     <div className="border-hairline flex flex-wrap items-center gap-1.5 border-t py-2 pr-2 pl-3">
@@ -150,9 +158,9 @@ const Actions = ({ subjectKey, composer }: Props & { readonly composer: Composer
             size="sm"
             variant="secondary"
             disabled={empty || composer.busy}
-            onClick={run(sendNow)}
+            onClick={run((key) => sendNow(key, worker?.send))}
           >
-            Send now
+            {worker === null ? "Send now" : `Send to @${worker.taskId} now`}
           </Button>
         ) : (
           composer.moving === null && (

@@ -96,12 +96,18 @@ export interface Workers {
 
 const NO_WORKERS: Workers = { claims: [], workers: new Set() };
 
+/** Sessions that aren't a Constellation's workers: the Lead, not the session Accept, takes those. */
+export const notWorkers = (
+  sessions: ReadonlyArray<SessionInfo>,
+  workers: ReadonlySet<string>
+): ReadonlyArray<SessionInfo> => sessions.filter((s) => !workers.has(`${s.hostKey}:${s.id}`));
+
 export const queueGroups = (
   list: PullListView | null,
   all: ReadonlyArray<SessionInfo>,
   workers: Workers = NO_WORKERS
 ): ReadonlyArray<QueueGroup> => {
-  const sessions = all.filter((s) => !workers.workers.has(`${s.hostKey}:${s.id}`));
+  const sessions = notWorkers(all, workers.workers);
 
   const groups: ReadonlyArray<QueueGroup> = [
     {

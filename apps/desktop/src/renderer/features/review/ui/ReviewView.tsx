@@ -26,8 +26,7 @@ import "../../risk/install.ts";
 // The session's accept action fills its slot (M2-A).
 import "../../accept/install.ts";
 import "../constellation/install.ts";
-import { workerQueue } from "../constellation/claims.ts";
-import { useAllConstellations } from "../../sessions/source.ts";
+import { useWorkerQueue } from "../constellation/useWorkerQueue.ts";
 
 export interface ReviewViewProps {
   readonly subject: ReviewSubject;
@@ -48,14 +47,8 @@ export const ReviewView = ({ subject, onBack }: ReviewViewProps) => {
   const models = useApp((s) => s.hostModels);
   const hosts = useApp((s) => s.hosts.length);
   const workspaces = Object.values(models).reduce((n, m) => n + m.workspaces.size, 0);
-  const hostViews = useApp((s) => s.hosts);
-  const constellations = useAllConstellations();
-
-  const groups = queueGroups(
-    list,
-    sessionsOf(models),
-    workerQueue(constellations, hostViews, models)
-  );
+  const workers = useWorkerQueue();
+  const groups = queueGroups(list, sessionsOf(models), workers);
 
   const surfaces = useStore(surfaceStore, (s) => s);
 

@@ -14,10 +14,12 @@ import { type AppState, type Connection, initialState } from "../../../store/sto
 import { standInBridge } from "../../bridge.ts";
 import { constellationSource, focusTask } from "../source.ts";
 import { openSessionReview } from "../../../routes/review.ts";
+import { setBatch, setSessionComments } from "../../comments/data/store.ts";
+import { subjectKey } from "../../review/surface.ts";
 import type { SettingsSection } from "../../../routes/selection.ts";
 import { machinesFor } from "../../machines/preview/fixtures.ts";
 import { setResourcesClient } from "../../settings/resources.ts";
-import { fakeResources, USAGE } from "./settingsFixtures.ts";
+import { B1_FEEDBACK, fakeResources, USAGE } from "./settingsFixtures.ts";
 import { C1, HOSTS, LEAD_SESSION, MODELS, VIEWS, WORKER_B1 } from "./fixtures.ts";
 
 const UNSUPPORTED = { ok: false, error: { code: "Unsupported", message: "preview" } } as const;
@@ -81,8 +83,13 @@ export const mountConstellationsPreview = (root: HTMLElement, hash: string) => {
 
   if (scene === "needs-you") navigation.actions.showSidebar("needs-you");
 
-  if (scene === "review")
+  if (scene === "review") {
+    const key = subjectKey({ kind: "session", ...WORKER_B1 });
+
     openSessionReview(navigation.actions, WORKER_B1.hostKey, WORKER_B1.sessionId);
+    setSessionComments(key, { ...WORKER_B1, nextTurn: 7, sent: [] });
+    setBatch(key, B1_FEEDBACK);
+  }
 
   const section = SETTINGS.get(scene);
 
