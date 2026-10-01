@@ -4,7 +4,8 @@
  * on demand. Stale when it reviewed an older head; its commands sit behind the menu.
  */
 import { CheckIcon, CloseIcon, SeverityGlyph } from "@polaris/ui";
-import { useState } from "react";
+import { useStore } from "zustand";
+import { createStore } from "zustand/vanilla";
 import type { OpenPull } from "../../../../../shared/api.ts";
 import {
   ALERT_SEVERITY,
@@ -63,6 +64,9 @@ const caption = (summary: BotSummaryView, staleness: Staleness, now: number) => 
     .join(" · ");
 };
 
+/** Which Reviews have their bot summary open; kept apart from the card, which moves on re-review. */
+const openStore = createStore<Readonly<Record<string, boolean>>>(() => ({}));
+
 export interface BotSummaryCardProps {
   readonly subjectKey: string;
   readonly pull: Pick<OpenPull, "repo" | "number">;
@@ -76,7 +80,8 @@ export interface BotSummaryCardProps {
 
 export const BotSummaryCard = (props: BotSummaryCardProps) => {
   const { subjectKey, summary, staleness, paths, now } = props;
-  const [open, setOpen] = useState(false);
+  const open = useStore(openStore, (s) => s[subjectKey] ?? false);
+  const setOpen = (next: boolean) => openStore.setState({ [subjectKey]: next });
   const name = botName(summary.bot);
   const line = checksLine(summary.body);
   const links = summaryLinks(summary.body);

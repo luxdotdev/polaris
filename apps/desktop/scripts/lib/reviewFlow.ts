@@ -114,14 +114,50 @@ const progress = (page: Page) => page.getByTestId("review-progress").textContent
 const centre = (page: Page, tab: string) =>
   page.locator(`[data-testid="review-centre"][data-tab="${tab}"]`);
 
-/** A pull request opens on Overview; Conversation filters; "Review changes →" jumps to Changes. */
+/**
+ * A pull request opens on Overview with the fake's Suzuka summary; its Re-run asks once, then
+ * posts `/review`; Comment now posts from Conversation; "Review changes →" jumps to Changes.
+ */
 const overviewSteps = async (page: Page, step: (message: string) => void) => {
   await centre(page, "overview").waitFor({ timeout: 60_000 });
+
+  const verdict = page.getByTestId("bot-verdict");
+
+  await verdict.waitFor({ timeout: 30_000 });
+  // The cached detail is refreshed once on open; on a re-review the cards then move.
+  await page.waitForTimeout(1500);
+  await page.getByTestId("bot-summary-toggle").click();
+  await page.getByTestId("bot-summary-full").waitFor();
+  step(
+    `#42 opened on Overview: suzuka's summary pinned, verdict ${(await verdict.textContent()) ?? "?"}, full GFM on demand`
+  );
+
+  await page.getByTestId("bot-menu-trigger").click();
+  await page.getByTestId("bot-command-review").click();
+  await page.getByTestId("bot-confirm-post").click();
+  await page.getByTestId("bot-confirm").waitFor({ state: "detached", timeout: 15_000 });
+  step("Re-run asked once, then posted /review as the viewer");
+
   await page.getByTestId("review-tab-conversation").click();
   await page.getByTestId("conversation").waitFor({ timeout: 30_000 });
+  await page.getByTestId("timeline").getByText("/review").first().waitFor({ timeout: 30_000 });
+  await page
+    .getByTestId("conversation-composer")
+    .locator("textarea")
+    .fill("Overview smoke: comment now");
+  await page.getByTestId("conversation-comment-now").click();
+  await page
+    .getByTestId("timeline")
+    .getByText("Overview smoke: comment now")
+    .waitFor({ timeout: 30_000 });
   await page.getByRole("radio", { name: "Bots", exact: true }).click();
   await page.getByRole("radio", { name: "Bots", exact: true, checked: true }).waitFor();
-  step("#42 opened on Overview; Conversation filtered to Bots");
+  await page
+    .getByTestId("timeline")
+    .getByText("Overview smoke: comment now")
+    .waitFor({ state: "detached" });
+  step("Conversation: /review in the timeline, Comment now posted, Bots hides people's comments");
+
   await page.getByTestId("review-tab-overview").click();
   await page.getByTestId("review-jump-changes").click();
   await centre(page, "changes").waitFor();
