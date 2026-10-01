@@ -175,7 +175,7 @@ How bad a Risk Finding would be if real: exactly one of Critical, High, Medium, 
 _Avoid_: Priority, P0–P3 (in anything a user reads), level
 
 **Critical**:
-The Severity for secrets, security holes, and data loss; no Risk Memory may ever hide a Critical Finding.
+The Severity for secrets, security holes, and data loss; no Risk Memory may ever hide a Critical Finding. A secret is Critical when the scanner is confident it is a credential; its low-confidence generic matches (a word like "password" in a label) are Medium, so they can be dismissed.
 _Avoid_: Blocker, P0
 
 **High**:
