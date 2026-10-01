@@ -61,6 +61,8 @@ export class UsageIndex extends Context.Service<
     readonly query: (query: UsageQuery) => Effect.Effect<UsageReport>;
     /** Every known Plan Limit, then Usage and Plan Limit changes; watches the logs while subscribed. */
     readonly changes: Stream.Stream<UsageStreamItem>;
+    /** The latest value of every Plan Limit window known (the Reviewer's near-limit note). */
+    readonly planLimits: Effect.Effect<ReadonlyArray<PlanLimit>>;
   }
 >()("polaris/daemon/usage/UsageIndex") {}
 
@@ -333,7 +335,8 @@ export const makeUsageIndex = Effect.fnUntraced(function* (options: UsageIndexOp
 
   yield* Effect.forkScoped(Effect.forever(follow));
 
-  const service = UsageIndex.of({ refresh, query, changes });
+  const planLimits = Effect.sync(() => [...limits.values()]);
+  const service = UsageIndex.of({ refresh, query, changes, planLimits });
 
   return { service, planLimits: PlanLimitSink.of({ report: reportPlanLimit }) };
 });

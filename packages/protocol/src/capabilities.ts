@@ -72,6 +72,8 @@ export const Capability = Schema.Literals([
   "review.ask",
   /** `RecordVerdict` and `review.verdicts`. */
   "review.verdicts",
+  /** `review.reviewerSettings` and `review.setReviewerSettings`: Settings → Reviewer. */
+  "review.reviewer-settings",
 ]);
 
 export type Capability = typeof Capability.Type;

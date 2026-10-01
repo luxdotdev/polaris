@@ -214,6 +214,16 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
     onLive(hostKey, (s) => s.client["attachments.setSettings"]({ settings })).pipe(done),
   "attachments.clear": ({ hostKey, workspaceId }) =>
     onLive(hostKey, (s) => s.client["attachments.clear"]({ workspaceId })),
+  "review.runRiskSummary": ({ hostKey, ...payload }) =>
+    onLive(hostKey, (s) => s.client["review.runRiskSummary"](payload)),
+  "review.riskSummary": ({ hostKey, ref }) =>
+    onLive(hostKey, (s) => s.client["review.riskSummary"]({ ref })),
+  "review.askFinding": ({ hostKey, ...payload }) =>
+    onLive(hostKey, (s) => s.client["review.askFinding"](payload)),
+  "review.reviewerSettings": ({ hostKey, workspaceId }) =>
+    onLive(hostKey, (s) => s.client["review.reviewerSettings"]({ workspaceId })),
+  "review.setReviewerSettings": ({ hostKey, settings }) =>
+    onLive(hostKey, (s) => s.client["review.setReviewerSettings"]({ settings })).pipe(done),
   "install.ensure": ({ hostKey, approvedSha256 }) =>
     HostDirectory.use((dir) => {
       const alias = dir.entry(hostKey)?.alias ?? null;

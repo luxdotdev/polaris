@@ -45,6 +45,9 @@ import {
   ReviewCheckout,
   ReviewCheckoutStatus,
   ReviewSubject,
+  ResolvedReviewer,
+  ReviewContext,
+  ReviewerSettings,
   RiskSummary,
   RiskSummaryRef,
   Verdict,
@@ -533,6 +536,8 @@ export const RunRiskSummary = Rpc.make("review.runRiskSummary", {
     checkoutId: Schema.NullOr(ReviewCheckoutId),
     since: Schema.NullOr(Schema.String),
     refresh: Schema.Boolean,
+    /** A pull request's title and description, for the Reviewer; absent decodes as null. */
+    context: addedNullable(ReviewContext),
   },
   success: RiskSummary,
   error: Schema.Union([NotFound, GitError, Unsupported]),
@@ -585,6 +590,23 @@ export const ListVerdicts = Rpc.make("review.verdicts", {
     limit: Schema.Int,
   },
   success: Schema.Array(Verdict),
+  error: Unsupported,
+});
+
+/**
+ * The Reviewer settings on this Host, and the Reviewer `workspaceId`'s Reviews
+ * would run now (capability `review.reviewer-settings`).
+ */
+export const GetReviewerSettings = Rpc.make("review.reviewerSettings", {
+  payload: { workspaceId: Schema.NullOr(WorkspaceId) },
+  success: Schema.Struct({ settings: ReviewerSettings, resolved: ResolvedReviewer }),
+  error: Unsupported,
+});
+
+/** Replaces the Reviewer settings; they apply from the next Risk Summary. */
+export const SetReviewerSettings = Rpc.make("review.setReviewerSettings", {
+  payload: { settings: ReviewerSettings },
+  success: Schema.Void,
   error: Unsupported,
 });
 
@@ -712,6 +734,8 @@ export class DaemonRpcs extends RpcGroup.make(
   WatchRiskSummary,
   AskFinding,
   ListVerdicts,
+  GetReviewerSettings,
+  SetReviewerSettings,
   StageAttachment,
   GetAttachmentSettings,
   SetAttachmentSettings,
