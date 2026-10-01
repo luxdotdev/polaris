@@ -1,2 +1,3 @@
 # Append-only logs: keep both sides of concurrent additions.
 .agents/skills/product-design/decision-log.md merge=union
+docs/research/README.md merge=union
