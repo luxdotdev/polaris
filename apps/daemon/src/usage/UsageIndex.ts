@@ -13,7 +13,18 @@ import {
   UsageReport,
   UsageStreamItem,
 } from "@polaris/protocol";
-import { Context, Deferred, Effect, Layer, Option, PubSub, Queue, Schema, Stream } from "effect";
+import {
+  Clock,
+  Context,
+  Deferred,
+  Effect,
+  Layer,
+  Option,
+  PubSub,
+  Queue,
+  Schema,
+  Stream,
+} from "effect";
 import { paths } from "../paths.ts";
 import { PlanLimitSink } from "../services.ts";
 import { claudeRoots } from "./claude.ts";
@@ -58,11 +69,17 @@ export interface UsageIndexOptions {
   /** How long `usage.query` waits for its pass before answering from what is indexed. */
   readonly answerWithinMs?: number;
   /**
-   * Last known Plan Limits from the Harnesses' own logs (ENG-206), read once
-   * on the first `usage.watch`; they never replace a newer value.
+   * Last known Plan Limits from the Harnesses' own logs (ENG-206), read on a
+   * new `usage.watch` (at most every `seedEveryMs`) and after a pass over that
+   * Harness's logs; they never replace a newer value.
    */
   readonly planLimitSeed?: Effect.Effect<ReadonlyArray<PlanLimit>>;
+  /** How long a seed read stands before a new watch reads the logs again. */
+  readonly seedEveryMs?: number;
 }
+
+/** A Harness used outside Polaris moves its limits; a watch opened later reads them again. */
+const SEED_EVERY_MS = 60_000;
 
 /** Long enough for an incremental pass; a first pass over gigabytes answers with `indexing`. */
 const ANSWER_WITHIN_MS = 250;
@@ -174,18 +191,25 @@ export const makeUsageIndex = Effect.fnUntraced(function* (options: UsageIndexOp
     yield* PubSub.publish(pubsub, UsageStreamItem.cases.PlanLimitChanged.make({ limit }));
   });
 
-  const seededLimits = yield* Effect.cached(
+  const seedEveryMs = options.seedEveryMs ?? SEED_EVERY_MS;
+  let seededAt = Number.NEGATIVE_INFINITY;
+
+  // `fresh`: read again even if the last read is recent (the logs just changed).
+  const seedLimits = (fresh: boolean) =>
     Effect.gen(function* () {
       yield* loadedLimits;
+      const now = yield* Clock.currentTimeMillis;
 
-      for (const limit of options.planLimitSeed === undefined ? [] : yield* options.planLimitSeed) {
+      if (options.planLimitSeed === undefined || (!fresh && now - seededAt < seedEveryMs)) return;
+      seededAt = now;
+
+      for (const limit of yield* options.planLimitSeed) {
         const known = limits.get(planLimitKey(limit));
 
         if (known === undefined || known.observedAt < limit.observedAt)
           yield* reportPlanLimit(limit);
       }
-    })
-  );
+    });
 
   // Watching: fs.watch on the log roots while a Client is subscribed and the index
   // is in use. A watch for Plan Limits alone (the Desktop's Harness menu) costs nothing.
@@ -231,7 +255,7 @@ export const makeUsageIndex = Effect.fnUntraced(function* (options: UsageIndexOp
     Effect.gen(function* () {
       yield* Effect.acquireRelease(startWatching, () => stopWatching);
       // Seeded before subscribing, so seeded values come once, with the known ones.
-      yield* seededLimits;
+      yield* seedLimits(false);
       const subscription = yield* PubSub.subscribe(pubsub);
 
       const known = [...limits.values()].map((limit) =>
@@ -252,6 +276,8 @@ export const makeUsageIndex = Effect.fnUntraced(function* (options: UsageIndexOp
     const rest = yield* Queue.clear(wakeups);
     const harnesses = HARNESSES.filter((h) => h === first || rest.includes(h));
     yield* refresh(harnesses);
+
+    if (harnesses.includes("codex")) yield* seedLimits(true);
   });
 
   yield* Effect.forkScoped(Effect.forever(settle));
