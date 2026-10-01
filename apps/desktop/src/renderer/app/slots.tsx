@@ -7,12 +7,8 @@ import type { SessionId, WorkspaceId } from "@polaris/protocol";
 import type { ComponentType, ReactElement } from "react";
 import { HostsSettingsPage } from "../features/machines/index.ts";
 import { NeedsYouHover, NeedsYouInbox } from "../features/needs-you/index.ts";
-import {
-  NewSessionPage,
-  OutputRail,
-  SessionIntent,
-  SessionOutput,
-} from "../features/session/index.ts";
+import { NewSessionPage, OutputRail } from "../features/session/index.ts";
+import { ConstellationIntent, ConstellationOutput } from "../features/constellation/index.ts";
 import { WorkspaceStage } from "../features/empty/index.ts";
 import { JumpMenu } from "../features/jump/index.ts";
 import { OpenFolderDialog } from "../features/open-folder/index.ts";
@@ -86,8 +82,8 @@ export interface ShellSlots {
 }
 
 export const slots: ShellSlots = {
-  SessionIntent,
-  SessionOutput,
+  SessionIntent: ConstellationIntent,
+  SessionOutput: ConstellationOutput,
   OutputRail,
   NewSession: NewSessionPage,
   NoSession: WorkspaceStage,

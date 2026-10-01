@@ -16,6 +16,9 @@ export const hideOutput = (place: TerminalPlace, sessionId: string) => {
   hideTerminal(place);
 };
 
+export const showOutput = (place: TerminalPlace, sessionId: string) =>
+  setOutputOpen(uiKey(place.hostKey, sessionId), true);
+
 export const toggleOutput = (place: TerminalPlace, sessionId: string) => {
   const shown =
     isOutputOpen(uiKey(place.hostKey, sessionId)) ||

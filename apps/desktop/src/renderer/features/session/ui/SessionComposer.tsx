@@ -38,6 +38,7 @@ import { promptFor } from "../../composer/index.ts";
 import { RotatingVerb, useWorkingVerbs } from "../verbs/index.ts";
 import { type ComposerCommands, DraftComposer } from "./DraftComposer.tsx";
 import { useComposerCommands } from "./useComposerCommands.ts";
+import { useSessionChrome } from "../chrome.ts";
 
 export interface SessionComposerProps {
   readonly hostKey: string;
@@ -153,6 +154,7 @@ export const SessionComposer = (props: SessionComposerProps) => {
   });
 
   const [pickerOpen, setPickerOpen] = useState(false);
+  const chrome = useSessionChrome();
 
   const commands: ComposerCommands = useComposerCommands({
     hostKey,
@@ -189,6 +191,8 @@ export const SessionComposer = (props: SessionComposerProps) => {
   };
 
   const submit = () => {
+    if (chrome.composer !== undefined) return submitElsewhere(chrome.composer.onSubmit);
+
     if (mode.kind === "queue") return queue();
 
     if (command === null) return;
@@ -205,6 +209,16 @@ export const SessionComposer = (props: SessionComposerProps) => {
     patchSessionUi(uiKey, () => ({ draft: "", attachments: [] }));
     void send(hostKey, command, SEND_FAILURES[mode.kind]).then((ok) => {
       if (!ok) patchSessionUi(uiKey, () => ({ draft: kept.draft, attachments: kept.attachments }));
+    });
+  };
+
+  const submitElsewhere = (onSubmit: (text: string) => Promise<boolean>) => {
+    const kept = ui.draft;
+
+    if (kept.trim() === "") return;
+    patchSessionUi(uiKey, () => ({ draft: "" }));
+    void onSubmit(kept).then((ok) => {
+      if (!ok) patchSessionUi(uiKey, () => ({ draft: kept }));
     });
   };
 
@@ -240,8 +254,12 @@ export const SessionComposer = (props: SessionComposerProps) => {
       onChange={(text) => patchSessionUi(uiKey, () => ({ draft: text }))}
       onSubmit={submit}
       onQueue={canQueue(mode) ? queue : undefined}
-      canSubmit={command !== null || (mode.kind === "queue" && ui.draft.trim() !== "")}
-      placeholder={placeholderFor(mode)}
+      canSubmit={
+        chrome.composer === undefined
+          ? command !== null || (mode.kind === "queue" && ui.draft.trim() !== "")
+          : ui.draft.trim() !== ""
+      }
+      placeholder={chrome.composer?.placeholder ?? placeholderFor(mode)}
       working={
         isWorking && session.state === "working"
           ? {
