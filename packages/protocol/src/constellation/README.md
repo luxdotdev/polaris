@@ -10,6 +10,7 @@ is folded on the Lead's Host; these schemas do not implement its decider.
 | `commands.ts` | Atomic plan operations, worker placement, review/answer/state actions and the internal tagged command union |
 | `events.ts` | Constellation and Host resource event field sets, codecs and the remote worker outbox entry |
 | `rpc.ts` | `ConstellationRpcs`, typed results/refusals and resumable Constellation stream |
+| `liveness.ts` | Observed per-Attempt Worker liveness and current activity |
 
 ## Commands
 
@@ -67,6 +68,27 @@ acceptance changes it to accepted. Mechanical settle outcomes skip review.
 Only the decider emits `GatePromoted`. Causes use tagged constructors (Initial,
 SentBack, MergeConflict, Recover, Followup, Superseded); every linked cause's
 `ref` must point backward in the same Task's Attempt history.
+
+`TaskProjection.liveness` is nullable `WorkerLiveness` for `latestAttemptId`.
+It travels in `constellation.status` JSON results and `constellation.subscribe`
+Snapshot projections. Missing fields from older peers decode as null (unknown).
+The shape is `{current: null | {itemId, turnId, command, startedAt}, lastOutputAt,
+contextPercent, queuedInput}`. Both timestamps are Unix epoch milliseconds;
+context is an integer percentage or null, and queued input is a nonnegative count.
+`current.command` is command text or a tool name; Clients derive elapsed time from
+`startedAt` when rendering. Null current means no observed main-session activity.
+
+Live changes use `ConstellationStreamItem.cases.LivenessChanged` with
+`{attemptId, liveness}`. This is ephemeral and unsequenced, like session
+`ItemProgress`; it neither commits a graph event nor advances revision/sequence.
+Only Clients announcing both `constellation` and `constellation.liveness` receive
+it. Match the Attempt to `latestAttemptId`; ignore updates for replaced Attempts.
+The runtime seeds observed facts on subscribe/resume and publishes changes from
+Harness events and queued-input delivery, without timers. After reconnect, absent
+facts stay unknown rather than fabricating tool timing. The pure graph projection
+defaults to null; the runtime producer must enrich it. H's observed source is
+`apps/daemon/src/harness/constellation/liveness.ts`; E supplies the producer and
+capability gate, and W/L connects the Session-machine/Harness event drain.
 
 A verified receipt contains a `ToolCallReference` to Host/session/Turn/item;
 it does not copy caller-supplied command output as proof. The owner resolves
