@@ -283,7 +283,7 @@ export const openSession = (
     if (config.planLimits) yield* Effect.forkScoped(readRateLimits(conn, config.planLimits));
 
     let permissionMode: PermissionMode = options.permissionMode;
-    const policy = policyFor(permissionMode);
+    const policy = policyFor(permissionMode, options.readOnly);
 
     const common: Pick<
       P.ClientParams["thread/start"],
@@ -434,6 +434,14 @@ export const openSession = (
 
       if (request === null)
         return conn.respondError(id, -32602, `Polaris could not read ${method}`);
+
+      if (options.readOnly === true)
+        return conn.respond(
+          id,
+          request.prompt.respond(
+            ApprovalDecision.cases.Deny.make({ reason: "The Reviewer never requests permission." })
+          )
+        );
       openRequest(id, requestTurn(request.threadId, request.turnId), request.prompt);
 
       return Effect.void;
@@ -747,7 +755,7 @@ export const openSession = (
       Effect.gen(function* () {
         if (activeCodexTurn !== null || pendingLocalTurn !== null)
           return yield* codexError("A Turn is already in progress; steer or interrupt it");
-        const policy = policyFor(permissionMode);
+        const policy = policyFor(permissionMode, options.readOnly);
         pendingLocalTurn = { turnId, prompt };
         const call = harnessCallOf(prompt, threadId);
 

@@ -34,7 +34,9 @@ export interface CodexPolicy {
  *
  * Same table as T3 Code's runtime modes (design followed, no code copied).
  */
-export const policyFor = (mode: PermissionMode): CodexPolicy => {
+export const policyFor = (mode: PermissionMode, readOnly = false): CodexPolicy => {
+  if (readOnly) return { approvalPolicy: "never", approvalsReviewer: "user", sandbox: "read-only" };
+
   switch (mode) {
     case "supervised":
       return { approvalPolicy: "untrusted", approvalsReviewer: "user", sandbox: "read-only" };

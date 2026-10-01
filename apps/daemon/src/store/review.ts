@@ -12,6 +12,7 @@ import {
   type RiskSummaryKey,
   RiskSummaryLayers,
   RiskSummaryRef,
+  SessionId,
   Verdict,
 } from "@polaris/protocol";
 import { Effect, Schema } from "effect";
@@ -231,6 +232,11 @@ export interface VerdictQuery {
 }
 
 export interface ReviewReads {
+  /** Abandoned runs and durable Reviewer identities, read once when the Reviewer starts. */
+  readonly recovery: Effect.Effect<{
+    readonly running: ReadonlyArray<RiskSummary>;
+    readonly sessions: ReadonlyArray<SessionId>;
+  }>;
   readonly riskSummary: (ref: RiskSummaryRef) => Effect.Effect<RiskSummary | null>;
   /** A repo's summaries of one head, newest first (an incremental summary's predecessors). */
   readonly riskSummariesAt: (
@@ -252,6 +258,19 @@ const latestFor = (sql: SqlClient.SqlClient, key: RiskSummaryKey) =>
 
 /** Store errors are defects here, as for the other reads a Client can't act on. */
 export const reviewReads = (sql: SqlClient.SqlClient): ReviewReads => ({
+  recovery: Effect.gen(function* () {
+    const running = yield* sql<{ data: string }>`
+      SELECT data FROM risk_summaries WHERE json_extract(data, '$.status') = 'running'`;
+
+    const sessions = yield* sql<{ session_id: string }>`
+      SELECT DISTINCT json_extract(data, '$.reviewer.sessionId') AS session_id
+      FROM risk_summaries WHERE json_extract(data, '$.reviewer.sessionId') IS NOT NULL`;
+
+    return {
+      running: running.map((row) => RiskSummaryJson.decode(row.data)),
+      sessions: sessions.map((row) => SessionId.make(row.session_id)),
+    };
+  }).pipe(Effect.mapError(storeError("recover Reviewers")), Effect.orDie),
   riskSummary: (ref) =>
     RiskSummaryRef.match(ref, {
       ById: ({ summaryId }) => readSummaryRow(sql, summaryId),

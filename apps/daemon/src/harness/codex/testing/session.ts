@@ -58,7 +58,11 @@ export const sessionWith =
   <A>(
     handler: Handler,
     body: (h: Harness) => Effect.Effect<A, unknown>,
-    options: { readonly resumeCursor?: string; readonly permissionMode?: PermissionMode } = {}
+    options: {
+      readonly resumeCursor?: string;
+      readonly permissionMode?: PermissionMode;
+      readonly readOnly?: boolean;
+    } = {}
   ): Promise<{ result: A; events: Array<HarnessEvent>; server: FakeAppServer }> => {
     const path = socketPath();
     const server = startFakeAppServer(path, handler);
@@ -79,6 +83,7 @@ export const sessionWith =
         model: null,
         effort: null,
         resumeCursor: options.resumeCursor ?? null,
+        readOnly: options.readOnly ?? false,
       });
 
       yield* session.events.pipe(
