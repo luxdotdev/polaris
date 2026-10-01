@@ -66,8 +66,13 @@ describe("folderRows", () => {
     { name: "Pixels", path: "/c/Pixels", kind: "directory" as const },
   ];
 
-  test("folders and links only, dot-folders hidden, by name", () => {
-    expect(folderRows(entries, "", []).map((r) => r.name)).toEqual(["apollo", "Pixels", "polaris"]);
+  test("every folder and link, by name, dot-folders after the others", () => {
+    expect(folderRows(entries, "", []).map((r) => r.name)).toEqual([
+      "apollo",
+      "Pixels",
+      "polaris",
+      ".config",
+    ]);
   });
 
   test("prefix matches rank before matches inside the name, ignoring case", () => {
@@ -75,8 +80,14 @@ describe("folderRows", () => {
     expect(folderRows(entries, "PIX", []).map((r) => r.name)).toEqual(["Pixels"]);
   });
 
-  test("a dot shows the dot-folders", () => {
+  test("a dot-folder matches like any other; at the same rank it comes last", () => {
     expect(folderRows(entries, ".c", []).map((r) => r.name)).toEqual([".config"]);
+    expect(folderRows(entries, "con", []).map((r) => r.name)).toEqual([".config"]);
+    expect(
+      folderRows([...entries, { name: ".pol", path: "/c/.pol", kind: "directory" }], "pol", []).map(
+        (r) => r.name
+      )
+    ).toEqual(["polaris", ".pol", "apollo"]);
   });
 
   test("marks folders that are already workspaces", () => {
