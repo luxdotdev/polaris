@@ -30,6 +30,8 @@ export type Json =
 export interface Caller {
   readonly accountId: number;
   readonly token: string;
+  /** The account's host. */
+  readonly endpoints: GitHubEndpoints;
 }
 
 export interface RestRequest {
@@ -52,7 +54,6 @@ export interface GraphQLRequest {
 }
 
 export interface TransportInput {
-  readonly endpoints: GitHubEndpoints;
   readonly fetch: Fetch;
   readonly budget: Budget;
   readonly now: () => number;
@@ -86,7 +87,7 @@ const withHeader = (headers: Headers, name: string, value: string) => {
   return headers;
 };
 
-export const newTransport = ({ endpoints, fetch, budget, now }: TransportInput) => {
+export const newTransport = ({ fetch, budget, now }: TransportInput) => {
   const headers = (caller: Caller) =>
     new Headers({
       accept: "application/vnd.github+json",
@@ -166,7 +167,7 @@ export const newTransport = ({ endpoints, fetch, budget, now }: TransportInput) 
 
       if (request.body !== null) init.body = JSON.stringify(request.body);
 
-      const { response, text } = yield* send(`${endpoints.api}${request.path}`, init);
+      const { response, text } = yield* send(`${caller.endpoints.api}${request.path}`, init);
 
       record(caller, response, "core", response.status === 304 ? 0 : 1);
 
@@ -203,7 +204,7 @@ export const newTransport = ({ endpoints, fetch, budget, now }: TransportInput) 
     request: GraphQLRequest
   ) =>
     Effect.gen(function* () {
-      const { response, text } = yield* send(`${endpoints.api}/graphql`, {
+      const { response, text } = yield* send(caller.endpoints.graphql, {
         method: "POST",
         headers: headers(caller),
         body: JSON.stringify(request),
@@ -238,6 +239,7 @@ export const newTransport = ({ endpoints, fetch, budget, now }: TransportInput) 
 
   /** The OAuth endpoints on the web host (device code, token, refresh): form in, JSON out. */
   const oauth = <S extends Schema.Top & { readonly DecodingServices: never }>(
+    endpoints: GitHubEndpoints,
     path: string,
     schema: S,
     form: Readonly<Record<string, string>>

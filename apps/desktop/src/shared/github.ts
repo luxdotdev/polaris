@@ -10,11 +10,18 @@ export const GITHUB_CLIENT_ID = "Ov23lix8h2ldBZFwXqek";
 /** Asked for at every sign-in (ENG-219): `repo` reaches private repos, `read:org` team requests. */
 export const GITHUB_SCOPES: ReadonlyArray<string> = ["repo", "read:org"];
 
+/** github.com: built in, with Polaris's own OAuth App. */
+export const GITHUB_HOST = "github.com";
+
 /** A repository by owner and name, as `nameWithOwner` spells it. */
 export interface RepoRef {
+  /** A GitHub Enterprise host (`ghe.acme.com`); absent for github.com. */
+  readonly host?: string;
   readonly owner: string;
   readonly name: string;
 }
+
+export const hostOf = (repo: RepoRef) => repo.host ?? GITHUB_HOST;
 
 /** A Workspace on a Host: where a repository's pull requests are reviewed. */
 export interface WorkspaceRef {
@@ -31,8 +38,12 @@ export interface PullRef {
 export type AccountState = "ok" | "signed-out";
 
 export interface GitHubAccountView {
-  /** GitHub's numeric user id: logins can be renamed. */
+  /** Polaris's key for the account: GitHub's user id on github.com, a negative number elsewhere. */
   readonly id: number;
+  /** Where the account lives: `github.com` or a GitHub Enterprise host. Main always sets it. */
+  readonly host?: string;
+  /** The user's numeric id on its host: logins can be renamed. */
+  readonly userId?: number;
   readonly login: string;
   readonly name: string | null;
   readonly avatarUrl: string;
@@ -48,6 +59,8 @@ export type SignInFailure = "expired" | "denied" | "disabled" | "network" | "una
 /** A device flow in progress: show `userCode`, open `verificationUri`. */
 export interface SignInView {
   readonly flowId: string;
+  /** Main always sets it; absent means github.com. */
+  readonly host?: string;
   readonly userCode: string;
   readonly verificationUri: string;
   readonly expiresAt: number;
@@ -55,17 +68,30 @@ export interface SignInView {
   readonly failure: SignInFailure | null;
 }
 
+/** A GitHub that accounts can sign in to: github.com, or a GitHub Enterprise host the user added. */
+export interface GitHubHostView {
+  readonly host: string;
+  /** False for github.com, which can't be removed. */
+  readonly removable: boolean;
+  /** The OAuth App registered on that host (an Enterprise admin creates it). */
+  readonly clientId: string;
+  /** Where the user reviews or revokes Polaris on that host. */
+  readonly manageUrl: string;
+}
+
 export interface GitHubAccountsView {
+  /** github.com first, then the Enterprise hosts in the order they were added. Main always sets it. */
+  readonly hosts?: ReadonlyArray<GitHubHostView>;
   /** In the user's order: routing tries them first to last. */
   readonly accounts: ReadonlyArray<GitHubAccountView>;
   readonly signIn: SignInView | null;
-  /** Owner or org login → account id. */
+  /** Owner or org login (`host/owner` off github.com, see `ownerKey`) → account id. */
   readonly owners: Readonly<Record<string, number>>;
   /** `hostKey/workspaceId` → account id: a Workspace's override. */
   readonly workspaces: Readonly<Record<string, number>>;
   /** False when this machine can't encrypt tokens (no keychain); sign-in is refused. */
   readonly storageAvailable: boolean;
-  /** Where the user reviews or revokes Polaris on GitHub. */
+  /** Where the user reviews or revokes Polaris on github.com (each host has its own). */
   readonly manageUrl: string;
 }
 
@@ -76,7 +102,10 @@ export interface GitHubAccountsView {
 export type RepoAccessState = "checking" | "ok" | "blocked" | "not-found" | "no-account";
 
 export interface RepoAccessView {
+  /** `nameWithOwner`; the same name can exist on two hosts. */
   readonly repo: string;
+  /** Main always sets it; absent means github.com. */
+  readonly host?: string;
   readonly state: RepoAccessState;
   readonly accountId: number | null;
   readonly login: string | null;
@@ -102,6 +131,8 @@ export interface PullRowView {
   readonly title: string;
   readonly url: string;
   readonly repo: string;
+  /** Main always sets it; absent means github.com. */
+  readonly host?: string;
   readonly isDraft: boolean;
   readonly author: PullAuthor | null;
   readonly headRefName: string;
@@ -205,6 +236,8 @@ export interface PullDetailView {
   readonly body: string;
   readonly url: string;
   readonly repo: string;
+  /** Main always sets it; absent means github.com. */
+  readonly host?: string;
   readonly state: "open" | "closed" | "merged";
   readonly isDraft: boolean;
   readonly author: PullAuthor | null;
@@ -243,40 +276,94 @@ export interface CheckoutStateView {
   readonly closedAt: string | null;
 }
 
+const HOSTNAME =
+  /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
+
+/**
+ * A GitHub Enterprise host from what a user typed: `ghe.acme.com`, its URL, or
+ * its API URL. Null when it isn't a hostname, or is github.com itself.
+ */
+export const normalizeHost = (input: string): string | null => {
+  const host = input
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/[/?#].*$/, "")
+    .replace(/:443$/, "");
+
+  if (!HOSTNAME.test(host) || host === GITHUB_HOST || host.endsWith(`.${GITHUB_HOST}`)) return null;
+
+  return host;
+};
+
 const REMOTE_FORMS: ReadonlyArray<RegExp> = [
-  /^git@github\.com:([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/,
-  /^ssh:\/\/git@github\.com(?::\d+)?\/([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/,
-  /^(?:https?|git):\/\/(?:[^@/\s]+@)?github\.com\/([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/,
+  /^[^@/\s]+@([^:/\s]+):([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/,
+  /^ssh:\/\/[^@/\s]+@([^:/\s]+)(?::\d+)?\/([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/,
+  /^(?:https?|git):\/\/(?:[^@/\s]+@)?([^:/\s]+)(?::\d+)?\/([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/,
 ];
 
-/** A github.com repository from a git remote URL (SSH, scp-like or HTTPS); null for any other host. */
-export const parseGitHubRemote = (url: string): RepoRef | null => {
-  const trimmed = url.trim();
+/** A `RepoRef` on `host`: no `host` field for github.com. */
+const repoOn = (host: string, owner: string, name: string): RepoRef =>
+  host === GITHUB_HOST ? { owner, name } : { host, owner, name };
+
+/**
+ * A repository from a git remote URL (SSH, scp-like or HTTPS) on github.com or
+ * one of the Enterprise `hosts`; null for any other host.
+ */
+export const parseGitHubRemote = (
+  url: string,
+  hosts: ReadonlyArray<string> = []
+): RepoRef | null => {
+  const known = new Set([GITHUB_HOST, ...hosts.map((h) => h.toLowerCase())]);
 
   for (const form of REMOTE_FORMS) {
-    const match = form.exec(trimmed);
+    const match = form.exec(url.trim());
+    const host = match?.[1]?.toLowerCase();
 
-    if (match?.[1] !== undefined && match[2] !== undefined) {
-      return { owner: match[1], name: match[2] };
+    if (
+      host !== undefined &&
+      known.has(host) &&
+      match?.[2] !== undefined &&
+      match[3] !== undefined
+    ) {
+      return repoOn(host, match[2], match[3]);
     }
   }
 
   return null;
 };
 
-const PULL_URL = /^https:\/\/github\.com\/([^/\s]+)\/([^/\s]+)\/pull\/(\d+)(?:[/?#].*)?$/;
+const PULL_URL = /^https:\/\/([^/\s]+)\/([^/\s]+)\/([^/\s]+)\/pull\/(\d+)(?:[/?#].*)?$/;
 
-/** "Review PR by URL": `https://github.com/<owner>/<repo>/pull/<n>[/files…]`. */
+/** "Review PR by URL": `https://<github.com or an Enterprise host>/<owner>/<repo>/pull/<n>[/files…]`. */
 export const parsePullUrl = (url: string): PullRef | null => {
   const match = PULL_URL.exec(url.trim());
+  const host = match?.[1]?.toLowerCase();
 
-  if (match?.[1] === undefined || match[2] === undefined || match[3] === undefined) return null;
+  if (
+    host === undefined ||
+    match?.[2] === undefined ||
+    match[3] === undefined ||
+    match[4] === undefined
+  ) {
+    return null;
+  }
 
-  return { repo: { owner: match[1], name: match[2] }, number: Number(match[3]) };
+  if (host !== GITHUB_HOST && normalizeHost(host) === null) return null;
+
+  return { repo: repoOn(host, match[2], match[3]), number: Number(match[4]) };
 };
 
-/** `owner/name`, GitHub's `nameWithOwner`; compare case-insensitively. */
-export const repoKey = (repo: RepoRef) => `${repo.owner}/${repo.name}`.toLowerCase();
+/** `owner/name` (`host/owner/name` off github.com); compare case-insensitively. */
+export const repoKey = (repo: RepoRef) =>
+  (repo.host === undefined || repo.host === GITHUB_HOST
+    ? `${repo.owner}/${repo.name}`
+    : `${repo.host}/${repo.owner}/${repo.name}`
+  ).toLowerCase();
+
+/** The key of an owner mapping: the login on github.com, `host/login` elsewhere. */
+export const ownerKey = (host: string, owner: string) =>
+  (host === GITHUB_HOST ? owner : `${host}/${owner}`).toLowerCase();
 
 export const workspaceKey = (workspace: WorkspaceRef) =>
   `${workspace.hostKey}/${workspace.workspaceId}`;

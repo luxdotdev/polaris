@@ -43,7 +43,7 @@ describe("signing in with the device flow", () => {
     await h.run(
       Effect.gen(function* () {
         const gh = yield* GitHub;
-        const started = yield* gh.startSignIn;
+        const started = yield* gh.startSignIn();
 
         yield* h.advance(5000);
         yield* h.advance(5000);
@@ -64,7 +64,7 @@ describe("signing in with the device flow", () => {
     await h.run(
       Effect.gen(function* () {
         const gh = yield* GitHub;
-        const started = yield* gh.startSignIn;
+        const started = yield* gh.startSignIn();
 
         // Polling at 4.9 s is too fast for the fake: it says slow_down (interval 10).
         yield* h.advance(5000);
@@ -84,7 +84,7 @@ describe("signing in with the device flow", () => {
     const view = await h.run(
       Effect.gen(function* () {
         const gh = yield* GitHub;
-        const started = yield* gh.startSignIn;
+        const started = yield* gh.startSignIn();
 
         h.fake.denyDevice(started.userCode);
         yield* h.advance(5000);
@@ -99,7 +99,7 @@ describe("signing in with the device flow", () => {
 
   test("is refused when tokens can't be stored safely", async () => {
     const h = open({ crypto: memoryCrypto(false) });
-    const exit = await h.run(Effect.exit(GitHub.use((gh) => gh.startSignIn)));
+    const exit = await h.run(Effect.exit(GitHub.use((gh) => gh.startSignIn())));
 
     expect(Exit.isFailure(exit)).toBe(true);
     expect(h.fake.requests).toEqual([]);
