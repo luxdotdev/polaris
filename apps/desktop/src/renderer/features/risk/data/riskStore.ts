@@ -36,10 +36,24 @@ export const useRisk = (subjectKey: string): RiskState =>
 export const riskOf = (subjectKey: string): RiskState =>
   riskStore.getState()[subjectKey] ?? WAITING;
 
+/** What the diff draws of the findings; the surface changes only when this does. */
+const findingsSignature = (summary: Summary) =>
+  summary.findings
+    .map((f) => `${f.id}:${f.status}:${f.severity}:${f.lines.start}-${f.lines.end}`)
+    .join(",");
+
+const drawn = new Map<string, string>();
+
 const set = (subjectKey: string, state: RiskState) => {
   riskStore.setState({ [subjectKey]: state });
 
-  if (state.kind === "ready") updateSurface(subjectKey, { findings: state.summary.findings });
+  if (state.kind !== "ready") return;
+  const signature = findingsSignature(state.summary);
+
+  // Every layer change re-sends the summary; redrawing every file's marks for it would jank.
+  if (drawn.get(subjectKey) === signature) return;
+  drawn.set(subjectKey, signature);
+  updateSurface(subjectKey, { findings: state.summary.findings });
 };
 
 /** What `review.runRiskSummary` needs, minus `refresh`. */
