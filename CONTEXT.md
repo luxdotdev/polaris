@@ -166,6 +166,10 @@ A ranked set of Risk Findings for the change under Review, combining rules, clas
 One flagged location in a change, with its source (Rule, Classifier, or Agent), Severity, confidence, reason, and status (Open, Dismissed, Resolved).
 _Avoid_: Issue, warning, comment
 
+**Reviewer**:
+The Harness and Model the user chooses to write the Agent part of every Risk Summary, set once in Settings and independent of the Harness that made the change.
+_Avoid_: Review agent, review bot
+
 **Severity**:
 How bad a Risk Finding would be if real: exactly one of Critical, High, Medium, or Low; a Risk Summary ranks by Severity, then confidence.
 _Avoid_: Priority, P0–P3 (in anything a user reads), level
