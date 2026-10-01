@@ -1,0 +1,92 @@
+id: py-eval
+language: python
+severity: error
+message: eval/exec runs a string as code
+metadata: { polaris-severity: Critical, category: security }
+rule:
+  any:
+    - pattern: eval($$$)
+    - pattern: exec($$$)
+---
+id: py-shell-true
+language: python
+severity: error
+message: subprocess with shell=True passes the command through a shell
+metadata: { polaris-severity: High, category: security }
+rule:
+  kind: call
+  all:
+    - has: { field: function, regex: '^subprocess\.' }
+    - has:
+        field: arguments
+        has: { kind: keyword_argument, regex: '^shell\s*=\s*True$' }
+---
+id: py-os-system
+language: python
+severity: warning
+message: os.system runs its argument through a shell
+metadata: { polaris-severity: High, category: security }
+rule:
+  any:
+    - pattern: os.system($$$)
+    - pattern: os.popen($$$)
+---
+id: py-unsafe-deserialization
+language: python
+severity: error
+message: Deserialising untrusted data can execute code
+metadata: { polaris-severity: Critical, category: security }
+rule:
+  any:
+    - pattern: pickle.loads($$$)
+    - pattern: pickle.load($$$)
+    - pattern: yaml.load($X)
+    - pattern: yaml.unsafe_load($$$)
+    - pattern: marshal.loads($$$)
+---
+id: py-tls-verification-off
+language: python
+severity: error
+message: TLS certificate verification is turned off
+metadata: { polaris-severity: Critical, category: security }
+rule:
+  kind: keyword_argument
+  regex: '^verify\s*=\s*False$'
+---
+id: py-sql-format
+language: python
+severity: error
+message: SQL built with string formatting can be injected
+metadata: { polaris-severity: Critical, category: security }
+rule:
+  kind: call
+  all:
+    - has: { field: function, regex: '\.execute(many)?$' }
+    - has:
+        field: arguments
+        has:
+          nthChild: 1
+          any:
+            - { kind: string, has: { kind: interpolation } }
+            - { kind: binary_operator }
+            - { kind: call, has: { field: function, regex: '\.format$' } }
+---
+id: py-weak-hash
+language: python
+severity: warning
+message: MD5 and SHA-1 are broken for security uses
+metadata: { polaris-severity: Medium, category: security }
+rule:
+  any:
+    - pattern: hashlib.md5($$$)
+    - pattern: hashlib.sha1($$$)
+  not: { regex: 'usedforsecurity\s*=\s*False' }
+---
+id: py-bare-except
+language: python
+severity: hint
+message: A bare except swallows every error, including KeyboardInterrupt
+metadata: { polaris-severity: Low, category: correctness }
+rule:
+  kind: except_clause
+  regex: '^except\s*:'

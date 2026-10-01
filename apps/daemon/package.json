@@ -16,6 +16,11 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.3.283",
+    "@ast-grep/lang-bash": "0.0.8",
+    "@ast-grep/lang-go": "0.0.6",
+    "@ast-grep/lang-python": "0.0.6",
+    "@ast-grep/lang-rust": "0.0.7",
+    "@ast-grep/napi": "0.45.3",
     "@effect/platform-bun": "4.0.0-rc.118",
     "@effect/sql-sqlite-bun": "4.0.0-rc.118",
     "@ff-labs/fff-bun": "0.11.1-nightly.89c1927",
@@ -27,5 +32,12 @@
     "@agentclientprotocol/sdk": "1.5.1",
     "@polaris/client": "workspace:*",
     "fast-check": "4.10.2"
+  },
+  "optionalDependencies": {
+    "@ast-grep/napi-darwin-arm64": "0.45.3",
+    "@ast-grep/napi-linux-arm64-gnu": "0.45.3",
+    "@ast-grep/napi-linux-arm64-musl": "0.45.3",
+    "@ast-grep/napi-linux-x64-gnu": "0.45.3",
+    "@ast-grep/napi-linux-x64-musl": "0.45.3"
   }
 }

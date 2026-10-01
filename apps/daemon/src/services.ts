@@ -15,6 +15,7 @@ import type {
 } from "@polaris/protocol";
 import { Context, type Effect, Schema, type Stream } from "effect";
 import type { HarnessDriver } from "./harness/HarnessDriver.ts";
+import type { RulesOutcome, RulesRequest } from "./rules/run.ts";
 
 export class ServiceError extends Schema.TaggedError<ServiceError>()("ServiceError", {
   service: Schema.String,
@@ -42,6 +43,17 @@ export class BlobChannel extends Context.Service<
     readonly takeStream: (blobId: BlobId) => Stream.Stream<Uint8Array, ServiceError>;
   }
 >()("polaris/daemon/BlobChannel") {}
+
+/**
+ * The Rules layer of a Risk Summary: secrets (Betterleaks) and code patterns
+ * (ast-grep) on the lines a change adds. Implemented by `rules/`.
+ */
+export class Rules extends Context.Service<
+  Rules,
+  {
+    readonly run: (request: RulesRequest) => Effect.Effect<RulesOutcome, ServiceError>;
+  }
+>()("polaris/daemon/Rules") {}
 
 /** Per-Turn git-ref checkpoints. Implemented by `git/`. */
 export class Checkpoints extends Context.Service<

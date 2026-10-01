@@ -1,0 +1,21 @@
+id: rust-tls-verification-off
+language: rust
+severity: error
+message: TLS certificate verification is turned off
+metadata: { polaris-severity: Critical, category: security }
+rule:
+  pattern: $B.danger_accept_invalid_certs(true)
+---
+id: rust-unsafe-block
+language: rust
+severity: hint
+message: An unsafe block needs a SAFETY comment and a careful read
+metadata: { polaris-severity: Medium, category: security }
+rule:
+  kind: unsafe_block
+  not:
+    any:
+      - follows: { kind: line_comment, regex: "SAFETY" }
+      - inside:
+          any: [{ kind: expression_statement }, { kind: let_declaration }]
+          follows: { kind: line_comment, regex: "SAFETY" }

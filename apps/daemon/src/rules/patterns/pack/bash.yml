@@ -1,0 +1,19 @@
+id: sh-curl-pipe-shell
+language: bash
+severity: error
+message: A downloaded script is piped straight into a shell
+metadata: { polaris-severity: High, category: security }
+rule:
+  kind: pipeline
+  all:
+    - has: { kind: command, regex: '^(curl|wget)\b' }
+    - has: { kind: command, regex: '^(sudo\s+)?(sh|bash|zsh)\b' }
+---
+id: sh-rm-rf-variable
+language: bash
+severity: error
+message: rm -rf on a variable path deletes the wrong tree when the variable is empty
+metadata: { polaris-severity: Critical, category: data-loss }
+rule:
+  kind: command
+  regex: '^rm\s+-(rf|fr|r\s+-f)\s+["'']?\$\{?\w+\}?["'']?/?(\s|$)'

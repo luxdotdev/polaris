@@ -1,0 +1,162 @@
+id: js-eval
+language: tsx
+severity: error
+message: eval runs a string as code
+metadata: { polaris-severity: Critical, category: security }
+rule:
+  any:
+    - pattern: eval($$$)
+    - pattern: new Function($$$)
+---
+id: js-shell-interpolation
+language: tsx
+severity: error
+message: A shell command built from interpolated values can be injected
+metadata: { polaris-severity: Critical, category: security }
+rule:
+  any:
+    - pattern: $F($CMD, $$$)
+    - pattern: $F($CMD)
+constraints:
+  F:
+    { regex: '^(exec|execSync|child_process\.exec|child_process\.execSync|cp\.exec|cp\.execSync)$' }
+  CMD:
+    any:
+      - kind: template_string
+        has: { kind: template_substitution }
+      - kind: binary_expression
+        regex: '\+'
+---
+id: js-shell-true
+language: tsx
+severity: warning
+message: "spawn with shell: true passes arguments through a shell"
+metadata: { polaris-severity: High, category: security }
+rule:
+  kind: pair
+  regex: '^shell:\s*true$'
+  inside: { kind: arguments, stopBy: end }
+---
+id: js-tls-verification-off
+language: tsx
+severity: error
+message: TLS certificate verification is turned off
+metadata: { polaris-severity: Critical, category: security }
+rule:
+  any:
+    - kind: pair
+      regex: '^rejectUnauthorized:\s*false$'
+    - pattern: process.env.NODE_TLS_REJECT_UNAUTHORIZED = $V
+---
+id: js-raw-sql-unsafe
+language: tsx
+severity: error
+message: Raw SQL built from interpolated values can be injected
+metadata: { polaris-severity: Critical, category: security }
+rule:
+  any:
+    - pattern: $DB.$M($Q, $$$)
+    - pattern: $DB.$M($Q)
+constraints:
+  M: { regex: '^(\$queryRawUnsafe|\$executeRawUnsafe|unsafe|raw|query|execute)$' }
+  Q:
+    kind: template_string
+    has: { kind: template_substitution }
+---
+id: js-dangerous-html
+language: tsx
+severity: warning
+message: Raw HTML is inserted into the page
+metadata: { polaris-severity: High, category: security }
+rule:
+  any:
+    - pattern: $E.innerHTML = $V
+    - pattern: $E.outerHTML = $V
+    - pattern: document.write($$$)
+    - kind: jsx_attribute
+      has: { kind: property_identifier, regex: "^dangerouslySetInnerHTML$" }
+      # Inline <script>/<style> and SCREAMING_CASE constants are author-controlled.
+      not:
+        any:
+          - inside: { kind: jsx_self_closing_element, regex: '^<(script|style)\b' }
+          - inside:
+              { kind: jsx_element, has: { kind: jsx_opening_element, regex: '^<(script|style)\b' } }
+          - regex: '__html:\s*[A-Z][A-Z0-9_]*\s*\}'
+---
+id: js-weak-hash
+language: tsx
+severity: warning
+message: MD5 and SHA-1 are broken for security uses
+metadata: { polaris-severity: Medium, category: security }
+rule:
+  any:
+    - pattern: createHash($ALG)
+    - pattern: $C.createHash($ALG)
+constraints:
+  ALG: { regex: '^["''](md5|sha1)["'']$' }
+---
+id: js-cors-wildcard
+language: tsx
+severity: warning
+message: CORS allows every origin
+metadata: { polaris-severity: Medium, category: security }
+rule:
+  kind: pair
+  all:
+    - has: { field: key, regex: '(?i)^["'']?access-control-allow-origin["'']?$' }
+    - has: { field: value, regex: '^["'']\*["'']$' }
+---
+id: js-focused-test
+language: tsx
+severity: error
+message: A focused test (.only) silently skips every other test
+metadata: { polaris-severity: High, category: correctness }
+rule:
+  pattern: $T.only($$$)
+constraints:
+  T: { regex: "^(it|test|describe|suite|context)$" }
+---
+id: js-skipped-test
+language: tsx
+severity: warning
+message: A test is skipped
+metadata: { polaris-severity: Medium, category: correctness }
+rule:
+  any:
+    - pattern: $T.skip($$$)
+    - pattern: $T.todo($$$)
+constraints:
+  T: { regex: "^(it|test|describe|suite|context)$" }
+---
+id: js-recursive-delete
+language: tsx
+severity: hint
+message: Recursive delete; check the path cannot be empty or user-controlled
+metadata: { polaris-severity: Low, category: data-loss }
+ignores:
+  ["**/*.test.*", "**/*.spec.*", "**/test/**", "**/tests/**", "**/testing/**", "**/scripts/**"]
+rule:
+  any:
+    - pattern: $FS.rmSync($P, $OPTS)
+    - pattern: $FS.rm($P, $OPTS)
+    - pattern: rmSync($P, $OPTS)
+    - pattern: rm($P, $OPTS)
+constraints:
+  OPTS: { regex: 'recursive:\s*true' }
+---
+id: js-ts-suppression
+language: tsx
+severity: hint
+message: A type error is suppressed
+metadata: { polaris-severity: Low, category: maintainability }
+rule:
+  kind: comment
+  regex: "@ts-(ignore|nocheck)"
+---
+id: js-debugger
+language: tsx
+severity: warning
+message: A debugger statement was left in
+metadata: { polaris-severity: Medium, category: correctness }
+rule:
+  kind: debugger_statement
