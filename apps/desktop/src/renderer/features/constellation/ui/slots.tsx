@@ -5,10 +5,11 @@
  */
 import type { SessionId } from "@polaris/protocol";
 import { Button, cn, ChevronRightIcon, IconButton, Kbd } from "@polaris/ui";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 import { useApp, useCommands } from "../../../shell/hooks.ts";
 import {
   hideOutput,
+  offerOutput,
   type SessionChrome,
   SessionChromeContext,
   SessionIntent,
@@ -38,6 +39,9 @@ const LeadIntent = ({
   const leadTitle = useTitle(hostKey, sessionId);
   const facts = useFacts(record);
   const digests = new Map(record.digests.map((d) => [d.turnId, d]));
+
+  // A Lead's Output holds its Constellation: open it unless the user chose otherwise.
+  useEffect(() => offerOutput(hostKey, sessionId), [hostKey, sessionId]);
 
   if (ui.focus?.kind === "task")
     return (

@@ -289,7 +289,7 @@ export const ConstellationTab = (props: ConstellationTabProps) => {
           aria-label="Tasks"
           tabIndex={0}
           onKeyDown={onKeyDown}
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 focus-visible:outline-none"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1"
           data-testid="constellation-rail"
         >
           <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>

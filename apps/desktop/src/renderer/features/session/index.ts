@@ -11,7 +11,13 @@ export { SessionOutput, type SessionOutputProps } from "./ui/SessionOutput.tsx";
 
 export { OutputRail } from "./output/OutputRail.tsx";
 
-export { hideOutput, showOutput, toggleOutput, useOutputShown } from "./output/actions.ts";
+export {
+  hideOutput,
+  offerOutput,
+  showOutput,
+  toggleOutput,
+  useOutputShown,
+} from "./output/actions.ts";
 
 export { clampWidth, defaultWidth, KEY_STEP, RAIL_WIDTH, widthCss } from "./output/layout.ts";
 
