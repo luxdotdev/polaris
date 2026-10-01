@@ -14,7 +14,14 @@ import type {
 
 const Name = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9_.-]+$/));
 
-export const RepoRef = Schema.Struct({ owner: Name, name: Name });
+/** A hostname: `github.com` or a GitHub Enterprise host. */
+const Host = Schema.String.check(
+  Schema.isPattern(
+    /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/
+  )
+);
+
+export const RepoRef = Schema.Struct({ host: Schema.optionalKey(Host), owner: Name, name: Name });
 
 export const WorkspaceRef = Schema.Struct({ hostKey: Schema.String, workspaceId: Schema.String });
 
@@ -30,14 +37,22 @@ const DiffSide = Schema.Literals(["left", "right"]);
 const AccountId = Schema.Int;
 
 export const GitHubRequestInputs = {
-  /** Starts the device flow; the code and its state also arrive on `github.accounts`. */
-  "github.signIn.start": Schema.Struct({}),
+  /** Starts the device flow on `host` (github.com when absent); the code also arrives on `github.accounts`. */
+  "github.signIn.start": Schema.Struct({ host: Schema.optionalKey(Host) }),
+  /** Adds a GitHub Enterprise host (or its URL) with the client ID of the OAuth App registered there. */
+  "github.hosts.add": Schema.Struct({ host: Schema.String, clientId: Schema.String }),
+  /** Removes an Enterprise host, signing its accounts out here. */
+  "github.hosts.remove": Schema.Struct({ host: Host }),
   "github.signIn.cancel": Schema.Struct({}),
   /** Forgets the account and its tokens here; revoking is on GitHub (`manageUrl`). */
   "github.accounts.remove": Schema.Struct({ accountId: AccountId }),
   "github.accounts.reorder": Schema.Struct({ accountIds: Schema.Array(AccountId) }),
   /** Null clears the mapping. */
-  "github.routing.setOwner": Schema.Struct({ owner: Name, accountId: Schema.NullOr(AccountId) }),
+  "github.routing.setOwner": Schema.Struct({
+    host: Schema.optionalKey(Host),
+    owner: Name,
+    accountId: Schema.NullOr(AccountId),
+  }),
   "github.routing.setWorkspace": Schema.Struct({
     workspace: WorkspaceRef,
     accountId: Schema.NullOr(AccountId),
@@ -112,6 +127,8 @@ export const GitHubRequestInputs = {
 export interface GitHubRequestOutputs {
   "github.signIn.start": SignInView;
   "github.signIn.cancel": null;
+  "github.hosts.add": { readonly host: string };
+  "github.hosts.remove": null;
   "github.accounts.remove": null;
   "github.accounts.reorder": null;
   "github.routing.setOwner": null;

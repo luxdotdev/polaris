@@ -109,29 +109,21 @@ const hasForbiddenFlag = (command: string, args: ReadonlyArray<string>): boolean
     )
   );
 
-const allowedWords = (all: ReadonlyArray<string>): boolean => {
-  const [command, ...args] = all;
-
-  if (command === undefined) return false;
-  const name = command.split("/").at(-1) ?? command;
-
-  if (hasForbiddenFlag(name, args)) return false;
-
-  if (READ_COMMANDS.has(name)) return true;
-
-  if (name === "find") return true;
+/** Reading, searching and read-only git. */
+const readsOnly = (name: string, args: ReadonlyArray<string>): boolean => {
+  if (READ_COMMANDS.has(name) || name === "find") return true;
 
   if (name === "sed") return args[0] === "-n" && /^[\d,$]+p$/.test(args[1] ?? "");
 
-  if (name === "git") {
-    const sub = args.find((arg, i) => !arg.startsWith("-") && args[i - 1] !== "-C");
+  if (name !== "git") return false;
+  const sub = args.find((arg, i) => !arg.startsWith("-") && args[i - 1] !== "-C");
 
-    return sub !== undefined && GIT_READS.has(sub) && !args.includes("-c");
-  }
+  return sub !== undefined && GIT_READS.has(sub) && !args.includes("-c");
+};
 
+/** The repo's tests, lint and typecheck; they can reach the network unless the Harness stops it. */
+const runsCheck = (name: string, args: ReadonlyArray<string>): boolean => {
   if (PACKAGE_MANAGERS.has(name)) return runsCheckScript(args);
-
-  if (name === "npx" || name === "bunx") return allowedWords(args);
 
   if (LANGUAGE_CHECKS.has(name)) {
     const subcommands = LANGUAGE_CHECKS.get(name) ?? null;
@@ -139,9 +131,24 @@ const allowedWords = (all: ReadonlyArray<string>): boolean => {
     return subcommands === null || subcommands.has(args[0] ?? "");
   }
 
-  return name === "python" || name === "python3"
-    ? args[0] === "-m" && (args[1] === "pytest" || args[1] === "mypy")
-    : false;
+  return (
+    (name === "python" || name === "python3") &&
+    args[0] === "-m" &&
+    (args[1] === "pytest" || args[1] === "mypy")
+  );
+};
+
+const allowedWords = (all: ReadonlyArray<string>, runChecks: boolean): boolean => {
+  const [command, ...args] = all;
+
+  if (command === undefined) return false;
+  const name = command.split("/").at(-1) ?? command;
+
+  if (hasForbiddenFlag(name, args)) return false;
+
+  if (name === "npx" || name === "bunx") return runChecks && allowedWords(args, runChecks);
+
+  return readsOnly(name, args) || (runChecks && runsCheck(name, args));
 };
 
 /** `bash -lc '<script>'` and the like: the script, else null. */
@@ -153,20 +160,23 @@ const unwrapShell = (all: ReadonlyArray<string>): string | null => {
   return all.length === 3 && /^-l?c$/.test(all[1] ?? "") ? (all[2] ?? null) : null;
 };
 
-/** True when every piped segment of a command line is allowed. */
-export const isAllowedCommand = (line: string): boolean => {
+/**
+ * True when every piped segment of a command line is allowed; tests, lint and
+ * typecheck only with `runChecks` (the Harness keeps them off the network).
+ */
+export const isAllowedCommand = (line: string, runChecks = true): boolean => {
   const trimmed = line.trim();
   const whole = words(trimmed);
   const script = whole === null ? null : unwrapShell(whole);
 
-  if (script !== null) return isAllowedCommand(script);
+  if (script !== null) return isAllowedCommand(script, runChecks);
 
   if (trimmed === "" || UNSAFE_SYNTAX.test(trimmed)) return false;
 
   return trimmed.split("|").every((segment) => {
     const parts = words(segment.trim());
 
-    return parts !== null && allowedWords(parts);
+    return parts !== null && allowedWords(parts, runChecks);
   });
 };
 
@@ -176,8 +186,25 @@ const commandLine = (harness: HarnessKind, request: PolicyRequest): string | nul
 
 const deny = (reason: string) => ApprovalDecision.cases.Deny.make({ reason });
 
+/**
+ * Whether the Reviewer may run checks on this Harness: Codex's read-only
+ * sandbox has no network; Claude Code's sandbox needs bubblewrap and socat on Linux.
+ */
+export const canRunChecks = (harness: HarnessKind, platform = process.platform): boolean => {
+  if (harness === "codex") return true;
+
+  if (harness !== "claude") return false;
+
+  if (platform === "darwin") return true;
+
+  return platform === "linux" && Bun.which("bwrap") !== null && Bun.which("socat") !== null;
+};
+
 /** The Reviewer's answer to an approval: never null, since nobody else is asked. */
-export const reviewerDecision = (request: PolicyRequest): ApprovalDecision => {
+export const reviewerDecision = (
+  request: PolicyRequest,
+  options: { readonly runChecks: boolean }
+): ApprovalDecision => {
   if (request.kind === "question") {
     return ApprovalDecision.cases.Answer.make({
       text: "Nobody can answer during a review: decide from the code, and say what you assumed.",
@@ -190,9 +217,13 @@ export const reviewerDecision = (request: PolicyRequest): ApprovalDecision => {
 
   const line = commandLine(request.harness, request);
 
-  return line !== null && isAllowedCommand(line)
-    ? ApprovalDecision.cases.Allow.make({ remember: false })
-    : deny(
-        "The Reviewer may only read, search, run git diff/log/show and the repo's tests, lint and typecheck."
-      );
+  if (line !== null && isAllowedCommand(line, options.runChecks)) {
+    return ApprovalDecision.cases.Allow.make({ remember: false });
+  }
+
+  return deny(
+    options.runChecks
+      ? "The Reviewer may only read, search, run git diff/log/show and the repo's tests, lint and typecheck."
+      : "The Reviewer may only read, search and run git diff/log/show here: tests can't run without network isolation on this Host."
+  );
 };

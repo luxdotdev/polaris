@@ -4,7 +4,7 @@
  * Mutations are serialized per account, a second apart (GitHub's content limits).
  */
 import { Clock, Effect, Semaphore } from "effect";
-import type { DiffSide, PullRef, ReviewEvent } from "../../shared/github.ts";
+import { type DiffSide, hostOf, type PullRef, type ReviewEvent } from "../../shared/github.ts";
 import type { Client } from "./client.ts";
 import { GitHubInvalidReview, GitHubNoAccount, GitHubNotFound } from "./errors.ts";
 import {
@@ -271,6 +271,7 @@ export const newReviews = ({ client, routing, gapMs }: ReviewsInput) => {
       const view = detailView({
         pull: pr,
         repo: data.repository.nameWithOwner,
+        host: hostOf(pull.repo),
         viewerLogin: data.viewer.login,
         files,
         threads,

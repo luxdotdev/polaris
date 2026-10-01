@@ -147,6 +147,7 @@ export const sessionSource = (
   session: {
     readonly id: SessionId;
     readonly cwd: string;
+    readonly harness: string;
     readonly acceptedThroughIndex?: number | null;
   },
   turns: ReadonlyArray<TurnInfo>,
@@ -157,9 +158,10 @@ export const sessionSource = (
       ? turns.filter((t) => t.id === pick.turnId)
       : pendingTurns(turns, session.acceptedThroughIndex ?? null);
 
-  const sections = shown.map((turn): SourceSection => ({
+  // Newest first (Paper R2); the layout folds the older ones.
+  const sections = shown.toReversed().map((turn): SourceSection => ({
     id: turn.id,
-    divider: { label: `Turn ${turn.index + 1}`, quote: quoteOf(turn.prompt) },
+    divider: { turn: turn.index + 1, harness: session.harness, quote: quoteOf(turn.prompt) },
     spec: Specs.Turn({ sessionId: session.id, turnId: turn.id }),
     base: turn.checkpointBefore,
     next: turn.checkpointAfter,

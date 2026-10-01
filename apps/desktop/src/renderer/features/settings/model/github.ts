@@ -22,6 +22,8 @@ export interface AccountRow {
   readonly caption: string;
   /** "signed in 3 weeks ago"; null when Polaris didn't keep the time, or signed out. */
   readonly since: string | null;
+  /** github.com or a GitHub Enterprise server: signing in again goes there. */
+  readonly host: string;
 }
 
 const unit = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"} ago`;
@@ -69,8 +71,10 @@ export const accountRows = (view: GitHubAccountsView, now: number): ReadonlyArra
     const isDefault = index === 0;
     const signedOut = account.state === "signed-out";
 
-    const lead =
-      account.name === null || account.name === account.login ? "" : `${account.name} · `;
+    const server =
+      account.host === undefined || account.host === "github.com" ? "" : `${account.host} · `;
+
+    const lead = `${server}${account.name === null || account.name === account.login ? "" : `${account.name} · `}`;
 
     const caption = signedOut
       ? `Signed out · GitHub refused its token${account.signedOutAt === null ? "" : ` ${timeAgo(now - account.signedOutAt)}`}`
@@ -83,7 +87,18 @@ export const accountRows = (view: GitHubAccountsView, now: number): ReadonlyArra
         ? null
         : `signed in ${timeAgo(now - account.signedInAt)}`;
 
-    return { id: account.id, login: account.login, index, isDefault, signedOut, caption, since };
+    const host = account.host ?? "github.com";
+
+    return {
+      id: account.id,
+      login: account.login,
+      index,
+      isDefault,
+      signedOut,
+      caption,
+      since,
+      host,
+    };
   });
 
 /** An owner's worst access problem, with what fixes it. */

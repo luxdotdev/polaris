@@ -27,6 +27,8 @@ export interface ReviewPromptInput {
   readonly since: string | null;
   /** Findings already open on this Review (an incremental run), so they aren't repeated. */
   readonly earlierFindings: ReadonlyArray<RiskFinding>;
+  /** False where tests can't be kept off the network: the Reviewer only reads. */
+  readonly runChecks: boolean;
 }
 
 const lines = (finding: RiskFinding) =>
@@ -53,6 +55,9 @@ const CONTRACT = (schema: string) =>
     "- `confidence` is 0 to 1: how sure you are this is a real problem.",
     "- Report risks, not praise or summaries. An empty `findings` array is a fine answer.",
   ].join("\n");
+
+const NO_CHECKS =
+  "On this Host the repo's tests, lint and typecheck can't be kept off the network, so they are refused too: judge from reading the code.";
 
 const RULES = [
   "You are Polaris's Reviewer: a careful senior engineer reviewing a change for risks.",
@@ -87,7 +92,11 @@ const diffSection = (diff: ChangeDiff, base: string, head: string): string => {
 };
 
 export const reviewPrompt = (input: ReviewPromptInput): string => {
-  const sections = [REVIEWER_MARKER, RULES, `## The change\n\n${input.subject}`];
+  const sections = [
+    REVIEWER_MARKER,
+    input.runChecks ? RULES : `${RULES}\n${NO_CHECKS}`,
+    `## The change\n\n${input.subject}`,
+  ];
 
   if (input.why !== null && input.why.trim() !== "") {
     sections.push(`## Why it was made\n\n${input.why.trim()}`);

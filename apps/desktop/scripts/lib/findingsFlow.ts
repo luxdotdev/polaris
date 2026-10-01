@@ -60,6 +60,16 @@ const pullRequest = async ({ page, fake, step, shoot }: FindingsFlowInput) => {
 
   step(`#42's risk summary: "${caption}", ${findings} finding(s)`);
 
+  const cost = (await page.getByTestId("risk-cost").textContent()) ?? "";
+
+  if (!cost.startsWith("Reviewed by ")) throw new Error(`no cost line: "${cost}"`);
+  await page.getByTestId("risk-reviewer-settings").click();
+  await page.getByTestId("reviewer-card").waitFor({ timeout: 15_000 });
+  await page.keyboard.press("Escape");
+  await page.getByRole("radio", { name: /^Review/ }).click();
+  await page.locator('[data-testid="risk-summary"][data-state="ready"]').waitFor();
+  step(`cost line "${cost}"; its Change opened Settings → Reviewer`);
+
   await commentOnFirst(page, "Add to review");
   await until("AddPullRequestReviewThread on the fake", () =>
     sent(fake, "AddPullRequestReviewThread")

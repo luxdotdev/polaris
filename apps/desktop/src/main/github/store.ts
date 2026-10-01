@@ -6,6 +6,7 @@
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Effect, Option, Schema } from "effect";
+import { GITHUB_HOST } from "../../shared/github.ts";
 import { GitHubStorageError } from "./errors.ts";
 
 /** `safeStorage`'s async API, or an in-memory stand-in in tests. */
@@ -21,25 +22,35 @@ export interface Decrypted {
   readonly shouldReEncrypt: boolean;
 }
 
+const orNull = Schema.NullOr(Schema.Number).pipe(
+  Schema.withDecodingDefaultKey(Effect.succeed(null))
+);
+
 export const AccountRecord = Schema.Struct({
+  /** Polaris's key: the user id on github.com, a negative number on other hosts. */
   id: Schema.Number,
+  /** github.com, or a GitHub Enterprise host; records from before GHE are github.com's. */
+  host: Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed(GITHUB_HOST))),
+  /** The user id on its host; null means the same as `id` (github.com). */
+  userId: orNull,
   login: Schema.String,
   name: Schema.NullOr(Schema.String),
   avatarUrl: Schema.String,
   scopes: Schema.Array(Schema.String),
   signedOut: Schema.Boolean,
-  /** Epoch ms of the last sign-in, and of GitHub refusing its token; null in older files. */
-  signedInAt: Schema.NullOr(Schema.Number).pipe(
-    Schema.withDecodingDefaultKey(Effect.succeed(null))
-  ),
-  signedOutAt: Schema.NullOr(Schema.Number).pipe(
-    Schema.withDecodingDefaultKey(Effect.succeed(null))
-  ),
+  signedInAt: orNull,
+  signedOutAt: orNull,
 });
 
 export type AccountRecord = typeof AccountRecord.Type;
 
+/** A GitHub Enterprise host the user added, with the OAuth App its admins registered. */
+export const HostRecord = Schema.Struct({ host: Schema.String, clientId: Schema.String });
+
+export type HostRecord = typeof HostRecord.Type;
+
 export const AccountsFile = Schema.Struct({
+  hosts: Schema.Array(HostRecord).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
   /** In the user's order. */
   accounts: Schema.Array(AccountRecord),
   owners: Schema.Record(Schema.String, Schema.Number),
@@ -48,7 +59,10 @@ export const AccountsFile = Schema.Struct({
 
 export type AccountsFile = typeof AccountsFile.Type;
 
-export const EMPTY_ACCOUNTS: AccountsFile = { accounts: [], owners: {}, workspaces: {} };
+export const EMPTY_ACCOUNTS: AccountsFile = { hosts: [], accounts: [], owners: {}, workspaces: {} };
+
+/** The account's id on its own host. */
+export const userIdOf = (account: AccountRecord) => account.userId ?? account.id;
 
 /** One account's tokens. Expiring tokens last 8 hours; their refresh token 6 months. */
 export const TokenPair = Schema.Struct({

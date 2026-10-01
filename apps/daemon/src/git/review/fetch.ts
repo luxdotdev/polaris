@@ -45,10 +45,15 @@ export interface PullRequestFetch {
   readonly repo: RepoRef;
   readonly number: number;
   readonly baseRef: string;
-  /** The code host's base commit, fetched by id when a shallow clone lacks the merge base. */
+  /**
+   * The code host's base commit (GitHub's `baseRefOid`, the base branch's tip
+   * when the PR was last updated), fetched by id when a shallow clone lacks the merge base.
+   */
   readonly baseCommit: string;
   /** Fetch full history (`--unshallow`): only when the user asked for it. */
   readonly unshallow: boolean;
+  /** `DEEPEN_STEPS` unless a test sets them. */
+  readonly deepenSteps?: ReadonlyArray<number>;
   readonly timeoutMs?: number;
 }
 
@@ -100,7 +105,7 @@ const runFetch = async (
   repoPath: string,
   source: FetchSource,
   refspecs: ReadonlyArray<string>,
-  options: { readonly unshallow: boolean; readonly timeoutMs: number }
+  options: { readonly unshallow?: boolean; readonly deepen?: number; readonly timeoutMs: number }
 ): Promise<GitResult> =>
   checkoutGitRaw(
     repoPath,
@@ -108,7 +113,8 @@ const runFetch = async (
       ...NO_PROMPT_CONFIG,
       "fetch",
       ...FETCH_FLAGS,
-      ...(options.unshallow ? ["--unshallow"] : []),
+      ...(options.unshallow === true ? ["--unshallow"] : []),
+      ...(options.deepen === undefined ? [] : [`--deepen=${options.deepen}`]),
       source.source,
       ...refspecs,
     ],
@@ -116,8 +122,31 @@ const runFetch = async (
   );
 
 /**
- * The merge base in a shallow clone: fetch the code host's base commit by id
- * and try again. Missing still, the Review says it is a shallow clone.
+ * How far below the shallow boundary to deepen, step by step, looking for the
+ * merge base (1,274 commits in all); past that the user decides on full history.
+ */
+export const DEEPEN_STEPS: ReadonlyArray<number> = [24, 250, 1000];
+
+/** The code host's base commit, fetched by id; null when it isn't given or can't be fetched. */
+const fetchBaseCommit = async (
+  options: PullRequestFetch,
+  source: FetchSource,
+  timeoutMs: number
+): Promise<string | null> => {
+  if (options.baseCommit === "") return null;
+  const target = reviewRef(options.key, "base-commit");
+
+  const fetched = await runFetch(options.repoPath, source, [`+${options.baseCommit}:${target}`], {
+    timeoutMs,
+  });
+
+  return fetched.code === 0 ? target : null;
+};
+
+/**
+ * The merge base in a shallow clone (ENG-228): the code host's base commit,
+ * then the history just below the shallow boundary, a bounded step at a time
+ * (`--deepen`, never a silent unshallow). Missing still: a shallow clone.
  */
 const shallowMergeBase = async (
   options: PullRequestFetch,
@@ -125,25 +154,33 @@ const shallowMergeBase = async (
   head: string,
   timeoutMs: number
 ): Promise<string> => {
-  const shallowClone = new CheckoutBlocked({
-    blocker: ReviewCheckoutBlocker.cases.ShallowClone.make({}),
-  });
+  const { repoPath, key } = options;
+  const baseCommit = await fetchBaseCommit(options, source, timeoutMs);
+  const fromBaseCommit = baseCommit === null ? null : await mergeBaseOf(repoPath, baseCommit, head);
 
-  if (options.baseCommit === "") throw shallowClone;
-  const target = reviewRef(options.key, "base-commit");
+  if (fromBaseCommit !== null) {
+    return (await mergeBaseOf(repoPath, reviewRef(key, "base"), head)) ?? fromBaseCommit;
+  }
 
-  const fetched = await runFetch(options.repoPath, source, [`+${options.baseCommit}:${target}`], {
-    unshallow: false,
-    timeoutMs,
-  });
+  for (const depth of options.deepenSteps ?? DEEPEN_STEPS) {
+    const deepened = await runFetch(repoPath, source, pullRefspecs(options), {
+      deepen: depth,
+      timeoutMs,
+    });
 
-  if (fetched.code !== 0) throw shallowClone;
-  const mergeBase = await mergeBaseOf(options.repoPath, target, head);
+    if (deepened.code !== 0) break;
+    const mergeBase = await mergeBaseOf(repoPath, reviewRef(key, "base"), head);
 
-  if (mergeBase === null) throw shallowClone;
+    if (mergeBase !== null) return mergeBase;
+  }
 
-  return mergeBase;
+  throw new CheckoutBlocked({ blocker: ReviewCheckoutBlocker.cases.ShallowClone.make({}) });
 };
+
+const pullRefspecs = (options: PullRequestFetch): ReadonlyArray<string> => [
+  `+refs/pull/${options.number}/head:${reviewRef(options.key, "head")}`,
+  `+refs/heads/${options.baseRef}:${reviewRef(options.key, "base")}`,
+];
 
 /**
  * Fetch `refs/pull/<n>/head` and the base branch into the review refs; fails
@@ -155,15 +192,10 @@ export const fetchPullRequest = async (options: PullRequestFetch): Promise<Fetch
   const source = await pickFetchSource(repoPath, options.repo);
   const shallow = await isShallow(repoPath);
 
-  const result = await runFetch(
-    repoPath,
-    source,
-    [
-      `+refs/pull/${number}/head:${reviewRef(key, "head")}`,
-      `+refs/heads/${baseRef}:${reviewRef(key, "base")}`,
-    ],
-    { unshallow: options.unshallow && shallow, timeoutMs }
-  );
+  const result = await runFetch(repoPath, source, pullRefspecs(options), {
+    unshallow: options.unshallow && shallow,
+    timeoutMs,
+  });
 
   if (result.code !== 0) {
     throw fetchFailed(describeFetchFailure(result, source.transport, { ...options, timeoutMs }));

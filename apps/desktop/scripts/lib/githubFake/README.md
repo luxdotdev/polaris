@@ -9,6 +9,10 @@ const fake = createGitHubFake({ now: () => clock });   // in-process: pass `fake
 const served = await fake.serve();                       // or over HTTP: POLARIS_GITHUB_{WEB,API}_URL=served.url
 ```
 
+## GitHub Enterprise
+
+`createGitHubEnterpriseFake()` is a GitHub Enterprise Server: REST only under `/api/v3`, GraphQL at `/api/graphql` (github.com's paths answer 404, so a client on the wrong paths fails loudly), OAuth at `/login/…` with its own client ID (`FAKE_GHE_CLIENT_ID`), `verification_uri` at `https://ghe.acme.test/login/device`, and its own world (`fixtures/ghe.json`): `mona-ent` with user id 1001 (the same as github.com's mona), `platform/api` #12 requesting mona-ent, and `secure`, an org that restricts OAuth Apps. Serve it and set `POLARIS_GITHUB_HOST_URLS={"ghe.acme.test":"<url>"}` so the app reaches it as `https://ghe.acme.test`.
+
 ## The world
 
 - Users `mona` (1001), `hubot` (2002), `octocat` (3003).

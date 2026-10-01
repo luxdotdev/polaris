@@ -4,7 +4,7 @@
  * title, caption and Turn picker; then the checkout chip and the primary action (slots).
  */
 import type { TurnId } from "@polaris/protocol";
-import { harnessHue, SegmentedControl, type SegmentedOption, Tile } from "@polaris/ui";
+import { cn, harnessHue, Tile } from "@polaris/ui";
 import type { ReactNode } from "react";
 import type { PullDetailView } from "../../../../shared/github.ts";
 import type { TurnInfo, TurnPick } from "../data/source.ts";
@@ -15,13 +15,64 @@ const Chip = ({ children }: { readonly children: ReactNode }) => (
   </span>
 );
 
-const Shell = ({ children }: { readonly children: ReactNode }) => (
+/** A pull request's header tops its two lines (R1); an Agent Session's centres on its tile (R2). */
+const Shell = ({
+  children,
+  centred = false,
+}: {
+  readonly children: ReactNode;
+  readonly centred?: boolean;
+}) => (
   <header
     data-testid="review-header"
-    className="border-hairline gap-panel pt-panel flex shrink-0 items-start border-b px-5 pb-3.5"
+    className={cn(
+      "border-hairline flex shrink-0 border-b px-5",
+      centred ? "items-center gap-3.5 py-3.5" : "gap-panel pt-panel items-start pb-3.5"
+    )}
   >
     {children}
   </header>
+);
+
+interface TurnOption {
+  readonly value: string;
+  readonly label: string;
+}
+
+/** The Turn picker (Paper R2 249-0): a sunken well, the chosen Turn a raised segment. */
+const TurnPicker = ({
+  options,
+  value,
+  onChange,
+}: {
+  readonly options: ReadonlyArray<TurnOption>;
+  readonly value: string;
+  readonly onChange: (value: string) => void;
+}) => (
+  <div
+    role="radiogroup"
+    aria-label="Turns"
+    data-testid="turn-picker"
+    className="border-hairline bg-surface-sunken flex shrink-0 gap-0.5 rounded-[8px] border p-0.5"
+  >
+    {options.map((option) => (
+      <button
+        key={option.value}
+        type="button"
+        role="radio"
+        aria-checked={option.value === value}
+        onClick={() => onChange(option.value)}
+        className={cn(
+          "text-caption px-row-x flex h-[26px] cursor-default items-center rounded-control font-medium",
+          option.value === value
+            ? "bg-surface-raised text-text-strong shadow-[0_1px_2px_rgb(0_0_0/6%)]"
+            : "text-text-subtle hover:text-text-default"
+        )}
+      >
+        {option.label}
+      </button>
+    ))}
+  </div>
 );
 
 export interface PullHeaderProps {
@@ -44,7 +95,7 @@ export const PullHeader = ({ name, number, detail, actions }: PullHeaderProps) =
           >
             {detail?.title ?? name}
           </h1>
-          <span className="text-title text-text-faint shrink-0">#{number}</span>
+          <span className="text-title text-text-subtle shrink-0">#{number}</span>
         </div>
         <div className="text-caption text-text-subtle gap-gap flex min-w-0 flex-wrap items-center">
           {detail === null ? (
@@ -62,7 +113,7 @@ export const PullHeader = ({ name, number, detail, actions }: PullHeaderProps) =
               <Chip>{detail.baseRefName}</Chip>
               <span>from</span>
               <Chip>{detail.headRefName}</Chip>
-              <span className="text-text-faint truncate">
+              <span className="text-text-subtle truncate">
                 · {detail.repo}
                 {fileCount === null ? "" : ` · ${fileCount} ${fileCount === 1 ? "file" : "files"}`}
               </span>
@@ -99,14 +150,14 @@ export const SessionHeader = ({
 }: SessionHeaderProps) => {
   const turns = pending.slice(-PICKER_TURNS);
 
-  const options: ReadonlyArray<SegmentedOption<string>> = [
+  const options: ReadonlyArray<TurnOption> = [
     ...turns.map((t) => ({ value: t.id, label: `${t.index + 1}` })),
     { value: "all", label: `All ${pending.length} turns` },
   ];
 
   return (
-    <Shell>
-      <Tile hue={harness} size={32} aria-label={harnessHue(harness).name} />
+    <Shell centred>
+      <Tile hue={harness} size={40} aria-label={harnessHue(harness).name} />
       <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
         <h1
           data-testid="session-review-title"
@@ -117,12 +168,10 @@ export const SessionHeader = ({
         <p className="text-caption text-text-subtle truncate">{caption}</p>
       </div>
       {pending.length > 1 && (
-        <SegmentedControl
-          aria-label="Turns"
-          variant="mode"
+        <TurnPicker
           value={pick.kind === "all" ? "all" : pick.turnId}
           options={options}
-          onValueChange={(value) =>
+          onChange={(value) =>
             onPick(
               value === "all"
                 ? { kind: "all" }

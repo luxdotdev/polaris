@@ -4,11 +4,13 @@
  * once when asked (a refresh, new Workspaces, an account change).
  */
 import { Clock, Effect, Queue, SubscriptionRef } from "effect";
-import type {
-  CheckoutStateView,
-  CheckoutWatch,
-  PullListView,
-  RepoAccessView,
+import {
+  type CheckoutStateView,
+  type CheckoutWatch,
+  hostOf,
+  type PullListView,
+  type RepoAccessView,
+  repoKey,
 } from "../../shared/github.ts";
 import type { Accounts } from "./accounts.ts";
 import type { Checkouts } from "./checkouts.ts";
@@ -38,15 +40,14 @@ export const accessView = (
   watched: ReadonlyArray<Watched>
 ): RepoAccessView => ({
   repo: `${access.repo.owner}/${access.repo.name}`,
+  host: hostOf(access.repo),
   state: access.state,
   accountId: access.accountId,
   login: access.login,
   permission: access.permission,
   approvalUrl: access.approvalUrl,
   ssoUrl: access.ssoUrl,
-  workspaces:
-    watched.find((w) => w.repo.owner === access.repo.owner && w.repo.name === access.repo.name)
-      ?.workspaces ?? [],
+  workspaces: watched.find((w) => repoKey(w.repo) === repoKey(access.repo))?.workspaces ?? [],
 });
 
 export const newPoller = Effect.fn("newPoller")(function* (input: PollerInput) {

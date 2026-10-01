@@ -8,6 +8,7 @@ export { preloadReview, ReviewView } from "./ui/LazyReview.tsx";
 export type { ReviewViewProps } from "./ui/ReviewView.tsx";
 
 export {
+  ANNOTATION_INSET,
   type DiffRange,
   type DiffSelection,
   fillPrimaryAction,

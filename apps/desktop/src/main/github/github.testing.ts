@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { Effect, Layer, Stream, SubscriptionRef } from "effect";
 import { TestClock } from "effect/testing";
 import {
+  createGitHubEnterpriseFake,
   createGitHubFake,
   type GitHubFake,
   type GitHubFakeOptions,
@@ -31,6 +32,9 @@ export const memoryCrypto = (available = true): Crypto => ({
   },
 });
 
+/** The fake GitHub Enterprise Server: `https://ghe.acme.test/api/v3`, `/api/graphql`. */
+export const GHE_HOST = "ghe.acme.test";
+
 export interface HarnessOptions {
   readonly fake?: GitHubFakeOptions;
   readonly policy?: BudgetPolicy;
@@ -44,12 +48,15 @@ export interface HarnessOptions {
 export const harness = (options: HarnessOptions = {}) => {
   let now = 0;
   const fake = options.sharedFake ?? createGitHubFake({ now: () => now, ...options.fake });
+  const ghe = createGitHubEnterpriseFake({ now: () => now });
   const dir = options.dir ?? mkdtempSync(join(tmpdir(), "polaris-github-"));
 
   const layer = GitHub.layer({
     dir,
     crypto: options.crypto ?? memoryCrypto(),
-    fetch: fake.fetch,
+    // github.com's fake at github.test, GHE's at its own host with GHES paths.
+    fetch: (url, init) =>
+      new URL(url).host === GHE_HOST ? ghe.fetch(url, init) : fake.fetch(url, init),
     endpoints: { web: "https://github.test", api: "https://api.github.test" },
     now: () => now,
     policy: options.policy ?? DEFAULT_POLICY,
@@ -68,7 +75,14 @@ export const harness = (options: HarnessOptions = {}) => {
   const run = <A, E>(effect: Effect.Effect<A, E, GitHub>) =>
     Effect.runPromise(effect.pipe(Effect.provide(layer), Effect.scoped));
 
-  return { fake, dir, advance, run, cleanup: () => rmSync(dir, { recursive: true, force: true }) };
+  return {
+    fake,
+    ghe,
+    dir,
+    advance,
+    run,
+    cleanup: () => rmSync(dir, { recursive: true, force: true }),
+  };
 };
 
 /** Waits (on fibers, not time) until `ref` holds a value `holds` accepts. */
@@ -79,13 +93,13 @@ export const until = <A>(ref: SubscriptionRef.SubscriptionRef<A>, holds: (value:
     Effect.flatMap(Effect.fromOption)
   );
 
-/** Signs `login` in through the device flow on the fake. */
-export const signIn = (h: ReturnType<typeof harness>, login: string) =>
+/** Signs `login` in through the device flow on the fake (the GHE fake for `host`). */
+export const signIn = (h: ReturnType<typeof harness>, login: string, host?: string) =>
   Effect.gen(function* () {
     const gh = yield* GitHub;
-    const started = yield* gh.startSignIn;
+    const started = yield* gh.startSignIn(host);
 
-    h.fake.approveDevice(started.userCode, login);
+    (host === GHE_HOST ? h.ghe : h.fake).approveDevice(started.userCode, login);
     yield* h.advance(5000);
 
     return yield* until(

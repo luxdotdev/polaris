@@ -19,10 +19,11 @@ import {
   type Turn,
   type Workspace,
 } from "@polaris/protocol";
-import { Context, Effect, Layer, Option, Predicate, Semaphore } from "effect";
+import { Context, Effect, Layer, Option, Predicate, Semaphore, Stream } from "effect";
 import type { Fetched } from "../git/review/index.ts";
 import { lockReasonFor } from "../git/review/index.ts";
 import { CheckoutBlocked, ReviewCheckoutGit, type ServiceError } from "../services.ts";
+import type { LiveItem } from "../store/hub.ts";
 import type { ReadModel } from "../store/model.ts";
 import { Terminals } from "../terminal/Terminals.ts";
 import { type CheckoutInput, decideCheckout } from "./checkout.ts";
@@ -84,6 +85,23 @@ const turnRange = (turns: ReadonlyArray<Turn>, subject: Subject<"SessionTurns">)
     last: byId(subject.lastTurnId, sorted.at(-1)),
   };
 };
+
+/** A Turn's after-checkpoint: what makes a review of "through the latest Turn" stale. */
+const isAfterCheckpoint = (item: LiveItem): boolean => {
+  if (!Predicate.isTagged(item, "Event")) return false;
+  const event = item.envelope.event;
+
+  return Predicate.isTagged(event, "CheckpointRecorded") && event.ref.endsWith("/after");
+};
+
+/** Review Checkouts of a session's Turns through its latest one. */
+const followingLatestTurn = (model: ReadModel, sessionId: SessionId) =>
+  [...model.reviewCheckouts.values()].filter(
+    ({ subject }) =>
+      Predicate.isTagged(subject, "SessionTurns") &&
+      subject.sessionId === sessionId &&
+      subject.lastTurnId === null
+  );
 
 const make = Effect.gen(function* () {
   const rt = yield* EngineRuntime;
@@ -375,6 +393,43 @@ const make = Effect.gen(function* () {
     }
   });
 
+  /**
+   * A new Turn's after-checkpoint is the new head of every checkout following
+   * that session's latest Turn: it goes stale, and an update moves it there.
+   */
+  const onCheckpoint = (item: LiveItem) =>
+    Effect.gen(function* () {
+      if (!Predicate.isTagged(item, "Event")) return;
+      const event = item.envelope.event;
+
+      if (!Predicate.isTagged(event, "CheckpointRecorded")) return;
+      const model = yield* store.model;
+
+      for (const checkout of followingLatestTurn(model, event.sessionId)) {
+        yield* signal(checkout.id, {
+          type: "checkout.reportHead",
+          head: event.commit,
+          base: "",
+          at: yield* rt.now,
+        });
+      }
+    });
+
+  /** Re-subscribes if the store drops this subscriber for falling behind. */
+  const followSessions = Effect.forkIn(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const live = yield* store.subscribe({ filter: isAfterCheckpoint });
+        yield* Stream.runForEach(live, (item) =>
+          onCheckpoint(item).pipe(
+            Effect.catchCause((cause) => Effect.logError("following a session's Turns", cause))
+          )
+        );
+      })
+    ).pipe(Effect.forever),
+    rt.engineScope
+  ).pipe(Effect.asVoid);
+
   /** What blocks the checkout on disk now (`review.checkoutStatus`). */
   const status = (checkoutId: ReviewCheckoutId) =>
     Effect.gen(function* () {
@@ -417,6 +472,7 @@ const make = Effect.gen(function* () {
     removed,
     workspaceRemoved,
     recover,
+    followSessions,
     status,
     reviewed,
   });
@@ -438,6 +494,8 @@ export class ReviewCheckouts extends Context.Service<
     readonly workspaceRemoved: (workspace: Workspace) => Effect.Effect<void, ServiceError>;
     /** Fork the steps a restart interrupted into the Engine's scope. */
     readonly recover: Effect.Effect<void>;
+    /** Fork the follower that makes Agent Session checkouts stale on new Turns. */
+    readonly followSessions: Effect.Effect<void>;
     /** Null when there is no such checkout. */
     readonly status: (
       checkoutId: ReviewCheckoutId

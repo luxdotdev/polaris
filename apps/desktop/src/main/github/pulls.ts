@@ -9,6 +9,7 @@ import {
   type PullRowView,
   type RepoRef,
   type ReviewDecision,
+  GITHUB_HOST,
   repoKey,
   type WorkspaceRef,
 } from "../../shared/github.ts";
@@ -45,13 +46,15 @@ const DECISIONS = new Map<string, ReviewDecision>([
 export const rowOf = (
   pull: SearchPull,
   accountId: number,
-  workspaces: ReadonlyArray<WorkspaceRef>
+  workspaces: ReadonlyArray<WorkspaceRef>,
+  host: string = GITHUB_HOST
 ): PullRowView => ({
   id: pull.id,
   number: pull.number,
   title: pull.title,
   url: pull.url,
   repo: pull.repository.nameWithOwner,
+  host,
   isDraft: pull.isDraft,
   author: pull.author,
   headRefName: pull.headRefName,
@@ -82,6 +85,7 @@ const merge = (rows: ReadonlyArray<PullRowView>, taken: ReadonlySet<string>) => 
 
 export interface Found {
   readonly accountId: number;
+  readonly host: string;
   readonly requested: ReadonlyArray<SearchPull>;
   readonly mine: ReadonlyArray<SearchPull>;
   readonly other: ReadonlyArray<SearchPull>;
@@ -96,7 +100,12 @@ export const groups = (found: ReadonlyArray<Found>, watched: ReadonlyArray<Watch
       pick(f).map((p) => {
         const [owner = "", name = ""] = p.repository.nameWithOwner.split("/");
 
-        return rowOf(p, f.accountId, byRepo.get(repoKey({ owner, name })) ?? []);
+        return rowOf(
+          p,
+          f.accountId,
+          byRepo.get(repoKey({ host: f.host, owner, name })) ?? [],
+          f.host
+        );
       })
     );
 
@@ -171,7 +180,7 @@ export const newPulls = ({ client, routing }: PullsInput) => {
 
       lastSearch.set(account.id, yield* Clock.currentTimeMillis);
 
-      return { accountId: account.id, requested, mine, other } satisfies Found;
+      return { accountId: account.id, host: account.host, requested, mine, other } satisfies Found;
     });
 
   const due = (account: AccountRecord, dirty: ReadonlySet<number>, now: number) =>
