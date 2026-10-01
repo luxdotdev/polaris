@@ -172,6 +172,10 @@ export class Attempt extends Schema.Class<Attempt>("ConstellationAttempt")({
   mergedHead: optionalNullable(Schema.String),
   receipts: optionalArray(CheckReceipt),
   evidence: optionalNullable(EvidenceTier),
+  approvedByUserAt: optionalNullable(Timestamp),
+  handedUpAt: optionalNullable(Timestamp),
+  handedUpReason: optionalNullable(Schema.String),
+  nudgedAt: optionalNullable(Timestamp),
   startedAt: Timestamp,
   endedAt: optionalNullable(Timestamp),
 }) {}

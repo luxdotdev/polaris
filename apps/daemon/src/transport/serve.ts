@@ -10,6 +10,14 @@ import { Effect, Layer } from "effect";
 import { AcceptRpcsLive } from "../accept/AcceptRpcs.ts";
 import { AttachmentRpcsLive } from "../attachments/AttachmentRpcs.ts";
 import { AttachmentStoreLive } from "../attachments/AttachmentStore.ts";
+import {
+  Constellations,
+  ConstellationLiveness,
+  ConstellationOwner,
+  ConstellationRpcHandlers,
+} from "../constellation/index.ts";
+import { paths } from "../paths.ts";
+import { loadHostInfo } from "./hostInfo.ts";
 import { installDebugHooks } from "../debug.ts";
 import { Engine } from "../engine/Engine.ts";
 import { EngineRpcHandlers } from "../engine/rpc.ts";
@@ -61,7 +69,17 @@ const harnesses = HarnessRegistryLive.pipe(Layer.provide(PlanLimitReporter.layer
  * a Review Checkout), the Rules and the Reviewer (whose sessions' approvals the
  * engine asks its policy about), and giving memory back once work settles.
  */
-const engineServices = Layer.merge(Engine.layer, releaseWhenQuiet()).pipe(
+const constellationServices = Constellations.layer.pipe(
+  Layer.provideMerge(ConstellationLiveness.layer),
+  Layer.provide(
+    Layer.effect(
+      ConstellationOwner,
+      Effect.suspend(() => loadHostInfo(paths().root)).pipe(Effect.map((info) => info.hostId))
+    )
+  )
+);
+
+const engineServices = Layer.mergeAll(Engine.layer, releaseWhenQuiet(), constellationServices).pipe(
   Layer.provideMerge(
     Layer.mergeAll(
       harnesses,
@@ -88,6 +106,7 @@ const daemonServices = Layer.merge(ReviewerLive(), HostResources.layer).pipe(
 export const daemonHandlers = Layer.mergeAll(
   EngineRpcHandlers,
   ResourceRpcsLive,
+  ConstellationRpcHandlers,
   FilesRpcsLive.pipe(Layer.provide(FileSearchLive())),
   GitRpcsLive,
   AttachmentRpcsLive,
@@ -101,6 +120,10 @@ export const daemonHandlers = Layer.mergeAll(
 ).pipe(Layer.provide(daemonServices));
 
 export const daemonCapabilities: ReadonlyArray<Capability> = [
+  "constellation",
+  "constellation.claim-review",
+  "constellation.defaults",
+  "constellation.liveness",
   ...HARNESS_CATALOGUE.map((harness) => harness.capability),
   "harness.availability",
   "harness.models",

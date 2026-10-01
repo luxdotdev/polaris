@@ -16,6 +16,9 @@ module constellations {
     | AttemptStarted({ task: int, session: int, ref: int })
     | AttemptProgressed(int)
     | AttemptClaimed({ attempt: int, sha: int })
+    | ClaimApproved(int)
+    | ClaimHandedUp(int)
+    | AttemptNudged(int)
     | AttemptAccepted({ attempt: int, sha: int })
     | AttemptRejected(int)
     | AttemptSettled({ attempt: int, outcome: str, stale: bool, commanded: bool })
@@ -35,6 +38,7 @@ module constellations {
   type Event = { host: str, kind: EventKind }
   type View = {
     tasks: int -> Task, attempts: List[Attempt], lead: int, state: str,
+    approvals: List[int], handups: List[int], nudges: List[int],
     promotions: List[int], notes: int -> str, deliveries: List[Delivery],
     applied: List[int], recoveries: List[Recovery], waiters: List[int],
     holders: Set[int], requests: List[int], grants: List[int], capacity: int, canceled: Set[int],
@@ -47,6 +51,7 @@ module constellations {
   pure val emptyTask = { declared: false, deps: Set(), gate: false, canceled: false, revision: 0 }
   pure val empty: View = {
     tasks: TASKS.mapBy(_ => emptyTask), attempts: [], lead: 0, state: "planning",
+    approvals: [], handups: [], nudges: [],
     promotions: [], notes: Map(), deliveries: [], applied: [], recoveries: [],
     waiters: [], holders: Set(), requests: [], grants: [], capacity: CAPACITY, canceled: Set(),
   }
@@ -73,6 +78,9 @@ module constellations {
       }) }
     | AttemptProgressed(a) => change(v, a, v.attempts[a].status, v.attempts[a].sha)
     | AttemptClaimed(p) => change(v, p.attempt, "review", p.sha)
+    | ClaimApproved(a) => { ...change(v, a, v.attempts[a].status, v.attempts[a].sha), approvals: v.approvals.append(a) }
+    | ClaimHandedUp(a) => { ...change(v, a, v.attempts[a].status, v.attempts[a].sha), handups: v.handups.append(a) }
+    | AttemptNudged(a) => { ...change(v, a, v.attempts[a].status, v.attempts[a].sha), nudges: v.nudges.append(a) }
     | AttemptAccepted(p) => change(v, p.attempt, "accepted", p.sha)
     | AttemptRejected(a) => change(v, a, "rejected", v.attempts[a].sha)
     | AttemptSettled(p) => change(v, p.attempt, p.outcome, v.attempts[p.attempt].sha)
@@ -283,6 +291,14 @@ module constellations {
       and foldEvents(log.slice(0, i)).attempts[p.attempt].sha == p.sha
     | _ => true
   })
+  val reviewMetadataValid = log.indices().forall(i => match log[i].kind {
+    | ClaimApproved(a) => foldEvents(log.slice(0, i)).attempts[a].status == "review"
+    | ClaimHandedUp(a) => foldEvents(log.slice(0, i)).attempts[a].status == "review"
+    | AttemptNudged(a) => foldEvents(log.slice(0, i)).attempts[a].status == "working"
+    | _ => true
+  }) and view.nudges.length() == view.nudges.foldl(Set(), (acc, a) => acc.union(Set(a))).size()
+    and view.approvals.length() == view.approvals.foldl(Set(), (acc, a) => acc.union(Set(a))).size()
+    and view.handups.length() == view.handups.foldl(Set(), (acc, a) => acc.union(Set(a))).size()
   val lifecycleValid = log.indices().forall(i => match log[i].kind {
     | ConstellationStateChanged(s) => lifecycleTransition(foldEvents(log.slice(0, i)).state, s)
     | _ => true
@@ -312,7 +328,7 @@ module constellations {
     graphAcyclic, causesPointBackward, taskFollowsLatestAttempt, gatePromotedOnlyAfterAccepted,
     oneLead, oneActiveAttemptPerSession, exactlyOnceDelivery, settledAttemptImmutable,
     outboxAppliedExactlyOnce, onlyOwnerCommits, recoveryAtMostOnce, staleNeverSettlesWithoutCommand,
-    noOldLeadDelivery, lifecycleValid, resourceCapacity, resourceRemovalSafe, fifoGrantOrder, acceptanceMatchesClaim,
+    noOldLeadDelivery, lifecycleValid, reviewMetadataValid, resourceCapacity, resourceRemovalSafe, fifoGrantOrder, acceptanceMatchesClaim,
   }
   val witnessClaim = view.attempts.indices().exists(i => view.attempts[i].status == "review")
   val witnessAccepted = view.attempts.indices().exists(i => view.attempts[i].status == "accepted")

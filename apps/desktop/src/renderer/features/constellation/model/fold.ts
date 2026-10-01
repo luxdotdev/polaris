@@ -160,6 +160,12 @@ const stepFor = (event: Event, at: string): Step =>
             }),
           })
         ),
+      ClaimApproved: ({ attemptId, attemptRevision, at: approvedByUserAt }) =>
+        patchAttempt(attemptId, attemptRevision, () => ({ approvedByUserAt })),
+      ClaimHandedUp: ({ attemptId, attemptRevision, at: handedUpAt, reason: handedUpReason }) =>
+        patchAttempt(attemptId, attemptRevision, () => ({ handedUpAt, handedUpReason })),
+      AttemptNudged: ({ attemptId, attemptRevision, at: nudgedAt }) =>
+        patchAttempt(attemptId, attemptRevision, () => ({ nudgedAt })),
       AttemptClaimed: ({ attemptId, attemptRevision, claim }) =>
         compose(
           patchAttempt(attemptId, attemptRevision, () => ({ state: "review", claim })),

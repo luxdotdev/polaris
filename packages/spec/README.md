@@ -278,3 +278,16 @@ malformed logs. It omits metadata prose and abstracts wire revisions; actual
 command refusals, role/revision checks, Harness execution and relay idempotency
 remain the engine/harness/resource model-based and integration tests. A passing
 abstract simulation alone does not verify those runtime paths.
+
+C1-E's real decider maps to `apps/daemon/src/engine/constellation.ts`; graph/store
+reference tests and complete committed-log fixtures are under
+`apps/daemon/src/verification/constellation*.test.ts`. The additive
+`ClaimApproved`, `ClaimHandedUp` and `AttemptNudged` events advance Attempt
+revisions while retaining their state. `reviewMetadataValid` checks that approval
+and hand-up occur in Review, nudges occur while working, and each marker occurs
+once per Attempt. Role authorization and refused commands remain real decider
+tests. `constellation.defaults.get/set` persist user settings outside the graph
+journal; `plan.start` snapshots omitted settings before its serialized decision.
+The live producer's ephemeral `LivenessChanged` frames have no global sequence
+and are outside this committed-log abstraction. Their capability gate, resume
+seeding and graph-revision neutrality are covered by the real producer tests.

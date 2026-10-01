@@ -12,6 +12,15 @@ module constellations_test {
   action working = base.then(start(0, 1, -1)).expect(safety)
   action claimed = working.then(claim(0, 1, 42, false, true)).expect(safety)
 
+  run reviewMetadataKeepsClaimInReviewUntilMergeTest = claimed
+    .then(replay([{ host: OWNER, kind: ClaimHandedUp(0) }, { host: OWNER, kind: ClaimApproved(0) }]))
+    .expect(view.attempts[0].status == "review" and view.handups == [0] and view.approvals == [0] and safety)
+    .then(accept(0, 4, 42)).expect(view.attempts[0].status == "accepted" and safety)
+
+  run silentEndNudgeIsDurableAndStatePreservingTest = working
+    .then(replay([{ host: OWNER, kind: AttemptNudged(0) }]))
+    .then(restart).expect(view.nudges == [0] and view.attempts[0].status == "working" and safety)
+
   run atomicPlanRejectsEveryOperationOnACycleTest = base
     .then(plan([Edit({ task: 0, deps: Set(1), revision: 1 }), Add({ task: 1, deps: Set(), gate: false })]))
     .expect(view.tasks.get(0).deps == Set() and view.tasks.get(0).revision == 1 and safety)

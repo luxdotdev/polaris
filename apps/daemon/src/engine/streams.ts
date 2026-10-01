@@ -137,6 +137,9 @@ const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
               workspaces: [...model.workspaces.values()],
               worktrees: [...model.worktrees.values()],
               sessions: [...model.sessions.values()].map((r) => summaryOf(r, withSubagents)),
+              constellations: capabilities.includes("constellation")
+                ? [...model.constellations.values()].map((record) => record.graph)
+                : [],
               reviewCheckouts: capabilities.includes("review.checkouts")
                 ? [...model.reviewCheckouts.values()]
                 : [],

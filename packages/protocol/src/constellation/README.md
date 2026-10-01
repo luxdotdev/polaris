@@ -29,7 +29,8 @@ Desktop App authorization is checked by the Daemon, not asserted in a payload.
   `New` carries Host, optional Harness/Model/effort, base and optional existing
   worktree/branch; `Existing` names an idle session. Gates use the Lead's session.
 - `constellation.review`: Attempt ID, current **Attempt revision**, and Accept,
-  SendBack or Stop. Accept supplies merged head and receipts; the decider checks
+  SendBack, Stop, Approve or HandUp. Approve is user-only and HandUp is Lead-only;
+  both record metadata while keeping Review. Accept supplies merged head and receipts; the decider checks
   it against the claimed head and resolves every verified reference. SendBack
   chooses same/existing or new session; `mergeConflictBase` selects that cause.
 - `constellation.answer`: a proposal verdict or an answer to a durable question.
@@ -39,6 +40,8 @@ Desktop App authorization is checked by the Daemon, not asserted in a payload.
 - `constellation.worker.{claim,ask,progress,propose,message}`: the current Attempt
   ID and operation data. No revision is required; the binding must belong to its
   latest active Attempt. Peer messages name the recipient Task's short ID.
+- `constellation.defaults.get/set`: Host copies of the user-level settings; omitted
+  `plan.start.settings` snapshots these defaults for the new Constellation.
 - `constellation.status`: the shared read-only outline; `json` requests the
   folded Constellation and its Task projections in addition to the text.
 
@@ -105,6 +108,10 @@ are retained through restart/handover; `LeadNotified.items` lists the IDs consum
 by the one recorded digest Turn. The delivery journal must be atomic with that
 Turn, not just an in-memory acknowledgement.
 
+`ClaimApproved`, `ClaimHandedUp` and `AttemptNudged` preserve approval, hand-up
+and once-only nudge facts. They advance Attempt and graph revisions without
+changing state. A nudge marker commits atomically with its Session-machine Turn.
+
 `AttemptRecoveryContinued` journals the automatic Continue with cause `recover`,
 its Turn and durable interruption ID. It does not create a second active Attempt.
 Recovery consumes this marker so another restart cannot repeat that Continue;
@@ -125,8 +132,9 @@ explicit user Release records `ResourceReleased`, never an automatic kill.
 
 New Host snapshot fields are optional, and existing events/sessions gain no
 required fields. Clients announce `constellation` and/or `host.resources` to
-receive the respective new event tags; an older Client cannot decode new union
+receive the respective new event tags; Claim metadata uses
+`constellation.claim-review` and defaults RPCs use `constellation.defaults`; an older Client cannot decode new union
 variants, so capability filtering is mandatory. Existing session/Workspace/SQL
-reducers explicitly leave graph/resource events alone. The engine slice will
-add the graph's own fold, persistence/resume and handlers; the current transport
-returns `E-UNAVAILABLE` until those handlers are mounted.
+reducers explicitly leave graph/resource events alone. The Engine folds and indexes graph events, implements cut-based replay/live
+subscriptions, and mounts the owner handlers in the normal Host transport.
+Provisioning, relay, vendor startup and delivery are injected composition hooks.

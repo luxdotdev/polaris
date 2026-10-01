@@ -67,12 +67,25 @@ export const idle: Scenario = {
         })
       );
 
+      const constellations =
+        process.env.POLARIS_BENCH_CONSTELLATIONS === "1"
+          ? yield* Effect.promise(() => import("../idleConstellations.ts")).pipe(
+              Effect.flatMap((module) => module.seedIdleGraphs(home))
+            )
+          : 0;
+
       // Restart onto the same store: the sessions come back Dormant.
       const daemon = yield* ctx.launch({ home });
       yield* awaitReady(daemon);
       const sampler = yield* ctx.sample(daemon, 500);
       const metrics: Record<string, Metric> = {};
-      const notes: Array<string> = [];
+
+      const notes: Array<string> =
+        constellations === 0
+          ? []
+          : [
+              `${constellations} running Constellations with Dormant worker sessions re-folded from the event log; no worker Turns started during measurement`,
+            ];
 
       yield* Effect.scoped(
         Effect.gen(function* () {

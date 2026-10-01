@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { HostId, SessionId, TurnId } from "../ids.ts";
+import { HostId, SessionId, TurnId, Timestamp } from "../ids.ts";
 import { optionalNullable } from "../models.ts";
 import { ConstellationCommand, MessageAuthority, MessageTarget } from "./commands.ts";
 import {
@@ -45,6 +45,9 @@ export const constellationEventFields = {
     total: optionalNullable(Revision),
   },
   AttemptClaimed: { ...attempt, claim: Claim },
+  ClaimApproved: { ...attempt, by: Schema.Literal("user"), at: Timestamp },
+  ClaimHandedUp: { ...attempt, reason: optionalNullable(Schema.String), at: Timestamp },
+  AttemptNudged: { ...attempt, at: Timestamp },
   AttemptAccepted: {
     ...attempt,
     mergedHead: Schema.String,

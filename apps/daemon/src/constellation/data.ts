@@ -1,0 +1,53 @@
+import type { Attempt, Constellation, TaskDefinition } from "@polaris/protocol";
+
+export const taskData = (task: TaskDefinition) => ({
+  id: task.id,
+  title: task.title,
+  kind: task.kind,
+  deps: task.deps,
+  area: task.area,
+  brief: task.brief,
+  criteria: task.criteria,
+  suggested: task.suggested,
+  group: task.group,
+});
+
+export const attemptData = (attempt: Attempt) => ({
+  id: attempt.id,
+  taskId: attempt.taskId,
+  revision: attempt.revision,
+  cause: attempt.cause,
+  by: attempt.by,
+  sessionId: attempt.sessionId,
+  hostId: attempt.hostId,
+  worktree: attempt.worktree,
+  branch: attempt.branch,
+  base: attempt.base,
+  state: attempt.state,
+  claim: attempt.claim,
+  mergedHead: attempt.mergedHead,
+  receipts: attempt.receipts,
+  evidence: attempt.evidence,
+  approvedByUserAt: attempt.approvedByUserAt,
+  handedUpAt: attempt.handedUpAt,
+  handedUpReason: attempt.handedUpReason,
+  nudgedAt: attempt.nudgedAt,
+  startedAt: attempt.startedAt,
+  endedAt: attempt.endedAt,
+});
+
+export const graphData = (graph: Constellation) => ({
+  id: graph.id,
+  workspaceId: graph.workspaceId,
+  hostId: graph.hostId,
+  leadSessionId: graph.leadSessionId,
+  name: graph.name,
+  state: graph.state,
+  revision: graph.revision,
+  settings: graph.settings,
+  tasks: graph.tasks,
+  attempts: graph.attempts,
+  pendingNotifications: graph.pendingNotifications,
+  createdAt: graph.createdAt,
+  updatedAt: graph.updatedAt,
+});

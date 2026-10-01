@@ -31,6 +31,8 @@ const WorkspaceIoRpcs = DaemonRpcs.omit(
   "host.workers.setCap",
   "host.resources.acquire",
 
+  "constellation.defaults.get",
+  "constellation.defaults.set",
   "constellation.plan",
   "constellation.dispatch",
   "constellation.review",
