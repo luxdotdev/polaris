@@ -75,6 +75,18 @@ export const pushMain = async (forge: Forge, file: string, content: string): Pro
   return commit;
 };
 
+/** Advance `main` by `count` commits, pushed once; returns the new tip. */
+export const pushMainCommits = async (forge: Forge, prefix: string, count: number) => {
+  for (let i = 0; i < count; i++) {
+    write(forge.upstream, `${prefix}-${i}.txt`, `${i}\n`);
+    forge.mainCommits.push(await commitAll(forge.upstream, `main: ${prefix} ${i}`));
+  }
+
+  await gitText(forge.upstream, ["push", "-q", "origin", "main"]);
+
+  return forge.mainCommits.at(-1) ?? "";
+};
+
 /** A contributor's working copy, cloned from the base repository at `from`. */
 export const contributor = async (forge: Forge, from: string): Promise<string> => {
   const dir = join(tempDir("polaris-author-"), "app");
