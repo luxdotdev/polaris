@@ -85,6 +85,9 @@ const finishDiscards = (state: AppState) => {
     const key = watchKey(hostKey, checkout);
     const pull = pullOf(checkout);
 
+    // A refused removal (a Reviewer still at work inside) is asked again on the next poll.
+    if (checkout.state === "blocked" && checkout.blocked?.during === "remove") sent.delete(key);
+
     if (!waiting.has(key) || pull === null) continue;
 
     if (checkout.state === "ready" || checkout.state === "stale") {
