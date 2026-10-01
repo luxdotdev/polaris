@@ -294,6 +294,7 @@ const runScene = async (scene: SceneName): Promise<SceneResult> => {
 
     const interval = await idleInterval(page);
     const idle = await appMiB(app);
+    const daemonBefore = rssMiB(daemon.pid);
     const stopPeak = peakRss();
     const started = Date.now();
 
@@ -344,7 +345,7 @@ const runScene = async (scene: SceneName): Promise<SceneResult> => {
     const p95 = pct(deltas, 95);
 
     console.log(
-      `review-bench ${scene}: ${changes.length} files (${(patchBytes / 1048576).toFixed(1)} MiB patch), first file ${firstFileMs} ms, parsed ${completeMs} ms; frames p50/p95/p99/max ${pct(deltas, 50).toFixed(1)}/${p95.toFixed(1)}/${pct(deltas, 99).toFixed(1)}/${pct(deltas, 100).toFixed(1)} ms (interval ${interval.toFixed(1)}), dropped ${(dropped * 100).toFixed(1)}%; app ${Math.round(idle)} idle → ${Math.round(settled)} open → ${Math.round(scrolled)} MiB scrolled (${await processBreakdown(app)}); daemon peak ${Math.round(daemonPeak)} MiB`
+      `review-bench ${scene}: ${changes.length} files (${(patchBytes / 1048576).toFixed(1)} MiB patch), first file ${firstFileMs} ms, parsed ${completeMs} ms; frames p50/p95/p99/max ${pct(deltas, 50).toFixed(1)}/${p95.toFixed(1)}/${pct(deltas, 99).toFixed(1)}/${pct(deltas, 100).toFixed(1)} ms (interval ${interval.toFixed(1)}), dropped ${(dropped * 100).toFixed(1)}%; app ${Math.round(idle)} idle → ${Math.round(settled)} open → ${Math.round(scrolled)} MiB scrolled (${await processBreakdown(app)}); daemon ${Math.round(daemonBefore)} → peak ${Math.round(daemonPeak)} MiB while diffing`
     );
 
     return {
