@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * Screenshots of the Constellation tab on fixtures (`#constellation/<scene>`) at 1440×900
- * against Paper C1–C9, both themes and every density; `--frames` scrolls the 128-Task scene.
+ * Screenshots of the shell's Constellation parts on fixtures (`#constellations/<scene>`) at
+ * 1440×900, against Paper C1–C5: both themes, and every density unless `--quick`.
  *
- *   node scripts/constellationScreens.ts --out <dir> [--build] [--scenes lead,focus] [--frames]
+ *   node scripts/constellationScreens.ts --out <dir> [--build] [--quick] [--scene <name>]
  */
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -26,16 +26,59 @@ const out = flag("--out");
 
 if (out === null) throw new Error("--out <dir> is required");
 
-const ALL = ["lead", "menu", "focus", "handed", "paused", "empty", "large", "handover"];
-
-const scenes = flag("--scenes")?.split(",") ?? ALL;
-
-const densities = args.includes("--all-densities") ? ["calm", "balanced", "compact"] : ["calm"];
-
 if (args.includes("--build"))
   spawnSync("bun", [join(APP_DIR, "scripts/build.ts"), "--no-app"], { stdio: "inherit" });
 
-const home = mkdtempSync(join(tmpdir(), "polaris-constellation-"));
+/** Each scene and the test id that says it has painted. */
+const SCENES = new Map([
+  ["sidebar", "lead-group"],
+  ["focus", "lead-group"],
+  ["needs-you", "constellation-needs-you"],
+  ["review", "worker-review-action"],
+  ["defaults", "constellation-defaults"],
+  ["hosts", "host-resources"],
+  ["usage", "usage-by-constellation"],
+]);
+
+type Step = (page: Page) => Promise<void>;
+
+/** What a scene does before its test id shows: open a row, scroll to a section. */
+const PREPARE = new Map<string, Step>([
+  [
+    "hosts",
+    async (page) => {
+      await page
+        .getByRole("button", { name: /^Mac Studio/ })
+        .first()
+        .click();
+    },
+  ],
+]);
+
+/** What a scene shows once painted, before each shot. */
+const SHOW = new Map<string, Step>([
+  [
+    "usage",
+    async (page) => {
+      await page.getByTestId("usage-by-constellation").scrollIntoViewIfNeeded();
+      await page.getByTestId("usage-constellation").first().click();
+    },
+  ],
+  [
+    "hosts",
+    async (page) => {
+      await page.getByTestId("host-resources").scrollIntoViewIfNeeded();
+    },
+  ],
+]);
+
+const only = flag("--scene");
+
+const scenes = [...SCENES.keys()].filter((s) => only === null || s === only);
+
+const densities = args.includes("--quick") ? ["calm"] : ["calm", "balanced", "compact"];
+
+const home = mkdtempSync(join(tmpdir(), "polaris-constellations-"));
 
 const daemon = await startDaemon({ home, benchHarness: true });
 
@@ -61,42 +104,29 @@ const appearance = async (page: Page, theme: string, density: string) => {
   await page.waitForTimeout(400);
 };
 
-/** Frame intervals while the 128-Task rail scrolls end to end and back. */
-const frames = async (page: Page) => {
-  const result = await page.evaluate(`(async () => {
-    const list = document.querySelector('[data-testid="constellation-rail"]');
-    const times = [];
-    let last = performance.now();
-    let running = true;
-    const tick = (t) => { times.push(t - last); last = t; if (running) requestAnimationFrame(tick); };
-    requestAnimationFrame(tick);
-    for (let i = 0; i < 120; i++) {
-      list.scrollTop = (i % 60) * 40;
-      await new Promise((r) => requestAnimationFrame(r));
-    }
-    running = false;
-    const sorted = times.slice(5).sort((a, b) => a - b);
-    return { n: sorted.length, p50: sorted[Math.floor(sorted.length / 2)], p95: sorted[Math.floor(sorted.length * 0.95)], max: sorted[sorted.length - 1] };
-  })()`);
-
-  console.log(`screens: large scroll frames ${JSON.stringify(result)}`);
-};
-
 try {
   const page = await app.firstWindow();
 
+  page.on("console", (m) => {
+    if (m.type() === "error") console.error(`renderer: ${m.text()}`);
+  });
   await page.setViewportSize({ width: 1440, height: 900 });
   mkdirSync(out, { recursive: true });
-  page.on("pageerror", (error) => console.log(`screens: page error: ${error.message}`));
 
   for (const scene of scenes) {
-    await page.evaluate(`location.hash = "#constellation/${scene}"`);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await page.getByTestId("constellation-tab").waitFor();
+    await page.evaluate(`location.hash = "#constellations/${scene}"; location.reload()`);
+    await page.waitForLoadState("domcontentloaded");
+    await PREPARE.get(scene)?.(page);
+    await page
+      .getByTestId(SCENES.get(scene) ?? "")
+      .first()
+      .waitFor({ timeout: 15_000 });
+    await SHOW.get(scene)?.(page);
 
     for (const density of densities) {
       for (const theme of ["dark", "light"]) {
         await appearance(page, theme, density);
+
         const path = join(out, `${scene}-${theme}-${density}.png`);
 
         await page.screenshot({ path });
@@ -104,7 +134,13 @@ try {
       }
     }
 
-    if (scene === "large" && args.includes("--frames")) await frames(page);
+    if (scene === "review") {
+      await page.getByRole("button", { name: "More review options" }).click();
+      await page.getByTestId("worker-merge").waitFor();
+      await page.waitForTimeout(300);
+      await page.screenshot({ path: join(out, "review-menu.png") });
+      await page.keyboard.press("Escape");
+    }
   }
 } finally {
   await app.close();

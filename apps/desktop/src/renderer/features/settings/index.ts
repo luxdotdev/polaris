@@ -19,3 +19,7 @@ export {
 } from "./store.ts";
 
 export { SettingsPage } from "./ui/SettingsPage.tsx";
+
+export { HostResources } from "./ui/HostResources.tsx";
+
+export { setResourcesClient, type ResourcesClient } from "./resources.ts";

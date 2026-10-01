@@ -40,9 +40,9 @@ export interface Cost {
   readonly partial: boolean;
 }
 
-const NO_COST: Cost = { usd: 0, estimated: false, partial: false };
+export const NO_COST: Cost = { usd: 0, estimated: false, partial: false };
 
-const bucketCost = (bucket: Bucket, estimate: Estimator): Cost => {
+export const bucketCost = (bucket: Bucket, estimate: Estimator): Cost => {
   const reported = bucket.reportedCost;
   const rest = reported === null ? bucket.tokens : minus(bucket.tokens, reported.tokens);
   const uncovered = totalTokens(rest) > 0;
@@ -55,7 +55,7 @@ const bucketCost = (bucket: Bucket, estimate: Estimator): Cost => {
   };
 };
 
-const addCost = (a: Cost, b: Cost): Cost => ({
+export const addCost = (a: Cost, b: Cost): Cost => ({
   usd: a.usd + b.usd,
   estimated: a.estimated || b.estimated,
   partial: a.partial || b.partial,

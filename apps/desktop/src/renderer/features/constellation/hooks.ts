@@ -26,8 +26,8 @@ const listOf = (state: AppState, hostKey: string) =>
   state.constellations[hostKey] ?? emptyConstellations;
 
 /** Every Constellation on a Host, newest first. */
-export const useConstellations = (hostKey: string): ReadonlyArray<ConstellationView> => {
-  const model = useApp((s) => listOf(s, hostKey));
+export const useConstellations = (hostKey: string | null): ReadonlyArray<ConstellationView> => {
+  const model = useApp((s) => (hostKey === null ? emptyConstellations : listOf(s, hostKey)));
 
   return useMemo(
     () =>
@@ -37,6 +37,21 @@ export const useConstellations = (hostKey: string): ReadonlyArray<ConstellationV
             b.constellation.createdAt.localeCompare(a.constellation.createdAt)
           ),
     [model]
+  );
+};
+
+/** Every Host's Constellations, for views across Hosts (Needs you, Review, Usage). */
+export const useAllConstellations = (): Readonly<
+  Record<string, ReadonlyArray<ConstellationView>>
+> => {
+  const all = useApp((s) => s.constellations);
+
+  return useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(all).map(([key, model]) => [key, [...model.byId.values()]])
+      ),
+    [all]
   );
 };
 
@@ -232,3 +247,10 @@ export const useConstellationActions = () => {
 };
 
 export { setFocus };
+
+/** Swaps the Lead's Intent to a worker without selecting the Lead (callers select it). */
+export const focusTask = (target: FocusTarget & { readonly taskId: string }) =>
+  setFocus(target, { kind: "task", taskId: target.taskId });
+
+/** Shows the Lead's own conversation again (the sidebar's Lead row). */
+export const unfocusTask = (target: FocusTarget) => setFocus(target, null);

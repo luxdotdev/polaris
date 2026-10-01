@@ -26,6 +26,7 @@ export type CommandId =
   | "settings.appearance"
   | "settings.sessions"
   | "settings.harnesses"
+  | "settings.constellations"
   | "settings.usage"
   | "settings.hosts"
   | "settings.reviewer"
@@ -82,6 +83,7 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   { id: "settings.appearance", title: "Settings: Appearance", keys: [] },
   { id: "settings.sessions", title: "Settings: Sessions", keys: [] },
   { id: "settings.harnesses", title: "Settings: Harnesses", keys: [] },
+  { id: "settings.constellations", title: "Settings: Constellations", keys: [] },
   { id: "settings.usage", title: "Settings: Usage", keys: [] },
   { id: "settings.hosts", title: "Settings: Hosts", keys: [] },
   { id: "settings.reviewer", title: "Settings: Reviewer", keys: [] },

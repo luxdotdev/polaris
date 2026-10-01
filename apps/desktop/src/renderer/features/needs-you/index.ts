@@ -11,3 +11,5 @@ export { NeedsYouPublisher } from "./ui/Publisher.tsx";
 export { onNeedsYouEvent } from "./bridge.ts";
 
 export { buildInbox, type Inbox } from "./model/inbox.ts";
+
+export { useNeedsYouCount } from "./hooks.ts";

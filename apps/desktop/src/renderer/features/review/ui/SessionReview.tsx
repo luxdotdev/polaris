@@ -12,6 +12,7 @@ import { useReviewDiff } from "../data/useReviewDiff.ts";
 import { reviewSlots, subjectKey } from "../surface.ts";
 import { ReviewBody } from "./ReviewBody.tsx";
 import { SessionHeader } from "./SubjectHeader.tsx";
+import { useWorkerCaption } from "../constellation/useWorkerCaption.ts";
 
 const ALL: TurnPick = { kind: "all" };
 
@@ -43,9 +44,11 @@ export const SessionReview = ({ subject }: { readonly subject: SessionSubject })
   const workspace =
     session === null ? undefined : (workspaces?.get(session.workspaceId)?.name ?? undefined);
 
+  const worker = useWorkerCaption(hostKey, sessionId);
+
   const caption = [
     session === null ? null : harnessHue(session.harness).name,
-    session?.state ?? null,
+    worker ?? session?.state ?? null,
     workspace === undefined ? null : `${workspace} on ${host?.label ?? hostKey}`,
     pending.length === 0
       ? null

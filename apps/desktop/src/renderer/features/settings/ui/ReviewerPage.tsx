@@ -92,7 +92,8 @@ const HostLine = ({
 };
 
 /** A Host where `harness` is ready, to list its Models. */
-const useModelHost = () => {
+/** A Host where the Harness is ready, to list its Models. */
+export const useModelHost = () => {
   const { hosts } = useHostProbes();
   const groups = harnessGroups(hosts);
 

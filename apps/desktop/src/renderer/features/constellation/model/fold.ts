@@ -353,3 +353,26 @@ export const applyStreamItems = (
 
   return next;
 };
+
+/** Graphs as views (shellui's fixtures) into the store's per-Host models. */
+export const modelsFromViews = (
+  byHost: Readonly<
+    Record<
+      string,
+      ReadonlyArray<{
+        readonly constellation: ConstellationData;
+        readonly projections: ReadonlyArray<ProjectionData>;
+      }>
+    >
+  >
+): Readonly<Record<string, ConstellationsModel>> =>
+  Object.fromEntries(
+    Object.entries(byHost).map(([hostKey, views]) => [
+      hostKey,
+      {
+        byId: new Map(
+          views.map((v) => [v.constellation.id, recordFrom(v.constellation, 0, v.projections)])
+        ),
+      },
+    ])
+  );

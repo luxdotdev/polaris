@@ -1,6 +1,6 @@
 /**
- * The Constellation commands the tab sends (`ConstellationRpcs`). The Desktop App's IPC has no
- * `constellation.*` requests yet, so the client is installable: previews put in a fake.
+ * The Constellation commands the tab sends (`ConstellationRpcs`), over the `constellation.*`
+ * IPC requests; installable, so previews put in a fake Daemon.
  */
 import {
   type ConstellationAnswer,
@@ -13,6 +13,8 @@ import { PixelFailedIcon, showToast } from "@polaris/ui";
 import type { Rpc } from "effect/rpc";
 import { createElement } from "react";
 import { newCommandId } from "../../commands.ts";
+import type { RequestInput } from "../../../shared/contract.ts";
+import { polaris } from "../bridge.ts";
 
 type Without<P> = Omit<P, "commandId">;
 
@@ -40,20 +42,32 @@ interface WithId {
   readonly commandId: CommandId;
 }
 
-const unavailable = async (): Promise<Outcome> => ({
-  ok: false,
-  message: "This version of Polaris can't send Constellation commands yet",
-  fix: null,
-});
+type Method =
+  | "constellation.review"
+  | "constellation.answer"
+  | "constellation.message"
+  | "constellation.set_state";
 
-const UNWIRED: ConstellationClient = {
-  review: unavailable,
-  answer: unavailable,
-  message: unavailable,
-  setState: unavailable,
+/** A refusal's message already lists each finding as "<message>. <fix>" (the IPC's contract). */
+const viaIpc =
+  <M extends Method>(method: M) =>
+  async (hostKey: string, input: Omit<RequestInput<M>, "hostKey">): Promise<Outcome> => {
+    // SAFETY: `input` is this method's payload; the IPC input adds only the Host.
+    const result = await polaris().request(method, { hostKey, ...input } as RequestInput<M>);
+
+    return result.ok
+      ? { ok: true, summary: result.value.summary }
+      : { ok: false, message: result.error.message, fix: null };
+  };
+
+const IPC: ConstellationClient = {
+  review: viaIpc("constellation.review"),
+  answer: viaIpc("constellation.answer"),
+  message: viaIpc("constellation.message"),
+  setState: viaIpc("constellation.set_state"),
 };
 
-let installed: ConstellationClient = UNWIRED;
+let installed: ConstellationClient = IPC;
 
 export const installConstellationClient = (client: ConstellationClient) => {
   installed = client;

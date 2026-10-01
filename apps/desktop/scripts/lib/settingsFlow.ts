@@ -1,9 +1,11 @@
 /**
  * Settings in the smoke test: Polaris → Settings… (⌘,) opens it over the
  * session, the theme and density change live and are saved, Sessions' switches
- * and branch prefix are saved, Harnesses and Usage render, and esc returns to the session.
+ * and branch prefix are saved, Harnesses render, Constellations' defaults save (and a
+ * Constellation request crosses the bridge), Usage renders, and esc returns to the session.
  */
 import type { ElectronApplication, Page } from "playwright-core";
+import { constellationShellFlow } from "./constellationShellFlow.ts";
 
 interface SettingsFlowInput {
   readonly app: ElectronApplication;
@@ -116,6 +118,8 @@ export const settingsFlow = async ({ app, page, step, shoot }: SettingsFlowInput
   await page.getByTestId("harness-group").first().waitFor({ timeout: 5_000 });
   step(`Harnesses: ${await page.getByTestId("harness-group").count()} groups`);
   await shoot("settings-harnesses");
+
+  await constellationShellFlow({ page, step, shoot });
 
   await page.getByRole("button", { name: "Usage" }).click();
   await page.locator('[data-section="usage"]').waitFor({ timeout: 5_000 });

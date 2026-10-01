@@ -10,6 +10,9 @@ export { ConstellationMark, TaskGlyph, type TaskGlyphProps } from "./ui/glyphs.t
 
 export {
   type FocusTarget,
+  focusTask,
+  unfocusTask,
+  useAllConstellations,
   useConstellationActions,
   useConstellations,
   useFacts,
@@ -26,6 +29,8 @@ export {
 } from "./client.ts";
 
 export { setSignals, type Signals } from "./state.ts";
+
+export { modelsFromViews } from "./model/fold.ts";
 
 export {
   applyConstellationHostItems,
