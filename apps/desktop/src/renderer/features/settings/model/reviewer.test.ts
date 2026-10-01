@@ -50,6 +50,7 @@ describe("the Reviewer every host runs", () => {
   test("the heading names it, or says it picks automatically", () => {
     expect(reviewerTitle(SOL, () => "GPT-6.1-Sol")).toBe("Reviews with Codex · GPT-6.1-Sol · high");
     expect(reviewerTitle(null)).toBe("Picks a reviewer automatically");
+    expect(reviewerTitle(SOL)).toBe("Reviews with Codex · GPT-6.1-Sol · high");
   });
 
   test("each host says whether its reviewer can run; one that can't runs rules only", () => {

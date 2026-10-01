@@ -14,7 +14,7 @@ import {
   Tile,
 } from "@polaris/ui";
 import { choose, type ModelData, shortlist, useHarnessModels } from "../../harness/index.ts";
-import type { Choice } from "../model/reviewer.ts";
+import { type Choice, prettyModel } from "../model/reviewer.ts";
 
 const AUTO = "auto";
 
@@ -65,7 +65,7 @@ const useModels = (hostKey: string | null, harness: string): ReadonlyArray<Model
 export const useModelName = (hostKey: string | null, harness: string) => {
   const models = useModels(hostKey, harness);
 
-  return (id: string) => models.find((m) => m.id === id)?.name ?? id;
+  return (id: string) => models.find((m) => m.id === id)?.name ?? prettyModel(id);
 };
 
 const ModelChips = ({
@@ -89,7 +89,7 @@ const ModelChips = ({
   const modelOptions: ReadonlyArray<Option> = [
     { value: DEFAULT, label: "Default" },
     ...top.map((m) => ({ value: m.id, label: m.name })),
-    ...(saved === null ? [] : [{ value: saved, label: model?.name ?? saved }]),
+    ...(saved === null ? [] : [{ value: saved, label: model?.name ?? prettyModel(saved) }]),
   ];
 
   return (

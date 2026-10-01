@@ -47,8 +47,15 @@ export const sharedDefault = (hosts: ReadonlyArray<HostReviewer>): SharedDefault
 export const harnessName = (kind: string) =>
   HARNESS_CATALOGUE.find((h) => h.kind === kind)?.name ?? kind;
 
-/** "Claude Code · Opus 5 · high"; Models by their id until the Harness names them. */
-export const choiceLabel = (choice: Choice, modelName: (id: string) => string = (id) => id) =>
+/** A Model id as a name until the Harness lists it: "gpt-6.1-sol" → "GPT-6.1-Sol". */
+export const prettyModel = (id: string) =>
+  id
+    .split("-")
+    .map((part) => (part === "gpt" ? "GPT" : part.charAt(0).toUpperCase() + part.slice(1)))
+    .join("-");
+
+/** "Claude Code · Opus 5 · high". */
+export const choiceLabel = (choice: Choice, modelName: (id: string) => string = prettyModel) =>
   [
     harnessName(choice.harness),
     choice.model === null ? null : modelName(choice.model),

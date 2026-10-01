@@ -163,7 +163,7 @@ const ReviewerCard = ({
             Sets the same reviewer on every host.
           </span>
           <Button size="xs" onClick={() => saveAll(SOL)} data-testid="reviewer-use-sol">
-            Use {choiceLabel(SOL, () => "GPT-6.1-Sol")}
+            Use {choiceLabel(SOL)}
           </Button>
         </FooterStrip>
       )}
