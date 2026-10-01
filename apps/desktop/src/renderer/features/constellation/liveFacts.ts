@@ -76,6 +76,12 @@ export const workerFactsFrom = (
       attempt.state === "working" &&
       session?.state === "idle" &&
       session.updatedAt > attempt.startedAt,
+    subagents: (entry?.subagents ?? []).map((s) => ({
+      id: s.id,
+      title: s.title,
+      agent: s.agent,
+      since: s.startedAt,
+    })),
   };
 
   return { ...derived, ...signals.workers.get(attempt.id) };

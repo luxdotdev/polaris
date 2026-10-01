@@ -277,6 +277,43 @@ const GroupView = ({
   </div>
 );
 
+/** A Subagent under its Attempt (DESIGN.md, Subagents are nodes): smaller glyph, "subagent". */
+const SubagentView = ({
+  row,
+  on,
+}: {
+  readonly row: Extract<RailRow, { kind: "subagent" }>;
+  readonly on: RowHandlers;
+}) => (
+  <button
+    type="button"
+    onClick={() => on.onFocus(row.parent)}
+    className="h-tree-row flex w-full cursor-default items-stretch pr-3 pl-3 text-left"
+    data-subagent={row.subagent.id}
+  >
+    <span className="relative w-[60px] shrink-0 self-stretch">
+      <span className="bg-text-strong/14 absolute top-0 bottom-0 left-[8px] w-px" />
+      <span className="border-text-strong/14 absolute top-0 left-[26px] h-[14px] w-[10px] rounded-bl-[6px] border-b border-l" />
+      <span className="bg-bg absolute top-[8px] left-[36px] grid size-3 place-items-center rounded-full">
+        <TaskGlyph glyph="working" harness={row.parent.harness} size={12} />
+      </span>
+    </span>
+    <span className="flex min-w-0 flex-1 items-center gap-3">
+      <span className="w-10 shrink-0" />
+      <span className="text-body text-text-subtle min-w-0 flex-1 truncate">
+        {row.subagent.title}
+      </span>
+      <span className="text-body text-text-faint hidden w-[9.5rem] shrink-0 truncate text-right @[42rem]:block">
+        {row.subagent.agent === null ? "subagent" : `subagent · ${row.subagent.agent}`}
+      </span>
+      <span className="text-body text-text-default w-[7.5rem] shrink-0 text-right">
+        working · {row.age}
+      </span>
+      <span className="w-6 shrink-0" />
+    </span>
+  </button>
+);
+
 export const RowView = ({
   row,
   on,
@@ -349,6 +386,8 @@ export const RowView = ({
           </button>
         </div>
       );
+    case "subagent":
+      return <SubagentView row={row} on={on} />;
     case "note":
       return (
         <p className="text-caption text-text-subtle h-tree-row flex items-center pr-3 pl-[calc(0.75rem+60px)]">

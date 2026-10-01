@@ -4,8 +4,8 @@
  */
 import type { TaskId } from "@polaris/protocol";
 import { areaOverlaps } from "./areas.ts";
-import { idRanges } from "./copy.ts";
-import type { Facts } from "./facts.ts";
+import { idRanges, span } from "./copy.ts";
+import type { Facts, SubagentFact } from "./facts.ts";
 import type { Bucket, TaskGlyphKind } from "./look.ts";
 import { type TaskContext, type TaskRow, taskRow } from "./task.ts";
 import type { AttemptData, ConstellationRecord, Handover, Proposal, TaskData } from "./types.ts";
@@ -43,6 +43,14 @@ export type RailRow =
       readonly group: string;
       readonly ids: string;
       readonly count: number;
+    }
+  | {
+      readonly kind: "subagent";
+      readonly key: string;
+      /** The Task whose Attempt's session spawned it. */
+      readonly parent: TaskRow;
+      readonly subagent: SubagentFact;
+      readonly age: string;
     }
   | { readonly kind: "note"; readonly key: string; readonly text: string };
 
@@ -199,7 +207,25 @@ const proposalRow = (
   nested,
 });
 
+/** A working Attempt's Subagents, each a node under its row (not in large Constellations). */
+const withSubagents = (rows: ReadonlyArray<TaskRow>, facts: Facts): ReadonlyArray<RailRow> =>
+  rows.flatMap((row): ReadonlyArray<RailRow> => {
+    if (row.attempt === null || row.projection.state !== "working") return [row];
+
+    return [
+      row,
+      ...facts.worker(row.attempt).subagents.map((subagent) => ({
+        kind: "subagent" as const,
+        key: `subagent:${subagent.id}`,
+        parent: row,
+        subagent,
+        age: span(subagent.since, facts.now),
+      })),
+    ];
+  });
+
 interface Emit {
+  readonly facts: Facts;
   readonly record: ConstellationRecord;
   readonly options: RailOptions;
   readonly large: boolean;
@@ -249,7 +275,7 @@ const groupRows = (group: Group, emit: Emit): ReadonlyArray<RailRow> => {
 
   return [
     header,
-    ...tasks,
+    ...(large ? tasks : withSubagents(tasks, emit.facts)),
     ...fold,
     ...(filtering ? [] : group.proposals.map((p) => proposalRow(p, record, true))),
   ];
@@ -273,6 +299,7 @@ export const buildRail = (
   const filtering = options.filter !== "all" || options.query.trim() !== "";
 
   const emit: Emit = {
+    facts,
     record,
     options: { ...options, query: options.query.trim() },
     large,
@@ -308,7 +335,7 @@ export const buildRail = (
     rows: [
       ...handovers,
       ...groups.flatMap((g) => groupRows(g, emit)),
-      ...looseTasks,
+      ...(large ? looseTasks : withSubagents(looseTasks, facts)),
       ...(filtering ? [] : loose.map((p) => proposalRow(p, record, false))),
       ...note,
     ],

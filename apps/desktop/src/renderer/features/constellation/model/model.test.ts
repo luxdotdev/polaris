@@ -321,6 +321,34 @@ describe("rail", () => {
     expect(tasksOf(rail.rows).every((r) => r.line === null)).toBe(true);
   });
 
+  test("a working Attempt's Subagents are nodes under its row", () => {
+    const withSubagent = plainFacts({
+      worker: (a) => ({
+        ...plainFacts().worker(a),
+        subagents:
+          a.taskId === "B2"
+            ? [
+                {
+                  id: "sa-1",
+                  title: "Read the docs",
+                  agent: "Explore",
+                  since: "2026-10-01T12:00:00Z",
+                },
+              ]
+            : [],
+      }),
+    });
+
+    const rows = buildRail(c1Record(), withSubagent).rows;
+    const at = rows.findIndex((r) => r.key === "task:B2");
+
+    expect(rows[at + 1]).toMatchObject({ kind: "subagent", key: "subagent:sa-1" });
+    expect(railKey("Enter", rows, "subagent:sa-1")).toMatchObject({ kind: "focus" });
+    expect(buildRail(largeRecord(), withSubagent).rows.some((r) => r.kind === "subagent")).toBe(
+      false
+    );
+  });
+
   test("filters and queries flatten to matching Tasks", () => {
     const rail = buildRail(largeRecord(), plainFacts(), { ...DEFAULT_RAIL, filter: "review" });
 
