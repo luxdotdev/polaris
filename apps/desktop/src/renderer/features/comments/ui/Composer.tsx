@@ -15,7 +15,7 @@ import {
   Textarea,
 } from "@polaris/ui";
 import { useStore } from "zustand";
-import { emptySurface, surfaceStore } from "../../review/index.ts";
+import { ANNOTATION_INSET, emptySurface, surfaceStore } from "../../review/index.ts";
 import {
   addToFeedback,
   addToReview,
@@ -118,7 +118,7 @@ const Actions = ({ subjectKey, composer }: Props & { readonly composer: Composer
       <FindingLink subjectKey={subjectKey} composer={composer} />
       <span className="flex-1" />
       <Button size="sm" variant="ghost" onClick={() => closeComposer(subjectKey)}>
-        Cancel <span className="text-text-faint font-regular">esc</span>
+        Cancel <span className="text-text-subtle font-regular">esc</span>
       </Button>
       {kind === "session" ? (
         <Button
@@ -130,12 +130,16 @@ const Actions = ({ subjectKey, composer }: Props & { readonly composer: Composer
           Send now
         </Button>
       ) : (
-        pending === 0 &&
         composer.moving === null && (
           <Button
             size="sm"
             variant="secondary"
             disabled={empty || composer.busy}
+            title={
+              pending === 0
+                ? "Publish this comment now"
+                : `Publishes your ${pending} pending ${pending === 1 ? "comment" : "comments"} with it`
+            }
             onClick={run(commentNow)}
           >
             Comment now
@@ -166,7 +170,7 @@ export const Composer = ({ subjectKey }: Props) => {
   const primary = kind === "pull" ? addToReview : addToFeedback;
 
   return (
-    <div className="pr-panel py-gap flex pl-[78px] font-sans" data-testid="comment-composer">
+    <div className={cn("py-gap flex font-sans", ANNOTATION_INSET)} data-testid="comment-composer">
       <div
         className={cn(
           "rounded-row bg-surface-raised border-hairline flex min-w-0 flex-1 flex-col border",
@@ -180,7 +184,7 @@ export const Composer = ({ subjectKey }: Props) => {
           </span>
           <span className="flex-1" />
           {destination !== null && (
-            <span className="text-caption text-text-faint">{destination}</span>
+            <span className="text-caption text-text-subtle">{destination}</span>
           )}
         </div>
         <div className="pt-gap px-3 pb-3">

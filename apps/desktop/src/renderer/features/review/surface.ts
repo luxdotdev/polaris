@@ -30,6 +30,12 @@ export interface DiffSelection extends DiffRange {
   readonly code: string;
 }
 
+/**
+ * The inset of a row under a line: indented to the code, and clear of the file card's
+ * right edge (Pierre's annotation slot runs 12px past the card, under the page padding).
+ */
+export const ANNOTATION_INSET = "pl-[78px] pr-[calc(var(--spacing-panel)+12px)]";
+
 /** A row under a line in the diff (a comment thread, a draft, a composer). */
 export interface ReviewAnnotation {
   /** Stable across renders. */

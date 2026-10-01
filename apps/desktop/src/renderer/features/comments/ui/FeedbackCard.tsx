@@ -42,7 +42,7 @@ export const FeedbackCard = ({ subjectKey }: { readonly subjectKey: string }) =>
         <span className="text-body text-text-strong flex-1 font-medium">
           Feedback for turn {nextTurn ?? "…"}
         </span>
-        <span className="text-caption text-text-faint">{batchCaption(batch, drafting)}</span>
+        <span className="text-caption text-text-subtle">{batchCaption(batch, drafting)}</span>
       </div>
       {batch.comments.map((c) => (
         <button
@@ -76,7 +76,7 @@ export const FeedbackCard = ({ subjectKey }: { readonly subjectKey: string }) =>
           {harness !== null && <Tile hue={harness} size={20} />}
           Send to session
         </Button>
-        <span className="text-caption text-text-faint">quotes the lines</span>
+        <span className="text-caption text-text-subtle">quotes the lines</span>
       </div>
     </section>
   );

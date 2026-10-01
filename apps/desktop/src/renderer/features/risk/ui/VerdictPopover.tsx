@@ -103,7 +103,7 @@ const Form = ({ onSave }: { readonly onSave: (draft: VerdictDraft) => Promise<bo
         />
       </div>
       <div className="flex flex-col gap-1.5 px-3.5 pb-3.5">
-        <span className="text-caption text-text-faint">Applies to</span>
+        <span className="text-caption text-text-subtle">Applies to</span>
         <SegmentedControl
           aria-label="Applies to"
           variant="fill"

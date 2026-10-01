@@ -19,6 +19,7 @@ import {
 import { Match } from "effect";
 import { useEffect, useState } from "react";
 import { useStore } from "zustand";
+import { useShellActions } from "../../../shell/hooks.ts";
 import { CommentsSection, CommentsSync, FeedbackCard } from "../../comments/index.ts";
 import { modelLabel, useHarnessModels } from "../../harness/index.ts";
 import {
@@ -150,7 +151,7 @@ const Group = ({
         type="button"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
-        className="text-caption text-text-faint hover:text-text-subtle flex h-7 cursor-default items-center px-3"
+        className="text-caption text-text-subtle hover:text-text-default flex h-7 cursor-default items-center px-3"
       >
         {open ? "Hide" : "Show"} {label.toLowerCase()} · {findings.length}
       </button>
@@ -185,8 +186,6 @@ const Findings = ({
 }) => {
   const selected = useStore(surfaceStore, (s) => (s[subjectKey] ?? emptySurface).selectedFinding);
   const groups = groupFindings(summary.findings);
-  const names = useCostNames(hostKey, summary);
-  const cost = costLine(summary, names);
 
   const item = (finding: Finding) => (
     <FindingItem
@@ -223,13 +222,38 @@ const Findings = ({
             {note}
           </p>
         ))}
-        {cost !== null && (
-          <p className="text-caption text-text-faint" data-testid="risk-cost">
-            {cost}
-          </p>
-        )}
       </div>
     </>
+  );
+};
+
+/** ENG-229's quiet cost line, pinned under the findings, naming the Reviewer with a way to change it (ENG-222). */
+const CostLine = ({
+  hostKey,
+  summary,
+}: {
+  readonly hostKey: string;
+  readonly summary: Summary;
+}) => {
+  const { openSettings } = useShellActions();
+  const names = useCostNames(hostKey, summary);
+  const cost = costLine(summary, names) ?? "Rules only: no reviewer ran";
+
+  return (
+    <div className="px-panel gap-gap flex items-baseline pt-2" data-testid="risk-cost-line">
+      <p className="text-caption text-text-subtle min-w-0 flex-1" data-testid="risk-cost">
+        {cost}
+      </p>
+      <Button
+        size="xs"
+        variant="ghost"
+        className="shrink-0"
+        data-testid="risk-reviewer-settings"
+        onClick={() => openSettings("reviewer")}
+      >
+        {summary.reviewer === null ? "Choose a reviewer" : "Change"}
+      </Button>
+    </div>
   );
 };
 
@@ -246,31 +270,38 @@ export const RiskColumnSlot = (props: ReviewSlotProps) => {
       ? () => void runRiskSummary(key, request, true)
       : null;
 
+  // The header, the cost line and the feedback card stay put; only the findings scroll.
   return (
     <div
-      className="flex max-h-[62%] min-h-0 shrink-0 flex-col overflow-x-hidden overflow-y-auto pb-3"
+      className="flex max-h-[62%] min-h-0 shrink-0 flex-col pb-3"
       data-testid="risk-summary"
       data-state={state.kind}
     >
       <CommentsSync {...props} />
-      <div className="pt-panel px-panel pb-3">
+      <div className="pt-panel px-panel shrink-0 pb-3">
         <Header
           state={state}
           onRerun={state.kind === "ready" || state.kind === "failed" ? rerun : null}
         />
       </div>
-      {!capable.ok && (
-        <p className="text-caption text-text-subtle px-panel pb-3">
-          Risk summaries need a newer daemon on {capable.host}
-        </p>
+      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto" data-testid="risk-scroll">
+        {!capable.ok && (
+          <p className="text-caption text-text-subtle px-panel pb-3">
+            Risk summaries need a newer daemon on {capable.host}
+          </p>
+        )}
+        {state.kind === "ready" && (
+          <Findings subjectKey={key} hostKey={state.hostKey} summary={state.summary} />
+        )}
+        {props.subject.kind === "pull" && <CommentsSection subjectKey={key} />}
+      </div>
+      {state.kind === "ready" && state.summary.status !== "running" && (
+        <CostLine hostKey={state.hostKey} summary={state.summary} />
       )}
-      {state.kind === "ready" && (
-        <Findings subjectKey={key} hostKey={state.hostKey} summary={state.summary} />
-      )}
-      {props.subject.kind === "pull" ? (
-        <CommentsSection subjectKey={key} />
-      ) : (
-        <FeedbackCard subjectKey={key} />
+      {props.subject.kind === "session" && (
+        <div className="shrink-0">
+          <FeedbackCard subjectKey={key} />
+        </div>
       )}
     </div>
   );
