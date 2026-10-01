@@ -17,6 +17,7 @@ import {
   type TurnId,
 } from "@polaris/protocol";
 import { Context, Effect, Layer, Predicate, Result, Stream } from "effect";
+import { WORKERS_RESOURCE } from "../resources/model.ts";
 import type { LiveItem } from "../store/EventStore.ts";
 import {
   eventCapability,
@@ -125,6 +126,14 @@ const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
           head.push(
             HostStreamItem.cases.Snapshot.make({
               sequence: cut,
+              resources: capabilities.includes("host.resources")
+                ? [...(model.hostResources?.resources.values() ?? [])].filter(
+                    (r) => r.name !== WORKERS_RESOURCE
+                  )
+                : [],
+              resourceLeases: capabilities.includes("host.resources")
+                ? [...(model.hostResources?.leases.values() ?? [])]
+                : [],
               workspaces: [...model.workspaces.values()],
               worktrees: [...model.worktrees.values()],
               sessions: [...model.sessions.values()].map((r) => summaryOf(r, withSubagents)),

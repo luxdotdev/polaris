@@ -23,6 +23,7 @@ import {
 } from "@polaris/protocol";
 import { Effect, Schema } from "effect";
 import type { SqlClient, SqlError } from "effect/sql";
+import { emptyResources, foldResources } from "../resources/model.ts";
 import { storeError } from "./errors.ts";
 import { projectReviewEvent } from "./review.ts";
 import {
@@ -213,6 +214,8 @@ const projectionOf: (event: DomainEvent) => Projection = DomainEvent.match<Proje
   PeerMessage: () => () => Effect.void,
   AttemptRecoveryContinued: () => () => Effect.void,
   ResourceDeclared: () => () => Effect.void,
+  ResourceRemoved: () => () => Effect.void,
+  ResourceLeaseCanceled: () => () => Effect.void,
   ResourceLeaseQueued: () => () => Effect.void,
   ResourceLeased: () => () => Effect.void,
   ResourceReleased: () => () => Effect.void,
@@ -377,9 +380,18 @@ export const loadModel = (sql: SqlClient.SqlClient) =>
       };
     });
 
+    const resourceRows = yield* sql<EventRow>`
+      SELECT sequence, occurred_at, command_id, payload FROM events
+      WHERE event_type IN ('ResourceDeclared', 'ResourceRemoved', 'ResourceLeaseCanceled',
+        'ResourceLeaseQueued', 'ResourceLeased', 'ResourceReleased') ORDER BY sequence`;
+
     const model: ReadModel = {
       ...emptyModel,
       sequence: max?.sequence ?? 0,
+      hostResources: foldResources(
+        emptyResources(),
+        resourceRows.map((row) => decodeEventRow(row).event)
+      ),
       workspaces: byId(workspaces.map((row) => WorkspaceJson.decode(row.data))),
       worktrees: byId(worktrees.map((row) => WorktreeJson.decode(row.data))),
       sessions: new Map(records.map((record) => [record.session.id, record])),

@@ -27,11 +27,11 @@
     "@ff-labs/fff-bun": "0.11.1-nightly.89c1927",
     "@polaris/protocol": "workspace:*",
     "effect": "4.0.0-rc.118",
-    "xstate": "6.0.0-alpha.61"
+    "xstate": "6.0.0-alpha.61",
+    "@polaris/client": "workspace:*"
   },
   "devDependencies": {
     "@agentclientprotocol/sdk": "1.5.1",
-    "@polaris/client": "workspace:*",
     "fast-check": "4.10.2"
   },
   "optionalDependencies": {

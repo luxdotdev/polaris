@@ -47,6 +47,10 @@ import {
 import { findingsFlow } from "./lib/findingsFlow.ts";
 import { acceptFlow } from "./lib/acceptFlow.ts";
 
+import { takeScriptLease } from "../../../tooling/leases.ts";
+
+await takeScriptLease("smoke");
+
 const args = process.argv.slice(2);
 
 const flag = (name: string) => args.includes(name);
