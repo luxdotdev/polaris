@@ -51,13 +51,13 @@ export const PullHeader = ({ name, number, detail, actions }: PullHeaderProps) =
             <span>{name}</span>
           ) : (
             <>
-              {detail.author !== null && detail.author.avatarUrl !== "" && (
-                <img
-                  src={detail.author.avatarUrl}
-                  alt=""
-                  className="size-[18px] shrink-0 rounded-full"
-                />
-              )}
+              {/* Remote images are outside the CSP: the author's initial stands in for the avatar. */}
+              <span
+                aria-hidden="true"
+                className="bg-fill-selected text-text-subtle text-micro flex size-[18px] shrink-0 items-center justify-center rounded-full font-medium"
+              >
+                {(detail.author?.login ?? "?").slice(0, 1).toUpperCase()}
+              </span>
               <span>{detail.author?.login ?? "ghost"} wants to merge into</span>
               <Chip>{detail.baseRefName}</Chip>
               <span>from</span>
