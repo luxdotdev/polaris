@@ -13,6 +13,7 @@ import {
   type SubscriptionKind,
 } from "../../shared/contract.ts";
 import { type ClientServices, HostDirectory, toIpcError } from "../hosts.ts";
+import { githubOpeners } from "../github/ipc.ts";
 import { Machines } from "../machines/service.ts";
 
 export type Feed<K extends SubscriptionKind> = Stream.Stream<
@@ -44,6 +45,7 @@ const onLive = <A, E extends { readonly _tag: string; readonly message: string }
 type Openers = { readonly [K in SubscriptionKind]: (input: SubscriptionInput<K>) => Feed<K> };
 
 const openers: Openers = {
+  ...githubOpeners,
   hosts: () => Stream.unwrap(HostDirectory.useSync((dir) => SubscriptionRef.changes(dir.views))),
   machines: () =>
     Stream.unwrap(Machines.useSync((machines) => SubscriptionRef.changes(machines.views))),

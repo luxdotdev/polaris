@@ -28,6 +28,7 @@ import {
   SubscriptionRef,
 } from "effect";
 import type { ConnectionStatusView, HostView, IpcError } from "../shared/api.ts";
+import type { GitHub } from "./github/index.ts";
 import type { LocalDaemon } from "./localDaemon.ts";
 import type { Machines } from "./machines/service.ts";
 import type { RemoteHostSetting } from "./settings.ts";
@@ -308,15 +309,19 @@ export class HostDirectory extends Context.Service<
 }
 
 /** The services the IPC handlers run on. */
-export type ClientServices = HostDirectory | Machines;
+export type ClientServices = HostDirectory | Machines | GitHub;
 
 export type ClientRuntime = ManagedRuntime.ManagedRuntime<ClientServices, never>;
 
 /** Starts connecting to every Host; the runtime owns every connection until disposed. */
 export const startClientRuntime = (
   input: HostDirectoryInput,
-  machines: Layer.Layer<Machines, never, HostDirectory>
-): ClientRuntime => ManagedRuntime.make(Layer.provideMerge(machines, HostDirectory.layer(input)));
+  machines: Layer.Layer<Machines, never, HostDirectory>,
+  github: Layer.Layer<GitHub>
+): ClientRuntime =>
+  ManagedRuntime.make(
+    Layer.mergeAll(Layer.provideMerge(machines, HostDirectory.layer(input)), github)
+  );
 
 /** Every failure crossing IPC becomes its tag and message; a refusal's message is its `reason`. */
 export const toIpcError = (error: {

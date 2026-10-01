@@ -21,6 +21,7 @@ import {
   type SessionPrefsPatch,
 } from "../../shared/contract.ts";
 import { type ClientServices, HostDirectory, toIpcError } from "../hosts.ts";
+import { githubHandlers } from "../github/ipc.ts";
 import { Machines } from "../machines/service.ts";
 import type { NeedsYouSummary } from "../../shared/needsYou.ts";
 import { appearanceOf, sessionPrefsOf, type Settings } from "../settings.ts";
@@ -53,7 +54,7 @@ export interface RequestContext {
   readonly needsYou: (summary: NeedsYouSummary) => void;
 }
 
-type Handler<M extends RequestMethod> = (
+export type Handler<M extends RequestMethod> = (
   input: RequestInput<M>
 ) => Effect.Effect<RequestOutput<M>, IpcError, ClientServices>;
 
@@ -99,6 +100,7 @@ const local = (): InstallView => ({
 });
 
 export const requestHandlers = (ctx: RequestContext): Handlers => ({
+  ...githubHandlers,
   "settings.get": () =>
     Effect.sync(() => {
       const settings = ctx.settings();

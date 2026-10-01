@@ -26,6 +26,7 @@ import { composerFlow } from "./lib/composerFlow.ts";
 import { imageAfterRelaunch, sendImage } from "./lib/previewFlow.ts";
 import { runSubagent, subagentAfterRelaunch } from "./lib/subagentFlow.ts";
 import { terminalFlow } from "./lib/terminalFlow.ts";
+import { githubFlow, MOCK_KEYCHAIN, serveGitHubFake } from "./lib/githubFlow.ts";
 
 const args = process.argv.slice(2);
 
@@ -87,6 +88,8 @@ const daemon = await startDaemon({ home, benchHarness: true, userHome });
 
 const fakeHost = prepareFakeHost(join(home, "remote"));
 
+const github = await serveGitHubFake();
+
 const UNREACHABLE = "polaris-smoke.invalid";
 
 // A remote Host that can't be reached: it must show a Connection State, never block the app.
@@ -102,7 +105,7 @@ step(`Daemon up at ${daemon.socketPath}`);
 const launch = () =>
   electron.launch({
     executablePath: electronBinary(),
-    args: [APP_DIR],
+    args: [APP_DIR, MOCK_KEYCHAIN],
     env: {
       ...process.env,
       POLARIS_DESKTOP_LOCAL_SOCKET: daemon.socketPath,
@@ -110,6 +113,7 @@ const launch = () =>
       POLARIS_DESKTOP_USER_DATA: userData,
       POLARIS_DESKTOP_HIDDEN: flag("--show") ? "0" : "1",
       ...fakeHost.env,
+      ...github.env,
     },
   });
 
@@ -450,6 +454,7 @@ try {
   await attachmentsFlow({ app, page, step, shoot: (name) => shoot(page, name) });
   await timeSwitches(page);
   await jumpByTyping(page);
+  await githubFlow({ page, fake: github.fake, step });
 
   let probeTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -511,6 +516,7 @@ try {
   await app.close();
   await daemon.stop();
   fakeHost.stop();
+  await github.close();
   rmSync(home, { recursive: true, force: true });
 }
 

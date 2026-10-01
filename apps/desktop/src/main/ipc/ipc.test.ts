@@ -4,6 +4,9 @@
  * as `IpcError`s. The real path, end to end, is `scripts/smoke.ts`.
  */
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Effect, Exit, Layer, ManagedRuntime, SubscriptionRef } from "effect";
 import type { BatchEntry, HostView } from "../../shared/api.ts";
 import { RequestInputs, SubscriptionInputs } from "../../shared/contract.ts";
@@ -11,6 +14,9 @@ import { DEFAULT_SESSION_PREFS } from "../../shared/sessionPrefs.ts";
 import { CommandId, CommandRejected } from "@polaris/protocol";
 import { type ClientServices, HostDirectory, toIpcError, UnknownHost } from "../hosts.ts";
 import { Ssh } from "@polaris/client/install";
+import { createGitHubFake } from "../../../scripts/lib/githubFake/index.ts";
+import { memoryCrypto } from "../github/github.testing.ts";
+import { GitHub } from "../github/index.ts";
 import { Machines } from "../machines/service.ts";
 import { type RequestContext, requestHandlers, requestRunner } from "./requests.ts";
 import { windowSubscriptions } from "./subscriptions.ts";
@@ -48,7 +54,7 @@ const directory = Layer.effect(
   )
 );
 
-const services = Layer.provideMerge(
+const clientServices = Layer.provideMerge(
   Machines.layer({
     settings: { get: () => ({ hosts: [{ alias: "studio" }] }), update: () => undefined },
     approvals: { approved: () => new Set(), approve: () => undefined, forget: () => undefined },
@@ -61,6 +67,15 @@ const services = Layer.provideMerge(
   }),
   directory
 );
+
+const github = GitHub.layer({
+  dir: mkdtempSync(join(tmpdir(), "polaris-ipc-github-")),
+  crypto: memoryCrypto(),
+  fetch: createGitHubFake().fetch,
+  endpoints: { web: "https://github.test", api: "https://api.github.test" },
+});
+
+const services = Layer.mergeAll(clientServices, github);
 
 const context: RequestContext = {
   settings: () => ({ theme: "dark", hosts: [{ alias: "studio" }] }),
@@ -167,6 +182,29 @@ describe("requests", () => {
   });
 });
 
+describe("github requests", () => {
+  test("a pull request with no account signed in fails with no account", async () => {
+    const exit = await run(
+      requestRunner(
+        handlers,
+        "github.pull.detail"
+      )({
+        pull: { repo: { owner: "acme", name: "widgets" }, number: 42 },
+      })
+    );
+
+    expect(Exit.isFailure(exit) && JSON.stringify(exit.cause)).toContain("GitHubNoAccount");
+  });
+
+  test("a repository name with a path in it is refused at the boundary", async () => {
+    const exit = await run(
+      requestRunner(handlers, "github.recheck")({ repo: { owner: "acme", name: "../../user" } })
+    );
+
+    expect(Exit.isFailure(exit) && JSON.stringify(exit.cause)).toContain("InvalidInput");
+  });
+});
+
 describe("subscriptions", () => {
   const open = () => {
     const runtime = ManagedRuntime.make(services);
@@ -184,6 +222,9 @@ describe("subscriptions", () => {
     expect(Object.keys(SubscriptionInputs).sort()).toEqual(
       [
         "files.watch",
+        "github.accounts",
+        "github.checkouts",
+        "github.pulls",
         "harness.availability",
         "host",
         "hosts",

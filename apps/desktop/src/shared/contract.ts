@@ -21,6 +21,7 @@ import {
   Worktree,
 } from "@polaris/protocol";
 import { Schema } from "effect";
+import { GitHubRequestInputs, GitHubSubscriptionInputs } from "./githubContract.ts";
 import { BRANCH_PREFIX } from "./sessionPrefs.ts";
 
 /** A Host's stable key in the HostRegistry: "local", or an SSH alias. */
@@ -279,6 +280,7 @@ export const RequestInputs = {
   }),
   /** Dev only: a fresh temporary directory on the dev Daemon's Host for the proof session. */
   "dev.proofWorkspace": Schema.Struct({}),
+  ...GitHubRequestInputs,
 } as const;
 
 export type RequestMethod = keyof typeof RequestInputs;
@@ -317,6 +319,7 @@ export const SubscriptionInputs = {
   "harness.availability": onHost({}),
   /** Plan Limits as they change (`usage.watch`, its `PlanLimitChanged` items). */
   "plan-limits": onHost({}),
+  ...GitHubSubscriptionInputs,
 } as const;
 
 export type SubscriptionKind = keyof typeof SubscriptionInputs;

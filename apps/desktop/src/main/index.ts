@@ -23,6 +23,7 @@ import {
   startClientRuntime,
   whenConnected,
 } from "./hosts.ts";
+import { followFocus, githubLayer } from "./github/electron.ts";
 import { iconPng, nameApp, showIcon } from "./identity.ts";
 import { registerIpc } from "./ipc/index.ts";
 import { machinesLayer, sshAliasNames } from "./machines/index.ts";
@@ -195,8 +196,10 @@ const start = async () => {
       dev,
       localDaemon: startLocal,
       localHome: () => localDaemon?.installedHome ?? null,
-    })
+    }),
+    githubLayer({ userData: app.getPath("userData"), env })
   );
+  followFocus(runtime);
 
   const daemonDist = join(repoRoot, "apps/daemon/dist");
 
