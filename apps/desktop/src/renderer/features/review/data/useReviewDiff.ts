@@ -7,34 +7,14 @@ import type { FileDiffMetadata } from "@pierre/diffs";
 import { useEffect, useState } from "react";
 import type { IpcError } from "../../../../shared/api.ts";
 import { polaris } from "../../bridge.ts";
-import type { ReviewFile, ReviewSection } from "../model/layout.ts";
+import type { ReviewFile } from "../model/layout.ts";
 import { fingerprint, indexPatch } from "../model/patch.ts";
-import { type ReviewScale, scaleOf } from "../model/policy.ts";
+import type { ReviewScale } from "../model/policy.ts";
+import { type Fetched, failureOf, loadReviewDiff, type ReviewDiff } from "./load.ts";
 import { parseInBatches } from "./parse.ts";
 import type { DiffSource, SourceSection } from "./source.ts";
 
-export type ReviewDiff =
-  | { readonly kind: "idle" }
-  | { readonly kind: "loading" }
-  | { readonly kind: "failed"; readonly error: IpcError }
-  | {
-      readonly kind: "ready";
-      readonly source: DiffSource;
-      readonly sections: ReadonlyArray<ReviewSection>;
-      readonly scale: ReviewScale;
-      /** Parsed files by `ReviewFile.key`; grows batch by batch. */
-      readonly parsed: ReadonlyMap<string, FileDiffMetadata>;
-      readonly bytes: ReadonlyMap<string, Uint8Array>;
-      readonly size: number;
-      /** False while batches are still parsing. */
-      readonly complete: boolean;
-    };
-
-interface Fetched {
-  readonly section: SourceSection;
-  readonly bytes: Uint8Array;
-  readonly files: ReadonlyArray<ReviewFile>;
-}
+export type { Fetched, ReviewDiff } from "./load.ts";
 
 const fetchSection = async (
   source: DiffSource,
@@ -81,7 +61,7 @@ const fetchAll = async (source: DiffSource): Promise<ReadonlyArray<Fetched> | Ip
   return fetched;
 };
 
-const parseAll = async (
+export const parseAll = async (
   fetched: ReadonlyArray<Fetched>,
   scale: ReviewScale,
   onParsed: (entries: ReadonlyArray<readonly [string, FileDiffMetadata]>) => void,
@@ -142,41 +122,16 @@ export const useReviewDiff = (next: DiffSource | null): ReviewDiff => {
     let live = true;
 
     setDiff((previous) => (previous.kind === "ready" ? previous : { kind: "loading" }));
-    void fetchAll(source).then(async (fetched) => {
-      if (!live) return;
+    void loadReviewDiff(source, {
+      fetch: fetchAll,
+      parse: parseAll,
+      live: () => live,
+      set: setDiff,
+    }).catch((cause: unknown) => {
+      // A diff that can't be read or parsed says so; it never leaves the pane blank.
+      console.warn("polaris: the review diff failed", cause);
 
-      if (isError(fetched)) {
-        setDiff({ kind: "failed", error: fetched });
-
-        return;
-      }
-
-      const size = fetched.reduce((sum, f) => sum + f.bytes.byteLength, 0);
-      const count = fetched.reduce((sum, f) => sum + f.files.length, 0);
-      const scale = scaleOf(count, size);
-
-      const sections = fetched.flatMap((f): ReadonlyArray<ReviewSection> =>
-        f.files.length === 0
-          ? []
-          : [{ id: f.section.id, divider: f.section.divider, files: f.files }]
-      );
-
-      const bytes = new Map(fetched.map((f) => [f.section.id, f.bytes]));
-      const parsed = new Map<string, FileDiffMetadata>();
-
-      setDiff({ kind: "ready", source, sections, scale, parsed, bytes, size, complete: false });
-      await parseAll(
-        fetched,
-        scale,
-        (entries) => {
-          for (const [k, v] of entries) parsed.set(k, v);
-
-          setDiff((d) => (d.kind === "ready" ? { ...d, parsed: new Map(parsed) } : d));
-        },
-        () => live
-      );
-
-      if (live) setDiff((d) => (d.kind === "ready" ? { ...d, complete: true } : d));
+      if (live) setDiff(failureOf(cause));
     });
 
     return () => {

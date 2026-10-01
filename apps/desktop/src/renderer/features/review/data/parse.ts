@@ -17,18 +17,33 @@ let nextId = 0;
 
 const waiting = new Map<number, (files: Array<FileDiffMetadata>) => void>();
 
+const failing = new Map<number, (cause: Error) => void>();
+
 const parser = () => {
   if (worker !== null) return worker;
-  worker = new ParseWorker();
-  worker.addEventListener(
+
+  const created = new ParseWorker();
+
+  // A worker that fails fails every batch waiting on it, rather than leaving them pending.
+  created.addEventListener("error", (event) => {
+    for (const fail of failing.values())
+      fail(new Error(`the patch parser failed: ${event.message}`));
+
+    waiting.clear();
+    failing.clear();
+    worker = null;
+  });
+  created.addEventListener(
     "message",
     (event: MessageEvent<{ id: number; files: Array<FileDiffMetadata> }>) => {
       waiting.get(event.data.id)?.(event.data.files);
       waiting.delete(event.data.id);
+      failing.delete(event.data.id);
     }
   );
+  worker = created;
 
-  return worker;
+  return created;
 };
 
 const inWorker = (
@@ -36,10 +51,11 @@ const inWorker = (
   files: ReadonlyArray<PatchFile>,
   keys: ReadonlyArray<string>
 ) =>
-  new Promise<Array<FileDiffMetadata>>((resolve) => {
+  new Promise<Array<FileDiffMetadata>>((resolve, reject) => {
     const id = nextId++;
 
     waiting.set(id, resolve);
+    failing.set(id, reject);
     parser().postMessage({ id, bytes, files, keys });
   });
 

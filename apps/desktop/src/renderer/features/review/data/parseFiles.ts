@@ -33,6 +33,17 @@ const emptyFile = (file: PatchFile, cacheKey: string): FileDiffMetadata => {
   return metadata;
 };
 
+/** One file Pierre can't parse keeps its header (and its counts) instead of failing the Review. */
+const parseOrSkip = (text: string, cacheKey: string, path: string) => {
+  try {
+    return processFile(text, { cacheKey, isGitDiff: true });
+  } catch (cause) {
+    console.warn(`polaris: couldn't parse the diff of ${path}`, cause);
+
+    return undefined;
+  }
+};
+
 export interface ParseRequest {
   readonly bytes: Uint8Array;
   readonly files: ReadonlyArray<PatchFile>;
@@ -46,7 +57,7 @@ export const parseFiles = ({ bytes, files, keys }: ParseRequest): Array<FileDiff
 
     const parsed = file.binary
       ? undefined
-      : processFile(fileText(bytes, file), { cacheKey, isGitDiff: true });
+      : parseOrSkip(fileText(bytes, file), cacheKey, file.path);
 
     if (parsed === undefined) return emptyFile(file, cacheKey);
 

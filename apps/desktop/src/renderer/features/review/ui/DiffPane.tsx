@@ -13,7 +13,8 @@ import type {
   SelectedLineRange,
 } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
-import { memo, useEffect, useMemo, useRef } from "react";
+import { Button, EmptyState, PixelForkIcon } from "@polaris/ui";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand";
 import type { ReviewAnnotation } from "../surface.ts";
 import { revealStore } from "../surface.ts";
@@ -109,6 +110,15 @@ const withVersion = (synced: Synced, pane: PaneItem): DiffItem => {
   return { ...pane.item, version };
 };
 
+/** Replaces Pierre's items with `items`, whatever it holds now. */
+const resend = (handle: Handle, synced: Synced, items: ReadonlyArray<PaneItem>) => {
+  synced.order = items.map((p) => p.item.id);
+  handle.getInstance()?.setItems(items.map((p) => withVersion(synced, p)));
+};
+
+/** How long Pierre gets to draw synced files before the pane checks it did. */
+export const DRAW_CHECK_MS = 1500;
+
 /** Brings Pierre's items to `items`: appends when they only grew, else replaces them. */
 const sync = (handle: Handle, synced: Synced, items: ReadonlyArray<PaneItem>) => {
   const grew = synced.order.every((id, i) => items[i]?.item.id === id);
@@ -157,9 +167,38 @@ export const DiffPane = ({
     keys.current = itemKeys;
   }, [itemKeys]);
 
+  // Synced files that Pierre never drew (its instance was replaced, say) are sent again once;
+  // if it still draws nothing, the pane says so instead of staying blank.
+  const [undrawn, setUndrawn] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+
   useEffect(() => {
     if (handle.current !== null) sync(handle.current, synced.current, items);
-  }, [items]);
+  }, [items, attempt]);
+
+  useEffect(() => {
+    if (items.length === 0) return undefined;
+
+    const drawn = () => (handle.current?.getInstance()?.getRenderedItems().length ?? 0) > 0;
+
+    let second: ReturnType<typeof setTimeout> | undefined;
+
+    const first = setTimeout(() => {
+      if (drawn() || handle.current === null) return;
+
+      console.warn("polaris: the diff drew none of its files; sending them again", {
+        files: items.length,
+        instance: handle.current.getInstance() !== undefined,
+      });
+      resend(handle.current, synced.current, items);
+      second = setTimeout(() => setUndrawn(!drawn()), DRAW_CHECK_MS);
+    }, DRAW_CHECK_MS);
+
+    return () => {
+      clearTimeout(first);
+      clearTimeout(second);
+    };
+  }, [items, attempt]);
 
   useEffect(() => {
     if (reveal === null || handle.current === null || revealed.current === reveal.nonce) return;
@@ -225,6 +264,31 @@ export const DiffPane = ({
     }),
     [themeType, marksCss, loadDiffFiles, onSelect]
   );
+
+  if (undrawn) {
+    return (
+      <div className="flex flex-1 items-center justify-center" data-testid="review-undrawn">
+        <EmptyState
+          icon={<PixelForkIcon size={24} />}
+          title="The diff didn’t draw"
+          fact={`${items.length} ${items.length === 1 ? "file" : "files"} ready, but none showed`}
+          action={
+            <Button
+              variant="secondary"
+              onClick={() => {
+                // A fresh CodeView mounts: every file is sent to it again.
+                synced.current = { order: [], signatures: new Map(), versions: new Map() };
+                setUndrawn(false);
+                setAttempt((n) => n + 1);
+              }}
+            >
+              Try again
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
 
   return (
     <CodeView<RowMeta, undefined>

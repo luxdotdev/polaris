@@ -10,6 +10,7 @@ import {
   selectionCss,
 } from "./marks.ts";
 import { fileText, fingerprint, indexPatch, type PatchFile } from "./patch.ts";
+import { paneState } from "./paneState.ts";
 import { scaleNotice, scaleOf } from "./policy.ts";
 import {
   emptyBook,
@@ -391,5 +392,31 @@ describe("selection tint and hunk labels", () => {
     );
     expect(hunkLabel("@@ -3,3 +3,3 @@")).toBe("@@ -3,3 +3,3 @@");
     expect(hunkLabel("@@ -3,3 +3,3 @@ ## Eligibility")).toBe("@@ -3,3 +3,3 @@ ## Eligibility");
+  });
+});
+
+describe("paneState", () => {
+  test("a diff with drawable files shows it", () => {
+    expect(paneState({ files: 1, items: 1, complete: false, scale: "full" })).toEqual({
+      kind: "diff",
+    });
+  });
+
+  test("never an empty pane: reading, no changes, pick a file, or couldn't show", () => {
+    expect(paneState({ files: 1, items: 0, complete: false, scale: "full" })).toMatchObject({
+      title: "Reading the diff…",
+    });
+    expect(paneState({ files: 0, items: 0, complete: true, scale: "full" })).toMatchObject({
+      title: "No changes",
+    });
+    expect(
+      paneState({ files: 12_000, items: 0, complete: true, scale: "list-only" })
+    ).toMatchObject({
+      title: "Pick a file",
+    });
+    expect(paneState({ files: 1, items: 0, complete: true, scale: "full" })).toMatchObject({
+      title: "Couldn’t show this diff",
+      fact: "1 file changed, but none could be read",
+    });
   });
 });
