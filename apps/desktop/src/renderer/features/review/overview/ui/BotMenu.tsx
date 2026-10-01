@@ -17,7 +17,7 @@ import {
   PopoverTitle,
   Textarea,
 } from "@polaris/ui";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { OpenPull } from "../../../../../shared/api.ts";
 import { confirmBot, postBotCommand, useBotConfirmed } from "../data/actions.ts";
 import { BOT_COMMANDS, type BotCommand, shortSha } from "../model/botSummary.ts";
@@ -70,9 +70,21 @@ export const BotMenu = ({ bot, pull, head, viewer }: BotMenuProps) => {
     setText("");
   };
 
+  // The confirm opens once the menu has closed: its focus going back to ⋯ would dismiss it.
+  const queued = useRef<BotCommand | null>(null);
+
   const choose = (command: BotCommand) => {
     if (confirmed && command.command !== "memory") void post(command, null);
-    else setAsking(command);
+    else queued.current = command;
+  };
+
+  const afterMenu = (event: Event) => {
+    const command = queued.current;
+
+    if (command === null) return;
+    queued.current = null;
+    event.preventDefault();
+    setAsking(command);
   };
 
   const teach = asking?.command === "memory";
@@ -87,7 +99,12 @@ export const BotMenu = ({ bot, pull, head, viewer }: BotMenuProps) => {
             </DropdownMenuTrigger>
           </span>
         </PopoverAnchor>
-        <DropdownMenuContent align="end" className="w-64" data-testid="bot-menu">
+        <DropdownMenuContent
+          align="end"
+          className="w-64"
+          data-testid="bot-menu"
+          onCloseAutoFocus={afterMenu}
+        >
           {BOT_COMMANDS.map((command) => (
             <DropdownMenuItem
               key={command.command}

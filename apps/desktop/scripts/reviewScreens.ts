@@ -159,6 +159,7 @@ const overviewScenes = async (page: Page) => {
   await click(page, "bot-menu-trigger");
   await shoot(page, "ov-rereview-menu-dark");
   await click(page, "bot-command-review");
+  await page.getByTestId("bot-confirm").waitFor();
   await shoot(page, "ov-bot-confirm-dark");
   await page.keyboard.press("Escape");
   await page.waitForTimeout(300);
