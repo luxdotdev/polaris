@@ -38,6 +38,7 @@ import {
   WorkspaceId,
 } from "./ids.ts";
 import { addedArray, addedNullable, Model } from "./models.ts";
+import { HarnessCommands } from "./slashCommands.ts";
 import { UsageReport, UsageStreamItem } from "./usage.ts";
 
 // ── Errors ──────────────────────────────────────────────────────────────────
@@ -230,6 +231,17 @@ export class HarnessModels extends Schema.Class<HarnessModels>("HarnessModels")(
 export const ListModels = Rpc.make("harness.models", {
   payload: { harness: HarnessKind, refresh: Schema.Boolean },
   success: HarnessModels,
+  error: Schema.Union([NotFound, Unsupported, HarnessUnavailable]),
+});
+
+/**
+ * A Harness's Skills and Slash Commands for a directory (capability
+ * `harness.commands`), read without side effects and cached per Harness and
+ * directory; `refresh` reads them again. Unknown or unlisted: an empty list.
+ */
+export const ListHarnessCommands = Rpc.make("harness.commands", {
+  payload: { harness: HarnessKind, cwd: Schema.String, refresh: Schema.Boolean },
+  success: HarnessCommands,
   error: Schema.Union([NotFound, Unsupported, HarnessUnavailable]),
 });
 
@@ -519,6 +531,7 @@ export class DaemonRpcs extends RpcGroup.make(
   SubscribeSession,
   SessionTerminalCommand,
   ListModels,
+  ListHarnessCommands,
   HarnessAvailabilityQuery,
   WatchHarnessAvailability,
   QueryUsage,

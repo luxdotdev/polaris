@@ -22,6 +22,8 @@ export * from "./models.ts";
 
 export * from "./rpc.ts";
 
+export * from "./slashCommands.ts";
+
 export * from "./streams.ts";
 
 export * from "./usage.ts";

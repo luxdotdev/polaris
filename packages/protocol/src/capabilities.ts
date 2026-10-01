@@ -13,6 +13,8 @@ export const Capability = Schema.Literals([
   ...HARNESS_CATALOGUE.map((harness) => harness.capability),
   /** `harness.models`: each Harness's Models on this Host. */
   "harness.models",
+  /** `harness.commands`: each Harness's Skills and Slash Commands in a directory. */
+  "harness.commands",
   /** `harness.availability` and `harness.watchAvailability`: each Harness's status on this Host. */
   "harness.availability",
   "session.steer",
