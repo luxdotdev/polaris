@@ -12,7 +12,8 @@
     "dev": "bun --watch src/main.ts serve --foreground",
     "typecheck": "tsc -p . && tsc -p scripts",
     "test": "bun test --pass-with-no-tests",
-    "smoke": "bun scripts/smoke.ts"
+    "smoke": "bun scripts/smoke.ts",
+    "smoke:review": "bun scripts/reviewCheckoutSmoke.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.3.283",

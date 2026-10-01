@@ -36,12 +36,24 @@ describe("WorktreeTracker", () => {
       "detached",
       "locked",
       "",
+      "worktree /repo.worktrees/.review/pr-7",
+      "HEAD ccc",
+      "detached",
+      "locked polaris review checkout ws #7",
+      "",
       "",
     ].join("\0");
 
     expect(parseWorktreeList(out)).toEqual([
       { path: "/repo", head: "aaa", branch: "main", isMain: true },
-      { path: "/elsewhere/wt", head: "bbb", branch: null, isMain: false },
+      { path: "/elsewhere/wt", head: "bbb", branch: null, isMain: false, lockReason: "" },
+      {
+        path: "/repo.worktrees/.review/pr-7",
+        head: "ccc",
+        branch: null,
+        isMain: false,
+        lockReason: "polaris review checkout ws #7",
+      },
     ]);
   });
 

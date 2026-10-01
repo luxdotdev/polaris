@@ -107,7 +107,9 @@ const fetched = (
   enq: Enqueue
 ) => {
   const checkout = need(context);
-  const state: ReviewCheckoutState = event.head === checkout.latestHead ? "ready" : "stale";
+  // No head reported (an Agent Session's Turns): what was fetched is the latest.
+  const latestHead = checkout.latestHead === "" ? event.head : checkout.latestHead;
+  const state: ReviewCheckoutState = event.head === latestHead ? "ready" : "stale";
 
   return change(
     enq,
@@ -116,6 +118,7 @@ const fetched = (
       blocked: null,
       head: event.head,
       mergeBase: event.mergeBase,
+      latestHead,
       updatedAt: event.at,
     })
   );

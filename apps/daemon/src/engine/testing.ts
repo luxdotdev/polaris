@@ -27,6 +27,7 @@ import {
   AttachmentStore,
   Checkpoints,
   HarnessRegistry,
+  ReviewCheckoutGit,
   type WorktreeInfo,
   WorktreeTracker,
 } from "../services.ts";
@@ -267,6 +268,21 @@ export const fakeServices = (fakes: Fakes, drivers: ReadonlyArray<FakeDriver>) =
     })
   );
 
+/**
+ * Review Checkout git that never finishes a fetch or removal, so a test sees
+ * the states the commands leave; tests of the git side provide `ReviewCheckoutGitLive`.
+ */
+export const pendingReviewCheckoutGit = Layer.succeed(ReviewCheckoutGit)({
+  fetchPullRequest: () => Effect.never,
+  pinCommits: () => Effect.never,
+  ensure: () => Effect.void,
+  inspect: () => Effect.succeed({ present: true, dirtyPaths: [], localCommits: 0 }),
+  move: () => Effect.void,
+  remove: () => Effect.never,
+  markReviewed: () => Effect.void,
+  interdiff: () => Effect.die(new Error("no interdiff in the pending fake")),
+});
+
 /** Engine + EventStore over `filename`, with fakes for everything else. */
 export const engineLayer = (options: {
   readonly filename: string;
@@ -278,6 +294,8 @@ export const engineLayer = (options: {
   readonly checkpointSweepInterval?: Duration.Input;
   /** Items buffered per live subscriber (StoreConfig). */
   readonly subscriberCapacity?: number;
+  /** Default: `pendingReviewCheckoutGit`. */
+  readonly reviewCheckoutGit?: Layer.Layer<ReviewCheckoutGit>;
 }) => {
   const store = EventStore.layerSqlite(options.filename).pipe(
     Layer.provide(
@@ -293,6 +311,7 @@ export const engineLayer = (options: {
   return Engine.layer.pipe(
     Layer.provideMerge(store),
     Layer.provide(fakeServices(options.fakes, options.drivers)),
+    Layer.provide(options.reviewCheckoutGit ?? pendingReviewCheckoutGit),
     Layer.provide(
       Layer.succeed(EngineConfig)(
         options.checkpointPolicy === undefined

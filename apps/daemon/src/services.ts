@@ -13,7 +13,15 @@ import type {
   TurnId,
   WorkspaceId,
 } from "@polaris/protocol";
+import { ReviewCheckoutBlocker } from "@polaris/protocol";
 import { Context, type Effect, Schema, type Stream } from "effect";
+import type {
+  CheckoutInspection,
+  Fetched,
+  Interdiff,
+  InterdiffInput,
+  PullRequestFetch,
+} from "./git/review/index.ts";
 import type { HarnessDriver } from "./harness/HarnessDriver.ts";
 import type { RulesOutcome, RulesRequest } from "./rules/run.ts";
 
@@ -21,6 +29,11 @@ export class ServiceError extends Schema.TaggedError<ServiceError>()("ServiceErr
   service: Schema.String,
   message: Schema.String,
   cause: Schema.optional(Schema.Defect()),
+}) {}
+
+/** A Review Checkout step that can't go ahead, for a reason the user acts on. */
+export class CheckoutBlocked extends Schema.TaggedError<CheckoutBlocked>()("CheckoutBlocked", {
+  blocker: ReviewCheckoutBlocker,
 }) {}
 
 /**
@@ -78,6 +91,8 @@ export interface WorktreeInfo {
   readonly branch: string | null;
   readonly head: string;
   readonly isMain: boolean;
+  /** Set when the worktree is locked: the lock's reason, or "" without one. */
+  readonly lockReason?: string;
 }
 
 /** Tracks every git worktree of a Workspace, wherever it lives. Implemented by `git/`. */
@@ -101,6 +116,58 @@ export class WorktreeTracker extends Context.Service<
     }) => Effect.Effect<void, ServiceError>;
   }
 >()("polaris/daemon/WorktreeTracker") {}
+
+/**
+ * The git side of Review Checkouts, with hooks off throughout. Implemented by
+ * `git/review/` (`git/ReviewCheckoutGit.ts`); the engine's `ReviewCheckouts` drives it.
+ */
+export class ReviewCheckoutGit extends Context.Service<
+  ReviewCheckoutGit,
+  {
+    /** Fetch a PR's head and base into its review refs. */
+    readonly fetchPullRequest: (
+      options: PullRequestFetch
+    ) => Effect.Effect<Fetched, CheckoutBlocked | ServiceError>;
+    /** Pin an Agent Session's checkpoint commits under its review refs. */
+    readonly pinCommits: (options: {
+      readonly repoPath: string;
+      readonly key: string;
+      readonly head: string;
+      readonly base: string;
+    }) => Effect.Effect<Fetched, CheckoutBlocked | ServiceError>;
+    /** The detached, locked worktree at `path` on `head` (kept as is when already there). */
+    readonly ensure: (options: {
+      readonly repoPath: string;
+      readonly path: string;
+      readonly head: string;
+      readonly lockReason: string;
+    }) => Effect.Effect<void, ServiceError>;
+    /** `head`: the commit Polaris checked out there (its history is never the user's). */
+    readonly inspect: (
+      path: string,
+      head: string | null
+    ) => Effect.Effect<CheckoutInspection, ServiceError>;
+    /** Move to `head`; `discardChanges` resets and cleans first (ignored files stay). */
+    readonly move: (options: {
+      readonly path: string;
+      readonly head: string;
+      readonly discardChanges: boolean;
+    }) => Effect.Effect<void, ServiceError>;
+    /** Remove the worktree (never forced) and its review refs; null `repoPath`: find it from `path`. */
+    readonly remove: (options: {
+      readonly repoPath: string | null;
+      readonly path: string;
+      readonly key: string;
+    }) => Effect.Effect<void, ServiceError>;
+    readonly markReviewed: (options: {
+      readonly repoPath: string;
+      readonly key: string;
+      readonly head: string;
+      readonly mergeBase: string;
+    }) => Effect.Effect<void, ServiceError>;
+    readonly interdiff: (input: InterdiffInput) => Effect.Effect<Interdiff, ServiceError>;
+  }
+>()("polaris/daemon/ReviewCheckoutGit") {}
 
 /** Staged attachments under `~/.polaris/staging/<session>/`. Implemented by `attachments/`. */
 export class AttachmentStore extends Context.Service<
