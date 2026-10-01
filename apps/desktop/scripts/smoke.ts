@@ -30,6 +30,7 @@ import { terminalFlow } from "./lib/terminalFlow.ts";
 import { githubFlow, MOCK_KEYCHAIN, serveGitHubFake } from "./lib/githubFlow.ts";
 import { addRemotes, pullsFlow } from "./lib/pullsFlow.ts";
 import { reviewFlow, setupCodeHost } from "./lib/reviewFlow.ts";
+import { acceptFlow } from "./lib/acceptFlow.ts";
 
 const args = process.argv.slice(2);
 
@@ -477,6 +478,14 @@ try {
     afterList: async () => {
       await pullsFlow({ app, page, fake: github.fake, step });
       await reviewFlow({ page, fake: github.fake, step, shoot: (name) => shoot(page, name) });
+      await acceptFlow({
+        page,
+        fake: github.fake,
+        repo,
+        home,
+        step,
+        shoot: (name) => shoot(page, name),
+      });
     },
   });
 

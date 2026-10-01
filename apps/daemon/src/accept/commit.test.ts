@@ -147,6 +147,24 @@ describe("commitTurns", () => {
   });
 });
 
+describe("a Turn editing a file HEAD doesn't have", () => {
+  test("commits the file whole, as the Turn left it", async () => {
+    const root = await repo();
+    write(root, "notes.txt", "another session's file\n");
+    const t0 = await turn(root, 0, () => write(root, "notes.txt", "rewritten by this one\n"));
+
+    await commitTurns({
+      root,
+      sessionId: SESSION,
+      groups: [{ turns: [t0], message: "Rewrite the notes\n" }],
+      createBranch: null,
+    });
+
+    expect(await gitText(root, ["show", "HEAD:notes.txt"])).toBe("rewritten by this one");
+    expect(await status(root)).toBe("");
+  });
+});
+
 describe("revertLaterTurns", () => {
   test("restores what later Turns changed and deletes what they created", async () => {
     const root = await repo();

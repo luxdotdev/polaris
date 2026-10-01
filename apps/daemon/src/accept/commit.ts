@@ -66,29 +66,59 @@ const changedPaths = async (root: string, from: string, to: string) =>
     .split("\0")
     .filter((path) => path !== "");
 
-const applyTurn = async (root: string, env: Record<string, string>, turn: CheckpointedTurn) => {
-  const patch = (
-    await runGit(root, [
-      "diff",
-      "--binary",
-      "--full-index",
-      "--no-renames",
-      turn.before,
-      turn.after,
-    ])
-  ).stdout;
+const decoder = new TextDecoder();
 
-  if (patch.byteLength === 0) return;
+/** Sets the scratch index's entry for `path` to what `commit` has there, or removes it. */
+const takeWhole = async (
+  root: string,
+  env: Record<string, string>,
+  commit: string,
+  path: string
+) => {
+  const entry = decoder
+    .decode((await runGit(root, ["ls-tree", "-z", commit, "--", path])).stdout)
+    .replace(/\0$/, "");
 
-  const applied = await runGitRaw(root, ["apply", "--cached", "--3way", "--whitespace=nowarn"], {
+  const match = /^(\d+) blob ([0-9a-f]+)\t/.exec(entry);
+
+  if (match === null) {
+    await runGit(root, ["update-index", "--force-remove", "--", path], { env });
+
+    return;
+  }
+
+  await runGit(root, ["update-index", "--index-info"], {
     env,
-    stdin: patch,
+    stdin: `${match[1]} ${match[2]}\t${path}\n`,
   });
+};
 
-  if (applied.code !== 0) {
-    throw new CommitRefused(
-      `Turn ${turn.index + 1}'s changes don't apply on top of HEAD; commit or stash your own changes to the same lines first. ${applied.stderr.trim()}`
-    );
+/**
+ * Applies one Turn's change to the scratch index, file by file: a three-way patch keeps
+ * the user's own uncommitted edits out; a file the patch can't apply to (one HEAD doesn't
+ * have, or edits overlapping the user's) is taken whole, as the Turn left it.
+ */
+const applyTurn = async (root: string, env: Record<string, string>, turn: CheckpointedTurn) => {
+  for (const path of await changedPaths(root, turn.before, turn.after)) {
+    const patch = (
+      await runGit(root, [
+        "diff",
+        "--binary",
+        "--full-index",
+        "--no-renames",
+        turn.before,
+        turn.after,
+        "--",
+        path,
+      ])
+    ).stdout;
+
+    const applied = await runGitRaw(root, ["apply", "--cached", "--3way", "--whitespace=nowarn"], {
+      env,
+      stdin: patch,
+    });
+
+    if (applied.code !== 0) await takeWhole(root, env, turn.after, path);
   }
 };
 

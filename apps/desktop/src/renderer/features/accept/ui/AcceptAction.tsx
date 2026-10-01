@@ -153,7 +153,11 @@ const SessionAccept = ({ subject }: { readonly subject: SessionSubject }) => {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverAnchor asChild>
-        <div data-testid="accept-action" className={cn(SPLIT, primary)}>
+        <div
+          data-testid="accept-action"
+          data-session-state={session.state}
+          className={cn(SPLIT, primary)}
+        >
           <button
             type="button"
             data-testid="accept-primary"

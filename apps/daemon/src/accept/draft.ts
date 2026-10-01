@@ -77,6 +77,9 @@ export const templateDraft = (input: DraftInput, note: string | null): AcceptDra
   });
 };
 
+/** Starts the draft request, so the bench Harness can answer it (`harness/bench/accept.ts`). */
+export const ACCEPT_DRAFT_MARKER = "Write the commit message and the pull request text.";
+
 export const draftPrompt = (input: DraftInput): string => {
   const turns: ReadonlyArray<ForkedTurn> = input.turns.map((t) => ({
     prompt: t.prompt,
@@ -85,7 +88,7 @@ export const draftPrompt = (input: DraftInput): string => {
 
   const ask = [
     `The user accepted the work of ${turnLabel(input.turns).toLowerCase()} and will commit it and open a pull request.`,
-    "Write the commit message and the pull request text. Don't run tools or change files.",
+    `${ACCEPT_DRAFT_MARKER} Don't run tools or change files.`,
     "",
     "The change:",
     "```",
