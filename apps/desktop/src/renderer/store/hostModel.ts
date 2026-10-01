@@ -177,6 +177,8 @@ const fold = (event: DomainEvent): Fold =>
       PeerMessage: () => unchanged,
       AttemptRecoveryContinued: () => unchanged,
       ResourceDeclared: () => unchanged,
+      ResourceRemoved: () => unchanged,
+      ResourceLeaseCanceled: () => unchanged,
       ResourceLeaseQueued: () => unchanged,
       ResourceLeased: () => unchanged,
       ResourceReleased: () => unchanged,

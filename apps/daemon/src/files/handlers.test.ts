@@ -24,6 +24,13 @@ afterEach(() => {
 });
 
 const WorkspaceIoRpcs = DaemonRpcs.omit(
+  "host.resources.get",
+  "host.resources.declare",
+  "host.resources.remove",
+  "host.resources.release",
+  "host.workers.setCap",
+  "host.resources.acquire",
+
   "constellation.plan",
   "constellation.dispatch",
   "constellation.review",

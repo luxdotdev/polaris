@@ -11,6 +11,7 @@ import {
   SessionId,
   TaskId,
   TurnId,
+  WorkerLiveness,
 } from "@polaris/protocol";
 import { c1Record, constellationOf, LEAD, task, attempt } from "../preview/graph.ts";
 import { largeRecord } from "../preview/large.ts";
@@ -79,6 +80,30 @@ describe("projections", () => {
 
     expect(b4?.branchFetched).toBe(false);
     expect(b4?.stale).toBe(true);
+  });
+
+  test("keeps observed liveness only while the Task's latest Attempt is unchanged", () => {
+    const c = constellationOf();
+
+    const live = new WorkerLiveness({
+      current: null,
+      lastOutputAt: 1000,
+      contextPercent: 50,
+      queuedInput: 1,
+    });
+
+    const known = deriveProjections(c).map((p) =>
+      p.taskId === "B2" ? { ...p, liveness: live } : p
+    );
+
+    expect(deriveProjections(c, known).find((p) => p.taskId === "B2")?.liveness).toEqual(live);
+
+    const replaced = constellationOf({
+      attempts: [...c.attempts, attempt({ taskId: "B2", state: "working", minutes: 1, n: 2 })],
+    });
+
+    expect(deriveProjections(replaced, known).find((p) => p.taskId === "B2")?.liveness).toBeNull();
+    expect(deriveProjections(c).every((p) => p.liveness === null)).toBe(true);
   });
 });
 

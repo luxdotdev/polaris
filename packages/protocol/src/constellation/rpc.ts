@@ -6,12 +6,14 @@ import { ConstellationEvent } from "./events.ts";
 import { ConstellationCommand } from "./commands.ts";
 import {
   Constellation,
+  AttemptId,
   ConstellationFinding,
   ConstellationGraphSlice,
   ConstellationId,
   Revision,
   TaskProjection,
 } from "./domain.ts";
+import { WorkerLiveness } from "./liveness.ts";
 
 export class ConstellationResult extends Schema.Class<ConstellationResult>("ConstellationResult")({
   summary: Schema.String,
@@ -122,6 +124,8 @@ export const ConstellationStreamItem = Schema.TaggedUnion({
     }),
   },
   Synchronized: { sequence: Sequence },
+  /** Ephemeral, unsequenced; only sent to Clients announcing constellation.liveness. */
+  LivenessChanged: { attemptId: AttemptId, liveness: WorkerLiveness },
 });
 
 export type ConstellationStreamItem = typeof ConstellationStreamItem.Type;

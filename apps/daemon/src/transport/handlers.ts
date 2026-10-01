@@ -15,6 +15,7 @@ import {
   PROTOCOL_VERSION,
   Sequence,
   Unsupported,
+  ResourceError,
 } from "@polaris/protocol";
 import { Effect, Stream } from "effect";
 import { ClientCapabilities, DeviceLabel } from "../engine/rpc.ts";
@@ -44,6 +45,19 @@ export const defaultHandlers = (options: {
   readonly capabilities: ReadonlyArray<Capability>;
 }) =>
   ServerRpcs.toLayer({
+    "host.resources.get": () =>
+      Effect.fail(new ResourceError({ message: "Host resources are unavailable" })),
+    "host.resources.declare": () =>
+      Effect.fail(new ResourceError({ message: "Host resources are unavailable" })),
+    "host.resources.remove": () =>
+      Effect.fail(new ResourceError({ message: "Host resources are unavailable" })),
+    "host.resources.release": () =>
+      Effect.fail(new ResourceError({ message: "Host resources are unavailable" })),
+    "host.workers.setCap": () =>
+      Effect.fail(new ResourceError({ message: "Host resources are unavailable" })),
+    "host.resources.acquire": () =>
+      Effect.fail(new ResourceError({ message: "Host resources are unavailable" })),
+
     "constellation.plan": () => Effect.fail(constellationUnavailable()),
     "constellation.dispatch": () => Effect.fail(constellationUnavailable()),
     "constellation.review": () => Effect.fail(constellationUnavailable()),

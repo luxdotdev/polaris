@@ -35,3 +35,5 @@ export * from "./usage.ts";
 export * from "./wire.ts";
 
 export * from "./constellation/index.ts";
+
+export * from "./resources.ts";

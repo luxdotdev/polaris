@@ -24,6 +24,10 @@ import {
   type ScenarioResult,
 } from "./types.ts";
 
+import { takeScriptLease } from "../../../tooling/leases.ts";
+
+await takeScriptLease("bench");
+
 const ALL_KINDS: ReadonlyArray<MetricKind> = [
   "memory",
   "cpu",

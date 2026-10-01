@@ -184,6 +184,7 @@ do not have a log-size cap that could artificially prevent a grant or digest.
 | --- | --- |
 | `planEvents`, `opEvents`, `validGraph` | `ConstellationCommand.Plan`, `PlanOperation`: atomic Add/Edit/Cancel with revisions; reject cycles, missing/canceled deps and cancellation with dependents |
 | `start`, `current`, `change`, `latest`, `taskState` | `AttemptStarted`, Attempt revision, linked `AttemptCause.ref`, `TaskProjection`; engine decider folds the graph rather than persisting Task state |
+| Observed worker liveness | `TaskProjection.liveness` and capability-gated `ConstellationStreamItem.LivenessChanged` are runtime observations, not graph events. The live item is unsequenced/unpersisted like session item progress; it changes no command, receipt, revision, resume cursor or recovery decision. Missing snapshots decode unknown facts as null. Elapsed time is derived from observed timestamps without Daemon timers. |
 | `claim`, `accept`, `reject`, `stop`, `harnessFail` | worker Claim, ReviewAction, AttemptClaimed/Accepted/Rejected/Settled; Claim requires clean branch/current revision and acceptance requires the claimed head |
 | `promote` | decider-only `GatePromoted`, counting latest accepted Attempts, not Claims or mechanical settles |
 | `ask`, `finish`, `deliver` | NotificationQueued and LeadNotified; committed notification IDs, one durable digest Turn, retained across restart and handover |

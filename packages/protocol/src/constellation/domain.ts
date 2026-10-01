@@ -2,6 +2,7 @@ import { Schema } from "effect";
 import { HarnessKind } from "../harnesses.ts";
 import { HostId, SessionId, Timestamp, TurnId, WorkspaceId } from "../ids.ts";
 import { ModelId, optionalArray, optionalNullable, ReasoningEffort } from "../models.ts";
+import { WorkerLiveness } from "./liveness.ts";
 
 export const ConstellationId = Schema.String.pipe(Schema.brand("ConstellationId"));
 
@@ -229,6 +230,8 @@ export class TaskProjection extends Schema.Class<TaskProjection>("ConstellationT
   gatePromoted: Schema.Boolean,
   stale: Schema.Boolean,
   branchFetched: Schema.Boolean,
+  /** Optional/nullable on the wire; decoded projections use null for unavailable facts. */
+  liveness: optionalNullable(WorkerLiveness),
 }) {}
 
 export class ConstellationGraphSlice extends Schema.Class<ConstellationGraphSlice>(
@@ -256,5 +259,6 @@ export class ResourceLease extends Schema.Class<ResourceLease>("ResourceLease")(
   attemptId: optionalNullable(AttemptId),
   command: Schema.Array(Schema.String),
   processId: Schema.Int,
+  processIdentity: Schema.optionalKey(Schema.String),
   acquiredAt: Timestamp,
 }) {}

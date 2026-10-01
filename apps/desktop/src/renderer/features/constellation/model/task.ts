@@ -179,6 +179,7 @@ const unprojected = (taskId: TaskId): ProjectionData => ({
   gatePromoted: false,
   stale: false,
   branchFetched: true,
+  liveness: null,
 });
 
 const inputGlyphs = (task: TaskData, ctx: TaskContext) =>
