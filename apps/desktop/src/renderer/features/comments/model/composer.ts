@@ -28,3 +28,11 @@ export const placeLabel = (anchor: Pick<ComposerAnchor, "path" | "start" | "end"
     ? `${name}:${anchor.start}`
     : `${name}:${anchor.start}–${anchor.end}`;
 };
+
+/** "serve.ts:7 · turn 24": an Agent Session comment's place and its Turn, when known. */
+export const sessionPlace = (
+  anchor: Pick<ComposerAnchor, "path" | "start" | "end"> & { readonly turn?: number | null }
+) =>
+  anchor.turn === undefined || anchor.turn === null
+    ? placeLabel(anchor)
+    : `${placeLabel(anchor)} · turn ${anchor.turn}`;

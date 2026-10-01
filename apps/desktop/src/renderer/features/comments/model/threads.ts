@@ -52,7 +52,8 @@ export const placeThreads = (threads: ReadonlyArray<ReviewThreadView>): ThreadPl
   return { inline, outdated, files };
 };
 
-export const isDraft = (thread: ReviewThreadView) => thread.comments.some((c) => c.pending);
+/** A thread the pending review starts; a pending reply on a published thread doesn't make one. */
+export const isDraft = (thread: ReviewThreadView) => thread.comments[0]?.pending === true;
 
 export interface PendingComment {
   readonly threadId: string;

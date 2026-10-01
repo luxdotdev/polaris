@@ -62,14 +62,15 @@ const RiskColumn = ({
 const selectionOf = (
   path: string,
   range: SelectedLineRange,
-  item: { readonly fileDiff: FileDiffMetadata } | null
+  item: { readonly fileDiff: FileDiffMetadata } | null,
+  turn: number | null
 ): DiffSelection => {
   const side = range.side === "deletions" ? "old" : "new";
   const start = Math.min(range.start, range.end);
   const end = Math.max(range.start, range.end);
   const code = item === null ? "" : quoteLines(item.fileDiff, side, start, end);
 
-  return { path, side, start, end, code };
+  return { path, side, start, end, code, turn };
 };
 
 const Waiting = ({ placeholder }: { readonly placeholder: Placeholder | null }) => (
@@ -164,7 +165,12 @@ const Ready = ({
                 selection:
                   file === undefined || range === null
                     ? null
-                    : selectionOf(file.file.path, range, parsed?.type === "diff" ? parsed : null),
+                    : selectionOf(
+                        file.file.path,
+                        range,
+                        parsed?.type === "diff" ? parsed : null,
+                        diff.sections.find((s) => s.id === file.section)?.divider?.turn ?? null
+                      ),
               });
             }}
           />

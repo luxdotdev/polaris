@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { anchorLabel, placeLabel, suggestionBlock } from "./composer.ts";
+import { anchorLabel, placeLabel, sessionPlace, suggestionBlock } from "./composer.ts";
 import type { PullDetailView, ReviewThreadView } from "../../../../shared/github.ts";
 import {
   addDraft,
@@ -12,6 +12,7 @@ import {
   toFeedback,
 } from "./feedback.ts";
 import {
+  isDraft,
   pendingCaption,
   pendingComments,
   pendingCount,
@@ -95,6 +96,11 @@ describe("pull request threads", () => {
     expect(places.files.map((t) => t.id)).toEqual(["t3"]);
   });
 
+  test("a thread is a draft when the pending review starts it, not for a pending reply", () => {
+    expect(isDraft(line)).toBe(true);
+    expect(isDraft({ ...file, comments: [comment("c4", false), comment("c5", true)] })).toBe(false);
+  });
+
   test("pending comments list by place", () => {
     expect(pendingComments(detail()).map((p) => p.place)).toEqual([
       "eligibility.ts:38–39",
@@ -168,6 +174,10 @@ describe("the composer", () => {
     expect(anchorLabel({ start: 41, end: 41, side: "old" })).toBe("Line 41 (removed)");
     expect(placeLabel({ path: "prototypes/serve.ts", start: 7, end: 7 })).toBe("serve.ts:7");
     expect(placeLabel({ path: "index.html", start: 410, end: 412 })).toBe("index.html:410–412");
+    expect(sessionPlace({ path: "a/serve.ts", start: 7, end: 7, turn: 24 })).toBe(
+      "serve.ts:7 · turn 24"
+    );
+    expect(sessionPlace({ path: "a/serve.ts", start: 7, end: 7, turn: null })).toBe("serve.ts:7");
   });
 
   test("a suggestion block outlasts the code's own fences", () => {

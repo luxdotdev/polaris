@@ -59,7 +59,7 @@ const Tally = ({ tally }: { readonly tally: Readonly<Record<Severity, number>> }
           data-severity={severity}
           className={cn(
             "rounded-control h-tree-row flex flex-1 items-center justify-center gap-1.5",
-            n === 0 ? "bg-surface-sunken text-text-faint" : TALLY_FILL[severity]
+            n === 0 ? "bg-surface-sunken text-text-subtle" : TALLY_FILL[severity]
           )}
           style={n === 0 ? undefined : { color: `var(--color-severity-${severity}-text)` }}
         >
@@ -274,7 +274,11 @@ export const RiskColumnSlot = (props: ReviewSlotProps) => {
   // The header, the cost line and the feedback card stay put; only the findings scroll.
   return (
     <div
-      className="flex max-h-[62%] min-h-0 shrink-0 flex-col pb-3"
+      className={cn(
+        "flex min-h-0 shrink-0 flex-col pb-3",
+        // A session pins its feedback card here too, so its findings get more of the column.
+        props.subject.kind === "session" ? "max-h-[82%]" : "max-h-[62%]"
+      )}
       data-testid="risk-summary"
       data-state={state.kind}
     >

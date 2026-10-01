@@ -8,6 +8,7 @@ import { Option, Schema } from "effect";
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 import type { PullDetailView, PullRef } from "../../../../shared/github.ts";
+import { surfaceOf, updateSurface } from "../../review/surface.ts";
 import { type DraftBatch, emptyBatch, type SentComment } from "../model/feedback.ts";
 
 /** Where the composer opens: a line range and the code it quotes. */
@@ -17,6 +18,8 @@ export interface ComposerAnchor {
   readonly start: number;
   readonly end: number;
   readonly code: string;
+  /** The Turn the lines are in, when the diff knows it ("serve.ts:7 · turn 24"). */
+  readonly turn?: number | null;
 }
 
 export interface ComposerState {
@@ -148,6 +151,9 @@ export const patchComposer = (subjectKey: string, patch: Partial<ComposerState>)
   if (current !== undefined) setComposer(subjectKey, { ...current, ...patch });
 };
 
+const anchorKey = (a: Pick<ComposerAnchor, "path" | "side" | "start" | "end">) =>
+  `${a.path}\u0000${a.side}\u0000${a.start}\u0000${a.end}`;
+
 /** Opens the composer at `anchor`, keeping the text when it is already open there. */
 export const openComposer = (
   subjectKey: string,
@@ -165,6 +171,13 @@ export const openComposer = (
     current.anchor.path === anchor.path &&
     current.anchor.side === anchor.side &&
     current.anchor.end === anchor.end;
+
+  // The diff tints the composer's lines from the selection: keep it on the anchor.
+  const selection = surfaceOf(subjectKey).selection;
+
+  if (selection === null || anchorKey(selection) !== anchorKey(anchor)) {
+    updateSurface(subjectKey, { selection: { ...anchor, turn: anchor.turn ?? null } });
+  }
 
   setComposer(subjectKey, {
     anchor,

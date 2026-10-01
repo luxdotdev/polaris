@@ -54,11 +54,9 @@ const commentOn = (subjectKey: string, finding: Finding) => {
     end: finding.lines.end,
   };
 
-  openComposer(
-    subjectKey,
-    { ...range, code: surfaceOf(subjectKey).quote?.(range) ?? "" },
-    { text: finding.reason, findingId: finding.id }
-  );
+  const anchor = { ...range, code: surfaceOf(subjectKey).quote?.(range) ?? "", turn: null };
+
+  openComposer(subjectKey, anchor, { text: finding.reason, findingId: finding.id });
   revealInDiff(finding.path, finding.lines.end, finding.lines.side);
 };
 
@@ -112,22 +110,17 @@ const Card = ({ subjectKey, hostKey, summary, finding }: FindingItemProps) => {
         {history !== null && (
           <p className="text-caption text-text-subtle">{historyLine(history)}</p>
         )}
+        <span
+          className="text-text-default truncate font-mono text-[11px] leading-4"
+          title={placeOf(finding)}
+        >
+          {placeOf(finding)}
+        </span>
+        {/* The thumbs share the provenance line, so the card never grows past the column. */}
         <div className="flex items-center gap-1.5">
-          <span
-            className="text-text-default min-w-0 truncate font-mono text-[11px] leading-4"
-            title={placeOf(finding)}
-          >
-            {placeOf(finding)}
+          <span className="text-caption text-text-subtle min-w-0 truncate">
+            {provenanceOf(finding)}
           </span>
-          <span className="text-caption text-text-subtle shrink-0">· {provenanceOf(finding)}</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Button size="xs" variant="secondary" onClick={() => commentOn(subjectKey, finding)}>
-            Comment on this
-          </Button>
-          <Button size="xs" variant="ghost" onClick={() => setAskAbout(subjectKey, finding.id)}>
-            Ask about this
-          </Button>
           <span className="min-w-0 flex-1" />
           <Button
             size="icon-sm"
@@ -139,6 +132,14 @@ const Card = ({ subjectKey, hostKey, summary, finding }: FindingItemProps) => {
             <ThumbUpIcon size={14} />
           </Button>
           <ThumbDown title={finding.title} onSave={(draft) => verdict("down", draft)} />
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Button size="xs" variant="secondary" onClick={() => commentOn(subjectKey, finding)}>
+            Comment on this
+          </Button>
+          <Button size="xs" variant="ghost" onClick={() => setAskAbout(subjectKey, finding.id)}>
+            Ask about this
+          </Button>
         </div>
       </div>
     </div>
