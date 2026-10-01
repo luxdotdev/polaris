@@ -181,6 +181,8 @@ export const RequestInputs = {
   }),
   "git.status": onHost({ cwd: Schema.String }),
   "git.diff": onHost({ cwd: Schema.String, spec: GitDiffSpec }),
+  /** A file at a revision (capability `git.show`): Review's context expansion. */
+  "git.show": onHost({ cwd: Schema.String, revision: Schema.String, path: Schema.String }),
   /** A Harness's Models on the Host (capability `harness.models`); `refresh` asks the Harness again. */
   "harness.models": onHost({ harness: HarnessKind, refresh: Schema.Boolean }),
   /** A Harness's Skills and Slash Commands in a directory (capability `harness.commands`). */

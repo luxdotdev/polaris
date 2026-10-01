@@ -117,6 +117,8 @@ export const declaredLicense = (pkg: PackageJson): string | null => {
  * Anything unparseable (e.g. `SEE LICENSE IN …`) is not allowed.
  */
 export const isAllowed = (expression: string, allowed: ReadonlySet<string> = ALLOWED): boolean => {
+  // SPDX ids are case-insensitive ("apache-2.0" is Apache-2.0).
+  const known = new Set([...allowed].map((id) => id.toLowerCase()));
   const tokens = expression.match(/\(|\)|[^\s()]+/g) ?? [];
   let position = 0;
   const peek = () => tokens[position];
@@ -160,7 +162,7 @@ export const isAllowed = (expression: string, allowed: ReadonlySet<string> = ALL
 
     if (peek()?.toUpperCase() === "WITH") position += 2;
 
-    return allowed.has(token.replace(/\+$/, ""));
+    return known.has(token.replace(/\+$/, "").toLowerCase());
   };
 
   try {

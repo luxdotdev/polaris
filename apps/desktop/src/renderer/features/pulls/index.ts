@@ -9,6 +9,4 @@ export { PullsPublisher } from "./ui/Publisher.tsx";
 
 export { ReviewsGroup } from "./ui/ReviewsGroup.tsx";
 
-export { type PullReviewProps, PullReviewStandIn } from "./ui/PullReviewStandIn.tsx";
-
 export { pullsStore, usePulls, useRequestedCount } from "./store.ts";

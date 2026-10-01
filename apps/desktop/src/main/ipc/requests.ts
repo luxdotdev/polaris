@@ -157,7 +157,21 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
   "git.diff": ({ hostKey, cwd, spec }) =>
     onLive(hostKey, (s) =>
       Effect.flatMap(s.client["git.diff"]({ cwd, spec }), (diff) =>
-        Effect.map(s.blobs.take(diff.blobId), (bytes) => ({ bytes, files: diff.files }))
+        Effect.map(s.blobs.take(diff.blobId), (bytes) => ({
+          bytes,
+          files: diff.files,
+          fileIndex: diff.fileIndex,
+        }))
+      )
+    ),
+  "git.show": ({ hostKey, ...payload }) =>
+    onLive(hostKey, (s) =>
+      Effect.flatMap(s.client["git.show"](payload), (shown) =>
+        Effect.map(fileContent(s, shown.content), (content) => ({
+          size: shown.size,
+          mimeType: shown.mimeType,
+          content,
+        }))
       )
     ),
   "harness.models": ({ hostKey, ...payload }) =>

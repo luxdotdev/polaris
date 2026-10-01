@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { DomainEvent, HostStreamItem, SessionSummary } from "@polaris/protocol";
+import {
+  DomainEvent,
+  HostStreamItem,
+  ReviewCheckout,
+  ReviewCheckoutId,
+  ReviewSubject,
+  SessionSummary,
+} from "@polaris/protocol";
 import { applyHostItems, emptyHostModel, sessionsOf, visibleWorkspaces } from "./hostModel.ts";
 import {
   approval,
@@ -31,7 +38,62 @@ const snapshot = H.Snapshot.make({
 /** What the renderer really receives: values after structured clone. */
 const cloned = <A>(value: A): A => structuredClone(value);
 
+const reviewCheckout = (state: ReviewCheckout["state"]) =>
+  new ReviewCheckout({
+    id: ReviewCheckoutId.make("rc1"),
+    workspaceId: workspace.id,
+    subject: ReviewSubject.cases.SessionTurns.make({
+      sessionId,
+      firstTurnId: null,
+      lastTurnId: null,
+    }),
+    path: "/repo/.review/session-1",
+    state,
+    blocked: null,
+    head: null,
+    mergeBase: null,
+    latestHead: "",
+    latestBase: "",
+    reviewedHead: null,
+    reviewedMergeBase: null,
+    openedAt: "2026-10-01T00:00:00.000Z",
+    updatedAt: "2026-10-01T00:00:00.000Z",
+  });
+
 describe("host model", () => {
+  test("Review Checkouts arrive in the Snapshot and follow their events", () => {
+    const withCheckout = H.Snapshot.make({
+      ...snapshot,
+      reviewCheckouts: [reviewCheckout("fetching")],
+    });
+
+    const opened = applyHostItems(emptyHostModel, cloned([withCheckout]));
+
+    expect(opened.reviewCheckouts.get("rc1")?.state).toBe("fetching");
+
+    const ready = applyHostItems(
+      opened,
+      cloned([event(4, E.ReviewCheckoutChanged.make({ checkout: reviewCheckout("ready") }))])
+    );
+
+    expect(ready.reviewCheckouts.get("rc1")?.state).toBe("ready");
+
+    const removed = applyHostItems(
+      ready,
+      cloned([
+        event(
+          5,
+          E.ReviewCheckoutRemoved.make({
+            checkoutId: ReviewCheckoutId.make("rc1"),
+            workspaceId: workspace.id,
+          })
+        ),
+      ])
+    );
+
+    expect(removed.reviewCheckouts.size).toBe(0);
+  });
+
   test("a Snapshot resets the model; Synchronized marks it live", () => {
     const model = applyHostItems(
       emptyHostModel,

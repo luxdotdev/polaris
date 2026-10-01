@@ -29,6 +29,7 @@ import { runSubagent, subagentAfterRelaunch } from "./lib/subagentFlow.ts";
 import { terminalFlow } from "./lib/terminalFlow.ts";
 import { githubFlow, MOCK_KEYCHAIN, serveGitHubFake } from "./lib/githubFlow.ts";
 import { addRemotes, pullsFlow } from "./lib/pullsFlow.ts";
+import { reviewFlow, setupCodeHost } from "./lib/reviewFlow.ts";
 
 const args = process.argv.slice(2);
 
@@ -454,6 +455,8 @@ try {
     origin: "git@github.com:acme/widgets.git",
     upstream: "https://github.com/lockedorg/vault",
   });
+  // #42's commits come from a local code host, so its Review Checkout fetches for real.
+  setupCodeHost(repo, home);
   await sessionFlow({
     page,
     repo,
@@ -471,7 +474,10 @@ try {
     page,
     fake: github.fake,
     step,
-    afterList: () => pullsFlow({ app, page, fake: github.fake, step }),
+    afterList: async () => {
+      await pullsFlow({ app, page, fake: github.fake, step });
+      await reviewFlow({ page, fake: github.fake, step, shoot: (name) => shoot(page, name) });
+    },
   });
 
   let probeTimer: ReturnType<typeof setTimeout> | undefined;

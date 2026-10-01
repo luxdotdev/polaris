@@ -5,6 +5,9 @@ describe("isAllowed", () => {
   test.each([
     ["MIT", true],
     ["Apache-2.0", true],
+    ["apache-2.0", true],
+    ["mit OR gpl-3.0-only", true],
+    ["gpl-3.0-only", false],
     ["(MIT OR GPL-3.0-only)", true],
     ["MIT AND BSD-3-Clause", true],
     ["MIT AND GPL-2.0-only", false],

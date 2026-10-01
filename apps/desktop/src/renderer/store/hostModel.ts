@@ -10,6 +10,7 @@ import type {
   DomainEvent,
   EventEnvelope,
   HostStreamItem,
+  ReviewCheckout,
   Workspace,
   Worktree,
 } from "@polaris/protocol";
@@ -47,6 +48,8 @@ export interface HostModel {
   readonly workspaces: ReadonlyMap<string, Workspace>;
   readonly worktrees: ReadonlyMap<string, Worktree>;
   readonly sessions: ReadonlyMap<string, SessionEntry>;
+  /** Review Checkouts on this Host, by id. */
+  readonly reviewCheckouts: ReadonlyMap<string, ReviewCheckout>;
 }
 
 export const emptyHostModel: HostModel = {
@@ -57,6 +60,7 @@ export const emptyHostModel: HostModel = {
   workspaces: new Map(),
   worktrees: new Map(),
   sessions: new Map(),
+  reviewCheckouts: new Map(),
 };
 
 const withEntry = <V>(map: ReadonlyMap<string, V>, key: string, value: V | undefined) => {
@@ -139,6 +143,13 @@ const removeWorkspace =
 
 const unchanged: Fold = (model) => model;
 
+const withCheckout =
+  (checkoutId: string, checkout: ReviewCheckout | undefined): Fold =>
+  (model) => ({
+    ...model,
+    reviewCheckouts: withEntry(model.reviewCheckouts, checkoutId, checkout),
+  });
+
 const fold = (event: DomainEvent): Fold =>
   Match.value(event).pipe(
     Match.tagsExhaustive({
@@ -202,10 +213,10 @@ const fold = (event: DomainEvent): Fold =>
       TurnsReverted: () => unchanged,
       SessionPullRequestLinked: ({ sessionId, pullRequest }) =>
         onSession(sessionId, patch({ pullRequest })),
-      // Review Checkouts, Risk Summaries and Verdicts: the Review UI keeps its own (M2-K, M2-F).
-      ReviewCheckoutOpened: () => unchanged,
-      ReviewCheckoutChanged: () => unchanged,
-      ReviewCheckoutRemoved: () => unchanged,
+      ReviewCheckoutOpened: ({ checkout }) => withCheckout(checkout.id, checkout),
+      ReviewCheckoutChanged: ({ checkout }) => withCheckout(checkout.id, checkout),
+      ReviewCheckoutRemoved: ({ checkoutId }) => withCheckout(checkoutId, undefined),
+      // Risk Summaries and Verdicts are review-only: the Review UI keeps its own (M2-F).
       RiskSummaryStarted: () => unchanged,
       RiskSummaryLayerChanged: () => unchanged,
       RiskFindingsRecorded: () => unchanged,
@@ -254,6 +265,7 @@ export interface HostSnapshot {
   readonly workspaces: ReadonlyArray<Workspace>;
   readonly worktrees: ReadonlyArray<Worktree>;
   readonly sessions: ReadonlyArray<SessionEntry>;
+  readonly reviewCheckouts?: ReadonlyArray<ReviewCheckout>;
 }
 
 /** A Snapshot resets the model; so does a cached one, marked `fromCache` by its caller. */
@@ -264,6 +276,7 @@ export const modelFromSnapshot = (snapshot: HostSnapshot): HostModel => ({
   workspaces: new Map(snapshot.workspaces.map((w) => [w.id, w])),
   worktrees: new Map(snapshot.worktrees.map((w) => [w.id, w])),
   sessions: new Map(snapshot.sessions.map((s) => [s.session.id, entryOf(s)])),
+  reviewCheckouts: new Map((snapshot.reviewCheckouts ?? []).map((c) => [c.id, c])),
 });
 
 export const applyHostItem = (model: HostModel, item: HostStreamItem): HostModel =>
