@@ -5,6 +5,7 @@ import { AttachmentId, SessionId, WorkspaceId } from "@polaris/protocol";
 import { Effect, Layer, Stream } from "effect";
 import { makeFakeBlobChannel } from "../files/testing.ts";
 import { removeDir, tempDir } from "../git/testing.ts";
+import { PNG_1200x800 } from "./imageSize.testing.ts";
 import { AttachmentStore, ServiceError } from "../services.ts";
 import { handleStageAttachment } from "./AttachmentRpcs.ts";
 import {
@@ -82,6 +83,39 @@ describe("AttachmentStore", () => {
     );
 
     expect(got).toEqual([attachment]);
+  });
+
+  test("an image records its pixel size, kept across a get; other files have none", async () => {
+    const { run } = setup();
+
+    const image = await run(
+      Effect.gen(function* () {
+        const store = yield* AttachmentStore;
+
+        return yield* store.stage({
+          sessionId: s1,
+          workspaceId: ws,
+          name: "shot.png",
+          mimeType: "image/png",
+          bytes: PNG_1200x800,
+        });
+      })
+    );
+
+    expect([image.width, image.height]).toEqual([1200, 800]);
+    const text = await run(stage(s1, ws, "notes.txt"));
+
+    expect([text.width, text.height]).toEqual([null, null]);
+
+    const got = await run(
+      Effect.gen(function* () {
+        const store = yield* AttachmentStore;
+
+        return yield* store.get([image.id]);
+      })
+    );
+
+    expect(got).toEqual([image]);
   });
 
   test("unsessioned attachments go to _pending/<workspace>/", async () => {

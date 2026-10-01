@@ -10,6 +10,11 @@ import type { TurnView } from "../../../store/sessionModel.ts";
 export interface OutboxAttachment {
   readonly id: string;
   readonly name: string;
+  readonly mimeType: string;
+  readonly size: number;
+  readonly hostPath: string;
+  readonly width: number | null;
+  readonly height: number | null;
 }
 
 export type OutboxStatus =

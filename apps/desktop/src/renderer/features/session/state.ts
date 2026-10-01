@@ -13,6 +13,10 @@ export interface StagedAttachment {
   readonly name: string;
   readonly mimeType: string;
   readonly size: number;
+  /** Where the Host staged it, and an image's size: what a pending message previews from. */
+  readonly hostPath: string;
+  readonly width: number | null;
+  readonly height: number | null;
 }
 
 export interface SessionUi {

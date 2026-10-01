@@ -32,6 +32,7 @@ import {
 import { Context, Effect, Layer, Schema, Stream } from "effect";
 import { paths } from "../paths.ts";
 import { AttachmentStore, ServiceError } from "../services.ts";
+import { imageSize } from "./imageSize.ts";
 
 const CleanupPolicy = AttachmentCleanup;
 
@@ -107,6 +108,9 @@ const Meta = Schema.Struct({
   workspaceId: Schema.String,
   /** Epoch milliseconds. */
   stagedAt: Schema.Number,
+  /** An image's pixel size; absent before it was recorded, or for other files. */
+  width: Schema.optional(Schema.Number),
+  height: Schema.optional(Schema.Number),
 });
 
 type Meta = typeof Meta.Type;
@@ -162,6 +166,22 @@ const toAttachment = (meta: Meta) =>
     mimeType: meta.mimeType,
     size: meta.size,
     hostPath: meta.hostPath,
+    width: meta.width ?? null,
+    height: meta.height ?? null,
+  });
+
+/** Enough of the file for any header `imageSize` reads (a JPEG's EXIF comes first). */
+const HEADER_BYTES = 256 * 1024;
+
+/** An image's size from its header on disk; null when unreadable or not an image it knows. */
+const sizeOf = (path: string) =>
+  Effect.promise(async () => {
+    const head = await Bun.file(path)
+      .slice(0, HEADER_BYTES)
+      .bytes()
+      .catch(() => null);
+
+    return head === null ? null : imageSize(head);
   });
 
 const isEnoent = (cause: unknown) => hasErrnoCode(cause) && cause.code === "ENOENT";
@@ -357,6 +377,8 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
         return written;
       }).pipe(Effect.onError(() => Effect.promise(() => removeAttachmentDir(dir).catch(() => {}))));
 
+      const dimensions = input.mimeType.startsWith("image/") ? yield* sizeOf(hostPath) : null;
+
       const meta: Meta = {
         id,
         name: input.name,
@@ -366,6 +388,7 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
         sessionId: input.sessionId,
         workspaceId: input.workspaceId,
         stagedAt: now(),
+        ...dimensions,
       };
 
       yield* Effect.tryPromise({

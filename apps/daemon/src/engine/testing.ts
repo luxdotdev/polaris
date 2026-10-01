@@ -244,6 +244,8 @@ export const fakeServices = (fakes: Fakes, drivers: ReadonlyArray<FakeDriver>) =
             mimeType: options.mimeType,
             size: options.bytes instanceof Uint8Array ? options.bytes.byteLength : 0,
             hostPath: `/staging/${options.name}`,
+            width: null,
+            height: null,
           });
 
           fakes.attachments.set(attachment.id, attachment);

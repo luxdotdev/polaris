@@ -13,3 +13,5 @@ export { useUploads, type UploadTarget } from "./useUploads.ts";
 export type { DropMode, Upload } from "./model.ts";
 
 export { AttachmentsPage } from "./ui/AttachmentsPage.tsx";
+
+export { SentAttachments, type SentAttachment } from "./ui/SentAttachments.tsx";
