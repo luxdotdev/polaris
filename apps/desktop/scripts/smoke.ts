@@ -22,6 +22,7 @@ import { checkNoneReady, initRepo, sessionFlow } from "./lib/sessionFlow.ts";
 import { remoteFlow } from "./lib/remoteFlow.ts";
 import { settingsFlow } from "./lib/settingsFlow.ts";
 import { attachmentsFlow } from "./lib/attachmentsFlow.ts";
+import { imageAfterRelaunch, sendImage } from "./lib/previewFlow.ts";
 import { terminalFlow } from "./lib/terminalFlow.ts";
 
 const args = process.argv.slice(2);
@@ -354,6 +355,16 @@ const relaunchKeepsOutput = async () => {
   await page.locator("[data-session-row]").filter({ hasText: "bench:" }).first().click();
   await page.getByTestId("output-panel").waitFor({ timeout: 10_000 });
   step("a relaunch keeps output open for the session that had it open");
+
+  return page;
+};
+
+/** Send an image in the open session, relaunch, and find its thumbnail again. */
+const imagesSurviveRelaunch = async (page: Page) => {
+  await sendImage(page, step);
+  const again = await relaunchKeepsOutput();
+
+  await imageAfterRelaunch(again, step);
 };
 
 let failed = false;
@@ -467,7 +478,7 @@ try {
   if (consoleErrors.length > 0) throw new Error(`renderer errors:\n${consoleErrors.join("\n")}`);
   await checkNoneReady(page, step);
   await closeKeepsRunning();
-  await relaunchKeepsOutput();
+  await imagesSurviveRelaunch(await relaunchKeepsOutput());
   step("ok");
 } catch (error) {
   failed = true;

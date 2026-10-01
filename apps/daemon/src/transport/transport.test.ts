@@ -186,6 +186,8 @@ const testHandlers = (log: Log) =>
           mimeType,
           size: received.byteLength,
           hostPath: sha(received),
+          width: null,
+          height: null,
         });
       })
     ),

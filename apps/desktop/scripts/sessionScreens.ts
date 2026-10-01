@@ -51,6 +51,7 @@ const scrollFrames = `new Promise((resolve) => {
 const SHOT_SCENES = new Map([
   ["picker", "interrupted"],
   ["availability", "new"],
+  ["viewer", "attachments"],
 ]);
 
 /** Opens what a shot shows, again after each theme or density change closes it. */
@@ -67,6 +68,9 @@ const open = async (page: Page, scene: string) => {
   } else if (scene === "availability") {
     await page.getByTestId("other-harnesses").first().click();
     await page.getByTestId("availability-sheet").waitFor();
+  } else if (scene === "viewer") {
+    await page.locator('[data-testid="sent-image"][data-state="ready"]').first().click();
+    await page.getByTestId("attachment-viewer").locator("img").waitFor();
   }
 };
 
