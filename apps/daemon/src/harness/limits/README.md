@@ -9,7 +9,7 @@ The Usage index (`../../usage/`, ENG-205) owns `usage.watch`: it persists each P
 | `PlanLimitReporter.ts` | The `PlanLimitReporter` service the drivers get: a synchronous `report(limits)` in front of the index's `PlanLimitSink`. It keeps the newest reading per (`harness`, `kind`, `scope`) and drops repeats (see below). |
 | `claude.ts` | Schemas for the Agent SDK's `get_usage` reply and `rate_limit_event` message, and their mapping to `PlanLimit`s. |
 | `codex.ts` | Schemas for app-server's `account/rateLimits/read` and `account/rateLimits/updated`, their mapping, `CodexLimitTracker` (merges sparse updates), and the rollout-log reader. |
-| `rollout.ts` | `latestRolloutLimits`: the last `token_count.rate_limits` in the newest rollout file under `$CODEX_HOME/sessions`. |
+| `rollout.ts` | `latestRolloutLimits`: the last `token_count.rate_limits` in the newest rollout under `$CODEX_HOME/sessions` that has one (up to 32 recent rollouts; a session that ended before any response has none). |
 
 The drivers feed it: `../claude/planLimits.ts` and `../codex/planLimits.ts`, wired through `../registry.ts`. `serve.ts` builds the layers in order: event store, Usage index (with `planLimitSeed: latestRolloutLimits()`), the reporter and the Harness registry, then the engine.
 
@@ -24,7 +24,7 @@ The drivers feed it: `../claude/planLimits.ts` and `../codex/planLimits.ts`, wir
 | Claude | OAuth token from the Keychain / `~/.claude/.credentials.json` → `api.anthropic.com/api/oauth/usage`; claude.ai browser cookies | Any time | **No** | Never (ADR 0001) |
 | Codex | app-server `account/rateLimits/read` | When a session connects to the shared app-server | Yes: app-server answers from its own sign-in | Yes |
 | Codex | app-server `account/rateLimits/updated` notifications | During Turns | Yes | Yes |
-| Codex | Rollout logs: `event_msg` `token_count` with `rate_limits` | On the first `usage.watch` / ask, once per Daemon | Yes: Codex's own session logs, no auth data | Yes, as the last known value before any session |
+| Codex | Rollout logs: `event_msg` `token_count` with `rate_limits` | On a new `usage.watch` (at most once a minute) and after a pass over Codex's logs | Yes: Codex's own session logs, no auth data | Yes, as the last known value before any session |
 | Codex | `~/.codex/auth.json` → `chatgpt.com/backend-api/wham/usage`; chatgpt.com cookies | Any time | **No** | Never (ADR 0001) |
 | OpenCode | Retry / error info when a request is refused | Only when refused | Yes | Not yet: the OpenCode driver doesn't exist (ENG-199 Q10) |
 
@@ -41,7 +41,7 @@ Measured on this Mac (Claude Code 2.1.284 with SDK 0.3.283, Max plan; codex-cli 
 
 - Every `PlanLimit` carries `observedAt`. The reporter drops a reading older than the last one it sent for that window, and one that only confirms it unless the last one sent is at least a minute old (`REANNOUNCE_AFTER_MS`). So the age Clients show is never more than a minute stale while a session runs, without a report per SDK message.
 - The Usage index keeps the last value of each window in `usage.sqlite` (`plan_limits`) and sends every known one to a new `usage.watch` subscriber, so with no session running (or after a restart) Clients still get the last value with its age.
-- The Codex rollout seed (`UsageIndexOptions.planLimitSeed`) runs once, on the first `usage.watch`, before the subscriber gets the known values, and never replaces a newer one.
+- The Codex rollout seed (`UsageIndexOptions.planLimitSeed`) runs on a new `usage.watch` (at most once a minute, `seedEveryMs`) before the subscriber gets the known values, and after a pass over Codex's logs, so Codex used outside Polaris moves its limits. It never replaces a newer value.
 
 ## Cost
 
