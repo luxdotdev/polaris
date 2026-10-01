@@ -30,6 +30,7 @@ import { runSubagent, subagentAfterRelaunch } from "./lib/subagentFlow.ts";
 import { terminalFlow } from "./lib/terminalFlow.ts";
 import { githubFlow, MOCK_KEYCHAIN, serveGitHubFake } from "./lib/githubFlow.ts";
 import { addRemotes, pullsFlow } from "./lib/pullsFlow.ts";
+import { afterMerge, checkoutFlow, setFakeHead } from "./lib/checkoutFlow.ts";
 import { reviewFlow, setupCodeHost } from "./lib/reviewFlow.ts";
 import { findingsFlow } from "./lib/findingsFlow.ts";
 
@@ -458,7 +459,10 @@ try {
     upstream: "https://github.com/lockedorg/vault",
   });
   // #42's commits come from a local code host, so its Review Checkout fetches for real.
-  setupCodeHost(repo, home);
+  const codeHost = setupCodeHost(repo, home);
+
+  // GitHub reports the code host's commits, so the checkout is at #42's head.
+  setFakeHead(github.fake, 42, codeHost.head, codeHost.base);
   await sessionFlow({
     page,
     repo,
@@ -480,8 +484,16 @@ try {
       await pullsFlow({ app, page, fake: github.fake, step });
       await reviewFlow({ page, fake: github.fake, step, shoot: (name) => shoot(page, name) });
       await findingsFlow({ page, fake: github.fake, step, shoot: (name) => shoot(page, name) });
+      await checkoutFlow({
+        page,
+        fake: github.fake,
+        codeHost,
+        step,
+        shoot: (name) => shoot(page, name),
+      });
     },
   });
+  await afterMerge({ page, step, shoot: (name) => shoot(page, name) });
 
   let probeTimer: ReturnType<typeof setTimeout> | undefined;
 

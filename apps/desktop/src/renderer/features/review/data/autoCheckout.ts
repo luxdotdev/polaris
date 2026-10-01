@@ -1,7 +1,8 @@
 /**
- * Opening a pull request in Review checks it out once on the first connected Host with
- * its repository (ENG-185: the Risk Summary runs when a Review opens, and it needs the
- * checkout). Choosing another Host, updating and removing are the checkout chip's (M2-K).
+ * Opening a pull request in Review checks it out once, on the last Host used for its
+ * repository or else the first connected one (ENG-185: the Risk Summary runs when a Review
+ * opens, and it needs the checkout). Choosing another Host, updating and removing are the
+ * checkout chip's (`../checkout`).
  */
 import type { ReviewCheckoutId, ReviewSubject, WorkspaceId } from "@polaris/protocol";
 import { Data } from "effect";
@@ -9,6 +10,7 @@ import type { OpenPull } from "../../../../shared/api.ts";
 import type { PullDetailView } from "../../../../shared/github.ts";
 import { Commands } from "../../../commands.ts";
 import { send } from "../../session/dispatch.ts";
+import { rememberHost, repoName } from "../checkout/store.ts";
 import type { CheckoutPlace } from "./source.ts";
 
 const asked = new Set<string>();
@@ -18,12 +20,6 @@ const Subjects = Data.taggedEnum<ReviewSubject>();
 export const newCheckoutId = (): ReviewCheckoutId =>
   // SAFETY: ReviewCheckoutId is a branded string the Client chooses.
   crypto.randomUUID() as ReviewCheckoutId;
-
-/** The first place whose Host is connected; null when none is. */
-export const firstPlace = (
-  places: ReadonlyArray<CheckoutPlace>,
-  connected: (hostKey: string) => boolean
-): CheckoutPlace | null => places.find((p) => connected(p.hostKey)) ?? null;
 
 /** `github.com`, or the GitHub Enterprise host the pull request lives on. */
 const codeHost = (url: string) => {
@@ -58,6 +54,7 @@ export const checkOutOnce = (place: CheckoutPlace, pull: OpenPull, detail: PullD
   if (asked.has(key)) return false;
 
   asked.add(key);
+  rememberHost(repoName(pull.repo), place.hostKey);
   void openCheckout(place, pull, detail);
 
   return true;

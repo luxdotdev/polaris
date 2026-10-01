@@ -120,16 +120,18 @@ export const githubFlow = async ({ page, fake, step, afterList }: GitHubFlowInpu
     `GitHub: reviewed #42 (${detail.files.length} files, ${detail.threads.length} threads): Viewed, a line comment, submitted`
   );
 
-  await request(page, "github.checkouts.watch", {
-    checkouts: [{ key: "local:pr-42", pull: PR, pullId: detail.id }],
-  });
-  await feedUntil(page, "github.checkouts", 'v.some((c) => c.state === "open")');
+  // The renderer's checkout publisher watches #42's Review Checkout (opened by the Review steps).
+  await feedUntil(
+    page,
+    "github.checkouts",
+    `v.some((c) => c.pullId === ${JSON.stringify(detail.id)} && c.state === "open")`
+  );
   fake.merge("acme/widgets", 42);
   await request(page, "github.refresh", {});
   await feedUntil(
     page,
     "github.checkouts",
-    'v.some((c) => c.key === "local:pr-42" && c.state === "merged")'
+    `v.some((c) => c.pullId === ${JSON.stringify(detail.id)} && c.state === "merged")`
   );
   step("GitHub: merging #42 on GitHub reached its Review Checkout's state");
 };
