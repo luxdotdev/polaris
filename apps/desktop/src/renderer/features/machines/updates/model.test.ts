@@ -152,6 +152,10 @@ describe("the per-host override", () => {
     expect(overrideChoice(daemon())).toBe("default");
     expect(overrideChoice(daemon({ keepUpToDateOverride: true }))).toBe("on");
     expect(overrideChoice(daemon({ keepUpToDateOverride: false }))).toBe("off");
+    expect(line(daemon({ keepUpToDateOverride: false }))).toEqual({
+      kind: "note",
+      text: "Updates its daemon only when you ask",
+    });
   });
 });
 

@@ -36,6 +36,8 @@ export type UpdateLine =
       readonly fraction: number | null;
     }
   | { readonly kind: "updated"; readonly text: string }
+  /** A Host that doesn't follow the app-wide switch says so while nothing else shows. */
+  | { readonly kind: "note"; readonly text: string }
   | { readonly kind: "failed"; readonly failure: UpdateFailure };
 
 const NONE: UpdateLine = { kind: "none" };
@@ -223,7 +225,14 @@ export const updateLine = ({
       text: `Updated to ${last.version ?? daemon.installedVersion ?? "?"} · ${ago(now - last.at)}`,
     };
 
-  return NONE;
+  if (daemon.keepUpToDateOverride === null) return NONE;
+
+  return {
+    kind: "note",
+    text: daemon.keepUpToDateOverride
+      ? "Keeps its daemon up to date on its own"
+      : "Updates its daemon only when you ask",
+  };
 };
 
 /** The override the row's menu shows checked. */

@@ -122,6 +122,12 @@ export const UpdateStrip = ({ line, onUpdate, onFailureAction }: UpdateStripProp
           <span className="text-caption text-text-subtle tabular truncate">{line.text}</span>
         </Strip>
       );
+    case "note":
+      return (
+        <Strip kind="note">
+          <span className="text-caption text-text-subtle truncate">{line.text}</span>
+        </Strip>
+      );
     case "failed":
       return <Failure failure={line.failure} onAction={onFailureAction} />;
   }
