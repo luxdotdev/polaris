@@ -289,6 +289,7 @@ describe("publish as description", () => {
     expect(publishOffer(true, null, "h")).toBe("publish");
     expect(publishOffer(true, { head: "h" }, "h")).toBeNull();
     expect(publishOffer(true, { head: "g" }, "h")).toBe("republish");
+    expect(publishOffer(true, { head: "g", matches: false }, "h")).toBeNull();
   });
 });
 
@@ -323,5 +324,25 @@ describe("commit scope", () => {
     expect(scopeOf(commits, 0, "base")).toEqual({ oid: "a", parent: "base", headline: "a" });
     expect(scopeOf(commits, 1, "base")?.parent).toBe("a");
     expect(scopeOf(commits, 0, null)).toBeNull();
+  });
+});
+
+describe("pushes", () => {
+  test("pushes in a row by one author join", () => {
+    const push = (id: string, oid: string) => ({
+      kind: "push" as const,
+      id,
+      at: "2026-09-29T10:00:00Z",
+      url: "",
+      author: person("dkato"),
+      commits: [{ oid, headline: oid }],
+      forced: false,
+    });
+
+    const [entry] = timelineEntries([push("p1", "a"), push("p2", "b")]);
+
+    expect(
+      entry?.kind === "item" && entry.item.kind === "push" ? entry.item.commits.length : 0
+    ).toBe(2);
   });
 });

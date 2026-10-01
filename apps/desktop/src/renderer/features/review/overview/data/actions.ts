@@ -4,16 +4,15 @@
  * Which bots the viewer already confirmed is kept on this Mac.
  */
 import { useSyncExternalStore } from "react";
-import type { OpenPull } from "../../../../../shared/api.ts";
+import type { IpcError, OpenPull } from "../../../../../shared/api.ts";
+import { polaris } from "../../../bridge.ts";
+import { refusalText } from "../../../session/dispatch.ts";
 import { refreshPullDetail } from "../../data/pullDetail.ts";
 import type { BotCommand } from "../model/botSummary.ts";
 
 export type Done = { readonly ok: true } | { readonly ok: false; readonly message: string };
 
 type PullRef = Pick<OpenPull, "repo" | "number">;
-
-/** The main process's IPC for these lands with ovbackend's runtime; until then they say so. */
-const UNAVAILABLE: Done = { ok: false, message: "This build of Polaris can’t post to GitHub yet" };
 
 export interface Poster {
   readonly command: (
@@ -23,19 +22,43 @@ export interface Poster {
     text: string | null
   ) => Promise<Done>;
   readonly publish: (pull: PullRef, pullId: string, body: string, head: string) => Promise<Done>;
+  readonly comment: (pull: PullRef, body: string) => Promise<Done>;
 }
 
-const unavailable: Poster = {
-  command: () => Promise.resolve(UNAVAILABLE),
-  publish: () => Promise.resolve(UNAVAILABLE),
+const done = (
+  result: { readonly ok: true } | { readonly ok: false; readonly error: IpcError }
+): Done => (result.ok ? { ok: true } : { ok: false, message: refusalText(result.error) });
+
+const ref = (pull: PullRef) => ({ repo: pull.repo, number: pull.number });
+
+/** The main process's GitHub client, as the viewer's account. */
+const github: Poster = {
+  command: async (pull, bot, command, text) => {
+    const input = { pull: ref(pull), bot, command };
+
+    return done(
+      await polaris().request("github.bot.command", text === null ? input : { ...input, text })
+    );
+  },
+  publish: async (pull, pullId, body, head) =>
+    done(
+      await polaris().request("github.pull.publishDescription", {
+        pull: ref(pull),
+        pullId,
+        body,
+        head,
+      })
+    ),
+  comment: async (pull, body) =>
+    done(await polaris().request("github.pull.comment", { pull: ref(pull), body })),
 };
 
-/** Swapped by the preview, and by the IPC once it exists. */
+/** The preview swaps in its own. */
 export interface PosterSlot {
   current: Poster;
 }
 
-export const poster: PosterSlot = { current: unavailable };
+export const poster: PosterSlot = { current: github };
 
 export const postBotCommand = async (
   pull: PullRef,
@@ -61,6 +84,15 @@ export const publishDescription = async (
   if (done.ok) await refreshPullDetail(pull);
 
   return done;
+};
+
+/** "Comment now": a top-level comment on the pull request, published at once. */
+export const commentNow = async (pull: PullRef, body: string): Promise<Done> => {
+  const result = await poster.current.comment(pull, body);
+
+  if (result.ok) await refreshPullDetail(pull);
+
+  return result;
 };
 
 const KEY = "polaris.review.confirmedBots";

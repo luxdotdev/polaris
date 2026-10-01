@@ -174,6 +174,7 @@ const setUpOverview = (scene: string) => {
   poster.current = {
     command: () => Promise.resolve({ ok: true }),
     publish: () => Promise.resolve({ ok: true }),
+    comment: () => Promise.resolve({ ok: true }),
   };
   walkthroughScenes.setState({ [key]: walkthroughsFor(scene) });
   openSceneTab(scene, key);

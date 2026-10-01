@@ -145,6 +145,18 @@ const entryOf = (item: TimelineItemView): TimelineEntry => {
   return { kind: "threads", id: item.id, author: authorOf(item), at: item.at, threads: [item] };
 };
 
+type PushItem = Extract<TimelineItemView, { readonly kind: "push" }>;
+
+/** Pushes in a row by one author read as one: "pushed 3 commits". */
+const joinPush = (last: TimelineEntry | undefined, item: TimelineItemView): PushItem | null => {
+  if (item.kind !== "push" || last?.kind !== "item" || last.item.kind !== "push") return null;
+
+  if (last.item.author?.login !== item.author?.login || last.item.forced || item.forced)
+    return null;
+
+  return { ...item, id: last.item.id, commits: [...last.item.commits, ...item.commits] };
+};
+
 /** Consecutive open threads by one author share a card ("commented on 2 lines"). */
 export const timelineEntries = (
   items: ReadonlyArray<TimelineItemView>
@@ -152,6 +164,13 @@ export const timelineEntries = (
   items.reduce<Array<TimelineEntry>>((entries, item) => {
     const entry = entryOf(item);
     const last = entries.at(-1);
+    const push = joinPush(last, item);
+
+    if (push !== null) {
+      entries[entries.length - 1] = { kind: "item", item: push };
+
+      return entries;
+    }
 
     if (
       entry.kind === "threads" &&

@@ -30,12 +30,13 @@ export type PublishOffer = "publish" | "republish" | null;
 
 export const publishOffer = (
   own: boolean,
-  published: { readonly head: string } | null,
+  published: { readonly head: string; readonly matches?: boolean } | null,
   head: string
 ): PublishOffer => {
   if (!own) return null;
 
   if (published === null) return "publish";
 
-  return published.head === head ? null : "republish";
+  // Someone edited the description since: Polaris doesn't offer to overwrite it.
+  return published.head === head || published.matches === false ? null : "republish";
 };

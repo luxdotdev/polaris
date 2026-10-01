@@ -203,6 +203,7 @@ interface PanelsProps {
 const PullPanels = ({
   tab,
   subjectKey,
+  subject,
   detail,
   overview,
   paths,
@@ -210,12 +211,13 @@ const PullPanels = ({
   mergeBase,
   pick,
 }: PanelsProps) => {
-  if (overview === null || detail === null) return null;
+  if (overview === null || detail === null || subject.kind !== "pull") return null;
 
   if (tab === "conversation") {
     return (
       <Scroll tab="conversation">
         <Conversation
+          pull={subject.pull}
           subjectKey={subjectKey}
           paths={paths}
           now={now}
