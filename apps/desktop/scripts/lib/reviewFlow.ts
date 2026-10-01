@@ -138,7 +138,10 @@ export const reviewFlow = async ({ page, fake, step, shoot }: ReviewFlowInput) =
 
   step(`Viewed: ${before ?? ""} → 1 of 3 viewed, sent to GitHub as MarkFileAsViewed`);
 
-  const session = page.getByTestId("review-queue-row").filter({ hasText: "smoke-repo" });
+  const session = page
+    .getByTestId("review-queue-row")
+    .filter({ hasText: "smoke-repo" })
+    .filter({ hasNotText: "Reviewer ·" });
 
   if ((await session.count()) > 0) {
     await session.first().click();

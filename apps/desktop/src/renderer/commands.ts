@@ -7,6 +7,7 @@ import type {
   ApprovalDecision,
   Command,
   CommandId,
+  ReviewSubject,
   SessionId,
   SessionPlacement,
 } from "@polaris/protocol";
@@ -17,6 +18,9 @@ export const Commands = Data.taggedEnum<Command>();
 export const Placement = Data.taggedEnum<SessionPlacement>();
 
 export const Decisions = Data.taggedEnum<ApprovalDecision>();
+
+/** A Review's subject as the protocol carries it (a pull request, or an Agent Session's Turns). */
+export const Subjects = Data.taggedEnum<ReviewSubject>();
 
 /** Client-generated, so a retried dispatch is applied once (the Daemon keeps receipts). */
 export const newCommandId = (): CommandId =>

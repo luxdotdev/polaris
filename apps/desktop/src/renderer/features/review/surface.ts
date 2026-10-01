@@ -25,6 +25,11 @@ export interface DiffRange {
   readonly end: number;
 }
 
+/** A selection with the code it covers, as the diff shows it (quoted in feedback). */
+export interface DiffSelection extends DiffRange {
+  readonly code: string;
+}
+
 /** A row under a line in the diff (a comment thread, a draft, a composer). */
 export interface ReviewAnnotation {
   /** Stable across renders. */
@@ -95,7 +100,9 @@ export interface ReviewSurface {
   /** The finding the risk column selected; the diff scrolls to it and expands its reason. */
   readonly selectedFinding: string | null;
   /** Lines the user selected in the diff (the composer opens under them, M2-F). */
-  readonly selection: DiffRange | null;
+  readonly selection: DiffSelection | null;
+  /** The code of a range in the diff as it shows it (lines it doesn't hold are skipped). */
+  readonly quote: ((range: DiffRange) => string) | null;
 }
 
 const emptySurface: ReviewSurface = {
@@ -103,6 +110,7 @@ const emptySurface: ReviewSurface = {
   annotations: [],
   selectedFinding: null,
   selection: null,
+  quote: null,
 };
 
 export const surfaceStore = createStore<Readonly<Record<string, ReviewSurface>>>(() => ({}));

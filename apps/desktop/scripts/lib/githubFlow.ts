@@ -77,8 +77,14 @@ export const githubFlow = async ({ page, fake, step, afterList }: GitHubFlowInpu
     'v.requested.some((p) => p.number === 42) && v.repos.some((r) => r.state === "blocked")'
   );
   step("GitHub: PR list has acme/widgets#42 under review requested; lockedorg/vault is blocked");
+
+  const commented = () =>
+    fake.world.reviews.filter((r) => r.author === "mona" && r.state === "COMMENTED").length;
+
   await afterList();
 
+  // The Review UI's own submits (findingsFlow) are counted before this one.
+  const before = commented();
   const detail = await request(page, "github.pull.detail", { pull: PR });
 
   await request(page, "github.files.setViewed", {
@@ -106,11 +112,10 @@ export const githubFlow = async ({ page, fake, step, afterList }: GitHubFlowInpu
     body: "From the smoke.",
   });
 
-  const submitted = fake.world.reviews.filter(
-    (r) => r.author === "mona" && r.state === "COMMENTED"
-  ).length;
+  const submitted = commented() - before;
 
-  if (submitted !== 1) throw new Error(`expected one submitted review, the fake has ${submitted}`);
+  if (submitted !== 1)
+    throw new Error(`expected one more submitted review, the fake has ${submitted}`);
   step(
     `GitHub: reviewed #42 (${detail.files.length} files, ${detail.threads.length} threads): Viewed, a line comment, submitted`
   );

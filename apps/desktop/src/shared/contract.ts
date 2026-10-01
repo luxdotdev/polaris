@@ -252,6 +252,13 @@ export const RequestInputs = {
     context: Schema.NullOr(ReviewContext),
   }),
   "review.riskSummary": onHost({ ref: RiskSummaryRef }),
+  /** Verdicts on this Host, newest first: a repo's, a summary's, or one Finding's history. */
+  "review.verdicts": onHost({
+    repo: Schema.NullOr(Schema.String),
+    summaryId: Schema.NullOr(RiskSummaryId),
+    identity: Schema.NullOr(Schema.String),
+    limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 200 })),
+  }),
   /** A follow-up to the Reviewer, about one Finding or the whole change. */
   "review.askFinding": onHost({
     summaryId: RiskSummaryId,
@@ -381,6 +388,8 @@ export const SubscriptionInputs = {
   "harness.availability": onHost({}),
   /** Plan Limits as they change (`usage.watch`, its `PlanLimitChanged` items). */
   "plan-limits": onHost({}),
+  /** A Risk Summary as it fills in (`review.watchRiskSummary`): the whole summary on each change. */
+  "review.watchRiskSummary": onHost({ summaryId: RiskSummaryId }),
   ...GitHubSubscriptionInputs,
 } as const;
 

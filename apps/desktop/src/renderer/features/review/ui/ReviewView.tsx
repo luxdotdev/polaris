@@ -18,6 +18,7 @@ import type { AppState } from "../../../store/store.ts";
 import { PullReview } from "./PullReview.tsx";
 import { Queue } from "./Queue.tsx";
 import { SessionReview } from "./SessionReview.tsx";
+import "../../risk/install.ts";
 // The session's accept action fills its slot (M2-A).
 import "../../accept/install.ts";
 
@@ -27,19 +28,32 @@ export interface ReviewViewProps {
   readonly onBack: () => void;
 }
 
+/**
+ * A Reviewer's own read-only session has nothing to review: it runs inside a Review
+ * Checkout (`.review/pr-N`), or is titled "Reviewer · …" (an Agent Session's, in place).
+ */
+const isReviewer = (cwd: string, title: string) =>
+  /[/\\]\.review[/\\]/.test(cwd) || title.startsWith("Reviewer · ");
+
 const sessionsOf = (models: AppState["hostModels"]): ReadonlyArray<SessionInfo> =>
   Object.entries(models).flatMap(([hostKey, model]) =>
-    [...model.sessions.values()].map(({ session }) => ({
-      hostKey,
-      id: session.id,
-      title: session.title,
-      harness: session.harness,
-      state: session.state,
-      turnCount: session.turnCount,
-      acceptedThroughIndex: session.acceptedThroughIndex ?? null,
-      updatedAt: session.updatedAt,
-      workspaceName: model.workspaces.get(session.workspaceId)?.name ?? null,
-    }))
+    [...model.sessions.values()].flatMap(({ session }) =>
+      isReviewer(session.cwd, session.title)
+        ? []
+        : [
+            {
+              hostKey,
+              id: session.id,
+              title: session.title,
+              harness: session.harness,
+              state: session.state,
+              turnCount: session.turnCount,
+              acceptedThroughIndex: session.acceptedThroughIndex ?? null,
+              updatedAt: session.updatedAt,
+              workspaceName: model.workspaces.get(session.workspaceId)?.name ?? null,
+            },
+          ]
+    )
   );
 
 const selectedId = (subject: ReviewSubject) =>

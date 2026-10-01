@@ -4,11 +4,14 @@
  * while it loads, fails or waits for a Review Checkout.
  */
 import { EmptyState, PixelForkIcon } from "@polaris/ui";
-import type { ReactNode } from "react";
+import type { FileDiffMetadata, SelectedLineRange } from "@pierre/diffs";
+import { type ReactNode, useEffect } from "react";
 import { useStore } from "zustand";
 import type { ReviewDiff } from "../data/useReviewDiff.ts";
 import { scaleNotice } from "../model/policy.ts";
+import { quoteLines } from "../model/quote.ts";
 import {
+  type DiffSelection,
   emptySurface,
   type ReviewSlotProps,
   reviewSlots,
@@ -56,6 +59,19 @@ const RiskColumn = ({
   );
 };
 
+const selectionOf = (
+  path: string,
+  range: SelectedLineRange,
+  item: { readonly fileDiff: FileDiffMetadata } | null
+): DiffSelection => {
+  const side = range.side === "deletions" ? "old" : "new";
+  const start = Math.min(range.start, range.end);
+  const end = Math.max(range.start, range.end);
+  const code = item === null ? "" : quoteLines(item.fileDiff, side, start, end);
+
+  return { path, side, start, end, code };
+};
+
 const Waiting = ({ placeholder }: { readonly placeholder: Placeholder | null }) => (
   <div
     className="bg-bg flex min-w-0 flex-1 items-center justify-center"
@@ -85,6 +101,24 @@ const Ready = ({
     annotations: surface.annotations,
     pullViewed,
   });
+
+  useEffect(() => {
+    const diffs = new Map(
+      model.items.flatMap((p) =>
+        p.item.type === "diff" ? [[p.path, p.item.fileDiff] as const] : []
+      )
+    );
+
+    updateSurface(subjectKey, {
+      quote: (range) => {
+        const fileDiff = diffs.get(range.path);
+
+        return fileDiff === undefined
+          ? ""
+          : quoteLines(fileDiff, range.side, range.start, range.end);
+      },
+    });
+  }, [subjectKey, model.items]);
 
   return (
     <div className="flex min-h-0 flex-1">
@@ -123,17 +157,13 @@ const Ready = ({
             itemKeys={model.itemKeys}
             onSelect={(id, range) => {
               const file = model.files.find((f) => f.key === id);
+              const parsed = model.items.find((p) => p.item.id === id)?.item;
 
               updateSurface(subjectKey, {
                 selection:
                   file === undefined || range === null
                     ? null
-                    : {
-                        path: file.file.path,
-                        side: range.side === "deletions" ? "old" : "new",
-                        start: Math.min(range.start, range.end),
-                        end: Math.max(range.start, range.end),
-                      },
+                    : selectionOf(file.file.path, range, parsed?.type === "diff" ? parsed : null),
               });
             }}
           />

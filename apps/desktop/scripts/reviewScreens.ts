@@ -4,7 +4,10 @@
  * Paper R1 (1SM-0) and R2 (223-0): both themes, every density, the colourblind diff palette;
  * and the large-Review scenes (2,500 files collapsed, 12,000 files list-only).
  *
- *   node scripts/reviewScreens.ts --out <dir> [--build]
+ * With `--findings`, only M2-F's scenes: the risk column and composer (R6), a Verdict (R1),
+ * Submit review (R7) and an Agent Session's feedback (R8).
+ *
+ *   node scripts/reviewScreens.ts --out <dir> [--build] [--findings]
  */
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -66,12 +69,41 @@ const open = async (page: Page, scene: string, testId: string) => {
   await page.waitForTimeout(1200);
 };
 
-try {
-  const page = await app.firstWindow();
+/** M2-F: the composer, a Verdict and Submit review on #88, and a session's feedback. */
+const findingScenes = async (page: Page) => {
+  for (const theme of ["dark", "light"]) {
+    await open(page, "pull-comments", "comment-composer");
+    await appearance(page, theme, "balanced");
+    await shoot(page, `findings-composer-${theme}`);
 
-  await page.setViewportSize({ width: 1440, height: 900 });
-  mkdirSync(out, { recursive: true });
+    await open(page, "pull-verdict", "verdict-down");
+    await appearance(page, theme, "balanced");
+    await page.getByTestId("verdict-down").first().click();
+    await page.getByTestId("verdict-popover").waitFor();
+    await page.waitForTimeout(400);
+    await shoot(page, `findings-verdict-${theme}`);
 
+    await open(page, "pull-submit", "submit-review-open");
+    await appearance(page, theme, "balanced");
+    await page.getByTestId("submit-review-open").click();
+    await page.getByTestId("submit-review").waitFor();
+    await page.waitForTimeout(400);
+    await shoot(page, `findings-submit-${theme}`);
+
+    await open(page, "session-feedback", "feedback-card");
+    await appearance(page, theme, "balanced");
+    await shoot(page, `findings-feedback-${theme}`);
+  }
+
+  for (const density of ["calm", "compact"]) {
+    await open(page, "pull", "risk-finding");
+    await appearance(page, "dark", density);
+    await shoot(page, `findings-pull-dark-${density}`);
+  }
+};
+
+/** M2-D: the pull request and session in every theme and density, and the large Reviews. */
+const diffScenes = async (page: Page) => {
   for (const [scene, testId] of [
     ["pull", "review-file"],
     ["session", "turn-divider"],
@@ -94,6 +126,16 @@ try {
     await open(page, scene, "review-file-row");
     await shoot(page, `${scene}-dark`);
   }
+};
+
+try {
+  const page = await app.firstWindow();
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  mkdirSync(out, { recursive: true });
+
+  if (args.includes("--findings")) await findingScenes(page);
+  else await diffScenes(page);
 } finally {
   await app.close();
   await daemon.stop();

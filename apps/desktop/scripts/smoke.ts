@@ -32,6 +32,7 @@ import { githubFlow, MOCK_KEYCHAIN, serveGitHubFake } from "./lib/githubFlow.ts"
 import { addRemotes, pullsFlow } from "./lib/pullsFlow.ts";
 import { afterMerge, checkoutFlow, setFakeHead } from "./lib/checkoutFlow.ts";
 import { reviewFlow, setupCodeHost } from "./lib/reviewFlow.ts";
+import { findingsFlow } from "./lib/findingsFlow.ts";
 import { acceptFlow } from "./lib/acceptFlow.ts";
 
 const args = process.argv.slice(2);
@@ -483,6 +484,7 @@ try {
     afterList: async () => {
       await pullsFlow({ app, page, fake: github.fake, step });
       await reviewFlow({ page, fake: github.fake, step, shoot: (name) => shoot(page, name) });
+      await findingsFlow({ page, fake: github.fake, step, shoot: (name) => shoot(page, name) });
       await checkoutFlow({
         page,
         fake: github.fake,

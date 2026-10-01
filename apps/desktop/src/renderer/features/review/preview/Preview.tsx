@@ -18,6 +18,12 @@ import { type AppState, type Connection, initialState, sessionKey } from "../../
 import { standInBridge } from "../../bridge.ts";
 import { pullsStore } from "../../pulls/store.ts";
 import { ACCOUNTS, HOSTS, LIST, MODELS } from "../../pulls/preview/fixtures.ts";
+import {
+  pullSummary,
+  sessionSummary,
+  setUpScene,
+  withThreads,
+} from "../../risk/preview/fixtures.ts";
 import { subjectKey, updateSurface } from "../surface.ts";
 import {
   CHECKOUT,
@@ -57,7 +63,19 @@ const request = (scene: string) => (method: string, input: PreviewInput) => {
     return ok({ size: 0, mimeType: "text/plain", content: { kind: "text", text: "" } });
   }
 
-  if (method === "github.pull.detail") return ok(PULL_DETAIL);
+  if (method === "github.pull.detail") {
+    return ok(scene.startsWith("pull-") ? withThreads(PULL_DETAIL) : PULL_DETAIL);
+  }
+
+  if (method === "review.runRiskSummary") {
+    return ok(
+      scene.startsWith("session")
+        ? sessionSummary(SESSION_FINDINGS, SESSION.id)
+        : pullSummary(scene === "large" || scene === "list-only" ? [] : PULL_FINDINGS)
+    );
+  }
+
+  if (method === "review.verdicts") return ok([]);
 
   if (method === "github.files.setViewed" || method === "dispatch") return ok(null);
 
@@ -152,15 +170,20 @@ export const mountReviewPreview = (root: HTMLElement, hash: string) => {
     pullsStore.setState({ list: LIST, accounts: ACCOUNTS });
   }
 
-  if (scene === "session") {
+  setUpScene(scene, subjectKey({ kind: "session", hostKey: "local", sessionId: SESSION.id }));
+
+  if (scene.startsWith("session")) {
     openSessionReview(navigation.actions, "local", SESSION.id);
     updateSurface(subjectKey({ kind: "session", hostKey: "local", sessionId: SESSION.id }), {
       findings: SESSION_FINDINGS,
+      selectedFinding: SESSION_FINDINGS[0]?.id ?? null,
     });
   } else {
     openPull(navigation.actions, PULL);
     updateSurface(subjectKey({ kind: "pull", pull: PULL }), {
-      findings: scene === "pull" ? PULL_FINDINGS : [],
+      findings: scene.startsWith("pull") ? PULL_FINDINGS : [],
+      selectedFinding:
+        scene === "pull" || scene === "pull-verdict" ? (PULL_FINDINGS[0]?.id ?? null) : null,
     });
   }
 
