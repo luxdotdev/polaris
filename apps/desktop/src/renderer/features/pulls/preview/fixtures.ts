@@ -3,7 +3,16 @@
  * other open across three Hosts (one reconnecting), two accounts, and a repository nobody
  * sees, so screenshots compare on content too.
  */
-import { Workspace, WorkspaceId } from "@polaris/protocol";
+import {
+  AgentSession,
+  ReviewCheckout,
+  ReviewCheckoutId,
+  type ReviewSubject,
+  SessionId,
+  Workspace,
+  WorkspaceId,
+} from "@polaris/protocol";
+import { Data } from "effect";
 import type { HostView } from "../../../../shared/api.ts";
 import type {
   GitHubAccountsView,
@@ -11,7 +20,7 @@ import type {
   PullRowView,
   WorkspaceRef,
 } from "../../../../shared/github.ts";
-import { emptyHostModel, type HostModel } from "../../../store/hostModel.ts";
+import { emptyHostModel, type HostModel, type SessionEntry } from "../../../store/hostModel.ts";
 import { HOSTS as NEEDS_YOU_HOSTS } from "../../needs-you/preview/fixtures.ts";
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
@@ -41,15 +50,85 @@ const workspace = (id: string, name: string) =>
     registeredAt: ago(60 * 24 * 30),
   });
 
-const model = (workspaces: ReadonlyArray<Workspace>): HostModel => ({
+const model = (
+  workspaces: ReadonlyArray<Workspace>,
+  extra: Partial<Pick<HostModel, "sessions" | "reviewCheckouts">> = {}
+): HostModel => ({
   ...emptyHostModel,
   synchronized: true,
   workspaces: new Map(workspaces.map((w) => [w.id, w])),
+  ...extra,
 });
+
+/** R3's "Agent sessions ready": Turns 22–24 of a Claude Code session, not yet accepted. */
+const orchestrator = new AgentSession({
+  id: SessionId.make("s-orchestrator"),
+  workspaceId: WorkspaceId.make("w-polaris"),
+  harness: "claude",
+  title: "Orchestrator layout prototype",
+  cwd: "/Users/lucas/code/polaris",
+  worktreeId: null,
+  state: "idle",
+  permissionMode: "supervised",
+  model: null,
+  effort: null,
+  parentSessionId: null,
+  forkedFromTurnId: null,
+  harnessCursor: null,
+  turnCount: 24,
+  contextUsage: null,
+  lastError: null,
+  acceptedThroughIndex: 20,
+  createdAt: ago(600),
+  updatedAt: ago(12),
+});
+
+const entry: SessionEntry = {
+  session: orchestrator,
+  pendingApprovals: [],
+  lastTurnPreview: null,
+  subagents: [],
+};
+
+/** #88's Review Checkout on the Mac Studio ("checked out"), its summary cached at `h88`. */
+const checkout88 = new ReviewCheckout({
+  id: ReviewCheckoutId.make("c-88"),
+  workspaceId: WorkspaceId.make("w-nj"),
+  subject: Data.taggedEnum<ReviewSubject>().PullRequest({
+    pullRequest: {
+      repo: { host: "github.com", owner: "work-org", name: "nj-homes-choice-next" },
+      number: 88,
+    },
+    baseRef: "main",
+  }),
+  path: "/Users/lucas/code/nj-homes.worktrees/.review/pr-88",
+  state: "ready",
+  blocked: null,
+  head: "h88",
+  mergeBase: "b88",
+  latestHead: "h88",
+  latestBase: "b88",
+  reviewedHead: "h88",
+  reviewedMergeBase: "b88",
+  openedAt: ago(200),
+  updatedAt: ago(100),
+});
+
+export const ORCHESTRATOR_KEY = `session:studio:${orchestrator.id}`;
 
 export const MODELS = {
   local: model([workspace("w-polaris", "polaris")]),
-  studio: model([workspace("w-warehouse", "warehouse"), workspace("w-nj", "nj-homes")]),
+  studio: model(
+    [
+      workspace("w-warehouse", "warehouse"),
+      workspace("w-polaris", "polaris"),
+      workspace("w-nj", "nj-homes"),
+    ],
+    {
+      sessions: new Map([[orchestrator.id, entry]]),
+      reviewCheckouts: new Map([[checkout88.id, checkout88]]),
+    }
+  ),
   "linux-vm": model([
     workspace("w-sightline", "sightline"),
     workspace("w-warehouse-2", "warehouse"),
@@ -199,3 +278,16 @@ export const ACCOUNTS: GitHubAccountsView = {
 export const SIGNED_OUT: GitHubAccountsView = { ...ACCOUNTS, accounts: [] };
 
 export const EMPTY_LIST: PullListView = { ...LIST, requested: [], mine: [], other: [], repos: [] };
+
+/** What the risk lane reads of a summary: a cached one for #88 and the open session's. */
+export const RISK = {
+  pull88: { status: "completed", findings: [{ severity: "high", status: "open" }] },
+  session: { status: "completed", findings: [{ severity: "critical", status: "open" }] },
+  mine212: {
+    status: "completed",
+    findings: [
+      { severity: "low", status: "open" },
+      { severity: "low", status: "open" },
+    ],
+  },
+} as const;

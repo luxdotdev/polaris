@@ -5,7 +5,7 @@
  */
 import { type BrowserWindow, Notification } from "electron";
 import type { AppEvent } from "../../shared/api.ts";
-import type { GitHubAccountsView, PullListView } from "../../shared/github.ts";
+import { type GitHubAccountsView, type PullListView, repoOfRow } from "../../shared/github.ts";
 import {
   emptyReviewState,
   planReviewNotifications,
@@ -41,9 +41,8 @@ declare global {
 
 const pullOf = (content: ReviewNotification) => {
   if (content.pull === null) return null;
-  const [owner = "", name = ""] = content.pull.repo.split("/");
 
-  return { repo: { owner, name }, number: content.pull.number, pullId: content.pull.id };
+  return { repo: repoOfRow(content.pull), number: content.pull.number, pullId: content.pull.id };
 };
 
 export const createReviewNotifier = ({

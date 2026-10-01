@@ -5,7 +5,7 @@
  */
 import type { SessionId } from "@polaris/protocol";
 import type { OpenPull } from "../../../../shared/api.ts";
-import type { PullListView, PullRowView } from "../../../../shared/github.ts";
+import { type PullListView, type PullRowView, repoOfRow } from "../../../../shared/github.ts";
 
 export interface QueuePull {
   readonly kind: "pull";
@@ -55,12 +55,13 @@ export const READY_LIMIT = 5;
 const READY_STATES = new Set(["idle", "dormant"]);
 
 const pullRow = (row: PullRowView): QueuePull => {
-  const [owner = "", name = ""] = row.repo.split("/");
+  const repo = repoOfRow(row);
+  const { name } = repo;
 
   return {
     kind: "pull",
     id: row.id,
-    pull: { repo: { owner, name }, number: row.number, pullId: row.id },
+    pull: { repo, number: row.number, pullId: row.id },
     title: row.title,
     meta: `#${row.number} · ${name} · ${row.author?.login ?? "ghost"}`,
     number: row.number,

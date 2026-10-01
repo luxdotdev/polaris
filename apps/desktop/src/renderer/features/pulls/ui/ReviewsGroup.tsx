@@ -6,7 +6,7 @@ import { useShellActions } from "../../../shell/hooks.ts";
 import { age } from "../../../shell/copy.ts";
 import { useNow } from "../../../shell/useNow.ts";
 import { openPull } from "../../../routes/review.ts";
-import type { PullRowView } from "../../../../shared/github.ts";
+import { type PullRowView, repoOfRow } from "../../../../shared/github.ts";
 import { usePulls } from "../store.ts";
 import { PullGlyph } from "./glyphs.tsx";
 
@@ -17,12 +17,12 @@ export const useRequested = () => usePulls((s) => s.list?.requested ?? EMPTY);
 
 const Card = ({ row, now }: { readonly row: PullRowView; readonly now: number }) => {
   const actions = useShellActions();
-  const [owner = "", name = ""] = row.repo.split("/");
+  const repo = repoOfRow(row);
+  const { name } = repo;
 
-  const open = () =>
-    openPull(actions, { repo: { owner, name }, number: row.number, pullId: row.id });
+  const open = () => openPull(actions, { repo, number: row.number, pullId: row.id });
 
-  const detail = [`#${row.number}`, name, row.author?.login, age(row.updatedAt, now)]
+  const detail = [`#${row.number}`, name, row.author?.login]
     .filter((part) => part !== undefined)
     .join(" · ");
 
@@ -40,7 +40,11 @@ const Card = ({ row, now }: { readonly row: PullRowView; readonly now: number })
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-px">
         <span className="text-label text-text-strong line-clamp-2">{row.title}</span>
-        <span className="text-caption text-text-subtle truncate">{detail}</span>
+        <span className="text-caption text-text-subtle flex min-w-0 gap-1">
+          <span className="truncate">{detail}</span>
+          {/* The age stays when a long repo name truncates. */}
+          <span className="tabular shrink-0">· {age(row.updatedAt, now)}</span>
+        </span>
       </span>
     </button>
   );

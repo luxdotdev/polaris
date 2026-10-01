@@ -32,5 +32,12 @@ export const AccountMark = ({
     style.height = size;
   }
 
-  return <span aria-hidden className={cn("shrink-0 rounded-full", className)} style={style} />;
+  return (
+    <span
+      aria-hidden
+      // Paper R3: the first account round, the next squared, so two read apart without colour.
+      className={cn("shrink-0", index % 2 === 0 ? "rounded-full" : "rounded-[4px]", className)}
+      style={style}
+    />
+  );
 };
