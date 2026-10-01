@@ -64,6 +64,8 @@ interface Choices {
   readonly models: Models;
   readonly permissionMode: PermissionMode;
   readonly placement: PlacementChoice;
+  /** Settings → Sessions: what a branch taken from the prompt starts with. */
+  readonly branchPrefix: string;
   readonly fork: ForkSourceValue | null;
 }
 
@@ -109,7 +111,7 @@ const commandsFor = (
     sessionId,
     workspaceId,
     harness,
-    placement: resolvePlacement(choices.placement, ui.draft, sessionId),
+    placement: resolvePlacement(choices.placement, ui.draft, sessionId, choices.branchPrefix),
     permissionMode: choices.permissionMode,
     model,
     prompt: ui.draft,
@@ -179,7 +181,7 @@ export const NewSessionPage = ({
   const signIn = useSignIn(hostKey);
   const [permissionPick, setPermissionMode] = useState<PermissionMode | null>(null);
   const defaults = useSettings((s) => s.sessionDefaults);
-  const newWorktree = useSettings((s) => s.newWorktree);
+  const prefs = useSettings((s) => s.sessions);
   const [placement, setPlacement] = useState<PlacementChoice | null>(null);
   // Chosen up front so the branch the composer shows is the one the session gets.
   const [sessionId, setSessionId] = useState(newSessionId);
@@ -193,7 +195,7 @@ export const NewSessionPage = ({
   );
 
   if (workspace === undefined) return <Scene className="h-full flex-1" data-testid="new-session" />;
-  const where = placement ?? defaultPlacement(workspace.isGitRepo, newWorktree);
+  const where = placement ?? defaultPlacement(workspace.isGitRepo, prefs.newWorktree);
   // The checked-out branch: a new Worktree with no base picked starts there.
 
   const head =
@@ -230,6 +232,7 @@ export const NewSessionPage = ({
     models: withSavedModels(models, defaults),
     permissionMode,
     placement: where,
+    branchPrefix: prefs.branchPrefix,
     fork,
   };
 
@@ -237,7 +240,7 @@ export const NewSessionPage = ({
   // No Harness chosen (none ready, or still checking): a neutral composer, never @claude.
   const hue: Harness | null = harness ?? option?.kind ?? null;
   const canSubmit = !busy && commandsFor(sessionId, workspaceId, choices, ui) !== null;
-  const shown = resolvePlacement(where, ui.draft, sessionId);
+  const shown = resolvePlacement(where, ui.draft, sessionId, prefs.branchPrefix);
 
   const whereMenu = { host, hostKey, workspaceId, draft: ui.draft };
 

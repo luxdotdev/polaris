@@ -4,6 +4,7 @@ import {
   type Bucket,
   compactTokens,
   costLabel,
+  dayTip,
   pricedEstimate,
   rangeWindow,
   usageSummary,
@@ -129,5 +130,65 @@ describe("usageSummary", () => {
       "640",
       "2.1B",
     ]);
+  });
+
+  test("a day's tooltip: each Model with tokens and cost, then the day's total", () => {
+    const summary = usageSummary({
+      days: 7,
+      now: NOW,
+      estimate: pricedEstimate,
+      buckets: [
+        bucket({
+          hour: "2026-09-30T09:00:00Z",
+          model: "opus-5",
+          tokens: tokens(1_000_000, 200_000),
+          reportedCost: { tokens: tokens(1_000_000, 200_000), usd: 4 },
+        }),
+        bucket({
+          hour: "2026-09-30T10:00:00Z",
+          harness: "codex",
+          model: "gpt-5.5",
+          tokens: tokens(400_000),
+          estimate: { estimatedUsd: 1.25, unpricedTokens: 0 },
+        }),
+        bucket({
+          hour: "2026-09-30T11:00:00Z",
+          model: "mystery",
+          estimate: { estimatedUsd: 0, unpricedTokens: 100 },
+        }),
+        // Another day: not in today's tooltip.
+        bucket({ hour: "2026-09-29T11:00:00Z", model: "sonnet" }),
+      ],
+    });
+
+    const today = dayTip(summary.days.at(-1)!);
+
+    expect(today).toEqual({
+      date: "2026-09-30",
+      rows: [
+        { key: "claude/opus-5", model: "opus-5", harness: "claude", tokens: "1.2M", cost: "$4.00" },
+        {
+          key: "codex/gpt-5.5",
+          model: "gpt-5.5",
+          harness: "codex",
+          tokens: "400K",
+          cost: "~$1.25",
+        },
+        {
+          key: "claude/mystery",
+          model: "mystery",
+          harness: "claude",
+          tokens: "100",
+          cost: "no price",
+        },
+      ],
+      tokens: "1.6M",
+      cost: "~$5.25 + no price",
+    });
+    expect(dayTip(summary.days.at(-2)!).rows.map((r) => r.model)).toEqual(["sonnet"]);
+
+    const idle = dayTip(summary.days[0]!);
+
+    expect([idle.rows, idle.tokens, idle.cost]).toEqual([[], "0", ""]);
   });
 });

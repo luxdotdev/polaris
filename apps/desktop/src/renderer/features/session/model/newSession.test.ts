@@ -108,6 +108,12 @@ describe("new session", () => {
     );
     expect(branchFromPrompt("  ", ID_A)).toBe("polaris/session-3f9a");
     expect(isBranchName(branchFromPrompt("Add ~weird: chars?", ID_A))).toBe(true);
+    // Settings → Sessions' prefix, or none.
+    expect(branchFromPrompt("Fix it", ID_A, "lucas/")).toBe("lucas/fix-it-3f9a");
+    expect(branchFromPrompt("Fix it", ID_A, "")).toBe("fix-it-3f9a");
+    expect(
+      resolvePlacement({ kind: "new-worktree", branch: "", base: null }, "Fix it", ID_A, "pl-")
+    ).toMatchObject({ branch: "pl-fix-it-3f9a" });
   });
 
   test("the same prompt twice never names the same branch", () => {

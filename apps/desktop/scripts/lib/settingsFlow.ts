@@ -1,7 +1,7 @@
 /**
  * Settings in the smoke test: Polaris → Settings… (⌘,) opens it over the
- * session, the theme and density change live and are saved, Harnesses and
- * Usage render, and esc returns to the session.
+ * session, the theme and density change live and are saved, Sessions' switches
+ * and branch prefix are saved, Harnesses and Usage render, and esc returns to the session.
  */
 import type { ElectronApplication, Page } from "playwright-core";
 
@@ -14,6 +14,45 @@ interface SettingsFlowInput {
 
 const attached = (page: Page, selector: string) =>
   page.locator(selector).waitFor({ state: "attached", timeout: 5_000 });
+
+interface SavedSessions {
+  readonly deleteMergedBranch: boolean;
+  readonly branchPrefix: string;
+  readonly newWorktree: boolean;
+}
+
+/** settings.get's `sessions` (SettingsView in src/shared/api.ts). */
+const savedSessions = (page: Page) =>
+  page.evaluate<SavedSessions>(
+    'window.polaris.request("settings.get", {}).then((r) => r.value.sessions)'
+  );
+
+/** Settings → Sessions: a switch and the branch prefix save; an invalid prefix doesn't. Left as found. */
+const sessionsPage = async (
+  page: Page,
+  step: (message: string) => void,
+  shoot: (name: string) => Promise<void>
+) => {
+  await page.getByRole("button", { name: "Sessions" }).click();
+  await page.locator('[data-section="sessions"]').waitFor({ timeout: 5_000 });
+  await page.locator("#delete-merged").click();
+  const prefix = page.locator("#branch-prefix");
+
+  await prefix.fill("a b");
+  await prefix.press("Enter");
+  await prefix.fill("smoke/");
+  await prefix.press("Enter");
+  await page.waitForTimeout(300);
+  const saved = await savedSessions(page);
+
+  if (!saved.deleteMergedBranch || saved.branchPrefix !== "smoke/" || saved.newWorktree)
+    throw new Error(`Settings → Sessions not saved: ${JSON.stringify(saved)}`);
+  step("Sessions: delete merged branches and the branch prefix saved; worktree stays off");
+  await shoot("settings-sessions");
+  await page.locator("#delete-merged").click();
+  await prefix.fill("polaris/");
+  await prefix.press("Enter");
+};
 
 export const settingsFlow = async ({ app, page, step, shoot }: SettingsFlowInput) => {
   await app.evaluate(({ Menu }) => {
@@ -48,7 +87,9 @@ export const settingsFlow = async ({ app, page, step, shoot }: SettingsFlowInput
   await page.getByRole("switch").first().click();
   await attached(page, "html:not([data-diff-palette])");
 
-  await page.getByRole("button", { name: "Harnesses" }).click();
+  await sessionsPage(page, step, shoot);
+
+  await page.getByRole("button", { name: "Harnesses", exact: true }).click();
   await page.getByTestId("harness-group").first().waitFor({ timeout: 5_000 });
   step(`Harnesses: ${await page.getByTestId("harness-group").count()} groups`);
   await shoot("settings-harnesses");

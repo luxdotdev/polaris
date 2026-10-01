@@ -23,6 +23,7 @@ import {
   startClientRuntime,
   whenConnected,
 } from "./hosts.ts";
+import { iconPng, nameApp, showIcon } from "./identity.ts";
 import { registerIpc } from "./ipc/index.ts";
 import { machinesLayer, sshAliasNames } from "./machines/index.ts";
 import { type LocalDaemon, resolveLocalDaemon } from "./localDaemon.ts";
@@ -37,9 +38,11 @@ import {
 } from "./protocol.ts";
 import { openPrices } from "./prices.ts";
 import { openSnapshotCache } from "./snapshotCache.ts";
+import type { SessionPrefsPatch } from "../shared/contract.ts";
 import {
   appearanceOf,
   readSettings,
+  sessionPrefsOf,
   type Settings,
   settingsPath,
   writeSettings,
@@ -56,6 +59,8 @@ const dev = devUrl !== null || env.POLARIS_DESKTOP_DEV === "1";
 const appRoot = join(dirname(fileURLToPath(import.meta.url)), "../..");
 
 const repoRoot = join(appRoot, "../..");
+
+nameApp();
 
 if (env.POLARIS_DESKTOP_USER_DATA !== undefined) {
   app.setPath("userData", env.POLARIS_DESKTOP_USER_DATA);
@@ -88,6 +93,7 @@ const localLabel = (label: string | undefined): { localLabel?: string } =>
   label === undefined || label === "" ? {} : { localLabel: label };
 
 const start = async () => {
+  showIcon({ repoRoot });
   const file = settingsPath(app.getPath("userData"));
   let settings: Settings = readSettings(file);
 
@@ -121,9 +127,11 @@ const start = async () => {
     for (const win of BrowserWindow.getAllWindows()) win.webContents.send(CHANNELS.app, event);
   };
 
-  const setNewWorktree = (on: boolean) => {
-    saveSettings({ newWorktree: on });
-    const event: AppEvent = { kind: "new-worktree", on };
+  const setSessions = (patch: SessionPrefsPatch) => {
+    const { newWorktree: _legacy, ...rest } = settings;
+
+    updateSettings(() => ({ ...rest, sessions: { ...sessionPrefsOf(settings), ...patch } }));
+    const event: AppEvent = { kind: "sessions", sessions: sessionPrefsOf(settings) };
 
     for (const win of BrowserWindow.getAllWindows()) win.webContents.send(CHANNELS.app, event);
   };
@@ -200,7 +208,7 @@ const start = async () => {
       prices: openPrices(app.getPath("userData")),
       setAppearance,
       setSessionDefault,
-      setNewWorktree,
+      setSessions,
       openExternal: (url) => shell.openExternal(url),
       sshHosts: () => sshAliasNames(env),
       setWelcomeSeen: () => saveSettings({ welcomeSeen: true }),
@@ -226,6 +234,7 @@ const start = async () => {
     preload: join(appRoot, "out/preload/index.cjs"),
     trusted,
     show: env.POLARIS_DESKTOP_HIDDEN !== "1",
+    icon: iconPng({ repoRoot }),
   });
 
   // macOS: closing the window hides it, so the star, notifications and badge keep counting.
@@ -241,7 +250,7 @@ const start = async () => {
   needsYou = createNeedsYouCenter({
     window: () => (win.isDestroyed() ? null : win),
     send: (event) => win.webContents.send(CHANNELS.app, event),
-    notify: env.POLARIS_DESKTOP_HIDDEN !== "1",
+    notify: () => env.POLARIS_DESKTOP_HIDDEN !== "1" && sessionPrefsOf(settings).notifyNeedsYou,
   });
 
   // Benchmarks and scripts wait for this line: the window is painted and the local Host is up.

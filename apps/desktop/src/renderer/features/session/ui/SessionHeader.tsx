@@ -36,6 +36,7 @@ import {
   renameCommand,
 } from "../model/intent.ts";
 import { contextLabel } from "../model/meta.ts";
+import { settingsStore } from "../../settings/index.ts";
 
 export interface SessionHeaderProps {
   readonly hostKey: string;
@@ -158,7 +159,7 @@ const SessionMenu = ({
               hostKey,
               archived
                 ? Commands.UnarchiveSession({ sessionId: session.id })
-                : archiveCommand(session.id),
+                : archiveCommand(session.id, settingsStore.getState().sessions.deleteMergedBranch),
               archived ? "Couldn't unarchive" : "Couldn't archive"
             )
           }

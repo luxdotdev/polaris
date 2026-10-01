@@ -6,6 +6,8 @@ The Electron Desktop App (Electron 44, Chromium 152). The main process runs the 
 bun run --cwd apps/desktop dev      # Vite dev server + hot reload; main rebuilt and Electron restarted on change
 bun run --cwd apps/desktop build    # out/{main,preload,renderer} and an unpacked out/Polaris.app (macOS)
 bun run --cwd apps/desktop start    # electron . against the last build
+bun run --cwd apps/desktop package  # out/dist/Polaris-darwin-arm64/Polaris.app (--linux adds Linux x64, --reuse-daemon skips the Daemon build)
+node scripts/packageCheck.ts [--screenshot <png>]   # launch the packaged app against a local Daemon: name, menu, title, Resources, connected
 bun run --cwd apps/desktop smoke    # build, then the end-to-end smoke test (Node; Playwright)
 node scripts/samePrompt.ts [--build] [--screenshots <dir>]   # two sessions, same prompt, one Workspace: in place, then on two new worktrees
 node scripts/budgets.ts [--json <path>] [--markdown <path>]   # the M1 budgets (memory, Workspace switch, frames); CI runs it under Xvfb
@@ -15,6 +17,10 @@ node scripts/sessionScreens.ts --out <dir> [--frames]   # the shell with the ses
 node scripts/needsYouScreens.ts --out <dir>   # the Needs You inbox and hover card on fixtures (#needs-you/<scene>) against Paper 1G2-0 / 1-0
 node scripts/emptyScreens.ts --out <dir> [--build]      # the empty states and the terminal drawer from a fresh Daemon, every theme and density
 ```
+
+**Packaging** (`scripts/package.ts`, `@electron/packager`): builds main and the renderer, builds the Daemon for every platform (`apps/daemon` `build`), stages an app directory holding only `out/{main,preload,renderer}` and a minimal `package.json` (the bundles are self-contained; only `electron` is external), and packages it with appId `dev.lux.polaris`, the developer-tools category, the generated icon (`design/assets/app-icon/Polaris.icns`, from `design/scripts/gen_app_icon.py`), and `extraResource` for `Resources/daemon/` (every Daemon build plus `manifest.json`, which `machines/builds.ts` reads when packaged) and `Resources/icon.png` (the Linux window icon). The app is unsigned: Gatekeeper asks on first open (right-click → Open). The name and icon also apply in dev (`src/main/identity.ts`: `app.setName`, About, the Dock icon), though the Dock's tooltip in dev still reads "Electron" because that name comes from the running binary's Info.plist.
+
+Follow-ups: signing with a Developer ID and notarising (`osxSign`, `osxNotarize`, hardened runtime and entitlements for the JIT), a DMG or zip for download, Linux AppImage/deb (today `--linux` makes an unpacked `Polaris-linux-x64/`), a macOS 26 `.icon` (Icon Composer) beside the `.icns` for the tinted and clear modes, and slimming `Resources/daemon` (about 485 MB for five builds; the packaged app is about 790 MB).
 
 `dev` connects the local Host to `~/.polaris/daemon.sock` when a Daemon answers there; otherwise it starts a dev Daemon from source with its own home and the scripted bench Harness, and keeps it across restarts (ADR 0007). Builds: Vite for the renderer, `Bun.build` for main and preload (ADR 0008).
 

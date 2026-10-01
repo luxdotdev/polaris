@@ -163,7 +163,8 @@ describe("composer commands", () => {
   });
 
   test("archive keeps merged branches; fork carries the Model", () => {
-    expect(archiveCommand(sessionId)).toMatchObject({ deleteMergedBranch: false });
+    expect(archiveCommand(sessionId, false)).toMatchObject({ deleteMergedBranch: false });
+    expect(archiveCommand(sessionId, true)).toMatchObject({ deleteMergedBranch: true });
 
     const fork = {
       sessionId: SessionId.make("s2"),

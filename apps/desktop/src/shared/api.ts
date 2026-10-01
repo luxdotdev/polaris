@@ -41,6 +41,7 @@ import type {
   RequestMethod,
   SubscriptionInput,
   SessionDefault,
+  SessionPrefs,
   SubscriptionKind,
   TextSize,
   ThemeSource,
@@ -55,6 +56,8 @@ export type {
   DiffPalette,
   MotionSource,
   SessionDefault,
+  SessionPrefs,
+  SessionPrefsPatch,
   TextSize,
   RequestInput,
   RequestMethod,
@@ -210,8 +213,8 @@ export type SessionDefaults = Readonly<Record<string, SessionDefault>>;
 
 export interface SettingsView extends Appearance {
   readonly sessionDefaults: SessionDefaults;
-  /** New sessions start on a new Worktree rather than in the Workspace directory. */
-  readonly newWorktree: boolean;
+  /** Settings → Sessions, defaults filled in. */
+  readonly sessions: SessionPrefs;
   /** This build's version, for About Polaris. */
   readonly version: string;
   /** False until the user pressed "Get started" on the welcome. */
@@ -263,7 +266,7 @@ export interface RequestOutputs {
   "settings.setDensity": null;
   "settings.setAppearance": null;
   "settings.setSessionDefault": null;
-  "settings.setNewWorktree": null;
+  "settings.setSessions": null;
   "shell.openExternal": null;
   "host.retryNow": null;
   dispatch: { readonly sequence: number | null };
@@ -358,7 +361,7 @@ export type AppEvent =
   | { readonly kind: "command"; readonly id: CommandId }
   | { readonly kind: "appearance"; readonly appearance: Appearance }
   | { readonly kind: "session-defaults"; readonly sessionDefaults: SessionDefaults }
-  | { readonly kind: "new-worktree"; readonly on: boolean }
+  | { readonly kind: "sessions"; readonly sessions: SessionPrefs }
   /** Dev only (Develop menu): start the bench-Harness proof session on this Host. */
   | { readonly kind: "proof"; readonly hostKey: string }
   /** The menu bar star or a notification: open a waiting session, or answer it. */
