@@ -9,6 +9,8 @@
 
 .cm-inline-card {
   padding: 8px 24px 8px 2px;
+  /* A block widget inherits .cm-content's white-space: pre, so card text would never wrap. */
+  white-space: normal;
 }
 
 /* The selection keeps a Starlight fill at ~11% while the card is open. */

@@ -86,7 +86,7 @@ const Proposed = (props: CardProps & { readonly session: CardSession }) => {
     <>
       {answer ? (
         <p
-          className="border-hairline text-body text-text-default border-t px-3 py-2.5"
+          className="border-hairline text-body text-text-default border-t px-3 py-2.5 break-words whitespace-pre-wrap"
           data-testid="inline-answer"
         >
           {phase.patch.summary}
