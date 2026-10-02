@@ -3,6 +3,7 @@
  * and cycle tabs, save, and tell the Editor which files agents are changing.
  * Tabs persist per Workspace; a file's editor lives while any tab shows it.
  */
+import type { SaveReason } from "../formatting/index.ts";
 import type { HarnessKind } from "@polaris/protocol";
 import {
   closeTab as closeInSet,
@@ -109,7 +110,7 @@ export const answerClose = async (choice: CloseChoice) => {
   loadTab(hostKey, workspaceId, path);
   await whenLoaded(key);
 
-  if (await saveBuffer(key)) closeNow(hostKey, workspaceId, path);
+  if (await saveBuffer(key, "close")) closeNow(hostKey, workspaceId, path);
 };
 
 /** Makes sure the active tab's file has an editor (after a restart, tabs come back first). */
@@ -195,7 +196,8 @@ export const renameFile = async (hostKey: string, from: string, to: string) => {
   }));
 };
 
-export const saveFile = (hostKey: string, path: string) => saveBuffer(fileKey(hostKey, path));
+export const saveFile = (hostKey: string, path: string, reason?: SaveReason) =>
+  saveBuffer(fileKey(hostKey, path), reason);
 
 export const keepMyEdits = (hostKey: string, path: string) => keepMine(fileKey(hostKey, path));
 
