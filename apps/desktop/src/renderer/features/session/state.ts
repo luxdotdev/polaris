@@ -76,3 +76,10 @@ export const patchOutgoing = (
 
 export const dropOutgoing = (key: string, id: string) =>
   patchSessionUi(key, ({ outbox }) => ({ outbox: outbox.filter((e) => e.id !== id) }));
+
+/** Changes a session's composer draft from outside the view (⌘L in the editor adds a source). */
+export const updateDraft = (
+  hostKey: string,
+  sessionId: string,
+  update: (draft: string) => string
+) => patchSessionUi(uiKey(hostKey, sessionId), ({ draft }) => ({ draft: update(draft) }));

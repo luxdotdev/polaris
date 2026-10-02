@@ -20,6 +20,7 @@ import {
   ReviewerSettings,
   ReviewSubject,
   RiskFindingId,
+  InlineRequest,
   RiskSummaryId,
   RiskSummaryRef,
   Sequence,
@@ -429,6 +430,8 @@ export const SubscriptionInputs = {
   "plan-limits": onHost({}),
   /** A Risk Summary as it fills in (`review.watchRiskSummary`): the whole summary on each change. */
   "review.watchRiskSummary": onHost({ summaryId: RiskSummaryId }),
+  /** An inline proposal (`inline.propose`, capability `inline.propose`); closing it cancels. */
+  "inline.propose": onHost(InlineRequest.fields),
   ...GitHubSubscriptionInputs,
   /** One Constellation's stream (`constellation.subscribe`): Snapshot, Synchronized, then events. */
   constellation: Schema.Struct({

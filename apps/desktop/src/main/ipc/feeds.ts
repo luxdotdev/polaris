@@ -70,6 +70,8 @@ const openers: Openers = {
     ),
   "review.watchRiskSummary": ({ hostKey, summaryId }) =>
     onLive(hostKey, (session) => session.client["review.watchRiskSummary"]({ summaryId })),
+  "inline.propose": ({ hostKey, ...request }) =>
+    onLive(hostKey, (session) => session.client["inline.propose"](request)),
   constellation: constellationFeed,
 };
 
