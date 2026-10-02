@@ -9,6 +9,12 @@
     },
     "khroma": {
       "reason": "MIT per its bundled license file (khroma@2.1.0/license); its package.json omits the licence field. Pulled in by mermaid (via @streamdown/mermaid)."
+    },
+    "caniuse-lite": {
+      "reason": "CC-BY-4.0 browser-support data (attribution kept in THIRD_PARTY_NOTICES.md), pulled in by next for apps/site; data, not code, and never shipped in the Desktop App or Daemon."
+    },
+    "@img/sharp-libvips-*": {
+      "reason": "LGPL-3.0-or-later prebuilt libvips, loaded dynamically by sharp (an optional dependency of next) for apps/site's image optimisation; unmodified, never copied into Polaris and never shipped in the Desktop App or Daemon."
     }
   }
 }
