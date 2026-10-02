@@ -23,7 +23,7 @@ import { type ReactNode, useRef, useState } from "react";
 import type { TurnView } from "../../../store/sessionModel.ts";
 import { type DiffRow, diffRows, ROW_HEIGHT } from "../diffRows.ts";
 import { useSession } from "../hooks.ts";
-import { totals } from "../model/diff.ts";
+import { firstChangedLine, totals } from "../model/diff.ts";
 import { plural } from "../model/format.ts";
 import { showTurnDiff, uiKey, useSessionUi } from "../state.ts";
 import { type DiffState, diffRevision, useTurnDiff } from "../turnDiff.ts";
@@ -31,6 +31,7 @@ import { hideOutput } from "../output/actions.ts";
 import { SHOW_HINT } from "../output/OutputRail.tsx";
 import { useFilesTick } from "../output/watch.ts";
 import type { SessionViewProps } from "./SessionIntent.tsx";
+import { EditorPlaceProvider, OpenInEditorButton } from "../../editor-links/index.ts";
 
 const CARD = "mx-4 border-x border-hairline bg-surface-sunken";
 
@@ -49,31 +50,42 @@ const RowView = ({ row, onFold }: { row: DiffRow; onFold: (path: string) => void
   switch (row.kind) {
     case "file":
       return (
-        <button
-          type="button"
-          onClick={() => onFold(row.file.path)}
-          aria-expanded={!row.folded}
+        <div
           className={cn(
             CARD,
-            "rounded-t-row flex h-9 w-[calc(100%-2rem)] cursor-default items-center gap-2.5 border-t px-3 text-left",
+            "rounded-t-row group/file flex h-9 w-[calc(100%-2rem)] items-center border-t pr-1.5",
             row.folded ? "rounded-b-row border-b" : "border-hairline border-b"
           )}
-          data-testid="diff-file"
         >
-          {row.folded ? (
-            <ChevronRightIcon size={12} className="text-text-subtle" />
-          ) : (
-            <ChevronDownIcon size={12} className="text-text-subtle" />
+          <button
+            type="button"
+            onClick={() => onFold(row.file.path)}
+            aria-expanded={!row.folded}
+            className="flex h-full min-w-0 flex-1 cursor-default items-center gap-2.5 px-3 text-left"
+            data-testid="diff-file"
+          >
+            {row.folded ? (
+              <ChevronRightIcon size={12} className="text-text-subtle" />
+            ) : (
+              <ChevronDownIcon size={12} className="text-text-subtle" />
+            )}
+            <span className="text-code-inline text-text-default truncate font-mono">
+              {row.file.oldPath === null ? row.file.path : `${row.file.oldPath} → ${row.file.path}`}
+            </span>
+            <Counts added={row.file.added} removed={row.file.removed} />
+            <span className="flex-1" />
+            {row.file.status === "modified" ? null : (
+              <span className="text-caption text-text-subtle">{row.file.status}</span>
+            )}
+          </button>
+          {row.file.status === "deleted" ? null : (
+            <OpenInEditorButton
+              path={row.file.path}
+              line={firstChangedLine(row.file)}
+              className="opacity-0 group-hover/file:opacity-100 focus-visible:opacity-100"
+            />
           )}
-          <span className="text-code-inline text-text-default truncate font-mono">
-            {row.file.oldPath === null ? row.file.path : `${row.file.oldPath} → ${row.file.path}`}
-          </span>
-          <Counts added={row.file.added} removed={row.file.removed} />
-          <span className="flex-1" />
-          {row.file.status === "modified" ? null : (
-            <span className="text-caption text-text-subtle">{row.file.status}</span>
-          )}
-        </button>
+        </div>
       );
     case "hunk":
       return (
@@ -281,45 +293,54 @@ export const SessionOutput = ({ hostKey, sessionId, tabs }: SessionOutputProps) 
     setFolded(next);
   };
 
+  const place =
+    session === null ? null : { hostKey, root: session.cwd, workspaceId: session.workspaceId };
+
   return (
-    <section
-      aria-label="Output"
-      className="bg-bg flex h-full min-h-0 min-w-0 flex-col"
-      data-testid="session-output"
-    >
-      <div className="border-hairline flex h-11 shrink-0 items-center gap-1 border-b px-3">
-        {tabs ?? (
-          <Button variant="secondary" className="text-text-strong" aria-pressed>
-            Changes
-          </Button>
+    <EditorPlaceProvider value={place}>
+      <section
+        aria-label="Output"
+        className="bg-bg flex h-full min-h-0 min-w-0 flex-col"
+        data-testid="session-output"
+      >
+        <div className="border-hairline flex h-11 shrink-0 items-center gap-1 border-b px-3">
+          {tabs ?? (
+            <Button variant="secondary" className="text-text-strong" aria-pressed>
+              Changes
+            </Button>
+          )}
+          <span className="flex-1" />
+          {current === null ? null : (
+            <TurnMenu
+              turns={model.turns}
+              current={current}
+              onPick={(id) => showTurnDiff(key, id)}
+            />
+          )}
+          {sum === null ? null : (
+            <>
+              <span className="text-caption text-text-subtle tabular">
+                · {plural(sum.files, "file")}
+              </span>
+              <Counts added={sum.added} removed={sum.removed} />
+            </>
+          )}
+          {session === null ? null : (
+            <IconButton
+              size="sm"
+              label="Hide output"
+              shortcut={SHOW_HINT}
+              icon={<ChevronRightIcon size={14} />}
+              onClick={() => hideOutput({ hostKey, workspaceId: session.workspaceId }, sessionId)}
+            />
+          )}
+        </div>
+        {current === null ? (
+          <Empty title="No changes yet" fact="Each turn's diff shows here" />
+        ) : (
+          <Body state={state} folded={folded} onFold={fold} />
         )}
-        <span className="flex-1" />
-        {current === null ? null : (
-          <TurnMenu turns={model.turns} current={current} onPick={(id) => showTurnDiff(key, id)} />
-        )}
-        {sum === null ? null : (
-          <>
-            <span className="text-caption text-text-subtle tabular">
-              · {plural(sum.files, "file")}
-            </span>
-            <Counts added={sum.added} removed={sum.removed} />
-          </>
-        )}
-        {session === null ? null : (
-          <IconButton
-            size="sm"
-            label="Hide output"
-            shortcut={SHOW_HINT}
-            icon={<ChevronRightIcon size={14} />}
-            onClick={() => hideOutput({ hostKey, workspaceId: session.workspaceId }, sessionId)}
-          />
-        )}
-      </div>
-      {current === null ? (
-        <Empty title="No changes yet" fact="Each turn's diff shows here" />
-      ) : (
-        <Body state={state} folded={folded} onFold={fold} />
-      )}
-    </section>
+      </section>
+    </EditorPlaceProvider>
   );
 };

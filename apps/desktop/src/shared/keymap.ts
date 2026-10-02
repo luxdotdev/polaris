@@ -36,6 +36,9 @@ export type CommandId =
   | "workspace.add"
   | "review.nextTab"
   | "review.previousTab"
+  | "editor.findFile"
+  | "editor.inlineChat"
+  | "editor.addToSession"
   | "editor.save"
   | "editor.nextTab"
   | "editor.previousTab";
@@ -51,6 +54,8 @@ export interface KeyBinding {
   readonly inFields?: boolean;
   /** Where the native menu lists it, if anywhere. */
   readonly menu?: MenuName;
+  /** Another command on the same chord; the first enabled one runs, so they must not overlap. */
+  readonly shares?: CommandId;
 }
 
 export const KEYMAP: ReadonlyArray<KeyBinding> = [
@@ -62,6 +67,15 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   { id: "session.next", title: "Next session", keys: ["CmdOrCtrl+Alt+Down"], menu: "Go" },
   { id: "session.previous", title: "Previous session", keys: ["CmdOrCtrl+Alt+Up"], menu: "Go" },
   { id: "session.new", title: "New session", keys: ["CmdOrCtrl+N"], menu: "Session" },
+  { id: "editor.findFile", title: "Go to file…", keys: ["CmdOrCtrl+P"], menu: "Go" },
+  { id: "editor.inlineChat", title: "Edit or ask", keys: ["CmdOrCtrl+I"] },
+  // Only with a selection in Edit; otherwise ⌘L focuses the composer.
+  {
+    id: "editor.addToSession",
+    title: "Add to agent session",
+    keys: ["CmdOrCtrl+L"],
+    shares: "session.focusComposer",
+  },
   {
     id: "session.focusComposer",
     title: "Focus the composer",

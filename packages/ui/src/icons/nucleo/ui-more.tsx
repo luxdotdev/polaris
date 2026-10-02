@@ -614,3 +614,110 @@ export function DotsIcon({ size = 16, strokeWidth = STROKE, ...props }: NucleoIc
     </svg>
   );
 }
+
+/** Nucleo UI outline `CodeEditorOutline18`. */
+export function EditorIcon({ size = 16, strokeWidth = STROKE, ...props }: NucleoIconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 18 18"
+      aria-hidden="true"
+      focusable="false"
+      {...props}
+    >
+      <rect
+        x="1.75"
+        y="2.75"
+        width={14.5}
+        height={12.5}
+        rx="2"
+        ry="2"
+        transform="translate(18 18) rotate(180)"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={strokeWidth}
+      ></rect>
+      <line
+        x1="5.25"
+        y1="2.75"
+        x2="5.25"
+        y2="15.25"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={strokeWidth}
+      ></line>
+      <line
+        x1="10.75"
+        y1="10.25"
+        x2="13.75"
+        y2="10.25"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={strokeWidth}
+      ></line>
+      <line
+        x1="9.25"
+        y1="7.75"
+        x2="12"
+        y2="7.75"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={strokeWidth}
+      ></line>
+      <line
+        x1="9.25"
+        y1="12.75"
+        x2="11.25"
+        y2="12.75"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={strokeWidth}
+      ></line>
+      <line
+        x1="7.75"
+        y1="5.25"
+        x2="9.25"
+        y2="5.25"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={strokeWidth}
+      ></line>
+    </svg>
+  );
+}
+
+/** Nucleo UI outline `ChatBubbleOutline18`. */
+export function ChatIcon({ size = 16, strokeWidth = STROKE, ...props }: NucleoIconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 18 18"
+      aria-hidden="true"
+      focusable="false"
+      {...props}
+    >
+      <path
+        d="M13.75,2.75H4.25c-1.105,0-2,.895-2,2v11.5l3.75-3h7.75c1.105,0,2-.895,2-2V4.75c0-1.105-.895-2-2-2Z"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={strokeWidth}
+      ></path>
+    </svg>
+  );
+}

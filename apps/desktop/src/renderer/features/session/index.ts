@@ -26,3 +26,5 @@ export { useFilesTick } from "./output/watch.ts";
 export { setOutputWidth, useOutputWidth } from "./output/width.ts";
 
 export { SessionChromeContext, type PolarisCardArgs, type SessionChrome } from "./chrome.ts";
+
+export { updateDraft } from "./state.ts";

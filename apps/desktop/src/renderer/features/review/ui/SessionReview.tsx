@@ -76,6 +76,9 @@ export const SessionReview = ({ subject }: { readonly subject: SessionSubject })
       <ReviewBody
         subjectKey={subjectKey(subject)}
         slotProps={slotProps}
+        place={
+          session === null ? null : { hostKey, root: session.cwd, workspaceId: session.workspaceId }
+        }
         diff={diff}
         pullViewed={null}
         mergeBase={null}

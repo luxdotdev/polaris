@@ -19,6 +19,7 @@ import {
   surfaceStore,
   updateSurface,
 } from "../surface.ts";
+import { type EditorPlace, EditorPlaceProvider } from "../../editor-links/index.ts";
 import { CentrePane, setTab, type SessionInfo } from "../overview/index.ts";
 import { DiffPane } from "./DiffPane.tsx";
 import { FileList } from "./FileList.tsx";
@@ -42,6 +43,8 @@ export interface ReviewBodyProps {
   readonly session: SessionInfo | null;
   /** The checkout's merge base, for narrowing Changes to the first commit. */
   readonly mergeBase: string | null;
+  /** Where the diff's paths are on disk (the Review Checkout, the session's cwd), for "Open in editor". */
+  readonly place: EditorPlace | null;
 }
 
 const RiskColumn = ({
@@ -207,7 +210,7 @@ const Ready = ({
   );
 };
 
-export const ReviewBody = (props: ReviewBodyProps) => {
+const Body = (props: ReviewBodyProps) => {
   if (props.diff.kind === "ready") return <Ready {...props} diff={props.diff} />;
 
   const failed: Placeholder | null =
@@ -232,3 +235,9 @@ export const ReviewBody = (props: ReviewBodyProps) => {
     </div>
   );
 };
+
+export const ReviewBody = (props: ReviewBodyProps) => (
+  <EditorPlaceProvider value={props.place}>
+    <Body {...props} />
+  </EditorPlaceProvider>
+);

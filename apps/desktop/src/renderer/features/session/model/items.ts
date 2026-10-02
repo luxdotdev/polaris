@@ -50,6 +50,8 @@ export type ItemView =
       readonly kind: "tool";
       readonly name: string;
       readonly summary: string;
+      /** The file it read or wrote, when its input names one: what opens in the editor. */
+      readonly file: ToolFile | null;
       readonly status: ItemStatus;
     })
   | (Base & {
@@ -88,6 +90,27 @@ export const toolSummary = (input: ToolInput): string => {
   return clip(JSON.stringify(input) ?? "");
 };
 
+export interface ToolFile {
+  readonly path: string;
+  readonly line: number | null;
+}
+
+const FILE_KEYS = ["file_path", "notebook_path"];
+
+/** The file a tool's input names (Claude Code's Read, Edit, Write), with Read's starting line. */
+export const toolFile = (input: ToolInput): ToolFile | null => {
+  if (!Predicate.isObject(input)) return null;
+
+  const path = FILE_KEYS.map((key) =>
+    Predicate.hasProperty(input, key) ? input[key] : undefined
+  ).find(Predicate.isString);
+
+  if (path === undefined || path === "") return null;
+  const offset = Predicate.hasProperty(input, "offset") ? input["offset"] : undefined;
+
+  return { path, line: Predicate.isNumber(offset) && offset >= 1 ? offset : null };
+};
+
 const fromItem = (item: TurnItem, live: boolean): ItemView =>
   Match.value(item).pipe(
     Match.tagsExhaustive({
@@ -123,6 +146,7 @@ const fromItem = (item: TurnItem, live: boolean): ItemView =>
         live,
         name: i.name,
         summary: toolSummary(i.input),
+        file: toolFile(i.input),
         status: i.status,
       }),
       Plan: (i): ItemView => ({

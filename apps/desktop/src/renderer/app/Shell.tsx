@@ -1,5 +1,8 @@
 /** Layout F: title bar, the adaptive top bar, then Input → Intent → Output (ENG-177). */
 import { useEffect } from "react";
+import { FileFinder } from "../features/editor-finder/index.ts";
+import { EditorRequests } from "../features/editor-links/index.ts";
+import { InlineLayers } from "../features/editor-inline/index.ts";
 import { useOnboardingState, Welcome } from "../features/onboarding/index.ts";
 import { EditMode } from "../features/editor/explorer/index.ts";
 import { preloadReview } from "../features/review/index.ts";
@@ -70,6 +73,9 @@ export const Shell = () => {
       <slots.JumpMenu open={jumpOpen} onOpenChange={setJumpOpen} />
       <slots.OpenFolder />
       <ShortcutHelp />
+      <FileFinder />
+      <InlineLayers />
+      <EditorRequests />
     </div>
   );
 };

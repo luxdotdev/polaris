@@ -235,6 +235,7 @@ describe("subscriptions", () => {
         "github.pulls",
         "harness.availability",
         "host",
+        "inline.propose",
         "hosts",
         "machines",
         "plan-limits",

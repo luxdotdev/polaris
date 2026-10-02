@@ -1,17 +1,23 @@
 import { describe, expect, test } from "bun:test";
 import { chordKey, formatChord, isBare, parseChord } from "./chord.ts";
-import { KEYMAP, RESERVED, SHORTCUT_DIGIT_MODIFIERS } from "./keymap.ts";
+import { bindingOf, type CommandId, KEYMAP, RESERVED, SHORTCUT_DIGIT_MODIFIERS } from "./keymap.ts";
 
 const chords = KEYMAP.flatMap((b) =>
   b.keys.map((k) => ({ id: b.id, key: chordKey(parseChord(k)) }))
 );
 
 describe("keymap", () => {
-  test("no two commands share a chord", () => {
-    const seen = new Map<string, string>();
+  test("no two commands share a chord unless one declares it", () => {
+    const seen = new Map<string, CommandId>();
+
+    const declared = (a: CommandId, b: CommandId) =>
+      bindingOf(a)?.shares === b || bindingOf(b)?.shares === a;
 
     for (const { id, key } of chords) {
-      expect(seen.get(key) ?? id).toBe(id);
+      const other = seen.get(key);
+
+      if (other !== undefined && other !== id)
+        expect(`${id} ${other} ${declared(id, other)}`).toBe(`${id} ${other} true`);
       seen.set(key, id);
     }
   });

@@ -31,6 +31,17 @@ export interface DiffFile {
   readonly hunks: ReadonlyArray<DiffHunk>;
 }
 
+/** The first line a file's diff adds or changes, on the new side: where "Open in editor" lands. */
+export const firstChangedLine = (file: DiffFile): number | null => {
+  for (const hunk of file.hunks) {
+    const line = hunk.lines.find((l) => l.kind !== "context" && l.newNumber !== null);
+
+    if (line !== undefined) return line.newNumber;
+  }
+
+  return null;
+};
+
 const HUNK = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/;
 
 const stripPrefix = (path: string) => path.replace(/^[ab]\//, "");

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { TurnItem } from "@polaris/protocol";
-import { completedItemView, liveItemView } from "./items.ts";
+import { completedItemView, liveItemView, toolFile } from "./items.ts";
 
 const startedAt = "2026-09-30T10:00:00.000Z";
 
@@ -30,5 +30,21 @@ describe("item views", () => {
       steps: [{ text: "Run the tests", status: "in-progress", detail: "Running the tests" }],
       explanation: "Tests first.",
     });
+  });
+});
+
+describe("toolFile", () => {
+  test("Read, Edit and Write name a file; Read's offset is its line", () => {
+    expect(toolFile({ file_path: "/a/b.ts", offset: 40, limit: 20 })).toEqual({
+      path: "/a/b.ts",
+      line: 40,
+    });
+    expect(toolFile({ file_path: "/a/b.ts" })).toEqual({ path: "/a/b.ts", line: null });
+  });
+
+  test("a pattern, a command or a folder isn't a file", () => {
+    expect(toolFile({ pattern: "TODO", path: "src" })).toBeNull();
+    expect(toolFile("ls")).toBeNull();
+    expect(toolFile(null)).toBeNull();
   });
 });

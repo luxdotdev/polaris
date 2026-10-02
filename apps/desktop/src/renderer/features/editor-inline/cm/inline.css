@@ -1,0 +1,35 @@
+/* The inline card and its diff in the text (DESIGN.md, Editor; Paper E2). */
+.cm-inline-layer {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 0;
+  height: 0;
+  z-index: 5;
+}
+
+.cm-inline-card {
+  padding: 8px 24px 8px 2px;
+}
+
+/* The selection keeps a Starlight fill at ~11% while the card is open. */
+.cm-line.cm-inline-selected {
+  background-color: color-mix(in srgb, var(--color-starlight) 11%, transparent);
+}
+
+.cm-line.cm-inline-selected.cm-inline-removed,
+.cm-line.cm-inline-removed {
+  background-color: var(--color-diff-removed-bg);
+  box-shadow: inset 2px 0 0 var(--color-diff-removed-text);
+}
+
+.cm-inline-added {
+  font-family: var(--font-mono);
+}
+
+.cm-inline-added-line {
+  padding: 0 2px 0 6px;
+  white-space: pre;
+  color: var(--color-text-default);
+  background-color: var(--color-diff-added-bg);
+  box-shadow: inset 2px 0 0 var(--color-diff-added-text);
+}

@@ -8,6 +8,7 @@ import { CheckIcon, ChevronDownIcon, ChevronRightIcon, cn, SeverityBadge, Tile }
 import { memo } from "react";
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
+import { OpenInEditorButton } from "../../editor-links/index.ts";
 import type { DividerRow } from "../model/layout.ts";
 import type { MarkSeverity } from "../model/marks.ts";
 import type { PatchFileStatus } from "../model/patch.ts";
@@ -123,7 +124,7 @@ const Header = ({ id }: { readonly id: string }) => {
         data-collapsed={row.collapsed ? "" : undefined}
         onClick={() => actions?.toggle(id)}
         className={cn(
-          "border-hairline bg-surface-raised flex h-10 cursor-default items-center gap-row-x border px-3",
+          "border-hairline bg-surface-raised group/header flex h-10 cursor-default items-center gap-row-x border px-3",
           row.collapsed ? "rounded-row" : "rounded-t-row border-b-hairline"
         )}
       >
@@ -160,6 +161,12 @@ const Header = ({ id }: { readonly id: string }) => {
           </span>
         )}
         {row.severity !== null && <SeverityBadge severity={row.severity} />}
+        {row.status !== "deleted" && (
+          <OpenInEditorButton
+            path={row.path}
+            className="opacity-0 group-hover/header:opacity-100 focus-visible:opacity-100"
+          />
+        )}
         <span aria-hidden="true" className="bg-hairline h-4 w-px shrink-0" />
         <Viewed id={id} viewed={row.viewed} />
       </div>

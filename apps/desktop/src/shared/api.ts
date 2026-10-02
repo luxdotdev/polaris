@@ -37,6 +37,7 @@ import type {
   HostResourcesSnapshot,
   ConstellationStreamItem,
   PlanLimit,
+  InlineStreamItem,
   RiskSummary,
   RunRiskSummary,
   RunWalkthrough,
@@ -450,6 +451,7 @@ export interface SubscriptionItems extends GitHubSubscriptionItems {
   "harness.availability": Plain<HostHarnesses>;
   "plan-limits": Plain<PlanLimit>;
   "review.watchRiskSummary": RiskSummary;
+  "inline.propose": InlineStreamItem;
   constellation: ConstellationStreamItem;
 }
 
