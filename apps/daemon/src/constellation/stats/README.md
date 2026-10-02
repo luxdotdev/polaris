@@ -47,8 +47,12 @@ use their current price cache. Indexing and remote Usage are explicitly partial.
 
 This Host cannot supply remote workers' Session/lease/Usage streams; Clients
 must join their Hosts' Usage. Missing legacy slot facts and missing Session
-history return null durations, not invented zeroes. Stale duration is null with
-a coverage reason until L journals stale/fresh Constellation facts. An idle
+history return null durations, not invented zeroes. Stale duration folds owner
+`AttemptStale`/`AttemptFresh` facts by Attempt ID using `event.at`, including remote
+workers. Open intervals advance on view and close at the Attempt's terminal end,
+including its review phase. Replaying the journal restores open intervals after
+restart. Zero means no recorded stale interval; a coverage reason makes clear that
+unobserved or pre-journal offline intervals cannot be reconstructed. An idle
 Constellation never wakes this service. No telemetry log or analytics service
 is introduced.
 

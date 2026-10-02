@@ -9,6 +9,7 @@ import type { UsageResponses } from "../../usage/responses.ts";
 import { attributeUsage, completedAt, digestStats } from "./attribution.ts";
 import { reviewStats } from "./review.ts";
 import { leaseWaits, sumTimes, workerTimes } from "./timing.ts";
+import { staleTransitions } from "./stale.ts";
 
 export interface StatsHistory {
   readonly graph: Constellation;
@@ -27,6 +28,7 @@ export const deriveStats = (
 ): ConstellationStats => {
   const { graph, events } = history;
   const waits = leaseWaits(history.leases, asOf);
+  const stale = staleTransitions(events);
 
   const attempts = graph.attempts.map((attempt) => ({
     attemptId: attempt.id,
@@ -37,6 +39,7 @@ export const deriveStats = (
       graphEvents: events,
       sessionEvents: history.sessions.get(attempt.sessionId) ?? [],
       waits,
+      stale,
       now: asOf,
       local: attempt.hostId === graph.hostId,
     }),
@@ -47,7 +50,7 @@ export const deriveStats = (
       metric: "workers.staleMs",
       attemptId: null,
       reason:
-        "Offline intervals are not recorded yet; L stale/fresh Constellation events will unlock this metric.",
+        "Stale time counts owner-journaled observations; unobserved or pre-journal offline intervals cannot be reconstructed.",
     },
   ];
 

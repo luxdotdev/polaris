@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { CommandId, DomainEvent, SessionId, UsageReport } from "@polaris/protocol";
-import { Effect, Layer, Predicate, Stream } from "effect";
+import { Effect, Layer, ManagedRuntime, Predicate, Stream } from "effect";
 import { CID } from "../../engine/constellation.testing.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { UsageIndex } from "../../usage/index.ts";
@@ -104,6 +104,45 @@ test("views reuse history, refresh Usage independently, enforce authority, and w
         yield* stats.get({ kind: "user" }, CID);
         expect(graphReads).toBe(2);
         expect(filteredReads).toBe(8);
+        const record = (yield* store.model).constellations.get(CID)!;
+        const attempt = record.graph.attempts[1]!;
+        const at = new Date(Date.now() - 2000).toISOString();
+        yield* store.commit({
+          commandId: CommandId.make("stats-stale"),
+          decide: () =>
+            Effect.succeed([
+              DomainEvent.cases.AttemptStale.make({
+                constellationId: CID,
+                revision: record.graph.revision,
+                attemptId: attempt.id,
+                hostId: attempt.hostId,
+                at,
+              }),
+            ]),
+        });
+        const stale = yield* stats.get({ kind: "user" }, CID);
+        expect(stale.revision).toBe(record.graph.revision);
+        expect(stale.workers.attempts[1]?.times.staleMs).toBe(
+          Date.parse(stale.asOf) - Date.parse(at)
+        );
+        expect(graphReads).toBe(3);
+        const freshAt = new Date().toISOString();
+        yield* store.commit({
+          commandId: CommandId.make("stats-fresh"),
+          decide: () =>
+            Effect.succeed([
+              DomainEvent.cases.AttemptFresh.make({
+                constellationId: CID,
+                revision: record.graph.revision,
+                attemptId: attempt.id,
+                at: freshAt,
+              }),
+            ]),
+        });
+        const fresh = yield* stats.get({ kind: "user" }, CID);
+        expect(fresh.revision).toBe(record.graph.revision);
+        expect(fresh.workers.attempts[1]?.times.staleMs).toBe(Date.parse(freshAt) - Date.parse(at));
+        expect(graphReads).toBe(4);
       }).pipe(Effect.provide(layer))
     );
   } finally {
@@ -141,4 +180,71 @@ test("SQL event-type filtering preserves sequence cuts and empty selection reads
       ).toEqual([]);
     }).pipe(Effect.provide(EventStore.layerSqlite(":memory:")))
   );
+});
+
+test("a fresh Stats service after restart reconstructs the open owner stale interval", async () => {
+  const home = mkdtempSync("/tmp/polaris-stats-stale-restart-");
+
+  const layer = ConstellationStatsService.layer.pipe(
+    Layer.provideMerge(EventStore.layerSqlite(join(home, "state.sqlite"))),
+    Layer.provide(
+      Layer.succeed(UsageIndex)(
+        UsageIndex.of({
+          refresh: () => Effect.void,
+          query: () =>
+            Effect.succeed(UsageReport.make({ buckets: [], indexedAt: null, indexing: false })),
+          responses: () => Effect.succeed({ responses: [], indexedAt: null, indexing: false }),
+          changes: Stream.empty,
+          planLimits: Effect.succeed([]),
+        })
+      )
+    )
+  );
+
+  let runtime = ManagedRuntime.make(layer);
+  const at = new Date(Date.now() - 1000).toISOString();
+
+  try {
+    await runtime.runPromise(
+      Effect.gen(function* () {
+        yield* seedStats;
+        const store = yield* EventStore;
+        const record = (yield* store.model).constellations.get(CID)!;
+        const attempt = record.graph.attempts[1]!;
+        yield* store.commit({
+          commandId: CommandId.make("restart-stale"),
+          decide: () =>
+            Effect.succeed([
+              DomainEvent.cases.AttemptStale.make({
+                constellationId: CID,
+                revision: record.graph.revision,
+                attemptId: attempt.id,
+                hostId: attempt.hostId,
+                at,
+              }),
+            ]),
+        });
+      })
+    );
+
+    const before = await runtime.runPromise(
+      Effect.flatMap(ConstellationStatsService, (stats) => stats.get({ kind: "user" }, CID))
+    );
+
+    await runtime.dispose();
+    runtime = ManagedRuntime.make(layer);
+
+    const after = await runtime.runPromise(
+      Effect.flatMap(ConstellationStatsService, (stats) => stats.get({ kind: "user" }, CID))
+    );
+
+    expect(after.revision).toBe(before.revision);
+    expect(after.workers.attempts[1]?.times.staleMs).toBe(Date.parse(after.asOf) - Date.parse(at));
+    expect(after.workers.attempts[1]?.times.staleMs).toBeGreaterThanOrEqual(
+      before.workers.attempts[1]!.times.staleMs!
+    );
+  } finally {
+    await runtime.dispose();
+    rmSync(home, { recursive: true, force: true });
+  }
 });
