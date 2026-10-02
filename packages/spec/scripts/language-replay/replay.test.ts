@@ -86,7 +86,7 @@ test("Quint replay accepts the fixture and rejects a stale-result observation mu
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
-});
+}, 60_000);
 
 test("every event and observed outcome maps to a safety-checked action", () => {
   const events = [

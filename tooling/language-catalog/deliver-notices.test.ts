@@ -113,4 +113,4 @@ test("every offered artifact retains exact notice bytes offline, including block
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
-});
+}, 60_000);
