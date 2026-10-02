@@ -33,7 +33,7 @@ const selectTwoLines = async (page: Page) => {
   await page.keyboard.press("Shift+ArrowDown");
 };
 
-const fromTranscript = async (options: EditorLinksFlowOptions): Promise<() => void> => {
+const fromTranscript = async (options: EditorLinksFlowOptions): Promise<() => Promise<void>> => {
   const { page, step } = options;
   const row = page.getByTestId("file-change").locator("> div").first();
   const path = ((await row.locator("span.flex-1").first().textContent()) ?? "").trim();
@@ -65,8 +65,16 @@ const fromTranscript = async (options: EditorLinksFlowOptions): Promise<() => vo
   await waitForTab(page, path.split("/").at(-1) ?? path);
   step(`editor: ${path} opened from its transcript row`);
 
-  return () => {
-    if (made) rmSync(onDisk);
+  // Closes its tab first: a file deleted under an open tab stays as unsaved, and quitting asks.
+  return async () => {
+    if (!made) return;
+    await page.keyboard.press("Meta+3");
+    await page.locator(`[data-testid="editor-tab"][title$="${path}"]`).click({ button: "middle" });
+    await page
+      .locator(`[data-testid="editor-tab"][title$="${path}"]`)
+      .waitFor({ state: "detached", timeout: 5_000 });
+    rmSync(onDisk);
+    await page.keyboard.press("Meta+1");
   };
 };
 
@@ -135,6 +143,10 @@ const inlineEdit = async ({ page, step, shoot }: EditorLinksFlowOptions) => {
     `editor: ⌘I on the bench Harness proposed a patch (${thought}); Accept put it in the buffer, unsaved`
   );
   await page.keyboard.press("Meta+Z");
+  await page
+    .locator('[data-testid="editor-tab"][data-dirty]')
+    .waitFor({ state: "detached", timeout: 5_000 });
+  step("editor: ⌘Z undid it; no unsaved files left");
 };
 
 export const editorLinksFlow = async (options: EditorLinksFlowOptions) => {
@@ -146,6 +158,6 @@ export const editorLinksFlow = async (options: EditorLinksFlowOptions) => {
     await inlineEdit(options);
     await options.page.keyboard.press("Meta+1");
   } finally {
-    cleanUp();
+    await cleanUp();
   }
 };
