@@ -1,0 +1,31 @@
+/*******************************************************************************
+ * Copyright (c) 2000, 2025 IBM Corporation and others.
+ *
+ * This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *     Tom Tromey - patch for readTable(String) as described in http://bugs.eclipse.org/bugs/show_bug.cgi?id=32196
+ *     Stephan Herrmann - Contributions for
+ *								bug 366003 - CCE in ASTNode.resolveAnnotations(ASTNode.java:639)
+ *								bug 374605 - Unreasonable warning for enum-based switch statements
+ *								bug 393719 - [compiler] inconsistent warnings on iteration variables
+ *								bug 382353 - [1.8][compiler] Implementation property modifiers should be accepted on default methods.
+ *								bug 383973 - [1.8][compiler] syntax recovery in the presence of default methods
+ *								bug 401035 - [1.8] A few tests have started failing recently
+ *     Jesper S Moller - Contributions for
+ *							bug 382701 - [1.8][compiler] Implement semantic analysis of Lambda expressions & Reference expression
+ *							bug 399695 - [1.8][compiler] [1.8][compiler] migrate parser to other syntax for default methods
+ *							bug 384567 - [1.5][compiler] Compiler accepts illegal modifiers on package declaration
+ *							bug 393192 - Incomplete type hierarchy with > 10 annotations
+ *							bug 527554 - [18.3] Compiler support for JEP 286 Local-Variable Type
+ *        Andy Clement - Contributions for
+ *                          Bug 383624 - [1.8][compiler] Revive code generation support for type annotations (from Olivier's work)
+ *                          Bug 409250 - [1.8][compiler] Various loose ends in 308 code generation
+ *                          Bug 415821 - [1.8][compiler] CLASS_EXTENDS target type annotation missing for anonymous classes
+ *******************************************************************************/

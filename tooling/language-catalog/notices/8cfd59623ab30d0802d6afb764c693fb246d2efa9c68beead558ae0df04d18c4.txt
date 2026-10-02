@@ -1,0 +1,30 @@
+/*******************************************************************************
+ * Copyright (c) 2000, 2026 IBM Corporation and others.
+ *
+ * This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *     Benjamin Muskalla - Contribution for bug 239066
+ *     Stephan Herrmann  - Contributions for
+ *     							bug 236385 - [compiler] Warn for potential programming problem if an object is created but not used
+ *     							bug 295551 - Add option to automatically promote all warnings to errors
+ *     							bug 349326 - [1.7] new warning for missing try-with-resources
+ *								bug 186342 - [compiler][null] Using annotations for null checking
+ *								bug 370639 - [compiler][resource] restore the default for resource leak warnings
+ *								bug 366063 - Compiler should not add synthetic @NonNull annotations
+ *								bug 374605 - Unreasonable warning for enum-based switch statements
+ *								bug 388281 - [compiler][null] inheritance of null annotations as an option
+ *								bug 381443 - [compiler][null] Allow parameter widening from @NonNull to unannotated
+ *								bug 383368 - [compiler][null] syntactic null analysis for field references
+ *								Bug 435805 - [1.8][compiler][null] Java 8 compiler does not recognize declaration style null annotations
+ *								Bug 410218 - Optional warning for arguments of "unexpected" types to Map#get(Object), Collection#remove(Object) et al.
+ *     Jesper Steen Moller - Contributions for
+ *								bug 404146 - [1.7][compiler] nested try-catch-finally-blocks leads to unrunnable Java byte code
+ *								bug 407297 - [1.8][compiler] Control generation of parameter names by option
+ *******************************************************************************/

@@ -6,10 +6,51 @@
     {
       "path": "notices/3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986.txt",
       "integrity": "sha256:3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    {
+      "path": "notices/2c7c5d22ed5a8ee968c64757710979afcd77438c48b4a265b94e615babd8a901.txt",
+      "integrity": "sha256:2c7c5d22ed5a8ee968c64757710979afcd77438c48b4a265b94e615babd8a901"
+    },
+    {
+      "path": "notices/de4d1f2d2ad5ad0cfd1657a106476b31cb5db5ef9d1ff842b237c0c81f0c8a23.txt",
+      "integrity": "sha256:de4d1f2d2ad5ad0cfd1657a106476b31cb5db5ef9d1ff842b237c0c81f0c8a23"
+    },
+    {
+      "path": "notices/2f5210cf9b14b9ec487e683a418f188400ff5a703b9fbc6385244fc81dacf92e.txt",
+      "integrity": "sha256:2f5210cf9b14b9ec487e683a418f188400ff5a703b9fbc6385244fc81dacf92e"
+    },
+    {
+      "path": "notices/eadae35c91bea32ea1cbd38c6d10f287110988b066c14a4ccb01e9843fd13f40.txt",
+      "integrity": "sha256:eadae35c91bea32ea1cbd38c6d10f287110988b066c14a4ccb01e9843fd13f40"
+    },
+    {
+      "path": "notices/d14cf4e3946ff28eb8d4d9249f9d06797602b7cd69b27591325ba46448edc08e.txt",
+      "integrity": "sha256:d14cf4e3946ff28eb8d4d9249f9d06797602b7cd69b27591325ba46448edc08e"
+    },
+    {
+      "path": "notices/6386f2799cd3850d307894c0181a8f31b3e2a98315f666aa2f77a0ac632ce302.txt",
+      "integrity": "sha256:6386f2799cd3850d307894c0181a8f31b3e2a98315f666aa2f77a0ac632ce302"
+    },
+    {
+      "path": "notices/1054c22d48b1d9247d2c2c25bd7a0257901c375794b080079296630bf02dfdc3.txt",
+      "integrity": "sha256:1054c22d48b1d9247d2c2c25bd7a0257901c375794b080079296630bf02dfdc3"
+    },
+    {
+      "path": "notices/9c8b084d42833f7b8b9af241d480bf3dba3fd971bac00c075584ee24711cefa5.txt",
+      "integrity": "sha256:9c8b084d42833f7b8b9af241d480bf3dba3fd971bac00c075584ee24711cefa5"
+    },
+    {
+      "path": "notices/dc8a5cdb419aeed2c67e4fcd75f943b235fe8ce4bfdb7f20bb029d26631b7c29.txt",
+      "integrity": "sha256:dc8a5cdb419aeed2c67e4fcd75f943b235fe8ce4bfdb7f20bb029d26631b7c29"
+    },
+    {
+      "path": "notices/957fe555939df882f6fa7a0870483802ce728af10bde08e27a581c6650c39dd5.txt",
+      "integrity": "sha256:957fe555939df882f6fa7a0870483802ce728af10bde08e27a581c6650c39dd5"
     }
   ],
   "findings": [
-    "Release-specific bundled notice/dependency audit required; see external-audits.json"
+    "Published binaries lack verified exact compiler/dependency/runtime corresponding-source closure.",
+    "No authorized existing GHC/Cabal toolchain fixture; proposed source-build solver/build/runtime closure remains unverified."
   ],
   "bundleIntegrity": null,
   "supplements": [
@@ -27,6 +68,34 @@
     {
       "path": "external-audits.json",
       "integrity": "sha256:cf2c9d7a7386a0e5818d5451d2cc0b185e90b0b9c01c6539c881111b5d4627ea"
+    },
+    {
+      "path": "native-source-closure.json",
+      "integrity": "sha256:1fd76242f3bf639baedcd7568f70a80dd5a06b3520c901d9f140aab30de0f218"
+    },
+    {
+      "path": "native-linkage.json",
+      "integrity": "sha256:78756ec6aab3bfa4e82d8660ff53eeda044ea391912d0b68585442631d5e1a4a"
+    },
+    {
+      "path": "build-provenance.json",
+      "integrity": "sha256:51be78e9cae9890996983132e46dc49139d4385c50e08fa8247c43f40f387a39"
+    },
+    {
+      "path": "shellcheck-prerequisites.json",
+      "integrity": "sha256:0f88929b2a665697759d0782b985ff71b76679fe055cb7039d0422de1ad43c9e"
+    },
+    {
+      "path": "shellcheck-source-build.md",
+      "integrity": "sha256:5b518afe66414626eb3145a7dedd8b0fff6f8e33f622f7e8f5e9cdc7df30cfaa"
+    },
+    {
+      "path": "closure-plan.json",
+      "integrity": "sha256:a61abd31b8fda9766b634fa5276ec3e121d10ba9943a2efcd2a586a881edc8da"
+    },
+    {
+      "path": "review-records.json",
+      "integrity": "sha256:84878260fa5e3d66a0c73c80e5484fc839e778798dd558cced84d3949c26321b"
     }
   ]
 }

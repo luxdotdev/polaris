@@ -1,0 +1,150 @@
+[
+  {
+    "name": "box-requirement-checker",
+    "source": {
+      "url": "https://codeload.github.com/humbug/box/tar.gz/4.4.0",
+      "sha256": "c1236f0c9e6bee6d91654c841a875c921df10ffdb385affd879d97b5d51809e3",
+      "bytes": 3602647,
+      "notices": [
+        {
+          "path": "box-4.4.0/LICENSE",
+          "sha256": "ba2dfc30b9659262549c839894838d9a1fe78ca533d0338cebc2f4f634b3bb12"
+        },
+        {
+          "path": "box-4.4.0/fixtures/configuration/dir001/vendor/beberlei/assert/LICENSE",
+          "sha256": "dab5aa6afdc1a40d8fa52433c59827df3bad81fc69653284feda8da06c3ebb1b"
+        },
+        {
+          "path": "box-4.4.0/fixtures/configuration/dir001/vendor/composer/LICENSE",
+          "sha256": "c8cce4b6b9729f264ffdf9296d505d63432497feeed1f586d1902b942197e024"
+        },
+        {
+          "path": "box-4.4.0/fixtures/configuration/dir002/vendor/beberlei/assert/LICENSE",
+          "sha256": "dab5aa6afdc1a40d8fa52433c59827df3bad81fc69653284feda8da06c3ebb1b"
+        },
+        {
+          "path": "box-4.4.0/fixtures/configuration/dir003/vendor/beberlei/assert/LICENSE",
+          "sha256": "dab5aa6afdc1a40d8fa52433c59827df3bad81fc69653284feda8da06c3ebb1b"
+        },
+        {
+          "path": "box-4.4.0/fixtures/configuration/dir003/vendor/beberlei/composer/LICENSE",
+          "sha256": "c8cce4b6b9729f264ffdf9296d505d63432497feeed1f586d1902b942197e024"
+        },
+        {
+          "path": "box-4.4.0/fixtures/configuration/dir003/vendor/composer/LICENSE",
+          "sha256": "c8cce4b6b9729f264ffdf9296d505d63432497feeed1f586d1902b942197e024"
+        },
+        {
+          "path": "box-4.4.0/fixtures/configuration/dir004/vendor/beberlei/assert/LICENSE",
+          "sha256": "dab5aa6afdc1a40d8fa52433c59827df3bad81fc69653284feda8da06c3ebb1b"
+        },
+        {
+          "path": "box-4.4.0/fixtures/configuration/dir004/vendor/beberlei/composer/LICENSE",
+          "sha256": "c8cce4b6b9729f264ffdf9296d505d63432497feeed1f586d1902b942197e024"
+        },
+        {
+          "path": "box-4.4.0/fixtures/configuration/dir004/vendor/composer/LICENSE",
+          "sha256": "c8cce4b6b9729f264ffdf9296d505d63432497feeed1f586d1902b942197e024"
+        },
+        {
+          "path": "box-4.4.0/requirement-checker/fixtures/fail-complete/vendor/composer/LICENSE",
+          "sha256": "c8cce4b6b9729f264ffdf9296d505d63432497feeed1f586d1902b942197e024"
+        },
+        {
+          "path": "box-4.4.0/requirement-checker/fixtures/fail-conflict/vendor/composer/LICENSE",
+          "sha256": "c8cce4b6b9729f264ffdf9296d505d63432497feeed1f586d1902b942197e024"
+        },
+        {
+          "path": "box-4.4.0/res/requirement-checker/vendor/composer/LICENSE",
+          "sha256": "c8cce4b6b9729f264ffdf9296d505d63432497feeed1f586d1902b942197e024"
+        },
+        {
+          "path": "box-4.4.0/res/requirement-checker/vendor/composer/semver/LICENSE",
+          "sha256": "6bb16991cf366c84116c5f6a4d5078f7113ebc47d1f245ea9b57b8c10abd7479"
+        }
+      ]
+    }
+  },
+  {
+    "name": "box-semver",
+    "source": {
+      "url": "https://codeload.github.com/composer/semver/tar.gz/35e8d0af4486141bc745f23a29cc2091eb624a32",
+      "sha256": "d51aea39bd2cf7a4303ab6729c3cf7e6e332093a4bc5b29fa313c650df9f5bf5",
+      "bytes": 20719,
+      "notices": [
+        {
+          "path": "semver-35e8d0af4486141bc745f23a29cc2091eb624a32/LICENSE",
+          "sha256": "6bb16991cf366c84116c5f6a4d5078f7113ebc47d1f245ea9b57b8c10abd7479"
+        }
+      ]
+    }
+  },
+  {
+    "name": "box-release-build-input",
+    "releaseUrl": "https://github.com/box-project/box/releases/download/4.5.0/box.phar",
+    "releaseSha256": "afb834f00239d65b2327face19aa0cd3101b91add0d3768eae542d7c6f50328e",
+    "source": {
+      "url": "https://codeload.github.com/box-project/box/tar.gz/4.5.0",
+      "sha256": "3acb23ed9127d26452b8f311f6094d1b9b15d9d83f80ff3e8b16932b8200b875",
+      "bytes": 5049814,
+      "notices": [
+        {
+          "path": "box-4.5.0/LICENSE",
+          "sha256": "ba2dfc30b9659262549c839894838d9a1fe78ca533d0338cebc2f4f634b3bb12"
+        },
+        {
+          "path": "box-4.5.0/fixtures/configuration/dir001/vendor/beberlei/assert/LICENSE",
+          "sha256": "dab5aa6afdc1a40d8fa52433c59827df3bad81fc69653284feda8da06c3ebb1b"
+        },
+        {
+          "path": "box-4.5.0/fixtures/configuration/dir001/vendor/composer/LICENSE",
+          "sha256": "c8cce4b6b9729f264ffdf9296d505d63432497feeed1f586d1902b942197e024"
+        },
+        {
+          "path": "box-4.5.0/fixtures/configuration/dir002/vendor/beberlei/assert/LICENSE",
+          "sha256": "dab5aa6afdc1a40d8fa52433c59827df3bad81fc69653284feda8da06c3ebb1b"
+        },
+        {
+          "path": "box-4.5.0/fixtures/configuration/dir003/vendor/beberlei/assert/LICENSE",
+          "sha256": "dab5aa6afdc1a40d8fa52433c59827df3bad81fc69653284feda8da06c3ebb1b"
+        },
+        {
+          "path": "box-4.5.0/fixtures/configuration/dir003/vendor/beberlei/composer/LICENSE",
+          "sha256": "c8cce4b6b9729f264ffdf9296d505d63432497feeed1f586d1902b942197e024"
+        },
+        {
+          "path": "box-4.5.0/fixtures/configuration/dir003/vendor/composer/LICENSE",
+          "sha256": "c8cce4b6b9729f264ffdf9296d505d63432497feeed1f586d1902b942197e024"
+        },
+        {
+          "path": "box-4.5.0/fixtures/configuration/dir004/vendor/beberlei/assert/LICENSE",
+          "sha256": "dab5aa6afdc1a40d8fa52433c59827df3bad81fc69653284feda8da06c3ebb1b"
+        },
+        {
+          "path": "box-4.5.0/fixtures/configuration/dir004/vendor/beberlei/composer/LICENSE",
+          "sha256": "c8cce4b6b9729f264ffdf9296d505d63432497feeed1f586d1902b942197e024"
+        },
+        {
+          "path": "box-4.5.0/fixtures/configuration/dir004/vendor/composer/LICENSE",
+          "sha256": "c8cce4b6b9729f264ffdf9296d505d63432497feeed1f586d1902b942197e024"
+        },
+        {
+          "path": "box-4.5.0/requirement-checker/fixtures/fail-complete/vendor/composer/LICENSE",
+          "sha256": "c8cce4b6b9729f264ffdf9296d505d63432497feeed1f586d1902b942197e024"
+        },
+        {
+          "path": "box-4.5.0/requirement-checker/fixtures/fail-conflict/vendor/composer/LICENSE",
+          "sha256": "c8cce4b6b9729f264ffdf9296d505d63432497feeed1f586d1902b942197e024"
+        },
+        {
+          "path": "box-4.5.0/res/requirement-checker/vendor/composer/LICENSE",
+          "sha256": "c8cce4b6b9729f264ffdf9296d505d63432497feeed1f586d1902b942197e024"
+        },
+        {
+          "path": "box-4.5.0/res/requirement-checker/vendor/composer/semver/LICENSE",
+          "sha256": "6bb16991cf366c84116c5f6a4d5078f7113ebc47d1f245ea9b57b8c10abd7479"
+        }
+      ]
+    }
+  }
+]

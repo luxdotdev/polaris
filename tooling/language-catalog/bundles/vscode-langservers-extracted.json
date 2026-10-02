@@ -383,7 +383,12 @@
       "license": "MIT",
       "integrity": "sha512-KYSIHVmslkaCDyw013pphY+d7x1qV8IZupYfeIfzNA+nsaWHbn5uPuQRvdRFsa9zFzGeudPuoGoZ1Op4jrJXIQ==",
       "url": "https://registry.npmjs.org/@vscode/l10n/-/l10n-0.0.18.tgz",
-      "notices": [],
+      "notices": [
+        {
+          "path": "upstream/LICENSE",
+          "sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+        }
+      ],
       "verifiedBytes": 4548,
       "location": "node_modules/@vscode/l10n"
     },
@@ -393,7 +398,12 @@
       "license": "ISC",
       "integrity": "sha512-JZOSA7Mo9sNGB8+UjSgzdLtokWAky1zbztM3WRLCbZ70/3cTANmQmOdR7y2g+J0e2WXywy1yS468tY+IruqEww==",
       "url": "https://registry.npmjs.org/boolbase/-/boolbase-1.0.0.tgz",
-      "notices": [],
+      "notices": [
+        {
+          "path": "upstream/LICENSE",
+          "sha256": "cdf4d87ae0a6c160227263bf4e39a0a10e30e89ae7256e0f7ac7bde0836552c6"
+        }
+      ],
       "verifiedBytes": 851,
       "location": "node_modules/boolbase"
     },

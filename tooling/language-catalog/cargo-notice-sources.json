@@ -1,0 +1,3643 @@
+[
+  {
+    "name": "anes",
+    "version": "0.1.6",
+    "crateSha256": "4b46cbb362ab8752921c97e041f5e366ee6297bd428a31275b9fcf1e380f7299",
+    "license": "MIT OR Apache-2.0",
+    "repository": "https://github.com/zrzka/anes-rs",
+    "vcs": {
+      "git": {
+        "sha1": "378ac7461ecac29fde9e10df7b08359d1315a9ad"
+      }
+    },
+    "source": {
+      "url": "https://codeload.github.com/zrzka/anes-rs/tar.gz/378ac7461ecac29fde9e10df7b08359d1315a9ad",
+      "sha256": "c3a8e5a84822e2bf5c1f392b972dbe9c8cb3f2fed4d69e1942e585987671e721",
+      "bytes": 30057,
+      "notices": [
+        {
+          "path": "anes-rs-378ac7461ecac29fde9e10df7b08359d1315a9ad/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "anes-rs-378ac7461ecac29fde9e10df7b08359d1315a9ad/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    }
+  },
+  {
+    "name": "block2",
+    "version": "0.6.2",
+    "crateSha256": "cdeb9d870516001442e364c5220d3574d2da8dc765554b4a617230d33fa58ef5",
+    "license": "MIT",
+    "repository": "https://github.com/madsmtm/objc2",
+    "vcs": {
+      "git": {
+        "sha1": "b4167b582b2f75f9a1be75495c41b765344fd03c"
+      },
+      "path_in_vcs": "crates/block2"
+    },
+    "source": {
+      "url": "https://codeload.github.com/madsmtm/objc2/tar.gz/b4167b582b2f75f9a1be75495c41b765344fd03c",
+      "sha256": "5a1d3a8562cc03f3675b6a27234eb70dbd2189bd307af218e23b4023f0e01c46",
+      "bytes": 1209698,
+      "notices": [
+        {
+          "path": "objc2-b4167b582b2f75f9a1be75495c41b765344fd03c/LICENSE.md",
+          "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54"
+        },
+        {
+          "path": "objc2-b4167b582b2f75f9a1be75495c41b765344fd03c/framework-crates/objc2-foundation/src/copying.rs",
+          "sha256": "259b22f571b54fed25f68ec5abd8eda223e7b0547a806f13ba797a0eabecd64f"
+        },
+        {
+          "path": "objc2-b4167b582b2f75f9a1be75495c41b765344fd03c/framework-crates/objc2-foundation/src/tests/copying.rs",
+          "sha256": "23d608079a47693a26dfc8a5cb01894ad0136a50714d46221d9380aa4a4b4423"
+        }
+      ]
+    }
+  },
+  {
+    "name": "codspeed-criterion-compat",
+    "version": "5.0.1",
+    "crateSha256": "d9f24251445188c69d50f10179d795424bd71b533b7e3f84fc03f26893b01af0",
+    "license": "MIT OR Apache-2.0",
+    "repository": "https://github.com/CodSpeedHQ/codspeed-rust",
+    "vcs": {
+      "git": {
+        "sha1": "69f74b65cb10ddf68e381ccafdaa300c2e8969da"
+      },
+      "path_in_vcs": "crates/criterion_compat"
+    },
+    "source": {
+      "url": "https://codeload.github.com/CodSpeedHQ/codspeed-rust/tar.gz/69f74b65cb10ddf68e381ccafdaa300c2e8969da",
+      "sha256": "92be2b36ec886d6ef638be4096d7644ed486f9773c7ce3a5a4b93741415e839e",
+      "bytes": 992945,
+      "notices": [
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/LICENSE-APACHE",
+          "sha256": "97882764198c718e6bcccf6a776e8c4db5af31782d6f0b409803c737d5e92a46"
+        },
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/LICENSE-MIT",
+          "sha256": "8bdf389981158ed3e82ec001461023c14a91b802e964caaba3e1f5e82f3097fc"
+        },
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/crates/criterion_compat/criterion_fork/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/crates/criterion_compat/criterion_fork/LICENSE-MIT",
+          "sha256": "4594f18866be94a3ce309ed8f94d92699f5b87739b76e1216addca75f5253fa7"
+        },
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/crates/criterion_compat/criterion_fork/macro/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/crates/criterion_compat/criterion_fork/macro/LICENSE-MIT",
+          "sha256": "c9ed2cdc5e2123ca8cababbb95f264da29d8b749273bd88c4cd4301c55ddd508"
+        },
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/crates/divan_compat/divan_fork/LICENSE-APACHE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/crates/divan_compat/divan_fork/LICENSE-MIT",
+          "sha256": "800734f42bcd1562252e1afdd469ca92df546f98617a9fc6580c9b2af0d70eb7"
+        },
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/crates/divan_compat/divan_fork/macros/LICENSE-APACHE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/crates/divan_compat/divan_fork/macros/LICENSE-MIT",
+          "sha256": "800734f42bcd1562252e1afdd469ca92df546f98617a9fc6580c9b2af0d70eb7"
+        }
+      ]
+    }
+  },
+  {
+    "name": "codspeed-divan-compat",
+    "version": "5.0.1",
+    "crateSha256": "bc1065d507e1cbab731a7976db4cef7e47e49b87b4dbc0a925df07d343558420",
+    "license": "MIT OR Apache-2.0",
+    "repository": "https://github.com/CodSpeedHQ/codspeed-rust",
+    "vcs": {
+      "git": {
+        "sha1": "69f74b65cb10ddf68e381ccafdaa300c2e8969da"
+      },
+      "path_in_vcs": "crates/divan_compat"
+    },
+    "source": {
+      "url": "https://codeload.github.com/CodSpeedHQ/codspeed-rust/tar.gz/69f74b65cb10ddf68e381ccafdaa300c2e8969da",
+      "sha256": "92be2b36ec886d6ef638be4096d7644ed486f9773c7ce3a5a4b93741415e839e",
+      "bytes": 992945,
+      "notices": [
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/LICENSE-APACHE",
+          "sha256": "97882764198c718e6bcccf6a776e8c4db5af31782d6f0b409803c737d5e92a46"
+        },
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/LICENSE-MIT",
+          "sha256": "8bdf389981158ed3e82ec001461023c14a91b802e964caaba3e1f5e82f3097fc"
+        },
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/crates/criterion_compat/criterion_fork/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/crates/criterion_compat/criterion_fork/LICENSE-MIT",
+          "sha256": "4594f18866be94a3ce309ed8f94d92699f5b87739b76e1216addca75f5253fa7"
+        },
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/crates/criterion_compat/criterion_fork/macro/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/crates/criterion_compat/criterion_fork/macro/LICENSE-MIT",
+          "sha256": "c9ed2cdc5e2123ca8cababbb95f264da29d8b749273bd88c4cd4301c55ddd508"
+        },
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/crates/divan_compat/divan_fork/LICENSE-APACHE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/crates/divan_compat/divan_fork/LICENSE-MIT",
+          "sha256": "800734f42bcd1562252e1afdd469ca92df546f98617a9fc6580c9b2af0d70eb7"
+        },
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/crates/divan_compat/divan_fork/macros/LICENSE-APACHE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/crates/divan_compat/divan_fork/macros/LICENSE-MIT",
+          "sha256": "800734f42bcd1562252e1afdd469ca92df546f98617a9fc6580c9b2af0d70eb7"
+        }
+      ]
+    }
+  },
+  {
+    "name": "codspeed-divan-compat-macros",
+    "version": "5.0.1",
+    "crateSha256": "2fd05482a95823ffe421e8a9ba24fa22a6a30d594e2c60455cbb43a41bf2d8fa",
+    "license": "MIT OR Apache-2.0",
+    "repository": "https://github.com/CodSpeedHQ/codspeed-rust",
+    "vcs": {
+      "git": {
+        "sha1": "69f74b65cb10ddf68e381ccafdaa300c2e8969da"
+      },
+      "path_in_vcs": "crates/divan_compat/macros"
+    },
+    "source": {
+      "url": "https://codeload.github.com/CodSpeedHQ/codspeed-rust/tar.gz/69f74b65cb10ddf68e381ccafdaa300c2e8969da",
+      "sha256": "92be2b36ec886d6ef638be4096d7644ed486f9773c7ce3a5a4b93741415e839e",
+      "bytes": 992945,
+      "notices": [
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/LICENSE-APACHE",
+          "sha256": "97882764198c718e6bcccf6a776e8c4db5af31782d6f0b409803c737d5e92a46"
+        },
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/LICENSE-MIT",
+          "sha256": "8bdf389981158ed3e82ec001461023c14a91b802e964caaba3e1f5e82f3097fc"
+        },
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/crates/criterion_compat/criterion_fork/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/crates/criterion_compat/criterion_fork/LICENSE-MIT",
+          "sha256": "4594f18866be94a3ce309ed8f94d92699f5b87739b76e1216addca75f5253fa7"
+        },
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/crates/criterion_compat/criterion_fork/macro/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/crates/criterion_compat/criterion_fork/macro/LICENSE-MIT",
+          "sha256": "c9ed2cdc5e2123ca8cababbb95f264da29d8b749273bd88c4cd4301c55ddd508"
+        },
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/crates/divan_compat/divan_fork/LICENSE-APACHE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/crates/divan_compat/divan_fork/LICENSE-MIT",
+          "sha256": "800734f42bcd1562252e1afdd469ca92df546f98617a9fc6580c9b2af0d70eb7"
+        },
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/crates/divan_compat/divan_fork/macros/LICENSE-APACHE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "codspeed-rust-69f74b65cb10ddf68e381ccafdaa300c2e8969da/crates/divan_compat/divan_fork/macros/LICENSE-MIT",
+          "sha256": "800734f42bcd1562252e1afdd469ca92df546f98617a9fc6580c9b2af0d70eb7"
+        }
+      ]
+    }
+  },
+  {
+    "name": "collection_literals",
+    "version": "1.0.2",
+    "crateSha256": "26b3f65b8fb8e88ba339f7d23a390fe1b0896217da05e2a66c584c9b29a91df8",
+    "license": "MIT",
+    "repository": "https://github.com/staedoix/collection_literals",
+    "vcs": {
+      "git": {
+        "sha1": "5c5e88a5cfbf5603123187039c4382366d46edd1"
+      },
+      "path_in_vcs": ""
+    },
+    "source": {
+      "url": "https://codeload.github.com/staedoix/collection_literals/tar.gz/5c5e88a5cfbf5603123187039c4382366d46edd1",
+      "sha256": "f913be60786a4b43f962df62d03bd8238fef35018542aa2f264da8e90d171a56",
+      "bytes": 7858,
+      "notices": []
+    }
+  },
+  {
+    "name": "defmt-parser",
+    "version": "1.0.0",
+    "crateSha256": "10d60334b3b2e7c9d91ef8150abfb6fa4c1c39ebbcf4a81c2e346aad939fee3e",
+    "license": "MIT OR Apache-2.0",
+    "repository": "https://github.com/knurling-rs/defmt",
+    "vcs": {
+      "git": {
+        "sha1": "4a8cdb44891ed57b8ff5a023b6bec7137c48708f"
+      },
+      "path_in_vcs": "parser"
+    },
+    "source": {
+      "url": "https://codeload.github.com/knurling-rs/defmt/tar.gz/4a8cdb44891ed57b8ff5a023b6bec7137c48708f",
+      "sha256": "0e5f4244d6418305ed6fc363c86c7e1e2effa72744cc14605384b69e69479bfc",
+      "bytes": 560161,
+      "notices": [
+        {
+          "path": "defmt-4a8cdb44891ed57b8ff5a023b6bec7137c48708f/LICENSE-APACHE",
+          "sha256": "8173d5c29b4f956d532781d2b86e4e30f83e6b7878dce18c919451d6ba707c90"
+        },
+        {
+          "path": "defmt-4a8cdb44891ed57b8ff5a023b6bec7137c48708f/LICENSE-MIT",
+          "sha256": "2710a622a896bba67356913d4d0492cab5465f61b2ecce6d880aeb483834fb50"
+        }
+      ]
+    }
+  },
+  {
+    "name": "difflib",
+    "version": "0.4.0",
+    "crateSha256": "6184e33543162437515c2e2b48714794e37845ec9851711914eec9d308f6ebe8",
+    "license": "MIT",
+    "repository": "https://github.com/DimaKudosh/difflib",
+    "vcs": {},
+    "missingEvidence": ["No immutable source commit in crate metadata"]
+  },
+  {
+    "name": "dispatch2",
+    "version": "0.3.0",
+    "crateSha256": "89a09f22a6c6069a18470eb92d2298acf25463f14256d24778e1230d789a2aec",
+    "license": "Zlib OR Apache-2.0 OR MIT",
+    "repository": "https://github.com/madsmtm/objc2",
+    "vcs": {
+      "git": {
+        "sha1": "e68410e22a2d29d5f37a0b4c1b7e8e194808eade"
+      },
+      "path_in_vcs": "crates/dispatch2"
+    },
+    "source": {
+      "url": "https://codeload.github.com/madsmtm/objc2/tar.gz/e68410e22a2d29d5f37a0b4c1b7e8e194808eade",
+      "sha256": "25f59b1ae53d49d8f1b03379d95c6bcfb5328408bda86c130ab0722e80429a58",
+      "bytes": 1205237,
+      "notices": [
+        {
+          "path": "objc2-e68410e22a2d29d5f37a0b4c1b7e8e194808eade/LICENSE.md",
+          "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54"
+        },
+        {
+          "path": "objc2-e68410e22a2d29d5f37a0b4c1b7e8e194808eade/framework-crates/objc2-foundation/src/copying.rs",
+          "sha256": "259b22f571b54fed25f68ec5abd8eda223e7b0547a806f13ba797a0eabecd64f"
+        },
+        {
+          "path": "objc2-e68410e22a2d29d5f37a0b4c1b7e8e194808eade/framework-crates/objc2-foundation/src/tests/copying.rs",
+          "sha256": "23d608079a47693a26dfc8a5cb01894ad0136a50714d46221d9380aa4a4b4423"
+        }
+      ]
+    }
+  },
+  {
+    "name": "objc2",
+    "version": "0.6.3",
+    "crateSha256": "b7c2599ce0ec54857b29ce62166b0ed9b4f6f1a70ccc9a71165b6154caca8c05",
+    "license": "MIT",
+    "repository": "https://github.com/madsmtm/objc2",
+    "vcs": {
+      "git": {
+        "sha1": "b4167b582b2f75f9a1be75495c41b765344fd03c"
+      },
+      "path_in_vcs": "crates/objc2"
+    },
+    "source": {
+      "url": "https://codeload.github.com/madsmtm/objc2/tar.gz/b4167b582b2f75f9a1be75495c41b765344fd03c",
+      "sha256": "5a1d3a8562cc03f3675b6a27234eb70dbd2189bd307af218e23b4023f0e01c46",
+      "bytes": 1209698,
+      "notices": [
+        {
+          "path": "objc2-b4167b582b2f75f9a1be75495c41b765344fd03c/LICENSE.md",
+          "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54"
+        },
+        {
+          "path": "objc2-b4167b582b2f75f9a1be75495c41b765344fd03c/framework-crates/objc2-foundation/src/copying.rs",
+          "sha256": "259b22f571b54fed25f68ec5abd8eda223e7b0547a806f13ba797a0eabecd64f"
+        },
+        {
+          "path": "objc2-b4167b582b2f75f9a1be75495c41b765344fd03c/framework-crates/objc2-foundation/src/tests/copying.rs",
+          "sha256": "23d608079a47693a26dfc8a5cb01894ad0136a50714d46221d9380aa4a4b4423"
+        }
+      ]
+    }
+  },
+  {
+    "name": "objc2-encode",
+    "version": "4.1.0",
+    "crateSha256": "ef25abbcd74fb2609453eb695bd2f860d389e457f67dc17cafc8b8cbc89d0c33",
+    "license": "MIT",
+    "repository": "https://github.com/madsmtm/objc2",
+    "vcs": {
+      "git": {
+        "sha1": "8d214f5477365ffcbcbb7de058c86ed9a518efb7"
+      },
+      "path_in_vcs": "crates/objc2-encode"
+    },
+    "source": {
+      "url": "https://codeload.github.com/madsmtm/objc2/tar.gz/8d214f5477365ffcbcbb7de058c86ed9a518efb7",
+      "sha256": "c58f920fbc97c7f21b3af0f89d713188384ff012fd4cdfa2b6242e2952bf1a7d",
+      "bytes": 1058350,
+      "notices": [
+        {
+          "path": "objc2-8d214f5477365ffcbcbb7de058c86ed9a518efb7/LICENSE.md",
+          "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54"
+        },
+        {
+          "path": "objc2-8d214f5477365ffcbcbb7de058c86ed9a518efb7/framework-crates/objc2-foundation/src/copying.rs",
+          "sha256": "52b5b494fa3293c925dbc0caedd793d76296d4396eb76584ae3ac67c0a15c086"
+        },
+        {
+          "path": "objc2-8d214f5477365ffcbcbb7de058c86ed9a518efb7/framework-crates/objc2-foundation/src/tests/copying.rs",
+          "sha256": "23d608079a47693a26dfc8a5cb01894ad0136a50714d46221d9380aa4a4b4423"
+        }
+      ]
+    }
+  },
+  {
+    "name": "quote-use",
+    "version": "0.8.4",
+    "crateSha256": "9619db1197b497a36178cfc736dc96b271fe918875fbf1344c436a7e93d0321e",
+    "license": "MIT",
+    "repository": "https://github.com/ModProg/quote-use",
+    "vcs": {
+      "git": {
+        "sha1": "05096f346f8b17fba8a57a235b958917ad9d99e0"
+      },
+      "path_in_vcs": ""
+    },
+    "source": {
+      "url": "https://codeload.github.com/ModProg/quote-use/tar.gz/05096f346f8b17fba8a57a235b958917ad9d99e0",
+      "sha256": "2439d99d06c85df01aace8febfacf0364cfdd051dc96c04874fa461dd3b81714",
+      "bytes": 8652,
+      "notices": []
+    }
+  },
+  {
+    "name": "quote-use-macros",
+    "version": "0.8.4",
+    "crateSha256": "82ebfb7faafadc06a7ab141a6f67bcfb24cb8beb158c6fe933f2f035afa99f35",
+    "license": "MIT",
+    "repository": "https://github.com/ModProg/quote-use",
+    "vcs": {
+      "git": {
+        "sha1": "05096f346f8b17fba8a57a235b958917ad9d99e0"
+      },
+      "path_in_vcs": "quote-use-macros"
+    },
+    "source": {
+      "url": "https://codeload.github.com/ModProg/quote-use/tar.gz/05096f346f8b17fba8a57a235b958917ad9d99e0",
+      "sha256": "2439d99d06c85df01aace8febfacf0364cfdd051dc96c04874fa461dd3b81714",
+      "bytes": 8652,
+      "notices": []
+    }
+  },
+  {
+    "name": "r-efi",
+    "version": "5.3.0",
+    "crateSha256": "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f",
+    "license": "MIT OR Apache-2.0 OR LGPL-2.1-or-later",
+    "repository": "https://github.com/r-efi/r-efi",
+    "vcs": {
+      "git": {
+        "sha1": "97b55bed1c2c91dcbf787674849f05337ff80b33"
+      },
+      "path_in_vcs": ""
+    },
+    "source": {
+      "url": "https://codeload.github.com/r-efi/r-efi/tar.gz/97b55bed1c2c91dcbf787674849f05337ff80b33",
+      "sha256": "e509e16b12d3ce3d5cb74167c3f72d25406e282795af8942818c70bb8cd36bec",
+      "bytes": 64913,
+      "notices": [
+        {
+          "path": "r-efi-97b55bed1c2c91dcbf787674849f05337ff80b33/AUTHORS",
+          "sha256": "ff92bed461f50338dd703a9ba9aee496a425957873df1d91192776e4bdf5dda7"
+        }
+      ]
+    }
+  },
+  {
+    "name": "r-efi",
+    "version": "6.0.0",
+    "crateSha256": "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf",
+    "license": "MIT OR Apache-2.0 OR LGPL-2.1-or-later",
+    "repository": "https://github.com/r-efi/r-efi",
+    "vcs": {
+      "git": {
+        "sha1": "7e1b0322d31d625f81a5656096330934f9cd835d"
+      },
+      "path_in_vcs": ""
+    },
+    "source": {
+      "url": "https://codeload.github.com/r-efi/r-efi/tar.gz/7e1b0322d31d625f81a5656096330934f9cd835d",
+      "sha256": "c4c0ce4a68412706de70ba2b5711e0f521aee82f6e72fdc1a6e0a7a89dc017cf",
+      "bytes": 65426,
+      "notices": [
+        {
+          "path": "r-efi-7e1b0322d31d625f81a5656096330934f9cd835d/AUTHORS",
+          "sha256": "d027e91dbc9cdbb2f1190068e498bd6b61cff022b6a032b191021ba658d96111"
+        }
+      ]
+    }
+  },
+  {
+    "name": "seahash",
+    "version": "4.1.0",
+    "crateSha256": "1c107b6f4780854c8b126e228ea8869f4d7b71260f962fefb57b996b8959ba6b",
+    "license": "MIT",
+    "repository": "https://gitlab.redox-os.org/redox-os/seahash",
+    "vcs": {
+      "git": {
+        "sha1": "94b632aeac099031c373599313d5b5f0acbbaec0"
+      }
+    },
+    "missingEvidence": ["No immutable source commit in crate metadata"]
+  },
+  {
+    "name": "valuable",
+    "version": "0.1.1",
+    "crateSha256": "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65",
+    "license": "MIT",
+    "repository": "https://github.com/tokio-rs/valuable",
+    "vcs": {
+      "git": {
+        "sha1": "9efc29b6e58cef28f6566a47aa7e142a55fead77"
+      },
+      "path_in_vcs": "valuable"
+    },
+    "source": {
+      "url": "https://codeload.github.com/tokio-rs/valuable/tar.gz/9efc29b6e58cef28f6566a47aa7e142a55fead77",
+      "sha256": "3414d7860b88c946b1ac6136bb2b9cc3055a16a2bd243d1caac2b23723e937e0",
+      "bytes": 48869,
+      "notices": [
+        {
+          "path": "valuable-9efc29b6e58cef28f6566a47aa7e142a55fead77/LICENSE",
+          "sha256": "ed60d479b8fd1f64e9cbc3de449a16a53ac1b3d1b6aeb9bf9d190a8e93061b44"
+        }
+      ]
+    }
+  },
+  {
+    "name": "version-ranges",
+    "version": "0.1.1",
+    "crateSha256": "f8d079415ceb2be83fc355adbadafe401307d5c309c7e6ade6638e6f9f42f42d",
+    "license": "MPL-2.0",
+    "repository": "https://github.com/pubgrub-rs/pubgrub",
+    "vcs": {
+      "git": {
+        "sha1": "51d38dd22078b1dca05bb595f74ee5262e60c46f"
+      },
+      "path_in_vcs": "version-ranges"
+    },
+    "source": {
+      "url": "https://codeload.github.com/pubgrub-rs/pubgrub/tar.gz/51d38dd22078b1dca05bb595f74ee5262e60c46f",
+      "sha256": "abec1d16f60c486bf9ef378e942824afded0d9c66f8c3717a51b3fcbc87cc509",
+      "bytes": 93067,
+      "notices": [
+        {
+          "path": "pubgrub-51d38dd22078b1dca05bb595f74ee5262e60c46f/LICENSE",
+          "sha256": "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5"
+        }
+      ]
+    }
+  },
+  {
+    "name": "wasip2",
+    "version": "1.0.1+wasi-0.2.4",
+    "crateSha256": "0562428422c63773dad2c345a1882263bbf4d65cf3f42e90921f787ef5ad58e7",
+    "license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+    "repository": "https://github.com/bytecodealliance/wasi-rs",
+    "vcs": {
+      "git": {
+        "sha1": "3da562c06214feafc14d37bf290671636caa6718"
+      },
+      "path_in_vcs": "crates/wasip2"
+    },
+    "source": {
+      "url": "https://codeload.github.com/bytecodealliance/wasi-rs/tar.gz/3da562c06214feafc14d37bf290671636caa6718",
+      "sha256": "8c7425b921e256889438dd8b636aa61fa5e65998edb55b401f2bd288e53ad15e",
+      "bytes": 297115,
+      "notices": [
+        {
+          "path": "wasi-rs-3da562c06214feafc14d37bf290671636caa6718/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "wasi-rs-3da562c06214feafc14d37bf290671636caa6718/LICENSE-Apache-2.0_WITH_LLVM-exception",
+          "sha256": "268872b9816f90fd8e85db5a28d33f8150ebb8dd016653fb39ef1f94f2686bc5"
+        },
+        {
+          "path": "wasi-rs-3da562c06214feafc14d37bf290671636caa6718/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    }
+  },
+  {
+    "name": "wasip3",
+    "version": "0.4.0+wasi-0.3.0-rc-2026-01-06",
+    "crateSha256": "5428f8bf88ea5ddc08faddef2ac4a67e390b88186c703ce6dbd955e1c145aca5",
+    "license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+    "repository": "https://github.com/bytecodealliance/wasi-rs",
+    "vcs": {
+      "git": {
+        "sha1": "06ce201370fcde0d1b0d47cac8ecb1b0b312c9f9"
+      },
+      "path_in_vcs": "crates/wasip3"
+    },
+    "source": {
+      "url": "https://codeload.github.com/bytecodealliance/wasi-rs/tar.gz/06ce201370fcde0d1b0d47cac8ecb1b0b312c9f9",
+      "sha256": "42a0104ccf907a01e841e79e54f99a8e3d09205a5bd3f0bcebccde5ff1da53ff",
+      "bytes": 304299,
+      "notices": [
+        {
+          "path": "wasi-rs-06ce201370fcde0d1b0d47cac8ecb1b0b312c9f9/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "wasi-rs-06ce201370fcde0d1b0d47cac8ecb1b0b312c9f9/LICENSE-Apache-2.0_WITH_LLVM-exception",
+          "sha256": "268872b9816f90fd8e85db5a28d33f8150ebb8dd016653fb39ef1f94f2686bc5"
+        },
+        {
+          "path": "wasi-rs-06ce201370fcde0d1b0d47cac8ecb1b0b312c9f9/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    }
+  },
+  {
+    "name": "wasm-encoder",
+    "version": "0.244.0",
+    "crateSha256": "990065f2fe63003fe337b932cfb5e3b80e0b4d0f5ff650e6985b1048f62c8319",
+    "license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+    "repository": "https://github.com/bytecodealliance/wasm-tools/tree/main/crates/wasm-encoder",
+    "vcs": {
+      "git": {
+        "sha1": "d4e317f22c3bace76cb3205003bcc34b4929037d"
+      },
+      "path_in_vcs": "crates/wasm-encoder"
+    },
+    "source": {
+      "url": "https://codeload.github.com/bytecodealliance/wasm-tools/tar.gz/d4e317f22c3bace76cb3205003bcc34b4929037d",
+      "sha256": "efe9f9afb0393754ffbbb5c047f8c394781509e37ac46f2a88e6b11066ed9cf2",
+      "bytes": 5602200,
+      "notices": [
+        {
+          "path": "wasm-tools-d4e317f22c3bace76cb3205003bcc34b4929037d/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "wasm-tools-d4e317f22c3bace76cb3205003bcc34b4929037d/LICENSE-Apache-2.0_WITH_LLVM-exception",
+          "sha256": "268872b9816f90fd8e85db5a28d33f8150ebb8dd016653fb39ef1f94f2686bc5"
+        },
+        {
+          "path": "wasm-tools-d4e317f22c3bace76cb3205003bcc34b4929037d/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "wasm-tools-d4e317f22c3bace76cb3205003bcc34b4929037d/crates/wasm-metadata/src/oci_annotations/authors.rs",
+          "sha256": "241d116ecc7ec20e3c67cb8e9edb00ef98feab4af4a87f4f00b1f21bc3e8d1f2"
+        }
+      ]
+    }
+  },
+  {
+    "name": "wasmparser",
+    "version": "0.244.0",
+    "crateSha256": "47b807c72e1bac69382b3a6fb3dbe8ea4c0ed87ff5629b8685ae6b9a611028fe",
+    "license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+    "repository": "https://github.com/bytecodealliance/wasm-tools/tree/main/crates/wasmparser",
+    "vcs": {
+      "git": {
+        "sha1": "d4e317f22c3bace76cb3205003bcc34b4929037d"
+      },
+      "path_in_vcs": "crates/wasmparser"
+    },
+    "source": {
+      "url": "https://codeload.github.com/bytecodealliance/wasm-tools/tar.gz/d4e317f22c3bace76cb3205003bcc34b4929037d",
+      "sha256": "efe9f9afb0393754ffbbb5c047f8c394781509e37ac46f2a88e6b11066ed9cf2",
+      "bytes": 5602200,
+      "notices": [
+        {
+          "path": "wasm-tools-d4e317f22c3bace76cb3205003bcc34b4929037d/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "wasm-tools-d4e317f22c3bace76cb3205003bcc34b4929037d/LICENSE-Apache-2.0_WITH_LLVM-exception",
+          "sha256": "268872b9816f90fd8e85db5a28d33f8150ebb8dd016653fb39ef1f94f2686bc5"
+        },
+        {
+          "path": "wasm-tools-d4e317f22c3bace76cb3205003bcc34b4929037d/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "wasm-tools-d4e317f22c3bace76cb3205003bcc34b4929037d/crates/wasm-metadata/src/oci_annotations/authors.rs",
+          "sha256": "241d116ecc7ec20e3c67cb8e9edb00ef98feab4af4a87f4f00b1f21bc3e8d1f2"
+        }
+      ]
+    }
+  },
+  {
+    "name": "winapi-i686-pc-windows-gnu",
+    "version": "0.4.0",
+    "crateSha256": "ac3b87c63620426dd9b991e5ce0329eff545bccbbb34f3be09ff6fb6ab51b7b6",
+    "license": "MIT/Apache-2.0",
+    "repository": "https://github.com/retep998/winapi-rs",
+    "vcs": {},
+    "missingEvidence": ["No immutable source commit in crate metadata"]
+  },
+  {
+    "name": "winapi-x86_64-pc-windows-gnu",
+    "version": "0.4.0",
+    "crateSha256": "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f",
+    "license": "MIT/Apache-2.0",
+    "repository": "https://github.com/retep998/winapi-rs",
+    "vcs": {},
+    "missingEvidence": ["No immutable source commit in crate metadata"]
+  },
+  {
+    "name": "wit-component",
+    "version": "0.244.0",
+    "crateSha256": "9d66ea20e9553b30172b5e831994e35fbde2d165325bec84fc43dbf6f4eb9cb2",
+    "license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+    "repository": "https://github.com/bytecodealliance/wasm-tools/tree/main/crates/wit-component",
+    "vcs": {
+      "git": {
+        "sha1": "d4e317f22c3bace76cb3205003bcc34b4929037d"
+      },
+      "path_in_vcs": "crates/wit-component"
+    },
+    "source": {
+      "url": "https://codeload.github.com/bytecodealliance/wasm-tools/tar.gz/d4e317f22c3bace76cb3205003bcc34b4929037d",
+      "sha256": "efe9f9afb0393754ffbbb5c047f8c394781509e37ac46f2a88e6b11066ed9cf2",
+      "bytes": 5602200,
+      "notices": [
+        {
+          "path": "wasm-tools-d4e317f22c3bace76cb3205003bcc34b4929037d/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "wasm-tools-d4e317f22c3bace76cb3205003bcc34b4929037d/LICENSE-Apache-2.0_WITH_LLVM-exception",
+          "sha256": "268872b9816f90fd8e85db5a28d33f8150ebb8dd016653fb39ef1f94f2686bc5"
+        },
+        {
+          "path": "wasm-tools-d4e317f22c3bace76cb3205003bcc34b4929037d/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "wasm-tools-d4e317f22c3bace76cb3205003bcc34b4929037d/crates/wasm-metadata/src/oci_annotations/authors.rs",
+          "sha256": "241d116ecc7ec20e3c67cb8e9edb00ef98feab4af4a87f4f00b1f21bc3e8d1f2"
+        }
+      ]
+    }
+  },
+  {
+    "name": "wit-parser",
+    "version": "0.244.0",
+    "crateSha256": "ecc8ac4bc1dc3381b7f59c34f00b67e18f910c2c0f50015669dde7def656a736",
+    "license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+    "repository": "https://github.com/bytecodealliance/wasm-tools/tree/main/crates/wit-parser",
+    "vcs": {
+      "git": {
+        "sha1": "d4e317f22c3bace76cb3205003bcc34b4929037d"
+      },
+      "path_in_vcs": "crates/wit-parser"
+    },
+    "source": {
+      "url": "https://codeload.github.com/bytecodealliance/wasm-tools/tar.gz/d4e317f22c3bace76cb3205003bcc34b4929037d",
+      "sha256": "efe9f9afb0393754ffbbb5c047f8c394781509e37ac46f2a88e6b11066ed9cf2",
+      "bytes": 5602200,
+      "notices": [
+        {
+          "path": "wasm-tools-d4e317f22c3bace76cb3205003bcc34b4929037d/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "wasm-tools-d4e317f22c3bace76cb3205003bcc34b4929037d/LICENSE-Apache-2.0_WITH_LLVM-exception",
+          "sha256": "268872b9816f90fd8e85db5a28d33f8150ebb8dd016653fb39ef1f94f2686bc5"
+        },
+        {
+          "path": "wasm-tools-d4e317f22c3bace76cb3205003bcc34b4929037d/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "wasm-tools-d4e317f22c3bace76cb3205003bcc34b4929037d/crates/wasm-metadata/src/oci_annotations/authors.rs",
+          "sha256": "241d116ecc7ec20e3c67cb8e9edb00ef98feab4af4a87f4f00b1f21bc3e8d1f2"
+        }
+      ]
+    }
+  },
+  {
+    "name": "dispatch2",
+    "version": "0.3.1",
+    "crateSha256": "1e0e367e4e7da84520dedcac1901e4da967309406d1e51017ae1abfb97adbd38",
+    "license": "Zlib OR Apache-2.0 OR MIT",
+    "repository": "https://github.com/madsmtm/objc2",
+    "vcs": {
+      "git": {
+        "sha1": "8852b424193ca41602281b3d7540d7c8ed51e49a"
+      },
+      "path_in_vcs": "crates/dispatch2"
+    },
+    "source": {
+      "url": "https://codeload.github.com/madsmtm/objc2/tar.gz/8852b424193ca41602281b3d7540d7c8ed51e49a",
+      "sha256": "e26253acf0639ce1986f79690fbc3ae9fa29b082ddc1e8661b9b53ac8d4925b3",
+      "bytes": 1213142,
+      "notices": [
+        {
+          "path": "objc2-8852b424193ca41602281b3d7540d7c8ed51e49a/LICENSE.md",
+          "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54"
+        },
+        {
+          "path": "objc2-8852b424193ca41602281b3d7540d7c8ed51e49a/framework-crates/objc2-foundation/src/copying.rs",
+          "sha256": "259b22f571b54fed25f68ec5abd8eda223e7b0547a806f13ba797a0eabecd64f"
+        },
+        {
+          "path": "objc2-8852b424193ca41602281b3d7540d7c8ed51e49a/framework-crates/objc2-foundation/src/tests/copying.rs",
+          "sha256": "23d608079a47693a26dfc8a5cb01894ad0136a50714d46221d9380aa4a4b4423"
+        }
+      ]
+    }
+  },
+  {
+    "name": "la-arena",
+    "version": "0.3.1",
+    "crateSha256": "3752f229dcc5a481d60f385fa479ff46818033d881d2d801aa27dffcfb5e8306",
+    "license": "MIT OR Apache-2.0",
+    "repository": "https://github.com/rust-lang/rust-analyzer/tree/master/lib/la-arena",
+    "vcs": {},
+    "missingEvidence": ["No immutable source commit in crate metadata"]
+  },
+  {
+    "name": "line-index",
+    "version": "0.1.2",
+    "crateSha256": "3e27e0ed5a392a7f5ba0b3808a2afccff16c64933312c84b57618b49d1209bd2",
+    "license": "MIT OR Apache-2.0",
+    "repository": "https://github.com/rust-lang/rust-analyzer/tree/master/lib/line-index",
+    "vcs": {
+      "git": {
+        "sha1": "3bda0cc2c07f6330b543be2c12c5e156847ba94e"
+      },
+      "path_in_vcs": "lib/line-index"
+    },
+    "source": {
+      "url": "https://codeload.github.com/rust-lang/rust-analyzer/tar.gz/3bda0cc2c07f6330b543be2c12c5e156847ba94e",
+      "sha256": "f967340146d45ba9520cc0ceb95968ad864bd91a347f881feb16ee8ae35bb34d",
+      "bytes": 3115740,
+      "notices": [
+        {
+          "path": "rust-analyzer-3bda0cc2c07f6330b543be2c12c5e156847ba94e/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-analyzer-3bda0cc2c07f6330b543be2c12c5e156847ba94e/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-analyzer-3bda0cc2c07f6330b543be2c12c5e156847ba94e/crates/ra-salsa/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-analyzer-3bda0cc2c07f6330b543be2c12c5e156847ba94e/crates/ra-salsa/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-analyzer-3bda0cc2c07f6330b543be2c12c5e156847ba94e/crates/ra-salsa/ra-salsa-macros/LICENSE-APACHE",
+          "sha256": "4201a739d99186cfb5d5fc0f91730c3a7f13fe939cc790c714a408332abfeaaf"
+        },
+        {
+          "path": "rust-analyzer-3bda0cc2c07f6330b543be2c12c5e156847ba94e/crates/ra-salsa/ra-salsa-macros/LICENSE-MIT",
+          "sha256": "71430174df61bd45957efecc6ff4cc0e6effd920b0f77fe6e7d3e50e5faabb1d"
+        },
+        {
+          "path": "rust-analyzer-3bda0cc2c07f6330b543be2c12c5e156847ba94e/editors/code/LICENSE",
+          "sha256": "7b4f77d59f1f20f8c0efec5c222d5e21ead37a16ee23de7a558f84a24302a4fc"
+        }
+      ]
+    }
+  },
+  {
+    "name": "objc2",
+    "version": "0.6.4",
+    "crateSha256": "3a12a8ed07aefc768292f076dc3ac8c48f3781c8f2d5851dd3d98950e8c5a89f",
+    "license": "MIT",
+    "repository": "https://github.com/madsmtm/objc2",
+    "vcs": {
+      "git": {
+        "sha1": "8852b424193ca41602281b3d7540d7c8ed51e49a"
+      },
+      "path_in_vcs": "crates/objc2"
+    },
+    "source": {
+      "url": "https://codeload.github.com/madsmtm/objc2/tar.gz/8852b424193ca41602281b3d7540d7c8ed51e49a",
+      "sha256": "e26253acf0639ce1986f79690fbc3ae9fa29b082ddc1e8661b9b53ac8d4925b3",
+      "bytes": 1213142,
+      "notices": [
+        {
+          "path": "objc2-8852b424193ca41602281b3d7540d7c8ed51e49a/LICENSE.md",
+          "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54"
+        },
+        {
+          "path": "objc2-8852b424193ca41602281b3d7540d7c8ed51e49a/framework-crates/objc2-foundation/src/copying.rs",
+          "sha256": "259b22f571b54fed25f68ec5abd8eda223e7b0547a806f13ba797a0eabecd64f"
+        },
+        {
+          "path": "objc2-8852b424193ca41602281b3d7540d7c8ed51e49a/framework-crates/objc2-foundation/src/tests/copying.rs",
+          "sha256": "23d608079a47693a26dfc8a5cb01894ad0136a50714d46221d9380aa4a4b4423"
+        }
+      ]
+    }
+  },
+  {
+    "name": "perf-event",
+    "version": "0.4.8",
+    "crateSha256": "b4d6393d9238342159080d79b78cb59c67399a8e7ecfa5d410bd614169e4e823",
+    "license": "MIT OR Apache-2.0",
+    "repository": "https://github.com/jimblandy/perf-event.git",
+    "vcs": {
+      "git": {
+        "sha1": "fdfcd6eab9de3e40b2ecbcc01a1be3b1bd15405b"
+      },
+      "path_in_vcs": "perf-event"
+    },
+    "source": {
+      "url": "https://codeload.github.com/jimblandy/perf-event/tar.gz/fdfcd6eab9de3e40b2ecbcc01a1be3b1bd15405b",
+      "sha256": "e6a01d236243c7c71bdd008e9304d5e4792f7ad681fb089224800669830814f7",
+      "bytes": 60601,
+      "notices": [
+        {
+          "path": "perf-event-fdfcd6eab9de3e40b2ecbcc01a1be3b1bd15405b/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "perf-event-fdfcd6eab9de3e40b2ecbcc01a1be3b1bd15405b/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    }
+  },
+  {
+    "name": "perf-event-open-sys",
+    "version": "4.0.0",
+    "crateSha256": "7c44fb1c7651a45a3652c4afc6e754e40b3d6e6556f1487e2b230bfc4f33c2a8",
+    "license": "MIT OR Apache-2.0",
+    "repository": "https://github.com/jimblandy/perf-event",
+    "vcs": {
+      "git": {
+        "sha1": "3aecf09156daa67b5579cc7742168cc95dcbe063"
+      },
+      "path_in_vcs": "perf-event-open-sys"
+    },
+    "source": {
+      "url": "https://codeload.github.com/jimblandy/perf-event/tar.gz/3aecf09156daa67b5579cc7742168cc95dcbe063",
+      "sha256": "6476e1293fcc9eed20614b793ddd8d5db22bdf33ea0b5de7c1260ef27ce5b446",
+      "bytes": 60505,
+      "notices": [
+        {
+          "path": "perf-event-3aecf09156daa67b5579cc7742168cc95dcbe063/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "perf-event-3aecf09156daa67b5579cc7742168cc95dcbe063/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    }
+  },
+  {
+    "name": "pulldown-cmark-to-cmark",
+    "version": "10.0.4",
+    "crateSha256": "0194e6e1966c23cc5fd988714f85b18d548d773e81965413555d96569931833d",
+    "license": "Apache-2.0",
+    "repository": "https://github.com/Byron/pulldown-cmark-to-cmark",
+    "vcs": {
+      "git": {
+        "sha1": "5f6ec453d5c44d45d09100749d1c1e2891e05bf7"
+      },
+      "path_in_vcs": ""
+    },
+    "source": {
+      "url": "https://codeload.github.com/Byron/pulldown-cmark-to-cmark/tar.gz/5f6ec453d5c44d45d09100749d1c1e2891e05bf7",
+      "sha256": "3e8f4c06a9cfadb873886fda17523f1e0bd37dcff75525128e4996650bcaa75f",
+      "bytes": 79414,
+      "notices": [
+        {
+          "path": "pulldown-cmark-to-cmark-5f6ec453d5c44d45d09100749d1c1e2891e05bf7/tests/spec/CommonMark/LICENSE",
+          "sha256": "3026a329eb5a8c5814f48bb1047970ace2a7d877c4973401a24b5563d76e345a"
+        }
+      ]
+    }
+  },
+  {
+    "name": "ra-ap-rustc_abi",
+    "version": "0.166.0",
+    "crateSha256": "e2cf1b1ffe31b6226c00b40cddfda65002b7729f9f4ed2d547b5856cdab0011c",
+    "license": "MIT / Apache-2.0",
+    "repository": "https://github.com/rust-lang/rust",
+    "vcs": {},
+    "source": {
+      "url": "https://codeload.github.com/rust-lang/rust/tar.gz/ce89c898570852a1bb441d77570596e50bf362c2",
+      "sha256": "51e1503c63abde593fea8a535b1f34043023d671805c6d87042d0a019a41b6ab",
+      "bytes": 38269837,
+      "notices": [
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/COPYRIGHT",
+          "sha256": "172020dbfd5b53a226dfde77616190a48dcff519b0bc0e6deb91a8450782c4af"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSE-MIT",
+          "sha256": "b71bd43a069ca0641a9ecfe585ca7b3c53b5cc1608f8b68321168698e28b5ea1"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/Apache-2.0.txt",
+          "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/BSD-2-Clause.txt",
+          "sha256": "f32fb3b417a194167cfad068223fc975ba96c5960513a10f66a3c28720aec1df"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/CC-BY-SA-4.0.txt",
+          "sha256": "23ee78c8bae49cf08ea2f0c84945c66b987ebe4520881fb51b3dad4fb43d07c2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GCC-exception-3.1.txt",
+          "sha256": "a3966c9410ef94a1efbfa9ec04e9c1994026a70623fbf0885ce36737bfba3b54"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GPL-2.0-only.txt",
+          "sha256": "54b212ba1f97f6948fa5486239ab505dd820b02e50cbfd296b4062c8609a70af"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GPL-3.0-or-later.txt",
+          "sha256": "05315fce6c35f79b8a35454828995fa26336f235895ac64557abc028f4ffcea2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/ISC.txt",
+          "sha256": "0ff61769b238634e042ab759dddfd104a8e69d091e3600ae3410e401a6164381"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/LLVM-exception.txt",
+          "sha256": "e34c58338bd89d43e709e226610d8f32b3e3c47f4ad9a99a8dc1d4ac7842488e"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/MIT.txt",
+          "sha256": "b85dcd3e453d05982552c52b5fc9e0bdd6d23c6f8e844b984a88af32570b0cc0"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/NCSA.txt",
+          "sha256": "39cb0234065c92b9e6cee3830cbb52b1aa289aa8fe9ba2e66730fec5cf05c630"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/OFL-1.1.txt",
+          "sha256": "8eea8287e5876b539670cadb82e99f9a7afddec6f6730811be1daf25d2e9bcfd"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/Unicode-3.0.txt",
+          "sha256": "f5062c9a188d81dfe66b56db4182dcf9e4b17c0d9b0d311a8e20b3a1b075c443"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_cranelift/LICENSE-APACHE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_cranelift/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_gcc/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_gcc/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/compiler-builtins/LICENSE.txt",
+          "sha256": "ab6eec6caf0fa5775e411c7a8bc6a45c4ef2956b0980b157ab74fc5cd62a928b"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/compiler-builtins/libm/LICENSE.txt",
+          "sha256": "3823dda7cf046602f4b4e77ec8e227863dc4736037cc85bb33d9f19febe16bb7"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/LICENSE-APACHE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/LICENSE-MIT",
+          "sha256": "eb07d497d26e6d68fbc76e793f5e5c9cfa197df2a580e47383569c287a55edf9"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/crates/core_simd/LICENSE-APACHE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/crates/core_simd/LICENSE-MIT",
+          "sha256": "eb07d497d26e6d68fbc76e793f5e5c9cfa197df2a580e47383569c287a55edf9"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/LICENSE-MIT",
+          "sha256": "29662666b44dff84977b46e05642cdef910bc3a93a17b5fd86e632bafa59cf21"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/core_arch/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/core_arch/LICENSE-MIT",
+          "sha256": "29662666b44dff84977b46e05642cdef910bc3a93a17b5fd86e632bafa59cf21"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/intrinsic-test/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/intrinsic-test/LICENSE-MIT",
+          "sha256": "8bc20184c0ddf3006df05e89fdf7193b33dbe4c751ae59d6bb1835f71bbe70da"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/license-metadata.json",
+          "sha256": "03018f1893ab6446dfb220b9b953de78929ad63e9a4606591b05af142ce91cdd"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/doc/rustc-dev-guide/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/doc/rustc-dev-guide/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/etc/third-party/COPYING.RUNTIME",
+          "sha256": "28e85c5aa4af9b4f1dfe6b4817aa3eefb3eaaee7fd735045016f29ccf50276a1"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/COPYRIGHT.txt",
+          "sha256": "685a456c489e9173a0c5fc16efbd46b64c7d93782f18a085327dec4aaa041a72"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/LICENSE-APACHE.txt",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/LICENSE-MIT.txt",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/COPYRIGHT",
+          "sha256": "d2c41ea7c48c1bbb9b2dd72bc6464ff9b2032987e33fe28bee6a46e355ed9ea7"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/LICENSE-APACHE",
+          "sha256": "d8b56cd45661bfc7ccf4ce5722388cab275f9dabb9e471c922cc80e36bbf9caa"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/LICENSE-MIT",
+          "sha256": "8d07f0c9c9966be0aaec4196d7863b56ade114e9714dbc31ebba576c0446d2fc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/generate-copyright/templates/COPYRIGHT-library.html",
+          "sha256": "d221141363da0cdac9b7804aaa9b5e0625d34fb5531df94383640977034cda24"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/generate-copyright/templates/COPYRIGHT.html",
+          "sha256": "6a9f307974d1d831adaf128851ad51ba9ed4df8116ed306fca0108c7f041ebcc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/miri/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/miri/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/editors/code/LICENSE",
+          "sha256": "7b4f77d59f1f20f8c0efec5c222d5e21ead37a16ee23de7a558f84a24302a4fc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/smol_str/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/smol_str/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/text-size/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/text-size/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rustfmt/LICENSE-APACHE",
+          "sha256": "092c8e82c47fb859d7385253c1b04052dbd65a8bcf0bbd8b6f7dba58a9e8753d"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rustfmt/LICENSE-MIT",
+          "sha256": "ae0f1f791e3b4faccf981c0b530199235a8b8a021c7ef0c3c85c6c676ea4d27f"
+        }
+      ]
+    }
+  },
+  {
+    "name": "ra-ap-rustc_ast_ir",
+    "version": "0.166.0",
+    "crateSha256": "2ef42605e36e1305e815ccfc8830eb870f74d78534bca19a61629149536d8e98",
+    "license": "MIT / Apache-2.0",
+    "repository": "https://github.com/rust-lang/rust",
+    "vcs": {},
+    "source": {
+      "url": "https://codeload.github.com/rust-lang/rust/tar.gz/ce89c898570852a1bb441d77570596e50bf362c2",
+      "sha256": "51e1503c63abde593fea8a535b1f34043023d671805c6d87042d0a019a41b6ab",
+      "bytes": 38269837,
+      "notices": [
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/COPYRIGHT",
+          "sha256": "172020dbfd5b53a226dfde77616190a48dcff519b0bc0e6deb91a8450782c4af"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSE-MIT",
+          "sha256": "b71bd43a069ca0641a9ecfe585ca7b3c53b5cc1608f8b68321168698e28b5ea1"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/Apache-2.0.txt",
+          "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/BSD-2-Clause.txt",
+          "sha256": "f32fb3b417a194167cfad068223fc975ba96c5960513a10f66a3c28720aec1df"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/CC-BY-SA-4.0.txt",
+          "sha256": "23ee78c8bae49cf08ea2f0c84945c66b987ebe4520881fb51b3dad4fb43d07c2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GCC-exception-3.1.txt",
+          "sha256": "a3966c9410ef94a1efbfa9ec04e9c1994026a70623fbf0885ce36737bfba3b54"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GPL-2.0-only.txt",
+          "sha256": "54b212ba1f97f6948fa5486239ab505dd820b02e50cbfd296b4062c8609a70af"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GPL-3.0-or-later.txt",
+          "sha256": "05315fce6c35f79b8a35454828995fa26336f235895ac64557abc028f4ffcea2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/ISC.txt",
+          "sha256": "0ff61769b238634e042ab759dddfd104a8e69d091e3600ae3410e401a6164381"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/LLVM-exception.txt",
+          "sha256": "e34c58338bd89d43e709e226610d8f32b3e3c47f4ad9a99a8dc1d4ac7842488e"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/MIT.txt",
+          "sha256": "b85dcd3e453d05982552c52b5fc9e0bdd6d23c6f8e844b984a88af32570b0cc0"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/NCSA.txt",
+          "sha256": "39cb0234065c92b9e6cee3830cbb52b1aa289aa8fe9ba2e66730fec5cf05c630"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/OFL-1.1.txt",
+          "sha256": "8eea8287e5876b539670cadb82e99f9a7afddec6f6730811be1daf25d2e9bcfd"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/Unicode-3.0.txt",
+          "sha256": "f5062c9a188d81dfe66b56db4182dcf9e4b17c0d9b0d311a8e20b3a1b075c443"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_cranelift/LICENSE-APACHE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_cranelift/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_gcc/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_gcc/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/compiler-builtins/LICENSE.txt",
+          "sha256": "ab6eec6caf0fa5775e411c7a8bc6a45c4ef2956b0980b157ab74fc5cd62a928b"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/compiler-builtins/libm/LICENSE.txt",
+          "sha256": "3823dda7cf046602f4b4e77ec8e227863dc4736037cc85bb33d9f19febe16bb7"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/LICENSE-APACHE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/LICENSE-MIT",
+          "sha256": "eb07d497d26e6d68fbc76e793f5e5c9cfa197df2a580e47383569c287a55edf9"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/crates/core_simd/LICENSE-APACHE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/crates/core_simd/LICENSE-MIT",
+          "sha256": "eb07d497d26e6d68fbc76e793f5e5c9cfa197df2a580e47383569c287a55edf9"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/LICENSE-MIT",
+          "sha256": "29662666b44dff84977b46e05642cdef910bc3a93a17b5fd86e632bafa59cf21"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/core_arch/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/core_arch/LICENSE-MIT",
+          "sha256": "29662666b44dff84977b46e05642cdef910bc3a93a17b5fd86e632bafa59cf21"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/intrinsic-test/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/intrinsic-test/LICENSE-MIT",
+          "sha256": "8bc20184c0ddf3006df05e89fdf7193b33dbe4c751ae59d6bb1835f71bbe70da"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/license-metadata.json",
+          "sha256": "03018f1893ab6446dfb220b9b953de78929ad63e9a4606591b05af142ce91cdd"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/doc/rustc-dev-guide/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/doc/rustc-dev-guide/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/etc/third-party/COPYING.RUNTIME",
+          "sha256": "28e85c5aa4af9b4f1dfe6b4817aa3eefb3eaaee7fd735045016f29ccf50276a1"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/COPYRIGHT.txt",
+          "sha256": "685a456c489e9173a0c5fc16efbd46b64c7d93782f18a085327dec4aaa041a72"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/LICENSE-APACHE.txt",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/LICENSE-MIT.txt",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/COPYRIGHT",
+          "sha256": "d2c41ea7c48c1bbb9b2dd72bc6464ff9b2032987e33fe28bee6a46e355ed9ea7"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/LICENSE-APACHE",
+          "sha256": "d8b56cd45661bfc7ccf4ce5722388cab275f9dabb9e471c922cc80e36bbf9caa"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/LICENSE-MIT",
+          "sha256": "8d07f0c9c9966be0aaec4196d7863b56ade114e9714dbc31ebba576c0446d2fc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/generate-copyright/templates/COPYRIGHT-library.html",
+          "sha256": "d221141363da0cdac9b7804aaa9b5e0625d34fb5531df94383640977034cda24"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/generate-copyright/templates/COPYRIGHT.html",
+          "sha256": "6a9f307974d1d831adaf128851ad51ba9ed4df8116ed306fca0108c7f041ebcc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/miri/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/miri/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/editors/code/LICENSE",
+          "sha256": "7b4f77d59f1f20f8c0efec5c222d5e21ead37a16ee23de7a558f84a24302a4fc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/smol_str/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/smol_str/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/text-size/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/text-size/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rustfmt/LICENSE-APACHE",
+          "sha256": "092c8e82c47fb859d7385253c1b04052dbd65a8bcf0bbd8b6f7dba58a9e8753d"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rustfmt/LICENSE-MIT",
+          "sha256": "ae0f1f791e3b4faccf981c0b530199235a8b8a021c7ef0c3c85c6c676ea4d27f"
+        }
+      ]
+    }
+  },
+  {
+    "name": "ra-ap-rustc_hashes",
+    "version": "0.166.0",
+    "crateSha256": "b9f5542968215c17275920791b2fa13a43014287506ed0450777c79845102e86",
+    "license": "MIT / Apache-2.0",
+    "repository": "https://github.com/rust-lang/rust",
+    "vcs": {},
+    "source": {
+      "url": "https://codeload.github.com/rust-lang/rust/tar.gz/ce89c898570852a1bb441d77570596e50bf362c2",
+      "sha256": "51e1503c63abde593fea8a535b1f34043023d671805c6d87042d0a019a41b6ab",
+      "bytes": 38269837,
+      "notices": [
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/COPYRIGHT",
+          "sha256": "172020dbfd5b53a226dfde77616190a48dcff519b0bc0e6deb91a8450782c4af"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSE-MIT",
+          "sha256": "b71bd43a069ca0641a9ecfe585ca7b3c53b5cc1608f8b68321168698e28b5ea1"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/Apache-2.0.txt",
+          "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/BSD-2-Clause.txt",
+          "sha256": "f32fb3b417a194167cfad068223fc975ba96c5960513a10f66a3c28720aec1df"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/CC-BY-SA-4.0.txt",
+          "sha256": "23ee78c8bae49cf08ea2f0c84945c66b987ebe4520881fb51b3dad4fb43d07c2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GCC-exception-3.1.txt",
+          "sha256": "a3966c9410ef94a1efbfa9ec04e9c1994026a70623fbf0885ce36737bfba3b54"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GPL-2.0-only.txt",
+          "sha256": "54b212ba1f97f6948fa5486239ab505dd820b02e50cbfd296b4062c8609a70af"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GPL-3.0-or-later.txt",
+          "sha256": "05315fce6c35f79b8a35454828995fa26336f235895ac64557abc028f4ffcea2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/ISC.txt",
+          "sha256": "0ff61769b238634e042ab759dddfd104a8e69d091e3600ae3410e401a6164381"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/LLVM-exception.txt",
+          "sha256": "e34c58338bd89d43e709e226610d8f32b3e3c47f4ad9a99a8dc1d4ac7842488e"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/MIT.txt",
+          "sha256": "b85dcd3e453d05982552c52b5fc9e0bdd6d23c6f8e844b984a88af32570b0cc0"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/NCSA.txt",
+          "sha256": "39cb0234065c92b9e6cee3830cbb52b1aa289aa8fe9ba2e66730fec5cf05c630"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/OFL-1.1.txt",
+          "sha256": "8eea8287e5876b539670cadb82e99f9a7afddec6f6730811be1daf25d2e9bcfd"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/Unicode-3.0.txt",
+          "sha256": "f5062c9a188d81dfe66b56db4182dcf9e4b17c0d9b0d311a8e20b3a1b075c443"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_cranelift/LICENSE-APACHE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_cranelift/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_gcc/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_gcc/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/compiler-builtins/LICENSE.txt",
+          "sha256": "ab6eec6caf0fa5775e411c7a8bc6a45c4ef2956b0980b157ab74fc5cd62a928b"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/compiler-builtins/libm/LICENSE.txt",
+          "sha256": "3823dda7cf046602f4b4e77ec8e227863dc4736037cc85bb33d9f19febe16bb7"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/LICENSE-APACHE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/LICENSE-MIT",
+          "sha256": "eb07d497d26e6d68fbc76e793f5e5c9cfa197df2a580e47383569c287a55edf9"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/crates/core_simd/LICENSE-APACHE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/crates/core_simd/LICENSE-MIT",
+          "sha256": "eb07d497d26e6d68fbc76e793f5e5c9cfa197df2a580e47383569c287a55edf9"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/LICENSE-MIT",
+          "sha256": "29662666b44dff84977b46e05642cdef910bc3a93a17b5fd86e632bafa59cf21"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/core_arch/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/core_arch/LICENSE-MIT",
+          "sha256": "29662666b44dff84977b46e05642cdef910bc3a93a17b5fd86e632bafa59cf21"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/intrinsic-test/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/intrinsic-test/LICENSE-MIT",
+          "sha256": "8bc20184c0ddf3006df05e89fdf7193b33dbe4c751ae59d6bb1835f71bbe70da"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/license-metadata.json",
+          "sha256": "03018f1893ab6446dfb220b9b953de78929ad63e9a4606591b05af142ce91cdd"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/doc/rustc-dev-guide/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/doc/rustc-dev-guide/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/etc/third-party/COPYING.RUNTIME",
+          "sha256": "28e85c5aa4af9b4f1dfe6b4817aa3eefb3eaaee7fd735045016f29ccf50276a1"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/COPYRIGHT.txt",
+          "sha256": "685a456c489e9173a0c5fc16efbd46b64c7d93782f18a085327dec4aaa041a72"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/LICENSE-APACHE.txt",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/LICENSE-MIT.txt",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/COPYRIGHT",
+          "sha256": "d2c41ea7c48c1bbb9b2dd72bc6464ff9b2032987e33fe28bee6a46e355ed9ea7"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/LICENSE-APACHE",
+          "sha256": "d8b56cd45661bfc7ccf4ce5722388cab275f9dabb9e471c922cc80e36bbf9caa"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/LICENSE-MIT",
+          "sha256": "8d07f0c9c9966be0aaec4196d7863b56ade114e9714dbc31ebba576c0446d2fc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/generate-copyright/templates/COPYRIGHT-library.html",
+          "sha256": "d221141363da0cdac9b7804aaa9b5e0625d34fb5531df94383640977034cda24"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/generate-copyright/templates/COPYRIGHT.html",
+          "sha256": "6a9f307974d1d831adaf128851ad51ba9ed4df8116ed306fca0108c7f041ebcc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/miri/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/miri/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/editors/code/LICENSE",
+          "sha256": "7b4f77d59f1f20f8c0efec5c222d5e21ead37a16ee23de7a558f84a24302a4fc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/smol_str/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/smol_str/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/text-size/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/text-size/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rustfmt/LICENSE-APACHE",
+          "sha256": "092c8e82c47fb859d7385253c1b04052dbd65a8bcf0bbd8b6f7dba58a9e8753d"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rustfmt/LICENSE-MIT",
+          "sha256": "ae0f1f791e3b4faccf981c0b530199235a8b8a021c7ef0c3c85c6c676ea4d27f"
+        }
+      ]
+    }
+  },
+  {
+    "name": "ra-ap-rustc_index",
+    "version": "0.166.0",
+    "crateSha256": "1d9e47b9ca7d92cfb0d6653503adbabd41938b84474317397a664326b208d6c6",
+    "license": "MIT / Apache-2.0",
+    "repository": "https://github.com/rust-lang/rust",
+    "vcs": {},
+    "source": {
+      "url": "https://codeload.github.com/rust-lang/rust/tar.gz/ce89c898570852a1bb441d77570596e50bf362c2",
+      "sha256": "51e1503c63abde593fea8a535b1f34043023d671805c6d87042d0a019a41b6ab",
+      "bytes": 38269837,
+      "notices": [
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/COPYRIGHT",
+          "sha256": "172020dbfd5b53a226dfde77616190a48dcff519b0bc0e6deb91a8450782c4af"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSE-MIT",
+          "sha256": "b71bd43a069ca0641a9ecfe585ca7b3c53b5cc1608f8b68321168698e28b5ea1"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/Apache-2.0.txt",
+          "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/BSD-2-Clause.txt",
+          "sha256": "f32fb3b417a194167cfad068223fc975ba96c5960513a10f66a3c28720aec1df"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/CC-BY-SA-4.0.txt",
+          "sha256": "23ee78c8bae49cf08ea2f0c84945c66b987ebe4520881fb51b3dad4fb43d07c2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GCC-exception-3.1.txt",
+          "sha256": "a3966c9410ef94a1efbfa9ec04e9c1994026a70623fbf0885ce36737bfba3b54"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GPL-2.0-only.txt",
+          "sha256": "54b212ba1f97f6948fa5486239ab505dd820b02e50cbfd296b4062c8609a70af"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GPL-3.0-or-later.txt",
+          "sha256": "05315fce6c35f79b8a35454828995fa26336f235895ac64557abc028f4ffcea2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/ISC.txt",
+          "sha256": "0ff61769b238634e042ab759dddfd104a8e69d091e3600ae3410e401a6164381"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/LLVM-exception.txt",
+          "sha256": "e34c58338bd89d43e709e226610d8f32b3e3c47f4ad9a99a8dc1d4ac7842488e"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/MIT.txt",
+          "sha256": "b85dcd3e453d05982552c52b5fc9e0bdd6d23c6f8e844b984a88af32570b0cc0"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/NCSA.txt",
+          "sha256": "39cb0234065c92b9e6cee3830cbb52b1aa289aa8fe9ba2e66730fec5cf05c630"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/OFL-1.1.txt",
+          "sha256": "8eea8287e5876b539670cadb82e99f9a7afddec6f6730811be1daf25d2e9bcfd"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/Unicode-3.0.txt",
+          "sha256": "f5062c9a188d81dfe66b56db4182dcf9e4b17c0d9b0d311a8e20b3a1b075c443"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_cranelift/LICENSE-APACHE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_cranelift/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_gcc/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_gcc/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/compiler-builtins/LICENSE.txt",
+          "sha256": "ab6eec6caf0fa5775e411c7a8bc6a45c4ef2956b0980b157ab74fc5cd62a928b"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/compiler-builtins/libm/LICENSE.txt",
+          "sha256": "3823dda7cf046602f4b4e77ec8e227863dc4736037cc85bb33d9f19febe16bb7"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/LICENSE-APACHE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/LICENSE-MIT",
+          "sha256": "eb07d497d26e6d68fbc76e793f5e5c9cfa197df2a580e47383569c287a55edf9"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/crates/core_simd/LICENSE-APACHE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/crates/core_simd/LICENSE-MIT",
+          "sha256": "eb07d497d26e6d68fbc76e793f5e5c9cfa197df2a580e47383569c287a55edf9"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/LICENSE-MIT",
+          "sha256": "29662666b44dff84977b46e05642cdef910bc3a93a17b5fd86e632bafa59cf21"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/core_arch/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/core_arch/LICENSE-MIT",
+          "sha256": "29662666b44dff84977b46e05642cdef910bc3a93a17b5fd86e632bafa59cf21"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/intrinsic-test/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/intrinsic-test/LICENSE-MIT",
+          "sha256": "8bc20184c0ddf3006df05e89fdf7193b33dbe4c751ae59d6bb1835f71bbe70da"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/license-metadata.json",
+          "sha256": "03018f1893ab6446dfb220b9b953de78929ad63e9a4606591b05af142ce91cdd"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/doc/rustc-dev-guide/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/doc/rustc-dev-guide/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/etc/third-party/COPYING.RUNTIME",
+          "sha256": "28e85c5aa4af9b4f1dfe6b4817aa3eefb3eaaee7fd735045016f29ccf50276a1"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/COPYRIGHT.txt",
+          "sha256": "685a456c489e9173a0c5fc16efbd46b64c7d93782f18a085327dec4aaa041a72"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/LICENSE-APACHE.txt",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/LICENSE-MIT.txt",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/COPYRIGHT",
+          "sha256": "d2c41ea7c48c1bbb9b2dd72bc6464ff9b2032987e33fe28bee6a46e355ed9ea7"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/LICENSE-APACHE",
+          "sha256": "d8b56cd45661bfc7ccf4ce5722388cab275f9dabb9e471c922cc80e36bbf9caa"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/LICENSE-MIT",
+          "sha256": "8d07f0c9c9966be0aaec4196d7863b56ade114e9714dbc31ebba576c0446d2fc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/generate-copyright/templates/COPYRIGHT-library.html",
+          "sha256": "d221141363da0cdac9b7804aaa9b5e0625d34fb5531df94383640977034cda24"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/generate-copyright/templates/COPYRIGHT.html",
+          "sha256": "6a9f307974d1d831adaf128851ad51ba9ed4df8116ed306fca0108c7f041ebcc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/miri/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/miri/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/editors/code/LICENSE",
+          "sha256": "7b4f77d59f1f20f8c0efec5c222d5e21ead37a16ee23de7a558f84a24302a4fc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/smol_str/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/smol_str/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/text-size/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/text-size/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rustfmt/LICENSE-APACHE",
+          "sha256": "092c8e82c47fb859d7385253c1b04052dbd65a8bcf0bbd8b6f7dba58a9e8753d"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rustfmt/LICENSE-MIT",
+          "sha256": "ae0f1f791e3b4faccf981c0b530199235a8b8a021c7ef0c3c85c6c676ea4d27f"
+        }
+      ]
+    }
+  },
+  {
+    "name": "ra-ap-rustc_index_macros",
+    "version": "0.166.0",
+    "crateSha256": "4d744a7a2852a22f06210bcff9e4667ed0cacbfbe94894cc294044d25e876341",
+    "license": "MIT / Apache-2.0",
+    "repository": "https://github.com/rust-lang/rust",
+    "vcs": {},
+    "source": {
+      "url": "https://codeload.github.com/rust-lang/rust/tar.gz/ce89c898570852a1bb441d77570596e50bf362c2",
+      "sha256": "51e1503c63abde593fea8a535b1f34043023d671805c6d87042d0a019a41b6ab",
+      "bytes": 38269837,
+      "notices": [
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/COPYRIGHT",
+          "sha256": "172020dbfd5b53a226dfde77616190a48dcff519b0bc0e6deb91a8450782c4af"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSE-MIT",
+          "sha256": "b71bd43a069ca0641a9ecfe585ca7b3c53b5cc1608f8b68321168698e28b5ea1"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/Apache-2.0.txt",
+          "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/BSD-2-Clause.txt",
+          "sha256": "f32fb3b417a194167cfad068223fc975ba96c5960513a10f66a3c28720aec1df"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/CC-BY-SA-4.0.txt",
+          "sha256": "23ee78c8bae49cf08ea2f0c84945c66b987ebe4520881fb51b3dad4fb43d07c2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GCC-exception-3.1.txt",
+          "sha256": "a3966c9410ef94a1efbfa9ec04e9c1994026a70623fbf0885ce36737bfba3b54"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GPL-2.0-only.txt",
+          "sha256": "54b212ba1f97f6948fa5486239ab505dd820b02e50cbfd296b4062c8609a70af"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GPL-3.0-or-later.txt",
+          "sha256": "05315fce6c35f79b8a35454828995fa26336f235895ac64557abc028f4ffcea2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/ISC.txt",
+          "sha256": "0ff61769b238634e042ab759dddfd104a8e69d091e3600ae3410e401a6164381"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/LLVM-exception.txt",
+          "sha256": "e34c58338bd89d43e709e226610d8f32b3e3c47f4ad9a99a8dc1d4ac7842488e"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/MIT.txt",
+          "sha256": "b85dcd3e453d05982552c52b5fc9e0bdd6d23c6f8e844b984a88af32570b0cc0"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/NCSA.txt",
+          "sha256": "39cb0234065c92b9e6cee3830cbb52b1aa289aa8fe9ba2e66730fec5cf05c630"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/OFL-1.1.txt",
+          "sha256": "8eea8287e5876b539670cadb82e99f9a7afddec6f6730811be1daf25d2e9bcfd"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/Unicode-3.0.txt",
+          "sha256": "f5062c9a188d81dfe66b56db4182dcf9e4b17c0d9b0d311a8e20b3a1b075c443"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_cranelift/LICENSE-APACHE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_cranelift/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_gcc/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_gcc/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/compiler-builtins/LICENSE.txt",
+          "sha256": "ab6eec6caf0fa5775e411c7a8bc6a45c4ef2956b0980b157ab74fc5cd62a928b"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/compiler-builtins/libm/LICENSE.txt",
+          "sha256": "3823dda7cf046602f4b4e77ec8e227863dc4736037cc85bb33d9f19febe16bb7"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/LICENSE-APACHE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/LICENSE-MIT",
+          "sha256": "eb07d497d26e6d68fbc76e793f5e5c9cfa197df2a580e47383569c287a55edf9"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/crates/core_simd/LICENSE-APACHE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/crates/core_simd/LICENSE-MIT",
+          "sha256": "eb07d497d26e6d68fbc76e793f5e5c9cfa197df2a580e47383569c287a55edf9"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/LICENSE-MIT",
+          "sha256": "29662666b44dff84977b46e05642cdef910bc3a93a17b5fd86e632bafa59cf21"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/core_arch/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/core_arch/LICENSE-MIT",
+          "sha256": "29662666b44dff84977b46e05642cdef910bc3a93a17b5fd86e632bafa59cf21"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/intrinsic-test/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/intrinsic-test/LICENSE-MIT",
+          "sha256": "8bc20184c0ddf3006df05e89fdf7193b33dbe4c751ae59d6bb1835f71bbe70da"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/license-metadata.json",
+          "sha256": "03018f1893ab6446dfb220b9b953de78929ad63e9a4606591b05af142ce91cdd"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/doc/rustc-dev-guide/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/doc/rustc-dev-guide/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/etc/third-party/COPYING.RUNTIME",
+          "sha256": "28e85c5aa4af9b4f1dfe6b4817aa3eefb3eaaee7fd735045016f29ccf50276a1"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/COPYRIGHT.txt",
+          "sha256": "685a456c489e9173a0c5fc16efbd46b64c7d93782f18a085327dec4aaa041a72"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/LICENSE-APACHE.txt",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/LICENSE-MIT.txt",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/COPYRIGHT",
+          "sha256": "d2c41ea7c48c1bbb9b2dd72bc6464ff9b2032987e33fe28bee6a46e355ed9ea7"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/LICENSE-APACHE",
+          "sha256": "d8b56cd45661bfc7ccf4ce5722388cab275f9dabb9e471c922cc80e36bbf9caa"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/LICENSE-MIT",
+          "sha256": "8d07f0c9c9966be0aaec4196d7863b56ade114e9714dbc31ebba576c0446d2fc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/generate-copyright/templates/COPYRIGHT-library.html",
+          "sha256": "d221141363da0cdac9b7804aaa9b5e0625d34fb5531df94383640977034cda24"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/generate-copyright/templates/COPYRIGHT.html",
+          "sha256": "6a9f307974d1d831adaf128851ad51ba9ed4df8116ed306fca0108c7f041ebcc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/miri/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/miri/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/editors/code/LICENSE",
+          "sha256": "7b4f77d59f1f20f8c0efec5c222d5e21ead37a16ee23de7a558f84a24302a4fc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/smol_str/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/smol_str/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/text-size/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/text-size/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rustfmt/LICENSE-APACHE",
+          "sha256": "092c8e82c47fb859d7385253c1b04052dbd65a8bcf0bbd8b6f7dba58a9e8753d"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rustfmt/LICENSE-MIT",
+          "sha256": "ae0f1f791e3b4faccf981c0b530199235a8b8a021c7ef0c3c85c6c676ea4d27f"
+        }
+      ]
+    }
+  },
+  {
+    "name": "ra-ap-rustc_lexer",
+    "version": "0.166.0",
+    "crateSha256": "527c12b3731b7d0692498012810b85b2b8dfdb8b514321ed6afc434bd1c70191",
+    "license": "MIT / Apache-2.0",
+    "repository": "https://github.com/rust-lang/rust",
+    "vcs": {},
+    "source": {
+      "url": "https://codeload.github.com/rust-lang/rust/tar.gz/ce89c898570852a1bb441d77570596e50bf362c2",
+      "sha256": "51e1503c63abde593fea8a535b1f34043023d671805c6d87042d0a019a41b6ab",
+      "bytes": 38269837,
+      "notices": [
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/COPYRIGHT",
+          "sha256": "172020dbfd5b53a226dfde77616190a48dcff519b0bc0e6deb91a8450782c4af"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSE-MIT",
+          "sha256": "b71bd43a069ca0641a9ecfe585ca7b3c53b5cc1608f8b68321168698e28b5ea1"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/Apache-2.0.txt",
+          "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/BSD-2-Clause.txt",
+          "sha256": "f32fb3b417a194167cfad068223fc975ba96c5960513a10f66a3c28720aec1df"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/CC-BY-SA-4.0.txt",
+          "sha256": "23ee78c8bae49cf08ea2f0c84945c66b987ebe4520881fb51b3dad4fb43d07c2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GCC-exception-3.1.txt",
+          "sha256": "a3966c9410ef94a1efbfa9ec04e9c1994026a70623fbf0885ce36737bfba3b54"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GPL-2.0-only.txt",
+          "sha256": "54b212ba1f97f6948fa5486239ab505dd820b02e50cbfd296b4062c8609a70af"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GPL-3.0-or-later.txt",
+          "sha256": "05315fce6c35f79b8a35454828995fa26336f235895ac64557abc028f4ffcea2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/ISC.txt",
+          "sha256": "0ff61769b238634e042ab759dddfd104a8e69d091e3600ae3410e401a6164381"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/LLVM-exception.txt",
+          "sha256": "e34c58338bd89d43e709e226610d8f32b3e3c47f4ad9a99a8dc1d4ac7842488e"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/MIT.txt",
+          "sha256": "b85dcd3e453d05982552c52b5fc9e0bdd6d23c6f8e844b984a88af32570b0cc0"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/NCSA.txt",
+          "sha256": "39cb0234065c92b9e6cee3830cbb52b1aa289aa8fe9ba2e66730fec5cf05c630"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/OFL-1.1.txt",
+          "sha256": "8eea8287e5876b539670cadb82e99f9a7afddec6f6730811be1daf25d2e9bcfd"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/Unicode-3.0.txt",
+          "sha256": "f5062c9a188d81dfe66b56db4182dcf9e4b17c0d9b0d311a8e20b3a1b075c443"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_cranelift/LICENSE-APACHE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_cranelift/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_gcc/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_gcc/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/compiler-builtins/LICENSE.txt",
+          "sha256": "ab6eec6caf0fa5775e411c7a8bc6a45c4ef2956b0980b157ab74fc5cd62a928b"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/compiler-builtins/libm/LICENSE.txt",
+          "sha256": "3823dda7cf046602f4b4e77ec8e227863dc4736037cc85bb33d9f19febe16bb7"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/LICENSE-APACHE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/LICENSE-MIT",
+          "sha256": "eb07d497d26e6d68fbc76e793f5e5c9cfa197df2a580e47383569c287a55edf9"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/crates/core_simd/LICENSE-APACHE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/crates/core_simd/LICENSE-MIT",
+          "sha256": "eb07d497d26e6d68fbc76e793f5e5c9cfa197df2a580e47383569c287a55edf9"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/LICENSE-MIT",
+          "sha256": "29662666b44dff84977b46e05642cdef910bc3a93a17b5fd86e632bafa59cf21"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/core_arch/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/core_arch/LICENSE-MIT",
+          "sha256": "29662666b44dff84977b46e05642cdef910bc3a93a17b5fd86e632bafa59cf21"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/intrinsic-test/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/intrinsic-test/LICENSE-MIT",
+          "sha256": "8bc20184c0ddf3006df05e89fdf7193b33dbe4c751ae59d6bb1835f71bbe70da"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/license-metadata.json",
+          "sha256": "03018f1893ab6446dfb220b9b953de78929ad63e9a4606591b05af142ce91cdd"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/doc/rustc-dev-guide/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/doc/rustc-dev-guide/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/etc/third-party/COPYING.RUNTIME",
+          "sha256": "28e85c5aa4af9b4f1dfe6b4817aa3eefb3eaaee7fd735045016f29ccf50276a1"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/COPYRIGHT.txt",
+          "sha256": "685a456c489e9173a0c5fc16efbd46b64c7d93782f18a085327dec4aaa041a72"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/LICENSE-APACHE.txt",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/LICENSE-MIT.txt",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/COPYRIGHT",
+          "sha256": "d2c41ea7c48c1bbb9b2dd72bc6464ff9b2032987e33fe28bee6a46e355ed9ea7"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/LICENSE-APACHE",
+          "sha256": "d8b56cd45661bfc7ccf4ce5722388cab275f9dabb9e471c922cc80e36bbf9caa"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/LICENSE-MIT",
+          "sha256": "8d07f0c9c9966be0aaec4196d7863b56ade114e9714dbc31ebba576c0446d2fc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/generate-copyright/templates/COPYRIGHT-library.html",
+          "sha256": "d221141363da0cdac9b7804aaa9b5e0625d34fb5531df94383640977034cda24"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/generate-copyright/templates/COPYRIGHT.html",
+          "sha256": "6a9f307974d1d831adaf128851ad51ba9ed4df8116ed306fca0108c7f041ebcc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/miri/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/miri/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/editors/code/LICENSE",
+          "sha256": "7b4f77d59f1f20f8c0efec5c222d5e21ead37a16ee23de7a558f84a24302a4fc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/smol_str/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/smol_str/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/text-size/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/text-size/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rustfmt/LICENSE-APACHE",
+          "sha256": "092c8e82c47fb859d7385253c1b04052dbd65a8bcf0bbd8b6f7dba58a9e8753d"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rustfmt/LICENSE-MIT",
+          "sha256": "ae0f1f791e3b4faccf981c0b530199235a8b8a021c7ef0c3c85c6c676ea4d27f"
+        }
+      ]
+    }
+  },
+  {
+    "name": "ra-ap-rustc_next_trait_solver",
+    "version": "0.166.0",
+    "crateSha256": "a7a9663a8d7c369e934aac2b74a638537ad7eb4be75b4530d765384dc071c936",
+    "license": "MIT / Apache-2.0",
+    "repository": "https://github.com/rust-lang/rust",
+    "vcs": {},
+    "source": {
+      "url": "https://codeload.github.com/rust-lang/rust/tar.gz/ce89c898570852a1bb441d77570596e50bf362c2",
+      "sha256": "51e1503c63abde593fea8a535b1f34043023d671805c6d87042d0a019a41b6ab",
+      "bytes": 38269837,
+      "notices": [
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/COPYRIGHT",
+          "sha256": "172020dbfd5b53a226dfde77616190a48dcff519b0bc0e6deb91a8450782c4af"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSE-MIT",
+          "sha256": "b71bd43a069ca0641a9ecfe585ca7b3c53b5cc1608f8b68321168698e28b5ea1"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/Apache-2.0.txt",
+          "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/BSD-2-Clause.txt",
+          "sha256": "f32fb3b417a194167cfad068223fc975ba96c5960513a10f66a3c28720aec1df"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/CC-BY-SA-4.0.txt",
+          "sha256": "23ee78c8bae49cf08ea2f0c84945c66b987ebe4520881fb51b3dad4fb43d07c2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GCC-exception-3.1.txt",
+          "sha256": "a3966c9410ef94a1efbfa9ec04e9c1994026a70623fbf0885ce36737bfba3b54"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GPL-2.0-only.txt",
+          "sha256": "54b212ba1f97f6948fa5486239ab505dd820b02e50cbfd296b4062c8609a70af"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GPL-3.0-or-later.txt",
+          "sha256": "05315fce6c35f79b8a35454828995fa26336f235895ac64557abc028f4ffcea2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/ISC.txt",
+          "sha256": "0ff61769b238634e042ab759dddfd104a8e69d091e3600ae3410e401a6164381"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/LLVM-exception.txt",
+          "sha256": "e34c58338bd89d43e709e226610d8f32b3e3c47f4ad9a99a8dc1d4ac7842488e"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/MIT.txt",
+          "sha256": "b85dcd3e453d05982552c52b5fc9e0bdd6d23c6f8e844b984a88af32570b0cc0"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/NCSA.txt",
+          "sha256": "39cb0234065c92b9e6cee3830cbb52b1aa289aa8fe9ba2e66730fec5cf05c630"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/OFL-1.1.txt",
+          "sha256": "8eea8287e5876b539670cadb82e99f9a7afddec6f6730811be1daf25d2e9bcfd"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/Unicode-3.0.txt",
+          "sha256": "f5062c9a188d81dfe66b56db4182dcf9e4b17c0d9b0d311a8e20b3a1b075c443"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_cranelift/LICENSE-APACHE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_cranelift/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_gcc/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_gcc/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/compiler-builtins/LICENSE.txt",
+          "sha256": "ab6eec6caf0fa5775e411c7a8bc6a45c4ef2956b0980b157ab74fc5cd62a928b"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/compiler-builtins/libm/LICENSE.txt",
+          "sha256": "3823dda7cf046602f4b4e77ec8e227863dc4736037cc85bb33d9f19febe16bb7"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/LICENSE-APACHE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/LICENSE-MIT",
+          "sha256": "eb07d497d26e6d68fbc76e793f5e5c9cfa197df2a580e47383569c287a55edf9"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/crates/core_simd/LICENSE-APACHE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/crates/core_simd/LICENSE-MIT",
+          "sha256": "eb07d497d26e6d68fbc76e793f5e5c9cfa197df2a580e47383569c287a55edf9"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/LICENSE-MIT",
+          "sha256": "29662666b44dff84977b46e05642cdef910bc3a93a17b5fd86e632bafa59cf21"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/core_arch/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/core_arch/LICENSE-MIT",
+          "sha256": "29662666b44dff84977b46e05642cdef910bc3a93a17b5fd86e632bafa59cf21"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/intrinsic-test/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/intrinsic-test/LICENSE-MIT",
+          "sha256": "8bc20184c0ddf3006df05e89fdf7193b33dbe4c751ae59d6bb1835f71bbe70da"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/license-metadata.json",
+          "sha256": "03018f1893ab6446dfb220b9b953de78929ad63e9a4606591b05af142ce91cdd"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/doc/rustc-dev-guide/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/doc/rustc-dev-guide/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/etc/third-party/COPYING.RUNTIME",
+          "sha256": "28e85c5aa4af9b4f1dfe6b4817aa3eefb3eaaee7fd735045016f29ccf50276a1"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/COPYRIGHT.txt",
+          "sha256": "685a456c489e9173a0c5fc16efbd46b64c7d93782f18a085327dec4aaa041a72"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/LICENSE-APACHE.txt",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/LICENSE-MIT.txt",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/COPYRIGHT",
+          "sha256": "d2c41ea7c48c1bbb9b2dd72bc6464ff9b2032987e33fe28bee6a46e355ed9ea7"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/LICENSE-APACHE",
+          "sha256": "d8b56cd45661bfc7ccf4ce5722388cab275f9dabb9e471c922cc80e36bbf9caa"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/LICENSE-MIT",
+          "sha256": "8d07f0c9c9966be0aaec4196d7863b56ade114e9714dbc31ebba576c0446d2fc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/generate-copyright/templates/COPYRIGHT-library.html",
+          "sha256": "d221141363da0cdac9b7804aaa9b5e0625d34fb5531df94383640977034cda24"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/generate-copyright/templates/COPYRIGHT.html",
+          "sha256": "6a9f307974d1d831adaf128851ad51ba9ed4df8116ed306fca0108c7f041ebcc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/miri/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/miri/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/editors/code/LICENSE",
+          "sha256": "7b4f77d59f1f20f8c0efec5c222d5e21ead37a16ee23de7a558f84a24302a4fc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/smol_str/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/smol_str/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/text-size/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/text-size/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rustfmt/LICENSE-APACHE",
+          "sha256": "092c8e82c47fb859d7385253c1b04052dbd65a8bcf0bbd8b6f7dba58a9e8753d"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rustfmt/LICENSE-MIT",
+          "sha256": "ae0f1f791e3b4faccf981c0b530199235a8b8a021c7ef0c3c85c6c676ea4d27f"
+        }
+      ]
+    }
+  },
+  {
+    "name": "ra-ap-rustc_parse_format",
+    "version": "0.166.0",
+    "crateSha256": "2c038b7a8b0f784d4e441ad8ab991fbbdaa5e0be482e59c639a846a1c8126951",
+    "license": "MIT / Apache-2.0",
+    "repository": "https://github.com/rust-lang/rust",
+    "vcs": {},
+    "source": {
+      "url": "https://codeload.github.com/rust-lang/rust/tar.gz/ce89c898570852a1bb441d77570596e50bf362c2",
+      "sha256": "51e1503c63abde593fea8a535b1f34043023d671805c6d87042d0a019a41b6ab",
+      "bytes": 38269837,
+      "notices": [
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/COPYRIGHT",
+          "sha256": "172020dbfd5b53a226dfde77616190a48dcff519b0bc0e6deb91a8450782c4af"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSE-MIT",
+          "sha256": "b71bd43a069ca0641a9ecfe585ca7b3c53b5cc1608f8b68321168698e28b5ea1"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/Apache-2.0.txt",
+          "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/BSD-2-Clause.txt",
+          "sha256": "f32fb3b417a194167cfad068223fc975ba96c5960513a10f66a3c28720aec1df"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/CC-BY-SA-4.0.txt",
+          "sha256": "23ee78c8bae49cf08ea2f0c84945c66b987ebe4520881fb51b3dad4fb43d07c2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GCC-exception-3.1.txt",
+          "sha256": "a3966c9410ef94a1efbfa9ec04e9c1994026a70623fbf0885ce36737bfba3b54"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GPL-2.0-only.txt",
+          "sha256": "54b212ba1f97f6948fa5486239ab505dd820b02e50cbfd296b4062c8609a70af"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GPL-3.0-or-later.txt",
+          "sha256": "05315fce6c35f79b8a35454828995fa26336f235895ac64557abc028f4ffcea2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/ISC.txt",
+          "sha256": "0ff61769b238634e042ab759dddfd104a8e69d091e3600ae3410e401a6164381"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/LLVM-exception.txt",
+          "sha256": "e34c58338bd89d43e709e226610d8f32b3e3c47f4ad9a99a8dc1d4ac7842488e"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/MIT.txt",
+          "sha256": "b85dcd3e453d05982552c52b5fc9e0bdd6d23c6f8e844b984a88af32570b0cc0"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/NCSA.txt",
+          "sha256": "39cb0234065c92b9e6cee3830cbb52b1aa289aa8fe9ba2e66730fec5cf05c630"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/OFL-1.1.txt",
+          "sha256": "8eea8287e5876b539670cadb82e99f9a7afddec6f6730811be1daf25d2e9bcfd"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/Unicode-3.0.txt",
+          "sha256": "f5062c9a188d81dfe66b56db4182dcf9e4b17c0d9b0d311a8e20b3a1b075c443"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_cranelift/LICENSE-APACHE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_cranelift/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_gcc/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_gcc/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/compiler-builtins/LICENSE.txt",
+          "sha256": "ab6eec6caf0fa5775e411c7a8bc6a45c4ef2956b0980b157ab74fc5cd62a928b"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/compiler-builtins/libm/LICENSE.txt",
+          "sha256": "3823dda7cf046602f4b4e77ec8e227863dc4736037cc85bb33d9f19febe16bb7"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/LICENSE-APACHE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/LICENSE-MIT",
+          "sha256": "eb07d497d26e6d68fbc76e793f5e5c9cfa197df2a580e47383569c287a55edf9"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/crates/core_simd/LICENSE-APACHE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/crates/core_simd/LICENSE-MIT",
+          "sha256": "eb07d497d26e6d68fbc76e793f5e5c9cfa197df2a580e47383569c287a55edf9"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/LICENSE-MIT",
+          "sha256": "29662666b44dff84977b46e05642cdef910bc3a93a17b5fd86e632bafa59cf21"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/core_arch/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/core_arch/LICENSE-MIT",
+          "sha256": "29662666b44dff84977b46e05642cdef910bc3a93a17b5fd86e632bafa59cf21"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/intrinsic-test/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/intrinsic-test/LICENSE-MIT",
+          "sha256": "8bc20184c0ddf3006df05e89fdf7193b33dbe4c751ae59d6bb1835f71bbe70da"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/license-metadata.json",
+          "sha256": "03018f1893ab6446dfb220b9b953de78929ad63e9a4606591b05af142ce91cdd"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/doc/rustc-dev-guide/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/doc/rustc-dev-guide/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/etc/third-party/COPYING.RUNTIME",
+          "sha256": "28e85c5aa4af9b4f1dfe6b4817aa3eefb3eaaee7fd735045016f29ccf50276a1"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/COPYRIGHT.txt",
+          "sha256": "685a456c489e9173a0c5fc16efbd46b64c7d93782f18a085327dec4aaa041a72"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/LICENSE-APACHE.txt",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/LICENSE-MIT.txt",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/COPYRIGHT",
+          "sha256": "d2c41ea7c48c1bbb9b2dd72bc6464ff9b2032987e33fe28bee6a46e355ed9ea7"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/LICENSE-APACHE",
+          "sha256": "d8b56cd45661bfc7ccf4ce5722388cab275f9dabb9e471c922cc80e36bbf9caa"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/LICENSE-MIT",
+          "sha256": "8d07f0c9c9966be0aaec4196d7863b56ade114e9714dbc31ebba576c0446d2fc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/generate-copyright/templates/COPYRIGHT-library.html",
+          "sha256": "d221141363da0cdac9b7804aaa9b5e0625d34fb5531df94383640977034cda24"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/generate-copyright/templates/COPYRIGHT.html",
+          "sha256": "6a9f307974d1d831adaf128851ad51ba9ed4df8116ed306fca0108c7f041ebcc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/miri/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/miri/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/editors/code/LICENSE",
+          "sha256": "7b4f77d59f1f20f8c0efec5c222d5e21ead37a16ee23de7a558f84a24302a4fc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/smol_str/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/smol_str/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/text-size/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/text-size/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rustfmt/LICENSE-APACHE",
+          "sha256": "092c8e82c47fb859d7385253c1b04052dbd65a8bcf0bbd8b6f7dba58a9e8753d"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rustfmt/LICENSE-MIT",
+          "sha256": "ae0f1f791e3b4faccf981c0b530199235a8b8a021c7ef0c3c85c6c676ea4d27f"
+        }
+      ]
+    }
+  },
+  {
+    "name": "ra-ap-rustc_pattern_analysis",
+    "version": "0.166.0",
+    "crateSha256": "42ca286f90e99bb97cd9274c088f3c874a05d1ee90cabf40a3928afedabe99fd",
+    "license": "MIT / Apache-2.0",
+    "repository": "https://github.com/rust-lang/rust",
+    "vcs": {},
+    "source": {
+      "url": "https://codeload.github.com/rust-lang/rust/tar.gz/ce89c898570852a1bb441d77570596e50bf362c2",
+      "sha256": "51e1503c63abde593fea8a535b1f34043023d671805c6d87042d0a019a41b6ab",
+      "bytes": 38269837,
+      "notices": [
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/COPYRIGHT",
+          "sha256": "172020dbfd5b53a226dfde77616190a48dcff519b0bc0e6deb91a8450782c4af"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSE-MIT",
+          "sha256": "b71bd43a069ca0641a9ecfe585ca7b3c53b5cc1608f8b68321168698e28b5ea1"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/Apache-2.0.txt",
+          "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/BSD-2-Clause.txt",
+          "sha256": "f32fb3b417a194167cfad068223fc975ba96c5960513a10f66a3c28720aec1df"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/CC-BY-SA-4.0.txt",
+          "sha256": "23ee78c8bae49cf08ea2f0c84945c66b987ebe4520881fb51b3dad4fb43d07c2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GCC-exception-3.1.txt",
+          "sha256": "a3966c9410ef94a1efbfa9ec04e9c1994026a70623fbf0885ce36737bfba3b54"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GPL-2.0-only.txt",
+          "sha256": "54b212ba1f97f6948fa5486239ab505dd820b02e50cbfd296b4062c8609a70af"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GPL-3.0-or-later.txt",
+          "sha256": "05315fce6c35f79b8a35454828995fa26336f235895ac64557abc028f4ffcea2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/ISC.txt",
+          "sha256": "0ff61769b238634e042ab759dddfd104a8e69d091e3600ae3410e401a6164381"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/LLVM-exception.txt",
+          "sha256": "e34c58338bd89d43e709e226610d8f32b3e3c47f4ad9a99a8dc1d4ac7842488e"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/MIT.txt",
+          "sha256": "b85dcd3e453d05982552c52b5fc9e0bdd6d23c6f8e844b984a88af32570b0cc0"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/NCSA.txt",
+          "sha256": "39cb0234065c92b9e6cee3830cbb52b1aa289aa8fe9ba2e66730fec5cf05c630"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/OFL-1.1.txt",
+          "sha256": "8eea8287e5876b539670cadb82e99f9a7afddec6f6730811be1daf25d2e9bcfd"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/Unicode-3.0.txt",
+          "sha256": "f5062c9a188d81dfe66b56db4182dcf9e4b17c0d9b0d311a8e20b3a1b075c443"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_cranelift/LICENSE-APACHE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_cranelift/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_gcc/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_gcc/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/compiler-builtins/LICENSE.txt",
+          "sha256": "ab6eec6caf0fa5775e411c7a8bc6a45c4ef2956b0980b157ab74fc5cd62a928b"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/compiler-builtins/libm/LICENSE.txt",
+          "sha256": "3823dda7cf046602f4b4e77ec8e227863dc4736037cc85bb33d9f19febe16bb7"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/LICENSE-APACHE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/LICENSE-MIT",
+          "sha256": "eb07d497d26e6d68fbc76e793f5e5c9cfa197df2a580e47383569c287a55edf9"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/crates/core_simd/LICENSE-APACHE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/crates/core_simd/LICENSE-MIT",
+          "sha256": "eb07d497d26e6d68fbc76e793f5e5c9cfa197df2a580e47383569c287a55edf9"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/LICENSE-MIT",
+          "sha256": "29662666b44dff84977b46e05642cdef910bc3a93a17b5fd86e632bafa59cf21"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/core_arch/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/core_arch/LICENSE-MIT",
+          "sha256": "29662666b44dff84977b46e05642cdef910bc3a93a17b5fd86e632bafa59cf21"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/intrinsic-test/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/intrinsic-test/LICENSE-MIT",
+          "sha256": "8bc20184c0ddf3006df05e89fdf7193b33dbe4c751ae59d6bb1835f71bbe70da"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/license-metadata.json",
+          "sha256": "03018f1893ab6446dfb220b9b953de78929ad63e9a4606591b05af142ce91cdd"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/doc/rustc-dev-guide/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/doc/rustc-dev-guide/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/etc/third-party/COPYING.RUNTIME",
+          "sha256": "28e85c5aa4af9b4f1dfe6b4817aa3eefb3eaaee7fd735045016f29ccf50276a1"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/COPYRIGHT.txt",
+          "sha256": "685a456c489e9173a0c5fc16efbd46b64c7d93782f18a085327dec4aaa041a72"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/LICENSE-APACHE.txt",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/LICENSE-MIT.txt",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/COPYRIGHT",
+          "sha256": "d2c41ea7c48c1bbb9b2dd72bc6464ff9b2032987e33fe28bee6a46e355ed9ea7"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/LICENSE-APACHE",
+          "sha256": "d8b56cd45661bfc7ccf4ce5722388cab275f9dabb9e471c922cc80e36bbf9caa"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/LICENSE-MIT",
+          "sha256": "8d07f0c9c9966be0aaec4196d7863b56ade114e9714dbc31ebba576c0446d2fc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/generate-copyright/templates/COPYRIGHT-library.html",
+          "sha256": "d221141363da0cdac9b7804aaa9b5e0625d34fb5531df94383640977034cda24"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/generate-copyright/templates/COPYRIGHT.html",
+          "sha256": "6a9f307974d1d831adaf128851ad51ba9ed4df8116ed306fca0108c7f041ebcc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/miri/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/miri/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/editors/code/LICENSE",
+          "sha256": "7b4f77d59f1f20f8c0efec5c222d5e21ead37a16ee23de7a558f84a24302a4fc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/smol_str/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/smol_str/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/text-size/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/text-size/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rustfmt/LICENSE-APACHE",
+          "sha256": "092c8e82c47fb859d7385253c1b04052dbd65a8bcf0bbd8b6f7dba58a9e8753d"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rustfmt/LICENSE-MIT",
+          "sha256": "ae0f1f791e3b4faccf981c0b530199235a8b8a021c7ef0c3c85c6c676ea4d27f"
+        }
+      ]
+    }
+  },
+  {
+    "name": "ra-ap-rustc_type_ir",
+    "version": "0.166.0",
+    "crateSha256": "26d6efb6008f665a9485e0afecf9f4950a6c4bedd8ddd330a9df8986a6c0160b",
+    "license": "MIT / Apache-2.0",
+    "repository": "https://github.com/rust-lang/rust",
+    "vcs": {},
+    "source": {
+      "url": "https://codeload.github.com/rust-lang/rust/tar.gz/ce89c898570852a1bb441d77570596e50bf362c2",
+      "sha256": "51e1503c63abde593fea8a535b1f34043023d671805c6d87042d0a019a41b6ab",
+      "bytes": 38269837,
+      "notices": [
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/COPYRIGHT",
+          "sha256": "172020dbfd5b53a226dfde77616190a48dcff519b0bc0e6deb91a8450782c4af"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSE-MIT",
+          "sha256": "b71bd43a069ca0641a9ecfe585ca7b3c53b5cc1608f8b68321168698e28b5ea1"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/Apache-2.0.txt",
+          "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/BSD-2-Clause.txt",
+          "sha256": "f32fb3b417a194167cfad068223fc975ba96c5960513a10f66a3c28720aec1df"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/CC-BY-SA-4.0.txt",
+          "sha256": "23ee78c8bae49cf08ea2f0c84945c66b987ebe4520881fb51b3dad4fb43d07c2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GCC-exception-3.1.txt",
+          "sha256": "a3966c9410ef94a1efbfa9ec04e9c1994026a70623fbf0885ce36737bfba3b54"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GPL-2.0-only.txt",
+          "sha256": "54b212ba1f97f6948fa5486239ab505dd820b02e50cbfd296b4062c8609a70af"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GPL-3.0-or-later.txt",
+          "sha256": "05315fce6c35f79b8a35454828995fa26336f235895ac64557abc028f4ffcea2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/ISC.txt",
+          "sha256": "0ff61769b238634e042ab759dddfd104a8e69d091e3600ae3410e401a6164381"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/LLVM-exception.txt",
+          "sha256": "e34c58338bd89d43e709e226610d8f32b3e3c47f4ad9a99a8dc1d4ac7842488e"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/MIT.txt",
+          "sha256": "b85dcd3e453d05982552c52b5fc9e0bdd6d23c6f8e844b984a88af32570b0cc0"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/NCSA.txt",
+          "sha256": "39cb0234065c92b9e6cee3830cbb52b1aa289aa8fe9ba2e66730fec5cf05c630"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/OFL-1.1.txt",
+          "sha256": "8eea8287e5876b539670cadb82e99f9a7afddec6f6730811be1daf25d2e9bcfd"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/Unicode-3.0.txt",
+          "sha256": "f5062c9a188d81dfe66b56db4182dcf9e4b17c0d9b0d311a8e20b3a1b075c443"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_cranelift/LICENSE-APACHE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_cranelift/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_gcc/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_gcc/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/compiler-builtins/LICENSE.txt",
+          "sha256": "ab6eec6caf0fa5775e411c7a8bc6a45c4ef2956b0980b157ab74fc5cd62a928b"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/compiler-builtins/libm/LICENSE.txt",
+          "sha256": "3823dda7cf046602f4b4e77ec8e227863dc4736037cc85bb33d9f19febe16bb7"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/LICENSE-APACHE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/LICENSE-MIT",
+          "sha256": "eb07d497d26e6d68fbc76e793f5e5c9cfa197df2a580e47383569c287a55edf9"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/crates/core_simd/LICENSE-APACHE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/crates/core_simd/LICENSE-MIT",
+          "sha256": "eb07d497d26e6d68fbc76e793f5e5c9cfa197df2a580e47383569c287a55edf9"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/LICENSE-MIT",
+          "sha256": "29662666b44dff84977b46e05642cdef910bc3a93a17b5fd86e632bafa59cf21"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/core_arch/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/core_arch/LICENSE-MIT",
+          "sha256": "29662666b44dff84977b46e05642cdef910bc3a93a17b5fd86e632bafa59cf21"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/intrinsic-test/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/intrinsic-test/LICENSE-MIT",
+          "sha256": "8bc20184c0ddf3006df05e89fdf7193b33dbe4c751ae59d6bb1835f71bbe70da"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/license-metadata.json",
+          "sha256": "03018f1893ab6446dfb220b9b953de78929ad63e9a4606591b05af142ce91cdd"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/doc/rustc-dev-guide/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/doc/rustc-dev-guide/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/etc/third-party/COPYING.RUNTIME",
+          "sha256": "28e85c5aa4af9b4f1dfe6b4817aa3eefb3eaaee7fd735045016f29ccf50276a1"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/COPYRIGHT.txt",
+          "sha256": "685a456c489e9173a0c5fc16efbd46b64c7d93782f18a085327dec4aaa041a72"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/LICENSE-APACHE.txt",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/LICENSE-MIT.txt",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/COPYRIGHT",
+          "sha256": "d2c41ea7c48c1bbb9b2dd72bc6464ff9b2032987e33fe28bee6a46e355ed9ea7"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/LICENSE-APACHE",
+          "sha256": "d8b56cd45661bfc7ccf4ce5722388cab275f9dabb9e471c922cc80e36bbf9caa"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/LICENSE-MIT",
+          "sha256": "8d07f0c9c9966be0aaec4196d7863b56ade114e9714dbc31ebba576c0446d2fc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/generate-copyright/templates/COPYRIGHT-library.html",
+          "sha256": "d221141363da0cdac9b7804aaa9b5e0625d34fb5531df94383640977034cda24"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/generate-copyright/templates/COPYRIGHT.html",
+          "sha256": "6a9f307974d1d831adaf128851ad51ba9ed4df8116ed306fca0108c7f041ebcc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/miri/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/miri/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/editors/code/LICENSE",
+          "sha256": "7b4f77d59f1f20f8c0efec5c222d5e21ead37a16ee23de7a558f84a24302a4fc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/smol_str/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/smol_str/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/text-size/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/text-size/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rustfmt/LICENSE-APACHE",
+          "sha256": "092c8e82c47fb859d7385253c1b04052dbd65a8bcf0bbd8b6f7dba58a9e8753d"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rustfmt/LICENSE-MIT",
+          "sha256": "ae0f1f791e3b4faccf981c0b530199235a8b8a021c7ef0c3c85c6c676ea4d27f"
+        }
+      ]
+    }
+  },
+  {
+    "name": "ra-ap-rustc_type_ir_macros",
+    "version": "0.166.0",
+    "crateSha256": "5f4fd2355e2bbf1f343c730f623596efc6e465b5e3685b606a437567ebb75bf8",
+    "license": "MIT / Apache-2.0",
+    "repository": "https://github.com/rust-lang/rust",
+    "vcs": {},
+    "source": {
+      "url": "https://codeload.github.com/rust-lang/rust/tar.gz/ce89c898570852a1bb441d77570596e50bf362c2",
+      "sha256": "51e1503c63abde593fea8a535b1f34043023d671805c6d87042d0a019a41b6ab",
+      "bytes": 38269837,
+      "notices": [
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/COPYRIGHT",
+          "sha256": "172020dbfd5b53a226dfde77616190a48dcff519b0bc0e6deb91a8450782c4af"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSE-MIT",
+          "sha256": "b71bd43a069ca0641a9ecfe585ca7b3c53b5cc1608f8b68321168698e28b5ea1"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/Apache-2.0.txt",
+          "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/BSD-2-Clause.txt",
+          "sha256": "f32fb3b417a194167cfad068223fc975ba96c5960513a10f66a3c28720aec1df"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/CC-BY-SA-4.0.txt",
+          "sha256": "23ee78c8bae49cf08ea2f0c84945c66b987ebe4520881fb51b3dad4fb43d07c2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GCC-exception-3.1.txt",
+          "sha256": "a3966c9410ef94a1efbfa9ec04e9c1994026a70623fbf0885ce36737bfba3b54"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GPL-2.0-only.txt",
+          "sha256": "54b212ba1f97f6948fa5486239ab505dd820b02e50cbfd296b4062c8609a70af"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/GPL-3.0-or-later.txt",
+          "sha256": "05315fce6c35f79b8a35454828995fa26336f235895ac64557abc028f4ffcea2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/ISC.txt",
+          "sha256": "0ff61769b238634e042ab759dddfd104a8e69d091e3600ae3410e401a6164381"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/LLVM-exception.txt",
+          "sha256": "e34c58338bd89d43e709e226610d8f32b3e3c47f4ad9a99a8dc1d4ac7842488e"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/MIT.txt",
+          "sha256": "b85dcd3e453d05982552c52b5fc9e0bdd6d23c6f8e844b984a88af32570b0cc0"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/NCSA.txt",
+          "sha256": "39cb0234065c92b9e6cee3830cbb52b1aa289aa8fe9ba2e66730fec5cf05c630"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/OFL-1.1.txt",
+          "sha256": "8eea8287e5876b539670cadb82e99f9a7afddec6f6730811be1daf25d2e9bcfd"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/LICENSES/Unicode-3.0.txt",
+          "sha256": "f5062c9a188d81dfe66b56db4182dcf9e4b17c0d9b0d311a8e20b3a1b075c443"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_cranelift/LICENSE-APACHE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_cranelift/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_gcc/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/compiler/rustc_codegen_gcc/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/compiler-builtins/LICENSE.txt",
+          "sha256": "ab6eec6caf0fa5775e411c7a8bc6a45c4ef2956b0980b157ab74fc5cd62a928b"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/compiler-builtins/libm/LICENSE.txt",
+          "sha256": "3823dda7cf046602f4b4e77ec8e227863dc4736037cc85bb33d9f19febe16bb7"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/LICENSE-APACHE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/LICENSE-MIT",
+          "sha256": "eb07d497d26e6d68fbc76e793f5e5c9cfa197df2a580e47383569c287a55edf9"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/crates/core_simd/LICENSE-APACHE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/portable-simd/crates/core_simd/LICENSE-MIT",
+          "sha256": "eb07d497d26e6d68fbc76e793f5e5c9cfa197df2a580e47383569c287a55edf9"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/LICENSE-MIT",
+          "sha256": "29662666b44dff84977b46e05642cdef910bc3a93a17b5fd86e632bafa59cf21"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/core_arch/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/core_arch/LICENSE-MIT",
+          "sha256": "29662666b44dff84977b46e05642cdef910bc3a93a17b5fd86e632bafa59cf21"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/intrinsic-test/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/library/stdarch/crates/intrinsic-test/LICENSE-MIT",
+          "sha256": "8bc20184c0ddf3006df05e89fdf7193b33dbe4c751ae59d6bb1835f71bbe70da"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/license-metadata.json",
+          "sha256": "03018f1893ab6446dfb220b9b953de78929ad63e9a4606591b05af142ce91cdd"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/doc/rustc-dev-guide/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/doc/rustc-dev-guide/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/etc/third-party/COPYING.RUNTIME",
+          "sha256": "28e85c5aa4af9b4f1dfe6b4817aa3eefb3eaaee7fd735045016f29ccf50276a1"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/COPYRIGHT.txt",
+          "sha256": "685a456c489e9173a0c5fc16efbd46b64c7d93782f18a085327dec4aaa041a72"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/LICENSE-APACHE.txt",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/librustdoc/html/static/LICENSE-MIT.txt",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/COPYRIGHT",
+          "sha256": "d2c41ea7c48c1bbb9b2dd72bc6464ff9b2032987e33fe28bee6a46e355ed9ea7"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/LICENSE-APACHE",
+          "sha256": "d8b56cd45661bfc7ccf4ce5722388cab275f9dabb9e471c922cc80e36bbf9caa"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/clippy/LICENSE-MIT",
+          "sha256": "8d07f0c9c9966be0aaec4196d7863b56ade114e9714dbc31ebba576c0446d2fc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/generate-copyright/templates/COPYRIGHT-library.html",
+          "sha256": "d221141363da0cdac9b7804aaa9b5e0625d34fb5531df94383640977034cda24"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/generate-copyright/templates/COPYRIGHT.html",
+          "sha256": "6a9f307974d1d831adaf128851ad51ba9ed4df8116ed306fca0108c7f041ebcc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/miri/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/miri/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/editors/code/LICENSE",
+          "sha256": "7b4f77d59f1f20f8c0efec5c222d5e21ead37a16ee23de7a558f84a24302a4fc"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/smol_str/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/smol_str/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/text-size/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rust-analyzer/lib/text-size/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rustfmt/LICENSE-APACHE",
+          "sha256": "092c8e82c47fb859d7385253c1b04052dbd65a8bcf0bbd8b6f7dba58a9e8753d"
+        },
+        {
+          "path": "rust-ce89c898570852a1bb441d77570596e50bf362c2/src/tools/rustfmt/LICENSE-MIT",
+          "sha256": "ae0f1f791e3b4faccf981c0b530199235a8b8a021c7ef0c3c85c6c676ea4d27f"
+        }
+      ]
+    }
+  },
+  {
+    "name": "tenthash",
+    "version": "1.1.0",
+    "crateSha256": "e5c4bcc0a4fa333239f43662d15fbf995f384b2aeaf89c4ab4c83353d6cbb952",
+    "license": "MIT OR Apache-2.0",
+    "repository": "https://github.com/cessen/tenthash/tree/main/tenthash-rust",
+    "vcs": {
+      "git": {
+        "sha1": "d420ce80cfbf9a9cbbc41a55efb620ca9ed72efa"
+      },
+      "path_in_vcs": "tenthash-rust"
+    },
+    "source": {
+      "url": "https://codeload.github.com/cessen/tenthash/tar.gz/d420ce80cfbf9a9cbbc41a55efb620ca9ed72efa",
+      "sha256": "678aa411030aa6931568779506db1068aa1d96c8605f4071f51788cc9262aeb2",
+      "bytes": 111436,
+      "notices": [
+        {
+          "path": "tenthash-d420ce80cfbf9a9cbbc41a55efb620ca9ed72efa/licenses/APACHE-2.0.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "tenthash-d420ce80cfbf9a9cbbc41a55efb620ca9ed72efa/licenses/CC0.txt",
+          "sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499"
+        },
+        {
+          "path": "tenthash-d420ce80cfbf9a9cbbc41a55efb620ca9ed72efa/licenses/MIT.txt",
+          "sha256": "98217f5a28aa0a6bef6166204a88fd5623ddb481b1f163001120d7cc8abf1466"
+        }
+      ]
+    }
+  },
+  {
+    "name": "ungrammar",
+    "version": "1.16.1",
+    "crateSha256": "a3e5df347f0bf3ec1d670aad6ca5c6a1859cd9ea61d2113125794654ccced68f",
+    "license": "MIT OR Apache-2.0",
+    "repository": "https://github.com/matklad/ungrammar",
+    "vcs": {
+      "git": {
+        "sha1": "814f04797bbd67f224cbb1b48c7541fdd8bc3d79"
+      },
+      "path_in_vcs": ""
+    },
+    "source": {
+      "url": "https://codeload.github.com/matklad/ungrammar/tar.gz/814f04797bbd67f224cbb1b48c7541fdd8bc3d79",
+      "sha256": "91c5471b3e12d8d09342397b96cf2453e09be7090ffe95ee94264d92db60ced3",
+      "bytes": 10545,
+      "notices": []
+    }
+  },
+  {
+    "name": "xflags",
+    "version": "0.3.2",
+    "crateSha256": "7d9e15fbb3de55454b0106e314b28e671279009b363e6f1d8e39fdc3bf048944",
+    "license": "MIT OR Apache-2.0",
+    "repository": "https://github.com/matklad/xflags",
+    "vcs": {
+      "git": {
+        "sha1": "bc37dc0b02dd3853aff7cafff1c4f0dd4293af45"
+      },
+      "path_in_vcs": "crates/xflags"
+    },
+    "source": {
+      "url": "https://codeload.github.com/matklad/xflags/tar.gz/bc37dc0b02dd3853aff7cafff1c4f0dd4293af45",
+      "sha256": "07bce475effef296d730409e8342e8e38b43c8a15c810f1c4f0db797a76a93a9",
+      "bytes": 25604,
+      "notices": [
+        {
+          "path": "xflags-bc37dc0b02dd3853aff7cafff1c4f0dd4293af45/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "xflags-bc37dc0b02dd3853aff7cafff1c4f0dd4293af45/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    }
+  },
+  {
+    "name": "xflags-macros",
+    "version": "0.3.2",
+    "crateSha256": "672423d4fea7ffa2f6c25ba60031ea13dc6258070556f125cc4d790007d4a155",
+    "license": "MIT OR Apache-2.0",
+    "repository": "https://github.com/matklad/xflags",
+    "vcs": {
+      "git": {
+        "sha1": "bc37dc0b02dd3853aff7cafff1c4f0dd4293af45"
+      },
+      "path_in_vcs": "crates/xflags-macros"
+    },
+    "source": {
+      "url": "https://codeload.github.com/matklad/xflags/tar.gz/bc37dc0b02dd3853aff7cafff1c4f0dd4293af45",
+      "sha256": "07bce475effef296d730409e8342e8e38b43c8a15c810f1c4f0db797a76a93a9",
+      "bytes": 25604,
+      "notices": [
+        {
+          "path": "xflags-bc37dc0b02dd3853aff7cafff1c4f0dd4293af45/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "xflags-bc37dc0b02dd3853aff7cafff1c4f0dd4293af45/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    }
+  },
+  {
+    "name": "xshell-macros",
+    "version": "0.2.7",
+    "crateSha256": "32ac00cd3f8ec9c1d33fb3e7958a82df6989c42d747bd326c822b1d625283547",
+    "license": "MIT OR Apache-2.0",
+    "repository": "https://github.com/matklad/xshell",
+    "vcs": {
+      "git": {
+        "sha1": "9a405946ecbbfe50fe4a7229bd764194154e4ce6"
+      },
+      "path_in_vcs": "xshell-macros"
+    },
+    "source": {
+      "url": "https://codeload.github.com/matklad/xshell/tar.gz/9a405946ecbbfe50fe4a7229bd764194154e4ce6",
+      "sha256": "65b4393746f35507fec2499ab9f0f83d78afaef80eb4726f0bf13cbb013421eb",
+      "bytes": 27404,
+      "notices": [
+        {
+          "path": "xshell-9a405946ecbbfe50fe4a7229bd764194154e4ce6/LICENSE-APACHE",
+          "sha256": "a9040321c3712d8fd0b09cf52b17445de04a23a10165049ae187cd39e5c86be5"
+        },
+        {
+          "path": "xshell-9a405946ecbbfe50fe4a7229bd764194154e4ce6/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    }
+  }
+]

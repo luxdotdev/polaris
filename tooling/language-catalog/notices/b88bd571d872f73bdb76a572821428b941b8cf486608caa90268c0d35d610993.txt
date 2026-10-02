@@ -1,0 +1,22 @@
+/*******************************************************************************
+ * Copyright (c) 2000, 2024 IBM Corporation and others.
+ *
+ * This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *     Stephan Herrmann - Contribution for
+ *								Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
+ *								Bug 429384 - [1.8][null] implement conformance rules for null-annotated lower / upper type bounds
+ *								Bug 441797 - [1.8] synchronize type annotations on capture and its wildcard
+ *								Bug 456497 - [1.8][null] during inference nullness from target type is lost against weaker hint from applicability analysis
+ *								Bug 456924 - StackOverflowError during compilation
+ *								Bug 462790 - [null] NPE in Expression.computeConversion()
+ *     Jesper S Møller - Contributions for bug 381345 : [1.8] Take care of the Java 8 major version
+ *								Bug 527554 - [18.3] Compiler support for JEP 286 Local-Variable Type
+ *******************************************************************************/

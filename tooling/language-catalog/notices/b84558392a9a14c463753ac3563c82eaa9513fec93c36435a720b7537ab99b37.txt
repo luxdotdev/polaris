@@ -1,0 +1,23 @@
+/*******************************************************************************
+ * Copyright (c) 2000, 2015 IBM Corporation and others.
+ *
+ * This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *     Dan Rubel <dan_rubel@instantiations.com> - Implementation of getLocalTimeStamp
+ *     Red Hat Incorporated - get/setResourceAttribute code
+ *     Oakland Software Incorporated - added getSessionProperties and getPersistentProperties
+ *     Holger Oehm <holger.oehm@sap.com> - [226264] race condition in Workspace.isTreeLocked()/setTreeLocked()
+ *     Martin Oberhuber (Wind River) -  [245937] ProjectDescription#setLinkLocation() detects non-change
+ *     Serge Beauchamp (Freescale Semiconductor) - [252996] add resource filtering
+ *     Serge Beauchamp (Freescale Semiconductor) - [229633] Project Path Variable Support
+ *     James Blackburn (Broadcom Corp.) - ongoing development
+ *     Sergey Prigogin (Google) - [338010] Resource.createLink() does not preserve symbolic links
+ *     Lars Vogel <Lars.Vogel@vogella.com> - Bug 473427
+ *******************************************************************************/

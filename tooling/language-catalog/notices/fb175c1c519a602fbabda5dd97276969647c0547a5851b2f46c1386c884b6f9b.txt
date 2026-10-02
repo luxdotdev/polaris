@@ -1,0 +1,15 @@
+/*******************************************************************************
+ * Copyright (c) 2000, 2017 IBM Corporation and others.
+ *
+ * This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *     Benjamin Muskalla <bmuskalla@eclipsesource.com> - [extract method] extracting return value results in compile error - https://bugs.eclipse.org/bugs/show_bug.cgi?id=264606
+ *     Samrat Dhillon <samrat.dhillon@gmail.com> -  [extract method] Extracted method should be declared static if extracted expression is also used in another static method https://bugs.eclipse.org/bugs/show_bug.cgi?id=393098
+ *******************************************************************************/

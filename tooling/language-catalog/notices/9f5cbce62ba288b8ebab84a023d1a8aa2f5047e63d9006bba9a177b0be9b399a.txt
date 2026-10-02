@@ -1,0 +1,38 @@
+/*******************************************************************************
+ * Copyright (c) 2000, 2025 IBM Corporation and others.
+ *
+ * This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *      Stephen Herrmann <stephan@cs.tu-berlin.de> -  Contributions for
+ *								bug 317046 - Exception during debugging when hover mouse over a field
+ *								bug 395002 - Self bound generic class doesn't resolve bounds properly for wildcards for certain parametrisation.
+ *								bug 392862 - [1.8][compiler][null] Evaluate null annotations on array types
+ *								bug 392384 - [1.8][compiler][null] Restore nullness info from type annotations in class files
+ *								Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
+ *								Bug 415291 - [1.8][null] differentiate type incompatibilities due to null annotations
+ *								Bug 417295 - [1.8[[null] Massage type annotated null analysis to gel well with deep encoded type bindings.
+ *								Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
+ *								Bug 423504 - [1.8] Implement "18.5.3 Functional Interface Parameterization Inference"
+ *								Bug 424712 - [1.8][compiler] NPE in TypeBinding.isProvablyDistinctTypeArgument
+ *								Bug 426792 - [1.8][inference][impl] generify new type inference engine
+ *								Bug 426764 - [1.8] Presence of conditional expression as method argument confuses compiler
+ *								Bug 423505 - [1.8] Implement "18.5.4 More Specific Method Inference"
+ *								Bug 427626 - [1.8] StackOverflow while typing new ArrayList<String>().toArray( and asking for code completion
+ *								Bug 428019 - [1.8][compiler] Type inference failure with nested generic invocation.
+ *								Bug 435962 - [RC2] StackOverFlowError when building
+ *								Bug 438458 - [1.8][null] clean up handling of null type annotations wrt type variables
+ *								Bug 440759 - [1.8][null] @NonNullByDefault should never affect wildcards and uses of a type variable
+ *								Bug 441693 - [1.8][null] Bogus warning for type argument annotated with @NonNull
+ *								Bug 446434 - [1.8][null] Enable interned captures also when analysing null type annotations
+ *      Jesper S Moller <jesper@selskabet.org> -  Contributions for
+ *								bug 382701 - [1.8][compiler] Implement semantic analysis of Lambda expressions & Reference expression
+ *								bug 527554 - [18.3] Compiler support for JEP 286 Local-Variable Type
+ *
+ *******************************************************************************/

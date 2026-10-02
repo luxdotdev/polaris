@@ -1,0 +1,218 @@
+[
+  {
+    "tool": "ruff",
+    "artifactId": "ruff-aarch64-apple-darwin.tar.gz",
+    "integrity": "sha256:f051cd306de2691262a0574f8857cd1f4d6bfcd448084ea23d61b9c1c37df510",
+    "binarySha256": "70e977860c228661a4992c9558b8350903351845fa945715584f4c176a0f6c61",
+    "systemLibraries": [
+      "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+      "/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices",
+      "/usr/lib/libiconv.2.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "rustcSourceCommits": ["b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"]
+  },
+  {
+    "tool": "ruff",
+    "artifactId": "ruff-aarch64-unknown-linux-gnu.tar.gz",
+    "integrity": "sha256:dc0d74de837ef0a7bcc62ce98c48a622b075d057161f13b958be2934becd55a6",
+    "binarySha256": "1bd5df1e12e223c7bcd3c8545f48fccf5e2598db12c57b9f6184e16bca8e9ba3",
+    "systemLibraries": ["libgcc_s.so.1", "libpthread.so.0", "libm.so.6", "libdl.so.2", "libc.so.6"],
+    "rustcSourceCommits": ["b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"]
+  },
+  {
+    "tool": "ruff",
+    "artifactId": "ruff-aarch64-unknown-linux-musl.tar.gz",
+    "integrity": "sha256:38ebc0ec3e0de538d1c399729ca04e124749211d66aa134c24ad0c1f09a935b9",
+    "binarySha256": "98044cf9973591194294bc7615483c745983268be2225fc94505901bd3674522",
+    "systemLibraries": [],
+    "rustcSourceCommits": ["b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"]
+  },
+  {
+    "tool": "ruff",
+    "artifactId": "ruff-x86_64-apple-darwin.tar.gz",
+    "integrity": "sha256:ace641df42926e962cf04bc52c79eb6c50ba1ae6a17b602f081960616ecc1bd1",
+    "binarySha256": "d72e1020a30968fb895e390b1589a293e5ee95b8d7a3d3e8bdc4cca4ccc776e6",
+    "systemLibraries": [
+      "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+      "/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices",
+      "/usr/lib/libiconv.2.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "rustcSourceCommits": ["b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"]
+  },
+  {
+    "tool": "ruff",
+    "artifactId": "ruff-x86_64-unknown-linux-gnu.tar.gz",
+    "integrity": "sha256:9567ff1201e2fb3da31ff04c35587d768c66d6cb42dfa84de474e2bfe360b608",
+    "binarySha256": "14704de5ea0d07038512de127bd52d6a169fb70bd70ddfa25bf39e21fed6b2b6",
+    "systemLibraries": [
+      "libgcc_s.so.1",
+      "librt.so.1",
+      "libpthread.so.0",
+      "libm.so.6",
+      "libdl.so.2",
+      "libc.so.6"
+    ],
+    "rustcSourceCommits": ["b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"]
+  },
+  {
+    "tool": "ruff",
+    "artifactId": "ruff-x86_64-unknown-linux-musl.tar.gz",
+    "integrity": "sha256:ad1b2138407a0c53b936524df99d87211333f7bc40478d6860f42994597f7ff0",
+    "binarySha256": "b7cde1034d4738951ca5e1c92dfd5057d9460b040e8eff7cfc4ab1166b778c32",
+    "systemLibraries": [],
+    "rustcSourceCommits": ["b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"]
+  },
+  {
+    "tool": "rust-analyzer",
+    "artifactId": "rust-analyzer-aarch64-apple-darwin.gz",
+    "integrity": "sha256:54ec873d8996e2c127d758bf45d4eacb6d3371dae4f6f6d5d3f05cedbae5fd59",
+    "binarySha256": "9b5877a14acf82e1d4dc86e5406423a0dd4e7227fa0d9cc6ccf5989946bcccc2",
+    "systemLibraries": [
+      "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+      "/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices",
+      "/usr/lib/libiconv.2.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "rustcSourceCommits": ["48a229ceaefd4985c50990b14116b6d856af0985"]
+  },
+  {
+    "tool": "rust-analyzer",
+    "artifactId": "rust-analyzer-aarch64-unknown-linux-gnu.gz",
+    "integrity": "sha256:03bad9c3dabb0f07a2678d5f9f8f1575a3742ea141506e14b3a26b42a1f896f3",
+    "binarySha256": "12f81af1ec5487946adeb3c3cb9197e39d16f718c13bd175ea5f06c182294cee",
+    "systemLibraries": ["libgcc_s.so.1", "libpthread.so.0", "libm.so.6", "libdl.so.2", "libc.so.6"],
+    "rustcSourceCommits": ["48a229ceaefd4985c50990b14116b6d856af0985"]
+  },
+  {
+    "tool": "rust-analyzer",
+    "artifactId": "rust-analyzer-x86_64-apple-darwin.gz",
+    "integrity": "sha256:d032c0eb75e4597cc8ffc35ea4cdbd9eecc8341936b6edac6749e679fc3f0682",
+    "binarySha256": "8df394553d85b3ca7d03df5b7ee4be01df4332bfe7b6d8591e07748d0e3bfee5",
+    "systemLibraries": [
+      "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+      "/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices",
+      "/usr/lib/libiconv.2.dylib",
+      "/usr/lib/libSystem.B.dylib"
+    ],
+    "rustcSourceCommits": ["48a229ceaefd4985c50990b14116b6d856af0985"]
+  },
+  {
+    "tool": "rust-analyzer",
+    "artifactId": "rust-analyzer-x86_64-unknown-linux-gnu.gz",
+    "integrity": "sha256:23f711d86b5f826e22886f01d7355dc01e0f4c1357dafa29710a95b903b48c85",
+    "binarySha256": "d9c4fb5836f3367e530b28cdb0054ad30ccf1bdc96b1624003fb8ecb5d5fb0f5",
+    "systemLibraries": [
+      "libgcc_s.so.1",
+      "libpthread.so.0",
+      "libm.so.6",
+      "libdl.so.2",
+      "libc.so.6",
+      "ld-linux-x86-64.so.2"
+    ],
+    "rustcSourceCommits": ["48a229ceaefd4985c50990b14116b6d856af0985"]
+  },
+  {
+    "tool": "rust-analyzer",
+    "artifactId": "rust-analyzer-x86_64-unknown-linux-musl.gz",
+    "integrity": "sha256:b9a0edbda7a7d9eff0cb3cf49b7f14b2f81e2490095ff56a3ff558ec08b33ae4",
+    "binarySha256": "38a413d8403974c6a94f73283e3fb87f2eb620a0a7a51a3de1ce3087a96fc054",
+    "systemLibraries": ["libgcc_s.so.1", "libc.musl-x86_64.so.1"],
+    "rustcSourceCommits": ["48a229ceaefd4985c50990b14116b6d856af0985"]
+  },
+  {
+    "tool": "lua-language-server",
+    "artifactId": "lua-language-server-3.19.1-darwin-arm64.tar.gz",
+    "integrity": "sha256:0bc077f4447f076b4c92c14e9fd303f5b569eda2ec74b4dca2b55f75fae2e90c",
+    "binarySha256": "b3e587b384de7fb79a3a5bafc9b00fe2433d7f8011b9f80a1be98b08d5a40cc1",
+    "systemLibraries": [
+      "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
+      "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+      "/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices",
+      "/usr/lib/libSystem.B.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libobjc.A.dylib"
+    ],
+    "rustcSourceCommits": []
+  },
+  {
+    "tool": "lua-language-server",
+    "artifactId": "lua-language-server-3.19.1-darwin-x64.tar.gz",
+    "integrity": "sha256:eb373c159cbe556711d7cd316315de2dce969bfd54b31edb7eb9cab2937f2cca",
+    "binarySha256": "2c7b9a8fe2fe8555af5640bb45a2479f4f28573a27a4a86483e5bcfab7ab768a",
+    "systemLibraries": [
+      "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
+      "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+      "/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices",
+      "/usr/lib/libSystem.B.dylib",
+      "/usr/lib/libc++.1.dylib",
+      "/usr/lib/libobjc.A.dylib"
+    ],
+    "rustcSourceCommits": []
+  },
+  {
+    "tool": "lua-language-server",
+    "artifactId": "lua-language-server-3.19.1-linux-arm64.tar.gz",
+    "integrity": "sha256:abd2572e8fc929dc838a81ffb8473c5bce0bf39bfe8edb4b120b3b623176ce83",
+    "binarySha256": "83715ee75155a8edfd2fef42b02b99b34aeda86d89848c7babc2bcb7ade1e190",
+    "systemLibraries": ["libm.so.6", "libc.so.6", "libpthread.so.0", "libdl.so.2"],
+    "rustcSourceCommits": []
+  },
+  {
+    "tool": "lua-language-server",
+    "artifactId": "lua-language-server-3.19.1-linux-x64.tar.gz",
+    "integrity": "sha256:e9235d2d72ef55bc41cf8c99cda2ed64777682024b4bb81f5dea425060c5cbb8",
+    "binarySha256": "39d9c9f8937d619c482f1fb2b7a4cce46a85b7a35cbe67cef7e2555aff3dc4f1",
+    "systemLibraries": [
+      "libm.so.6",
+      "libc.so.6",
+      "ld-linux-x86-64.so.2",
+      "libpthread.so.0",
+      "libdl.so.2"
+    ],
+    "rustcSourceCommits": []
+  },
+  {
+    "tool": "shellcheck",
+    "artifactId": "shellcheck-v0.11.0.darwin.aarch64.tar.gz",
+    "integrity": "sha256:339b930feb1ea764467013cc1f72d09cd6b869ebf1013296ba9055ab2ffbd26f",
+    "binarySha256": "61c17246d69f012cd458ae82f244c46023dac75d1b69733ca1cc7d28fb270fd7",
+    "systemLibraries": [
+      "/usr/lib/libiconv.2.dylib",
+      "/usr/lib/libSystem.B.dylib",
+      "/System/Library/Frameworks/Security.framework/Versions/A/Security",
+      "/usr/lib/libcharset.1.dylib"
+    ],
+    "rustcSourceCommits": []
+  },
+  {
+    "tool": "shellcheck",
+    "artifactId": "shellcheck-v0.11.0.darwin.x86_64.tar.gz",
+    "integrity": "sha256:c2c15e08df0e8fbc374c335b230a7ee958c313fa5714817a59aa59f1aa594f51",
+    "binarySha256": "2589be755bb115f4421b8271eb7c08df1e03729f00350c1e4cf53b4a0bf9c2df",
+    "systemLibraries": [
+      "/usr/lib/libiconv.2.dylib",
+      "/usr/lib/libSystem.B.dylib",
+      "/System/Library/Frameworks/Security.framework/Versions/A/Security",
+      "/usr/lib/libcharset.1.dylib"
+    ],
+    "rustcSourceCommits": []
+  },
+  {
+    "tool": "shellcheck",
+    "artifactId": "shellcheck-v0.11.0.linux.aarch64.tar.gz",
+    "integrity": "sha256:68a8133197a50beb8803f8d42f9908d1af1c5540d4bb05fdfca8c1fa47decefc",
+    "binarySha256": "127f13925eadd52c341bca0ebaf9ab0dbd78c6468f30a8f262a528bf8de47546",
+    "systemLibraries": [],
+    "rustcSourceCommits": []
+  },
+  {
+    "tool": "shellcheck",
+    "artifactId": "shellcheck-v0.11.0.linux.x86_64.tar.gz",
+    "integrity": "sha256:b7af85e41cc99489dcc21d66c6d5f3685138f06d34651e6d34b42ec6d54fe6f6",
+    "binarySha256": "4da528ddb3a4d1b7b24a59d4e16eb2f5fd960f4bd9a3708a15baddbdf1d5a55b",
+    "systemLibraries": [],
+    "rustcSourceCommits": []
+  }
+]

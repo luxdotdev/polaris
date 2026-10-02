@@ -1,0 +1,26 @@
+{
+  "tools": [
+    {
+      "tool": "ghc",
+      "path": null,
+      "available": false
+    },
+    {
+      "tool": "cabal",
+      "path": null,
+      "available": false
+    },
+    {
+      "tool": "stack",
+      "path": null,
+      "available": false
+    }
+  ],
+  "buildExecuted": false,
+  "systemLibrariesVerified": false,
+  "solverClosureVerified": false,
+  "runtimeClosureVerified": false,
+  "missingEvidence": [
+    "No authorized existing GHC/Cabal fixture; published binary closure is unverified."
+  ]
+}

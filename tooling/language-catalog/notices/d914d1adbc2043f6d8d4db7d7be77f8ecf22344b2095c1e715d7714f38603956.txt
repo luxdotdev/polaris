@@ -1,0 +1,18 @@
+/*******************************************************************************
+ * Copyright (c) 2000, 2025 IBM Corporation and others.
+ *
+ * This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *     Stephan Herrmann - Contributions for
+ *								[quick fix] Add quick fixes for null annotations - https://bugs.eclipse.org/337977
+ *								[quick fix] The fix change parameter type to @Nonnull generated a null change - https://bugs.eclipse.org/400668
+ *								[null] "Annotate" proposals for adding external null annotations to library classes - https://bugs.eclipse.org/458200
+ *     Red Hat Inc - refactored to jdt.core.manipulation
+ *******************************************************************************/

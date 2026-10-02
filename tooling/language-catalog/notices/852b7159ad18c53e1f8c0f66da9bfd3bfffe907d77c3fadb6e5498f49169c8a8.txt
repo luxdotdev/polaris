@@ -1,0 +1,39 @@
+/*******************************************************************************
+ * Copyright (c) 2000, 2026 IBM Corporation and others.
+ *
+ * This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *     Stephan Herrmann - contributions for
+ *     							bug 337868 - [compiler][model] incomplete support for package-info.java when using SearchableEnvironment
+ *								bug 186342 - [compiler][null] Using annotations for null checking
+ *								bug 365531 - [compiler][null] investigate alternative strategy for internally encoding nullness defaults
+ *								bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
+ *								bug 392862 - [1.8][compiler][null] Evaluate null annotations on array types
+ *								bug 392384 - [1.8][compiler][null] Restore nullness info from type annotations in class files
+ *								Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
+ *								Bug 415291 - [1.8][null] differentiate type incompatibilities due to null annotations
+ *								Bug 392238 - [1.8][compiler][null] Detect semantically invalid null type annotations
+ *								Bug 415850 - [1.8] Ensure RunJDTCoreTests can cope with null annotations enabled
+ *								Bug 415043 - [1.8][null] Follow-up re null type annotations after bug 392099
+ *								Bug 416183 - [1.8][compiler][null] Overload resolution fails with null annotations
+ *								Bug 416307 - [1.8][compiler][null] subclass with type parameter substitution confuses null checking
+ *								Bug 417295 - [1.8[[null] Massage type annotated null analysis to gel well with deep encoded type bindings.
+ *								Bug 416190 - [1.8][null] detect incompatible overrides due to null type annotations
+ *								Bug 424624 - [1.8][null] if a static-object with annotation @NonNull is used, a warning is shown
+ *								Bug 438458 - [1.8][null] clean up handling of null type annotations wrt type variables
+ *								Bug 439516 - [1.8][null] NonNullByDefault wrongly applied to implicit type bound of binary type
+ *								Bug 434602 - Possible error with inferred null annotations leading to contradictory null annotations
+ *								Bug 435805 - [1.8][compiler][null] Java 8 compiler does not recognize declaration style null annotations
+ *								Bug 453475 - [1.8][null] Contradictory null annotations (4.5 M3 edition)
+ *								Bug 457079 - Regression: type inference
+ *								Bug 440477 - [null] Infrastructure for feeding external annotations into compilation
+ *								Bug 455180 - IllegalStateException in AnnotatableTypeSystem.getRawType
+ *								Bug 470467 - [null] Nullness of special Enum methods not detected from .class file
+ *******************************************************************************/

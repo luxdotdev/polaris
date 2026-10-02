@@ -1,0 +1,4017 @@
+{
+  "command": [
+    "/private/tmp/k2-filtered-lua-4/server/bin/lua-language-server",
+    "--configpath=/private/tmp/k2-filtered-lua-4/config.lua",
+    "--logpath=/private/tmp/k2-filtered-lua-4/logs",
+    "--metapath=/private/tmp/k2-filtered-lua-4/generated-meta"
+  ],
+  "initialized": {
+    "id": 1,
+    "jsonrpc": "2.0",
+    "result": {
+      "capabilities": {
+        "codeActionProvider": {
+          "codeActionKinds": ["", "quickfix", "refactor.rewrite", "refactor.extract"],
+          "resolveProvider": false
+        },
+        "codeLensProvider": {
+          "resolveProvider": true
+        },
+        "colorProvider": true,
+        "completionProvider": {
+          "resolveProvider": true,
+          "triggerCharacters": [
+            "\t",
+            "\n",
+            ".",
+            ":",
+            "(",
+            "'",
+            "\"",
+            "[",
+            ",",
+            "#",
+            "*",
+            "@",
+            "|",
+            "=",
+            "-",
+            "{",
+            " ",
+            "+",
+            "?"
+          ]
+        },
+        "definitionProvider": true,
+        "documentFormattingProvider": true,
+        "documentHighlightProvider": true,
+        "documentOnTypeFormattingProvider": {
+          "firstTriggerCharacter": "\n"
+        },
+        "documentRangeFormattingProvider": true,
+        "documentSymbolProvider": true,
+        "executeCommandProvider": {
+          "commands": [
+            "lua.removeSpace",
+            "lua.solve",
+            "lua.jsonToLua",
+            "lua.setConfig",
+            "lua.getConfig",
+            "lua.autoRequire"
+          ]
+        },
+        "foldingRangeProvider": true,
+        "hoverProvider": true,
+        "implementationProvider": true,
+        "inlayHintProvider": {
+          "resolveProvider": true
+        },
+        "offsetEncoding": "utf-16",
+        "referencesProvider": true,
+        "renameProvider": {
+          "prepareProvider": true
+        },
+        "semanticTokensProvider": {
+          "full": true,
+          "legend": {
+            "tokenModifiers": [
+              "declaration",
+              "definition",
+              "readonly",
+              "static",
+              "deprecated",
+              "abstract",
+              "async",
+              "modification",
+              "documentation",
+              "defaultLibrary",
+              "global"
+            ],
+            "tokenTypes": [
+              "namespace",
+              "type",
+              "class",
+              "enum",
+              "interface",
+              "struct",
+              "typeParameter",
+              "parameter",
+              "variable",
+              "property",
+              "enumMember",
+              "event",
+              "function",
+              "method",
+              "macro",
+              "keyword",
+              "modifier",
+              "comment",
+              "string",
+              "number",
+              "regexp",
+              "operator",
+              "decorator"
+            ]
+          },
+          "range": true
+        },
+        "signatureHelpProvider": {
+          "triggerCharacters": ["(", ","]
+        },
+        "textDocumentSync": {
+          "change": 2,
+          "openClose": true,
+          "save": {
+            "includeText": false
+          }
+        },
+        "typeDefinitionProvider": true,
+        "workspace": {
+          "fileOperations": {
+            "didRename": {
+              "filters": [
+                {
+                  "pattern": {
+                    "glob": "/private/tmp/k2-filtered-lua-4/**",
+                    "options": {
+                      "ignoreCase": true
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "workspaceFolders": {
+            "changeNotifications": true,
+            "supported": true
+          }
+        },
+        "workspaceSymbolProvider": true
+      },
+      "serverInfo": {
+        "name": "sumneko.lua",
+        "version": "3.19.1"
+      }
+    }
+  },
+  "completion": {
+    "id": 39,
+    "jsonrpc": "2.0",
+    "result": {
+      "isIncomplete": false,
+      "items": [
+        {
+          "data": {
+            "id": 1,
+            "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua"
+          },
+          "insertTextFormat": 1,
+          "kind": 13,
+          "label": "ACTION_REMOVE_SPACE",
+          "sortText": "0001"
+        },
+        {
+          "data": {
+            "id": 2,
+            "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua"
+          },
+          "insertTextFormat": 1,
+          "kind": 13,
+          "label": "ACTION_SWAP_PARAMS",
+          "sortText": "0002"
+        },
+        {
+          "data": {
+            "id": 3,
+            "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua"
+          },
+          "insertTextFormat": 1,
+          "kind": 13,
+          "label": "CONFIG_MODIFY_FAIL_SYNTAX_ERROR",
+          "sortText": "0003"
+        },
+        {
+          "data": {
+            "id": 4,
+            "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua"
+          },
+          "insertTextFormat": 1,
+          "kind": 13,
+          "label": "DIAG_INCOMPLETE_SIGNATURE_DOC_PARAM",
+          "sortText": "0004"
+        },
+        {
+          "data": {
+            "id": 5,
+            "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua"
+          },
+          "insertTextFormat": 1,
+          "kind": 13,
+          "label": "DIAG_INCOMPLETE_SIGNATURE_DOC_RETURN",
+          "sortText": "0005"
+        },
+        {
+          "data": {
+            "id": 6,
+            "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua"
+          },
+          "insertTextFormat": 1,
+          "kind": 13,
+          "label": "DIAG_SET_FOR_STATE",
+          "sortText": "0006"
+        },
+        {
+          "data": {
+            "id": 7,
+            "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua"
+          },
+          "insertTextFormat": 1,
+          "kind": 13,
+          "label": "HOVER_STRING_BYTES",
+          "sortText": "0007"
+        },
+        {
+          "data": {
+            "id": 8,
+            "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua"
+          },
+          "insertTextFormat": 1,
+          "kind": 13,
+          "label": "HOVER_STRING_CHARACTERS",
+          "sortText": "0008"
+        },
+        {
+          "data": {
+            "id": 9,
+            "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua"
+          },
+          "insertTextFormat": 1,
+          "kind": 13,
+          "label": "TYPE_ERROR_STRING_DISMATCH",
+          "sortText": "0009"
+        },
+        {
+          "data": {
+            "id": 10,
+            "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua"
+          },
+          "insertTextFormat": 1,
+          "kind": 13,
+          "label": "WINDOW_CLIENT_NOT_SUPPORT_CONFIG",
+          "sortText": "0010"
+        },
+        {
+          "data": {
+            "id": 11,
+            "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua"
+          },
+          "insertTextFormat": 1,
+          "kind": 13,
+          "label": "WINDOW_LCONFIG_NOT_SUPPORT_CONFIG",
+          "sortText": "0011"
+        },
+        {
+          "data": {
+            "id": 12,
+            "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua"
+          },
+          "insertTextFormat": 1,
+          "kind": 13,
+          "label": "WINDOW_LUA_STATUS_MEMORY_COUNT",
+          "sortText": "0012"
+        },
+        {
+          "data": {
+            "id": 13,
+            "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua"
+          },
+          "insertTextFormat": 1,
+          "kind": 13,
+          "label": "WINDOW_LUA_STATUS_WORKSPACE",
+          "sortText": "0013"
+        },
+        {
+          "data": {
+            "id": 14,
+            "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua"
+          },
+          "insertTextFormat": 1,
+          "kind": 13,
+          "label": "string",
+          "sortText": "0014"
+        }
+      ]
+    }
+  },
+  "shutdown": {
+    "id": 3,
+    "jsonrpc": "2.0",
+    "result": true
+  },
+  "messages": [
+    {
+      "jsonrpc": "2.0",
+      "method": "$/hello",
+      "params": ["world"]
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "window/logMessage",
+      "params": {
+        "message": "Log path: file:///private/tmp/k2-filtered-lua-4/logs/file_private_tmp_k2-filtered-lua-4.log",
+        "type": 4
+      }
+    },
+    {
+      "id": 1,
+      "jsonrpc": "2.0",
+      "result": {
+        "capabilities": {
+          "codeActionProvider": {
+            "codeActionKinds": ["", "quickfix", "refactor.rewrite", "refactor.extract"],
+            "resolveProvider": false
+          },
+          "codeLensProvider": {
+            "resolveProvider": true
+          },
+          "colorProvider": true,
+          "completionProvider": {
+            "resolveProvider": true,
+            "triggerCharacters": [
+              "\t",
+              "\n",
+              ".",
+              ":",
+              "(",
+              "'",
+              "\"",
+              "[",
+              ",",
+              "#",
+              "*",
+              "@",
+              "|",
+              "=",
+              "-",
+              "{",
+              " ",
+              "+",
+              "?"
+            ]
+          },
+          "definitionProvider": true,
+          "documentFormattingProvider": true,
+          "documentHighlightProvider": true,
+          "documentOnTypeFormattingProvider": {
+            "firstTriggerCharacter": "\n"
+          },
+          "documentRangeFormattingProvider": true,
+          "documentSymbolProvider": true,
+          "executeCommandProvider": {
+            "commands": [
+              "lua.removeSpace",
+              "lua.solve",
+              "lua.jsonToLua",
+              "lua.setConfig",
+              "lua.getConfig",
+              "lua.autoRequire"
+            ]
+          },
+          "foldingRangeProvider": true,
+          "hoverProvider": true,
+          "implementationProvider": true,
+          "inlayHintProvider": {
+            "resolveProvider": true
+          },
+          "offsetEncoding": "utf-16",
+          "referencesProvider": true,
+          "renameProvider": {
+            "prepareProvider": true
+          },
+          "semanticTokensProvider": {
+            "full": true,
+            "legend": {
+              "tokenModifiers": [
+                "declaration",
+                "definition",
+                "readonly",
+                "static",
+                "deprecated",
+                "abstract",
+                "async",
+                "modification",
+                "documentation",
+                "defaultLibrary",
+                "global"
+              ],
+              "tokenTypes": [
+                "namespace",
+                "type",
+                "class",
+                "enum",
+                "interface",
+                "struct",
+                "typeParameter",
+                "parameter",
+                "variable",
+                "property",
+                "enumMember",
+                "event",
+                "function",
+                "method",
+                "macro",
+                "keyword",
+                "modifier",
+                "comment",
+                "string",
+                "number",
+                "regexp",
+                "operator",
+                "decorator"
+              ]
+            },
+            "range": true
+          },
+          "signatureHelpProvider": {
+            "triggerCharacters": ["(", ","]
+          },
+          "textDocumentSync": {
+            "change": 2,
+            "openClose": true,
+            "save": {
+              "includeText": false
+            }
+          },
+          "typeDefinitionProvider": true,
+          "workspace": {
+            "fileOperations": {
+              "didRename": {
+                "filters": [
+                  {
+                    "pattern": {
+                      "glob": "/private/tmp/k2-filtered-lua-4/**",
+                      "options": {
+                        "ignoreCase": true
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "workspaceFolders": {
+              "changeNotifications": true,
+              "supported": true
+            }
+          },
+          "workspaceSymbolProvider": true
+        },
+        "serverInfo": {
+          "name": "sumneko.lua",
+          "version": "3.19.1"
+        }
+      }
+    },
+    {
+      "id": 1,
+      "jsonrpc": "2.0",
+      "method": "workspace/configuration",
+      "params": {
+        "items": [
+          {
+            "scopeUri": "file:///private/tmp/k2-filtered-lua-4",
+            "section": "Lua"
+          },
+          {
+            "scopeUri": "file:///private/tmp/k2-filtered-lua-4",
+            "section": "files.associations"
+          },
+          {
+            "scopeUri": "file:///private/tmp/k2-filtered-lua-4",
+            "section": "files.exclude"
+          },
+          {
+            "scopeUri": "file:///private/tmp/k2-filtered-lua-4",
+            "section": "editor.semanticHighlighting.enabled"
+          },
+          {
+            "scopeUri": "file:///private/tmp/k2-filtered-lua-4",
+            "section": "editor.acceptSuggestionOnEnter"
+          }
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "jsonrpc": "2.0",
+      "method": "workspace/configuration",
+      "params": {
+        "items": [
+          {
+            "section": "Lua"
+          },
+          {
+            "section": "files.associations"
+          },
+          {
+            "section": "files.exclude"
+          },
+          {
+            "section": "editor.semanticHighlighting.enabled"
+          },
+          {
+            "section": "editor.acceptSuggestionOnEnter"
+          }
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "jsonrpc": "2.0",
+      "result": null
+    },
+    {
+      "id": 20,
+      "jsonrpc": "2.0",
+      "result": null
+    },
+    {
+      "id": 21,
+      "jsonrpc": "2.0",
+      "result": null
+    },
+    {
+      "id": 22,
+      "jsonrpc": "2.0",
+      "result": null
+    },
+    {
+      "id": 3,
+      "jsonrpc": "2.0",
+      "method": "window/workDoneProgress/create",
+      "params": {
+        "token": 2
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "cancellable": false,
+          "kind": "begin",
+          "message": "68/555",
+          "percentage": 12,
+          "title": "Loading workspace"
+        }
+      }
+    },
+    {
+      "id": 23,
+      "jsonrpc": "2.0",
+      "result": null
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "75/555",
+          "percentage": 13
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "83/555",
+          "percentage": 14
+        }
+      }
+    },
+    {
+      "id": 24,
+      "jsonrpc": "2.0",
+      "result": null
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "96/555",
+          "percentage": 17
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "99/555",
+          "percentage": 17
+        }
+      }
+    },
+    {
+      "id": 25,
+      "jsonrpc": "2.0",
+      "result": null
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "window/showMessage",
+      "params": {
+        "message": "Too large file: server/meta/default utf8/UnityEngine.lua skipped. The currently set size limit is: 500 KB, and the file size is: 2521.24 KB.",
+        "type": 3
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "window/logMessage",
+      "params": {
+        "message": "Too large file: server/meta/default utf8/UnityEngine.lua skipped. The currently set size limit is: 500 KB, and the file size is: 2521.24 KB.",
+        "type": 3
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "109/555",
+          "percentage": 19
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "116/555",
+          "percentage": 20
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "118/555",
+          "percentage": 21
+        }
+      }
+    },
+    {
+      "id": 26,
+      "jsonrpc": "2.0",
+      "result": null
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "124/555",
+          "percentage": 22
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "130/555",
+          "percentage": 23
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "140/555",
+          "percentage": 25
+        }
+      }
+    },
+    {
+      "id": 27,
+      "jsonrpc": "2.0",
+      "result": null
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "147/555",
+          "percentage": 26
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "149/555",
+          "percentage": 26
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "152/555",
+          "percentage": 27
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "154/555",
+          "percentage": 27
+        }
+      }
+    },
+    {
+      "id": 28,
+      "jsonrpc": "2.0",
+      "result": null
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "159/555",
+          "percentage": 28
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "170/555",
+          "percentage": 30
+        }
+      }
+    },
+    {
+      "id": 29,
+      "jsonrpc": "2.0",
+      "result": null
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "176/555",
+          "percentage": 31
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "185/555",
+          "percentage": 33
+        }
+      }
+    },
+    {
+      "id": 30,
+      "jsonrpc": "2.0",
+      "result": null
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "202/555",
+          "percentage": 36
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "207/555",
+          "percentage": 37
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "window/logMessage",
+      "params": {
+        "message": "Too large file: server/meta/default utf8/CS.lua skipped. The currently set size limit is: 500 KB, and the file size is: 659.463 KB.",
+        "type": 3
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "212/555",
+          "percentage": 38
+        }
+      }
+    },
+    {
+      "id": 31,
+      "jsonrpc": "2.0",
+      "result": null
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "217/555",
+          "percentage": 38
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "221/555",
+          "percentage": 39
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "232/555",
+          "percentage": 41
+        }
+      }
+    },
+    {
+      "id": 32,
+      "jsonrpc": "2.0",
+      "result": null
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "240/555",
+          "percentage": 43
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "261/555",
+          "percentage": 46
+        }
+      }
+    },
+    {
+      "id": 33,
+      "jsonrpc": "2.0",
+      "result": null
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "289/555",
+          "percentage": 51
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "314/555",
+          "percentage": 56
+        }
+      }
+    },
+    {
+      "id": 34,
+      "jsonrpc": "2.0",
+      "result": null
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "363/555",
+          "percentage": 65
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "405/555",
+          "percentage": 72
+        }
+      }
+    },
+    {
+      "id": 35,
+      "jsonrpc": "2.0",
+      "result": null
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "427/555",
+          "percentage": 76
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "446/555",
+          "percentage": 80
+        }
+      }
+    },
+    {
+      "id": 36,
+      "jsonrpc": "2.0",
+      "result": null
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "476/555",
+          "percentage": 85
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "487/555",
+          "percentage": 87
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "493/555",
+          "percentage": 88
+        }
+      }
+    },
+    {
+      "id": 37,
+      "jsonrpc": "2.0",
+      "result": null
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "508/555",
+          "percentage": 91
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "report",
+          "message": "523/555",
+          "percentage": 94
+        }
+      }
+    },
+    {
+      "id": 38,
+      "jsonrpc": "2.0",
+      "result": null
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "$/progress",
+      "params": {
+        "token": 2,
+        "value": {
+          "kind": "end"
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "textDocument/publishDiagnostics",
+      "params": {
+        "diagnostics": [
+          {
+            "code": "exp-in-action",
+            "data": "syntax",
+            "message": "Unexpected <exp> .",
+            "range": {
+              "end": {
+                "character": 3,
+                "line": 0
+              },
+              "start": {
+                "character": 0,
+                "line": 0
+              }
+            },
+            "severity": 1,
+            "source": "Lua Syntax Check."
+          }
+        ],
+        "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua",
+        "version": 1
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "textDocument/publishDiagnostics",
+      "params": {
+        "diagnostics": [
+          {
+            "code": "exp-in-action",
+            "data": "syntax",
+            "message": "Unexpected <exp> .",
+            "range": {
+              "end": {
+                "character": 3,
+                "line": 0
+              },
+              "start": {
+                "character": 0,
+                "line": 0
+              }
+            },
+            "severity": 1,
+            "source": "Lua Syntax Check."
+          },
+          {
+            "code": "undefined-global",
+            "message": "Undefined global `str`.",
+            "range": {
+              "end": {
+                "character": 3,
+                "line": 0
+              },
+              "start": {
+                "character": 0,
+                "line": 0
+              }
+            },
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          }
+        ],
+        "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua",
+        "version": 1
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "textDocument/publishDiagnostics",
+      "params": {
+        "diagnostics": [
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `__mode`.",
+            "range": {
+              "end": {
+                "character": 16,
+                "line": 317
+              },
+              "start": {
+                "character": 10,
+                "line": 317
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 16,
+                      "line": 262
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 262
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/basic.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `__metatable`.",
+            "range": {
+              "end": {
+                "character": 21,
+                "line": 318
+              },
+              "start": {
+                "character": 10,
+                "line": 318
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 21,
+                      "line": 263
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 263
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/basic.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `__tostring`.",
+            "range": {
+              "end": {
+                "character": 20,
+                "line": 319
+              },
+              "start": {
+                "character": 10,
+                "line": 319
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 20,
+                      "line": 264
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 264
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/basic.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `__gc`.",
+            "range": {
+              "end": {
+                "character": 14,
+                "line": 320
+              },
+              "start": {
+                "character": 10,
+                "line": 320
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 14,
+                      "line": 265
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 265
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/basic.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `__add`.",
+            "range": {
+              "end": {
+                "character": 15,
+                "line": 321
+              },
+              "start": {
+                "character": 10,
+                "line": 321
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 15,
+                      "line": 266
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 266
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/basic.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `__sub`.",
+            "range": {
+              "end": {
+                "character": 15,
+                "line": 322
+              },
+              "start": {
+                "character": 10,
+                "line": 322
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 15,
+                      "line": 267
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 267
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/basic.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `__mul`.",
+            "range": {
+              "end": {
+                "character": 15,
+                "line": 323
+              },
+              "start": {
+                "character": 10,
+                "line": 323
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 15,
+                      "line": 268
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 268
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/basic.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `__div`.",
+            "range": {
+              "end": {
+                "character": 15,
+                "line": 324
+              },
+              "start": {
+                "character": 10,
+                "line": 324
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 15,
+                      "line": 269
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 269
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/basic.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `__mod`.",
+            "range": {
+              "end": {
+                "character": 15,
+                "line": 325
+              },
+              "start": {
+                "character": 10,
+                "line": 325
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 15,
+                      "line": 270
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 270
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/basic.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `__pow`.",
+            "range": {
+              "end": {
+                "character": 15,
+                "line": 326
+              },
+              "start": {
+                "character": 10,
+                "line": 326
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 15,
+                      "line": 271
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 271
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/basic.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `__unm`.",
+            "range": {
+              "end": {
+                "character": 15,
+                "line": 327
+              },
+              "start": {
+                "character": 10,
+                "line": 327
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 15,
+                      "line": 272
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 272
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/basic.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `__idiv`.",
+            "range": {
+              "end": {
+                "character": 16,
+                "line": 328
+              },
+              "start": {
+                "character": 10,
+                "line": 328
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 16,
+                      "line": 274
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 274
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/basic.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `__band`.",
+            "range": {
+              "end": {
+                "character": 16,
+                "line": 329
+              },
+              "start": {
+                "character": 10,
+                "line": 329
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 16,
+                      "line": 275
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 275
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/basic.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `__bor`.",
+            "range": {
+              "end": {
+                "character": 15,
+                "line": 330
+              },
+              "start": {
+                "character": 10,
+                "line": 330
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 15,
+                      "line": 276
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 276
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/basic.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `__bxor`.",
+            "range": {
+              "end": {
+                "character": 16,
+                "line": 331
+              },
+              "start": {
+                "character": 10,
+                "line": 331
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 16,
+                      "line": 277
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 277
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/basic.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `__bnot`.",
+            "range": {
+              "end": {
+                "character": 16,
+                "line": 332
+              },
+              "start": {
+                "character": 10,
+                "line": 332
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 16,
+                      "line": 278
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 278
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/basic.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `__shl`.",
+            "range": {
+              "end": {
+                "character": 15,
+                "line": 333
+              },
+              "start": {
+                "character": 10,
+                "line": 333
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 15,
+                      "line": 279
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 279
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/basic.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `__shr`.",
+            "range": {
+              "end": {
+                "character": 15,
+                "line": 334
+              },
+              "start": {
+                "character": 10,
+                "line": 334
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 15,
+                      "line": 280
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 280
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/basic.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `__concat`.",
+            "range": {
+              "end": {
+                "character": 18,
+                "line": 335
+              },
+              "start": {
+                "character": 10,
+                "line": 335
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 18,
+                      "line": 282
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 282
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/basic.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `__len`.",
+            "range": {
+              "end": {
+                "character": 15,
+                "line": 336
+              },
+              "start": {
+                "character": 10,
+                "line": 336
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 15,
+                      "line": 283
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 283
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/basic.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `__eq`.",
+            "range": {
+              "end": {
+                "character": 14,
+                "line": 337
+              },
+              "start": {
+                "character": 10,
+                "line": 337
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 14,
+                      "line": 284
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 284
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/basic.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `__lt`.",
+            "range": {
+              "end": {
+                "character": 14,
+                "line": 338
+              },
+              "start": {
+                "character": 10,
+                "line": 338
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 14,
+                      "line": 285
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 285
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/basic.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `__le`.",
+            "range": {
+              "end": {
+                "character": 14,
+                "line": 339
+              },
+              "start": {
+                "character": 10,
+                "line": 339
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 14,
+                      "line": 286
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 286
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/basic.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `__index`.",
+            "range": {
+              "end": {
+                "character": 17,
+                "line": 340
+              },
+              "start": {
+                "character": 10,
+                "line": 340
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 17,
+                      "line": 287
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 287
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/basic.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `__newindex`.",
+            "range": {
+              "end": {
+                "character": 20,
+                "line": 341
+              },
+              "start": {
+                "character": 10,
+                "line": 341
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 20,
+                      "line": 288
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 288
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/basic.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `__call`.",
+            "range": {
+              "end": {
+                "character": 16,
+                "line": 342
+              },
+              "start": {
+                "character": 10,
+                "line": 342
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 16,
+                      "line": 289
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 289
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/basic.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `__pairs`.",
+            "range": {
+              "end": {
+                "character": 17,
+                "line": 343
+              },
+              "start": {
+                "character": 10,
+                "line": 343
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 17,
+                      "line": 291
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 291
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/basic.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `__close`.",
+            "range": {
+              "end": {
+                "character": 17,
+                "line": 344
+              },
+              "start": {
+                "character": 10,
+                "line": 344
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 17,
+                      "line": 297
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 297
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/basic.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-alias",
+            "message": "Duplicate defined alias `loadmode`.",
+            "range": {
+              "end": {
+                "character": 18,
+                "line": 122
+              },
+              "start": {
+                "character": 10,
+                "line": 122
+              }
+            },
+            "relatedInformation": [],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-alias",
+            "message": "Duplicate defined alias `type`.",
+            "range": {
+              "end": {
+                "character": 14,
+                "line": 390
+              },
+              "start": {
+                "character": 10,
+                "line": 390
+              }
+            },
+            "relatedInformation": [],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          }
+        ],
+        "uri": "file:///private/tmp/k2-filtered-lua-4/generated-meta/Lua%205.4%20en-us%20utf8/basic.lua"
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "textDocument/publishDiagnostics",
+      "params": {
+        "diagnostics": [
+          {
+            "code": "deprecated",
+            "data": {
+              "versions": ["LuaJIT"]
+            },
+            "message": "Deprecated.(Defined in LuaJIT, current is Lua 5.4.)",
+            "range": {
+              "end": {
+                "character": 12,
+                "line": 9
+              },
+              "start": {
+                "character": 9,
+                "line": 9
+              }
+            },
+            "severity": 2,
+            "source": "Lua Diagnostics.",
+            "tags": [2]
+          },
+          {
+            "code": "deprecated",
+            "data": {
+              "versions": ["LuaJIT"]
+            },
+            "message": "Deprecated.(Defined in LuaJIT, current is Lua 5.4.)",
+            "range": {
+              "end": {
+                "character": 12,
+                "line": 15
+              },
+              "start": {
+                "character": 9,
+                "line": 15
+              }
+            },
+            "severity": 2,
+            "source": "Lua Diagnostics.",
+            "tags": [2]
+          },
+          {
+            "code": "deprecated",
+            "data": {
+              "versions": ["LuaJIT"]
+            },
+            "message": "Deprecated.(Defined in LuaJIT, current is Lua 5.4.)",
+            "range": {
+              "end": {
+                "character": 12,
+                "line": 20
+              },
+              "start": {
+                "character": 9,
+                "line": 20
+              }
+            },
+            "severity": 2,
+            "source": "Lua Diagnostics.",
+            "tags": [2]
+          },
+          {
+            "code": "deprecated",
+            "data": {
+              "versions": ["LuaJIT"]
+            },
+            "message": "Deprecated.(Defined in LuaJIT, current is Lua 5.4.)",
+            "range": {
+              "end": {
+                "character": 12,
+                "line": 26
+              },
+              "start": {
+                "character": 9,
+                "line": 26
+              }
+            },
+            "severity": 2,
+            "source": "Lua Diagnostics.",
+            "tags": [2]
+          },
+          {
+            "code": "deprecated",
+            "data": {
+              "versions": ["LuaJIT"]
+            },
+            "message": "Deprecated.(Defined in LuaJIT, current is Lua 5.4.)",
+            "range": {
+              "end": {
+                "character": 12,
+                "line": 32
+              },
+              "start": {
+                "character": 9,
+                "line": 32
+              }
+            },
+            "severity": 2,
+            "source": "Lua Diagnostics.",
+            "tags": [2]
+          },
+          {
+            "code": "deprecated",
+            "data": {
+              "versions": ["LuaJIT"]
+            },
+            "message": "Deprecated.(Defined in LuaJIT, current is Lua 5.4.)",
+            "range": {
+              "end": {
+                "character": 12,
+                "line": 38
+              },
+              "start": {
+                "character": 9,
+                "line": 38
+              }
+            },
+            "severity": 2,
+            "source": "Lua Diagnostics.",
+            "tags": [2]
+          },
+          {
+            "code": "deprecated",
+            "data": {
+              "versions": ["LuaJIT"]
+            },
+            "message": "Deprecated.(Defined in LuaJIT, current is Lua 5.4.)",
+            "range": {
+              "end": {
+                "character": 12,
+                "line": 44
+              },
+              "start": {
+                "character": 9,
+                "line": 44
+              }
+            },
+            "severity": 2,
+            "source": "Lua Diagnostics.",
+            "tags": [2]
+          },
+          {
+            "code": "deprecated",
+            "data": {
+              "versions": ["LuaJIT"]
+            },
+            "message": "Deprecated.(Defined in LuaJIT, current is Lua 5.4.)",
+            "range": {
+              "end": {
+                "character": 12,
+                "line": 50
+              },
+              "start": {
+                "character": 9,
+                "line": 50
+              }
+            },
+            "severity": 2,
+            "source": "Lua Diagnostics.",
+            "tags": [2]
+          },
+          {
+            "code": "deprecated",
+            "data": {
+              "versions": ["LuaJIT"]
+            },
+            "message": "Deprecated.(Defined in LuaJIT, current is Lua 5.4.)",
+            "range": {
+              "end": {
+                "character": 12,
+                "line": 56
+              },
+              "start": {
+                "character": 9,
+                "line": 56
+              }
+            },
+            "severity": 2,
+            "source": "Lua Diagnostics.",
+            "tags": [2]
+          },
+          {
+            "code": "deprecated",
+            "data": {
+              "versions": ["LuaJIT"]
+            },
+            "message": "Deprecated.(Defined in LuaJIT, current is Lua 5.4.)",
+            "range": {
+              "end": {
+                "character": 12,
+                "line": 62
+              },
+              "start": {
+                "character": 9,
+                "line": 62
+              }
+            },
+            "severity": 2,
+            "source": "Lua Diagnostics.",
+            "tags": [2]
+          },
+          {
+            "code": "deprecated",
+            "data": {
+              "versions": ["LuaJIT"]
+            },
+            "message": "Deprecated.(Defined in LuaJIT, current is Lua 5.4.)",
+            "range": {
+              "end": {
+                "character": 12,
+                "line": 68
+              },
+              "start": {
+                "character": 9,
+                "line": 68
+              }
+            },
+            "severity": 2,
+            "source": "Lua Diagnostics.",
+            "tags": [2]
+          },
+          {
+            "code": "deprecated",
+            "data": {
+              "versions": ["LuaJIT"]
+            },
+            "message": "Deprecated.(Defined in LuaJIT, current is Lua 5.4.)",
+            "range": {
+              "end": {
+                "character": 12,
+                "line": 73
+              },
+              "start": {
+                "character": 9,
+                "line": 73
+              }
+            },
+            "severity": 2,
+            "source": "Lua Diagnostics.",
+            "tags": [2]
+          },
+          {
+            "code": "deprecated",
+            "data": {
+              "versions": ["LuaJIT"]
+            },
+            "message": "Deprecated.(Defined in LuaJIT, current is Lua 5.4.)",
+            "range": {
+              "end": {
+                "character": 10,
+                "line": 75
+              },
+              "start": {
+                "character": 7,
+                "line": 75
+              }
+            },
+            "severity": 2,
+            "source": "Lua Diagnostics.",
+            "tags": [2]
+          }
+        ],
+        "uri": "file:///private/tmp/k2-filtered-lua-4/generated-meta/Lua%205.4%20en-us%20utf8/bit.lua"
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "textDocument/publishDiagnostics",
+      "params": {
+        "diagnostics": [
+          {
+            "code": "duplicate-doc-alias",
+            "message": "Duplicate defined alias `infowhat`.",
+            "range": {
+              "end": {
+                "character": 18,
+                "line": 58
+              },
+              "start": {
+                "character": 10,
+                "line": 58
+              }
+            },
+            "relatedInformation": [],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-alias",
+            "message": "Duplicate defined alias `hookmask`.",
+            "range": {
+              "end": {
+                "character": 18,
+                "line": 168
+              },
+              "start": {
+                "character": 10,
+                "line": 168
+              }
+            },
+            "relatedInformation": [],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `name`.",
+            "range": {
+              "end": {
+                "character": 14,
+                "line": 11
+              },
+              "start": {
+                "character": 10,
+                "line": 11
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 14,
+                      "line": 11
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 11
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/Lua%205.4%20zh-cn%20utf8/debug.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `namewhat`.",
+            "range": {
+              "end": {
+                "character": 18,
+                "line": 12
+              },
+              "start": {
+                "character": 10,
+                "line": 12
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 18,
+                      "line": 12
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 12
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/Lua%205.4%20zh-cn%20utf8/debug.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `source`.",
+            "range": {
+              "end": {
+                "character": 16,
+                "line": 13
+              },
+              "start": {
+                "character": 10,
+                "line": 13
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 16,
+                      "line": 13
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 13
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/Lua%205.4%20zh-cn%20utf8/debug.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `short_src`.",
+            "range": {
+              "end": {
+                "character": 19,
+                "line": 14
+              },
+              "start": {
+                "character": 10,
+                "line": 14
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 19,
+                      "line": 14
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 14
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/Lua%205.4%20zh-cn%20utf8/debug.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `linedefined`.",
+            "range": {
+              "end": {
+                "character": 21,
+                "line": 15
+              },
+              "start": {
+                "character": 10,
+                "line": 15
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 21,
+                      "line": 15
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 15
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/Lua%205.4%20zh-cn%20utf8/debug.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `lastlinedefined`.",
+            "range": {
+              "end": {
+                "character": 25,
+                "line": 16
+              },
+              "start": {
+                "character": 10,
+                "line": 16
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 25,
+                      "line": 16
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 16
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/Lua%205.4%20zh-cn%20utf8/debug.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `what`.",
+            "range": {
+              "end": {
+                "character": 14,
+                "line": 17
+              },
+              "start": {
+                "character": 10,
+                "line": 17
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 14,
+                      "line": 17
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 17
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/Lua%205.4%20zh-cn%20utf8/debug.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `currentline`.",
+            "range": {
+              "end": {
+                "character": 21,
+                "line": 18
+              },
+              "start": {
+                "character": 10,
+                "line": 18
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 21,
+                      "line": 18
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 18
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/Lua%205.4%20zh-cn%20utf8/debug.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `istailcall`.",
+            "range": {
+              "end": {
+                "character": 20,
+                "line": 19
+              },
+              "start": {
+                "character": 10,
+                "line": 19
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 20,
+                      "line": 19
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 19
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/Lua%205.4%20zh-cn%20utf8/debug.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `nups`.",
+            "range": {
+              "end": {
+                "character": 14,
+                "line": 20
+              },
+              "start": {
+                "character": 10,
+                "line": 20
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 14,
+                      "line": 20
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 20
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/Lua%205.4%20zh-cn%20utf8/debug.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `nparams`.",
+            "range": {
+              "end": {
+                "character": 17,
+                "line": 21
+              },
+              "start": {
+                "character": 10,
+                "line": 21
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 17,
+                      "line": 21
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 21
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/Lua%205.4%20zh-cn%20utf8/debug.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `isvararg`.",
+            "range": {
+              "end": {
+                "character": 18,
+                "line": 22
+              },
+              "start": {
+                "character": 10,
+                "line": 22
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 18,
+                      "line": 22
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 22
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/Lua%205.4%20zh-cn%20utf8/debug.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `func`.",
+            "range": {
+              "end": {
+                "character": 14,
+                "line": 23
+              },
+              "start": {
+                "character": 10,
+                "line": 23
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 14,
+                      "line": 23
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 23
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/Lua%205.4%20zh-cn%20utf8/debug.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `ftransfer`.",
+            "range": {
+              "end": {
+                "character": 19,
+                "line": 24
+              },
+              "start": {
+                "character": 10,
+                "line": 24
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 19,
+                      "line": 24
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 24
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/Lua%205.4%20zh-cn%20utf8/debug.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `ntransfer`.",
+            "range": {
+              "end": {
+                "character": 19,
+                "line": 25
+              },
+              "start": {
+                "character": 10,
+                "line": 25
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 19,
+                      "line": 25
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 25
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/Lua%205.4%20zh-cn%20utf8/debug.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `activelines`.",
+            "range": {
+              "end": {
+                "character": 21,
+                "line": 26
+              },
+              "start": {
+                "character": 10,
+                "line": 26
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 21,
+                      "line": 26
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 26
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/Lua%205.4%20zh-cn%20utf8/debug.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          }
+        ],
+        "uri": "file:///private/tmp/k2-filtered-lua-4/generated-meta/Lua%205.4%20en-us%20utf8/debug.lua"
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "textDocument/publishDiagnostics",
+      "params": {
+        "diagnostics": [
+          {
+            "code": "duplicate-doc-alias",
+            "message": "Duplicate defined alias `ffi.ct*`.",
+            "range": {
+              "end": {
+                "character": 17,
+                "line": 12
+              },
+              "start": {
+                "character": 10,
+                "line": 12
+              }
+            },
+            "relatedInformation": [],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `[string]`.",
+            "range": {
+              "end": {
+                "character": 17,
+                "line": 3
+              },
+              "start": {
+                "character": 11,
+                "line": 3
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 17,
+                      "line": 4
+                    },
+                    "start": {
+                      "character": 11,
+                      "line": 4
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/ffi.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `C`.",
+            "range": {
+              "end": {
+                "character": 11,
+                "line": 20
+              },
+              "start": {
+                "character": 10,
+                "line": 20
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 11,
+                      "line": 21
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 21
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/ffi.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `os`.",
+            "range": {
+              "end": {
+                "character": 12,
+                "line": 21
+              },
+              "start": {
+                "character": 10,
+                "line": 21
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 12,
+                      "line": 22
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 22
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/ffi.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `arch`.",
+            "range": {
+              "end": {
+                "character": 14,
+                "line": 22
+              },
+              "start": {
+                "character": 10,
+                "line": 22
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 14,
+                      "line": 23
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 23
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/ffi.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "redundant-parameter",
+            "message": "This function expects a maximum of 2 argument(s) but instead it is receiving 3.",
+            "range": {
+              "end": {
+                "character": 31,
+                "line": 104
+              },
+              "start": {
+                "character": 28,
+                "line": 104
+              }
+            },
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          }
+        ],
+        "uri": "file:///private/tmp/k2-filtered-lua-4/generated-meta/Lua%205.4%20en-us%20utf8/ffi.lua"
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "textDocument/publishDiagnostics",
+      "params": {
+        "diagnostics": [
+          {
+            "code": "duplicate-doc-alias",
+            "message": "Duplicate defined alias `openmode`.",
+            "range": {
+              "end": {
+                "character": 18,
+                "line": 28
+              },
+              "start": {
+                "character": 10,
+                "line": 28
+              }
+            },
+            "relatedInformation": [],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-alias",
+            "message": "Duplicate defined alias `popenmode`.",
+            "range": {
+              "end": {
+                "character": 19,
+                "line": 106
+              },
+              "start": {
+                "character": 10,
+                "line": 106
+              }
+            },
+            "relatedInformation": [],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-alias",
+            "message": "Duplicate defined alias `filetype`.",
+            "range": {
+              "end": {
+                "character": 18,
+                "line": 141
+              },
+              "start": {
+                "character": 10,
+                "line": 141
+              }
+            },
+            "relatedInformation": [],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-alias",
+            "message": "Duplicate defined alias `readmode`.",
+            "range": {
+              "end": {
+                "character": 18,
+                "line": 173
+              },
+              "start": {
+                "character": 10,
+                "line": 173
+              }
+            },
+            "relatedInformation": [],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-alias",
+            "message": "Duplicate defined alias `exitcode`.",
+            "range": {
+              "end": {
+                "character": 18,
+                "line": 179
+              },
+              "start": {
+                "character": 10,
+                "line": 179
+              }
+            },
+            "relatedInformation": [],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-alias",
+            "message": "Duplicate defined alias `seekwhence`.",
+            "range": {
+              "end": {
+                "character": 20,
+                "line": 224
+              },
+              "start": {
+                "character": 10,
+                "line": 224
+              }
+            },
+            "relatedInformation": [],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-alias",
+            "message": "Duplicate defined alias `vbuf`.",
+            "range": {
+              "end": {
+                "character": 14,
+                "line": 240
+              },
+              "start": {
+                "character": 10,
+                "line": 240
+              }
+            },
+            "relatedInformation": [],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `stdin`.",
+            "range": {
+              "end": {
+                "character": 15,
+                "line": 13
+              },
+              "start": {
+                "character": 10,
+                "line": 13
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 15,
+                      "line": 5
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 5
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/io.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `stdout`.",
+            "range": {
+              "end": {
+                "character": 16,
+                "line": 19
+              },
+              "start": {
+                "character": 10,
+                "line": 19
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 16,
+                      "line": 7
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 7
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/io.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `stderr`.",
+            "range": {
+              "end": {
+                "character": 16,
+                "line": 25
+              },
+              "start": {
+                "character": 10,
+                "line": 25
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 16,
+                      "line": 9
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 9
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/io.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "redundant-parameter",
+            "message": "This function expects a maximum of 0 argument(s) but instead it is receiving 1.",
+            "range": {
+              "end": {
+                "character": 22,
+                "line": 67
+              },
+              "start": {
+                "character": 18,
+                "line": 67
+              }
+            },
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "redundant-parameter",
+            "message": "This function expects a maximum of 0 argument(s) but instead it is receiving 1.",
+            "range": {
+              "end": {
+                "character": 23,
+                "line": 104
+              },
+              "start": {
+                "character": 19,
+                "line": 104
+              }
+            },
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          }
+        ],
+        "uri": "file:///private/tmp/k2-filtered-lua-4/generated-meta/Lua%205.4%20en-us%20utf8/io.lua"
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "textDocument/publishDiagnostics",
+      "params": {
+        "diagnostics": [
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `version`.",
+            "range": {
+              "end": {
+                "character": 17,
+                "line": 4
+              },
+              "start": {
+                "character": 10,
+                "line": 4
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 17,
+                      "line": 5
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 5
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/jit.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `version_num`.",
+            "range": {
+              "end": {
+                "character": 21,
+                "line": 5
+              },
+              "start": {
+                "character": 10,
+                "line": 5
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 21,
+                      "line": 6
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 6
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/jit.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `os`.",
+            "range": {
+              "end": {
+                "character": 12,
+                "line": 6
+              },
+              "start": {
+                "character": 10,
+                "line": 6
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 12,
+                      "line": 7
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 7
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/jit.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `arch`.",
+            "range": {
+              "end": {
+                "character": 14,
+                "line": 7
+              },
+              "start": {
+                "character": 10,
+                "line": 7
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 14,
+                      "line": 8
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 8
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/jit.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          }
+        ],
+        "uri": "file:///private/tmp/k2-filtered-lua-4/generated-meta/Lua%205.4%20en-us%20utf8/jit.lua"
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "textDocument/publishDiagnostics",
+      "params": {
+        "diagnostics": [
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `ffid`.",
+            "range": {
+              "end": {
+                "character": 14,
+                "line": 27
+              },
+              "start": {
+                "character": 10,
+                "line": 27
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 14,
+                      "line": 27
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 27
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/Lua%205.4%20zh-cn%20utf8/jit/util.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          }
+        ],
+        "uri": "file:///private/tmp/k2-filtered-lua-4/generated-meta/Lua%205.4%20en-us%20utf8/jit/util.lua"
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "textDocument/publishDiagnostics",
+      "params": {
+        "diagnostics": [
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `huge`.",
+            "range": {
+              "end": {
+                "character": 14,
+                "line": 13
+              },
+              "start": {
+                "character": 10,
+                "line": 13
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 14,
+                      "line": 5
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 5
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/math.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `maxinteger`.",
+            "range": {
+              "end": {
+                "character": 20,
+                "line": 19
+              },
+              "start": {
+                "character": 10,
+                "line": 19
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 20,
+                      "line": 8
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 8
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/math.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `mininteger`.",
+            "range": {
+              "end": {
+                "character": 20,
+                "line": 25
+              },
+              "start": {
+                "character": 10,
+                "line": 25
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 20,
+                      "line": 10
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 10
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/math.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "duplicate-doc-field",
+            "message": "Duplicate defined fields `pi`.",
+            "range": {
+              "end": {
+                "character": 12,
+                "line": 31
+              },
+              "start": {
+                "character": 10,
+                "line": 31
+              }
+            },
+            "relatedInformation": [
+              {
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 12,
+                      "line": 13
+                    },
+                    "start": {
+                      "character": 10,
+                      "line": 13
+                    }
+                  },
+                  "uri": "file:///private/tmp/k2-filtered-lua-4/server/meta/template/math.lua"
+                },
+                "message": ""
+              }
+            ],
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          },
+          {
+            "code": "redundant-parameter",
+            "message": "This function expects a maximum of 1 argument(s) but instead it is receiving 2.",
+            "range": {
+              "end": {
+                "character": 25,
+                "line": 277
+              },
+              "start": {
+                "character": 24,
+                "line": 277
+              }
+            },
+            "severity": 2,
+            "source": "Lua Diagnostics."
+          }
+        ],
+        "uri": "file:///private/tmp/k2-filtered-lua-4/generated-meta/Lua%205.4%20en-us%20utf8/math.lua"
+      }
+    },
+    {
+      "id": 39,
+      "jsonrpc": "2.0",
+      "result": {
+        "isIncomplete": false,
+        "items": [
+          {
+            "data": {
+              "id": 1,
+              "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua"
+            },
+            "insertTextFormat": 1,
+            "kind": 13,
+            "label": "ACTION_REMOVE_SPACE",
+            "sortText": "0001"
+          },
+          {
+            "data": {
+              "id": 2,
+              "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua"
+            },
+            "insertTextFormat": 1,
+            "kind": 13,
+            "label": "ACTION_SWAP_PARAMS",
+            "sortText": "0002"
+          },
+          {
+            "data": {
+              "id": 3,
+              "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua"
+            },
+            "insertTextFormat": 1,
+            "kind": 13,
+            "label": "CONFIG_MODIFY_FAIL_SYNTAX_ERROR",
+            "sortText": "0003"
+          },
+          {
+            "data": {
+              "id": 4,
+              "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua"
+            },
+            "insertTextFormat": 1,
+            "kind": 13,
+            "label": "DIAG_INCOMPLETE_SIGNATURE_DOC_PARAM",
+            "sortText": "0004"
+          },
+          {
+            "data": {
+              "id": 5,
+              "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua"
+            },
+            "insertTextFormat": 1,
+            "kind": 13,
+            "label": "DIAG_INCOMPLETE_SIGNATURE_DOC_RETURN",
+            "sortText": "0005"
+          },
+          {
+            "data": {
+              "id": 6,
+              "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua"
+            },
+            "insertTextFormat": 1,
+            "kind": 13,
+            "label": "DIAG_SET_FOR_STATE",
+            "sortText": "0006"
+          },
+          {
+            "data": {
+              "id": 7,
+              "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua"
+            },
+            "insertTextFormat": 1,
+            "kind": 13,
+            "label": "HOVER_STRING_BYTES",
+            "sortText": "0007"
+          },
+          {
+            "data": {
+              "id": 8,
+              "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua"
+            },
+            "insertTextFormat": 1,
+            "kind": 13,
+            "label": "HOVER_STRING_CHARACTERS",
+            "sortText": "0008"
+          },
+          {
+            "data": {
+              "id": 9,
+              "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua"
+            },
+            "insertTextFormat": 1,
+            "kind": 13,
+            "label": "TYPE_ERROR_STRING_DISMATCH",
+            "sortText": "0009"
+          },
+          {
+            "data": {
+              "id": 10,
+              "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua"
+            },
+            "insertTextFormat": 1,
+            "kind": 13,
+            "label": "WINDOW_CLIENT_NOT_SUPPORT_CONFIG",
+            "sortText": "0010"
+          },
+          {
+            "data": {
+              "id": 11,
+              "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua"
+            },
+            "insertTextFormat": 1,
+            "kind": 13,
+            "label": "WINDOW_LCONFIG_NOT_SUPPORT_CONFIG",
+            "sortText": "0011"
+          },
+          {
+            "data": {
+              "id": 12,
+              "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua"
+            },
+            "insertTextFormat": 1,
+            "kind": 13,
+            "label": "WINDOW_LUA_STATUS_MEMORY_COUNT",
+            "sortText": "0012"
+          },
+          {
+            "data": {
+              "id": 13,
+              "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua"
+            },
+            "insertTextFormat": 1,
+            "kind": 13,
+            "label": "WINDOW_LUA_STATUS_WORKSPACE",
+            "sortText": "0013"
+          },
+          {
+            "data": {
+              "id": 14,
+              "uri": "file:///private/tmp/k2-filtered-lua-4/test.lua"
+            },
+            "insertTextFormat": 1,
+            "kind": 13,
+            "label": "string",
+            "sortText": "0014"
+          }
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "jsonrpc": "2.0",
+      "result": true
+    }
+  ],
+  "exitCode": 0,
+  "stderr": "",
+  "environmentKeys": [
+    "PATH",
+    "SQLLENS_NO_PLUGINS",
+    "SQLLENS_USER_CONFIG",
+    "TEMP",
+    "TMP",
+    "TMPDIR",
+    "XDG_CACHE_HOME",
+    "XDG_CONFIG_HOME",
+    "XDG_STATE_HOME"
+  ],
+  "cleanup": {
+    "pid": 90714,
+    "groupReaped": true
+  },
+  "filteredThirdPartyAnnotations": true,
+  "standardLibraryCompletion": true,
+  "binarySha256": "b3e587b384de7fb79a3a5bafc9b00fe2433d7f8011b9f80a1be98b08d5a40cc1",
+  "retainedTemplateFiles": 20,
+  "scope": "Darwin arm64 feasibility only; no runtime/vendor legal closure or other platform certification",
+  "missingEvidence": [
+    "Static runtime/vendor legal closure remains unverified for published Linux artifacts."
+  ]
+}

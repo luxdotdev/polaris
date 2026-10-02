@@ -1,15 +1,67 @@
 {
   "artifactId": "shfmt_v3.14.1_darwin_arm64",
   "artifactIntegrity": "sha256:b7c872db63553ccffc7253aba3ed7d4885a27d83f1ba567b1138c6315a5847e5",
-  "coverage": "pending",
+  "coverage": "complete",
   "notices": [
     {
       "path": "notices/ce63850f77649f00d1394045e2794ffb09a5596beabac51c9548edd958845d7c.txt",
       "integrity": "sha256:ce63850f77649f00d1394045e2794ffb09a5596beabac51c9548edd958845d7c"
+    },
+    {
+      "path": "notices/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+      "integrity": "sha256:cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "notices/4835612df0098ca95f8e7d9e3bffcb02358d435dbb38057c844c99d7f725eb20.txt",
+      "integrity": "sha256:4835612df0098ca95f8e7d9e3bffcb02358d435dbb38057c844c99d7f725eb20"
+    },
+    {
+      "path": "notices/911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad.txt",
+      "integrity": "sha256:911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "notices/96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc.txt",
+      "integrity": "sha256:96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc"
+    },
+    {
+      "path": "notices/3ffd3576875cec2ca5d8e0f6ec7d871d6fba8cb87cfb2285347fddce108fc57c.txt",
+      "integrity": "sha256:3ffd3576875cec2ca5d8e0f6ec7d871d6fba8cb87cfb2285347fddce108fc57c"
+    },
+    {
+      "path": "notices/8a196dfd9252ad9cb0670365e680d6b19560c688776fa76f0203854ae2c0e29c.txt",
+      "integrity": "sha256:8a196dfd9252ad9cb0670365e680d6b19560c688776fa76f0203854ae2c0e29c"
+    },
+    {
+      "path": "notices/154c946c17de61ca71d28e13673d76a5798e6e25995a7397fbae157afc8f62b4.txt",
+      "integrity": "sha256:154c946c17de61ca71d28e13673d76a5798e6e25995a7397fbae157afc8f62b4"
+    },
+    {
+      "path": "notices/b73277f7730993ef8e7f80aed83e5309762fed4d77eced982abb2c00657c074d.txt",
+      "integrity": "sha256:b73277f7730993ef8e7f80aed83e5309762fed4d77eced982abb2c00657c074d"
+    },
+    {
+      "path": "notices/8cda009bd927676a95ee7ce2dae921442ac4d9584d041b56ecfcba6839032f0b.txt",
+      "integrity": "sha256:8cda009bd927676a95ee7ce2dae921442ac4d9584d041b56ecfcba6839032f0b"
+    },
+    {
+      "path": "notices/2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067.txt",
+      "integrity": "sha256:2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+    },
+    {
+      "path": "notices/56210f826b8f0fbac3160dfe55c97f4019eb6cdda3963b5a0eab8a8bdb62360e.txt",
+      "integrity": "sha256:56210f826b8f0fbac3160dfe55c97f4019eb6cdda3963b5a0eab8a8bdb62360e"
+    },
+    {
+      "path": "notices/d42b910fe44f043a907002751c5b29c7a17175e6c10ad8c3f5884387e7acab6d.txt",
+      "integrity": "sha256:d42b910fe44f043a907002751c5b29c7a17175e6c10ad8c3f5884387e7acab6d"
+    },
+    {
+      "path": "notices/f99df8ae6da6de047ed002d9dbe8682d9a19c88e9a7473abdadf3ac206621a85.txt",
+      "integrity": "sha256:f99df8ae6da6de047ed002d9dbe8682d9a19c88e9a7473abdadf3ac206621a85"
     }
   ],
   "findings": [
-    "Release-specific bundled notice/dependency audit required; see external-audits.json"
+    "A1 review required for exact artifact, dependency notices and source-delivery record"
   ],
   "bundleIntegrity": null,
   "supplements": [
@@ -23,6 +75,22 @@
     {
       "path": "source-notices.json",
       "integrity": "sha256:d55dfb416aa56a71ad6517309b1697032bef9078cfec16c224a689f9d66550c2"
+    },
+    {
+      "path": "native-source-closure.json",
+      "integrity": "sha256:1fd76242f3bf639baedcd7568f70a80dd5a06b3520c901d9f140aab30de0f218"
+    },
+    {
+      "path": "shfmt-build-closure.json",
+      "integrity": "sha256:56c5c2d738b794ae8c60ff730039af2e209b52c2e7d38c42af282a1539311e6d"
+    },
+    {
+      "path": "closure-plan.json",
+      "integrity": "sha256:a61abd31b8fda9766b634fa5276ec3e121d10ba9943a2efcd2a586a881edc8da"
+    },
+    {
+      "path": "review-records.json",
+      "integrity": "sha256:84878260fa5e3d66a0c73c80e5484fc839e778798dd558cced84d3949c26321b"
     }
   ]
 }

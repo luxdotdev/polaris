@@ -9,7 +9,7 @@ import time
 from fixture import temporary_root, server_environment, start, stop
 
 
-def exchange(command, cwd, language, text, settings, options=None):
+def exchange(command, cwd, language, text, settings, options=None, completion_wait=0):
     env = server_environment(cwd)
     process = start(command, cwd, env)
     messages = queue.Queue()
@@ -74,12 +74,21 @@ def exchange(command, cwd, language, text, settings, options=None):
         if 'error' in initialized:
             raise RuntimeError(initialized['error'])
         send({'method': 'initialized', 'params': {}})
-        uri = (cwd / ('test.yaml' if language == 'yaml' else 'test.sql')).as_uri()
+        extensions = {'yaml': 'yaml', 'lua': 'lua'}
+        uri = (cwd / ('test.' + extensions.get(language, 'sql'))).as_uri()
         send({'method': 'textDocument/didOpen', 'params': {'textDocument': {
             'uri': uri, 'languageId': language, 'version': 1, 'text': text}}})
         send({'id': 2, 'method': 'textDocument/completion', 'params': {
             'textDocument': {'uri': uri}, 'position': {'line': 0, 'character': 3}}})
         completion = response(2)
+        deadline = time.monotonic() + completion_wait
+        request_id = 20
+        while completion.get('result') is None and time.monotonic() < deadline:
+            time.sleep(0.1)
+            send({'id': request_id, 'method': 'textDocument/completion', 'params': {
+                'textDocument': {'uri': uri}, 'position': {'line': 0, 'character': 3}}})
+            completion = response(request_id)
+            request_id += 1
         extra = {}
         if any('actions-languageserver' in part for part in command):
             deadline = time.monotonic() + 10

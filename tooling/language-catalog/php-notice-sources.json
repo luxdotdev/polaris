@@ -1,0 +1,876 @@
+[
+  {
+    "name": "amphp/amp",
+    "version": "v2.6.5",
+    "license": ["MIT"],
+    "reference": "d7dda98dae26e56f3f6fcfbf1c1f819c9a993207",
+    "source": {
+      "url": "https://api.github.com/repos/amphp/amp/zipball/d7dda98dae26e56f3f6fcfbf1c1f819c9a993207",
+      "sha256": "dcf39250441bd4ddad99362b68bd59ad3fe06525e35b4d1aaf4902423e49b5b9",
+      "bytes": 54620,
+      "notices": [
+        {
+          "path": "amphp-amp-d7dda98/LICENSE",
+          "sha256": "9d3a008014f3c155a2944a9d72bb576761d2ea0622f2b3428505acde33bc500b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "amphp/byte-stream",
+    "version": "v1.8.2",
+    "license": ["MIT"],
+    "reference": "4f0e968ba3798a423730f567b1b50d3441c16ddc",
+    "source": {
+      "url": "https://api.github.com/repos/amphp/byte-stream/zipball/4f0e968ba3798a423730f567b1b50d3441c16ddc",
+      "sha256": "15d7a714d5da5a5b79a8d5b5e1cf33a916fbc9fbd2351cf5edb745c08521f764",
+      "bytes": 20928,
+      "notices": [
+        {
+          "path": "amphp-byte-stream-4f0e968/LICENSE",
+          "sha256": "71eb7c2703b98f5991e1b29a62f13a41682069adbf786e6d5e47b2538e168a7e"
+        }
+      ]
+    }
+  },
+  {
+    "name": "amphp/cache",
+    "version": "v1.5.1",
+    "license": ["MIT"],
+    "reference": "fe78cfae2fb8c92735629b8cd1893029c73c9b63",
+    "source": {
+      "url": "https://api.github.com/repos/amphp/cache/zipball/fe78cfae2fb8c92735629b8cd1893029c73c9b63",
+      "sha256": "cde2aac644353508cef8048694fce8029cfb3e0ad5d47c756d1412ca58ec3239",
+      "bytes": 11142,
+      "notices": [
+        {
+          "path": "amphp-cache-fe78cfa/LICENSE",
+          "sha256": "379ea8214dc392c496bd4d1bf53936bfb9816ef770a28dc73e776f7993f6c39f"
+        }
+      ]
+    }
+  },
+  {
+    "name": "amphp/dns",
+    "version": "v1.2.4",
+    "license": ["MIT"],
+    "reference": "4a13ffdc5e088593eb01860fc5002ebd9316d562",
+    "source": {
+      "url": "https://api.github.com/repos/amphp/dns/zipball/4a13ffdc5e088593eb01860fc5002ebd9316d562",
+      "sha256": "3f24936e9d2a8ae3c77d4fc49d9221ecc2ff3430bde62a9d570badb5092b425c",
+      "bytes": 29397,
+      "notices": [
+        {
+          "path": "amphp-dns-4a13ffd/LICENSE",
+          "sha256": "f786bbb9fd1ef1905cdd056d27488351991c655e73b18d409788b79da4d7ed33"
+        }
+      ]
+    }
+  },
+  {
+    "name": "amphp/parser",
+    "version": "v1.1.1",
+    "license": ["MIT"],
+    "reference": "3cf1f8b32a0171d4b1bed93d25617637a77cded7",
+    "source": {
+      "url": "https://api.github.com/repos/amphp/parser/zipball/3cf1f8b32a0171d4b1bed93d25617637a77cded7",
+      "sha256": "5957e324fdd005a669d926b50710e564ca664113392076c266c7acf17ea64714",
+      "bytes": 7332,
+      "notices": [
+        {
+          "path": "amphp-parser-3cf1f8b/LICENSE",
+          "sha256": "16ac45b95d11c9e4b805ae5392d069cab777f8085779ad3869b47030ccf47734"
+        }
+      ]
+    }
+  },
+  {
+    "name": "amphp/process",
+    "version": "v1.1.9",
+    "license": ["MIT"],
+    "reference": "55b837d4f1857b9bd7efb7bb859ae6b0e804f13f",
+    "source": {
+      "url": "https://api.github.com/repos/amphp/process/zipball/55b837d4f1857b9bd7efb7bb859ae6b0e804f13f",
+      "sha256": "b32567c4fd69fe8b9060cb915f741f389a030338158ebf4d0d7df0c41177125d",
+      "bytes": 145317,
+      "notices": [
+        {
+          "path": "amphp-process-55b837d/LICENSE",
+          "sha256": "18ceafcf39afd1ea4a86a5e0e321c7be81df83f3e3b590180f251a6b05fa4c86"
+        }
+      ]
+    }
+  },
+  {
+    "name": "amphp/serialization",
+    "version": "v1.0.0",
+    "license": ["MIT"],
+    "reference": "693e77b2fb0b266c3c7d622317f881de44ae94a1",
+    "source": {
+      "url": "https://api.github.com/repos/amphp/serialization/zipball/693e77b2fb0b266c3c7d622317f881de44ae94a1",
+      "sha256": "7d7235f241f2d7a80ea26d027ef088e08cdf182eac7d3d9d38e607074829bd92",
+      "bytes": 6123,
+      "notices": [
+        {
+          "path": "amphp-serialization-693e77b/LICENSE",
+          "sha256": "f962ea3a648c736059db6add71b97928e815889b986dc3ff981ba050fc7294aa"
+        }
+      ]
+    }
+  },
+  {
+    "name": "amphp/socket",
+    "version": "v1.2.1",
+    "license": ["MIT"],
+    "reference": "b00528bd75548b7ae06a502358bb3ff8b106f5ab",
+    "source": {
+      "url": "https://api.github.com/repos/amphp/socket/zipball/b00528bd75548b7ae06a502358bb3ff8b106f5ab",
+      "sha256": "07a9dccd5ff51903b92d1a2caf26ba4f8fa07665a567d7c406c8f15876d5e347",
+      "bytes": 39729,
+      "notices": [
+        {
+          "path": "amphp-socket-b00528b/LICENSE",
+          "sha256": "b5a99f9adf9c6f1ab6bd8c56fc54722fa02d088d76ea96927e0c095a27b8a536"
+        }
+      ]
+    }
+  },
+  {
+    "name": "amphp/sync",
+    "version": "v1.4.2",
+    "license": ["MIT"],
+    "reference": "85ab06764f4f36d63b1356b466df6111cf4b89cf",
+    "source": {
+      "url": "https://api.github.com/repos/amphp/sync/zipball/85ab06764f4f36d63b1356b466df6111cf4b89cf",
+      "sha256": "002027828834e3b36b9bd616b64c19465298a309d2dfe8c8792bc86b1830d4b9",
+      "bytes": 26416,
+      "notices": [
+        {
+          "path": "amphp-sync-85ab067/LICENSE",
+          "sha256": "22aa8f0e0681cb0e16839e2858ce2a92c917b4927dc3f5f071e2edd5ae87fab6"
+        }
+      ]
+    }
+  },
+  {
+    "name": "amphp/windows-registry",
+    "version": "v0.3.3",
+    "license": ["MIT"],
+    "reference": "0f56438b9197e224325e88f305346f0221df1f71",
+    "source": {
+      "url": "https://api.github.com/repos/amphp/windows-registry/zipball/0f56438b9197e224325e88f305346f0221df1f71",
+      "sha256": "58022e67ce546e80f9e092d38df6f14aa42a6de6ee7d5b9808fe726d66ec68ef",
+      "bytes": 2906,
+      "notices": [
+        {
+          "path": "amphp-windows-registry-0f56438/LICENSE",
+          "sha256": "6f4bf97f41677efe2f700a7c09cbee720bb66c8eaa86c6e1e828acad027005f7"
+        }
+      ]
+    }
+  },
+  {
+    "name": "brick/math",
+    "version": "0.13.1",
+    "license": ["MIT"],
+    "reference": "fc7ed316430118cc7836bf45faff18d5dfc8de04",
+    "source": {
+      "url": "https://api.github.com/repos/brick/math/zipball/fc7ed316430118cc7836bf45faff18d5dfc8de04",
+      "sha256": "3d276a2cbc81916c639199616d5d4943bbf74256dc908efb2b3b628a9d38b775",
+      "bytes": 38736,
+      "notices": [
+        {
+          "path": "brick-math-fc7ed31/LICENSE",
+          "sha256": "d2625cc652e6ffa9f16827f1dba2d83ac12b050dc8150a38720420dbb810cae3"
+        }
+      ]
+    }
+  },
+  {
+    "name": "composer/pcre",
+    "version": "3.3.2",
+    "license": ["MIT"],
+    "reference": "b2bed4734f0cc156ee1fe9c0da2550420d99a21e",
+    "source": {
+      "url": "https://api.github.com/repos/composer/pcre/zipball/b2bed4734f0cc156ee1fe9c0da2550420d99a21e",
+      "sha256": "c2b9daddc8d3341c50fc91eeecabb2b8f2a0fbd81e02b8b93ae22c35b61639b2",
+      "bytes": 21976,
+      "notices": [
+        {
+          "path": "composer-pcre-b2bed47/LICENSE",
+          "sha256": "984627c7eb714851bb191d4d463aec6e5bb71bf2f373c8b898304bd8298bfe48"
+        }
+      ]
+    }
+  },
+  {
+    "name": "composer/semver",
+    "version": "3.4.4",
+    "license": ["MIT"],
+    "reference": "198166618906cb2de69b95d7d47e5fa8aa1b2b95",
+    "source": {
+      "url": "https://api.github.com/repos/composer/semver/zipball/198166618906cb2de69b95d7d47e5fa8aa1b2b95",
+      "sha256": "f2058249711f728b6ab62d2251cce97905634cfa63fc553a6aad9a34676033c1",
+      "bytes": 28623,
+      "notices": [
+        {
+          "path": "composer-semver-1981666/LICENSE",
+          "sha256": "6bb16991cf366c84116c5f6a4d5078f7113ebc47d1f245ea9b57b8c10abd7479"
+        }
+      ]
+    }
+  },
+  {
+    "name": "composer/xdebug-handler",
+    "version": "3.0.5",
+    "license": ["MIT"],
+    "reference": "6c1925561632e83d60a44492e0b344cf48ab85ef",
+    "source": {
+      "url": "https://api.github.com/repos/composer/xdebug-handler/zipball/6c1925561632e83d60a44492e0b344cf48ab85ef",
+      "sha256": "b36277498bf6068cbb4c9f12c79b922ab922912c56694f0fd8dd5f718aa8e0b1",
+      "bytes": 19517,
+      "notices": [
+        {
+          "path": "composer-xdebug-handler-6c19255/LICENSE",
+          "sha256": "d2f4e7216d04f806c41a43cdccddb1ba47eb61bd2a1aae65a5a21db77304e32e"
+        }
+      ]
+    }
+  },
+  {
+    "name": "dantleech/argument-resolver",
+    "version": "1.1.0",
+    "license": ["MIT"],
+    "reference": "e34fabf7d6e53e5194f745ad069c4a87cc4b34cc",
+    "source": {
+      "url": "https://gitlab.com/api/v4/projects/dantleech%2Fargument-resolver/repository/archive.zip?sha=e34fabf7d6e53e5194f745ad069c4a87cc4b34cc",
+      "sha256": "cb5256dbf8a05df0bbb53af604e4fa4be968a2bfd447ad1e951fb635625f03df",
+      "bytes": 18251,
+      "notices": []
+    }
+  },
+  {
+    "name": "dantleech/invoke",
+    "version": "2.0.0",
+    "license": ["MIT"],
+    "reference": "9b002d746d2c1b86cfa63a47bb5909cee58ef50c",
+    "source": {
+      "url": "https://api.github.com/repos/dantleech/invoke/zipball/9b002d746d2c1b86cfa63a47bb5909cee58ef50c",
+      "sha256": "36f194e2369bb48372637fe176e25d788ac03a26c71cf6367f63b85c24a6bb98",
+      "bytes": 16730,
+      "notices": []
+    }
+  },
+  {
+    "name": "dantleech/object-renderer",
+    "version": "0.1.1",
+    "license": ["MIT"],
+    "reference": "942ad54a22e5ffb9ac3421d7bb06fa76bc45ad30",
+    "source": {
+      "url": "https://api.github.com/repos/dantleech/object-renderer/zipball/942ad54a22e5ffb9ac3421d7bb06fa76bc45ad30",
+      "sha256": "92ffcb55e709ff147fba2878d5cd662be19f64f48336ae9c7b1de915b07f6dd4",
+      "bytes": 24522,
+      "notices": [
+        {
+          "path": "dantleech-object-renderer-942ad54/LICENSE",
+          "sha256": "6c3036591cae532bd106d2df05927b906272f6dce3ada5a5d44c399e4b301b6a"
+        }
+      ]
+    }
+  },
+  {
+    "name": "daverandom/libdns",
+    "version": "v2.1.0",
+    "license": ["MIT"],
+    "reference": "b84c94e8fe6b7ee4aecfe121bfe3b6177d303c8a",
+    "source": {
+      "url": "https://api.github.com/repos/DaveRandom/LibDNS/zipball/b84c94e8fe6b7ee4aecfe121bfe3b6177d303c8a",
+      "sha256": "224409d0d4bd301ab8c1c31093094f0abbfb8c12b058d2975dee382a4cdc2ea6",
+      "bytes": 57138,
+      "notices": [
+        {
+          "path": "DaveRandom-LibDNS-b84c94e/LICENSE",
+          "sha256": "3378b771ef8e0b6e09d1a5dd7d3daeaf5b06a41f8cf7ab43f20df3b646c18dc9"
+        }
+      ]
+    }
+  },
+  {
+    "name": "dnoegel/php-xdg-base-dir",
+    "version": "v0.1.1",
+    "license": ["MIT"],
+    "reference": "8f8a6e48c5ecb0f991c2fdcf5f154a47d85f9ffd",
+    "source": {
+      "url": "https://api.github.com/repos/dnoegel/php-xdg-base-dir/zipball/8f8a6e48c5ecb0f991c2fdcf5f154a47d85f9ffd",
+      "sha256": "d881707cf02a8aa1a1846e0166e0b1704eeacac059f08a7ec48b593e3959c40a",
+      "bytes": 3417,
+      "notices": [
+        {
+          "path": "dnoegel-php-xdg-base-dir-8f8a6e4/LICENSE",
+          "sha256": "e5981243caad9bd9ac1e05cdf4183dc07277bf7a7a063adf54ed77fc0dc1e9a4"
+        }
+      ]
+    }
+  },
+  {
+    "name": "jetbrains/phpstorm-stubs",
+    "version": "dev-master",
+    "license": ["Apache-2.0"],
+    "reference": "4a38b62928bb95c29d3cd866ffc188c07d035e0a",
+    "source": {
+      "url": "https://api.github.com/repos/JetBrains/phpstorm-stubs/zipball/4a38b62928bb95c29d3cd866ffc188c07d035e0a",
+      "sha256": "e587fa620b5ae223b312d56697448b6120a3cdc0a20e6816d5459922434e32b6",
+      "bytes": 1921660,
+      "notices": [
+        {
+          "path": "JetBrains-phpstorm-stubs-4a38b62/LICENSE",
+          "sha256": "0b6bf6984e35b44f04c68ec5e18950cc10fea56b04576fab95fde116d0290408"
+        }
+      ]
+    }
+  },
+  {
+    "name": "kelunik/certificate",
+    "version": "v1.1.3",
+    "license": ["MIT"],
+    "reference": "7e00d498c264d5eb4f78c69f41c8bd6719c0199e",
+    "source": {
+      "url": "https://api.github.com/repos/kelunik/certificate/zipball/7e00d498c264d5eb4f78c69f41c8bd6719c0199e",
+      "sha256": "12ea71ed74a973c05a9040ea83bdd8c59e8820fe6d7646140e3f61dfd1fd8db0",
+      "bytes": 7301,
+      "notices": [
+        {
+          "path": "kelunik-certificate-7e00d49/LICENSE",
+          "sha256": "4da4ff63fb9bf3961df2e1210e74a654c32f5c82414997977ca58e56d9eb2fba"
+        }
+      ]
+    }
+  },
+  {
+    "name": "league/uri-parser",
+    "version": "1.4.1",
+    "license": ["MIT"],
+    "reference": "671548427e4c932352d9b9279fdfa345bf63fa00",
+    "source": {
+      "url": "https://api.github.com/repos/thephpleague/uri-parser/zipball/671548427e4c932352d9b9279fdfa345bf63fa00",
+      "sha256": "1631c0bd6b3a6d5992e1c15826b9a598f361e64547deda2868edc677ed991bef",
+      "bytes": 11138,
+      "notices": [
+        {
+          "path": "thephpleague-uri-parser-6715484/LICENSE",
+          "sha256": "bb7f984073bf5083be5cd56d144bf3508181409ee6a866b51538725a3dd8ce24"
+        }
+      ]
+    }
+  },
+  {
+    "name": "monolog/monolog",
+    "version": "2.11.0",
+    "license": ["MIT"],
+    "reference": "37308608e599f34a1a4845b16440047ec98a172a",
+    "source": {
+      "url": "https://api.github.com/repos/Seldaek/monolog/zipball/37308608e599f34a1a4845b16440047ec98a172a",
+      "sha256": "475a4f3a1945b00d51dc8e01d498665a234bbd5c081c342588faeabce921a3e9",
+      "bytes": 187249,
+      "notices": [
+        {
+          "path": "Seldaek-monolog-3730860/LICENSE",
+          "sha256": "3a351f8f434ff941f4946afb534f7df1185523638b311c22901631d8882f70e1"
+        }
+      ]
+    }
+  },
+  {
+    "name": "myclabs/deep-copy",
+    "version": "1.13.4",
+    "license": ["MIT"],
+    "reference": "07d290f0c47959fd5eed98c95ee5602db07e0b6a",
+    "source": {
+      "url": "https://api.github.com/repos/myclabs/DeepCopy/zipball/07d290f0c47959fd5eed98c95ee5602db07e0b6a",
+      "sha256": "3e0c935d8aeeeb5861bae11290fd64249ae9f3e1fc8b9cc8b238c449c5d70132",
+      "bytes": 22714,
+      "notices": [
+        {
+          "path": "myclabs-DeepCopy-07d290f/LICENSE",
+          "sha256": "90007d13610253dfbbe382190c336b50718f8344d5bff230d0580282fb16a7d6"
+        }
+      ]
+    }
+  },
+  {
+    "name": "phpactor/amp-fswatch",
+    "version": "0.3.0",
+    "license": ["MIT"],
+    "reference": "8b79e76b451d40a3367aae460883d90455dbeb1a",
+    "source": {
+      "url": "https://api.github.com/repos/phpactor/amp-fswatch/zipball/8b79e76b451d40a3367aae460883d90455dbeb1a",
+      "sha256": "889da114e3ecbce145bc08bff1bceaab43c05feb38445a73091c673bae74ed84",
+      "bytes": 42105,
+      "notices": [
+        {
+          "path": "phpactor-amp-fswatch-8b79e76/LICENSE",
+          "sha256": "d3b580aa363c3883ffa7824a7aee16e8aa568a1bcdc2b0734e983760370bd553"
+        }
+      ]
+    }
+  },
+  {
+    "name": "phpactor/class-to-file",
+    "version": "0.6.0",
+    "license": ["MIT"],
+    "reference": "2fcf99a39f830b0d57c374bacaa9471e5c0483e3",
+    "source": {
+      "url": "https://api.github.com/repos/phpactor/class-to-file/zipball/2fcf99a39f830b0d57c374bacaa9471e5c0483e3",
+      "sha256": "c53964a1c5a5eda71075a73e992fbd9b3e895938856e2b1a0e1e215e66497f54",
+      "bytes": 47413,
+      "notices": [
+        {
+          "path": "phpactor-class-to-file-2fcf99a/LICENSE",
+          "sha256": "6c3036591cae532bd106d2df05927b906272f6dce3ada5a5d44c399e4b301b6a"
+        }
+      ]
+    }
+  },
+  {
+    "name": "phpactor/container",
+    "version": "3.0.1",
+    "license": ["MIT"],
+    "reference": "143bbd987da798f2d7e5cedafd35b49d5051e167",
+    "source": {
+      "url": "https://api.github.com/repos/phpactor/container/zipball/143bbd987da798f2d7e5cedafd35b49d5051e167",
+      "sha256": "e733b9a1afc7bcc90bc023d59f2dda0987b73048a92b3b5813dee59380a4060a",
+      "bytes": 12403,
+      "notices": [
+        {
+          "path": "phpactor-container-143bbd9/LICENSE",
+          "sha256": "6c3036591cae532bd106d2df05927b906272f6dce3ada5a5d44c399e4b301b6a"
+        }
+      ]
+    }
+  },
+  {
+    "name": "phpactor/language-server",
+    "version": "7.0.1",
+    "license": ["MIT"],
+    "reference": "e4934195cc1857ec3347a488f3357b0f0df2d2bf",
+    "source": {
+      "url": "https://api.github.com/repos/phpactor/language-server/zipball/e4934195cc1857ec3347a488f3357b0f0df2d2bf",
+      "sha256": "c99ee895ac2b19c7bb06af31b5b469b6990328d5be2ece383a970377ca6c8983",
+      "bytes": 111559,
+      "notices": [
+        {
+          "path": "phpactor-language-server-e493419/LICENSE",
+          "sha256": "6c3036591cae532bd106d2df05927b906272f6dce3ada5a5d44c399e4b301b6a"
+        }
+      ]
+    }
+  },
+  {
+    "name": "phpactor/language-server-protocol",
+    "version": "3.17.4",
+    "license": ["MIT"],
+    "reference": "1f7d7218db2cc77223bbb4e03961d0bceea50e60",
+    "source": {
+      "url": "https://api.github.com/repos/phpactor/language-server-protocol/zipball/1f7d7218db2cc77223bbb4e03961d0bceea50e60",
+      "sha256": "8d887b7132d6b984103a2dc756d1fdba8345f9bc1d3adbd64d4a2b5e37334603",
+      "bytes": 369864,
+      "notices": [
+        {
+          "path": "phpactor-language-server-protocol-1f7d721/LICENSE.md",
+          "sha256": "2241b664bb88573693c380cdfebd0ce2e597872ac1c720dc64aaf327d176f11f"
+        }
+      ]
+    }
+  },
+  {
+    "name": "phpactor/map-resolver",
+    "version": "1.7.0",
+    "license": ["MIT"],
+    "reference": "a1ed625b9aa93ca9520f85a0d54e9359e70d7276",
+    "source": {
+      "url": "https://api.github.com/repos/phpactor/map-resolver/zipball/a1ed625b9aa93ca9520f85a0d54e9359e70d7276",
+      "sha256": "ea0b1bd7e90642808cce41e8768c6912c040352f84a19f2012304923f9adb9ca",
+      "bytes": 10782,
+      "notices": [
+        {
+          "path": "phpactor-map-resolver-a1ed625/LICENSE",
+          "sha256": "6c3036591cae532bd106d2df05927b906272f6dce3ada5a5d44c399e4b301b6a"
+        }
+      ]
+    }
+  },
+  {
+    "name": "phpactor/phly-event-dispatcher",
+    "version": "2.2.0",
+    "license": ["BSD-3-Clause"],
+    "reference": "9817636e907075494e6a95479552cbe9a301ca6d",
+    "source": {
+      "url": "https://api.github.com/repos/phpactor/phly-event-dispatcher/zipball/9817636e907075494e6a95479552cbe9a301ca6d",
+      "sha256": "3f9f94dcfb8e9dae79315358fb460b5afcf818a9395426d9c8f1d089a1cd809b",
+      "bytes": 20236,
+      "notices": [
+        {
+          "path": "phpactor-phly-event-dispatcher-9817636/LICENSE.md",
+          "sha256": "06673223c95e289686a6c019884de24c257cd533a57ea6e812731fe5889aef4b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "phpactor/tolerant-php-parser",
+    "version": "dev-phan-phactor-fixes",
+    "license": ["MIT"],
+    "reference": "960913636ee651899dc39a6968bc7425f6a32660",
+    "source": {
+      "url": "https://api.github.com/repos/phpactor/tolerant-php-parser/zipball/960913636ee651899dc39a6968bc7425f6a32660",
+      "sha256": "bc53753531db0e9fa21edb2e6559215402bcec42961bc2745d73a9cca6ee19ed",
+      "bytes": 151232,
+      "notices": [
+        {
+          "path": "phpactor-tolerant-php-parser-9609136/LICENSE.txt",
+          "sha256": "315c9a222c0f10acbb60b62053c47b1a82624f956e0229c3c828bc525ebc23ca"
+        }
+      ]
+    }
+  },
+  {
+    "name": "psr/container",
+    "version": "1.1.2",
+    "license": ["MIT"],
+    "reference": "513e0666f7216c7459170d56df27dfcefe1689ea",
+    "source": {
+      "url": "https://api.github.com/repos/php-fig/container/zipball/513e0666f7216c7459170d56df27dfcefe1689ea",
+      "sha256": "ffbbba0bcad3caf758d4a1b762783e0371958b010f8da9410b54685ad690db03",
+      "bytes": 3589,
+      "notices": [
+        {
+          "path": "php-fig-container-513e066/LICENSE",
+          "sha256": "0688ee39285c33067ad77d82349cdacb5569756bea4398b34bb223af9e57f1c0"
+        }
+      ]
+    }
+  },
+  {
+    "name": "psr/event-dispatcher",
+    "version": "1.0.0",
+    "license": ["MIT"],
+    "reference": "dbefd12671e8a14ec7f180cab83036ed26714bb0",
+    "source": {
+      "url": "https://api.github.com/repos/php-fig/event-dispatcher/zipball/dbefd12671e8a14ec7f180cab83036ed26714bb0",
+      "sha256": "4d6a674cfd89a9957ead82e31ee4df785b2b1d215693add73184729a9a66d116",
+      "bytes": 4270,
+      "notices": [
+        {
+          "path": "php-fig-event-dispatcher-dbefd12/LICENSE",
+          "sha256": "d2e70341a9667b93ad542e4842b0b7022d302aa7c2d2a909b156b8f1e3c4cca8"
+        }
+      ]
+    }
+  },
+  {
+    "name": "psr/log",
+    "version": "1.1.4",
+    "license": ["MIT"],
+    "reference": "d49695b909c3b7628b6289db5479a1c204601f11",
+    "source": {
+      "url": "https://api.github.com/repos/php-fig/log/zipball/d49695b909c3b7628b6289db5479a1c204601f11",
+      "sha256": "965685486b2439218c456e8ad399957891e508ec836f6cf56bbfee0606ae6069",
+      "bytes": 10957,
+      "notices": [
+        {
+          "path": "php-fig-log-d49695b/LICENSE",
+          "sha256": "6e944907067bae93c00a9f2ad51032243820b22df34b77c77690d46cb2e98e24"
+        }
+      ]
+    }
+  },
+  {
+    "name": "ramsey/collection",
+    "version": "2.1.1",
+    "license": ["MIT"],
+    "reference": "344572933ad0181accbf4ba763e85a0306a8c5e2",
+    "source": {
+      "url": "https://api.github.com/repos/ramsey/collection/zipball/344572933ad0181accbf4ba763e85a0306a8c5e2",
+      "sha256": "a9d0d7949173c4fb8735a019f0052d3f1910d58fb10ed19e8003cab70f462c72",
+      "bytes": 42395,
+      "notices": [
+        {
+          "path": "ramsey-collection-3445729/LICENSE",
+          "sha256": "aa1e787bd6d05172d2962fa865a592af00ec474984d6b5bcb9a0df91abe8717d"
+        }
+      ]
+    }
+  },
+  {
+    "name": "ramsey/uuid",
+    "version": "4.9.1",
+    "license": ["MIT"],
+    "reference": "81f941f6f729b1e3ceea61d9d014f8b6c6800440",
+    "source": {
+      "url": "https://api.github.com/repos/ramsey/uuid/zipball/81f941f6f729b1e3ceea61d9d014f8b6c6800440",
+      "sha256": "3c8b105284cd66ad54ea933cbd24e1cf866dff62cf36604a9ecd9638922acb6b",
+      "bytes": 129100,
+      "notices": [
+        {
+          "path": "ramsey-uuid-81f941f/LICENSE",
+          "sha256": "9e8bf008e16a9ee5cc2d3bfe60701ec2351a2ddf29e9092275f71441a6d5a167"
+        }
+      ]
+    }
+  },
+  {
+    "name": "sebastian/diff",
+    "version": "5.1.1",
+    "license": ["BSD-3-Clause"],
+    "reference": "c41e007b4b62af48218231d6c2275e4c9b975b2e",
+    "source": {
+      "url": "https://api.github.com/repos/sebastianbergmann/diff/zipball/c41e007b4b62af48218231d6c2275e4c9b975b2e",
+      "sha256": "8cf1d5560f2f62c2009302fbc191e0f0c05dc5689e2de643c98b8fcc62b73a2a",
+      "bytes": 25253,
+      "notices": [
+        {
+          "path": "sebastianbergmann-diff-c41e007/LICENSE",
+          "sha256": "dc5746cd2037c14e4d128465c52403e388d582b9a5b29182c0ff24e1e26d890b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "symfony/console",
+    "version": "v6.4.36",
+    "license": ["MIT"],
+    "reference": "9f481cfb580db8bcecc9b2d4c63f3e13df022ad5",
+    "source": {
+      "url": "https://api.github.com/repos/symfony/console/zipball/9f481cfb580db8bcecc9b2d4c63f3e13df022ad5",
+      "sha256": "d9fe9401c7779e1b45499dc0e96c3d532aae50f3f4cea482bfb10d508d289acf",
+      "bytes": 190964,
+      "notices": [
+        {
+          "path": "symfony-console-9f481cf/LICENSE",
+          "sha256": "18da7e490d2aa77197a0619b25bcc771a0110132a9d76071665718d3295e73cb"
+        }
+      ]
+    }
+  },
+  {
+    "name": "symfony/deprecation-contracts",
+    "version": "v3.6.0",
+    "license": ["MIT"],
+    "reference": "63afe740e99a13ba87ec199bb07bbdee937a5b62",
+    "source": {
+      "url": "https://api.github.com/repos/symfony/deprecation-contracts/zipball/63afe740e99a13ba87ec199bb07bbdee937a5b62",
+      "sha256": "7e357a38d42e163006ee3d5131aeabb81b3634167dc159023563a131ab969fae",
+      "bytes": 3345,
+      "notices": [
+        {
+          "path": "symfony-deprecation-contracts-63afe74/LICENSE",
+          "sha256": "b92809182501f0fa422167ea44484b41877e1736e8283d0377fdc9664bb9a02d"
+        }
+      ]
+    }
+  },
+  {
+    "name": "symfony/filesystem",
+    "version": "v6.4.34",
+    "license": ["MIT"],
+    "reference": "01ffe0411b842f93c571e5c391f289c3fdd498c3",
+    "source": {
+      "url": "https://api.github.com/repos/symfony/filesystem/zipball/01ffe0411b842f93c571e5c391f289c3fdd498c3",
+      "sha256": "f68211b42955c363a0942b02b6ba7b40be11e45fbadd21818a438b6972c2c333",
+      "bytes": 19580,
+      "notices": [
+        {
+          "path": "symfony-filesystem-01ffe04/LICENSE",
+          "sha256": "18da7e490d2aa77197a0619b25bcc771a0110132a9d76071665718d3295e73cb"
+        }
+      ]
+    }
+  },
+  {
+    "name": "symfony/polyfill-ctype",
+    "version": "v1.36.0",
+    "license": ["MIT"],
+    "reference": "141046a8f9477948ff284fa65be2095baafb94f2",
+    "source": {
+      "url": "https://api.github.com/repos/symfony/polyfill-ctype/zipball/141046a8f9477948ff284fa65be2095baafb94f2",
+      "sha256": "922b0c6b24d1bcb6447d051edc1fc4526bcca5f88ddc4a27d885507872ceecc1",
+      "bytes": 4807,
+      "notices": [
+        {
+          "path": "symfony-polyfill-ctype-141046a/LICENSE",
+          "sha256": "375396ec5755e9c27dd9c513c0eb4c2923881aba98b941f156e92ed6ec1cfa19"
+        }
+      ]
+    }
+  },
+  {
+    "name": "symfony/polyfill-intl-grapheme",
+    "version": "v1.36.0",
+    "license": ["MIT"],
+    "reference": "ad1b7b9092976d6c948b8a187cec9faaea9ec1df",
+    "source": {
+      "url": "https://api.github.com/repos/symfony/polyfill-intl-grapheme/zipball/ad1b7b9092976d6c948b8a187cec9faaea9ec1df",
+      "sha256": "ba374d69a38c345ba02a57c532dfe45cf81fddd6dbc132f31f9affcfe2586562",
+      "bytes": 8772,
+      "notices": [
+        {
+          "path": "symfony-polyfill-intl-grapheme-ad1b7b9/LICENSE",
+          "sha256": "eaa5d6e59ff1d5322ae36d3ab9124460df72d2d0c8af60a99222e8a90dcbdf31"
+        }
+      ]
+    }
+  },
+  {
+    "name": "symfony/polyfill-intl-normalizer",
+    "version": "v1.36.0",
+    "license": ["MIT"],
+    "reference": "3833d7255cc303546435cb650316bff708a1c75c",
+    "source": {
+      "url": "https://api.github.com/repos/symfony/polyfill-intl-normalizer/zipball/3833d7255cc303546435cb650316bff708a1c75c",
+      "sha256": "b23bbde26285237ee98cd84bb9c799874c6a888a9974740165ae9fc4ad113863",
+      "bytes": 42806,
+      "notices": [
+        {
+          "path": "symfony-polyfill-intl-normalizer-3833d72/LICENSE",
+          "sha256": "eaa5d6e59ff1d5322ae36d3ab9124460df72d2d0c8af60a99222e8a90dcbdf31"
+        }
+      ]
+    }
+  },
+  {
+    "name": "symfony/polyfill-mbstring",
+    "version": "v1.36.0",
+    "license": ["MIT"],
+    "reference": "6a21eb99c6973357967f6ce3708cd55a6bec6315",
+    "source": {
+      "url": "https://api.github.com/repos/symfony/polyfill-mbstring/zipball/6a21eb99c6973357967f6ce3708cd55a6bec6315",
+      "sha256": "377484e0afeda3205256b62df58d35a3213bc061f529c6f2183d63f83c2369e9",
+      "bytes": 30886,
+      "notices": [
+        {
+          "path": "symfony-polyfill-mbstring-6a21eb9/LICENSE",
+          "sha256": "eaa5d6e59ff1d5322ae36d3ab9124460df72d2d0c8af60a99222e8a90dcbdf31"
+        }
+      ]
+    }
+  },
+  {
+    "name": "symfony/process",
+    "version": "v6.4.33",
+    "license": ["MIT"],
+    "reference": "c46e854e79b52d07666e43924a20cb6dc546644e",
+    "source": {
+      "url": "https://api.github.com/repos/symfony/process/zipball/c46e854e79b52d07666e43924a20cb6dc546644e",
+      "sha256": "96e5522af9edd2a47d63564a0a745f9e7214a022f921d18ec18162efb37b8a96",
+      "bytes": 36782,
+      "notices": [
+        {
+          "path": "symfony-process-c46e854/LICENSE",
+          "sha256": "18da7e490d2aa77197a0619b25bcc771a0110132a9d76071665718d3295e73cb"
+        }
+      ]
+    }
+  },
+  {
+    "name": "symfony/service-contracts",
+    "version": "v3.6.1",
+    "license": ["MIT"],
+    "reference": "45112560a3ba2d715666a509a0bc9521d10b6c43",
+    "source": {
+      "url": "https://api.github.com/repos/symfony/service-contracts/zipball/45112560a3ba2d715666a509a0bc9521d10b6c43",
+      "sha256": "ec29da32442ac871f97a391feb9b0948c128731226ac43aec8b353078a90ec18",
+      "bytes": 13315,
+      "notices": [
+        {
+          "path": "symfony-service-contracts-4511256/LICENSE",
+          "sha256": "375396ec5755e9c27dd9c513c0eb4c2923881aba98b941f156e92ed6ec1cfa19"
+        }
+      ]
+    }
+  },
+  {
+    "name": "symfony/string",
+    "version": "v7.4.8",
+    "license": ["MIT"],
+    "reference": "114ac57257d75df748eda23dd003878080b8e688",
+    "source": {
+      "url": "https://api.github.com/repos/symfony/string/zipball/114ac57257d75df748eda23dd003878080b8e688",
+      "sha256": "ca248580388dd07226db64f4f25e9805ac7b9036a047d915a4ab788703bf43ce",
+      "bytes": 46115,
+      "notices": [
+        {
+          "path": "symfony-string-114ac57/LICENSE",
+          "sha256": "0bedd88a1c55457e9731dd9b99ceb976675bee5412d9565eb31ac84533df7bb5"
+        }
+      ]
+    }
+  },
+  {
+    "name": "symfony/yaml",
+    "version": "v5.4.45",
+    "license": ["MIT"],
+    "reference": "a454d47278cc16a5db371fe73ae66a78a633371e",
+    "source": {
+      "url": "https://api.github.com/repos/symfony/yaml/zipball/a454d47278cc16a5db371fe73ae66a78a633371e",
+      "sha256": "8aa5e01e6d5fa505532185fbcb13d890c8cc16c00c9e848806f6a224496b99c2",
+      "bytes": 34538,
+      "notices": [
+        {
+          "path": "symfony-yaml-a454d47/LICENSE",
+          "sha256": "18da7e490d2aa77197a0619b25bcc771a0110132a9d76071665718d3295e73cb"
+        }
+      ]
+    }
+  },
+  {
+    "name": "twig/twig",
+    "version": "v3.22.1",
+    "license": ["BSD-3-Clause"],
+    "reference": "1de2ec1fc43ab58a4b7e80b214b96bfc895750f3",
+    "source": {
+      "url": "https://api.github.com/repos/twigphp/Twig/zipball/1de2ec1fc43ab58a4b7e80b214b96bfc895750f3",
+      "sha256": "70b57012e532cb6450c9182bde3d21e75b3b4256f4bec38e41768a3341ea1aca",
+      "bytes": 273387,
+      "notices": [
+        {
+          "path": "twigphp-Twig-1de2ec1/LICENSE",
+          "sha256": "316323176f9305a06009399e36725413f7e3ef69858c9ef5213a39dc8e914609"
+        }
+      ]
+    }
+  },
+  {
+    "name": "webmozart/assert",
+    "version": "1.12.1",
+    "license": ["MIT"],
+    "reference": "9be6926d8b485f55b9229203f962b51ed377ba68",
+    "source": {
+      "url": "https://api.github.com/repos/webmozarts/assert/zipball/9be6926d8b485f55b9229203f962b51ed377ba68",
+      "sha256": "80dc9ac0ae041cdf0503e40bb1bc96a57f09c21ec0d076e68d2f75f946f80a05",
+      "bytes": 20930,
+      "notices": [
+        {
+          "path": "webmozarts-assert-9be6926/LICENSE",
+          "sha256": "5f82f5e664e8683e3d97d3bec6f74620b9d0a4d8669f9e617da96bce8767d4d3"
+        }
+      ]
+    }
+  },
+  {
+    "name": "webmozart/glob",
+    "version": "4.7.0",
+    "license": ["MIT"],
+    "reference": "8a2842112d6916e61e0e15e316465b611f3abc17",
+    "source": {
+      "url": "https://api.github.com/repos/webmozarts/glob/zipball/8a2842112d6916e61e0e15e316465b611f3abc17",
+      "sha256": "40ffe425dbbba25e1a4bd43d8fb8ecf28a2e5efd920f4611aafa09e15af04581",
+      "bytes": 22799,
+      "notices": [
+        {
+          "path": "webmozarts-glob-8a28421/LICENSE",
+          "sha256": "5f82f5e664e8683e3d97d3bec6f74620b9d0a4d8669f9e617da96bce8767d4d3"
+        }
+      ]
+    }
+  }
+]

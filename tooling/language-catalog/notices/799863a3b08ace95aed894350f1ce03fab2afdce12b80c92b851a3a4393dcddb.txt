@@ -1,0 +1,22 @@
+/*******************************************************************************
+ * Copyright (c) 2000, 2026 IBM Corporation and others.
+ *
+ * This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *     Stephan Herrmann - Contributions for
+ *     							bug 349326 - [1.7] new warning for missing try-with-resources
+ *								bug 186342 - [compiler][null] Using annotations for null checking
+ *								bug 370639 - [compiler][resource] restore the default for resource leak warnings
+ *								bug 265744 - Enum switch should warn about missing default
+ *								bug 374605 - Unreasonable warning for enum-based switch statements
+ *								bug 381443 - [compiler][null] Allow parameter widening from @NonNull to unannotated
+ *								Bug 441208 - [1.8][null]SuppressWarnings("null") does not suppress / marked Unnecessary
+ *								Bug 410218 - Optional warning for arguments of "unexpected" types to Map#get(Object), Collection#remove(Object) et al.
+ *******************************************************************************/

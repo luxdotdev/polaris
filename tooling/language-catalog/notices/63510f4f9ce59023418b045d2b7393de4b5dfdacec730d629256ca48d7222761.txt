@@ -1,0 +1,27 @@
+/*******************************************************************************
+ * Copyright (c) 2000, 2020 IBM Corporation and others.
+ *
+ * This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *     Stephan Herrmann - Contributions for
+ *     							bug 358827 - [1.7] exception analysis for t-w-r spoils null analysis
+ *								bug 186342 - [compiler][null] Using annotations for null checking
+ *								bug 368546 - [compiler][resource] Avoid remaining false positives found when compiling the Eclipse SDK
+ *								bug 365859 - [compiler][null] distinguish warnings based on flow analysis vs. null annotations
+ *								bug 345305 - [compiler][null] Compiler misidentifies a case of "variable can only be null"
+ *								bug 383368 - [compiler][null] syntactic null analysis for field references
+ *								bug 402993 - [null] Follow up of bug 401088: Missing warning about redundant null check
+ *								bug 403086 - [compiler][null] include the effect of 'assert' in syntactic null analysis for fields
+ *								bug 403147 - [compiler][null] FUP of bug 400761: consolidate interaction between unboxing, NPE, and deferred checking
+ *								Bug 453483 - [compiler][null][loop] Improve null analysis for loops
+ *								Bug 455723 - Nonnull argument not correctly inferred in loop
+ *								Bug 415790 - [compiler][resource]Incorrect potential resource leak warning in for loop with close in try/catch
+ *								Bug 446691 - [1.8][null][compiler] NullPointerException in SingleNameReference.analyseCode
+ *******************************************************************************/

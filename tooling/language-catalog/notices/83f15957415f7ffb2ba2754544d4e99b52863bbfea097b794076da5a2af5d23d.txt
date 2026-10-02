@@ -1,0 +1,17 @@
+/*******************************************************************************
+ * Copyright (c) 2004, 2022 IBM Corporation and others.
+ *
+ * This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *     James Blackburn (Broadcom Corp.) - ongoing development
+ *     Sergey Prigogin (Google) - [464072] Refresh on Access ignored during text search
+ *     Lars Vogel <Lars.Vogel@vogella.com> - Bug 473427
+ *     Christoph Läubrich - Issue  #82 - ContentDescriptionManager access ResourcesPlugin.getWorkspace in the init phase
+ *******************************************************************************/

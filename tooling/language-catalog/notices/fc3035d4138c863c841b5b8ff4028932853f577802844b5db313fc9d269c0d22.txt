@@ -1,0 +1,47 @@
+/*******************************************************************************
+ * Copyright (c) 2005, 2025 IBM Corporation and others.
+ *
+ * This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *     Stephan Herrmann - Contributions for
+ *								bug 349326 - [1.7] new warning for missing try-with-resources
+ *								bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
+ *								bug 395002 - Self bound generic class doesn't resolve bounds properly for wildcards for certain parametrisation.
+ *								bug 392384 - [1.8][compiler][null] Restore nullness info from type annotations in class files
+ *								Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
+ *								Bug 415291 - [1.8][null] differentiate type incompatibilities due to null annotations
+ *								Bug 415043 - [1.8][null] Follow-up re null type annotations after bug 392099
+ *								Bug 412076 - [compiler] @NonNullByDefault doesn't work for varargs parameter when in generic interface
+ *								Bug 403216 - [1.8][null] TypeReference#captureTypeAnnotations treats type annotations as type argument annotations
+ *								Bug 415850 - [1.8] Ensure RunJDTCoreTests can cope with null annotations enabled
+ *								Bug 415043 - [1.8][null] Follow-up re null type annotations after bug 392099
+ *								Bug 416175 - [1.8][compiler][null] NPE with a code snippet that used null annotations on wildcards
+ *								Bug 416174 - [1.8][compiler][null] Bogus name clash error with null annotations
+ *								Bug 416176 - [1.8][compiler][null] null type annotations cause grief on type variables
+ *								Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
+ *								Bug 423504 - [1.8] Implement "18.5.3 Functional Interface Parameterization Inference"
+ *								Bug 425278 - [1.8][compiler] Suspect error: The target type of this expression is not a well formed parameterized type due to bound(s) mismatch
+ *								Bug 425798 - [1.8][compiler] Another NPE in ConstraintTypeFormula.reduceSubType
+ *								Bug 425156 - [1.8] Lambda as an argument is flagged with incompatible error
+ *								Bug 426563 - [1.8] AIOOBE when method with error invoked with lambda expression as argument
+ *								Bug 426792 - [1.8][inference][impl] generify new type inference engine
+ *								Bug 428294 - [1.8][compiler] Type mismatch: cannot convert from List<Object> to Collection<Object[]>
+ *								Bug 427199 - [1.8][resource] avoid resource leak warnings on Streams that have no resource
+ *								Bug 416182 - [1.8][compiler][null] Contradictory null annotations not rejected
+ *								Bug 438458 - [1.8][null] clean up handling of null type annotations wrt type variables
+ *								Bug 438179 - [1.8][null] 'Contradictory null annotations' error on type variable with explicit null-annotation.
+ *								Bug 441693 - [1.8][null] Bogus warning for type argument annotated with @NonNull
+ *								Bug 446434 - [1.8][null] Enable interned captures also when analysing null type annotations
+ *								Bug 435805 - [1.8][compiler][null] Java 8 compiler does not recognize declaration style null annotations
+ *								Bug 456508 - Unexpected RHS PolyTypeBinding for: <code-snippet>
+ *								Bug 390064 - [compiler][resource] Resource leak warning missing when extending parameterized class
+ *     Jesper S Møller  - Contributions for bug 381345 : [1.8] Take care of the Java 8 major version
+ *								Bug 527554 - [18.3] Compiler support for JEP 286 Local-Variable Type
+ *******************************************************************************/

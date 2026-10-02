@@ -1,0 +1,22 @@
+# ShellCheck 0.11.0: existing-toolchain packaging proposal
+
+This proposal is ready for A1 to review. It is not a complete artifact record. Every published ShellCheck binary remains blocked. Bash Language Server, shfmt and explicitly configured developer-provided ShellCheck remain the approved shell workflow; no toolchain or Host library is installed automatically.
+
+## Exact source and the missing evidence
+
+Use `koalaman/shellcheck@aac0823e6b58f8a499e856e93738082691cbf212`, archive SHA-256 `49f2e5c15f3004997fed25933c06d775899f2bf511a1cdd8234bf16f87f5d772`. `native-source-closure.json` retains the immutable source URL, size and GPL-3 legal text. `build-provenance.json` pins upstream Cabal, Stack and platform builder metadata. The tag is not an attestation of the shipped binary's dependencies. Published builders use incompletely pinned compiler, package-index and system-library inputs, so these records cannot establish their historical corresponding-source closure.
+
+`shellcheck-prerequisites.json` records the actual local absence of GHC, Cabal and Stack. No authorized existing-toolchain Host or container is available. No build, solver run, system-library certification or runtime closure is claimed. Docker images and toolchains were not downloaded.
+
+The smallest next fixture is an authorized Host with an existing developer-owned GHC and Cabal, sufficient private temporary space, and declared system libraries. A1 can review this distribution proposal now. Activation needs an actual build record and complete resulting closure; proposal approval cannot substitute for that evidence.
+
+## Future authorized fixture
+
+1. Run `python3 tooling/language-catalog/shellcheck-preflight.py --output <private-root>/prerequisites.json`. Stop if either GHC or Cabal is absent. Record compiler/Cabal versions and executable hashes, target, linker and existing system-library identities. Do not install missing prerequisites.
+2. Fetch the exact source URL above into the private fixture; verify the SHA-256 before extraction. Reject escaping paths and links. Execute the dependency as a separate build; do not read or adapt GPL implementation into Polaris.
+3. Create a private `cabal.config` with `remote-repo-cache`, `store-dir`, `logs-dir` and `world-file` under the fixture, the public Hackage repository with secure index verification, and `index-state: 2026-09-28T00:00:00Z`. Run with a PATH-only environment and explicit `CABAL_CONFIG`, `CABAL_DIR`, `XDG_CACHE_HOME` and `TMPDIR`; leave HOME unchanged. Reject inherited credentials/configuration.
+4. From the verified source root, run `cabal --config-file=<private-root>/cabal.config update`, then `cabal --config-file=<private-root>/cabal.config v2-freeze --enable-tests --index-state=2026-09-28T00:00:00Z`. Capture the authenticated index, actual `cabal.project.freeze` and `dist-newstyle/cache/plan.json`. A date alone does not pin a solver closure. Verify every plan package's exact archive hash, license, legal files and source delivery; include compiler boot packages and runtime/system libraries actually linked.
+5. Rebuild from the captured freeze and private store with `cabal --config-file=<private-root>/cabal.config v2-build --offline exe:shellcheck --enable-tests`, then `cabal --config-file=<private-root>/cabal.config v2-test --offline`. Capture complete logs, compiler/link commands, binary hash, dynamic/static linkage, `shellcheck --version`, and a temporary shell diagnostic fixture. Prove no user/project paths or configuration were used. A successful build alone is not legal closure.
+6. Package the resulting binary with all required copyright and license notices, the exact complete corresponding-source archives and the build/install scripts needed to reproduce it. Include modifications, frozen dependency sources, compiler/runtime obligations and platform-specific exceptions. For GPL-3 section 6 delivery, provide source alongside the binary through an equivalent downloadable source channel; a bare upstream link or unfulfilled future offer is insufficient. Record the exact binary/source pair and delivery checks before A1 approval.
+
+The existing published binary may only be reconsidered if exact upstream build attestation and complete source/runtime inputs become verifiable. An unpinned source build cannot retroactively certify it. K2 retains ownership of the proposed fixture's legal/build closure; this is a concrete missing-prerequisite path, not an upstream-response dependency.
