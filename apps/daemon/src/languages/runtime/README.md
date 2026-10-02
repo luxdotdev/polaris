@@ -41,5 +41,10 @@ of two automatic retry attempts. Manual restart resets that budget.
 
 Retirement cancels the generation's stderr reader without waiting for its source
 finalizer, so an inherited open pipe cannot hold broker cleanup indefinitely.
+Transport close likewise cancels stdout without awaiting its source finalizer,
+then waits for reader/write settlement and actual owned process stop. Close is
+idempotent; its 10 s finalization deadline rejects instead of reporting success.
+Failed or pending process stop does not release its process-budget reservation.
+The broker keeps actual teardown settlement tracked after that deadline rejects.
 POSIX cleanup signals the owned process group; descendants that escape that group
 are outside that termination guarantee. Windows cleanup remains untested.

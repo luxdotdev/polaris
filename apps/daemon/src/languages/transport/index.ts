@@ -30,6 +30,8 @@ export class OrderedConnection {
   private closed = false;
   private pending = new Map<number, Pending>();
   private read: Promise<void>;
+  private stopping: Promise<void> | undefined;
+  private closeResult: Promise<void> | undefined;
   private reader: import("node:stream/web").ReadableStreamDefaultReader<Uint8Array>;
 
   constructor(
@@ -159,12 +161,22 @@ export class OrderedConnection {
     this.onFailure(error);
   }
 
-  async close(graceful = false) {
+  close(graceful = false) {
+    if (this.closeResult !== undefined) return this.closeResult;
+    this.stopping = Promise.resolve().then(async () => {
+      // Cancel closes pending reads; its source finalizer does not own process shutdown.
+      void this.reader.cancel().catch(() => {});
+      await Promise.all([this.port.stop(graceful), this.read, this.tail]);
+    });
+    this.closeResult = bounded(this.stopping, 10000);
     this.fail(failure("cancelled", "Language connection closed"));
-    await this.reader.cancel().catch(() => {});
-    await this.read;
-    await this.port.stop(graceful);
-    await this.tail;
+
+    return this.closeResult;
+  }
+
+  /** Actual teardown settlement remains owned after the close deadline rejects. */
+  settlement() {
+    return this.stopping ?? Promise.resolve();
   }
 
   stats() {

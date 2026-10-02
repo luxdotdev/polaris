@@ -189,7 +189,10 @@ export function createLanguageBroker(options: BrokerOptions) {
     entry.documents.clear();
     entry.documents = documents(entry.identity);
 
-    if (connection !== undefined) track(connection.close(graceful));
+    if (connection !== undefined) {
+      track(connection.close(graceful));
+      track(connection.settlement());
+    }
   }
 
   async function trusted(entry: Entry) {
