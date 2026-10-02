@@ -7,6 +7,11 @@
  * `subscribeThread` with `afterSequence`.
  */
 import { Schema } from "effect";
+
+import { FileContent, FileEntry, FileError, EditorFileRpcs } from "./files.ts";
+
+export { FileContent, FileEntry, FileError, FileKind } from "./files.ts";
+
 import { ResourceRpcs } from "./resources.ts";
 import {
   ConstellationHostRpcs,
@@ -84,12 +89,6 @@ export class CommandRejected extends Schema.TaggedError<CommandRejected>()("Comm
 
 export class Unsupported extends Schema.TaggedError<Unsupported>()("Unsupported", {
   capability: Schema.String,
-}) {}
-
-export class FileError extends Schema.TaggedError<FileError>()("FileError", {
-  path: Schema.String,
-  code: Schema.String,
-  message: Schema.String,
 }) {}
 
 export class GitError extends Schema.TaggedError<GitError>()("GitError", {
@@ -359,16 +358,6 @@ export const WatchUsage = Rpc.make("usage.watch", {
 
 // ── Files (read-mostly in M1) ───────────────────────────────────────────────
 
-export const FileKind = Schema.Literals(["file", "directory", "symlink", "other"]);
-
-export class FileEntry extends Schema.Class<FileEntry>("FileEntry")({
-  name: Schema.String,
-  path: Schema.String,
-  kind: FileKind,
-  size: Schema.Int,
-  modifiedAt: Schema.String,
-}) {}
-
 export const ListDir = Rpc.make("files.listDir", {
   payload: { path: Schema.String },
   success: Schema.Array(FileEntry),
@@ -380,14 +369,6 @@ export const Stat = Rpc.make("files.stat", {
   success: FileEntry,
   error: FileError,
 });
-
-/** What `files.read` returns: inline text, or a BlobId whose bytes follow as binary side-chunks. */
-export const FileContent = Schema.TaggedUnion({
-  Inline: { text: Schema.String },
-  Blob: { blobId: BlobId },
-});
-
-export type FileContent = typeof FileContent.Type;
 
 /**
  * Small reads return inline text; larger or binary reads return a BlobId whose
@@ -834,4 +815,5 @@ export class DaemonRpcs extends RpcGroup.make(
   TerminalClose
 )
   .merge(ConstellationHostRpcs)
-  .merge(ResourceRpcs) {}
+  .merge(ResourceRpcs)
+  .merge(EditorFileRpcs) {}
