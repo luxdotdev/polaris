@@ -1,0 +1,21 @@
+{
+  "scope": "Post-failure read-only guard diagnosis; no archive extraction, build, source implementation inspection or retry.",
+  "entries": 17951,
+  "immediateChecks": 3,
+  "fullTreeScans": 3,
+  "samples": [
+    {
+      "seconds": 0.6645768340094946,
+      "bytes": 237801472
+    },
+    {
+      "seconds": 0.2464747080230154,
+      "bytes": 237801472
+    },
+    {
+      "seconds": 0.2468183750170283,
+      "bytes": 237801472
+    }
+  ],
+  "inference": "Staging calls check per file; timestamp is set to scan start. When scan exceeds0.1s, immediate next check rescans the complete growing tree. This creates near quadratic staging work. These post-failure samples are not execution-time profiling or a benchmark baseline."
+}

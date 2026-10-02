@@ -1,0 +1,1422 @@
+[
+  {
+    "rustSourceCommit": "48a229ceaefd4985c50990b14116b6d856af0985",
+    "llvmSourceCommit": "52ed14fcd56afc30f9cccd8ca8ce237c2eef7e04",
+    "libunwindTree": "5bd79158b713033674c6a2a361cfb57f47e8c8b0",
+    "sourceUrl": "https://github.com/rust-lang/llvm-project/tree/52ed14fcd56afc30f9cccd8ca8ce237c2eef7e04/libunwind",
+    "sourceArchiveSha256": "83b36aa795fab7ed6b6df75fa60562d35dec865e64f7ae27521a3f9fec080360",
+    "sourceArchiveBytes": 931840,
+    "archiveFormat": "Canonical USTAR sorted path, original modes, uid/gid/mtime zero; complete tree verified against Git blobs.",
+    "files": [
+      {
+        "path": "libunwind/.clang-format",
+        "gitBlob": "5bead5f39dd3c5841f615beb6472c4c504d407af",
+        "sha256": "db616948bfcea08fc12637e28ec9b058740df32aa738dc24eaecc358d22da669",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/CMakeLists.txt",
+        "gitBlob": "3d6add86f7d5adffc6b9091a02e1527a21220376",
+        "sha256": "8a7c90e729e26faafdf8a6bc361d4ed355884389ca4e37c6420056022c44bb58",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/LICENSE.TXT",
+        "gitBlob": "1e3120621caeb62648745a42f7a9a25d1e2731ab",
+        "sha256": "b5efebcaca80879234098e52d1725e6d9eb8fb96a19fce625d39184b705f7b6d",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/README_RUST_SGX.md",
+        "gitBlob": "c5d6eb4772bc3246f206f65547898c6fe3d80af1",
+        "sha256": "b3ffbe07a15d1a4f76e11df942ed333ba18274e3b587ea3a249fe6109736e68a",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/cmake/Modules/HandleLibunwindFlags.cmake",
+        "gitBlob": "94c676338821c74874b490932ce87c1e74089903",
+        "sha256": "db06d27981748ce8ae76488edddfa5b91a86cdde779c3e8853c5b6beede68bf3",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/cmake/config-ix.cmake",
+        "gitBlob": "d42ceffb1f631e7d549246b49ac3f73435d2bbb5",
+        "sha256": "18c4b14553cdad3bf4dd04083be1deccafc667d1b46b72a1f3f1f50f5daad985",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/docs/BuildingLibunwind.rst",
+        "gitBlob": "830513e3a8082ca62b26fc31fef9840186e1e60a",
+        "sha256": "48435fe64c40979a7eb8f4833f81b59972d4310ede30035948cb8723adbfee74",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/docs/CMakeLists.txt",
+        "gitBlob": "79b87eb03b447fb3fc071ea38e7874a70d0b985a",
+        "sha256": "581c86ec902d3b67c3e41e38a75c4263b4f8926e75fdc6b84815ad432dd4c453",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/docs/README.txt",
+        "gitBlob": "968982fce5e0767dc357809014c3999f65f7eb63",
+        "sha256": "49338f013df9a930bf647e69ff7dcad8c69216159f76996227f19044e9e2bba2",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/docs/conf.py",
+        "gitBlob": "29f9c24a7ee2617ae13759c51733a5a418c7c23c",
+        "sha256": "41ea50868cbccc7a589b1d6e96d892899d4d34ea59c32f1df01c0eb27a6f7f84",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/docs/index.rst",
+        "gitBlob": "03542464011461fa81f468115061e102f4914452",
+        "sha256": "5a7b1b34112dca0addea50a073a610d19efa7dac264ad5a2de3ca0068217dd7a",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/include/CMakeLists.txt",
+        "gitBlob": "eefd4305d06cc11f320751abe38fbe18fec73d43",
+        "sha256": "b0c334f8ea5866dce3dbf267fe50518299eb3cb5460c3889426e152138f09bda",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/include/__libunwind_config.h",
+        "gitBlob": "980d11ef5d4f237f7ad10af086cc6cf711acadaf",
+        "sha256": "9c4d2213e9b6dd77da80d066e7a320ddbf3b62a8e511026e4c7a2e10ec9059f8",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/include/libunwind.h",
+        "gitBlob": "56ca7110274a30c842d845a4c1ab8761bcd57388",
+        "sha256": "34d08a481ab71fc699971638cb58693cc9fcc6dafe4680963cb937359cfa6edb",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/include/libunwind.modulemap",
+        "gitBlob": "775841ecb5f1883d4b9d4b6d76e51e336e37b2a2",
+        "sha256": "48f339450fa40a3fddec84d4fc75a7197fce4b36f75925d3f3a22a54aa3ffe90",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/include/mach-o/compact_unwind_encoding.h",
+        "gitBlob": "4c48e33c3c177d9cdf7e4805fc4797628ff54ac4",
+        "sha256": "06f58e9d0058583b6da91ca2328fa663f80d089496a4979754ee7608fe9bd877",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/include/unwind.h",
+        "gitBlob": "b1775d3a3decc76e1a0916fead1aafbc6fa0fb51",
+        "sha256": "e4a58637fc8ca1d29cd600c3c4416aafed50085edf276fa076214c8d81c263f0",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/include/unwind_arm_ehabi.h",
+        "gitBlob": "68e02e47602d60de9f9d33267e270cb5f73fc5aa",
+        "sha256": "04cf22a069866ae35bf075c36f8d9112700bb9772653d80d9c6c4c856f4e7dbb",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/include/unwind_itanium.h",
+        "gitBlob": "d94a6183be2901e3167779691726b307970254a7",
+        "sha256": "c8cc61d806e13a2e75e93f1c15afd432f93a99283d27d15f5a28a3ebee989cba",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/AddressSpace.hpp",
+        "gitBlob": "0e611f0282c32b51d190981d77da7b54abaf7b62",
+        "sha256": "6c7011631faabc56c3245b1c6eaf161ecdef541bd751a2ac96f87e39cbbcf997",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/CMakeLists.txt",
+        "gitBlob": "f8b01e5aa4489281c23c213404cf2cf58f439404",
+        "sha256": "6461512602e1afd29b544cf2df59c7bf122c9a9d810970fa0adf632428c2b023",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/CompactUnwinder.hpp",
+        "gitBlob": "cd2e0e3431314adb770af082de1f645d1a48c8bc",
+        "sha256": "9a4d4db5484c6805b75e04c6beb41ef0eed5c2f51b5f6969fa717f8410950a9f",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/DwarfInstructions.hpp",
+        "gitBlob": "165c4a99e9a92f1deac33fb8f959481a3136b1ac",
+        "sha256": "1dc010b5854544a4c7635d230078f39a85afa5035ea1a7a42269edd43a521984",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/DwarfParser.hpp",
+        "gitBlob": "8e080fb33c5f81f833d441a11ae62fd2da9dc28f",
+        "sha256": "97daf4400e58df77a01faa6a037b9def3b5f852829d70a41d0e383386da5cc30",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/EHHeaderParser.hpp",
+        "gitBlob": "b5d927027f64c195c1e7bef5ac6ef22ab84c536f",
+        "sha256": "09a9460a2d7c6eba4f5f47e6e353cff3d283d3f6ff242a085cf9d7d591a1a7f1",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/FrameHeaderCache.hpp",
+        "gitBlob": "296064d8e2e675994a39227e2912c893892b8612",
+        "sha256": "ba9d7a8ae3c936fce48639f3f0964f67657cc8ffcccdb75416d3fa7c304845e9",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/RWMutex.hpp",
+        "gitBlob": "65bd849aabb3146e567f232f009c9dcc858109da",
+        "sha256": "7faac54d14bce80d620c3fd2929eccfcadc914a11ea9b5a226a3a7b902b0175d",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/Registers.hpp",
+        "gitBlob": "88c2d3b4e8c9bbe15c52b0e404370b4847a7ba27",
+        "sha256": "138d88e237a4584f431159af9afcba15e3d585f196065bb48b4b7231d239db4b",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/Unwind-EHABI.cpp",
+        "gitBlob": "05475c6ac1e2fe60db522a0c138f5acb3f5b1945",
+        "sha256": "352ab8ec8eaa93a790c261c418ffea18fc78d55ba805601df369a310dc086417",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/Unwind-EHABI.h",
+        "gitBlob": "ff3b5fc6fea77fba0f4ebc4d74e72bac984935fa",
+        "sha256": "c04fdebcd31e26de7615b82751373cc64ef83d02b24dbaaf0e112d0a559acc6b",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/Unwind-seh.cpp",
+        "gitBlob": "0b1930b44d1c648b89099b6f2f796b4233f1c877",
+        "sha256": "058ae089c7d42ade35b730f87443b34018b21bea75a4ea2226e9fffdf7500160",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/Unwind-sjlj.c",
+        "gitBlob": "a3551b328950d13022fa3bbd31b9361ce9acd681",
+        "sha256": "25be6bc007751639556d0e896a0479affd8b23138e6cc3f4b2d8d7f257e1b678",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/Unwind-wasm.c",
+        "gitBlob": "b0d6cd2d00fc59eae87f3366802d7470eb64a1d2",
+        "sha256": "ab81b5759fc30425ec59fa395c90dd04d48eef8b7b1541924d32074d5917130e",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/UnwindCursor.hpp",
+        "gitBlob": "5838dbcaa9980adc472919dcb6ed274706d4e00e",
+        "sha256": "d3495f491599c203fa187c57ae1faf1655b49ae6114e4c7af8bd7c34097db535",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/UnwindLevel1-gcc-ext.c",
+        "gitBlob": "32c872ffade1fd0c02c6e9d30a56fb48c2080193",
+        "sha256": "3bed106de18fec9d1c52cb7bc3d5db89d3225252f3c0312597d159edbbd6e802",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/UnwindLevel1.c",
+        "gitBlob": "7368b3cb803362370cbc95f731538d2486beafcf",
+        "sha256": "376b863ccf09f1502e675dec7cc1154a4450e588bacd7768fb768fd1be7b4c04",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/UnwindRegistersRestore.S",
+        "gitBlob": "76a80344034f7175e08a189e42a2dc2592845735",
+        "sha256": "340577c57e5879b6974517fa599a23a4fde8687f078ddd49d78076d37e41d32a",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/UnwindRegistersSave.S",
+        "gitBlob": "f988fd461def170a20b8cb2828533fb32191e84d",
+        "sha256": "786a1dcb895230704a27e661ebd5c363b50f3ddcf0387ed4507e8de3b1d1d75d",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/UnwindRustSgx.c",
+        "gitBlob": "9be7c1b54e6f8181275d75429048863a423ad078",
+        "sha256": "747b05bb583241b11d7e4ad2e7b7f2c883161cb1b01252eaf798ad9108c11130",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/UnwindRustSgx.h",
+        "gitBlob": "8155b8e74ffaf04f2315ce15abead0e152dc72cc",
+        "sha256": "46d9e27cea2428721ec043a51f310483095421e418ec8e9f4f0b94673080c646",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/Unwind_AIXExtras.cpp",
+        "gitBlob": "97b6c3e5e01aea352eef078dd520abf4b220b331",
+        "sha256": "e1b8b544fd6f9aeca43856a93d001f82b9ce6c586d4c3c048dc964874e5a31f2",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/assembly.h",
+        "gitBlob": "84c9d526f1d7594e456b5a31c11adff57f79551a",
+        "sha256": "1b802ab55f7b949a9e8b1a1c7c82b6a84d068610aeb823993bdeee1964c98eb3",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/config.h",
+        "gitBlob": "4a6f86759247e0ab40aecaa3b1eeeb51d2de2dea",
+        "sha256": "8826f390d1e9e600040c40c45bccffe6f11a9ea70f3d73238be86b57843ffc58",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/dwarf2.h",
+        "gitBlob": "68ad882347203ca193d05bcb2e3f34d4500edca0",
+        "sha256": "e10d240e2f19de7121a8afaf3d4841a65936723e69d636f7e3241e14802d0bfc",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/libunwind.cpp",
+        "gitBlob": "7ffffc2a30c0ae61c20446a0c91d7548ba695927",
+        "sha256": "413a02f5f0355e07fe3ac97588c3a63ea04836b5b6b1587643bf6a32f4550492",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/libunwind_ext.h",
+        "gitBlob": "b3762c24d7da47b9e23595418cc095a2994d3d92",
+        "sha256": "18f02a65758991c3cd371121861c2a213d6699f929e70104ed791ce32979d945",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/shadow_stack_unwind.h",
+        "gitBlob": "b00ca2c9327c74cc40f678cb4db3b56ed18dc405",
+        "sha256": "c18056e575fcf2deed7ccfe469c1c7e6c1f390f64b28cac5aa304de3bb7a50fa",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/CMakeLists.txt",
+        "gitBlob": "2559ab34f9d5b7934b0a1086dc2c6aeb0713df4c",
+        "sha256": "ce397a5ed17090e86f591335646789e0a080687bec151c09b023faea021001c6",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/aarch64_vg_unwind.pass.cpp",
+        "gitBlob": "d0c623b155092d2185c395047b2848713afa20ff",
+        "sha256": "f9e83edd4ecea255b79dc5c482aaf9d9773ddeb0f1371cb9940d92d7b71a0ae5",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/aarch64_za_unwind.pass.cpp",
+        "gitBlob": "9f6b106a21fecb6848f3ceb229c3a6ad4f12c0ba",
+        "sha256": "aa115a958e2bf27a58297203843884139dd01fadf928f28166e958b324336692",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/aix_runtime_link.pass.cpp",
+        "gitBlob": "deb192c07981eb0c76794e452eba0337d20fab35",
+        "sha256": "04b9fbcfacc0d62431028652c78366813aa767bb153f3d2ad54e95831dd46267",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/aix_signal_unwind.pass.sh.S",
+        "gitBlob": "056575745ea187e4d06c8693444189398e7876c7",
+        "sha256": "b1f58ec8834febb8e1d68af1f02146e3bdae637929198b360bfe697efab51115",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/alignment.compile.pass.cpp",
+        "gitBlob": "4606dc5e538555be6d89cd2321e2879d9b862295",
+        "sha256": "8f25ca5deb84f6c63c8f1a84c88fa8360dfe119e84b3d5d073f73859fdf90ec1",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/bad_unwind_info.pass.cpp",
+        "gitBlob": "332b661d2e98f126298b03324075dbe1d5760190",
+        "sha256": "987e0d1c3b91da96971391eb39b00af203b0139d18ab71a3cc425e9cc770e1c2",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/configs/apple-libunwind-system.cfg.in",
+        "gitBlob": "252448a756be9c2d5d401e578253807e5325f0dc",
+        "sha256": "1b165be8b74a6fa93ad255013cbb23ad1734581e2580cab09287aa25edf381e4",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/configs/armv7m-picolibc-libunwind.cfg.in",
+        "gitBlob": "6ffdd70c6177e7431149469377850193e9ed06a4",
+        "sha256": "159c731909330a8d1b592c10c4ae4ac0cc72186da712f2fc4923d66fe5df6c33",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/configs/cmake-bridge.cfg.in",
+        "gitBlob": "e40497bfa99766fd70ca7bb8ab857adbe5e2a4ae",
+        "sha256": "1f1f73f3fa24ec9e05aa76ea1329a0203cf471be08c271f758b51e1edc354e24",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/configs/ibm-libunwind-shared.cfg.in",
+        "gitBlob": "99f4a9061d19a79049154f5fec37595b31cb71ee",
+        "sha256": "d804c48bbe9aee7152b4a3b7d6cb7fb275a71f4c41e76f38085d2a43806b663d",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/configs/llvm-libunwind-merged.cfg.in",
+        "gitBlob": "34950f6ea2936087c1fc21e65078e70f8390c0b6",
+        "sha256": "5e5501b99c370d0349ad5a69e65ac4ec843552374e89ecbd7d617e5246c86195",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/configs/llvm-libunwind-shared-mingw.cfg.in",
+        "gitBlob": "1e77638b8cee3f23b0fddfc6965599a841809d82",
+        "sha256": "4cc9691ff524d15c7cb7f27c6b340ed1bcfd99f43e4fa1a30eecdcdf79007145",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/configs/llvm-libunwind-shared.cfg.in",
+        "gitBlob": "61d6b61cbae29701f42a6e5ead3d833e09f06457",
+        "sha256": "e6b42c3b2b35a13add7096d37691c38037b98ed9814985dbdb519a5762dcdff0",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/configs/llvm-libunwind-static-mingw.cfg.in",
+        "gitBlob": "37d20a7c9a44945d868d7bc3c6f4c76d16e65de2",
+        "sha256": "4e9dab8e175d9e4b71b648b7bd841a4c093ead6bb23368b041d6ff6a5498cfed",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/configs/llvm-libunwind-static.cfg.in",
+        "gitBlob": "194fa4f18f0e57700a1bc3b0c6f4ac5da0825d3f",
+        "sha256": "bcc12a681f717445c1add53fd521d38ed4a0411d19fafbee6834b8141b4d3a37",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/eh_frame_fde_pc_range.pass.cpp",
+        "gitBlob": "32ddb769e6dcea942943aee0777aaeaf1110eddd",
+        "sha256": "32c10d1e422ca49320daee50a94ee2f13b5a92878ccef5bb680d829070ec7596",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/floatregister.pass.cpp",
+        "gitBlob": "6be3e1f3f7385f0750f0223b31330222aa5e1f5c",
+        "sha256": "5876a2cc5cb9576635494f7b75fd9d80bd67a5bdd6636714312d1e9563160530",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/forceunwind.pass.cpp",
+        "gitBlob": "e5437c31a0f656e2ddf8d8c61250ff5816bb37f2",
+        "sha256": "abf7d68f1d02caf09aa8090999ce260635f93b4aecaa8de29321c9c12024f85a",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/frameheadercache_test.pass.cpp",
+        "gitBlob": "6b648e72849149ef23f4bf2bbb9142a949b3edd6",
+        "sha256": "736c2ebfe963974d2a8a937194979f928e99628d88d98dc4b44a8dd13a10489f",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/libunwind_01.pass.cpp",
+        "gitBlob": "838df6b5897204c67b1ef9d60d6948ced9c0b2cb",
+        "sha256": "8417707aca644697678f866c023d7da5750c3aa5d0aa5f68a676617232bfc44f",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/libunwind_02.pass.cpp",
+        "gitBlob": "9fd8e5d7159c968d49cb4f4b3f4f990b4cebc5e9",
+        "sha256": "d9fa1672ecc0c4955beaa9f577e26b040f3576f9a1ed65109bd5e78515968099",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/lit.cfg.py",
+        "gitBlob": "51e85e489db01f68acdc6ea77567ace26b1bb0ee",
+        "sha256": "e3126c83c68a7c68e42391dba6bd7b0e3ffc730892754e5ccc33c8a84501d35d",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/remember_state_leak.pass.sh.s",
+        "gitBlob": "69be3f95955153ef9f2d36ef02ea75e0fc654656",
+        "sha256": "4f7d7bbdc2487b7e66db3cac327e75b5f1469356cbd0252b6e9b4237cb638da9",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/signal_frame.pass.cpp",
+        "gitBlob": "004029cfe1e90b27d3672ca5403fa23f2b24c115",
+        "sha256": "21a10d363efce03082dc46bcd5fbc1ecd29b9a54b09db270aada4176f4f2587e",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/signal_unwind.pass.cpp",
+        "gitBlob": "ca50f83964c118c4d709823490928c77796859e1",
+        "sha256": "b4604b0333a8f7585de7a53ff714b90e0e3c3ea6ba38c2a496d0bd0d24c94754",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/unw_getcontext.pass.cpp",
+        "gitBlob": "95ffcf123267f0695c1276bf6184e09db6a3890d",
+        "sha256": "b1545a1311498dcbe6ab5e6ade48a34fbd16c4b4b1f42aa28c5977672bd1f66c",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/unw_resume.pass.cpp",
+        "gitBlob": "e1f40b4a42e947a105bf34a3c9b4b1f71761d09a",
+        "sha256": "16cd9a8a773b7c0c41390c061e323c5a8f44bfd35d38cbffb0121f889b755783",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/unwind_leaffunction.pass.cpp",
+        "gitBlob": "af791a6b2ed313ca7cab56253fed4c3fcb737b3b",
+        "sha256": "c5a51ab211d552e519edc5a44492483683c5373bf68c27cfbfd530a0e8973b4c",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/unwind_scalable_vectors.pass.cpp",
+        "gitBlob": "38d8bd5e002d1442ca8b1434da9087c5e587a069",
+        "sha256": "41530865fa67f3295ed043fe26bce3ac302a2b84ce37201218a048ca652ba340",
+        "mode": 420
+      }
+    ],
+    "legalSearch": {
+      "searchVersion": "legal-only-v1",
+      "filesSearched": 77,
+      "fileNameInventorySha256": "a1c619bffde24507c3668b7a4e9bb79ebd7e47a1db1c6d27840afe73a885fe35",
+      "scope": "entire immutable published archive",
+      "standaloneLegalFiles": [
+        {
+          "path": "libunwind/LICENSE.TXT",
+          "sha256": "b5efebcaca80879234098e52d1725e6d9eb8fb96a19fce625d39184b705f7b6d"
+        }
+      ],
+      "legalCommentsAndSections": [
+        {
+          "path": "libunwind/src/dwarf2.h#legal-comment",
+          "sha256": "6d3cd1131919ff0a88c5fd43d13139fdaa41393d896886f6ab02d926f865ab36"
+        },
+        {
+          "path": "libunwind/include/libunwind.h#legal-comment",
+          "sha256": "e4fc955d0d5c033975dbf970fcaaae07d750022f7c41b5506c4f0ccd50a26170"
+        },
+        {
+          "path": "libunwind/include/mach-o/compact_unwind_encoding.h#legal-comment",
+          "sha256": "5b8dfd13fa7c6051c10405bdc538da799f7e6d1ad5bae71740d85fa2161e5c39"
+        },
+        {
+          "path": "libunwind/include/unwind_itanium.h#legal-comment",
+          "sha256": "31c12ac5baac638bc1f7a3f7940190c163b72d4fb903aba295806231b15683ef"
+        },
+        {
+          "path": "libunwind/include/unwind_arm_ehabi.h#legal-comment",
+          "sha256": "c4a8edd029a359cd703ebe0b838301488591b78e8a6e19b8c9ca7247811fb60c"
+        },
+        {
+          "path": "libunwind/src/AddressSpace.hpp#legal-comment",
+          "sha256": "48e94c9109992960f1712ad43809aaa22b6fa8e17cfe6a2a1a1079a9f1c7a7fa"
+        },
+        {
+          "path": "libunwind/src/CompactUnwinder.hpp#legal-comment",
+          "sha256": "96e04a2c8f388b63d3958d0e6045f89f89e62cb9294a988805bf0db2889dd48a"
+        },
+        {
+          "path": "libunwind/src/DwarfInstructions.hpp#legal-comment",
+          "sha256": "3d3e406820390616000e0203b0b081f802e6e5dc17025dab075624008503a8bd"
+        },
+        {
+          "path": "libunwind/src/DwarfParser.hpp#legal-comment",
+          "sha256": "6177f2effe1b6084b37e4a243ae78746fb191eb621a5a9d11264d898ef5dc07c"
+        },
+        {
+          "path": "libunwind/src/EHHeaderParser.hpp#legal-comment",
+          "sha256": "12b2d201f5b648ab8d56403f6338648a2fb4f67923e00fbe1b28fff60ee5d3fc"
+        },
+        {
+          "path": "libunwind/src/FrameHeaderCache.hpp#legal-comment",
+          "sha256": "a2c1fc0fdef512009130b10358d370b232619fafc131db90c506fd93fa444c6e"
+        },
+        {
+          "path": "libunwind/src/RWMutex.hpp#legal-comment",
+          "sha256": "e3466cbeedd339faf6df60e09191f4dd2e547afe479e473e7b08374bfe2c9cfc"
+        },
+        {
+          "path": "libunwind/src/Registers.hpp#legal-comment",
+          "sha256": "fbbcd6049fd0c39727d877706e8d420ccaa05a200c4af8283004dce7a3a45a9b"
+        },
+        {
+          "path": "libunwind/src/Unwind-EHABI.cpp#legal-comment",
+          "sha256": "fe279583ffeebf6c795b40577f084c2244a592ff670c87a4da25685e866070e4"
+        },
+        {
+          "path": "libunwind/src/shadow_stack_unwind.h#legal-comment",
+          "sha256": "9188cd4575698cf5431cc86c427935112e380c6c749cb3a31f505dfd0f430af0"
+        },
+        {
+          "path": "libunwind/src/Unwind-seh.cpp#legal-comment",
+          "sha256": "affabcf5ae52b3fdc39cdcf11a8fc04b3bc22cc0473d7557cba7d6d5d9e68d87"
+        },
+        {
+          "path": "libunwind/src/Unwind-sjlj.c#legal-comment",
+          "sha256": "ca975a36abfbd66f6df1805bd5f77daa4d40f4fcd406f04c444de481f0ae61b3"
+        },
+        {
+          "path": "libunwind/src/Unwind-wasm.c#legal-comment",
+          "sha256": "699c0925717641680166f0eb7e5b2f7e6d70b87923389b0916b5d560a5d92a40"
+        },
+        {
+          "path": "libunwind/src/UnwindCursor.hpp#legal-comment",
+          "sha256": "85e18de628dde01389caab6b5dec5eea2534e3b8ca4da98c7cfd1ebafeb1fd1d"
+        },
+        {
+          "path": "libunwind/src/UnwindLevel1-gcc-ext.c#legal-comment",
+          "sha256": "8e8b8965852e0314a4d19d58d6b33433acbe13662aa4c41a6a04c0b4381f35c0"
+        },
+        {
+          "path": "libunwind/src/UnwindLevel1.c#legal-comment",
+          "sha256": "65867323ca268f38cc2ac59eff2b97af0141479546b7d8e2678efadd4e62e41e"
+        },
+        {
+          "path": "libunwind/src/UnwindRustSgx.c#legal-comment",
+          "sha256": "299be1e70f2eeb401da985c798e2d5ba5bb049b26be101a58d679ace47247163"
+        },
+        {
+          "path": "libunwind/src/UnwindRustSgx.h#legal-comment",
+          "sha256": "18477f3bce068cec6d1df19806059474e20bc35b7f583d8e10cf53f3bfb175e0"
+        },
+        {
+          "path": "libunwind/src/Unwind_AIXExtras.cpp#legal-comment",
+          "sha256": "b60f9eb7555520d0e965922be53cd27554f4941556c4f0a694543edd8f7624b9"
+        },
+        {
+          "path": "libunwind/src/assembly.h#legal-comment",
+          "sha256": "84f29fa781b5e0ab97fd6fa01570bf66bb9b87c4907c0f7f02bc0dd1a9bedce4"
+        },
+        {
+          "path": "libunwind/src/config.h#legal-comment",
+          "sha256": "2f39d4b06c638c6440c96f8e1b2d68edf25fa56da601eb54542ca33e3e418613"
+        },
+        {
+          "path": "libunwind/src/dwarf2.h#legal-comment",
+          "sha256": "768cdf6799a2e3aee6a43470d2bde0d19d2c5a9d4ac6c2350aff4e631c014f29"
+        },
+        {
+          "path": "libunwind/src/libunwind.cpp#legal-comment",
+          "sha256": "e2f3b5950654d077b7d4253fa919d816f125b5090db675b4e8f59a1bf95af369"
+        },
+        {
+          "path": "libunwind/src/libunwind_ext.h#legal-comment",
+          "sha256": "99d7856ce6bfaeebc930f0096308dcfbfbfc87b0046106a37f63a25da3cd5d61"
+        },
+        {
+          "path": "libunwind/test/aarch64_za_unwind.pass.cpp#legal-comment",
+          "sha256": "478577593fbd64ccc7309480d23c09de9b12d15e54e6fcc094770a6f17cd76ea"
+        },
+        {
+          "path": "libunwind/test/aix_runtime_link.pass.cpp#legal-comment",
+          "sha256": "a0cff7d4335766dc7a1ff98fb7728f8471dd75a2da4699f3b132d095750cde17"
+        },
+        {
+          "path": "libunwind/test/alignment.compile.pass.cpp#legal-comment",
+          "sha256": "24045c91eecf808cf540862bd7ab71dcba08e2578d3c820bf7ea837d1d86ce7e"
+        },
+        {
+          "path": "libunwind/test/bad_unwind_info.pass.cpp#legal-comment",
+          "sha256": "6519f5c07dbcb77bd9915b25878fc03dbb0f370198eb0f464d0568bd02caaa9a"
+        },
+        {
+          "path": "libunwind/test/eh_frame_fde_pc_range.pass.cpp#legal-comment",
+          "sha256": "73642dee170f461c70c5a1a265385dce5905947048cce34790984b7c5adecd18"
+        },
+        {
+          "path": "libunwind/test/floatregister.pass.cpp#legal-comment",
+          "sha256": "15aefd494fb26730955f996f62f826d92a2dc53ac5bb4fdf709d22a1569aac70"
+        },
+        {
+          "path": "libunwind/test/forceunwind.pass.cpp#legal-comment",
+          "sha256": "5d303504e99de4e0c71240dd1bfa35dbec15b1028c95f6809e35465dbc1f70cf"
+        },
+        {
+          "path": "libunwind/test/frameheadercache_test.pass.cpp#legal-comment",
+          "sha256": "f679bf2b28cf910e636477126f650ed1a50a33031b3a740b0f6b867f14b449cd"
+        },
+        {
+          "path": "libunwind/test/libunwind_01.pass.cpp#legal-comment",
+          "sha256": "6881a0a94c88af443f062d0c8ce16267d5608d8a5d0d58be78af5ae2b2cc13e0"
+        },
+        {
+          "path": "libunwind/test/libunwind_02.pass.cpp#legal-comment",
+          "sha256": "e13acd913cd371ddad4193173b7faf6ac3c7f7bc1b8e7096aeff5092e2764b2e"
+        },
+        {
+          "path": "libunwind/test/signal_frame.pass.cpp#legal-comment",
+          "sha256": "fc63fa162bc4c6488189f4d3ec682df51cad93c1d8285d6ca6068b8fa7d8bafc"
+        },
+        {
+          "path": "libunwind/test/signal_unwind.pass.cpp#legal-comment",
+          "sha256": "11b11c82af2886ab51af267144507391507207e85c9edc6dd6a277f309fe0eb1"
+        },
+        {
+          "path": "libunwind/test/unw_getcontext.pass.cpp#legal-comment",
+          "sha256": "ec580ecb8719ce7923879d365f79abead887349565b29ccf742da8c52ac6b860"
+        },
+        {
+          "path": "libunwind/test/unw_resume.pass.cpp#legal-comment",
+          "sha256": "e2a86ebb88f7c25886aa5b6563edaa1ed326ff6f13b23cfca9ec97430ef936a7"
+        },
+        {
+          "path": "libunwind/test/unwind_leaffunction.pass.cpp#legal-comment",
+          "sha256": "d5fb7235b48fe1dedb08650e75b2c8f726751aa37d0284a2780f2a317dbdc598"
+        },
+        {
+          "path": "libunwind/test/unwind_scalable_vectors.pass.cpp#legal-comment",
+          "sha256": "2aca7589270de12b36db2549e4a579ccb650b51c206a06f42d52a00d35c410be"
+        }
+      ]
+    },
+    "llvmLicense": {
+      "path": "LICENSE.TXT",
+      "sha256": "8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee"
+    },
+    "backtraceGitlink": "d902726a1dcdc1e1c66f73d1162181b5423c645b",
+    "backtraceSource": {
+      "url": "https://codeload.github.com/rust-lang/backtrace-rs/tar.gz/d902726a1dcdc1e1c66f73d1162181b5423c645b",
+      "sha256": "51fc2a0f549f1f57594c310885c59c2f1ecf86cc13169a0193819fd80bda2ffb",
+      "bytes": 99341,
+      "notices": [
+        {
+          "path": "backtrace-rs-d902726a1dcdc1e1c66f73d1162181b5423c645b/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "backtrace-rs-d902726a1dcdc1e1c66f73d1162181b5423c645b/LICENSE-MIT",
+          "sha256": "378f5840b258e2779c39418f3f2d7b2ba96f1c7917dd6be0713f88305dbda397"
+        }
+      ]
+    },
+    "scope": "Exact complete compiler-declared libunwind source/legal tree and backtrace source. Historical binary target-builder/runtime membership is not attested."
+  },
+  {
+    "rustSourceCommit": "b940084d7eb6a299eb4bfeb8e34901bc051e7ac4",
+    "llvmSourceCommit": "1b9c0d5ff9bbe7634aead059efe6b11a7eeba145",
+    "libunwindTree": "26ce45fe679eccf1285d6442118a8d215cba633a",
+    "sourceUrl": "https://github.com/rust-lang/llvm-project/tree/1b9c0d5ff9bbe7634aead059efe6b11a7eeba145/libunwind",
+    "sourceArchiveSha256": "1d42bc583a517bb9c39c6306626544f1b58d8857d21a85a9cfb75ba586f48e21",
+    "sourceArchiveBytes": 962560,
+    "archiveFormat": "Canonical USTAR sorted path, original modes, uid/gid/mtime zero; complete tree verified against Git blobs.",
+    "files": [
+      {
+        "path": "libunwind/.clang-format",
+        "gitBlob": "5bead5f39dd3c5841f615beb6472c4c504d407af",
+        "sha256": "db616948bfcea08fc12637e28ec9b058740df32aa738dc24eaecc358d22da669",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/CMakeLists.txt",
+        "gitBlob": "b7f9e187f5c9b43e36e83b98eb495d5a3fd62794",
+        "sha256": "f39878b96c61460e438f658d0b948275153e298117062800b0de77fe72906539",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/LICENSE.TXT",
+        "gitBlob": "1e3120621caeb62648745a42f7a9a25d1e2731ab",
+        "sha256": "b5efebcaca80879234098e52d1725e6d9eb8fb96a19fce625d39184b705f7b6d",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/README_RUST_SGX.md",
+        "gitBlob": "c5d6eb4772bc3246f206f65547898c6fe3d80af1",
+        "sha256": "b3ffbe07a15d1a4f76e11df942ed333ba18274e3b587ea3a249fe6109736e68a",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/cmake/Modules/HandleLibunwindFlags.cmake",
+        "gitBlob": "94c676338821c74874b490932ce87c1e74089903",
+        "sha256": "db06d27981748ce8ae76488edddfa5b91a86cdde779c3e8853c5b6beede68bf3",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/cmake/config-ix.cmake",
+        "gitBlob": "d42ceffb1f631e7d549246b49ac3f73435d2bbb5",
+        "sha256": "18c4b14553cdad3bf4dd04083be1deccafc667d1b46b72a1f3f1f50f5daad985",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/docs/BuildingLibunwind.rst",
+        "gitBlob": "830513e3a8082ca62b26fc31fef9840186e1e60a",
+        "sha256": "48435fe64c40979a7eb8f4833f81b59972d4310ede30035948cb8723adbfee74",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/docs/CMakeLists.txt",
+        "gitBlob": "79b87eb03b447fb3fc071ea38e7874a70d0b985a",
+        "sha256": "581c86ec902d3b67c3e41e38a75c4263b4f8926e75fdc6b84815ad432dd4c453",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/docs/README.txt",
+        "gitBlob": "968982fce5e0767dc357809014c3999f65f7eb63",
+        "sha256": "49338f013df9a930bf647e69ff7dcad8c69216159f76996227f19044e9e2bba2",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/docs/conf.py",
+        "gitBlob": "2d91df6753d69d8e1ead2b7daf14b599ff8230c0",
+        "sha256": "34cbe8c802e10a438ceb5723197834841310fd78e1287e51bedf7e45386c5fe4",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/docs/index.rst",
+        "gitBlob": "03542464011461fa81f468115061e102f4914452",
+        "sha256": "5a7b1b34112dca0addea50a073a610d19efa7dac264ad5a2de3ca0068217dd7a",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/include/CMakeLists.txt",
+        "gitBlob": "eefd4305d06cc11f320751abe38fbe18fec73d43",
+        "sha256": "b0c334f8ea5866dce3dbf267fe50518299eb3cb5460c3889426e152138f09bda",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/include/__libunwind_config.h",
+        "gitBlob": "a1179c73c5906b2df9bb3973cd7918ad1f42b28a",
+        "sha256": "0bb004911d967d5cc2d87d07f81e03668d1cf42c6b9347a95285d9e18f82954c",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/include/libunwind.h",
+        "gitBlob": "6c2dfe58e53bf1f97bca6c78dacb47cc3676b8dc",
+        "sha256": "3b411eb68de64e829937faaeec942bbc8e3e3a1c013b55107be2c679df64173c",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/include/libunwind.modulemap",
+        "gitBlob": "775841ecb5f1883d4b9d4b6d76e51e336e37b2a2",
+        "sha256": "48f339450fa40a3fddec84d4fc75a7197fce4b36f75925d3f3a22a54aa3ffe90",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/include/mach-o/compact_unwind_encoding.h",
+        "gitBlob": "c495b83c40b90ae517e390fe659061a7bbbe2603",
+        "sha256": "a458a96b1257048618e22688e3ad6fc4c36f99e1229b1492b7b800911e651a68",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/include/unwind.h",
+        "gitBlob": "b1775d3a3decc76e1a0916fead1aafbc6fa0fb51",
+        "sha256": "e4a58637fc8ca1d29cd600c3c4416aafed50085edf276fa076214c8d81c263f0",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/include/unwind_arm_ehabi.h",
+        "gitBlob": "68e02e47602d60de9f9d33267e270cb5f73fc5aa",
+        "sha256": "04cf22a069866ae35bf075c36f8d9112700bb9772653d80d9c6c4c856f4e7dbb",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/include/unwind_itanium.h",
+        "gitBlob": "860ad36cdf14e2e06cd6fe2f77b9070434240434",
+        "sha256": "43ad2c8ca672c8fb9a4eb80d7e05a687ae9134f4899641357c86cecde4efbd1f",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/AddressSpace.hpp",
+        "gitBlob": "0e611f0282c32b51d190981d77da7b54abaf7b62",
+        "sha256": "6c7011631faabc56c3245b1c6eaf161ecdef541bd751a2ac96f87e39cbbcf997",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/CMakeLists.txt",
+        "gitBlob": "53ac715231a22cf4aec253c226feb0637a571c3b",
+        "sha256": "0bb1b1c5f8e60d3d08b622bd414bc7a91f5f74e8cbaccf11b1e960dbc7f2a57c",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/CompactUnwinder.hpp",
+        "gitBlob": "929f540b662b4d661854a20820c8bd33f2a4d850",
+        "sha256": "e220eea18e8bf786bf6d78c135ef808629543166704d8f491173e1a333566fa6",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/DwarfInstructions.hpp",
+        "gitBlob": "56220c327a7faacd71275d9ab3ae5bf281e3bb31",
+        "sha256": "bdcc13f0daae3cdfd732661f33b3272af0c547413f350729c1cae837a2d2fefe",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/DwarfParser.hpp",
+        "gitBlob": "8e080fb33c5f81f833d441a11ae62fd2da9dc28f",
+        "sha256": "97daf4400e58df77a01faa6a037b9def3b5f852829d70a41d0e383386da5cc30",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/EHHeaderParser.hpp",
+        "gitBlob": "b5d927027f64c195c1e7bef5ac6ef22ab84c536f",
+        "sha256": "09a9460a2d7c6eba4f5f47e6e353cff3d283d3f6ff242a085cf9d7d591a1a7f1",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/FrameHeaderCache.hpp",
+        "gitBlob": "caea29e097464b29e98249b2ad44bfd0a301092d",
+        "sha256": "c203d9afbf3e241e315623351533665c49f692ce42e3ac846fac163768c89085",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/RWMutex.hpp",
+        "gitBlob": "65bd849aabb3146e567f232f009c9dcc858109da",
+        "sha256": "7faac54d14bce80d620c3fd2929eccfcadc914a11ea9b5a226a3a7b902b0175d",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/Registers.hpp",
+        "gitBlob": "c88422a6d5f4fbbcb34d9a94e2ea20c776e4a40f",
+        "sha256": "4ef8bb6e26c43f77ef2641ff21e4c13e1ff4cebb4bfe959d22af29761bb692ca",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/Unwind-EHABI.cpp",
+        "gitBlob": "05475c6ac1e2fe60db522a0c138f5acb3f5b1945",
+        "sha256": "352ab8ec8eaa93a790c261c418ffea18fc78d55ba805601df369a310dc086417",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/Unwind-EHABI.h",
+        "gitBlob": "ff3b5fc6fea77fba0f4ebc4d74e72bac984935fa",
+        "sha256": "c04fdebcd31e26de7615b82751373cc64ef83d02b24dbaaf0e112d0a559acc6b",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/Unwind-seh.cpp",
+        "gitBlob": "0b1930b44d1c648b89099b6f2f796b4233f1c877",
+        "sha256": "058ae089c7d42ade35b730f87443b34018b21bea75a4ea2226e9fffdf7500160",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/Unwind-sjlj.c",
+        "gitBlob": "a3551b328950d13022fa3bbd31b9361ce9acd681",
+        "sha256": "25be6bc007751639556d0e896a0479affd8b23138e6cc3f4b2d8d7f257e1b678",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/Unwind-wasm.c",
+        "gitBlob": "2e949d005b8f5e0d759460ed95c2f22056112eae",
+        "sha256": "fd39f3e861c44bab47b2f47a69d5286cf9a7c14bd84c902baa2e22ef9b798793",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/UnwindCursor.hpp",
+        "gitBlob": "537dbd83f4f74e57bd3385d2157c3d448674ad36",
+        "sha256": "57db09f6304228d85fad1ab0d61527f254dc834ade6b727dd902c9f09521ac0f",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/UnwindLevel1-gcc-ext.c",
+        "gitBlob": "1764499b304f1ac4ed665829d7cc47793ebf9766",
+        "sha256": "93d2bb050caf6b4f80819b93340ae5aad91f44e633996cc7dd32dca90da05fe0",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/UnwindLevel1.c",
+        "gitBlob": "834fdae6a76d3e28bde5ece20c45f367a47b1f12",
+        "sha256": "16e16fbc0c85873df1a445d7b204fb363e46c68d6a2815dc68257108b5c944c8",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/UnwindRegistersRestore.S",
+        "gitBlob": "37e8156408cf2fac4ceeadb1ce28b5d91c7ea26c",
+        "sha256": "defd77145da992c5f7deb3e2b03f26e67836fe96d094e565540bddf15ed14e07",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/UnwindRegistersSave.S",
+        "gitBlob": "f44f6a1331968cf75de46a3cf64a0cc5c8f485b2",
+        "sha256": "c5d0da824062363be10dc33bcd1156f16cd69811e71603c667f931a91fab5eb1",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/UnwindRustSgx.c",
+        "gitBlob": "9be7c1b54e6f8181275d75429048863a423ad078",
+        "sha256": "747b05bb583241b11d7e4ad2e7b7f2c883161cb1b01252eaf798ad9108c11130",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/UnwindRustSgx.h",
+        "gitBlob": "8155b8e74ffaf04f2315ce15abead0e152dc72cc",
+        "sha256": "46d9e27cea2428721ec043a51f310483095421e418ec8e9f4f0b94673080c646",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/Unwind_AIXExtras.cpp",
+        "gitBlob": "97b6c3e5e01aea352eef078dd520abf4b220b331",
+        "sha256": "e1b8b544fd6f9aeca43856a93d001f82b9ce6c586d4c3c048dc964874e5a31f2",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/assembly.h",
+        "gitBlob": "84c9d526f1d7594e456b5a31c11adff57f79551a",
+        "sha256": "1b802ab55f7b949a9e8b1a1c7c82b6a84d068610aeb823993bdeee1964c98eb3",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/config.h",
+        "gitBlob": "4a6f86759247e0ab40aecaa3b1eeeb51d2de2dea",
+        "sha256": "8826f390d1e9e600040c40c45bccffe6f11a9ea70f3d73238be86b57843ffc58",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/dwarf2.h",
+        "gitBlob": "68ad882347203ca193d05bcb2e3f34d4500edca0",
+        "sha256": "e10d240e2f19de7121a8afaf3d4841a65936723e69d636f7e3241e14802d0bfc",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/libunwind.cpp",
+        "gitBlob": "0b9d56ec805bca92f0ed4b93be549c8cf982e809",
+        "sha256": "51ccb27829d15988ca5678541b1b32bb3c2bdea87e02be31bf4faca48a0ee2ad",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/libunwind_ext.h",
+        "gitBlob": "8acf2212d1eae32433764070421727d73b07e372",
+        "sha256": "2efb28c93eb3c32cf491733b8e9c7b5715cb15fa0d6afb7b23ee4ca6de40cc98",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/src/shadow_stack_unwind.h",
+        "gitBlob": "b00ca2c9327c74cc40f678cb4db3b56ed18dc405",
+        "sha256": "c18056e575fcf2deed7ccfe469c1c7e6c1f390f64b28cac5aa304de3bb7a50fa",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/CMakeLists.txt",
+        "gitBlob": "3a4433689051c083fdb15fb84b777853777620bb",
+        "sha256": "4689bb06b72aca81bb3c5da91999e9dd0ed194fa603fbf9d57aaf4bb3860c08b",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/aarch64_vg_unwind.pass.cpp",
+        "gitBlob": "811fb432452d3c693ae5db6a7e48739e1fd3103c",
+        "sha256": "ff6f8d63a825cecc52e7685092b9c05ae074362e26672f2d765ababa11e6d11d",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/aarch64_za_unwind.pass.cpp",
+        "gitBlob": "0e8e1f0de4f78f451bdd4c42703746ca171d9c21",
+        "sha256": "0bc9b007dd6f526711b7e88f2566eb6de53f18d3542fc48326e52595ef9ed410",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/aix_runtime_link.pass.cpp",
+        "gitBlob": "deb192c07981eb0c76794e452eba0337d20fab35",
+        "sha256": "04b9fbcfacc0d62431028652c78366813aa767bb153f3d2ad54e95831dd46267",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/aix_signal_unwind.pass.sh.S",
+        "gitBlob": "056575745ea187e4d06c8693444189398e7876c7",
+        "sha256": "b1f58ec8834febb8e1d68af1f02146e3bdae637929198b360bfe697efab51115",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/aix_vapi_signal_unwind.pass.cpp",
+        "gitBlob": "adef991da48c457ff06c889b5fafa18d40f0dcaf",
+        "sha256": "9d6c7805309e5a4d7ae5aa761257ec065fbd27a376b15f7c989b6594626eb382",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/aix_vapi_unw_resume.pass.cpp",
+        "gitBlob": "f321854feb3c72ba0cbf1fa30a58d032bb8f36f6",
+        "sha256": "255172877c8b9028f2aad2809b8fb6bf39345bb94ba7dbdf927e7f1bed2fb9c2",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/alignment.compile.pass.cpp",
+        "gitBlob": "4606dc5e538555be6d89cd2321e2879d9b862295",
+        "sha256": "8f25ca5deb84f6c63c8f1a84c88fa8360dfe119e84b3d5d073f73859fdf90ec1",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/bad_unwind_info.pass.cpp",
+        "gitBlob": "332b661d2e98f126298b03324075dbe1d5760190",
+        "sha256": "987e0d1c3b91da96971391eb39b00af203b0139d18ab71a3cc425e9cc770e1c2",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/configs/apple-libunwind-system.cfg.in",
+        "gitBlob": "252448a756be9c2d5d401e578253807e5325f0dc",
+        "sha256": "1b165be8b74a6fa93ad255013cbb23ad1734581e2580cab09287aa25edf381e4",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/configs/armv7m-picolibc-libunwind.cfg.in",
+        "gitBlob": "6ffdd70c6177e7431149469377850193e9ed06a4",
+        "sha256": "159c731909330a8d1b592c10c4ae4ac0cc72186da712f2fc4923d66fe5df6c33",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/configs/cmake-bridge.cfg.in",
+        "gitBlob": "09bd92ab9fee2361cce08cb9d13970d4c15d6c12",
+        "sha256": "d071bca325fd8ccf286ae6703522ada91cb27772677f2a39b6651630e3391e6e",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/configs/ibm-libunwind-shared.cfg.in",
+        "gitBlob": "99f4a9061d19a79049154f5fec37595b31cb71ee",
+        "sha256": "d804c48bbe9aee7152b4a3b7d6cb7fb275a71f4c41e76f38085d2a43806b663d",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/configs/llvm-libunwind-merged.cfg.in",
+        "gitBlob": "1ae1b515bff4dc0bd14010b8e1f8980c0446d7bb",
+        "sha256": "57e66e4bf199b1b49c2714a08a97f96baa1ff5290703a849387d3f9bd1856de9",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/configs/llvm-libunwind-shared-mingw.cfg.in",
+        "gitBlob": "1e77638b8cee3f23b0fddfc6965599a841809d82",
+        "sha256": "4cc9691ff524d15c7cb7f27c6b340ed1bcfd99f43e4fa1a30eecdcdf79007145",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/configs/llvm-libunwind-shared.cfg.in",
+        "gitBlob": "84af348a5c6cbd6984b51ac778e81b39bf1838b0",
+        "sha256": "8f30c30b4b73c4e12106658323b31c3e52371cc42391f9225d9ba1cc457b8958",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/configs/llvm-libunwind-static-mingw.cfg.in",
+        "gitBlob": "37d20a7c9a44945d868d7bc3c6f4c76d16e65de2",
+        "sha256": "4e9dab8e175d9e4b71b648b7bd841a4c093ead6bb23368b041d6ff6a5498cfed",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/configs/llvm-libunwind-static.cfg.in",
+        "gitBlob": "7e1fb5395c57a65ca9a9b4425cc67ce248bfeb04",
+        "sha256": "a895171bf9fef45d760c0bdaa8628221a6ea302b879f16aaa73d44189854aeff",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/eh_frame_fde_pc_range.pass.cpp",
+        "gitBlob": "32ddb769e6dcea942943aee0777aaeaf1110eddd",
+        "sha256": "32c10d1e422ca49320daee50a94ee2f13b5a92878ccef5bb680d829070ec7596",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/floatregister.pass.cpp",
+        "gitBlob": "52561360860b9cfbd9a71328aedef87bb2a8986e",
+        "sha256": "78b80ea767908453d03cb1eb528aaa3fa1728550725098178599adfff6db5e97",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/forceunwind.pass.cpp",
+        "gitBlob": "fd61912acb73446de9486ca862225704c6677e32",
+        "sha256": "1c796dcf3f51e930321c35f8f00429cea7d50d3e05aac2968e6ec31a74eb572c",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/frameheadercache_test.pass.cpp",
+        "gitBlob": "6b648e72849149ef23f4bf2bbb9142a949b3edd6",
+        "sha256": "736c2ebfe963974d2a8a937194979f928e99628d88d98dc4b44a8dd13a10489f",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/libunwind_01.pass.cpp",
+        "gitBlob": "b2dd12df70ddedd8262e0fb4bffe34ab0c03c1f1",
+        "sha256": "6209fdb0c75760503c723cc59964cef9bef2c04629929d623b7df8e85d691ac4",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/libunwind_02.pass.cpp",
+        "gitBlob": "9fd8e5d7159c968d49cb4f4b3f4f990b4cebc5e9",
+        "sha256": "d9fa1672ecc0c4955beaa9f577e26b040f3576f9a1ed65109bd5e78515968099",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/lit.cfg.py",
+        "gitBlob": "51e85e489db01f68acdc6ea77567ace26b1bb0ee",
+        "sha256": "e3126c83c68a7c68e42391dba6bd7b0e3ffc730892754e5ccc33c8a84501d35d",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/remember_state_leak.pass.sh.s",
+        "gitBlob": "69be3f95955153ef9f2d36ef02ea75e0fc654656",
+        "sha256": "4f7d7bbdc2487b7e66db3cac327e75b5f1469356cbd0252b6e9b4237cb638da9",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/set_non_null_pc_outside_of_function_cfi_bounds.pass.cpp",
+        "gitBlob": "a7373b7ddecba69185a22ecb79b3ba06ce293d80",
+        "sha256": "09a58a4308349383beb058cb31cb14d3669e02dc256c0ce660b4c32e1c469d64",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/signal_frame.pass.cpp",
+        "gitBlob": "3e5b938b6502b69bb1ff577fd9e963a775438507",
+        "sha256": "8317196d9b916939a228285bc900fc1a42d56bdcb71cb1ffbb409d9e6525a833",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/signal_unwind.pass.cpp",
+        "gitBlob": "f8798bc3eabeb40c0242f4a9a511ab6c5fa8881d",
+        "sha256": "21b84d268b02dc24ba81d980ba3fbdae7e89c154d0e9a5f5cc29d2727bcd7094",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/support/func_bounds.h",
+        "gitBlob": "b6d9d25280d66485cf9cdfac09ed8d71676e933c",
+        "sha256": "a864b96f60d27e1852eebbf80ffe60ea02f94830f9c1f359dc73f6697e6f76db",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/unw_getcontext.pass.cpp",
+        "gitBlob": "95ffcf123267f0695c1276bf6184e09db6a3890d",
+        "sha256": "b1545a1311498dcbe6ab5e6ade48a34fbd16c4b4b1f42aa28c5977672bd1f66c",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/unw_resume.pass.cpp",
+        "gitBlob": "e1f40b4a42e947a105bf34a3c9b4b1f71761d09a",
+        "sha256": "16cd9a8a773b7c0c41390c061e323c5a8f44bfd35d38cbffb0121f889b755783",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/unwind_leaffunction.pass.cpp",
+        "gitBlob": "a709493604e3c0260d9516129218853f47a85338",
+        "sha256": "0f557d101d3416b86af1a556b0e54bc2179b2c7e3544b4b82c86b972b9bdd8fc",
+        "mode": 420
+      },
+      {
+        "path": "libunwind/test/unwind_scalable_vectors.pass.cpp",
+        "gitBlob": "38d8bd5e002d1442ca8b1434da9087c5e587a069",
+        "sha256": "41530865fa67f3295ed043fe26bce3ac302a2b84ce37201218a048ca652ba340",
+        "mode": 420
+      }
+    ],
+    "legalSearch": {
+      "searchVersion": "legal-only-v1",
+      "filesSearched": 81,
+      "fileNameInventorySha256": "be01366a6a13b395adec5e2dd6e8acecadcf535a2d438e89bb6a50bae97805e1",
+      "scope": "entire immutable published archive",
+      "standaloneLegalFiles": [
+        {
+          "path": "libunwind/LICENSE.TXT",
+          "sha256": "b5efebcaca80879234098e52d1725e6d9eb8fb96a19fce625d39184b705f7b6d"
+        }
+      ],
+      "legalCommentsAndSections": [
+        {
+          "path": "libunwind/src/dwarf2.h#legal-comment",
+          "sha256": "6d3cd1131919ff0a88c5fd43d13139fdaa41393d896886f6ab02d926f865ab36"
+        },
+        {
+          "path": "libunwind/include/libunwind.h#legal-comment",
+          "sha256": "e4fc955d0d5c033975dbf970fcaaae07d750022f7c41b5506c4f0ccd50a26170"
+        },
+        {
+          "path": "libunwind/include/mach-o/compact_unwind_encoding.h#legal-comment",
+          "sha256": "5b8dfd13fa7c6051c10405bdc538da799f7e6d1ad5bae71740d85fa2161e5c39"
+        },
+        {
+          "path": "libunwind/include/unwind_itanium.h#legal-comment",
+          "sha256": "31c12ac5baac638bc1f7a3f7940190c163b72d4fb903aba295806231b15683ef"
+        },
+        {
+          "path": "libunwind/include/unwind_arm_ehabi.h#legal-comment",
+          "sha256": "c4a8edd029a359cd703ebe0b838301488591b78e8a6e19b8c9ca7247811fb60c"
+        },
+        {
+          "path": "libunwind/src/AddressSpace.hpp#legal-comment",
+          "sha256": "48e94c9109992960f1712ad43809aaa22b6fa8e17cfe6a2a1a1079a9f1c7a7fa"
+        },
+        {
+          "path": "libunwind/src/CompactUnwinder.hpp#legal-comment",
+          "sha256": "96e04a2c8f388b63d3958d0e6045f89f89e62cb9294a988805bf0db2889dd48a"
+        },
+        {
+          "path": "libunwind/src/DwarfInstructions.hpp#legal-comment",
+          "sha256": "3d3e406820390616000e0203b0b081f802e6e5dc17025dab075624008503a8bd"
+        },
+        {
+          "path": "libunwind/src/DwarfParser.hpp#legal-comment",
+          "sha256": "6177f2effe1b6084b37e4a243ae78746fb191eb621a5a9d11264d898ef5dc07c"
+        },
+        {
+          "path": "libunwind/src/EHHeaderParser.hpp#legal-comment",
+          "sha256": "12b2d201f5b648ab8d56403f6338648a2fb4f67923e00fbe1b28fff60ee5d3fc"
+        },
+        {
+          "path": "libunwind/src/FrameHeaderCache.hpp#legal-comment",
+          "sha256": "a2c1fc0fdef512009130b10358d370b232619fafc131db90c506fd93fa444c6e"
+        },
+        {
+          "path": "libunwind/src/RWMutex.hpp#legal-comment",
+          "sha256": "e3466cbeedd339faf6df60e09191f4dd2e547afe479e473e7b08374bfe2c9cfc"
+        },
+        {
+          "path": "libunwind/src/Registers.hpp#legal-comment",
+          "sha256": "fbbcd6049fd0c39727d877706e8d420ccaa05a200c4af8283004dce7a3a45a9b"
+        },
+        {
+          "path": "libunwind/src/Unwind-EHABI.cpp#legal-comment",
+          "sha256": "fe279583ffeebf6c795b40577f084c2244a592ff670c87a4da25685e866070e4"
+        },
+        {
+          "path": "libunwind/src/shadow_stack_unwind.h#legal-comment",
+          "sha256": "9188cd4575698cf5431cc86c427935112e380c6c749cb3a31f505dfd0f430af0"
+        },
+        {
+          "path": "libunwind/src/Unwind-seh.cpp#legal-comment",
+          "sha256": "affabcf5ae52b3fdc39cdcf11a8fc04b3bc22cc0473d7557cba7d6d5d9e68d87"
+        },
+        {
+          "path": "libunwind/src/Unwind-sjlj.c#legal-comment",
+          "sha256": "ca975a36abfbd66f6df1805bd5f77daa4d40f4fcd406f04c444de481f0ae61b3"
+        },
+        {
+          "path": "libunwind/src/Unwind-wasm.c#legal-comment",
+          "sha256": "699c0925717641680166f0eb7e5b2f7e6d70b87923389b0916b5d560a5d92a40"
+        },
+        {
+          "path": "libunwind/src/UnwindCursor.hpp#legal-comment",
+          "sha256": "85e18de628dde01389caab6b5dec5eea2534e3b8ca4da98c7cfd1ebafeb1fd1d"
+        },
+        {
+          "path": "libunwind/src/UnwindLevel1-gcc-ext.c#legal-comment",
+          "sha256": "8e8b8965852e0314a4d19d58d6b33433acbe13662aa4c41a6a04c0b4381f35c0"
+        },
+        {
+          "path": "libunwind/src/UnwindLevel1.c#legal-comment",
+          "sha256": "9264bb5683e14805b3fdda44d6dfac6fa45023520ca20d2a5c01283bcb715211"
+        },
+        {
+          "path": "libunwind/src/UnwindRustSgx.c#legal-comment",
+          "sha256": "299be1e70f2eeb401da985c798e2d5ba5bb049b26be101a58d679ace47247163"
+        },
+        {
+          "path": "libunwind/src/UnwindRustSgx.h#legal-comment",
+          "sha256": "18477f3bce068cec6d1df19806059474e20bc35b7f583d8e10cf53f3bfb175e0"
+        },
+        {
+          "path": "libunwind/src/Unwind_AIXExtras.cpp#legal-comment",
+          "sha256": "b60f9eb7555520d0e965922be53cd27554f4941556c4f0a694543edd8f7624b9"
+        },
+        {
+          "path": "libunwind/src/assembly.h#legal-comment",
+          "sha256": "84f29fa781b5e0ab97fd6fa01570bf66bb9b87c4907c0f7f02bc0dd1a9bedce4"
+        },
+        {
+          "path": "libunwind/src/config.h#legal-comment",
+          "sha256": "2f39d4b06c638c6440c96f8e1b2d68edf25fa56da601eb54542ca33e3e418613"
+        },
+        {
+          "path": "libunwind/src/dwarf2.h#legal-comment",
+          "sha256": "768cdf6799a2e3aee6a43470d2bde0d19d2c5a9d4ac6c2350aff4e631c014f29"
+        },
+        {
+          "path": "libunwind/src/libunwind.cpp#legal-comment",
+          "sha256": "e2f3b5950654d077b7d4253fa919d816f125b5090db675b4e8f59a1bf95af369"
+        },
+        {
+          "path": "libunwind/src/libunwind_ext.h#legal-comment",
+          "sha256": "99d7856ce6bfaeebc930f0096308dcfbfbfc87b0046106a37f63a25da3cd5d61"
+        },
+        {
+          "path": "libunwind/test/aarch64_vg_unwind.pass.cpp#legal-comment",
+          "sha256": "36841d22cf423a6a94748c95c38d9bca78da68964bdd43aa9d65e325d0baa9df"
+        },
+        {
+          "path": "libunwind/test/aarch64_za_unwind.pass.cpp#legal-comment",
+          "sha256": "478577593fbd64ccc7309480d23c09de9b12d15e54e6fcc094770a6f17cd76ea"
+        },
+        {
+          "path": "libunwind/test/aix_runtime_link.pass.cpp#legal-comment",
+          "sha256": "a0cff7d4335766dc7a1ff98fb7728f8471dd75a2da4699f3b132d095750cde17"
+        },
+        {
+          "path": "libunwind/test/aix_vapi_signal_unwind.pass.cpp#legal-comment",
+          "sha256": "0e8a82daca961241321185b91e471eb1b2884ecc1ef9d3944582ae0bc9723683"
+        },
+        {
+          "path": "libunwind/test/aix_vapi_unw_resume.pass.cpp#legal-comment",
+          "sha256": "0b580141a1aff767b053266e05ba599dc3d6e475042bc1b3cc7156b88be118ff"
+        },
+        {
+          "path": "libunwind/test/alignment.compile.pass.cpp#legal-comment",
+          "sha256": "24045c91eecf808cf540862bd7ab71dcba08e2578d3c820bf7ea837d1d86ce7e"
+        },
+        {
+          "path": "libunwind/test/bad_unwind_info.pass.cpp#legal-comment",
+          "sha256": "6519f5c07dbcb77bd9915b25878fc03dbb0f370198eb0f464d0568bd02caaa9a"
+        },
+        {
+          "path": "libunwind/test/eh_frame_fde_pc_range.pass.cpp#legal-comment",
+          "sha256": "73642dee170f461c70c5a1a265385dce5905947048cce34790984b7c5adecd18"
+        },
+        {
+          "path": "libunwind/test/floatregister.pass.cpp#legal-comment",
+          "sha256": "1ec1d48ca564e817bc3bf5209902b5e786950854975a6b1c62cf227e59843907"
+        },
+        {
+          "path": "libunwind/test/forceunwind.pass.cpp#legal-comment",
+          "sha256": "62710dc8d5db3d2191176cf9e99ce3d8edccdf2b89325578f7fc63f83d5c6f98"
+        },
+        {
+          "path": "libunwind/test/frameheadercache_test.pass.cpp#legal-comment",
+          "sha256": "f679bf2b28cf910e636477126f650ed1a50a33031b3a740b0f6b867f14b449cd"
+        },
+        {
+          "path": "libunwind/test/libunwind_01.pass.cpp#legal-comment",
+          "sha256": "6881a0a94c88af443f062d0c8ce16267d5608d8a5d0d58be78af5ae2b2cc13e0"
+        },
+        {
+          "path": "libunwind/test/libunwind_02.pass.cpp#legal-comment",
+          "sha256": "e13acd913cd371ddad4193173b7faf6ac3c7f7bc1b8e7096aeff5092e2764b2e"
+        },
+        {
+          "path": "libunwind/test/set_non_null_pc_outside_of_function_cfi_bounds.pass.cpp#legal-comment",
+          "sha256": "178e66bc7d20a85d152e1e1fa80dd98e380e03cb6bd140ece261a286ced53862"
+        },
+        {
+          "path": "libunwind/test/signal_frame.pass.cpp#legal-comment",
+          "sha256": "0e326743902d1c3a1b0b22a62887f58dc30aa278f028177624c928d55813fecd"
+        },
+        {
+          "path": "libunwind/test/signal_unwind.pass.cpp#legal-comment",
+          "sha256": "5c777feb81722689faa1877f26862b85eb9fd4a1fb8b830d2c721c3041497316"
+        },
+        {
+          "path": "libunwind/test/support/func_bounds.h#legal-comment",
+          "sha256": "1098d46704cf205c2503e533c1673c5b5f20e16eef69e1e093bf3b6b073758be"
+        },
+        {
+          "path": "libunwind/test/unw_getcontext.pass.cpp#legal-comment",
+          "sha256": "ec580ecb8719ce7923879d365f79abead887349565b29ccf742da8c52ac6b860"
+        },
+        {
+          "path": "libunwind/test/unw_resume.pass.cpp#legal-comment",
+          "sha256": "e2a86ebb88f7c25886aa5b6563edaa1ed326ff6f13b23cfca9ec97430ef936a7"
+        },
+        {
+          "path": "libunwind/test/unwind_leaffunction.pass.cpp#legal-comment",
+          "sha256": "92c69963951464ec052b448bf3998504f41d0adbc9d91e1ba17bba310d9a3813"
+        },
+        {
+          "path": "libunwind/test/unwind_scalable_vectors.pass.cpp#legal-comment",
+          "sha256": "2aca7589270de12b36db2549e4a579ccb650b51c206a06f42d52a00d35c410be"
+        }
+      ]
+    },
+    "llvmLicense": {
+      "path": "LICENSE.TXT",
+      "sha256": "8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee"
+    },
+    "backtraceGitlink": "d902726a1dcdc1e1c66f73d1162181b5423c645b",
+    "backtraceSource": {
+      "url": "https://codeload.github.com/rust-lang/backtrace-rs/tar.gz/d902726a1dcdc1e1c66f73d1162181b5423c645b",
+      "sha256": "51fc2a0f549f1f57594c310885c59c2f1ecf86cc13169a0193819fd80bda2ffb",
+      "bytes": 99341,
+      "notices": [
+        {
+          "path": "backtrace-rs-d902726a1dcdc1e1c66f73d1162181b5423c645b/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "backtrace-rs-d902726a1dcdc1e1c66f73d1162181b5423c645b/LICENSE-MIT",
+          "sha256": "378f5840b258e2779c39418f3f2d7b2ba96f1c7917dd6be0713f88305dbda397"
+        }
+      ]
+    },
+    "scope": "Exact complete compiler-declared libunwind source/legal tree and backtrace source. Historical binary target-builder/runtime membership is not attested."
+  }
+]

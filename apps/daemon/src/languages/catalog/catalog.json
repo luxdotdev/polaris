@@ -50,7 +50,7 @@
           "bundle": "typescript-language-server",
           "audit": "verified",
           "auditReason": "",
-          "auditRoot": "sha256:e8fba7f69a9894ed30f4dc12c83867c9fbf3c32733a656c12f3e716bf5640be4"
+          "auditRoot": "sha256:dee60bc63e38dfc34afa31890e144eff777aa1d0f573c7db515779aefe83e358"
         }
       ],
       "requirements": [
@@ -123,7 +123,7 @@
           "bundle": "vscode-langservers-extracted",
           "audit": "verified",
           "auditReason": "",
-          "auditRoot": "sha256:b563b95bc9ab559d1b6aca71fd1bb5b577922921da0f82b7ee4fbb5547cbeb3c"
+          "auditRoot": "sha256:1db07ee9546e27e08d6e733fb7c98b25cd881938a614fddef7784808a7a5b56f"
         }
       ],
       "requirements": [
@@ -188,7 +188,7 @@
           "bundle": "pyright",
           "audit": "verified",
           "auditReason": "",
-          "auditRoot": "sha256:30b9127d7c3185b9ed04615d12ffddc90d5c9c8807cbf1d0f203a366fde28870"
+          "auditRoot": "sha256:45db94b8818eda0a3a6fef31cb1c6858e7373039c6250ef9a0997a366e58c709"
         }
       ],
       "requirements": [
@@ -261,7 +261,7 @@
           "bundle": "bash-language-server",
           "audit": "pending",
           "auditReason": "minimatch@10.2.6: license-review:BlueOak-1.0.0",
-          "auditRoot": "sha256:2d0ad08022620fc3698a35b8bab2e16303e6d6c75175b559732483bbdb18af5b"
+          "auditRoot": "sha256:b76906e2c9696b33645c25d903c55ddbe1b2a5fee1152d7d2e38adf0df1ac85d"
         }
       ],
       "requirements": [
@@ -391,7 +391,7 @@
           "bundle": "@prisma_language-server",
           "audit": "verified",
           "auditReason": "",
-          "auditRoot": "sha256:c8a1469fc6e1d1d86a4971817fc7fe0ba99572555e208c7b264ba7abd0d84826"
+          "auditRoot": "sha256:f2a3b5d9f7f29643a8bb017373a1a36fac8415344608f8b323d5d0934c365a54"
         }
       ],
       "requirements": [
@@ -456,7 +456,7 @@
           "bundle": "yaml-language-server",
           "audit": "verified",
           "auditReason": "",
-          "auditRoot": "sha256:81ae50a59b4d8bd35c77e62583f07f2de8d4119a50f97024e7b56837bdc8f9ca"
+          "auditRoot": "sha256:83111ee4b9b4b549ddc6e9f16f5315ca9e6038a5d80c5aceff1f113a63eb866d"
         }
       ],
       "requirements": [
@@ -521,7 +521,7 @@
           "bundle": "@actions_languageserver",
           "audit": "verified",
           "auditReason": "",
-          "auditRoot": "sha256:24afbbf2aa71a0f5c013b9a844709337137d9ac70af8596c1755a773a722bf00"
+          "auditRoot": "sha256:38959f86d77208ec4ada195ac68f37c75350c7290fbcd809bb60c259bbdc563c"
         }
       ],
       "requirements": [
@@ -586,7 +586,7 @@
           "bundle": "prettier",
           "audit": "verified",
           "auditReason": "",
-          "auditRoot": "sha256:c460cad6682055fb4ad64604cf2a95c81c3be84db5e9507c3356a9ec970c6821"
+          "auditRoot": "sha256:edb8c92ce4f3bc61e39931733f79fd85c5e3b70a49cd823aa69dfcbb1fb7847d"
         }
       ],
       "requirements": [
@@ -626,7 +626,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Static musl/compiler runtime notice and exact vendor closure is not yet established for every shipped platform.",
-          "auditRoot": "sha256:88a47cd6b3f94e909a8b71675d78243a29b3d690fd2291072161331b8a5847f1"
+          "auditRoot": "sha256:45a923c6262011caa2b42008b21fd2c99283f24537b9ba06fd9b35ec8441c10f"
         },
         {
           "id": "ruff-aarch64-unknown-linux-gnu.tar.gz",
@@ -644,7 +644,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Static musl/compiler runtime notice and exact vendor closure is not yet established for every shipped platform.",
-          "auditRoot": "sha256:1a9cea6f8a18552b32b8a1d4d45cecc488a7a422aed5a62a4ba368cb989c6327"
+          "auditRoot": "sha256:80d06035a073506a8c1da2375c4f1dff6bfe44f46101eb90e9988afabe408ea5"
         },
         {
           "id": "ruff-aarch64-unknown-linux-musl.tar.gz",
@@ -662,7 +662,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Static musl/compiler runtime notice and exact vendor closure is not yet established for every shipped platform.",
-          "auditRoot": "sha256:4c0d2535d02efc5813b9cb50c6b53524f0bb2cde8b5c1c503212d870de078b18"
+          "auditRoot": "sha256:5738e01e3e44467ac5b7402437aa10971abdc0fc775cffac9164f1dc1c43e8af"
         },
         {
           "id": "ruff-x86_64-apple-darwin.tar.gz",
@@ -680,7 +680,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Static musl/compiler runtime notice and exact vendor closure is not yet established for every shipped platform.",
-          "auditRoot": "sha256:702f1669262d42786ed4413909bcba6f8ac337915df9150b9a27b6307e6ca4a3"
+          "auditRoot": "sha256:7d91e43046591133eff62aa3893a18329955729576360a60b962a41081f17c1d"
         },
         {
           "id": "ruff-x86_64-unknown-linux-gnu.tar.gz",
@@ -698,7 +698,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Static musl/compiler runtime notice and exact vendor closure is not yet established for every shipped platform.",
-          "auditRoot": "sha256:40749317f8aa9af12cf51de29dc184645e4b9e2b2350426a44550e7c92d664d9"
+          "auditRoot": "sha256:c3d72d6c97c47e28fce7a61c5187fa0bacfd55f7a16daf7857c70195527e0eac"
         },
         {
           "id": "ruff-x86_64-unknown-linux-musl.tar.gz",
@@ -716,7 +716,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Static musl/compiler runtime notice and exact vendor closure is not yet established for every shipped platform.",
-          "auditRoot": "sha256:0c914eeddc65fb2f7307239d1b895635d12e4b74082659bdd14c332b70cca6b9"
+          "auditRoot": "sha256:19982cad38169db5ccc5aa0823390180c4744fe54f1be90e3702a28152d3ac3a"
         }
       ],
       "requirements": [
@@ -756,7 +756,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Compiler runtime/vendor closure and musl loader prerequisite packaging need exact scoped resolution.",
-          "auditRoot": "sha256:7c8615da60e52a77c75d61fec8e610a89dbd7eac9adcfe6d9d7cef6ae0c593b7"
+          "auditRoot": "sha256:09b05a30b77c9c2eed0e41d901885945330c00e013674ae9d011632f78e0db51"
         },
         {
           "id": "rust-analyzer-aarch64-unknown-linux-gnu.gz",
@@ -774,7 +774,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Compiler runtime/vendor closure and musl loader prerequisite packaging need exact scoped resolution.",
-          "auditRoot": "sha256:33d7d232b500a47dca3243f63a6fd613e139eb3428e329f9b4bfe721f1ff19f0"
+          "auditRoot": "sha256:09fed85f0ccdf3e791d1de0675eff454e16fbaeaa1bb395dabca5eb01a3a2d35"
         },
         {
           "id": "rust-analyzer-x86_64-apple-darwin.gz",
@@ -792,7 +792,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Compiler runtime/vendor closure and musl loader prerequisite packaging need exact scoped resolution.",
-          "auditRoot": "sha256:0443389e3049242236a03ea64cb8d0dde509f7e77108b065e5bbf03526ce75f3"
+          "auditRoot": "sha256:d575372a1747793b1edc44a556d43a47501b99825100ea7a6b36f7e7288bf330"
         },
         {
           "id": "rust-analyzer-x86_64-unknown-linux-gnu.gz",
@@ -810,7 +810,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Compiler runtime/vendor closure and musl loader prerequisite packaging need exact scoped resolution.",
-          "auditRoot": "sha256:5e60d885513cf6671b5565a064f66872f7a3f1e5fcbd241fb6def6e6b5fe052e"
+          "auditRoot": "sha256:8057635bc26f7a5db08bd3ed27980b1ec817af34207372d3fb687e28b481372d"
         },
         {
           "id": "rust-analyzer-x86_64-unknown-linux-musl.gz",
@@ -828,7 +828,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Compiler runtime/vendor closure and musl loader prerequisite packaging need exact scoped resolution.",
-          "auditRoot": "sha256:06825e480d9f6ef504e9e6b615fec3eadd7c4c6f691f8dc3838e155cc1f6ac44"
+          "auditRoot": "sha256:eeb6e68412e36bcbeb716be66db90d04c6b97ed9074d6d5a86cea4f38c54c0e9"
         }
       ],
       "requirements": [
@@ -884,7 +884,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Exact source/legal evidence for retained vendor code and published Linux static compiler/runtime closure remains unverified; Lua runtime legal comments are retained and do not certify which other libraries were embedded.",
-          "auditRoot": "sha256:95212560292acd92860bd4b95b6f4978994e4e27bbb079d6e9e209f2a7394cf3",
+          "auditRoot": "sha256:5a725112de722469e3dcea815a7fa38460b9b8da53fdfd4ea29f64177f9903f5",
           "packaging": {
             "filter": "lua-core-v1",
             "sourceIntegrity": "sha256:0bc077f4447f076b4c92c14e9fd303f5b569eda2ec74b4dca2b55f75fae2e90c",
@@ -910,7 +910,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Exact source/legal evidence for retained vendor code and published Linux static compiler/runtime closure remains unverified; Lua runtime legal comments are retained and do not certify which other libraries were embedded.",
-          "auditRoot": "sha256:73c5d9f5ce616c7ea51fba6a17c9e876b9697e2ac2b795c834392ef419a875c1",
+          "auditRoot": "sha256:a3a0f70a06f4be7b55bc93f10c70df7e0a026a5bd8274e5ba7d7cf270dbfae85",
           "packaging": {
             "filter": "lua-core-v1",
             "sourceIntegrity": "sha256:eb373c159cbe556711d7cd316315de2dce969bfd54b31edb7eb9cab2937f2cca",
@@ -936,7 +936,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Exact source/legal evidence for retained vendor code and published Linux static compiler/runtime closure remains unverified; Lua runtime legal comments are retained and do not certify which other libraries were embedded.",
-          "auditRoot": "sha256:6ac759e2f09f869084582a0242d9769e05543ea47390c736b38fd4796ef8a00c",
+          "auditRoot": "sha256:054a46550a10ddfb6f3acf57e7cda57004394cc555a0fe5fb2214a6c4b65fb0c",
           "packaging": {
             "filter": "lua-core-v1",
             "sourceIntegrity": "sha256:abd2572e8fc929dc838a81ffb8473c5bce0bf39bfe8edb4b120b3b623176ce83",
@@ -962,7 +962,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Exact source/legal evidence for retained vendor code and published Linux static compiler/runtime closure remains unverified; Lua runtime legal comments are retained and do not certify which other libraries were embedded.",
-          "auditRoot": "sha256:8c895d0ce257894549408c720c056b0418d36e8bcf41bd614b7de1afceb5de88",
+          "auditRoot": "sha256:80b26c845ca44362d6d171acb0085e62d88d28b0a40f5e12af517471414fb6a4",
           "packaging": {
             "filter": "lua-core-v1",
             "sourceIntegrity": "sha256:e9235d2d72ef55bc41cf8c99cda2ed64777682024b4bb81f5dea425060c5cbb8",
@@ -1010,7 +1010,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
-          "auditRoot": "sha256:7503d9cbc1953787d0c9a5f966ffb8daa218ab8a353b2e1b963d789cac0134f9"
+          "auditRoot": "sha256:5c492e3c96980cd1e6b6a413f9467c58f72ed062347364af20792701762e8adf"
         },
         {
           "id": "shfmt_v3.14.1_darwin_arm64",
@@ -1028,7 +1028,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
-          "auditRoot": "sha256:8347a5572b922c799fe2943281dfd0ebe61ae43a9b3367484f1bb41bc451b669"
+          "auditRoot": "sha256:6bbe90cb766cd629831cb73a15dd29aa75126d8425a9c1a4645c8adfe6100556"
         },
         {
           "id": "shfmt_v3.14.1_linux_amd64",
@@ -1051,7 +1051,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
-          "auditRoot": "sha256:efe8574446ee6fd1540f6e66ccbd7673c526a1ac87a16319c264db0c1a5edba4"
+          "auditRoot": "sha256:dbb24c6c2d861687f9628806db374ca0aae11e529a3e0b0a260f5445c6cbe9de"
         },
         {
           "id": "shfmt_v3.14.1_linux_arm64",
@@ -1074,7 +1074,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
-          "auditRoot": "sha256:6f6899b7d6b5b4493cb2b041da19a0176761c2bad4bd76698b5fc6544c00c4ba"
+          "auditRoot": "sha256:94e2f932d4bb8bc3d57ca7cba8bb75c00928b79f06142b04d84df813257be4eb"
         }
       ],
       "requirements": [],
@@ -1084,7 +1084,7 @@
     },
     {
       "id": "shellcheck",
-      "disposition": "offered",
+      "disposition": "evaluation",
       "version": "0.11.0",
       "source": "https://github.com/koalaman/shellcheck/releases/tag/v0.11.0",
       "license": "GPL-3.0-or-later",
@@ -1105,7 +1105,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Published binaries lack verified exact compiler/dependency/runtime corresponding-source closure.; No authorized existing GHC/Cabal toolchain fixture; proposed source-build solver/build/runtime closure remains unverified.",
-          "auditRoot": "sha256:50e9ccb173c849a79ba9a3612ac3a3bcf5564a01289a13d986aefd51ba3f777f"
+          "auditRoot": "sha256:fe32241765c28c15acc4b115fa9ea6aa40d75ae9d457cf8c11a4e793892f8dd4"
         },
         {
           "id": "shellcheck-v0.11.0.darwin.x86_64.tar.gz",
@@ -1123,7 +1123,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Published binaries lack verified exact compiler/dependency/runtime corresponding-source closure.; No authorized existing GHC/Cabal toolchain fixture; proposed source-build solver/build/runtime closure remains unverified.",
-          "auditRoot": "sha256:cecf1c01a5f3c0d1c830402dc8c0aca2e0707239a1f4cb3ea258602739192405"
+          "auditRoot": "sha256:f313284c54e5b8cc95027c5a177c9fbb00e8ab6a88004c8741350149e235759d"
         },
         {
           "id": "shellcheck-v0.11.0.linux.aarch64.tar.gz",
@@ -1141,7 +1141,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Published binaries lack verified exact compiler/dependency/runtime corresponding-source closure.; No authorized existing GHC/Cabal toolchain fixture; proposed source-build solver/build/runtime closure remains unverified.",
-          "auditRoot": "sha256:8e7341c63dcc81981c6fdf310c5134586dc6cdfa8aa0a75df8854f6ebfa7da70"
+          "auditRoot": "sha256:b4c6c0aec10a4769888157df886c6f93ebd11d4fe8f590d3e3c44c1c4b3f95d3"
         },
         {
           "id": "shellcheck-v0.11.0.linux.x86_64.tar.gz",
@@ -1159,7 +1159,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "Published binaries lack verified exact compiler/dependency/runtime corresponding-source closure.; No authorized existing GHC/Cabal toolchain fixture; proposed source-build solver/build/runtime closure remains unverified.",
-          "auditRoot": "sha256:6ef0b6c1f87677611c31de80ce9acb0d4ff3dc7fb07fe2799d1caa6ad3186945"
+          "auditRoot": "sha256:db6a24668fad299ee65828e66acd33663b91a3990c9029b7c87e5026e656975a"
         }
       ],
       "requirements": [],
@@ -1215,7 +1215,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
-          "auditRoot": "sha256:7732280864b5f21b3f7055aacee267b5b425a3b7265b1577403b92765d1a3724"
+          "auditRoot": "sha256:25a6cc90e2309a73f77d1490c6b2300577eced0a7b01b1b9de0b4e08e993597e"
         }
       ],
       "requirements": [
@@ -1304,7 +1304,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "The 114 top-level JAR source records do not cover all nested JARs or native libraries. Recursive release inventory, exact nested Maven/shaded source and legal declarations, JNA/Jansi/Eclipse native closure and source/notice delivery remain unverified.",
-          "auditRoot": "sha256:c8b6aacb808215cffc5c626bd9fa9784b48ebda458bfcdca7e525e7b20c234fe"
+          "auditRoot": "sha256:152121a06dea7fe7b0645f2c1da193df342fa5758d729de994d2b6f3f9d1ac4a"
         }
       ],
       "requirements": [
@@ -1378,7 +1378,7 @@
           "bundle": null,
           "audit": "pending",
           "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
-          "auditRoot": "sha256:db00143de692577a511722d6fa2831a2f4606bca8b0f128fad20ad462bb80c40"
+          "auditRoot": "sha256:05a2527b8aa2cc87e87130511c4b7a623d3e6dc4ecdaa4485d69de165bbf4d9e"
         }
       ],
       "requirements": [
@@ -1448,7 +1448,7 @@
           "bundle": "sql-formatter",
           "audit": "pending",
           "auditReason": "argparse@2.0.1: license-review:Python-2.0; railroad-diagrams@1.0.0: license-review:CC0-1.0",
-          "auditRoot": "sha256:908a517a85a882e39e991899a66965d926ffc2b6e43fb9d6868de73d0a5f0136"
+          "auditRoot": "sha256:fa9bac48311df28a414c903ce2741de0331acb8893fb5c5aff36e8bd76fef94a"
         }
       ],
       "requirements": [
@@ -1513,7 +1513,7 @@
           "bundle": "sqllens-language-server",
           "audit": "pending",
           "auditReason": "minimatch@10.2.6: license-review:BlueOak-1.0.0",
-          "auditRoot": "sha256:d8b8fd192cee61b0ffc9b136ff6dcaaf00238493deb9206f510fc0b95d1f69a3"
+          "auditRoot": "sha256:fa3f43d16108340473b942c1d80966a6b1f4f421c1a5cb966b40efd2ad517272"
         }
       ],
       "requirements": [
@@ -1678,7 +1678,19 @@
           "argv": []
         }
       ],
-      "companions": ["shellcheck", "shfmt"],
+      "companions": ["shfmt"],
+      "developerCompanions": [
+        {
+          "id": "shellcheck",
+          "executable": "shellcheck",
+          "version": ">=0.11.0",
+          "provider": "bash-language-server",
+          "capability": "shellcheck-diagnostics",
+          "setting": "bashIde.shellcheckPath",
+          "source": "developer",
+          "missingDetail": "ShellCheck is missing on this host. Configure an existing executable to enable ShellCheck diagnostics."
+        }
+      ],
       "formatter": {
         "tool": "shfmt",
         "source": "managed",

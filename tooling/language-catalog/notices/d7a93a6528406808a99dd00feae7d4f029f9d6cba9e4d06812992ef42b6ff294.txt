@@ -1,0 +1,3 @@
+artifactId=maven-plugin-api
+groupId=org.apache.maven
+version=3.9.16

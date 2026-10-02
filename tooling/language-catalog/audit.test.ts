@@ -48,12 +48,12 @@ test("catalog audit roots and eligibility flags match the exact retained evidenc
 
 test("evaluation-only SQL cannot block offered release roots", () => {
   expect(offeredTools(catalog).some((tool) => tool.id === "sql-language-server")).toBe(false);
-  expect(offeredTools(catalog)).toHaveLength(18);
+  expect(offeredTools(catalog)).toHaveLength(17);
   expect(referenceFailures(catalog)).toEqual([]);
 });
 
 test("active providers, companions and managed formatters cannot evade offered audit coverage", () => {
-  for (const id of ["sqllens-language-server", "shellcheck", "prettier"]) {
+  for (const id of ["sqllens-language-server", "shfmt", "prettier"]) {
     const tools = catalog.tools.map((tool) =>
       tool.id === id ? Tool.make({ ...tool, disposition: "evaluation" }) : tool
     );

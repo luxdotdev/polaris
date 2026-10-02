@@ -1,0 +1,170 @@
+Manifest-Version: 1.0
+Created-By: Maven JAR Plugin 3.4.2
+Build-Jdk-Spec: 25
+Premain-Class: org.eclipse.jdt.launching.internal.javaagent.Premain
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/Opcodes.class
+SHA-256-Digest: wAAhR7jID6JRloFvcN83aM2M2N73vfmGUJO/nIihrW0=
+
+Name: META-INF/maven/org.eclipse.jdt/org.eclipse.jdt.launching.javaagent
+ /pom.xml
+SHA-256-Digest: pHYBHHCgOG+88TysE2rnTIwxDHKNcWn4vLPkjvrbJ8g=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/AnnotationWri
+ ter.class
+SHA-256-Digest: NquZTSu+a/Keb2dxGX+aaK1MVctRD2zhwayDa1Qrqhw=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/Label.class
+SHA-256-Digest: gbquiGv2qeTE6pwiLGLXVyglJRvTWcYRFaYbitlBxCI=
+
+Name: org/eclipse/jdt/launching/internal/weaving/ClassfileTransformer.cl
+ ass
+SHA-256-Digest: A6E7+emQ1XC2sBBtlwEJP43XZGvBOPLFfPq5uVAv5EU=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/CurrentFrame.
+ class
+SHA-256-Digest: qzpPPnzmyIJ7vuxNE/OXR7K/GIvl4KTr5iEcb9R14Cs=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/Handler.class
+SHA-256-Digest: kELBxFrOhkV0POC4GBezZyFll1R5XkJPEHpC5FKsLEs=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/Context.class
+SHA-256-Digest: Hdr6YU+EFDUfGzSd8kNTlxTZqyIXjqDR9Q9rrcwz5ck=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/Frame.class
+SHA-256-Digest: vR7kkpSoTsIKiP+tpVI5lhFkh+L2eg4hg9vU/1cvj+M=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/MethodWriter.
+ class
+SHA-256-Digest: NtgKRc612JtnWZuVsWrxbTOhkar0anieTJDg8zDcy5I=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/Constants.cla
+ ss
+SHA-256-Digest: +bOGBOarb8HNnDNW9YZfY+8O6zwOZ7x1PCk+5Ze6QVc=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/Attribute$Set
+ .class
+SHA-256-Digest: zft7xxn44gN5J9kL/wv0d+pQbrdKA7y1bUmWb5R1Oow=
+
+Name: org/eclipse/jdt/launching/internal/weaving/ClassfileTransformer$1.
+ class
+SHA-256-Digest: DwslV41rDPGqZEnZcClIVKeVTwG7Ywd5mvbwo1tTqIU=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/ClassWriter.c
+ lass
+SHA-256-Digest: B2ENehRHT2KAhoCAECXQrGAc++aotFxGZwlysVv7wHQ=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/AnnotationVis
+ itor.class
+SHA-256-Digest: 8OLD8U0VW9nOhWwI4V2S1dKk9araAXBai3lPOYwgrHw=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/RecordCompone
+ ntWriter.class
+SHA-256-Digest: 5hm4Nltef/LMccqWfVVeSX3dv3jByT+wrS4f5khqloQ=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/MethodTooLarg
+ eException.class
+SHA-256-Digest: 1tO9L+e73kHrng/gVTReRhWoiyv4b5DxjNHX7ZZQC7c=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/signature/Sig
+ natureVisitor.class
+SHA-256-Digest: Wm/oohJKCXmMFl6/RbPQwS/dpwFCTtnoktyeDXav8IY=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/MethodVisitor
+ .class
+SHA-256-Digest: 9V+Tfmm4+IJbzdIMLQxS04XfR4FO74npyRVc+fl9ZTQ=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/SymbolTable$E
+ ntry.class
+SHA-256-Digest: P1OgPehv+Qz23jB2aQLkC2yfHAPt9S2Lwo3BnXn5o00=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/Handle.class
+SHA-256-Digest: bFrJ+36iBOiTHd01ucgZe4a72Jh+kpZEVVIo+t6EPUI=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/TypePath.clas
+ s
+SHA-256-Digest: /+om+LVygU0i6Pj9uKvcOsQV28bgoDqDFoyWzee2PNY=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/Attribute.cla
+ ss
+SHA-256-Digest: eSvo9JjZZTbCtwxRGH3j97GKOOG476xYukk9AgTnHr4=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/ConstantDynam
+ ic.class
+SHA-256-Digest: BknrURliVdUk+MLidVbyt2Bt7DbDMjyFEYd/FfRyZeU=
+
+Name: org/eclipse/jdt/launching/internal/javaagent/Premain$1.class
+SHA-256-Digest: o95eRjq7t0rqvDaHUisaiA+hiJwfHAli+4QVK7JW+kg=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/ClassTooLarge
+ Exception.class
+SHA-256-Digest: vS330F4LDyHRZIsyGE0jLgFhIp5h9DIeN0dfgQScBzE=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/SymbolTable$L
+ abelEntry.class
+SHA-256-Digest: AtRH3Ox8DJIdTOdshfq5KTEUz+xUX50u67Y0j3EskKU=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/FieldWriter.c
+ lass
+SHA-256-Digest: FkFHuZDIIdNNIzwlLnMI5RBH2ZUD/3KHMrc2UrSub78=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/signature/Sig
+ natureReader.class
+SHA-256-Digest: zMYJpqaobhuw4gBPQB196Noei6+eQWIFn+0XmTXJpQo=
+
+Name: org/eclipse/jdt/launching/internal/javaagent/Premain.class
+SHA-256-Digest: DH27AO50+kBTHG0+q22yuPSKVgMRwYKOoTHv77YqhTc=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/SymbolTable.c
+ lass
+SHA-256-Digest: tSM2UDz7I3HszYFCvXxLfX3hIG03oYnPv9NE0KOD+Jw=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/Edge.class
+SHA-256-Digest: 0ROOKJk/aktEvyg9N4ccLWr97vY8T4MSADryGrgrAG4=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/ModuleWriter.
+ class
+SHA-256-Digest: UC+7M3E9xYYlDY5hlRrCUsbTt2/JybWNE8vLoVdEU7k=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/ModuleVisitor
+ .class
+SHA-256-Digest: gI/Bopn3OZin2wH9UGJQJNj8shB3j/1lgCLNGEObPlg=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/TypeReference
+ .class
+SHA-256-Digest: 973c+C1ydoDCDUYhdGt+GXt+6JoWTTBWp49k79VSOew=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/signature/Sig
+ natureWriter.class
+SHA-256-Digest: UeidmzLudEXy/aMRSk7QTCSrLRY2+Laa0M5rriqNcfA=
+
+Name: META-INF/maven/org.eclipse.jdt/org.eclipse.jdt.launching.javaagent
+ /pom.properties
+SHA-256-Digest: 4tz0z0qEHlzURVCHq3lJp8IR7DLIwP21hZH16WIJdJ0=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/ByteVector.cl
+ ass
+SHA-256-Digest: JLqS9887sYdKxjGMGno930caADk2Mdh7aRg06YTb9Yg=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/FieldVisitor.
+ class
+SHA-256-Digest: P7sUJ8bmSgMq5rsmRUF4K1SceaewkcSsnIsB7WWVv1A=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/ClassVisitor.
+ class
+SHA-256-Digest: VFm3FI20dyWMqBnGLnpadjW4V33ogvgyOXZtrR1jIJg=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/RecordCompone
+ ntVisitor.class
+SHA-256-Digest: 6yEolOxehA3fYOGTjm8TALT+zaWUW0XpGfV4j+zLukY=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/ClassReader.c
+ lass
+SHA-256-Digest: lk+dunRq4aErZLjKmV25f/eASyT++N27I2EHCy7ebKY=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/Type.class
+SHA-256-Digest: JioPiQEn7y8wf7p2X/L8uny+AgCM5p4fJPZjADDEGfI=
+
+Name: org/eclipse/jdt/launching/internal/org/objectweb/asm/Symbol.class
+SHA-256-Digest: Zvw/8yX4UvQAkLc6EQzl760pueZ20zd/gnPis2MCdxI=
+

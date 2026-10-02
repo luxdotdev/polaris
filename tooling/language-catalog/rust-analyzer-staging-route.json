@@ -1,0 +1,19 @@
+{
+  "scope": "Read-only unchanged failed tree plus synthetic clock regression; no extraction/compiler/rerun or benchmark certification.",
+  "diagnosis": {
+    "old": {
+      "bytes": 237801472,
+      "readOnlyScanSeconds": 0.6834818749921396,
+      "slowScanImmediateCheckCount": 3,
+      "fullScansInSyntheticClock": 3
+    },
+    "revised": {
+      "bytes": 237801472,
+      "readOnlyScanSeconds": 0.14928391599096358,
+      "slowScanImmediateCheckCount": 3,
+      "fullScansInSyntheticClock": 1
+    }
+  },
+  "route": "Fresh isolated attempt only after review/release; same pinned source/all332crates/features/toolchain/offline env and2jobs/1200s/3GiBstop/4GiBmaximum/6GiBstart/2GiBfloor/capped logs. Sampling remains best-effort; revised guard records scan duration/count even for staging failure.",
+  "resourceEstimate": "Failed tree17951entries/237801472bytes. Revised local scan measurement is not measured total staging/build cost; total completion remains unproved. No budget increase or old-root resume."
+}

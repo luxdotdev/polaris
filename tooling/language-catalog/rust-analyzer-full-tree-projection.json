@@ -1,0 +1,19 @@
+{
+  "scope": "Finite metadata projection only; no new mass extraction, stage or build. Full compiler-output tree/time remains unknown.",
+  "projectedSourceVendorEntriesWithChecksums": 22833,
+  "projectedDirectories": 3930,
+  "projectedFilesAndLinksWithChecksums": 18903,
+  "archiveSymbolicLinks": 3,
+  "sourceVendorLogicalFileBytes": 383095462,
+  "sourceVendorRoundedFilesAndAllDirectoriesEstimateBytes": 447401984,
+  "checksumMaximumReserveBytes": 348127232,
+  "inputReceiptMaximumReserveBytes": 16777216,
+  "scanProjectionSeconds": 0.1898835526612262,
+  "scanProjectionBasis": "Single observed revised scan0.149284s for17951entries, linear entry-count extrapolation. Not measured full-tree time or benchmark; filesystem/cache/load may differ.",
+  "minimumResamplingIntervalSeconds": 0.1,
+  "actualMaximumGapAndScanDurationRequired": true,
+  "compilerOutputAndLogsExcludedFromStagingEstimate": true,
+  "sameTotalStopBytes": 3221225472,
+  "sameMaximumSuccessfulBytes": 4294967296,
+  "metadataReadSeconds": 0.8571212920360267
+}

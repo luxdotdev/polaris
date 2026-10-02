@@ -1,0 +1,153 @@
+Manifest-Version: 1.0
+Created-By: Maven JAR Plugin 3.5.0
+Java-Version: 8
+Build-Jdk-Spec: 21
+Specification-Title: Maven Artifact Resolver Named Locks
+Specification-Version: 1.9
+Specification-Vendor: The Apache Software Foundation
+Implementation-Title: Maven Artifact Resolver Named Locks
+Implementation-Version: 1.9.27
+Implementation-Vendor: The Apache Software Foundation
+Automatic-Module-Name: org.apache.maven.resolver.named.locks
+Bundle-Description: A synchronization utility implementation using Named
+  locks.
+Bundle-Developers: hboutemy;email="hboutemy@apache.org";name="Hervé Bou
+ temy";organization=ASF;roles="PMC Chair";timezone="Europe/Paris",aherit
+ ier;email="aheritier@apache.org";name="Arnaud Héritier";roles="PMC Mem
+ ber";timezone="+1",andham;email="andham@apache.org";name="Anders Hammar
+ ";roles="PMC Member";timezone="+1",baerrach;email="baerrach@apache.org"
+ ;name="Barrie Treloar";roles="PMC Member";timezone="Australia/Adelaide"
+ ,bimargulies;email="bimargulies@apache.org";name="Benson Margulies";rol
+ es="PMC Member";timezone="America/New_York",bmarwell;email="bmarwell@ap
+ ache.org";name="Benjamin Marwell";organization=ASF;roles="PMC Member";t
+ imezone="Europe/Berlin",brianf;email="brianf@apache.org";name="Brian Fo
+ x";organization=Sonatype;roles="PMC Member";timezone=-5,cstamas;email="
+ cstamas@apache.org";name="Tamas Cservenak";roles="PMC Member";timezone=
+ "+1",dennisl;email="dennisl@apache.org";name="Dennis Lundberg";organiza
+ tion=ASF;roles="PMC Member";timezone="+1",dkulp;email="dkulp@apache.org
+ ";name="Daniel Kulp";organization=ASF;roles="PMC Member";timezone=-5,ev
+ enisse;email="evenisse@apache.org";name="Emmanuel Venisse";organization
+ =ASF;roles="PMC Member";timezone="+1",gboue;email="gboue@apache.org";na
+ me="Guillaume Boué";roles="PMC Member";timezone="Europe/Paris",gnodet;
+ email="gnodet@apache.org";name="Guillaume Nodet";organization="Red Hat"
+ ;roles="PMC Member";timezone="Europe/Paris",henning;email="henning@apac
+ he.org";name="Henning Schmiedehausen";organization=ASF;roles="PMC Membe
+ r";timezone="America/Los_Angeles",jvanzyl;email="jason@maven.org";name=
+ "Jason van Zyl";roles="PMC Member";timezone=-5,khmarbaise;email="khmarb
+ aise@apache.org";name="Karl Heinz Marbaise";roles="PMC Member";timezone
+ ="+1",krosenvold;email="krosenvold@apache.org";name="Kristian Rosenvold
+ ";roles="PMC Member";timezone="+1",kwin;email="kwin@apache.org";name="K
+ onrad Windszus";organization="Cognizant Netcentric";roles="PMC Member";
+ timezone="Europe/Berlin",mkleint;name="Milos Kleint";roles="PMC Member"
+ ,mthmulders;email="mthmulders@apache.org";name="Maarten Mulders";organi
+ zation="Info Support";roles="PMC Member";timezone="Europe/Amsterdam",ol
+ amy;email="olamy@apache.org";name="Olivier Lamy";roles="PMC Member";tim
+ ezone="Australia/Brisbane",michaelo;email="michaelo@apache.org";name="M
+ ichael Osipov";roles="PMC Member";timezone="Europe/Berlin",rfscholte;em
+ ail="rfscholte@apache.org";name="Robert Scholte";roles="PMC Member";tim
+ ezone="Europe/Amsterdam",rgoers;email="rgoers@apache.org";name="Ralph G
+ oers";organization=Intuit;roles="PMC Member";timezone=-8,sjaranowski;em
+ ail="sjaranowski@apache.org";name="Slawomir Jaranowski";roles="PMC Memb
+ er";timezone="Europe/Warsaw",stephenc;email="stephenc@apache.org";name=
+ "Stephen Connolly";roles="PMC Member";timezone=0,slachiewicz;email="sla
+ chiewicz@apache.org";name="Sylwester Lachiewicz";roles="PMC Member";tim
+ ezone="Europe/Warsaw",struberg;email="struberg@apache.org";name="Mark S
+ truberg";roles="PMC Member",tibordigana;email="tibordigana@apache.org";
+ name="Tibor Digaňa";roles="PMC Member";timezone="Europe/Bratislava",vs
+ iveton;email="vsiveton@apache.org";name="Vincent Siveton";organization=
+ ASF;roles="PMC Member";timezone=-5,wfay;email="wfay@apache.org";name="W
+ ayne Fay";organization=ASF;roles="PMC Member";timezone=-6,adangel;email
+ ="adangel@apache.org";name="Andreas Dangel";roles=Committer;timezone="E
+ urope/Berlin",bdemers;email="bdemers@apache.org";name="Brian Demers";or
+ ganization=Sonatype;roles=Committer;timezone=-5,bellingard;name="Fabric
+ e Bellingard";roles=Committer,bentmann;email="bentmann@apache.org";name
+ ="Benjamin Bentmann";organization=Sonatype;roles=Committer;timezone="+1
+ ",chrisgwarp;email="chrisgwarp@apache.org";name="Chris Graham";roles=Co
+ mmitter;timezone="Australia/Melbourne",dantran;email="dantran@apache.or
+ g";name="Dan Tran";roles=Committer;timezone=-8,dbradicich;email="dbradi
+ cich@apache.org";name="Damian Bradicich";organization=Sonatype;roles=Co
+ mmitter;timezone=-5,brett;email="brett@apache.org";name="Brett Porter";
+ organization=ASF;roles=Committer;timezone="+10",dfabulich;email="dfabul
+ ich@apache.org";name="Daniel Fabulich";roles=Committer;timezone=-8,eoli
+ velli;email="eolivelli@apache.org";name="Enrico Olivelli";organization=
+ Diennea;roles=Committer;timezone="Europe/Rome",fgiust;email="fgiust@apa
+ che.org";name="Fabrizio Giustina";organization=openmind;roles=Committer
+ ;timezone="+1",godin;email="godin@apache.org";name="Evgeny Mandrikov";o
+ rganization=SonarSource;roles=Committer;timezone="+3",handyande;email="
+ handyande@apache.org";name="Andrew Williams";roles=Committer;timezone=0
+ ,imod;email="imod@apache.org";name="Dominik Bartholdi";roles=Committer;
+ timezone="Europe/Zurich",jjensen;name="Jeff Jensen";roles=Committer,lth
+ eussl;email="ltheussl@apache.org";name="Lukas Theussl";roles=Committer;
+ timezone="+1",markh;email="markh@apache.org";name="Mark Hobson";roles=C
+ ommitter;timezone=0,martinkanters;email="martinkanters@apache.org";name
+ ="Martin Kanters";organization=JPoint;roles=Committer;timezone="Europe/
+ Amsterdam",mauro;name="Mauro Talevi";roles=Committer,mbuenger;email="mb
+ uenger@apache.org";name="Matthias Bünger";roles=Committer;timezone="Eu
+ rope/Berlin",mfriedenhagen;email="mfriedenhagen@apache.org";name="Mirko
+  Friedenhagen";roles=Committer;timezone="+1",mmoser;email="mmoser@apach
+ e.org";name="Manfred Moser";roles=Committer;timezone=-8,nicolas;name="N
+ icolas de Loof";roles=Committer,oching;name="Maria Odea B. Ching";roles
+ =Committer,pgier;email="pgier@apache.org";name="Paul Gier";organization
+ ="Red Hat";roles=Committer;timezone=-6,ptahchiev;email="ptahchiev@apach
+ e.org";name="Petar Tahchiev";roles=Committer;timezone="+2",rafale;email
+ ="rafale@apache.org";name="Raphaël Piéroni";organization=Dexem;roles=
+ Committer;timezone="+1",schulte;email="schulte@apache.org";name="Christ
+ ian Schulte";roles=Committer;timezone="Europe/Berlin",snicoll;email="sn
+ icoll@apache.org";name="Stephane Nicoll";roles=Committer;timezone="+1",
+ simonetripodi;email="simonetripodi@apache.org";name="Simone Tripodi";ro
+ les=Committer;timezone="+1",sor;email="sor@apache.org";name="Christian 
+ Stein";roles=Committer;timezone="Europe/Berlin",sparsick;email="sparsic
+ k@apache.org";name="Sandra Parsick";roles=Committer;timezone="Europe/Be
+ rlin",tchemit;email="tchemit@apache.org";name="Tony Chemit";organizatio
+ n=CodeLutin;roles=Committer;timezone="Europe/Paris",vmassol;email="vmas
+ sol@apache.org";name="Vincent Massol";organization=ASF;roles=Committer;
+ timezone="+1",elharo;email="elharo@apache.org";name="Elliotte Rusty Har
+ old";roles=Committer;timezone="America/New_York",agudian;email="agudian
+ @apache.org";name="Andreas Gudian";roles=Emeritus;timezone="Europe/Berl
+ in",aramirez;name="Allan Q. Ramirez";roles=Emeritus,bayard;name="Henri 
+ Yandell";roles=Emeritus,carlos;email="carlos@apache.org";name="Carlos S
+ anchez";organization=ASF;roles=Emeritus;timezone="+1",chrisjs;name="Chr
+ is Stevenson";roles=Emeritus,dblevins;name="David Blevins";roles=Emerit
+ us,dlr;name="Daniel Rall";roles=Emeritus,epunzalan;email="epunzalan@apa
+ che.org";name="Edwin Punzalan";roles=Emeritus;timezone=-8,felipeal;name
+ ="Felipe Leme";roles=Emeritus,ifedorenko;email="igor@ifedorenko.com";na
+ me="Igor Fedorenko";organization=Sonatype;roles=Emeritus;timezone=-5,jd
+ casey;email="jdcasey@apache.org";name="John Casey";organization=ASF;rol
+ es=Emeritus;timezone=-6,jmcconnell;email="jmcconnell@apache.org";name="
+ Jesse McConnell";organization=ASF;roles=Emeritus;timezone=-6,joakime;em
+ ail="joakime@apache.org";name="Joakim Erdfelt";organization=ASF;roles=E
+ meritus;timezone=-5,jruiz;email="jruiz@apache.org";name="Johnny Ruiz II
+ I";roles=Emeritus,jstrachan;name="James Strachan";roles=Emeritus,jtolen
+ tino;email="jtolentino@apache.org";name="Ernesto Tolentino Jr.";organiz
+ ation=ASF;roles=Emeritus;timezone="+8",kenney;email="kenney@apache.org"
+ ;name="Kenney Westerhof";organization=Neonics;roles=Emeritus;timezone="
+ +1",mperham;email="mperham@gmail.com";name="Mike Perham";organization=I
+ BM;roles=Emeritus;timezone=-6,ogusakov;name="Oleg Gusakov";roles=Emerit
+ us,pschneider;email="pschneider@gmail.com";name="Patrick Schneider";rol
+ es=Emeritus;timezone=-6,rinku;name="Rahul Thakur";roles=Emeritus,shinob
+ u;name="Shinobu Kuwai";roles=Emeritus,smorgrav;name="Torbjorn Eikli Smo
+ rgrav";roles=Emeritus,trygvis;email="trygvis@apache.org";name="Trygve L
+ augstol";organization=ASF;roles=Emeritus;timezone="+1",wsmoak;email="ws
+ moak@apache.org";name="Wendy Smoak";roles=Emeritus;timezone=-7
+Bundle-DocURL: https://maven.apache.org/resolver/maven-resolver-named-lo
+ cks/
+Bundle-License: "Apache-2.0";link="https://www.apache.org/licenses/LICEN
+ SE-2.0.txt"
+Bundle-ManifestVersion: 2
+Bundle-Name: Maven Artifact Resolver Named Locks
+Bundle-SCM: url="https://github.com/apache/maven-resolver/tree/maven-res
+ olver-1.9.27/maven-resolver-named-locks",connection="scm:git:https://gi
+ tbox.apache.org/repos/asf/maven-resolver.git/maven-resolver-named-locks
+ ",developer-connection="scm:git:https://gitbox.apache.org/repos/asf/mav
+ en-resolver.git/maven-resolver-named-locks",tag="maven-resolver-1.9.27"
+Bundle-SymbolicName: org.apache.maven.resolver.named.locks
+Bundle-Vendor: The Apache Software Foundation
+Bundle-Version: 1.9.27
+Export-Package: org.eclipse.aether.named;version="1.9.27",org.eclipse.ae
+ ther.named.providers;uses:="javax.inject,org.eclipse.aether.named.suppo
+ rt";version="1.9.27",org.eclipse.aether.named.support;uses:="org.eclips
+ e.aether.named,org.slf4j";version="1.9.27"
+Import-Package: javax.inject;resolution:=optional,org.slf4j;version="[1.
+ 7,2)"
+Require-Capability: osgi.ee;filter:="(&(osgi.ee=JavaSE)(version=1.8))"
+

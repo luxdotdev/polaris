@@ -1,0 +1,33 @@
+Manifest-Version: 1.0
+Ant-Version: Apache Ant 1.10.17
+Created-By: 11.0.30+7-post-Ubuntu-1ubuntu124.04 (Ubuntu)
+
+Name: META-INF/LICENSE.txt
+SHA-256-Digest: bWLR3VL5MoZdbx4okg1T0Kb5cw72uOAsSNmfRw4WCg0=
+
+Name: META-INF/NOTICE.txt
+SHA-256-Digest: /D+tOTRSgqIYisw/ypUPvQA6NyxzTaQFhuyULBNMWys=
+
+Name: META-INF/INDEX.LIST
+SHA-256-Digest: znuHrmAoFDiGDFuWeaBvD1NeKTZ5g0LyRhogsteyqds=
+
+Name: org/apache/tools/ant/taskdefs/optional/
+Extension-Name: org.apache.tools.ant
+Specification-Title: Apache Ant
+Specification-Version: 1.10.17
+Specification-Vendor: Apache Software Foundation
+Implementation-Title: org.apache.tools.ant
+Implementation-Version: 1.10.17
+Implementation-Vendor: Apache Software Foundation
+
+Name: org/apache/tools/ant/taskdefs/email/MimeMailer$SimpleAuthenticator
+ .class
+SHA-256-Digest: jUcwnqjKmXe1zh7Rf+lbzw+99yehkn2sVrHWPOADFIM=
+
+Name: org/apache/tools/ant/taskdefs/email/MimeMailer$StringDataSource.cl
+ ass
+SHA-256-Digest: pAg9isarpzGL2KiS8MNEMQEFZiM2PwdZ8xgz+cGhTFk=
+
+Name: org/apache/tools/ant/taskdefs/email/MimeMailer.class
+SHA-256-Digest: MXHPBY5J1906FxMY2h6NeA1ADz5I+hq9A9LGByHwoKQ=
+

@@ -98,6 +98,20 @@ export const Integration = Schema.Struct({
   patterns: Schema.Array(Schema.String),
   providers: Schema.Array(Provider),
   companions: Schema.Array(Schema.String),
+  developerCompanions: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        id: Id,
+        executable: Schema.String,
+        version: Schema.String,
+        provider: Id,
+        capability: Schema.Literal("shellcheck-diagnostics"),
+        setting: Schema.String,
+        source: Schema.Literal("developer"),
+        missingDetail: Schema.String,
+      })
+    )
+  ),
   formatter: Schema.Struct({
     tool: Schema.String,
     source: Schema.Literals(["managed", "developer", "configured"]),

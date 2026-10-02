@@ -84,7 +84,44 @@ test("record cannot migrate to another version, artifact or evaluation root", ()
 
 test("the exact catalog remains blocked on real evidence gaps, without circular A1 requirements", () => {
   const actual = reviewFailures({ tools: catalog.tools, records, read });
-  expect(actual.filter((failure) => failure.includes(":missing-evidence:"))).toHaveLength(5);
+  expect(actual.filter((failure) => failure.includes(":missing-evidence:"))).toHaveLength(4);
   expect(actual.some((failure) => failure.includes("false-awaiting-review"))).toBe(false);
   expect(reviewRootFailures(catalog.tools, read)).toEqual([]);
 });
+
+const retainedNativeEvidence = [
+  ["ruff", "rust-target-sources.json"],
+  ["rust-analyzer", "rust-target-sources.json"],
+  ["lua-language-server", "lua-retained-source-map.json"],
+  ["jdtls", "jdt-nested-metadata.json"],
+  ["jdtls", "jdt-nested-maven-sources.json"],
+  ["jdtls", "jdt-nested-parent-sources.json"],
+  ["jdtls", "jdt-agent-source-build.json"],
+] as const;
+
+for (const [id, path] of retainedNativeEvidence) {
+  test(`${id}: retained ${path} rejects corruption, omission and false readiness`, () => {
+    const candidate = catalog.tools.find((row) => row.id === id)!;
+    const retained = records.find((row) => row.tool === id)!;
+
+    const check = (changed: typeof retained, reader = read) =>
+      reviewFailures({ tools: [candidate], records: [changed], read: reader });
+
+    expect(retained.status).toBe("missing-evidence");
+    expect(retained.evidence.some((row) => row.path === path)).toBe(true);
+
+    const baseline = check(retained);
+
+    const corrupted = (requested: string): Uint8Array =>
+      requested === path ? Buffer.from("synthetic corruption") : read(requested);
+
+    expect(check(retained, corrupted).length).toBeGreaterThan(baseline.length);
+    expect(
+      check({ ...retained, evidence: retained.evidence.filter((row) => row.path !== path) }).length
+    ).toBeGreaterThan(baseline.length);
+    expect(check({ ...retained, status: "awaiting-review" })).toContain(
+      `${id}:false-awaiting-review`
+    );
+    expect(candidate.artifacts.every((artifact) => artifact.audit === "pending")).toBe(true);
+  });
+}

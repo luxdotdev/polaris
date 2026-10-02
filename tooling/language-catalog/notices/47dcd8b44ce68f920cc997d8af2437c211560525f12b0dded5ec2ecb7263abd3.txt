@@ -1,0 +1,34 @@
+Manifest-Version: 1.0
+Ant-Version: Apache Ant 1.10.17
+Created-By: 11.0.30+7-post-Ubuntu-1ubuntu124.04 (Ubuntu)
+
+Name: org/apache/tools/ant/util/depend/bcel/AncestorAnalyzer.class
+SHA-256-Digest: TD4vwsmt5+D9bK93fv0j0q8vXDDvFIitJL1MNm7y+W4=
+
+Name: META-INF/LICENSE.txt
+SHA-256-Digest: bWLR3VL5MoZdbx4okg1T0Kb5cw72uOAsSNmfRw4WCg0=
+
+Name: META-INF/NOTICE.txt
+SHA-256-Digest: /D+tOTRSgqIYisw/ypUPvQA6NyxzTaQFhuyULBNMWys=
+
+Name: META-INF/INDEX.LIST
+SHA-256-Digest: QwfAVg/+uNETI6OBd1Mv+GE9BLn3GKVt1HgHE7whT2I=
+
+Name: org/apache/tools/ant/taskdefs/optional/
+Extension-Name: org.apache.tools.ant
+Specification-Title: Apache Ant
+Specification-Version: 1.10.17
+Specification-Vendor: Apache Software Foundation
+Implementation-Title: org.apache.tools.ant
+Implementation-Version: 1.10.17
+Implementation-Vendor: Apache Software Foundation
+
+Name: org/apache/tools/ant/util/depend/bcel/DependencyVisitor.class
+SHA-256-Digest: EnAg5e6uSGfpnVNUUa5Bi5n/SM4xTzlhgAURbwQpbbY=
+
+Name: org/apache/tools/ant/util/depend/bcel/FullAnalyzer.class
+SHA-256-Digest: Bnp+r1d8KjUqyV1B/1l/sol7vlTz5ci+8031tvr+5Y4=
+
+Name: org/apache/tools/ant/filters/util/JavaClassHelper.class
+SHA-256-Digest: s/syPKC/xIaRY+cD/WPC4V4SITVWCtMKdBcm2tVbbLI=
+

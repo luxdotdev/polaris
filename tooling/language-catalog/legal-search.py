@@ -18,7 +18,7 @@ def search(data, output, scope=None):
         archive = zipfile.ZipFile(io.BytesIO(data))
         entries = [(name, lambda name=name: archive.read(name)) for name in archive.namelist() if not name.endswith('/')]
     else:
-        archive = tarfile.open(fileobj=io.BytesIO(data), mode='r:gz')
+        archive = tarfile.open(fileobj=io.BytesIO(data), mode='r:*')
         entries = [(member.name, lambda member=member: archive.extractfile(member).read())
                    for member in archive.getmembers() if member.isfile()]
     with archive:

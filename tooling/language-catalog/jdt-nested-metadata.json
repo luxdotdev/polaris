@@ -1,0 +1,2614 @@
+[
+  {
+    "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/etc/ant-bootstrap.jar",
+    "sha256": "1d14f36314c8bb9688811d328417f46ed866b463a0a0e27a5c3fea7f7bbeda76",
+    "topLevelSha256": "c5c8e0d7665c9ffc9409ecb35d579d3901a6327aada2a3675c4b6486bf3c4fbf",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "0f9726899727e793d8ba5524678a84a3aa714d39ee97ee8961bd043666a4563d",
+        "bytes": 472
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE.txt",
+        "sha256": "6d62d1dd52f932865d6f1e28920d53d0a6f9730ef6b8e02c48d99f470e160a0d",
+        "bytes": 15291
+      },
+      {
+        "path": "META-INF/NOTICE.txt",
+        "sha256": "fc3fad39345282a2188acc3fca950fbd003a372c734da40586ec942c134c5b2b",
+        "bytes": 306
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-antlr.jar",
+    "sha256": "9f8e0bfdae2a250805178fceed26efae3f5fdffda278d8f165ce9a2055fc8f0d",
+    "topLevelSha256": "c5c8e0d7665c9ffc9409ecb35d579d3901a6327aada2a3675c4b6486bf3c4fbf",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "bf28d0febf3f0449a0892cf902d39d4eed4d814a375422552da59fdcb3f20510",
+        "bytes": 904
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE.txt",
+        "sha256": "6d62d1dd52f932865d6f1e28920d53d0a6f9730ef6b8e02c48d99f470e160a0d",
+        "bytes": 15291
+      },
+      {
+        "path": "META-INF/NOTICE.txt",
+        "sha256": "fc3fad39345282a2188acc3fca950fbd003a372c734da40586ec942c134c5b2b",
+        "bytes": 306
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-apache-bcel.jar",
+    "sha256": "9ddedd7a94b609543def62329b348ea864ec9b8817a2df8c0332798e958b5c05",
+    "topLevelSha256": "c5c8e0d7665c9ffc9409ecb35d579d3901a6327aada2a3675c4b6486bf3c4fbf",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "47dcd8b44ce68f920cc997d8af2437c211560525f12b0dded5ec2ecb7263abd3",
+        "bytes": 1240
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE.txt",
+        "sha256": "6d62d1dd52f932865d6f1e28920d53d0a6f9730ef6b8e02c48d99f470e160a0d",
+        "bytes": 15291
+      },
+      {
+        "path": "META-INF/NOTICE.txt",
+        "sha256": "fc3fad39345282a2188acc3fca950fbd003a372c734da40586ec942c134c5b2b",
+        "bytes": 306
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-apache-bsf.jar",
+    "sha256": "3fbece84d92e6c5e23e2e0e968f49ffaddd6547aa4faf067f7c877f07b51df36",
+    "topLevelSha256": "c5c8e0d7665c9ffc9409ecb35d579d3901a6327aada2a3675c4b6486bf3c4fbf",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "594d4614cbca879bb431c6f19ab3d0046763c7c67185ee29e68f0c5f44ad289e",
+        "bytes": 961
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE.txt",
+        "sha256": "6d62d1dd52f932865d6f1e28920d53d0a6f9730ef6b8e02c48d99f470e160a0d",
+        "bytes": 15291
+      },
+      {
+        "path": "META-INF/NOTICE.txt",
+        "sha256": "fc3fad39345282a2188acc3fca950fbd003a372c734da40586ec942c134c5b2b",
+        "bytes": 306
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-apache-log4j.jar",
+    "sha256": "9c456e1dffbcabf3070a3875d82038a4ef12238125d8ea473c3a80d1d7e9a9f5",
+    "topLevelSha256": "c5c8e0d7665c9ffc9409ecb35d579d3901a6327aada2a3675c4b6486bf3c4fbf",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "17d4a56bf45bbca1bd8b5e65faa283a1af9df2eca65a28c9728e6964d5d05c59",
+        "bytes": 841
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE.txt",
+        "sha256": "6d62d1dd52f932865d6f1e28920d53d0a6f9730ef6b8e02c48d99f470e160a0d",
+        "bytes": 15291
+      },
+      {
+        "path": "META-INF/NOTICE.txt",
+        "sha256": "fc3fad39345282a2188acc3fca950fbd003a372c734da40586ec942c134c5b2b",
+        "bytes": 306
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-apache-oro.jar",
+    "sha256": "b7ddd1b68859f2414ae993dbbb373e15721bb2f50f811e74e793f4ca92463932",
+    "topLevelSha256": "c5c8e0d7665c9ffc9409ecb35d579d3901a6327aada2a3675c4b6486bf3c4fbf",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "e8925273f1a80b02bef7937d529c0a3571483f2f7d15356faafc73e866f1b81d",
+        "bytes": 975
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE.txt",
+        "sha256": "6d62d1dd52f932865d6f1e28920d53d0a6f9730ef6b8e02c48d99f470e160a0d",
+        "bytes": 15291
+      },
+      {
+        "path": "META-INF/NOTICE.txt",
+        "sha256": "fc3fad39345282a2188acc3fca950fbd003a372c734da40586ec942c134c5b2b",
+        "bytes": 306
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-apache-regexp.jar",
+    "sha256": "f46521a8f1e883658f352db9df65688b8dc3690f128dc8d2c0ea8b7a6338376e",
+    "topLevelSha256": "c5c8e0d7665c9ffc9409ecb35d579d3901a6327aada2a3675c4b6486bf3c4fbf",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "85180a34b86f6cc50219eb3b51f5b228c2673b8e20a9c0b0afa5a7c8f7be9110",
+        "bytes": 981
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE.txt",
+        "sha256": "6d62d1dd52f932865d6f1e28920d53d0a6f9730ef6b8e02c48d99f470e160a0d",
+        "bytes": 15291
+      },
+      {
+        "path": "META-INF/NOTICE.txt",
+        "sha256": "fc3fad39345282a2188acc3fca950fbd003a372c734da40586ec942c134c5b2b",
+        "bytes": 306
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-apache-resolver.jar",
+    "sha256": "d023ea3fa9aa2ee64cc9565aa32bcbe8c9f57c8e484366bcc82e4f845acf306d",
+    "topLevelSha256": "c5c8e0d7665c9ffc9409ecb35d579d3901a6327aada2a3675c4b6486bf3c4fbf",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "748028197330bf6cdb08818b155e997b73876d33098165ab3925f955f02d245f",
+        "bytes": 982
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE.txt",
+        "sha256": "6d62d1dd52f932865d6f1e28920d53d0a6f9730ef6b8e02c48d99f470e160a0d",
+        "bytes": 15291
+      },
+      {
+        "path": "META-INF/NOTICE.txt",
+        "sha256": "fc3fad39345282a2188acc3fca950fbd003a372c734da40586ec942c134c5b2b",
+        "bytes": 306
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-apache-xalan2.jar",
+    "sha256": "1a1647f77d6d5c891442d7366090ca016626ac1e7f52b6da1cc5e85677a3a501",
+    "topLevelSha256": "c5c8e0d7665c9ffc9409ecb35d579d3901a6327aada2a3675c4b6486bf3c4fbf",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "1af8386275217ebd4f4942753cbb30198ce6590686fff01abec2465ca2f2ff18",
+        "bytes": 917
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE.txt",
+        "sha256": "6d62d1dd52f932865d6f1e28920d53d0a6f9730ef6b8e02c48d99f470e160a0d",
+        "bytes": 15291
+      },
+      {
+        "path": "META-INF/NOTICE.txt",
+        "sha256": "fc3fad39345282a2188acc3fca950fbd003a372c734da40586ec942c134c5b2b",
+        "bytes": 306
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-commons-logging.jar",
+    "sha256": "b6c7d9a475c0ca5c1c3a4055244f9b06fe35159ddb5322808152d30cef3f8222",
+    "topLevelSha256": "c5c8e0d7665c9ffc9409ecb35d579d3901a6327aada2a3675c4b6486bf3c4fbf",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "2ddc69307db3c317a03cd045e37bdd1c22831020d13ba1d26bb5f3c6379cb08a",
+        "bytes": 850
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE.txt",
+        "sha256": "6d62d1dd52f932865d6f1e28920d53d0a6f9730ef6b8e02c48d99f470e160a0d",
+        "bytes": 15291
+      },
+      {
+        "path": "META-INF/NOTICE.txt",
+        "sha256": "fc3fad39345282a2188acc3fca950fbd003a372c734da40586ec942c134c5b2b",
+        "bytes": 306
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-commons-net.jar",
+    "sha256": "addfb05781fb1f8626368d64ee518679e966e0d5234d2c93d1ae373be75a32f0",
+    "topLevelSha256": "c5c8e0d7665c9ffc9409ecb35d579d3901a6327aada2a3675c4b6486bf3c4fbf",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "1259510d57c3159e23757fdf53be711b224ee08cffa5d147c95a6d71cde15e7d",
+        "bytes": 5239
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE.txt",
+        "sha256": "6d62d1dd52f932865d6f1e28920d53d0a6f9730ef6b8e02c48d99f470e160a0d",
+        "bytes": 15291
+      },
+      {
+        "path": "META-INF/NOTICE.txt",
+        "sha256": "fc3fad39345282a2188acc3fca950fbd003a372c734da40586ec942c134c5b2b",
+        "bytes": 306
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-imageio.jar",
+    "sha256": "c29febafa42ac8aa794af935a2c1fca2ef9daa89b6532590798a2ac143914e22",
+    "topLevelSha256": "c5c8e0d7665c9ffc9409ecb35d579d3901a6327aada2a3675c4b6486bf3c4fbf",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "ba556987c89b1faaca3940afe9c38496caf6283df24ceea0417c8a32250af0b4",
+        "bytes": 2920
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE.txt",
+        "sha256": "6d62d1dd52f932865d6f1e28920d53d0a6f9730ef6b8e02c48d99f470e160a0d",
+        "bytes": 15291
+      },
+      {
+        "path": "META-INF/NOTICE.txt",
+        "sha256": "fc3fad39345282a2188acc3fca950fbd003a372c734da40586ec942c134c5b2b",
+        "bytes": 306
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-jakartamail.jar",
+    "sha256": "b6ef81dd370215d4c287ace6e3efee2fe3138bfc2707f0631203f1859d9267f9",
+    "topLevelSha256": "c5c8e0d7665c9ffc9409ecb35d579d3901a6327aada2a3675c4b6486bf3c4fbf",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "2f88a8005198bc094adf7e557b6269f8bc763324b5336152ac0dc3e0bb9e898d",
+        "bytes": 1156
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE.txt",
+        "sha256": "6d62d1dd52f932865d6f1e28920d53d0a6f9730ef6b8e02c48d99f470e160a0d",
+        "bytes": 15291
+      },
+      {
+        "path": "META-INF/NOTICE.txt",
+        "sha256": "fc3fad39345282a2188acc3fca950fbd003a372c734da40586ec942c134c5b2b",
+        "bytes": 306
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-javamail.jar",
+    "sha256": "d52f3bce06fd924373879d82ac5f46a1f5713c59a02b2bd7d5f6c95456d316aa",
+    "topLevelSha256": "c5c8e0d7665c9ffc9409ecb35d579d3901a6327aada2a3675c4b6486bf3c4fbf",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "def9baa5602465a9c3ae233c12069ac81036fe36ca6341c9883bf31c2fff9325",
+        "bytes": 1135
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE.txt",
+        "sha256": "6d62d1dd52f932865d6f1e28920d53d0a6f9730ef6b8e02c48d99f470e160a0d",
+        "bytes": 15291
+      },
+      {
+        "path": "META-INF/NOTICE.txt",
+        "sha256": "fc3fad39345282a2188acc3fca950fbd003a372c734da40586ec942c134c5b2b",
+        "bytes": 306
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-jdepend.jar",
+    "sha256": "ce66025d3f3dbbfdd44fded2e43cf51d45f24c49cebbfe58a9791f747947e3f9",
+    "topLevelSha256": "c5c8e0d7665c9ffc9409ecb35d579d3901a6327aada2a3675c4b6486bf3c4fbf",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "d50a9e5936adbb6b98f89457bda1637d5ca1a0de8f0eb94fdab38f1e09190b40",
+        "bytes": 1073
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE.txt",
+        "sha256": "6d62d1dd52f932865d6f1e28920d53d0a6f9730ef6b8e02c48d99f470e160a0d",
+        "bytes": 15291
+      },
+      {
+        "path": "META-INF/NOTICE.txt",
+        "sha256": "fc3fad39345282a2188acc3fca950fbd003a372c734da40586ec942c134c5b2b",
+        "bytes": 306
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-jmf.jar",
+    "sha256": "fde1c1ed6ee4ecdaa08d6adb3413f832127498e1028e8e88cfa4fa7f9e36fed2",
+    "topLevelSha256": "c5c8e0d7665c9ffc9409ecb35d579d3901a6327aada2a3675c4b6486bf3c4fbf",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "9b0124a55a9e08b58744f7f7b13f2a7ec1650d27f288df8dc5411d40fd58b89d",
+        "bytes": 1197
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE.txt",
+        "sha256": "6d62d1dd52f932865d6f1e28920d53d0a6f9730ef6b8e02c48d99f470e160a0d",
+        "bytes": 15291
+      },
+      {
+        "path": "META-INF/NOTICE.txt",
+        "sha256": "fc3fad39345282a2188acc3fca950fbd003a372c734da40586ec942c134c5b2b",
+        "bytes": 306
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-jsch.jar",
+    "sha256": "655ff2f3b9e9f29849e6e64843cf73408e5fbf72c6101933df27ed85a7f83601",
+    "topLevelSha256": "c5c8e0d7665c9ffc9409ecb35d579d3901a6327aada2a3675c4b6486bf3c4fbf",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "9e53a5dfcdc9f0bcc318e26468a0a16cc88c64a475cadca82eb60ad5ec5687e7",
+        "bytes": 3259
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE.txt",
+        "sha256": "6d62d1dd52f932865d6f1e28920d53d0a6f9730ef6b8e02c48d99f470e160a0d",
+        "bytes": 15291
+      },
+      {
+        "path": "META-INF/NOTICE.txt",
+        "sha256": "fc3fad39345282a2188acc3fca950fbd003a372c734da40586ec942c134c5b2b",
+        "bytes": 306
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-junit.jar",
+    "sha256": "49eb5c41989aa00dd2c3fb87e66ca0fbebdbf04cbb9d3e1221bdc04d1986fcfa",
+    "topLevelSha256": "c5c8e0d7665c9ffc9409ecb35d579d3901a6327aada2a3675c4b6486bf3c4fbf",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "1199131d8936f10b458e61dbc38706d78a7c2b275f3a6b5be675ba048e95fc1a",
+        "bytes": 8397
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE.txt",
+        "sha256": "6d62d1dd52f932865d6f1e28920d53d0a6f9730ef6b8e02c48d99f470e160a0d",
+        "bytes": 15291
+      },
+      {
+        "path": "META-INF/NOTICE.txt",
+        "sha256": "fc3fad39345282a2188acc3fca950fbd003a372c734da40586ec942c134c5b2b",
+        "bytes": 306
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-junit4.jar",
+    "sha256": "0f3005303d882f28c5836f69cd9a6ffbe1fb999d72f9b078b1b162eb6b296fa5",
+    "topLevelSha256": "c5c8e0d7665c9ffc9409ecb35d579d3901a6327aada2a3675c4b6486bf3c4fbf",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "d1b0daefc64bd7f2f2552882fd732174c9aa1dcf81181f4b6b55047e3065a40b",
+        "bytes": 1563
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE.txt",
+        "sha256": "6d62d1dd52f932865d6f1e28920d53d0a6f9730ef6b8e02c48d99f470e160a0d",
+        "bytes": 15291
+      },
+      {
+        "path": "META-INF/NOTICE.txt",
+        "sha256": "fc3fad39345282a2188acc3fca950fbd003a372c734da40586ec942c134c5b2b",
+        "bytes": 306
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-junitlauncher.jar",
+    "sha256": "5eb05492499164e9a794e76aaeaf3d536e8f12370bb557532a15ff75f56c4bc8",
+    "topLevelSha256": "c5c8e0d7665c9ffc9409ecb35d579d3901a6327aada2a3675c4b6486bf3c4fbf",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "501dfba40b39343f6dbfe1ee2e117acd7af4a913abd92ce1294dca6497f0c079",
+        "bytes": 8730
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE.txt",
+        "sha256": "6d62d1dd52f932865d6f1e28920d53d0a6f9730ef6b8e02c48d99f470e160a0d",
+        "bytes": 15291
+      },
+      {
+        "path": "META-INF/NOTICE.txt",
+        "sha256": "fc3fad39345282a2188acc3fca950fbd003a372c734da40586ec942c134c5b2b",
+        "bytes": 306
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-launcher.jar",
+    "sha256": "ef77b7ab4fb8836b5e5a0aa899201655e1b43a877a8036e197257a22ce88f9ad",
+    "topLevelSha256": "c5c8e0d7665c9ffc9409ecb35d579d3901a6327aada2a3675c4b6486bf3c4fbf",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "39a7552491c9e5c3a5f611a695728d23332be2407aaaa86cefda899be8b12118",
+        "bytes": 901
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE.txt",
+        "sha256": "6d62d1dd52f932865d6f1e28920d53d0a6f9730ef6b8e02c48d99f470e160a0d",
+        "bytes": 15291
+      },
+      {
+        "path": "META-INF/NOTICE.txt",
+        "sha256": "fc3fad39345282a2188acc3fca950fbd003a372c734da40586ec942c134c5b2b",
+        "bytes": 306
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-netrexx.jar",
+    "sha256": "37c5ab9d0771668acdccc524d5093127af4eb859d9c25bb474535f53510c107a",
+    "topLevelSha256": "c5c8e0d7665c9ffc9409ecb35d579d3901a6327aada2a3675c4b6486bf3c4fbf",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "975eb75a699c68f04c564e4e0af6c9aa5d54c5aca3aedf210940c4e470fbcab2",
+        "bytes": 1179
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE.txt",
+        "sha256": "6d62d1dd52f932865d6f1e28920d53d0a6f9730ef6b8e02c48d99f470e160a0d",
+        "bytes": 15291
+      },
+      {
+        "path": "META-INF/NOTICE.txt",
+        "sha256": "fc3fad39345282a2188acc3fca950fbd003a372c734da40586ec942c134c5b2b",
+        "bytes": 306
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-swing.jar",
+    "sha256": "49bab68974a73af67d626c16b6eb973d6b54fff51bf26cedb7ff51db9bbbba20",
+    "topLevelSha256": "c5c8e0d7665c9ffc9409ecb35d579d3901a6327aada2a3675c4b6486bf3c4fbf",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "af41eaa2c6e3d1a1a276ec7f5a1b8213da2e54854a66e615060f69563c85a695",
+        "bytes": 1052
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE.txt",
+        "sha256": "6d62d1dd52f932865d6f1e28920d53d0a6f9730ef6b8e02c48d99f470e160a0d",
+        "bytes": 15291
+      },
+      {
+        "path": "META-INF/NOTICE.txt",
+        "sha256": "fc3fad39345282a2188acc3fca950fbd003a372c734da40586ec942c134c5b2b",
+        "bytes": 306
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-testutil.jar",
+    "sha256": "0132f40376aff691cc650ad0dc3d29b9d5d2c2974a567a42764d0e6b08bf4e3d",
+    "topLevelSha256": "c5c8e0d7665c9ffc9409ecb35d579d3901a6327aada2a3675c4b6486bf3c4fbf",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "f300ff09e5641c0fd966844f99a6f5bc190a4fe0b1a26da0edef5585eef1db01",
+        "bytes": 1975
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE.txt",
+        "sha256": "6d62d1dd52f932865d6f1e28920d53d0a6f9730ef6b8e02c48d99f470e160a0d",
+        "bytes": 15291
+      },
+      {
+        "path": "META-INF/NOTICE.txt",
+        "sha256": "fc3fad39345282a2188acc3fca950fbd003a372c734da40586ec942c134c5b2b",
+        "bytes": 306
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-xz.jar",
+    "sha256": "23738980c6028c2313dca91c0463c5f28c04e1942498d142044adae0ee3d59de",
+    "topLevelSha256": "c5c8e0d7665c9ffc9409ecb35d579d3901a6327aada2a3675c4b6486bf3c4fbf",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "0c1f80364d569d6eeff045398fb4a84885316b8af8c253ab310fe2947959e6ac",
+        "bytes": 1155
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE.txt",
+        "sha256": "6d62d1dd52f932865d6f1e28920d53d0a6f9730ef6b8e02c48d99f470e160a0d",
+        "bytes": 15291
+      },
+      {
+        "path": "META-INF/NOTICE.txt",
+        "sha256": "fc3fad39345282a2188acc3fca950fbd003a372c734da40586ec942c134c5b2b",
+        "bytes": 306
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant.jar",
+    "sha256": "af25c7d1aeae00774c2c989cb6291e5f83901e0b464445969cf5e02b562a737c",
+    "topLevelSha256": "c5c8e0d7665c9ffc9409ecb35d579d3901a6327aada2a3675c4b6486bf3c4fbf",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "036e90b30c2331299d98d2a30faf79afe3d93f96e4d14a1d1410c04d07464682",
+        "bytes": 152417
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE.txt",
+        "sha256": "6d62d1dd52f932865d6f1e28920d53d0a6f9730ef6b8e02c48d99f470e160a0d",
+        "bytes": 15291
+      },
+      {
+        "path": "META-INF/NOTICE.txt",
+        "sha256": "fc3fad39345282a2188acc3fca950fbd003a372c734da40586ec942c134c5b2b",
+        "bytes": 306
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.ant.core_3.7.1000.v20260602-0655.jar!/lib/antsupportlib.jar",
+    "sha256": "aa1382ba0b6e3e10c4ca8e5d4ab4650ed8855f204dbed3a84b5209b552ca53e7",
+    "topLevelSha256": "136e7995f6b190f8d093f0ace382b9fd492bd04716f8c060d78fbf9c5e182394",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "3e1aed7aacdf0e5be084e3541c8ed064fe300eaac574a9e6ce1d416cdc1c19af",
+        "bytes": 61
+      }
+    ],
+    "notices": [],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.core.resources_3.24.100.v20260812-0827.jar!/ant_tasks/resources-ant.jar",
+    "sha256": "66c4ab92d3f667697d74e5eca313cb18f7f206befd47e94eb2709b09f0fde7d3",
+    "topLevelSha256": "946851cf5902cd3b002920063a30b169e5710088b6c1ad7dd05bdd3be4fbfff4",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "3e1aed7aacdf0e5be084e3541c8ed064fe300eaac574a9e6ce1d416cdc1c19af",
+        "bytes": 61
+      }
+    ],
+    "notices": [],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.jdt.core_3.47.0.v20260828-1141.jar!/jdtCompilerAdapter.jar",
+    "sha256": "f9ebb2c42be466b8e76b5fa22ad6b64859d4366e7f3f99c14c66d53f197dd714",
+    "topLevelSha256": "723e30be1e841516c388ebb32017cb8b36662808f46be5265b78cc06bd4fe71c",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "3e1aed7aacdf0e5be084e3541c8ed064fe300eaac574a9e6ce1d416cdc1c19af",
+        "bytes": 61
+      }
+    ],
+    "notices": [],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.jdt.debug_3.26.100.v20260714-1432.jar!/jdimodel.jar",
+    "sha256": "7befd8b1ad3a6bbde2e95bbc99f799989de4de4f8d746a3dda69210e332f68b3",
+    "topLevelSha256": "585fe0f754e8b364258abfb5733e65bf1da895b9c5d628d577e7cf7e6a421915",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "8ba15e02466da09ceeb8a80a7d2e77ebb5b4e8b32c46f16ab6335cc82c56ff6c",
+        "bytes": 60468
+      }
+    ],
+    "notices": [],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.jdt.launching_3.24.300.v20260609-0435.jar!/lib/javaagent-shaded.jar",
+    "sha256": "c1bf83de06a433b7273d669630714fbd2992ead78261995c680e4c3c4c3c9769",
+    "topLevelSha256": "d8aad606c07b42a189a353797d9b3d1493f794647128bbad17908b0d58ba95e0",
+    "coordinates": [
+      {
+        "artifactId": "org.eclipse.jdt.launching.javaagent",
+        "groupId": "org.eclipse.jdt",
+        "version": "3.10.600-SNAPSHOT"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "2cc9eb282974a5c7a6f2b6f735558c407573ea1d8973240341cda8035e27c3d5",
+        "bytes": 6566
+      },
+      {
+        "path": "META-INF/maven/org.eclipse.jdt/org.eclipse.jdt.launching.javaagent/pom.properties",
+        "sha256": "e2dcf4cf4a841e5cd4455087ab7949a7c211ec32c8c0fdb58591f5e96209749d",
+        "bytes": 97
+      },
+      {
+        "path": "META-INF/maven/org.eclipse.jdt/org.eclipse.jdt.launching.javaagent/pom.xml",
+        "sha256": "a476011c70a0386fbcf13cac136ae74c8c310c728d7169f8bcb3e48efadb27c8",
+        "bytes": 2786
+      }
+    ],
+    "notices": [],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.jdt.launching_3.24.300.v20260609-0435.jar!/lib/launchingsupport.jar",
+    "sha256": "ca3882156c063ba182d1f3694ccdfb30f91a87642ffe06fe9bf081424ad646bf",
+    "topLevelSha256": "d8aad606c07b42a189a353797d9b3d1493f794647128bbad17908b0d58ba95e0",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "be4f3c7cc2f27426ef7fc76fce44d754aa4eba39eed1f32ad89fbd25d2a6a49c",
+        "bytes": 385
+      }
+    ],
+    "notices": [],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/aopalliance-1.0.jar",
+    "sha256": "0addec670fedcd3f113c5c8091d783280d23f75e3acb841b61a9cdb079376a08",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "3323d5cb74b9eb65257c3cf4fb28c59281f343c0c0c321835ff17fde82f4b0fe",
+        "bytes": 107
+      }
+    ],
+    "notices": [],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/asm-9.9.1.jar",
+    "sha256": "6f3828a215c920059a5efa2fb55c233d6c54ec5cadca99ce1b1bdd10077c7ddd",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "c5543cdab8def9947bfdcc6efbdd3549697627b55eaa09469b776532d0281669",
+        "bytes": 514
+      }
+    ],
+    "notices": [],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/error_prone_annotations-2.41.0.jar",
+    "sha256": "a56e782b5b50811ac204073a355a21d915a2107fce13ec711331ad036f660fcc",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "error_prone_annotations",
+        "groupId": "com.google.errorprone",
+        "version": "2.41.0"
+      }
+    ],
+    "declaredLicenses": [
+      {
+        "name": "Apache 2.0",
+        "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+      }
+    ],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "f8e8dfb1c095fbad7c7afb6fc4b92b920b88144e53fe0eaa9a4183054ba13f20",
+        "bytes": 1116
+      },
+      {
+        "path": "META-INF/maven/com.google.errorprone/error_prone_annotations/pom.properties",
+        "sha256": "2ba0973a0eb8b5c94502c27a703464546f160473b40d72dee95b105f9f12b745",
+        "bytes": 80
+      },
+      {
+        "path": "META-INF/maven/com.google.errorprone/error_prone_annotations/pom.xml",
+        "sha256": "a151df1e2e0b48618d8b06a180748a29b3abb39b1b2396f6a1c879a727488c6e",
+        "bytes": 4252
+      }
+    ],
+    "notices": [],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/gson-2.13.2.jar",
+    "sha256": "dd0ce1b55a3ed2080cb70f9c655850cda86c206862310009dcb5e5c95265a5e0",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "gson",
+        "groupId": "com.google.code.gson",
+        "version": "2.13.2"
+      }
+    ],
+    "declaredLicenses": [
+      {
+        "name": "Apache-2.0",
+        "url": "https://www.apache.org/licenses/LICENSE-2.0.txt"
+      }
+    ],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "0c0efe890eea2ba0420a347ef4d7f0dc19c4e07447883f7a4573bf8357c9a7f6",
+        "bytes": 1226
+      },
+      {
+        "path": "META-INF/maven/com.google.code.gson/gson/pom.properties",
+        "sha256": "6c1ded1fd031abdb82b618b36793fd01de568e011b022fe5232e2742fae8ea8e",
+        "bytes": 60
+      },
+      {
+        "path": "META-INF/maven/com.google.code.gson/gson/pom.xml",
+        "sha256": "3aa06aa7c0f9af092961a42d09578e4324be146348a0ee6ed47857f7c2677b76",
+        "bytes": 13490
+      }
+    ],
+    "notices": [],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/guice-5.1.0-classes.jar",
+    "sha256": "142ad4475e19524d2fe3ac995b3f7cbc962fc726f2edb9dbdccc61feab9b2bf9",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "c879f5449e5d2a9c61a364195f2bfb5dff91c091a4be07ef74f0bd7098369019",
+        "bytes": 1335
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "7e7f20226f26a1c2693c5422fc14c1c961d2b56c928d60ac881ab5ad4735025f",
+        "bytes": 166
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/httpclient-4.5.14.jar",
+    "sha256": "c8bc7e1c51a6d4ce72f40d2ebbabf1c4b68bfe76e732104b04381b493478e9d6",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "version": "4.5.14",
+        "groupId": "org.apache.httpcomponents",
+        "artifactId": "httpclient"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "9a5f9c37cfef7ca2c36fc0e0174268c844e9cec5fc2d5e99a60775a79e987d85",
+        "bytes": 526
+      },
+      {
+        "path": "META-INF/maven/org.apache.httpcomponents/httpclient/pom.properties",
+        "sha256": "8627c13ddca47a4c3dbc6f7f04951bf6753a0d7ee93cc943dcfe1a048fe252a3",
+        "bytes": 102
+      },
+      {
+        "path": "META-INF/maven/org.apache.httpcomponents/httpclient/pom.xml",
+        "sha256": "f18355af4cf80a8a4ef04ebd742a47e90a7eaf080c725b2095dbc4fc5dbdefb7",
+        "bytes": 6623
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "f5783fbb52e5fcfb26b6916ce3bb9c717d22759b030cee6deaa03145f1f8d819",
+        "bytes": 174
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/httpcore-4.4.16.jar",
+    "sha256": "6c9b3dd142a09dc468e23ad39aad6f75a0f2b85125104469f026e52a474e464f",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "version": "4.4.16",
+        "groupId": "org.apache.httpcomponents",
+        "artifactId": "httpcore"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "db7f721cdd655e9b511fa60090e6d0aea0b475b84a1fdef928461209c4c1a28b",
+        "bytes": 721
+      },
+      {
+        "path": "META-INF/maven/org.apache.httpcomponents/httpcore/pom.properties",
+        "sha256": "17a6a855c49e415828a8fa647dcc303b5927666e38198f876cbc4cc61878de01",
+        "bytes": 100
+      },
+      {
+        "path": "META-INF/maven/org.apache.httpcomponents/httpcore/pom.xml",
+        "sha256": "3cbad849b35dacfe6cec31adada2c623c026c3261141b0d26eec7e399c6cd7fa",
+        "bytes": 4967
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "a8ff0d486f1bdd29331e0e244f96245354779ef818ec25ecd60545ad335b68da",
+        "bytes": 172
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/jansi-2.4.3.jar",
+    "sha256": "d8a8fe4462c7916c95ebaf8708a98d24b13a1ab5d3514316ec1270d30ce20a73",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "jansi",
+        "groupId": "org.fusesource.jansi",
+        "version": "2.4.3"
+      }
+    ],
+    "declaredLicenses": [
+      {
+        "name": "Apache License, Version 2.0",
+        "url": "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "distribution": "repo"
+      }
+    ],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "5bc5a38f56ece28cfce971c3ee07288f1e7de3cc6167f0ce2fe4ad79df6b27e4",
+        "bytes": 1055
+      },
+      {
+        "path": "META-INF/maven/org.fusesource.jansi/jansi/pom.properties",
+        "sha256": "8f8ac9f6e72dc6227d472276ba77efff0e5e6938e348e02804cdd43e939617c5",
+        "bytes": 60
+      },
+      {
+        "path": "META-INF/maven/org.fusesource.jansi/jansi/pom.xml",
+        "sha256": "97229ddcd9aa86eee77bc4e62f47cec630be9edebf6cedfb29716aedf1317710",
+        "bytes": 17496
+      }
+    ],
+    "notices": [],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/jcl-over-slf4j-1.7.36.jar",
+    "sha256": "ab57ca8fd223772c17365d121f59e94ecbf0ae59d08c03a3cb5b81071c019195",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "jcl-over-slf4j",
+        "groupId": "org.slf4j",
+        "version": "1.7.36"
+      }
+    ],
+    "declaredLicenses": [
+      {
+        "name": "Apache License, Version 2.0",
+        "url": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+        "distribution": "repo"
+      }
+    ],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "50b66870e59d4cba129e83131386fa6ad9c686643980cc26e7015b038def86a6",
+        "bytes": 676
+      },
+      {
+        "path": "META-INF/maven/org.slf4j/jcl-over-slf4j/pom.properties",
+        "sha256": "99ab396790ed6583f356506491eab37bb14a56908cb4f8785a4d98d6ef147abc",
+        "bytes": 62
+      },
+      {
+        "path": "META-INF/maven/org.slf4j/jcl-over-slf4j/pom.xml",
+        "sha256": "bd96243d7d4218cd7cc7d45c0e30fa13480a1a4f91d356edd7dfe93f1ffb68e6",
+        "bytes": 1181
+      }
+    ],
+    "notices": [],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-artifact-3.9.16.jar",
+    "sha256": "54cc1c1ef932e3d4a903352111b42b4d3c3ed8e7a1d0de73b625309d9c3ad3e8",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "maven-artifact",
+        "groupId": "org.apache.maven",
+        "version": "3.9.16"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "73abd8aa1215636f5e00690ba62eda956f074afe69130332b20ef3316d521dd7",
+        "bytes": 410
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven/maven-artifact/pom.properties",
+        "sha256": "d9b5087fc244a129f29f1d0a95abbcfd6c00dde5e02e97064bffdabb2fa0e033",
+        "bytes": 66
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven/maven-artifact/pom.xml",
+        "sha256": "85d313bbbdbce67e199aadb4336e100c40a147881142ea4368cdebeafc02baec",
+        "bytes": 2349
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "31be9ee92ec5e7816b8c5f0b8324890be657810b4497b29ae35b1e1c7852d097",
+        "bytes": 169
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-builder-support-3.9.16.jar",
+    "sha256": "02972384eae3495801565fd27abb84cfd75a8e6d2cbb1ae0c556752ebc2b1cde",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "maven-builder-support",
+        "groupId": "org.apache.maven",
+        "version": "3.9.16"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "9c42c8a89f3504cec7a9677658094735470ddadf214bc6e66744b2c85d045b0b",
+        "bytes": 356
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven/maven-builder-support/pom.properties",
+        "sha256": "21fd63334e601ce3add7c49485a7467271cd9959552c5cccb548f9b6300bfa61",
+        "bytes": 73
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven/maven-builder-support/pom.xml",
+        "sha256": "c8366af883eeec0e2fd13e14cd8245969284b6e66df131f7b7c03d270f72f613",
+        "bytes": 1555
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "defb52f4417346dcf425a3f204020e478b94480a8210f6a56469e2eb48a5acd7",
+        "bytes": 176
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-compat-3.9.16.jar",
+    "sha256": "69ea74479f87457d29bfdecf11e1470ad95300b06be16f4c8ddcf5bd3627f4dc",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "maven-compat",
+        "groupId": "org.apache.maven",
+        "version": "3.9.16"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "ac5e141bdbc5cf2d76b299b2e62adeae310a101bda1ba976933122ead3e73ef7",
+        "bytes": 338
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven/maven-compat/pom.properties",
+        "sha256": "9093e25149b5b0b048dfeeb7c251ef3f3fd650ed6ae77e9dd787459644a734af",
+        "bytes": 64
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven/maven-compat/pom.xml",
+        "sha256": "cd913c965f966fe76e6089d5c91a05f8690b2e42735924b46fe191a28ded8609",
+        "bytes": 4952
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "62bad2b029b4435183f3e8b0443903f322365b10bea78dfaf4b915f5cff7a0db",
+        "bytes": 167
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-core-3.9.16.jar",
+    "sha256": "5d45c72e3dbfab8b68d15ad4f12777b7d9b5fe4d4adc99c3bd51fb9641fab009",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "maven-core",
+        "groupId": "org.apache.maven",
+        "version": "3.9.16"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "3516469338cba0e4d5f19086ba5434fac0938d8582116f1f326f9430cc5eda10",
+        "bytes": 334
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven/maven-core/pom.properties",
+        "sha256": "9badd0468235d660b69b27f863bb736b5e3f11326b4d4cdb5c0726c87b3cb10e",
+        "bytes": 62
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven/maven-core/pom.xml",
+        "sha256": "186f17628c5235d03e34c593122d05fdc1be9694440a54d8213b3f957d6379a4",
+        "bytes": 8002
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "28605677c6f879cf57b6bee3ff036bb42b70aace38be0bf7839d3a37a1554c02",
+        "bytes": 165
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-embedder-3.9.16.jar",
+    "sha256": "a99aaac6ecb1b98d0f3b3ba18c16a122fc503412222055639a3eb4cbe458313b",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "maven-embedder",
+        "groupId": "org.apache.maven",
+        "version": "3.9.16"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "6cd96e5e47e35eb0808071801f259432194377f6f4fa0ec03f7995ae3b740380",
+        "bytes": 342
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven/maven-embedder/pom.properties",
+        "sha256": "ec34b20ca170a4a57f830c9623877f9c5d8df69dea69af29858b12303a8ec203",
+        "bytes": 66
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven/maven-embedder/pom.xml",
+        "sha256": "b3fe6f3e04ed4e4f5dd2fcf58359d3c1c9da4e5e877a8e916b620e97f8913f30",
+        "bytes": 6663
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "45572c49e6a0d30d103349bc038aebf76608a49ac73eea3a7d67e2cb912a4d2e",
+        "bytes": 169
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-model-3.9.16.jar",
+    "sha256": "f59d86a507c241bf17bbf050050d1b8b9c0d34d5010a7e2386c3cab7c83b93de",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "maven-model",
+        "groupId": "org.apache.maven",
+        "version": "3.9.16"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "6de16a1c403457f50f8c4a7c04cc9f243feb9a1ca4530959fa715e722e4cc937",
+        "bytes": 336
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven/maven-model/pom.properties",
+        "sha256": "e4192ff95feccbb66cbde9700a089850539787f8ba6fde48c8e2e1cfd6828c5a",
+        "bytes": 63
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven/maven-model/pom.xml",
+        "sha256": "64883ffcfd91ddaadb4181740236a823bfe0880e0c20f5beee74bc32a93914a7",
+        "bytes": 2870
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "998489073acc293f77709d6fc93a9cfce5c38580b2bc3cce23e09382a2da8b23",
+        "bytes": 166
+      },
+      {
+        "path": "org/apache/maven/model/License.class",
+        "sha256": "f7dadf1f38269aac02dadc043a982cc9b1877b2a015b3df8a3c50bc24f16b798",
+        "bytes": 4167
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-model-builder-3.9.16.jar",
+    "sha256": "002be86d1f53b36f559a0786034a17598d71087f1935f205a1f9e51d4dd124b3",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "maven-model-builder",
+        "groupId": "org.apache.maven",
+        "version": "3.9.16"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "40df9d98ce48140d8fabe6751b25dabb9d59d3a94fc9c9fc02bdb18acfb88e7b",
+        "bytes": 352
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven/maven-model-builder/pom.properties",
+        "sha256": "91dbfb0c23710a32aed7e3529b2b01029559e91c72be297430b1947658c504d3",
+        "bytes": 71
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven/maven-model-builder/pom.xml",
+        "sha256": "6e2a59eadd77b244fe60fc60b7ed3a9b2dee704d44a4f5baca4f9d3be6e53e10",
+        "bytes": 3975
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "6623556e8ed29bbf1b0aec5bddc3b80351a8aeca89a9841c468e1cfeacf3d542",
+        "bytes": 174
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-plugin-api-3.9.16.jar",
+    "sha256": "37cb5e483e23327cf4ba18f920b45e000d20eec0428a086a5c1bd6bbdecf088c",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "maven-plugin-api",
+        "groupId": "org.apache.maven",
+        "version": "3.9.16"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "d58bd3699ef5b270ca6debb7ab87e0bb20a1e064a2087200a04ffe6a8c87e6b9",
+        "bytes": 346
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven/maven-plugin-api/pom.properties",
+        "sha256": "d7a93a6528406808a99dd00feae7d4f029f9d6cba9e4d06812992ef42b6ff294",
+        "bytes": 68
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven/maven-plugin-api/pom.xml",
+        "sha256": "6fe60dbb3157b9466a6b18f70a4c6eca7f68978eaf015ce164bb2471e1acbc12",
+        "bytes": 3097
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "80f2f5f12b296c6382f9f06c78bd97cc790d87dda55f1bfa480df932c38dfffb",
+        "bytes": 171
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-repository-metadata-3.9.16.jar",
+    "sha256": "bc3dd413b89a16b695f35a5d0496b58ea2787c30b7b6062c130d24d6d764720f",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "maven-repository-metadata",
+        "groupId": "org.apache.maven",
+        "version": "3.9.16"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "5ad9d317adefd5a9317f16343028f3712e4147faeed8a176ec4b784885cfc1c2",
+        "bytes": 376
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven/maven-repository-metadata/pom.properties",
+        "sha256": "6094bf1299f0265b711377e83c3b1ebe2c808de3580e2d4b996abcba2d7e6b50",
+        "bytes": 77
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven/maven-repository-metadata/pom.xml",
+        "sha256": "1c018bbd6cd513b43df5dd64c82579b14c414d35f99e06a0c3878b05ae070912",
+        "bytes": 2206
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "56e2eaaf98b59d03b6174bd69e711444b4348c8b6488666cdb351d83117c7f88",
+        "bytes": 186
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-api-1.9.27.jar",
+    "sha256": "a895d222283666a7320ddc76615e2e93a41fabd93ce9a6bf9ddee39272bb87b4",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "maven-resolver-api",
+        "groupId": "org.apache.maven.resolver",
+        "version": "1.9.27"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "5cf6b4f9e937b4f0a0b48cfcc390c5587f1456945a4ea53f84261b9706929b30",
+        "bytes": 11807
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-api/pom.properties",
+        "sha256": "915dc92d67df1607e4ee62d72cc0c35cda62786711712ed21775b96ead76aedd",
+        "bytes": 79
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-api/pom.xml",
+        "sha256": "98dc031f75f2c9b7efeef344e1c74bb3d009c584e36e82a0ec3d263d2bfef373",
+        "bytes": 2220
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "6e15450c1b62263a9d69b17dfda2da954b111574bd391b5f0ffd1fc6780029e9",
+        "bytes": 182
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-connector-basic-1.9.27.jar",
+    "sha256": "3bd98e3a426f9adcae39e3786db229e2be77e08a743ecd9be15c5ed77be3a625",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "maven-resolver-connector-basic",
+        "groupId": "org.apache.maven.resolver",
+        "version": "1.9.27"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "6b4a0a26e9f76124ba3d0cca593465ca558afc1ebf1bab5faa6d0b252604ed5c",
+        "bytes": 11539
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-connector-basic/pom.properties",
+        "sha256": "7acb2f5d69a19b064e800017247a117a90d6ef207051e4170940cbe7e4e2f013",
+        "bytes": 91
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-connector-basic/pom.xml",
+        "sha256": "494fd7b5b48b9dd65ff624ef38c900e7caab4d815567dca1ba6fb9d80278a19f",
+        "bytes": 3126
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "218266e61fa7bc44ccb758a899a18460c4700e2c1c52985de8167919a87132ea",
+        "bytes": 194
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-impl-1.9.27.jar",
+    "sha256": "295d48ea2a8bb3aef51888967f105fb6251997d111f13c32d28919fd9b1c951e",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "maven-resolver-impl",
+        "groupId": "org.apache.maven.resolver",
+        "version": "1.9.27"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "d66eb92d710a1200571b630462de13e1db7d98f03ca141dbb3334f536545e716",
+        "bytes": 16671
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-impl/pom.properties",
+        "sha256": "81bc8a3a2110f7c8a7cc164ec83ff4074ac015bdf4fe70075548cf84c699ba0b",
+        "bytes": 80
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-impl/pom.xml",
+        "sha256": "ce9b47e8aeb58e46dfd05eb8fd0fe3ebfe152a06ff0f23bb42127d1576cd6914",
+        "bytes": 4203
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "8e67504dc783f825fec9f109e8aa192d30da75d940d42f9bc14f3ed192b200a1",
+        "bytes": 193
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-named-locks-1.9.27.jar",
+    "sha256": "b39ecd4da98fdac5068e6f5d16910a71f4e4d48e95e17d107f6603e18f2b3fdf",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "maven-resolver-named-locks",
+        "groupId": "org.apache.maven.resolver",
+        "version": "1.9.27"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "7afe01e8a30ec3dda2fd5bbcf06f0c122c9581d41991beae90216f05185ec8ac",
+        "bytes": 10421
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-named-locks/pom.properties",
+        "sha256": "9bcefb3fa4917ccaef58dcdfbab74dc6acefd6ae50b563ef118cacb679219386",
+        "bytes": 87
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-named-locks/pom.xml",
+        "sha256": "41ef2c7170eb0672cb7bc97caa765bad5386d49d93bbe8ae430887238c8e669a",
+        "bytes": 2592
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "dd05cd6b7b024023d8a5551d782bf043a3e735dbc82551ec87e387c5db785b85",
+        "bytes": 190
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-provider-3.9.16.jar",
+    "sha256": "72a2d6aad3708e2c708b659b292ae9587a4d170ec88f48466290318730221118",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "maven-resolver-provider",
+        "groupId": "org.apache.maven",
+        "version": "3.9.16"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "4cbe4d2ff5bc087bdb313f7d1d1e3507db86119372f88ed7f296266d853c7b99",
+        "bytes": 378
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven/maven-resolver-provider/pom.properties",
+        "sha256": "34465b306aa6f3f14c1731046a676d06529f7b05a6d3cece6168e14dd5c2da39",
+        "bytes": 75
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven/maven-resolver-provider/pom.xml",
+        "sha256": "33723bba45ff2a1581bc2840836b7d9c9aa262af676f4f61222e179b56ea8818",
+        "bytes": 4694
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "2a35eeb966a16daaff0b3ca5341e2e9a1abf1d6a343df34b2b602bf01eb1bab3",
+        "bytes": 187
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-spi-1.9.27.jar",
+    "sha256": "1cab02f45bc58d5f4d8e084eaf032f13ea1a5fc9021d8bd74f8360ebb6593e5a",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "maven-resolver-spi",
+        "groupId": "org.apache.maven.resolver",
+        "version": "1.9.27"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "ecbe41d27f7b9708c802d9a01791de3773e57ad45adfa9da8a491763e24b70d6",
+        "bytes": 12113
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-spi/pom.properties",
+        "sha256": "c64a31df6cd78a5b46f772f3b66a29450923632fef20c1ddf0373469dc4a2403",
+        "bytes": 79
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-spi/pom.xml",
+        "sha256": "c6310e360bb5b543aa0c7a6892b18e964add6feaf3917ac88c85264ed377c676",
+        "bytes": 2079
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "aa64944d36d3c1a3ab7bca98a524e6e1519c835ec5fe8584be82b9aac0f91ae8",
+        "bytes": 182
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-transport-file-1.9.27.jar",
+    "sha256": "3988261bd31e2e79eda802b3971992fce44756b0029557a05c7b871d3c3ddef7",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "maven-resolver-transport-file",
+        "groupId": "org.apache.maven.resolver",
+        "version": "1.9.27"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "5c971c22eb83c95fd89ca0fcf383b80979bb242a0be33d35ec9479490fc285f6",
+        "bytes": 10636
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-transport-file/pom.properties",
+        "sha256": "1873e48dd99b11012a6971c4cc790306d9714f135d6d48ceca7b4410f4008ff3",
+        "bytes": 90
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-transport-file/pom.xml",
+        "sha256": "4832099eb3a535b19903a898bb03f4cc654886deb07661bd38f8cb3f002ebe54",
+        "bytes": 2971
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "998ecc03ca11a1659be53f0fc655b5753e9e7c0e59f0aafe358c28af83caa222",
+        "bytes": 193
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-transport-http-1.9.27.jar",
+    "sha256": "723f3d9d717a693d0aac589e266b995f76e9c63edd48ecc8a0cf9e86a77e459c",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "maven-resolver-transport-http",
+        "groupId": "org.apache.maven.resolver",
+        "version": "1.9.27"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "41895f4cb735542c5f5f449e4b1d91bc079ac880c680be71c6aa5aae0552df71",
+        "bytes": 11460
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-transport-http/pom.properties",
+        "sha256": "de1dcdd40e55b19a4b351f1c3a9c2da7fb6d715b63324fe1bc09f4d44177e758",
+        "bytes": 90
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-transport-http/pom.xml",
+        "sha256": "a7eae6d54a490eedf286193d7f280f7e97d89588da7d5adf117f0133098dbe2e",
+        "bytes": 5254
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "a3110de601ef24a05b353fce5d0793e16e2d43661d9a5f6c3709cebe587f205c",
+        "bytes": 193
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-transport-wagon-1.9.27.jar",
+    "sha256": "ddf1c8744f7ef50d8ab78526611b690ab1da0e9ad8d99f72d9dbe1b259aa9a8b",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "maven-resolver-transport-wagon",
+        "groupId": "org.apache.maven.resolver",
+        "version": "1.9.27"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "2d5925b82adba782fe080130fce14c83e7e58d59ff45da075a118db62a1607dd",
+        "bytes": 11758
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-transport-wagon/pom.properties",
+        "sha256": "bb4520702a8098ebb8a060c08e7368e09f2f5bb903be55833c68a25587742291",
+        "bytes": 91
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-transport-wagon/pom.xml",
+        "sha256": "8dc4eb6a727abe07d6fa8c94056920050dbac039cf714e51e633e430aa2d6002",
+        "bytes": 3772
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "e895861ded9feba7feed2d42fa870a133f004495ecc60100d8c44024d4335933",
+        "bytes": 194
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-util-1.9.27.jar",
+    "sha256": "74a12548f0d6aad13c728666288c1e81201c24bd05bb4e4ec8c1558517b379a7",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "maven-resolver-util",
+        "groupId": "org.apache.maven.resolver",
+        "version": "1.9.27"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "68681e9cbe742745e479cb7212f5afabbb650ebd6c81b262f1ae0535207c87c2",
+        "bytes": 12107
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-util/pom.properties",
+        "sha256": "b954678639f04711dff23b196fdb68ff2d711c561d39a0609b9fbf1968fe14f0",
+        "bytes": 80
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-util/pom.xml",
+        "sha256": "b2b3c7774cdc61887da814b42338c9421babbab9b1e87c3e6493885ffda53231",
+        "bytes": 2230
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "58f4cdc004bd37917196e35a54278a9622a8cd3f2dee761e8ff5410e67276314",
+        "bytes": 188
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-settings-3.9.16.jar",
+    "sha256": "322ae5b23f4b7b6ce7896bd33a793143dbbbbcc16c4475e2d7eebbd8f755da92",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "maven-settings",
+        "groupId": "org.apache.maven",
+        "version": "3.9.16"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "7edc8a6f22cc51ca71b276cbbfa008978aaf5c4f51b5de41e5c5db327c98b1c7",
+        "bytes": 342
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven/maven-settings/pom.properties",
+        "sha256": "3cbcf58ac7933a0f58dcf01f67c2723f9bfaa22b545d9398d18a65f17f49ff3c",
+        "bytes": 66
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven/maven-settings/pom.xml",
+        "sha256": "d3df811fe57832933adef90c119cbf3abb941884cf840cc9777aa639cf1a145d",
+        "bytes": 1833
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "384ce0fba8bfa11b3e6339a15d89f5cb50ba8563751132cf2617c6a0cd035630",
+        "bytes": 169
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-settings-builder-3.9.16.jar",
+    "sha256": "226f1cbb0b4d414eff773fb151a8977837c98073e14d5963794e6cf464e6adbb",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "maven-settings-builder",
+        "groupId": "org.apache.maven",
+        "version": "3.9.16"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "5a5c81f1f47c389e9e5b1dbdc1218a0d69e303beef4f77542e7ac0a3a10fc54f",
+        "bytes": 358
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven/maven-settings-builder/pom.properties",
+        "sha256": "74ca6bc19f78ed1f35b5272b48df4abbfc4b92490ff4f4e3d562da41b7a6aadf",
+        "bytes": 74
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven/maven-settings-builder/pom.xml",
+        "sha256": "bce946240bf297982f524666674acff5c14878a24849f1f3c3489cd1d829ed48",
+        "bytes": 2613
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "e84ace342f6af7917321f8552cd9b1e0e5489fdf087486f9af3a2bd4ba248475",
+        "bytes": 177
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-shared-utils-3.4.2.jar",
+    "sha256": "b613357e1bad4dfc1dead801691c9460f9585fe7c6b466bc25186212d7d18487",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "maven-shared-utils",
+        "groupId": "org.apache.maven.shared",
+        "version": "3.4.2"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "7b96ed8bb84343a69f8ac98087acd46f3fc6b614348d5a267906986e682a4127",
+        "bytes": 346
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven.shared/maven-shared-utils/pom.properties",
+        "sha256": "5a9809162a8205d87cc1ceb8a9efee6291023eef4634b14bb05343796cd2d8e7",
+        "bytes": 76
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven.shared/maven-shared-utils/pom.xml",
+        "sha256": "a941745d7faeb8dc9a75edc2c330c994b7440b9a44d21142716b6053967a41c1",
+        "bytes": 5899
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "c53634c960163f00ba0b0147cc3dee5caf0e6a47bc9909a2fe94b7adcf5d983e",
+        "bytes": 101
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-slf4j-provider-3.9.16.jar",
+    "sha256": "a435cb0fdfc9c906bdc1ef72f043f59fef23dfd0db5beb5dd1e17a0a07f99d52",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "maven-slf4j-provider",
+        "groupId": "org.apache.maven",
+        "version": "3.9.16"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "f6e0b62148e3d07ce51f64ea601a5788612bb657e73929f69efcdc1479be2253",
+        "bytes": 368
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven/maven-slf4j-provider/pom.properties",
+        "sha256": "fe64593b94476e4b4c97c39fc9adefecf5c1b0add0a7d26545429538da5f5b49",
+        "bytes": 72
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven/maven-slf4j-provider/pom.xml",
+        "sha256": "05d8351678f8b4f48fb6d2ee52e23ff2655fee31ce5688525120ba8b86dd746e",
+        "bytes": 3651
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "7f035c27140a861eb02e4302fb1cbebf9e0a69a7b9b02a6640c74e4bed8a4bbd",
+        "bytes": 182
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/org.eclipse.sisu.inject-1.0.0.jar",
+    "sha256": "3ab8d7bfe68f3b6ec95c1a0a47e628edbc9d76e90634cb0a0ba121fbb11b8e42",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "org.eclipse.sisu.inject",
+        "groupId": "org.eclipse.sisu",
+        "version": "1.0.0"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "dab76f3b046568e2bb95d064192167b6d2538e7d41ffdc5cea09cbf3f942e29b",
+        "bytes": 2977
+      },
+      {
+        "path": "META-INF/maven/org.eclipse.sisu/org.eclipse.sisu.inject/pom.properties",
+        "sha256": "3ed82cffcf8679f9234e53e978249028c6e4d3d438ecbddf1635b7be67b8ad6a",
+        "bytes": 74
+      },
+      {
+        "path": "META-INF/maven/org.eclipse.sisu/org.eclipse.sisu.inject/pom.xml",
+        "sha256": "ea0fb93dafec8adde218ce2a11f0f84ebec2b822c1d9be8b2ed9cd61ed654cf3",
+        "bytes": 17941
+      }
+    ],
+    "notices": [],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/org.eclipse.sisu.plexus-1.0.0.jar",
+    "sha256": "865b5300034fc08c790215d7d97f141914c932191bef9338a7dcef589f7536e9",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "org.eclipse.sisu.plexus",
+        "groupId": "org.eclipse.sisu",
+        "version": "1.0.0"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "c9431148e86f1087b63ecdf1b991ad235c0bb12e999563084ff1bdd581755a81",
+        "bytes": 6340
+      },
+      {
+        "path": "META-INF/maven/org.eclipse.sisu/org.eclipse.sisu.plexus/pom.properties",
+        "sha256": "3825c3ad95af93f01923de2e74e3b4ae5d02c523620613169fd167f3df981c73",
+        "bytes": 74
+      },
+      {
+        "path": "META-INF/maven/org.eclipse.sisu/org.eclipse.sisu.plexus/pom.xml",
+        "sha256": "f9bd338be70d4bc4d8f3f10cdfab7baec089fd3b3ef1013d4ca64c4e7f2163d5",
+        "bytes": 17398
+      }
+    ],
+    "notices": [],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/plexus-build-api-0.0.7.jar",
+    "sha256": "934171640fbd3d2495c50b79b0d9adb11e2c83e65bad157df8fe34bcac0ff798",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "version": "0.0.7",
+        "groupId": "org.sonatype.plexus",
+        "artifactId": "plexus-build-api"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "65389dc8e310b321e2493a488504200b0745f23b74bc497beb77b160d24bb4e3",
+        "bytes": 122
+      },
+      {
+        "path": "META-INF/maven/org.sonatype.plexus/plexus-build-api/pom.properties",
+        "sha256": "9ad8a64e9dbace2837bedbbf58b9594589ded002d991e286c2b2235f088c5406",
+        "bytes": 120
+      },
+      {
+        "path": "META-INF/maven/org.sonatype.plexus/plexus-build-api/pom.xml",
+        "sha256": "e067317a47ed9e84b2ba85a76d3cf72980e2b0dc873a90b9cbfe74fe80c37c17",
+        "bytes": 3204
+      }
+    ],
+    "notices": [],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/plexus-build-api-1.2.0.jar",
+    "sha256": "570ae55a95e1887c3004882d30dc4e9035d2a46ba8d58b991de04175f141d88f",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "plexus-build-api",
+        "groupId": "org.codehaus.plexus",
+        "version": "1.2.0"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "2bf0b1f4b1c0d27f362c6852223057a867beb562bd73e77e23eef4772d81e1a3",
+        "bytes": 81
+      },
+      {
+        "path": "META-INF/maven/org.codehaus.plexus/plexus-build-api/pom.properties",
+        "sha256": "174179b98e03fee955d53054bf064bd1ba64c8c6f88c2dd38a407eb2d1c92ae6",
+        "bytes": 70
+      },
+      {
+        "path": "META-INF/maven/org.codehaus.plexus/plexus-build-api/pom.xml",
+        "sha256": "47c7b0e65718ca89df6fdf5cb3f24a49e076cacd9499236c7e18ad78e993cddb",
+        "bytes": 4718
+      }
+    ],
+    "notices": [],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/plexus-cipher-2.0.jar",
+    "sha256": "9a7f1b5c5a9effd61eadfd8731452a2f76a8e79111fac391ef75ea801bea203a",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "plexus-cipher",
+        "groupId": "org.codehaus.plexus",
+        "version": "2.0"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "aa9fccdf05b6549e6a4e76cbd04b1da00754355fa1ebaef46dd7bf01ad913b4f",
+        "bytes": 82
+      },
+      {
+        "path": "META-INF/maven/org.codehaus.plexus/plexus-cipher/pom.properties",
+        "sha256": "44e455eafd06fb28d2862f5f0e949ce61820a9e958358daf31def30765f70f05",
+        "bytes": 68
+      },
+      {
+        "path": "META-INF/maven/org.codehaus.plexus/plexus-cipher/pom.xml",
+        "sha256": "04842f331b0225b85a5e20439710d228ea7a6302abe6d53c9c9846fbc5bf99ff",
+        "bytes": 4417
+      }
+    ],
+    "notices": [],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/plexus-classworlds-2.11.0.jar",
+    "sha256": "8971f135490070bc5fde7413fcc8db7c997fda4bebfb5c31185900d66edcbbb2",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "plexus-classworlds",
+        "groupId": "org.codehaus.plexus",
+        "version": "2.11.0"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "2de480a1a378806c33d34dcde2c4fdcb5726d19dbc3e961a33c2e386789a7d4d",
+        "bytes": 1288
+      },
+      {
+        "path": "META-INF/maven/org.codehaus.plexus/plexus-classworlds/pom.properties",
+        "sha256": "97ca2a90c68a8fa773f4a9145710b040d17a45d05a9d4c38477377f7bbc92e61",
+        "bytes": 73
+      },
+      {
+        "path": "META-INF/maven/org.codehaus.plexus/plexus-classworlds/pom.xml",
+        "sha256": "281d317bf8a5fe818708cdd00e377dd234ec949f498d30f4b363f6b9771e1fa2",
+        "bytes": 7396
+      }
+    ],
+    "notices": [],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/plexus-component-annotations-2.2.0.jar",
+    "sha256": "50edb93c73786e62822b4fe1336e22880fdf147191373cf5c911370e16748fcf",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "plexus-component-annotations",
+        "groupId": "org.codehaus.plexus",
+        "version": "2.2.0"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "cd8590ad6165dfeeb3977803f8c34663b41000d6f3629d68b00584d634db6a9f",
+        "bytes": 81
+      },
+      {
+        "path": "META-INF/maven/org.codehaus.plexus/plexus-component-annotations/pom.properties",
+        "sha256": "58fd019b6456e17126e0b60736db4dafe954917c029c416b0a28a3d66f7b683b",
+        "bytes": 82
+      },
+      {
+        "path": "META-INF/maven/org.codehaus.plexus/plexus-component-annotations/pom.xml",
+        "sha256": "c5483fc9c8e1a7ef6b0f899e37aaa6ce2f8afae54955bfa559fd63a33dbb065b",
+        "bytes": 736
+      }
+    ],
+    "notices": [],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/plexus-interpolation-1.29.jar",
+    "sha256": "088d444dbcedfb384630d8686697ece3c401d6f33c8f8b3aa7259ea1c6996878",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "plexus-interpolation",
+        "groupId": "org.codehaus.plexus",
+        "version": "1.29"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "a91236ca01ba80dba8c8894d8a163b1f111666b61177724067cdfc6bcf5a34d4",
+        "bytes": 1692
+      },
+      {
+        "path": "META-INF/maven/org.codehaus.plexus/plexus-interpolation/pom.properties",
+        "sha256": "a3ac87b022b1e01aff38c4aef2c5755280446008a665ae38884c41dfbd049544",
+        "bytes": 73
+      },
+      {
+        "path": "META-INF/maven/org.codehaus.plexus/plexus-interpolation/pom.xml",
+        "sha256": "ce0d5634297bb1e065dddfdc8a2a5675717c08e8f4783edcf581543711516938",
+        "bytes": 4721
+      }
+    ],
+    "notices": [],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/plexus-sec-dispatcher-2.0.jar",
+    "sha256": "873139960c4c780176dda580b003a2c4bf82188bdce5bb99234e224ef7acfceb",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "plexus-sec-dispatcher",
+        "groupId": "org.codehaus.plexus",
+        "version": "2.0"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "aa9fccdf05b6549e6a4e76cbd04b1da00754355fa1ebaef46dd7bf01ad913b4f",
+        "bytes": 82
+      },
+      {
+        "path": "META-INF/maven/org.codehaus.plexus/plexus-sec-dispatcher/pom.properties",
+        "sha256": "b456e04f818fa3ef5c33e727697b985b29205366169be5e85968f9d26e258c78",
+        "bytes": 73
+      },
+      {
+        "path": "META-INF/maven/org.codehaus.plexus/plexus-sec-dispatcher/pom.xml",
+        "sha256": "9b28bb307017938a94d06c85b2b099bc46912b859d084fb293e569f432eadb7c",
+        "bytes": 3234
+      }
+    ],
+    "notices": [],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/plexus-utils-3.6.1.jar",
+    "sha256": "05a63effd67e2d6b9d610cc82e2bd7473289d34802e57a529b28110f28af5679",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "plexus-utils",
+        "groupId": "org.codehaus.plexus",
+        "version": "3.6.1"
+      }
+    ],
+    "declaredLicenses": [
+      {
+        "name": "Apache-2.0",
+        "url": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+        "distribution": "repo"
+      }
+    ],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "9920b43ea67604eab7578831a3005469143e99b65354709ccb4729629b8d5301",
+        "bytes": 399
+      },
+      {
+        "path": "META-INF/maven/org.codehaus.plexus/plexus-utils/pom.properties",
+        "sha256": "b7eb3497edcdbe819a6fb4115b03f1887f2f82a1aacb3426ce2d74a430bc2df5",
+        "bytes": 66
+      },
+      {
+        "path": "META-INF/maven/org.codehaus.plexus/plexus-utils/pom.xml",
+        "sha256": "c8397373781af640a76c5da88f1674293b4fc9a2391d0768ee3fc791883b040d",
+        "bytes": 7912
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "d478d95476787007320df9dafb15c932849281e2ace56e2aacdac475d29470d7",
+        "bytes": 474
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/wagon-file-3.5.3.jar",
+    "sha256": "afc9216fa97b78dad227b4a8d4d67b9897bf113a57f80598d62993841113e103",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "wagon-file",
+        "groupId": "org.apache.maven.wagon",
+        "version": "3.5.3"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "7812678a85346038c1ab9dbd1c6d74b5367d8a0a436221a9a20fcc7e0ef61cf1",
+        "bytes": 393
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven.wagon/wagon-file/pom.properties",
+        "sha256": "a88190170316e4021df4e02be18a1eb79ccd20000198b051185deee884f7a1bd",
+        "bytes": 70
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven.wagon/wagon-file/pom.xml",
+        "sha256": "b89e540a7e432329bb5d93f2dfc578f898960afed66ae6a2dfeaa3d48d32c09c",
+        "bytes": 1775
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "381734fed65d4b355e0ebb572cba17e2e6747de32c6129c6f5406bcee60ac9b1",
+        "bytes": 205
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/wagon-http-3.5.3.jar",
+    "sha256": "d2b6e48c9fcbe579e1858c622d14464011ff265fa6e28e794004a6882154a509",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "wagon-http",
+        "groupId": "org.apache.maven.wagon",
+        "version": "3.5.3"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "ebc373cf820e9ba7bafca6c88cbe77dc418c4b1e6ee523b93472ea3ae785d0ed",
+        "bytes": 393
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven.wagon/wagon-http/pom.properties",
+        "sha256": "026e12d8d6beb27ad344e557d62ea37ee12f6709fd5a354b4725b29078de8543",
+        "bytes": 70
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven.wagon/wagon-http/pom.xml",
+        "sha256": "934f2f9c87e497c4f795be4bb05b360b8c231467d460103c19012b79b8c03c6b",
+        "bytes": 6128
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "0eb902826db7210ed96bbf9808a08a3636cbbdd36898f0cd252d424291f1d8cb",
+        "bytes": 205
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/wagon-http-shared-3.5.3.jar",
+    "sha256": "8e7da766f55164fde8779aaaa125832506c2848cab4876b5305138873e28037f",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "wagon-http-shared",
+        "groupId": "org.apache.maven.wagon",
+        "version": "3.5.3"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "09425f075484e261da7fcc7b9bc336fa32ab17578af2137b741330b34b2a310c",
+        "bytes": 411
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven.wagon/wagon-http-shared/pom.properties",
+        "sha256": "ec5c211e3ad4bd415980ed04d23ef75dbd156f3dd244676cfe7583abba9d61e4",
+        "bytes": 77
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven.wagon/wagon-http-shared/pom.xml",
+        "sha256": "6014b1e64abf455c6834a0918248e15638050f835da12051d33cda7e946d88f8",
+        "bytes": 2462
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "16abe9cdbc59746a930d6688af0d76618918b62b33afa6ad912dde95b45406c2",
+        "bytes": 211
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/wagon-provider-api-3.5.3.jar",
+    "sha256": "5e72000338945ed3e96f8e4f578d1d0672e1af7e19c0e9014197ae5b31af3ef4",
+    "topLevelSha256": "2aaf8786ecf333a5f8f910bac6e4ae04b243d5dcb811eb4aa79585b9fd4263c7",
+    "coordinates": [
+      {
+        "artifactId": "wagon-provider-api",
+        "groupId": "org.apache.maven.wagon",
+        "version": "3.5.3"
+      }
+    ],
+    "declaredLicenses": [],
+    "metadata": [
+      {
+        "path": "META-INF/MANIFEST.MF",
+        "sha256": "c122f44a3a867e9a14b6b618eb7706d4ec4bb5229e13e33ae46c8f3ae9c8e5af",
+        "bytes": 347
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven.wagon/wagon-provider-api/pom.properties",
+        "sha256": "1778182a940c49343bc16eee3121d83b106fa4e5715799d212810fd6763ff8b1",
+        "bytes": 78
+      },
+      {
+        "path": "META-INF/maven/org.apache.maven.wagon/wagon-provider-api/pom.xml",
+        "sha256": "64d6a085e8a6bede9607cbd029ea58cd1c87304410862492174a6d59b9d17142",
+        "bytes": 1911
+      }
+    ],
+    "notices": [
+      {
+        "path": "META-INF/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "bytes": 11358
+      },
+      {
+        "path": "META-INF/NOTICE",
+        "sha256": "995da8ed64bf0bca61cbc03b8b6c06d9888e42c099908c41ed50efeaae4e2e13",
+        "bytes": 182
+      }
+    ],
+    "scope": "Verified immutable bytes; exact source/native closure remains unverified."
+  }
+]

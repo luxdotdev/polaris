@@ -1,0 +1,10 @@
+Manifest-Version: 1.0
+Implementation-Title: Apache Maven Wagon :: Providers :: File Provider
+Implementation-Version: 3.5.3
+Specification-Vendor: The Apache Software Foundation
+Specification-Title: Apache Maven Wagon :: Providers :: File Provider
+Build-Jdk-Spec: 1.8
+Created-By: Maven Jar Plugin 3.2.0
+Specification-Version: 3.5
+Implementation-Vendor: The Apache Software Foundation
+

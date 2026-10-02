@@ -121,8 +121,12 @@
       "integrity": "sha256:355ae03458d24e2afd85560f5660cfab95255014e79e2d02a391354bc3ad0e2d"
     },
     {
+      "path": "lua-retained-source-map.json",
+      "integrity": "sha256:e14b1d861c26adb7d5e2c7cf26cada8ac524e9c6f8fe067c42b4562b739580c8"
+    },
+    {
       "path": "closure-plan.json",
-      "integrity": "sha256:a61abd31b8fda9766b634fa5276ec3e121d10ba9943a2efcd2a586a881edc8da"
+      "integrity": "sha256:c8b592b21f62e8a0d8a6ae4d6422ceb34dc37df14757f562c6a9deb4601e86ec"
     },
     {
       "path": "packaging/lua-language-server-3.19.1-darwin-arm64.tar.gz.json",
@@ -142,7 +146,7 @@
     },
     {
       "path": "review-records.json",
-      "integrity": "sha256:84878260fa5e3d66a0c73c80e5484fc839e778798dd558cced84d3949c26321b"
+      "integrity": "sha256:eef8e47ff2ff91adb9ee7ed743b97fb40e36b146823d3ad52cfa775e7004a93f"
     }
   ]
 }

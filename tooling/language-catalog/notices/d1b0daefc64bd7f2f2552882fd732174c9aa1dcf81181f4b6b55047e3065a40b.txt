@@ -1,0 +1,43 @@
+Manifest-Version: 1.0
+Ant-Version: Apache Ant 1.10.17
+Created-By: 11.0.30+7-post-Ubuntu-1ubuntu124.04 (Ubuntu)
+
+Name: META-INF/LICENSE.txt
+SHA-256-Digest: bWLR3VL5MoZdbx4okg1T0Kb5cw72uOAsSNmfRw4WCg0=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/JUnit4TestMethodAdapt
+ er$MultipleMethodsFilter.class
+SHA-256-Digest: Fc78RT3tNHF9K36BREu4MsWgu6vlRcycAOgRuY8z7rc=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/JUnit4TestMethodAdapt
+ er.class
+SHA-256-Digest: v5URI6plbWir9vzHdu3nb0jLSB6CH6sKjcKu/XuKkAU=
+
+Name: META-INF/NOTICE.txt
+SHA-256-Digest: /D+tOTRSgqIYisw/ypUPvQA6NyxzTaQFhuyULBNMWys=
+
+Name: META-INF/INDEX.LIST
+SHA-256-Digest: AYjFpgNOW0E/Pn+vYOubFXhtctAK8+vNiSBJcKzKE5Q=
+
+Name: org/apache/tools/ant/taskdefs/optional/
+Extension-Name: org.apache.tools.ant
+Specification-Title: Apache Ant
+Specification-Version: 1.10.17
+Specification-Vendor: Apache Software Foundation
+Implementation-Title: org.apache.tools.ant
+Implementation-Version: 1.10.17
+Implementation-Vendor: Apache Software Foundation
+SHA-256-Digest: 47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/JUnit4TestMethodAdapt
+ er$1.class
+SHA-256-Digest: nOUgvtIEFbo81ckJlqcL3I91p6FU6l65w3Fcv+FUdZE=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/CustomJUnit4TestAdapt
+ erCache.class
+SHA-256-Digest: /KaA5KwRe8fC0hm1U0OUpEMhXssOGelG7pXGUzTvoj4=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/CustomJUnit4TestAdapt
+ erCache$1.class
+SHA-256-Digest: ZVXGpUVVGRgT8kGLj5nsiWUW41/4g8XZ70a2vyO9R0g=
+

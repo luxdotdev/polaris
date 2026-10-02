@@ -1,0 +1,133 @@
+Manifest-Version: 1.0
+Ant-Version: Apache Ant 1.10.17
+Created-By: 11.0.30+7-post-Ubuntu-1ubuntu124.04 (Ubuntu)
+
+Name: org/apache/tools/ant/taskdefs/optional/net/RExecTask$RExecSubTask.
+ class
+SHA-256-Digest: KBUfvIISKK2Lg0MbCUCIfseqzo2TGLF8r3tbYJP25+g=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/FTPTask$FTPSystemType.c
+ lass
+SHA-256-Digest: MBjH0X/H3SuunAblaxskbX6oyQSd1k0+PSJlDlI7hkY=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/RExecTask$RExecWrite.cl
+ ass
+SHA-256-Digest: o9K58OzeWUsK7of9iWQIdZh62qTB0/OilRqM5av9/J8=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/FTP$Action.class
+SHA-256-Digest: NO37nRbbV1lXlxJuoG707YWLQLenQrbEDRyxkE1gIzI=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/RExecTask$AntRExecClien
+ t.class
+SHA-256-Digest: ZOt0/JgOvVwx6Or53rYbbYmM2faAP4SBtssQV2gQkkY=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/FTP$FTPDirectoryScanner
+ .class
+SHA-256-Digest: YDH0qiwo7VK3tT3FJ0hVehp8bhh9pRywiTFkHbQiCUA=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/FTPTask$Action.class
+SHA-256-Digest: g6gaYa7r8B2ahyBVCbTMEl7N9xo7XI4ohDQUaoNJiVA=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/FTPTaskConfig.class
+SHA-256-Digest: Sw7cfQLhGae6V0fiyWs9JL6Bmga7mN7FTP6jo2l/Nvg=
+
+Name: META-INF/NOTICE.txt
+SHA-256-Digest: /D+tOTRSgqIYisw/ypUPvQA6NyxzTaQFhuyULBNMWys=
+
+Name: META-INF/INDEX.LIST
+SHA-256-Digest: qo7jjbVoYCnYf5NqBtIjcFieeC6RXN5zNScZ+OJgvPU=
+
+Name: org/apache/tools/ant/taskdefs/optional/
+Extension-Name: org.apache.tools.ant
+Specification-Title: Apache Ant
+Specification-Version: 1.10.17
+Specification-Vendor: Apache Software Foundation
+Implementation-Title: org.apache.tools.ant
+Implementation-Version: 1.10.17
+Implementation-Vendor: Apache Software Foundation
+SHA-256-Digest: 47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/FTP$Granularity.class
+SHA-256-Digest: 8yapgS/0yZE9svkw3WgEx/LPOnw3tVdC1nUTvR0SLec=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/FTP$FTPDirectoryScanner
+ $AntFTPFile.class
+SHA-256-Digest: xnogyN+v02kqD39upqt3ZlmTB23yJZ2LU8C/6G3aD/M=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/FTPTask.class
+SHA-256-Digest: SUbzzcJ0W0YiWmeNs9Jsj1SP+/PVepAGHVoJkr1tLiI=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/FTP.class
+SHA-256-Digest: R2M3z5057mJulwl4JsPcvgp7J/gwd5HQHDcqYbbfPUs=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/FTPTaskMirrorImpl$FTPDi
+ rectoryScanner$AntFTPRootFile.class
+SHA-256-Digest: KkZ8QIWNpKiA7Tu2WI5gkk9Uvw43ONQUFbS27ff2BhM=
+
+Name: META-INF/LICENSE.txt
+SHA-256-Digest: bWLR3VL5MoZdbx4okg1T0Kb5cw72uOAsSNmfRw4WCg0=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/FTP$FTPDirectoryScanner
+ $AntFTPRootFile.class
+SHA-256-Digest: 1WPgSkS5vEsnU1Bczk1VSrO8eIhloAYqZ3u0+iRH5yg=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/FTPTaskMirrorImpl$FTPDi
+ rectoryScanner.class
+SHA-256-Digest: X8Xs3uDcQv939pbI701lyuwsKymqNlaEpv9L7L3xf04=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/FTPConfigurator.class
+SHA-256-Digest: gJTzp7kyFaDV+MLLqefS+LfzBKFFP5Fg1ZPj8HuB9aU=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/FTP$FTPSystemType.class
+SHA-256-Digest: 7wBbK8vn004duE50KEs2nIWonvOPr+gVYBcBZ3qDo60=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/TelnetTask$TelnetSubTas
+ k.class
+SHA-256-Digest: vL0q+NtOpw81tmssnK6286eImXMonzrKgrJaSFuQd6k=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/FTPTaskMirrorImpl.class
+SHA-256-Digest: QGXRfOY1f1uYG/aridH1CYRLGjjfG6+Sbs5ntfgLs4o=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/FTP$LanguageCode.class
+SHA-256-Digest: f4p5JqVKoqffh8wo3L+P/zH9Zp1GiwnTw2So3KKNfWA=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/TelnetTask$AntTelnetCli
+ ent.class
+SHA-256-Digest: +OpVJnpXPQyu4U9IvqFpvkFX72eCaMveEqNd2epm7Zs=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/FTPTaskMirrorImpl$FTPFi
+ leProxy.class
+SHA-256-Digest: Ie9LNeZA/VAa419sblQ/AwFAv3j/qaGz0byGp3Fga2c=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/FTP$FTPFileProxy.class
+SHA-256-Digest: RB5kQul/qRXc7yUV53ytFyiwloZ0g4eKvyHfKMMQ7k0=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/TelnetTask.class
+SHA-256-Digest: 94SgnBnJB7pupG9QTBIiljARd49oWjARfcbkxK7ociE=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/RExecTask$RExecRead.cla
+ ss
+SHA-256-Digest: 9BfenRjxg6aLYgexCjDQPoG/ZwpqQPkfNpD6egrgQbc=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/FTPTask$Granularity.cla
+ ss
+SHA-256-Digest: W+1h+2n3TYEvuXN/Jf3ncgMDWB+jlDkM6ryRXbXF70k=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/TelnetTask$TelnetWrite.
+ class
+SHA-256-Digest: 9ZrzaXSkN3CeEA9f7BITpkY3XeMW4uY3IgxhsWxQS1I=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/FTPTaskMirrorImpl$FTPDi
+ rectoryScanner$AntFTPFile.class
+SHA-256-Digest: Gd6m427xT+U7myN9pxbM97sgJWaJVznKReGUtD2lmuQ=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/RExecTask.class
+SHA-256-Digest: ljiHnKgqnqako4Rz6aLoyJEz5b5BQfoPDFI3iCqk+Y8=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/TelnetTask$TelnetRead.c
+ lass
+SHA-256-Digest: MTB2Fs6wJB/qEUHb5IgSLFz3eChxsMNngVDaCypUSjc=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/FTPTaskMirror.class
+SHA-256-Digest: 0nzp1nshXml3g54wPIdO6RH6PMM9Bkby8DMV8qfknjQ=
+

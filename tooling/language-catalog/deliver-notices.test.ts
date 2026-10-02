@@ -81,36 +81,36 @@ test("delivery rejects a preexisting staging directory or symbolic link", () => 
   }
 });
 
-test("every offered artifact retains exact notice bytes offline, including blocked runtime records", () => {
-  const root = mkdtempSync(join("/tmp", "k2-delivery-all-"));
+for (const candidate of catalog.tools
+  .filter((tool) => tool.disposition === "offered" || tool.id === "shellcheck")
+  .flatMap((tool) => tool.artifacts)) {
+  test(`offline notice delivery covers ${candidate.id} without activation`, () => {
+    const root = mkdtempSync(join("/tmp", "k3-delivery-artifact-"));
 
-  try {
-    for (const tool of catalog.tools.filter((candidate) => candidate.disposition === "offered")) {
-      for (const candidate of tool.artifacts) {
-        const destination = join(root, candidate.id);
-        const bytes = readFileSync(join(import.meta.dir, "audits", `${candidate.id}.json`));
+    try {
+      const destination = join(root, "staged");
+      const bytes = readFileSync(join(import.meta.dir, "audits", `${candidate.id}.json`));
 
-        const expected = Schema.decodeUnknownSync(Schema.fromJsonString(AuditManifest))(
-          bytes.toString()
-        );
+      const expected = Schema.decodeUnknownSync(Schema.fromJsonString(AuditManifest))(
+        bytes.toString()
+      );
 
+      expect(
+        deliverNotices({ artifact: candidate, sourceRoot: import.meta.dir, destination })
+      ).toHaveLength(expected.notices.length);
+
+      for (const notice of expected.notices)
         expect(
-          deliverNotices({ artifact: candidate, sourceRoot: import.meta.dir, destination })
-        ).toHaveLength(expected.notices.length);
-
-        for (const notice of expected.notices)
-          expect(
-            verifyIntegrity(readFileSync(join(destination, notice.path)), notice.integrity)
-          ).toBe(true);
-        expect(
-          verifyIntegrity(
-            readFileSync(join(destination, "audit-manifest.json")),
-            candidate.auditRoot!
-          )
+          verifyIntegrity(readFileSync(join(destination, notice.path)), notice.integrity)
         ).toBe(true);
-      }
+      expect(
+        verifyIntegrity(
+          readFileSync(join(destination, "audit-manifest.json")),
+          candidate.auditRoot!
+        )
+      ).toBe(true);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
     }
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-}, 60_000);
+  });
+}

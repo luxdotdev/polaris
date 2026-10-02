@@ -1,14 +1,16 @@
-"""Capture pinned target-builder metadata and complete LLVM libunwind source/legal trees."""
+"""Capture exact compiler Gitlinks and complete libunwind source/legal trees without checkout."""
 import argparse
-import base64
 import hashlib
 import io
 import json
+import os
 import pathlib
+import subprocess
 import tarfile
 from importlib.machinery import SourceFileLoader
 
 legal = SourceFileLoader('legal', str(pathlib.Path(__file__).with_name('complete-notices.py'))).load_module()
+search = SourceFileLoader('search', str(pathlib.Path(__file__).with_name('legal-search.py'))).load_module()
 parser = argparse.ArgumentParser()
 parser.add_argument('--root', required=True, type=pathlib.Path)
 parser.add_argument('--output', required=True, type=pathlib.Path)
@@ -18,58 +20,63 @@ if not args.root.resolve().is_relative_to(temporary) or args.root.resolve() == t
     parser.error('Private temporary root required')
 cache = args.root / 'legal-cache'
 cache.mkdir(parents=True, exist_ok=True)
-api = 'https://api.github.com/repos/'
+env = {'PATH': os.environ['PATH'], 'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_NOSYSTEM': '1',
+       'GIT_TERMINAL_PROMPT': '0', 'GIT_ASKPASS': '/usr/bin/false', 'GIT_NO_LAZY_FETCH': '1'}
 
 
-def tree(repository, identity):
-    result = json.loads(legal.download(api + repository + '/git/trees/' + identity, cache))
-    if result.get('truncated') or result['sha'] != identity:
-        raise ValueError('Incomplete or mismatched Git tree')
-    return result['tree']
+def git(repository, *arguments):
+    return subprocess.run(['git', '--git-dir=' + str(repository), '-c', 'credential.helper=', *arguments],
+                          env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, timeout=180).stdout
 
 
-def commit_tree(repository, commit):
-    result = json.loads(legal.download(api + repository + '/git/commits/' + commit, cache))
-    if result['sha'] != commit:
+def metadata(repository, commit):
+    destination = args.root / (repository.replace('/', '-') + '.git')
+    if not destination.exists():
+        subprocess.run(['git', 'init', '--bare', str(destination)], env=env, check=True,
+                       stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    probe = subprocess.run(['git', '--git-dir=' + str(destination), 'cat-file', '-e', commit + '^{commit}'],
+                           env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if probe.returncode:
+        git(destination, 'fetch', '--depth=1', '--filter=blob:none', 'https://github.com/' + repository + '.git', commit)
+    if git(destination, 'rev-parse', commit + '^{commit}').decode().strip() != commit:
         raise ValueError('Git commit identity')
-    return result['tree']['sha']
+    return destination
 
 
-def subtree(repository, identity, path):
-    for component in path.split('/'):
-        row = next(row for row in tree(repository, identity) if row['path'] == component)
-        identity = row['sha']
-    return identity
-
-
-def capture_tree(repository, identity, source_commit, prefix='', files=None):
-    files = [] if files is None else files
-    for row in tree(repository, identity):
-        path = prefix + row['path']
-        if row['type'] == 'tree':
-            capture_tree(repository, row['sha'], source_commit, path + '/', files)
+def tree(repository, commit, path, recursive=False):
+    command = ['ls-tree', '-z']
+    if recursive:
+        command.append('-r')
+    command.extend([commit, '--', path])
+    rows = []
+    for row in git(repository, *command).split(b'\0'):
+        if not row:
             continue
-        if row['type'] != 'blob' or row['mode'] not in ('100644', '100755'):
-            raise ValueError('Unsupported source-tree entry: ' + path)
-        content = legal.download('https://raw.githubusercontent.com/' + repository + '/' + source_commit + '/libunwind/' + path, cache)
-        if hashlib.sha1(b'blob ' + str(len(content)).encode() + b'\0' + content).hexdigest() != row['sha']:
-            raise ValueError('Git blob integrity')
-        files.append((path, int(row['mode'], 8) & 0o777, content, row['sha']))
-    return files
+        fields, name = row.split(b'\t', 1)
+        mode, kind, identity = fields.decode().split(' ')
+        rows.append({'path': name.decode(), 'mode': mode, 'kind': kind, 'sha': identity})
+    return rows
 
 
 sources = json.loads((args.output / 'rust-runtime-sources.json').read_text())
 records = []
-for compiler, source in sources.items():
-    rust_tree = commit_tree('rust-lang/rust', compiler)
-    src = subtree('rust-lang/rust', rust_tree, 'src')
-    llvm_commit = next(row['sha'] for row in tree('rust-lang/rust', src) if row['path'] == 'llvm-project')
-    llvm_tree = commit_tree('rust-lang/llvm-project', llvm_commit)
-    unwind_tree = subtree('rust-lang/llvm-project', llvm_tree, 'libunwind')
-    files = capture_tree('rust-lang/llvm-project', unwind_tree, llvm_commit)
+for compiler in sources:
+    rust = metadata('rust-lang/rust', compiler)
+    links = {path: tree(rust, compiler, path)[0]['sha'] for path in ('src/llvm-project', 'library/backtrace')}
+    llvm_commit = links['src/llvm-project']
+    llvm = metadata('rust-lang/llvm-project', llvm_commit)
+    unwind_tree = tree(llvm, llvm_commit, 'libunwind')[0]['sha']
+    files = []
+    for row in tree(llvm, llvm_commit, 'libunwind', recursive=True):
+        if row['kind'] != 'blob' or row['mode'] not in ('100644', '100755'):
+            raise ValueError('Unsupported source-tree entry')
+        content = legal.download('https://raw.githubusercontent.com/rust-lang/llvm-project/' + llvm_commit + '/' + row['path'], cache)
+        if hashlib.sha1(b'blob ' + str(len(content)).encode() + b'\0' + content).hexdigest() != row['sha']:
+            raise ValueError('Git blob integrity')
+        files.append((row['path'], int(row['mode'], 8) & 0o777, content, row['sha']))
     stream = io.BytesIO()
     with tarfile.open(fileobj=stream, mode='w', format=tarfile.USTAR_FORMAT) as archive:
-        for path, mode, content, git_blob in sorted(files):
+        for path, mode, content, blob in sorted(files):
             entry = tarfile.TarInfo(path)
             entry.size = len(content)
             entry.mode = mode
@@ -77,13 +84,20 @@ for compiler, source in sources.items():
     payload = stream.getvalue()
     archive_path = args.root / ('libunwind-' + unwind_tree + '.tar')
     archive_path.write_bytes(payload)
-    # Licensing data is inspected separately; no implementation is copied into Polaris.
-    notices = [legal.save_notice(path, content, args.output) for path, mode, content, blob in files if legal.legal_name(path)]
+    inspected = search.search(payload, args.output)
+    llvm_license = legal.download('https://raw.githubusercontent.com/rust-lang/llvm-project/' + llvm_commit + '/LICENSE.TXT', cache)
+    license_blob = tree(llvm, llvm_commit, 'LICENSE.TXT')[0]['sha']
+    if hashlib.sha1(b'blob ' + str(len(llvm_license)).encode() + b'\0' + llvm_license).hexdigest() != license_blob:
+        raise ValueError('Root license Git blob integrity')
+    backtrace = legal.source_record('https://codeload.github.com/rust-lang/backtrace-rs/tar.gz/' + links['library/backtrace'], cache, args.output)
     records.append({'rustSourceCommit': compiler, 'llvmSourceCommit': llvm_commit, 'libunwindTree': unwind_tree,
                     'sourceUrl': 'https://github.com/rust-lang/llvm-project/tree/' + llvm_commit + '/libunwind',
                     'sourceArchiveSha256': hashlib.sha256(payload).hexdigest(), 'sourceArchiveBytes': len(payload),
+                    'archiveFormat': 'Canonical USTAR sorted path, original modes, uid/gid/mtime zero; complete tree verified against Git blobs.',
                     'files': [{'path': path, 'gitBlob': blob, 'sha256': hashlib.sha256(content).hexdigest(), 'mode': mode}
-                              for path, mode, content, blob in sorted(files)], 'notices': notices,
-                    'scope': 'Exact complete source tree declared by embedded Rust compiler Git revision. Historical runtime binary linkage/target-builder execution is not independently attested.'})
+                              for path, mode, content, blob in sorted(files)], 'legalSearch': inspected,
+                    'llvmLicense': legal.save_notice('LICENSE.TXT', llvm_license, args.output),
+                    'backtraceGitlink': links['library/backtrace'], 'backtraceSource': backtrace,
+                    'scope': 'Exact complete compiler-declared libunwind source/legal tree and backtrace source. Historical binary target-builder/runtime membership is not attested.'})
     print(compiler, llvm_commit, len(files), len(payload), flush=True)
 (args.output / 'rust-target-sources.json').write_text(json.dumps(records, indent=2) + '\n')

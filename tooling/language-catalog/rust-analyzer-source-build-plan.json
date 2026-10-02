@@ -1,0 +1,98 @@
+{
+  "status": "proposal-only; no extraction/build/install/activation executed",
+  "target": "aarch64-apple-darwin",
+  "source": {
+    "url": "https://codeload.github.com/rust-lang/rust-analyzer/tar.gz/03fcb77246f2568adb0e9b2fa60d19c6cc1686f4",
+    "sha256": "34edfc1e72dfc0808f70823230019a7fe1f3133c50705a1b780e0855d40c3a42",
+    "bytes": 4065819,
+    "notices": [
+      {
+        "path": "rust-analyzer-03fcb77246f2568adb0e9b2fa60d19c6cc1686f4/LICENSE-APACHE",
+        "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+      },
+      {
+        "path": "rust-analyzer-03fcb77246f2568adb0e9b2fa60d19c6cc1686f4/LICENSE-MIT",
+        "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+      },
+      {
+        "path": "rust-analyzer-03fcb77246f2568adb0e9b2fa60d19c6cc1686f4/editors/code/LICENSE",
+        "sha256": "7b4f77d59f1f20f8c0efec5c222d5e21ead37a16ee23de7a558f84a24302a4fc"
+      },
+      {
+        "path": "rust-analyzer-03fcb77246f2568adb0e9b2fa60d19c6cc1686f4/lib/smol_str/LICENSE-APACHE",
+        "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+      },
+      {
+        "path": "rust-analyzer-03fcb77246f2568adb0e9b2fa60d19c6cc1686f4/lib/smol_str/LICENSE-MIT",
+        "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+      },
+      {
+        "path": "rust-analyzer-03fcb77246f2568adb0e9b2fa60d19c6cc1686f4/lib/text-size/LICENSE-APACHE",
+        "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+      },
+      {
+        "path": "rust-analyzer-03fcb77246f2568adb0e9b2fa60d19c6cc1686f4/lib/text-size/LICENSE-MIT",
+        "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+      }
+    ],
+    "repository": "rust-lang/rust-analyzer",
+    "commit": "03fcb77246f2568adb0e9b2fa60d19c6cc1686f4"
+  },
+  "sourceArchive": "/tmp/k2-audit/legal-cache/d9567a3b9d11a9c03c820c4b800bc7ace533016c7bd81c4551dd3d8c378defed",
+  "crateDirectory": "/tmp/k1-catalog/crates",
+  "verifiedCrates": 332,
+  "compilerIdentity": "rustc 1.98.0 (88d9e12ae 2026-08-18)\nbinary: rustc\ncommit-hash: 88d9e12ae178fab0fb5cc050a94da85685d449ea\ncommit-date: 2026-08-18\nhost: aarch64-apple-darwin\nrelease: 1.98.0\nLLVM version: 22.1.8\n",
+  "compilerSha256": "a11618eca0956a8aa4372c2bc898690b513cbdfa2cb9125b2a5301e360ed5b49",
+  "cargoSha256": "1de2e84c15443b70444eecfa959ff9099dd8c1a5606b6d9ef5bc0ea9c25bc7f9",
+  "root": "/tmp/k3-ra-source-build-proposed",
+  "minimumFreeBytes": 6442450944,
+  "diskFreeBytesObserved": 27279360000,
+  "resourceProposal": {
+    "jobs": 2,
+    "wallTimeSeconds": 1200,
+    "outputBudgetBytes": 4294967296,
+    "aggregateStopBytes": 3221225472,
+    "stopFreeBytes": 2147483648,
+    "measurementIntervalSeconds": 0.1,
+    "perFileBytes": 268435456,
+    "externalReceiptBudgetBytes": 8192,
+    "pollingOvershootLimitation": true
+  },
+  "stagingRequired": [
+    "Verify and safely unpack pinned source archive into root/source.",
+    "Stage every checksum-verified registry archive into root/vendor with per-file .cargo-checksum.json; bind full staged tree root.",
+    "Use private Cargo config replacing crates.io with root/vendor; freeze lock/features/target/compiler/SDK environment.",
+    "Capture compiler/std source and legal roots before distributing any output.",
+    "Stage hashed recording linker wrapper; bind direct Clang identity and unique per-invocation maps; require a unique retained output map with matching final binary digest."
+  ],
+  "environment": {
+    "CARGO_HOME": "/tmp/k3-ra-source-build-proposed/cargo-home",
+    "CARGO_TARGET_DIR": "/tmp/k3-ra-source-build-proposed/target",
+    "CARGO_NET_OFFLINE": "true",
+    "RUSTC": "/Users/lucasdoell/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc",
+    "CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER": "/tmp/k3-ra-source-build-proposed/record-link"
+  },
+  "cwd": "/tmp/k3-ra-source-build-proposed/source",
+  "argv": [
+    "/Users/lucasdoell/.rustup/toolchains/stable-aarch64-apple-darwin/bin/cargo",
+    "build",
+    "--frozen",
+    "--offline",
+    "--release",
+    "-j",
+    "2",
+    "--target",
+    "aarch64-apple-darwin",
+    "-p",
+    "rust-analyzer",
+    "--bin",
+    "rust-analyzer"
+  ],
+  "acceptance": [
+    "Actual bounded offline build, exact feature/dependency/link-map/runtime membership.",
+    "Output digest plus compiler/sysroot/SDK/legal/source+notice delivery manifest.",
+    "Actual initialize/open/hover/diagnostic/format-or-declared-formatter/shutdown fixtures; no production Host certification.",
+    "Second identical-input build comparison or disclose byte reproducibility limitations.",
+    "A1 exact artifact review before any descriptor/default/provider change."
+  ]
+}
