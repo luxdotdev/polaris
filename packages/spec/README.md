@@ -328,3 +328,5 @@ Session events. These runtime capability checks are outside the abstract graph
 model and covered by `harness/claude/autoMode.test.ts` and
 `constellation/composition/prepare.test.ts`. Checkpoint identity encoding changes
 Git ref names only, preserving journal identities and existing valid refs.
+
+G2's Plain MCP bootstrap submits the existing `Plan.start` command with its authenticated Session as Lead. Stable Lead tool names become usable only after `ConstellationStarted`; current-role checks still run under the commit lock. No graph state or event shape is added to Quint. `mcp/tools/bootstrap.test.ts` checks start-first refusals, Plain-to-Lead promotion, worker-tool exclusion and archive revocation against the real service; composition and Harness tests cover lazy first-session activation and read-only exclusion. ACP's delivery-only context never changes normalized user prompt text.

@@ -50,3 +50,5 @@ an Attempt. Unsupported or unverified capabilities return
 Client error. The probe sends no Turn and persists no Claude Session; setup and
 slot acquisition follow it. Existing placements validate their own Session
 selection. The live driver also guards resume, model changes and SDK fallback.
+
+The first interactive Codex/Claude Session open also activates the cached layer. Empty startup and read-only Session opens retain the no-op boundary. Unassigned Sessions receive a Plain binding with a reserved graph ID and current Workspace ID; `plan.start` journals ownership before Lead commands can act. Start/resume rebuilds attachments from the current fold. Archive/handover revocation still applies to these tokens.

@@ -27,6 +27,7 @@ import { readCommands, slashCommandOf } from "./commands.ts";
 import * as P from "./protocol.ts";
 import { type OpenCodeServer, opencodeError } from "./Server.ts";
 import { translatorFor, type Translator } from "./translate.ts";
+import { polarisContextWithoutTools } from "../../constellation/skills/preamble.ts";
 
 const decodeSession = P.decoder(P.SessionInfo);
 
@@ -210,7 +211,10 @@ export const openSession = (
           return yield* runCommand(input, call);
         }
 
-        const body: P.PromptAsyncBody = { parts: promptParts(input.prompt, input.attachments) };
+        const body: P.PromptAsyncBody = {
+          parts: promptParts(input.prompt, input.attachments),
+          system: polarisContextWithoutTools(),
+        };
 
         if (model !== null) body.model = model;
 

@@ -12,6 +12,7 @@ import { makeAcpDriver } from "./AcpDriver.ts";
 import { COPILOT } from "./harnesses.ts";
 import type { Scenario } from "./testing/fakeAgent.ts";
 import { type Collected, collect, type FakeBinary, fakeBinary } from "./testing/harness.ts";
+import { polarisContextWithoutTools } from "../../constellation/skills/preamble.ts";
 
 interface OpenOptions {
   readonly permissionMode?: PermissionMode;
@@ -142,6 +143,40 @@ const configOptions = [
 ];
 
 describe("ACP driver", () => {
+  test("fresh and resumed sessions get hidden first-Turn context; only the user prompt is visible", async () => {
+    for (const resumeCursor of [null, "acp-existing"]) {
+      const context = polarisContextWithoutTools();
+
+      const agent = await start({
+        initialize: { protocolVersion: 1, agentCapabilities: { loadSession: true } },
+        prompts: [
+          { steps: [{ update: { sessionUpdate: "user_message_chunk", content: text(context) } }] },
+        ],
+      });
+
+      const open = await agent.open({ resumeCursor });
+
+      await run(open.session.sendTurn(turn("context-first", "Please inspect this change")));
+      await open.waitFor("TurnEnded");
+      await run(open.session.sendTurn(turn("context-second", "Continue")));
+      await open.waitFor("TurnEnded", 2);
+
+      const prompts = agent.received().filter((m) => m.method === "session/prompt");
+      expect(prompts[0]?.params?.prompt).toEqual([
+        text(context),
+        text("Please inspect this change"),
+      ]);
+      expect(prompts[1]?.params?.prompt).toEqual([text("Continue")]);
+      expect(
+        open.events.flatMap((event) =>
+          HarnessEvent.$is("TurnStarted")(event) ? [event.prompt] : []
+        )
+      ).toEqual(["Please inspect this change", "Continue"]);
+      expect(open.events.filter(HarnessEvent.$is("ItemCompleted"))).toEqual([]);
+      expect(open.events.filter(HarnessEvent.$is("ItemDelta"))).toEqual([]);
+      await open.close();
+    }
+  });
   test("a Turn: text, thoughts, a tool call and a plan become items; the title is suggested", async () => {
     const agent = await start({
       sessionId: "acp-1",
