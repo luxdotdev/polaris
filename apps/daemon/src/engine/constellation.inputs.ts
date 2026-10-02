@@ -29,6 +29,7 @@ export interface ConstellationContext {
   readonly hostId: HostId;
   readonly now: string;
   readonly attempts: ReadonlyArray<Attempt>;
+  readonly handoverDeferred?: boolean;
   readonly newLeadSessionId: SessionId | null;
   readonly claimProbe: ClaimProbe | null;
   readonly recordedChecks: ReadonlyArray<RecordedCheck>;

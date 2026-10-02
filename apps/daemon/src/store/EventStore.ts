@@ -102,6 +102,8 @@ export const CommitResult = Data.taggedEnum<CommitResult>();
 export type Rejection = CommandRejected | NotFound | ConstellationRejected;
 
 export interface CommitOptions<E extends Rejection> {
+  /** Internal queued inputs retry a busy Session; successful receipts still deduplicate by commandId. */
+  readonly recordRejection?: boolean;
   /** Client-chosen id; null for events the Daemon records on its own (Harness output, recovery). */
   readonly commandId: CommandId | null;
   /** Runs under the commit lock against the latest read model. */
@@ -493,7 +495,7 @@ const groupCommit = ({ sql, modelRef, hub }: CommitTarget) =>
         const decided = yield* Effect.exit(options.decide(batch.next));
 
         return Exit.isFailure(decided)
-          ? rejected(batch, commandId, decided.cause)
+          ? rejected(batch, options.recordRejection === false ? null : commandId, decided.cause)
           : committed(batch, commandId, decided.value);
       });
 

@@ -153,6 +153,11 @@ export const foldReference = (ref: Reference, events: ReadonlyArray<DomainEvent>
       OperatorMessageSent: () => {},
       OperatorMessageResolved: () => {},
       PeerMessage: () => {},
+      LeadHandoverRequested: () => {},
+      LeadHandoverCancelled: () => {},
+      AttemptStale: () => {},
+      AttemptFresh: () => {},
+      WorkerInputDelivered: () => {},
       AttemptRecoveryContinued: (e) => patch(ref, e, {}),
     });
   }

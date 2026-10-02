@@ -23,7 +23,12 @@ module constellations {
     | AttemptRejected(int)
     | AttemptSettled({ attempt: int, outcome: str, stale: bool, commanded: bool })
     | GatePromoted(int)
-    | LeadChanged(int)
+    | LeadHandoverRequested({ id: int, from: int })
+    | LeadHandoverCancelled(int)
+    | LeadChanged({ to: int, request: int })
+    | AttemptStale(int)
+    | AttemptFresh(int)
+    | WorkerInputDelivered({ id: int, session: int })
     | ConstellationStateChanged(str)
     | NotificationQueued({ id: int, kind: str })
     | LeadNotified({ ids: Set[int], lead: int })
@@ -38,6 +43,7 @@ module constellations {
   type Event = { host: str, kind: EventKind }
   type View = {
     tasks: int -> Task, attempts: List[Attempt], lead: int, state: str,
+    handoverRequest: int, handoverFrom: int, stale: Set[int], inputs: List[{ id: int, session: int }],
     approvals: List[int], handups: List[int], nudges: List[int],
     promotions: List[int], notes: int -> str, deliveries: List[Delivery],
     applied: List[int], recoveries: List[Recovery], waiters: List[int],
@@ -51,6 +57,7 @@ module constellations {
   pure val emptyTask = { declared: false, deps: Set(), gate: false, canceled: false, revision: 0 }
   pure val empty: View = {
     tasks: TASKS.mapBy(_ => emptyTask), attempts: [], lead: 0, state: "planning",
+    handoverRequest: -1, handoverFrom: -1, stale: Set(), inputs: [],
     approvals: [], handups: [], nudges: [],
     promotions: [], notes: Map(), deliveries: [], applied: [], recoveries: [],
     waiters: [], holders: Set(), requests: [], grants: [], capacity: CAPACITY, canceled: Set(),
@@ -85,7 +92,12 @@ module constellations {
     | AttemptRejected(a) => change(v, a, "rejected", v.attempts[a].sha)
     | AttemptSettled(p) => change(v, p.attempt, p.outcome, v.attempts[p.attempt].sha)
     | GatePromoted(t) => { ...v, promotions: v.promotions.append(t), tasks: v.tasks.set(t, { ...v.tasks.get(t), revision: v.tasks.get(t).revision + 1 }) }
-    | LeadChanged(s) => { ...v, lead: s }
+    | LeadHandoverRequested(p) => { ...v, handoverRequest: p.id, handoverFrom: p.from }
+    | LeadHandoverCancelled(id) => if (v.handoverRequest == id) { ...v, handoverRequest: -1, handoverFrom: -1 } else v
+    | LeadChanged(p) => { ...v, lead: p.to, handoverRequest: -1, handoverFrom: -1 }
+    | AttemptStale(a) => { ...v, stale: v.stale.union(Set(a)) }
+    | AttemptFresh(a) => { ...v, stale: v.stale.exclude(Set(a)) }
+    | WorkerInputDelivered(p) => { ...v, inputs: v.inputs.append(p) }
     | ConstellationStateChanged(s) => { ...v, state: s }
     | NotificationQueued(p) => { ...v, notes: v.notes.put(p.id, p.kind) }
     | LeadNotified(p) => { ...v, deliveries: p.ids.fold(v.deliveries, (acc, id) => acc.append({ id: id, lead: p.lead })) }
@@ -188,7 +200,16 @@ module constellations {
     [NotificationQueued({ id: id, kind: "question" })] else [])
   action deliver = commit(OWNER,
     if (view.state == "running" and pending.size() > 0) [LeadNotified({ ids: pending, lead: view.lead })] else [])
-  action handover(s: int): bool = commit(OWNER, if (s != view.lead) [LeadChanged(s)] else [])
+  action requestHandover(id: int): bool = commit(OWNER,
+    if (Set("planning", "running", "paused").contains(view.state))
+      [LeadHandoverRequested({ id: id, from: view.lead })] else [])
+  action cancelHandover: bool = commit(OWNER,
+    if (view.handoverRequest >= 0) [LeadHandoverCancelled(view.handoverRequest)] else [])
+  action finishHandover(id: int, s: int): bool = commit(OWNER,
+    if (view.handoverRequest == id and view.handoverFrom == view.lead and s != view.lead
+      and Set("planning", "running", "paused").contains(view.state))
+      [LeadChanged({ to: s, request: id })] else [])
+  action handover(s: int): bool = commit(OWNER, if (s != view.lead) [LeadChanged({ to: s, request: -1 })] else [])
   pure def lifecycleTransition(previous: str, target: str): bool =
     previous == "planning" and target == "running" or previous == "running" and Set("paused", "completed").contains(target)
     or previous == "paused" and Set("running", "completed").contains(target) or previous == "completed" and target == "archived"
@@ -238,11 +259,11 @@ module constellations {
       plan([Cancel({ task: t, revision: rev })]),
       start(t, s, latest(view, t)), progress(a, rev), claim(a, rev, 42, false, true),
       claim(a, rev, 42, true, true), accept(a, rev, 42), accept(a, rev, 43), reject(a, rev), stop(a, rev), harnessFail(a),
-      ask(a, id), deliver, handover(s), setState("running"), setState("paused"),
+      ask(a, id), deliver, handover(s), requestHandover(id), cancelHandover, finishHandover(id, s), setState("running"), setState("paused"),
       all { TASKS.forall(task => accepted(view, task)), setState("completed") },
       setState("archived"), interrupt(a), recover(a), restart,
       availability(false, true, Set(s)), availability(true, false, Set()), availability(true, true, Set()),
-      enqueue(id, a, 42), relay(id), request(id), grant, release(id), cancelLease(id), commit("worker-host", [LeadChanged(s)]),
+      enqueue(id, a, 42), relay(id), request(id), grant, release(id), cancelLease(id), commit("worker-host", [LeadChanged({ to: s, request: -1 })]),
     }
   }
 
@@ -255,6 +276,16 @@ module constellations {
     | GatePromoted(t) => ready(foldEvents(log.slice(0, i)), t) and view.tasks.get(t).gate
     | _ => true
   }) and view.promotions.length() == view.promotions.foldl(Set(), (acc, x) => acc.union(Set(x))).size()
+  val handoverRequestOrdered = log.indices().forall(i => {
+    val before = foldEvents(log.slice(0, i))
+    match log[i].kind {
+      | LeadHandoverRequested(p) => p.from == before.lead and Set("planning", "running", "paused").contains(before.state)
+      | LeadChanged(p) => p.request < 0 or (before.handoverRequest == p.request and before.handoverFrom == before.lead
+          and Set("planning", "running", "paused").contains(before.state))
+      | _ => true
+    }
+  })
+  val inputDeliveredAtMostOnce = view.inputs.length() == view.inputs.foldl(Set(), (acc, p) => acc.union(Set(p))).size()
   val oneLead = SESSIONS.contains(view.lead)
   val oneActiveAttemptPerSession = SESSIONS.forall(s => view.attempts.select(a => a.session == s and active(a)).length() <= 1)
   val queuedIds = log.foldl([], (acc, e) => match e.kind {
@@ -328,7 +359,7 @@ module constellations {
     graphAcyclic, causesPointBackward, taskFollowsLatestAttempt, gatePromotedOnlyAfterAccepted,
     oneLead, oneActiveAttemptPerSession, exactlyOnceDelivery, settledAttemptImmutable,
     outboxAppliedExactlyOnce, onlyOwnerCommits, recoveryAtMostOnce, staleNeverSettlesWithoutCommand,
-    noOldLeadDelivery, lifecycleValid, reviewMetadataValid, resourceCapacity, resourceRemovalSafe, fifoGrantOrder, acceptanceMatchesClaim,
+    noOldLeadDelivery, handoverRequestOrdered, inputDeliveredAtMostOnce, lifecycleValid, reviewMetadataValid, resourceCapacity, resourceRemovalSafe, fifoGrantOrder, acceptanceMatchesClaim,
   }
   val witnessClaim = view.attempts.indices().exists(i => view.attempts[i].status == "review")
   val witnessAccepted = view.attempts.indices().exists(i => view.attempts[i].status == "accepted")

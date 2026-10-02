@@ -272,6 +272,64 @@ describe("Constellation real-log replay", () => {
     );
   });
 
+  test("handover requests replay in order; cancelled or superseded completions are rejected", () => {
+    const request = (id: string) =>
+      E.LeadHandoverRequested.make({
+        ...graph,
+        requestId: id,
+        from: lead,
+        summary: "",
+        interrupt: false,
+      });
+
+    const changed = (id: string) =>
+      E.LeadChanged.make({
+        ...graph,
+        requestId: id,
+        from: lead,
+        to: SessionId.make("next-lead"),
+        summary: "Continue",
+      });
+
+    const cancelled = E.LeadHandoverCancelled.make({
+      ...graph,
+      requestId: "r1",
+      reason: "Archived",
+    });
+
+    expect(check(trace([batch(initial), batch([request("r1")]), batch([changed("r1")])]))).toBe(
+      true
+    );
+    expect(
+      check(trace([batch(initial), batch([request("r1"), cancelled]), batch([changed("r1")])]))
+    ).toBe(false);
+    expect(
+      check(trace([batch(initial), batch([request("r1"), request("r2")]), batch([changed("r1")])]))
+    ).toBe(false);
+    expect(
+      check(trace([batch(initial), batch([request("r1"), request("r2")]), batch([changed("r2")])]))
+    ).toBe(true);
+  }, 20_000);
+
+  test("stale intervals and per-recipient input receipts replay without an Attempt revision bump", () => {
+    const stale = E.AttemptStale.make({ ...graph, attemptId, hostId: host, at: time });
+    const fresh = E.AttemptFresh.make({ ...graph, attemptId, at: time });
+
+    const delivered = E.WorkerInputDelivered.make({
+      ...graph,
+      id: "message",
+      sessionId: worker,
+      at: time,
+    });
+
+    expect(check(trace([batch(initial), batch([began]), batch([stale, fresh, delivered])]))).toBe(
+      true
+    );
+    expect(check(trace([batch(initial), batch([began]), batch([delivered, delivered])]))).toBe(
+      false
+    );
+  });
+
   test("ownership is checked even for metadata omitted from the abstraction", () => {
     const message = E.PeerMessage.make({ ...graph, from: attemptId, to: attemptId, text: "Hello" });
     expect(() =>

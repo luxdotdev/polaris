@@ -86,6 +86,11 @@ export const statusOutline = (record: ConstellationRecord): string => {
   for (const [id, proposal] of record.proposals)
     lines.push(`Proposal ${id} · ${proposal.task.id} · by ${proposal.by}: ${proposal.task.title}`);
 
+  if (record.handoverRequest !== null)
+    lines.push(
+      `Handover queued · ${record.handoverRequest.requestId} · waiting for the Turn boundary`
+    );
+
   for (const message of record.messages.values())
     lines.push(`Message ${message.id} · ${message.authority} · in transit: ${message.text}`);
   lines.push(...areaWarnings(record).map((warning) => `Area: ${warning}`));

@@ -4,6 +4,7 @@ import { optionalNullable } from "../models.ts";
 import { ConstellationCommand, MessageAuthority, MessageTarget } from "./commands.ts";
 import {
   Attempt,
+  HarnessSelection,
   AttemptId,
   CheckReceipt,
   Claim,
@@ -30,7 +31,22 @@ const task = { ...graph, taskId: TaskId, taskRevision: Revision };
 export const constellationEventFields = {
   ConstellationStarted: { ...graph, constellation: Constellation },
   ConstellationStateChanged: { ...graph, state: ConstellationState },
-  LeadChanged: { ...graph, from: SessionId, to: SessionId, summary: Schema.String },
+  LeadHandoverRequested: {
+    ...graph,
+    requestId: Schema.String,
+    from: SessionId,
+    summary: Schema.String,
+    interrupt: Schema.Boolean,
+    selection: optionalNullable(HarnessSelection),
+  },
+  LeadHandoverCancelled: { ...graph, requestId: Schema.String, reason: Schema.String },
+  LeadChanged: {
+    ...graph,
+    from: SessionId,
+    to: SessionId,
+    summary: Schema.String,
+    requestId: optionalNullable(Schema.String),
+  },
   TaskDeclared: { ...graph, task: Task },
   TaskEdited: { ...graph, task: Task },
   TaskCanceled: task,
@@ -48,6 +64,8 @@ export const constellationEventFields = {
   ClaimApproved: { ...attempt, by: Schema.Literal("user"), at: Timestamp },
   ClaimHandedUp: { ...attempt, reason: optionalNullable(Schema.String), at: Timestamp },
   AttemptNudged: { ...attempt, at: Timestamp },
+  AttemptStale: { ...graph, attemptId: AttemptId, hostId: HostId, at: Timestamp },
+  AttemptFresh: { ...graph, attemptId: AttemptId, at: Timestamp },
   AttemptAccepted: {
     ...attempt,
     mergedHead: Schema.String,
@@ -76,6 +94,7 @@ export const constellationEventFields = {
     text: Schema.String,
     questionId: optionalNullable(Schema.String),
   },
+  WorkerInputDelivered: { ...graph, id: Schema.String, sessionId: SessionId, at: Timestamp },
   OperatorMessageResolved: { ...graph, id: Schema.String },
   PeerMessage: { ...graph, from: AttemptId, to: AttemptId, text: Schema.String },
   /** Journal the single automatic Continue; replay consumes its durable marker. */

@@ -10,11 +10,25 @@ import { Predicate } from "effect";
 import type { ConstellationContext } from "../engine/constellation.inputs.ts";
 import type { ConstellationDecision } from "../engine/constellation.ts";
 import type { ConstellationRecord } from "../store/constellation.ts";
+import { connectionObserved, inputDelivered, handoverCompleted } from "./journal.delivery.ts";
 import { currentAttempt } from "./attempts.ts";
 import { GraphDecision, refusal } from "./decision.ts";
 
 /** Trusted Daemon inputs; these are never accepted from an RPC payload. */
 export type ConstellationJournalInput =
+  | {
+      readonly type: "inputDelivered";
+      readonly id: string;
+      readonly sessionId: SessionId;
+      readonly turnEvents: ReadonlyArray<DomainEvent>;
+    }
+  | { readonly type: "connection"; readonly attemptId: AttemptId; readonly offline: boolean }
+  | {
+      readonly type: "handoverCompleted";
+      readonly requestId: string;
+      readonly summary: string;
+      readonly turnEvents: ReadonlyArray<DomainEvent>;
+    }
   | {
       readonly type: "settle";
       readonly attemptId: AttemptId;
@@ -95,7 +109,8 @@ const notified = (
 
 const recoveryContinued = (
   d: GraphDecision,
-  input: Extract<ConstellationJournalInput, { type: "recoveryContinued" }>
+  input: Extract<ConstellationJournalInput, { type: "recoveryContinued" }>,
+  ctx: ConstellationContext
 ): ReadonlyArray<DomainEvent> => {
   const key = JSON.stringify([input.attemptId, input.interruptionId]);
 
@@ -112,7 +127,9 @@ const recoveryContinued = (
 
   if (
     attempt !== undefined &&
-    (attempt.state !== "working" || !hasTurn(input.turnEvents, attempt.sessionId, input.turnId))
+    (attempt.state !== "working" ||
+      ctx.offlineSessionIds.has(attempt.sessionId) ||
+      !hasTurn(input.turnEvents, attempt.sessionId, input.turnId))
   )
     d.reject(
       "E-RECOVERY-TURN",
@@ -173,7 +190,11 @@ const nudged = (
   const attempt = currentAttempt(d, input.attemptId);
 
   if (attempt !== undefined && attempt.nudgedAt === null) {
-    if (attempt.state !== "working" || !hasTurn(input.turnEvents, attempt.sessionId, input.turnId))
+    if (
+      attempt.state !== "working" ||
+      ctx.offlineSessionIds.has(attempt.sessionId) ||
+      !hasTurn(input.turnEvents, attempt.sessionId, input.turnId)
+    )
       d.reject(
         "E-NUDGE-TURN",
         "A nudge requires the working Attempt's session-machine TurnStarted",
@@ -213,6 +234,15 @@ export const decideConstellationJournal = (
   let companion: ReadonlyArray<DomainEvent> = [];
 
   switch (input.type) {
+    case "inputDelivered":
+      companion = inputDelivered(d, input);
+      break;
+    case "connection":
+      connectionObserved(d, input);
+      break;
+    case "handoverCompleted":
+      companion = handoverCompleted(d, input);
+      break;
     case "settle":
       settle(d, input, ctx);
       break;
@@ -238,7 +268,7 @@ export const decideConstellationJournal = (
         );
       break;
     case "recoveryContinued":
-      companion = recoveryContinued(d, input);
+      companion = recoveryContinued(d, input, ctx);
       break;
   }
 

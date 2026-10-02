@@ -55,7 +55,9 @@ export const projectTask = (
     blockedBy,
     gatePromoted: record.promoted.has(task.id),
     liveness: null,
-    stale: attempt !== undefined && observations.offlineHosts?.has(attempt.hostId) === true,
+    stale:
+      attempt !== undefined &&
+      (record.stale.has(attempt.id) || observations.offlineHosts?.has(attempt.hostId) === true),
     branchFetched:
       attempt === undefined ||
       attempt.hostId === record.graph.hostId ||

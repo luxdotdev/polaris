@@ -29,3 +29,19 @@ export {
 } from "./host.ts";
 
 export { ConstellationLiveness } from "./liveness.ts";
+
+export {
+  ConstellationDelivery,
+  ConstellationSessionEffects,
+  ConstellationRemoteDelivery,
+  applyWorkerDelivery,
+  type DeliveryPacket,
+} from "./delivery/index.ts";
+
+export { engineDeliveryLayer } from "./delivery/engine.ts";
+
+export { recoverAttempt, recoverWorkingAttempts, observeWorkerHost } from "./recovery.ts";
+
+export { withHandoverPreparation } from "./handover/index.ts";
+
+export { startConstellationDelivery, type DeliveryStartup } from "./delivery/startup.ts";

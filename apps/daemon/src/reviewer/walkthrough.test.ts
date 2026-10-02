@@ -227,6 +227,11 @@ describe("walkthrough persistence and controls", () => {
     const commands: Array<Command> = [];
 
     const engine = Engine.of({
+      recoveredTurns: [],
+      runCommittedTurn: () => Effect.void,
+      canSteerSession: () => Effect.succeed(false),
+      steerCommittedInput: () => Effect.void,
+      retireLead: () => Effect.void,
       dispatch: (input) =>
         Effect.sync(() => {
           commands.push(input.command);

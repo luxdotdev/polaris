@@ -26,8 +26,9 @@ import {
   type SessionId,
   type SessionStreamItem,
   type TerminalLaunch,
+  type Turn,
 } from "@polaris/protocol";
-import { Context, Effect, Layer, type Stream } from "effect";
+import { Context, Effect, Layer, Option, type Stream } from "effect";
 import type { ServiceError } from "../services.ts";
 import { registerHandoffContributor } from "../service/upgrade.ts";
 import { Dispatcher, type DispatchInput } from "./dispatch.ts";
@@ -46,6 +47,15 @@ export { EngineConfig, type EngineSettings } from "./runtime.ts";
 export class Engine extends Context.Service<
   Engine,
   {
+    /** Internal committed-Turn adapter for atomic Constellation journal batches. */
+    readonly runCommittedTurn: (turn: Turn, prompt: string) => Effect.Effect<void>;
+    readonly canSteerSession: (sessionId: SessionId) => Effect.Effect<boolean>;
+    readonly steerCommittedInput: (sessionId: SessionId, text: string) => Effect.Effect<void>;
+    readonly retireLead: (sessionId: SessionId) => Effect.Effect<void>;
+    readonly recoveredTurns: ReadonlyArray<{
+      readonly sessionId: SessionId;
+      readonly interruptionId: string;
+    }>;
     readonly dispatch: (
       input: DispatchInput
     ) => Effect.Effect<{ readonly sequence: Sequence | null }, CommandRejected | NotFound>;
@@ -104,12 +114,13 @@ const EngineParts = Layer.mergeAll(Dispatcher.layer, Streams.layer).pipe(
 const make = Effect.gen(function* () {
   const runtime = yield* EngineRuntime;
   const { dispatch } = yield* Dispatcher;
+  const supervisor = yield* Supervisor;
   const streams = yield* Streams;
   const pruning = yield* CheckpointPruning;
   const checkouts = yield* ReviewCheckouts;
   const prepareForUpgrade = prepareSessionsForUpgrade(runtime);
 
-  yield* recoverOnStart(runtime);
+  const recoveredTurns = yield* recoverOnStart(runtime);
   yield* checkouts.recover;
   yield* checkouts.followSessions;
 
@@ -128,6 +139,40 @@ const make = Effect.gen(function* () {
   );
 
   return Engine.of({
+    recoveredTurns,
+    runCommittedTurn: (turn, prompt) =>
+      runtime
+        .serially(turn.sessionId)(
+          supervisor.runTurn({
+            sessionId: turn.sessionId,
+            turnId: turn.id,
+            prompt,
+            attachments: turn.attachments,
+          })
+        )
+        .pipe(
+          Effect.catchCause((c) => Effect.logError("Constellation Turn failed", c)),
+          Effect.forkIn(runtime.engineScope),
+          Effect.asVoid
+        ),
+    canSteerSession: Effect.fnUntraced(function* (sessionId) {
+      const record = (yield* runtime.store.model).sessions.get(sessionId);
+
+      if (record === undefined) return false;
+      const driver = yield* runtime.registry.get(record.session.harness).pipe(Effect.option);
+
+      return Option.isSome(driver) && driver.value.capabilities.steer;
+    }),
+    steerCommittedInput: (sessionId, text) =>
+      runtime
+        .serially(sessionId)(
+          Effect.suspend(() => runtime.live.get(sessionId)?.session.steer(text) ?? Effect.void)
+        )
+        .pipe(Effect.catchCause((c) => Effect.logError("Constellation steer failed", c))),
+    retireLead: (sessionId) =>
+      Effect.all([runtime.cancelIdle(sessionId), runtime.stopHarness(sessionId)]).pipe(
+        Effect.asVoid
+      ),
     dispatch,
     subscribeHost: streams.subscribeHost,
     subscribeSession: streams.subscribeSession,
