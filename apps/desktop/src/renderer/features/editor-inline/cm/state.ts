@@ -4,7 +4,13 @@
  * Any other edit to the buffer while a request runs or a proposal shows makes it stale, since
  * the patch was made against the exact text sent (`inline.propose`).
  */
-import { type EditorState, StateEffect, StateField, type Transaction } from "@codemirror/state";
+import {
+  type EditorState,
+  StateEffect,
+  StateField,
+  type Text,
+  type Transaction,
+} from "@codemirror/state";
 import type { Replacement } from "../model/patch.ts";
 
 export interface CardPlace {
@@ -70,3 +76,12 @@ export const cardField = StateField.define<CardPlace | null>({
 
 export const cardOf = (state: EditorState): CardPlace | null =>
   state.field(cardField, false) ?? null;
+
+/** The last line a range covers: one ending at a line's start (Shift+↓ to column 1) stops above it. */
+export const lastLine = (doc: Text, from: number, to: number): number => {
+  const end = doc.lineAt(to);
+
+  return to > from && to === end.from && end.number > doc.lineAt(from).number
+    ? end.number - 1
+    : end.number;
+};

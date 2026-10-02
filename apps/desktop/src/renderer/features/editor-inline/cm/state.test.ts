@@ -6,6 +6,7 @@ import {
   cardHeight,
   cardOf,
   closeCard,
+  lastLine,
   openCard,
   showProposal,
 } from "./state.ts";
@@ -75,5 +76,18 @@ describe("cardField", () => {
     const taller = shown.update({ effects: cardHeight.of(96) }).state;
 
     expect(cardOf(taller)).toMatchObject({ height: 96, proposal, version: 0 });
+  });
+});
+
+describe("lastLine", () => {
+  const doc = base().doc;
+
+  test("a range ending at column 1 stops at the line above", () => {
+    expect(lastLine(doc, 0, 8)).toBe(2);
+    expect(lastLine(doc, 0, 9)).toBe(3);
+  });
+
+  test("an empty range at a line's start is that line", () => {
+    expect(lastLine(doc, 4, 4)).toBe(2);
   });
 });

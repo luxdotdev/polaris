@@ -3,7 +3,6 @@
  * Workspace (or the selected session's Worktree), on that Workspace's Host. Recent files
  * first while the query is empty; `name:42` opens at line 42. Picking opens in Edit.
  */
-import type { WorkspaceId } from "@polaris/protocol";
 import {
   CommandDialog,
   CommandEmpty,
@@ -14,9 +13,11 @@ import {
   CommandList,
 } from "@polaris/ui";
 import { useEffect, useState } from "react";
-import { useApp, useCommands, useSelection } from "../../shell/hooks.ts";
+import { useCommands } from "../../shell/hooks.ts";
 import { polaris } from "../bridge.ts";
+import { spelledAs } from "../../routes/editor.ts";
 import { useOpenInEditor } from "../editor-links/index.ts";
+import { type Scope, useFinderScope } from "./scope.ts";
 import {
   matchingRecent,
   parseQuery,
@@ -26,26 +27,6 @@ import {
   type FinderRow,
 } from "./model.ts";
 import { closeFileFinder, openFileFinder, useFinder, useRecent } from "./store.ts";
-
-interface Scope {
-  readonly hostKey: string;
-  readonly workspaceId: WorkspaceId;
-  readonly root: string;
-  readonly name: string;
-}
-
-/** Where ⌘P searches: the selected session's cwd in Orchestrate, else the Workspace's folder. */
-const useScope = (): Scope | null => {
-  const { hostKey, workspaceId, sessionId, mode } = useSelection();
-  const model = useApp((s) => (hostKey === null ? undefined : s.hostModels[hostKey]));
-  const workspace = workspaceId === null ? undefined : model?.workspaces.get(workspaceId);
-
-  if (hostKey === null || workspace === undefined) return null;
-  const session = sessionId === null ? undefined : model?.sessions.get(sessionId)?.session;
-  const root = mode === "orchestrate" && session !== undefined ? session.cwd : workspace.path;
-
-  return { hostKey, workspaceId: workspace.id, root, name: workspace.name };
-};
 
 type Search =
   | { readonly kind: "idle" }
@@ -109,18 +90,14 @@ const Results = ({
   const recent = useRecent(scope.hostKey, scope.workspaceId);
   const open = useOpenInEditor();
 
-  const recentRows = matchingRecent(
-    recent.map((p) => relativeTo(scope.root, p)),
-    query.text
-  ).map(rowOf);
+  const near = (path: string) => relativeTo(scope.root, spelledAs(scope.root, path));
+  const recentRows = matchingRecent(recent.map(near), query.text).map(rowOf);
 
   const shownRecent = new Set(recentRows.map((r) => r.path));
 
   const hits =
     search.kind === "ready" && query.text !== ""
-      ? search.paths
-          .map((p) => rowOf(relativeTo(scope.root, p)))
-          .filter((r) => !shownRecent.has(r.path))
+      ? search.paths.map((p) => rowOf(near(p))).filter((r) => !shownRecent.has(r.path))
       : [];
 
   const pick = (row: FinderRow) => {
@@ -181,7 +158,7 @@ const Results = ({
 /** Mounted once by the shell; owns the `editor.findFile` command (⌘P). */
 export const FileFinder = () => {
   const { open, initialQuery } = useFinder();
-  const scope = useScope();
+  const scope = useFinderScope();
   const commands = useCommands();
 
   useEffect(

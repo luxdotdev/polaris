@@ -4,10 +4,14 @@
  * the removed fill, added lines below them on the added fill).
  */
 import { type EditorState, type Range, RangeSet, type Text } from "@codemirror/state";
+import { highlightingFor, language } from "@codemirror/language";
 import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemirror/view";
+import { highlightTree } from "@lezer/highlight";
 import { createStore } from "zustand/vanilla";
 import { type Hunk, hunksOf, type Replacement } from "../model/patch.ts";
-import { cardField, cardHeight, cardOf, type CardPlace } from "./state.ts";
+import { numbering } from "../model/numbers.ts";
+import { type StyledSpan, styledLines } from "../model/styled.ts";
+import { cardField, cardHeight, cardOf, type CardPlace, lastLine } from "./state.ts";
 
 /** Card containers by card id: the React layer portals each card into its own. */
 export const cardHosts = createStore<Readonly<Record<number, HTMLElement>>>(() => ({}));
@@ -71,26 +75,56 @@ class CardWidget extends WidgetType {
   }
 }
 
-class AddedLines extends WidgetType {
-  constructor(readonly lines: ReadonlyArray<string>) {
+/** The added text highlighted by the editor's language and theme, as the lines around it are. */
+const spansIn = (view: EditorView, text: string): Array<StyledSpan> => {
+  const lang = view.state.facet(language);
+  const spans: Array<StyledSpan> = [];
+
+  if (lang === null) return spans;
+  highlightTree(
+    lang.parser.parse(text),
+    { style: (tags) => highlightingFor(view.state, tags) },
+    (from, to, className) => spans.push({ from, to, className })
+  );
+
+  return spans;
+};
+
+export class AddedLines extends WidgetType {
+  constructor(
+    readonly lines: ReadonlyArray<string>,
+    /** The new number of the first line, for the line-number gutter beside it. */
+    readonly first: number
+  ) {
     super();
   }
 
   override eq(other: AddedLines) {
-    return other.lines.join("\n") === this.lines.join("\n");
+    return other.first === this.first && other.lines.join("\n") === this.lines.join("\n");
   }
 
-  override toDOM() {
+  override toDOM(view: EditorView) {
     const dom = document.createElement("div");
+    const text = this.lines.join("\n");
 
     dom.className = "cm-inline-added";
     dom.dataset["testid"] = "inline-added";
 
-    for (const text of this.lines) {
+    for (const pieces of styledLines(text, spansIn(view, text))) {
       const line = document.createElement("div");
 
       line.className = "cm-inline-added-line";
-      line.textContent = text === "" ? "​" : text;
+
+      for (const piece of pieces) {
+        const span = document.createElement("span");
+
+        span.textContent = piece.text;
+
+        if (piece.className !== null) span.className = piece.className;
+        line.append(span);
+      }
+
+      if (pieces.length === 0) line.textContent = "\u200b";
       dom.append(line);
     }
 
@@ -121,23 +155,25 @@ export const hunksIn = (doc: Text, replacements: ReadonlyArray<Replacement>): Ar
     return hunksOf(slice, [local]).map((h) => ({ ...h, line: h.line + first.number - 1 }));
   });
 
-const diffRanges = (doc: Text, hunk: Hunk): Array<Range<Decoration>> => {
+const diffRanges = (doc: Text, hunk: Hunk, first: number): Array<Range<Decoration>> => {
   const ranges: Array<Range<Decoration>> = [];
 
   for (let n = 0; n < hunk.removed.length; n++)
     ranges.push(removedLine.range(doc.line(hunk.line + n).from));
 
   if (hunk.added.length === 0) return ranges;
-  const widget = Decoration.widget({ widget: new AddedLines(hunk.added), block: true });
+  const widget = Decoration.widget({ widget: new AddedLines(hunk.added, first), block: true });
   const after = hunk.line + Math.max(hunk.removed.length, 1) - 1;
 
   // A pure insertion at the very top sits before line 1.
   if (after < 1) ranges.push(widget.range(0));
   else
     ranges.push(
-      Decoration.widget({ widget: new AddedLines(hunk.added), block: true, side: 1 }).range(
-        doc.line(after).to
-      )
+      Decoration.widget({
+        widget: new AddedLines(hunk.added, first),
+        block: true,
+        side: 1,
+      }).range(doc.line(after).to)
     );
 
   return ranges;
@@ -155,11 +191,18 @@ const cardRanges = (state: EditorState, card: CardPlace): Array<Range<Decoration
     }).range(first.from),
   ];
 
-  const last = doc.lineAt(card.to).number;
+  const last = lastLine(doc, card.from, card.to);
 
   for (let n = first.number; n <= last; n++) ranges.push(selectedLine.range(doc.line(n).from));
 
-  for (const hunk of hunksIn(doc, card.proposal ?? [])) ranges.push(...diffRanges(doc, hunk));
+  const hunks = hunksIn(doc, card.proposal ?? []);
+  const added = [...numbering(hunks).added];
+
+  for (const hunk of hunks) {
+    const first = hunk.added.length === 0 ? 0 : (added.shift()?.first ?? 0);
+
+    ranges.push(...diffRanges(doc, hunk, first));
+  }
 
   return ranges;
 };

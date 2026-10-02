@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { WorkspaceId, Worktree, WorktreeId } from "@polaris/protocol";
+import { Workspace, WorkspaceId, Worktree, WorktreeId } from "@polaris/protocol";
 import type { HostModel } from "../store/hostModel.ts";
 import {
   editorRequest,
@@ -7,6 +7,7 @@ import {
   openInEditor,
   parseLocation,
   resolvePath,
+  spelledAs,
   workspaceFor,
 } from "./editor.ts";
 import { hostModel } from "./fixtures.testing.ts";
@@ -145,6 +146,75 @@ describe("openInEditor", () => {
 
     expect(openInEditor(context, { hostKey: "local", path: "/tmp/a" })).toBe(false);
     expect(calls).toEqual([]);
+  });
+});
+
+describe("symlinked roots", () => {
+  const linked = hostModel([{ id: "smoke" }]);
+
+  const tmp = {
+    ...linked,
+    workspaces: new Map(
+      [...linked.workspaces].map(([k, w]) => [
+        k,
+        new Workspace({
+          id: w.id,
+          path: "/var/folders/T/smoke",
+          name: w.name,
+          isGitRepo: w.isGitRepo,
+          worktreeRoot: w.worktreeRoot,
+          hidden: w.hidden,
+          registeredAt: w.registeredAt,
+        }),
+      ])
+    ),
+  };
+
+  test("a real path opens spelled as the Workspace spells it", () => {
+    expect(spelledAs("/var/folders/T/smoke", "/private/var/folders/T/smoke/README.md")).toBe(
+      "/var/folders/T/smoke/README.md"
+    );
+    expect(spelledAs("/private/tmp/x", "/tmp/x/a")).toBe("/private/tmp/x/a");
+    expect(spelledAs("/code/x", "/private/var/a")).toBe("/private/var/a");
+  });
+
+  test("the main Worktree's realpath spelling doesn't win over the Workspace's", () => {
+    const withMain: HostModel = {
+      ...tmp,
+      worktrees: new Map([
+        [
+          "main",
+          new Worktree({
+            id: WorktreeId.make("main"),
+            workspaceId: WorkspaceId.make("smoke"),
+            path: "/private/var/folders/T/smoke",
+            branch: "main",
+            head: "abc",
+            createdBySessionId: null,
+            isMain: true,
+          }),
+        ],
+      ]),
+    };
+
+    expect(
+      editorRequest(
+        { hostModels: { local: withMain } },
+        { hostKey: "local", path: "README.md", root: "/private/var/folders/T/smoke" }
+      )?.path
+    ).toBe("/var/folders/T/smoke/README.md");
+  });
+
+  test("the request carries the Workspace's spelling", () => {
+    expect(
+      editorRequest(
+        { hostModels: { local: tmp } },
+        { hostKey: "local", path: "/private/var/folders/T/smoke/README.md" }
+      )
+    ).toMatchObject({
+      workspaceId: WorkspaceId.make("smoke"),
+      path: "/var/folders/T/smoke/README.md",
+    });
   });
 });
 

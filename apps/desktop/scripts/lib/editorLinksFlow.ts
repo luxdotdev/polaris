@@ -78,13 +78,32 @@ const fromTranscript = async (options: EditorLinksFlowOptions): Promise<() => Pr
   };
 };
 
-const findFile = async ({ page, step }: EditorLinksFlowOptions) => {
+const findFile = async (options: EditorLinksFlowOptions) => {
+  const { page, step } = options;
+
   await page.keyboard.press("Meta+P");
   await page.getByTestId("finder-input").fill("README");
   await page.getByTestId("finder-item").first().waitFor({ timeout: 15_000 });
   await page.keyboard.press("Enter");
   await waitForTab(page, "README.md");
-  step("editor: ⌘P found README.md and opened it");
+  const opened = await activeTab(page).getAttribute("title");
+
+  // The search reports real paths (/private/var/…); the tab keeps the Workspace's spelling.
+  if (opened !== join(options.repo, "README.md"))
+    throw new Error(`⌘P opened ${opened}, not ${join(options.repo, "README.md")}`);
+  step("editor: ⌘P found README.md and opened it, spelled as the Workspace spells it");
+};
+
+const findInWorkspace = async ({ page, step, shoot }: EditorLinksFlowOptions) => {
+  await page.keyboard.press("Meta+Shift+F");
+  await page.getByTestId("search-input").fill("# smoke");
+  await page.getByTestId("search-match").first().waitFor({ timeout: 15_000 });
+  const count = ((await page.getByTestId("search-count").textContent()) ?? "").trim();
+
+  await shoot("editor-search");
+  await page.keyboard.press("Enter");
+  await waitForTab(page, "README.md");
+  step(`editor: ⌘⇧F found "# smoke" (${count}) and opened the match`);
 };
 
 const addToSession = async ({ page, step }: EditorLinksFlowOptions) => {
@@ -98,11 +117,11 @@ const addToSession = async ({ page, step }: EditorLinksFlowOptions) => {
   const composer = page.getByTestId("composer-input");
 
   await composer.waitFor({ timeout: 10_000 });
-  await page.waitForFunction(
-    `document.querySelector('[data-testid="composer-input"]')?.textContent?.includes("README.md")`,
-    undefined,
-    { timeout: 10_000 }
-  );
+  // Locators, not waitForFunction: the app's CSP forbids evaluating strings.
+  await page
+    .getByTestId("composer-input")
+    .filter({ hasText: "README.md" })
+    .waitFor({ timeout: 10_000 });
   step("editor: ⌘L put README.md's lines in the session's composer");
   await composer.click();
   await page.keyboard.press("Meta+A");
@@ -133,11 +152,11 @@ const inlineEdit = async ({ page, step, shoot }: EditorLinksFlowOptions) => {
   await shoot("editor-inline-proposed");
   await page.keyboard.press("Meta+Enter");
   await card.waitFor({ state: "detached", timeout: 10_000 });
-  await page.waitForFunction(
-    `[...document.querySelectorAll('[data-testid="editor-code"] .cm-content')].some((c) => c.textContent.includes("Inline bench proposal"))`,
-    undefined,
-    { timeout: 10_000 }
-  );
+  await page
+    .locator('[data-testid="editor-code"] .cm-content')
+    .filter({ hasText: "Inline bench proposal" })
+    .first()
+    .waitFor({ timeout: 10_000 });
   await activeTab(page).and(page.locator("[data-dirty]")).waitFor({ timeout: 5_000 });
   step(
     `editor: ⌘I on the bench Harness proposed a patch (${thought}); Accept put it in the buffer, unsaved`
@@ -154,6 +173,7 @@ export const editorLinksFlow = async (options: EditorLinksFlowOptions) => {
 
   try {
     await findFile(options);
+    await findInWorkspace(options);
     await addToSession(options);
     await inlineEdit(options);
     await options.page.keyboard.press("Meta+1");

@@ -3,6 +3,7 @@ import { type Extension, Prec } from "@codemirror/state";
 import { EditorView, keymap, ViewPlugin } from "@codemirror/view";
 import { acceptOpenProposal } from "../actions.ts";
 import { cardDecorations } from "./decorations.ts";
+import { proposalNumbers } from "./numbers.ts";
 import "./inline.css";
 import { type InlineFile, inlineFile, layerPlugin } from "./layer.ts";
 import { dropCard } from "../store.ts";
@@ -30,6 +31,7 @@ export const inlineExtensions = (file: InlineFile): Extension => [
   inlineFile.of(file),
   cardField,
   cardDecorations,
+  proposalNumbers,
   layerPlugin,
   sessionCleanup,
   // ⌘↵ accepts a showing proposal from the text too; otherwise it falls through.

@@ -81,6 +81,7 @@ const SCENES: ReadonlyArray<readonly [string, string]> = [
   ["failed", "inline-notice"],
   ["stale", "inline-notice"],
   ["add", "add-target"],
+  ["search", "search-match"],
 ];
 
 const quick = args.includes("--quick");

@@ -9,6 +9,14 @@ export {
   type OpenInEditorButtonProps,
 } from "./FileLink.tsx";
 
-export { type EditorPlace, EditorPlaceProvider, useEditorPlace } from "./place.ts";
+export {
+  type EditorPlace,
+  EditorPlaceProvider,
+  useEditorPlace,
+  usePublishReviewPlace,
+  useReviewPlace,
+} from "./place.ts";
 
 export { EditorRequests } from "./EditorRequests.tsx";
+
+export { type FoundLocation, findLocations, wholeLocation } from "./model/locations.ts";

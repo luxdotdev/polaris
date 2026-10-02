@@ -1,6 +1,6 @@
 /** Layout F: title bar, the adaptive top bar, then Input → Intent → Output (ENG-177). */
 import { useEffect } from "react";
-import { FileFinder } from "../features/editor-finder/index.ts";
+import { FileFinder, WorkspaceSearch } from "../features/editor-finder/index.ts";
 import { EditorRequests } from "../features/editor-links/index.ts";
 import { LazyInline } from "../features/editor-inline/index.ts";
 import { useOnboardingState, Welcome } from "../features/onboarding/index.ts";
@@ -77,6 +77,7 @@ export const Shell = () => {
       <slots.OpenFolder />
       <ShortcutHelp />
       <FileFinder />
+      <WorkspaceSearch />
       <InlineInEdit />
       <EditorRequests />
     </div>

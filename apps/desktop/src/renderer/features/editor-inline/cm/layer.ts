@@ -8,7 +8,7 @@ import { type EditorState, Facet } from "@codemirror/state";
 import type { WorkspaceId } from "@polaris/protocol";
 import { type EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import { createStore } from "zustand/vanilla";
-import { cardOf } from "./state.ts";
+import { cardOf, lastLine } from "./state.ts";
 
 /** Which file a view shows; given by the editor per tab (its `editorFile` facet's value). */
 export interface InlineFile {
@@ -63,7 +63,7 @@ const cardLines = (state: EditorState): CardLines | null => {
   return {
     id: card.id,
     first: state.doc.lineAt(card.from).number,
-    last: state.doc.lineAt(card.to).number,
+    last: lastLine(state.doc, card.from, card.to),
   };
 };
 
@@ -92,6 +92,10 @@ const GAP = 16;
 /** Whether the bar should show at all: a selection, focus, and no card open. */
 export const wantsBar = (state: EditorState, focused: boolean) =>
   focused && !state.selection.main.empty && cardOf(state) === null;
+
+/** Nothing for the layer to show: no selection and no card. */
+const idle = (state: EditorState, focused: boolean) =>
+  cardOf(state) === null && !wantsBar(state, focused);
 
 const measure = (view: EditorView): BarPlace | null => {
   const { state, scrollDOM } = view;
@@ -142,11 +146,21 @@ class LayerPlugin {
 
     if (!moved && !update.docChanged && !update.transactions.some((t) => t.effects.length > 0))
       return;
+
+    // Typing with nothing selected, no card and nothing shown: no measure on the keystroke.
+    if (idle(update.state, update.view.hasFocus) && this.shown() === null) return;
     this.view.requestMeasure({
       key: this,
       read: (view): Measured => ({ bar: measure(view), card: cardLines(view.state) }),
       write: (measured, view) => publish(view, measured),
     });
+  }
+
+  /** What this view's layer shows now, if anything. */
+  shown() {
+    const layer = layers.getState().find((l) => l.view === this.view);
+
+    return layer?.bar ?? layer?.card ?? null;
   }
 
   destroy() {

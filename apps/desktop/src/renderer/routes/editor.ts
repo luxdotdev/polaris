@@ -72,30 +72,69 @@ const contains = (root: string, path: string) => {
   return path === base || path.startsWith(base === "/" ? "/" : `${base}/`);
 };
 
+/** macOS's top-level links: the Daemon reports real paths (`/private/var/…`), a Workspace may keep the link's. */
+const LINKED = ["/var", "/tmp", "/etc"];
+
+/** `path` spelled the way `root` spells it, when one uses a macOS link and the other its target. */
+export const spelledAs = (root: string, path: string): string => {
+  if (contains(root, path)) return path;
+
+  for (const link of LINKED) {
+    const real = `/private${link}`;
+
+    const swapped = contains(real, path)
+      ? link + path.slice(real.length)
+      : contains(link, path)
+        ? real + path.slice(link.length)
+        : null;
+
+    if (swapped !== null && contains(root, swapped)) return swapped;
+  }
+
+  return path;
+};
+
 export interface HostPlaces {
   readonly workspaces: ReadonlyMap<string, Workspace>;
   readonly worktrees: ReadonlyMap<string, Worktree>;
 }
 
-/** The Workspace whose folder, or one of whose Worktrees, holds `path` most closely. */
-export const workspaceFor = (places: HostPlaces, path: string): WorkspaceId | null => {
-  const roots = [
-    ...[...places.workspaces.values()].map((w) => ({ id: w.id, root: w.path })),
-    ...[...places.worktrees.values()].map((w) => ({ id: w.workspaceId, root: w.path })),
-  ];
+// The main Worktree is the Workspace's own folder, often spelled as its realpath; the Workspace's spelling wins.
+const rootsOf = (places: HostPlaces) => [
+  ...[...places.workspaces.values()].map((w) => ({ id: w.id, root: w.path })),
+  ...[...places.worktrees.values()].flatMap((w) =>
+    w.isMain ? [] : [{ id: w.workspaceId, root: w.path }]
+  ),
+];
 
-  let best: WorkspaceId | null = null;
-  let length = -1;
+/**
+ * The Workspace whose folder, or one of whose Worktrees, holds `path` most closely, and the
+ * path spelled as that folder spells it (so tabs, breadcrumbs and the tree agree).
+ */
+export const placeFor = (
+  places: HostPlaces,
+  path: string,
+  only: WorkspaceId | null = null
+): { readonly id: WorkspaceId; readonly path: string } | null => {
+  let best: { readonly id: WorkspaceId; readonly path: string; readonly length: number } | null =
+    null;
 
-  for (const { id, root } of roots) {
-    if (contains(root, path) && root.length > length) {
-      best = id;
-      length = root.length;
-    }
+  for (const { id, root } of rootsOf(places)) {
+    const spelled = spelledAs(root, path);
+
+    if (
+      (only === null || id === only) &&
+      contains(root, spelled) &&
+      root.length > (best?.length ?? -1)
+    )
+      best = { id, path: spelled, length: root.length };
   }
 
-  return best;
+  return best === null ? null : { id: best.id, path: best.path };
 };
+
+export const workspaceFor = (places: HostPlaces, path: string): WorkspaceId | null =>
+  placeFor(places, path)?.id ?? null;
 
 const positive = (n: number | null | undefined) =>
   n === null || n === undefined || !Number.isFinite(n) || n < 1 ? null : Math.floor(n);
@@ -105,11 +144,14 @@ export const editorRequest = (
   app: Pick<AppState, "hostModels">,
   location: EditorLocation
 ): Omit<EditorOpenRequest, "seq"> | null => {
-  const path = resolvePath(location.path, location.root);
+  const resolved = resolvePath(location.path, location.root);
   const model = app.hostModels[location.hostKey];
 
-  const workspaceId =
-    location.workspaceId ?? (model === undefined ? null : workspaceFor(model, path));
+  const place =
+    model === undefined ? null : placeFor(model, resolved, location.workspaceId ?? null);
+
+  const workspaceId = location.workspaceId ?? place?.id ?? null;
+  const path = place?.path ?? resolved;
 
   if (workspaceId === null || !path.startsWith("/")) return null;
 

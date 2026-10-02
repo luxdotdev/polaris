@@ -34,6 +34,7 @@ import { type Proposer, scriptedProposer, setProposer } from "../data/proposer.t
 import { cards, patchCard } from "../store.ts";
 import { addSelectionToSession } from "../ui/AddToSession.tsx";
 import { InlineLayers } from "../ui/InlineLayers.tsx";
+import { openWorkspaceSearch, WorkspaceSearch } from "../../editor-finder/index.ts";
 import { CODE, PROPOSAL } from "./code.ts";
 
 const HOST = "preview";
@@ -143,6 +144,11 @@ const bridge: PolarisApi = {
       } as never);
     }
 
+    if (method === "files.grep") {
+      // SAFETY: grep hits are files.grep's output shape, which the method narrows to.
+      return Promise.resolve({ ok: true, value: GREP_HITS } as never);
+    }
+
     return Promise.resolve({ ok: false, error: { code: "Unsupported", message: "preview" } });
   },
   subscribe: (kind, _input, listener) => {
@@ -155,6 +161,33 @@ const bridge: PolarisApi = {
   },
   onAppEvent: () => () => undefined,
 };
+
+const GREP_HITS = [
+  {
+    path: "/code/polaris/daemon/src/hosts/reconnect.ts",
+    line: 17,
+    column: 13,
+    text: "      await sleep(BASE_DELAY_MS * attempt);",
+  },
+  {
+    path: "/code/polaris/daemon/src/hosts/reconnect.ts",
+    line: 27,
+    column: 10,
+    text: "function sleep(ms: number): Promise<void> {",
+  },
+  {
+    path: "/code/polaris/daemon/src/sessions/retry.ts",
+    line: 8,
+    column: 9,
+    text: "  await sleep(backoff(attempt));",
+  },
+  {
+    path: "/code/polaris/desktop/src/orchestrator/working-strip.tsx",
+    line: 42,
+    column: 21,
+    text: "  const nap = () => sleep(250);",
+  },
+];
 
 const SELECTED = { from: CODE.indexOf("  for (let"), to: CODE.indexOf('\n  return "offline"') };
 
@@ -187,6 +220,12 @@ const proposerFor = (scene: string): Proposer =>
     : scriptedProposer((request) => PROPOSAL(request.content), 300);
 
 const play = (view: EditorView, scene: string) => {
+  if (scene === "search") {
+    openWorkspaceSearch("sleep(");
+
+    return;
+  }
+
   view.dispatch({ selection: EditorSelection.range(SELECTED.from, SELECTED.to) });
   view.focus();
 
@@ -276,6 +315,7 @@ export const mountEditorInlinePreview = (root: HTMLElement, hash: string) => {
           <Editor scene={scene} />
         </main>
         <InlineLayers />
+        <WorkspaceSearch />
         <Toaster />
       </TooltipProvider>
     </AppProvider>

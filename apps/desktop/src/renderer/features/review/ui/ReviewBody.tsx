@@ -19,7 +19,11 @@ import {
   surfaceStore,
   updateSurface,
 } from "../surface.ts";
-import { type EditorPlace, EditorPlaceProvider } from "../../editor-links/index.ts";
+import {
+  type EditorPlace,
+  EditorPlaceProvider,
+  usePublishReviewPlace,
+} from "../../editor-links/index.ts";
 import { CentrePane, setTab, type SessionInfo } from "../overview/index.ts";
 import { DiffPane } from "./DiffPane.tsx";
 import { FileList } from "./FileList.tsx";
@@ -236,8 +240,12 @@ const Body = (props: ReviewBodyProps) => {
   );
 };
 
-export const ReviewBody = (props: ReviewBodyProps) => (
-  <EditorPlaceProvider value={props.place}>
-    <Body {...props} />
-  </EditorPlaceProvider>
-);
+export const ReviewBody = (props: ReviewBodyProps) => {
+  usePublishReviewPlace(props.place);
+
+  return (
+    <EditorPlaceProvider value={props.place}>
+      <Body {...props} />
+    </EditorPlaceProvider>
+  );
+};

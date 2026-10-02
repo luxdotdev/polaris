@@ -37,6 +37,7 @@ export type CommandId =
   | "review.nextTab"
   | "review.previousTab"
   | "editor.findFile"
+  | "editor.findInWorkspace"
   | "editor.inlineChat"
   | "editor.addToSession"
   | "editor.save"
@@ -68,6 +69,12 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   { id: "session.previous", title: "Previous session", keys: ["CmdOrCtrl+Alt+Up"], menu: "Go" },
   { id: "session.new", title: "New session", keys: ["CmdOrCtrl+N"], menu: "Session" },
   { id: "editor.findFile", title: "Go to file…", keys: ["CmdOrCtrl+P"], menu: "Go" },
+  {
+    id: "editor.findInWorkspace",
+    title: "Find in workspace…",
+    keys: ["CmdOrCtrl+Shift+F"],
+    menu: "Go",
+  },
   { id: "editor.inlineChat", title: "Edit or ask", keys: ["CmdOrCtrl+I"] },
   // Only with a selection in Edit; otherwise ⌘L focuses the composer.
   {
