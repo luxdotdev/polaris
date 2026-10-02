@@ -100,6 +100,7 @@ interface AttemptSpec {
   readonly receipts?: ReadonlyArray<CheckReceipt>;
   readonly evidence?: Attempt["evidence"];
   readonly n?: number;
+  readonly nudgedMinutesAgo?: number;
 }
 
 export const attempt = (spec: AttemptSpec) =>
@@ -119,6 +120,7 @@ export const attempt = (spec: AttemptSpec) =>
     mergedHead: spec.mergedHead ?? null,
     receipts: [...(spec.receipts ?? [])],
     evidence: spec.evidence ?? null,
+    nudgedAt: spec.nudgedMinutesAgo === undefined ? null : ago(spec.nudgedMinutesAgo),
     startedAt: ago(spec.minutes),
     endedAt: spec.state === "working" || spec.state === "review" ? null : ago(spec.minutes - 20),
   });
@@ -258,7 +260,7 @@ export const c1Attempts = [
   attempt({ taskId: "B2", state: "working", minutes: 31 }),
   attempt({ taskId: "B3", state: "working", minutes: 18 }),
   attempt({ taskId: "B4", state: "review", minutes: 52, host: DEVBOX, claim: b4Claim }),
-  attempt({ taskId: "B5", state: "working", minutes: 37 }),
+  attempt({ taskId: "B5", state: "working", minutes: 37, nudgedMinutesAgo: 6 }),
 ];
 
 const note = (id: string, item: NotificationItem, minutes: number) =>
@@ -332,6 +334,19 @@ const b2Liveness = () =>
     contextPercent: 61,
     queuedInput: 0,
   });
+
+/** C3: the Lead handed B1's Claim up because it can't decide the question. */
+export const handedUpAttempts = () =>
+  c1Attempts.map((a) =>
+    a.taskId === "B1"
+      ? new Attempt(
+          merged(a, {
+            handedUpAt: new Date(Date.now() - 2 * 60_000).toISOString(),
+            handedUpReason: "it can't decide the question",
+          })
+        )
+      : a
+  );
 
 export const c1Record = (
   patch: Partial<Constellation> = {},

@@ -359,7 +359,10 @@ const ClaimHead = ({
 };
 
 const footWord = (attempt: AttemptData, claim: ClaimData) => {
-  if (attempt.state === "review") return "The lead is reviewing";
+  if (attempt.state === "review")
+    return attempt.approvedByUserAt == null
+      ? "The lead is reviewing"
+      : "You approved · the lead merges and accepts";
 
   return attempt.state === "accepted"
     ? `Accepted at ${shortSha(attempt.mergedHead ?? claim.head)}`
@@ -456,8 +459,13 @@ export const ClaimCard = (props: ClaimCardProps) => {
         <Facts_ claim={claim} task={task} />
         {props.handed && attempt.state === "review" ? (
           <div className="bg-needs-you-fill text-needs-you-text text-body rounded-control mx-3.5 mb-2.5 flex items-center gap-2 px-3 py-2">
-            <PixelHandIcon size={12} className="text-needs-you" />
-            The lead handed this claim to you
+            <PixelHandIcon size={12} className="text-needs-you shrink-0" />
+            <span className="shrink-0">The lead handed this claim to you</span>
+            {attempt.handedUpReason == null ? null : (
+              <span className="text-needs-you-text/75 min-w-0 truncate">
+                {attempt.handedUpReason}
+              </span>
+            )}
           </div>
         ) : null}
         {mode === null ? (

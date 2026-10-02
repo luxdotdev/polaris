@@ -13,7 +13,14 @@ import {
   TurnId,
   WorkerLiveness,
 } from "@polaris/protocol";
-import { c1Record, constellationOf, LEAD, task, attempt } from "../preview/graph.ts";
+import {
+  attempt,
+  c1Record,
+  constellationOf,
+  handedUpAttempts,
+  LEAD,
+  task,
+} from "../preview/graph.ts";
 import { largeRecord } from "../preview/large.ts";
 import { areaOverlaps, globsOverlap, type Overlap } from "./areas.ts";
 import { attentionItems, nextNeedingYou } from "./attention.ts";
@@ -379,12 +386,10 @@ describe("rail", () => {
   });
 
   test("a stopped worker needs you; a handed-up Claim says so and is promoted", () => {
-    const record = c1Record();
-    const b1 = record.constellation.attempts.find((a) => a.taskId === "B1")!;
+    const record = c1Record({ attempts: handedUpAttempts() });
 
     const withSignals = plainFacts({
       worker: (a) => ({ ...facts.worker(a), stoppedWithoutClaiming: a.taskId === "B5" }),
-      handedUp: new Set([b1.id]),
     });
 
     const rows = buildRail(record, withSignals).rows;
@@ -396,6 +401,17 @@ describe("rail", () => {
     });
     expect(rowFor(rows, "B1")?.look.word).toBe("handed to you");
     expect(rowFor(rows, "B1")?.promoted).toBe(true);
+  });
+
+  test("an approved Claim says so and stays in review", () => {
+    const attempts = c1Record().constellation.attempts.map((a) =>
+      a.taskId === "B1" ? merged(a, { approvedByUserAt: "2026-10-01T12:00:00Z" }) : a
+    );
+
+    const b1 = rowFor(buildRail(c1Record({ attempts }), facts).rows, "B1");
+
+    expect(b1?.look.word).toBe("in review");
+    expect(b1?.line).toMatchObject({ kind: "claim", glance: { approved: true } });
   });
 
   test("a paused Constellation promotes Accept / Send back on every Claim", () => {

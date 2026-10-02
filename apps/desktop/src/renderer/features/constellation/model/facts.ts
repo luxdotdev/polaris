@@ -71,8 +71,6 @@ export interface Facts {
   readonly now: number;
   readonly worker: (attempt: AttemptData) => WorkerFacts;
   readonly receipt: (ref: Plain<ToolCallReference>) => ReceiptResult | null;
-  /** Claims the Lead handed up to the user. */
-  readonly handedUp: ReadonlySet<string>;
   /** The Lead's own Harness and Model (Gate rows) and how full its context is. */
   readonly lead: {
     readonly harness: HarnessKind | null;
@@ -85,7 +83,6 @@ export const plainFacts = (patch: Partial<Facts> = {}): Facts => ({
   now: Date.now(),
   worker: () => NO_FACTS,
   receipt: () => null,
-  handedUp: new Set(),
   lead: { harness: null, model: null, contextPercent: null },
   ...patch,
 });

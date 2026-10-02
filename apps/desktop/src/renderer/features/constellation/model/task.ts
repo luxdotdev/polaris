@@ -129,7 +129,12 @@ const reviewLine = ({ row, worker, facts }: LineInput): Line | null => {
     };
   const claim = row.attempt?.claim;
 
-  return claim == null ? null : { kind: "claim", glance: claimGlance(claim, facts) };
+  return claim == null
+    ? null
+    : {
+        kind: "claim",
+        glance: claimGlance(claim, facts, row.attempt?.approvedByUserAt ?? null),
+      };
 };
 
 const lineFor = (input: LineInput): Line | null => {

@@ -92,8 +92,7 @@ const attentionOf = (
   c: ConstellationData,
   projection: ProjectionData,
   attempt: AttemptData | null,
-  worker: WorkerFacts,
-  facts: Facts
+  worker: WorkerFacts
 ): Attention | null => {
   if (attempt === null || (projection.state !== "working" && projection.state !== "review"))
     return null;
@@ -103,7 +102,7 @@ const attentionOf = (
 
   if (question !== null) return { kind: "question", text: question };
 
-  if (projection.state === "review" && facts.handedUp.has(attempt.id)) return { kind: "handed" };
+  if (projection.state === "review" && attempt.handedUpAt != null) return { kind: "handed" };
 
   return worker.stoppedWithoutClaiming && projection.state === "working"
     ? { kind: "stopped" }
@@ -168,7 +167,7 @@ export const taskLook = (
   facts: Facts
 ): TaskLook => {
   const worker = attempt === null ? null : facts.worker(attempt);
-  const attention = worker === null ? null : attentionOf(c, projection, attempt, worker, facts);
+  const attention = worker === null ? null : attentionOf(c, projection, attempt, worker);
   const isGate = task.kind === "gate";
   const glyph = glyphFor(projection, { needsYou: attention !== null, isGate });
 

@@ -2,7 +2,7 @@
  * The Constellation tab in a Lead's Output (DESIGN.md, Constellation (DAG)): the header, the
  * rail list (virtualized), filters past 100 Tasks, the key-hint row, the empty state (C7).
  */
-import { AnswerAction } from "@polaris/protocol";
+import { AnswerAction, ReviewAction } from "@polaris/protocol";
 import { Button, cn, ContextMenu, ContextMenuTrigger, EmptyState } from "@polaris/ui";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { type KeyboardEvent, useMemo, useRef, useState } from "react";
@@ -81,6 +81,19 @@ const useTabActions = (
 
       if (worker !== null && row.attempt !== null)
         openSessionReview(shell, worker, row.attempt.sessionId);
+    },
+    onApprove: (row) => {
+      if (row.attempt === null) return;
+      void constellationCommands.review(
+        hostKey,
+        {
+          constellationId: c.id,
+          attemptId: row.attempt.id,
+          revision: row.attempt.revision,
+          action: ReviewAction.cases.Approve.make({}),
+        },
+        `Couldn't approve ${row.task.id}`
+      );
     },
     onMessageLead: (row, authority) =>
       setDraft({

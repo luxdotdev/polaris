@@ -126,7 +126,7 @@ export const useWorkerChrome = (input: WorkerChromeInput): SessionChrome => {
   const shell = useShellActions();
   const latest = latestAttempts(c);
   const accepted = task.deps.filter((d) => latest.get(d)?.state === "accepted");
-  const handed = facts.handedUp.has(attempt.id);
+  const handed = attempt.handedUpAt != null;
   const review = ui.review?.attemptId === attempt.id ? ui.review.mode : null;
 
   const openInReview = () => {

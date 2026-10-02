@@ -101,6 +101,7 @@ const ClaimLine = ({ glance }: { readonly glance: ClaimGlance }) => (
       <span className="text-needs-you-text">{pluralize(glance.questions, "question")}</span>
     )}
     {glance.asserted ? <span className="text-text-faint">no receipts</span> : null}
+    {glance.approved ? <span className="text-accepted-text">you approved</span> : null}
   </Caption>
 );
 

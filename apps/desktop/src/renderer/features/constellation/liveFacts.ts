@@ -93,10 +93,12 @@ export const workerFactsFrom = (
     activity: activityOf(lastTurn),
     contextPercent: usage === null ? null : percent(usage.usedTokens, usage.windowTokens),
     approvalSince: entry?.pendingApprovals[0]?.openedAt ?? null,
+    // Nudged once (AttemptNudged), then the session ended its Turn again without a Claim.
     stoppedWithoutClaiming:
       attempt.state === "working" &&
+      attempt.nudgedAt != null &&
       session?.state === "idle" &&
-      session.updatedAt > attempt.startedAt,
+      session.updatedAt > attempt.nudgedAt,
     subagents: (entry?.subagents ?? []).map((s) => ({
       id: s.id,
       title: s.title,

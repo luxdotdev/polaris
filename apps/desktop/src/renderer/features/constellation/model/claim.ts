@@ -51,15 +51,22 @@ export interface ClaimGlance {
   readonly questions: number;
   /** True when no receipt came with the Claim (asserted). */
   readonly asserted: boolean;
+  /** The user approved it (ClaimApproved); the Lead still merges and accepts. */
+  readonly approved: boolean;
 }
 
-export const claimGlance = (claim: ClaimData, facts: Facts): ClaimGlance => ({
+export const claimGlance = (
+  claim: ClaimData,
+  facts: Facts,
+  approvedByUserAt: string | null = null
+): ClaimGlance => ({
   head: claim.head,
   commits: claim.commits.length,
   checks: claim.receipts.map((r) => receiptView(r, facts)),
   notDone: claim.notDone.length,
   questions: claim.questions.length,
   asserted: claim.receipts.length === 0,
+  approved: approvedByUserAt !== null,
 });
 
 /** An accepted Attempt's merged head and receipts (a Gate's second line). */

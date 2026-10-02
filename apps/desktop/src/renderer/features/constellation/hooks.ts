@@ -164,7 +164,6 @@ export const useFacts = (record: ConstellationRecord | null): Facts => {
       now,
       worker: (attempt) => workers.get(attempt.id) ?? NO_FACTS,
       receipt: (ref) => receiptFrom(store.getState(), ref, signals),
-      handedUp: signals.handedUp,
       lead: {
         harness: lead?.harness ?? null,
         model: lead?.model ?? null,

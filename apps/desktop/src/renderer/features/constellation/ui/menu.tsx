@@ -30,6 +30,8 @@ import type { TaskRow } from "../model/index.ts";
 
 export interface MenuActions {
   readonly onReview: (row: TaskRow, mode: "accept" | "send-back") => void;
+  /** Records the user's verdict; the Lead still merges and accepts (spec §7). */
+  readonly onApprove: (row: TaskRow) => void;
   readonly onFocus: (row: TaskRow) => void;
   readonly onOpenInReview: (row: TaskRow) => void;
   readonly onMessageLead: (row: TaskRow, authority: MessageAuthority) => void;
@@ -76,6 +78,9 @@ export const menuEntries = (row: TaskRow, on: MenuActions): ReadonlyArray<Entry>
   return [
     { kind: "item", label: "Accept…", key: "a", run: () => on.onReview(row, "accept") },
     { kind: "item", label: "Send back…", key: "s", run: () => on.onReview(row, "send-back") },
+    ...(row.attempt?.approvedByUserAt == null
+      ? [{ kind: "item", label: "Approve", run: () => on.onApprove(row) } satisfies Entry]
+      : []),
     { kind: "separator" },
     open,
     focus,

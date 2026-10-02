@@ -2,7 +2,7 @@
  * The Constellation tab on fixtures, for screenshots against Paper C1–C9: `#constellation/<scene>`
  * renders the real shell on a stand-in store and a fake Daemon. Its own chunk.
  */
-import { AttemptId, Capability, HostId, Sequence } from "@polaris/protocol";
+import { Capability, HostId, Sequence } from "@polaris/protocol";
 import { createRoot } from "react-dom/client";
 import { createStore } from "zustand/vanilla";
 import type { HostView, PolarisApi } from "../../../../shared/api.ts";
@@ -18,7 +18,15 @@ import { installConstellationClient } from "../client.ts";
 import { type ConstellationRecord, recordFrom, type WorkerFacts } from "../model/index.ts";
 import { type LeadUi, leadKey, patchLeadUi, setSignals } from "../state.ts";
 import { fakeClient } from "./fakeClient.ts";
-import { c1Record, constellationOf, DEVBOX, LEAD, STUDIO, WORKSPACE } from "./graph.ts";
+import {
+  c1Record,
+  constellationOf,
+  DEVBOX,
+  handedUpAttempts,
+  LEAD,
+  STUDIO,
+  WORKSPACE,
+} from "./graph.ts";
 import { largeRecord } from "./large.ts";
 import {
   b1Model,
@@ -79,6 +87,8 @@ const recordFor = (scene: Scene): ConstellationRecord => {
       3
     );
 
+  if (scene === "handed") return c1Record({ attempts: handedUpAttempts() });
+
   return c1Record(scene === "paused" ? { state: "paused" } : {});
 };
 
@@ -136,7 +146,7 @@ const bridge: PolarisApi = {
   onAppEvent: () => () => undefined,
 };
 
-const signalsFor = (scene: Scene) => {
+const setPreviewSignals = () => {
   setSignals({
     workers: new Map<string, Partial<WorkerFacts>>([
       [
@@ -153,16 +163,10 @@ const signalsFor = (scene: Scene) => {
         },
       ],
       ["att-B3-1", { activity: { kind: "lease", resource: "bench", holder: "B2", since: ago(2) } }],
-      ["att-B5-1", { stoppedWithoutClaiming: true }],
       [
         "att-C4-1",
         { activity: { kind: "command", text: "bun test apps/daemon/src/mcp", since: ago(1) } },
       ],
-      ...(scene === "large"
-        ? (["att-B1-1", "att-B2-1"] as const).map(
-            (id) => [id, { stoppedWithoutClaiming: false }] as const
-          )
-        : []),
     ]),
     receipts: new Map([
       ["i-spec", { command: "bun run spec", exitCode: 0 }],
@@ -171,7 +175,6 @@ const signalsFor = (scene: Scene) => {
       ["i-g1-test", { command: "bun run test", exitCode: 0 }],
       ["i-g1-spec", { command: "bun run spec", exitCode: 0 }],
     ]),
-    handedUp: new Set(scene === "handed" ? [AttemptId.make("att-B1-1")] : []),
     leadContext: new Map(),
   });
 };
@@ -198,7 +201,7 @@ export const mountConstellationPreview = (root: HTMLElement, hash: string) => {
 
   standInBridge(bridge);
   installConstellationClient(fakeClient(store));
-  signalsFor(scene);
+  setPreviewSignals();
   patchLeadUi(leadKey(LOCAL, LEAD), () => UI[scene]);
   navigation.actions.selectSession({ hostKey: LOCAL, sessionId: LEAD });
   showOutput({ hostKey: LOCAL, workspaceId: WORKSPACE }, LEAD);

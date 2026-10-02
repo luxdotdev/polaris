@@ -60,14 +60,12 @@ export const patchLeadUi = (key: string, patch: (ui: LeadUi) => Partial<LeadUi>)
 export interface Signals {
   readonly workers: ReadonlyMap<string, Partial<WorkerFacts>>;
   readonly receipts: ReadonlyMap<string, ReceiptResult>;
-  readonly handedUp: ReadonlySet<string>;
   readonly leadContext: ReadonlyMap<string, number>;
 }
 
 export const NO_SIGNALS: Signals = {
   workers: new Map(),
   receipts: new Map(),
-  handedUp: new Set(),
   leadContext: new Map(),
 };
 
