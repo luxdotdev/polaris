@@ -31,7 +31,7 @@ export const leadTools = (
 ): ReadonlyArray<BoundTool> => [
   define(
     "plan",
-    "Batch add, edit or cancel Tasks with short ids. Edit and cancel require the current Task revision.",
+    "Start a Constellation with start { name, workspaceId }, then batch add, edit or cancel Tasks with short ids. Edit and cancel require the current Task revision.",
     Schema.Struct({
       start: Schema.optionalKey(
         Schema.Struct({

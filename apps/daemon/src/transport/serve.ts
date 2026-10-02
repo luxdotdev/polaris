@@ -121,6 +121,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "session.fork",
   "session.terminal-handoff",
   "session.terminal-command",
+  "workspace.setup",
   "session.live-items",
   "session.subagents",
   "files.read",

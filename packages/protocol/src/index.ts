@@ -41,3 +41,5 @@ export * from "./constellation/index.ts";
 export * from "./resources.ts";
 
 export * from "./files.ts";
+
+export * from "./worktreeSetup.ts";

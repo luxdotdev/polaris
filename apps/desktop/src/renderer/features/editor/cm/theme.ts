@@ -76,7 +76,7 @@ const editorTheme = EditorView.theme({
   ".cm-panels": { backgroundColor: v("surface-sunken"), color: v("text-default") },
   ".cm-panels.cm-panels-top": { borderBottom: `1px solid ${v("hairline")}` },
   ".cm-panels.cm-panels-bottom": { borderTop: `1px solid ${v("hairline")}` },
-  ".cm-search": {
+  ".cm-panel.cm-search": {
     display: "flex",
     flexWrap: "wrap",
     alignItems: "center",
@@ -86,14 +86,15 @@ const editorTheme = EditorView.theme({
     fontSize: "12px",
     lineHeight: "16px",
   },
-  ".cm-search br": { flexBasis: "100%", height: 0 },
-  ".cm-search label": {
+  ".cm-panel.cm-search br": { flexBasis: "100%", height: 0 },
+  ".cm-panel.cm-search label": {
+    fontSize: "12px",
     display: "inline-flex",
     alignItems: "center",
     gap: "4px",
     color: v("text-subtle"),
   },
-  ".cm-search input[type=checkbox]": { accentColor: v("text-default"), margin: 0 },
+  ".cm-panel.cm-search input[type=checkbox]": { accentColor: v("text-default"), margin: 0 },
   ".cm-textfield": {
     height: "24px",
     width: "220px",
@@ -122,7 +123,7 @@ const editorTheme = EditorView.theme({
   },
   ".cm-button:hover": { backgroundColor: v("fill-hover") },
   ".cm-button:focus-visible": { outline: `2px solid ${v("starlight")}`, outlineOffset: "1px" },
-  ".cm-search button[name=close]": {
+  ".cm-panel.cm-search [name=close]": {
     marginLeft: "auto",
     width: "24px",
     height: "24px",
@@ -134,7 +135,7 @@ const editorTheme = EditorView.theme({
     fontSize: "16px",
     cursor: "pointer",
   },
-  ".cm-search button[name=close]:hover": { backgroundColor: v("fill-hover") },
+  ".cm-panel.cm-search [name=close]:hover": { backgroundColor: v("fill-hover") },
   ".cm-vim-panel": {
     padding: "0 12px",
     minHeight: "24px",

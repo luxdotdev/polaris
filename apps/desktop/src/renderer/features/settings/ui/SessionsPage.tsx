@@ -12,6 +12,7 @@ import { sectionInfo } from "../model/sections.ts";
 import { setSessionPrefs, useSettings } from "../store.ts";
 import { Column, Group, PageHeader, SettingRow } from "./parts.tsx";
 import { AcceptBranch } from "./AcceptBranch.tsx";
+import { WorktreeSetupSettings } from "./WorktreeSetup.tsx";
 import { WorkingVerbs } from "./WorkingVerbs.tsx";
 
 /** Saved on blur or ↵ when git would take it; otherwise the field says why and keeps the old one. */
@@ -107,6 +108,7 @@ export const SessionsPage = () => {
           />
         </SettingRow>
       </Group>
+      <WorktreeSetupSettings />
       <WorkingVerbs />
       <AcceptBranch />
       <Group label="Archive">

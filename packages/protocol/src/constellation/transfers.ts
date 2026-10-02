@@ -1,4 +1,6 @@
+import { WorktreeSetup } from "../worktreeSetup.ts";
 import { Schema } from "effect";
+import { optionalNullable } from "../models.ts";
 import { Rpc, RpcGroup } from "effect/rpc";
 import { WorkerPlacement } from "./commands.ts";
 import { BlobId, SessionId, HostId } from "../ids.ts";
@@ -83,6 +85,7 @@ export class RemotePlacementRequest extends Schema.Class<RemotePlacementRequest>
   sessionId: Schema.NullOr(SessionId),
   previous: Schema.NullOr(Attempt),
   baseHead: Schema.NonEmptyString,
+  worktreeSetup: optionalNullable(WorktreeSetup),
 }) {}
 
 export const RemotePlacementResponse = Schema.TaggedUnion({

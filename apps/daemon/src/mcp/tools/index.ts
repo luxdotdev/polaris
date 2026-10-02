@@ -4,7 +4,13 @@ import { McpBinding, sessionBinding } from "../binding.ts";
 import { leadTools } from "./lead.ts";
 import { workerTools } from "./worker.ts";
 import { resolvers } from "./resolve.ts";
-import { toolFactory, type BoundTool, type ConstellationCommands } from "./shared.ts";
+import {
+  toolFactory,
+  rejection,
+  errorResult,
+  type BoundTool,
+  type ConstellationCommands,
+} from "./shared.ts";
 
 export { errorResult } from "./shared.ts";
 
@@ -32,6 +38,27 @@ export const constellationTools = (
   );
 
   return McpBinding.match(binding, {
+    Plain: () =>
+      leadTools(binding, define, submit, resolvers(binding, commands), status).map((tool) => ({
+        ...tool,
+        call: (input) =>
+          tool.call(input).then((result) => {
+            if (
+              result.structuredContent?.graph !== null ||
+              result.structuredContent.revision !== 0 ||
+              !result.structuredContent.findings.some((finding) => finding.code === "E-NOT-FOUND")
+            )
+              return result;
+
+            return errorResult(
+              rejection(
+                "E-START-FIRST",
+                "Start a Constellation first",
+                "Call plan with start { name, workspaceId } and operations []."
+              )
+            );
+          }),
+      })),
     Lead: () => leadTools(binding, define, submit, resolvers(binding, commands), status),
     Worker: (bound) => workerTools(bound, define, submit, status),
   });

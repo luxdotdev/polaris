@@ -102,6 +102,21 @@ run("typecheck constellations.qnt", ["typecheck", "constellations.qnt"]);
 
 run("typecheck constellations_test.qnt", ["typecheck", "constellations_test.qnt"]);
 
+run("typecheck worktree_setup.qnt", ["typecheck", "worktree_setup.qnt"]);
+
+run("worktree setup scenarios", ["test", "worktree_setup.qnt", "--main=worktree_setup_test"]);
+
+run("worktree setup safety", [
+  "run",
+  "worktree_setup.qnt",
+  "--main=worktree_setup",
+  "--invariants",
+  "safety",
+  `--max-samples=${samples}`,
+  "--max-steps=30",
+  `--seed=${seed}`,
+]);
+
 run("Constellation scenarios", ["test", "constellations_test.qnt", "--main=constellations_test"]);
 
 run("Constellation property probes", [
@@ -190,7 +205,8 @@ if (verify) {
     "verify",
     "polaris.qnt",
     "--main=small",
-    "--invariant=safety",
+    "--invariants",
+    "safety",
     `--max-steps=${steps}`,
     "--verbosity=1",
   ]);

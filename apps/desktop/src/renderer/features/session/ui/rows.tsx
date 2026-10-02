@@ -28,6 +28,7 @@ import { useTurnDiff } from "../turnDiff.ts";
 import { questionAnswers } from "../model/question.ts";
 import type { OutboxActions } from "../outbox.ts";
 import type { Entry } from "../model/runs.ts";
+import { SetupCard } from "./SetupCard.tsx";
 import { EntryView } from "./entries.tsx";
 import { OutgoingMessage, Steered } from "./outgoing.tsx";
 import { softWrap } from "./softWrap.tsx";
@@ -232,6 +233,8 @@ const Ending = ({ row, ctx }: { row: Extract<Row, { kind: "ending" }>; ctx: RowC
 /** One row, by kind. */
 export const ConversationRow = ({ row, ctx }: { row: Row; ctx: RowContext }) => {
   switch (row.kind) {
+    case "setup":
+      return <SetupCard setup={row.setup} />;
     case "summary":
       return (
         ctx.chrome.promptCard?.({

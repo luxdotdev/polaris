@@ -99,6 +99,7 @@ const DROPPED = new Set([
   "SessionPermissionModeChanged",
   "SessionModelChanged",
   "SessionContextUsed",
+  "SessionSetupChanged",
   "SubagentStarted",
   "SubagentEnded",
   "WorkspaceRegistered",
