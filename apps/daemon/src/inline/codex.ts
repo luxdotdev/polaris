@@ -30,7 +30,11 @@ const Item = Schema.Struct({
 
 const Completed = Schema.Struct({
   threadId: Schema.String,
-  turn: Schema.Struct({ id: Schema.String, status: Schema.String }),
+  turn: Schema.Struct({
+    id: Schema.String,
+    status: Schema.String,
+    error: Schema.optionalKey(Schema.NullOr(Schema.Struct({ message: Schema.String }))),
+  }),
 });
 
 const notification = Effect.fn("inline.codex.notification")(function* (
@@ -69,7 +73,7 @@ const notification = Effect.fn("inline.codex.notification")(function* (
       if (value.turn.status !== "completed")
         return yield* new HarnessError({
           harness: "codex",
-          message: "Codex did not complete an inline proposal",
+          message: value.turn.error?.message ?? "Codex did not complete an inline proposal",
         });
 
       return { completed: true };
@@ -231,11 +235,11 @@ export const codexInline = (
     });
 
     return yield* work.pipe(
-      Effect.catchTag("HarnessError", () =>
+      Effect.catchTag("HarnessError", (error) =>
         Effect.fail(
           new InlineError({
             reason: "harness-failed",
-            message: "Codex could not complete the inline proposal",
+            message: `Codex could not complete the inline proposal: ${error.message}`,
           })
         )
       )
