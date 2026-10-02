@@ -56,6 +56,14 @@ export type LanguageFeedInput<K extends LanguageFeed> = (typeof languageFeeds)[K
 
 export type LanguageFeedItem<K extends LanguageFeed> = (typeof languageFeeds)[K]["item"]["Type"];
 
+interface ContextOperation {
+  readonly contextId: string;
+  readonly providerId: string;
+  readonly checkout: P.LanguageCheckout;
+  readonly previous: P.LanguageContextIdentity | undefined;
+  readonly token: symbol | null;
+}
+
 /** Supplied by the authenticated existing Host connection; never opens another transport. */
 export interface LanguageTransport {
   readonly hostId: P.HostId;
@@ -119,6 +127,7 @@ export class LanguageAccess {
   private pendingCalls = 0;
   private readonly acks = new Map<string, P.LanguageSyncAck>();
   private readonly contexts = new Map<string, P.LanguageContextIdentity>();
+  private readonly contextOperations = new Map<string, symbol>();
   private readonly lifetime = new AbortController();
   private readonly interests = new Map<string, Set<string>>();
   private readonly lost = () => this.dispose();
@@ -151,6 +160,7 @@ export class LanguageAccess {
 
     this.acks.clear();
     this.contexts.clear();
+    this.contextOperations.clear();
     this.interests.clear();
   }
 
@@ -195,29 +205,83 @@ export class LanguageAccess {
       throw languageFailure("not-owner");
   }
 
-  private track(method: LanguageMethod, input: unknown, output: unknown) {
-    this.hostFacts(output);
-
+  private beginContextOperation(method: LanguageMethod, input: unknown): ContextOperation | null {
     if (
-      [
+      ![
         "languages.context.acquire",
         "languages.context.restart",
         "languages.context.configure",
       ].includes(method)
-    ) {
+    )
+      return null;
+
+    const requested =
+      method === "languages.context.acquire"
+        ? decodeLanguage(P.AcquireLanguageContext.payloadSchema, input)
+        : decodeLanguage(P.RestartLanguageContext.payloadSchema, input).context;
+
+    const token = method === "languages.context.acquire" ? null : Symbol();
+
+    if (token !== null) this.contextOperations.set(requested.contextId, token);
+
+    return { ...requested, previous: this.contexts.get(requested.contextId), token };
+  }
+
+  private currentContextOperation(operation: ContextOperation, context: P.LanguageContextIdentity) {
+    const current = JSON.stringify(this.contexts.get(operation.contextId));
+    const previous = JSON.stringify(operation.previous);
+
+    if (operation.token !== null) {
+      if (
+        this.contextOperations.get(operation.contextId) !== operation.token ||
+        current !== previous
+      )
+        throw languageFailure("stale-generation");
+    } else if (
+      this.contextOperations.has(operation.contextId) ||
+      (current !== previous && current !== JSON.stringify(context))
+    )
+      throw languageFailure("stale-generation");
+  }
+
+  private validateContextOperation(
+    method: LanguageMethod,
+    operation: ContextOperation,
+    context: P.LanguageContextIdentity
+  ) {
+    if (
+      operation.contextId !== context.contextId ||
+      operation.providerId !== context.providerId ||
+      JSON.stringify(operation.checkout) !== JSON.stringify(context.checkout)
+    )
+      throw languageFailure("not-owner");
+
+    this.currentContextOperation(operation, context);
+    const previous = operation.previous;
+
+    if (previous === undefined) return;
+
+    if (
+      context.generation < previous.generation ||
+      (context.generation === previous.generation &&
+        (method === "languages.context.restart" ||
+          JSON.stringify(context) !== JSON.stringify(previous)))
+    )
+      throw languageFailure("stale-generation");
+  }
+
+  private track(
+    method: LanguageMethod,
+    input: unknown,
+    output: unknown,
+    operation: ContextOperation | null
+  ) {
+    this.hostFacts(output);
+
+    if (operation !== null) {
       const snapshot = decodeLanguage(P.LanguageContextSnapshot, output);
       authorize(this.transport, { context: snapshot.context });
-
-      if (method === "languages.context.acquire") {
-        const acquired = decodeLanguage(P.AcquireLanguageContext.payloadSchema, input);
-
-        if (
-          acquired.contextId !== snapshot.context.contextId ||
-          acquired.providerId !== snapshot.context.providerId ||
-          JSON.stringify(acquired.checkout) !== JSON.stringify(snapshot.context.checkout)
-        )
-          throw languageFailure("not-owner");
-      }
+      this.validateContextOperation(method, operation, snapshot.context);
 
       if (
         !P.languageFenceSatisfied(
@@ -336,6 +400,7 @@ export class LanguageAccess {
       this.interests.delete(release.context.contextId);
       this.contexts.delete(release.context.contextId);
       this.acks.delete(release.context.contextId);
+      this.contextOperations.delete(release.context.contextId);
     }
   }
 
@@ -365,6 +430,7 @@ export class LanguageAccess {
 
     if (this.pendingCalls >= 128) throw languageFailure("queue-full");
     this.pendingCalls++;
+    const operation = this.beginContextOperation(method, input);
 
     try {
       await this.installEligible(method, input, joined);
@@ -373,7 +439,7 @@ export class LanguageAccess {
       this.guard(method);
       // SAFETY: the method indexes its corresponding validated success schema.
       const decoded = decodeLanguage(languageMethods[method].successSchema, result);
-      this.track(method, input, decoded);
+      this.track(method, input, decoded, operation);
 
       this.completed(method, input, decoded);
       this.released(method, input);
@@ -391,6 +457,9 @@ export class LanguageAccess {
       throw languageFailure("server-failed");
     } finally {
       this.pendingCalls--;
+
+      if (operation !== null && this.contextOperations.get(operation.contextId) === operation.token)
+        this.contextOperations.delete(operation.contextId);
     }
   }
 
