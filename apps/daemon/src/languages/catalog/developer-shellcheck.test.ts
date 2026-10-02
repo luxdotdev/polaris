@@ -103,3 +103,67 @@ test("synthetic hung process trees are bounded and reaped", async () => {
 
   expect(() => process.kill(pid, 0)).toThrow();
 }, 6000);
+
+test("synthetic new-session held pipes fail closed; fixture owner reaps escaped descendants", async () => {
+  for (const ending of [
+    "print('ShellCheck\\nversion: 0.11.0', flush=True); os._exit(0)",
+    "os._exit(1)",
+    "print('x' * 8192, flush=True); time.sleep(30)",
+    "time.sleep(30)",
+  ]) {
+    const f = await fixture("");
+    await writeFile(
+      f.path,
+      `#!/opt/homebrew/bin/python3
+import os,time
+pid=os.fork()
+if pid==0:
+ os.setsid()
+ with open('escaped.pid','w') as receipt: receipt.write(str(os.getpid()))
+ time.sleep(30)
+ os._exit(0)
+while not os.path.exists('escaped.pid'): time.sleep(0.01)
+${ending}
+`
+    );
+    let pid: number | undefined;
+    let elapsedMs = 0;
+
+    try {
+      const start = Date.now();
+      const fact = await probeDeveloperShellCheck(f.input);
+      elapsedMs = Date.now() - start;
+      expect(Date.now() - start).toBeLessThan(3000);
+      expect(fact.status).toBe("probe-failed");
+      expect(fact.shellcheckDiagnostics).toBe(false);
+      expect(shellCheckServerSettings(fact)).toEqual({ shellcheckPath: "" });
+      pid = Number(await readFile(join(f.root, "escaped.pid"), "utf8"));
+      expect(() => process.kill(pid!, 0)).not.toThrow();
+    } finally {
+      pid ??= Number(await readFile(join(f.root, "escaped.pid"), "utf8"));
+      process.kill(pid, "SIGKILL");
+
+      for (let attempt = 0; attempt < 100; attempt++) {
+        try {
+          process.kill(pid, 0);
+        } catch {
+          break;
+        }
+
+        await Bun.sleep(10);
+      }
+
+      expect(() => process.kill(pid!, 0)).toThrow();
+      console.log(
+        JSON.stringify({
+          topology: "synthetic-setsid-held-pipe",
+          ending,
+          elapsedMs,
+          status: "probe-failed",
+          escapedChildAliveAfterProbe: true,
+          fixtureOwnerCleanupVerified: true,
+        })
+      );
+    }
+  }
+}, 15000);

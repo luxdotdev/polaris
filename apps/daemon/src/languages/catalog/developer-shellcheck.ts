@@ -1,7 +1,7 @@
 import { access, realpath } from "node:fs/promises";
 import { constants } from "node:fs";
 import { isAbsolute, join } from "node:path";
-import { versionSatisfies } from "./selection";
+import { probeShellCheckVersion } from "./shellcheck-probe";
 
 export interface ShellCheckInput {
   readonly trusted: boolean;
@@ -45,90 +45,6 @@ const locate = async (input: ShellCheckInput): Promise<string | null> => {
   return null;
 };
 
-const readBounded = async (
-  pipe: ReadableStream<Uint8Array>,
-  stop: () => void
-): Promise<string | null> => {
-  const reader = pipe.getReader();
-  const decoder = new TextDecoder();
-  let bytes = 0;
-  let output = "";
-
-  while (true) {
-    const next = await reader.read();
-
-    if (next.done) break;
-    bytes += next.value.length;
-
-    if (bytes > 4096) {
-      stop();
-      await reader.cancel();
-
-      return null;
-    }
-
-    output += decoder.decode(next.value, { stream: true });
-  }
-
-  return output + decoder.decode();
-};
-
-const probe = async (executable: string, cwd: string): Promise<string | null> => {
-  const child = Bun.spawn([executable, "--version"], {
-    cwd,
-    env: { LANG: "C", LC_ALL: "C" },
-    detached: true,
-    stdin: "ignore",
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-
-  let stopped = false;
-
-  const reap = () => {
-    try {
-      process.kill(-child.pid, "SIGKILL");
-    } catch {
-      child.kill("SIGKILL");
-    }
-  };
-
-  const stop = () => {
-    stopped = true;
-    reap();
-  };
-
-  const timer = setTimeout(stop, 2000);
-
-  try {
-    const [stdout, stderr, code] = await Promise.all([
-      readBounded(child.stdout, stop),
-      readBounded(child.stderr, stop),
-      child.exited.then((code) => {
-        reap();
-
-        return code;
-      }),
-    ]);
-
-    if (
-      stopped ||
-      code !== 0 ||
-      stdout === null ||
-      stderr === null ||
-      !/^ShellCheck\r?$/m.test(stdout)
-    )
-      return null;
-    const version = /^version: (\d+\.\d+\.\d+)\r?$/m.exec(stdout)?.[1] ?? null;
-
-    return version && versionSatisfies(version, ">=0.11.0") ? version : null;
-  } finally {
-    clearTimeout(timer);
-    reap();
-    await child.exited;
-  }
-};
-
 /** Consumers supply checkout-scoped execution trust; this probe grants no install or distribution approval. */
 export const probeDeveloperShellCheck = async (input: ShellCheckInput): Promise<ShellCheckFact> => {
   const base = {
@@ -158,7 +74,7 @@ export const probeDeveloperShellCheck = async (input: ShellCheckInput): Promise<
           : "ShellCheck is missing on this host. Configure an existing executable to enable ShellCheck diagnostics.",
     };
 
-  const version = await probe(executable, input.cwd).catch(() => null);
+  const version = await probeShellCheckVersion(executable, input.cwd).catch(() => null);
 
   if (!version)
     return {

@@ -1,0 +1,112 @@
+{
+  "scope": "K3 bounded incomplete checkpoint; not artifact approval",
+  "sourceHashes": {
+    "apps/daemon/src/languages/catalog/developer-shellcheck.ts": "51cef3f93f2cafdbcb5fcfa6360f66a0f7d4fdd62061c4ee1999e97383c79c34",
+    "apps/daemon/src/languages/catalog/shellcheck-probe.ts": "b7d56d1f33bb6fca715f0b68f7af1534b4e8e635d2c59bd059161fc49862de78",
+    "apps/daemon/src/languages/catalog/developer-shellcheck.test.ts": "91dd1589f22aadc968f8e5131f5e5b39dc544a267896e578d5a6fc39a22e88e3",
+    "apps/daemon/src/languages/catalog/catalog.json": "03b95ec54e6af87ed2da08bba20e8f8134223c311af53bbfd44f79b5b5847279",
+    "apps/daemon/src/languages/catalog/model.ts": "88d1750d716403c384123450ddb4a3c1c74ece4a1eca95e81bfeac1295c36f5f"
+  },
+  "checks": [
+    {
+      "label": "typecheck",
+      "argv": ["bun", "run", "typecheck", "--env-mode=loose"],
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "seconds": 7.419155334006064,
+      "log": "/tmp/k3-replacement-final/typecheck.log"
+    },
+    {
+      "label": "test",
+      "argv": ["bun", "run", "test", "--env-mode=loose", "--force"],
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "seconds": 177.68663679197198,
+      "log": "/tmp/k3-replacement-final/test.log"
+    },
+    {
+      "label": "lint",
+      "argv": ["bun", "run", "lint"],
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "seconds": 10.571095665975008,
+      "log": "/tmp/k3-replacement-final/lint.log"
+    },
+    {
+      "label": "licenses",
+      "argv": ["bun", "run", "licenses:check"],
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "seconds": 0.5534450419945642,
+      "log": "/tmp/k3-replacement-final/licenses.log"
+    },
+    {
+      "label": "catalog",
+      "argv": ["bun", "tooling/language-catalog/check.ts"],
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "seconds": 0.9373142920085229,
+      "log": "/tmp/k3-replacement-final/catalog.log"
+    },
+    {
+      "label": "pre-review",
+      "argv": ["bun", "tooling/language-catalog/check.ts", "--pre-review"],
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "seconds": 0.5503025409998372,
+      "log": "/tmp/k3-replacement-final/pre-review.log"
+    },
+    {
+      "label": "release",
+      "argv": ["bun", "tooling/language-catalog/check.ts", "--release"],
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "seconds": 0.3447109160479158,
+      "log": "/tmp/k3-replacement-final/release.log"
+    },
+    {
+      "label": "npm-audit",
+      "argv": ["bun", "tooling/language-catalog/audit.ts"],
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "seconds": 0.13463812501868233,
+      "log": "/tmp/k3-replacement-final/npm-audit.log"
+    }
+  ],
+  "cleanup": {
+    "privateHomeRemoved": true,
+    "HOMEUnchanged": true,
+    "commandsReaped": true,
+    "environmentKeys": [
+      "GIT_CONFIG_GLOBAL",
+      "GIT_CONFIG_NOSYSTEM",
+      "HOME",
+      "LANG",
+      "LC_ALL",
+      "LOGNAME",
+      "PATH",
+      "POLARIS_HOME",
+      "SHELL",
+      "TMPDIR",
+      "USER"
+    ]
+  },
+  "focused": {
+    "label": "focused",
+    "argv": ["bun", "test", "apps/daemon/src/languages/catalog", "tooling/language-catalog"],
+    "exitCode": 0,
+    "expectedExitCode": 0,
+    "seconds": 18.715686250012368,
+    "log": "/tmp/k3-replacement-checks/focused.log"
+  },
+  "failuresRetained": [
+    "/tmp/k3-replacement-checks/typecheck.log",
+    "/tmp/k3-replacement-replay/typecheck.log"
+  ],
+  "limitations": [
+    "Synthetic executable fixtures are not real ShellCheck feature or containment certification.",
+    "New-session escaped descendants are unsupported; test owner kills and verifies its own escaped PIDs.",
+    "Four native source/runtime/legal closures and evaluated ShellCheck historical packaging remain blocked for K4/A1.",
+    "Focused receipt precedes a type-only structural reader annotation correction; final root tests rerun the same regression at exact final source hashes."
+  ]
+}
