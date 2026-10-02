@@ -6,6 +6,7 @@ import {
   LanguageJson,
   LanguageJsonObject,
   LanguageKey,
+  LanguageServerIdentifier,
   LanguageText,
   LanguageUri,
 } from "./base.ts";
@@ -133,7 +134,7 @@ export const LanguageConfigurationItem = Schema.Struct({
 });
 
 export const LanguageRegistration = Schema.Struct({
-  id: LanguageKey,
+  id: LanguageServerIdentifier,
   method: LanguageMethod,
   registerOptions: Schema.optionalKey(LanguageJsonObject),
 });
@@ -155,9 +156,9 @@ export const LanguageServerRequestPayload = Schema.TaggedUnion({
   Configuration: { items: Schema.Array(LanguageConfigurationItem).check(Schema.isMaxLength(256)) },
   Register: { registrations: Schema.Array(LanguageRegistration).check(Schema.isMaxLength(256)) },
   Unregister: {
-    unregistrations: Schema.Array(Schema.Struct({ id: LanguageKey, method: LanguageMethod })).check(
-      Schema.isMaxLength(256)
-    ),
+    unregistrations: Schema.Array(
+      Schema.Struct({ id: LanguageServerIdentifier, method: LanguageMethod })
+    ).check(Schema.isMaxLength(256)),
   },
   ProgressCreate: { token: LanguageRpcId },
   WorkspaceFolders: {},

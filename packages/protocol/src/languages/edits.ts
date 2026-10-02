@@ -9,6 +9,8 @@ import {
   LanguageDocumentFence,
   LanguageJsonObject,
   LanguageKey,
+  LanguageServerIdentifier,
+  languageStringRecord,
   LanguagePath,
   LanguageRange,
   LanguageText,
@@ -30,7 +32,7 @@ const LanguageDiskVersion = FileVersion.check(
 export const LanguageTextEdit = Schema.Struct({
   range: LanguageRange,
   newText: LanguageDocumentText,
-  annotationId: Schema.optionalKey(LanguageKey),
+  annotationId: Schema.optionalKey(LanguageServerIdentifier),
 });
 
 export const LanguageTextDocumentEdit = Schema.Struct({
@@ -48,7 +50,7 @@ export const LanguageResourceOperation = Schema.Union([
         ignoreIfExists: Schema.optionalKey(Schema.Boolean),
       })
     ),
-    annotationId: Schema.optionalKey(LanguageKey),
+    annotationId: Schema.optionalKey(LanguageServerIdentifier),
   }),
   Schema.Struct({
     kind: Schema.Literal("rename"),
@@ -60,7 +62,7 @@ export const LanguageResourceOperation = Schema.Union([
         ignoreIfExists: Schema.optionalKey(Schema.Boolean),
       })
     ),
-    annotationId: Schema.optionalKey(LanguageKey),
+    annotationId: Schema.optionalKey(LanguageServerIdentifier),
   }),
   Schema.Struct({
     kind: Schema.Literal("delete"),
@@ -71,7 +73,7 @@ export const LanguageResourceOperation = Schema.Union([
         ignoreIfNotExists: Schema.optionalKey(Schema.Boolean),
       })
     ),
-    annotationId: Schema.optionalKey(LanguageKey),
+    annotationId: Schema.optionalKey(LanguageServerIdentifier),
   }),
 ]);
 
@@ -84,23 +86,25 @@ export const LanguageDocumentChange = Schema.Union([
 
 export const LanguageWorkspaceEdit = Schema.Struct({
   changes: Schema.optionalKey(
-    Schema.Record(
+    languageStringRecord(
       LanguageUri,
-      Schema.Array(LanguageTextEdit).check(Schema.isMaxLength(4096))
-    ).check(Schema.isMaxProperties(1024))
+      Schema.Array(LanguageTextEdit).check(Schema.isMaxLength(4096)),
+      1024
+    )
   ),
   documentChanges: Schema.optionalKey(
     Schema.Array(LanguageDocumentChange).check(Schema.isMaxLength(1024))
   ),
   changeAnnotations: Schema.optionalKey(
-    Schema.Record(
-      LanguageKey,
+    languageStringRecord(
+      LanguageServerIdentifier,
       Schema.Struct({
         label: LanguageText,
         needsConfirmation: Schema.optionalKey(Schema.Boolean),
         description: Schema.optionalKey(LanguageText),
-      })
-    ).check(Schema.isMaxProperties(1024))
+      }),
+      1024
+    )
   ),
 });
 

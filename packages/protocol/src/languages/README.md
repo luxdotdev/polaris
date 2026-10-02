@@ -16,6 +16,15 @@ Feature support is the provider's actual `LanguageProviderCapabilities` and
 dynamic registrations, not the presence of a catalog entry. Runtime code must
 enforce supported commands/methods before forwarding them.
 
+Polaris-owned IDs retain `LanguageKey` slug grammar. Server registration and
+change-annotation IDs use bounded opaque `LanguageServerIdentifier` strings;
+preserve punctuation, spaces, empty IDs and annotation references exactly.
+`languageStringRecord` validates all input names without selecting/stripping
+invalid keys. Invalid annotation/URI/preference/environment keys fail decoding.
+Environment names use `[A-Za-z_][A-Za-z0-9_]{0,127}` (including `_JAVA_OPTIONS`);
+values and count remain bounded. Pass argv/environment directly, never through
+shell interpolation. Launch facts expose the same valid names without values.
+
 Effect RPC validates payloads/results. C1 must explicitly decode both optional
 Desktop input and output tables from `shared/languages.ts`, and structured
 server messages with `LanguageJsonRpcEnvelope`. Cap raw transport bytes and
@@ -55,6 +64,13 @@ every install/activation caller: evaluation entries cannot become active through
 a provider/formatter/companion reference. Pending audit/source/legal closure
 is `audit-required`, never installed or ready. G1 policy review is a separate
 gate; descriptor preflight cannot grant installation or execution approval.
+
+Optional artifact `packaging` preserves K2's `lua-core-v1` filter, source,
+manifest and post-filter integrity values and disabled third-party discovery.
+Manifest paths must be bounded relative POSIX paths without absolute paths,
+drive prefixes, backslashes, NUL, empty or dot/traversal components. I1 must verify
+the original download, manifest and exact filtered output and enforce discovery
+policy before readiness. Packaging alone grants neither audit closure nor approval.
 
 Installation, prerequisites, install/feature preflight, runtime readiness and
 update candidate are separate facts. Deduplicate jobs by Host/tool/version,

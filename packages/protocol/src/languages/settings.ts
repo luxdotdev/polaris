@@ -4,6 +4,8 @@ import {
   LanguageCounter,
   LanguageJsonObject,
   LanguageKey,
+  LanguageEnvironment,
+  languageStringRecord,
   LanguagePath,
   LanguageText,
   LanguageUri,
@@ -72,7 +74,7 @@ export type LanguageSettingsScope = typeof LanguageSettingsScope.Type;
 export const LanguageExecutable = Schema.Struct({
   executable: LanguagePath,
   argv: Schema.Array(LanguageText).check(Schema.isMaxLength(128)),
-  environment: Schema.Record(LanguageKey, LanguageText).check(Schema.isMaxProperties(128)),
+  environment: LanguageEnvironment,
 });
 
 export const LanguageCustomServer = Schema.Struct({
@@ -108,11 +110,13 @@ export const LanguageSettingsPatch = Schema.Struct({
   customServers: Schema.optionalKey(
     Schema.Array(LanguageCustomServer).check(Schema.isMaxLength(64))
   ),
-  executableOverrides: Schema.optionalKey(Schema.Record(LanguageKey, LanguageExecutable)),
+  executableOverrides: Schema.optionalKey(
+    languageStringRecord(LanguageKey, LanguageExecutable, 128)
+  ),
   interpreter: Schema.optionalKey(Schema.NullOr(LanguagePath)),
   sdk: Schema.optionalKey(Schema.NullOr(LanguagePath)),
   pluginProbeRoots: Schema.optionalKey(Schema.Array(LanguagePath).check(Schema.isMaxLength(64))),
-  serverSettings: Schema.optionalKey(Schema.Record(LanguageKey, LanguageJsonObject)),
+  serverSettings: Schema.optionalKey(languageStringRecord(LanguageKey, LanguageJsonObject, 128)),
   sql: Schema.optionalKey(
     Schema.Struct({
       dialect: Schema.Literals(["postgresql", "mysql", "sqlite", "generic"]),
@@ -143,7 +147,7 @@ export const LanguageEffectiveSettings = Schema.Struct({
   formatter: LanguageFormatterSelection,
   providers: Schema.Array(LanguageKey).check(Schema.isMaxLength(32)),
   settings: LanguageSettingsPatch,
-  origins: Schema.Record(LanguageKey, LanguageSettingsScope),
+  origins: languageStringRecord(LanguageKey, LanguageSettingsScope, 128),
 });
 
 /** Worktrees inherit Workspace trust; Review Checkouts have their own explicit grant. */

@@ -7,10 +7,39 @@ export const LanguageKey = Schema.String.check(
 
 export const LanguageText = Schema.String.check(Schema.isMaxLength(65536));
 
+export const LanguageServerIdentifier = Schema.String.check(Schema.isMaxLength(1024));
+
+export const LanguageEnvironmentName = Schema.String.check(
+  Schema.isPattern(/^[A-Za-z_][A-Za-z0-9_]{0,127}$/)
+);
+
+/** Decode every key before checking its grammar, so invalid names fail instead of being stripped. */
+export const languageStringRecord = <Value extends Schema.Constraint>(
+  key: Schema.Schema<string>,
+  value: Value,
+  maximum: number
+) =>
+  Schema.Record(Schema.String, value).check(
+    Schema.isMaxProperties(maximum),
+    Schema.makeFilter((record) => Object.keys(record).every(Schema.is(key)))
+  );
+
+export const LanguageEnvironment = languageStringRecord(LanguageEnvironmentName, LanguageText, 128);
+
 export const LanguagePath = Schema.String.check(
   Schema.isMinLength(1),
   Schema.isMaxLength(4096),
   Schema.makeFilter((value) => !value.includes(String.fromCharCode(0)))
+);
+
+export const LanguageRelativePath = LanguagePath.check(
+  Schema.makeFilter(
+    (path) =>
+      !path.startsWith("/") &&
+      !path.includes("\\") &&
+      !/^[A-Za-z]:/.test(path) &&
+      path.split("/").every((part) => part.length > 0 && part !== "." && part !== "..")
+  )
 );
 
 export const LanguageCounter = Schema.Int.check(

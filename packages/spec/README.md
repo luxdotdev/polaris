@@ -345,6 +345,14 @@ no current runtime advertises the new capabilities. Host installation facts,
 Client settings and execution trust are distinct. No new language events enter
 the Agent Session event log or the existing Engine replay format.
 
+External registration/annotation IDs are opaque bounded strings, while
+Polaris-owned IDs remain slugs. Record schemas validate every input key without
+silently stripping invalid names; environments preserve leading underscores.
+Optional K2 artifact packaging survives catalog decoding and requires safe
+relative manifest paths. These JSON boundary corrections add no model action,
+commit/stream semantics or readiness transition; schema roundtrip/rejection tests
+cover them separately from the abstract lifecycle and recovery model.
+
 | Model action | Contract and consumer obligation |
 |---|---|
 | `Sync` | `LanguageSyncInput` / `LanguageSyncAck`: one contiguous context-local sequence, monotonic document versions and exact previous version; acknowledgment means queued delivery, not completed analysis. The model abstracts a single already-open document per context, with version 0 initially. T1 must additionally verify open/change/save/close and encoding/range handling. |

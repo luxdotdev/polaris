@@ -4,7 +4,10 @@ import {
   LanguageCounter,
   LanguageFingerprint,
   LanguageKey,
+  LanguageEnvironment,
+  LanguageEnvironmentName,
   LanguagePath,
+  LanguageRelativePath,
   LanguageText,
 } from "./base.ts";
 
@@ -34,6 +37,15 @@ export const LanguageRequirement = Schema.Struct({
   required: Schema.Boolean,
 });
 
+export const LanguageArtifactPackaging = Schema.Struct({
+  filter: Schema.Literal("lua-core-v1"),
+  sourceIntegrity: LanguageIntegrity,
+  manifest: LanguageRelativePath,
+  manifestIntegrity: LanguageIntegrity,
+  postFilterIntegrity: LanguageIntegrity,
+  disableThirdPartyDiscovery: Schema.Literal(true),
+});
+
 export const LanguageArtifact = Schema.Struct({
   id: LanguageKey,
   format: Schema.Literals(["npm", "tar.gz", "gz", "binary", "phar", "go-module"]),
@@ -45,6 +57,7 @@ export const LanguageArtifact = Schema.Struct({
   audit: Schema.Literals(["verified", "pending"]),
   auditReason: LanguageText,
   auditRoot: Schema.NullOr(LanguageIntegrity),
+  packaging: Schema.optionalKey(LanguageArtifactPackaging),
 });
 
 export const LanguageTool = Schema.Struct({
@@ -56,7 +69,7 @@ export const LanguageTool = Schema.Struct({
   artifacts: Schema.Array(LanguageArtifact).check(Schema.isMaxLength(32)),
   requirements: Schema.Array(LanguageRequirement).check(Schema.isMaxLength(64)),
   argv: Schema.Array(LanguageText).check(Schema.isMaxLength(128)),
-  environment: Schema.Record(LanguageKey, LanguageText).check(Schema.isMaxProperties(128)),
+  environment: LanguageEnvironment,
   limitations: Schema.Array(LanguageText).check(Schema.isMaxLength(128)),
 });
 
@@ -185,7 +198,7 @@ export const LanguageLaunchFact = Schema.Struct({
   executable: LanguagePath,
   argv: Schema.Array(LanguageText).check(Schema.isMaxLength(128)),
   workingDirectory: LanguagePath,
-  environmentKeys: Schema.Array(LanguageKey).check(Schema.isMaxLength(128)),
+  environmentKeys: Schema.Array(LanguageEnvironmentName).check(Schema.isMaxLength(128)),
   sdk: Schema.NullOr(LanguagePath),
   interpreter: Schema.NullOr(LanguagePath),
   pluginProbeRoots: Schema.Array(LanguagePath).check(Schema.isMaxLength(64)),
