@@ -134,6 +134,7 @@ describe("treeRows", () => {
   test("agent dither on files; the hand on the nearest visible folder", () => {
     const agents = {
       editing: new Map([["/w/src/app/view.tsx", "codex"]]),
+      edits: new Map(),
       blocked: new Set(["/w/src/app/main.ts", "/w/README.md"]),
     };
 

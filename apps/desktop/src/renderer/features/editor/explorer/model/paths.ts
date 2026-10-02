@@ -15,6 +15,10 @@ export const basename = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 export const isUnder = (path: string, dir: string) =>
   path === dir || path.startsWith(dir === "/" ? "/" : `${dir}/`);
 
+/** Where `path` is after `from` moved to `to`: itself, or under the moved folder. */
+export const movedPath = (path: string, from: string, to: string) =>
+  isUnder(path, from) ? `${to}${path.slice(from.length)}` : path;
+
 /** `path` relative to `dir` ("" for `dir` itself); assumes `isUnder(path, dir)`. */
 export const relative = (path: string, dir: string) =>
   path === dir ? "" : path.slice(dir === "/" ? 1 : dir.length + 1);

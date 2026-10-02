@@ -3,7 +3,7 @@ import { AgentSession, SessionId, TurnItem } from "@polaris/protocol";
 import { approval, session, turnWith } from "../../../../store/fixtures.testing.ts";
 import type { SessionEntry } from "../../../../store/hostModel.ts";
 import { emptySessionModel, type SessionModel } from "../../../../store/sessionModel.ts";
-import { agentMarks, sameMarks, watchedSessions } from "./agents.ts";
+import { agentMarks, watchedSessions } from "./agents.ts";
 
 const ROOT = "/tmp/proof";
 
@@ -85,6 +85,13 @@ describe("agentMarks", () => {
       ["/tmp/proof/src/a.ts", "codex"],
       ["/tmp/proof/c.ts", "codex"],
     ]);
+    expect(marks.edits.get("/tmp/proof/c.ts")).toMatchObject({
+      sessionId: session.id,
+      harness: "codex",
+      turnIndex: 1,
+      live: true,
+    });
+    expect(marks.edits.get("/tmp/proof/src/a.ts")?.live).toBe(false);
   });
 
   test("a finished turn marks nothing; paths outside the root are left out", () => {
@@ -126,16 +133,5 @@ describe("agentMarks", () => {
     });
 
     expect([...before.blocked]).toEqual(["/tmp/proof/done.ts"]);
-  });
-
-  test("sameMarks compares contents", () => {
-    const a = { editing: new Map([["/a", "claude"]]), blocked: new Set(["/b"]) };
-
-    expect(sameMarks(a, { editing: new Map([["/a", "claude"]]), blocked: new Set(["/b"]) })).toBe(
-      true
-    );
-    expect(sameMarks(a, { editing: new Map([["/a", "codex"]]), blocked: new Set(["/b"]) })).toBe(
-      false
-    );
   });
 });

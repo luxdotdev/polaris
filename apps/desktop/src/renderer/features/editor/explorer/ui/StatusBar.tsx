@@ -34,7 +34,7 @@ export const StatusBar = ({ host, git, right }: StatusBarProps) => {
       <span className={cn("flex items-center gap-1.5", away && "opacity-(--opacity-dimmed)")}>
         <span className="bg-text-subtle size-1.5 rounded-full" />
         {host.label}
-        {note === null ? null : <span>· {note}</span>}
+        {note === null ? null : <span className="ml-1">{note}</span>}
       </span>
       {git === null || git === "none" ? null : (
         <>
@@ -43,6 +43,7 @@ export const StatusBar = ({ host, git, right }: StatusBarProps) => {
               <BranchIcon size={12} className="shrink-0" />
               <span className="truncate">{git.branch}</span>
               {git.ahead > 0 ? <span>↑{git.ahead}</span> : null}
+              {git.worktree ? <span>worktree</span> : null}
             </span>
           )}
           <span data-testid="status-changed">

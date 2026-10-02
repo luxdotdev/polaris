@@ -8,9 +8,15 @@ import { createElement } from "react";
 import { polaris } from "../../../bridge.ts";
 import { closeTab, openFile, renameFile } from "../../runtime/actions.ts";
 import type { TabsView } from "../../runtime/hooks.ts";
-import { basename, dirname, isUnder, join, validName } from "../model/paths.ts";
+import { basename, dirname, isUnder, join, movedPath, validName } from "../model/paths.ts";
 import { expandTo } from "../model/tree.ts";
-import { type Draft, explorerOf, patchExplorer, setListing } from "./store.ts";
+import {
+  type Draft,
+  explorerOf,
+  patchExplorer,
+  setListing,
+  type WorkspaceExplorer,
+} from "./store.ts";
 
 export interface Place {
   readonly key: string;
@@ -70,6 +76,18 @@ const create = async (place: Place, dir: string, entry: "file" | "directory", na
   if (entry === "file") openFile({ hostKey: place.hostKey, workspaceId: place.workspaceId, path });
 };
 
+/** A renamed folder keeps what was open inside it; its old listings go, to be fetched anew. */
+export const movedState = (
+  s: WorkspaceExplorer,
+  from: string,
+  to: string
+): Partial<WorkspaceExplorer> => ({
+  focused: to,
+  expanded: new Set([...s.expanded].map((dir) => movedPath(dir, from, to))),
+  listings: new Map([...s.listings].filter(([dir]) => !isUnder(dir, from))),
+  root: s.root === null ? null : movedPath(s.root, from, to),
+});
+
 const rename = async (place: Place, path: string, name: string) => {
   const destination = join(dirname(path), name);
 
@@ -88,8 +106,9 @@ const rename = async (place: Place, path: string, name: string) => {
   }
 
   // Open tabs of the file, or of anything under a renamed folder, follow it.
-  void renameFile(place.hostKey, path, destination);
-  patchExplorer(place.key, () => ({ focused: destination }));
+  // Its buffer, draft, undo and cursor move first, so nothing is left at the old path.
+  await renameFile(place.hostKey, path, destination);
+  patchExplorer(place.key, (s) => movedState(s, path, destination));
   await Promise.all([relist(place, dirname(path)), relist(place, dirname(destination))]);
 };
 

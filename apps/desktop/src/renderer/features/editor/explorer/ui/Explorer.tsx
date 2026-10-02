@@ -24,7 +24,7 @@ import { activeSessions } from "../../../../routes/topBar.ts";
 import { type Place, startDraft } from "../data/actions.ts";
 import { type ExplorerView, patchExplorer } from "../data/store.ts";
 import { useExplorer } from "../data/useExplorer.ts";
-import { openFile, setAgentFiles, useEditorTabs } from "../../index.ts";
+import { openFile, setAgentEdits, setAgentFiles, useEditorTabs } from "../../index.ts";
 import { basename } from "../model/paths.ts";
 import { AgentsIn } from "./AgentsIn.tsx";
 import { ChangesList } from "./ChangesList.tsx";
@@ -152,10 +152,11 @@ export const Explorer = ({ host, workspace }: ExplorerProps) => {
 
   const changed = data.changes.length;
 
-  useEffect(
-    () => setAgentFiles(host.key, workspace.id, data.agents.editing),
-    [host.key, workspace.id, data.agents]
-  );
+  // The tabs' dither and the Working strip (E3) both follow the agents' file changes.
+  useEffect(() => {
+    setAgentFiles(host.key, workspace.id, data.agents.editing);
+    setAgentEdits(host.key, workspace.id, data.agents.edits);
+  }, [host.key, workspace.id, data.agents]);
 
   const open = (path: string, pin: boolean) =>
     openFile({ hostKey: host.key, workspaceId: workspace.id, path, preview: !pin });
@@ -166,7 +167,8 @@ export const Explorer = ({ host, workspace }: ExplorerProps) => {
       data-testid="explorer"
       className="border-hairline bg-surface-sunken flex w-[264px] shrink-0 flex-col border-r"
     >
-      <div className="px-panel pt-panel flex flex-col gap-3 pb-3">
+      {/* E1's 12px at calm, stepping with the panel padding (rule/density-through-tokens). */}
+      <div className="px-panel pt-panel flex flex-col gap-[calc(var(--spacing-panel)*0.75)] pb-[calc(var(--spacing-panel)*0.75)]">
         <Header
           host={host}
           workspace={workspace}

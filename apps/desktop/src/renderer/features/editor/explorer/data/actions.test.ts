@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import type { PolarisApi } from "../../../../../shared/api.ts";
 import { standInBridge } from "../../../bridge.ts";
-import { commitDraft, deleteEntry, type Place, startDraft } from "./actions.ts";
-import { explorerOf, resetExplorers } from "./store.ts";
+import { commitDraft, deleteEntry, movedState, type Place, startDraft } from "./actions.ts";
+import { emptyExplorer, explorerOf, resetExplorers } from "./store.ts";
 
 const place: Place = { key: "h\u0000w", hostKey: "h", workspaceId: "w", root: "/w" };
 
@@ -81,6 +81,25 @@ describe("commitDraft", () => {
     await commitDraft(place, "  ");
     expect(explorerOf(place.key).draft).toBeNull();
     expect(sent("files.create")).toEqual([]);
+  });
+});
+
+describe("movedState", () => {
+  test("a renamed folder keeps its open folders and drops its stale listings", () => {
+    const before = {
+      ...emptyExplorer,
+      expanded: new Set(["/w/src", "/w/src/app", "/w/lib"]),
+      listings: new Map([
+        ["/w", { kind: "loading" as const }],
+        ["/w/src/app", { kind: "loading" as const }],
+      ]),
+    };
+
+    const after = movedState(before, "/w/src", "/w/source");
+
+    expect([...(after.expanded ?? [])]).toEqual(["/w/source", "/w/source/app", "/w/lib"]);
+    expect([...(after.listings?.keys() ?? [])]).toEqual(["/w"]);
+    expect(after.focused).toBe("/w/source");
   });
 });
 
