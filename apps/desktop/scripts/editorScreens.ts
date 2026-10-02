@@ -31,6 +31,8 @@ if (args.includes("--build")) {
 
 const ALL = [
   "e1",
+  "e3",
+  "close",
   "conflict",
   "compare",
   "reload",
@@ -76,7 +78,8 @@ const open = async (page: Page, scene: string) => {
   await page.waitForLoadState("domcontentloaded");
   const ready = scene === "empty" ? "No file open" : null;
 
-  if (ready === null)
+  if (scene === "close") await page.getByTestId("editor-close-dialog").waitFor({ timeout: 20_000 });
+  else if (ready === null)
     await page
       .locator(".cm-content, [data-testid=editor-pane] [role=status]")
       .first()

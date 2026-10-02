@@ -12,7 +12,8 @@ import type { BufferModel } from "../model/buffer.ts";
 import { emptyTabs, type TabSet } from "../model/tabs.ts";
 import type { LanguageId } from "../model/language.ts";
 import type { VimMode } from "../model/vim.ts";
-import type { EditorFile } from "../cm/extensions.ts";
+import type { AgentEdit } from "../model/agent.ts";
+import type { EditorFile } from "../api.ts";
 
 export type BufferStatus =
   | { readonly kind: "loading" }
@@ -30,6 +31,8 @@ export interface BufferView {
   readonly readOnly: boolean;
   /** A draft from an earlier run is waiting, before the file has loaded. */
   readonly draft: boolean;
+  /** Its unsaved edit couldn't be kept on this Mac: quitting would lose it (QCHECK B1). */
+  readonly unkept: boolean;
   /** Its grammar has loaded (the breadcrumb's symbol reads the syntax tree). */
   readonly grammar: boolean;
 }
@@ -39,8 +42,9 @@ export interface Cursor {
   readonly column: number;
   /** Characters selected; 0 for a caret. */
   readonly selected: number;
-  /** Lines the selection spans. */
-  readonly lines: number;
+  /** The lines the selection covers; a selection ending at column 1 stops on the line before. */
+  readonly firstLine: number;
+  readonly lastLine: number;
 }
 
 export interface ActiveEditor extends EditorFile {
@@ -60,6 +64,12 @@ export interface EditorState {
   readonly indent: string;
   /** Null while vim mode is off. */
   readonly vimMode: VimMode | null;
+  /** By `workspaceKey`: absolute path → the agent session editing it (Paper E3). */
+  readonly agentEdits: Readonly<Record<string, ReadonlyMap<string, AgentEdit>>>;
+  /** The view scrolls with the agent's writes (E3's Follow, on by default). */
+  readonly follow: boolean;
+  /** A tab with unsaved edits waiting on Save / Don't save / Cancel. */
+  readonly closing: EditorFile | null;
 }
 
 export const editorStore = createStore<EditorState>(() => ({
@@ -70,6 +80,9 @@ export const editorStore = createStore<EditorState>(() => ({
   cursor: null,
   indent: "Spaces 2",
   vimMode: null,
+  closing: null,
+  agentEdits: {},
+  follow: true,
 }));
 
 export const useEditor = <A>(select: (state: EditorState) => A): A => useStore(editorStore, select);

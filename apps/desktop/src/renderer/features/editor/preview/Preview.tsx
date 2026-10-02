@@ -1,12 +1,12 @@
 /**
  * The editor on fixtures, for screenshots against Paper E1–E3 and the editor
  * budgets: `#editor/<scene>` renders the pane, a stand-in explorer column and
- * the status bar on in-memory files. Scenes: e1, conflict, compare, reload,
+ * the status bar on in-memory files. Scenes: e1, e3, close, conflict, compare, reload,
  * vim, find, tabs20, readonly, binary, empty, big (`?persist` keeps drafts in localStorage). Its own chunk.
  */
 import { openSearchPanel } from "@codemirror/search";
 import type { EditorView } from "@codemirror/view";
-import { TooltipProvider } from "@polaris/ui";
+import { Toaster, TooltipProvider } from "@polaris/ui";
 import { createRoot } from "react-dom/client";
 import { createStore } from "zustand/vanilla";
 import type { Density, PolarisApi } from "../../../../shared/api.ts";
@@ -19,7 +19,16 @@ import { standInBridge } from "../../bridge.ts";
 import { settingsStore } from "../../settings/index.ts";
 import { createFakeFiles, type FakeFiles } from "../files/fake.ts";
 import { memoryKeyValue } from "../model/drafts.ts";
-import { closeTab, openFile, setAgentFiles } from "../runtime/actions.ts";
+import { memorySpill } from "../model/draftStore.ts";
+import { indexedDbSpill } from "../runtime/idbSpill.ts";
+import {
+  closeTab,
+  openFile,
+  renameFile,
+  setAgentEdits,
+  setAgentFiles,
+} from "../runtime/actions.ts";
+import { SessionId } from "@polaris/protocol";
 import { ensureEditor } from "../runtime/app.ts";
 import { getActiveEditor } from "../runtime/hooks.ts";
 import { EditorPane } from "../ui/EditorPane.tsx";
@@ -76,6 +85,46 @@ const agentEdit = (files: FakeFiles) => {
   );
 };
 
+const E3_EDIT = {
+  sessionId: SessionId.make("ses_polaris_planning"),
+  title: "Polaris planning",
+  harness: "claude",
+  turnId: "turn_24",
+  turnIndex: 24,
+  turnStartedAt: new Date(Date.now() - 72_000).toISOString(),
+  lastChangeAt: new Date().toISOString(),
+  live: true,
+};
+
+/** E3: the agent rewrites the needs-you span over a few writes, as Claude Code's edits land. */
+const agentTypes = (files: FakeFiles) => {
+  const steps = [
+    (t: string) =>
+      t.replace(
+        'const needsYou = session.state === "needs-you";',
+        'const needsYou = session.state === "needs-you";\n  const working = session.state === "working";'
+      ),
+    (t: string) =>
+      t.replace(
+        '<span className={needsYou ? "row-doing needs-you" : "row-doing"}>',
+        '<span className={needsYou ? "row-doing needs-you" : working ? "row-doing working" : "row-doing"}>'
+      ),
+  ];
+
+  let i = 0;
+
+  const next = () => {
+    const step = steps[i++];
+    const before = files.text(HOST, SESSION_ROW);
+
+    if (step === undefined || before === null) return;
+    files.agentWrite(HOST, SESSION_ROW, step(before));
+    setTimeout(next, 900);
+  };
+
+  setTimeout(next, 400);
+};
+
 const tabs20 = () => {
   for (let i = 0; i < 20; i++) {
     const file = `${ROOT}/daemon/src/generated/module-${String(i).padStart(2, "0")}.ts`;
@@ -91,6 +140,24 @@ const SCENES = new Map<string, Scene>(
     e1: async () => {
       openE1();
       await typeEdit();
+    },
+    e3: async (files) => {
+      openFile({ hostKey: HOST, workspaceId: WORKSPACE, path: SESSION_ROW });
+      openFile({
+        hostKey: HOST,
+        workspaceId: WORKSPACE,
+        path: path("desktop/src/orchestrator/session-row.css"),
+      });
+      openFile({ hostKey: HOST, workspaceId: WORKSPACE, path: SESSION_ROW });
+      setAgentFiles(HOST, WORKSPACE, new Map([[SESSION_ROW, "claude"]]));
+      setAgentEdits(HOST, WORKSPACE, new Map([[SESSION_ROW, E3_EDIT]]));
+      await activeView();
+      agentTypes(files);
+    },
+    close: async () => {
+      openE1();
+      await typeEdit();
+      closeTab(HOST, WORKSPACE, RECONNECT);
     },
     conflict: async (files) => {
       openE1();
@@ -182,6 +249,7 @@ export const mountEditorPreview = (root: HTMLElement, hash: string) => {
     files,
     // `?persist`: drafts and tabs in localStorage, as the app keeps them, for the restart check.
     kv: hash.includes("?persist") ? globalThis.localStorage : memoryKeyValue(),
+    spill: hash.includes("?persist") ? indexedDbSpill() : memorySpill(),
     canWrite: () => scene !== "readonly",
   });
 
@@ -189,6 +257,7 @@ export const mountEditorPreview = (root: HTMLElement, hash: string) => {
     <AppProvider value={{ connection, navigation, commands }}>
       <TooltipProvider>
         <Frame />
+        <Toaster />
       </TooltipProvider>
     </AppProvider>
   );
@@ -199,6 +268,7 @@ export const mountEditorPreview = (root: HTMLElement, hash: string) => {
       files,
       openFile,
       closeTab,
+      renameFile,
       activeView: () => getActiveEditor()?.view ?? null,
     },
   });

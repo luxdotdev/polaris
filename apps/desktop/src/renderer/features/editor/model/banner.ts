@@ -11,10 +11,11 @@ export type BannerAction =
   | "take-theirs"
   | "close"
   | "retry"
-  | "update-daemon";
+  | "update-daemon"
+  | "save";
 
 export interface Banner {
-  readonly kind: "conflict" | "deleted" | "save-failed" | "read-only";
+  readonly kind: "conflict" | "deleted" | "save-failed" | "read-only" | "unkept";
   readonly text: string;
   readonly actions: ReadonlyArray<{ readonly action: BannerAction; readonly label: string }>;
 }
@@ -26,6 +27,7 @@ export const ACTION_LABELS: Readonly<Record<BannerAction, string>> = {
   close: "Close tab",
   retry: "Try again",
   "update-daemon": "Update daemon",
+  save: "Save",
 };
 
 const actions = (...list: ReadonlyArray<BannerAction>) =>
@@ -60,10 +62,18 @@ export const bannerFor = (buffer: BufferView, hostLabel: string): Banner | null 
     };
   }
 
+  if (buffer.unkept && model?.dirty === true) {
+    return {
+      kind: "unkept",
+      text: "This unsaved edit is too large to keep after quitting",
+      actions: actions("save"),
+    };
+  }
+
   if (buffer.readOnly) {
     return {
       kind: "read-only",
-      text: `The daemon on ${hostLabel} can't save files yet.`,
+      text: `The daemon on ${hostLabel} can't save files yet`,
       actions: actions("update-daemon"),
     };
   }

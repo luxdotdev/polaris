@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { bannerFor } from "./banner.ts";
+import { createDraftStore, memorySpill } from "./draftStore.ts";
 import { loaded } from "./buffer.ts";
 import {
   draftMatches,
@@ -15,6 +16,8 @@ import { detectIndent, indentLabel, lineSeparatorOf } from "./indent.ts";
 import { languageFor } from "./language.ts";
 import { closeTab, cycleTab, emptyTabs, openTab, pinTab, renameTab, tabLabels } from "./tabs.ts";
 import { modeLabel, modeText } from "./vim.ts";
+import { unreadableToast } from "./notices.ts";
+import { crumbs } from "./paths.ts";
 import type { BufferView } from "../runtime/store.ts";
 
 describe("tabs", () => {
@@ -96,7 +99,7 @@ describe("drafts", () => {
     expect(readDraft(kv, "pi", "/a.ts")).toBeNull();
   });
 
-  test("a draft too big isn't kept, and the oldest go past the budget", () => {
+  test("a draft past the inline budget isn't kept inline, and no other draft is evicted", () => {
     const kv = memoryKeyValue();
 
     expect(
@@ -107,15 +110,46 @@ describe("drafts", () => {
         base: null,
       })
     ).toBe(false);
-    writeDraft(kv, { hostKey: "h", path: "/1", text: "x".repeat(1_500_000), base: null }, 1);
-    writeDraft(kv, { hostKey: "h", path: "/2", text: "x".repeat(1_500_000), base: null }, 2);
-    writeDraft(kv, { hostKey: "h", path: "/3", text: "x".repeat(1_500_000), base: null }, 3);
-
+    expect(
+      writeDraft(kv, { hostKey: "h", path: "/1", text: "x".repeat(1_500_000), base: null }, 1)
+    ).toBe(true);
+    expect(
+      writeDraft(kv, { hostKey: "h", path: "/2", text: "x".repeat(1_500_000), base: null }, 2)
+    ).toBe(true);
+    expect(
+      writeDraft(kv, { hostKey: "h", path: "/3", text: "x".repeat(1_500_000), base: null }, 3)
+    ).toBe(false);
     expect(
       listDrafts(kv)
         .map((d) => d.path)
         .toSorted()
-    ).toEqual(["/2", "/3"]);
+    ).toEqual(["/1", "/2"]);
+  });
+
+  test("past the inline budget a draft spills; with nowhere to go it isn't kept and says so", async () => {
+    const kv = memoryKeyValue();
+    const spill = memorySpill();
+
+    writeDraft(kv, { hostKey: "h", path: "/1", text: "x".repeat(1_900_000), base: null });
+    writeDraft(kv, { hostKey: "h", path: "/2", text: "x".repeat(1_900_000), base: null });
+    expect(
+      createDraftStore(kv, spill).write({
+        hostKey: "h",
+        path: "/3",
+        text: "y".repeat(400_000),
+        base: null,
+      })
+    ).toBe(true);
+    expect((await createDraftStore(kv, spill).read("h", "/3"))?.text.length).toBe(400_000);
+    expect(
+      createDraftStore(kv, null).write({
+        hostKey: "h",
+        path: "/4",
+        text: "z".repeat(400_000),
+        base: null,
+      })
+    ).toBe(false);
+    expect(createDraftStore(kv, null).has("h", "/4")).toBe(false);
   });
 
   test("a draft matches the disk it was made on", () => {
@@ -134,6 +168,39 @@ describe("drafts", () => {
     expect(readTabs(kv)).toEqual(tabs);
     kv.setItem("polaris.editor.tabs.v1", "{nope");
     expect(readTabs(kv)).toEqual({});
+  });
+});
+
+describe("big drafts (QCHECK: over 2M characters were lost)", () => {
+  const version = { mtimeMs: 1, size: 3, hash: "h" };
+
+  test("a 3 MB edit spills to the big store and reads back whole", async () => {
+    const kv = memoryKeyValue();
+    const spill = memorySpill();
+    const store = createDraftStore(kv, spill);
+    const text = "x".repeat(3_000_000);
+
+    expect(store.write({ hostKey: "h", path: "/big.ts", text, base: version })).toBe(true);
+    expect(store.has("h", "/big.ts")).toBe(true);
+    expect(readDraft(kv, "h", "/big.ts")?.text).toBe("");
+    expect((await store.read("h", "/big.ts"))?.text.length).toBe(3_000_000);
+
+    store.drop("h", "/big.ts");
+    await Promise.resolve();
+    expect(store.has("h", "/big.ts")).toBe(false);
+    expect(spill.size()).toBe(0);
+  });
+
+  test("a big draft that shrinks moves back inline, and small ones never spill", async () => {
+    const kv = memoryKeyValue();
+    const spill = memorySpill();
+    const store = createDraftStore(kv, spill);
+
+    store.write({ hostKey: "h", path: "/a.ts", text: "y".repeat(600_000), base: null });
+    store.write({ hostKey: "h", path: "/a.ts", text: "small", base: null });
+    await Promise.resolve();
+    expect((await store.read("h", "/a.ts"))?.text).toBe("small");
+    expect(spill.size()).toBe(0);
   });
 });
 
@@ -170,6 +237,7 @@ describe("the strip above the code", () => {
     readOnly: false,
     draft: false,
     grammar: true,
+    unkept: false,
     ...patch,
   });
 
@@ -188,11 +256,78 @@ describe("the strip above the code", () => {
     expect(banner?.actions.map((a) => a.label)).toEqual(["Compare", "Keep mine", "Take theirs"]);
   });
 
+  test("an edit too large to keep says so, with Save", () => {
+    const model = {
+      ...loaded({ text: "a", version: { mtimeMs: 1, size: 1, hash: "a" } }),
+      dirty: true,
+    };
+
+    const banner = bannerFor(
+      view({ status: { kind: "ready", model }, unkept: true }),
+      "Mac Studio"
+    );
+
+    expect(banner?.text).toBe("This unsaved edit is too large to keep after quitting");
+    expect(banner?.actions.map((a) => a.label)).toEqual(["Save"]);
+  });
+
   test("an old Daemon says so, and nothing shows when all is well", () => {
     expect(bannerFor(view({ readOnly: true }), "Raspberry Pi 4")?.text).toBe(
-      "The daemon on Raspberry Pi 4 can't save files yet."
+      "The daemon on Raspberry Pi 4 can't save files yet"
     );
     expect(bannerFor(view({}), "Mac Studio")).toBeNull();
+  });
+});
+
+describe("an open that can't read its file", () => {
+  test("says which file, and on which host", () => {
+    expect(
+      unreadableToast(
+        "/r/daemon/gone.ts",
+        "/r",
+        { label: "Mac Studio", home: null },
+        { kind: "missing" }
+      )
+    ).toEqual({
+      title: "Couldn't open daemon/gone.ts",
+      message: "Not found on Mac Studio.",
+    });
+  });
+
+  test("passes the Daemon's reason through, and the whole path outside the root", () => {
+    expect(
+      unreadableToast(
+        "/etc/shadow",
+        "/r",
+        { label: "Linux VM", home: "/home/lucas" },
+        {
+          kind: "error",
+          message: "EACCES: permission denied.",
+        }
+      )
+    ).toEqual({
+      title: "Couldn't open etc/shadow",
+      message: "EACCES: permission denied (on Linux VM).",
+    });
+  });
+});
+
+describe("paths in the breadcrumbs", () => {
+  test("from the root, else from ~ (a checkout's other files), else from /", () => {
+    expect(crumbs("/Users/l/code/p/daemon/a.ts", "/Users/l/code/p")).toEqual(["daemon", "a.ts"]);
+    expect(crumbs("/Users/l/code/p/x.ts", "/Users/l/.review/p", "/Users/l")).toEqual([
+      "~",
+      "code",
+      "p",
+      "x.ts",
+    ]);
+    expect(crumbs("/opt/x.ts", "/r", "/Users/l")).toEqual(["opt", "x.ts"]);
+  });
+
+  test("a macOS realpath under /private is inside a /var root (QDESIGN #4)", () => {
+    expect(crumbs("/private/var/folders/t/repo/README.md", "/var/folders/t/repo")).toEqual([
+      "README.md",
+    ]);
   });
 });
 

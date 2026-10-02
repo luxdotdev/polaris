@@ -25,7 +25,6 @@ export const Banner = ({ banner, comparing, onAction }: BannerProps) => (
       {banner.actions.map(({ action, label }) => (
         <Button
           key={action}
-          size="sm"
           variant={action === "compare" ? "ghost" : "secondary"}
           aria-pressed={action === "compare" ? comparing : undefined}
           onClick={() => onAction(action)}

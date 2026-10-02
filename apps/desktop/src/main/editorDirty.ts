@@ -6,6 +6,8 @@
 export interface DirtyFile {
   readonly hostKey: string;
   readonly path: string;
+  /** Too large to keep as a draft: "Quit" loses it. */
+  readonly unkept: boolean;
 }
 
 /** What each window last said it has unsaved, by window id. */
@@ -43,10 +45,20 @@ export const fileList = (files: ReadonlyArray<DirtyFile>): string => {
   return `${names.slice(0, 2).join(", ")} and ${names.length - 2} more`;
 };
 
+const detailFor = (files: ReadonlyArray<DirtyFile>) => {
+  const unkept = files.filter((f) => f.unkept);
+  const kept = `${fileList(files)} ${files.length === 1 ? "has" : "have"} unsaved edits. If you quit without saving, Polaris keeps them on this Mac and brings them back next time.`;
+
+  if (unkept.length === 0) return kept;
+  const lost = `${fileList(unkept)} ${unkept.length === 1 ? "is" : "are"} too large to keep after quitting: quitting without saving loses ${unkept.length === 1 ? "that edit" : "those edits"}.`;
+
+  return `${kept} ${lost}`;
+};
+
 export const quitMessage = (files: ReadonlyArray<DirtyFile>) => ({
   message:
     files.length === 1
       ? `Save changes to ${name(files[0]?.path ?? "")} before quitting?`
       : `Save changes to ${files.length} files before quitting?`,
-  detail: `${fileList(files)} ${files.length === 1 ? "has" : "have"} unsaved edits. If you quit without saving, Polaris keeps them on this Mac and brings them back next time.`,
+  detail: detailFor(files),
 });

@@ -4,6 +4,7 @@ import { useRequestedCount } from "../features/pulls/store.ts";
 import { useNeedsYouCount } from "../features/needs-you/index.ts";
 import { jumpCopy } from "../features/jump/copy.ts";
 import { useSelection, useShellActions } from "./hooks.ts";
+import { preloadEditor } from "../features/editor/preload.ts";
 
 /**
  * The `hiddenInset` title bar (DESIGN.md, Titlebar): the lockup after the traffic
@@ -56,13 +57,10 @@ export const TitleBar = () => {
       {/* The native traffic lights sit here (window.ts); fixed, never density-scaled. */}
       <span className="w-[60px] shrink-0" aria-hidden />
       <Wordmark />
-      <SegmentedControl
-        className="app-no-drag"
-        aria-label="Mode"
-        options={modes}
-        value={mode}
-        onValueChange={setMode}
-      />
+      {/* Reaching for the switch warms Edit mode, so its first open is quick. */}
+      <div className="app-no-drag flex" onPointerEnter={preloadEditor} onFocus={preloadEditor}>
+        <SegmentedControl aria-label="Mode" options={modes} value={mode} onValueChange={setMode} />
+      </div>
       <span className="flex-1" />
       <button
         type="button"

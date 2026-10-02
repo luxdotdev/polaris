@@ -380,7 +380,9 @@ export const RequestInputs = {
   "dialog.pickFolder": Schema.Struct({}),
   /** The Editor's unsaved files, for the quit prompt (main/editorQuit.ts). */
   "editor.publishDirty": Schema.Struct({
-    files: Schema.Array(Schema.Struct({ hostKey: HostKey, path: Schema.String })),
+    files: Schema.Array(
+      Schema.Struct({ hostKey: HostKey, path: Schema.String, unkept: Schema.Boolean })
+    ),
   }),
   /** "Save and quit" finished: whether every file saved. */
   "editor.savedAll": Schema.Struct({ ok: Schema.Boolean }),
