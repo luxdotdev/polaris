@@ -1,0 +1,247 @@
+/* The site: @polaris/ui's tokens plus the marketing palette of the Paper "Marketing site" page. */
+@import "@polaris/ui/styles.css";
+
+@source "../app";
+@source "../components";
+
+/* S1 (dark) and S2 (light) colours as light-dark() pairs; @polaris/ui flips color-scheme. */
+@theme static {
+  --color-site-ground: light-dark(#fbfbfc, #0a0d1a);
+  --color-site-bar: light-dark(#fbfbfcf2, #0a0d1af2);
+  --color-site-link: light-dark(#333438, #c9d0e0);
+  --color-site-copy: light-dark(#333438, #dde3f0);
+  --color-site-muted: light-dark(#5e6370, #9aa3bd);
+  --color-site-kicker: light-dark(#6b707c, #8a93ad);
+  --color-site-rule: light-dark(#0000001a, #bcd3ff1a);
+  --color-site-card: light-dark(#ffffff, #10142a);
+  --color-site-row: light-dark(#f7f7f9, #ffffff06);
+  --color-site-tile: light-dark(#ededef, #1a1f38);
+  --color-site-footer: light-dark(#f3f3f5, #070912);
+  --color-site-pill: light-dark(#ffffffcc, #0a0d1acc);
+  --color-site-pill-border: light-dark(#4f82e840, #bcd3ff29);
+  --color-site-field: light-dark(#ffffff, #0a0d1a);
+  --color-site-field-border: light-dark(#00000024, #bcd3ff33);
+  --color-site-primary: light-dark(#17181a, #f4f5f7);
+  --color-site-primary-hover: light-dark(#2b2c31, #ffffff);
+  --color-site-on-primary: light-dark(#ffffff, #0a0d1a);
+  --color-site-secondary: light-dark(#ffffff, #151a30);
+  --color-site-secondary-hover: light-dark(#f4f4f6, #1c2240);
+  --color-site-secondary-border: light-dark(#00000024, #f4f5f733);
+  --color-site-clearing: light-dark(oklab(98.8% 0.0004 -0.001), oklab(14.2% 0.001 -0.02));
+  --color-site-dusk: light-dark(oklab(98.8% 0.0004 -0.001), oklab(16.3% 0.001 -0.028));
+}
+
+/* Images can't be light-dark() pairs, so each scheme sets them (as @polaris/ui's assets.css does). */
+:root {
+  --site-star: url("../../../design/assets/icons/px-polaris-dark.svg");
+  --site-hand: url("../../../design/assets/icons/px-hand-needs-dark.svg");
+  --site-constellation: url("../../../design/assets/icons/px-constellation-dark.svg");
+  --site-dither-claude: url("../../../design/assets/dither/dither-claude-16.svg");
+  --site-dither-codex: url("../../../design/assets/dither/dither-codex-16.svg");
+  --site-logo: url("../../../design/assets/brand/polaris-logo-starlight.svg");
+  --site-halo-display: block;
+  --site-shot-shadow: 0 0 0 1px #ffffff1f, 0 40px 100px #00000099;
+  --site-hero-shadow: 0 0 0 1px #ffffff1f, 0 40px 120px #000000b3, 0 0 0 10px #bcd3ff0a;
+  --site-card-shadow: 0 40px 100px #00000080;
+  --site-primary-shadow: 0 0 0 1px #ffffff, 0 10px 30px #00000066;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --site-star: url("../../../design/assets/icons/px-polaris-light.svg");
+    --site-hand: url("../../../design/assets/icons/px-hand-needs-light.svg");
+    --site-constellation: url("../../../design/assets/icons/px-constellation-light.svg");
+    --site-dither-claude: url("../../../design/assets/dither/dither-claude-16-light.svg");
+    --site-dither-codex: url("../../../design/assets/dither/dither-codex-16-light.svg");
+    --site-logo: url("../../../design/assets/brand/polaris-logo-blue.svg");
+    --site-halo-display: none;
+    --site-shot-shadow: 0 0 0 1px #0000001a, 0 30px 80px #1f2a4a2e;
+    --site-hero-shadow: 0 0 0 1px #0000001a, 0 40px 100px #1f2a4a40;
+    --site-card-shadow: 0 30px 80px #1f2a4a1f;
+    --site-primary-shadow: 0 8px 24px #17181a33;
+  }
+}
+
+@layer base {
+  html {
+    background-color: var(--color-site-ground);
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-site-ground);
+    color: var(--color-site-copy);
+    font-size: 16px;
+    line-height: 24px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+}
+
+/* The hero sky: the night scene at 4/3 (S1), or the dawn scene at 1× fading into bg-light (S2). */
+@utility hero-sky {
+  background-color: var(--color-site-ground);
+  background-image: var(--scene);
+  background-repeat: no-repeat;
+  background-size: max(1920px, 133.334vw) auto;
+  background-position: center -20px;
+  image-rendering: pixelated;
+
+  @media (width < 64rem) {
+    background-position: calc(50% - 295px) 20px;
+  }
+
+  @media (prefers-color-scheme: light) {
+    background-image:
+      linear-gradient(
+        to bottom,
+        transparent calc(max(900px, 62.5vw) - 160px),
+        var(--color-site-ground) calc(max(900px, 62.5vw) + 10px)
+      ),
+      var(--scene);
+    background-size:
+      100% 100%,
+      max(1440px, 100vw) auto;
+    background-position:
+      0 0,
+      center top;
+  }
+}
+
+/* The closing sky: the scene's lower half under a fade from the page above. */
+@utility cta-sky {
+  background-color: var(--color-site-ground);
+  background-image:
+    linear-gradient(to bottom, var(--color-site-dusk) 0%, transparent 30%), var(--scene);
+  background-repeat: no-repeat;
+  background-size:
+    100% 100%,
+    max(1920px, 133.334vw) auto;
+  background-position:
+    0 0,
+    left -200px;
+  image-rendering: pixelated;
+
+  @media (width < 64rem) {
+    background-position:
+      0 0,
+      calc(50% + 325px) -330px;
+  }
+
+  @media (prefers-color-scheme: light) {
+    background-image:
+      linear-gradient(to bottom, var(--color-site-ground) 0%, transparent 30%), var(--scene);
+    background-size:
+      100% 100%,
+      max(1440px, 100vw) auto;
+    background-position:
+      0 0,
+      center bottom;
+  }
+}
+
+/* A soft clearing behind text on a scene (rule/scene-text-contrast). */
+@utility clearing {
+  background-image: radial-gradient(
+    ellipse 55% 55% at 50% 50% in oklab,
+    color-mix(in oklab, var(--color-site-clearing) 95%, transparent) 0%,
+    color-mix(in oklab, var(--color-site-clearing) 81.6%, transparent) 60%,
+    transparent 100%
+  );
+
+  @media (width < 64rem) {
+    background-image: radial-gradient(
+      ellipse 95% 60% at 50% 55% in oklab,
+      color-mix(in oklab, var(--color-site-clearing) 95%, transparent) 0%,
+      color-mix(in oklab, var(--color-site-clearing) 84.7%, transparent) 65%,
+      transparent 100%
+    );
+  }
+}
+
+/* Pixel art and washes by name; a var() url in an inline style would resolve against the page. */
+@utility px-star {
+  background-image: var(--site-star);
+}
+
+@utility px-hand {
+  background-image: var(--site-hand);
+}
+
+@utility px-constellation {
+  background-image: var(--site-constellation);
+}
+
+@utility px-dither-claude {
+  background-image: var(--site-dither-claude);
+}
+
+@utility px-dither-codex {
+  background-image: var(--site-dither-codex);
+}
+
+@utility px-logo {
+  background-image: var(--site-logo);
+}
+
+@utility wash-claude-code {
+  background-image: var(--wash-claude-code);
+}
+
+@utility wash-codex {
+  background-image: var(--wash-codex);
+}
+
+@utility halo-starlight {
+  display: var(--site-halo-display);
+  background-image: var(--halo-starlight);
+}
+
+@utility px-icon {
+  display: inline-block;
+  flex-shrink: 0;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  image-rendering: pixelated;
+}
+
+/* A product shot cropped like its Paper frame: --w/--x/--y on desktop, --mw/--mx/--my on mobile. */
+@utility shot-frame {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: var(--mar, 370 / 300);
+  box-shadow: var(--site-shot-shadow);
+
+  @media (width >= 64rem) {
+    aspect-ratio: var(--ar, 804 / 620);
+  }
+}
+
+@utility shot-image {
+  position: absolute;
+  max-width: none;
+  height: auto;
+  width: var(--mw);
+  left: var(--mx, 0%);
+  top: var(--my, 0%);
+
+  @media (width >= 64rem) {
+    width: var(--w);
+    left: var(--x, 0%);
+    top: var(--y, 0%);
+  }
+
+  @media (prefers-color-scheme: light) {
+    left: var(--lmx, var(--mx, 0%));
+    top: var(--lmy, var(--my, 0%));
+
+    @media (width >= 64rem) {
+      left: var(--lx, var(--x, 0%));
+      top: var(--ly, var(--y, 0%));
+    }
+  }
+}
