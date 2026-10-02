@@ -22,12 +22,14 @@ import {
   c1Record,
   constellationOf,
   DEVBOX,
+  completedAttempts,
   handedUpAttempts,
   LEAD,
   STUDIO,
   WORKSPACE,
 } from "./graph.ts";
 import { largeRecord } from "./large.ts";
+import { statsFixture } from "./stats.ts";
 import {
   b1Model,
   leadModel,
@@ -74,7 +76,18 @@ const host = (
   },
 });
 
-const SCENES = ["lead", "menu", "focus", "handed", "paused", "empty", "large", "handover"] as const;
+const SCENES = [
+  "lead",
+  "menu",
+  "focus",
+  "handed",
+  "paused",
+  "empty",
+  "large",
+  "handover",
+  "stats",
+  "completed",
+] as const;
 
 type Scene = (typeof SCENES)[number];
 
@@ -88,6 +101,8 @@ const recordFor = (scene: Scene): ConstellationRecord => {
     );
 
   if (scene === "handed") return c1Record({ attempts: handedUpAttempts() });
+
+  if (scene === "completed") return c1Record({ state: "completed", attempts: completedAttempts() });
 
   return c1Record(scene === "paused" ? { state: "paused" } : {});
 };
@@ -105,6 +120,8 @@ const UI: Readonly<Record<Scene, Partial<LeadUi>>> = {
   empty: {},
   large: { selected: "task:C5" },
   handover: { focus: { kind: "handover", revision: 37 }, selected: "handover:37" },
+  stats: { stats: true },
+  completed: {},
 };
 
 const stateFor = (record: ConstellationRecord): AppState => {
@@ -146,7 +163,13 @@ const stateFor = (record: ConstellationRecord): AppState => {
 };
 
 const bridge: PolarisApi = {
-  request: () => Promise.resolve({ ok: false, error: { code: "Unsupported", message: "preview" } }),
+  request: (method) =>
+    // SAFETY: only constellation.stats is answered, with its own output type.
+    Promise.resolve(
+      (method === "constellation.stats"
+        ? { ok: true, value: statsFixture(37) }
+        : { ok: false, error: { code: "Unsupported", message: "preview" } }) as never
+    ),
   subscribe: () => () => undefined,
   onAppEvent: () => () => undefined,
 };

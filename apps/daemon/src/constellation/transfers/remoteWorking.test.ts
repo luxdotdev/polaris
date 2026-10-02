@@ -10,6 +10,10 @@ import {
   RemoteWorkerAssignment,
   ConstellationOutboxEntry,
   ConstellationOutboxPacket,
+  AgentSession,
+  DomainEvent,
+  Turn,
+  TurnId,
 } from "@polaris/protocol";
 import { Context, Deferred, Effect, Layer, Semaphore } from "effect";
 import {
@@ -59,7 +63,7 @@ const graph = () =>
     updatedAt: AT,
   });
 
-test("remote startup and recovery wait for a scoped slot, and stale post-Claim mirrors never restart", async () => {
+test("a new remote Attempt starts its brief in an Existing Session with historical Turns, behind a scoped slot", async () => {
   const root = mkdtempSync("/tmp/c1wslots-");
 
   try {
@@ -117,6 +121,72 @@ test("remote startup and recovery wait for a scoped slot, and stale post-Claim m
 
           const workers = Context.get(workerContext, RemoteWorkers);
           const storage = Context.get(context, TransferStorage);
+          const store = Context.get(context, EventStore);
+          const sessionId = draft().sessionId;
+
+          const historical = Turn.make({
+            id: TurnId.make("historical"),
+            sessionId,
+            index: 0,
+            prompt: "Earlier work",
+            attachments: [],
+            model: null,
+            effort: null,
+            status: "working",
+            checkpointBefore: null,
+            checkpointAfter: null,
+            startedAt: AT,
+            endedAt: null,
+          });
+
+          yield* store.commit({
+            commandId: null,
+            decide: () =>
+              Effect.succeed([
+                DomainEvent.cases.SessionCreated.make({
+                  session: AgentSession.make({
+                    id: sessionId,
+                    workspaceId: WS,
+                    harness: "codex",
+                    title: "Existing",
+                    cwd: "/tmp/work",
+                    worktreeId: null,
+                    state: "idle",
+                    permissionMode: "supervised",
+                    model: null,
+                    effort: null,
+                    parentSessionId: null,
+                    forkedFromTurnId: null,
+                    harnessCursor: null,
+                    turnCount: 0,
+                    contextUsage: null,
+                    lastError: null,
+                    createdAt: AT,
+                    updatedAt: AT,
+                  }),
+                }),
+                DomainEvent.cases.TurnStarted.make({
+                  turn: historical,
+                }),
+                DomainEvent.cases.TurnEnded.make({
+                  turn: Turn.make({
+                    id: historical.id,
+                    sessionId,
+                    index: 0,
+                    prompt: historical.prompt,
+                    attachments: [],
+                    model: null,
+                    effort: null,
+                    status: "completed",
+                    checkpointBefore: null,
+                    checkpointAfter: null,
+                    startedAt: AT,
+                    endedAt: AT,
+                  }),
+                }),
+              ]),
+          });
+          expect((yield* store.model).sessions.get(sessionId)?.session.turnCount).toBe(1);
 
           const assignment = RemoteWorkerAssignment.make({
             graph: graph(),

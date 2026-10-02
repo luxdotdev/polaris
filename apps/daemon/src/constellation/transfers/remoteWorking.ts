@@ -5,7 +5,6 @@ import {
   type ConstellationTransferError,
 } from "@polaris/protocol";
 import { Effect, Exit, Layer, Scope } from "effect";
-import { EventStore } from "../../store/EventStore.ts";
 import { HostResources } from "../../resources/index.ts";
 import { McpTokens } from "../../mcp/index.ts";
 import { ConstellationOwner } from "../runtime.ts";
@@ -35,7 +34,6 @@ export const remoteWorkingAttemptsLayer = <E, R>(hooks: RemoteWorkingHooks<E, R>
   Layer.effect(
     RemoteWorkers,
     Effect.gen(function* () {
-      const store = yield* EventStore;
       const resources = yield* HostResources;
       const tokens = yield* McpTokens;
       const storage = yield* TransferStorage;
@@ -93,8 +91,7 @@ export const remoteWorkingAttemptsLayer = <E, R>(hooks: RemoteWorkingHooks<E, R>
             return;
           }
 
-          const session = (yield* store.model).sessions.get(attempt.sessionId)?.session;
-          const continuing = resume || started.has(attempt.id) || (session?.turnCount ?? 0) > 0;
+          const continuing = resume || started.has(attempt.id);
           started.add(attempt.id);
           yield* (
             continuing

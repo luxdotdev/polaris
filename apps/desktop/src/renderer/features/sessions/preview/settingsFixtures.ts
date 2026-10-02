@@ -225,6 +225,7 @@ export const C1_STATS: ConstellationStatsView = {
       { role: "lead", usage: statsUsage("lead-c1", 7_300_000) },
       { role: "worker", usage: statsUsage("a1", 20_900_000) },
     ],
+    perDigest: [],
   },
   pricesFetchedAt: ago(60),
 };

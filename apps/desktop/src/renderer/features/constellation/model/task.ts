@@ -3,10 +3,11 @@
  * state (liveness, the Claim at a glance, a Gate's receipts, why it needs you, an overlap).
  */
 import type { HarnessKind, TaskId } from "@polaris/protocol";
+import { Match } from "effect";
 import type { Overlap } from "./areas.ts";
 import { acceptedGlance, type ClaimGlance, claimGlance, type ReceiptView } from "./claim.ts";
 import { actorLine, harnessWord, span } from "./copy.ts";
-import { CONTEXT_WARN, type Facts, NO_FACTS, type WorkerFacts } from "./facts.ts";
+import { type Activity, CONTEXT_WARN, type Facts, NO_FACTS, type WorkerFacts } from "./facts.ts";
 import { glyphFor, type TaskGlyphKind, type TaskLook, taskLook } from "./look.ts";
 import type {
   AttemptData,
@@ -84,20 +85,26 @@ const QUIET_AFTER_MS = 60_000;
 const quietFor = (since: string, now: number) =>
   now - Date.parse(since) < QUIET_AFTER_MS ? null : `quiet ${span(since, now)}`;
 
+const activityText = (a: Activity) =>
+  Match.value(a).pipe(
+    Match.discriminatorsExhaustive("kind")({
+      command: ({ text }) => text,
+      tool: ({ text }) => text,
+      slot: ({ host }) => `waiting for a slot${host === null ? "" : ` on ${host}`}`,
+      lease: ({ resource, holder }) =>
+        `waiting on ${resource}${holder === null ? "" : ` (held by ${holder})`}`,
+    })
+  );
+
 const liveness = (w: WorkerFacts, progress: Progress | undefined, now: number): Liveness | null => {
   const a = w.activity;
 
-  const activity =
-    a === null
-      ? null
-      : a.kind === "lease"
-        ? `waiting on ${a.resource}${a.holder === null ? "" : ` (held by ${a.holder})`}`
-        : a.text;
+  const activity = a === null ? null : activityText(a);
 
   const line: Liveness = {
     kind: "liveness",
     activity,
-    mono: a !== null && a.kind !== "lease",
+    mono: a !== null && (a.kind === "command" || a.kind === "tool"),
     duration: a === null ? null : span(a.since, now),
     context: w.contextPercent,
     queued: w.queued,

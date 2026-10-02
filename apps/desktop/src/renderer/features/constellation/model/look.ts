@@ -181,6 +181,18 @@ export const taskLook = (
       attention,
       bucket: "needs-you",
     };
+  const slot = worker?.activity?.kind === "slot" ? worker.activity : null;
+
+  if (slot !== null && projection.state === "working")
+    return {
+      glyph: "waiting",
+      idTone: "neutral",
+      word: `waiting · ${span(slot.since, facts.now)}`,
+      wordTone: "neutral",
+      evidence: null,
+      attention: null,
+      bucket: "working",
+    };
   const tone = toneOf(projection.state);
 
   return {

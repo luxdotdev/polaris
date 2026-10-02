@@ -25,6 +25,7 @@ import { type KeyAction, railKey } from "../model/keys.ts";
 import { leadKey, type LeadUi, patchLeadUi, useLeadUi } from "../state.ts";
 import { ConstellationMark } from "./glyphs.tsx";
 import { Filters, Header, KeyHints } from "./header.tsx";
+import { CompletionCard } from "./stats.tsx";
 import { type MenuActions, RowContextMenu, RowMenu } from "./menu.tsx";
 import { type MessageDraft, MessageLeadDialog } from "./MessageLead.tsx";
 import { type RowHandlers, RowView } from "./rows.tsx";
@@ -276,9 +277,14 @@ export const ConstellationTab = (props: ConstellationTabProps) => {
         segments={strip}
         top={items[0] ?? null}
         onJump={onJump}
-        now={facts.now}
+        hostKey={hostKey}
+        statsOpen={ui.stats}
+        onStatsOpen={(stats) => patchLeadUi(actions.key, () => ({ stats }))}
         ledBy="led by this session"
       />
+      {c.state === "completed" || c.state === "archived" ? (
+        <CompletionCard hostKey={hostKey} record={record} />
+      ) : null}
       {rail.large ? (
         <Filters
           rail={rail}

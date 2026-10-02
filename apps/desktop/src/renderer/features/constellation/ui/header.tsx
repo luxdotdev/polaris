@@ -2,67 +2,27 @@
  * The tab's header (DESIGN.md, Header): the mark, the name, "led by this session · running",
  * the progress strip, Stats, and the next thing that needs you as a chip (tab jumps to it).
  */
-import {
-  Button,
-  cn,
-  Input,
-  Kbd,
-  PixelHandIcon,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@polaris/ui";
+import { cn, Input, Kbd, PixelHandIcon } from "@polaris/ui";
 import type { RefObject } from "react";
 import type { AttentionItem, ConstellationRecord, Filter, Rail, Segment } from "../model/index.ts";
-import { constellationStats } from "../model/stats.ts";
+import { StatsPopover } from "./stats.tsx";
 import { ConstellationMark } from "./glyphs.tsx";
 import { ProgressStrip } from "./strip.tsx";
-
-const StatsPopover = ({
-  record,
-  now,
-}: {
-  readonly record: ConstellationRecord;
-  readonly now: number;
-}) => (
-  <Popover>
-    <PopoverTrigger asChild>
-      <Button size="xs" variant="ghost" data-testid="constellation-stats">
-        Stats
-      </Button>
-    </PopoverTrigger>
-    <PopoverContent align="end" className="w-72 p-3">
-      <div className="flex flex-col gap-3">
-        {constellationStats(record, now).map((group) => (
-          <section key={group.title} className="flex flex-col gap-1">
-            <h3 className="text-caption text-text-subtle">{group.title}</h3>
-            {group.lines.map((line) => (
-              <p key={line.label} className="text-body flex justify-between gap-3">
-                <span className="text-text-default">{line.label}</span>
-                <span className="text-text-strong tabular text-right">{line.value}</span>
-              </p>
-            ))}
-          </section>
-        ))}
-        <p className="text-caption text-text-subtle">
-          Tokens and cost per task are in Settings → Usage, by constellation.
-        </p>
-      </div>
-    </PopoverContent>
-  </Popover>
-);
 
 export interface HeaderProps {
   readonly record: ConstellationRecord;
   readonly segments: ReadonlyArray<Segment>;
   readonly top: AttentionItem | null;
   readonly onJump: (item: AttentionItem) => void;
-  readonly now: number;
+  readonly hostKey: string;
+  readonly statsOpen: boolean;
+  readonly onStatsOpen: (open: boolean) => void;
   /** "led by this session" when the Lead's own view, else "led by {title}". */
   readonly ledBy: string;
 }
 
-export const Header = ({ record, segments, top, onJump, now, ledBy }: HeaderProps) => {
+export const Header = (props: HeaderProps) => {
+  const { record, segments, top, onJump, ledBy } = props;
   const c = record.constellation;
   const empty = c.tasks.length === 0;
 
@@ -78,7 +38,14 @@ export const Header = ({ record, segments, top, onJump, now, ledBy }: HeaderProp
         {c.tasks.length >= 100 ? ` · ${c.tasks.length} tasks` : ""}
       </span>
       {empty ? null : <ProgressStrip segments={segments} />}
-      {empty ? null : <StatsPopover record={record} now={now} />}
+      {empty ? null : (
+        <StatsPopover
+          hostKey={props.hostKey}
+          record={record}
+          open={props.statsOpen}
+          onOpenChange={props.onStatsOpen}
+        />
+      )}
       {top === null ? null : (
         <button
           type="button"

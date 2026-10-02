@@ -37,7 +37,7 @@ export class ConstellationRejected extends Schema.TaggedError<ConstellationRejec
   "ConstellationRejected",
   {
     findings: Schema.Array(ConstellationFinding),
-    graph: Schema.NullOr(ConstellationGraphSlice),
+    graph: Schema.NullOr(Schema.suspend(() => ConstellationGraphSlice)),
     revision: Revision,
   }
 ) {}

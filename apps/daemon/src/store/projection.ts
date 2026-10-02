@@ -29,6 +29,8 @@ import { constellationOf } from "./constellation.ts";
 import { project } from "./model.ts";
 import { storeError } from "./errors.ts";
 import { projectReviewEvent } from "./review.ts";
+import { json } from "./json.ts";
+import { EventJson } from "./eventJson.ts";
 import {
   emptyModel,
   RECENT_TURNS,
@@ -39,18 +41,7 @@ import {
 
 // ── Codecs ──────────────────────────────────────────────────────────────────
 
-const json = <A, I>(schema: Schema.Codec<A, I>) => {
-  const codec = Schema.toCodecJson(schema);
-  const encode = Schema.encodeSync(codec);
-  const decode = Schema.decodeUnknownSync(codec);
-
-  return {
-    encode: (value: A): string => JSON.stringify(encode(value)),
-    decode: (text: string): A => decode(JSON.parse(text)),
-  };
-};
-
-export const EventJson = json(DomainEvent);
+export { EventJson };
 
 export const WorkspaceJson = json(Workspace);
 
