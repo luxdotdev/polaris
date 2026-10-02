@@ -25,3 +25,23 @@ test("a refusal's findings become one line each, '<message>. <fix>'", () => {
     message: "gone",
   });
 });
+
+test("unsupported auto-mode dispatch displays the model and repair in the Client error", () => {
+  const error = new ConstellationRejected({
+    findings: [
+      new ConstellationFinding({
+        code: "E-HARNESS-PERMISSIONS",
+        message: "Claude model haiku does not support the auto permission mode.",
+        fix: "Choose a model that supports auto, or change the lead's permission mode.",
+      }),
+    ],
+    graph: null,
+    revision: 0,
+  });
+
+  expect(constellationError(error)).toEqual({
+    code: "ConstellationRejected",
+    message:
+      "Claude model haiku does not support the auto permission mode. Choose a model that supports auto, or change the lead's permission mode.",
+  });
+});

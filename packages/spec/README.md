@@ -320,3 +320,11 @@ remote enqueue alone records no delivery. `AttemptStale`/`AttemptFresh` retain
 observed intervals across restart without changing Attempt state or revision.
 The replay reader maps these journal events. Real runner tests cover coalescing,
 Session boundaries, nudge limits, operator authority, peer routing and recovery.
+
+G2's Claude auto-mode preparation guard refuses unsupported model/mode combinations
+before Session registration or Attempt creation; it adds no committed events or
+state-machine transition. Live SDK fallback is a Harness failure through existing
+Session events. These runtime capability checks are outside the abstract graph
+model and covered by `harness/claude/autoMode.test.ts` and
+`constellation/composition/prepare.test.ts`. Checkpoint identity encoding changes
+Git ref names only, preserving journal identities and existing valid refs.

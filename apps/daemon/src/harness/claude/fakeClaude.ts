@@ -51,7 +51,9 @@ export class FakeClaude {
   readonly models: Array<string | undefined> = [];
   readonly flagSettings: Array<Parameters<Query["applyFlagSettings"]>[0]> = [];
   /** Control requests this fake Claude Code refuses, as an older one would. */
-  readonly refuses = new Set<"setModel" | "applyFlagSettings">();
+  readonly refuses = new Set<
+    "setModel" | "applyFlagSettings" | "setPermissionMode" | "supportedModels"
+  >();
   /** What `supportedModels()` answers. */
   modelInfos: Awaited<ReturnType<Query["supportedModels"]>> = [];
   /** What `supportedCommands()` answers. */
@@ -84,6 +86,7 @@ export class FakeClaude {
         return undefined;
       },
       setPermissionMode: async (mode) => {
+        if (this.refuses.has("setPermissionMode")) throw new Error("Auto mode is unavailable");
         this.permissionModes.push(mode);
       },
       setModel: async (model) => {
@@ -95,7 +98,11 @@ export class FakeClaude {
           throw new Error("Unsupported control request: apply_flag_settings");
         this.flagSettings.push(settings);
       },
-      supportedModels: async () => this.modelInfos,
+      supportedModels: async () => {
+        if (this.refuses.has("supportedModels")) throw new Error("Model metadata unavailable");
+
+        return this.modelInfos;
+      },
       supportedCommands: async () => this.commands,
       close: () => {
         this.closed = true;
@@ -174,10 +181,20 @@ export class FakeClaude {
 }
 
 // Builders for the SDK messages the tests script.
-export const init = (sessionId: string) => ({
+export const init = (sessionId: string, permissionMode?: Options["permissionMode"]) => ({
   type: "system" as const,
   subtype: "init" as const,
   session_id: sessionId,
+  permissionMode,
+  uuid: crypto.randomUUID(),
+});
+
+export const status = (permissionMode: NonNullable<Options["permissionMode"]>) => ({
+  type: "system" as const,
+  subtype: "status" as const,
+  session_id: "cursor",
+  status: null,
+  permissionMode,
   uuid: crypto.randomUUID(),
 });
 
@@ -331,6 +348,7 @@ export const inSubagent = <M extends ReturnType<typeof assistant> | ReturnType<t
 export type FakeMessage =
   | ReturnType<typeof rateLimitEvent>
   | ReturnType<typeof init>
+  | ReturnType<typeof status>
   | ReturnType<typeof assistant>
   | ReturnType<typeof toolResult>
   | ReturnType<typeof streamEvent>

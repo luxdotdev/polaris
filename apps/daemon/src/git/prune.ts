@@ -29,8 +29,13 @@
 import { Duration, Effect, Option, Schedule } from "effect";
 import { ServiceError } from "../services.ts";
 import { gitText, runGitRaw } from "./git.ts";
+import {
+  CHECKPOINT_REF_PREFIX,
+  ENCODED_CHECKPOINT_REF_PREFIX,
+  parseCheckpointRef,
+} from "./checkpointRefs.ts";
 
-export const CHECKPOINT_REF_PREFIX = "refs/polaris/checkpoints/";
+export { CHECKPOINT_REF_PREFIX, parseCheckpointRef } from "./checkpointRefs.ts";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -69,31 +74,13 @@ export interface CheckpointRef {
   readonly time: number;
 }
 
-/** Parses `refs/polaris/checkpoints/<session>/<turn>/<label>`; null for anything else. */
-export const parseCheckpointRef = (
-  ref: string
-): Pick<CheckpointRef, "sessionId" | "turnId" | "label"> | null => {
-  if (!ref.startsWith(CHECKPOINT_REF_PREFIX)) return null;
-  const parts = ref.slice(CHECKPOINT_REF_PREFIX.length).split("/");
-
-  if (parts.length < 3) return null;
-  const label = parts.at(-1);
-
-  if (label !== "before" && label !== "after") return null;
-  const turnId = parts.at(-2)!;
-  const sessionId = parts.slice(0, -2).join("/");
-
-  if (turnId === "" || sessionId === "") return null;
-
-  return { sessionId, turnId, label };
-};
-
 /** Every checkpoint ref of the repository containing `repoPath`. */
 export const listCheckpointRefs = async (repoPath: string): Promise<Array<CheckpointRef>> => {
   const out = await gitText(repoPath, [
     "for-each-ref",
     "--format=%(refname)%00%(objectname)%00%(committerdate:unix)",
     CHECKPOINT_REF_PREFIX,
+    ENCODED_CHECKPOINT_REF_PREFIX,
   ]);
 
   const refs: Array<CheckpointRef> = [];

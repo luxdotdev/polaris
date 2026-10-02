@@ -193,6 +193,10 @@ export interface HarnessDriver {
   readonly probe: Effect.Effect<HarnessProbe>;
   /** The Models the Harness offers on this Host, as it reports them; absent until the driver asks. */
   readonly listModels?: Effect.Effect<ReadonlyArray<Model>, HarnessError>;
+  /** Validate the requested permission mode without sending a Turn or persisting a Harness session. */
+  readonly validatePermissionMode?: (
+    options: Pick<OpenOptions, "cwd" | "model" | "permissionMode">
+  ) => Effect.Effect<void, HarnessError>;
   /**
    * The Skills and Slash Commands the Harness offers in `cwd`, read without side
    * effects; absent when it offers none Polaris can run.

@@ -42,3 +42,11 @@ The existing Client relay sends actual Offline/Connected Connection State,
 replays facts after owner reconnect or a new Attempt, and retries failed sends
 on existing event-driven relay wakes. There is no connection polling or idle
 Constellation timer. Unknown Hosts remain unobserved rather than inferred stale.
+
+Worker preparation validates inherited Claude `auto` permissions against the
+running binary's model metadata before registering a new Session or committing
+an Attempt. Unsupported or unverified capabilities return
+`E-HARNESS-PERMISSIONS` with a model/mode repair through the dispatch result and
+Client error. The probe sends no Turn and persists no Claude Session; setup and
+slot acquisition follow it. Existing placements validate their own Session
+selection. The live driver also guards resume, model changes and SDK fallback.

@@ -71,6 +71,11 @@ import {
 import { type ClaudePlanLimits, claudePlanLimitReader } from "./planLimits.ts";
 import { ClaudeTranslator } from "./translate.ts";
 import { which } from "../../service/userPath.ts";
+import {
+  messageAutoFallback,
+  validateRequestedAuto,
+  validateClaudePermissionMode,
+} from "./autoMode.ts";
 
 export type QueryFn = (params: {
   prompt: string | AsyncIterable<SDKUserMessage>;
@@ -376,6 +381,18 @@ const openSession = Effect.fnUntraced(function* (
   };
 
   const onMessage = (message: SDKMessage) => {
+    const error = messageAutoFallback(permissionMode, message, options.readOnly);
+
+    if (error !== null) {
+      finish(error);
+      inbox.end();
+      q.close();
+
+      return;
+    }
+
+    if (exited) return;
+
     if (message.type === "result") return onResult(message);
     limits?.onMessage(message);
     const echo = "user_message_uuid" in message ? message.user_message_uuid : undefined;
@@ -410,6 +427,8 @@ const openSession = Effect.fnUntraced(function* (
     })
   );
 
+  yield* validateRequestedAuto(q, permissionMode, options.model, options.readOnly);
+
   const send = Effect.fnUntraced(function* (prompt: string, input: TurnInput | null) {
     const uuid = crypto.randomUUID();
 
@@ -442,6 +461,8 @@ const openSession = Effect.fnUntraced(function* (
 
   const switchTo = Effect.fnUntraced(function* (model: string | null, effort: string | null) {
     if (model !== running.model) {
+      yield* validateRequestedAuto(q, permissionMode, model, options.readOnly);
+
       const switched = yield* tryControl(`switching to ${model ?? "the default Model"}`, () =>
         q.setModel(model ?? undefined)
       );
@@ -524,12 +545,22 @@ const openSession = Effect.fnUntraced(function* (
   const setPermissionMode = Effect.fn("ClaudeSession.setPermissionMode")(function* (
     mode: PermissionMode
   ) {
+    yield* validateRequestedAuto(q, mode, running.model, options.readOnly);
+    const previous = permissionMode;
+    // Status frames can precede the control reply; compare them to the requested mode.
+    permissionMode = mode;
+
     yield* Effect.tryPromise({
       try: () =>
         q.setPermissionMode(options.readOnly === true ? "dontAsk" : toClaudePermissionMode(mode)),
       catch: (cause) => harnessError("Could not change the permission mode", cause),
-    });
-    permissionMode = mode;
+    }).pipe(
+      Effect.tapError(() =>
+        Effect.sync(() => {
+          permissionMode = previous;
+        })
+      )
+    );
   });
 
   const terminalCommand = Effect.gen(function* () {
@@ -643,6 +674,7 @@ export const makeClaudeDriver = (options: ClaudeDriverOptions = {}): HarnessDriv
     probe,
     listModels: listClaudeModels(driver),
     listCommands: listClaudeCommands(driver),
+    validatePermissionMode: (requested) => validateClaudePermissionMode(driver, requested),
     open: (open) => openSession(driver, open),
   };
 

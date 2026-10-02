@@ -14,6 +14,7 @@ import { Effect, Predicate } from "effect";
 import { decideSession } from "../../engine/session.ts";
 import { selectWorker } from "../../harness/constellation/index.ts";
 import { EventStore } from "../../store/EventStore.ts";
+import { HarnessRegistry } from "../../services.ts";
 import { finding, refusal } from "../decision.ts";
 import type { WorkerPreparation } from "../transfers/prepareWorkers.ts";
 
@@ -70,6 +71,32 @@ export const prepareSession = Effect.fn("Constellation.prepareSession")(function
       createdAt: at,
       updatedAt: at,
     });
+
+  if (session.permissionMode === "auto") {
+    const registry = yield* HarnessRegistry;
+
+    const driver = yield* registry
+      .get(session.harness)
+      .pipe(
+        Effect.mapError((error) =>
+          refusal(model.constellations.get(input.graph.id), [
+            finding("E-HARNESS", error.message, "Choose an available harness and retry dispatch."),
+          ])
+        )
+      );
+
+    yield* (driver.validatePermissionMode?.(session) ?? Effect.void).pipe(
+      Effect.mapError((error) =>
+        refusal(model.constellations.get(input.graph.id), [
+          finding(
+            "E-HARNESS-PERMISSIONS",
+            error.message,
+            "Choose a model that supports auto, or change the lead's permission mode."
+          ),
+        ])
+      )
+    );
+  }
 
   if (existing === undefined)
     yield* store
