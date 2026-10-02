@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { withBotId } from "botid/next/config";
 import type { NextConfig } from "next";
 
 // The monorepo root: @polaris/ui's styles and design/assets live outside apps/site.
@@ -14,4 +15,4 @@ const config: NextConfig = {
   typescript: { ignoreBuildErrors: true },
 };
 
-export default config;
+export default withBotId(config);
