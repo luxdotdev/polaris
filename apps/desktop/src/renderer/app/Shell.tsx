@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { FileFinder } from "../features/editor-finder/index.ts";
 import { InlineLayers } from "../features/editor-inline/index.ts";
 import { useOnboardingState, Welcome } from "../features/onboarding/index.ts";
-import { LaterMode, type LaterModeProps } from "../features/empty/index.ts";
+import { EditMode } from "../features/editor/explorer/index.ts";
 import { preloadReview } from "../features/review/index.ts";
 import { SettingsPage } from "../features/settings/index.ts";
 import { closeReviewSubject, useReviewSubject } from "../routes/review.ts";
@@ -14,11 +14,6 @@ import { Sidebar } from "../shell/sidebar/Sidebar.tsx";
 import { TitleBar } from "../shell/TitleBar.tsx";
 import { TopBar } from "../shell/TopBar.tsx";
 import { slots } from "./slots.tsx";
-
-const LATER: LaterModeProps = {
-  title: "The editor arrives in a later release",
-  fact: "⌘1 goes back to orchestrate",
-};
 
 /** Review: the subject open (`routes/review.ts`), or the pull request list. */
 const Review = () => {
@@ -47,13 +42,7 @@ const Body = () => {
 
   if (mode === "review") return <Review />;
 
-  if (mode === "edit") {
-    return (
-      <main className="flex flex-1 flex-col">
-        <LaterMode {...LATER} />
-      </main>
-    );
-  }
+  if (mode === "edit") return <EditMode />;
 
   return (
     <>

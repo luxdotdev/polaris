@@ -374,6 +374,9 @@ export interface RequestOutputs
     readonly mimeType: string;
     readonly content: FileContentView;
   };
+  "files.create": FileEntry;
+  "files.rename": FileEntry;
+  "files.delete": { readonly method: "trash" | "permanent" };
   "harness.models": Plain<HarnessModels>;
   "harness.commands": Plain<HarnessCommands>;
   "harness.spinnerVerbs": Plain<SpinnerVerbs> | null;
