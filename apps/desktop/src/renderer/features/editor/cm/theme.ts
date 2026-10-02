@@ -81,7 +81,7 @@ const editorTheme = EditorView.theme({
     flexWrap: "wrap",
     alignItems: "center",
     gap: "6px",
-    padding: "6px 12px",
+    padding: "6px 12px 6px 20px",
     fontFamily: "var(--font-sans)",
     fontSize: "12px",
     lineHeight: "16px",

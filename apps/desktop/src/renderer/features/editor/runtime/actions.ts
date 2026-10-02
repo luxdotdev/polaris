@@ -17,6 +17,7 @@ import { fileKey, readTabs, workspaceKey, writeTabs } from "../model/drafts.ts";
 import {
   configureEditor,
   type EditorConfig,
+  isConfigured,
   ensureBuffer,
   keepMine,
   releaseBuffer,
@@ -77,7 +78,16 @@ export const loadTab = (hostKey: string, workspaceId: string, path: string) => {
   });
 };
 
+/** Opens that arrive before any editor pane has started the Editor; replayed by `startEditor`. */
+const early: Array<OpenFileRequest> = [];
+
 export const openFile = (request: OpenFileRequest) => {
+  if (!isConfigured()) {
+    early.push(request);
+
+    return;
+  }
+
   const { hostKey, workspaceId } = request;
   const ws = workspaceKey(hostKey, workspaceId);
   const root = roots.get(ws);
@@ -162,8 +172,11 @@ export const startEditor = (config: EditorConfig) => {
   unpersist?.();
   unpersist = null;
 
+  if (kv !== null) editorStore.setState({ tabs: readTabs(kv) });
+
+  for (const request of early.splice(0)) openFile(request);
+
   if (kv === null) return;
-  editorStore.setState({ tabs: readTabs(kv) });
   let timer: ReturnType<typeof setTimeout> | null = null;
 
   unpersist = editorStore.subscribe((state, prev) => {
