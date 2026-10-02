@@ -152,6 +152,29 @@ const savedText = (page: Page, path: string) =>
     `window.__polarisEditor.files.text("studio", ${JSON.stringify(path)})`
   );
 
+/** Unsaved edits survive a restart (here a reload of the window, with the drafts in localStorage). */
+const checkRestart = async (page: Page) => {
+  await page.evaluate("localStorage.clear()");
+  await scene(page, "empty?persist");
+  await page.evaluate(
+    `window.__polarisEditor.openFile({ hostKey: "studio", workspaceId: "ws-polaris", path: ${JSON.stringify(SMALL)} })`
+  );
+  await page.locator(".cm-content").click();
+  await page.keyboard.type("// kept across a restart");
+  await page.waitForTimeout(800);
+  await scene(page, "empty?persist");
+  await page.locator(".cm-content").waitFor({ timeout: 10_000 });
+  await page.waitForTimeout(300);
+  const text = await page.locator(".cm-content").textContent();
+  const dot = await page.locator('[data-testid="editor-tab"][data-dirty]').count();
+  const ok = (text?.includes("// kept across a restart") ?? false) && dot === 1;
+
+  log(`after a restart: the edit ${ok ? "is back, with its unsaved dot" : "is LOST"}`);
+  await page.evaluate("localStorage.clear()");
+
+  return ok;
+};
+
 const checkSaves = async (page: Page) => {
   await scene(page, "e1");
   await page.locator(".cm-content").click();
@@ -184,7 +207,11 @@ const checkSaves = async (page: Page) => {
 
   log(`vim ${insert ?? "?"}: ⌘S saves: ${fromInsert ? "yes" : "NO"}`);
 
-  return viaShortcut && viaVim && fromInsert && mode === "NORMAL" && insert === "INSERT";
+  const restored = await checkRestart(page);
+
+  return (
+    viaShortcut && viaVim && fromInsert && mode === "NORMAL" && insert === "INSERT" && restored
+  );
 };
 
 const home = mkdtempSync(join(tmpdir(), "polaris-editor-bench-"));

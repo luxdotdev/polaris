@@ -2,7 +2,7 @@
  * The editor on fixtures, for screenshots against Paper E1–E3 and the editor
  * budgets: `#editor/<scene>` renders the pane, a stand-in explorer column and
  * the status bar on in-memory files. Scenes: e1, conflict, compare, reload,
- * vim, find, tabs20, readonly, binary, empty, big. Its own chunk.
+ * vim, find, tabs20, readonly, binary, empty, big (`?persist` keeps drafts in localStorage). Its own chunk.
  */
 import { openSearchPanel } from "@codemirror/search";
 import type { EditorView } from "@codemirror/view";
@@ -180,7 +180,8 @@ export const mountEditorPreview = (root: HTMLElement, hash: string) => {
   ensureEditor({
     app: () => store.getState(),
     files,
-    kv: memoryKeyValue(),
+    // `?persist`: drafts and tabs in localStorage, as the app keeps them, for the restart check.
+    kv: hash.includes("?persist") ? globalThis.localStorage : memoryKeyValue(),
     canWrite: () => scene !== "readonly",
   });
 
