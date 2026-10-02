@@ -1,0 +1,53 @@
+Manifest-Version: 1.0
+Ant-Version: Apache Ant 1.10.17
+Created-By: 11.0.30+7-post-Ubuntu-1ubuntu124.04 (Ubuntu)
+
+Name: META-INF/LICENSE.txt
+SHA-256-Digest: bWLR3VL5MoZdbx4okg1T0Kb5cw72uOAsSNmfRw4WCg0=
+
+Name: org/apache/tools/ant/types/AbstractFileSetTest.class
+SHA-256-Digest: M9g0OENWeSOlSwPZrJVnf7EEItbve6T2HD9hJiFIXFU=
+
+Name: org/apache/tools/ant/BuildFileTest$AntOutputStream.class
+SHA-256-Digest: MtAnT1YljsAd+EOlcqNn5Cat7AZhfhnkJJT/Qdmbheg=
+
+Name: org/apache/tools/ant/BuildFileTest.class
+SHA-256-Digest: wfDyZL90lsilVzx9zB2D3JQmjRXHDruvdGyxR31dXQM=
+
+Name: org/apache/tools/ant/FileUtilities.class
+SHA-256-Digest: wXcVKj/YQpTJs8kEcp3XwG+uMtnddNyc1J0WMe3TQ84=
+
+Name: org/apache/tools/ant/util/regexp/RegexpMatcherTest.class
+SHA-256-Digest: AjSAEMTPrICJkmna+nxkLxUmyUX9+QfHnz0P5GPaMFo=
+
+Name: org/apache/tools/ant/AntAssert.class
+SHA-256-Digest: TFCg13RFo6PmH+ntV89SpzfCYg4E8w+irvuLgJ/kmmo=
+
+Name: org/apache/tools/ant/taskdefs/optional/AbstractXSLTLiaisonTest.cla
+ ss
+SHA-256-Digest: df+/fneSGZLkzl7OhXlx0eb42o7OOsj+LEnk1k/PmEA=
+
+Name: org/apache/tools/ant/BuildFileTest$AntTestListener.class
+SHA-256-Digest: 4DABW1+H7rgb3+Q2Pqazdh4yiWvxDCnxbzqlsa0ZakI=
+
+Name: META-INF/NOTICE.txt
+SHA-256-Digest: /D+tOTRSgqIYisw/ypUPvQA6NyxzTaQFhuyULBNMWys=
+
+Name: META-INF/INDEX.LIST
+SHA-256-Digest: n8faxaILOTh6+ypFRoOjJTc4YGJwVOJ6s+4YMOUwWNY=
+
+Name: org/apache/tools/ant/BuildFileRule$AntTestListener.class
+SHA-256-Digest: XGRWaeHpvUrEIIrtnj1BYFJwSUSHihAFSI05OsJuXEg=
+
+Name: org/apache/tools/ant/MagicTestNames.class
+SHA-256-Digest: c6EOQUZgMCIgwjHd3Vf4TZeZPNKojQ0W0ezvPgLQyfc=
+
+Name: org/apache/tools/ant/util/regexp/RegexpTest.class
+SHA-256-Digest: hMFEKjA683OXmdZuOAuDtYOz/iKsaQhI3BolhYsMtow=
+
+Name: org/apache/tools/ant/BuildFileRule$AntOutputStream.class
+SHA-256-Digest: tkeCB3UhbOeN/DL5wvLN4oNXb0fv7ob/u3RL4LrscPo=
+
+Name: org/apache/tools/ant/BuildFileRule.class
+SHA-256-Digest: 5vNNrOPVNTn8ZneK5iYASJ3jUKjw1YUrGwv8D/Jl7uY=
+

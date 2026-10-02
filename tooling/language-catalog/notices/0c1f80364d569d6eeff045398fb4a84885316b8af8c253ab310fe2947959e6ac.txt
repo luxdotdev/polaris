@@ -1,0 +1,32 @@
+Manifest-Version: 1.0
+Ant-Version: Apache Ant 1.10.17
+Created-By: 11.0.30+7-post-Ubuntu-1ubuntu124.04 (Ubuntu)
+
+Name: META-INF/LICENSE.txt
+SHA-256-Digest: bWLR3VL5MoZdbx4okg1T0Kb5cw72uOAsSNmfRw4WCg0=
+
+Name: META-INF/NOTICE.txt
+SHA-256-Digest: /D+tOTRSgqIYisw/ypUPvQA6NyxzTaQFhuyULBNMWys=
+
+Name: META-INF/INDEX.LIST
+SHA-256-Digest: A3GXcTRiWSdHOwdN1C7pYKnos9cBnzYgvYCL0r3auTg=
+
+Name: org/apache/tools/ant/taskdefs/optional/xz/Unxz.class
+SHA-256-Digest: 5peBOR32aSrgX5VyuN6gBBXZb9J1n5EieMqRWIOomJY=
+
+Name: org/apache/tools/ant/taskdefs/optional/xz/Xz.class
+SHA-256-Digest: ifBM9W+s7PPNiH5J1CmRwowslbQeVTVIUlGoalwDjIA=
+
+Name: org/apache/tools/ant/taskdefs/optional/
+Extension-Name: org.apache.tools.ant
+Specification-Title: Apache Ant
+Specification-Version: 1.10.17
+Specification-Vendor: Apache Software Foundation
+Implementation-Title: org.apache.tools.ant
+Implementation-Version: 1.10.17
+Implementation-Vendor: Apache Software Foundation
+SHA-256-Digest: 47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=
+
+Name: org/apache/tools/ant/types/optional/xz/XzResource.class
+SHA-256-Digest: whIndFfD6hEqL+fCbu1fzLsM9ZTEPZ8qWLdAG9bEly8=
+

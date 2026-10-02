@@ -1,0 +1,5 @@
+/*
+   These constants were taken from version 3 of the DWARF standard,
+   which is Copyright (c) 2005 Free Standards Group, and
+   Copyright (c) 1992, 1993 UNIX International, Inc.
+*/

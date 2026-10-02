@@ -1,0 +1,18 @@
+// -*- C++ -*-
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+// REQUIRES: target={{(aarch64|s390x|x86_64|arm64e)-.+}}
+// UNSUPPORTED: target={{.*-windows.*}}
+
+// *SAN does not like our clearly nonsense personality and handler functions
+// which is the correct response for them, but alas we have to allow it for JITs
+// because they tend to use a shared handler rather than having the handler
+// within the function bounds.
+// UNSUPPORTED: asan
+// UNSUPPORTED: msan

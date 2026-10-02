@@ -9,3 +9,5 @@ export { Artifact, Catalog, Integration, Platform, Requirement, Tool } from "./m
 export { selectArtifact, preflight, versionSatisfies } from "./selection";
 
 export { verifyIntegrity, auditArtifact, safeArchivePath } from "./verification";
+
+export { probeDeveloperShellCheck, shellCheckServerSettings } from "./developer-shellcheck";

@@ -1,0 +1,3771 @@
+Manifest-Version: 1.0
+Ant-Version: Apache Ant 1.10.17
+Created-By: 11.0.30+7-post-Ubuntu-1ubuntu124.04 (Ubuntu)
+Main-Class: org.apache.tools.ant.Main
+
+Name: org/apache/tools/ant/taskdefs/rmic/XNewRmic.class
+SHA-256-Digest: /QTWyd6mfOkTKvj/j/dv2nR3gokv0eY6e3IxAXVkVgk=
+
+Name: org/apache/tools/ant/taskdefs/optional/ejb/IPlanetEjbc$Classname.c
+ lass
+SHA-256-Digest: 53JyllkR6ErphulGGWC3yORKDasjZ7QqEKYVwRNKNc4=
+
+Name: org/apache/tools/ant/taskdefs/Touch$DateFormatFactory.class
+SHA-256-Digest: NP7sAP6zhIxZKC4loh9EPf+Zh1FoTKWTd5QPUu/RmDQ=
+
+Name: org/apache/tools/ant/types/Comparison.class
+SHA-256-Digest: JAde+accS4HGQYVratuMQQIZ8lyvw27IN+at4kK021g=
+
+Name: org/apache/tools/ant/helper/DefaultExecutor.class
+SHA-256-Digest: DT5TpEOFZ4kWlK4GqnGzqDtghNcwPJ3FQ2hfhqbqUNc=
+
+Name: org/apache/tools/ant/util/facade/FacadeTaskHelper.class
+SHA-256-Digest: e0wu5CuKWQDmMwfhqEeFUQEBttUqQ3reCSWv1rck+9I=
+
+Name: org/apache/tools/ant/DefaultLogger.class
+SHA-256-Digest: K4zReztDAamH+YROZGDR2PRmNJ5WxHED9j7ar1l4gsk=
+
+Name: org/apache/tools/ant/filters/FixCrLfFilter$AddTabFilter.class
+SHA-256-Digest: LdcZxj86jDSabSAzluvzH/Akysg/lbrqeTD3hy5cE8k=
+
+Name: org/apache/tools/ant/taskdefs/optional/javah/JavahAdapter.class
+SHA-256-Digest: VhPybzWxbAPvH/OuEzRqbnmqWRyV/W185nK6hfx32Kg=
+
+Name: org/apache/tools/ant/types/PatternSet$NameEntry.class
+SHA-256-Digest: AKzDPDrPMvi82uif95+UCSBeCgJh6KBTET03qny+s+0=
+
+Name: org/apache/tools/ant/taskdefs/optional/extension/resolvers/AntReso
+ lver.class
+SHA-256-Digest: GYx489JUWFOVA5YsWUdUNZS5zB1w02hlRq+FZVzp6f8=
+
+Name: org/apache/tools/ant/taskdefs/Checksum$FormatElement.class
+SHA-256-Digest: oAfHPmdrJ+mgSOCRmZMMNg7D2ikirOYNAKIWi5KHaTo=
+
+Name: org/apache/tools/ant/taskdefs/Nice.class
+SHA-256-Digest: BvUZfqHDP+63ct6wlHY7EgS0Hj6Zq9eq0cyUtA/wn5c=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/JarFileIterator.clas
+ s
+SHA-256-Digest: n8Gg7f+RuINeqV+0fLZ9M3vsJ/xelAzuz0qdIOGQgGA=
+
+Name: org/apache/tools/ant/types/FilterSetCollection.class
+SHA-256-Digest: 7f27G7ICzNfustKOWJtb8lTnYXi6Zs2/JzcOPzA9ZWE=
+
+Name: org/apache/tools/ant/taskdefs/rmic/DefaultRmicAdapter$RmicFileName
+ Mapper.class
+SHA-256-Digest: Oo/fUJ3EtXee1jmvEfuej1YKORlLUj+wiWxB8nMw7V4=
+
+Name: org/apache/tools/ant/types/resources/AbstractResourceCollectionWra
+ pper.class
+SHA-256-Digest: irt9JY4fBhCBBcAAwHzLZ9zB6UxztuDFqn8DrxtJJyI=
+
+Name: org/apache/tools/ant/types/resources/AppendableResourceCollection.
+ class
+SHA-256-Digest: 1HO5hYALd5iuEP31d/KJJl6KQzHJU6gw1QKpwFkLzDA=
+
+Name: org/apache/tools/ant/taskdefs/Cvs.class
+SHA-256-Digest: JkXmAecbWlMDGj0426S7W92V/yjew3Pv/Ipk1LXYTKg=
+
+Name: org/apache/tools/ant/taskdefs/Get$DownloadProgress.class
+SHA-256-Digest: dvYhymA57M0U7luL6JBAB0KBgePF5nEGj8bRP3q2Qnk=
+
+Name: org/apache/tools/ant/taskdefs/optional/ejb/IPlanetEjbc$EjbcHandler
+ .class
+SHA-256-Digest: nn+7HRFY2z1MYqpP5IJqOACGZ9L3+stbD1A17R0RFm8=
+
+Name: org/apache/tools/ant/taskdefs/PathConvert$MapEntry.class
+SHA-256-Digest: dNcuLRVF79OMFneyLSMT6N008/BRVunAZfVn+8yKSaI=
+
+Name: org/apache/tools/ant/types/resources/AllButLast.class
+SHA-256-Digest: GLRoFYkoSkdUImJZ3HCKAlAJQ1rL6vdvHEOxPPAngbw=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/AntAnalyzer.class
+SHA-256-Digest: OKooTfP7FpUkB7Ix9S6mkts+3i3TJKGKHSxqfyI4qwo=
+
+Name: org/apache/tools/ant/taskdefs/VerifyJar$1.class
+SHA-256-Digest: oMD0Qiokq2lCdY/0SPK2PMDY0Y/4v5a5CnKvl+HHoik=
+
+Name: org/apache/tools/ant/taskdefs/optional/extension/JarLibAvailableTa
+ sk.class
+SHA-256-Digest: u7i9BC8XzKe3GL6MovdXxKAN5LHf95ybChMVt/eqDBk=
+
+Name: org/apache/tools/ant/types/resources/AbstractClasspathResource$Cla
+ ssLoaderWithFlag.class
+SHA-256-Digest: jnleGcdiic1QOCiaNMdFOZI0EjmmmIk/QkSmCp3Tz1I=
+
+Name: org/apache/tools/ant/taskdefs/optional/testing/Funtest$1.class
+SHA-256-Digest: DH5JB7TUt7lQQcEX1gnQCINEsRDn5YCcBDjEU2wCdKA=
+
+Name: org/apache/tools/ant/filters/TokenFilter.class
+SHA-256-Digest: 4EhZUhvYL2ST4/sdEqsn+cGIUAdrs9mKSrGVJwslUbA=
+
+Name: org/apache/tools/ant/taskdefs/Zip$Zip64ModeAttribute.class
+SHA-256-Digest: elTM3sIe51xGlOKE6WgFu7/nUkhoXli78bjWJqalgI8=
+
+Name: org/apache/tools/ant/util/LineTokenizer.class
+SHA-256-Digest: 24oTY2WmIgrSdMhF4kZjyD/eLqbsa0zx3PY2YL4MtAs=
+
+Name: org/apache/tools/ant/filters/TabsToSpaces.class
+SHA-256-Digest: kMTYFZJ6lprpNjXxh0z3PxC+QtuqrvPmpUEo4sTQ7P4=
+
+Name: org/apache/tools/ant/types/resources/selectors/Not.class
+SHA-256-Digest: FXD7AdojS0tj10WzZ5g2ksrxNM+J8yZmB3T7vxyM4q4=
+
+Name: org/apache/tools/ant/util/CollectionUtils$CompoundEnumeration.clas
+ s
+SHA-256-Digest: leMSJpENfmyzzOmQWZXm0g81pMCUwk3MGRHHWw1NCr0=
+
+Name: org/apache/tools/ant/listener/SimpleBigProjectLogger.class
+SHA-256-Digest: c7x025+gZ/Gw7nrpDHCMWMoodnkIoVQb2mlY+/lx9BE=
+
+Name: org/apache/tools/ant/util/Retryable.class
+SHA-256-Digest: FvhTAKVGL3xW/vQGUOoWD/DM9UKg20WOezBE9Pq7a20=
+
+Name: org/apache/tools/ant/types/resources/MultiRootFileSet.class
+SHA-256-Digest: M6Ifdwdn9PRY6OwfztLMUPcdKQhiEMOF1mjNoQp2xiE=
+
+Name: org/apache/tools/ant/types/FileSet.class
+SHA-256-Digest: ZJXe71rg1im9ltSML+Yc8eCuvCxJye8aRcvU2d/QcQk=
+
+Name: org/apache/tools/ant/types/resources/ImmutableResourceException.cl
+ ass
+SHA-256-Digest: n/RwzOuQEeDjJcnYAQtT0Q36Z8Nt6pfHPgs6PT8tKe8=
+
+Name: org/apache/tools/ant/taskdefs/Parallel$TaskList.class
+SHA-256-Digest: EkylC4ETASezgc5FVph9NapAfI2l3vuykUvIG5e2J8Q=
+
+Name: org/apache/tools/ant/taskdefs/cvslib/CvsVersion.class
+SHA-256-Digest: /RZ2+mQWu/NZV5lcIYxXxwwjuJpixKsubVxvLWT2cSQ=
+
+Name: org/apache/tools/ant/taskdefs/optional/clearcase/CCLock.class
+SHA-256-Digest: 7sVLtMxu4DzOjn53CNwOMnZM5TkOQQsmkARNnOY+2KY=
+
+Name: org/apache/tools/ant/taskdefs/optional/clearcase/CCUnCheckout.clas
+ s
+SHA-256-Digest: fV/MTejw+xwdwC22Gh+HWzpUawglZ/JElt3wL51sJ3c=
+
+Name: org/apache/tools/ant/types/selectors/SizeSelector$ByteUnits.class
+SHA-256-Digest: aSKP89ojb+NpikkUfPtYWOzRnn0DAC7q+h9Wc5b9v68=
+
+Name: org/apache/tools/ant/taskdefs/modules/Link$ModuleSpec.class
+SHA-256-Digest: wdVe9IbM7S98YxUaPMHFdtGTVIMrUgKr6sG8+39g5OM=
+
+Name: org/apache/tools/ant/taskdefs/MacroDef$NestedSequential.class
+SHA-256-Digest: nWJlioZufWlJjIcZ3GWcpqgCmXto3nbOREtGKrEkNFE=
+
+Name: org/apache/tools/ant/taskdefs/rmic/KaffeRmic.class
+SHA-256-Digest: p7k99tGxTBTfqs7PwVeGUXu77omHnSaL7TiqFjLneGQ=
+
+Name: org/apache/tools/ant/filters/StripLineComments.class
+SHA-256-Digest: xVr9bTS+eGbmTDQkkbm3UDBcGAx1lRJnTGSDuyyqVWU=
+
+Name: org/apache/tools/ant/RuntimeConfigurable$EnableAttributeConsumer.c
+ lass
+SHA-256-Digest: SSSxrqC3Xwg0DWrJ2UDKqPoWvVr6ni3sdcFn8BD4Hfg=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/constantpool/FloatCP
+ Info.class
+SHA-256-Digest: po62NFiJ1wREph7+rIZ4MDIFGtfRGsNXYskm64eke+k=
+
+Name: org/apache/tools/ant/util/XmlConstants.class
+SHA-256-Digest: GlXN1qRMchBzszHGEhfDsMTRjIMtGtOtah9AyolQjJU=
+
+Name: org/apache/tools/ant/DemuxOutputStream$1.class
+SHA-256-Digest: NbsKP1jdf5hykPHz4PVcHIaiqTsmR87VHFsRkCnn+dw=
+
+Name: org/apache/tools/ant/types/resources/Tokens.class
+SHA-256-Digest: 0C6aMbZtHoZ78LapR6OYFprx4AChLR938PK5mx9qr/8=
+
+Name: org/apache/tools/ant/taskdefs/Javadoc$ResourceCollectionContainer.
+ class
+SHA-256-Digest: FcWlAq4XtC4IlhUmpBrVad1L39VAYcynQntfcYjDwe0=
+
+Name: org/apache/tools/ant/util/LineOrientedOutputStream.class
+SHA-256-Digest: smEoJx7bbMb5CknxWHYma+iY1y9joSQKxDd5T/0fJsc=
+
+Name: org/apache/tools/ant/util/ScriptRunnerCreator.class
+SHA-256-Digest: j6Dr/NMD4u9beTMlXfHDE6O7F03eIi6H/q7rR5r8dR8=
+
+Name: org/apache/tools/ant/types/resources/MultiRootFileSet$SetType.clas
+ s
+SHA-256-Digest: wVkq6I4F8ATzH62Za2gAckQl+j/vpHJscwHh6XviK+I=
+
+Name: org/apache/tools/ant/taskdefs/launcher/Java13CommandLauncher.class
+SHA-256-Digest: 6ekbgZy+j01h4WjHJ/LXtwHJQCBi/jQWzDq0LaeGTM0=
+
+Name: org/apache/tools/ant/types/Quantifier$1.class
+SHA-256-Digest: YgQMXGXErHumc3rlnMgzYJMoRAKAB7dJjgn0tct0jVE=
+
+Name: org/apache/tools/ant/types/Mapper.class
+SHA-256-Digest: zu/36s5WYyHaAptmP+gSzDvJbQzJKof/kLZKnQCtZFM=
+
+Name: org/apache/tools/ant/util/ResourceUtils$ResourceSelectorProvider.c
+ lass
+SHA-256-Digest: qM2lPy+Qr4CVj3sPB6XQjSoSf4ZKHgyl9FyTkQ9bfZE=
+
+Name: org/apache/tools/ant/taskdefs/rmic/DefaultRmicAdapter$1.class
+SHA-256-Digest: 5AtOIFn87g24YNlftt8LJcfruopXFW/oxhO7Fdlj6GM=
+
+Name: org/apache/tools/ant/taskdefs/condition/IsReachable.class
+SHA-256-Digest: h6sLfzfvGKP8HwuR3J/DwSI531DrKo3y/KWORx2Pmgk=
+
+Name: org/apache/tools/zip/ExtraFieldUtils.class
+SHA-256-Digest: GkTOebc7ARRctGKaQzX/BIKw2C73Iqo1+upGl44tn6g=
+
+Name: org/apache/tools/ant/helper/ProjectHelper2$TargetHandler.class
+SHA-256-Digest: fKPAvgN4Kiq1cUi4K2b8+a24r9hdiv3zg8zXVJu46+E=
+
+Name: org/apache/tools/ant/util/regexp/Jdk14RegexpRegexp.class
+SHA-256-Digest: aIsSipp+ycJhzTwKs/0b3U42j/G2uTowHKo8h3kpitg=
+
+Name: org/apache/tools/ant/taskdefs/PathConvert$3.class
+SHA-256-Digest: znI0kBFNRyi4yRmIZbXDOB0pX1JNE9s7RrJdz6DhKsI=
+
+Name: org/apache/tools/ant/taskdefs/condition/Matches.class
+SHA-256-Digest: XvBKC0VJHF1/rG4lz+41eha5hLip2S+q2Ycz4M7QeSs=
+
+Name: org/apache/tools/ant/util/regexp/Jdk14RegexpMatcher.class
+SHA-256-Digest: dBfTeLcAzx05x16xuUcN7ZFkYiUby3UFvcfXNUsb6g0=
+
+Name: org/apache/tools/ant/util/facade/ImplementationSpecificArgument.cl
+ ass
+SHA-256-Digest: 1AJqU+Bd8s3isORDz12AhiuOjPcuP4q6H+EYt1P5qy4=
+
+Name: org/apache/tools/ant/filters/HeadFilter.class
+SHA-256-Digest: wiiSihY3l0/+hlfIUuQ86rAnnKjA3MK9t3o+ip6CVBA=
+
+Name: org/apache/tools/ant/types/resources/PropertyResource$1.class
+SHA-256-Digest: 1ISEPt9QSfh3nTbiS20s3euX5OV7pWZ6rLfzPSZLz1w=
+
+Name: org/apache/tools/ant/taskdefs/SQLExec$DelimiterType.class
+SHA-256-Digest: AytTyl0VE+HEhREwL13hNMkT1csnzUbL1H52yYorbbw=
+
+Name: org/apache/tools/ant/taskdefs/optional/XMLValidateTask.class
+SHA-256-Digest: VFKtKQKQ88ubBdio0uQSsZjP8rk5Rm/eRHKLUAAuCSs=
+
+Name: org/apache/tools/ant/taskdefs/condition/IsLastModified.class
+SHA-256-Digest: XgnF4GmDDLx68b8PfiiesfrencXChcvEDTH2xN8+L1g=
+
+Name: org/apache/tools/ant/taskdefs/condition/JavaVersion.class
+SHA-256-Digest: BuM2omM5Utke8CCQB/pYzGPWl9H5AWtr0ZaoABzqwyc=
+
+Name: org/apache/tools/ant/taskdefs/FixCRLF$CrLf.class
+SHA-256-Digest: QZOcFAb7Lo0J305LU8G/gAbWlhKtpdth3+g4TNDNXDg=
+
+Name: org/apache/tools/ant/util/ChainedMapper.class
+SHA-256-Digest: AXBCBhYtKcmpOXMqQfuGeDhFuCpokO24kPtbzIgX+ak=
+
+Name: org/apache/tools/ant/filters/FixCrLfFilter$NormalizeEolFilter.clas
+ s
+SHA-256-Digest: 1eHC3zQoZve/vdEYzUbmXf8Q7NHGKIjJ35DIf/wyyDc=
+
+Name: org/apache/tools/bzip2/CBZip2OutputStream.class
+SHA-256-Digest: +dpbfeqaBOCUgDb3fCiAnRzS7HpmqHgehrHt99cNmXo=
+
+Name: org/apache/tools/ant/taskdefs/cvslib/ChangeLogWriter.class
+SHA-256-Digest: rHQ4UovhtGEG9E5hv/NK9+xrwIE5gwlmlcPosFPJLsc=
+
+Name: org/apache/tools/ant/PropertyHelper$PropertyEnumerator.class
+SHA-256-Digest: 2mlf5mxoECPlAHxcih6XiFoL5iOxcdlvyXn/6PUSelI=
+
+Name: org/apache/tools/ant/taskdefs/cvslib/RedirectingStreamHandler.clas
+ s
+SHA-256-Digest: dgGhhlkljx2GMJY20BAPh3t2rBBDK1wNpe5JVZYM9SU=
+
+Name: org/apache/tools/ant/taskdefs/optional/extension/JarLibManifestTas
+ k.class
+SHA-256-Digest: sH0xF0xt8IxNMAGxB1tBTyQnaD0xruARDU4qWfkyztk=
+
+Name: org/apache/tools/ant/types/CharSet.class
+SHA-256-Digest: rjgXFo8ZhyEDDMtwvUkC/duZAel9a5c4tX67L4k6ue8=
+
+Name: org/apache/tools/ant/taskdefs/optional/Javah.class
+SHA-256-Digest: m1eHLTqloWGXMUenwmNez3dbOHRb3YBzVi8qpNhvy7M=
+
+Name: org/apache/tools/ant/taskdefs/optional/clearcase/ClearCase.class
+SHA-256-Digest: 90VS326E6IQXU91riQ1AuyHTWe8fa01+qbDxMQMespI=
+
+Name: org/apache/tools/ant/types/resources/comparators/ResourceComparato
+ r.class
+SHA-256-Digest: w2nO+Ed3SQD1kByoeGtiEHHiVBWJOuCPUwcQPq/qwE8=
+
+Name: org/apache/tools/ant/taskdefs/Copyfile.class
+SHA-256-Digest: Yn7Qy5xIA9Q6gsyfPk0xZgHzfDrpePS737ArRjpMaOA=
+
+Name: org/apache/tools/ant/util/LayoutPreservingProperties$Blank.class
+SHA-256-Digest: qQcRVyBmVYWaEmnSWP+XA8Y1kHuYldan5dUNGszWr6w=
+
+Name: org/apache/tools/ant/taskdefs/XSLTProcess$TraceConfiguration.class
+SHA-256-Digest: STd6YaW+5kt7yNAWzPneDFZFUlgJqUjfDq5Iqj1HX54=
+
+Name: org/apache/tools/ant/taskdefs/condition/IsTrue.class
+SHA-256-Digest: qkzCw3my9mmzCUBEjdAV+VHPsKDJzAoZXTEZKBG0hrk=
+
+Name: org/apache/tools/ant/filters/TokenFilter$DeleteCharacters.class
+SHA-256-Digest: Ywr2TCVW+zEvTC0aNhM5dDZreZWHE380RWwW/uu5L08=
+
+Name: org/apache/tools/ant/helper/ProjectHelperImpl$ProjectHandler.class
+SHA-256-Digest: 7pzsEemZGsxbxi+n5fpA67mf6g6pX+4P9z5ocfj+gv8=
+
+Name: org/apache/tools/ant/taskdefs/War.class
+SHA-256-Digest: TscP7wk7yk2hZqHbB8dvlAOWEG+/Q2y3beRfZLfKhcA=
+
+Name: org/apache/tools/ant/taskdefs/Rmic.class
+SHA-256-Digest: lQz8kQ4LwbMP6jhmqKzFf2QqNAdD1w8KOzLlMFkopqo=
+
+Name: org/apache/tools/ant/taskdefs/optional/jsp/compilers/JspCompilerAd
+ apter.class
+SHA-256-Digest: xvDu4xpzSY/ja/gkVac0xXUPD1Vqjhj967SJh3jSPQA=
+
+Name: org/apache/tools/ant/attribute/AttributeNamespace.class
+SHA-256-Digest: 4fUIo8pBW2Cs6QdrAyeWJNpmlbyafUoPtDq9KJ8GnwQ=
+
+Name: org/apache/tools/ant/taskdefs/launcher/PerlScriptCommandLauncher.c
+ lass
+SHA-256-Digest: 49fVituC3oJpTyK1lbd6+VAfhZ8tFUpkciK9SrdEE/w=
+
+Name: org/apache/tools/ant/types/selectors/OrSelector.class
+SHA-256-Digest: VKTzEqhAM/tF/hb06ffuny9Ro7Ow64ySR6cmm894k8s=
+
+Name: org/apache/tools/ant/filters/TailFilter.class
+SHA-256-Digest: mCJdOhg4wuRHPn1Gi//iOM7UtC3Iifup0Hg1037QF9Q=
+
+Name: org/apache/tools/ant/taskdefs/XSLTProcess.class
+SHA-256-Digest: egb/oClGp1jSBqntRnn/lGovWIW+pJ5GOIMf9ggxZas=
+
+Name: org/apache/tools/ant/attribute/IfTrueAttribute.class
+SHA-256-Digest: qO68kz4HaT7qBk5yY3zqaeVhlSFv6VXKjpmFQcU9oY8=
+
+Name: org/apache/tools/ant/taskdefs/launcher/ScriptCommandLauncher.class
+SHA-256-Digest: ZMQ2PXms4m+PGaC5n94v7MIxflth2t5tc8n/k3ELpuQ=
+
+Name: org/apache/tools/ant/taskdefs/optional/clearcase/CCUnlock.class
+SHA-256-Digest: upgD+AuKmaV29i8RU1rykwPu868HBh4QYF45HAjm2jk=
+
+Name: org/apache/tools/ant/taskdefs/PropertyHelperTask$DelegateElement.c
+ lass
+SHA-256-Digest: iHu4a0FNYpsMiLwjEadFg0hjQn3+b0oT01KWQq6JNA4=
+
+Name: org/apache/tools/ant/types/CommandlineJava$1.class
+SHA-256-Digest: U8olVZnOcJn0ZwQMUrVtvYYE3WQJGbht3WicR0Tjs90=
+
+Name: org/apache/tools/ant/Target.class
+SHA-256-Digest: znsXU9S9GJ2JPt8i3cxcexfpOj4wfVsULPG1MIyprJk=
+
+Name: org/apache/tools/ant/taskdefs/optional/javacc/JJDoc.class
+SHA-256-Digest: gIJ/udJaqlDy6Muij4/MsTmUm7pIHv+6NbM9pf7BMKA=
+
+Name: org/apache/tools/ant/taskdefs/PathConvert$TargetOs.class
+SHA-256-Digest: PjUSa6XtE3xsNEg4rTFkGOzIqRoV2CFSfuW2YCeWLns=
+
+Name: org/apache/tools/ant/IntrospectionHelper$14.class
+SHA-256-Digest: 7Lzzuhhnq8meAzvMyfShJP6oTeyXynRRFHfFJ+MpiaY=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/constantpool/Utf8CPI
+ nfo.class
+SHA-256-Digest: FJXxqvgcSvlcaanohRSKF2DQQyKrAA8digHPyKyxTP4=
+
+Name: org/apache/tools/ant/IntrospectionHelper$2.class
+SHA-256-Digest: L8FYuB4Se+jPXVm208koHzItfLbZQM9B2uTOoFt8D+g=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/constantpool/NameAnd
+ TypeCPInfo.class
+SHA-256-Digest: 0XUvtGRVn0fL2Sp3OucvKup63pej8Avy3j5oXwi0rDQ=
+
+Name: org/apache/tools/ant/taskdefs/MakeUrl.class
+SHA-256-Digest: vxjOqIWMzQTUHhXiH2DaWd046tqgBlxAlJG4YhgwvZw=
+
+Name: org/apache/tools/bzip2/CRC.class
+SHA-256-Digest: SGpc7Bv1o85Oajnm+hYoRv4+vrMSHh54hlykJre7jdE=
+
+Name: org/apache/tools/ant/taskdefs/optional/EchoProperties$FormatAttrib
+ ute.class
+SHA-256-Digest: H6Z03aMtgOj0jAI3H+m/upgyzhFwit3M4EYD1wLbRbY=
+
+Name: org/apache/tools/zip/UnicodePathExtraField.class
+SHA-256-Digest: HE7VyLmhYj5Rcrp7zKDtvRTusKEts7BPYxBb/Hox3W4=
+
+Name: org/apache/tools/ant/types/resources/Files.class
+SHA-256-Digest: sg9/qpGxk0G71mSe9XgUFh0bfL7l8mIsSf+VClxFgPs=
+
+Name: org/apache/tools/ant/taskdefs/optional/ejb/WeblogicTOPLinkDeployme
+ ntTool.class
+SHA-256-Digest: sWY44GU3NR+HKQb0pXuPsux7dSk5CWBZrGOQKCPNpXQ=
+
+Name: org/apache/tools/ant/PropertyHelper$PropertySetter.class
+SHA-256-Digest: 2zJ8hfQIVpyIV/FQMoiu0Ak6Sk8AKxyvdpWFcMv2VfA=
+
+Name: org/apache/tools/ant/taskdefs/condition/ConditionBase.class
+SHA-256-Digest: 0hZdBx+8i88I4KT7mfX95NVWF2NxBQJvPDE7h6kiGuI=
+
+Name: org/apache/tools/ant/types/selectors/NotSelector.class
+SHA-256-Digest: BCKmey+QyT/PW850+BLGyy7f+90LPGOdvFfwVffWyb4=
+
+Name: org/apache/tools/ant/defaultManifest.mf
+SHA-256-Digest: 7/lfqg9YOWKxuBbreivxK1P+3k4jV+t5uqrqvLbD2js=
+
+Name: org/apache/tools/ant/taskdefs/Tar.class
+SHA-256-Digest: g5Cneej7kRVoY7froaK56qdnBYxhFbVCrLVDbiOjmbs=
+
+Name: org/apache/tools/ant/util/PermissionUtils$FileType.class
+SHA-256-Digest: 1Eo34BBP8pjVeuWxJGFZxxHtLHtUHizyUPk6EKW0uzs=
+
+Name: org/apache/tools/ant/types/selectors/SelectSelector.class
+SHA-256-Digest: IWLACoM4/U54HZsGb4UpdkY0VjkzsD1A3ccOci8Gnqc=
+
+Name: org/apache/tools/ant/types/resources/FileProvider.class
+SHA-256-Digest: ckbsmLHrBgVq0ErDOlMle8NgD0SOJbghRmEh5vG0INo=
+
+Name: org/apache/tools/ant/taskdefs/optional/jsp/compilers/DefaultJspCom
+ pilerAdapter.class
+SHA-256-Digest: DuxMOH821uQxPswPRjU+mft34pcTKLQMZzLXScn4jT0=
+
+Name: org/apache/tools/ant/util/ClasspathUtils.class
+SHA-256-Digest: lcV8L0zJN1qdF3W20RnRKoa1Ow2mkXygodEm19lYlBI=
+
+Name: org/apache/tools/ant/taskdefs/optional/ejb/BorlandGenerateClient.c
+ lass
+SHA-256-Digest: I78gb08jMrRDvgP2zBmO2CMB0uK0TxM7mr94KRVRqYI=
+
+Name: org/apache/tools/ant/property/GetProperty.class
+SHA-256-Digest: MuxchCRNoCseKSskxYH7PnVFDr+lyxWE00ZuNPlhsTg=
+
+Name: org/apache/tools/ant/helper/ProjectHelper2$AntHandler.class
+SHA-256-Digest: RWs1h8TTtadhodntnfdzP4oeIDZ6DHYyJ1YhBCKmm6w=
+
+Name: org/apache/tools/ant/ArgumentProcessor.class
+SHA-256-Digest: RGtWVEq+aAIrKSS9mCEr3i3YFqDH7qzxQvwr/2PKK18=
+
+Name: org/apache/tools/ant/DynamicConfigurator.class
+SHA-256-Digest: 9AXaGYkTDH3TRY/WWKN8DKNbHRptKV2c2bAWH5vATx4=
+
+Name: org/apache/tools/ant/taskdefs/Componentdef.class
+SHA-256-Digest: EvVR3PU/eqYUI0N3v97zzykwSAyC2IqeNu1x240/sMs=
+
+Name: org/apache/tools/ant/util/SymbolicLinkUtils.class
+SHA-256-Digest: +2UoCMwk8Nt1oamaH1zTvY/k0dtBaZdWf9XvTx7Z1y8=
+
+Name: org/apache/tools/ant/version.txt
+SHA-256-Digest: adzsj8OL7vW1/o84w3ouhQ7mrTUMcPb15RdYNw7XdJw=
+
+Name: org/apache/tools/ant/taskdefs/Copydir.class
+SHA-256-Digest: YOdEk5+Y+6CthyNkNFf/M2ugdBcCV1nHPbLecMH7Iug=
+
+Name: org/apache/tools/ant/taskdefs/Delete$ReverseDirs.class
+SHA-256-Digest: Lbiyr02dRj302pt3HkcmlCiF7lnfqE+dlvuAc8skMVE=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/constantpool/Constan
+ tCPInfo.class
+SHA-256-Digest: tZbpU/2b3tji8jcumzQPqb0YZhg9q614fzTDpohxRYA=
+
+Name: org/apache/tools/ant/types/mappers/CutDirsMapper.class
+SHA-256-Digest: h5cd1iyOQx5H6h8FZLUkLgGso63EVaQUrdIamb+Iks0=
+
+Name: org/apache/tools/ant/Project$AntRefTable.class
+SHA-256-Digest: eQ7CifzJ+GNtQ3XcpLWVidHSWH5HuRZdOEMsk4XOEYA=
+
+Name: org/apache/tools/ant/taskdefs/Touch$1.class
+SHA-256-Digest: yi7wbBZ4c+Qrq4voac+v+hhcZRaBoa1p4rjyDEeTpO4=
+
+Name: org/apache/tools/ant/taskdefs/Javadoc$ExtensionInfo.class
+SHA-256-Digest: TMpvrfhxfnl3NJk45GNoqP+esUzCQFaLjv/MJssCEC4=
+
+Name: org/apache/tools/ant/util/PackageNameMapper.class
+SHA-256-Digest: LW2eg44ZTsFwnLxI7exkKFBMK1O0oRi0jvMQui3iLfA=
+
+Name: org/apache/tools/ant/taskdefs/Ant.class
+SHA-256-Digest: Mz4PVLNGOqBxF3ELy1i/Z7/LjpSXWsR1zU4BbENXmT4=
+
+Name: org/apache/tools/ant/util/VectorSet.class
+SHA-256-Digest: kwKKsn5XQwpsLVYrwMw2/CTlmBPcTDJUdRWBCLiBoeg=
+
+Name: org/apache/tools/ant/taskdefs/PropertyHelperTask$1.class
+SHA-256-Digest: fExcpSbOz3vqF0pTV5zE7hKMwvJpK3y+CO4FUk1ykzA=
+
+Name: org/apache/tools/ant/helper/ProjectHelper2.class
+SHA-256-Digest: xxyjOmPIX6ABxarkHgXzvDjsCbQixsO2PecH5U5fpZQ=
+
+Name: org/apache/tools/ant/taskdefs/Redirector$PropertyOutputStream.clas
+ s
+SHA-256-Digest: DsQAqU0FS4zvqq6i1jEek2ozQ0iRE9NMJt6OFItIeUI=
+
+Name: org/apache/tools/ant/types/selectors/modifiedselector/Cache.class
+SHA-256-Digest: DnET8bma5x6JBt4pWSqGy1eTb7zQy3fZCZoeCrHyGRQ=
+
+Name: org/apache/tools/ant/taskdefs/ManifestTask$Mode.class
+SHA-256-Digest: xEVHhU2VVH/9FCMWLuwcs4+2YPRJdQg2wMXxxdoaNts=
+
+Name: org/apache/tools/ant/types/PropertySet$PropertyRef.class
+SHA-256-Digest: iO69CmQ9s4fML27F4WeEbCPjPg8qMDb7fmNj1eGFLYQ=
+
+Name: org/apache/tools/ant/types/resources/StringResource.class
+SHA-256-Digest: QmQRvCEI4c13UDz0wB0pufQWUK/rjZXGIKfNqcUYUhY=
+
+Name: org/apache/tools/ant/taskdefs/Unpack.class
+SHA-256-Digest: g2kmPOIAOrvp3t+FHFaqbxw2EhF5W9eSxCwwRJYly/o=
+
+Name: org/apache/tools/ant/IntrospectionHelper$10.class
+SHA-256-Digest: zVRUimymxGR7yOHASq0vBCs+4pRXyEu3odmG+igHssk=
+
+Name: org/apache/tools/ant/filters/BaseFilterReader.class
+SHA-256-Digest: mf/pCrEQq4iuzJoMYE8pNMtxXcAPqYYqXNBwapeluNA=
+
+Name: org/apache/tools/ant/types/CommandlineJava.class
+SHA-256-Digest: NvSOi+jl21FjqjEXMTPCwUDakkux3wUIXM3JD4YNJ8s=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/constantpool/Constan
+ tPoolEntry.class
+SHA-256-Digest: VwkwaE3ngzMnC1PTB8BMjiTxGrgK/niwvJJp8csQ5Sc=
+
+Name: org/apache/tools/zip/UnsupportedZipFeatureException$Feature.class
+SHA-256-Digest: /8sbuB0yzfZuWkPddph0ML0bBZ6YMUQz2s0QYhQ0Pfo=
+
+Name: org/apache/tools/ant/types/resources/comparators/FileSystem.class
+SHA-256-Digest: JLx+aWtOOgKI1QBaDYB1bB1/HqSCD8LqJ7m8U0fN2wM=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/ClassFileIterator.cl
+ ass
+SHA-256-Digest: sznwc/zBRmQlTraQFXmyBWGtCWsUwA2PnASuKBxvv/c=
+
+Name: org/apache/tools/ant/taskdefs/optional/script/ScriptDef$NestedElem
+ ent.class
+SHA-256-Digest: asUIIZ2lCBf1372q1eIyxfJ7FZadqNEPouXcJ4cLOAw=
+
+Name: org/apache/tools/ant/listener/ProfileLogger.class
+SHA-256-Digest: wgJl5Cu9s+fFqnMxpGNCyQuN9hYY67DQYsxfST9D4qE=
+
+Name: org/apache/tools/ant/taskdefs/cvslib/CvsTagEntry.class
+SHA-256-Digest: CwxaITYtn0tf4LZXSSKvTyBdrH3HCezvQp5fYmlwTlc=
+
+Name: org/apache/tools/ant/taskdefs/optional/vss/MSVSSADD.class
+SHA-256-Digest: 75tFI7+CxzXrfycQfAAg8nU7mMw90dNQ1Cl8UZLe3CM=
+
+Name: org/apache/tools/ant/PropertyHelper$1.class
+SHA-256-Digest: Sws6hoyIf5cfFOkKDVDkQvTnsIkmxAASMMyZJRIqxOY=
+
+Name: org/apache/tools/ant/taskdefs/modules/Link$1.class
+SHA-256-Digest: 2t5ntD2CAQWWSY3/zhOzfsIu8TQGiiCut7MAOkkt44Y=
+
+Name: org/apache/tools/ant/taskdefs/optional/unix/Chgrp.class
+SHA-256-Digest: LXu4iu9b2gx5y5Rt5kd0exn0T2mTvIqO7FTYdW/qyWM=
+
+Name: org/apache/tools/ant/types/resources/MultiRootFileSet$Worker.class
+SHA-256-Digest: uiuHyH+x3Do8YuwGFtq0llJGxcxK9OVewczqLGmfaI0=
+
+Name: org/apache/tools/ant/taskdefs/rmic/WLRmic.class
+SHA-256-Digest: fy/MOF/mq9Dp2PiTYwuJMXne+w4dAe2FNUZf886gCWI=
+
+Name: org/apache/tools/ant/taskdefs/Recorder$VerbosityLevelChoices.class
+SHA-256-Digest: Sa5rhOX/zACpYcz+ecKir+QQURQVZyO070kYymuxXs8=
+
+Name: org/apache/tools/ant/types/optional/ScriptSelector.class
+SHA-256-Digest: XcvIprPgyUNBU7JVE/2ziuC/1b5SLvgdHACroihjcfQ=
+
+Name: org/apache/tools/ant/taskdefs/Local.class
+SHA-256-Digest: aCPYKmcm0WgMWPdNQLdjcJekl4lYTv3+rjRX/DgzeDU=
+
+Name: org/apache/tools/ant/taskdefs/DefBase.class
+SHA-256-Digest: bAYMFAeEn5TgZ7ZDE++iUniV2q7XH19opatxrH6MTcs=
+
+Name: org/apache/tools/ant/taskdefs/optional/PropertyFile$Entry$Type.cla
+ ss
+SHA-256-Digest: Blt6Zad5Bj03mT6+wCPhUxPiUnw6H0YzUOjQUIErCPc=
+
+Name: org/apache/tools/ant/taskdefs/optional/jsp/compilers/JspCompilerAd
+ apterFactory.class
+SHA-256-Digest: owPxhUiS6gyfVOL+4WuviZpNqcfmwINz72hYmwaDHIk=
+
+Name: org/apache/tools/ant/util/LeadPipeInputStream.class
+SHA-256-Digest: MnoJdmHzQV0hjzoB2s8ljlPFwjN9aY12qVW2Ei4CpNA=
+
+Name: org/apache/tools/ant/types/PropertySet.class
+SHA-256-Digest: zaB6qqlVaComXUCoU+Y/FOX4YwsOM4P7xoXy7Mmm8Zs=
+
+Name: org/apache/tools/ant/IntrospectionHelper$MethodAndObject.class
+SHA-256-Digest: hBqhDyYiCAWmarzQvidH0vr5hrVdeZGwYZuyYmw1Pcs=
+
+Name: org/apache/tools/ant/filters/FixCrLfFilter$RemoveTabFilter.class
+SHA-256-Digest: 4XhuAWrNhy+PVCUFON24BDMqh558UfiseRQrpNQKOSc=
+
+Name: org/apache/tools/ant/util/WeakishReference.class
+SHA-256-Digest: azzSvdfy/MloUpWWKsDTNoIg+sBzL5DBqv1HtHXBDV8=
+
+Name: org/apache/tools/ant/filters/UniqFilter.class
+SHA-256-Digest: +4LJgyTC8wYAHawdm3GkRZfhwayeLsx7AfR8TlvPibE=
+
+Name: org/apache/tools/ant/util/java15/ProxyDiagnostics.class
+SHA-256-Digest: YmdEV8cd6KUcOfWI3MrDZd9YdG/e0B1khZNSHM0S/Cw=
+
+Name: org/apache/tools/ant/types/resources/comparators/Reverse.class
+SHA-256-Digest: Nxw8FTeXu+fwrxwTi1/EO7KOTasJks4PDEXA3suRYMw=
+
+Name: org/apache/tools/ant/taskdefs/Length$AccumHandler.class
+SHA-256-Digest: DwOLhLDgKpjUSWqUyLSGkIkx9IuuTdghJveHzoAAga4=
+
+Name: org/apache/tools/ant/util/Base64Converter.class
+SHA-256-Digest: YJWJR7yA4N4TnALdxSFCsf16omwZsyMClWBSqhmiT1c=
+
+Name: org/apache/tools/ant/types/Path.class
+SHA-256-Digest: Vs6HYMXx1lzZH1+w9TjkLk8Ahb2VhNA0erN2DcV6/3U=
+
+Name: org/apache/tools/ant/taskdefs/optional/ejb/IPlanetEjbc$EjbcExcepti
+ on.class
+SHA-256-Digest: F+sgFoI2tr8N8xD2A3q2VFu6anG0KJjPEy1CMze+LMw=
+
+Name: org/apache/tools/ant/taskdefs/optional/extension/ExtensionAdapter.
+ class
+SHA-256-Digest: z4FV1Qml1wv+6nCzhPoSZSJTF1Rj8qzwlG0OjKhF0Ko=
+
+Name: org/apache/tools/ant/util/optional/NoExitSecurityManager.class
+SHA-256-Digest: CKBN9wfJeXOPhya+NEixMgctAeuUkef5lwMhtcWOQRQ=
+
+Name: org/apache/tools/ant/IntrospectionHelper$1.class
+SHA-256-Digest: UBEfdmsdLYW2wQ5qXi9N5l/0oJ8t+0UY8LJkHeYq7uM=
+
+Name: org/apache/tools/ant/filters/LineContains.class
+SHA-256-Digest: N6vtfAyAH7n+YrcpJiIggz73OxsOkuzEOTFo0XEDdnM=
+
+Name: org/apache/tools/ant/taskdefs/launcher/MacCommandLauncher.class
+SHA-256-Digest: 5a7JWCkp1TM3AkT0dZ1h7Yhx8iPlUBSOGm16sFEw0pw=
+
+Name: org/apache/tools/ant/types/resources/comparators/Type.class
+SHA-256-Digest: DSpDQ9oyGyxrU8MQXYxZ0L5bFmU6qYw8x+Sji8Y2I84=
+
+Name: org/apache/tools/ant/taskdefs/BUnzip2.class
+SHA-256-Digest: PKvIPfiwXJJGvxJuZaOaHriNw6UY8au8iRkaKPpbSw8=
+
+Name: org/apache/tools/ant/taskdefs/compilers/Javac12.class
+SHA-256-Digest: gRzcmnZMLcdNwInb++jFb0qLKX295T7CCUQo7pYypF0=
+
+Name: org/apache/tools/ant/filters/util/ChainReaderHelper$1.class
+SHA-256-Digest: R7rRvW8RHLk9sFqze0pZ7b8QJw0DWb1pR/m1Vq1Rp6k=
+
+Name: org/apache/tools/ant/taskdefs/optional/PropertyFile$Entry$Operatio
+ n.class
+SHA-256-Digest: SIJW/Yt6XaqesVA4tWwb3vdWyLU+bwrC9b2dYe4tJg0=
+
+Name: org/apache/tools/bzip2/BlockSort.class
+SHA-256-Digest: MvHF8jWW5XquYkVu6nrrAUl+MswfYZqynUZkSj0NLtM=
+
+Name: org/apache/tools/ant/ArgumentProcessorRegistry.class
+SHA-256-Digest: n6vqLulzjCPu05yA3FI1qRjHJYAEMyrCiAb8oROJH8k=
+
+Name: org/apache/tools/ant/util/TeeOutputStream.class
+SHA-256-Digest: 9zPPQooT9c8LlU0ciQwu73A+gnajnMWpYD8+Y+Yi4DI=
+
+Name: org/apache/tools/zip/ZipConstants.class
+SHA-256-Digest: hU9NcAArOp6cJOFyAdxQffENtIHCteStkQRKxfJOKzk=
+
+Name: org/apache/tools/ant/types/resources/selectors/Compare.class
+SHA-256-Digest: MgZIbMishoC+s198irwY22Ist1+6955Mm3giORBkw/8=
+
+Name: org/apache/tools/ant/util/DateUtils.class
+SHA-256-Digest: ZWvZ/Xo5UBI8k4qvXQVy6R7Hd6FGM6fVnZuWtLJzBwc=
+
+Name: org/apache/tools/ant/taskdefs/condition/IsFileSelected.class
+SHA-256-Digest: R9AdtNzMf5fXvg/XezYobV1MxVSqFcXp4LBX6UC6nog=
+
+Name: org/apache/tools/zip/ZipFile$1.class
+SHA-256-Digest: EZwnT57n8Ed4+8OzqZsPdmHmKXNyputy60GKoSWvIB0=
+
+Name: org/apache/tools/ant/taskdefs/optional/jsp/JspNameMangler.class
+SHA-256-Digest: Y5EsQNwgVe2FSL7NAu6gTblgnpqqx2JPVLunyb+stvY=
+
+Name: org/apache/tools/ant/util/LinkedHashtable.class
+SHA-256-Digest: hmUHbFEC96RkjYzHREgH9HaeroGAqgSY7pDlt+4u1lo=
+
+Name: org/apache/tools/ant/XmlLogger$1.class
+SHA-256-Digest: tftg5oz1fWdBLPVHnSbDgVbTlVYx4h6aD6KnR51OuaQ=
+
+Name: org/apache/tools/ant/types/resources/TarResource.class
+SHA-256-Digest: gXI5idB/ixgaC+aN8A3GiYh5pgKA2WzAQLTBkp3Is9c=
+
+Name: org/apache/tools/ant/taskdefs/email/EmailAddress.class
+SHA-256-Digest: uJGi4KyLDRkGYdtR6FmdnmCawGQayQ2HDnqwPlKc+Yo=
+
+Name: org/apache/tools/zip/NioZipEncoding.class
+SHA-256-Digest: RJuDWZLu2YcWLDY0X2jHLVOONvy/1B2eyOUISaWd4Go=
+
+Name: org/apache/tools/ant/helper/IgnoreDependenciesExecutor.class
+SHA-256-Digest: Twm7KcmexsUatp/eeRkGI+yZhNLpl/l/6Mu+SdXJ6vw=
+
+Name: org/apache/tools/ant/filters/FixCrLfFilter$MaskJavaTabLiteralsFilt
+ er.class
+SHA-256-Digest: 7yJ2Hwb1RxyGdMUsTJlOyDd5OgoadVnFAliWAYghtTc=
+
+Name: org/apache/tools/ant/filters/LineContainsRegExp.class
+SHA-256-Digest: 1RuAN268cQ7/ZhXrZsPqjybpXXF7ePnphlNobeBJrUk=
+
+Name: org/apache/tools/ant/taskdefs/optional/javacc/JJTree.class
+SHA-256-Digest: S8bA6D8XBpzAKfQPjHRp79Aui3h113K1Y1pECMHB/do=
+
+Name: org/apache/tools/ant/taskdefs/PumpStreamHandler.class
+SHA-256-Digest: fTbq9QlyIgyeiMsedW4eRzFkDw/zit9+WDzV2346/+0=
+
+Name: org/apache/tools/ant/filters/util/ChainReaderHelper.class
+SHA-256-Digest: v4h8V7PplDzkUmwspCwtegCi0s3OJz7RcUUa0+Vh4OA=
+
+Name: org/apache/tools/ant/taskdefs/ProcessDestroyer.class
+SHA-256-Digest: 2uueAPdh2OgQ0X7EGjyJzkqTUs6tHnHPbUGPb/nLyK4=
+
+Name: org/apache/tools/ant/taskdefs/compilers/Javac13.class
+SHA-256-Digest: Ldv/SXpi8Cpoy7oGic1dM+IqCHHcufNbKdZSQK/bEpo=
+
+Name: org/apache/tools/ant/taskdefs/Javadoc$GroupArgument.class
+SHA-256-Digest: EH+Qr8feymYQ1Hjz5HWZ2Fqv2GLkEwo1mtVqi+B4+Es=
+
+Name: org/apache/tools/ant/filters/ReplaceTokens$Token.class
+SHA-256-Digest: QvOke+s/9QPoQDaeMGHwihr8J15v8vOt4NZgOHhqyks=
+
+Name: org/apache/tools/ant/taskdefs/Javadoc$AccessType.class
+SHA-256-Digest: ASOyMTRZhe9zT/0GvgMGEh1vhr1r/qT7oeIgVKCCWBY=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/constantpool/Interfa
+ ceMethodRefCPInfo.class
+SHA-256-Digest: lZY8zRMybwho/sTmLphdKGXKNlBionNAwd/Ca4JuhDA=
+
+Name: org/apache/tools/ant/taskdefs/optional/ejb/IPlanetEjbcTask.class
+SHA-256-Digest: InIzPJJrDb7ODnyGL639SdnP8SrQkA/yxcQuDqRHCOs=
+
+Name: org/apache/tools/ant/util/UUEncoder.class
+SHA-256-Digest: abgLcrfXkSbhSsTnrUrEqFh9ANTyU79ttDPqKUiiHes=
+
+Name: org/apache/tools/ant/taskdefs/Basename.class
+SHA-256-Digest: 2IfRZnJeXycCwvhDggdE7pNwl3m64/yhoKDz+fSl854=
+
+Name: org/apache/tools/ant/taskdefs/Length$EachHandler.class
+SHA-256-Digest: qJl8XZwNglJ/zGbgpY1LjkGzrJzNHE/awPPmo+Zhbik=
+
+Name: org/apache/tools/ant/types/resources/FileResource.class
+SHA-256-Digest: b1+3/9QMJpOrFlJzXqU7C+ZC15HTGxPPQtAXfBc56V4=
+
+Name: org/apache/tools/ant/types/selectors/modifiedselector/ModifiedSele
+ ctor.class
+SHA-256-Digest: BtQus2kPDuqIlAShFrkM3zrgXrBJVmXIpLeG0wLWzl4=
+
+Name: org/apache/tools/ant/taskdefs/launcher/WinNTCommandLauncher.class
+SHA-256-Digest: 2Ou7YRNjRUYf9xx8VbUxfJXi4VTLTJR+5+gbf2yoL2g=
+
+Name: org/apache/tools/ant/AntClassLoader$ResourceEnumeration.class
+SHA-256-Digest: aJwXbyvy03dgwq/w/QefxNdg1HBsuA7mZL4vr0qpPOQ=
+
+Name: org/apache/tools/ant/attribute/BaseIfAttribute.class
+SHA-256-Digest: n3yxjTWRT27LMPMkuFG3uo5mzmQzLW7RRqwP4uBrtgg=
+
+Name: org/apache/tools/ant/taskdefs/SQLExec$OnError.class
+SHA-256-Digest: IxG3VCdZA9nEsq2Gu9aikrLQWbMkh5Aw+DEAFgCsuWM=
+
+Name: org/apache/tools/ant/taskdefs/Sleep.class
+SHA-256-Digest: 21bFznu/rPpJaDaeTOeKEWHKdyvg24iofarCvdUdAA0=
+
+Name: org/apache/tools/ant/taskdefs/KeySubst.class
+SHA-256-Digest: I0XzWyZmuCpvmyonnyg0HO35g8OuBGKqO/azzHvZQSc=
+
+Name: org/apache/tools/ant/taskdefs/compilers/Jikes.class
+SHA-256-Digest: mewliRb7iQNY3U6/DtXq3rAQoPQn/U4ru4+2uHAL96c=
+
+Name: org/apache/tools/ant/taskdefs/VerifyJar$BufferingOutputFilter.clas
+ s
+SHA-256-Digest: ZKqutVKH2PLEWGEnMPwLfvuFurp18eLCvpS/HKVaPgE=
+
+Name: org/apache/tools/ant/taskdefs/condition/Or.class
+SHA-256-Digest: ug8NB0edjgtq0ASfE8/o4cyTqkIBxNZiNpDXifBr3uY=
+
+Name: org/apache/tools/ant/taskdefs/modules/Jmod$ResolutionWarningSpec.c
+ lass
+SHA-256-Digest: 2OyQ+oex49zH2NtK325zvtNs8HwStc7vVh+2t4mBBKM=
+
+Name: org/apache/tools/ant/UnsupportedAttributeException.class
+SHA-256-Digest: nlKhiZEHF1aX5mY3D9nS9d1S29wAxgua6SaF9GHppeI=
+
+Name: org/apache/tools/ant/taskdefs/optional/ejb/WebsphereDeploymentTool
+ $1.class
+SHA-256-Digest: VroGIraspzQkbNqWfwA2a0gZPVJEE/fQcPiOEPlMA7c=
+
+Name: org/apache/tools/ant/util/SourceFileScanner.class
+SHA-256-Digest: 5O/5ujJReDNRYkKW/I5GApHk9CMJu1cq0OiMp+YJWKg=
+
+Name: org/apache/tools/ant/taskdefs/optional/sos/SOSLabel.class
+SHA-256-Digest: abon6ftMJ5jcapYHZYTD4WrXnf18+Dh1quf2BdYvy0o=
+
+Name: org/apache/tools/ant/taskdefs/Javadoc$LinkArgument.class
+SHA-256-Digest: sxTo8gAESuwGD910mBgVpw4+uW6sGWyRMs6vfkUGRvE=
+
+Name: org/apache/tools/ant/taskdefs/Recorder$ActionChoices.class
+SHA-256-Digest: 21yQTo+C/q/zUm36fHXSw1VqgHexleXsiJSk9MSlDXc=
+
+Name: org/apache/tools/ant/filters/TokenFilter$ReplaceRegex.class
+SHA-256-Digest: ACNNzGDQOZK/G/AE3Sqn0bC+Ckh4oirqvy4p8SWY7hU=
+
+Name: org/apache/tools/ant/taskdefs/optional/vss/MSVSSLABEL.class
+SHA-256-Digest: ai/yI4YutXa3Rte0Lukxs5xYt/GdiwBoy4PaVudC5oU=
+
+Name: org/apache/tools/ant/types/Permissions$1.class
+SHA-256-Digest: cl90PD20006vsRb4+sKhyz/BgcQs+qhB3TqgkWQnw6Y=
+
+Name: org/apache/tools/ant/util/DOMElementWriter.class
+SHA-256-Digest: 5Yn3Y3NxqCixupJ768AudEoxSklW40znS7xGbk2bc9Q=
+
+Name: org/apache/tools/ant/taskdefs/Parallel$TaskRunnable.class
+SHA-256-Digest: eylbkFnwmX/EgWTEtt3WX8DIkR5156yPa8NBGgix4yc=
+
+Name: org/apache/tools/ant/types/resources/Restrict.class
+SHA-256-Digest: iLqHv0JmHXX2+m4N3boDZIVkRj/Zy/C188X+kxGGi3E=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/Depend.class
+SHA-256-Digest: ZAF2m24uAGEly5Tg0KArnF6s/DJRgNhlFM+HndRPbU8=
+
+Name: org/apache/tools/ant/types/LogLevel.class
+SHA-256-Digest: awZ+bR76ILs1zLnSnJDn578oK8+9nfQf/JG/VoWrDvI=
+
+Name: org/apache/tools/ant/taskdefs/optional/native2ascii/BuiltinNative2
+ Ascii.class
+SHA-256-Digest: oIPjIDtySfGiOlcbWhc/fxWSTklaXfN6TAe6Uli0s98=
+
+Name: org/apache/tools/ant/taskdefs/optional/XMLValidateTask$Attribute.c
+ lass
+SHA-256-Digest: twuAFV3zZvKpcmlH63IK84FR0HCSMHRnMr9r6uXky4o=
+
+Name: org/apache/tools/ant/taskdefs/optional/extension/resolvers/Locatio
+ nResolver.class
+SHA-256-Digest: 3IEeiIi1pywVODFbQ3GzRgsalcLd6ABbcylNinyI+W4=
+
+Name: org/apache/tools/ant/types/resources/selectors/Type.class
+SHA-256-Digest: UdxkGGmuF/KkBGEwWIuX3NajGWWxoC6WNof6T+ZHxJc=
+
+Name: org/apache/tools/ant/types/selectors/modifiedselector/ModifiedSele
+ ctor$CacheName.class
+SHA-256-Digest: feWnK6yGWbuRYi1os8eILDxRK+GsmHZAktGyGnsw+fk=
+
+Name: org/apache/tools/ant/types/Quantifier.class
+SHA-256-Digest: 48YhCNv+GFjO20trejC8i/38o0iZPfqTLo/DBPkkmS8=
+
+Name: org/apache/tools/zip/ZipFile$NameAndComment.class
+SHA-256-Digest: 05MJL8w0NtS6u5W3rHtJtUDHKZDHrOIWgA9qv8KPqE8=
+
+Name: org/apache/tools/ant/taskdefs/Local$Name.class
+SHA-256-Digest: tWa3XaMqb7M4QUzq+gEUObT3YNZ+dt8PAiZdxaQZ/LQ=
+
+Name: org/apache/tools/ant/DirectoryScanner.class
+SHA-256-Digest: 27OO24MZIcwBK9XO3XiyJ2/coTgh50xu5v8TIKvdCTc=
+
+Name: org/apache/tools/ant/taskdefs/Replace$FileOutput.class
+SHA-256-Digest: 16KET6vFldSbJzpKJZoVVBNWkBFWxiQvOZa3pVay3p8=
+
+Name: org/apache/tools/ant/taskdefs/SetPermissions$1.class
+SHA-256-Digest: uC1vhIApGyNkbEqpz47Xh3JlFIVLuIZL31r0LBeSKcE=
+
+Name: org/apache/tools/ant/input/InputHandler.class
+SHA-256-Digest: idKIPMgSxHvK6jq5EgnZ+m3H4BCnWcNEKyp5AGS/g2I=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/constantpool/StringC
+ PInfo.class
+SHA-256-Digest: 8RqXowfY8xmt2lnzMDA6OFj+ros45Iy0KRzBWANCF4U=
+
+Name: org/apache/tools/ant/taskdefs/optional/testing/Funtest$NestedCondi
+ tion.class
+SHA-256-Digest: 3NzfxBfg3YqKH2gIgcv4Vs/on4KV95K+OoDXoAMW0sw=
+
+Name: org/apache/tools/ant/taskdefs/Get$VerboseProgress.class
+SHA-256-Digest: lzPwmdrzoxsdUswUpqtrES3fyiEgnDa7r4mIoMLRDWs=
+
+Name: org/apache/tools/ant/taskdefs/condition/ResourcesMatch.class
+SHA-256-Digest: Et+ee+OFf81YHAS+m8RVSqWlQyLdz7MubkktMFYcF2k=
+
+Name: org/apache/tools/ant/types/FileList.class
+SHA-256-Digest: TzBw/oORkbNUj+QCo4GUiUMdZrKNjtksilMXLlH8pcA=
+
+Name: org/apache/tools/ant/property/NullReturn.class
+SHA-256-Digest: G7jiVE0rfpp8O/S1ygNGbkKCIUTGSzdD+Gr31m41Otg=
+
+Name: org/apache/tools/ant/taskdefs/optional/ejb/JonasDeploymentTool.cla
+ ss
+SHA-256-Digest: 6nVtqGOfxC8BOwxRtm3FrWuZBrd37gJuUbtWVeGeaII=
+
+Name: org/apache/tools/ant/TaskConfigurationChecker.class
+SHA-256-Digest: 4B2N0v7uTwf+z/8oIQmamFf1X+00oWcaPL+UGGdLc64=
+
+Name: org/apache/tools/ant/taskdefs/Zip$Duplicate.class
+SHA-256-Digest: eEkYn6fpgNX7rF5MRVPJRBBuKxa2aQUi7ZDvbNsdeXs=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/constantpool/InvokeD
+ ynamicCPInfo.class
+SHA-256-Digest: 9lBXfAGWYJ4vNiUbFEvP1sIomEA2hV5TINSphBQpnbI=
+
+Name: org/apache/tools/ant/listener/AnsiColorLogger.class
+SHA-256-Digest: Y/qQJfPMuaD6UrNJbjmsX9uM8+f0Du4oHFS52/FfQTI=
+
+Name: org/apache/tools/ant/TypeAdapter.class
+SHA-256-Digest: NlzOHrkR0/EhEuM7FavYF65TBphFr36almeG2A9RpWs=
+
+Name: org/apache/tools/ant/types/selectors/SignedSelector.class
+SHA-256-Digest: d8S4AiT7ThQbUuqMFRxtVRRZxc/CDenzcagCHXS0Z8Q=
+
+Name: org/apache/tools/ant/util/FirstMatchMapper.class
+SHA-256-Digest: C5+b+to4qnBoS0N3Io8lZL+ulsDrm9JRQ8aw0oJPlnw=
+
+Name: org/apache/tools/ant/taskdefs/optional/extension/ExtensionSet.clas
+ s
+SHA-256-Digest: tCBgNhx/HpkBbMWhhTHrzJhK0OctpGRkOo//mNQGrak=
+
+Name: org/apache/tools/ant/taskdefs/compilers/Kjc.class
+SHA-256-Digest: 2xPdrTHZLqYa9HOgxD0/mVgp7Wh5m1Ngo87xn1QnnRE=
+
+Name: org/apache/tools/zip/FallbackZipEncoding.class
+SHA-256-Digest: pyAH2kXNetXyyPE15PtKembl3IIGr3SVcZVsTHNiqrw=
+
+Name: org/apache/tools/ant/types/selectors/BaseSelectorContainer.class
+SHA-256-Digest: BQeXatSePYaVE4GsC1m8mv8wrZq+/uyNspHB0iCv+xs=
+
+Name: org/apache/tools/ant/property/ResolvePropertyMap.class
+SHA-256-Digest: zJtnztOTNkasuGQEar6yG0ovBYw4yRLDPycaGMs3d1Q=
+
+Name: org/apache/tools/ant/taskdefs/Tstamp$Unit.class
+SHA-256-Digest: M+9J9V6t4SfBcdfd8Gl7UJR1ocLZo9FCCvStvvLyvCg=
+
+Name: org/apache/tools/ant/types/resources/ZipResource.class
+SHA-256-Digest: j9hCd/6JLiEQMBcWMvQYT9VCa8M0OrNXBBRJU6ttduM=
+
+Name: org/apache/tools/ant/taskdefs/Chmod.class
+SHA-256-Digest: q0nvIKeScoQ7GABHEl8+y8qxN95UHiG1jgQFbrZ9hnE=
+
+Name: org/apache/tools/ant/types/AntFilterReader.class
+SHA-256-Digest: nmhay/Eb+wOQBrhFrNVTM7NV0PHvrFzVvjpS+OC+vQ4=
+
+Name: org/apache/tools/ant/taskdefs/XSLTLiaison2.class
+SHA-256-Digest: zk+yaHkkEIbppzqWyrFw+/TAjPQeLYIfOUL6U+IhNjE=
+
+Name: org/apache/tools/ant/RuntimeConfigurable$1.class
+SHA-256-Digest: MJ26Ps/fLgFRkEtbq/P3MijbF0hNPB+Hy47ymSD9SaM=
+
+Name: org/apache/tools/tar/TarUtils.class
+SHA-256-Digest: enw7JNKWUFyIdHitnKZInLAePbliiVJnlWJNHyZUOS8=
+
+Name: org/apache/tools/ant/taskdefs/Pack.class
+SHA-256-Digest: /Y4vOPN9d2H/CncIrfs8CrgxO6EAmzGH5oZy+cBMyQU=
+
+Name: org/apache/tools/ant/
+Extension-Name: org.apache.tools.ant
+Specification-Title: Apache Ant
+Specification-Version: 1.10.17
+Specification-Vendor: Apache Software Foundation
+Implementation-Title: org.apache.tools.ant
+Implementation-Version: 1.10.17
+Implementation-Vendor: Apache Software Foundation
+SHA-256-Digest: 47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=
+
+Name: org/apache/tools/ant/types/resources/Resources.class
+SHA-256-Digest: vztaNfD+y+qn8ln1nKaFH24YoRrwuhp2DqT9g/Ltoj0=
+
+Name: org/apache/tools/ant/types/resources/selectors/Size.class
+SHA-256-Digest: E+N9ngjMa/v6C/80ueehEokPmUDe8FlycZfCD5VyWOY=
+
+Name: org/apache/tools/ant/types/Permissions$Permission.class
+SHA-256-Digest: Dc2MndmWTmO36UrNxr/cq0iVamWi6yIhesOwcwkEac4=
+
+Name: org/apache/tools/ant/types/resources/LazyResourceCollectionWrapper
+ $FilteringIterator.class
+SHA-256-Digest: 6DO9pTGRtTtnRtmo7ktSlSqCIAO9i2Xy9IK/s/JZJsA=
+
+Name: org/apache/tools/zip/ZipFile.class
+SHA-256-Digest: U0TL/EDQN+OUpGKCSkrxd2KOz8js723WlAe+QFahepw=
+
+Name: org/apache/tools/ant/helper/ProjectHelperImpl.class
+SHA-256-Digest: FE4mv4Qr8wAaAMChSVHdEMpQNnXhBYfSTksu5pmZb9I=
+
+Name: org/apache/tools/ant/taskdefs/optional/clearcase/CCMkdir.class
+SHA-256-Digest: /DSeA2DWECx1DQlPLGnfjM6P2HdqisBOTTp6UdA6Z9k=
+
+Name: org/apache/tools/ant/taskdefs/Definer.class
+SHA-256-Digest: AJQUcitUv2vz8KUI7Bxa6k/Gy73sSBrfly5+25OTDDM=
+
+Name: org/apache/tools/ant/IntrospectionHelper$13.class
+SHA-256-Digest: qY35BBsHxKTyfo2jNHSEoSjRpHqxofnGly/GtSJToN0=
+
+Name: org/apache/tools/ant/taskdefs/AugmentReference.class
+SHA-256-Digest: 1sc+gOXN++Inu8Dl6MB7z8sEegcedZyfsX9ITICC2Zc=
+
+Name: org/apache/tools/ant/taskdefs/optional/Javah$ClassArgument.class
+SHA-256-Digest: tczPc2Td6oK39M2NSLQucjkcDTC8JltJDGy3qEw2v4w=
+
+Name: org/apache/tools/ant/util/JAXPUtils.class
+SHA-256-Digest: 6rutrhTJCLRagA3RHPn1BLpGXcqSe1EEfO3WmO67crQ=
+
+Name: org/apache/tools/ant/PropertyHelper.class
+SHA-256-Digest: W/YGr7C/oOLp0aG/2/6aVsUQeqwMGNNfFPViv62j92Y=
+
+Name: org/apache/tools/ant/taskdefs/Touch$2.class
+SHA-256-Digest: eRzSa9vJgaPjY3/SwOT2s+rXS4T9/tD+wumjp0Y6jjI=
+
+Name: org/apache/tools/ant/taskdefs/TaskOutputStream.class
+SHA-256-Digest: fNTxv/ovXemCbcMjtAV00AoEOBqRWLqNijV9Q+a2V7s=
+
+Name: org/apache/tools/ant/types/resources/comparators/Content.class
+SHA-256-Digest: 1MzdX6znpNvVJyzV1/UGlXFHK7ssJ92G+4fttfd7J2k=
+
+Name: org/apache/tools/ant/taskdefs/optional/pvcs/Pvcs.class
+SHA-256-Digest: jPgbO8tcd8Qx2swIL9qYaO9D9yfF7Paj954TUljtrm8=
+
+Name: org/apache/tools/ant/taskdefs/optional/vss/MSVSSCHECKOUT.class
+SHA-256-Digest: qWJp68Qkihh78kWG5FI+q+HVVKbzEUfft5+Pol9KSGg=
+
+Name: org/apache/tools/ant/types/selectors/DifferentSelector.class
+SHA-256-Digest: vgMt9rvCM/391UmveogWmKeN21TUkASPMQL8do0H4Jo=
+
+Name: org/apache/tools/ant/taskdefs/condition/Condition.class
+SHA-256-Digest: 1CegYfqzcLV75OhOw/CvW5CRvqLaeLLQVLRnvjCYKaU=
+
+Name: org/apache/tools/ant/types/selectors/SelectorContainer.class
+SHA-256-Digest: ZQg227nmCW37K6b3vCA1ChULeUyen1NPnFO7Kf01mWk=
+
+Name: org/apache/tools/ant/taskdefs/optional/ReplaceRegExp.class
+SHA-256-Digest: hD/SfE8dqdU+amZemU7oE4Xg3E++4plEcSsWvg11YM4=
+
+Name: org/apache/tools/ant/taskdefs/launcher/CommandLauncherProxy.class
+SHA-256-Digest: 2q3a+4L84+ada3P6u8OfuJYJTY9WIt3oDOb/hSprvlk=
+
+Name: org/apache/tools/ant/types/mappers/FilterMapper.class
+SHA-256-Digest: CgRPg+SxWKMflyZ0RgejKB+ccs8v9fad0ntIgvCIo00=
+
+Name: org/apache/tools/ant/input/MultipleChoiceInputRequest.class
+SHA-256-Digest: sZBWjcndyMQfvxsd99wzKetL5OhHu1TOcSwTj1HZe/I=
+
+Name: org/apache/tools/ant/taskdefs/optional/EchoProperties$1.class
+SHA-256-Digest: +4/BlaohvU5noT6w0j3SGJRfStA8CaGWf65levEU7Gs=
+
+Name: org/apache/tools/ant/util/Watchdog.class
+SHA-256-Digest: XHG7uWtZzahYxefO4TsFZnE4i+v5KBgaKaxLrstXJpo=
+
+Name: org/apache/tools/ant/taskdefs/modules/Jmod$ResolutionWarningReason
+ .class
+SHA-256-Digest: mFGtfnSfgObzh6wMRyiJOlajdH8Afw/pROth4fLr2PY=
+
+Name: org/apache/tools/ant/taskdefs/optional/ejb/DescriptorHandler.class
+SHA-256-Digest: jvyfRX2rlR84LiFEqv3hQFtZ7oiaKUqmmLnpwRfYOO4=
+
+Name: org/apache/tools/ant/types/TarFileSet.class
+SHA-256-Digest: /qIlFAFUwonT0zgIsm0+cyI/R46rOSa1zPI3CsbM3HU=
+
+Name: org/apache/tools/ant/taskdefs/optional/ejb/EjbJar.class
+SHA-256-Digest: TLfLD4S2BeNAWDXC5ViXT6zE2BOQ3ETEoPZW2pcndm0=
+
+Name: org/apache/tools/ant/taskdefs/optional/vss/MSVSSHISTORY$BriefCoded
+ iffNofile.class
+SHA-256-Digest: ZpcycfIsA7OSiZCmC4BJnUVuta0CO4PbzYo4wG2aCd8=
+
+Name: org/apache/tools/ant/filters/Native2AsciiFilter.class
+SHA-256-Digest: 5DObcCNUn7pTAoBsIjykj6luUud5AWFiHRPF35xv/UI=
+
+Name: org/apache/tools/ant/types/ModuleVersion.class
+SHA-256-Digest: fc/HlSq7pBkzfmB9LukahIkNjgdGxYUa/cQvK8+pNN8=
+
+Name: org/apache/tools/ant/types/optional/ScriptMapper.class
+SHA-256-Digest: DZf+i6LKt/7gbTzQPBfbshZWH730zI2rYO1KibgGZr8=
+
+Name: org/apache/tools/ant/taskdefs/XSLTProcess$Param.class
+SHA-256-Digest: 2I4tfi0m/L9RWqyLL91aGI756rgq1yhMqLVBplo/JQs=
+
+Name: org/apache/tools/ant/helper/AntXMLContext.class
+SHA-256-Digest: 2LX0t5uNHmcyio0668dASzbRO63gH86vZuzbCzjyF5w=
+
+Name: org/apache/tools/ant/taskdefs/FixCRLF$OneLiner.class
+SHA-256-Digest: w6CYZR4WwiMha97TyMXSu9DgugPqFbwwr3dQZAoTQ5o=
+
+Name: org/apache/tools/ant/taskdefs/PumpStreamHandler$ThreadWithPumper.c
+ lass
+SHA-256-Digest: jDyW07TI4ZPTAdMVv2gUBhT0Y0uk9jkWDdJ8sF6/auY=
+
+Name: org/apache/tools/ant/types/resources/Last.class
+SHA-256-Digest: 0W5ceHCbSfOBkS+BXebA5GBP4EUDVtJ+2dIkh06HPhQ=
+
+Name: org/apache/tools/ant/types/spi/Service.class
+SHA-256-Digest: rvRMZjoLZCcm0gq1ddwoPZULFYMbQXhy0EqxaAnnBHc=
+
+Name: org/apache/tools/ant/util/FileUtils.class
+SHA-256-Digest: zy2nMvZUnao0LabToIZ9/wezkjWfo0sRFxACyjPG/yM=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/constantpool/DoubleC
+ PInfo.class
+SHA-256-Digest: gUSiy5XG2rUc8mtfne5lXIqHA5LhD8FleST+RhLrKvU=
+
+Name: org/apache/tools/ant/taskdefs/XSLTProcess$StyleMapper.class
+SHA-256-Digest: rG+TG1Gr4BOhFQYSIK5uc2AOY+mYm2aSXDYYD1STu9U=
+
+Name: org/apache/tools/ant/util/WeakishReference$HardReference.class
+SHA-256-Digest: go3m3Kc0N5LTEZTqNnfAYdTC/LTF+zs5L2UkbhQuli0=
+
+Name: org/apache/tools/ant/taskdefs/optional/extension/ExtensionResolver
+ .class
+SHA-256-Digest: bL4uwKYVobKKJTjz1nyPsEn8T4mspxpsAcKaXF9448I=
+
+Name: org/apache/tools/ant/filters/ChainableReader.class
+SHA-256-Digest: reDnaYfLJ5+6emXOYF9nX/dj9iof+tQrWbh8MRwNSqs=
+
+Name: org/apache/tools/ant/taskdefs/javadoc-frame-injections-fix.txt
+SHA-256-Digest: +THa0M9BgPJ7wwECK7/oy7YWjIV0N391Y1OWGdg6tTg=
+
+Name: org/apache/tools/ant/taskdefs/optional/ccm/CCMReconfigure.class
+SHA-256-Digest: Azb7X4+Y4tsJ69pmkJSE7zPoC6HTxsiuyTzz11auaW8=
+
+Name: org/apache/tools/ant/taskdefs/Available.class
+SHA-256-Digest: Zyu4yiFTTt3FvMY6KvDAIKtx8poMJnqRURfT95zJ7jI=
+
+Name: org/apache/tools/ant/types/resources/selectors/And.class
+SHA-256-Digest: np+dCm7mco6Llccl0ANmVesI8n7xx0afPsFcy0IfFLk=
+
+Name: org/apache/tools/ant/taskdefs/optional/j2ee/AbstractHotDeploymentT
+ ool.class
+SHA-256-Digest: 2RsdZBnWc3yjCe+7Z3Vx7Ojie1eXNKykLMoHDfWIj9s=
+
+Name: org/apache/tools/ant/taskdefs/optional/extension/Compatability.cla
+ ss
+SHA-256-Digest: wu8oVzdcO+64wli3GIrhUQYYjZOg+aeFi2uJNNIsobI=
+
+Name: org/apache/tools/ant/UnknownElement.class
+SHA-256-Digest: dqlpUVWSyKoM6lrzSEA7VAyWZiI+glYOum3oTqXnjkA=
+
+Name: org/apache/tools/ant/types/Reference.class
+SHA-256-Digest: cvsRmukviC2wmQABh6fuQlLL1uACZwhLoG5EAEvqQkI=
+
+Name: org/apache/tools/ant/taskdefs/Tar$TarLongFileMode.class
+SHA-256-Digest: 8bmTYgZfyUgW0eBvfp1jccBfgW6sRqEb35g8jSHX/RM=
+
+Name: org/apache/tools/ant/taskdefs/email/Message.class
+SHA-256-Digest: F1nfzbGdiYdq+IhMkzLli44kul6omVLnHCj58NHZiLI=
+
+Name: org/apache/tools/ant/taskdefs/optional/extension/Extension.class
+SHA-256-Digest: lLnkSkhBGIR5+oMOLst1pdoYjh8SJNU2/oWYNMVFyfQ=
+
+Name: org/apache/tools/ant/taskdefs/Classloader.class
+SHA-256-Digest: x1FV6eA6BSGQMdY+MNeDENVY5uF3crXUBPh7VzzMkI4=
+
+Name: org/apache/tools/ant/taskdefs/optional/clearcase/CCMkattr.class
+SHA-256-Digest: CMaEEbEubrA5ma2FCuMfvjEC6To1f81hW3uWHsXjxwo=
+
+Name: org/apache/tools/ant/taskdefs/Execute.class
+SHA-256-Digest: d3Yb4Fn4eJubs2etJ5bZYryGU0w2roqlz3q00efcyA4=
+
+Name: org/apache/tools/ant/types/FileList$FileName.class
+SHA-256-Digest: jz2jRFZtD5HTqhFCu86NvW3VrzK65grxduUkDDLhJBE=
+
+Name: org/apache/tools/ant/listener/MailLogger$1.class
+SHA-256-Digest: glMcuucW7gdIq+5hNiRQR7uPueHRDSDgQw6DKG40WOg=
+
+Name: org/apache/tools/ant/types/selectors/modifiedselector/ModifiedSele
+ ctor$AlgorithmName.class
+SHA-256-Digest: i0b9IFcP13jZFlfrw0nAR8QUtNx8ROZIECqoi72Vdvo=
+
+Name: org/apache/tools/ant/filters/FixCrLfFilter$RemoveEofFilter.class
+SHA-256-Digest: M70IDOSpxtJHu1XZFWY/b1cwvXgkhxW6niWwYSIkKT0=
+
+Name: org/apache/tools/ant/listener/SilentLogger.class
+SHA-256-Digest: hyucTFFS9XqfDyQO/T+Jt70i2i40pOaG4zeNnQVEyCg=
+
+Name: org/apache/tools/mail/MailPrintStream.class
+SHA-256-Digest: srksz7w8fg4D7jNINfYU/kyug/oOX/R3pd51U+kI1go=
+
+Name: org/apache/tools/ant/taskdefs/compilers/DefaultCompilerAdapter.cla
+ ss
+SHA-256-Digest: ytIPYa2EKtvrge8cxk29R3VRo79EcuoltAMglzLMaFI=
+
+Name: org/apache/tools/ant/taskdefs/XSLTLogger.class
+SHA-256-Digest: muhc+14ZqyPrxuWGTts6YcdFB3siY+OCrSa2YFALf1E=
+
+Name: org/apache/tools/tar/TarOutputStream.class
+SHA-256-Digest: /Z8viv5+8J2yCN/6r8vmM2ZNUbeaVP9RTCI+vZLv9XA=
+
+Name: org/apache/tools/ant/types/resources/ArchiveResource.class
+SHA-256-Digest: qegsy4iGqeCuCVeA0DEEYFbw0xiTqfGS8LcCMjKYH5k=
+
+Name: org/apache/tools/ant/helper/ProjectHelper2$ElementHandler.class
+SHA-256-Digest: cJhezQaj/+HNLb5rn4HRphSRNX2XlA7I/uJO1s6d+kE=
+
+Name: org/apache/tools/ant/taskdefs/ExecuteJava.class
+SHA-256-Digest: gJ+E3zWZCdvSn90g0OfZyJ5UAMFCYDXyHTFlPB+RCXY=
+
+Name: org/apache/tools/ant/taskdefs/DefaultExcludes.class
+SHA-256-Digest: LjSg2yFVZy6yoH/eIH08s2Baeqj+Oud37it5m6tQX6w=
+
+Name: org/apache/tools/ant/taskdefs/Length$When.class
+SHA-256-Digest: QtODWBIonhjCYo8y4L6OQ7y3iLWQMsKcxWP/aurA0U8=
+
+Name: org/apache/tools/ant/taskdefs/optional/XMLValidateTask$Property.cl
+ ass
+SHA-256-Digest: FXG3by5CrIaqAqe/P9u/Mtcx7DitTX28HalpE5NZso0=
+
+Name: org/apache/tools/ant/util/LayoutPreservingProperties$Comment.class
+SHA-256-Digest: 1U/P85RceYiXg7SNRGWSGeaY4VqRI3ULKBtZJfAnnmU=
+
+Name: org/apache/tools/ant/types/resources/selectors/Or.class
+SHA-256-Digest: P4I6nNRuN7N6MEAIGRhFkcRVZk7voKSdna7MIdE3Fpg=
+
+Name: org/apache/tools/ant/util/ScriptRunnerBase.class
+SHA-256-Digest: 02v5GO1qDUIxOZnTz3uH7/5oywAtJPLypv0B0YK0k1c=
+
+Name: org/apache/tools/ant/taskdefs/Delete.class
+SHA-256-Digest: i0Ow7Rbkj1k6TxS9aUBZ2Pe/JVjGG4P7HhXv7QYdmvE=
+
+Name: org/apache/tools/ant/taskdefs/ManifestClassPath.class
+SHA-256-Digest: INikY4zZ6ioVXFQ6GJ1CMfDxGSSHkrXsF+sBoSDb7Tk=
+
+Name: org/apache/tools/ant/taskdefs/ImportTask.class
+SHA-256-Digest: kYmY/Owsyo7r8vs0Kzjvl/qmPWcFwu5oOIHoHkfojKk=
+
+Name: org/apache/tools/ant/taskdefs/Tstamp$CustomFormat.class
+SHA-256-Digest: XFYkLtcDJ1QKA74ZpKqf9Ufr0w+jNTc0nBHTrfyWkFg=
+
+Name: org/apache/tools/ant/taskdefs/optional/extension/Compatibility.cla
+ ss
+SHA-256-Digest: w4ZFh1mFn7Mkod6Ewn6CitKpvhp8fkfZRKJpURKSOmc=
+
+Name: org/apache/tools/ant/IntrospectionHelper$11.class
+SHA-256-Digest: Y+kBQ+tGNBZlgxWri2ScsmC7Z82F85Bx/I+Rsxt/xls=
+
+Name: org/apache/tools/ant/taskdefs/condition/IsReference.class
+SHA-256-Digest: 9MinEN1fvNioG29A0VJwuTgpL9YIbZe5mn+zmAh+8oM=
+
+Name: org/apache/tools/ant/input/PropertyFileInputHandler.class
+SHA-256-Digest: QTcn/yOVYHaTZOoFQU2f68x6eeITixohTJiD9Z2RRgI=
+
+Name: org/apache/tools/ant/taskdefs/Manifest$Section.class
+SHA-256-Digest: qs3wiB51QLxL/GUEmeROmuXWvUT9J8Dvh3E6jcMsa8I=
+
+Name: org/apache/tools/ant/taskdefs/optional/clearcase/CCCheckout.class
+SHA-256-Digest: gYdarYPDNktzX98U3u09zT3E9puETuAmb3masTShk1Q=
+
+Name: org/apache/tools/ant/taskdefs/cvslib/ChangeLogTask.class
+SHA-256-Digest: Ha2IqWEULHZD6IxgG5r2NaFZKpIYezJb/tB2FtNxwsI=
+
+Name: org/apache/tools/ant/util/FileUtils$1.class
+SHA-256-Digest: SplQLOWi3QrGgJtwmIesD8QJBkvp8ekSgz4t+swod28=
+
+Name: org/apache/tools/ant/taskdefs/DiagnosticsTask.class
+SHA-256-Digest: Qy6kEIjqXXHJUNiMousQLcXb9HGkvG8zOXT43JOZd2I=
+
+Name: org/apache/tools/ant/util/PropertyOutputStream.class
+SHA-256-Digest: ZvXJtkd1b+CqQ1lH8HuIP31ZKg8zXn0KZboRJN2GfVo=
+
+Name: org/apache/tools/ant/taskdefs/Jikes.class
+SHA-256-Digest: Jxbociu1L9SkDawRYaE09VhzpdrgYt+K1AWZvg7ZLWU=
+
+Name: org/apache/tools/ant/filters/FixCrLfFilter$SimpleFilterReader.clas
+ s
+SHA-256-Digest: 93yoGJdNOf9Q4MbKAr2drCAmgOePWmQbulgduv5yWyc=
+
+Name: org/apache/tools/ant/filters/TokenFilter$ContainsString.class
+SHA-256-Digest: LuZv4d/nFy85dgR/4dLoyTec8tjyVeCaSwBvj5KPCxU=
+
+Name: org/apache/tools/zip/UnicodeCommentExtraField.class
+SHA-256-Digest: 1HzKNM9D6mvlru/F6zG0X695QWwgfJjo+1Kkx4605HU=
+
+Name: org/apache/tools/zip/ZipFile$Entry.class
+SHA-256-Digest: OeexJZuNZvgLv9N5/7wWFCSqKPkqUuodjJRuvkH3R1k=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/constantpool/ClassCP
+ Info.class
+SHA-256-Digest: is2ghfd1P0se0mqiTygKJGscLwdq7CnMFSrX9UkL2aY=
+
+Name: org/apache/tools/ant/taskdefs/Ant$TargetElement.class
+SHA-256-Digest: tA3idCkNSzpvP4aPSg3TSZyrKwEYwFmjjfoA7gUuyIs=
+
+Name: org/apache/tools/ant/types/resources/JavaConstantResource.class
+SHA-256-Digest: TVcM2nrY1Ok23Hz35Iya/dRsU5ioPh8OQh3jp6MY6BQ=
+
+Name: org/apache/tools/ant/types/selectors/PosixGroupSelector.class
+SHA-256-Digest: Xwx712k+mlkW0yCgngepPnPz2x4CNqnmC3oPWJ75GeE=
+
+Name: org/apache/tools/ant/types/resources/BaseResourceCollectionWrapper
+ .class
+SHA-256-Digest: MYVzqAow2pE73iATQs5N4inRniY0AJMpprxEzECzC2U=
+
+Name: org/apache/tools/ant/filters/StringInputStream.class
+SHA-256-Digest: YboTigvcuJpsNy1ipQ2fyx6CnhBhCcnR7nUB1FTTmCo=
+
+Name: org/apache/tools/ant/util/DeweyDecimal.class
+SHA-256-Digest: E8iwOirwebpf3UjqS+QHtOsoGX4WkguG3FE8bIWRtGU=
+
+Name: org/apache/tools/ant/filters/util/ChainReaderHelper$ChainReader.cl
+ ass
+SHA-256-Digest: Kgnmlztl2otalat4jhT/lVhKt7HF4uzGU/ZeHHzU3ak=
+
+Name: org/apache/tools/ant/taskdefs/SetPermissions$NonPosixMode.class
+SHA-256-Digest: lW/HLf9ILefEOhdZ9S/sFJ6CY5p63e6CF1vhclOvSE4=
+
+Name: org/apache/tools/ant/types/resources/selectors/InstanceOf.class
+SHA-256-Digest: 7tG9iYKKSOxCMevhDBFylMDPR2NHmeNaBwslW214eyo=
+
+Name: org/apache/tools/zip/CentralDirectoryParsingZipExtraField.class
+SHA-256-Digest: 6tNDATPd2eXY/Jk6ccXjzPkTLb6pJrVRLPxT4yYhlkI=
+
+Name: org/apache/tools/ant/taskdefs/launcher/CommandLauncher.class
+SHA-256-Digest: QpN+UOcX4q6iu+diGagfxbt6SeF90aw6+Pe+js6tfH8=
+
+Name: org/apache/tools/ant/property/ParseProperties.class
+SHA-256-Digest: usOumSxHYgEiWl4Uuq1MSgCwGthLDiv2gYzs5sdUd60=
+
+Name: org/apache/tools/ant/taskdefs/EchoXML.class
+SHA-256-Digest: 1YwIN/liRXcDpFeKUnmL1Bx7xK/8pbOKc/z52+D2E+w=
+
+Name: org/apache/tools/ant/taskdefs/Move.class
+SHA-256-Digest: v21eXz1sgkJCXDWch847vIYQNa/bSmvOruWHleiRUBc=
+
+Name: org/apache/tools/zip/Zip64RequiredException.class
+SHA-256-Digest: ORnhSO2LLhqpa/oXbNx4kHFIHKjl7tky1vqv8NXlf/o=
+
+Name: org/apache/tools/ant/filters/SortFilter.class
+SHA-256-Digest: MGa+WLKoDk4NHk9YF6a0X109DcrWez8nEuvQqvJ3vUM=
+
+Name: org/apache/tools/ant/types/PatternSet$InvertedPatternSet.class
+SHA-256-Digest: dEp8+YwercofKuL8LaB0pNDXGZGijWjt6QuezeLpUyQ=
+
+Name: org/apache/tools/ant/types/Assertions$EnabledAssertion.class
+SHA-256-Digest: CyHpOdapK1wfhPG+s/PVaMy+hi7+j+vumayjEM5XG1o=
+
+Name: org/apache/tools/tar/TarInputStream.class
+SHA-256-Digest: yauoBscgM945MNhRpc199sei6ASbemDi9+KU40o3AuA=
+
+Name: org/apache/tools/zip/ZipLong.class
+SHA-256-Digest: R06YBQL8YKUTg+kFzHj/VFVYuSTNozb4OdNBjUHMHv4=
+
+Name: org/apache/tools/ant/input/InputRequest.class
+SHA-256-Digest: Yq4Antf+hWwfRZJRtgbfqYkogPiNECs03ji6SSPN7M0=
+
+Name: org/apache/tools/ant/taskdefs/Javac$ImplementationSpecificArgument
+ .class
+SHA-256-Digest: wj+cS3dnSivNWUgL83hYEZOsJrChFrxSeNHFzIrqvxM=
+
+Name: org/apache/tools/ant/types/resources/selectors/Type$FileDir.class
+SHA-256-Digest: DH4xyHUvA4lPlO5OExbnFscSgcAaeo5o6ouI3/Yl0GU=
+
+Name: org/apache/tools/zip/Simple8BitZipEncoding.class
+SHA-256-Digest: qxu1WyfvpM/YTb0zOv9Ktm7gWPvM/inN5svo+cMVUGc=
+
+Name: org/apache/tools/ant/types/resources/selectors/None.class
+SHA-256-Digest: H4mvtDyhWoM5qF4PeXrtwgUmgYbAXQjV3zzcW7IdYeI=
+
+Name: org/apache/tools/ant/taskdefs/DependSet.class
+SHA-256-Digest: /RkxJbXubh+XjU0w/o4srN6LowctxdncWJMItsm5cxA=
+
+Name: org/apache/tools/ant/taskdefs/SQLExec.class
+SHA-256-Digest: 20IQubjT72V2DrIz4CqPWiWzPEQH8qaR8GTF/K67pbU=
+
+Name: org/apache/tools/ant/Project.class
+SHA-256-Digest: SMXmq2trW/kG9cZF6J2MgyTwNwgIPfHz0gcEYsfGOQA=
+
+Name: org/apache/tools/ant/filters/BaseParamFilterReader.class
+SHA-256-Digest: 3+UUgdJJyoFD2HpLc772fVD09bpeOk9TJCSmqFZ+IQ4=
+
+Name: org/apache/tools/ant/taskdefs/optional/ejb/EjbJar$DTDLocation.clas
+ s
+SHA-256-Digest: gpswW8jE0FzUhsJIXrd6/9Vozss7BMmGI1WwOwj3Mt4=
+
+Name: org/apache/tools/zip/ZipUtil.class
+SHA-256-Digest: DVAAG90m32EftdU25TgAcSfYT0Uqg6jHGRNFZLJguPs=
+
+Name: org/apache/tools/ant/taskdefs/optional/javah/Kaffeh.class
+SHA-256-Digest: fCIy0obF3uE/0JHTTtiaIoZ0ogrSei8GXkEUmVomcuk=
+
+Name: org/apache/tools/ant/taskdefs/Parallel$1.class
+SHA-256-Digest: BcR7wFWL4iKYjW96gF3I4vbbWwIsg5aeKM/OzEO1YwA=
+
+Name: org/apache/tools/ant/taskdefs/optional/ccm/CCMCheckout.class
+SHA-256-Digest: D6MbfH0GMr9HnCG54D0jiGMNvBRWTb5Bm6FbYOUAyJc=
+
+Name: org/apache/tools/ant/IntrospectionHelper$AddNestedCreator.class
+SHA-256-Digest: 4BC4JnFWzx3ckWnWMMcU6+miaLQ+zVqqO0fHQOwDZrM=
+
+Name: org/apache/tools/ant/MagicNames.class
+SHA-256-Digest: HV6NOY2ylS9XuXWBakLKPV1L/ZxYlTtVVRoKP1PJP28=
+
+Name: org/apache/tools/ant/taskdefs/optional/jlink/JlinkTask.class
+SHA-256-Digest: 41+qS5s+DGW3tTLA6rZHz5PVjCG+l80kpw20aN+kOd4=
+
+Name: org/apache/tools/ant/types/selectors/modifiedselector/ModifiedSele
+ ctor$ComparatorName.class
+SHA-256-Digest: WzhcCq67FRORhRg7NQTnVQrVbpQNY9xHo60d3qfIFhE=
+
+Name: org/apache/tools/ant/TaskContainer.class
+SHA-256-Digest: VsF2TcX1D7cHkDxeICwL6TkeJlhxme8XQ4gq11KucS0=
+
+Name: org/apache/tools/bzip2/CBZip2OutputStream$Data.class
+SHA-256-Digest: JJsJrfpu+QyWsaZ5Y63XPyXSLgom1RdKgg1DgzUWMAU=
+
+Name: org/apache/tools/tar/TarConstants.class
+SHA-256-Digest: 6CJH9GAPxOMHxPdOV9jCgxkXeNSE+wO4SQt9Q+QiIKo=
+
+Name: org/apache/tools/ant/taskdefs/condition/TypeFound.class
+SHA-256-Digest: RtGmSiBCJzeZxedPW+TIlWIoaRNSn+XvNGkvDwBzzO0=
+
+Name: org/apache/tools/ant/types/optional/ScriptFilter.class
+SHA-256-Digest: EEjj22WhwHrsluK+/cim80RIVuvdCLCF+7giiUB6g7w=
+
+Name: org/apache/tools/ant/taskdefs/CallTarget.class
+SHA-256-Digest: plTVlxvxVfEaFxr34FRcD9MN9SFPTswtl6/0Idvm/os=
+
+Name: org/apache/tools/ant/taskdefs/optional/extension/LibFileSet.class
+SHA-256-Digest: WMc8uHSapht6j7AIUVH2CooNjP/4iLDS2ouXrlWFP10=
+
+Name: org/apache/tools/ant/taskdefs/optional/unix/Symlink.class
+SHA-256-Digest: /xPr+jPm0g6fG3RcJwIuy0x2grr6BCI3I3/KLJSO0Rc=
+
+Name: org/apache/tools/ant/BuildEvent.class
+SHA-256-Digest: dxMxaht2ypxmK6Ln6m6vHHEq3Vv7WzA3IdmP0lmqzk8=
+
+Name: org/apache/tools/ant/types/resources/comparators/Name.class
+SHA-256-Digest: iFCEiW1drc4FjMwtak+Sg8btKIngSK1Hdh5jls0mOYM=
+
+Name: org/apache/tools/ant/taskdefs/TempFile.class
+SHA-256-Digest: H1qTEjQo+8jLPhbsXJA6IbNH7sAZTln1lNbiGGywbyc=
+
+Name: org/apache/tools/ant/types/resources/LazyResourceCollectionWrapper
+ .class
+SHA-256-Digest: tiVy5mvGC3XSGFTdUOB4bz/CUGsTaRzYk6JTjn7TON4=
+
+Name: org/apache/tools/ant/taskdefs/optional/windows/Mklink$LinkType.cla
+ ss
+SHA-256-Digest: Y7Ztbbhkw4U/bnh/6wXhCNPUScqcrVKpFeJBerEXNRU=
+
+Name: org/apache/tools/zip/ZipFile$BoundedInputStream.class
+SHA-256-Digest: 85jfLSJO8DfjLYf7xWgcBLu8tee65jg9Gy0Sco4NZHI=
+
+Name: org/apache/tools/ant/types/selectors/modifiedselector/HashvalueAlg
+ orithm.class
+SHA-256-Digest: 93Z5ftI0F/30SO6x0x+J1jgMrumx0EPm+gyfUjmpPBc=
+
+Name: org/apache/tools/ant/types/selectors/AndSelector.class
+SHA-256-Digest: /KfniymGiTkRnr0Qa2FVx0jJCCex5NBoUaKECEMXr2g=
+
+Name: org/apache/tools/ant/util/ReflectWrapper.class
+SHA-256-Digest: NOQMhNclp0Ix+/ZAE6LoNVlRNPshYv0q5Gpuaz+AgCE=
+
+Name: org/apache/tools/ant/taskdefs/GZip.class
+SHA-256-Digest: H02fwdOx7vitGAFk0y1kDMq7ISUYTM47MRxWYE/IZ18=
+
+Name: org/apache/tools/ant/types/resources/selectors/antlib.xml
+SHA-256-Digest: JJetyzrRMLIP1USr9tStDHTZo9OI+MQGUC0y7ThNQ6g=
+
+Name: org/apache/tools/ant/taskdefs/SQLExec$Transaction.class
+SHA-256-Digest: InMgiBoYes711b84I/W2dwHmFxiQzATid3PQLQ6htdo=
+
+Name: org/apache/tools/ant/taskdefs/modules/Link$PatternListEntry.class
+SHA-256-Digest: 5YPLK/HMu26vzchoYhZEwQD1LOvygHO57hsGTaSZD2w=
+
+Name: org/apache/tools/ant/ComponentHelper.class
+SHA-256-Digest: Tm6k+iKmnq3KxcU2fpdNX4dIWVKlpNW/P0GH67xJusM=
+
+Name: org/apache/tools/ant/RuntimeConfigurable$AttributeComponentInforma
+ tion.class
+SHA-256-Digest: A4J1vu5NQMwYSWx+g+NG1YeQNf7KXQn7sVM/oyEPOH4=
+
+Name: org/apache/tools/ant/filters/ExpandProperties.class
+SHA-256-Digest: 7zAhMREBZ962IM5FVmVrxDDUXgi2zGL9uDlnk9f7mJM=
+
+Name: org/apache/tools/ant/filters/TokenFilter$ChainableReaderFilter.cla
+ ss
+SHA-256-Digest: yq+2UzacYMmcefskh7BJePdtraKxrfnGrWqjU4FyWg4=
+
+Name: org/apache/tools/ant/taskdefs/condition/AntVersion.class
+SHA-256-Digest: uVzs246jo6hnbqvzblniHNsUdRdnUaa87LxzvKV+Ze8=
+
+Name: org/apache/tools/ant/util/regexp/RegexpFactory.class
+SHA-256-Digest: H15TYxTXLqOQOIGcgUWPL9brxyEPCftIS4qIb7D9jZk=
+
+Name: org/apache/tools/ant/types/resources/Sort.class
+SHA-256-Digest: SragmrJGhpKoxym6zibV/XrAVaw7j/2Pfp/sOD2cs4Y=
+
+Name: org/apache/tools/ant/taskdefs/optional/Rpm.class
+SHA-256-Digest: PNEEf3BD0YCdMfPaq+2ltWHKUqGsCTpJXGNWegaAYaw=
+
+Name: org/apache/tools/ant/util/optional/WeakishReference12.class
+SHA-256-Digest: hhqXwXKGrcvcfkHG4FeQhwD0dDKt9KVmAfceRXKtZZA=
+
+Name: org/apache/tools/ant/taskdefs/optional/ejb/GenericDeploymentTool.c
+ lass
+SHA-256-Digest: ld/jy+T6QOzlYfpcptSbJJpInBOi020aMDKNjwe9sgA=
+
+Name: org/apache/tools/ant/util/LayoutPreservingProperties.class
+SHA-256-Digest: UGaoUBMsV3EtMBRurQufq9oYDDYPTWLiotCuOls3M3s=
+
+Name: org/apache/tools/ant/helper/ProjectHelper2$MainHandler.class
+SHA-256-Digest: zY3LCiYMfqX3EtpCZccWPHUD4nYVEUeM689I3dPWdQ0=
+
+Name: org/apache/tools/ant/taskdefs/Concat$1.class
+SHA-256-Digest: VLnaVWGY6JcyXU+QWZV6yk190+Da4QVDjSbNEJR6/6Q=
+
+Name: org/apache/tools/ant/taskdefs/Exit.class
+SHA-256-Digest: L8nlFfgJz/ZOdVXJxJjLwlOoWTjQhVtMdG2eBnGnPaM=
+
+Name: org/apache/tools/ant/taskdefs/condition/IsFalse.class
+SHA-256-Digest: owscvHqUsOsV2um1qonzkl6wzDXPVn6ZN8vztRA8Ea8=
+
+Name: org/apache/tools/ant/taskdefs/optional/extension/JarLibDisplayTask
+ .class
+SHA-256-Digest: 0LX8YnQBF2H4pKFqHsh6ZmGrGmHA3D9Tf4YNQ/Rx4rQ=
+
+Name: org/apache/tools/ant/taskdefs/compilers/Jvc.class
+SHA-256-Digest: sFaiAjPxIil1sbENeQ4JDOC1pNCS/cFKTi/c+mnh8C8=
+
+Name: org/apache/tools/ant/TaskAdapter.class
+SHA-256-Digest: sMUXPrB1OpH3tkD5NYEqUODwhAOsGstY0qp9yzPLKOU=
+
+Name: org/apache/tools/ant/types/selectors/DateSelector.class
+SHA-256-Digest: cRFt7CfFmZTUK26KDYt9BZnCRUrqb7lrGeQtpP8FLfI=
+
+Name: org/apache/tools/ant/taskdefs/LoadResource.class
+SHA-256-Digest: 41CRrwHFFP9MpSwd8FOCQD9bpjavj5vh/tOoKN7pMeM=
+
+Name: org/apache/tools/ant/taskdefs/Replace$NestedString.class
+SHA-256-Digest: 13+VdVBatv9mrqTGgKqozh6RDNaYDauL9y1HcL/+Ss8=
+
+Name: org/apache/tools/ant/taskdefs/optional/jsp/compilers/JasperC.class
+SHA-256-Digest: sLzNIkjt0L0TkKpQsMCi1hXEVQ0VL2LBDU4zvZXwEG8=
+
+Name: org/apache/tools/ant/util/LayoutPreservingProperties$Pair.class
+SHA-256-Digest: alQRgc4j6slt01aVKQy7k1OWzU3ktZ5KJ46QOi4fszI=
+
+Name: org/apache/tools/ant/IntrospectionHelper$15.class
+SHA-256-Digest: dTYetkPFMl3NTC1+pxvAyON2Ce/e9wvdf93nBcSzGAE=
+
+Name: org/apache/tools/ant/taskdefs/optional/clearcase/CCUpdate.class
+SHA-256-Digest: +0Pvy8qswbDGZ6Kf20BOghAII4siBe3PRAARjhqZrSs=
+
+Name: org/apache/tools/ant/util/ScriptFixBSFPath.class
+SHA-256-Digest: wMu3yZ5Wt+cGXxhZbxyomzSS2CKA5J/WnvRlXrhn0z8=
+
+Name: org/apache/tools/ant/ProjectComponent.class
+SHA-256-Digest: XvrVz7uy4OTCDU2fmM+ljT9ozrAcrrutq60eMPHD6To=
+
+Name: org/apache/tools/ant/util/StreamUtils$1.class
+SHA-256-Digest: Ch/P0l1Z61QTQ3PqyjPA+TQlFNIE1gXTt5UyhQHfUsY=
+
+Name: org/apache/tools/bzip2/CBZip2InputStream.class
+SHA-256-Digest: PPae8YVSq//BVby4chBFwE959XovzE2yk4ahmVDSpzo=
+
+Name: org/apache/tools/ant/taskdefs/Jar$FilesetManifestConfig.class
+SHA-256-Digest: ZTJ+RqkMa4cLxIXgRpHtWX/mIBOYdBoaUMlyfBJHSGM=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/SetProxy.class
+SHA-256-Digest: c8btkt9ODk8DYp9XCfLKQ4pCoRHcm0/xOEWqYdvz8O8=
+
+Name: org/apache/tools/ant/antlib.xml
+SHA-256-Digest: 9K2O3XqcgSLnbo8Obmf6xjRdDc0xtrTqw2Zt9v4arac=
+
+Name: org/apache/tools/ant/taskdefs/Javadoc$DocletInfo.class
+SHA-256-Digest: mjz/XWLYh8p+iejRfqUARyC1lVTgKIGHvhNGjvWEsx0=
+
+Name: org/apache/tools/ant/taskdefs/rmic/RmicAdapterFactory.class
+SHA-256-Digest: L0WwZd1C1CxnanjXSiL/x2RzuZ3U/pK1KDZ/ngz687Q=
+
+Name: org/apache/tools/ant/attribute/IfTrueAttribute$Unless.class
+SHA-256-Digest: X2oklGKy6mYZhKpWeimlrtmGJs3o7Dm78IrdZ6Xx8So=
+
+Name: org/apache/tools/ant/taskdefs/optional/jsp/JspMangler.class
+SHA-256-Digest: Dal8sVwOPQrple0xU5tuAIw+0NqHC/TkLZZJil4oLDw=
+
+Name: org/apache/tools/ant/taskdefs/optional/j2ee/ServerDeploy.class
+SHA-256-Digest: GQ7xh62uPxXt+g1zMk1Iw7BxuRzUCZk82e11tLqHnV4=
+
+Name: org/apache/tools/ant/IntrospectionHelper$16.class
+SHA-256-Digest: mHZnOd8x9wA3YletV9lLBTbqFEqinnr7/DPtm2GOLsk=
+
+Name: org/apache/tools/ant/taskdefs/optional/script/ScriptDef$Attribute.
+ class
+SHA-256-Digest: BMpYg0k7LUcpLAM2txVdSQkOuzae0TQeIUKQasSMUI8=
+
+Name: org/apache/tools/ant/taskdefs/PropertyHelperTask.class
+SHA-256-Digest: aSfbDJ0xbMjU19hRpk1Pc2aZRrlK59azOTd4wtfot1w=
+
+Name: org/apache/tools/ant/taskdefs/JDBCTask.class
+SHA-256-Digest: HMDTsGcJj5V9VQNnO1xqwLy41MBrxFXU/LtGE8dw5Mk=
+
+Name: org/apache/tools/ant/types/EnumeratedAttribute.class
+SHA-256-Digest: k4o4UWYLfORK9bXZXYdKOjuMi9GqMC21wDnjnTcyT2A=
+
+Name: org/apache/tools/ant/AntClassLoader.class
+SHA-256-Digest: HMdSsSR3Pa2KL5xxVuFJ7QxaJLszbfScMbN63GZGuUw=
+
+Name: org/apache/tools/ant/DynamicAttributeNS.class
+SHA-256-Digest: uwd+tHwKwH/02ZJ7C0gwshGSuvUgmejpAtsRP8ScnRU=
+
+Name: org/apache/tools/ant/property/ParseNextProperty.class
+SHA-256-Digest: FHanlWavPchtbETMdhHh2IkQQkLaoIvyrkgr/Q60Wg4=
+
+Name: org/apache/tools/ant/taskdefs/FixCRLF.class
+SHA-256-Digest: 7TtpzxDFRy/hOsey5/NcT1JTeo596PFhrndlykeucMU=
+
+Name: org/apache/tools/ant/taskdefs/optional/script/ScriptDef.class
+SHA-256-Digest: uG9JhLhf0ljzmgtEHrHZwFNcIw77J5+2KdH+IdxgBiA=
+
+Name: org/apache/tools/ant/taskdefs/optional/unix/Chown.class
+SHA-256-Digest: PgjLTwTT0V66YhhIVb7xDfjD9ujqlEDp78HpzXf0SSc=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/constantpool/Package
+ CPInfo.class
+SHA-256-Digest: 7Bk9E//x7rPQ3gZlDHD4BqYtJp9rjbaV2MrZC0gCJx0=
+
+Name: org/apache/tools/ant/BuildException.class
+SHA-256-Digest: unoGiMOvLZ4QnwLYPd5lBc0NWo3HAKbmPDLS01HUKPo=
+
+Name: org/apache/tools/ant/DynamicConfiguratorNS.class
+SHA-256-Digest: /WECn6RRsgKFWtFX+/OpwVTDhaS3/mvf78zcZVgRVK4=
+
+Name: org/apache/tools/ant/types/selectors/SymlinkSelector.class
+SHA-256-Digest: giKBAumTFrXLGIRou9hurW5Da+zpkVubFL+o5yWRYTI=
+
+Name: org/apache/tools/ant/IntrospectionHelper.class
+SHA-256-Digest: ydZRfPO+WcfQ2KQe0pL1LK7JGlmmwqF731H/kb5TFAM=
+
+Name: org/apache/tools/ant/taskdefs/optional/ccm/CCMCheckinDefault.class
+SHA-256-Digest: 0cMD/hMGPq3Ovd026n52qu/VS+IAHCrDtezIxZDwCis=
+
+Name: org/apache/tools/ant/taskdefs/AntStructure$1.class
+SHA-256-Digest: 8OhchD+nxfVBthQN44p8xRLuzLUQ4HmE3AoTDLfA75M=
+
+Name: org/apache/tools/ant/taskdefs/optional/RenameExtensions.class
+SHA-256-Digest: GQCVzjWsXWbe0dn2gt/HTdu9/cowK23cW/yU6St7qq4=
+
+Name: org/apache/tools/ant/taskdefs/Jar$StrictMode.class
+SHA-256-Digest: FslSSHug+lEmOovIdtYmIOz2zEMVsGzH+wkFSlbMn0s=
+
+Name: org/apache/tools/ant/taskdefs/optional/ejb/IPlanetEjbc$RedirectOut
+ put.class
+SHA-256-Digest: GR/B99e3uqC5kB7JzbAdNqRg6Nu0eC7TCQJhKbHuXSY=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/constantpool/MethodH
+ andleCPInfo$ReferenceKind.class
+SHA-256-Digest: XykoPDkn3usq8lEsZ873Ryh6h5nIqyGzCFvT3AQyNCg=
+
+Name: org/apache/tools/tar/TarArchiveSparseEntry.class
+SHA-256-Digest: OazqLfSkP54p4kYAkD6ydETk8fR5Bt29o4PNi8UsTCM=
+
+Name: org/apache/tools/ant/taskdefs/Zip$UnicodeExtraField.class
+SHA-256-Digest: PIFBSzP+i9D2HZ3C1AQSRP91EMA6kTd9Dp/6afHKCCg=
+
+Name: org/apache/tools/ant/taskdefs/StreamPumper$PostStopHandle.class
+SHA-256-Digest: fqnEssoK09jr4LBc/qnnvKEcM1FO/hHFJ670fREM++o=
+
+Name: org/apache/tools/ant/taskdefs/optional/jsp/JspC$WebAppParameter.cl
+ ass
+SHA-256-Digest: FfE7OqCtAr2afo0ZvGKUJ8f359424xM2S277Suk8bC8=
+
+Name: org/apache/tools/ant/types/resources/CompressedResource.class
+SHA-256-Digest: R48YN22kLzQAVAdFzy5YD/f0cFsEg1reifzTsS543uk=
+
+Name: org/apache/tools/ant/filters/TokenFilter$IgnoreBlank.class
+SHA-256-Digest: cYQiorUzosD1IajHPBi4ce7f0aHi6JMq+1p6Gnll3Y4=
+
+Name: org/apache/tools/zip/ZipShort.class
+SHA-256-Digest: UBTllWOcGNEA0xx1zzQqvl8Y2qrmcYmRqTGC6zfDNB4=
+
+Name: org/apache/tools/ant/types/resources/selectors/Date.class
+SHA-256-Digest: rudBZNNyxz45UJnUWKsw42XWFtX2+XpXG90Qd/aw8Sg=
+
+Name: org/apache/tools/ant/listener/MailLogger.class
+SHA-256-Digest: qkBOQ/jdhr8L1InIULGYkwmbXFAdBl25bmYgJeiTEp4=
+
+Name: org/apache/tools/ant/taskdefs/XSLTProcess$1.class
+SHA-256-Digest: WkMiKV+8+N9+UaLyo3WTD83b0D6zTo7NHgfg4LqCWi4=
+
+Name: org/apache/tools/ant/taskdefs/XSLTProcess$Factory.class
+SHA-256-Digest: 5++Eg8bVIu+8pSCTh0thtABgy7qJt0um3YMvZ+GVcuk=
+
+Name: org/apache/tools/ant/BuildListener.class
+SHA-256-Digest: pg9cC0S6E4mwm3VSRKz97dC56oVKgLnqjBsgDhhZKkk=
+
+Name: org/apache/tools/ant/filters/EscapeUnicode.class
+SHA-256-Digest: 7/lMn7fi5eBjxNT9Qj2CrCoTIHrST+ccIGumnZ75dtY=
+
+Name: org/apache/tools/ant/helper/ProjectHelperImpl$AbstractHandler.clas
+ s
+SHA-256-Digest: DodBQNYFa/pM2ATK9TrYZm5j/VCq4Hzu3vrBfq5wkJ0=
+
+Name: org/apache/tools/ant/taskdefs/WaitFor.class
+SHA-256-Digest: RA1HeR92To035FJHMDsD5fEcLfvybmqJljgRBk5B76s=
+
+Name: org/apache/tools/mail/SmtpResponseReader.class
+SHA-256-Digest: W2AO1ff6IsHhO4rC3tyBm4j1R3j11de+bs3C21Tj9Hk=
+
+Name: org/apache/tools/ant/taskdefs/Untar$UntarCompressionMethod.class
+SHA-256-Digest: v8gfcwe03nw+FHkLwo1qa12e/d6MiewSEC80hkwiAnw=
+
+Name: org/apache/tools/ant/taskdefs/optional/Native2Ascii$ExtMapper.clas
+ s
+SHA-256-Digest: LF8rGft1XhM522whhU5XrRGWat1y45N7aJq9XufGMzY=
+
+Name: org/apache/tools/ant/types/Environment.class
+SHA-256-Digest: hNMoURhBm6iR0w0Iw2T8+DClct4bwsCzurBeT95AFZQ=
+
+Name: org/apache/tools/ant/taskdefs/Checksum$FileUnion.class
+SHA-256-Digest: trsHVFaFLJTV/D1WtXqnkWvo4jGmHUBHXgurz7bVxFk=
+
+Name: org/apache/tools/ant/util/IdentityStack.class
+SHA-256-Digest: ti9Fm0nrf+Pw1rjRjqzoWgtMra9aScyVvWL4wwQx7Dc=
+
+Name: org/apache/tools/ant/listener/TimestampedLogger.class
+SHA-256-Digest: SBArV7fFTaMLRBWL4xlk7/ooJQ30cP5tmrrVzk1fbtY=
+
+Name: org/apache/tools/ant/util/StringTokenizer.class
+SHA-256-Digest: 3V2X/QpPDnleWtqlkgAZbL53giA4N1Q/A9Lq/aKUJ00=
+
+Name: org/apache/tools/ant/taskdefs/LoadProperties.class
+SHA-256-Digest: b4Cpe7gGc520HgH8Sul2knB180+sYam/etjenCeD1GE=
+
+Name: org/apache/tools/ant/types/Substitution.class
+SHA-256-Digest: ruk142Vaj5tt4K4vlJ8yajGdFQRDAtvRszAs0BWtUYk=
+
+Name: org/apache/tools/ant/types/PropertySet$BuiltinPropertySetName.clas
+ s
+SHA-256-Digest: gDkygdG/rw8mpusE7ryBNAETAsMI3pa4E8i5kg5Dkg4=
+
+Name: org/apache/tools/ant/taskdefs/Get$GetThread.class
+SHA-256-Digest: sQVyf8L+5flxYRGL7Kzq9RBT7RetX8EeSP7CTShpxNk=
+
+Name: org/apache/tools/ant/IntrospectionHelper$17.class
+SHA-256-Digest: DGJh5V0PQOTsyj+J6LpDOQpn621NQjJra8T/ge5Dzx0=
+
+Name: org/apache/tools/ant/types/resources/PropertyResource.class
+SHA-256-Digest: ydECz3sIRTAyVPIzTjdVpgH3+iBL1iq5qSaWhWTizaU=
+
+Name: org/apache/tools/ant/PathTokenizer.class
+SHA-256-Digest: 8LB5yYJsPPX78A+wez+I/sOUEuEwTfy+4EmTmOO7804=
+
+Name: org/apache/tools/ant/taskdefs/AbstractCvsTask.class
+SHA-256-Digest: yztNKxaNkbmbYd/zonBYHy3pWiLu+THUVb3W02/KojQ=
+
+Name: org/apache/tools/ant/taskdefs/PathConvert$Output.class
+SHA-256-Digest: E0J4RDq1P6v940FgHJlzfMWOh9RNBwK9+j+xLTXXqiw=
+
+Name: org/apache/tools/ant/types/resources/GZipResource.class
+SHA-256-Digest: nwGWYBG2qCQEr/Y17kvUTk26+7ojHCFT5o8f2cX/sbA=
+
+Name: org/apache/tools/ant/util/DOMUtils.class
+SHA-256-Digest: ayJeWEWVHNbqlUc1EZACK93JX7lnMtNu0HzrJR/e0WI=
+
+Name: org/apache/tools/ant/taskdefs/LogStreamHandler.class
+SHA-256-Digest: fYZBbuV2w7GaeN8HCXunQZMp96du5WK/5K9v6Wmq0Lg=
+
+Name: org/apache/tools/ant/taskdefs/PathConvert.class
+SHA-256-Digest: pOf0q3+rTonU0QlR8zslUe8rKm5TvFC4LvBF2V2inV8=
+
+Name: org/apache/tools/ant/types/resources/FailFast.class
+SHA-256-Digest: ZH+30+GqSrs6rxZRyOzKNaCNl4pkTvbbHnAT3IYqNiY=
+
+Name: org/apache/tools/ant/taskdefs/Concat$LastLineFixingReader.class
+SHA-256-Digest: aJfhWiQSXDRaCYN6u6nbrZJh/uGbmzXEF7hzojRToH0=
+
+Name: org/apache/tools/ant/IntrospectionHelper$18.class
+SHA-256-Digest: QSckEh3qeM/MUzQFQQMOabo+ujiQGLRfigO2q+hMlXw=
+
+Name: org/apache/tools/ant/taskdefs/optional/jlink/ConstantPool.class
+SHA-256-Digest: jh9aSFY7WTb0/OgeqEM3IUaw4NXdz24pT50rrOH2wE4=
+
+Name: org/apache/tools/zip/AsiExtraField.class
+SHA-256-Digest: L6ZK+G5jvWgtS+P3mBIVxf+D8a0konQtgDDy1Nndv/k=
+
+Name: org/apache/tools/ant/taskdefs/AttributeNamespaceDef.class
+SHA-256-Digest: qRwXFCtNFCNPxXBB/+7rA+GwpsPpL11dLgAKg70IIkw=
+
+Name: org/apache/tools/ant/types/selectors/FileSelector.class
+SHA-256-Digest: OAnt/pFPJdqMMAeiwCzaCfVQKxSa0by0pfITtI2kykA=
+
+Name: org/apache/tools/ant/ProjectHelper.class
+SHA-256-Digest: n2GjZDbAH3bGTrcrCxyTJOIMmKNtKrbaStxCBa870Zg=
+
+Name: org/apache/tools/ant/taskdefs/Manifest$Attribute.class
+SHA-256-Digest: Lp9ORHfcXXXrKyKlYC3Sa++t0bkLDtslTtcjycwWZcY=
+
+Name: org/apache/tools/ant/taskdefs/condition/IsLastModified$1.class
+SHA-256-Digest: eStRKzuYqIp3gHL+Z0HxY35H332nGOhMIIsT8GUXyMA=
+
+Name: org/apache/tools/ant/taskdefs/optional/SchemaValidate.class
+SHA-256-Digest: wijkgWgK+YG2oBGmGXk36l7HzeDeS67sbO2klOstm7s=
+
+Name: org/apache/tools/ant/util/IdentityMapper.class
+SHA-256-Digest: egHpSAuaO9AlRFk1+NA9yNxjQnwGOfm0r4m0lafUkIE=
+
+Name: org/apache/tools/ant/taskdefs/Javadoc$TagArgument.class
+SHA-256-Digest: X6qItkqdkZ3l+aZMEpJ5BoSprkoFWuRhHUXVj2m+lS4=
+
+Name: org/apache/tools/ant/util/DOMElementWriter$XmlNamespacePolicy.clas
+ s
+SHA-256-Digest: 1g2dhEVu5Q45t8UOiBfmrXXz70KvofisdgdDlTEK6v4=
+
+Name: org/apache/tools/mail/MailMessage.class
+SHA-256-Digest: iX4atHcdOgRPGfinlzJbyKLYcOf41X2nhdQxo2AIiKo=
+
+Name: org/apache/tools/ant/taskdefs/optional/javah/JavahAdapterFactory.c
+ lass
+SHA-256-Digest: tck1ZoeMRyQ+RCsyE4N+1f7p3UswUz5XFGLBQgE5PRM=
+
+Name: org/apache/tools/ant/taskdefs/Typedef.class
+SHA-256-Digest: LznSc0iCbL/c1XUzgs3oJJPgzTRwjL/41B8m0DwyVzA=
+
+Name: org/apache/tools/ant/taskdefs/Ear.class
+SHA-256-Digest: 4VxE/UwYupOfLjskby6iN4onwtDdLKCW3c6ZVmIAx8w=
+
+Name: org/apache/tools/ant/util/ConcatResourceInputStream.class
+SHA-256-Digest: /Lo9GUHUjhB5bhhSpW98BR6IBOVvF+jpXLcV8J6d70k=
+
+Name: org/apache/tools/zip/ZipEncoding.class
+SHA-256-Digest: PDvmLsmNcT2m1Fb4QuX1MpA6IZBiIjIvfYJM6ZRqK0U=
+
+Name: org/apache/tools/ant/AntTypeDefinition.class
+SHA-256-Digest: ij+Jz+XD31d6JFQvfttU75Lhh5pyJm69Pkos0PbfFSE=
+
+Name: org/apache/tools/ant/types/resources/MultiRootFileSet$1.class
+SHA-256-Digest: X3JIRO6YiwGEk/jgVdkfQQMsGA37vtAEyGi4UMAwndc=
+
+Name: org/apache/tools/ant/DynamicObjectAttribute.class
+SHA-256-Digest: fgBqacAjkp7AlJd86fFigkknFpEaz+vC+Q4FoSeGeIs=
+
+Name: org/apache/tools/ant/filters/TokenFilter$ContainsRegex.class
+SHA-256-Digest: Y777ApgBzUPh3oQQ9LUrsWibJ9+XjB7S2EHO9PP3/8Y=
+
+Name: org/apache/tools/ant/util/ContainerMapper.class
+SHA-256-Digest: R1HfEXsVpHJkLv0ix+g2jOyogsVjJ1Rrd3JAQkVtUNY=
+
+Name: org/apache/tools/ant/taskdefs/WhichResource.class
+SHA-256-Digest: RSa8QjY6GB0r8beVdw+ShphB/fetq0XscxKpABRlZQc=
+
+Name: org/apache/tools/ant/types/selectors/PresentSelector.class
+SHA-256-Digest: OXQo+DCgXTOafWuVzshGfEQ5nmpaj5Y9+L99eloud2M=
+
+Name: org/apache/tools/ant/input/SecureInputHandler.class
+SHA-256-Digest: qD88nSN7E/hcee8t7toAFUpgfLmtyff1UYNMNkmnDUQ=
+
+Name: org/apache/tools/ant/taskdefs/Javadoc$DocletParam.class
+SHA-256-Digest: ovfUyE+n3QHtVswX/N2KoabmuZVgCJyMxlzW8AAJ8l0=
+
+Name: org/apache/tools/ant/types/selectors/SelectorScanner.class
+SHA-256-Digest: pOlgEVGfYA5/6YggJTISkTIOoPjmxotZrqSpJ+GrRBk=
+
+Name: org/apache/tools/ant/attribute/IfBlankAttribute$Unless.class
+SHA-256-Digest: Tz10Sxoqm+CQ5VUgyNsxVVWeIOaEyscBackeMKceE7I=
+
+Name: org/apache/tools/ant/taskdefs/optional/sos/SOS.class
+SHA-256-Digest: mTQYP9kh/xGJmZVm/ldesw6ntH5cbIenHhTneJY8+jQ=
+
+Name: org/apache/tools/ant/taskdefs/MacroDef.class
+SHA-256-Digest: e+07HNzdScOmCgtTt4g7VltfFPeVX8R8bUsZgIQ1ubE=
+
+Name: org/apache/tools/ant/types/resources/First.class
+SHA-256-Digest: 1IlA4zwDW9Maxks5Gn6sOottLauHaf07xzxUmqblyNU=
+
+Name: org/apache/tools/ant/taskdefs/optional/ejb/WeblogicDeploymentTool.
+ class
+SHA-256-Digest: HYe7v1dk/dnrRE77FJFVkpbOJDYWxLH5cz3aiFwBH3o=
+
+Name: org/apache/tools/ant/Task.class
+SHA-256-Digest: ci9O/qiIIahddVu9/RSpQXT9j1LGYtDux4qNOYACA38=
+
+Name: org/apache/tools/ant/taskdefs/Patch.class
+SHA-256-Digest: vqGIGdfNb86j6OB9U5PTLl7mL1e9Qpou+Xu4Ki1gXHM=
+
+Name: org/apache/tools/ant/util/ProcessUtil.class
+SHA-256-Digest: zgGBeUgDfaRP3bWGU+4sao4JMyCli0tDBCvyOEgjLzI=
+
+Name: org/apache/tools/zip/ZipEntry.class
+SHA-256-Digest: r0QHw4M1jzw5tYKxm1e59XiH3HvQfxEWgMmkKEuARVE=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/SetProxy$ProxyAuth.clas
+ s
+SHA-256-Digest: 2VlWGz61JFXIDZT+PZtB76/skJe9ypgMnZnuilK3/bs=
+
+Name: org/apache/tools/ant/taskdefs/Tar$TarCompressionMethod.class
+SHA-256-Digest: 6DuWHDNdDHgQJv8Gau/7TcWS4VyKh19OPHGM9o7Eqyc=
+
+Name: org/apache/tools/ant/taskdefs/compilers/Sj.class
+SHA-256-Digest: yHzx6UxhwUwKbHYVBP94QN0rJZFSZjMWwX7zs44jlg4=
+
+Name: org/apache/tools/ant/taskdefs/optional/vss/MSVSSGET.class
+SHA-256-Digest: tcdHmutCcKdO6DD9pBk6dNzFFNhXUDzPlX9UA1w10uY=
+
+Name: org/apache/tools/ant/taskdefs/MatchingTask.class
+SHA-256-Digest: pITCML/I7FnM8sW70Ha6eGyLiIpjzH4XUXxcfFnLKFo=
+
+Name: org/apache/tools/ant/types/Commandline$Argument.class
+SHA-256-Digest: 5GhtJW3aGZ0BC7FnRvcD0qC8Amlwg2+k68ODOQbQtZA=
+
+Name: org/apache/tools/ant/taskdefs/Java.class
+SHA-256-Digest: kFNzs34BcQ28/z8ISwHjltE2IJPdUeipJr7SPU+wYnw=
+
+Name: org/apache/tools/ant/IntrospectionHelper$9.class
+SHA-256-Digest: o6Ih8UHEnASgehryx5v9qTZbQRgI3cvkjLUqrMgRU3E=
+
+Name: org/apache/tools/ant/util/ReflectUtil.class
+SHA-256-Digest: sqQos8gUEF/jG90sH85yUo5ssYUmzGWFFI7zHt6J5oM=
+
+Name: org/apache/tools/ant/attribute/IfSetAttribute$Unless.class
+SHA-256-Digest: B/kh4Kj8t7v/ffivlCSUnVTmACjdCjAUJrcBAt39NFk=
+
+Name: org/apache/tools/ant/taskdefs/Jar.class
+SHA-256-Digest: TF64GN11+41BvmwDFPp+ClsL7m39eutA28qOEKDPTzs=
+
+Name: org/apache/tools/ant/taskdefs/Zip$ArchiveState.class
+SHA-256-Digest: xLGqvAxv97DmQrmgoRDQm5WaKXtfI3ZItyhT7zT+sCY=
+
+Name: org/apache/tools/ant/taskdefs/optional/extension/Specification.cla
+ ss
+SHA-256-Digest: 6B8m43WtjiZgE6/+NW2B/5GbhssXKNWczBOJ5irW1E4=
+
+Name: org/apache/tools/ant/types/FilterSet$OnMissing.class
+SHA-256-Digest: OqjqGS8Aesqls7DQqYAqfYMBkrVqQjKMsnXsqVEBIp0=
+
+Name: org/apache/tools/ant/types/resources/URLProvider.class
+SHA-256-Digest: z3xVEOq2lb5BMs+QKdBBKwKWcDxkso1tqTTjsRBdbPw=
+
+Name: org/apache/tools/ant/util/depend/DependencyAnalyzer.class
+SHA-256-Digest: DeE0rwJXol8IROf3XSLaG6JpPOB2gRRC8VRxcbEskho=
+
+Name: org/apache/tools/ant/dispatch/DispatchTask.class
+SHA-256-Digest: dhkESMbp4DbIeMO8Cw9CMLWzwfbl9JFk04Ogkvz0toc=
+
+Name: org/apache/tools/ant/types/resources/selectors/ResourceSelectorCon
+ tainer.class
+SHA-256-Digest: 9jmRqL9Piffw7fojCtsDg4Fz+IV7+SsCcLG9LNwu318=
+
+Name: org/apache/tools/ant/types/selectors/TokenizedPath.class
+SHA-256-Digest: KujV3N51he31JkIcEOuZmiGuLHiSMtTgr0zydcGBm48=
+
+Name: org/apache/tools/ant/property/PropertyExpander.class
+SHA-256-Digest: CLfr1A4QYKzw8zXDvU28bJbW/AEeiRAULy4JK71DtS0=
+
+Name: org/apache/tools/ant/helper/ProjectHelper2$ProjectHandler.class
+SHA-256-Digest: VRq4uc2iJQp9boDmpVXRaTXsE/l+SaTbUZFXSZo4sfI=
+
+Name: org/apache/tools/ant/taskdefs/optional/PropertyFile.class
+SHA-256-Digest: lNVLQXeDvEfBWNuYezVWyMHhqBopfQgp48E6YdmYLaY=
+
+Name: org/apache/tools/ant/types/selectors/ContainsRegexpSelector.class
+SHA-256-Digest: xNzFjsWT+1ehYUh645FGnYHSHkLo0WskR/A/93ZrfNo=
+
+Name: org/apache/tools/ant/taskdefs/BZip2.class
+SHA-256-Digest: us9IThOen3Pi9t/8ZZMXL+1qtlPcmzCIb/TpZ6P+svw=
+
+Name: org/apache/tools/ant/taskdefs/AntStructure.class
+SHA-256-Digest: spk5vzO4N1wWURNBEwsXUk3DDI2Wsaeiib06YQljaK4=
+
+Name: org/apache/tools/ant/taskdefs/modules/Link$Endianness.class
+SHA-256-Digest: ZxbqWJEO+rjWgmfyJRg/PbAd4rdjCSTa6kqWxKV93+w=
+
+Name: org/apache/tools/ant/types/ResourceCollection.class
+SHA-256-Digest: 8bDjHSFU9keTUVJwSWGOeV/qJK+frzh+WL6Wv8i62+Y=
+
+Name: org/apache/tools/ant/helper/SingleCheckExecutor.class
+SHA-256-Digest: 3TIsw9u6/MbsqxMZUdKtegdK5TOMWUZxZyDCNH3ZcRc=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/constantpool/MethodR
+ efCPInfo.class
+SHA-256-Digest: l93sYzxbfmmEsl22GZmEzkjJFGQjLUr18jX9OCIx62w=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/constantpool/LongCPI
+ nfo.class
+SHA-256-Digest: R7cCgsOh/RWbS6HgMx3ets5LwCw7/UGlKsvxQJMbs+M=
+
+Name: org/apache/tools/ant/types/ArchiveScanner.class
+SHA-256-Digest: m50gcpBVPP46liLZcOToPGwD1/j4nb6evsKHDC9LxS8=
+
+Name: org/apache/tools/ant/taskdefs/RecorderEntry.class
+SHA-256-Digest: MRQz7z14TYgsu1cSrPgtX/aROCvP8eIOBuTPBermMoA=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/constantpool/FieldRe
+ fCPInfo.class
+SHA-256-Digest: 0ENKRn5hDmc2qdYJ9Q91pDcwlD9Eo1JmouD48FdjOaE=
+
+Name: org/apache/tools/ant/util/UnicodeUtil.class
+SHA-256-Digest: /08bSekGyQgPZHOlSHw+1Ce9hgAj37QqiYdZ+MCMrfc=
+
+Name: org/apache/tools/ant/types/selectors/modifiedselector/EqualCompara
+ tor.class
+SHA-256-Digest: gegYK4orYyvwnalIIgQyacGB1fhUnpEtfpBNXIhx+Ag=
+
+Name: org/apache/tools/ant/taskdefs/Definer$OnError.class
+SHA-256-Digest: xj3jI+uZ5DPgUM0yR+k4bOFXIxc8i5ETvciViQe30G8=
+
+Name: org/apache/tools/ant/taskdefs/SignJar.class
+SHA-256-Digest: j4iXae6QLzRACSnJ49SAk/HeMVdeQZ4Tb6leLCflFnc=
+
+Name: org/apache/tools/ant/taskdefs/XSLTProcess$ParamType.class
+SHA-256-Digest: yX3hZYEwU5GAYWaeDQy2WI5OGHTn8mmdIFlCPndXkQI=
+
+Name: org/apache/tools/ant/taskdefs/rmic/SunRmic.class
+SHA-256-Digest: uAIOeo6n3YUBkUxJG3lbjWYb+G2B2Ar7QFdNIzd0Gso=
+
+Name: org/apache/tools/ant/taskdefs/JikesOutputParser.class
+SHA-256-Digest: jSrlKPqDsZKhkstx7zAysnrx3Ryz+POmb9tmnseUHy4=
+
+Name: org/apache/tools/ant/property/LocalPropertyStack.class
+SHA-256-Digest: WlZdinbLO+pvkCZJWEKN4x0h83S6V+VA2xP8D74OFcA=
+
+Name: org/apache/tools/ant/DynamicElement.class
+SHA-256-Digest: gDyUm605AUmlQ4XUOwEtPwiXoTasqHANJRiS4zqDJuE=
+
+Name: org/apache/tools/ant/taskdefs/email/PlainMailer.class
+SHA-256-Digest: PvNXOwwdnrjrg61MZCw2qnRHzJsxCeLlR2gCL+6pA38=
+
+Name: org/apache/tools/ant/taskdefs/Javadoc$SourceFile.class
+SHA-256-Digest: xLTtogjUMXXEzAi9uOliQsXs8hgpvNQ+Z2t85kW8OM8=
+
+Name: org/apache/tools/ant/taskdefs/Length$Handler.class
+SHA-256-Digest: x6AIud0nIfth345XXJ/o+8KrnhzOp1Tbud84KMHFlSw=
+
+Name: org/apache/tools/zip/UnrecognizedExtraField.class
+SHA-256-Digest: bR6tIXbT7bion696PoAg1TP5QoT/vXzlv51QsLLQ/f0=
+
+Name: org/apache/tools/ant/taskdefs/modules/Link$VMType.class
+SHA-256-Digest: NM2bMtsZOu0a9uL/cxYFFJZbdRfDUk+wzKeQy5IO1hg=
+
+Name: org/apache/tools/ant/types/ResourceLocation.class
+SHA-256-Digest: da+JnK7DgJJ0Zts+dYPe++Lnav8zsuSQ3l6E5e2s424=
+
+Name: org/apache/tools/ant/util/KeepAliveOutputStream.class
+SHA-256-Digest: M29OBuuY7sVpmeEfJBitUcRc5j/F+lZhqx6PrUyEUAI=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/ClassFileUtils.class
+SHA-256-Digest: 7Oh126Dqz1x6mzXIkokRYZ/SSWBoXiNJRh30iB4kVaw=
+
+Name: org/apache/tools/ant/ProjectHelper$OnMissingExtensionPoint.class
+SHA-256-Digest: seP6zoAyXXOeCD06nveYYQYgxPUoAV+LFKAHB73bhvk=
+
+Name: org/apache/tools/ant/types/FilterSet.class
+SHA-256-Digest: KJDABKaw35FsMtuxPur0aU8ucbyBh9R3FlMLPLlA574=
+
+Name: org/apache/tools/ant/taskdefs/ConditionTask.class
+SHA-256-Digest: HRxmGOOUsfZJPXuevDIQRuExd3Pv7s70of7LMYIh4fI=
+
+Name: org/apache/tools/ant/types/AbstractFileSet.class
+SHA-256-Digest: NqISfcSSQPqopxQK1pbBuoNONp+t64iH7naFt4Or0RY=
+
+Name: org/apache/tools/ant/taskdefs/BindTargets.class
+SHA-256-Digest: 03C8QubeJR9tUt6OokYgVzHw/HJmGdIv0TiM1by1EUU=
+
+Name: org/apache/tools/ant/taskdefs/Javadoc$JavadocOutputStream.class
+SHA-256-Digest: vduqsY7z7p2KF0ZKGm9wGyWPFxqcz+NpNJuLX2WbhT0=
+
+Name: org/apache/tools/ant/taskdefs/Echo.class
+SHA-256-Digest: GSkSOC4Gg9bsLe5viSNam3dmKXHjwj7ATdOnuzERA7A=
+
+Name: org/apache/tools/ant/types/FilterChain.class
+SHA-256-Digest: 4bOuSYAGavKrXL94UQ1C3iuelhpP9ODA6dkpP0ptfG0=
+
+Name: org/apache/tools/ant/taskdefs/MacroDef$Attribute.class
+SHA-256-Digest: qR0Mx3PtXKGBn1zREDjStSnQBzo3S930A+d39ssElKA=
+
+Name: org/apache/tools/ant/taskdefs/optional/PropertyFile$Unit.class
+SHA-256-Digest: SYz1OsnGXkLmfvbegmP1ZZ5+Kf1RZDMZ5sqxVJUSWYA=
+
+Name: org/apache/tools/ant/taskdefs/rmic/DefaultRmicAdapter.class
+SHA-256-Digest: H6MJtn7d8uoi5XIa7PLjHFU5o5FI4JMWo0OEInmVtc4=
+
+Name: org/apache/tools/ant/util/LazyHashtable.class
+SHA-256-Digest: Q8PTh2a5ptG/9Z4JwaI5qNhG05fAGDl5c0FIGw2Dm1o=
+
+Name: org/apache/tools/ant/taskdefs/optional/extension/LibraryDisplayer.
+ class
+SHA-256-Digest: 1XWPe/AqgyoeHlGa7I1qhrGZyArnTbyNfX1WaErzpt4=
+
+Name: org/apache/tools/ant/taskdefs/optional/script/ScriptDefBase.class
+SHA-256-Digest: TLh/yRXLuItFlr2y0LliyUxRnhw3NdyTpZq62v4x2Fw=
+
+Name: org/apache/tools/ant/types/resources/Intersect.class
+SHA-256-Digest: +E1SGhq3xDTWJ6+3FWBaPYJnLfToU+jbFB6OxdZJllo=
+
+Name: org/apache/tools/ant/types/resources/Difference.class
+SHA-256-Digest: Iw35SjcduTYMjdAZ/S5G1897OhOFKWgIqcmCz4Nfa3U=
+
+Name: org/apache/tools/ant/taskdefs/Property.class
+SHA-256-Digest: 8KliQ+Hzf5P3jwOq8IHLO8+aH1fBdXMUcLX+4HYfMGw=
+
+Name: org/apache/tools/zip/ZipEncodingHelper$SimpleEncodingHolder.class
+SHA-256-Digest: yLeC4nmAL/ZPkNYLdJnkuAorUGaupnybzrWr+uxKWpM=
+
+Name: org/apache/tools/ant/taskdefs/cvslib/RCSFile.class
+SHA-256-Digest: Rtxfe386lX/b9vWww25AiocDRDgEmEeU6MbB5oxwj3I=
+
+Name: org/apache/tools/ant/types/resources/AbstractClasspathResource$1.c
+ lass
+SHA-256-Digest: vhs8L40VSdXXE5eeI5BbpW+ra3VmyyLiT93ne4P36pI=
+
+Name: org/apache/tools/ant/types/resources/Resources$1.class
+SHA-256-Digest: nJPqS9FRLD+6TzvvdllhyDVVSX8AQrLA/1Pbe1onJqg=
+
+Name: org/apache/tools/ant/taskdefs/optional/ejb/IPlanetEjbc$EjbInfo.cla
+ ss
+SHA-256-Digest: X+761KRRGikiPmA4r92KTmKqMvbCUIjcmICXyXaBh70=
+
+Name: org/apache/tools/zip/ZipEightByteInteger.class
+SHA-256-Digest: gqCIRqRV5b3kgOebdW/TCfWk481gmgZMTZyA3QZu0Rs=
+
+Name: org/apache/tools/ant/taskdefs/PathConvert$1.class
+SHA-256-Digest: qPvuorCnCdE8VFwiogEZMVfDMOdf1koWt6TY7g5GEyU=
+
+Name: org/apache/tools/ant/taskdefs/optional/jsp/JspC.class
+SHA-256-Digest: B+O6B6ebT+HSbB+FkEZ4WAG2QiA1bFi8TQDleGmOi3M=
+
+Name: org/apache/tools/ant/util/Tokenizer.class
+SHA-256-Digest: 9HfynXFY7RKNzDeNYZJFtGLDAQVS3qVs5o91j1g5BKA=
+
+Name: org/apache/tools/ant/util/regexp/RegexpMatcher.class
+SHA-256-Digest: roA1EPYnua+CoO1xLaPWX7HgKnWIb3Y9FbEjCthjm3Q=
+
+Name: org/apache/tools/ant/taskdefs/GenerateKey.class
+SHA-256-Digest: /VkqeuGUPK5tQUxfWQ++/NMju1gQpmH9DVjeBCF2+Dk=
+
+Name: org/apache/tools/ant/taskdefs/modules/Link.class
+SHA-256-Digest: 7Dqynt4QkIYqV6APDzzm8YiJ7ejLCiwfwiocrdaltpk=
+
+Name: org/apache/tools/ant/types/TimeComparison.class
+SHA-256-Digest: 0zU0tN1A0hZD+IJIzfSdHTevDXqE4iGdxK1h9hJmw5Q=
+
+Name: org/apache/tools/ant/taskdefs/compilers/Gcj.class
+SHA-256-Digest: 8IC9OqMK0Ro6JKF9YKwHRTuHJWOgLpPkMk6aid2thTk=
+
+Name: org/apache/tools/ant/types/ZipFileSet.class
+SHA-256-Digest: kinTmcPS5JeyVy5K58tzdU+h68yiauFH096dDhwJkpk=
+
+Name: org/apache/tools/ant/IntrospectionHelper$CreateNestedCreator.class
+SHA-256-Digest: gry4Qw2k3DeQ5MOGb4tGwD/zNOTa+cPBlTy8BtOX4+Y=
+
+Name: org/apache/tools/ant/taskdefs/EchoXML$NamespacePolicy.class
+SHA-256-Digest: oJSWqz6Z0+plrB+h8hC100rCUg4MhGp598lKfuMzYn4=
+
+Name: org/apache/tools/ant/taskdefs/Concat.class
+SHA-256-Digest: V/5PMbQOHIBaI8lyoqPxyYTCsFcfBxOOlJlKMpyD3Ss=
+
+Name: org/apache/tools/ant/util/JavaEnvUtils.class
+SHA-256-Digest: PqoEO8vST6X6NZMmbC3P4OQIw8ZiLsJCBLFdXElppeg=
+
+Name: org/apache/tools/ant/taskdefs/cvslib/RedirectingOutputStream.class
+SHA-256-Digest: aEYvcDbQzlby1s9gk8N0mExbHa+iHfBm9QKeQnn+xPQ=
+
+Name: org/apache/tools/ant/types/selectors/OwnedBySelector.class
+SHA-256-Digest: C1IwZAzXgBKFak6x7FonD0BxOV5HDNdOf7xHAbNC2ME=
+
+Name: org/apache/tools/ant/util/regexp/Regexp.class
+SHA-256-Digest: 8I97PUBBu7N1VG2lzq/LlpDNRaRuqttKyWvTIvcqkVA=
+
+Name: org/apache/tools/ant/taskdefs/cvslib/CVSEntry.class
+SHA-256-Digest: RbjgW2mJomBfPfBAR/d1KGGSmGzbLyQ+oCscHJzY1TQ=
+
+Name: org/apache/tools/ant/taskdefs/optional/native2ascii/Native2AsciiAd
+ apter.class
+SHA-256-Digest: w/IFiRG35OyYJZc0f3kE4EV1WMyRLB+ha5u9DgYwIpw=
+
+Name: org/apache/tools/ant/listener/MailLogger$Values.class
+SHA-256-Digest: TUiOe3EIJCAkUohKcOXEc9l93Xh0H0OdEc1v92C3Z7o=
+
+Name: org/apache/tools/ant/taskdefs/optional/native2ascii/KaffeNative2As
+ cii.class
+SHA-256-Digest: HbMUvRvLiTCElJHeUJdgc+Rch7456VLJnQFPIzF+VnA=
+
+Name: org/apache/tools/ant/NoBannerLogger.class
+SHA-256-Digest: rqM5NhJ9pSPVptDxnB4hAGY4CmAWvXphp3Puc/xHfVs=
+
+Name: org/apache/tools/ant/types/selectors/modifiedselector/ChecksumAlgo
+ rithm.class
+SHA-256-Digest: CN5ln8/DoAhvkb7sIYwFF0t8dNeBVq54kCygwT5vT/8=
+
+Name: META-INF/NOTICE.txt
+SHA-256-Digest: /D+tOTRSgqIYisw/ypUPvQA6NyxzTaQFhuyULBNMWys=
+
+Name: org/apache/tools/ant/taskdefs/optional/clearcase/CCCheckin.class
+SHA-256-Digest: V8O5M4P0l4zYn5F6JeGDiRvsrqtDPGQB5VoVu3aeqhM=
+
+Name: org/apache/tools/ant/types/ResourceFactory.class
+SHA-256-Digest: Fe11G+m9TUT2dEWN9AzvGT7b4Aoz0BBBAQ/VdOrnjSo=
+
+Name: org/apache/tools/ant/types/selectors/ExecutableSelector.class
+SHA-256-Digest: /HQtL1UGwAG1eTPnH+lxYIOTOUSa37k2SqoObaA8QoM=
+
+Name: org/apache/tools/ant/IntrospectionHelper$NestedCreator.class
+SHA-256-Digest: E0Sx/KyhxrHo+z6DCP+A7t+xZvdZPamXTy1WG1NImCY=
+
+Name: org/apache/tools/ant/util/SplitClassLoader.class
+SHA-256-Digest: gAHPKCLa7CRAFnENE1ssk+EqUdrc7KW5wVMtqo16FJA=
+
+Name: org/apache/tools/zip/JarMarker.class
+SHA-256-Digest: gpL8DPmdKBBko9XyEq5mVfB2uigpplbW/7KGsi2j0uM=
+
+Name: org/apache/tools/ant/taskdefs/ExecuteOn$FileDirBoth.class
+SHA-256-Digest: fJeEpsPiWZdYWAxyo7WxUVRdiNdleo5fne9z6LmIFwU=
+
+Name: org/apache/tools/ant/types/Assertions.class
+SHA-256-Digest: gqdIt5XNFhMUwgXGlK0lqD5+EG45jgtcTTj8bajvAYA=
+
+Name: org/apache/tools/ant/util/WindowsJunctionUtils.class
+SHA-256-Digest: 1QuXXjK2EVr+NIvF5WlIIqxclPdQLm0PpyDY2Wj2h+M=
+
+Name: org/apache/tools/ant/taskdefs/Sync$MyCopy.class
+SHA-256-Digest: +PiHaFhE9PWGuxDpXTtTAeuC/kIxPy0iio9JNRH/z7Q=
+
+Name: org/apache/tools/ant/taskdefs/condition/HasMethod.class
+SHA-256-Digest: x0WAvTsEo0kK09fV6l6AgP/RXFseSwbNn+1Lb871Lcs=
+
+Name: org/apache/tools/ant/taskdefs/optional/vss/MSVSSCHECKIN.class
+SHA-256-Digest: WWsny5l0SB2MgBzkXIfPuHREhSSu/N7vdx/lU+4sh9E=
+
+Name: org/apache/tools/ant/types/Assertions$BaseAssertion.class
+SHA-256-Digest: W6d+VqXPg/ytizzBHoZZn1xuF0QQtrL5Z8D3fagh5I4=
+
+Name: org/apache/tools/ant/taskdefs/ProjectHelperTask.class
+SHA-256-Digest: bAH22utxGZlBoAceaRHbMyJAtKNZumMs7Bxvs0qfb6o=
+
+Name: org/apache/tools/ant/XmlLogger$TimedElement.class
+SHA-256-Digest: HBXqLUHjl/g7pmBNcHh0QEJ0K6n53TYYONn1eUXKM1s=
+
+Name: org/apache/tools/ant/types/PatternSet.class
+SHA-256-Digest: zzsNeoVUt9bRvhEDLIB0BYYQrMF456ZF3kk/SSpW+iw=
+
+Name: org/apache/tools/ant/filters/TokenFilter$ReplaceString.class
+SHA-256-Digest: WTgahXI8N4V0Oq8FIEKnmYEGW4GaW6gF0hQFbKVWnMU=
+
+Name: org/apache/tools/ant/util/ConcatFileInputStream.class
+SHA-256-Digest: Zrg/tfivBKJLwWYqCOTdBXDuwS8wWaGD5kCtdLkd75Y=
+
+Name: org/apache/tools/ant/taskdefs/LogOutputStream.class
+SHA-256-Digest: EjpVVoDKrGqz4Nd0N5p+7kbFne3ki8TFdpFLZqOtoa0=
+
+Name: org/apache/tools/ant/taskdefs/optional/clearcase/CCMkbl.class
+SHA-256-Digest: vmUeOYdYAPWhfW6rxGMT9XrwO4hREd8DaY7jviwXAOc=
+
+Name: org/apache/tools/ant/taskdefs/modules/Link$LocaleSpec.class
+SHA-256-Digest: 6FlRWfbcRWSRlDYY+kEJp0EC1EqCKIWIEo2elyxKfQA=
+
+Name: org/apache/tools/ant/types/resources/URLResource$ConnectionUser.cl
+ ass
+SHA-256-Digest: zaXtbr3Ud8AP1Ee8qTB8dUTdAikag7ZQo+i4UNA0nBI=
+
+Name: org/apache/tools/ant/taskdefs/optional/native2ascii/SunNative2Asci
+ i.class
+SHA-256-Digest: +fJvDsELrx2tcOKLhN4QK6Z9dSDqH5BeenhrahppKFA=
+
+Name: org/apache/tools/ant/util/CollectionUtils$EmptyEnumeration.class
+SHA-256-Digest: zmRbk24csaUVLUe5wETlkhhio9i7CsOzwI1GjsjC0go=
+
+Name: org/apache/tools/ant/IntrospectionHelper$4.class
+SHA-256-Digest: eP+eB0TFzXbJ84JxEn5QSL44Vli/PnqxsQzwrryufk4=
+
+Name: org/apache/tools/ant/taskdefs/Mkdir.class
+SHA-256-Digest: uyV32GlnBmlxDV/ZqFoR+E6WJJadnBKjzcCh/gkF4dI=
+
+Name: org/apache/tools/ant/util/FileTokenizer.class
+SHA-256-Digest: B1VAJHESfcbC2Gf1B+vCJnxH2qd/9Jr7MnvH6UeNRoQ=
+
+Name: org/apache/tools/ant/taskdefs/Rmic$ImplementationSpecificArgument.
+ class
+SHA-256-Digest: WPOPvueqxVwD4eB0QJommFL8GEUeLVmbyupNTyV+LSY=
+
+Name: org/apache/tools/ant/loader/AntClassLoader5.class
+SHA-256-Digest: HTEHW2RcsnhL0OZK6fRIThh7GCmbptpSU3Kf23osvFo=
+
+Name: org/apache/tools/ant/types/selectors/SizeSelector.class
+SHA-256-Digest: bZ7gt2d0zgUsGOI7Z3Dfnp9/vqWSp/wnlvDZrYkpxR0=
+
+Name: org/apache/tools/zip/UnsupportedZipFeatureException.class
+SHA-256-Digest: GBurs4vkoOz8umPdcsQlDHAv28mJFfgBrm0742dTdhc=
+
+Name: org/apache/tools/ant/taskdefs/optional/sos/SOSCheckout.class
+SHA-256-Digest: LchRdbK2No1yqWOPDn4FB5YP8NZ+krWecI3J/xTDVuI=
+
+Name: org/apache/tools/ant/IntrospectionHelper$12.class
+SHA-256-Digest: yqqxWOn9o5waJaEHs4MR5V0rI45seUnB6/3xtwHI0Bk=
+
+Name: org/apache/tools/ant/util/WorkerAnt.class
+SHA-256-Digest: bpbvgGPR381BoepRIObBvpv4iHj0G0u4e6N+4j5uI7o=
+
+Name: org/apache/tools/ant/dispatch/Dispatchable.class
+SHA-256-Digest: P/wUlqf786jzLlNS3THjW6mI4pGXzjnLjppS7bHmKMQ=
+
+Name: org/apache/tools/ant/taskdefs/ManifestException.class
+SHA-256-Digest: aIVZ0EF3P/Cy5b1a3+UDQ0v+93YvKpSFNa+GcAfLmcI=
+
+Name: org/apache/tools/ant/taskdefs/optional/sos/SOSCmd.class
+SHA-256-Digest: qJkNVidnuIrHckx1wh/OGTXHXRYdstEHpc7ye6tWZG8=
+
+Name: org/apache/tools/zip/ZipOutputStream$CurrentEntry.class
+SHA-256-Digest: nkLTvdtuyD3Ii4llHHNWAiDHCEto+HHozYPskH3UA3M=
+
+Name: org/apache/tools/ant/taskdefs/XSLTProcess$OutputProperty.class
+SHA-256-Digest: 6XLEMYbNSY2xgp/f6CofMGeMIrFmXvQ1v8YAYKVB3Bs=
+
+Name: org/apache/tools/ant/taskdefs/optional/pvcs/PvcsProject.class
+SHA-256-Digest: qS5jkEk2dyiz+iVqBDq95WkyiylluRue2Itfy6BTvdM=
+
+Name: org/apache/tools/ant/taskdefs/optional/sos/SOSGet.class
+SHA-256-Digest: waBDJ9YKF5odp+MY2PPbJ5ysIlsLmxpDckq6P7pCyl8=
+
+Name: org/apache/tools/ant/util/SourceFileScanner$1.class
+SHA-256-Digest: nLdAXur5OIPSFGF1z8PPk7o0KEkWgG5zEty49ZfxbcA=
+
+Name: org/apache/tools/ant/SubBuildListener.class
+SHA-256-Digest: ZxhymZGa2xUYfUwmV0/CHN0RPs2Vgn6lRBvDCtbRk+k=
+
+Name: org/apache/tools/ant/taskdefs/StreamPumper.class
+SHA-256-Digest: sWdoSDONmLVwfbmpJBFo2aupdfxDI4T962WvPZ64XvE=
+
+Name: org/apache/tools/ant/taskdefs/HostInfo.class
+SHA-256-Digest: GYWBvovlD6hbk74m0WdtzDUw8Y4weHeb19hrrmP6YEE=
+
+Name: org/apache/tools/ant/IntrospectionHelper$Creator.class
+SHA-256-Digest: m68rNjkZX0aNDgK+MiWvdWvVIEmZ7P13x1sz7gpJBgo=
+
+Name: org/apache/tools/ant/taskdefs/condition/IsSet.class
+SHA-256-Digest: zgIgdDUkeAKKESQd2A7uzE+TWfi753AeScnI5Y8w2M8=
+
+Name: org/apache/tools/ant/taskdefs/Input.class
+SHA-256-Digest: 6BdaDz6gNTgG7kNY5gLDYPqLdEv2Ih6F+179F8rsYRg=
+
+Name: org/apache/tools/ant/types/optional/depend/DependScanner.class
+SHA-256-Digest: vaVVDlK6wycHCFMeaXKqhwM+EAGDs95qo6JI7AaAKWA=
+
+Name: org/apache/tools/ant/taskdefs/optional/windows/Mklink.class
+SHA-256-Digest: vAa6m++IfLzWOHuDcs+L0u6cYHxs16uxvz7T2DYV20o=
+
+Name: org/apache/tools/ant/taskdefs/SubAnt.class
+SHA-256-Digest: DG1jRhRwRfbmMLRikKJAjvUyt8nFeYilVMKkvOhOCcA=
+
+Name: org/apache/tools/ant/filters/TokenFilter$Filter.class
+SHA-256-Digest: 7o9+wgfurTVfpvlpkQE1NXta5oK2cvXi5aJjidaGkk8=
+
+Name: org/apache/tools/ant/taskdefs/optional/extension/JarLibResolveTask
+ .class
+SHA-256-Digest: pmTo3MpULEYMXQfqqG98vJ4KjUiNxByL98ejLqKh9ro=
+
+Name: org/apache/tools/ant/taskdefs/rmic/ForkingSunRmic.class
+SHA-256-Digest: 1I12Z6GIc0DwiFTYe4JGvRI4hd77u4RK2oGrFw74GZQ=
+
+Name: org/apache/tools/ant/taskdefs/optional/unix/AbstractAccessTask.cla
+ ss
+SHA-256-Digest: E+gHcnyPqH9LG0TZVARYkxRFyV2BTI1WCti0QNHBnPI=
+
+Name: org/apache/tools/ant/taskdefs/Zip.class
+SHA-256-Digest: xASlQAldAMU+xJ1wr+/uudRoftEGItkOuAoSZSNj31o=
+
+Name: org/apache/tools/ant/types/selectors/DateSelector$TimeComparisons.
+ class
+SHA-256-Digest: EQi4nFbfcAvziyZq/xLhUQfTE60m33OXG/h6Ao+sfA0=
+
+Name: org/apache/tools/ant/taskdefs/optional/ejb/EjbJar$CMPVersion.class
+SHA-256-Digest: qEiyld+sz8XO2QvwlRHWofs7WBHv9G4kxdI7qqSZ0io=
+
+Name: org/apache/tools/ant/taskdefs/optional/XMLValidateTask$ValidatorEr
+ rorHandler.class
+SHA-256-Digest: y8ScHZOtj4XvJNi25cGLP1VXOdM4oOZLhZZgyKOsdeg=
+
+Name: org/apache/tools/ant/taskdefs/email/EmailTask.class
+SHA-256-Digest: woCvLIztCAzb91+LgFYgNNaEKb+D8lQZucLmn1DbUXQ=
+
+Name: org/apache/tools/ant/taskdefs/condition/CanCreateSymbolicLink.clas
+ s
+SHA-256-Digest: uKzlLXcx/1YyXhOeAlsGQIiZgEez6ohX56Bgp93iVOc=
+
+Name: org/apache/tools/ant/taskdefs/optional/PropertyFile$Entry.class
+SHA-256-Digest: bym+qg++Q7/WgPTbANyWXDWCPUi7QNtMwFiGnhvZwgk=
+
+Name: org/apache/tools/ant/taskdefs/optional/ejb/WeblogicDeploymentTool$
+ 1.class
+SHA-256-Digest: FDjyMUQ/dEBE2Us9Fn24Isw0pobmkjemnzokhDqE9pM=
+
+Name: org/apache/tools/ant/taskdefs/condition/IsLastModified$CompareMode
+ .class
+SHA-256-Digest: CsOIU2N+uXmoHNb6v/SMZ/3EEbat+PthwrsMKm+2ETE=
+
+Name: org/apache/tools/ant/taskdefs/optional/Cab.class
+SHA-256-Digest: M8WB4ebS+6jIrT0B5lKiOQ8eRZBY1H4+C5jdJXllZ9Q=
+
+Name: org/apache/tools/ant/taskdefs/optional/Javah$Settings.class
+SHA-256-Digest: 8c6vQpe+YfeFxMorjkkeh70xPaGOtlPWbxz+VTjs4YU=
+
+Name: org/apache/tools/ant/types/DirSet.class
+SHA-256-Digest: NHpPfO1RPV63Bkz0bEIGqqFWovhFZBcnpjjuTRKVyQY=
+
+Name: org/apache/tools/tar/TarUtils$1.class
+SHA-256-Digest: UglGw+ukfJ8smJaec2yvLlwFHNLE182ICc+qHjZPE5o=
+
+Name: org/apache/tools/ant/DemuxOutputStream$BufferInfo.class
+SHA-256-Digest: ZB4uh+jOxyalnJi/nxzWjVFdOtqOIpH+gRCHrt9LV9I=
+
+Name: org/apache/tools/ant/taskdefs/XSLTLiaison4.class
+SHA-256-Digest: BUb8H7YFhwJW76lkl1Kon79O4Z6eRHjCFghJwIaDAHk=
+
+Name: org/apache/tools/ant/types/Quantifier$Predicate.class
+SHA-256-Digest: 8bLHUvkJpy3hQg2XUtJOVn9P5u8FQMOQztxHjfJ4amk=
+
+Name: org/apache/tools/ant/taskdefs/Dirname.class
+SHA-256-Digest: r8F7QTzystoLRuGZftI4qeTURxpuXcZa4/QFQsQY7yI=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/ClassFileIterator$1.
+ class
+SHA-256-Digest: IHdSZOYEkmItvw2SlJOrVm5spetIzIk8L1/+kJQp39Q=
+
+Name: org/apache/tools/ant/taskdefs/modules/Link$ReleaseInfo.class
+SHA-256-Digest: g/bV2lNH19oz24FfaV8VoBp72+dkdzMt0rPctHerwJc=
+
+Name: org/apache/tools/ant/taskdefs/SendEmail.class
+SHA-256-Digest: mXaYKapa7AVOXbSE4td5avKLo9ygZHhBPeaqGaux87w=
+
+Name: org/apache/tools/ant/taskdefs/XmlProperty.class
+SHA-256-Digest: Bv+3NF0BMYpBc+U/jLjxXTsjh8JzSxwOdc5dJrXv7GE=
+
+Name: org/apache/tools/ant/taskdefs/optional/vss/MSVSSCP.class
+SHA-256-Digest: frdh7rey4eWH0gdZWa2H3w3g4WgjvCGYD6fP6FFJBJY=
+
+Name: org/apache/tools/ant/util/optional/JavaxScriptRunner.class
+SHA-256-Digest: KiRAqHEt5mo2JYxgVwnWyHoPkzsvZ/AXF7E1PuVcvJs=
+
+Name: org/apache/tools/ant/Main.class
+SHA-256-Digest: nu4YZa8BZsfUKmQhKFF+ooUCxmU1Ceh7p4dovueoHdo=
+
+Name: org/apache/tools/ant/types/resources/BCFileSet.class
+SHA-256-Digest: 7pBq7ckpFhdx4fzLROBFuAWR9+8hCEsWCbJLnY3FFYY=
+
+Name: org/apache/tools/ant/taskdefs/cvslib/ChangeLogParser.class
+SHA-256-Digest: AhcvTo30a7AAnqUFsjMFBX0yDVkqNq2Z3eVdOkRZnJU=
+
+Name: org/apache/tools/ant/taskdefs/email/Mailer.class
+SHA-256-Digest: AfJxmixAgS2J+DoGIdjoDKA+qvpV3Q+jfuXBljstBy8=
+
+Name: org/apache/tools/ant/taskdefs/optional/native2ascii/Native2AsciiAd
+ apterFactory.class
+SHA-256-Digest: n0KRTy2VXZ/g7HzExt//KAal1muVF4zd5gcOp70JxvE=
+
+Name: org/apache/tools/ant/types/resources/comparators/Exists.class
+SHA-256-Digest: xkT63pOiQcieeZg0RLWBcLr9Jn0c0GViUsyMurkRoOg=
+
+Name: org/apache/tools/ant/taskdefs/Copy.class
+SHA-256-Digest: Wqke619rEhpai9XDtutiHChsBvMhQKlMzhWzIFe7SYA=
+
+Name: org/apache/tools/ant/taskdefs/optional/clearcase/CCMklabel.class
+SHA-256-Digest: jaT1REEeTf9MhBmCWzkG4jlceKowH/20nQzVjBYjAGU=
+
+Name: org/apache/tools/ant/taskdefs/optional/j2ee/GenericHotDeploymentTo
+ ol.class
+SHA-256-Digest: uivBHzLEf5EmlN53Ve50M17pPQkGD21fmhn+45KqhXI=
+
+Name: org/apache/tools/ant/types/selectors/SelectorUtils.class
+SHA-256-Digest: viOxdEDyt7CAeFPu5jV5WDIz+PQhkLQAfHzJSEt2lvI=
+
+Name: org/apache/tools/ant/BuildLogger.class
+SHA-256-Digest: vqxbJAsiBvvRN0zkyZjXAnSk9BS0cjdsrkfq4N/0BYU=
+
+Name: org/apache/tools/bzip2/CBZip2InputStream$Data.class
+SHA-256-Digest: pJ88B8+9dkA+7dKu8TSkSWUrUnpns8R+E2zFSGD5xng=
+
+Name: org/apache/tools/ant/taskdefs/Concat$ReaderFactory.class
+SHA-256-Digest: dKVYb5XJw0UEL6Z1aRuU1jvY7d78ktjktg0QtZ6eMmw=
+
+Name: org/apache/tools/ant/taskdefs/optional/vss/MSVSSConstants.class
+SHA-256-Digest: Mi640RQmufbtAtibQUtAg6v3viXq4u4jovEp04G1xDU=
+
+Name: org/apache/tools/ant/util/ReaderInputStream.class
+SHA-256-Digest: ZSlUcI4DHB7kRsZbs0TjOr9novrEdS4DkrADufnUJU4=
+
+Name: org/apache/tools/ant/util/OutputStreamFunneler$Funnel.class
+SHA-256-Digest: ApaUZzeLOk9iFzctUmBb8x9o5sLSuIMJlRcYlrkVIKU=
+
+Name: org/apache/tools/ant/filters/StripJavaComments.class
+SHA-256-Digest: b9tVkG0YLvCiwoQL1p9o1IBgyPAalbqh6cYF2xKCm1o=
+
+Name: org/apache/tools/ant/taskdefs/optional/ccm/CCMCheck.class
+SHA-256-Digest: QhdpwjOGsBLNz20nuLRl2fRrbxPVoFueJzELcbT2o0w=
+
+Name: org/apache/tools/ant/taskdefs/optional/javah/Gcjh.class
+SHA-256-Digest: +q8ZAti2YQAOLNjPx3m0+F+mWQaryLdE9UYWcZE7ZbA=
+
+Name: org/apache/tools/ant/PropertyHelper$PropertyEvaluator.class
+SHA-256-Digest: ktsRigie3fLVFfx/QtRTzowYpxSrsXagqsbgSaCRCTc=
+
+Name: org/apache/tools/ant/types/resources/SizeLimitCollection.class
+SHA-256-Digest: 8Ym5GHSMJolj738BLl/UHB0nkXxwpTxk7RaDmK4gH/U=
+
+Name: org/apache/tools/ant/types/selectors/DependSelector.class
+SHA-256-Digest: aP5g2AfugiKHX4DEjaOqeA4UUM4BcHcElzu130mdEc0=
+
+Name: org/apache/tools/ant/types/FlexInteger.class
+SHA-256-Digest: 8YR/N4XB3/wH0Mm8rVLUn0WVVqvJIUqL7j0gMv2eCgM=
+
+Name: org/apache/tools/ant/util/depend/AbstractAnalyzer.class
+SHA-256-Digest: 8zdYAo/KI8A+D2igxedVZA3iZKxtW93ma/fqPYN18uQ=
+
+Name: org/apache/tools/ant/helper/ProjectHelperImpl$NestedElementHandler
+ .class
+SHA-256-Digest: Y2qCQ2nD83lzdb2ADwlI3d1KwPS6U0M0NyS0vlUA4XE=
+
+Name: org/apache/tools/ant/taskdefs/cvslib/CvsUser.class
+SHA-256-Digest: 0Kon7KUdGZkpOVLgeHtWb7qXzZmcq78U0RFKzoRIZEI=
+
+Name: org/apache/tools/ant/taskdefs/MacroDef$TemplateElement.class
+SHA-256-Digest: b39GAL4n89aZ+GulTwmZAQ5Q8Eo4bXOgdR7qMy5myIE=
+
+Name: org/apache/tools/ant/taskdefs/condition/Xor.class
+SHA-256-Digest: Kb5emScQJrAiylbmU2xoH6B3BgkYhqI5BlOgLqqcDiw=
+
+Name: org/apache/tools/ant/taskdefs/optional/windows/Attrib.class
+SHA-256-Digest: i4sgqnbxt8luZudaClzRRzKb7RegchxTX6gt5SO468Q=
+
+Name: org/apache/tools/zip/AbstractUnicodeExtraField.class
+SHA-256-Digest: 0P+ohYEW0o6LZsSJFcCqynpJiTJVwmaT85kGKTlJ5SA=
+
+Name: org/apache/tools/ant/taskdefs/XSLTLiaison.class
+SHA-256-Digest: ARaXaonLZjuz5c2HaDTzLLMA20ICVEHqWG+H7u3wzaU=
+
+Name: org/apache/tools/ant/taskdefs/optional/vss/MSVSSHISTORY.class
+SHA-256-Digest: qkYRfpYGwpwne8Y9h2RtVqF/XxI3AHfbhBkHIl6cjV0=
+
+Name: org/apache/tools/ant/types/Commandline.class
+SHA-256-Digest: CWPvGq0/r4UmnJJ4mhmZyTZ/0VEhIUAAuzK3T6kKH/Y=
+
+Name: org/apache/tools/ant/util/LazyFileOutputStream.class
+SHA-256-Digest: xZfc/BqU2SA5OyoDSXfJoWu+zkoT0YQanb+yXLaM0m4=
+
+Name: org/apache/tools/ant/input/GreedyInputHandler.class
+SHA-256-Digest: YbZpSL1sz0vZP/yBm0RuTDFyHkGndEcwOVYro885Qgw=
+
+Name: org/apache/tools/ant/types/resources/URLResource.class
+SHA-256-Digest: d+NtDxMllN3hKYl7KCHPkMox2gN2e6RemtKnJQubFTw=
+
+Name: org/apache/tools/ant/util/RetryHandler.class
+SHA-256-Digest: 84GdFdq5Ng5VgvRl9ppZ1FoywJuOegm1/WsH5VLsWDc=
+
+Name: org/apache/tools/ant/PropertyHelper$2.class
+SHA-256-Digest: FvdO4flOQuKH4ZneDJnN8QPUoheWMG7odIihAlYm+Po=
+
+Name: org/apache/tools/ant/types/resources/AllButFirst.class
+SHA-256-Digest: WAzY+xzDdVr8qXBY1Wol1rp8503bCU1CzxHOYMERKOM=
+
+Name: org/apache/tools/ant/types/selectors/PosixPermissionsSelector.clas
+ s
+SHA-256-Digest: /de5buEJqqXXGnuecEUM5Y3zhdWMOBDp7FuMQ5qHUz0=
+
+Name: org/apache/tools/ant/helper/ProjectHelper2$RootHandler.class
+SHA-256-Digest: KmBGa5xp+TByC+Qb6t1YVUTH5ZPB1Tlx2GmxdcDM/Gw=
+
+Name: org/apache/tools/ant/helper/ProjectHelperImpl$RootHandler.class
+SHA-256-Digest: qjrP9AdDTMCdEiLjebRYOah6f35q6Kvv16uvxmD9EIk=
+
+Name: org/apache/tools/ant/taskdefs/optional/ejb/IPlanetDeploymentTool.c
+ lass
+SHA-256-Digest: 8MkN+aVGcpVeuZF3TR0M+zMripgGQVwHwR6rs5LOKgU=
+
+Name: org/apache/tools/ant/taskdefs/Sync$SyncTarget.class
+SHA-256-Digest: NOTl/YL+HiEhyEWZWoe9j8GErW9JKWGh56Ppi0BZ0cs=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/MimeMail.class
+SHA-256-Digest: A+EVbX3mf7qNVMehlLTpERl5DI8Sda9pJMJVlJrnjbw=
+
+Name: org/apache/tools/ant/taskdefs/condition/ResourceContains.class
+SHA-256-Digest: BGyNa8A3s4563c8P4DodprvPBJ6M4u2A8xC2Ik8142k=
+
+Name: org/apache/tools/ant/filters/SuffixLines.class
+SHA-256-Digest: bQr4XXyJFnZF6Cp0TFZibkRPspHh+IcmdC+CIZV2MFU=
+
+Name: org/apache/tools/ant/taskdefs/Ant$Reference.class
+SHA-256-Digest: bcGCAkhxGDjE+nWvtGchXZdlqXtHwzPdXYLUIoWdf0U=
+
+Name: org/apache/tools/ant/types/resources/ContentTransformingResource.c
+ lass
+SHA-256-Digest: WfAdn9bJDJanbRe/JLMy+48PTSIGfp2eHZDqAlDVKn8=
+
+Name: org/apache/tools/ant/types/selectors/modifiedselector/DigestAlgori
+ thm.class
+SHA-256-Digest: tSKpPB3twDjCSMdWcn3PDkbdj+92RE0TV1AGbwn2cRU=
+
+Name: org/apache/tools/ant/util/StringUtils.class
+SHA-256-Digest: WOdKCExsef+akC61GJB2yQ+01ikOx1IugVDYwHtq57Y=
+
+Name: org/apache/tools/ant/util/ProxySetup.class
+SHA-256-Digest: J0f6kg6nlvn+gtuekf+cmECJFnKaHE1kTQhA2sUShuc=
+
+Name: org/apache/tools/ant/taskdefs/XSLTLiaison3.class
+SHA-256-Digest: qzpFEQmdsIbCSxf+8gN55EtI6yVQdVwuZcymNEKVNuo=
+
+Name: org/apache/tools/ant/taskdefs/GenerateKey$DistinguishedName.class
+SHA-256-Digest: zd4hKrIooxG8ceh7awFNaPMI7ovFPNbtFMENUmU16bk=
+
+Name: org/apache/tools/ant/taskdefs/optional/net/SetProxy$1.class
+SHA-256-Digest: xn3yORrlYVxWy2cTeUUssDtdXJ7eD2y3idWhiVNkDzc=
+
+Name: org/apache/tools/ant/util/OutputStreamFunneler$1.class
+SHA-256-Digest: zUxwPaNpeYkmkHJdpsLBGhDFlMXFE1V22duujCsTFqo=
+
+Name: org/apache/tools/ant/taskdefs/Taskdef.class
+SHA-256-Digest: 3/wjIdbsjp44AlukEHLv39i9JScYKAc0+Oxm4esr8Sw=
+
+Name: org/apache/tools/ant/taskdefs/optional/jsp/Jasper41Mangler.class
+SHA-256-Digest: e5WnUQiGNiCt6tR4rxbARnC0aF779CsmbKmvxv4Fj38=
+
+Name: org/apache/tools/ant/filters/TokenFilter$Trim.class
+SHA-256-Digest: iz/4tWw798ZiQ5clANANV3LFHsR0mzmxtJIy6ZIjObI=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/constantpool/Integer
+ CPInfo.class
+SHA-256-Digest: 7oZt5GM+Tko7b391r2M/i+Dp31Y9jpJeEUWiYRU8q7E=
+
+Name: org/apache/tools/ant/listener/BigProjectLogger.class
+SHA-256-Digest: fWIlDrs3HUQ6LNFpiZY0Q4t+vvuc74OlNaRQvMAr3kw=
+
+Name: org/apache/tools/ant/types/selectors/MajoritySelector.class
+SHA-256-Digest: C6Tj+AZnaQcIcsJwu8JYJKld0AtqmyEl5G1CBVYYZI8=
+
+Name: org/apache/tools/ant/types/resources/ResourceList.class
+SHA-256-Digest: 5Xd6MPhB/E2ykCb0VszRCC7JUO0Jj+BqwGX67xLqtFo=
+
+Name: org/apache/tools/ant/util/ClasspathUtils$Delegate.class
+SHA-256-Digest: i+N60TUtQi6NTOKBqCG4ijHTAAQ2I8ORX64WNZqgl5M=
+
+Name: org/apache/tools/ant/taskdefs/XSLTProcess$Factory$Feature.class
+SHA-256-Digest: 2N3T8p7p6gd+IxMdGYWyRxOIG0+2OtnjrYnnOIgpm2g=
+
+Name: org/apache/tools/ant/types/selectors/WritableSelector.class
+SHA-256-Digest: 5+YDx9K41g1TIc/IFJX2o/H0cy5GVzjCKBN8wXjlEn0=
+
+Name: org/apache/tools/ant/types/optional/AbstractScriptComponent.class
+SHA-256-Digest: dfhs20AN2FaXMyjjW+WsEygKBYXEHcl/bI70AXvgf5k=
+
+Name: org/apache/tools/ant/types/optional/ScriptCondition.class
+SHA-256-Digest: lxw1Olv15U+tU+E8HBBineFT/yndcF61XkATshj4EK4=
+
+Name: org/apache/tools/ant/util/PermissionUtils$1.class
+SHA-256-Digest: TJi5Hf0ppbKspQBRjZuG4ZycOi1pSyDApbkN41pU1DE=
+
+Name: org/apache/tools/ant/taskdefs/optional/ejb/EjbJar$Config.class
+SHA-256-Digest: 7axdXYCD2LVPxtTgCIu518DhPGaf2YZUMy4rtT9geo0=
+
+Name: org/apache/tools/ant/taskdefs/Get.class
+SHA-256-Digest: 9swe870mfdqEZxRFQadR89HAw4qfV/Gut9JDUqMee3k=
+
+Name: org/apache/tools/ant/types/XMLCatalog$CatalogResolver.class
+SHA-256-Digest: XddXACzgskBYdlqHimV2LbwrR+9z/iWHx5YujCzwhak=
+
+Name: org/apache/tools/ant/taskdefs/MacroInstance.class
+SHA-256-Digest: vUb8HVZFsP1ZTMRH7dvCiY/AVMktY5VPZbugwZLqoxQ=
+
+Name: org/apache/tools/ant/filters/StripLineComments$Comment.class
+SHA-256-Digest: 8Y48yXEAJ2NJCYBk6QA/6vIPoJ83yDe763ENZi/Bu8A=
+
+Name: org/apache/tools/ant/taskdefs/cvslib/CvsTagDiff.class
+SHA-256-Digest: zuGw7wD94izKV67Hhhf4xj1pAF00DJQdrUz6xa5NOXo=
+
+Name: org/apache/tools/ant/taskdefs/optional/clearcase/CCMklbtype.class
+SHA-256-Digest: b0F4DZeR2XYRm4j9eDK1oJ4VE5ZVkLHdfDj0B+KefbY=
+
+Name: org/apache/tools/ant/taskdefs/Truncate.class
+SHA-256-Digest: P1vjFArCptPq4IqtWmuHl0WgMszwTFIYK823GVQj2Ko=
+
+Name: org/apache/tools/ant/types/selectors/TypeSelector$FileType.class
+SHA-256-Digest: QN66XzvYja+Br6Ki0QqUHZYtL74OtpHEYDeTBGkLWRo=
+
+Name: org/apache/tools/ant/util/TaskLogger.class
+SHA-256-Digest: iEYja0ajSz6rMnB4YdPpxinLpsm28sepDzbLSynqasI=
+
+Name: org/apache/tools/ant/filters/LineContains$Contains.class
+SHA-256-Digest: xudL2jrhICdhuIlDV0ZaO3zO8pz/+EdT8NIIeFkZUYc=
+
+Name: org/apache/tools/ant/taskdefs/email/UUMailer.class
+SHA-256-Digest: f4HbaRzAQy8y7a1B+bRjf0Ax3vxlrJq1hUn9afOGFP0=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/DirectoryIterator.cl
+ ass
+SHA-256-Digest: QMxz6nVupeB8uB/3IxBjsz6FitZXPi5sXUqL/RUqK0Y=
+
+Name: org/apache/tools/ant/types/Mapper$MapperType.class
+SHA-256-Digest: 5fWFgbCYcwHUu27VU58vT+MEl5NSN6ycoLjQOgU12aw=
+
+Name: org/apache/tools/ant/taskdefs/Manifest.class
+SHA-256-Digest: iaJe0pYHXRtC3++22SndFXhAGyCnax0LaeGB6mlEtKs=
+
+Name: org/apache/tools/ant/util/NullOutputStream.class
+SHA-256-Digest: VxFzfE+xC+BZVjztY8G+YRE0zlsYx2YICk9mS3NUMxo=
+
+Name: org/apache/tools/ant/types/conditions/antlib.xml
+SHA-256-Digest: W0+W3ntNwoCSa7JaLjxHXNgncnlkQ1Q/bbJgEASm4tM=
+
+Name: org/apache/tools/ant/taskdefs/optional/Native2Ascii$1.class
+SHA-256-Digest: JtgA03S3XpMd/xGQkPNcmhk9lQdAM8vIsHLHHnrKk/U=
+
+Name: org/apache/tools/ant/types/Parameter.class
+SHA-256-Digest: ZKioRdsJlkvZIwEk//EKMYo2xu+QJN2nMjoJiJHwwlc=
+
+Name: org/apache/tools/ant/taskdefs/Exec.class
+SHA-256-Digest: 3cybPDq+7lugUwIDmGFU3riAugtqcRcKN+1+UEfEy3E=
+
+Name: org/apache/tools/ant/types/resources/Archives.class
+SHA-256-Digest: rrK+1o7E8zm52uOZot76y+79CPNGynAwMe5fP6Lu5DI=
+
+Name: org/apache/tools/ant/taskdefs/condition/Os.class
+SHA-256-Digest: PwIvsRNSkfiUwYeM7iIG0J04pQcJWKetFJZsO2aU9qA=
+
+Name: org/apache/tools/ant/taskdefs/condition/ParserSupports.class
+SHA-256-Digest: J8TcgQFL1iaiwZRhmYamXFJ3cb+T+pQrTXF6EDxkxWA=
+
+Name: org/apache/tools/ant/IntrospectionHelper$AttributeSetter.class
+SHA-256-Digest: /brphH2dCgQz4+R2FwrFRFrn+lrX7DxSaaDDwj3SGUQ=
+
+Name: org/apache/tools/ant/types/selectors/DepthSelector.class
+SHA-256-Digest: 7prNEhRdV5Casdp9bVv/gWajXEI0OVQFrdTxav1o1AA=
+
+Name: org/apache/tools/ant/types/TarScanner.class
+SHA-256-Digest: 7p3Su4L8LpEf9tmj4odttA2piJpU4Ih8Jyi82sqaQS8=
+
+Name: org/apache/tools/ant/types/selectors/FilenameSelector.class
+SHA-256-Digest: aJSSvALxQT0sWt1dZuXboXzAI9FijW6vhjZYy9HhUZw=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/constantpool/MethodT
+ ypeCPInfo.class
+SHA-256-Digest: 2NmCBfMCkKYV7BUZjmRaPzo0pExpAS6+hq1jZ1gIAgM=
+
+Name: org/apache/tools/zip/Simple8BitZipEncoding$Simple8BitChar.class
+SHA-256-Digest: sTUsUsSYREFYDu7/h4ZoswKhwKDs2udGUUrjNfpl5lY=
+
+Name: org/apache/tools/ant/taskdefs/Filter.class
+SHA-256-Digest: rbq7uT7Vnz3wUYn1KRH4M2Q+DznYm+fI7D1DeX3PxiE=
+
+Name: org/apache/tools/ant/taskdefs/email/Header.class
+SHA-256-Digest: 3cbYo8FU9JMVl12UHGRgdgKzsQ6dgdxFPMwyLkVmlAM=
+
+Name: org/apache/tools/ant/util/ScriptRunnerHelper.class
+SHA-256-Digest: UakWLojDT3tYIOT8n+iFgaC7CcOqA6ZnHKffv2BC5Ug=
+
+Name: org/apache/tools/ant/types/resources/JavaResource.class
+SHA-256-Digest: ro6GerKf4flV8aBiT46gb3Z8vbdjg18uqBN+El82C3E=
+
+Name: org/apache/tools/ant/taskdefs/optional/EchoProperties$Tuple.class
+SHA-256-Digest: 45GaM+SAKhjwvJmbEMY4EanEDopyi9HIp9qOHmi+qIs=
+
+Name: org/apache/tools/ant/taskdefs/compilers/CompilerAdapter.class
+SHA-256-Digest: pbvLEDOiz4Q/UVLIJ3f33mgwWZVuqWJ1dvPT9GK+09E=
+
+Name: org/apache/tools/ant/taskdefs/condition/IsFailure.class
+SHA-256-Digest: W6bQAY2KMGE0TseulrdblfZcv19w1T7uLG9pVedG/D8=
+
+Name: org/apache/tools/ant/types/resources/Resources$MyCollection.class
+SHA-256-Digest: dCnWCXQlhasHpvxEw3OwF+PTZ9un6KjUNaLSPD+Qy8E=
+
+Name: org/apache/tools/ant/types/optional/depend/ClassfileSet.class
+SHA-256-Digest: BX2rD1V+VaRIu3G0NmD9yuxjoA3pD8qi/+Mq1J578oo=
+
+Name: org/apache/tools/ant/taskdefs/Exec$StreamPumper.class
+SHA-256-Digest: V2beHJN0QXOQOzl0324VkT9nWeOJJZ1LrzUzfZUYca4=
+
+Name: org/apache/tools/ant/filters/ClassConstants.class
+SHA-256-Digest: 36o3ZJeRK3Z52YXsa7IVyTCk8gYbLkVFh3esewmW/Sk=
+
+Name: org/apache/tools/ant/taskdefs/ResourceCount.class
+SHA-256-Digest: VEXEz08Md3lq6/LcUtbYowqFFX0gid37vK587FgtXfo=
+
+Name: org/apache/tools/ant/taskdefs/Execute$1.class
+SHA-256-Digest: eHr7eajUpCCZAwpChyPHm35a6Nxse1WW1w3Ukpca2YI=
+
+Name: org/apache/tools/ant/taskdefs/modules/Link$ReleaseInfoEntry.class
+SHA-256-Digest: c4z1OKvUB1qgaQEeFCim8bb18et4mc5Rhi3Mnta1HbA=
+
+Name: org/apache/tools/ant/taskdefs/compilers/CompilerAdapterFactory.cla
+ ss
+SHA-256-Digest: MSnh65bZIsS+MCha9WwxcndFO+/KlcBLaBmQvFWWifs=
+
+Name: org/apache/tools/ant/taskdefs/ExecTask.class
+SHA-256-Digest: D+ABZX1F3R8PSuxGecIy4vHAfkcI6Ivg9qUiRr4Mh50=
+
+Name: org/apache/tools/ant/types/selectors/TypeSelector.class
+SHA-256-Digest: 2f6TM7LeuVYY7TRm7KEspg2Z+8OngS2CiOxuBVvdK9Q=
+
+Name: org/apache/tools/ant/taskdefs/condition/Not.class
+SHA-256-Digest: h5b8FwfC4pCp1kZRPdx4QtuwnkEXxGXF3cnWfVsgTmA=
+
+Name: org/apache/tools/ant/taskdefs/Ant$1.class
+SHA-256-Digest: GRv9fDuw+j9lX+HEMcBoaxD/JSnJch5xG95+6vqvg2s=
+
+Name: org/apache/tools/ant/types/selectors/modifiedselector/Algorithm.cl
+ ass
+SHA-256-Digest: XdGeAbM47q1Tb6suyeVXH1yUxIsb3yWNQw4u11IWY5Y=
+
+Name: org/apache/tools/ant/taskdefs/ManifestTask.class
+SHA-256-Digest: GThuMUlpz+tf+Fp98c5sgG9Pw0k3csfED3V8zANDcY0=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/Depend$ClassFileInfo
+ .class
+SHA-256-Digest: jd+LnxnD0JOnrV139IaAXpqhxmJVhiZcD+coh/g3xQ0=
+
+Name: org/apache/tools/ant/taskdefs/optional/extension/ExtensionUtil.cla
+ ss
+SHA-256-Digest: kWlMWZ34vvt/fGc+AhB+Tx2NFj/s6RAnrxMZVUf3cok=
+
+Name: org/apache/tools/ant/taskdefs/Available$FileDir.class
+SHA-256-Digest: 8TXPWz3tJDsNxM3wo2Pxxlj+/UiRU4vD20EfH5eygqE=
+
+Name: org/apache/tools/ant/taskdefs/condition/Equals.class
+SHA-256-Digest: BoVvr3lJo4WU9idMqMR0JpcS3gQ08lNAbGOut0VS8u4=
+
+Name: org/apache/tools/ant/types/PatternSet$PatternFileNameEntry.class
+SHA-256-Digest: NcqTdoZDrL4uL+af8cG0NjCSsADhsBIqPTr3r0xENP0=
+
+Name: org/apache/tools/ant/types/RegularExpression.class
+SHA-256-Digest: D3kc1QUgHLtTTqbH6y+ipOwG/wzN/GSQBFTtkik17ro=
+
+Name: org/apache/tools/ant/taskdefs/modules/Link$Launcher.class
+SHA-256-Digest: HduP9mLAEphkhhvxzTj81K/o1zc+QbU56wIswKZ1qjA=
+
+Name: org/apache/tools/ant/taskdefs/optional/SchemaValidate$SchemaLocati
+ on.class
+SHA-256-Digest: TEl/18QxKZ95em6fqvfFfcrnCYlmWWZ2hjJSlv8N3ho=
+
+Name: org/apache/tools/ant/types/resources/MappedResource.class
+SHA-256-Digest: 0C/1k35QhXahKYZe8xMew25rGXya5GSEfXPIexpDOok=
+
+Name: org/apache/tools/ant/util/ResourceUtils$ReadOnlyTargetFileExceptio
+ n.class
+SHA-256-Digest: +SGJQdEUHdbSSPCav8mgLRc5XNlN0EJEbBBzF4C3Gmo=
+
+Name: org/apache/tools/ant/types/selectors/WindowsJunctionSelector.class
+SHA-256-Digest: qeDJ9svTt3X4RL7JcEmu3T0W8Cg332iBz2Yna2zXWJI=
+
+Name: org/apache/tools/ant/util/ResourceUtils.class
+SHA-256-Digest: b3ixKNyEzlqFbxi5B7GeymIu7dwU/Vzdwyy3uDxVWFc=
+
+Name: org/apache/tools/ant/types/resources/StringResource$StringResource
+ FilterOutputStream.class
+SHA-256-Digest: jGx5eT3Wsx2kx6hpWDgg1m5I5qeRecoLg1xCzv8zhEo=
+
+Name: org/apache/tools/ant/XmlLogger.class
+SHA-256-Digest: MNaCJ27oZKo8l5Kz7ARPwx5aJar7G1LmsL+VD+1gAmU=
+
+Name: org/apache/tools/ant/types/resources/comparators/Size.class
+SHA-256-Digest: Dh+qIFq0wTlZyKzaWn7DJxUyBodsKPmiJKi+1AZZ8ho=
+
+Name: org/apache/tools/ant/IntrospectionHelper$3.class
+SHA-256-Digest: mFLIMclKhJxUZ8pV/YXyH2PwZkJFppEZcg98gghyNZY=
+
+Name: org/apache/tools/ant/types/selectors/ReadableSelector.class
+SHA-256-Digest: Qp5jJAzK6nxV43z/5X4O9UfGynYcPfYdrolIp9nh8AE=
+
+Name: org/apache/tools/ant/taskdefs/modules/Link$Compression.class
+SHA-256-Digest: GICdKP8YHQBhGsZ7SehyydkdLP61URlFNrmmUu4R15g=
+
+Name: org/apache/tools/ant/filters/StripLineBreaks.class
+SHA-256-Digest: ntRkAHxG7SjpcQPA5/VToT1wVt9qxMHsLgoueDpOyO8=
+
+Name: org/apache/tools/ant/util/XMLFragment$Child.class
+SHA-256-Digest: ku/alls5/K3hPRmPsVQrdEa2OVOWrWSlOpdO4+AhLtQ=
+
+Name: META-INF/INDEX.LIST
+SHA-256-Digest: DY16XMLSoBwNQypzDGIc4lj7d8/lK2r7878OdDpll10=
+
+Name: org/apache/tools/ant/taskdefs/modules/Link$CompressionLevel.class
+SHA-256-Digest: R13GicaTFpAfUMzLmiNeZU8iN9V6PNHvjv3GdeA2hkI=
+
+Name: org/apache/tools/ant/taskdefs/Retry.class
+SHA-256-Digest: PJmG0LjConfrnwn7Kr3X539K71Yg6Xd9YrzGRFE+t68=
+
+Name: org/apache/tools/ant/taskdefs/compilers/JavacExternal.class
+SHA-256-Digest: /2EpsV7EB8BPeVbA9oH3R9nfxmXHCJT1yLSXfWjJqMo=
+
+Name: org/apache/tools/ant/types/resources/Restrict$1.class
+SHA-256-Digest: wDAkRvpPt72b999yLjRnWPvzWDuwGy9TlDP9vYVGrFQ=
+
+Name: org/apache/tools/ant/types/XMLCatalog$InternalResolver.class
+SHA-256-Digest: 0VBoDtzpcG/OGcHEgRuEMX1aeXK6fSg7XYCGsJsU/WE=
+
+Name: org/apache/tools/zip/ZipExtraField.class
+SHA-256-Digest: 7BjO/kksGMQ8fGmBAgUMSQW6J8787bJCH42vCH9Neh4=
+
+Name: org/apache/tools/ant/taskdefs/Concat$TextElement.class
+SHA-256-Digest: wYhdV4WB35VTgLCbhP//Sef6WjK01QWHYl24zfGJqPg=
+
+Name: org/apache/tools/ant/UnsupportedElementException.class
+SHA-256-Digest: dyPt5JZQbPYocmdObuiFYPZJXFVfLgiQRM1zTXM+BUY=
+
+Name: org/apache/tools/ant/util/regexp/RegexpMatcherFactory.class
+SHA-256-Digest: b2+PRR1cm+EIYNLuuU5Cx6WgKiCyeOY1cO86VJ8uZ0o=
+
+Name: org/apache/tools/ant/types/selectors/ContainsSelector.class
+SHA-256-Digest: vUpXSQqJVdVvK9A+GHwozOizoF3dxIUVZoEMfQCXVSA=
+
+Name: org/apache/tools/ant/Executor.class
+SHA-256-Digest: B9cVVuQNwAqqOiKF1ZIwb/ecKT2dok1yi8a6dI7pG0s=
+
+Name: org/apache/tools/ant/attribute/EnableAttribute.class
+SHA-256-Digest: 9yCyL/Aqn+SjSNsCMneFSIi4sFBpbSGNoD/fRHKWeAE=
+
+Name: org/apache/tools/ant/util/KeepAliveInputStream.class
+SHA-256-Digest: 441+H10ccHJWrE+mcEpHOrtjK8c1c9jkEYXNOmDcyqY=
+
+Name: org/apache/tools/ant/types/Quantifier$Predicate$1.class
+SHA-256-Digest: rjROpZh6IAoWeHnCb1dd1Z5Nrp2sI3CI9IDGOsDi2Jw=
+
+Name: org/apache/tools/ant/taskdefs/modules/Jmod.class
+SHA-256-Digest: CSlmcNIHM3cojcnuSoAmt5ovalXtvS5FF3xIVpe462w=
+
+Name: org/apache/tools/ant/ExitException.class
+SHA-256-Digest: QkSm/9cqLjt80Vol2BtKvbPNPY1FmuacRGEta5Fhe+c=
+
+Name: org/apache/tools/ant/taskdefs/Sync.class
+SHA-256-Digest: XBhYYPbbBEmp60jPhMLXYc5cqxvn6dj+JK+CQMoWtTY=
+
+Name: org/apache/tools/ant/util/CollectionUtils.class
+SHA-256-Digest: PqrIIZmRdLqbW11zbr4Dvz1F4UOT/TkbfOTuCqxGhco=
+
+Name: org/apache/tools/ant/util/ScriptRunnerCreator$ScriptRunnerFactory.
+ class
+SHA-256-Digest: u6QUv2LqwOIDNzfe7LwJAhXqDaTVYdvpeQwtowwrumE=
+
+Name: org/apache/tools/ant/taskdefs/Length$FileMode.class
+SHA-256-Digest: FOxqEsDWKcF8F8aOkV55Fux/IGZWywe5EJwjvQvKHms=
+
+Name: org/apache/tools/ant/types/ZipScanner.class
+SHA-256-Digest: KmkgO9EJqCWQ/LHrfNBJpCyWyIQ2seIb5O/peDrpJiY=
+
+Name: org/apache/tools/ant/taskdefs/optional/i18n/Translate.class
+SHA-256-Digest: uxQ26KcDvP+imj5gcEw/S39NQDxCGXls4oNh51prW/k=
+
+Name: org/apache/tools/ant/types/Parameterizable.class
+SHA-256-Digest: ZdXjss8HzT14WQ4aolD1wmD6L08gOeWl5KJNj0Oa/+0=
+
+Name: org/apache/tools/ant/taskdefs/PathConvert$2.class
+SHA-256-Digest: Nx9DxQUoDS1vrp/gSjXUe4Yrv9FzMy5AthB0A0ZVMHM=
+
+Name: org/apache/tools/ant/RuntimeConfigurable.class
+SHA-256-Digest: qHzz8AzJ2th7IFYCYiGHpRY/q42NPe5jSVtxR7OX8iM=
+
+Name: org/apache/tools/ant/IntrospectionHelper$8.class
+SHA-256-Digest: /RcdACt/sn/+pzG3ekddIvuztbZhB5v2sAn8fCpziOA=
+
+Name: org/apache/tools/ant/taskdefs/condition/IsSigned.class
+SHA-256-Digest: yb2VPMg0nTGCSQV6aJgUZlUl7dEZRXmv0ZULtGIEQ/U=
+
+Name: org/apache/tools/ant/taskdefs/CopyPath.class
+SHA-256-Digest: 6/omurJWUdTT0A7+SSMFadOHnGuwLetI2NIK8T55SjU=
+
+Name: org/apache/tools/ant/taskdefs/Touch.class
+SHA-256-Digest: bxZngSsNM8PSM4PFW7xRdBp/6DkE5EtSJn21s824WKs=
+
+Name: org/apache/tools/ant/types/resources/ResourceDecorator.class
+SHA-256-Digest: mjLEiWEoQ+kJXhHwfARSp2fNlhcRCFtBCOASKYKC6Qs=
+
+Name: org/apache/tools/zip/GeneralPurposeBit.class
+SHA-256-Digest: 8bkt9gzpnWIeFtgEv4dCki1CkvyJ8ITAjNPcHzGnHgA=
+
+Name: org/apache/tools/ant/taskdefs/modules/package-info.class
+SHA-256-Digest: gqbw/nndV35adZUTa9ByUQr/J1XnkFpbIosJntAt2FU=
+
+Name: org/apache/tools/ant/types/defaults.properties
+SHA-256-Digest: 8LZb7l+NNttFtcOEB5zCjLCGv2buI4XWMZWfrUql4kw=
+
+Name: org/apache/tools/ant/taskdefs/optional/Native2Ascii.class
+SHA-256-Digest: gRYtdNjstqfI3zxy1FdwanF8glRPmWcHjXDQXzEIC9s=
+
+Name: org/apache/tools/ant/taskdefs/optional/testing/Funtest.class
+SHA-256-Digest: 7x9Dde5/UPccflCtHalBxCcYnzCgGGz0ZTUhJnezaTM=
+
+Name: org/apache/tools/ant/taskdefs/optional/javah/ForkingJavah.class
+SHA-256-Digest: 5Ot8dF00OQULLoxxSFclaoBof7zEQ8HGX3ibKEgIX5U=
+
+Name: org/apache/tools/ant/types/selectors/SizeSelector$SizeComparisons.
+ class
+SHA-256-Digest: LHL0gyExlOb6/O49EZYqQV2vztUfkAsMkcPGxs59rVM=
+
+Name: org/apache/tools/ant/input/DefaultInputHandler.class
+SHA-256-Digest: WAGz9pC8PVaNcrzjUwF/jPutv6V2XuV0A9b5U+CeSw0=
+
+Name: org/apache/tools/ant/taskdefs/ExecuteOn.class
+SHA-256-Digest: LB4Ue1cpeOGzIggWNMpqbXfYkljlxvT+VEXKlJ7PHR8=
+
+Name: org/apache/tools/ant/types/selectors/BaseExtendSelector.class
+SHA-256-Digest: YHn/cyH+llbrWnkwGYc3ZnX52Z2Q8oKxQMzFuJJNtOU=
+
+Name: org/apache/tools/ant/types/selectors/AbstractSelectorContainer.cla
+ ss
+SHA-256-Digest: bMSfdxN2tl/R8eRwtr3qbnepoHgkJr841xQUw7JIS3c=
+
+Name: org/apache/tools/ant/taskdefs/MacroDef$MyAntTypeDefinition.class
+SHA-256-Digest: zuIGdNmSgjCX1OuVHTF1a8oZWI5RKZ4E4rempkKL8A8=
+
+Name: org/apache/tools/ant/util/FileNameMapper.class
+SHA-256-Digest: Yna/7b8fe6ouJJlJ2021ZL0akutRyeu2GbRk05pwRQI=
+
+Name: org/apache/tools/ant/taskdefs/optional/ejb/JbossDeploymentTool.cla
+ ss
+SHA-256-Digest: 1R5SMRf4VNIqhxckEZFAvbfR+5Ra5Upp/V5vDXg2Xvc=
+
+Name: org/apache/tools/ant/types/optional/depend/ClassfileSet$ClassRoot.
+ class
+SHA-256-Digest: xr+0LF+MDQOXPDQ4h74KkSDhir3JhP3n9wiFLpgRS0g=
+
+Name: org/apache/tools/ant/util/FlatFileNameMapper.class
+SHA-256-Digest: YuA9JJS70xOih0it1ULtornv+bY521YqRc868CBEhdc=
+
+Name: org/apache/tools/ant/taskdefs/DependSet$1.class
+SHA-256-Digest: Tc+CQ9B1o8TT246ZXpObOGJWV0EOcgagP7hD++0eqN4=
+
+Name: org/apache/tools/ant/types/resources/Resources$MyIterator.class
+SHA-256-Digest: VvRY9Mtly4KAQfeVcUyTyVTJWXHaa6ZniJWVX79kLOg=
+
+Name: org/apache/tools/ant/types/resources/comparators/Date.class
+SHA-256-Digest: eRKwG8z8zdTqq2T21VX6OAwFN8M3omW5FXFrx9knkzI=
+
+Name: org/apache/tools/ant/filters/ReplaceTokens.class
+SHA-256-Digest: 84pEecLaLxPbt4Wqc+CBekMEU0K9omSesg4wPajU8VA=
+
+Name: org/apache/tools/ant/types/selectors/ExtendFileSelector.class
+SHA-256-Digest: nYlHBS63O3vFDpzuY7kD6nGW6gXptbm9OkUs2vIpYK8=
+
+Name: org/apache/tools/ant/taskdefs/optional/j2ee/WebLogicHotDeploymentT
+ ool.class
+SHA-256-Digest: Hhwdwnt/LU1sjqg6viGMOWnWePEdSe2EN39/E0zZpYU=
+
+Name: org/apache/tools/ant/taskdefs/optional/Script.class
+SHA-256-Digest: /SDRwNqaS7kLgVZaVSRgqvAKUMplLs+gpdZIV8ALZmk=
+
+Name: org/apache/tools/ant/taskdefs/Get$Base64Converter.class
+SHA-256-Digest: bI8GIzFovegOmPprbJ3AmaTQU7dWm4dCWMBsrz9P300=
+
+Name: org/apache/tools/ant/taskdefs/optional/vss/MSVSS$CurrentModUpdated
+ .class
+SHA-256-Digest: veC4At+Hh6J7MsDy6OIIQCU4BH4TVeB2eJ3uhpCZQAs=
+
+Name: org/apache/tools/ant/DemuxOutputStream.class
+SHA-256-Digest: tAWW9PCoUXRnZXBQ/q5WUZkQSfrKW72xQHm8vGEzz9Y=
+
+Name: org/apache/tools/ant/taskdefs/FixCRLF$OneLiner$BufferLine.class
+SHA-256-Digest: kdj425/myGdxoWmixTe+rHTjLJnh5EnuFl3+ta+m5TA=
+
+Name: org/apache/tools/ant/taskdefs/optional/vss/MSVSS.class
+SHA-256-Digest: krNV1zjIvl/N4WsVTEa8ObGaSqCyQEuRKKPCJPmAB88=
+
+Name: org/apache/tools/ant/types/selectors/ExtendSelector.class
+SHA-256-Digest: tFrU6NCYPqFC99tLDwv+IeCEkhYmuughBT1tYeINCKA=
+
+Name: org/apache/tools/ant/util/LoaderUtils.class
+SHA-256-Digest: LJg3fdzvUaPBML9Q7wLXeBVvHJaj/UTc5sO71YBil+g=
+
+Name: org/apache/tools/ant/taskdefs/VerifyJar$BufferingOutputFilterReade
+ r.class
+SHA-256-Digest: /xiLi68pRuq7QhpJJHHySaE3qVEzShBAn/G62NksjE4=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/ClassFile.class
+SHA-256-Digest: wMVMP7PN+lyrHXD+zJrqRuGbjQpXPXc+k8Bd5qpS4GU=
+
+Name: org/apache/tools/ant/types/FilterSet$Filter.class
+SHA-256-Digest: mPHa0xvmzGsul0GKhVl2ka9r8hHH+I0jGXtSTdx6sNg=
+
+Name: org/apache/tools/ant/util/GlobPatternMapper.class
+SHA-256-Digest: Xyawj/9PjhlfTMwuRTte0Cu3fzRuEcc2RWd4VcbFuHA=
+
+Name: org/apache/tools/ant/util/regexp/RegexpUtil.class
+SHA-256-Digest: HjRd419mj/H4Xsf6UC2aV/84J8WWCgXcKfnGJDREUVU=
+
+Name: org/apache/tools/tar/TarEntry.class
+SHA-256-Digest: 0J50LbBbvIiv6hNrXPHCfG/EoWe8ZfPeTCBtY/aYxFU=
+
+Name: org/apache/tools/zip/ZipOutputStream$UnicodeExtraFieldPolicy.class
+SHA-256-Digest: WOcsb4lOQzPUruJMUOqOavb0iT8nNexqSo9d0hC/mSk=
+
+Name: org/apache/tools/ant/taskdefs/optional/extension/resolvers/URLReso
+ lver.class
+SHA-256-Digest: NYDehaUrtV56gzmZDVzUzlVlnNK1ryoHbxTjGvJc83A=
+
+Name: org/apache/tools/ant/taskdefs/optional/ccm/CCMCheckin.class
+SHA-256-Digest: R5qkuTHE8E3HIrJRn+N+pRAvR1UokEPnjpQ+KltScQ4=
+
+Name: org/apache/tools/ant/filters/FixCrLfFilter$AddEofFilter.class
+SHA-256-Digest: VApm7asbGlBW/spVdz0hfxghZChslXNVRDAomN+ukkE=
+
+Name: org/apache/tools/ant/taskdefs/Zip$WhenEmpty.class
+SHA-256-Digest: /nrdOI/qf6uigM1CZXvz+IaxY5ZAxkN5ZvFlSqwkMWk=
+
+Name: org/apache/tools/ant/types/resources/BZip2Resource.class
+SHA-256-Digest: 9Ybfr2HAyjAWtPAPCLZIN0jJSSstodsjiH7iA84DfTo=
+
+Name: org/apache/tools/ant/taskdefs/Deltree.class
+SHA-256-Digest: VRLm+wBDU9VO15WguN6b9N2n3HE+PjnooX5V696hNPc=
+
+Name: org/apache/tools/ant/taskdefs/Untar.class
+SHA-256-Digest: zuieHy8ntIaIpkJhfVpXSrIGeTBZayPP2t8acHDSopM=
+
+Name: org/apache/tools/ant/taskdefs/compilers/CompilerAdapterExtension.c
+ lass
+SHA-256-Digest: 5ES+hnQlpwv9F2SIEvV0wlErcxPbuWS9FPyPlL0z8mY=
+
+Name: org/apache/tools/ant/taskdefs/CloseResources.class
+SHA-256-Digest: mXc68DYciC1F0cl9yMwoyPE3lW2JnJrg16oaNglFDzY=
+
+Name: org/apache/tools/ant/util/Native2AsciiUtils.class
+SHA-256-Digest: VtdULuI7xIFxPZi1lLVh590FEAmEgi5YuuKzGvNt3y8=
+
+Name: org/apache/tools/ant/taskdefs/ProcessDestroyer$ProcessDestroyerImp
+ l.class
+SHA-256-Digest: 8tyx88BfFGkJ9dc+sUXkOLRKWeGVG/2Fhmd0Zi9RJaA=
+
+Name: org/apache/tools/ant/IntrospectionHelper$5.class
+SHA-256-Digest: 51FhUuwuJlZURdkANhNVoPOZiaTn7XeU806IRL1iWng=
+
+Name: org/apache/tools/ant/taskdefs/optional/ejb/BorlandDeploymentTool.c
+ lass
+SHA-256-Digest: GZ5gB5PGYOnC8NJwgDEbsL+Aez1C5V7vG19+kYCf+Xw=
+
+Name: org/apache/tools/ant/types/ArchiveFileSet.class
+SHA-256-Digest: JTowgcDRvdwkUd28hOYT7vNunqIPks4xNnBl0qX3yV0=
+
+Name: org/apache/tools/ant/DynamicElementNS.class
+SHA-256-Digest: rW5JUndn2v/qghb5u9O9t4+lGDzl6pxONbXQqHkjkBg=
+
+Name: org/apache/tools/ant/helper/ProjectHelperImpl$TaskHandler.class
+SHA-256-Digest: EjtH9UxYzrcLQ6kaKi9O76jkK0L9cGvep8V3cYBU4is=
+
+Name: org/apache/tools/ant/taskdefs/optional/ejb/IPlanetEjbc.class
+SHA-256-Digest: CGecepwuRCF+QY/pUWLWn5Mv4KLi9CPHstb94jXIf6Q=
+
+Name: org/apache/tools/ant/taskdefs/Echo$EchoLevel.class
+SHA-256-Digest: IjCffTO1moqxMNUWJcq5JvsR/ZZANJJe5g+URByi3LU=
+
+Name: org/apache/tools/ant/taskdefs/Exit$NestedCondition.class
+SHA-256-Digest: 5TIWGLAptKbVPDUhPzHvIKMUZ9WFvWB+nuIX7K3lBe8=
+
+Name: org/apache/tools/ant/types/resources/comparators/DelegatedResource
+ Comparator.class
+SHA-256-Digest: u5MtnTKmWcmf9ZrBE/sc7hwo1qImz0v0ags0I2kHEls=
+
+Name: org/apache/tools/ant/types/resources/MappedResourceCollection.clas
+ s
+SHA-256-Digest: 8L/mrEqgbcsUp4qfQ3IvzyWigqkVi9qsvkMTaPIKHTU=
+
+Name: org/apache/tools/ant/taskdefs/Input$HandlerType.class
+SHA-256-Digest: xyNemTiEkWVqslsrd6TJXjsHKUl2YvHuTRTu6/TGz5I=
+
+Name: org/apache/tools/ant/taskdefs/optional/javacc/JavaCC.class
+SHA-256-Digest: KPPhbfry6sD+n4m8cs1YuWGlYZqmMtHYYz5tDiC1SW0=
+
+Name: org/apache/tools/ant/Diagnostics.class
+SHA-256-Digest: +FPtUe5rlEPsg29RpKW7VCf/zeyrZPviCuVSpVtDg/8=
+
+Name: org/apache/tools/ant/taskdefs/optional/clearcase/CCRmtype.class
+SHA-256-Digest: msVSOBqB35eIoUOjgbaP+X5RjJ4jMfufABN8fmUgPmw=
+
+Name: org/apache/tools/ant/filters/FixCrLfFilter.class
+SHA-256-Digest: V7HMVR++WrSam/MdrtHFTAmHwLdPNAE2Ze1B/pHhcbI=
+
+Name: org/apache/tools/ant/taskdefs/Parallel.class
+SHA-256-Digest: BZbjIvc3Umy24mTMBw2mHTqujVqKtvziTeeBdde9Hyw=
+
+Name: org/apache/tools/ant/taskdefs/Replace.class
+SHA-256-Digest: bjYeVAILRRvMVmVlj4ZPJSt7OxHBgTy1nzOQcw9TgHo=
+
+Name: org/apache/tools/ant/types/XMLCatalog$ExternalResolver.class
+SHA-256-Digest: msO9rXPH/As12kj2kZNcIlgS+wERU7UDjt8ZfvrbsmI=
+
+Name: org/apache/tools/ant/taskdefs/CVSPass.class
+SHA-256-Digest: EN19jLudVcH6PyeNjOhHXVrb0VxzVB0lEV816MQG16s=
+
+Name: org/apache/tools/ant/util/OutputStreamFunneler.class
+SHA-256-Digest: ZoLknPgotzmTJZU94rehSJQEjanLMgL9IXm6mRqaQe0=
+
+Name: org/apache/tools/ant/util/PermissionUtils.class
+SHA-256-Digest: E4JDOh0OVC1rrqbVyqdvqWgzRyIZJUjnXGAEUTCj+/k=
+
+Name: org/apache/tools/ant/taskdefs/Definer$Format.class
+SHA-256-Digest: ijsBuwGVq5nDzs71he7oz99940O4XlmELfh9BTeZIyg=
+
+Name: org/apache/tools/ant/taskdefs/LoadFile.class
+SHA-256-Digest: 7SNK5qzuytlJcbO3e38OySpvzh3lcRb+rZCZ1g3EdKY=
+
+Name: org/apache/tools/ant/taskdefs/CommandLauncherTask.class
+SHA-256-Digest: wW1tJktczF+vjEWEHm0sXsJs5qgmQmTkkIhgcP7UDic=
+
+Name: org/apache/tools/ant/taskdefs/VerifyJar.class
+SHA-256-Digest: ucMXRgquNs8S3zXqg5voO66FE5U87pte7snOK8wO168=
+
+Name: META-INF/LICENSE.txt
+SHA-256-Digest: bWLR3VL5MoZdbx4okg1T0Kb5cw72uOAsSNmfRw4WCg0=
+
+Name: org/apache/tools/ant/taskdefs/Input$Handler.class
+SHA-256-Digest: l/EO6yerlt0RBPoM3ZhbAEn/W/hz1ucpJpG4om+Sv/o=
+
+Name: org/apache/tools/ant/types/CommandlineJava$SysProperties.class
+SHA-256-Digest: 3vDfwCtE/lM0nQPr5gdXEi4sx8rcUoq5bICwZtRW5P0=
+
+Name: org/apache/tools/ant/DynamicAttribute.class
+SHA-256-Digest: 8MdUE9wqzpoukMSPjwzHyJHUX1TwHTvn+5zYCQpec9I=
+
+Name: org/apache/tools/ant/filters/FixCrLfFilter$CrLf.class
+SHA-256-Digest: XVv1VcFWIfmjccSv/euprquB2+STZpIEt/hn9mov9Rg=
+
+Name: org/apache/tools/ant/util/StreamUtils.class
+SHA-256-Digest: kujnadvvY9M0xri/VzZdxw3/sBbe3LJwJShoHTNgceg=
+
+Name: org/apache/tools/ant/types/resources/selectors/Majority.class
+SHA-256-Digest: 0WzJ4CvwERu4AIqfsi+DLK+tKR718MBbHIoXTOuMEuc=
+
+Name: org/apache/tools/ant/taskdefs/GenerateKey$DnameParam.class
+SHA-256-Digest: mh7dO5J0dx86yMytuUOEpRtfzyba9geQ599so6NnEZU=
+
+Name: org/apache/tools/zip/ZipFile$OffsetEntry.class
+SHA-256-Digest: t5i10/dikDOFUz+RlpXxM+Ao3DHSsWkA7SK4d+5SpQg=
+
+Name: org/apache/tools/ant/types/XMLCatalog.class
+SHA-256-Digest: DTZ6STzuYriLQUmvka4JgmoMDm335h/RdupOuemJijc=
+
+Name: org/apache/tools/ant/util/SecurityManagerUtil.class
+SHA-256-Digest: TB6+8sRhrtIossicY43GXeXf4+jcGe+EAa1vmahLLHs=
+
+Name: org/apache/tools/ant/taskdefs/email/EmailTask$Encoding.class
+SHA-256-Digest: MCGlVhkvBGBieBxulnE5WCD3HEHu1ZseZWZfXDdu8xw=
+
+Name: org/apache/tools/ant/taskdefs/optional/j2ee/JonasHotDeploymentTool
+ .class
+SHA-256-Digest: n9pPA+T09ei9i5mYLGhFs7VY1TYA56V31+MpkqRL7gY=
+
+Name: org/apache/tools/ant/taskdefs/Concat$MultiReader.class
+SHA-256-Digest: TLGNQI5RwFY9beKIbdnec6TlGy1XwZW0svQxB6e7jsk=
+
+Name: org/apache/tools/ant/taskdefs/SetPermissions.class
+SHA-256-Digest: +HvAi0646XFoBBfEo3Ghy8EuQAaeVuYbbNH9VIoZ1W0=
+
+Name: org/apache/tools/ant/taskdefs/optional/javah/SunJavah.class
+SHA-256-Digest: OlN7R81zVysMKE59+avsTYgUvc/K2iStbCGOQkyzSS4=
+
+Name: org/apache/tools/ant/taskdefs/optional/jlink/jlink.class
+SHA-256-Digest: zl7T/uxNs9gRfWKZFtmQ0CIVEge7ReWZ3URTi8aL13E=
+
+Name: org/apache/tools/ant/taskdefs/optional/ejb/OrionDeploymentTool.cla
+ ss
+SHA-256-Digest: 3BoDgx/4jwau36DqXYW6Tda4RdYoiCfFEThrgoQMt+E=
+
+Name: org/apache/tools/ant/taskdefs/optional/vss/MSVSSCREATE.class
+SHA-256-Digest: /5FgaplZwOCpZ/hMq8hUm4FDASF+oE5rNcMoEAh1UXY=
+
+Name: org/apache/tools/ant/types/FilterSet$FiltersFile.class
+SHA-256-Digest: +BH/vQCuQuaP7MCwSXWTcXftQ2LfFNeInWVIXrk5v5U=
+
+Name: org/apache/tools/ant/util/UnPackageNameMapper.class
+SHA-256-Digest: 0ImJHZB5UZ7mjh1Ap4mAjHlGIwdwlSiabETxmZojvB4=
+
+Name: org/apache/tools/tar/TarBuffer.class
+SHA-256-Digest: +cZClGFiVhRO/7gQZyNu3Nje3qZ40aimNM5W1Uqs5zk=
+
+Name: org/apache/tools/ant/types/Permissions$MySM.class
+SHA-256-Digest: zupMMtamaF+0ak1Irg35WtwmUW5QH/QvVspuYCXoU9Q=
+
+Name: org/apache/tools/ant/types/resources/selectors/Exists.class
+SHA-256-Digest: WquyN4XlQ8y19skQOXDv6vjIqKbMpqWlC+amKpxYqWk=
+
+Name: org/apache/tools/ant/ExtensionPoint.class
+SHA-256-Digest: QoZYYauUDf9tSDeJu+dhD8054k4iM1YByjwUytwurXk=
+
+Name: org/apache/tools/ant/types/DataType.class
+SHA-256-Digest: 6ZDLwbu89vxuJ4PCaXM0WGHEChH6idhiVuLmX8klEc0=
+
+Name: org/apache/tools/ant/util/CollectionUtils$2.class
+SHA-256-Digest: nAZp4tKfSkYhCFolAQ131f1nU+ozpftn/mfCa1rH3nA=
+
+Name: org/apache/tools/ant/util/CompositeMapper.class
+SHA-256-Digest: SfKROcSTx8Dusxpbs3mAJZFJSqxDcbfrjRdDlmCQ/b4=
+
+Name: org/apache/tools/ant/taskdefs/Redirector.class
+SHA-256-Digest: VZefUMj4bqF+pNeZC1NpDbioBTdaV41ZwNRN7ZQufHA=
+
+Name: org/apache/tools/ant/taskdefs/ExecuteStreamHandler.class
+SHA-256-Digest: fzcut3Ynwpc3v9kvK/QFrJyK27917KN57OdTWrMXJxc=
+
+Name: org/apache/tools/ant/PropertyHelper$Delegate.class
+SHA-256-Digest: qs5TY0ztvMkZ7TkCZBI2SOy80yKMZTQCM7uYoOuORJ8=
+
+Name: org/apache/tools/ant/taskdefs/optional/clearcase/CCMkelem.class
+SHA-256-Digest: sOUgpnaDv1VUcjvfCXGKJyIT0PxZ6nMPxYTqa9le6QU=
+
+Name: org/apache/tools/ant/types/resources/AbstractClasspathResource.cla
+ ss
+SHA-256-Digest: ITl5SaAuzYVLNzUhgfvdd9pLRkcveJjEnUWJW2w/TfY=
+
+Name: org/apache/tools/ant/taskdefs/GUnzip.class
+SHA-256-Digest: D54haOLr0RLs4BJUwvtOmUc3Ph8BZZEhpXlIFhwQWHs=
+
+Name: org/apache/tools/ant/taskdefs/optional/testing/BuildTimeoutExcepti
+ on.class
+SHA-256-Digest: rq9YMITliy6yCXI+yPEMzJoJliWsoqNzSQtDVa7Pesk=
+
+Name: org/apache/tools/ant/IntrospectionHelper$6.class
+SHA-256-Digest: 8/u8+9S1BaYJ5nncx3M5O3Bai6TUalXKY72UiHLUuhg=
+
+Name: org/apache/tools/ant/filters/ConcatFilter.class
+SHA-256-Digest: Ybj5By51R4/qfQCQ7q9X3OGETdcc58UKd+5bXXj2waU=
+
+Name: org/apache/tools/ant/taskdefs/optional/vss/MSVSS$WritableFiles.cla
+ ss
+SHA-256-Digest: IUBjBB3BZDQrYpBIg3pEQjIwSI3y+wiN8Rg83p/KGBE=
+
+Name: org/apache/tools/ant/types/resources/comparators/antlib.xml
+SHA-256-Digest: X8s0kPPGRx8Og1L7pAnHno6mtLWYMUNDMqSf/NLtDdM=
+
+Name: org/apache/tools/zip/ZipOutputStream$1.class
+SHA-256-Digest: xHqcXkcPTgcHB/afS1SB94mbBEy088OfkRepqU/9Y18=
+
+Name: org/apache/tools/ant/types/resources/LogOutputResource.class
+SHA-256-Digest: 6f4efaOzkSO5h5STwu1EnDiNxKIPQ/tGkjBt6McuXX8=
+
+Name: org/apache/tools/ant/types/resources/Touchable.class
+SHA-256-Digest: hb/nphqM8X9tRFtxeJTM4St7a1DUmGj4+2XW1v2eBYs=
+
+Name: org/apache/tools/ant/taskdefs/Ant$PropertyType.class
+SHA-256-Digest: vnimY04etEFNM9Jv2SGd0tIGK0iRNsNafNGpz28nbsc=
+
+Name: org/apache/tools/ant/taskdefs/condition/ResourceExists.class
+SHA-256-Digest: pd+N0jYTZFQd4MjCrm8WQC7hieNZQKQimtmhbjiFXiA=
+
+Name: org/apache/tools/ant/taskdefs/condition/Contains.class
+SHA-256-Digest: FfsQuWWWaegQBpI6TmaBQuXss152QBzYVbsQMlESgYE=
+
+Name: org/apache/tools/zip/UnparseableExtraFieldData.class
+SHA-256-Digest: E0njLpQ0iLexME8l3GFRDxAhU9dGwK0TfUHMUJMKv1w=
+
+Name: org/apache/tools/ant/taskdefs/condition/Http.class
+SHA-256-Digest: JEaRS4w+19RKEGEj3gHV0zgw5lQXPmqE08iRsrmrcZk=
+
+Name: org/apache/tools/ant/taskdefs/optional/extension/DeweyDecimal.clas
+ s
+SHA-256-Digest: 5rpvKCeKwPKDfiMSsq7LDCvR47cRa7xBIgfeGU6rtyk=
+
+Name: org/apache/tools/ant/taskdefs/optional/sos/SOSCheckin.class
+SHA-256-Digest: I1J2v0mIGAE2xGAgIvmRAxRuv6ZxdNZkP0kbnfKFahk=
+
+Name: org/apache/tools/ant/types/resources/selectors/ResourceSelector.cl
+ ass
+SHA-256-Digest: 9tsv0GnDvM9MUt1DSNehbL2nQMXSVkt0px5IutBH23o=
+
+Name: org/apache/tools/zip/UnixStat.class
+SHA-256-Digest: 9byfO45DCzxNjJu6WRl6iH3Yyuw4xF9sSrRvJ1uNz0E=
+
+Name: org/apache/tools/ant/taskdefs/XSLTProcess$Factory$Attribute.class
+SHA-256-Digest: nt3g7jA2e30l2NK6gMxIDANYm5w5l4EDjas4WyluajE=
+
+Name: org/apache/tools/ant/taskdefs/MacroInstance$Element.class
+SHA-256-Digest: +3Mk1TOKdA6OVEOujtjCddDvDegQahZbrHhX2aIBEIA=
+
+Name: org/apache/tools/ant/Evaluable.class
+SHA-256-Digest: Yz/GxMsMXJiJWAKKH+sHSU5qhb/GdOmYkhi/lq9iKDU=
+
+Name: org/apache/tools/ant/filters/FixCrLfFilter$AddAsisRemove.class
+SHA-256-Digest: rW5jJAu7R78OK/jBHjeOnw0e2yZ5qbK7yBW4KSt8JAw=
+
+Name: org/apache/tools/ant/taskdefs/condition/HasFreeSpace.class
+SHA-256-Digest: FZL8YFflu5NI6RuWFZwATiw/kme7tsvPyPZJulfe2RE=
+
+Name: org/apache/tools/ant/types/Quantifier$Predicate$4.class
+SHA-256-Digest: AqvSM7mx+yrA22J3uLOHjkLdm/pOEnFfXifqmsvVBQg=
+
+Name: org/apache/tools/ant/attribute/IfSetAttribute.class
+SHA-256-Digest: 6aVJ77cyKDWCkdT38JoW48yevRDkTU9CVxNkbNTNFO4=
+
+Name: org/apache/tools/ant/taskdefs/Rename.class
+SHA-256-Digest: cvIOvoTYLNiSQ2z4mP+TLgWVsM2JU2Fc940ei9VkEb4=
+
+Name: org/apache/tools/ant/taskdefs/Expand.class
+SHA-256-Digest: vAQxh8BULaCsb+6hRnLd0omv4Tg9GEIamj6g1dYQitI=
+
+Name: org/apache/tools/ant/types/selectors/NoneSelector.class
+SHA-256-Digest: TPfUyYPqQTgpbwgREIcTFXJaEaQNpuKfhbJwafIr/5U=
+
+Name: org/apache/tools/ant/util/ScriptManager.class
+SHA-256-Digest: KTZNwNCOVWEnwAsYZH6fRB4a0adCQDyJabdtY49Tw0M=
+
+Name: org/apache/tools/ant/types/resources/Union.class
+SHA-256-Digest: ZzcuJWF4c9r2TCP2xjoVuOXPtMwuZEBXCcDIZkAPbA8=
+
+Name: org/apache/tools/ant/helper/ProjectHelperImpl$DescriptionHandler.c
+ lass
+SHA-256-Digest: Jq7fqFX14mB5Hpuilr/l2JpIxaOds6LxPAJQ5kOn4ZE=
+
+Name: org/apache/tools/ant/taskdefs/Jar$IndexJarsFilenameMapper.class
+SHA-256-Digest: kHb1BxiIuO86Z1o0YzbQNgMvVSYbtdk7kKRUxfZagZs=
+
+Name: org/apache/tools/ant/taskdefs/Length.class
+SHA-256-Digest: 8Dlv7oypKX0+gHQ9v+5RowAnlVCyVcKFS2mb6gKg4pw=
+
+Name: org/apache/tools/ant/taskdefs/Antlib.class
+SHA-256-Digest: So3ayjyAd8a6pIAkAoItr5/U/X0QxaYHouMg/xA3xQA=
+
+Name: org/apache/tools/ant/types/selectors/MappingSelector.class
+SHA-256-Digest: YB0Ps7SlADlRDP3XVVWdwAdLgOnuXWEw4rrkRgvra3Y=
+
+Name: org/apache/tools/ant/filters/TokenFilter$DeleteCharacters$1.class
+SHA-256-Digest: drJ9L+Tr/OqBBh6BRngTlrW4/flHnK0QpO/2gSCXppk=
+
+Name: org/apache/tools/ant/taskdefs/BuildNumber.class
+SHA-256-Digest: z0HtgVudWG/1Z1GS6Hb1hOPNNXiRzaAAL/S8GDaC4Ok=
+
+Name: org/apache/tools/ant/taskdefs/Replace$Replacefilter.class
+SHA-256-Digest: 1frP51A48OnbuaoXJqKw7N2aeXCN0g9yiH+CqEJPqMo=
+
+Name: org/apache/tools/ant/types/CommandlineJava$ExecutableType.class
+SHA-256-Digest: 8ibzRJ0mvnOVQAWFek6IbdIt+17eK0VmKZvbfiZoWRA=
+
+Name: org/apache/tools/ant/taskdefs/AntStructure$StructurePrinter.class
+SHA-256-Digest: 2SOlpukdzcTO9LEKNMskAiLhYjHiZNqd3nyA+86NGoE=
+
+Name: org/apache/tools/ant/types/Path$PathElement.class
+SHA-256-Digest: JCkzyLMiRYyDaM/kO1O+426ShH293/Dq2z2L0BeopCs=
+
+Name: org/apache/tools/ant/types/Quantifier$Predicate$5.class
+SHA-256-Digest: hhe3QT0vdO/mcHAukLQsibzcRMCw0AWJvrXpoB23wo8=
+
+Name: org/apache/tools/ant/util/RegexpPatternMapper.class
+SHA-256-Digest: fa0CJq/z7qohMral1Y6y3Rjzohl774MPtFj/XPa0bSw=
+
+Name: org/apache/tools/bzip2/BZip2Constants.class
+SHA-256-Digest: LxJZk/14jdQKcyzd3ilBYBjVw7OG4tLCldZx1wUEMBc=
+
+Name: org/apache/tools/ant/taskdefs/optional/XSLTTraceSupport.class
+SHA-256-Digest: jEmwLxNf6RkC2l63OcmwdwqLS1BJE5twbtqq5fOVK8U=
+
+Name: org/apache/tools/ant/taskdefs/optional/ccm/CCMCreateTask.class
+SHA-256-Digest: 1e7yPyHKlKdjFKJREBs1QG7vgJYHS3i+65MAWm4JuvI=
+
+Name: org/apache/tools/ant/taskdefs/optional/ejb/BorlandDeploymentTool$1
+ .class
+SHA-256-Digest: JgdRPkpSdv2/kmujK7wh7FKiBi9gd9hFUkJsAjwHgDE=
+
+Name: org/apache/tools/ant/taskdefs/UpToDate.class
+SHA-256-Digest: ps1f6X+3KOVzlppE3RXgKEH/1Dv5EG6oCVuv3ISP33g=
+
+Name: org/apache/tools/ant/util/ScriptRunnerCreator$1.class
+SHA-256-Digest: 1CB5Pgnj41ruggxvZrnsRNDRBpZN5xobWycjlg8UcFs=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/Depend$1.class
+SHA-256-Digest: M1pabWrzCMvF+OkOUhyRK775oP/N1WGX2dRNHxnj7XA=
+
+Name: org/apache/tools/ant/types/Resource.class
+SHA-256-Digest: uTuHLdXMNzxEt1x+S0UctV9CoGiiFGqRomFRgDJsXIY=
+
+Name: org/apache/tools/ant/taskdefs/WaitFor$Unit.class
+SHA-256-Digest: GZ3Y5Qr/aOXpOJTD80jS9PTkCpZMe37kMlAsCXGNvMM=
+
+Name: org/apache/tools/ant/types/Description.class
+SHA-256-Digest: jGB6JpMZLzHwjojv1m23021RaqLwydYnhpCdAwOo1kk=
+
+Name: org/apache/tools/ant/types/selectors/modifiedselector/Propertiesfi
+ leCache.class
+SHA-256-Digest: tASDDh7wMDpj0f+AZzu01cbeR71Skcupar1HBMVXL5k=
+
+Name: org/apache/tools/ant/IntrospectionHelper$7.class
+SHA-256-Digest: nc0R7dYdjeGDER9nYvAqfsr5SxA0Y4UedA5d5OZ/TzY=
+
+Name: org/apache/tools/ant/taskdefs/PreSetDef$PreSetDefinition.class
+SHA-256-Digest: PNMA/O3O2GFmeuq3AMeg2YjgBm2gOOacLlo5EOWYBo0=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/constantpool/ModuleC
+ PInfo.class
+SHA-256-Digest: xkVhx9cytbE7O0e1vmYhEJOg3jQsDJcNHUk96OutBRU=
+
+Name: org/apache/tools/ant/util/XMLFragment.class
+SHA-256-Digest: LgWlSj0ue8rtZ9zbABRZwMF9ccznsY1B0wYfJ4KpV9M=
+
+Name: org/apache/tools/ant/taskdefs/optional/ccm/Continuus.class
+SHA-256-Digest: oxtcC/pB5w4Jjqgh1Esmt/t5t5EkMtSrxybVTfE4Ll8=
+
+Name: org/apache/tools/ant/taskdefs/optional/jlink/ClassNameReader.class
+SHA-256-Digest: wAZJjzfmSzV/RwKgMbwd37KoAgho1vDHBrghcNMfh30=
+
+Name: org/apache/tools/ant/taskdefs/Sequential.class
+SHA-256-Digest: 8vMjYBCFd8dTBJg5FMERncqUinKl5WmgA9EN1qZGWWE=
+
+Name: org/apache/tools/ant/taskdefs/optional/j2ee/HotDeploymentTool.clas
+ s
+SHA-256-Digest: K60W3NEVS+q4fo/Qrcm/mcvzdN5kyL/XVco4IKKUbMs=
+
+Name: org/apache/tools/ant/types/resources/LazyResourceCollectionWrapper
+ $CachedIterator.class
+SHA-256-Digest: xHplozYP8fAxb3hswTDYiTOqn+gimKWZelO5aqNW9LA=
+
+Name: org/apache/tools/ant/taskdefs/AntStructure$DTDPrinter.class
+SHA-256-Digest: du3+hqqzHI4RK+JEQ1hysj2OK1Tk3gDxm1yOPShAYAw=
+
+Name: org/apache/tools/ant/taskdefs/ExecuteWatchdog.class
+SHA-256-Digest: Qmw0OckmdyHQ2kz30KhfO8mDdcbcinLR84Yq/TxORLI=
+
+Name: org/apache/tools/ant/taskdefs/optional/ejb/WebsphereDeploymentTool
+ .class
+SHA-256-Digest: 2Og5/aoE46KWkbcJMBU2mDlFLDEgzow29XUqXyeql8o=
+
+Name: org/apache/tools/ant/property/LocalProperties.class
+SHA-256-Digest: odtPZTvNVOKAtFfhWQ6W8wsgezHNkDSpR3ljDpK3TXo=
+
+Name: org/apache/tools/ant/taskdefs/Exit$1.class
+SHA-256-Digest: MEEOyHoFXlod6jiT4c/ogOYsNOJ8OSDhcMEKYFgxUFg=
+
+Name: org/apache/tools/zip/Zip64ExtendedInformationExtraField.class
+SHA-256-Digest: 0uQhuAQoz8q4WJe5riuJdPQIYesnWfFFh90+ZK47hbk=
+
+Name: org/apache/tools/ant/taskdefs/DependSet$HideMissingBasedir.class
+SHA-256-Digest: RVAbmgs5bc0bp05qKmWlGTYDhFTS9dJ2jYaH5nupYsA=
+
+Name: org/apache/tools/ant/types/DTDLocation.class
+SHA-256-Digest: Kh4jgxx/7fisaT897S0r3SIsV370NrIgGa5/sWrgDMI=
+
+Name: org/apache/tools/ant/types/resources/selectors/Name.class
+SHA-256-Digest: 2CynUsASIZxTvP6v5HO9l1BhZIGwP76N/5FtBf5lYPQ=
+
+Name: org/apache/tools/ant/taskdefs/Javac.class
+SHA-256-Digest: CyilKjx34M5rmJTNxbQEO5ULbEVigC+hk4qRS76ajvI=
+
+Name: org/apache/tools/ant/util/LayoutPreservingProperties$LogicalLine.c
+ lass
+SHA-256-Digest: dSsPFCX+u6UdAihSEz32OKegAEw7td3kC9OUAasJbz8=
+
+Name: org/apache/tools/ant/loader/AntClassLoader2.class
+SHA-256-Digest: tlMTkqlwpiWzF7floodqbPPoe3MNuC8+6t2qengPcxU=
+
+Name: org/apache/tools/ant/taskdefs/Replace$FileInput.class
+SHA-256-Digest: /L2YBJp4JDhy0/Sv4uPE8thr/lt2TlffdmgQ/catZc0=
+
+Name: org/apache/tools/ant/types/Quantifier$Predicate$3.class
+SHA-256-Digest: 5TPWKa8DxJ0813fBvtPCw+pKCSyzArcL5O/elT+2uio=
+
+Name: org/apache/tools/ant/taskdefs/Javadoc$Html.class
+SHA-256-Digest: waLS/u5naLYP7w0Nn0EwlButhR6faC8fbZaF2Eu/VBg=
+
+Name: org/apache/tools/ant/types/Commandline$Marker.class
+SHA-256-Digest: BkXHdRCnr+pTKp01MD4TxzjJDbMEzMmeFPdeVux7Nng=
+
+Name: org/apache/tools/ant/attribute/IfBlankAttribute.class
+SHA-256-Digest: 2N36L3gn6nuBm1xFvJCLng+by1RibUG6PwmygijxbuA=
+
+Name: org/apache/tools/ant/taskdefs/DependSet$NonExistent.class
+SHA-256-Digest: KtJFwDA3IlMaS3QP0xVjH9+hY1VhMX2rHsj9ILnrLPg=
+
+Name: org/apache/tools/ant/taskdefs/rmic/RmicAdapter.class
+SHA-256-Digest: DjOB8qUYcommS8PIxb8bNlE55gA5nrYnCPiaKJ0RjwQ=
+
+Name: org/apache/tools/ant/types/RedirectorElement.class
+SHA-256-Digest: BGoljMx1VIWbsnhcBDEYxe4ZgMJ2Q3GbQB5utSUrM9E=
+
+Name: org/apache/tools/ant/ProjectHelperRepository.class
+SHA-256-Digest: hMllah2DAsQT0A5D6ez0MbDAP98PjMTnFm5byR77SWw=
+
+Name: org/apache/tools/ant/DefaultDefinitions.class
+SHA-256-Digest: EEEFCe6iSaoBSaRrkjbup/jAIwHScAFCcINgYEdfL8U=
+
+Name: org/apache/tools/ant/taskdefs/condition/And.class
+SHA-256-Digest: TcnQClGKMkfUtrgs65HrlkGRnsiN7a4KZl3KX/Q+FpQ=
+
+Name: org/apache/tools/ant/DemuxInputStream.class
+SHA-256-Digest: DKmLZhQ8iiVDXUFOOZ1Ky4m37ostbS/1PX3rlVutxtY=
+
+Name: org/apache/tools/zip/ZipEncodingHelper.class
+SHA-256-Digest: 1avX5bGh6ej6RLtLtzmmEvgHCmqpYnX7BsT7ytv1N6w=
+
+Name: org/apache/tools/mail/ErrorInQuitException.class
+SHA-256-Digest: miE6kjfFZG6J03WGQmiRryCa/E6ceoMzKXa7Ep2aXE0=
+
+Name: org/apache/tools/ant/taskdefs/condition/Socket.class
+SHA-256-Digest: HFgf2Cs5YUpZ8Sq22k2pRG10e7WydrMVqEE+Wm0hhCE=
+
+Name: org/apache/tools/ant/util/LineOrientedOutputStreamRedirector.class
+SHA-256-Digest: IQdbP1LIho8eqCREVN0g2UEpg07WaODm6UHqiW+5gZs=
+
+Name: org/apache/tools/ant/taskdefs/optional/extension/ExtraAttribute.cl
+ ass
+SHA-256-Digest: x5zkQUF8JfM1a7dLRVexGiCu60ZqI+vGR1l0N+PpTO8=
+
+Name: org/apache/tools/ant/taskdefs/Javadoc.class
+SHA-256-Digest: OXzVxBkvbNtPJhgJ3RsOgaI7z/tH758zFaPVrVphA7Q=
+
+Name: org/apache/tools/ant/types/selectors/BaseSelector.class
+SHA-256-Digest: pQfXHpTNtN4gZxECrpm9KSrYsYxQVOkYp8dIT+69dTU=
+
+Name: org/apache/tools/ant/taskdefs/Concat$ConcatResource.class
+SHA-256-Digest: 58iMYoFD6VIRbcwb2XcEe37AxQau+0jkyaO4u3AaLjc=
+
+Name: org/apache/tools/ant/taskdefs/AbstractJarSignerTask.class
+SHA-256-Digest: qWmbawrF5HnGeXhFbcZ1+URijp2OnIldG4wgXuZVgGI=
+
+Name: org/apache/tools/ant/taskdefs/Checksum.class
+SHA-256-Digest: PXMxFCVB7Hcs/vZ41wwNw8iaSFCwv89RDhHG/HokWXE=
+
+Name: org/apache/tools/ant/taskdefs/MacroDef$Text.class
+SHA-256-Digest: KYKhx47m5qW5fLfECCCAE5i/ZAWg/f6VYOL/cTRH0M8=
+
+Name: org/apache/tools/ant/types/resources/FileResourceIterator.class
+SHA-256-Digest: p0rsGPiqax54Pr9VWvh+Lc02sAQjSgPvZG67YhAWCk0=
+
+Name: org/apache/tools/ant/filters/TokenFilter$FileTokenizer.class
+SHA-256-Digest: MZIzeG02uqWjNzRV4kPQeupl91XVIpS2DUNY8MLcSVE=
+
+Name: org/apache/tools/ant/FileScanner.class
+SHA-256-Digest: 4jCuc69jbntYHRSfLNRVgRCrSWwbPQijeDrYH50jCJ8=
+
+Name: org/apache/tools/ant/listener/defaults.properties
+SHA-256-Digest: ugTfD4tKFsPmHUevJuI7mEeVxmKaAJ4xwNuDH+BNlj8=
+
+Name: org/apache/tools/ant/taskdefs/launcher/OS2CommandLauncher.class
+SHA-256-Digest: TPRecQqpiXXeSoX3TRTtfJWGlxNY7XmSFs1tRCMbUzA=
+
+Name: org/apache/tools/ant/taskdefs/Length$AllHandler.class
+SHA-256-Digest: 5PlbOujtFWDe6cHo0X+3EmVXPUngPwRDAZFwXdQA1Co=
+
+Name: org/apache/tools/ant/taskdefs/defaults.properties
+SHA-256-Digest: +OjVVAqMOpnfu5ihzT7APAOokFrDDHRYsXdTqRTxp9k=
+
+Name: org/apache/tools/ant/taskdefs/modules/Link$ReleaseInfoKey.class
+SHA-256-Digest: yMBER89hMuyrYCHaDHcXIvwCPcOFvOx9b31JN3Fr2KE=
+
+Name: org/apache/tools/ant/taskdefs/AntlibDefinition.class
+SHA-256-Digest: XtVG+F7LQwILR/dtSvjhFG08zWxxSGrTuVjWBhgrghA=
+
+Name: org/apache/tools/ant/taskdefs/Recorder.class
+SHA-256-Digest: z7K/JT87qEatThVS6YaswVO0+eGRgIJdzD7MpqCp1mk=
+
+Name: org/apache/tools/ant/taskdefs/optional/testing/BlockFor.class
+SHA-256-Digest: Aw6xiSneTs78YiQBujsvhQrWLfpOXjHeTasg0+CW6zo=
+
+Name: org/apache/tools/ant/taskdefs/optional/jsp/WLJspc.class
+SHA-256-Digest: QTDDORXHdNkd3Cr3W2PPiXRzQ8pOLXFq9VXO5VdUVOk=
+
+Name: org/apache/tools/zip/ExtraFieldUtils$UnparseableExtraField.class
+SHA-256-Digest: haUqLiQbniiEjPY+F+z1QAl0GMk+n/haUc+fsP1P9fg=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/constantpool/Dynamic
+ CPInfo.class
+SHA-256-Digest: k6JhCvUYP/xd/CRZZNmh7jz+WiqaZs6k2k2Bzl3DHlQ=
+
+Name: org/apache/tools/ant/taskdefs/Transform.class
+SHA-256-Digest: ktI0jYiLaZqsFVvE7roPEMRGo5SEh0/GrPmh/wydhNs=
+
+Name: org/apache/tools/ant/util/CollectionUtils$1.class
+SHA-256-Digest: HwPtNhtdQiIotSx+qa+ffTUoz0GwGMiOsL8FHg57h0o=
+
+Name: org/apache/tools/ant/taskdefs/optional/native2ascii/DefaultNative2
+ Ascii.class
+SHA-256-Digest: 949+OfwWzUy34eFTSDT/kaInI2Nv9ux9MRsxg6Xg4TE=
+
+Name: org/apache/tools/ant/types/spi/Provider.class
+SHA-256-Digest: bMHevAhQillbyZQcK4Ntz2BHDXXqXPp0PBYPCgj7Mh8=
+
+Name: org/apache/tools/ant/types/Assertions$DisabledAssertion.class
+SHA-256-Digest: 638SRX2Yd2uO6oGUSPNIzvwdUkt2lec4J38NHnPd8S4=
+
+Name: org/apache/tools/ant/util/TimeoutObserver.class
+SHA-256-Digest: MtwgVDRD8p0ERqjDB4/TUemLCfzX37VF5WsAgxZSssM=
+
+Name: org/apache/tools/ant/taskdefs/optional/ejb/EJBDeploymentTool.class
+SHA-256-Digest: f5XUy4Jb8+W78FRm/8ElUKgrQ05S9ta4NvpqzD8DKQM=
+
+Name: org/apache/tools/ant/filters/TokenFilter$StringTokenizer.class
+SHA-256-Digest: HU12vfXN/mpluCpJkHTp1gLe/qsgcbrDmTvTL+1Ul6Y=
+
+Name: org/apache/tools/ant/taskdefs/Delete$1.class
+SHA-256-Digest: q6USGqAtRsySNy5I8OKS0DTEhBaZ6+I8vyiEXCeD/pc=
+
+Name: org/apache/tools/ant/taskdefs/PreSetDef.class
+SHA-256-Digest: klhT/JpUKiDp/q1PZ7uQ4FW+Mqz3KBXzXVvyrxVYbHs=
+
+Name: org/apache/tools/ant/ExitStatusException.class
+SHA-256-Digest: feTPad2AK4t/6CP3ZqJyAowQq1hpZfszb9ywB4l+Jf8=
+
+Name: org/apache/tools/ant/taskdefs/condition/FilesMatch.class
+SHA-256-Digest: s1Vam1LEdUkQ2yseY9GgADpDfrJ8RqqiFCPDy6uyytQ=
+
+Name: org/apache/tools/ant/taskdefs/AbstractCvsTask$Module.class
+SHA-256-Digest: ghlm/O/jlKwaRolUUOsAxEeW9Ns1lFBl2wBwsESn0z4=
+
+Name: org/apache/tools/ant/taskdefs/Tstamp.class
+SHA-256-Digest: LydD6NKuvXwTl5DSUBoJLiSinEkt3GPZ887h0/MM4I0=
+
+Name: org/apache/tools/ant/types/selectors/PresentSelector$FilePresence.
+ class
+SHA-256-Digest: hLPn0TQ7ZsdNoUmkYwLlMw+tDEcgEEgZlUmoOffvxM0=
+
+Name: org/apache/tools/ant/taskdefs/Tar$TarFileSet.class
+SHA-256-Digest: 5zgcUDSCN571RA+u0a8kbbKEJEKYxdH2opSaHz/uOYE=
+
+Name: org/apache/tools/ant/taskdefs/FixCRLF$AddAsisRemove.class
+SHA-256-Digest: f75VpEr3EPuUkLSZJngrTM8nOcv0KLBi5VtW5KdS+yw=
+
+Name: images/ant_logo_large.gif
+SHA-256-Digest: iiP70qkIKK7dmWKKSWa9mRJ4dJonaLymrdyzwBhuQl0=
+
+Name: org/apache/tools/ant/types/Environment$Variable.class
+SHA-256-Digest: mE4i7EEIB33oRnw8XIunLdonUv2iKN6BJ1zoMmiTOhM=
+
+Name: org/apache/tools/ant/taskdefs/launcher/VmsCommandLauncher.class
+SHA-256-Digest: JlNCrv+mK7ylfq0BwzFfm5fB/RAIvYblFrPm7C8YO6k=
+
+Name: org/apache/tools/zip/Zip64Mode.class
+SHA-256-Digest: b9OXv0lF3+XFoZNuB8C1Hinh6fEcD5N7uz6Q4gnzPdc=
+
+Name: org/apache/tools/ant/helper/ProjectHelperImpl$TargetHandler.class
+SHA-256-Digest: BnQdfLHtjyYqTeoNS3tDBZFiNA/mTba53wtvPTVIM5U=
+
+Name: org/apache/tools/ant/taskdefs/Javadoc$PackageName.class
+SHA-256-Digest: MJKJ87cBGWUj3/qEUKrRyJ5pYeVbk+FoXs5Bdl62WU4=
+
+Name: org/apache/tools/ant/types/selectors/modifiedselector/LastModified
+ Algorithm.class
+SHA-256-Digest: v3zHtXFkPdSvq4ZnJXFbB+p7WQLQe1VmgnU1BoCxzLg=
+
+Name: org/apache/tools/ant/Location.class
+SHA-256-Digest: 5UTosWxyEX1Wxa4EAU3kHj2XOGjGwLx2CI0gyLCCE1k=
+
+Name: org/apache/tools/ant/types/resources/Appendable.class
+SHA-256-Digest: admN2XPt2G4zJdsjEIy36tsmbyNFroQ71Y8BeqmEegg=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/constantpool/Constan
+ tPool.class
+SHA-256-Digest: 0jDuJK8xK9X1StGzTHoGTqdvKnioyAmTe+DhoGTFZtc=
+
+Name: org/apache/tools/ant/taskdefs/optional/depend/constantpool/MethodH
+ andleCPInfo.class
+SHA-256-Digest: HVLNUQC0wi2KCEziszGsWD/P3e9ovLK/A5OXE05prTQ=
+
+Name: org/apache/tools/ant/types/PatternSet$1.class
+SHA-256-Digest: hGyRUbLM5oYmKpY0ZEfKJm2T9wIhRfiDxmF/HVIvUfY=
+
+Name: org/apache/tools/ant/types/Quantifier$Predicate$2.class
+SHA-256-Digest: vhp5086Saz62WqmWg3e4innDjxGf732TqYVTOFvnbfM=
+
+Name: org/apache/tools/ant/util/MergingMapper.class
+SHA-256-Digest: /W9t7WNw4RGV2oCDjFCSSOubRQEdtJ5PhGreRjDmlZQ=
+
+Name: org/apache/tools/ant/dispatch/DispatchUtils.class
+SHA-256-Digest: hGClcxyQYIMdVFdNLLqVn/GeobOmI3glwlOcrmBJgW0=
+
+Name: org/apache/tools/ant/types/Permissions.class
+SHA-256-Digest: 877JgR68nRRZnuJK2ckF3SiATBE3PQDW7rPxVfQgaW8=
+
+Name: org/apache/tools/ant/types/selectors/TokenizedPattern.class
+SHA-256-Digest: i9Dd7RsdclDiDP/oATTrErMerLmUVIwWljobNk7t00M=
+
+Name: org/apache/tools/ant/taskdefs/Get$NullProgress.class
+SHA-256-Digest: VRQZFy/UF00LuGKpKdTGG3QL1KuVUuVXEOb7qrlcYIw=
+
+Name: org/apache/tools/ant/taskdefs/optional/ejb/InnerClassFilenameFilte
+ r.class
+SHA-256-Digest: cy6Ik42xyhNAYsKghxYg6cRqRHNpQraZ4jpeilOyHRs=
+
+Name: org/apache/tools/ant/taskdefs/XSLTLoggerAware.class
+SHA-256-Digest: GLF8Dn9z6p76aEwJrM6/HmbseRWtPqQD+c57LRlPGWU=
+
+Name: org/apache/tools/ant/filters/PrefixLines.class
+SHA-256-Digest: HF1+e6qzyvztf/HpnA2xRDap5bWzwvn3eShkO5JFR8o=
+
+Name: org/apache/tools/ant/taskdefs/optional/EchoProperties.class
+SHA-256-Digest: sldJEmC1e7AcfjcDCbg9sh3A2zOABSePQC1ry7ixckk=
+
+Name: org/apache/tools/ant/types/resources/BaseResourceCollectionContain
+ er.class
+SHA-256-Digest: eKKHqLWc+aei+K2+cp0szGj7S1J9r6zsccqcnLvbM4M=
+
+Name: org/apache/tools/zip/ZipOutputStream.class
+SHA-256-Digest: kp4Tt+X5WI609kCFlrV4K27dNLMOnJcInh8s7NQ1/3E=
+
+Name: org/apache/tools/ant/types/resources/ZipResource$1.class
+SHA-256-Digest: MDeZWfebP7busx+EmE1mmXT/iFt5UOoSxiOFayGqvsY=
+
+Name: org/apache/tools/ant/taskdefs/optional/TraXLiaison.class
+SHA-256-Digest: Ont74zBANBghS0nlSsWKppCuFg0ZOkVjQX2WrGCxnRU=
+
+Name: org/apache/tools/ant/helper/ProjectHelperImpl$DataTypeHandler.clas
+ s
+SHA-256-Digest: UucaGGNt2dkdG3H4Nx+f4N8C5avlfV+fbDom2DOmi+Q=
+
+Name: org/apache/tools/ant/taskdefs/optional/ejb/EjbJar$NamingScheme.cla
+ ss
+SHA-256-Digest: NIloOpmrONneWUSNYXxY+EICPhDfIqAj54pTQVaKN6Y=
+

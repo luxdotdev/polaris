@@ -1,4 +1,4 @@
-import type { Catalog, Tool } from "../../apps/daemon/src/languages/catalog/model";
+import type { Catalog, Integration, Tool } from "../../apps/daemon/src/languages/catalog/model";
 
 export const offeredTools = (data: Catalog): ReadonlyArray<Tool> =>
   data.tools.filter((tool) => tool.disposition === "offered");
@@ -9,6 +9,19 @@ const artifactFailures = (data: Catalog): ReadonlyArray<string> =>
     ...tool.artifacts.flatMap((artifact) =>
       artifact.format === "npm" && !artifact.bundle ? [`${tool.id}: missing-npm-bundle`] : []
     ),
+  ]);
+
+const companionFailures = (
+  integration: Integration,
+  managed: ReadonlyArray<string>
+): ReadonlyArray<string> =>
+  (integration.developerCompanions ?? []).flatMap((companion) => [
+    ...(managed.includes(companion.id)
+      ? [`${integration.id}: duplicate-managed-companion:${companion.id}`]
+      : []),
+    ...(integration.providers.some((provider) => provider.id === companion.provider)
+      ? []
+      : [`${integration.id}: unknown-companion-provider:${companion.provider}`]),
   ]);
 
 export const referenceFailures = (data: Catalog): ReadonlyArray<string> => {
@@ -24,6 +37,8 @@ export const referenceFailures = (data: Catalog): ReadonlyArray<string> => {
 
     for (const id of managed)
       if (!offered.has(id)) failures.push(`${integration.id}: unoffered-reference:${id}`);
+
+    failures.push(...companionFailures(integration, managed));
 
     if (integration.formatter.source === "managed") continue;
 

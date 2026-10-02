@@ -1,0 +1,342 @@
+{
+  "nestedPath": "org.eclipse.jdt.launching_3.24.300.v20260609-0435.jar!/lib/javaagent-shaded.jar",
+  "parentSha256": "d8aad606c07b42a189a353797d9b3d1493f794647128bbad17908b0d58ba95e0",
+  "parentSourceReference": "scm:git:https://github.com/eclipse-jdt/eclipse.jdt.debug.git;path=\"org.eclipse.jdt.launching\";tag=\"I20260609-1800\";commitId=f35ed460321b44178b15b35800ecc300e5b3bf73",
+  "source": {
+    "url": "https://codeload.github.com/eclipse-jdt/eclipse.jdt.debug/tar.gz/f35ed460321b44178b15b35800ecc300e5b3bf73",
+    "sha256": "9dc032127bebd14d0e97a429b1096fdbab8c83f07d996149bb0413d720afbcba",
+    "bytes": 2330865,
+    "notices": [
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/LICENSE",
+        "sha256": "0becf16567beb77fa252b7664631dd177c8f9a1889e48995b45379c7130e5303"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/NOTICE",
+        "sha256": "2f01e5d3bebde62fb2adf120d9abd15d8024be66d9e17805e84ed115394dd352"
+      }
+    ],
+    "legalHeaders": [
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/AbstractRuntimeClasspathEntry.java#legal-header",
+        "sha256": "c6acfd2b5217f8fff22a55905b336d8632d5514a49713cc33d7c80b8e1a46eae"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/launching/sourcelookup/containers/JavaSourcePathComputer.java#legal-header",
+        "sha256": "b10838576ffd4e2a750c6f4b6c3df8c0c13d216db4abd374a726de3f4aa9296f"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/ClasspathShortener.java#legal-header",
+        "sha256": "ba3190acb490ee0cb3cfe739ebe4d8773bc5c651cec9119a1a6a9c39d39e5c37"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/CommandLineShortener.java#legal-header",
+        "sha256": "b555bdb870abe359f2254b432dd4c9f45b10473605dcd536225e001505221209"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/support/org/eclipse/jdt/internal/launching/support/LibraryDetector.java#legal-header",
+        "sha256": "5f2ce23daf88cb89956446e2f4b71790f8286f4daba1f575b6a926e3e74c7560"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/launching/StandardClasspathProvider.java#legal-header",
+        "sha256": "9f3abd04c4f0c6afb663255f9eb7427a3606b946ebf2390272a63526afcd7001"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/DefaultProjectClasspathEntry.java#legal-header",
+        "sha256": "c40fe306fd8606aff530f70f0a35d2457cbf9f9da479e20854884aaf7733369d"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/DetectVMInstallationsJob.java#legal-header",
+        "sha256": "db92ff9e6f94f2d7a171aaa84a17545b343a929d625433d2b202f5257a52830e"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/EECompilationParticipant.java#legal-header",
+        "sha256": "6c135fd9fe6daeae3dc832ce55d4a75f5617ec6e01e63fb091a5370481a718d9"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/EEVMInstall.java#legal-header",
+        "sha256": "c68da875baf15bbbe5835dec5b14d8f570d12d5a8b4d2909838b417d86e78e7b"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/EEVMType.java#legal-header",
+        "sha256": "f95978072c57f672512a49caf2fdae73ebd6adf22a80d61bd0795c6df5e189ea"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/IProcessTempFileCreator.java#legal-header",
+        "sha256": "065c36b569326fa7747c85c22e8cdbf9de5426d4be0b3c9863d8ddeb42c80f85"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/JREContainer.java#legal-header",
+        "sha256": "1b2cea034a1d1e1608a269d1bbaf498698a62875db2c12334a38a0aa8ed7866c"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/JREContainerInitializer.java#legal-header",
+        "sha256": "7a55952f4770de7f7394a346d22d93114da3889d35cb06356b29bd0789748c33"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/environments/Analyzer.java#legal-header",
+        "sha256": "1fc87535e0fe6628ec08e916fc06be2084be5771c257910debca74aff66a09a1"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/JavaClasspathVariablesInitializer.java#legal-header",
+        "sha256": "5187f1c36a987abcf850afddf9b97394a1c1fb8be4cf8e956406dc79bce63a72"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/JavaFxLibraryResolver.java#legal-header",
+        "sha256": "7f7fcab2eddb1e5076ab1eab9b64f34cbb3f0b5c3d38888c5c2ac2e56fdd013c"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/JavaLaunchableTester.java#legal-header",
+        "sha256": "dd4a1cade7b949887fb019cc68547d3e15a5d97e88dc399f353dcdbeab8ae0da"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/JavaLaunchingUtils.java#legal-header",
+        "sha256": "4e1cc47c10baee44e4bd643ea5f70753bfcc243c76e2fad02f4f5d2cf3198479"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/JavaSourceLookupUtil.java#legal-header",
+        "sha256": "8133e8bd92f7bb239dfb5569b756b7741eff90312ba828c5f51c47bbd3313565"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/LaunchingMessages.java#legal-header",
+        "sha256": "308c407f2401e1e951040965027cdcfc997cfa42008e371c3db4558f3530b63c"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/LaunchingPlugin.java#legal-header",
+        "sha256": "b19920b48ffaec2cdd8daaf4cfcb1317de43ddc57f47ca2b300d7b09c6e5689d"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/LaunchingPreferenceInitializer.java#legal-header",
+        "sha256": "e01169aae17c4eaa33c2aa01b44d348acf178e5a8db72ca0c4c2b78c6ebb0b76"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/launching/IVMInstallChangedListener.java#legal-header",
+        "sha256": "83f573595eadf555e17093c54ceb0458857261f01b548a51a810ad01be17d975"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/MacInstalledJREs.java#legal-header",
+        "sha256": "98439fdd0905217029e9ad677a02e6e871c8d3f1bc18af5ff0c56cdf2350c41a"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/PListParser.java#legal-header",
+        "sha256": "ab1df38aefae9829e281f3211f28a7044640c752534322240ba9b357de00eda5"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/ProjectClasspathVariableResolver.java#legal-header",
+        "sha256": "8904f03c0e2e26d5a415eda9a6badf725b6a5bdf1c64180f5c0f6c53154cf908"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/RuntimeClasspathEntry.java#legal-header",
+        "sha256": "ba684ceb37e0566998ef2a83530af72b0f1f68ac7951b072956b1dc65c0f40ea"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/SocketAttachConnector.java#legal-header",
+        "sha256": "8b0cdbbd6f9af985a29f09ef1b84ade3dea1670eef31d3a5e34be4ee07416a53"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/SocketListenConnectorProcess.java#legal-header",
+        "sha256": "fbb122517193512b4db5db6af01693a54f2ca961d228e762d385c8717f2e5f27"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/launching/sourcelookup/IJavaSourceLocation.java#legal-header",
+        "sha256": "de7ecc8f0eddc12fa08a79d83f1865f441e13c5e8df5e177ed42489316155958"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/StandardVMDebugger.java#legal-header",
+        "sha256": "0111a94e2f295198b63db8f50910b5efaaf1f94887f82b179ef7ee0c08d4f7f9"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/StandardVMRunner.java#legal-header",
+        "sha256": "75c96b06508c26520c87f71d9f8145bfa4abebd6c9eecfa03991b63d0eb94e03"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/StandardVMType.java#legal-header",
+        "sha256": "3c1bd1d3c0d0a8f8aa833f73216659e7f56cf7c4604c5423ce674fcf09f7bf9a"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/launching/LibraryLocation.java#legal-header",
+        "sha256": "721d45707e3b9bb89517c32970464b0c292d5579c6d268bddc532c6eb8f4f74a"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/VMListener.java#legal-header",
+        "sha256": "32c78d28b86bc7515761595590eb5825bef00b141143d64d1a15f3c589c0a4b2"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/environments/AccessRuleParticipant.java#legal-header",
+        "sha256": "49ce514bbb3446815cf0f821fdad27fb7625ffcf748f5c9428e4196b1bf16351"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/environments/DefaultAccessRuleParticipant.java#legal-header",
+        "sha256": "c84f3b9d6f4762aff9168a23353ef7c9b7d3b752657c421ab0b6177b29ef6ee4"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/environments/EnvironmentMessages.java#legal-header",
+        "sha256": "6e16db34c47a449dade5605129687dc12d1d5d463ef6f6482e3f6c93d22ded52"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/environments/EnvironmentsManager.java#legal-header",
+        "sha256": "2f301a77b59c05c632cb309e12a7fa5df007d283f5010cd696a7c7a8eb18905a"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/environments/ExecutionEnvironment.java#legal-header",
+        "sha256": "55b8f9f66edf69b12eb6a2079698a8dbe2b01eb8eed86f6deab54918e6a96269"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/environments/ExecutionEnvironmentAnalyzer.java#legal-header",
+        "sha256": "f04aea905b37fe6c6ab6e3de0d06711b876fcbccf4f9ec324dae706852bed1ef"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/environments/ExecutionEnvironmentVariableResolver.java#legal-header",
+        "sha256": "95f73fb736de34603b38905b5dd12b29d9aebbe6cd3e799f34ce72cf54b70dde"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/macosx/MacOSXVMRunner.java#legal-header",
+        "sha256": "9dd53b3798a072c146af82e7583ebdd0dce4bc29869a59d65d04add667179714"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/macosx/MacOSXVMInstallType.java#legal-header",
+        "sha256": "fef8c06a8de6c4f4ae8cc9ad693815c82c9292eed09c07aa6e1d6482a7be3697"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/macosx/Messages.java#legal-header",
+        "sha256": "06378a8811e9105802e5cf5103e0de4a2c80074c630ce823d4477f3dba82be26"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/launching/sourcelookup/advanced/IWorkspaceProjectDescriber.java#legal-header",
+        "sha256": "4f73856870e74103fea49d79778cde4f6d315c291abf28665dccc01f7e551156"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/sourcelookup/advanced/AdvancedSourceLookupDirector.java#legal-header",
+        "sha256": "802461b4f1d1855c500fd21bd2e4c64e495c1d3dedeaaedbe748c003dbdaec1a"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/sourcelookup/advanced/Messages.java#legal-header",
+        "sha256": "2fbe4b679b9e2bfdc5b7c64f6506e972e6f5ae2d881d4eef994ec78e2ade640b"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/sourcelookup/advanced/FileHashing.java#legal-header",
+        "sha256": "48d7199da4cbcbedc64d093f7d9a683e957b5d8153807db95d5fbb9e207fa1ad"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/internal/launching/sourcelookup/advanced/WorkspaceProjectSourceContainers.java#legal-header",
+        "sha256": "ad0b14bb7d78900dd824ef96a1dc096e1179079069276214de46752960cc1752"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/launching/sourcelookup/ArchiveSourceLocation.java#legal-header",
+        "sha256": "f55474212d8c4ab67720b2adf0679d9c78c8c87176786d3ddccbfab5b505bec6"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/launching/AbstractVMInstall.java#legal-header",
+        "sha256": "9669a82f60aca6f41b0b6b06ab52e26233ff56a699c7ce674ebf1e831aea63b7"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/launching/AbstractVMRunner.java#legal-header",
+        "sha256": "9249da569fafc167ee5553a6c727c3ad87045205ef1f01df7e6f4cc36b8a9783"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/launching/ILibraryLocationResolver.java#legal-header",
+        "sha256": "8e3b38a4c11878a6f422c222e2178f0dcca16676c5c4d0e95961dd5fc14a3bf2"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/launching/IRuntimeClasspathEntry.java#legal-header",
+        "sha256": "1b8951d130998d2ddf0c1f295ba75ed3b7489b13de6ecf64478420dd1a2ab13a"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/launching/sourcelookup/PackageFragmentRootSourceLocation.java#legal-header",
+        "sha256": "2ba3542c9d6bd2ddd9a1a0648c6820a2f27daa523bc939b8da896c3bf6ead372"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/launching/IVMInstall2.java#legal-header",
+        "sha256": "587035179bb4fde2c62b8df54df30ea76436d9bf6ed2d28cfbe110fe44b4b632"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/launching/IVMInstall3.java#legal-header",
+        "sha256": "dd97bfd69e2a54b377bda183c3eaa0e98a31f791ef80f07b29e710c0cfdc2ae7"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/launching/IVMInstallType.java#legal-header",
+        "sha256": "b52183a4d5c82ceae4998ccebb4db9fc283f9f70ef893212594942a646ece422"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/launching/IVMRunner.java#legal-header",
+        "sha256": "1ac7c140d179d05ecd7c7e38b41fab9f0350a351b01d8ed3ccd41a02e45ae74a"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/launching/JavaLaunchDelegate.java#legal-header",
+        "sha256": "1b1d4be6acac3118d124341289dfd4291c22a1681fcc7ba583f025a53d51df74"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/launching/JavaRuntime.java#legal-header",
+        "sha256": "7412d4b19ac596e20d0d938518da0ff2502765ac18b0e5f7314bdcf719d412b5"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/launching/PropertyChangeEvent.java#legal-header",
+        "sha256": "e43487099cf144f48efd8e5057b2eb92ed817ba67c2ce477a1d0193afddcaa4c"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/launching/environments/CompatibleEnvironment.java#legal-header",
+        "sha256": "6d70bba6c170ddb9dcd30a5aeaf720d89da89070bdc3893e11d81023a8a2199f"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/launching/environments/ExecutionEnvironmentDescription.java#legal-header",
+        "sha256": "d4dac8bc13e008c0d62c92ad875837d237197f4ebcbb5953f0aac2a180bd188d"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/support/org/eclipse/jdt/internal/launching/support/LegacySystemProperties.java#legal-header",
+        "sha256": "473a9143e06f8ba37b75ed2ed51a44d6aab9c5a242a9e89218747228660834cf"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/launching/environments/IExecutionEnvironmentsManager.java#legal-header",
+        "sha256": "91d31305a63d471e8916161e924a142aff8171a155b6adf17ece3268d36a6ae2"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/launching/environments/IExecutionEnvironmentAnalyzerDelegate.java#legal-header",
+        "sha256": "5410730ebe7e030d91deb946e7d6a12c3e030a6b82b4b0e13362c8085f2e01f2"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/launching/sourcelookup/advanced/AdvancedJavaLaunchDelegate.java#legal-header",
+        "sha256": "89011d4bd443ea0f1d1dd2092a2d3f7398d15629c8629740847a0034b071e683"
+      },
+      {
+        "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching/launching/org/eclipse/jdt/launching/sourcelookup/containers/PackageFragmentRootSourceContainer.java#legal-header",
+        "sha256": "475e39d80f809bbaa38c89a6d969a3c95f375644c0989cde25a331f34357a239"
+      }
+    ]
+  },
+  "buildMetadata": [
+    {
+      "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching.javaagent/META-INF/MANIFEST.MF",
+      "sha256": "80c60a75766e5c24b83a8ea7485a89919beb81e0a72e1c4c9097bbe270638854"
+    },
+    {
+      "path": "eclipse.jdt.debug-f35ed460321b44178b15b35800ecc300e5b3bf73/org.eclipse.jdt.launching.javaagent/pom.xml",
+      "sha256": "a476011c70a0386fbcf13cac136ae74c8c310c728d7169f8bcb3e48efadb27c8"
+    }
+  ],
+  "coordinate": {
+    "groupId": "org.eclipse.jdt",
+    "artifactId": "org.eclipse.jdt.launching.javaagent",
+    "version": "3.10.600-SNAPSHOT"
+  },
+  "shadedDependency": {
+    "groupId": "org.ow2.asm",
+    "artifactId": "asm",
+    "version": "9.10.1",
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.10.1/asm-9.10.1-sources.jar",
+      "sha256": "cb29bf42b4008972c566944d377192aa1b2d90275b9cfa9a7fa86de669fde11c",
+      "bytes": 184938,
+      "notices": []
+    }
+  },
+  "relocation": {
+    "from": "org.objectweb.asm",
+    "to": "org.eclipse.jdt.launching.internal.org.objectweb.asm"
+  },
+  "plugins": {
+    "compiler": "3.13.0",
+    "jar": "3.4.2",
+    "shade": "3.6.0"
+  },
+  "scope": "Exact snapshot source identity and declared shade recipe/legal sources. Reproducible output, complete plugin closure and historical class/runtime membership remain unverified."
+}

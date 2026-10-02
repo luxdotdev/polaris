@@ -1,0 +1,3 @@
+artifactId=wagon-provider-api
+groupId=org.apache.maven.wagon
+version=3.5.3

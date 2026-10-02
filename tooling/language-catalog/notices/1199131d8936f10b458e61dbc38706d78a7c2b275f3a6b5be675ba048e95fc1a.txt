@@ -1,0 +1,218 @@
+Manifest-Version: 1.0
+Ant-Version: Apache Ant 1.10.17
+Created-By: 11.0.30+7-post-Ubuntu-1ubuntu124.04 (Ubuntu)
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/SummaryJUnitResultFor
+ matter.class
+SHA-256-Digest: verlo8ZkiWR5nperbvQIaecQGbq7RP6/7GqG9iRgAGM=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/FormatterElement.clas
+ s
+SHA-256-Digest: OvtvhjaLidYMd6rZms3eS9KKDsuAwnpldqzxGdruWYM=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/JUnitTest.class
+SHA-256-Digest: hgfL6tgzfOcBeQZTBBD/+4vufQyHxZ0u3WmmX7Q/loU=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/JUnitVersionHelper.cl
+ ass
+SHA-256-Digest: ygoVIgBw1gPXlx/3JbWGYOOvG7BqDbCVnof1a4hQP6M=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/AggregateTransformer$
+ Format.class
+SHA-256-Digest: mE4LwQTaqRD/2cAPqibs69z3tW0NbtmK8yQt9rN6zME=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/JUnitTask$TestResultH
+ older.class
+SHA-256-Digest: CyWb+XOwNlKi75hAWRvlgQoXqIRATOHVoo4/RRU6Ggc=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/BatchTest.class
+SHA-256-Digest: KacTpwcv8FlZuolFrQ166MObnKQE4FXNSexysJXfA1A=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/Enumerations.class
+SHA-256-Digest: 8S2QaO3BUUWaPDzlzBR78ZG01Nevhnk9ThfKfe3CZGg=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/JUnitTask$SummaryAttr
+ ibute.class
+SHA-256-Digest: Eg4y2VYWFpjiR1URRqaXzhIV2dmZ5per+iTeKbKF4ww=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/TestListenerWrapper.c
+ lass
+SHA-256-Digest: BIQg5juYoBdFTtYMwUfEmw47oWvPUd/spjcWF3xxRrY=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/JUnitTaskMirror$JUnit
+ TestRunnerMirror.class
+SHA-256-Digest: bWqTxOqq2LYTYpA4UPVa8IGeYFjKeAzH8mSAFmUlfUM=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/FailureRecorder$TestI
+ nfos.class
+SHA-256-Digest: 0VLG9gGQN1/oVu71q2uxKjOsji5mMm7qdbsNxC6M9vo=
+
+Name: META-INF/INDEX.LIST
+SHA-256-Digest: ak1PmXRQw2kTgobZJrpSMd8ZNXm/aW4d0QeQGzEcXHI=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/xsl/junit-noframes-sa
+ xon.xsl
+SHA-256-Digest: myk51TmwjtGVnsGGVhRDgar0+LFVvGEIMUpKRK7F1UM=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/JUnitTaskMirror$JUnit
+ ResultFormatterMirror.class
+SHA-256-Digest: +ucG1me4WC94NTGfmp6lWBUCmokaCMJH7a3/KbCUVdE=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/BaseTest.class
+SHA-256-Digest: UdmCLGuw2OWZwymx2E5XwIfPhbCIOTJnY0lXYIX0Ho8=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/DOMUtil.class
+SHA-256-Digest: aoxyZAfpof1RVaB+GLo9f/KAYTvzdx9q52V0d/0ow8U=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/TearDownOnVmCrash.cla
+ ss
+SHA-256-Digest: JuM9kesmaxvnW7lTeBCgEFDCMIULQcW23WagdG04yng=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/PlainJUnitResultForma
+ tter.class
+SHA-256-Digest: 4mO6CIs/ayHIuDkKPHBgyBfIFKnjhnvbmAoXn/p16e8=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/xsl/junit-noframes.xs
+ l
+SHA-256-Digest: hLbA/599kqtm/fnhL+7Ge6jXqB3v2z1lC9Dq9laxnyw=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/JUnitTestRunner$3.cla
+ ss
+SHA-256-Digest: FFdv1dXkHGAnJXa+nNvADqy6ElO/TecRFuTCeSy0i28=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/CompoundEnumeration.c
+ lass
+SHA-256-Digest: Dvho78J/JM4oLMA2I8Uc3/0v2TtKhIaVyYrz+NqqvHQ=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/JUnitTestRunner.class
+SHA-256-Digest: PJVlJmgd3XjPnlr5VZX9N0RFT1j14tWQmr3PYH7vc9M=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/IgnoredTestListener.c
+ lass
+SHA-256-Digest: BnR2suGaBsE3JdslvpxCq/dK5UBIvP2SHrlVD4+VStM=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/JUnitResultFormatter.
+ class
+SHA-256-Digest: Ej3UdaOtYGweZUqmyZV0h6D3eRS0zp8m6htj3rDGG8k=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/IgnoredTestResult.cla
+ ss
+SHA-256-Digest: MumJMbh1QYKfd+Yflo9ifrHBWfeiaz6dIwf4RhhOIfA=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/JUnitTask$ForkedTestC
+ onfiguration.class
+SHA-256-Digest: 0Krl5cj660ZOCDG4eE8ACwS3BOBK9xnWgYvwvlqq3zo=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/JUnitTaskMirror.class
+SHA-256-Digest: FSmMD+hc6TGfoew+IiK/rPfUI0YIAGIeICPu7wEhZz4=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/xsl/junit-frames.xsl
+SHA-256-Digest: 6Y8ATGSRg374FKao+iTmQnl6G8Vj+dpatio/9AOYuTo=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/AggregateTransformer.
+ class
+SHA-256-Digest: XUSvPG21qzCMliAqR+0nhSBVbFgnrtn21+wccQmDOm4=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/JUnitTaskMirror$Summa
+ ryJUnitResultFormatterMirror.class
+SHA-256-Digest: yL8F3dohfAx/zqcXoROwyN5EKIym7hqe0PwM/DnE2x0=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/FormatterElement$Dela
+ yedFileOutputStream.class
+SHA-256-Digest: onHe35yoiXKi/Xctayj9sr/YZ38ht1u4ZicAZKZs5mE=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/Constants.class
+SHA-256-Digest: QaJykzbhDECIflsQUoi9MLeHL6aYZXWQyMsMkGFM9jQ=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/JUnitTaskMirrorImpl.c
+ lass
+SHA-256-Digest: r5fMwwYiBFfns1+q2keJYOlIeIt18Nzd8sZaVUicdV8=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/XMLJUnitResultFormatt
+ er.class
+SHA-256-Digest: VksOAtmsGegkmXLvhtcLosUI3X9c9lt3dmOfdES91X4=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/JUnitTestRunner$2.cla
+ ss
+SHA-256-Digest: 87XBS/1E7QtpCWpApe/LOsme9AytJMBpdAc7HTeHW0I=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/JUnitTask$JUnitLogStr
+ eamHandler.class
+SHA-256-Digest: RTDp8uqfDmDAMPFIyjeZpSSXRuCchQikWufj3QeukOM=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/JUnitTaskMirrorImpl$V
+ mExitErrorTest.class
+SHA-256-Digest: XWo9vx/uR/hNFHGRjMxdaik5aXTH86798M26IJLMf0Y=
+
+Name: META-INF/NOTICE.txt
+SHA-256-Digest: /D+tOTRSgqIYisw/ypUPvQA6NyxzTaQFhuyULBNMWys=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/BriefJUnitResultForma
+ tter.class
+SHA-256-Digest: ntPqJD09UuSJxEViuH2j8Wj/sbW2KqCAlo24UykeARM=
+
+Name: org/apache/tools/ant/taskdefs/optional/
+Extension-Name: org.apache.tools.ant
+Specification-Title: Apache Ant
+Specification-Version: 1.10.17
+Specification-Vendor: Apache Software Foundation
+Implementation-Title: org.apache.tools.ant
+Implementation-Version: 1.10.17
+Implementation-Vendor: Apache Software Foundation
+SHA-256-Digest: 47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/JUnitTask$JunitTestTh
+ read.class
+SHA-256-Digest: 1iH9XvNevmM624rKGUCvX7ccoQv2irx46L2UUEB0JZ4=
+
+Name: META-INF/LICENSE.txt
+SHA-256-Digest: bWLR3VL5MoZdbx4okg1T0Kb5cw72uOAsSNmfRw4WCg0=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/JUnitTestRunner$1.cla
+ ss
+SHA-256-Digest: U2rbnBED8gf3MS8pF68bORQTBbZOkdmnXxjnaL2kHFY=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/FormatterElement$Type
+ Attribute.class
+SHA-256-Digest: IN1qCA4A8E0NDxApiZ+N7l80ROqFwNyRYUbLhLyFFHE=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/XMLResultAggregator.c
+ lass
+SHA-256-Digest: W4f+XQfs4aGmSuH5x7i2mB09t5SARfkgiNbg3OpJLBs=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/JUnitTask$ForkMode.cl
+ ass
+SHA-256-Digest: LAI2u4Gns7UejD3SYjhV6BS+dgKie6krZunIdPas9sM=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/OutErrSummaryJUnitRes
+ ultFormatter.class
+SHA-256-Digest: RiZjtfZd1opGg0gR0HF59aCfLaxG4HYOMztYJdj623s=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/xsl/junit-frames-saxo
+ n.xsl
+SHA-256-Digest: 4h3CVkyfhuapiPMNrAqza0VMx3Z2/Sq8IbLgSN22984=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/JUnitTask.class
+SHA-256-Digest: S0ckeI9LXEEatBwi4G7Vgwiq7uVdu38H6V2wgIRwWwA=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/DOMUtil$NodeFilter.cl
+ ass
+SHA-256-Digest: 7rl4G2hMil7h+6F2jyIqKInsqpkeuD+Ly2Tx58NQOjQ=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/DOMUtil$NodeListImpl.
+ class
+SHA-256-Digest: vhKAoUBOUt2YzTxrX5IinWa9hAqDxWU2+mHhtIm8eN0=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/FailureRecorder.class
+SHA-256-Digest: QD8bZZOcf9OXbLOH154J5YeHMxqwvo2lklxjMzJTXtM=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/TestIgnored.class
+SHA-256-Digest: RLnLj7EQY0CABrePaYaSHKQAWb1pkWopNJiV4YNPCR4=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/JUnitTask$JUnitLogOut
+ putStream.class
+SHA-256-Digest: dnktTvopX0ui7hM3wb5R/up7ZArDfEs/bcyQ26sfz+w=
+
+Name: org/apache/tools/ant/taskdefs/optional/junit/XMLConstants.class
+SHA-256-Digest: qJXCUwBLNB4wwdLqMmyVTgVlHa+hX2NNFFkhZ98Mp2o=
+

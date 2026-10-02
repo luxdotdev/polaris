@@ -1,0 +1,26 @@
+Manifest-Version: 1.0
+Ant-Version: Apache Ant 1.10.17
+Created-By: 11.0.30+7-post-Ubuntu-1ubuntu124.04 (Ubuntu)
+Main-Class: org.apache.tools.ant.launch.Launcher
+
+Name: META-INF/LICENSE.txt
+SHA-256-Digest: bWLR3VL5MoZdbx4okg1T0Kb5cw72uOAsSNmfRw4WCg0=
+
+Name: org/apache/tools/ant/launch/Launcher.class
+SHA-256-Digest: 0faKDWljyNadsUGAjS97E+QOITXqD991TIR4QBC8Juk=
+
+Name: META-INF/NOTICE.txt
+SHA-256-Digest: /D+tOTRSgqIYisw/ypUPvQA6NyxzTaQFhuyULBNMWys=
+
+Name: META-INF/INDEX.LIST
+SHA-256-Digest: H9WQcVTDKsU8o2AeFCf9kyXP3+gFPzX4o4zj4N1KNiI=
+
+Name: org/apache/tools/ant/launch/AntMain.class
+SHA-256-Digest: Un4dtA1EHwTGUTLqCx7pynERjfbAYJcnYRY5aEvRqL8=
+
+Name: org/apache/tools/ant/launch/LaunchException.class
+SHA-256-Digest: l/pKIrU5vBKyRs//uZPB1HPFRU4V5G7I68KCZKy6Hh0=
+
+Name: org/apache/tools/ant/launch/Locator.class
+SHA-256-Digest: ok5QnjdrgHFyk5nZi3ttLc1Ys6uThha+56Dp6wpO6Ec=
+

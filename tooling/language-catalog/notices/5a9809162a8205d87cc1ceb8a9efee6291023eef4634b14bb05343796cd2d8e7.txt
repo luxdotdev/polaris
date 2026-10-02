@@ -1,0 +1,3 @@
+artifactId=maven-shared-utils
+groupId=org.apache.maven.shared
+version=3.4.2

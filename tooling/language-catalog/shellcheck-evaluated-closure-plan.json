@@ -1,0 +1,100 @@
+{
+  "ruff": {
+    "evidence": [
+      "ruff-crates.json",
+      "source-notices.json",
+      "cargo-notice-sources.json",
+      "metadata-license-grants.json",
+      "native-source-closure.json",
+      "native-linkage.json",
+      "rust-runtime-sources.json",
+      "build-provenance.json",
+      "rust-stdlib-closure.json"
+    ],
+    "missingEvidence": [
+      "Static musl/compiler runtime notice and exact vendor closure is not yet established for every shipped platform."
+    ]
+  },
+  "rust-analyzer": {
+    "evidence": [
+      "rust-analyzer-crates.json",
+      "source-notices.json",
+      "cargo-notice-sources.json",
+      "metadata-license-grants.json",
+      "native-source-closure.json",
+      "native-linkage.json",
+      "rust-runtime-sources.json",
+      "build-provenance.json",
+      "rust-stdlib-closure.json"
+    ],
+    "missingEvidence": [
+      "Compiler runtime/vendor closure and musl loader prerequisite packaging need exact scoped resolution."
+    ]
+  },
+  "lua-language-server": {
+    "evidence": [
+      "lua-notices.json",
+      "lua-source-inventory.json",
+      "native-source-closure.json",
+      "native-linkage.json",
+      "lua-filtered-proposal.json",
+      "lua-filtered-proposal.md",
+      "lua-filtered-capabilities.json",
+      "lua-runtime-notices.json"
+    ],
+    "missingEvidence": [
+      "Exact source/legal evidence for retained vendor code and published Linux static compiler/runtime closure remains unverified; Lua runtime legal comments are retained and do not certify which other libraries were embedded."
+    ]
+  },
+  "phpactor": {
+    "evidence": [
+      "phpactor-phar.json",
+      "php-composer.lock.json",
+      "source-notices.json",
+      "php-notice-sources.json",
+      "phpactor-file-inventory.json",
+      "php-box-sources.json",
+      "metadata-license-grants.json",
+      "native-source-closure.json",
+      "build-provenance.json",
+      "php-checker-closure.json"
+    ],
+    "missingEvidence": []
+  },
+  "jdtls": {
+    "evidence": [
+      "jdtls-bundles.json",
+      "external-audits.json",
+      "jdt-source-closure.json",
+      "jdt-notice-supplements.json",
+      "build-provenance.json",
+      "jdt-nested-inventory.json"
+    ],
+    "missingEvidence": [
+      "The 114 top-level JAR source records do not cover all nested JARs or native libraries. Recursive release inventory, exact nested Maven/shaded source and legal declarations, JNA/Jansi/Eclipse native closure and source/notice delivery remain unverified."
+    ]
+  },
+  "shellcheck": {
+    "evidence": [
+      "source-notices.json",
+      "external-audits.json",
+      "native-source-closure.json",
+      "native-linkage.json",
+      "build-provenance.json",
+      "shellcheck-prerequisites.json",
+      "shellcheck-source-build.md"
+    ],
+    "missingEvidence": [
+      "Published binaries lack verified exact compiler/dependency/runtime corresponding-source closure.",
+      "No authorized existing GHC/Cabal toolchain fixture; proposed source-build solver/build/runtime closure remains unverified."
+    ]
+  },
+  "shfmt": {
+    "evidence": ["source-notices.json", "native-source-closure.json", "shfmt-build-closure.json"],
+    "missingEvidence": []
+  },
+  "gopls": {
+    "evidence": ["gopls-modules.json", "gopls-go.sum", "gopls-build-closure.json"],
+    "missingEvidence": []
+  }
+}

@@ -1,0 +1,18 @@
+// -*- C++ -*-
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+//
+// Utilities for locating the address range of a function.
+//
+// On MachO targets the linker synthesises section$start$SEG$sect /
+// section$end$SEG$sect symbols; __asm() is used to bind them to valid C
+// identifiers without the leading '_' implied by the Darwin User Label Prefix.
+//
+// On ELF targets the linker synthesises __start_<section> / __stop_<section>
+// symbols for any section whose name is a valid C identifier.
+// We don't use dladdr() because on musl it's a no-op when statically linked.

@@ -1,0 +1,219 @@
+Manifest-Version: 1.0
+Ant-Version: Apache Ant 1.10.17
+Created-By: 11.0.30+7-post-Ubuntu-1ubuntu124.04 (Ubuntu)
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/confined/Cons
+ tants.class
+SHA-256-Digest: 96tJUUY2blPiXTt8nFKMyoeemgw7Qg7ekiclmmwqLyg=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/LauncherSuppo
+ rt.class
+SHA-256-Digest: NukfQWSa59+pHrfHXCJvOPs1isp5xng8KGD/Sb+2doc=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/confined/Sing
+ leTestClass$1.class
+SHA-256-Digest: aheLFUC6aQgevcFbU44qqv5KaadfTmwaRmNfzjtIYzs=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/StandaloneLau
+ ncher.class
+SHA-256-Digest: vcEYkdFdTzRykra0ewhbZONInuUOK0paQpnaQnPiLoQ=
+
+Name: META-INF/INDEX.LIST
+SHA-256-Digest: SQozoBVOb5/hoYA4K52znxtPN97TVwj+KWsyNdprFfA=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/LegacyXmlResu
+ ltFormatter$XMLReportWriter.class
+SHA-256-Digest: vLPukFAa+6bosi18E6wtsETv/RI79glE3TMxnex85tY=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/confined/Sing
+ leTestClass$SingleTestFork.class
+SHA-256-Digest: X1g8aUKoFUaVD4yPCp7pKYC/57yigQR555eIXUCn/MQ=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/confined/Test
+ Classes$1.class
+SHA-256-Digest: 2P+Nal8acwmzj5wD9xPkPe39HTQOPcB1gcpcpFOD04w=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/confined/Fork
+ Definition.class
+SHA-256-Digest: /NUMAsHmK6ExOjPKEkwB33VeJ4dYqpzjYNwO/vXnAbw=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/LegacyBriefRe
+ sultFormatter.class
+SHA-256-Digest: IZJZPkA/iyGAmFbh3UN821qH759VzNquQNCndEfuCf4=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/LegacyPlainRe
+ sultFormatter$Stats.class
+SHA-256-Digest: skt2A6lPDdNotfMJLfECUSw2sUTO8xX2+RXrrnB8G0g=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/confined/Sing
+ leTestClass.class
+SHA-256-Digest: TI3fphb2XxlT6YaOuZ+OvGpVOO20vGecuUSga+tFlpE=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/LegacyXmlResu
+ ltFormatter$Stats.class
+SHA-256-Digest: bVsTpMCzjdUn1zc6k0wdNDdsU/HlYEf7yGUp4s8m5sw=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/InVMExecution
+ .class
+SHA-256-Digest: oFQ3QofmHa+IqWZjW0JdQL2rRDChLYhX12EGJ6dxkWc=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/confined/Test
+ Definition$ForkedRepresentation.class
+SHA-256-Digest: 3a64k6Zk1f9hjWIWE0SoH23H/ESSQDN/DqOVRC9IVSs=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/confined/List
+ enerDefinition$ListenerType.class
+SHA-256-Digest: UsgJMRiM2ACzEv1/6pbJ0d4STlw6ym9C66IZgOqYReY=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/confined/Test
+ Definition.class
+SHA-256-Digest: 95wnXyoncCuIi3oXgb/K4Psvb9gVN0SMXPH/OwbdCdE=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/LauncherSuppo
+ rt$Listener.class
+SHA-256-Digest: lZLOCuSMbenUXPeC9QBsdFEoi7CeXKb2n8yYyruQofE=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/LauncherSuppo
+ rt$SwitchedStreamHandle.class
+SHA-256-Digest: zADb6qdgTBFYl//ItHCeqPIuH39K6Tixwbn9HOwXfsc=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/LauncherSuppo
+ rt$SysOutErrStreamReader.class
+SHA-256-Digest: b+UOPDI/zfI7O7wzZ9S1nCS4C1CfBNwlKsrEYiS3ojU=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/confined/JUni
+ tLauncherTask$InVMLaunch.class
+SHA-256-Digest: MzL2KB7BacB+ydD+Lebuy2MgFRIUu41HiWqWhxUi8y0=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/confined/JUni
+ tLauncherTask.class
+SHA-256-Digest: WqJiqX2d0gfJvgDoHy2wqKvL8kfxdf4/54aZJp1be+M=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/LegacyXmlResu
+ ltFormatter$1.class
+SHA-256-Digest: idkiypONNxiNDH0GBbHJez7DLPu64viu7y9qfAxlWnQ=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/StandaloneLau
+ ncher$ForkedLaunch.class
+SHA-256-Digest: G/+Jn/s5lWJZEbMDszDxe5HAqZxoiINBLKyRvXgJKXg=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/confined/Fork
+ Definition$ForkMode.class
+SHA-256-Digest: wCtOVNUrib1ZcJAw1ZkaH6BMikQhVXZijiAezrp2BmE=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/AbstractJUnit
+ ResultFormatter.class
+SHA-256-Digest: wBeBsjPs3Gkg2pTkUVJ3xZsDxCp1iWVU9dDZJktoLPY=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/AbstractJUnit
+ ResultFormatter$SysOutErrContentStore$1.class
+SHA-256-Digest: HdVus5aa4Rgwz8xfTq991xdAE/Y3ogKXU1PWoD60noo=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/confined/Laun
+ chDefinition.class
+SHA-256-Digest: KJmNrSE87e8p4dsfU+FpTlKasyOotSACBgWlaiM/Ofg=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/StandaloneLau
+ ncher$1.class
+SHA-256-Digest: s+CoS5xgh3glxiBcV5HbR6AfjHs2FQCuNwyqYg0JgIo=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/AbstractJUnit
+ ResultFormatter$SysOutErrContentStore.class
+SHA-256-Digest: znpZibOqrWDIGbo9enjwIJBAemK9GaJJnClCHpYQc0s=
+
+Name: META-INF/NOTICE.txt
+SHA-256-Digest: /D+tOTRSgqIYisw/ypUPvQA6NyxzTaQFhuyULBNMWys=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/TestExecution
+ Context.class
+SHA-256-Digest: zqCiWAmb4QaUoAihqbvjo94gqQfckhkTTgFGeKQvB10=
+
+Name: org/apache/tools/ant/taskdefs/optional/
+Extension-Name: org.apache.tools.ant
+Specification-Title: Apache Ant
+Specification-Version: 1.10.17
+Specification-Vendor: Apache Software Foundation
+Implementation-Title: org.apache.tools.ant
+Implementation-Version: 1.10.17
+Implementation-Vendor: Apache Software Foundation
+SHA-256-Digest: 47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/confined/JUni
+ tLauncherTask$1.class
+SHA-256-Digest: +bWfBF8j7UV2Nq/miLsNuzN3vJ8B1VLluIBM8tyT2rs=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/package-info.
+ class
+SHA-256-Digest: M0qY0ZNYfm/pIk+IaivOEMbwIEsLG3wLbgSW7L+rd+A=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/confined/JUni
+ tLauncherTask$TaskConfiguredPathClassLoader.class
+SHA-256-Digest: nZetUTeW2xjsmBx/lKcX5l88tSW4V6+n/5WnKx9hsKg=
+
+Name: META-INF/LICENSE.txt
+SHA-256-Digest: bWLR3VL5MoZdbx4okg1T0Kb5cw72uOAsSNmfRw4WCg0=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/LauncherSuppo
+ rt$StreamType.class
+SHA-256-Digest: CYIIVEI84ulg8ItFwnNJrQWw5iw+kzVI6p+Na5CMkyg=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/AbstractJUnit
+ ResultFormatter$1.class
+SHA-256-Digest: EIp+5NVLeXl+bhbguwdrLpyHkj+SwezJxoefwWtrZJU=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/confined/List
+ enerDefinition.class
+SHA-256-Digest: D4SPBOYrm1n8aZ9PgamgAKhqJ2dWIr2OgoZ/W9JREk4=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/TestResultFor
+ matter.class
+SHA-256-Digest: svY+tdii+AxobdLk4QUuRDtNHWeJ7RIVvKJMeSBwL5Y=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/StandaloneLau
+ ncher$ForkedExecution.class
+SHA-256-Digest: IBS6HvuBzoMp2GDE1UcsLipnhEH2CcDm+a0/Qm7wPK0=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/LegacyPlainRe
+ sultFormatter.class
+SHA-256-Digest: FKz/YRqbzeJ39uFo4/9W4brnM6AvGloySb04dFJh1FE=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/confined/Test
+ Classes.class
+SHA-256-Digest: sO++8K0MddyVNA9NuJrpo4XNOdzqhzk35849mzDaD9Y=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/confined/JUni
+ tLauncherClassPathUtil.class
+SHA-256-Digest: X6hWcOwyGU6DxqmYEMrTC1qm5ji8NTx2e9Gu+0zRQMI=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/LegacyXmlResu
+ ltFormatter.class
+SHA-256-Digest: y2aSnNUweYfUaVOyW7fD+B+4WokkwMxx5qNPXrxbDec=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/TestRequest.c
+ lass
+SHA-256-Digest: hvel3v7Kd9g4rVLGaCs1II6/jWhZ6PO6AHeEYKrzeFU=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/confined/Name
+ dTest.class
+SHA-256-Digest: ZLSJNlmSKz2qeVdVFSIzk3RQ8q14rsa04PXdn11ZSM0=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/LauncherSuppo
+ rt$SysOutErrContentDeliverer.class
+SHA-256-Digest: V68Ry+czUipN54iJzy4kcZkjP+5J8kGPfQCev4NlTTU=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/confined/pack
+ age-info.class
+SHA-256-Digest: ko7Xvlqj1eKcfleN6SUhyQJB3IdZuONEAj4OkKdD2yQ=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/LauncherSuppo
+ rt$1.class
+SHA-256-Digest: oK8bMV4pNSJ5CzjKH33iEChLTbz35z4mWXnJ6OwWfPE=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/confined/Test
+ Classes$ForkModeRep.class
+SHA-256-Digest: u0wRiNG62t8VMJEb5sGZQQ83p1OgFibchJw3/XYPrfI=
+
+Name: org/apache/tools/ant/taskdefs/optional/junitlauncher/LegacyPlainRe
+ sultFormatter$1.class
+SHA-256-Digest: talzpUKt2yws5VRhwAY6F9oNFf+Y/M3d34QK9GiM92I=
+

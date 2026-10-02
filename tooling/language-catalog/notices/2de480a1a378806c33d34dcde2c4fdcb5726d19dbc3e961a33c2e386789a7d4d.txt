@@ -1,0 +1,29 @@
+Manifest-Version: 1.0
+Automatic-Module-Name: org.codehaus.plexus.classworlds
+Build-Jdk-Spec: 25
+Bundle-Description: A class loader framework
+Bundle-DocURL: https://codehaus-plexus.github.io/
+Bundle-License: https://www.apache.org/licenses/LICENSE-2.0.txt
+Bundle-ManifestVersion: 2
+Bundle-Name: Plexus Classworlds
+Bundle-SymbolicName: org.codehaus.plexus.classworlds
+Bundle-Vendor: Codehaus Plexus
+Bundle-Version: 2.11.0
+Created-By: Apache Maven Bundle Plugin 5.1.9
+Export-Package: org.codehaus.plexus.classworlds;version="2.11.0",org.c
+ odehaus.plexus.classworlds.launcher;version="2.11.0",org.codehaus.ple
+ xus.classworlds.realm;version="2.11.0",org.codehaus.plexus.classworld
+ s.strategy;version="2.11.0"
+Implementation-Title: Plexus Classworlds
+Implementation-Vendor: Codehaus Plexus
+Implementation-Version: 2.11.0
+Import-Package: org.codehaus.plexus.classworlds,org.codehaus.plexus.cl
+ assworlds.launcher,org.codehaus.plexus.classworlds.realm,org.codehaus
+ .plexus.classworlds.strategy
+Main-Class: org.codehaus.plexus.classworlds.launcher.Launcher
+Require-Capability: osgi.ee;filter:="(&(osgi.ee=JavaSE)(version=1.8))"
+Specification-Title: Plexus Classworlds
+Specification-Vendor: Codehaus Plexus
+Specification-Version: 2.11
+Tool: Bnd-6.3.1.202206071316
+

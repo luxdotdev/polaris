@@ -1,0 +1,96 @@
+Manifest-Version: 1.0
+Created-By: Maven JAR Plugin 3.5.0
+Java-Version: 8
+Build-Jdk-Spec: 21
+Bundle-Copyright: Copyright (c) 2010-present Sonatype, Inc. and others
+Bundle-Description: Plexus-JSR330 adapter; adds Plexus support to the Si
+ su-Inject container
+Bundle-Developers: mcculls;name="Stuart McCulloch",cstamas;name="Tamas C
+ servenak",kwin;name="Konrad Windszus"
+Bundle-DocURL: http://www.eclipse.org/sisu/
+Bundle-License: Eclipse Public License, Version 2.0;link="https://www.ec
+ lipse.org/legal/epl-v20.html"
+Bundle-ManifestVersion: 2
+Bundle-Name: Sisu-Plexus
+Bundle-SCM: url="https://github.com/eclipse-sisu/sisu-project/tree/main/
+ org.eclipse.sisu.plexus",connection="scm:git:git://github.com/eclipse-s
+ isu/sisu-project.git/org.eclipse.sisu.plexus",developer-connection="scm
+ :git:git@github.com:eclipse-sisu/sisu-project.git/org.eclipse.sisu.plex
+ us",tag="releases/1.0.0"
+Bundle-SymbolicName: org.eclipse.sisu.plexus;singleton:=true
+Bundle-Vendor: The Eclipse Foundation
+Bundle-Version: 1.0.0
+Export-Package: org.eclipse.sisu.plexus;version="1.0.0";uses:="com.googl
+ e.inject,com.google.inject.matcher,com.google.inject.spi,javax.inject,o
+ rg.codehaus.plexus.classworlds,org.codehaus.plexus.classworlds.realm,or
+ g.codehaus.plexus.component.annotations,org.codehaus.plexus.component.c
+ onfigurator,org.codehaus.plexus.component.configurator.converters.looku
+ p,org.codehaus.plexus.component.configurator.expression,org.codehaus.pl
+ exus.component.repository,org.codehaus.plexus.configuration,org.codehau
+ s.plexus.context,org.codehaus.plexus.logging,org.eclipse.sisu.bean,org.
+ eclipse.sisu.inject,org.eclipse.sisu.launch,org.eclipse.sisu.space,org.
+ osgi.framework",org.codehaus.plexus;version="1.0.0";uses:="com.google.i
+ nject,junit.framework,org.codehaus.plexus.classworlds,org.codehaus.plex
+ us.classworlds.realm,org.codehaus.plexus.component.composition,org.code
+ haus.plexus.component.repository,org.codehaus.plexus.component.reposito
+ ry.exception,org.codehaus.plexus.configuration,org.codehaus.plexus.cont
+ ext,org.codehaus.plexus.logging,org.eclipse.sisu.plexus",org.codehaus.p
+ lexus.component;version="1.0.0";uses:="org.codehaus.plexus.component.co
+ nfigurator,org.codehaus.plexus.component.repository",org.codehaus.plexu
+ s.component.composition;version="1.0.0",org.codehaus.plexus.component.c
+ onfigurator;version="1.0.0";uses:="javax.inject,org.codehaus.plexus.cla
+ ssworlds.realm,org.codehaus.plexus.component.configurator.converters.lo
+ okup,org.codehaus.plexus.component.configurator.expression,org.codehaus
+ .plexus.configuration",org.codehaus.plexus.component.configurator.conve
+ rters;version="1.0.0";uses:="org.codehaus.plexus.component.configurator
+ ,org.codehaus.plexus.component.configurator.converters.lookup,org.codeh
+ aus.plexus.component.configurator.expression,org.codehaus.plexus.config
+ uration",org.codehaus.plexus.component.configurator.converters.basic;ve
+ rsion="1.0.0";uses:="org.codehaus.plexus.component.configurator,org.cod
+ ehaus.plexus.component.configurator.converters,org.codehaus.plexus.comp
+ onent.configurator.converters.lookup,org.codehaus.plexus.component.conf
+ igurator.expression,org.codehaus.plexus.configuration",org.codehaus.ple
+ xus.component.configurator.converters.composite;version="1.0.0";uses:="
+ org.codehaus.plexus.component.configurator,org.codehaus.plexus.componen
+ t.configurator.converters,org.codehaus.plexus.component.configurator.co
+ nverters.lookup,org.codehaus.plexus.component.configurator.expression,o
+ rg.codehaus.plexus.configuration",org.codehaus.plexus.component.configu
+ rator.converters.lookup;version="1.0.0";uses:="org.codehaus.plexus.comp
+ onent.configurator,org.codehaus.plexus.component.configurator.converter
+ s",org.codehaus.plexus.component.configurator.converters.special;versio
+ n="1.0.0";uses:="org.codehaus.classworlds,org.codehaus.plexus.classworl
+ ds.realm,org.codehaus.plexus.component.configurator,org.codehaus.plexus
+ .component.configurator.converters,org.codehaus.plexus.component.config
+ urator.converters.lookup,org.codehaus.plexus.component.configurator.exp
+ ression,org.codehaus.plexus.configuration",org.codehaus.plexus.componen
+ t.configurator.expression;version="1.0.0",org.codehaus.plexus.component
+ .factory;version="1.0.0";uses:="org.codehaus.classworlds,org.codehaus.p
+ lexus,org.codehaus.plexus.classworlds.realm,org.codehaus.plexus.compone
+ nt.repository",org.codehaus.plexus.component.repository;version="1.0.0"
+ ;uses:="org.codehaus.plexus.classworlds.realm,org.codehaus.plexus.confi
+ guration",org.codehaus.plexus.component.repository.exception;version="1
+ .0.0",org.codehaus.plexus.configuration;version="1.0.0",org.codehaus.pl
+ exus.configuration.xml;version="1.0.0";uses:="org.codehaus.plexus.confi
+ guration,org.codehaus.plexus.util.xml",org.codehaus.plexus.context;vers
+ ion="1.0.0",org.codehaus.plexus.logging;version="1.0.0";uses:="org.code
+ haus.plexus.personality.plexus.lifecycle.phase,org.eclipse.sisu.bean",o
+ rg.codehaus.plexus.logging.console;version="1.0.0";uses:="org.codehaus.
+ plexus.logging",org.codehaus.plexus.personality.plexus.lifecycle.phase;
+ version="1.0.0";uses:="org.codehaus.plexus,org.codehaus.plexus.componen
+ t.repository.exception,org.codehaus.plexus.configuration,org.codehaus.p
+ lexus.context"
+Import-Package: javax.inject,org.eclipse.sisu;version="[1.0,2)",org.ecli
+ pse.sisu.bean;version="[1.0,2)",org.eclipse.sisu.inject;version="[1.0,2
+ )",org.eclipse.sisu.launch;version="[1.0,2)",org.eclipse.sisu.space;ver
+ sion="[1.0,2)",org.eclipse.sisu.wire;version="[1.0,2)",com.google.injec
+ t;version="1.3",com.google.inject.binder;version="1.3",com.google.injec
+ t.matcher;version="1.3",com.google.inject.name;version="1.3",com.google
+ .inject.spi;version="1.3",com.google.inject.util;version="1.3",org.osgi
+ .framework;version="1.5",org.codehaus.classworlds;version="[2.9,3)",org
+ .codehaus.plexus.classworlds;version="[2.9,3)",org.codehaus.plexus.clas
+ sworlds.realm;version="[2.9,3)",org.codehaus.plexus.util,org.codehaus.p
+ lexus.util.xml,org.codehaus.plexus.util.xml.pull,junit.framework;resolu
+ tion:=optional,org.codehaus.plexus.component.annotations;resolution:=op
+ tional,org.slf4j;resolution:=optional
+Require-Capability: osgi.ee;filter:="(&(osgi.ee=JavaSE)(version=1.8))"
+

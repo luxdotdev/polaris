@@ -3,6 +3,8 @@ import { createHash } from "node:crypto";
 import { Schema } from "effect";
 import { catalog, preflight, selectArtifact, versionSatisfies, Artifact, Tool } from "./index";
 import { auditArtifact, safeArchivePath, verifyIntegrity } from "./verification";
+import data from "./catalog.json";
+import { Catalog } from "./model";
 
 const platform = { os: "darwin", arch: "arm64", libc: "none" } as const;
 
@@ -77,6 +79,9 @@ const auditInput = {
 };
 
 describe("catalog release prerequisites", () => {
+  test("developer companion metadata survives schema projection losslessly", () => {
+    expect<unknown>(Schema.decodeUnknownSync(Catalog)(data)).toEqual(data);
+  });
   test("the entire agreed catalog is represented and provider tools resolve", () => {
     expect(catalog.integrations.map((entry) => entry.id).sort()).toEqual([
       "actions",

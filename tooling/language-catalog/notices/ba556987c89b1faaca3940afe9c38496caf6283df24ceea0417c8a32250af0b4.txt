@@ -1,0 +1,74 @@
+Manifest-Version: 1.0
+Ant-Version: Apache Ant 1.10.17
+Created-By: 11.0.30+7-post-Ubuntu-1ubuntu124.04 (Ubuntu)
+
+Name: org/apache/tools/ant/types/optional/imageio/Arc.class
+SHA-256-Digest: Yi0+CE0zuQGBvVfOPAGPbnrrYKoREGo4tDrfRt+BMeU=
+
+Name: org/apache/tools/ant/types/optional/imageio/Rectangle.class
+SHA-256-Digest: hgr7tdmwKV9UQ+SJPz0Tp9UlyTw/SLEzgzQquUziGcA=
+
+Name: org/apache/tools/ant/types/optional/imageio/ColorMapper.class
+SHA-256-Digest: MNbiRSecIwX3PjhZPXKRW5s96yYYfHKDjxMXGLcv0lk=
+
+Name: org/apache/tools/ant/types/optional/imageio/Rotate.class
+SHA-256-Digest: cLQEiJy9Pc9ZEtJpGKkfm9Su6JiK9GFVQMcWTkVex/0=
+
+Name: META-INF/LICENSE.txt
+SHA-256-Digest: bWLR3VL5MoZdbx4okg1T0Kb5cw72uOAsSNmfRw4WCg0=
+
+Name: org/apache/tools/ant/types/optional/imageio/Arc$ArcType.class
+SHA-256-Digest: Tg07uGfcEg6tMHGF53OMehK+1pvqFBwHY25LEXumkBo=
+
+Name: org/apache/tools/ant/taskdefs/optional/image/ImageIOTask$ImageForm
+ at.class
+SHA-256-Digest: 0ldhRlbzwIcBXaHTfylf24lORjp+hhKBnYBgmayaNrA=
+
+Name: org/apache/tools/ant/types/optional/imageio/Ellipse.class
+SHA-256-Digest: OZffKxHw/pNoPoPyVsVsq/gVN24oE+Wpm6ZpeTvPXps=
+
+Name: org/apache/tools/ant/types/optional/imageio/Text.class
+SHA-256-Digest: EeED7C/rtiI6P6NI7CX6O1Ld5lSgOcEsp9PUJduNpqA=
+
+Name: org/apache/tools/ant/types/optional/imageio/ImageOperation.class
+SHA-256-Digest: U+TIvuKBJOfGQBqwdi5mywA0J+5ZpU8eFPt7Y656Sb8=
+
+Name: org/apache/tools/ant/types/optional/imageio/BasicShape.class
+SHA-256-Digest: RS70PcxfTJxIqktvnq81XONEGVpWIQlm5A1THeVZmj4=
+
+Name: org/apache/tools/ant/types/optional/imageio/TransformOperation.cla
+ ss
+SHA-256-Digest: Ixe2I24I4eDyAi3fVnSf92MeN5mh9cw8EHB4XDowEPU=
+
+Name: org/apache/tools/ant/types/optional/imageio/DrawOperation.class
+SHA-256-Digest: GjLUfZfACLiR/PLl3W8n3c7nj5nH4+VpO0V6hxqXOc0=
+
+Name: META-INF/NOTICE.txt
+SHA-256-Digest: /D+tOTRSgqIYisw/ypUPvQA6NyxzTaQFhuyULBNMWys=
+
+Name: META-INF/INDEX.LIST
+SHA-256-Digest: roTybNovZjA6lkx9Rq5jlZeIZCchmynAY4M19o3XgYE=
+
+Name: org/apache/tools/ant/taskdefs/optional/
+Extension-Name: org.apache.tools.ant
+Specification-Title: Apache Ant
+Specification-Version: 1.10.17
+Specification-Vendor: Apache Software Foundation
+Implementation-Title: org.apache.tools.ant
+Implementation-Version: 1.10.17
+Implementation-Vendor: Apache Software Foundation
+SHA-256-Digest: 47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=
+
+Name: org/apache/tools/ant/types/optional/imageio/Scale.class
+SHA-256-Digest: npn5Bzl+8VKlOTYNiDVjwinWKxIHeCZGYzDEP14VN7E=
+
+Name: org/apache/tools/ant/types/optional/imageio/Draw.class
+SHA-256-Digest: IJOHijIjEgzRdIT7G/TJ1vaqxWRiTI2mSqQlx4FwOuA=
+
+Name: org/apache/tools/ant/taskdefs/optional/image/ImageIOTask.class
+SHA-256-Digest: d3H5S7OAodVsusFLnTeBGZs0uXzM6Ibxc6Qxw2Vue/0=
+
+Name: org/apache/tools/ant/types/optional/imageio/Scale$ProportionsAttri
+ bute.class
+SHA-256-Digest: ARXfemrj9KF54t3v6mwQ5D1fLefmXzHtA3c5zROqK8U=
+

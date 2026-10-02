@@ -1,0 +1,105 @@
+import { afterEach, expect, test } from "bun:test";
+import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { catalog } from "./index";
+import { probeDeveloperShellCheck, shellCheckServerSettings } from "./developer-shellcheck";
+
+const roots: string[] = [];
+
+afterEach(async () => {
+  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+});
+
+const fixture = async (body: string) => {
+  const root = await mkdtemp(join(tmpdir(), "polaris-synthetic-shellcheck-"));
+  roots.push(root);
+  const path = join(root, "shellcheck");
+  await writeFile(path, `#!/bin/sh\n${body}\n`);
+  await chmod(path, 0o700);
+
+  return { path, root, input: { trusted: true, configuredPath: path, searchPath: [], cwd: root } };
+};
+
+test("managed ShellCheck stays evaluated and Bash retains developer diagnostics plus managed shfmt", () => {
+  const bash = catalog.integrations.find((entry) => entry.id === "bash")!;
+  expect(bash.companions).toEqual(["shfmt"]);
+  expect(bash.developerCompanions?.[0]?.provider).toBe("bash-language-server");
+  expect(catalog.tools.find((entry) => entry.id === "shellcheck")?.disposition).toBe("evaluation");
+  expect(
+    catalog.tools
+      .find((entry) => entry.id === "shellcheck")
+      ?.artifacts.every((artifact) => artifact.audit === "pending")
+  ).toBe(true);
+});
+
+test("untrusted configured executables never run and Bash automatic discovery stays disabled", async () => {
+  const f = await fixture('touch invoked; printf "ShellCheck\\nversion: 0.11.0\\n"');
+  const fact = await probeDeveloperShellCheck({ ...f.input, trusted: false });
+  expect(fact.status).toBe("trust-required");
+  expect(await Bun.file(join(f.root, "invoked")).exists()).toBe(false);
+  expect(shellCheckServerSettings(fact)).toEqual({ shellcheckPath: "" });
+});
+
+test("synthetic version fixture supports configured and explicit Host PATH discovery", async () => {
+  const f = await fixture('printf "ShellCheck\\nversion: 0.11.0\\n"');
+
+  for (const configuredPath of [f.path, null]) {
+    const fact = await probeDeveloperShellCheck({
+      ...f.input,
+      configuredPath,
+      searchPath: [".", f.root],
+    });
+
+    expect(fact.status).toBe("available");
+    expect(fact.version).toBe("0.11.0");
+    expect(shellCheckServerSettings(fact).shellcheckPath).toBe(fact.executable);
+  }
+});
+
+test("missing or invalid configured paths do not fall back to another executable", async () => {
+  const f = await fixture('printf "ShellCheck\\nversion: 0.11.0\\n"');
+
+  for (const configuredPath of ["shellcheck", join(f.root, "missing")]) {
+    const fact = await probeDeveloperShellCheck({
+      ...f.input,
+      configuredPath,
+      searchPath: [f.root],
+    });
+
+    expect(fact.status).toBe("missing-prerequisite");
+    expect(fact.shellcheckDiagnostics).toBe(false);
+  }
+});
+
+test("synthetic stale, malformed, failed and oversized output cannot enable diagnostics", async () => {
+  for (const body of [
+    'printf "ShellCheck\\nversion: 0.10.0\\n"',
+    'printf "version: 0.11.0\\n"',
+    "exit 1",
+    'while :; do printf "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"; done',
+  ]) {
+    const f = await fixture(body);
+    expect((await probeDeveloperShellCheck(f.input)).status).toBe("probe-failed");
+  }
+});
+
+test("synthetic hung process trees are bounded and reaped", async () => {
+  const f = await fixture("/bin/sleep 30 &\necho $! > child.pid\nwait");
+  const start = Date.now();
+  expect((await probeDeveloperShellCheck(f.input)).status).toBe("probe-failed");
+  expect(Date.now() - start).toBeLessThan(4000);
+  const pid = Number(await readFile(join(f.root, "child.pid"), "utf8"));
+
+  for (let attempt = 0; attempt < 100; attempt++) {
+    try {
+      process.kill(pid, 0);
+    } catch {
+      break;
+    }
+
+    await Bun.sleep(10);
+  }
+
+  expect(() => process.kill(pid, 0)).toThrow();
+}, 6000);

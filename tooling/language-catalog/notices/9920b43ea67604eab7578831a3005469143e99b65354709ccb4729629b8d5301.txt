@@ -1,0 +1,13 @@
+Manifest-Version: 1.0
+Created-By: Maven JAR Plugin 3.5.0
+Java-Version: 8
+Build-Jdk-Spec: 25
+Specification-Title: Plexus Common Utilities
+Specification-Version: 3.6
+Specification-Vendor: Codehaus Plexus
+Implementation-Title: Plexus Common Utilities
+Implementation-Version: 3.6.1
+Implementation-Vendor: Codehaus Plexus
+Automatic-Module-Name: org.codehaus.plexus.util
+Multi-Release: true
+

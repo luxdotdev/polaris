@@ -1,0 +1,3 @@
+artifactId=plexus-component-annotations
+groupId=org.codehaus.plexus
+version=2.2.0
