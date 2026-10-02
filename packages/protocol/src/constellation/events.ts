@@ -29,7 +29,7 @@ const task = { ...graph, taskId: TaskId, taskRevision: Revision };
 
 /** Field sets shared with DomainEvent so persisted and streamed events use one codec. */
 export const constellationEventFields = {
-  ConstellationStarted: { ...graph, constellation: Constellation },
+  ConstellationStarted: { ...graph, constellation: Schema.suspend(() => Constellation) },
   ConstellationStateChanged: { ...graph, state: ConstellationState },
   LeadHandoverRequested: {
     ...graph,
@@ -37,7 +37,7 @@ export const constellationEventFields = {
     from: SessionId,
     summary: Schema.String,
     interrupt: Schema.Boolean,
-    selection: optionalNullable(HarnessSelection),
+    selection: optionalNullable(Schema.suspend(() => HarnessSelection)),
   },
   LeadHandoverCancelled: { ...graph, requestId: Schema.String, reason: Schema.String },
   LeadChanged: {
@@ -47,20 +47,25 @@ export const constellationEventFields = {
     summary: Schema.String,
     requestId: optionalNullable(Schema.String),
   },
-  TaskDeclared: { ...graph, task: Task },
-  TaskEdited: { ...graph, task: Task },
+  TaskDeclared: { ...graph, task: Schema.suspend(() => Task) },
+  TaskEdited: { ...graph, task: Schema.suspend(() => Task) },
   TaskCanceled: task,
-  TaskProposed: { ...graph, proposalId: Schema.String, by: AttemptId, task: TaskDefinition },
-  ProposalAccepted: { ...graph, proposalId: Schema.String, task: Task },
+  TaskProposed: {
+    ...graph,
+    proposalId: Schema.String,
+    by: AttemptId,
+    task: Schema.suspend(() => TaskDefinition),
+  },
+  ProposalAccepted: { ...graph, proposalId: Schema.String, task: Schema.suspend(() => Task) },
   ProposalDeclined: { ...graph, proposalId: Schema.String, reason: Schema.String },
-  AttemptStarted: { ...graph, attempt: Attempt },
+  AttemptStarted: { ...graph, attempt: Schema.suspend(() => Attempt) },
   AttemptProgressed: {
     ...attempt,
     note: Schema.String,
     completed: optionalNullable(Revision),
     total: optionalNullable(Revision),
   },
-  AttemptClaimed: { ...attempt, claim: Claim },
+  AttemptClaimed: { ...attempt, claim: Schema.suspend(() => Claim) },
   ClaimApproved: { ...attempt, by: Schema.Literal("user"), at: Timestamp },
   ClaimHandedUp: { ...attempt, reason: optionalNullable(Schema.String), at: Timestamp },
   AttemptNudged: { ...attempt, at: Timestamp },
@@ -69,7 +74,7 @@ export const constellationEventFields = {
   AttemptAccepted: {
     ...attempt,
     mergedHead: Schema.String,
-    receipts: Schema.Array(CheckReceipt),
+    receipts: Schema.Array(Schema.suspend(() => CheckReceipt)),
     evidence: EvidenceTier,
   },
   AttemptRejected: { ...attempt, reason: Schema.String },
@@ -79,7 +84,7 @@ export const constellationEventFields = {
     reason: Schema.String,
   },
   GatePromoted: task,
-  NotificationQueued: { ...graph, notification: ConstellationNotification },
+  NotificationQueued: { ...graph, notification: Schema.suspend(() => ConstellationNotification) },
   LeadNotified: {
     ...graph,
     leadSessionId: SessionId,
@@ -90,7 +95,7 @@ export const constellationEventFields = {
     ...graph,
     id: Schema.String,
     authority: MessageAuthority,
-    target: MessageTarget,
+    target: Schema.suspend(() => MessageTarget),
     text: Schema.String,
     questionId: optionalNullable(Schema.String),
   },

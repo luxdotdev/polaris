@@ -7,7 +7,7 @@ import {
   TurnId,
   TurnItem,
 } from "@polaris/protocol";
-import { Effect, Layer, Stream } from "effect";
+import { Context, Effect, Layer, Stream } from "effect";
 import {
   C,
   CID,
@@ -161,5 +161,31 @@ test("resume seeds current liveness and older Clients receive only graph frames"
         expect(enrichProjections(record, new Map())[0]?.liveness).toBeNull();
       })
     ).pipe(Effect.provide(layer))
+  );
+});
+
+test("a producer captured before lazy activation uses the activated per-Daemon liveness service", async () => {
+  await Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const context = yield* Layer.build(
+          ConstellationLiveness.proxyLayer.pipe(
+            Layer.provideMerge(EventStore.layerSqlite(":memory:"))
+          )
+        );
+
+        yield* Effect.gen(function* () {
+          const captured = yield* ConstellationLiveness;
+          const record = yield* seed;
+          const queuedBeforeActivation = captured.queued(draft().sessionId, 3);
+          expect((yield* captured.read(record)).size).toBe(0);
+          const active = yield* Layer.build(ConstellationLiveness.layer);
+          const live = Context.get(active, ConstellationLiveness);
+          expect(live).toBe(captured);
+          yield* queuedBeforeActivation;
+          expect((yield* captured.read(record)).get(draft().id)?.queuedInput).toBe(3);
+        }).pipe(Effect.provide(context));
+      })
+    )
   );
 });
