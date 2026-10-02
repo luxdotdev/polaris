@@ -6,7 +6,7 @@
  */
 import { realpath, stat } from "node:fs/promises";
 import { FileError } from "@polaris/protocol";
-import { Context, Effect, Layer, Queue, Stream } from "effect";
+import { Context, Effect, Layer, Queue, type Scope, Stream } from "effect";
 import { resolveHostPath, toFsFailure } from "./fs.ts";
 import { openFallbackBackend } from "./search/fallback.ts";
 import { openFffBackend } from "./search/fff.ts";
@@ -39,6 +39,11 @@ export class FileSearch extends Context.Service<
       root: string,
       query: GrepQuery
     ) => Effect.Effect<ReadonlyArray<GrepHit>, FileError>;
+    /** Reuse an existing fff index; never starts an index for an open tab. */
+    readonly watchIndexedFile: (
+      path: string,
+      changed: () => void
+    ) => Effect.Effect<void, FileError, Scope.Scope>;
     readonly watch: (root: string) => Stream.Stream<ReadonlyArray<FileChange>, FileError>;
     /** Which backend serves `root` right now, if it has an index (diagnostics and tests). */
     readonly backendOf: (root: string) => Effect.Effect<SearchBackend["kind"] | null>;
@@ -146,6 +151,43 @@ export const makeFileSearch = (options: FileSearchOptions) =>
         withBackend(root, (backend) => backend.searchPaths(query, Math.max(0, limit))),
       grep: (root, query) =>
         withBackend(root, (backend) => backend.grep({ ...query, limit: Math.max(0, query.limit) })),
+      watchIndexedFile: (path, changed) =>
+        Effect.gen(function* () {
+          const match = [...indexes.entries()]
+            .filter(([root]) => path.startsWith(root + "/"))
+            .sort(([a], [b]) => b.length - a.length)[0];
+
+          if (!match) return;
+          const [root, index] = match;
+
+          yield* Effect.acquireRelease(
+            Effect.sync(() => {
+              index.watchers++;
+            }),
+            () =>
+              Effect.sync(() => {
+                index.watchers--;
+                index.lastUsed = Date.now();
+              })
+          );
+
+          const backend = yield* Effect.tryPromise({
+            try: () => index.backend,
+            catch: (cause) => fileError(path, cause),
+          });
+
+          if (backend.kind !== "fff") return;
+          yield* Effect.acquireRelease(
+            Effect.tryPromise({
+              try: () =>
+                backend.watch((batch) => {
+                  if (batch.some((event) => event.path === path || event.path === root)) changed();
+                }),
+              catch: (cause) => fileError(path, cause),
+            }),
+            (stop) => Effect.sync(stop)
+          );
+        }),
       watch: (input) =>
         Stream.callback<ReadonlyArray<FileChange>, FileError>((queue) =>
           Effect.gen(function* () {
