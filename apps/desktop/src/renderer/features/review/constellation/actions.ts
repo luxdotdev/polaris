@@ -28,15 +28,16 @@ export interface WorkerTarget {
   readonly attempt: Plain<Attempt>;
 }
 
+/** Records the user's verdict (`approvedByUserAt`); the Attempt is accepted once the Lead merges it. */
 export const approveClaim = ({ leadHostKey, constellationId, attempt }: WorkerTarget) =>
   sendConstellation(
     leadHostKey,
-    "constellation.message",
+    "constellation.review",
     {
       constellationId,
-      target: MessageTarget.cases.Lead.make({}),
-      authority: "may_decide_and_continue",
-      text: `I approved ${attempt.taskId}'s claim at ${attempt.claim?.head.slice(0, 7) ?? "its head"}. Merge it, run the checks and accept it.`,
+      attemptId: attempt.id,
+      revision: attempt.revision,
+      action: ReviewAction.cases.Approve.make({}),
     },
     "Couldn't approve"
   );

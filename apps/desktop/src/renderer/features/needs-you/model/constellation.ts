@@ -170,9 +170,10 @@ const leadItems = (
   return items;
 };
 
-const claimItems = (rows: ReadonlyArray<WorkerRow>, groupKey: string) =>
+/** Claims the user decides: handed up by the Lead, or every one while the Constellation is paused. */
+const claimItems = (rows: ReadonlyArray<WorkerRow>, groupKey: string, paused: boolean) =>
   rows.flatMap((row): Array<ConstellationItem> =>
-    row.state === "review"
+    row.state === "handed-up" || (paused && row.state === "review")
       ? [
           {
             key: `${groupKey}\u0000${row.taskId}\u0000claim`,
@@ -212,7 +213,7 @@ const groupOf = ({ hostKey, view, models, lookup }: GroupInput): ConstellationGr
     ...rows.flatMap((row) => workerItems(row, key)),
     ...questionItems(view, rows, key),
     ...leadItems(hostKey, lead, key),
-    ...(constellation.state === "paused" ? claimItems(rows, key) : []),
+    ...claimItems(rows, key, constellation.state === "paused"),
   ]);
 
   return items.length === 0 ? null : { key, view, leadHostKey: hostKey, lead, items };

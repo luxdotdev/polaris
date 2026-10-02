@@ -33,7 +33,10 @@ import {
   Worktree,
 } from "@polaris/protocol";
 import { Schema } from "effect";
-import { ConstellationRequestInputs } from "./constellationContract.ts";
+import {
+  ConstellationDefaultsInputs,
+  ConstellationRequestInputs,
+} from "./constellationContract.ts";
 import { ResourceRequestInputs } from "./resourcesContract.ts";
 import { GitHubRequestInputs, GitHubSubscriptionInputs } from "./githubContract.ts";
 import { BRANCH_PREFIX } from "./sessionPrefs.ts";
@@ -382,6 +385,7 @@ export const RequestInputs = {
   "dev.proofWorkspace": Schema.Struct({}),
   ...GitHubRequestInputs,
   ...ConstellationRequestInputs,
+  ...ConstellationDefaultsInputs,
   ...ResourceRequestInputs,
 } as const;
 

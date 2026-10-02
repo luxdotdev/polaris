@@ -44,6 +44,13 @@ export const constellationHandlers = {
     live(hostKey, (s) => s.client["constellation.set_state"](payload)),
   "constellation.status": ({ hostKey, ...payload }: RequestInput<"constellation.status">) =>
     live(hostKey, (s) => s.client["constellation.status"](payload)),
+  "constellation.defaults.get": ({ hostKey }: RequestInput<"constellation.defaults.get">) =>
+    live(hostKey, (s) => s.client["constellation.defaults.get"]({})),
+  "constellation.defaults.set": ({
+    hostKey,
+    ...payload
+  }: RequestInput<"constellation.defaults.set">) =>
+    live(hostKey, (s) => s.client["constellation.defaults.set"](payload)),
 };
 
 /** Settings → Hosts: resources and the worker cap; every call answers with the whole snapshot. */

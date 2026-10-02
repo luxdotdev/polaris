@@ -31,6 +31,7 @@ import type {
   HostInfo,
   HostStreamItem,
   ConstellationResult,
+  ConstellationSettings,
   HostResourcesSnapshot,
   ConstellationStreamItem,
   PlanLimit,
@@ -47,7 +48,7 @@ import type {
 import type { Rpc } from "effect/rpc";
 import type { CommandId } from "./keymap.ts";
 import type { PullRef } from "./github.ts";
-import type { ConstellationMethod } from "./constellationContract.ts";
+import type { ConstellationDefaultsMethod, ConstellationMethod } from "./constellationContract.ts";
 import type { ResourceMethod } from "./resourcesContract.ts";
 import type { GitHubRequestOutputs, GitHubSubscriptionItems } from "./githubContract.ts";
 import type { NeedsYouAction } from "./needsYou.ts";
@@ -284,6 +285,8 @@ export interface InstallView {
 /** Every Constellation request answers with the RPC's result: summary, next, revision. */
 export type ConstellationRequestOutputs = {
   readonly [M in ConstellationMethod]: Plain<ConstellationResult>;
+} & {
+  readonly [M in ConstellationDefaultsMethod]: { readonly settings: Plain<ConstellationSettings> };
 };
 
 /** Every Host resource request answers with the Host's whole resources snapshot. */

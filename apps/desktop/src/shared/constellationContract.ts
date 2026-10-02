@@ -4,6 +4,8 @@
  */
 import {
   ConstellationAnswer,
+  ConstellationDefaultsGet,
+  ConstellationDefaultsSet,
   ConstellationDispatch,
   ConstellationMessage,
   ConstellationPlan,
@@ -29,3 +31,11 @@ export const ConstellationRequestInputs = {
 } as const;
 
 export type ConstellationMethod = keyof typeof ConstellationRequestInputs;
+
+/** The user's Constellation defaults on a Host (Settings → Constellations writes every Host's). */
+export const ConstellationDefaultsInputs = {
+  "constellation.defaults.get": onHost(ConstellationDefaultsGet.payloadSchema.fields),
+  "constellation.defaults.set": onHost(ConstellationDefaultsSet.payloadSchema.fields),
+} as const;
+
+export type ConstellationDefaultsMethod = keyof typeof ConstellationDefaultsInputs;

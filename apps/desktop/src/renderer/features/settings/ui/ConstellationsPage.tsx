@@ -8,6 +8,9 @@ import type { RoleDefault } from "../../../../shared/contract.ts";
 import { DEFAULT_SESSION_PREFS } from "../../../../shared/sessionPrefs.ts";
 import { sectionInfo } from "../model/sections.ts";
 import { sameChoice } from "../model/reviewer.ts";
+import { syncLines } from "../model/constellationDefaults.ts";
+import { useDefaultsSync } from "../defaultsSync.ts";
+import { useApp } from "../../../shell/hooks.ts";
 import { setSessionPrefs, useSettings } from "../store.ts";
 import { Column, Group, Heading, PageHeader } from "./parts.tsx";
 import { ReviewerChoice } from "./ReviewerChoice.tsx";
@@ -72,6 +75,28 @@ const RoleRow = ({
   );
 };
 
+/** Which Hosts hold the defaults: a lead uses its own Host's copy. */
+const WhereSaved = () => {
+  const sync = useDefaultsSync();
+  const hosts = useApp((s) => s.hosts);
+
+  const lines = syncLines(
+    hosts.flatMap((h) => {
+      const state = sync[h.key];
+
+      return state === undefined || h.status.state !== "connected"
+        ? []
+        : [{ label: h.label, sync: state }];
+    })
+  );
+
+  return lines.map((line) => (
+    <p key={line} className="text-caption text-text-subtle" data-testid="defaults-sync">
+      {line}
+    </p>
+  ));
+};
+
 export const ConstellationsPage = () => {
   const info = sectionInfo("constellations");
   const defaults = useSettings((s) => s.sessions.constellationDefaults);
@@ -98,6 +123,7 @@ export const ConstellationsPage = () => {
             />
           ))}
         </Group>
+        <WhereSaved />
         <p className="text-caption text-text-subtle">
           Workers use your harness permissions. Resources and how many workers a host runs at once
           are per host, in Hosts.

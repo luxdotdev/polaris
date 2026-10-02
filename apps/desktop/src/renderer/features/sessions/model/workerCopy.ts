@@ -16,6 +16,7 @@ const SHOWN: Readonly<Record<WorkerState, Shown>> = {
   unclaimed: { glyph: "needs-you", word: "stopped", tone: "needs-you" },
   stale: { glyph: "needs-you", word: "stale", tone: "needs-you" },
   review: { glyph: "review", word: "review", tone: "subtle" },
+  "handed-up": { glyph: "review", word: "handed to you", tone: "needs-you" },
   working: { glyph: "working", word: null, tone: "subtle" },
   "sent-back": { glyph: "waiting", word: "sent back", tone: "subtle" },
   failed: { glyph: "failed", word: "failed", tone: "failed" },

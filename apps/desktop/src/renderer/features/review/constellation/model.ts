@@ -7,14 +7,23 @@ import { Match } from "effect";
 import type { Plain } from "../../../store/plain.ts";
 import { type DraftBatch, draftPlace } from "../../comments/model/feedback.ts";
 
+const at = (head: string | undefined) => (head === undefined ? "" : ` at ${head}`);
+
+/** A Claim in review: approved by the user, handed up to them, or the Lead's to decide. */
+const reviewWords = (attempt: Plain<Attempt>, head: string | undefined) => {
+  if (attempt.approvedByUserAt != null) return `claim${at(head)} approved by you · the lead merges`;
+
+  if (attempt.handedUpAt != null) return `claim${at(head)} handed to you`;
+
+  return `claim in review${at(head)}`;
+};
+
 /** "worker of Constellations v1 lead · claim in review at 3f9c2e1". */
 export const workerCaption = (attempt: Plain<Attempt>, leadName: string) => {
   const head = attempt.claim?.head.slice(0, 7);
 
   const state = Match.value(attempt.state).pipe(
-    Match.when("review", () =>
-      head === undefined ? "claim in review" : `claim in review at ${head}`
-    ),
+    Match.when("review", () => reviewWords(attempt, head)),
     Match.when("working", () => "working on its task"),
     Match.when("accepted", () =>
       attempt.mergedHead == null ? "accepted" : `accepted at ${attempt.mergedHead.slice(0, 7)}`

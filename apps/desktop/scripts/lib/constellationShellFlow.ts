@@ -22,6 +22,14 @@ const savedUi = (page: Page) =>
     'window.polaris.request("settings.get", {}).then((r) => r.value.sessions.constellationDefaults.ui)'
   );
 
+/** The local Host's copy of the UI role's default (`constellation.defaults.get`), once it is `harness`. */
+const hostUiBecomes = (page: Page, harness: string) =>
+  page.waitForFunction(
+    `window.polaris.request("constellation.defaults.get", { hostKey: "local" }).then((r) => r.ok && r.value.settings.ui?.harness === ${JSON.stringify(harness)})`,
+    undefined,
+    { timeout: 10_000, polling: 250 }
+  );
+
 const defaultsPage = async ({ page, step, shoot }: FlowInput) => {
   await page.getByRole("button", { name: "Constellations" }).click();
   await page.getByTestId("constellation-defaults").waitFor({ timeout: 5_000 });
@@ -39,6 +47,11 @@ const defaultsPage = async ({ page, step, shoot }: FlowInput) => {
 
   if (changed.harness !== "codex")
     throw new Error(`UI default not saved: ${JSON.stringify(changed)}`);
+  await hostUiBecomes(page, "codex");
+  await page
+    .getByTestId("defaults-sync")
+    .filter({ hasText: /^Saved on / })
+    .waitFor({ timeout: 5_000 });
   await shoot("settings-constellations");
   await page.getByRole("button", { name: "Reset" }).click();
   await page.waitForTimeout(300);
@@ -47,7 +60,10 @@ const defaultsPage = async ({ page, step, shoot }: FlowInput) => {
 
   if (reset.harness !== "claude" || reset.model !== before.model)
     throw new Error(`Reset didn't restore the UI default: ${JSON.stringify(reset)}`);
-  step("Constellations: the UI workers' default saved as Codex, then reset to Claude Code");
+  await hostUiBecomes(page, "claude");
+  step(
+    "Constellations: the UI workers' default saved as Codex here and on the local Host, then reset on both"
+  );
 };
 
 const bridge = async ({ page, step }: FlowInput) => {

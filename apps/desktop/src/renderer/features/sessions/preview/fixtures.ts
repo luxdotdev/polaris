@@ -166,6 +166,10 @@ interface AttemptSeed {
   readonly minutes: number;
   readonly host?: HostId;
   readonly claim?: Claim;
+  /** Minutes since the Daemon's one nudge. */
+  readonly nudged?: number;
+  /** Minutes since the Lead handed the Claim up. */
+  readonly handedUp?: number;
 }
 
 const attempt = (seed: AttemptSeed) =>
@@ -182,6 +186,10 @@ const attempt = (seed: AttemptSeed) =>
     base: "main",
     state: seed.state,
     claim: seed.claim ?? null,
+    nudgedAt: seed.nudged === undefined ? null : ago(seed.nudged),
+    handedUpAt: seed.handedUp === undefined ? null : ago(seed.handedUp),
+    handedUpReason: seed.handedUp === undefined ? null : "It can't decide the question",
+    approvedByUserAt: null,
     mergedHead: seed.state === "accepted" ? "8e41d07" : null,
     receipts: [],
     evidence: seed.state === "accepted" ? "verified" : null,
@@ -301,7 +309,15 @@ const C1_ATTEMPTS = [
     minutes: 52,
     host: DEVBOX,
   }),
-  c1Attempt("B5", "b5", "working", 26),
+  attempt({
+    constellation: C1_ID,
+    task: "B5",
+    session: "b5",
+    lead: LEAD,
+    state: "working",
+    minutes: 26,
+    nudged: 8,
+  }),
 ];
 
 const projection = (

@@ -99,6 +99,8 @@ const ClaimActions = ({
     setBusy(false);
   };
 
+  const approved = attempt.approvedByUserAt != null;
+
   const approve = () =>
     void run(
       () => approveClaim(target),
@@ -134,11 +136,13 @@ const ClaimActions = ({
     >
       <button
         type="button"
-        disabled={busy}
+        data-testid="worker-approve-primary"
+        disabled={busy || approved}
+        title={approved ? "You approved it; the lead merges and accepts it" : undefined}
         onClick={approve}
         className="flex h-[30px] cursor-default items-center px-3 font-medium"
       >
-        Approve
+        {approved ? "Approved" : "Approve"}
       </button>
       <span aria-hidden="true" className="h-4 w-px shrink-0 bg-current opacity-20" />
       <DropdownMenu>
