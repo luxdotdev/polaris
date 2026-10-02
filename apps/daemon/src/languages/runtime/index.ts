@@ -26,6 +26,7 @@ import type { DiscoveryFacts } from "../discovery/index.ts";
 import { checkoutKey, checkoutPath } from "../trust/index.ts";
 import { OrderedConnection } from "../transport/index.ts";
 import { failure } from "../transport/framing.ts";
+import { bounded } from "../transport/deadline.ts";
 import { notificationMessage, clientCapabilities, drainStderr } from "./wire.ts";
 import { ContextEvents } from "./events.ts";
 import { Documents } from "./documents.ts";
@@ -98,9 +99,14 @@ export function createLanguageBroker(options: BrokerOptions) {
 
   const cleanup = new Set<Promise<void>>();
 
-  function track(promise: Promise<void>) {
+  function track(promise: Promise<void>, retainFailure = false) {
     cleanup.add(promise);
-    void promise.finally(() => cleanup.delete(promise)).catch(() => {});
+    void promise.then(
+      () => cleanup.delete(promise),
+      () => {
+        if (!retainFailure) cleanup.delete(promise);
+      }
+    );
   }
 
   function event(entry: Entry, value: LanguageContextEvent) {
@@ -191,7 +197,7 @@ export function createLanguageBroker(options: BrokerOptions) {
 
     if (connection !== undefined) {
       track(connection.close(graceful));
-      track(connection.settlement());
+      track(connection.settlement(), true);
     }
   }
 
@@ -835,7 +841,7 @@ export function createLanguageBroker(options: BrokerOptions) {
 
     entries.clear();
     keys.clear();
-    await Promise.all(cleanup);
+    await bounded(Promise.all(cleanup), 10000);
   }
 
   return {

@@ -46,5 +46,7 @@ then waits for reader/write settlement and actual owned process stop. Close is
 idempotent; its 10 s finalization deadline rejects instead of reporting success.
 Failed or pending process stop does not release its process-budget reservation.
 The broker keeps actual teardown settlement tracked after that deadline rejects.
+Each broker close remains bounded while teardown is pending. Permanently rejected
+teardown remains tracked and rejects repeated close; it cannot become clean success.
 POSIX cleanup signals the owned process group; descendants that escape that group
 are outside that termination guarantee. Windows cleanup remains untested.
