@@ -119,8 +119,8 @@ try {
   await page.getByText(/Review arrives/).waitFor({ timeout: 5000 });
   await shoot(page, "later-review");
   await page.keyboard.press("Meta+3");
-  await page.getByText(/editor arrives/).waitFor({ timeout: 5000 });
-  await shoot(page, "later-edit");
+  await page.getByTestId("explorer").waitFor({ timeout: 5000 });
+  await shoot(page, "edit");
   await page.keyboard.press("Meta+1");
 } finally {
   await app.close();

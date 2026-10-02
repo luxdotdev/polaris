@@ -21,6 +21,8 @@ export {
 
 export { clampWidth, defaultWidth, KEY_STEP, RAIL_WIDTH, widthCss } from "./output/layout.ts";
 
+export { useFilesTick } from "./output/watch.ts";
+
 export { setOutputWidth, useOutputWidth } from "./output/width.ts";
 
 export { SessionChromeContext, type PolarisCardArgs, type SessionChrome } from "./chrome.ts";

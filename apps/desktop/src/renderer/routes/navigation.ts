@@ -201,7 +201,8 @@ export const createNavigation = ({
       workspaceId,
       sessionId: null,
       pane: "session",
-      mode: "orchestrate",
+      // Edit is per Workspace: choosing another one keeps the editor open on it.
+      mode: store.getState().mode === "edit" ? "edit" : "orchestrate",
       settings: null,
     });
     timeSwitch(inputAt);

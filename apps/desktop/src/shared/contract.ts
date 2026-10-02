@@ -226,6 +226,11 @@ export const RequestInputs = {
   "git.diff": onHost({ cwd: Schema.String, spec: GitDiffSpec }),
   /** A file at a revision (capability `git.show`): Review's context expansion. */
   "git.show": onHost({ cwd: Schema.String, revision: Schema.String, path: Schema.String }),
+  /** The explorer's file operations (capability `files.manage`). */
+  "files.create": onHost({ path: Schema.String, kind: Schema.Literals(["file", "directory"]) }),
+  "files.rename": onHost({ path: Schema.String, destination: Schema.String }),
+  /** `permanent` only after the user confirmed; without it a Host with no trash refuses. */
+  "files.delete": onHost({ path: Schema.String, permanent: Schema.Boolean }),
   /** A Harness's Models on the Host (capability `harness.models`); `refresh` asks the Harness again. */
   "harness.models": onHost({ harness: HarnessKind, refresh: Schema.Boolean }),
   /** A Harness's Skills and Slash Commands in a directory (capability `harness.commands`). */

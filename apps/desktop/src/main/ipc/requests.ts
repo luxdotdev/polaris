@@ -178,6 +178,22 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
         }))
       )
     ),
+  "files.create": ({ hostKey, ...payload }) =>
+    onLive(hostKey, (s) => s.client["files.create"](payload)),
+  "files.rename": ({ hostKey, ...payload }) =>
+    onLive(hostKey, (s) => s.client["files.rename"](payload)),
+  // A Host without a trash refuses with ENOTSUP; the explorer then asks before deleting for good.
+  "files.delete": ({ hostKey, ...payload }) =>
+    onLive(hostKey, (s) =>
+      s.client["files.delete"](payload).pipe(
+        Effect.catchTag("FileError", (error) =>
+          Effect.fail<Failure>({
+            _tag: error.code === "ENOTSUP" ? "TrashUnavailable" : "FileError",
+            message: error.message,
+          })
+        )
+      )
+    ),
   "harness.models": ({ hostKey, ...payload }) =>
     onLive(hostKey, (s) => s.client["harness.models"](payload)),
   "harness.commands": ({ hostKey, ...payload }) =>
