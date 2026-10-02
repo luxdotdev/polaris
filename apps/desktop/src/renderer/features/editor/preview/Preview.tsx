@@ -115,7 +115,7 @@ const SCENES = new Map<string, Scene>(
       openSearchPanel(await activeView());
     },
     tabs20,
-    readonly: () => openFile({ hostKey: "pi", workspaceId: WORKSPACE, path: RECONNECT }),
+    readonly: () => openFile({ hostKey: HOST, workspaceId: WORKSPACE, path: RECONNECT }),
     binary: () =>
       openFile({ hostKey: HOST, workspaceId: WORKSPACE, path: path("design/assets/logo.png") }),
     big: () => openFile({ hostKey: HOST, workspaceId: WORKSPACE, path: path("bench/big.ts") }),
@@ -181,7 +181,7 @@ export const mountEditorPreview = (root: HTMLElement, hash: string) => {
     app: () => store.getState(),
     files,
     kv: memoryKeyValue(),
-    canWrite: (hostKey) => hostKey !== "pi",
+    canWrite: () => scene !== "readonly",
   });
 
   createRoot(root).render(

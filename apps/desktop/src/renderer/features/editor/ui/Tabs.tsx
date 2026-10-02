@@ -4,7 +4,7 @@
  * mark on the active tab, and a 12px dither while an agent changes the file.
  */
 import { cn, CloseIcon, Dither } from "@polaris/ui";
-import type { MouseEvent } from "react";
+import { type MouseEvent, useEffect, useRef } from "react";
 import type { TabView } from "../runtime/hooks.ts";
 
 export interface TabsProps {
@@ -54,44 +54,56 @@ const TrailingSlot = ({
   );
 };
 
-export const Tabs = ({ tabs, active, onSelect, onPin, onClose }: TabsProps) => (
-  <div
-    role="tablist"
-    aria-label="Open files"
-    className="border-hairline bg-surface-sunken flex h-[37px] shrink-0 [scrollbar-width:none] overflow-x-auto border-b"
-  >
-    {tabs.map((tab) => {
-      const selected = tab.path === active;
+export const Tabs = ({ tabs, active, onSelect, onPin, onClose }: TabsProps) => {
+  const strip = useRef<HTMLDivElement>(null);
 
-      return (
-        <div
-          key={tab.path}
-          role="tab"
-          tabIndex={selected ? 0 : -1}
-          aria-selected={selected}
-          title={tab.path}
-          data-testid="editor-tab"
-          data-dirty={tab.dirty ? "" : undefined}
-          onMouseDown={(event) => {
-            if (event.button === 1) onClose(tab.path);
-          }}
-          onClick={() => onSelect(tab.path)}
-          onDoubleClick={() => onPin(tab.path)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") onSelect(tab.path);
-          }}
-          className={cn(
-            "group/tab flex h-9 max-w-[240px] shrink-0 cursor-default items-center gap-2 border-r border-hairline pr-3 pl-3.5 text-label select-none",
-            selected
-              ? "-mb-px h-[37px] bg-bg text-text-strong"
-              : "text-text-subtle hover:text-text-default"
-          )}
-        >
-          {tab.agent === null ? null : <Dither hue={tab.agent} size={12} moving />}
-          <span className={cn("truncate", tab.preview && "italic")}>{tab.label}</span>
-          <TrailingSlot tab={tab} active={selected} onClose={() => onClose(tab.path)} />
-        </div>
-      );
-    })}
-  </div>
-);
+  // The active tab stays in view however many are open.
+  useEffect(() => {
+    strip.current
+      ?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')
+      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [active, tabs.length]);
+
+  return (
+    <div
+      ref={strip}
+      role="tablist"
+      aria-label="Open files"
+      className="border-hairline bg-surface-sunken flex h-[37px] shrink-0 [scrollbar-width:none] overflow-x-auto border-b"
+    >
+      {tabs.map((tab) => {
+        const selected = tab.path === active;
+
+        return (
+          <div
+            key={tab.path}
+            role="tab"
+            tabIndex={selected ? 0 : -1}
+            aria-selected={selected}
+            title={tab.path}
+            data-testid="editor-tab"
+            data-dirty={tab.dirty ? "" : undefined}
+            onMouseDown={(event) => {
+              if (event.button === 1) onClose(tab.path);
+            }}
+            onClick={() => onSelect(tab.path)}
+            onDoubleClick={() => onPin(tab.path)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") onSelect(tab.path);
+            }}
+            className={cn(
+              "group/tab flex h-9 max-w-[240px] shrink-0 cursor-default items-center gap-2 border-r border-hairline pr-3 pl-3.5 text-label select-none",
+              selected
+                ? "-mb-px h-[37px] bg-bg text-text-strong"
+                : "text-text-subtle hover:text-text-default"
+            )}
+          >
+            {tab.agent === null ? null : <Dither hue={tab.agent} size={12} moving />}
+            <span className={cn("truncate", tab.preview && "italic")}>{tab.label}</span>
+            <TrailingSlot tab={tab} active={selected} onClose={() => onClose(tab.path)} />
+          </div>
+        );
+      })}
+    </div>
+  );
+};

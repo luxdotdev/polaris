@@ -46,6 +46,25 @@ const editorKeys = () => {
   return keys;
 };
 
+/** CodeMirror's own words in sentence case (rule/sentence-case). */
+const PHRASES = EditorState.phrases.of({
+  Find: "Find",
+  Replace: "Replace",
+  next: "Next",
+  previous: "Previous",
+  all: "All",
+  "match case": "Match case",
+  regexp: "Regex",
+  "by word": "Whole word",
+  replace: "Replace",
+  "replace all": "Replace all",
+  close: "Close",
+  "current match": "Current match",
+  "on line": "on line",
+  "Go to line": "Go to line",
+  go: "Go",
+});
+
 export interface StateInput {
   readonly file: EditorFile;
   readonly text: string;
@@ -88,6 +107,7 @@ export const createFileState = ({ file, text, readOnly, vim, onUpdate }: StateIn
       search({ top: true }),
       editorKeys(),
       editorLook,
+      PHRASES,
       reloadHighlight,
       languageCompartment.of([]),
       readOnlyCompartment.of(readOnly ? EditorState.readOnly.of(true) : []),
