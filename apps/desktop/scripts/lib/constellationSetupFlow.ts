@@ -11,6 +11,19 @@ export const constellationSetupFlow = async (page: Page, step: (m: string) => vo
   await page.evaluate(`location.hash = "#constellation/setup"; location.reload()`);
   await page.getByTestId("constellation-tab").waitFor({ timeout: 10_000 });
 
+  for (const [task, state] of [
+    ["B7", "setting-up"],
+    ["B8", "setup-failed"],
+  ] as const) {
+    const worker = page.locator(`[data-testid="lead-workers"] [data-task="${task}"]`);
+
+    if ((await worker.getAttribute("data-worker-state")) !== state)
+      throw new Error(`${task} isn't nested under its Lead as ${state}`);
+  }
+
+  if ((await page.getByText(/Dormant/).count()) > 0)
+    throw new Error("a setup worker reads Dormant in the sidebar");
+
   const running = await row(page, "B7").textContent();
 
   if (running?.includes("setting up") !== true || !running.includes("bun install"))
@@ -39,5 +52,7 @@ export const constellationSetupFlow = async (page: Page, step: (m: string) => vo
   if ((await failed.getByRole("button", { name: "Retry" }).count()) > 0)
     throw new Error("Retry stayed after setup ran again");
 
-  step("Constellation setup: failed row → log card → Retry → setting up");
+  step(
+    "Constellation setup: sidebar nests B7 setting up and B8 setup failed; failed row → log card → Retry → setting up"
+  );
 };

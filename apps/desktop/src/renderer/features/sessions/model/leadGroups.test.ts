@@ -1,19 +1,22 @@
 import { describe, expect, test } from "bun:test";
 import { activeSessions } from "../../../routes/topBar.ts";
 import { sessionOrder } from "../../../routes/selection.ts";
-import type { Attempt } from "@polaris/protocol";
+import { type Attempt, SessionId, TaskId, WorktreeSetupRun } from "@polaris/protocol";
 import { asPlain, type Plain } from "../../../store/plain.ts";
-import { C1, C2, HOSTS, MODELS } from "../preview/fixtures.ts";
+import { C1, C2, HOSTS, MODELS, withSetupFailure } from "../preview/fixtures.ts";
 import {
   doneLine,
   leadLine,
   lookupIn,
+  setupLookupIn,
   sidebarItems,
   workerRows,
   workerState,
 } from "./leadGroups.ts";
 
 const lookup = lookupIn(HOSTS, MODELS);
+
+const setups = setupLookupIn(HOSTS, MODELS);
 
 const local = MODELS.local;
 
@@ -103,6 +106,7 @@ describe("sidebarItems", () => {
     entries,
     views: [C1, C2],
     lookup,
+    setups,
   });
 
   test("workers leave the plain list and nest under their Lead", () => {
@@ -132,10 +136,101 @@ describe("sidebarItems", () => {
       constellation: { ...C2.constellation, state: "archived" as const },
     };
 
-    const result = sidebarItems({ hostKey: "local", entries, views: [archived], lookup });
+    const result = sidebarItems({
+      hostKey: "local",
+      entries,
+      views: [archived],
+      lookup,
+      setups,
+    });
 
     expect(result.constellations).toBe(0);
     expect(result.items.every((i) => i.kind === "session")).toBe(true);
+  });
+});
+
+describe("worktree setup before the first Attempt", () => {
+  const failure = withSetupFailure();
+  const b5 = failure.models.local.sessions.get("b5");
+
+  if (b5 === undefined) throw new Error("b5 is in the fixtures");
+
+  // B7's setup runs on this Mac: its Session is Dormant, which the sidebar must never say.
+  const b7 = {
+    ...b5,
+    session: {
+      ...asPlain(b5.session),
+      id: SessionId.make("b7"),
+      title: "B7 · Bench wrapper",
+      state: "dormant" as const,
+      worktreeSetup: new WorktreeSetupRun({
+        id: "d7:setup:1",
+        constellationId: C1.constellation.id,
+        taskId: TaskId.make("B7"),
+        command: "bun install",
+        cwd: "/Users/lucas/code/polaris.worktrees/B7",
+        status: "running",
+        output: "",
+        exitCode: null,
+        startedAt: new Date().toISOString(),
+        endedAt: null,
+      }),
+    },
+  };
+
+  const models = {
+    ...failure.models,
+    local: {
+      ...failure.models.local,
+      sessions: new Map([...failure.models.local.sessions, ["b7", b7]]),
+    },
+  };
+
+  const task = failure.view.constellation.tasks.find((t) => t.id === "B6");
+
+  if (task === undefined) throw new Error("B6 is in the fixture");
+
+  const view = {
+    ...failure.view,
+    constellation: {
+      ...failure.view.constellation,
+      tasks: [...failure.view.constellation.tasks, { ...asPlain(task), id: TaskId.make("B7") }],
+    },
+  };
+
+  const localEntries = [...activeSessions(models.local)].sort(sessionOrder);
+
+  const result = sidebarItems({
+    hostKey: "local",
+    entries: localEntries,
+    views: [view, C2],
+    lookup: lookupIn(HOSTS, models),
+    setups: setupLookupIn(HOSTS, models),
+  });
+
+  const group = result.items
+    .flatMap((i) => (i.kind === "lead" ? [i.group] : []))
+    .find((g) => g.view === view);
+
+  test("setup workers nest under their Lead, failed ones needing you, across Hosts", () => {
+    expect(group?.workers.map((r) => [`${r.taskId}`, r.kind, r.state])).toEqual([
+      ["B5", "attempt", "unclaimed"],
+      ["B6", "setup", "setup-failed"],
+      ["B1", "attempt", "review"],
+      ["B4", "attempt", "review"],
+      ["B2", "attempt", "working"],
+      ["B3", "attempt", "waiting-slot"],
+      ["B7", "setup", "setting-up"],
+    ]);
+    expect(group?.needsYou).toBe(2);
+  });
+
+  test("a setting-up worker's Session leaves the plain list", () => {
+    const plain = result.items.flatMap((i) =>
+      i.kind === "session" ? [`${i.entry.session.id}`] : []
+    );
+
+    expect(plain).toEqual(["glossary"]);
   });
 });
 
