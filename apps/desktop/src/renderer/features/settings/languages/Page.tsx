@@ -1,7 +1,7 @@
 import * as P from "@polaris/protocol";
 import { Button } from "@polaris/ui";
 import { Schema } from "effect";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { Column, PageHeader } from "../ui/parts.tsx";
 import { LanguagePreferences } from "../../editor/languageSettings/Preferences.tsx";
 import { Advanced } from "./Advanced.tsx";
@@ -9,11 +9,16 @@ import { CustomServers } from "./CustomServers.tsx";
 import { Choice } from "./fields.tsx";
 import { Hosts } from "./Hosts.tsx";
 import { SettingsOperations } from "./operations.ts";
-import type {
-  LanguageSettingsProps,
-  LanguageSettingsAction,
-  LanguageSettingsSnapshot,
-} from "./contracts.ts";
+import type { LanguageSettingsProps, LanguageSettingsAction } from "./contracts.ts";
+
+import {
+  acceptSettingsFacts,
+  currentSettingsFacts,
+  discardSettingsDraft,
+  initialSettingsView,
+  settingsDraftDirty,
+  settingsRevisionConflict,
+} from "./viewState.ts";
 
 const same = (a: P.LanguageSettingsScope, b: P.LanguageSettingsScope) =>
   JSON.stringify(a) === JSON.stringify(b);
@@ -28,24 +33,30 @@ const ScopePage = ({
   readonly onDirty: (dirty: boolean) => void;
 }) => {
   const [operations] = useState(() => new SettingsOperations());
-  const [snapshot, setSnapshot] = useState<LanguageSettingsSnapshot | null>(null);
-  const [draft, setDraft] = useState<P.LanguageSettingsPatch>({});
+  const [view, setView] = useState(initialSettingsView);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [epoch, setEpoch] = useState(0);
-  const [editingEpoch, setEditingEpoch] = useState(0);
+  const scopeKey = JSON.stringify(scope);
+  const snapshot = view.snapshot;
+  const draft = view.draft;
+  const dirty = settingsDraftDirty(view);
+  const current = currentSettingsFacts(view, adapter, scopeKey, epoch);
+  const conflict = current !== null && settingsRevisionConflict(view);
 
-  const dirty =
-    snapshot !== null && JSON.stringify(draft) !== JSON.stringify(snapshot.record.settings);
+  const setDraft = (settings: P.LanguageSettingsPatch) =>
+    setView((previous) => ({ ...previous, draft: settings }));
 
   useEffect(() => {
     onDirty(dirty);
   }, [dirty, onDirty]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    setView((previous) => ({ ...previous, valid: false }));
     setBusy(true);
+    setNotice("");
     void operations.run(
-      async (signal) => adapter.load(scope, signal),
+      (signal) => adapter.load(scope, signal),
       (result) => {
         setBusy(false);
 
@@ -55,31 +66,41 @@ const ScopePage = ({
           return;
         }
 
-        if (!same(result.value.record.scope, scope)) {
-          setNotice("Settings response belongs to another scope. Retry loading.");
+        const record = Schema.decodeUnknownSync(P.LanguageSettingsRecord)(result.value.record);
+
+        if (!same(record.scope, scope)) {
+          setNotice("Settings response belongs to another scope. Refresh facts to retry.");
 
           return;
         }
 
-        setSnapshot(result.value);
-        setDraft(result.value.record.settings);
+        setView((previous) =>
+          acceptSettingsFacts(previous, { ...result.value, record }, adapter, scopeKey, epoch)
+        );
         setNotice("");
-        setEditingEpoch((value) => value + 1);
       },
       () => {
         setBusy(false);
-        setNotice("Couldn't load language settings. Retry loading.");
+        setNotice("Couldn't load language settings. Refresh facts to retry.");
       }
     );
 
     return () => operations.cancel();
-  }, [adapter, scope, operations, epoch]);
+  }, [adapter, scope, scopeKey, operations, epoch]);
+
+  const refresh = () => {
+    setView((previous) => ({ ...previous, valid: false }));
+    setEpoch((value) => value + 1);
+  };
 
   const run = (
-    work: (signal: AbortSignal) => ReturnType<LanguageSettingsProps["adapter"]["save"]>
+    work: (signal: AbortSignal) => ReturnType<LanguageSettingsProps["adapter"]["save"]>,
+    saving: boolean
   ) => {
+    if (current === null || busy || conflict) return;
     setBusy(true);
     setNotice("");
+    setView((previous) => ({ ...previous, valid: false, acknowledged: null }));
     void operations.run(
       work,
       (result) => {
@@ -91,8 +112,9 @@ const ScopePage = ({
           return;
         }
 
-        setSnapshot(null);
-        setEpoch((value) => value + 1);
+        if (saving)
+          setView((previous) => ({ ...previous, acknowledged: { adapter, settings: draft } }));
+        refresh();
       },
       () => {
         setBusy(false);
@@ -103,18 +125,20 @@ const ScopePage = ({
     );
   };
 
-  const act = (action: LanguageSettingsAction) => run((signal) => adapter.act(action, signal));
+  const act = (action: LanguageSettingsAction) => {
+    if (!dirty && current !== null) run((signal) => adapter.act(action, signal), false);
+  };
 
   const save = () => {
-    if (!snapshot) return;
+    if (current === null || conflict || !dirty || busy) return;
 
     try {
       const record = Schema.decodeUnknownSync(P.LanguageSettingsRecord)({
-        ...snapshot.record,
+        ...current.record,
         settings: draft,
       });
 
-      run((signal) => adapter.save(record, signal));
+      run((signal) => adapter.save(record, signal), true);
     } catch {
       setNotice(
         "Settings are invalid. Check field values and limits; private values are not shown in errors."
@@ -125,13 +149,7 @@ const ScopePage = ({
   return (
     <div className="gap-section flex flex-col" aria-busy={busy}>
       <div className="flex flex-wrap items-center gap-2">
-        <Button
-          disabled={busy || dirty}
-          onClick={() => {
-            setSnapshot(null);
-            setEpoch((value) => value + 1);
-          }}
-        >
+        <Button disabled={busy} onClick={refresh}>
           Refresh facts
         </Button>
         {busy && (
@@ -139,6 +157,7 @@ const ScopePage = ({
             onClick={() => {
               operations.cancel();
               setBusy(false);
+              setView((previous) => ({ ...previous, valid: false, acknowledged: null }));
               setNotice(
                 "Request cancelled. A Host action or save may already have completed. Refresh facts to confirm before retrying."
               );
@@ -169,26 +188,29 @@ const ScopePage = ({
             onChange={setDraft}
           />
           <Advanced
-            key={`advanced-${editingEpoch}`}
+            key={`advanced-${view.editingEpoch}`}
             settings={draft}
             disabled={busy}
             onChange={setDraft}
           />
           <CustomServers
-            key={`servers-${editingEpoch}`}
+            key={`servers-${view.editingEpoch}`}
             servers={draft.customServers ?? []}
             disabled={busy}
             onChange={(servers) => setDraft({ ...draft, customServers: servers })}
           />
           <div className="flex flex-wrap gap-2">
-            <Button variant="primary" disabled={!dirty || busy} onClick={save}>
+            <Button
+              variant="primary"
+              disabled={!dirty || busy || current === null || conflict}
+              onClick={save}
+            >
               Save language settings
             </Button>
             <Button
-              disabled={busy || !dirty}
+              disabled={busy || current === null || (!dirty && !conflict)}
               onClick={() => {
-                setDraft(snapshot.record.settings);
-                setEditingEpoch((value) => value + 1);
+                setView((previous) => discardSettingsDraft(previous));
               }}
             >
               Discard changes
@@ -197,8 +219,11 @@ const ScopePage = ({
               disabled={busy}
               variant="ghost"
               onClick={() => {
-                setDraft({});
-                setEditingEpoch((value) => value + 1);
+                setView((previous) => ({
+                  ...previous,
+                  draft: {},
+                  editingEpoch: previous.editingEpoch + 1,
+                }));
               }}
             >
               Reset this scope to inherited settings
@@ -206,13 +231,31 @@ const ScopePage = ({
           </div>
           <p className="text-caption text-text-subtle">
             Preferences stay on this Client. Saving replaces this scope at revision{" "}
-            {snapshot.record.revision}; conflicting changes must be reloaded. Reset applies only
-            after Save.
+            {view.baseline?.revision ?? "not observed"}; current observed revision{" "}
+            {snapshot.record.revision}. Reset applies only after Save.
           </p>
-          <Hosts hosts={snapshot.hosts} busy={busy || dirty} act={act} />
+          {current === null && (
+            <p role="status" className="text-caption">
+              Last-known facts. Host actions and saving are unavailable until Refresh facts confirms
+              this adapter and scope.
+            </p>
+          )}
+          {conflict && (
+            <p role="alert" className="text-caption">
+              Settings changed on this Client: draft revision {view.baseline?.revision}, current
+              revision {current.record.revision}. Your draft is retained. Saving is blocked; discard
+              changes to use the confirmed settings. No draft has been rebased or retried.
+            </p>
+          )}
+          <Hosts
+            hosts={snapshot.hosts}
+            busy={busy || dirty || current === null || conflict}
+            act={act}
+          />
           {dirty && (
             <p className="text-caption">
-              Save or discard changes before running Host actions or refreshing facts.
+              Save or discard changes before running Host actions. Refresh facts retains your draft
+              and checks the current revision.
             </p>
           )}
         </>

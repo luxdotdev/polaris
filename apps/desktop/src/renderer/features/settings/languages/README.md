@@ -29,8 +29,9 @@ the end; saving never assumes a provider implements formatting.
 `save(record, signal)` replaces the entire selected scope using record.revision as the
 expected revision, matching C1's CAS semantics. Merge no environment entries in the UI.
 Decode the full patch before persistence; the page also decodes it before submitting.
-Applied local changes block scope switching/Host actions. Discard restores the loaded
-record. Reset stages an empty patch and commits only through Save. JSON field Apply and
+Applied local changes block scope switching/Host actions. Refresh facts remains available
+with a dirty draft. Discard explicitly adopts the latest validated record; it is unavailable
+until this adapter and scope have current facts. Reset stages an empty patch and commits only through Save. JSON field Apply and
 custom-server Add/Apply stage changes; Save persists them. Field validation errors are
 constant strings and do not contain private values. Custom argv stays an array, never a
 shell command. Environment and executable override fields use password inputs; fact rows
@@ -74,8 +75,18 @@ it. `SettingsOperations` suppresses obsolete replies even if the adapter ignores
 Bridge AbortSignal to C1's request lifetime/cancel API and dispose subscriptions/temporary
 log resources. C1 transport owns remote deadlines. A cancelled mutation may already have
 committed; UI reports unknown completion, never rolls it back optimistically or retries
-automatically. Refresh current facts before another mutation. Save conflicts keep the draft;
-Discard then Refresh gets the new revision. Generic rejected promises are rendered without
+automatically. Refresh current facts before another mutation. Adapter replacement and every
+load/mutation/cancel immediately invalidate actionable authority. Retained snapshots are
+labeled last-known; Host actions and Save stay disabled after failed/wrong-scope loads.
+Load replies must decode as a LanguageSettingsRecord for the requested scope and belong to
+the current adapter/load epoch; obsolete replies cannot restore authority.
+
+Refresh retains a dirty draft and its original baseline revision. The latest confirmed
+revision is shown separately. If revision or settings changed, saving and Host actions stay
+blocked until explicit Discard adopts that confirmed record. No automatic rebase or replay
+occurs, even when a canceled save commits later with the same contents. A successful save
+acknowledgement only adopts a subsequent matching confirmed record; value comparison uses
+protocol schema equivalence so object property order cannot manufacture conflicts. Generic rejected promises are rendered without
 the exception text; returned failure messages must already be sanitized.
 
 1. U1 imports this module and builds registered scope options from existing Settings data.
@@ -97,7 +108,11 @@ scope binding. `node apps/desktop/src/renderer/features/settings/languages/smoke
 /tmp/<owned-output>` starts a loopback Vite/Electron fixture in temporary user-data/cache,
 with fake Hosts only. It uses existing dependencies. Screenshots cover both themes and all
 three densities, keyboard focus, narrow/long Host facts, custom configuration, error and
-cancel paths. This is rendered detached UI evidence, not integrated production/Electron
+cancel paths. The same rendered fixture exercises replacement adapters with failed,
+wrong-scope, held/late-old replies and recovery, plus dirty-save cancellation, refresh before
+and after a late commit, draft retention, conflict fencing, external revisions and explicit
+discard. Optional `authority-control` / `cancel-control` third arguments isolate those cases
+for rejected-source controls. This is rendered detached UI evidence, not integrated production/Electron
 workflow, remote-provider or budget certification. Temporary output is outside the repo.
 
 Lead reported accepted-base subscription tables use streaming RPC successSchema wrappers.

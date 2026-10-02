@@ -1,7 +1,14 @@
 import { test, expect } from "bun:test";
 import { SettingsOperations } from "./operations.ts";
 import { parseCustomServer } from "./CustomServers.tsx";
-import { fixtureSnapshot, fixtureScopes } from "./fixture.ts";
+import {
+  acceptSettingsFacts,
+  currentSettingsFacts,
+  discardSettingsDraft,
+  initialSettingsView,
+  settingsRevisionConflict,
+} from "./viewState.ts";
+import { fixtureSnapshot, fixtureScopes, createFixture } from "./fixture.ts";
 import { toolAction, trustMatchesCheckout } from "./toolState.ts";
 import * as P from "@polaris/protocol";
 
@@ -120,4 +127,82 @@ test("trust binds the actual Host and distinguishes Worktree inheritance from Re
     })
   ).toBe(false);
   expect(trustMatchesCheckout({ ...worktree, id: P.HostId.make("foreign-host") })).toBe(false);
+});
+
+test("replacement adapter authority requires a current validated snapshot, not last-known facts", () => {
+  const snapshot = fixtureSnapshot(P.LanguageSettingsScope.cases.App.make({}));
+  const first = createFixture().adapter;
+  const replacement = createFixture().adapter;
+  const key = JSON.stringify(snapshot.record.scope);
+  const view = acceptSettingsFacts(initialSettingsView(), snapshot, first, key, 0);
+  expect(currentSettingsFacts(view, first, key, 0)).toBe(snapshot);
+  expect(currentSettingsFacts(view, replacement, key, 0)).toBeNull();
+  expect(currentSettingsFacts(view, first, key, 1)).toBeNull();
+  expect(currentSettingsFacts({ ...view, valid: false }, first, key, 0)).toBeNull();
+
+  const loaded = acceptSettingsFacts(
+    { ...view, draft: { interpreter: "/fixture/keep" } },
+    snapshot,
+    replacement,
+    key,
+    1
+  );
+
+  expect(loaded.draft.interpreter).toBe("/fixture/keep");
+  expect(currentSettingsFacts(loaded, replacement, key, 1)).toBe(snapshot);
+});
+
+test("confirmation refresh retains cancelled-save draft and fences changed authoritative revisions", () => {
+  const snapshot = fixtureSnapshot(P.LanguageSettingsScope.cases.App.make({}));
+  const adapter = createFixture().adapter;
+  const key = JSON.stringify(snapshot.record.scope);
+  const initial = acceptSettingsFacts(initialSettingsView(), snapshot, adapter, key, 0);
+  const dirty = { ...initial, draft: { interpreter: "/fixture/draft" }, valid: false };
+  const unchanged = acceptSettingsFacts(dirty, snapshot, adapter, key, 1);
+  expect(unchanged.draft).toEqual(dirty.draft);
+  expect(settingsRevisionConflict(unchanged)).toBe(false);
+
+  const updated = {
+    ...snapshot,
+    record: P.LanguageSettingsRecord.make({
+      ...snapshot.record,
+      revision: 1,
+      settings: { interpreter: "/fixture/other" },
+    }),
+  };
+
+  const conflicted = acceptSettingsFacts(dirty, updated, adapter, key, 1);
+  expect(conflicted.draft).toEqual(dirty.draft);
+  expect(conflicted.baseline?.revision).toBe(0);
+  expect(conflicted.snapshot?.record.revision).toBe(1);
+  expect(settingsRevisionConflict(conflicted)).toBe(true);
+  const discarded = discardSettingsDraft(conflicted);
+  expect(discarded.draft.interpreter).toBe("/fixture/other");
+  expect(settingsRevisionConflict(discarded)).toBe(false);
+});
+
+test("confirmed saves compare validated values independently of JSON object property order", () => {
+  const adapter = createFixture().adapter;
+  const snapshot = fixtureSnapshot(P.LanguageSettingsScope.cases.App.make({}));
+  const key = JSON.stringify(snapshot.record.scope);
+  const initial = acceptSettingsFacts(initialSettingsView(), snapshot, adapter, key, 0);
+  const draft = { sdk: "/fixture/sdk", providers: ["pyright"], interpreter: "/fixture/python" };
+
+  const record = P.LanguageSettingsRecord.make({
+    ...snapshot.record,
+    revision: 1,
+    settings: { interpreter: "/fixture/python", providers: ["pyright"], sdk: "/fixture/sdk" },
+  });
+
+  const confirmed = acceptSettingsFacts(
+    { ...initial, draft, acknowledged: { adapter, settings: draft } },
+    { ...snapshot, record },
+    adapter,
+    key,
+    1
+  );
+
+  expect(settingsRevisionConflict(confirmed)).toBe(false);
+  expect(confirmed.baseline?.revision).toBe(1);
+  expect(confirmed.draft).toEqual(record.settings);
 });
