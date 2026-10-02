@@ -89,11 +89,13 @@ export const createCommandRegistry = ({ mac }: RegistryInput): CommandRegistry =
     enabled,
     run,
     handleKey: (event) => {
-      const bound = BOUND.find(
-        (b) => matches(b.chord, event, mac) && !(event.typing && (isBare(b.chord) || !b.inFields))
+      // A shared chord (`KeyBinding.shares`) runs the first of its commands that is enabled.
+      return BOUND.some(
+        (b) =>
+          matches(b.chord, event, mac) &&
+          !(event.typing && (isBare(b.chord) || !b.inFields)) &&
+          run(b.id)
       );
-
-      return bound === undefined ? false : run(bound.id);
     },
   };
 };

@@ -19,6 +19,7 @@ import type { PersonView, TimelineItemView } from "../model/types.ts";
 import { ReviewMarkdown } from "./markdown/index.tsx";
 import { openFinding, openPath, reviewLinks } from "./links.tsx";
 import { BotTag, Card, CardHead, Mark, TextAction } from "./parts.tsx";
+import { FileLink } from "../../../editor-links/index.ts";
 
 export interface EntryProps {
   readonly subjectKey: string;
@@ -175,7 +176,13 @@ const Thread = (props: EntryProps & { readonly thread: ThreadItem }) => {
       data-testid="timeline-thread"
     >
       <div className="gap-gap flex items-center">
-        <span className="text-code-inline text-text-default font-mono">{where}</span>
+        <FileLink
+          path={thread.path}
+          line={thread.line}
+          className="text-code-inline text-text-default font-mono"
+        >
+          {where}
+        </FileLink>
         {thread.isOutdated && <span className="text-caption text-text-subtle">Outdated</span>}
         <span className="flex-1" />
         <TextAction

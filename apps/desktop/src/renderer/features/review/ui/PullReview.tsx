@@ -124,6 +124,15 @@ export const PullReview = ({ subject }: { readonly subject: PullSubject }) => {
       <ReviewBody
         subjectKey={key}
         slotProps={slotProps}
+        place={
+          slotProps.checkout === null
+            ? null
+            : {
+                hostKey: slotProps.checkout.hostKey,
+                root: slotProps.checkout.checkout.path,
+                workspaceId: slotProps.checkout.checkout.workspaceId,
+              }
+        }
         diff={diff}
         session={null}
         mergeBase={state.kind === "ready" ? state.checkout.mergeBase : null}

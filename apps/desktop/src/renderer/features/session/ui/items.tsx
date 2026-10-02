@@ -4,6 +4,7 @@
  * changes by git letter, tool calls, the step checklist and errors.
  */
 import { CheckIcon, cn, Dither, GitStatusLetter, type Harness, PixelFailedIcon } from "@polaris/ui";
+import { FileLink, OpenInEditorButton } from "../../editor-links/index.ts";
 import { type FileChangeKind, type ItemView } from "../model/items.ts";
 import { toolVerb } from "../model/runs.ts";
 import { Command } from "./command.tsx";
@@ -43,25 +44,35 @@ const Files = ({
 }) => (
   <div className={cn(WELL, "flex flex-col py-1.5")} data-testid="file-change">
     {item.changes.map((change) => (
-      <button
+      <div
         key={change.path}
-        type="button"
-        onClick={onOpenDiff}
-        className="hover:bg-fill-hover h-row gap-row-x flex cursor-default items-center px-3 text-left"
+        className="group/file hover:bg-fill-hover h-row flex items-center pr-1"
       >
-        <GitStatusLetter status={GIT_STATUS[change.kind]} />
-        <span
-          className={cn(
-            "text-code-inline text-text-default flex-1 truncate font-mono",
-            change.kind === "delete" && "line-through"
-          )}
+        <button
+          type="button"
+          onClick={onOpenDiff}
+          className="gap-row-x flex h-full min-w-0 flex-1 cursor-default items-center pl-3 text-left"
         >
-          {change.path}
-        </span>
-        {item.status === "running" ? (
-          <span className="text-caption text-text-subtle">writing</span>
-        ) : null}
-      </button>
+          <GitStatusLetter status={GIT_STATUS[change.kind]} />
+          <span
+            className={cn(
+              "text-code-inline text-text-default flex-1 truncate font-mono",
+              change.kind === "delete" && "line-through"
+            )}
+          >
+            {change.path}
+          </span>
+          {item.status === "running" ? (
+            <span className="text-caption text-text-subtle">writing</span>
+          ) : null}
+        </button>
+        {change.kind === "delete" ? null : (
+          <OpenInEditorButton
+            path={change.path}
+            className="opacity-0 group-hover/file:opacity-100 focus-visible:opacity-100"
+          />
+        )}
+      </div>
     ))}
   </div>
 );
@@ -86,7 +97,17 @@ const Tool = ({ item, hue }: { item: Extract<ItemView, { kind: "tool" }>; hue: H
     <span className="text-caption text-text-subtle shrink-0 font-medium">
       {toolVerb(item.name, item.status === "running")}
     </span>
-    <span className="text-code-inline text-text-subtle truncate font-mono">{item.summary}</span>
+    {item.file === null ? (
+      <span className="text-code-inline text-text-subtle truncate font-mono">{item.summary}</span>
+    ) : (
+      <FileLink
+        path={item.file.path}
+        line={item.file.line}
+        className="text-code-inline text-text-subtle font-mono"
+      >
+        {item.summary}
+      </FileLink>
+    )}
     {item.status === "declined" ? (
       <span className="text-caption text-text-subtle shrink-0">declined</span>
     ) : null}

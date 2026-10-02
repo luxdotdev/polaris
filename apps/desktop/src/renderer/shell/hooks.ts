@@ -36,6 +36,9 @@ export const useNav = <A>(select: (state: NavState) => A): A =>
 
 export const useShellActions = (): ShellActions => useAppContext().navigation.actions;
 
+/** Navigation itself, for reading the selection at the moment of an action without re-rendering. */
+export const useNavigation = (): Navigation => useAppContext().navigation;
+
 /** The command registry: run a command by id, or register handlers while mounted. */
 export const useCommands = (): CommandRegistry => useAppContext().commands;
 

@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { useStore } from "zustand";
 import { revealInDiff, surfaceOf, surfaceStore, updateSurface } from "../../surface.ts";
 import type { ReviewLink } from "../model/markdown.ts";
+import { useEditorPlace, useOpenInEditor } from "../../../editor-links/index.ts";
 
 const TINT = {
   critical: "bg-[color-mix(in_oklab,var(--color-severity-critical)_12%,transparent)]",
@@ -57,6 +58,7 @@ export const FindingChip = ({
   );
 };
 
+/** Opens the place in Changes; ⌘-click opens it in the editor instead. */
 export const PathLink = ({
   path,
   line,
@@ -65,17 +67,29 @@ export const PathLink = ({
   readonly path: string;
   readonly line: number | null;
   readonly children: ReactNode;
-}) => (
-  <button
-    type="button"
-    data-testid="walkthrough-path"
-    title={`Open ${line === null ? path : `${path}:${line}`} in Changes`}
-    onClick={() => openPath(path, line)}
-    className="md-path cursor-default text-left"
-  >
-    {children}
-  </button>
-);
+}) => {
+  const place = useEditorPlace();
+  const openEditor = useOpenInEditor();
+  const where = line === null ? path : `${path}:${line}`;
+
+  return (
+    <button
+      type="button"
+      data-testid="walkthrough-path"
+      title={
+        place === null ? `Open ${where} in Changes` : `Open ${where} in Changes · ⌘-click: editor`
+      }
+      onClick={(event) => {
+        if (place !== null && (event.metaKey || event.ctrlKey)) {
+          openEditor({ ...place, path, line });
+        } else openPath(path, line);
+      }}
+      className="md-path cursor-default text-left"
+    >
+      {children}
+    </button>
+  );
+};
 
 /** `renderLink` for Review Markdown in one Review. */
 export const reviewLinks =

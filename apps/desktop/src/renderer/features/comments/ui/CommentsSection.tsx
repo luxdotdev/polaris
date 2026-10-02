@@ -11,6 +11,7 @@ import { emptySurface, surfaceStore } from "../../review/index.ts";
 import { openComposer, useComments } from "../data/store.ts";
 import { isDraft, placeLabel, placeThreads } from "../model/threads.ts";
 import { ThreadCard } from "./ThreadCard.tsx";
+import { FileLink } from "../../editor-links/index.ts";
 
 const MoveHere = ({
   subjectKey,
@@ -49,7 +50,17 @@ const Listed = ({
 }) => (
   <div className="flex flex-col gap-1">
     <div className="gap-gap flex items-center">
-      <span className="text-text-subtle font-mono text-[11px] leading-4">{placeLabel(thread)}</span>
+      <FileLink
+        path={thread.path}
+        line={
+          thread.anchor.kind === "line" && thread.anchor.side === "right"
+            ? thread.anchor.line
+            : null
+        }
+        className="text-text-subtle font-mono text-[11px] leading-4"
+      >
+        {placeLabel(thread)}
+      </FileLink>
     </div>
     {thread.anchor.kind === "outdated" && isDraft(thread) && thread.anchor.diffHunk !== "" && (
       <pre className="bg-surface-sunken border-hairline rounded-control text-text-subtle max-h-24 overflow-hidden border px-2 py-1 font-mono text-[11px] leading-4">

@@ -12,6 +12,7 @@ const tool = (
   live: status === "running",
   name,
   summary: `${id}.ts`,
+  file: null,
   status,
 });
 

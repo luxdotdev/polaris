@@ -23,6 +23,7 @@ import type { CheckoutModel } from "../useCheckout.ts";
 import { CheckGlyph, CodeGlyph, PlayGlyph } from "./glyphs.tsx";
 import { Group, HOVER, ROW, RowGlyph } from "./menuParts.tsx";
 import { Blocked, CloneOn, Fetching, NewCommits } from "./menuSections.tsx";
+import { useOpenInEditor } from "../../../editor-links/index.ts";
 
 type Nav = ReturnType<typeof useShellActions>;
 
@@ -154,6 +155,7 @@ const RunRow = ({ model, onDone }: Pick<MenuProps, "model" | "onDone">) => {
 
 const Actions = ({ model, pull, nav, onDone }: MenuProps & { readonly nav: Nav }) => {
   const { held } = model;
+  const openEditor = useOpenInEditor();
 
   return (
     <Group title={null}>
@@ -174,13 +176,26 @@ const Actions = ({ model, pull, nav, onDone }: MenuProps & { readonly nav: Nav }
         </RowGlyph>
         <span className="text-body text-text-default flex-1">Open a terminal in the checkout</span>
       </button>
-      <div aria-disabled="true" className={cn(ROW, "opacity-(--opacity-dimmed)")}>
+      <button
+        type="button"
+        data-testid="checkout-editor"
+        disabled={held === null || held.checkout.head === null}
+        onClick={() => {
+          if (held === null) return;
+          openEditor({
+            hostKey: held.hostKey,
+            workspaceId: held.checkout.workspaceId,
+            path: held.checkout.path,
+          });
+          onDone();
+        }}
+        className={cn(ROW, HOVER, "disabled:opacity-(--opacity-dimmed)")}
+      >
         <RowGlyph>
           <CodeGlyph />
         </RowGlyph>
         <span className="text-body text-text-default flex-1">Open in the editor</span>
-        <span className="text-caption text-text-subtle shrink-0">with the editor, later</span>
-      </div>
+      </button>
     </Group>
   );
 };

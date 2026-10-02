@@ -30,6 +30,7 @@ import type { RowContext } from "./rows.tsx";
 import { SessionComposer } from "./SessionComposer.tsx";
 import { SessionHeader } from "./SessionHeader.tsx";
 import { useSessionChrome } from "../chrome.ts";
+import { EditorPlaceProvider } from "../../editor-links/index.ts";
 
 /** The shell's session slot props (`app/slots.tsx`). */
 export interface SessionViewProps {
@@ -129,62 +130,66 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
     chrome,
   };
 
+  const place = { hostKey, root: session.cwd, workspaceId: session.workspaceId };
+
   return (
-    <section
-      aria-label={session.title}
-      data-testid="session-panel"
-      className="bg-bg flex h-full min-h-0 min-w-0 flex-col"
-    >
-      {chrome.header ?? (
-        <SessionHeader
-          hostKey={hostKey}
-          session={session}
-          harness={harness}
-          turnNumber={lastTurn === null ? null : lastTurn.index + 1}
-          canFork={
-            harness !== null && lastDone !== undefined && hasCapability(host, "session.fork")
-          }
-          onFork={() => {
-            if (harness === null || lastDone === undefined) return;
-            setForking({
-              sessionId,
-              turnId: lastDone.id,
-              turnNumber: lastDone.index + 1,
-              harness,
-              model: session.model,
-              effort: session.effort,
-            });
+    <EditorPlaceProvider value={place}>
+      <section
+        aria-label={session.title}
+        data-testid="session-panel"
+        className="bg-bg flex h-full min-h-0 min-w-0 flex-col"
+      >
+        {chrome.header ?? (
+          <SessionHeader
+            hostKey={hostKey}
+            session={session}
+            harness={harness}
+            turnNumber={lastTurn === null ? null : lastTurn.index + 1}
+            canFork={
+              harness !== null && lastDone !== undefined && hasCapability(host, "session.fork")
+            }
+            onFork={() => {
+              if (harness === null || lastDone === undefined) return;
+              setForking({
+                sessionId,
+                turnId: lastDone.id,
+                turnNumber: lastDone.index + 1,
+                harness,
+                model: session.model,
+                effort: session.effort,
+              });
+            }}
+          />
+        )}
+        {chrome.body ?? <Conversation scrollKey={key} rows={rows} ctx={ctx} />}
+        <InTerminalBar
+          session={{
+            hostKey,
+            workspaceId: session.workspaceId,
+            sessionId,
+            state: session.state,
+            title: session.title === "" ? session.harness : session.title,
           }}
         />
-      )}
-      {chrome.body ?? <Conversation scrollKey={key} rows={rows} ctx={ctx} />}
-      <InTerminalBar
-        session={{
-          hostKey,
-          workspaceId: session.workspaceId,
-          sessionId,
-          state: session.state,
-          title: session.title === "" ? session.harness : session.title,
-        }}
-      />
-      {harness === null ? null : (
-        <SessionComposer
+        {harness === null ? null : (
+          <SessionComposer
+            hostKey={hostKey}
+            uiKey={key}
+            harness={harness}
+            session={session}
+            model={model}
+            branch={branch}
+            onOpenSession={onOpenSession}
+            outbox={outbox}
+          />
+        )}
+        <ForkDialog
           hostKey={hostKey}
-          uiKey={key}
-          harness={harness}
-          session={session}
-          model={model}
-          branch={branch}
-          onOpenSession={onOpenSession}
-          outbox={outbox}
+          target={forking}
+          onClose={() => setForking(null)}
+          onForked={onOpenSession}
         />
-      )}
-      <ForkDialog
-        hostKey={hostKey}
-        target={forking}
-        onClose={() => setForking(null)}
-        onForked={onOpenSession}
-      />
-    </section>
+      </section>
+    </EditorPlaceProvider>
   );
 };

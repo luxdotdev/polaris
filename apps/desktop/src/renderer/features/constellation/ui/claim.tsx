@@ -20,6 +20,7 @@ import {
 import type { ReviewMode } from "../state.ts";
 import { TaskGlyph } from "./glyphs.tsx";
 import { CheckMark } from "./strip.tsx";
+import { EditorPlaceProvider, FileLink } from "../../editor-links/index.ts";
 
 const Receipt = ({ r }: { readonly r: ReceiptView }) => (
   <li className="flex h-7 items-center gap-2.5 px-3.5">
@@ -65,7 +66,7 @@ const Facts_ = ({ claim, task }: { readonly claim: ClaimData; readonly task: Tas
           : `Stayed inside ${task.area.join(", ")}`
         : claim.outsideArea.map((o) => (
             <span key={o.path} className="block">
-              <span className="text-code-inline font-mono">{o.path}</span> · {o.reason}
+              <FileLink path={o.path} className="text-code-inline font-mono" /> · {o.reason}
             </span>
           ))}
     </Row>
@@ -456,7 +457,9 @@ export const ClaimCard = (props: ClaimCardProps) => {
             ))}
           </ul>
         )}
-        <Facts_ claim={claim} task={task} />
+        <EditorPlaceProvider value={{ hostKey: props.hostKey, root: attempt.worktree }}>
+          <Facts_ claim={claim} task={task} />
+        </EditorPlaceProvider>
         {props.handed && attempt.state === "review" ? (
           <div className="bg-needs-you-fill text-needs-you-text text-body rounded-control mx-3.5 mb-2.5 flex items-center gap-2 px-3 py-2">
             <PixelHandIcon size={12} className="text-needs-you shrink-0" />

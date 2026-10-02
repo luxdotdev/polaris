@@ -21,6 +21,7 @@ import {
 } from "../model/summary.ts";
 import { historyLine } from "../model/verdict.ts";
 import { ThumbDown, type VerdictDraft } from "./VerdictPopover.tsx";
+import { FileLink } from "../../editor-links/index.ts";
 
 export interface FindingItemProps {
   readonly subjectKey: string;
@@ -111,12 +112,13 @@ const Card = ({ subjectKey, hostKey, summary, finding }: FindingItemProps) => {
           {history !== null && (
             <p className="text-caption text-text-subtle">{historyLine(history)}</p>
           )}
-          <span
-            className="text-text-default truncate font-mono text-[11px] leading-4"
-            title={placeOf(finding)}
+          <FileLink
+            path={finding.path}
+            line={finding.lines.side === "old" ? null : finding.lines.start}
+            className="text-text-default font-mono text-[11px] leading-4"
           >
             {placeOf(finding)}
-          </span>
+          </FileLink>
           {/* The thumbs share the provenance line, so the card never grows past the column. */}
           <div className="flex items-center gap-1.5">
             <span className="text-caption text-text-subtle min-w-0 truncate">
