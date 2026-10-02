@@ -1,0 +1,196 @@
+[
+  {
+    "id": "shellcheck-0.11.0",
+    "tool": "shellcheck",
+    "version": "0.11.0",
+    "status": "evidence-incomplete",
+    "review": "G1-required",
+    "sourceCommit": "aac0823e6b58f8a499e856e93738082691cbf212",
+    "downloadOrigins": [
+      "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.darwin.aarch64.tar.gz",
+      "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.darwin.x86_64.tar.gz",
+      "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.aarch64.tar.gz",
+      "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.gz"
+    ],
+    "binaryIntegrity": [
+      "sha256:339b930feb1ea764467013cc1f72d09cd6b869ebf1013296ba9055ab2ffbd26f",
+      "sha256:c2c15e08df0e8fbc374c335b230a7ee958c313fa5714817a59aa59f1aa594f51",
+      "sha256:68a8133197a50beb8803f8d42f9908d1af1c5540d4bb05fdfca8c1fa47decefc",
+      "sha256:b7af85e41cc99489dcc21d66c6d5f3685138f06d34651e6d34b42ec6d54fe6f6"
+    ],
+    "license": "GPL-3.0 (Cabal GPL-3; exact only/or-later interpretation requires review)",
+    "licenseNotices": [
+      {
+        "path": "release/LICENSE.txt",
+        "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+      }
+    ],
+    "source": {
+      "url": "https://github.com/koalaman/shellcheck/tree/aac0823e6b58f8a499e856e93738082691cbf212",
+      "archiveUrl": "https://api.github.com/repos/koalaman/shellcheck/tarball/aac0823e6b58f8a499e856e93738082691cbf212",
+      "capturedArchiveUrl": "https://api.github.com/repos/koalaman/shellcheck/tarball/v0.11.0",
+      "archiveSha256": "2f77a26bd98d7c00280833ee7eb47df22b06c526b49dc7c6a16c65637dd7914b"
+    },
+    "obligations": [
+      "Retain complete GPL text and all binary/source copyright notices; no modifications/relicensing.",
+      "Before activation, proposed downloader must provide same-version corresponding-source access (immutable origin and verified source archive); retain artifact/source origin and integrity in installation manifest.",
+      "If Polaris redistributes cached binaries, G1 must approve compliant source delivery rather than assume upstream availability alone is sufficient. Do not copy/link implementation into Polaris."
+    ],
+    "missingEvidence": [
+      "Bundled GHC/runtime third-party closure and notices not yet established by binary archive (only ShellCheck LICENSE supplied).",
+      "Source archive needs G1 equivalence/delivery review and canonical commit-addressed archive hash confirmation."
+    ],
+    "fallback": "Developer-provided ShellCheck executable can supply diagnostics; managed Bash server and shfmt remain independently available."
+  },
+  {
+    "id": "jdtls-1.61.0",
+    "tool": "jdtls",
+    "version": "1.61.0-202609031315",
+    "status": "evidence-incomplete",
+    "review": "G1-required",
+    "downloadOrigins": [
+      "https://download.eclipse.org/jdtls/milestones/1.61.0/jdt-language-server-1.61.0-202609031315.tar.gz"
+    ],
+    "binaryIntegrity": ["sha256:338e7e73d61836651ba2453919a0d34fa763eb4e7c03342092309bffb8934c64"],
+    "license": "EPL-2.0 + bundled third-party terms",
+    "licenseInventory": "jdtls-bundles.json",
+    "licenseInventorySha256": "1ec99abba2828ba03331ab1e2ae6d1796b461c2b2970d2e95c63505e010ced29",
+    "source": {
+      "url": "https://github.com/eclipse-jdtls/eclipse.jdt.ls/tree/v1.61.0",
+      "archiveUrl": "https://github.com/eclipse-jdtls/eclipse.jdt.ls/archive/refs/tags/v1.61.0.tar.gz",
+      "bundleSources": "Resolve source/notice origin per exact plugins/*.jar; product Git tag alone is not all third-party corresponding source."
+    },
+    "obligations": [
+      "Retain every bundled LICENSE/NOTICE/about resource and EPL/third-party terms.",
+      "No bundled JRE; developer Java21 server runtime and project JDK remain distinct.",
+      "If redistributing externally cached product binaries, provide corresponding EPL-covered source and per-bundle source/notice obligations after G1 review."
+    ],
+    "missingEvidence": [
+      "114 plugin JARs inventoried and hashed; 32 contain no legal file (including flexmark, ASM, Gson, logback, Java decompiler and JDT javac wrapper).",
+      "Source origins/complete notices for those 32 bundles and final source-delivery policy remain unreviewed."
+    ]
+  },
+  {
+    "id": "sql-language-server-1.7.1-evaluated",
+    "tool": "sql-language-server",
+    "version": "1.7.1",
+    "status": "rejected-default",
+    "review": "Never auto-activate",
+    "downloadOrigins": [
+      "https://registry.npmjs.org/sql-language-server/-/sql-language-server-1.7.1.tgz"
+    ],
+    "binaryIntegrity": [
+      "sha512-HiS8siZQJD9EzkMhY7Jnz3XBbu/rZ99VSmCJE0+gF2CHEtlQCeA+X4Dee0BNjpbJ3dVFMAXmEw4tsM5Y6GbU0w=="
+    ],
+    "dependencyInventory": "bundles/sql-language-server.json",
+    "dependencyInventorySha256": "fcd1c4900b7e1cf3f8696a4347d6a6de7948c26a4928ab367967c16a2d4127eb",
+    "license": "Root MIT; parser metadata GPLv2 conflicts with published MIT LICENSE",
+    "parser": {
+      "name": "@joe-re/sql-parser",
+      "version": "1.7.1",
+      "declaredLicense": "GPLv2",
+      "retainedLicense": "MIT",
+      "retainedLicenseSha256": "8515f8a196023a1806ca458e269d7108c7e4c2e4643986dca03e325177ab546f",
+      "gitHead": "00fd562c6044c33bd88298fb3a00f2ae788ed67c",
+      "source": "https://github.com/joe-re/sql-language-server/tree/00fd562c6044c33bd88298fb3a00f2ae788ed67c"
+    },
+    "obligations": [
+      "Treat conflicting SPDX/source terms as unresolved; do not infer root MIT covers transitive parser.",
+      "Before any future activation establish corresponding-source/license obligations and retain all 689 dependency notices including legacy/native modules."
+    ],
+    "missingEvidence": [
+      "Root runtime starts only with exact vscode-languageserver-protocol override 3.17.5.",
+      "Legacy tree contains missing/unknown notice/license records; frozen full closure is retained for audit but not offered as the SQL default."
+    ]
+  },
+  {
+    "id": "sqllens-language-server-permissive-policy-review",
+    "tool": "sqllens-language-server",
+    "version": "0.5.0",
+    "status": "awaiting-review",
+    "review": "G1-required",
+    "dependencies": [
+      {
+        "name": "minimatch",
+        "version": "10.2.6",
+        "license": "BlueOak-1.0.0",
+        "url": "https://registry.npmjs.org/minimatch/-/minimatch-10.2.6.tgz",
+        "integrity": "sha512-vpLQEs+VLCr1nU0BXS07maYoFwlDAH0gngQuuttxIwutDFEMHq2blX+8vpgxDdK3J1PwjCJiep77OitTZ4Ll1A==",
+        "notices": [
+          {
+            "path": "package/LICENSE.md",
+            "sha256": "2c7c5d22ed5a8ee968c64757710979afcd77438c48b4a265b94e615babd8a901"
+          }
+        ],
+        "sourceAvailability": "Exact release tarball retained by upstream; separate-license source reference must be reviewed if redistribution creates additional obligations."
+      }
+    ],
+    "obligations": [
+      "Retain exact license text/copyright notices. Review this exact external-tool record; do not widen scripts/licenses.ts allowlist."
+    ],
+    "missingEvidence": []
+  },
+  {
+    "id": "bash-language-server-permissive-policy-review",
+    "tool": "bash-language-server",
+    "version": "5.8.1",
+    "status": "awaiting-review",
+    "review": "G1-required",
+    "dependencies": [
+      {
+        "name": "minimatch",
+        "version": "10.2.6",
+        "license": "BlueOak-1.0.0",
+        "url": "https://registry.npmjs.org/minimatch/-/minimatch-10.2.6.tgz",
+        "integrity": "sha512-vpLQEs+VLCr1nU0BXS07maYoFwlDAH0gngQuuttxIwutDFEMHq2blX+8vpgxDdK3J1PwjCJiep77OitTZ4Ll1A==",
+        "notices": [
+          {
+            "path": "package/LICENSE.md",
+            "sha256": "2c7c5d22ed5a8ee968c64757710979afcd77438c48b4a265b94e615babd8a901"
+          }
+        ],
+        "sourceAvailability": "Exact release tarball retained by upstream; separate-license source reference must be reviewed if redistribution creates additional obligations."
+      }
+    ],
+    "obligations": [
+      "Retain exact license text/copyright notices. Review this exact external-tool record; do not widen scripts/licenses.ts allowlist."
+    ],
+    "missingEvidence": []
+  },
+  {
+    "id": "sql-formatter-permissive-policy-review",
+    "tool": "sql-formatter",
+    "version": "15.9.0",
+    "status": "awaiting-review",
+    "review": "G1-required",
+    "dependencies": [
+      {
+        "name": "argparse",
+        "version": "2.0.1",
+        "license": "Python-2.0",
+        "url": "https://registry.npmjs.org/argparse/-/argparse-2.0.1.tgz",
+        "integrity": "sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==",
+        "notices": [
+          {
+            "path": "package/LICENSE",
+            "sha256": "de4d1f2d2ad5ad0cfd1657a106476b31cb5db5ef9d1ff842b237c0c81f0c8a23"
+          }
+        ],
+        "sourceAvailability": "Exact release tarball retained by upstream; separate-license source reference must be reviewed if redistribution creates additional obligations."
+      },
+      {
+        "name": "railroad-diagrams",
+        "version": "1.0.0",
+        "license": "CC0-1.0",
+        "url": "https://registry.npmjs.org/railroad-diagrams/-/railroad-diagrams-1.0.0.tgz",
+        "integrity": "sha512-cz93DjNeLY0idrCNOH6PviZGRN9GJhsdm9hpn1YCS879fj4W+x5IFJhhkRZcwVgMmFF7R82UA/7Oh+R8lLZg6A==",
+        "notices": [],
+        "sourceAvailability": "Exact release tarball retained by upstream; separate-license source reference must be reviewed if redistribution creates additional obligations."
+      }
+    ],
+    "obligations": [
+      "Retain exact license text/copyright notices. Review this exact external-tool record; do not widen scripts/licenses.ts allowlist."
+    ],
+    "missingEvidence": ["railroad-diagrams has no full retained notice"]
+  }
+]

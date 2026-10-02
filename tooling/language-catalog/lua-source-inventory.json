@@ -1,0 +1,5146 @@
+{
+  "sha": "d11e79dc2745b5bfe654490eff234c6be2f6606f",
+  "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/d11e79dc2745b5bfe654490eff234c6be2f6606f",
+  "tree": [
+    {
+      "path": ".editorconfig",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9ae4af12ffdbb73a5674676c9054ded35f32a226",
+      "size": 2430,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/9ae4af12ffdbb73a5674676c9054ded35f32a226"
+    },
+    {
+      "path": ".github",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "42efae76d307e212b4b0753ded5be2ca626aa807",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/42efae76d307e212b4b0753ded5be2ca626aa807"
+    },
+    {
+      "path": ".github/Alipay.jpg",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c76aa0fe765fccd28aaa309319960eaad597f451",
+      "size": 123705,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/c76aa0fe765fccd28aaa309319960eaad597f451"
+    },
+    {
+      "path": ".github/FUNDING.yml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "07e6726481d75bb0146b14e54c4d0102db513c9b",
+      "size": 97,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/07e6726481d75bb0146b14e54c4d0102db513c9b"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "0af2e5e88c5c10fd57476ac239f34e468271502d",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/0af2e5e88c5c10fd57476ac239f34e468271502d"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/bug-report.yml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8eb237d37a46eab48ca745e34fcf3599e5435e59",
+      "size": 2445,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/8eb237d37a46eab48ca745e34fcf3599e5435e59"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/config.yml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b39e5efb90c97d83b6ab22c1b27d78d0d5f2b867",
+      "size": 250,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/b39e5efb90c97d83b6ab22c1b27d78d0d5f2b867"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/doc-report.yml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3f0fa2b70832494c6df65b13d13aa5747a10e83e",
+      "size": 1046,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/3f0fa2b70832494c6df65b13d13aa5747a10e83e"
+    },
+    {
+      "path": ".github/WeChat Pay.jpg",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "32ce87223646345ac65038adebfa8fa6341930e9",
+      "size": 98867,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/32ce87223646345ac65038adebfa8fa6341930e9"
+    },
+    {
+      "path": ".github/copilot-instructions.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c7abf55cf56790db5ec772307c0e80e3d015fafa",
+      "size": 1264,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/c7abf55cf56790db5ec772307c0e80e3d015fafa"
+    },
+    {
+      "path": ".github/scripts",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "03b1e408d173b1a761ffcddead49ba2de3063bb7",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/03b1e408d173b1a761ffcddead49ba2de3063bb7"
+    },
+    {
+      "path": ".github/scripts/check-changelog.sh",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "ae3b8b11efff24d91bc0a32f7c00d4eec773a953",
+      "size": 408,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/ae3b8b11efff24d91bc0a32f7c00d4eec773a953"
+    },
+    {
+      "path": ".github/skills",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "d1c67f0d2f8e36a98c5d46e17a84b5dcc41d63b8",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/d1c67f0d2f8e36a98c5d46e17a84b5dcc41d63b8"
+    },
+    {
+      "path": ".github/skills/luajit-syntax",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "4fb552d0b0c05dc81121cac805d550411364b3d3",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/4fb552d0b0c05dc81121cac805d550411364b3d3"
+    },
+    {
+      "path": ".github/skills/luajit-syntax/SKILL.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "512288d2aecfcec262a2efda7d4decb4864300dd",
+      "size": 15589,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/512288d2aecfcec262a2efda7d4decb4864300dd"
+    },
+    {
+      "path": ".github/skills/luajit-syntax/references",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "603da2c4a89db4251206603212061d869c043ccd",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/603da2c4a89db4251206603212061d869c043ccd"
+    },
+    {
+      "path": ".github/skills/luajit-syntax/references/syntax-extensions.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "26ce4306e1eb1edb9986d705423aacfbda9a6470",
+      "size": 10727,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/26ce4306e1eb1edb9986d705423aacfbda9a6470"
+    },
+    {
+      "path": ".github/workflows",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "edc3718eace556afba3e0b6de117a7c8214a29f6",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/edc3718eace556afba3e0b6de117a7c8214a29f6"
+    },
+    {
+      "path": ".github/workflows/build.yml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ebe1dd12c59b5313ca2f997cb12360d405f4a132",
+      "size": 4501,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/ebe1dd12c59b5313ca2f997cb12360d405f4a132"
+    },
+    {
+      "path": ".github/workflows/changelog.yml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b3995e050627e630ff91418c0c33eb2c1eff8dc0",
+      "size": 550,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/b3995e050627e630ff91418c0c33eb2c1eff8dc0"
+    },
+    {
+      "path": ".github/workflows/deepseek_view.yml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ab8e17843a6bbbc18ffb74900f52d68b2d033555",
+      "size": 485,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/ab8e17843a6bbbc18ffb74900f52d68b2d033555"
+    },
+    {
+      "path": ".github/workflows/test.yml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cfae26ebea02b65b78b5beb2891a240a55a55783",
+      "size": 584,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/cfae26ebea02b65b78b5beb2891a240a55a55783"
+    },
+    {
+      "path": ".github/workflows/translate.yml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "311bb18c94bc3c52d37e5e979d1d5214dc9a53a9",
+      "size": 302,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/311bb18c94bc3c52d37e5e979d1d5214dc9a53a9"
+    },
+    {
+      "path": ".gitignore",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d003f9d257ddeca584c9bfa7b7196de06c3a04de",
+      "size": 91,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/d003f9d257ddeca584c9bfa7b7196de06c3a04de"
+    },
+    {
+      "path": ".gitmodules",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "32d827327e67c366571eeb79be8988813240bd60",
+      "size": 2074,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/32d827327e67c366571eeb79be8988813240bd60"
+    },
+    {
+      "path": ".luarc.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "76dcc8db045563ed19bea5393118f1e00d9271a3",
+      "size": 1523,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/76dcc8db045563ed19bea5393118f1e00d9271a3"
+    },
+    {
+      "path": ".pre-commit-hooks.yaml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ba7d75152a35708fdd528495564d96122e446402",
+      "size": 228,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/ba7d75152a35708fdd528495564d96122e446402"
+    },
+    {
+      "path": ".vscode",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "ebd0c05dc8f18304e4ce32a67d3face57342269f",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/ebd0c05dc8f18304e4ce32a67d3face57342269f"
+    },
+    {
+      "path": ".vscode/c_cpp_properties.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "79ddb0c593a376f477295f83cd52031c777443b3",
+      "size": 510,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/79ddb0c593a376f477295f83cd52031c777443b3"
+    },
+    {
+      "path": ".vscode/extensions.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c6d835dfd03d9af4d0d7a5e93b14da205cc5c09f",
+      "size": 58,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/c6d835dfd03d9af4d0d7a5e93b14da205cc5c09f"
+    },
+    {
+      "path": ".vscode/launch.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fcd33f60bd45274abbb2c25294e1d7608bafb507",
+      "size": 3785,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/fcd33f60bd45274abbb2c25294e1d7608bafb507"
+    },
+    {
+      "path": ".vscode/settings.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "88c3bd33a845aafbb43da0df9fe2b1b89819a955",
+      "size": 340,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/88c3bd33a845aafbb43da0df9fe2b1b89819a955"
+    },
+    {
+      "path": ".vscode/tasks.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "52105b595f6f990dec2a94da4db6671eaac07fec",
+      "size": 1247,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/52105b595f6f990dec2a94da4db6671eaac07fec"
+    },
+    {
+      "path": "3rd",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "1de0ef0a0b66b58b7fcde130b043e77a88eac337",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/1de0ef0a0b66b58b7fcde130b043e77a88eac337"
+    },
+    {
+      "path": "3rd/EmmyLuaCodeStyle",
+      "mode": "160000",
+      "type": "commit",
+      "sha": "8c4289b7617ccdb0b247a6171f111f28ac7ae969"
+    },
+    {
+      "path": "3rd/bee.lua",
+      "mode": "160000",
+      "type": "commit",
+      "sha": "f55b6988e8d9564816a555118b0e76564ef9a283"
+    },
+    {
+      "path": "3rd/json.lua",
+      "mode": "160000",
+      "type": "commit",
+      "sha": "08095fd2cdfde8f49a5f5b54b35ec7b3d4906a36"
+    },
+    {
+      "path": "3rd/love-api",
+      "mode": "160000",
+      "type": "commit",
+      "sha": "853639288547618dece86c3a8e52348fe304eba2"
+    },
+    {
+      "path": "3rd/lovr-api",
+      "mode": "160000",
+      "type": "commit",
+      "sha": "e89c753e1c2849b7533481fcf058095f8e050b9f"
+    },
+    {
+      "path": "3rd/lpeglabel",
+      "mode": "160000",
+      "type": "commit",
+      "sha": "912b0b9e8641074408ffc2259e069b188e0c717b"
+    },
+    {
+      "path": "3rd/luamake",
+      "mode": "160000",
+      "type": "commit",
+      "sha": "4c4bd16c9b0c1d773402fc15c76367f7899a1f91"
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ce4674a0ac375484a5bf8b90ae517d9f5c3936a9",
+      "size": 818,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/ce4674a0ac375484a5bf8b90ae517d9f5c3936a9"
+    },
+    {
+      "path": "Dockerfile",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ec57d0feec7a258e614bdc14a82109b62a098029",
+      "size": 487,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/ec57d0feec7a258e614bdc14a82109b62a098029"
+    },
+    {
+      "path": "LICENSE",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9bfa8ae49e5088844787708d2b48c15324b730dd",
+      "size": 1069,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/9bfa8ae49e5088844787708d2b48c15324b730dd"
+    },
+    {
+      "path": "README.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d5cc5cb703e9a44c7104ad42176f7ab3121bdd9e",
+      "size": 5305,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/d5cc5cb703e9a44c7104ad42176f7ab3121bdd9e"
+    },
+    {
+      "path": "changelog.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f3a5a2068f1aad7407f4f6268f8cd11a5f3edeaa",
+      "size": 96092,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/f3a5a2068f1aad7407f4f6268f8cd11a5f3edeaa"
+    },
+    {
+      "path": "debugger.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "49aedaaa85335014917ad89383c43b49db71ae57",
+      "size": 1810,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/49aedaaa85335014917ad89383c43b49db71ae57"
+    },
+    {
+      "path": "doc",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "a4b47001565e6c8f9897252b2767161bcc51206d",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/a4b47001565e6c8f9897252b2767161bcc51206d"
+    },
+    {
+      "path": "doc/en-us",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "c5e8aa7b3558e16f1370ac8c5c6315418063aae1",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/c5e8aa7b3558e16f1370ac8c5c6315418063aae1"
+    },
+    {
+      "path": "doc/en-us/config.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "178946037e93d9a54f3d8325493a1db17c19e659",
+      "size": 52079,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/178946037e93d9a54f3d8325493a1db17c19e659"
+    },
+    {
+      "path": "doc/es-419",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "f0136076f4d67a0e0076a75286b7fc77032904df",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/f0136076f4d67a0e0076a75286b7fc77032904df"
+    },
+    {
+      "path": "doc/es-419/config.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1442f32a605314cd2356552ef01c6b872394d841",
+      "size": 57810,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/1442f32a605314cd2356552ef01c6b872394d841"
+    },
+    {
+      "path": "doc/ja-jp",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "f7cb3c4d891fabba2837122dd6e144d3c5150550",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/f7cb3c4d891fabba2837122dd6e144d3c5150550"
+    },
+    {
+      "path": "doc/ja-jp/config.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1f661fd6bdaba5e093fd2beed0a3507318621fd1",
+      "size": 56520,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/1f661fd6bdaba5e093fd2beed0a3507318621fd1"
+    },
+    {
+      "path": "doc/pt-br",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "201d57ea7e34be3536867c34d5fb25fa85458126",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/201d57ea7e34be3536867c34d5fb25fa85458126"
+    },
+    {
+      "path": "doc/pt-br/config.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1bedbb46fcf9faa135b4b7c0ed06e40d3ecc8252",
+      "size": 51777,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/1bedbb46fcf9faa135b4b7c0ed06e40d3ecc8252"
+    },
+    {
+      "path": "doc/zh-cn",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "2a8a807a72eff62f588fd7262a281bb675cd2c68",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/2a8a807a72eff62f588fd7262a281bb675cd2c68"
+    },
+    {
+      "path": "doc/zh-cn/config.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9750c79a6ff04aa68b71b0bf64106d7e362096b9",
+      "size": 44307,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/9750c79a6ff04aa68b71b0bf64106d7e362096b9"
+    },
+    {
+      "path": "doc/zh-tw",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "f3748929a07bba11babce69865dfa16a90bf9416",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/f3748929a07bba11babce69865dfa16a90bf9416"
+    },
+    {
+      "path": "doc/zh-tw/config.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d07a50c5e5ece09809194c72f4209b4d6ff4dd35",
+      "size": 44517,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/d07a50c5e5ece09809194c72f4209b4d6ff4dd35"
+    },
+    {
+      "path": "errors.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "952f43abf527ff45880b4ca432162e322ef6821a",
+      "size": 7604,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/952f43abf527ff45880b4ca432162e322ef6821a"
+    },
+    {
+      "path": "locale",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "14ea6b905d6c8b79f5cd2871136de1fc3db21f53",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/14ea6b905d6c8b79f5cd2871136de1fc3db21f53"
+    },
+    {
+      "path": "locale/en-us",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "c2806689d70551f89a7c897aacfa885332d07a31",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/c2806689d70551f89a7c897aacfa885332d07a31"
+    },
+    {
+      "path": "locale/en-us/meta.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a153780bd5b34843649491eb5ad8106c1ca742d7",
+      "size": 42651,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/a153780bd5b34843649491eb5ad8106c1ca742d7"
+    },
+    {
+      "path": "locale/en-us/script.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7745ca362f27683fa0b6276eb91faed121518ae3",
+      "size": 37300,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/7745ca362f27683fa0b6276eb91faed121518ae3"
+    },
+    {
+      "path": "locale/en-us/setting.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "51b93323fbbf5e47a6c5850b492d320f3de21892",
+      "size": 31482,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/51b93323fbbf5e47a6c5850b492d320f3de21892"
+    },
+    {
+      "path": "locale/es-419",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "ec6864721577770f1c15d1694e13575b73675fd4",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/ec6864721577770f1c15d1694e13575b73675fd4"
+    },
+    {
+      "path": "locale/es-419/meta.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "29e450ee508d54af9a3109a4cc409f21d5bcb5c3",
+      "size": 46285,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/29e450ee508d54af9a3109a4cc409f21d5bcb5c3"
+    },
+    {
+      "path": "locale/es-419/script.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5b2752a154e06956e3a220e9a6eaa503327926a8",
+      "size": 41191,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/5b2752a154e06956e3a220e9a6eaa503327926a8"
+    },
+    {
+      "path": "locale/es-419/setting.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1eac90d5b5491b85b0046c04483659081c4fbe5f",
+      "size": 35352,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/1eac90d5b5491b85b0046c04483659081c4fbe5f"
+    },
+    {
+      "path": "locale/ja-jp",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "51db12f7ae3e86c8d8ba8ff678ccd3959c315f7d",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/51db12f7ae3e86c8d8ba8ff678ccd3959c315f7d"
+    },
+    {
+      "path": "locale/ja-jp/meta.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "114f1f27061fc90a29f98f84dfdd6c990835e07a",
+      "size": 52069,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/114f1f27061fc90a29f98f84dfdd6c990835e07a"
+    },
+    {
+      "path": "locale/ja-jp/script.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9298e2b1344bf7bd84e66f076691ec6a40b94270",
+      "size": 47166,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/9298e2b1344bf7bd84e66f076691ec6a40b94270"
+    },
+    {
+      "path": "locale/ja-jp/setting.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0dff2bf24dac6980c2ddfc7c4c6991d16906e453",
+      "size": 36061,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/0dff2bf24dac6980c2ddfc7c4c6991d16906e453"
+    },
+    {
+      "path": "locale/pt-br",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "fc8c42ff6ee629c5eb4bdcbde52883539863aa60",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/fc8c42ff6ee629c5eb4bdcbde52883539863aa60"
+    },
+    {
+      "path": "locale/pt-br/meta.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e30b3ce2c0678dad36c418795c422193a30b5679",
+      "size": 45265,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/e30b3ce2c0678dad36c418795c422193a30b5679"
+    },
+    {
+      "path": "locale/pt-br/script.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9bed99cdd722389581f98ee286e4e0940b10f62b",
+      "size": 40042,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/9bed99cdd722389581f98ee286e4e0940b10f62b"
+    },
+    {
+      "path": "locale/pt-br/setting.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cd78f2f247eb9aa98cfa94d3e9b8e24443e1b19e",
+      "size": 32176,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/cd78f2f247eb9aa98cfa94d3e9b8e24443e1b19e"
+    },
+    {
+      "path": "locale/zh-cn",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "e157c862ff240dff8ec2ca5214d859dea0e69ce5",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/e157c862ff240dff8ec2ca5214d859dea0e69ce5"
+    },
+    {
+      "path": "locale/zh-cn/meta.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b709fcdd56298a5b9ce567fb674a8e4451a1a699",
+      "size": 40224,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/b709fcdd56298a5b9ce567fb674a8e4451a1a699"
+    },
+    {
+      "path": "locale/zh-cn/script.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4b33a1201b98f066799e622d447fea523fa20329",
+      "size": 36490,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/4b33a1201b98f066799e622d447fea523fa20329"
+    },
+    {
+      "path": "locale/zh-cn/setting.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a39e9b797d64ef51e1c4b2babe17cfd21bf7805d",
+      "size": 27840,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/a39e9b797d64ef51e1c4b2babe17cfd21bf7805d"
+    },
+    {
+      "path": "locale/zh-tw",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "e36e118825b3dc4542018a739465bf3ff3c24865",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/e36e118825b3dc4542018a739465bf3ff3c24865"
+    },
+    {
+      "path": "locale/zh-tw/meta.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e0c385187300aa1f5a71fc98e9f1995b84abbffe",
+      "size": 40524,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/e0c385187300aa1f5a71fc98e9f1995b84abbffe"
+    },
+    {
+      "path": "locale/zh-tw/script.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2e950801b7cd453613755068b56258d3a5d2af8f",
+      "size": 36670,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/2e950801b7cd453613755068b56258d3a5d2af8f"
+    },
+    {
+      "path": "locale/zh-tw/setting.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6fd7327ef0b65a16d731b7b94386841e8b5cd6d8",
+      "size": 28005,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/6fd7327ef0b65a16d731b7b94386841e8b5cd6d8"
+    },
+    {
+      "path": "lua",
+      "mode": "120000",
+      "type": "blob",
+      "sha": "2b804bee2703da5c8a12fa49a758b7cb427f30f5",
+      "size": 6,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/2b804bee2703da5c8a12fa49a758b7cb427f30f5"
+    },
+    {
+      "path": "lua-language-server",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "c6b41a8123774a0256f383441d4ac581df43c739",
+      "size": 342,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/c6b41a8123774a0256f383441d4ac581df43c739"
+    },
+    {
+      "path": "lua-language-server-scm-1.rockspec",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d93bfcf690ea33dee72409234bc5004e842f53bf",
+      "size": 1114,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/d93bfcf690ea33dee72409234bc5004e842f53bf"
+    },
+    {
+      "path": "main.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "312107c054a6e118942bb5ec31ce82a273a50911",
+      "size": 2246,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/312107c054a6e118942bb5ec31ce82a273a50911"
+    },
+    {
+      "path": "make.bat",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "39f261a68008e9e79d71f6e8faa272174d40d2e2",
+      "size": 209,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/39f261a68008e9e79d71f6e8faa272174d40d2e2"
+    },
+    {
+      "path": "make.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "59bfb2dcfee1bba8496c3c09937037e20911d823",
+      "size": 2471,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/59bfb2dcfee1bba8496c3c09937037e20911d823"
+    },
+    {
+      "path": "make.sh",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "5c3578ad6c5bdea90b50073562266c3b047d3541",
+      "size": 212,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/5c3578ad6c5bdea90b50073562266c3b047d3541"
+    },
+    {
+      "path": "make",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "21570c6966e2d10658dca30cb62c2479f5611937",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/21570c6966e2d10658dca30cb62c2479f5611937"
+    },
+    {
+      "path": "make/bootstrap.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "00036f34e131cd406e7ff536bf8b1022732d4139",
+      "size": 2214,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/00036f34e131cd406e7ff536bf8b1022732d4139"
+    },
+    {
+      "path": "make/code_format.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4fe9bbe15f0a6b34b6e657223bcc35b9c35960cc",
+      "size": 848,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/4fe9bbe15f0a6b34b6e657223bcc35b9c35960cc"
+    },
+    {
+      "path": "make/detect_platform.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "44724f5b74e12dea44b3bf0835a2228ae0df2274",
+      "size": 2954,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/44724f5b74e12dea44b3bf0835a2228ae0df2274"
+    },
+    {
+      "path": "make/icon.ico",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6722f87e47ac38e4eb3bd5c35ad5256fca0c56b4",
+      "size": 147878,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/6722f87e47ac38e4eb3bd5c35ad5256fca0c56b4"
+    },
+    {
+      "path": "make/lua-language-server.rc",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "dc260412187ed9819d0d4a6fee68fd767625f1f1",
+      "size": 48,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/dc260412187ed9819d0d4a6fee68fd767625f1f1"
+    },
+    {
+      "path": "make/modules.cpp",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "587bb41111d6a0932ff35d2341379f5843c44598",
+      "size": 402,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/587bb41111d6a0932ff35d2341379f5843c44598"
+    },
+    {
+      "path": "meta",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "a1b2b8d6cbcfbad1027db2ae2d7ed23d1c405e90",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/a1b2b8d6cbcfbad1027db2ae2d7ed23d1c405e90"
+    },
+    {
+      "path": "meta/3rd",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "6a409458844944ed203031198579b1fd2e8be698",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/6a409458844944ed203031198579b1fd2e8be698"
+    },
+    {
+      "path": "meta/3rd/Cocos4.0",
+      "mode": "160000",
+      "type": "commit",
+      "sha": "c0b2259e0d367561fd4563ae114b029b4dfe3a8f"
+    },
+    {
+      "path": "meta/3rd/Defold",
+      "mode": "160000",
+      "type": "commit",
+      "sha": "05379b40fb3084d82f7270475e42da8d521c4dae"
+    },
+    {
+      "path": "meta/3rd/Jass",
+      "mode": "160000",
+      "type": "commit",
+      "sha": "80d85cbbfd8ae2473fb39c7df4be814602f5bc4f"
+    },
+    {
+      "path": "meta/3rd/OpenResty",
+      "mode": "160000",
+      "type": "commit",
+      "sha": "3bec36f0f645bb38b3c8208990d5c36feb66ce3d"
+    },
+    {
+      "path": "meta/3rd/bee",
+      "mode": "160000",
+      "type": "commit",
+      "sha": "c8ce19fd5536a7e98ef186d1d75825f0bb8c9216"
+    },
+    {
+      "path": "meta/3rd/busted",
+      "mode": "160000",
+      "type": "commit",
+      "sha": "5ed85d0e016a5eb5eca097aa52905eedf1b180f1"
+    },
+    {
+      "path": "meta/3rd/example",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "c77e51ce8b035a5c41a1579cdfeb6b60b58cb1da",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/c77e51ce8b035a5c41a1579cdfeb6b60b58cb1da"
+    },
+    {
+      "path": "meta/3rd/example/config.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e6a040d135b6ff48ac52f20f2d033fdbb3c35e8b",
+      "size": 701,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/e6a040d135b6ff48ac52f20f2d033fdbb3c35e8b"
+    },
+    {
+      "path": "meta/3rd/example/library",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "520b4d349520ade4d3b8c6055d57e753df63c79e",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/520b4d349520ade4d3b8c6055d57e753df63c79e"
+    },
+    {
+      "path": "meta/3rd/example/library/love.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ebde998cdefb0c629b5686fa72cab87822a773b3",
+      "size": 74,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/ebde998cdefb0c629b5686fa72cab87822a773b3"
+    },
+    {
+      "path": "meta/3rd/example/plugin.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7224f9149bb8cd989cbdc687e845cf038e293ecf",
+      "size": 376,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/7224f9149bb8cd989cbdc687e845cf038e293ecf"
+    },
+    {
+      "path": "meta/3rd/ffi-reflect",
+      "mode": "160000",
+      "type": "commit",
+      "sha": "e9037efca4021a15552b281f5e91418afd370d8f"
+    },
+    {
+      "path": "meta/3rd/lfs",
+      "mode": "160000",
+      "type": "commit",
+      "sha": "9b5cfc15be744c829c66519cb11e49669ae7e39b"
+    },
+    {
+      "path": "meta/3rd/love2d",
+      "mode": "160000",
+      "type": "commit",
+      "sha": "98f7684525a6e866ffa6df449b7aef406a807dae"
+    },
+    {
+      "path": "meta/3rd/lovr",
+      "mode": "160000",
+      "type": "commit",
+      "sha": "3ba215f98e1647111b50b311d45c31338fdc615f"
+    },
+    {
+      "path": "meta/3rd/luaecs",
+      "mode": "160000",
+      "type": "commit",
+      "sha": "21192fbdccc0f140dae2f74f7c3ec7d74e2aadd0"
+    },
+    {
+      "path": "meta/3rd/luassert",
+      "mode": "160000",
+      "type": "commit",
+      "sha": "d3528bb679302cbfdedefabb37064515ab95f7b9"
+    },
+    {
+      "path": "meta/3rd/luv",
+      "mode": "160000",
+      "type": "commit",
+      "sha": "3615eb12c94a7cfa7184b8488cf908abb5e94c9c"
+    },
+    {
+      "path": "meta/3rd/skynet",
+      "mode": "160000",
+      "type": "commit",
+      "sha": "afa6717ac4f71e42012fa2ebf4b410d04db647ae"
+    },
+    {
+      "path": "meta/spell",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "25ca382e4ce64525eb2d82305c9efd0acb5f5182",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/25ca382e4ce64525eb2d82305c9efd0acb5f5182"
+    },
+    {
+      "path": "meta/spell/dictionary.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "28d2f53caf232062ce5bab098b2cc33b04efb2c7",
+      "size": 1332879,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/28d2f53caf232062ce5bab098b2cc33b04efb2c7"
+    },
+    {
+      "path": "meta/spell/lua_dict.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "59b35a8c04fa7ca16d1735491cea11eee1379e2a",
+      "size": 1492,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/59b35a8c04fa7ca16d1735491cea11eee1379e2a"
+    },
+    {
+      "path": "meta/template",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "9ed581711074e3374784b8e366eb6f9e38ef76e2",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/9ed581711074e3374784b8e366eb6f9e38ef76e2"
+    },
+    {
+      "path": "meta/template/basic.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0402c1a4de8f16b8889ed6d9ee825ae4bd382358",
+      "size": 9952,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/0402c1a4de8f16b8889ed6d9ee825ae4bd382358"
+    },
+    {
+      "path": "meta/template/bit.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b13e25731455ee13a3ea378ad2259a5cd4e09349",
+      "size": 1307,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/b13e25731455ee13a3ea378ad2259a5cd4e09349"
+    },
+    {
+      "path": "meta/template/bit32.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ddccbab49a50feae74a37f7c55e536f2b3862f7b",
+      "size": 1632,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/ddccbab49a50feae74a37f7c55e536f2b3862f7b"
+    },
+    {
+      "path": "meta/template/builtin.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "466a0966e936bfbbbce923af7089edeb97c6ba21",
+      "size": 309,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/466a0966e936bfbbbce923af7089edeb97c6ba21"
+    },
+    {
+      "path": "meta/template/coroutine.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "91a3aba3fcc0ef652aed662a28d160b638c59c0f",
+      "size": 1483,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/91a3aba3fcc0ef652aed662a28d160b638c59c0f"
+    },
+    {
+      "path": "meta/template/debug.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9f48ee98c1385da7496c7d7e896db624b6bbd0c4",
+      "size": 5575,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/9f48ee98c1385da7496c7d7e896db624b6bbd0c4"
+    },
+    {
+      "path": "meta/template/ffi.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a9d4865784257f1436894e7682081571e58ca610",
+      "size": 2624,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/a9d4865784257f1436894e7682081571e58ca610"
+    },
+    {
+      "path": "meta/template/io.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "76c54f9890e1e4c4e22518a6678457ec4b854af7",
+      "size": 3730,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/76c54f9890e1e4c4e22518a6678457ec4b854af7"
+    },
+    {
+      "path": "meta/template/jit.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b047ba4e02314735b1ebebebcb5575b24ce96e15",
+      "size": 939,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/b047ba4e02314735b1ebebebcb5575b24ce96e15"
+    },
+    {
+      "path": "meta/template/jit.profile.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a7db77bf0b27699926306534083901ddd34344c9",
+      "size": 390,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/a7db77bf0b27699926306534083901ddd34344c9"
+    },
+    {
+      "path": "meta/template/jit.util.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cf525527a9223279f7ccc2437034dd94ded6622c",
+      "size": 2066,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/cf525527a9223279f7ccc2437034dd94ded6622c"
+    },
+    {
+      "path": "meta/template/math.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c20ab8c931bef352373d5b393f4708bcd859b55c",
+      "size": 4460,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/c20ab8c931bef352373d5b393f4708bcd859b55c"
+    },
+    {
+      "path": "meta/template/os.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "561f21d394cf5d5ce0ad7e2472d33078cd4f8a84",
+      "size": 2831,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/561f21d394cf5d5ce0ad7e2472d33078cd4f8a84"
+    },
+    {
+      "path": "meta/template/package.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3845e7694b22d66fb28abf0a6fec1e10e0ab481f",
+      "size": 1252,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/3845e7694b22d66fb28abf0a6fec1e10e0ab481f"
+    },
+    {
+      "path": "meta/template/string.buffer.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "950e702627f824e56f15696af10bd1701ff68cef",
+      "size": 18524,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/950e702627f824e56f15696af10bd1701ff68cef"
+    },
+    {
+      "path": "meta/template/string.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c7c2f915db514d819e0483bed4894a161dcfd298",
+      "size": 3435,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/c7c2f915db514d819e0483bed4894a161dcfd298"
+    },
+    {
+      "path": "meta/template/table.clear.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "122e3651cfc2295811620c18d9cd9f42c32dd7eb",
+      "size": 158,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/122e3651cfc2295811620c18d9cd9f42c32dd7eb"
+    },
+    {
+      "path": "meta/template/table.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b926879246a08e1aa4ae32b3f93f59440b50435f",
+      "size": 2271,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/b926879246a08e1aa4ae32b3f93f59440b50435f"
+    },
+    {
+      "path": "meta/template/table.new.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f4b05cdc60c2921130754a935d3b2137cb307d63",
+      "size": 206,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/f4b05cdc60c2921130754a935d3b2137cb307d63"
+    },
+    {
+      "path": "meta/template/utf8.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b47d1b03f1b28a6669ed1622f865047e1db5f8bb",
+      "size": 1861,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/b47d1b03f1b28a6669ed1622f865047e1db5f8bb"
+    },
+    {
+      "path": "meta/whimsical",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "2bca11639830b114ef332361bc02e152e522b4e2",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/2bca11639830b114ef332361bc02e152e522b4e2"
+    },
+    {
+      "path": "meta/whimsical/basic.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9075a0e95a16d777612763c53f5b045831f8cba7",
+      "size": 1547,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/9075a0e95a16d777612763c53f5b045831f8cba7"
+    },
+    {
+      "path": "meta/whimsical/builtin.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "17905798901f7fcd266ff5a3ff2f526c358ea17e",
+      "size": 423,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/17905798901f7fcd266ff5a3ff2f526c358ea17e"
+    },
+    {
+      "path": "meta/whimsical/rule.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0715d78f843bd240c82916de7d75e95f497d149b",
+      "size": 3175,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/0715d78f843bd240c82916de7d75e95f497d149b"
+    },
+    {
+      "path": "script",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "6f779a7877bfacc151ae73738bb0e329f7b3c4c3",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/6f779a7877bfacc151ae73738bb0e329f7b3c4c3"
+    },
+    {
+      "path": "script/SDBMHash.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "48728aec4ae65b686219388990b0ad2acc2454c4",
+      "size": 1235,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/48728aec4ae65b686219388990b0ad2acc2454c4"
+    },
+    {
+      "path": "script/await.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f252197f8a0b01156bda47013fab1812bd179617",
+      "size": 6048,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/f252197f8a0b01156bda47013fab1812bd179617"
+    },
+    {
+      "path": "script/brave",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "251deb6356d0df20dc3102cb0219309b03a2d6f3",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/251deb6356d0df20dc3102cb0219309b03a2d6f3"
+    },
+    {
+      "path": "script/brave/brave.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "26a9b3c9c929ca6baef89adf758171a0f1161d2b",
+      "size": 2069,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/26a9b3c9c929ca6baef89adf758171a0f1161d2b"
+    },
+    {
+      "path": "script/brave/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9cad8c4ecd673a4eb2f16aeeb51a1891bd320c1c",
+      "size": 71,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/9cad8c4ecd673a4eb2f16aeeb51a1891bd320c1c"
+    },
+    {
+      "path": "script/brave/log.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d7c92b262cd2836df736cdeec81dd4ae40cb0103",
+      "size": 1079,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/d7c92b262cd2836df736cdeec81dd4ae40cb0103"
+    },
+    {
+      "path": "script/brave/work.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d31c49c4278e68978515c2548c864a9aaedd6f1d",
+      "size": 3158,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/d31c49c4278e68978515c2548c864a9aaedd6f1d"
+    },
+    {
+      "path": "script/cli",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "1f25c141c004ae8e149448eebc9a3a2ee89808f0",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/1f25c141c004ae8e149448eebc9a3a2ee89808f0"
+    },
+    {
+      "path": "script/cli/check.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e8c35f6028832856f16894fc36c7149b41374369",
+      "size": 3719,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/e8c35f6028832856f16894fc36c7149b41374369"
+    },
+    {
+      "path": "script/cli/check_worker.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "83440df0a03cb6acd8a27c3a481c3e4b3f613e2c",
+      "size": 8873,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/83440df0a03cb6acd8a27c3a481c3e4b3f613e2c"
+    },
+    {
+      "path": "script/cli/doc",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "2ef9cdc66ffe3bfd8c9d35b28e1ce41efadaa328",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/2ef9cdc66ffe3bfd8c9d35b28e1ce41efadaa328"
+    },
+    {
+      "path": "script/cli/doc/export.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e7fe0ce78b4fb12181b560868d2063b59788301a",
+      "size": 13017,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/e7fe0ce78b4fb12181b560868d2063b59788301a"
+    },
+    {
+      "path": "script/cli/doc/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "144c9911c465ae277b9bb2b8e97e7bdec8544a49",
+      "size": 8627,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/144c9911c465ae277b9bb2b8e97e7bdec8544a49"
+    },
+    {
+      "path": "script/cli/help.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6ab81391269931541c0382f833aa3de1c65cce83",
+      "size": 5352,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/6ab81391269931541c0382f833aa3de1c65cce83"
+    },
+    {
+      "path": "script/cli/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "17e6f61e37c3a4171601f508ddf69b910325446d",
+      "size": 606,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/17e6f61e37c3a4171601f508ddf69b910325446d"
+    },
+    {
+      "path": "script/cli/version.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "03926c283a14b6e59b3388c711f270c856d65c0f",
+      "size": 62,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/03926c283a14b6e59b3388c711f270c856d65c0f"
+    },
+    {
+      "path": "script/cli/visualize.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "306284ed0606644f7594023d9ba801fc3f4bc7ca",
+      "size": 2615,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/306284ed0606644f7594023d9ba801fc3f4bc7ca"
+    },
+    {
+      "path": "script/client.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d062489856bd735addfcc294f15b5fe17731e23a",
+      "size": 18955,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/d062489856bd735addfcc294f15b5fe17731e23a"
+    },
+    {
+      "path": "script/config",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "455cccff4db66ff0cbe98ebbdbe4660a312fe7b3",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/455cccff4db66ff0cbe98ebbdbe4660a312fe7b3"
+    },
+    {
+      "path": "script/config/config.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "129085e41054aec2c719d01df5b7f04728a06c06",
+      "size": 6864,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/129085e41054aec2c719d01df5b7f04728a06c06"
+    },
+    {
+      "path": "script/config/env.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ef5b31f285a5925b007fdb914c4e3bcc161ae0c3",
+      "size": 1439,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/ef5b31f285a5925b007fdb914c4e3bcc161ae0c3"
+    },
+    {
+      "path": "script/config/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "323872263ef6da588b929c206d07bf89758d5cae",
+      "size": 54,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/323872263ef6da588b929c206d07bf89758d5cae"
+    },
+    {
+      "path": "script/config/loader.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "391424d531dd47f181e43692594ab133ffbc7f37",
+      "size": 3620,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/391424d531dd47f181e43692594ab133ffbc7f37"
+    },
+    {
+      "path": "script/config/template.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f0b367c3b125a11b0ab696f1e8a8ae4587417468",
+      "size": 23424,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/f0b367c3b125a11b0ab696f1e8a8ae4587417468"
+    },
+    {
+      "path": "script/core",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "52400b61acf14990a1c6f6c1c8b05a0f00c93ddf",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/52400b61acf14990a1c6f6c1c8b05a0f00c93ddf"
+    },
+    {
+      "path": "script/core/code-action.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a453c98747ca746606737e3ddab2e1a5b3a3440f",
+      "size": 22993,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/a453c98747ca746606737e3ddab2e1a5b3a3440f"
+    },
+    {
+      "path": "script/core/code-lens.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bebfeedfd6645d46b39189fae256733903304662",
+      "size": 3890,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/bebfeedfd6645d46b39189fae256733903304662"
+    },
+    {
+      "path": "script/core/color.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a189234a77b59441ec00165eef6939b0f5870a32",
+      "size": 2415,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/a189234a77b59441ec00165eef6939b0f5870a32"
+    },
+    {
+      "path": "script/core/command",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "491fc461b442b091249acd57635ffc0f9118940e",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/491fc461b442b091249acd57635ffc0f9118940e"
+    },
+    {
+      "path": "script/core/command/autoRequire.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "12f013342bb4b32fdaf81f8d2b556ef571c3ff70",
+      "size": 4385,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/12f013342bb4b32fdaf81f8d2b556ef571c3ff70"
+    },
+    {
+      "path": "script/core/command/exportDocument.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e145e62229869078d645d5cb063962f4a40970a6",
+      "size": 541,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/e145e62229869078d645d5cb063962f4a40970a6"
+    },
+    {
+      "path": "script/core/command/getConfig.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7a35c198e9f41b040453859defd667e637e0258f",
+      "size": 288,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/7a35c198e9f41b040453859defd667e637e0258f"
+    },
+    {
+      "path": "script/core/command/jsonToLua.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f09a3681cd8bae5d65910fcd76ad636ba7435afa",
+      "size": 1774,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/f09a3681cd8bae5d65910fcd76ad636ba7435afa"
+    },
+    {
+      "path": "script/core/command/reloadFFIMeta.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "afb56eac9212df7588a93ae713b2999d8f19d415",
+      "size": 1458,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/afb56eac9212df7588a93ae713b2999d8f19d415"
+    },
+    {
+      "path": "script/core/command/removeSpace.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "87d11fffe3e46faffcc22a362a146523e1d0839f",
+      "size": 1752,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/87d11fffe3e46faffcc22a362a146523e1d0839f"
+    },
+    {
+      "path": "script/core/command/setConfig.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "af978ebe933c5c7eaba9f0ca16b709057145d342",
+      "size": 235,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/af978ebe933c5c7eaba9f0ca16b709057145d342"
+    },
+    {
+      "path": "script/core/command/solve.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ca1458aad6658834b9fc13877da98e74896cb240",
+      "size": 2644,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/ca1458aad6658834b9fc13877da98e74896cb240"
+    },
+    {
+      "path": "script/core/completion",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "d2a5bbc3172d48b1cb06b5a7d8f9db691c68b550",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/d2a5bbc3172d48b1cb06b5a7d8f9db691c68b550"
+    },
+    {
+      "path": "script/core/completion/auto-require.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ded7486cf8db0339504ffa762f93338fe31ff4f1",
+      "size": 5570,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/ded7486cf8db0339504ffa762f93338fe31ff4f1"
+    },
+    {
+      "path": "script/core/completion/completion.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8176c884079a997891e5dd8002375ba62ba5de2e",
+      "size": 78956,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/8176c884079a997891e5dd8002375ba62ba5de2e"
+    },
+    {
+      "path": "script/core/completion/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6b28048aa066f41cddea74609b4ff195b23e8114",
+      "size": 44,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/6b28048aa066f41cddea74609b4ff195b23e8114"
+    },
+    {
+      "path": "script/core/completion/keyword.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1c0199a47d3e82a853e32d9f08132870c1efbf6b",
+      "size": 12858,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/1c0199a47d3e82a853e32d9f08132870c1efbf6b"
+    },
+    {
+      "path": "script/core/completion/postfix.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5294f54364d9784117690c532d0c09e5ad6778d9",
+      "size": 13190,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/5294f54364d9784117690c532d0c09e5ad6778d9"
+    },
+    {
+      "path": "script/core/definition.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7158284f36ec762441240c49f8b5417978441f39",
+      "size": 6278,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/7158284f36ec762441240c49f8b5417978441f39"
+    },
+    {
+      "path": "script/core/diagnostics",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "c46fa097b0dae00f89fc7a5430f94d65d267dbee",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/c46fa097b0dae00f89fc7a5430f94d65d267dbee"
+    },
+    {
+      "path": "script/core/diagnostics/ambiguity-1.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "830b2f2f7a5075b6750d84cbf886ffa41cd0c387",
+      "size": 2318,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/830b2f2f7a5075b6750d84cbf886ffa41cd0c387"
+    },
+    {
+      "path": "script/core/diagnostics/assign-type-mismatch.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6fa265533a991631627548381e5360d985150c55",
+      "size": 3164,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/6fa265533a991631627548381e5360d985150c55"
+    },
+    {
+      "path": "script/core/diagnostics/await-in-sync.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "558a5ff0913428bbfe2732eac716f09318c2a203",
+      "size": 808,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/558a5ff0913428bbfe2732eac716f09318c2a203"
+    },
+    {
+      "path": "script/core/diagnostics/cast-local-type.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "264453745540da1dee9cd811abff4b91508f7c4b",
+      "size": 1719,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/264453745540da1dee9cd811abff4b91508f7c4b"
+    },
+    {
+      "path": "script/core/diagnostics/cast-type-mismatch.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c91b1efd158a16a21a589aae82554ff57ef2a65f",
+      "size": 1677,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/c91b1efd158a16a21a589aae82554ff57ef2a65f"
+    },
+    {
+      "path": "script/core/diagnostics/circle-doc-class.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fcd2021d27900e572a117c5435339bc71c388bc5",
+      "size": 1931,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/fcd2021d27900e572a117c5435339bc71c388bc5"
+    },
+    {
+      "path": "script/core/diagnostics/close-non-object.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1a42b800853af2a0210bdb2ad578394560688ebd",
+      "size": 1164,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/1a42b800853af2a0210bdb2ad578394560688ebd"
+    },
+    {
+      "path": "script/core/diagnostics/code-after-break.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "963fd9ed90d076263496a566f28048799f75fde9",
+      "size": 1064,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/963fd9ed90d076263496a566f28048799f75fde9"
+    },
+    {
+      "path": "script/core/diagnostics/codestyle-check.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6d22597b1994798be44ad78295821cec8890345a",
+      "size": 1049,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/6d22597b1994798be44ad78295821cec8890345a"
+    },
+    {
+      "path": "script/core/diagnostics/count-down-loop.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bd6e5ee31b7996d930b4e941579c32530b9ccede",
+      "size": 1824,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/bd6e5ee31b7996d930b4e941579c32530b9ccede"
+    },
+    {
+      "path": "script/core/diagnostics/deprecated.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6492bc53c713f6de870f9116bcfe6f1a5e0848b7",
+      "size": 2426,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/6492bc53c713f6de870f9116bcfe6f1a5e0848b7"
+    },
+    {
+      "path": "script/core/diagnostics/different-requires.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6e86e00382cc37cce43d2b764257b63e0517a14b",
+      "size": 1646,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/6e86e00382cc37cce43d2b764257b63e0517a14b"
+    },
+    {
+      "path": "script/core/diagnostics/discard-returns.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "37d3621406884e3173f455050ca7f395bcdddf1f",
+      "size": 799,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/37d3621406884e3173f455050ca7f395bcdddf1f"
+    },
+    {
+      "path": "script/core/diagnostics/doc-field-no-class.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "97603c0b70101bdf62666bbcdc4406a2eb27e9db",
+      "size": 970,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/97603c0b70101bdf62666bbcdc4406a2eb27e9db"
+    },
+    {
+      "path": "script/core/diagnostics/duplicate-doc-alias.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7f71b63b58107feaa6e1922195dd9678a198a23e",
+      "size": 1769,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/7f71b63b58107feaa6e1922195dd9678a198a23e"
+    },
+    {
+      "path": "script/core/diagnostics/duplicate-doc-field.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b39def96ddbc6d4777056aa67729646cc8639a10",
+      "size": 2470,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/b39def96ddbc6d4777056aa67729646cc8639a10"
+    },
+    {
+      "path": "script/core/diagnostics/duplicate-doc-param.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b54c19783d2ce4d199d5e3466df4e46cbe6c5147",
+      "size": 970,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/b54c19783d2ce4d199d5e3466df4e46cbe6c5147"
+    },
+    {
+      "path": "script/core/diagnostics/duplicate-index.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "dfd9bd4b78fa0d5b6e4d8d8fb8eea866dc931c39",
+      "size": 2211,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/dfd9bd4b78fa0d5b6e4d8d8fb8eea866dc931c39"
+    },
+    {
+      "path": "script/core/diagnostics/duplicate-set-field.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b653e9562253c09ed7e710a193a18411a288a7ac",
+      "size": 2965,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/b653e9562253c09ed7e710a193a18411a288a7ac"
+    },
+    {
+      "path": "script/core/diagnostics/empty-block.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e05b6aef230b8afcff90a7d8dee9e7232b849e4e",
+      "size": 1510,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/e05b6aef230b8afcff90a7d8dee9e7232b849e4e"
+    },
+    {
+      "path": "script/core/diagnostics/global-element.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3e1c636ed5c8e9f75027438d133b9c26976cd28c",
+      "size": 2264,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/3e1c636ed5c8e9f75027438d133b9c26976cd28c"
+    },
+    {
+      "path": "script/core/diagnostics/global-in-nil-env.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "da5c7cfa1b0a5b475421116803ca42c5cf602c07",
+      "size": 1108,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/da5c7cfa1b0a5b475421116803ca42c5cf602c07"
+    },
+    {
+      "path": "script/core/diagnostics/helper",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "d67087122d31d5deeafc7801c044a390ecbecf8b",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/d67087122d31d5deeafc7801c044a390ecbecf8b"
+    },
+    {
+      "path": "script/core/diagnostics/helper/missing-doc-helper.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "116173f2d89284c9de20f8dbb1f915a28192ee2d",
+      "size": 2164,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/116173f2d89284c9de20f8dbb1f915a28192ee2d"
+    },
+    {
+      "path": "script/core/diagnostics/incomplete-signature-doc.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1ffbb77a2ebebadf39bb8e60716fd73b53c59f8c",
+      "size": 2943,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/1ffbb77a2ebebadf39bb8e60716fd73b53c59f8c"
+    },
+    {
+      "path": "script/core/diagnostics/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e31a19f34bfab8ab95a9ab0a549ac2c3da4905e2",
+      "size": 5578,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/e31a19f34bfab8ab95a9ab0a549ac2c3da4905e2"
+    },
+    {
+      "path": "script/core/diagnostics/inject-field.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6baf6a0abe91887ab50b90dfedc9e9415156be2f",
+      "size": 4270,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/6baf6a0abe91887ab50b90dfedc9e9415156be2f"
+    },
+    {
+      "path": "script/core/diagnostics/invisible.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7172c4a5b19f18a7ddf01a3ad81afe649f2aeb4b",
+      "size": 2396,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/7172c4a5b19f18a7ddf01a3ad81afe649f2aeb4b"
+    },
+    {
+      "path": "script/core/diagnostics/lowercase-global.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a7e195b1661c0a8e9d5ccccfc3ec31f697cbcff1",
+      "size": 2399,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/a7e195b1661c0a8e9d5ccccfc3ec31f697cbcff1"
+    },
+    {
+      "path": "script/core/diagnostics/missing-fields.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "07037ba8ac0e4ccb05ed980063a9e397b02b6857",
+      "size": 4327,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/07037ba8ac0e4ccb05ed980063a9e397b02b6857"
+    },
+    {
+      "path": "script/core/diagnostics/missing-global-doc.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e104d232c683c7081e377ac940775dc829e63b0b",
+      "size": 696,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/e104d232c683c7081e377ac940775dc829e63b0b"
+    },
+    {
+      "path": "script/core/diagnostics/missing-local-export-doc.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b1a9e217cfd9713e40fc4522a0c48c94c6fc75e4",
+      "size": 1452,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/b1a9e217cfd9713e40fc4522a0c48c94c6fc75e4"
+    },
+    {
+      "path": "script/core/diagnostics/missing-parameter.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "78b94a091fe7958ffe866c13e182cd3134faa6b2",
+      "size": 807,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/78b94a091fe7958ffe866c13e182cd3134faa6b2"
+    },
+    {
+      "path": "script/core/diagnostics/missing-return-value.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5c672b546bb80c4021ddb87255332113f42f3ab1",
+      "size": 1566,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/5c672b546bb80c4021ddb87255332113f42f3ab1"
+    },
+    {
+      "path": "script/core/diagnostics/missing-return.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2b5c90d23e39d07857393ffc3606d99c98ad87d0",
+      "size": 1943,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/2b5c90d23e39d07857393ffc3606d99c98ad87d0"
+    },
+    {
+      "path": "script/core/diagnostics/name-style-check.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4bdb068f263e215a9a22df525e75bf032d16325c",
+      "size": 951,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/4bdb068f263e215a9a22df525e75bf032d16325c"
+    },
+    {
+      "path": "script/core/diagnostics/need-check-nil.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fe72d4ba0dac996c86eb3b6ca8f4fccb7fd75cb1",
+      "size": 1396,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/fe72d4ba0dac996c86eb3b6ca8f4fccb7fd75cb1"
+    },
+    {
+      "path": "script/core/diagnostics/newfield-call.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bd1149592742beb132ef7998ace24ebdd5ae35b2",
+      "size": 1517,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/bd1149592742beb132ef7998ace24ebdd5ae35b2"
+    },
+    {
+      "path": "script/core/diagnostics/newline-call.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2ba2ce030c50f4893867db73102d216d5915a6a2",
+      "size": 1519,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/2ba2ce030c50f4893867db73102d216d5915a6a2"
+    },
+    {
+      "path": "script/core/diagnostics/no-unknown.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e706931ad0bbb402933cbe5f61cf9d3cea98f8bf",
+      "size": 793,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/e706931ad0bbb402933cbe5f61cf9d3cea98f8bf"
+    },
+    {
+      "path": "script/core/diagnostics/not-yieldable.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "055025d4636ae3023f2538c32f9553ec24ad14a6",
+      "size": 1838,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/055025d4636ae3023f2538c32f9553ec24ad14a6"
+    },
+    {
+      "path": "script/core/diagnostics/param-type-mismatch.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c0a53b355bcf07766913108d4f84b2bec26f54d1",
+      "size": 5855,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/c0a53b355bcf07766913108d4f84b2bec26f54d1"
+    },
+    {
+      "path": "script/core/diagnostics/redefined-local.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1fb3ca6b2aa720126dbddae09ccee9d90b943e07",
+      "size": 994,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/1fb3ca6b2aa720126dbddae09ccee9d90b943e07"
+    },
+    {
+      "path": "script/core/diagnostics/redundant-parameter.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "667f9c61f52797dd4ecff9b7c08544be5f282c1a",
+      "size": 2347,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/667f9c61f52797dd4ecff9b7c08544be5f282c1a"
+    },
+    {
+      "path": "script/core/diagnostics/redundant-return-value.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "186678405b988d9bdfa35351c65f0f3e9753cc99",
+      "size": 1919,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/186678405b988d9bdfa35351c65f0f3e9753cc99"
+    },
+    {
+      "path": "script/core/diagnostics/redundant-return.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "486db6cde19a99981f072fb6bc9082d389d1f3f5",
+      "size": 782,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/486db6cde19a99981f072fb6bc9082d389d1f3f5"
+    },
+    {
+      "path": "script/core/diagnostics/redundant-value.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ceb090c9025b2719481bf9939e7e2c22620a2578",
+      "size": 767,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/ceb090c9025b2719481bf9939e7e2c22620a2578"
+    },
+    {
+      "path": "script/core/diagnostics/return-type-mismatch.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9643fb004cc2e03be4021bf657b02ef3b530e710",
+      "size": 2911,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/9643fb004cc2e03be4021bf657b02ef3b530e710"
+    },
+    {
+      "path": "script/core/diagnostics/spell-check.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a4cb87be39ed6700e3041f406f78ef41db9c2df6",
+      "size": 937,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/a4cb87be39ed6700e3041f406f78ef41db9c2df6"
+    },
+    {
+      "path": "script/core/diagnostics/trailing-space.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1fdccf8061a71a37fa54ff80661ba91f10cd9b6d",
+      "size": 1734,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/1fdccf8061a71a37fa54ff80661ba91f10cd9b6d"
+    },
+    {
+      "path": "script/core/diagnostics/unbalanced-assignments.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a2fdf42c0debb1be48920ac44f263554fc3c2980",
+      "size": 1123,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/a2fdf42c0debb1be48920ac44f263554fc3c2980"
+    },
+    {
+      "path": "script/core/diagnostics/undefined-doc-class.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fb57f427166fc5e77c59fd6f17167586c90bce72",
+      "size": 1489,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/fb57f427166fc5e77c59fd6f17167586c90bce72"
+    },
+    {
+      "path": "script/core/diagnostics/undefined-doc-name.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b648b9ab0aecd26dc2977798db35bea266cfa9b4",
+      "size": 4149,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/b648b9ab0aecd26dc2977798db35bea266cfa9b4"
+    },
+    {
+      "path": "script/core/diagnostics/undefined-doc-param.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7a60a74f3731255e239b722434e10b19641dcc66",
+      "size": 582,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/7a60a74f3731255e239b722434e10b19641dcc66"
+    },
+    {
+      "path": "script/core/diagnostics/undefined-env-child.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2870103429b63febce27e6b273f1a650ffded9a3",
+      "size": 1136,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/2870103429b63febce27e6b273f1a650ffded9a3"
+    },
+    {
+      "path": "script/core/diagnostics/undefined-field.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "edb65909b163050feb8bf9024c8638e1185ce34b",
+      "size": 2578,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/edb65909b163050feb8bf9024c8638e1185ce34b"
+    },
+    {
+      "path": "script/core/diagnostics/undefined-global.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ae50c717e6be5ed7992d9c9e397ed671a8606700",
+      "size": 1044,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/ae50c717e6be5ed7992d9c9e397ed671a8606700"
+    },
+    {
+      "path": "script/core/diagnostics/unknown-cast-variable.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "67fea5fca8d440a6c9ca39c2803360425c92c2f6",
+      "size": 801,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/67fea5fca8d440a6c9ca39c2803360425c92c2f6"
+    },
+    {
+      "path": "script/core/diagnostics/unknown-diag-code.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "07128a27760ca02cbc0c63c3611203ca8a8ecd5e",
+      "size": 905,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/07128a27760ca02cbc0c63c3611203ca8a8ecd5e"
+    },
+    {
+      "path": "script/core/diagnostics/unknown-operator.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "703995fe8632ddf5341afa83fc1dcdf0c4027ecc",
+      "size": 894,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/703995fe8632ddf5341afa83fc1dcdf0c4027ecc"
+    },
+    {
+      "path": "script/core/diagnostics/unnecessary-assert.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a720871934949761dd81a2184fba7ad422529730",
+      "size": 882,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/a720871934949761dd81a2184fba7ad422529730"
+    },
+    {
+      "path": "script/core/diagnostics/unreachable-code.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cbffe4db408e924dc7903e4c262253d521e19bfb",
+      "size": 2295,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/cbffe4db408e924dc7903e4c262253d521e19bfb"
+    },
+    {
+      "path": "script/core/diagnostics/unused-function.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1145036db3c41b4e196b7fef2034d860e480ba4d",
+      "size": 3347,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/1145036db3c41b4e196b7fef2034d860e480ba4d"
+    },
+    {
+      "path": "script/core/diagnostics/unused-label.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8ee0bba30370ba841ece76fa31d6929002e91f3d",
+      "size": 624,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/8ee0bba30370ba841ece76fa31d6929002e91f3d"
+    },
+    {
+      "path": "script/core/diagnostics/unused-local.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "52622eb2483777f854233d10c4813f3c5818a584",
+      "size": 3290,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/52622eb2483777f854233d10c4813f3c5818a584"
+    },
+    {
+      "path": "script/core/diagnostics/unused-vararg.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6d8ac37fe669d225f37f6c917477bf2c5e982b65",
+      "size": 1023,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/6d8ac37fe669d225f37f6c917477bf2c5e982b65"
+    },
+    {
+      "path": "script/core/document-symbol.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8679deab9e5f4203ca950da3e9c45951256c33ac",
+      "size": 13978,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/8679deab9e5f4203ca950da3e9c45951256c33ac"
+    },
+    {
+      "path": "script/core/find-source.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8b5755d8b3cd172e3c73efc3896abb428bfd915c",
+      "size": 937,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/8b5755d8b3cd172e3c73efc3896abb428bfd915c"
+    },
+    {
+      "path": "script/core/fix-indent.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "09e3737d7de8612785029fa7bf1b259033eafd82",
+      "size": 5054,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/09e3737d7de8612785029fa7bf1b259033eafd82"
+    },
+    {
+      "path": "script/core/folding.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9f1fbd272881473821d40e2fe5b32b598c378667",
+      "size": 5621,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/9f1fbd272881473821d40e2fe5b32b598c378667"
+    },
+    {
+      "path": "script/core/formatting.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d9fcf4444d573ebaf3dd0a4e536574f6ff3bb84f",
+      "size": 745,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/d9fcf4444d573ebaf3dd0a4e536574f6ff3bb84f"
+    },
+    {
+      "path": "script/core/highlight.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6eab0a0dc47eee12c680569be66fa3033aae19cb",
+      "size": 11708,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/6eab0a0dc47eee12c680569be66fa3033aae19cb"
+    },
+    {
+      "path": "script/core/hint.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2c7494df2a5c1bb42dcdeba0832fff13578a946c",
+      "size": 9477,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/2c7494df2a5c1bb42dcdeba0832fff13578a946c"
+    },
+    {
+      "path": "script/core/hover",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "96cda7b6340418a101585852f40f429ab7c9c110",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/96cda7b6340418a101585852f40f429ab7c9c110"
+    },
+    {
+      "path": "script/core/hover/args.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2d1833b4d48875e6ee02d431f0ca4fd56cabb9c7",
+      "size": 2744,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/2d1833b4d48875e6ee02d431f0ca4fd56cabb9c7"
+    },
+    {
+      "path": "script/core/hover/description.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "437cf6a88433682e9ee142631ceb98605e918cb6",
+      "size": 16220,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/437cf6a88433682e9ee142631ceb98605e918cb6"
+    },
+    {
+      "path": "script/core/hover/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cf8552acf4c132ace32f58284fd8f0c21a71ba41",
+      "size": 4681,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/cf8552acf4c132ace32f58284fd8f0c21a71ba41"
+    },
+    {
+      "path": "script/core/hover/label.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "55c741aeefdae98db7b732990e4116ff56cd0663",
+      "size": 6776,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/55c741aeefdae98db7b732990e4116ff56cd0663"
+    },
+    {
+      "path": "script/core/hover/name.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3fabfb89c80fae7f2b726f40a306662e3689ef36",
+      "size": 2665,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/3fabfb89c80fae7f2b726f40a306662e3689ef36"
+    },
+    {
+      "path": "script/core/hover/return.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b71b9e5d6632dfd51749bda94d71ef85bbdec426",
+      "size": 2211,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/b71b9e5d6632dfd51749bda94d71ef85bbdec426"
+    },
+    {
+      "path": "script/core/hover/table.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fda25f91b9048852929fef0f45fff3c4deff5ae7",
+      "size": 6361,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/fda25f91b9048852929fef0f45fff3c4deff5ae7"
+    },
+    {
+      "path": "script/core/implementation.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ffd48ac7527a7410d3c9854edc1fefbd551613ea",
+      "size": 4317,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/ffd48ac7527a7410d3c9854edc1fefbd551613ea"
+    },
+    {
+      "path": "script/core/jump-source.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5ce5e0483fd127ff4e8a3a724ddf3464bfb0a9eb",
+      "size": 2004,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/5ce5e0483fd127ff4e8a3a724ddf3464bfb0a9eb"
+    },
+    {
+      "path": "script/core/look-backward.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "611fd8ff3f0a601153941e17ed634884daac2b29",
+      "size": 2332,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/611fd8ff3f0a601153941e17ed634884daac2b29"
+    },
+    {
+      "path": "script/core/matchkey.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4db9d764e0d9a39ae3a2e991eac75908d0d59c71",
+      "size": 1990,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/4db9d764e0d9a39ae3a2e991eac75908d0d59c71"
+    },
+    {
+      "path": "script/core/modifyRequirePath.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d0783736ef606ad906b08b36bdc9d236e2c616bc",
+      "size": 2108,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/d0783736ef606ad906b08b36bdc9d236e2c616bc"
+    },
+    {
+      "path": "script/core/rangeformatting.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7c3953e6b1137b636f2113e799aa96ae922a2786",
+      "size": 898,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/7c3953e6b1137b636f2113e799aa96ae922a2786"
+    },
+    {
+      "path": "script/core/reference.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8c87f7ce9b0edd3fa6ca6a63ad6739933548ac5b",
+      "size": 4272,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/8c87f7ce9b0edd3fa6ca6a63ad6739933548ac5b"
+    },
+    {
+      "path": "script/core/rename.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2473bc702eceffb4a943da9a9da01f7e15d1f6d7",
+      "size": 13532,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/2473bc702eceffb4a943da9a9da01f7e15d1f6d7"
+    },
+    {
+      "path": "script/core/semantic-tokens.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6a14fc2a43385e1d854d0cf55de7d02a5d86a7c2",
+      "size": 31425,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/6a14fc2a43385e1d854d0cf55de7d02a5d86a7c2"
+    },
+    {
+      "path": "script/core/signature.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1c3ba76b83983d59621a987429ffc9ce0e156101",
+      "size": 6927,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/1c3ba76b83983d59621a987429ffc9ce0e156101"
+    },
+    {
+      "path": "script/core/substring.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cfce52821abae62104cba53dfb69b3c7c2f15e5c",
+      "size": 336,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/cfce52821abae62104cba53dfb69b3c7c2f15e5c"
+    },
+    {
+      "path": "script/core/type-definition.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "265c83f02fac6f845e5456caccd2f37e28607f10",
+      "size": 4557,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/265c83f02fac6f845e5456caccd2f37e28607f10"
+    },
+    {
+      "path": "script/core/type-formatting.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a333ab44dae32960f8760ea65034fdea69c4ff82",
+      "size": 1405,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/a333ab44dae32960f8760ea65034fdea69c4ff82"
+    },
+    {
+      "path": "script/core/view",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "d2a7328d3a7c2404096cd83641d200243c18ea11",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/d2a7328d3a7c2404096cd83641d200243c18ea11"
+    },
+    {
+      "path": "script/core/view/psi-select.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4064203933cd1a5cb1cf64959d1c422364285e7d",
+      "size": 349,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/4064203933cd1a5cb1cf64959d1c422364285e7d"
+    },
+    {
+      "path": "script/core/view/psi-view.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "640d1c4c0259c71cf042259d8b0dfadef65110ca",
+      "size": 2676,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/640d1c4c0259c71cf042259d8b0dfadef65110ca"
+    },
+    {
+      "path": "script/core/workspace-symbol.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0c1adc7c942d81be98b1928014d15102ab71513c",
+      "size": 4660,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/0c1adc7c942d81be98b1928014d15102ab71513c"
+    },
+    {
+      "path": "script/doctor.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a7fd240bb02f7f538a6dafdc4269696dd3a9f118",
+      "size": 17577,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/a7fd240bb02f7f538a6dafdc4269696dd3a9f118"
+    },
+    {
+      "path": "script/encoder",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "8c8fd6bbe07766c3181b6d33255af877bc4823ae",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/8c8fd6bbe07766c3181b6d33255af877bc4823ae"
+    },
+    {
+      "path": "script/encoder/ansi.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f89ddbc1116b957b76395eb468be9fcde0a50362",
+      "size": 374,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/f89ddbc1116b957b76395eb468be9fcde0a50362"
+    },
+    {
+      "path": "script/encoder/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3c8a58e025a809d80f24ca402c354902c1ee8c25",
+      "size": 3212,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/3c8a58e025a809d80f24ca402c354902c1ee8c25"
+    },
+    {
+      "path": "script/encoder/utf16.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7b08e082c59e199a5814a549dd3fce7a6dad9d03",
+      "size": 4297,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/7b08e082c59e199a5814a549dd3fce7a6dad9d03"
+    },
+    {
+      "path": "script/file-uri.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4c5649046accdedb1f66e22da983718b8de0b24c",
+      "size": 2762,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/4c5649046accdedb1f66e22da983718b8de0b24c"
+    },
+    {
+      "path": "script/files.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e2535c4c7655e38f272cb9aa9cc39277b808ec16",
+      "size": 25411,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/e2535c4c7655e38f272cb9aa9cc39277b808ec16"
+    },
+    {
+      "path": "script/filewatch.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fb975daedd97e3155fce5e1aa4e4b2791f9397ba",
+      "size": 3241,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/fb975daedd97e3155fce5e1aa4e4b2791f9397ba"
+    },
+    {
+      "path": "script/fs-utility.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "18ceccbb94d881f28ba09ee1c2050ee3792d51a6",
+      "size": 16763,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/18ceccbb94d881f28ba09ee1c2050ee3792d51a6"
+    },
+    {
+      "path": "script/gc.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e733f22e576c0f457b14618776d317a32264b343",
+      "size": 3006,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/e733f22e576c0f457b14618776d317a32264b343"
+    },
+    {
+      "path": "script/glob",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "50994e4f98bc56072efa39f1913a5c21fb9de1e0",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/50994e4f98bc56072efa39f1913a5c21fb9de1e0"
+    },
+    {
+      "path": "script/glob/gitignore.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d7615ccbc2173b66daaf533a47fcc50edd5fc562",
+      "size": 6804,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/d7615ccbc2173b66daaf533a47fcc50edd5fc562"
+    },
+    {
+      "path": "script/glob/glob.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "59fa83a842cc0a3867a4ede43839a66fc308c2b4",
+      "size": 3442,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/59fa83a842cc0a3867a4ede43839a66fc308c2b4"
+    },
+    {
+      "path": "script/glob/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6578a0d4b25b74fc01142f44a76504688dbf9381",
+      "size": 85,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/6578a0d4b25b74fc01142f44a76504688dbf9381"
+    },
+    {
+      "path": "script/glob/matcher.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "af43e08798d5ed2628c803c967d903d07e262fce",
+      "size": 3580,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/af43e08798d5ed2628c803c967d903d07e262fce"
+    },
+    {
+      "path": "script/global.d.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bf4c25c7237ff5ed38d4e373ac91dc4c396d5abe",
+      "size": 2590,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/bf4c25c7237ff5ed38d4e373ac91dc4c396d5abe"
+    },
+    {
+      "path": "script/inspect.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f8d69dc776cdf6b7efc5ebfe335ae5da3a9ff403",
+      "size": 8470,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/f8d69dc776cdf6b7efc5ebfe335ae5da3a9ff403"
+    },
+    {
+      "path": "script/json-beautify.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f3467f0786601b8ad172bca9f6f32182e237aa54",
+      "size": 4704,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/f3467f0786601b8ad172bca9f6f32182e237aa54"
+    },
+    {
+      "path": "script/json-edit.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "efa1216faa1e2abfa42c3e84dbedb5a4c57c570e",
+      "size": 20613,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/efa1216faa1e2abfa42c3e84dbedb5a4c57c570e"
+    },
+    {
+      "path": "script/json.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "eaccb43e07ede99c7d1d38bc773d26674dff74a6",
+      "size": 15218,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/eaccb43e07ede99c7d1d38bc773d26674dff74a6"
+    },
+    {
+      "path": "script/jsonc.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "267ab31dbe61dd525e78864459cb7c030ec89af1",
+      "size": 10805,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/267ab31dbe61dd525e78864459cb7c030ec89af1"
+    },
+    {
+      "path": "script/jsonrpc.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6de6da5b8a1c782d562ee6d2a7fa6bec6ba84532",
+      "size": 1757,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/6de6da5b8a1c782d562ee6d2a7fa6bec6ba84532"
+    },
+    {
+      "path": "script/language.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "22546fb8a7c2b2212975ac03582f86e7064062eb",
+      "size": 3688,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/22546fb8a7c2b2212975ac03582f86e7064062eb"
+    },
+    {
+      "path": "script/lazy-cacher.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d6b29ba9d39e2225700948cac6a05c2172db34b9",
+      "size": 4571,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/d6b29ba9d39e2225700948cac6a05c2172db34b9"
+    },
+    {
+      "path": "script/lazytable.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6d1f2611d0bdcf8b4836d3827bed750fd2e3f774",
+      "size": 8627,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/6d1f2611d0bdcf8b4836d3827bed750fd2e3f774"
+    },
+    {
+      "path": "script/lclient.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "513e311cfa3cdc197e730ba8089973770daf29a0",
+      "size": 6375,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/513e311cfa3cdc197e730ba8089973770daf29a0"
+    },
+    {
+      "path": "script/library.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6a38c573c1f56e0e2ed4b967289cf7d59bb90a82",
+      "size": 20775,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/6a38c573c1f56e0e2ed4b967289cf7d59bb90a82"
+    },
+    {
+      "path": "script/linked-table.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a63a528c6b54b1754064cf2545ebc81e319f4b44",
+      "size": 4430,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/a63a528c6b54b1754064cf2545ebc81e319f4b44"
+    },
+    {
+      "path": "script/locale-loader.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c9852983006f79e4cdf1981a09071b9b1bfd7191",
+      "size": 627,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/c9852983006f79e4cdf1981a09071b9b1bfd7191"
+    },
+    {
+      "path": "script/log.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8e94dd0e551074d2736486313c0cef109d19963c",
+      "size": 3784,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/8e94dd0e551074d2736486313c0cef109d19963c"
+    },
+    {
+      "path": "script/meta",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "2f2ddc1594512fa2eddd9676c2f89b67bafeb0ff",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/2f2ddc1594512fa2eddd9676c2f89b67bafeb0ff"
+    },
+    {
+      "path": "script/meta/bee",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "48edf033bafa992a5e1b4df81d699b11e3cbdb72",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/48edf033bafa992a5e1b4df81d699b11e3cbdb72"
+    },
+    {
+      "path": "script/meta/bee/channel.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cdbf13bc7e5b734915d1d9d8cccd0ef60e6200c2",
+      "size": 542,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/cdbf13bc7e5b734915d1d9d8cccd0ef60e6200c2"
+    },
+    {
+      "path": "script/meta/bee/filesystem.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "278915332fffcd5a3ab270040d02d66780f4226e",
+      "size": 1949,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/278915332fffcd5a3ab270040d02d66780f4226e"
+    },
+    {
+      "path": "script/meta/bee/filewatch.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "813548b225c4781ba19ddb1ef6056ef7f3c1146e",
+      "size": 535,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/813548b225c4781ba19ddb1ef6056ef7f3c1146e"
+    },
+    {
+      "path": "script/meta/bee/select.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6d2abcb53f2e9dafdb6c75132f7375b190f4c95d",
+      "size": 1369,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/6d2abcb53f2e9dafdb6c75132f7375b190f4c95d"
+    },
+    {
+      "path": "script/meta/bee/socket.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b5e3a7b2b39b3bf835a1c6dc907d075f3dca1169",
+      "size": 1375,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/b5e3a7b2b39b3bf835a1c6dc907d075f3dca1169"
+    },
+    {
+      "path": "script/meta/bee/sys.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bf7fa3a0febca673bed6462905476fab2232d262",
+      "size": 235,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/bf7fa3a0febca673bed6462905476fab2232d262"
+    },
+    {
+      "path": "script/meta/bee/thread.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "665af2f41a979e68c710525292f0e4f0bf4ffa67",
+      "size": 1040,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/665af2f41a979e68c710525292f0e4f0bf4ffa67"
+    },
+    {
+      "path": "script/parser",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "67547155e2a51c1e50777cbf8cd1a97e161a0bbb",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/67547155e2a51c1e50777cbf8cd1a97e161a0bbb"
+    },
+    {
+      "path": "script/parser/compile.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "417728cd05ab3008ddca6cad018551fcc8db9364",
+      "size": 147433,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/417728cd05ab3008ddca6cad018551fcc8db9364"
+    },
+    {
+      "path": "script/parser/guide.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e3c7660b303cf3fd8c0a3eec5f26ca6b6f43f917",
+      "size": 36380,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/e3c7660b303cf3fd8c0a3eec5f26ca6b6f43f917"
+    },
+    {
+      "path": "script/parser/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9848ce00afa2adb51d4e06ab314753fd08119c23",
+      "size": 202,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/9848ce00afa2adb51d4e06ab314753fd08119c23"
+    },
+    {
+      "path": "script/parser/lines.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ffd021e68560a4552964f0dcea54afeb1ee711d2",
+      "size": 528,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/ffd021e68560a4552964f0dcea54afeb1ee711d2"
+    },
+    {
+      "path": "script/parser/luadoc.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a783ee3f89a2ce82399f50731f842ddfecc67cc6",
+      "size": 68927,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/a783ee3f89a2ce82399f50731f842ddfecc67cc6"
+    },
+    {
+      "path": "script/parser/relabel.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "323e01a152044427e78bcdafc5d12e2c67357f5e",
+      "size": 9879,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/323e01a152044427e78bcdafc5d12e2c67357f5e"
+    },
+    {
+      "path": "script/parser/tokens.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1f7196a665da5047370071faeeb9c554cbeaeee4",
+      "size": 1498,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/1f7196a665da5047370071faeeb9c554cbeaeee4"
+    },
+    {
+      "path": "script/plugin.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3dc77b22efe00a9e895f1bf3a44dd09feb186891",
+      "size": 5264,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/3dc77b22efe00a9e895f1bf3a44dd09feb186891"
+    },
+    {
+      "path": "script/plugins",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "e391fba533a12f5cafdeb45b839f6b61cf058d48",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/e391fba533a12f5cafdeb45b839f6b61cf058d48"
+    },
+    {
+      "path": "script/plugins/astHelper.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c4df175dd626f0464575cc1e82828bffd18e049b",
+      "size": 2710,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/c4df175dd626f0464575cc1e82828bffd18e049b"
+    },
+    {
+      "path": "script/plugins/ffi",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "227d711d7a91eb0e9676261680cff288b28b3ba8",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/227d711d7a91eb0e9676261680cff288b28b3ba8"
+    },
+    {
+      "path": "script/plugins/ffi/c-parser",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "eb6fdda096e688067c79af1f4eb663333a2b4e0b",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/eb6fdda096e688067c79af1f4eb663333a2b4e0b"
+    },
+    {
+      "path": "script/plugins/ffi/c-parser/c99.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9735afa2948dea831caebedbdfd571d22274a2f4",
+      "size": 26044,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/9735afa2948dea831caebedbdfd571d22274a2f4"
+    },
+    {
+      "path": "script/plugins/ffi/c-parser/cdefines.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "55065f2d2d35be451907c7605813086e68092cce",
+      "size": 4166,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/55065f2d2d35be451907c7605813086e68092cce"
+    },
+    {
+      "path": "script/plugins/ffi/c-parser/cdriver.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ab48d01a6be2d5c794173c4ef2215bfd223b4fa1",
+      "size": 1540,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/ab48d01a6be2d5c794173c4ef2215bfd223b4fa1"
+    },
+    {
+      "path": "script/plugins/ffi/c-parser/cpp.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8f0bfd3d63a3ac7d23aaef13ae76f002b7b4f4c2",
+      "size": 28429,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/8f0bfd3d63a3ac7d23aaef13ae76f002b7b4f4c2"
+    },
+    {
+      "path": "script/plugins/ffi/c-parser/ctypes.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2f43d8aa6182f136750f4ac2992901e0d61acf94",
+      "size": 16982,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/2f43d8aa6182f136750f4ac2992901e0d61acf94"
+    },
+    {
+      "path": "script/plugins/ffi/c-parser/typed.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c84b87e3c563efe42225d703ac5d165c8ec14b2a",
+      "size": 4214,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/c84b87e3c563efe42225d703ac5d165c8ec14b2a"
+    },
+    {
+      "path": "script/plugins/ffi/c-parser/util.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8e043786f45266837f0e42b40411ab3141dfb505",
+      "size": 486,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/8e043786f45266837f0e42b40411ab3141dfb505"
+    },
+    {
+      "path": "script/plugins/ffi/cdefRerence.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "654d774361760e235158f4651646f619c3a2443e",
+      "size": 1048,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/654d774361760e235158f4651646f619c3a2443e"
+    },
+    {
+      "path": "script/plugins/ffi/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "410c0875ade3522a0981608d018cd4ab047f7cd9",
+      "size": 10453,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/410c0875ade3522a0981608d018cd4ab047f7cd9"
+    },
+    {
+      "path": "script/plugins/ffi/searchCode.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "46d2e7af08bf006cabd19392860385045bbcebe7",
+      "size": 1782,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/46d2e7af08bf006cabd19392860385045bbcebe7"
+    },
+    {
+      "path": "script/plugins/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "28f902eaec089de99386547fe4534954994cd34d",
+      "size": 21,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/28f902eaec089de99386547fe4534954994cd34d"
+    },
+    {
+      "path": "script/plugins/nodeHelper.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d8ecd98258528eef240b1d8400a863838ddfaa06",
+      "size": 1925,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/d8ecd98258528eef240b1d8400a863838ddfaa06"
+    },
+    {
+      "path": "script/progress.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9aff4f89a05d0d9c10720697d4af46c1c92f5d21",
+      "size": 4122,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/9aff4f89a05d0d9c10720697d4af46c1c92f5d21"
+    },
+    {
+      "path": "script/proto",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "3b06f1ab72465713ff4af868ec31bf0787d6564c",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/3b06f1ab72465713ff4af868ec31bf0787d6564c"
+    },
+    {
+      "path": "script/proto/converter.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e86e4904a5a0dcc7b0c2d15bbacea2418d19ab84",
+      "size": 6148,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/e86e4904a5a0dcc7b0c2d15bbacea2418d19ab84"
+    },
+    {
+      "path": "script/proto/define.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "77e7a77dd1609f5ef887b5da9b8d124df28c3296",
+      "size": 4236,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/77e7a77dd1609f5ef887b5da9b8d124df28c3296"
+    },
+    {
+      "path": "script/proto/diagnostic.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "72761493e0ac7c3b855461b8506fda330dbd4e64",
+      "size": 6191,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/72761493e0ac7c3b855461b8506fda330dbd4e64"
+    },
+    {
+      "path": "script/proto/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "33e637f6897ed04f9bad15c815573bc8afa5ee7a",
+      "size": 52,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/33e637f6897ed04f9bad15c815573bc8afa5ee7a"
+    },
+    {
+      "path": "script/proto/proto.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b432a3d1f106d164d1ed040e936fd920e3ab7a4a",
+      "size": 7584,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/b432a3d1f106d164d1ed040e936fd920e3ab7a4a"
+    },
+    {
+      "path": "script/provider",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "b90d1e6b6dd6de25213afbfa8654381181780977",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/b90d1e6b6dd6de25213afbfa8654381181780977"
+    },
+    {
+      "path": "script/provider/build-meta.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9fcd00957b26196933aed0981aae121dfef20cb7",
+      "size": 4407,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/9fcd00957b26196933aed0981aae121dfef20cb7"
+    },
+    {
+      "path": "script/provider/capability.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b33f17fa6c2e70d014f4eb0a7257f85f3a390bb2",
+      "size": 1990,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/b33f17fa6c2e70d014f4eb0a7257f85f3a390bb2"
+    },
+    {
+      "path": "script/provider/code-lens.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6d33e61526bce86b351a9400d634bd9e6e1b12dd",
+      "size": 700,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/6d33e61526bce86b351a9400d634bd9e6e1b12dd"
+    },
+    {
+      "path": "script/provider/completion.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "373443fed22f418262a6716099d90b2e8f7e80d3",
+      "size": 2613,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/373443fed22f418262a6716099d90b2e8f7e80d3"
+    },
+    {
+      "path": "script/provider/diagnostic.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9ca5d9b2aad4fbcd793c3c4cf57dd643339ea0ff",
+      "size": 19200,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/9ca5d9b2aad4fbcd793c3c4cf57dd643339ea0ff"
+    },
+    {
+      "path": "script/provider/formatting.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f8b4ef21cf596c80d7bcbd3f24726653aef39c41",
+      "size": 2667,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/f8b4ef21cf596c80d7bcbd3f24726653aef39c41"
+    },
+    {
+      "path": "script/provider/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "dfba351a889f7fae895fc36afb06c87f68fbce41",
+      "size": 65,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/dfba351a889f7fae895fc36afb06c87f68fbce41"
+    },
+    {
+      "path": "script/provider/inlay-hint.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d970de5abe9f9fa9dfb93d66e6539ed2ca3aeb00",
+      "size": 701,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/d970de5abe9f9fa9dfb93d66e6539ed2ca3aeb00"
+    },
+    {
+      "path": "script/provider/language-configuration.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e467c1a12e7cd8969c770b857f21a7d7c4696125",
+      "size": 3559,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/e467c1a12e7cd8969c770b857f21a7d7c4696125"
+    },
+    {
+      "path": "script/provider/markdown.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "07c18ef9303969b14ee7e2b51f17551fd630d806",
+      "size": 4330,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/07c18ef9303969b14ee7e2b51f17551fd630d806"
+    },
+    {
+      "path": "script/provider/name-style.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "503e50089057f2aa142fd67739b7395fb07de179",
+      "size": 574,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/503e50089057f2aa142fd67739b7395fb07de179"
+    },
+    {
+      "path": "script/provider/provider.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7f0e63f4cbb1da8da88dad8ec6ff812e7300db0c",
+      "size": 52057,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/7f0e63f4cbb1da8da88dad8ec6ff812e7300db0c"
+    },
+    {
+      "path": "script/provider/semantic-tokens.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cfe967f66b4be28742a6e1bfad0285e1c5351d13",
+      "size": 719,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/cfe967f66b4be28742a6e1bfad0285e1c5351d13"
+    },
+    {
+      "path": "script/provider/spell.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b29295d4c6c4bf816e740ffe239bec573fcb7bc7",
+      "size": 1321,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/b29295d4c6c4bf816e740ffe239bec573fcb7bc7"
+    },
+    {
+      "path": "script/pub",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "8488dae5dfbca183c979df5be838b4e84d999154",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/8488dae5dfbca183c979df5be838b4e84d999154"
+    },
+    {
+      "path": "script/pub/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "61b43da7662d65555e24aa7d17d0239bb5d61c02",
+      "size": 64,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/61b43da7662d65555e24aa7d17d0239bb5d61c02"
+    },
+    {
+      "path": "script/pub/pub.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d4f962703631c15b30c6c877a31118ba2f654264",
+      "size": 7815,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/d4f962703631c15b30c6c877a31118ba2f654264"
+    },
+    {
+      "path": "script/pub/report.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "28340245c7723a532978d2d9c4fc85024b90f3a0",
+      "size": 637,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/28340245c7723a532978d2d9c4fc85024b90f3a0"
+    },
+    {
+      "path": "script/service",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "41ead24f5c6f19bc1ba06f52be6d88fde34b80c5",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/41ead24f5c6f19bc1ba06f52be6d88fde34b80c5"
+    },
+    {
+      "path": "script/service/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "eb0bd057c1345f202c948f3a073e7d1eb7517703",
+      "size": 58,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/eb0bd057c1345f202c948f3a073e7d1eb7517703"
+    },
+    {
+      "path": "script/service/net.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bf77e7df36b599134b3ced039062c806d906b50f",
+      "size": 6502,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/bf77e7df36b599134b3ced039062c806d906b50f"
+    },
+    {
+      "path": "script/service/service.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5518a23f5f83ff1915e881be746eb00547f2d5c9",
+      "size": 7731,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/5518a23f5f83ff1915e881be746eb00547f2d5c9"
+    },
+    {
+      "path": "script/string-merger.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "65896575acf17c900049d021db248190d7cfb3fd",
+      "size": 4160,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/65896575acf17c900049d021db248190d7cfb3fd"
+    },
+    {
+      "path": "script/text-merger.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9386a6b22b1b63116998c90a605247e5208ff6c0",
+      "size": 3073,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/9386a6b22b1b63116998c90a605247e5208ff6c0"
+    },
+    {
+      "path": "script/timer.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "14d33f6aeac57358e7d4a1fc5bd63b2441f2a4ca",
+      "size": 5133,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/14d33f6aeac57358e7d4a1fc5bd63b2441f2a4ca"
+    },
+    {
+      "path": "script/tracy.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9c096e21ce6f4f4b6ea508e3017fb6f4035f1688",
+      "size": 671,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/9c096e21ce6f4f4b6ea508e3017fb6f4035f1688"
+    },
+    {
+      "path": "script/utility.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "74bf05c80838095a506b431c7a385a7d6fbac8bb",
+      "size": 32180,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/74bf05c80838095a506b431c7a385a7d6fbac8bb"
+    },
+    {
+      "path": "script/version.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fa17856459b26dc59cd0eaaa515b42648372d7cd",
+      "size": 559,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/fa17856459b26dc59cd0eaaa515b42648372d7cd"
+    },
+    {
+      "path": "script/vm",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "0f579db8a24b7228635a583479935385610d68f4",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/0f579db8a24b7228635a583479935385610d68f4"
+    },
+    {
+      "path": "script/vm/compiler.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a648c196c5fa7ce9f8ff86eda5de572a207a7900",
+      "size": 93733,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/a648c196c5fa7ce9f8ff86eda5de572a207a7900"
+    },
+    {
+      "path": "script/vm/def.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "41f735b26339c0b0d6498c2bfefc1d71bcb5f1eb",
+      "size": 3657,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/41f735b26339c0b0d6498c2bfefc1d71bcb5f1eb"
+    },
+    {
+      "path": "script/vm/doc.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a2689439b1cf40daca53384a5674d4c8cb5f8e5c",
+      "size": 14262,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/a2689439b1cf40daca53384a5674d4c8cb5f8e5c"
+    },
+    {
+      "path": "script/vm/field.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0c78cd8f36d5061aeed4343d8cccf0b883b5ee8e",
+      "size": 1504,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/0c78cd8f36d5061aeed4343d8cccf0b883b5ee8e"
+    },
+    {
+      "path": "script/vm/function.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "21a432c134feffba198e76a868d8e853e736731f",
+      "size": 15215,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/21a432c134feffba198e76a868d8e853e736731f"
+    },
+    {
+      "path": "script/vm/generic.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0b171622c48b280c594e8f193451f67234388b06",
+      "size": 8755,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/0b171622c48b280c594e8f193451f67234388b06"
+    },
+    {
+      "path": "script/vm/global.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8281c7d93d4e7497bd6a04a66741c180f00a0626",
+      "size": 20536,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/8281c7d93d4e7497bd6a04a66741c180f00a0626"
+    },
+    {
+      "path": "script/vm/infer.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "13fdc43382a53a8112c24f034695e0750f5c8d7b",
+      "size": 17033,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/13fdc43382a53a8112c24f034695e0750f5c8d7b"
+    },
+    {
+      "path": "script/vm/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f1d3292a30b8081554c2cdd941af349a886723db",
+      "size": 464,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/f1d3292a30b8081554c2cdd941af349a886723db"
+    },
+    {
+      "path": "script/vm/library.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e7bf4f421306ba2595daeee1c81165f812057143",
+      "size": 314,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/e7bf4f421306ba2595daeee1c81165f812057143"
+    },
+    {
+      "path": "script/vm/node.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "599a4ba990757fc655a6b6e7b4fce61c8f8bd71d",
+      "size": 13935,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/599a4ba990757fc655a6b6e7b4fce61c8f8bd71d"
+    },
+    {
+      "path": "script/vm/operator.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bb71b02b23a71be64025edfbad910858733e9c51",
+      "size": 18517,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/bb71b02b23a71be64025edfbad910858733e9c51"
+    },
+    {
+      "path": "script/vm/precompile.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "475777fe48d55a14370bfc2633cbcc9cebc7c9c8",
+      "size": 504,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/475777fe48d55a14370bfc2633cbcc9cebc7c9c8"
+    },
+    {
+      "path": "script/vm/ref.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "531a7d999092b6a17029ca766d7931c6daa07f04",
+      "size": 9132,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/531a7d999092b6a17029ca766d7931c6daa07f04"
+    },
+    {
+      "path": "script/vm/sign.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0b340a850bb3ee57432c69c2bfccb5fcfe4ddc6c",
+      "size": 16957,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/0b340a850bb3ee57432c69c2bfccb5fcfe4ddc6c"
+    },
+    {
+      "path": "script/vm/tracer.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cc6d10e5951fb253b39eaa18a5aed143a39ebc2a",
+      "size": 30603,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/cc6d10e5951fb253b39eaa18a5aed143a39ebc2a"
+    },
+    {
+      "path": "script/vm/type.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "524eb4cc2c1507335cb5d393f5e646c42cae33ba",
+      "size": 30385,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/524eb4cc2c1507335cb5d393f5e646c42cae33ba"
+    },
+    {
+      "path": "script/vm/value.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f487cda45586e29ca7b218e43de7e050980dd3cf",
+      "size": 6157,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/f487cda45586e29ca7b218e43de7e050980dd3cf"
+    },
+    {
+      "path": "script/vm/variable.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "150ad18b5d6f9568d6f55ff44c30b454886a56cd",
+      "size": 10810,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/150ad18b5d6f9568d6f55ff44c30b454886a56cd"
+    },
+    {
+      "path": "script/vm/visible.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d110f2be2dc6b7fe002a168c619a274a0b7721d4",
+      "size": 5941,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/d110f2be2dc6b7fe002a168c619a274a0b7721d4"
+    },
+    {
+      "path": "script/vm/vm.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4baca76284f6101498a4211ead2068e1db92819a",
+      "size": 2823,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/4baca76284f6101498a4211ead2068e1db92819a"
+    },
+    {
+      "path": "script/without-check-nil.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a2e98c6b427a58658b5003ff9a10e8b605e1f1cf",
+      "size": 2852,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/a2e98c6b427a58658b5003ff9a10e8b605e1f1cf"
+    },
+    {
+      "path": "script/workspace",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "3825b9d534eabb615092e61d47beaa0eb5a3293a",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/3825b9d534eabb615092e61d47beaa0eb5a3293a"
+    },
+    {
+      "path": "script/workspace/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7cbe15d766d387796e90b55fc4b24a929da7e163",
+      "size": 66,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/7cbe15d766d387796e90b55fc4b24a929da7e163"
+    },
+    {
+      "path": "script/workspace/loading.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "670d70f0caab9078af31de890489677c3c35716d",
+      "size": 6619,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/670d70f0caab9078af31de890489677c3c35716d"
+    },
+    {
+      "path": "script/workspace/require-path.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3ab41496288e84f6f5590ceb3a97f3d1efb93d6a",
+      "size": 10291,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/3ab41496288e84f6f5590ceb3a97f3d1efb93d6a"
+    },
+    {
+      "path": "script/workspace/scope.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "360f6e28db7da9c8e0fd46aaf8e1e6e6ab21ad56",
+      "size": 4889,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/360f6e28db7da9c8e0fd46aaf8e1e6e6ab21ad56"
+    },
+    {
+      "path": "script/workspace/workspace.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9420ef9089d46525fa38881818e605d019406649",
+      "size": 18576,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/9420ef9089d46525fa38881818e605d019406649"
+    },
+    {
+      "path": "test.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "09970f31b28e5e61ac8e45699b043e72227b403d",
+      "size": 3250,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/09970f31b28e5e61ac8e45699b043e72227b403d"
+    },
+    {
+      "path": "test",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "09e808a252e38191bced29103a4ec736b02dad44",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/09e808a252e38191bced29103a4ec736b02dad44"
+    },
+    {
+      "path": "test/basic",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "aebbf8ff980b439c5ac50f035646cdfe09cbbeb0",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/aebbf8ff980b439c5ac50f035646cdfe09cbbeb0"
+    },
+    {
+      "path": "test/basic/filewatch.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8b6390520554ce30150d562b5b186d8095819b5c",
+      "size": 56,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/8b6390520554ce30150d562b5b186d8095819b5c"
+    },
+    {
+      "path": "test/basic/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9030cf6dd5ccda459ebd1104b179f5e26641f031",
+      "size": 53,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/9030cf6dd5ccda459ebd1104b179f5e26641f031"
+    },
+    {
+      "path": "test/basic/textmerger.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "38c47bbd2c97c1b0866d55176252ff98d4232f81",
+      "size": 4135,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/38c47bbd2c97c1b0866d55176252ff98d4232f81"
+    },
+    {
+      "path": "test/catch.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b66d3e6362e6df04349af7c1ec3a667037e7ba1b",
+      "size": 2399,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/b66d3e6362e6df04349af7c1ec3a667037e7ba1b"
+    },
+    {
+      "path": "test/cli",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "68b2cc21e03f50824ffacabf0308bf5d467a29bc",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/68b2cc21e03f50824ffacabf0308bf5d467a29bc"
+    },
+    {
+      "path": "test/cli/test.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7b988f68ab809536c924600b35474ecee10e04c4",
+      "size": 29,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/7b988f68ab809536c924600b35474ecee10e04c4"
+    },
+    {
+      "path": "test/cli/visualize",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "6d24890d04e216fb5a17e253e53b56cf17f06d22",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/6d24890d04e216fb5a17e253e53b56cf17f06d22"
+    },
+    {
+      "path": "test/cli/visualize/test.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "40e088baade7c7c4d42348f0276db4ffdc454ff6",
+      "size": 718,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/40e088baade7c7c4d42348f0276db4ffdc454ff6"
+    },
+    {
+      "path": "test/cli/visualize/testdata",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "e068daf16e4fc02a90d1146127d77d7cbccd512e",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/e068daf16e4fc02a90d1146127d77d7cbccd512e"
+    },
+    {
+      "path": "test/cli/visualize/testdata/all-types-expected.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "34e56c3a54764edb1312ab43e57ebf997c2dbcf9",
+      "size": 21571,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/34e56c3a54764edb1312ab43e57ebf997c2dbcf9"
+    },
+    {
+      "path": "test/cli/visualize/testdata/all-types.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "167bd54b6f65b85f3c3301f70013b9b588372691",
+      "size": 552,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/167bd54b6f65b85f3c3301f70013b9b588372691"
+    },
+    {
+      "path": "test/cli/visualize/testdata/shorten-names-expected.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "14857acbfa85d790020eeabc4416145f04c12385",
+      "size": 12467,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/14857acbfa85d790020eeabc4416145f04c12385"
+    },
+    {
+      "path": "test/cli/visualize/testdata/shorten-names.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "90aa7f0e2702861e5d8002ac32779c3b239df58f",
+      "size": 345,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/90aa7f0e2702861e5d8002ac32779c3b239df58f"
+    },
+    {
+      "path": "test/code_action",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "ad09941f8929c3daeaa9aa22de3c01b7b0ac53b2",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/ad09941f8929c3daeaa9aa22de3c01b7b0ac53b2"
+    },
+    {
+      "path": "test/code_action/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "72e69709fb4e22b3547251776d762eca1b3fa594",
+      "size": 6050,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/72e69709fb4e22b3547251776d762eca1b3fa594"
+    },
+    {
+      "path": "test/command",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "ee8680e4b6b6dca122ea143e1da26d630abfb7c3",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/ee8680e4b6b6dca122ea143e1da26d630abfb7c3"
+    },
+    {
+      "path": "test/command/auto-require.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f17968d806fe55b2855d7a31a1ceb01bafb4e85e",
+      "size": 1907,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/f17968d806fe55b2855d7a31a1ceb01bafb4e85e"
+    },
+    {
+      "path": "test/command/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "85d7f0d89ff0aba423a7b639a7a89e70386b0e09",
+      "size": 31,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/85d7f0d89ff0aba423a7b639a7a89e70386b0e09"
+    },
+    {
+      "path": "test/compare.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "dc6deb16563c174284ed3adcb20770fa385144d2",
+      "size": 1192,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/dc6deb16563c174284ed3adcb20770fa385144d2"
+    },
+    {
+      "path": "test/completion",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "c286b9d7a9776f128265ce99dbce2d0629640aec",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/c286b9d7a9776f128265ce99dbce2d0629640aec"
+    },
+    {
+      "path": "test/completion/common.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "32cc68481d4c0ffdb3a1bdb7a0652ce167949da1",
+      "size": 70965,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/32cc68481d4c0ffdb3a1bdb7a0652ce167949da1"
+    },
+    {
+      "path": "test/completion/continue.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "83eaf270627bcd06b08fd1e304284601debc1d77",
+      "size": 1060,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/83eaf270627bcd06b08fd1e304284601debc1d77"
+    },
+    {
+      "path": "test/completion/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "75e70c0f05a05de9a161c6d67f1998297db3bac6",
+      "size": 3631,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/75e70c0f05a05de9a161c6d67f1998297db3bac6"
+    },
+    {
+      "path": "test/crossfile",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "78d55528932a59df6b4f4444c922142bd3ead6ab",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/78d55528932a59df6b4f4444c922142bd3ead6ab"
+    },
+    {
+      "path": "test/crossfile/completion.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1f1431e6d453428296505dcab2835b088b6a76c8",
+      "size": 20805,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/1f1431e6d453428296505dcab2835b088b6a76c8"
+    },
+    {
+      "path": "test/crossfile/definition.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4498cb5f3ead3796cd0b7626bb62430736f752e3",
+      "size": 15848,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/4498cb5f3ead3796cd0b7626bb62430736f752e3"
+    },
+    {
+      "path": "test/crossfile/diagnostic.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1acf3fe2cdcfe77caa42525cabd198261c45d4a8",
+      "size": 4634,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/1acf3fe2cdcfe77caa42525cabd198261c45d4a8"
+    },
+    {
+      "path": "test/crossfile/hover.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "25701f55d99c4878b91574b7c9e100fdc8e2408a",
+      "size": 24537,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/25701f55d99c4878b91574b7c9e100fdc8e2408a"
+    },
+    {
+      "path": "test/crossfile/infer.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9af5a3f9266dd6e3da1efb9c9318103305071a9b",
+      "size": 3089,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/9af5a3f9266dd6e3da1efb9c9318103305071a9b"
+    },
+    {
+      "path": "test/crossfile/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d4cef46a2fe23759d0990ec4b77c12ad6425f6b9",
+      "size": 176,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/d4cef46a2fe23759d0990ec4b77c12ad6425f6b9"
+    },
+    {
+      "path": "test/crossfile/references.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "352d56308fd7ea90f1ceb230a9977f728f437a93",
+      "size": 6513,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/352d56308fd7ea90f1ceb230a9977f728f437a93"
+    },
+    {
+      "path": "test/definition",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "40944d3f7570b21b90744adb0052ab0afa666fa3",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/40944d3f7570b21b90744adb0052ab0afa666fa3"
+    },
+    {
+      "path": "test/definition/arg.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9e88b2bf212c1b2907cc068b3a6b16b981793065",
+      "size": 177,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/9e88b2bf212c1b2907cc068b3a6b16b981793065"
+    },
+    {
+      "path": "test/definition/bug.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2e2a59724a5b1c311b93dc6189783ec6b7c7dc2a",
+      "size": 2736,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/2e2a59724a5b1c311b93dc6189783ec6b7c7dc2a"
+    },
+    {
+      "path": "test/definition/field.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5b5b67f92dc1f2901866afe53509406678dcfcc7",
+      "size": 166,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/5b5b67f92dc1f2901866afe53509406678dcfcc7"
+    },
+    {
+      "path": "test/definition/function.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "95dd1b57c99e507afc9b9f2e143350a5a75aedc7",
+      "size": 257,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/95dd1b57c99e507afc9b9f2e143350a5a75aedc7"
+    },
+    {
+      "path": "test/definition/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9bc5ebdd89ead956c18d7e6760c5b77ce6c8e7f8",
+      "size": 1618,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/9bc5ebdd89ead956c18d7e6760c5b77ce6c8e7f8"
+    },
+    {
+      "path": "test/definition/label.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "205915b6411566750c9c3f7a21a7c35ec9d50214",
+      "size": 242,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/205915b6411566750c9c3f7a21a7c35ec9d50214"
+    },
+    {
+      "path": "test/definition/local.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4153bfa0108462f4c8630ce02dd0f171cbb3505b",
+      "size": 1506,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/4153bfa0108462f4c8630ce02dd0f171cbb3505b"
+    },
+    {
+      "path": "test/definition/luadoc.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e7c2be22d80489ae03e1ed898dfe72b449a2f699",
+      "size": 12905,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/e7c2be22d80489ae03e1ed898dfe72b449a2f699"
+    },
+    {
+      "path": "test/definition/method.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e4368edb2509bf1204406fcf4043d19242e7233d",
+      "size": 489,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/e4368edb2509bf1204406fcf4043d19242e7233d"
+    },
+    {
+      "path": "test/definition/set.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "04d78a40c65708e818d9c2518407f98ebe5ed96b",
+      "size": 417,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/04d78a40c65708e818d9c2518407f98ebe5ed96b"
+    },
+    {
+      "path": "test/definition/special.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "531c5d935f20e6e9078954ddd0f15d04ca26153b",
+      "size": 1999,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/531c5d935f20e6e9078954ddd0f15d04ca26153b"
+    },
+    {
+      "path": "test/definition/table.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ed1ea94df8e7e184be51e9b8529c3a400ae46ae9",
+      "size": 1549,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/ed1ea94df8e7e184be51e9b8529c3a400ae46ae9"
+    },
+    {
+      "path": "test/diagnostics",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "e010ea3a7e745449d2786d99934569bbf53905ce",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/e010ea3a7e745449d2786d99934569bbf53905ce"
+    },
+    {
+      "path": "test/diagnostics/ambiguity-1.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6b8e41da9770c27668f11c0790d16b0d2e27cfd8",
+      "size": 238,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/6b8e41da9770c27668f11c0790d16b0d2e27cfd8"
+    },
+    {
+      "path": "test/diagnostics/assign-type-mismatch.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "dc55a7dac676570e805239e70f5f1fc157846ff2",
+      "size": 4869,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/dc55a7dac676570e805239e70f5f1fc157846ff2"
+    },
+    {
+      "path": "test/diagnostics/await-in-sync.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "323c1113756d6b24869830b846ea06a08726c7f3",
+      "size": 1377,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/323c1113756d6b24869830b846ea06a08726c7f3"
+    },
+    {
+      "path": "test/diagnostics/cast-local-type.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d702adf3c6a3ebec5c6b8045f5120aa2b61e7781",
+      "size": 4198,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/d702adf3c6a3ebec5c6b8045f5120aa2b61e7781"
+    },
+    {
+      "path": "test/diagnostics/cast-type-mismatch.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9fba58f69e15816eb1a074837c4538a0a30745bb",
+      "size": 129,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/9fba58f69e15816eb1a074837c4538a0a30745bb"
+    },
+    {
+      "path": "test/diagnostics/circle-doc-class.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "089b0c9b9ae16c9e4852059f19fd66716486672b",
+      "size": 164,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/089b0c9b9ae16c9e4852059f19fd66716486672b"
+    },
+    {
+      "path": "test/diagnostics/close-non-object.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "11b882b796c8f61822d4c561ef88c33be69c6490",
+      "size": 193,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/11b882b796c8f61822d4c561ef88c33be69c6490"
+    },
+    {
+      "path": "test/diagnostics/code-after-break.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a150948ba1faa0df3d2afb13a301d03035a424aa",
+      "size": 67,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/a150948ba1faa0df3d2afb13a301d03035a424aa"
+    },
+    {
+      "path": "test/diagnostics/count-down-loop.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f4e385f5d7fe081c84a840db4d72f58eaef1061d",
+      "size": 253,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/f4e385f5d7fe081c84a840db4d72f58eaef1061d"
+    },
+    {
+      "path": "test/diagnostics/deprecated.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c5486752fa08ad6cb0cc96cb1ef9e4a6b5ef6c2a",
+      "size": 167,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/c5486752fa08ad6cb0cc96cb1ef9e4a6b5ef6c2a"
+    },
+    {
+      "path": "test/diagnostics/discard-returns.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "16ac824566b7eae189329837689f1c772e85ed7a",
+      "size": 2579,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/16ac824566b7eae189329837689f1c772e85ed7a"
+    },
+    {
+      "path": "test/diagnostics/doc-field-no-class.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "87db518cc7fabb97975bfb962b99cc34f19456f8",
+      "size": 150,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/87db518cc7fabb97975bfb962b99cc34f19456f8"
+    },
+    {
+      "path": "test/diagnostics/duplicate-doc-alias.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e518ffc6e97f023cc638705889ff491660aca576",
+      "size": 248,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/e518ffc6e97f023cc638705889ff491660aca576"
+    },
+    {
+      "path": "test/diagnostics/duplicate-doc-field.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "925e438965866c7468e47cb9cdb6d940be126971",
+      "size": 715,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/925e438965866c7468e47cb9cdb6d940be126971"
+    },
+    {
+      "path": "test/diagnostics/duplicate-doc-param.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "42eb73d3d139bab0022ee1390ffe816d93aeb442",
+      "size": 149,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/42eb73d3d139bab0022ee1390ffe816d93aeb442"
+    },
+    {
+      "path": "test/diagnostics/duplicate-index.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3289c736bd71bf37f6e59266761efe7700dc0288",
+      "size": 192,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/3289c736bd71bf37f6e59266761efe7700dc0288"
+    },
+    {
+      "path": "test/diagnostics/duplicate-set-field.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7b92b061cff4db6a0303766ae04cb03eb54d341b",
+      "size": 781,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/7b92b061cff4db6a0303766ae04cb03eb54d341b"
+    },
+    {
+      "path": "test/diagnostics/empty-block.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "750397a4b1a797d095f685e76cca49dd525e3f2c",
+      "size": 224,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/750397a4b1a797d095f685e76cca49dd525e3f2c"
+    },
+    {
+      "path": "test/diagnostics/global-element.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0c31badee101d50a850ee172c2978397c89dde75",
+      "size": 768,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/0c31badee101d50a850ee172c2978397c89dde75"
+    },
+    {
+      "path": "test/diagnostics/global-in-nil-env.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a0b8cd3e61ddbaa044556f70363a9ea3620a9d88",
+      "size": 579,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/a0b8cd3e61ddbaa044556f70363a9ea3620a9d88"
+    },
+    {
+      "path": "test/diagnostics/incomplete-signature-doc.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7cd144c03217f988da16e48d1d3476375ca75939",
+      "size": 5948,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/7cd144c03217f988da16e48d1d3476375ca75939"
+    },
+    {
+      "path": "test/diagnostics/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fc97e4389838d36d626a38ab8f28972aca9481b5",
+      "size": 3438,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/fc97e4389838d36d626a38ab8f28972aca9481b5"
+    },
+    {
+      "path": "test/diagnostics/inject-field.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d5b497010cfd03b527307efee883704b9ac0a2f8",
+      "size": 1034,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/d5b497010cfd03b527307efee883704b9ac0a2f8"
+    },
+    {
+      "path": "test/diagnostics/invisible.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4bb70fcc6cba9f564fe852982d43cf2f20ade090",
+      "size": 2550,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/4bb70fcc6cba9f564fe852982d43cf2f20ade090"
+    },
+    {
+      "path": "test/diagnostics/lowercase-global.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9035e0176a65fc35eb345e3fa1eb29269c4f1d04",
+      "size": 476,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/9035e0176a65fc35eb345e3fa1eb29269c4f1d04"
+    },
+    {
+      "path": "test/diagnostics/missing-fields.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d0876ac740d97e938f0b2b6c5e33ff0298867f0e",
+      "size": 6589,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/d0876ac740d97e938f0b2b6c5e33ff0298867f0e"
+    },
+    {
+      "path": "test/diagnostics/missing-global-doc.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "de5250fd9e6fb2b7d1a5444658a5942855580462",
+      "size": 3078,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/de5250fd9e6fb2b7d1a5444658a5942855580462"
+    },
+    {
+      "path": "test/diagnostics/missing-local-export-doc.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3d94221612e8e322727f4017ddd7f6439f119654",
+      "size": 2007,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/3d94221612e8e322727f4017ddd7f6439f119654"
+    },
+    {
+      "path": "test/diagnostics/missing-parameter.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "154d630b8315e763be8ca402d10b3e57977f38e6",
+      "size": 970,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/154d630b8315e763be8ca402d10b3e57977f38e6"
+    },
+    {
+      "path": "test/diagnostics/missing-return-value.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3bad79748645a98584672219bff22aff745fb266",
+      "size": 329,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/3bad79748645a98584672219bff22aff745fb266"
+    },
+    {
+      "path": "test/diagnostics/missing-return.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "33b50b16feb57f5214646cebc4f94cd2266e3b91",
+      "size": 1812,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/33b50b16feb57f5214646cebc4f94cd2266e3b91"
+    },
+    {
+      "path": "test/diagnostics/need-check-nil.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3580d7cbbd0756b195c1f5337ff5d29945665dad",
+      "size": 696,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/3580d7cbbd0756b195c1f5337ff5d29945665dad"
+    },
+    {
+      "path": "test/diagnostics/newfield-call.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "63de9db9f7fd647d2a7b6883d8e650a268983dd7",
+      "size": 113,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/63de9db9f7fd647d2a7b6883d8e650a268983dd7"
+    },
+    {
+      "path": "test/diagnostics/newline-call.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ca160aa3d2ba8ad90a6c3578c457b464abf7afbf",
+      "size": 212,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/ca160aa3d2ba8ad90a6c3578c457b464abf7afbf"
+    },
+    {
+      "path": "test/diagnostics/not-yieldable.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "81e972eea888c1206ffc2f1b8227e2e90aa05ef7",
+      "size": 480,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/81e972eea888c1206ffc2f1b8227e2e90aa05ef7"
+    },
+    {
+      "path": "test/diagnostics/param-type-mismatch.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fce7dca39e59136a90a5763cf4b18cf165f9b83a",
+      "size": 4759,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/fce7dca39e59136a90a5763cf4b18cf165f9b83a"
+    },
+    {
+      "path": "test/diagnostics/redefined-local.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c594ed2cea86778b1800deddec9e6f85f9e1acf9",
+      "size": 184,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/c594ed2cea86778b1800deddec9e6f85f9e1acf9"
+    },
+    {
+      "path": "test/diagnostics/redundant-parameter.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fabe33403443aa67b59e2570b2723f485eea4d5d",
+      "size": 2189,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/fabe33403443aa67b59e2570b2723f485eea4d5d"
+    },
+    {
+      "path": "test/diagnostics/redundant-return-value.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f3e2c584ba3b5af7abcb73a049230b5cdc088f4f",
+      "size": 391,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/f3e2c584ba3b5af7abcb73a049230b5cdc088f4f"
+    },
+    {
+      "path": "test/diagnostics/redundant-return.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "11214aab0676449cede501780991d69d0a852f9f",
+      "size": 325,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/11214aab0676449cede501780991d69d0a852f9f"
+    },
+    {
+      "path": "test/diagnostics/redundant-value.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a63544df8a6a8259780d432049d67f26367d3543",
+      "size": 55,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/a63544df8a6a8259780d432049d67f26367d3543"
+    },
+    {
+      "path": "test/diagnostics/return-type-mismatch.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "aaf7807f175b7e11a70815cb4651eea63f437a0e",
+      "size": 1909,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/aaf7807f175b7e11a70815cb4651eea63f437a0e"
+    },
+    {
+      "path": "test/diagnostics/trailing-space.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ff794714a503ccdabb5f2d33fa9337791b4cef54",
+      "size": 181,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/ff794714a503ccdabb5f2d33fa9337791b4cef54"
+    },
+    {
+      "path": "test/diagnostics/unbalanced-assignments.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a0d47f56904a4c24034af70697a25779dbb2a59d",
+      "size": 313,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/a0d47f56904a4c24034af70697a25779dbb2a59d"
+    },
+    {
+      "path": "test/diagnostics/undefined-doc-class.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d10b89d815584be06459c0d2e509d7f007503f6a",
+      "size": 31,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/d10b89d815584be06459c0d2e509d7f007503f6a"
+    },
+    {
+      "path": "test/diagnostics/undefined-doc-name.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a28a654a6b60176152d89249d5ae0a83a61058da",
+      "size": 914,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/a28a654a6b60176152d89249d5ae0a83a61058da"
+    },
+    {
+      "path": "test/diagnostics/undefined-doc-param.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7bfbafa560f61cd92d19905d3c3bef3b0045864a",
+      "size": 209,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/7bfbafa560f61cd92d19905d3c3bef3b0045864a"
+    },
+    {
+      "path": "test/diagnostics/undefined-env-child.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "73904a7479e97f9494ad8b07ff26a1f965d85a7a",
+      "size": 433,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/73904a7479e97f9494ad8b07ff26a1f965d85a7a"
+    },
+    {
+      "path": "test/diagnostics/undefined-field.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "24232eb57858691fab72ca34410de3719e5c25de",
+      "size": 2297,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/24232eb57858691fab72ca34410de3719e5c25de"
+    },
+    {
+      "path": "test/diagnostics/undefined-global.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f5a6396c3735159cd7968e37e6ff4970ca5b3150",
+      "size": 364,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/f5a6396c3735159cd7968e37e6ff4970ca5b3150"
+    },
+    {
+      "path": "test/diagnostics/unknown-cast-variable.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a347083f48db87982378a46bc0eb01b4969c9b49",
+      "size": 75,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/a347083f48db87982378a46bc0eb01b4969c9b49"
+    },
+    {
+      "path": "test/diagnostics/unknown-diag-code.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "33b418861a2b95686905046abbb6c00bdced84ba",
+      "size": 53,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/33b418861a2b95686905046abbb6c00bdced84ba"
+    },
+    {
+      "path": "test/diagnostics/unknown-operator.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bb193f6aa5a7f55e862bc131484e6e6f3669f95d",
+      "size": 47,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/bb193f6aa5a7f55e862bc131484e6e6f3669f95d"
+    },
+    {
+      "path": "test/diagnostics/unnecessary-assert.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1d376686b2f74e7d78e58d864aadea69f92cdd5f",
+      "size": 637,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/1d376686b2f74e7d78e58d864aadea69f92cdd5f"
+    },
+    {
+      "path": "test/diagnostics/unreachable-code.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4444252f5cf65a2a5255a877a3761ec58f0d221b",
+      "size": 628,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/4444252f5cf65a2a5255a877a3761ec58f0d221b"
+    },
+    {
+      "path": "test/diagnostics/unused-function.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c2cea23abbb5197fe3092a5957dc0f34455b217b",
+      "size": 444,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/c2cea23abbb5197fe3092a5957dc0f34455b217b"
+    },
+    {
+      "path": "test/diagnostics/unused-label.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3a89a14743df1c9b767096fa0f303164cd15e658",
+      "size": 25,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/3a89a14743df1c9b767096fa0f303164cd15e658"
+    },
+    {
+      "path": "test/diagnostics/unused-local.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "425f3e1e864137fff3e10ff6d47399f15a211faa",
+      "size": 968,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/425f3e1e864137fff3e10ff6d47399f15a211faa"
+    },
+    {
+      "path": "test/diagnostics/unused-vararg.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c4af9a91a4fae473f6ca901ffa784fcd145b9b9c",
+      "size": 133,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/c4af9a91a4fae473f6ca901ffa784fcd145b9b9c"
+    },
+    {
+      "path": "test/document_symbol",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "29e35d3b534bff0f0bb0dcc5accc85d9bddd614d",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/29e35d3b534bff0f0bb0dcc5accc85d9bddd614d"
+    },
+    {
+      "path": "test/document_symbol/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "53e0dab2ae055830a4a1ed65c0381528b7ec4153",
+      "size": 18785,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/53e0dab2ae055830a4a1ed65c0381528b7ec4153"
+    },
+    {
+      "path": "test/example",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "3a9416d292b5b60ad0b24ead09790d05e23d5970",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/3a9416d292b5b60ad0b24ead09790d05e23d5970"
+    },
+    {
+      "path": "test/example/guide.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1aef61ae4608a1f6b271bffa957f07be825a742b",
+      "size": 111609,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/1aef61ae4608a1f6b271bffa957f07be825a742b"
+    },
+    {
+      "path": "test/example/jass-common.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4c49c110504c57f95bfb0b653bc27733ef9b73b0",
+      "size": 448808,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/4c49c110504c57f95bfb0b653bc27733ef9b73b0"
+    },
+    {
+      "path": "test/example/largeGlobal.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "23c93d6a747d87670784925b87242ac9f06e34d7",
+      "size": 1423053,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/23c93d6a747d87670784925b87242ac9f06e34d7"
+    },
+    {
+      "path": "test/example/meta.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "658618e227c2909f94c37ad342f70cf3740929fe",
+      "size": 19273047,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/658618e227c2909f94c37ad342f70cf3740929fe"
+    },
+    {
+      "path": "test/example/vm.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f2f4144d673678178e69fdfd739e0a5551b85fb9",
+      "size": 41952,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/f2f4144d673678178e69fdfd739e0a5551b85fb9"
+    },
+    {
+      "path": "test/full",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "5fe398c4bca506c873d70e8a80f3a6459758f5de",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/5fe398c4bca506c873d70e8a80f3a6459758f5de"
+    },
+    {
+      "path": "test/full/dirty.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5fe4e9982c6b041e53daaf1878da13c089c8713e",
+      "size": 67,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/5fe4e9982c6b041e53daaf1878da13c089c8713e"
+    },
+    {
+      "path": "test/full/example.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "920dcd0d8ac1d2e96a0ea4a720ff56ea9dd290dc",
+      "size": 2438,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/920dcd0d8ac1d2e96a0ea4a720ff56ea9dd290dc"
+    },
+    {
+      "path": "test/full/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a6496a99b56b72455b3203d9e7b7996d200e3b09",
+      "size": 1055,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/a6496a99b56b72455b3203d9e7b7996d200e3b09"
+    },
+    {
+      "path": "test/full/normal.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a673e74bbf2cad174ec8fa31a92bd9aa38681dc9",
+      "size": 1275,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/a673e74bbf2cad174ec8fa31a92bd9aa38681dc9"
+    },
+    {
+      "path": "test/full/projects.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d10158bc7f69ebf45dd1ceb2d0558f5e14a664af",
+      "size": 1618,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/d10158bc7f69ebf45dd1ceb2d0558f5e14a664af"
+    },
+    {
+      "path": "test/full/self.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e5099dd2c1f2c9b7595356b5886026d460b0d6fc",
+      "size": 2308,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/e5099dd2c1f2c9b7595356b5886026d460b0d6fc"
+    },
+    {
+      "path": "test/highlight",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "b3620a931e9776e10a01e75096285bdec214fa59",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/b3620a931e9776e10a01e75096285bdec214fa59"
+    },
+    {
+      "path": "test/highlight/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4baea6f6cd448345040443de726011cc14098395",
+      "size": 2127,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/4baea6f6cd448345040443de726011cc14098395"
+    },
+    {
+      "path": "test/hover",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "f78f47e8de019acec7dcbd2f67ceddaf29cf0010",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/f78f47e8de019acec7dcbd2f67ceddaf29cf0010"
+    },
+    {
+      "path": "test/hover/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5d19615a766aefb0350be5a821f4471b614d9966",
+      "size": 28046,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/5d19615a766aefb0350be5a821f4471b614d9966"
+    },
+    {
+      "path": "test/implementation",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "f3a83157af19f3ff0adef075449676522286b99d",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/f3a83157af19f3ff0adef075449676522286b99d"
+    },
+    {
+      "path": "test/implementation/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "678cb23b66f037e6f8aec04de2a8fc52f8a1e5b2",
+      "size": 1477,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/678cb23b66f037e6f8aec04de2a8fc52f8a1e5b2"
+    },
+    {
+      "path": "test/inlay_hint",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "e9a58b5f0c0be836e2a4db521575786921d8e8b6",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/e9a58b5f0c0be836e2a4db521575786921d8e8b6"
+    },
+    {
+      "path": "test/inlay_hint/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "644fbff259a4889a741ff9f63fbc4c5f9b0a04e9",
+      "size": 3180,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/644fbff259a4889a741ff9f63fbc4c5f9b0a04e9"
+    },
+    {
+      "path": "test/other",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "d7b9ca010643916ff92f004972a08d74bd499d88",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/d7b9ca010643916ff92f004972a08d74bd499d88"
+    },
+    {
+      "path": "test/other/filewatch.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e751c715c62ffb64bd81be3c318749a72cd829d7",
+      "size": 879,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/e751c715c62ffb64bd81be3c318749a72cd829d7"
+    },
+    {
+      "path": "test/other/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "51b08516428bd315021bfcf8a1a6ddb47e288903",
+      "size": 56,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/51b08516428bd315021bfcf8a1a6ddb47e288903"
+    },
+    {
+      "path": "test/other/view-string.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "86b2e3373010d23a5875a0d6c8cfdeb51cbe63ca",
+      "size": 498,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/86b2e3373010d23a5875a0d6c8cfdeb51cbe63ca"
+    },
+    {
+      "path": "test/parser_test",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "480d1cbe029d2f4c5f508597fb9315e0167b2547",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/480d1cbe029d2f4c5f508597fb9315e0167b2547"
+    },
+    {
+      "path": "test/parser_test/LuaJIT",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "bc8be6ab9a0aa05d2abf3aeff62d579af8c23698",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/bc8be6ab9a0aa05d2abf3aeff62d579af8c23698"
+    },
+    {
+      "path": "test/parser_test/LuaJIT/expr_bit.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "26eb76d92fbafffd84ecc0c3431f2424d332083c",
+      "size": 6539,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/26eb76d92fbafffd84ecc0c3431f2424d332083c"
+    },
+    {
+      "path": "test/parser_test/LuaJIT/expr_bit_bitop.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9917b656855353221ca828d50d948809359eeeab",
+      "size": 2440,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/9917b656855353221ca828d50d948809359eeeab"
+    },
+    {
+      "path": "test/parser_test/LuaJIT/expr_coal.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d9a6d3b89612802f1ce164bac0940a446d59bdf3",
+      "size": 4163,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/d9a6d3b89612802f1ce164bac0940a446d59bdf3"
+    },
+    {
+      "path": "test/parser_test/LuaJIT/expr_cond.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2e26713c739897cb6dff82b7372b358dd16cce4e",
+      "size": 6318,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/2e26713c739897cb6dff82b7372b358dd16cce4e"
+    },
+    {
+      "path": "test/parser_test/LuaJIT/expr_customary.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0c4868f73920abfb82fdc73c9b47dd19e9cf768d",
+      "size": 3256,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/0c4868f73920abfb82fdc73c9b47dd19e9cf768d"
+    },
+    {
+      "path": "test/parser_test/LuaJIT/expr_nav.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "855a2ffc0f9e15c7e3d9a46a8cb779911513a130",
+      "size": 6313,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/855a2ffc0f9e15c7e3d9a46a8cb779911513a130"
+    },
+    {
+      "path": "test/parser_test/LuaJIT/expr_shortfunc.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cc9aff82df37facf9f09c07fdd7e3fedb770b304",
+      "size": 3927,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/cc9aff82df37facf9f09c07fdd7e3fedb770b304"
+    },
+    {
+      "path": "test/parser_test/LuaJIT/ffi_expr_bit.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b6292b729c845442bd6f917a76606bd95088fe87",
+      "size": 3154,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/b6292b729c845442bd6f917a76606bd95088fe87"
+    },
+    {
+      "path": "test/parser_test/LuaJIT/ffi_expr_bit_bit64.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d8bc3f1ba01fea5af3a395c50cfdddaadbaf6bee",
+      "size": 1775,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/d8bc3f1ba01fea5af3a395c50cfdddaadbaf6bee"
+    },
+    {
+      "path": "test/parser_test/LuaJIT/ffi_expr_bit_bitop.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "db29c725c0e5499f19e6f9fb0ebc1b69ecc6459e",
+      "size": 2244,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/db29c725c0e5499f19e6f9fb0ebc1b69ecc6459e"
+    },
+    {
+      "path": "test/parser_test/LuaJIT/number_underscore.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "25825bf77b5e0d42c663cba9f92fa7d2bc82c675",
+      "size": 427,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/25825bf77b5e0d42c663cba9f92fa7d2bc82c675"
+    },
+    {
+      "path": "test/parser_test/LuaJIT/stmt_compound.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d382287e7ec23d2a525f156d4db79a5a7a4ab7d8",
+      "size": 3710,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/d382287e7ec23d2a525f156d4db79a5a7a4ab7d8"
+    },
+    {
+      "path": "test/parser_test/LuaJIT/stmt_const.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4c3b279b850c9408fb13da9843598128c94e730f",
+      "size": 2869,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/4c3b279b850c9408fb13da9843598128c94e730f"
+    },
+    {
+      "path": "test/parser_test/LuaJIT/stmt_continue.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2bbc41dc521f55a086e345b6161b73a3bf4bd6cf",
+      "size": 3327,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/2bbc41dc521f55a086e345b6161b73a3bf4bd6cf"
+    },
+    {
+      "path": "test/parser_test/ast",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "22dfdae2e029e063db14a487406c0bcb61858e7f",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/22dfdae2e029e063db14a487406c0bcb61858e7f"
+    },
+    {
+      "path": "test/parser_test/ast/Action.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b0e84496020b3c1a990fb64b3119deacc93917c2",
+      "size": 33039,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/b0e84496020b3c1a990fb64b3119deacc93917c2"
+    },
+    {
+      "path": "test/parser_test/ast/Boolean.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d3b292edd2fc51936ca6cbc896fe5e4004af90ea",
+      "size": 190,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/d3b292edd2fc51936ca6cbc896fe5e4004af90ea"
+    },
+    {
+      "path": "test/parser_test/ast/Comment.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "81c1c92dd5795f57bbd426d12c5acb53631ea41b",
+      "size": 565,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/81c1c92dd5795f57bbd426d12c5acb53631ea41b"
+    },
+    {
+      "path": "test/parser_test/ast/Dirty.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5f16dfca3fa77aae2b0615e03e632f28f70b2eb9",
+      "size": 33258,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/5f16dfca3fa77aae2b0615e03e632f28f70b2eb9"
+    },
+    {
+      "path": "test/parser_test/ast/Exp.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "aaa983813526b549a20e2150a45228d89b4051bd",
+      "size": 33234,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/aaa983813526b549a20e2150a45228d89b4051bd"
+    },
+    {
+      "path": "test/parser_test/ast/Lua.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e33088132808766b59b7ea76b1339efe9be78dac",
+      "size": 31962,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/e33088132808766b59b7ea76b1339efe9be78dac"
+    },
+    {
+      "path": "test/parser_test/ast/LuaDoc.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6b79443ea99250848ec601d855722391021afb4c",
+      "size": 29542,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/6b79443ea99250848ec601d855722391021afb4c"
+    },
+    {
+      "path": "test/parser_test/ast/Nil.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "70744e275a2641ae74a46f3fd3909dca5f87def1",
+      "size": 143,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/70744e275a2641ae74a46f3fd3909dca5f87def1"
+    },
+    {
+      "path": "test/parser_test/ast/Number.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c9568506d80ca1548ce3c023d3510e0d9fb8d896",
+      "size": 1191,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/c9568506d80ca1548ce3c023d3510e0d9fb8d896"
+    },
+    {
+      "path": "test/parser_test/ast/String.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ac32030f06f3d7c30bc8e763a0485530fb0030a2",
+      "size": 3134,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/ac32030f06f3d7c30bc8e763a0485530fb0030a2"
+    },
+    {
+      "path": "test/parser_test/ast/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e5d8a9c53d75b6f3fe59556a3ee44b058116f3d9",
+      "size": 7190,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/e5d8a9c53d75b6f3fe59556a3ee44b058116f3d9"
+    },
+    {
+      "path": "test/parser_test/emmy_check.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4e9a797bfafed5bc97a15e1c5ce67276f6a89582",
+      "size": 2126,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/4e9a797bfafed5bc97a15e1c5ce67276f6a89582"
+    },
+    {
+      "path": "test/parser_test/grammar.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a044c7769a2624fce8ad9cc3282f0a942c8f4b94",
+      "size": 4174,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/a044c7769a2624fce8ad9cc3282f0a942c8f4b94"
+    },
+    {
+      "path": "test/parser_test/grammar_check.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bcc8a63c94d2973a74d8085b0a261f5dc35cda01",
+      "size": 18807,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/bcc8a63c94d2973a74d8085b0a261f5dc35cda01"
+    },
+    {
+      "path": "test/parser_test/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bde529e9403fe07f686b3a8fc861d3a3856c9109",
+      "size": 498,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/bde529e9403fe07f686b3a8fc861d3a3856c9109"
+    },
+    {
+      "path": "test/parser_test/luajit_ext.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4367096d14963b54ee484a9517014aa853a4c1c3",
+      "size": 10314,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/4367096d14963b54ee484a9517014aa853a4c1c3"
+    },
+    {
+      "path": "test/parser_test/perform",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "9f19a8d66473e9c5a3832eca79fd56bdeb09b880",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/9f19a8d66473e9c5a3832eca79fd56bdeb09b880"
+    },
+    {
+      "path": "test/parser_test/perform/1.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "34df77a8a86c086d671b4ee8d632c2e429811058",
+      "size": 40759,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/34df77a8a86c086d671b4ee8d632c2e429811058"
+    },
+    {
+      "path": "test/parser_test/perform/2.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4e7acb6807b42e960b388088ff4f6c89935b3da1",
+      "size": 6463,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/4e7acb6807b42e960b388088ff4f6c89935b3da1"
+    },
+    {
+      "path": "test/parser_test/perform/3.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "650c49535bdfcd2832a61e64e35661b64aa8220e",
+      "size": 1256,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/650c49535bdfcd2832a61e64e35661b64aa8220e"
+    },
+    {
+      "path": "test/parser_test/perform/4.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ed5e41a0c425183a80d49a9e75493ec59303468d",
+      "size": 4851841,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/ed5e41a0c425183a80d49a9e75493ec59303468d"
+    },
+    {
+      "path": "test/parser_test/perform/5.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "23c93d6a747d87670784925b87242ac9f06e34d7",
+      "size": 1423053,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/23c93d6a747d87670784925b87242ac9f06e34d7"
+    },
+    {
+      "path": "test/parser_test/perform/6.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7492872a9d11e0fefc1085603861a09774db720b",
+      "size": 37576,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/7492872a9d11e0fefc1085603861a09774db720b"
+    },
+    {
+      "path": "test/parser_test/perform/7.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "71c0e98e239c21f1667b88623a1a482d716e27a0",
+      "size": 50038,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/71c0e98e239c21f1667b88623a1a482d716e27a0"
+    },
+    {
+      "path": "test/parser_test/perform/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c7cdd3391f05307ea843b7b0c07dcab6f96278ba",
+      "size": 2704,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/c7cdd3391f05307ea843b7b0c07dcab6f96278ba"
+    },
+    {
+      "path": "test/parser_test/perform/lines.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bc832017213a06bee460a10fcfbf474388871218",
+      "size": 10008,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/bc832017213a06bee460a10fcfbf474388871218"
+    },
+    {
+      "path": "test/parser_test/perform/test.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6610227acd58fec9116584f891353a54ea4a5c17",
+      "size": 38944,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/6610227acd58fec9116584f891353a54ea4a5c17"
+    },
+    {
+      "path": "test/parser_test/performance.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1bf3b068fbcc3922d1ab45317ef5d17c3c1c7884",
+      "size": 1520,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/1bf3b068fbcc3922d1ab45317ef5d17c3c1c7884"
+    },
+    {
+      "path": "test/parser_test/syntax_check.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e491b0bb66d95dc560764afb6b27749499277ac0",
+      "size": 26778,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/e491b0bb66d95dc560764afb6b27749499277ac0"
+    },
+    {
+      "path": "test/plugins",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "303ce83dbb188c3909808254d8bed11a149c7740",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/303ce83dbb188c3909808254d8bed11a149c7740"
+    },
+    {
+      "path": "test/plugins/ast",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "243b7312683b9d7d833110d1c3d5b4b408fba2f1",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/243b7312683b9d7d833110d1c3d5b4b408fba2f1"
+    },
+    {
+      "path": "test/plugins/ast/helper.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f892ea1b367314beb51f9785cc7c5feb5d92587a",
+      "size": 1554,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/f892ea1b367314beb51f9785cc7c5feb5d92587a"
+    },
+    {
+      "path": "test/plugins/ast/test.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a01b9e2ee632ac2dbde01f3930e06cbe7556027c",
+      "size": 3904,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/a01b9e2ee632ac2dbde01f3930e06cbe7556027c"
+    },
+    {
+      "path": "test/plugins/ffi",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "32a954b341e76657005940acf38d03bbe2a14f1c",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/32a954b341e76657005940acf38d03bbe2a14f1c"
+    },
+    {
+      "path": "test/plugins/ffi/builder.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ebbfab551ceb7d4758bb77f97c4bda25042b1289",
+      "size": 4398,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/ebbfab551ceb7d4758bb77f97c4bda25042b1289"
+    },
+    {
+      "path": "test/plugins/ffi/cdef.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cf3992d351973695624fa53377bc6faa07901fd0",
+      "size": 1054,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/cf3992d351973695624fa53377bc6faa07901fd0"
+    },
+    {
+      "path": "test/plugins/ffi/parser.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6d7f2cea54218c09c88b488b469277171d06b94b",
+      "size": 3079,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/6d7f2cea54218c09c88b488b469277171d06b94b"
+    },
+    {
+      "path": "test/plugins/ffi/test.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "93be2ff57e8ecc730e6696d0fc26a6f4b1de1891",
+      "size": 1012,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/93be2ff57e8ecc730e6696d0fc26a6f4b1de1891"
+    },
+    {
+      "path": "test/plugins/node",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "dc1e31f36ff7f96ceaa50039e648a2640428a671",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/dc1e31f36ff7f96ceaa50039e648a2640428a671"
+    },
+    {
+      "path": "test/plugins/node/test.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9b69935f3aa93349b3b93f42756ed7dc3cbd4c4c",
+      "size": 1648,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/9b69935f3aa93349b3b93f42756ed7dc3cbd4c4c"
+    },
+    {
+      "path": "test/plugins/test.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b6533de9dda6f1a79afd9fc32c5945ce33f738a9",
+      "size": 82,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/b6533de9dda6f1a79afd9fc32c5945ce33f738a9"
+    },
+    {
+      "path": "test/references",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "f739dc9beda4f2826297a1ab55845f3e49ce6bf5",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/f739dc9beda4f2826297a1ab55845f3e49ce6bf5"
+    },
+    {
+      "path": "test/references/all.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e9e79fad05bdc0081645a91d3007779cdc03ad52",
+      "size": 1751,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/e9e79fad05bdc0081645a91d3007779cdc03ad52"
+    },
+    {
+      "path": "test/references/common.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9cf128a7a04b9f5d90a485682b7dcfda7b0f8e43",
+      "size": 2254,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/9cf128a7a04b9f5d90a485682b7dcfda7b0f8e43"
+    },
+    {
+      "path": "test/references/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3ecc46bd89a2713eb491b6d4df707948db5a03cb",
+      "size": 1134,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/3ecc46bd89a2713eb491b6d4df707948db5a03cb"
+    },
+    {
+      "path": "test/rename",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "c952392b38ed0564118c82b86b026de9847a3399",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/c952392b38ed0564118c82b86b026de9847a3399"
+    },
+    {
+      "path": "test/rename/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "dcb5f9e50db26a3ff4f0820de1319083e39462ce",
+      "size": 3461,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/dcb5f9e50db26a3ff4f0820de1319083e39462ce"
+    },
+    {
+      "path": "test/signature",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "eca948fc75e6565a52908669968b76ab9767a3cf",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/eca948fc75e6565a52908669968b76ab9767a3cf"
+    },
+    {
+      "path": "test/signature/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3423a03ecbeecb10f4c14ff9e009538fc57b6fd8",
+      "size": 6797,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/3423a03ecbeecb10f4c14ff9e009538fc57b6fd8"
+    },
+    {
+      "path": "test/tclient",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "a9871fae6044039a40ecaaae154ef93854e9ee69",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/a9871fae6044039a40ecaaae154ef93854e9ee69"
+    },
+    {
+      "path": "test/tclient/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f945d570ed7ac8a6ddf35d285368b7bc916469ec",
+      "size": 697,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/f945d570ed7ac8a6ddf35d285368b7bc916469ec"
+    },
+    {
+      "path": "test/tclient/tests",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "076e48b878878847e02ab779756441ba6f087991",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/076e48b878878847e02ab779756441ba6f087991"
+    },
+    {
+      "path": "test/tclient/tests/build-meta.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "13f41a7ac0f01f9853a9a2a811243ce81d41771c",
+      "size": 419,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/13f41a7ac0f01f9853a9a2a811243ce81d41771c"
+    },
+    {
+      "path": "test/tclient/tests/change-workspace-folder.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a9b0e36a8ad7cd11ca179596d1323a82df7eddd4",
+      "size": 3512,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/a9b0e36a8ad7cd11ca179596d1323a82df7eddd4"
+    },
+    {
+      "path": "test/tclient/tests/files-associations.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "12c0492633519826894c4e22c175ca4918b5109d",
+      "size": 1223,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/12c0492633519826894c4e22c175ca4918b5109d"
+    },
+    {
+      "path": "test/tclient/tests/folders-with-single-file.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2a5db70bf886ec4e3c0746b0f0d06cc577e02ff4",
+      "size": 1552,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/2a5db70bf886ec4e3c0746b0f0d06cc577e02ff4"
+    },
+    {
+      "path": "test/tclient/tests/hover-pairs.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d7f6f103259f32abb7b472eb72e6ebcc28086eb8",
+      "size": 1021,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/d7f6f103259f32abb7b472eb72e6ebcc28086eb8"
+    },
+    {
+      "path": "test/tclient/tests/hover-set-local.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cf99aebce83e801c03174a44a71f1eeb3e085252",
+      "size": 991,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/cf99aebce83e801c03174a44a71f1eeb3e085252"
+    },
+    {
+      "path": "test/tclient/tests/jump-source.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c9e093c03a8b46b0652e69b38f30bb0e0cffd4f9",
+      "size": 4857,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/c9e093c03a8b46b0652e69b38f30bb0e0cffd4f9"
+    },
+    {
+      "path": "test/tclient/tests/library-ignore-limit.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3f30a4e9ac499084e54ecf6c0f4f8a951a5510d0",
+      "size": 898,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/3f30a4e9ac499084e54ecf6c0f4f8a951a5510d0"
+    },
+    {
+      "path": "test/tclient/tests/load-library.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cbd1492a3090827c836b9fe06cfbb4d0ef926e77",
+      "size": 1509,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/cbd1492a3090827c836b9fe06cfbb4d0ef926e77"
+    },
+    {
+      "path": "test/tclient/tests/load-relative-library.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ad3ebb4ab4f36b197d8086bebd4619e8fb5e0f3b",
+      "size": 1723,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/ad3ebb4ab4f36b197d8086bebd4619e8fb5e0f3b"
+    },
+    {
+      "path": "test/tclient/tests/modify-luarc.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "62d97a41752bea3cfa0ea4fdeff4b5a21c3b179b",
+      "size": 8503,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/62d97a41752bea3cfa0ea4fdeff4b5a21c3b179b"
+    },
+    {
+      "path": "test/tclient/tests/multi-workspace.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c4636c53093cfe5c1a9d0d15cf598e498f5a29a1",
+      "size": 4059,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/c4636c53093cfe5c1a9d0d15cf598e498f5a29a1"
+    },
+    {
+      "path": "test/tclient/tests/performance-jass-common.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cc982af554db4b80e959aa9b1f2cebd19f23bbf9",
+      "size": 1790,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/cc982af554db4b80e959aa9b1f2cebd19f23bbf9"
+    },
+    {
+      "path": "test/tclient/tests/recursive-runner.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e824f23a2b6bf4981a815f772ffb0efa6e38660f",
+      "size": 4530,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/e824f23a2b6bf4981a815f772ffb0efa6e38660f"
+    },
+    {
+      "path": "test/tclient/tests/resolve-completion.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a7cf2c2f28e4f2bc563cd2ef79fce7e47d6ee03b",
+      "size": 1346,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/a7cf2c2f28e4f2bc563cd2ef79fce7e47d6ee03b"
+    },
+    {
+      "path": "test/tclient/tests/same-prefix.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bc2a1f9b604bba5b8a269045a4c11dbdf5241ae9",
+      "size": 1371,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/bc2a1f9b604bba5b8a269045a4c11dbdf5241ae9"
+    },
+    {
+      "path": "test/tclient/tests/single-mode.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b26c50c33a6930f10c25249c6fa6c47563c3bd45",
+      "size": 1585,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/b26c50c33a6930f10c25249c6fa6c47563c3bd45"
+    },
+    {
+      "path": "test/type_inference",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "02c2c3c5af1e499db96283a4655e7c1b1b715be6",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/02c2c3c5af1e499db96283a4655e7c1b1b715be6"
+    },
+    {
+      "path": "test/type_inference/common.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7756340286f832a09d6c533f54e7a8f0edcc65e1",
+      "size": 62810,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/7756340286f832a09d6c533f54e7a8f0edcc65e1"
+    },
+    {
+      "path": "test/type_inference/field_override.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "71e5b186639c96d5eec914c9ed8d4c3e99958ce9",
+      "size": 1311,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/71e5b186639c96d5eec914c9ed8d4c3e99958ce9"
+    },
+    {
+      "path": "test/type_inference/generic_operator.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "69c1c931ee1c47e1964bd18892ef0daa854416ac",
+      "size": 4347,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/69c1c931ee1c47e1964bd18892ef0daa854416ac"
+    },
+    {
+      "path": "test/type_inference/init.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0236f7e9f22de036b7b17b8049881afeb8847565",
+      "size": 1506,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/0236f7e9f22de036b7b17b8049881afeb8847565"
+    },
+    {
+      "path": "test/type_inference/param_match.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "21dcf4d3ad777f5923b36ff38f7f4473224b0459",
+      "size": 3538,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/21dcf4d3ad777f5923b36ff38f7f4473224b0459"
+    },
+    {
+      "path": "theme-tokens.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "44ed3720fce8d3399f06569e73a4f5f602c8f7c5",
+      "size": 8579,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/44ed3720fce8d3399f06569e73a4f5f602c8f7c5"
+    },
+    {
+      "path": "tools",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "742bb40826c9464942dbc6aec8a4711368a9c533",
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/trees/742bb40826c9464942dbc6aec8a4711368a9c533"
+    },
+    {
+      "path": "tools/build-3rd-meta.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "38f6939015b31d92b93294b292e796245e145944",
+      "size": 154,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/38f6939015b31d92b93294b292e796245e145944"
+    },
+    {
+      "path": "tools/build-doc.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d4550f754bb77e27d246aba383e03f34f6cb98db",
+      "size": 6346,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/d4550f754bb77e27d246aba383e03f34f6cb98db"
+    },
+    {
+      "path": "tools/configuration.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d043b051ae533a576d5def2ac9023dad5cce93ca",
+      "size": 3846,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/d043b051ae533a576d5def2ac9023dad5cce93ca"
+    },
+    {
+      "path": "tools/locale.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "537743c52205ed3321a248dcf76df7745585646c",
+      "size": 6903,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/537743c52205ed3321a248dcf76df7745585646c"
+    },
+    {
+      "path": "tools/love-api.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2275b8a3c90b155a33e07493823a97476b8d4808",
+      "size": 8288,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/2275b8a3c90b155a33e07493823a97476b8d4808"
+    },
+    {
+      "path": "tools/lovr-api.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7762b4c163c0623bd1db9db57ed3fc5dafc3e27f",
+      "size": 7991,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/7762b4c163c0623bd1db9db57ed3fc5dafc3e27f"
+    },
+    {
+      "path": "tools/lua51.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "17867c88aa2eeadcc2b0fb26132fb8dfe4c2fcfd",
+      "size": 11052,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/17867c88aa2eeadcc2b0fb26132fb8dfe4c2fcfd"
+    },
+    {
+      "path": "tools/normalize-3rd-path.lua",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9a9194cf96e1d5d616a489175308fc188cfc7720",
+      "size": 595,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/9a9194cf96e1d5d616a489175308fc188cfc7720"
+    },
+    {
+      "path": "zig-cc-wrapper.sh",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6b50a3f22aa0dfe4133f559392fb85fce34cd500",
+      "size": 331,
+      "url": "https://api.github.com/repos/LuaLS/lua-language-server/git/blobs/6b50a3f22aa0dfe4133f559392fb85fce34cd500"
+    }
+  ],
+  "truncated": false
+}

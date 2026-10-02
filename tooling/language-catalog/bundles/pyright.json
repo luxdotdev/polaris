@@ -1,0 +1,90 @@
+{
+  "name": "pyright",
+  "manifest": {
+    "name": "polaris-catalog-fixture",
+    "version": "1.0.0",
+    "private": true,
+    "dependencies": {
+      "pyright": "1.1.414"
+    }
+  },
+  "lock": {
+    "name": "polaris-catalog-fixture",
+    "version": "1.0.0",
+    "lockfileVersion": 3,
+    "requires": true,
+    "packages": {
+      "": {
+        "name": "polaris-catalog-fixture",
+        "version": "1.0.0",
+        "dependencies": {
+          "pyright": "1.1.414"
+        }
+      },
+      "node_modules/fsevents": {
+        "version": "2.3.3",
+        "resolved": "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz",
+        "integrity": "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==",
+        "hasInstallScript": true,
+        "license": "MIT",
+        "optional": true,
+        "os": ["darwin"],
+        "engines": {
+          "node": "^8.16.0 || ^10.6.0 || >=11.0.0"
+        }
+      },
+      "node_modules/pyright": {
+        "version": "1.1.414",
+        "resolved": "https://registry.npmjs.org/pyright/-/pyright-1.1.414.tgz",
+        "integrity": "sha512-FPZZb51jepDX4eP7TEYDeNFtmE3WgwkkEcJpvH3/QmUSsj0EAy3LXu+xB4T/FWDejtsXlCfFr/rbWFjwuwuXww==",
+        "license": "MIT",
+        "bin": {
+          "pyright": "index.js",
+          "pyright-langserver": "langserver.index.js"
+        },
+        "engines": {
+          "node": ">=14.0.0"
+        },
+        "optionalDependencies": {
+          "fsevents": "~2.3.3"
+        }
+      }
+    }
+  },
+  "packages": [
+    {
+      "name": "fsevents",
+      "version": "2.3.3",
+      "license": "MIT",
+      "integrity": "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==",
+      "url": "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz",
+      "notices": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "2a8a5d6197bb97a018b8a190dd3ed853d750ca87c8e80c17aad41d6c6ff448e1"
+        }
+      ],
+      "verifiedBytes": 22808,
+      "location": "node_modules/fsevents"
+    },
+    {
+      "name": "pyright",
+      "version": "1.1.414",
+      "license": "MIT",
+      "integrity": "sha512-FPZZb51jepDX4eP7TEYDeNFtmE3WgwkkEcJpvH3/QmUSsj0EAy3LXu+xB4T/FWDejtsXlCfFr/rbWFjwuwuXww==",
+      "url": "https://registry.npmjs.org/pyright/-/pyright-1.1.414.tgz",
+      "notices": [
+        {
+          "path": "package/dist/typeshed-fallback/LICENSE",
+          "sha256": "295f8538c94ae5c3043301cf7cff1c852dab6a786a8ddee471e061b40d5ecabe"
+        },
+        {
+          "path": "package/LICENSE.txt",
+          "sha256": "f7c936bc43f132b08497ac952e9376cbc102e5eedb4bf6ec902ea8442bd9c68d"
+        }
+      ],
+      "verifiedBytes": 4226827,
+      "location": "node_modules/pyright"
+    }
+  ]
+}

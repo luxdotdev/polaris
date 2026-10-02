@@ -1,0 +1,50 @@
+[
+  {
+    "tool": "typescript-language-server",
+    "version": "6.0.1",
+    "exitCode": 0,
+    "auditStatus": "verified",
+    "cwd": "/private/tmp/k1-sendback-replay-2/npm/typescript-language-server",
+    "command": ["npm", "ci", "--ignore-scripts", "--no-audit", "--no-fund"]
+  },
+  {
+    "tool": "actions-language-server",
+    "version": "0.3.61",
+    "exitCode": 0,
+    "auditStatus": "verified",
+    "cwd": "/private/tmp/k1-sendback-replay-2/npm/@actions_languageserver",
+    "command": ["npm", "ci", "--ignore-scripts", "--no-audit", "--no-fund"]
+  },
+  {
+    "tool": "bash-language-server",
+    "version": "5.8.1",
+    "exitCode": 0,
+    "auditStatus": "pending",
+    "cwd": "/private/tmp/k1-sendback-replay-2/npm/bash-language-server",
+    "command": ["npm", "ci", "--ignore-scripts", "--no-audit", "--no-fund"]
+  },
+  {
+    "tool": "sqllens-language-server",
+    "version": "0.5.0",
+    "exitCode": 0,
+    "auditStatus": "pending",
+    "cwd": "/private/tmp/k1-sendback-replay-2/npm/sqllens-language-server",
+    "command": ["npm", "ci", "--ignore-scripts", "--no-audit", "--no-fund"]
+  },
+  {
+    "tool": "sql-language-server",
+    "version": "1.7.1",
+    "exitCode": 0,
+    "auditStatus": "pending",
+    "cwd": "/private/tmp/k1-sendback-replay-2/npm/sql-language-server",
+    "command": ["npm", "ci", "--ignore-scripts", "--no-audit", "--no-fund"]
+  },
+  {
+    "tool": "sql-formatter",
+    "version": "15.9.0",
+    "exitCode": 0,
+    "auditStatus": "pending",
+    "cwd": "/private/tmp/k1-sendback-replay-2/npm/sql-formatter",
+    "command": ["npm", "ci", "--ignore-scripts", "--no-audit", "--no-fund"]
+  }
+]

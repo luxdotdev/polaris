@@ -1,0 +1,62 @@
+{
+  "name": "prettier",
+  "manifest": {
+    "name": "polaris-catalog-fixture",
+    "version": "1.0.0",
+    "private": true,
+    "dependencies": {
+      "prettier": "3.9.9"
+    }
+  },
+  "lock": {
+    "name": "polaris-catalog-fixture",
+    "version": "1.0.0",
+    "lockfileVersion": 3,
+    "requires": true,
+    "packages": {
+      "": {
+        "name": "polaris-catalog-fixture",
+        "version": "1.0.0",
+        "dependencies": {
+          "prettier": "3.9.9"
+        }
+      },
+      "node_modules/prettier": {
+        "version": "3.9.9",
+        "resolved": "https://registry.npmjs.org/prettier/-/prettier-3.9.9.tgz",
+        "integrity": "sha512-Z/CJHIkdujO/OtN7nXUii0Rf3VT5SRuhjBA82Xvu2XhBUgX3nhP67T0LHceBdQLex7OOFGTox+Q5Yg8Jk2Qivg==",
+        "license": "MIT",
+        "bin": {
+          "prettier": "bin/prettier.cjs"
+        },
+        "engines": {
+          "node": ">=14"
+        },
+        "funding": {
+          "url": "https://github.com/prettier/prettier?sponsor=1"
+        }
+      }
+    }
+  },
+  "packages": [
+    {
+      "name": "prettier",
+      "version": "3.9.9",
+      "license": "MIT",
+      "integrity": "sha512-Z/CJHIkdujO/OtN7nXUii0Rf3VT5SRuhjBA82Xvu2XhBUgX3nhP67T0LHceBdQLex7OOFGTox+Q5Yg8Jk2Qivg==",
+      "url": "https://registry.npmjs.org/prettier/-/prettier-3.9.9.tgz",
+      "notices": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "b0f2417199889f1c0d28ec4e0244eacf1a15de5819d61f641dd7d8f45153ac9c"
+        },
+        {
+          "path": "package/THIRD-PARTY-NOTICES.md",
+          "sha256": "aaf6032babb49d6e5601ab06f315d6d6bab605cb4672f03e9972ff3c80232cdc"
+        }
+      ],
+      "verifiedBytes": 2801547,
+      "location": "node_modules/prettier"
+    }
+  ]
+}

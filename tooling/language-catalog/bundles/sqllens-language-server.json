@@ -1,0 +1,335 @@
+{
+  "name": "sqllens-language-server",
+  "manifest": {
+    "name": "polaris-catalog-fixture",
+    "version": "1.0.0",
+    "private": true,
+    "dependencies": {
+      "sqllens-language-server": "0.5.0"
+    }
+  },
+  "lock": {
+    "name": "polaris-catalog-fixture",
+    "version": "1.0.0",
+    "lockfileVersion": 3,
+    "requires": true,
+    "packages": {
+      "": {
+        "name": "polaris-catalog-fixture",
+        "version": "1.0.0",
+        "dependencies": {
+          "sqllens-language-server": "0.5.0"
+        }
+      },
+      "node_modules/antlr4ng": {
+        "version": "3.0.16",
+        "resolved": "https://registry.npmjs.org/antlr4ng/-/antlr4ng-3.0.16.tgz",
+        "integrity": "sha512-DQuJkC7kX3xunfF4K2KsWTSvoxxslv+FQp/WHQZTJSsH2Ec3QfFmrxC3Nky2ok9yglXn6nHM4zUaVDxcN5f6kA==",
+        "license": "BSD-3-Clause"
+      },
+      "node_modules/balanced-match": {
+        "version": "4.0.4",
+        "resolved": "https://registry.npmjs.org/balanced-match/-/balanced-match-4.0.4.tgz",
+        "integrity": "sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA==",
+        "license": "MIT",
+        "engines": {
+          "node": "18 || 20 || >=22"
+        }
+      },
+      "node_modules/brace-expansion": {
+        "version": "5.0.12",
+        "resolved": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.12.tgz",
+        "integrity": "sha512-YovQ3rzhaLMIrDjNDMkNS01tea93qhEhG5xy8f6+R0l+dw3Ki+5sCoIoI942iuLZTHWogWktgwVDhU09iNEimQ==",
+        "license": "MIT",
+        "dependencies": {
+          "balanced-match": "^4.0.2"
+        },
+        "engines": {
+          "node": "20 || >=22"
+        }
+      },
+      "node_modules/minimatch": {
+        "version": "10.2.6",
+        "resolved": "https://registry.npmjs.org/minimatch/-/minimatch-10.2.6.tgz",
+        "integrity": "sha512-vpLQEs+VLCr1nU0BXS07maYoFwlDAH0gngQuuttxIwutDFEMHq2blX+8vpgxDdK3J1PwjCJiep77OitTZ4Ll1A==",
+        "license": "BlueOak-1.0.0",
+        "dependencies": {
+          "brace-expansion": "^5.0.8"
+        },
+        "engines": {
+          "node": "18 || 20 || >=22"
+        },
+        "funding": {
+          "url": "https://github.com/sponsors/isaacs"
+        }
+      },
+      "node_modules/sqllens": {
+        "version": "1.11.0",
+        "resolved": "https://registry.npmjs.org/sqllens/-/sqllens-1.11.0.tgz",
+        "integrity": "sha512-3abSV4NpknCzFthFrnyUSv/MT5eJBYEMGFN5MQLmx84N7cmVufEp7HsKnBGsZNuupaw/b8DdVgYagArngFfNAw==",
+        "license": "MIT",
+        "dependencies": {
+          "antlr4ng": "^3.0.16"
+        },
+        "engines": {
+          "node": ">=20.11"
+        }
+      },
+      "node_modules/sqllens-language-server": {
+        "version": "0.5.0",
+        "resolved": "https://registry.npmjs.org/sqllens-language-server/-/sqllens-language-server-0.5.0.tgz",
+        "integrity": "sha512-TFTCgqH5GGC6jGEUyY7aIHhbkxP0Iv7wn74xtwpHoYsrH7seX5EVWXrgLjN9GFUL3I519w2hoDz0kEII5u/uNw==",
+        "license": "MIT",
+        "dependencies": {
+          "antlr4ng": "^3.0.16",
+          "minimatch": "^10.2.5",
+          "sqllens": "^1.8.0",
+          "vscode-languageserver": "^10.0.1",
+          "vscode-languageserver-protocol": "^3.18.1",
+          "vscode-languageserver-textdocument": "^1.0.12",
+          "vscode-languageserver-types": "^3.18.0"
+        },
+        "bin": {
+          "sqllens-language-server": "bin/cli.js"
+        },
+        "engines": {
+          "node": ">=20.11"
+        }
+      },
+      "node_modules/vscode-jsonrpc": {
+        "version": "9.0.3",
+        "resolved": "https://registry.npmjs.org/vscode-jsonrpc/-/vscode-jsonrpc-9.0.3.tgz",
+        "integrity": "sha512-qETYf9PCl1lVfwR+oBmMfc4vP2nqLNA35ABxorw3j06+xlKRgDVxbLgKm4Y/xPL0YWdeDjLoI4ImICIT3nB0zQ==",
+        "license": "MIT",
+        "engines": {
+          "node": ">=14.0.0"
+        }
+      },
+      "node_modules/vscode-languageserver": {
+        "version": "10.1.2",
+        "resolved": "https://registry.npmjs.org/vscode-languageserver/-/vscode-languageserver-10.1.2.tgz",
+        "integrity": "sha512-pXPWde3RytdeBVEs6PulOOT5OpeXC5GkWRpcT11f5rNn41jviQsAYPyAqJ/0oVGETQLKPJtYbHNiMPlfLb0NTQ==",
+        "license": "MIT",
+        "dependencies": {
+          "vscode-languageserver-protocol": "3.18.4"
+        },
+        "bin": {
+          "installServerIntoExtension": "bin/installServerIntoExtension"
+        }
+      },
+      "node_modules/vscode-languageserver-protocol": {
+        "version": "3.18.4",
+        "resolved": "https://registry.npmjs.org/vscode-languageserver-protocol/-/vscode-languageserver-protocol-3.18.4.tgz",
+        "integrity": "sha512-CCXbyr99dafRJzJH/0Ryk7ly5T8XPmSR0//OuF2w4m+9JiOin7zcAT5iET8GRE7Z9taFBejb3GbM0a0mbjdbrg==",
+        "license": "MIT",
+        "dependencies": {
+          "vscode-jsonrpc": "9.0.3",
+          "vscode-languageserver-types": "3.18.4"
+        }
+      },
+      "node_modules/vscode-languageserver-textdocument": {
+        "version": "1.0.15",
+        "resolved": "https://registry.npmjs.org/vscode-languageserver-textdocument/-/vscode-languageserver-textdocument-1.0.15.tgz",
+        "integrity": "sha512-Gsfr9S8LU3S6885cS+NaleasJ0n3V5y/SOTqHCifQiXWFw3G9w9/YItDfwHrlCz+dSZWWZ8ilYVMcJe7Sz7Sxw==",
+        "license": "MIT"
+      },
+      "node_modules/vscode-languageserver-types": {
+        "version": "3.18.4",
+        "resolved": "https://registry.npmjs.org/vscode-languageserver-types/-/vscode-languageserver-types-3.18.4.tgz",
+        "integrity": "sha512-nQsacoiijvl0fRf2q28uFDrAVwRhdCa3QveiF7/CX0r18mLR5FU/1WskSsCKOjmEbtteKUnY8x8Yzxop+k0zwg==",
+        "license": "MIT"
+      }
+    }
+  },
+  "packages": [
+    {
+      "name": "antlr4ng",
+      "version": "3.0.16",
+      "license": "BSD-3-Clause",
+      "integrity": "sha512-DQuJkC7kX3xunfF4K2KsWTSvoxxslv+FQp/WHQZTJSsH2Ec3QfFmrxC3Nky2ok9yglXn6nHM4zUaVDxcN5f6kA==",
+      "url": "https://registry.npmjs.org/antlr4ng/-/antlr4ng-3.0.16.tgz",
+      "notices": [
+        {
+          "path": "package/LICENSE.txt",
+          "sha256": "3139ca3e201fab2344c1b31cfe030c17a1a525bc23801ccf71f86a55eb14c638"
+        }
+      ],
+      "verifiedBytes": 2254400,
+      "location": "node_modules/antlr4ng"
+    },
+    {
+      "name": "balanced-match",
+      "version": "4.0.4",
+      "license": "MIT",
+      "integrity": "sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA==",
+      "url": "https://registry.npmjs.org/balanced-match/-/balanced-match-4.0.4.tgz",
+      "notices": [
+        {
+          "path": "package/LICENSE.md",
+          "sha256": "d408f38ffa3355c5faec517153295338892eb0f1ea43f57874bb23c6075979b5"
+        }
+      ],
+      "verifiedBytes": 4199,
+      "location": "node_modules/balanced-match"
+    },
+    {
+      "name": "brace-expansion",
+      "version": "5.0.12",
+      "license": "MIT",
+      "integrity": "sha512-YovQ3rzhaLMIrDjNDMkNS01tea93qhEhG5xy8f6+R0l+dw3Ki+5sCoIoI942iuLZTHWogWktgwVDhU09iNEimQ==",
+      "url": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.12.tgz",
+      "notices": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "9c63a23124d68cd30cd316a94a1a0bca34f032786df6df69fc4b5f136bac8d2e"
+        }
+      ],
+      "verifiedBytes": 12620,
+      "location": "node_modules/brace-expansion"
+    },
+    {
+      "name": "minimatch",
+      "version": "10.2.6",
+      "license": "BlueOak-1.0.0",
+      "integrity": "sha512-vpLQEs+VLCr1nU0BXS07maYoFwlDAH0gngQuuttxIwutDFEMHq2blX+8vpgxDdK3J1PwjCJiep77OitTZ4Ll1A==",
+      "url": "https://registry.npmjs.org/minimatch/-/minimatch-10.2.6.tgz",
+      "notices": [
+        {
+          "path": "package/LICENSE.md",
+          "sha256": "2c7c5d22ed5a8ee968c64757710979afcd77438c48b4a265b94e615babd8a901"
+        }
+      ],
+      "verifiedBytes": 117068,
+      "location": "node_modules/minimatch"
+    },
+    {
+      "name": "sqllens",
+      "version": "1.11.0",
+      "license": "MIT",
+      "integrity": "sha512-3abSV4NpknCzFthFrnyUSv/MT5eJBYEMGFN5MQLmx84N7cmVufEp7HsKnBGsZNuupaw/b8DdVgYagArngFfNAw==",
+      "url": "https://registry.npmjs.org/sqllens/-/sqllens-1.11.0.tgz",
+      "notices": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "d78037a2de1357f9d3c1bb075a7921d352bd9d05b9766077a849694ffd4019a8"
+        },
+        {
+          "path": "package/THIRD-PARTY-NOTICES.md",
+          "sha256": "08fa326c5239648d7a5677eacea736246e3db1e37a60c745da9c5c898b8f6d83"
+        }
+      ],
+      "verifiedBytes": 5102664,
+      "location": "node_modules/sqllens"
+    },
+    {
+      "name": "sqllens-language-server",
+      "version": "0.5.0",
+      "license": "MIT",
+      "integrity": "sha512-TFTCgqH5GGC6jGEUyY7aIHhbkxP0Iv7wn74xtwpHoYsrH7seX5EVWXrgLjN9GFUL3I519w2hoDz0kEII5u/uNw==",
+      "url": "https://registry.npmjs.org/sqllens-language-server/-/sqllens-language-server-0.5.0.tgz",
+      "notices": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "d78037a2de1357f9d3c1bb075a7921d352bd9d05b9766077a849694ffd4019a8"
+        }
+      ],
+      "verifiedBytes": 46797,
+      "location": "node_modules/sqllens-language-server"
+    },
+    {
+      "name": "vscode-jsonrpc",
+      "version": "9.0.3",
+      "license": "MIT",
+      "integrity": "sha512-qETYf9PCl1lVfwR+oBmMfc4vP2nqLNA35ABxorw3j06+xlKRgDVxbLgKm4Y/xPL0YWdeDjLoI4ImICIT3nB0zQ==",
+      "url": "https://registry.npmjs.org/vscode-jsonrpc/-/vscode-jsonrpc-9.0.3.tgz",
+      "notices": [
+        {
+          "path": "package/License.txt",
+          "sha256": "ec9ee83580841e8eb687aca9867f221503809ba6426c7f876ede17d91b9fcfd0"
+        },
+        {
+          "path": "package/thirdpartynotices.txt",
+          "sha256": "a89123562fe364dc8e969e85614eb6c1f8452afe131d6e42bd1314bb2d092b04"
+        }
+      ],
+      "verifiedBytes": 37477,
+      "location": "node_modules/vscode-jsonrpc"
+    },
+    {
+      "name": "vscode-languageserver",
+      "version": "10.1.2",
+      "license": "MIT",
+      "integrity": "sha512-pXPWde3RytdeBVEs6PulOOT5OpeXC5GkWRpcT11f5rNn41jviQsAYPyAqJ/0oVGETQLKPJtYbHNiMPlfLb0NTQ==",
+      "url": "https://registry.npmjs.org/vscode-languageserver/-/vscode-languageserver-10.1.2.tgz",
+      "notices": [
+        {
+          "path": "package/License.txt",
+          "sha256": "ec9ee83580841e8eb687aca9867f221503809ba6426c7f876ede17d91b9fcfd0"
+        },
+        {
+          "path": "package/thirdpartynotices.txt",
+          "sha256": "b8be93a14e6d5df97ea340c69529615563aaf2dd7698ae38b3a2758264df9b87"
+        }
+      ],
+      "verifiedBytes": 34520,
+      "location": "node_modules/vscode-languageserver"
+    },
+    {
+      "name": "vscode-languageserver-protocol",
+      "version": "3.18.4",
+      "license": "MIT",
+      "integrity": "sha512-CCXbyr99dafRJzJH/0Ryk7ly5T8XPmSR0//OuF2w4m+9JiOin7zcAT5iET8GRE7Z9taFBejb3GbM0a0mbjdbrg==",
+      "url": "https://registry.npmjs.org/vscode-languageserver-protocol/-/vscode-languageserver-protocol-3.18.4.tgz",
+      "notices": [
+        {
+          "path": "package/License.txt",
+          "sha256": "ec9ee83580841e8eb687aca9867f221503809ba6426c7f876ede17d91b9fcfd0"
+        },
+        {
+          "path": "package/thirdpartynotices.txt",
+          "sha256": "9265d27cf75775aa5ae19c5ba01846fb70ecd5121f8c39c81bef7e03f007072c"
+        }
+      ],
+      "verifiedBytes": 64345,
+      "location": "node_modules/vscode-languageserver-protocol"
+    },
+    {
+      "name": "vscode-languageserver-textdocument",
+      "version": "1.0.15",
+      "license": "MIT",
+      "integrity": "sha512-Gsfr9S8LU3S6885cS+NaleasJ0n3V5y/SOTqHCifQiXWFw3G9w9/YItDfwHrlCz+dSZWWZ8ilYVMcJe7Sz7Sxw==",
+      "url": "https://registry.npmjs.org/vscode-languageserver-textdocument/-/vscode-languageserver-textdocument-1.0.15.tgz",
+      "notices": [
+        {
+          "path": "package/License.txt",
+          "sha256": "ec9ee83580841e8eb687aca9867f221503809ba6426c7f876ede17d91b9fcfd0"
+        },
+        {
+          "path": "package/thirdpartynotices.txt",
+          "sha256": "a89123562fe364dc8e969e85614eb6c1f8452afe131d6e42bd1314bb2d092b04"
+        }
+      ],
+      "verifiedBytes": 8372,
+      "location": "node_modules/vscode-languageserver-textdocument"
+    },
+    {
+      "name": "vscode-languageserver-types",
+      "version": "3.18.4",
+      "license": "MIT",
+      "integrity": "sha512-nQsacoiijvl0fRf2q28uFDrAVwRhdCa3QveiF7/CX0r18mLR5FU/1WskSsCKOjmEbtteKUnY8x8Yzxop+k0zwg==",
+      "url": "https://registry.npmjs.org/vscode-languageserver-types/-/vscode-languageserver-types-3.18.4.tgz",
+      "notices": [
+        {
+          "path": "package/License.txt",
+          "sha256": "ec9ee83580841e8eb687aca9867f221503809ba6426c7f876ede17d91b9fcfd0"
+        },
+        {
+          "path": "package/thirdpartynotices.txt",
+          "sha256": "a89123562fe364dc8e969e85614eb6c1f8452afe131d6e42bd1314bb2d092b04"
+        }
+      ],
+      "verifiedBytes": 79419,
+      "location": "node_modules/vscode-languageserver-types"
+    }
+  ]
+}

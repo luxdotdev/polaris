@@ -1,0 +1,36 @@
+{
+  "artifactId": "phpactor.phar",
+  "artifactIntegrity": "sha256:25645647d9aa2dc69536fb4f75c976e33ef1a7b5533534a8456736e5e6fd5079",
+  "coverage": "pending",
+  "notices": [
+    {
+      "path": "notices/4287c3b7c293133dc59e92cb32a1aae899c4441ac6d64455c537c82070c84caa.txt",
+      "integrity": "sha256:4287c3b7c293133dc59e92cb32a1aae899c4441ac6d64455c537c82070c84caa"
+    }
+  ],
+  "findings": [
+    "Release-specific bundled notice/dependency audit required; see external-audits.json"
+  ],
+  "bundleIntegrity": null,
+  "supplements": [
+    "railroad-diagrams@1.0.0",
+    "bash-language-server@5.8.1",
+    "@vscode/l10n@0.0.18",
+    "@prisma/prisma-schema-wasm@7.8.0-6.3c6e192761c0362d496ed980de936e2f3cebcd3a",
+    "boolbase@1.0.0"
+  ],
+  "evidence": [
+    {
+      "path": "phpactor-phar.json",
+      "integrity": "sha256:95bd75035e4485442969798074626f4bbb209a4b189be1ba7566109a00ee9c22"
+    },
+    {
+      "path": "php-composer.lock.json",
+      "integrity": "sha256:44cb1509ad7e00eca9133d5141834cfca92aaae59147897fd8ac56428e608d2e"
+    },
+    {
+      "path": "source-notices.json",
+      "integrity": "sha256:d55dfb416aa56a71ad6517309b1697032bef9078cfec16c224a689f9d66550c2"
+    }
+  ]
+}

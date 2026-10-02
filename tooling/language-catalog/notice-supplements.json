@@ -1,0 +1,26 @@
+{
+  "railroad-diagrams@1.0.0": {
+    "failure": "No upstream LICENSE at source ref",
+    "metadata": "https://registry.npmjs.org/railroad-diagrams/1.0.0"
+  },
+  "bash-language-server@5.8.1": {
+    "path": "upstream/LICENSE",
+    "sha256": "291d324119550df1624f0af60388393fe36b02bc5e61d9a236afab1801b33042",
+    "source": "https://raw.githubusercontent.com/bash-lsp/bash-language-server/dd90f3d2c10ddce889b456a9ac4a1d0f079a9558/LICENSE",
+    "sourceRef": "dd90f3d2c10ddce889b456a9ac4a1d0f079a9558"
+  },
+  "@vscode/l10n@0.0.18": {
+    "failure": "No immutable source ref",
+    "metadata": "https://registry.npmjs.org/%40vscode%2Fl10n/0.0.18"
+  },
+  "@prisma/prisma-schema-wasm@7.8.0-6.3c6e192761c0362d496ed980de936e2f3cebcd3a": {
+    "path": "upstream/LICENSE",
+    "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    "source": "https://raw.githubusercontent.com/prisma/prisma-engines/3c6e192761c0362d496ed980de936e2f3cebcd3a/LICENSE",
+    "sourceRef": "3c6e192761c0362d496ed980de936e2f3cebcd3a"
+  },
+  "boolbase@1.0.0": {
+    "failure": "No immutable source ref",
+    "metadata": "https://registry.npmjs.org/boolbase/1.0.0"
+  }
+}

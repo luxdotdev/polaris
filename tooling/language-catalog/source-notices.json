@@ -1,0 +1,37 @@
+{
+  "ruff": {
+    "url": "https://raw.githubusercontent.com/astral-sh/ruff/0.16.10/LICENSE",
+    "sha256": "2597d854122b77ddc71971564ca2350a37608575ce324adc5650a2b2051c8f18",
+    "bytes": 20731
+  },
+  "rust-analyzer-MIT": {
+    "url": "https://raw.githubusercontent.com/rust-lang/rust-analyzer/2026-09-28/LICENSE-MIT",
+    "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+    "bytes": 1023
+  },
+  "rust-analyzer-Apache": {
+    "url": "https://raw.githubusercontent.com/rust-lang/rust-analyzer/2026-09-28/LICENSE-APACHE",
+    "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a",
+    "bytes": 9723
+  },
+  "shfmt": {
+    "url": "https://raw.githubusercontent.com/mvdan/sh/v3.14.1/LICENSE",
+    "sha256": "ce63850f77649f00d1394045e2794ffb09a5596beabac51c9548edd958845d7c",
+    "bytes": 1488
+  },
+  "shellcheck": {
+    "url": "https://raw.githubusercontent.com/koalaman/shellcheck/v0.11.0/LICENSE",
+    "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+    "bytes": 35149
+  },
+  "phpactor": {
+    "url": "https://raw.githubusercontent.com/phpactor/phpactor/2026.06.23.0/LICENSE",
+    "sha256": "4287c3b7c293133dc59e92cb32a1aae899c4441ac6d64455c537c82070c84caa",
+    "bytes": 1056
+  },
+  "shellcheck-source": {
+    "url": "https://api.github.com/repos/koalaman/shellcheck/tarball/v0.11.0",
+    "sha256": "2f77a26bd98d7c00280833ee7eb47df22b06c526b49dc7c6a16c65637dd7914b",
+    "bytes": 467589
+  }
+}

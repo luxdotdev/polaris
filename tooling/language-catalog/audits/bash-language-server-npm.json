@@ -1,0 +1,129 @@
+{
+  "artifactId": "bash-language-server-npm",
+  "artifactIntegrity": "sha512-F3g0hKZhCiKbLUf9wkrST6+ZypsHvJqaJxw/+J7WK2ywhFyc8+7jSHSTU1UDYncZkyWgbKV6+eZy5qWTZtoXww==",
+  "coverage": "pending",
+  "notices": [
+    {
+      "path": "notices/9672b5ea831c360425e95b806b302e502582dd9718b056f29c40cf241daecb68.txt",
+      "integrity": "sha256:9672b5ea831c360425e95b806b302e502582dd9718b056f29c40cf241daecb68"
+    },
+    {
+      "path": "notices/9363d160bf41d46d83901a5d24fc3fe2094c2afc17b4a2378914b273977ee2de.txt",
+      "integrity": "sha256:9363d160bf41d46d83901a5d24fc3fe2094c2afc17b4a2378914b273977ee2de"
+    },
+    {
+      "path": "notices/8bff7c96e66561af0ccdbe3033c748684713aaff2daba7149f2feda334fee6de.txt",
+      "integrity": "sha256:8bff7c96e66561af0ccdbe3033c748684713aaff2daba7149f2feda334fee6de"
+    },
+    {
+      "path": "notices/d408f38ffa3355c5faec517153295338892eb0f1ea43f57874bb23c6075979b5.txt",
+      "integrity": "sha256:d408f38ffa3355c5faec517153295338892eb0f1ea43f57874bb23c6075979b5"
+    },
+    {
+      "path": "notices/291d324119550df1624f0af60388393fe36b02bc5e61d9a236afab1801b33042.txt",
+      "integrity": "sha256:291d324119550df1624f0af60388393fe36b02bc5e61d9a236afab1801b33042"
+    },
+    {
+      "path": "notices/9c63a23124d68cd30cd316a94a1a0bca34f032786df6df69fc4b5f136bac8d2e.txt",
+      "integrity": "sha256:9c63a23124d68cd30cd316a94a1a0bca34f032786df6df69fc4b5f136bac8d2e"
+    },
+    {
+      "path": "notices/35bdd8a44339719441900fb50fbefc5e2dca1ca662cbaed7a687de842c8b70f2.txt",
+      "integrity": "sha256:35bdd8a44339719441900fb50fbefc5e2dca1ca662cbaed7a687de842c8b70f2"
+    },
+    {
+      "path": "notices/04512a63dce4d2d506ad612dc0bd7681ccf6e3655f7b6eaef7dfac8323d1ec0b.txt",
+      "integrity": "sha256:04512a63dce4d2d506ad612dc0bd7681ccf6e3655f7b6eaef7dfac8323d1ec0b"
+    },
+    {
+      "path": "notices/bc6944d7fe185cc5185998482def16aeaa83f96405599bfd388a5611718139a5.txt",
+      "integrity": "sha256:bc6944d7fe185cc5185998482def16aeaa83f96405599bfd388a5611718139a5"
+    },
+    {
+      "path": "notices/c3367f6d01a79d368fc4fbb41b3615fcd92f243d6597ab96742f6f976f9325af.txt",
+      "integrity": "sha256:c3367f6d01a79d368fc4fbb41b3615fcd92f243d6597ab96742f6f976f9325af"
+    },
+    {
+      "path": "notices/da35ef625a0b2fc3e910f0f6f243464a99ec4ca92b5e7c1948c24b8bc5301b8c.txt",
+      "integrity": "sha256:da35ef625a0b2fc3e910f0f6f243464a99ec4ca92b5e7c1948c24b8bc5301b8c"
+    },
+    {
+      "path": "notices/2c46f1325bd3822a33c1e2c1e49c18d13127ac00f9c8b3b79196c7a126f73cd9.txt",
+      "integrity": "sha256:2c46f1325bd3822a33c1e2c1e49c18d13127ac00f9c8b3b79196c7a126f73cd9"
+    },
+    {
+      "path": "notices/73b5283588baa142c5baaef5f56d3e8fdea7a30b214e8c5737e87640f882453a.txt",
+      "integrity": "sha256:73b5283588baa142c5baaef5f56d3e8fdea7a30b214e8c5737e87640f882453a"
+    },
+    {
+      "path": "notices/4cd903859549d4b20b571041f96dfae1136ed079c476126268f9d7cc1b611150.txt",
+      "integrity": "sha256:4cd903859549d4b20b571041f96dfae1136ed079c476126268f9d7cc1b611150"
+    },
+    {
+      "path": "notices/b2590e53ea6e050512c3993bfc746c394bbba9242fd6909245201bdc1dc6862a.txt",
+      "integrity": "sha256:b2590e53ea6e050512c3993bfc746c394bbba9242fd6909245201bdc1dc6862a"
+    },
+    {
+      "path": "notices/2c7c5d22ed5a8ee968c64757710979afcd77438c48b4a265b94e615babd8a901.txt",
+      "integrity": "sha256:2c7c5d22ed5a8ee968c64757710979afcd77438c48b4a265b94e615babd8a901"
+    },
+    {
+      "path": "notices/d0cd141b0c322fded5dfad1d4645bb2fedfc05b7321fe1009469638190d59ef9.txt",
+      "integrity": "sha256:d0cd141b0c322fded5dfad1d4645bb2fedfc05b7321fe1009469638190d59ef9"
+    },
+    {
+      "path": "notices/d4c2065e2b936e62a4eb400efb4576edec9ca1388a9f78aa288e147275e7bc8b.txt",
+      "integrity": "sha256:d4c2065e2b936e62a4eb400efb4576edec9ca1388a9f78aa288e147275e7bc8b"
+    },
+    {
+      "path": "notices/93a1506953b08ad4874e1cc0971a1d2ac387ca510da91e4d05e460a6c4966fa3.txt",
+      "integrity": "sha256:93a1506953b08ad4874e1cc0971a1d2ac387ca510da91e4d05e460a6c4966fa3"
+    },
+    {
+      "path": "notices/4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b.txt",
+      "integrity": "sha256:4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+    },
+    {
+      "path": "notices/e7d1fee7347ffddccc5fd03327ffdb50f8c112be0d5016d62388a92c4ae6e7a9.txt",
+      "integrity": "sha256:e7d1fee7347ffddccc5fd03327ffdb50f8c112be0d5016d62388a92c4ae6e7a9"
+    },
+    {
+      "path": "notices/a055e3a15db4b4cbb5af381230eba085603126d7d5d8c4dae45ee85b877a9729.txt",
+      "integrity": "sha256:a055e3a15db4b4cbb5af381230eba085603126d7d5d8c4dae45ee85b877a9729"
+    },
+    {
+      "path": "notices/ec9ee83580841e8eb687aca9867f221503809ba6426c7f876ede17d91b9fcfd0.txt",
+      "integrity": "sha256:ec9ee83580841e8eb687aca9867f221503809ba6426c7f876ede17d91b9fcfd0"
+    },
+    {
+      "path": "notices/a89123562fe364dc8e969e85614eb6c1f8452afe131d6e42bd1314bb2d092b04.txt",
+      "integrity": "sha256:a89123562fe364dc8e969e85614eb6c1f8452afe131d6e42bd1314bb2d092b04"
+    },
+    {
+      "path": "notices/b8be93a14e6d5df97ea340c69529615563aaf2dd7698ae38b3a2758264df9b87.txt",
+      "integrity": "sha256:b8be93a14e6d5df97ea340c69529615563aaf2dd7698ae38b3a2758264df9b87"
+    },
+    {
+      "path": "notices/9265d27cf75775aa5ae19c5ba01846fb70ecd5121f8c39c81bef7e03f007072c.txt",
+      "integrity": "sha256:9265d27cf75775aa5ae19c5ba01846fb70ecd5121f8c39c81bef7e03f007072c"
+    },
+    {
+      "path": "notices/c5cfb43042b6b72045f4ba997834d0a7786d2793d91680868b5815b39f14fc78.txt",
+      "integrity": "sha256:c5cfb43042b6b72045f4ba997834d0a7786d2793d91680868b5815b39f14fc78"
+    },
+    {
+      "path": "notices/3f1189b28e3866e0d979968d466b78f813f76827cfdca1fbb124cc0a5c8841f8.txt",
+      "integrity": "sha256:3f1189b28e3866e0d979968d466b78f813f76827cfdca1fbb124cc0a5c8841f8"
+    }
+  ],
+  "findings": ["minimatch@10.2.6: license-review:BlueOak-1.0.0"],
+  "bundleIntegrity": "sha256:f69fcfe464747fec2eec33c6a204dd5dcff6469c2044d413b811c69e77388b14",
+  "supplements": [
+    "railroad-diagrams@1.0.0",
+    "bash-language-server@5.8.1",
+    "@vscode/l10n@0.0.18",
+    "@prisma/prisma-schema-wasm@7.8.0-6.3c6e192761c0362d496ed980de936e2f3cebcd3a",
+    "boolbase@1.0.0"
+  ],
+  "evidence": []
+}

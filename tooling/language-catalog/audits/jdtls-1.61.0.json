@@ -1,0 +1,25 @@
+{
+  "artifactId": "jdtls-1.61.0",
+  "artifactIntegrity": "sha256:338e7e73d61836651ba2453919a0d34fa763eb4e7c03342092309bffb8934c64",
+  "coverage": "pending",
+  "notices": [],
+  "findings": ["Exact EPL-2.0 external-distribution exception awaits G1 review"],
+  "bundleIntegrity": null,
+  "supplements": [
+    "railroad-diagrams@1.0.0",
+    "bash-language-server@5.8.1",
+    "@vscode/l10n@0.0.18",
+    "@prisma/prisma-schema-wasm@7.8.0-6.3c6e192761c0362d496ed980de936e2f3cebcd3a",
+    "boolbase@1.0.0"
+  ],
+  "evidence": [
+    {
+      "path": "jdtls-bundles.json",
+      "integrity": "sha256:1ec99abba2828ba03331ab1e2ae6d1796b461c2b2970d2e95c63505e010ced29"
+    },
+    {
+      "path": "external-audits.json",
+      "integrity": "sha256:cf2c9d7a7386a0e5818d5451d2cc0b185e90b0b9c01c6539c881111b5d4627ea"
+    }
+  ]
+}

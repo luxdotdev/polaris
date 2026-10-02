@@ -1,0 +1,36 @@
+{
+  "artifactId": "rust-analyzer-x86_64-apple-darwin.gz",
+  "artifactIntegrity": "sha256:d032c0eb75e4597cc8ffc35ea4cdbd9eecc8341936b6edac6749e679fc3f0682",
+  "coverage": "pending",
+  "notices": [
+    {
+      "path": "notices/23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3.txt",
+      "integrity": "sha256:23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+    },
+    {
+      "path": "notices/62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a.txt",
+      "integrity": "sha256:62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+    }
+  ],
+  "findings": [
+    "Release-specific bundled notice/dependency audit required; see external-audits.json"
+  ],
+  "bundleIntegrity": null,
+  "supplements": [
+    "railroad-diagrams@1.0.0",
+    "bash-language-server@5.8.1",
+    "@vscode/l10n@0.0.18",
+    "@prisma/prisma-schema-wasm@7.8.0-6.3c6e192761c0362d496ed980de936e2f3cebcd3a",
+    "boolbase@1.0.0"
+  ],
+  "evidence": [
+    {
+      "path": "rust-analyzer-crates.json",
+      "integrity": "sha256:b3f9e802e74bc4616b8f2afc6dd4514cf83025a06fdc74b25622f183c929fa47"
+    },
+    {
+      "path": "source-notices.json",
+      "integrity": "sha256:d55dfb416aa56a71ad6517309b1697032bef9078cfec16c224a689f9d66550c2"
+    }
+  ]
+}

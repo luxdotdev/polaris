@@ -1,0 +1,27 @@
+{
+  "artifactId": "lua-language-server-3.19.1-linux-arm64.tar.gz",
+  "artifactIntegrity": "sha256:abd2572e8fc929dc838a81ffb8473c5bce0bf39bfe8edb4b120b3b623176ce83",
+  "coverage": "pending",
+  "notices": [],
+  "findings": [
+    "Release-specific bundled notice/dependency audit required; see external-audits.json"
+  ],
+  "bundleIntegrity": null,
+  "supplements": [
+    "railroad-diagrams@1.0.0",
+    "bash-language-server@5.8.1",
+    "@vscode/l10n@0.0.18",
+    "@prisma/prisma-schema-wasm@7.8.0-6.3c6e192761c0362d496ed980de936e2f3cebcd3a",
+    "boolbase@1.0.0"
+  ],
+  "evidence": [
+    {
+      "path": "lua-notices.json",
+      "integrity": "sha256:e468faa387c6872845567b3905e0b84b86de7b1f49b7bacde6ab404e12ea5faa"
+    },
+    {
+      "path": "lua-source-inventory.json",
+      "integrity": "sha256:37c979c30d393340be5c19bbfea93b07d7b2b2302c47b5d634259158f8839e26"
+    }
+  ]
+}
