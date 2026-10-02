@@ -4,7 +4,7 @@
  */
 import { useEffect } from "react";
 import { openFileFinder } from "../editor-finder/index.ts";
-import { setFileFinder } from "../editor/index.ts";
+import { setFileFinder } from "../editor/api.ts";
 import { useInlineInstall } from "./install.ts";
 import { InlineLayers } from "./ui/InlineLayers.tsx";
 

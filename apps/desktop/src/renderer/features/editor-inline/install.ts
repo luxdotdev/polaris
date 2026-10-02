@@ -6,7 +6,7 @@ import type { EditorView } from "@codemirror/view";
 import { WorkspaceId } from "@polaris/protocol";
 import { useEffect } from "react";
 import { useCommands } from "../../shell/hooks.ts";
-import { type EditorFile, getActiveEditor, registerEditorExtensions } from "../editor/index.ts";
+import { type EditorFile, getActiveEditor, registerEditorExtensions } from "../editor/api.ts";
 import { openInlineCard } from "./actions.ts";
 import { type InlineFile, inlineExtensions } from "./cm/index.ts";
 import { addSelectionToSession } from "./ui/AddToSession.tsx";

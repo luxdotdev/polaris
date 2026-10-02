@@ -1,10 +1,10 @@
 /**
  * Hands each open request (`routes/editor.ts`) to the editor: a file opens in its tab at the
- * line, a folder shows in the explorer. Mounted once; the editor's own chunk loads on the first.
+ * line (the editor queues it until it starts), a folder shows in the explorer. Mounted once.
  */
 import { useEffect } from "react";
 import { type EditorOpenRequest, editorRoute } from "../../routes/editor.ts";
-import type { OpenFileRequest } from "../editor/index.ts";
+import { type OpenFileRequest, openFile } from "../editor/api.ts";
 
 export interface Delivered {
   readonly request: EditorOpenRequest | null;
@@ -40,8 +40,6 @@ const deliver = async (request: EditorOpenRequest) => {
 
     return;
   }
-
-  const { openFile } = await import("../editor/index.ts");
 
   openFile({ hostKey, workspaceId, path, ...positionOf(request) });
 };
