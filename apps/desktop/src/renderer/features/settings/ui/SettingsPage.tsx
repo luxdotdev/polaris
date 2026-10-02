@@ -8,6 +8,7 @@ import {
   BranchIcon,
   ChartColumnIcon,
   ChevronLeftIcon,
+  CommandIcon,
   cn,
   ContrastIcon,
   GridIcon,
@@ -29,6 +30,7 @@ import { GitHubPage } from "./GitHubPage.tsx";
 import { HarnessesPage } from "./HarnessesPage.tsx";
 import { ReviewerPage } from "./ReviewerPage.tsx";
 import { SessionsPage } from "./SessionsPage.tsx";
+import { EditorPage } from "./EditorPage.tsx";
 import { UsagePage } from "./UsagePage.tsx";
 import { ConstellationsPage } from "./ConstellationsPage.tsx";
 import { ConstellationMark } from "../../sessions/glyphs.tsx";
@@ -36,6 +38,7 @@ import { ConstellationMark } from "../../sessions/glyphs.tsx";
 const ICONS: Readonly<Record<SettingsSection, ReactNode>> = {
   appearance: <ContrastIcon />,
   sessions: <BranchIcon />,
+  editor: <CommandIcon />,
   harnesses: <GridIcon />,
   constellations: <ConstellationMark size={16} className="opacity-90" />,
   usage: <ChartColumnIcon />,
@@ -139,6 +142,8 @@ const Page = ({ route }: { readonly route: SettingsRoute }) => {
       return <AppearancePage />;
     case "sessions":
       return <SessionsPage />;
+    case "editor":
+      return <EditorPage />;
     case "harnesses":
       return <HarnessesPage />;
     case "constellations":

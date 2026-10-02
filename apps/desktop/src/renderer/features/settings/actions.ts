@@ -6,6 +6,7 @@ export const settingsCommands = (shell: ShellActions): CommandHandlers => ({
   "settings.open": { run: () => shell.openSettings() },
   "settings.appearance": { run: () => shell.openSettings("appearance") },
   "settings.sessions": { run: () => shell.openSettings("sessions") },
+  "settings.editor": { run: () => shell.openSettings("editor") },
   "settings.harnesses": { run: () => shell.openSettings("harnesses") },
   "settings.constellations": { run: () => shell.openSettings("constellations") },
   "settings.usage": { run: () => shell.openSettings("usage") },
