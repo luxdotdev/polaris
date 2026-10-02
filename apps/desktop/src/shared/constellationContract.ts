@@ -12,6 +12,7 @@ import {
   ConstellationReview,
   ConstellationSetState,
   ConstellationStatus,
+  GetConstellationStats,
 } from "@polaris/protocol";
 import { Schema } from "effect";
 
@@ -39,3 +40,8 @@ export const ConstellationDefaultsInputs = {
 } as const;
 
 export type ConstellationDefaultsMethod = keyof typeof ConstellationDefaultsInputs;
+
+/** A Constellation's derived metrics (C1-M), from the Lead's Host; main prices its Usage. */
+export const ConstellationStatsInputs = {
+  "constellation.stats": onHost(GetConstellationStats.payloadSchema.fields),
+} as const;

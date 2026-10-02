@@ -74,6 +74,14 @@ const bridge = async ({ page, step }: FlowInput) => {
   if (result.ok || result.error === undefined)
     throw new Error(`constellation.status answered for a Constellation that doesn't exist`);
   step(`constellation.status crossed the bridge and was refused (${result.error.code})`);
+
+  const stats = await page.evaluate<{ ok: boolean; error?: { code: string } }>(
+    'window.polaris.request("constellation.stats", { hostKey: "local", constellationId: "smoke-none" })'
+  );
+
+  if (stats.ok || stats.error === undefined)
+    throw new Error("constellation.stats answered for a Constellation that doesn't exist");
+  step(`constellation.stats crossed the bridge and was refused (${stats.error.code})`);
 };
 
 interface Snapshot {

@@ -2,8 +2,13 @@
  * Settings fakes for the Constellation previews: a Host's resources and worker cap (bench
  * held by B2 past its limit, B3 queued), and Usage buckets for both Constellations' sessions.
  */
-import { AttemptId, HostId, SessionId } from "@polaris/protocol";
-import type { Result, UsageQueryView } from "../../../../shared/api.ts";
+import { AttemptId, ConstellationId, HostId, Sequence, SessionId } from "@polaris/protocol";
+import type {
+  ConstellationStatsView,
+  PricedStatsUsage,
+  Result,
+  UsageQueryView,
+} from "../../../../shared/api.ts";
 import type { DraftBatch } from "../../comments/model/feedback.ts";
 import type { HostResourcesSnapshot } from "../../settings/model/resources.ts";
 import type { ResourcesClient } from "../../settings/resources.ts";
@@ -135,4 +140,91 @@ export const B1_FEEDBACK: DraftBatch = {
       findingId: null,
     },
   ],
+};
+
+const statsUsage = (sessionId: string, n: number): PricedStatsUsage => ({
+  tokens: tokens(n),
+  reportedUsd: 0,
+  reportedTokens: tokens(0),
+  buckets: [
+    {
+      hour: hourAgo(1),
+      harness: sessionId.startsWith("lead") ? "claude" : "codex",
+      model: sessionId.startsWith("lead") ? "claude-opus-5-5" : "gpt-6.1-sol",
+      sessionId: SessionId.make(sessionId),
+      tokens: tokens(n),
+      reportedCost: null,
+      longContext: [],
+    },
+  ],
+  estimates: [{ estimatedUsd: n / 1_000_000, unpricedTokens: 0 }],
+});
+
+const ROLE_ZERO = {
+  workingMs: null,
+  idleMs: null,
+  waitingForSlotMs: null,
+  waitingOnLeaseMs: null,
+  staleMs: null,
+};
+
+/** C1's stats from its Lead's Host: per-response Usage for the Lead and its local workers. */
+export const C1_STATS: ConstellationStatsView = {
+  stats: {
+    constellationId: ConstellationId.make("c1"),
+    revision: 37,
+    hostId: HostId.make("h-local"),
+    asOf: ago(0),
+    sequence: Sequence.make(400),
+    wallClockMs: 134 * 60_000,
+    usageIndexedAt: ago(1),
+    indexing: false,
+    lead: {
+      wakeups: 4,
+      deliveredItems: 9,
+      coalescedItems: 5,
+      coalescingHitRate: 5 / 9,
+      meanTokensPerDigest: 1_800_000,
+      meanReportedUsdPerDigest: null,
+      digests: [],
+    },
+    review: {
+      decidedClaims: 3,
+      meanClaimToReviewMs: 6 * 60_000,
+      medianClaimToReviewMs: 5 * 60_000,
+      acceptedFirstTime: 2,
+      firstClaimsReviewed: 3,
+      firstTimeAcceptanceRate: 2 / 3,
+      sendBacksByCause: [],
+    },
+    workers: { totals: ROLE_ZERO, attempts: [] },
+    usage: {
+      total: statsUsage("lead-c1", 0),
+      perTask: [],
+      perRole: [],
+    },
+    coverage: [
+      {
+        metric: "usage.remote",
+        reason: "This host can't read B4's usage on devbox.",
+        attemptId: AttemptId.make("c1-B4-1"),
+      },
+    ],
+  },
+  usage: {
+    total: statsUsage("lead-c1", 31_000_000),
+    perTask: [
+      { taskId: "A1", usage: statsUsage("a1", 6_800_000) },
+      { taskId: "A2", usage: statsUsage("a2", 5_200_000) },
+      { taskId: "B1", usage: statsUsage("b1", 3_900_000) },
+      { taskId: "B2", usage: statsUsage("b2", 2_700_000) },
+      { taskId: "B3", usage: statsUsage("b3", 1_400_000) },
+      { taskId: "B5", usage: statsUsage("b5", 900_000) },
+    ],
+    perRole: [
+      { role: "lead", usage: statsUsage("lead-c1", 7_300_000) },
+      { role: "worker", usage: statsUsage("a1", 20_900_000) },
+    ],
+  },
+  pricesFetchedAt: ago(60),
 };
