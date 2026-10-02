@@ -463,6 +463,26 @@ describe("rail", () => {
     expect(b2?.line).toMatchObject({ kind: "liveness", quiet: "quiet 4m", queued: 2 });
   });
 
+  test("a worker queued for a slot reads waiting, not working", () => {
+    const now = Date.parse("2026-10-01T12:10:00Z");
+
+    const queued = plainFacts({
+      now,
+      worker: (a) => ({
+        ...plainFacts().worker(a),
+        activity:
+          a.taskId === "B3"
+            ? { kind: "slot", host: "devbox", since: "2026-10-01T12:08:00Z" }
+            : null,
+      }),
+    });
+
+    const b3 = rowFor(buildRail(c1Record(), queued).rows, "B3");
+
+    expect(b3?.look).toMatchObject({ glyph: "waiting", word: "waiting · 2m", bucket: "working" });
+    expect(b3?.line).toMatchObject({ activity: "waiting for a slot on devbox", mono: false });
+  });
+
   test("filters and queries flatten to matching Tasks", () => {
     const rail = buildRail(largeRecord(), plainFacts(), { ...DEFAULT_RAIL, filter: "review" });
 

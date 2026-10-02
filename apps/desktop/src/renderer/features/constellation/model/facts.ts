@@ -10,6 +10,8 @@ import type { AttemptData } from "./types.ts";
 export type Activity =
   | { readonly kind: "command"; readonly text: string; readonly since: string }
   | { readonly kind: "tool"; readonly text: string; readonly since: string }
+  /** Queued for a worker slot on its Host (`__workers`, over the Host's cap). */
+  | { readonly kind: "slot"; readonly host: string | null; readonly since: string }
   | {
       readonly kind: "lease";
       readonly resource: string;
