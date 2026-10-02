@@ -1,8 +1,5 @@
 /**
- * The Daemon's RPC surface. Every Client (Desktop App, later the Mobile App)
- *
- * Streams open with a snapshot, then send sequenced events; a reconnecting
- * Client passes the last sequence it saw and resumes without gaps.
+ * The Daemon's RPC surface: snapshots followed by resumable sequenced events.
  * Design follows pingdotgg/t3code@de251fc (MIT): `subscribeShell` /
  * `subscribeThread` with `afterSequence`.
  */
@@ -27,6 +24,7 @@ import {
 import { AttachmentSettings, AttachmentUsage, StagedAmount } from "./attachments.ts";
 import { HostHarnesses } from "./availability.ts";
 import { CapabilityList } from "./capabilities.ts";
+import { InlinePropose } from "./inline.ts";
 import { Command } from "./commands.ts";
 import {
   AgentSession,
@@ -787,6 +785,7 @@ export const TerminalClose = Rpc.make("terminal.close", {
 });
 
 export class DaemonRpcs extends RpcGroup.make(
+  InlinePropose,
   Hello,
   Dispatch,
   SubscribeHost,
