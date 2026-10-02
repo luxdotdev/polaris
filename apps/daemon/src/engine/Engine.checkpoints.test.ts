@@ -5,6 +5,7 @@
  * with checkpoint refs created where the fake Checkpoints says it put them.
  */
 import { describe, expect, test } from "bun:test";
+import { chmodSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Command, SessionId, SessionPlacement, type Workspace } from "@polaris/protocol";
 import { Duration, Effect, type Layer } from "effect";
@@ -40,12 +41,13 @@ const DAY = 24 * 60 * 60 * 1000;
 const setup = (options: {
   readonly policy: CheckpointPolicy;
   readonly sweepInterval?: Duration.Input;
+  readonly fakes?: ReturnType<typeof makeFakes>;
 }) => {
   const claude = makeFakeDriver("claude", { onTurn: completesTurns() });
 
   const base = {
     filename: join(tempDir(), "state.sqlite"),
-    fakes: makeFakes(),
+    fakes: options.fakes ?? makeFakes(),
     drivers: [claude],
     checkpointPolicy: options.policy,
   };
@@ -100,13 +102,16 @@ const sessionWithTurns = (workspace: Workspace, sessionId: SessionId, turns: num
 /** Create the refs the fake Checkpoints reported, pointing at HEAD. */
 const createRefs = (repo: string, sessionId: string, turnIds: ReadonlyArray<string>) =>
   Effect.promise(async () => {
-    for (const turnId of turnIds)
-      for (const label of ["before", "after"])
-        await gitText(repo, [
-          "update-ref",
-          `refs/polaris/checkpoints/${sessionId}/${turnId}/${label}`,
-          "HEAD",
-        ]);
+    const updates = turnIds.flatMap((turnId) =>
+      ["before", "after"].map(
+        (label) => `update refs/polaris/checkpoints/${sessionId}/${turnId}/${label} HEAD`
+      )
+    );
+
+    // Prepare every lock before refs become visible to Archive or the sweeper.
+    await gitText(repo, ["update-ref", "--stdin"], {
+      stdin: `start\n${updates.join("\n")}\nprepare\ncommit\n`,
+    });
   });
 
 const refsOf = (repo: string, sessionId: string) =>
@@ -124,6 +129,42 @@ const archive = (sessionId: SessionId) =>
   });
 
 describe("checkpoint pruning", () => {
+  test("fixture prepares every ref before publishing a session to the sweeper", async () => {
+    const repo = await makeRepo();
+    const observations = join(repo, ".git", "checkpoint-seed-observations");
+    const hook = join(repo, ".git", "hooks", "reference-transaction");
+
+    try {
+      writeFileSync(
+        hook,
+        `#!/bin/sh
+if [ "$1" = prepared ]; then
+  pending=0
+  while read -r old new ref; do pending=$((pending + 1)); done
+  visible=0
+  for ref in $(git for-each-ref --format='%(refname)' refs/polaris/checkpoints/s-seed); do
+    visible=$((visible + 1))
+  done
+  echo "$pending $visible" >> .git/checkpoint-seed-observations
+fi
+`
+      );
+      chmodSync(hook, 0o755);
+      await gitText(repo, ["config", "core.hooksPath", ".git/hooks"]);
+      await Effect.runPromise(createRefs(repo, "s-seed", ["turn-a", "turn-b"]));
+
+      expect(readFileSync(observations, "utf8")).toBe("4 0\n");
+      expect(await Effect.runPromise(refsOf(repo, "s-seed"))).toEqual([
+        "turn-a/after",
+        "turn-a/before",
+        "turn-b/after",
+        "turn-b/before",
+      ]);
+    } finally {
+      removeDir(repo);
+    }
+  });
+
   test("Archive compacts the session per the policy, keeping Turns a Fork started from", async () => {
     const repo = await makeRepo();
     const layer = setup({ policy: { compactAfterMs: 0, dropAfterMs: 30 * DAY } });
@@ -181,7 +222,10 @@ describe("checkpoint pruning", () => {
   test("the sweeper drops old Archived sessions and keeps live and unknown ones", async () => {
     const repo = await makeRepo();
 
+    const fakes = makeFakes();
+
     const layer = setup({
+      fakes,
       policy: { compactAfterMs: 0, dropAfterMs: 0 },
       sweepInterval: Duration.millis(50),
     });
@@ -197,7 +241,7 @@ describe("checkpoint pruning", () => {
           const liveTurns = yield* sessionWithTurns(workspace, live, 2);
           yield* archive(gone);
           // Refs that appear after Archive (so only the sweeper can remove them).
-          yield* Effect.sleep(Duration.millis(100));
+          yield* waitFor(() => fakes.archived.includes(gone));
           yield* createRefs(repo, gone, goneTurns);
           yield* createRefs(repo, live, liveTurns);
           yield* createRefs(repo, "s-sw-unknown", ["turn-x"]);
