@@ -53,6 +53,8 @@ export const MessageAuthority = Schema.Literals([
 export type MessageAuthority = typeof MessageAuthority.Type;
 
 export const ReviewAction = Schema.TaggedUnion({
+  Approve: {},
+  HandUp: { reason: optionalNullable(Schema.String) },
   Accept: { mergedHead: Schema.NonEmptyString, receipts: Schema.Array(CheckReceipt) },
   SendBack: {
     reason: Schema.NonEmptyString,
@@ -94,7 +96,7 @@ export const ConstellationCommand = Schema.TaggedUnion({
         name: Schema.NonEmptyString,
         workspaceId: WorkspaceId,
         leadSessionId: SessionId,
-        settings: ConstellationSettings,
+        settings: Schema.optionalKey(ConstellationSettings),
       })
     ),
     operations: Schema.Array(PlanOperation),
