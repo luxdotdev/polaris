@@ -4,6 +4,7 @@
  * modules land. `server.ts` layers real handlers over these.
  */
 import {
+  InlineError,
   type Capability,
   CommandRejected,
   ConstellationRejected,
@@ -275,6 +276,13 @@ export const defaultHandlers = (options: {
     "harness.watchAvailability": () =>
       Stream.fail(new Unsupported({ capability: "harness.availability" })),
     "usage.query": () => Effect.fail(new Unsupported({ capability: "usage" })),
+    "inline.propose": () =>
+      Stream.fail(
+        new InlineError({
+          reason: "harness-failed",
+          message: "This Daemon does not support inline.propose",
+        })
+      ),
     "usage.watch": () => Stream.fail(new Unsupported({ capability: "usage" })),
 
     "files.listDir": ({ path }) => Effect.fail(fileError(path, "files")),
