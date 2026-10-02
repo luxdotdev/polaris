@@ -143,6 +143,8 @@ export const FILES: Readonly<Record<string, string>> = Object.fromEntries(
     [path("daemon/src/hosts/transport.ts")]: TRANSPORT,
     [path("desktop/src/orchestrator/session-row.tsx")]: SESSION_ROW,
     [path("CONTEXT.md")]: CONTEXT_MD,
+    [path("desktop/src/orchestrator/session-row.css")]:
+      ".row {\n  display: flex;\n  gap: var(--spacing-gap);\n}\n",
     [path("tools/pyproject.toml")]: PYPROJECT,
     [path("tools/probe.py")]: MAIN_PY,
     [path("design/assets/logo.png")]: "\u0089PNG\u0000\u0000",

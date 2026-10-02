@@ -20,7 +20,8 @@ import {
   discardBuffer,
   ensureBuffer,
   hasUnsaved,
-  hostLabelOf,
+  hostOf,
+  moveBuffer,
   isConfigured,
   keepMine,
   releaseBuffer,
@@ -30,19 +31,13 @@ import {
 } from "./buffers.ts";
 import { editorStore, tabsOf } from "./store.ts";
 import { unreadableToast } from "../model/notices.ts";
-import { showOpenFailure } from "../ui/toasts.ts";
+import type { AgentEdit } from "../model/agent.ts";
+import { loadLazyExtensions, type OpenFileRequest, openFile, takeOpens } from "../api.ts";
 
-export interface OpenFileRequest {
-  readonly hostKey: string;
-  readonly workspaceId: string;
-  /** Absolute on the Host, or relative to the Workspace's root. */
-  readonly path: string;
-  /** 1-based. */
-  readonly line?: number;
-  readonly column?: number;
-  /** A single click in the explorer: replaced by the next preview until edited. */
-  readonly preview?: boolean;
-}
+export { openFile, type OpenFileRequest };
+
+import type { EditorFile } from "../cm/extensions.ts";
+import { showOpenFailure } from "../ui/toasts.ts";
 
 /** Each Workspace's root as its pane last said, for relative paths and tree watches. */
 const roots = new Map<string, string>();
@@ -56,7 +51,17 @@ const resolve = (root: string | undefined, path: string) =>
     : `${root.replace(/\/$/, "")}/${path.replace(/^\.\//, "")}`;
 
 const setTabs = (key: string, update: (set: TabSet) => TabSet) =>
-  editorStore.setState((s) => ({ tabs: { ...s.tabs, [key]: update(tabsOf(s, key)) } }));
+  editorStore.setState((s) => {
+    const before = tabsOf(s, key);
+    const after = update(before);
+
+    // Unchanged tabs keep their object, so typing doesn't wake the tab strip or the tabs' save.
+    return after === before ? s : { tabs: { ...s.tabs, [key]: after } };
+  });
+
+/** An edit pins its file's preview tab. */
+const pinOnEdit = (file: EditorFile) =>
+  setTabs(workspaceKey(file.hostKey, file.workspaceId), (set) => pinTab(set, file.path));
 
 /** Whether any Workspace still has a tab on this file. */
 const shown = (hostKey: string, path: string) =>
@@ -116,21 +121,13 @@ export const loadTab = (hostKey: string, workspaceId: string, path: string) => {
     root: roots.get(ws) ?? path.slice(0, path.lastIndexOf("/")),
     line: null,
     column: null,
-    onEdit: () => setTabs(ws, (set) => pinTab(set, path)),
+    onEdit: pinOnEdit,
     onDirectory: () => closeTab(hostKey, workspaceId, path),
   });
 };
 
-/** Opens that arrive before any editor pane has started the Editor; replayed by `startEditor`. */
-const early: Array<OpenFileRequest> = [];
-
-export const openFile = (request: OpenFileRequest) => {
-  if (!isConfigured()) {
-    early.push(request);
-
-    return;
-  }
-
+/** `api.ts`'s `openFile` lands here once the Editor has started (earlier calls wait there). */
+const openFileNow = (request: OpenFileRequest) => {
   const { hostKey, workspaceId } = request;
   const ws = workspaceKey(hostKey, workspaceId);
   const root = roots.get(ws);
@@ -154,11 +151,11 @@ export const openFile = (request: OpenFileRequest) => {
     root: root ?? path.slice(0, path.lastIndexOf("/")),
     line: request.line ?? null,
     column: request.column ?? null,
-    onEdit: () => setTabs(ws, (set) => pinTab(set, path)),
+    onEdit: pinOnEdit,
     onDirectory: () => closeTab(hostKey, workspaceId, path),
     onUnreadable: (reason) => {
       closeNow(hostKey, workspaceId, path);
-      showOpenFailure(unreadableToast(path, root ?? null, hostLabelOf(hostKey), reason));
+      showOpenFailure(unreadableToast(path, root ?? null, hostOf(hostKey), reason));
     },
   });
 };
@@ -175,13 +172,19 @@ export const cycleTabs = (hostKey: string, workspaceId: string, delta: 1 | -1) =
   setTabs(workspaceKey(hostKey, workspaceId), (set) => cycleTab(set, delta));
 
 /** A file or folder renamed in the explorer keeps its tabs; their editors reopen at the new paths. */
-export const renameFile = (hostKey: string, from: string, to: string) => {
-  for (const set of Object.values(editorStore.getState().tabs)) {
-    for (const tab of set.tabs) {
-      if (movedPath(tab.path, from, to) !== tab.path) releaseBuffer(fileKey(hostKey, tab.path));
-    }
-  }
+export const renameFile = async (hostKey: string, from: string, to: string) => {
+  const paths = new Set(
+    Object.values(editorStore.getState().tabs).flatMap((set) => set.tabs.map((t) => t.path))
+  );
 
+  const moves = [...paths].flatMap((path) => {
+    const moved = movedPath(path, from, to);
+
+    return moved === path ? [] : [moveBuffer(hostKey, path, moved)];
+  });
+
+  // The drafts move first, so the tabs reopen with their unsaved edits.
+  await Promise.all(moves);
   editorStore.setState((s) => ({
     tabs: Object.fromEntries(
       Object.entries(s.tabs).map(([key, set]) => [
@@ -209,6 +212,18 @@ export const setAgentFiles = (
     agentFiles: { ...s.agentFiles, [workspaceKey(hostKey, workspaceId)]: files },
   }));
 
+/** The explorer's feed for E3: which agent session is editing which file in this Workspace. */
+export const setAgentEdits = (
+  hostKey: string,
+  workspaceId: string,
+  edits: ReadonlyMap<string, AgentEdit>
+) =>
+  editorStore.setState((s) => ({
+    agentEdits: { ...s.agentEdits, [workspaceKey(hostKey, workspaceId)]: edits },
+  }));
+
+export const setFollow = (follow: boolean) => editorStore.setState({ follow });
+
 let unpersist: (() => void) | null = null;
 
 /** Sets up the Editor once per window: its files, drafts, prefs; restores the tabs. */
@@ -221,7 +236,8 @@ export const startEditor = (config: EditorConfig) => {
 
   if (kv !== null) editorStore.setState({ tabs: readTabs(kv) });
 
-  for (const request of early.splice(0)) openFile(request);
+  takeOpens(openFileNow);
+  loadLazyExtensions();
 
   if (kv === null) return;
   let timer: ReturnType<typeof setTimeout> | null = null;

@@ -17,8 +17,12 @@ export {
   pinFile,
   renameFile,
   saveFile,
+  setAgentEdits,
   setAgentFiles,
+  setFollow,
 } from "./runtime/actions.ts";
+
+export type { AgentEdit } from "./model/agent.ts";
 
 export {
   getActiveEditor,
@@ -30,7 +34,7 @@ export {
 
 export type { ActiveEditor } from "./runtime/store.ts";
 
-export { setFileFinder } from "./runtime/app.ts";
+export { registerLazyEditorExtensions, setFileFinder } from "./api.ts";
 
 export { dirtyKeys, saveAll } from "./runtime/buffers.ts";
 

@@ -9,17 +9,22 @@ import { EditorView, type ViewUpdate } from "@codemirror/view";
 import { harnessHue } from "@polaris/ui";
 import {
   type EditorFile,
+  editorFile,
   onRegistrationsChanged,
   registeredCompartment,
   registeredExtensions,
 } from "../cm/extensions.ts";
 import {
-  languageCompartment,
   createFileState,
+  fileCompartment,
+  languageCompartment,
+  lineEnding,
+  lineEndingCompartment,
   readOnlyCompartment,
   vimCompartment,
 } from "./editorState.ts";
-import { clearFlash, FLASH_MS, reloadSpec } from "../cm/reload.ts";
+import { clearFlash, FLASH_MS, reloadPlan } from "../cm/reload.ts";
+import { cursorOf } from "../cm/cursor.ts";
 import { loadLanguage } from "../cm/languages.ts";
 import { currentMode, swapRegisters, type TabRegisters, vimExtension } from "../cm/vim.ts";
 import {
@@ -33,20 +38,14 @@ import {
   sameVersion,
   step,
 } from "../model/buffer.ts";
-import {
-  draftMatches,
-  dropDraft,
-  fileKey,
-  type KeyValue,
-  readDraft,
-  workspaceKey,
-  writeDraft,
-} from "../model/drafts.ts";
-import { indentLabel, type Indent } from "../model/indent.ts";
+import { type Draft, draftMatches, fileKey, type KeyValue, workspaceKey } from "../model/drafts.ts";
+import { createDraftStore, type DraftStore, type SpillStore } from "../model/draftStore.ts";
+import { indentLabel, type Indent, lineSeparatorOf } from "../model/indent.ts";
 import { languageFor } from "../model/language.ts";
 import type { Unreadable } from "../model/notices.ts";
 import type { EditorFiles, FileTarget } from "../files/port.ts";
-import { type Cursor, editorStore, modelOf, patchBuffer, setBufferModel } from "./store.ts";
+import { editorStore, modelOf, patchBuffer, setBufferModel } from "./store.ts";
+import { agentReload, staleAgent } from "./agent.ts";
 
 export interface EditorPrefs {
   readonly vim: boolean;
@@ -57,9 +56,13 @@ export interface EditorConfig {
   readonly files: EditorFiles;
   /** Where drafts are kept; null keeps them in memory only. */
   readonly kv: KeyValue | null;
+  /** Where big drafts' text goes (IndexedDB in the app). */
+  readonly spill?: SpillStore | null;
   readonly prefs: () => EditorPrefs;
   /** The Host's name for messages ("Mac Studio"). */
   readonly hostLabel: (hostKey: string) => string;
+  /** The Host's home directory, for `~` in paths; null until it has said. */
+  readonly hostHome: (hostKey: string) => string | null;
   /** Whether a Host's Daemon can save (capability `files.write`). */
   readonly canWrite: (hostKey: string) => boolean;
 }
@@ -71,9 +74,10 @@ const SETTLE_MS = 300;
 export const AUTOSAVE_MS = 1000;
 
 interface OpenBuffer {
-  readonly key: string;
-  readonly file: EditorFile;
-  readonly target: FileTarget;
+  /** These three change when the file is renamed under its editor (`moveBuffer`). */
+  key: string;
+  file: EditorFile;
+  target: FileTarget;
   view: EditorView | null;
   indent: Indent | null;
   unwatch: (() => void) | null;
@@ -86,7 +90,7 @@ interface OpenBuffer {
   /** A line to reveal once loaded. */
   reveal: { readonly line: number; readonly column: number } | null;
   /** The first edit pins a preview tab. */
-  readonly onEdit: () => void;
+  readonly onEdit: (file: EditorFile) => void;
   readonly onDirectory: () => void;
   /** Set for an open the user asked for: it can't be read, so the caller drops the tab and says why. */
   readonly onUnreadable: ((reason: Unreadable) => void) | null;
@@ -98,13 +102,25 @@ const open = new Map<string, OpenBuffer>();
 
 let vim: Extension = [];
 
+let store: DraftStore | null = null;
+
 export const configureEditor = (next: EditorConfig) => {
   config = next;
+  store = createDraftStore(next.kv, next.spill ?? null);
+};
+
+const drafts = (): DraftStore => {
+  if (store === null) throw new Error("the editor isn't configured");
+
+  return store;
 };
 
 export const isConfigured = () => config !== null;
 
-export const hostLabelOf = (hostKey: string) => need().hostLabel(hostKey);
+export const hostOf = (hostKey: string) => ({
+  label: need().hostLabel(hostKey),
+  home: need().hostHome(hostKey),
+});
 
 const need = (): EditorConfig => {
   if (config === null) throw new Error("the editor isn't configured");
@@ -128,31 +144,49 @@ const changedBy = (file: EditorFile): string | null => {
 };
 
 const keepDraft = (buffer: OpenBuffer) => {
-  const kv = need().kv;
   const model = modelOf(buffer.key);
 
-  if (kv === null || model === null || buffer.view === null) return;
+  if (model === null || buffer.view === null) return;
+  const { hostKey, path } = buffer.file;
 
-  if (model.dirty) {
-    writeDraft(kv, {
-      hostKey: buffer.file.hostKey,
-      path: buffer.file.path,
-      text: textOf(buffer.view),
-      base: model.version,
-    });
-  } else {
-    dropDraft(kv, buffer.file.hostKey, buffer.file.path);
-  }
+  let kept = true;
+
+  if (model.dirty)
+    kept = drafts().write({ hostKey, path, text: textOf(buffer.view), base: model.version });
+  else drafts().drop(hostKey, path);
+
+  if (editorStore.getState().buffers[buffer.key]?.unkept === kept)
+    patchBuffer(buffer.key, { unkept: !kept });
 };
 
 const applyEffect = (buffer: OpenBuffer, effect: BufferEffect) => {
   const view = buffer.view;
 
   if (effect === null || view === null) return;
-  const spec = reloadSpec(view.state, effect.text);
+  const separator = lineSeparatorOf(effect.text);
 
-  if (spec === null) return;
-  view.dispatch(spec);
+  // The disk switched line endings (QCHECK): adopt them first, so the reload and later saves keep them.
+  if (separator !== view.state.lineBreak) {
+    view.dispatch({ effects: lineEndingCompartment.reconfigure(lineEnding(separator)) });
+  }
+
+  const plan = reloadPlan(view.state, effect.text);
+
+  if (plan === null) return;
+  const active = editorStore.getState().active?.view === view;
+  const top = view.state.doc.lineAt(view.lineBlockAtHeight(view.scrollDOM.scrollTop).from).number;
+  const agent = agentReload(buffer.file, plan.spans, active);
+
+  view.dispatch({ ...plan.spec, effects: [plan.spec.effects ?? [], ...agent.effects].flat() });
+
+  // After the change: these positions are in the reloaded doc.
+  if (agent.follow !== null) {
+    view.dispatch({ effects: EditorView.scrollIntoView(agent.follow, { y: "center" }) });
+  } else if (plan.rewrote) {
+    const line = view.state.doc.line(Math.min(top, view.state.doc.lines));
+
+    view.dispatch({ effects: EditorView.scrollIntoView(line.from, { y: "start" }) });
+  }
 
   if (buffer.flash !== null) clearTimeout(buffer.flash);
   buffer.flash = setTimeout(() => {
@@ -198,32 +232,27 @@ const onEdited = (buffer: OpenBuffer) => {
   const model = modelOf(buffer.key);
 
   if (model !== null && !model.dirty) setBufferModel(buffer.key, { ...model, dirty: true });
-  buffer.onEdit();
+  buffer.onEdit(buffer.file);
 
   if (buffer.settle !== null) clearTimeout(buffer.settle);
   buffer.settle = setTimeout(() => settleDirty(buffer), SETTLE_MS);
   scheduleAutosave(buffer);
 };
 
-const cursorOf = (state: EditorState): Cursor => {
-  const main = state.selection.main;
-  const line = state.doc.lineAt(main.head);
+let cursorTimer: ReturnType<typeof setTimeout> | null = null;
 
-  const lines = main.empty
-    ? 1
-    : state.doc.lineAt(main.to).number - state.doc.lineAt(main.from).number + 1;
-
-  return {
-    line: line.number,
-    column: main.head - line.from + 1,
-    selected: main.to - main.from,
-    lines,
-  };
-};
-
+/**
+ * The status bar and breadcrumbs follow the cursor after the keystroke has painted: one
+ * report per burst, so typing's own frame only carries the editor's work (QCHECK latency).
+ */
 const reportCursor = (update: ViewUpdate) => {
-  if (editorStore.getState().active?.view === update.view)
-    editorStore.setState({ cursor: cursorOf(update.state) });
+  if (editorStore.getState().active?.view !== update.view || cursorTimer !== null) return;
+  cursorTimer = setTimeout(() => {
+    cursorTimer = null;
+    const view = editorStore.getState().active?.view;
+
+    if (view !== undefined) editorStore.setState({ cursor: cursorOf(view.state) });
+  }, 0);
 };
 
 const updateListener = (buffer: OpenBuffer) =>
@@ -252,10 +281,7 @@ interface StartingPoint {
 }
 
 /** The text to show and the model, from the disk and any kept draft. */
-const startingPoint = (buffer: OpenBuffer, disk: DiskText): StartingPoint => {
-  const kv = need().kv;
-  const draft = kv === null ? null : readDraft(kv, buffer.file.hostKey, buffer.file.path);
-
+const startingPoint = (draft: Draft | null, disk: DiskText): StartingPoint => {
   if (draft === null || draft.text === disk.text) return { text: disk.text, model: loaded(disk) };
 
   // A draft made on an older disk: keep the edits, and show the disk's change as a conflict.
@@ -269,8 +295,8 @@ const startingPoint = (buffer: OpenBuffer, disk: DiskText): StartingPoint => {
   return { text: draft.text, model: { ...loaded(disk), dirty: true } };
 };
 
-const mount = (buffer: OpenBuffer, disk: DiskText, readOnly: boolean) => {
-  const { text, model } = startingPoint(buffer, disk);
+const mount = (buffer: OpenBuffer, disk: DiskText, readOnly: boolean, draft: Draft | null) => {
+  const { text, model } = startingPoint(draft, disk);
 
   const { state, indent } = createFileState({
     file: buffer.file,
@@ -341,7 +367,10 @@ const load = async (buffer: OpenBuffer) => {
       return;
     }
 
-    mount(buffer, result, editorStore.getState().buffers[buffer.key]?.readOnly ?? false);
+    const draft = await drafts().read(buffer.file.hostKey, buffer.file.path);
+
+    if (!open.has(buffer.key)) return;
+    mount(buffer, result, editorStore.getState().buffers[buffer.key]?.readOnly ?? false, draft);
     buffer.unwatch = files.watch(buffer.target, (version) => void onDiskChange(buffer, version));
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : String(cause);
@@ -363,7 +392,7 @@ export interface OpenInput {
   readonly root: string;
   readonly line: number | null;
   readonly column: number | null;
-  readonly onEdit: () => void;
+  readonly onEdit: (file: EditorFile) => void;
   /** The path was a folder: the caller drops its tab. */
   readonly onDirectory: () => void;
   readonly onUnreadable?: (reason: Unreadable) => void;
@@ -401,8 +430,7 @@ export const ensureBuffer = (input: OpenInput): OpenBuffer => {
     onUnreadable: input.onUnreadable ?? null,
   };
 
-  const kv = need().kv;
-  const draft = kv !== null && readDraft(kv, input.file.hostKey, input.file.path) !== null;
+  const draft = drafts().has(input.file.hostKey, input.file.path);
 
   open.set(key, buffer);
   editorStore.setState((s) => ({
@@ -415,6 +443,7 @@ export const ensureBuffer = (input: OpenInput): OpenBuffer => {
         readOnly: !need().canWrite(input.file.hostKey),
         draft,
         grammar: false,
+        unkept: false,
       },
     },
   }));
@@ -598,6 +627,17 @@ export const setReadOnly = (key: string, readOnly: boolean) => {
   });
 };
 
+// The agent stopped editing a file, or started a new Turn: last Turn's marks go.
+editorStore.subscribe((state, previous) => {
+  if (state.agentEdits === previous.agentEdits) return;
+
+  for (const { buffer, view } of views()) {
+    const stale = staleAgent(buffer.file, view.state);
+
+    if (stale !== null) view.dispatch({ effects: stale });
+  }
+});
+
 onRegistrationsChanged(() => {
   for (const { buffer, view } of views()) {
     view.dispatch({
@@ -605,6 +645,14 @@ onRegistrationsChanged(() => {
     });
   }
 });
+
+/** Files whose unsaved edit couldn't be kept on this Mac, for the quit prompt. */
+export const unkeptKeys = (): ReadonlySet<string> =>
+  new Set(
+    Object.entries(editorStore.getState().buffers)
+      .filter(([, b]) => b.unkept)
+      .map(([key]) => key)
+  );
 
 /** The files with unsaved edits, open or kept as drafts, for the quit prompt. */
 export const dirtyKeys = (): ReadonlyArray<string> =>
@@ -619,23 +667,65 @@ export const saveAll = async (): Promise<boolean> => {
   return results.every(Boolean);
 };
 
+/** An open editor follows its file to the new path: view, undo, cursor, dirty state and draft. */
+const rekey = (buffer: OpenBuffer, to: string) => {
+  const from = buffer.key;
+  const key = fileKey(buffer.file.hostKey, to);
+
+  buffer.key = key;
+  buffer.file = { ...buffer.file, path: to };
+  buffer.target = { ...buffer.target, path: to };
+  open.delete(from);
+  open.set(key, buffer);
+  buffer.view?.dispatch({
+    effects: [
+      fileCompartment.reconfigure(editorFile.of(buffer.file)),
+      registeredCompartment.reconfigure(registeredExtensions(buffer.file)),
+    ],
+  });
+  buffer.unwatch?.();
+  buffer.unwatch = need().files.watch(
+    buffer.target,
+    (version) => void onDiskChange(buffer, version)
+  );
+  editorStore.setState((s) => {
+    const { [from]: moved, ...buffers } = s.buffers;
+
+    const active =
+      s.active !== null && s.active.view === buffer.view ? { ...s.active, path: to } : s.active;
+
+    return { buffers: moved === undefined ? buffers : { ...buffers, [key]: moved }, active };
+  });
+};
+
+/** A renamed file keeps its editor, or (not loaded yet) its draft, at the new path. */
+export const moveBuffer = async (hostKey: string, from: string, to: string) => {
+  const buffer = open.get(fileKey(hostKey, from));
+  const draft = await drafts().read(hostKey, from);
+
+  if (buffer !== undefined) rekey(buffer, to);
+
+  if (buffer?.view != null) keepDraft(buffer);
+  // The renamed file holds the same bytes, so a kept draft still applies to its version.
+  else if (draft !== null)
+    drafts().write({ hostKey, path: to, text: draft.text, base: draft.base });
+  drafts().drop(hostKey, from);
+};
+
 /** Unsaved edits a close would lose: a dirty buffer, or a kept draft for a file not loaded yet. */
 export const hasUnsaved = (hostKey: string, path: string): boolean => {
   const key = fileKey(hostKey, path);
   const status = editorStore.getState().buffers[key]?.status;
 
   if (status?.kind === "ready") return status.model.dirty;
-  const kv = need().kv;
 
-  return kv !== null && readDraft(kv, hostKey, path) !== null;
+  return drafts().has(hostKey, path);
 };
 
 /** Closes a file's editor and forgets its unsaved edits ("Don't save"). */
 export const discardBuffer = (hostKey: string, path: string) => {
   releaseBuffer(fileKey(hostKey, path));
-  const kv = need().kv;
-
-  if (kv !== null) dropDraft(kv, hostKey, path);
+  drafts().drop(hostKey, path);
 };
 
 /** Resolves once the file has loaded (or couldn't be). */

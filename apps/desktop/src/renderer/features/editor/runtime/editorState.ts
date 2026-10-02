@@ -24,6 +24,7 @@ import {
 } from "../cm/extensions.ts";
 import { shellSafe } from "../cm/keys.ts";
 import { reloadHighlight } from "../cm/reload.ts";
+import { agentMarks } from "../cm/agent.ts";
 import { editorLook } from "../cm/theme.ts";
 import { detectIndent, type Indent, lineSeparatorOf } from "../model/indent.ts";
 
@@ -32,6 +33,15 @@ export const languageCompartment = new Compartment();
 export const vimCompartment = new Compartment();
 
 export const readOnlyCompartment = new Compartment();
+
+/** Which file the state holds; a rename reconfigures it. */
+export const fileCompartment = new Compartment();
+
+/** The file's own line endings; a reload that changes them reconfigures it, so saves keep the disk's. */
+export const lineEndingCompartment = new Compartment();
+
+export const lineEnding = (separator: "\r\n" | "\n"): Extension =>
+  separator === "\r\n" ? EditorState.lineSeparator.of("\r\n") : [];
 
 const mac = typeof navigator !== "undefined" && /Mac/.test(navigator.userAgent);
 
@@ -89,10 +99,12 @@ export const createFileState = ({ file, text, readOnly, vim, onUpdate }: StateIn
     extensions: [
       // Vim first, so its keys win over the editor's (codemirror-vim's README).
       vimCompartment.of(vim),
-      editorFile.of(file),
-      separator === "\r\n" ? EditorState.lineSeparator.of("\r\n") : [],
+      fileCompartment.of(editorFile.of(file)),
+      lineEndingCompartment.of(lineEnding(separator)),
       EditorState.tabSize.of(indent.width),
       indentUnit.of(indent.tabs ? "\t" : " ".repeat(indent.width)),
+      // The agent's bar first: it overlays the git bar's place on the lines it wrote.
+      agentMarks,
       // Before the line numbers, so a registered gutter (the git bars) sits left of them.
       registeredCompartment.of(registeredExtensions(file)),
       lineNumbers(),

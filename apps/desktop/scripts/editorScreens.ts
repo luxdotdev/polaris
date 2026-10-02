@@ -31,6 +31,7 @@ if (args.includes("--build")) {
 
 const ALL = [
   "e1",
+  "e3",
   "close",
   "conflict",
   "compare",

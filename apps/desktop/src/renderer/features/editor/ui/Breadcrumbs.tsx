@@ -8,9 +8,11 @@ import { Fragment, useMemo } from "react";
 import { symbolAt } from "../cm/symbol.ts";
 import { fileKey } from "../model/drafts.ts";
 import { crumbs } from "../model/paths.ts";
+import { useApp } from "../../../shell/hooks.ts";
 import { useEditor } from "../runtime/store.ts";
 
 export interface BreadcrumbsProps {
+  readonly hostKey: string;
   readonly path: string;
   readonly root: string;
 }
@@ -32,8 +34,9 @@ const useSymbol = (path: string) => {
   );
 };
 
-export const Breadcrumbs = ({ path, root }: BreadcrumbsProps) => {
-  const parts = crumbs(path, root);
+export const Breadcrumbs = ({ hostKey, path, root }: BreadcrumbsProps) => {
+  const home = useApp((s) => s.hosts.find((h) => h.key === hostKey)?.status.host?.homeDir ?? null);
+  const parts = crumbs(path, root, home);
   const symbol = useSymbol(path);
 
   return (

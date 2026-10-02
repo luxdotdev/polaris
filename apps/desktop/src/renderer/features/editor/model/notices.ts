@@ -14,12 +14,12 @@ export interface ToastText {
 export const unreadableToast = (
   path: string,
   root: string | null,
-  hostLabel: string,
+  host: { readonly label: string; readonly home: string | null },
   reason: Unreadable
 ): ToastText => ({
-  title: `Couldn't open ${root === null ? path : crumbs(path, root).join("/")}`,
+  title: `Couldn't open ${crumbs(path, root ?? "/", host.home).join("/")}`,
   message:
     reason.kind === "missing"
-      ? `Not found on ${hostLabel}.`
-      : `${reason.message.replace(/\.$/, "")} (on ${hostLabel}).`,
+      ? `Not found on ${host.label}.`
+      : `${reason.message.replace(/\.$/, "")} (on ${host.label}).`,
 });

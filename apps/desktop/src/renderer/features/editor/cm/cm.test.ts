@@ -2,7 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { defaultKeymap } from "@codemirror/commands";
 import { EditorState } from "@codemirror/state";
 import { cmChord, shellChords, shellSafe } from "./keys.ts";
-import { minimalChange, reloadSpec } from "./reload.ts";
+import { minimalChange, reloadPlan } from "./reload.ts";
+import { cursorOf } from "./cursor.ts";
+import { lineEnding, lineEndingCompartment } from "../runtime/editorState.ts";
+import { agentCleared, agentField, agentLines, agentWrote } from "./agent.ts";
 import { crumbs } from "../model/paths.ts";
 import { positionText } from "../ui/EditorStatus.tsx";
 
@@ -53,13 +56,94 @@ describe("reloading in place", () => {
 
   test("the cursor maps through the reload and it isn't undoable", () => {
     const state = EditorState.create({ doc: "one\ntwo\nthree", selection: { anchor: 9 } });
-    const spec = reloadSpec(state, "zero\none\ntwo\nthree");
+    const plan = reloadPlan(state, "zero\none\ntwo\nthree");
 
-    expect(spec).not.toBeNull();
-    const next = state.update(spec ?? {}).state;
+    expect(plan).not.toBeNull();
+    const next = state.update(plan?.spec ?? {}).state;
 
     expect(next.doc.toString()).toBe("zero\none\ntwo\nthree");
     expect(next.sliceDoc(next.selection.main.head, next.selection.main.head + 4)).toBe("hree");
+  });
+});
+
+describe("reloading keeps the cursor (QCHECK)", () => {
+  const doc = Array.from({ length: 40 }, (_, i) => `const line${i} = ${i};`).join("\n");
+
+  test("edits at both ends don't move a cursor in the middle", () => {
+    const head = EditorState.create({ doc }).doc.line(20).from + 6;
+    const state = EditorState.create({ doc, selection: { anchor: head } });
+    const after = `// header\n${doc.replace("line39 = 39", "line39 = 40")}`;
+    const next = state.update(reloadPlan(state, after)?.spec ?? {}).state;
+    const line = next.doc.lineAt(next.selection.main.head);
+
+    expect(line.number).toBe(21);
+    expect(next.selection.main.head - line.from).toBe(6);
+  });
+
+  test("a whole-file rewrite puts the cursor back on its line and column", () => {
+    const head = EditorState.create({ doc }).doc.line(20).from + 6;
+    const state = EditorState.create({ doc, selection: { anchor: head } });
+    const plan = reloadPlan(state, doc.replaceAll("const", "let  "));
+    const next = state.update(plan?.spec ?? {}).state;
+    const line = next.doc.lineAt(next.selection.main.head);
+
+    expect(line.number).toBe(20);
+    expect(next.selection.main.head - line.from).toBe(6);
+  });
+
+  test("CRLF files reload by their lines, not all at once", () => {
+    const crlf = "a\r\nb\r\nc";
+
+    const state = EditorState.create({
+      doc: crlf,
+      extensions: EditorState.lineSeparator.of("\r\n"),
+    });
+
+    const plan = reloadPlan(state, "a\r\nB\r\nc");
+
+    expect(plan?.spans).toEqual([{ from: 2, to: 3 }]);
+    expect(state.update(plan?.spec ?? {}).state.sliceDoc()).toBe("a\r\nB\r\nc");
+  });
+});
+
+describe("line endings follow the disk (QCHECK)", () => {
+  test("an LF buffer rewritten to CRLF on disk reloads without blank lines and saves CRLF", () => {
+    let state = EditorState.create({
+      doc: "one\ntwo\n",
+      extensions: lineEndingCompartment.of(lineEnding("\n")),
+    });
+
+    const disk = "one\r\ntwo\r\n";
+
+    state = state.update({ effects: lineEndingCompartment.reconfigure(lineEnding("\r\n")) }).state;
+    const plan = reloadPlan(state, disk);
+
+    state = plan === null ? state : state.update(plan.spec).state;
+    expect(state.doc.lines).toBe(3);
+    expect(state.sliceDoc()).toBe(disk);
+  });
+});
+
+describe("an agent's marks (E3)", () => {
+  const doc = "a\nb\nc\nd\ne";
+
+  const write = (from: number, to: number, turnId = "t1") =>
+    agentWrote.of({ turnId, harness: "claude", name: "Claude Code", from, to });
+
+  test("its writes mark their lines, map through edits, and reset on a new turn", () => {
+    let state = EditorState.create({ doc, extensions: agentField });
+
+    state = state.update({ effects: write(2, 3) }).state;
+    state = state.update({ effects: write(6, 7) }).state;
+    expect([...agentLines(state)].sort((a, b) => a - b)).toEqual([2, 4]);
+
+    state = state.update({ changes: { from: 0, insert: "x\n" } }).state;
+    expect([...agentLines(state)].sort((a, b) => a - b)).toEqual([3, 5]);
+    expect(state.field(agentField)?.caret).toBe(9);
+
+    state = state.update({ effects: write(0, 1, "t2") }).state;
+    expect([...agentLines(state)]).toEqual([1]);
+    expect(state.update({ effects: agentCleared.of(null) }).state.field(agentField)).toBeNull();
   });
 });
 
@@ -70,9 +154,27 @@ describe("the chrome's words", () => {
   });
 
   test("the position, or the selection (Paper E2a)", () => {
-    expect(positionText({ line: 28, column: 14, selected: 0, lines: 1 })).toBe("Ln 28, Col 14");
-    expect(positionText({ line: 19, column: 3, selected: 240, lines: 10 })).toBe(
+    expect(positionText({ line: 28, column: 14, selected: 0, firstLine: 28, lastLine: 28 })).toBe(
+      "Ln 28, Col 14"
+    );
+    expect(positionText({ line: 19, column: 3, selected: 240, firstLine: 10, lastLine: 19 })).toBe(
       "Ln 10–19 · 10 lines selected"
     );
+  });
+
+  test("a selection ending at column 1 stops on the line before (QDESIGN #5)", () => {
+    const doc = Array.from({ length: 30 }, (_, i) => `line ${i + 1}`).join("\n");
+    const base = EditorState.create({ doc });
+    const from = base.doc.line(10).from;
+    const to = base.doc.line(20).from;
+    const state = EditorState.create({ doc, selection: { anchor: from, head: to } });
+
+    expect(cursorOf(state)).toMatchObject({ firstLine: 10, lastLine: 19 });
+    expect(positionText(cursorOf(state))).toBe("Ln 10–19 · 10 lines selected");
+    expect(
+      cursorOf(EditorState.create({ doc, selection: { anchor: from, head: to + 2 } }))
+    ).toMatchObject({
+      lastLine: 20,
+    });
   });
 });

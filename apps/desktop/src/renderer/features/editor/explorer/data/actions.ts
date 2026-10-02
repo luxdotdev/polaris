@@ -88,7 +88,7 @@ const rename = async (place: Place, path: string, name: string) => {
   }
 
   // Open tabs of the file, or of anything under a renamed folder, follow it.
-  renameFile(place.hostKey, path, destination);
+  void renameFile(place.hostKey, path, destination);
   patchExplorer(place.key, () => ({ focused: destination }));
   await Promise.all([relist(place, dirname(path)), relist(place, dirname(destination))]);
 };

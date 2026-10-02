@@ -5,7 +5,10 @@
  */
 import { LANGUAGE_NAMES } from "../model/language.ts";
 import { modeText } from "../model/vim.ts";
-import { fileKey } from "../model/drafts.ts";
+import { harnessHue } from "@polaris/ui";
+import { agentCaretLine } from "../cm/agent.ts";
+import { followingText } from "../model/agent.ts";
+import { fileKey, workspaceKey } from "../model/drafts.ts";
 import { type Cursor, useEditor } from "../runtime/store.ts";
 
 export interface EditorStatusProps {
@@ -17,11 +20,11 @@ export interface EditorStatusProps {
 export const positionText = (cursor: Cursor): string => {
   if (cursor.selected === 0) return `Ln ${cursor.line}, Col ${cursor.column}`;
 
-  if (cursor.lines === 1)
+  if (cursor.firstLine === cursor.lastLine)
     return `Ln ${cursor.line}, Col ${cursor.column} · ${cursor.selected} selected`;
-  const first = cursor.line - cursor.lines + 1;
+  const lines = cursor.lastLine - cursor.firstLine + 1;
 
-  return `Ln ${Math.min(first, cursor.line)}–${Math.max(first, cursor.line)} · ${cursor.lines} lines selected`;
+  return `Ln ${cursor.firstLine}–${cursor.lastLine} · ${lines} lines selected`;
 };
 
 export const EditorStatus = ({ hostKey, workspaceId }: EditorStatusProps) => {
@@ -34,6 +37,15 @@ export const EditorStatus = ({ hostKey, workspaceId }: EditorStatusProps) => {
   const cursor = useEditor((s) => s.cursor);
   const indent = useEditor((s) => s.indent);
   const vimMode = useEditor((s) => s.vimMode);
+
+  const following = useEditor((s) => {
+    const edit =
+      active === null
+        ? undefined
+        : s.agentEdits[workspaceKey(hostKey, workspaceId)]?.get(active.path);
+
+    return edit === undefined || !s.follow ? null : harnessHue(edit.harness).name;
+  });
 
   const language = useEditor((s) =>
     active === null ? null : (s.buffers[fileKey(hostKey, active.path)]?.language ?? null)
@@ -51,7 +63,13 @@ export const EditorStatus = ({ hostKey, workspaceId }: EditorStatusProps) => {
           {modeText(vimMode)}
         </span>
       )}
-      {cursor === null ? null : <span>{positionText(cursor)}</span>}
+      {following !== null && active !== null ? (
+        <span data-testid="following">
+          {followingText(following, agentCaretLine(active.view.state))}
+        </span>
+      ) : cursor === null ? null : (
+        <span>{positionText(cursor)}</span>
+      )}
       <span>{indent}</span>
       {language === null ? null : <span>{LANGUAGE_NAMES[language]}</span>}
     </div>

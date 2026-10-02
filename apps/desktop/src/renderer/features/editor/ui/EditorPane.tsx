@@ -7,7 +7,7 @@ import { EmptyState, PixelFolderIcon } from "@polaris/ui";
 import { useEffect, useState } from "react";
 import { useApp, useCommands, useConnection, useShellActions } from "../../../shell/hooks.ts";
 import { bannerFor, type BannerAction } from "../model/banner.ts";
-import { fileKey } from "../model/drafts.ts";
+import { fileKey, workspaceKey } from "../model/drafts.ts";
 import { viewOf } from "../runtime/buffers.ts";
 import {
   activateTab,
@@ -22,7 +22,8 @@ import {
 } from "../runtime/actions.ts";
 import { ensureEditor } from "../runtime/app.ts";
 import { useBuffer, useEditorTabs } from "../runtime/hooks.ts";
-import type { BufferView } from "../runtime/store.ts";
+import { type BufferView, useEditor } from "../runtime/store.ts";
+import { AgentStrip } from "./AgentStrip.tsx";
 import { Banner } from "./Banner.tsx";
 import { Breadcrumbs } from "./Breadcrumbs.tsx";
 import { CloseDialog } from "./CloseDialog.tsx";
@@ -70,6 +71,10 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
   const [comparing, setComparing] = useState(false);
   const theirs = theirsOf(buffer);
 
+  const agent = useEditor((s) =>
+    active === null ? null : (s.agentEdits[workspaceKey(hostKey, workspaceId)]?.get(active) ?? null)
+  );
+
   useEffect(() => {
     setWorkspaceRoot(hostKey, workspaceId, root);
   }, [hostKey, workspaceId, root]);
@@ -95,6 +100,7 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
       close: () => closeTab(hostKey, workspaceId, active),
       retry: () => void saveFile(hostKey, active),
       "update-daemon": () => openSettings("hosts"),
+      save: () => void saveFile(hostKey, active),
     };
 
     run[action]();
@@ -133,7 +139,11 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
         onPin={(path) => pinFile(hostKey, workspaceId, path)}
         onClose={(path) => closeTab(hostKey, workspaceId, path)}
       />
-      <Breadcrumbs path={active} root={root} />
+      {agent === null ? (
+        <Breadcrumbs hostKey={hostKey} path={active} root={root} />
+      ) : (
+        <AgentStrip hostKey={hostKey} edit={agent} />
+      )}
       {banner === null ? null : (
         <Banner banner={banner} comparing={comparing} onAction={onAction} />
       )}

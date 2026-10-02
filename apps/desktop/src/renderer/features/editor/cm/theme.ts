@@ -11,6 +11,10 @@ import { tags as t } from "@lezer/highlight";
 
 const v = (token: string) => `var(--color-${token})`;
 
+const CLOSE_MASK = `url("data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12"><path d="M3 3l6 6M9 3l-6 6" stroke="black" stroke-width="1.2" stroke-linecap="round"/></svg>'
+)}")`;
+
 /** Matches are neutral: a find highlight must never read as a signal (rule/colour-means-something). */
 const MATCH = `color-mix(in srgb, ${v("text-strong")} 14%, transparent)`;
 
@@ -36,6 +40,16 @@ const editorTheme = EditorView.theme({
   ".cm-content": { padding: "8px 0 40vh", caretColor: v("text-strong") },
   ".cm-line": { padding: "0 16px 0 0" },
   ".cm-cursor, .cm-dropCursor": { borderLeft: `2px solid ${v("text-strong")}` },
+  // Vim's block cursor ships pink, which reads as a signal (rule/colour-means-something): neutral here.
+  ".cm-fat-cursor": {
+    background: `color-mix(in srgb, ${v("text-strong")} 70%, transparent) !important`,
+    color: `${v("bg")} !important`,
+  },
+  "&:not(.cm-focused) .cm-fat-cursor": {
+    background: "none !important",
+    outline: `1px solid color-mix(in srgb, ${v("text-strong")} 70%, transparent) !important`,
+    color: "transparent !important",
+  },
   "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection": {
     backgroundColor: `${v("diff-selection")} !important`,
   },
@@ -131,9 +145,19 @@ const editorTheme = EditorView.theme({
     border: "none",
     borderRadius: "var(--radius-control)",
     backgroundColor: "transparent",
-    color: v("text-subtle"),
-    fontSize: "16px",
+    color: "transparent",
+    fontSize: "0",
     cursor: "pointer",
+    position: "relative",
+  },
+  // The tabs' 12px close mark, not the panel's "×" glyph.
+  ".cm-panel.cm-search [name=close]::before": {
+    content: '""',
+    position: "absolute",
+    inset: "6px",
+    backgroundColor: v("text-subtle"),
+    maskImage: CLOSE_MASK,
+    maskSize: "12px 12px",
   },
   ".cm-panel.cm-search [name=close]:hover": { backgroundColor: v("fill-hover") },
   ".cm-vim-panel": {
