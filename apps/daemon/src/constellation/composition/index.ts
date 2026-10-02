@@ -35,6 +35,7 @@ import {
   withWorktreePreparation,
 } from "../transfers/index.ts";
 import { HarnessRegistry } from "../../services.ts";
+import { WorktreeSetupService } from "../setup/index.ts";
 import { prepareSession } from "./prepare.ts";
 import { startAttempt, resumeAttempt, workerFailed } from "./workers.ts";
 import { ConstellationHarness } from "./attachments.ts";
@@ -54,6 +55,7 @@ const localRuntime = Layer.unwrap(
     const store = yield* EventStore;
 
     const context = yield* Effect.context<
+      | WorktreeSetupService
       | EventStore
       | import("../../services.ts").HarnessRegistry
       | import("../worktrees.ts").ConstellationWorktrees
@@ -105,12 +107,14 @@ const remoteWorkers = Layer.unwrap(
     const registry = yield* HarnessRegistry;
     const owner = yield* ConstellationOwner;
     const store = yield* EventStore;
+    const setup = yield* WorktreeSetupService;
 
     return remoteWorkingAttemptsLayer({
       prepare: (request, worktree) =>
         prepareSession(
           {
             key: request.id,
+            worktreeSetup: request.worktreeSetup,
             graph: request.graph,
             task: request.task,
             worktree,
@@ -124,6 +128,7 @@ const remoteWorkers = Layer.unwrap(
         ).pipe(
           Effect.provideService(EventStore, store),
           Effect.provideService(HarnessRegistry, registry),
+          Effect.provideService(WorktreeSetupService, setup),
           Effect.mapError(
             (error) =>
               new ConstellationTransferError({
@@ -233,7 +238,8 @@ export const constellationServices = Layer.effectDiscard(
 ).pipe(
   Layer.provideMerge(delivery),
   Layer.provideMerge(engineDeliveryLayer),
-  Layer.provideMerge(attachmentProvider)
+  Layer.provideMerge(attachmentProvider),
+  Layer.provideMerge(WorktreeSetupService.layer)
 );
 
 /** Built once by the transport first-use loader using its existing Engine and base Context. */

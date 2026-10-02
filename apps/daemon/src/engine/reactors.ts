@@ -208,6 +208,7 @@ const make = Effect.gen(function* () {
       ForkSession: (command) => worktrees.createForFork(command, committed.result.model),
       UnarchiveSession: (command) => worktrees.restore(command.sessionId),
       RemoveWorkspace: (command) => removeWorkspace(command, committed),
+      SetWorktreeSetup: () => Effect.void,
       SetWorkspaceHidden: () => Effect.void,
       RenameSession: () => Effect.void,
       SendFeedback: (command) => runStartedTurn(command.sessionId, committed.result.envelopes),

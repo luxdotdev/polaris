@@ -136,6 +136,7 @@ export const sessionOf: (event: DomainEvent) => SessionId | null =
     SessionCursorUpdated: bySessionId,
     SessionPermissionModeChanged: bySessionId,
     SessionModelChanged: bySessionId,
+    SessionSetupChanged: bySessionId,
     SessionContextUsed: bySessionId,
     TurnStarted: byTurn,
     TurnItemCompleted: bySessionId,
@@ -224,6 +225,7 @@ export const isHostStreamEvent = (event: DomainEvent): boolean =>
 
 /** Every capability `eventCapability` can ask for. */
 export const gatingCapabilities: ReadonlyArray<Capability> = [
+  "workspace.setup",
   "session.accept",
   "review.checkouts",
   "constellation",
@@ -277,6 +279,7 @@ export const eventCapability = (event: DomainEvent): Capability | null =>
       ResourceLeaseQueued: needs("host.resources"),
       ResourceLeased: needs("host.resources"),
       ResourceReleased: needs("host.resources"),
+      SessionSetupChanged: needs("workspace.setup"),
       TurnsAccepted: needs("session.accept"),
       TurnsReverted: needs("session.accept"),
       SessionPullRequestLinked: needs("session.accept"),
@@ -336,6 +339,7 @@ export const patchSession = (session: AgentSession, patch: SessionPatch): AgentS
     harnessCursor: session.harnessCursor,
     turnCount: session.turnCount,
     contextUsage: session.contextUsage,
+    worktreeSetup: session.worktreeSetup,
     lastError: session.lastError,
     acceptedThroughIndex: session.acceptedThroughIndex,
     pullRequest: session.pullRequest,
@@ -612,6 +616,8 @@ const apply: (event: DomainEvent) => Reducer = DomainEvent.match<Reducer>({
     updateSession(fold, event.sessionId, () => ({
       session: { model: event.model, effort: event.effort },
     })),
+  SessionSetupChanged: (event) => (fold) =>
+    updateSession(fold, event.sessionId, () => ({ session: { worktreeSetup: event.setup } })),
   SessionContextUsed: (event) => (fold) =>
     updateSession(fold, event.sessionId, () => ({ session: { contextUsage: event.usage } })),
   TurnStarted: recordTurn,

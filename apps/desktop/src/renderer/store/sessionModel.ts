@@ -230,6 +230,10 @@ const fold = (event: DomainEvent): Fold =>
         ({ permissionMode }): Fold =>
         (m) =>
           patchSession(m, { permissionMode }),
+      SessionSetupChanged:
+        ({ setup }): Fold =>
+        (model) =>
+          patchSession(model, { worktreeSetup: setup }),
       SessionContextUsed:
         ({ usage }): Fold =>
         (m) =>

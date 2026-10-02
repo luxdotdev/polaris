@@ -13,7 +13,14 @@ activated on the first Resource RPC or working-slot acquisition. Existing proces
 leases force startup activation so process monitoring and recovery still run.
 
 Preparation uses W's worktree/bundle boundary and the pure Session machine to
-allocate a Session without a Turn. The final runtime wraps deferred handover,
+allocate a Session without a Turn. Non-Gate preparation then runs the Workspace's
+worktree setup on the worker Host before returning the Attempt: auto-detected
+lockfile command, disabled, or a custom shell command. It persists a separate
+setup card on the Session, so failure is visible even before a first Turn.
+A failed setup refuses dispatch and uses the Session machine's failure signal.
+Successful command-ID retries reuse the completed setup receipt; a failure may
+be retried. No worker slot is acquired and Attempt working time has not begun
+during setup. Remote placement carries the owning Workspace's setting. The final runtime wraps deferred handover,
 local working scopes and real Git Claim/Accept checks. Remote mirrors use their
 own scoped worker hooks. Both start callbacks run after resource acquisition;
 Existing Sessions wait for machine readiness rather than bypassing approvals

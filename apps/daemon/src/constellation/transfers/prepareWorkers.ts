@@ -6,6 +6,7 @@ import {
   type ConstellationRejected,
   type PreparedWorktree,
   type TaskDefinition,
+  type WorktreeSetup,
   WorkerPlacement,
   RemotePlacementRequest,
   WorktreeRequest,
@@ -21,6 +22,7 @@ import type { ConstellationRecord } from "../../store/constellation.ts";
 
 export interface WorkerPreparation {
   readonly key: string;
+  readonly worktreeSetup?: WorktreeSetup | null;
   readonly graph: Constellation;
   readonly task: TaskDefinition;
   readonly placement: WorkerPlacement;
@@ -55,6 +57,7 @@ const requests = (command: ConstellationCommand, record: ConstellationRecord) =>
 
 interface PlacementInput {
   readonly key: string;
+  readonly worktreeSetup?: WorktreeSetup | null;
   readonly graph: Constellation;
   readonly task: TaskDefinition;
   readonly placement: WorkerPlacement;
@@ -106,6 +109,7 @@ const prepareRemote = Effect.fnUntraced(function* (
         graph: input.graph,
         task: input.task,
         baseHead,
+        worktreeSetup: input.worktreeSetup ?? null,
         worker: WorkerPlacement.cases.New.make({
           ...worker,
           worktree: worker.worktree ?? (keep ? input.previous.worktree : null),
@@ -216,6 +220,7 @@ export const prepareWorkerAttempts = Effect.fnUntraced(function* <R>(
       yield* prepareOne(
         {
           key: `${commandId}:${task.id}`,
+          worktreeSetup: model.workspaces.get(graph.workspaceId)?.worktreeSetup ?? null,
           graph,
           task,
           leadPath,
