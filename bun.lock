@@ -119,6 +119,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@polaris/ui": "workspace:*",
+        "effect": "4.0.0-rc.118",
         "next": "16.3.8",
         "react": "19.3.0",
         "react-dom": "19.3.0",

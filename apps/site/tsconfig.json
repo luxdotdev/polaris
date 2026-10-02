@@ -13,6 +13,7 @@
     "types.d.ts",
     "app",
     "components",
+    "scripts",
     "next.config.ts",
     ".next/types/**/*.ts"
   ],
