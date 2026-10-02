@@ -279,6 +279,12 @@ export const defaultHandlers = (options: {
 
     "files.listDir": ({ path }) => Effect.fail(fileError(path, "files")),
     "files.stat": ({ path }) => Effect.fail(fileError(path, "files")),
+    "files.readVersioned": ({ path }) => Effect.fail(fileError(path, "versioned files")),
+    "files.write": ({ path }) => Effect.fail(fileError(path, "file writing")),
+    "files.create": ({ path }) => Effect.fail(fileError(path, "file management")),
+    "files.rename": ({ path }) => Effect.fail(fileError(path, "file management")),
+    "files.delete": ({ path }) => Effect.fail(fileError(path, "file management")),
+    "files.watchFile": ({ path }) => Stream.fail(fileError(path, "file watching")),
     "files.read": ({ path }) => Effect.fail(fileError(path, "files")),
     "files.searchPaths": ({ root }) => Effect.fail(fileError(root, "file search")),
     "files.grep": ({ root }) => Effect.fail(fileError(root, "file search")),

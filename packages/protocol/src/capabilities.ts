@@ -41,6 +41,11 @@ export const Capability = Schema.Literals([
    */
   "session.subagents",
   "files.read",
+  "files.versioned",
+  "files.write",
+  "files.manage",
+  "files.trash",
+  "files.watch-file",
   "files.search",
   "files.watch",
   "git.diff",
