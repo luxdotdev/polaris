@@ -35,6 +35,14 @@ let policy = LanguagePreviewPolicy.make({
 
 const calls: Array<string> = [];
 
+const mediaPaths: Array<string> = [];
+
+const mediaControl = { hold: false };
+
+const held: Array<() => void> = [];
+
+const mediaStats = { inFlight: 0, peak: 0 };
+
 const revoked: Array<string> = [];
 
 const created: Array<string> = [];
@@ -69,7 +77,23 @@ const api: LanguageApi = {
         input
       ).policy;
       output = policy;
-    } else output = { mimeType: "image/png", bytes: atob(png).length, base64: png };
+    } else {
+      if (method === "languages.preview.media") {
+        mediaPaths.push(
+          Schema.decodeUnknownSync(Schema.Struct({ relativePath: Schema.String }))(input)
+            .relativePath
+        );
+        mediaStats.inFlight++;
+        mediaStats.peak = Math.max(mediaStats.peak, mediaStats.inFlight);
+
+        if (mediaControl.hold) await new Promise<void>((resolve) => held.push(resolve));
+        await Promise.resolve();
+        mediaStats.inFlight--;
+      }
+
+      output = { mimeType: "image/png", bytes: atob(png).length, base64: png };
+    }
+
     const value = Schema.decodeUnknownSync(LanguageRequestOutputs[method])(output);
 
     return { ok: true, value };
@@ -160,7 +184,13 @@ const Fixture = () => {
   );
 };
 
-Object.assign(window, { fixture: { calls, created, revoked } });
+Object.assign(window, {
+  fixture: { calls, created, revoked, mediaPaths, mediaStats },
+  mediaControl,
+  flushMedia: () => {
+    for (const resolve of held.splice(0)) resolve();
+  },
+});
 
 const root = window.document.getElementById("root");
 

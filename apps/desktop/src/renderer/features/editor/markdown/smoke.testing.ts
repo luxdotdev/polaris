@@ -49,6 +49,8 @@ const Snapshot = Schema.Struct({
   calls: Schema.Array(Schema.String),
   created: Schema.Array(Schema.String),
   revoked: Schema.Array(Schema.String),
+  mediaPaths: Schema.Array(Schema.String),
+  mediaStats: Schema.Struct({ inFlight: Schema.Number, peak: Schema.Number }),
 });
 
 const errors: Array<string> = [];
@@ -135,6 +137,59 @@ try {
       );
     }
   }
+
+  const images = (prefix: string) =>
+    `# Concurrent images\n\n${Array.from({ length: 8 }, (_, index) => `![${prefix} ${index}](${prefix}-${index}.png)`).join("\n\n")}`;
+
+  const sourceInput = page.getByRole("textbox", { name: "Current unsaved source" });
+  await sourceInput.fill(images("small"));
+  await page.waitForFunction("document.querySelectorAll('main img').length===8");
+  await page.locator("main img").evaluateAll(async (nodes) => {
+    await Promise.all(
+      nodes.map(async (node) => {
+        if (node instanceof HTMLImageElement) await node.decode();
+      })
+    );
+  });
+  assert.equal((await snapshot()).mediaPaths.filter((path) => path.startsWith("small-")).length, 8);
+  assert.equal((await snapshot()).mediaStats.peak, 3);
+
+  await page.evaluate("window.mediaControl.hold=true");
+  await sourceInput.fill(images("old-source"));
+  await page.waitForFunction(
+    "window.fixture.mediaPaths.filter(x=>x.startsWith('old-source-')).length===3"
+  );
+  const beforeReplacement = (await snapshot()).created.length;
+  await sourceInput.fill("# Changed source\n\n![Replacement](replacement.png)");
+  await page.getByRole("heading", { name: "Changed source" }).waitFor();
+  await page.evaluate("window.mediaControl.hold=false;window.flushMedia()");
+  await page.locator('img[alt="Replacement"]').waitFor();
+  await page.locator('img[alt="Replacement"]').evaluate(async (node) => {
+    if (node instanceof HTMLImageElement) await node.decode();
+  });
+  assert.equal(
+    (await snapshot()).mediaPaths.filter((path) => path.startsWith("old-source-")).length,
+    3
+  );
+  assert.equal((await snapshot()).created.length - beforeReplacement, 1);
+
+  await page.evaluate("window.mediaControl.hold=true");
+  await sourceInput.fill(images("closed"));
+  await page.waitForFunction(
+    "window.fixture.mediaPaths.filter(x=>x.startsWith('closed-')).length===3"
+  );
+  const beforeClose = (await snapshot()).created.length;
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await page.evaluate("window.mediaControl.hold=false;window.flushMedia()");
+  await page.waitForFunction(
+    "window.fixture.mediaStats.inFlight===0 && window.fixture.created.length===window.fixture.revoked.length"
+  );
+  assert.equal(
+    (await snapshot()).mediaPaths.filter((path) => path.startsWith("closed-")).length,
+    3
+  );
+  assert.equal((await snapshot()).created.length, beforeClose);
+  await page.getByRole("button", { name: "Preview", exact: true }).click();
 
   await page
     .getByRole("textbox", { name: "Current unsaved source" })

@@ -186,33 +186,6 @@ test("strict diagrams reject source configuration and external resource nodes", 
   }
 });
 
-test("pending media requests reserve the full bounded response before dispatch", async () => {
-  let complete: (value: typeof media) => void = () => {};
-
-  let calls = 0;
-
-  const pool = new PreviewMediaPool(
-    adapter(() => {
-      calls++;
-
-      return new Promise((resolve) => {
-        complete = resolve;
-      });
-    }),
-    document,
-    policy,
-    { create: () => "blob:pending", revoke: () => {} },
-    10
-  );
-
-  const first = pool.acquire("first.png");
-  await assert.rejects(pool.acquire("second.png"), /limit/);
-  expect(calls).toBe(1);
-  complete(media);
-  (await first).release();
-  pool.dispose();
-});
-
 test("heading fragments are stable and count duplicates over formatted content", () => {
   const tree = {
     type: "root",

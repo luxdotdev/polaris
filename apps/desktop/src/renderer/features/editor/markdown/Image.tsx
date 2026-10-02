@@ -22,9 +22,10 @@ export const PreviewImage = ({
 
     if (pool === null) return;
     let stopped = false;
+    const controller = new AbortController();
     let release: (() => void) | undefined;
     void pool
-      .acquire(source)
+      .acquire(source, controller.signal)
       .then((lease) => {
         if (stopped) {
           lease.release();
@@ -41,6 +42,7 @@ export const PreviewImage = ({
 
     return () => {
       stopped = true;
+      controller.abort();
       release?.();
     };
   }, [pool, source]);
