@@ -9,7 +9,7 @@
 import { Schema } from "effect";
 import { ResourceRpcs } from "./resources.ts";
 import {
-  ConstellationRpcs,
+  ConstellationHostRpcs,
   ConstellationSummary,
   HostResource,
   ResourceLease,
@@ -833,5 +833,5 @@ export class DaemonRpcs extends RpcGroup.make(
   TerminalResize,
   TerminalClose
 )
-  .merge(ConstellationRpcs)
+  .merge(ConstellationHostRpcs)
   .merge(ResourceRpcs) {}

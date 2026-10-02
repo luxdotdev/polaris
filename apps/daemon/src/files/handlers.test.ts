@@ -24,6 +24,26 @@ afterEach(() => {
 });
 
 const WorkspaceIoRpcs = DaemonRpcs.omit(
+  "constellation.placements.watch",
+  "constellation.placement.resolve",
+  "constellation.repository.prepare",
+  "constellation.worker.prepare",
+  "constellation.delivery.watch",
+  "constellation.delivery.apply",
+  "constellation.delivery.ack",
+  "constellation.base.export",
+  "constellation.base.import",
+  "constellation.worktree.prepare",
+  "constellation.bundle.export",
+  "constellation.bundle.import",
+  "constellation.assignment.set",
+  "constellation.assignment.list",
+  "constellation.outbox.watch",
+  "constellation.outbox.apply",
+  "constellation.outbox.ack",
+  "constellation.claim.export",
+  "constellation.origin.import",
+
   "host.resources.get",
   "host.resources.declare",
   "host.resources.remove",
