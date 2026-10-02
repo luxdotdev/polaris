@@ -20,8 +20,21 @@ const eventually = async (predicate: () => Promise<boolean>) => {
 test("CLI child leases survive wrapper SIGKILL and Daemon restart, cancel dead waiters and release killed children", async () => {
   const home = mkdtempSync("/tmp/polaris-lease-cli-");
 
-  const env = {
+  // Poison the parent context with a valid handoff referencing an unavailable descriptor.
+  const inheritedEnv = {
     ...process.env,
+    POLARIS_HANDOFF: JSON.stringify({
+      listenerFd: 1_000_000,
+      fds: {},
+      children: {},
+      fromVersion: "fixture",
+      requestId: null,
+    }),
+  };
+
+  const env = {
+    ...inheritedEnv,
+    POLARIS_HANDOFF: undefined,
     POLARIS_HOME: home,
     POLARIS_HOST_SOCKET: join(home, "daemon.sock"),
     POLARIS_BINARY: undefined,
