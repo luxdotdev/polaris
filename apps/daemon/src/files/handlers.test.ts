@@ -24,6 +24,7 @@ afterEach(() => {
 });
 
 const WorkspaceIoRpcs = DaemonRpcs.omit(
+  "inline.propose",
   "constellation.placements.watch",
   "constellation.placement.resolve",
   "constellation.repository.prepare",

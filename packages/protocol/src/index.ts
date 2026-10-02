@@ -20,6 +20,8 @@ export * from "./harnesses.ts";
 
 export * from "./ids.ts";
 
+export * from "./inline.ts";
+
 export * from "./models.ts";
 
 export * from "./review.ts";
