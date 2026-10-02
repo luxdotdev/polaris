@@ -4,18 +4,16 @@
  * outside git), a subsequence fuzzy scorer, `git grep`, and `fs.watch`.
  * Slower and not typo-tolerant, but dependency-free.
  */
-import { existsSync, type FSWatcher, watch as fsWatch } from "node:fs";
+import { existsSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { availableParallelism } from "node:os";
 import { join, relative } from "node:path";
 import { findRepoRoot, runGit } from "../../git/git.ts";
 import type { FileChange, GrepHit, GrepQuery, PathHit, SearchBackend } from "./types.ts";
+import { WALK_SKIP, watchRoot } from "./watch.ts";
 
 /** Cap on files considered by the walk outside git repositories. */
 const WALK_MAX_FILES = 200_000;
-
-/** Directories the walk skips outside git repositories (inside, .gitignore decides). */
-const WALK_SKIP = new Set([".git", "node_modules", ".hg", ".svn"]);
 
 /** How long a file list is reused before it is rebuilt. */
 const LIST_TTL_MS = 5_000;
@@ -292,12 +290,7 @@ export const openFallbackBackend = (root: string): SearchBackend => {
         if (batch.length > 0) onBatch(batch);
       };
 
-      const watcher: FSWatcher = fsWatch(root, { recursive: true }, (event, name) => {
-        if (name === null) return;
-        const rel = name.toString();
-
-        if (rel === ".git" || rel.startsWith(".git/") || rel.includes("/.git/")) return;
-        const path = join(root, rel);
+      const close = await watchRoot(root, (event, path) => {
         // fs.watch can't tell created from deleted; look at the file system.
         const kind = event === "change" ? "modified" : existsSync(path) ? "created" : "deleted";
         const previous = pending.get(path);
@@ -309,12 +302,9 @@ export const openFallbackBackend = (root: string): SearchBackend => {
         timer ??= setTimeout(flush, WATCH_BATCH_MS);
       });
 
-      // A Workspace at ~ holds sockets; Bun's watcher reports opening one (ENXIO) as an error event.
-      watcher.on("error", () => undefined);
-
       const stop = () => {
         clearTimeout(timer);
-        watcher.close();
+        close();
         watchers.delete(stop);
       };
 
