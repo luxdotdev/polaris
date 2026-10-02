@@ -1,0 +1,72 @@
+Disposable fixture: /private/tmp/polaris-lsp-feasibility.zuSKoA
+{"pnpmConfig":{"userconfig":"/private/tmp/polaris-lsp-feasibility.zuSKoA/config/user.npmrc","globalconfig":"/private/tmp/polaris-lsp-feasibility.zuSKoA/config/global.npmrc","configDir":"/private/tmp/polaris-lsp-feasibility.zuSKoA/config/pnpm","cacheDir":"/private/tmp/polaris-lsp-feasibility.zuSKoA/cache","stateDir":"/private/tmp/polaris-lsp-feasibility.zuSKoA/state","storeDir":"/private/tmp/polaris-lsp-feasibility.zuSKoA/store"},"credentialSettings":"none","inheritedEnvironment":"allowlist only"}
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +469
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 469, reused 0, downloaded 65, added 65
+Progress: resolved 469, reused 0, downloaded 197, added 196
+Progress: resolved 469, reused 0, downloaded 430, added 426
+Progress: resolved 469, reused 0, downloaded 467, added 465
+Progress: resolved 469, reused 0, downloaded 468, added 467
+Progress: resolved 469, reused 0, downloaded 468, added 468
+Progress: resolved 469, reused 0, downloaded 469, added 468
+Progress: resolved 469, reused 0, downloaded 469, added 469, done
+
+dependencies:
++ @codemirror/lsp-client 6.3.0
++ @effect/language-service 0.83.1
++ effect 3.21.0
++ next 16.3.3
++ typescript <- @typescript/typescript6 6.0.1
++ typescript-language-server 6.0.1
++ vscode-jsonrpc 8.2.1
++ workflow 4.8.1
+
+Done in 8.4s
+Cleanup success: server group 97301 reaped; no remaining group
+Cleanup failure: server group 97303 reaped; no remaining group
+Cleanup timeout: server group 97309 reaped; no remaining group
+Bounded process-tree cleanup: success, injected failure and timeout; SIGTERM-resistant parent/descendant groups killed and reaped PASS
+CM 6.3.0: initialization passes; configuration/registration/applyEdit each return -32601
+JSON-RPC 8.2.1: configuration, register/unregister, ordered unsaved v2, code actions, closed-file proposals, awaitable formatting, labelled provider fan-out PASS
+Real CM formatDocument command: returns boolean before delayed formatting dispatch; cannot await save preflight PASS
+Two independent providers: ordered labelled actions, one formatter; closed-file draft/undo preserves saved text; Agent version conflict detected PASS
+{"aliasPackage":"/private/tmp/polaris-lsp-feasibility.zuSKoA/node_modules/.pnpm/@typescript+typescript6@6.0.1/node_modules/@typescript/typescript6/package.json","serverPath":"/private/tmp/polaris-lsp-feasibility.zuSKoA/node_modules/.pnpm/typescript@6.0.3/node_modules/typescript/lib/tsserver.js","sdkVersion":"6.0.3"}
+probe next: /private/tmp/polaris-lsp-feasibility.zuSKoA/node_modules/.pnpm/next@16.3.3_react-dom@19.3.0_react@19.3.0__react@19.3.0/node_modules/next/dist/server/next.js
+probe @effect/language-service: /private/tmp/polaris-lsp-feasibility.zuSKoA/node_modules/.pnpm/@effect+language-service@0.83.1/node_modules/@effect/language-service/index.js
+probe workflow: /private/tmp/polaris-lsp-feasibility.zuSKoA/node_modules/.pnpm/workflow@4.8.1_@nestjs+common@12.1.2_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+core@12.1.2_@_scsfedvq2slyjdkl2ualxwxtta/node_modules/workflow/dist/typescript-plugin.cjs
+(node:97318) [DEP0128] DeprecationWarning: Invalid 'main' field in '/private/tmp/polaris-lsp-feasibility.zuSKoA/node_modules/@effect/language-service/package.json' of 'index.cjs'. Please either fix that or report it to the module author
+(Use `node --trace-deprecation ...` to show where the warning was created)
+{"enabled":false,"diagnostics":{"app/page.tsx":[],"effect.ts":[],"workflow.ts":[]}}
+Cleanup tsserver success/failure/timeout: server group 97319 reaped; no remaining group
+{"enabled":true,"diagnostics":{"app/page.tsx":[{"start":{"line":1,"offset":14},"end":{"line":1,"offset":27},"text":"\"invalidExport\" is not a valid Next.js entry export value.","code":71002,"category":"error"}],"effect.ts":[{"start":{"line":2,"offset":1},"end":{"line":2,"offset":19},"text":"Effect must be yielded or assigned to a variable.    effect(floatingEffect)","code":3,"category":"warning","source":"effect"}],"workflow.ts":[{"start":{"line":1,"offset":1},"end":{"line":1,"offset":56},"text":"Workflow functions must be async or return a Promise","code":9001,"category":"error"}]}}
+Cleanup tsserver success/failure/timeout: server group 97326 reaped; no remaining group
+Alias-aware tsserver + project plugin probe: Next/Effect/Workflow differential diagnostics PASS
+TLS: Using Typescript version (user-setting) 6.0.3 from path "/private/tmp/polaris-lsp-feasibility.zuSKoA/node_modules/.pnpm/typescript@6.0.3/node_modules/typescript/lib/tsserver.js"
+TLS: [lspserver] [tsclient] <main> Log file: /private/tmp/polaris-lsp-feasibility.zuSKoA/tls-logs/tsserver-log-9UEq3R/tsserver.log
+{"diagnostics":{"file:///private/tmp/polaris-lsp-feasibility.zuSKoA/app/page.tsx":[{"range":{"start":{"line":0,"character":13},"end":{"line":0,"character":26}},"message":"\"invalidExport\" is not a valid Next.js entry export value.","severity":1,"code":71002,"source":"typescript"}],"file:///private/tmp/polaris-lsp-feasibility.zuSKoA/effect.ts":[{"range":{"start":{"line":1,"character":0},"end":{"line":1,"character":18}},"message":"Effect must be yielded or assigned to a variable.    effect(floatingEffect)","severity":2,"code":3,"source":"effect"}],"file:///private/tmp/polaris-lsp-feasibility.zuSKoA/workflow.ts":[{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":55}},"message":"Workflow functions must be async or return a Promise","severity":1,"code":9001,"source":"typescript"}]}}
+Real TLS 6.0.1: three plugin diagnostics + 8 Effect code actions PASS
+Real TLS ordered unsaved v2→v3 clears plugin error while disk remains invalid PASS
+Cleanup TLS success/failure/timeout: server group 97329 reaped; no remaining group
+{"aliasPackage":"/private/tmp/polaris-lsp-feasibility.zuSKoA/node_modules/.pnpm/@typescript+typescript6@6.0.1/node_modules/@typescript/typescript6/package.json","serverPath":"/private/tmp/polaris-lsp-feasibility.zuSKoA/node_modules/.pnpm/typescript@6.0.3/node_modules/typescript/lib/tsserver.js","sdkVersion":"6.0.3"}
+probe next: /private/tmp/polaris-lsp-feasibility.zuSKoA/node_modules/.pnpm/next@16.3.3_react-dom@19.3.0_react@19.3.0__react@19.3.0/node_modules/next/dist/server/next.js
+probe @effect/language-service: /private/tmp/polaris-lsp-feasibility.zuSKoA/node_modules/.pnpm/@effect+language-service@0.83.1/node_modules/@effect/language-service/index.js
+probe workflow: /private/tmp/polaris-lsp-feasibility.zuSKoA/node_modules/.pnpm/workflow@4.8.1_@nestjs+common@12.1.2_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+core@12.1.2_@_scsfedvq2slyjdkl2ualxwxtta/node_modules/workflow/dist/typescript-plugin.cjs
+Cleanup tsserver success/failure/timeout: server group 97336 reaped; no remaining group
+Real typescript injected failure: expected exit 1; bounded cleanup confirmed PASS
+{"aliasPackage":"/private/tmp/polaris-lsp-feasibility.zuSKoA/node_modules/.pnpm/@typescript+typescript6@6.0.1/node_modules/@typescript/typescript6/package.json","serverPath":"/private/tmp/polaris-lsp-feasibility.zuSKoA/node_modules/.pnpm/typescript@6.0.3/node_modules/typescript/lib/tsserver.js","sdkVersion":"6.0.3"}
+probe next: /private/tmp/polaris-lsp-feasibility.zuSKoA/node_modules/.pnpm/next@16.3.3_react-dom@19.3.0_react@19.3.0__react@19.3.0/node_modules/next/dist/server/next.js
+probe @effect/language-service: /private/tmp/polaris-lsp-feasibility.zuSKoA/node_modules/.pnpm/@effect+language-service@0.83.1/node_modules/@effect/language-service/index.js
+probe workflow: /private/tmp/polaris-lsp-feasibility.zuSKoA/node_modules/.pnpm/workflow@4.8.1_@nestjs+common@12.1.2_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+core@12.1.2_@_scsfedvq2slyjdkl2ualxwxtta/node_modules/workflow/dist/typescript-plugin.cjs
+Cleanup tsserver success/failure/timeout: server group 97349 reaped; no remaining group
+Real typescript injected timeout: expected exit 1; bounded cleanup confirmed PASS
+TLS: Using Typescript version (user-setting) 6.0.3 from path "/private/tmp/polaris-lsp-feasibility.zuSKoA/node_modules/.pnpm/typescript@6.0.3/node_modules/typescript/lib/tsserver.js"
+TLS: [lspserver] [tsclient] <main> Log file: /private/tmp/polaris-lsp-feasibility.zuSKoA/tls-logs/tsserver-log-YsT4vz/tsserver.log
+Cleanup TLS success/failure/timeout: server group 97358 reaped; no remaining group
+Real lsp injected failure: expected exit 1; bounded cleanup confirmed PASS
+TLS: Using Typescript version (user-setting) 6.0.3 from path "/private/tmp/polaris-lsp-feasibility.zuSKoA/node_modules/.pnpm/typescript@6.0.3/node_modules/typescript/lib/tsserver.js"
+TLS: [lspserver] [tsclient] <main> Log file: /private/tmp/polaris-lsp-feasibility.zuSKoA/tls-logs/tsserver-log-iBG6vw/tsserver.log
+Cleanup TLS success/failure/timeout: server group 97362 reaped; no remaining group
+Real lsp injected timeout: expected exit 1; bounded cleanup confirmed PASS
+PASS; evidence/logs retained under /private/tmp/polaris-lsp-feasibility.zuSKoA

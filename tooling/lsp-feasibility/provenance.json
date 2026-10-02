@@ -1,0 +1,143 @@
+{
+  "@codemirror/lsp-client": {
+    "version": "6.3.0",
+    "license": "MIT",
+    "gitHead": "b12df1348e472fefdc259f2079bd59590e8681e1",
+    "repository": null,
+    "dist": {
+      "tarball": "https://registry.npmjs.org/@codemirror/lsp-client/-/lsp-client-6.3.0.tgz",
+      "integrity": "sha512-ZWtzuML77TnI2cXQrdLXb+HfJIldWPAeLZKRqct/Hq4RJUazg8Y0c9VqKyWDUsr1Y9TRefQKBWZ3B/eyVt1/Nw==",
+      "shasum": "032774e54b9aee05683eba7e537022ed1e44ae2c"
+    }
+  },
+  "vscode-jsonrpc": {
+    "version": "8.2.1",
+    "license": "MIT",
+    "gitHead": null,
+    "repository": {
+      "url": "git+https://github.com/Microsoft/vscode-languageserver-node.git",
+      "type": "git",
+      "directory": "jsonrpc"
+    },
+    "dist": {
+      "tarball": "https://registry.npmjs.org/vscode-jsonrpc/-/vscode-jsonrpc-8.2.1.tgz",
+      "integrity": "sha512-kdjOSJ2lLIn7r1rtrMbbNCHjyMPfRnowdKjBQ+mGq6NAW5QY2bEZC/khaC5OR8svbbjvLEaIXkOq45e2X9BIbQ==",
+      "shasum": "a322cc0f1d97f794ffd9c4cd2a898a0bde097f34"
+    }
+  },
+  "typescript-language-server": {
+    "version": "6.0.1",
+    "license": "Apache-2.0",
+    "gitHead": "cf9c47ba0cf7c29448309c088765f5c16eabe6ce",
+    "repository": {
+      "url": "git+https://github.com/typescript-language-server/typescript-language-server.git",
+      "type": "git"
+    },
+    "dist": {
+      "tarball": "https://registry.npmjs.org/typescript-language-server/-/typescript-language-server-6.0.1.tgz",
+      "integrity": "sha512-c5hEHM/7rdFRbQWoHXuddyJ53oF0M2dKeXQOYdwUek556oarltKeumKJGLp/ZMcGV7gW30mGn1MR3V5GDiLiKg==",
+      "shasum": "3076d895c1d236b03c377143147b7a4247e426cd"
+    }
+  },
+  "@typescript/typescript6": {
+    "version": "6.0.1",
+    "license": "Apache-2.0",
+    "gitHead": null,
+    "repository": {
+      "url": "git+https://github.com/microsoft/TypeScript.git",
+      "type": "git"
+    },
+    "dist": {
+      "tarball": "https://registry.npmjs.org/@typescript/typescript6/-/typescript6-6.0.1.tgz",
+      "integrity": "sha512-JbesA1Y3wSOYpcw4b4XvG8KCk9AaStATxk1Vmc1qY0Y30fjovvcuRXX2fJ8eC2JRycKQi7V1VYKUljSVBJUzZA==",
+      "shasum": "77dc75434292ae5022a5978f198bf982ccbd5f61"
+    }
+  },
+  "typescript": {
+    "version": "6.0.3",
+    "license": "Apache-2.0",
+    "gitHead": "050880ce59e30b356b686bd3144efe24f875ebc8",
+    "repository": {
+      "url": "git+https://github.com/microsoft/TypeScript.git",
+      "type": "git"
+    },
+    "dist": {
+      "tarball": "https://registry.npmjs.org/typescript/-/typescript-6.0.3.tgz",
+      "integrity": "sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==",
+      "shasum": "90251dc007916e972786cb94d74d15b185577d21"
+    }
+  },
+  "next": {
+    "version": "16.3.3",
+    "license": "MIT",
+    "gitHead": null,
+    "repository": {
+      "url": "git+https://github.com/vercel/next.js.git",
+      "type": "git"
+    },
+    "dist": {
+      "tarball": "https://registry.npmjs.org/next/-/next-16.3.3.tgz",
+      "integrity": "sha512-tuRTx1nQ/yVw83cwJBo9F+njGUgMn3UHQycreWHB8XsStvvAh1AthbI8/4IpKnFaF58F+iSiHejYOlMQ/eq83g==",
+      "shasum": "dc062aa903c34e2af41a0ffa2ad99c9369447d07"
+    }
+  },
+  "@effect/language-service": {
+    "version": "0.83.1",
+    "license": "MIT",
+    "gitHead": null,
+    "repository": {
+      "url": "git+https://github.com/Effect-TS/language-service.git",
+      "type": "git"
+    },
+    "dist": {
+      "tarball": "https://registry.npmjs.org/@effect/language-service/-/language-service-0.83.1.tgz",
+      "integrity": "sha512-cBQ7yg/P4+kAp+JFX+9Bk5bc1jG3UMVq8pgtW5VAWBl/yiTjWlCGMKC4UxX2KlpREvjTkvS8BKi1wYw0phWmAQ==",
+      "shasum": "47a851a4deac3159272624f7b9ed4eee3e6aca2f"
+    }
+  },
+  "workflow": {
+    "version": "4.8.1",
+    "license": "Apache-2.0",
+    "gitHead": null,
+    "repository": {
+      "url": "git+https://github.com/vercel/workflow.git",
+      "type": "git",
+      "directory": "packages/workflow"
+    },
+    "dist": {
+      "tarball": "https://registry.npmjs.org/workflow/-/workflow-4.8.1.tgz",
+      "integrity": "sha512-iBNbykkuK3+qXlP+Kgac7MS4OhGl3SRyZRBYs9TkXPmf8WisUd4DPDn5+0NivgFPgETZS4LZY7U9in5YR9Bh5A==",
+      "shasum": "86dc24a0dd96892e0653df8f85e19b56b70026e2"
+    }
+  },
+  "@workflow/typescript-plugin": {
+    "version": "4.0.3",
+    "license": "Apache-2.0",
+    "gitHead": null,
+    "repository": {
+      "url": "git+https://github.com/vercel/workflow.git",
+      "type": "git",
+      "directory": "packages/typescript-plugin"
+    },
+    "dist": {
+      "tarball": "https://registry.npmjs.org/@workflow/typescript-plugin/-/typescript-plugin-4.0.3.tgz",
+      "integrity": "sha512-QJ7hmPHrrudgSsOFMML6AbHQpOzAThcQL9AKS06QWX96ZGba+bfsjq/czlyAVXtoluBfN4fw0pSfz/itUB7XVQ==",
+      "shasum": "8f1aceaa72de7704ea33642fca1b118e87350c44"
+    }
+  },
+  "effect": {
+    "version": "3.21.0",
+    "license": "MIT",
+    "gitHead": null,
+    "repository": {
+      "url": "git+https://github.com/Effect-TS/effect.git",
+      "type": "git",
+      "directory": "packages/effect"
+    },
+    "dist": {
+      "tarball": "https://registry.npmjs.org/effect/-/effect-3.21.0.tgz",
+      "integrity": "sha512-PPN80qRokCd1f015IANNhrwOnLO7GrrMQfk4/lnZRE/8j7UPWrNNjPV0uBrZutI/nHzernbW+J0hdqQysHiSnQ==",
+      "shasum": "ce222ce8f785b9e63f104b9a4ead985e7965f2c0"
+    }
+  }
+}

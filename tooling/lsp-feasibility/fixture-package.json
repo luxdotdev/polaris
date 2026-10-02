@@ -1,0 +1,14 @@
+{
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@codemirror/lsp-client": "6.3.0",
+    "typescript": "npm:@typescript/typescript6@6.0.1",
+    "typescript-language-server": "6.0.1",
+    "next": "16.3.3",
+    "@effect/language-service": "0.83.1",
+    "workflow": "4.8.1",
+    "effect": "3.21.0",
+    "vscode-jsonrpc": "8.2.1"
+  }
+}
