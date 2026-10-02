@@ -1,5 +1,6 @@
 import type { SessionId } from "@polaris/protocol";
 import { useApp } from "../../../shell/hooks.ts";
+import { slotWaitOf } from "../../../store/hostResources.ts";
 import { useWorkerAttempt } from "../../sessions/source.ts";
 import { workerCaption } from "./model.ts";
 
@@ -17,7 +18,19 @@ export const useWorkerCaption = (hostKey: string, sessionId: SessionId): string 
       : (s.hostModels[key]?.sessions.get(constellation.leadSessionId)?.session.title ?? null);
   });
 
+  const slotHost = useApp((s) => {
+    if (worker === null) return null;
+    const host = s.hosts.find((h) => h.status.host?.hostId === worker.attempt.hostId);
+    const model = host === undefined ? undefined : s.hostModels[host.key];
+
+    return model === undefined ||
+      host === undefined ||
+      slotWaitOf(model.resources, worker.attempt) === null
+      ? null
+      : host.label;
+  });
+
   if (worker === null || constellation === undefined) return null;
 
-  return workerCaption(worker.attempt, leadTitle || `${constellation.name} lead`);
+  return workerCaption(worker.attempt, leadTitle || `${constellation.name} lead`, slotHost);
 };

@@ -3,11 +3,9 @@
  * the same name on the Lead's Host. A refusal's findings become one message, a line each.
  */
 import type { LiveSession } from "@polaris/client";
-import { bucketCost, type PriceTable } from "@polaris/client/usage";
-import type { ConstellationRejected, ConstellationStats } from "@polaris/protocol";
+import type { ConstellationRejected } from "@polaris/protocol";
 import { Effect, Predicate, Stream } from "effect";
-import type { ConstellationStatsView, IpcError, StatsCost } from "../../shared/api.ts";
-import type { Prices } from "../prices.ts";
+import type { IpcError } from "../../shared/api.ts";
 import type { RequestInput, SubscriptionInput } from "../../shared/contract.ts";
 import { HostDirectory, toIpcError } from "../hosts.ts";
 
@@ -77,47 +75,3 @@ export const constellationFeed = ({ hostKey, ...payload }: SubscriptionInput<"co
       Effect.map((s) => s.client["constellation.subscribe"](payload))
     )
   ).pipe(Stream.mapError(constellationError));
-
-type Usage = ConstellationStats["usage"]["total"];
-
-const ZERO: StatsCost = { usd: 0, estimatedUsd: 0, unpricedTokens: 0 };
-
-/** One StatsUsage priced bucket by bucket; without a price table only reported cost counts. */
-export const priceUsage = (usage: Usage, table: PriceTable | null): StatsCost =>
-  table === null
-    ? { ...ZERO, usd: usage.reportedUsd }
-    : usage.buckets.reduce((sum, bucket) => {
-        const cost = bucketCost(bucket, table);
-
-        return {
-          usd: sum.usd + cost.usd,
-          estimatedUsd: sum.estimatedUsd + cost.estimatedUsd,
-          unpricedTokens: sum.unpricedTokens + cost.unpricedTokens,
-        };
-      }, ZERO);
-
-export const statsView = (
-  stats: ConstellationStats,
-  table: PriceTable | null
-): ConstellationStatsView => ({
-  stats,
-  cost: {
-    total: priceUsage(stats.usage.total, table),
-    perTask: stats.usage.perTask.map((t) => priceUsage(t.usage, table)),
-    perRole: stats.usage.perRole.map((r) => priceUsage(r.usage, table)),
-    perDigest: stats.lead.digests.map((d) => priceUsage(d.usage, table)),
-  },
-  pricesFetchedAt: table?.fetchedAt ?? null,
-});
-
-/** `constellation.stats`, priced in main the way `usage.query` is. */
-export const constellationStatsHandlers = (prices: Prices) => ({
-  "constellation.stats": ({ hostKey, ...payload }: RequestInput<"constellation.stats">) =>
-    live(hostKey, (s) => s.client["constellation.stats"](payload)).pipe(
-      Effect.flatMap((stats) =>
-        Effect.promise(() => prices.table().catch(() => null)).pipe(
-          Effect.map((table) => statsView(stats, table))
-        )
-      )
-    ),
-});

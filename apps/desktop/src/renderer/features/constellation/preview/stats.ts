@@ -1,18 +1,19 @@
 /**
- * `constellation.stats` for the previews, as main returns it (C1-M's shape, priced): stale time
- * not recorded until L lands, one Attempt without slot history, and usage still indexing.
+ * `constellation.stats` for the previews, as main returns it (C1-M's shape, each bucket priced):
+ * stale time not recorded until L lands, one Attempt without slot history, Usage indexing.
  */
 import {
   AttemptId,
   ConstellationStats,
   HostId,
+  ModelId,
   Sequence,
   TaskId,
   TokenCounts,
   TurnId,
   UsageBucket,
 } from "@polaris/protocol";
-import type { ConstellationStatsView, StatsCost } from "../../../../shared/api.ts";
+import type { ConstellationStatsView } from "../../../../shared/api.ts";
 import { CONSTELLATION, LEAD, worker } from "./graph.ts";
 
 const MINUTE = 60_000;
@@ -27,20 +28,35 @@ const counts = (input: number, output: number, cacheRead = input * 6) =>
     cacheWrite1h: 0,
   });
 
-const NO_BUCKETS: ReadonlyArray<UsageBucket> = [];
+const bucket = (model: string, input: number, output: number) =>
+  new UsageBucket({
+    hour: new Date(Date.now() - 60 * MINUTE).toISOString(),
+    harness: model.startsWith("gpt") ? "codex" : "claude",
+    model: ModelId.make(model),
+    sessionId: null,
+    tokens: counts(input, output),
+    reportedCost: null,
+    longContext: [],
+  });
 
-const usage = (input: number, output: number, reportedUsd: number) => ({
-  tokens: counts(input, output),
-  reportedUsd,
-  reportedTokens: counts(0, 0, 0),
-  buckets: NO_BUCKETS,
-});
+/** One section's Usage with main's estimate per bucket; `unpriced` adds a bucket with no price. */
+const priced = (input: number, output: number, usd: number, unpriced = 0) => {
+  const extra = unpriced === 0 ? [] : [bucket("no-price-model", unpriced, 0)];
 
-const cost = (usd: number, unpricedTokens = 0): StatsCost => ({
-  usd,
-  estimatedUsd: usd,
-  unpricedTokens,
-});
+  return {
+    tokens: counts(input, output),
+    reportedUsd: 0,
+    reportedTokens: counts(0, 0, 0),
+    buckets: [bucket("gpt-6.1-sol", input, output), ...extra],
+    estimates: [
+      { estimatedUsd: usd, unpricedTokens: 0 },
+      ...extra.map(() => ({ estimatedUsd: 0, unpricedTokens: unpriced })),
+    ],
+  };
+};
+
+/** The Daemon's StatsUsage for a section: the same buckets, without main's estimates. */
+const raw = ({ estimates: _estimates, ...usage }: ReturnType<typeof priced>) => usage;
 
 const times = (
   working: number | null,
@@ -55,16 +71,50 @@ const times = (
   staleMs: null,
 });
 
-const PER_TASK = [
-  ["A1", 18_000, 4_100, 0.42],
-  ["A2", 22_000, 5_300, 0.51],
-  ["B1", 31_000, 7_900, 0.73],
-  ["B2", 36_000, 9_100, 0.84],
-  ["B3", 12_000, 2_400, 0.22],
-] as const;
+const TOTAL = priced(182_000, 41_000, 3.33, 12_000);
 
-export const statsFixture = (revision: number): ConstellationStatsView => {
-  const stats = new ConstellationStats({
+const DIGEST = priced(38_000, 3_000, 0.37);
+
+const PER_TASK = (
+  [
+    ["A1", 18_000, 4_100, 0.42],
+    ["A2", 22_000, 5_300, 0.51],
+    ["B1", 31_000, 7_900, 0.73],
+    ["B2", 36_000, 9_100, 0.84],
+    ["B3", 12_000, 2_400, 0.22],
+  ] as const
+).map(([taskId, input, output, usd]) => ({
+  taskId: TaskId.make(taskId),
+  usage: priced(input, output, usd),
+}));
+
+const ROLES = [
+  { role: "lead" as const, usage: priced(63_000, 12_000, 0.61) },
+  { role: "worker" as const, usage: priced(119_000, 29_000, 2.72) },
+];
+
+const COVERAGE = [
+  {
+    metric: "workers.staleMs",
+    attemptId: null,
+    reason:
+      "Offline intervals are not recorded yet; L stale/fresh Constellation events will unlock this metric.",
+  },
+  {
+    metric: "workers.waitingForSlotMs",
+    attemptId: AttemptId.make("att-B4-1"),
+    reason:
+      "No local __workers queue/grant history for this Attempt; legacy or remote slot time is unknown.",
+  },
+  {
+    metric: "usage",
+    attemptId: null,
+    reason: "Usage is local to this Host; remote worker Usage must be joined by the Client.",
+  },
+];
+
+export const statsFixture = (revision: number): ConstellationStatsView => ({
+  stats: new ConstellationStats({
     constellationId: CONSTELLATION,
     revision,
     hostId: HostId.make("h-studio"),
@@ -81,12 +131,7 @@ export const statsFixture = (revision: number): ConstellationStatsView => {
       meanTokensPerDigest: 41_000,
       meanReportedUsdPerDigest: null,
       digests: [
-        {
-          turnId: TurnId.make("t-lead-digest"),
-          sessionId: LEAD,
-          items: 3,
-          usage: usage(38_000, 3_000, 0),
-        },
+        { turnId: TurnId.make("t-lead-digest"), sessionId: LEAD, items: 3, usage: raw(DIGEST) },
       ],
     },
     review: {
@@ -113,45 +158,12 @@ export const statsFixture = (revision: number): ConstellationStatsView => {
       ],
     },
     usage: {
-      total: usage(182_000, 41_000, 1.12),
-      perTask: PER_TASK.map(([taskId, input, output, reported]) => ({
-        taskId: TaskId.make(taskId),
-        usage: usage(input, output, reported),
-      })),
-      perRole: [
-        { role: "lead", usage: usage(63_000, 12_000, 0.61) },
-        { role: "worker", usage: usage(119_000, 29_000, 2.72) },
-      ],
+      total: raw(TOTAL),
+      perTask: PER_TASK.map((t) => ({ taskId: t.taskId, usage: raw(t.usage) })),
+      perRole: ROLES.map((r) => ({ role: r.role, usage: raw(r.usage) })),
     },
-    coverage: [
-      {
-        metric: "workers.staleMs",
-        attemptId: null,
-        reason:
-          "Offline intervals are not recorded yet; L stale/fresh Constellation events will unlock this metric.",
-      },
-      {
-        metric: "workers.waitingForSlotMs",
-        attemptId: AttemptId.make("att-B4-1"),
-        reason:
-          "No local __workers queue/grant history for this Attempt; legacy or remote slot time is unknown.",
-      },
-      {
-        metric: "usage",
-        attemptId: null,
-        reason: "Usage is local to this Host; remote worker Usage must be joined by the Client.",
-      },
-    ],
-  });
-
-  return {
-    stats,
-    cost: {
-      total: cost(3.33, 12_000),
-      perTask: PER_TASK.map(([, , , reported]) => cost(reported)),
-      perRole: [cost(0.61), cost(2.72)],
-      perDigest: [cost(0.37)],
-    },
-    pricesFetchedAt: new Date().toISOString(),
-  };
-};
+    coverage: COVERAGE,
+  }),
+  usage: { total: TOTAL, perTask: PER_TASK, perRole: ROLES, perDigest: [DIGEST] },
+  pricesFetchedAt: new Date().toISOString(),
+});

@@ -1,9 +1,11 @@
 /**
- * Usage → By Constellation (spec §9): derived from the Usage buckets already read, nothing
- * new recorded. Each Constellation's tokens and cost split by role (Lead, workers), per Task,
- * and its wall-clock duration. Pure, so it is tested.
+ * Usage → By Constellation (spec §9): each Constellation's tokens and cost split by role (Lead,
+ * workers), per Task, and its wall-clock time. Exact from the Lead's Host (`constellation.stats`,
+ * C1-M, per response), with workers on other Hosts joined from those Hosts' Usage by the hour;
+ * without stats, all of it estimated by the hour. Pure, so it is tested.
  */
 import type { Attempt } from "@polaris/protocol";
+import type { ConstellationStatsView, PricedStatsUsage } from "../../../../shared/api.ts";
 import type { Plain } from "../../../store/plain.ts";
 import type { ConstellationView } from "../../sessions/source.ts";
 import {
@@ -14,6 +16,7 @@ import {
   type Estimator,
   NO_COST,
   noEstimate,
+  pricedEstimate,
   totalTokens,
 } from "./usage.ts";
 
@@ -46,6 +49,10 @@ export interface ConstellationSpend {
   readonly tasks: ReadonlyArray<TaskSpend>;
   /** From its start to completion, or to now while it runs. */
   readonly durationMs: number;
+  /** `stats`: exact per response from the Lead's Host; `hourly`: estimated from hourly buckets. */
+  readonly source: "stats" | "hourly";
+  /** What the figures leave out or approximate, one sentence each. */
+  readonly notes: ReadonlyArray<string>;
 }
 
 const HOUR_MS = 3_600_000;
@@ -63,35 +70,32 @@ const spendOf = (bucket: Bucket, estimate: Estimator): Spend => ({
   cost: bucketCost(bucket, estimate),
 });
 
-interface SpendInput {
-  readonly buckets: ReadonlyArray<Bucket>;
-  readonly views: ReadonlyArray<ConstellationView>;
-  readonly now: number;
-  readonly estimate?: Estimator;
-}
+/** A stats section priced like Usage: reported cost, then main's estimate for the rest. */
+export const statsSpend = (usage: PricedStatsUsage): Spend =>
+  usage.buckets.reduce<Spend>((sum, bucket, i) => {
+    const estimate = usage.estimates[i];
+    const priced: Bucket = estimate === undefined ? bucket : { ...bucket, estimate };
 
-const oneConstellation = (
-  view: ConstellationView,
-  bySession: ReadonlyMap<string, ReadonlyArray<Bucket>>,
+    return plus(sum, spendOf(priced, pricedEstimate));
+  }, NONE);
+
+type BySession = ReadonlyMap<string, ReadonlyArray<Bucket>>;
+
+/** Hourly buckets of the given worker sessions, each to the Attempt running in that hour. */
+const hourlyPerTask = (
+  attempts: ReadonlyArray<Plain<Attempt>>,
+  bySession: BySession,
   now: number,
   estimate: Estimator
-): ConstellationSpend => {
-  const { constellation: c } = view;
-  let lead = NONE;
+) => {
   const perTask = new Map<string, Spend>();
 
-  for (const b of bySession.get(c.leadSessionId) ?? []) lead = plus(lead, spendOf(b, estimate));
-
-  const workerSessions = new Set(
-    c.attempts.flatMap((a): Array<string> => (a.sessionId === c.leadSessionId ? [] : [a.sessionId]))
-  );
-
-  for (const sessionId of workerSessions) {
-    const attempts = c.attempts.filter((a) => a.sessionId === sessionId);
+  for (const sessionId of new Set(attempts.map((a): string => a.sessionId))) {
+    const own = attempts.filter((a) => a.sessionId === sessionId);
 
     for (const b of bySession.get(sessionId) ?? []) {
       // The latest Attempt running at that hour takes it; a session carries one at a time.
-      const attempt = attempts.findLast((a) => during(b, a, now)) ?? attempts.at(-1);
+      const attempt = own.findLast((a) => during(b, a, now)) ?? own.at(-1);
 
       if (attempt !== undefined)
         perTask.set(
@@ -101,11 +105,29 @@ const oneConstellation = (
     }
   }
 
+  return perTask;
+};
+
+const workerAttempts = (view: ConstellationView) =>
+  view.constellation.attempts.filter((a) => a.sessionId !== view.constellation.leadSessionId);
+
+interface Parts {
+  readonly lead: Spend;
+  readonly perTask: ReadonlyMap<string, Spend>;
+  readonly source: ConstellationSpend["source"];
+  readonly notes: ReadonlyArray<string>;
+  /** The Lead's Host's wall clock (stops at completion); otherwise derived from the graph. */
+  readonly wallClockMs?: number;
+}
+
+const finish = (view: ConstellationView, parts: Parts, now: number): ConstellationSpend => {
+  const { constellation: c } = view;
+
   const tasks = c.tasks
     .flatMap((t): Array<TaskSpend> => {
-      const spend = perTask.get(t.id);
+      const spend = parts.perTask.get(t.id);
 
-      return spend === undefined
+      return spend === undefined || t.kind === "gate"
         ? []
         : [
             {
@@ -125,21 +147,94 @@ const oneConstellation = (
     id: c.id,
     name: c.name,
     state: c.state,
-    lead,
+    lead: parts.lead,
     workers,
-    total: plus(lead, workers),
+    total: plus(parts.lead, workers),
     tasks,
-    durationMs: Math.max(0, (ended ? Date.parse(c.updatedAt) : now) - Date.parse(c.createdAt)),
+    durationMs:
+      parts.wallClockMs ??
+      Math.max(0, (ended ? Date.parse(c.updatedAt) : now) - Date.parse(c.createdAt)),
+    source: parts.source,
+    notes: parts.notes,
   };
 };
 
-/** Every Constellation with any Usage in the buckets, most tokens first. */
-export const byConstellation = ({
-  buckets,
-  views,
-  now,
-  estimate = noEstimate,
-}: SpendInput): ReadonlyArray<ConstellationSpend> => {
+/** No stats: everything from hourly buckets, Lead by session, workers by the Attempt's hours. */
+const hourly = (
+  view: ConstellationView,
+  bySession: BySession,
+  now: number,
+  estimate: Estimator
+) => {
+  const lead = (bySession.get(view.constellation.leadSessionId) ?? []).reduce<Spend>(
+    (sum, b) => plus(sum, spendOf(b, estimate)),
+    NONE
+  );
+
+  return finish(
+    view,
+    {
+      lead,
+      perTask: hourlyPerTask(workerAttempts(view), bySession, now, estimate),
+      source: "hourly",
+      notes: ["Estimated by the hour: the lead's host has no constellation stats."],
+    },
+    now
+  );
+};
+
+/** Stats from the Lead's Host, exact; workers on other Hosts joined by the hour. */
+const fromStats = (
+  view: ConstellationView,
+  stats: ConstellationStatsView,
+  bySession: BySession,
+  now: number,
+  estimate: Estimator
+) => {
+  const lead = stats.usage.perRole.find((r) => r.role === "lead");
+  const remote = workerAttempts(view).filter((a) => a.hostId !== view.constellation.hostId);
+
+  const perTask = new Map(
+    stats.usage.perTask.map((t): [string, Spend] => [t.taskId, statsSpend(t.usage)])
+  );
+
+  for (const [taskId, spend] of hourlyPerTask(remote, bySession, now, estimate))
+    perTask.set(taskId, plus(perTask.get(taskId) ?? NONE, spend));
+
+  const reasons = stats.stats.coverage.flatMap((c) =>
+    c.metric.startsWith("usage") ? [c.reason] : []
+  );
+
+  const notes = [
+    ...new Set(reasons),
+    ...(remote.length === 0
+      ? []
+      : ["Workers on other hosts are added from those hosts' usage, by the hour."]),
+  ];
+
+  return finish(
+    view,
+    {
+      lead: lead === undefined ? NONE : statsSpend(lead.usage),
+      perTask,
+      source: "stats",
+      notes,
+      wallClockMs: stats.stats.wallClockMs,
+    },
+    now
+  );
+};
+
+interface SpendInput {
+  readonly buckets: ReadonlyArray<Bucket>;
+  readonly views: ReadonlyArray<ConstellationView>;
+  /** `constellation.stats` per Constellation id, when its Lead's Host answered. */
+  readonly stats?: ReadonlyMap<string, ConstellationStatsView>;
+  readonly now: number;
+  readonly estimate?: Estimator;
+}
+
+const bySessionOf = (buckets: ReadonlyArray<Bucket>): BySession => {
   const bySession = new Map<string, Array<Bucket>>();
 
   for (const b of buckets) {
@@ -150,8 +245,27 @@ export const byConstellation = ({
     else list.push(b);
   }
 
+  return bySession;
+};
+
+/** Every Constellation with any Usage, most tokens first. */
+export const byConstellation = ({
+  buckets,
+  views,
+  stats = new Map(),
+  now,
+  estimate = noEstimate,
+}: SpendInput): ReadonlyArray<ConstellationSpend> => {
+  const bySession = bySessionOf(buckets);
+
   return views
-    .map((v) => oneConstellation(v, bySession, now, estimate))
+    .map((v) => {
+      const own = stats.get(v.constellation.id);
+
+      return own === undefined
+        ? hourly(v, bySession, now, estimate)
+        : fromStats(v, own, bySession, now, estimate);
+    })
     .filter((s) => s.total.tokens > 0)
     .sort((a, b) => b.total.tokens - a.total.tokens);
 };

@@ -37,6 +37,15 @@ describe("worker header", () => {
     ).toBe("worker of L · claim at 3f9c2e1 approved by you · the lead merges");
   });
 
+  test("a working worker waiting for a slot says on which Host", () => {
+    expect(workerCaption({ ...b1, state: "working" }, "L", "devbox")).toBe(
+      "worker of L · waiting for a slot on devbox"
+    );
+    expect(workerCaption({ ...b1, state: "working" }, "L")).toBe(
+      "worker of L · working on its task"
+    );
+  });
+
   test("only a Claim in review gets Approve", () => {
     expect(workerActionKind(b1)).toBe("review");
     expect(workerActionKind({ ...b1, state: "working" })).toBe("working");

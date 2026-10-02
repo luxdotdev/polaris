@@ -20,7 +20,7 @@ import { subjectKey } from "../../review/surface.ts";
 import type { SettingsSection } from "../../../routes/selection.ts";
 import { machinesFor } from "../../machines/preview/fixtures.ts";
 import { setResourcesClient } from "../../settings/resources.ts";
-import { B1_FEEDBACK, fakeResources, USAGE } from "./settingsFixtures.ts";
+import { B1_FEEDBACK, C1_STATS, fakeResources, USAGE } from "./settingsFixtures.ts";
 import { C1, HOSTS, LEAD_SESSION, MODELS, VIEWS, WORKER_B1 } from "./fixtures.ts";
 
 const UNSUPPORTED = { ok: false, error: { code: "Unsupported", message: "preview" } } as const;
@@ -31,7 +31,11 @@ const bridge: PolarisApi = {
     Promise.resolve(
       (method === "usage.query" && "hostKey" in input && input.hostKey === "local"
         ? { ok: true, value: USAGE }
-        : UNSUPPORTED) as never
+        : method === "constellation.stats" &&
+            "constellationId" in input &&
+            input.constellationId === "c1"
+          ? { ok: true, value: C1_STATS }
+          : UNSUPPORTED) as never
     ),
   subscribe: (kind, _input, listener) => {
     const machines = [machinesFor("all", Date.now())];

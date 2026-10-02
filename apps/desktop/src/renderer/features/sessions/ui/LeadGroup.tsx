@@ -63,6 +63,7 @@ const Worker = ({
   const leadId = group.lead.session.id;
   const focused = useFocusedTask(hostKey, leadId);
   const shown = shownWorker(row);
+  const hostLabel = useApp((s) => s.hosts.find((h) => h.key === row.hostKey)?.label ?? "its host");
 
   const selected =
     selection.pane === "session" &&
@@ -100,9 +101,18 @@ const Worker = ({
         </span>
       }
       meta={
-        <span className={TONE_CLASS[shown.tone]}>
-          {shown.word ?? age(row.attempt.startedAt, now)}
-        </span>
+        row.slotSince === null ? (
+          <span className={TONE_CLASS[shown.tone]}>
+            {shown.word ?? age(row.attempt.startedAt, now)}
+          </span>
+        ) : (
+          <span
+            className={TONE_CLASS[shown.tone]}
+            title={`Waiting for a slot on ${hostLabel} · ${age(row.slotSince, now)}`}
+          >
+            waiting · {age(row.slotSince, now)}
+          </span>
+        )
       }
     />
   );

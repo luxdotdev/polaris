@@ -129,7 +129,7 @@ const questionItems = (
   rows: ReadonlyArray<WorkerRow>,
   groupKey: string
 ): Array<ConstellationItem> =>
-  (view.constellation.pendingNotifications ?? []).flatMap((n): Array<ConstellationItem> => {
+  view.constellation.pendingNotifications.flatMap((n): Array<ConstellationItem> => {
     const { item } = n;
 
     if (!Predicate.isTagged(item, "Question") || item.question.to !== "user") return [];

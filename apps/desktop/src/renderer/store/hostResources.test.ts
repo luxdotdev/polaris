@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { HostId, HostResource, ResourceEvent, ResourceLease } from "@polaris/protocol";
-import { applyResourceEvent, resourcesFromSnapshot } from "./hostResources.ts";
+import { AttemptId, HostId, HostResource, ResourceEvent, ResourceLease } from "@polaris/protocol";
+import {
+  applyResourceEvent,
+  type HostResources,
+  resourcesFromSnapshot,
+  slotWaitOf,
+  WORKER_SLOTS,
+} from "./hostResources.ts";
 
 const hostId = HostId.make("h");
 
@@ -31,7 +37,12 @@ const events = [
 ];
 
 describe("applyResourceEvent", () => {
-  const held = events.reduce(applyResourceEvent, resourcesFromSnapshot());
+  const at = "2026-10-01T10:00:00.000Z";
+
+  const apply = (state: HostResources, event: ResourceEvent) =>
+    applyResourceEvent(state, event, at);
+
+  const held = events.reduce(apply, resourcesFromSnapshot());
 
   test("a lease takes its queued request; a canceled request leaves the queue", () => {
     expect([...held.resources.keys()]).toEqual(["bench"]);
@@ -48,7 +59,7 @@ describe("applyResourceEvent", () => {
         reason: "exited",
       }),
       ResourceEvent.cases.ResourceRemoved.make({ hostId, resource: "bench" }),
-    ].reduce(applyResourceEvent, held);
+    ].reduce(apply, held);
 
     expect(after.leases.size).toBe(0);
     expect(after.resources.size).toBe(0);
@@ -63,4 +74,35 @@ test("a Snapshot's arrays seed it", () => {
 
   expect(seeded.resources.get("smoke")?.capacity).toBe(2);
   expect(seeded.leases.has("req-1")).toBe(true);
+});
+
+test("a worker's Attempt waits for a slot until its __workers request is granted", () => {
+  const queued = applyResourceEvent(
+    resourcesFromSnapshot(),
+    ResourceEvent.cases.ResourceLeaseQueued.make({
+      hostId,
+      resource: WORKER_SLOTS,
+      requestId: "slot-1",
+      sessionId: null,
+      attemptId: null,
+    }),
+    "2026-10-01T10:00:00.000Z"
+  );
+
+  const withAttempt = applyResourceEvent(
+    queued,
+    ResourceEvent.cases.ResourceLeaseQueued.make({
+      hostId,
+      resource: WORKER_SLOTS,
+      requestId: "slot-2",
+      sessionId: null,
+      attemptId: AttemptId.make("c1-B3-1"),
+    }),
+    "2026-10-01T10:02:00.000Z"
+  );
+
+  expect(slotWaitOf(withAttempt, { id: "c1-B3-1", sessionId: "b3" })).toBe(
+    "2026-10-01T10:02:00.000Z"
+  );
+  expect(slotWaitOf(withAttempt, { id: "c1-B2-1", sessionId: "b2" })).toBeNull();
 });

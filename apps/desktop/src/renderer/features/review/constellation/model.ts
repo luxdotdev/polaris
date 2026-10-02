@@ -19,12 +19,19 @@ const reviewWords = (attempt: Plain<Attempt>, head: string | undefined) => {
 };
 
 /** "worker of Constellations v1 lead · claim in review at 3f9c2e1". */
-export const workerCaption = (attempt: Plain<Attempt>, leadName: string) => {
+/** `slotHost`: the Host the working Attempt waits on for a worker slot, if it does. */
+export const workerCaption = (
+  attempt: Plain<Attempt>,
+  leadName: string,
+  slotHost: string | null = null
+) => {
   const head = attempt.claim?.head.slice(0, 7);
 
   const state = Match.value(attempt.state).pipe(
     Match.when("review", () => reviewWords(attempt, head)),
-    Match.when("working", () => "working on its task"),
+    Match.when("working", () =>
+      slotHost === null ? "working on its task" : `waiting for a slot on ${slotHost}`
+    ),
     Match.when("accepted", () =>
       attempt.mergedHead == null ? "accepted" : `accepted at ${attempt.mergedHead.slice(0, 7)}`
     ),

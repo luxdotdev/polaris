@@ -2,7 +2,8 @@
  * The Stats popover and completion card from `constellation.stats` (C1-M), priced in main. A
  * null metric is "not recorded", with the Daemon's coverage reason, never zero.
  */
-import type { ConstellationStatsView, StatsCost } from "../../../../shared/api.ts";
+import type { ConstellationStatsView } from "../../../../shared/api.ts";
+import { type Spend, statsSpend } from "../../settings/model/byConstellation.ts";
 import { pluralize } from "./copy.ts";
 
 type Stats = ConstellationStatsView["stats"];
@@ -81,12 +82,10 @@ const maybe = (
     ? { label, value: NOT_RECORDED, note: reasonFor(stats, metric), missing: true }
     : line(label, format(value));
 
-const costNote = (cost: StatsCost, priced: boolean) => {
+const costNote = (spend: Spend, priced: boolean) => {
   if (!priced) return "reported cost only; no price list was available";
 
-  return cost.unpricedTokens > 0
-    ? `${tokens(cost.unpricedTokens)} tokens on unpriced Models`
-    : null;
+  return spend.cost.partial ? "some tokens have no price" : null;
 };
 
 const sendBacks = (stats: Stats) => {
@@ -121,13 +120,14 @@ const reviewLines = (stats: Stats): ReadonlyArray<StatLine> => {
 };
 
 const leadLines = (view: ConstellationStatsView): ReadonlyArray<StatLine> => {
-  const { stats, cost } = view;
+  const { stats, usage } = view;
   const { lead } = stats;
 
   const perDigest =
-    cost.perDigest.length === 0
+    usage.perDigest.length === 0
       ? null
-      : cost.perDigest.reduce((s, c) => s + c.usd, 0) / cost.perDigest.length;
+      : usage.perDigest.reduce((sum, u) => sum + statsSpend(u).cost.usd, 0) /
+        usage.perDigest.length;
 
   return [
     line("Wakeups", pluralize(lead.wakeups, "digest")),
@@ -161,12 +161,13 @@ export const statsGroups = (
   view: ConstellationStatsView,
   title: (taskId: string) => string
 ): ReadonlyArray<StatGroup> => {
-  const { stats, cost } = view;
+  const { stats, usage } = view;
   const priced = view.pricesFetchedAt !== null;
+  const total = statsSpend(usage.total);
 
-  const costliest = stats.usage.perTask
-    .map((t, n) => ({ taskId: t.taskId, cost: cost.perTask[n] }))
-    .flatMap((t) => (t.cost === undefined || t.cost.usd === 0 ? [] : [{ ...t, usd: t.cost.usd }]))
+  const costliest = usage.perTask
+    .map((t) => ({ taskId: t.taskId, usd: statsSpend(t.usage).cost.usd }))
+    .filter((t) => t.usd > 0)
     .toSorted((a, b) => b.usd - a.usd)
     .slice(0, 3);
 
@@ -175,7 +176,7 @@ export const statsGroups = (
       title: "Constellation",
       lines: [
         line("Wall clock", duration(stats.wallClockMs)),
-        line("Cost", usd(cost.total.usd), costNote(cost.total, priced)),
+        line("Cost", usd(total.cost.usd), costNote(total, priced)),
         line("Tokens", tokens(totalTokens(stats.usage.total.tokens))),
       ],
     },
@@ -184,12 +185,11 @@ export const statsGroups = (
     { title: "Workers", lines: workerLines(stats) },
     {
       title: "By role",
-      lines: stats.usage.perRole.map((r, n) =>
-        line(
-          ROLE_WORD[r.role],
-          `${usd(cost.perRole[n]?.usd ?? r.usage.reportedUsd)} · ${tokens(totalTokens(r.usage.tokens))} tokens`
-        )
-      ),
+      lines: usage.perRole.map((r) => {
+        const spend = statsSpend(r.usage);
+
+        return line(ROLE_WORD[r.role], `${usd(spend.cost.usd)} · ${tokens(spend.tokens)} tokens`);
+      }),
     },
     ...(costliest.length === 0
       ? []
@@ -223,15 +223,16 @@ export interface CompletionFacts {
 export const completionFacts = (
   view: ConstellationStatsView,
   done: number,
-  total: number
+  count: number
 ): CompletionFacts => {
-  const { stats, cost } = view;
+  const { stats } = view;
   const first = firstTime(stats);
+  const spend = statsSpend(view.usage.total);
 
   return {
-    headline: `${done} of ${pluralize(total, "task")} done in ${duration(stats.wallClockMs)}`,
+    headline: `${done} of ${pluralize(count, "task")} done in ${duration(stats.wallClockMs)}`,
     lines: [
-      line("Cost", usd(cost.total.usd), costNote(cost.total, view.pricesFetchedAt !== null)),
+      line("Cost", usd(spend.cost.usd), costNote(spend, view.pricesFetchedAt !== null)),
       line("Tokens", tokens(totalTokens(stats.usage.total.tokens))),
       line("Accepted first time", first ?? "no Claim reviewed"),
       line("Sent back", sendBacks(stats)),

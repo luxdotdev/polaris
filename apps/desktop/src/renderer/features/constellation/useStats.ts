@@ -4,35 +4,13 @@
  */
 import type { ConstellationId } from "@polaris/protocol";
 import { useEffect, useState } from "react";
-import type { ConstellationStatsView, IpcError, Result } from "../../../shared/api.ts";
-import { polaris } from "../bridge.ts";
+import type { ConstellationStatsView, IpcError } from "../../../shared/api.ts";
+import { askStats } from "./statsClient.ts";
 
 export type StatsState =
   | { readonly kind: "loading" }
   | { readonly kind: "ready"; readonly view: ConstellationStatsView }
   | { readonly kind: "error"; readonly error: IpcError };
-
-const cache = new Map<string, Promise<Result<ConstellationStatsView>>>();
-
-const ask = (hostKey: string, constellationId: ConstellationId, revision: number) => {
-  const key = `${hostKey}\u0000${constellationId}\u0000${revision}`;
-  const known = cache.get(key);
-
-  if (known !== undefined) return known;
-
-  const asked = polaris()
-    .request("constellation.stats", { hostKey, constellationId })
-    .then((result) => {
-      // A refusal or a dropped connection is asked again next time.
-      if (!result.ok) cache.delete(key);
-
-      return result;
-    });
-
-  cache.set(key, asked);
-
-  return asked;
-};
 
 export const useConstellationStats = (
   hostKey: string,
@@ -47,7 +25,7 @@ export const useConstellationStats = (
     let live = true;
 
     setState({ kind: "loading" });
-    void ask(hostKey, constellationId, revision).then((result) => {
+    void askStats(hostKey, constellationId, revision).then((result) => {
       if (live)
         setState(
           result.ok ? { kind: "ready", view: result.value } : { kind: "error", error: result.error }

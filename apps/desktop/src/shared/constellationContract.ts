@@ -41,7 +41,7 @@ export const ConstellationDefaultsInputs = {
 
 export type ConstellationDefaultsMethod = keyof typeof ConstellationDefaultsInputs;
 
-/** A Constellation's derived Stats (C1-M), priced in main like Usage. */
+/** A Constellation's derived metrics (C1-M), from the Lead's Host; main prices its Usage. */
 export const ConstellationStatsInputs = {
   "constellation.stats": onHost(GetConstellationStats.payloadSchema.fields),
 } as const;

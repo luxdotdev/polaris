@@ -30,7 +30,7 @@ describe("stats", () => {
   test("cost is priced in main; unpriced tokens are called out", () => {
     const cost = group("Constellation")?.lines.find((l) => l.label === "Cost");
 
-    expect(cost).toMatchObject({ value: "$3.33", note: "12k tokens on unpriced Models" });
+    expect(cost).toMatchObject({ value: "$3.33", note: "some tokens have no price" });
 
     const unpriced = statsGroups({ ...view, pricesFetchedAt: null }, String).find(
       (g) => g.title === "Constellation"

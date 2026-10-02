@@ -22,15 +22,12 @@ import {
 } from "../../shared/contract.ts";
 import { type ClientServices, HostDirectory, toIpcError } from "../hosts.ts";
 import { githubHandlers } from "../github/ipc.ts";
-import {
-  constellationHandlers,
-  constellationStatsHandlers,
-  resourceHandlers,
-} from "./constellation.ts";
+import { constellationHandlers, resourceHandlers } from "./constellation.ts";
 import { Machines } from "../machines/service.ts";
 import type { NeedsYouSummary } from "../../shared/needsYou.ts";
 import { appearanceOf, sessionPrefsOf, type Settings } from "../settings.ts";
 import { estimate, type Prices } from "../prices.ts";
+import { pricedStats } from "./constellationStats.ts";
 import type { SnapshotCache } from "../snapshotCache.ts";
 import { ensureInstalled } from "./install.ts";
 
@@ -107,7 +104,6 @@ const local = (): InstallView => ({
 export const requestHandlers = (ctx: RequestContext): Handlers => ({
   ...githubHandlers,
   ...constellationHandlers,
-  ...constellationStatsHandlers(ctx.prices),
   ...resourceHandlers,
   "settings.get": () =>
     Effect.sync(() => {
@@ -192,6 +188,16 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
     onLive(hostKey, (s) => s.client["harness.availability"]({ refresh })),
   "session.terminalCommand": ({ hostKey, sessionId }) =>
     onLive(hostKey, (s) => s.client["session.terminalCommand"]({ sessionId })),
+  "constellation.stats": ({ hostKey, constellationId }) =>
+    onHost(hostKey, (c) =>
+      Effect.flatMap(c.session, (s) => s.client["constellation.stats"]({ constellationId }))
+    ).pipe(
+      Effect.flatMap((stats) =>
+        Effect.promise(() => ctx.prices.table().catch(() => null)).pipe(
+          Effect.map((table) => pricedStats(stats, table))
+        )
+      )
+    ),
   "usage.query": ({ hostKey, ...payload }) =>
     onLive(hostKey, (s) => s.client["usage.query"](payload)).pipe(
       Effect.flatMap((report) =>

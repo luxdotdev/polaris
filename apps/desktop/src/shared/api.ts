@@ -33,6 +33,7 @@ import type {
   ConstellationResult,
   ConstellationSettings,
   ConstellationStats,
+  StatsUsage,
   HostResourcesSnapshot,
   ConstellationStreamItem,
   PlanLimit,
@@ -43,6 +44,7 @@ import type {
   SessionStreamItem,
   TerminalId,
   TerminalLaunch,
+  UsageBucket,
   UsageReport,
   UsageStreamItem,
 } from "@polaris/protocol";
@@ -283,34 +285,35 @@ export interface InstallView {
   readonly command: string | null;
 }
 
-/** Usage priced like Settings → Usage: Harness-reported cost plus an API-price estimate. */
-export interface StatsCost {
-  /** Reported plus estimated. */
-  readonly usd: number;
-  readonly estimatedUsd: number;
-  /** Tokens on Models no price list has; not in `usd`. */
-  readonly unpricedTokens: number;
-}
-
-/** `constellation.stats` with every `StatsUsage` priced, in the same order as the stats. */
-export interface ConstellationStatsView {
-  readonly stats: Plain<ConstellationStats>;
-  readonly cost: {
-    readonly total: StatsCost;
-    readonly perTask: ReadonlyArray<StatsCost>;
-    readonly perRole: ReadonlyArray<StatsCost>;
-    readonly perDigest: ReadonlyArray<StatsCost>;
-  };
-  /** Null when no price table could be read: only reported cost is counted. */
-  readonly pricesFetchedAt: string | null;
-}
-
 /** Every Constellation request answers with the RPC's result: summary, next, revision. */
 export type ConstellationRequestOutputs = {
   readonly [M in ConstellationMethod]: Plain<ConstellationResult>;
 } & {
   readonly [M in ConstellationDefaultsMethod]: { readonly settings: Plain<ConstellationSettings> };
-} & { readonly "constellation.stats": ConstellationStatsView };
+};
+
+/** A stats Usage section with main's API-price estimate per bucket (same order), like `usage.query`. */
+export interface PricedStatsUsage extends Plain<Omit<StatsUsage, "buckets">> {
+  readonly buckets: ReadonlyArray<Plain<UsageBucket>>;
+  readonly estimates: ReadonlyArray<BucketEstimate>;
+}
+
+/** `constellation.stats`, its Usage priced by main (C1-M returns reported cost only). */
+export interface ConstellationStatsView {
+  readonly stats: Plain<ConstellationStats>;
+  readonly usage: {
+    readonly total: PricedStatsUsage;
+    readonly perTask: ReadonlyArray<{ readonly taskId: string; readonly usage: PricedStatsUsage }>;
+    readonly perRole: ReadonlyArray<{
+      readonly role: "lead" | "worker";
+      readonly usage: PricedStatsUsage;
+    }>;
+    /** Each digest Turn's Usage, in `stats.lead.digests` order. */
+    readonly perDigest: ReadonlyArray<PricedStatsUsage>;
+  };
+  /** Null when no price table could be read. */
+  readonly pricesFetchedAt: string | null;
+}
 
 /** Every Host resource request answers with the Host's whole resources snapshot. */
 export type ResourceRequestOutputs = {
@@ -319,6 +322,7 @@ export type ResourceRequestOutputs = {
 
 export interface RequestOutputs
   extends GitHubRequestOutputs, ConstellationRequestOutputs, ResourceRequestOutputs {
+  "constellation.stats": ConstellationStatsView;
   "settings.get": SettingsView;
   "cache.get": ReadonlyArray<CachedHost>;
   "cache.put": null;
