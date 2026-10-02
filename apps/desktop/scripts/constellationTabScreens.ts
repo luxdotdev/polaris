@@ -76,7 +76,16 @@ const frames = async (page: Page) => {
     }
     running = false;
     const sorted = times.slice(5).sort((a, b) => a - b);
-    return { n: sorted.length, p50: sorted[Math.floor(sorted.length / 2)], p95: sorted[Math.floor(sorted.length * 0.95)], max: sorted[sorted.length - 1] };
+    const idle = [];
+    let prev = performance.now();
+    for (let i = 0; i < 60; i++) {
+      await new Promise((r) => requestAnimationFrame(r));
+      const t = performance.now();
+      idle.push(t - prev);
+      prev = t;
+    }
+    idle.sort((a, b) => a - b);
+    return { n: sorted.length, idleP50: idle[30], p50: sorted[Math.floor(sorted.length / 2)], p95: sorted[Math.floor(sorted.length * 0.95)], max: sorted[sorted.length - 1] };
   })()`);
 
   console.log(`screens: large scroll frames ${JSON.stringify(result)}`);
