@@ -287,7 +287,10 @@ state is added to Quint.
 
 Replay checks each committed batch against `safety`; generated Quint sources
 are retained on failure. The reader tests exercise the JSON boundary, CLI and
-malformed logs. It omits metadata prose and abstracts wire revisions; actual
+malformed logs. The CLI smoke replays a four-event planning/start prefix once;
+the adjacent semantic test retains the full Claim/acceptance/Gate/digest log.
+This avoids compiling and replaying the same log twice inside one CI timeout.
+It omits metadata prose and abstracts wire revisions; actual
 command refusals, role/revision checks, Harness execution and relay idempotency
 remain the engine/harness/resource model-based and integration tests. A passing
 abstract simulation alone does not verify those runtime paths.

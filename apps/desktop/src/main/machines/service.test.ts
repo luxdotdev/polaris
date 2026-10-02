@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Ssh, SshError } from "@polaris/client/install";
 import { HostId, HostInfo } from "@polaris/protocol";
-import { Effect, Layer, ManagedRuntime, Option, Stream, SubscriptionRef } from "effect";
+import { Effect, Layer, ManagedRuntime, Option, Schema, Stream, SubscriptionRef } from "effect";
 import type { ConnectionStatusView, HostView, MachineView } from "../../shared/api.ts";
 import { HostDirectory, type HostEntry, UnknownHost } from "../hosts.ts";
 import type { Settings } from "../settings.ts";
@@ -53,7 +53,7 @@ const setup = (
   sshFails = false,
   localHome: string | null = null,
   initial: Settings = {},
-  probeOutput?: string
+  probeOutput?: () => string
 ) => {
   let settings: Settings = initial;
   const commands: Array<string> = [];
@@ -104,7 +104,11 @@ const setup = (
             : Effect.sync(() => void commands.push(command)).pipe(
                 Effect.andThen(
                   probeOutput !== undefined && command.includes("uname -s")
-                    ? Effect.succeed({ code: 0, stdout: probeOutput, stderr: "" })
+                    ? Effect.succeed({
+                        code: 0,
+                        stdout: probeOutput(),
+                        stderr: "",
+                      })
                     : Ssh.use((ssh) => ssh.exec(alias, command, options)).pipe(
                         Effect.provide(Ssh.local(home))
                       )
@@ -191,11 +195,11 @@ const setup = (
 
 const installed = () => existsSync(join(home, ".polaris", "bin", "current", "polaris"));
 
-const info = (daemonVersion: string) =>
+const info = (daemonVersion: string, reportedPlatform = platform) =>
   new HostInfo({
     hostId: HostId.make("studio"),
     hostname: "studio",
-    platform: "darwin-arm64",
+    platform: Schema.decodeUnknownSync(HostInfo.fields.platform)(reportedPlatform),
     daemonVersion,
     homeDir: home,
     startedAt: "2026-09-30T00:00:00Z",
@@ -230,7 +234,7 @@ describe("Machines", () => {
         false,
         null,
         { hosts: [{ alias: "studio" }] },
-        probe
+        () => probe
       );
 
       try {
@@ -267,57 +271,76 @@ describe("Machines", () => {
     }
   });
 
-  test("automatic policy, overrides and explicit Update share facts and stay single flight", async () => {
-    writeDist(dist, { version: "0.1.0", platform });
-    runOnFakeHost(home, `mkdir -p "$HOME" && "${join(dist, platform, "polaris")}" install`);
-    writeDist(dist, { version: "0.2.0", platform });
+  test.each([
+    { buildPlatform: "darwin-arm64", probe: "os=Darwin\narch=arm64\n" },
+    { buildPlatform: "linux-x64", probe: "os=Linux\narch=x86_64\nlibc=glibc\n" },
+  ])(
+    "automatic policy, overrides and explicit Update share facts and stay single flight ($buildPlatform)",
+    async ({ buildPlatform, probe }) => {
+      writeDist(dist, { version: "0.1.0", platform: buildPlatform });
+      runOnFakeHost(home, `mkdir -p "$HOME" && "${join(dist, buildPlatform, "polaris")}" install`);
+      writeDist(dist, { version: "0.2.0", platform: buildPlatform });
 
-    const { runtime, call, studio, setStatus, commands, settings } = setup(false, null, {
-      keepDaemonsUpToDate: false,
-      hosts: [{ alias: "studio" }],
-    });
+      const { runtime, call, studio, setStatus, commands, settings } = setup(
+        false,
+        null,
+        {
+          keepDaemonsUpToDate: false,
+          hosts: [{ alias: "studio" }],
+        },
+        () => {
+          const installedVersion = runOnFakeHost(
+            home,
+            '"$HOME/.polaris/bin/current/polaris" version'
+          ).stdout.trim();
 
-    try {
-      await setStatus({ state: "connected", epoch: 1, host: info("0.1.0") });
-      const available = await studio((v) => v.daemon?.installedVersion === "0.1.0");
-      expect(available?.daemon).toMatchObject({
-        updateAvailable: true,
-        keepUpToDate: false,
-        keepUpToDateOverride: null,
-      });
-      expect(commands).toHaveLength(0);
-      await Promise.all([
-        call((m) => m.updateDaemon("studio")),
-        call((m) => m.updateDaemon("studio")),
-        call((m) => m.check("studio")),
-      ]);
-      const done = await studio((v) => v.daemon?.progress?.stage === "done");
-      expect(done?.daemon?.lastUpdate).toMatchObject({
-        result: "updated",
-        from: "0.1.0",
-        version: "0.2.0",
-        problem: null,
-      });
-      expect(done?.daemon?.lastUpdate?.at).toBeGreaterThan(0);
-      expect(done?.daemon?.installedVersion).toBe("0.2.0");
-      expect(done?.daemon?.updateAvailable).toBe(false);
-      expect(commands.filter((s) => s.includes(" upgrade "))).toHaveLength(1);
-      await call((m) => m.updateDaemon("studio"));
-      await studio((v) => v.daemon?.lastUpdate?.result === "current");
-      expect(commands.filter((s) => s.includes(" upgrade "))).toHaveLength(1);
-      expect(settings().daemonUpdates?.studio?.result).toBe("current");
-      runOnFakeHost(home, 'ln -sfn 0.1.0 "$HOME/.polaris/bin/current"');
-      await call((m) => m.setDaemonUpdateOverride("studio", true));
-      await studio((v) => v.daemon?.lastUpdate?.result === "updated");
-      expect(settings().hosts?.[0]?.keepDaemonUpToDate).toBe(true);
-      expect(commands.filter((s) => s.includes(" upgrade "))).toHaveLength(2);
-      await call((m) => m.setDaemonUpdateOverride("studio", null));
-      const inherited = await studio((v) => v.daemon?.keepUpToDateOverride === null);
-      expect(inherited?.daemon?.keepUpToDate).toBe(false);
-    } finally {
-      await runtime.dispose();
+          return `${probe}installed=${installedVersion}\n`;
+        }
+      );
+
+      try {
+        await setStatus({ state: "connected", epoch: 1, host: info("0.1.0", buildPlatform) });
+        const available = await studio((v) => v.daemon?.installedVersion === "0.1.0");
+        expect(available?.daemon).toMatchObject({
+          bundledVersion: "0.2.0",
+          updateAvailable: true,
+          keepUpToDate: false,
+          keepUpToDateOverride: null,
+        });
+        expect(commands).toHaveLength(0);
+        await Promise.all([
+          call((m) => m.updateDaemon("studio")),
+          call((m) => m.updateDaemon("studio")),
+          call((m) => m.check("studio")),
+        ]);
+        const done = await studio((v) => v.daemon?.progress?.stage === "done");
+        expect(done?.daemon?.lastUpdate).toMatchObject({
+          result: "updated",
+          from: "0.1.0",
+          version: "0.2.0",
+          problem: null,
+        });
+        expect(done?.daemon?.lastUpdate?.at).toBeGreaterThan(0);
+        expect(done?.daemon?.installedVersion).toBe("0.2.0");
+        expect(done?.daemon?.updateAvailable).toBe(false);
+        expect(commands.filter((s) => s.includes(" upgrade "))).toHaveLength(1);
+        await call((m) => m.updateDaemon("studio"));
+        await studio((v) => v.daemon?.lastUpdate?.result === "current");
+        expect(commands.filter((s) => s.includes(" upgrade "))).toHaveLength(1);
+        expect(settings().daemonUpdates?.studio?.result).toBe("current");
+        runOnFakeHost(home, 'ln -sfn 0.1.0 "$HOME/.polaris/bin/current"');
+        await call((m) => m.setDaemonUpdateOverride("studio", true));
+        await studio((v) => v.daemon?.lastUpdate?.result === "updated");
+        expect(settings().hosts?.[0]?.keepDaemonUpToDate).toBe(true);
+        expect(commands.filter((s) => s.includes(" upgrade "))).toHaveLength(2);
+        await call((m) => m.setDaemonUpdateOverride("studio", null));
+        const inherited = await studio((v) => v.daemon?.keepUpToDateOverride === null);
+        expect(inherited?.daemon?.keepUpToDate).toBe(false);
+      } finally {
+        await runtime.dispose();
+      }
     }
-  });
+  );
 
   test("enabling the app default checks already connected Hosts; off overrides win", async () => {
     writeDist(dist, { version: "0.1.0", platform });

@@ -196,12 +196,15 @@ describe("Constellation real-log replay", () => {
     expect(check(trace([batch(initial), batch(reviewed), batch(accepted)]))).toBe(true);
   }, 30_000);
 
-  test("JSON boundary and CLI replay the complete log", () => {
+  test("JSON boundary and CLI replay a representative log", () => {
+    const input = trace([batch(initial)]);
+
     const encoded = Schema.encodeSync(
       Schema.fromJsonString(Schema.toCodecJson(ConstellationTrace))
-    )(trace([batch(initial), batch(reviewed), batch(accepted)]));
+    )(input);
 
-    expect(check(decodeConstellationTrace(encoded))).toBe(true);
+    // Claims, Gate and delivery replay above; the CLI smoke needs only one Quint subprocess.
+    expect(decodeConstellationTrace(encoded)).toEqual(input);
     const dir = mkdtempSync(join(tmpdir(), "polaris-replay-cli-"));
 
     try {
