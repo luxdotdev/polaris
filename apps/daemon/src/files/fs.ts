@@ -1,8 +1,8 @@
 /**
- * Read-only file access for `files.listDir`, `files.stat` and `files.read`.
+ * Read access for `files.listDir`, `files.stat` and `files.read`.
  *
  * Reach: any path the Host user can read. SSH already grants a shell, so there
- * is no Workspace sandbox. M1 has no write RPCs.
+ * is no Workspace sandbox. Versioned mutations live in write.ts.
  */
 import type { Stats } from "node:fs";
 import { lstat, open, readdir, stat } from "node:fs/promises";

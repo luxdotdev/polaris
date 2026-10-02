@@ -5,6 +5,7 @@
  * below as they land; `startServer` falls back to placeholders for the rest.
  */
 import * as BunRuntime from "@effect/platform-bun/BunRuntime";
+import { supportsTrash } from "../files/trash.ts";
 import { type Capability, HARNESS_CATALOGUE } from "@polaris/protocol";
 import { Effect, Layer } from "effect";
 import { AcceptRpcsLive } from "../accept/AcceptRpcs.ts";
@@ -123,6 +124,11 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "session.live-items",
   "session.subagents",
   "files.read",
+  "files.versioned",
+  "files.write",
+  "files.manage",
+  "files.watch-file",
+  ...(supportsTrash ? ["files.trash" as const] : []),
   "files.search",
   "files.watch",
   "git.diff",
