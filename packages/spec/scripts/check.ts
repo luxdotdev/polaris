@@ -125,6 +125,21 @@ run("language contract safety", [
   `--seed=${seed}`,
 ]);
 
+run("typecheck language-runtime.qnt", ["typecheck", "language-runtime.qnt"]);
+
+run("language runtime scenarios", ["test", "language-runtime.qnt", "--main=language_runtime_test"]);
+
+run("language runtime safety", [
+  "run",
+  "language-runtime.qnt",
+  "--main=language_runtime",
+  "--invariants",
+  "safety",
+  `--max-samples=${samples}`,
+  "--max-steps=60",
+  `--seed=${seed}`,
+]);
+
 run("typecheck worktree_setup.qnt", ["typecheck", "worktree_setup.qnt"]);
 
 run("worktree setup scenarios", ["test", "worktree_setup.qnt", "--main=worktree_setup_test"]);

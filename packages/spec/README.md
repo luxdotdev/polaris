@@ -384,3 +384,40 @@ Quint. Existing Engine traces remain unchanged and still use
 `POLARIS_TRACE_DIR` with `scripts/replay.ts`; language text must never be written
 into those durable Agent Session traces. Actual consumer model-based and
 fault-injection tests remain required before any capability is advertised.
+
+### T1 Host language runtime mapping
+
+The detached `apps/daemon/src/languages/runtime/` broker implements ordered
+P1 document cuts and generation-bound requests. `Documents.apply` corresponds
+to `languages.Sync`; `requestRaw` dispatch/result checks and `cancel` correspond
+to Request/Result/Cancel. Retiring a process generation on crash, connection loss,
+restart, configuration change or trust revocation clears its ephemeral documents
+and pending operations, corresponding to Restart/Crash. Resource edits are
+proposals only: T1 never applies or acknowledges durable disk changes.
+
+`language-runtime.qnt` separately models the pure XState process lifecycle:
+demand, initialize/ready, last-interest grace, crash/backoff, exhausted budget,
+manual restart, revocation and disconnect. The root runner includes its typecheck,
+three scenarios and 3,000 60-step safety simulations with the existing seed and
+CLI overrides. The model abstracts a single process; bounded automatic retries
+require new current-generation Client snapshots after invalidation. Host wire
+generations are monotonic across contexts, while the P1 abstraction uses a
+context-local generation ordinal. Opaque Client/checkout/project/config/provider
+identities map to stable model context keys; draft text is absent from traces.
+
+`packages/spec/scripts/language-runtime/replay.test.ts` runs actual bounded stdio
+server processes and observes broker lifecycle transitions plus actual ordered
+acknowledgments, fenced results and reset snapshots. It writes
+`/tmp/m31-t1-lifecycle.trace.json` and `/tmp/m31-t1-language.trace.json`; the former
+replays against the dedicated model and rejects an intentionally false Ready
+observation, the latter uses the existing P1 replay. The runtime test suite adds
+Unicode, two Clients/Worktrees, stale requests, cancellation, malformed input,
+crash limits, trust revocation and actual child cleanup. These finite models and
+fake servers do not prove liveness, production provider behavior, remote transport,
+authenticated G2 composition, artifact readiness or Desktop budgets.
+
+```sh
+bun test apps/daemon/src/languages/runtime apps/daemon/src/languages/transport packages/spec/scripts/language-runtime
+bun packages/spec/scripts/replay-language.ts /tmp/m31-t1-language.trace.json
+bun run spec
+```
