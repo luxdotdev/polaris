@@ -3,6 +3,7 @@
  * other partial handler layers of `DaemonRpcs`.
  */
 import {
+  EditorFileRpcs,
   FileEntry,
   FileError,
   Grep,
@@ -12,9 +13,10 @@ import {
   Stat,
   WatchFiles,
 } from "@polaris/protocol";
-import { Effect, Stream } from "effect";
+import { Effect, Layer, Stream } from "effect";
 import { RpcGroup } from "effect/rpc";
 import { BlobChannel, ServiceError } from "../services.ts";
+import { EditorFilesRpcsLive } from "./EditorFilesRpcs.ts";
 import { FileSearch } from "./FileSearch.ts";
 import {
   type Entry,
@@ -33,7 +35,7 @@ export class FilesRpcs extends RpcGroup.make(
   SearchPaths,
   Grep,
   WatchFiles
-) {}
+).merge(EditorFileRpcs) {}
 
 const fileError = (path: string) => (cause: unknown) => {
   const failure = toFsFailure(resolveHostPath(path), cause);
@@ -126,11 +128,21 @@ export const handleWatchFiles = ({ root }: { readonly root: string }) =>
  * Requires `FileSearch` (build with `FileSearchLive()`), and `BlobChannel` per
  * request for large reads.
  */
-export const FilesRpcsLive = FilesRpcs.toLayer({
-  "files.listDir": handleListDir,
-  "files.stat": handleStat,
-  "files.read": handleReadFile,
-  "files.searchPaths": handleSearchPaths,
-  "files.grep": handleGrep,
-  "files.watch": handleWatchFiles,
-});
+export const FilesRpcsLive = Layer.merge(
+  EditorFilesRpcsLive,
+  FilesRpcs.omit(
+    "files.readVersioned",
+    "files.write",
+    "files.create",
+    "files.rename",
+    "files.delete",
+    "files.watchFile"
+  ).toLayer({
+    "files.listDir": handleListDir,
+    "files.stat": handleStat,
+    "files.read": handleReadFile,
+    "files.searchPaths": handleSearchPaths,
+    "files.grep": handleGrep,
+    "files.watch": handleWatchFiles,
+  })
+);
