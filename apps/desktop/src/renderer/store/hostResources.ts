@@ -6,12 +6,39 @@
 import type { HostResource, ResourceEvent, ResourceLease } from "@polaris/protocol";
 import { Match } from "effect";
 
+/** A request waiting in a resource's FIFO queue. */
+export interface QueuedRequest {
+  readonly resource: string;
+  readonly sessionId: string | null;
+  readonly attemptId: string | null;
+  /** When it joined the queue. */
+  readonly since: string;
+}
+
 export interface HostResources {
   readonly resources: ReadonlyMap<string, HostResource>;
   readonly leases: ReadonlyMap<string, ResourceLease>;
-  /** Queued request id → its resource. */
-  readonly queued: ReadonlyMap<string, string>;
+  /** Queued requests by request id. */
+  readonly queued: ReadonlyMap<string, QueuedRequest>;
 }
+
+/** The reserved resource whose leases are the Host's worker slots (C1-M). */
+export const WORKER_SLOTS = "__workers";
+
+/** Since when a worker's Attempt has waited for a slot on this Host; null when it isn't. */
+export const slotWaitOf = (
+  state: HostResources,
+  attempt: { readonly id: string; readonly sessionId: string }
+): string | null => {
+  for (const q of state.queued.values()) {
+    if (q.resource !== WORKER_SLOTS) continue;
+
+    if (q.attemptId === attempt.id || (q.attemptId === null && q.sessionId === attempt.sessionId))
+      return q.since;
+  }
+
+  return null;
+};
 
 export const resourcesFromSnapshot = (
   resources: ReadonlyArray<HostResource> = [],
@@ -33,7 +60,11 @@ const without = <V>(map: ReadonlyMap<string, V>, key: string) => {
 const withKey = <V>(map: ReadonlyMap<string, V>, key: string, value: V) =>
   new Map(map).set(key, value);
 
-export const applyResourceEvent = (state: HostResources, event: ResourceEvent): HostResources =>
+export const applyResourceEvent = (
+  state: HostResources,
+  event: ResourceEvent,
+  at: string
+): HostResources =>
   Match.value(event).pipe(
     Match.tagsExhaustive({
       ResourceDeclared: ({ resource }) => ({
@@ -44,9 +75,14 @@ export const applyResourceEvent = (state: HostResources, event: ResourceEvent): 
         ...state,
         resources: without(state.resources, resource),
       }),
-      ResourceLeaseQueued: ({ requestId, resource }) => ({
+      ResourceLeaseQueued: ({ requestId, resource, sessionId, attemptId }) => ({
         ...state,
-        queued: withKey(state.queued, requestId, resource),
+        queued: withKey(state.queued, requestId, {
+          resource,
+          sessionId: sessionId ?? null,
+          attemptId: attemptId ?? null,
+          since: at,
+        }),
       }),
       ResourceLeaseCanceled: ({ requestId }) => ({
         ...state,

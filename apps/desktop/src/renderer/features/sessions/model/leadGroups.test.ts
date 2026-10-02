@@ -30,10 +30,17 @@ describe("workerRows", () => {
       ["B1", "review"],
       ["B4", "review"],
       ["B2", "working"],
-      ["B3", "working"],
+      ["B3", "waiting-slot"],
       ["A1", "accepted"],
       ["A2", "accepted"],
     ]);
+  });
+
+  test("a worker queued for a slot on its Host says since when", () => {
+    const b3 = workerRows(C1, lookup).find((r) => r.taskId === "B3");
+
+    expect(b3?.slotSince).not.toBeNull();
+    expect(workerRows(C1, lookup).find((r) => r.taskId === "B2")?.slotSince).toBeNull();
   });
 
   test("a remote worker is found on its own Host; its branch may not be back yet", () => {

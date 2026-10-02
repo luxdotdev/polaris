@@ -18,6 +18,7 @@ const SHOWN: Readonly<Record<WorkerState, Shown>> = {
   review: { glyph: "review", word: "review", tone: "subtle" },
   "handed-up": { glyph: "review", word: "handed to you", tone: "needs-you" },
   working: { glyph: "working", word: null, tone: "subtle" },
+  "waiting-slot": { glyph: "waiting", word: "waiting", tone: "subtle" },
   "sent-back": { glyph: "waiting", word: "sent back", tone: "subtle" },
   failed: { glyph: "failed", word: "failed", tone: "failed" },
   lost: { glyph: "stopped", word: "lost", tone: "subtle" },

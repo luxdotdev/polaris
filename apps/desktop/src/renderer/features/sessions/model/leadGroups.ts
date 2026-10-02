@@ -8,6 +8,7 @@ import { Match } from "effect";
 import { needsYou } from "../../../routes/topBar.ts";
 import type { HostView } from "../../../../shared/api.ts";
 import type { HostModel, SessionEntry } from "../../../store/hostModel.ts";
+import { slotWaitOf } from "../../../store/hostResources.ts";
 import type { Plain } from "../../../store/plain.ts";
 import type { ConstellationView } from "../source.ts";
 
@@ -17,6 +18,7 @@ export type WorkerState =
   | "handed-up"
   | "stale"
   | "review"
+  | "waiting-slot"
   | "working"
   | "sent-back"
   | "failed"
@@ -36,6 +38,8 @@ export interface WorkerRow {
   readonly attempt: Plain<Attempt>;
   /** False while a remote worker's claimed branch hasn't come back yet. */
   readonly fetched: boolean;
+  /** Since when it has waited for a worker slot on its Host; null when it isn't. */
+  readonly slotSince: string | null;
 }
 
 export interface LeadGroup {
@@ -55,9 +59,12 @@ export type SidebarItem =
   | { readonly kind: "lead"; readonly group: LeadGroup };
 
 /** Where a worker's session lives: its Host's key and entry, or null when no Host here has it. */
-export type WorkerLookup = (
-  attempt: Plain<Attempt>
-) => { readonly hostKey: string; readonly entry: SessionEntry | undefined } | null;
+export type WorkerLookup = (attempt: Plain<Attempt>) => {
+  readonly hostKey: string;
+  readonly entry: SessionEntry | undefined;
+  /** Since when the Attempt has waited for a slot on that Host (its `__workers` queue). */
+  readonly slotSince: string | null;
+} | null;
 
 /** Builds a WorkerLookup over every Host this Client knows. */
 export const lookupIn = (
@@ -71,9 +78,15 @@ export const lookupIn = (
   return (attempt) => {
     const hostKey = keyOf.get(attempt.hostId);
 
+    const model = hostKey === undefined ? undefined : models[hostKey];
+
     return hostKey === undefined
       ? null
-      : { hostKey, entry: models[hostKey]?.sessions.get(attempt.sessionId) };
+      : {
+          hostKey,
+          entry: model?.sessions.get(attempt.sessionId),
+          slotSince: model === undefined ? null : slotWaitOf(model.resources, attempt),
+        };
   };
 };
 
@@ -91,6 +104,7 @@ const RANK: Readonly<Record<WorkerState, number>> = {
   "handed-up": 0,
   review: 1,
   working: 2,
+  "waiting-slot": 2,
   "sent-back": 3,
   failed: 3,
   lost: 3,
@@ -109,11 +123,14 @@ const stoppedWithoutClaim = (attempt: Plain<Attempt>, entry: SessionEntry | null
 const workingState = (
   attempt: Plain<Attempt>,
   entry: SessionEntry | null,
-  stale: boolean
+  stale: boolean,
+  slotSince: string | null
 ): WorkerState => {
   if (entry !== null && needsYou(entry)) return "needs-you";
 
   if (stale) return "stale";
+
+  if (slotSince !== null) return "waiting-slot";
 
   return stoppedWithoutClaim(attempt, entry) ? "unclaimed" : "working";
 };
@@ -128,10 +145,11 @@ const reviewState = (attempt: Plain<Attempt>, stale: boolean): WorkerState => {
 export const workerState = (
   attempt: Plain<Attempt>,
   entry: SessionEntry | null,
-  stale: boolean
+  stale: boolean,
+  slotSince: string | null = null
 ): WorkerState =>
   Match.value(attempt.state).pipe(
-    Match.when("working", () => workingState(attempt, entry, stale)),
+    Match.when("working", () => workingState(attempt, entry, stale, slotSince)),
     Match.when("review", () => reviewState(attempt, stale)),
     Match.when("accepted", (): WorkerState => "accepted"),
     Match.when("rejected", (): WorkerState => "sent-back"),
@@ -164,9 +182,10 @@ export const workerRows = (view: ConstellationView, lookup: WorkerLookup): Array
         sessionId: attempt.sessionId,
         hostKey: found?.hostKey ?? null,
         entry,
-        state: workerState(attempt, entry, stale.has(task.id)),
+        state: workerState(attempt, entry, stale.has(task.id), found?.slotSince ?? null),
         attempt,
         fetched: !unfetched.has(task.id),
+        slotSince: found?.slotSince ?? null,
       },
     ];
   });
