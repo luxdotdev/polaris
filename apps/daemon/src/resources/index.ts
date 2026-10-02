@@ -1,6 +1,7 @@
 import { availableParallelism } from "node:os";
+import { randomUUID } from "node:crypto";
 import {
-  type CommandId,
+  CommandId,
   DomainEvent,
   HostResource,
   HostResourcesSnapshot,
@@ -88,10 +89,17 @@ export class HostResources extends Context.Service<
 
       yield* refresh;
       const lock = yield* Semaphore.make(1);
-      const active = Latch.makeUnsafe(model.leases.size + model.waiting.size > 0);
+
+      const hasProcesses = () =>
+        [...model.leases.values(), ...model.waiting.values()].some(
+          (lease) => lease.resource !== WORKERS_RESOURCE
+        );
+
+      const active = Latch.makeUnsafe(hasProcesses());
       const pending = new Map<string, Deferred.Deferred<ResourceLease, ResourceError>>();
       const workers = new Set<SessionId>();
       const workerWaiters = new Map<SessionId, Deferred.Deferred<void, ResourceError>>();
+      const workerRequests = new Map<SessionId, string>();
       const warned = new Set<string>();
       const defaultCap = Math.max(1, Math.floor(availableParallelism() / 3));
       const workerCap = () => model.resources.get(WORKERS_RESOURCE)?.capacity ?? defaultCap;
@@ -102,14 +110,21 @@ export class HostResources extends Context.Service<
       const snapshot = () =>
         HostResourcesSnapshot.make({
           resources: [...model.resources.values()].filter((r) => r.name !== WORKERS_RESOURCE),
-          resourceLeases: [...model.leases.values()],
-          waiting: [...model.waiting.values()].map((w) => ({
-            resource: w.resource,
-            requestId: w.requestId,
-          })),
+          resourceLeases: [...model.leases.values()].filter((l) => l.resource !== WORKERS_RESOURCE),
+          waiting: [...model.waiting.values()].flatMap((w) =>
+            w.resource === WORKERS_RESOURCE
+              ? []
+              : [
+                  {
+                    resource: w.resource,
+                    requestId: w.requestId,
+                  },
+                ]
+          ),
           overdueLeaseIds: [...model.leases.values()].flatMap((lease) =>
+            lease.resource !== WORKERS_RESOURCE &&
             Date.now() - Date.parse(lease.acquiredAt) >=
-            (model.resources.get(lease.resource)?.holdLimitMs ?? DEFAULT_HOLD_LIMIT_MS)
+              (model.resources.get(lease.resource)?.holdLimitMs ?? DEFAULT_HOLD_LIMIT_MS)
               ? [lease.id]
               : []
           ),
@@ -141,7 +156,7 @@ export class HostResources extends Context.Service<
 
         yield* refresh;
 
-        if (model.leases.size + model.waiting.size > 0) active.openUnsafe();
+        if (hasProcesses()) active.openUnsafe();
         else active.closeUnsafe();
 
         return (
@@ -149,14 +164,43 @@ export class HostResources extends Context.Service<
         );
       });
 
-      const pumpWorkers = () => {
+      const pumpWorkers = Effect.fn("HostResources.pumpWorkers")(function* () {
         for (const [sessionId, deferred] of workerWaiters) {
           if (workers.size >= workerCap()) break;
+          const requestId = workerRequests.get(sessionId);
+
+          if (
+            requestId === undefined ||
+            firstWaiter(model, WORKERS_RESOURCE)?.requestId !== requestId
+          )
+            break;
+          const current = yield* store.model;
+
+          const attempt = [...current.constellations.values()]
+            .flatMap((r) => r.graph.attempts)
+            .findLast((a) => a.sessionId === sessionId && a.state === "working");
+
+          const granted = yield* write(null, [
+            DomainEvent.cases.ResourceLeased.make({
+              lease: ResourceLease.make({
+                id: requestId,
+                hostId,
+                resource: WORKERS_RESOURCE,
+                sessionId,
+                attemptId: attempt?.id ?? null,
+                command: ["worker"],
+                processId: process.pid,
+                acquiredAt: new Date().toISOString(),
+              }),
+            }),
+          ]);
+
+          if (!granted) break;
           workerWaiters.delete(sessionId);
           workers.add(sessionId);
           Deferred.doneUnsafe(deferred, Effect.void);
         }
-      };
+      });
 
       const releaseEvent = (leaseId: string, resource: string, reason: string) =>
         model.waiting.has(leaseId)
@@ -223,6 +267,7 @@ export class HostResources extends Context.Service<
 
       const pump = Effect.fn("HostResources.pump")(function* () {
         for (const resource of model.resources.values()) {
+          if (resource.name === WORKERS_RESOURCE) continue;
           let waiter = firstWaiter(model, resource.name);
 
           while (
@@ -244,6 +289,10 @@ export class HostResources extends Context.Service<
           model.leases.get(leaseId)?.resource ?? model.waiting.get(leaseId)?.resource;
 
         if (resource !== undefined) {
+          if (resource === WORKERS_RESOURCE)
+            return yield* new ResourceError({
+              message: "Worker slots release with their Attempt scope",
+            });
           warned.delete(leaseId);
           yield* write(commandId, [releaseEvent(leaseId, resource, "released")]);
           const deferred = pending.get(leaseId);
@@ -261,6 +310,7 @@ export class HostResources extends Context.Service<
 
       const check = Effect.fn("HostResources.check")(function* () {
         for (const lease of model.leases.values()) {
+          if (lease.resource === WORKERS_RESOURCE) continue;
           const identity = yield* Effect.promise(() => processIdentity(lease.processId));
 
           if (identity === null || identity !== lease.processIdentity) {
@@ -279,6 +329,8 @@ export class HostResources extends Context.Service<
         }
 
         for (const waiter of model.waiting.values()) {
+          if (waiter.resource === WORKERS_RESOURCE) continue;
+
           const identity =
             waiter.processId === undefined
               ? null
@@ -302,16 +354,34 @@ export class HostResources extends Context.Service<
           .withPermits(1)(
             Effect.gen(function* () {
               yield* refresh;
-              pumpWorkers();
+              yield* pumpWorkers();
               yield* pump();
 
-              if (model.leases.size + model.waiting.size > 0) active.openUnsafe();
+              if (hasProcesses()) active.openUnsafe();
               else active.closeUnsafe();
             })
           )
           .pipe(Effect.orDie)
       ).pipe(Effect.forkScoped);
-      yield* serialized(check()).pipe(Effect.orDie);
+      yield* serialized(
+        Effect.gen(function* () {
+          const abandoned = [...model.leases.values(), ...model.waiting.values()].flatMap(
+            (lease) =>
+              lease.resource !== WORKERS_RESOURCE
+                ? []
+                : [
+                    releaseEvent(
+                      "id" in lease ? lease.id : lease.requestId,
+                      WORKERS_RESOURCE,
+                      "Daemon restarted"
+                    ),
+                  ]
+          );
+
+          if (abandoned.length > 0) yield* write(null, abandoned);
+          yield* check();
+        })
+      ).pipe(Effect.orDie);
       yield* Effect.gen(function* () {
         while (true) {
           yield* active.await;
@@ -339,7 +409,7 @@ export class HostResources extends Context.Service<
         });
 
         yield* write(commandId, [DomainEvent.cases.ResourceDeclared.make({ resource })]);
-        pumpWorkers();
+        yield* pumpWorkers();
         yield* pump();
 
         return snapshot();
@@ -379,13 +449,7 @@ export class HostResources extends Context.Service<
                     "Wait for working workers to release their slots before reducing the cap",
                 });
 
-              if (cap !== null) return yield* declare(id, WORKERS_RESOURCE, cap);
-              yield* write(id, [
-                DomainEvent.cases.ResourceRemoved.make({ hostId, resource: WORKERS_RESOURCE }),
-              ]);
-              pumpWorkers();
-
-              return snapshot();
+              return yield* declare(id, WORKERS_RESOURCE, cap ?? defaultCap);
             })
           ).pipe(Effect.uninterruptible),
         acquire: (request) =>
@@ -452,24 +516,44 @@ export class HostResources extends Context.Service<
           Effect.uninterruptibleMask((restore) =>
             Effect.gen(function* () {
               const deferred = yield* Deferred.make<void, ResourceError>();
-              yield* lock.withPermits(1)(
+              const requestId = randomUUID();
+              yield* Effect.addFinalizer(() =>
+                serialized(
+                  Effect.gen(function* () {
+                    if (workerRequests.get(sessionId) !== requestId) return;
+                    workerWaiters.delete(sessionId);
+                    workers.delete(sessionId);
+                    workerRequests.delete(sessionId);
+
+                    if (model.leases.has(requestId) || model.waiting.has(requestId))
+                      yield* write(null, [
+                        releaseEvent(requestId, WORKERS_RESOURCE, "Attempt scope closed"),
+                      ]);
+                    yield* pumpWorkers();
+                  })
+                ).pipe(Effect.orDie)
+              );
+              yield* serialized(
                 Effect.gen(function* () {
                   if (workers.has(sessionId) || workerWaiters.has(sessionId))
                     return yield* new ResourceError({
                       message: "Worker already holds or awaits a slot",
                     });
+
+                  if (!model.resources.has(WORKERS_RESOURCE))
+                    yield* declare(CommandId.make(randomUUID()), WORKERS_RESOURCE, defaultCap);
+                  workerRequests.set(sessionId, requestId);
                   workerWaiters.set(sessionId, deferred);
-                  pumpWorkers();
+                  yield* write(null, [
+                    DomainEvent.cases.ResourceLeaseQueued.make({
+                      hostId,
+                      resource: WORKERS_RESOURCE,
+                      requestId,
+                      sessionId,
+                    }),
+                  ]);
+                  yield* pumpWorkers();
                 })
-              );
-              yield* Effect.addFinalizer(() =>
-                lock.withPermits(1)(
-                  Effect.sync(() => {
-                    if (workerWaiters.get(sessionId) === deferred) workerWaiters.delete(sessionId);
-                    else workers.delete(sessionId);
-                    pumpWorkers();
-                  })
-                )
               );
               yield* restore(Deferred.await(deferred));
             })

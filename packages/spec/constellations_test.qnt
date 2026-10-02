@@ -120,6 +120,16 @@ module constellations_test {
   run canceledWaiterDoesNotBlockFifoRecoveryTest = init.then(request(0)).then(request(1))
     .then(request(2)).then(cancelLease(0)).then(restart).then(grant).then(grant)
     .expect(view.grants == [1, 2] and view.waiters == [] and safety)
+
+  // __workers uses these same resource events; scope close cancels or releases.
+  run workerSlotScopeCloseAndRestartReclaimTest = init
+    .then(commit(OWNER, [ResourceDeclared(1)]))
+    .then(request(0)).then(request(1)).then(request(2)).then(grant).then(grant)
+    .expect(view.holders == Set(0) and view.waiters == [1, 2] and resourceCapacity and fifoGrantOrder)
+    .then(cancelLease(1)).then(release(0)).then(grant)
+    .expect(view.grants == [0, 2] and view.holders == Set(2) and safety)
+    .then(restart).then(release(2)).then(request(3)).then(grant)
+    .expect(view.grants == [0, 2, 3] and view.holders == Set(3) and resourceCapacity and fifoGrantOrder and safety)
 }
 
 module constellations_property_test {

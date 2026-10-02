@@ -3,7 +3,7 @@
 `HostResources.layer` depends on `EventStore`. Resource declarations, FIFO requests,
 grants, cancellations, removals and releases live in the Host stream. The store's
 `ReadModel.hostResources` folds them for snapshots and reloads them on startup.
-`__workers` is reserved for the worker-cap setting; ordinary declarations and lease
+`__workers` is reserved for the worker cap and scoped worker leases; ordinary declarations and lease
 requests cannot use it.
 
 Settings → Hosts reads `host.resources.get`. The declare, remove, release and
@@ -27,6 +27,16 @@ when a scope closes. `get.workerCap.waiting` supplies "waiting for a slot" to Cl
 The Constellation startup adapter owns that scope and its lifecycle; this service
 does not decide Attempt or Session State.
 
+Worker acquisition records `ResourceLeaseQueued` and `ResourceLeased` on
+`__workers`, with lease ID equal to request ID and the working Attempt ID when
+available. Scope close records release or cancellation before granting the next
+waiter. These facts let Stats derive slot waits from the existing Host stream.
+Settings snapshots hide these internal leases and retain `workerCap` counts.
+Resetting the cap declares its automatic capacity without removing held slots.
+Startup releases all recovered worker holders and cancels worker waiters before
+the Layer is ready; E's `resumeWorking` then reacquires fresh scopes. Worker slots
+never run the process monitor or hold warnings.
+
 Pass `POLARIS_HOST_SOCKET`, `POLARIS_SESSION_ID`, and optionally `POLARIS_BINARY`
 to worker commands. `tooling/leases.ts` makes the bench and Desktop smoke entry
 points re-enter through `polaris lease` under that environment. Outside Polaris,
@@ -48,7 +58,7 @@ restart. Recovery retains live holders, cancels dead waiters and releases dead o
 reused PIDs before granting a successor. Legacy records without process identity
 are released conservatively rather than treating a reused PID as their holder.
 
-Only while holders or waiters exist, a one-second monitor checks process identities.
+Only while process holders or waiters exist, a one-second monitor checks process identities.
 There is no idle monitor timer, per-session polling, or worker-slot timer. Release
 on normal exit is immediate; an unobserved exit is reclaimed at the next check.
 The identity probe uses `ps` and is covered on macOS here; Linux is unverified.

@@ -1,7 +1,7 @@
 # Constellation contract
 
 Public exports are available from `@polaris/protocol` and this module's `index.ts`.
-The contract implements `docs/specs/constellations-v1.md` §§2–3, 7–8. The graph
+The contract implements `docs/specs/constellations-v1.md` §§2–3, 7–9. The graph
 is folded on the Lead's Host; these schemas do not implement its decider.
 
 | File | Contract |
@@ -11,6 +11,7 @@ is folded on the Lead's Host; these schemas do not implement its decider.
 | `events.ts` | Constellation and Host resource event field sets, codecs and the remote worker outbox entry |
 | `rpc.ts` | `ConstellationRpcs`, typed results/refusals and resumable Constellation stream |
 | `liveness.ts` | Observed per-Attempt Worker liveness and current activity |
+| `stats.ts` | On-demand local metrics, attributed Usage buckets, sequence cut and coverage reasons |
 
 ## Commands
 
@@ -44,8 +45,12 @@ Desktop App authorization is checked by the Daemon, not asserted in a payload.
   `plan.start.settings` snapshots these defaults for the new Constellation.
 - `constellation.status`: the shared read-only outline; `json` requests the
   folded Constellation and its Task projections in addition to the text.
+- `constellation.stats`: `{ constellationId }` returns `ConstellationStats`,
+  derived on view from graph, Session, resource and existing Usage histories.
+  Unknown durations are nullable with coverage reasons; Clients price its Usage
+  buckets. It uses status read authority and never accepts a caller-supplied role.
 
-Every success has `summary`, `next`, current graph `revision`, and its last event
+Command successes have `summary`, `next`, current graph `revision`, and its last event
 `sequence` (null for a read/no-op). MCP adapters append `next` to the summary.
 `ConstellationRejected` carries every `{code,message,fix}` finding, the current
 revision, and the relevant `graph` slice (null when the graph does not exist).

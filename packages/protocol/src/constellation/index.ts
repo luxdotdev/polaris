@@ -9,3 +9,5 @@ export * from "./journal.ts";
 export * from "./liveness.ts";
 
 export * from "./rpc.ts";
+
+export * from "./stats.ts";
