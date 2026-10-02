@@ -3,6 +3,7 @@
  * the child is `bun main.ts rules-scan`; in the compiled binary it is the
  * binary itself.
  */
+import { childEnv } from "../../service/childEnv.ts";
 import { fileURLToPath } from "node:url";
 import { Schema } from "effect";
 import { ScanReply, type ScanRequest } from "./child.ts";
@@ -25,6 +26,7 @@ export const runPatternScan = async (
   const timeout = AbortSignal.timeout(SCAN_TIMEOUT_MS);
 
   const proc = Bun.spawn([...childCommand()], {
+    env: childEnv(),
     stdin: new Blob([JSON.stringify(request)]),
     stdout: "pipe",
     stderr: "pipe",

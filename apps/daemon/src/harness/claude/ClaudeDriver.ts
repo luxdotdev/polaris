@@ -11,6 +11,7 @@
  * was copied.
  */
 
+import { childEnv } from "../../service/childEnv.ts";
 import { join } from "node:path";
 import {
   type CanUseTool,
@@ -116,6 +117,7 @@ const unknownEffort = (effort: string) =>
 
 const defaultRunVersion = async (path: string) => {
   const proc = Bun.spawn([path, "--version"], {
+    env: childEnv(),
     stdin: "ignore",
     stdout: "pipe",
     stderr: "ignore",
@@ -293,11 +295,11 @@ const openSession = Effect.fnUntraced(function* (
     systemPrompt: { type: "preset", preset: "claude_code", append: polarisInstructions(options) },
     settingSources: ["user", "project", "local"],
     additionalDirectories: [join(driver.stagingDir ?? paths().staging, options.sessionId)],
-    env: {
+    env: childEnv({
       ...process.env,
       ...options.environment,
       CLAUDE_AGENT_SDK_CLIENT_APP: driver.clientApp ?? "polaris-daemon",
-    },
+    }),
   };
 
   const attachments =

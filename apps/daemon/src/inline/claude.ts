@@ -1,3 +1,4 @@
+import { childEnv } from "../service/childEnv.ts";
 import { InlineError } from "@polaris/protocol";
 import { Effect, Option, Schema, Stream } from "effect";
 import type { InlineBackend } from "./backend.ts";
@@ -60,6 +61,7 @@ export const claudeInline = (binary: string): InlineBackend =>
         try: () =>
           Bun.spawn([binary, ...claudeArgs(request.model, request.effort)], {
             cwd,
+            env: childEnv(),
             stdin: "pipe",
             stdout: "pipe",
             stderr: "ignore",

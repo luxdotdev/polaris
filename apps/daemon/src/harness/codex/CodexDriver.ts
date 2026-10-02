@@ -4,6 +4,7 @@
  * Polaris never reads, stores or forwards Codex credentials; sign-in stays in
  * Codex's own `codex login` flow.
  */
+import { childEnv } from "../../service/childEnv.ts";
 import { join } from "node:path";
 import { Effect, type Scope } from "effect";
 import { polarisHome } from "../../paths.ts";
@@ -41,6 +42,7 @@ export const probeCodex = (codexPath: string | null): Effect.Effect<HarnessProbe
 
     try {
       const proc = Bun.spawn([codexPath, "--version"], {
+        env: childEnv(),
         stdin: "ignore",
         stdout: "pipe",
         stderr: "pipe",
