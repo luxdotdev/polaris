@@ -1,0 +1,66 @@
+{
+  "version": 2,
+  "source": "runtime",
+  "events": [
+    {
+      "event": "Prepare",
+      "phase": "Pending",
+      "childSource": "Owned",
+      "childTarget": "Missing",
+      "otherSource": "Owned",
+      "otherTarget": "Missing",
+      "source": "Owned",
+      "target": "Missing"
+    },
+    {
+      "event": "Intent",
+      "phase": "Forward",
+      "childSource": "Owned",
+      "childTarget": "Missing",
+      "otherSource": "Owned",
+      "otherTarget": "Missing",
+      "source": "Owned",
+      "target": "Missing"
+    },
+    {
+      "event": "Move",
+      "phase": "Forward",
+      "childSource": "Missing",
+      "childTarget": "Owned",
+      "otherSource": "Missing",
+      "otherTarget": "Owned",
+      "source": "Missing",
+      "target": "Owned"
+    },
+    {
+      "event": "PersistApplied",
+      "phase": "Applied",
+      "childSource": "Missing",
+      "childTarget": "Owned",
+      "otherSource": "Missing",
+      "otherTarget": "Owned",
+      "source": "Missing",
+      "target": "Owned"
+    },
+    {
+      "event": "ExternalDescendant",
+      "phase": "Applied",
+      "childSource": "Missing",
+      "childTarget": "External",
+      "otherSource": "Missing",
+      "otherTarget": "Owned",
+      "source": "Missing",
+      "target": "Owned"
+    },
+    {
+      "event": "UndoIntent",
+      "phase": "Applied",
+      "childSource": "Missing",
+      "childTarget": "External",
+      "otherSource": "Missing",
+      "otherTarget": "Owned",
+      "source": "Missing",
+      "target": "Owned"
+    }
+  ]
+}

@@ -124,6 +124,24 @@ run("file operation recovery simulation", [
   `--seed=${seed}`,
 ]);
 
+run("typecheck tree-edits.qnt", ["typecheck", "tree-edits.qnt"]);
+
+run("tree recovery scenarios", ["test", "tree-edits.qnt", "--main=tree_edits_test"]);
+
+run("tree descendant guards", ["test", "tree-edits.qnt", "--main=tree_descendants_test"]);
+
+run("tree recovery safety", [
+  "run",
+  "tree-edits.qnt",
+  "--main=tree_edits",
+  "--invariants",
+  "safety",
+  `--max-samples=${samples}`,
+  "--max-steps=60",
+  `--seed=${option("seed", "31")}`,
+  "--verbosity=1",
+]);
+
 run("typecheck languages.qnt", ["typecheck", "languages.qnt"]);
 
 run("language contract scenarios", ["test", "languages.qnt", "--main=languages_test"]);

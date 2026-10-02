@@ -429,3 +429,34 @@ phase/source/target tokens. The checked-in
 crash/recovery fixture, not a live transport/Daemon trace. Replay checks every
 observed checkpoint against safety; it cannot authenticate arbitrary supplied
 trace provenance. No Apalache or formal temporal liveness proof is claimed.
+
+## Directory resource recovery (X2)
+
+`tree-edits.qnt` extends the independent move abstraction with a root and two
+representative descendants. Root replacement and either descendant intervention
+block forward/reverse moves, while durable intents reconcile after restart.
+Runtime validates every entry of the bounded manifest; the two-token model is
+an abstraction of that complete ownership check, not a filesystem atomicity proof.
+The original `file-edits.qnt` and its fixtures remain unchanged.
+
+`apps/daemon/src/files/edits/trees/model.test.ts` records actual temporary-directory
+journal phases and source/destination root/descendant identity and byte ownership.
+`replay-tree-edits.ts` projects those observations to the Quint actions; a corrupt
+second descendant observation must fail replay. Checked-in recovery and
+intervention traces are under `scripts/tree-edits-runtime-*.json`. Replay both:
+
+```sh
+bun packages/spec/scripts/replay-tree-edits.ts packages/spec/scripts/tree-edits-runtime-recovery.json
+bun packages/spec/scripts/replay-tree-edits.ts packages/spec/scripts/tree-edits-runtime-intervention.json
+```
+
+Checkpoint mapping: prepared → Prepare, forward intent → Intent, filesystem
+rename → Move, applied receipt → PersistApplied, reverse intent → UndoIntent,
+reverse rename → Restore, restored receipt → PersistRestored. SIGKILL/restart
+adds Crash/Retry; an actual edited descendant adds ExternalDescendant. A blocked
+UndoIntent leaves all owned/external tokens unchanged. Ordered-chain/crash/backup
+fault matrices exercise all moves in the real coordinator; the model represents
+one move with descendant ownership. Protocol format 2 and R1 integration seams
+are described in `packages/protocol/src/languages/TREES.md`. Capability and actual
+transport activation remain G2-owned. No Apalache, formal liveness or live Host
+transport proof is claimed.
