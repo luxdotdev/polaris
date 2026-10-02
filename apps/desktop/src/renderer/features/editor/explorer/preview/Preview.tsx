@@ -19,7 +19,7 @@ import {
 import { standInBridge } from "../../../bridge.ts";
 import { startDraft } from "../data/actions.ts";
 import { explorerKey, patchExplorer } from "../data/store.ts";
-import { openFile } from "../editorSeam.tsx";
+import { openFile } from "../../index.ts";
 import {
   CHECKOUT,
   HOME,
@@ -27,6 +27,8 @@ import {
   PLANNING,
   planning,
   planningModel,
+  RECONNECT,
+  RECONNECT_HEAD,
   ROOT,
   SPIKE,
   spike,
@@ -103,48 +105,64 @@ const ok = <A,>(value: A) => Promise.resolve({ ok: true as const, value });
 const refuse = (code: string) =>
   Promise.resolve({ ok: false as const, error: { code, message: "preview" } });
 
-const bridgeFor = (scene: Scene): PolarisApi => ({
-  // SAFETY: each answer is the output type of the method it answers.
-  request: ((method: string, input: { path?: string; cwd?: string }) => {
-    if (method === "files.listDir") {
-      const entries = listing(input.path ?? "");
+interface Input {
+  readonly path?: string;
+  readonly cwd?: string;
+}
+
+const isReconnect = (path: string | undefined) =>
+  path?.endsWith("daemon/src/hosts/reconnect.ts") === true;
+
+const text = (path: string | undefined) =>
+  isReconnect(path) ? RECONNECT : `// ${path?.split("/").at(-1) ?? ""}\n`;
+
+const VERSION = { mtimeMs: 0, size: 0, hash: "preview" };
+
+/** What the stand-in bridge answers: a request's Result, success or refusal. */
+type Answer =
+  | { readonly ok: true; readonly value: object }
+  | { readonly ok: false; readonly error: { readonly code: string; readonly message: string } };
+
+type Handler = (input: Input) => Promise<Answer>;
+
+const handlers = (scene: Scene) =>
+  ({
+    "files.listDir": ({ path }) => {
+      const entries = listing(path ?? "");
 
       return entries === undefined ? refuse("FileError") : ok(entries);
-    }
+    },
+    "files.stat": ({ path }) =>
+      scene !== "no-git" && (path === `${ROOT}/.git` || path === `${CHECKOUT}/.git`)
+        ? ok({ name: ".git", path, kind: "directory", size: 0, modifiedAt: "" })
+        : refuse("FileError"),
+    "git.status": ({ cwd }) => ok(cwd === CHECKOUT ? { ...STATUS, entries: [] } : STATUS),
+    "files.readVersioned": ({ path }) =>
+      ok({ version: VERSION, mimeType: "text/plain", content: { kind: "text", text: text(path) } }),
+    "git.show": ({ path }) =>
+      ok({
+        size: 0,
+        mimeType: "text/plain",
+        content: { kind: "text", text: isReconnect(path) ? RECONNECT_HEAD : text(path) },
+      }),
+  }) satisfies Record<string, Handler>;
 
-    if (method === "files.stat") {
-      const git =
-        scene !== "no-git" && (input.path === `${ROOT}/.git` || input.path === `${CHECKOUT}/.git`);
+const bridgeFor = (scene: Scene): PolarisApi => {
+  const answers = new Map<string, Handler>(Object.entries(handlers(scene)));
 
-      return git
-        ? ok({ name: ".git", path: input.path, kind: "directory", size: 0, modifiedAt: "" })
-        : refuse("FileError");
-    }
-
-    if (method === "git.status")
-      return ok(input.cwd === CHECKOUT ? { ...STATUS, entries: [] } : STATUS);
-
-    return refuse("Unsupported");
-  }) as PolarisApi["request"],
-  subscribe: () => () => undefined,
-  onAppEvent: () => () => undefined,
-});
+  return {
+    // SAFETY: each handler answers with the output type of the method it is named for.
+    request: ((method: string, input: Input) =>
+      answers.get(method)?.(input) ?? refuse("Unsupported")) as PolarisApi["request"],
+    subscribe: () => () => undefined,
+    onAppEvent: () => () => undefined,
+  };
+};
 
 const KEY = explorerKey(LOCAL, WORKSPACE);
 
-const prepare = (scene: Scene) => {
-  patchExplorer(KEY, () => ({
-    view: scene === "changes" ? "changes" : "files",
-    root: scene === "checkout" ? CHECKOUT : null,
-    expanded: new Set([
-      `${ROOT}/daemon`,
-      `${ROOT}/daemon/src`,
-      `${ROOT}/daemon/src/hosts`,
-      `${ROOT}/desktop`,
-      `${ROOT}/desktop/src`,
-    ]),
-  }));
-
+/** The tabs of E1; the editor starts when its pane mounts, so this runs after the first render. */
+const openTabs = () => {
   for (const path of [
     "daemon/src/hosts/reconnect.ts",
     "daemon/src/hosts/transport.ts",
@@ -158,6 +176,20 @@ const prepare = (scene: Scene) => {
     workspaceId: WORKSPACE,
     path: `${ROOT}/daemon/src/hosts/reconnect.ts`,
   });
+};
+
+const prepare = (scene: Scene) => {
+  patchExplorer(KEY, () => ({
+    view: scene === "changes" ? "changes" : "files",
+    root: scene === "checkout" ? CHECKOUT : null,
+    expanded: new Set([
+      `${ROOT}/daemon`,
+      `${ROOT}/daemon/src`,
+      `${ROOT}/daemon/src/hosts`,
+      `${ROOT}/desktop`,
+      `${ROOT}/desktop/src`,
+    ]),
+  }));
 
   if (scene === "draft")
     startDraft(KEY, { kind: "create", dir: `${ROOT}/daemon/src/hosts`, entry: "file" });
@@ -190,6 +222,8 @@ export const mountExplorerPreview = (root: HTMLElement, hash: string) => {
   createRoot(root).render(
     <App value={{ connection, navigation, commands: createCommandRegistry({ mac: true }) }} />
   );
+
+  setTimeout(openTabs, 100);
 
   return connection.setDensity;
 };

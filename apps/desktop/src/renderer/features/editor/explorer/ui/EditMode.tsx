@@ -8,7 +8,7 @@ import { useEffect } from "react";
 import { TopBar } from "../../../../shell/TopBar.tsx";
 import { useApp, useSelection } from "../../../../shell/hooks.ts";
 import { explorerKey, useExplorerState } from "../data/store.ts";
-import { EditorPane, EditorStatus, registerEditorExtensions } from "../editorSeam.tsx";
+import { EditorPane, EditorStatus, registerEditorExtensions } from "../../index.ts";
 import { gitGutter } from "../gutter/gitGutter.ts";
 import { Explorer } from "./Explorer.tsx";
 import { StatusBar } from "./StatusBar.tsx";

@@ -15,7 +15,7 @@ import { type KeyboardEvent, useRef, useState } from "react";
 import { useApp } from "../../../../shell/hooks.ts";
 import { cancelDraft, commitDraft, deleteEntry, type Place, startDraft } from "../data/actions.ts";
 import { type Draft, patchExplorer, toggleFolder } from "../data/store.ts";
-import type { EditorTabs } from "../editorSeam.tsx";
+import type { TabsView } from "../../index.ts";
 import { treeKey } from "../model/keys.ts";
 import { basename, dirname, relative } from "../model/paths.ts";
 import type { TreeRow as Row } from "../model/tree.ts";
@@ -66,7 +66,7 @@ export interface TreeProps {
   readonly rows: ReadonlyArray<Row>;
   readonly draft: Draft | null;
   readonly focused: string | null;
-  readonly tabs: EditorTabs;
+  readonly tabs: TabsView;
   readonly hostLabel: string;
   readonly canManage: boolean;
   readonly onOpen: (path: string, pin: boolean) => void;

@@ -78,6 +78,9 @@ const constellationsPreview = location.hash.startsWith("#constellations/");
 // `#explorer/<scene>`: Edit mode's explorer on fixtures (features/editor/explorer/preview).
 const explorerPreview = location.hash.startsWith("#explorer/");
 
+// `#editor/<scene>`: the editor pane on in-memory files (features/editor/preview).
+const editorPreview = location.hash.startsWith("#editor/");
+
 let setPreviewDensity: ((density: Density) => void) | null = null;
 
 const appearance = (value: Appearance) => {
@@ -146,6 +149,10 @@ if (root !== null && preview) {
 } else if (root !== null && explorerPreview) {
   void import("./features/editor/explorer/preview/Preview.tsx").then((m) => {
     setPreviewDensity = m.mountExplorerPreview(root, location.hash);
+  });
+} else if (root !== null && editorPreview) {
+  void import("./features/editor/preview/Preview.tsx").then((m) => {
+    setPreviewDensity = m.mountEditorPreview(root, location.hash);
   });
 } else if (root !== null) {
   createRoot(root).render(

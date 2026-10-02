@@ -24,7 +24,7 @@ import { activeSessions } from "../../../../routes/topBar.ts";
 import { type Place, startDraft } from "../data/actions.ts";
 import { type ExplorerView, patchExplorer } from "../data/store.ts";
 import { useExplorer } from "../data/useExplorer.ts";
-import { openFile, setAgentFiles, useEditorTabs } from "../editorSeam.tsx";
+import { openFile, setAgentFiles, useEditorTabs } from "../../index.ts";
 import { basename } from "../model/paths.ts";
 import { AgentsIn } from "./AgentsIn.tsx";
 import { ChangesList } from "./ChangesList.tsx";

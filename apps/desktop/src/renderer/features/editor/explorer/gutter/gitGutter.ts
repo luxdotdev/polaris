@@ -14,7 +14,7 @@ import {
 import { EditorView, gutter, GutterMarker, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import { polaris } from "../../../bridge.ts";
 import { explorerKey, explorerOf, subscribeExplorers } from "../data/store.ts";
-import { type EditorFile, editorFile } from "../editorSeam.tsx";
+import { type EditorFile, editorFile } from "../../index.ts";
 import { type GutterMark, gutterMarks, linesOf } from "../model/lineDiff.ts";
 import { isUnder, relative } from "../model/paths.ts";
 
@@ -197,8 +197,9 @@ const gitPlugin = ViewPlugin.fromClass(
 );
 
 const theme = EditorView.baseTheme({
-  ".cm-gitGutter": { width: "6px", position: "relative" },
-  ".cm-gitGutter .cm-gutterElement": { position: "relative" },
+  // The editor sizes the column (2px before the line numbers); the wedge may overhang it.
+  ".cm-gitGutter": { position: "relative", overflow: "visible" },
+  ".cm-gitGutter .cm-gutterElement": { position: "relative", overflow: "visible" },
   ".cm-gitBar": { position: "absolute", left: "0", top: "0", bottom: "0", width: "2px" },
   ".cm-gitBar-modified": { background: "var(--color-git-modified)" },
   ".cm-gitBar-added": { background: "var(--color-diff-added)" },

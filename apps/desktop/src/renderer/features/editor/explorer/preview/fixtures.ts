@@ -200,3 +200,46 @@ export const spikeModel = model(
   [change("c3", "daemon/src/sessions/engine.ts", "completed")],
   []
 );
+
+/** daemon/src/hosts/reconnect.ts as in Paper E1, and its HEAD for the git gutter. */
+export const RECONNECT = `import { type Host, type ConnectionState } from "../context";
+import { dial, DialError } from "./transport";
+import { log } from "../log";
+
+const MAX_ATTEMPTS = 8;
+const BASE_DELAY_MS = 500;
+
+/** Keep retrying on our own until the host answers or we give up. */
+export async function reconnect(host: Host): Promise<ConnectionState> {
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      await dial(host.address, { timeoutMs: 4_000 });
+      return "connected";
+    } catch (err) {
+      if (isAuthPrompt(err)) return "needs-attention";
+      log.debug(\`reconnect \${host.name} failed\`, { attempt });
+      await sleep(BASE_DELAY_MS * attempt);
+    }
+  }
+  return "offline";
+}
+
+function isAuthPrompt(err: unknown): boolean {
+  return err instanceof DialError && err.code === "AUTH_REQUIRED";
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+`;
+
+export const RECONNECT_HEAD = RECONNECT.replace(
+  `      if (isAuthPrompt(err)) return "needs-attention";
+      log.debug(\`reconnect \${host.name} failed\`, { attempt });`,
+  `      log.warn("reconnect failed", err);`
+)
+  .replace(`  return "offline";\n}`, `  return "offline";\n}\n\nexport const RETRY = true;`)
+  .replace(
+    `function sleep(ms: number): Promise<void> {\n  return new Promise((resolve) => setTimeout(resolve, ms));\n}\n`,
+    ""
+  );

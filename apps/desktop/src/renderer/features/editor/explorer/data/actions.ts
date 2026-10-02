@@ -6,7 +6,7 @@
 import { PixelFailedIcon, showToast } from "@polaris/ui";
 import { createElement } from "react";
 import { polaris } from "../../../bridge.ts";
-import { closeTab, type EditorTabs, openFile } from "../editorSeam.tsx";
+import { closeTab, openFile, renameFile, type TabsView } from "../../index.ts";
 import { basename, dirname, isUnder, join, validName } from "../model/paths.ts";
 import { expandTo } from "../model/tree.ts";
 import { type Draft, explorerOf, patchExplorer, setListing } from "./store.ts";
@@ -86,6 +86,8 @@ const rename = async (place: Place, path: string, name: string) => {
     return;
   }
 
+  // Open tabs of the file, or of anything under a renamed folder, follow it.
+  renameFile(place.hostKey, path, destination);
   patchExplorer(place.key, () => ({ focused: destination }));
   await Promise.all([relist(place, dirname(path)), relist(place, dirname(destination))]);
 };
@@ -120,7 +122,7 @@ export const deleteEntry = async (
   place: Place,
   path: string,
   permanent: boolean,
-  tabs: EditorTabs
+  tabs: TabsView
 ): Promise<DeleteOutcome> => {
   const result = await polaris().request("files.delete", {
     hostKey: place.hostKey,
@@ -136,8 +138,8 @@ export const deleteEntry = async (
   }
 
   // A tab with unsaved edits stays: the editor offers to save it somewhere.
-  for (const tab of tabs.paths) {
-    if (isUnder(tab, path) && !tabs.dirty.has(tab)) closeTab(place.hostKey, place.workspaceId, tab);
+  for (const tab of tabs.tabs) {
+    if (isUnder(tab.path, path) && !tab.dirty) closeTab(place.hostKey, place.workspaceId, tab.path);
   }
 
   await relist(place, dirname(path));

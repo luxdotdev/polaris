@@ -228,6 +228,7 @@ describe("subscriptions", () => {
       [
         "constellation",
         "files.watch",
+        "files.watchFile",
         "github.accounts",
         "github.checkouts",
         "github.details",
