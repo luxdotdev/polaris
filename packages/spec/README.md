@@ -6,6 +6,7 @@ It covers the event store's group commit, receipts and gapless sequence (`apps/d
 
 | File | What |
 |---|---|
+| `languages.qnt` | M3.1 contract-only model: isolated contexts, queue/version/generation fences, durable edit acknowledgment and guarded undo. Future T1/X1 runtime adapters must emit observed traces; P1 installs no runtime. |
 | `polaris.qnt` | The model, its properties, and its instances: `current` (the code as it is), `review` (the code as it is, with Clients also accepting Turns and recording Verdicts, in one session), `finding1` … `finding4` (the code before each finding's fix, kept as mutants that must still violate `safety`) and `small` (for Apalache). |
 | `polaris_test.qnt` | Scenario tests: interleavings written out by hand (group commit, retry after a crash, answer races, withdrawal races, restart, a dropped subscriber, the host feed, Archive, late approval requests, accepting Turns, Verdicts off the host stream), and one per finding against its mutant. |
 | `scripts/check.ts` | Runs every check (`bun run spec`). |
@@ -335,3 +336,51 @@ model and covered by `harness/claude/autoMode.test.ts` and
 Git ref names only, preserving journal identities and existing valid refs.
 
 G2's Plain MCP bootstrap submits the existing `Plan.start` command with its authenticated Session as Lead. Stable Lead tool names become usable only after `ConstellationStarted`; current-role checks still run under the commit lock. No graph state or event shape is added to Quint. `mcp/tools/bootstrap.test.ts` checks start-first refusals, Plain-to-Lead promotion, worker-tool exclusion and archive revocation against the real service; composition and Harness tests cover lazy first-session activation and read-only exclusion. ACP's delivery-only context never changes normalized user prompt text.
+
+## M3.1 language contracts
+
+P1 exports `packages/protocol/src/languages/` and the optional Desktop
+`shared/languages.ts` tables. `LanguageRpcs` is separate from `DaemonRpcs`;
+no current runtime advertises the new capabilities. Host installation facts,
+Client settings and execution trust are distinct. No new language events enter
+the Agent Session event log or the existing Engine replay format.
+
+External registration/annotation IDs are opaque bounded strings, while
+Polaris-owned IDs remain slugs. Record schemas validate every input key without
+silently stripping invalid names; environments preserve leading underscores.
+Optional K2 artifact packaging survives catalog decoding and requires safe
+relative manifest paths. These JSON boundary corrections add no model action,
+commit/stream semantics or readiness transition; schema roundtrip/rejection tests
+cover them separately from the abstract lifecycle and recovery model.
+
+| Model action | Contract and consumer obligation |
+|---|---|
+| `Sync` | `LanguageSyncInput` / `LanguageSyncAck`: one contiguous context-local sequence, monotonic document versions and exact previous version; acknowledgment means queued delivery, not completed analysis. The model abstracts a single already-open document per context, with version 0 initially. T1 must additionally verify open/change/save/close and encoding/range handling. |
+| `Request` / `Result` / `Cancel` | `LanguageRequestFence`, `LanguageFeatureRequest`, `languageFenceSatisfied`: authenticated Client+Host+checkout+project+provider+configuration+generation identity and exact document snapshots. Typing/cancellation makes old results unusable. The two model keys represent distinct full context identities, not just language or Workspace IDs. |
+| `Restart` / `Crash` | Acquire a fresh generation; pending ephemeral language operations do not survive or replay. Send current full snapshots before requests. Durable resource-operation outcomes survive the crash independently. |
+| `Prepare` / `Apply` | `LanguageEditProposal`, `LanguageEditAcceptance`, `LanguageOperationStep`: preview and revalidate before applying; prepared/applied journal per operation ID. Model `Apply` is idempotent and cannot reapply a restored operation. It abstracts one resource step; X1 must extend fault coverage to partial multi-step operations. |
+| `PersistDrafts` / `PersistReceipt` / `Acknowledge` | `LanguageOperationOutcome`: report applied only after persistent Client drafts and necessary Host receipts are durable. `workspace/applyEdit` uses the same acceptance path. No filesystem-wide atomicity claim. |
+| `DiskEdit` / `Undo` | Guarded ownership checks against exact post-operation disk versions; intervening edits prevent restoration. Unresolved recovery is explicit. |
+
+`bun run spec` includes the language typecheck, four scenarios and 3,000
+60-step safety simulations. These are finite contract checks, not liveness,
+production lifecycle, filesystem or Unicode conversion proofs.
+
+Language trace v1 is independent of the Engine and Constellation trace formats.
+`packages/spec/scripts/language-replay/index.ts` validates every event plus a
+required observed Context or Operation state. Replay asserts both safety and
+the observed outcome after every action. Unknown versions/tags/contexts and
+missing observations fail closed. The committed fixture is explicitly
+`synthetic-contract`; T1/X1 must produce `runtime` traces from real handlers,
+with stable abstraction keys for authenticated full context identities.
+
+```sh
+bun packages/spec/scripts/replay-language.ts packages/spec/scripts/language-replay/contract.trace.json
+bun test packages/spec/scripts/language-replay
+```
+
+The regression suite proves a stale-result observation mutant is rejected by
+Quint. Existing Engine traces remain unchanged and still use
+`POLARIS_TRACE_DIR` with `scripts/replay.ts`; language text must never be written
+into those durable Agent Session traces. Actual consumer model-based and
+fault-injection tests remain required before any capability is advertised.

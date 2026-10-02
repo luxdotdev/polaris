@@ -473,3 +473,11 @@ export const SubscriptionInputs = {
 export type SubscriptionKind = keyof typeof SubscriptionInputs;
 
 export type SubscriptionInput<K extends SubscriptionKind> = (typeof SubscriptionInputs)[K]["Type"];
+
+/** Optional language tables are registered by C1 when implementations are available. */
+export {
+  LanguageRequestInputs,
+  LanguageRequestOutputs,
+  LanguageSubscriptionInputs,
+  LanguageSubscriptionItems,
+} from "./languages.ts";

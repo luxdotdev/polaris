@@ -33,6 +33,7 @@ const dir = join(import.meta.dir, "..");
 const quint = join(dir, "node_modules", ".bin", "quint");
 
 /** States the simulation must reach, or its checks prove little (see polaris.qnt). */
+
 const WITNESSES = [
   "witnessDropped",
   "witnessResumedAfterDrop",
@@ -51,9 +52,11 @@ const WITNESSES = [
 ];
 
 /** The same for the `review` instance (Clients accepting Turns and recording Verdicts). */
+
 const REVIEW_WITNESSES = ["witnessAccepted", "witnessAcceptRefused", "witnessVerdict"];
 
 /** Each ENG-209 finding: the instance of the code before its fix, and the property it breaks. */
+
 const FINDINGS = [
   { main: "finding1", invariant: "hostFeedCanProgress", what: "the host feed stalls on a gap" },
   { main: "finding2", invariant: "archivedIsClosed", what: "Archive leaves a Turn in flight" },
@@ -69,10 +72,15 @@ let failed = false;
 
 const run = (label: string, argv: ReadonlyArray<string>, expectFailure = false) => {
   const started = performance.now();
+
   const result = Bun.spawnSync([quint, ...argv], { cwd: dir, stdout: "pipe", stderr: "pipe" });
+
   const seconds = ((performance.now() - started) / 1000).toFixed(1);
+
   const output = `${result.stdout.toString()}${result.stderr.toString()}`;
+
   const ok = expectFailure ? result.exitCode !== 0 : result.exitCode === 0;
+
   console.log(`${ok ? "✓" : "✗"} ${label} (${seconds}s)`);
 
   const summary = output
@@ -101,6 +109,21 @@ run("typecheck polaris_test.qnt", ["typecheck", "polaris_test.qnt"]);
 run("typecheck constellations.qnt", ["typecheck", "constellations.qnt"]);
 
 run("typecheck constellations_test.qnt", ["typecheck", "constellations_test.qnt"]);
+
+run("typecheck languages.qnt", ["typecheck", "languages.qnt"]);
+
+run("language contract scenarios", ["test", "languages.qnt", "--main=languages_test"]);
+
+run("language contract safety", [
+  "run",
+  "languages.qnt",
+  "--main=languages",
+  "--invariants",
+  "safety",
+  `--max-samples=${samples}`,
+  "--max-steps=60",
+  `--seed=${seed}`,
+]);
 
 run("typecheck worktree_setup.qnt", ["typecheck", "worktree_setup.qnt"]);
 
@@ -154,6 +177,7 @@ const simulate = (
 ];
 
 /** Simulate `main` against `safety` and fail if a witness is never reached. */
+
 const simulateWitnessed = (
   main: string,
   witnesses: ReadonlyArray<string>,
@@ -167,6 +191,7 @@ const simulateWitnessed = (
   for (const witness of witnesses) {
     if (new RegExp(`${witness} was witnessed in 0 trace`).test(simulated)) {
       failed = true;
+
       console.log(`✗ ${witness} was never reached: the simulation no longer covers it`);
     }
   }
@@ -192,6 +217,7 @@ simulateWitnessed(
 );
 
 // The mutants: the simulator must still find each finding, or `safety` no longer guards it.
+
 for (const finding of FINDINGS) {
   run(
     `simulate ${finding.main}: ${finding.invariant} is violated (${finding.what})`,

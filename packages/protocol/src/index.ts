@@ -43,3 +43,5 @@ export * from "./resources.ts";
 export * from "./files.ts";
 
 export * from "./worktreeSetup.ts";
+
+export * from "./languages/index.ts";
