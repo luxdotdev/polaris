@@ -147,6 +147,7 @@ export class EventStore extends Context.Service<
       readonly after: number;
       readonly upTo: number;
       readonly sessionId: SessionId | null;
+      readonly eventTypes?: ReadonlyArray<DomainEvent["_tag"]>;
     }) => Effect.Effect<ReadonlyArray<EventEnvelope>, ServiceError>;
     /**
      * A session's Turns from SQL, ordered by index: those with `index < beforeIndex`
@@ -195,17 +196,20 @@ export class EventStore extends Context.Service<
         readonly after: number;
         readonly upTo: number;
         readonly sessionId: SessionId | null;
+        readonly eventTypes?: ReadonlyArray<DomainEvent["_tag"]>;
       }) =>
         (options.sessionId === null
           ? sql<EventRow>`
               SELECT sequence, occurred_at, command_id, payload FROM events
               WHERE sequence > ${options.after} AND sequence <= ${options.upTo}
                 AND event_type NOT IN ${sql.in(hostOmittedEventTypes)}
+                AND ${options.eventTypes === undefined ? sql.literal("1") : sql`event_type IN ${sql.in(options.eventTypes)}`}
               ORDER BY sequence`
           : sql<EventRow>`
               SELECT sequence, occurred_at, command_id, payload FROM events
               WHERE session_id = ${options.sessionId}
                 AND sequence > ${options.after} AND sequence <= ${options.upTo}
+                AND ${options.eventTypes === undefined ? sql.literal("1") : sql`event_type IN ${sql.in(options.eventTypes)}`}
               ORDER BY sequence`
         ).pipe(
           Effect.map((rows) => rows.map(decodeEventRow)),

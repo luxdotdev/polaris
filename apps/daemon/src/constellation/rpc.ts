@@ -4,6 +4,7 @@ import type { ConstellationBinding } from "../engine/constellation.inputs.ts";
 import { getDefaults, setDefaults } from "./defaults.ts";
 import { finding, refusal } from "./decision.ts";
 import { Constellations } from "./service.ts";
+import { ConstellationStatsService } from "./stats/index.ts";
 
 /** Only the authenticated transport sets this annotation. Unbound Desktop connections are the user. */
 export class ConstellationCaller extends Context.Service<
@@ -17,6 +18,7 @@ const caller = (annotations: Context.Context<never>): ConstellationBinding =>
 export const ConstellationRpcHandlers = ConstellationRpcs.toLayer(
   Effect.gen(function* () {
     const graphs = yield* Constellations;
+    const stats = yield* ConstellationStatsService;
     const C = ConstellationCommand.cases;
 
     return {
@@ -54,6 +56,8 @@ export const ConstellationRpcHandlers = ConstellationRpcs.toLayer(
         graphs.command(caller(client.annotations), commandId, C.WorkerMessage.make(payload)),
       "constellation.status": ({ constellationId, json }, { client }) =>
         graphs.status(caller(client.annotations), constellationId, json === true),
+      "constellation.stats": ({ constellationId }, { client }) =>
+        stats.get(caller(client.annotations), constellationId),
       "constellation.subscribe": ({ constellationId, afterSequence }, { client }) =>
         graphs.subscribe(caller(client.annotations), constellationId, afterSequence),
     };

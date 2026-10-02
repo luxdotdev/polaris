@@ -17,6 +17,12 @@
 const [command, ...args] = process.argv.slice(2);
 
 switch (command) {
+  case "constellation": {
+    const { runConstellationStats } = await import("./constellation/stats/cli.ts");
+    process.exit(await runConstellationStats(args));
+    break;
+  }
+
   case "lease": {
     const { runLease } = await import("./resources/cli.ts");
     process.exit(await runLease(args));
@@ -62,7 +68,9 @@ switch (command) {
       process.exit(await runServiceCommand(command, args));
     }
 
-    console.error(`usage: polaris <serve|bridge|install|uninstall|upgrade|version|selftest|lease>`);
+    console.error(
+      `usage: polaris <serve|bridge|install|uninstall|upgrade|version|selftest|lease|constellation>`
+    );
     process.exit(command === undefined ? 0 : 2);
   }
 }

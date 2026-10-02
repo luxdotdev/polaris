@@ -272,6 +272,15 @@ resource with holders/waiters or granting out of order fails replay. Additional
 process identity/command fields are accepted but process liveness and PID reuse
 are tested by the resource service, not inferred from this abstract log.
 
+The reserved `__workers` stream now emits the same queued/granted/canceled/released
+events as ordinary resources. `workerSlotScopeCloseAndRestartReclaimTest` checks
+capacity and FIFO across cancellation, scope release, and restart reclaim. Real
+worker FIFO and restart tests emit named `__workers` traces for this reader.
+`constellation.stats` is a read-only projection over existing logs and Usage;
+its authorization, filtered sequence cuts, and absence of writes/subscriptions
+are checked in `apps/daemon/src/constellation/stats/service.test.ts`. No telemetry
+state is added to Quint.
+
 Replay checks each committed batch against `safety`; generated Quint sources
 are retained on failure. The reader tests exercise the JSON boundary, CLI and
 malformed logs. It omits metadata prose and abstracts wire revisions; actual

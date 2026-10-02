@@ -52,7 +52,7 @@ const roundTrip = <
 
 describe("Constellation contract", () => {
   test("the subgroup is mounted under DaemonRpcs with no role supplied by the caller", () => {
-    expect(ConstellationRpcs.requests.size).toBe(15);
+    expect(ConstellationRpcs.requests.size).toBe(16);
 
     for (const [tag, rpc] of ConstellationRpcs.requests) {
       expect(DaemonRpcs.requests.get(tag)).toBe(rpc);

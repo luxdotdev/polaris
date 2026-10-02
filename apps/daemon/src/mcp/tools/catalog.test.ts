@@ -4,21 +4,21 @@ import {
   ConstellationRejected,
   ConstellationCommand,
   ReviewAction,
+  SetConstellationStateAction,
 } from "@polaris/protocol";
-import { Effect } from "effect";
-import { constellationTools } from "./tools.ts";
-import { fakeCommands, leadBinding, workerBinding } from "./testing.ts";
+import { FriendlyAnswer, FriendlyReview } from "./inputs.ts";
+import { Effect, Schema } from "effect";
+import { constellationTools } from "./index.ts";
+import { fakeCommands, leadBinding, workerBinding } from "../testing.ts";
 
-const invoke = (
-  tools: ReturnType<typeof constellationTools>,
-  name: string,
-  input: Parameters<(typeof tools)[number]["call"]>[0]
-) => {
+const invoke = <A>(tools: ReturnType<typeof constellationTools>, name: string, input: A) => {
   const tool = tools.find((entry) => entry.name === name);
 
   if (!tool) throw new Error(`No ${name} tool`);
 
-  return tool.call(input);
+  return tool.call(
+    Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Json))(JSON.stringify(input))
+  );
 };
 
 test("worker tools cannot forge role, Constellation, Attempt or operator authority", async () => {
@@ -45,7 +45,9 @@ test("worker tools cannot forge role, Constellation, Attempt or operator authori
 
   expect(fake.calls).toHaveLength(0);
   const result = await invoke(tools, "progress", { note: "Checks passed", completed: 1, total: 2 });
-  expect(result.content[0]?.text).toEndWith("Next: Review the Claim.");
+  expect(result.content[0]?.text).toEndWith(
+    "Next: Continue the assignment; report the next useful milestone."
+  );
   expect(fake.calls[0]?.binding).toEqual({ kind: "session", sessionId: workerBinding.sessionId });
   expect(fake.calls[0]?.command).toMatchObject({
     constellationId: workerBinding.constellationId,
@@ -62,7 +64,7 @@ test("Lead dispatch resolves Host, model and worker names; review requires revis
       { taskId: "A2", worker: { session: "helper" } },
     ],
   });
-  expect(fake.references).toEqual(["model:Sol", "host:devbox", "session:helper"]);
+  expect(fake.references).toEqual(["host:devbox", "model:Sol", "session:helper"]);
   expect(fake.calls[0]?.command).toMatchObject({
     tasks: [
       { taskId: "A1", worker: { hostId: "host-devbox", selection: { model: "model-Sol" } } },
@@ -125,7 +127,9 @@ test("domain rejections retain every finding and current revision", async () => 
   expect(result.isError).toBe(true);
   expect(result.content[0]?.text).toContain("E-DEP-CYCLE");
   expect(result.content[0]?.text).toContain("E-REVISION");
-  expect(result.content[0]?.text).toContain('"revision":12');
+  expect(result.content[0]?.text).toContain("Revision: 12");
+  expect(result.structuredContent).toEqual({ findings, revision: 12, graph: null });
+  expect(result.content[0]?.text).toMatch(/Next: .+$/);
 });
 
 test("tool JSON schemas include referenced Claim definitions", () => {
@@ -144,4 +148,74 @@ test("status emits JSON only when asked and every result ends in Next", async ()
   expect(plain.content[0]?.text).not.toContain('"constellation"');
   expect(json.content[0]?.text).toContain('"constellation"');
   expect(json.content[0]?.text).toEndWith("Next: Review the Claim.");
+});
+
+test("review shares friendly worker placement with dispatch and keeps merge-conflict base", async () => {
+  const fake = fakeCommands();
+  const tools = constellationTools(leadBinding, fake.commands);
+
+  const result = await invoke(tools, "review", {
+    task: "A1",
+    revision: 3,
+    action: FriendlyReview.cases.SendBack.make({
+      reason: "Rebase the claimed head",
+      mergeConflictBase: "new-base",
+      worker: { host: "local", selection: { model: "Sol" } },
+    }),
+  });
+
+  expect(result.isError).not.toBe(true);
+  expect(result.content[0]?.text).toStartWith("Review recorded.\nRevision: 7\n");
+  expect(fake.references).toEqual(["host:local", "model:Sol", "attempt:A1"]);
+  expect(fake.calls[0]?.command).toMatchObject({
+    attemptId: "attempt-A1",
+    revision: 3,
+    action: {
+      worker: { hostId: "host-local", selection: { model: "model-Sol" } },
+      mergeConflictBase: "new-base",
+    },
+  });
+});
+
+test("ambiguous placement and Lead approval arguments fail without submitting a command", async () => {
+  const fake = fakeCommands();
+  const tools = constellationTools(leadBinding, fake.commands);
+
+  const result = await invoke(tools, "dispatch", {
+    tasks: [{ taskId: "A1", worker: { session: "helper", host: "local" } }],
+  });
+
+  expect(result.isError).toBe(true);
+  expect(result.structuredContent?.revision).toBe(7);
+  expect(result.structuredContent?.findings[0]?.code).toBe("E-INPUT");
+  expect(
+    (
+      await invoke(tools, "review", {
+        task: "A1",
+        revision: 1,
+        action: ReviewAction.cases.Approve.make({}),
+      })
+    ).isError
+  ).toBe(true);
+  expect(fake.calls).toHaveLength(0);
+});
+
+test("answer resolves the short Task and handover resolves the requested model", async () => {
+  const fake = fakeCommands();
+  const tools = constellationTools(leadBinding, fake.commands);
+  await invoke(tools, "answer", {
+    action: FriendlyAnswer.cases.Question.make({ task: "A1", questionId: "q", text: "Use main" }),
+  });
+  await invoke(tools, "set_state", {
+    action: SetConstellationStateAction.cases.HandOver.make({
+      summary: "Claims and Gate remain",
+      interrupt: false,
+      selection: { model: "Sol" },
+    }),
+  });
+  expect(fake.references).toEqual(["attempt:A1", "model:Sol"]);
+  expect(fake.calls[0]?.command).toMatchObject({
+    action: { attemptId: "attempt-A1", questionId: "q", text: "Use main" },
+  });
+  expect(fake.calls[1]?.command).toMatchObject({ action: { selection: { model: "model-Sol" } } });
 });

@@ -39,6 +39,7 @@ const WorkspaceIoRpcs = DaemonRpcs.omit(
   "constellation.answer",
   "constellation.message",
   "constellation.status",
+  "constellation.stats",
   "constellation.set_state",
   "constellation.worker.claim",
   "constellation.worker.ask",
