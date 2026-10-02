@@ -1,8 +1,10 @@
 # P1 language, Settings, edit and save contracts
 
-Protocol commit: `5901287d5a517d95e23187e9b3cb36942a6e8c16` on
+Original protocol commit: `5901287d5a517d95e23187e9b3cb36942a6e8c16` on
 `m31/c6ab7f20-9c5e-4b41-b53a-ed418d5f78d4/P1-publish-language-settings-edit-and-save-`.
 Base: `48a79df06cf8a912db2bc3e7ed1c66775ebe49db`.
+
+Replacement contract commit: `7c5643ed1c8f2f3ee6cbf16bfaee33a3b0a3b6cc`.
 
 This publishes opt-in contracts before implementation consumers. It does not
 register handlers, advertise runtime capabilities or grant artifact activation.
@@ -192,3 +194,76 @@ process access and termination of only the two known stalled P1 processes.
   recovery and cross-platform behavior. P1 does not claim those implementations.
 
 No upstream code was copied or adapted; no artifact/license policy was approved.
+
+## Replacement Attempt corrections
+
+The prior Claim at `a6a89fc27903eb827f8c9e61d3a400feecc9b77e` was sent back for
+two reproduced interoperability defects. It incorrectly applied Polaris slug
+grammar to server registration/annotation IDs and environment names, and Effect
+Record key selection silently erased unmatched keys. The original passing tests
+did not cover those cases; they were insufficient to claim lossless external IDs.
+
+`base.ts` now defines bounded opaque `LanguageServerIdentifier`, portable
+`LanguageEnvironmentName` (including leading underscores) and shared
+`languageStringRecord`. Records first decode every string key, then validate all
+names, so invalid keys fail instead of disappearing. `broker.ts` registration/
+unregistration and `edits.ts` text/resource annotations share the opaque schema.
+`settings.ts` and `catalog.ts` share bounded environments; launch facts retain
+valid environment names without values. URI edit maps and preference maps were
+also inspected and converted to reject invalid keys without broadening their
+URI or Polaris-owned ID grammar. JSON-object keys already accept arbitrary
+strings and did not have the narrowed-key erasure problem. Argv and environment
+remain direct process inputs, without shell interpolation.
+
+Official LSP 3.17 identifier types were checked through Context7 against the
+[official specification](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification).
+`external-records.test.ts` roundtrips punctuation/space/underscore/Unicode/empty
+registration IDs, matching annotation references on text/create/rename/delete
+edits, `_JAVA_OPTIONS`, catalog environments and launch facts. It rejects invalid
+names, oversized keys/values/counts and invalid preference/URI keys. The first
+four regression tests failed on the old implementation (0 pass/4 fail), retained
+in `/tmp/p1-sendback-regressions-before.log`; initial corrected tests passed4/4.
+
+Lead message247 additionally required the optional K2 `Artifact.packaging` wire
+projection. `catalog.ts` preserves exact fields: `filter:'lua-core-v1'`,
+`sourceIntegrity`, `manifest`, `manifestIntegrity`, `postFilterIntegrity`,
+`disableThirdPartyDiscovery:true`. Hashes retain the existing integrity grammar.
+Manifest paths use `LanguageRelativePath`: bounded relative POSIX paths with no
+absolute path, drive prefix, backslash, NUL, empty or dot/traversal component.
+This validation was coordinated with K2. `packaging.test.ts` proves lossless
+packaging/absence roundtrips and rejects malformed filter/hash/path/discovery
+policy. Original download integrity and audit status remain unchanged. I1 must
+verify the download, manifest and exact filtered output and enforce discovery;
+packaging grants neither legal closure nor readiness/approval. K2/G1 own native
+runtime/legal review.
+
+Replacement checks on the final code tree (report-only commit follows):
+
+- Focused schemas/language replay: 27 pass, 0 fail, 155 assertions across four
+  files; `/tmp/p1-sendback-focused.log`.
+- Typecheck: 9/9 successful, two cached; `/tmp/p1-sendback-typecheck.log`.
+- Full repository tests: 9/9 successful, two cached; Desktop 978 pass/0 fail,
+  Daemon 973 pass/11 existing opt-in skips/0 fail, 46,657 assertions, 984 tests.
+  `/tmp/p1-sendback-test.log`; temporary `POLARIS_HOME`, inherited coordination/
+  handoff variables removed, global Git disabled, no HOME override.
+- Full `bun run spec`: exit0, language four scenarios and 3,000 simulations
+  plus existing models/scenarios/simulations and expected mutants;
+  `/tmp/p1-sendback-spec.log`. No formal-proof or new runtime-trace claim.
+- Full lint, scoped quality and workspace licenses pass; 529 production
+  dependencies plus four installed platform builds, 527 allowed, two existing
+  exceptions, zero violations. `/tmp/p1-sendback-lint.log`,
+  `/tmp/p1-sendback-quality-final.log`, `/tmp/p1-sendback-licenses.log`.
+- Read-only projection of K2's current descriptor catalog is lossless, including
+  four packaging artifacts; `/tmp/p1-sendback-k2-projection.log`. K2 confirmed
+  matching manifest path validation; its final catalog SHA remains its handoff.
+
+Existing trace receipts and earlier disk/signing recovery above are historical;
+the new full test/spec receipts are separate replacement evidence. Shared-cache
+IO permission warnings remain in typecheck/test logs without affecting success.
+Both correction/report commits use normal hooks, with no hook bypass.
+
+Readable-spacing lint failures and overly narrow test expectation types were
+corrected during this Attempt; no baseline raised or type assertion added.
+These corrections register no active wire handler and change no runtime hot
+path, timer or model transition. The earlier leased benchmark evidence above
+remains historical; it is not new exact-head performance certification.
