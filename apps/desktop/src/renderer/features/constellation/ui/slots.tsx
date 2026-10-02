@@ -16,7 +16,7 @@ import {
   SessionOutput,
 } from "../../session/index.ts";
 import { useFacts, useLeadConstellation, useWorkerAttempt, type WorkerAttempt } from "../hooks.ts";
-import type { ConstellationRecord } from "../model/index.ts";
+import type { ConstellationRecord, Digest } from "../model/index.ts";
 import { leadKey, patchLeadUi, useLeadUi } from "../state.ts";
 import { DigestCard } from "./cards.tsx";
 import { ConstellationTab } from "./ConstellationTab.tsx";
@@ -38,7 +38,7 @@ const LeadIntent = ({
   const ui = useLeadUi(leadKey(hostKey, sessionId));
   const leadTitle = useTitle(hostKey, sessionId);
   const facts = useFacts(record);
-  const digests = new Map(record.digests.map((d) => [d.turnId, d]));
+  const digests = new Map<string, Digest>(record.digests.map((d) => [d.turnId, d]));
 
   // A Lead's Output holds its Constellation: open it unless the user chose otherwise.
   useEffect(() => offerOutput(hostKey, sessionId), [hostKey, sessionId]);

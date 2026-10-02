@@ -172,10 +172,15 @@ export class Attempt extends Schema.Class<Attempt>("ConstellationAttempt")({
   mergedHead: optionalNullable(Schema.String),
   receipts: optionalArray(CheckReceipt),
   evidence: optionalNullable(EvidenceTier),
-  approvedByUserAt: optionalNullable(Timestamp),
-  handedUpAt: optionalNullable(Timestamp),
-  handedUpReason: optionalNullable(Schema.String),
-  nudgedAt: optionalNullable(Timestamp),
+  /** When the worker claimed (AttemptClaimed); null before. */
+  claimedAt: Schema.NullOr(Timestamp),
+  /** The user's verdict (ClaimApproved); the Lead still merges and accepts. */
+  approvedByUserAt: Schema.NullOr(Timestamp),
+  /** The Lead handed the Claim up to the user (ClaimHandedUp), and why. */
+  handedUpAt: Schema.NullOr(Timestamp),
+  handedUpReason: Schema.NullOr(Schema.String),
+  /** The one automatic nudge after a silent end (AttemptNudged). */
+  nudgedAt: Schema.NullOr(Timestamp),
   startedAt: Timestamp,
   endedAt: optionalNullable(Timestamp),
 }) {}
@@ -221,7 +226,7 @@ export class Constellation extends Schema.Class<Constellation>("Constellation")(
   settings: ConstellationSettings,
   tasks: Schema.Array(Task),
   attempts: Schema.Array(Attempt),
-  pendingNotifications: optionalArray(ConstellationNotification),
+  pendingNotifications: Schema.Array(ConstellationNotification),
   createdAt: Timestamp,
   updatedAt: Timestamp,
 }) {}
@@ -234,9 +239,33 @@ export class TaskProjection extends Schema.Class<TaskProjection>("ConstellationT
   gatePromoted: Schema.Boolean,
   stale: Schema.Boolean,
   branchFetched: Schema.Boolean,
-  /** Optional/nullable on the wire; decoded projections use null for unavailable facts. */
-  liveness: optionalNullable(WorkerLiveness),
+  /** The latest Attempt's observed liveness; null when nothing has been observed. */
+  liveness: Schema.NullOr(WorkerLiveness),
 }) {}
+
+/** A graph as the Host feed lists it; its contents come from `constellation.subscribe`. */
+export class ConstellationSummary extends Schema.Class<ConstellationSummary>(
+  "ConstellationSummary"
+)({
+  id: ConstellationId,
+  workspaceId: WorkspaceId,
+  hostId: HostId,
+  leadSessionId: SessionId,
+  name: Schema.NonEmptyString,
+  state: ConstellationState,
+  createdAt: Timestamp,
+}) {}
+
+export const constellationSummaryOf = (c: Constellation): ConstellationSummary =>
+  new ConstellationSummary({
+    id: c.id,
+    workspaceId: c.workspaceId,
+    hostId: c.hostId,
+    leadSessionId: c.leadSessionId,
+    name: c.name,
+    state: c.state,
+    createdAt: c.createdAt,
+  });
 
 export class ConstellationGraphSlice extends Schema.Class<ConstellationGraphSlice>(
   "ConstellationGraphSlice"

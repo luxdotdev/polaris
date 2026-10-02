@@ -1,5 +1,4 @@
 import {
-  type Capability,
   type CommandId,
   ConstellationCommand,
   type ConstellationId,
@@ -301,12 +300,8 @@ const make = Effect.gen(function* () {
     command,
     status,
     resolve,
-    subscribe: (
-      binding: ConstellationBinding,
-      id: ConstellationId,
-      after: Sequence | null,
-      capabilities?: ReadonlyArray<Capability>
-    ) => subscribeConstellation(store, binding, id, after, capabilities, liveness),
+    subscribe: (binding: ConstellationBinding, id: ConstellationId, after: Sequence | null) =>
+      subscribeConstellation(store, binding, id, after, liveness),
   };
 });
 

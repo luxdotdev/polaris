@@ -3,6 +3,13 @@ import { Rpc, RpcGroup } from "effect/rpc";
 import { CommandId, Sequence } from "../ids.ts";
 import { optionalArray, optionalNullable } from "../models.ts";
 import { ConstellationEvent } from "./events.ts";
+import {
+  AttemptProgress,
+  ConstellationDigest,
+  ConstellationHandover,
+  ConstellationProposal,
+  PendingOperatorMessage,
+} from "./journal.ts";
 import { ConstellationCommand } from "./commands.ts";
 import {
   Constellation,
@@ -111,10 +118,16 @@ export const ConstellationStatus = Rpc.make("constellation.status", {
 });
 
 export const ConstellationStreamItem = Schema.TaggedUnion({
+  /** Everything a fresh subscriber needs: the graph, its projections and the owner's journal. */
   Snapshot: {
     sequence: Sequence,
     constellation: Constellation,
-    projections: optionalArray(TaskProjection),
+    projections: Schema.Array(TaskProjection),
+    proposals: Schema.Array(ConstellationProposal),
+    progress: Schema.Array(AttemptProgress),
+    messages: Schema.Array(PendingOperatorMessage),
+    digests: Schema.Array(ConstellationDigest),
+    handovers: Schema.Array(ConstellationHandover),
   },
   Event: {
     envelope: Schema.Struct({
@@ -125,7 +138,7 @@ export const ConstellationStreamItem = Schema.TaggedUnion({
     }),
   },
   Synchronized: { sequence: Sequence },
-  /** Ephemeral, unsequenced; only sent to Clients announcing constellation.liveness. */
+  /** Ephemeral and unsequenced: the latest observed liveness of one Attempt. */
   LivenessChanged: { attemptId: AttemptId, liveness: WorkerLiveness },
 });
 

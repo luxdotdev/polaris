@@ -9,8 +9,8 @@
 import { Schema } from "effect";
 import { ResourceRpcs } from "./resources.ts";
 import {
-  Constellation,
   ConstellationRpcs,
+  ConstellationSummary,
   HostResource,
   ResourceLease,
 } from "./constellation/index.ts";
@@ -147,7 +147,8 @@ export const HostStreamItem = Schema.TaggedUnion({
     sessions: Schema.Array(SessionSummary),
     /** Open Review Checkouts, for Clients that announced `review.checkouts`. */
     reviewCheckouts: optionalArray(ReviewCheckout),
-    constellations: Schema.optionalKey(Schema.Array(Constellation)),
+    /** The Host's Constellations as a listing; each one's contents come from its own stream. */
+    constellations: Schema.optionalKey(Schema.Array(ConstellationSummary)),
     resources: Schema.optionalKey(Schema.Array(HostResource)),
     resourceLeases: Schema.optionalKey(Schema.Array(ResourceLease)),
   },

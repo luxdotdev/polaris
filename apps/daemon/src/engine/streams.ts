@@ -11,6 +11,7 @@ import {
   type SessionId,
   SessionStreamItem,
   SessionSummary,
+  constellationSummaryOf,
   type DomainEvent,
   type SubagentDetail,
   TurnDetail,
@@ -138,7 +139,9 @@ const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
               worktrees: [...model.worktrees.values()],
               sessions: [...model.sessions.values()].map((r) => summaryOf(r, withSubagents)),
               constellations: capabilities.includes("constellation")
-                ? [...model.constellations.values()].map((record) => record.graph)
+                ? [...model.constellations.values()].map((record) =>
+                    constellationSummaryOf(record.graph)
+                  )
                 : [],
               reviewCheckouts: capabilities.includes("review.checkouts")
                 ? [...model.reviewCheckouts.values()]

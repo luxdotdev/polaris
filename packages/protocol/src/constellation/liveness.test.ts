@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
 import { Schema } from "effect";
-import { CapabilityList } from "../capabilities.ts";
 import { HostId, Sequence, SessionId, TurnId, WorkspaceId } from "../ids.ts";
 import {
   AttemptId,
@@ -36,23 +35,11 @@ const projection = new TaskProjection({
   liveness,
 });
 
-test("older Task projections decode unknown liveness; older codecs ignore the additive field", () => {
-  const { liveness: _liveness, ...legacyFields } = TaskProjection.fields;
-  const legacy = Schema.Struct(legacyFields);
-  const oldValue = Schema.decodeUnknownSync(legacy)(projection);
+test("a projection always carries liveness: null when nothing was observed", () => {
+  const { liveness: _liveness, ...rest } = Schema.encodeSync(TaskProjection)(projection);
 
-  expect(Schema.decodeUnknownSync(TaskProjection)(oldValue).liveness).toBeNull();
-  expect(new TaskProjection(oldValue).liveness).toBeNull();
-  expect(Schema.decodeUnknownSync(legacy)(projection)).toEqual(oldValue);
-  expect(
-    Schema.decodeUnknownSync(TaskProjection)({ ...oldValue, liveness: null }).liveness
-  ).toBeNull();
-  const document = Schema.toJsonSchemaDocument(TaskProjection);
-
-  expect(document.definitions.ConstellationTaskProjectionEncoded).toHaveProperty(
-    "required",
-    expect.not.arrayContaining(["liveness"])
-  );
+  expect(() => Schema.decodeUnknownSync(TaskProjection)(rest)).toThrow();
+  expect(Schema.decodeUnknownSync(TaskProjection)({ ...rest, liveness: null }).liveness).toBeNull();
 });
 
 test("status and subscribe Snapshot carry the latest Attempt's liveness", () => {
@@ -67,6 +54,7 @@ test("status and subscribe Snapshot carry the latest Attempt's liveness", () => 
     settings: new ConstellationSettings({}),
     tasks: [],
     attempts: [],
+    pendingNotifications: [],
     createdAt: "2026-10-01T00:00:00Z",
     updatedAt: "2026-10-01T00:00:00Z",
   });
@@ -84,6 +72,11 @@ test("status and subscribe Snapshot carry the latest Attempt's liveness", () => 
     sequence: Sequence.make(1),
     constellation,
     projections: [projection],
+    proposals: [],
+    progress: [],
+    messages: [],
+    digests: [],
+    handovers: [],
   });
 
   const decodeResult = Schema.decodeUnknownSync(Schema.fromJsonString(ConstellationResult));
@@ -107,9 +100,6 @@ test("live liveness is keyed by Attempt with no graph revision or stream sequenc
   expect(decode(JSON.stringify(update))).toEqual(update);
   expect(update).not.toHaveProperty("sequence");
   expect(update).not.toHaveProperty("revision");
-  expect(
-    Schema.decodeUnknownSync(CapabilityList)(["constellation", "constellation.liveness"])
-  ).toEqual(["constellation", "constellation.liveness"]);
 });
 
 test("unknown context/output remain null and invalid observed counters are rejected", () => {

@@ -1,6 +1,6 @@
 /**
- * Folds Constellation events into the read model, from a Host feed or a Constellation stream.
- * Pure; projections are derived once per batch, not per event.
+ * The read model's folds: the Host feed keeps a listing of graphs; each graph's own stream
+ * (Snapshot, then events, then liveness) is the only source of its contents. Pure.
  */
 import {
   type ConstellationEvent,
@@ -19,6 +19,7 @@ import type {
   ConstellationsModel,
   Handover,
   ProjectionData,
+  SummaryData,
   TaskData,
 } from "./types.ts";
 
@@ -31,27 +32,43 @@ const TAGS: ReadonlySet<string> = new Set(Object.keys(constellationEventFields))
 export const isConstellationEvent = (event: Plainly<DomainEvent>): event is Event =>
   TAGS.has(event._tag);
 
-/** A record for a graph as a Snapshot has it, keeping what only events carried before. */
+type SnapshotItem = Extract<Plainly<ConstellationStreamItem>, { readonly _tag: "Snapshot" }>;
+
+/** A record exactly as a stream Snapshot has it. */
 export const recordFrom = (
-  constellation: ConstellationData,
-  sequence: number,
-  projections: ReadonlyArray<ProjectionData> = [],
-  prior?: ConstellationRecord
+  snapshot: Omit<SnapshotItem, "_tag" | "sequence"> & { readonly sequence: number }
 ): ConstellationRecord => ({
-  constellation,
-  projections: deriveProjections(constellation, projections),
-  sequence,
-  proposals: prior?.proposals ?? [],
-  handovers: prior?.handovers ?? [],
-  digests: prior?.digests ?? [],
-  notifications: new Map([
-    ...(prior?.notifications ?? []),
-    ...(constellation.pendingNotifications ?? []).map((n) => [n.id, n] as const),
-  ]),
-  progress: prior?.progress ?? new Map(),
-  claimedAt: prior?.claimedAt ?? new Map(),
-  messages: prior?.messages ?? [],
+  constellation: snapshot.constellation,
+  projections: snapshot.projections,
+  sequence: snapshot.sequence,
+  proposals: snapshot.proposals,
+  handovers: snapshot.handovers,
+  digests: snapshot.digests,
+  notifications: new Map(
+    [
+      ...snapshot.digests.flatMap((d) => d.items),
+      ...snapshot.constellation.pendingNotifications,
+    ].map((n) => [n.id, n] as const)
+  ),
+  progress: new Map(snapshot.progress.map((p) => [p.attemptId, p])),
+  messages: snapshot.messages,
 });
+
+/** A record for a graph as it starts (its `ConstellationStarted`), with nothing else yet. */
+export const startedRecord = (
+  constellation: ConstellationData,
+  sequence: number
+): ConstellationRecord =>
+  recordFrom({
+    sequence,
+    constellation,
+    projections: deriveProjections(constellation),
+    proposals: [],
+    progress: [],
+    messages: [],
+    digests: [],
+    handovers: [],
+  });
 
 type Step = (r: ConstellationRecord) => ConstellationRecord;
 
@@ -88,24 +105,32 @@ const withoutProposal =
 const answered = (questionId: string): Step =>
   graph((c) => ({
     ...c,
-    pendingNotifications: (c.pendingNotifications ?? []).filter(
+    pendingNotifications: c.pendingNotifications.filter(
       (n) => !Predicate.isTagged(n.item, "Question") || n.item.question.id !== questionId
     ),
   }));
-
-/** Appends unless an item with the same key is there: an event can arrive on two feeds. */
-const appendOnce = <T>(list: ReadonlyArray<T>, item: T, key: (t: T) => string | number) =>
-  list.some((x) => key(x) === key(item)) ? list : [...list, item];
 
 const compose =
   (...steps: ReadonlyArray<Step>): Step =>
   (r) =>
     steps.reduce((acc, step) => step(acc), r);
 
-const beforeHandover = (r: ConstellationRecord): Handover["before"] => ({
-  projections: deriveProjections(r.constellation, r.projections),
-  inFlight: r.constellation.attempts.filter((a) => a.state === "working" || a.state === "review"),
-  questions: (r.constellation.pendingNotifications ?? []).filter((n) =>
+/** The handover record as the owner keeps it: the graph as it stood at the switch. */
+const handoverOf = (
+  r: ConstellationRecord,
+  e: Pick<Handover, "from" | "to" | "summary" | "revision">,
+  at: string
+): Handover => ({
+  from: e.from,
+  to: e.to,
+  summary: e.summary,
+  revision: e.revision,
+  at,
+  projections: r.projections,
+  inFlight: r.constellation.attempts.flatMap((a) =>
+    a.state === "working" || a.state === "review" ? [a.id] : []
+  ),
+  questions: r.constellation.pendingNotifications.filter((n) =>
     Predicate.isTagged(n.item, "Question")
   ),
   undelivered: r.messages,
@@ -117,17 +142,10 @@ const stepFor = (event: Event, at: string): Step =>
     Match.tagsExhaustive({
       ConstellationStarted: () => (r: ConstellationRecord) => r,
       ConstellationStateChanged: ({ state }) => graph((c) => ({ ...c, state })),
-      LeadChanged: ({ from, to, summary, revision }) =>
+      LeadChanged: (e) =>
         compose(
-          graph((c) => ({ ...c, leadSessionId: to })),
-          (r) => ({
-            ...r,
-            handovers: appendOnce(
-              r.handovers,
-              { from, to, summary, revision, at, before: beforeHandover(r) },
-              (h) => h.revision
-            ),
-          })
+          (r) => ({ ...r, handovers: [...r.handovers, handoverOf(r, e, at)] }),
+          graph((c) => ({ ...c, leadSessionId: e.to }))
         ),
       TaskDeclared: ({ task }) => upsertTask(task),
       TaskEdited: ({ task }) => upsertTask(task),
@@ -142,7 +160,7 @@ const stepFor = (event: Event, at: string): Step =>
         ({ proposalId, by, task }) =>
         (r: ConstellationRecord) => ({
           ...r,
-          proposals: appendOnce(r.proposals, { proposalId, by, task, at }, (x) => x.proposalId),
+          proposals: [...r.proposals, { proposalId, by, task, at }],
         }),
       ProposalAccepted: ({ proposalId, task }) =>
         compose(withoutProposal(proposalId), upsertTask(task)),
@@ -158,6 +176,7 @@ const stepFor = (event: Event, at: string): Step =>
           (r) => ({
             ...r,
             progress: new Map(r.progress).set(attemptId, {
+              attemptId,
               note,
               completed: completed ?? null,
               total: total ?? null,
@@ -172,13 +191,11 @@ const stepFor = (event: Event, at: string): Step =>
       AttemptNudged: ({ attemptId, attemptRevision, at: nudgedAt }) =>
         patchAttempt(attemptId, attemptRevision, () => ({ nudgedAt })),
       AttemptClaimed: ({ attemptId, attemptRevision, claim }) =>
-        compose(
-          patchAttempt(attemptId, attemptRevision, () => ({ state: "review", claim })),
-          (r) => ({
-            ...r,
-            claimedAt: new Map(r.claimedAt).set(attemptId, at),
-          })
-        ),
+        patchAttempt(attemptId, attemptRevision, () => ({
+          state: "review",
+          claim,
+          claimedAt: at,
+        })),
       AttemptAccepted: ({ attemptId, attemptRevision, mergedHead, receipts, evidence }) =>
         patchAttempt(attemptId, attemptRevision, () => ({
           state: "accepted",
@@ -196,11 +213,7 @@ const stepFor = (event: Event, at: string): Step =>
         compose(
           graph((c) => ({
             ...c,
-            pendingNotifications: appendOnce(
-              c.pendingNotifications ?? [],
-              notification,
-              (n) => n.id
-            ),
+            pendingNotifications: [...c.pendingNotifications, notification],
           })),
           (r) => ({
             ...r,
@@ -211,8 +224,8 @@ const stepFor = (event: Event, at: string): Step =>
         compose(
           (r) => ({
             ...r,
-            digests: appendOnce(
-              r.digests,
+            digests: [
+              ...r.digests,
               {
                 turnId,
                 leadSessionId,
@@ -224,21 +237,18 @@ const stepFor = (event: Event, at: string): Step =>
                   return n === undefined ? [] : [n];
                 }),
               },
-              (d) => d.turnId
-            ),
+            ],
           }),
           graph((c) => ({
             ...c,
-            pendingNotifications: (c.pendingNotifications ?? []).filter(
-              (n) => !items.includes(n.id)
-            ),
+            pendingNotifications: c.pendingNotifications.filter((n) => !items.includes(n.id)),
           }))
         ),
       OperatorMessageSent: ({ id, authority, target, text, questionId }) =>
         compose(
           (r) => ({
             ...r,
-            messages: appendOnce(r.messages, { id, authority, target, text, at }, (m) => m.id),
+            messages: [...r.messages, { id, authority, target, text, at }],
           }),
           questionId == null ? (r: ConstellationRecord) => r : answered(questionId)
         ),
@@ -254,7 +264,7 @@ const stepFor = (event: Event, at: string): Step =>
     })
   );
 
-/** Applies one event; a `ConstellationStarted` creates the record. */
+/** Applies one stream event to its graph; a `ConstellationStarted` creates the record. */
 export const applyEvent = (
   record: ConstellationRecord | undefined,
   event: Event,
@@ -262,10 +272,9 @@ export const applyEvent = (
   sequence: number
 ): ConstellationRecord | undefined => {
   if (Predicate.isTagged(event, "ConstellationStarted"))
-    return record ?? recordFrom(event.constellation, sequence);
+    return startedRecord(event.constellation, sequence);
 
-  // Already folded from the other feed (Host feed and Constellation stream both carry it).
-  if (record === undefined || event.revision < record.constellation.revision) return record;
+  if (record === undefined) return undefined;
   const next = stepFor(event, at)(record);
 
   return {
@@ -281,77 +290,92 @@ interface Envelope {
   readonly event: Plainly<DomainEvent>;
 }
 
-/** Folds envelopes into a Host's model, deriving projections once per touched graph. */
+const withRecord = (
+  model: ConstellationsModel,
+  id: string,
+  record: ConstellationRecord | undefined
+): ConstellationsModel =>
+  record === undefined ? model : { ...model, byId: new Map(model.byId).set(id, record) };
+
+/** Folds one graph's stream events, deriving its projections once for the batch. */
 export const applyEnvelopes = (
   model: ConstellationsModel,
   envelopes: ReadonlyArray<Envelope>
 ): ConstellationsModel => {
-  const byId = new Map(model.byId);
+  let next = model;
   const touched = new Set<string>();
 
   for (const { event, occurredAt, sequence } of envelopes) {
     if (!isConstellationEvent(event)) continue;
     const id = event.constellationId;
-    const next = applyEvent(byId.get(id), event, occurredAt, sequence);
 
-    if (next === undefined) continue;
-    byId.set(id, next);
+    next = withRecord(next, id, applyEvent(next.byId.get(id), event, occurredAt, sequence));
     touched.add(id);
   }
 
-  if (touched.size === 0) return model;
-
   for (const id of touched) {
-    const r = byId.get(id);
+    const r = next.byId.get(id);
 
     if (r !== undefined)
-      byId.set(id, { ...r, projections: deriveProjections(r.constellation, r.projections) });
+      next = withRecord(next, id, {
+        ...r,
+        projections: deriveProjections(r.constellation, r.projections),
+      });
   }
-
-  return { byId };
-};
-
-/** A Host Snapshot's graphs replace the model's, keeping their event-only extras. */
-export const applySnapshot = (
-  model: ConstellationsModel,
-  constellations: ReadonlyArray<ConstellationData>,
-  sequence: number
-): ConstellationsModel => ({
-  byId: new Map(
-    constellations.map((c) => [c.id, recordFrom(c, sequence, [], model.byId.get(c.id))])
-  ),
-});
-
-type HostItem = Plainly<HostStreamItem>;
-
-/** The Constellation part of a frame of Host feed items. */
-export const applyHostItems = (
-  model: ConstellationsModel,
-  items: ReadonlyArray<HostItem>
-): ConstellationsModel => {
-  let next = model;
-  const pending: Array<Envelope> = [];
-
-  const flush = () => {
-    next = applyEnvelopes(next, pending.splice(0));
-  };
-
-  for (const item of items) {
-    if (Predicate.isTagged(item, "Event")) pending.push(item.envelope);
-    else if (Predicate.isTagged(item, "Snapshot") && item.constellations !== undefined) {
-      flush();
-      next = applySnapshot(next, item.constellations, item.sequence);
-    }
-  }
-
-  flush();
 
   return next;
 };
 
+type HostItem = Plainly<HostStreamItem>;
+
+const listedFrom = (c: ConstellationData): SummaryData => ({
+  id: c.id,
+  workspaceId: c.workspaceId,
+  hostId: c.hostId,
+  leadSessionId: c.leadSessionId,
+  name: c.name,
+  state: c.state,
+  createdAt: c.createdAt,
+});
+
+/** A listing event (the only Constellation events on the Host feed) updates the listing. */
+const listEvent = (
+  listed: ReadonlyMap<string, SummaryData>,
+  event: Plainly<DomainEvent>
+): ReadonlyMap<string, SummaryData> => {
+  if (Predicate.isTagged(event, "ConstellationStarted"))
+    return new Map(listed).set(event.constellationId, listedFrom(event.constellation));
+  const prior = isConstellationEvent(event) ? listed.get(event.constellationId) : undefined;
+
+  if (prior === undefined) return listed;
+
+  if (Predicate.isTagged(event, "ConstellationStateChanged"))
+    return new Map(listed).set(prior.id, { ...prior, state: event.state });
+
+  return Predicate.isTagged(event, "LeadChanged")
+    ? new Map(listed).set(prior.id, { ...prior, leadSessionId: event.to })
+    : listed;
+};
+
+/** The Host feed's part: its Snapshot's listing and the listing events after it. */
+export const applyHostItems = (
+  model: ConstellationsModel,
+  items: ReadonlyArray<HostItem>
+): ConstellationsModel => {
+  let listed = model.listed;
+
+  for (const item of items) {
+    if (Predicate.isTagged(item, "Snapshot"))
+      listed = new Map((item.constellations ?? []).map((c) => [c.id, c]));
+    else if (Predicate.isTagged(item, "Event")) listed = listEvent(listed, item.envelope.event);
+  }
+
+  return listed === model.listed ? model : { ...model, listed };
+};
+
 type StreamItem = Plainly<ConstellationStreamItem>;
 
-/** Ephemeral liveness lands on the projection whose latest Attempt it is; a replaced one is dropped. */
+/** Liveness lands on the projection whose latest Attempt it names; a replaced one is dropped. */
 const withLiveness = (
   model: ConstellationsModel,
   attemptId: string,
@@ -363,13 +387,13 @@ const withLiveness = (
     if (at === -1) continue;
     const projections = r.projections.map((p, n) => (n === at ? merged(p, { liveness }) : p));
 
-    return { byId: new Map(model.byId).set(id, { ...r, projections }) };
+    return withRecord(model, id, { ...r, projections });
   }
 
   return model;
 };
 
-/** One `constellation.subscribe` feed's items, for a graph on another Host's stream. */
+/** One graph's `constellation.subscribe` items: Snapshot, events and liveness. */
 export const applyStreamItems = (
   model: ConstellationsModel,
   items: ReadonlyArray<StreamItem>
@@ -377,21 +401,9 @@ export const applyStreamItems = (
   let next = model;
 
   for (const item of items) {
-    if (Predicate.isTagged(item, "Snapshot")) {
-      const byId = new Map(next.byId);
-      const { constellation, projections, sequence } = item;
-      const prior = byId.get(constellation.id);
-      // The Host feed may already be past this Snapshot: keep its graph, take the flags.
-      const ahead = prior !== undefined && prior.constellation.revision > constellation.revision;
-
-      byId.set(
-        constellation.id,
-        ahead
-          ? { ...prior, projections: deriveProjections(prior.constellation, projections) }
-          : recordFrom(constellation, sequence, projections, prior)
-      );
-      next = { byId };
-    } else if (Predicate.isTagged(item, "Event")) next = applyEnvelopes(next, [item.envelope]);
+    if (Predicate.isTagged(item, "Snapshot"))
+      next = withRecord(next, item.constellation.id, recordFrom(item));
+    else if (Predicate.isTagged(item, "Event")) next = applyEnvelopes(next, [item.envelope]);
     else if (Predicate.isTagged(item, "LivenessChanged"))
       next = withLiveness(next, item.attemptId, item.liveness);
   }
@@ -399,7 +411,7 @@ export const applyStreamItems = (
   return next;
 };
 
-/** Graphs as views (shellui's fixtures) into the store's per-Host models. */
+/** Graphs as views (shellui's fixtures) into the store's per-Host models, listed and loaded. */
 export const modelsFromViews = (
   byHost: Readonly<
     Record<
@@ -415,8 +427,12 @@ export const modelsFromViews = (
     Object.entries(byHost).map(([hostKey, views]) => [
       hostKey,
       {
+        listed: new Map(views.map((v) => [v.constellation.id, listedFrom(v.constellation)])),
         byId: new Map(
-          views.map((v) => [v.constellation.id, recordFrom(v.constellation, 0, v.projections)])
+          views.map((v) => [
+            v.constellation.id,
+            { ...startedRecord(v.constellation, 0), projections: v.projections },
+          ])
         ),
       },
     ])

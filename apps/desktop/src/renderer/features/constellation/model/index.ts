@@ -3,10 +3,10 @@ export {
   applyEnvelopes,
   applyEvent,
   applyHostItems as applyConstellationHostItems,
-  applySnapshot,
   applyStreamItems,
   isConstellationEvent,
   recordFrom,
+  startedRecord,
 } from "./fold.ts";
 
 export { deriveProjections, latestAttempts } from "./project.ts";

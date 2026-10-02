@@ -3,7 +3,7 @@
  * the structured part from the event log as it stood at the switch.
  */
 import { Match, Predicate } from "effect";
-import type { SessionId, TaskState } from "@polaris/protocol";
+import type { TaskState } from "@polaris/protocol";
 import { PixelHandIcon } from "@polaris/ui";
 import { useShellActions } from "../../../shell/hooks.ts";
 import {
@@ -34,10 +34,10 @@ const targetOf = (m: OperatorMessage, record: ConstellationRecord) =>
   );
 
 const counts = (h: Handover) => {
-  const done = h.before.projections.filter((p) => p.state === "done").length;
-  const review = h.before.projections.filter((p) => p.state === "review").length;
-  const working = h.before.projections.filter((p) => p.state === "working").length;
-  const more = h.before.projections.length - done - review - working;
+  const done = h.projections.filter((p) => p.state === "done").length;
+  const review = h.projections.filter((p) => p.state === "review").length;
+  const working = h.projections.filter((p) => p.state === "working").length;
+  const more = h.projections.length - done - review - working;
 
   return { done, review, working, more };
 };
@@ -51,7 +51,7 @@ const TONE: Partial<Record<TaskState, StripTone>> = {
 };
 
 const stripOf = (h: Handover, tasks: ReadonlyMap<string, TaskData>): ReadonlyArray<Segment> =>
-  h.before.projections.map((p) => ({
+  h.projections.map((p) => ({
     key: p.taskId,
     tone: TONE[p.state] ?? "waiting",
     harness: tasks.get(p.taskId)?.suggested?.harness ?? null,
@@ -70,7 +70,14 @@ export const HandoverBody = ({
   const { selectSession } = useShellActions();
   const tasks = new Map(record.constellation.tasks.map((t) => [t.id, t]));
   const n = counts(handover);
-  const { before } = handover;
+
+  const inFlight = handover.inFlight.flatMap((id) => {
+    const projection = handover.projections.find((p) => p.latestAttemptId === id);
+
+    return projection === undefined
+      ? []
+      : [{ id, taskId: projection.taskId, state: projection.state }];
+  });
 
   return (
     <div
@@ -97,11 +104,11 @@ export const HandoverBody = ({
           {n.review} review · {n.working} working · {n.more} more
         </span>
       </p>
-      {before.inFlight.length === 0 ? null : (
+      {inFlight.length === 0 ? null : (
         <>
           <h3 className={SECTION}>In flight</h3>
           <ul>
-            {before.inFlight.map((a) => {
+            {inFlight.map((a) => {
               const task = tasks.get(a.taskId);
 
               return (
@@ -126,10 +133,10 @@ export const HandoverBody = ({
           </ul>
         </>
       )}
-      {before.questions.length === 0 ? null : (
+      {handover.questions.length === 0 ? null : (
         <>
           <h3 className={SECTION}>Open questions</h3>
-          {before.questions.map((q) =>
+          {handover.questions.map((q) =>
             Predicate.isTagged(q.item, "Question") ? (
               <p key={q.id} className="text-body text-needs-you-text flex items-center gap-2 py-1">
                 <PixelHandIcon size={12} className="text-needs-you shrink-0" />
@@ -139,10 +146,10 @@ export const HandoverBody = ({
           )}
         </>
       )}
-      {before.undelivered.length === 0 ? null : (
+      {handover.undelivered.length === 0 ? null : (
         <>
           <h3 className={SECTION}>Not yet delivered</h3>
-          {before.undelivered.map((m) => (
+          {handover.undelivered.map((m) => (
             <p key={m.id} className="text-body text-text-default py-1">
               <span className="text-text-subtle">→ {targetOf(m, record)}</span> “{m.text}” · sent
               with the new lead's first turn
@@ -154,10 +161,7 @@ export const HandoverBody = ({
         <button
           type="button"
           className="text-text-strong cursor-default"
-          // SAFETY: LeadChanged.from is the previous Lead's SessionId.
-          onClick={() =>
-            selectSession({ hostKey: leadHostKey, sessionId: handover.from as SessionId })
-          }
+          onClick={() => selectSession({ hostKey: leadHostKey, sessionId: handover.from })}
         >
           Open the previous lead ↗
         </button>

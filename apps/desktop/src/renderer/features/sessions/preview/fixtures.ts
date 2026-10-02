@@ -185,6 +185,11 @@ const attempt = (seed: AttemptSeed) =>
     mergedHead: seed.state === "accepted" ? "8e41d07" : null,
     receipts: [],
     evidence: seed.state === "accepted" ? "verified" : null,
+    claimedAt: seed.claim === undefined ? null : ago(Math.max(1, seed.minutes - 10)),
+    approvedByUserAt: null,
+    handedUpAt: null,
+    handedUpReason: null,
+    nudgedAt: null,
     startedAt: ago(seed.minutes),
     endedAt: null,
   });
@@ -317,6 +322,7 @@ const projection = (
     gatePromoted: false,
     stale: extra.stale ?? false,
     branchFetched: extra.branchFetched ?? true,
+    liveness: null,
   });
 
 const settings = new ConstellationSettings({

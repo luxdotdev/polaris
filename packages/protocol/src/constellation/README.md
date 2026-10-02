@@ -55,9 +55,22 @@ MCP adapters turn it into `isError`; codes are open strings (`E-DEP-CYCLE`,
 ## Events and projections
 
 All tags in `ConstellationEvent` and `ResourceEvent` are also `DomainEvent` tags,
-so `EventEnvelope` is the persisted and Host-feed codec. A Constellation stream
-uses `StreamKey.cases.constellation` and `constellation.subscribe`, with the
-usual Snapshot → Synchronized → live Event/resume sequence. Events carry the
+so `EventEnvelope` is the persisted codec. **One feed per graph:** the Host feed
+only lists Constellations. Its Snapshot carries `ConstellationSummary` values, and
+its live events are the listing changes only (`ConstellationStarted`,
+`ConstellationStateChanged`, `LeadChanged`). Everything else about a graph comes
+from its own `constellation.subscribe` stream: Snapshot → Synchronized → live
+Event/resume, plus `LivenessChanged`. Clients resume with `afterSequence`.
+
+The stream Snapshot is complete for a fresh subscriber. It carries:
+- the graph;
+- `projections`;
+- the owner's journal: pending `proposals`, latest `progress` per Attempt,
+  unresolved operator `messages`, `digests` (each with the notifications it
+  delivered) and `handovers` (each with the graph as it stood: projections,
+  in-flight Attempts, open questions, undelivered messages).
+
+All of these are required. Events carry the
 new graph `revision`; Attempt changes also carry the new `attemptRevision`;
 Task cancellation/promotion carries `taskRevision`. Declaration/edit embeds
 `task`; start embeds `attempt`, including its cause, worker, Host, branch and base.
@@ -72,11 +85,9 @@ Only the decider emits `GatePromoted`. Causes use tagged constructors (Initial,
 SentBack, MergeConflict, Recover, Followup, Superseded); every linked cause's
 `ref` must point backward in the same Task's Attempt history.
 
-`TaskProjection.liveness` is optional and nullable on the wire, with
-`WorkerLiveness` describing `latestAttemptId`. Decoded projections always have
-the field; omission becomes null.
-It travels in `constellation.status` JSON results and `constellation.subscribe`
-Snapshot projections. Missing fields from older peers decode as null (unknown).
+`TaskProjection.liveness` is required and nullable (null: nothing observed), with
+`WorkerLiveness` describing `latestAttemptId`. It travels in `constellation.status`
+JSON results and `constellation.subscribe` Snapshot projections.
 The shape is `{current: null | {itemId, turnId, command, startedAt}, lastOutputAt,
 contextPercent, queuedInput}`. Both timestamps are Unix epoch milliseconds;
 context is an integer percentage or null, and queued input is a nonnegative count.
@@ -86,14 +97,17 @@ context is an integer percentage or null, and queued input is a nonnegative coun
 Live changes use `ConstellationStreamItem.cases.LivenessChanged` with
 `{attemptId, liveness}`. This is ephemeral and unsequenced, like session
 `ItemProgress`; it neither commits a graph event nor advances revision/sequence.
-Only Clients announcing both `constellation` and `constellation.liveness` receive
-it. Match the Attempt to `latestAttemptId`; ignore updates for replaced Attempts.
+Every subscriber receives it. Match the Attempt to `latestAttemptId`; ignore updates for replaced Attempts.
 The runtime seeds observed facts on subscribe/resume and publishes changes from
 Harness events and queued-input delivery, without timers. After reconnect, absent
 facts stay unknown rather than fabricating tool timing. The pure graph projection
 defaults to null; the runtime producer must enrich it. H's observed source is
-`apps/daemon/src/harness/constellation/liveness.ts`; E supplies the producer and
-capability gate, and W/L connects the Session-machine/Harness event drain.
+`apps/daemon/src/harness/constellation/liveness.ts`; E supplies the producer, and
+W/L connects the Session-machine/Harness event drain.
+
+An Attempt's Claim-review fields are required and nullable: `claimedAt`
+(AttemptClaimed), `approvedByUserAt` (ClaimApproved), `handedUpAt` /
+`handedUpReason` (ClaimHandedUp) and `nudgedAt` (AttemptNudged).
 
 A verified receipt contains a `ToolCallReference` to Host/session/Turn/item;
 it does not copy caller-supplied command output as proof. The owner resolves
@@ -132,9 +146,10 @@ explicit user Release records `ResourceReleased`, never an automatic kill.
 
 New Host snapshot fields are optional, and existing events/sessions gain no
 required fields. Clients announce `constellation` and/or `host.resources` to
-receive the respective new event tags; Claim metadata uses
-`constellation.claim-review` and defaults RPCs use `constellation.defaults`; an older Client cannot decode new union
-variants, so capability filtering is mandatory. Existing session/Workspace/SQL
+receive the respective new event tags, and defaults RPCs use
+`constellation.defaults`. An older Client cannot decode new union variants, so
+capability filtering is mandatory. The Constellation surfaces are new and may
+change shape until C1 ships; older C1 builds are not supported. Existing session/Workspace/SQL
 reducers explicitly leave graph/resource events alone. The Engine folds and indexes graph events, implements cut-based replay/live
 subscriptions, and mounts the owner handlers in the normal Host transport.
 Provisioning, relay, vendor startup and delivery are injected composition hooks.

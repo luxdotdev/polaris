@@ -1,8 +1,8 @@
 /**
- * One `constellation` feed per known graph on a connected Host: its Snapshot brings the
- * Daemon's projections (stale, fetched, liveness), its events fold idempotently with the Host's.
+ * One `constellation` feed per graph the Host lists: the only source of its contents. A
+ * resubscribe (a new connection epoch) resumes after the graph's last sequence.
  */
-import type { ConstellationId } from "@polaris/protocol";
+import { type ConstellationId, Sequence } from "@polaris/protocol";
 import { useEffect, useMemo } from "react";
 import { useApp, useConnection } from "../../shell/hooks.ts";
 import type { AppState, AppStore } from "../../store/store.ts";
@@ -23,10 +23,8 @@ const wantedOf = (state: AppState): string =>
 
       if (status.state !== "connected" || !status.capabilities.includes("constellation")) return [];
 
-      return [...(state.constellations[host.key]?.byId.values() ?? [])].flatMap((r) =>
-        r.constellation.state === "archived"
-          ? []
-          : [`${host.key}\u0001${r.constellation.id}\u0001${status.epoch}`]
+      return [...(state.constellations[host.key]?.listed.values() ?? [])].flatMap((c) =>
+        c.state === "archived" ? [] : [`${host.key}\u0001${c.id}\u0001${status.epoch}`]
       );
     })
     .toSorted()
@@ -42,11 +40,22 @@ const parse = (print: string): ReadonlyArray<Wanted> =>
         return { key, hostKey, constellationId: id as ConstellationId };
       });
 
+/** Where a graph already folded resumes; null asks for a Snapshot. */
+const resumeAfter = (store: AppStore, w: Wanted) => {
+  const record = store.getState().constellations[w.hostKey]?.byId.get(w.constellationId);
+
+  return record === undefined ? null : Sequence.make(record.sequence);
+};
+
 /** The feed ends when the connection drops; the next epoch subscribes again. */
 const subscribe = (store: AppStore, w: Wanted) =>
   polaris().subscribe(
     "constellation",
-    { hostKey: w.hostKey, constellationId: w.constellationId, afterSequence: null },
+    {
+      hostKey: w.hostKey,
+      constellationId: w.constellationId,
+      afterSequence: resumeAfter(store, w),
+    },
     {
       items: (items) =>
         store.setState((s) => ({

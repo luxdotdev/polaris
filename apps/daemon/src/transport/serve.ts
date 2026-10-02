@@ -121,9 +121,7 @@ export const daemonHandlers = Layer.mergeAll(
 
 export const daemonCapabilities: ReadonlyArray<Capability> = [
   "constellation",
-  "constellation.claim-review",
   "constellation.defaults",
-  "constellation.liveness",
   ...HARNESS_CATALOGUE.map((harness) => harness.capability),
   "harness.availability",
   "harness.models",

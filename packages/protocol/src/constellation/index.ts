@@ -4,6 +4,8 @@ export * from "./domain.ts";
 
 export * from "./events.ts";
 
+export * from "./journal.ts";
+
 export * from "./liveness.ts";
 
 export * from "./rpc.ts";

@@ -4,14 +4,17 @@
  */
 import type {
   Attempt,
+  AttemptProgress,
+  ConstellationDigest,
+  ConstellationHandover,
+  ConstellationProposal,
+  ConstellationSummary,
+  PendingOperatorMessage,
   AttemptId,
   Claim,
   Constellation,
   ConstellationNotification,
-  MessageAuthority,
-  MessageTarget,
   Task,
-  TaskDefinition,
   TaskId,
   TaskProjection,
 } from "@polaris/protocol";
@@ -35,53 +38,21 @@ export interface ConstellationView {
   readonly projections: ReadonlyArray<ProjectionData>;
 }
 
-export interface Handover {
-  readonly from: string;
-  readonly to: string;
-  readonly summary: string;
-  readonly revision: number;
-  readonly at: string;
-  /** The graph as it stood when the Lead changed (C9's structured part). */
-  readonly before: {
-    readonly projections: ReadonlyArray<ProjectionData>;
-    readonly inFlight: ReadonlyArray<AttemptData>;
-    readonly questions: ReadonlyArray<NotificationData>;
-    readonly undelivered: ReadonlyArray<OperatorMessage>;
-  };
-}
+export type Handover = Plain<ConstellationHandover>;
 
-export interface Proposal {
-  readonly proposalId: string;
-  readonly by: AttemptId;
-  readonly task: Plain<TaskDefinition>;
-  readonly at: string;
-}
+export type Proposal = Plain<ConstellationProposal>;
 
-/** A digest Turn: the notifications one `LeadNotified` delivered to the Lead. */
-export interface Digest {
-  readonly turnId: string;
-  readonly leadSessionId: string;
-  readonly revision: number;
-  readonly at: string;
-  readonly items: ReadonlyArray<NotificationData>;
-}
+export type Digest = Plain<ConstellationDigest>;
 
-export interface Progress {
-  readonly note: string;
-  readonly completed: number | null;
-  readonly total: number | null;
-  readonly at: string;
-}
+export type Progress = Plain<AttemptProgress>;
 
-export interface OperatorMessage {
-  readonly id: string;
-  readonly authority: MessageAuthority;
-  readonly target: MessageTarget;
-  readonly text: string;
-  readonly at: string;
-}
+export type OperatorMessage = Plain<PendingOperatorMessage>;
 
+export type SummaryData = Plain<ConstellationSummary>;
+
+/** One graph as its own stream delivered it: the Snapshot, then every event since. */
 export interface ConstellationRecord extends ConstellationView {
+  /** The stream's last sequence, where a resubscribe resumes. */
   readonly sequence: number;
   readonly proposals: ReadonlyArray<Proposal>;
   readonly handovers: ReadonlyArray<Handover>;
@@ -89,17 +60,19 @@ export interface ConstellationRecord extends ConstellationView {
   /** Every notification seen, by id, so a digest can name its items. */
   readonly notifications: ReadonlyMap<string, NotificationData>;
   readonly progress: ReadonlyMap<AttemptId, Progress>;
-  /** When each Attempt claimed, for review times. */
-  readonly claimedAt: ReadonlyMap<AttemptId, string>;
   /** Operator messages not yet resolved (delivered), in send order. */
   readonly messages: ReadonlyArray<OperatorMessage>;
 }
 
-/** One Host's Constellations, by id. */
+/**
+ * One Host's Constellations: the Host feed's listing, and each listed graph's contents from
+ * its own `constellation.subscribe` stream.
+ */
 export interface ConstellationsModel {
+  readonly listed: ReadonlyMap<string, SummaryData>;
   readonly byId: ReadonlyMap<string, ConstellationRecord>;
 }
 
-export const emptyConstellations: ConstellationsModel = { byId: new Map() };
+export const emptyConstellations: ConstellationsModel = { listed: new Map(), byId: new Map() };
 
 export type { AttemptId, TaskId };

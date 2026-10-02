@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import {
   AttemptId,
+  Constellation,
   ConstellationStreamItem,
+  constellationSummaryOf,
+  TaskProjection,
   DomainEvent,
   EventEnvelope,
   HostStreamItem,
@@ -27,7 +30,7 @@ import { attentionItems, nextNeedingYou } from "./attention.ts";
 import { claimGlance, headMatches } from "./claim.ts";
 import { idRanges, span } from "./copy.ts";
 import { plainFacts } from "./facts.ts";
-import { applyEnvelopes, applyHostItems, applyStreamItems, merged, recordFrom } from "./fold.ts";
+import { applyEnvelopes, applyHostItems, applyStreamItems, merged, startedRecord } from "./fold.ts";
 import { railKey } from "./keys.ts";
 import { deriveProjections } from "./project.ts";
 import { buildRail, DEFAULT_RAIL, LARGE, type RailRow } from "./rail.ts";
@@ -117,55 +120,93 @@ describe("projections", () => {
 describe("fold", () => {
   const graph = { constellationId: constellationOf().id };
 
-  test("ConstellationStarted creates a record from a Host feed event", () => {
-    const model = applyHostItems(emptyConstellations, [
+  const loaded = (c = constellationOf()) => ({
+    listed: new Map([[c.id, constellationSummaryOf(c)]]),
+    byId: new Map([[c.id, startedRecord(c, 1)]]),
+  });
+
+  const envelope = (sequence: number, event: DomainEvent, at = "2026-10-01T12:00:00Z") => ({
+    sequence,
+    occurredAt: at,
+    event,
+  });
+
+  test("the Host feed only lists graphs: Snapshot summaries and listing events", () => {
+    const c = constellationOf();
+
+    const listed = applyHostItems(emptyConstellations, [
+      HostStreamItem.cases.Snapshot.make({
+        sequence: Sequence.make(1),
+        workspaces: [],
+        worktrees: [],
+        sessions: [],
+        constellations: [constellationSummaryOf(c)],
+      }),
       HostStreamItem.cases.Event.make({
         envelope: new EventEnvelope({
-          sequence: Sequence.make(1),
+          sequence: Sequence.make(2),
           occurredAt: "2026-10-01T12:00:00Z",
           commandId: null,
-          event: E.ConstellationStarted.make({
-            ...graph,
-            revision: 1,
-            constellation: constellationOf(),
-          }),
+          event: E.ConstellationStateChanged.make({ ...graph, revision: 38, state: "paused" }),
         }),
       }),
     ]);
 
-    expect(model.byId.get(graph.constellationId)?.constellation.name).toBe("Constellations v1");
+    expect(listed.listed.get(c.id)?.state).toBe("paused");
+    expect(listed.byId.size).toBe(0);
   });
 
-  test("a Claim moves the Attempt to review; acceptance makes the Task done", () => {
-    const start = { byId: new Map([[graph.constellationId, recordFrom(constellationOf(), 1)]]) };
+  test("a stream Snapshot is the record: graph, projections and the owner's journal", () => {
+    const record = c1Record();
+
+    const model = applyStreamItems(emptyConstellations, [
+      ConstellationStreamItem.cases.Snapshot.make({
+        sequence: Sequence.make(7),
+        constellation: new Constellation(record.constellation),
+        projections: record.projections.map((p) => new TaskProjection(p)),
+        proposals: [],
+        progress: [],
+        messages: [],
+        digests: [],
+        handovers: [],
+      }),
+    ]);
+
+    const r = model.byId.get(record.constellation.id);
+
+    expect(r?.sequence).toBe(7);
+    expect(r?.projections.find((p) => p.taskId === "B4")?.branchFetched).toBe(false);
+  });
+
+  test("a Claim moves the Attempt to review and stamps it; acceptance makes the Task done", () => {
     const id = AttemptId.make("att-B2-1");
     const claim = c1Record().constellation.attempts.find((a) => a.taskId === "B1")?.claim;
 
-    const claimed = applyEnvelopes(start, [
-      {
-        sequence: 2,
-        occurredAt: "2026-10-01T12:00:00Z",
-        event: E.AttemptClaimed.make({
+    const claimed = applyEnvelopes(loaded(), [
+      envelope(
+        2,
+        E.AttemptClaimed.make({
           ...graph,
           revision: 38,
           attemptId: id,
           attemptRevision: 3,
           claim: claim!,
-        }),
-      },
+        })
+      ),
     ]);
 
     const r1 = claimed.byId.get(graph.constellationId);
 
     expect(r1?.projections.find((p) => p.taskId === "B2")?.state).toBe("review");
-    expect(r1?.claimedAt.get(id)).toBe("2026-10-01T12:00:00Z");
-    expect(r1?.constellation.revision).toBe(38);
+    expect(r1?.constellation.attempts.find((a) => a.id === id)?.claimedAt).toBe(
+      "2026-10-01T12:00:00Z"
+    );
+    expect(r1?.sequence).toBe(2);
 
     const accepted = applyEnvelopes(claimed, [
-      {
-        sequence: 3,
-        occurredAt: "2026-10-01T12:05:00Z",
-        event: E.AttemptAccepted.make({
+      envelope(
+        3,
+        E.AttemptAccepted.make({
           ...graph,
           revision: 39,
           attemptId: id,
@@ -173,8 +214,8 @@ describe("fold", () => {
           mergedHead: "3f9c2e1",
           receipts: [],
           evidence: "asserted",
-        }),
-      },
+        })
+      ),
     ]);
 
     expect(
@@ -192,29 +233,18 @@ describe("fold", () => {
       queuedAt: "2026-10-01T12:00:00Z",
     });
 
-    const start = {
-      byId: new Map([
-        [graph.constellationId, recordFrom(constellationOf({ pendingNotifications: [] }), 1)],
-      ]),
-    };
-
-    const model = applyEnvelopes(start, [
-      {
-        sequence: 2,
-        occurredAt: "2026-10-01T12:00:00Z",
-        event: E.NotificationQueued.make({ ...graph, revision: 38, notification: n }),
-      },
-      {
-        sequence: 3,
-        occurredAt: "2026-10-01T12:00:20Z",
-        event: E.LeadNotified.make({
+    const model = applyEnvelopes(loaded(constellationOf({ pendingNotifications: [] })), [
+      envelope(2, E.NotificationQueued.make({ ...graph, revision: 38, notification: n })),
+      envelope(
+        3,
+        E.LeadNotified.make({
           ...graph,
           revision: 39,
           leadSessionId: LEAD,
           items: ["n-1"],
           turnId: TurnId.make("t-9"),
-        }),
-      },
+        })
+      ),
     ]);
 
     const r = model.byId.get(graph.constellationId);
@@ -224,73 +254,29 @@ describe("fold", () => {
   });
 
   test("a handover records the old Lead and the graph as it stood", () => {
-    const start = { byId: new Map([[graph.constellationId, recordFrom(constellationOf(), 1)]]) };
     const to = SessionId.make("s-lead-2");
 
-    const model = applyEnvelopes(start, [
-      {
-        sequence: 2,
-        occurredAt: "2026-10-01T12:00:00Z",
-        event: E.LeadChanged.make({ ...graph, revision: 38, from: LEAD, to, summary: "Carry on." }),
-      },
+    const model = applyEnvelopes(loaded(), [
+      envelope(
+        2,
+        E.LeadChanged.make({ ...graph, revision: 38, from: LEAD, to, summary: "Carry on." })
+      ),
     ]);
 
     const r = model.byId.get(graph.constellationId);
 
     expect(r?.constellation.leadSessionId).toBe(to);
-    expect(r?.handovers[0]?.before.inFlight.map((a) => String(a.taskId))).toEqual([
-      "B1",
-      "B2",
-      "B3",
-      "B4",
-      "B5",
+    expect(r?.handovers[0]?.inFlight.map(String)).toEqual([
+      "att-B1-1",
+      "att-B2-1",
+      "att-B3-1",
+      "att-B4-1",
+      "att-B5-1",
     ]);
-  });
-
-  test("an event folded from both feeds counts once", () => {
-    const start = { byId: new Map([[graph.constellationId, recordFrom(constellationOf(), 1)]]) };
-
-    const proposal = {
-      sequence: 2,
-      occurredAt: "2026-10-01T12:00:00Z",
-      event: E.TaskProposed.make({
-        ...graph,
-        revision: 38,
-        proposalId: "p-1",
-        by: AttemptId.make("att-B2-1"),
-        task: c1Record().proposals[0]!.task,
-      }),
-    };
-
-    const once = applyEnvelopes(start, [proposal]);
-    const twice = applyEnvelopes(once, [{ ...proposal, sequence: 900 }]);
-
-    expect(twice.byId.get(graph.constellationId)?.proposals).toHaveLength(1);
-  });
-
-  test("a stream Snapshot brings the Daemon's projections", () => {
-    const c = constellationOf();
-
-    const projections = deriveProjections(c).map((p) =>
-      p.taskId === "B4" ? merged(p, { branchFetched: false }) : p
-    );
-
-    const model = applyStreamItems(emptyConstellations, [
-      ConstellationStreamItem.cases.Snapshot.make({
-        sequence: Sequence.make(7),
-        constellation: c,
-        projections,
-      }),
-    ]);
-
-    const b4 = model.byId.get(c.id)?.projections.find((p) => p.taskId === "B4");
-
-    expect(b4?.branchFetched).toBe(false);
   });
 
   test("LivenessChanged lands on the latest Attempt's projection only", () => {
-    const c = constellationOf();
-    const start = { byId: new Map([[c.id, recordFrom(c, 1)]]) };
+    const start = loaded();
 
     const liveness = new WorkerLiveness({
       current: null,
@@ -306,7 +292,7 @@ describe("fold", () => {
       }),
     ]);
 
-    const b2 = live.byId.get(c.id)?.projections.find((p) => p.taskId === "B2");
+    const b2 = live.byId.get(graph.constellationId)?.projections.find((p) => p.taskId === "B2");
 
     expect(b2?.liveness?.queuedInput).toBe(2);
 
@@ -320,16 +306,12 @@ describe("fold", () => {
     expect(stale).toBe(start);
   });
 
-  test("events for an unknown graph are ignored", () => {
+  test("events for a graph the stream hasn't loaded are ignored", () => {
     const model = applyEnvelopes(emptyConstellations, [
-      {
-        sequence: 1,
-        occurredAt: "2026-10-01T12:00:00Z",
-        event: E.ConstellationStateChanged.make({ ...graph, revision: 2, state: "paused" }),
-      },
+      envelope(1, E.ConstellationStateChanged.make({ ...graph, revision: 2, state: "paused" })),
     ]);
 
-    expect(model).toBe(emptyConstellations);
+    expect(model.byId.size).toBe(0);
   });
 });
 

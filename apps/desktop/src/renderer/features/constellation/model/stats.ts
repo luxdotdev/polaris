@@ -47,10 +47,10 @@ const reviewLines = (r: ConstellationRecord, now: number): ReadonlyArray<StatLin
   const { attempts } = r.constellation;
 
   const waits = attempts.flatMap((a) => {
-    const claimed = r.claimedAt.get(a.id);
+    const claimed = a.claimedAt;
     const decided = a.state === "review" ? now : a.endedAt == null ? null : Date.parse(a.endedAt);
 
-    return claimed === undefined || decided === null ? [] : [decided - Date.parse(claimed)];
+    return claimed === null || decided === null ? [] : [decided - Date.parse(claimed)];
   });
 
   const firstTries = attempts.filter(

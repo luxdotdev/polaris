@@ -1,6 +1,5 @@
 import { ConstellationCommand, ConstellationRpcs } from "@polaris/protocol";
 import { Context, Effect } from "effect";
-import { ClientCapabilities } from "../engine/rpc.ts";
 import type { ConstellationBinding } from "../engine/constellation.inputs.ts";
 import { getDefaults, setDefaults } from "./defaults.ts";
 import { finding, refusal } from "./decision.ts";
@@ -56,12 +55,7 @@ export const ConstellationRpcHandlers = ConstellationRpcs.toLayer(
       "constellation.status": ({ constellationId, json }, { client }) =>
         graphs.status(caller(client.annotations), constellationId, json === true),
       "constellation.subscribe": ({ constellationId, afterSequence }, { client }) =>
-        graphs.subscribe(
-          caller(client.annotations),
-          constellationId,
-          afterSequence,
-          Context.getOrUndefined(client.annotations, ClientCapabilities) ?? []
-        ),
+        graphs.subscribe(caller(client.annotations), constellationId, afterSequence),
     };
   })
 );

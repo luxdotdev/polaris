@@ -26,7 +26,7 @@ import {
   WorkerLiveness,
   WorkspaceId,
 } from "@polaris/protocol";
-import { merged, recordFrom } from "../model/fold.ts";
+import { merged, startedRecord } from "../model/fold.ts";
 import type { ConstellationRecord, ProjectionData } from "../model/index.ts";
 
 export const STUDIO = HostId.make("h-studio");
@@ -120,6 +120,10 @@ export const attempt = (spec: AttemptSpec) =>
     mergedHead: spec.mergedHead ?? null,
     receipts: [...(spec.receipts ?? [])],
     evidence: spec.evidence ?? null,
+    claimedAt: spec.claim == null ? null : ago(Math.max(1, spec.minutes - 30)),
+    approvedByUserAt: null,
+    handedUpAt: null,
+    handedUpReason: null,
     nudgedAt: spec.nudgedMinutesAgo === undefined ? null : ago(spec.nudgedMinutesAgo),
     startedAt: ago(spec.minutes),
     endedAt: spec.state === "working" || spec.state === "review" ? null : ago(spec.minutes - 20),
@@ -352,7 +356,7 @@ export const c1Record = (
   patch: Partial<Constellation> = {},
   digestTurn = "t-lead-digest"
 ): ConstellationRecord => {
-  const base = recordFrom(constellationOf(patch), 120);
+  const base = startedRecord(constellationOf(patch), 120);
   const handoverAt = ago(36);
 
   return {
@@ -388,52 +392,46 @@ export const c1Record = (
           "Events and the decider are merged (G1, verified). B is in flight: the MCP tools and the eval share the bench, so B3 waits on B2. B4 runs on devbox and will need its branch fetched. B1 should land before B5 because the handover trace depends on its properties.",
         revision: 37,
         at: handoverAt,
-        before: {
-          projections: unfetched(base.projections).map((p) =>
-            p.taskId === "B1" ? { ...p, state: "working" as const } : p
-          ),
-          inFlight: c1Attempts.flatMap((a) =>
-            ["B2", "B4"].includes(a.taskId) ? [merged(a, { state: "working" })] : []
-          ),
-          questions: [
-            note(
-              "n-q-b2",
-              NotificationItem.cases.Question.make({
-                attemptId: AttemptId.make("att-B2-1"),
-                question: new ConstellationQuestion({
-                  id: "q-b2",
-                  to: "lead",
-                  text: "Run bench on devbox or wait for the Mac Studio lock?",
-                  blocking: true,
-                }),
+        projections: unfetched(base.projections).map((p) => {
+          if (p.taskId === "B1") return merged(p, { state: "working" });
+
+          return p.taskId === "B4" ? merged(p, { state: "working" }) : p;
+        }),
+        inFlight: [AttemptId.make("att-B2-1"), AttemptId.make("att-B4-1")],
+        questions: [
+          note(
+            "n-q-b2",
+            NotificationItem.cases.Question.make({
+              attemptId: AttemptId.make("att-B2-1"),
+              question: new ConstellationQuestion({
+                id: "q-b2",
+                to: "lead",
+                text: "Run bench on devbox or wait for the Mac Studio lock?",
+                blocking: true,
               }),
-              40
-            ),
-          ],
-          undelivered: [
-            {
-              id: "m-b4",
-              authority: "conversation",
-              target: MessageTarget.cases.Worker.make({ attemptId: AttemptId.make("att-B4-1") }),
-              text: "Use the per-Host token URL, not stdio.",
-              at: ago(37),
-            },
-          ],
-        },
+            }),
+            40
+          ),
+        ],
+        undelivered: [
+          {
+            id: "m-b4",
+            authority: "conversation",
+            target: MessageTarget.cases.Worker.make({ attemptId: AttemptId.make("att-B4-1") }),
+            text: "Use the per-Host token URL, not stdio.",
+            at: ago(37),
+          },
+        ],
       },
     ],
     digests: [
       {
-        turnId: digestTurn,
+        turnId: TurnId.make(digestTurn),
         leadSessionId: LEAD,
         revision: 36,
         at: ago(3),
         items: [...digestItems],
       },
     ],
-    claimedAt: new Map([
-      [AttemptId.make("att-B1-1"), ago(4)],
-      [AttemptId.make("att-B4-1"), ago(11)],
-    ]),
   };
 };

@@ -73,6 +73,11 @@ export const draft = (
     branch: `polaris/${taskId}`,
     base: "base",
     state: "working",
+    claimedAt: null,
+    approvedByUserAt: null,
+    handedUpAt: null,
+    handedUpReason: null,
+    nudgedAt: null,
     startedAt: AT,
   });
 

@@ -1,6 +1,7 @@
 import {
-  type Capability,
   type AttemptId,
+  AttemptProgress,
+  ConstellationProposal,
   type WorkerLiveness,
   type ConstellationId,
   ConstellationStreamItem,
@@ -9,20 +10,43 @@ import {
 } from "@polaris/protocol";
 import { Effect, Predicate, Result, Stream } from "effect";
 import type { ConstellationBinding } from "../engine/constellation.inputs.ts";
-import { eventCapability } from "../store/model.ts";
-import { graphEvent } from "../store/constellation.ts";
+import {
+  type ConstellationRecord,
+  graphEvent,
+  pendingMessage,
+  stampKey,
+} from "../store/constellation.ts";
 import type { EventStore } from "../store/EventStore.ts";
 import { finding, refusal } from "./decision.ts";
 import type { ConstellationLivenessService } from "./liveness.ts";
 import { enrichProjections } from "./projections.ts";
 import { canRead } from "./service.ts";
 
-const knownEvents =
-  (capabilities: ReadonlyArray<Capability>) => (event: import("@polaris/protocol").DomainEvent) => {
-    const needed = eventCapability(event);
-
-    return needed !== "constellation.claim-review" || capabilities.includes(needed);
-  };
+/** The owner's journal a fresh subscriber needs besides the graph. */
+const journalOf = (record: ConstellationRecord) => ({
+  proposals: [...record.proposals].map(
+    ([proposalId, p]) =>
+      new ConstellationProposal({
+        proposalId,
+        by: p.by,
+        task: p.task,
+        at: record.stamps.get(stampKey("proposal", proposalId)) ?? record.graph.updatedAt,
+      })
+  ),
+  progress: [...record.progress.values()].map(
+    (e) =>
+      new AttemptProgress({
+        attemptId: e.attemptId,
+        note: e.note,
+        completed: e.completed,
+        total: e.total,
+        at: record.stamps.get(stampKey("progress", e.attemptId)) ?? record.graph.updatedAt,
+      })
+  ),
+  messages: [...record.messages.values()].map((m) => pendingMessage(record, m)),
+  digests: record.digests,
+  handovers: record.handovers,
+});
 
 /** Subscribe before the cut, replay at the cut, then send only committed events beyond it. */
 export const subscribeConstellation = (
@@ -30,21 +54,16 @@ export const subscribeConstellation = (
   binding: ConstellationBinding,
   id: ConstellationId,
   after: Sequence | null,
-  capabilities: ReadonlyArray<Capability> = ["constellation.claim-review"],
   liveness?: ConstellationLivenessService
 ) =>
   Stream.unwrap(
     Effect.gen(function* () {
-      const decodes = knownEvents(capabilities);
-
-      const observes = capabilities.includes("constellation.liveness") && liveness !== undefined;
-      const liveLiveness = observes ? yield* liveness.subscribe(id) : Stream.empty;
+      const liveLiveness = liveness === undefined ? Stream.empty : yield* liveness.subscribe(id);
 
       const subscription = yield* store.subscribe({
         filter: (item) =>
           Predicate.isTagged(item, "Event") &&
-          graphEvent(item.envelope.event)?.constellationId === id &&
-          decodes(item.envelope.event),
+          graphEvent(item.envelope.event)?.constellationId === id,
       });
 
       const model = yield* store.model;
@@ -64,7 +83,12 @@ export const subscribeConstellation = (
           ),
         ]);
       const cut = Seq.make(model.sequence);
-      const facts = observes ? yield* liveness.read(record) : new Map<AttemptId, WorkerLiveness>();
+
+      const facts =
+        liveness === undefined
+          ? new Map<AttemptId, WorkerLiveness>()
+          : yield* liveness.read(record);
+
       const head: Array<ConstellationStreamItem> = [];
 
       if (after === null || after > cut)
@@ -73,6 +97,7 @@ export const subscribeConstellation = (
             sequence: cut,
             constellation: record.graph,
             projections: enrichProjections(record, facts),
+            ...journalOf(record),
           })
         );
       else {
@@ -91,7 +116,7 @@ export const subscribeConstellation = (
         for (const envelope of replay) {
           const event = graphEvent(envelope.event);
 
-          if (event !== null && decodes(event))
+          if (event !== null)
             head.push(
               ConstellationStreamItem.cases.Event.make({
                 envelope: {

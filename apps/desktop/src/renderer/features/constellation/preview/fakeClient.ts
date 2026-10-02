@@ -15,13 +15,29 @@ import { Match, Predicate } from "effect";
 import type { AppStore } from "../../../store/store.ts";
 import type { ConstellationClient, Outcome } from "../client.ts";
 import { merged } from "../model/fold.ts";
-import { applyEnvelopes, emptyConstellations } from "../model/index.ts";
+import { applyEnvelopes, emptyConstellations, type Proposal } from "../model/index.ts";
 
 type Event = DomainEvent;
 
 const E = DomainEvent.cases;
 
 const ok = (summary: string): Outcome => ({ ok: true, summary });
+
+/** An accepted proposal becomes a Task at its first revision. */
+const taskFrom = (t: Proposal["task"]) =>
+  new Task({
+    id: t.id,
+    title: t.title,
+    kind: t.kind,
+    deps: t.deps,
+    area: t.area,
+    brief: t.brief,
+    criteria: t.criteria,
+    suggested: t.suggested,
+    group: t.group,
+    revision: 1,
+    canceled: false,
+  });
 
 const tier = (receipts: ReadonlyArray<CheckReceipt>): EvidenceTier => {
   if (receipts.length === 0) return "asserted";
@@ -128,7 +144,7 @@ export const fakeClient = (store: AppStore): ConstellationClient => {
           ? E.ProposalAccepted.make({
               ...graph,
               proposalId,
-              task: new Task({ ...proposal.task, revision: 1, canceled: false }),
+              task: taskFrom(proposal.task),
             })
           : E.ProposalDeclined.make({ ...graph, proposalId, reason }),
       ]);

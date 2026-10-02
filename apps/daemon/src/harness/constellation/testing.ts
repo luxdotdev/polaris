@@ -37,6 +37,11 @@ export const assignment = (id = "A1"): WorkerAssignment => ({
     branch: "polaris/c1/A1-harness",
     base: "base-sha",
     state: "working",
+    claimedAt: null,
+    approvedByUserAt: null,
+    handedUpAt: null,
+    handedUpReason: null,
+    nudgedAt: null,
     startedAt: Timestamp.make("2026-10-01T00:00:00Z"),
   }),
   acceptedDeps: [

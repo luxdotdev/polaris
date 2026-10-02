@@ -2,7 +2,7 @@
  * The Constellation tab on fixtures, for screenshots against Paper C1–C9: `#constellation/<scene>`
  * renders the real shell on a stand-in store and a fake Daemon. Its own chunk.
  */
-import { Capability, HostId, Sequence } from "@polaris/protocol";
+import { Capability, constellationSummaryOf, HostId, Sequence } from "@polaris/protocol";
 import { createRoot } from "react-dom/client";
 import { createStore } from "zustand/vanilla";
 import type { HostView, PolarisApi } from "../../../../shared/api.ts";
@@ -15,7 +15,7 @@ import { type AppState, type Connection, initialState, sessionKey } from "../../
 import { standInBridge } from "../../bridge.ts";
 import { showOutput } from "../../session/index.ts";
 import { installConstellationClient } from "../client.ts";
-import { type ConstellationRecord, recordFrom, type WorkerFacts } from "../model/index.ts";
+import { type ConstellationRecord, startedRecord, type WorkerFacts } from "../model/index.ts";
 import { type LeadUi, leadKey, patchLeadUi, setSignals } from "../state.ts";
 import { fakeClient } from "./fakeClient.ts";
 import {
@@ -82,7 +82,7 @@ const recordFor = (scene: Scene): ConstellationRecord => {
   if (scene === "large") return largeRecord();
 
   if (scene === "empty")
-    return recordFrom(
+    return startedRecord(
       constellationOf({ state: "planning", tasks: [], attempts: [], pendingNotifications: [] }),
       3
     );
@@ -136,7 +136,12 @@ const stateFor = (record: ConstellationRecord): AppState => {
     sessions: Object.fromEntries(
       open.flatMap((m) => (m.session === null ? [] : [[sessionKey(LOCAL, m.session.id), m]]))
     ),
-    constellations: { [LOCAL]: { byId: new Map([[record.constellation.id, record]]) } },
+    constellations: {
+      [LOCAL]: {
+        listed: new Map([[record.constellation.id, constellationSummaryOf(record.constellation)]]),
+        byId: new Map([[record.constellation.id, record]]),
+      },
+    },
   };
 };
 

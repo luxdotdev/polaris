@@ -4,13 +4,18 @@ import {
   Constellation,
   ConstellationEvent,
   type ConstellationId,
+  ConstellationDigest,
+  ConstellationHandover,
+  type ConstellationNotification,
   type ConstellationQuestion,
+  PendingOperatorMessage,
   type DomainEvent,
   type TaskDefinition,
   type TaskId,
   Task,
 } from "@polaris/protocol";
 import { attemptData, graphData, taskData } from "../constellation/data.ts";
+import { projectTasks } from "../constellation/projections.ts";
 import { Predicate } from "effect";
 
 export interface GraphQuestion {
@@ -37,7 +42,19 @@ export interface ConstellationRecord {
     AttemptId,
     Extract<ConstellationEvent, { _tag: "AttemptProgressed" }>
   >;
+  /** When each proposal, progress note and operator message arrived, by `kindKey`. */
+  readonly stamps: ReadonlyMap<string, string>;
+  /** Every notification queued, so a digest can carry its items after delivery. */
+  readonly notifications: ReadonlyMap<string, ConstellationNotification>;
+  readonly digests: ReadonlyArray<ConstellationDigest>;
+  readonly handovers: ReadonlyArray<ConstellationHandover>;
 }
+
+/** The key a stamp is kept under: `proposal`, `progress` or `message`, then the id. */
+export const stampKey = (kind: "proposal" | "progress" | "message", id: string) => `${kind}:${id}`;
+
+const stamped = (record: ConstellationRecord, key: string, at: string) =>
+  new Map([...record.stamps, [key, at]]);
 
 export const constellationOf = (event: DomainEvent): ConstellationId | null =>
   "constellationId" in event ? event.constellationId : null;
@@ -47,6 +64,41 @@ export const graphEvent = (event: DomainEvent): ConstellationEvent | null => {
 
   return event;
 };
+
+/** What the switch looked like: C9's structured part, kept with the handover. */
+const handoverOf = (
+  record: ConstellationRecord,
+  e: Extract<ConstellationEvent, { _tag: "LeadChanged" }>,
+  at: string
+) =>
+  new ConstellationHandover({
+    from: e.from,
+    to: e.to,
+    summary: e.summary,
+    revision: e.revision,
+    at,
+    projections: projectTasks(record),
+    inFlight: record.graph.attempts.flatMap((a) =>
+      a.state === "working" || a.state === "review" ? [a.id] : []
+    ),
+    questions: record.graph.pendingNotifications.filter((n) =>
+      Predicate.isTagged(n.item, "Question")
+    ),
+    undelivered: [...record.messages.values()].map((m) => pendingMessage(record, m)),
+  });
+
+/** An unresolved operator message with when it was sent. */
+export const pendingMessage = (
+  record: ConstellationRecord,
+  m: Extract<ConstellationEvent, { _tag: "OperatorMessageSent" }>
+) =>
+  new PendingOperatorMessage({
+    id: m.id,
+    authority: m.authority,
+    target: m.target,
+    text: m.text,
+    at: record.stamps.get(stampKey("message", m.id)) ?? record.graph.updatedAt,
+  });
 
 export const questionKey = (attemptId: AttemptId, id: string) => JSON.stringify([attemptId, id]);
 
@@ -79,6 +131,10 @@ const started = (graph: Constellation): ConstellationRecord => ({
   delivered: new Set(),
   recoveries: new Set(),
   progress: new Map(),
+  stamps: new Map(),
+  notifications: new Map(),
+  digests: [],
+  handovers: [],
 });
 
 /** Fold durable graph and delivery metadata; no lifecycle or readiness is inferred here. */
@@ -105,6 +161,7 @@ export const foldConstellation = (
     },
     LeadChanged: (e) => {
       graph = new Constellation({ ...graphData(graph), leadSessionId: e.to });
+      next = { ...next, handovers: [...next.handovers, handoverOf(record, e, at)] };
     },
     TaskDeclared: (e) => {
       graph = new Constellation({ ...graphData(graph), tasks: replace(graph.tasks, e.task) });
@@ -126,6 +183,7 @@ export const foldConstellation = (
       next = {
         ...next,
         proposals: new Map([...next.proposals, [e.proposalId, { by: e.by, task: e.task }]]),
+        stamps: stamped(next, stampKey("proposal", e.proposalId), at),
       };
     },
     ProposalAccepted: (e) => {
@@ -147,12 +205,16 @@ export const foldConstellation = (
     },
     AttemptProgressed: (e) => {
       graph = new Constellation({ ...graphData(graph), attempts: patchAttempt(next, e, {}) });
-      next = { ...next, progress: new Map([...next.progress, [e.attemptId, e]]) };
+      next = {
+        ...next,
+        progress: new Map([...next.progress, [e.attemptId, e]]),
+        stamps: stamped(next, stampKey("progress", e.attemptId), at),
+      };
     },
     AttemptClaimed: (e) => {
       graph = new Constellation({
         ...graphData(graph),
-        attempts: patchAttempt(next, e, { state: "review", claim: e.claim }),
+        attempts: patchAttempt(next, e, { state: "review", claim: e.claim, claimedAt: at }),
       });
     },
     ClaimApproved: (e) => {
@@ -213,6 +275,10 @@ export const foldConstellation = (
         ...graphData(graph),
         pendingNotifications: [...graph.pendingNotifications, e.notification],
       });
+      next = {
+        ...next,
+        notifications: new Map([...next.notifications, [e.notification.id, e.notification]]),
+      };
 
       if (Predicate.isTagged(e.notification.item, "Question")) {
         const { attemptId, question } = e.notification.item;
@@ -230,10 +296,31 @@ export const foldConstellation = (
         ...graphData(graph),
         pendingNotifications: graph.pendingNotifications.filter((n) => !e.items.includes(n.id)),
       });
-      next = { ...next, delivered: new Set([...next.delivered, ...e.items]) };
+      next = {
+        ...next,
+        delivered: new Set([...next.delivered, ...e.items]),
+        digests: [
+          ...next.digests,
+          new ConstellationDigest({
+            turnId: e.turnId,
+            leadSessionId: e.leadSessionId,
+            revision: e.revision,
+            at,
+            items: e.items.flatMap((id) => {
+              const n = next.notifications.get(id);
+
+              return n === undefined ? [] : [n];
+            }),
+          }),
+        ],
+      };
     },
     OperatorMessageSent: (e) => {
-      next = { ...next, messages: new Map([...next.messages, [e.id, e]]) };
+      next = {
+        ...next,
+        messages: new Map([...next.messages, [e.id, e]]),
+        stamps: stamped(next, stampKey("message", e.id), at),
+      };
 
       if (e.questionId !== null && Predicate.isTagged(e.target, "Worker")) {
         const key = questionKey(e.target.attemptId, e.questionId);

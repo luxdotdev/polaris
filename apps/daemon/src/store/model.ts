@@ -177,10 +177,40 @@ export const reviewOnlyEventTypes: ReadonlyArray<DomainEvent["_tag"]> = [
   "VerdictRecorded",
 ];
 
+/**
+ * A Constellation's contents: served by its own `constellation.subscribe` stream. The Host
+ * stream keeps only the events that change its listing (started, state, Lead).
+ */
+export const constellationOnlyEventTypes: ReadonlyArray<DomainEvent["_tag"]> = [
+  "TaskDeclared",
+  "TaskEdited",
+  "TaskCanceled",
+  "TaskProposed",
+  "ProposalAccepted",
+  "ProposalDeclined",
+  "AttemptStarted",
+  "AttemptProgressed",
+  "AttemptClaimed",
+  "ClaimApproved",
+  "ClaimHandedUp",
+  "AttemptNudged",
+  "AttemptAccepted",
+  "AttemptRejected",
+  "AttemptSettled",
+  "GatePromoted",
+  "NotificationQueued",
+  "LeadNotified",
+  "OperatorMessageSent",
+  "OperatorMessageResolved",
+  "PeerMessage",
+  "AttemptRecoveryContinued",
+];
+
 /** Everything the Host stream leaves out. */
 export const hostOmittedEventTypes: ReadonlyArray<DomainEvent["_tag"]> = [
   ...sessionOnlyEventTypes,
   ...reviewOnlyEventTypes,
+  ...constellationOnlyEventTypes,
 ];
 
 export const isHostStreamEvent = (event: DomainEvent): boolean =>
@@ -192,7 +222,6 @@ export const gatingCapabilities: ReadonlyArray<Capability> = [
   "review.checkouts",
   "constellation",
   "host.resources",
-  "constellation.claim-review",
 ];
 
 const needs = (capability: Capability) => (): Capability => capability;
@@ -217,9 +246,9 @@ export const eventCapability = (event: DomainEvent): Capability | null =>
       AttemptStarted: needs("constellation"),
       AttemptProgressed: needs("constellation"),
       AttemptClaimed: needs("constellation"),
-      ClaimApproved: needs("constellation.claim-review"),
-      ClaimHandedUp: needs("constellation.claim-review"),
-      AttemptNudged: needs("constellation.claim-review"),
+      ClaimApproved: needs("constellation"),
+      ClaimHandedUp: needs("constellation"),
+      AttemptNudged: needs("constellation"),
       AttemptAccepted: needs("constellation"),
       AttemptRejected: needs("constellation"),
       AttemptSettled: needs("constellation"),

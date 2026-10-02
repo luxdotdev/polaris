@@ -138,7 +138,6 @@ test("resume seeds current liveness and older Clients receive only graph frames"
           { kind: "user" },
           CID,
           after,
-          ["constellation", "constellation.liveness"],
           feed
         ).pipe(Stream.take(2), Stream.runCollect);
 
@@ -149,16 +148,16 @@ test("resume seeds current liveness and older Clients receive only graph frames"
           liveness: { queuedInput: 3 },
         });
 
-        const older = yield* subscribeConstellation(
-          store,
-          { kind: "user" },
-          CID,
-          null,
-          ["constellation"],
-          feed
-        ).pipe(Stream.take(2), Stream.runCollect);
+        const older = yield* subscribeConstellation(store, { kind: "user" }, CID, null, feed).pipe(
+          Stream.take(3),
+          Stream.runCollect
+        );
 
-        expect(older.map((item) => item._tag)).toEqual(["Snapshot", "Synchronized"]);
+        expect(older.map((item) => item._tag)).toEqual([
+          "Snapshot",
+          "Synchronized",
+          "LivenessChanged",
+        ]);
         expect(enrichProjections(record, new Map())[0]?.liveness).toBeNull();
       })
     ).pipe(Effect.provide(layer))

@@ -6,7 +6,7 @@ import {
   NotificationItem,
   TaskId,
 } from "@polaris/protocol";
-import { recordFrom } from "../model/fold.ts";
+import { startedRecord } from "../model/fold.ts";
 import type { ConstellationRecord } from "../model/index.ts";
 import { attempt, b1Claim, constellationOf, task } from "./graph.ts";
 
@@ -117,7 +117,7 @@ export const largeRecord = (): ConstellationRecord => {
     state === "ask" ? [askFor(`${letter}${n}`)] : []
   );
 
-  const base = recordFrom(
+  const base = startedRecord(
     constellationOf({ tasks, attempts, pendingNotifications: notifications }),
     400
   );
