@@ -16,6 +16,7 @@ import { selectWorker } from "../../harness/constellation/index.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { HarnessRegistry } from "../../services.ts";
 import { finding, refusal } from "../decision.ts";
+import { WorktreeSetupService } from "../setup/index.ts";
 import type { WorkerPreparation } from "../transfers/prepareWorkers.ts";
 
 /** Provision only the Session; the committed Attempt's acquired startup hook owns its first Turn. */
@@ -129,6 +130,38 @@ export const prepareSession = Effect.fn("Constellation.prepareSession")(function
       })
       .pipe(Effect.orDie);
 
+  if (input.task.kind !== "gate") {
+    const setup = yield* (yield* WorktreeSetupService)
+      .run(
+        sessionId,
+        input.key,
+        input.worktree.worktree,
+        input.worktreeSetup ?? null,
+        input.graph.id,
+        input.task.id
+      )
+      .pipe(
+        Effect.mapError((error) =>
+          refusal(model.constellations.get(input.graph.id), [
+            finding(
+              "E-SETUP-BUSY",
+              error.reason,
+              "Wait for the Session boundary and dispatch again."
+            ),
+          ])
+        )
+      );
+
+    if (setup?.status === "failed")
+      return yield* refusal(model.constellations.get(input.graph.id), [
+        finding(
+          "E-SETUP",
+          `Worktree setup failed: ${setup.command}`,
+          `Open ${sessionId}, fix setup and dispatch again.`
+        ),
+      ]);
+  }
+
   return new Attempt({
     id: AttemptId.make(`${input.key}:attempt`),
     taskId: input.task.id,
@@ -153,7 +186,7 @@ export const prepareSession = Effect.fn("Constellation.prepareSession")(function
     handedUpAt: null,
     handedUpReason: null,
     nudgedAt: null,
-    startedAt: at,
+    startedAt: new Date().toISOString(),
     endedAt: null,
   });
 });

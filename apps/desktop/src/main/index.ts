@@ -50,6 +50,7 @@ import {
   writeSettings,
 } from "./settings.ts";
 import { createMainWindow } from "./window.ts";
+import { askToQuit, holdsQuit } from "./editorQuit.ts";
 
 const env = process.env;
 
@@ -278,7 +279,15 @@ const start = async () => {
 
 let quitting = false;
 
-app.on("before-quit", () => {
+app.on("before-quit", (event) => {
+  // Unsaved edits in the Editor: ask first (main/editorQuit.ts); a yes quits again.
+  if (holdsQuit()) {
+    event.preventDefault();
+    void askToQuit().then((go) => go && app.quit());
+
+    return;
+  }
+
   exiting = true;
 });
 

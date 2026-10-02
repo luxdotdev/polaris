@@ -79,6 +79,9 @@ stateDiagram-v2
   live --> dormant: daemon.recover (no Turn)
   in_terminal --> needs_you: daemon.recover restart (Turn in flight)
   live --> archived: session.archive (no Turn in flight)
+  dormant --> failed: session.setup (failed), daemon.recover (unfinished setup)
+  failed --> dormant: session.setup (repaired setup completed)
+  idle --> failed: session.setup (failed)
   dormant --> archived: session.archive (no Turn in flight)
   failed --> archived: session.archive (no Turn in flight)
   in_terminal --> archived: session.archive (no Turn in flight)
@@ -184,3 +187,8 @@ Every state but `absent` and `removing` takes `checkout.reportHead` (it records 
 Simple paths are too many to replay (455k and 2.4M), so every transition is covered instead. Not replayed: `idle.timeout` (the Engine's timer; covered by `Engine.test.ts`) and `session.fail` (a failing Worktree or Harness open). `session.test.ts` checks the machine on its own: all eight Session States are reachable, the rebuild-from-fold property, the guards, recovery and effects.
 
 When you change the lifecycle: change `session.ts`, then `session.testing.ts` if a new Step or Engine follow-up is needed, update the counts above and in `session.test.ts`, and keep this diagram in step.
+
+Worktree setup is Turn-less Host work. `session.setup` records its bounded card;
+a running setup refuses send/continue/retry. It starts only at a Session
+boundary and failure enters Failed. Restart marks an unfinished card failed
+without inventing a Turn; the next dispatch may rerun setup.

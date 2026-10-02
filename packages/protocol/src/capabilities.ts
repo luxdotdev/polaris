@@ -22,6 +22,7 @@ export const Capability = Schema.Literals([
   "harness.availability",
   /** `harness.spinnerVerbs`: Claude Code's `spinnerVerbs` setting on this Host. */
   "harness.spinner-verbs",
+  "workspace.setup",
   "session.steer",
   "session.fork",
   /** The `SetModel` command. */
@@ -48,6 +49,7 @@ export const Capability = Schema.Literals([
   "files.watch-file",
   "files.search",
   "files.watch",
+  "inline.propose",
   "git.diff",
   /** `git.diff` answers `fileIndex`: each file's byte range in the patch, and its counts. */
   "git.diff-files",

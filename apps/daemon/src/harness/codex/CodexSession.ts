@@ -59,6 +59,7 @@ import { ReasoningTimes } from "./reasoning.ts";
 import { CodexSteers } from "./steers.ts";
 import { CodexSubagents } from "./subagents.ts";
 import { requestCompat } from "./compat.ts";
+import { polarisInstructions } from "../../constellation/skills/preamble.ts";
 import { type HarnessCall, harnessCallOf } from "./slash.ts";
 
 export interface SessionConfig {
@@ -308,7 +309,6 @@ export const openSession = (
     if (attachments.length > 0 && options.readOnly !== true) {
       if (attachments.some((a) => a.sessionId !== options.sessionId))
         return yield* codexError("Constellation attachment belongs to another session");
-      common.developerInstructions = attachments.map((a) => a.instructions).join("\n\n");
       common.config = Object.fromEntries(
         attachments.map((a, index) => [
           `mcp_servers.polaris${index === 0 ? "" : `_${index}`}`,
@@ -316,6 +316,8 @@ export const openSession = (
         ])
       );
     }
+
+    common.developerInstructions = polarisInstructions(options);
 
     if (
       options.environment !== undefined &&

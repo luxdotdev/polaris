@@ -23,6 +23,7 @@ export type Pane = "session" | "new-session";
 export type SettingsSection =
   | "appearance"
   | "sessions"
+  | "editor"
   | "harnesses"
   | "constellations"
   | "usage"
@@ -34,6 +35,7 @@ export type SettingsSection =
 export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
   "appearance",
   "sessions",
+  "editor",
   "harnesses",
   "constellations",
   "usage",

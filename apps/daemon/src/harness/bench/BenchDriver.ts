@@ -45,6 +45,7 @@ import {
 import { benchDraftReply, isAcceptDraftPrompt } from "./accept.ts";
 import { benchReviewReply, isReviewerPrompt } from "./review.ts";
 import { runSubagent } from "./subagent.ts";
+import { isPreambleProbe, preambleProbe } from "./preamble.ts";
 
 const BenchTurnScriptSchema = Schema.Struct({
   /** Completed TurnItems per Turn; kinds rotate message, reasoning, command, tool call, file change. */
@@ -269,9 +270,13 @@ const openBenchSession = Effect.fn("BenchDriver.open")(function* (options: OpenO
     Effect.gen(function* () {
       const reviewer = isReviewerPrompt(input.prompt);
       const drafting = isAcceptDraftPrompt(input.prompt);
+      const probing = isPreambleProbe(input.prompt);
 
-      const script =
-        reviewer || drafting ? { ...DEFAULT_SCRIPT, items: 1 } : parseScript(input.prompt);
+      const script = probing
+        ? { ...DEFAULT_SCRIPT, items: 0 }
+        : reviewer || drafting
+          ? { ...DEFAULT_SCRIPT, items: 1 }
+          : parseScript(input.prompt);
 
       const { turnId } = input;
       turns++;
@@ -286,6 +291,11 @@ const openBenchSession = Effect.fn("BenchDriver.open")(function* (options: OpenO
 
       if (script.startDelayMs > 0) yield* Effect.sleep(Duration.millis(script.startDelayMs));
       yield* emit(HarnessEvent.TurnStarted({ turnId, prompt: input.prompt }));
+
+      if (probing)
+        yield* emit(
+          HarnessEvent.ItemCompleted({ turnId, item: yield* preambleProbe(options, turnId) })
+        );
       const files = touchFiles(options.cwd, turnId, script.touchFiles);
 
       for (let i = 0; i < script.items; i++) yield* runItem(script, turnId, i, files);

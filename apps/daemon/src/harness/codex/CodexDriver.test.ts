@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { ApprovalDecision, RequestId, SessionId, TurnId, TurnItem } from "@polaris/protocol";
 import { Effect, Schema } from "effect";
 import { HarnessEvent } from "../HarnessDriver.ts";
+import { polarisInstructions } from "../../constellation/skills/preamble.ts";
 import { makeCodexDriver, probeCodex } from "./CodexDriver.ts";
 import { type ClientAnswer, type Handler, readFixture, replay } from "./testing/FakeAppServer.ts";
 import { cleanup, ofTag, scripted, sessionWith, THREAD, turn } from "./testing/session.ts";
@@ -686,9 +687,23 @@ describe("Constellation attachment", () => {
 
       const method = resumeCursor === undefined ? "thread/start" : "thread/resume";
       expect(server.requests(method)[0]?.params).toMatchObject({
-        developerInstructions: attachment.instructions,
+        developerInstructions: polarisInstructions({ constellation: attachment }),
         config: { "mcp_servers.polaris": { url: attachment.url } },
       });
+    }
+  });
+  test("unattached thread start and resume receive common context without MCP config", async () => {
+    for (const resumeCursor of [undefined, "existing-thread"]) {
+      const { server } = await withSession(
+        scripted(() => {}),
+        () => Effect.void,
+        resumeCursor === undefined ? {} : { resumeCursor }
+      );
+
+      const method = resumeCursor === undefined ? "thread/start" : "thread/resume";
+      const params = server.requests(method)[0]?.params;
+      expect(params).toHaveProperty("developerInstructions", polarisInstructions({}));
+      expect(params).not.toHaveProperty("config");
     }
   });
   test("Gate start and resume retain both role servers and trusted worker environment", async () => {
@@ -716,7 +731,7 @@ describe("Constellation attachment", () => {
       expect(
         server.requests(resumeCursor === null ? "thread/start" : "thread/resume")[0]?.params
       ).toMatchObject({
-        developerInstructions: `${attachment.instructions}\n\n${worker.instructions}`,
+        developerInstructions: polarisInstructions({ constellations: [attachment, worker] }),
         config: {
           "mcp_servers.polaris": { url: attachment.url },
           "mcp_servers.polaris_1": { url: worker.url },
@@ -733,7 +748,7 @@ describe("Constellation attachment", () => {
     );
 
     const params = server.requests("thread/start")[0]?.params;
-    expect(params).not.toHaveProperty("developerInstructions");
+    expect(params).toHaveProperty("developerInstructions", polarisInstructions({ readOnly: true }));
     expect(params).not.toHaveProperty("config");
   });
   test("an attachment from another session is refused before thread start", async () => {

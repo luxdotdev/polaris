@@ -179,6 +179,7 @@ const setWorkspaceHidden = (d: Deciding, command: CommandOf<"SetWorkspaceHidden"
     isGitRepo: workspace.isGitRepo,
     worktreeRoot: workspace.worktreeRoot,
     hidden: command.hidden,
+    worktreeSetup: workspace.worktreeSetup,
     registeredAt: workspace.registeredAt,
   });
 
@@ -397,6 +398,26 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
 
   return Command.match<Decision>(command, {
     RegisterWorkspace: (c) => registerWorkspace(d, c),
+    SetWorktreeSetup: (c) => {
+      const workspace = d.model.workspaces.get(c.workspaceId);
+
+      if (workspace === undefined) return d.notFound("workspace", c.workspaceId);
+
+      return d.ok(
+        DomainEvent.cases.WorkspaceUpdated.make({
+          workspace: new Workspace({
+            id: workspace.id,
+            path: workspace.path,
+            name: workspace.name,
+            isGitRepo: workspace.isGitRepo,
+            worktreeRoot: workspace.worktreeRoot,
+            hidden: workspace.hidden,
+            registeredAt: workspace.registeredAt,
+            worktreeSetup: c.setup,
+          }),
+        })
+      );
+    },
     SetWorkspaceHidden: (c) => setWorkspaceHidden(d, c),
     RemoveWorkspace: (c) => removeWorkspace(d, c),
     StartSession: (c) => startSession(d, c),

@@ -102,10 +102,17 @@ const Also = ({ item }: { readonly item: AlsoWaiting }) => {
   const { selectSession } = useShellActions();
   const { session } = item.entry;
   const id: SessionId = session.id;
+
+  const setupFailed =
+    item.kind === "failed" &&
+    session.worktreeSetup?.status === "failed" &&
+    session.lastError?.startsWith("Worktree setup failed:") === true;
+
   const open = () => selectSession({ hostKey: item.hostKey, sessionId: id });
 
   const run = () => {
-    if (item.kind === "in-terminal") void takeBack(item.hostKey, id);
+    if (setupFailed) open();
+    else if (item.kind === "in-terminal") void takeBack(item.hostKey, id);
     else if (item.kind === "interrupted") void continueTurn(item.hostKey, id);
     // Failed with no Failed Turn (the Harness never started one): the toast says why; open it.
     else void retryTurn(item.hostKey, id).then((ok) => ok || open());
@@ -118,7 +125,7 @@ const Also = ({ item }: { readonly item: AlsoWaiting }) => {
       icon={ALSO[item.kind].icon}
       title={<Title onOpen={open}>{session.title}</Title>}
       detail={alsoDetail(item)}
-      action={{ label: ALSO[item.kind].action, onAction: run }}
+      action={{ label: setupFailed ? "Open setup" : ALSO[item.kind].action, onAction: run }}
     />
   );
 };

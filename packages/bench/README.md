@@ -68,6 +68,8 @@ Scenarios are independent and each starts its own Daemons, so any subset can run
 | `startDelayMs` | 0 | Pause before `TurnStarted`. |
 | `subagents` | 0 | Foreground Subagents after the items, each started by an Agent call that completes with its streamed report (`bench/subagent.ts`). |
 
+`create a test constellation` is a deterministic instruction-delivery probe on the scripted Harness. It selects the attached `plan` tool named by the Polaris preamble, calls it with the injected Workspace ID, and emits that tool call without reading or writing the repository. It tests delivery and execution, not live Model comprehension. Run `bun test apps/daemon/src/mcp/tools/bootstrap.test.ts`.
+
 ## The sampler (reusable)
 
 `src/sampler.ts` samples a **process tree**: the roots you give it and all their descendants (for the Daemon: Harness processes, git, terminals), at a fixed interval, and reports min / median / p95 / max of RSS and footprint, per-interval CPU %, average CPU, CPU seconds, wakeups/s and a per-process peak table. It is exported (`@polaris/bench/sampler`) so the Desktop App can reuse it with the Electron main process as the root (renderers and helpers are its children).

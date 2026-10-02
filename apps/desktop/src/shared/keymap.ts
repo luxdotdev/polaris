@@ -25,6 +25,7 @@ export type CommandId =
   | "settings.open"
   | "settings.appearance"
   | "settings.sessions"
+  | "settings.editor"
   | "settings.harnesses"
   | "settings.constellations"
   | "settings.usage"
@@ -34,7 +35,10 @@ export type CommandId =
   | "github.addAccount"
   | "workspace.add"
   | "review.nextTab"
-  | "review.previousTab";
+  | "review.previousTab"
+  | "editor.save"
+  | "editor.nextTab"
+  | "editor.previousTab";
 
 export type MenuName = "App" | "View" | "Go" | "Session" | "Help";
 
@@ -82,6 +86,7 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
   { id: "settings.open", title: "Settings…", keys: ["CmdOrCtrl+,"], menu: "App" },
   { id: "settings.appearance", title: "Settings: Appearance", keys: [] },
   { id: "settings.sessions", title: "Settings: Sessions", keys: [] },
+  { id: "settings.editor", title: "Settings: Editor", keys: [] },
   { id: "settings.harnesses", title: "Settings: Harnesses", keys: [] },
   { id: "settings.constellations", title: "Settings: Constellations", keys: [] },
   { id: "settings.usage", title: "Settings: Usage", keys: [] },
@@ -95,6 +100,10 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
     keys: ["CmdOrCtrl+/", "Shift+/"],
     menu: "Help",
   },
+  // The Editor (spec §4): these keep working in every vim mode.
+  { id: "editor.save", title: "Save file", keys: ["CmdOrCtrl+S"] },
+  { id: "editor.nextTab", title: "Next editor tab", keys: ["Ctrl+Tab"] },
+  { id: "editor.previousTab", title: "Previous editor tab", keys: ["Ctrl+Shift+Tab"] },
 ];
 
 /** Chords macOS, Electron or the standard menus own; nothing here may take them. */

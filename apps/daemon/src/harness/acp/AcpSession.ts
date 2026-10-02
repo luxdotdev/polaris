@@ -25,6 +25,7 @@ import {
 import type { AgentConnection } from "./AgentConnection.ts";
 import type { AcpCommands } from "./commands.ts";
 import { type AcpHarness, MODE_IDS } from "./harnesses.ts";
+import { polarisContextWithoutTools } from "../../constellation/skills/preamble.ts";
 import { choices, configChange, effortOption, modelOption } from "./models.ts";
 import {
   allowOnce,
@@ -354,22 +355,32 @@ export const openSession = (
         emit(HarnessEvent.TurnEnded({ turnId, ...end }));
       });
 
+    let preamblePending = true;
+
     const runPrompt = (input: TurnInput) =>
-      conn
-        .request("session/prompt", {
-          sessionId,
-          prompt: promptBlocks(input.prompt, input.attachments),
-        } satisfies P.ClientParams["session/prompt"])
-        .pipe(
-          Effect.map((result) =>
-            Option.match(decodePrompt(result), {
-              onNone: () => turnEnd(name, "end_turn"),
-              onSome: ({ stopReason }) => turnEnd(name, stopReason),
-            })
-          ),
-          Effect.catch((e) => Effect.succeed({ status: "failed" as const, error: e.message })),
-          Effect.flatMap((end) => endTurn(input.turnId, end))
-        );
+      Effect.suspend(() => {
+        const context = preamblePending
+          ? [{ type: "text" as const, text: polarisContextWithoutTools() }]
+          : [];
+
+        preamblePending = false;
+
+        return conn
+          .request("session/prompt", {
+            sessionId,
+            prompt: [...context, ...promptBlocks(input.prompt, input.attachments)],
+          } satisfies P.ClientParams["session/prompt"])
+          .pipe(
+            Effect.map((result) =>
+              Option.match(decodePrompt(result), {
+                onNone: () => turnEnd(name, "end_turn"),
+                onSome: ({ stopReason }) => turnEnd(name, stopReason),
+              })
+            ),
+            Effect.catch((e) => Effect.succeed({ status: "failed" as const, error: e.message })),
+            Effect.flatMap((end) => endTurn(input.turnId, end))
+          );
+      });
 
     const sendTurn = (input: TurnInput) =>
       Effect.gen(function* () {

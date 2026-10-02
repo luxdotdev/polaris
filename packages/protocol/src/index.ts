@@ -20,6 +20,8 @@ export * from "./harnesses.ts";
 
 export * from "./ids.ts";
 
+export * from "./inline.ts";
+
 export * from "./models.ts";
 
 export * from "./review.ts";
@@ -39,3 +41,5 @@ export * from "./constellation/index.ts";
 export * from "./resources.ts";
 
 export * from "./files.ts";
+
+export * from "./worktreeSetup.ts";

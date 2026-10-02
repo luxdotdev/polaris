@@ -39,9 +39,11 @@ const GROUPS: ReadonlyArray<GroupSource> = [
         id: "sessions",
         title: "Sessions",
         blurb:
-          "How new agent sessions start and what happens around them. These settings stay on this Mac.",
+          "How new agent sessions start and what happens around them. Worktree setup is saved on its Host.",
         keywords: [
           "worktree",
+          "setup",
+          "dependencies",
           "branch",
           "prefix",
           "in place",
@@ -54,6 +56,12 @@ const GROUPS: ReadonlyArray<GroupSource> = [
           "commit",
           "main",
         ],
+      },
+      {
+        id: "editor",
+        title: "Editor",
+        blurb: "How files edit and save in Edit mode. These settings stay on this Mac.",
+        keywords: ["vim", "autosave", "save", "keys", "code"],
       },
     ],
   },
