@@ -502,7 +502,7 @@
           "max": 123.90625
         },
         "m5.footprint_peak_mib": {
-          "value": 85.18850708007812,
+          "value": 108.21980285644531,
           "unit": "MiB",
           "kind": "memory",
           "better": "lower",
@@ -511,12 +511,12 @@
             "absolute": 10
           },
           "runs": [
-            84.40723419189453,
-            86.09480285644531,
-            85.18850708007812
+            109.6104507446289,
+            108.21980285644531,
+            104.70408630371094
           ],
-          "min": 84.40723419189453,
-          "max": 86.09480285644531
+          "min": 104.70408630371094,
+          "max": 109.6104507446289
         },
         "m5.wall_s": {
           "value": 2887.178874999998,
@@ -852,7 +852,8 @@
         }
       },
       "notes": [
-        "phases: m5 (5 sessions × 2 Turns, 1 Client(s)), m10c3 (10 sessions × 2 Turns, 3 Client(s)), then burst and repeat (m5 again)"
+        "phases: m5 (5 sessions × 2 Turns, 1 Client(s)), m10c3 (10 sessions × 2 Turns, 3 Client(s)), then burst and repeat (m5 again)",
+        "G2: only m5.footprint_peak_mib refreshed from c1-g2-preamble/after.json for approved first-session MCP activation; all other metrics and environment retain their original provenance."
       ],
       "durationMs": 48032.33175
     },

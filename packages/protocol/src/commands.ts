@@ -3,6 +3,7 @@
  * `commandId`; the Daemon stores a receipt so a retried command is applied once.
  * An ack means "intent recorded", not "the Harness finished".
  */
+import { WorktreeSetup } from "./worktreeSetup.ts";
 import { Schema } from "effect";
 import { ApprovalDecision, PermissionMode } from "./domain.ts";
 import { HarnessKind } from "./harnesses.ts";
@@ -42,6 +43,7 @@ export type SessionPlacement = typeof SessionPlacement.Type;
 
 export const Command = Schema.TaggedUnion({
   RegisterWorkspace: { path: Schema.String, name: Schema.NullOr(Schema.String) },
+  SetWorktreeSetup: { workspaceId: WorkspaceId, setup: Schema.NullOr(WorktreeSetup) },
   SetWorkspaceHidden: { workspaceId: WorkspaceId, hidden: Schema.Boolean },
   RemoveWorkspace: { workspaceId: WorkspaceId },
 

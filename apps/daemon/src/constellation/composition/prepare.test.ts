@@ -15,6 +15,7 @@ import { HarnessRegistry } from "../../services.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { patchSession } from "../../store/model.ts";
 import { session } from "../delivery/testing.ts";
+import { WorktreeSetupService } from "../setup/index.ts";
 import { prepareSession } from "./prepare.ts";
 
 test("unsupported inherited auto permissions refuse dispatch before Session registration or Attempt creation", async () => {
@@ -101,6 +102,13 @@ test("unsupported inherited auto permissions refuse dispatch before Session regi
       expect(model.sessions.has(SessionId.make("dispatch:T4:worker"))).toBe(false);
       expect(model.constellations.get(graph.id)?.graph.attempts).toEqual([]);
       expect(checked).toBe(1);
-    }).pipe(Effect.provide(Layer.mergeAll(registry, EventStore.layerSqlite(":memory:"))))
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          registry,
+          WorktreeSetupService.layer.pipe(Layer.provideMerge(EventStore.layerSqlite(":memory:")))
+        )
+      )
+    )
   );
 });

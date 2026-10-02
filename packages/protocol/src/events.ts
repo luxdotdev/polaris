@@ -32,6 +32,7 @@ import {
   WorkspaceId,
   WorktreeId,
 } from "./ids.ts";
+import { WorktreeSetupRun } from "./worktreeSetup.ts";
 import { addedNullable, ModelId, ReasoningEffort } from "./models.ts";
 import {
   FindingResolution,
@@ -74,6 +75,7 @@ export const DomainEvent = Schema.TaggedUnion({
   },
 
   /** The Harness reported how full the context window is (see `AgentSession.contextUsage`). */
+  SessionSetupChanged: { sessionId: SessionId, setup: WorktreeSetupRun },
   SessionContextUsed: { sessionId: SessionId, usage: ContextUsage },
 
   TurnStarted: { turn: Turn },

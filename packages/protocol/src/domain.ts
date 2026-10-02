@@ -15,6 +15,7 @@ import {
   WorktreeId,
 } from "./ids.ts";
 import { addedNullable, ModelId, optionalNullable, ReasoningEffort } from "./models.ts";
+import { WorktreeSetup, WorktreeSetupRun } from "./worktreeSetup.ts";
 import { FeedbackBatch, PullRequestRef } from "./review.ts";
 
 export { Timestamp } from "./ids.ts";
@@ -63,6 +64,7 @@ export class Workspace extends Schema.Class<Workspace>("Workspace")({
   /** Where Polaris creates its own Worktrees; default `<repo>.worktrees/<branch>`. */
   worktreeRoot: Schema.String,
   hidden: Schema.Boolean,
+  worktreeSetup: optionalNullable(WorktreeSetup),
   registeredAt: Timestamp,
 }) {}
 
@@ -113,6 +115,7 @@ export class AgentSession extends Schema.Class<AgentSession>("AgentSession")({
   turnCount: Schema.Int,
   /** Null until the Harness reports it; some Harnesses never do. */
   contextUsage: addedNullable(ContextUsage),
+  worktreeSetup: optionalNullable(WorktreeSetupRun),
   lastError: Schema.NullOr(Schema.String),
   /** The index of the last Turn the user accepted (`AcceptTurns`); null before any. */
   acceptedThroughIndex: optionalNullable(Schema.Int),

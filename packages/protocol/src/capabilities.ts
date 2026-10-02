@@ -22,6 +22,7 @@ export const Capability = Schema.Literals([
   "harness.availability",
   /** `harness.spinnerVerbs`: Claude Code's `spinnerVerbs` setting on this Host. */
   "harness.spinner-verbs",
+  "workspace.setup",
   "session.steer",
   "session.fork",
   /** The `SetModel` command. */

@@ -253,6 +253,8 @@ const fold = (event: DomainEvent): Fold =>
         onSession(sessionId, patch({ model, effort })),
       SessionPermissionModeChanged: ({ sessionId, permissionMode }) =>
         onSession(sessionId, patch({ permissionMode })),
+      SessionSetupChanged: ({ sessionId, setup }) =>
+        onSession(sessionId, patch({ worktreeSetup: setup })),
       SessionContextUsed: ({ sessionId, usage }) =>
         onSession(sessionId, patch({ contextUsage: usage })),
       TurnStarted: ({ turn }) => onTurn(turn),

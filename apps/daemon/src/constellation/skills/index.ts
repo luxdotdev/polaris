@@ -32,13 +32,19 @@ const worker = [
 ];
 
 /** One versioned source, delivered through Harness instruction fields, never repository files. */
+const roleInstructions = (role: ReadonlyArray<string>): string =>
+  [`Polaris Constellation skill · v${CONSTELLATION_SKILL_VERSION}`, ...shared, ...role].join(
+    "\n\n"
+  );
+
 export const constellationInstructions = (binding: McpBinding): string =>
-  [
-    `Polaris Constellation skill · v${CONSTELLATION_SKILL_VERSION}`,
-    ...shared,
-    ...Match.value(binding).pipe(
-      Match.tag("Lead", () => lead),
-      Match.tag("Worker", () => worker),
-      Match.exhaustive
+  Match.value(binding).pipe(
+    Match.tag(
+      "Plain",
+      (plain) =>
+        `Use plan with start { name, workspaceId: ${plain.workspaceId} } to start a constellation in this workspace. Other Lead tools become usable after it starts. Repository rules remain in AGENTS.md.`
     ),
-  ].join("\n\n");
+    Match.tag("Lead", () => roleInstructions(lead)),
+    Match.tag("Worker", () => roleInstructions(worker)),
+    Match.exhaustive
+  );

@@ -1,0 +1,54 @@
+import type { OpenOptions } from "../../harness/HarnessDriver.ts";
+
+export const POLARIS_PREAMBLE_VERSION = 1;
+
+type InstructionOptions = Pick<OpenOptions, "readOnly" | "constellation" | "constellations">;
+
+const context = [
+  `Polaris context · v${POLARIS_PREAMBLE_VERSION}`,
+  "You are running inside Polaris, an IDE and agent orchestrator. The user watches and steers this agent session from the Desktop App.",
+  "A constellation is a graph of tasks and dependencies. Its lead maps work and reviews workers' claims. A task is a unit of work; an attempt is one try. A claim reports completed work for review, not acceptance. A gate is a task that waits for all its dependencies to be accepted.",
+  "Review: the user examines changes and a risk summary; the Reviewer is the chosen harness and model writing findings.",
+  "Workspaces: your agent session belongs to a registered directory, usually a git repository. Follow its AGENTS.md when changing code.",
+  "Hosts: each machine runs a Daemon that owns its agent sessions; hosts may be remote.",
+  "Only the user grants approvals.",
+];
+
+export const sessionAttachments = (options: InstructionOptions) =>
+  options.readOnly === true
+    ? []
+    : (options.constellations ??
+      (options.constellation === undefined ? [] : [options.constellation]));
+
+/** Short capability-aware context; role skills follow it in the same instruction field. */
+export const polarisPreamble = (options: InstructionOptions): string => {
+  const attachments = sessionAttachments(options);
+
+  const name = (index: number, tool: string) =>
+    `mcp__polaris${index === 0 ? "" : `_${index}`}__${tool}`;
+
+  const plan = attachments.findIndex((a) => a.tools.some((t) => t.name === "plan"));
+  const claim = attachments.findIndex((a) => a.tools.some((t) => t.name === "claim"));
+
+  const features: string[] = [];
+
+  if (plan !== -1)
+    features.push(
+      `Constellations: the user may ask you to lead one. Call ${name(plan, "plan")} with start to create it, or operations to map its tasks; use ${name(plan, "status")} for detail.`
+    );
+
+  if (claim !== -1)
+    features.push(
+      `Constellations: follow your worker assignment and submit its report with ${name(claim, "claim")}; your worker skill explains the fields.`
+    );
+
+  return [...context, ...features].join("\n");
+};
+
+export const polarisInstructions = (options: InstructionOptions): string =>
+  [polarisPreamble(options), ...sessionAttachments(options).map((a) => a.instructions)]
+    .filter((text) => text.length > 0)
+    .join("\n\n");
+
+export const polarisContextWithoutTools = () =>
+  `${polarisPreamble({})}\nConstellations need Codex or Claude Code.`;
