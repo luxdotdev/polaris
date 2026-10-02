@@ -50,6 +50,14 @@ export const Capability = Schema.Literals([
   "files.search",
   "files.watch",
   "inline.propose",
+  /** Optional language extension, advertised only after the corresponding handlers are implemented. */
+  "languages",
+  "languages.install",
+  "languages.trust",
+  "languages.format",
+  "languages.edits",
+  "languages.resources",
+  "languages.preview-media",
   "git.diff",
   /** `git.diff` answers `fileIndex`: each file's byte range in the patch, and its counts. */
   "git.diff-files",

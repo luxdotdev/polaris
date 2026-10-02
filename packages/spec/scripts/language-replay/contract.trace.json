@@ -1,0 +1,258 @@
+{
+  "version": 1,
+  "source": "synthetic-contract",
+  "events": [
+    {
+      "event": {
+        "_tag": "Sync",
+        "context": 0,
+        "generation": 1,
+        "sequence": 2,
+        "previous": 0,
+        "version": 1
+      },
+      "observed": {
+        "_tag": "Context",
+        "context": 0,
+        "generation": 1,
+        "sequence": 0,
+        "version": 0,
+        "delivered": -1
+      }
+    },
+    {
+      "event": {
+        "_tag": "Sync",
+        "context": 0,
+        "generation": 1,
+        "sequence": 1,
+        "previous": 0,
+        "version": 1
+      },
+      "observed": {
+        "_tag": "Context",
+        "context": 0,
+        "generation": 1,
+        "sequence": 1,
+        "version": 1,
+        "delivered": -1
+      }
+    },
+    {
+      "event": {
+        "_tag": "Request",
+        "context": 0,
+        "generation": 1,
+        "sequence": 1,
+        "version": 1
+      },
+      "observed": {
+        "_tag": "Context",
+        "context": 0,
+        "generation": 1,
+        "sequence": 1,
+        "version": 1,
+        "delivered": -1
+      }
+    },
+    {
+      "event": {
+        "_tag": "Sync",
+        "context": 0,
+        "generation": 1,
+        "sequence": 2,
+        "previous": 1,
+        "version": 2
+      },
+      "observed": {
+        "_tag": "Context",
+        "context": 0,
+        "generation": 1,
+        "sequence": 2,
+        "version": 2,
+        "delivered": -1
+      }
+    },
+    {
+      "event": {
+        "_tag": "Result",
+        "context": 0,
+        "generation": 1,
+        "version": 1
+      },
+      "observed": {
+        "_tag": "Context",
+        "context": 0,
+        "generation": 1,
+        "sequence": 2,
+        "version": 2,
+        "delivered": -1
+      }
+    },
+    {
+      "event": {
+        "_tag": "Restart",
+        "context": 0
+      },
+      "observed": {
+        "_tag": "Context",
+        "context": 0,
+        "generation": 2,
+        "sequence": 0,
+        "version": 0,
+        "delivered": -1
+      }
+    },
+    {
+      "event": {
+        "_tag": "Result",
+        "context": 0,
+        "generation": 1,
+        "version": 2
+      },
+      "observed": {
+        "_tag": "Context",
+        "context": 0,
+        "generation": 2,
+        "sequence": 0,
+        "version": 0,
+        "delivered": -1
+      }
+    },
+    {
+      "event": {
+        "_tag": "Prepare"
+      },
+      "observed": {
+        "_tag": "Operation",
+        "prepared": true,
+        "applied": false,
+        "drafts": false,
+        "receipt": false,
+        "acknowledged": false,
+        "owned": false,
+        "restored": false
+      }
+    },
+    {
+      "event": {
+        "_tag": "Apply"
+      },
+      "observed": {
+        "_tag": "Operation",
+        "prepared": true,
+        "applied": true,
+        "drafts": false,
+        "receipt": false,
+        "acknowledged": false,
+        "owned": true,
+        "restored": false
+      }
+    },
+    {
+      "event": {
+        "_tag": "Acknowledge"
+      },
+      "observed": {
+        "_tag": "Operation",
+        "prepared": true,
+        "applied": true,
+        "drafts": false,
+        "receipt": false,
+        "acknowledged": false,
+        "owned": true,
+        "restored": false
+      }
+    },
+    {
+      "event": {
+        "_tag": "PersistDrafts"
+      },
+      "observed": {
+        "_tag": "Operation",
+        "prepared": true,
+        "applied": true,
+        "drafts": true,
+        "receipt": false,
+        "acknowledged": false,
+        "owned": true,
+        "restored": false
+      }
+    },
+    {
+      "event": {
+        "_tag": "PersistReceipt"
+      },
+      "observed": {
+        "_tag": "Operation",
+        "prepared": true,
+        "applied": true,
+        "drafts": true,
+        "receipt": true,
+        "acknowledged": false,
+        "owned": true,
+        "restored": false
+      }
+    },
+    {
+      "event": {
+        "_tag": "Acknowledge"
+      },
+      "observed": {
+        "_tag": "Operation",
+        "prepared": true,
+        "applied": true,
+        "drafts": true,
+        "receipt": true,
+        "acknowledged": true,
+        "owned": true,
+        "restored": false
+      }
+    },
+    {
+      "event": {
+        "_tag": "Crash"
+      },
+      "observed": {
+        "_tag": "Operation",
+        "prepared": true,
+        "applied": true,
+        "drafts": true,
+        "receipt": true,
+        "acknowledged": true,
+        "owned": true,
+        "restored": false
+      }
+    },
+    {
+      "event": {
+        "_tag": "DiskEdit"
+      },
+      "observed": {
+        "_tag": "Operation",
+        "prepared": true,
+        "applied": true,
+        "drafts": true,
+        "receipt": true,
+        "acknowledged": true,
+        "owned": false,
+        "restored": false
+      }
+    },
+    {
+      "event": {
+        "_tag": "Undo"
+      },
+      "observed": {
+        "_tag": "Operation",
+        "prepared": true,
+        "applied": true,
+        "drafts": true,
+        "receipt": true,
+        "acknowledged": true,
+        "owned": false,
+        "restored": false
+      }
+    }
+  ]
+}

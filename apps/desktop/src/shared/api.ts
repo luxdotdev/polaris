@@ -497,7 +497,21 @@ export interface OpenPull extends PullRef {
 
 // ── The API on `window.polaris` ─────────────────────────────────────────────
 
+/** Optional language IPC extension; absent until C1 installs an implementation. */
+export interface LanguageApi {
+  readonly request: <M extends import("./languages.ts").LanguageRequestMethod>(
+    method: M,
+    input: import("./languages.ts").LanguageRequestInput<M>
+  ) => Promise<Result<import("./languages.ts").LanguageRequestOutput<M>>>;
+  readonly subscribe: <K extends import("./languages.ts").LanguageSubscriptionKind>(
+    kind: K,
+    input: import("./languages.ts").LanguageSubscriptionInput<K>,
+    listener: SubscriptionListener<import("./languages.ts").LanguageSubscriptionItem<K>>
+  ) => () => void;
+}
+
 export interface PolarisApi {
+  readonly languages?: LanguageApi;
   readonly request: <M extends RequestMethod>(
     method: M,
     input: RequestInput<M>

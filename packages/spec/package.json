@@ -8,7 +8,7 @@
     "spec": "bun scripts/check.ts",
     "spec:replay": "bun scripts/replay.ts",
     "typecheck": "tsc -p .",
-    "test": "bun test scripts/constellation-replay"
+    "test": "bun test scripts/constellation-replay scripts/language-replay"
   },
   "devDependencies": {
     "@informalsystems/quint": "0.32.0",
