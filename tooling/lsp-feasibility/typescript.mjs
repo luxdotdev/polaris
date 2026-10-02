@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { spawn } from "node:child_process";
+import { startServer, withDeadline } from "./process.mjs";
 
 const root = process.argv[2];
 
@@ -64,24 +64,20 @@ async function probe(enabled) {
   writeFileSync(join(root, "tsconfig.json"), JSON.stringify(config));
   const log = join(root, enabled ? "plugins.log" : "control.log");
 
-  const child = spawn(
-    process.execPath,
-    [
-      serverPath,
-      "--disableAutomaticTypingAcquisition",
-      "--pluginProbeLocations",
-      root,
-      "--logVerbosity",
-      "verbose",
-      "--logFile",
-      log,
-    ],
-    {
-      cwd: root,
-      env: { ...process.env, HOME: join(root, "home") },
-      stdio: ["pipe", "pipe", "pipe"],
-    }
-  );
+  const server = startServer(root, [
+    serverPath,
+    "--disableAutomaticTypingAcquisition",
+    "--globalTypingsCacheLocation",
+    join(root, "typings-cache"),
+    "--pluginProbeLocations",
+    root,
+    "--logVerbosity",
+    "verbose",
+    "--logFile",
+    log,
+  ]);
+
+  const child = server.child;
 
   let buffer = Buffer.alloc(0);
   let sequence = 0;
@@ -124,6 +120,10 @@ async function probe(enabled) {
 
   try {
     await request("configure", { preferences: {}, hostInfo: "polaris-f1" });
+
+    if (process.argv[3] === "failure") throw new Error("Injected fixture failure");
+
+    if (process.argv[3] === "timeout") await withDeadline(new Promise(() => {}), 50);
     await request("updateOpen", {
       openFiles: Object.entries(files).map(([file, fileContent]) => ({
         file: join(root, file),
@@ -153,7 +153,7 @@ async function probe(enabled) {
 
     return diagnostics;
   } finally {
-    child.kill();
+    await server.stop("tsserver success/failure/timeout");
   }
 }
 
