@@ -140,10 +140,18 @@ const review = Effect.gen(function* () {
   yield* sql`CREATE INDEX verdicts_identity ON verdicts (identity)`;
 });
 
+const constellations = Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient;
+  yield* sql`ALTER TABLE events ADD COLUMN constellation_id TEXT`;
+  yield* sql`UPDATE events SET constellation_id = json_extract(payload, '$.constellationId') WHERE json_type(payload, '$.constellationId') = 'text'`;
+  yield* sql`CREATE INDEX events_constellation ON events (constellation_id, sequence)`;
+});
+
 export const migrations = SqliteMigrator.fromRecord({
   "0001_event_store": init,
   "0002_subagents": subagents,
   "0003_review": review,
+  "0004_constellations": constellations,
 });
 
 export const MigrationsLayer = SqliteMigrator.layer({ loader: migrations });

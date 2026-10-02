@@ -17,6 +17,8 @@ import { SqliteClient } from "@effect/sql-sqlite-bun";
 import {
   type CommandId,
   type CommandRejected,
+  type ConstellationId,
+  type ConstellationRejected,
   type DomainEvent,
   EventEnvelope,
   type NotFound,
@@ -97,7 +99,7 @@ export type CommitResult =
 /** Constructors and matchers for `CommitResult`. */
 export const CommitResult = Data.taggedEnum<CommitResult>();
 
-export type Rejection = CommandRejected | NotFound;
+export type Rejection = CommandRejected | NotFound | ConstellationRejected;
 
 export interface CommitOptions<E extends Rejection> {
   /** Client-chosen id; null for events the Daemon records on its own (Harness output, recovery). */
@@ -136,6 +138,11 @@ export class EventStore extends Context.Service<
      * Committed events with `after < sequence <= upTo`, in order. With a
      * session id, only that session's events; without, the Host stream's events.
      */
+    readonly readConstellationEvents: (options: {
+      readonly constellationId: ConstellationId;
+      readonly after: number;
+      readonly upTo: number;
+    }) => Effect.Effect<ReadonlyArray<EventEnvelope>, ServiceError>;
     readonly readEvents: (options: {
       readonly after: number;
       readonly upTo: number;
@@ -313,6 +320,11 @@ export class EventStore extends Context.Service<
         publishEphemeral: (item) => Effect.sync(() => hub.publish(item)),
         subscriberCount: Effect.sync(() => hub.size),
         readEvents,
+        readConstellationEvents: (options) =>
+          sql<EventRow>`SELECT sequence, occurred_at, command_id, payload FROM events WHERE constellation_id = ${options.constellationId} AND sequence > ${options.after} AND sequence <= ${options.upTo} ORDER BY sequence`.pipe(
+            Effect.map((rows) => rows.map(decodeEventRow)),
+            Effect.mapError(storeError("read Constellation events"))
+          ),
         readTurns,
         lastKnownWorktree,
         readTurnItems,

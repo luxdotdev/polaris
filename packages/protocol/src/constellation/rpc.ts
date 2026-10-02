@@ -10,6 +10,7 @@ import {
   ConstellationFinding,
   ConstellationGraphSlice,
   ConstellationId,
+  ConstellationSettings,
   Revision,
   TaskProjection,
 } from "./domain.ts";
@@ -137,7 +138,21 @@ export const SubscribeConstellation = Rpc.make("constellation.subscribe", {
   stream: true,
 });
 
+export const ConstellationDefaultsGet = Rpc.make("constellation.defaults.get", {
+  payload: {},
+  success: Schema.Struct({ settings: ConstellationSettings }),
+  error: ConstellationRejected,
+});
+
+export const ConstellationDefaultsSet = Rpc.make("constellation.defaults.set", {
+  payload: { settings: ConstellationSettings },
+  success: Schema.Struct({ settings: ConstellationSettings }),
+  error: ConstellationRejected,
+});
+
 export class ConstellationRpcs extends RpcGroup.make(
+  ConstellationDefaultsGet,
+  ConstellationDefaultsSet,
   ConstellationPlan,
   ConstellationDispatch,
   ConstellationReview,

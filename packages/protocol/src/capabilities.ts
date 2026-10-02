@@ -12,6 +12,8 @@ export const Capability = Schema.Literals([
   "constellation",
   /** Ephemeral LivenessChanged items on constellation.subscribe, in addition to constellation. */
   "constellation.liveness",
+  "constellation.claim-review",
+  "constellation.defaults",
   "host.resources",
   /** `harness.<kind>`: the Daemon has that Harness's driver (one per catalogue entry). */
   ...HARNESS_CATALOGUE.map((harness) => harness.capability),

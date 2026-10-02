@@ -58,6 +58,8 @@ export const defaultHandlers = (options: {
     "host.resources.acquire": () =>
       Effect.fail(new ResourceError({ message: "Host resources are unavailable" })),
 
+    "constellation.defaults.get": () => Effect.fail(constellationUnavailable()),
+    "constellation.defaults.set": () => Effect.fail(constellationUnavailable()),
     "constellation.plan": () => Effect.fail(constellationUnavailable()),
     "constellation.dispatch": () => Effect.fail(constellationUnavailable()),
     "constellation.review": () => Effect.fail(constellationUnavailable()),

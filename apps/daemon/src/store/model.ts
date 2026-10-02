@@ -11,6 +11,7 @@
  */
 import {
   AgentSession,
+  type ConstellationId,
   type ApprovalRequest,
   type Capability,
   DomainEvent,
@@ -31,6 +32,8 @@ import {
 
 import { emptyResources, foldResources, type ResourcesModel } from "../resources/model.ts";
 
+import { foldConstellation, graphEvent, type ConstellationRecord } from "./constellation.ts";
+
 export interface SessionRecord {
   readonly session: AgentSession;
   /** Set once the user renames the session; Harness title suggestions are then ignored. */
@@ -46,6 +49,7 @@ export interface SessionRecord {
 }
 
 export interface ReadModel {
+  readonly constellations: ReadonlyMap<ConstellationId, ConstellationRecord>;
   /** Sequence of the last event folded in; 0 for an empty store. */
   readonly sequence: number;
   readonly hostResources?: ResourcesModel;
@@ -59,6 +63,7 @@ export interface ReadModel {
 export const emptyModel: ReadModel = {
   sequence: 0,
   hostResources: emptyResources(),
+  constellations: new Map(),
   workspaces: new Map(),
   worktrees: new Map(),
   sessions: new Map(),
@@ -94,6 +99,9 @@ export const sessionOf: (event: DomainEvent) => SessionId | null =
     AttemptStarted: hostEvent,
     AttemptProgressed: hostEvent,
     AttemptClaimed: hostEvent,
+    ClaimApproved: hostEvent,
+    ClaimHandedUp: hostEvent,
+    AttemptNudged: hostEvent,
     AttemptAccepted: hostEvent,
     AttemptRejected: hostEvent,
     AttemptSettled: hostEvent,
@@ -184,6 +192,7 @@ export const gatingCapabilities: ReadonlyArray<Capability> = [
   "review.checkouts",
   "constellation",
   "host.resources",
+  "constellation.claim-review",
 ];
 
 const needs = (capability: Capability) => (): Capability => capability;
@@ -208,6 +217,9 @@ export const eventCapability = (event: DomainEvent): Capability | null =>
       AttemptStarted: needs("constellation"),
       AttemptProgressed: needs("constellation"),
       AttemptClaimed: needs("constellation"),
+      ClaimApproved: needs("constellation.claim-review"),
+      ClaimHandedUp: needs("constellation.claim-review"),
+      AttemptNudged: needs("constellation.claim-review"),
       AttemptAccepted: needs("constellation"),
       AttemptRejected: needs("constellation"),
       AttemptSettled: needs("constellation"),
@@ -498,6 +510,9 @@ const apply: (event: DomainEvent) => Reducer = DomainEvent.match<Reducer>({
   AttemptStarted: () => keep,
   AttemptProgressed: () => keep,
   AttemptClaimed: () => keep,
+  ClaimApproved: () => keep,
+  ClaimHandedUp: () => keep,
+  AttemptNudged: () => keep,
   AttemptAccepted: () => keep,
   AttemptRejected: () => keep,
   AttemptSettled: () => keep,
@@ -604,6 +619,25 @@ const apply: (event: DomainEvent) => Reducer = DomainEvent.match<Reducer>({
 });
 
 export const project = (model: ReadModel, envelope: EventEnvelope): ReadModel => {
+  const graph = graphEvent(envelope.event);
+
+  if (graph !== null) {
+    const folded = foldConstellation(
+      model.constellations.get(graph.constellationId),
+      graph,
+      envelope.occurredAt
+    );
+
+    return {
+      ...model,
+      sequence: envelope.sequence,
+      constellations:
+        folded === undefined
+          ? model.constellations
+          : new Map([...model.constellations, [graph.constellationId, folded]]),
+    };
+  }
+
   const next = apply(envelope.event)({
     model,
     at: envelope.occurredAt,
