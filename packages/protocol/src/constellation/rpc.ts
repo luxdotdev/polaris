@@ -22,6 +22,7 @@ import {
   TaskProjection,
 } from "./domain.ts";
 import { WorkerLiveness } from "./liveness.ts";
+import { ConstellationStats } from "./stats.ts";
 
 export class ConstellationResult extends Schema.Class<ConstellationResult>("ConstellationResult")({
   summary: Schema.String,
@@ -163,7 +164,14 @@ export const ConstellationDefaultsSet = Rpc.make("constellation.defaults.set", {
   error: ConstellationRejected,
 });
 
+export const GetConstellationStats = Rpc.make("constellation.stats", {
+  payload: { constellationId: ConstellationId },
+  success: ConstellationStats,
+  error: ConstellationRejected,
+});
+
 export class ConstellationRpcs extends RpcGroup.make(
+  GetConstellationStats,
   ConstellationDefaultsGet,
   ConstellationDefaultsSet,
   ConstellationPlan,

@@ -39,6 +39,7 @@ import { openUsageDb } from "./db.ts";
 import { codexHome, type Env, GC_EVERY_BYTES, type UsageHarness } from "./indexer.ts";
 import { passScheduler } from "./passes.ts";
 import { queryBuckets } from "./query.ts";
+import { queryResponses, type UsageResponseQuery, type UsageResponses } from "./responses.ts";
 import { SessionActivity, UsageSessions } from "./sessions.ts";
 import { inProcessRunner } from "./runner.ts";
 import { writerOver } from "./writer.ts";
@@ -59,6 +60,7 @@ export class UsageIndex extends Context.Service<
     readonly refresh: (harnesses?: ReadonlyArray<UsageHarness>) => Effect.Effect<void>;
     /** Answers from the index, once a pass it starts has finished or ~250 ms have passed. */
     readonly query: (query: UsageQuery) => Effect.Effect<UsageReport>;
+    readonly responses: (query: UsageResponseQuery) => Effect.Effect<UsageResponses>;
     /** Every known Plan Limit, then Usage and Plan Limit changes; watches the logs while subscribed. */
     readonly changes: Stream.Stream<UsageStreamItem>;
     /** The latest value of every Plan Limit window known (the Reviewer's near-limit note). */
@@ -343,7 +345,20 @@ export const makeUsageIndex = Effect.fnUntraced(function* (options: UsageIndexOp
   yield* Effect.forkScoped(Effect.forever(follow));
 
   const planLimits = Effect.sync(() => [...limits.values()]);
-  const service = UsageIndex.of({ refresh, query, changes, planLimits });
+
+  const responses = Effect.fn("usage.responses")(function* (q: UsageResponseQuery) {
+    const done = yield* request(HARNESSES);
+    yield* Deferred.await(done).pipe(Effect.timeoutOption(answerWithinMs));
+    const { db, writer } = yield* opened;
+
+    return {
+      responses: queryResponses(db, q),
+      indexedAt: writer.meta("indexedAt"),
+      indexing: passes.isRunning(),
+    };
+  });
+
+  const service = UsageIndex.of({ refresh, query, responses, changes, planLimits });
 
   return { service, planLimits: PlanLimitSink.of({ report: reportPlanLimit }) };
 });

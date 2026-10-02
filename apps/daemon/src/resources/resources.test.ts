@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CommandId, DomainEvent, HostResource, ResourceLease, SessionId } from "@polaris/protocol";
-import { Effect, Fiber, Layer, ManagedRuntime, Predicate } from "effect";
+import { Clock, Deferred, Effect, Fiber, Layer, ManagedRuntime, Predicate } from "effect";
 import { EventStore } from "../store/EventStore.ts";
 import { HostResources } from "./index.ts";
 import { recordResourceTrace } from "./trace.testing.ts";
@@ -44,6 +44,83 @@ const eventually = async (predicate: () => Promise<boolean>) => {
 };
 
 describe("Host resource leases", () => {
+  test("held and queued worker slots schedule no monitor sleeps", async () => {
+    const home = mkdtempSync(join(tmpdir(), "polaris-worker-idle-"));
+    homes.push(home);
+    process.env.POLARIS_HOME = home;
+    const clock = await Effect.runPromise(Clock.Clock);
+    let sleeps = 0;
+
+    const clockLayer = Layer.succeed(Clock.Clock)({
+      currentTimeMillisUnsafe: () => clock.currentTimeMillisUnsafe(),
+      currentTimeMillis: clock.currentTimeMillis,
+      currentTimeNanosUnsafe: () => clock.currentTimeNanosUnsafe(),
+      currentTimeNanos: clock.currentTimeNanos,
+      monotonicTimeNanosUnsafe: () => clock.monotonicTimeNanosUnsafe(),
+      monotonicTimeNanos: clock.monotonicTimeNanos,
+      sleep: () =>
+        Effect.andThen(
+          Effect.sync(() => {
+            sleeps++;
+          }),
+          Effect.never
+        ),
+    });
+
+    const runtime = ManagedRuntime.make(
+      HostResources.layer.pipe(LayerProvide(home), Layer.provide(clockLayer))
+    );
+
+    try {
+      const resources = await runtime.runPromise(HostResources);
+      await runtime.runPromise(resources.setWorkerCap(id("idle-cap"), 1));
+      const granted = await runtime.runPromise(Deferred.make<void>());
+
+      const holder = runtime.runFork(
+        Effect.scoped(
+          Effect.andThen(
+            resources.acquireWorker(SessionId.make("held")),
+            Effect.andThen(Deferred.succeed(granted, undefined), Effect.never)
+          )
+        )
+      );
+
+      await runtime.runPromise(Deferred.await(granted));
+
+      const waiter = runtime.runFork(
+        Effect.scoped(
+          Effect.andThen(resources.acquireWorker(SessionId.make("queued")), Effect.never)
+        )
+      );
+
+      await eventually(
+        async () => (await runtime.runPromise(resources.get)).workerCap.waiting === 1
+      );
+      await Bun.sleep(20);
+      expect(sleeps).toBe(0);
+      await runtime.runPromise(Fiber.interrupt(waiter));
+      await runtime.runPromise(Fiber.interrupt(holder));
+      expect(sleeps).toBe(0);
+      const identity = await processIdentity(process.pid);
+      expect(identity).not.toBeNull();
+      await runtime.runPromise(resources.declare(id("idle-process-resource"), "bench", 1));
+      await runtime.runPromise(
+        resources.acquire({
+          requestId: "process",
+          name: "bench",
+          sessionId: null,
+          processId: process.pid,
+          processIdentity: identity!,
+          command: [],
+        })
+      );
+      await eventually(async () => sleeps > 0);
+      expect(sleeps).toBe(1);
+      await runtime.runPromise(resources.release(null, "process"));
+    } finally {
+      await runtime.dispose();
+    }
+  });
   test("a concurrent Lead capacity edit is honored at the grant commit boundary", async () => {
     const home = mkdtempSync(join(tmpdir(), "polaris-resource-race-"));
     homes.push(home);
@@ -264,8 +341,129 @@ describe("Host resource leases", () => {
       expect(reset.workerCap.cap).toBe(reset.workerCap.default);
       expect(reset.workerCap.working).toBe(0);
       expect(reset.workerCap.waiting).toBe(0);
+      const store = await runtime.runPromise(EventStore);
+
+      const events = await runtime.runPromise(
+        store.readEvents({
+          after: 0,
+          upTo: (await runtime.runPromise(store.model)).sequence,
+          sessionId: null,
+        })
+      );
+
+      const queued = events.flatMap(({ event }) =>
+        Predicate.isTagged(event, "ResourceLeaseQueued") && event.resource === "__workers"
+          ? [event]
+          : []
+      );
+
+      const grants = events.flatMap(({ event }) =>
+        Predicate.isTagged(event, "ResourceLeased") && event.lease.resource === "__workers"
+          ? [event.lease]
+          : []
+      );
+
+      expect(queued.map((q) => q.sessionId)).toEqual(
+        ["one", "canceled", "two"].map((name) => SessionId.make(name))
+      );
+      expect(grants.map((g) => g.id)).toEqual(
+        queued.flatMap((q, index) => (index === 1 ? [] : [q.requestId]))
+      );
+      expect(
+        events.filter(
+          ({ event }) =>
+            Predicate.isTagged(event, "ResourceLeaseCanceled") && event.resource === "__workers"
+        )
+      ).toHaveLength(1);
+      expect(
+        events.filter(
+          ({ event }) =>
+            Predicate.isTagged(event, "ResourceReleased") && event.resource === "__workers"
+        )
+      ).toHaveLength(2);
+      await runtime.runPromise(recordResourceTrace);
     } finally {
       await runtime.dispose();
+    }
+  });
+
+  test("restart reclaims durable worker holders and waiters before fresh scopes acquire", async () => {
+    const { home, runtime } = setup();
+    const resources = await runtime.runPromise(HostResources);
+    await runtime.runPromise(resources.setWorkerCap(id("worker-cap"), 1));
+    const store = await runtime.runPromise(EventStore);
+
+    const hostId = (await runtime.runPromise(store.model)).hostResources!.resources.get(
+      "__workers"
+    )!.hostId;
+
+    const queued = (requestId: string) =>
+      DomainEvent.cases.ResourceLeaseQueued.make({
+        hostId,
+        resource: "__workers",
+        requestId,
+        sessionId: SessionId.make(requestId),
+      });
+
+    await runtime.runPromise(
+      store.commit({
+        commandId: null,
+        decide: () =>
+          Effect.succeed([
+            queued("old-holder"),
+            DomainEvent.cases.ResourceLeased.make({
+              lease: ResourceLease.make({
+                id: "old-holder",
+                hostId,
+                resource: "__workers",
+                sessionId: SessionId.make("old-holder"),
+                attemptId: null,
+                processId: process.pid,
+                command: ["worker"],
+                acquiredAt: new Date().toISOString(),
+              }),
+            }),
+            queued("old-waiter"),
+          ]),
+      })
+    );
+    await runtime.dispose();
+    const restarted = ManagedRuntime.make(HostResources.layer.pipe(LayerProvide(home)));
+
+    try {
+      const restored = await restarted.runPromise(HostResources);
+      const recoveredStore = await restarted.runPromise(EventStore);
+      const recovered = (await restarted.runPromise(recoveredStore.model)).hostResources!;
+      expect(recovered.leases.size).toBe(0);
+      expect(recovered.waiting.size).toBe(0);
+      await restarted.runPromise(Effect.scoped(restored.acquireWorker(SessionId.make("fresh"))));
+      const snapshot = await restarted.runPromise(restored.get);
+      expect(snapshot.workerCap).toMatchObject({ working: 0, waiting: 0 });
+
+      const history = await restarted.runPromise(
+        recoveredStore.readEvents({
+          after: 0,
+          upTo: (await restarted.runPromise(recoveredStore.model)).sequence,
+          sessionId: null,
+        })
+      );
+
+      expect(
+        history.filter(
+          ({ event }) =>
+            Predicate.isTagged(event, "ResourceReleased") && event.reason === "Daemon restarted"
+        )
+      ).toHaveLength(1);
+      expect(
+        history.filter(
+          ({ event }) =>
+            Predicate.isTagged(event, "ResourceLeaseCanceled") &&
+            event.reason === "Daemon restarted"
+        )
+      ).toHaveLength(1);
+      await restarted.runPromise(recordResourceTrace);
+    } finally {
+      await restarted.dispose();
     }
   });
 

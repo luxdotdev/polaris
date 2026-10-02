@@ -145,6 +145,11 @@ const preparedAttempt = (root: string, model: ReadModel, taskId: TaskId, session
     branch: git(cwd, "branch", "--show-current"),
     base: git(cwd, "rev-parse", "HEAD"),
     state: "working",
+    claimedAt: null,
+    approvedByUserAt: null,
+    handedUpAt: null,
+    handedUpReason: null,
+    nudgedAt: null,
     startedAt: AT,
   });
 };

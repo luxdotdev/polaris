@@ -43,6 +43,7 @@ import { TerminalsDaemonLive } from "../terminal/Terminals.ts";
 import { UsageIndexLive, UsageRpcsLive, UsageSessions } from "../usage/index.ts";
 import { HostResources } from "../resources/index.ts";
 import { ResourceRpcsLive } from "../resources/rpc.ts";
+import { ConstellationStatsService } from "../constellation/stats/index.ts";
 import { startServer } from "./server.ts";
 
 /** Exit status when another Daemon already holds the lock or answers on the socket. */
@@ -98,9 +99,11 @@ const engineServices = Layer.mergeAll(Engine.layer, releaseWhenQuiet(), constell
   Layer.provideMerge(EventStore.layerLive)
 );
 
-const daemonServices = Layer.merge(ReviewerLive(), HostResources.layer).pipe(
-  Layer.provideMerge(engineServices)
-);
+const daemonServices = Layer.mergeAll(
+  ReviewerLive(),
+  HostResources.layer,
+  ConstellationStatsService.layer
+).pipe(Layer.provideMerge(engineServices));
 
 /** Every real handler layer the Daemon mounts. Compose new modules' layers here. */
 export const daemonHandlers = Layer.mergeAll(
