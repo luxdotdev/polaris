@@ -10,3 +10,5 @@ export {
 } from "./FileLink.tsx";
 
 export { type EditorPlace, EditorPlaceProvider, useEditorPlace } from "./place.ts";
+
+export { EditorRequests } from "./EditorRequests.tsx";

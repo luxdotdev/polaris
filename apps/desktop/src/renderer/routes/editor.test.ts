@@ -78,6 +78,7 @@ describe("editorRequest", () => {
       path: "/code/polaris/src/a.ts",
       line: 12,
       column: null,
+      folder: false,
     });
   });
 

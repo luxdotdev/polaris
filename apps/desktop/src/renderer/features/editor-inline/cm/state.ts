@@ -15,6 +15,8 @@ export interface CardPlace {
   /** Bumped by every edit since the card opened; a request remembers the one it was sent at. */
   readonly version: number;
   readonly proposal: ReadonlyArray<Replacement> | null;
+  /** The card's rendered height; a change redraws its widget so CodeMirror measures it again. */
+  readonly height: number;
 }
 
 let nextId = 0;
@@ -27,6 +29,8 @@ export const showProposal = StateEffect.define<{
   readonly version: number;
   readonly replacements: ReadonlyArray<Replacement>;
 }>();
+
+export const cardHeight = StateEffect.define<number>();
 
 /** Goes with Accept's edit: the card closes rather than going stale. */
 export const acceptCard = StateEffect.define<null>();
@@ -49,8 +53,9 @@ const applyEffects = (card: CardPlace | null, tr: Transaction): CardPlace | null
   for (const effect of tr.effects) {
     if (effect.is(openCard)) {
       nextId += 1;
-      next = { id: nextId, ...effect.value, version: 0, proposal: null };
+      next = { id: nextId, ...effect.value, version: 0, proposal: null, height: 0 };
     } else if (effect.is(closeCard) || effect.is(acceptCard)) next = null;
+    else if (effect.is(cardHeight) && next !== null) next = { ...next, height: effect.value };
     else if (effect.is(showProposal) && next !== null && next.version === effect.value.version)
       next = { ...next, proposal: effect.value.replacements };
   }

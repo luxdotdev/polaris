@@ -186,6 +186,7 @@ const Actions = ({ model, pull, nav, onDone }: MenuProps & { readonly nav: Nav }
             hostKey: held.hostKey,
             workspaceId: held.checkout.workspaceId,
             path: held.checkout.path,
+            folder: true,
           });
           onDone();
         }}

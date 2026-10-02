@@ -3,10 +3,12 @@
  * active view and runs `inlineExtensions` in every editor; this registers the two commands.
  */
 import type { EditorView } from "@codemirror/view";
+import { WorkspaceId } from "@polaris/protocol";
 import { useEffect } from "react";
 import { useCommands } from "../../shell/hooks.ts";
+import { type EditorFile, getActiveEditor, registerEditorExtensions } from "../editor/index.ts";
 import { openInlineCard } from "./actions.ts";
-import type { InlineFile } from "./cm/index.ts";
+import { type InlineFile, inlineExtensions } from "./cm/index.ts";
 import { addSelectionToSession } from "./ui/AddToSession.tsx";
 
 export interface ActiveEditor {
@@ -40,4 +42,22 @@ export const useInlineCommands = (active: () => ActiveEditor | null) => {
       }),
     [commands, active]
   );
+};
+
+const inlineFileOf = (file: EditorFile): InlineFile => ({
+  hostKey: file.hostKey,
+  workspaceId: WorkspaceId.make(file.workspaceId),
+  path: file.path,
+});
+
+const activeEditor = (): ActiveEditor | null => {
+  const editor = getActiveEditor();
+
+  return editor === null ? null : { view: editor.view, file: inlineFileOf(editor) };
+};
+
+/** In the app: the bar and card in every editor, ⌘I and ⌘L on the active one. */
+export const useInlineInstall = () => {
+  useEffect(() => registerEditorExtensions((file) => inlineExtensions(inlineFileOf(file))), []);
+  useInlineCommands(activeEditor);
 };

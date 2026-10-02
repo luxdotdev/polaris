@@ -22,6 +22,8 @@ export interface EditorLocation {
   readonly line?: number | null;
   /** 1-based. */
   readonly column?: number | null;
+  /** A folder to show in the explorer (a Review Checkout's root), not a file to open. */
+  readonly folder?: boolean;
 }
 
 export interface EditorOpenRequest {
@@ -32,6 +34,7 @@ export interface EditorOpenRequest {
   readonly path: string;
   readonly line: number | null;
   readonly column: number | null;
+  readonly folder: boolean;
 }
 
 interface EditorRoute {
@@ -116,6 +119,7 @@ export const editorRequest = (
     path,
     line: positive(location.line),
     column: positive(location.column),
+    folder: location.folder ?? false,
   };
 };
 
@@ -139,9 +143,9 @@ export const openInEditor = (context: OpenInEditorContext, location: EditorLocat
   if (context.selected.hostKey !== hostKey || context.selected.workspaceId !== workspaceId)
     context.actions.selectWorkspace({ hostKey, workspaceId });
 
+  context.actions.setMode("edit");
   seq += 1;
   editorRoute.setState({ request: { ...request, seq } });
-  context.actions.setMode("edit");
 
   return true;
 };

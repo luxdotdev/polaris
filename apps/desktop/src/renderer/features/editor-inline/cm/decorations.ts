@@ -7,7 +7,7 @@ import { type EditorState, type Range, RangeSet, type Text } from "@codemirror/s
 import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemirror/view";
 import { createStore } from "zustand/vanilla";
 import { type Hunk, hunksOf, type Replacement } from "../model/patch.ts";
-import { cardField, type CardPlace } from "./state.ts";
+import { cardField, cardHeight, cardOf, type CardPlace } from "./state.ts";
 
 /** Card containers by card id: the React layer portals each card into its own. */
 export const cardHosts = createStore<Readonly<Record<number, HTMLElement>>>(() => ({}));
@@ -15,12 +15,20 @@ export const cardHosts = createStore<Readonly<Record<number, HTMLElement>>>(() =
 const observers = new WeakMap<HTMLElement, ResizeObserver>();
 
 class CardWidget extends WidgetType {
-  constructor(readonly id: number) {
+  constructor(
+    readonly id: number,
+    readonly height: number
+  ) {
     super();
   }
 
   override eq(other: CardWidget) {
-    return other.id === this.id;
+    return other.id === this.id && other.height === this.height;
+  }
+
+  /** A new height keeps the same container (the card is portalled into it), measured again. */
+  override updateDOM(_dom: HTMLElement, _view: EditorView, from: WidgetType) {
+    return from instanceof CardWidget && from.id === this.id;
   }
 
   override toDOM(view: EditorView) {
@@ -30,7 +38,12 @@ class CardWidget extends WidgetType {
     dom.contentEditable = "false";
     dom.dataset["testid"] = "inline-card-host";
     // The card grows as the proposal streams in; CodeMirror re-measures block heights on request.
-    const observer = new ResizeObserver(() => view.requestMeasure());
+
+    const observer = new ResizeObserver(() => {
+      const height = dom.offsetHeight;
+
+      if (cardOf(view.state)?.height !== height) view.dispatch({ effects: cardHeight.of(height) });
+    });
 
     observer.observe(dom);
     observers.set(dom, observer);
@@ -135,7 +148,11 @@ const cardRanges = (state: EditorState, card: CardPlace): Array<Range<Decoration
   const first = doc.lineAt(card.from);
 
   const ranges: Array<Range<Decoration>> = [
-    Decoration.widget({ widget: new CardWidget(card.id), block: true, side: -1 }).range(first.from),
+    Decoration.widget({
+      widget: new CardWidget(card.id, card.height),
+      block: true,
+      side: -1,
+    }).range(first.from),
   ];
 
   const last = doc.lineAt(card.to).number;

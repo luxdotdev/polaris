@@ -23,6 +23,7 @@ import { remoteFlow } from "./lib/remoteFlow.ts";
 import { settingsFlow } from "./lib/settingsFlow.ts";
 import { attachmentsFlow } from "./lib/attachmentsFlow.ts";
 import { composerFlow } from "./lib/composerFlow.ts";
+import { editorLinksFlow } from "./lib/editorLinksFlow.ts";
 import { imageAfterRelaunch, sendImage } from "./lib/previewFlow.ts";
 import { reviewerFlow } from "./lib/reviewerFlow.ts";
 import { reviewSettingsFlow } from "./lib/reviewSettingsFlow.ts";
@@ -491,6 +492,7 @@ try {
     shoot: (name) => shoot(page, name),
     atFirstApproval: () => inboxCheck(page),
   });
+  await editorLinksFlow({ page, step, shoot: (name) => shoot(page, name) });
   await composerFlow({ page, step });
   await settingsFlow({ app, page, step, shoot: (name) => shoot(page, name) });
   await terminalFlow({ page, step, shoot: (name) => shoot(page, name) });
