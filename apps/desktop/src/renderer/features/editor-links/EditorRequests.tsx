@@ -1,12 +1,10 @@
 /**
  * Hands each open request (`routes/editor.ts`) to the editor: a file opens in its tab at the
- * line, a folder shows in the explorer. Also gives vim's `:e` the ⌘P finder. Mounted once.
+ * line, a folder shows in the explorer. Mounted once; the editor's own chunk loads on the first.
  */
 import { useEffect } from "react";
 import { type EditorOpenRequest, editorRoute } from "../../routes/editor.ts";
-import { openFileFinder } from "../editor-finder/index.ts";
-import { type OpenFileRequest, openFile, setFileFinder } from "../editor/index.ts";
-import { revealInExplorer } from "../editor/explorer/index.ts";
+import type { OpenFileRequest } from "../editor/index.ts";
 
 export interface Delivered {
   readonly request: EditorOpenRequest | null;
@@ -32,33 +30,33 @@ const positionOf = (request: EditorOpenRequest): Pick<OpenFileRequest, "line" | 
 };
 
 /** A file opens in its tab (queued by the editor until it starts); a folder shows in the explorer. */
-const deliver = (request: EditorOpenRequest) => {
+const deliver = async (request: EditorOpenRequest) => {
   const { hostKey, workspaceId, path } = request;
 
   if (request.folder) {
+    const { revealInExplorer } = await import("../editor/explorer/index.ts");
+
     revealInExplorer({ hostKey, workspaceId, path });
 
     return;
   }
+
+  const { openFile } = await import("../editor/index.ts");
 
   openFile({ hostKey, workspaceId, path, ...positionOf(request) });
 };
 
 export const EditorRequests = () => {
   useEffect(() => {
-    setFileFinder(openFileFinder);
     window.__polarisOpenRequests = { last: () => last };
 
     return editorRoute.subscribe(({ request }, previous) => {
       if (request === null || request.seq === previous.request?.seq) return;
       last = { request, error: null };
-
-      try {
-        deliver(request);
-      } catch (cause) {
+      deliver(request).catch((cause: unknown) => {
         last = { request, error: String(cause) };
-        throw cause;
-      }
+        console.error("polaris: open in editor failed", cause);
+      });
     });
   }, []);
 

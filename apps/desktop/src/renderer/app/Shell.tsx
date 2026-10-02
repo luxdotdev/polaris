@@ -2,7 +2,7 @@
 import { useEffect } from "react";
 import { FileFinder } from "../features/editor-finder/index.ts";
 import { EditorRequests } from "../features/editor-links/index.ts";
-import { InlineLayers } from "../features/editor-inline/index.ts";
+import { LazyInline } from "../features/editor-inline/index.ts";
 import { useOnboardingState, Welcome } from "../features/onboarding/index.ts";
 import { EditMode } from "../features/editor/explorer/index.ts";
 import { preloadReview } from "../features/review/index.ts";
@@ -56,6 +56,9 @@ const Body = () => {
   );
 };
 
+/** The selection bar, ⌘I and ⌘L live with the editor: mounted, and loaded, only in Edit. */
+const InlineInEdit = () => (useSelection().mode === "edit" ? <LazyInline /> : null);
+
 export const Shell = () => {
   const jumpOpen = useNav((s) => s.jumpOpen);
   const { setJumpOpen } = useShellActions();
@@ -74,7 +77,7 @@ export const Shell = () => {
       <slots.OpenFolder />
       <ShortcutHelp />
       <FileFinder />
-      <InlineLayers />
+      <InlineInEdit />
       <EditorRequests />
     </div>
   );

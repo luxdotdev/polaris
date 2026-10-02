@@ -11,7 +11,6 @@ import { useApp, useShellActions } from "../../../shell/hooks.ts";
 import { hasCapability, useHost } from "../../session/hooks.ts";
 import { closeInlineCard, openInlineCard } from "../actions.ts";
 import { cardHosts, layers, type ViewLayer } from "../cm/index.ts";
-import { useInlineInstall } from "../install.ts";
 import { openAsSession } from "../data/openAsSession.ts";
 import type { CardSession } from "../model/card.ts";
 import { AddToSession, addSelectionToSession } from "./AddToSession.tsx";
@@ -107,8 +106,6 @@ const Layer = ({ layer }: { readonly layer: ViewLayer }) => {
 
 export const InlineLayers = () => {
   const all = useStore(layers);
-
-  useInlineInstall();
 
   return (
     <>
