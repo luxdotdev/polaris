@@ -1,0 +1,21 @@
+{
+  "notices": [
+    {
+      "path": "vendor/composer/LICENSE",
+      "sha256": "c8cce4b6b9729f264ffdf9296d505d63432497feeed1f586d1902b942197e024"
+    },
+    {
+      "path": ".box/vendor/composer/LICENSE",
+      "sha256": "c8cce4b6b9729f264ffdf9296d505d63432497feeed1f586d1902b942197e024"
+    },
+    {
+      "path": ".box/vendor/composer/semver/LICENSE",
+      "sha256": "6bb16991cf366c84116c5f6a4d5078f7113ebc47d1f245ea9b57b8c10abd7479"
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "4287c3b7c293133dc59e92cb32a1aae899c4441ac6d64455c537c82070c84caa"
+    }
+  ],
+  "installed": []
+}

@@ -1,0 +1,29 @@
+{
+  "artifactId": "pyright-npm",
+  "artifactIntegrity": "sha512-FPZZb51jepDX4eP7TEYDeNFtmE3WgwkkEcJpvH3/QmUSsj0EAy3LXu+xB4T/FWDejtsXlCfFr/rbWFjwuwuXww==",
+  "coverage": "complete",
+  "notices": [
+    {
+      "path": "notices/2a8a5d6197bb97a018b8a190dd3ed853d750ca87c8e80c17aad41d6c6ff448e1.txt",
+      "integrity": "sha256:2a8a5d6197bb97a018b8a190dd3ed853d750ca87c8e80c17aad41d6c6ff448e1"
+    },
+    {
+      "path": "notices/295f8538c94ae5c3043301cf7cff1c852dab6a786a8ddee471e061b40d5ecabe.txt",
+      "integrity": "sha256:295f8538c94ae5c3043301cf7cff1c852dab6a786a8ddee471e061b40d5ecabe"
+    },
+    {
+      "path": "notices/f7c936bc43f132b08497ac952e9376cbc102e5eedb4bf6ec902ea8442bd9c68d.txt",
+      "integrity": "sha256:f7c936bc43f132b08497ac952e9376cbc102e5eedb4bf6ec902ea8442bd9c68d"
+    }
+  ],
+  "findings": [],
+  "bundleIntegrity": "sha256:fabb38236cb5373dad1e0e99160d984bc4126a2b0196f9c902f2b881c3fb1bba",
+  "supplements": [
+    "railroad-diagrams@1.0.0",
+    "bash-language-server@5.8.1",
+    "@vscode/l10n@0.0.18",
+    "@prisma/prisma-schema-wasm@7.8.0-6.3c6e192761c0362d496ed980de936e2f3cebcd3a",
+    "boolbase@1.0.0"
+  ],
+  "evidence": []
+}

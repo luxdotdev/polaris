@@ -1,0 +1,55 @@
+{
+  "name": "typescript-language-server",
+  "manifest": {
+    "name": "polaris-catalog-fixture",
+    "version": "1.0.0",
+    "private": true,
+    "dependencies": {
+      "typescript-language-server": "6.0.1"
+    }
+  },
+  "lock": {
+    "name": "polaris-catalog-fixture",
+    "version": "1.0.0",
+    "lockfileVersion": 3,
+    "requires": true,
+    "packages": {
+      "": {
+        "name": "polaris-catalog-fixture",
+        "version": "1.0.0",
+        "dependencies": {
+          "typescript-language-server": "6.0.1"
+        }
+      },
+      "node_modules/typescript-language-server": {
+        "version": "6.0.1",
+        "resolved": "https://registry.npmjs.org/typescript-language-server/-/typescript-language-server-6.0.1.tgz",
+        "integrity": "sha512-c5hEHM/7rdFRbQWoHXuddyJ53oF0M2dKeXQOYdwUek556oarltKeumKJGLp/ZMcGV7gW30mGn1MR3V5GDiLiKg==",
+        "license": "Apache-2.0",
+        "bin": {
+          "typescript-language-server": "lib/cli.mjs"
+        },
+        "engines": {
+          "node": ">=22.22.2"
+        }
+      }
+    }
+  },
+  "packages": [
+    {
+      "name": "typescript-language-server",
+      "version": "6.0.1",
+      "license": "Apache-2.0",
+      "integrity": "sha512-c5hEHM/7rdFRbQWoHXuddyJ53oF0M2dKeXQOYdwUek556oarltKeumKJGLp/ZMcGV7gW30mGn1MR3V5GDiLiKg==",
+      "url": "https://registry.npmjs.org/typescript-language-server/-/typescript-language-server-6.0.1.tgz",
+      "notices": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "899d21038f87dd6243dd33b7ee82a078e639d4325a427c01e64d8116315b9680"
+        }
+      ],
+      "verifiedBytes": 516059,
+      "location": "node_modules/typescript-language-server"
+    }
+  ]
+}

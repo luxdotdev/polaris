@@ -1,0 +1,1731 @@
+{
+  "sql": {
+    "command": [
+      "node",
+      "/private/tmp/k1-replay/npm/sql-language-server/node_modules/sql-language-server/npm_bin/cli.js",
+      "up",
+      "--method",
+      "stdio"
+    ],
+    "initialized": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "capabilities": {
+          "textDocumentSync": 1,
+          "completionProvider": {
+            "resolveProvider": true,
+            "triggerCharacters": ["."]
+          },
+          "renameProvider": true,
+          "codeActionProvider": true,
+          "executeCommandProvider": {
+            "commands": [
+              "sqlLanguageServer.switchDatabaseConnection",
+              "sqlLanguageServer.fixAllFixableProblems"
+            ]
+          }
+        }
+      }
+    },
+    "completion": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "result": [
+        {
+          "label": "SELECT",
+          "kind": 1,
+          "detail": "keyword"
+        }
+      ]
+    },
+    "shutdown": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "result": null
+    },
+    "messages": [
+      {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+          "capabilities": {
+            "textDocumentSync": 1,
+            "completionProvider": {
+              "resolveProvider": true,
+              "triggerCharacters": ["."]
+            },
+            "renameProvider": true,
+            "codeActionProvider": true,
+            "executeCommandProvider": {
+              "commands": [
+                "sqlLanguageServer.switchDatabaseConnection",
+                "sqlLanguageServer.fixAllFixableProblems"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 0,
+        "method": "workspace/configuration",
+        "params": {
+          "items": [
+            {
+              "section": "sqlLanguageServer"
+            }
+          ]
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "method": "textDocument/publishDiagnostics",
+        "params": {
+          "uri": "file:///private/tmp/k1-replay/smoke/test.sql",
+          "diagnostics": [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 0
+                },
+                "end": {
+                  "line": 0,
+                  "character": 6
+                }
+              },
+              "message": "A linebreak is required after SELECT keyword",
+              "severity": 1,
+              "source": "sql",
+              "relatedInformation": []
+            }
+          ]
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "result": [
+          {
+            "label": "SELECT",
+            "kind": 1,
+            "detail": "keyword"
+          }
+        ]
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "result": null
+      }
+    ],
+    "exitCode": 0,
+    "stderr": ""
+  },
+  "actions": {
+    "command": [
+      "node",
+      "/private/tmp/k1-replay/npm/@actions_languageserver/node_modules/@actions/languageserver/bin/actions-languageserver",
+      "--stdio"
+    ],
+    "initialized": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "capabilities": {
+          "textDocumentSync": 1,
+          "completionProvider": {
+            "resolveProvider": false,
+            "triggerCharacters": [":", "."]
+          },
+          "hoverProvider": true,
+          "documentLinkProvider": {
+            "resolveProvider": false
+          },
+          "inlayHintProvider": true,
+          "codeActionProvider": {
+            "codeActionKinds": ["quickfix"]
+          }
+        }
+      }
+    },
+    "completion": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "result": [
+        {
+          "label": "concurrency",
+          "documentation": {
+            "kind": "markdown",
+            "value": "Concurrency ensures that only a single job or workflow using the same concurrency group will run at a time. A concurrency group can be any string or expression.\n\nYou can also specify `concurrency` at the job level.\n\n[Documentation](https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions#concurrency)"
+          },
+          "textEdit": {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 0
+              },
+              "end": {
+                "line": 0,
+                "character": 4
+              }
+            },
+            "newText": "concurrency: "
+          }
+        },
+        {
+          "label": "concurrency",
+          "labelDetails": {
+            "description": "full syntax"
+          },
+          "sortText": "concurrency 2",
+          "documentation": {
+            "kind": "markdown",
+            "value": "Concurrency ensures that only a single job or workflow using the same concurrency group will run at a time. A concurrency group can be any string or expression.\n\nYou can also specify `concurrency` at the job level.\n\n[Documentation](https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions#concurrency)"
+          },
+          "textEdit": {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 0
+              },
+              "end": {
+                "line": 0,
+                "character": 4
+              }
+            },
+            "newText": "concurrency:\n  "
+          }
+        },
+        {
+          "label": "defaults",
+          "documentation": {
+            "kind": "markdown",
+            "value": "Use `defaults` to create a map of default settings that will apply to all jobs in the workflow. You can also set default settings that are only available to a job.\n\n[Documentation](https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions#defaults)"
+          },
+          "textEdit": {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 0
+              },
+              "end": {
+                "line": 0,
+                "character": 4
+              }
+            },
+            "newText": "defaults:\n  "
+          }
+        },
+        {
+          "label": "description",
+          "documentation": {
+            "kind": "markdown",
+            "value": "A description for your workflow or reusable workflow"
+          },
+          "textEdit": {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 0
+              },
+              "end": {
+                "line": 0,
+                "character": 4
+              }
+            },
+            "newText": "description: "
+          }
+        },
+        {
+          "label": "env",
+          "documentation": {
+            "kind": "markdown",
+            "value": "A map of environment variables that are available to the steps of all jobs in the workflow. You can also set environment variables that are only available to the steps of a single job or to a single step.\n\n[Documentation](https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions#env)"
+          },
+          "textEdit": {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 0
+              },
+              "end": {
+                "line": 0,
+                "character": 4
+              }
+            },
+            "newText": "env:\n  "
+          }
+        },
+        {
+          "label": "permissions",
+          "documentation": {
+            "kind": "markdown",
+            "value": "You can use `permissions` to modify the default permissions granted to the `GITHUB_TOKEN`, adding or removing access as required, so that you only allow the minimum required access.\n\n[Documentation](https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions#permissions)"
+          },
+          "textEdit": {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 0
+              },
+              "end": {
+                "line": 0,
+                "character": 4
+              }
+            },
+            "newText": "permissions: "
+          }
+        },
+        {
+          "label": "permissions",
+          "labelDetails": {
+            "description": "full syntax"
+          },
+          "sortText": "permissions 2",
+          "documentation": {
+            "kind": "markdown",
+            "value": "You can use `permissions` to modify the default permissions granted to the `GITHUB_TOKEN`, adding or removing access as required, so that you only allow the minimum required access.\n\n[Documentation](https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions#permissions)"
+          },
+          "textEdit": {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 0
+              },
+              "end": {
+                "line": 0,
+                "character": 4
+              }
+            },
+            "newText": "permissions:\n  "
+          }
+        },
+        {
+          "label": "run-name",
+          "documentation": {
+            "kind": "markdown",
+            "value": "The name for workflow runs generated from the workflow. GitHub displays the workflow run name in the list of workflow runs on your repository's 'Actions' tab.\n\n[Documentation](https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions#run-name)"
+          },
+          "textEdit": {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 0
+              },
+              "end": {
+                "line": 0,
+                "character": 4
+              }
+            },
+            "newText": "run-name: "
+          }
+        }
+      ]
+    },
+    "shutdown": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "result": null
+    },
+    "messages": [
+      {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+          "capabilities": {
+            "textDocumentSync": 1,
+            "completionProvider": {
+              "resolveProvider": false,
+              "triggerCharacters": [":", "."]
+            },
+            "hoverProvider": true,
+            "documentLinkProvider": {
+              "resolveProvider": false
+            },
+            "inlayHintProvider": true,
+            "codeActionProvider": {
+              "codeActionKinds": ["quickfix"]
+            }
+          }
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "method": "textDocument/publishDiagnostics",
+        "params": {
+          "uri": "file:///private/tmp/k1-replay/smoke/test.yaml",
+          "diagnostics": [
+            {
+              "message": "Unrecognized named-value: 'invalid'",
+              "range": {
+                "start": {
+                  "line": 6,
+                  "character": 18
+                },
+                "end": {
+                  "line": 6,
+                  "character": 40
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "result": [
+          {
+            "label": "concurrency",
+            "documentation": {
+              "kind": "markdown",
+              "value": "Concurrency ensures that only a single job or workflow using the same concurrency group will run at a time. A concurrency group can be any string or expression.\n\nYou can also specify `concurrency` at the job level.\n\n[Documentation](https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions#concurrency)"
+            },
+            "textEdit": {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 0
+                },
+                "end": {
+                  "line": 0,
+                  "character": 4
+                }
+              },
+              "newText": "concurrency: "
+            }
+          },
+          {
+            "label": "concurrency",
+            "labelDetails": {
+              "description": "full syntax"
+            },
+            "sortText": "concurrency 2",
+            "documentation": {
+              "kind": "markdown",
+              "value": "Concurrency ensures that only a single job or workflow using the same concurrency group will run at a time. A concurrency group can be any string or expression.\n\nYou can also specify `concurrency` at the job level.\n\n[Documentation](https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions#concurrency)"
+            },
+            "textEdit": {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 0
+                },
+                "end": {
+                  "line": 0,
+                  "character": 4
+                }
+              },
+              "newText": "concurrency:\n  "
+            }
+          },
+          {
+            "label": "defaults",
+            "documentation": {
+              "kind": "markdown",
+              "value": "Use `defaults` to create a map of default settings that will apply to all jobs in the workflow. You can also set default settings that are only available to a job.\n\n[Documentation](https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions#defaults)"
+            },
+            "textEdit": {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 0
+                },
+                "end": {
+                  "line": 0,
+                  "character": 4
+                }
+              },
+              "newText": "defaults:\n  "
+            }
+          },
+          {
+            "label": "description",
+            "documentation": {
+              "kind": "markdown",
+              "value": "A description for your workflow or reusable workflow"
+            },
+            "textEdit": {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 0
+                },
+                "end": {
+                  "line": 0,
+                  "character": 4
+                }
+              },
+              "newText": "description: "
+            }
+          },
+          {
+            "label": "env",
+            "documentation": {
+              "kind": "markdown",
+              "value": "A map of environment variables that are available to the steps of all jobs in the workflow. You can also set environment variables that are only available to the steps of a single job or to a single step.\n\n[Documentation](https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions#env)"
+            },
+            "textEdit": {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 0
+                },
+                "end": {
+                  "line": 0,
+                  "character": 4
+                }
+              },
+              "newText": "env:\n  "
+            }
+          },
+          {
+            "label": "permissions",
+            "documentation": {
+              "kind": "markdown",
+              "value": "You can use `permissions` to modify the default permissions granted to the `GITHUB_TOKEN`, adding or removing access as required, so that you only allow the minimum required access.\n\n[Documentation](https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions#permissions)"
+            },
+            "textEdit": {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 0
+                },
+                "end": {
+                  "line": 0,
+                  "character": 4
+                }
+              },
+              "newText": "permissions: "
+            }
+          },
+          {
+            "label": "permissions",
+            "labelDetails": {
+              "description": "full syntax"
+            },
+            "sortText": "permissions 2",
+            "documentation": {
+              "kind": "markdown",
+              "value": "You can use `permissions` to modify the default permissions granted to the `GITHUB_TOKEN`, adding or removing access as required, so that you only allow the minimum required access.\n\n[Documentation](https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions#permissions)"
+            },
+            "textEdit": {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 0
+                },
+                "end": {
+                  "line": 0,
+                  "character": 4
+                }
+              },
+              "newText": "permissions:\n  "
+            }
+          },
+          {
+            "label": "run-name",
+            "documentation": {
+              "kind": "markdown",
+              "value": "The name for workflow runs generated from the workflow. GitHub displays the workflow run name in the list of workflow runs on your repository's 'Actions' tab.\n\n[Documentation](https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions#run-name)"
+            },
+            "textEdit": {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 0
+                },
+                "end": {
+                  "line": 0,
+                  "character": 4
+                }
+              },
+              "newText": "run-name: "
+            }
+          }
+        ]
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "result": null
+      }
+    ],
+    "exitCode": 0,
+    "stderr": ""
+  },
+  "sqllens-schema": {
+    "command": [
+      "node",
+      "/private/tmp/k1-replay/npm/sqllens-language-server/node_modules/sqllens-language-server/bin/cli.js",
+      "--stdio"
+    ],
+    "initialized": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "capabilities": {
+          "textDocumentSync": 2,
+          "hoverProvider": true,
+          "definitionProvider": true,
+          "referencesProvider": true,
+          "documentHighlightProvider": true,
+          "documentSymbolProvider": true,
+          "foldingRangeProvider": true,
+          "selectionRangeProvider": true,
+          "codeLensProvider": {
+            "resolveProvider": false
+          },
+          "inlayHintProvider": true,
+          "semanticTokensProvider": {
+            "legend": {
+              "tokenTypes": [
+                "keyword",
+                "string",
+                "number",
+                "comment",
+                "operator",
+                "variable",
+                "function"
+              ],
+              "tokenModifiers": ["defaultLibrary"]
+            },
+            "range": true,
+            "full": {
+              "delta": true
+            }
+          },
+          "completionProvider": {
+            "triggerCharacters": [".", " "],
+            "resolveProvider": true
+          },
+          "signatureHelpProvider": {
+            "triggerCharacters": ["(", ","]
+          },
+          "codeActionProvider": {
+            "codeActionKinds": ["quickfix"]
+          },
+          "diagnosticProvider": {
+            "interFileDependencies": false,
+            "workspaceDiagnostics": false
+          }
+        }
+      }
+    },
+    "completion": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "result": [
+        {
+          "label": "SELECT",
+          "kind": 14,
+          "textEdit": {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 0
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "newText": "SELECT"
+          },
+          "data": {
+            "kind": "keyword",
+            "label": "SELECT",
+            "dialect": "postgres"
+          }
+        }
+      ]
+    },
+    "shutdown": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "result": null
+    },
+    "diagnostics": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "result": {
+        "kind": "full",
+        "items": []
+      }
+    },
+    "hover": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "result": {
+        "contents": {
+          "kind": "markdown",
+          "value": "```\nint\n```\n\n---\n\n**`users.id`** \u2014 column of `users`\n\n---\n\nfrom `users.id`"
+        },
+        "range": {
+          "start": {
+            "line": 0,
+            "character": 7
+          },
+          "end": {
+            "line": 0,
+            "character": 15
+          }
+        }
+      }
+    },
+    "messages": [
+      {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+          "capabilities": {
+            "textDocumentSync": 2,
+            "hoverProvider": true,
+            "definitionProvider": true,
+            "referencesProvider": true,
+            "documentHighlightProvider": true,
+            "documentSymbolProvider": true,
+            "foldingRangeProvider": true,
+            "selectionRangeProvider": true,
+            "codeLensProvider": {
+              "resolveProvider": false
+            },
+            "inlayHintProvider": true,
+            "semanticTokensProvider": {
+              "legend": {
+                "tokenTypes": [
+                  "keyword",
+                  "string",
+                  "number",
+                  "comment",
+                  "operator",
+                  "variable",
+                  "function"
+                ],
+                "tokenModifiers": ["defaultLibrary"]
+              },
+              "range": true,
+              "full": {
+                "delta": true
+              }
+            },
+            "completionProvider": {
+              "triggerCharacters": [".", " "],
+              "resolveProvider": true
+            },
+            "signatureHelpProvider": {
+              "triggerCharacters": ["(", ","]
+            },
+            "codeActionProvider": {
+              "codeActionKinds": ["quickfix"]
+            },
+            "diagnosticProvider": {
+              "interFileDependencies": false,
+              "workspaceDiagnostics": false
+            }
+          }
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "method": "textDocument/publishDiagnostics",
+        "params": {
+          "uri": "file:///private/tmp/k1-replay/smoke/.sqllens.json",
+          "diagnostics": []
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "method": "textDocument/publishDiagnostics",
+        "params": {
+          "uri": "file:///private/tmp/k1-replay/smoke/test.sql",
+          "diagnostics": []
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "method": "textDocument/publishDiagnostics",
+        "params": {
+          "uri": "file:///private/tmp/k1-replay/smoke/test.sql",
+          "diagnostics": []
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "result": [
+          {
+            "label": "SELECT",
+            "kind": 14,
+            "textEdit": {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 0
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "newText": "SELECT"
+            },
+            "data": {
+              "kind": "keyword",
+              "label": "SELECT",
+              "dialect": "postgres"
+            }
+          }
+        ]
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "result": {
+          "kind": "full",
+          "items": []
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "result": {
+          "contents": {
+            "kind": "markdown",
+            "value": "```\nint\n```\n\n---\n\n**`users.id`** \u2014 column of `users`\n\n---\n\nfrom `users.id`"
+          },
+          "range": {
+            "start": {
+              "line": 0,
+              "character": 7
+            },
+            "end": {
+              "line": 0,
+              "character": 15
+            }
+          }
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "result": null
+      }
+    ],
+    "exitCode": 0,
+    "stderr": ""
+  },
+  "sqllens-mysql": {
+    "command": [
+      "node",
+      "/private/tmp/k1-replay/npm/sqllens-language-server/node_modules/sqllens-language-server/bin/cli.js",
+      "--stdio"
+    ],
+    "initialized": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "capabilities": {
+          "textDocumentSync": 2,
+          "hoverProvider": true,
+          "definitionProvider": true,
+          "referencesProvider": true,
+          "documentHighlightProvider": true,
+          "documentSymbolProvider": true,
+          "foldingRangeProvider": true,
+          "selectionRangeProvider": true,
+          "codeLensProvider": {
+            "resolveProvider": false
+          },
+          "inlayHintProvider": true,
+          "semanticTokensProvider": {
+            "legend": {
+              "tokenTypes": [
+                "keyword",
+                "string",
+                "number",
+                "comment",
+                "operator",
+                "variable",
+                "function"
+              ],
+              "tokenModifiers": ["defaultLibrary"]
+            },
+            "range": true,
+            "full": {
+              "delta": true
+            }
+          },
+          "completionProvider": {
+            "triggerCharacters": [".", " "],
+            "resolveProvider": true
+          },
+          "signatureHelpProvider": {
+            "triggerCharacters": ["(", ","]
+          },
+          "codeActionProvider": {
+            "codeActionKinds": ["quickfix"]
+          },
+          "diagnosticProvider": {
+            "interFileDependencies": false,
+            "workspaceDiagnostics": false
+          }
+        }
+      }
+    },
+    "completion": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "result": [
+        {
+          "label": "SELECT",
+          "kind": 14,
+          "textEdit": {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 0
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "newText": "SELECT"
+          },
+          "data": {
+            "kind": "keyword",
+            "label": "SELECT",
+            "dialect": "mysql"
+          }
+        }
+      ]
+    },
+    "shutdown": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "result": null
+    },
+    "diagnostics": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "result": {
+        "kind": "full",
+        "items": [
+          {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 8
+              },
+              "end": {
+                "line": 0,
+                "character": 9
+              }
+            },
+            "severity": 1,
+            "source": "sqllens",
+            "message": "no viable alternative at input 'SELECT 1:'"
+          }
+        ]
+      }
+    },
+    "hover": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "result": null
+    },
+    "messages": [
+      {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+          "capabilities": {
+            "textDocumentSync": 2,
+            "hoverProvider": true,
+            "definitionProvider": true,
+            "referencesProvider": true,
+            "documentHighlightProvider": true,
+            "documentSymbolProvider": true,
+            "foldingRangeProvider": true,
+            "selectionRangeProvider": true,
+            "codeLensProvider": {
+              "resolveProvider": false
+            },
+            "inlayHintProvider": true,
+            "semanticTokensProvider": {
+              "legend": {
+                "tokenTypes": [
+                  "keyword",
+                  "string",
+                  "number",
+                  "comment",
+                  "operator",
+                  "variable",
+                  "function"
+                ],
+                "tokenModifiers": ["defaultLibrary"]
+              },
+              "range": true,
+              "full": {
+                "delta": true
+              }
+            },
+            "completionProvider": {
+              "triggerCharacters": [".", " "],
+              "resolveProvider": true
+            },
+            "signatureHelpProvider": {
+              "triggerCharacters": ["(", ","]
+            },
+            "codeActionProvider": {
+              "codeActionKinds": ["quickfix"]
+            },
+            "diagnosticProvider": {
+              "interFileDependencies": false,
+              "workspaceDiagnostics": false
+            }
+          }
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "method": "textDocument/publishDiagnostics",
+        "params": {
+          "uri": "file:///private/tmp/k1-replay/smoke/.sqllens.json",
+          "diagnostics": []
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "method": "textDocument/publishDiagnostics",
+        "params": {
+          "uri": "file:///private/tmp/k1-replay/smoke/test.sql",
+          "diagnostics": [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 8
+                },
+                "end": {
+                  "line": 0,
+                  "character": 9
+                }
+              },
+              "severity": 1,
+              "source": "sqllens",
+              "message": "no viable alternative at input 'SELECT 1:'"
+            }
+          ]
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "method": "textDocument/publishDiagnostics",
+        "params": {
+          "uri": "file:///private/tmp/k1-replay/smoke/test.sql",
+          "diagnostics": [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 8
+                },
+                "end": {
+                  "line": 0,
+                  "character": 9
+                }
+              },
+              "severity": 1,
+              "source": "sqllens",
+              "message": "no viable alternative at input 'SELECT 1:'"
+            }
+          ]
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "result": [
+          {
+            "label": "SELECT",
+            "kind": 14,
+            "textEdit": {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 0
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "newText": "SELECT"
+            },
+            "data": {
+              "kind": "keyword",
+              "label": "SELECT",
+              "dialect": "mysql"
+            }
+          }
+        ]
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "result": {
+          "kind": "full",
+          "items": [
+            {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 8
+                },
+                "end": {
+                  "line": 0,
+                  "character": 9
+                }
+              },
+              "severity": 1,
+              "source": "sqllens",
+              "message": "no viable alternative at input 'SELECT 1:'"
+            }
+          ]
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "result": null
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "result": null
+      }
+    ],
+    "exitCode": 0,
+    "stderr": ""
+  },
+  "sqllens-postgres": {
+    "command": [
+      "node",
+      "/private/tmp/k1-replay/npm/sqllens-language-server/node_modules/sqllens-language-server/bin/cli.js",
+      "--stdio"
+    ],
+    "initialized": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "capabilities": {
+          "textDocumentSync": 2,
+          "hoverProvider": true,
+          "definitionProvider": true,
+          "referencesProvider": true,
+          "documentHighlightProvider": true,
+          "documentSymbolProvider": true,
+          "foldingRangeProvider": true,
+          "selectionRangeProvider": true,
+          "codeLensProvider": {
+            "resolveProvider": false
+          },
+          "inlayHintProvider": true,
+          "semanticTokensProvider": {
+            "legend": {
+              "tokenTypes": [
+                "keyword",
+                "string",
+                "number",
+                "comment",
+                "operator",
+                "variable",
+                "function"
+              ],
+              "tokenModifiers": ["defaultLibrary"]
+            },
+            "range": true,
+            "full": {
+              "delta": true
+            }
+          },
+          "completionProvider": {
+            "triggerCharacters": [".", " "],
+            "resolveProvider": true
+          },
+          "signatureHelpProvider": {
+            "triggerCharacters": ["(", ","]
+          },
+          "codeActionProvider": {
+            "codeActionKinds": ["quickfix"]
+          },
+          "diagnosticProvider": {
+            "interFileDependencies": false,
+            "workspaceDiagnostics": false
+          }
+        }
+      }
+    },
+    "completion": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "result": [
+        {
+          "label": "SELECT",
+          "kind": 14,
+          "textEdit": {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 0
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "newText": "SELECT"
+          },
+          "data": {
+            "kind": "keyword",
+            "label": "SELECT",
+            "dialect": "postgres"
+          }
+        }
+      ]
+    },
+    "shutdown": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "result": null
+    },
+    "diagnostics": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "result": {
+        "kind": "full",
+        "items": []
+      }
+    },
+    "hover": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "result": {
+        "contents": {
+          "kind": "markdown",
+          "value": "```\nint \u2014 not null\n```"
+        },
+        "range": {
+          "start": {
+            "line": 0,
+            "character": 7
+          },
+          "end": {
+            "line": 0,
+            "character": 17
+          }
+        }
+      }
+    },
+    "messages": [
+      {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+          "capabilities": {
+            "textDocumentSync": 2,
+            "hoverProvider": true,
+            "definitionProvider": true,
+            "referencesProvider": true,
+            "documentHighlightProvider": true,
+            "documentSymbolProvider": true,
+            "foldingRangeProvider": true,
+            "selectionRangeProvider": true,
+            "codeLensProvider": {
+              "resolveProvider": false
+            },
+            "inlayHintProvider": true,
+            "semanticTokensProvider": {
+              "legend": {
+                "tokenTypes": [
+                  "keyword",
+                  "string",
+                  "number",
+                  "comment",
+                  "operator",
+                  "variable",
+                  "function"
+                ],
+                "tokenModifiers": ["defaultLibrary"]
+              },
+              "range": true,
+              "full": {
+                "delta": true
+              }
+            },
+            "completionProvider": {
+              "triggerCharacters": [".", " "],
+              "resolveProvider": true
+            },
+            "signatureHelpProvider": {
+              "triggerCharacters": ["(", ","]
+            },
+            "codeActionProvider": {
+              "codeActionKinds": ["quickfix"]
+            },
+            "diagnosticProvider": {
+              "interFileDependencies": false,
+              "workspaceDiagnostics": false
+            }
+          }
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "method": "textDocument/publishDiagnostics",
+        "params": {
+          "uri": "file:///private/tmp/k1-replay/smoke/.sqllens.json",
+          "diagnostics": []
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "method": "textDocument/publishDiagnostics",
+        "params": {
+          "uri": "file:///private/tmp/k1-replay/smoke/test.sql",
+          "diagnostics": []
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "method": "textDocument/publishDiagnostics",
+        "params": {
+          "uri": "file:///private/tmp/k1-replay/smoke/test.sql",
+          "diagnostics": []
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "result": [
+          {
+            "label": "SELECT",
+            "kind": 14,
+            "textEdit": {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 0
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "newText": "SELECT"
+            },
+            "data": {
+              "kind": "keyword",
+              "label": "SELECT",
+              "dialect": "postgres"
+            }
+          }
+        ]
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "result": {
+          "kind": "full",
+          "items": []
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "result": {
+          "contents": {
+            "kind": "markdown",
+            "value": "```\nint \u2014 not null\n```"
+          },
+          "range": {
+            "start": {
+              "line": 0,
+              "character": 7
+            },
+            "end": {
+              "line": 0,
+              "character": 17
+            }
+          }
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "result": null
+      }
+    ],
+    "exitCode": 0,
+    "stderr": ""
+  },
+  "sqllens": {
+    "command": [
+      "node",
+      "/private/tmp/k1-replay/npm/sqllens-language-server/node_modules/sqllens-language-server/bin/cli.js",
+      "--stdio"
+    ],
+    "initialized": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "capabilities": {
+          "textDocumentSync": 2,
+          "hoverProvider": true,
+          "definitionProvider": true,
+          "referencesProvider": true,
+          "documentHighlightProvider": true,
+          "documentSymbolProvider": true,
+          "foldingRangeProvider": true,
+          "selectionRangeProvider": true,
+          "codeLensProvider": {
+            "resolveProvider": false
+          },
+          "inlayHintProvider": true,
+          "semanticTokensProvider": {
+            "legend": {
+              "tokenTypes": [
+                "keyword",
+                "string",
+                "number",
+                "comment",
+                "operator",
+                "variable",
+                "function"
+              ],
+              "tokenModifiers": ["defaultLibrary"]
+            },
+            "range": true,
+            "full": {
+              "delta": true
+            }
+          },
+          "completionProvider": {
+            "triggerCharacters": [".", " "],
+            "resolveProvider": true
+          },
+          "signatureHelpProvider": {
+            "triggerCharacters": ["(", ","]
+          },
+          "codeActionProvider": {
+            "codeActionKinds": ["quickfix"]
+          },
+          "diagnosticProvider": {
+            "interFileDependencies": false,
+            "workspaceDiagnostics": false
+          }
+        }
+      }
+    },
+    "completion": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "result": [
+        {
+          "label": "SELECT",
+          "kind": 14,
+          "textEdit": {
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 0
+              },
+              "end": {
+                "line": 0,
+                "character": 3
+              }
+            },
+            "newText": "SELECT"
+          },
+          "data": {
+            "kind": "keyword",
+            "label": "SELECT",
+            "dialect": "postgres"
+          }
+        }
+      ]
+    },
+    "shutdown": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "result": null
+    },
+    "diagnostics": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "result": {
+        "kind": "full",
+        "items": []
+      }
+    },
+    "hover": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "result": null
+    },
+    "messages": [
+      {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+          "capabilities": {
+            "textDocumentSync": 2,
+            "hoverProvider": true,
+            "definitionProvider": true,
+            "referencesProvider": true,
+            "documentHighlightProvider": true,
+            "documentSymbolProvider": true,
+            "foldingRangeProvider": true,
+            "selectionRangeProvider": true,
+            "codeLensProvider": {
+              "resolveProvider": false
+            },
+            "inlayHintProvider": true,
+            "semanticTokensProvider": {
+              "legend": {
+                "tokenTypes": [
+                  "keyword",
+                  "string",
+                  "number",
+                  "comment",
+                  "operator",
+                  "variable",
+                  "function"
+                ],
+                "tokenModifiers": ["defaultLibrary"]
+              },
+              "range": true,
+              "full": {
+                "delta": true
+              }
+            },
+            "completionProvider": {
+              "triggerCharacters": [".", " "],
+              "resolveProvider": true
+            },
+            "signatureHelpProvider": {
+              "triggerCharacters": ["(", ","]
+            },
+            "codeActionProvider": {
+              "codeActionKinds": ["quickfix"]
+            },
+            "diagnosticProvider": {
+              "interFileDependencies": false,
+              "workspaceDiagnostics": false
+            }
+          }
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "method": "textDocument/publishDiagnostics",
+        "params": {
+          "uri": "file:///private/tmp/k1-replay/smoke/.sqllens.json",
+          "diagnostics": []
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "method": "textDocument/publishDiagnostics",
+        "params": {
+          "uri": "file:///private/tmp/k1-replay/smoke/test.sql",
+          "diagnostics": []
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "method": "textDocument/publishDiagnostics",
+        "params": {
+          "uri": "file:///private/tmp/k1-replay/smoke/test.sql",
+          "diagnostics": []
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "result": [
+          {
+            "label": "SELECT",
+            "kind": 14,
+            "textEdit": {
+              "range": {
+                "start": {
+                  "line": 0,
+                  "character": 0
+                },
+                "end": {
+                  "line": 0,
+                  "character": 3
+                }
+              },
+              "newText": "SELECT"
+            },
+            "data": {
+              "kind": "keyword",
+              "label": "SELECT",
+              "dialect": "postgres"
+            }
+          }
+        ]
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "result": {
+          "kind": "full",
+          "items": []
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "result": null
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "result": null
+      }
+    ],
+    "exitCode": 0,
+    "stderr": ""
+  },
+  "bash": {
+    "command": [
+      "node",
+      "/private/tmp/k1-replay/npm/bash-language-server/node_modules/bash-language-server/out/cli.js",
+      "start"
+    ],
+    "initialized": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "capabilities": {
+          "textDocumentSync": 1,
+          "completionProvider": {
+            "resolveProvider": true,
+            "triggerCharacters": ["$", "{", "-"]
+          },
+          "hoverProvider": true,
+          "documentHighlightProvider": true,
+          "definitionProvider": true,
+          "documentSymbolProvider": true,
+          "workspaceSymbolProvider": true,
+          "referencesProvider": true,
+          "codeActionProvider": {
+            "codeActionKinds": ["quickfix"],
+            "resolveProvider": false,
+            "workDoneProgress": false
+          },
+          "renameProvider": {
+            "prepareProvider": true
+          },
+          "documentFormattingProvider": true
+        }
+      }
+    },
+    "completion": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "result": []
+    },
+    "shutdown": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "result": null
+    },
+    "messages": [
+      {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+          "capabilities": {
+            "textDocumentSync": 1,
+            "completionProvider": {
+              "resolveProvider": true,
+              "triggerCharacters": ["$", "{", "-"]
+            },
+            "hoverProvider": true,
+            "documentHighlightProvider": true,
+            "definitionProvider": true,
+            "documentSymbolProvider": true,
+            "workspaceSymbolProvider": true,
+            "referencesProvider": true,
+            "codeActionProvider": {
+              "codeActionKinds": ["quickfix"],
+              "resolveProvider": false,
+              "workDoneProgress": false
+            },
+            "renameProvider": {
+              "prepareProvider": true
+            },
+            "documentFormattingProvider": true
+          }
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 0,
+        "method": "workspace/configuration",
+        "params": {
+          "items": [
+            {
+              "section": "bashIde"
+            }
+          ]
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "result": []
+      },
+      {
+        "jsonrpc": "2.0",
+        "method": "window/logMessage",
+        "params": {
+          "type": 3,
+          "message": "17:05:55.700 INFO ShellCheck linting is disabled as \"shellcheckPath\" was not set"
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "method": "window/logMessage",
+        "params": {
+          "type": 3,
+          "message": "17:05:55.700 INFO Shfmt formatting is disabled as \"shfmt.path\" was not set"
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "method": "textDocument/publishDiagnostics",
+        "params": {
+          "uri": "file:///private/tmp/k1-replay/smoke/test.sql",
+          "version": 1,
+          "diagnostics": []
+        }
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "result": null
+      }
+    ],
+    "exitCode": 0,
+    "stderr": ""
+  }
+}

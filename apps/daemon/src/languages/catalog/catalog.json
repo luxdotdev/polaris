@@ -1,0 +1,1901 @@
+{
+  "revision": 1,
+  "releaseDate": "2026-10-02",
+  "tools": [
+    {
+      "id": "typescript-language-server",
+      "version": "6.0.1",
+      "source": "https://registry.npmjs.org/typescript-language-server/6.0.1",
+      "license": "Apache-2.0",
+      "artifacts": [
+        {
+          "id": "typescript-language-server-npm",
+          "format": "npm",
+          "url": "https://registry.npmjs.org/typescript-language-server/-/typescript-language-server-6.0.1.tgz",
+          "integrity": "sha512-c5hEHM/7rdFRbQWoHXuddyJ53oF0M2dKeXQOYdwUek556oarltKeumKJGLp/ZMcGV7gW30mGn1MR3V5GDiLiKg==",
+          "platforms": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "libc": "none"
+            },
+            {
+              "os": "darwin",
+              "arch": "x64",
+              "libc": "none"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "musl"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "musl"
+            }
+          ],
+          "entry": "lib/cli.mjs",
+          "bundle": "typescript-language-server",
+          "audit": "verified",
+          "auditReason": "",
+          "auditRoot": "sha256:fe696e12b1f8db317af430d1df7a7e5d0cb03895224ac851a663796b7d27b381"
+        }
+      ],
+      "requirements": [
+        {
+          "id": "node",
+          "scope": "server",
+          "executable": "node",
+          "version": ">=22.22.2",
+          "detail": "Developer-owned Node; conservative common catalog floor; Node24.18 fixture tested. No runtime download.",
+          "required": true
+        },
+        {
+          "id": "typescript-sdk",
+          "scope": "project",
+          "executable": "tsserver.js",
+          "version": "present",
+          "detail": "Resolve alias to actual launchable dependency",
+          "required": true
+        }
+      ],
+      "argv": ["--stdio"],
+      "environment": {},
+      "limitations": []
+    },
+    {
+      "id": "vscode-langservers-extracted",
+      "version": "4.10.0",
+      "source": "https://registry.npmjs.org/vscode-langservers-extracted/4.10.0",
+      "license": "MIT",
+      "artifacts": [
+        {
+          "id": "vscode-langservers-extracted-npm",
+          "format": "npm",
+          "url": "https://registry.npmjs.org/vscode-langservers-extracted/-/vscode-langservers-extracted-4.10.0.tgz",
+          "integrity": "sha512-EFf9uQI4dAKbzMQFjDvVm1xJq1DXAQvBEuEfPGrK/xzfsL5xWTfIuRr90NgfmqwO+IEt6vLZm9EOj6R66xIifg==",
+          "platforms": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "libc": "none"
+            },
+            {
+              "os": "darwin",
+              "arch": "x64",
+              "libc": "none"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "musl"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "musl"
+            }
+          ],
+          "entry": "bin/vscode-css-language-server",
+          "bundle": "vscode-langservers-extracted",
+          "audit": "pending",
+          "auditReason": "@vscode/l10n@0.0.18: notice-coverage; boolbase@1.0.0: notice-coverage",
+          "auditRoot": "sha256:d6e9aad33e4226cedbdbb93deb63a392ad8298e005c3712f9a375789f5855e46"
+        }
+      ],
+      "requirements": [
+        {
+          "id": "node",
+          "scope": "server",
+          "executable": "node",
+          "version": ">=22.22.2",
+          "detail": "Developer-owned Node; conservative common catalog floor; Node24.18 fixture tested. No runtime download.",
+          "required": true
+        }
+      ],
+      "argv": ["--stdio"],
+      "environment": {},
+      "limitations": []
+    },
+    {
+      "id": "pyright",
+      "version": "1.1.414",
+      "source": "https://registry.npmjs.org/pyright/1.1.414",
+      "license": "MIT",
+      "artifacts": [
+        {
+          "id": "pyright-npm",
+          "format": "npm",
+          "url": "https://registry.npmjs.org/pyright/-/pyright-1.1.414.tgz",
+          "integrity": "sha512-FPZZb51jepDX4eP7TEYDeNFtmE3WgwkkEcJpvH3/QmUSsj0EAy3LXu+xB4T/FWDejtsXlCfFr/rbWFjwuwuXww==",
+          "platforms": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "libc": "none"
+            },
+            {
+              "os": "darwin",
+              "arch": "x64",
+              "libc": "none"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "musl"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "musl"
+            }
+          ],
+          "entry": "langserver.index.js",
+          "bundle": "pyright",
+          "audit": "verified",
+          "auditReason": "",
+          "auditRoot": "sha256:7efe5088d8fa13b5eb511522fd26c726483e93bc8a97f87a744eb602e2e47535"
+        }
+      ],
+      "requirements": [
+        {
+          "id": "node",
+          "scope": "server",
+          "executable": "node",
+          "version": ">=22.22.2",
+          "detail": "Developer-owned Node; conservative common catalog floor; Node24.18 fixture tested. No runtime download.",
+          "required": true
+        },
+        {
+          "id": "python-interpreter",
+          "scope": "project",
+          "executable": "python",
+          "version": "present",
+          "detail": "Selected interpreter/venv; no Python download",
+          "required": true
+        }
+      ],
+      "argv": ["--stdio"],
+      "environment": {},
+      "limitations": []
+    },
+    {
+      "id": "bash-language-server",
+      "version": "5.8.1",
+      "source": "https://registry.npmjs.org/bash-language-server/5.8.1",
+      "license": "MIT",
+      "artifacts": [
+        {
+          "id": "bash-language-server-npm",
+          "format": "npm",
+          "url": "https://registry.npmjs.org/bash-language-server/-/bash-language-server-5.8.1.tgz",
+          "integrity": "sha512-F3g0hKZhCiKbLUf9wkrST6+ZypsHvJqaJxw/+J7WK2ywhFyc8+7jSHSTU1UDYncZkyWgbKV6+eZy5qWTZtoXww==",
+          "platforms": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "libc": "none"
+            },
+            {
+              "os": "darwin",
+              "arch": "x64",
+              "libc": "none"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "musl"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "musl"
+            }
+          ],
+          "entry": "out/cli.js",
+          "bundle": "bash-language-server",
+          "audit": "pending",
+          "auditReason": "minimatch@10.2.6: license-review:BlueOak-1.0.0",
+          "auditRoot": "sha256:ded967a0b889cfa088b80b8b7e4235eec44fc4626a787c8c8c89e2135951c93e"
+        }
+      ],
+      "requirements": [
+        {
+          "id": "node",
+          "scope": "server",
+          "executable": "node",
+          "version": ">=22.22.2",
+          "detail": "Developer-owned Node; conservative common catalog floor; Node24.18 fixture tested. No runtime download.",
+          "required": true
+        }
+      ],
+      "argv": ["start"],
+      "environment": {},
+      "limitations": []
+    },
+    {
+      "id": "sql-language-server",
+      "version": "1.7.1",
+      "source": "https://registry.npmjs.org/sql-language-server/1.7.1",
+      "license": "MIT",
+      "artifacts": [
+        {
+          "id": "sql-language-server-npm",
+          "format": "npm",
+          "url": "https://registry.npmjs.org/sql-language-server/-/sql-language-server-1.7.1.tgz",
+          "integrity": "sha512-HiS8siZQJD9EzkMhY7Jnz3XBbu/rZ99VSmCJE0+gF2CHEtlQCeA+X4Dee0BNjpbJ3dVFMAXmEw4tsM5Y6GbU0w==",
+          "platforms": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "libc": "none"
+            },
+            {
+              "os": "darwin",
+              "arch": "x64",
+              "libc": "none"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "musl"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "musl"
+            }
+          ],
+          "entry": "npm_bin/cli.js",
+          "bundle": "sql-language-server",
+          "audit": "pending",
+          "auditReason": "@joe-re/sql-parser@1.7.1: license-review:GPLv2; @tootallnate/once@1.1.2: notice-coverage; agent-base@6.0.2: notice-coverage; bser@2.1.1: notice-coverage; caniuse-lite@1.0.30001814: license-review:CC-BY-4.0; capture-exit@2.0.0: notice-coverage; err-code@2.0.3: notice-coverage; exit@0.1.2: license-review:UNKNOWN; fb-watchman@2.0.2: notice-coverage; growly@1.3.0: notice-coverage; http-proxy-agent@4.0.1: notice-coverage; https-proxy-agent@5.0.1: notice-coverage; imurmurhash@0.1.4: notice-coverage; isarray@1.0.0: notice-coverage; jest-pnp-resolver@1.2.3: notice-coverage; minipass-flush@1.0.7: license-review:BlueOak-1.0.0; natural-compare@1.4.0: notice-coverage; tr46@0.0.3: notice-coverage; pg-types@2.2.0: notice-coverage; pgpass@1.0.5: notice-coverage; sane@4.1.0: notice-coverage; saxes@5.0.1: notice-coverage; seq-queue@0.0.5: license-review:UNKNOWN; socks-proxy-agent@6.2.1: notice-coverage; spdx-exceptions@2.5.0: license-review:CC-BY-3.0; spdx-exceptions@2.5.0: notice-coverage; spdx-license-ids@3.0.24: license-review:CC0-1.0; spdx-license-ids@3.0.24: notice-coverage; ssh2@0.8.9: license-review:UNKNOWN; ssh2-streams@0.4.10: license-review:UNKNOWN; stream-events@1.0.5: notice-coverage; streamsearch@0.1.2: license-review:UNKNOWN; stubs@3.0.0: notice-coverage; http-proxy-agent@5.0.0: notice-coverage",
+          "auditRoot": "sha256:ccdc47a6d093b81e4fb85c39ab6e3a24ffabe87fb46a04c7a1c4978eb7d81d11"
+        }
+      ],
+      "requirements": [
+        {
+          "id": "node",
+          "scope": "server",
+          "executable": "node",
+          "version": ">=22.22.2",
+          "detail": "Developer-owned Node; conservative common catalog floor; Node24.18 fixture tested. No runtime download.",
+          "required": true
+        }
+      ],
+      "argv": ["up", "--method", "stdio"],
+      "environment": {},
+      "limitations": []
+    },
+    {
+      "id": "prisma-language-server",
+      "version": "31.12.10",
+      "source": "https://registry.npmjs.org/@prisma%2flanguage-server/31.12.10",
+      "license": "Apache-2.0",
+      "artifacts": [
+        {
+          "id": "prisma-language-server-npm",
+          "format": "npm",
+          "url": "https://registry.npmjs.org/@prisma/language-server/-/language-server-31.12.10.tgz",
+          "integrity": "sha512-72vmV3j8cH98yx0aPp7nn+rKTw1eKLYH6P1APKwgl3QNXMktffcZJEu6KFj1jX8RBI9Clh5L9WdRKFnV8HTe3A==",
+          "platforms": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "libc": "none"
+            },
+            {
+              "os": "darwin",
+              "arch": "x64",
+              "libc": "none"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "musl"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "musl"
+            }
+          ],
+          "entry": "dist/bin.js",
+          "bundle": "@prisma_language-server",
+          "audit": "verified",
+          "auditReason": "",
+          "auditRoot": "sha256:1273a9ea548c4e088297a7430b88ce3a47afccc43e32549a109e35fb05acad31"
+        }
+      ],
+      "requirements": [
+        {
+          "id": "node",
+          "scope": "server",
+          "executable": "node",
+          "version": ">=22.22.2",
+          "detail": "Developer-owned Node; conservative common catalog floor; Node24.18 fixture tested. No runtime download.",
+          "required": true
+        }
+      ],
+      "argv": ["--stdio"],
+      "environment": {},
+      "limitations": []
+    },
+    {
+      "id": "yaml-language-server",
+      "version": "1.24.0",
+      "source": "https://registry.npmjs.org/yaml-language-server/1.24.0",
+      "license": "MIT",
+      "artifacts": [
+        {
+          "id": "yaml-language-server-npm",
+          "format": "npm",
+          "url": "https://registry.npmjs.org/yaml-language-server/-/yaml-language-server-1.24.0.tgz",
+          "integrity": "sha512-+HGcwu4M7IC+UDhDZScTZR8qsl2MMj/X1E5e83QcWzWn2pctj0fv8HHdrHHcbc1KB3CuRPJ4gc1Nm36D0iCu0g==",
+          "platforms": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "libc": "none"
+            },
+            {
+              "os": "darwin",
+              "arch": "x64",
+              "libc": "none"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "musl"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "musl"
+            }
+          ],
+          "entry": "bin/yaml-language-server",
+          "bundle": "yaml-language-server",
+          "audit": "pending",
+          "auditReason": "@vscode/l10n@0.0.18: notice-coverage",
+          "auditRoot": "sha256:475870540e85271ef00c73d0dd59f2050dc997850cba2172137459219df7faa5"
+        }
+      ],
+      "requirements": [
+        {
+          "id": "node",
+          "scope": "server",
+          "executable": "node",
+          "version": ">=22.22.2",
+          "detail": "Developer-owned Node; conservative common catalog floor; Node24.18 fixture tested. No runtime download.",
+          "required": true
+        }
+      ],
+      "argv": ["--stdio"],
+      "environment": {},
+      "limitations": []
+    },
+    {
+      "id": "actions-language-server",
+      "version": "0.3.61",
+      "source": "https://registry.npmjs.org/@actions%2flanguageserver/0.3.61",
+      "license": "MIT",
+      "artifacts": [
+        {
+          "id": "actions-language-server-npm",
+          "format": "npm",
+          "url": "https://registry.npmjs.org/@actions/languageserver/-/languageserver-0.3.61.tgz",
+          "integrity": "sha512-L5Vf3zc3yD11xUSM8zMxrNwYLZpiUNG6U8kFK2BsxVyRKhU8gQEt02ydR+FZgidkrHSQO/2P7eU9vHPcOwwsOQ==",
+          "platforms": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "libc": "none"
+            },
+            {
+              "os": "darwin",
+              "arch": "x64",
+              "libc": "none"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "musl"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "musl"
+            }
+          ],
+          "entry": "bin/actions-languageserver",
+          "bundle": "@actions_languageserver",
+          "audit": "verified",
+          "auditReason": "",
+          "auditRoot": "sha256:f5cd0d5cfb87eb6b237d790c828c055b6053a479f1460f5b2086bcead70be85b"
+        }
+      ],
+      "requirements": [
+        {
+          "id": "node",
+          "scope": "server",
+          "executable": "node",
+          "version": ">=22.22.2",
+          "detail": "Developer-owned Node; conservative common catalog floor; Node24.18 fixture tested. No runtime download.",
+          "required": true
+        }
+      ],
+      "argv": ["--stdio"],
+      "environment": {},
+      "limitations": []
+    },
+    {
+      "id": "prettier",
+      "version": "3.9.9",
+      "source": "https://registry.npmjs.org/prettier/3.9.9",
+      "license": "MIT",
+      "artifacts": [
+        {
+          "id": "prettier-npm",
+          "format": "npm",
+          "url": "https://registry.npmjs.org/prettier/-/prettier-3.9.9.tgz",
+          "integrity": "sha512-Z/CJHIkdujO/OtN7nXUii0Rf3VT5SRuhjBA82Xvu2XhBUgX3nhP67T0LHceBdQLex7OOFGTox+Q5Yg8Jk2Qivg==",
+          "platforms": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "libc": "none"
+            },
+            {
+              "os": "darwin",
+              "arch": "x64",
+              "libc": "none"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "musl"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "musl"
+            }
+          ],
+          "entry": "bin/prettier.cjs",
+          "bundle": "prettier",
+          "audit": "verified",
+          "auditReason": "",
+          "auditRoot": "sha256:1c1f292487d4f7e4fae814ffe813875b32d04a1704fd6281eb9ace151798eb4d"
+        }
+      ],
+      "requirements": [
+        {
+          "id": "node",
+          "scope": "server",
+          "executable": "node",
+          "version": ">=22.22.2",
+          "detail": "Developer-owned Node; conservative common catalog floor; Node24.18 fixture tested. No runtime download.",
+          "required": true
+        }
+      ],
+      "argv": [],
+      "environment": {},
+      "limitations": []
+    },
+    {
+      "id": "ruff",
+      "version": "0.16.10",
+      "source": "https://github.com/astral-sh/ruff/releases/tag/0.16.10",
+      "license": "MIT",
+      "artifacts": [
+        {
+          "id": "ruff-aarch64-apple-darwin.tar.gz",
+          "format": "tar.gz",
+          "url": "https://github.com/astral-sh/ruff/releases/download/0.16.10/ruff-aarch64-apple-darwin.tar.gz",
+          "integrity": "sha256:f051cd306de2691262a0574f8857cd1f4d6bfcd448084ea23d61b9c1c37df510",
+          "platforms": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "libc": "none"
+            }
+          ],
+          "entry": "ruff",
+          "bundle": null,
+          "audit": "pending",
+          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
+          "auditRoot": "sha256:dbb0c26f0da63e3854a47e75a9209d33d677fd0fa20a3ce9126c11f5d4c64dfd"
+        },
+        {
+          "id": "ruff-aarch64-unknown-linux-gnu.tar.gz",
+          "format": "tar.gz",
+          "url": "https://github.com/astral-sh/ruff/releases/download/0.16.10/ruff-aarch64-unknown-linux-gnu.tar.gz",
+          "integrity": "sha256:dc0d74de837ef0a7bcc62ce98c48a622b075d057161f13b958be2934becd55a6",
+          "platforms": [
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "glibc"
+            }
+          ],
+          "entry": "ruff",
+          "bundle": null,
+          "audit": "pending",
+          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
+          "auditRoot": "sha256:a929c07cdfd93950b69d80bed443c984dd51cd4d4d359ddce5419153ea7fad21"
+        },
+        {
+          "id": "ruff-aarch64-unknown-linux-musl.tar.gz",
+          "format": "tar.gz",
+          "url": "https://github.com/astral-sh/ruff/releases/download/0.16.10/ruff-aarch64-unknown-linux-musl.tar.gz",
+          "integrity": "sha256:38ebc0ec3e0de538d1c399729ca04e124749211d66aa134c24ad0c1f09a935b9",
+          "platforms": [
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "musl"
+            }
+          ],
+          "entry": "ruff",
+          "bundle": null,
+          "audit": "pending",
+          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
+          "auditRoot": "sha256:d7b2ddc632423042f39f1c5408de655f41fbb1629c36378c6d1217d061e3e726"
+        },
+        {
+          "id": "ruff-x86_64-apple-darwin.tar.gz",
+          "format": "tar.gz",
+          "url": "https://github.com/astral-sh/ruff/releases/download/0.16.10/ruff-x86_64-apple-darwin.tar.gz",
+          "integrity": "sha256:ace641df42926e962cf04bc52c79eb6c50ba1ae6a17b602f081960616ecc1bd1",
+          "platforms": [
+            {
+              "os": "darwin",
+              "arch": "x64",
+              "libc": "none"
+            }
+          ],
+          "entry": "ruff",
+          "bundle": null,
+          "audit": "pending",
+          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
+          "auditRoot": "sha256:7031be9fcf531513eff969520881a3e86f04e67aae199c9dd17650b8060fc4e7"
+        },
+        {
+          "id": "ruff-x86_64-unknown-linux-gnu.tar.gz",
+          "format": "tar.gz",
+          "url": "https://github.com/astral-sh/ruff/releases/download/0.16.10/ruff-x86_64-unknown-linux-gnu.tar.gz",
+          "integrity": "sha256:9567ff1201e2fb3da31ff04c35587d768c66d6cb42dfa84de474e2bfe360b608",
+          "platforms": [
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "glibc"
+            }
+          ],
+          "entry": "ruff",
+          "bundle": null,
+          "audit": "pending",
+          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
+          "auditRoot": "sha256:9dd1b3a1a495202356228a4ef42559f9fee4f572ba3356dee7c4ada3e35d5d71"
+        },
+        {
+          "id": "ruff-x86_64-unknown-linux-musl.tar.gz",
+          "format": "tar.gz",
+          "url": "https://github.com/astral-sh/ruff/releases/download/0.16.10/ruff-x86_64-unknown-linux-musl.tar.gz",
+          "integrity": "sha256:ad1b2138407a0c53b936524df99d87211333f7bc40478d6860f42994597f7ff0",
+          "platforms": [
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "musl"
+            }
+          ],
+          "entry": "ruff",
+          "bundle": null,
+          "audit": "pending",
+          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
+          "auditRoot": "sha256:606907cf2c3eb727357a5b8a6c22e8da0f6fcbb12a02d3e1cf4f4bde8f349acb"
+        }
+      ],
+      "requirements": [
+        {
+          "id": "python-interpreter",
+          "scope": "project",
+          "executable": "python",
+          "version": "present",
+          "detail": "Selected project interpreter; Ruff binary does not embed/install Python",
+          "required": true
+        }
+      ],
+      "argv": ["server"],
+      "environment": {},
+      "limitations": []
+    },
+    {
+      "id": "rust-analyzer",
+      "version": "2026-09-28",
+      "source": "https://github.com/rust-lang/rust-analyzer/releases/tag/2026-09-28",
+      "license": "MIT OR Apache-2.0",
+      "artifacts": [
+        {
+          "id": "rust-analyzer-aarch64-apple-darwin.gz",
+          "format": "gz",
+          "url": "https://github.com/rust-lang/rust-analyzer/releases/download/2026-09-28/rust-analyzer-aarch64-apple-darwin.gz",
+          "integrity": "sha256:54ec873d8996e2c127d758bf45d4eacb6d3371dae4f6f6d5d3f05cedbae5fd59",
+          "platforms": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "libc": "none"
+            }
+          ],
+          "entry": "rust-analyzer",
+          "bundle": null,
+          "audit": "pending",
+          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
+          "auditRoot": "sha256:90912b4a8542bb59fafae2f4b15f92b0ad0b2a55a285937acbde48e9084ef0bb"
+        },
+        {
+          "id": "rust-analyzer-aarch64-unknown-linux-gnu.gz",
+          "format": "gz",
+          "url": "https://github.com/rust-lang/rust-analyzer/releases/download/2026-09-28/rust-analyzer-aarch64-unknown-linux-gnu.gz",
+          "integrity": "sha256:03bad9c3dabb0f07a2678d5f9f8f1575a3742ea141506e14b3a26b42a1f896f3",
+          "platforms": [
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "glibc"
+            }
+          ],
+          "entry": "rust-analyzer",
+          "bundle": null,
+          "audit": "pending",
+          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
+          "auditRoot": "sha256:2046581171dcf32793b45d91b822b3e816a592f2f9011abb564903f068464d26"
+        },
+        {
+          "id": "rust-analyzer-x86_64-apple-darwin.gz",
+          "format": "gz",
+          "url": "https://github.com/rust-lang/rust-analyzer/releases/download/2026-09-28/rust-analyzer-x86_64-apple-darwin.gz",
+          "integrity": "sha256:d032c0eb75e4597cc8ffc35ea4cdbd9eecc8341936b6edac6749e679fc3f0682",
+          "platforms": [
+            {
+              "os": "darwin",
+              "arch": "x64",
+              "libc": "none"
+            }
+          ],
+          "entry": "rust-analyzer",
+          "bundle": null,
+          "audit": "pending",
+          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
+          "auditRoot": "sha256:f94d60b4ca7bdb1598d570832489f213191111a6cb26d92baafcf2325f690e7c"
+        },
+        {
+          "id": "rust-analyzer-x86_64-unknown-linux-gnu.gz",
+          "format": "gz",
+          "url": "https://github.com/rust-lang/rust-analyzer/releases/download/2026-09-28/rust-analyzer-x86_64-unknown-linux-gnu.gz",
+          "integrity": "sha256:23f711d86b5f826e22886f01d7355dc01e0f4c1357dafa29710a95b903b48c85",
+          "platforms": [
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "glibc"
+            }
+          ],
+          "entry": "rust-analyzer",
+          "bundle": null,
+          "audit": "pending",
+          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
+          "auditRoot": "sha256:f384d415198d5a69a2be4b445dfd11cb8b2103575a2b4bd9d0d9c52f86a854f6"
+        },
+        {
+          "id": "rust-analyzer-x86_64-unknown-linux-musl.gz",
+          "format": "gz",
+          "url": "https://github.com/rust-lang/rust-analyzer/releases/download/2026-09-28/rust-analyzer-x86_64-unknown-linux-musl.gz",
+          "integrity": "sha256:b9a0edbda7a7d9eff0cb3cf49b7f14b2f81e2490095ff56a3ff558ec08b33ae4",
+          "platforms": [
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "musl"
+            }
+          ],
+          "entry": "rust-analyzer",
+          "bundle": null,
+          "audit": "pending",
+          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
+          "auditRoot": "sha256:8af798973878417c4c02a16b5de1d6bbafbf4d98854c838d553417c6d35621eb"
+        }
+      ],
+      "requirements": [
+        {
+          "id": "cargo",
+          "scope": "project",
+          "executable": "cargo",
+          "version": "present",
+          "detail": "Project-owned Rust toolchain",
+          "required": true
+        },
+        {
+          "id": "rust-src",
+          "scope": "project",
+          "executable": "rust-src",
+          "version": "present",
+          "detail": "Project standard-library source component",
+          "required": true
+        },
+        {
+          "id": "rustfmt",
+          "scope": "formatter",
+          "executable": "rustfmt",
+          "version": "present",
+          "detail": "Developer toolchain component; only required for selected formatting",
+          "required": false
+        }
+      ],
+      "argv": [],
+      "environment": {},
+      "limitations": []
+    },
+    {
+      "id": "lua-language-server",
+      "version": "3.19.1",
+      "source": "https://github.com/LuaLS/lua-language-server/releases/tag/3.19.1",
+      "license": "MIT",
+      "artifacts": [
+        {
+          "id": "lua-language-server-3.19.1-darwin-arm64.tar.gz",
+          "format": "tar.gz",
+          "url": "https://github.com/LuaLS/lua-language-server/releases/download/3.19.1/lua-language-server-3.19.1-darwin-arm64.tar.gz",
+          "integrity": "sha256:0bc077f4447f076b4c92c14e9fd303f5b569eda2ec74b4dca2b55f75fae2e90c",
+          "platforms": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "libc": "none"
+            }
+          ],
+          "entry": "bin/lua-language-server",
+          "bundle": null,
+          "audit": "pending",
+          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
+          "auditRoot": "sha256:b74a23504b603ca6fd614bf72a72ae7089e62780df7fb659484952eedd1625ba"
+        },
+        {
+          "id": "lua-language-server-3.19.1-darwin-x64.tar.gz",
+          "format": "tar.gz",
+          "url": "https://github.com/LuaLS/lua-language-server/releases/download/3.19.1/lua-language-server-3.19.1-darwin-x64.tar.gz",
+          "integrity": "sha256:eb373c159cbe556711d7cd316315de2dce969bfd54b31edb7eb9cab2937f2cca",
+          "platforms": [
+            {
+              "os": "darwin",
+              "arch": "x64",
+              "libc": "none"
+            }
+          ],
+          "entry": "bin/lua-language-server",
+          "bundle": null,
+          "audit": "pending",
+          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
+          "auditRoot": "sha256:1bb3293580a3de1247a8abf9d42fbb922866feb49308909f6fe87c64fa0f9826"
+        },
+        {
+          "id": "lua-language-server-3.19.1-linux-arm64.tar.gz",
+          "format": "tar.gz",
+          "url": "https://github.com/LuaLS/lua-language-server/releases/download/3.19.1/lua-language-server-3.19.1-linux-arm64.tar.gz",
+          "integrity": "sha256:abd2572e8fc929dc838a81ffb8473c5bce0bf39bfe8edb4b120b3b623176ce83",
+          "platforms": [
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "glibc"
+            }
+          ],
+          "entry": "bin/lua-language-server",
+          "bundle": null,
+          "audit": "pending",
+          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
+          "auditRoot": "sha256:ef12f43a8690a1c6d29e14b16ad4dca2d0d2f652ee6477a1bbb57c53607bffb8"
+        },
+        {
+          "id": "lua-language-server-3.19.1-linux-x64.tar.gz",
+          "format": "tar.gz",
+          "url": "https://github.com/LuaLS/lua-language-server/releases/download/3.19.1/lua-language-server-3.19.1-linux-x64.tar.gz",
+          "integrity": "sha256:e9235d2d72ef55bc41cf8c99cda2ed64777682024b4bb81f5dea425060c5cbb8",
+          "platforms": [
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "glibc"
+            }
+          ],
+          "entry": "bin/lua-language-server",
+          "bundle": null,
+          "audit": "pending",
+          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
+          "auditRoot": "sha256:e88e7e1e9942e7d4fc4104bf4d6b4feaf089a01cb773097c74f2b5839fc699fa"
+        }
+      ],
+      "requirements": [],
+      "argv": [],
+      "environment": {},
+      "limitations": []
+    },
+    {
+      "id": "shfmt",
+      "version": "3.14.1",
+      "source": "https://github.com/mvdan/sh/releases/tag/v3.14.1",
+      "license": "BSD-3-Clause",
+      "artifacts": [
+        {
+          "id": "shfmt_v3.14.1_darwin_amd64",
+          "format": "binary",
+          "url": "https://github.com/mvdan/sh/releases/download/v3.14.1/shfmt_v3.14.1_darwin_amd64",
+          "integrity": "sha256:d33eee0da0f92835b3562e9767a05cee7e4eaeef47daa03bfd09da17b4b590a6",
+          "platforms": [
+            {
+              "os": "darwin",
+              "arch": "x64",
+              "libc": "none"
+            }
+          ],
+          "entry": "shfmt",
+          "bundle": null,
+          "audit": "pending",
+          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
+          "auditRoot": "sha256:d75069c0ce90c3451a11853f828e4f7df8328c3ffaeb81a2f2d05612698ed90a"
+        },
+        {
+          "id": "shfmt_v3.14.1_darwin_arm64",
+          "format": "binary",
+          "url": "https://github.com/mvdan/sh/releases/download/v3.14.1/shfmt_v3.14.1_darwin_arm64",
+          "integrity": "sha256:b7c872db63553ccffc7253aba3ed7d4885a27d83f1ba567b1138c6315a5847e5",
+          "platforms": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "libc": "none"
+            }
+          ],
+          "entry": "shfmt",
+          "bundle": null,
+          "audit": "pending",
+          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
+          "auditRoot": "sha256:bdc987122f47db331e93cc5d7e0e9bf4544c7f2d38403d1be490470f4c61ca68"
+        },
+        {
+          "id": "shfmt_v3.14.1_linux_amd64",
+          "format": "binary",
+          "url": "https://github.com/mvdan/sh/releases/download/v3.14.1/shfmt_v3.14.1_linux_amd64",
+          "integrity": "sha256:76e77641faa025814b77f153b29796b8e6fa2fca03e0c76a691608b86c7ea7bf",
+          "platforms": [
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "musl"
+            }
+          ],
+          "entry": "shfmt",
+          "bundle": null,
+          "audit": "pending",
+          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
+          "auditRoot": "sha256:9a758ff08bb7c357bd88303af03677fb52457590e35f8078045638075db84d70"
+        },
+        {
+          "id": "shfmt_v3.14.1_linux_arm64",
+          "format": "binary",
+          "url": "https://github.com/mvdan/sh/releases/download/v3.14.1/shfmt_v3.14.1_linux_arm64",
+          "integrity": "sha256:5f2db09dae91fca848f7adbdd014632e921a383863a2ad7e0450ad3aba0c6489",
+          "platforms": [
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "musl"
+            }
+          ],
+          "entry": "shfmt",
+          "bundle": null,
+          "audit": "pending",
+          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
+          "auditRoot": "sha256:0a6f10e75600c6aaee08bf17891374db73db8b45a0fd6809424dabd288f5d0a4"
+        }
+      ],
+      "requirements": [],
+      "argv": [],
+      "environment": {},
+      "limitations": []
+    },
+    {
+      "id": "shellcheck",
+      "version": "0.11.0",
+      "source": "https://github.com/koalaman/shellcheck/releases/tag/v0.11.0",
+      "license": "GPL-3.0-or-later",
+      "artifacts": [
+        {
+          "id": "shellcheck-v0.11.0.darwin.aarch64.tar.gz",
+          "format": "tar.gz",
+          "url": "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.darwin.aarch64.tar.gz",
+          "integrity": "sha256:339b930feb1ea764467013cc1f72d09cd6b869ebf1013296ba9055ab2ffbd26f",
+          "platforms": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "libc": "none"
+            }
+          ],
+          "entry": "shellcheck",
+          "bundle": null,
+          "audit": "pending",
+          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
+          "auditRoot": "sha256:224633df553dea8684f4e7245024d83664be0ace53813578c2f847f892b4edb0"
+        },
+        {
+          "id": "shellcheck-v0.11.0.darwin.x86_64.tar.gz",
+          "format": "tar.gz",
+          "url": "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.darwin.x86_64.tar.gz",
+          "integrity": "sha256:c2c15e08df0e8fbc374c335b230a7ee958c313fa5714817a59aa59f1aa594f51",
+          "platforms": [
+            {
+              "os": "darwin",
+              "arch": "x64",
+              "libc": "none"
+            }
+          ],
+          "entry": "shellcheck",
+          "bundle": null,
+          "audit": "pending",
+          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
+          "auditRoot": "sha256:0fc73e943fd1b17d762db3ff250fc5cf4dcb6d60625d12d5eb14a03c72a0cfad"
+        },
+        {
+          "id": "shellcheck-v0.11.0.linux.aarch64.tar.gz",
+          "format": "tar.gz",
+          "url": "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.aarch64.tar.gz",
+          "integrity": "sha256:68a8133197a50beb8803f8d42f9908d1af1c5540d4bb05fdfca8c1fa47decefc",
+          "platforms": [
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "glibc"
+            }
+          ],
+          "entry": "shellcheck",
+          "bundle": null,
+          "audit": "pending",
+          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
+          "auditRoot": "sha256:8dc286cf64e37ad971e9283cda854f7e24beb53312b50ee8c872a6533667cbaf"
+        },
+        {
+          "id": "shellcheck-v0.11.0.linux.x86_64.tar.gz",
+          "format": "tar.gz",
+          "url": "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.gz",
+          "integrity": "sha256:b7af85e41cc99489dcc21d66c6d5f3685138f06d34651e6d34b42ec6d54fe6f6",
+          "platforms": [
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "glibc"
+            }
+          ],
+          "entry": "shellcheck",
+          "bundle": null,
+          "audit": "pending",
+          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
+          "auditRoot": "sha256:29dce887cfbb05719af2e7b481f6998c912e59c267695ee4613cf17b21c231fa"
+        }
+      ],
+      "requirements": [],
+      "argv": [],
+      "environment": {},
+      "limitations": []
+    },
+    {
+      "id": "phpactor",
+      "version": "2026.06.23.0",
+      "source": "https://github.com/phpactor/phpactor/releases/tag/2026.06.23.0",
+      "license": "MIT",
+      "artifacts": [
+        {
+          "id": "phpactor.phar",
+          "format": "phar",
+          "url": "https://github.com/phpactor/phpactor/releases/download/2026.06.23.0/phpactor.phar",
+          "integrity": "sha256:25645647d9aa2dc69536fb4f75c976e33ef1a7b5533534a8456736e5e6fd5079",
+          "platforms": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "libc": "none"
+            },
+            {
+              "os": "darwin",
+              "arch": "x64",
+              "libc": "none"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "musl"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "musl"
+            }
+          ],
+          "entry": "phpactor.phar",
+          "bundle": null,
+          "audit": "pending",
+          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
+          "auditRoot": "sha256:aa19529f14d8af6b5ec89e14bc7abb2b341a961674fc8f6d814304c63f168426"
+        }
+      ],
+      "requirements": [
+        {
+          "id": "php",
+          "scope": "server",
+          "executable": "php",
+          "version": ">=8.2.0",
+          "detail": "",
+          "required": true
+        },
+        {
+          "id": "php-mbstring",
+          "scope": "server",
+          "executable": "php",
+          "version": "present",
+          "detail": "PHP extension mbstring",
+          "required": true
+        },
+        {
+          "id": "php-posix",
+          "scope": "server",
+          "executable": "php",
+          "version": "present",
+          "detail": "PHP extension posix",
+          "required": true
+        },
+        {
+          "id": "php-tokenizer",
+          "scope": "server",
+          "executable": "php",
+          "version": "present",
+          "detail": "PHP extension tokenizer",
+          "required": true
+        }
+      ],
+      "argv": ["language-server"],
+      "environment": {},
+      "limitations": [
+        "PHAR strips most vendor license files and Composer installed metadata; external source/notice completion required. K1 Host lacks PHP, so rename/parity not verified."
+      ]
+    },
+    {
+      "id": "jdtls",
+      "version": "1.61.0-202609031315",
+      "source": "https://download.eclipse.org/jdtls/milestones/1.61.0/jdt-language-server-1.61.0-202609031315.tar.gz",
+      "license": "EPL-2.0",
+      "artifacts": [
+        {
+          "id": "jdtls-1.61.0",
+          "format": "tar.gz",
+          "url": "https://download.eclipse.org/jdtls/milestones/1.61.0/jdt-language-server-1.61.0-202609031315.tar.gz",
+          "integrity": "sha256:338e7e73d61836651ba2453919a0d34fa763eb4e7c03342092309bffb8934c64",
+          "platforms": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "libc": "none"
+            },
+            {
+              "os": "darwin",
+              "arch": "x64",
+              "libc": "none"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "glibc"
+            }
+          ],
+          "entry": "plugins/org.eclipse.equinox.launcher_*.jar",
+          "bundle": null,
+          "audit": "pending",
+          "auditReason": "Exact EPL-2.0 external-distribution exception awaits G1 review",
+          "auditRoot": "sha256:fc26ebbd2b7da53f3fe223d9a687df43dc157fca8684762934eccfdf8fce0035"
+        }
+      ],
+      "requirements": [
+        {
+          "id": "java",
+          "scope": "server",
+          "executable": "java",
+          "version": ">=21.0.0",
+          "detail": "Server JRE independent of project JDK",
+          "required": true
+        }
+      ],
+      "argv": [
+        "-jar",
+        "{equinox-launcher}",
+        "-configuration",
+        "{private-config}",
+        "-data",
+        "{private-workspace}"
+      ],
+      "environment": {},
+      "limitations": [
+        "Resolve launcher glob to exactly one file; copy configuration for target OS to private writable state. No bundled JRE."
+      ]
+    },
+    {
+      "id": "gopls",
+      "version": "0.23.0",
+      "source": "https://proxy.golang.org/golang.org/x/tools/gopls/@v/v0.23.0.info",
+      "license": "BSD-3-Clause",
+      "artifacts": [
+        {
+          "id": "gopls-source",
+          "format": "go-module",
+          "url": "https://proxy.golang.org/golang.org/x/tools/gopls/@v/v0.23.0.zip",
+          "integrity": "sha256:b3bb593ef163f614e358cdb14a9feede3cad2bfc9087b8e4dca73b2fff858b74",
+          "platforms": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "libc": "none"
+            },
+            {
+              "os": "darwin",
+              "arch": "x64",
+              "libc": "none"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "musl"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "musl"
+            }
+          ],
+          "entry": "golang.org/x/tools/gopls",
+          "bundle": null,
+          "audit": "pending",
+          "auditReason": "Pinned go.sum closure/build audit required",
+          "auditRoot": "sha256:984ab9ca00316e4175f38d88774b3830e17598a412028463c0024a729cc1e139"
+        }
+      ],
+      "requirements": [
+        {
+          "id": "go",
+          "scope": "server",
+          "executable": "go",
+          "version": ">=1.26.0",
+          "detail": "Build with GOTOOLCHAIN=local; never download a Go runtime",
+          "required": true
+        }
+      ],
+      "argv": [],
+      "environment": {
+        "GOTOOLCHAIN": "local",
+        "GOTELEMETRY": "off"
+      },
+      "limitations": [
+        "Upstream publishes source, not managed prebuilt executables. Build in private GOBIN/GOMODCACHE/GOCACHE with developer Go."
+      ]
+    },
+    {
+      "id": "sql-formatter",
+      "version": "15.9.0",
+      "source": "https://registry.npmjs.org/sql-formatter/15.9.0",
+      "license": "MIT",
+      "artifacts": [
+        {
+          "id": "sql-formatter-npm",
+          "format": "npm",
+          "url": "https://registry.npmjs.org/sql-formatter/-/sql-formatter-15.9.0.tgz",
+          "integrity": "sha512-3A/N+v+mA5/PDU+FlO4uTFE0L/Mmg63c/Ny161Qv2b1Mxp9IX8War+LLmq17LA/Kgu4KXAR7iutK2JaHWJMMtw==",
+          "platforms": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "libc": "none"
+            },
+            {
+              "os": "darwin",
+              "arch": "x64",
+              "libc": "none"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "musl"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "musl"
+            }
+          ],
+          "entry": "bin/sql-formatter-cli.cjs",
+          "bundle": "sql-formatter",
+          "audit": "pending",
+          "auditReason": "argparse@2.0.1: license-review:Python-2.0; railroad-diagrams@1.0.0: license-review:CC0-1.0; railroad-diagrams@1.0.0: notice-coverage",
+          "auditRoot": "sha256:0ee4ffe72f89b18fd7bfd9022b5e886e1fbf40d153accc3abae7fedcea6a87db"
+        }
+      ],
+      "requirements": [
+        {
+          "id": "node",
+          "scope": "server",
+          "executable": "node",
+          "version": ">=22.22.2",
+          "detail": "Developer-owned Node; conservative common catalog floor; Node24.18 fixture tested. No runtime download.",
+          "required": true
+        }
+      ],
+      "argv": [],
+      "environment": {},
+      "limitations": []
+    },
+    {
+      "id": "sqllens-language-server",
+      "version": "0.5.0",
+      "source": "https://registry.npmjs.org/sqllens-language-server/0.5.0",
+      "license": "MIT",
+      "artifacts": [
+        {
+          "id": "sqllens-language-server-npm",
+          "format": "npm",
+          "url": "https://registry.npmjs.org/sqllens-language-server/-/sqllens-language-server-0.5.0.tgz",
+          "integrity": "sha512-TFTCgqH5GGC6jGEUyY7aIHhbkxP0Iv7wn74xtwpHoYsrH7seX5EVWXrgLjN9GFUL3I519w2hoDz0kEII5u/uNw==",
+          "platforms": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "libc": "none"
+            },
+            {
+              "os": "darwin",
+              "arch": "x64",
+              "libc": "none"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "libc": "musl"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "glibc"
+            },
+            {
+              "os": "linux",
+              "arch": "x64",
+              "libc": "musl"
+            }
+          ],
+          "entry": "bin/cli.js",
+          "bundle": "sqllens-language-server",
+          "audit": "pending",
+          "auditReason": "minimatch@10.2.6: license-review:BlueOak-1.0.0",
+          "auditRoot": "sha256:377e91f0176f07b7d1bfb69587cb9756a3aa7286719748457342919745344698"
+        }
+      ],
+      "requirements": [
+        {
+          "id": "node",
+          "scope": "server",
+          "executable": "node",
+          "version": ">=22.22.2",
+          "detail": "Developer-owned Node; conservative common catalog floor; Node24.18 fixture tested. No runtime download.",
+          "required": true
+        }
+      ],
+      "argv": ["--stdio"],
+      "environment": {
+        "SQLLENS_NO_PLUGINS": "1"
+      },
+      "limitations": []
+    }
+  ],
+  "integrations": [
+    {
+      "id": "typescript",
+      "languageIds": ["typescript", "typescriptreact", "javascript", "javascriptreact"],
+      "patterns": ["*.ts", "*.tsx", "*.js", "*.jsx", "*.mts", "*.cts", "*.mjs", "*.cjs"],
+      "providers": [
+        {
+          "id": "typescript-language-server",
+          "tool": "typescript-language-server",
+          "role": "primary",
+          "diagnostics": "primary",
+          "disableFeatures": [],
+          "entry": null,
+          "argv": []
+        }
+      ],
+      "companions": [],
+      "formatter": {
+        "tool": "prettier",
+        "mode": "cli",
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+      },
+      "policy": {
+        "trust": "workspace-before-execution",
+        "network": "server-default",
+        "configuration": "Project configuration after trust; effective paths resolved by D1"
+      },
+      "limitations": [
+        "Project-owned launchable tsserver/alias dependency and plugin probe roots required; no managed TypeScript runtime."
+      ]
+    },
+    {
+      "id": "html",
+      "languageIds": ["html"],
+      "patterns": ["*.html"],
+      "providers": [
+        {
+          "id": "vscode-html-language-server",
+          "tool": "vscode-langservers-extracted",
+          "role": "primary",
+          "diagnostics": "primary",
+          "disableFeatures": [],
+          "entry": "bin/vscode-html-language-server",
+          "argv": ["--stdio"]
+        }
+      ],
+      "companions": [],
+      "formatter": {
+        "tool": "prettier",
+        "mode": "cli",
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+      },
+      "policy": {
+        "trust": "workspace-before-execution",
+        "network": "server-default",
+        "configuration": "Project configuration after trust; effective paths resolved by D1"
+      },
+      "limitations": []
+    },
+    {
+      "id": "css",
+      "languageIds": ["css", "scss", "less"],
+      "patterns": ["*.css", "*.scss", "*.less"],
+      "providers": [
+        {
+          "id": "vscode-css-language-server",
+          "tool": "vscode-langservers-extracted",
+          "role": "primary",
+          "diagnostics": "primary",
+          "disableFeatures": [],
+          "entry": "bin/vscode-css-language-server",
+          "argv": ["--stdio"]
+        }
+      ],
+      "companions": [],
+      "formatter": {
+        "tool": "prettier",
+        "mode": "cli",
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+      },
+      "policy": {
+        "trust": "workspace-before-execution",
+        "network": "server-default",
+        "configuration": "Project configuration after trust; effective paths resolved by D1"
+      },
+      "limitations": []
+    },
+    {
+      "id": "python",
+      "languageIds": ["python"],
+      "patterns": ["*.py", "*.pyi"],
+      "providers": [
+        {
+          "id": "pyright",
+          "tool": "pyright",
+          "role": "primary",
+          "diagnostics": "types",
+          "disableFeatures": ["formatting"],
+          "entry": null,
+          "argv": []
+        },
+        {
+          "id": "ruff",
+          "tool": "ruff",
+          "role": "lint",
+          "diagnostics": "lint",
+          "disableFeatures": ["hover", "completion"],
+          "entry": null,
+          "argv": []
+        }
+      ],
+      "companions": [],
+      "formatter": {
+        "tool": "ruff",
+        "mode": "lsp",
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+      },
+      "policy": {
+        "trust": "workspace-before-execution",
+        "network": "server-default",
+        "configuration": "Project configuration after trust; effective paths resolved by D1"
+      },
+      "limitations": [
+        "Disable overlapping Pyright import organization; Ruff owns formatting and lint fixes. basedpyright is a user-configured override."
+      ]
+    },
+    {
+      "id": "bash",
+      "languageIds": ["shellscript"],
+      "patterns": ["*.sh", "*.bash", ".envrc"],
+      "providers": [
+        {
+          "id": "bash-language-server",
+          "tool": "bash-language-server",
+          "role": "primary",
+          "diagnostics": "primary",
+          "disableFeatures": [],
+          "entry": null,
+          "argv": []
+        }
+      ],
+      "companions": ["shellcheck", "shfmt"],
+      "formatter": {
+        "tool": "shfmt",
+        "mode": "cli",
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+      },
+      "policy": {
+        "trust": "workspace-before-execution",
+        "network": "server-default",
+        "configuration": "Project configuration after trust; effective paths resolved by D1"
+      },
+      "limitations": [
+        "ShellCheck diagnostics pass through Bash only; do not launch a duplicate diagnostic provider. No zsh/fish parity."
+      ]
+    },
+    {
+      "id": "java",
+      "languageIds": ["java"],
+      "patterns": ["*.java"],
+      "providers": [
+        {
+          "id": "jdtls",
+          "tool": "jdtls",
+          "role": "primary",
+          "diagnostics": "primary",
+          "disableFeatures": [],
+          "entry": null,
+          "argv": []
+        }
+      ],
+      "companions": [],
+      "formatter": {
+        "tool": "jdtls",
+        "mode": "lsp",
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+      },
+      "policy": {
+        "trust": "workspace-before-execution",
+        "network": "server-default",
+        "configuration": "Project configuration after trust; effective paths resolved by D1"
+      },
+      "limitations": [
+        "Project JDK/build tool remains developer-owned; JDT LS may execute project build code after trust."
+      ]
+    },
+    {
+      "id": "php",
+      "languageIds": ["php"],
+      "patterns": ["*.php"],
+      "providers": [
+        {
+          "id": "phpactor",
+          "tool": "phpactor",
+          "role": "primary",
+          "diagnostics": "primary",
+          "disableFeatures": [],
+          "entry": null,
+          "argv": []
+        }
+      ],
+      "companions": [],
+      "formatter": {
+        "tool": "configured-php-formatter",
+        "mode": "configured",
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+      },
+      "policy": {
+        "trust": "workspace-before-execution",
+        "network": "server-default",
+        "configuration": "Project configuration after trust; effective paths resolved by D1"
+      },
+      "limitations": [
+        "Phpactor rename must pass V2 live fixture; no PHP runtime on K1 Host, no parity claim. PHP formatting needs separately configured project formatter. Do not substitute paid Intelephense features silently."
+      ]
+    },
+    {
+      "id": "go",
+      "languageIds": ["go"],
+      "patterns": ["*.go"],
+      "providers": [
+        {
+          "id": "gopls",
+          "tool": "gopls",
+          "role": "primary",
+          "diagnostics": "primary",
+          "disableFeatures": [],
+          "entry": null,
+          "argv": []
+        }
+      ],
+      "companions": [],
+      "formatter": {
+        "tool": "gopls",
+        "mode": "lsp",
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+      },
+      "policy": {
+        "trust": "workspace-before-execution",
+        "network": "server-default",
+        "configuration": "Project configuration after trust; effective paths resolved by D1"
+      },
+      "limitations": []
+    },
+    {
+      "id": "rust",
+      "languageIds": ["rust"],
+      "patterns": ["*.rs"],
+      "providers": [
+        {
+          "id": "rust-analyzer",
+          "tool": "rust-analyzer",
+          "role": "primary",
+          "diagnostics": "primary",
+          "disableFeatures": [],
+          "entry": null,
+          "argv": []
+        }
+      ],
+      "companions": [],
+      "formatter": {
+        "tool": "rustfmt",
+        "mode": "lsp",
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+      },
+      "policy": {
+        "trust": "workspace-before-execution",
+        "network": "server-default",
+        "configuration": "Project configuration after trust; effective paths resolved by D1"
+      },
+      "limitations": [
+        "rustfmt is a developer toolchain component invoked by rust-analyzer. Build scripts/proc macros require trust."
+      ]
+    },
+    {
+      "id": "lua",
+      "languageIds": ["lua"],
+      "patterns": ["*.lua"],
+      "providers": [
+        {
+          "id": "lua-language-server",
+          "tool": "lua-language-server",
+          "role": "primary",
+          "diagnostics": "primary",
+          "disableFeatures": [],
+          "entry": null,
+          "argv": []
+        }
+      ],
+      "companions": [],
+      "formatter": {
+        "tool": "configured-lua-formatter",
+        "mode": "configured",
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+      },
+      "policy": {
+        "trust": "workspace-before-execution",
+        "network": "server-default",
+        "configuration": "Project configuration after trust; effective paths resolved by D1"
+      },
+      "limitations": [
+        "LuaLS supplies no assumed document formatting; select a developer-provided formatter. Lua libraries/runtime version are project settings."
+      ]
+    },
+    {
+      "id": "sql",
+      "languageIds": ["sql"],
+      "patterns": ["*.sql"],
+      "providers": [
+        {
+          "id": "sqllens-language-server",
+          "tool": "sqllens-language-server",
+          "role": "primary",
+          "diagnostics": "sql-offline",
+          "disableFeatures": ["formatting"],
+          "entry": null,
+          "argv": []
+        }
+      ],
+      "companions": [],
+      "formatter": {
+        "tool": "sql-formatter",
+        "mode": "cli",
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+      },
+      "policy": {
+        "trust": "workspace-before-execution",
+        "network": "offline-only",
+        "configuration": "Dialect via sql-<dialect> document ID; optional static JSON schema catalog and glob dialect mapping. SQLLENS_NO_PLUGINS=1 and private HOME/SQLLENS_USER_CONFIG. No connections, credentials or query commands."
+      },
+      "limitations": [
+        "sqllens 0.5.0 recommended after real explicit-dialect/static-schema probes; exact minimatch BlueOak notice policy awaits G1 review.",
+        "Advertised LSP capabilities are negotiated; exercised completion, pull diagnostics, typed hover, initialize/shutdown. sql-formatter alone owns formatting."
+      ]
+    },
+    {
+      "id": "prisma",
+      "languageIds": ["prisma"],
+      "patterns": ["*.prisma"],
+      "providers": [
+        {
+          "id": "prisma-language-server",
+          "tool": "prisma-language-server",
+          "role": "primary",
+          "diagnostics": "primary",
+          "disableFeatures": [],
+          "entry": null,
+          "argv": []
+        }
+      ],
+      "companions": [],
+      "formatter": {
+        "tool": "prisma-language-server",
+        "mode": "lsp",
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+      },
+      "policy": {
+        "trust": "workspace-before-execution",
+        "network": "server-default",
+        "configuration": "Project configuration after trust; effective paths resolved by D1"
+      },
+      "limitations": [
+        "Prisma config evaluation/generator/project dependencies require trust and remain developer-owned."
+      ]
+    },
+    {
+      "id": "yaml",
+      "languageIds": ["yaml"],
+      "patterns": ["*.yaml", "*.yml"],
+      "providers": [
+        {
+          "id": "yaml-language-server",
+          "tool": "yaml-language-server",
+          "role": "primary",
+          "diagnostics": "yaml-structure",
+          "disableFeatures": [],
+          "entry": null,
+          "argv": []
+        }
+      ],
+      "companions": [],
+      "formatter": {
+        "tool": "prettier",
+        "mode": "cli",
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+      },
+      "policy": {
+        "trust": "workspace-before-execution",
+        "network": "no-account",
+        "configuration": "Explicit schema associations; no implicit remote schema downloads before consent"
+      },
+      "limitations": []
+    },
+    {
+      "id": "actions",
+      "languageIds": ["yaml"],
+      "patterns": ["**/.github/workflows/*.yaml", "**/.github/workflows/*.yml"],
+      "providers": [
+        {
+          "id": "yaml-language-server",
+          "tool": "yaml-language-server",
+          "role": "primary",
+          "diagnostics": "yaml-structure",
+          "disableFeatures": [],
+          "entry": null,
+          "argv": []
+        },
+        {
+          "id": "actions-language-server",
+          "tool": "actions-language-server",
+          "role": "expressions",
+          "diagnostics": "actions-expressions",
+          "disableFeatures": [],
+          "entry": null,
+          "argv": []
+        }
+      ],
+      "companions": [],
+      "formatter": {
+        "tool": "prettier",
+        "mode": "cli",
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+      },
+      "policy": {
+        "trust": "workspace-before-execution",
+        "network": "no-account",
+        "configuration": "No sessionToken, repos or GitHub account lookup; disable duplicate YAML schema validation and route Actions expressions separately"
+      },
+      "limitations": [
+        "Upstream is not accepting community contributions; pinned server reviewed with offline expression fixture."
+      ]
+    }
+  ]
+}

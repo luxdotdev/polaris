@@ -1,0 +1,32 @@
+{
+  "artifactId": "shellcheck-v0.11.0.linux.x86_64.tar.gz",
+  "artifactIntegrity": "sha256:b7af85e41cc99489dcc21d66c6d5f3685138f06d34651e6d34b42ec6d54fe6f6",
+  "coverage": "pending",
+  "notices": [
+    {
+      "path": "notices/3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986.txt",
+      "integrity": "sha256:3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    }
+  ],
+  "findings": [
+    "Release-specific bundled notice/dependency audit required; see external-audits.json"
+  ],
+  "bundleIntegrity": null,
+  "supplements": [
+    "railroad-diagrams@1.0.0",
+    "bash-language-server@5.8.1",
+    "@vscode/l10n@0.0.18",
+    "@prisma/prisma-schema-wasm@7.8.0-6.3c6e192761c0362d496ed980de936e2f3cebcd3a",
+    "boolbase@1.0.0"
+  ],
+  "evidence": [
+    {
+      "path": "source-notices.json",
+      "integrity": "sha256:d55dfb416aa56a71ad6517309b1697032bef9078cfec16c224a689f9d66550c2"
+    },
+    {
+      "path": "external-audits.json",
+      "integrity": "sha256:cf2c9d7a7386a0e5818d5451d2cc0b185e90b0b9c01c6539c881111b5d4627ea"
+    }
+  ]
+}

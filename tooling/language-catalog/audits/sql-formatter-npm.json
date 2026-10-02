@@ -1,0 +1,49 @@
+{
+  "artifactId": "sql-formatter-npm",
+  "artifactIntegrity": "sha512-3A/N+v+mA5/PDU+FlO4uTFE0L/Mmg63c/Ny161Qv2b1Mxp9IX8War+LLmq17LA/Kgu4KXAR7iutK2JaHWJMMtw==",
+  "coverage": "pending",
+  "notices": [
+    {
+      "path": "notices/de4d1f2d2ad5ad0cfd1657a106476b31cb5db5ef9d1ff842b237c0c81f0c8a23.txt",
+      "integrity": "sha256:de4d1f2d2ad5ad0cfd1657a106476b31cb5db5ef9d1ff842b237c0c81f0c8a23"
+    },
+    {
+      "path": "notices/04512a63dce4d2d506ad612dc0bd7681ccf6e3655f7b6eaef7dfac8323d1ec0b.txt",
+      "integrity": "sha256:04512a63dce4d2d506ad612dc0bd7681ccf6e3655f7b6eaef7dfac8323d1ec0b"
+    },
+    {
+      "path": "notices/05ff177fbd1f816df52d583de62e1a5ca8887766bee91156eae7879253a45c7b.txt",
+      "integrity": "sha256:05ff177fbd1f816df52d583de62e1a5ca8887766bee91156eae7879253a45c7b"
+    },
+    {
+      "path": "notices/db0b57e1acff55e7283e4de70069ef7c92524ce055bebb9a9795ebb9e97e6cb1.txt",
+      "integrity": "sha256:db0b57e1acff55e7283e4de70069ef7c92524ce055bebb9a9795ebb9e97e6cb1"
+    },
+    {
+      "path": "notices/f0fcba18e7d0bc4c22f58a33566f27a0f26184d4e02827371a0ed84ea56a26e9.txt",
+      "integrity": "sha256:f0fcba18e7d0bc4c22f58a33566f27a0f26184d4e02827371a0ed84ea56a26e9"
+    },
+    {
+      "path": "notices/c7b6718db5ace1d13eb030d29c53eb2b02f90e84ba21ba59eee63dfd4fcbefee.txt",
+      "integrity": "sha256:c7b6718db5ace1d13eb030d29c53eb2b02f90e84ba21ba59eee63dfd4fcbefee"
+    },
+    {
+      "path": "notices/0b72626d77e2a6579a7d9e13bf1a28e0d1525dec15f9e12e6fe9f57571b652c1.txt",
+      "integrity": "sha256:0b72626d77e2a6579a7d9e13bf1a28e0d1525dec15f9e12e6fe9f57571b652c1"
+    }
+  ],
+  "findings": [
+    "argparse@2.0.1: license-review:Python-2.0",
+    "railroad-diagrams@1.0.0: license-review:CC0-1.0",
+    "railroad-diagrams@1.0.0: notice-coverage"
+  ],
+  "bundleIntegrity": "sha256:084cbd9fc8a2b7b28aa49f3eebde4c2967765dceef4c93feb057fbfe1923c4a6",
+  "supplements": [
+    "railroad-diagrams@1.0.0",
+    "bash-language-server@5.8.1",
+    "@vscode/l10n@0.0.18",
+    "@prisma/prisma-schema-wasm@7.8.0-6.3c6e192761c0362d496ed980de936e2f3cebcd3a",
+    "boolbase@1.0.0"
+  ],
+  "evidence": []
+}
