@@ -73,6 +73,12 @@ export const fakeClient = (store: AppStore): ConstellationClient => {
 
       const events = Match.value(input.action).pipe(
         Match.tagsExhaustive({
+          Approve: () => [
+            E.ClaimApproved.make({ ...attempt, by: "user", at: new Date().toISOString() }),
+          ],
+          HandUp: ({ reason }) => [
+            E.ClaimHandedUp.make({ ...attempt, reason, at: new Date().toISOString() }),
+          ],
           Accept: ({ mergedHead, receipts }): ReadonlyArray<Event> => [
             E.AttemptAccepted.make({ ...attempt, mergedHead, receipts, evidence: tier(receipts) }),
           ],

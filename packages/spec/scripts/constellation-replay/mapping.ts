@@ -143,6 +143,9 @@ export const mapGraphEvent = (
         record(
           `AttemptClaimed({ attempt: ${g.attemptId(attemptId)}, sha: ${g.heads.id(claim.head)} })`
         ),
+      ClaimApproved: ({ attemptId }) => record(`ClaimApproved(${g.attemptId(attemptId)})`),
+      ClaimHandedUp: ({ attemptId }) => record(`ClaimHandedUp(${g.attemptId(attemptId)})`),
+      AttemptNudged: ({ attemptId }) => record(`AttemptNudged(${g.attemptId(attemptId)})`),
       AttemptAccepted: ({ attemptId, mergedHead }) =>
         record(
           `AttemptAccepted({ attempt: ${g.attemptId(attemptId)}, sha: ${g.heads.id(mergedHead)} })`

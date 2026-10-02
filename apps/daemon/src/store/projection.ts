@@ -8,6 +8,7 @@ import {
   ApprovalRequest,
   CommandId,
   CommandRejected,
+  ConstellationRejected,
   DomainEvent,
   EventEnvelope,
   NotFound,
@@ -24,6 +25,8 @@ import {
 import { Effect, Schema } from "effect";
 import type { SqlClient, SqlError } from "effect/sql";
 import { emptyResources, foldResources } from "../resources/model.ts";
+import { constellationOf } from "./constellation.ts";
+import { project } from "./model.ts";
 import { storeError } from "./errors.ts";
 import { projectReviewEvent } from "./review.ts";
 import {
@@ -65,7 +68,7 @@ export const SubagentJson = json(Subagent);
 
 export const ReviewCheckoutJson = json(ReviewCheckout);
 
-export const RejectionJson = json(Schema.Union([CommandRejected, NotFound]));
+export const RejectionJson = json(Schema.Union([CommandRejected, NotFound, ConstellationRejected]));
 
 export { storeError };
 
@@ -93,6 +96,7 @@ export const writeEvent = (sql: SqlClient.SqlClient, envelope: EventEnvelope) =>
     sequence: envelope.sequence,
     stream_kind: sessionId === null ? "host" : "session",
     session_id: sessionId,
+    constellation_id: constellationOf(envelope.event),
     event_type: envelope.event._tag,
     command_id: envelope.commandId,
     occurred_at: envelope.occurredAt,
@@ -202,6 +206,9 @@ const projectionOf: (event: DomainEvent) => Projection = DomainEvent.match<Proje
   ProposalDeclined: () => () => Effect.void,
   AttemptStarted: () => () => Effect.void,
   AttemptProgressed: () => () => Effect.void,
+  ClaimApproved: () => () => Effect.void,
+  ClaimHandedUp: () => () => Effect.void,
+  AttemptNudged: () => () => Effect.void,
   AttemptClaimed: () => () => Effect.void,
   AttemptAccepted: () => () => Effect.void,
   AttemptRejected: () => () => Effect.void,
@@ -385,7 +392,7 @@ export const loadModel = (sql: SqlClient.SqlClient) =>
       WHERE event_type IN ('ResourceDeclared', 'ResourceRemoved', 'ResourceLeaseCanceled',
         'ResourceLeaseQueued', 'ResourceLeased', 'ResourceReleased') ORDER BY sequence`;
 
-    const model: ReadModel = {
+    let model: ReadModel = {
       ...emptyModel,
       sequence: max?.sequence ?? 0,
       hostResources: foldResources(
@@ -398,5 +405,12 @@ export const loadModel = (sql: SqlClient.SqlClient) =>
       reviewCheckouts: byId(checkouts.map((row) => ReviewCheckoutJson.decode(row.data))),
     };
 
-    return model;
+    const graphEvents =
+      yield* sql<EventRow>`SELECT sequence, occurred_at, command_id, payload FROM events WHERE constellation_id IS NOT NULL ORDER BY sequence`;
+
+    const cut = model.sequence;
+
+    for (const row of graphEvents) model = project(model, decodeEventRow(row));
+
+    return { ...model, sequence: cut };
   });
