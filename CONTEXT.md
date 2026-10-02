@@ -218,3 +218,9 @@ _Avoid_: Learning, suppression rule
 
 **Editor**:
 The view for reading and editing code, including inline chat and tab completion.
+
+### Language tooling
+
+**Language Integration**:
+The Editor's configured support for one language, combining syntax highlighting with language servers and companion tools.
+_Avoid_: Language plugin, language pack

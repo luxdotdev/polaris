@@ -21,6 +21,10 @@ Source research behind the Polaris planning map ([ENG-167](https://linear.app/lu
 | [review-checkout.md](review-checkout.md) | [ENG-221](https://linear.app/luxdev/issue/ENG-221): how the Daemon fetches, checks out, updates and removes a Review Checkout |
 | [pierre-diffs.md](pierre-diffs.md) | [ENG-218](https://linear.app/luxdev/issue/ENG-218): whether Pierre Diffs can carry M2's Review view |
 
+Additional planning research: [Editor language tooling](editor-language-tooling.md)
+records the 2026-10-02 interview's checkout facts, upstream catalog, and
+implementation constraints for [M3.1](../specs/editor-language-tooling-m3.1.md).
+
 The prototype and spike code is throwaway and stays on its own branches, not on `main`:
 - `prototype/orchestrator-layout` ([ENG-177](https://linear.app/luxdev/issue/ENG-177))
 - `prototype/spike-electron` and `prototype/spike-gpui` ([ENG-184](https://linear.app/luxdev/issue/ENG-184))
