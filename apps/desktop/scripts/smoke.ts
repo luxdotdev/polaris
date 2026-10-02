@@ -29,6 +29,7 @@ import { reviewerFlow } from "./lib/reviewerFlow.ts";
 import { reviewSettingsFlow } from "./lib/reviewSettingsFlow.ts";
 import { runSubagent, subagentAfterRelaunch } from "./lib/subagentFlow.ts";
 import { terminalFlow } from "./lib/terminalFlow.ts";
+import { explorerFlow } from "./lib/explorerFlow.ts";
 import {
   githubEnterpriseFlow,
   githubFlow,
@@ -497,6 +498,7 @@ try {
   await settingsFlow({ app, page, step, shoot: (name) => shoot(page, name) });
   await terminalFlow({ page, step, shoot: (name) => shoot(page, name) });
   await attachmentsFlow({ app, page, step, shoot: (name) => shoot(page, name) });
+  await explorerFlow({ page, step, shoot: (name) => shoot(page, name) });
   await timeSwitches(page);
   await jumpByTyping(page);
   await githubFlow({

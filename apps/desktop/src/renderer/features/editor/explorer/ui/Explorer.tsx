@@ -6,6 +6,7 @@
 import type { Workspace } from "@polaris/protocol";
 import {
   ChevronLeftIcon,
+  cn,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -23,7 +24,7 @@ import { activeSessions } from "../../../../routes/topBar.ts";
 import { type Place, startDraft } from "../data/actions.ts";
 import { type ExplorerView, patchExplorer } from "../data/store.ts";
 import { useExplorer } from "../data/useExplorer.ts";
-import { openFile, setAgentFiles, useEditorTabs } from "../editorSeam.tsx";
+import { openFile, setAgentFiles, useEditorTabs } from "../../index.ts";
 import { basename } from "../model/paths.ts";
 import { AgentsIn } from "./AgentsIn.tsx";
 import { ChangesList } from "./ChangesList.tsx";
@@ -84,7 +85,9 @@ const Header = ({ host, workspace, place, override }: HeaderProps) => (
       title={place.root}
       data-testid="explorer-where"
     >
-      {host.label} · {homePath(place.root, host.status.host?.homeDir ?? null)}
+      {/* A checkout's own folder name is what tells it apart; its full path is the tooltip. */}
+      {host.label} ·{" "}
+      {override ? basename(place.root) : homePath(place.root, host.status.host?.homeDir ?? null)}
     </p>
     {override ? (
       <button
@@ -163,7 +166,7 @@ export const Explorer = ({ host, workspace }: ExplorerProps) => {
       data-testid="explorer"
       className="border-hairline bg-surface-sunken flex w-[264px] shrink-0 flex-col border-r"
     >
-      <div className="px-panel flex flex-col gap-3 pt-4 pb-3">
+      <div className="px-panel pt-panel flex flex-col gap-3 pb-3">
         <Header
           host={host}
           workspace={workspace}
@@ -190,7 +193,13 @@ export const Explorer = ({ host, workspace }: ExplorerProps) => {
           ]}
         />
       </div>
-      <div className="flex min-h-0 flex-1 flex-col">
+      {/* Reconnecting or offline: the last known tree, dimmed (rule/remote-is-normal). */}
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 flex-col",
+          host.status.state !== "connected" && "opacity-(--opacity-dimmed)"
+        )}
+      >
         {data.state.view === "files" ? (
           <Tree
             place={place}
