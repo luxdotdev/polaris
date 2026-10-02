@@ -2,25 +2,31 @@
 import argparse
 import hashlib
 import json
-import os
 import pathlib
-import subprocess
+import re
+from fixture import temporary_root, npm_environment, run
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--root', required=True, type=pathlib.Path)
 parser.add_argument('--tool', action='append', required=True)
 args = parser.parse_args()
-root = args.root.resolve()
-if not str(root).startswith('/private/tmp/'):
-    parser.error('Evaluation root must be in /tmp')
+root = temporary_root(args.root)
+root.mkdir(parents=True, exist_ok=False)
 repo = pathlib.Path(__file__).resolve().parents[2]
 catalog = json.loads((repo / 'apps/daemon/src/languages/catalog/catalog.json').read_text())
 audit_root = repo / 'tooling/language-catalog'
-(root / 'home').mkdir(parents=True, exist_ok=True)
-(root / 'empty-npmrc').write_text('')
-(root / 'empty-global-npmrc').write_text('')
-env = dict(os.environ, HOME=str(root / 'home'), npm_config_cache=str(root / 'cache'),
-           npm_config_userconfig=str(root / 'empty-npmrc'), npm_config_globalconfig=str(root / 'empty-global-npmrc'))
+env = npm_environment(root)
+config_result = run(['npm', 'config', 'list', '--json'], root, env, 10)
+if config_result.returncode:
+    raise RuntimeError('npm configuration probe failed')
+config = json.loads(config_result.stdout)
+for key in ('userconfig', 'globalconfig', 'cache', 'prefix', 'registry'):
+    assert config[key] == env['npm_config_' + key], 'npm path/registry mismatch: ' + key
+assert not any(value and re.search(r'auth(token)?$|password|username|(^|:)token', key, re.I)
+               for key, value in config.items()), 'Unexpected credential configuration'
+(root / 'isolation.json').write_text(json.dumps({'environmentKeys': sorted(env),
+    'npmConfig': {key: config[key] for key in ('userconfig', 'globalconfig', 'cache', 'prefix', 'registry')},
+    'credentials': 'none', 'reservedHomeOverrides': False}, indent=2) + '\n')
 results = []
 for tool_id in args.tool:
     tool = next(tool for tool in catalog['tools'] if tool['id'] == tool_id)
@@ -38,7 +44,7 @@ for tool_id in args.tool:
     (install / 'package.json').write_text(json.dumps(bundle['manifest']))
     (install / 'package-lock.json').write_text(json.dumps(bundle['lock']))
     command = ['npm', 'ci', '--ignore-scripts', '--no-audit', '--no-fund']
-    result = subprocess.run(command, cwd=install, env=env, capture_output=True, text=True)
+    result = run(command, install, env, 180)
     (install / 'install.log').write_text(result.stdout + result.stderr)
     results.append({'tool': tool_id, 'version': tool['version'], 'exitCode': result.returncode,
                     'auditStatus': artifact['audit'], 'cwd': str(install), 'command': command})

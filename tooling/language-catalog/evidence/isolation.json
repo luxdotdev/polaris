@@ -1,0 +1,26 @@
+{
+  "environmentKeys": [
+    "PATH",
+    "TEMP",
+    "TMP",
+    "TMPDIR",
+    "XDG_CACHE_HOME",
+    "XDG_CONFIG_HOME",
+    "XDG_STATE_HOME",
+    "npm_config_cache",
+    "npm_config_globalconfig",
+    "npm_config_prefix",
+    "npm_config_registry",
+    "npm_config_update_notifier",
+    "npm_config_userconfig"
+  ],
+  "npmConfig": {
+    "userconfig": "/private/tmp/k1-sendback-replay-2/config/user.npmrc",
+    "globalconfig": "/private/tmp/k1-sendback-replay-2/config/global.npmrc",
+    "cache": "/private/tmp/k1-sendback-replay-2/cache",
+    "prefix": "/private/tmp/k1-sendback-replay-2/prefix",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "credentials": "none",
+  "reservedHomeOverrides": false
+}

@@ -2,7 +2,7 @@
   "sql": {
     "command": [
       "node",
-      "/private/tmp/k1-replay/npm/sql-language-server/node_modules/sql-language-server/npm_bin/cli.js",
+      "/private/tmp/k1-sendback-replay-2/npm/sql-language-server/node_modules/sql-language-server/npm_bin/cli.js",
       "up",
       "--method",
       "stdio"
@@ -82,7 +82,7 @@
         "jsonrpc": "2.0",
         "method": "textDocument/publishDiagnostics",
         "params": {
-          "uri": "file:///private/tmp/k1-replay/smoke/test.sql",
+          "uri": "file:///private/tmp/k1-sendback-replay-2/smoke/test.sql",
           "diagnostics": [
             {
               "range": {
@@ -121,12 +121,27 @@
       }
     ],
     "exitCode": 0,
-    "stderr": ""
+    "stderr": "",
+    "environmentKeys": [
+      "PATH",
+      "SQLLENS_NO_PLUGINS",
+      "SQLLENS_USER_CONFIG",
+      "TEMP",
+      "TMP",
+      "TMPDIR",
+      "XDG_CACHE_HOME",
+      "XDG_CONFIG_HOME",
+      "XDG_STATE_HOME"
+    ],
+    "cleanup": {
+      "pid": 41977,
+      "groupReaped": true
+    }
   },
   "actions": {
     "command": [
       "node",
-      "/private/tmp/k1-replay/npm/@actions_languageserver/node_modules/@actions/languageserver/bin/actions-languageserver",
+      "/private/tmp/k1-sendback-replay-2/npm/@actions_languageserver/node_modules/@actions/languageserver/bin/actions-languageserver",
       "--stdio"
     ],
     "initialized": {
@@ -355,7 +370,7 @@
         "jsonrpc": "2.0",
         "method": "textDocument/publishDiagnostics",
         "params": {
-          "uri": "file:///private/tmp/k1-replay/smoke/test.yaml",
+          "uri": "file:///private/tmp/k1-sendback-replay-2/smoke/test.yaml",
           "diagnostics": [
             {
               "message": "Unrecognized named-value: 'invalid'",
@@ -554,12 +569,27 @@
       }
     ],
     "exitCode": 0,
-    "stderr": ""
+    "stderr": "",
+    "environmentKeys": [
+      "PATH",
+      "SQLLENS_NO_PLUGINS",
+      "SQLLENS_USER_CONFIG",
+      "TEMP",
+      "TMP",
+      "TMPDIR",
+      "XDG_CACHE_HOME",
+      "XDG_CONFIG_HOME",
+      "XDG_STATE_HOME"
+    ],
+    "cleanup": {
+      "pid": 41978,
+      "groupReaped": true
+    }
   },
   "sqllens-schema": {
     "command": [
       "node",
-      "/private/tmp/k1-replay/npm/sqllens-language-server/node_modules/sqllens-language-server/bin/cli.js",
+      "/private/tmp/k1-sendback-replay-2/npm/sqllens-language-server/node_modules/sqllens-language-server/bin/cli.js",
       "--stdio"
     ],
     "initialized": {
@@ -732,7 +762,7 @@
         "jsonrpc": "2.0",
         "method": "textDocument/publishDiagnostics",
         "params": {
-          "uri": "file:///private/tmp/k1-replay/smoke/.sqllens.json",
+          "uri": "file:///private/tmp/k1-sendback-replay-2/smoke/.sqllens.json",
           "diagnostics": []
         }
       },
@@ -740,7 +770,7 @@
         "jsonrpc": "2.0",
         "method": "textDocument/publishDiagnostics",
         "params": {
-          "uri": "file:///private/tmp/k1-replay/smoke/test.sql",
+          "uri": "file:///private/tmp/k1-sendback-replay-2/smoke/test.sql",
           "diagnostics": []
         }
       },
@@ -748,7 +778,7 @@
         "jsonrpc": "2.0",
         "method": "textDocument/publishDiagnostics",
         "params": {
-          "uri": "file:///private/tmp/k1-replay/smoke/test.sql",
+          "uri": "file:///private/tmp/k1-sendback-replay-2/smoke/test.sql",
           "diagnostics": []
         }
       },
@@ -815,12 +845,27 @@
       }
     ],
     "exitCode": 0,
-    "stderr": ""
+    "stderr": "",
+    "environmentKeys": [
+      "PATH",
+      "SQLLENS_NO_PLUGINS",
+      "SQLLENS_USER_CONFIG",
+      "TEMP",
+      "TMP",
+      "TMPDIR",
+      "XDG_CACHE_HOME",
+      "XDG_CONFIG_HOME",
+      "XDG_STATE_HOME"
+    ],
+    "cleanup": {
+      "pid": 41979,
+      "groupReaped": true
+    }
   },
   "sqllens-mysql": {
     "command": [
       "node",
-      "/private/tmp/k1-replay/npm/sqllens-language-server/node_modules/sqllens-language-server/bin/cli.js",
+      "/private/tmp/k1-sendback-replay-2/npm/sqllens-language-server/node_modules/sqllens-language-server/bin/cli.js",
       "--stdio"
     ],
     "initialized": {
@@ -994,7 +1039,7 @@
         "jsonrpc": "2.0",
         "method": "textDocument/publishDiagnostics",
         "params": {
-          "uri": "file:///private/tmp/k1-replay/smoke/.sqllens.json",
+          "uri": "file:///private/tmp/k1-sendback-replay-2/smoke/.sqllens.json",
           "diagnostics": []
         }
       },
@@ -1002,7 +1047,7 @@
         "jsonrpc": "2.0",
         "method": "textDocument/publishDiagnostics",
         "params": {
-          "uri": "file:///private/tmp/k1-replay/smoke/test.sql",
+          "uri": "file:///private/tmp/k1-sendback-replay-2/smoke/test.sql",
           "diagnostics": [
             {
               "range": {
@@ -1026,7 +1071,7 @@
         "jsonrpc": "2.0",
         "method": "textDocument/publishDiagnostics",
         "params": {
-          "uri": "file:///private/tmp/k1-replay/smoke/test.sql",
+          "uri": "file:///private/tmp/k1-sendback-replay-2/smoke/test.sql",
           "diagnostics": [
             {
               "range": {
@@ -1110,12 +1155,27 @@
       }
     ],
     "exitCode": 0,
-    "stderr": ""
+    "stderr": "",
+    "environmentKeys": [
+      "PATH",
+      "SQLLENS_NO_PLUGINS",
+      "SQLLENS_USER_CONFIG",
+      "TEMP",
+      "TMP",
+      "TMPDIR",
+      "XDG_CACHE_HOME",
+      "XDG_CONFIG_HOME",
+      "XDG_STATE_HOME"
+    ],
+    "cleanup": {
+      "pid": 41980,
+      "groupReaped": true
+    }
   },
   "sqllens-postgres": {
     "command": [
       "node",
-      "/private/tmp/k1-replay/npm/sqllens-language-server/node_modules/sqllens-language-server/bin/cli.js",
+      "/private/tmp/k1-sendback-replay-2/npm/sqllens-language-server/node_modules/sqllens-language-server/bin/cli.js",
       "--stdio"
     ],
     "initialized": {
@@ -1288,7 +1348,7 @@
         "jsonrpc": "2.0",
         "method": "textDocument/publishDiagnostics",
         "params": {
-          "uri": "file:///private/tmp/k1-replay/smoke/.sqllens.json",
+          "uri": "file:///private/tmp/k1-sendback-replay-2/smoke/.sqllens.json",
           "diagnostics": []
         }
       },
@@ -1296,7 +1356,7 @@
         "jsonrpc": "2.0",
         "method": "textDocument/publishDiagnostics",
         "params": {
-          "uri": "file:///private/tmp/k1-replay/smoke/test.sql",
+          "uri": "file:///private/tmp/k1-sendback-replay-2/smoke/test.sql",
           "diagnostics": []
         }
       },
@@ -1304,7 +1364,7 @@
         "jsonrpc": "2.0",
         "method": "textDocument/publishDiagnostics",
         "params": {
-          "uri": "file:///private/tmp/k1-replay/smoke/test.sql",
+          "uri": "file:///private/tmp/k1-sendback-replay-2/smoke/test.sql",
           "diagnostics": []
         }
       },
@@ -1371,12 +1431,27 @@
       }
     ],
     "exitCode": 0,
-    "stderr": ""
+    "stderr": "",
+    "environmentKeys": [
+      "PATH",
+      "SQLLENS_NO_PLUGINS",
+      "SQLLENS_USER_CONFIG",
+      "TEMP",
+      "TMP",
+      "TMPDIR",
+      "XDG_CACHE_HOME",
+      "XDG_CONFIG_HOME",
+      "XDG_STATE_HOME"
+    ],
+    "cleanup": {
+      "pid": 41984,
+      "groupReaped": true
+    }
   },
   "sqllens": {
     "command": [
       "node",
-      "/private/tmp/k1-replay/npm/sqllens-language-server/node_modules/sqllens-language-server/bin/cli.js",
+      "/private/tmp/k1-sendback-replay-2/npm/sqllens-language-server/node_modules/sqllens-language-server/bin/cli.js",
       "--stdio"
     ],
     "initialized": {
@@ -1534,7 +1609,7 @@
         "jsonrpc": "2.0",
         "method": "textDocument/publishDiagnostics",
         "params": {
-          "uri": "file:///private/tmp/k1-replay/smoke/.sqllens.json",
+          "uri": "file:///private/tmp/k1-sendback-replay-2/smoke/.sqllens.json",
           "diagnostics": []
         }
       },
@@ -1542,7 +1617,7 @@
         "jsonrpc": "2.0",
         "method": "textDocument/publishDiagnostics",
         "params": {
-          "uri": "file:///private/tmp/k1-replay/smoke/test.sql",
+          "uri": "file:///private/tmp/k1-sendback-replay-2/smoke/test.sql",
           "diagnostics": []
         }
       },
@@ -1550,7 +1625,7 @@
         "jsonrpc": "2.0",
         "method": "textDocument/publishDiagnostics",
         "params": {
-          "uri": "file:///private/tmp/k1-replay/smoke/test.sql",
+          "uri": "file:///private/tmp/k1-sendback-replay-2/smoke/test.sql",
           "diagnostics": []
         }
       },
@@ -1602,12 +1677,27 @@
       }
     ],
     "exitCode": 0,
-    "stderr": ""
+    "stderr": "",
+    "environmentKeys": [
+      "PATH",
+      "SQLLENS_NO_PLUGINS",
+      "SQLLENS_USER_CONFIG",
+      "TEMP",
+      "TMP",
+      "TMPDIR",
+      "XDG_CACHE_HOME",
+      "XDG_CONFIG_HOME",
+      "XDG_STATE_HOME"
+    ],
+    "cleanup": {
+      "pid": 41988,
+      "groupReaped": true
+    }
   },
   "bash": {
     "command": [
       "node",
-      "/private/tmp/k1-replay/npm/bash-language-server/node_modules/bash-language-server/out/cli.js",
+      "/private/tmp/k1-sendback-replay-2/npm/bash-language-server/node_modules/bash-language-server/out/cli.js",
       "start"
     ],
     "initialized": {
@@ -1699,7 +1789,7 @@
         "method": "window/logMessage",
         "params": {
           "type": 3,
-          "message": "17:05:55.700 INFO ShellCheck linting is disabled as \"shellcheckPath\" was not set"
+          "message": "17:25:28.514 INFO ShellCheck linting is disabled as \"shellcheckPath\" was not set"
         }
       },
       {
@@ -1707,14 +1797,14 @@
         "method": "window/logMessage",
         "params": {
           "type": 3,
-          "message": "17:05:55.700 INFO Shfmt formatting is disabled as \"shfmt.path\" was not set"
+          "message": "17:25:28.514 INFO Shfmt formatting is disabled as \"shfmt.path\" was not set"
         }
       },
       {
         "jsonrpc": "2.0",
         "method": "textDocument/publishDiagnostics",
         "params": {
-          "uri": "file:///private/tmp/k1-replay/smoke/test.sql",
+          "uri": "file:///private/tmp/k1-sendback-replay-2/smoke/test.sql",
           "version": 1,
           "diagnostics": []
         }
@@ -1726,6 +1816,21 @@
       }
     ],
     "exitCode": 0,
-    "stderr": ""
+    "stderr": "",
+    "environmentKeys": [
+      "PATH",
+      "SQLLENS_NO_PLUGINS",
+      "SQLLENS_USER_CONFIG",
+      "TEMP",
+      "TMP",
+      "TMPDIR",
+      "XDG_CACHE_HOME",
+      "XDG_CONFIG_HOME",
+      "XDG_STATE_HOME"
+    ],
+    "cleanup": {
+      "pid": 41989,
+      "groupReaped": true
+    }
   }
 }

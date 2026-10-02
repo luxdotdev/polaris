@@ -72,7 +72,8 @@
       ],
       "argv": ["--stdio"],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "disposition": "offered"
     },
     {
       "id": "vscode-langservers-extracted",
@@ -136,7 +137,8 @@
       ],
       "argv": ["--stdio"],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "disposition": "offered"
     },
     {
       "id": "pyright",
@@ -208,7 +210,8 @@
       ],
       "argv": ["--stdio"],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "disposition": "offered"
     },
     {
       "id": "bash-language-server",
@@ -272,7 +275,8 @@
       ],
       "argv": ["start"],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "disposition": "offered"
     },
     {
       "id": "sql-language-server",
@@ -336,7 +340,8 @@
       ],
       "argv": ["up", "--method", "stdio"],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "disposition": "evaluation"
     },
     {
       "id": "prisma-language-server",
@@ -400,7 +405,8 @@
       ],
       "argv": ["--stdio"],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "disposition": "offered"
     },
     {
       "id": "yaml-language-server",
@@ -464,7 +470,8 @@
       ],
       "argv": ["--stdio"],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "disposition": "offered"
     },
     {
       "id": "actions-language-server",
@@ -528,7 +535,8 @@
       ],
       "argv": ["--stdio"],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "disposition": "offered"
     },
     {
       "id": "prettier",
@@ -592,7 +600,8 @@
       ],
       "argv": [],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "disposition": "offered"
     },
     {
       "id": "ruff",
@@ -721,7 +730,8 @@
       ],
       "argv": ["server"],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "disposition": "offered"
     },
     {
       "id": "rust-analyzer",
@@ -848,7 +858,8 @@
       ],
       "argv": [],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "disposition": "offered"
     },
     {
       "id": "lua-language-server",
@@ -929,10 +940,20 @@
           "auditRoot": "sha256:e88e7e1e9942e7d4fc4104bf4d6b4feaf089a01cb773097c74f2b5839fc699fa"
         }
       ],
-      "requirements": [],
+      "requirements": [
+        {
+          "id": "configured-lua-formatter",
+          "scope": "formatter",
+          "executable": "configured-lua-formatter",
+          "version": "present",
+          "detail": "Explicit configured project formatter; required only when formatting selected",
+          "required": false
+        }
+      ],
       "argv": [],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "disposition": "offered"
     },
     {
       "id": "shfmt",
@@ -1026,7 +1047,8 @@
       "requirements": [],
       "argv": [],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "disposition": "offered"
     },
     {
       "id": "shellcheck",
@@ -1110,7 +1132,8 @@
       "requirements": [],
       "argv": [],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "disposition": "offered"
     },
     {
       "id": "phpactor",
@@ -1194,13 +1217,22 @@
           "version": "present",
           "detail": "PHP extension tokenizer",
           "required": true
+        },
+        {
+          "id": "configured-php-formatter",
+          "scope": "formatter",
+          "executable": "configured-php-formatter",
+          "version": "present",
+          "detail": "Explicit configured project formatter; required only when formatting selected",
+          "required": false
         }
       ],
       "argv": ["language-server"],
       "environment": {},
       "limitations": [
         "PHAR strips most vendor license files and Composer installed metadata; external source/notice completion required. K1 Host lacks PHP, so rename/parity not verified."
-      ]
+      ],
+      "disposition": "offered"
     },
     {
       "id": "jdtls",
@@ -1263,7 +1295,8 @@
       "environment": {},
       "limitations": [
         "Resolve launcher glob to exactly one file; copy configuration for target OS to private writable state. No bundled JRE."
-      ]
+      ],
+      "disposition": "offered"
     },
     {
       "id": "gopls",
@@ -1332,7 +1365,8 @@
       },
       "limitations": [
         "Upstream publishes source, not managed prebuilt executables. Build in private GOBIN/GOMODCACHE/GOCACHE with developer Go."
-      ]
+      ],
+      "disposition": "offered"
     },
     {
       "id": "sql-formatter",
@@ -1396,7 +1430,8 @@
       ],
       "argv": [],
       "environment": {},
-      "limitations": []
+      "limitations": [],
+      "disposition": "offered"
     },
     {
       "id": "sqllens-language-server",
@@ -1462,7 +1497,8 @@
       "environment": {
         "SQLLENS_NO_PLUGINS": "1"
       },
-      "limitations": []
+      "limitations": [],
+      "disposition": "offered"
     }
   ],
   "integrations": [
@@ -1485,7 +1521,8 @@
       "formatter": {
         "tool": "prettier",
         "mode": "cli",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked",
+        "source": "managed"
       },
       "policy": {
         "trust": "workspace-before-execution",
@@ -1515,7 +1552,8 @@
       "formatter": {
         "tool": "prettier",
         "mode": "cli",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked",
+        "source": "managed"
       },
       "policy": {
         "trust": "workspace-before-execution",
@@ -1543,7 +1581,8 @@
       "formatter": {
         "tool": "prettier",
         "mode": "cli",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked",
+        "source": "managed"
       },
       "policy": {
         "trust": "workspace-before-execution",
@@ -1580,7 +1619,8 @@
       "formatter": {
         "tool": "ruff",
         "mode": "lsp",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked",
+        "source": "managed"
       },
       "policy": {
         "trust": "workspace-before-execution",
@@ -1610,7 +1650,8 @@
       "formatter": {
         "tool": "shfmt",
         "mode": "cli",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked",
+        "source": "managed"
       },
       "policy": {
         "trust": "workspace-before-execution",
@@ -1640,7 +1681,8 @@
       "formatter": {
         "tool": "jdtls",
         "mode": "lsp",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked",
+        "source": "managed"
       },
       "policy": {
         "trust": "workspace-before-execution",
@@ -1670,7 +1712,8 @@
       "formatter": {
         "tool": "configured-php-formatter",
         "mode": "configured",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked",
+        "source": "configured"
       },
       "policy": {
         "trust": "workspace-before-execution",
@@ -1700,7 +1743,8 @@
       "formatter": {
         "tool": "gopls",
         "mode": "lsp",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked",
+        "source": "managed"
       },
       "policy": {
         "trust": "workspace-before-execution",
@@ -1728,7 +1772,8 @@
       "formatter": {
         "tool": "rustfmt",
         "mode": "lsp",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked",
+        "source": "developer"
       },
       "policy": {
         "trust": "workspace-before-execution",
@@ -1758,7 +1803,8 @@
       "formatter": {
         "tool": "configured-lua-formatter",
         "mode": "configured",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked",
+        "source": "configured"
       },
       "policy": {
         "trust": "workspace-before-execution",
@@ -1788,7 +1834,8 @@
       "formatter": {
         "tool": "sql-formatter",
         "mode": "cli",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked",
+        "source": "managed"
       },
       "policy": {
         "trust": "workspace-before-execution",
@@ -1819,7 +1866,8 @@
       "formatter": {
         "tool": "prisma-language-server",
         "mode": "lsp",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked",
+        "source": "managed"
       },
       "policy": {
         "trust": "workspace-before-execution",
@@ -1849,7 +1897,8 @@
       "formatter": {
         "tool": "prettier",
         "mode": "cli",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked",
+        "source": "managed"
       },
       "policy": {
         "trust": "workspace-before-execution",
@@ -1886,7 +1935,8 @@
       "formatter": {
         "tool": "prettier",
         "mode": "cli",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked",
+        "source": "managed"
       },
       "policy": {
         "trust": "workspace-before-execution",

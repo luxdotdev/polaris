@@ -49,6 +49,7 @@ export type Artifact = typeof Artifact.Type;
 
 export const Tool = Schema.Struct({
   id: Id,
+  disposition: Schema.Literals(["offered", "evaluation"]),
   version: Schema.String,
   source: Schema.String,
   license: Schema.String,
@@ -79,6 +80,7 @@ export const Integration = Schema.Struct({
   companions: Schema.Array(Schema.String),
   formatter: Schema.Struct({
     tool: Schema.String,
+    source: Schema.Literals(["managed", "developer", "configured"]),
     mode: Schema.Literals(["cli", "lsp", "configured"]),
     detail: Schema.String,
   }),

@@ -9,6 +9,7 @@ import {
   safeArchivePath,
 } from "../../apps/daemon/src/languages/catalog/verification";
 import { auditBundle, readBundle } from "./audit";
+import { offeredTools, referenceFailures } from "./offered";
 
 interface ReferenceFile {
   readonly path: string;
@@ -65,7 +66,10 @@ const checkArtifact = (artifact: Artifact): ReadonlyArray<string> => {
   if (manifest.artifactId !== artifact.id || manifest.artifactIntegrity !== artifact.integrity)
     failures.push(`${artifact.id}: manifest-identity`);
 
-  if (artifact.audit === "verified" && manifest.coverage !== "complete")
+  if (
+    artifact.audit === "verified" &&
+    (manifest.coverage !== "complete" || manifest.notices.length === 0)
+  )
     failures.push(`${artifact.id}: incomplete-coverage`);
 
   if (artifact.audit === "pending" && !artifact.auditReason)
@@ -88,25 +92,20 @@ export const checkCatalog = (): ReadonlyArray<string> => {
   for (const tool of catalog.tools)
     if (tool.artifacts.length === 0) failures.push(`${tool.id}: missing-artifacts`);
 
-  for (const integration of catalog.integrations) {
-    for (const provider of integration.providers)
-      if (!toolIds.includes(provider.tool)) failures.push(`${integration.id}: unknown-provider`);
-  }
-
-  return failures;
+  return [...failures, ...referenceFailures(catalog)];
 };
 
 if (import.meta.main) {
   const failures = checkCatalog();
 
-  const blocked = catalog.tools.filter((tool) =>
+  const blocked = offeredTools(catalog).filter((tool) =>
     tool.artifacts.some((artifact) => artifact.audit === "pending")
   );
 
   for (const failure of failures) console.error(failure);
 
   console.log(
-    `Catalog consistency: ${failures.length} failures; ${catalog.integrations.length} integrations, ${catalog.tools.length} pinned tools; ${blocked.length} tools have explicit activation audit blocks.`
+    `Catalog consistency: ${failures.length} failures; ${catalog.integrations.length} integrations, ${catalog.tools.length} pinned tools (${offeredTools(catalog).length} offered); ${blocked.length} offered tools have explicit activation audit blocks.`
   );
 
   if (process.argv.includes("--release")) {

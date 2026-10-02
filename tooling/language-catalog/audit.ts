@@ -1,7 +1,9 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Schema } from "effect";
 import { isAllowed } from "../../scripts/licenses";
+import { catalog } from "../../apps/daemon/src/languages/catalog";
+import { offeredTools, referenceFailures } from "./offered";
 import {
   safeArchivePath,
   verifyIntegrity,
@@ -119,19 +121,26 @@ export const readBundle = (path: string): Bundle =>
 const main = (): void => {
   const dir = join(import.meta.dir, "bundles");
 
-  const failures = readdirSync(dir)
-    .filter((name) => name.endsWith(".json"))
-    .flatMap((name) =>
+  const bundles = new Set(
+    offeredTools(catalog).flatMap((tool) =>
+      tool.artifacts.flatMap((artifact) => (artifact.bundle ? [artifact.bundle] : []))
+    )
+  );
+
+  const failures = [
+    ...referenceFailures(catalog),
+    ...[...bundles].flatMap((name) =>
       auditBundle({
-        bundle: readBundle(join(dir, name)),
+        bundle: readBundle(join(dir, `${name}.json`)),
         noticeRoot: join(import.meta.dir, "notices"),
       })
-    );
+    ),
+  ];
 
   for (const failure of failures) console.error(failure);
 
   console.log(
-    `Managed npm audit: ${failures.length} unresolved findings; all frozen dependencies checked.`
+    `Offered managed npm audit: ${failures.length} unresolved findings; ${bundles.size} frozen bundles checked. Evaluation-only bundles retained outside release gate.`
   );
   process.exitCode = failures.length > 0 ? 1 : 0;
 };

@@ -2,6 +2,9 @@ import { expect, test } from "bun:test";
 import { join } from "node:path";
 import { auditBundle, readBundle } from "./audit";
 import { checkCatalog } from "./check";
+import { catalog } from "../../apps/daemon/src/languages/catalog";
+import { Tool } from "../../apps/daemon/src/languages/catalog/model";
+import { offeredTools, referenceFailures } from "./offered";
 
 const root = import.meta.dir;
 
@@ -41,4 +44,42 @@ test("third party notice disappearance and copyleft metadata are not hidden by r
 
 test("catalog audit roots and eligibility flags match the exact retained evidence", () => {
   expect(checkCatalog()).toEqual([]);
+});
+
+test("evaluation-only SQL cannot block offered release roots", () => {
+  expect(offeredTools(catalog).some((tool) => tool.id === "sql-language-server")).toBe(false);
+  expect(offeredTools(catalog)).toHaveLength(18);
+  expect(referenceFailures(catalog)).toEqual([]);
+});
+
+test("active providers, companions and managed formatters cannot evade offered audit coverage", () => {
+  for (const id of ["sqllens-language-server", "shellcheck", "prettier"]) {
+    const tools = catalog.tools.map((tool) =>
+      tool.id === id ? Tool.make({ ...tool, disposition: "evaluation" }) : tool
+    );
+
+    expect(referenceFailures({ ...catalog, tools }).some((failure) => failure.endsWith(id))).toBe(
+      true
+    );
+  }
+
+  const integrations = catalog.integrations.map((integration) => ({
+    ...integration,
+    formatter: { ...integration.formatter, tool: "missing-formatter" },
+  }));
+
+  expect(referenceFailures({ ...catalog, integrations })).toHaveLength(14);
+
+  const tools = catalog.tools.map((tool) =>
+    Tool.make({
+      ...tool,
+      artifacts: tool.artifacts.map((artifact) => ({ ...artifact, bundle: null })),
+    })
+  );
+
+  expect(
+    referenceFailures({ ...catalog, tools }).some((failure) =>
+      failure.endsWith("missing-npm-bundle")
+    )
+  ).toBe(true);
 });

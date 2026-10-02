@@ -4,15 +4,14 @@ import json
 import os
 import pathlib
 import queue
-import subprocess
 import threading
 import time
+from fixture import temporary_root, server_environment, start, stop
 
 
 def exchange(command, cwd, language, text, settings, options=None):
-    env = dict(os.environ, HOME=str(cwd / 'home'), XDG_CONFIG_HOME=str(cwd / 'home/config'), SQLLENS_NO_PLUGINS='1')
-    process = subprocess.Popen(command, cwd=cwd, env=env, stdin=subprocess.PIPE,
-                               stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    env = server_environment(cwd)
+    process = start(command, cwd, env)
     messages = queue.Queue()
     stderr = []
 
@@ -36,8 +35,9 @@ def exchange(command, cwd, language, text, settings, options=None):
         for line in process.stderr:
             stderr.append(line.decode(errors='replace'))
 
-    threading.Thread(target=receive, daemon=True).start()
-    threading.Thread(target=errors, daemon=True).start()
+    readers = [threading.Thread(target=receive, daemon=True), threading.Thread(target=errors, daemon=True)]
+    for reader in readers:
+        reader.start()
 
     def send(message):
         body = json.dumps(dict(jsonrpc='2.0', **message)).encode()
@@ -99,11 +99,14 @@ def exchange(command, cwd, language, text, settings, options=None):
         process.wait(timeout=5)
         return {'command': command, 'initialized': initialized, 'completion': completion,
                 'shutdown': shutdown, **extra, 'messages': observed, 'exitCode': process.returncode,
-                'stderr': ''.join(stderr)[-4000:]}
+                'stderr': ''.join(stderr)[-4000:], 'environmentKeys': sorted(env),
+                'cleanup': stop(process)}
     finally:
-        if process.poll() is None:
-            process.kill()
-            process.wait(timeout=5)
+        stop(process)
+        for reader in readers:
+            reader.join(timeout=1)
+            if reader.is_alive():
+                raise RuntimeError('Fixture reader survived cleanup')
         process.stdin.close()
         process.stdout.close()
         process.stderr.close()
@@ -114,11 +117,11 @@ def main():
     parser.add_argument('--root', required=True, type=pathlib.Path)
     parser.add_argument('--output', required=True, type=pathlib.Path)
     args = parser.parse_args()
-    root = args.root.resolve()
-    if not str(root).startswith(('/tmp/', '/private/tmp/')):
-        parser.error('Evaluation root must be in /tmp')
+    root = temporary_root(args.root)
+    if root not in args.output.resolve().parents:
+        parser.error('Evidence output must be inside fixture root')
     cwd = root / 'smoke'
-    (cwd / 'home').mkdir(parents=True, exist_ok=True)
+    cwd.mkdir(parents=True, exist_ok=True)
     # This project configuration must never be loaded by the rootless SQL probe.
     (cwd / '.sqllsrc.json').write_text(json.dumps({'adapter': 'postgres', 'host': '127.0.0.1',
                                                  'port': 1, 'database': 'canary'}))

@@ -39,6 +39,7 @@ const artifact = { ...base, auditRoot: sha256(manifest) };
 
 const tool = Tool.make({
   id: "fixture",
+  disposition: "offered",
   version: "1.0.0",
   source: base.url,
   license: "MIT",

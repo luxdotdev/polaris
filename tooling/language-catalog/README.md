@@ -16,11 +16,14 @@ bun tooling/language-catalog/audit.ts
 
 `check.ts` validates immutable evidence roots, catalog/lock identities, retained
 notice bytes, and honest eligibility flags. It succeeds with explicitly blocked
-entries. `--release` refuses **any** pending artifact. `audit.ts` independently
-checks the complete npm closure against the existing general license policy.
+entries. `--release` refuses pending **offered** artifacts. `audit.ts` independently
+checks the offered complete npm closure against the existing general license policy.
 Both strict release commands currently fail: see `docs/reports/m31/K1.md` and
 `external-audits.json`. A consistency pass is not catalog release certification.
-The Lead owns adding these commands to central release/license wiring.
+K2 owns remaining notice/source/policy closure before G1. The Lead owns central
+release/license wiring. Legacy SQL is evaluation-only; its frozen evidence is
+retained outside release gates. Active provider/formatter/companion references
+cannot point at unknown or evaluation-only tools.
 
 Each npm bundle contains the complete original private fixture manifest and
 npm v3 lock, plus verified SHA512 package roots and legal-file hashes, including
@@ -51,16 +54,19 @@ select 1::integer;
 SQL
 ```
 
-`prepare.py` verifies audit/bundle roots before `npm ci --ignore-scripts`, with
-separate temporary HOME, cache and user/global config files. Evaluation of a
+`prepare.py` requires a new root below canonical `/tmp` (`/private/tmp` on macOS),
+verifies audit/bundle roots and effective npm configuration before bounded
+`npm ci --ignore-scripts`, with explicit temporary cache/prefix/user/global
+config paths. It inherits PATH only; HOME and credentials/settings inheritance
+are absent. Evaluation of a
 blocked artifact in a disposable fixture does not authorize activation.
-`smoke.py` kills children on failure and asserts actual completion, SQL dialect
+`smoke.py` reaps detached groups with bounded TERM/KILL on success/failure/timeout and asserts actual completion, SQL dialect
 syntax differences, static-schema typed hover and Actions diagnostics. No
 GitHub token, connection credentials, database, SSH Host or real project is used.
 
 The legacy SQL probe requires the recorded protocol override. It is retained as
 rejected-default evidence. The sqllens probes disable plugins with
-`SQLLENS_NO_PLUGINS=1`. PostgreSQL/MySQL document IDs test dialect behavior without
+`SQLLENS_NO_PLUGINS=1` and an explicit temporary `SQLLENS_USER_CONFIG`. PostgreSQL/MySQL document IDs test dialect behavior without
 a required checked-in Polaris configuration file.
 
 ## Capturing audits for an explicit catalog update
