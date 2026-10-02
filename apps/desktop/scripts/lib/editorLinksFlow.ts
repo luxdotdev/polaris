@@ -3,10 +3,14 @@
  * Turn wrote opens from its transcript row; ⌘P finds README.md; ⌘L adds two lines to the
  * session's composer; ⌘I asks the bench Harness and Accept puts its patch in the buffer.
  */
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import type { Page } from "playwright-core";
 
 interface EditorLinksFlowOptions {
   readonly page: Page;
+  /** The session's repository: the bench transcript names files it never writes. */
+  readonly repo: string;
   readonly step: (message: string) => void;
   readonly shoot: (name: string) => Promise<void>;
 }
@@ -29,9 +33,17 @@ const selectTwoLines = async (page: Page) => {
   await page.keyboard.press("Shift+ArrowDown");
 };
 
-const fromTranscript = async ({ page, step }: EditorLinksFlowOptions) => {
+const fromTranscript = async (options: EditorLinksFlowOptions): Promise<() => void> => {
+  const { page, step } = options;
   const row = page.getByTestId("file-change").locator("> div").first();
   const path = ((await row.locator("span.flex-1").first().textContent()) ?? "").trim();
+  const onDisk = join(options.repo, path);
+  const made = !existsSync(onDisk);
+
+  if (made) {
+    mkdirSync(dirname(onDisk), { recursive: true });
+    writeFileSync(onDisk, "export const smoke = 1;\n");
+  }
 
   await row.hover();
   await row.getByTestId("open-in-editor").click();
@@ -43,6 +55,7 @@ const fromTranscript = async ({ page, step }: EditorLinksFlowOptions) => {
       toasts: [...document.querySelectorAll("[data-sonner-toast]")].map((t) => t.textContent),
       edit: !!document.querySelector('[data-testid="explorer"]'),
       tabs: [...document.querySelectorAll('[data-testid="editor-tab"]')].map((t) => t.title),
+      request: window.__polarisOpenRequests?.last(),
     })`);
 
     step(`editor: open from ${path} failed: ${JSON.stringify(seen)}`);
@@ -51,6 +64,10 @@ const fromTranscript = async ({ page, step }: EditorLinksFlowOptions) => {
 
   await waitForTab(page, path.split("/").at(-1) ?? path);
   step(`editor: ${path} opened from its transcript row`);
+
+  return () => {
+    if (made) rmSync(onDisk);
+  };
 };
 
 const findFile = async ({ page, step }: EditorLinksFlowOptions) => {
@@ -121,9 +138,14 @@ const inlineEdit = async ({ page, step, shoot }: EditorLinksFlowOptions) => {
 };
 
 export const editorLinksFlow = async (options: EditorLinksFlowOptions) => {
-  await fromTranscript(options);
-  await findFile(options);
-  await addToSession(options);
-  await inlineEdit(options);
-  await options.page.keyboard.press("Meta+1");
+  const cleanUp = await fromTranscript(options);
+
+  try {
+    await findFile(options);
+    await addToSession(options);
+    await inlineEdit(options);
+    await options.page.keyboard.press("Meta+1");
+  } finally {
+    cleanUp();
+  }
 };
