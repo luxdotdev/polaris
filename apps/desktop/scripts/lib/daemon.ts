@@ -49,7 +49,13 @@ const testEnv = (
   userHome: string | undefined,
   extra: Readonly<Record<string, string>>
 ) => {
-  const { CLAUDE_CONFIG_DIR: _claude, CODEX_HOME: _codex, ...env } = process.env;
+  // A fresh child does not inherit the listener described by a Daemon upgrade hand-off.
+  const {
+    CLAUDE_CONFIG_DIR: _claude,
+    CODEX_HOME: _codex,
+    POLARIS_HANDOFF: _handoff,
+    ...env
+  } = process.env;
 
   return {
     ...env,
