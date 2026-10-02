@@ -3,8 +3,10 @@
  * defaults for new sessions, and the remote Hosts (by `~/.ssh/config` alias). A missing or unreadable file means
  * the defaults; the file is rewritten whole on every change.
  */
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { LanguageSettingsRecord, LanguagePreviewPolicy } from "@polaris/protocol";
 import { Option, Schema } from "effect";
 import {
   CodeFont,
@@ -34,6 +36,12 @@ export const RemoteHostSetting = Schema.Struct({
 export type RemoteHostSetting = typeof RemoteHostSetting.Type;
 
 export const Settings = Schema.Struct({
+  languageSettings: Schema.optionalKey(
+    Schema.Array(LanguageSettingsRecord).check(Schema.isMaxLength(4096))
+  ),
+  languagePreviewPolicies: Schema.optionalKey(
+    Schema.Array(LanguagePreviewPolicy).check(Schema.isMaxLength(4096))
+  ),
   keepDaemonsUpToDate: Schema.optionalKey(Schema.Boolean),
   daemonUpdates: Schema.optionalKey(Schema.Record(Schema.String, DaemonUpdateResultSchema)),
   theme: Schema.optionalKey(ThemeSource),
@@ -85,11 +93,16 @@ export interface SettingsWrite {
 
 /** Atomic: written to a sibling file, then renamed over the old one. */
 export const writeSettings = ({ path, settings }: SettingsWrite) => {
+  const validated = Schema.decodeUnknownSync(Settings)(settings);
   mkdirSync(dirname(path), { recursive: true });
-  const partial = `${path}.part`;
+  const partial = `${path}.${randomUUID()}.part`;
 
-  writeFileSync(partial, `${JSON.stringify(settings, null, 2)}\n`);
-  renameSync(partial, path);
+  try {
+    writeFileSync(partial, `${JSON.stringify(validated, null, 2)}\n`, { mode: 0o600, flag: "wx" });
+    renameSync(partial, path);
+  } finally {
+    rmSync(partial, { force: true });
+  }
 };
 
 /** The appearance a settings file asks for, with the defaults filled in. */

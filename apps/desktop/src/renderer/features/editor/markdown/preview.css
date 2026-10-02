@@ -1,0 +1,55 @@
+.markdown-preview {
+  height: 100%;
+  overflow: auto;
+  padding: var(--spacing-panel);
+  color: var(--color-text-default);
+  font-size: var(--text-body);
+  overflow-wrap: anywhere;
+}
+.preview-policy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-gap);
+  color: var(--color-text-subtle);
+  font-size: var(--text-caption);
+  margin-bottom: var(--spacing-gap);
+}
+.preview-policy button {
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-row);
+  min-height: var(--spacing-row);
+  padding-inline: var(--spacing-gap);
+  color: var(--color-text-default);
+  background: var(--color-surface-raised);
+}
+.preview-policy button:disabled {
+  opacity: 0.6;
+}
+.preview-source {
+  white-space: pre-wrap;
+}
+.editor-markdown img {
+  max-width: 100%;
+  height: auto;
+}
+.preview-image-status {
+  color: var(--color-text-subtle);
+}
+.editor-markdown a {
+  color: var(--color-text-strong);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.markdown-preview :is(a, button, summary, h1, h2, h3, h4, h5, h6):focus-visible {
+  outline: 2px solid var(--color-starlight);
+  outline-offset: 2px;
+}
+.editor-markdown [data-streamdown="table-wrapper"] {
+  overflow-x: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .markdown-preview {
+    scroll-behavior: auto;
+  }
+}
