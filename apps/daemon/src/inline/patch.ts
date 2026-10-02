@@ -82,6 +82,10 @@ export const harnessPrompt = (request: InlineRequest) =>
     prompt: request.prompt,
   });
 
-export const patchJsonSchema = Schema.decodeUnknownSync(Schema.Json)(
-  Schema.toJsonSchemaDocument(InlinePatch).schema
+// OpenAI structured outputs reject any object schema without additionalProperties: false.
+export const patchJsonSchema = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Json))(
+  JSON.stringify(Schema.toJsonSchemaDocument(InlinePatch).schema).replaceAll(
+    '"additionalProperties":true',
+    '"additionalProperties":false'
+  )
 );

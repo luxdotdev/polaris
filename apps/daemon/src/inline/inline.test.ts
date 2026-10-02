@@ -5,6 +5,7 @@ import { benchInline } from "./bench.ts";
 import type { InlineBackend } from "./backend.ts";
 import { propose } from "./proposal.ts";
 
+import { patchJsonSchema } from "./patch.ts";
 import { request } from "./testing.ts";
 
 const patch = InlinePatch.make({
@@ -113,4 +114,11 @@ test("cancelling stream consumption interrupts the Harness and runs cleanup", as
   );
 
   expect(cleaned).toBe(true);
+});
+
+test("the patch schema is strict enough for OpenAI structured outputs", () => {
+  const text = JSON.stringify(patchJsonSchema);
+
+  expect(text.match(/"type":"object"/g)?.length).toBe(2);
+  expect(text.match(/"additionalProperties":false/g)?.length).toBe(2);
 });
