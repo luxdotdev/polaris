@@ -1,3 +1,4 @@
+import { childEnv } from "./childEnv.ts";
 import { Context, Effect, Layer } from "effect";
 
 export interface CommandResult {
@@ -27,6 +28,7 @@ export class CommandRunner extends Context.Service<
         Effect.promise(async () => {
           try {
             const proc = Bun.spawn([...argv], {
+              env: childEnv(),
               stdin: options?.stdin === undefined ? "ignore" : new Blob([options.stdin]),
               stdout: "pipe",
               stderr: "pipe",

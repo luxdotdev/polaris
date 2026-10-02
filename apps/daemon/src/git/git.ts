@@ -2,6 +2,7 @@
  * The one way the Daemon runs git: the Host's own `git` CLI, so the user's
  * config, credentials and hooks apply. No JS git implementation.
  */
+import { childEnv } from "../service/childEnv.ts";
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { Effect } from "effect";
@@ -42,7 +43,7 @@ export const runGitRaw = async (
 ): Promise<GitResult> => {
   const spawnOptions: Bun.SpawnOptions.OptionsObject<"ignore" | Blob, "pipe", "pipe"> = {
     cwd,
-    env: { ...baseEnv(), ...options.env },
+    env: childEnv({ ...baseEnv(), ...options.env }),
     stdin: options.stdin === undefined ? "ignore" : new Blob([options.stdin]),
     stdout: "pipe",
     stderr: "pipe",

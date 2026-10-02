@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Effect } from "effect";
 import {
@@ -66,6 +66,35 @@ const parentOf = (pid: number) =>
   );
 
 describe("the shared app-server outlives the Daemon", () => {
+  test("an idle legacy server is replaced with a sanitized server", async () => {
+    const { socketPath, stateFile, options } = setup();
+    await connectOnce(options);
+    const old = recordedPid(stateFile);
+    const state = readAppServerState(stateFile);
+    writeFileSync(stateFile, JSON.stringify({ ...state, sanitizedEnv: undefined }));
+    await connectOnce(options);
+    expect(recordedPid(stateFile)).not.toBe(old);
+    expect(isOurAppServer(old, socketPath)).toBe(false);
+    expect(readAppServerState(stateFile)?.sanitizedEnv).toBe(true);
+  }, 30_000);
+
+  test("a live legacy server is reused, then replaced once idle", async () => {
+    const { codex, socketPath, stateFile, options } = setup();
+    codex.setLoaded(["thread-live"]);
+    await connectOnce(options);
+    const old = recordedPid(stateFile);
+    const state = readAppServerState(stateFile);
+    writeFileSync(stateFile, JSON.stringify({ ...state, sanitizedEnv: undefined }));
+    await connectOnce(options);
+    expect(recordedPid(stateFile)).toBe(old);
+    expect(isOurAppServer(old, socketPath)).toBe(true);
+    expect(readAppServerState(stateFile)?.sanitizedEnv).toBeUndefined();
+    codex.setLoaded([]);
+    await connectOnce(options);
+    expect(recordedPid(stateFile)).not.toBe(old);
+    expect(readAppServerState(stateFile)?.sanitizedEnv).toBe(true);
+  }, 30_000);
+
   test("it is started detached, recorded, and not killed when the scope closes", async () => {
     const { socketPath, stateFile, options } = setup();
     await connectOnce(options);

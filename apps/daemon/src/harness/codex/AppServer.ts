@@ -22,6 +22,7 @@
  *
  * `polaris uninstall` stops it (`stopAppServer`).
  */
+import { childEnv } from "../../service/childEnv.ts";
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { Effect, Option, Schema, type Scope, Semaphore } from "effect";
@@ -59,6 +60,8 @@ export const AppServerState = Schema.Struct({
   codexPath: Schema.String,
   socketPath: Schema.String,
   startedAt: Schema.Number,
+  /** Older servers may retain the execve envelope in their own environment. */
+  sanitizedEnv: Schema.optional(Schema.Boolean),
 });
 
 export type AppServerState = typeof AppServerState.Type;
@@ -88,6 +91,14 @@ const writeState = (stateFile: string, state: AppServerState) => {
   renameSync(temporary, stateFile);
 };
 
+const restartReason = (state: AppServerState, installed: string | null): string | null => {
+  if (state.sanitizedEnv !== true) return "clear the legacy hand-off environment";
+
+  if (installed === null || state.version === null || installed === state.version) return null;
+
+  return `${state.version} → ${installed}`;
+};
+
 const isAlive = (pid: number): boolean => {
   try {
     process.kill(pid, 0);
@@ -110,6 +121,7 @@ const commandLine = (pid: number): string | null => {
   }
 
   const result = Bun.spawnSync(["ps", "-o", "command=", "-p", String(pid)], {
+    env: childEnv(),
     stdin: "ignore",
     stdout: "pipe",
     stderr: "ignore",
@@ -140,6 +152,7 @@ export const installedCodexVersion = (codexPath: string): Effect.Effect<string |
   Effect.promise(async () => {
     try {
       const proc = Bun.spawn([codexPath, "--version"], {
+        env: childEnv(),
         stdin: "ignore",
         stdout: "pipe",
         stderr: "ignore",
@@ -269,6 +282,18 @@ export const acquireAppServer = (
     const systemdRun = options.systemdRun === undefined ? detectSystemdRun() : options.systemdRun;
     /** This Daemon's open connections; the upgrade check only runs when there are none. */
     let connections = 0;
+    let loggedLegacyEnv = false;
+
+    const logKeepingServer = (state: AppServerState, reason: string) =>
+      Effect.sync(() => {
+        if (state.sanitizedEnv !== true && loggedLegacyEnv) return;
+
+        if (state.sanitizedEnv !== true) loggedLegacyEnv = true;
+
+        return `codex app-server has live or unknown threads; deferring ${reason}`;
+      }).pipe(
+        Effect.flatMap((message) => (message === undefined ? Effect.void : Effect.logInfo(message)))
+      );
 
     const logTail = () => {
       try {
@@ -300,7 +325,7 @@ export const acquireAppServer = (
         try: async () => {
           const proc = Bun.spawn(
             launchArgv({ codexPath, socketPath: options.socketPath, logFile, systemdRun }),
-            { stdin: "ignore", stdout: "pipe", stderr: "ignore", detached: true }
+            { env: childEnv(), stdin: "ignore", stdout: "pipe", stderr: "ignore", detached: true }
           );
 
           const out = await new Response(proc.stdout).text();
@@ -321,6 +346,7 @@ export const acquireAppServer = (
           codexPath,
           socketPath: options.socketPath,
           startedAt: Date.now(),
+          sanitizedEnv: true,
         })
       );
 
@@ -339,26 +365,25 @@ export const acquireAppServer = (
       return yield* codexError(`codex app-server did not start listening on ${options.socketPath}`);
     });
 
-    /** codex was upgraded under a running server: replace it if nothing is live on it. */
+    /** Replace outdated or legacy-environment servers only when nothing is live on them. */
     const replaceIfOutdated = Effect.gen(function* () {
       if (!options.spawn || options.codexPath === null || connections > 0) return;
       const state = readAppServerState(stateFile);
 
       if (state === null || state.socketPath !== options.socketPath) return;
       const installed = yield* versionOf(options.codexPath);
+      const reason = restartReason(state, installed);
 
-      if (installed === null || state.version === null || installed === state.version) return;
+      if (reason === null) return;
       const loaded = yield* loadedThreads(options.socketPath);
 
       if (loaded === null || loaded.length > 0) {
-        yield* Effect.logInfo(
-          `codex ${installed} is installed but app-server ${state.version} has live threads; keeping it`
-        );
+        yield* logKeepingServer(state, reason);
 
         return;
       }
 
-      yield* Effect.logInfo(`restarting codex app-server ${state.version} → ${installed}`);
+      yield* Effect.logInfo(`restarting codex app-server: ${reason}`);
       yield* stopAppServer({ stateFile, socketPath: options.socketPath });
     });
 

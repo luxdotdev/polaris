@@ -3,6 +3,7 @@
  * `--version`, then its own sign-in status command. Polaris never reads the
  * credentials (ADR 0001) and never imports a driver here (ENG-196).
  */
+import { childEnv } from "../../service/childEnv.ts";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
@@ -55,7 +56,7 @@ export const runProbe = (argv: ReadonlyArray<string>, env: ProbeEnv): Effect.Eff
     try {
       const proc = Bun.spawn([...argv], {
         cwd: home(env),
-        env: { ...env },
+        env: childEnv(env),
         stdin: "ignore",
         stdout: "pipe",
         stderr: "pipe",
