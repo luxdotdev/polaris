@@ -6,11 +6,23 @@ import { Effect } from "effect";
 import { CID, HOST, LEAD } from "../engine/constellation.testing.ts";
 import { EventStore } from "../store/EventStore.ts";
 import { observeWorkerHost, recoverWorkingAttempts, RECOVERY_PROMPT } from "./recovery.ts";
-import { setup, world, WORKER, STANDALONE, send, signal } from "./delivery/testing.ts";
+import { setup, world, WORKER, STANDALONE, send } from "./delivery/testing.ts";
 
-const recovery = (sessionId = WORKER, interruptionId = "restart-1") => ({
-  sessionId,
-  interruptionId,
+import { recoverSession } from "../engine/recovery.constellation.ts";
+
+const recovery = Effect.fnUntraced(function* (sessionId: typeof WORKER = WORKER) {
+  const model = yield* (yield* EventStore).model;
+
+  const proof = [...model.constellations.values()]
+    .flatMap((r) => [...r.interruptions.values()])
+    .find((p) => model.sessions.get(sessionId)?.turns.at(-1)?.id === p.turnId);
+
+  return { sessionId, interruptionId: proof?.interruptionId ?? "no-proof" };
+});
+
+const recover = Effect.fnUntraced(function* (sessionId: typeof WORKER, at: string) {
+  const store = yield* EventStore;
+  yield* recoverSession({ store }, sessionId, "restart", at);
 });
 
 test("resources resume first, then one delegated Continue; Lead and standalone Sessions remain Needs You", async () => {
@@ -21,11 +33,7 @@ test("resources resume first, then one delegated Continue; Lead and standalone S
 
       for (const id of [LEAD, WORKER, STANDALONE]) {
         yield* send(id);
-        yield* signal(id, {
-          type: "daemon.recover",
-          cause: "restart",
-          at: "2026-10-01T01:00:00.000Z",
-        });
+        yield* recover(id, "2026-10-02T01:00:00.000Z");
       }
 
       let resumed = false;
@@ -40,9 +48,9 @@ test("resources resume first, then one delegated Continue; Lead and standalone S
       };
 
       yield* recoverWorkingAttempts(runtime, [
-        recovery(),
-        recovery(LEAD),
-        recovery(STANDALONE),
+        yield* recovery(),
+        yield* recovery(LEAD),
+        yield* recovery(STANDALONE),
       ]).pipe(Effect.provideService(importOwner, HOST));
       expect(resumed).toBe(true);
       expect(w.turns).toHaveLength(1);
@@ -52,16 +60,12 @@ test("resources resume first, then one delegated Continue; Lead and standalone S
       expect((yield* store.model).constellations.get(CID)!.recoveries.size).toBe(1);
       expect((yield* store.model).sessions.get(LEAD)!.session.state).toBe("needs-you");
       expect((yield* store.model).sessions.get(STANDALONE)!.session.state).toBe("needs-you");
-      yield* recoverWorkingAttempts(w.runtime, [recovery()]).pipe(
+      yield* recoverWorkingAttempts(w.runtime, [yield* recovery()]).pipe(
         Effect.provideService(importOwner, HOST)
       );
       expect(w.turns).toHaveLength(1);
-      yield* signal(WORKER, {
-        type: "daemon.recover",
-        cause: "restart",
-        at: "2026-10-01T02:00:00.000Z",
-      });
-      yield* recoverWorkingAttempts(w.runtime, [recovery(WORKER, "restart-2")]).pipe(
+      yield* recover(WORKER, "2026-10-02T02:00:00.000Z");
+      yield* recoverWorkingAttempts(w.runtime, [yield* recovery()]).pipe(
         Effect.provideService(importOwner, HOST)
       );
       expect(w.turns).toHaveLength(1);
@@ -88,12 +92,8 @@ test("stale is durable through restart, never advances Attempt revision or mecha
         expect(record.graph.attempts[0]!.revision).toBe(0);
         expect(record.graph.attempts[0]!.state).toBe("working");
         yield* send(WORKER);
-        yield* signal(WORKER, {
-          type: "daemon.recover",
-          cause: "restart",
-          at: "2026-10-01T01:00:00.000Z",
-        });
-        yield* recoverWorkingAttempts(w.runtime, [recovery()]).pipe(
+        yield* recover(WORKER, "2026-10-02T01:00:00.000Z");
+        yield* recoverWorkingAttempts(w.runtime, [yield* recovery()]).pipe(
           Effect.provideService(importOwner, HOST)
         );
         expect(w.turns).toHaveLength(0);

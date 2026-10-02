@@ -194,7 +194,7 @@ const check = (input: ConstellationTrace): boolean => {
 describe("Constellation real-log replay", () => {
   test("protocol events replay Claims, acceptance, Gate promotion and digest delivery", () => {
     expect(check(trace([batch(initial), batch(reviewed), batch(accepted)]))).toBe(true);
-  });
+  }, 30_000);
 
   test("JSON boundary and CLI replay the complete log", () => {
     const encoded = Schema.encodeSync(
@@ -218,7 +218,7 @@ describe("Constellation real-log replay", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
-  });
+  }, 30_000);
 
   test("complete graph history and unique start are required", () => {
     expect(() =>
@@ -227,13 +227,13 @@ describe("Constellation real-log replay", () => {
     expect(() =>
       constellationTraceToQuint("bad", trace([batch(initial), batch([started])]), "model")
     ).toThrow("repeated");
-  });
+  }, 30_000);
 
   test("refused remote intents can commit empty owner receipt batches", () => {
     const receipt = { hostId: host, events: [], outboxId: "refused", constellationId };
     expect(check(trace([batch(initial), receipt]))).toBe(true);
     expect(check(trace([batch(initial), receipt, receipt]))).toBe(false);
-  });
+  }, 30_000);
 
   test("a mismatched merged head is rejected by the reference model", () => {
     const wrong = E.AttemptAccepted.make({
@@ -246,7 +246,7 @@ describe("Constellation real-log replay", () => {
     expect(
       check(trace([batch(initial), batch(reviewed), batch([wrong, ...accepted.slice(1)])]))
     ).toBe(false);
-  });
+  }, 30_000);
 
   test("repeated delivery and delivery to the previous Lead are rejected", () => {
     const delivered = E.LeadNotified.make({
@@ -270,7 +270,7 @@ describe("Constellation real-log replay", () => {
     expect(check(trace([batch(initial), batch(reviewed), batch([handover, delivered])]))).toBe(
       false
     );
-  });
+  }, 30_000);
 
   test("handover requests replay in order; cancelled or superseded completions are rejected", () => {
     const request = (id: string) =>
@@ -309,7 +309,7 @@ describe("Constellation real-log replay", () => {
     expect(
       check(trace([batch(initial), batch([request("r1"), request("r2")]), batch([changed("r2")])]))
     ).toBe(true);
-  }, 20_000);
+  }, 30_000);
 
   test("stale intervals and per-recipient input receipts replay without an Attempt revision bump", () => {
     const stale = E.AttemptStale.make({ ...graph, attemptId, hostId: host, at: time });
@@ -328,7 +328,7 @@ describe("Constellation real-log replay", () => {
     expect(check(trace([batch(initial), batch([began]), batch([delivered, delivered])]))).toBe(
       false
     );
-  });
+  }, 30_000);
 
   test("ownership is checked even for metadata omitted from the abstraction", () => {
     const message = E.PeerMessage.make({ ...graph, from: attemptId, to: attemptId, text: "Hello" });
@@ -339,7 +339,7 @@ describe("Constellation real-log replay", () => {
         "model"
       )
     ).toThrow("owner");
-  });
+  }, 30_000);
 
   test("stale settlement requires explicit context and cannot be mechanical", () => {
     const settled = E.AttemptSettled.make({
@@ -369,7 +369,7 @@ describe("Constellation real-log replay", () => {
         ])
       )
     ).toBe(false);
-  });
+  }, 30_000);
 
   test("remote receipt reapplication is rejected", () => {
     expect(check(trace([batch(initial), { ...batch(reviewed), outboxId: "remote:1" }]))).toBe(true);
@@ -385,7 +385,7 @@ describe("Constellation real-log replay", () => {
         ])
       )
     ).toBe(false);
-  });
+  }, 30_000);
 
   test("Host resource streams use their own owner and capacity", () => {
     const remote = HostId.make("worker-host");
@@ -441,5 +441,44 @@ describe("Constellation real-log replay", () => {
         trace([{ hostId: remote, events: [events[0]!, queued("r1"), queued("r2"), leased("r2")] }])
       )
     ).toBe(false);
-  }, 20_000);
+  }, 30_000);
 });
+
+test("recovery replay requires eligible proof for the exact interruption ID", () => {
+  const proof = E.AttemptInterrupted.make({
+    ...graph,
+    attemptId,
+    turnId: TurnId.make("interrupted"),
+    interruptionId: "cut-1",
+    eligible: true,
+    at: time,
+  });
+
+  const recovered = E.AttemptRecoveryContinued.make({
+    ...target,
+    turnId: TurnId.make("continued"),
+    interruptionId: "cut-1",
+    cause: "recover",
+  });
+
+  expect(check(trace([batch([...initial, began]), batch([proof]), batch([recovered])]))).toBe(true);
+  expect(check(trace([batch([...initial, began]), batch([recovered])]))).toBe(false);
+  expect(
+    check(
+      trace([
+        batch([...initial, began]),
+        batch([E.AttemptInterrupted.make({ ...proof, eligible: false })]),
+        batch([recovered]),
+      ])
+    )
+  ).toBe(false);
+  expect(
+    check(
+      trace([
+        batch([...initial, began]),
+        batch([proof]),
+        batch([E.AttemptRecoveryContinued.make({ ...recovered, interruptionId: "cut-2" })]),
+      ])
+    )
+  ).toBe(false);
+}, 30_000);

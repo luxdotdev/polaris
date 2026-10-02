@@ -200,6 +200,7 @@ const projectionOf: (event: DomainEvent) => Projection = DomainEvent.match<Proje
   LeadChanged: () => () => Effect.void,
   LeadHandoverRequested: () => () => Effect.void,
   LeadHandoverCancelled: () => () => Effect.void,
+  AttemptInterrupted: () => () => Effect.void,
   AttemptStale: () => () => Effect.void,
   AttemptFresh: () => () => Effect.void,
   WorkerInputDelivered: () => () => Effect.void,

@@ -147,6 +147,7 @@ const fold = (event: DomainEvent): Fold =>
       LeadChanged: () => same,
       LeadHandoverRequested: () => same,
       LeadHandoverCancelled: () => same,
+      AttemptInterrupted: () => same,
       AttemptStale: () => same,
       AttemptFresh: () => same,
       WorkerInputDelivered: () => same,

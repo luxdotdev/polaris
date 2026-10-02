@@ -44,6 +44,11 @@ export interface ConstellationRecord {
   readonly inputDeliveries: ReadonlySet<string>;
   readonly stale: ReadonlyMap<AttemptId, string>;
   readonly delivered: ReadonlySet<string>;
+  readonly interruptions: ReadonlyMap<
+    AttemptId,
+    Extract<ConstellationEvent, { _tag: "AttemptInterrupted" }>
+  >;
+  readonly handoverStopped: ReadonlySet<AttemptId>;
   readonly recoveries: ReadonlySet<string>;
   readonly progress: ReadonlyMap<
     AttemptId,
@@ -149,6 +154,8 @@ const started = (graph: Constellation): ConstellationRecord => ({
   stale: new Map(),
   delivered: new Set(),
   recoveries: new Set(),
+  interruptions: new Map(),
+  handoverStopped: new Set(),
   progress: new Map(),
   stamps: new Map(),
   notifications: new Map(),
@@ -262,6 +269,9 @@ export const foldConstellation = (
         attempts: patchAttempt(next, e, { nudgedAt: e.at }),
       });
     },
+    AttemptInterrupted: (e) => {
+      next = { ...next, interruptions: new Map([...next.interruptions, [e.attemptId, e]]) };
+    },
     AttemptStale: (e) => {
       next = { ...next, stale: new Map([...next.stale, [e.attemptId, e.at]]) };
     },
@@ -289,6 +299,8 @@ export const foldConstellation = (
       });
     },
     AttemptSettled: (e) => {
+      if (e.reason === "stopped by handover")
+        next = { ...next, handoverStopped: new Set([...next.handoverStopped, e.attemptId]) };
       graph = new Constellation({
         ...graphData(graph),
         attempts: patchAttempt(next, e, { state: e.outcome, endedAt: at }),

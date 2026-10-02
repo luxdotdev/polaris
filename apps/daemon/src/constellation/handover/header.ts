@@ -9,6 +9,15 @@ export const handoverHeader = (record: ConstellationRecord, to: SessionId, summa
     `Polaris handover · ${record.graph.name} · revision ${record.graph.revision}`,
     `You are the new Lead (${to}), replacing ${record.graph.leadSessionId}. Existing workers continue their Attempts.`,
     statusOutline(record),
+    ...record.graph.attempts.flatMap((a) =>
+      a.sessionId === record.graph.leadSessionId &&
+      (a.state === "working" || a.state === "review") &&
+      record.graph.tasks.some((t) => t.id === a.taskId && t.kind === "gate")
+        ? [
+            `Gate ${a.taskId} was in progress at handover: re-run it. Recorded receipts: ${JSON.stringify(a.claim?.receipts ?? a.receipts)}`,
+          ]
+        : []
+    ),
     "Claims awaiting review:",
     ...record.graph.attempts.flatMap((a) =>
       a.state === "review" ? [`${a.taskId} · ${a.id}: ${JSON.stringify(a.claim)}`] : []

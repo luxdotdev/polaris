@@ -2,6 +2,7 @@ import { ConstellationEvent, type DomainEvent, type SessionId } from "@polaris/p
 import { Predicate } from "effect";
 import { inputDeliveryKey } from "../store/constellation.ts";
 import { activeAttempt } from "./projections.ts";
+import { stopLeadGates } from "./handover/gates.ts";
 import type { GraphDecision } from "./decision.ts";
 import type { ConstellationJournalInput } from "./journal.ts";
 
@@ -124,6 +125,8 @@ export const handoverCompleted = (
 
     return [];
   }
+
+  stopLeadGates(d);
 
   d.emit(
     ConstellationEvent.cases.LeadChanged.make({

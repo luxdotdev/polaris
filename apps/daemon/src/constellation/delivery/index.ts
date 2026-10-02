@@ -14,6 +14,7 @@ import {
 import { EventStore } from "../../store/EventStore.ts";
 import { graphEvent } from "../../store/constellation.ts";
 import { ConstellationOwner } from "../runtime.ts";
+import { ConstellationLiveness } from "../liveness.ts";
 import { performHandover } from "../handover/index.ts";
 import { digestDelay } from "./format.ts";
 import { commitJournal } from "./journal.ts";
@@ -41,6 +42,8 @@ const make = Effect.gen(function* () {
   const store = yield* EventStore;
   const owner = yield* ConstellationOwner;
   const remote = yield* ConstellationRemoteDelivery;
+  const liveness = yield* ConstellationLiveness;
+  const queued = new Map<SessionId, number>();
   const scope = yield* Scope.Scope;
 
   const dependencies = yield* Effect.context<
@@ -153,6 +156,16 @@ const make = Effect.gen(function* () {
     const record = (yield* store.model).constellations.get(id);
 
     if (record === undefined || record.graph.hostId !== owner) return;
+    const pending = pendingInputs(record);
+
+    for (const sessionId of new Set(record.graph.attempts.map((a) => a.sessionId))) {
+      const count = pending.filter((i) => i.sessionId === sessionId).length;
+
+      if (queued.get(sessionId) === count) continue;
+      queued.set(sessionId, count);
+      yield* liveness.queued(sessionId, count);
+    }
+
     yield* refreshHandover(id).pipe(Effect.provide(dependencies));
     yield* sendInputs(id).pipe(Effect.provide(dependencies));
     const delay = digestDelay(record);

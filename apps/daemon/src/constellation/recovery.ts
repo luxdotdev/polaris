@@ -57,6 +57,16 @@ export const recoverAttempt = Effect.fn("Constellation.recoverAttempt")(function
         record.pending.size !== 0
       )
         return Effect.succeed([]);
+      const proof = graph.interruptions.get(attempt.id);
+
+      if (
+        proof === undefined ||
+        !proof.eligible ||
+        proof.interruptionId !== candidate.interruptionId ||
+        record.turns.at(-1)?.id !== proof.turnId ||
+        record.turns.at(-1)?.endedAt !== proof.at
+      )
+        return Effect.succeed([]);
       const turnEvents = decideSession(record, { type: "turn.continue" }).events;
       const turn = startedTurn(turnEvents);
 

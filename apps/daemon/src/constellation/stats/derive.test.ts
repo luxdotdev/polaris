@@ -31,14 +31,14 @@ test("digest, review, reused worker sessions and overlapping FIFO waits have ind
     idleMs: 2000,
     waitingForSlotMs: 1000,
     waitingOnLeaseMs: 2000,
-    staleMs: null,
+    staleMs: 0,
   });
   expect(stats.workers.attempts[1]?.times).toEqual({
     workingMs: 3000,
     idleMs: 2000,
     waitingForSlotMs: 2000,
     waitingOnLeaseMs: 0,
-    staleMs: null,
+    staleMs: 0,
   });
   expect(stats.usage.perTask.map((t) => t.usage.tokens.input)).toEqual([50, 70]);
   expect(stats.usage.perRole.map((r) => r.usage.tokens.input)).toEqual([600, 120]);
@@ -130,7 +130,7 @@ test("missing digest and remote worker history expose unknown coverage rather th
     idleMs: null,
     waitingForSlotMs: null,
     waitingOnLeaseMs: null,
-    staleMs: null,
+    staleMs: 0,
   });
   expect(stats.coverage.map((c) => c.metric)).toContain("lead.digests");
   expect(stats.coverage.filter((c) => c.metric === "usage")).toHaveLength(2);
@@ -155,4 +155,107 @@ test("send-backs are grouped by retry cause rather than counting recovery or ini
   expect(
     deriveStats({ ...history, graph }, responses, Date.parse(time(15000))).review.sendBacksByCause
   ).toEqual([{ cause: "SentBack", count: 1 }]);
+});
+
+test("owner event.at drives stale time through review and remote open intervals across reused Sessions", () => {
+  const { history, responses, envelope, first, second } = statsFixture();
+
+  const graph = Constellation.make({
+    ...graphData(history.graph),
+    attempts: [first, Attempt.make({ ...attemptData(second), hostId: HostId.make("remote") })],
+  });
+
+  const events = [
+    ...history.events,
+    envelope(
+      7000,
+      DomainEvent.cases.AttemptStale.make({
+        constellationId: CID,
+        revision: graph.revision,
+        attemptId: first.id,
+        hostId: first.hostId,
+        at: time(6000),
+      })
+    ),
+    envelope(
+      13000,
+      DomainEvent.cases.AttemptFresh.make({
+        constellationId: CID,
+        revision: graph.revision,
+        attemptId: first.id,
+        at: time(8000),
+      })
+    ),
+    envelope(
+      14000,
+      DomainEvent.cases.AttemptStale.make({
+        constellationId: CID,
+        revision: graph.revision,
+        attemptId: second.id,
+        hostId: HostId.make("remote"),
+        at: time(11000),
+      })
+    ),
+  ].toSorted((a, b) => a.occurredAt.localeCompare(b.occurredAt));
+
+  const source = { ...history, graph, events };
+  const stats = deriveStats(source, responses, Date.parse(time(15000)));
+  expect(stats.workers.attempts.map((a) => a.times.staleMs)).toEqual([2000, 4000]);
+  expect(stats.workers.totals.staleMs).toBe(6000);
+  expect(stats.workers.attempts[1]?.times.workingMs).toBeNull();
+
+  const replayed = deriveStats(
+    { ...source, events: [...events] },
+    responses,
+    Date.parse(time(16000)),
+    stats
+  );
+
+  expect(replayed.workers.attempts.map((a) => a.times.staleMs)).toEqual([2000, 5000]);
+  expect(replayed.revision).toBe(stats.revision);
+
+  const resumed = [
+    ...events,
+    envelope(
+      17000,
+      DomainEvent.cases.AttemptFresh.make({
+        constellationId: CID,
+        revision: graph.revision,
+        attemptId: second.id,
+        at: time(16000),
+      })
+    ),
+  ];
+
+  const fresh = deriveStats(
+    { ...source, events: resumed },
+    responses,
+    Date.parse(time(18000)),
+    stats
+  );
+
+  expect(fresh.workers.totals.staleMs).toBe(7000);
+});
+
+test("a stale observation cannot accrue after a terminal Attempt end", () => {
+  const { history, responses, envelope, first } = statsFixture();
+
+  const events = [
+    ...history.events,
+    envelope(
+      10000,
+      DomainEvent.cases.AttemptStale.make({
+        constellationId: CID,
+        revision: history.graph.revision,
+        attemptId: first.id,
+        hostId: first.hostId,
+        at: time(8000),
+      })
+    ),
+  ];
+
+  expect(
+    deriveStats({ ...history, events }, responses, Date.parse(time(15000))).workers.attempts[0]
+      ?.times.staleMs
+  ).toBe(1000);
 });

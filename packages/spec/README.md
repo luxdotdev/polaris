@@ -189,9 +189,9 @@ do not have a log-size cap that could artificially prevent a grant or digest.
 | Fetched branches | `ConstellationStreamItem.BranchFetched` and required Snapshot `TaskProjection.branchFetched` observe an exact claimed commit at the owner Polaris ref. They carry no sequence or graph revision; Accept additionally probes the actual merged Lead head. Bundles stream through existing BlobChannels without retaining bundle-sized buffers. |
 | `promote` | decider-only `GatePromoted`, counting latest accepted Attempts, not Claims or mechanical settles |
 | `ask`, `finish`, `deliver` | NotificationQueued and LeadNotified; committed notification IDs, one durable digest Turn, retained across restart and handover |
-| `handover`, `setState` | atomic LeadChanged and the planning/running/paused/completed/archived lifecycle; workers are unchanged |
+| `handover`, `setState` | atomic LeadChanged and the planning/running/paused/completed/archived lifecycle; an active Gate on the departing Lead settles lost in the same batch, while other workers are unchanged |
 | `commit`, `enqueue`, `relay`, `availability` | owner-only events, ConstellationOutboxEntry stable IDs, app relay and unavailable owner; `transfers/outbox.ts` persists the worker intent, decides under EventStore.commit, and retains apply/refusal receipts. Client `constellation/relay.ts` uses existing HostConnection streams and retries durable packets after reconnect. `transfers/relay.test.ts` covers disconnect after owner commit before receipt saving and refusal replay |
-| `interrupt`, `recover`, `restart` | AttemptRecoveryContinued: one automatic Continue for a delegated Attempt's first infrastructure interruption, with durable replay marker; second interruption is attention |
+| `interrupt`, `recover`, `restart` | AttemptInterrupted is committed atomically with Session daemon recovery; it retains the interrupted Turn ID, event.at and eligibility before approvals are withdrawn. AttemptRecoveryContinued consumes one automatic Continue per Attempt. Replay requires eligible interruption proof; restart and upgrade re-fold it, while standalone, Lead, user interruptions and unresolved approvals stay attention |
 | `request`, `grant`, `release`, `cancelLease` | Host ResourceDeclared/ResourceLeaseQueued/ResourceLeased/ResourceReleased/ResourceLeaseCanceled/ResourceRemoved: request IDs are lease IDs, FIFO capacity, explicit or process-bound release |
 
 The 15 spec properties (§11) map as follows. Safety checks every explored state;
@@ -310,6 +310,9 @@ worker approvals and questions to the user never wake the Lead.
 `LeadChanged.requestId` must match the latest uncancelled request from the current
 Lead (`handoverRequestOrdered`); supersession and `LeadHandoverCancelled` invalidate
 older completions. The final switch, archive and new header Turn share one commit.
+An active Gate attached to the departing Lead is stopped in that batch, with
+commanded settlement. The new header preserves its receipts and requests a rerun;
+the next Gate Attempt has Superseded cause pointing to the stopped Attempt.
 Quint scenarios cover restart, cancellation, supersession and old-Lead delivery.
 `WorkerInputDelivered` records one recipient receipt (`inputDeliveredAtMostOnce`);
 remote enqueue alone records no delivery. `AttemptStale`/`AttemptFresh` retain

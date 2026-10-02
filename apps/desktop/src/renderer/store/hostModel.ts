@@ -173,6 +173,7 @@ const fold = (event: DomainEvent): Fold =>
       LeadChanged: () => unchanged,
       LeadHandoverRequested: () => unchanged,
       LeadHandoverCancelled: () => unchanged,
+      AttemptInterrupted: () => unchanged,
       AttemptStale: () => unchanged,
       AttemptFresh: () => unchanged,
       WorkerInputDelivered: () => unchanged,

@@ -55,7 +55,7 @@ for (const transport of ["http", "claude"] as const) {
             const { origin } = yield* mcpHttp(commands);
             const attachment = yield* attachConstellation(leadBinding, origin, commands);
             const client = new Client({ name: "c1-t-test", version: "1" });
-            const server = claudeConstellationOptions(attachment).mcpServers?.polaris;
+            const server = claudeConstellationOptions([attachment]).mcpServers?.polaris;
 
             if (server === undefined || server.type !== "sdk")
               throw new Error("Missing SDK server");

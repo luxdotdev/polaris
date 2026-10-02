@@ -72,6 +72,43 @@ export const waitForBoundary = Effect.fn("Constellation.waitForBoundary")(functi
   }
 });
 
+/** Existing Sessions retain approvals and terminal ownership until their machine accepts a Turn. */
+export const waitForDeliveryReady = Effect.fn("Constellation.waitForDeliveryReady")(function* (
+  sessionId: SessionId
+) {
+  const store = yield* EventStore;
+
+  while (true) {
+    const ready = yield* Effect.scoped(
+      Effect.gen(function* () {
+        const feed = yield* store.subscribe({ sessionId });
+
+        const inspect = Effect.map(store.model, (model) => {
+          const record = model.sessions.get(sessionId);
+
+          if (record === undefined || record.session.state === "archived") return "gone";
+
+          return takesDelivery(record, newTurn(record.session, "", new Date().toISOString()))
+            ? "ready"
+            : "wait";
+        });
+
+        const state = yield* inspect;
+
+        if (state !== "wait") return state;
+        yield* feed.pipe(
+          Stream.takeUntilEffect(() => Effect.map(inspect, (state) => state !== "wait")),
+          Stream.runDrain
+        );
+
+        return yield* inspect;
+      })
+    );
+
+    if (ready !== "wait") return ready === "ready";
+  }
+});
+
 /** Receipt lookup inside commit precedes state checks, including retries after an Attempt ends. */
 export const applyWorkerDelivery = Effect.fn("Constellation.applyWorkerDelivery")(function* (
   packet: DeliveryPacket,

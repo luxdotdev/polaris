@@ -67,7 +67,9 @@ export const sessionWith =
       readonly resumeCursor?: string;
       readonly permissionMode?: PermissionMode;
       readonly readOnly?: boolean;
-      readonly constellation?: OpenOptions["constellation"];
+      readonly constellation?: NonNullable<OpenOptions["constellation"]>;
+      readonly constellations?: NonNullable<OpenOptions["constellations"]>;
+      readonly environment?: NonNullable<OpenOptions["environment"]>;
     } = {}
   ): Promise<{ result: A; events: Array<HarnessEvent>; server: FakeAppServer }> => {
     const path = socketPath();
@@ -90,7 +92,7 @@ export const sessionWith =
         effort: null,
         resumeCursor: options.resumeCursor ?? null,
         readOnly: options.readOnly ?? false,
-        ...attachmentOptions(options.constellation),
+        ...options,
       });
 
       yield* session.events.pipe(
@@ -154,7 +156,3 @@ export const turn = (id: string, status = "inProgress", error: Json = null) => (
   completedAt: null,
   durationMs: null,
 });
-
-const attachmentOptions = (
-  constellation: OpenOptions["constellation"]
-): Pick<OpenOptions, "constellation"> => (constellation === undefined ? {} : { constellation });

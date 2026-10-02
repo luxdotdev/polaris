@@ -51,3 +51,11 @@ also needs Continue the Lead or Hand over; it is not a worker auto-Continue.
 `recoveryAtMostOnce` and its scenario test; the original standalone rule remains
 in `polaris.qnt`. The engine slice must implement both through the session and
 Constellation deciders and test crash/replay around the durable marker.
+
+The Engine records `AttemptInterrupted` in the same Session recovery commit,
+before withdrawing pending approvals. Eligibility, the interrupted Turn ID and
+its ending timestamp are durable. Startup re-folds that proof for upgrades that
+already ended the Turn; a later user interruption cannot reuse it. Resume
+acquires the working slot before consuming the allowance. Remote auto-Continue
+remains unavailable until the worker provides verified interruption and continued
+Turn receipts; an owner enqueue is not that proof.

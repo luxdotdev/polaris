@@ -106,9 +106,16 @@ export const startAttempt = (d: GraphDecision, taskId: TaskId, cause?: Attempt["
     return;
   }
 
+  const previous = latestAttempt(d.record.graph, taskId);
+
+  const superseded =
+    previous !== undefined && d.record.handoverStopped.has(previous.id)
+      ? AttemptCause.cases.Superseded.make({ ref: previous.id })
+      : prepared.cause;
+
   const draft = new Attempt({
     ...attemptData(prepared),
-    cause: cause ?? prepared.cause,
+    cause: cause ?? superseded,
     startedAt: d.ctx.now,
   });
 

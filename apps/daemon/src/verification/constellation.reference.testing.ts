@@ -155,6 +155,7 @@ export const foldReference = (ref: Reference, events: ReadonlyArray<DomainEvent>
       PeerMessage: () => {},
       LeadHandoverRequested: () => {},
       LeadHandoverCancelled: () => {},
+      AttemptInterrupted: () => {},
       AttemptStale: () => {},
       AttemptFresh: () => {},
       WorkerInputDelivered: () => {},

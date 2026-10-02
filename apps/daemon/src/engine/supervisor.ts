@@ -18,6 +18,14 @@ import {
 import { Context, Effect, Exit, Layer, Option, Scope, Stream } from "effect";
 import { type HarnessError, HarnessEvent } from "../harness/HarnessDriver.ts";
 import { ApprovalPolicy, type ServiceError } from "../services.ts";
+import {
+  ConstellationHarness,
+  type ConstellationHarnessService,
+} from "../constellation/composition/attachments.ts";
+import {
+  ConstellationLiveness,
+  type ConstellationLivenessService,
+} from "../constellation/liveness.ts";
 import { LiveItem } from "../store/EventStore.ts";
 import { worktreeIdFor } from "./decider.ts";
 import { contextChanged } from "./context.ts";
@@ -35,7 +43,9 @@ export interface TurnToRun {
 
 const make = (
   rt: EngineRuntime["Service"],
-  policy: Option.Option<ApprovalPolicy["Service"]>
+  policy: Option.Option<ApprovalPolicy["Service"]>,
+  attachments: ConstellationHarnessService,
+  liveness: ConstellationLivenessService
 ): Supervisor["Service"] => {
   const { store, live, progress } = rt;
 
@@ -86,11 +96,13 @@ const make = (
       }
 
       const driver = yield* rt.registry.get(record.session.harness);
+      const attachment = yield* attachments.open(sessionId);
       const scope = yield* Scope.make();
 
       const session = yield* driver
         .open({
           sessionId,
+          ...attachment,
           cwd: record.session.cwd,
           permissionMode: record.session.permissionMode,
           model: record.session.model,
@@ -113,7 +125,7 @@ const make = (
   const consume = (sessionId: SessionId, entry: LiveHarness): Effect.Effect<void> =>
     entry.session.events.pipe(
       Stream.runForEach((event) =>
-        onHarnessEvent(sessionId, entry, event).pipe(
+        observed(sessionId, entry, event).pipe(
           Effect.catchCause((cause) =>
             Effect.logError(`handling ${event._tag} for ${sessionId} failed`, cause)
           )
@@ -155,6 +167,11 @@ const make = (
               )
         )
       : recorded(sessionId, entry, (at) => onHarnessRecord(sessionId, entry, event, at));
+
+  const observed = (sessionId: SessionId, entry: EventSource, event: HarnessEvent) =>
+    onHarnessEvent(sessionId, entry, event).pipe(
+      Effect.andThen(liveness.observe(sessionId, event, Date.now()))
+    );
 
   /** Runs `handle` with the time, unless the source is being stopped on purpose. */
   const recorded = (
@@ -413,7 +430,7 @@ const make = (
       )
     );
 
-  return { openHarness, onHarnessEvent, runTurn };
+  return { openHarness, onHarnessEvent: observed, runTurn };
 };
 
 export class Supervisor extends Context.Service<
@@ -436,7 +453,12 @@ export class Supervisor extends Context.Service<
   static readonly layer = Layer.effect(
     Supervisor,
     Effect.gen(function* () {
-      return make(yield* EngineRuntime, yield* Effect.serviceOption(ApprovalPolicy));
+      return make(
+        yield* EngineRuntime,
+        yield* Effect.serviceOption(ApprovalPolicy),
+        yield* ConstellationHarness,
+        yield* ConstellationLiveness
+      );
     })
   );
 }

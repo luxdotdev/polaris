@@ -64,6 +64,14 @@ export const constellationEventFields = {
   ClaimApproved: { ...attempt, by: Schema.Literal("user"), at: Timestamp },
   ClaimHandedUp: { ...attempt, reason: optionalNullable(Schema.String), at: Timestamp },
   AttemptNudged: { ...attempt, at: Timestamp },
+  AttemptInterrupted: {
+    ...graph,
+    attemptId: AttemptId,
+    turnId: TurnId,
+    interruptionId: Schema.String,
+    eligible: Schema.Boolean,
+    at: Timestamp,
+  },
   AttemptStale: { ...graph, attemptId: AttemptId, hostId: HostId, at: Timestamp },
   AttemptFresh: { ...graph, attemptId: AttemptId, at: Timestamp },
   AttemptAccepted: {

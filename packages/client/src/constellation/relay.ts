@@ -22,6 +22,7 @@ import {
 import { openFeed, type SequenceMark } from "../resume.ts";
 import { HostRegistry } from "../HostRegistry.ts";
 import type { HostConnection, LiveSession } from "../HostConnection.ts";
+import { connectionObservations } from "./connections.ts";
 import {
   mirrorRemoteAssignments,
   prepareRemotePlacement,
@@ -56,6 +57,7 @@ export class ConstellationRelay extends Context.Service<
       const graphs = new Map<ConstellationId, Constellation>();
       const hosts = new Map<string, { scope: Scope.Closeable; connection: HostConnection }>();
       const epochs = new Map<string, Scope.Closeable>();
+      const observations = connectionObservations();
 
       const byId = (id: HostId) =>
         [...connected.values()].find((session) => session.host.hostId === id);
@@ -81,6 +83,14 @@ export class ConstellationRelay extends Context.Service<
       });
 
       const drain = Effect.gen(function* () {
+        yield* observations.publish(graphs.values(), (id) => {
+          const session = byId(id);
+
+          return session === undefined
+            ? undefined
+            : { epoch: session.epoch, observe: session.client["constellation.connection"] };
+        });
+
         for (const { source, value } of placements.values()) {
           const owner = connected.get(source);
           const worker = byId(value.worker.hostId);
@@ -234,6 +244,8 @@ export class ConstellationRelay extends Context.Service<
         yield* connection.changes.pipe(
           Stream.runForEach((status) =>
             Effect.gen(function* () {
+              observations.observe(status);
+
               if (status.state === "connected" && status.epoch === epoch) return;
               const previous = epochs.get(connection.key);
 

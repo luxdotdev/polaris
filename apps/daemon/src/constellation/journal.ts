@@ -125,6 +125,20 @@ const recoveryContinued = (
       "Show attention for the user to continue or send back."
     );
 
+  const proof = d.record.interruptions.get(input.attemptId);
+
+  if (
+    proof === undefined ||
+    !proof.eligible ||
+    proof.interruptionId !== input.interruptionId ||
+    proof.turnId !== input.turnId
+  )
+    d.reject(
+      "E-RECOVERY-PROOF",
+      "Recovery requires this Attempt's eligible interrupted Turn proof",
+      "Record Session daemon recovery before continuing."
+    );
+
   if (
     attempt !== undefined &&
     (attempt.state !== "working" ||

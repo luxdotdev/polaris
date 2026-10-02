@@ -691,6 +691,40 @@ describe("Constellation attachment", () => {
       });
     }
   });
+  test("Gate start and resume retain both role servers and trusted worker environment", async () => {
+    const worker = {
+      ...attachment,
+      instructions: "Gate Worker instructions",
+      url: `${attachment.url}-worker`,
+    };
+
+    const environment = {
+      POLARIS_HOST_SOCKET: "/tmp/polaris-test.sock",
+      POLARIS_SESSION_ID: attachment.sessionId,
+    };
+
+    for (const resumeCursor of [null, "existing-gate"]) {
+      const base = { constellations: [attachment, worker], environment };
+      const options = resumeCursor === null ? base : { ...base, resumeCursor };
+
+      const { server } = await withSession(
+        scripted(() => {}),
+        () => Effect.void,
+        options
+      );
+
+      expect(
+        server.requests(resumeCursor === null ? "thread/start" : "thread/resume")[0]?.params
+      ).toMatchObject({
+        developerInstructions: `${attachment.instructions}\n\n${worker.instructions}`,
+        config: {
+          "mcp_servers.polaris": { url: attachment.url },
+          "mcp_servers.polaris_1": { url: worker.url },
+          "shell_environment_policy.set": environment,
+        },
+      });
+    }
+  });
   test("the Reviewer receives no Constellation tools even with an attachment", async () => {
     const { server } = await withSession(
       scripted(() => {}),

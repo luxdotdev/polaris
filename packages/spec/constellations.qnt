@@ -26,6 +26,7 @@ module constellations {
     | LeadHandoverRequested({ id: int, from: int })
     | LeadHandoverCancelled(int)
     | LeadChanged({ to: int, request: int })
+    | AttemptInterrupted({ attempt: int, interruption: int, eligible: bool })
     | AttemptStale(int)
     | AttemptFresh(int)
     | WorkerInputDelivered({ id: int, session: int })
@@ -46,6 +47,7 @@ module constellations {
     handoverRequest: int, handoverFrom: int, stale: Set[int], inputs: List[{ id: int, session: int }],
     approvals: List[int], handups: List[int], nudges: List[int],
     promotions: List[int], notes: int -> str, deliveries: List[Delivery],
+    proofs: Set[{ attempt: int, interruption: int }],
     applied: List[int], recoveries: List[Recovery], waiters: List[int],
     holders: Set[int], requests: List[int], grants: List[int], capacity: int, canceled: Set[int],
   }
@@ -59,6 +61,7 @@ module constellations {
     tasks: TASKS.mapBy(_ => emptyTask), attempts: [], lead: 0, state: "planning",
     handoverRequest: -1, handoverFrom: -1, stale: Set(), inputs: [],
     approvals: [], handups: [], nudges: [],
+    proofs: Set(),
     promotions: [], notes: Map(), deliveries: [], applied: [], recoveries: [],
     waiters: [], holders: Set(), requests: [], grants: [], capacity: CAPACITY, canceled: Set(),
   }
@@ -95,6 +98,7 @@ module constellations {
     | LeadHandoverRequested(p) => { ...v, handoverRequest: p.id, handoverFrom: p.from }
     | LeadHandoverCancelled(id) => if (v.handoverRequest == id) { ...v, handoverRequest: -1, handoverFrom: -1 } else v
     | LeadChanged(p) => { ...v, lead: p.to, handoverRequest: -1, handoverFrom: -1 }
+    | AttemptInterrupted(p) => { ...v, proofs: if (p.eligible) v.proofs.union(Set({ attempt: p.attempt, interruption: p.interruption })) else v.proofs }
     | AttemptStale(a) => { ...v, stale: v.stale.union(Set(a)) }
     | AttemptFresh(a) => { ...v, stale: v.stale.exclude(Set(a)) }
     | WorkerInputDelivered(p) => { ...v, inputs: v.inputs.append(p) }
@@ -205,22 +209,26 @@ module constellations {
       [LeadHandoverRequested({ id: id, from: view.lead })] else [])
   action cancelHandover: bool = commit(OWNER,
     if (view.handoverRequest >= 0) [LeadHandoverCancelled(view.handoverRequest)] else [])
+  pure def handoverEvents(v: View, id: int, s: int): List[EventKind] = {
+    val gates = v.attempts.indices().filter(a => active(v.attempts[a]) and v.attempts[a].session == v.lead and v.tasks.get(v.attempts[a].task).gate)
+    gates.fold([], (events, a) => events.concat(finish(v, a, AttemptSettled({ attempt: a, outcome: "lost", stale: false, commanded: true })))).append(LeadChanged({ to: s, request: id }))
+  }
   action finishHandover(id: int, s: int): bool = commit(OWNER,
     if (view.handoverRequest == id and view.handoverFrom == view.lead and s != view.lead
       and Set("planning", "running", "paused").contains(view.state))
-      [LeadChanged({ to: s, request: id })] else [])
-  action handover(s: int): bool = commit(OWNER, if (s != view.lead) [LeadChanged({ to: s, request: -1 })] else [])
+      handoverEvents(view, id, s) else [])
+  action handover(s: int): bool = commit(OWNER, if (s != view.lead) handoverEvents(view, -1, s) else [])
   pure def lifecycleTransition(previous: str, target: str): bool =
     previous == "planning" and target == "running" or previous == "running" and Set("paused", "completed").contains(target)
     or previous == "paused" and Set("running", "completed").contains(target) or previous == "completed" and target == "archived"
   action setState(s: str): bool = commit(OWNER, if (lifecycleTransition(view.state, s)) [ConstellationStateChanged(s)] else [])
   action interrupt(a: int): bool = all {
-    log' = log, offline' = offline, appConnected' = appConnected, ownerAvailable' = ownerAvailable,
+    log' = log.append({ host: OWNER, kind: AttemptInterrupted({ attempt: a, interruption: if (interruptions.keys().contains(a)) interruptions.get(a) + 1 else 1, eligible: true }) }), offline' = offline, appConnected' = appConnected, ownerAvailable' = ownerAvailable,
     outbox' = outbox, interruptions' = interruptions.put(a, if (interruptions.keys().contains(a)) interruptions.get(a) + 1 else 1),
   }
   action recover(a: int): bool = commit(OWNER,
     if (view.attempts.indices().contains(a) and view.attempts[a].status == "working"
-      and interruptions.keys().contains(a) and interruptions.get(a) == 1 and not(view.recoveries.indices().exists(i => view.recoveries[i].attempt == a)))
+      and interruptions.keys().contains(a) and interruptions.get(a) == 1 and view.proofs.contains({ attempt: a, interruption: interruptions.get(a) }) and not(view.recoveries.indices().exists(i => view.recoveries[i].attempt == a)))
     [AttemptRecoveryContinued({ attempt: a, interruption: interruptions.get(a) })] else [])
   action restart = all { log' = log, offline' = offline, appConnected' = appConnected,
     ownerAvailable' = true, outbox' = outbox, interruptions' = interruptions }
@@ -307,6 +315,10 @@ module constellations {
   })
   val outboxAppliedExactlyOnce = view.applied.length() == view.applied.foldl(Set(), (acc, x) => acc.union(Set(x))).size()
   val onlyOwnerCommits = log.indices().forall(i => log[i].host == OWNER)
+  val recoveryHasEligibleProof = log.indices().forall(i => match log[i].kind {
+    | AttemptRecoveryContinued(p) => { val before = foldEvents(log.slice(0, i)); before.proofs.contains({ attempt: p.attempt, interruption: p.interruption }) }
+    | _ => true
+  })
   val recoveryAtMostOnce = view.recoveries.length() == view.recoveries.foldl(Set(), (acc, x) => acc.union(Set(x))).size()
     and view.attempts.indices().forall(a => view.recoveries.select(r => r.attempt == a).length() <= 1)
   val staleNeverSettlesWithoutCommand = log.indices().forall(i => match log[i].kind {
@@ -358,7 +370,7 @@ module constellations {
   val safety = all {
     graphAcyclic, causesPointBackward, taskFollowsLatestAttempt, gatePromotedOnlyAfterAccepted,
     oneLead, oneActiveAttemptPerSession, exactlyOnceDelivery, settledAttemptImmutable,
-    outboxAppliedExactlyOnce, onlyOwnerCommits, recoveryAtMostOnce, staleNeverSettlesWithoutCommand,
+    outboxAppliedExactlyOnce, onlyOwnerCommits, recoveryAtMostOnce, recoveryHasEligibleProof, staleNeverSettlesWithoutCommand,
     noOldLeadDelivery, handoverRequestOrdered, inputDeliveredAtMostOnce, lifecycleValid, reviewMetadataValid, resourceCapacity, resourceRemovalSafe, fifoGrantOrder, acceptanceMatchesClaim,
   }
   val witnessClaim = view.attempts.indices().exists(i => view.attempts[i].status == "review")

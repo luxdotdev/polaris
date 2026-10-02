@@ -198,6 +198,17 @@ test("complete committed trace includes questions, send-back, recovery, delivery
   );
   const retry = graph().graph.attempts.at(-1)!;
   const turnId = TurnId.make("recovery");
+  commit([
+    DomainEvent.cases.AttemptInterrupted.make({
+      constellationId: CID,
+      revision: graph().graph.revision,
+      attemptId: retry.id,
+      turnId,
+      interruptionId: "interruption",
+      eligible: true,
+      at: AT,
+    }),
+  ]);
   journal({
     type: "recoveryContinued",
     attemptId: retry.id,

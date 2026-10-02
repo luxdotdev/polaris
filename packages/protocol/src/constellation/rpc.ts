@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/rpc";
-import { CommandId, Sequence } from "../ids.ts";
+import { CommandId, Sequence, HostId } from "../ids.ts";
 import { optionalArray, optionalNullable } from "../models.ts";
 import { ConstellationEvent } from "./events.ts";
 import {
@@ -171,7 +171,15 @@ export const GetConstellationStats = Rpc.make("constellation.stats", {
   error: ConstellationRejected,
 });
 
+/** Trusted Desktop observation of the existing Host Connection State. */
+export const ObserveConstellationConnection = Rpc.make("constellation.connection", {
+  payload: { hostId: HostId, offline: Schema.Boolean },
+  success: Schema.Void,
+  error: ConstellationRejected,
+});
+
 export class ConstellationRpcs extends RpcGroup.make(
+  ObserveConstellationConnection,
   GetConstellationStats,
   ConstellationDefaultsGet,
   ConstellationDefaultsSet,

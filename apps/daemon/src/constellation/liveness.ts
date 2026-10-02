@@ -1,27 +1,18 @@
-import {
-  type Attempt,
-  type AttemptId,
-  type ConstellationId,
+import type {
+  AttemptId,
+  ConstellationId,
   ConstellationStreamItem,
-  type SessionId,
+  SessionId,
   WorkerLiveness,
 } from "@polaris/protocol";
-import { type Cause, Context, Effect, Layer, Queue, Stream, type Scope } from "effect";
-import {
-  emptyLiveness,
-  observeLiveness,
-  projectLiveness,
-  restoreLiveness,
-  type LivenessFacts,
-} from "../harness/constellation/index.ts";
+import { Context, Effect, Layer, Stream, type Scope } from "effect";
 import type { HarnessEvent } from "../harness/HarnessDriver.ts";
 import type { ConstellationRecord } from "../store/constellation.ts";
-import { EventStore } from "../store/EventStore.ts";
-import { latestAttempt } from "./projections.ts";
+import type { EventStore } from "../store/EventStore.ts";
 
 type Update = Extract<ConstellationStreamItem, { _tag: "LivenessChanged" }>;
 
-export interface ConstellationLivenessService {
+export interface ConstellationLivenessDelegate {
   readonly read: (
     record: ConstellationRecord
   ) => Effect.Effect<ReadonlyMap<AttemptId, WorkerLiveness>>;
@@ -37,149 +28,51 @@ export interface ConstellationLivenessService {
   readonly queued: (sessionId: SessionId, count: number) => Effect.Effect<void>;
 }
 
-/** Producers call this after normalized Harness observations or delivery queue changes, never on a timer. */
+export interface ConstellationLivenessService extends ConstellationLivenessDelegate {
+  readonly activate: (service: ConstellationLivenessDelegate) => Effect.Effect<void>;
+}
+
+const makeLivenessProxy = (): ConstellationLivenessService => {
+  let delegate: ConstellationLivenessDelegate = {
+    read: () => Effect.succeed(new Map()),
+    subscribe: () => Effect.succeed(Stream.empty),
+    observe: () => Effect.void,
+    queued: () => Effect.void,
+  };
+
+  return {
+    activate: (service) =>
+      Effect.sync(() => {
+        delegate = service;
+      }),
+    read: (record) => Effect.suspend(() => delegate.read(record)),
+    subscribe: (id) => Effect.suspend(() => delegate.subscribe(id)),
+    observe: (id, event, at, queued) =>
+      Effect.suspend(() => delegate.observe(id, event, at, queued)),
+    queued: (id, count) => Effect.suspend(() => delegate.queued(id, count)),
+  };
+};
+
+/** Stable observation proxy captured by the Engine before Constellation services load. */
 export class ConstellationLiveness extends Context.Reference<ConstellationLivenessService>(
   "polaris/daemon/constellation/Liveness",
-  {
-    defaultValue: () => ({
-      read: () => Effect.succeed(new Map<AttemptId, WorkerLiveness>()),
-      subscribe: () => Effect.succeed(Stream.empty),
-      observe: () => Effect.void,
-      queued: () => Effect.void,
-    }),
-  }
+  { defaultValue: makeLivenessProxy }
 ) {
-  static readonly layer = Layer.effect(
+  static readonly proxyLayer = Layer.sync(ConstellationLiveness, makeLivenessProxy);
+  static readonly layer: Layer.Layer<never, never, EventStore> = Layer.effect(
     ConstellationLiveness,
     Effect.gen(function* () {
-      const store = yield* EventStore;
-      const facts = new Map<AttemptId, LivenessFacts>();
-      const queued = new Map<AttemptId, number>();
-      const subscribers = new Map<ConstellationId, Set<Queue.Queue<Update, Cause.Done>>>();
+      const captured = Context.getOrUndefined(
+        yield* Effect.context<never>(),
+        ConstellationLiveness
+      );
 
-      const wire = (attemptId: AttemptId) => {
-        const projected = projectLiveness(
-          facts.get(attemptId) ?? emptyLiveness(),
-          Date.now(),
-          queued.get(attemptId) ?? 0
-        );
+      const proxy = captured ?? makeLivenessProxy();
+      const { livenessProvider } = yield* Effect.promise(() => import("./liveness/provider.ts"));
 
-        const current = projected.current;
+      yield* proxy.activate(yield* livenessProvider);
 
-        return WorkerLiveness.make({
-          current:
-            current === null
-              ? null
-              : {
-                  itemId: current.itemId,
-                  turnId: current.turnId,
-                  command: current.command,
-                  startedAt: current.startedAt,
-                },
-          lastOutputAt: projected.lastOutputAt,
-          contextPercent: projected.contextPercent,
-          queuedInput: projected.queuedInput,
-        });
-      };
-
-      const publish = Effect.fnUntraced(function* (
-        sessionId: SessionId,
-        update: (attempt: Attempt) => void
-      ) {
-        const model = yield* store.model;
-
-        const assignment = [...model.constellations.values()]
-          .flatMap((record) =>
-            record.graph.attempts
-              .filter(
-                (a) =>
-                  a.sessionId === sessionId && latestAttempt(record.graph, a.taskId)?.id === a.id
-              )
-              .map((attempt) => ({ record, attempt }))
-          )
-          .sort((a, b) => a.attempt.startedAt.localeCompare(b.attempt.startedAt))
-          .at(-1);
-
-        if (assignment === undefined) return;
-        const { record, attempt } = assignment;
-        update(attempt);
-
-        const item = ConstellationStreamItem.cases.LivenessChanged.make({
-          attemptId: attempt.id,
-          liveness: wire(attempt.id),
-        });
-
-        for (const queue of subscribers.get(record.graph.id) ?? []) Queue.offerUnsafe(queue, item);
-      });
-
-      return {
-        read: Effect.fnUntraced(function* (record) {
-          const result = new Map<AttemptId, WorkerLiveness>();
-          const cut = (yield* store.model).sequence;
-
-          for (const task of record.graph.tasks) {
-            const attempt = latestAttempt(record.graph, task.id);
-
-            if (attempt === undefined) continue;
-
-            if (!facts.has(attempt.id)) {
-              const history = yield* store
-                .readEvents({ after: 0, upTo: cut, sessionId: attempt.sessionId })
-                .pipe(Effect.orDie);
-
-              facts.set(
-                attempt.id,
-                history
-                  .filter(
-                    (e) =>
-                      e.occurredAt >= attempt.startedAt &&
-                      (attempt.endedAt === null || e.occurredAt <= attempt.endedAt)
-                  )
-                  .reduce(
-                    (value, envelope) =>
-                      restoreLiveness(value, envelope.event, Date.parse(envelope.occurredAt)),
-                    emptyLiveness()
-                  )
-              );
-            }
-
-            result.set(attempt.id, wire(attempt.id));
-          }
-
-          return result;
-        }),
-        subscribe: Effect.fnUntraced(function* (id) {
-          const queue = yield* Queue.sliding<Update, Cause.Done>(256);
-          const bucket = subscribers.get(id) ?? new Set();
-          bucket.add(queue);
-          subscribers.set(id, bucket);
-          yield* Effect.addFinalizer(() =>
-            Effect.sync(() => {
-              bucket.delete(queue);
-
-              if (bucket.size === 0) subscribers.delete(id);
-              Queue.endUnsafe(queue);
-            })
-          );
-
-          return Stream.fromQueue(queue);
-        }),
-        observe: Effect.fnUntraced(function* (sessionId, event, at, queuedInput) {
-          yield* publish(sessionId, (attempt) => {
-            facts.set(
-              attempt.id,
-              observeLiveness(facts.get(attempt.id) ?? emptyLiveness(), event, at)
-            );
-
-            if (queuedInput !== undefined) queued.set(attempt.id, queuedInput);
-          });
-        }),
-        queued: Effect.fnUntraced(function* (sessionId, count) {
-          yield* publish(sessionId, (attempt) => {
-            queued.set(attempt.id, count);
-          });
-        }),
-      } satisfies ConstellationLivenessService;
+      return proxy;
     })
   );
 }

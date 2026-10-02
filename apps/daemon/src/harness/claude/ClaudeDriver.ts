@@ -55,7 +55,6 @@ import { emptyClaudeLimitContext } from "../limits/claude.ts";
 import type { PlanLimitReporter } from "../limits/PlanLimitReporter.ts";
 import { ClaudeHookReceiver } from "./hooks.ts";
 import { decodeModelUsage } from "./payloads.ts";
-import { claudeConstellationOptions } from "./constellation.ts";
 import { Inbox } from "./inbox.ts";
 import { buildUserMessage } from "./input.ts";
 import { listClaudeCommands } from "./commands.ts";
@@ -290,14 +289,23 @@ const openSession = Effect.fnUntraced(function* (
     additionalDirectories: [join(driver.stagingDir ?? paths().staging, options.sessionId)],
     env: {
       ...process.env,
+      ...options.environment,
       CLAUDE_AGENT_SDK_CLIENT_APP: driver.clientApp ?? "polaris-daemon",
     },
   };
 
-  if (options.constellation !== undefined && options.readOnly !== true) {
-    if (options.constellation.sessionId !== options.sessionId)
+  const attachments =
+    options.constellations ?? (options.constellation === undefined ? [] : [options.constellation]);
+
+  if (attachments.length > 0 && options.readOnly !== true) {
+    if (attachments.some((a) => a.sessionId !== options.sessionId))
       return yield* harnessError("Constellation attachment belongs to another session");
-    Object.assign(sdkOptions, claudeConstellationOptions(options.constellation));
+
+    const { claudeConstellationOptions } = yield* Effect.promise(
+      () => import("./constellation.ts")
+    );
+
+    Object.assign(sdkOptions, claudeConstellationOptions(attachments));
   }
 
   if (options.readOnly === true) Object.assign(sdkOptions, READ_ONLY_OPTIONS);

@@ -52,9 +52,20 @@ const summarize = Effect.fn("Constellation.summarizeLead")(function* (
   const graph = (yield* store.model).constellations.get(id);
   const request = graph?.handoverRequest;
 
-  if (request?.requestId !== requestId) return "";
+  if (graph === undefined || request?.requestId !== requestId) return "";
 
-  if (request.interrupt) yield* effects.interrupt(request.from);
+  const activeGate = graph.graph.attempts.some(
+    (a) =>
+      a.sessionId === request.from &&
+      (a.state === "working" || a.state === "review") &&
+      graph.graph.tasks.some((t) => t.id === a.taskId && t.kind === "gate")
+  );
+
+  const workingTurn = (yield* store.model).sessions
+    .get(request.from)
+    ?.turns.some((t) => t.status === "working");
+
+  if ((request.interrupt || activeGate) && workingTurn) yield* effects.interrupt(request.from);
   yield* waitForBoundary(request.from);
 
   const commit = yield* store.commit({
@@ -176,6 +187,7 @@ export const performHandover = Effect.fn("Constellation.performHandover")(functi
             },
             {
               ...journalContext(graph, at),
+              commanded: true,
               newLeadSessionId: to,
               occupiedSessions: new Set(model.sessions.keys()),
             }

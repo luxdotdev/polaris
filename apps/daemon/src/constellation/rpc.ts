@@ -5,6 +5,7 @@ import { getDefaults, setDefaults } from "./defaults.ts";
 import { finding, refusal } from "./decision.ts";
 import { Constellations } from "./service.ts";
 import { ConstellationStatsService } from "./stats/index.ts";
+import { observeWorkerHost } from "./recovery.ts";
 
 /** Only the authenticated transport sets this annotation. Unbound Desktop connections are the user. */
 export class ConstellationCaller extends Context.Service<
@@ -22,6 +23,30 @@ export const ConstellationRpcHandlers = ConstellationRpcs.toLayer(
     const C = ConstellationCommand.cases;
 
     return {
+      "constellation.connection": ({ hostId, offline }, { client }) =>
+        caller(client.annotations).kind === "user"
+          ? observeWorkerHost(hostId, offline).pipe(
+              Effect.catchTag("ServiceError", () =>
+                Effect.fail(
+                  refusal(undefined, [
+                    finding(
+                      "E-CONNECTION",
+                      "Could not record the Host observation",
+                      "Retry when the owning Host is available."
+                    ),
+                  ])
+                )
+              )
+            )
+          : Effect.fail(
+              refusal(undefined, [
+                finding(
+                  "E-AUTHORITY",
+                  "Only the authenticated Client observes Host Connection State",
+                  "Use the Desktop App connection."
+                ),
+              ])
+            ),
       "constellation.defaults.get": () =>
         getDefaults.pipe(Effect.map((settings) => ({ settings }))),
       "constellation.defaults.set": ({ settings }, { client }) =>

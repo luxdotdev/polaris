@@ -4,31 +4,27 @@
  * the Daemon process right before an upgrade exec (cause `upgrade`).
  * See docs/adr/0004-restart-recovery-never-continues-a-turn.md.
  */
-import { type SessionId } from "@polaris/protocol";
 import { Effect } from "effect";
 import type { EngineRuntime } from "./runtime.ts";
 import { decideSession, type SessionInput } from "./session.ts";
+
+import { recoverSession, recoveryCandidates } from "./recovery.constellation.ts";
 
 /** Recover every session after a Daemon restart, before the Engine serves anything. */
 export const recoverOnStart = (rt: EngineRuntime["Service"]) =>
   Effect.gen(function* () {
     const model = yield* rt.store.model;
     const at = yield* rt.now;
-    const recovered: Array<{ sessionId: SessionId; interruptionId: string }> = [];
 
     for (const record of model.sessions.values()) {
       const input: SessionInput = { type: "daemon.recover", cause: "restart", at };
 
       // Most sessions (Dormant, Archived) have nothing to recover: skip their commit.
       if (decideSession(record, input).events.length === 0) continue;
-      const turn = record.turns.find((t) => t.status === "working");
-      yield* rt.signal(record.session.id, input);
-
-      if (turn !== undefined)
-        recovered.push({ sessionId: record.session.id, interruptionId: `${turn.id}:${at}` });
+      yield* recoverSession(rt, record.session.id, "restart", at);
     }
 
-    return recovered;
+    return recoveryCandidates(yield* rt.store.model);
   }).pipe(Effect.orDie);
 
 /**
@@ -49,11 +45,7 @@ export const prepareForUpgrade = (rt: EngineRuntime["Service"]) =>
             Effect.gen(function* () {
               yield* rt.cancelIdle(sessionId);
               yield* rt.stopHarness(sessionId);
-              yield* rt.signal(sessionId, {
-                type: "daemon.recover",
-                cause: "upgrade",
-                at: yield* rt.now,
-              });
+              yield* recoverSession(rt, sessionId, "upgrade", yield* rt.now);
             })
           )
           .pipe(

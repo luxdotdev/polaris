@@ -301,12 +301,28 @@ export const openSession = (
       sandbox: policy.sandbox,
     };
 
-    if (options.constellation !== undefined && options.readOnly !== true) {
-      if (options.constellation.sessionId !== options.sessionId)
+    const attachments =
+      options.constellations ??
+      (options.constellation === undefined ? [] : [options.constellation]);
+
+    if (attachments.length > 0 && options.readOnly !== true) {
+      if (attachments.some((a) => a.sessionId !== options.sessionId))
         return yield* codexError("Constellation attachment belongs to another session");
-      common.developerInstructions = options.constellation.instructions;
-      common.config = { "mcp_servers.polaris": { url: options.constellation.url } };
+      common.developerInstructions = attachments.map((a) => a.instructions).join("\n\n");
+      common.config = Object.fromEntries(
+        attachments.map((a, index) => [
+          `mcp_servers.polaris${index === 0 ? "" : `_${index}`}`,
+          { url: a.url },
+        ])
+      );
     }
+
+    if (
+      options.environment !== undefined &&
+      Object.keys(options.environment).length > 0 &&
+      options.readOnly !== true
+    )
+      common.config = { ...common.config, "shell_environment_policy.set": options.environment };
 
     if (options.model !== null) common.model = options.model;
 

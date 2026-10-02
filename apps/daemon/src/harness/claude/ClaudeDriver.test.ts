@@ -671,6 +671,27 @@ describe("Constellation instructions", () => {
       }
     }
   });
+  test("a Gate has separate Lead and Worker tools and receives trusted environment", async () => {
+    const worker = { ...attachment, instructions: "Gate Worker instructions" };
+
+    const environment = {
+      POLARIS_HOST_SOCKET: "/tmp/polaris-test.sock",
+      POLARIS_SESSION_ID: attachment.sessionId,
+    };
+
+    const h = await openFake({ constellations: [attachment, worker], environment });
+
+    try {
+      expect(h.fake.options?.systemPrompt).toMatchObject({
+        append: `${attachment.instructions}\n\n${worker.instructions}`,
+      });
+      expect(h.fake.options?.allowedTools).toEqual(["mcp__polaris__*", "mcp__polaris_1__*"]);
+      expect(Object.keys(h.fake.options?.mcpServers ?? {})).toEqual(["polaris", "polaris_1"]);
+      expect(h.fake.options?.env).toMatchObject(environment);
+    } finally {
+      await h.close();
+    }
+  });
   test("Reviewer remains without Constellation tools", async () => {
     const h = await openFake({ constellation: attachment, readOnly: true });
 

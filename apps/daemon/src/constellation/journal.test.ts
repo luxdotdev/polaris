@@ -103,7 +103,21 @@ describe("Constellation delivery journal", () => {
     ).toBe("E-DELIVERY-LEAD");
   });
   test("recovery is idempotent and a second interruption needs attention", () => {
-    const record = dispatched();
+    const before = dispatched();
+    const first = before.graph.attempts[0]!;
+
+    const record = foldDecision(before, [
+      DomainEvent.cases.AttemptInterrupted.make({
+        constellationId: CID,
+        revision: before.graph.revision,
+        attemptId: first.id,
+        turnId: TurnId.make("recover"),
+        interruptionId: "first",
+        eligible: true,
+        at: AT,
+      }),
+    ]);
+
     const attempt = record.graph.attempts[0]!;
 
     const input = {
@@ -113,6 +127,10 @@ describe("Constellation delivery journal", () => {
       interruptionId: "first",
       turnEvents: turnEvents(attempt.sessionId, "recover"),
     };
+
+    expect(decideConstellationJournal(before, input, ctx()).rejection?.findings[0]?.code).toBe(
+      "E-RECOVERY-PROOF"
+    );
 
     const decision = decideConstellationJournal(record, input, ctx());
     expect(decision.rejection).toBeNull();

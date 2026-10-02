@@ -143,6 +143,7 @@ const stepFor = (event: Event, at: string): Step =>
       LeadHandoverRequested: () => (r: ConstellationRecord) => r,
       LeadHandoverCancelled: () => (r: ConstellationRecord) => r,
       WorkerInputDelivered: () => (r: ConstellationRecord) => r,
+      AttemptInterrupted: () => (r: ConstellationRecord) => r,
       AttemptStale:
         ({ attemptId }) =>
         (r: ConstellationRecord) => ({

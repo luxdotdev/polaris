@@ -1,3 +1,4 @@
+import { stopLeadGates } from "../constellation/handover/gates.ts";
 import {
   Constellation,
   ConstellationCommand,
@@ -260,7 +261,8 @@ const setState = (
           "Prepare a fresh session in the same Workspace."
         );
 
-      if (d.findings.length === 0 && to !== null)
+      if (d.findings.length === 0 && to !== null) {
+        stopLeadGates(d);
         d.emit(
           ConstellationEvent.cases.LeadChanged.make({
             ...d.fields(),
@@ -269,6 +271,7 @@ const setState = (
             summary,
           })
         );
+      }
     },
   });
 };

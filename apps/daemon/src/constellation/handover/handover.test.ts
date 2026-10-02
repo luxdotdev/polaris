@@ -5,9 +5,14 @@ import {
   MessageTarget,
   SetConstellationStateAction,
   TurnItem,
+  PlanOperation,
+  AttemptCause,
+  AttemptId,
+  WorkerPlacement,
 } from "@polaris/protocol";
-import { Effect } from "effect";
-import { C, CID, LEAD } from "../../engine/constellation.testing.ts";
+import { Effect, Predicate } from "effect";
+import { C, CID, LEAD, G, draft, task, ctx } from "../../engine/constellation.testing.ts";
+import { decideConstellation } from "../../engine/constellation.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { Constellations } from "../service.ts";
 import { ConstellationDelivery } from "../delivery/index.ts";
@@ -132,6 +137,73 @@ test("a superseded request cannot change the Lead; only the latest summary is us
       yield* wait(() => Effect.succeed(w.turns.length === 2));
       expect(w.turns[0]!.prompt).toContain("Latest focus");
       expect((yield* store.model).constellations.get(CID)!.handovers).toHaveLength(1);
+    })
+  );
+});
+
+test("handover stops the active Gate atomically, preserves workers, and its next Attempt supersedes it", async () => {
+  const w = world(":memory:", { onRun: (turn) => completeSummary(turn).pipe(Effect.orDie) });
+  await w.run(
+    Effect.gen(function* () {
+      yield* setup();
+      const store = yield* EventStore;
+      const graphs = yield* Constellations;
+      yield* graphs.command(
+        { kind: "user" },
+        cid(),
+        C.Plan.make({
+          constellationId: CID,
+          operations: [PlanOperation.cases.Add.make({ task: task(G, [], "gate") })],
+        })
+      );
+
+      const dispatch = (sessionId: import("@polaris/protocol").SessionId, id: string) =>
+        store.commit({
+          commandId: null,
+          decide: (model) => {
+            const decision = decideConstellation(
+              model.constellations.get(CID),
+              C.Dispatch.make({
+                constellationId: CID,
+                tasks: [{ taskId: G, worker: WorkerPlacement.cases.Existing.make({ sessionId }) }],
+              }),
+              ctx({ attempts: [draft(G, id, sessionId)], now: new Date().toISOString() })
+            );
+
+            return decision.rejection === null
+              ? Effect.succeed(decision.events)
+              : Effect.fail(decision.rejection);
+          },
+        });
+
+      yield* dispatch(LEAD, "gate-1");
+      yield* send(LEAD);
+      yield* (yield* ConstellationDelivery).start();
+      yield* graphs.command({ kind: "session", sessionId: LEAD }, cid(), handover());
+      yield* wait(() =>
+        Effect.map(store.model, (m) => m.constellations.get(CID)!.graph.leadSessionId !== LEAD)
+      );
+      const graph = (yield* store.model).constellations.get(CID)!;
+      expect(graph.graph.attempts.find((a) => a.id === "gate-1")!.state).toBe("lost");
+      expect(graph.graph.attempts[0]!.sessionId).toBe(WORKER);
+      expect(graph.graph.attempts[0]!.state).toBe("working");
+      expect(w.turns.at(-1)!.prompt).toContain("Gate G was in progress at handover: re-run it");
+
+      const events = yield* store.readConstellationEvents({
+        after: 0,
+        upTo: (yield* store.model).sequence,
+        constellationId: CID,
+      });
+
+      const stop = events.find((e) => Predicate.isTagged(e.event, "AttemptSettled"))!;
+      const changed = events.find((e) => Predicate.isTagged(e.event, "LeadChanged"))!;
+      expect(stop.occurredAt).toBe(changed.occurredAt);
+      expect(stop.sequence).toBeLessThan(changed.sequence);
+      yield* dispatch(graph.graph.leadSessionId, "gate-2");
+      const next = (yield* store.model).constellations.get(CID)!.graph.attempts.at(-1)!;
+      expect(next.cause).toEqual(
+        AttemptCause.cases.Superseded.make({ ref: AttemptId.make("gate-1") })
+      );
     })
   );
 });

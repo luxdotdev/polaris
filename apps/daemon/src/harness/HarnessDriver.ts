@@ -126,6 +126,8 @@ export interface OpenOptions {
   readonly readOnly?: boolean;
   /** Trusted per-session tools and instructions, rebuilt when the Harness resumes. */
   readonly constellation?: ConstellationAttachment;
+  readonly constellations?: ReadonlyArray<ConstellationAttachment>;
+  readonly environment?: Readonly<Record<string, string>>;
 }
 
 export interface TurnInput {

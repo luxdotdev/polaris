@@ -1,6 +1,6 @@
 import { ResourceRpcs } from "@polaris/protocol";
 import { Effect } from "effect";
-import { HostResources } from "./index.ts";
+import { HostResources } from "./service.ts";
 
 export const ResourceRpcsLive = ResourceRpcs.toLayer(
   Effect.gen(function* () {

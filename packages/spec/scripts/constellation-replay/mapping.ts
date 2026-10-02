@@ -125,6 +125,10 @@ export const mapGraphEvent = (
         record(
           `LeadChanged({ to: ${g.sessions.id(to)}, request: ${requestId === null ? -1 : g.handovers.id(requestId)} })`
         ),
+      AttemptInterrupted: ({ attemptId, interruptionId, eligible }) =>
+        record(
+          `AttemptInterrupted({ attempt: ${g.attemptId(attemptId)}, interruption: ${g.interruptions.id(interruptionId)}, eligible: ${eligible} })`
+        ),
       AttemptStale: ({ attemptId }) => record(`AttemptStale(${g.attemptId(attemptId)})`),
       AttemptFresh: ({ attemptId }) => record(`AttemptFresh(${g.attemptId(attemptId)})`),
       WorkerInputDelivered: ({ id, sessionId }) =>
