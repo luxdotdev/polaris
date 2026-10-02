@@ -42,11 +42,18 @@ export const useListings = (key: string, hostKey: string, input: TreeInput) => {
 /** Where git's paths start: the nearest folder at or above `root` holding `.git`. */
 const toplevels = new Map<string, Promise<string | null>>();
 
+/** Top levels whose `.git` is a file: linked worktrees, which the status bar names. */
+const linked = new Set<string>();
+
 const findToplevel = async (hostKey: string, root: string): Promise<string | null> => {
   for (let dir = root; ; dir = dirname(dir)) {
     const found = await polaris().request("files.stat", { hostKey, path: join(dir, ".git") });
 
-    if (found.ok) return dir;
+    if (found.ok) {
+      if (found.value.kind === "file") linked.add(`${hostKey}\u0000${dir}`);
+
+      return dir;
+    }
 
     if (dir === "/") return null;
   }
@@ -77,6 +84,7 @@ const refreshGit = async (key: string, hostKey: string, root: string) => {
     git: result.ok
       ? {
           toplevel,
+          worktree: linked.has(`${hostKey}\u0000${toplevel}`),
           head: result.value.head,
           branch: result.value.branch,
           ahead: result.value.ahead,

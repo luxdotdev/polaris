@@ -41,7 +41,7 @@ import {
 
 const LOCAL = "local";
 
-const SCENES = ["files", "changes", "draft", "no-git", "remote", "checkout"] as const;
+const SCENES = ["files", "changes", "draft", "no-git", "remote", "checkout", "agent"] as const;
 
 type Scene = (typeof SCENES)[number];
 
@@ -162,7 +162,7 @@ const bridgeFor = (scene: Scene): PolarisApi => {
 const KEY = explorerKey(LOCAL, WORKSPACE);
 
 /** The tabs of E1; the editor starts when its pane mounts, so this runs after the first render. */
-const openTabs = () => {
+const openTabs = (scene: Scene) => {
   for (const path of [
     "daemon/src/hosts/reconnect.ts",
     "daemon/src/hosts/transport.ts",
@@ -171,11 +171,13 @@ const openTabs = () => {
     openFile({ hostKey: LOCAL, workspaceId: WORKSPACE, path: `${ROOT}/${path}` });
   }
 
-  openFile({
-    hostKey: LOCAL,
-    workspaceId: WORKSPACE,
-    path: `${ROOT}/daemon/src/hosts/reconnect.ts`,
-  });
+  // "agent": the file Polaris planning is writing now is the one open (Paper E3).
+  const active =
+    scene === "agent"
+      ? "desktop/src/orchestrator/working-strip.tsx"
+      : "daemon/src/hosts/reconnect.ts";
+
+  openFile({ hostKey: LOCAL, workspaceId: WORKSPACE, path: `${ROOT}/${active}` });
 };
 
 const prepare = (scene: Scene) => {
@@ -223,7 +225,7 @@ export const mountExplorerPreview = (root: HTMLElement, hash: string) => {
     <App value={{ connection, navigation, commands: createCommandRegistry({ mac: true }) }} />
   );
 
-  setTimeout(openTabs, 100);
+  setTimeout(() => openTabs(scene), 100);
 
   return connection.setDensity;
 };

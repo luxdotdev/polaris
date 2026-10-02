@@ -19,10 +19,13 @@ const DRAFT_PREFIX = "polaris.editor.draft.v1:";
 
 const TABS_KEY = "polaris.editor.tabs.v1";
 
-/** A draft past this many characters isn't kept: the edit stays in memory only. */
+/** A draft kept whole in `localStorage` stops here; bigger ones spill (`draftStore.ts`). */
 export const MAX_DRAFT_CHARS = 2_000_000;
 
-/** All drafts together stay under this; the oldest go first. */
+/** Past this even the spill store doesn't keep it: the edit stays in memory only. */
+export const MAX_SPILLED_CHARS = 64_000_000;
+
+/** All inline drafts together stay under this; past it a draft spills or, failing that, says so. */
 export const MAX_DRAFTS_CHARS = 4_000_000;
 
 const Version = Schema.Struct({ mtimeMs: Schema.Number, size: Schema.Number, hash: Schema.String });
@@ -34,6 +37,8 @@ const Draft = Schema.Struct({
   /** The disk version the edits were made on; null for a file not yet on disk. */
   base: Schema.NullOr(Version),
   savedAt: Schema.Number,
+  /** The text is in the spill store (IndexedDB), not here (`draftStore.ts`). */
+  spilled: Schema.optionalKey(Schema.Boolean),
 });
 
 export type Draft = typeof Draft.Type;
@@ -55,7 +60,7 @@ export const fileKey = (hostKey: string, path: string) => `${hostKey}\u0000${pat
 export const workspaceKey = (hostKey: string, workspaceId: string) =>
   `${hostKey}\u0000${workspaceId}`;
 
-const draftKey = (hostKey: string, path: string) => DRAFT_PREFIX + fileKey(hostKey, path);
+export const draftKey = (hostKey: string, path: string) => DRAFT_PREFIX + fileKey(hostKey, path);
 
 const safely = <A>(run: () => A, fallback: A): A => {
   try {
@@ -90,31 +95,17 @@ const allDrafts = (kv: KeyValue): ReadonlyArray<{ key: string; draft: Draft }> =
     return found;
   }, []);
 
-/** Keeps a draft, dropping the oldest others past the budget; false when it couldn't. */
+/** Keeps a draft within the inline budget; false when it doesn't fit (never evicts another). */
 export const writeDraft = (
   kv: KeyValue,
   draft: Omit<Draft, "savedAt">,
   now = Date.now()
 ): boolean => {
-  if (draft.text.length > MAX_DRAFT_CHARS) {
-    dropDraft(kv, draft.hostKey, draft.path);
-
-    return false;
-  }
-
+  if (draft.text.length > MAX_DRAFT_CHARS) return false;
   const key = draftKey(draft.hostKey, draft.path);
+  const others = allDrafts(kv).reduce((n, d) => (d.key === key ? n : n + d.draft.text.length), 0);
 
-  const others = allDrafts(kv)
-    .filter((d) => d.key !== key)
-    .toSorted((a, b) => b.draft.savedAt - a.draft.savedAt);
-
-  let total = draft.text.length;
-
-  for (const other of others) {
-    total += other.draft.text.length;
-
-    if (total > MAX_DRAFTS_CHARS) safely(() => kv.removeItem(other.key), undefined);
-  }
+  if (others + draft.text.length > MAX_DRAFTS_CHARS) return false;
 
   return safely(() => {
     kv.setItem(key, JSON.stringify({ ...draft, savedAt: now }));

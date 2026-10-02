@@ -8,18 +8,14 @@ import type { AppState } from "../../../store/store.ts";
 import { createBridgeFiles } from "../files/bridge.ts";
 import type { EditorFiles } from "../files/port.ts";
 import type { KeyValue } from "../model/drafts.ts";
+import type { SpillStore } from "../model/draftStore.ts";
+import { indexedDbSpill } from "./idbSpill.ts";
 import { setVimHandlers } from "../cm/vim.ts";
 import { closeTab, saveFile, startEditor } from "./actions.ts";
-import { dirtyKeys, isConfigured, saveAll, setVim } from "./buffers.ts";
+import { dirtyKeys, isConfigured, saveAll, setVim, unkeptKeys } from "./buffers.ts";
 import { polaris } from "../../bridge.ts";
 import { editorStore } from "./store.ts";
-
-let finder: (query: string) => void = () => undefined;
-
-/** `:e <path>` and the like open the ⌘P finder through this; the finder feature sets it. */
-export const setFileFinder = (open: (query: string) => void) => {
-  finder = open;
-};
+import { openFinder } from "../api.ts";
 
 const prefs = () => {
   const { editorVim, editorAutosave } = settingsStore.getState().sessions;
@@ -41,6 +37,8 @@ export interface StartInput {
   readonly files?: EditorFiles;
   readonly kv?: KeyValue | null;
   readonly canWrite?: (hostKey: string) => boolean;
+  /** Where big drafts go when `kv` is given (previews); the app uses IndexedDB. */
+  readonly spill?: SpillStore | null;
 }
 
 const splitKey = (key: string) => {
@@ -55,11 +53,15 @@ const publishDirty = () => {
 
   const publish = () => {
     const keys = dirtyKeys();
-    const sig = keys.join("\n");
+    const sig = `${keys.join("\n")}|${[...unkeptKeys()].join("\n")}`;
 
     if (sig === last) return;
     last = sig;
-    void polaris().request("editor.publishDirty", { files: keys.map(splitKey) });
+    const unkept = unkeptKeys();
+
+    void polaris().request("editor.publishDirty", {
+      files: keys.map((key) => ({ ...splitKey(key), unkept: unkept.has(key) })),
+    });
   };
 
   editorStore.subscribe((state, previous) => {
@@ -72,7 +74,7 @@ const publishDirty = () => {
 };
 
 /** Starts the Editor once per window; later calls do nothing. */
-export const ensureEditor = ({ app, files, kv, canWrite }: StartInput) => {
+export const ensureEditor = ({ app, files, kv, spill, canWrite }: StartInput) => {
   if (isConfigured()) return;
 
   const has = (hostKey: string, capability: string) =>
@@ -83,14 +85,18 @@ export const ensureEditor = ({ app, files, kv, canWrite }: StartInput) => {
   startEditor({
     files: files ?? createBridgeFiles(has),
     kv: kv === undefined ? storage() : kv,
+    spill: kv === undefined ? indexedDbSpill() : (spill ?? null),
     prefs,
     canWrite: canWrite ?? ((hostKey) => has(hostKey, "files.write")),
+    hostLabel: (hostKey) => app().hosts.find((h) => h.key === hostKey)?.label ?? hostKey,
+    hostHome: (hostKey) => app().hosts.find((h) => h.key === hostKey)?.status.host?.homeDir ?? null,
   });
 
   setVimHandlers({
     save: (file) => saveFile(file.hostKey, file.path),
-    close: (file) => closeTab(file.hostKey, file.workspaceId, file.path),
-    find: (query) => finder(query),
+    // After vim has finished the command: closing destroys the view it is still using.
+    close: (file) => setTimeout(() => closeTab(file.hostKey, file.workspaceId, file.path), 0),
+    find: openFinder,
     mode: (view, mode) => {
       if (editorStore.getState().active?.view === view) editorStore.setState({ vimMode: mode });
     },

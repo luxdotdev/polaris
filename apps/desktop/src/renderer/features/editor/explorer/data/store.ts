@@ -13,6 +13,8 @@ export type ExplorerView = "files" | "changes";
 export interface GitFacts {
   /** The repository's top level: where git's paths start. */
   readonly toplevel: string;
+  /** The top level is a linked worktree (its `.git` is a file). */
+  readonly worktree: boolean;
   /** HEAD's commit; null before the first commit. The gutter's base. */
   readonly head: string | null;
   readonly branch: string | null;

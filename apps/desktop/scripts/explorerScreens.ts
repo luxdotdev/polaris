@@ -26,7 +26,7 @@ const out = flag("--out");
 
 if (out === null) throw new Error("--out <dir> is required");
 
-const ALL = ["files", "changes", "draft", "no-git", "remote", "checkout"];
+const ALL = ["files", "changes", "draft", "no-git", "remote", "checkout", "agent"];
 
 const scenes = flag("--scenes")?.split(",") ?? ALL;
 

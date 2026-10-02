@@ -7,22 +7,11 @@ import type { TurnItem } from "@polaris/protocol";
 import { Predicate } from "effect";
 import type { SessionEntry } from "../../../../store/hostModel.ts";
 import type { SessionModel, TurnView } from "../../../../store/sessionModel.ts";
+import type { AgentEdit } from "../../model/agent.ts";
 import { isUnder, resolve } from "./paths.ts";
 
-/** Who is changing a file now, for the editor's Working strip (E3); `AgentEdit` in features/editor. */
-export interface AgentEdit {
-  readonly sessionId: string;
-  readonly title: string;
-  readonly harness: string;
-  readonly turnId: string;
-  /** 1-based, as copy says "turn N". */
-  readonly turnIndex: number;
-  readonly turnStartedAt: string;
-  /** Turn items carry no times, so this stays null until the protocol has them. */
-  readonly lastChangeAt: string | null;
-  /** A file change for this path is in progress right now. */
-  readonly live: boolean;
-}
+/** Who is changing a file now, for the editor's Working strip (E3): the editor's own type. */
+export type { AgentEdit } from "../../model/agent.ts";
 
 export interface AgentMarks {
   /** Absolute path → the Harness kind of the Working session changing it. */

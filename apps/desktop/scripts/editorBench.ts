@@ -152,6 +152,67 @@ const savedText = (page: Page, path: string) =>
     `window.__polarisEditor.files.text("studio", ${JSON.stringify(path)})`
   );
 
+/** Opening a path that isn't there toasts why and leaves the tabs as they were. */
+const checkMissing = async (page: Page) => {
+  await scene(page, "e1");
+  const before = await tabCount(page);
+
+  await page.evaluate(
+    `window.__polarisEditor.openFile({ hostKey: "studio", workspaceId: "ws-polaris", path: "${ROOT}/daemon/gone.ts" })`
+  );
+  const toast = page.getByText("Couldn't open daemon/gone.ts");
+
+  await toast.waitFor({ timeout: 5000 }).catch(() => undefined);
+  const shown = (await toast.count()) > 0;
+  const kept = (await tabCount(page)) === before;
+
+  log(
+    `open a missing file: toast ${shown ? "shown" : "MISSING"}, tabs ${kept ? "unchanged" : "CHANGED"}`
+  );
+
+  return shown && kept;
+};
+
+const tabCount = (page: Page) => page.getByTestId("editor-tab").count();
+
+/** Closing a dirty tab asks: Cancel keeps it, Save saves then closes, Don't save drops the edits. */
+const checkClose = async (page: Page) => {
+  const close = () => page.locator('[aria-label="Close reconnect.ts"]').dispatchEvent("click");
+  const dialog = page.getByTestId("editor-close-dialog");
+
+  await scene(page, "e1");
+  const before = await tabCount(page);
+
+  await close();
+  await dialog.waitFor({ timeout: 5000 });
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await dialog.waitFor({ state: "hidden" });
+  const kept = (await tabCount(page)) === before;
+
+  await close();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.waitForTimeout(300);
+
+  const saved =
+    ((await savedText(page, SMALL))?.includes("// ms") ?? false) &&
+    (await tabCount(page)) === before - 1;
+
+  await scene(page, "e1");
+  await close();
+  await page.getByRole("button", { name: "Don't save" }).click();
+  await page.waitForTimeout(300);
+
+  const dropped =
+    !((await savedText(page, SMALL))?.includes("// ms") ?? true) &&
+    (await tabCount(page)) === before - 1;
+
+  log(
+    `close a dirty tab: Cancel keeps it ${kept ? "yes" : "NO"}, Save saves and closes ${saved ? "yes" : "NO"}, Don't save closes unsaved ${dropped ? "yes" : "NO"}`
+  );
+
+  return kept && saved && dropped;
+};
+
 /** Unsaved edits survive a restart (here a reload of the window, with the drafts in localStorage). */
 const checkRestart = async (page: Page) => {
   await page.evaluate("localStorage.clear()");
@@ -171,6 +232,186 @@ const checkRestart = async (page: Page) => {
 
   log(`after a restart: the edit ${ok ? "is back, with its unsaved dot" : "is LOST"}`);
   await page.evaluate("localStorage.clear()");
+
+  return ok;
+};
+
+const openPath = (page: Page, path: string) =>
+  page.evaluate(
+    `window.__polarisEditor.openFile({ hostKey: "studio", workspaceId: "ws-polaris", path: ${JSON.stringify(path)} })`
+  );
+
+/** A 3 MB unsaved edit survives a restart (QCHECK: drafts past 2M characters were lost). */
+const checkBigRestart = async (page: Page) => {
+  await page.evaluate("localStorage.clear()");
+  await scene(page, "empty?persist");
+  await openPath(page, BIG);
+  await page.locator(".cm-content").waitFor({ timeout: 10_000 });
+  await page.evaluate(
+    `window.__polarisEditor.activeView().dispatch({ changes: { from: 0, insert: "/* big */".repeat(300000) } })`
+  );
+  await page.waitForTimeout(2000);
+  await scene(page, "empty?persist");
+  await page.locator(".cm-content").waitFor({ timeout: 10_000 });
+  await page.waitForTimeout(500);
+
+  const length = await page.evaluate<number>(
+    "window.__polarisEditor.activeView().state.doc.length"
+  );
+
+  const dot = await page.locator('[data-testid="editor-tab"][data-dirty]').count();
+  const ok = length > 3_500_000 && dot === 1;
+
+  log(
+    `a 3 MB edit after a restart: ${ok ? "back, with its unsaved dot" : `LOST (${length} chars)`}`
+  );
+  await page.evaluate("localStorage.clear()");
+
+  return ok;
+};
+
+/** Renaming a file with unsaved edits keeps them, at the new path (QCHECK). */
+const checkRename = async (page: Page) => {
+  await scene(page, "e1");
+  const renamed = `${ROOT}/daemon/src/hosts/renamed.ts`;
+
+  await page.evaluate(`(async () => {
+    const e = window.__polarisEditor;
+    e.files.agentWrite("studio", ${JSON.stringify(renamed)}, e.files.text("studio", ${JSON.stringify(SMALL)}));
+    await e.renameFile("studio", ${JSON.stringify(SMALL)}, ${JSON.stringify(renamed)});
+    e.files.remove("studio", ${JSON.stringify(SMALL)});
+  })()`);
+  await page.waitForTimeout(800);
+
+  const title = await page
+    .locator('[data-testid="editor-tab"][aria-selected="true"]')
+    .getAttribute("title");
+
+  const dirty = await page
+    .locator('[data-testid="editor-tab"][aria-selected="true"][data-dirty]')
+    .count();
+
+  const text = await page.locator(".cm-content").textContent();
+  const ok = title === renamed && dirty === 1 && (text?.includes("// ms") ?? false);
+
+  log(
+    `rename a dirty file: ${ok ? "its edits follow it" : `edits LOST (tab ${title ?? "none"}, dirty ${dirty})`}`
+  );
+
+  return ok;
+};
+
+/** vim's :q closes the tab without an uncaught error (QCHECK: searchState_). */
+const checkVimQuit = async (page: Page) => {
+  const errors: Array<string> = [];
+  const onError = (error: Error) => errors.push(error.message);
+
+  page.on("pageerror", onError);
+  await scene(page, "vim");
+  const before = await tabCount(page);
+
+  await page.locator(".cm-content").click();
+  await page.keyboard.press("Escape");
+  await page.keyboard.type(":q");
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(500);
+  page.off("pageerror", onError);
+  const ok = errors.length === 0 && (await tabCount(page)) === before - 1;
+
+  log(
+    `vim :q: ${ok ? "closes the tab, no errors" : `FAILED (${errors.join("; ") || "tab still open"})`}`
+  );
+
+  return ok;
+};
+
+/** An LF file rewritten to CRLF on disk reloads without blank lines and saves CRLF (QCHECK). */
+const checkLineEndings = async (page: Page) => {
+  const transport = `${ROOT}/daemon/src/hosts/transport.ts`;
+
+  await scene(page, "empty");
+  await openPath(page, transport);
+  await page.locator(".cm-content").waitFor({ timeout: 10_000 });
+  const lines = await page.evaluate<number>("window.__polarisEditor.activeView().state.doc.lines");
+
+  await page.evaluate(`(() => {
+    const f = window.__polarisEditor.files;
+    f.agentWrite("studio", ${JSON.stringify(transport)}, f.text("studio", ${JSON.stringify(transport)}).replaceAll("\\n", "\\r\\n"));
+  })()`);
+  await page.waitForTimeout(500);
+  const after = await page.evaluate<number>("window.__polarisEditor.activeView().state.doc.lines");
+
+  await page.locator(".cm-content").click();
+  await page.keyboard.type("// crlf");
+  await page.keyboard.press("Meta+S");
+  await page.waitForTimeout(300);
+  const saved = (await savedText(page, transport)) ?? "";
+  const ok = after === lines && saved.includes("// crlf") && !/[^\r]\n/.test(saved);
+
+  log(`LF → CRLF on disk: ${ok ? "same lines, saved CRLF" : `FAILED (${lines} → ${after} lines)`}`);
+
+  return ok;
+};
+
+/** Named registers are per tab (QCHECK); a yank into "a in one tab doesn't paste in another. */
+const checkRegisters = async (page: Page) => {
+  await scene(page, "vim");
+  await page.locator(".cm-content").click();
+  await page.keyboard.press("Escape");
+  await page.keyboard.type('gg"ayy');
+  await page.keyboard.press("Control+Tab");
+  await page.waitForTimeout(300);
+  await page.locator(".cm-content").click();
+  await page.keyboard.press("Escape");
+  const before = await page.evaluate<number>("window.__polarisEditor.activeView().state.doc.lines");
+
+  await page.keyboard.type('"ap');
+  await page.waitForTimeout(200);
+  const after = await page.evaluate<number>("window.__polarisEditor.activeView().state.doc.lines");
+
+  await page.keyboard.press("Control+Shift+Tab");
+  await page.waitForTimeout(300);
+  await page.locator(".cm-content").click();
+  await page.keyboard.press("Escape");
+  const home = await page.evaluate<number>("window.__polarisEditor.activeView().state.doc.lines");
+
+  await page.keyboard.type('"ap');
+  await page.waitForTimeout(200);
+  const pasted = await page.evaluate<number>("window.__polarisEditor.activeView().state.doc.lines");
+  const ok = after === before && pasted === home + 1;
+
+  log(
+    `named registers: ${ok ? "per tab" : `CROSS TABS (other tab ${before} → ${after}, own ${home} → ${pasted})`}`
+  );
+
+  return ok;
+};
+
+/** E3: the Working strip, the agent's line marks and caret, and "Following … · Ln N". */
+const checkAgent = async (page: Page) => {
+  await scene(page, "e3");
+  await page.getByTestId("agent-strip").waitFor({ timeout: 5000 });
+  await page.waitForTimeout(2500);
+  const marks = await page.locator(".cm-agentLine").count();
+
+  const flag = await page
+    .locator(".cm-agentFlag")
+    .textContent()
+    .catch(() => null);
+
+  const following = await page
+    .getByTestId("following")
+    .textContent()
+    .catch(() => null);
+
+  const ok =
+    marks > 0 &&
+    flag === "Claude Code" &&
+    (following?.startsWith("Following Claude Code · Ln") ?? false);
+
+  log(
+    `agent editing the file: ${marks} marked lines, flag ${flag ?? "none"}, status "${following ?? ""}"${ok ? "" : " FAILED"}`
+  );
 
   return ok;
 };
@@ -208,9 +449,30 @@ const checkSaves = async (page: Page) => {
   log(`vim ${insert ?? "?"}: ⌘S saves: ${fromInsert ? "yes" : "NO"}`);
 
   const restored = await checkRestart(page);
+  const closing = await checkClose(page);
+  const missing = await checkMissing(page);
+  const big = await checkBigRestart(page);
+  const rename = await checkRename(page);
+  const quit = await checkVimQuit(page);
+  const agent = await checkAgent(page);
+  const endings = await checkLineEndings(page);
+  const registers = await checkRegisters(page);
 
   return (
-    viaShortcut && viaVim && fromInsert && mode === "NORMAL" && insert === "INSERT" && restored
+    endings &&
+    registers &&
+    big &&
+    rename &&
+    quit &&
+    agent &&
+    missing &&
+    closing &&
+    viaShortcut &&
+    viaVim &&
+    fromInsert &&
+    mode === "NORMAL" &&
+    insert === "INSERT" &&
+    restored
   );
 };
 

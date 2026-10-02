@@ -86,8 +86,16 @@ export const vimExtension = async (): Promise<Extension> => {
   return [m.vim(), modeReporter(m.getCM)];
 };
 
-/** Per-tab registers (spec §4): the unnamed, numbered and small-delete ones; named ones are global. */
-const TAB_REGISTERS = ['"', "-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+/** Per-tab registers (spec §4): unnamed, small-delete, numbered and named; macros stay app-wide. */
+const TAB_REGISTERS = [
+  '"',
+  "-",
+  ..."0123456789".split(""),
+  ..."abcdefghijklmnopqrstuvwxyz".split(""),
+];
+
+/** Registers a macro was recorded into (`qa…q`): they last for the app session, across tabs. */
+const macroRegisters = new Set<string>();
 
 interface SavedRegister {
   readonly text: string;
@@ -101,9 +109,13 @@ export type TabRegisters = ReadonlyMap<string, SavedRegister>;
 export const swapRegisters = (incoming: TabRegisters | null): TabRegisters | null => {
   if (ready === null) return null;
   const controller = ready.Vim.getRegisterController();
+  const recorded = ready.Vim.getVimGlobalState_().macroModeState.latestRegister;
   const out = new Map<string, SavedRegister>();
 
+  if (recorded !== undefined) macroRegisters.add(recorded.toLowerCase());
+
   for (const name of TAB_REGISTERS) {
+    if (macroRegisters.has(name)) continue;
     const reg = controller.getRegister(name);
 
     out.set(name, { text: reg.toString(), linewise: reg.linewise, blockwise: reg.blockwise });
