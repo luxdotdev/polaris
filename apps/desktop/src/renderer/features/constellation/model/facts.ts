@@ -29,10 +29,22 @@ export interface WorkerFacts {
   readonly activity: Activity | null;
   readonly contextPercent: number | null;
   readonly queued: number;
+  /** When the worker last produced output, shown while nothing runs. */
+  readonly quietSince: string | null;
   /** Since when an approval has waited on the user, if one does. */
   readonly approvalSince: string | null;
   /** The worker ended without a Claim after its one nudge. */
   readonly stoppedWithoutClaiming: boolean;
+  /** Subagents still working in the worker's session (rail nodes under its Attempt). */
+  readonly subagents: ReadonlyArray<SubagentFact>;
+}
+
+export interface SubagentFact {
+  readonly id: string;
+  readonly title: string;
+  /** The kind of helper as the Harness names it ("Explore"), when known. */
+  readonly agent: string | null;
+  readonly since: string;
 }
 
 export const NO_FACTS: WorkerFacts = {
@@ -43,8 +55,10 @@ export const NO_FACTS: WorkerFacts = {
   activity: null,
   contextPercent: null,
   queued: 0,
+  quietSince: null,
   approvalSince: null,
   stoppedWithoutClaiming: false,
+  subagents: [],
 };
 
 /** A verified receipt's tool call, resolved from the session that ran it. */

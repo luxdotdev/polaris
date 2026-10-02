@@ -59,6 +59,7 @@ export const deriveProjections = (
       gatePromoted: task.kind === "gate" && blockedBy.length === 0 && task.deps.length > 0,
       stale: was?.stale ?? false,
       branchFetched: was?.branchFetched ?? true,
+      liveness: attempt !== null && was?.latestAttemptId === attempt.id ? was.liveness : null,
     };
   });
 };

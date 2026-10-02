@@ -139,7 +139,19 @@ const bridge: PolarisApi = {
 const signalsFor = (scene: Scene) => {
   setSignals({
     workers: new Map<string, Partial<WorkerFacts>>([
-      ["att-B2-1", { activity: { kind: "command", text: "bun run bench", since: ago(4) } }],
+      [
+        "att-B2-1",
+        {
+          subagents: [
+            {
+              id: "sa-b2",
+              title: "Read the MCP SDK's transport docs",
+              agent: "Explore",
+              since: ago(3),
+            },
+          ],
+        },
+      ],
       ["att-B3-1", { activity: { kind: "lease", resource: "bench", holder: "B2", since: ago(2) } }],
       ["att-B5-1", { stoppedWithoutClaiming: true }],
       [

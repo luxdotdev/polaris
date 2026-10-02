@@ -38,6 +38,8 @@ const enter = (row: RailRow | undefined): KeyAction | null => {
       return { kind: "toggle", group: row.group, open: true };
     case "handover":
       return { kind: "handover", revision: row.handover.revision };
+    case "subagent":
+      return { kind: "focus", row: row.parent };
     default:
       return null;
   }

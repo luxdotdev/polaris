@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   AttemptId,
+  ConstellationStreamItem,
   DomainEvent,
   EventEnvelope,
   HostStreamItem,
@@ -10,6 +11,7 @@ import {
   SessionId,
   TaskId,
   TurnId,
+  WorkerLiveness,
 } from "@polaris/protocol";
 import { c1Record, constellationOf, LEAD, task, attempt } from "../preview/graph.ts";
 import { largeRecord } from "../preview/large.ts";
@@ -18,7 +20,7 @@ import { attentionItems, nextNeedingYou } from "./attention.ts";
 import { claimGlance, headMatches } from "./claim.ts";
 import { idRanges, span } from "./copy.ts";
 import { plainFacts } from "./facts.ts";
-import { applyEnvelopes, applyHostItems, merged, recordFrom } from "./fold.ts";
+import { applyEnvelopes, applyHostItems, applyStreamItems, merged, recordFrom } from "./fold.ts";
 import { railKey } from "./keys.ts";
 import { deriveProjections } from "./project.ts";
 import { buildRail, DEFAULT_RAIL, LARGE, type RailRow } from "./rail.ts";
@@ -78,6 +80,30 @@ describe("projections", () => {
 
     expect(b4?.branchFetched).toBe(false);
     expect(b4?.stale).toBe(true);
+  });
+
+  test("keeps observed liveness only while the Task's latest Attempt is unchanged", () => {
+    const c = constellationOf();
+
+    const live = new WorkerLiveness({
+      current: null,
+      lastOutputAt: 1000,
+      contextPercent: 50,
+      queuedInput: 1,
+    });
+
+    const known = deriveProjections(c).map((p) =>
+      p.taskId === "B2" ? { ...p, liveness: live } : p
+    );
+
+    expect(deriveProjections(c, known).find((p) => p.taskId === "B2")?.liveness).toEqual(live);
+
+    const replaced = constellationOf({
+      attempts: [...c.attempts, attempt({ taskId: "B2", state: "working", minutes: 1, n: 2 })],
+    });
+
+    expect(deriveProjections(replaced, known).find((p) => p.taskId === "B2")?.liveness).toBeNull();
+    expect(deriveProjections(c).every((p) => p.liveness === null)).toBe(true);
   });
 });
 
@@ -214,6 +240,79 @@ describe("fold", () => {
     ]);
   });
 
+  test("an event folded from both feeds counts once", () => {
+    const start = { byId: new Map([[graph.constellationId, recordFrom(constellationOf(), 1)]]) };
+
+    const proposal = {
+      sequence: 2,
+      occurredAt: "2026-10-01T12:00:00Z",
+      event: E.TaskProposed.make({
+        ...graph,
+        revision: 38,
+        proposalId: "p-1",
+        by: AttemptId.make("att-B2-1"),
+        task: c1Record().proposals[0]!.task,
+      }),
+    };
+
+    const once = applyEnvelopes(start, [proposal]);
+    const twice = applyEnvelopes(once, [{ ...proposal, sequence: 900 }]);
+
+    expect(twice.byId.get(graph.constellationId)?.proposals).toHaveLength(1);
+  });
+
+  test("a stream Snapshot brings the Daemon's projections", () => {
+    const c = constellationOf();
+
+    const projections = deriveProjections(c).map((p) =>
+      p.taskId === "B4" ? merged(p, { branchFetched: false }) : p
+    );
+
+    const model = applyStreamItems(emptyConstellations, [
+      ConstellationStreamItem.cases.Snapshot.make({
+        sequence: Sequence.make(7),
+        constellation: c,
+        projections,
+      }),
+    ]);
+
+    const b4 = model.byId.get(c.id)?.projections.find((p) => p.taskId === "B4");
+
+    expect(b4?.branchFetched).toBe(false);
+  });
+
+  test("LivenessChanged lands on the latest Attempt's projection only", () => {
+    const c = constellationOf();
+    const start = { byId: new Map([[c.id, recordFrom(c, 1)]]) };
+
+    const liveness = new WorkerLiveness({
+      current: null,
+      lastOutputAt: 1_700_000_000_000,
+      contextPercent: 61,
+      queuedInput: 2,
+    });
+
+    const live = applyStreamItems(start, [
+      ConstellationStreamItem.cases.LivenessChanged.make({
+        attemptId: AttemptId.make("att-B2-1"),
+        liveness,
+      }),
+    ]);
+
+    const b2 = live.byId.get(c.id)?.projections.find((p) => p.taskId === "B2");
+
+    expect(b2?.liveness?.queuedInput).toBe(2);
+
+    const stale = applyStreamItems(start, [
+      ConstellationStreamItem.cases.LivenessChanged.make({
+        attemptId: AttemptId.make("att-B2-0"),
+        liveness,
+      }),
+    ]);
+
+    expect(stale).toBe(start);
+  });
+
   test("events for an unknown graph are ignored", () => {
     const model = applyEnvelopes(emptyConstellations, [
       {
@@ -319,6 +418,51 @@ describe("rail", () => {
     expect(rail.rows.find((r) => r.kind === "waiting")).toMatchObject({ ids: "C7–C12", count: 6 });
     expect(rail.counts).toMatchObject({ all: 128, "needs-you": 1, review: 6, done: 71 });
     expect(tasksOf(rail.rows).every((r) => r.line === null)).toBe(true);
+  });
+
+  test("a working Attempt's Subagents are nodes under its row", () => {
+    const withSubagent = plainFacts({
+      worker: (a) => ({
+        ...plainFacts().worker(a),
+        subagents:
+          a.taskId === "B2"
+            ? [
+                {
+                  id: "sa-1",
+                  title: "Read the docs",
+                  agent: "Explore",
+                  since: "2026-10-01T12:00:00Z",
+                },
+              ]
+            : [],
+      }),
+    });
+
+    const rows = buildRail(c1Record(), withSubagent).rows;
+    const at = rows.findIndex((r) => r.key === "task:B2");
+
+    expect(rows[at + 1]).toMatchObject({ kind: "subagent", key: "subagent:sa-1" });
+    expect(railKey("Enter", rows, "subagent:sa-1")).toMatchObject({ kind: "focus" });
+    expect(buildRail(largeRecord(), withSubagent).rows.some((r) => r.kind === "subagent")).toBe(
+      false
+    );
+  });
+
+  test("a silent worker reads quiet; a running command doesn't", () => {
+    const now = Date.parse("2026-10-01T12:10:00Z");
+
+    const quiet = plainFacts({
+      now,
+      worker: (a) => ({
+        ...plainFacts().worker(a),
+        quietSince: a.taskId === "B2" ? "2026-10-01T12:06:00Z" : null,
+        queued: a.taskId === "B2" ? 2 : 0,
+      }),
+    });
+
+    const b2 = rowFor(buildRail(c1Record(), quiet).rows, "B2");
+
+    expect(b2?.line).toMatchObject({ kind: "liveness", quiet: "quiet 4m", queued: 2 });
   });
 
   test("filters and queries flatten to matching Tasks", () => {

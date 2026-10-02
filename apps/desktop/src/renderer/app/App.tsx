@@ -10,6 +10,8 @@ import { type AppContextValue, AppProvider } from "../shell/hooks.ts";
 // Not the feature's index: it reaches slots.tsx, which must load after the shell's features.
 import { UpgradeToasts } from "../features/machines/UpgradeToasts.tsx";
 import { LinkedPullsPublisher } from "../features/accept/index.ts";
+// The feeds module, not the feature index: the index pulls in the slots that this file renders.
+import { ConstellationFeeds } from "../features/constellation/feeds.tsx";
 import { NeedsYouPublisher } from "../features/needs-you/index.ts";
 import { PullsPublisher } from "../features/pulls/index.ts";
 // Not the feature's index: that loads the Review view's chunk.
@@ -34,6 +36,7 @@ export const App = ({ value, onboarding = settled }: AppProps) => (
           <PullsPublisher />
           <CheckoutPublisher />
           <LinkedPullsPublisher />
+          <ConstellationFeeds />
           <UpgradeToasts />
           <Toaster />
         </TooltipProvider>
