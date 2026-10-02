@@ -26,6 +26,8 @@ export interface Segment {
 const toneOf = (row: TaskRow): StripTone => {
   if (row.look.attention !== null) return "needs-you";
 
+  if (row.look.glyph === "waiting") return "waiting";
+
   switch (row.projection.state) {
     case "done":
       return "accepted";

@@ -339,6 +339,20 @@ const b2Liveness = () =>
     queuedInput: 0,
   });
 
+/** A completed Constellation: every Attempt accepted with its merged head. */
+export const completedAttempts = () =>
+  c1Attempts.map(
+    (a) =>
+      new Attempt(
+        merged(a, {
+          state: "accepted",
+          mergedHead: a.mergedHead ?? "9a8b7c6",
+          evidence: a.evidence ?? "verified",
+          endedAt: new Date(Date.now() - 5 * 60_000).toISOString(),
+        })
+      )
+  );
+
 /** C3: the Lead handed B1's Claim up because it can't decide the question. */
 export const handedUpAttempts = () =>
   c1Attempts.map((a) =>

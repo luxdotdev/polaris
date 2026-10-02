@@ -5,7 +5,7 @@
 import { useEffect, useState } from "react";
 import type { ConstellationStatsView } from "../../../shared/api.ts";
 import { useApp } from "../../shell/hooks.ts";
-import { polaris } from "../bridge.ts";
+import { askStats } from "../constellation/statsClient.ts";
 import type { ConstellationView } from "../sessions/source.ts";
 
 interface Wanted {
@@ -40,11 +40,9 @@ export const useConstellationStats = (
 
     void Promise.all(
       wanted.map(async (w) => {
-        const result = await polaris().request("constellation.stats", {
-          hostKey: w.hostKey,
-          // SAFETY: the id came from the Constellation's own record.
-          constellationId: w.id as ConstellationView["constellation"]["id"],
-        });
+        // SAFETY: the id came from the Constellation's own record.
+        const id = w.id as ConstellationView["constellation"]["id"];
+        const result = await askStats(w.hostKey, id, w.revision);
 
         return result.ok ? ([w.id, result.value] as const) : null;
       })

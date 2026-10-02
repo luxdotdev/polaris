@@ -21,6 +21,7 @@ export const pricedStats = (
     total: priced(stats.usage.total, table),
     perTask: stats.usage.perTask.map((t) => ({ taskId: t.taskId, usage: priced(t.usage, table) })),
     perRole: stats.usage.perRole.map((r) => ({ role: r.role, usage: priced(r.usage, table) })),
+    perDigest: stats.lead.digests.map((d) => priced(d.usage, table)),
   },
   pricesFetchedAt: table?.fetchedAt ?? null,
 });

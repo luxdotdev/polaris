@@ -308,6 +308,8 @@ export interface ConstellationStatsView {
       readonly role: "lead" | "worker";
       readonly usage: PricedStatsUsage;
     }>;
+    /** Each digest Turn's Usage, in `stats.lead.digests` order. */
+    readonly perDigest: ReadonlyArray<PricedStatsUsage>;
   };
   /** Null when no price table could be read. */
   readonly pricesFetchedAt: string | null;

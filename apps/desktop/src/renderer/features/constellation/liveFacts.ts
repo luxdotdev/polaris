@@ -5,6 +5,7 @@
 import { Predicate } from "effect";
 import type { HostView } from "../../../shared/api.ts";
 import { type AppState, sessionKey } from "../../store/store.ts";
+import { slotWaitOf } from "../../store/hostResources.ts";
 import type { TurnView } from "../../store/sessionModel.ts";
 import {
   type Activity,
@@ -73,8 +74,8 @@ export const workerFactsFrom = (
   const hostKey = hostKeyOf(state.hosts, attempt.hostId);
   const host = state.hosts.find((h) => h.key === hostKey);
 
-  const entry =
-    hostKey === null ? undefined : state.hostModels[hostKey]?.sessions.get(attempt.sessionId);
+  const hostModel = hostKey === null ? undefined : state.hostModels[hostKey];
+  const entry = hostModel?.sessions.get(attempt.sessionId);
 
   const open =
     hostKey === null ? undefined : state.sessions[sessionKey(hostKey, attempt.sessionId)];
@@ -84,13 +85,20 @@ export const workerFactsFrom = (
   const lastTurn = open?.turns.at(-1);
   const status = host?.status.state;
 
+  const slotSince = hostModel === undefined ? null : slotWaitOf(hostModel.resources, attempt);
+  const remoteHost = attempt.hostId === c.hostId ? null : (host?.label ?? attempt.hostId);
+
   const derived: WorkerFacts = {
     ...NO_FACTS,
     harness: session?.harness ?? null,
     model: session?.model ?? null,
-    remoteHost: attempt.hostId === c.hostId ? null : (host?.label ?? attempt.hostId),
+    remoteHost,
     hostAway: status === "reconnecting" || status === "offline" ? AWAY[status] : null,
-    activity: activityOf(lastTurn),
+    // A worker waiting for a slot isn't running anything yet.
+    activity:
+      slotSince === null
+        ? activityOf(lastTurn)
+        : { kind: "slot", host: remoteHost, since: slotSince },
     contextPercent: usage === null ? null : percent(usage.usedTokens, usage.windowTokens),
     approvalSince: entry?.pendingApprovals[0]?.openedAt ?? null,
     // Nudged once (AttemptNudged), then the session ended its Turn again without a Claim.
