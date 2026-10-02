@@ -26,7 +26,7 @@ import {
 import { clearFlash, FLASH_MS, reloadPlan } from "../cm/reload.ts";
 import { cursorOf } from "../cm/cursor.ts";
 import { loadLanguage } from "../cm/languages.ts";
-import { currentMode, swapRegisters, type TabRegisters, vimExtension } from "../cm/vim.ts";
+import { currentMode, vimExtension } from "../cm/vim.ts";
 import {
   type BufferEffect,
   type BufferEvent,
@@ -84,7 +84,6 @@ interface OpenBuffer {
   settle: ReturnType<typeof setTimeout> | null;
   autosave: ReturnType<typeof setTimeout> | null;
   flash: ReturnType<typeof setTimeout> | null;
-  registers: TabRegisters | null;
   /** Where the view was scrolled when its tab was last hidden. */
   scroll: StateEffect<unknown> | null;
   /** A line to reveal once loaded. */
@@ -422,7 +421,6 @@ export const ensureBuffer = (input: OpenInput): OpenBuffer => {
     settle: null,
     autosave: null,
     flash: null,
-    registers: null,
     scroll: null,
     reveal,
     onEdit: input.onEdit,
@@ -555,12 +553,6 @@ export const activate = (key: string | null) => {
   const previous = editorStore.getState().active;
 
   if (previous?.view === buffer?.view) return;
-
-  const outgoing =
-    previous === null ? undefined : open.get(fileKey(previous.hostKey, previous.path));
-
-  if (outgoing !== undefined) outgoing.registers = swapRegisters(buffer?.registers ?? null);
-  else swapRegisters(buffer?.registers ?? null);
 
   editorStore.setState({
     active: buffer?.view == null ? null : { ...buffer.file, view: buffer.view },

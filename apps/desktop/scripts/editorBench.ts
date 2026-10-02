@@ -353,35 +353,48 @@ const checkLineEndings = async (page: Page) => {
   return ok;
 };
 
-/** Named registers are per tab (QCHECK); a yank into "a in one tab doesn't paste in another. */
+const docLines = (page: Page) =>
+  page.evaluate<number>("window.__polarisEditor.activeView().state.doc.lines");
+
+const caretLine = (page: Page) =>
+  page.evaluate<number>(
+    "(() => { const s = window.__polarisEditor.activeView().state; return s.doc.lineAt(s.selection.main.head).number; })()"
+  );
+
+const switchTab = async (page: Page, key: string) => {
+  await page.keyboard.press(key);
+  await page.waitForTimeout(300);
+  await page.locator(".cm-content").click();
+  await page.keyboard.press("Escape");
+};
+
+/** Registers are app-wide as in real vim (the lead's call); marks stay per tab. */
 const checkRegisters = async (page: Page) => {
   await scene(page, "vim");
   await page.locator(".cm-content").click();
   await page.keyboard.press("Escape");
-  await page.keyboard.type('gg"ayy');
-  await page.keyboard.press("Control+Tab");
-  await page.waitForTimeout(300);
-  await page.locator(".cm-content").click();
-  await page.keyboard.press("Escape");
-  const before = await page.evaluate<number>("window.__polarisEditor.activeView().state.doc.lines");
+  await page.keyboard.type('gg"ayy5Gma');
+  await switchTab(page, "Control+Tab");
+  const before = await docLines(page);
 
-  await page.keyboard.type('"ap');
+  await page.keyboard.type('gg"ap');
   await page.waitForTimeout(200);
-  const after = await page.evaluate<number>("window.__polarisEditor.activeView().state.doc.lines");
+  const pasted = await docLines(page);
 
-  await page.keyboard.press("Control+Shift+Tab");
-  await page.waitForTimeout(300);
-  await page.locator(".cm-content").click();
-  await page.keyboard.press("Escape");
-  const home = await page.evaluate<number>("window.__polarisEditor.activeView().state.doc.lines");
-
-  await page.keyboard.type('"ap');
+  await page.keyboard.type("G'a");
   await page.waitForTimeout(200);
-  const pasted = await page.evaluate<number>("window.__polarisEditor.activeView().state.doc.lines");
-  const ok = after === before && pasted === home + 1;
+  const elsewhere = await caretLine(page);
+
+  await switchTab(page, "Control+Shift+Tab");
+  await page.keyboard.type("G'a");
+  await page.waitForTimeout(200);
+  const home = await caretLine(page);
+  const shared = pasted === before + 1;
+  const marks = elsewhere !== 5 && home === 5;
+  const ok = shared && marks;
 
   log(
-    `named registers: ${ok ? "per tab" : `CROSS TABS (other tab ${before} → ${after}, own ${home} → ${pasted})`}`
+    `vim registers ${shared ? "shared across tabs" : "NOT shared"}, marks ${marks ? "per tab" : `NOT per tab (other tab ${elsewhere}, own ${home})`}`
   );
 
   return ok;
