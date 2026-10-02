@@ -26,7 +26,18 @@ const out = flag("--out");
 
 if (out === null) throw new Error("--out <dir> is required");
 
-const ALL = ["lead", "menu", "focus", "handed", "paused", "empty", "large", "handover"];
+const ALL = [
+  "lead",
+  "menu",
+  "focus",
+  "handed",
+  "paused",
+  "empty",
+  "large",
+  "handover",
+  "stats",
+  "completed",
+];
 
 const scenes = flag("--scenes")?.split(",") ?? ALL;
 

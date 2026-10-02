@@ -32,6 +32,7 @@ import type {
   HostStreamItem,
   ConstellationResult,
   ConstellationSettings,
+  ConstellationStats,
   HostResourcesSnapshot,
   ConstellationStreamItem,
   PlanLimit,
@@ -282,12 +283,34 @@ export interface InstallView {
   readonly command: string | null;
 }
 
+/** Usage priced like Settings → Usage: Harness-reported cost plus an API-price estimate. */
+export interface StatsCost {
+  /** Reported plus estimated. */
+  readonly usd: number;
+  readonly estimatedUsd: number;
+  /** Tokens on Models no price list has; not in `usd`. */
+  readonly unpricedTokens: number;
+}
+
+/** `constellation.stats` with every `StatsUsage` priced, in the same order as the stats. */
+export interface ConstellationStatsView {
+  readonly stats: Plain<ConstellationStats>;
+  readonly cost: {
+    readonly total: StatsCost;
+    readonly perTask: ReadonlyArray<StatsCost>;
+    readonly perRole: ReadonlyArray<StatsCost>;
+    readonly perDigest: ReadonlyArray<StatsCost>;
+  };
+  /** Null when no price table could be read: only reported cost is counted. */
+  readonly pricesFetchedAt: string | null;
+}
+
 /** Every Constellation request answers with the RPC's result: summary, next, revision. */
 export type ConstellationRequestOutputs = {
   readonly [M in ConstellationMethod]: Plain<ConstellationResult>;
 } & {
   readonly [M in ConstellationDefaultsMethod]: { readonly settings: Plain<ConstellationSettings> };
-};
+} & { readonly "constellation.stats": ConstellationStatsView };
 
 /** Every Host resource request answers with the Host's whole resources snapshot. */
 export type ResourceRequestOutputs = {

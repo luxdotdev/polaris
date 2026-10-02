@@ -20,6 +20,8 @@ export interface LeadUi {
   readonly filter: Filter;
   readonly query: string;
   readonly tab: "constellation" | "changes";
+  /** The Stats popover is open. */
+  readonly stats: boolean;
   /** The row whose ⋯ menu is open (the a / s keys and previews open it too). */
   readonly menu: string | null;
   /** The Claim card's review form, open on one Attempt. */
@@ -33,6 +35,7 @@ const EMPTY: LeadUi = {
   filter: "all",
   query: "",
   tab: "constellation",
+  stats: false,
   menu: null,
   review: null,
 };

@@ -1,14 +1,21 @@
 /**
- * The Stats popover (spec §9): what the graph alone tells, computed when viewed. Tokens and
- * cost per Task come from Usage (the telemetry slice); the popover says so rather than guess.
+ * The Stats popover and completion card from `constellation.stats` (C1-M), priced in main. A
+ * null metric is "not recorded", with the Daemon's coverage reason, never zero.
  */
-import { Match, Predicate } from "effect";
-import { pluralize, span } from "./copy.ts";
-import type { AttemptData, ConstellationRecord } from "./types.ts";
+import type { ConstellationStatsView, StatsCost } from "../../../../shared/api.ts";
+import { pluralize } from "./copy.ts";
+
+type Stats = ConstellationStatsView["stats"];
+
+type Tokens = Stats["usage"]["total"]["tokens"];
 
 export interface StatLine {
   readonly label: string;
   readonly value: string;
+  /** Why it isn't recorded, or a qualifier ("reported cost only"). */
+  readonly note: string | null;
+  /** True when the value is "not recorded". */
+  readonly missing: boolean;
 }
 
 export interface StatGroup {
@@ -16,111 +23,226 @@ export interface StatGroup {
   readonly lines: ReadonlyArray<StatLine>;
 }
 
-const MINUTE = 60_000;
+const SECOND = 1000;
 
-const minutes = (ms: number) => {
-  const m = Math.round(ms / MINUTE);
+const MINUTE = 60 * SECOND;
 
-  return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h ${m % 60}m`;
+/** "40s", "4m", "2h 5m". */
+export const duration = (ms: number): string => {
+  if (ms < MINUTE) return `${Math.round(ms / SECOND)}s`;
+  const minutes = Math.round(ms / MINUTE);
+
+  if (minutes < 60) return `${minutes}m`;
+  const rest = minutes % 60;
+
+  return rest === 0 ? `${Math.floor(minutes / 60)}h` : `${Math.floor(minutes / 60)}h ${rest}m`;
 };
 
-const causeWord = (a: AttemptData) =>
-  Match.value(a.cause).pipe(
-    Match.tagsExhaustive({
-      Initial: () => null,
-      SentBack: () => "sent back",
-      MergeConflict: () => "merge conflict",
-      Recover: () => "recovered",
-      Followup: () => "follow-up",
-      Superseded: () => "superseded",
-    })
-  );
+/** "$1.24", "<$0.01", "$0". */
+export const usd = (value: number): string => {
+  if (value === 0) return "$0";
 
-const median = (values: ReadonlyArray<number>) => {
-  if (values.length === 0) return null;
-  const sorted = values.toSorted((a, b) => a - b);
-
-  return sorted[Math.floor(sorted.length / 2)] ?? null;
+  return value < 0.01 ? "<$0.01" : `$${value.toFixed(2)}`;
 };
 
-const reviewLines = (r: ConstellationRecord, now: number): ReadonlyArray<StatLine> => {
-  const { attempts } = r.constellation;
+/** "182k", "1.4M", "940". */
+export const tokens = (count: number): string => {
+  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
 
-  const waits = attempts.flatMap((a) => {
-    const claimed = a.claimedAt;
-    const decided = a.state === "review" ? now : a.endedAt == null ? null : Date.parse(a.endedAt);
+  return count >= 1000 ? `${Math.round(count / 1000)}k` : String(count);
+};
 
-    return claimed === null || decided === null ? [] : [decided - Date.parse(claimed)];
-  });
+export const totalTokens = (t: Tokens) => t.input + t.cacheRead + t.cacheWrite + t.output;
 
-  const firstTries = attempts.filter(
-    (a) => Predicate.isTagged(a.cause, "Initial") && a.state === "accepted"
-  );
+const percent = (rate: number) => `${Math.round(rate * 100)}%`;
 
-  const accepted = attempts.filter((a) => a.state === "accepted").length;
-  const causes = new Map<string, number>();
+const NOT_RECORDED = "not recorded";
 
-  for (const a of attempts) {
-    const word = causeWord(a);
+/** The first coverage reason for a metric (or its parent: `workers` covers `workers.idleMs`). */
+const reasonFor = (stats: Stats, metric: string) =>
+  stats.coverage.find((c) => c.metric === metric || metric.startsWith(`${c.metric}.`))?.reason ??
+  null;
 
-    if (word !== null) causes.set(word, (causes.get(word) ?? 0) + 1);
-  }
+const line = (label: string, value: string, note: string | null = null): StatLine => ({
+  label,
+  value,
+  note,
+  missing: false,
+});
 
-  const wait = median(waits);
+const maybe = (
+  stats: Stats,
+  label: string,
+  metric: string,
+  value: number | null,
+  format: (n: number) => string
+): StatLine =>
+  value === null
+    ? { label, value: NOT_RECORDED, note: reasonFor(stats, metric), missing: true }
+    : line(label, format(value));
+
+const costNote = (cost: StatsCost, priced: boolean) => {
+  if (!priced) return "reported cost only; no price list was available";
+
+  return cost.unpricedTokens > 0
+    ? `${tokens(cost.unpricedTokens)} tokens on unpriced Models`
+    : null;
+};
+
+const sendBacks = (stats: Stats) => {
+  const causes = stats.review.sendBacksByCause.filter((c) => c.count > 0);
+
+  return causes.length === 0 ? "none" : causes.map((c) => `${c.count} ${c.cause}`).join(" · ");
+};
+
+const firstTime = (stats: Stats) => {
+  const { acceptedFirstTime, firstClaimsReviewed, firstTimeAcceptanceRate } = stats.review;
+
+  if (firstClaimsReviewed === 0 || firstTimeAcceptanceRate === null) return null;
+
+  return `${acceptedFirstTime} of ${firstClaimsReviewed} · ${percent(firstTimeAcceptanceRate)}`;
+};
+
+const reviewLines = (stats: Stats): ReadonlyArray<StatLine> => {
+  const { medianClaimToReviewMs, meanClaimToReviewMs } = stats.review;
+  const first = firstTime(stats);
 
   return [
-    { label: "Claim to review", value: wait === null ? "none yet" : `${minutes(wait)} median` },
-    {
-      label: "Accepted first time",
-      value: accepted === 0 ? "none yet" : `${firstTries.length} of ${accepted}`,
-    },
-    {
-      label: "New attempts",
-      value:
-        causes.size === 0 ? "none" : [...causes].map(([word, n]) => `${n} ${word}`).join(" · "),
-    },
+    medianClaimToReviewMs === null
+      ? line("Claim to review", "no Claim decided yet")
+      : line(
+          "Claim to review",
+          `${duration(medianClaimToReviewMs)} median`,
+          meanClaimToReviewMs === null ? null : `${duration(meanClaimToReviewMs)} mean`
+        ),
+    line("Accepted first time", first ?? "no Claim reviewed yet"),
+    line("Sent back", sendBacks(stats)),
   ];
 };
 
-export const constellationStats = (
-  r: ConstellationRecord,
-  now: number
+const leadLines = (view: ConstellationStatsView): ReadonlyArray<StatLine> => {
+  const { stats, cost } = view;
+  const { lead } = stats;
+
+  const perDigest =
+    cost.perDigest.length === 0
+      ? null
+      : cost.perDigest.reduce((s, c) => s + c.usd, 0) / cost.perDigest.length;
+
+  return [
+    line("Wakeups", pluralize(lead.wakeups, "digest")),
+    line(
+      "Updates per wakeup",
+      lead.wakeups === 0 ? "none yet" : (lead.deliveredItems / lead.wakeups).toFixed(1),
+      lead.coalescingHitRate === null ? null : `${percent(lead.coalescingHitRate)} coalesced`
+    ),
+    maybe(stats, "Per digest", "lead.digests", lead.meanTokensPerDigest, (n) =>
+      perDigest === null ? `${tokens(n)} tokens` : `${tokens(n)} tokens · ${usd(perDigest)}`
+    ),
+  ];
+};
+
+const workerLines = (stats: Stats): ReadonlyArray<StatLine> => {
+  const t = stats.workers.totals;
+
+  return [
+    maybe(stats, "Working", "workers.workingMs", t.workingMs, duration),
+    maybe(stats, "Idle", "workers.idleMs", t.idleMs, duration),
+    maybe(stats, "Waiting for a slot", "workers.waitingForSlotMs", t.waitingForSlotMs, duration),
+    maybe(stats, "Waiting on a lease", "workers.waitingOnLeaseMs", t.waitingOnLeaseMs, duration),
+    maybe(stats, "Host offline", "workers.staleMs", t.staleMs, duration),
+  ];
+};
+
+const ROLE_WORD = { lead: "Lead", worker: "Workers" } as const;
+
+/** The popover's groups, top to bottom. `title` names a Task for the costliest list. */
+export const statsGroups = (
+  view: ConstellationStatsView,
+  title: (taskId: string) => string
 ): ReadonlyArray<StatGroup> => {
-  const c = r.constellation;
-  const working = c.attempts.filter((a) => a.state === "working");
+  const { stats, cost } = view;
+  const priced = view.pricesFetchedAt !== null;
 
-  const busy = c.attempts.reduce(
-    (sum, a) => sum + ((a.endedAt == null ? now : Date.parse(a.endedAt)) - Date.parse(a.startedAt)),
-    0
-  );
-
-  const items = r.digests.reduce((sum, d) => sum + d.items.length, 0);
-  const ended = c.state === "completed" || c.state === "archived";
+  const costliest = stats.usage.perTask
+    .map((t, n) => ({ taskId: t.taskId, cost: cost.perTask[n] }))
+    .flatMap((t) => (t.cost === undefined || t.cost.usd === 0 ? [] : [{ ...t, usd: t.cost.usd }]))
+    .toSorted((a, b) => b.usd - a.usd)
+    .slice(0, 3);
 
   return [
     {
       title: "Constellation",
       lines: [
-        {
-          label: "Running for",
-          value: ended
-            ? minutes(Date.parse(c.updatedAt) - Date.parse(c.createdAt))
-            : span(c.createdAt, now),
-        },
-        { label: "Attempts", value: `${c.attempts.length} · ${working.length} working` },
+        line("Wall clock", duration(stats.wallClockMs)),
+        line("Cost", usd(cost.total.usd), costNote(cost.total, priced)),
+        line("Tokens", tokens(totalTokens(stats.usage.total.tokens))),
       ],
     },
+    { title: "Lead", lines: leadLines(view) },
+    { title: "Review", lines: reviewLines(stats) },
+    { title: "Workers", lines: workerLines(stats) },
     {
-      title: "Lead",
-      lines: [
-        { label: "Wakeups", value: pluralize(r.digests.length, "digest") },
-        {
-          label: "Updates per wakeup",
-          value: r.digests.length === 0 ? "none yet" : (items / r.digests.length).toFixed(1),
-        },
-      ],
+      title: "By role",
+      lines: stats.usage.perRole.map((r, n) =>
+        line(
+          ROLE_WORD[r.role],
+          `${usd(cost.perRole[n]?.usd ?? r.usage.reportedUsd)} · ${tokens(totalTokens(r.usage.tokens))} tokens`
+        )
+      ),
     },
-    { title: "Review", lines: reviewLines(r, now) },
-    { title: "Workers", lines: [{ label: "Time working", value: minutes(busy) }] },
+    ...(costliest.length === 0
+      ? []
+      : [
+          {
+            title: "Costliest tasks",
+            lines: costliest.map((t) => line(`${t.taskId} · ${title(t.taskId)}`, usd(t.usd))),
+          },
+        ]),
   ];
+};
+
+/** What the popover's foot says about how complete the numbers are. */
+export const statsCoverage = (view: ConstellationStatsView): ReadonlyArray<string> => {
+  const notes = new Set<string>();
+
+  if (view.stats.indexing)
+    notes.add("Usage is still being indexed on this Host; totals will grow.");
+
+  for (const c of view.stats.coverage) if (c.metric === "usage") notes.add(c.reason);
+
+  return [...notes];
+};
+
+export interface CompletionFacts {
+  readonly headline: string;
+  readonly lines: ReadonlyArray<StatLine>;
+}
+
+/** The completion summary card: the few numbers that say how the Constellation went. */
+export const completionFacts = (
+  view: ConstellationStatsView,
+  done: number,
+  total: number
+): CompletionFacts => {
+  const { stats, cost } = view;
+  const first = firstTime(stats);
+
+  return {
+    headline: `${done} of ${pluralize(total, "task")} done in ${duration(stats.wallClockMs)}`,
+    lines: [
+      line("Cost", usd(cost.total.usd), costNote(cost.total, view.pricesFetchedAt !== null)),
+      line("Tokens", tokens(totalTokens(stats.usage.total.tokens))),
+      line("Accepted first time", first ?? "no Claim reviewed"),
+      line("Sent back", sendBacks(stats)),
+      maybe(
+        stats,
+        "Workers working",
+        "workers.workingMs",
+        stats.workers.totals.workingMs,
+        duration
+      ),
+      line("Lead wakeups", pluralize(stats.lead.wakeups, "digest")),
+    ],
+  };
 };
