@@ -75,6 +75,9 @@ const constellationPreview = location.hash.startsWith("#constellation/");
 // `#constellations/<scene>`: the sidebar, Needs you, Review, Settings and Usage parts of Constellations (features/sessions/preview).
 const constellationsPreview = location.hash.startsWith("#constellations/");
 
+// `#explorer/<scene>`: Edit mode's explorer on fixtures (features/editor/explorer/preview).
+const explorerPreview = location.hash.startsWith("#explorer/");
+
 // `#editor/<scene>`: the editor pane on in-memory files (features/editor/preview).
 const editorPreview = location.hash.startsWith("#editor/");
 
@@ -142,6 +145,10 @@ if (root !== null && preview) {
 } else if (root !== null && constellationPreview) {
   void import("./features/constellation/preview/Preview.tsx").then((m) => {
     setPreviewDensity = m.mountConstellationPreview(root, location.hash);
+  });
+} else if (root !== null && explorerPreview) {
+  void import("./features/editor/explorer/preview/Preview.tsx").then((m) => {
+    setPreviewDensity = m.mountExplorerPreview(root, location.hash);
   });
 } else if (root !== null && editorPreview) {
   void import("./features/editor/preview/Preview.tsx").then((m) => {
