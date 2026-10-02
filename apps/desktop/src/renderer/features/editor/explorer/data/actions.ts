@@ -6,7 +6,8 @@
 import { PixelFailedIcon, showToast } from "@polaris/ui";
 import { createElement } from "react";
 import { polaris } from "../../../bridge.ts";
-import { closeTab, openFile, renameFile, type TabsView } from "../../index.ts";
+import { closeTab, openFile, renameFile } from "../../runtime/actions.ts";
+import type { TabsView } from "../../runtime/hooks.ts";
 import { basename, dirname, isUnder, join, validName } from "../model/paths.ts";
 import { expandTo } from "../model/tree.ts";
 import { type Draft, explorerOf, patchExplorer, setListing } from "./store.ts";
