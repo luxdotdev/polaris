@@ -6,7 +6,7 @@ import { DomainEvent, LayerRun, type RiskSummaryId } from "@polaris/protocol";
 import { Effect, Layer } from "effect";
 import { Rules, ServiceError } from "../services.ts";
 import { EventStore } from "../store/EventStore.ts";
-import { runRules, type RulesRequest } from "./run.ts";
+import type { RulesRequest } from "./run.ts";
 
 export { findingIdentity, secretSeverity } from "./findings.ts";
 
@@ -17,7 +17,11 @@ export const RulesLive = Layer.succeed(
   Rules.of({
     run: Effect.fn("Rules.run")(function* (request) {
       return yield* Effect.tryPromise({
-        try: (signal) => runRules(request, signal),
+        try: async (signal) => {
+          const { runRules } = await import("./run.ts");
+
+          return runRules(request, signal);
+        },
         catch: (cause) =>
           new ServiceError({
             service: "Rules",

@@ -8,6 +8,8 @@ The Rules layer of a Risk Summary (CONTEXT.md: Risk Summary, Risk Finding, Sever
 - `recordRulesLayer(summaryId, request)`: runs the Rules for a started Risk Summary and commits `RiskSummaryLayerChanged` (`running`, then `completed` with any notes or `failed`) and `RiskFindingsRecorded`. Whoever runs the summary (the Reviewer module, M2-V) starts and ends it.
 - `findingIdentity`, `secretSeverity`.
 
+`RulesLive` loads the runner and pattern pack on the first `run`, rather than at Daemon startup. The import and scan share the existing cancellation signal and `ServiceError` boundary.
+
 `mode` says what `base..head` is:
 
 | Mode | For | Secrets | Patterns |
