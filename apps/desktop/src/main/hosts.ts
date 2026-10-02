@@ -11,6 +11,7 @@ import {
   type HostConnectionOptions,
   HostConnector,
   HostRegistry,
+  ConstellationRelay,
   HostTarget,
 } from "@polaris/client";
 import { Capability } from "@polaris/protocol";
@@ -222,6 +223,7 @@ export class HostDirectory extends Context.Service<
       HostDirectory,
       Effect.gen(function* () {
         const registry = yield* HostRegistry;
+        yield* Layer.build(ConstellationRelay.layer);
         const views = yield* SubscriptionRef.make<ReadonlyArray<HostView>>([]);
         const byKey = new Map<string, HostEntry>();
         const trackers = new Map<string, Fiber.Fiber<void>>();

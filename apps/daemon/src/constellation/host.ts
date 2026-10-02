@@ -3,7 +3,7 @@ import { Effect, Layer } from "effect";
 import { McpTokens, revokeMcpBindings } from "../mcp/index.ts";
 import { HostResources } from "../resources/index.ts";
 import { paths } from "../paths.ts";
-import { type ConstellationRuntimeService } from "./runtime.ts";
+import { ConstellationOwner, type ConstellationRuntimeService } from "./runtime.ts";
 import { workingAttemptsLayer } from "./working.ts";
 
 export interface HostWorkingAttemptHooks<E, R> {
@@ -42,12 +42,14 @@ export const workerEnvironment = (attempt: Attempt): WorkerEnvironment => {
 export const hostWorkingAttemptsLayer = <E, R>(hooks: HostWorkingAttemptHooks<E, R>) =>
   Layer.unwrap(
     Effect.gen(function* () {
+      const hostId = yield* ConstellationOwner;
       const resources = yield* HostResources;
       const tokens = yield* McpTokens;
       const context = yield* Effect.context<R>();
 
       return workingAttemptsLayer<E | ResourceError>({
         runtime: hooks.runtime,
+        ownsAttempt: (attempt) => attempt.hostId === hostId,
         acquireWorker: resources.acquireWorker,
         startWorker: (attempt) =>
           hooks.startWorker(attempt, workerEnvironment(attempt)).pipe(Effect.provide(context)),

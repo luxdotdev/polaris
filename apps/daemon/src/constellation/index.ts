@@ -29,3 +29,7 @@ export {
 } from "./host.ts";
 
 export { ConstellationLiveness } from "./liveness.ts";
+
+export * from "./transfers/index.ts";
+
+export { ConstellationWorktrees, type CleanupResult } from "./worktrees.ts";

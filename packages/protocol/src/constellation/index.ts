@@ -11,3 +11,7 @@ export * from "./liveness.ts";
 export * from "./rpc.ts";
 
 export * from "./stats.ts";
+
+export * from "./transfers.ts";
+
+export { ConstellationHostRpcs } from "./rpcs.ts";

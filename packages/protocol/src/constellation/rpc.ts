@@ -139,6 +139,7 @@ export const ConstellationStreamItem = Schema.TaggedUnion({
     }),
   },
   Synchronized: { sequence: Sequence },
+  BranchFetched: { attemptId: AttemptId, branchFetched: Schema.Boolean },
   /** Ephemeral and unsequenced: the latest observed liveness of one Attempt. */
   LivenessChanged: { attemptId: AttemptId, liveness: WorkerLiveness },
 });

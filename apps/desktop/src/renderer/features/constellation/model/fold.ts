@@ -393,6 +393,24 @@ const withLiveness = (
   return model;
 };
 
+const withBranchFetched = (
+  model: ConstellationsModel,
+  attemptId: string,
+  branchFetched: boolean
+): ConstellationsModel => {
+  for (const [id, r] of model.byId) {
+    if (!r.projections.some((p) => p.latestAttemptId === attemptId)) continue;
+
+    const projections = r.projections.map((p) =>
+      p.latestAttemptId === attemptId ? merged(p, { branchFetched }) : p
+    );
+
+    return withRecord(model, id, { ...r, projections });
+  }
+
+  return model;
+};
+
 /** One graph's `constellation.subscribe` items: Snapshot, events and liveness. */
 export const applyStreamItems = (
   model: ConstellationsModel,
@@ -404,6 +422,8 @@ export const applyStreamItems = (
     if (Predicate.isTagged(item, "Snapshot"))
       next = withRecord(next, item.constellation.id, recordFrom(item));
     else if (Predicate.isTagged(item, "Event")) next = applyEnvelopes(next, [item.envelope]);
+    else if (Predicate.isTagged(item, "BranchFetched"))
+      next = withBranchFetched(next, item.attemptId, item.branchFetched);
     else if (Predicate.isTagged(item, "LivenessChanged"))
       next = withLiveness(next, item.attemptId, item.liveness);
   }

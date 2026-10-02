@@ -275,6 +275,33 @@ describe("fold", () => {
     ]);
   });
 
+  test("BranchFetched updates only the latest Attempt and preserves the graph revision", () => {
+    const start = loaded();
+
+    const fetched = applyStreamItems(start, [
+      ConstellationStreamItem.cases.BranchFetched.make({
+        attemptId: AttemptId.make("att-B4-1"),
+        branchFetched: true,
+      }),
+    ]);
+
+    expect(
+      fetched.byId.get(graph.constellationId)?.projections.find((p) => p.taskId === "B4")
+        ?.branchFetched
+    ).toBe(true);
+    expect(fetched.byId.get(graph.constellationId)?.constellation.revision).toBe(
+      start.byId.get(graph.constellationId)?.constellation.revision
+    );
+    expect(
+      applyStreamItems(start, [
+        ConstellationStreamItem.cases.BranchFetched.make({
+          attemptId: AttemptId.make("att-B4-0"),
+          branchFetched: true,
+        }),
+      ])
+    ).toBe(start);
+  });
+
   test("LivenessChanged lands on the latest Attempt's projection only", () => {
     const start = loaded();
 

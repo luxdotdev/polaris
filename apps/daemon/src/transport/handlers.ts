@@ -7,6 +7,7 @@ import {
   type Capability,
   CommandRejected,
   ConstellationRejected,
+  ConstellationTransferError,
   ConstellationFinding,
   FileError,
   GitError,
@@ -58,6 +59,158 @@ export const defaultHandlers = (options: {
     "host.resources.acquire": () =>
       Effect.fail(new ResourceError({ message: "Host resources are unavailable" })),
 
+    "constellation.placements.watch": () =>
+      Stream.fail(
+        new ConstellationTransferError({
+          code: "E-UNAVAILABLE",
+          message: "Constellation transfers are not mounted",
+          retryable: true,
+        })
+      ),
+    "constellation.placement.resolve": () =>
+      Effect.fail(
+        new ConstellationTransferError({
+          code: "E-UNAVAILABLE",
+          message: "Constellation transfers are not mounted",
+          retryable: true,
+        })
+      ),
+    "constellation.repository.prepare": () =>
+      Effect.fail(
+        new ConstellationTransferError({
+          code: "E-UNAVAILABLE",
+          message: "Constellation transfers are not mounted",
+          retryable: true,
+        })
+      ),
+    "constellation.worker.prepare": () =>
+      Effect.fail(
+        new ConstellationTransferError({
+          code: "E-UNAVAILABLE",
+          message: "Constellation transfers are not mounted",
+          retryable: true,
+        })
+      ),
+    "constellation.delivery.watch": () =>
+      Stream.fail(
+        new ConstellationTransferError({
+          code: "E-UNAVAILABLE",
+          message: "Constellation transfers are not mounted",
+          retryable: true,
+        })
+      ),
+    "constellation.delivery.apply": () =>
+      Effect.fail(
+        new ConstellationTransferError({
+          code: "E-UNAVAILABLE",
+          message: "Constellation transfers are not mounted",
+          retryable: true,
+        })
+      ),
+    "constellation.delivery.ack": () =>
+      Effect.fail(
+        new ConstellationTransferError({
+          code: "E-UNAVAILABLE",
+          message: "Constellation transfers are not mounted",
+          retryable: true,
+        })
+      ),
+    "constellation.base.export": () =>
+      Effect.fail(
+        new ConstellationTransferError({
+          code: "E-UNAVAILABLE",
+          message: "Constellation transfers are not mounted",
+          retryable: true,
+        })
+      ),
+    "constellation.base.import": () =>
+      Effect.fail(
+        new ConstellationTransferError({
+          code: "E-UNAVAILABLE",
+          message: "Constellation transfers are not mounted",
+          retryable: true,
+        })
+      ),
+    "constellation.worktree.prepare": () =>
+      Effect.fail(
+        new ConstellationTransferError({
+          code: "E-UNAVAILABLE",
+          message: "Constellation transfers are not mounted",
+          retryable: true,
+        })
+      ),
+    "constellation.bundle.export": () =>
+      Effect.fail(
+        new ConstellationTransferError({
+          code: "E-UNAVAILABLE",
+          message: "Constellation transfers are not mounted",
+          retryable: true,
+        })
+      ),
+    "constellation.bundle.import": () =>
+      Effect.fail(
+        new ConstellationTransferError({
+          code: "E-UNAVAILABLE",
+          message: "Constellation transfers are not mounted",
+          retryable: true,
+        })
+      ),
+    "constellation.assignment.set": () =>
+      Effect.fail(
+        new ConstellationTransferError({
+          code: "E-UNAVAILABLE",
+          message: "Constellation transfers are not mounted",
+          retryable: true,
+        })
+      ),
+    "constellation.assignment.list": () =>
+      Effect.fail(
+        new ConstellationTransferError({
+          code: "E-UNAVAILABLE",
+          message: "Constellation transfers are not mounted",
+          retryable: true,
+        })
+      ),
+    "constellation.outbox.watch": () =>
+      Stream.fail(
+        new ConstellationTransferError({
+          code: "E-UNAVAILABLE",
+          message: "Constellation transfers are not mounted",
+          retryable: true,
+        })
+      ),
+    "constellation.outbox.apply": () =>
+      Effect.fail(
+        new ConstellationTransferError({
+          code: "E-UNAVAILABLE",
+          message: "Constellation transfers are not mounted",
+          retryable: true,
+        })
+      ),
+    "constellation.outbox.ack": () =>
+      Effect.fail(
+        new ConstellationTransferError({
+          code: "E-UNAVAILABLE",
+          message: "Constellation transfers are not mounted",
+          retryable: true,
+        })
+      ),
+    "constellation.claim.export": () =>
+      Effect.fail(
+        new ConstellationTransferError({
+          code: "E-UNAVAILABLE",
+          message: "Constellation transfers are not mounted",
+          retryable: true,
+        })
+      ),
+    "constellation.origin.import": () =>
+      Effect.fail(
+        new ConstellationTransferError({
+          code: "E-UNAVAILABLE",
+          message: "Constellation transfers are not mounted",
+          retryable: true,
+        })
+      ),
     "constellation.defaults.get": () => Effect.fail(constellationUnavailable()),
     "constellation.defaults.set": () => Effect.fail(constellationUnavailable()),
     "constellation.plan": () => Effect.fail(constellationUnavailable()),

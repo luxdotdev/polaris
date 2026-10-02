@@ -8,6 +8,8 @@ import { CID, LEAD } from "../engine/constellation.testing.ts";
 import { McpBinding, McpTokens } from "../mcp/index.ts";
 import { HostResources } from "../resources/index.ts";
 import { EventStore } from "../store/EventStore.ts";
+import { ConstellationOwner } from "./runtime.ts";
+import { HOST } from "../engine/constellation.testing.ts";
 import { hostWorkingAttemptsLayer } from "./host.ts";
 
 test("Host composition captures persistent MCP tokens and revokes archived sessions on replay", async () => {
@@ -65,6 +67,7 @@ test("Host composition captures persistent MCP tokens and revokes archived sessi
               Layer.provide(
                 Layer.mergeAll(
                   Layer.succeed(EventStore)(store),
+                  Layer.succeed(ConstellationOwner)(HOST),
                   Layer.succeed(McpTokens)(tokens),
                   Layer.succeed(HostResources)(resources)
                 )

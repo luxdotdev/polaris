@@ -97,7 +97,7 @@ export const MAX_REOPEN_BACKOFF_MS = 5_000;
 export const reopenBackoff = (stalled: number): number =>
   stalled <= 0 ? 0 : Math.min(MAX_REOPEN_BACKOFF_MS, REOPEN_BACKOFF_MS * 2 ** (stalled - 1));
 
-export const makeFeed = Effect.fnUntraced(function* <C, A, E>(
+export const openFeed = Effect.fnUntraced(function* <C, A, E>(
   options: FeedOptions<C, A, E>
 ): Effect.fn.Return<Feed<A, E>, never, Scope.Scope> {
   const scope = yield* Effect.scope;
@@ -301,7 +301,7 @@ const markSession = SessionStreamItem.match<SequenceMark>({
 
 /** A Daemon's host stream as a Feed. */
 export const openHostFeed = (source: LiveSource<DaemonClient>) =>
-  makeFeed<DaemonClient, HostStreamItem, RpcClientError>({
+  openFeed<DaemonClient, HostStreamItem, RpcClientError>({
     source,
     open: (client, afterSequence) =>
       client.subscribeHost({ afterSequence: afterSequenceOf(afterSequence) }),
@@ -318,7 +318,7 @@ export const openSessionFeed = (
   sessionId: SessionId,
   turnLimit: number | null
 ) =>
-  makeFeed<DaemonClient, SessionStreamItem, NotFound | RpcClientError>({
+  openFeed<DaemonClient, SessionStreamItem, NotFound | RpcClientError>({
     source,
     open: (client, afterSequence) =>
       client.subscribeSession({
@@ -330,3 +330,5 @@ export const openSessionFeed = (
     isDisconnect,
     gapless: false,
   });
+
+export const makeFeed = openFeed;
