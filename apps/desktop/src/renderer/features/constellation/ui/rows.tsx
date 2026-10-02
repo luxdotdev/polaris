@@ -144,8 +144,8 @@ const TaskTitle = ({ row }: { readonly row: TaskRow }) => (
   <span className="text-body text-text-default flex min-w-0 flex-1 items-center gap-1.5">
     {row.inputs === null ? null : (
       <span className="flex shrink-0 items-center gap-[3px]" aria-hidden>
-        {row.inputs.map((glyph, n) => (
-          <InputDot key={n} glyph={glyph} harness={null} />
+        {row.inputs.map((input) => (
+          <InputDot key={input.taskId} glyph={input.glyph} harness={input.harness} />
         ))}
         <span className="text-text-faint pl-0.5">→</span>
       </span>

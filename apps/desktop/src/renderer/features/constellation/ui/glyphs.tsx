@@ -65,13 +65,16 @@ export const ConstellationMark = ({
 
 const RING = "box-border rounded-full border-[1.5px]";
 
+/** A 10px field needs a denser dither than a session tile to read as working (Paper C1). */
+const RAIL_DITHER = 0.9;
+
 const drawGlyph = (glyph: TaskGlyphKind, harness: HarnessKind | null) => {
   switch (glyph) {
     case "working":
       return harness === null ? (
         <span className={cn(RING, "border-text-subtle size-2.5")} />
       ) : (
-        <Dither hue={harness} size={10} moving />
+        <Dither hue={harness} size={10} moving intensity={RAIL_DITHER} />
       );
     case "review":
     case "review-unfetched":

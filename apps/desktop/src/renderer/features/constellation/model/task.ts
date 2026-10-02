@@ -48,6 +48,12 @@ export type Line =
       readonly detail: string | null;
     };
 
+export interface GateInput {
+  readonly taskId: string;
+  readonly glyph: TaskGlyphKind;
+  readonly harness: HarnessKind | null;
+}
+
 export interface TaskRow {
   readonly kind: "task";
   readonly key: string;
@@ -61,8 +67,8 @@ export interface TaskRow {
   readonly actor: string;
   readonly line: Line | null;
   readonly overlap: Overlap | null;
-  /** A Gate's inputs, each in its own state. */
-  readonly inputs: ReadonlyArray<TaskGlyphKind> | null;
+  /** A Gate's inputs, each in its own state (a working one in its Harness hue). */
+  readonly inputs: ReadonlyArray<GateInput> | null;
   /** Accept / Send back as buttons: the Constellation is paused or the Claim was handed up. */
   readonly promoted: boolean;
   /** Nested under a group (not on the trunk). */
@@ -204,11 +210,21 @@ const unprojected = (taskId: TaskId): ProjectionData => ({
   liveness: null,
 });
 
-const inputGlyphs = (task: TaskData, ctx: TaskContext) =>
+const inputGlyphs = (task: TaskData, ctx: TaskContext): ReadonlyArray<GateInput> =>
   task.deps.map((dep) => {
     const p = ctx.projections.get(dep) ?? unprojected(dep);
+    const attempt = ctx.attempts.get(dep)?.at(-1);
 
-    return glyphFor(p, { needsYou: false, isGate: ctx.tasks.get(dep)?.kind === "gate" });
+    const harness =
+      (attempt === undefined ? null : ctx.facts.worker(attempt).harness) ??
+      ctx.tasks.get(dep)?.suggested?.harness ??
+      null;
+
+    return {
+      taskId: dep,
+      glyph: glyphFor(p, { needsYou: false, isGate: ctx.tasks.get(dep)?.kind === "gate" }),
+      harness,
+    };
   });
 
 const actorFor = (

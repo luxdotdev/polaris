@@ -382,6 +382,25 @@ describe("rail", () => {
     expect(rowFor(rows, "G1")?.line?.kind).toBe("accepted");
   });
 
+  test("a Gate's working inputs take their worker's Harness hue", () => {
+    const hued = plainFacts({
+      worker: (a) => ({
+        ...plainFacts().worker(a),
+        harness: a.taskId === "B3" ? "claude" : "codex",
+      }),
+    });
+
+    const inputs = rowFor(buildRail(c1Record(), hued).rows, "G2")?.inputs ?? [];
+
+    expect(inputs.map((i) => [i.taskId, i.glyph, i.harness])).toEqual([
+      ["B1", "review", "codex"],
+      ["B2", "working", "codex"],
+      ["B3", "working", "claude"],
+      ["B4", "review-unfetched", "codex"],
+      ["B5", "working", "codex"],
+    ]);
+  });
+
   test("an unfetched branch says so; an overlap warns once per pair", () => {
     const rows = buildRail(c1Record(), facts).rows;
 
