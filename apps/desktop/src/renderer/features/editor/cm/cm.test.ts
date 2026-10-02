@@ -3,7 +3,7 @@ import { defaultKeymap } from "@codemirror/commands";
 import { EditorState } from "@codemirror/state";
 import { cmChord, shellChords, shellSafe } from "./keys.ts";
 import { minimalChange, reloadSpec } from "./reload.ts";
-import { crumbs } from "../ui/Breadcrumbs.tsx";
+import { crumbs } from "../model/paths.ts";
 import { positionText } from "../ui/EditorStatus.tsx";
 
 describe("shell chords stay the shell's", () => {

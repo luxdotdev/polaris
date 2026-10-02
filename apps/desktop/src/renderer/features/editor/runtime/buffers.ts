@@ -44,6 +44,7 @@ import {
 } from "../model/drafts.ts";
 import { indentLabel, type Indent } from "../model/indent.ts";
 import { languageFor } from "../model/language.ts";
+import type { Unreadable } from "../model/notices.ts";
 import type { EditorFiles, FileTarget } from "../files/port.ts";
 import { type Cursor, editorStore, modelOf, patchBuffer, setBufferModel } from "./store.ts";
 
@@ -57,6 +58,8 @@ export interface EditorConfig {
   /** Where drafts are kept; null keeps them in memory only. */
   readonly kv: KeyValue | null;
   readonly prefs: () => EditorPrefs;
+  /** The Host's name for messages ("Mac Studio"). */
+  readonly hostLabel: (hostKey: string) => string;
   /** Whether a Host's Daemon can save (capability `files.write`). */
   readonly canWrite: (hostKey: string) => boolean;
 }
@@ -85,6 +88,8 @@ interface OpenBuffer {
   /** The first edit pins a preview tab. */
   readonly onEdit: () => void;
   readonly onDirectory: () => void;
+  /** Set for an open the user asked for: it can't be read, so the caller drops the tab and says why. */
+  readonly onUnreadable: ((reason: Unreadable) => void) | null;
 }
 
 let config: EditorConfig | null = null;
@@ -98,6 +103,8 @@ export const configureEditor = (next: EditorConfig) => {
 };
 
 export const isConfigured = () => config !== null;
+
+export const hostLabelOf = (hostKey: string) => need().hostLabel(hostKey);
 
 const need = (): EditorConfig => {
   if (config === null) throw new Error("the editor isn't configured");
@@ -322,6 +329,12 @@ const load = async (buffer: OpenBuffer) => {
 
     if (!open.has(buffer.key)) return;
 
+    if (result.kind === "missing" && buffer.onUnreadable !== null) {
+      buffer.onUnreadable(result);
+
+      return;
+    }
+
     if (result.kind !== "text") {
       patchBuffer(buffer.key, { status: result.kind === "binary" ? result : { kind: "missing" } });
 
@@ -339,7 +352,9 @@ const load = async (buffer: OpenBuffer) => {
       return;
     }
 
-    patchBuffer(buffer.key, { status: { kind: "error", message } });
+    if (buffer.onUnreadable === null)
+      patchBuffer(buffer.key, { status: { kind: "error", message } });
+    else buffer.onUnreadable({ kind: "error", message });
   }
 };
 
@@ -351,6 +366,7 @@ export interface OpenInput {
   readonly onEdit: () => void;
   /** The path was a folder: the caller drops its tab. */
   readonly onDirectory: () => void;
+  readonly onUnreadable?: (reason: Unreadable) => void;
 }
 
 /** The file's buffer, loading it if new; reveals `line` once it has loaded. */
@@ -382,6 +398,7 @@ export const ensureBuffer = (input: OpenInput): OpenBuffer => {
     reveal,
     onEdit: input.onEdit,
     onDirectory: input.onDirectory,
+    onUnreadable: input.onUnreadable ?? null,
   };
 
   const kv = need().kv;

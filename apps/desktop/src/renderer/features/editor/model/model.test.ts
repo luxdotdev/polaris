@@ -15,6 +15,7 @@ import { detectIndent, indentLabel, lineSeparatorOf } from "./indent.ts";
 import { languageFor } from "./language.ts";
 import { closeTab, cycleTab, emptyTabs, openTab, pinTab, renameTab, tabLabels } from "./tabs.ts";
 import { modeLabel, modeText } from "./vim.ts";
+import { unreadableToast } from "./notices.ts";
 import type { BufferView } from "../runtime/store.ts";
 
 describe("tabs", () => {
@@ -193,6 +194,27 @@ describe("the strip above the code", () => {
       "The daemon on Raspberry Pi 4 can't save files yet."
     );
     expect(bannerFor(view({}), "Mac Studio")).toBeNull();
+  });
+});
+
+describe("an open that can't read its file", () => {
+  test("says which file, and on which host", () => {
+    expect(unreadableToast("/r/daemon/gone.ts", "/r", "Mac Studio", { kind: "missing" })).toEqual({
+      title: "Couldn't open daemon/gone.ts",
+      message: "Not found on Mac Studio.",
+    });
+  });
+
+  test("passes the Daemon's reason through, and the whole path outside the root", () => {
+    expect(
+      unreadableToast("/etc/shadow", "/r", "Linux VM", {
+        kind: "error",
+        message: "EACCES: permission denied.",
+      })
+    ).toEqual({
+      title: "Couldn't open etc/shadow",
+      message: "EACCES: permission denied (on Linux VM).",
+    });
   });
 });
 

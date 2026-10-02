@@ -20,6 +20,7 @@ import {
   discardBuffer,
   ensureBuffer,
   hasUnsaved,
+  hostLabelOf,
   isConfigured,
   keepMine,
   releaseBuffer,
@@ -28,6 +29,8 @@ import {
   whenLoaded,
 } from "./buffers.ts";
 import { editorStore, tabsOf } from "./store.ts";
+import { unreadableToast } from "../model/notices.ts";
+import { showOpenFailure } from "../ui/toasts.ts";
 
 export interface OpenFileRequest {
   readonly hostKey: string;
@@ -153,6 +156,10 @@ export const openFile = (request: OpenFileRequest) => {
     column: request.column ?? null,
     onEdit: () => setTabs(ws, (set) => pinTab(set, path)),
     onDirectory: () => closeTab(hostKey, workspaceId, path),
+    onUnreadable: (reason) => {
+      closeNow(hostKey, workspaceId, path);
+      showOpenFailure(unreadableToast(path, root ?? null, hostLabelOf(hostKey), reason));
+    },
   });
 };
 

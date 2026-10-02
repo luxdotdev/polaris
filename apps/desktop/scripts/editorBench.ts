@@ -152,6 +152,27 @@ const savedText = (page: Page, path: string) =>
     `window.__polarisEditor.files.text("studio", ${JSON.stringify(path)})`
   );
 
+/** Opening a path that isn't there toasts why and leaves the tabs as they were. */
+const checkMissing = async (page: Page) => {
+  await scene(page, "e1");
+  const before = await tabCount(page);
+
+  await page.evaluate(
+    `window.__polarisEditor.openFile({ hostKey: "studio", workspaceId: "ws-polaris", path: "${ROOT}/daemon/gone.ts" })`
+  );
+  const toast = page.getByText("Couldn't open daemon/gone.ts");
+
+  await toast.waitFor({ timeout: 5000 }).catch(() => undefined);
+  const shown = (await toast.count()) > 0;
+  const kept = (await tabCount(page)) === before;
+
+  log(
+    `open a missing file: toast ${shown ? "shown" : "MISSING"}, tabs ${kept ? "unchanged" : "CHANGED"}`
+  );
+
+  return shown && kept;
+};
+
 const tabCount = (page: Page) => page.getByTestId("editor-tab").count();
 
 /** Closing a dirty tab asks: Cancel keeps it, Save saves then closes, Don't save drops the edits. */
@@ -249,8 +270,10 @@ const checkSaves = async (page: Page) => {
 
   const restored = await checkRestart(page);
   const closing = await checkClose(page);
+  const missing = await checkMissing(page);
 
   return (
+    missing &&
     closing &&
     viaShortcut &&
     viaVim &&

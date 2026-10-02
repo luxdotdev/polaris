@@ -85,6 +85,7 @@ export const ensureEditor = ({ app, files, kv, canWrite }: StartInput) => {
     kv: kv === undefined ? storage() : kv,
     prefs,
     canWrite: canWrite ?? ((hostKey) => has(hostKey, "files.write")),
+    hostLabel: (hostKey) => app().hosts.find((h) => h.key === hostKey)?.label ?? hostKey,
   });
 
   setVimHandlers({

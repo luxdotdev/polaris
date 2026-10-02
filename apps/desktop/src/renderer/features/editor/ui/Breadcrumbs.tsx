@@ -7,20 +7,13 @@ import { Kbd } from "@polaris/ui";
 import { Fragment, useMemo } from "react";
 import { symbolAt } from "../cm/symbol.ts";
 import { fileKey } from "../model/drafts.ts";
+import { crumbs } from "../model/paths.ts";
 import { useEditor } from "../runtime/store.ts";
 
 export interface BreadcrumbsProps {
   readonly path: string;
   readonly root: string;
 }
-
-/** Inside the root: its relative segments; elsewhere (a Worktree, a checkout): from `~` or `/`. */
-export const crumbs = (path: string, root: string): ReadonlyArray<string> => {
-  const base = root.endsWith("/") ? root : `${root}/`;
-  const relative = path.startsWith(base) ? path.slice(base.length) : path.replace(/^\/+/, "");
-
-  return relative.split("/").filter((s) => s.length > 0);
-};
 
 const useSymbol = (path: string) => {
   const view = useEditor((s) => (s.active?.path === path ? s.active.view : null));

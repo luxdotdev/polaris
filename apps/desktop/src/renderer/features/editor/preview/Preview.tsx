@@ -6,7 +6,7 @@
  */
 import { openSearchPanel } from "@codemirror/search";
 import type { EditorView } from "@codemirror/view";
-import { TooltipProvider } from "@polaris/ui";
+import { Toaster, TooltipProvider } from "@polaris/ui";
 import { createRoot } from "react-dom/client";
 import { createStore } from "zustand/vanilla";
 import type { Density, PolarisApi } from "../../../../shared/api.ts";
@@ -194,6 +194,7 @@ export const mountEditorPreview = (root: HTMLElement, hash: string) => {
     <AppProvider value={{ connection, navigation, commands }}>
       <TooltipProvider>
         <Frame />
+        <Toaster />
       </TooltipProvider>
     </AppProvider>
   );
