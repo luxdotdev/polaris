@@ -46,7 +46,7 @@ The file API today reads, stats, lists, searches, greps and watches. It doesn't 
   - **Mode indicator:** NORMAL, INSERT, VISUAL and the `:` line.
   - **Commands:** `:w` saves, `:q` closes the tab, `:wq` does both, and `:e <path>` opens through the ⌘P finder.
   - **Polaris shortcuts** (⌘I, ⌘L, ⌘P, ⌘S, Ctrl+1…9) keep working in every vim mode. Esc belongs to vim; the inline card closes with ✕, or Esc only while the card has focus.
-  - **Persistence:** registers and marks per tab; macros last for the app session.
+  - **Persistence:** registers (macros included) are shared across tabs for the app session, as in real vim; marks are per tab. (Decided after the M3 fix round; it was "registers and marks per tab".)
   - Zed's vim mode is a behaviour reference only (don't copy its code).
 
 ## 5. Explorer, navigation, agent awareness
