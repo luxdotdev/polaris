@@ -34,6 +34,7 @@ import {
 } from "@polaris/protocol";
 import type { HostView } from "../../../../shared/api.ts";
 import { type HostModel, modelFromSnapshot, type SessionEntry } from "../../../store/hostModel.ts";
+import { resourcesFromSnapshot, WORKER_SLOTS } from "../../../store/hostResources.ts";
 import type { ConstellationView } from "../source.ts";
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
@@ -579,8 +580,19 @@ const polaris = new Workspace({
   registeredAt: ago(60 * 24 * 30),
 });
 
+/** This Mac's worker slots are full: B3 waits in the `__workers` queue (C1-M). */
+const localModel: HostModel = {
+  ...model([polaris], LOCAL_ENTRIES),
+  resources: {
+    ...resourcesFromSnapshot(),
+    queued: new Map([
+      ["slot-b3", { resource: WORKER_SLOTS, sessionId: "b3", attemptId: "c1-B3-1", since: ago(2) }],
+    ]),
+  },
+};
+
 export const MODELS = {
-  local: model([polaris], LOCAL_ENTRIES),
+  local: localModel,
   devbox: model(
     [polaris],
     [

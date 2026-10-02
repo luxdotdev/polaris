@@ -45,3 +45,7 @@ export { recoverAttempt, recoverWorkingAttempts, observeWorkerHost } from "./rec
 export { withHandoverPreparation } from "./handover/index.ts";
 
 export { startConstellationDelivery, type DeliveryStartup } from "./delivery/startup.ts";
+
+export * from "./transfers/index.ts";
+
+export { ConstellationWorktrees, type CleanupResult } from "./worktrees.ts";

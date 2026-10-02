@@ -6,6 +6,7 @@ import { ConstellationRuntime, type ConstellationRuntimeService } from "./runtim
 
 export interface WorkingAttemptHooks<E> {
   readonly runtime: ConstellationRuntimeService;
+  readonly ownsAttempt?: (attempt: Attempt) => boolean;
   /** HostResources.acquireWorker; the slot belongs to this Attempt's scope. */
   readonly acquireWorker: (sessionId: SessionId) => Effect.Effect<void, E, Scope.Scope>;
   /** Commit the title/first prompt via the Session machine and pass its Harness attachment. */
@@ -104,6 +105,7 @@ export const workingAttemptsLayer = <E>(hooks: WorkingAttemptHooks<E>) =>
       yield* Deferred.await(ready);
 
       const start = Effect.fnUntraced(function* (attempt: Attempt, resume: boolean) {
+        if (hooks.ownsAttempt?.(attempt) === false) return;
         const model = yield* store.model;
 
         const current = [...model.constellations.values()]

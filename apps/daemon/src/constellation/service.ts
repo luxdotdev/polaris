@@ -21,6 +21,7 @@ import { EventStore } from "../store/EventStore.ts";
 import type { ReadModel } from "../store/model.ts";
 import { getDefaults } from "./defaults.ts";
 import { finding, refusal } from "./decision.ts";
+import { ConstellationBranchStatus } from "./transfers/branches.ts";
 import { ConstellationLiveness } from "./liveness.ts";
 import { activeAttempt, projectTasks, enrichProjections } from "./projections.ts";
 import { ConstellationOwner, ConstellationRuntime } from "./runtime.ts";
@@ -102,6 +103,7 @@ const make = Effect.gen(function* () {
   const hostId = yield* ConstellationOwner;
   const runtime = yield* ConstellationRuntime;
   const liveness = yield* ConstellationLiveness;
+  const branches = yield* ConstellationBranchStatus;
 
   const status = Effect.fn("Constellations.status")(function* (
     binding: ConstellationBinding,
@@ -110,7 +112,14 @@ const make = Effect.gen(function* () {
   ) {
     const record = yield* authorize(yield* store.model, id, binding);
 
-    return graphResult(record, null, json, enrichProjections(record, yield* liveness.read(record)));
+    return graphResult(
+      record,
+      null,
+      json,
+      enrichProjections(record, yield* liveness.read(record), {
+        fetchedAttempts: yield* branches.read(record.graph),
+      })
+    );
   });
 
   const resolve = Effect.fn("Constellations.resolve")(function* (
@@ -292,7 +301,9 @@ const make = Effect.gen(function* () {
       record,
       commit.sequence,
       true,
-      enrichProjections(record, yield* liveness.read(record))
+      enrichProjections(record, yield* liveness.read(record), {
+        fetchedAttempts: yield* branches.read(record.graph),
+      })
     );
   });
 
@@ -301,7 +312,7 @@ const make = Effect.gen(function* () {
     status,
     resolve,
     subscribe: (binding: ConstellationBinding, id: ConstellationId, after: Sequence | null) =>
-      subscribeConstellation(store, binding, id, after, liveness),
+      subscribeConstellation(store, binding, id, after, liveness, branches),
   };
 });
 

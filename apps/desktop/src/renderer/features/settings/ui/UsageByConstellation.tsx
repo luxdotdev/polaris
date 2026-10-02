@@ -5,6 +5,7 @@
 import { ChevronDownIcon, ChevronRightIcon } from "@polaris/ui";
 import { useMemo, useState } from "react";
 import { useAllConstellations } from "../../sessions/source.ts";
+import { useConstellationStats } from "../constellationStats.ts";
 import { ConstellationMark } from "../../sessions/glyphs.tsx";
 import { byConstellation, type ConstellationSpend, duration } from "../model/byConstellation.ts";
 import { type Bucket, compactTokens, costLabel, type Estimator } from "../model/usage.ts";
@@ -77,12 +78,16 @@ export const UsageByConstellation = ({
   readonly now: number;
   readonly estimate: Estimator;
 }) => {
-  const views = useAllConstellations();
+  const all = useAllConstellations();
+  const views = useMemo(() => Object.values(all).flat(), [all]);
+  const stats = useConstellationStats(views);
 
   const rows = useMemo(
-    () => byConstellation({ buckets, views: Object.values(views).flat(), now, estimate }),
-    [buckets, views, now, estimate]
+    () => byConstellation({ buckets, views, stats, now, estimate }),
+    [buckets, views, stats, now, estimate]
   );
+
+  const notes = [...new Set(rows.flatMap((r) => r.notes))];
 
   if (rows.length === 0) return null;
 
@@ -100,6 +105,20 @@ export const UsageByConstellation = ({
           <Row key={spend.id} spend={spend} />
         ))}
       </Group>
+      {rows.some((r) => r.source === "stats") ? (
+        <p className="text-caption text-text-subtle pt-2">
+          Since each started, per response, from its lead's host.
+        </p>
+      ) : null}
+      {notes.map((note) => (
+        <p
+          key={note}
+          className="text-caption text-text-subtle"
+          data-testid="usage-constellation-note"
+        >
+          {note}
+        </p>
+      ))}
     </div>
   );
 };

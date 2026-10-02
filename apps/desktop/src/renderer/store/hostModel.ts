@@ -152,9 +152,9 @@ const unchanged: Fold = (model) => model;
 
 const onResources =
   (event: ResourceEvent): Fold =>
-  (model) => ({
+  (model, at) => ({
     ...model,
-    resources: applyResourceEvent(model.resources, event),
+    resources: applyResourceEvent(model.resources, event, at),
   });
 
 const withCheckout =

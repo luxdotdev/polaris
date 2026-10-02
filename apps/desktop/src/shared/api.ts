@@ -32,6 +32,8 @@ import type {
   HostStreamItem,
   ConstellationResult,
   ConstellationSettings,
+  ConstellationStats,
+  StatsUsage,
   HostResourcesSnapshot,
   ConstellationStreamItem,
   PlanLimit,
@@ -42,6 +44,7 @@ import type {
   SessionStreamItem,
   TerminalId,
   TerminalLaunch,
+  UsageBucket,
   UsageReport,
   UsageStreamItem,
 } from "@polaris/protocol";
@@ -289,6 +292,27 @@ export type ConstellationRequestOutputs = {
   readonly [M in ConstellationDefaultsMethod]: { readonly settings: Plain<ConstellationSettings> };
 };
 
+/** A stats Usage section with main's API-price estimate per bucket (same order), like `usage.query`. */
+export interface PricedStatsUsage extends Plain<Omit<StatsUsage, "buckets">> {
+  readonly buckets: ReadonlyArray<Plain<UsageBucket>>;
+  readonly estimates: ReadonlyArray<BucketEstimate>;
+}
+
+/** `constellation.stats`, its Usage priced by main (C1-M returns reported cost only). */
+export interface ConstellationStatsView {
+  readonly stats: Plain<ConstellationStats>;
+  readonly usage: {
+    readonly total: PricedStatsUsage;
+    readonly perTask: ReadonlyArray<{ readonly taskId: string; readonly usage: PricedStatsUsage }>;
+    readonly perRole: ReadonlyArray<{
+      readonly role: "lead" | "worker";
+      readonly usage: PricedStatsUsage;
+    }>;
+  };
+  /** Null when no price table could be read. */
+  readonly pricesFetchedAt: string | null;
+}
+
 /** Every Host resource request answers with the Host's whole resources snapshot. */
 export type ResourceRequestOutputs = {
   readonly [M in ResourceMethod]: Plain<HostResourcesSnapshot>;
@@ -296,6 +320,7 @@ export type ResourceRequestOutputs = {
 
 export interface RequestOutputs
   extends GitHubRequestOutputs, ConstellationRequestOutputs, ResourceRequestOutputs {
+  "constellation.stats": ConstellationStatsView;
   "settings.get": SettingsView;
   "cache.get": ReadonlyArray<CachedHost>;
   "cache.put": null;

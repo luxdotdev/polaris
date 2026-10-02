@@ -36,6 +36,7 @@ import { Schema } from "effect";
 import {
   ConstellationDefaultsInputs,
   ConstellationRequestInputs,
+  ConstellationStatsInputs,
 } from "./constellationContract.ts";
 import { ResourceRequestInputs } from "./resourcesContract.ts";
 import { GitHubRequestInputs, GitHubSubscriptionInputs } from "./githubContract.ts";
@@ -386,6 +387,7 @@ export const RequestInputs = {
   ...GitHubRequestInputs,
   ...ConstellationRequestInputs,
   ...ConstellationDefaultsInputs,
+  ...ConstellationStatsInputs,
   ...ResourceRequestInputs,
 } as const;
 

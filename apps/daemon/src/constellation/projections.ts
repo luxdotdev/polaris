@@ -71,9 +71,10 @@ export const projectTasks = (record: ConstellationRecord, observations?: Project
 /** Runtime-only enrichment; pure graph decisions leave observational liveness unknown. */
 export const enrichProjections = (
   record: ConstellationRecord,
-  facts: ReadonlyMap<AttemptId, WorkerLiveness>
+  facts: ReadonlyMap<AttemptId, WorkerLiveness>,
+  observations?: ProjectionObservations
 ) =>
-  projectTasks(record).map(
+  projectTasks(record, observations).map(
     (p) =>
       new TaskProjection({
         taskId: p.taskId,

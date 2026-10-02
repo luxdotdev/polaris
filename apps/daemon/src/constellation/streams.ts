@@ -18,6 +18,7 @@ import {
 } from "../store/constellation.ts";
 import type { EventStore } from "../store/EventStore.ts";
 import { finding, refusal } from "./decision.ts";
+import type { BranchStatusService } from "./transfers/branches.ts";
 import type { ConstellationLivenessService } from "./liveness.ts";
 import { enrichProjections } from "./projections.ts";
 import { canRead } from "./service.ts";
@@ -54,11 +55,14 @@ export const subscribeConstellation = (
   binding: ConstellationBinding,
   id: ConstellationId,
   after: Sequence | null,
-  liveness?: ConstellationLivenessService
+  liveness?: ConstellationLivenessService,
+  branches?: BranchStatusService
 ) =>
   Stream.unwrap(
     Effect.gen(function* () {
       const liveLiveness = liveness === undefined ? Stream.empty : yield* liveness.subscribe(id);
+
+      const liveBranches = branches === undefined ? Stream.empty : yield* branches.subscribe(id);
 
       const subscription = yield* store.subscribe({
         filter: (item) =>
@@ -89,6 +93,9 @@ export const subscribeConstellation = (
           ? new Map<AttemptId, WorkerLiveness>()
           : yield* liveness.read(record);
 
+      const fetched =
+        branches === undefined ? new Set<AttemptId>() : yield* branches.read(record.graph);
+
       const head: Array<ConstellationStreamItem> = [];
 
       if (after === null || after > cut)
@@ -96,7 +103,7 @@ export const subscribeConstellation = (
           ConstellationStreamItem.cases.Snapshot.make({
             sequence: cut,
             constellation: record.graph,
-            projections: enrichProjections(record, facts),
+            projections: enrichProjections(record, facts, { fetchedAttempts: fetched }),
             ...journalOf(record),
           })
         );
@@ -138,6 +145,11 @@ export const subscribeConstellation = (
         )
       );
 
+      for (const attemptId of fetched)
+        head.push(
+          ConstellationStreamItem.cases.BranchFetched.make({ attemptId, branchFetched: true })
+        );
+
       const live = subscription.pipe(
         Stream.filterMap((item) => {
           if (!Predicate.isTagged(item, "Event") || item.envelope.sequence <= cut)
@@ -159,6 +171,9 @@ export const subscribeConstellation = (
         })
       );
 
-      return Stream.concat(Stream.fromIterable(head), Stream.merge(live, liveLiveness));
+      return Stream.concat(
+        Stream.fromIterable(head),
+        Stream.merge(Stream.merge(live, liveLiveness), liveBranches)
+      );
     })
   );
