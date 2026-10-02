@@ -201,6 +201,17 @@ const worker = (
   }
 };
 
+const cancelHandover = (d: GraphDecision) => {
+  if (d.findings.length === 0 && d.record.handoverRequest !== null)
+    d.emit(
+      ConstellationEvent.cases.LeadHandoverCancelled.make({
+        ...d.fields(),
+        requestId: d.record.handoverRequest.requestId,
+        reason: "Constellation stopped",
+      })
+    );
+};
+
 const setState = (
   d: GraphDecision,
   command: Extract<ConstellationCommand, { _tag: "SetState" }>
@@ -208,10 +219,33 @@ const setState = (
   SetConstellationStateAction.match(command.action, {
     Pause: () => lifecycle(d, { type: "Pause" }),
     Resume: () => lifecycle(d, { type: "Resume" }),
-    Complete: () => lifecycle(d, { type: "Complete" }),
-    Archive: () => lifecycle(d, { type: "Archive" }),
-    HandOver: ({ summary }) => {
+    Complete: () => {
+      lifecycle(d, { type: "Complete" });
+      cancelHandover(d);
+    },
+    Archive: () => {
+      lifecycle(d, { type: "Archive" });
+      cancelHandover(d);
+    },
+    HandOver: ({ summary, interrupt, selection }) => {
       lifecycle(d, { type: "HandOver" });
+
+      if (d.ctx.handoverDeferred === true) {
+        const fields = d.fields();
+        d.emit(
+          ConstellationEvent.cases.LeadHandoverRequested.make({
+            ...fields,
+            requestId: `${fields.constellationId}:${fields.revision}:handover`,
+            from: d.record.graph.leadSessionId,
+            summary,
+            interrupt,
+            selection,
+          })
+        );
+
+        return;
+      }
+
       const to = d.ctx.newLeadSessionId;
 
       if (

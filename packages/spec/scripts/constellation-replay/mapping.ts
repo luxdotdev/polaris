@@ -29,6 +29,8 @@ export class ReplayGroup {
   readonly notifications = new ReplayIds();
   readonly heads = new ReplayIds();
   readonly interruptions = new ReplayIds();
+  readonly handovers = new ReplayIds();
+  readonly inputs = new ReplayIds();
   readonly outboxes = new ReplayIds();
   readonly attempts = new Map<string, number>();
   readonly workers = new Map<string, string>();
@@ -113,7 +115,22 @@ export const mapGraphEvent = (
       },
       ConstellationStateChanged: ({ state }) =>
         record(`ConstellationStateChanged(${JSON.stringify(state)})`),
-      LeadChanged: ({ to }) => record(`LeadChanged(${g.sessions.id(to)})`),
+      LeadHandoverRequested: ({ requestId, from }) =>
+        record(
+          `LeadHandoverRequested({ id: ${g.handovers.id(requestId)}, from: ${g.sessions.id(from)} })`
+        ),
+      LeadHandoverCancelled: ({ requestId }) =>
+        record(`LeadHandoverCancelled(${g.handovers.id(requestId)})`),
+      LeadChanged: ({ to, requestId }) =>
+        record(
+          `LeadChanged({ to: ${g.sessions.id(to)}, request: ${requestId === null ? -1 : g.handovers.id(requestId)} })`
+        ),
+      AttemptStale: ({ attemptId }) => record(`AttemptStale(${g.attemptId(attemptId)})`),
+      AttemptFresh: ({ attemptId }) => record(`AttemptFresh(${g.attemptId(attemptId)})`),
+      WorkerInputDelivered: ({ id, sessionId }) =>
+        record(
+          `WorkerInputDelivered({ id: ${g.inputs.id(id)}, session: ${g.sessions.id(sessionId)} })`
+        ),
       TaskDeclared: ({ task }) => record(taskDeclaration(g, task)),
       TaskEdited: ({ task }) =>
         record(

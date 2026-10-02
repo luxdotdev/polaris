@@ -300,3 +300,18 @@ journal; `plan.start` snapshots omitted settings before its serialized decision.
 The live producer's ephemeral `LivenessChanged` frames have no global sequence
 and are outside this committed-log abstraction. Their capability gate, resume
 seeding and graph-revision neutrality are covered by the real producer tests.
+
+C1-L implements the delivery runner under `apps/daemon/src/constellation/delivery`,
+with timers only for pending Lead-worthy updates (20 s Claims / 5 s blocking Lead
+questions). Queued IDs and `LeadNotified` commit with the Session-machine Turn;
+worker approvals and questions to the user never wake the Lead.
+`LeadHandoverRequested` persists a request without changing the Lead. A later
+`LeadChanged.requestId` must match the latest uncancelled request from the current
+Lead (`handoverRequestOrdered`); supersession and `LeadHandoverCancelled` invalidate
+older completions. The final switch, archive and new header Turn share one commit.
+Quint scenarios cover restart, cancellation, supersession and old-Lead delivery.
+`WorkerInputDelivered` records one recipient receipt (`inputDeliveredAtMostOnce`);
+remote enqueue alone records no delivery. `AttemptStale`/`AttemptFresh` retain
+observed intervals across restart without changing Attempt state or revision.
+The replay reader maps these journal events. Real runner tests cover coalescing,
+Session boundaries, nudge limits, operator authority, peer routing and recovery.

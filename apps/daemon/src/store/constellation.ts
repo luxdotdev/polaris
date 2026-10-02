@@ -11,6 +11,7 @@ import {
   PendingOperatorMessage,
   type DomainEvent,
   type TaskDefinition,
+  type SessionId,
   type TaskId,
   Task,
 } from "@polaris/protocol";
@@ -36,6 +37,12 @@ export interface ConstellationRecord {
     string,
     Extract<ConstellationEvent, { _tag: "OperatorMessageSent" }>
   >;
+  readonly sentMessages: ConstellationRecord["messages"];
+  readonly messageTargets: ReadonlyMap<string, ReadonlyArray<SessionId>>;
+  readonly handoverRequest: Extract<ConstellationEvent, { _tag: "LeadHandoverRequested" }> | null;
+  readonly peers: ReadonlyMap<string, Extract<ConstellationEvent, { _tag: "PeerMessage" }>>;
+  readonly inputDeliveries: ReadonlySet<string>;
+  readonly stale: ReadonlyMap<AttemptId, string>;
   readonly delivered: ReadonlySet<string>;
   readonly recoveries: ReadonlySet<string>;
   readonly progress: ReadonlyMap<
@@ -100,6 +107,12 @@ export const pendingMessage = (
     at: record.stamps.get(stampKey("message", m.id)) ?? record.graph.updatedAt,
   });
 
+export const inputDeliveryKey = (id: string, sessionId: SessionId) =>
+  JSON.stringify([id, sessionId]);
+
+export const peerMessageId = (e: Extract<ConstellationEvent, { _tag: "PeerMessage" }>) =>
+  `${e.constellationId}:${e.revision}:peer`;
+
 export const questionKey = (attemptId: AttemptId, id: string) => JSON.stringify([attemptId, id]);
 
 const replace = <A extends { readonly id: string }>(items: ReadonlyArray<A>, next: A) =>
@@ -128,6 +141,12 @@ const started = (graph: Constellation): ConstellationRecord => ({
   proposals: new Map(),
   questions: new Map(),
   messages: new Map(),
+  sentMessages: new Map(),
+  messageTargets: new Map(),
+  handoverRequest: null,
+  peers: new Map(),
+  inputDeliveries: new Set(),
+  stale: new Map(),
   delivered: new Set(),
   recoveries: new Set(),
   progress: new Map(),
@@ -159,7 +178,15 @@ export const foldConstellation = (
     ConstellationStateChanged: (e) => {
       graph = new Constellation({ ...graphData(graph), state: e.state });
     },
+    LeadHandoverRequested: (e) => {
+      next = { ...next, handoverRequest: e };
+    },
+    LeadHandoverCancelled: (e) => {
+      if (next.handoverRequest?.requestId === e.requestId)
+        next = { ...next, handoverRequest: null };
+    },
     LeadChanged: (e) => {
+      next = { ...next, handoverRequest: null };
       graph = new Constellation({ ...graphData(graph), leadSessionId: e.to });
       next = { ...next, handovers: [...next.handovers, handoverOf(record, e, at)] };
     },
@@ -234,6 +261,14 @@ export const foldConstellation = (
         ...graphData(graph),
         attempts: patchAttempt(next, e, { nudgedAt: e.at }),
       });
+    },
+    AttemptStale: (e) => {
+      next = { ...next, stale: new Map([...next.stale, [e.attemptId, e.at]]) };
+    },
+    AttemptFresh: (e) => {
+      const stale = new Map(next.stale);
+      stale.delete(e.attemptId);
+      next = { ...next, stale };
     },
     AttemptAccepted: (e) => {
       graph = new Constellation({
@@ -316,9 +351,19 @@ export const foldConstellation = (
       };
     },
     OperatorMessageSent: (e) => {
+      const recipients = graph.attempts
+        .filter(
+          (a) =>
+            (Predicate.isTagged(e.target, "Worker") && a.id === e.target.attemptId) ||
+            (Predicate.isTagged(e.target, "All") && (a.state === "working" || a.state === "review"))
+        )
+        .map((a) => a.sessionId);
+
+      next = { ...next, messageTargets: new Map([...next.messageTargets, [e.id, recipients]]) };
       next = {
         ...next,
         messages: new Map([...next.messages, [e.id, e]]),
+        sentMessages: new Map([...next.sentMessages, [e.id, e]]),
         stamps: stamped(next, stampKey("message", e.id), at),
       };
 
@@ -338,7 +383,24 @@ export const foldConstellation = (
       messages.delete(e.id);
       next = { ...next, messages };
     },
-    PeerMessage: () => {},
+    PeerMessage: (e) => {
+      next = { ...next, peers: new Map([...next.peers, [peerMessageId(e), e]]) };
+    },
+    WorkerInputDelivered: (e) => {
+      const peers = new Map(next.peers);
+      const peer = peers.get(e.id);
+
+      if (
+        peer !== undefined &&
+        graph.attempts.some((a) => a.id === peer.to && a.sessionId === e.sessionId)
+      )
+        peers.delete(e.id);
+      next = {
+        ...next,
+        peers,
+        inputDeliveries: new Set([...next.inputDeliveries, inputDeliveryKey(e.id, e.sessionId)]),
+      };
+    },
     AttemptRecoveryContinued: (e) => {
       next = {
         ...next,

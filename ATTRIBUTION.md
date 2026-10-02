@@ -41,3 +41,7 @@ Used as development dependencies only: never copied into Polaris and never shipp
 ## Walkthrough prompt
 
 - **humanlayer/skills** @ `ca7c8088db69e315a8b2deea43820270457f8f3c` (MIT): `visual-pr/assets/pr_description_template.md` and `show-me/SKILL.md`, adapted into `apps/daemon/src/reviewer/walkthroughPrompt.ts`. Retains the three-section change story and focused shape views; removes HTML artifacts, adds Polaris read-only policy, composed/delta diffs and Finding links. Upstream licence: [`docs/licenses/humanlayer-skills.txt`](docs/licenses/humanlayer-skills.txt).
+
+## Lead handover prompt
+
+- **mattpocock/skills** @ `d28dfdc39beadc3142a33359b5cfa4765dcbd0bc` (MIT): `skills/productivity/handoff/SKILL.md`, adapted into `apps/daemon/src/constellation/handover/prompt.ts`. Retains compact summary, suggested skills, references to existing artifacts and redaction. Polaris receives the summary as a Turn reply and adds its event-log header; it never writes a handoff file or launches an agent through the prompt. Upstream licence: [`docs/licenses/mattpocock-skills.txt`](docs/licenses/mattpocock-skills.txt).

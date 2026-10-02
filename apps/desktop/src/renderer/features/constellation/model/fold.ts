@@ -140,6 +140,25 @@ const handoverOf = (
 const stepFor = (event: Event, at: string): Step =>
   Match.value(event).pipe(
     Match.tagsExhaustive({
+      LeadHandoverRequested: () => (r: ConstellationRecord) => r,
+      LeadHandoverCancelled: () => (r: ConstellationRecord) => r,
+      WorkerInputDelivered: () => (r: ConstellationRecord) => r,
+      AttemptStale:
+        ({ attemptId }) =>
+        (r: ConstellationRecord) => ({
+          ...r,
+          projections: r.projections.map((p) =>
+            p.latestAttemptId === attemptId ? { ...p, stale: true } : p
+          ),
+        }),
+      AttemptFresh:
+        ({ attemptId }) =>
+        (r: ConstellationRecord) => ({
+          ...r,
+          projections: r.projections.map((p) =>
+            p.latestAttemptId === attemptId ? { ...p, stale: false } : p
+          ),
+        }),
       ConstellationStarted: () => (r: ConstellationRecord) => r,
       ConstellationStateChanged: ({ state }) => graph((c) => ({ ...c, state })),
       LeadChanged: (e) =>
