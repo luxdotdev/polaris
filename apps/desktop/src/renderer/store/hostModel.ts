@@ -4,6 +4,9 @@
  * Daemon folds its log (`apps/daemon/src/store/model.ts`). A Snapshot resets it.
  */
 import type {
+  HostResource,
+  ResourceEvent,
+  ResourceLease,
   Sequence,
   ApprovalRequest,
   Subagent,
@@ -15,6 +18,7 @@ import type {
   Worktree,
 } from "@polaris/protocol";
 import { Match } from "effect";
+import { applyResourceEvent, type HostResources, resourcesFromSnapshot } from "./hostResources.ts";
 import type { SessionData } from "./plain.ts";
 
 /** An approval a Client answered: who, when, and what it was (for "Answered on <device>"). */
@@ -50,6 +54,8 @@ export interface HostModel {
   readonly sessions: ReadonlyMap<string, SessionEntry>;
   /** Review Checkouts on this Host, by id. */
   readonly reviewCheckouts: ReadonlyMap<string, ReviewCheckout>;
+  /** Resources, leases and the queue on this Host (C1-R). */
+  readonly resources: HostResources;
 }
 
 export const emptyHostModel: HostModel = {
@@ -61,6 +67,7 @@ export const emptyHostModel: HostModel = {
   worktrees: new Map(),
   sessions: new Map(),
   reviewCheckouts: new Map(),
+  resources: resourcesFromSnapshot(),
 };
 
 const withEntry = <V>(map: ReadonlyMap<string, V>, key: string, value: V | undefined) => {
@@ -143,6 +150,13 @@ const removeWorkspace =
 
 const unchanged: Fold = (model) => model;
 
+const onResources =
+  (event: ResourceEvent): Fold =>
+  (model) => ({
+    ...model,
+    resources: applyResourceEvent(model.resources, event),
+  });
+
 const withCheckout =
   (checkoutId: string, checkout: ReviewCheckout | undefined): Fold =>
   (model) => ({
@@ -179,12 +193,12 @@ const fold = (event: DomainEvent): Fold =>
       OperatorMessageResolved: () => unchanged,
       PeerMessage: () => unchanged,
       AttemptRecoveryContinued: () => unchanged,
-      ResourceDeclared: () => unchanged,
-      ResourceRemoved: () => unchanged,
-      ResourceLeaseCanceled: () => unchanged,
-      ResourceLeaseQueued: () => unchanged,
-      ResourceLeased: () => unchanged,
-      ResourceReleased: () => unchanged,
+      ResourceDeclared: onResources,
+      ResourceRemoved: onResources,
+      ResourceLeaseCanceled: onResources,
+      ResourceLeaseQueued: onResources,
+      ResourceLeased: onResources,
+      ResourceReleased: onResources,
 
       WorkspaceRegistered:
         ({ workspace }): Fold =>
@@ -299,6 +313,8 @@ export interface HostSnapshot {
   readonly worktrees: ReadonlyArray<Worktree>;
   readonly sessions: ReadonlyArray<SessionEntry>;
   readonly reviewCheckouts?: ReadonlyArray<ReviewCheckout>;
+  readonly resources?: ReadonlyArray<HostResource>;
+  readonly resourceLeases?: ReadonlyArray<ResourceLease>;
 }
 
 /** A Snapshot resets the model; so does a cached one, marked `fromCache` by its caller. */
@@ -310,6 +326,7 @@ export const modelFromSnapshot = (snapshot: HostSnapshot): HostModel => ({
   worktrees: new Map(snapshot.worktrees.map((w) => [w.id, w])),
   sessions: new Map(snapshot.sessions.map((s) => [s.session.id, entryOf(s)])),
   reviewCheckouts: new Map((snapshot.reviewCheckouts ?? []).map((c) => [c.id, c])),
+  resources: resourcesFromSnapshot(snapshot.resources, snapshot.resourceLeases),
 });
 
 export const applyHostItem = (model: HostModel, item: HostStreamItem): HostModel =>

@@ -14,6 +14,7 @@ import type { ConstellationView } from "../source.ts";
 export type WorkerState =
   | "needs-you"
   | "unclaimed"
+  | "handed-up"
   | "stale"
   | "review"
   | "working"
@@ -76,12 +77,18 @@ export const lookupIn = (
   };
 };
 
-const ATTENTION: ReadonlySet<WorkerState> = new Set(["needs-you", "unclaimed", "stale"]);
+const ATTENTION: ReadonlySet<WorkerState> = new Set([
+  "needs-you",
+  "unclaimed",
+  "stale",
+  "handed-up",
+]);
 
 const RANK: Readonly<Record<WorkerState, number>> = {
   "needs-you": 0,
   unclaimed: 0,
   stale: 0,
+  "handed-up": 0,
   review: 1,
   working: 2,
   "sent-back": 3,
@@ -93,16 +100,29 @@ const RANK: Readonly<Record<WorkerState, number>> = {
 
 export const needsAttention = (state: WorkerState) => ATTENTION.has(state);
 
-/** A working Attempt whose session ended its Turn without a Claim (after its one nudge). */
-const stoppedWithoutClaim = (entry: SessionEntry | null) =>
-  entry !== null && (entry.session.state === "idle" || entry.session.state === "dormant");
+/** Nudged once (`nudgedAt`), then its session ended a Turn again without a Claim. */
+const stoppedWithoutClaim = (attempt: Plain<Attempt>, entry: SessionEntry | null) =>
+  attempt.nudgedAt != null &&
+  entry !== null &&
+  (entry.session.state === "idle" || entry.session.state === "dormant");
 
-const workingState = (entry: SessionEntry | null, stale: boolean): WorkerState => {
+const workingState = (
+  attempt: Plain<Attempt>,
+  entry: SessionEntry | null,
+  stale: boolean
+): WorkerState => {
   if (entry !== null && needsYou(entry)) return "needs-you";
 
   if (stale) return "stale";
 
-  return stoppedWithoutClaim(entry) ? "unclaimed" : "working";
+  return stoppedWithoutClaim(attempt, entry) ? "unclaimed" : "working";
+};
+
+/** In review: the Lead's to decide, unless it handed the Claim up to the user. */
+const reviewState = (attempt: Plain<Attempt>, stale: boolean): WorkerState => {
+  if (stale) return "stale";
+
+  return attempt.handedUpAt != null && attempt.approvedByUserAt == null ? "handed-up" : "review";
 };
 
 export const workerState = (
@@ -111,8 +131,8 @@ export const workerState = (
   stale: boolean
 ): WorkerState =>
   Match.value(attempt.state).pipe(
-    Match.when("working", () => workingState(entry, stale)),
-    Match.when("review", (): WorkerState => (stale ? "stale" : "review")),
+    Match.when("working", () => workingState(attempt, entry, stale)),
+    Match.when("review", () => reviewState(attempt, stale)),
     Match.when("accepted", (): WorkerState => "accepted"),
     Match.when("rejected", (): WorkerState => "sent-back"),
     Match.when("failed", (): WorkerState => "failed"),

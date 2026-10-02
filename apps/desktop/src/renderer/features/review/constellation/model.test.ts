@@ -21,6 +21,22 @@ describe("worker header", () => {
     );
   });
 
+  test("says when the user approved it, or the Lead handed it up", () => {
+    expect(workerCaption({ ...b1, handedUpAt: "2026-10-01T10:00:00.000Z" }, "L")).toBe(
+      "worker of L · claim at 3f9c2e1 handed to you"
+    );
+    expect(
+      workerCaption(
+        {
+          ...b1,
+          handedUpAt: "2026-10-01T10:00:00.000Z",
+          approvedByUserAt: "2026-10-01T10:05:00.000Z",
+        },
+        "L"
+      )
+    ).toBe("worker of L · claim at 3f9c2e1 approved by you · the lead merges");
+  });
+
   test("only a Claim in review gets Approve", () => {
     expect(workerActionKind(b1)).toBe("review");
     expect(workerActionKind({ ...b1, state: "working" })).toBe("working");

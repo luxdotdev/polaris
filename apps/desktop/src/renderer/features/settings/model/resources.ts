@@ -7,8 +7,8 @@ import type { HostResource, ResourceLease } from "@polaris/protocol";
 import type { Plain } from "../../../store/plain.ts";
 
 export interface WorkerCap {
-  /** The user's cap; null follows the automatic one. */
-  readonly cap: number | null;
+  /** The cap in force: the user's, or the automatic one (`setCap(null)` restores it). */
+  readonly cap: number;
   /** About one per three cores (Mac Studio 4, devbox 2, Pi 1). */
   readonly default: number;
   readonly working: number;
@@ -81,8 +81,11 @@ export const holdLine = (row: ResourceRow) => {
   return row.waiting === 0 ? held : `${held} · ${row.waiting} waiting`;
 };
 
-/** The cap in force: the user's, else the automatic one. */
-export const capInForce = (cap: WorkerCap) => cap.cap ?? cap.default;
+/** The cap in force. */
+export const capInForce = (cap: WorkerCap) => cap.cap;
+
+/** The snapshot doesn't say whether the user set it, so a cap equal to the default reads as automatic. */
+export const isAutomatic = (cap: WorkerCap) => cap.cap === cap.default;
 
 /** "2 of 4 working · 1 waiting for a slot". */
 export const capLine = (cap: WorkerCap) => {

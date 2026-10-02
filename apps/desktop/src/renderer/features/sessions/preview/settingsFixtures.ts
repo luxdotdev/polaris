@@ -4,6 +4,7 @@
  */
 import { AttemptId, HostId, SessionId } from "@polaris/protocol";
 import type { Result, UsageQueryView } from "../../../../shared/api.ts";
+import type { DraftBatch } from "../../comments/model/feedback.ts";
 import type { HostResourcesSnapshot } from "../../settings/model/resources.ts";
 import type { ResourcesClient } from "../../settings/resources.ts";
 
@@ -28,7 +29,7 @@ let snapshot: HostResourcesSnapshot = {
   ],
   waiting: [{ resource: "bench", requestId: "req-b3" }],
   overdueLeaseIds: ["req-b2"],
-  workerCap: { cap: null, default: 4, working: 4, waiting: 1 },
+  workerCap: { cap: 4, default: 4, working: 4, waiting: 1 },
 };
 
 const ok = (): Promise<Result<HostResourcesSnapshot>> =>
@@ -39,7 +40,10 @@ export const fakeResources: ResourcesClient = {
   declare: (_hostKey, { name, capacity }) => {
     snapshot = {
       ...snapshot,
-      resources: [...snapshot.resources, { hostId: HostId.make("h-local"), name, capacity }],
+      resources: [
+        ...snapshot.resources,
+        { hostId: HostId.make("h-local"), name, capacity: capacity ?? 1 },
+      ],
     };
 
     return ok();
@@ -59,7 +63,10 @@ export const fakeResources: ResourcesClient = {
     return ok();
   },
   setCap: (_hostKey, cap) => {
-    snapshot = { ...snapshot, workerCap: { ...snapshot.workerCap, cap } };
+    snapshot = {
+      ...snapshot,
+      workerCap: { ...snapshot.workerCap, cap: cap ?? snapshot.workerCap.default },
+    };
 
     return ok();
   },
@@ -113,4 +120,19 @@ export const USAGE: UsageQueryView = {
   },
   estimates: SPEND.map(([, , , n]) => ({ estimatedUsd: n / 1_000_000, unpricedTokens: 0 })),
   pricesFetchedAt: ago(60),
+};
+
+/** B1's Review feedback (Paper C4): one comment on the Quint spec, waiting to go back. */
+export const B1_FEEDBACK: DraftBatch = {
+  message: "",
+  comments: [
+    {
+      id: "fb-1",
+      path: "packages/spec/polaris.qnt",
+      lines: { start: 212, end: 212, side: "new" },
+      code: "val gatePromotedOnce = promotions.size() <= gates.size()",
+      note: "gatePromotedOnce should count promotions per Gate, not globally.",
+      findingId: null,
+    },
+  ],
 };

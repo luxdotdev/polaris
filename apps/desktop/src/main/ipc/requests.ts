@@ -22,7 +22,7 @@ import {
 } from "../../shared/contract.ts";
 import { type ClientServices, HostDirectory, toIpcError } from "../hosts.ts";
 import { githubHandlers } from "../github/ipc.ts";
-import { constellationHandlers } from "./constellation.ts";
+import { constellationHandlers, resourceHandlers } from "./constellation.ts";
 import { Machines } from "../machines/service.ts";
 import type { NeedsYouSummary } from "../../shared/needsYou.ts";
 import { appearanceOf, sessionPrefsOf, type Settings } from "../settings.ts";
@@ -103,6 +103,7 @@ const local = (): InstallView => ({
 export const requestHandlers = (ctx: RequestContext): Handlers => ({
   ...githubHandlers,
   ...constellationHandlers,
+  ...resourceHandlers,
   "settings.get": () =>
     Effect.sync(() => {
       const settings = ctx.settings();

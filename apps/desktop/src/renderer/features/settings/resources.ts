@@ -1,39 +1,43 @@
 /**
  * Settings → Hosts' resources and worker cap, over C1-R's RPCs (`host.resources.get`,
  * `.declare`, `.remove`, `.release`, `host.workers.setCap`); every call answers with the
- * Host's whole snapshot. Pluggable: the IPC bridge lands with R's handlers, previews fake it.
+ * Host's whole snapshot. The IPC client by default; previews swap in a fake.
  */
 import { useCallback, useEffect, useState } from "react";
 import type { Result } from "../../../shared/api.ts";
+import { useApp } from "../../shell/hooks.ts";
+import { polaris } from "../bridge.ts";
 import { showRefusal } from "../session/dispatch.ts";
+import { newCommandId } from "../sessions/constellationApi.ts";
 import type { HostResourcesSnapshot } from "./model/resources.ts";
 
 export interface ResourcesClient {
   readonly get: (hostKey: string) => Promise<Result<HostResourcesSnapshot>>;
   readonly declare: (
     hostKey: string,
-    input: { readonly name: string; readonly capacity: number; readonly holdLimitMs?: number }
+    input: { readonly name: string; readonly capacity?: number; readonly holdLimitMs?: number }
   ) => Promise<Result<HostResourcesSnapshot>>;
   readonly remove: (hostKey: string, name: string) => Promise<Result<HostResourcesSnapshot>>;
   readonly release: (hostKey: string, leaseId: string) => Promise<Result<HostResourcesSnapshot>>;
   readonly setCap: (hostKey: string, cap: number | null) => Promise<Result<HostResourcesSnapshot>>;
 }
 
-const unavailable = (): Promise<Result<HostResourcesSnapshot>> =>
-  Promise.resolve({
-    ok: false,
-    error: { code: "Unsupported", message: "This host's daemon doesn't manage resources yet." },
-  });
-
-let client: ResourcesClient = {
-  get: unavailable,
-  declare: unavailable,
-  remove: unavailable,
-  release: unavailable,
-  setCap: unavailable,
+/** The Daemon's own answers, over the IPC bridge; a Daemon without `host.resources` refuses. */
+const ipcClient: ResourcesClient = {
+  get: (hostKey) => polaris().request("host.resources.get", { hostKey }),
+  declare: (hostKey, input) =>
+    polaris().request("host.resources.declare", { hostKey, commandId: newCommandId(), ...input }),
+  remove: (hostKey, name) =>
+    polaris().request("host.resources.remove", { hostKey, commandId: newCommandId(), name }),
+  release: (hostKey, leaseId) =>
+    polaris().request("host.resources.release", { hostKey, commandId: newCommandId(), leaseId }),
+  setCap: (hostKey, cap) =>
+    polaris().request("host.workers.setCap", { hostKey, commandId: newCommandId(), cap }),
 };
 
-/** Swaps the client: the IPC one once R's handlers are bridged, or a preview's fake. */
+let client: ResourcesClient = ipcClient;
+
+/** Swaps the client: a preview's fake. */
 export const setResourcesClient = (next: ResourcesClient) => {
   client = next;
 };
@@ -43,9 +47,10 @@ export type ResourcesState =
   | { readonly kind: "unavailable"; readonly reason: string }
   | { readonly kind: "loaded"; readonly snapshot: HostResourcesSnapshot };
 
-/** One Host's resources, read when shown (no polling: an idle app stays idle). */
+/** One Host's resources, read when shown and again when its feed moves them (never polled). */
 export const useHostResources = (hostKey: string) => {
   const [state, setState] = useState<ResourcesState>({ kind: "loading" });
+  const live = useApp((s) => s.hostModels[hostKey]?.resources);
 
   useEffect(() => {
     let live = true;
@@ -62,7 +67,7 @@ export const useHostResources = (hostKey: string) => {
     return () => {
       live = false;
     };
-  }, [hostKey]);
+  }, [hostKey, live]);
 
   /** Runs a mutation; its answer replaces the snapshot, a refusal is toasted. */
   const run = useCallback(

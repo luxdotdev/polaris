@@ -28,15 +28,16 @@ export interface WorkerTarget {
   readonly attempt: Plain<Attempt>;
 }
 
+/** Records the user's verdict (`approvedByUserAt`); the Attempt is accepted once the Lead merges it. */
 export const approveClaim = ({ leadHostKey, constellationId, attempt }: WorkerTarget) =>
   sendConstellation(
     leadHostKey,
-    "constellation.message",
+    "constellation.review",
     {
       constellationId,
-      target: MessageTarget.cases.Lead.make({}),
-      authority: "may_decide_and_continue",
-      text: `I approved ${attempt.taskId}'s claim at ${attempt.claim?.head.slice(0, 7) ?? "its head"}. Merge it, run the checks and accept it.`,
+      attemptId: attempt.id,
+      revision: attempt.revision,
+      action: ReviewAction.cases.Approve.make({}),
     },
     "Couldn't approve"
   );
@@ -58,6 +59,28 @@ export const sendToWorker = async (target: WorkerTarget, subjectKey: string) => 
       }),
     },
     "Couldn't send it back"
+  );
+
+  if (sent) setBatch(subjectKey, emptyBatch);
+
+  return sent;
+};
+
+/** The Review feedback as a steer while the worker still works; journaled, so the Lead is told. */
+export const steerWorker = async (target: WorkerTarget, subjectKey: string) => {
+  const text = sendBackReason(batchOf(subjectKey));
+
+  if (text === null) return false;
+
+  const sent = await sendConstellation(
+    target.leadHostKey,
+    "constellation.message",
+    {
+      constellationId: target.constellationId,
+      target: MessageTarget.cases.Worker.make({ attemptId: target.attempt.id }),
+      text,
+    },
+    "Couldn't send it"
   );
 
   if (sent) setBatch(subjectKey, emptyBatch);

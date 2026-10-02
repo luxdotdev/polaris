@@ -14,6 +14,7 @@ import { Button, CodeWell, PixelHandIcon, Textarea, Tile } from "@polaris/ui";
 import { Match } from "effect";
 import { type ReactNode, useState } from "react";
 import { age } from "../../../shell/copy.ts";
+import { openSessionReview } from "../../../routes/review.ts";
 import { useShellActions } from "../../../shell/hooks.ts";
 import { ConstellationMark } from "../../sessions/glyphs.tsx";
 import { sendConstellation } from "../../sessions/constellationApi.ts";
@@ -295,20 +296,34 @@ const Stale = ({ group, item, now }: ItemProps) => {
   );
 };
 
-const Claim = ({ group, item, now }: ItemProps) => {
-  const open = useOpen(group, item);
+/** A Claim the user decides: the Lead handed it up (and why), or the Constellation is paused. */
+const Claim = ({ item, now }: ItemProps) => {
+  const actions = useShellActions();
+  const attempt = item.worker?.attempt;
+  const handedUp = item.worker?.state === "handed-up";
+  const head = attempt?.claim?.head.slice(0, 7);
+
+  const review = () => {
+    if (item.hostKey !== null && attempt !== undefined)
+      openSessionReview(actions, item.hostKey, attempt.sessionId);
+  };
 
   return (
     <Card
       kind={item.kind}
       harness={item.entry?.session.harness ?? "codex"}
-      title={`${who(item)} claimed`}
-      since={item.since}
+      title={handedUp ? `The lead handed ${who(item)}'s claim to you` : `${who(item)} claimed`}
+      since={attempt?.handedUpAt ?? item.since}
       now={now}
     >
-      <Body>The constellation is paused, so this claim waits on you.</Body>
+      <Body>
+        {handedUp
+          ? (attempt?.handedUpReason ?? "It can't decide it.")
+          : "The constellation is paused, so this claim waits on you."}
+        {head === undefined ? null : <span className="text-text-subtle font-mono"> · {head}</span>}
+      </Body>
       <Actions>
-        <Button size="xs" onClick={open}>
+        <Button size="xs" onClick={review}>
           Review {who(item)}
         </Button>
       </Actions>

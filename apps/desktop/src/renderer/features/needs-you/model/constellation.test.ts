@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { ContextUsage } from "@polaris/protocol";
 import type { HostModel } from "../../../store/hostModel.ts";
+import { asPlain } from "../../../store/plain.ts";
 import { C1, C2, HOSTS, MODELS } from "../../sessions/preview/fixtures.ts";
 import { buildConstellationInbox, PRIORITY, withConstellations } from "./constellation.ts";
 import { buildInbox, inboxKey } from "./inbox.ts";
@@ -67,6 +68,30 @@ describe("buildConstellationInbox", () => {
       ["B1", "claim"],
       ["B5", "unclaimed"],
       ["B2", "stale"],
+    ]);
+  });
+
+  test("a Claim the Lead hands up reaches the user while the Constellation runs", () => {
+    const handed = {
+      ...C1,
+      constellation: {
+        ...C1.constellation,
+        attempts: C1.constellation.attempts.map((a) =>
+          a.taskId === "B4" ? { ...asPlain(a), handedUpAt: "2026-10-01T10:00:00.000Z" } : a
+        ),
+      },
+    };
+
+    const result = buildConstellationInbox({
+      hosts: HOSTS,
+      models: MODELS,
+      views: { local: [handed] },
+    });
+
+    expect(result.groups[0]?.items.map((i) => [`${i.taskId}`, i.kind])).toEqual([
+      ["B1", "question"],
+      ["B4", "claim"],
+      ["B5", "unclaimed"],
     ]);
   });
 

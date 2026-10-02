@@ -22,4 +22,6 @@ export { SettingsPage } from "./ui/SettingsPage.tsx";
 
 export { HostResources } from "./ui/HostResources.tsx";
 
+export { ConstellationDefaultsPublisher } from "./defaultsSync.ts";
+
 export { setResourcesClient, type ResourcesClient } from "./resources.ts";

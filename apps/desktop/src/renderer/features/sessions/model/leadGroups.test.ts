@@ -64,6 +64,24 @@ describe("workerState", () => {
     expect(workerState({ ...attempt, state: "review" }, null, true)).toBe("stale");
   });
 
+  test("an idle worker is stopped only after its one nudge", () => {
+    const idle = MODELS.local.sessions.get("b5") ?? null;
+
+    expect(workerState({ ...attempt, nudgedAt: null }, idle, false)).toBe("working");
+    expect(workerState({ ...attempt, nudgedAt: "2026-10-01T10:00:00.000Z" }, idle, false)).toBe(
+      "unclaimed"
+    );
+  });
+
+  test("a Claim the Lead hands up is the user's until they approve it", () => {
+    const review = { ...attempt, state: "review" as const, handedUpAt: "2026-10-01T10:00:00.000Z" };
+
+    expect(workerState(review, null, false)).toBe("handed-up");
+    expect(
+      workerState({ ...review, approvedByUserAt: "2026-10-01T10:05:00.000Z" }, null, false)
+    ).toBe("review");
+  });
+
   test("settled outcomes", () => {
     expect(workerState({ ...attempt, state: "rejected" }, null, false)).toBe("sent-back");
     expect(workerState({ ...attempt, state: "settled_unverified" }, null, false)).toBe(
