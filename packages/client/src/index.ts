@@ -22,3 +22,5 @@ export * from "./terminal.ts";
 export * from "./transport.ts";
 
 export * from "./constellation/index.ts";
+
+export * from "./files.ts";

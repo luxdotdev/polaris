@@ -311,3 +311,31 @@ describe("fallback grep threads", () => {
     expect(gitGrepThreads("linux", 12)).toBeNull();
   });
 });
+
+test("open-file subscriptions reuse an existing fff index without creating one", async () => {
+  const root = await fixture();
+  const path = join(root, "README.md");
+  let notifications = 0;
+  await withSearch(
+    true,
+    Effect.scoped(
+      Effect.gen(function* () {
+        const search = yield* FileSearch;
+        yield* search.watchIndexedFile(path, () => {
+          notifications++;
+        });
+        expect(yield* search.backendOf(root)).toBeNull();
+        yield* search.searchPaths(root, "readme", 5);
+        expect(yield* search.backendOf(root)).toBe("fff");
+        yield* search.watchIndexedFile(path, () => {
+          notifications++;
+        });
+        yield* Effect.promise(async () => {
+          write(root, "README.md", "changed\n");
+          await waitFor(() => notifications > 0, "indexed open-file change");
+        });
+      })
+    )
+  );
+  expect(notifications).toBeGreaterThan(0);
+});

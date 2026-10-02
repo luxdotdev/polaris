@@ -24,12 +24,6 @@ afterEach(() => {
 });
 
 const WorkspaceIoRpcs = DaemonRpcs.omit(
-  "files.readVersioned",
-  "files.write",
-  "files.create",
-  "files.rename",
-  "files.delete",
-  "files.watchFile",
   "inline.propose",
   "constellation.placements.watch",
   "constellation.placement.resolve",

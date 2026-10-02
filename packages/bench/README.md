@@ -151,3 +151,8 @@ Add `src/scenarios/<name>.ts` exporting a `Scenario` and list it in `src/scenari
 - Wakeups are not comparable across platforms: macOS counts idle and interrupt wakeups, Linux counts context switches.
 - History is seeded through the Daemon, so full sizes take a while (commit throughput is itself a metric); a much larger store (1M events) would need a direct SQLite seeder.
 - No Desktop App scenarios yet (there is no Desktop App); the sampler is ready for them.
+
+
+## Editor (M3)
+
+`bun run bench editor --runs 3` measures a 1 MiB versioned text open and save over the local socket and a loopback bridge standing in for a remote Host, then 20 per-file subscriptions at idle. It records Daemon memory, CPU, wakeups and changes alongside an unwatched window on the same connected Client and Host feed. Full runs settle for 35 seconds before each window to let Bun runtime activity cool down; quick runs use 5 seconds. Actual SSH/network latency, renderer typing latency and whole-app tab memory require separate Desktop App verification; bridge results are not measurements of a real remote Host.
