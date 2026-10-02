@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { Schema } from "effect";
 import { Catalog } from "../../apps/daemon/src/languages/catalog/model";
 import { auditBundle, readBundle } from "./audit";
+import { readReviewRecords } from "./review";
 
 const root = import.meta.dir;
 
@@ -61,9 +62,13 @@ const sourceNotices = Schema.decodeUnknownSync(
 const tools = data.tools.map((tool) => ({
   ...tool,
   artifacts: tool.artifacts.map((artifact) => {
+    const record = readReviewRecords(root).find((candidate) => candidate.tool === tool.id);
+
     const findings = artifact.bundle
       ? (findingsByTool.get(artifact.bundle) ?? ["missing-bundle"])
-      : [artifact.auditReason];
+      : record?.missingEvidence.length
+        ? record.missingEvidence
+        : ["A1 review required for exact artifact, dependency notices and source-delivery record"];
 
     const notices = artifact.bundle
       ? readBundle(join(root, "bundles", `${artifact.bundle}.json`)).packages.flatMap((pkg) =>
@@ -80,22 +85,38 @@ const tools = data.tools.map((tool) => ({
             integrity: `sha256:${notice.sha256}`,
           }));
 
-    const unique = Array.from(new Map(notices.map((notice) => [notice.path, notice])).values());
+    const unique = Array.from(
+      new Map(
+        [...notices, ...(record?.notices ?? [])].map((notice) => [notice.path, notice])
+      ).values()
+    );
 
     const manifest = {
       artifactId: artifact.id,
       artifactIntegrity: artifact.integrity,
-      coverage: findings.length === 0 ? "complete" : "pending",
+      coverage:
+        record?.missingEvidence.length ||
+        findings.some((finding) => !finding.includes("license-review") && artifact.bundle)
+          ? "pending"
+          : "complete",
       notices: unique,
       findings,
       bundleIntegrity: artifact.bundle
         ? hash(readFileSync(join(root, "bundles", `${artifact.bundle}.json`)))
         : null,
       supplements: Object.keys(supplements),
-      evidence: (nativeEvidence.get(tool.id) ?? []).map((path) => ({
-        path,
-        integrity: hash(readFileSync(join(root, path))),
-      })),
+      evidence: record
+        ? [
+            ...record.evidence,
+            {
+              path: "review-records.json",
+              integrity: hash(readFileSync(join(root, "review-records.json"))),
+            },
+          ]
+        : (nativeEvidence.get(tool.id) ?? []).map((path) => ({
+            path,
+            integrity: hash(readFileSync(join(root, path))),
+          })),
     };
 
     const manifestPath = join(manifests, `${artifact.id}.json`);

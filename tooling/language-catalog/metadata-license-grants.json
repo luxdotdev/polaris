@@ -1,0 +1,1371 @@
+[
+  {
+    "ecosystem": "cargo",
+    "name": "collection_literals",
+    "version": "1.0.2",
+    "archiveIntegrity": "sha256:26b3f65b8fb8e88ba339f7d23a390fe1b0896217da05e2a66c584c9b29a91df8",
+    "archiveUrl": "https://static.crates.io/crates/collection_literals/collection_literals-1.0.2.crate",
+    "declaredLicense": "MIT",
+    "authors": [],
+    "declaration": {
+      "path": "collection_literals-1.0.2/Cargo.toml#license-declaration",
+      "sha256": "aab89fcf98fc6244d302a699c9e3ddbd0c9fd0e9831dcb7d2456e1ffed42fb4f"
+    },
+    "standardTerms": {
+      "MIT": {
+        "source": "https://raw.githubusercontent.com/spdx/license-list-data/31ba1a50e5397e00a304dbadc76531740e89ee48/text/MIT.txt",
+        "notice": {
+          "path": "MIT-reference.txt",
+          "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+        }
+      },
+      "Apache-2.0": {
+        "source": "https://raw.githubusercontent.com/spdx/license-list-data/31ba1a50e5397e00a304dbadc76531740e89ee48/text/Apache-2.0.txt",
+        "notice": {
+          "path": "Apache-2.0-reference.txt",
+          "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff"
+        }
+      }
+    },
+    "review": "G1 must review exact metadata-grant packaging; no synthesized copyright owner/year or silent replacement of upstream notices.",
+    "omission": "Immutable published crate supplies no standalone legal file; retain its exact manifest grant, available authors and full standard terms separately.",
+    "originalExpression": "MIT",
+    "selectedLicense": "MIT",
+    "selectionBasis": "Explicit package declaration selects MIT; historical slash alternatives are preserved verbatim, not applied as a universal override.",
+    "deliveryObligations": [
+      "Retain the complete immutable manifest and available author metadata verbatim.",
+      "Deliver separately discovered upstream legal comments/notices unchanged.",
+      "Deliver pinned MIT standard terms labeled reference terms, not an upstream-authored file.",
+      "Do not synthesize copyright holders or years. G1 review is required for this exact package/source scope."
+    ],
+    "archiveVerifiedAtExtraction": true,
+    "standardTermsCommit": "31ba1a50e5397e00a304dbadc76531740e89ee48",
+    "legalSearch": {
+      "searchVersion": "legal-only-v1",
+      "filesSearched": 9,
+      "fileNameInventorySha256": "cb3d4d1781029917f3189180ca4dff74888a2f21170cd0874eb39499c6853c0e",
+      "scope": "entire immutable published archive",
+      "standaloneLegalFiles": [],
+      "legalCommentsAndSections": []
+    },
+    "revisionSearch": {
+      "searchVersion": "legal-only-v1",
+      "filesSearched": 24,
+      "fileNameInventorySha256": "66ab266584e2ec860e122b0f2f41e03b31e6408371ee9ee1cf362a21a1b5c9ee",
+      "scope": "entire immutable published archive",
+      "standaloneLegalFiles": [],
+      "legalCommentsAndSections": [],
+      "url": "https://codeload.github.com/staedoix/collection_literals/tar.gz/5c5e88a5cfbf5603123187039c4382366d46edd1",
+      "integrity": "sha256:f913be60786a4b43f962df62d03bd8238fef35018542aa2f264da8e90d171a56"
+    },
+    "toolScopes": [
+      {
+        "tool": "ruff",
+        "version": "0.16.10",
+        "artifacts": [
+          {
+            "id": "ruff-aarch64-apple-darwin.tar.gz",
+            "integrity": "sha256:f051cd306de2691262a0574f8857cd1f4d6bfcd448084ea23d61b9c1c37df510",
+            "platforms": [
+              {
+                "os": "darwin",
+                "arch": "arm64",
+                "libc": "none"
+              }
+            ]
+          },
+          {
+            "id": "ruff-aarch64-unknown-linux-gnu.tar.gz",
+            "integrity": "sha256:dc0d74de837ef0a7bcc62ce98c48a622b075d057161f13b958be2934becd55a6",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "arm64",
+                "libc": "glibc"
+              }
+            ]
+          },
+          {
+            "id": "ruff-aarch64-unknown-linux-musl.tar.gz",
+            "integrity": "sha256:38ebc0ec3e0de538d1c399729ca04e124749211d66aa134c24ad0c1f09a935b9",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "arm64",
+                "libc": "musl"
+              }
+            ]
+          },
+          {
+            "id": "ruff-x86_64-apple-darwin.tar.gz",
+            "integrity": "sha256:ace641df42926e962cf04bc52c79eb6c50ba1ae6a17b602f081960616ecc1bd1",
+            "platforms": [
+              {
+                "os": "darwin",
+                "arch": "x64",
+                "libc": "none"
+              }
+            ]
+          },
+          {
+            "id": "ruff-x86_64-unknown-linux-gnu.tar.gz",
+            "integrity": "sha256:9567ff1201e2fb3da31ff04c35587d768c66d6cb42dfa84de474e2bfe360b608",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "x64",
+                "libc": "glibc"
+              }
+            ]
+          },
+          {
+            "id": "ruff-x86_64-unknown-linux-musl.tar.gz",
+            "integrity": "sha256:ad1b2138407a0c53b936524df99d87211333f7bc40478d6860f42994597f7ff0",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "x64",
+                "libc": "musl"
+              }
+            ]
+          }
+        ],
+        "role": "exact frozen source-lock inventory; embedding not inferred",
+        "targetOnlyExclusion": null
+      }
+    ],
+    "declarationDocumentation": "https://doc.rust-lang.org/stable/cargo/reference/manifest.html#the-license-and-license-file-fields"
+  },
+  {
+    "ecosystem": "cargo",
+    "name": "difflib",
+    "version": "0.4.0",
+    "archiveIntegrity": "sha256:6184e33543162437515c2e2b48714794e37845ec9851711914eec9d308f6ebe8",
+    "archiveUrl": "https://static.crates.io/crates/difflib/difflib-0.4.0.crate",
+    "declaredLicense": "MIT",
+    "authors": ["Dima Kudosh <dimakudosh@gmail.com>"],
+    "declaration": {
+      "path": "difflib-0.4.0/Cargo.toml#license-declaration",
+      "sha256": "aed0597f7b6014324ef49cb6502e541e45c35335785345d7d7a5cac46cc64c0f"
+    },
+    "standardTerms": {
+      "MIT": {
+        "source": "https://raw.githubusercontent.com/spdx/license-list-data/31ba1a50e5397e00a304dbadc76531740e89ee48/text/MIT.txt",
+        "notice": {
+          "path": "MIT-reference.txt",
+          "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+        }
+      },
+      "Apache-2.0": {
+        "source": "https://raw.githubusercontent.com/spdx/license-list-data/31ba1a50e5397e00a304dbadc76531740e89ee48/text/Apache-2.0.txt",
+        "notice": {
+          "path": "Apache-2.0-reference.txt",
+          "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff"
+        }
+      }
+    },
+    "review": "G1 must review exact metadata-grant packaging; no synthesized copyright owner/year or silent replacement of upstream notices.",
+    "omission": "Immutable published crate supplies no standalone legal file; retain its exact manifest grant, available authors and full standard terms separately.",
+    "originalExpression": "MIT",
+    "selectedLicense": "MIT",
+    "selectionBasis": "Explicit package declaration selects MIT; historical slash alternatives are preserved verbatim, not applied as a universal override.",
+    "deliveryObligations": [
+      "Retain the complete immutable manifest and available author metadata verbatim.",
+      "Deliver separately discovered upstream legal comments/notices unchanged.",
+      "Deliver pinned MIT standard terms labeled reference terms, not an upstream-authored file.",
+      "Do not synthesize copyright holders or years. G1 review is required for this exact package/source scope."
+    ],
+    "archiveVerifiedAtExtraction": true,
+    "standardTermsCommit": "31ba1a50e5397e00a304dbadc76531740e89ee48",
+    "legalSearch": {
+      "searchVersion": "legal-only-v1",
+      "filesSearched": 8,
+      "fileNameInventorySha256": "955737a4df5b818ffc6f86881cad59f298a8170a592d80968cde82e0186bbc4b",
+      "scope": "entire immutable published archive",
+      "standaloneLegalFiles": [],
+      "legalCommentsAndSections": []
+    },
+    "toolScopes": [
+      {
+        "tool": "ruff",
+        "version": "0.16.10",
+        "artifacts": [
+          {
+            "id": "ruff-aarch64-apple-darwin.tar.gz",
+            "integrity": "sha256:f051cd306de2691262a0574f8857cd1f4d6bfcd448084ea23d61b9c1c37df510",
+            "platforms": [
+              {
+                "os": "darwin",
+                "arch": "arm64",
+                "libc": "none"
+              }
+            ]
+          },
+          {
+            "id": "ruff-aarch64-unknown-linux-gnu.tar.gz",
+            "integrity": "sha256:dc0d74de837ef0a7bcc62ce98c48a622b075d057161f13b958be2934becd55a6",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "arm64",
+                "libc": "glibc"
+              }
+            ]
+          },
+          {
+            "id": "ruff-aarch64-unknown-linux-musl.tar.gz",
+            "integrity": "sha256:38ebc0ec3e0de538d1c399729ca04e124749211d66aa134c24ad0c1f09a935b9",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "arm64",
+                "libc": "musl"
+              }
+            ]
+          },
+          {
+            "id": "ruff-x86_64-apple-darwin.tar.gz",
+            "integrity": "sha256:ace641df42926e962cf04bc52c79eb6c50ba1ae6a17b602f081960616ecc1bd1",
+            "platforms": [
+              {
+                "os": "darwin",
+                "arch": "x64",
+                "libc": "none"
+              }
+            ]
+          },
+          {
+            "id": "ruff-x86_64-unknown-linux-gnu.tar.gz",
+            "integrity": "sha256:9567ff1201e2fb3da31ff04c35587d768c66d6cb42dfa84de474e2bfe360b608",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "x64",
+                "libc": "glibc"
+              }
+            ]
+          },
+          {
+            "id": "ruff-x86_64-unknown-linux-musl.tar.gz",
+            "integrity": "sha256:ad1b2138407a0c53b936524df99d87211333f7bc40478d6860f42994597f7ff0",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "x64",
+                "libc": "musl"
+              }
+            ]
+          }
+        ],
+        "role": "exact frozen source-lock inventory; embedding not inferred",
+        "targetOnlyExclusion": null
+      }
+    ],
+    "declarationDocumentation": "https://doc.rust-lang.org/stable/cargo/reference/manifest.html#the-license-and-license-file-fields"
+  },
+  {
+    "ecosystem": "cargo",
+    "name": "quote-use",
+    "version": "0.8.4",
+    "archiveIntegrity": "sha256:9619db1197b497a36178cfc736dc96b271fe918875fbf1344c436a7e93d0321e",
+    "archiveUrl": "https://static.crates.io/crates/quote-use/quote-use-0.8.4.crate",
+    "declaredLicense": "MIT",
+    "authors": [],
+    "declaration": {
+      "path": "quote-use-0.8.4/Cargo.toml#license-declaration",
+      "sha256": "aeecafa377cc97d08cac24211ec573b3e3c74338f86885c60003828032e0b40e"
+    },
+    "standardTerms": {
+      "MIT": {
+        "source": "https://raw.githubusercontent.com/spdx/license-list-data/31ba1a50e5397e00a304dbadc76531740e89ee48/text/MIT.txt",
+        "notice": {
+          "path": "MIT-reference.txt",
+          "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+        }
+      },
+      "Apache-2.0": {
+        "source": "https://raw.githubusercontent.com/spdx/license-list-data/31ba1a50e5397e00a304dbadc76531740e89ee48/text/Apache-2.0.txt",
+        "notice": {
+          "path": "Apache-2.0-reference.txt",
+          "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff"
+        }
+      }
+    },
+    "review": "G1 must review exact metadata-grant packaging; no synthesized copyright owner/year or silent replacement of upstream notices.",
+    "omission": "Immutable published crate supplies no standalone legal file; retain its exact manifest grant, available authors and full standard terms separately.",
+    "originalExpression": "MIT",
+    "selectedLicense": "MIT",
+    "selectionBasis": "Explicit package declaration selects MIT; historical slash alternatives are preserved verbatim, not applied as a universal override.",
+    "deliveryObligations": [
+      "Retain the complete immutable manifest and available author metadata verbatim.",
+      "Deliver separately discovered upstream legal comments/notices unchanged.",
+      "Deliver pinned MIT standard terms labeled reference terms, not an upstream-authored file.",
+      "Do not synthesize copyright holders or years. G1 review is required for this exact package/source scope."
+    ],
+    "archiveVerifiedAtExtraction": true,
+    "standardTermsCommit": "31ba1a50e5397e00a304dbadc76531740e89ee48",
+    "legalSearch": {
+      "searchVersion": "legal-only-v1",
+      "filesSearched": 5,
+      "fileNameInventorySha256": "9f21ec0b4d9c2cd709d32dd8b4c2f916d9b96b8021139414a476b63a6c78000c",
+      "scope": "entire immutable published archive",
+      "standaloneLegalFiles": [],
+      "legalCommentsAndSections": []
+    },
+    "revisionSearch": {
+      "searchVersion": "legal-only-v1",
+      "filesSearched": 17,
+      "fileNameInventorySha256": "ac66046b18ac372a6f41aa3be6fe41dbce780d11c1ccc0e8df378a8ca0469b57",
+      "scope": "entire immutable published archive",
+      "standaloneLegalFiles": [],
+      "legalCommentsAndSections": [],
+      "url": "https://codeload.github.com/ModProg/quote-use/tar.gz/05096f346f8b17fba8a57a235b958917ad9d99e0",
+      "integrity": "sha256:2439d99d06c85df01aace8febfacf0364cfdd051dc96c04874fa461dd3b81714"
+    },
+    "toolScopes": [
+      {
+        "tool": "ruff",
+        "version": "0.16.10",
+        "artifacts": [
+          {
+            "id": "ruff-aarch64-apple-darwin.tar.gz",
+            "integrity": "sha256:f051cd306de2691262a0574f8857cd1f4d6bfcd448084ea23d61b9c1c37df510",
+            "platforms": [
+              {
+                "os": "darwin",
+                "arch": "arm64",
+                "libc": "none"
+              }
+            ]
+          },
+          {
+            "id": "ruff-aarch64-unknown-linux-gnu.tar.gz",
+            "integrity": "sha256:dc0d74de837ef0a7bcc62ce98c48a622b075d057161f13b958be2934becd55a6",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "arm64",
+                "libc": "glibc"
+              }
+            ]
+          },
+          {
+            "id": "ruff-aarch64-unknown-linux-musl.tar.gz",
+            "integrity": "sha256:38ebc0ec3e0de538d1c399729ca04e124749211d66aa134c24ad0c1f09a935b9",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "arm64",
+                "libc": "musl"
+              }
+            ]
+          },
+          {
+            "id": "ruff-x86_64-apple-darwin.tar.gz",
+            "integrity": "sha256:ace641df42926e962cf04bc52c79eb6c50ba1ae6a17b602f081960616ecc1bd1",
+            "platforms": [
+              {
+                "os": "darwin",
+                "arch": "x64",
+                "libc": "none"
+              }
+            ]
+          },
+          {
+            "id": "ruff-x86_64-unknown-linux-gnu.tar.gz",
+            "integrity": "sha256:9567ff1201e2fb3da31ff04c35587d768c66d6cb42dfa84de474e2bfe360b608",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "x64",
+                "libc": "glibc"
+              }
+            ]
+          },
+          {
+            "id": "ruff-x86_64-unknown-linux-musl.tar.gz",
+            "integrity": "sha256:ad1b2138407a0c53b936524df99d87211333f7bc40478d6860f42994597f7ff0",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "x64",
+                "libc": "musl"
+              }
+            ]
+          }
+        ],
+        "role": "exact frozen source-lock inventory; embedding not inferred",
+        "targetOnlyExclusion": null
+      }
+    ],
+    "declarationDocumentation": "https://doc.rust-lang.org/stable/cargo/reference/manifest.html#the-license-and-license-file-fields"
+  },
+  {
+    "ecosystem": "cargo",
+    "name": "quote-use-macros",
+    "version": "0.8.4",
+    "archiveIntegrity": "sha256:82ebfb7faafadc06a7ab141a6f67bcfb24cb8beb158c6fe933f2f035afa99f35",
+    "archiveUrl": "https://static.crates.io/crates/quote-use-macros/quote-use-macros-0.8.4.crate",
+    "declaredLicense": "MIT",
+    "authors": [],
+    "declaration": {
+      "path": "quote-use-macros-0.8.4/Cargo.toml#license-declaration",
+      "sha256": "cdfa5d01a4c3dae7422d194d862aa9269903a2828cf9154cb88f658d79d5d732"
+    },
+    "standardTerms": {
+      "MIT": {
+        "source": "https://raw.githubusercontent.com/spdx/license-list-data/31ba1a50e5397e00a304dbadc76531740e89ee48/text/MIT.txt",
+        "notice": {
+          "path": "MIT-reference.txt",
+          "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+        }
+      },
+      "Apache-2.0": {
+        "source": "https://raw.githubusercontent.com/spdx/license-list-data/31ba1a50e5397e00a304dbadc76531740e89ee48/text/Apache-2.0.txt",
+        "notice": {
+          "path": "Apache-2.0-reference.txt",
+          "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff"
+        }
+      }
+    },
+    "review": "G1 must review exact metadata-grant packaging; no synthesized copyright owner/year or silent replacement of upstream notices.",
+    "omission": "Immutable published crate supplies no standalone legal file; retain its exact manifest grant, available authors and full standard terms separately.",
+    "originalExpression": "MIT",
+    "selectedLicense": "MIT",
+    "selectionBasis": "Explicit package declaration selects MIT; historical slash alternatives are preserved verbatim, not applied as a universal override.",
+    "deliveryObligations": [
+      "Retain the complete immutable manifest and available author metadata verbatim.",
+      "Deliver separately discovered upstream legal comments/notices unchanged.",
+      "Deliver pinned MIT standard terms labeled reference terms, not an upstream-authored file.",
+      "Do not synthesize copyright holders or years. G1 review is required for this exact package/source scope."
+    ],
+    "archiveVerifiedAtExtraction": true,
+    "standardTermsCommit": "31ba1a50e5397e00a304dbadc76531740e89ee48",
+    "legalSearch": {
+      "searchVersion": "legal-only-v1",
+      "filesSearched": 10,
+      "fileNameInventorySha256": "247dec4775040548b75988b322471d0325fee9ff61ac7ef2f57257cff938b300",
+      "scope": "entire immutable published archive",
+      "standaloneLegalFiles": [],
+      "legalCommentsAndSections": []
+    },
+    "revisionSearch": {
+      "searchVersion": "legal-only-v1",
+      "filesSearched": 17,
+      "fileNameInventorySha256": "ac66046b18ac372a6f41aa3be6fe41dbce780d11c1ccc0e8df378a8ca0469b57",
+      "scope": "quote-use-macros",
+      "standaloneLegalFiles": [],
+      "legalCommentsAndSections": [],
+      "url": "https://codeload.github.com/ModProg/quote-use/tar.gz/05096f346f8b17fba8a57a235b958917ad9d99e0",
+      "integrity": "sha256:2439d99d06c85df01aace8febfacf0364cfdd051dc96c04874fa461dd3b81714"
+    },
+    "toolScopes": [
+      {
+        "tool": "ruff",
+        "version": "0.16.10",
+        "artifacts": [
+          {
+            "id": "ruff-aarch64-apple-darwin.tar.gz",
+            "integrity": "sha256:f051cd306de2691262a0574f8857cd1f4d6bfcd448084ea23d61b9c1c37df510",
+            "platforms": [
+              {
+                "os": "darwin",
+                "arch": "arm64",
+                "libc": "none"
+              }
+            ]
+          },
+          {
+            "id": "ruff-aarch64-unknown-linux-gnu.tar.gz",
+            "integrity": "sha256:dc0d74de837ef0a7bcc62ce98c48a622b075d057161f13b958be2934becd55a6",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "arm64",
+                "libc": "glibc"
+              }
+            ]
+          },
+          {
+            "id": "ruff-aarch64-unknown-linux-musl.tar.gz",
+            "integrity": "sha256:38ebc0ec3e0de538d1c399729ca04e124749211d66aa134c24ad0c1f09a935b9",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "arm64",
+                "libc": "musl"
+              }
+            ]
+          },
+          {
+            "id": "ruff-x86_64-apple-darwin.tar.gz",
+            "integrity": "sha256:ace641df42926e962cf04bc52c79eb6c50ba1ae6a17b602f081960616ecc1bd1",
+            "platforms": [
+              {
+                "os": "darwin",
+                "arch": "x64",
+                "libc": "none"
+              }
+            ]
+          },
+          {
+            "id": "ruff-x86_64-unknown-linux-gnu.tar.gz",
+            "integrity": "sha256:9567ff1201e2fb3da31ff04c35587d768c66d6cb42dfa84de474e2bfe360b608",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "x64",
+                "libc": "glibc"
+              }
+            ]
+          },
+          {
+            "id": "ruff-x86_64-unknown-linux-musl.tar.gz",
+            "integrity": "sha256:ad1b2138407a0c53b936524df99d87211333f7bc40478d6860f42994597f7ff0",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "x64",
+                "libc": "musl"
+              }
+            ]
+          }
+        ],
+        "role": "exact frozen source-lock inventory; embedding not inferred",
+        "targetOnlyExclusion": null
+      }
+    ],
+    "declarationDocumentation": "https://doc.rust-lang.org/stable/cargo/reference/manifest.html#the-license-and-license-file-fields"
+  },
+  {
+    "ecosystem": "cargo",
+    "name": "seahash",
+    "version": "4.1.0",
+    "archiveIntegrity": "sha256:1c107b6f4780854c8b126e228ea8869f4d7b71260f962fefb57b996b8959ba6b",
+    "archiveUrl": "https://static.crates.io/crates/seahash/seahash-4.1.0.crate",
+    "declaredLicense": "MIT",
+    "authors": ["ticki <ticki@users.noreply.github.com>", "Tom Almeida <tom@tommoa.me>"],
+    "declaration": {
+      "path": "seahash-4.1.0/Cargo.toml#license-declaration",
+      "sha256": "1d610f6d1bce065add6ec5f2fb764e97eeda505afbe26271acc5f3d73a8c410a"
+    },
+    "standardTerms": {
+      "MIT": {
+        "source": "https://raw.githubusercontent.com/spdx/license-list-data/31ba1a50e5397e00a304dbadc76531740e89ee48/text/MIT.txt",
+        "notice": {
+          "path": "MIT-reference.txt",
+          "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+        }
+      },
+      "Apache-2.0": {
+        "source": "https://raw.githubusercontent.com/spdx/license-list-data/31ba1a50e5397e00a304dbadc76531740e89ee48/text/Apache-2.0.txt",
+        "notice": {
+          "path": "Apache-2.0-reference.txt",
+          "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff"
+        }
+      }
+    },
+    "review": "G1 must review exact metadata-grant packaging; no synthesized copyright owner/year or silent replacement of upstream notices.",
+    "omission": "Immutable published crate supplies no standalone legal file; retain its exact manifest grant, available authors and full standard terms separately.",
+    "originalExpression": "MIT",
+    "selectedLicense": "MIT",
+    "selectionBasis": "Explicit package declaration selects MIT; historical slash alternatives are preserved verbatim, not applied as a universal override.",
+    "deliveryObligations": [
+      "Retain the complete immutable manifest and available author metadata verbatim.",
+      "Deliver separately discovered upstream legal comments/notices unchanged.",
+      "Deliver pinned MIT standard terms labeled reference terms, not an upstream-authored file.",
+      "Do not synthesize copyright holders or years. G1 review is required for this exact package/source scope."
+    ],
+    "archiveVerifiedAtExtraction": true,
+    "standardTermsCommit": "31ba1a50e5397e00a304dbadc76531740e89ee48",
+    "legalSearch": {
+      "searchVersion": "legal-only-v1",
+      "filesSearched": 16,
+      "fileNameInventorySha256": "15c728f2cc1e7eb5dba6575da68c938ab173cddb497a3bc4a218a12f11ed9f35",
+      "scope": "entire immutable published archive",
+      "standaloneLegalFiles": [],
+      "legalCommentsAndSections": []
+    },
+    "toolScopes": [
+      {
+        "tool": "ruff",
+        "version": "0.16.10",
+        "artifacts": [
+          {
+            "id": "ruff-aarch64-apple-darwin.tar.gz",
+            "integrity": "sha256:f051cd306de2691262a0574f8857cd1f4d6bfcd448084ea23d61b9c1c37df510",
+            "platforms": [
+              {
+                "os": "darwin",
+                "arch": "arm64",
+                "libc": "none"
+              }
+            ]
+          },
+          {
+            "id": "ruff-aarch64-unknown-linux-gnu.tar.gz",
+            "integrity": "sha256:dc0d74de837ef0a7bcc62ce98c48a622b075d057161f13b958be2934becd55a6",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "arm64",
+                "libc": "glibc"
+              }
+            ]
+          },
+          {
+            "id": "ruff-aarch64-unknown-linux-musl.tar.gz",
+            "integrity": "sha256:38ebc0ec3e0de538d1c399729ca04e124749211d66aa134c24ad0c1f09a935b9",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "arm64",
+                "libc": "musl"
+              }
+            ]
+          },
+          {
+            "id": "ruff-x86_64-apple-darwin.tar.gz",
+            "integrity": "sha256:ace641df42926e962cf04bc52c79eb6c50ba1ae6a17b602f081960616ecc1bd1",
+            "platforms": [
+              {
+                "os": "darwin",
+                "arch": "x64",
+                "libc": "none"
+              }
+            ]
+          },
+          {
+            "id": "ruff-x86_64-unknown-linux-gnu.tar.gz",
+            "integrity": "sha256:9567ff1201e2fb3da31ff04c35587d768c66d6cb42dfa84de474e2bfe360b608",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "x64",
+                "libc": "glibc"
+              }
+            ]
+          },
+          {
+            "id": "ruff-x86_64-unknown-linux-musl.tar.gz",
+            "integrity": "sha256:ad1b2138407a0c53b936524df99d87211333f7bc40478d6860f42994597f7ff0",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "x64",
+                "libc": "musl"
+              }
+            ]
+          }
+        ],
+        "role": "exact frozen source-lock inventory; embedding not inferred",
+        "targetOnlyExclusion": null
+      }
+    ],
+    "declarationDocumentation": "https://doc.rust-lang.org/stable/cargo/reference/manifest.html#the-license-and-license-file-fields"
+  },
+  {
+    "ecosystem": "cargo",
+    "name": "winapi-i686-pc-windows-gnu",
+    "version": "0.4.0",
+    "archiveIntegrity": "sha256:ac3b87c63620426dd9b991e5ce0329eff545bccbbb34f3be09ff6fb6ab51b7b6",
+    "archiveUrl": "https://static.crates.io/crates/winapi-i686-pc-windows-gnu/winapi-i686-pc-windows-gnu-0.4.0.crate",
+    "declaredLicense": "MIT/Apache-2.0",
+    "authors": ["Peter Atashian <retep998@gmail.com>"],
+    "declaration": {
+      "path": "winapi-i686-pc-windows-gnu-0.4.0/Cargo.toml#license-declaration",
+      "sha256": "9652222664ffc7e2a26fdcdebdce0917a455b39d8fbcbf451bf0b011a3067bf7"
+    },
+    "standardTerms": {
+      "MIT": {
+        "source": "https://raw.githubusercontent.com/spdx/license-list-data/31ba1a50e5397e00a304dbadc76531740e89ee48/text/MIT.txt",
+        "notice": {
+          "path": "MIT-reference.txt",
+          "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+        }
+      },
+      "Apache-2.0": {
+        "source": "https://raw.githubusercontent.com/spdx/license-list-data/31ba1a50e5397e00a304dbadc76531740e89ee48/text/Apache-2.0.txt",
+        "notice": {
+          "path": "Apache-2.0-reference.txt",
+          "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff"
+        }
+      }
+    },
+    "review": "G1 must review exact metadata-grant packaging; no synthesized copyright owner/year or silent replacement of upstream notices.",
+    "omission": "Immutable published crate supplies no standalone legal file; retain its exact manifest grant, available authors and full standard terms separately.",
+    "originalExpression": "MIT/Apache-2.0",
+    "selectedLicense": "MIT",
+    "selectionBasis": "Explicit package declaration selects MIT; historical slash alternatives are preserved verbatim, not applied as a universal override.",
+    "deliveryObligations": [
+      "Retain the complete immutable manifest and available author metadata verbatim.",
+      "Deliver separately discovered upstream legal comments/notices unchanged.",
+      "Deliver pinned MIT standard terms labeled reference terms, not an upstream-authored file.",
+      "Do not synthesize copyright holders or years. G1 review is required for this exact package/source scope."
+    ],
+    "archiveVerifiedAtExtraction": true,
+    "standardTermsCommit": "31ba1a50e5397e00a304dbadc76531740e89ee48",
+    "legalSearch": {
+      "searchVersion": "legal-only-v1",
+      "filesSearched": 1391,
+      "fileNameInventorySha256": "19d347c4086d00ffe45c4166103fb8f9446dceeb6b0c6b91435dfadead32c1ba",
+      "scope": "entire immutable published archive",
+      "standaloneLegalFiles": [],
+      "legalCommentsAndSections": [
+        {
+          "path": "winapi-i686-pc-windows-gnu-0.4.0/build.rs#legal-comment",
+          "sha256": "72f9dd4f441e55dbd746f776e04290d076584f469e9d0c964b152bf909029ad3"
+        },
+        {
+          "path": "winapi-i686-pc-windows-gnu-0.4.0/src/lib.rs#legal-comment",
+          "sha256": "9b0a59b4c5af60f46f79d2adbe433e07189d076972b8d33e9abca077dc10ccf7"
+        }
+      ]
+    },
+    "toolScopes": [
+      {
+        "tool": "ruff",
+        "version": "0.16.10",
+        "artifacts": [
+          {
+            "id": "ruff-aarch64-apple-darwin.tar.gz",
+            "integrity": "sha256:f051cd306de2691262a0574f8857cd1f4d6bfcd448084ea23d61b9c1c37df510",
+            "platforms": [
+              {
+                "os": "darwin",
+                "arch": "arm64",
+                "libc": "none"
+              }
+            ]
+          },
+          {
+            "id": "ruff-aarch64-unknown-linux-gnu.tar.gz",
+            "integrity": "sha256:dc0d74de837ef0a7bcc62ce98c48a622b075d057161f13b958be2934becd55a6",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "arm64",
+                "libc": "glibc"
+              }
+            ]
+          },
+          {
+            "id": "ruff-aarch64-unknown-linux-musl.tar.gz",
+            "integrity": "sha256:38ebc0ec3e0de538d1c399729ca04e124749211d66aa134c24ad0c1f09a935b9",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "arm64",
+                "libc": "musl"
+              }
+            ]
+          },
+          {
+            "id": "ruff-x86_64-apple-darwin.tar.gz",
+            "integrity": "sha256:ace641df42926e962cf04bc52c79eb6c50ba1ae6a17b602f081960616ecc1bd1",
+            "platforms": [
+              {
+                "os": "darwin",
+                "arch": "x64",
+                "libc": "none"
+              }
+            ]
+          },
+          {
+            "id": "ruff-x86_64-unknown-linux-gnu.tar.gz",
+            "integrity": "sha256:9567ff1201e2fb3da31ff04c35587d768c66d6cb42dfa84de474e2bfe360b608",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "x64",
+                "libc": "glibc"
+              }
+            ]
+          },
+          {
+            "id": "ruff-x86_64-unknown-linux-musl.tar.gz",
+            "integrity": "sha256:ad1b2138407a0c53b936524df99d87211333f7bc40478d6860f42994597f7ff0",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "x64",
+                "libc": "musl"
+              }
+            ]
+          }
+        ],
+        "role": "exact frozen source-lock inventory; embedding not inferred",
+        "targetOnlyExclusion": "Windows GNU import libraries; not an offered execution target; retained as locked source evidence"
+      }
+    ],
+    "declarationDocumentation": "https://doc.rust-lang.org/stable/cargo/reference/manifest.html#the-license-and-license-file-fields"
+  },
+  {
+    "ecosystem": "cargo",
+    "name": "winapi-x86_64-pc-windows-gnu",
+    "version": "0.4.0",
+    "archiveIntegrity": "sha256:712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f",
+    "archiveUrl": "https://static.crates.io/crates/winapi-x86_64-pc-windows-gnu/winapi-x86_64-pc-windows-gnu-0.4.0.crate",
+    "declaredLicense": "MIT/Apache-2.0",
+    "authors": ["Peter Atashian <retep998@gmail.com>"],
+    "declaration": {
+      "path": "winapi-x86_64-pc-windows-gnu-0.4.0/Cargo.toml#license-declaration",
+      "sha256": "a88605a11db5def9b6cf73398e83b3edb72228cb43ea935729fac5cd33cec22c"
+    },
+    "standardTerms": {
+      "MIT": {
+        "source": "https://raw.githubusercontent.com/spdx/license-list-data/31ba1a50e5397e00a304dbadc76531740e89ee48/text/MIT.txt",
+        "notice": {
+          "path": "MIT-reference.txt",
+          "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+        }
+      },
+      "Apache-2.0": {
+        "source": "https://raw.githubusercontent.com/spdx/license-list-data/31ba1a50e5397e00a304dbadc76531740e89ee48/text/Apache-2.0.txt",
+        "notice": {
+          "path": "Apache-2.0-reference.txt",
+          "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff"
+        }
+      }
+    },
+    "review": "G1 must review exact metadata-grant packaging; no synthesized copyright owner/year or silent replacement of upstream notices.",
+    "omission": "Immutable published crate supplies no standalone legal file; retain its exact manifest grant, available authors and full standard terms separately.",
+    "originalExpression": "MIT/Apache-2.0",
+    "selectedLicense": "MIT",
+    "selectionBasis": "Explicit package declaration selects MIT; historical slash alternatives are preserved verbatim, not applied as a universal override.",
+    "deliveryObligations": [
+      "Retain the complete immutable manifest and available author metadata verbatim.",
+      "Deliver separately discovered upstream legal comments/notices unchanged.",
+      "Deliver pinned MIT standard terms labeled reference terms, not an upstream-authored file.",
+      "Do not synthesize copyright holders or years. G1 review is required for this exact package/source scope."
+    ],
+    "archiveVerifiedAtExtraction": true,
+    "standardTermsCommit": "31ba1a50e5397e00a304dbadc76531740e89ee48",
+    "legalSearch": {
+      "searchVersion": "legal-only-v1",
+      "filesSearched": 1420,
+      "fileNameInventorySha256": "7e3fa73ae0b490688d07f34124105aaa3703b983aa40fa4755e1995f84de79c0",
+      "scope": "entire immutable published archive",
+      "standaloneLegalFiles": [],
+      "legalCommentsAndSections": [
+        {
+          "path": "winapi-x86_64-pc-windows-gnu-0.4.0/build.rs#legal-comment",
+          "sha256": "72f9dd4f441e55dbd746f776e04290d076584f469e9d0c964b152bf909029ad3"
+        },
+        {
+          "path": "winapi-x86_64-pc-windows-gnu-0.4.0/src/lib.rs#legal-comment",
+          "sha256": "9b0a59b4c5af60f46f79d2adbe433e07189d076972b8d33e9abca077dc10ccf7"
+        }
+      ]
+    },
+    "toolScopes": [
+      {
+        "tool": "ruff",
+        "version": "0.16.10",
+        "artifacts": [
+          {
+            "id": "ruff-aarch64-apple-darwin.tar.gz",
+            "integrity": "sha256:f051cd306de2691262a0574f8857cd1f4d6bfcd448084ea23d61b9c1c37df510",
+            "platforms": [
+              {
+                "os": "darwin",
+                "arch": "arm64",
+                "libc": "none"
+              }
+            ]
+          },
+          {
+            "id": "ruff-aarch64-unknown-linux-gnu.tar.gz",
+            "integrity": "sha256:dc0d74de837ef0a7bcc62ce98c48a622b075d057161f13b958be2934becd55a6",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "arm64",
+                "libc": "glibc"
+              }
+            ]
+          },
+          {
+            "id": "ruff-aarch64-unknown-linux-musl.tar.gz",
+            "integrity": "sha256:38ebc0ec3e0de538d1c399729ca04e124749211d66aa134c24ad0c1f09a935b9",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "arm64",
+                "libc": "musl"
+              }
+            ]
+          },
+          {
+            "id": "ruff-x86_64-apple-darwin.tar.gz",
+            "integrity": "sha256:ace641df42926e962cf04bc52c79eb6c50ba1ae6a17b602f081960616ecc1bd1",
+            "platforms": [
+              {
+                "os": "darwin",
+                "arch": "x64",
+                "libc": "none"
+              }
+            ]
+          },
+          {
+            "id": "ruff-x86_64-unknown-linux-gnu.tar.gz",
+            "integrity": "sha256:9567ff1201e2fb3da31ff04c35587d768c66d6cb42dfa84de474e2bfe360b608",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "x64",
+                "libc": "glibc"
+              }
+            ]
+          },
+          {
+            "id": "ruff-x86_64-unknown-linux-musl.tar.gz",
+            "integrity": "sha256:ad1b2138407a0c53b936524df99d87211333f7bc40478d6860f42994597f7ff0",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "x64",
+                "libc": "musl"
+              }
+            ]
+          }
+        ],
+        "role": "exact frozen source-lock inventory; embedding not inferred",
+        "targetOnlyExclusion": "Windows GNU import libraries; not an offered execution target; retained as locked source evidence"
+      }
+    ],
+    "declarationDocumentation": "https://doc.rust-lang.org/stable/cargo/reference/manifest.html#the-license-and-license-file-fields"
+  },
+  {
+    "ecosystem": "cargo",
+    "name": "la-arena",
+    "version": "0.3.1",
+    "archiveIntegrity": "sha256:3752f229dcc5a481d60f385fa479ff46818033d881d2d801aa27dffcfb5e8306",
+    "archiveUrl": "https://static.crates.io/crates/la-arena/la-arena-0.3.1.crate",
+    "declaredLicense": "MIT OR Apache-2.0",
+    "authors": [],
+    "declaration": {
+      "path": "la-arena-0.3.1/Cargo.toml#license-declaration",
+      "sha256": "e0ab2202ba612192387ce7931e940310ea6e80890fab03085f9398242ea91f6e"
+    },
+    "standardTerms": {
+      "MIT": {
+        "source": "https://raw.githubusercontent.com/spdx/license-list-data/31ba1a50e5397e00a304dbadc76531740e89ee48/text/MIT.txt",
+        "notice": {
+          "path": "MIT-reference.txt",
+          "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+        }
+      },
+      "Apache-2.0": {
+        "source": "https://raw.githubusercontent.com/spdx/license-list-data/31ba1a50e5397e00a304dbadc76531740e89ee48/text/Apache-2.0.txt",
+        "notice": {
+          "path": "Apache-2.0-reference.txt",
+          "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff"
+        }
+      }
+    },
+    "review": "G1 must review exact metadata-grant packaging; no synthesized copyright owner/year or silent replacement of upstream notices.",
+    "omission": "Immutable published crate supplies no standalone legal file; retain its exact manifest grant, available authors and full standard terms separately.",
+    "originalExpression": "MIT OR Apache-2.0",
+    "selectedLicense": "MIT",
+    "selectionBasis": "Explicit package declaration selects MIT; historical slash alternatives are preserved verbatim, not applied as a universal override.",
+    "deliveryObligations": [
+      "Retain the complete immutable manifest and available author metadata verbatim.",
+      "Deliver separately discovered upstream legal comments/notices unchanged.",
+      "Deliver pinned MIT standard terms labeled reference terms, not an upstream-authored file.",
+      "Do not synthesize copyright holders or years. G1 review is required for this exact package/source scope."
+    ],
+    "archiveVerifiedAtExtraction": true,
+    "standardTermsCommit": "31ba1a50e5397e00a304dbadc76531740e89ee48",
+    "legalSearch": {
+      "searchVersion": "legal-only-v1",
+      "filesSearched": 4,
+      "fileNameInventorySha256": "d8814d09b13e4e7ef04a975dc70cff5af2d8feb3ed4d37423816d343d42ef344",
+      "scope": "entire immutable published archive",
+      "standaloneLegalFiles": [],
+      "legalCommentsAndSections": []
+    },
+    "toolScopes": [
+      {
+        "tool": "rust-analyzer",
+        "version": "2026-09-28",
+        "artifacts": [
+          {
+            "id": "rust-analyzer-aarch64-apple-darwin.gz",
+            "integrity": "sha256:54ec873d8996e2c127d758bf45d4eacb6d3371dae4f6f6d5d3f05cedbae5fd59",
+            "platforms": [
+              {
+                "os": "darwin",
+                "arch": "arm64",
+                "libc": "none"
+              }
+            ]
+          },
+          {
+            "id": "rust-analyzer-aarch64-unknown-linux-gnu.gz",
+            "integrity": "sha256:03bad9c3dabb0f07a2678d5f9f8f1575a3742ea141506e14b3a26b42a1f896f3",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "arm64",
+                "libc": "glibc"
+              }
+            ]
+          },
+          {
+            "id": "rust-analyzer-x86_64-apple-darwin.gz",
+            "integrity": "sha256:d032c0eb75e4597cc8ffc35ea4cdbd9eecc8341936b6edac6749e679fc3f0682",
+            "platforms": [
+              {
+                "os": "darwin",
+                "arch": "x64",
+                "libc": "none"
+              }
+            ]
+          },
+          {
+            "id": "rust-analyzer-x86_64-unknown-linux-gnu.gz",
+            "integrity": "sha256:23f711d86b5f826e22886f01d7355dc01e0f4c1357dafa29710a95b903b48c85",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "x64",
+                "libc": "glibc"
+              }
+            ]
+          },
+          {
+            "id": "rust-analyzer-x86_64-unknown-linux-musl.gz",
+            "integrity": "sha256:b9a0edbda7a7d9eff0cb3cf49b7f14b2f81e2490095ff56a3ff558ec08b33ae4",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "x64",
+                "libc": "musl"
+              }
+            ]
+          }
+        ],
+        "role": "exact frozen source-lock inventory; embedding not inferred",
+        "targetOnlyExclusion": null
+      }
+    ],
+    "declarationDocumentation": "https://doc.rust-lang.org/stable/cargo/reference/manifest.html#the-license-and-license-file-fields"
+  },
+  {
+    "ecosystem": "cargo",
+    "name": "ungrammar",
+    "version": "1.16.1",
+    "archiveIntegrity": "sha256:a3e5df347f0bf3ec1d670aad6ca5c6a1859cd9ea61d2113125794654ccced68f",
+    "archiveUrl": "https://static.crates.io/crates/ungrammar/ungrammar-1.16.1.crate",
+    "declaredLicense": "MIT OR Apache-2.0",
+    "authors": [],
+    "declaration": {
+      "path": "ungrammar-1.16.1/Cargo.toml#license-declaration",
+      "sha256": "5a03d1af06cbbb65472b00b1ef082893b4e5264af1532a05473dc2a3a902d4c8"
+    },
+    "standardTerms": {
+      "MIT": {
+        "source": "https://raw.githubusercontent.com/spdx/license-list-data/31ba1a50e5397e00a304dbadc76531740e89ee48/text/MIT.txt",
+        "notice": {
+          "path": "MIT-reference.txt",
+          "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+        }
+      },
+      "Apache-2.0": {
+        "source": "https://raw.githubusercontent.com/spdx/license-list-data/31ba1a50e5397e00a304dbadc76531740e89ee48/text/Apache-2.0.txt",
+        "notice": {
+          "path": "Apache-2.0-reference.txt",
+          "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff"
+        }
+      }
+    },
+    "review": "G1 must review exact metadata-grant packaging; no synthesized copyright owner/year or silent replacement of upstream notices.",
+    "omission": "Immutable published crate supplies no standalone legal file; retain its exact manifest grant, available authors and full standard terms separately.",
+    "originalExpression": "MIT OR Apache-2.0",
+    "selectedLicense": "MIT",
+    "selectionBasis": "Explicit package declaration selects MIT; historical slash alternatives are preserved verbatim, not applied as a universal override.",
+    "deliveryObligations": [
+      "Retain the complete immutable manifest and available author metadata verbatim.",
+      "Deliver separately discovered upstream legal comments/notices unchanged.",
+      "Deliver pinned MIT standard terms labeled reference terms, not an upstream-authored file.",
+      "Do not synthesize copyright holders or years. G1 review is required for this exact package/source scope."
+    ],
+    "archiveVerifiedAtExtraction": true,
+    "standardTermsCommit": "31ba1a50e5397e00a304dbadc76531740e89ee48",
+    "legalSearch": {
+      "searchVersion": "legal-only-v1",
+      "filesSearched": 11,
+      "fileNameInventorySha256": "fb74a359e82383961884fdd9ef550e11542ca3159824463895fc3d7a49c2378b",
+      "scope": "entire immutable published archive",
+      "standaloneLegalFiles": [],
+      "legalCommentsAndSections": []
+    },
+    "revisionSearch": {
+      "searchVersion": "legal-only-v1",
+      "filesSearched": 14,
+      "fileNameInventorySha256": "6d6be773f06fafbf8ed7240e53c60b18b40dbd65f20b255fe56a97c499c73037",
+      "scope": "entire immutable published archive",
+      "standaloneLegalFiles": [],
+      "legalCommentsAndSections": [],
+      "url": "https://codeload.github.com/matklad/ungrammar/tar.gz/814f04797bbd67f224cbb1b48c7541fdd8bc3d79",
+      "integrity": "sha256:91c5471b3e12d8d09342397b96cf2453e09be7090ffe95ee94264d92db60ced3"
+    },
+    "toolScopes": [
+      {
+        "tool": "rust-analyzer",
+        "version": "2026-09-28",
+        "artifacts": [
+          {
+            "id": "rust-analyzer-aarch64-apple-darwin.gz",
+            "integrity": "sha256:54ec873d8996e2c127d758bf45d4eacb6d3371dae4f6f6d5d3f05cedbae5fd59",
+            "platforms": [
+              {
+                "os": "darwin",
+                "arch": "arm64",
+                "libc": "none"
+              }
+            ]
+          },
+          {
+            "id": "rust-analyzer-aarch64-unknown-linux-gnu.gz",
+            "integrity": "sha256:03bad9c3dabb0f07a2678d5f9f8f1575a3742ea141506e14b3a26b42a1f896f3",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "arm64",
+                "libc": "glibc"
+              }
+            ]
+          },
+          {
+            "id": "rust-analyzer-x86_64-apple-darwin.gz",
+            "integrity": "sha256:d032c0eb75e4597cc8ffc35ea4cdbd9eecc8341936b6edac6749e679fc3f0682",
+            "platforms": [
+              {
+                "os": "darwin",
+                "arch": "x64",
+                "libc": "none"
+              }
+            ]
+          },
+          {
+            "id": "rust-analyzer-x86_64-unknown-linux-gnu.gz",
+            "integrity": "sha256:23f711d86b5f826e22886f01d7355dc01e0f4c1357dafa29710a95b903b48c85",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "x64",
+                "libc": "glibc"
+              }
+            ]
+          },
+          {
+            "id": "rust-analyzer-x86_64-unknown-linux-musl.gz",
+            "integrity": "sha256:b9a0edbda7a7d9eff0cb3cf49b7f14b2f81e2490095ff56a3ff558ec08b33ae4",
+            "platforms": [
+              {
+                "os": "linux",
+                "arch": "x64",
+                "libc": "musl"
+              }
+            ]
+          }
+        ],
+        "role": "exact frozen source-lock inventory; embedding not inferred",
+        "targetOnlyExclusion": null
+      }
+    ],
+    "declarationDocumentation": "https://doc.rust-lang.org/stable/cargo/reference/manifest.html#the-license-and-license-file-fields"
+  },
+  {
+    "ecosystem": "composer",
+    "name": "dantleech/argument-resolver",
+    "version": "1.1.0",
+    "archiveIntegrity": "sha256:cb5256dbf8a05df0bbb53af604e4fa4be968a2bfd447ad1e951fb635625f03df",
+    "archiveUrl": "https://gitlab.com/api/v4/projects/dantleech%2Fargument-resolver/repository/archive.zip?sha=e34fabf7d6e53e5194f745ad069c4a87cc4b34cc",
+    "declaredLicense": "MIT",
+    "authors": [
+      {
+        "name": "Daniel Leech",
+        "email": "daniel@dantleech.com"
+      }
+    ],
+    "declaration": {
+      "path": "dantleech/argument-resolver/composer.json#license-declaration",
+      "sha256": "93c361380e569f81786b042ae8a802baa29385ca97491398e95aaf1ac60b948d"
+    },
+    "standardTerms": {
+      "MIT": {
+        "source": "https://raw.githubusercontent.com/spdx/license-list-data/31ba1a50e5397e00a304dbadc76531740e89ee48/text/MIT.txt",
+        "notice": {
+          "path": "MIT-reference.txt",
+          "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+        }
+      }
+    },
+    "review": "G1 must review exact metadata-grant packaging; no synthesized copyright owner/year.",
+    "omission": "Pinned source archive supplies no standalone license; preserve exact MIT grant/author metadata and standard terms.",
+    "originalExpression": "MIT",
+    "selectedLicense": "MIT",
+    "selectionBasis": "Explicit package declaration selects MIT; historical slash alternatives are preserved verbatim, not applied as a universal override.",
+    "deliveryObligations": [
+      "Retain the complete immutable manifest and available author metadata verbatim.",
+      "Deliver separately discovered upstream legal comments/notices unchanged.",
+      "Deliver pinned MIT standard terms labeled reference terms, not an upstream-authored file.",
+      "Do not synthesize copyright holders or years. G1 review is required for this exact package/source scope."
+    ],
+    "archiveVerifiedAtExtraction": true,
+    "standardTermsCommit": "31ba1a50e5397e00a304dbadc76531740e89ee48",
+    "legalSearch": {
+      "searchVersion": "legal-only-v1",
+      "filesSearched": 20,
+      "fileNameInventorySha256": "bd0d57c58958a6d716b9238613ac0bf9f1da5e80fc9033278c000e6b725b1a4c",
+      "scope": "entire immutable published archive",
+      "standaloneLegalFiles": [],
+      "legalCommentsAndSections": []
+    },
+    "toolScopes": [
+      {
+        "tool": "phpactor",
+        "version": "2026.06.23.0",
+        "artifacts": [
+          {
+            "id": "phpactor.phar",
+            "integrity": "sha256:25645647d9aa2dc69536fb4f75c976e33ef1a7b5533534a8456736e5e6fd5079",
+            "platforms": [
+              {
+                "os": "darwin",
+                "arch": "arm64",
+                "libc": "none"
+              },
+              {
+                "os": "darwin",
+                "arch": "x64",
+                "libc": "none"
+              },
+              {
+                "os": "linux",
+                "arch": "arm64",
+                "libc": "glibc"
+              },
+              {
+                "os": "linux",
+                "arch": "arm64",
+                "libc": "musl"
+              },
+              {
+                "os": "linux",
+                "arch": "x64",
+                "libc": "glibc"
+              },
+              {
+                "os": "linux",
+                "arch": "x64",
+                "libc": "musl"
+              }
+            ]
+          }
+        ],
+        "role": "PHAR runtime source",
+        "targetOnlyExclusion": null
+      }
+    ],
+    "declarationDocumentation": "https://getcomposer.org/doc/04-schema.md#license"
+  },
+  {
+    "ecosystem": "composer",
+    "name": "dantleech/invoke",
+    "version": "2.0.0",
+    "archiveIntegrity": "sha256:36f194e2369bb48372637fe176e25d788ac03a26c71cf6367f63b85c24a6bb98",
+    "archiveUrl": "https://api.github.com/repos/dantleech/invoke/zipball/9b002d746d2c1b86cfa63a47bb5909cee58ef50c",
+    "declaredLicense": "MIT",
+    "authors": [
+      {
+        "name": "daniel leech",
+        "email": "daniel@dantleech.com"
+      }
+    ],
+    "declaration": {
+      "path": "dantleech/invoke/composer.json#license-declaration",
+      "sha256": "66ecb66b3af1621ff7b93dea2e29e297659432251e80c7253830311d07610882"
+    },
+    "standardTerms": {
+      "MIT": {
+        "source": "https://raw.githubusercontent.com/spdx/license-list-data/31ba1a50e5397e00a304dbadc76531740e89ee48/text/MIT.txt",
+        "notice": {
+          "path": "MIT-reference.txt",
+          "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+        }
+      }
+    },
+    "review": "G1 must review exact metadata-grant packaging; no synthesized copyright owner/year.",
+    "omission": "Pinned source archive supplies no standalone license; preserve exact MIT grant/author metadata and standard terms.",
+    "originalExpression": "MIT",
+    "selectedLicense": "MIT",
+    "selectionBasis": "Explicit package declaration selects MIT; historical slash alternatives are preserved verbatim, not applied as a universal override.",
+    "deliveryObligations": [
+      "Retain the complete immutable manifest and available author metadata verbatim.",
+      "Deliver separately discovered upstream legal comments/notices unchanged.",
+      "Deliver pinned MIT standard terms labeled reference terms, not an upstream-authored file.",
+      "Do not synthesize copyright holders or years. G1 review is required for this exact package/source scope."
+    ],
+    "archiveVerifiedAtExtraction": true,
+    "standardTermsCommit": "31ba1a50e5397e00a304dbadc76531740e89ee48",
+    "legalSearch": {
+      "searchVersion": "legal-only-v1",
+      "filesSearched": 27,
+      "fileNameInventorySha256": "e1c6de72e5751e58854527adb3b9d861897f231c4acd4d171a0776b23515eb68",
+      "scope": "entire immutable published archive",
+      "standaloneLegalFiles": [],
+      "legalCommentsAndSections": []
+    },
+    "toolScopes": [
+      {
+        "tool": "phpactor",
+        "version": "2026.06.23.0",
+        "artifacts": [
+          {
+            "id": "phpactor.phar",
+            "integrity": "sha256:25645647d9aa2dc69536fb4f75c976e33ef1a7b5533534a8456736e5e6fd5079",
+            "platforms": [
+              {
+                "os": "darwin",
+                "arch": "arm64",
+                "libc": "none"
+              },
+              {
+                "os": "darwin",
+                "arch": "x64",
+                "libc": "none"
+              },
+              {
+                "os": "linux",
+                "arch": "arm64",
+                "libc": "glibc"
+              },
+              {
+                "os": "linux",
+                "arch": "arm64",
+                "libc": "musl"
+              },
+              {
+                "os": "linux",
+                "arch": "x64",
+                "libc": "glibc"
+              },
+              {
+                "os": "linux",
+                "arch": "x64",
+                "libc": "musl"
+              }
+            ]
+          }
+        ],
+        "role": "PHAR runtime source",
+        "targetOnlyExclusion": null
+      }
+    ],
+    "declarationDocumentation": "https://getcomposer.org/doc/04-schema.md#license"
+  }
+]

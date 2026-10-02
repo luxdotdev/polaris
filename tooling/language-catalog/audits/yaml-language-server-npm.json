@@ -1,8 +1,12 @@
 {
   "artifactId": "yaml-language-server-npm",
   "artifactIntegrity": "sha512-+HGcwu4M7IC+UDhDZScTZR8qsl2MMj/X1E5e83QcWzWn2pctj0fv8HHdrHHcbc1KB3CuRPJ4gc1Nm36D0iCu0g==",
-  "coverage": "pending",
+  "coverage": "complete",
   "notices": [
+    {
+      "path": "notices/c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383.txt",
+      "integrity": "sha256:c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+    },
     {
       "path": "notices/a05350a88e318e4f5f2c2a1ff1e2e88daa4dd38e6e78b71cccae422bdc762cc3.txt",
       "integrity": "sha256:a05350a88e318e4f5f2c2a1ff1e2e88daa4dd38e6e78b71cccae422bdc762cc3"
@@ -70,10 +74,30 @@
     {
       "path": "notices/2a6ebc3c5b441f0aef19c5190d17f5bfc1ab4f729db49fabb2db7d10bd9a6146.txt",
       "integrity": "sha256:2a6ebc3c5b441f0aef19c5190d17f5bfc1ab4f729db49fabb2db7d10bd9a6146"
+    },
+    {
+      "path": "notices/cdf4d87ae0a6c160227263bf4e39a0a10e30e89ae7256e0f7ac7bde0836552c6.txt",
+      "integrity": "sha256:cdf4d87ae0a6c160227263bf4e39a0a10e30e89ae7256e0f7ac7bde0836552c6"
+    },
+    {
+      "path": "notices/2c36ca617013001df8690cc63e2392760edd23fef948274100f051f7168b995d.txt",
+      "integrity": "sha256:2c36ca617013001df8690cc63e2392760edd23fef948274100f051f7168b995d"
+    },
+    {
+      "path": "notices/a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499.txt",
+      "integrity": "sha256:a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499"
+    },
+    {
+      "path": "notices/291d324119550df1624f0af60388393fe36b02bc5e61d9a236afab1801b33042.txt",
+      "integrity": "sha256:291d324119550df1624f0af60388393fe36b02bc5e61d9a236afab1801b33042"
+    },
+    {
+      "path": "notices/c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4.txt",
+      "integrity": "sha256:c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
     }
   ],
-  "findings": ["@vscode/l10n@0.0.18: notice-coverage"],
-  "bundleIntegrity": "sha256:de66cfb5ad33c4b53823a967c61c30a6173fb974e0aedcd81e7686d502075d9a",
+  "findings": [],
+  "bundleIntegrity": "sha256:bac4707486d1611bf7cd40a8100f5f689c5d29086d26e187921dd0e7acbf3218",
   "supplements": [
     "railroad-diagrams@1.0.0",
     "bash-language-server@5.8.1",
@@ -81,5 +105,26 @@
     "@prisma/prisma-schema-wasm@7.8.0-6.3c6e192761c0362d496ed980de936e2f3cebcd3a",
     "boolbase@1.0.0"
   ],
-  "evidence": []
+  "evidence": [
+    {
+      "path": "npm-notice-sources.json",
+      "integrity": "sha256:968a17c1c791e5ff11cab8a0fa46398e2ba662c78ee52449e251a799894c8d17"
+    },
+    {
+      "path": "notice-supplements.json",
+      "integrity": "sha256:ce12c800f357782660cdbb9b5c6ca8ca4428a0c5580dad8af8cc91873cddcdcf"
+    },
+    {
+      "path": "closure-plan.json",
+      "integrity": "sha256:a61abd31b8fda9766b634fa5276ec3e121d10ba9943a2efcd2a586a881edc8da"
+    },
+    {
+      "path": "bundles/yaml-language-server.json",
+      "integrity": "sha256:bac4707486d1611bf7cd40a8100f5f689c5d29086d26e187921dd0e7acbf3218"
+    },
+    {
+      "path": "review-records.json",
+      "integrity": "sha256:84878260fa5e3d66a0c73c80e5484fc839e778798dd558cced84d3949c26321b"
+    }
+  ]
 }

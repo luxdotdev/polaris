@@ -1,0 +1,24 @@
+/*******************************************************************************
+ * Copyright (c) 2003, 2022 IBM Corporation and others.
+ *
+ * This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *     Stephan Wahlbrink  - Fix for bug 200997.
+ *     Danail Nachev - Fix for bug 109898
+ *     Mike Moreaty - Fix for bug 289790
+ *     Oracle Corporation - Fix for bug 316839
+ *     Thirumala Reddy Mutchukota (thirumala@google.com) -
+ *              Bug 432049, JobGroup API and implementation
+ *              Bug 105821, Support for Job#join with timeout and progress monitor
+ *     Jan Koehnlein - Fix for bug 60964 (454698)
+ *     Terry Parker - Bug 457504, Publish a job group's final status to IJobChangeListeners
+ *     Xored Software Inc - Fix for bug 550738
+ *     Christoph Laeubrich 	- Issue #40
+ *******************************************************************************/

@@ -1,0 +1,254 @@
+{
+  "phpactorIntegrity": "sha256:25645647d9aa2dc69536fb4f75c976e33ef1a7b5533534a8456736e5e6fd5079",
+  "boxRelease": "4.5.0",
+  "boxIntegrity": "sha256:afb834f00239d65b2327face19aa0cd3101b91add0d3768eae542d7c6f50328e",
+  "boxUrl": "https://github.com/box-project/box/releases/download/4.5.0/box.phar",
+  "files": [
+    {
+      "path": ".box/vendor/autoload.php",
+      "sha256": "ea00877f897e81ea168d23081ad6cfea259ed878ca031577be209cde61c624c0",
+      "size": 751,
+      "boxPath": ".box/vendor/autoload.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/vendor/composer/installed.php",
+      "sha256": "94b475ceb6e1f30031b2eba4936ff485b0570e0bbb6c2d30642b4170f25412dd",
+      "size": 12071,
+      "boxPath": ".box/vendor/composer/installed.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/vendor/composer/autoload_classmap.php",
+      "sha256": "f9c7cdf562b7a0d9846fdb4bba30948b453a6b16f45512435aa748c9f2e1f288",
+      "size": 2706,
+      "boxPath": ".box/vendor/composer/autoload_classmap.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/vendor/composer/autoload_psr4.php",
+      "sha256": "9c11982ee0581a2c8e1bafe8bc0f628c82078951a737048c320b1d6842119db8",
+      "size": 298,
+      "boxPath": ".box/vendor/composer/autoload_psr4.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/vendor/composer/autoload_static.php",
+      "sha256": "0ba2fb554d2d7f1253f89d31c0a385ce4d3918c70135c62082ea788f1d515802",
+      "size": 3957,
+      "boxPath": ".box/vendor/composer/autoload_static.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/vendor/composer/LICENSE",
+      "sha256": "c8cce4b6b9729f264ffdf9296d505d63432497feeed1f586d1902b942197e024",
+      "size": 1070,
+      "boxPath": ".box/vendor/composer/LICENSE",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/vendor/composer/InstalledVersions.php",
+      "sha256": "8afecb4ce1d80dce84b23874bc8e134613274370886ec4262230337d3ab7c615",
+      "size": 7749,
+      "boxPath": ".box/vendor/composer/InstalledVersions.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/vendor/composer/autoload_real.php",
+      "sha256": "7260072e212f5dd5297d4a610d2925499542722986540f0376152d7dd99ca44d",
+      "size": 1056,
+      "boxPath": ".box/vendor/composer/autoload_real.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/vendor/composer/ClassLoader.php",
+      "sha256": "d4b2313e562edf942838ec316d983c1a3459ca67da3e5658e861200b0b3693c2",
+      "size": 16378,
+      "boxPath": ".box/vendor/composer/ClassLoader.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/vendor/composer/autoload_namespaces.php",
+      "sha256": "ede505407590638a435137f4e060136f1008de79fc169b3de9793423b0cea38c",
+      "size": 139,
+      "boxPath": ".box/vendor/composer/autoload_namespaces.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/vendor/composer/semver/src/Constraint/ConstraintInterface.php",
+      "sha256": "cc74f0460168b0f3cf71782741731aeeea31b83b9c4f3703cfb2485643ed16ea",
+      "size": 431,
+      "boxPath": ".box/vendor/composer/semver/src/Constraint/ConstraintInterface.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/vendor/composer/semver/src/Constraint/Constraint.php",
+      "sha256": "3732423308bf35fbc1bdce27c1aa747d9be7e9c20d73287e7a22fc528e32d564",
+      "size": 9964,
+      "boxPath": ".box/vendor/composer/semver/src/Constraint/Constraint.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/vendor/composer/semver/src/Constraint/MultiConstraint.php",
+      "sha256": "1dae8a5195acd664dba999147c2c3be19849e2d1c7d77e8aada71a1188c923f1",
+      "size": 6488,
+      "boxPath": ".box/vendor/composer/semver/src/Constraint/MultiConstraint.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/vendor/composer/semver/src/Constraint/MatchAllConstraint.php",
+      "sha256": "5230addf0531f3c6ad5e79a2dc81df8c715be637bf8487abd736ae51e0e168a3",
+      "size": 827,
+      "boxPath": ".box/vendor/composer/semver/src/Constraint/MatchAllConstraint.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/vendor/composer/semver/src/Constraint/Bound.php",
+      "sha256": "9a6bc762f89a001bf597c3688aca4a3f27c63ee35542e31ae047882e0c592dc0",
+      "size": 1646,
+      "boxPath": ".box/vendor/composer/semver/src/Constraint/Bound.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/vendor/composer/semver/src/Constraint/MatchNoneConstraint.php",
+      "sha256": "6420b20f17e06398878baf8bc97fee845bdc63493c34753fe69978e37d77ce0c",
+      "size": 857,
+      "boxPath": ".box/vendor/composer/semver/src/Constraint/MatchNoneConstraint.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/vendor/composer/semver/src/Interval.php",
+      "sha256": "1f451d8422c3404079b323f00827d6211938acf80d741fca7b649b45afced243",
+      "size": 1230,
+      "boxPath": ".box/vendor/composer/semver/src/Interval.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/vendor/composer/semver/src/CompilingMatcher.php",
+      "sha256": "6317572fc0110f01131457abb7526989c459d3318749dac15780b6a3903d4657",
+      "size": 1993,
+      "boxPath": ".box/vendor/composer/semver/src/CompilingMatcher.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/vendor/composer/semver/src/Comparator.php",
+      "sha256": "daaafec2b838718194dcf195fb337e1a432349bff8635f3277bb4ff5cd486163",
+      "size": 1173,
+      "boxPath": ".box/vendor/composer/semver/src/Comparator.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/vendor/composer/semver/src/Semver.php",
+      "sha256": "fd82bbfd347b856ae0046be46adfc44f258d0824a9d62b57bd4f273f012c411f",
+      "size": 2178,
+      "boxPath": ".box/vendor/composer/semver/src/Semver.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/vendor/composer/semver/src/Intervals.php",
+      "sha256": "06bd39cece8a89b2d3aa6b89d8d8e43f78d2f9cbe4370ff041a359a812c5c891",
+      "size": 14846,
+      "boxPath": ".box/vendor/composer/semver/src/Intervals.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/vendor/composer/semver/src/VersionParser.php",
+      "sha256": "684d787c845770bb3d4a979e01df96e5a0148d76ae82a6ee4450d43b8ca20054",
+      "size": 15200,
+      "boxPath": ".box/vendor/composer/semver/src/VersionParser.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/vendor/composer/semver/LICENSE",
+      "sha256": "6bb16991cf366c84116c5f6a4d5078f7113ebc47d1f245ea9b57b8c10abd7479",
+      "size": 1052,
+      "boxPath": ".box/vendor/composer/semver/LICENSE",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/src/IsExtensionConflictFulfilled.php",
+      "sha256": "f1627132ac4601f903ca01829507174b77109c2bf3cc45f392824e8a29011362",
+      "size": 461,
+      "boxPath": ".box/src/IsExtensionConflictFulfilled.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/src/Terminal.php",
+      "sha256": "fa673076983eec229d35e0f12c4a2c7f7703a1a43f77b3cbaed201a16e784ff6",
+      "size": 3903,
+      "boxPath": ".box/src/Terminal.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/src/Printer.php",
+      "sha256": "aca283a1227c7017437005f23138dba9027834bfb7333b2da9df39c99b581148",
+      "size": 3774,
+      "boxPath": ".box/src/Printer.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/src/IsExtensionFulfilled.php",
+      "sha256": "bde985fc61fcd28022c47b7e5304c6d2da7a0dab9fdda6e641479b19241555a2",
+      "size": 443,
+      "boxPath": ".box/src/IsExtensionFulfilled.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/src/Checker.php",
+      "sha256": "e750aa28a8e1d35569a9eea74fae0f5b16f00da1fc0af3bc334e1a3bf03548d2",
+      "size": 4616,
+      "boxPath": ".box/src/Checker.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/src/Requirement.php",
+      "sha256": "407d36f2467f2e17a25b26396557b9f9626ee2872de48657f22f0e4731b432ed",
+      "size": 959,
+      "boxPath": ".box/src/Requirement.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/src/RequirementCollection.php",
+      "sha256": "aa2c6240b954e1ceaa787fba709cbf0b632ec04026515d485f72a523b7b6ee2e",
+      "size": 1458,
+      "boxPath": ".box/src/RequirementCollection.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/src/IsFulfilled.php",
+      "sha256": "c1bd9646ff6b20110765404563eef2fb01c9779b4670413db65e33d0209fe8fc",
+      "size": 150,
+      "boxPath": ".box/src/IsFulfilled.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/src/IsPhpVersionFulfilled.php",
+      "sha256": "587d98ba56cf3859af40ddbd10b2a2feec7ebe29a01951939bba8b1323bbaa29",
+      "size": 651,
+      "boxPath": ".box/src/IsPhpVersionFulfilled.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/src/IO.php",
+      "sha256": "aa876cbed4053c2e65175f831e037a5c4898fb5cd1b3ead69baa148301a5f895",
+      "size": 4259,
+      "boxPath": ".box/src/IO.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/bin/check-requirements.php",
+      "sha256": "89f0665f1aff3dce51b3b4fc3250c63638002439bb10c7a0c4964ff77209ee43",
+      "size": 1018,
+      "boxPath": ".box/bin/check-requirements.php",
+      "kind": "byte-identical-release-input"
+    },
+    {
+      "path": ".box/.requirements.php",
+      "sha256": "5556a586c6d4407c88a15d6571f9e4784ca5ec258fc55074ae17099299838f79",
+      "size": 4456,
+      "kind": "generated-requirements-data",
+      "source": "PHPactor pinned Composer platform constraints + Box 4.5.0 build input"
+    }
+  ],
+  "scope": "All 34 shipped checker/autoloader/semver files match Box 4.5.0 exactly. Generated requirements data remains bound to PHPactor artifact hash; no PHP execution or feature certification."
+}

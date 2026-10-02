@@ -1,0 +1,35 @@
+/*******************************************************************************
+ * Copyright (c) 2000, 2018 IBM Corporation and others.
+ *
+ * This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *     Stephan Herrmann - Contributions for
+ *								bug 186342 - [compiler][null] Using annotations for null checking
+ *								bug 365519 - editorial cleanup after bug 186342 and bug 365387
+ *								bug 388281 - [compiler][null] inheritance of null annotations as an option
+ *								bug 388795 - [compiler] detection of name clash depends on order of super interfaces
+ *								bug 388739 - [1.8][compiler] consider default methods when detecting whether a class needs to be declared abstract
+ *								bug 390883 - [1.8][compiler] Unable to override default method
+ *								bug 395002 - Self bound generic class doesn't resolve bounds properly for wildcards for certain parametrisation.
+ *								bug 401246 - [1.8][compiler] abstract class method should now trump conflicting default methods
+ *								bug 401796 - [1.8][compiler] don't treat default methods as overriding an independent inherited abstract method
+ *								bug 403867 - [1.8][compiler] Suspect error about duplicate default methods
+ *								bug 391376 - [1.8] check interaction of default methods with bridge methods and generics
+ *								bug 395681 - [compiler] Improve simulation of javac6 behavior from bug 317719 after fixing bug 388795
+ *								bug 409473 - [compiler] JDT cannot compile against JRE 1.8
+ *								Bug 420080 - [1.8] Overridden Default method is reported as duplicated
+ *								Bug 404690 - [1.8][compiler] revisit bridge generation after VM bug is fixed
+ *								Bug 410325 - [1.7][compiler] Generified method override different between javac and eclipse compiler
+ *								Bug 429958 - [1.8][null] evaluate new DefaultLocation attribute of @NonNullByDefault
+ *								Bug 390889 - [1.8][compiler] Evaluate options to support 1.7- projects against 1.8 JRE.
+ *								Bug 440773 - [1.8][null]DefaultLocation.RETURN_TYPE erroneously affects method parameters in @NonNullByDefault
+ *								Bug 435805 - [1.8][compiler][null] Java 8 compiler does not recognize declaration style null annotations
+ *								Bug 446442 - [1.8] merge null annotations from super methods
+ *******************************************************************************/

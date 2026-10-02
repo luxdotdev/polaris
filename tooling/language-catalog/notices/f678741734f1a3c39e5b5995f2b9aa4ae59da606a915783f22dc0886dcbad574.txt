@@ -1,0 +1,23 @@
+/*******************************************************************************
+ * Copyright (c) 2000, 2025 IBM Corporation and others.
+ *
+ * This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *     NikolayMetchev@gmail.com - contributed fixes for
+ *     - convert anonymous to nested should sometimes declare class as static [refactoring]
+ *       (see https://bugs.eclipse.org/bugs/show_bug.cgi?id=43360)
+ *     - Convert anonymous to nested: should show error if field form outer anonymous type is references [refactoring]
+ *       (see https://bugs.eclipse.org/bugs/show_bug.cgi?id=48282)
+ *     - [refactoring][convert anonymous] gets confused with generic methods
+ *       (see https://bugs.eclipse.org/bugs/show_bug.cgi?id=124978)
+ *     - [convert anonymous] Convert Anonymous to nested generates wrong code
+ *       (see https://bugs.eclipse.org/bugs/show_bug.cgi?id=159917)
+ *     Microsoft Corporation - copied to jdt.core.manipulation
+ *******************************************************************************/

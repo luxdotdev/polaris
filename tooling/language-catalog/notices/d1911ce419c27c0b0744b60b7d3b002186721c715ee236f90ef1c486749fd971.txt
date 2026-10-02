@@ -1,0 +1,24 @@
+/*******************************************************************************
+ * Copyright (c) 2000, 2025 IBM Corporation and others.
+ *
+ * This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *     Dmitry Stalnov (dstalnov@fusionone.com) - contributed fix for
+ *       bug "inline method - doesn't handle implicit cast" (see
+ *       https://bugs.eclipse.org/bugs/show_bug.cgi?id=24941).
+ *     Dmitry Stalnov (dstalnov@fusionone.com) - contributed fix for
+ *       bug Encapsulate field can fail when two variables in one variable declaration (see
+ *       https://bugs.eclipse.org/bugs/show_bug.cgi?id=51540).
+ *     Stephan Herrmann - Configuration for
+ *		 Bug 463360 - [override method][null] generating method override should not create redundant null annotations
+ *     Fabrice TIERCELIN - Methods to identify a signature
+ *     Pierre-Yves B. (pyvesdev@gmail.com) - contributed fix for
+ *       Bug 434747 - [inline] Inlining a local variable leads to ambiguity with overloaded methods
+ *******************************************************************************/

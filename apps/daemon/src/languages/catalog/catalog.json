@@ -4,6 +4,7 @@
   "tools": [
     {
       "id": "typescript-language-server",
+      "disposition": "offered",
       "version": "6.0.1",
       "source": "https://registry.npmjs.org/typescript-language-server/6.0.1",
       "license": "Apache-2.0",
@@ -49,7 +50,7 @@
           "bundle": "typescript-language-server",
           "audit": "verified",
           "auditReason": "",
-          "auditRoot": "sha256:fe696e12b1f8db317af430d1df7a7e5d0cb03895224ac851a663796b7d27b381"
+          "auditRoot": "sha256:e8fba7f69a9894ed30f4dc12c83867c9fbf3c32733a656c12f3e716bf5640be4"
         }
       ],
       "requirements": [
@@ -72,11 +73,11 @@
       ],
       "argv": ["--stdio"],
       "environment": {},
-      "limitations": [],
-      "disposition": "offered"
+      "limitations": []
     },
     {
       "id": "vscode-langservers-extracted",
+      "disposition": "offered",
       "version": "4.10.0",
       "source": "https://registry.npmjs.org/vscode-langservers-extracted/4.10.0",
       "license": "MIT",
@@ -120,9 +121,9 @@
           ],
           "entry": "bin/vscode-css-language-server",
           "bundle": "vscode-langservers-extracted",
-          "audit": "pending",
-          "auditReason": "@vscode/l10n@0.0.18: notice-coverage; boolbase@1.0.0: notice-coverage",
-          "auditRoot": "sha256:d6e9aad33e4226cedbdbb93deb63a392ad8298e005c3712f9a375789f5855e46"
+          "audit": "verified",
+          "auditReason": "",
+          "auditRoot": "sha256:b563b95bc9ab559d1b6aca71fd1bb5b577922921da0f82b7ee4fbb5547cbeb3c"
         }
       ],
       "requirements": [
@@ -137,11 +138,11 @@
       ],
       "argv": ["--stdio"],
       "environment": {},
-      "limitations": [],
-      "disposition": "offered"
+      "limitations": []
     },
     {
       "id": "pyright",
+      "disposition": "offered",
       "version": "1.1.414",
       "source": "https://registry.npmjs.org/pyright/1.1.414",
       "license": "MIT",
@@ -187,7 +188,7 @@
           "bundle": "pyright",
           "audit": "verified",
           "auditReason": "",
-          "auditRoot": "sha256:7efe5088d8fa13b5eb511522fd26c726483e93bc8a97f87a744eb602e2e47535"
+          "auditRoot": "sha256:30b9127d7c3185b9ed04615d12ffddc90d5c9c8807cbf1d0f203a366fde28870"
         }
       ],
       "requirements": [
@@ -210,11 +211,11 @@
       ],
       "argv": ["--stdio"],
       "environment": {},
-      "limitations": [],
-      "disposition": "offered"
+      "limitations": []
     },
     {
       "id": "bash-language-server",
+      "disposition": "offered",
       "version": "5.8.1",
       "source": "https://registry.npmjs.org/bash-language-server/5.8.1",
       "license": "MIT",
@@ -260,7 +261,7 @@
           "bundle": "bash-language-server",
           "audit": "pending",
           "auditReason": "minimatch@10.2.6: license-review:BlueOak-1.0.0",
-          "auditRoot": "sha256:ded967a0b889cfa088b80b8b7e4235eec44fc4626a787c8c8c89e2135951c93e"
+          "auditRoot": "sha256:2d0ad08022620fc3698a35b8bab2e16303e6d6c75175b559732483bbdb18af5b"
         }
       ],
       "requirements": [
@@ -275,11 +276,11 @@
       ],
       "argv": ["start"],
       "environment": {},
-      "limitations": [],
-      "disposition": "offered"
+      "limitations": []
     },
     {
       "id": "sql-language-server",
+      "disposition": "evaluation",
       "version": "1.7.1",
       "source": "https://registry.npmjs.org/sql-language-server/1.7.1",
       "license": "MIT",
@@ -340,11 +341,11 @@
       ],
       "argv": ["up", "--method", "stdio"],
       "environment": {},
-      "limitations": [],
-      "disposition": "evaluation"
+      "limitations": []
     },
     {
       "id": "prisma-language-server",
+      "disposition": "offered",
       "version": "31.12.10",
       "source": "https://registry.npmjs.org/@prisma%2flanguage-server/31.12.10",
       "license": "Apache-2.0",
@@ -390,7 +391,7 @@
           "bundle": "@prisma_language-server",
           "audit": "verified",
           "auditReason": "",
-          "auditRoot": "sha256:1273a9ea548c4e088297a7430b88ce3a47afccc43e32549a109e35fb05acad31"
+          "auditRoot": "sha256:c8a1469fc6e1d1d86a4971817fc7fe0ba99572555e208c7b264ba7abd0d84826"
         }
       ],
       "requirements": [
@@ -405,11 +406,11 @@
       ],
       "argv": ["--stdio"],
       "environment": {},
-      "limitations": [],
-      "disposition": "offered"
+      "limitations": []
     },
     {
       "id": "yaml-language-server",
+      "disposition": "offered",
       "version": "1.24.0",
       "source": "https://registry.npmjs.org/yaml-language-server/1.24.0",
       "license": "MIT",
@@ -453,9 +454,9 @@
           ],
           "entry": "bin/yaml-language-server",
           "bundle": "yaml-language-server",
-          "audit": "pending",
-          "auditReason": "@vscode/l10n@0.0.18: notice-coverage",
-          "auditRoot": "sha256:475870540e85271ef00c73d0dd59f2050dc997850cba2172137459219df7faa5"
+          "audit": "verified",
+          "auditReason": "",
+          "auditRoot": "sha256:81ae50a59b4d8bd35c77e62583f07f2de8d4119a50f97024e7b56837bdc8f9ca"
         }
       ],
       "requirements": [
@@ -470,11 +471,11 @@
       ],
       "argv": ["--stdio"],
       "environment": {},
-      "limitations": [],
-      "disposition": "offered"
+      "limitations": []
     },
     {
       "id": "actions-language-server",
+      "disposition": "offered",
       "version": "0.3.61",
       "source": "https://registry.npmjs.org/@actions%2flanguageserver/0.3.61",
       "license": "MIT",
@@ -520,7 +521,7 @@
           "bundle": "@actions_languageserver",
           "audit": "verified",
           "auditReason": "",
-          "auditRoot": "sha256:f5cd0d5cfb87eb6b237d790c828c055b6053a479f1460f5b2086bcead70be85b"
+          "auditRoot": "sha256:24afbbf2aa71a0f5c013b9a844709337137d9ac70af8596c1755a773a722bf00"
         }
       ],
       "requirements": [
@@ -535,11 +536,11 @@
       ],
       "argv": ["--stdio"],
       "environment": {},
-      "limitations": [],
-      "disposition": "offered"
+      "limitations": []
     },
     {
       "id": "prettier",
+      "disposition": "offered",
       "version": "3.9.9",
       "source": "https://registry.npmjs.org/prettier/3.9.9",
       "license": "MIT",
@@ -585,7 +586,7 @@
           "bundle": "prettier",
           "audit": "verified",
           "auditReason": "",
-          "auditRoot": "sha256:1c1f292487d4f7e4fae814ffe813875b32d04a1704fd6281eb9ace151798eb4d"
+          "auditRoot": "sha256:c460cad6682055fb4ad64604cf2a95c81c3be84db5e9507c3356a9ec970c6821"
         }
       ],
       "requirements": [
@@ -600,11 +601,11 @@
       ],
       "argv": [],
       "environment": {},
-      "limitations": [],
-      "disposition": "offered"
+      "limitations": []
     },
     {
       "id": "ruff",
+      "disposition": "offered",
       "version": "0.16.10",
       "source": "https://github.com/astral-sh/ruff/releases/tag/0.16.10",
       "license": "MIT",
@@ -624,8 +625,8 @@
           "entry": "ruff",
           "bundle": null,
           "audit": "pending",
-          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
-          "auditRoot": "sha256:dbb0c26f0da63e3854a47e75a9209d33d677fd0fa20a3ce9126c11f5d4c64dfd"
+          "auditReason": "Static musl/compiler runtime notice and exact vendor closure is not yet established for every shipped platform.",
+          "auditRoot": "sha256:88a47cd6b3f94e909a8b71675d78243a29b3d690fd2291072161331b8a5847f1"
         },
         {
           "id": "ruff-aarch64-unknown-linux-gnu.tar.gz",
@@ -642,8 +643,8 @@
           "entry": "ruff",
           "bundle": null,
           "audit": "pending",
-          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
-          "auditRoot": "sha256:a929c07cdfd93950b69d80bed443c984dd51cd4d4d359ddce5419153ea7fad21"
+          "auditReason": "Static musl/compiler runtime notice and exact vendor closure is not yet established for every shipped platform.",
+          "auditRoot": "sha256:1a9cea6f8a18552b32b8a1d4d45cecc488a7a422aed5a62a4ba368cb989c6327"
         },
         {
           "id": "ruff-aarch64-unknown-linux-musl.tar.gz",
@@ -660,8 +661,8 @@
           "entry": "ruff",
           "bundle": null,
           "audit": "pending",
-          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
-          "auditRoot": "sha256:d7b2ddc632423042f39f1c5408de655f41fbb1629c36378c6d1217d061e3e726"
+          "auditReason": "Static musl/compiler runtime notice and exact vendor closure is not yet established for every shipped platform.",
+          "auditRoot": "sha256:4c0d2535d02efc5813b9cb50c6b53524f0bb2cde8b5c1c503212d870de078b18"
         },
         {
           "id": "ruff-x86_64-apple-darwin.tar.gz",
@@ -678,8 +679,8 @@
           "entry": "ruff",
           "bundle": null,
           "audit": "pending",
-          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
-          "auditRoot": "sha256:7031be9fcf531513eff969520881a3e86f04e67aae199c9dd17650b8060fc4e7"
+          "auditReason": "Static musl/compiler runtime notice and exact vendor closure is not yet established for every shipped platform.",
+          "auditRoot": "sha256:702f1669262d42786ed4413909bcba6f8ac337915df9150b9a27b6307e6ca4a3"
         },
         {
           "id": "ruff-x86_64-unknown-linux-gnu.tar.gz",
@@ -696,8 +697,8 @@
           "entry": "ruff",
           "bundle": null,
           "audit": "pending",
-          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
-          "auditRoot": "sha256:9dd1b3a1a495202356228a4ef42559f9fee4f572ba3356dee7c4ada3e35d5d71"
+          "auditReason": "Static musl/compiler runtime notice and exact vendor closure is not yet established for every shipped platform.",
+          "auditRoot": "sha256:40749317f8aa9af12cf51de29dc184645e4b9e2b2350426a44550e7c92d664d9"
         },
         {
           "id": "ruff-x86_64-unknown-linux-musl.tar.gz",
@@ -714,8 +715,8 @@
           "entry": "ruff",
           "bundle": null,
           "audit": "pending",
-          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
-          "auditRoot": "sha256:606907cf2c3eb727357a5b8a6c22e8da0f6fcbb12a02d3e1cf4f4bde8f349acb"
+          "auditReason": "Static musl/compiler runtime notice and exact vendor closure is not yet established for every shipped platform.",
+          "auditRoot": "sha256:0c914eeddc65fb2f7307239d1b895635d12e4b74082659bdd14c332b70cca6b9"
         }
       ],
       "requirements": [
@@ -730,11 +731,11 @@
       ],
       "argv": ["server"],
       "environment": {},
-      "limitations": [],
-      "disposition": "offered"
+      "limitations": []
     },
     {
       "id": "rust-analyzer",
+      "disposition": "offered",
       "version": "2026-09-28",
       "source": "https://github.com/rust-lang/rust-analyzer/releases/tag/2026-09-28",
       "license": "MIT OR Apache-2.0",
@@ -754,8 +755,8 @@
           "entry": "rust-analyzer",
           "bundle": null,
           "audit": "pending",
-          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
-          "auditRoot": "sha256:90912b4a8542bb59fafae2f4b15f92b0ad0b2a55a285937acbde48e9084ef0bb"
+          "auditReason": "Compiler runtime/vendor closure and musl loader prerequisite packaging need exact scoped resolution.",
+          "auditRoot": "sha256:7c8615da60e52a77c75d61fec8e610a89dbd7eac9adcfe6d9d7cef6ae0c593b7"
         },
         {
           "id": "rust-analyzer-aarch64-unknown-linux-gnu.gz",
@@ -772,8 +773,8 @@
           "entry": "rust-analyzer",
           "bundle": null,
           "audit": "pending",
-          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
-          "auditRoot": "sha256:2046581171dcf32793b45d91b822b3e816a592f2f9011abb564903f068464d26"
+          "auditReason": "Compiler runtime/vendor closure and musl loader prerequisite packaging need exact scoped resolution.",
+          "auditRoot": "sha256:33d7d232b500a47dca3243f63a6fd613e139eb3428e329f9b4bfe721f1ff19f0"
         },
         {
           "id": "rust-analyzer-x86_64-apple-darwin.gz",
@@ -790,8 +791,8 @@
           "entry": "rust-analyzer",
           "bundle": null,
           "audit": "pending",
-          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
-          "auditRoot": "sha256:f94d60b4ca7bdb1598d570832489f213191111a6cb26d92baafcf2325f690e7c"
+          "auditReason": "Compiler runtime/vendor closure and musl loader prerequisite packaging need exact scoped resolution.",
+          "auditRoot": "sha256:0443389e3049242236a03ea64cb8d0dde509f7e77108b065e5bbf03526ce75f3"
         },
         {
           "id": "rust-analyzer-x86_64-unknown-linux-gnu.gz",
@@ -808,8 +809,8 @@
           "entry": "rust-analyzer",
           "bundle": null,
           "audit": "pending",
-          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
-          "auditRoot": "sha256:f384d415198d5a69a2be4b445dfd11cb8b2103575a2b4bd9d0d9c52f86a854f6"
+          "auditReason": "Compiler runtime/vendor closure and musl loader prerequisite packaging need exact scoped resolution.",
+          "auditRoot": "sha256:5e60d885513cf6671b5565a064f66872f7a3f1e5fcbd241fb6def6e6b5fe052e"
         },
         {
           "id": "rust-analyzer-x86_64-unknown-linux-musl.gz",
@@ -826,8 +827,8 @@
           "entry": "rust-analyzer",
           "bundle": null,
           "audit": "pending",
-          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
-          "auditRoot": "sha256:8af798973878417c4c02a16b5de1d6bbafbf4d98854c838d553417c6d35621eb"
+          "auditReason": "Compiler runtime/vendor closure and musl loader prerequisite packaging need exact scoped resolution.",
+          "auditRoot": "sha256:06825e480d9f6ef504e9e6b615fec3eadd7c4c6f691f8dc3838e155cc1f6ac44"
         }
       ],
       "requirements": [
@@ -858,11 +859,11 @@
       ],
       "argv": [],
       "environment": {},
-      "limitations": [],
-      "disposition": "offered"
+      "limitations": []
     },
     {
       "id": "lua-language-server",
+      "disposition": "offered",
       "version": "3.19.1",
       "source": "https://github.com/LuaLS/lua-language-server/releases/tag/3.19.1",
       "license": "MIT",
@@ -882,8 +883,16 @@
           "entry": "bin/lua-language-server",
           "bundle": null,
           "audit": "pending",
-          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
-          "auditRoot": "sha256:b74a23504b603ca6fd614bf72a72ae7089e62780df7fb659484952eedd1625ba"
+          "auditReason": "Exact source/legal evidence for retained vendor code and published Linux static compiler/runtime closure remains unverified; Lua runtime legal comments are retained and do not certify which other libraries were embedded.",
+          "auditRoot": "sha256:95212560292acd92860bd4b95b6f4978994e4e27bbb079d6e9e209f2a7394cf3",
+          "packaging": {
+            "filter": "lua-core-v1",
+            "sourceIntegrity": "sha256:0bc077f4447f076b4c92c14e9fd303f5b569eda2ec74b4dca2b55f75fae2e90c",
+            "manifest": "packaging/lua-language-server-3.19.1-darwin-arm64.tar.gz.json",
+            "manifestIntegrity": "sha256:e206e08487e2d4e9efe1852e986d31dbe8aa1ccfffd353ad9ba56d7b982d4bee",
+            "postFilterIntegrity": "sha256:d6f3b657e3656ae7f6f34d39f9d68198801e75086589696895b9a4e0b9b0db9a",
+            "disableThirdPartyDiscovery": true
+          }
         },
         {
           "id": "lua-language-server-3.19.1-darwin-x64.tar.gz",
@@ -900,8 +909,16 @@
           "entry": "bin/lua-language-server",
           "bundle": null,
           "audit": "pending",
-          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
-          "auditRoot": "sha256:1bb3293580a3de1247a8abf9d42fbb922866feb49308909f6fe87c64fa0f9826"
+          "auditReason": "Exact source/legal evidence for retained vendor code and published Linux static compiler/runtime closure remains unverified; Lua runtime legal comments are retained and do not certify which other libraries were embedded.",
+          "auditRoot": "sha256:73c5d9f5ce616c7ea51fba6a17c9e876b9697e2ac2b795c834392ef419a875c1",
+          "packaging": {
+            "filter": "lua-core-v1",
+            "sourceIntegrity": "sha256:eb373c159cbe556711d7cd316315de2dce969bfd54b31edb7eb9cab2937f2cca",
+            "manifest": "packaging/lua-language-server-3.19.1-darwin-x64.tar.gz.json",
+            "manifestIntegrity": "sha256:1016d418b333f34cf919dc9dcf6995cbae1bd4200d44e41a5ed709fe8cbea3bb",
+            "postFilterIntegrity": "sha256:82eaac806c00b27de63c76b9eeb93ffea290dead3f6692001afeb5c5374e9f5d",
+            "disableThirdPartyDiscovery": true
+          }
         },
         {
           "id": "lua-language-server-3.19.1-linux-arm64.tar.gz",
@@ -918,8 +935,16 @@
           "entry": "bin/lua-language-server",
           "bundle": null,
           "audit": "pending",
-          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
-          "auditRoot": "sha256:ef12f43a8690a1c6d29e14b16ad4dca2d0d2f652ee6477a1bbb57c53607bffb8"
+          "auditReason": "Exact source/legal evidence for retained vendor code and published Linux static compiler/runtime closure remains unverified; Lua runtime legal comments are retained and do not certify which other libraries were embedded.",
+          "auditRoot": "sha256:6ac759e2f09f869084582a0242d9769e05543ea47390c736b38fd4796ef8a00c",
+          "packaging": {
+            "filter": "lua-core-v1",
+            "sourceIntegrity": "sha256:abd2572e8fc929dc838a81ffb8473c5bce0bf39bfe8edb4b120b3b623176ce83",
+            "manifest": "packaging/lua-language-server-3.19.1-linux-arm64.tar.gz.json",
+            "manifestIntegrity": "sha256:d0b071cf5e3bddffbb3ad54524f65713ae819177e9c5b0c391894fa4389ba11b",
+            "postFilterIntegrity": "sha256:9ef25a5803aa58332a9adb11db429edcb71e6ab6ee434944732d00a6cdde1b03",
+            "disableThirdPartyDiscovery": true
+          }
         },
         {
           "id": "lua-language-server-3.19.1-linux-x64.tar.gz",
@@ -936,8 +961,16 @@
           "entry": "bin/lua-language-server",
           "bundle": null,
           "audit": "pending",
-          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
-          "auditRoot": "sha256:e88e7e1e9942e7d4fc4104bf4d6b4feaf089a01cb773097c74f2b5839fc699fa"
+          "auditReason": "Exact source/legal evidence for retained vendor code and published Linux static compiler/runtime closure remains unverified; Lua runtime legal comments are retained and do not certify which other libraries were embedded.",
+          "auditRoot": "sha256:8c895d0ce257894549408c720c056b0418d36e8bcf41bd614b7de1afceb5de88",
+          "packaging": {
+            "filter": "lua-core-v1",
+            "sourceIntegrity": "sha256:e9235d2d72ef55bc41cf8c99cda2ed64777682024b4bb81f5dea425060c5cbb8",
+            "manifest": "packaging/lua-language-server-3.19.1-linux-x64.tar.gz.json",
+            "manifestIntegrity": "sha256:b12596f471f3bf5a819b7e25f27015430d18900adbd4103bb77e1fa091d2f923",
+            "postFilterIntegrity": "sha256:6359c351eb22125e874344258c1b17d7327d09802cec1b40cdffc9703aab7a44",
+            "disableThirdPartyDiscovery": true
+          }
         }
       ],
       "requirements": [
@@ -952,11 +985,11 @@
       ],
       "argv": [],
       "environment": {},
-      "limitations": [],
-      "disposition": "offered"
+      "limitations": []
     },
     {
       "id": "shfmt",
+      "disposition": "offered",
       "version": "3.14.1",
       "source": "https://github.com/mvdan/sh/releases/tag/v3.14.1",
       "license": "BSD-3-Clause",
@@ -976,8 +1009,8 @@
           "entry": "shfmt",
           "bundle": null,
           "audit": "pending",
-          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
-          "auditRoot": "sha256:d75069c0ce90c3451a11853f828e4f7df8328c3ffaeb81a2f2d05612698ed90a"
+          "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
+          "auditRoot": "sha256:7503d9cbc1953787d0c9a5f966ffb8daa218ab8a353b2e1b963d789cac0134f9"
         },
         {
           "id": "shfmt_v3.14.1_darwin_arm64",
@@ -994,8 +1027,8 @@
           "entry": "shfmt",
           "bundle": null,
           "audit": "pending",
-          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
-          "auditRoot": "sha256:bdc987122f47db331e93cc5d7e0e9bf4544c7f2d38403d1be490470f4c61ca68"
+          "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
+          "auditRoot": "sha256:8347a5572b922c799fe2943281dfd0ebe61ae43a9b3367484f1bb41bc451b669"
         },
         {
           "id": "shfmt_v3.14.1_linux_amd64",
@@ -1017,8 +1050,8 @@
           "entry": "shfmt",
           "bundle": null,
           "audit": "pending",
-          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
-          "auditRoot": "sha256:9a758ff08bb7c357bd88303af03677fb52457590e35f8078045638075db84d70"
+          "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
+          "auditRoot": "sha256:efe8574446ee6fd1540f6e66ccbd7673c526a1ac87a16319c264db0c1a5edba4"
         },
         {
           "id": "shfmt_v3.14.1_linux_arm64",
@@ -1040,18 +1073,18 @@
           "entry": "shfmt",
           "bundle": null,
           "audit": "pending",
-          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
-          "auditRoot": "sha256:0a6f10e75600c6aaee08bf17891374db73db8b45a0fd6809424dabd288f5d0a4"
+          "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
+          "auditRoot": "sha256:6f6899b7d6b5b4493cb2b041da19a0176761c2bad4bd76698b5fc6544c00c4ba"
         }
       ],
       "requirements": [],
       "argv": [],
       "environment": {},
-      "limitations": [],
-      "disposition": "offered"
+      "limitations": []
     },
     {
       "id": "shellcheck",
+      "disposition": "offered",
       "version": "0.11.0",
       "source": "https://github.com/koalaman/shellcheck/releases/tag/v0.11.0",
       "license": "GPL-3.0-or-later",
@@ -1071,8 +1104,8 @@
           "entry": "shellcheck",
           "bundle": null,
           "audit": "pending",
-          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
-          "auditRoot": "sha256:224633df553dea8684f4e7245024d83664be0ace53813578c2f847f892b4edb0"
+          "auditReason": "Published binaries lack verified exact compiler/dependency/runtime corresponding-source closure.; No authorized existing GHC/Cabal toolchain fixture; proposed source-build solver/build/runtime closure remains unverified.",
+          "auditRoot": "sha256:50e9ccb173c849a79ba9a3612ac3a3bcf5564a01289a13d986aefd51ba3f777f"
         },
         {
           "id": "shellcheck-v0.11.0.darwin.x86_64.tar.gz",
@@ -1089,8 +1122,8 @@
           "entry": "shellcheck",
           "bundle": null,
           "audit": "pending",
-          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
-          "auditRoot": "sha256:0fc73e943fd1b17d762db3ff250fc5cf4dcb6d60625d12d5eb14a03c72a0cfad"
+          "auditReason": "Published binaries lack verified exact compiler/dependency/runtime corresponding-source closure.; No authorized existing GHC/Cabal toolchain fixture; proposed source-build solver/build/runtime closure remains unverified.",
+          "auditRoot": "sha256:cecf1c01a5f3c0d1c830402dc8c0aca2e0707239a1f4cb3ea258602739192405"
         },
         {
           "id": "shellcheck-v0.11.0.linux.aarch64.tar.gz",
@@ -1107,8 +1140,8 @@
           "entry": "shellcheck",
           "bundle": null,
           "audit": "pending",
-          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
-          "auditRoot": "sha256:8dc286cf64e37ad971e9283cda854f7e24beb53312b50ee8c872a6533667cbaf"
+          "auditReason": "Published binaries lack verified exact compiler/dependency/runtime corresponding-source closure.; No authorized existing GHC/Cabal toolchain fixture; proposed source-build solver/build/runtime closure remains unverified.",
+          "auditRoot": "sha256:8e7341c63dcc81981c6fdf310c5134586dc6cdfa8aa0a75df8854f6ebfa7da70"
         },
         {
           "id": "shellcheck-v0.11.0.linux.x86_64.tar.gz",
@@ -1125,18 +1158,18 @@
           "entry": "shellcheck",
           "bundle": null,
           "audit": "pending",
-          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
-          "auditRoot": "sha256:29dce887cfbb05719af2e7b481f6998c912e59c267695ee4613cf17b21c231fa"
+          "auditReason": "Published binaries lack verified exact compiler/dependency/runtime corresponding-source closure.; No authorized existing GHC/Cabal toolchain fixture; proposed source-build solver/build/runtime closure remains unverified.",
+          "auditRoot": "sha256:6ef0b6c1f87677611c31de80ce9acb0d4ff3dc7fb07fe2799d1caa6ad3186945"
         }
       ],
       "requirements": [],
       "argv": [],
       "environment": {},
-      "limitations": [],
-      "disposition": "offered"
+      "limitations": []
     },
     {
       "id": "phpactor",
+      "disposition": "offered",
       "version": "2026.06.23.0",
       "source": "https://github.com/phpactor/phpactor/releases/tag/2026.06.23.0",
       "license": "MIT",
@@ -1181,8 +1214,8 @@
           "entry": "phpactor.phar",
           "bundle": null,
           "audit": "pending",
-          "auditReason": "Release-specific bundled notice/dependency audit required; see external-audits.json",
-          "auditRoot": "sha256:aa19529f14d8af6b5ec89e14bc7abb2b341a961674fc8f6d814304c63f168426"
+          "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
+          "auditRoot": "sha256:7732280864b5f21b3f7055aacee267b5b425a3b7265b1577403b92765d1a3724"
         }
       ],
       "requirements": [
@@ -1231,11 +1264,11 @@
       "environment": {},
       "limitations": [
         "PHAR strips most vendor license files and Composer installed metadata; external source/notice completion required. K1 Host lacks PHP, so rename/parity not verified."
-      ],
-      "disposition": "offered"
+      ]
     },
     {
       "id": "jdtls",
+      "disposition": "offered",
       "version": "1.61.0-202609031315",
       "source": "https://download.eclipse.org/jdtls/milestones/1.61.0/jdt-language-server-1.61.0-202609031315.tar.gz",
       "license": "EPL-2.0",
@@ -1270,8 +1303,8 @@
           "entry": "plugins/org.eclipse.equinox.launcher_*.jar",
           "bundle": null,
           "audit": "pending",
-          "auditReason": "Exact EPL-2.0 external-distribution exception awaits G1 review",
-          "auditRoot": "sha256:fc26ebbd2b7da53f3fe223d9a687df43dc157fca8684762934eccfdf8fce0035"
+          "auditReason": "The 114 top-level JAR source records do not cover all nested JARs or native libraries. Recursive release inventory, exact nested Maven/shaded source and legal declarations, JNA/Jansi/Eclipse native closure and source/notice delivery remain unverified.",
+          "auditRoot": "sha256:c8b6aacb808215cffc5c626bd9fa9784b48ebda458bfcdca7e525e7b20c234fe"
         }
       ],
       "requirements": [
@@ -1295,11 +1328,11 @@
       "environment": {},
       "limitations": [
         "Resolve launcher glob to exactly one file; copy configuration for target OS to private writable state. No bundled JRE."
-      ],
-      "disposition": "offered"
+      ]
     },
     {
       "id": "gopls",
+      "disposition": "offered",
       "version": "0.23.0",
       "source": "https://proxy.golang.org/golang.org/x/tools/gopls/@v/v0.23.0.info",
       "license": "BSD-3-Clause",
@@ -1344,8 +1377,8 @@
           "entry": "golang.org/x/tools/gopls",
           "bundle": null,
           "audit": "pending",
-          "auditReason": "Pinned go.sum closure/build audit required",
-          "auditRoot": "sha256:984ab9ca00316e4175f38d88774b3830e17598a412028463c0024a729cc1e139"
+          "auditReason": "A1 review required for exact artifact, dependency notices and source-delivery record",
+          "auditRoot": "sha256:db00143de692577a511722d6fa2831a2f4606bca8b0f128fad20ad462bb80c40"
         }
       ],
       "requirements": [
@@ -1365,11 +1398,11 @@
       },
       "limitations": [
         "Upstream publishes source, not managed prebuilt executables. Build in private GOBIN/GOMODCACHE/GOCACHE with developer Go."
-      ],
-      "disposition": "offered"
+      ]
     },
     {
       "id": "sql-formatter",
+      "disposition": "offered",
       "version": "15.9.0",
       "source": "https://registry.npmjs.org/sql-formatter/15.9.0",
       "license": "MIT",
@@ -1414,8 +1447,8 @@
           "entry": "bin/sql-formatter-cli.cjs",
           "bundle": "sql-formatter",
           "audit": "pending",
-          "auditReason": "argparse@2.0.1: license-review:Python-2.0; railroad-diagrams@1.0.0: license-review:CC0-1.0; railroad-diagrams@1.0.0: notice-coverage",
-          "auditRoot": "sha256:0ee4ffe72f89b18fd7bfd9022b5e886e1fbf40d153accc3abae7fedcea6a87db"
+          "auditReason": "argparse@2.0.1: license-review:Python-2.0; railroad-diagrams@1.0.0: license-review:CC0-1.0",
+          "auditRoot": "sha256:908a517a85a882e39e991899a66965d926ffc2b6e43fb9d6868de73d0a5f0136"
         }
       ],
       "requirements": [
@@ -1430,11 +1463,11 @@
       ],
       "argv": [],
       "environment": {},
-      "limitations": [],
-      "disposition": "offered"
+      "limitations": []
     },
     {
       "id": "sqllens-language-server",
+      "disposition": "offered",
       "version": "0.5.0",
       "source": "https://registry.npmjs.org/sqllens-language-server/0.5.0",
       "license": "MIT",
@@ -1480,7 +1513,7 @@
           "bundle": "sqllens-language-server",
           "audit": "pending",
           "auditReason": "minimatch@10.2.6: license-review:BlueOak-1.0.0",
-          "auditRoot": "sha256:377e91f0176f07b7d1bfb69587cb9756a3aa7286719748457342919745344698"
+          "auditRoot": "sha256:d8b8fd192cee61b0ffc9b136ff6dcaaf00238493deb9206f510fc0b95d1f69a3"
         }
       ],
       "requirements": [
@@ -1497,8 +1530,7 @@
       "environment": {
         "SQLLENS_NO_PLUGINS": "1"
       },
-      "limitations": [],
-      "disposition": "offered"
+      "limitations": []
     }
   ],
   "integrations": [
@@ -1520,9 +1552,9 @@
       "companions": [],
       "formatter": {
         "tool": "prettier",
+        "source": "managed",
         "mode": "cli",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked",
-        "source": "managed"
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
       },
       "policy": {
         "trust": "workspace-before-execution",
@@ -1551,9 +1583,9 @@
       "companions": [],
       "formatter": {
         "tool": "prettier",
+        "source": "managed",
         "mode": "cli",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked",
-        "source": "managed"
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
       },
       "policy": {
         "trust": "workspace-before-execution",
@@ -1580,9 +1612,9 @@
       "companions": [],
       "formatter": {
         "tool": "prettier",
+        "source": "managed",
         "mode": "cli",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked",
-        "source": "managed"
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
       },
       "policy": {
         "trust": "workspace-before-execution",
@@ -1618,9 +1650,9 @@
       "companions": [],
       "formatter": {
         "tool": "ruff",
+        "source": "managed",
         "mode": "lsp",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked",
-        "source": "managed"
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
       },
       "policy": {
         "trust": "workspace-before-execution",
@@ -1649,9 +1681,9 @@
       "companions": ["shellcheck", "shfmt"],
       "formatter": {
         "tool": "shfmt",
+        "source": "managed",
         "mode": "cli",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked",
-        "source": "managed"
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
       },
       "policy": {
         "trust": "workspace-before-execution",
@@ -1680,9 +1712,9 @@
       "companions": [],
       "formatter": {
         "tool": "jdtls",
+        "source": "managed",
         "mode": "lsp",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked",
-        "source": "managed"
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
       },
       "policy": {
         "trust": "workspace-before-execution",
@@ -1711,9 +1743,9 @@
       "companions": [],
       "formatter": {
         "tool": "configured-php-formatter",
+        "source": "configured",
         "mode": "configured",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked",
-        "source": "configured"
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
       },
       "policy": {
         "trust": "workspace-before-execution",
@@ -1742,9 +1774,9 @@
       "companions": [],
       "formatter": {
         "tool": "gopls",
+        "source": "managed",
         "mode": "lsp",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked",
-        "source": "managed"
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
       },
       "policy": {
         "trust": "workspace-before-execution",
@@ -1771,9 +1803,9 @@
       "companions": [],
       "formatter": {
         "tool": "rustfmt",
+        "source": "developer",
         "mode": "lsp",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked",
-        "source": "developer"
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
       },
       "policy": {
         "trust": "workspace-before-execution",
@@ -1802,9 +1834,9 @@
       "companions": [],
       "formatter": {
         "tool": "configured-lua-formatter",
+        "source": "configured",
         "mode": "configured",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked",
-        "source": "configured"
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
       },
       "policy": {
         "trust": "workspace-before-execution",
@@ -1833,9 +1865,9 @@
       "companions": [],
       "formatter": {
         "tool": "sql-formatter",
+        "source": "managed",
         "mode": "cli",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked",
-        "source": "managed"
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
       },
       "policy": {
         "trust": "workspace-before-execution",
@@ -1865,9 +1897,9 @@
       "companions": [],
       "formatter": {
         "tool": "prisma-language-server",
+        "source": "managed",
         "mode": "lsp",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked",
-        "source": "managed"
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
       },
       "policy": {
         "trust": "workspace-before-execution",
@@ -1896,9 +1928,9 @@
       "companions": [],
       "formatter": {
         "tool": "prettier",
+        "source": "managed",
         "mode": "cli",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked",
-        "source": "managed"
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
       },
       "policy": {
         "trust": "workspace-before-execution",
@@ -1934,9 +1966,9 @@
       "companions": [],
       "formatter": {
         "tool": "prettier",
+        "source": "managed",
         "mode": "cli",
-        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked",
-        "source": "managed"
+        "detail": "Exactly one selected formatter; runtime availability/capabilities must be checked"
       },
       "policy": {
         "trust": "workspace-before-execution",

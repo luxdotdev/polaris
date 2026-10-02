@@ -1,0 +1,162 @@
+[
+  {
+    "tool": "phpactor",
+    "path": "box.json",
+    "source": "https://raw.githubusercontent.com/phpactor/phpactor/f67b7753b966c874735a064978dd89837a369f59/box.json",
+    "commit": "f67b7753b966c874735a064978dd89837a369f59",
+    "evidence": {
+      "path": "build-provenance/box.json",
+      "sha256": "6a843701db0f1e8c68c7f0b5d449d55cd8430e1d1433eaa1cb716258756e39dc"
+    }
+  },
+  {
+    "tool": "phpactor",
+    "path": ".github/build-phar.sh",
+    "source": "https://raw.githubusercontent.com/phpactor/phpactor/f67b7753b966c874735a064978dd89837a369f59/.github/build-phar.sh",
+    "commit": "f67b7753b966c874735a064978dd89837a369f59",
+    "evidence": {
+      "path": "build-provenance/.github/build-phar.sh",
+      "sha256": "9692ddd15ac5d557bd60b6c30b14855305bade8af7847b62cf9706e5618c3763"
+    }
+  },
+  {
+    "tool": "phpactor",
+    "path": ".github/workflows/release-phar.yml",
+    "source": "https://raw.githubusercontent.com/phpactor/phpactor/f67b7753b966c874735a064978dd89837a369f59/.github/workflows/release-phar.yml",
+    "commit": "f67b7753b966c874735a064978dd89837a369f59",
+    "evidence": {
+      "path": "build-provenance/.github/workflows/release-phar.yml",
+      "sha256": "ad850d692106cfafef35ec7d711dafd949441a4fba04ba404d1fcd89aef09373"
+    }
+  },
+  {
+    "tool": "shellcheck",
+    "path": "ShellCheck.cabal",
+    "source": "https://raw.githubusercontent.com/koalaman/shellcheck/aac0823e6b58f8a499e856e93738082691cbf212/ShellCheck.cabal",
+    "commit": "aac0823e6b58f8a499e856e93738082691cbf212",
+    "evidence": {
+      "path": "build-provenance/ShellCheck.cabal",
+      "sha256": "2f5210cf9b14b9ec487e683a418f188400ff5a703b9fbc6385244fc81dacf92e"
+    }
+  },
+  {
+    "tool": "shellcheck",
+    "path": "stack.yaml",
+    "source": "https://raw.githubusercontent.com/koalaman/shellcheck/aac0823e6b58f8a499e856e93738082691cbf212/stack.yaml",
+    "commit": "aac0823e6b58f8a499e856e93738082691cbf212",
+    "evidence": {
+      "path": "build-provenance/stack.yaml",
+      "sha256": "eadae35c91bea32ea1cbd38c6d10f287110988b066c14a4ccb01e9843fd13f40"
+    }
+  },
+  {
+    "tool": "shellcheck",
+    "path": "builders/darwin.aarch64/Dockerfile",
+    "source": "https://raw.githubusercontent.com/koalaman/shellcheck/aac0823e6b58f8a499e856e93738082691cbf212/builders/darwin.aarch64/Dockerfile",
+    "commit": "aac0823e6b58f8a499e856e93738082691cbf212",
+    "evidence": {
+      "path": "build-provenance/builders/darwin.aarch64/Dockerfile",
+      "sha256": "d14cf4e3946ff28eb8d4d9249f9d06797602b7cd69b27591325ba46448edc08e"
+    }
+  },
+  {
+    "tool": "shellcheck",
+    "path": "builders/darwin.x86_64/Dockerfile",
+    "source": "https://raw.githubusercontent.com/koalaman/shellcheck/aac0823e6b58f8a499e856e93738082691cbf212/builders/darwin.x86_64/Dockerfile",
+    "commit": "aac0823e6b58f8a499e856e93738082691cbf212",
+    "evidence": {
+      "path": "build-provenance/builders/darwin.x86_64/Dockerfile",
+      "sha256": "6386f2799cd3850d307894c0181a8f31b3e2a98315f666aa2f77a0ac632ce302"
+    }
+  },
+  {
+    "tool": "shellcheck",
+    "path": "builders/linux.aarch64/Dockerfile",
+    "source": "https://raw.githubusercontent.com/koalaman/shellcheck/aac0823e6b58f8a499e856e93738082691cbf212/builders/linux.aarch64/Dockerfile",
+    "commit": "aac0823e6b58f8a499e856e93738082691cbf212",
+    "evidence": {
+      "path": "build-provenance/builders/linux.aarch64/Dockerfile",
+      "sha256": "1054c22d48b1d9247d2c2c25bd7a0257901c375794b080079296630bf02dfdc3"
+    }
+  },
+  {
+    "tool": "shellcheck",
+    "path": "builders/linux.x86_64/Dockerfile",
+    "source": "https://raw.githubusercontent.com/koalaman/shellcheck/aac0823e6b58f8a499e856e93738082691cbf212/builders/linux.x86_64/Dockerfile",
+    "commit": "aac0823e6b58f8a499e856e93738082691cbf212",
+    "evidence": {
+      "path": "build-provenance/builders/linux.x86_64/Dockerfile",
+      "sha256": "9c8b084d42833f7b8b9af241d480bf3dba3fd971bac00c075584ee24711cefa5"
+    }
+  },
+  {
+    "tool": "shellcheck",
+    "path": "builders/linux.x86_64/build",
+    "source": "https://raw.githubusercontent.com/koalaman/shellcheck/aac0823e6b58f8a499e856e93738082691cbf212/builders/linux.x86_64/build",
+    "commit": "aac0823e6b58f8a499e856e93738082691cbf212",
+    "evidence": {
+      "path": "build-provenance/builders/linux.x86_64/build",
+      "sha256": "dc8a5cdb419aeed2c67e4fcd75f943b235fe8ce4bfdb7f20bb029d26631b7c29"
+    }
+  },
+  {
+    "tool": "shellcheck",
+    "path": ".github/workflows/build.yml",
+    "source": "https://raw.githubusercontent.com/koalaman/shellcheck/aac0823e6b58f8a499e856e93738082691cbf212/.github/workflows/build.yml",
+    "commit": "aac0823e6b58f8a499e856e93738082691cbf212",
+    "evidence": {
+      "path": "build-provenance/.github/workflows/build.yml",
+      "sha256": "957fe555939df882f6fa7a0870483802ce728af10bde08e27a581c6650c39dd5"
+    }
+  },
+  {
+    "tool": "flexmark",
+    "path": "pom.xml",
+    "source": "https://raw.githubusercontent.com/vsch/flexmark-java/f63c7959601288efcfe6328252490da72fd81283/pom.xml",
+    "commit": "f63c7959601288efcfe6328252490da72fd81283",
+    "evidence": {
+      "path": "build-provenance/pom.xml",
+      "sha256": "407bf752f3762aa908c5fc4d664b893994d1b783aa20a2966a43f86c155eb433"
+    }
+  },
+  {
+    "tool": "rust-runtime",
+    "source": "https://codeload.github.com/rust-lang/rust/tar.gz/48a229ceaefd4985c50990b14116b6d856af0985",
+    "commit": "48a229ceaefd4985c50990b14116b6d856af0985",
+    "path": "rust-48a229ceaefd4985c50990b14116b6d856af0985/src/ci/docker/scripts/musl-toolchain.sh",
+    "evidence": {
+      "path": "build-provenance/rust-48a229ceaefd4985c50990b14116b6d856af0985/src/ci/docker/scripts/musl-toolchain.sh",
+      "sha256": "faae0de27e4ca1661a030ce3623e4959f34f5d1b6f795ea9b5b84c10c2086b2e"
+    }
+  },
+  {
+    "tool": "rust-runtime",
+    "source": "https://codeload.github.com/rust-lang/rust/tar.gz/48a229ceaefd4985c50990b14116b6d856af0985",
+    "commit": "48a229ceaefd4985c50990b14116b6d856af0985",
+    "path": "rust-48a229ceaefd4985c50990b14116b6d856af0985/src/ci/docker/scripts/musl.sh",
+    "evidence": {
+      "path": "build-provenance/rust-48a229ceaefd4985c50990b14116b6d856af0985/src/ci/docker/scripts/musl.sh",
+      "sha256": "2f218a2dc7b7e73509212bfd4319ebddc2ddac7c651fca142c2b29bd7ea0aa38"
+    }
+  },
+  {
+    "tool": "rust-runtime",
+    "source": "https://codeload.github.com/rust-lang/rust/tar.gz/b940084d7eb6a299eb4bfeb8e34901bc051e7ac4",
+    "commit": "b940084d7eb6a299eb4bfeb8e34901bc051e7ac4",
+    "path": "rust-b940084d7eb6a299eb4bfeb8e34901bc051e7ac4/src/ci/docker/scripts/musl-toolchain.sh",
+    "evidence": {
+      "path": "build-provenance/rust-b940084d7eb6a299eb4bfeb8e34901bc051e7ac4/src/ci/docker/scripts/musl-toolchain.sh",
+      "sha256": "6089a487dc49ad220d4a928de288fee8b78038acfbe163d025e3bfed9d590a82"
+    }
+  },
+  {
+    "tool": "rust-runtime",
+    "source": "https://codeload.github.com/rust-lang/rust/tar.gz/b940084d7eb6a299eb4bfeb8e34901bc051e7ac4",
+    "commit": "b940084d7eb6a299eb4bfeb8e34901bc051e7ac4",
+    "path": "rust-b940084d7eb6a299eb4bfeb8e34901bc051e7ac4/src/ci/docker/scripts/musl.sh",
+    "evidence": {
+      "path": "build-provenance/rust-b940084d7eb6a299eb4bfeb8e34901bc051e7ac4/src/ci/docker/scripts/musl.sh",
+      "sha256": "59c361dd73a9f634a09971c15df5d2731813acd29c7bd68633bbbff7af023332"
+    }
+  }
+]

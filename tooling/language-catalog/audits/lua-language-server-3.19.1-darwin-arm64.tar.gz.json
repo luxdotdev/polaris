@@ -2,9 +2,82 @@
   "artifactId": "lua-language-server-3.19.1-darwin-arm64.tar.gz",
   "artifactIntegrity": "sha256:0bc077f4447f076b4c92c14e9fd303f5b569eda2ec74b4dca2b55f75fae2e90c",
   "coverage": "pending",
-  "notices": [],
+  "notices": [
+    {
+      "path": "notices/a0a65ffcdc8620548598ce8ac5ce1a7ec36edf3034a5df2d6593e49fcececa64.txt",
+      "integrity": "sha256:a0a65ffcdc8620548598ce8ac5ce1a7ec36edf3034a5df2d6593e49fcececa64"
+    },
+    {
+      "path": "notices/48c9b29ba015faae493be2d4957a80b13c5e77a2b7b6556cf6f887203eaa308d.txt",
+      "integrity": "sha256:48c9b29ba015faae493be2d4957a80b13c5e77a2b7b6556cf6f887203eaa308d"
+    },
+    {
+      "path": "notices/cfa12b71a259ad960a189bf79ac0afc7f89f5ce5426ccf602b13c5848210201e.txt",
+      "integrity": "sha256:cfa12b71a259ad960a189bf79ac0afc7f89f5ce5426ccf602b13c5848210201e"
+    },
+    {
+      "path": "notices/b57029e58122ab2f6051fc34b992fba68cb18f430809948a3e015f6ae7de9f2a.txt",
+      "integrity": "sha256:b57029e58122ab2f6051fc34b992fba68cb18f430809948a3e015f6ae7de9f2a"
+    },
+    {
+      "path": "notices/2d312781ba7ca3f5b494aec3bcca5cfbb69b7302838b2a7595d1537fc494457f.txt",
+      "integrity": "sha256:2d312781ba7ca3f5b494aec3bcca5cfbb69b7302838b2a7595d1537fc494457f"
+    },
+    {
+      "path": "notices/c9bff75738922193e67fa726fa225535870d2aa1059f91452c411736284ad566.txt",
+      "integrity": "sha256:c9bff75738922193e67fa726fa225535870d2aa1059f91452c411736284ad566"
+    },
+    {
+      "path": "notices/9702de7e4117a8e2b20dafab11ffda58c198aede066406496bef670d40a22138.txt",
+      "integrity": "sha256:9702de7e4117a8e2b20dafab11ffda58c198aede066406496bef670d40a22138"
+    },
+    {
+      "path": "notices/19c99805e7a44a34b297a75d1edea9985e300066dfc024d5c99d4236d4573b5d.txt",
+      "integrity": "sha256:19c99805e7a44a34b297a75d1edea9985e300066dfc024d5c99d4236d4573b5d"
+    },
+    {
+      "path": "notices/c983d69523377819db3c377b390d5644f5ec53bec9b7c4a0f1ed893bb743d045.txt",
+      "integrity": "sha256:c983d69523377819db3c377b390d5644f5ec53bec9b7c4a0f1ed893bb743d045"
+    },
+    {
+      "path": "notices/b64842f046be0068c5ee9cf8d83fb6563879b19af33fc781979c84309b0629d8.txt",
+      "integrity": "sha256:b64842f046be0068c5ee9cf8d83fb6563879b19af33fc781979c84309b0629d8"
+    },
+    {
+      "path": "notices/287f09e6546a9610f949f89e8fb937cacfeabd7bfaa8c8a0c18312193bf04ad3.txt",
+      "integrity": "sha256:287f09e6546a9610f949f89e8fb937cacfeabd7bfaa8c8a0c18312193bf04ad3"
+    },
+    {
+      "path": "notices/278c725b20339da63f93314ba6204e72cdab93501aaff6f909471fd1ffe26053.txt",
+      "integrity": "sha256:278c725b20339da63f93314ba6204e72cdab93501aaff6f909471fd1ffe26053"
+    },
+    {
+      "path": "notices/7e12e5df4bae12cb21581ba157ced20e1986a0508dd10d0e8a4ab9a4cf94e85c.txt",
+      "integrity": "sha256:7e12e5df4bae12cb21581ba157ced20e1986a0508dd10d0e8a4ab9a4cf94e85c"
+    },
+    {
+      "path": "notices/b4481f2d10437fc0d1944545708e078d9d3bcc24f4f88ebbd24e70a9123d536e.txt",
+      "integrity": "sha256:b4481f2d10437fc0d1944545708e078d9d3bcc24f4f88ebbd24e70a9123d536e"
+    },
+    {
+      "path": "notices/02081613cdc3af3ca5ac3b685ec4129558014d3eb1749545f973227304eea518.txt",
+      "integrity": "sha256:02081613cdc3af3ca5ac3b685ec4129558014d3eb1749545f973227304eea518"
+    },
+    {
+      "path": "notices/8bd0e0578be788c617ea01d18b2a8146e3746ae50bddadc65a5f9d3aad08ad49.txt",
+      "integrity": "sha256:8bd0e0578be788c617ea01d18b2a8146e3746ae50bddadc65a5f9d3aad08ad49"
+    },
+    {
+      "path": "notices/6f2ecf7ddb03e4af1fcf6c82a1c2a785198cf9c3297b6aad8344d4b0c5fea5e9.txt",
+      "integrity": "sha256:6f2ecf7ddb03e4af1fcf6c82a1c2a785198cf9c3297b6aad8344d4b0c5fea5e9"
+    },
+    {
+      "path": "notices/3095b996addbc7d4b0414ef55166b00b91bff8709a79b667e7177ff0430a366c.txt",
+      "integrity": "sha256:3095b996addbc7d4b0414ef55166b00b91bff8709a79b667e7177ff0430a366c"
+    }
+  ],
   "findings": [
-    "Release-specific bundled notice/dependency audit required; see external-audits.json"
+    "Exact source/legal evidence for retained vendor code and published Linux static compiler/runtime closure remains unverified; Lua runtime legal comments are retained and do not certify which other libraries were embedded."
   ],
   "bundleIntegrity": null,
   "supplements": [
@@ -22,6 +95,54 @@
     {
       "path": "lua-source-inventory.json",
       "integrity": "sha256:37c979c30d393340be5c19bbfea93b07d7b2b2302c47b5d634259158f8839e26"
+    },
+    {
+      "path": "native-source-closure.json",
+      "integrity": "sha256:1fd76242f3bf639baedcd7568f70a80dd5a06b3520c901d9f140aab30de0f218"
+    },
+    {
+      "path": "native-linkage.json",
+      "integrity": "sha256:78756ec6aab3bfa4e82d8660ff53eeda044ea391912d0b68585442631d5e1a4a"
+    },
+    {
+      "path": "lua-filtered-proposal.json",
+      "integrity": "sha256:6bb228d6ef446ffa7d1ea8ae642b9dbadd20c7b608232986cc6bd244e5b9a16d"
+    },
+    {
+      "path": "lua-filtered-proposal.md",
+      "integrity": "sha256:a64f1372e56483f76449366ed1a8b71418d045a64350f240a3cd7f09b678b9e1"
+    },
+    {
+      "path": "lua-filtered-capabilities.json",
+      "integrity": "sha256:89468e6365830cf69ed24837f81f803d60d2629306700ebc9cbcdbf23fcfbbb9"
+    },
+    {
+      "path": "lua-runtime-notices.json",
+      "integrity": "sha256:355ae03458d24e2afd85560f5660cfab95255014e79e2d02a391354bc3ad0e2d"
+    },
+    {
+      "path": "closure-plan.json",
+      "integrity": "sha256:a61abd31b8fda9766b634fa5276ec3e121d10ba9943a2efcd2a586a881edc8da"
+    },
+    {
+      "path": "packaging/lua-language-server-3.19.1-darwin-arm64.tar.gz.json",
+      "integrity": "sha256:e206e08487e2d4e9efe1852e986d31dbe8aa1ccfffd353ad9ba56d7b982d4bee"
+    },
+    {
+      "path": "packaging/lua-language-server-3.19.1-darwin-x64.tar.gz.json",
+      "integrity": "sha256:1016d418b333f34cf919dc9dcf6995cbae1bd4200d44e41a5ed709fe8cbea3bb"
+    },
+    {
+      "path": "packaging/lua-language-server-3.19.1-linux-arm64.tar.gz.json",
+      "integrity": "sha256:d0b071cf5e3bddffbb3ad54524f65713ae819177e9c5b0c391894fa4389ba11b"
+    },
+    {
+      "path": "packaging/lua-language-server-3.19.1-linux-x64.tar.gz.json",
+      "integrity": "sha256:b12596f471f3bf5a819b7e25f27015430d18900adbd4103bb77e1fa091d2f923"
+    },
+    {
+      "path": "review-records.json",
+      "integrity": "sha256:84878260fa5e3d66a0c73c80e5484fc839e778798dd558cced84d3949c26321b"
     }
   ]
 }

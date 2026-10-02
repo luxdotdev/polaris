@@ -1,0 +1,21 @@
+/*******************************************************************************
+ * Copyright (c) 2000, 2025 IBM Corporation and others.
+ *
+ * This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     Timo Kinnunen - Contributions for bug 377373 - [subwords] known limitations with JDT 3.8
+ *     							Bug 420953 - [subwords] Constructors that don't match prefix not found
+ *     IBM Corporation - initial API and implementation
+ *     Stephan Herrmann - Contribution for
+ *								Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
+ *     Gábor Kövesdán - Contribution for Bug 350000 - [content assist] Include non-prefix matches in auto-complete suggestions
+ *     Microsoft Corporation - Contribution for bug 575562 - improve completion search performance
+ *     							Bug 578817 - skip the ignored types before creating CompletionProposals
+ *     Microsoft Corporation - Contribution for bug 578815 - more candidates when completion after new keyword for an interface
+ *******************************************************************************/

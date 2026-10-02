@@ -1,0 +1,459 @@
+{
+  "ruff": {
+    "url": "https://codeload.github.com/astral-sh/ruff/tar.gz/3265ed1f944c98bb4c04d632fbefb1257cdb583d",
+    "sha256": "646895bfc295414071d68a8fe0c467a7e9eb704e559b1919aec9928c77dd11d0",
+    "bytes": 13967087,
+    "notices": [
+      {
+        "path": "ruff-3265ed1f944c98bb4c04d632fbefb1257cdb583d/LICENSE",
+        "sha256": "2597d854122b77ddc71971564ca2350a37608575ce324adc5650a2b2051c8f18"
+      },
+      {
+        "path": "ruff-3265ed1f944c98bb4c04d632fbefb1257cdb583d/crates/ruff_annotate_snippets/LICENSE-APACHE",
+        "sha256": "c6596eb7be8581c18be736c846fb9173b69eccf6ef94c5135893ec56bd92ba08"
+      },
+      {
+        "path": "ruff-3265ed1f944c98bb4c04d632fbefb1257cdb583d/crates/ruff_annotate_snippets/LICENSE-MIT",
+        "sha256": "6efb0476a1cc085077ed49357026d8c173bf33017278ef440f222fb9cbcb66e6"
+      },
+      {
+        "path": "ruff-3265ed1f944c98bb4c04d632fbefb1257cdb583d/crates/ty_vendored/vendor/typeshed/LICENSE",
+        "sha256": "295f8538c94ae5c3043301cf7cff1c852dab6a786a8ddee471e061b40d5ecabe"
+      }
+    ],
+    "repository": "astral-sh/ruff",
+    "commit": "3265ed1f944c98bb4c04d632fbefb1257cdb583d"
+  },
+  "rust-analyzer": {
+    "url": "https://codeload.github.com/rust-lang/rust-analyzer/tar.gz/03fcb77246f2568adb0e9b2fa60d19c6cc1686f4",
+    "sha256": "34edfc1e72dfc0808f70823230019a7fe1f3133c50705a1b780e0855d40c3a42",
+    "bytes": 4065819,
+    "notices": [
+      {
+        "path": "rust-analyzer-03fcb77246f2568adb0e9b2fa60d19c6cc1686f4/LICENSE-APACHE",
+        "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+      },
+      {
+        "path": "rust-analyzer-03fcb77246f2568adb0e9b2fa60d19c6cc1686f4/LICENSE-MIT",
+        "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+      },
+      {
+        "path": "rust-analyzer-03fcb77246f2568adb0e9b2fa60d19c6cc1686f4/editors/code/LICENSE",
+        "sha256": "7b4f77d59f1f20f8c0efec5c222d5e21ead37a16ee23de7a558f84a24302a4fc"
+      },
+      {
+        "path": "rust-analyzer-03fcb77246f2568adb0e9b2fa60d19c6cc1686f4/lib/smol_str/LICENSE-APACHE",
+        "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+      },
+      {
+        "path": "rust-analyzer-03fcb77246f2568adb0e9b2fa60d19c6cc1686f4/lib/smol_str/LICENSE-MIT",
+        "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+      },
+      {
+        "path": "rust-analyzer-03fcb77246f2568adb0e9b2fa60d19c6cc1686f4/lib/text-size/LICENSE-APACHE",
+        "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+      },
+      {
+        "path": "rust-analyzer-03fcb77246f2568adb0e9b2fa60d19c6cc1686f4/lib/text-size/LICENSE-MIT",
+        "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+      }
+    ],
+    "repository": "rust-lang/rust-analyzer",
+    "commit": "03fcb77246f2568adb0e9b2fa60d19c6cc1686f4"
+  },
+  "lua-language-server": {
+    "url": "https://codeload.github.com/LuaLS/lua-language-server/tar.gz/d11e79dc2745b5bfe654490eff234c6be2f6606f",
+    "sha256": "c9893e9f53b1df599a40a1ccea615f22b60fb504330dcf49e2c849f37f10eb94",
+    "bytes": 3177316,
+    "notices": [
+      {
+        "path": "lua-language-server-d11e79dc2745b5bfe654490eff234c6be2f6606f/LICENSE",
+        "sha256": "a0a65ffcdc8620548598ce8ac5ce1a7ec36edf3034a5df2d6593e49fcececa64"
+      }
+    ],
+    "repository": "LuaLS/lua-language-server",
+    "commit": "d11e79dc2745b5bfe654490eff234c6be2f6606f",
+    "submodules": [
+      {
+        "path": "3rd/luamake",
+        "source": {
+          "url": "https://codeload.github.com/actboy168/luamake/tar.gz/4c4bd16c9b0c1d773402fc15c76367f7899a1f91",
+          "sha256": "f25cacf5c4bdebe22a3ab4ada15a21c33313fcbde6d58f6fa1b2fdc3208c0c91",
+          "bytes": 78956,
+          "notices": [
+            {
+              "path": "luamake-4c4bd16c9b0c1d773402fc15c76367f7899a1f91/LICENSE",
+              "sha256": "cfa12b71a259ad960a189bf79ac0afc7f89f5ce5426ccf602b13c5848210201e"
+            }
+          ],
+          "repository": "actboy168/luamake",
+          "commit": "4c4bd16c9b0c1d773402fc15c76367f7899a1f91",
+          "submodules": [
+            {
+              "path": "bee.lua",
+              "source": {
+                "url": "https://codeload.github.com/actboy168/bee.lua/tar.gz/466c4f071a17ab7c31e402383b0a2097b03535ba",
+                "sha256": "9616e4967d25f06142dd47af8cbec36b4ecd5c590d7bd19c5635ee1f38e54f1c",
+                "bytes": 814252,
+                "notices": [
+                  {
+                    "path": "bee.lua-466c4f071a17ab7c31e402383b0a2097b03535ba/LICENSE",
+                    "sha256": "cfa12b71a259ad960a189bf79ac0afc7f89f5ce5426ccf602b13c5848210201e"
+                  }
+                ],
+                "repository": "actboy168/bee.lua",
+                "commit": "466c4f071a17ab7c31e402383b0a2097b03535ba"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "path": "3rd/bee.lua",
+        "source": {
+          "url": "https://codeload.github.com/actboy168/bee.lua/tar.gz/f55b6988e8d9564816a555118b0e76564ef9a283",
+          "sha256": "61f25750910fce54f8e4dc1e3118e831a479bb1f654573e8cee57de4403bb2f4",
+          "bytes": 815237,
+          "notices": [
+            {
+              "path": "bee.lua-f55b6988e8d9564816a555118b0e76564ef9a283/LICENSE",
+              "sha256": "cfa12b71a259ad960a189bf79ac0afc7f89f5ce5426ccf602b13c5848210201e"
+            }
+          ],
+          "repository": "actboy168/bee.lua",
+          "commit": "f55b6988e8d9564816a555118b0e76564ef9a283"
+        }
+      },
+      {
+        "path": "3rd/lpeglabel",
+        "source": {
+          "url": "https://codeload.github.com/sqmedeiros/lpeglabel/tar.gz/912b0b9e8641074408ffc2259e069b188e0c717b",
+          "sha256": "f30f8039b89a571bdf450d1b82727ddbb3905e58b205ddd0421fad50983b991f",
+          "bytes": 83171,
+          "notices": [
+            {
+              "path": "lpeglabel-912b0b9e8641074408ffc2259e069b188e0c717b/LICENSE",
+              "sha256": "b57029e58122ab2f6051fc34b992fba68cb18f430809948a3e015f6ae7de9f2a"
+            }
+          ],
+          "repository": "sqmedeiros/lpeglabel",
+          "commit": "912b0b9e8641074408ffc2259e069b188e0c717b"
+        }
+      },
+      {
+        "path": "3rd/love-api",
+        "source": {
+          "url": "https://codeload.github.com/love2d-community/love-api/tar.gz/853639288547618dece86c3a8e52348fe304eba2",
+          "sha256": "eb0ea45aabeab9be52188f3a6a17ac364c47599373b03325524a14b9141c3ca7",
+          "bytes": 153104,
+          "notices": [],
+          "repository": "love2d-community/love-api",
+          "commit": "853639288547618dece86c3a8e52348fe304eba2"
+        }
+      },
+      {
+        "path": "3rd/lovr-api",
+        "source": {
+          "url": "https://codeload.github.com/bjornbytes/lovr-docs/tar.gz/e89c753e1c2849b7533481fcf058095f8e050b9f",
+          "sha256": "6cdd80ef5c9358debd772d3887e2e04cf93fad7457752f1c489715bfcd641132",
+          "bytes": 18279977,
+          "notices": [],
+          "repository": "bjornbytes/lovr-docs",
+          "commit": "e89c753e1c2849b7533481fcf058095f8e050b9f"
+        }
+      },
+      {
+        "path": "3rd/EmmyLuaCodeStyle",
+        "source": {
+          "url": "https://codeload.github.com/CppCXY/EmmyLuaCodeStyle/tar.gz/8c4289b7617ccdb0b247a6171f111f28ac7ae969",
+          "sha256": "a1797006d6a17fc81ea950cc75ce2e318c166ce90244d16428609a6c541224bc",
+          "bytes": 5427063,
+          "notices": [
+            {
+              "path": "EmmyLuaCodeStyle-8c4289b7617ccdb0b247a6171f111f28ac7ae969/3rd/asio-1.24.0/COPYING",
+              "sha256": "2d312781ba7ca3f5b494aec3bcca5cfbb69b7302838b2a7595d1537fc494457f"
+            },
+            {
+              "path": "EmmyLuaCodeStyle-8c4289b7617ccdb0b247a6171f111f28ac7ae969/3rd/asio-1.24.0/LICENSE_1_0.txt",
+              "sha256": "c9bff75738922193e67fa726fa225535870d2aa1059f91452c411736284ad566"
+            },
+            {
+              "path": "EmmyLuaCodeStyle-8c4289b7617ccdb0b247a6171f111f28ac7ae969/3rd/googletest-1.13.0/LICENSE",
+              "sha256": "9702de7e4117a8e2b20dafab11ffda58c198aede066406496bef670d40a22138"
+            },
+            {
+              "path": "EmmyLuaCodeStyle-8c4289b7617ccdb0b247a6171f111f28ac7ae969/3rd/mimalloc-2.0.9/LICENSE",
+              "sha256": "19c99805e7a44a34b297a75d1edea9985e300066dfc024d5c99d4236d4573b5d"
+            },
+            {
+              "path": "EmmyLuaCodeStyle-8c4289b7617ccdb0b247a6171f111f28ac7ae969/3rd/nlohmann_json/LICENSE.MIT",
+              "sha256": "c983d69523377819db3c377b390d5644f5ec53bec9b7c4a0f1ed893bb743d045"
+            },
+            {
+              "path": "EmmyLuaCodeStyle-8c4289b7617ccdb0b247a6171f111f28ac7ae969/3rd/uriparser/AUTHORS",
+              "sha256": "b64842f046be0068c5ee9cf8d83fb6563879b19af33fc781979c84309b0629d8"
+            },
+            {
+              "path": "EmmyLuaCodeStyle-8c4289b7617ccdb0b247a6171f111f28ac7ae969/3rd/uriparser/COPYING",
+              "sha256": "287f09e6546a9610f949f89e8fb937cacfeabd7bfaa8c8a0c18312193bf04ad3"
+            },
+            {
+              "path": "EmmyLuaCodeStyle-8c4289b7617ccdb0b247a6171f111f28ac7ae969/3rd/uriparser/test/COPYING",
+              "sha256": "278c725b20339da63f93314ba6204e72cdab93501aaff6f909471fd1ffe26053"
+            },
+            {
+              "path": "EmmyLuaCodeStyle-8c4289b7617ccdb0b247a6171f111f28ac7ae969/3rd/utf8/include/LICENSE",
+              "sha256": "7e12e5df4bae12cb21581ba157ced20e1986a0508dd10d0e8a4ab9a4cf94e85c"
+            },
+            {
+              "path": "EmmyLuaCodeStyle-8c4289b7617ccdb0b247a6171f111f28ac7ae969/3rd/wildcards/LICENSE_1_0.txt",
+              "sha256": "c9bff75738922193e67fa726fa225535870d2aa1059f91452c411736284ad566"
+            },
+            {
+              "path": "EmmyLuaCodeStyle-8c4289b7617ccdb0b247a6171f111f28ac7ae969/LICENSE",
+              "sha256": "b4481f2d10437fc0d1944545708e078d9d3bcc24f4f88ebbd24e70a9123d536e"
+            }
+          ],
+          "repository": "CppCXY/EmmyLuaCodeStyle",
+          "commit": "8c4289b7617ccdb0b247a6171f111f28ac7ae969"
+        }
+      },
+      {
+        "path": "3rd/json.lua",
+        "source": {
+          "url": "https://codeload.github.com/actboy168/json.lua/tar.gz/08095fd2cdfde8f49a5f5b54b35ec7b3d4906a36",
+          "sha256": "625fc92798e27d8c6597b59b1f8d014744496dc2e1c5117baa5e1a4d286c7b7e",
+          "bytes": 27668,
+          "notices": [
+            {
+              "path": "json.lua-08095fd2cdfde8f49a5f5b54b35ec7b3d4906a36/LICENSE",
+              "sha256": "02081613cdc3af3ca5ac3b685ec4129558014d3eb1749545f973227304eea518"
+            },
+            {
+              "path": "json.lua-08095fd2cdfde8f49a5f5b54b35ec7b3d4906a36/test/JSONTestSuite/LICENSE",
+              "sha256": "8bd0e0578be788c617ea01d18b2a8146e3746ae50bddadc65a5f9d3aad08ad49"
+            }
+          ],
+          "repository": "actboy168/json.lua",
+          "commit": "08095fd2cdfde8f49a5f5b54b35ec7b3d4906a36",
+          "submodules": [
+            {
+              "path": "test/ltest",
+              "source": {
+                "url": "https://codeload.github.com/actboy168/ltest/tar.gz/0d2d81f8488f6e56bbea5c3132d34e632e2632b2",
+                "sha256": "948d58121b9f87dfaa5bf7cc2db2e4c1cd054372438d95682f3eac8d24f8174d",
+                "bytes": 9071,
+                "notices": [
+                  {
+                    "path": "ltest-0d2d81f8488f6e56bbea5c3132d34e632e2632b2/LICENSE",
+                    "sha256": "6f2ecf7ddb03e4af1fcf6c82a1c2a785198cf9c3297b6aad8344d4b0c5fea5e9"
+                  }
+                ],
+                "repository": "actboy168/ltest",
+                "commit": "0d2d81f8488f6e56bbea5c3132d34e632e2632b2"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "path": "meta/3rd/OpenResty",
+        "source": {
+          "url": "https://codeload.github.com/LuaCATS/openresty/tar.gz/3bec36f0f645bb38b3c8208990d5c36feb66ce3d",
+          "sha256": "fb9c62a5030fdfced1e0a3d49258234f5360eba02a7f3003d8c43602e7e2826f",
+          "bytes": 82579,
+          "notices": [],
+          "repository": "LuaCATS/openresty",
+          "commit": "3bec36f0f645bb38b3c8208990d5c36feb66ce3d"
+        }
+      },
+      {
+        "path": "meta/3rd/bee",
+        "source": {
+          "url": "https://codeload.github.com/LuaCATS/bee/tar.gz/c8ce19fd5536a7e98ef186d1d75825f0bb8c9216",
+          "sha256": "8bd5af2b8bff50265a1a71a7e5bf9ca9eb10437bd1f73c996cd27e8c4ce662c4",
+          "bytes": 4203,
+          "notices": [
+            {
+              "path": "bee-c8ce19fd5536a7e98ef186d1d75825f0bb8c9216/LICENSE",
+              "sha256": "48c9b29ba015faae493be2d4957a80b13c5e77a2b7b6556cf6f887203eaa308d"
+            }
+          ],
+          "repository": "LuaCATS/bee",
+          "commit": "c8ce19fd5536a7e98ef186d1d75825f0bb8c9216"
+        }
+      },
+      {
+        "path": "meta/3rd/busted",
+        "source": {
+          "url": "https://codeload.github.com/LuaCATS/busted/tar.gz/5ed85d0e016a5eb5eca097aa52905eedf1b180f1",
+          "sha256": "c33499e7be61511ac48f4815777c3df55322d0ee61fd92c223921999e5543ce8",
+          "bytes": 2040,
+          "notices": [],
+          "repository": "LuaCATS/busted",
+          "commit": "5ed85d0e016a5eb5eca097aa52905eedf1b180f1"
+        }
+      },
+      {
+        "path": "meta/3rd/Cocos4.0",
+        "source": {
+          "url": "https://codeload.github.com/LuaCATS/cocos4.0/tar.gz/c0b2259e0d367561fd4563ae114b029b4dfe3a8f",
+          "sha256": "58a294ac140beb502ead76806fd2348d43a739f1b57197f47fef06dff89e5770",
+          "bytes": 165285,
+          "notices": [],
+          "repository": "LuaCATS/cocos4.0",
+          "commit": "c0b2259e0d367561fd4563ae114b029b4dfe3a8f"
+        }
+      },
+      {
+        "path": "meta/3rd/Defold",
+        "source": {
+          "url": "https://codeload.github.com/LuaCATS/defold/tar.gz/05379b40fb3084d82f7270475e42da8d521c4dae",
+          "sha256": "179100330f0e1df99dcfd2488e49b7a9c712d459c26cc991eb2b4169ef8afd44",
+          "bytes": 46457,
+          "notices": [],
+          "repository": "LuaCATS/defold",
+          "commit": "05379b40fb3084d82f7270475e42da8d521c4dae"
+        }
+      },
+      {
+        "path": "meta/3rd/Jass",
+        "source": {
+          "url": "https://codeload.github.com/LuaCATS/jass/tar.gz/80d85cbbfd8ae2473fb39c7df4be814602f5bc4f",
+          "sha256": "81feffce58c836ff10b2aebb54d16144115906072d50b9db870c344f8b79c58f",
+          "bytes": 63048,
+          "notices": [],
+          "repository": "LuaCATS/jass",
+          "commit": "80d85cbbfd8ae2473fb39c7df4be814602f5bc4f"
+        }
+      },
+      {
+        "path": "meta/3rd/lfs",
+        "source": {
+          "url": "https://codeload.github.com/LuaCATS/luafilesystem/tar.gz/9b5cfc15be744c829c66519cb11e49669ae7e39b",
+          "sha256": "949d62f95cefe91a1c509dbf6144912438a5697adb6eb6f397af20124a815551",
+          "bytes": 2746,
+          "notices": [],
+          "repository": "LuaCATS/luafilesystem",
+          "commit": "9b5cfc15be744c829c66519cb11e49669ae7e39b"
+        }
+      },
+      {
+        "path": "meta/3rd/love2d",
+        "source": {
+          "url": "https://codeload.github.com/LuaCATS/love2d/tar.gz/98f7684525a6e866ffa6df449b7aef406a807dae",
+          "sha256": "04317610bce2c5600bfb7a6b435eadd3a92de469e151e92e6acf0f4525d5c191",
+          "bytes": 94953,
+          "notices": [],
+          "repository": "LuaCATS/love2d",
+          "commit": "98f7684525a6e866ffa6df449b7aef406a807dae"
+        }
+      },
+      {
+        "path": "meta/3rd/lovr",
+        "source": {
+          "url": "https://codeload.github.com/LuaCATS/lovr/tar.gz/3ba215f98e1647111b50b311d45c31338fdc615f",
+          "sha256": "541b202d2033764bc0eedb0c799bccb0355950962be088e7943305d5a294d44f",
+          "bytes": 81908,
+          "notices": [],
+          "repository": "LuaCATS/lovr",
+          "commit": "3ba215f98e1647111b50b311d45c31338fdc615f"
+        }
+      },
+      {
+        "path": "meta/3rd/luaecs",
+        "source": {
+          "url": "https://codeload.github.com/LuaCATS/luaecs/tar.gz/21192fbdccc0f140dae2f74f7c3ec7d74e2aadd0",
+          "sha256": "9b09f663f70044324af316577bcaf53b60c19f3f0a2f93167b13e3047b26e16f",
+          "bytes": 3995,
+          "notices": [],
+          "repository": "LuaCATS/luaecs",
+          "commit": "21192fbdccc0f140dae2f74f7c3ec7d74e2aadd0"
+        }
+      },
+      {
+        "path": "meta/3rd/luassert",
+        "source": {
+          "url": "https://codeload.github.com/LuaCATS/luassert/tar.gz/d3528bb679302cbfdedefabb37064515ab95f7b9",
+          "sha256": "236ee34400c553924803a0ce155d3b7d6f0fe4e5577f5eb34b91f96e9f42cea5",
+          "bytes": 7965,
+          "notices": [],
+          "repository": "LuaCATS/luassert",
+          "commit": "d3528bb679302cbfdedefabb37064515ab95f7b9"
+        }
+      },
+      {
+        "path": "meta/3rd/skynet",
+        "source": {
+          "url": "https://codeload.github.com/LuaCATS/skynet/tar.gz/afa6717ac4f71e42012fa2ebf4b410d04db647ae",
+          "sha256": "7709d8a59679acc91966d87a14dd318d8a2ea8935ad1b8602302cd6e0e3860c4",
+          "bytes": 20067,
+          "notices": [],
+          "repository": "LuaCATS/skynet",
+          "commit": "afa6717ac4f71e42012fa2ebf4b410d04db647ae"
+        }
+      },
+      {
+        "path": "meta/3rd/ffi-reflect",
+        "source": {
+          "url": "https://codeload.github.com/LuaCATS/ffi-reflect/tar.gz/e9037efca4021a15552b281f5e91418afd370d8f",
+          "sha256": "375d9e310c135b279ac099a56bde86f6d8fc65a0c69a7393319fc93f017c4484",
+          "bytes": 916,
+          "notices": [],
+          "repository": "LuaCATS/ffi-reflect",
+          "commit": "e9037efca4021a15552b281f5e91418afd370d8f"
+        }
+      },
+      {
+        "path": "meta/3rd/luv",
+        "source": {
+          "url": "https://codeload.github.com/LuaCATS/luv/tar.gz/3615eb12c94a7cfa7184b8488cf908abb5e94c9c",
+          "sha256": "0631e73045be8fa37042df1eef6617d82e1f9786b8bd4191f1ed479fb738458f",
+          "bytes": 40936,
+          "notices": [],
+          "repository": "LuaCATS/luv",
+          "commit": "3615eb12c94a7cfa7184b8488cf908abb5e94c9c"
+        }
+      }
+    ]
+  },
+  "phpactor": {
+    "url": "https://codeload.github.com/phpactor/phpactor/tar.gz/f67b7753b966c874735a064978dd89837a369f59",
+    "sha256": "ed78127314da666f10e311aad2d4b9f8a9778da8a5834358194c3e1d6cdf4a91",
+    "bytes": 571114,
+    "notices": [
+      {
+        "path": "phpactor-f67b7753b966c874735a064978dd89837a369f59/LICENSE",
+        "sha256": "4287c3b7c293133dc59e92cb32a1aae899c4441ac6d64455c537c82070c84caa"
+      }
+    ],
+    "repository": "phpactor/phpactor",
+    "commit": "f67b7753b966c874735a064978dd89837a369f59"
+  },
+  "shfmt": {
+    "url": "https://codeload.github.com/mvdan/sh/tar.gz/a3f0c75d21d918756fa38de8b5d3429efde7948b",
+    "sha256": "670f50d0ce71fb0aa6d43ee64126e7ca2933d027ba50789db850e9e69acb037d",
+    "bytes": 296286,
+    "notices": [
+      {
+        "path": "sh-a3f0c75d21d918756fa38de8b5d3429efde7948b/LICENSE",
+        "sha256": "ce63850f77649f00d1394045e2794ffb09a5596beabac51c9548edd958845d7c"
+      }
+    ],
+    "repository": "mvdan/sh",
+    "commit": "a3f0c75d21d918756fa38de8b5d3429efde7948b"
+  },
+  "shellcheck": {
+    "url": "https://codeload.github.com/koalaman/shellcheck/tar.gz/aac0823e6b58f8a499e856e93738082691cbf212",
+    "sha256": "49f2e5c15f3004997fed25933c06d775899f2bf511a1cdd8234bf16f87f5d772",
+    "bytes": 467805,
+    "notices": [
+      {
+        "path": "shellcheck-aac0823e6b58f8a499e856e93738082691cbf212/LICENSE",
+        "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+      }
+    ],
+    "repository": "koalaman/shellcheck",
+    "commit": "aac0823e6b58f8a499e856e93738082691cbf212"
+  }
+}

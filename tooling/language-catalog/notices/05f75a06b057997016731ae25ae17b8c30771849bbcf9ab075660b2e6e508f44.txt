@@ -1,0 +1,17 @@
+/*******************************************************************************
+ * Copyright (c) 2005, 2020 IBM Corporation and others.
+ *
+ * This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *     Stephan Herrmann - Contributions for
+ *								Bug 463330 - [dom] DOMFinder doesn't find the VariableBinding corresponding to a method argument
+ *								Bug 464463 - [dom] DOMFinder doesn't find an ITypeParameter
+ *								Bug 429813 - [1.8][dom ast] IMethodBinding#getJavaElement() should return IMethod for lambda
+ *******************************************************************************/

@@ -1,0 +1,32 @@
+/*******************************************************************************
+ * Copyright (c) 2000, 2020 IBM Corporation and others.
+ *
+ * This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *     Stephan Herrmann - contributions for
+ *     							bug 336428 - [compiler][null] bogus warning "redundant null check" in condition of do {} while() loop
+ *								bug 186342 - [compiler][null] Using annotations for null checking
+ *								bug 365519 - editorial cleanup after bug 186342 and bug 365387
+ *								bug 368546 - [compiler][resource] Avoid remaining false positives found when compiling the Eclipse SDK
+ *								bug 365859 - [compiler][null] distinguish warnings based on flow analysis vs. null annotations
+ *								bug 385626 - @NonNull fails across loop boundaries
+ *								bug 345305 - [compiler][null] Compiler misidentifies a case of "variable can only be null"
+ *								bug 376263 - Bogus "Potential null pointer access" warning
+ *								bug 403147 - [compiler][null] FUP of bug 400761: consolidate interaction between unboxing, NPE, and deferred checking
+ *								bug 406384 - Internal error with I20130413
+ *								Bug 415413 - [compiler][null] NullpointerException in Null Analysis caused by interaction of LoopingFlowContext and FinallyFlowContext
+ *								Bug 453483 - [compiler][null][loop] Improve null analysis for loops
+ *								Bug 455557 - [jdt] NPE LoopingFlowContext.recordNullReference
+ *								Bug 455723 - Nonnull argument not correctly inferred in loop
+ *								Bug 415790 - [compiler][resource]Incorrect potential resource leak warning in for loop with close in try/catch
+ *								Bug 421035 - [resource] False alarm of resource leak warning when casting a closeable in its assignment
+ *     Jesper S Moller - contributions for
+ *								bug 404657 - [1.8][compiler] Analysis for effectively final variables fails to consider loops
+ *******************************************************************************/

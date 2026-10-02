@@ -6,6 +6,14 @@ const Integrity = Schema.String.check(
   Schema.isPattern(/^(sha256:[a-f0-9]{64}|sha512-[A-Za-z0-9+/]{86}==)$/)
 );
 
+export const RelativeManifestPath = Schema.String.check(
+  Schema.isMinLength(1),
+  Schema.isMaxLength(4096),
+  Schema.isPattern(
+    /^(?![A-Za-z]:)(?![\s\S]*[\0\\])(?!\.{1,2}(?:\/|$))(?![\s\S]*\/\.{1,2}(?:\/|$))[^/]+(?:\/[^/]+)*$/
+  )
+);
+
 export const Platform = Schema.Union([
   Schema.Struct({
     os: Schema.Literal("darwin"),
@@ -32,6 +40,17 @@ export const Requirement = Schema.Struct({
 
 export type Requirement = typeof Requirement.Type;
 
+export const Packaging = Schema.Struct({
+  filter: Schema.Literal("lua-core-v1"),
+  sourceIntegrity: Integrity,
+  manifest: RelativeManifestPath,
+  manifestIntegrity: Integrity,
+  postFilterIntegrity: Integrity,
+  disableThirdPartyDiscovery: Schema.Literal(true),
+});
+
+export type Packaging = typeof Packaging.Type;
+
 export const Artifact = Schema.Struct({
   id: Id,
   format: Schema.Literals(["npm", "tar.gz", "gz", "binary", "phar", "go-module"]),
@@ -43,6 +62,7 @@ export const Artifact = Schema.Struct({
   audit: Schema.Literals(["verified", "pending"]),
   auditReason: Schema.String,
   auditRoot: Schema.NullOr(Integrity),
+  packaging: Schema.optional(Packaging),
 });
 
 export type Artifact = typeof Artifact.Type;

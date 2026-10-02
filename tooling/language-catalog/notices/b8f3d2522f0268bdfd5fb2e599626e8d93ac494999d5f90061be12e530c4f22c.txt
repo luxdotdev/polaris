@@ -1,0 +1,19 @@
+/*******************************************************************************
+ * Copyright (c) 2000, 2019 IBM Corporation and others.
+ *
+ * This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *     Terry Parker <tparker@google.com>
+ *           - Contribution for https://bugs.eclipse.org/bugs/show_bug.cgi?id=372418
+ *           -  Another problem with inner classes referenced from jars or class folders: "The type ... cannot be resolved"
+ *     Stephan Herrmann - Contribution for
+ *								Bug 392727 - Cannot compile project when a java file contains $ in its file name
+ *								Bug 440477 - [null] Infrastructure for feeding external annotations into compilation
+ *******************************************************************************/

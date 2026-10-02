@@ -1,0 +1,19 @@
+/*******************************************************************************
+ * Copyright (c) 2000, 2025 IBM Corporation and others.
+ *
+ * This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ *
+ * Contributors:
+ *		IBM Corporation - initial API and implementation
+ *		Stephan Herrmann - Contribution for
+ *								bug 401035 - [1.8] A few tests have started failing recently
+ *      Jesper Steen Møller - Contributions for
+ *                               bug 529552 - [18.3] Add 'var' in completions
+ *                               Bug 529556 - [18.3] Add content assist support for 'var' as a type
+ *******************************************************************************/

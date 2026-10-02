@@ -10,6 +10,8 @@ import {
 } from "../../apps/daemon/src/languages/catalog/verification";
 import { auditBundle, readBundle } from "./audit";
 import { offeredTools, referenceFailures } from "./offered";
+import { packagingManifestFailures } from "../../apps/daemon/src/languages/catalog/packaging";
+import { readReviewRecords, reviewFailures, reviewRootFailures } from "./review";
 
 interface ReferenceFile {
   readonly path: string;
@@ -80,6 +82,12 @@ const checkArtifact = (artifact: Artifact): ReadonlyArray<string> => {
     ...checkFiles(manifest.evidence ?? []),
     ...checkFiles(manifest.notices),
     ...checkNpm(artifact, manifest),
+    ...(artifact.packaging
+      ? packagingManifestFailures(
+          artifact,
+          readFileSync(join(import.meta.dir, artifact.packaging.manifest))
+        )
+      : []),
   ];
 };
 
@@ -96,7 +104,23 @@ export const checkCatalog = (): ReadonlyArray<string> => {
 };
 
 if (import.meta.main) {
-  const failures = checkCatalog();
+  const failures = [...checkCatalog()];
+
+  if (process.argv.includes("--pre-review")) {
+    try {
+      const read = (path: string): Uint8Array => readFileSync(join(import.meta.dir, path));
+      failures.push(
+        ...reviewFailures({
+          tools: catalog.tools,
+          records: readReviewRecords(import.meta.dir),
+          read,
+        }),
+        ...reviewRootFailures(catalog.tools, read)
+      );
+    } catch {
+      failures.push("review-input-invalid");
+    }
+  }
 
   const blocked = offeredTools(catalog).filter((tool) =>
     tool.artifacts.some((artifact) => artifact.audit === "pending")

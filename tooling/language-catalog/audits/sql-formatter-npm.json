@@ -1,7 +1,7 @@
 {
   "artifactId": "sql-formatter-npm",
   "artifactIntegrity": "sha512-3A/N+v+mA5/PDU+FlO4uTFE0L/Mmg63c/Ny161Qv2b1Mxp9IX8War+LLmq17LA/Kgu4KXAR7iutK2JaHWJMMtw==",
-  "coverage": "pending",
+  "coverage": "complete",
   "notices": [
     {
       "path": "notices/de4d1f2d2ad5ad0cfd1657a106476b31cb5db5ef9d1ff842b237c0c81f0c8a23.txt",
@@ -24,20 +24,43 @@
       "integrity": "sha256:f0fcba18e7d0bc4c22f58a33566f27a0f26184d4e02827371a0ed84ea56a26e9"
     },
     {
+      "path": "notices/2c36ca617013001df8690cc63e2392760edd23fef948274100f051f7168b995d.txt",
+      "integrity": "sha256:2c36ca617013001df8690cc63e2392760edd23fef948274100f051f7168b995d"
+    },
+    {
+      "path": "notices/a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499.txt",
+      "integrity": "sha256:a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499"
+    },
+    {
       "path": "notices/c7b6718db5ace1d13eb030d29c53eb2b02f90e84ba21ba59eee63dfd4fcbefee.txt",
       "integrity": "sha256:c7b6718db5ace1d13eb030d29c53eb2b02f90e84ba21ba59eee63dfd4fcbefee"
     },
     {
       "path": "notices/0b72626d77e2a6579a7d9e13bf1a28e0d1525dec15f9e12e6fe9f57571b652c1.txt",
       "integrity": "sha256:0b72626d77e2a6579a7d9e13bf1a28e0d1525dec15f9e12e6fe9f57571b652c1"
+    },
+    {
+      "path": "notices/c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383.txt",
+      "integrity": "sha256:c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+    },
+    {
+      "path": "notices/cdf4d87ae0a6c160227263bf4e39a0a10e30e89ae7256e0f7ac7bde0836552c6.txt",
+      "integrity": "sha256:cdf4d87ae0a6c160227263bf4e39a0a10e30e89ae7256e0f7ac7bde0836552c6"
+    },
+    {
+      "path": "notices/291d324119550df1624f0af60388393fe36b02bc5e61d9a236afab1801b33042.txt",
+      "integrity": "sha256:291d324119550df1624f0af60388393fe36b02bc5e61d9a236afab1801b33042"
+    },
+    {
+      "path": "notices/c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4.txt",
+      "integrity": "sha256:c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
     }
   ],
   "findings": [
     "argparse@2.0.1: license-review:Python-2.0",
-    "railroad-diagrams@1.0.0: license-review:CC0-1.0",
-    "railroad-diagrams@1.0.0: notice-coverage"
+    "railroad-diagrams@1.0.0: license-review:CC0-1.0"
   ],
-  "bundleIntegrity": "sha256:084cbd9fc8a2b7b28aa49f3eebde4c2967765dceef4c93feb057fbfe1923c4a6",
+  "bundleIntegrity": "sha256:0a5590a0b7a91682bc56046460660a9086b01b3f6170f516b7f4a9f596c8b19e",
   "supplements": [
     "railroad-diagrams@1.0.0",
     "bash-language-server@5.8.1",
@@ -45,5 +68,26 @@
     "@prisma/prisma-schema-wasm@7.8.0-6.3c6e192761c0362d496ed980de936e2f3cebcd3a",
     "boolbase@1.0.0"
   ],
-  "evidence": []
+  "evidence": [
+    {
+      "path": "npm-notice-sources.json",
+      "integrity": "sha256:968a17c1c791e5ff11cab8a0fa46398e2ba662c78ee52449e251a799894c8d17"
+    },
+    {
+      "path": "notice-supplements.json",
+      "integrity": "sha256:ce12c800f357782660cdbb9b5c6ca8ca4428a0c5580dad8af8cc91873cddcdcf"
+    },
+    {
+      "path": "closure-plan.json",
+      "integrity": "sha256:a61abd31b8fda9766b634fa5276ec3e121d10ba9943a2efcd2a586a881edc8da"
+    },
+    {
+      "path": "bundles/sql-formatter.json",
+      "integrity": "sha256:0a5590a0b7a91682bc56046460660a9086b01b3f6170f516b7f4a9f596c8b19e"
+    },
+    {
+      "path": "review-records.json",
+      "integrity": "sha256:84878260fa5e3d66a0c73c80e5484fc839e778798dd558cced84d3949c26321b"
+    }
+  ]
 }

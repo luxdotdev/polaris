@@ -1,0 +1,29 @@
+[
+  {
+    "family": "flexmark",
+    "source": "https://raw.githubusercontent.com/vsch/flexmark-java/f63c7959601288efcfe6328252490da72fd81283/LICENSE.txt",
+    "sourceRef": "f63c7959601288efcfe6328252490da72fd81283",
+    "notice": {
+      "path": "upstream/LICENSE.txt",
+      "sha256": "36c2387ac8c1484f784dffbfe4fb679a69ee99b54e253fcbac901eaf978cca44"
+    }
+  },
+  {
+    "family": "hamcrest",
+    "source": "https://raw.githubusercontent.com/hamcrest/JavaHamcrest/68984b85e869df6a888fffcad87e4b676a8fc0ac/LICENSE",
+    "sourceRef": "68984b85e869df6a888fffcad87e4b676a8fc0ac",
+    "notice": {
+      "path": "upstream/LICENSE",
+      "sha256": "1710cf0fc79043bb1ea1e6b3af96a3e8def96c4239794a17b0b95966e75929b8"
+    }
+  },
+  {
+    "family": "logback",
+    "source": "https://raw.githubusercontent.com/qos-ch/logback/v_1.5.32/LICENSE.txt",
+    "sourceRef": "v_1.5.32",
+    "notice": {
+      "path": "upstream/LICENSE.txt",
+      "sha256": "f1eedf4f2cb9e901d6ae549a06d0c20dcde0136d37e38b50adaf51d4673f66d2"
+    }
+  }
+]

@@ -1,0 +1,450 @@
+{
+  "initialized": {
+    "id": 1,
+    "jsonrpc": "2.0",
+    "result": {
+      "capabilities": {
+        "codeActionProvider": {
+          "codeActionKinds": ["", "quickfix", "refactor.rewrite", "refactor.extract"],
+          "resolveProvider": false
+        },
+        "codeLensProvider": {
+          "resolveProvider": true
+        },
+        "colorProvider": true,
+        "completionProvider": {
+          "resolveProvider": true,
+          "triggerCharacters": [
+            "\t",
+            "\n",
+            ".",
+            ":",
+            "(",
+            "'",
+            "\"",
+            "[",
+            ",",
+            "#",
+            "*",
+            "@",
+            "|",
+            "=",
+            "-",
+            "{",
+            " ",
+            "+",
+            "?"
+          ]
+        },
+        "definitionProvider": true,
+        "documentFormattingProvider": true,
+        "documentHighlightProvider": true,
+        "documentOnTypeFormattingProvider": {
+          "firstTriggerCharacter": "\n"
+        },
+        "documentRangeFormattingProvider": true,
+        "documentSymbolProvider": true,
+        "executeCommandProvider": {
+          "commands": [
+            "lua.removeSpace",
+            "lua.solve",
+            "lua.jsonToLua",
+            "lua.setConfig",
+            "lua.getConfig",
+            "lua.autoRequire"
+          ]
+        },
+        "foldingRangeProvider": true,
+        "hoverProvider": true,
+        "implementationProvider": true,
+        "inlayHintProvider": {
+          "resolveProvider": true
+        },
+        "offsetEncoding": "utf-16",
+        "referencesProvider": true,
+        "renameProvider": {
+          "prepareProvider": true
+        },
+        "semanticTokensProvider": {
+          "full": true,
+          "legend": {
+            "tokenModifiers": [
+              "declaration",
+              "definition",
+              "readonly",
+              "static",
+              "deprecated",
+              "abstract",
+              "async",
+              "modification",
+              "documentation",
+              "defaultLibrary",
+              "global"
+            ],
+            "tokenTypes": [
+              "namespace",
+              "type",
+              "class",
+              "enum",
+              "interface",
+              "struct",
+              "typeParameter",
+              "parameter",
+              "variable",
+              "property",
+              "enumMember",
+              "event",
+              "function",
+              "method",
+              "macro",
+              "keyword",
+              "modifier",
+              "comment",
+              "string",
+              "number",
+              "regexp",
+              "operator",
+              "decorator"
+            ]
+          },
+          "range": true
+        },
+        "signatureHelpProvider": {
+          "triggerCharacters": ["(", ","]
+        },
+        "textDocumentSync": {
+          "change": 2,
+          "openClose": true,
+          "save": {
+            "includeText": false
+          }
+        },
+        "typeDefinitionProvider": true,
+        "workspace": {
+          "fileOperations": {
+            "didRename": {
+              "filters": [
+                {
+                  "pattern": {
+                    "glob": "/private/tmp/k2-lua-capabilities-final/project/**",
+                    "options": {
+                      "ignoreCase": true
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "workspaceFolders": {
+            "changeNotifications": true,
+            "supported": true
+          }
+        },
+        "workspaceSymbolProvider": true
+      },
+      "serverInfo": {
+        "name": "sumneko.lua",
+        "version": "3.19.1"
+      }
+    }
+  },
+  "memberCompletion": {
+    "id": 13,
+    "jsonrpc": "2.0",
+    "result": {
+      "isIncomplete": false,
+      "items": [
+        {
+          "data": {
+            "id": 1,
+            "uri": "file:///private/tmp/k2-lua-capabilities-final/project/features.lua"
+          },
+          "insertText": "byte",
+          "insertTextFormat": 1,
+          "kind": 3,
+          "label": "byte(s, i, j)",
+          "sortText": "0001"
+        },
+        {
+          "data": {
+            "id": 2,
+            "uri": "file:///private/tmp/k2-lua-capabilities-final/project/features.lua"
+          },
+          "insertText": "char",
+          "insertTextFormat": 1,
+          "kind": 3,
+          "label": "char(byte, ...)",
+          "sortText": "0002"
+        },
+        {
+          "data": {
+            "id": 3,
+            "uri": "file:///private/tmp/k2-lua-capabilities-final/project/features.lua"
+          },
+          "insertText": "dump",
+          "insertTextFormat": 1,
+          "kind": 3,
+          "label": "dump(f, strip)",
+          "sortText": "0003"
+        },
+        {
+          "data": {
+            "id": 4,
+            "uri": "file:///private/tmp/k2-lua-capabilities-final/project/features.lua"
+          },
+          "insertText": "find",
+          "insertTextFormat": 1,
+          "kind": 3,
+          "label": "find(s, pattern, init, plain)",
+          "sortText": "0004"
+        },
+        {
+          "data": {
+            "id": 5,
+            "uri": "file:///private/tmp/k2-lua-capabilities-final/project/features.lua"
+          },
+          "insertText": "format",
+          "insertTextFormat": 1,
+          "kind": 3,
+          "label": "format(s, ...)",
+          "sortText": "0005"
+        },
+        {
+          "data": {
+            "id": 6,
+            "uri": "file:///private/tmp/k2-lua-capabilities-final/project/features.lua"
+          },
+          "insertText": "gmatch",
+          "insertTextFormat": 1,
+          "kind": 3,
+          "label": "gmatch(s, pattern, init)",
+          "sortText": "0006"
+        },
+        {
+          "data": {
+            "id": 7,
+            "uri": "file:///private/tmp/k2-lua-capabilities-final/project/features.lua"
+          },
+          "insertText": "gsub",
+          "insertTextFormat": 1,
+          "kind": 3,
+          "label": "gsub(s, pattern, repl, n)",
+          "sortText": "0007"
+        },
+        {
+          "data": {
+            "id": 8,
+            "uri": "file:///private/tmp/k2-lua-capabilities-final/project/features.lua"
+          },
+          "insertText": "len",
+          "insertTextFormat": 1,
+          "kind": 3,
+          "label": "len(s)",
+          "sortText": "0008"
+        },
+        {
+          "data": {
+            "id": 9,
+            "uri": "file:///private/tmp/k2-lua-capabilities-final/project/features.lua"
+          },
+          "insertText": "lower",
+          "insertTextFormat": 1,
+          "kind": 3,
+          "label": "lower(s)",
+          "sortText": "0009"
+        },
+        {
+          "data": {
+            "id": 10,
+            "uri": "file:///private/tmp/k2-lua-capabilities-final/project/features.lua"
+          },
+          "insertText": "match",
+          "insertTextFormat": 1,
+          "kind": 3,
+          "label": "match(s, pattern, init)",
+          "sortText": "0010"
+        },
+        {
+          "data": {
+            "id": 11,
+            "uri": "file:///private/tmp/k2-lua-capabilities-final/project/features.lua"
+          },
+          "insertText": "pack",
+          "insertTextFormat": 1,
+          "kind": 3,
+          "label": "pack(fmt, v1, v2, ...)",
+          "sortText": "0011"
+        },
+        {
+          "data": {
+            "id": 12,
+            "uri": "file:///private/tmp/k2-lua-capabilities-final/project/features.lua"
+          },
+          "insertText": "packsize",
+          "insertTextFormat": 1,
+          "kind": 3,
+          "label": "packsize(fmt)",
+          "sortText": "0012"
+        },
+        {
+          "data": {
+            "id": 13,
+            "uri": "file:///private/tmp/k2-lua-capabilities-final/project/features.lua"
+          },
+          "insertText": "rep",
+          "insertTextFormat": 1,
+          "kind": 3,
+          "label": "rep(s, n, sep)",
+          "sortText": "0013"
+        },
+        {
+          "data": {
+            "id": 14,
+            "uri": "file:///private/tmp/k2-lua-capabilities-final/project/features.lua"
+          },
+          "insertText": "reverse",
+          "insertTextFormat": 1,
+          "kind": 3,
+          "label": "reverse(s)",
+          "sortText": "0014"
+        },
+        {
+          "data": {
+            "id": 15,
+            "uri": "file:///private/tmp/k2-lua-capabilities-final/project/features.lua"
+          },
+          "insertText": "sub",
+          "insertTextFormat": 1,
+          "kind": 3,
+          "label": "sub(s, i, j)",
+          "sortText": "0015"
+        },
+        {
+          "data": {
+            "id": 16,
+            "uri": "file:///private/tmp/k2-lua-capabilities-final/project/features.lua"
+          },
+          "insertText": "unpack",
+          "insertTextFormat": 1,
+          "kind": 3,
+          "label": "unpack(fmt, s, pos)",
+          "sortText": "0016"
+        },
+        {
+          "data": {
+            "id": 17,
+            "uri": "file:///private/tmp/k2-lua-capabilities-final/project/features.lua"
+          },
+          "insertText": "upper",
+          "insertTextFormat": 1,
+          "kind": 3,
+          "label": "upper(s)",
+          "sortText": "0017"
+        }
+      ]
+    }
+  },
+  "memberHover": {
+    "id": 100,
+    "jsonrpc": "2.0",
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```lua\nfunction string.sub(s: string|number, i: integer, j?: integer)\n  -> string\n```\n\n---\n\n\nReturns the substring of the string that starts at `i` and continues until `j`.\n\n[View documents](http://www.lua.org/manual/5.4/manual.html#pdf-string.sub)"
+      },
+      "maxLevel": 0,
+      "range": {
+        "end": {
+          "character": 20,
+          "line": 0
+        },
+        "start": {
+          "character": 17,
+          "line": 0
+        }
+      }
+    }
+  },
+  "diagnostic": {
+    "jsonrpc": "2.0",
+    "method": "textDocument/publishDiagnostics",
+    "params": {
+      "diagnostics": [
+        {
+          "code": "miss-exp",
+          "data": "syntax",
+          "message": "<exp> expected.",
+          "range": {
+            "end": {
+              "character": 14,
+              "line": 1
+            },
+            "start": {
+              "character": 14,
+              "line": 1
+            }
+          },
+          "severity": 1,
+          "source": "Lua Syntax Check."
+        }
+      ],
+      "uri": "file:///private/tmp/k2-lua-capabilities-final/project/features.lua",
+      "version": 2
+    }
+  },
+  "formatting": {
+    "id": 101,
+    "jsonrpc": "2.0",
+    "result": [
+      {
+        "newText": "local x = string.sub('abc', 1, 2)\n",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 1
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        }
+      }
+    ]
+  },
+  "shutdown": {
+    "id": 102,
+    "jsonrpc": "2.0",
+    "result": true
+  },
+  "exitCode": 0,
+  "cleanup": {
+    "pid": 26684,
+    "groupReaped": true
+  },
+  "environmentKeys": [
+    "PATH",
+    "TEMP",
+    "TMP",
+    "TMPDIR",
+    "XDG_CACHE_HOME",
+    "XDG_CONFIG_HOME",
+    "XDG_STATE_HOME"
+  ],
+  "command": [
+    "/private/tmp/k2-lua-packaging/filtered/lua-language-server-3.19.1-darwin-arm64.tar.gz/bin/lua-language-server",
+    "--configpath=/private/tmp/k2-lua-capabilities-final/lua-config.lua",
+    "--logpath=/private/tmp/k2-lua-capabilities-final/logs",
+    "--metapath=/private/tmp/k2-lua-capabilities-final/generated-meta"
+  ],
+  "workspaceUri": "file:///private/tmp/k2-lua-capabilities-final/project",
+  "documentUri": "file:///private/tmp/k2-lua-capabilities-final/project/features.lua",
+  "scope": "Darwin arm64 real features only; server sources, locale and metadata outside Project scope",
+  "stderr": "",
+  "packaging": {
+    "filter": "lua-core-v1",
+    "sourceIntegrity": "sha256:0bc077f4447f076b4c92c14e9fd303f5b569eda2ec74b4dca2b55f75fae2e90c",
+    "postFilterIntegrity": "sha256:d6f3b657e3656ae7f6f34d39f9d68198801e75086589696895b9a4e0b9b0db9a",
+    "retainedFilesVerified": 527,
+    "thirdPartyAnnotationsPresent": false
+  }
+}

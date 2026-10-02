@@ -1,0 +1,25 @@
+/*******************************************************************************
+ * Copyright (c) 2000, 2026 IBM Corporation and others.
+ *
+ * This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *     Theodora Yeung (tyeung@bea.com) - ensure that JarPackageFragmentRoot make it into cache
+ *                                                           before its contents
+ *                                                           (see https://bugs.eclipse.org/bugs/show_bug.cgi?id=102422)
+ *     Stephan Herrmann - Contributions for
+ *								Bug 346010 - [model] strange initialization dependency in OptionTests
+ *								Bug 440477 - [null] Infrastructure for feeding external annotations into compilation
+ *     Terry Parker <tparker@google.com> - DeltaProcessor misses state changes in archive files, see https://bugs.eclipse.org/bugs/show_bug.cgi?id=357425
+ *     Thirumala Reddy Mutchukota <thirumala@google.com> - Contribution to bug: https://bugs.eclipse.org/bugs/show_bug.cgi?id=411423
+ *     Terry Parker <tparker@google.com> - [performance] Low hit rates in JavaModel caches - https://bugs.eclipse.org/421165
+ *     Terry Parker <tparker@google.com> - Enable the Java model caches to recover from IO errors - https://bugs.eclipse.org/455042
+ *     Gábor Kövesdán - Contribution for Bug 350000 - [content assist] Include non-prefix matches in auto-complete suggestions
+ *     Karsten Thoms - Bug 532505 - Reduce memory footprint of ClasspathAccessRule
+ *******************************************************************************/

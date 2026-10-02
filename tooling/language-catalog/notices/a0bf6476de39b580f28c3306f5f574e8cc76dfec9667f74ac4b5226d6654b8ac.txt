@@ -1,0 +1,34 @@
+/*******************************************************************************
+ * Copyright (c) 2000, 2025 IBM Corporation and others.
+ *
+ * This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *     Tom Tromey - Contribution for bug 125961
+ *     Tom Tromey - Contribution for bug 159641
+ *     Benjamin Muskalla - Contribution for bug 239066
+ *     Stephan Herrmann  - Contributions for
+ *     							bug 236385 - [compiler] Warn for potential programming problem if an object is created but not used
+ *     							bug 295551 - Add option to automatically promote all warnings to errors
+ *     							bug 359721 - [options] add command line option for new warning token "resource"
+ *								bug 365208 - [compiler][batch] command line options for annotation based null analysis
+ *								bug 374605 - Unreasonable warning for enum-based switch statements
+ *								bug 375366 - ECJ ignores unusedParameterIncludeDocCommentReference unless enableJavadoc option is set
+ *								bug 388281 - [compiler][null] inheritance of null annotations as an option
+ *								bug 381443 - [compiler][null] Allow parameter widening from @NonNull to unannotated
+ *								Bug 440477 - [null] Infrastructure for feeding external annotations into compilation
+ *								Bug 440687 - [compiler][batch][null] improve command line option for external annotations
+ *								Bug 408815 - [batch][null] Add CLI option for COMPILER_PB_SYNTACTIC_NULL_ANALYSIS_FOR_FIELDS
+ *     Jesper S Moller   - Contributions for
+ *								bug 407297 - [1.8][compiler] Control generation of parameter names by option
+ *     Mat Booth - Contribution for bug 405176
+ *     Frits Jalvingh - fix for bug 533830.
+ *     Salesforce - Contribution for
+ *								https://github.com/eclipse-jdt/eclipse.jdt.core/issues/2529
+ *******************************************************************************/

@@ -1,0 +1,1696 @@
+{
+  "topLevelJars": 114,
+  "nestedJars": 78,
+  "nativeFiles": 46,
+  "files": [
+    {
+      "path": "com.sun.jna_5.19.1.v20260612-1000.jar!/com/sun/jna/darwin-aarch64/libjnidispatch.jnilib",
+      "bytes": 178144,
+      "sha256": "51886f7b6fba20cd55c68c354e0da5311286ce22a95f89e00a02c8616f506253",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "com.sun.jna_5.19.1.v20260612-1000.jar!/com/sun/jna/darwin-x86-64/libjnidispatch.jnilib",
+      "bytes": 129904,
+      "sha256": "3fb178776d82fe6d33c68a00aa67265068f533f3af7215ff2e388caea47d3f31",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "com.sun.jna_5.19.1.v20260612-1000.jar!/com/sun/jna/dragonflybsd-x86-64/libjnidispatch.so",
+      "bytes": 116880,
+      "sha256": "c0c6e64b476d726d86e996af1397491bbff9ccadcba1e0c4639a8f1ae5454062",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "com.sun.jna_5.19.1.v20260612-1000.jar!/com/sun/jna/freebsd-aarch64/libjnidispatch.so",
+      "bytes": 116008,
+      "sha256": "bca4aece4b834fd04301d5896482f657d06d6860e2d03089c0cc78eea65dd492",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "com.sun.jna_5.19.1.v20260612-1000.jar!/com/sun/jna/freebsd-x86-64/libjnidispatch.so",
+      "bytes": 121040,
+      "sha256": "3c4d14c74bb6798c76b43cad4395b8bdaa9181a7991e160a376f87bb1ab13ced",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "com.sun.jna_5.19.1.v20260612-1000.jar!/com/sun/jna/freebsd-x86/libjnidispatch.so",
+      "bytes": 105372,
+      "sha256": "784b2a955b1504dec96fa8b87972bcb2815ecfa818fe5c2e57ed9073cab0592c",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "com.sun.jna_5.19.1.v20260612-1000.jar!/com/sun/jna/linux-aarch64/libjnidispatch.so",
+      "bytes": 162288,
+      "sha256": "f18fa2c973b2b9ea2dfa6d36d397e0bb743aa2aa09876e2a3b8c87a5e67bf8b6",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "com.sun.jna_5.19.1.v20260612-1000.jar!/com/sun/jna/linux-arm/libjnidispatch.so",
+      "bytes": 130788,
+      "sha256": "b2a32135dea251fde4027f536345420001bc921e21baf82b2e01ce2753da2097",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "com.sun.jna_5.19.1.v20260612-1000.jar!/com/sun/jna/linux-armel/libjnidispatch.so",
+      "bytes": 139472,
+      "sha256": "d9db010b0336cdbf643c38921c1c04519f811bee0f45824b6872661a25d64ed2",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "com.sun.jna_5.19.1.v20260612-1000.jar!/com/sun/jna/linux-loongarch64/libjnidispatch.so",
+      "bytes": 341968,
+      "sha256": "6c55d9ec3efaaee1843795648246b3fe52de09d3990984c5b8a580cc803c6bc9",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "com.sun.jna_5.19.1.v20260612-1000.jar!/com/sun/jna/linux-mips64el/libjnidispatch.so",
+      "bytes": 144056,
+      "sha256": "0025cd4345faec5a7d9fc8c88f187016dbaf4a6ef411cd6c8907e199d952528d",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "com.sun.jna_5.19.1.v20260612-1000.jar!/com/sun/jna/linux-ppc/libjnidispatch.so",
+      "bytes": 127724,
+      "sha256": "fbde8c5b108934e75c7008562e95b209535bf4996b3bc246ec5e425a0757a903",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "com.sun.jna_5.19.1.v20260612-1000.jar!/com/sun/jna/linux-ppc64le/libjnidispatch.so",
+      "bytes": 145072,
+      "sha256": "aaa31a2220e270f69259d930540c5682b1bd662a6d774918605e62cd562d5d11",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "com.sun.jna_5.19.1.v20260612-1000.jar!/com/sun/jna/linux-riscv64/libjnidispatch.so",
+      "bytes": 100064,
+      "sha256": "f817ac611184e31fd84ac2d223ff8f9312300fbc025adfb5cadbfefb8d1a2c13",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "com.sun.jna_5.19.1.v20260612-1000.jar!/com/sun/jna/linux-s390x/libjnidispatch.so",
+      "bytes": 136976,
+      "sha256": "b31df7050aa22907e5caae2ef81db83e2900b7b6e683080f6f5681373a71e400",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "com.sun.jna_5.19.1.v20260612-1000.jar!/com/sun/jna/linux-x86-64/libjnidispatch.so",
+      "bytes": 134447,
+      "sha256": "ca07953d595210082339753d9e818a1fdb40509a17a41914d9a2cb0d2df6b6af",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "com.sun.jna_5.19.1.v20260612-1000.jar!/com/sun/jna/linux-x86/libjnidispatch.so",
+      "bytes": 123384,
+      "sha256": "546ec7cc6548de411cc52a1069295301308437080be014cda2346ccd0f99bf55",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "com.sun.jna_5.19.1.v20260612-1000.jar!/com/sun/jna/openbsd-x86-64/libjnidispatch.so",
+      "bytes": 98728,
+      "sha256": "ee3b7bfa0887b7388ad598dea98281ae40907bafa8cf56b406427aecd3d2ecdd",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "com.sun.jna_5.19.1.v20260612-1000.jar!/com/sun/jna/sunos-sparc/libjnidispatch.so",
+      "bytes": 231108,
+      "sha256": "5ae26c1d50dd6836d0bafb1af2a6c39eb4084be42f0a05da0645d31feed1efad",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "com.sun.jna_5.19.1.v20260612-1000.jar!/com/sun/jna/sunos-sparcv9/libjnidispatch.so",
+      "bytes": 166976,
+      "sha256": "ccd720895968a885d423facf63615c7f16490f94d946ecb5fefdd4951c62297c",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "com.sun.jna_5.19.1.v20260612-1000.jar!/com/sun/jna/sunos-x86-64/libjnidispatch.so",
+      "bytes": 169992,
+      "sha256": "4a0b0b11369d4f88437700e8ee3557cb518ec017bfe2df3bd49faf82e60e8f8e",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "com.sun.jna_5.19.1.v20260612-1000.jar!/com/sun/jna/sunos-x86/libjnidispatch.so",
+      "bytes": 153152,
+      "sha256": "fdba3f2f4220fb407c7841b2f49efd4fe1c06dca26c9768513e13461ed1520c5",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "com.sun.jna_5.19.1.v20260612-1000.jar!/com/sun/jna/win32-aarch64/jnidispatch.dll",
+      "bytes": 274432,
+      "sha256": "b8f98be314234cf12b5b46c29652f70c0f6abb93ae19b63d3fe2692062aa699d",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "com.sun.jna_5.19.1.v20260612-1000.jar!/com/sun/jna/win32-x86-64/jnidispatch.dll",
+      "bytes": 273408,
+      "sha256": "5a7ff949f6d93d86491eb5b26b1cfc60051168a60622650224b89995ac420023",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "com.sun.jna_5.19.1.v20260612-1000.jar!/com/sun/jna/win32-x86/jnidispatch.dll",
+      "bytes": 226304,
+      "sha256": "752d597cee7e95cb517327146bf42f124c0d6c0bc48b3ecc3b1b3b0531a52f44",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/etc/ant-bootstrap.jar",
+      "bytes": 31705,
+      "sha256": "1d14f36314c8bb9688811d328417f46ed866b463a0a0e27a5c3fea7f7bbeda76",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "0f9726899727e793d8ba5524678a84a3aa714d39ee97ee8961bd043666a4563d"
+        }
+      ]
+    },
+    {
+      "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-antlr.jar",
+      "bytes": 21503,
+      "sha256": "9f8e0bfdae2a250805178fceed26efae3f5fdffda278d8f165ce9a2055fc8f0d",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "bf28d0febf3f0449a0892cf902d39d4eed4d814a375422552da59fdcb3f20510"
+        }
+      ]
+    },
+    {
+      "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-apache-bcel.jar",
+      "bytes": 25201,
+      "sha256": "9ddedd7a94b609543def62329b348ea864ec9b8817a2df8c0332798e958b5c05",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "47dcd8b44ce68f920cc997d8af2437c211560525f12b0dded5ec2ecb7263abd3"
+        }
+      ]
+    },
+    {
+      "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-apache-bsf.jar",
+      "bytes": 19548,
+      "sha256": "3fbece84d92e6c5e23e2e0e968f49ffaddd6547aa4faf067f7c877f07b51df36",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "594d4614cbca879bb431c6f19ab3d0046763c7c67185ee29e68f0c5f44ad289e"
+        }
+      ]
+    },
+    {
+      "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-apache-log4j.jar",
+      "bytes": 18075,
+      "sha256": "9c456e1dffbcabf3070a3875d82038a4ef12238125d8ea473c3a80d1d7e9a9f5",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "17d4a56bf45bbca1bd8b5e65faa283a1af9df2eca65a28c9728e6964d5d05c59"
+        }
+      ]
+    },
+    {
+      "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-apache-oro.jar",
+      "bytes": 19481,
+      "sha256": "b7ddd1b68859f2414ae993dbbb373e15721bb2f50f811e74e793f4ca92463932",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "e8925273f1a80b02bef7937d529c0a3571483f2f7d15356faafc73e866f1b81d"
+        }
+      ]
+    },
+    {
+      "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-apache-regexp.jar",
+      "bytes": 19446,
+      "sha256": "f46521a8f1e883658f352db9df65688b8dc3690f128dc8d2c0ea8b7a6338376e",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "85180a34b86f6cc50219eb3b51f5b228c2673b8e20a9c0b0afa5a7c8f7be9110"
+        }
+      ]
+    },
+    {
+      "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-apache-resolver.jar",
+      "bytes": 19349,
+      "sha256": "d023ea3fa9aa2ee64cc9565aa32bcbe8c9f57c8e484366bcc82e4f845acf306d",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "748028197330bf6cdb08818b155e997b73876d33098165ab3925f955f02d245f"
+        }
+      ]
+    },
+    {
+      "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-apache-xalan2.jar",
+      "bytes": 17764,
+      "sha256": "1a1647f77d6d5c891442d7366090ca016626ac1e7f52b6da1cc5e85677a3a501",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "1af8386275217ebd4f4942753cbb30198ce6590686fff01abec2465ca2f2ff18"
+        }
+      ]
+    },
+    {
+      "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-commons-logging.jar",
+      "bytes": 19503,
+      "sha256": "b6c7d9a475c0ca5c1c3a4055244f9b06fe35159ddb5322808152d30cef3f8222",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "2ddc69307db3c317a03cd045e37bdd1c22831020d13ba1d26bb5f3c6379cb08a"
+        }
+      ]
+    },
+    {
+      "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-commons-net.jar",
+      "bytes": 102701,
+      "sha256": "addfb05781fb1f8626368d64ee518679e966e0d5234d2c93d1ae373be75a32f0",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "1259510d57c3159e23757fdf53be711b224ee08cffa5d147c95a6d71cde15e7d"
+        }
+      ]
+    },
+    {
+      "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-imageio.jar",
+      "bytes": 42325,
+      "sha256": "c29febafa42ac8aa794af935a2c1fca2ef9daa89b6532590798a2ac143914e22",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "ba556987c89b1faaca3940afe9c38496caf6283df24ceea0417c8a32250af0b4"
+        }
+      ]
+    },
+    {
+      "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-jakartamail.jar",
+      "bytes": 23924,
+      "sha256": "b6ef81dd370215d4c287ace6e3efee2fe3138bfc2707f0631203f1859d9267f9",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "2f88a8005198bc094adf7e557b6269f8bc763324b5336152ac0dc3e0bb9e898d"
+        }
+      ]
+    },
+    {
+      "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-javamail.jar",
+      "bytes": 23922,
+      "sha256": "d52f3bce06fd924373879d82ac5f46a1f5713c59a02b2bd7d5f6c95456d316aa",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "def9baa5602465a9c3ae233c12069ac81036fe36ca6341c9883bf31c2fff9325"
+        }
+      ]
+    },
+    {
+      "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-jdepend.jar",
+      "bytes": 24382,
+      "sha256": "ce66025d3f3dbbfdd44fded2e43cf51d45f24c49cebbfe58a9791f747947e3f9",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "d50a9e5936adbb6b98f89457bda1637d5ca1a0de8f0eb94fdab38f1e09190b40"
+        }
+      ]
+    },
+    {
+      "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-jmf.jar",
+      "bytes": 22487,
+      "sha256": "fde1c1ed6ee4ecdaa08d6adb3413f832127498e1028e8e88cfa4fa7f9e36fed2",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "9b0124a55a9e08b58744f7f7b13f2a7ec1650d27f288df8dc5411d40fd58b89d"
+        }
+      ]
+    },
+    {
+      "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-jsch.jar",
+      "bytes": 66358,
+      "sha256": "655ff2f3b9e9f29849e6e64843cf73408e5fbf72c6101933df27ed85a7f83601",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "9e53a5dfcdc9f0bcc318e26468a0a16cc88c64a475cadca82eb60ad5ec5687e7"
+        }
+      ]
+    },
+    {
+      "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-junit.jar",
+      "bytes": 154934,
+      "sha256": "49eb5c41989aa00dd2c3fb87e66ca0fbebdbf04cbb9d3e1221bdc04d1986fcfa",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "1199131d8936f10b458e61dbc38706d78a7c2b275f3a6b5be675ba048e95fc1a"
+        }
+      ]
+    },
+    {
+      "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-junit4.jar",
+      "bytes": 23456,
+      "sha256": "0f3005303d882f28c5836f69cd9a6ffbe1fb999d72f9b078b1b162eb6b296fa5",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "d1b0daefc64bd7f2f2552882fd732174c9aa1dcf81181f4b6b55047e3065a40b"
+        }
+      ]
+    },
+    {
+      "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-junitlauncher.jar",
+      "bytes": 110022,
+      "sha256": "5eb05492499164e9a794e76aaeaf3d536e8f12370bb557532a15ff75f56c4bc8",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "501dfba40b39343f6dbfe1ee2e117acd7af4a913abd92ce1294dca6497f0c079"
+        }
+      ]
+    },
+    {
+      "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-launcher.jar",
+      "bytes": 28305,
+      "sha256": "ef77b7ab4fb8836b5e5a0aa899201655e1b43a877a8036e197257a22ce88f9ad",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "39a7552491c9e5c3a5f611a695728d23332be2407aaaa86cefda899be8b12118"
+        }
+      ]
+    },
+    {
+      "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-netrexx.jar",
+      "bytes": 26763,
+      "sha256": "37c5ab9d0771668acdccc524d5093127af4eb859d9c25bb474535f53510c107a",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "975eb75a699c68f04c564e4e0af6c9aa5d54c5aca3aedf210940c4e470fbcab2"
+        }
+      ]
+    },
+    {
+      "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-swing.jar",
+      "bytes": 23302,
+      "sha256": "49bab68974a73af67d626c16b6eb973d6b54fff51bf26cedb7ff51db9bbbba20",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "af41eaa2c6e3d1a1a276ec7f5a1b8213da2e54854a66e615060f69563c85a695"
+        }
+      ]
+    },
+    {
+      "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-testutil.jar",
+      "bytes": 39185,
+      "sha256": "0132f40376aff691cc650ad0dc3d29b9d5d2c2974a567a42764d0e6b08bf4e3d",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "f300ff09e5641c0fd966844f99a6f5bc190a4fe0b1a26da0edef5585eef1db01"
+        }
+      ]
+    },
+    {
+      "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant-xz.jar",
+      "bytes": 20887,
+      "sha256": "23738980c6028c2313dca91c0463c5f28c04e1942498d142044adae0ee3d59de",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "0c1f80364d569d6eeff045398fb4a84885316b8af8c253ab310fe2947959e6ac"
+        }
+      ]
+    },
+    {
+      "path": "org.apache.ant_1.10.17.v20260410-1000.jar!/lib/ant.jar",
+      "bytes": 2423292,
+      "sha256": "af25c7d1aeae00774c2c989cb6291e5f83901e0b464445969cf5e02b562a737c",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "036e90b30c2331299d98d2a30faf79afe3d93f96e4d14a1d1410c04d07464682"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.ant.core_3.7.1000.v20260602-0655.jar!/lib/antsupportlib.jar",
+      "bytes": 30982,
+      "sha256": "aa1382ba0b6e3e10c4ca8e5d4ab4650ed8855f204dbed3a84b5209b552ca53e7",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "3e1aed7aacdf0e5be084e3541c8ed064fe300eaac574a9e6ce1d416cdc1c19af"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.core.resources_3.24.100.v20260812-0827.jar!/ant_tasks/resources-ant.jar",
+      "bytes": 8437,
+      "sha256": "66c4ab92d3f667697d74e5eca313cb18f7f206befd47e94eb2709b09f0fde7d3",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "3e1aed7aacdf0e5be084e3541c8ed064fe300eaac574a9e6ce1d416cdc1c19af"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.equinox.launcher.cocoa.macosx.aarch64_1.2.1600.v20260804-1928.jar!/eclipse_11924.so",
+      "bytes": 118608,
+      "sha256": "790115da461f74a8076556b9527571650a8d5d51f88ca654ac0a3ed8a23206b4",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "org.eclipse.equinox.launcher.cocoa.macosx.x86_64_1.2.1600.v20260804-1928.jar!/eclipse_11924.so",
+      "bytes": 79024,
+      "sha256": "93440ae06e56fd85c153252246b5955dc27c01f7bf287c364a7b96da49c76049",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "org.eclipse.equinox.launcher.gtk.linux.aarch64_1.2.1600.v20260804-1928.jar!/eclipse_11924.so",
+      "bytes": 245792,
+      "sha256": "5ec37b7885b23f87c932fd1f71fd47ddebddf0957ccb2a4fa20c98dc75f732e5",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "org.eclipse.equinox.launcher.gtk.linux.x86_64_1.2.1600.v20260804-1928.jar!/eclipse_11924.so",
+      "bytes": 179536,
+      "sha256": "b2ef828af2a1bacde6ae3660ff69bc7b2a11e3178fd6d4ac8ef7654c9b67ce44",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "org.eclipse.equinox.launcher.win32.win32.x86_64_1.3.100.v20260804-1928.jar!/eclipse_11924.dll",
+      "bytes": 267944,
+      "sha256": "aeccbee5dd2bd2998a0483e306a84e6e75b97f7ac4e7f99620d455ad637b4af1",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "org.eclipse.equinox.security.macosx_1.102.500.v20250521-0414.jar!/libkeystoreNative.jnilib",
+      "bytes": 151680,
+      "sha256": "4be8a80b9e7e695dff030beff12c38234f3ec8e2cb12065ea65c551de3557df8",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "org.eclipse.jdt.core_3.47.0.v20260828-1141.jar!/jdtCompilerAdapter.jar",
+      "bytes": 14993,
+      "sha256": "f9ebb2c42be466b8e76b5fa22ad6b64859d4366e7f3f99c14c66d53f197dd714",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "3e1aed7aacdf0e5be084e3541c8ed064fe300eaac574a9e6ce1d416cdc1c19af"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.jdt.debug_3.26.100.v20260714-1432.jar!/jdimodel.jar",
+      "bytes": 1024301,
+      "sha256": "7befd8b1ad3a6bbde2e95bbc99f799989de4de4f8d746a3dda69210e332f68b3",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "8ba15e02466da09ceeb8a80a7d2e77ebb5b4e8b32c46f16ab6335cc82c56ff6c"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.jdt.launching_3.24.300.v20260609-0435.jar!/lib/javaagent-shaded.jar",
+      "bytes": 152324,
+      "sha256": "c1bf83de06a433b7273d669630714fbd2992ead78261995c680e4c3c4c3c9769",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "2cc9eb282974a5c7a6f2b6f735558c407573ea1d8973240341cda8035e27c3d5"
+        },
+        {
+          "path": "META-INF/maven/org.eclipse.jdt/org.eclipse.jdt.launching.javaagent/pom.properties",
+          "sha256": "e2dcf4cf4a841e5cd4455087ab7949a7c211ec32c8c0fdb58591f5e96209749d"
+        },
+        {
+          "path": "META-INF/maven/org.eclipse.jdt/org.eclipse.jdt.launching.javaagent/pom.xml",
+          "sha256": "a476011c70a0386fbcf13cac136ae74c8c310c728d7169f8bcb3e48efadb27c8"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.jdt.launching_3.24.300.v20260609-0435.jar!/lib/launchingsupport.jar",
+      "bytes": 12229,
+      "sha256": "ca3882156c063ba182d1f3694ccdfb30f91a87642ffe06fe9bf081424ad646bf",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "be4f3c7cc2f27426ef7fc76fce44d754aa4eba39eed1f32ad89fbd25d2a6a49c"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/aopalliance-1.0.jar",
+      "bytes": 4467,
+      "sha256": "0addec670fedcd3f113c5c8091d783280d23f75e3acb841b61a9cdb079376a08",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "3323d5cb74b9eb65257c3cf4fb28c59281f343c0c0c321835ff17fde82f4b0fe"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/asm-9.9.1.jar",
+      "bytes": 126252,
+      "sha256": "6f3828a215c920059a5efa2fb55c233d6c54ec5cadca99ce1b1bdd10077c7ddd",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "c5543cdab8def9947bfdcc6efbdd3549697627b55eaa09469b776532d0281669"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/error_prone_annotations-2.41.0.jar",
+      "bytes": 20389,
+      "sha256": "a56e782b5b50811ac204073a355a21d915a2107fce13ec711331ad036f660fcc",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "f8e8dfb1c095fbad7c7afb6fc4b92b920b88144e53fe0eaa9a4183054ba13f20"
+        },
+        {
+          "path": "META-INF/maven/com.google.errorprone/error_prone_annotations/pom.properties",
+          "sha256": "2ba0973a0eb8b5c94502c27a703464546f160473b40d72dee95b105f9f12b745"
+        },
+        {
+          "path": "META-INF/maven/com.google.errorprone/error_prone_annotations/pom.xml",
+          "sha256": "a151df1e2e0b48618d8b06a180748a29b3abb39b1b2396f6a1c879a727488c6e"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/gson-2.13.2.jar",
+      "bytes": 289901,
+      "sha256": "dd0ce1b55a3ed2080cb70f9c655850cda86c206862310009dcb5e5c95265a5e0",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "0c0efe890eea2ba0420a347ef4d7f0dc19c4e07447883f7a4573bf8357c9a7f6"
+        },
+        {
+          "path": "META-INF/maven/com.google.code.gson/gson/pom.properties",
+          "sha256": "6c1ded1fd031abdb82b618b36793fd01de568e011b022fe5232e2742fae8ea8e"
+        },
+        {
+          "path": "META-INF/maven/com.google.code.gson/gson/pom.xml",
+          "sha256": "3aa06aa7c0f9af092961a42d09578e4324be146348a0ee6ed47857f7c2677b76"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/guice-5.1.0-classes.jar",
+      "bytes": 656919,
+      "sha256": "142ad4475e19524d2fe3ac995b3f7cbc962fc726f2edb9dbdccc61feab9b2bf9",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "c879f5449e5d2a9c61a364195f2bfb5dff91c091a4be07ef74f0bd7098369019"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/httpclient-4.5.14.jar",
+      "bytes": 785639,
+      "sha256": "c8bc7e1c51a6d4ce72f40d2ebbabf1c4b68bfe76e732104b04381b493478e9d6",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "9a5f9c37cfef7ca2c36fc0e0174268c844e9cec5fc2d5e99a60775a79e987d85"
+        },
+        {
+          "path": "META-INF/maven/org.apache.httpcomponents/httpclient/pom.properties",
+          "sha256": "8627c13ddca47a4c3dbc6f7f04951bf6753a0d7ee93cc943dcfe1a048fe252a3"
+        },
+        {
+          "path": "META-INF/maven/org.apache.httpcomponents/httpclient/pom.xml",
+          "sha256": "f18355af4cf80a8a4ef04ebd742a47e90a7eaf080c725b2095dbc4fc5dbdefb7"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/httpcore-4.4.16.jar",
+      "bytes": 327891,
+      "sha256": "6c9b3dd142a09dc468e23ad39aad6f75a0f2b85125104469f026e52a474e464f",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "db7f721cdd655e9b511fa60090e6d0aea0b475b84a1fdef928461209c4c1a28b"
+        },
+        {
+          "path": "META-INF/maven/org.apache.httpcomponents/httpcore/pom.properties",
+          "sha256": "17a6a855c49e415828a8fa647dcc303b5927666e38198f876cbc4cc61878de01"
+        },
+        {
+          "path": "META-INF/maven/org.apache.httpcomponents/httpcore/pom.xml",
+          "sha256": "3cbad849b35dacfe6cec31adada2c623c026c3261141b0d26eec7e399c6cd7fa"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/jansi-2.4.3.jar!/org/fusesource/jansi/internal/native/FreeBSD/x86/libjansi.so",
+      "bytes": 10196,
+      "sha256": "af40370e582dba5d1e81ae41ddc34cd7040e3d97eb3a8e8acaa1f22122afff2b",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/jansi-2.4.3.jar!/org/fusesource/jansi/internal/native/FreeBSD/x86_64/libjansi.so",
+      "bytes": 13228,
+      "sha256": "ee1a719fc65d4e7830cfd3bd605fd1ea328cf84e6e76ac3a901c87d8ebd682bf",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/jansi-2.4.3.jar!/org/fusesource/jansi/internal/native/Linux/arm/libjansi.so",
+      "bytes": 22052,
+      "sha256": "4a56efedfb60bf211d63cf1ad68bec5debb3147145b4decca93919a6367f8b90",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/jansi-2.4.3.jar!/org/fusesource/jansi/internal/native/Linux/arm64/libjansi.so",
+      "bytes": 19544,
+      "sha256": "fff11e2c117f1325670587b654f07e663e80dc912cdbc81dc65af9edcee5684d",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/jansi-2.4.3.jar!/org/fusesource/jansi/internal/native/Linux/armv6/libjansi.so",
+      "bytes": 15088,
+      "sha256": "e3b4d8e7c8559f18c3a3364ecf23267438e7e02acca7eee42fd1962d1df7640c",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/jansi-2.4.3.jar!/org/fusesource/jansi/internal/native/Linux/armv7/libjansi.so",
+      "bytes": 14444,
+      "sha256": "d42832e4679f80ca7949013ff3c681b98b8fb85ae7e54f4679beb4e2ba6c92a6",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/jansi-2.4.3.jar!/org/fusesource/jansi/internal/native/Linux/ppc64/libjansi.so",
+      "bytes": 73224,
+      "sha256": "5c84e6b6be45d799992d0bb64105f6656da9554ac52bdf22ad4318012d3a534b",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/jansi-2.4.3.jar!/org/fusesource/jansi/internal/native/Linux/x86/libjansi.so",
+      "bytes": 16988,
+      "sha256": "96f650ecbb00059fc2f6fb629f8feadd5879032a58c70a7ac8f169775239ee5b",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/jansi-2.4.3.jar!/org/fusesource/jansi/internal/native/Linux/x86_64/libjansi.so",
+      "bytes": 18976,
+      "sha256": "249095f2a73e3d2ab348d9f1de659947d253c18cf6a2049f75296b5a0d6ee079",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/jansi-2.4.3.jar!/org/fusesource/jansi/internal/native/Mac/arm64/libjansi.jnilib",
+      "bytes": 71376,
+      "sha256": "88adb4a98896f2f4bb2188702e9a445338637bbd9676f4dac88fbdb58a996f64",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/jansi-2.4.3.jar!/org/fusesource/jansi/internal/native/Mac/x86/libjansi.jnilib",
+      "bytes": 33616,
+      "sha256": "1ef586128ccd34c6d89be240140f051b98d4ead50f4604768c415a9ee9300243",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/jansi-2.4.3.jar!/org/fusesource/jansi/internal/native/Mac/x86_64/libjansi.jnilib",
+      "bytes": 34480,
+      "sha256": "326e4f23e19f639fd400dfbbbd7bf84f03246667575a152fdab91757df1ecefa",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/jansi-2.4.3.jar!/org/fusesource/jansi/internal/native/Windows/arm64/jansi.dll",
+      "bytes": 81408,
+      "sha256": "470e6dfc44b28d628e404d5d6bfbb14728c7973e2397d9149430c85171389a19",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/jansi-2.4.3.jar!/org/fusesource/jansi/internal/native/Windows/x86/jansi.dll",
+      "bytes": 115972,
+      "sha256": "9e6409c3264a6f33f5f97c58265c06e95bf91a896e8e179ebaeb8204c5d19ed3",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/jansi-2.4.3.jar!/org/fusesource/jansi/internal/native/Windows/x86_64/jansi.dll",
+      "bytes": 130522,
+      "sha256": "7020260c8db5116042315ea73714ac36ad94acdc330852280e889212506085c0",
+      "kind": "native-runtime",
+      "closure": "unverified; inventory is not source/legal or activation approval"
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/jansi-2.4.3.jar",
+      "bytes": 275077,
+      "sha256": "d8a8fe4462c7916c95ebaf8708a98d24b13a1ab5d3514316ec1270d30ce20a73",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "5bc5a38f56ece28cfce971c3ee07288f1e7de3cc6167f0ce2fe4ad79df6b27e4"
+        },
+        {
+          "path": "META-INF/maven/org.fusesource.jansi/jansi/pom.properties",
+          "sha256": "8f8ac9f6e72dc6227d472276ba77efff0e5e6938e348e02804cdd43e939617c5"
+        },
+        {
+          "path": "META-INF/maven/org.fusesource.jansi/jansi/pom.xml",
+          "sha256": "97229ddcd9aa86eee77bc4e62f47cec630be9edebf6cedfb29716aedf1317710"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/jcl-over-slf4j-1.7.36.jar",
+      "bytes": 16555,
+      "sha256": "ab57ca8fd223772c17365d121f59e94ecbf0ae59d08c03a3cb5b81071c019195",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "50b66870e59d4cba129e83131386fa6ad9c686643980cc26e7015b038def86a6"
+        },
+        {
+          "path": "META-INF/maven/org.slf4j/jcl-over-slf4j/pom.properties",
+          "sha256": "99ab396790ed6583f356506491eab37bb14a56908cb4f8785a4d98d6ef147abc"
+        },
+        {
+          "path": "META-INF/maven/org.slf4j/jcl-over-slf4j/pom.xml",
+          "sha256": "bd96243d7d4218cd7cc7d45c0e30fa13480a1a4f91d356edd7dfe93f1ffb68e6"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-artifact-3.9.16.jar",
+      "bytes": 58857,
+      "sha256": "54cc1c1ef932e3d4a903352111b42b4d3c3ed8e7a1d0de73b625309d9c3ad3e8",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "73abd8aa1215636f5e00690ba62eda956f074afe69130332b20ef3316d521dd7"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven/maven-artifact/pom.properties",
+          "sha256": "d9b5087fc244a129f29f1d0a95abbcfd6c00dde5e02e97064bffdabb2fa0e033"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven/maven-artifact/pom.xml",
+          "sha256": "85d313bbbdbce67e199aadb4336e100c40a147881142ea4368cdebeafc02baec"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-builder-support-3.9.16.jar",
+      "bytes": 14421,
+      "sha256": "02972384eae3495801565fd27abb84cfd75a8e6d2cbb1ae0c556752ebc2b1cde",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "9c42c8a89f3504cec7a9677658094735470ddadf214bc6e66744b2c85d045b0b"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven/maven-builder-support/pom.properties",
+          "sha256": "21fd63334e601ce3add7c49485a7467271cd9959552c5cccb548f9b6300bfa61"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven/maven-builder-support/pom.xml",
+          "sha256": "c8366af883eeec0e2fd13e14cd8245969284b6e66df131f7b7c03d270f72f613"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-compat-3.9.16.jar",
+      "bytes": 286661,
+      "sha256": "69ea74479f87457d29bfdecf11e1470ad95300b06be16f4c8ddcf5bd3627f4dc",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "ac5e141bdbc5cf2d76b299b2e62adeae310a101bda1ba976933122ead3e73ef7"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven/maven-compat/pom.properties",
+          "sha256": "9093e25149b5b0b048dfeeb7c251ef3f3fd650ed6ae77e9dd787459644a734af"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven/maven-compat/pom.xml",
+          "sha256": "cd913c965f966fe76e6089d5c91a05f8690b2e42735924b46fe191a28ded8609"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-core-3.9.16.jar",
+      "bytes": 721966,
+      "sha256": "5d45c72e3dbfab8b68d15ad4f12777b7d9b5fe4d4adc99c3bd51fb9641fab009",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "3516469338cba0e4d5f19086ba5434fac0938d8582116f1f326f9430cc5eda10"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven/maven-core/pom.properties",
+          "sha256": "9badd0468235d660b69b27f863bb736b5e3f11326b4d4cdb5c0726c87b3cb10e"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven/maven-core/pom.xml",
+          "sha256": "186f17628c5235d03e34c593122d05fdc1be9694440a54d8213b3f957d6379a4"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-embedder-3.9.16.jar",
+      "bytes": 117446,
+      "sha256": "a99aaac6ecb1b98d0f3b3ba18c16a122fc503412222055639a3eb4cbe458313b",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "6cd96e5e47e35eb0808071801f259432194377f6f4fa0ec03f7995ae3b740380"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven/maven-embedder/pom.properties",
+          "sha256": "ec34b20ca170a4a57f830c9623877f9c5d8df69dea69af29858b12303a8ec203"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven/maven-embedder/pom.xml",
+          "sha256": "b3fe6f3e04ed4e4f5dd2fcf58359d3c1c9da4e5e877a8e916b620e97f8913f30"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-model-3.9.16.jar",
+      "bytes": 217972,
+      "sha256": "f59d86a507c241bf17bbf050050d1b8b9c0d34d5010a7e2386c3cab7c83b93de",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "6de16a1c403457f50f8c4a7c04cc9f243feb9a1ca4530959fa715e722e4cc937"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven/maven-model/pom.properties",
+          "sha256": "e4192ff95feccbb66cbde9700a089850539787f8ba6fde48c8e2e1cfd6828c5a"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven/maven-model/pom.xml",
+          "sha256": "64883ffcfd91ddaadb4181740236a823bfe0880e0c20f5beee74bc32a93914a7"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-model-builder-3.9.16.jar",
+      "bytes": 208687,
+      "sha256": "002be86d1f53b36f559a0786034a17598d71087f1935f205a1f9e51d4dd124b3",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "40df9d98ce48140d8fabe6751b25dabb9d59d3a94fc9c9fc02bdb18acfb88e7b"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven/maven-model-builder/pom.properties",
+          "sha256": "91dbfb0c23710a32aed7e3529b2b01029559e91c72be297430b1947658c504d3"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven/maven-model-builder/pom.xml",
+          "sha256": "6e2a59eadd77b244fe60fc60b7ed3a9b2dee704d44a4f5baca4f9d3be6e53e10"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-plugin-api-3.9.16.jar",
+      "bytes": 47631,
+      "sha256": "37cb5e483e23327cf4ba18f920b45e000d20eec0428a086a5c1bd6bbdecf088c",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "d58bd3699ef5b270ca6debb7ab87e0bb20a1e064a2087200a04ffe6a8c87e6b9"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven/maven-plugin-api/pom.properties",
+          "sha256": "d7a93a6528406808a99dd00feae7d4f029f9d6cba9e4d06812992ef42b6ff294"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven/maven-plugin-api/pom.xml",
+          "sha256": "6fe60dbb3157b9466a6b18f70a4c6eca7f68978eaf015ce164bb2471e1acbc12"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-repository-metadata-3.9.16.jar",
+      "bytes": 28552,
+      "sha256": "bc3dd413b89a16b695f35a5d0496b58ea2787c30b7b6062c130d24d6d764720f",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "5ad9d317adefd5a9317f16343028f3712e4147faeed8a176ec4b784885cfc1c2"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven/maven-repository-metadata/pom.properties",
+          "sha256": "6094bf1299f0265b711377e83c3b1ebe2c808de3580e2d4b996abcba2d7e6b50"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven/maven-repository-metadata/pom.xml",
+          "sha256": "1c018bbd6cd513b43df5dd64c82579b14c414d35f99e06a0c3878b05ae070912"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-api-1.9.27.jar",
+      "bytes": 158204,
+      "sha256": "a895d222283666a7320ddc76615e2e93a41fabd93ce9a6bf9ddee39272bb87b4",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "5cf6b4f9e937b4f0a0b48cfcc390c5587f1456945a4ea53f84261b9706929b30"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-api/pom.properties",
+          "sha256": "915dc92d67df1607e4ee62d72cc0c35cda62786711712ed21775b96ead76aedd"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-api/pom.xml",
+          "sha256": "98dc031f75f2c9b7efeef344e1c74bb3d009c584e36e82a0ec3d263d2bfef373"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-connector-basic-1.9.27.jar",
+      "bytes": 40363,
+      "sha256": "3bd98e3a426f9adcae39e3786db229e2be77e08a743ecd9be15c5ed77be3a625",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "6b4a0a26e9f76124ba3d0cca593465ca558afc1ebf1bab5faa6d0b252604ed5c"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-connector-basic/pom.properties",
+          "sha256": "7acb2f5d69a19b064e800017247a117a90d6ef207051e4170940cbe7e4e2f013"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-connector-basic/pom.xml",
+          "sha256": "494fd7b5b48b9dd65ff624ef38c900e7caab4d815567dca1ba6fb9d80278a19f"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-impl-1.9.27.jar",
+      "bytes": 327414,
+      "sha256": "295d48ea2a8bb3aef51888967f105fb6251997d111f13c32d28919fd9b1c951e",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "d66eb92d710a1200571b630462de13e1db7d98f03ca141dbb3334f536545e716"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-impl/pom.properties",
+          "sha256": "81bc8a3a2110f7c8a7cc164ec83ff4074ac015bdf4fe70075548cf84c699ba0b"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-impl/pom.xml",
+          "sha256": "ce9b47e8aeb58e46dfd05eb8fd0fe3ebfe152a06ff0f23bb42127d1576cd6914"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-named-locks-1.9.27.jar",
+      "bytes": 37944,
+      "sha256": "b39ecd4da98fdac5068e6f5d16910a71f4e4d48e95e17d107f6603e18f2b3fdf",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "7afe01e8a30ec3dda2fd5bbcf06f0c122c9581d41991beae90216f05185ec8ac"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-named-locks/pom.properties",
+          "sha256": "9bcefb3fa4917ccaef58dcdfbab74dc6acefd6ae50b563ef118cacb679219386"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-named-locks/pom.xml",
+          "sha256": "41ef2c7170eb0672cb7bc97caa765bad5386d49d93bbe8ae430887238c8e669a"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-provider-3.9.16.jar",
+      "bytes": 79038,
+      "sha256": "72a2d6aad3708e2c708b659b292ae9587a4d170ec88f48466290318730221118",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "4cbe4d2ff5bc087bdb313f7d1d1e3507db86119372f88ed7f296266d853c7b99"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven/maven-resolver-provider/pom.properties",
+          "sha256": "34465b306aa6f3f14c1731046a676d06529f7b05a6d3cece6168e14dd5c2da39"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven/maven-resolver-provider/pom.xml",
+          "sha256": "33723bba45ff2a1581bc2840836b7d9c9aa262af676f4f61222e179b56ea8818"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-spi-1.9.27.jar",
+      "bytes": 51660,
+      "sha256": "1cab02f45bc58d5f4d8e084eaf032f13ea1a5fc9021d8bd74f8360ebb6593e5a",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "ecbe41d27f7b9708c802d9a01791de3773e57ad45adfa9da8a491763e24b70d6"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-spi/pom.properties",
+          "sha256": "c64a31df6cd78a5b46f772f3b66a29450923632fef20c1ddf0373469dc4a2403"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-spi/pom.xml",
+          "sha256": "c6310e360bb5b543aa0c7a6892b18e964add6feaf3917ac88c85264ed377c676"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-transport-file-1.9.27.jar",
+      "bytes": 16222,
+      "sha256": "3988261bd31e2e79eda802b3971992fce44756b0029557a05c7b871d3c3ddef7",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "5c971c22eb83c95fd89ca0fcf383b80979bb242a0be33d35ec9479490fc285f6"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-transport-file/pom.properties",
+          "sha256": "1873e48dd99b11012a6971c4cc790306d9714f135d6d48ceca7b4410f4008ff3"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-transport-file/pom.xml",
+          "sha256": "4832099eb3a535b19903a898bb03f4cc654886deb07661bd38f8cb3f002ebe54"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-transport-http-1.9.27.jar",
+      "bytes": 60215,
+      "sha256": "723f3d9d717a693d0aac589e266b995f76e9c63edd48ecc8a0cf9e86a77e459c",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "41895f4cb735542c5f5f449e4b1d91bc079ac880c680be71c6aa5aae0552df71"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-transport-http/pom.properties",
+          "sha256": "de1dcdd40e55b19a4b351f1c3a9c2da7fb6d715b63324fe1bc09f4d44177e758"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-transport-http/pom.xml",
+          "sha256": "a7eae6d54a490eedf286193d7f280f7e97d89588da7d5adf117f0133098dbe2e"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-transport-wagon-1.9.27.jar",
+      "bytes": 32464,
+      "sha256": "ddf1c8744f7ef50d8ab78526611b690ab1da0e9ad8d99f72d9dbe1b259aa9a8b",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "2d5925b82adba782fe080130fce14c83e7e58d59ff45da075a118db62a1607dd"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-transport-wagon/pom.properties",
+          "sha256": "bb4520702a8098ebb8a060c08e7368e09f2f5bb903be55833c68a25587742291"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-transport-wagon/pom.xml",
+          "sha256": "8dc4eb6a727abe07d6fa8c94056920050dbac039cf714e51e633e430aa2d6002"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-util-1.9.27.jar",
+      "bytes": 197365,
+      "sha256": "74a12548f0d6aad13c728666288c1e81201c24bd05bb4e4ec8c1558517b379a7",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "68681e9cbe742745e479cb7212f5afabbb650ebd6c81b262f1ae0535207c87c2"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-util/pom.properties",
+          "sha256": "b954678639f04711dff23b196fdb68ff2d711c561d39a0609b9fbf1968fe14f0"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven.resolver/maven-resolver-util/pom.xml",
+          "sha256": "b2b3c7774cdc61887da814b42338c9421babbab9b1e87c3e6493885ffda53231"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-settings-3.9.16.jar",
+      "bytes": 44673,
+      "sha256": "322ae5b23f4b7b6ce7896bd33a793143dbbbbcc16c4475e2d7eebbd8f755da92",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "7edc8a6f22cc51ca71b276cbbfa008978aaf5c4f51b5de41e5c5db327c98b1c7"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven/maven-settings/pom.properties",
+          "sha256": "3cbcf58ac7933a0f58dcf01f67c2723f9bfaa22b545d9398d18a65f17f49ff3c"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven/maven-settings/pom.xml",
+          "sha256": "d3df811fe57832933adef90c119cbf3abb941884cf840cc9777aa639cf1a145d"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-settings-builder-3.9.16.jar",
+      "bytes": 42395,
+      "sha256": "226f1cbb0b4d414eff773fb151a8977837c98073e14d5963794e6cf464e6adbb",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "5a5c81f1f47c389e9e5b1dbdc1218a0d69e303beef4f77542e7ac0a3a10fc54f"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven/maven-settings-builder/pom.properties",
+          "sha256": "74ca6bc19f78ed1f35b5272b48df4abbfc4b92490ff4f4e3d562da41b7a6aadf"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven/maven-settings-builder/pom.xml",
+          "sha256": "bce946240bf297982f524666674acff5c14878a24849f1f3c3489cd1d829ed48"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-shared-utils-3.4.2.jar",
+      "bytes": 151103,
+      "sha256": "b613357e1bad4dfc1dead801691c9460f9585fe7c6b466bc25186212d7d18487",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "7b96ed8bb84343a69f8ac98087acd46f3fc6b614348d5a267906986e682a4127"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven.shared/maven-shared-utils/pom.properties",
+          "sha256": "5a9809162a8205d87cc1ceb8a9efee6291023eef4634b14bb05343796cd2d8e7"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven.shared/maven-shared-utils/pom.xml",
+          "sha256": "a941745d7faeb8dc9a75edc2c330c994b7440b9a44d21142716b6053967a41c1"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-slf4j-provider-3.9.16.jar",
+      "bytes": 23729,
+      "sha256": "a435cb0fdfc9c906bdc1ef72f043f59fef23dfd0db5beb5dd1e17a0a07f99d52",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "f6e0b62148e3d07ce51f64ea601a5788612bb657e73929f69efcdc1479be2253"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven/maven-slf4j-provider/pom.properties",
+          "sha256": "fe64593b94476e4b4c97c39fc9adefecf5c1b0add0a7d26545429538da5f5b49"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven/maven-slf4j-provider/pom.xml",
+          "sha256": "05d8351678f8b4f48fb6d2ee52e23ff2655fee31ce5688525120ba8b86dd746e"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/org.eclipse.sisu.inject-1.0.0.jar",
+      "bytes": 304229,
+      "sha256": "3ab8d7bfe68f3b6ec95c1a0a47e628edbc9d76e90634cb0a0ba121fbb11b8e42",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "dab76f3b046568e2bb95d064192167b6d2538e7d41ffdc5cea09cbf3f942e29b"
+        },
+        {
+          "path": "META-INF/maven/org.eclipse.sisu/org.eclipse.sisu.inject/pom.properties",
+          "sha256": "3ed82cffcf8679f9234e53e978249028c6e4d3d438ecbddf1635b7be67b8ad6a"
+        },
+        {
+          "path": "META-INF/maven/org.eclipse.sisu/org.eclipse.sisu.inject/pom.xml",
+          "sha256": "ea0fb93dafec8adde218ce2a11f0f84ebec2b822c1d9be8b2ed9cd61ed654cf3"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/org.eclipse.sisu.plexus-1.0.0.jar",
+      "bytes": 215733,
+      "sha256": "865b5300034fc08c790215d7d97f141914c932191bef9338a7dcef589f7536e9",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "c9431148e86f1087b63ecdf1b991ad235c0bb12e999563084ff1bdd581755a81"
+        },
+        {
+          "path": "META-INF/maven/org.eclipse.sisu/org.eclipse.sisu.plexus/pom.properties",
+          "sha256": "3825c3ad95af93f01923de2e74e3b4ae5d02c523620613169fd167f3df981c73"
+        },
+        {
+          "path": "META-INF/maven/org.eclipse.sisu/org.eclipse.sisu.plexus/pom.xml",
+          "sha256": "f9bd338be70d4bc4d8f3f10cdfab7baec089fd3b3ef1013d4ca64c4e7f2163d5"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/plexus-build-api-0.0.7.jar",
+      "bytes": 8482,
+      "sha256": "934171640fbd3d2495c50b79b0d9adb11e2c83e65bad157df8fe34bcac0ff798",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "65389dc8e310b321e2493a488504200b0745f23b74bc497beb77b160d24bb4e3"
+        },
+        {
+          "path": "META-INF/maven/org.sonatype.plexus/plexus-build-api/pom.properties",
+          "sha256": "9ad8a64e9dbace2837bedbbf58b9594589ded002d991e286c2b2235f088c5406"
+        },
+        {
+          "path": "META-INF/maven/org.sonatype.plexus/plexus-build-api/pom.xml",
+          "sha256": "e067317a47ed9e84b2ba85a76d3cf72980e2b0dc873a90b9cbfe74fe80c37c17"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/plexus-build-api-1.2.0.jar",
+      "bytes": 6585,
+      "sha256": "570ae55a95e1887c3004882d30dc4e9035d2a46ba8d58b991de04175f141d88f",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "2bf0b1f4b1c0d27f362c6852223057a867beb562bd73e77e23eef4772d81e1a3"
+        },
+        {
+          "path": "META-INF/maven/org.codehaus.plexus/plexus-build-api/pom.properties",
+          "sha256": "174179b98e03fee955d53054bf064bd1ba64c8c6f88c2dd38a407eb2d1c92ae6"
+        },
+        {
+          "path": "META-INF/maven/org.codehaus.plexus/plexus-build-api/pom.xml",
+          "sha256": "47c7b0e65718ca89df6fdf5cb3f24a49e076cacd9499236c7e18ad78e993cddb"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/plexus-cipher-2.0.jar",
+      "bytes": 13003,
+      "sha256": "9a7f1b5c5a9effd61eadfd8731452a2f76a8e79111fac391ef75ea801bea203a",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "aa9fccdf05b6549e6a4e76cbd04b1da00754355fa1ebaef46dd7bf01ad913b4f"
+        },
+        {
+          "path": "META-INF/maven/org.codehaus.plexus/plexus-cipher/pom.properties",
+          "sha256": "44e455eafd06fb28d2862f5f0e949ce61820a9e958358daf31def30765f70f05"
+        },
+        {
+          "path": "META-INF/maven/org.codehaus.plexus/plexus-cipher/pom.xml",
+          "sha256": "04842f331b0225b85a5e20439710d228ea7a6302abe6d53c9c9846fbc5bf99ff"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/plexus-classworlds-2.11.0.jar",
+      "bytes": 54152,
+      "sha256": "8971f135490070bc5fde7413fcc8db7c997fda4bebfb5c31185900d66edcbbb2",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "2de480a1a378806c33d34dcde2c4fdcb5726d19dbc3e961a33c2e386789a7d4d"
+        },
+        {
+          "path": "META-INF/maven/org.codehaus.plexus/plexus-classworlds/pom.properties",
+          "sha256": "97ca2a90c68a8fa773f4a9145710b040d17a45d05a9d4c38477377f7bbc92e61"
+        },
+        {
+          "path": "META-INF/maven/org.codehaus.plexus/plexus-classworlds/pom.xml",
+          "sha256": "281d317bf8a5fe818708cdd00e377dd234ec949f498d30f4b363f6b9771e1fa2"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/plexus-component-annotations-2.2.0.jar",
+      "bytes": 4151,
+      "sha256": "50edb93c73786e62822b4fe1336e22880fdf147191373cf5c911370e16748fcf",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "cd8590ad6165dfeeb3977803f8c34663b41000d6f3629d68b00584d634db6a9f"
+        },
+        {
+          "path": "META-INF/maven/org.codehaus.plexus/plexus-component-annotations/pom.properties",
+          "sha256": "58fd019b6456e17126e0b60736db4dafe954917c029c416b0a28a3d66f7b683b"
+        },
+        {
+          "path": "META-INF/maven/org.codehaus.plexus/plexus-component-annotations/pom.xml",
+          "sha256": "c5483fc9c8e1a7ef6b0f899e37aaa6ce2f8afae54955bfa559fd63a33dbb065b"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/plexus-interpolation-1.29.jar",
+      "bytes": 88118,
+      "sha256": "088d444dbcedfb384630d8686697ece3c401d6f33c8f8b3aa7259ea1c6996878",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "a91236ca01ba80dba8c8894d8a163b1f111666b61177724067cdfc6bcf5a34d4"
+        },
+        {
+          "path": "META-INF/maven/org.codehaus.plexus/plexus-interpolation/pom.properties",
+          "sha256": "a3ac87b022b1e01aff38c4aef2c5755280446008a665ae38884c41dfbd049544"
+        },
+        {
+          "path": "META-INF/maven/org.codehaus.plexus/plexus-interpolation/pom.xml",
+          "sha256": "ce0d5634297bb1e065dddfdc8a2a5675717c08e8f4783edcf581543711516938"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/plexus-sec-dispatcher-2.0.jar",
+      "bytes": 23604,
+      "sha256": "873139960c4c780176dda580b003a2c4bf82188bdce5bb99234e224ef7acfceb",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "aa9fccdf05b6549e6a4e76cbd04b1da00754355fa1ebaef46dd7bf01ad913b4f"
+        },
+        {
+          "path": "META-INF/maven/org.codehaus.plexus/plexus-sec-dispatcher/pom.properties",
+          "sha256": "b456e04f818fa3ef5c33e727697b985b29205366169be5e85968f9d26e258c78"
+        },
+        {
+          "path": "META-INF/maven/org.codehaus.plexus/plexus-sec-dispatcher/pom.xml",
+          "sha256": "9b28bb307017938a94d06c85b2b099bc46912b859d084fb293e569f432eadb7c"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/plexus-utils-3.6.1.jar",
+      "bytes": 272101,
+      "sha256": "05a63effd67e2d6b9d610cc82e2bd7473289d34802e57a529b28110f28af5679",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "9920b43ea67604eab7578831a3005469143e99b65354709ccb4729629b8d5301"
+        },
+        {
+          "path": "META-INF/maven/org.codehaus.plexus/plexus-utils/pom.properties",
+          "sha256": "b7eb3497edcdbe819a6fb4115b03f1887f2f82a1aacb3426ce2d74a430bc2df5"
+        },
+        {
+          "path": "META-INF/maven/org.codehaus.plexus/plexus-utils/pom.xml",
+          "sha256": "c8397373781af640a76c5da88f1674293b4fc9a2391d0768ee3fc791883b040d"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/wagon-file-3.5.3.jar",
+      "bytes": 11350,
+      "sha256": "afc9216fa97b78dad227b4a8d4d67b9897bf113a57f80598d62993841113e103",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "7812678a85346038c1ab9dbd1c6d74b5367d8a0a436221a9a20fcc7e0ef61cf1"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven.wagon/wagon-file/pom.properties",
+          "sha256": "a88190170316e4021df4e02be18a1eb79ccd20000198b051185deee884f7a1bd"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven.wagon/wagon-file/pom.xml",
+          "sha256": "b89e540a7e432329bb5d93f2dfc578f898960afed66ae6a2dfeaa3d48d32c09c"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/wagon-http-3.5.3.jar",
+      "bytes": 9405,
+      "sha256": "d2b6e48c9fcbe579e1858c622d14464011ff265fa6e28e794004a6882154a509",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "ebc373cf820e9ba7bafca6c88cbe77dc418c4b1e6ee523b93472ea3ae785d0ed"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven.wagon/wagon-http/pom.properties",
+          "sha256": "026e12d8d6beb27ad344e557d62ea37ee12f6709fd5a354b4725b29078de8543"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven.wagon/wagon-http/pom.xml",
+          "sha256": "934f2f9c87e497c4f795be4bb05b360b8c231467d460103c19012b79b8c03c6b"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/wagon-http-shared-3.5.3.jar",
+      "bytes": 40832,
+      "sha256": "8e7da766f55164fde8779aaaa125832506c2848cab4876b5305138873e28037f",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "09425f075484e261da7fcc7b9bc336fa32ab17578af2137b741330b34b2a310c"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven.wagon/wagon-http-shared/pom.properties",
+          "sha256": "ec5c211e3ad4bd415980ed04d23ef75dbd156f3dd244676cfe7583abba9d61e4"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven.wagon/wagon-http-shared/pom.xml",
+          "sha256": "6014b1e64abf455c6834a0918248e15638050f835da12051d33cda7e946d88f8"
+        }
+      ]
+    },
+    {
+      "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/wagon-provider-api-3.5.3.jar",
+      "bytes": 55101,
+      "sha256": "5e72000338945ed3e96f8e4f578d1d0672e1af7e19c0e9014197ae5b31af3ef4",
+      "kind": "nested-jar",
+      "closure": "unverified; inventory is not source/legal or activation approval",
+      "metadata": [
+        {
+          "path": "META-INF/MANIFEST.MF",
+          "sha256": "c122f44a3a867e9a14b6b618eb7706d4ec4bb5229e13e33ae46c8f3ae9c8e5af"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven.wagon/wagon-provider-api/pom.properties",
+          "sha256": "1778182a940c49343bc16eee3121d83b106fa4e5715799d212810fd6763ff8b1"
+        },
+        {
+          "path": "META-INF/maven/org.apache.maven.wagon/wagon-provider-api/pom.xml",
+          "sha256": "64d6a085e8a6bede9607cbd029ea58cd1c87304410862492174a6d59b9d17142"
+        }
+      ]
+    }
+  ],
+  "scope": "Actual immutable fixture bytes; no implementation inspected, source closure or target embedding inferred."
+}
