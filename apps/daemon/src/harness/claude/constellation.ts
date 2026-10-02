@@ -2,6 +2,7 @@ import { createSdkMcpServer, tool, type Options } from "@anthropic-ai/claude-age
 import { Schema } from "effect";
 import { z } from "zod";
 import type { ConstellationAttachment } from "../constellation/attachment.ts";
+import { polarisInstructions } from "../../constellation/skills/preamble.ts";
 
 export const claudeConstellationOptions = (
   attachments: ReadonlyArray<ConstellationAttachment>
@@ -9,7 +10,7 @@ export const claudeConstellationOptions = (
   systemPrompt: {
     type: "preset",
     preset: "claude_code",
-    append: attachments.map((a) => a.instructions).join("\n\n"),
+    append: polarisInstructions({ constellations: attachments }),
   },
   strictMcpConfig: true,
   allowedTools: attachments.map((_, index) => `mcp__polaris${index === 0 ? "" : `_${index}`}__*`),

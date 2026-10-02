@@ -42,3 +42,5 @@ The existing Client relay sends actual Offline/Connected Connection State,
 replays facts after owner reconnect or a new Attempt, and retries failed sends
 on existing event-driven relay wakes. There is no connection polling or idle
 Constellation timer. Unknown Hosts remain unobserved rather than inferred stale.
+
+The first interactive Codex/Claude Session open also activates the cached layer. Empty startup and read-only Session opens retain the no-op boundary. Unassigned Sessions receive a Plain binding with a reserved graph ID and current Workspace ID; `plan.start` journals ownership before Lead commands can act. Start/resume rebuilds attachments from the current fold. Archive/handover revocation still applies to these tokens.

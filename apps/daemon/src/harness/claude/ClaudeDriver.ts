@@ -42,6 +42,7 @@ import {
   Stream,
 } from "effect";
 import { paths } from "../../paths.ts";
+import { polarisInstructions } from "../../constellation/skills/preamble.ts";
 import {
   type HarnessDriver,
   HarnessError,
@@ -284,7 +285,7 @@ const openSession = Effect.fnUntraced(function* (
     includePartialMessages: true,
     // Subagents' own text and thinking, not only their tool calls (see translate.ts).
     forwardSubagentText: true,
-    systemPrompt: { type: "preset", preset: "claude_code" },
+    systemPrompt: { type: "preset", preset: "claude_code", append: polarisInstructions(options) },
     settingSources: ["user", "project", "local"],
     additionalDirectories: [join(driver.stagingDir ?? paths().staging, options.sessionId)],
     env: {

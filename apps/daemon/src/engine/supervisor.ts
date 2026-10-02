@@ -96,7 +96,12 @@ const make = (
       }
 
       const driver = yield* rt.registry.get(record.session.harness);
-      const attachment = yield* attachments.open(sessionId);
+      const readOnly = Option.isSome(policy) && policy.value.readOnly(sessionId);
+
+      const supportsConstellations =
+        record.session.harness === "codex" || record.session.harness === "claude";
+
+      const attachment = yield* attachments.open(sessionId, readOnly || !supportsConstellations);
       const scope = yield* Scope.make();
 
       const session = yield* driver
@@ -108,7 +113,7 @@ const make = (
           model: record.session.model,
           effort: record.session.effort,
           resumeCursor: record.session.harnessCursor,
-          readOnly: Option.isSome(policy) && policy.value.readOnly(sessionId),
+          readOnly,
         })
         .pipe(
           Scope.provide(scope),

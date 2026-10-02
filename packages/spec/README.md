@@ -320,3 +320,5 @@ remote enqueue alone records no delivery. `AttemptStale`/`AttemptFresh` retain
 observed intervals across restart without changing Attempt state or revision.
 The replay reader maps these journal events. Real runner tests cover coalescing,
 Session boundaries, nudge limits, operator authority, peer routing and recovery.
+
+G2's Plain MCP bootstrap submits the existing `Plan.start` command with its authenticated Session as Lead. Stable Lead tool names become usable only after `ConstellationStarted`; current-role checks still run under the commit lock. No graph state or event shape is added to Quint. `mcp/tools/bootstrap.test.ts` checks start-first refusals, Plain-to-Lead promotion, worker-tool exclusion and archive revocation against the real service; composition and Harness tests cover lazy first-session activation and read-only exclusion. ACP's delivery-only context never changes normalized user prompt text.

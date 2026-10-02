@@ -10,11 +10,12 @@ interface AttachmentOptions {
 
 export interface ConstellationHarnessDelegate {
   readonly install: (origin: string, commands: ConstellationCommands) => Effect.Effect<void>;
-  readonly open: (id: SessionId) => Effect.Effect<AttachmentOptions>;
+  readonly open: (id: SessionId, readOnly?: boolean) => Effect.Effect<AttachmentOptions>;
 }
 
 export interface ConstellationHarnessService extends ConstellationHarnessDelegate {
   readonly activate: (delegate: ConstellationHarnessDelegate) => Effect.Effect<void>;
+  readonly defer: (load: Effect.Effect<void>) => Effect.Effect<void>;
 }
 
 const proxy = (): ConstellationHarnessService => {
@@ -23,13 +24,25 @@ const proxy = (): ConstellationHarnessService => {
     open: () => Effect.succeed({ constellations: [], environment: {} }),
   };
 
+  let load = Effect.void;
+
   return {
+    defer: (initialize) =>
+      Effect.sync(() => {
+        load = initialize;
+      }),
     activate: (implementation) =>
       Effect.sync(() => {
         delegate = implementation;
       }),
     install: (origin, commands) => Effect.suspend(() => delegate.install(origin, commands)),
-    open: (id) => Effect.suspend(() => delegate.open(id)),
+    open: (id, readOnly) =>
+      readOnly === true
+        ? Effect.succeed({ constellations: [], environment: {} })
+        : Effect.andThen(
+            Effect.suspend(() => load),
+            Effect.suspend(() => delegate.open(id))
+          ),
   };
 };
 
