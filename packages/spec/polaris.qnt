@@ -14,6 +14,8 @@
  *   - `small`:    a smaller `current`, for Apalache.
  */
 module polaris {
+  // SessionSetupChanged is capability-gated metadata; setup failures use Session failure,
+  // outside this Turn/approval abstraction (README mapping and real preparation tests).
   // ── Parameters ────────────────────────────────────────────────────────────
 
   /**

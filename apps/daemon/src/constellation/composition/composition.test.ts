@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { join } from "node:path";
 import {
   CommandId,
+  Command,
   Constellation,
   ConstellationSettings,
   DomainEvent,
@@ -10,6 +11,7 @@ import {
   Workspace,
   WorkerPlacement,
   TurnItem,
+  WorktreeSetup,
   PlanOperation,
   SetConstellationStateAction,
 } from "@polaris/protocol";
@@ -43,7 +45,10 @@ import { ConstellationHarness } from "./attachments.ts";
 import { constellationServices } from "./index.ts";
 
 test("production composition acquires a slot before first Turn, installs MCP/environment and publishes Harness liveness", async () => {
-  const root = await makeRepo({ "README.md": "hello\n", ".gitignore": "*.sqlite*\n" });
+  const root = await makeRepo({
+    "README.md": "hello\n",
+    ".gitignore": "*.sqlite*\nnode_modules/\n",
+  });
 
   const driver = makeFakeDriver("codex", {
     steer: true,
@@ -128,6 +133,9 @@ test("production composition acquires a slot before first Turn, installs MCP/env
                   path: root,
                   isGitRepo: true,
                   worktreeRoot: `${root}.worktrees`,
+                  worktreeSetup: WorktreeSetup.cases.Command.make({
+                    command: "mkdir -p node_modules; printf setup-ready",
+                  }),
                   hidden: false,
                   registeredAt: at,
                 }),
@@ -167,6 +175,48 @@ test("production composition acquires a slot before first Turn, installs MCP/env
         Effect.gen(function* () {
           const graphs = yield* Constellations;
           const store = yield* EventStore;
+          const engine = yield* Engine;
+
+          const configure = (command: string, id: string) =>
+            engine.dispatch({
+              commandId: CommandId.make(id),
+              deviceLabel: "test",
+              command: Command.cases.SetWorktreeSetup.make({
+                workspaceId: WS,
+                setup: WorktreeSetup.cases.Command.make({ command }),
+              }),
+            });
+
+          yield* configure("printf setup-broken >&2; exit 7", "bad-setup");
+
+          const rejected = yield* graphs
+            .command(
+              { kind: "user" },
+              CommandId.make("dispatch-real"),
+              C.Dispatch.make({
+                constellationId: CID,
+                tasks: [
+                  { taskId: task().id, worker: WorkerPlacement.cases.New.make({ hostId: HOST }) },
+                ],
+              })
+            )
+            .pipe(Effect.flip);
+
+          expect(rejected.findings[0]?.code).toBe("E-SETUP");
+          const failedModel = yield* store.model;
+          expect(failedModel.constellations.get(CID)!.graph.revision).toBe(0);
+          expect(failedModel.constellations.get(CID)!.graph.attempts).toHaveLength(0);
+
+          const failedSession = [...failedModel.sessions.values()].find(
+            (s) => s.session.id !== LEAD
+          )!;
+
+          expect(failedSession.session.state).toBe("failed");
+          expect(failedSession.session.worktreeSetup?.output).toBe("setup-broken");
+          expect(failedSession.turns).toHaveLength(0);
+          expect(holds).toBe(0);
+          expect(driver.sessions).toHaveLength(0);
+          yield* configure("mkdir -p node_modules; printf setup-ready", "repair-setup");
           yield* graphs.command(
             { kind: "user" },
             CommandId.make("dispatch-real"),
@@ -178,6 +228,15 @@ test("production composition acquires a slot before first Turn, installs MCP/env
             })
           );
           const attempt = (yield* store.model).constellations.get(CID)!.graph.attempts[0]!;
+
+          const prepared = (yield* store.model).sessions.get(attempt.sessionId)!.session
+            .worktreeSetup;
+
+          expect(prepared?.status).toBe("completed");
+          expect(prepared?.output).toBe("setup-ready");
+          expect(Date.parse(prepared!.endedAt!)).toBeLessThanOrEqual(Date.parse(attempt.startedAt));
+          expect(holds).toBe(0);
+
           expect(driver.sessions).toHaveLength(0);
           expect((yield* store.model).sessions.get(attempt.sessionId)!.turns).toHaveLength(0);
           yield* Latch.open(gate);

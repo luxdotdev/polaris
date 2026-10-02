@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { DomainEvent, SessionId } from "@polaris/protocol";
+import { DomainEvent, SessionId, WorkspaceId } from "@polaris/protocol";
+import { McpBinding } from "./binding.ts";
 import { revokeMcpBindings } from "./revoke.ts";
 import { Effect } from "effect";
 import { McpTokens } from "./tokens.ts";
@@ -11,24 +12,32 @@ test("only token hashes persist; restart keeps credentials and revocation", asyn
   const root = mkdtempSync("/tmp/polaris-mcp-");
   const path = join(root, "tokens.sqlite");
 
+  const plainBinding = McpBinding.cases.Plain.make({
+    sessionId: SessionId.make("plain"),
+    constellationId: leadBinding.constellationId,
+    workspaceId: WorkspaceId.make("workspace"),
+  });
+
   try {
     const issued = await Effect.runPromise(
       Effect.gen(function* () {
         const tokens = yield* McpTokens;
         const worker = yield* tokens.issue(workerBinding);
         const lead = yield* tokens.issue(leadBinding);
+        const plain = yield* tokens.issue(plainBinding);
         expect(worker).toMatch(/^[a-f0-9]{64}$/);
         expect(yield* tokens.authenticate(worker)).toEqual(workerBinding);
         expect(yield* tokens.authenticate("bad-token")).toBeNull();
         expect(yield* tokens.authenticate("0".repeat(64))).toBeNull();
 
-        return { worker, lead };
+        return { worker, lead, plain };
       }).pipe(Effect.provide(McpTokens.layer(path)))
     );
 
     const disk = readFileSync(path);
     expect(disk.includes(Buffer.from(issued.worker))).toBe(false);
     expect(disk.includes(Buffer.from(issued.lead))).toBe(false);
+    expect(disk.includes(Buffer.from(issued.plain))).toBe(false);
     expect(statSync(path).mode & 0o777).toBe(0o600);
     await Effect.runPromise(
       Effect.gen(function* () {
@@ -37,7 +46,9 @@ test("only token hashes persist; restart keeps credentials and revocation", asyn
         yield* tokens.revokeAttempt(workerBinding.attemptId);
         expect(yield* tokens.authenticate(issued.worker)).toBeNull();
         expect(yield* tokens.authenticate(issued.lead)).toEqual(leadBinding);
+        expect(yield* tokens.authenticate(issued.plain)).toEqual(plainBinding);
         yield* tokens.revokeSession(leadBinding.sessionId);
+        yield* tokens.revokeSession(plainBinding.sessionId);
       }).pipe(Effect.provide(McpTokens.layer(path)))
     );
     await Effect.runPromise(
@@ -45,6 +56,7 @@ test("only token hashes persist; restart keeps credentials and revocation", asyn
         const tokens = yield* McpTokens;
         expect(yield* tokens.authenticate(issued.lead)).toBeNull();
         expect(yield* tokens.authenticate(issued.worker)).toBeNull();
+        expect(yield* tokens.authenticate(issued.plain)).toBeNull();
       }).pipe(Effect.provide(McpTokens.layer(path)))
     );
   } finally {

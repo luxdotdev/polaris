@@ -1,7 +1,8 @@
-import { AttemptId, ConstellationId, SessionId } from "@polaris/protocol";
+import { AttemptId, ConstellationId, SessionId, WorkspaceId } from "@polaris/protocol";
 import { Schema } from "effect";
 
 export const McpBinding = Schema.TaggedUnion({
+  Plain: { sessionId: SessionId, constellationId: ConstellationId, workspaceId: WorkspaceId },
   Lead: { sessionId: SessionId, constellationId: ConstellationId },
   Worker: { sessionId: SessionId, constellationId: ConstellationId, attemptId: AttemptId },
 });

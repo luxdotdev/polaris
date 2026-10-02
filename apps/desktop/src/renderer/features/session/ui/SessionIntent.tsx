@@ -96,6 +96,7 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
   const lastDone = model.turns.findLast((t) => t.turn.status !== "working")?.turn;
 
   const listed = conversationRows({
+    setup: session.worktreeSetup,
     turns: model.turns,
     approvals: model.pendingApprovals,
     unfolded: ui.unfolded,

@@ -39,6 +39,7 @@ import {
   type SessionEffect,
   type SessionInput,
 } from "./session.inputs.ts";
+import { interruptedSetup, setupChanged } from "./session.setup.ts";
 import { acceptTurns, lastIsAccepted } from "./session.accept.ts";
 import { endSubagents, subagentEnded, subagentStarted } from "./session.subagents.ts";
 
@@ -141,7 +142,8 @@ const reject = (enq: Enqueue, reason: string) => {
 
 /** Session States that take a new Turn (with no Turn in flight). */
 const takesTurn = (record: SessionRecord): boolean => {
-  if (workingTurn(record) !== undefined) return false;
+  if (workingTurn(record) !== undefined || record.session.worktreeSetup?.status === "running")
+    return false;
   const { state } = record.session;
 
   if (state === "idle" || state === "dormant" || state === "failed") return true;
@@ -153,6 +155,8 @@ const takesTurn = (record: SessionRecord): boolean => {
 /** Why a new or continued Turn is refused, in the order the checks read to a user. */
 const turnRefusal = (record: SessionRecord, kind: "send" | "continue" | "retry"): string => {
   const { state } = record.session;
+
+  if (record.session.worktreeSetup?.status === "running") return "worktree setup is still running";
 
   const last = lastTurn(record)?.status;
 
@@ -320,6 +324,11 @@ type RecoverInput = Extract<SessionInput, { type: "daemon.recover" }>;
 const recover = (record: SessionRecord, event: RecoverInput, enq: Enqueue) => {
   const turn = workingTurn(record);
   const { state } = record.session;
+  const setup = interruptedSetup(record, event.at, event.cause);
+
+  if (setup.length > 0) return settle(enq, record, setup);
+
+  if (state === "dormant") return HANDLED;
 
   const events = [
     ...endSubagents(record, event.at),
@@ -561,6 +570,14 @@ export const sessionMachine = createMachine({
       ]);
     },
     "idle.timeout": ignore,
+    "session.setup": ({ context, event }, enq) => {
+      const record = need(context);
+
+      if (event.setup.status === "running" && !takesTurn(record))
+        return reject(enq, "wait for the Session boundary before worktree setup");
+
+      return settle(enq, record, setupChanged(record, event.setup));
+    },
     "session.fail": ({ context, event }, enq) => {
       const record = need(context);
       const turn = workingTurn(record);
@@ -728,7 +745,7 @@ export const sessionMachine = createMachine({
             : settle(enq, need(context), [started], { state: "working" });
         },
         "harness.exited": ignore,
-        "daemon.recover": ignore,
+        "daemon.recover": ({ context, event }, enq) => recover(need(context), event, enq),
       },
     },
     failed: {
@@ -767,6 +784,7 @@ export const sessionMachine = createMachine({
           const turn = workingTurn(record);
 
           return settle(enq, record, [
+            ...interruptedSetup(record, event.at, event.cause),
             ...endSubagents(record, event.at),
             ...(turn ? [endTurn(turn, "interrupted", event.at)] : []),
             ...withdrawPending(record, "daemon", RECOVERY_REASON[event.cause]),

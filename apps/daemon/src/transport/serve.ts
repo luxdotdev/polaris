@@ -17,6 +17,7 @@ import { installDebugHooks } from "../debug.ts";
 import { Engine } from "../engine/Engine.ts";
 import { EngineRpcHandlers } from "../engine/rpc.ts";
 import { FileSearchLive } from "../files/FileSearch.ts";
+import { InlineRpcsLive } from "../inline/index.ts";
 import { FilesRpcsLive } from "../files/FilesRpcs.ts";
 import { CheckpointsLive } from "../git/Checkpoints.ts";
 import { GitRpcsLive } from "../git/GitRpcs.ts";
@@ -89,6 +90,7 @@ const daemonServices = ReviewerLive().pipe(Layer.provideMerge(engineServices));
 
 /** Every real handler layer the Daemon mounts. Compose new modules' layers here. */
 export const daemonHandlers = Layer.mergeAll(
+  InlineRpcsLive,
   EngineRpcHandlers,
   ResourceRpcsLive,
   lazyConstellationHandlers,
@@ -105,6 +107,7 @@ export const daemonHandlers = Layer.mergeAll(
 ).pipe(Layer.provide(daemonServices));
 
 export const daemonCapabilities: ReadonlyArray<Capability> = [
+  "inline.propose",
   "constellation",
   "constellation.defaults",
   ...HARNESS_CATALOGUE.map((harness) => harness.capability),
@@ -117,6 +120,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "session.fork",
   "session.terminal-handoff",
   "session.terminal-command",
+  "workspace.setup",
   "session.live-items",
   "session.subagents",
   "files.read",

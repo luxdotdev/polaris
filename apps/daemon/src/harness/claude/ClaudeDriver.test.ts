@@ -9,6 +9,7 @@ import {
 } from "@polaris/protocol";
 import { Effect, Exit, Scope, Stream } from "effect";
 import { HarnessEvent, type OpenOptions } from "../HarnessDriver.ts";
+import { polarisInstructions } from "../../constellation/skills/preamble.ts";
 import { type ClaudeDriverOptions, makeClaudeDriver, parseVersion } from "./ClaudeDriver.ts";
 import { assistant, FakeClaude, init, result, streamEvent, toolResult } from "./fakeClaude.ts";
 
@@ -650,6 +651,19 @@ describe("probe", () => {
 });
 
 describe("Constellation instructions", () => {
+  test("unattached fresh and resumed sessions receive common context without MCP tools", async () => {
+    for (const resumeCursor of [null, "claude-existing"]) {
+      const h = await openFake({ resumeCursor });
+
+      try {
+        expect(h.fake.options?.systemPrompt).toMatchObject({ append: polarisInstructions({}) });
+        expect(h.fake.options?.mcpServers).toBeUndefined();
+      } finally {
+        await h.close();
+      }
+    }
+  });
+
   const attachment = {
     sessionId: SessionId.make("session-1"),
     instructions: "Polaris worker instructions",
@@ -662,7 +676,9 @@ describe("Constellation instructions", () => {
       const h = await openFake({ constellation: attachment, resumeCursor });
 
       try {
-        expect(h.fake.options?.systemPrompt).toMatchObject({ append: attachment.instructions });
+        expect(h.fake.options?.systemPrompt).toMatchObject({
+          append: polarisInstructions({ constellation: attachment }),
+        });
         expect(h.fake.options?.strictMcpConfig).toBe(true);
         expect(h.fake.options?.allowedTools).toEqual(["mcp__polaris__*"]);
         expect(h.fake.options?.mcpServers).toHaveProperty("polaris");
@@ -683,7 +699,7 @@ describe("Constellation instructions", () => {
 
     try {
       expect(h.fake.options?.systemPrompt).toMatchObject({
-        append: `${attachment.instructions}\n\n${worker.instructions}`,
+        append: polarisInstructions({ constellations: [attachment, worker] }),
       });
       expect(h.fake.options?.allowedTools).toEqual(["mcp__polaris__*", "mcp__polaris_1__*"]);
       expect(Object.keys(h.fake.options?.mcpServers ?? {})).toEqual(["polaris", "polaris_1"]);
@@ -697,7 +713,9 @@ describe("Constellation instructions", () => {
 
     try {
       expect(h.fake.options?.mcpServers).toEqual({});
-      expect(h.fake.options?.systemPrompt).not.toHaveProperty("append");
+      expect(h.fake.options?.systemPrompt).toMatchObject({
+        append: polarisInstructions({ readOnly: true }),
+      });
     } finally {
       await h.close();
     }

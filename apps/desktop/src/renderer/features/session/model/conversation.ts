@@ -4,7 +4,14 @@
  * prompt, each item and the Turn's ending. Rows are cached per Turn view, so
  * a streaming Turn rebuilds only its own rows each frame.
  */
-import type { ApprovalRequest, Attachment, TurnId, TurnItem, TurnStatus } from "@polaris/protocol";
+import type {
+  ApprovalRequest,
+  Attachment,
+  TurnId,
+  TurnItem,
+  TurnStatus,
+  WorktreeSetupRun,
+} from "@polaris/protocol";
 import { Predicate } from "effect";
 import type { TurnView } from "../../../store/sessionModel.ts";
 import { completedItemView, liveItemView } from "./items.ts";
@@ -23,6 +30,7 @@ export interface TurnSummary {
 }
 
 export type Row =
+  | { readonly kind: "setup"; readonly key: string; readonly setup: WorktreeSetupRun }
   | ({ readonly kind: "summary"; readonly key: string } & TurnSummary)
   | {
       readonly kind: "prompt";
@@ -223,6 +231,7 @@ export interface ConversationInput {
   /** Turns the user unfolded; the last Turn is always open. */
   readonly unfolded: ReadonlySet<string>;
   /** Steers and follow-ups not landed yet; they close the list. */
+  readonly setup?: WorktreeSetupRun | null;
   readonly outbox?: ReadonlyArray<Outgoing>;
 }
 
@@ -238,8 +247,9 @@ export const conversationRows = ({
   approvals,
   unfolded,
   outbox = [],
+  setup = null,
 }: ConversationInput): ReadonlyArray<Row> => {
-  const rows: Array<Row> = [];
+  const rows: Array<Row> = setup === null ? [] : [{ kind: "setup", key: setup.id, setup }];
   const placed = new Set<string>();
   const lastIndex = turns.length - 1;
 

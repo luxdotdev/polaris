@@ -16,6 +16,7 @@ import {
   Turn,
   TurnId,
   TurnStatus,
+  WorktreeSetupRun,
 } from "@polaris/protocol";
 import { Schema } from "effect";
 import type { EventObject } from "xstate";
@@ -86,6 +87,7 @@ export const eventSchemas = {
   "harness.resumed": Nothing,
   "terminal.closed": standard(Schema.Struct(At)),
   "idle.timeout": standard(Schema.Struct({ harnessLive: Schema.Boolean })),
+  "session.setup": standard(Schema.Struct({ setup: WorktreeSetupRun })),
   "session.fail": standard(Schema.Struct({ message: Schema.String, ...At })),
   "turn.interruptUnattended": standard(Schema.Struct(At)),
   "daemon.recover": standard(

@@ -1,0 +1,11 @@
+{
+  "encoding": "o200k_base",
+  "counts": {
+    "plain": 212,
+    "lead": 212,
+    "worker": 195,
+    "gate": 242,
+    "readOnly": 167,
+    "otherHarness": 177
+  }
+}

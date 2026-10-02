@@ -7,6 +7,7 @@ import { EventStore } from "../store/EventStore.ts";
 import { paths } from "../paths.ts";
 import { needsConstellationStartup } from "../constellation/composition/startup.ts";
 import type { constellationHandlers } from "../constellation/composition/index.ts";
+import { ConstellationHarness } from "../constellation/composition/attachments.ts";
 
 type ConstellationBase = Layer.Services<ReturnType<typeof constellationHandlers>>;
 
@@ -78,6 +79,8 @@ export const lazyConstellationHandlers = Layer.fromBuild((memoMap, scope) =>
         ).pipe(Effect.provide(context), Effect.orDie);
       }).pipe(Effect.uninterruptible)
     );
+
+    yield* (yield* ConstellationHarness).defer(Effect.asVoid(load));
 
     if (yield* needsConstellationStartup(root, yield* store.model)) yield* load;
 

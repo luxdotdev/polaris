@@ -11,6 +11,7 @@ import { McpTokens } from "./tokens.ts";
 import { fakeCommands, workerBinding } from "./testing.ts";
 import { attachConstellation } from "../harness/constellation/attachment.ts";
 import { claudeConstellationOptions } from "../harness/claude/constellation.ts";
+import { polarisInstructions } from "../constellation/skills/preamble.ts";
 
 const withServer = async (
   body: (origin: string, token: string, tokens: McpTokens["Service"]) => Promise<void>
@@ -127,7 +128,9 @@ test("Claude's in-process server exposes valid schemas and bound handlers; revok
         const options = claudeConstellationOptions([attachment]);
         expect(options.strictMcpConfig).toBe(true);
         expect(options.allowedTools).toEqual(["mcp__polaris__*"]);
-        expect(options.systemPrompt).toMatchObject({ append: attachment.instructions });
+        expect(options.systemPrompt).toMatchObject({
+          append: polarisInstructions({ constellations: [attachment] }),
+        });
         const server = options.mcpServers?.polaris;
 
         if (server === undefined || server.type !== "sdk") throw new Error("Missing SDK server");

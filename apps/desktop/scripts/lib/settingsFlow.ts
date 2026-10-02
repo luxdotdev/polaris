@@ -6,6 +6,7 @@
  */
 import type { ElectronApplication, Page } from "playwright-core";
 import { constellationShellFlow } from "./constellationShellFlow.ts";
+import { worktreeSetupFlow } from "./worktreeSetupFlow.ts";
 
 interface SettingsFlowInput {
   readonly app: ElectronApplication;
@@ -56,6 +57,7 @@ const sessionsPage = async (
   await prefix.fill("polaris/");
   await prefix.press("Enter");
   await workingVerbs(page, step);
+  await worktreeSetupFlow(page, step, shoot);
 };
 
 /** Working verbs: add one, remove one, reset; each is saved. Left as found (the built-in ones). */
