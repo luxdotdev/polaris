@@ -53,7 +53,7 @@ test("the real CLI reads Stats over RPC from an isolated Daemon and emits decoda
     expect(stats.usage.total.tokens.input).toBe(0);
     expect(stats.workers.attempts).toHaveLength(2);
     expect(output).toContain('"api-equivalent-estimate"');
-    expect(output).toContain('"staleMs": null');
+    expect(output).toContain('"staleMs": 0');
     expect(existsSync(join(home, "usage.sqlite"))).toBe(true);
   } finally {
     daemon.kill("SIGTERM");

@@ -6,6 +6,8 @@ import type {
   WorkerTimes,
 } from "@polaris/protocol";
 import { Match, Predicate } from "effect";
+import { overlap, unionDuration } from "./intervals.ts";
+import { staleDuration, type StaleTransition } from "./stale.ts";
 
 export interface WaitInterval {
   readonly sessionId: SessionId | null;
@@ -13,29 +15,6 @@ export interface WaitInterval {
   readonly from: number;
   readonly to: number;
 }
-
-export const overlap = (from: number, to: number, start: number, end: number) =>
-  Math.max(0, Math.min(to, end) - Math.max(from, start));
-
-/** Union overlapping waits so two queued commands do not double-count wall time. */
-export const unionDuration = (
-  intervals: ReadonlyArray<WaitInterval>,
-  start: number,
-  end: number
-) => {
-  let total = 0;
-  let through = start;
-
-  for (const interval of intervals.toSorted((a, b) => a.from - b.from)) {
-    const from = Math.max(start, through, interval.from);
-    const to = Math.min(end, interval.to);
-
-    if (to > from) total += to - from;
-    through = Math.max(through, to);
-  }
-
-  return total;
-};
 
 const queueEnd = (event: DomainEvent) =>
   Match.value(event).pipe(
@@ -142,6 +121,7 @@ export const workerTimes = (options: {
   readonly graphEvents: ReadonlyArray<EventEnvelope>;
   readonly sessionEvents: ReadonlyArray<EventEnvelope>;
   readonly waits: ReadonlyArray<WaitInterval>;
+  readonly stale: ReadonlyArray<StaleTransition>;
   readonly now: number;
   readonly local: boolean;
 }): WorkerTimes => {
@@ -175,7 +155,12 @@ export const workerTimes = (options: {
           end
         )
       : null,
-    staleMs: null,
+    staleMs: staleDuration(
+      options.stale,
+      attempt.id,
+      start,
+      Math.min(options.now, Date.parse(attempt.endedAt ?? new Date(options.now).toISOString()))
+    ),
   };
 };
 
@@ -188,6 +173,6 @@ export const sumTimes = (times: ReadonlyArray<WorkerTimes>): WorkerTimes => {
     idleMs: sum("idleMs"),
     waitingForSlotMs: sum("waitingForSlotMs"),
     waitingOnLeaseMs: sum("waitingOnLeaseMs"),
-    staleMs: null,
+    staleMs: sum("staleMs"),
   };
 };
