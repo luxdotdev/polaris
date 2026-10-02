@@ -3,16 +3,29 @@
  * Packages the Desktop App with @electron/packager: `out/dist/Polaris-darwin-arm64/Polaris.app`
  * (and, with `--linux`, `Polaris-linux-x64/`), appId `dev.lux.polaris`, the generated app
  * icon, and every Daemon build in `Resources/daemon` (see src/main/machines/README.md).
- * Unsigned: signing and notarisation are a follow-up (README, Packaging).
+ * Signs and notarises when Apple credentials are provided (README, Packaging).
  *
  *   bun scripts/package.ts                 this Mac (darwin arm64)
  *   bun scripts/package.ts --linux         …and Linux x64
  *   bun scripts/package.ts --reuse-daemon  keep apps/daemon/dist as it is
+ *   bun scripts/package.ts --release       matching release versions, fresh Daemons
  */
 import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { packager } from "@electron/packager";
+import { Schema } from "effect";
 import { APP_DIR, buildMain, buildRenderer, OUT_DIR, REPO_ROOT } from "./lib/build.ts";
+import {
+  assertReleaseVersions,
+  daemonBuildCommand,
+  macSigningOptions,
+  resolveSigning,
+  signDaemonBuilds,
+  signingCredentials,
+  updateZip,
+  verifyDaemonManifest,
+} from "./packaging/index.ts";
+import { run } from "./packaging/command.ts";
 
 const args = process.argv.slice(2);
 
@@ -24,11 +37,34 @@ const DAEMON_DIST = join(REPO_ROOT, "apps/daemon/dist");
 
 const STAGE = join(OUT_DIR, "package");
 
-const run = (cmd: string[], cwd: string) => {
-  const result = Bun.spawnSync(cmd, { cwd, stdout: "inherit", stderr: "inherit" });
+const release = args.includes("--release");
 
-  if (result.exitCode !== 0) throw new Error(`${cmd.join(" ")} failed`);
-};
+const decodePackage = Schema.decodeUnknownSync(
+  Schema.Struct({
+    version: Schema.String,
+    devDependencies: Schema.Record(Schema.String, Schema.String),
+  })
+);
+
+const pkg = decodePackage(await Bun.file(join(APP_DIR, "package.json")).json());
+
+if (release) {
+  const daemon = Schema.decodeUnknownSync(Schema.Struct({ version: Schema.String }))(
+    await Bun.file(join(REPO_ROOT, "apps/daemon/package.json")).json()
+  );
+
+  assertReleaseVersions(pkg.version, daemon.version, args.includes("--reuse-daemon"));
+}
+
+const signing = resolveSigning(signingCredentials(process.env));
+
+const ENTITLEMENTS = join(import.meta.dir, "packaging/entitlements");
+
+console.log(
+  signing === null
+    ? "no Apple credentials: packaging unsigned"
+    : "signing and notarising with Developer ID"
+);
 
 if (!existsSync(join(ICONS, "Polaris.icns")))
   throw new Error(
@@ -40,7 +76,11 @@ await buildRenderer();
 await buildMain({ minify: true });
 
 if (!args.includes("--reuse-daemon") || !existsSync(join(DAEMON_DIST, "manifest.json")))
-  run(["bun", "run", "build"], join(REPO_ROOT, "apps/daemon"));
+  console.log(run(daemonBuildCommand(REPO_ROOT, release)).trim());
+
+verifyDaemonManifest(DAEMON_DIST, release ? pkg.version : undefined);
+
+signDaemonBuilds(DAEMON_DIST, signing, ENTITLEMENTS);
 
 // The app directory holds only what runs: the bundles are self-contained (just `electron`).
 rmSync(STAGE, { recursive: true, force: true });
@@ -55,12 +95,6 @@ mkdirSync(resources, { recursive: true });
 
 for (const dir of ["main", "preload", "renderer"])
   cpSync(join(OUT_DIR, dir), join(app, "out", dir), { recursive: true });
-
-// SAFETY: our own package.json, which always has these fields.
-const pkg = (await Bun.file(join(APP_DIR, "package.json")).json()) as {
-  readonly version: string;
-  readonly devDependencies: Readonly<Record<string, string>>;
-};
 
 writeFileSync(
   join(app, "package.json"),
@@ -111,7 +145,20 @@ for (const target of targets) {
     asar: true,
     prune: false,
     quiet: true,
+    ...macSigningOptions(target.platform === "darwin" ? signing : null, ENTITLEMENTS),
   });
+
+  if (path === undefined) throw new Error(`packager returned no ${target.platform} output`);
+
+  if (target.platform === "darwin") {
+    const bundle = join(path, "Polaris.app");
+
+    verifyDaemonManifest(
+      join(bundle, "Contents/Resources/daemon"),
+      release ? pkg.version : undefined
+    );
+    console.log(`archived ${updateZip(bundle, pkg.version, join(OUT_DIR, "dist"), signing)}`);
+  }
 
   console.log(`packaged ${path}`);
 }
