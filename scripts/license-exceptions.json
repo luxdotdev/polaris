@@ -15,6 +15,9 @@
     },
     "@img/sharp-libvips-*": {
       "reason": "LGPL-3.0-or-later prebuilt libvips, loaded dynamically by sharp (an optional dependency of next) for apps/site's image optimisation; unmodified, never copied into Polaris and never shipped in the Desktop App or Daemon."
+    },
+    "botid": {
+      "reason": "MIT per the publisher README bundled in botid@1.5.11 and https://www.npmjs.com/package/botid; this published package omits its licence field and LICENSE file. Required Vercel bot detection for apps/site only, never shipped in the Desktop App or Daemon."
     }
   }
 }
