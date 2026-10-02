@@ -1,6 +1,12 @@
 import { Effect } from "effect";
+import { ConstellationRejected, ConstellationFinding } from "@polaris/protocol";
 import type { McpBinding } from "../../mcp/binding.ts";
-import { constellationTools, type BoundTool, type ConstellationCommands } from "../../mcp/tools.ts";
+import {
+  constellationTools,
+  errorResult,
+  type BoundTool,
+  type ConstellationCommands,
+} from "../../mcp/tools.ts";
 import { McpTokens } from "../../mcp/tokens.ts";
 import { constellationInstructions } from "./skills.ts";
 
@@ -25,25 +31,19 @@ export const attachConstellation = Effect.fn("attachConstellation")(function* (
       const current = await Effect.runPromise(tokens.authenticate(token));
 
       if (current === null)
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                findings: [
-                  {
-                    code: "E-REVOKED",
-                    message: "This session's Polaris tools were revoked",
-                    fix: "Continue in the current Attempt or Lead session.",
-                  },
-                ],
-                graph: null,
-                revision: 0,
+        return errorResult(
+          new ConstellationRejected({
+            findings: [
+              new ConstellationFinding({
+                code: "E-REVOKED",
+                message: "This session's Polaris tools were revoked",
+                fix: "Continue in the current Attempt or Lead session.",
               }),
-            },
-          ],
-        };
+            ],
+            graph: null,
+            revision: 0,
+          })
+        );
 
       return tool.call(input);
     },
