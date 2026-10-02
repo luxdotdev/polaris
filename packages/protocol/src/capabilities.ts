@@ -42,8 +42,14 @@ export const Capability = Schema.Literals([
    */
   "session.subagents",
   "files.read",
+  "files.versioned",
+  "files.write",
+  "files.manage",
+  "files.trash",
+  "files.watch-file",
   "files.search",
   "files.watch",
+  "inline.propose",
   "git.diff",
   /** `git.diff` answers `fileIndex`: each file's byte range in the patch, and its counts. */
   "git.diff-files",

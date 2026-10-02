@@ -4,6 +4,7 @@
  * modules land. `server.ts` layers real handlers over these.
  */
 import {
+  InlineError,
   type Capability,
   CommandRejected,
   ConstellationRejected,
@@ -275,10 +276,23 @@ export const defaultHandlers = (options: {
     "harness.watchAvailability": () =>
       Stream.fail(new Unsupported({ capability: "harness.availability" })),
     "usage.query": () => Effect.fail(new Unsupported({ capability: "usage" })),
+    "inline.propose": () =>
+      Stream.fail(
+        new InlineError({
+          reason: "harness-failed",
+          message: "This Daemon does not support inline.propose",
+        })
+      ),
     "usage.watch": () => Stream.fail(new Unsupported({ capability: "usage" })),
 
     "files.listDir": ({ path }) => Effect.fail(fileError(path, "files")),
     "files.stat": ({ path }) => Effect.fail(fileError(path, "files")),
+    "files.readVersioned": ({ path }) => Effect.fail(fileError(path, "versioned files")),
+    "files.write": ({ path }) => Effect.fail(fileError(path, "file writing")),
+    "files.create": ({ path }) => Effect.fail(fileError(path, "file management")),
+    "files.rename": ({ path }) => Effect.fail(fileError(path, "file management")),
+    "files.delete": ({ path }) => Effect.fail(fileError(path, "file management")),
+    "files.watchFile": ({ path }) => Stream.fail(fileError(path, "file watching")),
     "files.read": ({ path }) => Effect.fail(fileError(path, "files")),
     "files.searchPaths": ({ root }) => Effect.fail(fileError(root, "file search")),
     "files.grep": ({ root }) => Effect.fail(fileError(root, "file search")),

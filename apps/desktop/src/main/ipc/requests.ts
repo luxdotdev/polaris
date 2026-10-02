@@ -4,9 +4,11 @@
  * Daemon sends (file contents, diffs) are taken here and cross IPC as bytes.
  */
 import type { HostConnection, LiveSession } from "@polaris/client";
-import type { FileContent } from "@polaris/protocol";
+import { FileContent, FileVersion } from "@polaris/protocol";
 import { Effect, flow, Match, Schema } from "effect";
 import type {
+  FileVersionView,
+  FileWriteView,
   Appearance,
   FileContentView,
   SessionDefault,
@@ -30,6 +32,7 @@ import { estimate, type Prices } from "../prices.ts";
 import { pricedStats } from "./constellationStats.ts";
 import type { SnapshotCache } from "../snapshotCache.ts";
 import { ensureInstalled } from "./install.ts";
+import { publishDirty, savedAll } from "../editorDirty.ts";
 
 /** What the handlers need from the app outside the Client runtime. */
 export interface RequestContext {
@@ -92,6 +95,12 @@ const fileContent = (session: LiveSession, content: FileContent) =>
         })),
     })
   );
+
+const plainVersion = (v: FileVersion): FileVersionView => ({
+  mtimeMs: v.mtimeMs,
+  size: v.size,
+  hash: v.hash,
+});
 
 const local = (): InstallView => ({
   result: "Local",
@@ -157,6 +166,35 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
     onLive(hostKey, (s) => s.client["files.searchPaths"](payload)),
   "files.grep": ({ hostKey, ...payload }) =>
     onLive(hostKey, (s) => s.client["files.grep"](payload)),
+  "files.readVersioned": ({ hostKey, path }) =>
+    onLive(hostKey, (s) =>
+      Effect.flatMap(s.client["files.readVersioned"]({ path }), (read) =>
+        Effect.map(fileContent(s, read.content), (content) => ({
+          version: plainVersion(read.version),
+          mimeType: read.mimeType,
+          content,
+        }))
+      )
+    ),
+  "files.write": ({ hostKey, path, text, expected }) =>
+    onLive(hostKey, (s) =>
+      s.client["files.write"]({
+        path,
+        expected: new FileVersion(expected),
+        content: FileContent.cases.Inline.make({ text }),
+      }).pipe(
+        Effect.map((version): FileWriteView => ({
+          kind: "written",
+          version: plainVersion(version),
+        })),
+        Effect.catchTag("ChangedOnDisk", (error) =>
+          Effect.succeed<FileWriteView>({
+            kind: "changed-on-disk",
+            current: error.current === null ? null : plainVersion(error.current),
+          })
+        )
+      )
+    ),
   "git.status": ({ hostKey, cwd }) => onLive(hostKey, (s) => s.client["git.status"]({ cwd })),
   "git.diff": ({ hostKey, cwd, spec }) =>
     onLive(hostKey, (s) =>
@@ -283,6 +321,9 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
     Effect.sync(() => ({ sshHosts: ctx.sshHosts(), version: ctx.appVersion })),
   "onboarding.welcomeSeen": () => Effect.sync(ctx.setWelcomeSeen).pipe(done),
   "dialog.pickFolder": () => Effect.promise(ctx.pickFolder).pipe(Effect.map((path) => ({ path }))),
+  "editor.publishDirty": ({ files }) =>
+    Effect.sync(() => publishDirty(0, files)).pipe(Effect.as(null)),
+  "editor.savedAll": ({ ok }) => Effect.sync(() => savedAll(ok)).pipe(Effect.as(null)),
   "needsYou.publish": (summary) => Effect.sync(() => ctx.needsYou(summary)).pipe(Effect.as(null)),
   "dev.proofWorkspace": () =>
     Effect.suspend(() => {

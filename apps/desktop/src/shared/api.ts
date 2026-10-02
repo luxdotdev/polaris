@@ -274,6 +274,18 @@ export type FileContentView =
   | { readonly kind: "text"; readonly text: string }
   | { readonly kind: "bytes"; readonly bytes: Uint8Array };
 
+/** A file's version on its Host (`files.readVersioned`): mtime, byte size and SHA-256. */
+export interface FileVersionView {
+  readonly mtimeMs: number;
+  readonly size: number;
+  readonly hash: string;
+}
+
+/** `files.write`: written, or refused because the disk moved on (null: the file is gone). */
+export type FileWriteView =
+  | { readonly kind: "written"; readonly version: FileVersionView }
+  | { readonly kind: "changed-on-disk"; readonly current: FileVersionView | null };
+
 /** `install.ensure`'s outcome, flattened (`EnsureResult` in `@polaris/client/install`). */
 export interface InstallView {
   readonly result: "Local" | "Ready" | "ApprovalNeeded" | "Unavailable" | "HostSetupNeeded";
@@ -343,6 +355,12 @@ export interface RequestOutputs
   };
   "files.searchPaths": Rpc.Success<typeof SearchPaths>;
   "files.grep": Rpc.Success<typeof Grep>;
+  "files.readVersioned": {
+    readonly version: FileVersionView;
+    readonly mimeType: string;
+    readonly content: FileContentView;
+  };
+  "files.write": FileWriteView;
   "git.status": Rpc.Success<typeof GitStatus>;
   "git.diff": {
     readonly bytes: Uint8Array;
@@ -403,6 +421,8 @@ export interface RequestOutputs
   "onboarding.welcomeSeen": null;
   "dialog.pickFolder": { readonly path: string | null };
   "needsYou.publish": null;
+  "editor.publishDirty": null;
+  "editor.savedAll": null;
   "dev.proofWorkspace": { readonly path: string };
 }
 
@@ -422,6 +442,7 @@ export interface SubscriptionItems extends GitHubSubscriptionItems {
   session: SessionStreamItem;
   terminal: TerminalItem;
   "files.watch": ReadonlyArray<typeof FileChangeEvent.Type>;
+  "files.watchFile": { readonly path: string; readonly version: FileVersionView | null };
   usage: UsageStreamItem;
   "harness.availability": Plain<HostHarnesses>;
   "plan-limits": Plain<PlanLimit>;
@@ -460,7 +481,9 @@ export type AppEvent =
   /** The menu bar star or a notification: open a waiting session, or answer it. */
   | ({ readonly kind: "needs-you" } & NeedsYouAction)
   /** A review-request notification: open its pull request in Review, or the list (null). */
-  | { readonly kind: "open-pull"; readonly pull: OpenPull | null };
+  | { readonly kind: "open-pull"; readonly pull: OpenPull | null }
+  /** The quit prompt's "Save and quit": the Editor saves every file, then answers `editor.savedAll`. */
+  | { readonly kind: "editor-save-all" };
 
 /** A pull request to open in Review, with its node id when known. */
 export interface OpenPull extends PullRef {

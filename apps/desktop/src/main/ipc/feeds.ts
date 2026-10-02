@@ -57,6 +57,18 @@ const openers: Openers = {
     onLive(hostKey, (session) => attachTerminal(session, terminalId)),
   "files.watch": ({ hostKey, root }) =>
     onLive(hostKey, (session) => session.client["files.watch"]({ root })),
+  "files.watchFile": ({ hostKey, path }) =>
+    onLive(hostKey, (session) =>
+      session.client["files.watchFile"]({ path }).pipe(
+        Stream.map(({ path, version }) => ({
+          path,
+          version:
+            version === null
+              ? null
+              : { mtimeMs: version.mtimeMs, size: version.size, hash: version.hash },
+        }))
+      )
+    ),
   usage: ({ hostKey }) => onLive(hostKey, (session) => session.client["usage.watch"]({})),
   "harness.availability": ({ hostKey }) =>
     onLive(hostKey, (session) => session.client["harness.watchAvailability"]({})),
