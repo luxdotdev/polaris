@@ -62,3 +62,14 @@ Engine wiring: with a hook receiver the driver offers `terminalFollow` (`receive
 - A user setting `allowedHttpHookUrls` without a loopback entry, or `disableAllHooks`, silently disables follow-along.
 - No `ExitPlanMode` special handling (plan approval is a generic tool approval); no subagent transcripts; no `TitleSuggested`/`WorktreeCreated` yet.
 - The SDK's peer dependencies (`@anthropic-ai/sdk`, `@modelcontextprotocol/sdk`, `zod`) came in transitively; `bun run licenses:check` couldn't run because `scripts/licenses.ts` doesn't exist yet.
+
+## Auto permission availability
+
+`autoMode.ts` asks `supportedModels()` for `supportsAutoMode`, including alias and
+resolved model IDs. An unsupported model (including Haiku) or missing metadata
+is an explicit error, rather than a silent switch to Manual. Dispatch probes the
+actual Workspace settings without sending a Turn, enabling hooks or persisting a
+native Session. Interactive open/resume and model/mode changes validate the live
+query; an init/status frame reporting fallback stops the Turn with a visible
+error. The Reviewer retains `dontAsk`, and normal `canUseTool` approvals remain
+intact. See [Claude permission modes](https://code.claude.com/docs/en/permission-modes#eliminate-permission-prompts-with-auto-mode).

@@ -97,6 +97,7 @@ export const inspectCheckout = async (
     "--remotes",
     `--glob=${REVIEW_REF_PREFIX}*`,
     "--glob=refs/polaris/checkpoints/*",
+    "--glob=refs/polaris/checkpoints-v2/*",
   ]);
 
   const localCommits =

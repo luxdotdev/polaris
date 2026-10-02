@@ -34,6 +34,7 @@ import {
   withRemoteWorkerCommands,
   withWorktreePreparation,
 } from "../transfers/index.ts";
+import { HarnessRegistry } from "../../services.ts";
 import { prepareSession } from "./prepare.ts";
 import { startAttempt, resumeAttempt, workerFailed } from "./workers.ts";
 import { ConstellationHarness } from "./attachments.ts";
@@ -54,6 +55,7 @@ const localRuntime = Layer.unwrap(
 
     const context = yield* Effect.context<
       | EventStore
+      | import("../../services.ts").HarnessRegistry
       | import("../worktrees.ts").ConstellationWorktrees
       | import("../transfers/placements.ts").RemotePlacements
     >();
@@ -100,6 +102,7 @@ const runtime = Layer.effect(
 
 const remoteWorkers = Layer.unwrap(
   Effect.gen(function* () {
+    const registry = yield* HarnessRegistry;
     const owner = yield* ConstellationOwner;
     const store = yield* EventStore;
 
@@ -120,6 +123,7 @@ const remoteWorkers = Layer.unwrap(
           owner
         ).pipe(
           Effect.provideService(EventStore, store),
+          Effect.provideService(HarnessRegistry, registry),
           Effect.mapError(
             (error) =>
               new ConstellationTransferError({

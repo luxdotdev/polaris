@@ -9,12 +9,9 @@ import { Effect, Layer } from "effect";
 import { Checkpoints, ServiceError } from "../services.ts";
 import { GitCommandError, gitText, runGitRaw } from "./git.ts";
 import { snapshotWorkingTree } from "./snapshot.ts";
+import { checkpointRef } from "./checkpointRefs.ts";
 
-export const checkpointRef = (
-  sessionId: SessionId | string,
-  turnId: TurnId | string,
-  label: "before" | "after"
-): string => `refs/polaris/checkpoints/${sessionId}/${turnId}/${label}`;
+export { checkpointRef } from "./checkpointRefs.ts";
 
 /** Checkpoint commits are Polaris's own; don't depend on the user having an identity set. */
 const identity = {

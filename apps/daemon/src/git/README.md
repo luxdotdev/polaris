@@ -42,3 +42,9 @@
 - Checkpoints run `git add -A`, which runs clean filters (e.g. LFS). That respects the user's config, but it can be slow.
 - On a 50k-file tree a snapshot is still ~150 ms, mostly `add -A` checking every file (`lstat` of each tracked file plus the untracked scan; git's untracked cache doesn't apply to `add`). A user's `core.fsmonitor` applies and cuts that; turning it on for them, or re-adding only paths from a watcher's change set, would too, but a missed event would silently drop a change from a checkpoint.
 - `git.status` uses `--untracked-files=normal`, so untracked directories are collapsed.
+
+Checkpoint identities containing Git-unsafe characters use reversible refs under
+`refs/polaris/checkpoints-v2/`; valid legacy refs retain their original names.
+Capture, diff and fork use `checkpointRefs.ts`; pruning reads both namespaces
+and restores original identities before applying retention. See
+[ADR 0012](../../../../docs/adr/0012-checkpoints-encode-opaque-identities.md).

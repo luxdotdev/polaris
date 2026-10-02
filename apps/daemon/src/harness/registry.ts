@@ -60,6 +60,8 @@ export const lazyDriver = (
     ),
     listCommands: (cwd) =>
       Effect.flatMap(loaded, (driver) => driver.listCommands?.(cwd) ?? Effect.succeed([])),
+    validatePermissionMode: (options) =>
+      Effect.flatMap(loaded, (driver) => driver.validatePermissionMode?.(options) ?? Effect.void),
     open: (options) => Effect.flatMap(loaded, (driver) => driver.open(options)),
   }));
 
