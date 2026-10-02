@@ -52,7 +52,8 @@ const findToplevel = async (hostKey: string, root: string): Promise<string | nul
   }
 };
 
-const toplevelOf = (hostKey: string, root: string) => {
+/** The repository's top level at or above `root`, found once per folder; null outside git. */
+export const toplevelOf = (hostKey: string, root: string) => {
   const cacheKey = `${hostKey}\u0000${root}`;
   const known = toplevels.get(cacheKey) ?? findToplevel(hostKey, root);
 

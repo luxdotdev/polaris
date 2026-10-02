@@ -166,7 +166,8 @@ export const Explorer = ({ host, workspace }: ExplorerProps) => {
       data-testid="explorer"
       className="border-hairline bg-surface-sunken flex w-[264px] shrink-0 flex-col border-r"
     >
-      <div className="px-panel pt-panel flex flex-col gap-3 pb-3">
+      {/* E1's 12px at calm, stepping with the panel padding (rule/density-through-tokens). */}
+      <div className="px-panel pt-panel flex flex-col gap-[calc(var(--spacing-panel)*0.75)] pb-[calc(var(--spacing-panel)*0.75)]">
         <Header
           host={host}
           workspace={workspace}

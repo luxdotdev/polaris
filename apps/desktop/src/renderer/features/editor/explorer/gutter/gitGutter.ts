@@ -13,10 +13,11 @@ import {
 } from "@codemirror/state";
 import { EditorView, gutter, GutterMarker, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import { polaris } from "../../../bridge.ts";
+import { toplevelOf } from "../data/fetch.ts";
 import { explorerKey, explorerOf, subscribeExplorers } from "../data/store.ts";
 import { type EditorFile, editorFile } from "../../index.ts";
 import { type GutterMark, gutterMarks, linesOf } from "../model/lineDiff.ts";
-import { isUnder, relative } from "../model/paths.ts";
+import { dirname, isUnder, relative } from "../model/paths.ts";
 
 /** Typing settles for this long before the buffer is diffed again. */
 const SETTLE_MS = 120;
@@ -104,47 +105,68 @@ const shown = StateField.define<RangeSet<GutterMarker>>({
   },
 });
 
-/** The file at HEAD as lines; null when git has no base for it (outside a repo, binary). */
-const bases = new Map<string, Promise<ReadonlyArray<string> | null>>();
+/**
+ * Where a file's base comes from: the explorer's repository at its HEAD, or,
+ * for a file outside it (another checkout's tab), that file's own repository.
+ */
+type Where =
+  | { readonly kind: "explorer"; readonly toplevel: string; readonly head: string | null }
+  | { readonly kind: "own" };
 
-const baseOf = (file: EditorFile, toplevel: string, head: string | null) => {
-  const key = `${file.hostKey}\u0000${head ?? ""}\u0000${file.path}`;
-  const known = bases.get(key);
-
-  if (known !== undefined) return known;
-
-  const fetched =
-    head === null || !isUnder(file.path, toplevel)
-      ? Promise.resolve<ReadonlyArray<string>>([])
-      : polaris()
-          .request("git.show", {
-            hostKey: file.hostKey,
-            cwd: toplevel,
-            revision: head,
-            path: relative(file.path, toplevel),
-          })
-          .then((result) => {
-            if (!result.ok) return result.error.code === "NotFound" ? [] : null;
-
-            return result.value.content.kind === "text" ? linesOf(result.value.content.text) : null;
-          });
-
-  // A handful of open files per commit; old commits' entries go with the app session.
-  bases.set(key, fetched);
-
-  return fetched;
-};
-
-const facts = (file: EditorFile) => {
+/** Null while the explorer's git status is still unknown. */
+const whereOf = (file: EditorFile): Where | null => {
   const git = explorerOf(explorerKey(file.hostKey, file.workspaceId)).git;
 
-  return git === null || git === "none" ? null : git;
+  if (git === null) return null;
+
+  return git !== "none" && isUnder(file.path, git.toplevel)
+    ? { kind: "explorer", toplevel: git.toplevel, head: git.head }
+    : { kind: "own" };
+};
+
+const whereKey = (where: Where) => (where.kind === "own" ? "own" : `head:${where.head ?? ""}`);
+
+const show = async (file: EditorFile, toplevel: string, revision: string) => {
+  const result = await polaris().request("git.show", {
+    hostKey: file.hostKey,
+    cwd: toplevel,
+    revision,
+    path: relative(file.path, toplevel),
+  });
+
+  // Not in that revision: a new file, every line added.
+  if (!result.ok) return result.error.code === "NotFound" ? [] : null;
+
+  return result.value.content.kind === "text" ? linesOf(result.value.content.text) : null;
+};
+
+const fetchBase = async (file: EditorFile, where: Where): Promise<ReadonlyArray<string> | null> => {
+  if (where.kind === "explorer")
+    return where.head === null ? [] : show(file, where.toplevel, where.head);
+
+  const toplevel = await toplevelOf(file.hostKey, dirname(file.path));
+
+  return toplevel === null ? null : show(file, toplevel, "HEAD");
+};
+
+/** The file's base as lines; null when git has none for it (outside a repo, binary). */
+const bases = new Map<string, Promise<ReadonlyArray<string> | null>>();
+
+const baseOf = (file: EditorFile, where: Where) => {
+  const key = `${file.hostKey}\u0000${whereKey(where)}\u0000${file.path}`;
+  const known = bases.get(key) ?? fetchBase(file, where);
+
+  // A handful of open files per commit; old commits' entries go with the app session.
+  bases.set(key, known);
+
+  return known;
 };
 
 const gitPlugin = ViewPlugin.fromClass(
   class {
     base: ReadonlyArray<string> | null = null;
-    head: string | null | undefined = undefined;
+    /** Which base is loaded (`whereKey`); a new HEAD changes it. */
+    loaded: string | null = null;
     settle: ReturnType<typeof setTimeout> | null = null;
     readonly unsubscribe: () => void;
 
@@ -156,12 +178,14 @@ const gitPlugin = ViewPlugin.fromClass(
     /** Fetches the base again when HEAD moves (a commit, a checkout). */
     follow() {
       const file = this.view.state.facet(editorFile);
-      const git = file === null ? null : facts(file);
+      const where = file === null ? null : whereOf(file);
 
-      if (file === null || git === null || git.head === this.head) return;
-      this.head = git.head;
-      void baseOf(file, git.toplevel, git.head).then((base) => {
-        if (this.head !== git.head) return;
+      if (file === null || where === null || whereKey(where) === this.loaded) return;
+      const key = whereKey(where);
+
+      this.loaded = key;
+      void baseOf(file, where).then((base) => {
+        if (this.loaded !== key) return;
         this.base = base;
         this.diff();
       });

@@ -50,14 +50,15 @@ export const ChangesList = ({ rows, active, git, onOpen }: ChangesListProps) => 
               <span className="flex min-w-0 flex-1 items-baseline gap-2">
                 <span
                   className={cn(
-                    "text-label font-regular min-w-0 shrink truncate",
+                    // The name is what's scanned: it keeps its width until the folder is gone.
+                    "text-label font-regular max-w-full shrink-0 truncate",
                     nameTone(row.git, selected, false),
                     deleted && "line-through"
                   )}
                 >
                   {row.name}
                 </span>
-                <span className="text-caption text-text-subtle min-w-0 shrink-[2] truncate">
+                <span className="text-caption text-text-subtle min-w-0 flex-1 truncate">
                   {row.folder}
                 </span>
               </span>

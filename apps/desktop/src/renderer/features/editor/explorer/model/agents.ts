@@ -9,14 +9,31 @@ import type { SessionEntry } from "../../../../store/hostModel.ts";
 import type { SessionModel, TurnView } from "../../../../store/sessionModel.ts";
 import { isUnder, resolve } from "./paths.ts";
 
+/** Who is changing a file now, for the editor's Working strip (E3); `AgentEdit` in features/editor. */
+export interface AgentEdit {
+  readonly sessionId: string;
+  readonly title: string;
+  readonly harness: string;
+  readonly turnId: string;
+  /** 1-based, as copy says "turn N". */
+  readonly turnIndex: number;
+  readonly turnStartedAt: string;
+  /** Turn items carry no times, so this stays null until the protocol has them. */
+  readonly lastChangeAt: string | null;
+  /** A file change for this path is in progress right now. */
+  readonly live: boolean;
+}
+
 export interface AgentMarks {
   /** Absolute path → the Harness kind of the Working session changing it. */
   readonly editing: ReadonlyMap<string, string>;
+  /** Absolute path → the session, Turn and state of that change. */
+  readonly edits: ReadonlyMap<string, AgentEdit>;
   /** Absolute paths a session that needs you is blocked on. */
   readonly blocked: ReadonlySet<string>;
 }
 
-export const noAgents: AgentMarks = { editing: new Map(), blocked: new Set() };
+export const noAgents: AgentMarks = { editing: new Map(), edits: new Map(), blocked: new Set() };
 
 /** Sessions whose feed tells us about files under `root`: Working or Needs You, working in it. */
 export const watchedSessions = (
@@ -72,8 +89,33 @@ export interface AgentInput {
   readonly feed: (sessionId: string) => SessionModel | undefined;
 }
 
+/** The paths a Working session's current Turn is changing, those still in progress marked live. */
+const editsOf = (session: SessionEntry["session"], turn: TurnView, root: string) => {
+  const live = new Set(
+    pathsOf(
+      [...turn.live.values()].flatMap((item) => fileChanges(item.item)),
+      session.cwd,
+      root
+    )
+  );
+
+  return pathsOf(turnChanges(turn), session.cwd, root).map((path): [string, AgentEdit] => [
+    path,
+    {
+      sessionId: session.id,
+      title: session.title,
+      harness: session.harness,
+      turnId: turn.turn.id,
+      turnIndex: turn.turn.index + 1,
+      turnStartedAt: turn.turn.startedAt,
+      lastChangeAt: null,
+      live: live.has(path),
+    },
+  ]);
+};
+
 export const agentMarks = ({ root, sessions, feed }: AgentInput): AgentMarks => {
-  const editing = new Map<string, string>();
+  const edits = new Map<string, AgentEdit>();
   const blocked = new Set<string>();
 
   for (const { session, pendingApprovals } of sessions) {
@@ -82,20 +124,13 @@ export const agentMarks = ({ root, sessions, feed }: AgentInput): AgentMarks => 
     if (turn === undefined || turn.turn.status !== "working") continue;
 
     if (session.state === "working") {
-      for (const path of pathsOf(turnChanges(turn), session.cwd, root)) {
-        editing.set(path, session.harness);
-      }
+      for (const [path, edit] of editsOf(session, turn, root)) edits.set(path, edit);
     } else if (pendingApprovals.length > 0) {
       for (const path of blockedPaths(turn, session.cwd, root)) blocked.add(path);
     }
   }
 
-  return { editing, blocked };
-};
+  const editing = new Map([...edits].map(([path, edit]) => [path, edit.harness] as const));
 
-/** True when two marks would render the same, so a fresh frame of deltas keeps the old one. */
-export const sameMarks = (a: AgentMarks, b: AgentMarks) =>
-  a.editing.size === b.editing.size &&
-  a.blocked.size === b.blocked.size &&
-  [...a.editing].every(([path, kind]) => b.editing.get(path) === kind) &&
-  [...a.blocked].every((path) => b.blocked.has(path));
+  return { editing, edits, blocked };
+};
