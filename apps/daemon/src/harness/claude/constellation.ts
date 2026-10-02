@@ -12,7 +12,6 @@ export const claudeConstellationOptions = (
     preset: "claude_code",
     append: polarisInstructions({ constellations: attachments }),
   },
-  strictMcpConfig: true,
   allowedTools: attachments.map((_, index) => `mcp__polaris${index === 0 ? "" : `_${index}`}__*`),
   mcpServers: Object.fromEntries(
     attachments.map((attachment, index) => {
