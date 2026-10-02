@@ -117,6 +117,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "harness.commands",
   "harness.spinner-verbs",
   "session.set-model",
+  "session.service-tier",
   "session.steer",
   "session.fork",
   "session.terminal-handoff",

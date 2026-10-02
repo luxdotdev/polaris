@@ -293,6 +293,7 @@ export const openSession = (
       | "approvalsReviewer"
       | "sandbox"
       | "model"
+      | "serviceTier"
       | "developerInstructions"
       | "config"
     > = {
@@ -327,6 +328,8 @@ export const openSession = (
       common.config = { ...common.config, "shell_environment_policy.set": options.environment };
 
     if (options.model !== null) common.model = options.model;
+
+    if (options.serviceTier != null) common.serviceTier = options.serviceTier;
 
     // Without the fields an older app-server may refuse (compat.ts): approvals go to the user.
     const { approvalsReviewer: _reviewer, ...olderCommon } = common;
@@ -747,9 +750,10 @@ export const openSession = (
 
     // --- Commands ---------------------------------------------------------
     /** The Model and effort of the latest Turn Polaris sent; answers to async questions reuse them. */
-    let chosen: Pick<TurnInput, "model" | "effort"> = {
+    let chosen: Pick<TurnInput, "model" | "effort" | "serviceTier"> = {
       model: options.model,
       effort: options.effort,
+      serviceTier: options.serviceTier ?? null,
     };
 
     /** Binds the Codex turn a request started to the Polaris Turn, and announces it. */
@@ -805,6 +809,8 @@ export const openSession = (
 
         if (chosen.effort !== null) params.effort = chosen.effort;
 
+        if (chosen.serviceTier != null) params.serviceTier = chosen.serviceTier;
+
         const { approvalsReviewer: _reviewer, effort: _effort, ...older } = params;
 
         const result = yield* requestCompat(conn, "turn/start", params, older).pipe(
@@ -837,7 +843,11 @@ export const openSession = (
       events: Stream.fromQueue(events),
       sendTurn: (input: TurnInput) =>
         Effect.suspend(() => {
-          chosen = { model: input.model, effort: input.effort };
+          chosen = {
+            model: input.model,
+            effort: input.effort,
+            serviceTier: input.serviceTier ?? null,
+          };
 
           return startTurn(input.turnId, input.prompt, turnInput(input.prompt, input.attachments));
         }),

@@ -120,6 +120,7 @@ export interface OpenOptions {
   /** The session's Model and effort; null for the Harness's and the Model's defaults. */
   readonly model: ModelId | null;
   readonly effort: ReasoningEffort | null;
+  readonly serviceTier?: "default" | "priority" | null;
   /** Resume an existing Harness-native session; null starts a fresh one. */
   readonly resumeCursor: string | null;
   /** A read-only session (the Reviewer): no network and no writes, where the Harness can enforce them. */
@@ -140,6 +141,7 @@ export interface TurnInput {
    */
   readonly model: ModelId | null;
   readonly effort: ReasoningEffort | null;
+  readonly serviceTier?: "default" | "priority" | null;
 }
 
 export interface HarnessSession {

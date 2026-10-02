@@ -9,6 +9,7 @@ import type { HarnessKind } from "@polaris/protocol";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuCheckboxItem,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
@@ -40,11 +41,27 @@ import {
 import { type HarnessOption, listedOptions, STATUS_LABELS } from "../model/options.ts";
 import { AvailabilitySheet } from "./Availability.tsx";
 
+const FastIcon = () => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    aria-hidden="true"
+  >
+    <path d="M13 2 4 14h7l-1 8 10-12h-7l1-8Z" />
+  </svg>
+);
+
 export interface HarnessChipProps {
   readonly hostKey: string;
   readonly harness: HarnessKind;
   readonly model: string | null;
   readonly effort: string | null;
+  readonly serviceTier?: "default" | "priority" | null;
+  readonly fastAvailable?: boolean | undefined;
   readonly working?: boolean;
   readonly disabled?: boolean;
   /** Picking a Model: `SetModel`, a Fork on it, or the new session's choice. */
@@ -65,8 +82,9 @@ export interface HarnessChipProps {
 
 /** What the open menu has picked but not sent yet: committed on close, dropped on Escape. */
 interface Staged {
-  readonly model: string;
+  readonly model: string | null;
   readonly effort: string | null;
+  readonly serviceTier?: "default" | "priority" | null;
 }
 
 const ModelRows = ({
@@ -110,6 +128,7 @@ const EffortRow = ({
   readonly harness: HarnessKind;
   readonly model: ModelData;
   readonly effort: string | null;
+  readonly serviceTier?: "default" | "priority" | null;
   readonly onStage: (effort: string) => void;
 }) => {
   const level = effortFor(model, effort);
@@ -203,7 +222,10 @@ const ModelSection = ({
   const shownModel = staged?.model ?? model;
   const shownEffort = staged === null ? effort : staged.effort;
   const selected = models.models.find((m) => m.id === shownModel);
-  const stage = (m: ModelData) => onStage({ model: m.id, effort: effortFor(m, shownEffort) });
+  const shownTier = staged === null ? props.serviceTier : staged.serviceTier;
+
+  const stage = (m: ModelData) =>
+    onStage({ model: m.id, effort: effortFor(m, shownEffort), serviceTier: shownTier ?? null });
 
   return (
     <>
@@ -222,6 +244,29 @@ const ModelSection = ({
       )}
       {modelBlocked === undefined ? (
         <>
+          {harness === "codex" && props.fastAvailable ? (
+            <>
+              <DropdownMenuCheckboxItem
+                checked={shownTier === "priority"}
+                onSelect={(event) => event.preventDefault()}
+                onCheckedChange={(checked) =>
+                  onStage({
+                    model: shownModel,
+                    effort: shownEffort,
+                    serviceTier: checked ? "priority" : "default",
+                  })
+                }
+                data-testid="fast-mode-toggle"
+              >
+                <FastIcon />
+                Fast mode
+              </DropdownMenuCheckboxItem>
+              <p className="text-caption text-text-subtle max-w-64 px-2 pb-1.5">
+                Faster responses, higher usage cost
+              </p>
+              <DropdownMenuSeparator />
+            </>
+          ) : null}
           <ModelRows models={top} shown={shownModel} onStage={stage} />
           {more.length === 0 ? null : (
             <DropdownMenuSub>
@@ -240,7 +285,9 @@ const ModelSection = ({
                 harness={harness}
                 model={selected}
                 effort={shownEffort}
-                onStage={(next) => onStage({ model: selected.id, effort: next })}
+                onStage={(next) =>
+                  onStage({ model: selected.id, effort: next, serviceTier: shownTier ?? null })
+                }
               />
             </>
           )}
@@ -296,10 +343,16 @@ export const HarnessChip = (props: HarnessChipProps) => {
 
     if (
       staged !== null &&
-      picked !== undefined &&
-      (staged.model !== model || staged.effort !== effort)
+      (staged.model !== model ||
+        staged.effort !== effort ||
+        (staged.serviceTier ?? null) !== (props.serviceTier ?? null))
     )
-      props.onModel(choose(picked, staged.effort));
+      props.onModel({
+        ...(picked === undefined
+          ? { model: staged.model, effort: staged.effort }
+          : choose(picked, staged.effort)),
+        serviceTier: staged.serviceTier ?? null,
+      });
   };
 
   const onOpenChange = (next: boolean) => {
@@ -316,6 +369,10 @@ export const HarnessChip = (props: HarnessChipProps) => {
           <HarnessPicker
             harness={harness}
             model={modelLabel(models.models, model, effort)}
+            aria-label={`${harnessHue(harness).name}, ${modelLabel(models.models, model, effort)}${props.serviceTier === "priority" ? ", fast mode on" : ""}`}
+            suffix={
+              harness === "codex" && props.serviceTier === "priority" ? <FastIcon /> : undefined
+            }
             working={working}
             data-testid="model-picker"
           />

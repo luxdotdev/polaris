@@ -108,6 +108,7 @@ export const startCommand = (input: StartInput): Command | null => {
     permissionMode: input.permissionMode,
     model: input.model?.model ?? null,
     effort: input.model?.effort ?? null,
+    serviceTier: input.model?.serviceTier ?? null,
     prompt,
     attachments: input.attachments,
   });
@@ -182,6 +183,7 @@ export const forkStartCommands = (input: ForkStartInput): ReadonlyArray<Command>
     harness: input.harness,
     model: input.model?.model ?? null,
     effort: input.model?.effort ?? null,
+    serviceTier: input.model?.serviceTier ?? null,
   });
 
   const prompt = input.prompt.trim();

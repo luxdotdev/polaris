@@ -27,6 +27,7 @@ export const Capability = Schema.Literals([
   "session.fork",
   /** The `SetModel` command. */
   "session.set-model",
+  "session.service-tier",
   "session.terminal-handoff",
   /** `session.terminalCommand`: the argv, cwd and env of the Harness TUI for "Open in terminal". */
   "session.terminal-command",

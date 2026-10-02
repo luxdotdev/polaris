@@ -68,6 +68,7 @@ describe("Codex's commands", () => {
 
   test("built-ins run through Codex or Polaris", () => {
     expect(CODEX_BUILTINS.map((c) => [c.name, c.run, c.action])).toEqual([
+      ["fast", "polaris", "fast"],
       ["compact", "harness", null],
       ["review", "harness", null],
       ["model", "polaris", "model"],
@@ -127,6 +128,7 @@ describe("Codex's commands", () => {
     expect(listed.filter((c) => c.kind === "command").map((c) => c.name)).toEqual([
       "compact",
       "diff",
+      "fast",
       "model",
       "new",
       "review",

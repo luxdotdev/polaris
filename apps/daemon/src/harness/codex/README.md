@@ -97,10 +97,11 @@ Items, deltas and progress on a Subagent's thread are its own (`subagentId` = it
 
 The table follows T3 Code's runtime modes. These values go on `thread/start`/`thread/resume` and on every `turn/start` (as `sandboxPolicy`); Codex persists turn overrides on the thread. `setPermissionMode` takes effect from the next `turn/start`.
 
-### Models and effort
+### Models, effort and fast mode
 
 - **Listing** (`models.ts`): `model/list`, `includeHidden: false`, following `nextCursor`. `Model.id` is the entry's `model` (what `turn/start` takes), `efforts` its `supportedReasoningEfforts`, `defaultEffort` its `defaultReasoningEffort`, `isDefault` as reported. Asking never starts a thread. When the shared server isn't running it is **not** started for a listing (it is detached and would outlive the Daemon): a private `codex app-server` on stdio answers and is killed with the request's scope. Cost measured with codex-cli 0.158.0: ~0.13 s to `initialize`, ~0.5 s for `model/list` (Codex fetches the catalogue for the signed-in account). The Daemon caches the answer per Host (`../HarnessRpcs.ts`).
-- **Switching** (`switchModel: true`): each `turn/start` carries the Turn's `model` and `effort`. Codex applies overrides "for this turn and subsequent turns" of the thread, so a Model changed with `SetModel` takes effect at the next Turn without reopening. A null field is omitted, which keeps whatever the thread last ran with; Codex has no way to clear an effort override back to the Model's default, so a Client should send a concrete effort (the Model's `defaultEffort`) rather than null after choosing one. Answers to async questions reuse the last Turn's Model and effort.
+- **Switching** (`switchModel: true`): each `turn/start` carries the Turn's `model` and `effort`. Codex applies overrides "for this turn and subsequent turns" of the thread, so a Model changed with `SetModel` takes effect at the next Turn without reopening. A null field is omitted, which keeps whatever the thread last ran with; Codex has no way to clear an effort override back to the Model's default, so a Client should send a concrete effort (the Model's `defaultEffort`) rather than null after choosing one. Answers to async questions reuse the last Turn's Model, effort and service tier.
+- **Fast mode**: the Session and each Turn record `serviceTier`. `priority` enables fast routing; `default` explicitly disables it; an absent selection preserves the Harness default. Start and resume requests receive it too. The selector and `/fast` share the capability-gated Client settings path (`session.service-tier`, `SetModel`), without creating a Turn. Same-Harness Forks inherit the selection; another Harness clears it.
 
 `OpenOptions.readOnly` overrides every permission mode: `never` approvals, `user` reviewer, and `read-only` sandbox (network off), on thread start/resume and each Turn. Codex Subagents inherit the thread's policy. Late server requests from any thread on the session connection are declined without emitting `ApprovalRequested`; changing the permission mode cannot widen the sandbox.
 
@@ -120,6 +121,7 @@ The table follows T3 Code's runtime modes. These values go on `thread/start`/`th
 | `/prompts:<name>` (custom prompt) | `text`, with `template`: the file's body (after frontmatter), `$ARGUMENTS` standing for what follows. app-server doesn't expand prompts (only the TUI does), so the Client sends the body |
 | `/compact` | `harness`: a Turn whose prompt is exactly `/compact` runs `thread/compact/start`; the compaction Turn's `turn/started` takes the pending Polaris Turn. Its only item, `contextCompaction`, isn't shown; the new context size arrives as `ContextUsed` |
 | `/review [instructions]` | `harness`: `review/start`, inline, target `uncommittedChanges` or `custom` instructions; its reply's Turn is bound like `turn/start`'s. Codex then sends `turn/started` for a second turn id while items and `turn/completed` carry the first: that second id joins the review's Turn and never becomes the Turn in flight |
+| `/fast` | `polaris` → `fast` |
 | `/model` | `polaris` → `model` |
 | `/new` | `polaris` → `new-session` |
 | `/diff` | `polaris` → `diff` |

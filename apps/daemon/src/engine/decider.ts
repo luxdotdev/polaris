@@ -134,6 +134,7 @@ const deciding = (model: ReadModel, ctx: DecideContext): Deciding => {
         attachments: [...attachments],
         model: session.model,
         effort: session.effort,
+        serviceTier: session.serviceTier,
         status: "working",
         checkpointBefore: null,
         checkpointAfter: null,
@@ -281,6 +282,7 @@ const startSession = (d: Deciding, command: CommandOf<"StartSession">): Decision
     permissionMode: command.permissionMode,
     model: command.model,
     effort: command.effort,
+    serviceTier: command.harness === "codex" ? (command.serviceTier ?? null) : null,
     parentSessionId: null,
     forkedFromTurnId: null,
     harnessCursor: null,
@@ -340,6 +342,10 @@ const forkSession = (d: Deciding, command: CommandOf<"ForkSession">): Decision =
       // The Model the Fork asks for, else the parent's for the same Harness.
       model: command.model ?? (inherits ? parent.session.model : null),
       effort: command.effort ?? (command.model === null && inherits ? parent.session.effort : null),
+      serviceTier:
+        command.harness === "codex"
+          ? (command.serviceTier ?? (inherits ? parent.session.serviceTier : null))
+          : null,
       parentSessionId: parent.session.id,
       forkedFromTurnId: turn.id,
       harnessCursor: null,
@@ -358,12 +364,17 @@ const unknownHarness = (kind: string) => `${kind} is not a Harness this Daemon d
 
 const setModel = (d: Deciding, command: CommandOf<"SetModel">): Decision =>
   d.withSession(command.sessionId, (record) => {
-    if (command.model.trim() === "") return d.reject("a Model cannot be empty");
+    if (command.serviceTier != null && record.session.harness !== "codex")
+      return d.reject("Fast mode is only available for Codex");
+
+    if (command.model !== null && command.model.trim() === "")
+      return d.reject("a Model cannot be empty");
 
     return d.lifecycle(record, {
       type: "model.set",
       model: command.model,
       effort: command.effort,
+      serviceTier: command.serviceTier ?? record.session.serviceTier,
       canSwitchModel: d.ctx.canSwitchModel,
     });
   });

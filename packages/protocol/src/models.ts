@@ -37,6 +37,11 @@ export const addedArray = <S extends Schema.Top>(schema: S) =>
 export const optionalArray = <S extends Schema.Top>(schema: S) =>
   addedArray(schema).pipe(Schema.withConstructorDefault(Effect.succeed([])));
 
+/** Codex routing: null leaves the Harness default; default explicitly disables fast mode. */
+export const ServiceTier = Schema.Literals(["default", "priority"]);
+
+export type ServiceTier = typeof ServiceTier.Type;
+
 export class Model extends Schema.Class<Model>("Model")({
   id: ModelId,
   /** How the Harness displays it. */

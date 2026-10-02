@@ -152,6 +152,7 @@ export interface ForkInput {
   readonly harness: string;
   readonly model: string | null;
   readonly effort: string | null;
+  readonly serviceTier?: "default" | "priority" | null;
 }
 
 export const forkCommand = (input: ForkInput) => Commands.ForkSession(input);

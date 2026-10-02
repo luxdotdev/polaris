@@ -249,8 +249,10 @@ const fold = (event: DomainEvent): Fold =>
       SessionRenamed: ({ sessionId, title }) => onSession(sessionId, patch({ title })),
       SessionCursorUpdated: ({ sessionId, harnessCursor }) =>
         onSession(sessionId, patch({ harnessCursor })),
-      SessionModelChanged: ({ sessionId, model, effort }) =>
-        onSession(sessionId, patch({ model, effort })),
+      SessionModelChanged: ({ sessionId, model, effort, serviceTier }) =>
+        onSession(sessionId, (entry) =>
+          patch({ model, effort, serviceTier: serviceTier ?? entry.session.serviceTier })(entry)
+        ),
       SessionPermissionModeChanged: ({ sessionId, permissionMode }) =>
         onSession(sessionId, patch({ permissionMode })),
       SessionSetupChanged: ({ sessionId, setup }) =>

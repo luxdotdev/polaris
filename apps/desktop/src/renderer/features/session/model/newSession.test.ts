@@ -63,6 +63,7 @@ describe("new session", () => {
         placement: Placement.NewWorktree({ branch: "feat/x", baseRef: "main" }),
         model: "gpt-5.5",
         effort: "high",
+        serviceTier: null,
         prompt: "go",
       })
     );
@@ -98,7 +99,7 @@ describe("new session", () => {
     const { attachments: _, ...forkFields } = fork;
 
     expect(forkStartCommands({ ...fork, prompt: "" })).toEqual([
-      Commands.ForkSession({ ...forkFields, model: null, effort: null }),
+      Commands.ForkSession({ ...forkFields, model: null, effort: null, serviceTier: null }),
     ]);
   });
 

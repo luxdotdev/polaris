@@ -15,6 +15,7 @@
  * `domain` (persist), `rejected` (answer the Client) and `effect` (run after
  * commit).
  */
+import { modelChanged } from "./session.model.ts";
 import {
   DomainEvent,
   type RequestId,
@@ -237,6 +238,7 @@ const harnessTurn = (
           attachments: [],
           model: record.session.model,
           effort: record.session.effort,
+          serviceTier: record.session.serviceTier,
           status: "working",
           checkpointBefore: null,
           checkpointAfter: null,
@@ -504,15 +506,9 @@ export const sessionMachine = createMachine({
         return reject(enq, `${session.harness} can't switch Model mid-session; fork instead`);
       }
 
-      if (session.model === event.model && session.effort === event.effort) return HANDLED;
+      const changed = modelChanged(session, event);
 
-      return settle(enq, record, [
-        DomainEvent.cases.SessionModelChanged.make({
-          sessionId: session.id,
-          model: event.model,
-          effort: event.effort,
-        }),
-      ]);
+      return changed === null ? HANDLED : settle(enq, record, [changed]);
     },
     "turns.accept": ({ context, event }, enq) => {
       const record = need(context);

@@ -782,3 +782,7 @@ The injected stylesheet adds only what variables can't: the Severity glyph in th
 - Use blur as glow or emphasis; glow is a dither halo. Blur only separates floating layers (see Elevation).
 - Use bold or semibold weights, all caps, emoji, or exclamation marks.
 - Show a Severity as colour alone, or let anything hide or dim a Critical Finding.
+
+### Codex fast mode
+
+The Harness picker offers a neutral lightning-bolt checkbox, "Fast mode", for Codex on a Daemon with `session.service-tier`. Its hint says "Faster responses, higher usage cost". Picks commit with the Model and effort when the menu closes; Escape cancels. A lightning bolt in the closed chip identifies an enabled selection, also named in its accessible label. `/fast` toggles the same selection without sending a Turn. Changes apply from the next Turn and are unavailable during a Turn or when Model changes are blocked. The selection follows the Agent Session across resume and same-Harness Forks.

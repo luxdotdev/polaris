@@ -189,13 +189,34 @@ describe("commands", () => {
           dispatch(Command.cases.SetModel.make({ sessionId, model, effort }));
 
         yield* startSession(workspace, s, "codex");
+
         const started = yield* waitFor((m) => m.sessions.get(s)?.session.state === "working");
-        const busy = yield* Effect.flip(setModel(s, "gpt-5.5", "high"));
+
+        const busy = yield* Effect.flip(
+          dispatch(
+            Command.cases.SetModel.make({
+              sessionId: s,
+              model: null,
+              effort: null,
+              serviceTier: "priority",
+            })
+          )
+        );
+
         expect(busy).toMatchObject({ reason: "the session is working; wait for the Turn to end" });
 
         const turnId = started.sessions.get(s)!.turns[0]!.id;
+
         codex.latest(s)!.emit(HarnessEvent.TurnEnded({ turnId, status: "completed", error: null }));
         yield* waitFor((m) => m.sessions.get(s)?.session.state === "idle");
+        yield* dispatch(
+          Command.cases.SetModel.make({
+            sessionId: s,
+            model: null,
+            effort: null,
+            serviceTier: "priority",
+          })
+        );
         yield* setModel(s, "gpt-5.5", "high");
         // The same Model and effort again changes nothing.
         expect((yield* setModel(s, "gpt-5.5", "high")).sequence).toBeNull();
@@ -205,12 +226,42 @@ describe("commands", () => {
         yield* waitUntil(() => codex.latest(s)?.turns.length === 2);
 
         const record = (yield* Effect.flatMap(EventStore, (store) => store.model)).sessions.get(s)!;
-        expect(record.session).toMatchObject({ model: "gpt-5.5", effort: "high" });
+        expect(record.session).toMatchObject({
+          model: "gpt-5.5",
+          effort: "high",
+          serviceTier: "priority",
+        });
+        expect(record.turns.map((t) => t.serviceTier)).toEqual([null, "priority"]);
         expect(record.turns.map((t) => [t.model, t.effort])).toEqual([
           [null, null],
           ["gpt-5.5", "high"],
         ]);
-        expect(codex.latest(s)!.turns[1]).toMatchObject({ model: "gpt-5.5", effort: "high" });
+        expect(codex.latest(s)!.turns[1]).toMatchObject({
+          model: "gpt-5.5",
+          effort: "high",
+          serviceTier: "priority",
+        });
+        codex.latest(s)!.emit(
+          HarnessEvent.TurnEnded({
+            turnId: record.turns[1]!.id,
+            status: "completed",
+            error: null,
+          })
+        );
+        yield* waitFor((m) => m.sessions.get(s)?.session.state === "idle");
+        yield* dispatch(
+          Command.cases.SetModel.make({
+            sessionId: s,
+            model: "gpt-5.5",
+            effort: "high",
+            serviceTier: "default",
+          })
+        );
+        yield* dispatch(
+          Command.cases.SendTurn.make({ sessionId: s, prompt: "standard", attachments: [] })
+        );
+        yield* waitUntil(() => codex.latest(s)?.turns.length === 3);
+        expect(codex.latest(s)!.turns[2]).toMatchObject({ serviceTier: "default" });
 
         // A Harness that can't switch mid-session: only before it has a session of its own.
         const c = sid("s-model-claude");

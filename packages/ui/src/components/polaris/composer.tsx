@@ -15,6 +15,7 @@ export interface HarnessPickerProps extends HTMLAttributes<HTMLButtonElement> {
   readonly harness: Harness;
   /** The Model, as the Harness names it ("Opus 5"). */
   readonly model: string;
+  readonly suffix?: ReactNode;
   /** While that Harness is Working the chip takes its hue on the text and a 30% border. */
   readonly working?: boolean;
 }
@@ -23,6 +24,7 @@ export interface HarnessPickerProps extends HTMLAttributes<HTMLButtonElement> {
 export function HarnessPicker({
   harness,
   model,
+  suffix,
   working = false,
   className,
   style,
@@ -61,6 +63,7 @@ export function HarnessPicker({
         {harnessHue(harness).handle}
       </span>
       <span className="text-caption text-text-subtle">{model}</span>
+      {suffix}
       <ChevronDownIcon size={10} className="text-text-subtle" />
     </button>
   );

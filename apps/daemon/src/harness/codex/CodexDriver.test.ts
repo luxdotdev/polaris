@@ -403,12 +403,13 @@ describe("Codex driver against a fake app-server", () => {
             expect.stringMatching(/^unix:\/\/\/tmp\/pcx-.*\/s\.sock$/),
           ]);
         }),
-      { resumeCursor: THREAD, permissionMode: "auto" }
+      { resumeCursor: THREAD, permissionMode: "auto", serviceTier: "priority" }
     );
 
     expect(server.requests("thread/resume")[0]?.params).toMatchObject({
       threadId: THREAD,
       excludeTurns: true,
+      serviceTier: "priority",
       approvalPolicy: "on-request",
       approvalsReviewer: "auto_review",
       sandbox: "workspace-write",

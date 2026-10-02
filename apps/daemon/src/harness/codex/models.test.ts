@@ -132,7 +132,7 @@ for await (const chunk of Bun.stdin.stream()) {
     expect(() => process.kill(pid, 0)).toThrow();
   });
 
-  test("each Turn sends its Model and effort on turn/start", async () => {
+  test("each Turn sends its Model, effort and explicit fast-mode routing on turn/start", async () => {
     const socketPath = join(tempDir(), "s.sock");
     let turns = 0;
 
@@ -174,21 +174,31 @@ for await (const chunk of Bun.stdin.stream()) {
             permissionMode: "supervised",
             model: "gpt-a",
             effort: null,
+            serviceTier: "priority",
             resumeCursor: null,
           });
 
-          const send = (n: number, m: string | null, effort: string | null) =>
+          const send = (
+            n: number,
+            m: string | null,
+            effort: string | null,
+            serviceTier: "priority" | "default"
+          ) =>
             session.sendTurn({
               turnId: TurnId.make(`t${n}`),
               prompt: "hi",
               attachments: [],
               model: m,
               effort,
+              serviceTier,
             });
 
-          yield* send(1, "gpt-a", null);
+          expect(server.requests("thread/start")[0]?.params).toMatchObject({
+            serviceTier: "priority",
+          });
+          yield* send(1, "gpt-a", null, "priority");
           yield* Effect.sleep("30 millis");
-          yield* send(2, "gpt-b", "xhigh");
+          yield* send(2, "gpt-b", "xhigh", "default");
 
           return server.requests("turn/start");
         })
@@ -199,12 +209,13 @@ for await (const chunk of Bun.stdin.stream()) {
       Schema.Struct({
         model: Schema.optional(Schema.String),
         effort: Schema.optional(Schema.String),
+        serviceTier: Schema.String,
       })
     );
 
     expect(turnStarts.map((r) => decodeChoice(r.params))).toEqual([
-      { model: "gpt-a" },
-      { model: "gpt-b", effort: "xhigh" },
+      { model: "gpt-a", serviceTier: "priority" },
+      { model: "gpt-b", effort: "xhigh", serviceTier: "default" },
     ]);
   });
 });

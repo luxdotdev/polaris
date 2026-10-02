@@ -14,7 +14,13 @@ import {
   WorkspaceId,
   WorktreeId,
 } from "./ids.ts";
-import { addedNullable, ModelId, optionalNullable, ReasoningEffort } from "./models.ts";
+import {
+  addedNullable,
+  ServiceTier,
+  ModelId,
+  optionalNullable,
+  ReasoningEffort,
+} from "./models.ts";
 import { WorktreeSetup, WorktreeSetupRun } from "./worktreeSetup.ts";
 import { FeedbackBatch, PullRequestRef } from "./review.ts";
 
@@ -107,6 +113,7 @@ export class AgentSession extends Schema.Class<AgentSession>("AgentSession")({
   model: Schema.NullOr(ModelId),
   /** The reasoning effort the next Turn runs with; null for the Model's default. */
   effort: addedNullable(ReasoningEffort),
+  serviceTier: optionalNullable(ServiceTier),
   /** Set when this session is a Fork. */
   parentSessionId: Schema.NullOr(SessionId),
   forkedFromTurnId: Schema.NullOr(TurnId),
@@ -150,6 +157,7 @@ export class Turn extends Schema.Class<Turn>("Turn")({
   /** The Model and effort the Turn ran on, as the session had them; null for the defaults. */
   model: addedNullable(ModelId),
   effort: addedNullable(ReasoningEffort),
+  serviceTier: optionalNullable(ServiceTier),
   status: TurnStatus,
   /** Set when the Turn was sent from Review feedback (`SendFeedback`); `prompt` is its rendering. */
   feedback: optionalNullable(FeedbackBatch),

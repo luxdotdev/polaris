@@ -65,6 +65,7 @@ export const sessionWith =
     body: (h: Harness) => Effect.Effect<A, unknown>,
     options: {
       readonly resumeCursor?: string;
+      readonly serviceTier?: "default" | "priority";
       readonly permissionMode?: PermissionMode;
       readonly readOnly?: boolean;
       readonly constellation?: NonNullable<OpenOptions["constellation"]>;

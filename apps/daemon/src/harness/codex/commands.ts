@@ -31,6 +31,13 @@ const BUILTIN: Fields = {
 export const CODEX_BUILTINS: ReadonlyArray<SlashCommand> = [
   new SlashCommand({
     ...BUILTIN,
+    name: "fast",
+    description: "Toggle fast mode (higher usage cost)",
+    run: "polaris",
+    action: "fast",
+  }),
+  new SlashCommand({
+    ...BUILTIN,
     name: "compact",
     description: "Summarize the conversation to free up context",
   }),

@@ -3,6 +3,7 @@
  * it (esc), attaches files, and switches Model between Turns (or forks when
  * the Harness can't switch).
  */
+import { fastToggle } from "../../harness/model/fast.ts";
 import type { SessionId } from "@polaris/protocol";
 import { useState } from "react";
 import { type Harness, harnessHue } from "@polaris/ui";
@@ -84,6 +85,7 @@ const useModelChange = ({ hostKey, session, model, onOpenSession }: SessionCompo
       harness,
       model: choice?.model ?? null,
       effort: choice?.effort ?? null,
+      serviceTier: choice?.serviceTier ?? null,
     });
 
     void send(hostKey, command, "Couldn't fork").then((ok) => {
@@ -156,12 +158,16 @@ export const SessionComposer = (props: SessionComposerProps) => {
   const [pickerOpen, setPickerOpen] = useState(false);
   const chrome = useSessionChrome();
 
+  const change = useModelChange(props);
+  const fastAvailable = session.harness === "codex" && hasCapability(host, "session.service-tier");
+
   const commands: ComposerCommands = useComposerCommands({
     hostKey,
     workspaceId: session.workspaceId,
     harness: session.harness,
     cwd: session.cwd,
     openModels: () => setPickerOpen(true),
+    toggleFast: fastToggle(fastAvailable, change.blocked, session, change.onModel),
   });
   // What the Turn sends: a Codex custom prompt goes expanded (`promptFor`).
 
@@ -180,8 +186,6 @@ export const SessionComposer = (props: SessionComposerProps) => {
     },
     (staged) => patchSessionUi(uiKey, (u) => ({ attachments: [...u.attachments, staged] }))
   );
-
-  const change = useModelChange(props);
 
   const queue = () => {
     if (!canQueue(mode) || (ui.draft.trim() === "" && ui.attachments.length === 0)) return;
@@ -239,6 +243,8 @@ export const SessionComposer = (props: SessionComposerProps) => {
             harness={harness}
             model={session.model}
             effort={session.effort}
+            serviceTier={session.serviceTier}
+            fastAvailable={fastAvailable}
             working={isWorking && session.state === "working"}
             modelNote={change.note}
             modelBlocked={change.blocked}

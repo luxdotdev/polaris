@@ -334,6 +334,7 @@ export const patchSession = (session: AgentSession, patch: SessionPatch): AgentS
     permissionMode: session.permissionMode,
     model: session.model,
     effort: session.effort,
+    serviceTier: session.serviceTier,
     parentSessionId: session.parentSessionId,
     forkedFromTurnId: session.forkedFromTurnId,
     harnessCursor: session.harnessCursor,
@@ -360,6 +361,7 @@ export const patchTurn = (turn: Turn, patch: TurnPatch): Turn =>
     attachments: turn.attachments,
     model: turn.model,
     effort: turn.effort,
+    serviceTier: turn.serviceTier,
     status: turn.status,
     feedback: turn.feedback,
     checkpointBefore: turn.checkpointBefore,
@@ -613,8 +615,12 @@ const apply: (event: DomainEvent) => Reducer = DomainEvent.match<Reducer>({
       session: { permissionMode: event.permissionMode },
     })),
   SessionModelChanged: (event) => (fold) =>
-    updateSession(fold, event.sessionId, () => ({
-      session: { model: event.model, effort: event.effort },
+    updateSession(fold, event.sessionId, (record) => ({
+      session: {
+        model: event.model,
+        effort: event.effort,
+        serviceTier: event.serviceTier ?? record.session.serviceTier,
+      },
     })),
   SessionSetupChanged: (event) => (fold) =>
     updateSession(fold, event.sessionId, () => ({ session: { worktreeSetup: event.setup } })),

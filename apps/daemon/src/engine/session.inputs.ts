@@ -10,6 +10,7 @@ import {
   ModelId,
   PermissionMode,
   ReasoningEffort,
+  ServiceTier,
   RequestId,
   Subagent,
   SubagentId,
@@ -43,8 +44,9 @@ export const eventSchemas = {
   "permissionMode.set": standard(Schema.Struct({ permissionMode: PermissionMode })),
   "model.set": standard(
     Schema.Struct({
-      model: ModelId,
+      model: Schema.NullOr(ModelId),
       effort: Schema.NullOr(ReasoningEffort),
+      serviceTier: Schema.NullOr(ServiceTier),
       canSwitchModel: Schema.Boolean,
     })
   ),

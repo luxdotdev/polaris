@@ -10,9 +10,10 @@ import type { Plain } from "../../../../shared/api.ts";
 export type ModelData = Plain<Model>;
 
 export interface ModelChoice {
-  readonly model: string;
+  readonly model: string | null;
   /** Always concrete when the Model takes effort: the pick, else its default. */
   readonly effort: string | null;
+  readonly serviceTier?: "default" | "priority" | null;
 }
 
 const CLAUDE_DEFAULT_ROW = "default";

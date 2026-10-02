@@ -244,7 +244,13 @@ const INPUTS = {
   openTerminal: () => [{ type: "terminal.open" }],
   returnTerminal: () => [{ type: "terminal.return" }],
   setModel: (c) => [
-    { type: "model.set", model: `m${c.n}`, effort: null, canSwitchModel: c.options.switchModel },
+    {
+      type: "model.set",
+      model: `m${c.n}`,
+      effort: null,
+      serviceTier: c.record?.session.serviceTier ?? null,
+      canSwitchModel: c.options.switchModel,
+    },
   ],
   requestApproval: (c) =>
     c.channel === null || c.working === undefined || (c.record?.pending.size ?? 0) >= 2

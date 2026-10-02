@@ -55,3 +55,10 @@ export const COMMANDS: ReadonlyArray<CommandOption> = [
     }
   ),
 ];
+
+export const FAST_COMMAND = entry("fast", "Toggle fast mode (higher usage cost)", {
+  kind: "command",
+  source: "built-in",
+  run: "polaris",
+  action: "fast",
+});

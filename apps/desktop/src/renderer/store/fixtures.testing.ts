@@ -42,6 +42,7 @@ export const session = new AgentSession({
   permissionMode: "auto",
   model: null,
   effort: null,
+  serviceTier: null,
   parentSessionId: null,
   forkedFromTurnId: null,
   harnessCursor: null,
@@ -65,6 +66,7 @@ const turnFields = {
   endedAt: null,
   model: null,
   effort: null,
+  serviceTier: null,
   feedback: null,
 } satisfies Turn;
 

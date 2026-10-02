@@ -34,6 +34,8 @@ export const PolarisAction = Schema.Literals([
   "new-session",
   /** Open the Model and effort menu (`/model`, `/effort`). */
   "model",
+  /** Toggle Codex priority routing for the next Turns (`/fast`). */
+  "fast",
   /** Show the Turn's diff in Output (`/diff`). */
   "diff",
   /** Open Settings → Usage (`/usage`, `/cost`). */

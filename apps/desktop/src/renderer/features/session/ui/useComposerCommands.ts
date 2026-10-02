@@ -43,6 +43,7 @@ export interface ComposerCommandsInput {
   readonly harness: HarnessKind | null;
   readonly cwd: string | null;
   readonly openModels: () => void;
+  readonly toggleFast?: (() => void) | undefined;
 }
 
 export const useComposerCommands = ({
@@ -51,6 +52,7 @@ export const useComposerCommands = ({
   harness,
   cwd,
   openModels,
+  toggleFast,
 }: ComposerCommandsInput): ComposerCommands => {
   const scope = { hostKey, workspaceId, harness: harness ?? "" };
   const scopeId = scopeKey(scope);
@@ -75,12 +77,15 @@ export const useComposerCommands = ({
   const actions: Readonly<Record<PolarisAction, () => void>> = {
     "new-session": () => void registry.run("session.new"),
     model: openModels,
+    fast: toggleFast ?? openModels,
     diff: () => void registry.run("view.output"),
     usage: () => void registry.run("settings.usage"),
   };
 
   return {
-    options: listing.options,
+    options: listing.options.filter(
+      (option) => option.action !== "fast" || toggleFast !== undefined
+    ),
     loading: listing.loading,
     want: listing.want,
     onAction: (action) => afterRelease(actions[action]),

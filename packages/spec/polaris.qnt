@@ -16,6 +16,8 @@
 module polaris {
   // SessionSetupChanged is capability-gated metadata; setup failures use Session failure,
   // outside this Turn/approval abstraction (README mapping and real preparation tests).
+  // SetModel serviceTier is Session metadata: refused during a Turn, recorded on the next Turn.
+  // It changes no lifecycle/approval semantics; Engine and Session model tests check it.
   // ── Parameters ────────────────────────────────────────────────────────────
 
   /**

@@ -18,7 +18,7 @@ import {
   VerdictId,
   WorkspaceId,
 } from "./ids.ts";
-import { addedNullable, ModelId, ReasoningEffort } from "./models.ts";
+import { addedNullable, ServiceTier, ModelId, ReasoningEffort } from "./models.ts";
 import {
   FeedbackBatch,
   PullRequestRef,
@@ -56,6 +56,7 @@ export const Command = Schema.TaggedUnion({
     /** The initial Model and effort; null for the Harness's and the Model's defaults. */
     model: Schema.NullOr(ModelId),
     effort: addedNullable(ReasoningEffort),
+    serviceTier: Schema.optionalKey(Schema.NullOr(ServiceTier)),
     prompt: Schema.String,
     attachments: Schema.Array(AttachmentId),
   },
@@ -83,7 +84,12 @@ export const Command = Schema.TaggedUnion({
    * Only between Turns, and only where the Harness can switch Model mid-session;
    * otherwise fork with the new Model.
    */
-  SetModel: { sessionId: SessionId, model: ModelId, effort: Schema.NullOr(ReasoningEffort) },
+  SetModel: {
+    sessionId: SessionId,
+    model: Schema.NullOr(ModelId),
+    effort: Schema.NullOr(ReasoningEffort),
+    serviceTier: Schema.optionalKey(Schema.NullOr(ServiceTier)),
+  },
   ForkSession: {
     sessionId: SessionId,
     fromSessionId: SessionId,
@@ -92,6 +98,7 @@ export const Command = Schema.TaggedUnion({
     /** Null keeps the parent's Model and effort for the same Harness, else the defaults. */
     model: addedNullable(ModelId),
     effort: addedNullable(ReasoningEffort),
+    serviceTier: Schema.optionalKey(Schema.NullOr(ServiceTier)),
   },
   /** Archive removes the session's Worktree but keeps its branch; unmerged branches are never deleted. */
   ArchiveSession: { sessionId: SessionId, deleteMergedBranch: Schema.Boolean },

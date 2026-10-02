@@ -3,6 +3,7 @@
  * where it runs, the composer and the Harness choice. Sends `StartSession`,
  * or `ForkSession` then the prompt as its first Turn for "Fork a turn".
  */
+import { fastToggle } from "../../harness/model/fast.ts";
 import {
   type Command,
   isKnownHarness,
@@ -213,6 +214,12 @@ export const NewSessionPage = ({
     harness: chosen,
     cwd: workspace?.path ?? null,
     openModels: () => setPickerOpen(true),
+    toggleFast: fastToggle(
+      chosen === "codex" && hasCapability(host, "session.service-tier"),
+      undefined,
+      withSavedModels(models, defaults).codex ?? { model: null, effort: null },
+      (next) => setModels({ ...models, codex: next })
+    ),
   });
   // What the session's first Turn sends: a Codex custom prompt goes expanded.
 
@@ -308,10 +315,13 @@ export const NewSessionPage = ({
               <NoHarnessChip loading={loading} />
             ) : (
               <HarnessChip
+                key={hue}
                 hostKey={hostKey}
                 harness={hue}
                 model={choices.models[hue]?.model ?? null}
                 effort={choices.models[hue]?.effort ?? null}
+                serviceTier={choices.models[hue]?.serviceTier ?? null}
+                fastAvailable={hasCapability(host, "session.service-tier")}
                 disabled={!choices.startable}
                 onModel={(next) => setModels({ ...models, [hue]: next })}
                 open={pickerOpen}

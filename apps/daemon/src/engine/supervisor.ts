@@ -112,6 +112,7 @@ const make = (
           permissionMode: record.session.permissionMode,
           model: record.session.model,
           effort: record.session.effort,
+          serviceTier: record.session.serviceTier,
           resumeCursor: record.session.harnessCursor,
           readOnly,
         })
@@ -390,6 +391,7 @@ const make = (
         attachments,
         model: turn.model,
         effort: turn.effort,
+        serviceTier: turn.serviceTier,
       });
     }).pipe(Effect.catch((error) => rt.failSession(sessionId, error.message)));
 

@@ -8,6 +8,7 @@ import type { CommandOption } from "./commands.ts";
 const ACTIONS: Readonly<Record<PolarisAction, string>> = {
   "new-session": "Start a new session here",
   model: "Choose the model and effort",
+  fast: "Toggle fast mode (higher usage cost)",
   diff: "Show this turn's changes",
   usage: "Open usage",
 };

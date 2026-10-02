@@ -223,9 +223,13 @@ const fold = (event: DomainEvent): Fold =>
         (m) =>
           patchSession(m, { harnessCursor }),
       SessionModelChanged:
-        ({ model, effort }): Fold =>
+        ({ model, effort, serviceTier }): Fold =>
         (m) =>
-          patchSession(m, { model, effort }),
+          patchSession(m, {
+            model,
+            effort,
+            serviceTier: serviceTier ?? m.session?.serviceTier ?? null,
+          }),
       SessionPermissionModeChanged:
         ({ permissionMode }): Fold =>
         (m) =>

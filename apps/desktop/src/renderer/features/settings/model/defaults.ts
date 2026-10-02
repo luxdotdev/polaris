@@ -6,7 +6,7 @@
 import type { SessionDefaults } from "../../../../shared/api.ts";
 
 export interface SavedChoice {
-  readonly model: string;
+  readonly model: string | null;
   readonly effort: string | null;
 }
 

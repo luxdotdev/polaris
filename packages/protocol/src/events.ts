@@ -33,7 +33,7 @@ import {
   WorktreeId,
 } from "./ids.ts";
 import { WorktreeSetupRun } from "./worktreeSetup.ts";
-import { addedNullable, ModelId, ReasoningEffort } from "./models.ts";
+import { addedNullable, ServiceTier, ModelId, ReasoningEffort } from "./models.ts";
 import {
   FindingResolution,
   LayerRun,
@@ -70,8 +70,9 @@ export const DomainEvent = Schema.TaggedUnion({
   /** `SetModel`: the Model and effort the next Turns run on. */
   SessionModelChanged: {
     sessionId: SessionId,
-    model: ModelId,
+    model: Schema.NullOr(ModelId),
     effort: Schema.NullOr(ReasoningEffort),
+    serviceTier: Schema.optionalKey(Schema.NullOr(ServiceTier)),
   },
 
   /** The Harness reported how full the context window is (see `AgentSession.contextUsage`). */
