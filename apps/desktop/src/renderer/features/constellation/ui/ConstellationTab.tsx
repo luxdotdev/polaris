@@ -18,6 +18,7 @@ import {
   type ConstellationRecord,
   nextNeedingYou,
   type RailRow,
+  retrySetup,
   segments,
   type TaskRow,
 } from "../model/index.ts";
@@ -114,6 +115,15 @@ const useTabActions = (
       accept ? "Couldn't accept the proposal" : "Couldn't decline the proposal"
     );
 
+  const retry = (row: TaskRow) => {
+    if (row.setup === null) return;
+    void constellationCommands.dispatch(
+      hostKey,
+      retrySetup(row.setup, c.hostId),
+      `Couldn't retry ${row.task.id}`
+    );
+  };
+
   const toggle = (group: string, open: boolean) =>
     patchLeadUi(key, (ui) => ({ folds: new Map(ui.folds).set(group, open) }));
 
@@ -122,7 +132,7 @@ const useTabActions = (
     commands.run("session.focusComposer");
   };
 
-  return { key, menu, answer, toggle, focus, messageLead };
+  return { key, menu, answer, retry, toggle, focus, messageLead };
 };
 
 type Actions = ReturnType<typeof useTabActions>;
@@ -251,6 +261,7 @@ export const ConstellationTab = (props: ConstellationTabProps) => {
     },
     onFocus: actions.focus,
     onReview: actions.menu.onReview,
+    onRetrySetup: actions.retry,
     onProposal: actions.answer,
     onHandover: (revision) =>
       patchLeadUi(actions.key, () => ({ focus: { kind: "handover", revision } })),

@@ -37,6 +37,8 @@ const ALL = [
   "handover",
   "stats",
   "completed",
+  "setup",
+  "setup-focus",
 ];
 
 const scenes = flag("--scenes")?.split(",") ?? ALL;

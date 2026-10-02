@@ -15,3 +15,13 @@ export {
 } from "../constellation/hooks.ts";
 
 export type { ConstellationView } from "../constellation/model/types.ts";
+
+export {
+  currentSetup,
+  retrySetup,
+  type SetupFact,
+  setupExit,
+  setupOutcome,
+  setupSources,
+  setupsOf,
+} from "../constellation/model/setup.ts";

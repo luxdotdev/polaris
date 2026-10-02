@@ -8,7 +8,13 @@ import type { HostView } from "../../../../shared/api.ts";
 import type { HostModel, SessionEntry } from "../../../store/hostModel.ts";
 import type { Plain } from "../../../store/plain.ts";
 import { lookupIn, workerRows, type WorkerRow } from "../../sessions/model/leadGroups.ts";
-import type { ConstellationView } from "../../sessions/source.ts";
+import {
+  type ConstellationView,
+  currentSetup,
+  type SetupFact,
+  setupSources,
+  setupsOf,
+} from "../../sessions/source.ts";
 import { needsYou } from "../../../routes/topBar.ts";
 import { type Inbox, inboxKey } from "./inbox.ts";
 
@@ -19,6 +25,7 @@ export const PRIORITY = [
   "lead",
   "claim",
   "unclaimed",
+  "setup",
   "stale",
   "worker-context",
   "lead-context",
@@ -46,6 +53,8 @@ export interface ConstellationItem {
   readonly context?: number;
   /** For workers: their row, so actions know the Attempt. */
   readonly worker?: WorkerRow;
+  /** A failed worktree setup: it has no Attempt, so it has no worker row. */
+  readonly setup?: SetupFact;
 }
 
 export interface ConstellationGroup {
@@ -191,9 +200,41 @@ const claimItems = (rows: ReadonlyArray<WorkerRow>, groupKey: string, paused: bo
 const ordered = (items: ReadonlyArray<ConstellationItem>) =>
   [...items].sort((a, b) => rank(a) - rank(b) || a.since.localeCompare(b.since));
 
+/** Tasks whose worktree setup failed and is still current (no newer Attempt), on any Host. */
+const setupItems = (
+  view: ConstellationView,
+  input: Pick<ConstellationInput, "hosts" | "models">,
+  groupKey: string
+): Array<ConstellationItem> => {
+  const c = view.constellation;
+  const setups = setupsOf(setupSources(input.hosts, input.models), c.id, c.hostId);
+
+  return [...setups.values()].flatMap((fact): Array<ConstellationItem> => {
+    const latest = c.attempts.findLast((a) => a.taskId === fact.run.taskId) ?? null;
+
+    if (!c.tasks.some((t) => t.id === fact.run.taskId) || currentSetup(fact, latest) === null)
+      return [];
+
+    if (!fact.failed) return [];
+
+    return [
+      {
+        key: `${groupKey}\u0000${fact.run.taskId}\u0000setup`,
+        kind: "setup",
+        hostKey: fact.hostKey,
+        entry: input.models[fact.hostKey]?.sessions.get(fact.sessionId) ?? null,
+        taskId: fact.run.taskId,
+        since: fact.run.endedAt ?? fact.run.startedAt,
+        setup: fact,
+      },
+    ];
+  });
+};
+
 interface GroupInput {
   readonly hostKey: string;
   readonly view: ConstellationView;
+  readonly hosts: ConstellationInput["hosts"];
   readonly models: ConstellationInput["models"];
   readonly lookup: ReturnType<typeof lookupIn>;
 }
@@ -201,7 +242,13 @@ interface GroupInput {
 const LIVE = new Set(["planning", "running", "paused"]);
 
 /** One Constellation's items, or null when nothing in it waits on the user. */
-const groupOf = ({ hostKey, view, models, lookup }: GroupInput): ConstellationGroup | null => {
+const groupOf = ({
+  hostKey,
+  view,
+  hosts,
+  models,
+  lookup,
+}: GroupInput): ConstellationGroup | null => {
   const { constellation } = view;
 
   if (!LIVE.has(constellation.state)) return null;
@@ -211,6 +258,7 @@ const groupOf = ({ hostKey, view, models, lookup }: GroupInput): ConstellationGr
 
   const items = ordered([
     ...rows.flatMap((row) => workerItems(row, key)),
+    ...setupItems(view, { hosts, models }, key),
     ...questionItems(view, rows, key),
     ...leadItems(hostKey, lead, key),
     ...claimItems(rows, key, constellation.state === "paused"),
@@ -237,7 +285,7 @@ export const buildConstellationInbox = ({
 
   const groups = Object.entries(views)
     .flatMap(([hostKey, list]) =>
-      list.flatMap((view) => groupOf({ hostKey, view, models, lookup }) ?? [])
+      list.flatMap((view) => groupOf({ hostKey, view, hosts, models, lookup }) ?? [])
     )
     .sort(byUrgency);
 

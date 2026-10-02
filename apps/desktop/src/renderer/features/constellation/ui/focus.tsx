@@ -14,8 +14,10 @@ import { hostKeyOf } from "../liveFacts.ts";
 import {
   type AttemptData,
   type ConstellationRecord,
+  currentSetup,
   idRanges,
   latestAttempts,
+  type SetupFact,
   span,
   type TaskData,
 } from "../model/index.ts";
@@ -187,6 +189,19 @@ export const WorkerFocus = ({
   const c = record.constellation;
   const task = c.tasks.find((t) => t.id === taskId);
   const attempt = c.attempts.findLast((a) => a.taskId === taskId) ?? null;
+  const facts = useFacts(record);
+  const setup = currentSetup(facts.setup(taskId), attempt);
+
+  if (task !== undefined && setup !== null)
+    return (
+      <SetupFocus
+        leadHostKey={leadHostKey}
+        record={record}
+        task={task}
+        setup={setup}
+        leadTitle={leadTitle}
+      />
+    );
 
   if (task === undefined || attempt === null)
     return (
@@ -258,6 +273,67 @@ const WorkerFocusOn = ({ leadHostKey, record, task, attempt, leadTitle }: Worker
   return (
     <SessionChromeContext.Provider value={chrome}>
       <SessionIntent hostKey={workerHost} sessionId={attempt.sessionId} />
+    </SessionChromeContext.Provider>
+  );
+};
+
+const setupStatus = (setup: SetupFact, now: number) => {
+  if (!setup.failed) return `Setting up · ${span(setup.run.startedAt, now)}`;
+
+  return setup.run.exitCode === null ? "Setup failed" : `Setup failed · exit ${setup.run.exitCode}`;
+};
+
+/**
+ * A Task whose worktree setup runs or failed has no Attempt yet: the focus shows the worker
+ * Session's transcript (its setup card), and the composer talks to the Lead.
+ */
+const SetupFocus = ({
+  leadHostKey,
+  record,
+  task,
+  setup,
+  leadTitle,
+}: Omit<WorkerChromeInput, "attempt"> & { readonly setup: SetupFact }) => {
+  const c = record.constellation;
+  const facts = useFacts(record);
+
+  const harness = useApp(
+    (s) => s.hostModels[setup.hostKey]?.sessions.get(setup.sessionId)?.session.harness ?? null
+  );
+
+  const back = () =>
+    patchLeadUi(leadKey(leadHostKey, c.leadSessionId), () => ({ focus: null, review: null }));
+
+  const chrome: SessionChrome = {
+    header: (
+      <FocusHeader
+        crumbs={[leadTitle, task.group ?? c.name, task.id]}
+        onBack={back}
+        title={`${task.id} · ${task.title}`}
+        harness={harness}
+        status={setupStatus(setup, facts.now)}
+        aside={setup.remoteHost === null ? null : `on ${setup.remoteHost}`}
+      />
+    ),
+    composer: {
+      placeholder: `Message the lead about ${task.id}`,
+      onSubmit: (text) =>
+        constellationCommands.message(
+          leadHostKey,
+          {
+            constellationId: c.id,
+            target: MessageTarget.cases.Lead.make({}),
+            text: `About ${task.id} (${task.title}): ${text}`,
+            authority: "conversation",
+          },
+          "Couldn't message the lead"
+        ),
+    },
+  };
+
+  return (
+    <SessionChromeContext.Provider value={chrome}>
+      <SessionIntent hostKey={setup.hostKey} sessionId={setup.sessionId} />
     </SessionChromeContext.Provider>
   );
 };

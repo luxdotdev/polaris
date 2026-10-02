@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { ContextUsage } from "@polaris/protocol";
 import type { HostModel } from "../../../store/hostModel.ts";
 import { asPlain } from "../../../store/plain.ts";
-import { C1, C2, HOSTS, MODELS } from "../../sessions/preview/fixtures.ts";
+import { C1, C2, HOSTS, MODELS, withSetupFailure } from "../../sessions/preview/fixtures.ts";
 import { buildConstellationInbox, PRIORITY, withConstellations } from "./constellation.ts";
 import { buildInbox, inboxKey } from "./inbox.ts";
 
@@ -23,6 +23,7 @@ describe("buildConstellationInbox", () => {
       "lead",
       "claim",
       "unclaimed",
+      "setup",
       "stale",
       "worker-context",
       "lead-context",
@@ -129,6 +130,28 @@ describe("buildConstellationInbox", () => {
       buildConstellationInbox({ hosts: HOSTS, models, views: { local: [done] } }).groups
     ).toEqual([]);
   });
+});
+
+test("a failed worktree setup on another Host joins its Lead's group, after a silent end", () => {
+  const { models, view } = withSetupFailure();
+
+  const result = buildConstellationInbox({ hosts: HOSTS, models, views: { local: [view] } });
+  const items = result.groups[0]?.items ?? [];
+
+  expect(items.map((i) => [`${i.taskId}`, i.kind])).toEqual([
+    ["B1", "question"],
+    ["B5", "unclaimed"],
+    ["B6", "setup"],
+  ]);
+  expect(items.at(-1)?.setup?.remoteHost).toBe("devbox");
+  expect(result.sessions.has(inboxKey("devbox", "b6"))).toBe(true);
+
+  // The run isn't in this graph: nothing joins.
+  expect(
+    buildConstellationInbox({ hosts: HOSTS, models, views: { local: [C1] } }).groups[0]?.items.map(
+      (i) => i.kind
+    )
+  ).toEqual(["question", "unclaimed"]);
 });
 
 test("the count covers Constellation items once, beside sessions that need you", () => {

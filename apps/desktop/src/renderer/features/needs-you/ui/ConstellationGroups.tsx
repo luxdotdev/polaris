@@ -18,7 +18,7 @@ import { openSessionReview } from "../../../routes/review.ts";
 import { useShellActions } from "../../../shell/hooks.ts";
 import { ConstellationMark } from "../../sessions/glyphs.tsx";
 import { sendConstellation } from "../../sessions/constellationApi.ts";
-import { useConstellationActions } from "../../sessions/source.ts";
+import { retrySetup, setupExit, useConstellationActions } from "../../sessions/source.ts";
 import type { ConstellationGroup, ConstellationItem } from "../model/constellation.ts";
 import { approve, deny } from "../respond.ts";
 
@@ -272,6 +272,48 @@ const Unclaimed = ({ group, item, now }: ItemProps) => {
   );
 };
 
+/** Worktree setup failed before the Attempt (it ranks with "stopped without claiming"). */
+const SetupFailed = ({ group, item, now }: ItemProps) => {
+  const open = useOpen(group, item);
+  const setup = item.setup;
+
+  if (setup === undefined) return null;
+
+  const retry = () =>
+    void sendConstellation(
+      group.leadHostKey,
+      "constellation.dispatch",
+      retrySetup(setup, group.view.constellation.hostId),
+      `Couldn't retry ${who(item)}`
+    );
+
+  return (
+    <Card
+      kind={item.kind}
+      harness={item.entry?.session.harness ?? "codex"}
+      title={`${who(item)} setup failed`}
+      since={item.since}
+      now={now}
+    >
+      <Body>
+        <span className="font-mono">{setup.run.command}</span> {setupExit(setup.run)}
+        {setup.remoteHost === null ? null : (
+          <span className="text-text-subtle"> · on {setup.remoteHost}</span>
+        )}
+        . No worker slot was used.
+      </Body>
+      <Actions>
+        <Button size="xs" onClick={retry}>
+          Retry
+        </Button>
+        <Button variant="ghost" size="xs" onClick={open}>
+          Open the log
+        </Button>
+      </Actions>
+    </Card>
+  );
+};
+
 const Stale = ({ group, item, now }: ItemProps) => {
   const open = useOpen(group, item);
 
@@ -418,6 +460,7 @@ const Item = (props: ItemProps) =>
     Match.when("question", () => <Question {...props} />),
     Match.when("claim", () => <Claim {...props} />),
     Match.when("unclaimed", () => <Unclaimed {...props} />),
+    Match.when("setup", () => <SetupFailed {...props} />),
     Match.when("stale", () => <Stale {...props} />),
     Match.when("worker-context", () => <WorkerContext {...props} />),
     Match.when("lead-context", () => <LeadContext {...props} />),

@@ -9,6 +9,7 @@ import { acceptedGlance, type ClaimGlance, claimGlance, type ReceiptView } from 
 import { actorLine, harnessWord, span } from "./copy.ts";
 import { type Activity, CONTEXT_WARN, type Facts, NO_FACTS, type WorkerFacts } from "./facts.ts";
 import { glyphFor, type TaskGlyphKind, type TaskLook, taskLook } from "./look.ts";
+import { currentSetup, type SetupFact } from "./setup.ts";
 import type {
   AttemptData,
   ConstellationRecord,
@@ -42,6 +43,16 @@ export type Line =
       readonly receipts: ReadonlyArray<ReceiptView>;
     }
   | {
+      /** "setting up · bun install · 1m", or a failed run's "bun install exited 1". */
+      readonly kind: "setup";
+      readonly failed: boolean;
+      readonly command: string;
+      readonly exitCode: number | null;
+      readonly duration: string;
+      /** The worker's Host when it isn't the Lead's: "on devbox". */
+      readonly remoteHost: string | null;
+    }
+  | {
       readonly kind: "note";
       readonly text: string;
       readonly tone: "neutral" | "needs-you";
@@ -66,6 +77,8 @@ export interface TaskRow {
   readonly harness: HarnessKind | null;
   readonly actor: string;
   readonly line: Line | null;
+  /** Worktree setup running or failed ahead of the next Attempt; Retry and the log use it. */
+  readonly setup: SetupFact | null;
   readonly overlap: Overlap | null;
   /** A Gate's inputs, each in its own state (a working one in its Harness hue). */
   readonly inputs: ReadonlyArray<GateInput> | null;
@@ -187,6 +200,23 @@ const lineFor = (input: LineInput): Line | null => {
   return null;
 };
 
+const setupLine = (setup: SetupFact, now: number): Line => ({
+  kind: "setup",
+  failed: setup.failed,
+  command: setup.run.command,
+  exitCode: setup.run.exitCode,
+  duration: span(setup.run.startedAt, now),
+  remoteHost: setup.remoteHost,
+});
+
+const rowLine = (input: LineInput, setup: SetupFact | null, oneLine: boolean): Line | null => {
+  if (oneLine) return null;
+
+  if (setup !== null) return setupLine(setup, input.facts.now);
+
+  return input.row.attempt === null && input.row.task.kind !== "gate" ? null : lineFor(input);
+};
+
 export interface TaskContext {
   readonly record: ConstellationRecord;
   readonly facts: Facts;
@@ -254,6 +284,7 @@ export const taskRow = (task: TaskData, nested: boolean, ctx: TaskContext): Task
   const look = taskLook(record.constellation, task, projection, attempt, facts);
   const known = worker ?? NO_FACTS;
   const base = { task, attempt, projection, look };
+  const setup = currentSetup(facts.setup(task.id), attempt);
 
   return {
     kind: "task",
@@ -265,10 +296,8 @@ export const taskRow = (task: TaskData, nested: boolean, ctx: TaskContext): Task
         ? ctx.facts.lead.harness
         : (worker?.harness ?? task.suggested?.harness ?? null),
     actor: actorFor(task, attempt, known, ctx),
-    line:
-      ctx.oneLine || (worker === null && task.kind !== "gate")
-        ? null
-        : lineFor({ row: base, worker: known, record, facts }),
+    line: rowLine({ row: base, worker: known, record, facts }, setup, ctx.oneLine),
+    setup,
     overlap: ctx.oneLine ? null : (ctx.overlaps.get(task.id) ?? null),
     inputs: task.kind === "gate" ? inputGlyphs(task, ctx) : null,
     promoted:

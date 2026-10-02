@@ -29,6 +29,7 @@ import {
   WORKSPACE,
 } from "./graph.ts";
 import { largeRecord } from "./large.ts";
+import { b8Model, setupRecord, setupSessions } from "./setup.ts";
 import { statsFixture } from "./stats.ts";
 import {
   b1Model,
@@ -87,6 +88,8 @@ const SCENES = [
   "handover",
   "stats",
   "completed",
+  "setup",
+  "setup-focus",
 ] as const;
 
 type Scene = (typeof SCENES)[number];
@@ -102,10 +105,15 @@ const recordFor = (scene: Scene): ConstellationRecord => {
 
   if (scene === "handed") return c1Record({ attempts: handedUpAttempts() });
 
+  if (scene === "setup" || scene === "setup-focus") return setupRecord();
+
   if (scene === "completed") return c1Record({ state: "completed", attempts: completedAttempts() });
 
   return c1Record(scene === "paused" ? { state: "paused" } : {});
 };
+
+/** Group A is done; folding it keeps B7 and B8 in view. */
+const SETUP_FOLDS = new Map([["A · Events and decider", false]]);
 
 const UI: Readonly<Record<Scene, Partial<LeadUi>>> = {
   lead: {},
@@ -122,11 +130,17 @@ const UI: Readonly<Record<Scene, Partial<LeadUi>>> = {
   handover: { focus: { kind: "handover", revision: 37 }, selected: "handover:37" },
   stats: { stats: true },
   completed: {},
+  setup: { selected: "task:B8", folds: SETUP_FOLDS },
+  "setup-focus": {
+    focus: { kind: "task", taskId: "B8" },
+    selected: "task:B8",
+    folds: SETUP_FOLDS,
+  },
 };
 
 const stateFor = (record: ConstellationRecord): AppState => {
-  const sessions = [leadSession, previousLead, ...workerSessions];
-  const open: ReadonlyArray<SessionModel> = [leadModel(), b1Model()];
+  const sessions = [leadSession, previousLead, ...workerSessions, ...setupSessions];
+  const open: ReadonlyArray<SessionModel> = [leadModel(), b1Model(), b8Model()];
 
   return {
     ...initialState,

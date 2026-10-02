@@ -4,6 +4,7 @@
  */
 import {
   type ConstellationAnswer,
+  type ConstellationDispatch,
   type ConstellationMessage,
   type ConstellationReview,
   type ConstellationSetState,
@@ -20,6 +21,8 @@ type Without<P> = Omit<P, "commandId">;
 
 export type ReviewInput = Without<Rpc.Payload<typeof ConstellationReview>>;
 
+export type DispatchInput = Without<Rpc.Payload<typeof ConstellationDispatch>>;
+
 export type AnswerInput = Without<Rpc.Payload<typeof ConstellationAnswer>>;
 
 export type MessageInput = Without<Rpc.Payload<typeof ConstellationMessage>>;
@@ -33,6 +36,7 @@ export type Outcome =
 /** Each mutation carries a fresh command id; the Host is the Lead's (the stream's owner). */
 export interface ConstellationClient {
   readonly review: (hostKey: string, input: ReviewInput & WithId) => Promise<Outcome>;
+  readonly dispatch: (hostKey: string, input: DispatchInput & WithId) => Promise<Outcome>;
   readonly answer: (hostKey: string, input: AnswerInput & WithId) => Promise<Outcome>;
   readonly message: (hostKey: string, input: MessageInput & WithId) => Promise<Outcome>;
   readonly setState: (hostKey: string, input: SetStateInput & WithId) => Promise<Outcome>;
@@ -44,6 +48,7 @@ interface WithId {
 
 type Method =
   | "constellation.review"
+  | "constellation.dispatch"
   | "constellation.answer"
   | "constellation.message"
   | "constellation.set_state";
@@ -62,6 +67,7 @@ const viaIpc =
 
 const IPC: ConstellationClient = {
   review: viaIpc("constellation.review"),
+  dispatch: viaIpc("constellation.dispatch"),
   answer: viaIpc("constellation.answer"),
   message: viaIpc("constellation.message"),
   setState: viaIpc("constellation.set_state"),
@@ -93,6 +99,8 @@ const run = async (title: string, send: (id: CommandId) => Promise<Outcome>) => 
 export const constellationCommands = {
   review: (hostKey: string, input: ReviewInput, title: string) =>
     run(title, (commandId) => installed.review(hostKey, { ...input, commandId })),
+  dispatch: (hostKey: string, input: DispatchInput, title: string) =>
+    run(title, (commandId) => installed.dispatch(hostKey, { ...input, commandId })),
   answer: (hostKey: string, input: AnswerInput, title: string) =>
     run(title, (commandId) => installed.answer(hostKey, { ...input, commandId })),
   message: (hostKey: string, input: MessageInput, title: string) =>

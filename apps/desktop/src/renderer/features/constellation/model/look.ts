@@ -6,6 +6,7 @@ import type { TaskState } from "@polaris/protocol";
 import { Predicate } from "effect";
 import { idRanges, span } from "./copy.ts";
 import type { Facts, WorkerFacts } from "./facts.ts";
+import { currentSetup, type SetupRun } from "./setup.ts";
 import type { AttemptData, ConstellationData, ProjectionData, TaskData } from "./types.ts";
 
 export type TaskGlyphKind =
@@ -28,7 +29,9 @@ export type Attention =
   | { readonly kind: "approval"; readonly since: string }
   | { readonly kind: "question"; readonly text: string }
   | { readonly kind: "handed" }
-  | { readonly kind: "stopped" };
+  | { readonly kind: "stopped" }
+  /** Worktree setup failed before the Attempt could start (it ranks with "stopped"). */
+  | { readonly kind: "setup"; readonly run: SetupRun };
 
 /** The buckets groups count and filters use. */
 export type Bucket = "needs-you" | "review" | "working" | "done" | "waiting" | "future" | "ended";
@@ -114,6 +117,7 @@ const ATTENTION_WORD: Readonly<Record<Attention["kind"], string>> = {
   question: "asks you",
   handed: "handed to you",
   stopped: "needs you",
+  setup: "setup failed",
 };
 
 const STATE_WORD: Readonly<Record<TaskState, string>> = {
@@ -159,6 +163,28 @@ const toneOf = (state: TaskState): Tone => {
   return state === "future" || ENDED.has(state) ? "faint" : "neutral";
 };
 
+/** Setup runs on the Host outside the worker cap: neutral while running, needs you once failed. */
+const setupLook = (run: SetupRun, failed: boolean): TaskLook =>
+  failed
+    ? {
+        glyph: "needs-you",
+        idTone: "needs-you",
+        word: ATTENTION_WORD.setup,
+        wordTone: "needs-you",
+        evidence: null,
+        attention: { kind: "setup", run },
+        bucket: "needs-you",
+      }
+    : {
+        glyph: "waiting",
+        idTone: "neutral",
+        word: "setting up",
+        wordTone: "neutral",
+        evidence: null,
+        attention: null,
+        bucket: "working",
+      };
+
 export const taskLook = (
   c: ConstellationData,
   task: TaskData,
@@ -166,6 +192,9 @@ export const taskLook = (
   attempt: AttemptData | null,
   facts: Facts
 ): TaskLook => {
+  const setup = currentSetup(facts.setup(task.id), attempt);
+
+  if (setup !== null) return setupLook(setup.run, setup.failed);
   const worker = attempt === null ? null : facts.worker(attempt);
   const attention = worker === null ? null : attentionOf(c, projection, attempt, worker);
   const isGate = task.kind === "gate";

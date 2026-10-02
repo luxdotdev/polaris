@@ -11,6 +11,7 @@ import {
   type Liveness,
   pluralize,
   type RailRow,
+  setupExit,
   shortSha,
   type Tally,
   tallyBar,
@@ -105,8 +106,29 @@ const ClaimLine = ({ glance }: { readonly glance: ClaimGlance }) => (
   </Caption>
 );
 
+type SetupLineData = Extract<Line, { kind: "setup" }>;
+
+const setupTail = (line: SetupLineData) => {
+  return line.failed ? setupExit(line) : `· ${line.duration}`;
+};
+
+const SetupLine = ({ line }: { readonly line: SetupLineData }) => (
+  <Caption>
+    <span className="flex min-w-0 items-center gap-1 truncate">
+      {line.failed ? null : <span className="shrink-0">setting up ·</span>}
+      <span className="text-code-inline truncate font-mono">{line.command}</span>
+      <span className="shrink-0">{setupTail(line)}</span>
+    </span>
+    {line.remoteHost === null ? null : (
+      <span className="text-text-faint shrink-0">on {line.remoteHost}</span>
+    )}
+  </Caption>
+);
+
 const LineView = ({ line }: { readonly line: Line }) => {
   switch (line.kind) {
+    case "setup":
+      return <SetupLine line={line} />;
     case "liveness":
       return <LivenessLine line={line} />;
     case "claim":
@@ -134,6 +156,8 @@ export interface RowHandlers {
   readonly onToggleGroup: (group: string) => void;
   readonly onFocus: (row: TaskRow) => void;
   readonly onReview: (row: TaskRow, mode: "accept" | "send-back") => void;
+  /** Dispatches a Task whose worktree setup failed again, on the same worker Session. */
+  readonly onRetrySetup: (row: TaskRow) => void;
   readonly onProposal: (proposalId: string, accept: boolean) => void;
   readonly onHandover: (revision: number) => void;
   /** The row's ⋯ menu, rendered by the tab. */
@@ -181,6 +205,16 @@ const TaskView = ({ row, on }: { readonly row: TaskRow; readonly on: RowHandlers
           <div className="min-w-0 flex-1">
             {row.line === null ? null : <LineView line={row.line} />}
           </div>
+          {row.setup?.failed === true ? (
+            <span className="flex shrink-0 gap-1.5 pr-9">
+              <Button size="xs" onClick={() => on.onRetrySetup(row)}>
+                Retry
+              </Button>
+              <Button size="xs" variant="ghost" onClick={() => on.onFocus(row)}>
+                Open the log
+              </Button>
+            </span>
+          ) : null}
           {row.promoted ? (
             <span className="flex shrink-0 gap-1.5 pr-9">
               <Button size="xs" onClick={() => on.onReview(row, "accept")}>

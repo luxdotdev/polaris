@@ -1,6 +1,7 @@
 /**
  * A real store for screenshots of the Constellation tab against the live Daemon: a Workspace,
- * a Lead and workers, and one graph in every state. Run between Daemons on a temporary home.
+ * a Lead and workers, and one graph in every state (B4's worktree setup failed before its first
+ * Attempt). Run between Daemons on a temporary home.
  *
  *   bun apps/daemon/src/engine/constellation.uiFixture.ts <home> <workspace path>
  */
@@ -23,6 +24,7 @@ import {
   TaskId,
   Workspace,
   WorkspaceId,
+  WorktreeSetupRun,
 } from "@polaris/protocol";
 import { Effect } from "effect";
 import { EventStore } from "../store/EventStore.ts";
@@ -37,14 +39,15 @@ const session = (
   id: string,
   title: string,
   harness: HarnessKind,
-  model: string
+  model: string,
+  cwd: string = workspace.path
 ) =>
   new AgentSession({
     id: Sid.make(id),
     workspaceId: workspace.id,
     harness,
     title,
-    cwd: workspace.path,
+    cwd,
     worktreeId: null,
     state: "idle",
     permissionMode: "auto-edits",
@@ -103,6 +106,14 @@ export const seedUiConstellation = Effect.fnUntraced(function* (home: string, pa
     B1: session(workspace, "s-ui-b1", "B1 · Quint properties", "codex", "gpt-6.1-sol"),
     B2: session(workspace, "s-ui-b2", "B2 · MCP tools", "codex", "gpt-6.1-sol"),
     B3: session(workspace, "s-ui-b3", "B3 · Tab", "claude", "opus"),
+    B4: session(
+      workspace,
+      "s-ui-b4",
+      "B4 · Streamable-HTTP endpoint",
+      "codex",
+      "gpt-6.1-sol",
+      `${path}.worktrees/B4`
+    ),
   };
 
   const id = ConstellationId.make("c-ui");
@@ -259,6 +270,31 @@ export const seedUiConstellation = Effect.fnUntraced(function* (home: string, pa
       ...graph,
       revision: next(),
       attempt: attempt("B3", workers.B3.id, 18),
+    })
+  );
+
+  const setup = (status: "running" | "failed") =>
+    new WorktreeSetupRun({
+      id: "ui-B4:setup:1",
+      constellationId: id,
+      taskId: TaskId.make("B4"),
+      command: "bun install",
+      cwd: workers.B4.cwd,
+      status,
+      output: status === "failed" ? "error: lockfile had changes, but lockfile is frozen\n" : "",
+      exitCode: status === "failed" ? 1 : null,
+      startedAt: at(3),
+      endedAt: status === "failed" ? at(2) : null,
+    });
+
+  // Setup refuses before an Attempt exists: B4 has a failed run and a failed Session, no Attempt.
+  events.push(
+    E.SessionSetupChanged.make({ sessionId: workers.B4.id, setup: setup("running") }),
+    E.SessionSetupChanged.make({ sessionId: workers.B4.id, setup: setup("failed") }),
+    E.SessionStateChanged.make({
+      sessionId: workers.B4.id,
+      state: "failed",
+      reason: "Worktree setup failed: bun install. Fix setup and dispatch again.",
     })
   );
 
