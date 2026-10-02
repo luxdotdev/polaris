@@ -179,6 +179,8 @@ export function createLanguageBroker(options: BrokerOptions) {
     event(entry, LanguageContextEvent.cases.Invalidated.make({ context: identity, reason }));
     const connection = entry.connection;
     entry.connection = undefined;
+    entry.stderrAbort?.abort();
+    entry.stderrAbort = undefined;
     entry.bridge?.close();
     entry.bridge = undefined;
     entry.operations.clear();
@@ -293,19 +295,25 @@ export function createLanguageBroker(options: BrokerOptions) {
       });
 
       entry.bridge = bridge;
+      const stderrAbort = new AbortController();
+      entry.stderrAbort = stderrAbort;
       track(
-        drainStderr(port.stderr, (bytes) => {
-          if (bytes > 65536) onCrash(entry, identity);
-          else if (bytes > 0 && active(entry, identity))
-            event(
-              entry,
-              LanguageContextEvent.cases.Log.make({
-                context: identity,
-                level: "warning",
-                message: "Language server wrote stderr; private output withheld",
-              })
-            );
-        })
+        drainStderr(
+          port.stderr,
+          (bytes) => {
+            if (bytes > 65536) onCrash(entry, identity);
+            else if (bytes > 0 && active(entry, identity))
+              event(
+                entry,
+                LanguageContextEvent.cases.Log.make({
+                  context: identity,
+                  level: "warning",
+                  message: "Language server wrote stderr; private output withheld",
+                })
+              );
+          },
+          stderrAbort.signal
+        )
       );
       void port.exited.then(() => onCrash(entry, identity));
 

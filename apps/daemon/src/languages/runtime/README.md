@@ -38,3 +38,8 @@ retires the old generation and its pending requests before cleanup. New generati
 require full Client snapshots; no prior edit notification or unknown edit outcome
 is retried. Crash retries require refreshed Client demand and consume a maximum
 of two automatic retry attempts. Manual restart resets that budget.
+
+Retirement cancels the generation's stderr reader without waiting for its source
+finalizer, so an inherited open pipe cannot hold broker cleanup indefinitely.
+POSIX cleanup signals the owned process group; descendants that escape that group
+are outside that termination guarantee. Windows cleanup remains untested.

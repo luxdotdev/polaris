@@ -23,7 +23,10 @@ export async function fixture(
   mode = "ordinary",
   graceMs = 10,
   observeLifecycle?: Parameters<typeof createLanguageBroker>[0]["observeLifecycle"],
-  discoveryGate?: Promise<void>
+  discoveryGate?: Promise<void>,
+  wrapProcess?: (
+    port: ReturnType<typeof spawnLanguageProcess>
+  ) => ReturnType<typeof spawnLanguageProcess>
 ) {
   const root = await realpath(await mkdtemp(join(tmpdir(), "m31-t1-")));
   await writeFile(join(root, "file.ts"), "saved");
@@ -84,7 +87,7 @@ export async function fixture(
       const port = spawnLanguageProcess(launch);
       processes.push(port);
 
-      return port;
+      return wrapProcess?.(port) ?? port;
     },
     graceMs,
     retryMs: 10,

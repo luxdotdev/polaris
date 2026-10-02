@@ -4,9 +4,19 @@ import type { Documents } from "./documents.ts";
 
 export async function drainStderr(
   stream: ReadableStream<Uint8Array>,
-  onBytes: (bytes: number) => void
+  onBytes: (bytes: number) => void,
+  signal: AbortSignal
 ) {
   const reader = stream.getReader();
+
+  const cancel = () => {
+    // Cancellation closes pending reads without awaiting the source's finalizer.
+    void reader.cancel().catch(() => {});
+  };
+
+  signal.addEventListener("abort", cancel, { once: true });
+
+  if (signal.aborted) cancel();
 
   try {
     let bytes = 0;
@@ -19,13 +29,14 @@ export async function drainStderr(
       onBytes(bytes);
 
       if (bytes > 65536) {
-        await reader.cancel();
+        cancel();
         break;
       }
     }
   } catch {
     /* Process shutdown can close stderr. */
   } finally {
+    signal.removeEventListener("abort", cancel);
     reader.releaseLock();
   }
 }

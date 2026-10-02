@@ -46,6 +46,7 @@ export interface Entry {
   runtime: typeof LanguageRuntime.Type;
   capabilities?: LanguageProviderCapabilities | undefined;
   connection?: OrderedConnection | undefined;
+  stderrAbort?: AbortController | undefined;
   bridge?: ServerBridge | undefined;
   starting?: Promise<void> | undefined;
   timer?: ReturnType<typeof setTimeout> | undefined;
