@@ -112,7 +112,7 @@ export const createAppFormatting = (
     },
     failure: (file, message) =>
       showOpenFailure({
-        title: `Couldn't format ${file.path.split("/").pop() ?? file.path}`,
+        title: `Saving unformatted: ${file.path.split("/").pop() ?? file.path}`,
         message: `${message} Saving your text without formatting.`,
       }),
   };

@@ -12,6 +12,8 @@ import type { SaveProofControls } from "./proofTypes.ts";
 
 const output = process.argv[2];
 
+const visualOnly = process.argv[3] === "--visual-only";
+
 if (!output) throw new Error("Pass an evidence directory");
 
 await mkdir(output, { recursive: true });
@@ -43,6 +45,7 @@ const modes: Record<string, ModeEvidence> = {};
 
 const evidence = {
   base: "4710ae39",
+  visualOnly,
   acceptedBufferSHA256: createHash("sha256").update(accepted).digest("hex"),
   node: process.version,
   load: loadavg(),
@@ -50,7 +53,7 @@ const evidence = {
 };
 
 try {
-  for (const mode of ["accepted", "candidate"]) {
+  for (const mode of visualOnly ? ["candidate"] : ["accepted", "candidate"]) {
     let controlLoads = 0;
 
     const server = await createServer({
@@ -103,7 +106,7 @@ try {
 
       if (mode === "candidate") {
         proof = Schema.decodeUnknownSync(Proof)(await page.evaluate("window.saveProof.run()"));
-        await page.getByText("Couldn't format main.ts").first().waitFor();
+        await page.getByText("Saving unformatted: main.ts").first().waitFor();
         await page
           .getByText(
             "The selected formatter is unavailable on this Host. Saving your text without formatting."
@@ -126,29 +129,31 @@ try {
           }
       }
 
-      const samples = await page.evaluate(async () => {
-        const result: Record<string, number[]> = {};
+      const samples = visualOnly
+        ? {}
+        : await page.evaluate(async () => {
+            const result: Record<string, number[]> = {};
 
-        for (const enabled of [false, true]) {
-          const fixture: SaveProofControls = window.saveProof;
+            for (const enabled of [false, true]) {
+              const fixture: SaveProofControls = window.saveProof;
 
-          fixture.enable(enabled);
-          const times: number[] = [];
+              fixture.enable(enabled);
+              const times: number[] = [];
 
-          for (let n = 0; n < 16; n++) {
-            await fixture.edit(`sample ${enabled} ${n}`);
-            const start = performance.now();
+              for (let n = 0; n < 16; n++) {
+                await fixture.edit(`sample ${enabled} ${n}`);
+                const start = performance.now();
 
-            if (!(await fixture.save())) throw new Error("Measured save failed");
+                if (!(await fixture.save())) throw new Error("Measured save failed");
 
-            if (n > 0) times.push(performance.now() - start);
-          }
+                if (n > 0) times.push(performance.now() - start);
+              }
 
-          result[String(enabled)] = times;
-        }
+              result[String(enabled)] = times;
+            }
 
-        return result;
-      });
+            return result;
+          });
 
       const watches = await page.evaluate("window.saveProof.cleanup()");
 
