@@ -6,6 +6,7 @@ It covers the event store's group commit, receipts and gapless sequence (`apps/d
 
 | File | What |
 |---|---|
+| `file-edits.qnt` | X1 regular-file reversible move: durable intent, exact owned/absent versions, restart reconciliation, reverse intent and idempotent retry. Runtime checkpoint projection and ordered-chain filesystem fault tests accompany it. |
 | `languages.qnt` | M3.1 contract-only model: isolated contexts, queue/version/generation fences, durable edit acknowledgment and guarded undo. Future T1/X1 runtime adapters must emit observed traces; P1 installs no runtime. |
 | `polaris.qnt` | The model, its properties, and its instances: `current` (the code as it is), `review` (the code as it is, with Clients also accepting Turns and recording Verdicts, in one session), `finding1` … `finding4` (the code before each finding's fix, kept as mutants that must still violate `safety`) and `small` (for Apalache). |
 | `polaris_test.qnt` | Scenario tests: interleavings written out by hand (group commit, retry after a crash, answer races, withdrawal races, restart, a dropped subscriber, the host feed, Archive, late approval requests, accepting Turns, Verdicts off the host stream), and one per finding against its mutant. |
@@ -384,3 +385,47 @@ Quint. Existing Engine traces remain unchanged and still use
 `POLARIS_TRACE_DIR` with `scripts/replay.ts`; language text must never be written
 into those durable Agent Session traces. Actual consumer model-based and
 fault-injection tests remain required before any capability is advertised.
+
+## Regular-file resource operation recovery (X1)
+
+`file-edits.qnt` models one reversible move. `Pending/Forward/Applied/Backward/Restored`
+map to the private per-move journal, not the public batch outcome. `Owned` is the
+exact pre-move FileVersion, `Missing` an owned absence, and `External` an
+intervening version. Forward mutation requires durable intent plus owned source
+and absent destination; reverse mutation requires reverse intent plus owned
+destination and absent source. Crash and duplicate acceptance do not change
+physical locations or reapply. Restart recovery reverses intent/applied moves,
+reconciling before/after locations, and rejects any conflicting ownership.
+
+| Model action | Runtime mapping |
+| --- | --- |
+| Prepare | Schema/owner/preview/draft checks; all canonical snapshots and ordered operations validated; prepared journal fsynced |
+| Intent / Move / PersistApplied | `files/edits/index.ts` forward intent receipt, recheck, `moves.ts` rename + directory fsync, applied receipt |
+| UndoIntent / Restore / PersistRestored | Reverse journal intent; recheck exact destination/absence; reverse rename; restored receipt |
+| ExternalSource / ExternalTarget | Agent/external edit or creation in an owned absence; exact-version recovery refuses it |
+| Crash / Retry | Process loss preserves disk/journal; same acceptance returns receipt without replay |
+| Ack | Final durable applied outcome and verified Client durable drafts; G2 performs actual transport acknowledgment |
+
+`bun run spec` includes four recovery scenarios and 3,000 60-step safety
+simulations. `bun test apps/daemon/src/files/edits` exercises real temporary
+files, overwrite chains, reverse crashes, partial failure/cancellation and
+subprocess SIGKILL. `model.test.ts` captures actual coordinator checkpoints,
+projects source/target FileVersions and private move phase, and runs Quint replay;
+a corrupted target-ownership observation must fail. The single-move abstraction
+does not claim complete concurrent filesystem atomicity, full batch formal proof,
+or directory/symlink recovery. X2 owns tree contracts and operations before G2
+can advertise resource capabilities.
+
+To retain and replay runtime evidence:
+
+```sh
+X1_TRACE_OUTPUT=/tmp/x1-runtime.trace.json bun test apps/daemon/src/files/edits/model.test.ts
+bun packages/spec/scripts/replay-file-edits.ts /tmp/x1-runtime.trace.json
+```
+
+Trace v1 requires `source: "runtime"`, bounded recognized events and observed
+phase/source/target tokens. The checked-in
+`scripts/file-edits-runtime.trace.json` is a real temporary-filesystem coordinator
+crash/recovery fixture, not a live transport/Daemon trace. Replay checks every
+observed checkpoint against safety; it cannot authenticate arbitrary supplied
+trace provenance. No Apalache or formal temporal liveness proof is claimed.

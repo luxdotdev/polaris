@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "source": "runtime",
+  "events": [
+    {
+      "event": "Prepare",
+      "phase": "Pending",
+      "source": "Owned",
+      "target": "Missing"
+    },
+    {
+      "event": "Intent",
+      "phase": "Forward",
+      "source": "Owned",
+      "target": "Missing"
+    },
+    {
+      "event": "Move",
+      "phase": "Forward",
+      "source": "Missing",
+      "target": "Owned"
+    },
+    {
+      "event": "Crash",
+      "phase": "Forward",
+      "source": "Missing",
+      "target": "Owned"
+    },
+    {
+      "event": "Retry",
+      "phase": "Forward",
+      "source": "Missing",
+      "target": "Owned"
+    },
+    {
+      "event": "UndoIntent",
+      "phase": "Backward",
+      "source": "Missing",
+      "target": "Owned"
+    },
+    {
+      "event": "Restore",
+      "phase": "Backward",
+      "source": "Owned",
+      "target": "Missing"
+    },
+    {
+      "event": "PersistRestored",
+      "phase": "Restored",
+      "source": "Owned",
+      "target": "Missing"
+    }
+  ]
+}

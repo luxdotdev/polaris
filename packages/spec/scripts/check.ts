@@ -110,6 +110,20 @@ run("typecheck constellations.qnt", ["typecheck", "constellations.qnt"]);
 
 run("typecheck constellations_test.qnt", ["typecheck", "constellations_test.qnt"]);
 
+run("typecheck file-edits.qnt", ["typecheck", "file-edits.qnt"]);
+
+run("file operation recovery scenarios", ["test", "file-edits.qnt", "--main=file_edits_test"]);
+
+run("file operation recovery simulation", [
+  "run",
+  "file-edits.qnt",
+  "--main=file_edits",
+  "--invariant=safety",
+  `--max-samples=${samples}`,
+  "--max-steps=60",
+  `--seed=${seed}`,
+]);
+
 run("typecheck languages.qnt", ["typecheck", "languages.qnt"]);
 
 run("language contract scenarios", ["test", "languages.qnt", "--main=languages_test"]);
