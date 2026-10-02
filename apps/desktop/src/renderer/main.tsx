@@ -78,6 +78,9 @@ const constellationsPreview = location.hash.startsWith("#constellations/");
 // `#editor-inline/<scene>`: the selection bar, inline card and ⌘L picker on fixtures (features/editor-inline/preview).
 const editorInlinePreview = location.hash.startsWith("#editor-inline/");
 
+// `#editor/<scene>`: the editor pane on in-memory files (features/editor/preview).
+const editorPreview = location.hash.startsWith("#editor/");
+
 let setPreviewDensity: ((density: Density) => void) | null = null;
 
 const appearance = (value: Appearance) => {
@@ -146,6 +149,10 @@ if (root !== null && preview) {
 } else if (root !== null && editorInlinePreview) {
   void import("./features/editor-inline/preview/Preview.tsx").then((m) => {
     setPreviewDensity = m.mountEditorInlinePreview(root, location.hash);
+  });
+} else if (root !== null && editorPreview) {
+  void import("./features/editor/preview/Preview.tsx").then((m) => {
+    setPreviewDensity = m.mountEditorPreview(root, location.hash);
   });
 } else if (root !== null) {
   createRoot(root).render(

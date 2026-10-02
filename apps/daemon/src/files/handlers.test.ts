@@ -25,6 +25,12 @@ afterEach(() => {
 
 const WorkspaceIoRpcs = DaemonRpcs.omit(
   "inline.propose",
+  "files.readVersioned",
+  "files.write",
+  "files.create",
+  "files.rename",
+  "files.delete",
+  "files.watchFile",
   "constellation.placements.watch",
   "constellation.placement.resolve",
   "constellation.repository.prepare",

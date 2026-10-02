@@ -148,6 +148,10 @@ export const SessionPrefs = Schema.Struct({
   workspaceAcceptBranch: Schema.Record(Schema.String, AcceptBranchMode),
   /** What a new Constellation's workers start on, per role (Settings → Constellations). */
   constellationDefaults: ConstellationDefaults,
+  /** Settings → Editor: vim keys in the Editor (off by default, spec §4). */
+  editorVim: Schema.Boolean,
+  /** Settings → Editor: save after a short pause in typing (off by default, spec §3). */
+  editorAutosave: Schema.Boolean,
 });
 
 export type SessionPrefs = typeof SessionPrefs.Type;
@@ -164,6 +168,8 @@ export const SessionPrefsPatch = Schema.Struct({
   /** Replaces every override. */
   workspaceAcceptBranch: Schema.optionalKey(Schema.Record(Schema.String, AcceptBranchMode)),
   constellationDefaults: Schema.optionalKey(ConstellationDefaults),
+  editorVim: Schema.optionalKey(Schema.Boolean),
+  editorAutosave: Schema.optionalKey(Schema.Boolean),
 });
 
 export type SessionPrefsPatch = typeof SessionPrefsPatch.Type;
@@ -222,6 +228,14 @@ export const RequestInputs = {
     regex: Schema.Boolean,
     caseSensitive: Schema.Boolean,
     limit: Schema.Int,
+  }),
+  /** M3 Editor: the file with its version (capability `files.versioned`). */
+  "files.readVersioned": onHost({ path: Schema.String }),
+  /** M3 Editor: a save, refused when the disk moved on from `expected` (capability `files.write`). */
+  "files.write": onHost({
+    path: Schema.String,
+    text: Schema.String,
+    expected: Schema.Struct({ mtimeMs: Schema.Number, size: Schema.Int, hash: Schema.String }),
   }),
   "git.status": onHost({ cwd: Schema.String }),
   "git.diff": onHost({ cwd: Schema.String, spec: GitDiffSpec }),
@@ -359,6 +373,12 @@ export const RequestInputs = {
   "onboarding.welcomeSeen": Schema.Struct({}),
   /** The native folder picker, for a Workspace on the local Host; null when cancelled. */
   "dialog.pickFolder": Schema.Struct({}),
+  /** The Editor's unsaved files, for the quit prompt (main/editorQuit.ts). */
+  "editor.publishDirty": Schema.Struct({
+    files: Schema.Array(Schema.Struct({ hostKey: HostKey, path: Schema.String })),
+  }),
+  /** "Save and quit" finished: whether every file saved. */
+  "editor.savedAll": Schema.Struct({ ok: Schema.Boolean }),
   /** The renderer's Needs You summary, for the menu bar star, Dock badge and notifications. */
   "needsYou.publish": Schema.Struct({
     count: Schema.Int,
@@ -422,6 +442,8 @@ export const SubscriptionInputs = {
   session: onHost({ sessionId: SessionId, turnLimit: Schema.NullOr(Schema.Int) }),
   terminal: onHost({ terminalId: TerminalId }),
   "files.watch": onHost({ root: Schema.String }),
+  /** One open file's version, then a change per write and null once deleted (`files.watch-file`). */
+  "files.watchFile": onHost({ path: Schema.String }),
   /** Plan Limits (every known one first) and Usage changes on a Host (capability `usage`). */
   usage: onHost({}),
   /** Each catalogue Harness's status as it changes (`harness.watchAvailability`). */

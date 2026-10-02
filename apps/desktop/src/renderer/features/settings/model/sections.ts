@@ -55,6 +55,12 @@ const GROUPS: ReadonlyArray<GroupSource> = [
           "main",
         ],
       },
+      {
+        id: "editor",
+        title: "Editor",
+        blurb: "How files edit and save in Edit mode. These settings stay on this Mac.",
+        keywords: ["vim", "autosave", "save", "keys", "code"],
+      },
     ],
   },
   {
