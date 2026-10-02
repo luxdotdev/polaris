@@ -4,6 +4,7 @@
  */
 import type { HarnessKind, ToolCallReference } from "@polaris/protocol";
 import type { Plain } from "../../../store/plain.ts";
+import type { SetupFact } from "./setup.ts";
 import type { AttemptData } from "./types.ts";
 
 /** What a worker is doing right now, from its session's items. */
@@ -73,6 +74,8 @@ export interface Facts {
   readonly now: number;
   readonly worker: (attempt: AttemptData) => WorkerFacts;
   readonly receipt: (ref: Plain<ToolCallReference>) => ReceiptResult | null;
+  /** The Task's latest worktree setup run, on whichever Host's worker Session ran it. */
+  readonly setup: (taskId: string) => SetupFact | null;
   /** The Lead's own Harness and Model (Gate rows) and how full its context is. */
   readonly lead: {
     readonly harness: HarnessKind | null;
@@ -85,6 +88,7 @@ export const plainFacts = (patch: Partial<Facts> = {}): Facts => ({
   now: Date.now(),
   worker: () => NO_FACTS,
   receipt: () => null,
+  setup: () => null,
   lead: { harness: null, model: null, contextPercent: null },
   ...patch,
 });

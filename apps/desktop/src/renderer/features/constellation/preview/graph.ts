@@ -168,7 +168,7 @@ const b4Claim = new Claim({
 
 const A = "A · Events and decider";
 
-const B = "B · Spec and tools";
+export const B = "B · Spec and tools";
 
 export const c1Tasks = [
   task({

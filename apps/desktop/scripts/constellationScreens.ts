@@ -34,6 +34,7 @@ const SCENES = new Map([
   ["sidebar", "lead-group"],
   ["focus", "lead-group"],
   ["needs-you", "constellation-needs-you"],
+  ["needs-you-setup", "constellation-needs-you"],
   ["review", "worker-review-action"],
   ["defaults", "constellation-defaults"],
   ["hosts", "host-resources"],

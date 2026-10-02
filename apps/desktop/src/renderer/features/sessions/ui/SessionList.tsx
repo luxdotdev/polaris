@@ -6,7 +6,13 @@ import { useMemo } from "react";
 import { useApp } from "../../../shell/hooks.ts";
 import { SessionRow, WorktreeRows } from "../../../shell/sidebar/SessionRow.tsx";
 import type { HostModel, SessionEntry } from "../../../store/hostModel.ts";
-import { lookupIn, sidebarItems, type WorkerLookup } from "../model/leadGroups.ts";
+import {
+  lookupIn,
+  type SetupLookup,
+  setupLookupIn,
+  sidebarItems,
+  type WorkerLookup,
+} from "../model/leadGroups.ts";
 import { useConstellations } from "../source.ts";
 import { LeadGroup } from "./LeadGroup.tsx";
 
@@ -26,16 +32,25 @@ export const useWorkerLookup = (): WorkerLookup => {
   return useMemo(() => lookupIn(hosts, models), [hosts, models]);
 };
 
+/** Finds workers still in worktree setup (no Attempt yet) on every Host. */
+export const useSetupLookup = (): SetupLookup => {
+  const hosts = useApp((s) => s.hosts);
+  const models = useApp((s) => s.hostModels);
+
+  return useMemo(() => setupLookupIn(hosts, models), [hosts, models]);
+};
+
 const worktreesBy = (model: HostModel, entry: SessionEntry) =>
   [...model.worktrees.values()].filter((w) => w.createdBySessionId === entry.session.id);
 
 export const SessionList = ({ hostKey, model, entries, now }: SessionListProps) => {
   const views = useConstellations(hostKey);
   const lookup = useWorkerLookup();
+  const setups = useSetupLookup();
 
   const { items } = useMemo(
-    () => sidebarItems({ hostKey, entries, views, lookup }),
-    [hostKey, entries, views, lookup]
+    () => sidebarItems({ hostKey, entries, views, lookup, setups }),
+    [hostKey, entries, views, lookup, setups]
   );
 
   return items.map((item) =>

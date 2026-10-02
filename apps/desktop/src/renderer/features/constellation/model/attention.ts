@@ -3,6 +3,7 @@
  * order (spec §5), then Tasks in declaration order.
  */
 import { CONTEXT_WARN, type Facts } from "./facts.ts";
+import { setupOutcome } from "./setup.ts";
 import type { TaskRow } from "./task.ts";
 
 export interface AttentionItem {
@@ -26,6 +27,8 @@ const itemFor = (row: TaskRow, facts: Facts): AttentionItem | null => {
         return { taskId: id, text: `${id}'s claim handed to you`, rank: 3 };
       case "stopped":
         return { taskId: id, text: `${id} stopped without claiming`, rank: 4 };
+      case "setup":
+        return { taskId: id, text: `${id} setup failed · ${setupOutcome(attention.run)}`, rank: 4 };
     }
   }
 

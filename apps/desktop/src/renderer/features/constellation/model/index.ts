@@ -16,6 +16,20 @@ export * from "./types.ts";
 export * from "./facts.ts";
 
 export {
+  currentSetup,
+  isSetupFailure,
+  type SetupFact,
+  type SetupRun,
+  type SetupSession,
+  type SetupSource,
+  retrySetup,
+  setupExit,
+  setupOutcome,
+  setupSources,
+  setupsOf,
+} from "./setup.ts";
+
+export {
   glyphFor,
   taskLook,
   type Attention,

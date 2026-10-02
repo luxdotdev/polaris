@@ -1,6 +1,7 @@
 /** How a worker row reads: its glyph, its state word and that word's tone (rule/constellation-colour). */
 import type { TaskGlyphKind } from "../glyphs.tsx";
-import type { WorkerRow, WorkerState } from "./leadGroups.ts";
+import { setupExit } from "../../constellation/model/setup.ts";
+import type { LeadWorker, WorkerState } from "./leadGroups.ts";
 
 export type WorkerTone = "needs-you" | "accepted" | "failed" | "subtle";
 
@@ -24,13 +25,24 @@ const SHOWN: Readonly<Record<WorkerState, Shown>> = {
   lost: { glyph: "stopped", word: "lost", tone: "subtle" },
   unverified: { glyph: "stopped", word: "unverified", tone: "subtle" },
   accepted: { glyph: "accepted", word: "done", tone: "accepted" },
+  "setting-up": { glyph: "waiting", word: "setting up", tone: "subtle" },
+  "setup-failed": { glyph: "needs-you", word: "setup failed", tone: "needs-you" },
 };
 
-export const shownWorker = (row: WorkerRow): Shown => {
+export const shownWorker = (row: LeadWorker): Shown => {
   const shown = SHOWN[row.state];
 
-  return row.state === "review" && !row.fetched ? { ...shown, glyph: "review-unfetched" } : shown;
+  return row.kind === "attempt" && row.state === "review" && !row.fetched
+    ? { ...shown, glyph: "review-unfetched" }
+    : shown;
 };
+
+/** A setup row's hover: "setting up · bun install · 1m", or "bun install exited 1". */
+export const setupHover = (
+  setup: { readonly command: string; readonly exitCode: number | null },
+  failed: boolean,
+  age: string
+) => (failed ? `${setup.command} ${setupExit(setup)}` : `setting up · ${setup.command} · ${age}`);
 
 export const TONE_CLASS: Readonly<Record<WorkerTone, string>> = {
   "needs-you": "text-needs-you-text",

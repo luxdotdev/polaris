@@ -14,10 +14,11 @@ import { ConstellationMark, TaskGlyph } from "../glyphs.tsx";
 import {
   doneLine,
   type LeadGroup as Group,
+  type LeadWorker,
   leadLine,
   type WorkerRow,
 } from "../model/leadGroups.ts";
-import { shownWorker, TONE_CLASS } from "../model/workerCopy.ts";
+import { setupHover, shownWorker, TONE_CLASS } from "../model/workerCopy.ts";
 import { useConstellationActions, useFocusedTask } from "../source.ts";
 
 interface GroupProps {
@@ -54,7 +55,7 @@ const Worker = ({
 }: {
   readonly hostKey: string;
   readonly group: Group;
-  readonly row: WorkerRow;
+  readonly row: LeadWorker;
   readonly now: number;
 }) => {
   const { selectSession } = useShellActions();
@@ -100,23 +101,63 @@ const Worker = ({
           <span className="truncate">{row.title}</span>
         </span>
       }
-      meta={
-        row.slotSince === null ? (
-          <span className={TONE_CLASS[shown.tone]}>
-            {shown.word ?? age(row.attempt.startedAt, now)}
-          </span>
-        ) : (
-          <span
-            className={TONE_CLASS[shown.tone]}
-            title={`Waiting for a slot on ${hostLabel} · ${age(row.slotSince, now)}`}
-          >
-            waiting · {age(row.slotSince, now)}
-          </span>
-        )
-      }
+      meta={<WorkerMeta row={row} shown={shown} hostLabel={hostLabel} now={now} />}
     />
   );
 };
+
+/** The row's state or age: "setting up · 1m", "setup failed", "waiting · 2m", "31m". */
+const WorkerMeta = ({
+  row,
+  shown,
+  hostLabel,
+  now,
+}: {
+  readonly row: LeadWorker;
+  readonly shown: ReturnType<typeof shownWorker>;
+  readonly hostLabel: string;
+  readonly now: number;
+}) => {
+  const tone = TONE_CLASS[shown.tone];
+
+  if (row.kind === "setup") {
+    const since = age(row.setup.run.startedAt, now);
+    const failed = row.state === "setup-failed";
+
+    // The command would push the id and title out of a sidebar row; it shows on hover.
+    return (
+      <span className={tone} title={setupHover(row.setup.run, failed, since)}>
+        {failed ? shown.word : `${shown.word} · ${since}`}
+      </span>
+    );
+  }
+
+  return <AttemptMeta row={row} tone={tone} word={shown.word} hostLabel={hostLabel} now={now} />;
+};
+
+const AttemptMeta = ({
+  row,
+  tone,
+  word,
+  hostLabel,
+  now,
+}: {
+  readonly row: WorkerRow;
+  readonly tone: string;
+  readonly word: string | null;
+  readonly hostLabel: string;
+  readonly now: number;
+}) =>
+  row.slotSince === null ? (
+    <span className={tone}>{word ?? age(row.attempt.startedAt, now)}</span>
+  ) : (
+    <span
+      className={tone}
+      title={`Waiting for a slot on ${hostLabel} · ${age(row.slotSince, now)}`}
+    >
+      waiting · {age(row.slotSince, now)}
+    </span>
+  );
 
 const DoneLine = ({ group, onShow }: { readonly group: Group; readonly onShow: () => void }) => (
   <div className="h-tree-row gap-gap px-row-x text-caption text-text-subtle flex items-center">

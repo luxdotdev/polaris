@@ -12,6 +12,8 @@ import {
   Task,
 } from "@polaris/protocol";
 import { Match, Predicate } from "effect";
+import type { HostModel } from "../../../store/hostModel.ts";
+import { asPlain } from "../../../store/plain.ts";
 import type { AppStore } from "../../../store/store.ts";
 import type { ConstellationClient, Outcome } from "../client.ts";
 import { merged } from "../model/fold.ts";
@@ -44,6 +46,42 @@ const tier = (receipts: ReadonlyArray<CheckReceipt>): EvidenceTier => {
 
   return receipts.some((x) => Predicate.isTagged(x, "Verified")) ? "verified" : "reported";
 };
+
+const rerunSetups = (
+  sessions: HostModel["sessions"],
+  constellationId: string,
+  tasks: ReadonlySet<string>
+): HostModel["sessions"] =>
+  new Map(
+    [...sessions].map(([id, entry]) => {
+      const run = entry.session.worktreeSetup;
+
+      if (run == null || run.constellationId !== constellationId || !tasks.has(run.taskId))
+        return [id, entry];
+      const at = new Date().toISOString();
+
+      return [
+        id,
+        {
+          ...entry,
+          session: {
+            ...asPlain(entry.session),
+            state: "dormant",
+            lastError: null,
+            worktreeSetup: {
+              ...asPlain(run),
+              id: `${run.id}-again`,
+              status: "running",
+              output: "",
+              exitCode: null,
+              startedAt: at,
+              endedAt: null,
+            },
+          },
+        },
+      ];
+    })
+  );
 
 export const fakeClient = (store: AppStore): ConstellationClient => {
   let sequence = 1000;
@@ -150,6 +188,21 @@ export const fakeClient = (store: AppStore): ConstellationClient => {
       ]);
 
       return ok(accept ? "Proposal accepted" : "Proposal declined");
+    },
+    dispatch: async (_hostKey, input) => {
+      // The worker Sessions' setup runs again: a failed one goes back to running.
+      const ids = new Set<string>((input.tasks ?? []).map((t) => t.taskId));
+
+      store.setState((s) => ({
+        hostModels: Object.fromEntries(
+          Object.entries(s.hostModels).map(([key, model]) => [
+            key,
+            { ...model, sessions: rerunSetups(model.sessions, input.constellationId, ids) },
+          ])
+        ),
+      }));
+
+      return ok("Dispatched");
     },
     message: async () => ok("Sent; the lead sees it in its next digest"),
     setState: async () => ok("State changed"),

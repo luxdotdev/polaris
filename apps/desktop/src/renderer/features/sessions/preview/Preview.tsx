@@ -21,7 +21,7 @@ import type { SettingsSection } from "../../../routes/selection.ts";
 import { machinesFor } from "../../machines/preview/fixtures.ts";
 import { setResourcesClient } from "../../settings/resources.ts";
 import { B1_FEEDBACK, C1_STATS, fakeResources, USAGE } from "./settingsFixtures.ts";
-import { C1, HOSTS, LEAD_SESSION, MODELS, VIEWS, WORKER_B1 } from "./fixtures.ts";
+import { C1, HOSTS, LEAD_SESSION, MODELS, VIEWS, WORKER_B1, withSetupFailure } from "./fixtures.ts";
 
 const UNSUPPORTED = { ok: false, error: { code: "Unsupported", message: "preview" } } as const;
 
@@ -59,11 +59,13 @@ const SETTINGS = new Map<string, SettingsSection>([
 export const mountConstellationsPreview = (root: HTMLElement, hash: string) => {
   const scene = hash.replace(/^#constellations\//, "");
 
+  const setup = scene === "needs-you-setup" ? withSetupFailure() : null;
+
   const store = createStore<AppState>(() => ({
     ...initialState,
     hosts: HOSTS,
-    hostModels: MODELS,
-    constellations: modelsFromViews(VIEWS),
+    hostModels: setup?.models ?? MODELS,
+    constellations: modelsFromViews(setup?.views ?? VIEWS),
   }));
 
   const connection: Connection = {
@@ -86,7 +88,8 @@ export const mountConstellationsPreview = (root: HTMLElement, hash: string) => {
       focusTask({ hostKey: "local", leadSessionId: LEAD_SESSION.sessionId, taskId: b1.id });
   }
 
-  if (scene === "needs-you") navigation.actions.showSidebar("needs-you");
+  if (scene === "needs-you" || scene === "needs-you-setup")
+    navigation.actions.showSidebar("needs-you");
 
   if (scene === "review") {
     const key = subjectKey({ kind: "session", ...WORKER_B1 });

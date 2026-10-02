@@ -31,10 +31,12 @@ import {
   TurnId,
   Workspace,
   WorkspaceId,
+  WorktreeSetupRun,
 } from "@polaris/protocol";
 import type { HostView } from "../../../../shared/api.ts";
 import { type HostModel, modelFromSnapshot, type SessionEntry } from "../../../store/hostModel.ts";
 import { resourcesFromSnapshot, WORKER_SLOTS } from "../../../store/hostResources.ts";
+import { asPlain } from "../../../store/plain.ts";
 import type { ConstellationView } from "../source.ts";
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
@@ -612,3 +614,55 @@ export const MODELS = {
 export const LEAD_SESSION = { hostKey: "local", sessionId: SessionId.make(LEAD) } as const;
 
 export const WORKER_B1 = { hostKey: "local", sessionId: SessionId.make("b1") } as const;
+
+/** B6's worktree setup failed on devbox before its first Attempt (C1-G2): Needs you shows it. */
+export const withSetupFailure = () => {
+  const devbox = MODELS.devbox;
+  const b4 = devbox.sessions.get("b4");
+  const b5 = C1.constellation.tasks.find((t) => t.id === "B5");
+
+  if (b4 === undefined || b5 === undefined) throw new Error("b4 and B5 are in the fixtures");
+
+  const run = new WorktreeSetupRun({
+    id: "d:setup:1",
+    constellationId: C1.constellation.id,
+    taskId: TaskId.make("B6"),
+    command: "bun install",
+    cwd: "/home/lucas/polaris.worktrees/B6",
+    status: "failed",
+    output: "error: lockfile had changes",
+    exitCode: 1,
+    startedAt: ago(4),
+    endedAt: ago(3),
+  });
+
+  const b6 = {
+    ...b4,
+    session: {
+      ...asPlain(b4.session),
+      id: SessionId.make("b6"),
+      title: "B6 · Lease bench and smoke",
+      state: "failed" as const,
+      lastError: "Worktree setup failed: bun install. Fix setup and dispatch again.",
+      worktreeSetup: run,
+    },
+  };
+
+  const models = {
+    ...MODELS,
+    devbox: { ...devbox, sessions: new Map([...devbox.sessions, ["b6", b6]]) },
+  };
+
+  const view: ConstellationView = {
+    ...C1,
+    constellation: {
+      ...C1.constellation,
+      tasks: [
+        ...C1.constellation.tasks,
+        { ...asPlain(b5), id: TaskId.make("B6"), title: "Lease bench and smoke" },
+      ],
+    },
+  };
+
+  return { models, view, views: { local: [view, C2] } };
+};

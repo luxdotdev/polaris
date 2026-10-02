@@ -40,7 +40,7 @@ export const worktree = new Worktree({
   isMain: true,
 });
 
-const session = (id: SessionId, patch: Partial<AgentSession>) =>
+export const session = (id: SessionId, patch: Partial<AgentSession>) =>
   new AgentSession({
     id,
     workspaceId: WORKSPACE,

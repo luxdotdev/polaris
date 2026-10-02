@@ -19,6 +19,7 @@ import { startDaemon } from "./lib/daemon.ts";
 import { freshStartFlow } from "./lib/freshStartFlow.ts";
 import { machineFlow, prepareFakeHost } from "./lib/machineFlow.ts";
 import { checkNoneReady, initRepo, sessionFlow } from "./lib/sessionFlow.ts";
+import { constellationSetupFlow } from "./lib/constellationSetupFlow.ts";
 import { remoteFlow } from "./lib/remoteFlow.ts";
 import { settingsFlow } from "./lib/settingsFlow.ts";
 import { attachmentsFlow } from "./lib/attachmentsFlow.ts";
@@ -592,6 +593,7 @@ try {
   });
 
   if (consoleErrors.length > 0) throw new Error(`renderer errors:\n${consoleErrors.join("\n")}`);
+  await constellationSetupFlow(page, step);
   await checkNoneReady(page, step);
   await closeKeepsRunning();
   await sentWorkSurvivesRelaunch(await relaunchKeepsOutput());

@@ -33,6 +33,23 @@ mkdirSync(repo, { recursive: true });
 
 spawnSync("git", ["init", "-q", repo]);
 
+// A base commit, so Retry can dispatch B4 again.
+spawnSync(
+  "git",
+  [
+    "-c",
+    "user.name=Polaris",
+    "-c",
+    "user.email=polaris@example.invalid",
+    "commit",
+    "-q",
+    "--allow-empty",
+    "-m",
+    "base",
+  ],
+  { cwd: repo }
+);
+
 // A first run writes the Host's identity; the graph is seeded while no Daemon holds the store.
 const first = await startDaemon({ home, benchHarness: true });
 
@@ -70,6 +87,29 @@ const appearance = async (page: Page, theme: string) => {
   await page.waitForTimeout(500);
 };
 
+/** B4's setup failed on the real Host feed: the row, its log, then Retry through the Daemon. */
+const setupFlow = async (page: Page) => {
+  const b4 = page.getByTestId("constellation-tab").locator('[data-task="B4"]');
+
+  console.log(`live: B4 row "${await b4.textContent()}"`);
+  await b4.getByRole("button", { name: "Open the log" }).click();
+  await page.locator('[data-testid="worktree-setup"][data-status="failed"]').waitFor();
+
+  for (const theme of ["dark", "light"]) {
+    await appearance(page, theme);
+    await page.screenshot({ path: join(out, `live-setup-log-${theme}.png`) });
+  }
+
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("button").click();
+  await b4.getByRole("button", { name: "Retry" }).click();
+  await b4
+    .getByText("setup failed", { exact: true })
+    .waitFor({ state: "detached", timeout: 30_000 });
+  await page.waitForTimeout(1_500);
+  console.log(`live: B4 after Retry "${await b4.textContent()}"`);
+  await page.screenshot({ path: join(out, "live-setup-retried-dark.png") });
+};
+
 try {
   const page = await app.firstWindow();
 
@@ -98,6 +138,8 @@ try {
     await page.screenshot({ path });
     console.log(`live: ${path}`);
   }
+
+  await setupFlow(page);
 } finally {
   await app.close();
   await daemon.stop();

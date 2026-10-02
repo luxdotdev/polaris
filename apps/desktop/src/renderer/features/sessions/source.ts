@@ -15,3 +15,5 @@ export {
 } from "../constellation/hooks.ts";
 
 export type { ConstellationView } from "../constellation/model/types.ts";
+
+export { retrySetup, type SetupFact, setupExit } from "../constellation/model/setup.ts";

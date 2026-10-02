@@ -15,6 +15,9 @@ import {
   emptyConstellations,
   type Facts,
   NO_FACTS,
+  type SetupFact,
+  setupSources,
+  setupsOf,
   type TaskData,
   type WorkerFacts,
 } from "./model/index.ts";
@@ -131,6 +134,24 @@ const printWorker = (w: WorkerAttempt | null) =>
 
 const printFacts = (map: ReadonlyMap<string, WorkerFacts>) => JSON.stringify([...map]);
 
+const printSetups = (map: ReadonlyMap<string, SetupFact>) =>
+  [...map]
+    .map(([task, f]) => `${task}|${f.hostKey}|${f.run.id}|${f.run.status}|${f.failed}`)
+    .join();
+
+/** Each Task's latest worktree setup, joined across Hosts (a worker may run off the Lead's Host). */
+const useSetups = (constellationId: string | null, leadHostId: string | null) => {
+  const select = useMemo(
+    () => (state: AppState) =>
+      constellationId === null || leadHostId === null
+        ? new Map<string, SetupFact>()
+        : setupsOf(setupSources(state.hosts, state.hostModels), constellationId, leadHostId),
+    [constellationId, leadHostId]
+  );
+
+  return useStable(select, printSetups);
+};
+
 /** The rail's facts for one Constellation: worker liveness, receipts, the Lead's own context. */
 export const useFacts = (record: ConstellationRecord | null): Facts => {
   const { store } = useConnection();
@@ -156,6 +177,7 @@ export const useFacts = (record: ConstellationRecord | null): Facts => {
   );
 
   const workers = useStable(select, printFacts);
+  const setups = useSetups(c?.id ?? null, c?.hostId ?? null);
   const lead = useApp((s) => (c === null ? null : leadFactsOf(s, c.hostId, c.leadSessionId)));
   const leadContext = c === null ? undefined : signals.leadContext.get(c.leadSessionId);
 
@@ -164,13 +186,14 @@ export const useFacts = (record: ConstellationRecord | null): Facts => {
       now,
       worker: (attempt) => workers.get(attempt.id) ?? NO_FACTS,
       receipt: (ref) => receiptFrom(store.getState(), ref, signals),
+      setup: (taskId) => setups.get(taskId) ?? null,
       lead: {
         harness: lead?.harness ?? null,
         model: lead?.model ?? null,
         contextPercent: leadContext ?? lead?.context ?? null,
       },
     }),
-    [now, workers, store, signals, lead, leadContext]
+    [now, workers, setups, store, signals, lead, leadContext]
   );
 };
 

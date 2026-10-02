@@ -10,6 +10,12 @@ import type { HostView } from "../../../../shared/api.ts";
 import type { HostModel, SessionEntry } from "../../../store/hostModel.ts";
 import { slotWaitOf } from "../../../store/hostResources.ts";
 import type { Plain } from "../../../store/plain.ts";
+import {
+  currentSetup,
+  type SetupFact,
+  setupSources,
+  setupsOf,
+} from "../../constellation/model/setup.ts";
 import type { ConstellationView } from "../source.ts";
 
 export type WorkerState =
@@ -24,9 +30,12 @@ export type WorkerState =
   | "failed"
   | "lost"
   | "unverified"
-  | "accepted";
+  | "accepted"
+  | "setting-up"
+  | "setup-failed";
 
 export interface WorkerRow {
+  readonly kind: "attempt";
   readonly taskId: TaskId;
   readonly title: string;
   readonly sessionId: SessionId;
@@ -42,12 +51,30 @@ export interface WorkerRow {
   readonly slotSince: string | null;
 }
 
+/**
+ * A worker whose worktree setup runs or failed before its first Attempt (C1-G2): it nests
+ * under its Lead like any worker, reading "setting up" or "setup failed", never its Session State.
+ */
+export interface SetupRow {
+  readonly kind: "setup";
+  readonly taskId: TaskId;
+  readonly title: string;
+  readonly sessionId: SessionId;
+  readonly hostKey: string;
+  readonly entry: SessionEntry | null;
+  readonly state: "setting-up" | "setup-failed";
+  readonly setup: SetupFact;
+}
+
+/** A row under a Lead in the sidebar. */
+export type LeadWorker = WorkerRow | SetupRow;
+
 export interface LeadGroup {
   readonly key: string;
   readonly view: ConstellationView;
   readonly lead: SessionEntry;
   /** Every worker but the accepted ones, loudest first. */
-  readonly workers: ReadonlyArray<WorkerRow>;
+  readonly workers: ReadonlyArray<LeadWorker>;
   /** Accepted workers, folded into one "A1, A2 done" line. */
   readonly done: ReadonlyArray<WorkerRow>;
   /** Workers that need you, plus the Lead itself when it does. */
@@ -92,6 +119,7 @@ export const lookupIn = (
 
 const ATTENTION: ReadonlySet<WorkerState> = new Set([
   "needs-you",
+  "setup-failed",
   "unclaimed",
   "stale",
   "handed-up",
@@ -102,7 +130,9 @@ const RANK: Readonly<Record<WorkerState, number>> = {
   unclaimed: 0,
   stale: 0,
   "handed-up": 0,
+  "setup-failed": 0,
   review: 1,
+  "setting-up": 2,
   working: 2,
   "waiting-slot": 2,
   "sent-back": 3,
@@ -177,6 +207,7 @@ export const workerRows = (view: ConstellationView, lookup: WorkerLookup): Array
 
     return [
       {
+        kind: "attempt",
         taskId: task.id,
         title: task.title,
         sessionId: attempt.sessionId,
@@ -190,9 +221,58 @@ export const workerRows = (view: ConstellationView, lookup: WorkerLookup): Array
     ];
   });
 
-  return rows.sort(
-    (a, b) =>
-      RANK[a.state] - RANK[b.state] || (order.get(a.taskId) ?? 0) - (order.get(b.taskId) ?? 0)
+  return rows.sort(byRank(order));
+};
+
+const byRank =
+  (order: ReadonlyMap<string, number>) =>
+  (a: Pick<LeadWorker, "state" | "taskId">, b: Pick<LeadWorker, "state" | "taskId">) =>
+    RANK[a.state] - RANK[b.state] || (order.get(a.taskId) ?? 0) - (order.get(b.taskId) ?? 0);
+
+/** A Constellation's setup rows, from every Host's Session summaries. */
+export type SetupLookup = (view: ConstellationView) => ReadonlyArray<SetupRow>;
+
+/** Tasks whose current setup (running, or failed and newer than any Attempt) has no Attempt after it. */
+export const setupLookupIn =
+  (hosts: ReadonlyArray<HostView>, models: Readonly<Record<string, HostModel>>): SetupLookup =>
+  ({ constellation }) => {
+    const facts = setupsOf(setupSources(hosts, models), constellation.id, constellation.hostId);
+
+    if (facts.size === 0) return [];
+
+    return constellation.tasks.flatMap((task): Array<SetupRow> => {
+      const latest = constellation.attempts.findLast((a) => a.taskId === task.id) ?? null;
+      const setup = currentSetup(facts.get(task.id) ?? null, latest);
+
+      if (setup === null || task.canceled || task.kind === "gate") return [];
+
+      return [
+        {
+          kind: "setup",
+          taskId: task.id,
+          title: task.title,
+          sessionId: setup.sessionId,
+          hostKey: setup.hostKey,
+          entry: models[setup.hostKey]?.sessions.get(setup.sessionId) ?? null,
+          state: setup.failed ? "setup-failed" : "setting-up",
+          setup,
+        },
+      ];
+    });
+  };
+
+/** Attempt rows and setup rows together: a current setup stands in for its Task's older Attempt. */
+export const leadWorkers = (
+  view: ConstellationView,
+  lookup: WorkerLookup,
+  setups: SetupLookup
+): Array<LeadWorker> => {
+  const setupRows = setups(view);
+  const replaced = new Set(setupRows.map((r) => r.taskId));
+  const order = new Map(view.constellation.tasks.map((t, i) => [t.id, i]));
+
+  return [...workerRows(view, lookup).filter((r) => !replaced.has(r.taskId)), ...setupRows].sort(
+    byRank(order)
   );
 };
 
@@ -206,10 +286,11 @@ interface GroupInput {
   /** The Host's Constellations. */
   readonly views: ReadonlyArray<ConstellationView>;
   readonly lookup: WorkerLookup;
+  readonly setups: SetupLookup;
 }
 
 /** The Workspace's session list with each Lead's workers pulled under it. */
-export const sidebarItems = ({ hostKey, entries, views, lookup }: GroupInput) => {
+export const sidebarItems = ({ hostKey, entries, views, lookup, setups }: GroupInput) => {
   const live = views.filter((v) => v.constellation.state !== "archived");
 
   const byLead = new Map<string, ConstellationView>(
@@ -222,7 +303,7 @@ export const sidebarItems = ({ hostKey, entries, views, lookup }: GroupInput) =>
     const view = byLead.get(entry.session.id);
 
     if (view === undefined) continue;
-    const rows = workerRows(view, lookup);
+    const rows = leadWorkers(view, lookup, setups);
     const workers = rows.filter((r) => r.state !== "accepted");
 
     groups.set(entry.session.id, {
@@ -230,7 +311,7 @@ export const sidebarItems = ({ hostKey, entries, views, lookup }: GroupInput) =>
       view,
       lead: entry,
       workers,
-      done: rows.filter((r) => r.state === "accepted"),
+      done: rows.filter((r): r is WorkerRow => r.kind === "attempt" && r.state === "accepted"),
       needsYou: workers.filter((r) => needsAttention(r.state)).length + (needsYou(entry) ? 1 : 0),
     });
   }
