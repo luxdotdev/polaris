@@ -5,6 +5,7 @@
  * library loads, else the fallback backend.
  */
 import { realpath, stat } from "node:fs/promises";
+import { join, relative } from "node:path";
 import { FileError } from "@polaris/protocol";
 import { Context, Effect, Layer, Queue, type Scope, Stream } from "effect";
 import { resolveHostPath, toFsFailure } from "./fs.ts";
@@ -129,15 +130,27 @@ export const makeFileSearch = (options: FileSearchOptions) =>
       })
     );
 
-    const withBackend = <A>(input: string, f: (backend: SearchBackend) => Promise<A>) =>
+    const withBackend = <A extends PathHit | GrepHit>(
+      input: string,
+      f: (backend: SearchBackend) => Promise<ReadonlyArray<A>>
+    ) =>
       Effect.tryPromise({
         try: async () => {
-          const root = await canonicalRoot(input);
+          const requestedRoot = resolveHostPath(input);
+          const root = await canonicalRoot(requestedRoot);
           const index = open(root);
           index.busy++;
 
           try {
-            return await f(await index.backend);
+            const hits = await f(await index.backend);
+
+            // Indexes share real roots; each response keeps the caller's Workspace spelling.
+            return root === requestedRoot
+              ? hits
+              : hits.map((hit) => ({
+                  ...hit,
+                  path: join(requestedRoot, relative(root, hit.path)),
+                }));
           } finally {
             index.busy--;
             index.lastUsed = Date.now();

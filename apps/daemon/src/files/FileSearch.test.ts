@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { rmSync } from "node:fs";
+import { rmSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { FileError } from "@polaris/protocol";
 import { Effect, Fiber, Stream } from "effect";
@@ -91,6 +91,56 @@ for (const useFff of [true, false]) {
       const paths = hits.map((h) => h.path);
       expect(paths[0]).toBe(join(root, "src/services.ts"));
       expect(paths).not.toContain(join(root, "dist/services.js"));
+    });
+
+    test("search and grep keep each symlink root's spelling on a shared index", async () => {
+      const root = await fixture();
+      const links = tempDir("polaris-search-links-");
+      cleanup.push(links);
+      const aliases = [join(links, "workspace"), join(links, "other-workspace")];
+
+      for (const alias of aliases) symlinkSync(root, alias, "dir");
+
+      await withSearch(
+        useFff,
+        Effect.gen(function* () {
+          const search = yield* FileSearch;
+
+          for (const requested of [root, ...aliases, root]) {
+            const paths = yield* handleSearchPaths({
+              root: requested,
+              query: "services",
+              limit: 1,
+            });
+
+            expect(paths.map((hit) => hit.path)).toEqual([join(requested, "src/services.ts")]);
+
+            const hits = yield* handleGrep({
+              root: requested,
+              pattern: "BlobChannel",
+              regex: false,
+              caseSensitive: true,
+              limit: 50,
+            });
+
+            expect(hits.map((hit) => hit.path).sort()).toEqual(
+              ["src/harness/HarnessDriver.ts", "src/services.ts"].map((path) =>
+                join(requested, path)
+              )
+            );
+            expect(hits.find((hit) => hit.path.endsWith("services.ts"))).toMatchObject({
+              line: 1,
+              column: 14,
+              text: "export const BlobChannel = 1",
+            });
+            expect(yield* search.backendOf(requested)).toBe(backend);
+          }
+
+          const nested = join(aliases[0]!, "src");
+          const paths = yield* handleSearchPaths({ root: nested, query: "services", limit: 1 });
+          expect(paths.map((hit) => hit.path)).toEqual([join(nested, "services.ts")]);
+        })
+      );
     });
 
     test("grep: plain, case-insensitive and regex, with 1-based columns", async () => {
