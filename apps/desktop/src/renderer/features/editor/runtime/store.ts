@@ -60,6 +60,8 @@ export interface EditorState {
   readonly indent: string;
   /** Null while vim mode is off. */
   readonly vimMode: VimMode | null;
+  /** A tab with unsaved edits waiting on Save / Don't save / Cancel. */
+  readonly closing: EditorFile | null;
 }
 
 export const editorStore = createStore<EditorState>(() => ({
@@ -70,6 +72,7 @@ export const editorStore = createStore<EditorState>(() => ({
   cursor: null,
   indent: "Spaces 2",
   vimMode: null,
+  closing: null,
 }));
 
 export const useEditor = <A>(select: (state: EditorState) => A): A => useStore(editorStore, select);

@@ -25,6 +25,7 @@ import { useBuffer, useEditorTabs } from "../runtime/hooks.ts";
 import type { BufferView } from "../runtime/store.ts";
 import { Banner } from "./Banner.tsx";
 import { Breadcrumbs } from "./Breadcrumbs.tsx";
+import { CloseDialog } from "./CloseDialog.tsx";
 import { CodeHost } from "./CodeHost.tsx";
 import { Compare } from "./Compare.tsx";
 import { FileNotice } from "./FileNotice.tsx";
@@ -149,6 +150,7 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
         )}
         <CodeHost bufferKey={fileKey(hostKey, active)} ready={ready} focus />
       </div>
+      <CloseDialog hostKey={hostKey} workspaceId={workspaceId} />
     </section>
   );
 };

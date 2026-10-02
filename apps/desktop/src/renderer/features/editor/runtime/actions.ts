@@ -17,12 +17,15 @@ import { fileKey, readTabs, workspaceKey, writeTabs } from "../model/drafts.ts";
 import {
   configureEditor,
   type EditorConfig,
-  isConfigured,
+  discardBuffer,
   ensureBuffer,
+  hasUnsaved,
+  isConfigured,
   keepMine,
   releaseBuffer,
   saveBuffer,
   takeTheirs,
+  whenLoaded,
 } from "./buffers.ts";
 import { editorStore, tabsOf } from "./store.ts";
 
@@ -58,10 +61,47 @@ const shown = (hostKey: string, path: string) =>
     ([key, set]) => key.startsWith(`${hostKey}\u0000`) && set.tabs.some((t) => t.path === path)
   );
 
-export const closeTab = (hostKey: string, workspaceId: string, path: string) => {
+const closeNow = (hostKey: string, workspaceId: string, path: string) => {
   setTabs(workspaceKey(hostKey, workspaceId), (set) => closeInSet(set, path));
 
   if (!shown(hostKey, path)) releaseBuffer(fileKey(hostKey, path));
+};
+
+/** Closes a tab; one with unsaved edits asks Save / Don't save / Cancel first. */
+export const closeTab = (hostKey: string, workspaceId: string, path: string) => {
+  if (isConfigured() && hasUnsaved(hostKey, path)) {
+    editorStore.setState({ closing: { hostKey, workspaceId, path } });
+
+    return;
+  }
+
+  closeNow(hostKey, workspaceId, path);
+};
+
+export type CloseChoice = "save" | "discard" | "cancel";
+
+/** The close prompt's answer. Save closes only once the file saved; a conflict keeps it open. */
+export const answerClose = async (choice: CloseChoice) => {
+  const closing = editorStore.getState().closing;
+
+  editorStore.setState({ closing: null });
+
+  if (closing === null || choice === "cancel") return;
+  const { hostKey, workspaceId, path } = closing;
+
+  if (choice === "discard") {
+    closeNow(hostKey, workspaceId, path);
+    discardBuffer(hostKey, path);
+
+    return;
+  }
+
+  const key = fileKey(hostKey, path);
+
+  loadTab(hostKey, workspaceId, path);
+  await whenLoaded(key);
+
+  if (await saveBuffer(key)) closeNow(hostKey, workspaceId, path);
 };
 
 /** Makes sure the active tab's file has an editor (after a restart, tabs come back first). */

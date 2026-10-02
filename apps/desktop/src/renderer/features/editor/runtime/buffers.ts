@@ -602,6 +602,43 @@ export const saveAll = async (): Promise<boolean> => {
   return results.every(Boolean);
 };
 
+/** Unsaved edits a close would lose: a dirty buffer, or a kept draft for a file not loaded yet. */
+export const hasUnsaved = (hostKey: string, path: string): boolean => {
+  const key = fileKey(hostKey, path);
+  const status = editorStore.getState().buffers[key]?.status;
+
+  if (status?.kind === "ready") return status.model.dirty;
+  const kv = need().kv;
+
+  return kv !== null && readDraft(kv, hostKey, path) !== null;
+};
+
+/** Closes a file's editor and forgets its unsaved edits ("Don't save"). */
+export const discardBuffer = (hostKey: string, path: string) => {
+  releaseBuffer(fileKey(hostKey, path));
+  const kv = need().kv;
+
+  if (kv !== null) dropDraft(kv, hostKey, path);
+};
+
+/** Resolves once the file has loaded (or couldn't be). */
+export const whenLoaded = (key: string): Promise<void> =>
+  new Promise((resolve) => {
+    const done = () => editorStore.getState().buffers[key]?.status.kind !== "loading";
+
+    if (done()) {
+      resolve();
+
+      return;
+    }
+
+    const off = editorStore.subscribe(() => {
+      if (!done()) return;
+      off();
+      resolve();
+    });
+  });
+
 /** Test and preview hook: drop every open buffer. */
 export const resetBuffers = () => {
   for (const key of Array.from(open.keys())) releaseBuffer(key);

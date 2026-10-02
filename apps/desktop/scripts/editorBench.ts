@@ -152,6 +152,46 @@ const savedText = (page: Page, path: string) =>
     `window.__polarisEditor.files.text("studio", ${JSON.stringify(path)})`
   );
 
+const tabCount = (page: Page) => page.getByTestId("editor-tab").count();
+
+/** Closing a dirty tab asks: Cancel keeps it, Save saves then closes, Don't save drops the edits. */
+const checkClose = async (page: Page) => {
+  const close = () => page.locator('[aria-label="Close reconnect.ts"]').dispatchEvent("click");
+  const dialog = page.getByTestId("editor-close-dialog");
+
+  await scene(page, "e1");
+  const before = await tabCount(page);
+
+  await close();
+  await dialog.waitFor({ timeout: 5000 });
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await dialog.waitFor({ state: "hidden" });
+  const kept = (await tabCount(page)) === before;
+
+  await close();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.waitForTimeout(300);
+
+  const saved =
+    ((await savedText(page, SMALL))?.includes("// ms") ?? false) &&
+    (await tabCount(page)) === before - 1;
+
+  await scene(page, "e1");
+  await close();
+  await page.getByRole("button", { name: "Don't save" }).click();
+  await page.waitForTimeout(300);
+
+  const dropped =
+    !((await savedText(page, SMALL))?.includes("// ms") ?? true) &&
+    (await tabCount(page)) === before - 1;
+
+  log(
+    `close a dirty tab: Cancel keeps it ${kept ? "yes" : "NO"}, Save saves and closes ${saved ? "yes" : "NO"}, Don't save closes unsaved ${dropped ? "yes" : "NO"}`
+  );
+
+  return kept && saved && dropped;
+};
+
 /** Unsaved edits survive a restart (here a reload of the window, with the drafts in localStorage). */
 const checkRestart = async (page: Page) => {
   await page.evaluate("localStorage.clear()");
@@ -208,9 +248,16 @@ const checkSaves = async (page: Page) => {
   log(`vim ${insert ?? "?"}: ⌘S saves: ${fromInsert ? "yes" : "NO"}`);
 
   const restored = await checkRestart(page);
+  const closing = await checkClose(page);
 
   return (
-    viaShortcut && viaVim && fromInsert && mode === "NORMAL" && insert === "INSERT" && restored
+    closing &&
+    viaShortcut &&
+    viaVim &&
+    fromInsert &&
+    mode === "NORMAL" &&
+    insert === "INSERT" &&
+    restored
   );
 };
 

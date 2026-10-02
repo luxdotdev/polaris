@@ -1,7 +1,7 @@
 /**
  * The editor on fixtures, for screenshots against Paper E1–E3 and the editor
  * budgets: `#editor/<scene>` renders the pane, a stand-in explorer column and
- * the status bar on in-memory files. Scenes: e1, conflict, compare, reload,
+ * the status bar on in-memory files. Scenes: e1, close, conflict, compare, reload,
  * vim, find, tabs20, readonly, binary, empty, big (`?persist` keeps drafts in localStorage). Its own chunk.
  */
 import { openSearchPanel } from "@codemirror/search";
@@ -91,6 +91,11 @@ const SCENES = new Map<string, Scene>(
     e1: async () => {
       openE1();
       await typeEdit();
+    },
+    close: async () => {
+      openE1();
+      await typeEdit();
+      closeTab(HOST, WORKSPACE, RECONNECT);
     },
     conflict: async (files) => {
       openE1();
