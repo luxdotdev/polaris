@@ -44,10 +44,10 @@ colors:
   failed-text-dark: "#F37B72"
   failed-text-light: "#BF3228"
   # Constellation: accepted work (done Tasks, passed checks). Only inside the Constellation tab, its sidebar group and Claims.
-  accepted-dark: "#A8D65E"        # a yellow-green, so it never reads as Codex mint
-  accepted-light: "#6B9A1F"
-  accepted-text-dark: "#A8D65E"
-  accepted-text-light: "#4F7A0E"
+  accepted-dark: "#646FD8"        # a blue-purple (Linear's done), apart from Starlight's blue and Codex mint
+  accepted-light: "#646FD8"
+  accepted-text-dark: "#8B94EA"   # 6.2:1 on bg-dark; #646FD8 is 3.9:1, glyphs only
+  accepted-text-light: "#4C56C2"  # 5.9:1 on bg-light
   # Severity.
   # Severity. Always a filled badge: shape + label + colour.
   severity-critical: "#E5484D"   # red, diamond
@@ -345,7 +345,7 @@ Faintly cool greys (a trace of blue, never readable as blue). Dark background is
 |---|---|---|
 | Needs You | `needs-you` (yellow) | The only attention colour for Session State. Also drives the Dock badge. |
 | Failed | `failed` (red) | The state icon only, never the whole row. |
-| Accepted | `accepted` (yellow-green) | Constellations only: an accepted Task or Gate with its evidence, a passed check in a Claim or receipt. Never a Session State. |
+| Accepted | `accepted` (blue-purple) | Constellations only: an accepted Task or Gate with its evidence, a passed check in a Claim or receipt. Never a Session State. |
 | Critical ◆ | `severity-critical` (red) | Review and Output. Secrets, security, data loss. Always visible; no Risk Memory hides it. Low-confidence generic secret matches are Medium, not Critical. |
 | High ▲ | `severity-high` (orange) | Review and Output. |
 | Medium ● | `severity-medium` (yellow) | Review and Output. |
@@ -713,7 +713,7 @@ A native take on herdr-dagr (ENG-169), specified by the Constellations v1 map (E
 - **Where.** One Constellation tab per Lead, in that Lead session's output pane, next to its conversation. A Workspace can run several Constellations at once, each under its own Lead. There are no terminal panes for workers: peeking into one is the focus swap below. With a worker focused, the tab bar carries "Message lead (M)".
 - **Header.** The Constellation mark, its name, "led by this session · running" (states: planning, running, paused, completed, archived), a **progress strip** of one 10×4px segment per Task in its state colour (dashed for Futures; past about 40 Tasks it becomes one proportional bar), and the next thing that needs you as a needs-you chip ("B5 stopped without claiming", tab to jump).
 - **Rows, not a canvas.** A rail list in the spirit of `git log --graph`: the trunk, collapsible groups with trailing counts ("1 needs you · 2 in review · 2 working", "3 done" in `accepted`), Tasks, and the Subagents under their Attempt. Fixed lanes: rail (60px), id in `code-inline`, title, actor (harness · model, "lead" for a Gate, "codex · on devbox" for a remote worker), state. A row is one line, plus at most one or two short `caption` lines when they carry state: never prose (rule/no-dashboard-clutter).
-- **State colour (rule/constellation-colour).** The graph reads at a glance, as dagr does. Working keeps the Harness dither on its glyph, as in the baseline, and its id and words stay neutral. Done with evidence is `accepted` (a yellow-green, apart from Codex mint) on the glyph, id and state word. Needs you is `needs-you`; a failed check is `failed-text`; in review, waiting and Futures are neutral. Starlight is not used for states (rule/starlight-is-rare). Words use the `-text` variants; every colour keeps its glyph (rule/no-colour-alone).
+- **State colour (rule/constellation-colour).** The graph reads at a glance, as dagr does. Working keeps the Harness dither on its glyph, as in the baseline, and its id and words stay neutral. Done with evidence is `accepted` (a blue-purple, apart from Starlight and Codex mint) on the glyph, id and state word. Needs you is `needs-you`; a failed check is `failed-text`; in review, waiting and Futures are neutral. Starlight is not used for states (rule/starlight-is-rare). Words use the `-text` variants; every colour keeps its glyph (rule/no-colour-alone).
 - **Rail glyphs.** Working: the 10px Harness dither. In review: a `text-default` ring with a centre dot (dashed while the branch is not yet fetched). Needs you: the pixel hand. Accepted: a filled `accepted` dot. Waiting: a hollow `text-faint` dot. Future: a dashed dot on a dashed branch; a proposed one adds "proposed by B2" with Accept / Decline. Gate: a small square (filled `accepted` when accepted, outlined while waiting), never a diamond (that is Critical). Rail lines are white at ~14%; an accepted group's branches take `accepted` at 40%.
 - **Liveness.** A working row's second line says what the worker is actually doing, from session events and never the model: the current command and how long it has run (`bun run bench · 4m`), or what it waits on ("waiting on bench (held by B2) · 2m"), then context % and queued input in `text-faint`.
 - **Claims.** The Lead reviews Claims by default. A Claim row says "in review", and its second line is the Claim at a glance: head SHA, each check as ✓ (`accepted`) or ✗ (`failed-text`), "1 not done", questions in `needs-you-text`. Accept / Send back live in the row's menu (⋯ or right-click: Accept… a, Send back… s, Open in Review, Focus; "The lead is reviewing this claim"). They become buttons only when the Constellation is paused or the Lead hands the Claim up; a handed-up Claim's row says "handed to you" in `needs-you-text`. A remote worker's Claim waiting for its branch reads "review · branch not yet fetched" until the Desktop App carries the bundle back.
