@@ -26,6 +26,7 @@ import {
   verifyDaemonManifest,
 } from "./packaging/index.ts";
 import { run } from "./packaging/command.ts";
+import { installerDmg } from "./packaging/dmg.ts";
 
 const args = process.argv.slice(2);
 
@@ -158,6 +159,9 @@ for (const target of targets) {
       release ? pkg.version : undefined
     );
     console.log(`archived ${updateZip(bundle, pkg.version, join(OUT_DIR, "dist"), signing)}`);
+    console.log(
+      `installer ${installerDmg(bundle, pkg.version, join(OUT_DIR, "dist"), join(REPO_ROOT, "design/assets"), signing)}`
+    );
   }
 
   console.log(`packaged ${path}`);
