@@ -11,12 +11,13 @@ import {
   WorkerPlacement,
 } from "@polaris/protocol";
 import { Effect, Predicate } from "effect";
+import { TestClock } from "effect/testing";
 import { C, CID, LEAD, G, draft, task, ctx } from "../../engine/constellation.testing.ts";
 import { decideConstellation } from "../../engine/constellation.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { Constellations } from "../service.ts";
 import { ConstellationDelivery } from "../delivery/index.ts";
-import { setup, world, WORKER, finish, send, wait } from "../delivery/testing.ts";
+import { setup, world, WORKER, finish, send, signal, wait } from "../delivery/testing.ts";
 
 const handover = (summary = "Focus on the Gate", interrupt = false) =>
   C.SetState.make({
@@ -45,6 +46,44 @@ const completeSummary = Effect.fnUntraced(function* (turn: import("@polaris/prot
       ]),
   });
   yield* finish(turn.sessionId).pipe(Effect.orDie);
+});
+
+test("the incoming Lead header retains the worker's stopped-after-nudge line", async () => {
+  const w = world(":memory:", { onRun: (turn) => completeSummary(turn).pipe(Effect.orDie) });
+  await w.run(
+    Effect.gen(function* () {
+      yield* setup();
+      yield* send(WORKER);
+      const store = yield* EventStore;
+      const delivery = yield* ConstellationDelivery;
+      yield* delivery.start();
+      yield* finish(WORKER);
+      yield* wait(() => Effect.succeed(w.turns.length === 1));
+      const model = yield* store.model;
+      const nudged = model.constellations.get(CID)!.graph.attempts[0]!.nudgedAt!;
+      const turn = model.sessions.get(WORKER)!.turns.find((t) => t.status === "working")!;
+
+      yield* TestClock.setTime(Date.parse(nudged) + 1);
+      yield* signal(WORKER, {
+        type: "harness.turnEnded",
+        turnId: turn.id,
+        status: "completed",
+        at: new Date(Date.parse(nudged) + 1).toISOString(),
+        checkpoint: null,
+        error: null,
+      });
+      yield* wait(() =>
+        Effect.map(store.model, (m) =>
+          m.constellations
+            .get(CID)!
+            .graph.pendingNotifications.some((n) => Predicate.isTagged(n.item, "Stopped"))
+        )
+      );
+      yield* (yield* Constellations).command({ kind: "user" }, cid(), handover());
+      yield* wait(() => Effect.succeed(w.turns.length === 3));
+      expect(w.turns[2]!.prompt).toContain("Stopped without claiming · nudged once");
+    })
+  );
 });
 
 test("Lead self-call queues without blocking; boundary runs one summary, then atomically archives and switches", async () => {

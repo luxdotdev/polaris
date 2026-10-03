@@ -37,7 +37,7 @@ export class ReplayGroup {
   readonly workerHosts = new Map<string, string>();
   readonly remoteTurns = new Set<string>();
   readonly blockRevisions = new Map<string, number>();
-  readonly messages = new Map<string, number>();
+  readonly messages = new Map<string, { revision: number; attemptId: string | null }>();
   readonly batches: Array<Array<string>> = [];
   readonly capacity = 1;
   isGraph = false;
@@ -95,7 +95,8 @@ const unblockFresh = (
     (e) =>
       Predicate.isTagged(e, "WorkerInputDelivered") &&
       e.sessionId === g.workers.get(attemptId) &&
-      (g.messages.get(e.id) ?? -1) > (g.blockRevisions.get(attemptId) ?? Infinity)
+      g.messages.get(e.id)?.attemptId === attemptId &&
+      (g.messages.get(e.id)?.revision ?? -1) > (g.blockRevisions.get(attemptId) ?? Infinity)
   );
 
 const taskDeclaration = (
@@ -258,8 +259,11 @@ export const mapGraphEvent = (
         record(
           `AttemptRecoveryContinued({ attempt: ${g.attemptId(attemptId)}, interruption: ${g.interruptions.id(interruptionId)} })`
         ),
-      OperatorMessageSent: ({ id, revision }) => {
-        g.messages.set(id, revision);
+      OperatorMessageSent: ({ id, revision, target }) => {
+        g.messages.set(id, {
+          revision,
+          attemptId: Predicate.isTagged(target, "Worker") ? target.attemptId : null,
+        });
 
         return [];
       },

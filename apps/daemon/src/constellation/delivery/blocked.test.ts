@@ -238,6 +238,20 @@ test("reason-only blocks wait for a Lead message and notify the digest; peers do
       yield* delivery.start();
       yield* delivery.flush();
       expect(w.turns).toHaveLength(0);
+      yield* graphs.command(
+        { kind: "user" },
+        id(),
+        C.Message.make({
+          constellationId: CID,
+          target: MessageTarget.cases.All.make({}),
+          text: "General update for everyone",
+        })
+      );
+      yield* delivery.flush();
+      expect(w.turns.filter((t) => t.sessionId === WORKER)).toHaveLength(0);
+      expect(
+        (yield* (yield* EventStore).model).constellations.get(CID)!.graph.attempts[0]!.state
+      ).toBe("blocked");
       yield* TestClock.adjust(20000);
       yield* wait(() => Effect.succeed(w.turns.length === 1));
       expect(w.prompts[0]).toContain("A: blocked awaiting the Lead: Waiting for feed");

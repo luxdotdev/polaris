@@ -19,7 +19,12 @@ import { Constellations } from "../service.ts";
 import { ConstellationOwner } from "../runtime.ts";
 import { withHandoverPreparation } from "../handover/index.ts";
 import { ConstellationRuntime } from "../runtime.ts";
-import { ConstellationDelivery, ConstellationSessionEffects } from "./index.ts";
+import {
+  ConstellationDelivery,
+  ConstellationSessionEffects,
+  ConstellationRemoteDelivery,
+  type DeliveryPacket,
+} from "./index.ts";
 import { newTurn } from "./turns.ts";
 
 export const WORKER = SessionId.make("worker");
@@ -149,6 +154,8 @@ export const world = (
   options: {
     readonly canSteer?: boolean;
     readonly onRun?: (turn: Turn) => Effect.Effect<void, never, EventStore>;
+    readonly attempt?: ReturnType<typeof draft>;
+    readonly remoteSend?: (packet: DeliveryPacket) => Effect.Effect<void>;
   } = {}
 ) => {
   const turns: Turn[] = [];
@@ -192,7 +199,7 @@ export const world = (
   const runtime = withHandoverPreparation({
     prepare: () =>
       Effect.succeed({
-        attempts: [draft()],
+        attempts: [options.attempt ?? draft()],
         newLeadSessionId: null,
         claimProbe: { dirtyPaths: [], branch: "polaris/A", head: "head" },
         recordedChecks: [],
@@ -204,7 +211,12 @@ export const world = (
   const layer = Layer.mergeAll(Constellations.layer, ConstellationDelivery.layer).pipe(
     Layer.provideMerge(effects),
     Layer.provide(Layer.succeed(ConstellationOwner)(HOST)),
-    Layer.provide(Layer.succeed(ConstellationRuntime)(runtime))
+    Layer.provide(Layer.succeed(ConstellationRuntime)(runtime)),
+    Layer.provide(
+      Layer.succeed(ConstellationRemoteDelivery)({
+        send: options.remoteSend ?? (() => Effect.never),
+      })
+    )
   );
 
   const run = <A, E>(

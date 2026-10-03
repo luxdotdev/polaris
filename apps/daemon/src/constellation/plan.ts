@@ -10,7 +10,8 @@ import { taskData } from "./data.ts";
 import { GraphDecision } from "./decision.ts";
 import { cancelBlockTarget } from "./blocked.ts";
 import { latestAttempt } from "./projections.ts";
-import { cancelSubtrees, effectiveDeps, prerequisites, validateParents } from "./parents.ts";
+import { cancelSubtrees, effectiveDeps, validateParents } from "./parents.ts";
+import { waitCycleMessage, waitGraph } from "./waitGraph.ts";
 
 /** Validate the resulting graph, so forward references and removing a dependency in the same batch work. */
 export const validateGraph = (d: GraphDecision, tasks: ReadonlyArray<Task>) => {
@@ -39,6 +40,7 @@ export const validateGraph = (d: GraphDecision, tasks: ReadonlyArray<Task>) => {
   const visiting = new Set<TaskId>();
   const visited = new Set<TaskId>();
   const cycles = new Set<string>();
+  const edges = waitGraph(tasks, d.record.graph.attempts);
 
   const walk = (id: TaskId, path: ReadonlyArray<TaskId>) => {
     if (visiting.has(id)) {
@@ -49,8 +51,8 @@ export const validateGraph = (d: GraphDecision, tasks: ReadonlyArray<Task>) => {
         cycles.add(key);
         d.reject(
           "E-DEP-CYCLE",
-          `Dependency cycle: ${cycle.join(" → ")}`,
-          "Remove a dependency in this cycle."
+          waitCycleMessage(edges, cycle),
+          "Remove a dependency or unblock an Attempt in this cycle."
         );
       }
 
@@ -60,7 +62,8 @@ export const validateGraph = (d: GraphDecision, tasks: ReadonlyArray<Task>) => {
     if (visited.has(id)) return;
     visiting.add(id);
 
-    for (const dep of prerequisites(tasks, id)) if (byId.has(dep)) walk(dep, [...path, id]);
+    for (const edge of edges.get(id) ?? [])
+      if (byId.has(edge.target)) walk(edge.target, [...path, id]);
     visiting.delete(id);
     visited.add(id);
   };

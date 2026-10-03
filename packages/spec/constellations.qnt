@@ -163,8 +163,12 @@ module constellations {
     }))
   pure def taskState(v: View, t: int): str =
     if (children(v, t) == Set()) leafState(v, t) else taskStates(v).get(t)
-  pure def reach(v: View, t: int): Set[int] = TASKS.fold(effectiveDeps(v, t).union(children(v, t)), (acc, _) =>
-    acc.union(acc.fold(Set(), (out, d) => out.union(effectiveDeps(v, d)).union(children(v, d)))))
+  pure def liveBlocks(v: View, t: int): Set[int] = v.attempts.indices().fold(Set(), (acc, a) =>
+    if (v.attempts[a].task == t and v.attempts[a].status == "blocked" and not(v.tasks.get(t).canceled))
+      acc.union(v.blocks.get(a).filter(d => not(v.tasks.get(d).canceled))) else acc)
+  pure def waits(v: View, t: int): Set[int] = effectiveDeps(v, t).union(children(v, t)).union(liveBlocks(v, t))
+  pure def reach(v: View, t: int): Set[int] = TASKS.fold(waits(v, t), (acc, _) =>
+    acc.union(acc.fold(Set(), (out, d) => out.union(waits(v, d)))))
   pure def validGraph(v: View): bool = TASKS.forall(t => all {
     not(reach(v, t).contains(t)),
     not(lineage(v, t).contains(t)),

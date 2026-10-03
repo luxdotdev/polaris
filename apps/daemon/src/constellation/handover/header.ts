@@ -1,14 +1,20 @@
 import type { SessionId } from "@polaris/protocol";
 import type { ConstellationRecord } from "../../store/constellation.ts";
+import type { SessionRecord } from "../../store/model.ts";
 import { notificationLine } from "../delivery/format.ts";
 import { statusOutline } from "../status.ts";
 
 /** This structured header comes from the folded log even when the old Harness cannot summarize. */
-export const handoverHeader = (record: ConstellationRecord, to: SessionId, summary: string) =>
+export const handoverHeader = (
+  record: ConstellationRecord,
+  to: SessionId,
+  summary: string,
+  sessions: ReadonlyMap<SessionId, SessionRecord>
+) =>
   [
     `Polaris handover · ${record.graph.name} · revision ${record.graph.revision}`,
     `You are the new Lead (${to}), replacing ${record.graph.leadSessionId}. Existing workers continue their Attempts.`,
-    statusOutline(record),
+    statusOutline(record, sessions),
     ...record.graph.attempts.flatMap((a) =>
       a.sessionId === record.graph.leadSessionId &&
       (a.state === "working" || a.state === "blocked" || a.state === "review") &&

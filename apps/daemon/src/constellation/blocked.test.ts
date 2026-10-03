@@ -39,6 +39,7 @@ import { session } from "./delivery/testing.ts";
 import { digestPrompt, digestDelay } from "./delivery/format.ts";
 import { acceptedBlockInput } from "./blocked.ts";
 import { statusOutline } from "./status.ts";
+import { handoverHeader } from "./handover/header.ts";
 
 const working = () => dispatched(planned([task(A), task(B)]));
 
@@ -311,6 +312,9 @@ test("status only labels the silent end after a nudge, and never a resumed or cl
   )!;
 
   expect(statusOutline(nudged, new Map([[s.id, stopped]]))).toContain("Stopped without claiming");
+  expect(
+    handoverHeader(nudged, SessionId.make("incoming"), "", new Map([[s.id, stopped]]))
+  ).toContain("Stopped without claiming · nudged once");
 
   const resumed = foldSession(
     s.id,
@@ -335,6 +339,34 @@ test("status only labels the silent end after a nudge, and never a resumed or cl
   expect(statusOutline(waiting, new Map([[s.id, stopped]]))).not.toContain(
     "Stopped without claiming"
   );
+});
+
+test("a broadcast remains queued for a blocked worker and cannot acknowledge an unblock", () => {
+  const record = apply(
+    blocked([]),
+    C.Message.make({
+      constellationId: CID,
+      target: MessageTarget.cases.All.make({}),
+      text: "General update",
+    })
+  );
+
+  const input = pendingInputs(record).find((i) => i.sessionId === draft().sessionId)!;
+  const turn = newTurn(session(input.sessionId), input.text, AT, "broadcast");
+
+  const decision = decideConstellationJournal(
+    record,
+    {
+      type: "inputDelivered",
+      id: input.id,
+      sessionId: input.sessionId,
+      turnEvents: [DomainEvent.cases.TurnStarted.make({ turn })],
+    },
+    ctx()
+  );
+
+  expect(decision.rejection?.findings[0]?.code).toBe("E-UNBLOCK-INPUT");
+  expect(decision.events).toEqual([]);
 });
 
 import { foldSession } from "../store/model.ts";

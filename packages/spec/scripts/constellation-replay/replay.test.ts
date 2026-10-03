@@ -611,3 +611,25 @@ test("unblock replay requires a Lead input sent after the block", () => {
   expect(source(true)).toContain('cause: "Lead", turn: true, fresh: false');
   expect(source(false)).toContain('cause: "Lead", turn: true, fresh: true');
 });
+
+test("unblock replay rejects a fresh broadcast as its Lead cause", () => {
+  const f = unblockFixture();
+
+  const broadcast = E.OperatorMessageSent.make({
+    ...f.message,
+    target: MessageTarget.cases.All.make({}),
+  });
+
+  const input = trace([
+    batch(initial),
+    batch([began]),
+    batch([f.blocked]),
+    batch([broadcast]),
+    batch([f.turn, f.unblocked, f.delivered]),
+  ]);
+
+  expect(constellationTraceToQuint("broadcast", input, "constellations")[0]!.source).toContain(
+    'cause: "Lead", turn: true, fresh: false'
+  );
+  expect(check(input)).toBe(false);
+}, 30_000);

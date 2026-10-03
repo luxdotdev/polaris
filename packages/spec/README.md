@@ -312,16 +312,17 @@ seeding and graph-revision neutrality are covered by the real producer tests.
 
 Blocking maps `WorkerBlock` to `AttemptBlocked` and a `Blocked` notification.
 `blockEvents`, `unblockEvents` and `blockTransitionsValid` model live targets,
-unsatisfied acceptance, Gate and transitive dependency cycle rejection, working → blocked → working, and a Turn proof on unblock. Cancel drops named targets and queues a Lead notification; an empty set continues waiting for the Lead.
+unsatisfied acceptance, Gate and transitive wait-cycle rejection, working → blocked → working, and a Turn proof on unblock. `liveBlocks`, `waits`, `reach` and `validGraph` combine live blocked Attempts' targets with inherited dependencies and parent completion edges: mutual blocks are refused by `blockEvents`, and block-closing plan edits by `planEvents`. The runtime `constellation/waitGraph.ts` supplies both guards; `E-DEP-CYCLE` names the block edge. Cancel drops named targets and queues a Lead notification; an empty set continues waiting for the Lead.
 The real journal commits `AttemptUnblocked` with the Session machine's next Turn;
 acceptance inputs are re-derived from the durable block on startup. Empty target
-sets wait for a Lead message sent after the block. The replay `fresh` proof checks journal order, including messages in the same clock tick. SendBack accepts blocked Attempts and unblock resets the nudge allowance. `constellation/blocked.test.ts` and
+sets wait for a Lead message addressed to that worker after the block (Task ids resolve to Worker targets at the tool boundary). Broadcasts remain queued and cannot unblock. The replay `fresh` proof checks both the Worker target and journal order, including messages in the same clock tick. SendBack accepts blocked Attempts and unblock resets the nudge allowance. `constellation/blockCycles.test.ts`, `constellation/blocked.test.ts` and
 `constellation/delivery/blocked.test.ts` cover error codes, Turn boundaries,
 metadata clearing, atomic markers, SQLite restart and idempotence. The independent
 reference fold and generated command model retain block metadata; trace replay
 requires the local worker Turn in the same batch. Remote traces require the
 worker Host's earlier Turn with the immutable delivery ID before the owner
 receipt; remote delivery retains its durable receipt handshake.
+`constellation/composition/remoteBlocked.test.ts` exercises separate owner and worker stores with fake Turn runners and an in-process relay: acceptance while the blocking Turn runs leaves the owner blocked; the worker Host's TurnEnded retries delivery, then acknowledgement resumes the owner exactly once without another owner event. `applyWorkerDelivery` keeps the RPC pending on Session events instead of returning its temporary busy rejection to the relay. The emitted trace places the worker's immutable-ID Turn before the owner acknowledgement. This does not exercise live Hosts or a live Harness.
 Blocked Attempts skip nudging; a second silent end queues `Stopped` for the Lead.
 
 C1-L implements the delivery runner under `apps/daemon/src/constellation/delivery`,
