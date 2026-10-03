@@ -6,6 +6,7 @@ import {
   registerWorkerAdmissionSource,
   workerBusy,
 } from "../resources/workerAdmission.ts";
+import type { StartupAbandoned } from "./composition/startupAbandoned.ts";
 import { graphEvent } from "../store/constellation.ts";
 import { EventStore } from "../store/EventStore.ts";
 import { ConstellationRuntime, type ConstellationRuntimeService } from "./runtime.ts";
@@ -16,9 +17,9 @@ export interface WorkingAttemptHooks<E> {
   /** HostResources.acquireWorker; the slot belongs to a replaceable admission scope. */
   readonly acquireWorker: (sessionId: SessionId) => Effect.Effect<void, E, Scope.Scope>;
   /** Commit the title/first prompt via the Session machine and pass its Harness attachment. */
-  readonly startWorker: (attempt: Attempt) => Effect.Effect<void, E>;
+  readonly startWorker: (attempt: Attempt) => Effect.Effect<void, E | StartupAbandoned>;
   /** Resume an existing assignment; never submit a new first Turn. */
-  readonly resumeWorker: (attempt: Attempt) => Effect.Effect<void, E>;
+  readonly resumeWorker: (attempt: Attempt) => Effect.Effect<void, E | StartupAbandoned>;
   readonly eventCommitted?: (event: DomainEvent) => Effect.Effect<void>;
   readonly failed: (attempt: Attempt, error: E) => Effect.Effect<void>;
 }
@@ -180,12 +181,17 @@ export const workingAttemptsLayer = <E>(hooks: WorkingAttemptHooks<E>) =>
           return;
         const scope = yield* Scope.fork(parent);
 
+        let abandoned = false;
+
         const mayRelease = Effect.map(store.model, (model) => {
           const current = [...model.constellations.values()]
             .flatMap((r) => r.graph.attempts)
             .find((a) => a.id === attempt.id);
 
-          return current?.state === "blocked" && !workerBusy(model.sessions.get(attempt.sessionId));
+          return (
+            (abandoned || current?.state === "blocked") &&
+            !workerBusy(model.sessions.get(attempt.sessionId))
+          );
         });
 
         const admission = yield* registerWorkerAdmission(
@@ -216,6 +222,11 @@ export const workingAttemptsLayer = <E>(hooks: WorkingAttemptHooks<E>) =>
           yield* admission.suspend;
         }).pipe(
           Effect.provideService(Scope.Scope, scope),
+          Effect.catchTag("StartupAbandoned", () =>
+            Effect.sync(() => {
+              abandoned = true;
+            }).pipe(Effect.andThen(admission.suspend))
+          ),
           Effect.catch((error) =>
             Effect.andThen(
               Effect.flatMap(store.model, (model) =>

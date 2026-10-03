@@ -56,6 +56,8 @@ import { loadHostInfo } from "../../transport/hostInfo.ts";
 import { constellationTransferPath } from "./startup.ts";
 import { validateRemoteDelivery } from "./remoteDelivery.ts";
 
+export { StartupAbandoned } from "./startupAbandoned.ts";
+
 const localRuntime = Layer.unwrap(
   Effect.gen(function* () {
     const owner = yield* ConstellationOwner;

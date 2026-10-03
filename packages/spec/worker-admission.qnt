@@ -5,7 +5,7 @@ module worker_admission {
     unblocks: int, bindings: bool, bStarted: bool, registered: bool,
     active: bool, replacement: bool, userPending: bool, userTurns: int,
     deferred: bool, inputGate: bool, steerAnswered: bool, acks: int, startup: bool, briefStarted: bool,
-    failed: bool, refusals: int,
+    failed: bool, refusals: int, abandoned: bool,
   }
   var slots: Admission
   action init = slots' = {
@@ -14,7 +14,7 @@ module worker_admission {
     unblocks: 0, bindings: true, bStarted: false, registered: true,
     active: true, replacement: false, userPending: false, userTurns: 0,
     deferred: false, inputGate: false, steerAnswered: false, acks: 0, startup: false, briefStarted: false,
-    failed: false, refusals: 0,
+    failed: false, refusals: 0, abandoned: false,
   }
   action block = all {
     slots.active, not(slots.blocked) and slots.unblocks == 0,
@@ -46,6 +46,15 @@ module worker_admission {
     not(slots.pending),
     slots' = { ...slots, holders: slots.holders.exclude(Set(0)) },
   }
+  action startupAbandoned = all {
+    slots.active, slots.registered, slots.startup, not(slots.foreground), not(slots.failed),
+    slots' = { ...slots, abandoned: true, startup: false },
+  }
+  action releaseAbandoned = all {
+    slots.active, slots.registered, slots.abandoned, not(slots.foreground),
+    not(slots.background), not(slots.reporting), not(slots.pending),
+    slots' = { ...slots, holders: slots.holders.exclude(Set(0)) },
+  }
   action grant = all {
     slots.holders.size() == 0, slots.queue.length() > 0,
     slots.queue[0] != 0 or (slots.registered and slots.active and not(slots.failed)),
@@ -57,7 +66,7 @@ module worker_admission {
     slots' = { ...slots, pending: true, queue: if (slots.holders.contains(0)) slots.queue else slots.queue.append(0) },
   }
   action userInput = all {
-    slots.active, not(slots.failed), slots.blocked, not(slots.pending),
+    slots.active, not(slots.failed), slots.blocked or slots.abandoned, not(slots.pending),
     slots' = { ...slots, pending: true, userPending: true,
       queue: if (slots.holders.contains(0)) slots.queue else slots.queue.append(0) },
   }
@@ -133,6 +142,7 @@ module worker_admission {
     reportingEnded, inlineReport, releaseBlocked, grant, resumeInput, claimB, apply,
     retry, restart, register, userInput, acceptedDeferredUser, takeInputGate,
     steer, applyUser, stop, sendBack, pendingBrief, startBrief, startupFailed, refuseFailedInput,
+    startupAbandoned, releaseAbandoned,
   }
   val safety = all {
     slots.holders.size() <= 1,
@@ -152,6 +162,14 @@ module worker_admission {
 
 module worker_admission_test {
   import worker_admission.*
+  run abandonedStartupUserReacquiresTest = init.then(foregroundEnded).then(pendingBrief)
+    .then(startupAbandoned).then(releaseAbandoned).then(grant).then(userInput)
+    .expect(slots.bindings and slots.registered and slots.holders == Set(1) and safety)
+    .then(claimB).then(grant).then(takeInputGate).then(applyUser)
+    .expect(slots.userTurns == 1 and slots.holders == Set(0) and slots.refusals == 0 and safety)
+  run abandonedStartupPinnedInputKeepsSlotTest = init.then(foregroundEnded).then(pendingBrief)
+    .then(startupAbandoned).then(userInput).then(takeInputGate).then(applyUser)
+    .expect(slots.bindings and slots.registered and slots.holders == Set(0) and slots.userTurns == 1 and safety)
   run failedStartupRejectsUserAndLeadTest = init.then(startupFailed).then(refuseFailedInput)
     .then(refuseFailedInput).then(grant)
     .expect(slots.active and slots.refusals == 2 and slots.bStarted and slots.userTurns == 0 and safety)

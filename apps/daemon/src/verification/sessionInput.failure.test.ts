@@ -149,6 +149,8 @@ test("ineligible startup receipt survives restart without a first-Turn receipt",
         const store = yield* EventStore;
         const graph = (yield* store.model).constellations.get(CID)!.graph;
         const attempt = graph.attempts.at(-1)!;
+        expect((yield* store.model).sessions.get(attempt.sessionId)!.session.state).toBe("idle");
+        expect((yield* store.model).sessions.get(attempt.sessionId)!.session.lastError).toBeNull();
         yield* send(attempt.sessionId, "After startup rejection");
         yield* finish(attempt.sessionId);
         expect((yield* store.model).sessions.get(attempt.sessionId)!.session.state).toBe("idle");

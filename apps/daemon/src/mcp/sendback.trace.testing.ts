@@ -5,7 +5,13 @@ import { CID, HOST } from "../engine/constellation.testing.ts";
 import { EventStore } from "../store/EventStore.ts";
 
 /** Capture owner graph batches plus actual stable startup Turns from the durable journal. */
-export const recordSendbackTrace = Effect.fnUntraced(function* (name: string) {
+export const recordSendbackTrace = Effect.fnUntraced(function* (
+  name: string,
+  commandContexts?: ReadonlyMap<
+    string,
+    { offlineSessionIds: ReadonlyArray<string>; commanded: boolean }
+  >
+) {
   const root = process.env.POLARIS_TRACE_DIR;
 
   if (root === undefined) return;
@@ -47,7 +53,11 @@ export const recordSendbackTrace = Effect.fnUntraced(function* (name: string) {
     JSON.stringify({
       version: 1,
       ownerHostId: HOST,
-      batches: batches.map((b) => ({ ...b, events: b.events.map((e) => e.event) })),
+      batches: batches.map((b) => ({
+        ...b,
+        context: commandContexts?.get(b.events[0]!.commandId ?? ""),
+        events: b.events.map((e) => e.event),
+      })),
     })
   );
 });

@@ -6,6 +6,7 @@ import {
   type ConstellationTransferError,
 } from "@polaris/protocol";
 import { Effect, Exit, Layer, Scope, Predicate, Stream, SubscriptionRef } from "effect";
+import type { StartupAbandoned } from "../composition/startupAbandoned.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import {
   cancelWorkerAdmissionWait,
@@ -26,11 +27,11 @@ export interface RemoteWorkingHooks<E, R> {
   readonly start: (
     assignment: RemoteWorkerAssignment,
     env: Readonly<WorkerEnvironment>
-  ) => Effect.Effect<void, E, R>;
+  ) => Effect.Effect<void, E | StartupAbandoned, R>;
   readonly resume: (
     assignment: RemoteWorkerAssignment,
     env: Readonly<WorkerEnvironment>
-  ) => Effect.Effect<void, E, R>;
+  ) => Effect.Effect<void, E | StartupAbandoned, R>;
   readonly failed: (
     attempt: Attempt,
     error: E | ConstellationTransferError | import("@polaris/protocol").ResourceError
@@ -150,12 +151,14 @@ export const remoteWorkingAttemptsLayer = <E, R>(hooks: RemoteWorkingHooks<E, R>
             )
         );
 
+        let abandoned = false;
+
         const mayRelease = Effect.gen(function* () {
           const current = yield* currentAssignment;
 
           return (
             current !== undefined &&
-            assignmentAttempt(current).state === "blocked" &&
+            (abandoned || assignmentAttempt(current).state === "blocked") &&
             !workerBusy((yield* store.model).sessions.get(attempt.sessionId))
           );
         });
@@ -188,6 +191,11 @@ export const remoteWorkingAttemptsLayer = <E, R>(hooks: RemoteWorkingHooks<E, R>
           ).pipe(Effect.provide(context));
           yield* admission.suspend;
         }).pipe(
+          Effect.catchTag("StartupAbandoned", () =>
+            Effect.sync(() => {
+              abandoned = true;
+            }).pipe(Effect.andThen(admission.suspend))
+          ),
           Effect.catch((error) =>
             Effect.flatMap(currentAssignment, (current) =>
               current !== undefined &&
