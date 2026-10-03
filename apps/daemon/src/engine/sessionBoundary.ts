@@ -15,6 +15,7 @@ interface Boundaries {
   readonly inputs: Map<SessionId, Lock>;
   readonly startupWaiters: Map<SessionId, Deferred.Deferred<void>>;
   remote: (sessionId: SessionId) => Effect.Effect<ReadonlyArray<Constellation>>;
+  remoteHasGraphs: ((sessionId: SessionId) => boolean) | null;
   remoteChanges:
     | ((sessionId: SessionId) => Effect.Effect<SubscriptionRef.SubscriptionRef<number>>)
     | null;
@@ -31,6 +32,7 @@ const boundaries = (store: Store) => {
       inputs: new Map(),
       startupWaiters: new Map(),
       remote: () => Effect.succeed([]),
+      remoteHasGraphs: () => false,
       remoteChanges: null,
     };
     stores.set(store, value);
@@ -43,11 +45,13 @@ const boundaries = (store: Store) => {
 export const registerStartupGraphs = (
   store: Store,
   remote: Boundaries["remote"],
-  changes: Boundaries["remoteChanges"] = null
+  changes: Boundaries["remoteChanges"] = null,
+  hasGraphs: Boundaries["remoteHasGraphs"] = null
 ) => {
   const value = boundaries(store);
   value.remote = remote;
   value.remoteChanges = changes;
+  value.remoteHasGraphs = hasGraphs;
 };
 
 const serially = <A, E, R>(
@@ -173,7 +177,24 @@ export const withSessionInput = <A, E, R>(
           boundaries(store).inputs.get(sessionId)?.queued === true ||
           (yield* store.hasQueuedInput(sessionId));
 
-        const tryCommit = Effect.gen(function* () {
+        const commitUnderBoundary = Effect.gen(function* () {
+          if (yield* pendingStartup(store, sessionId, yield* graphs)) {
+            queuedForTurn = true;
+
+            return null;
+          }
+
+          queuedForTurn ||= yield* store.hasQueuedInput(sessionId);
+
+          if (queuedForTurn && ready !== undefined && !(yield* ready)) return null;
+          const value = yield* effect;
+
+          if (queuedForTurn && ready !== undefined) yield* store.markQueuedInput(sessionId);
+
+          return { value };
+        });
+
+        const checkStartup = Effect.gen(function* () {
           // Check before taking the startup lock, which may be held while an old Turn runs.
           const pending = yield* pendingStartup(store, sessionId, yield* graphs);
           queuedForTurn ||= pending;
@@ -181,29 +202,26 @@ export const withSessionInput = <A, E, R>(
 
           if (queue !== undefined) queue.queued ||= queuedForTurn;
 
-          return pending
-            ? null
-            : yield* withSessionBoundary(
+          return pending ? null : yield* withSessionBoundary(store, sessionId, commitUnderBoundary);
+        });
+
+        const ordinaryInput = () =>
+          !queuedForTurn &&
+          store.hasStartupGraphs?.(sessionId) === false &&
+          store.hasQueuedInputNow?.(sessionId) === false &&
+          boundaries(store).remoteHasGraphs?.(sessionId) === false;
+
+        const committedInput = Effect.map(effect, (value) => ({ value }));
+
+        const tryCommit = Effect.suspend(() =>
+          ordinaryInput()
+            ? withSessionBoundary(
                 store,
                 sessionId,
-                Effect.gen(function* () {
-                  if (yield* pendingStartup(store, sessionId, yield* graphs)) {
-                    queuedForTurn = true;
-
-                    return null;
-                  }
-
-                  queuedForTurn ||= yield* store.hasQueuedInput(sessionId);
-
-                  if (queuedForTurn && ready !== undefined && !(yield* ready)) return null;
-                  const value = yield* effect;
-
-                  if (queuedForTurn && ready !== undefined) yield* store.markQueuedInput(sessionId);
-
-                  return { value };
-                })
-              );
-        });
+                Effect.suspend(() => (ordinaryInput() ? committedInput : commitUnderBoundary))
+              )
+            : checkStartup
+        );
 
         // Ordinary input needs no subscription; subscribe and recheck only after a blocked attempt.
         const immediate = yield* Effect.scoped(tryCommit);

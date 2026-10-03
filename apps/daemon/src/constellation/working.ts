@@ -32,32 +32,36 @@ export const workingAttemptsLayer = <E>(hooks: WorkingAttemptHooks<E>) =>
     Effect.gen(function* () {
       const store = yield* EventStore;
       const parent = yield* Scope.Scope;
-      yield* registerWorkerAdmissionSource(store, parent, (sessionId) =>
-        Effect.gen(function* () {
-          const graphs = yield* store.startupGraphs(sessionId);
+      yield* registerWorkerAdmissionSource(
+        store,
+        parent,
+        (sessionId) =>
+          Effect.gen(function* () {
+            const graphs = yield* store.startupGraphs(sessionId);
 
-          if (graphs.length === 0) return false;
-          const model = yield* store.model;
+            if (graphs.length === 0) return false;
+            const model = yield* store.model;
 
-          return graphs.some((graph) => {
-            const record = model.constellations.get(graph.id);
+            return graphs.some((graph) => {
+              const record = model.constellations.get(graph.id);
 
-            return (
-              record !== undefined &&
-              record.graph.state !== "completed" &&
-              record.graph.state !== "archived" &&
-              record.graph.attempts.some(
-                (attempt) =>
-                  attempt.sessionId === sessionId &&
-                  hooks.ownsAttempt?.(attempt) !== false &&
-                  (attempt.state === "working" || attempt.state === "blocked") &&
-                  record.graph.attempts.findLast((a) => a.taskId === attempt.taskId)?.id ===
-                    attempt.id &&
-                  !record.stale.has(attempt.id)
-              )
-            );
-          });
-        })
+              return (
+                record !== undefined &&
+                record.graph.state !== "completed" &&
+                record.graph.state !== "archived" &&
+                record.graph.attempts.some(
+                  (attempt) =>
+                    attempt.sessionId === sessionId &&
+                    hooks.ownsAttempt?.(attempt) !== false &&
+                    (attempt.state === "working" || attempt.state === "blocked") &&
+                    record.graph.attempts.findLast((a) => a.taskId === attempt.taskId)?.id ===
+                      attempt.id &&
+                    !record.stale.has(attempt.id)
+                )
+              );
+            });
+          }),
+        (sessionId) => store.hasStartupGraphs?.(sessionId) !== false
       );
 
       const working = new Map<

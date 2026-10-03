@@ -124,7 +124,8 @@ const remoteWorkers = Layer.unwrap(
         Effect.map(storage.assignmentsForSession(sessionId), (assignments) =>
           assignments.map((a) => a.graph)
         ),
-      storage.assignmentChanges
+      storage.assignmentChanges,
+      (sessionId) => storage.hasAssignmentsForSession?.(sessionId) !== false
     );
 
     const currentAssignment = (assignment: import("@polaris/protocol").RemoteWorkerAssignment) =>

@@ -53,28 +53,32 @@ export const remoteWorkingAttemptsLayer = <E, R>(hooks: RemoteWorkingHooks<E, R>
       const hostId = yield* ConstellationOwner;
       const parent = yield* Effect.scope;
       const context = yield* Effect.context<R>();
-      yield* registerWorkerAdmissionSource(store, parent, (sessionId) =>
-        Effect.gen(function* () {
-          const assignments = yield* storage.assignmentsForSession(sessionId);
+      yield* registerWorkerAdmissionSource(
+        store,
+        parent,
+        (sessionId) =>
+          Effect.gen(function* () {
+            const assignments = yield* storage.assignmentsForSession(sessionId);
 
-          if (assignments.length === 0) return false;
-          const claimed = yield* storage.claimedAttempts.pipe(Effect.orDie);
+            if (assignments.length === 0) return false;
+            const claimed = yield* storage.claimedAttempts.pipe(Effect.orDie);
 
-          return (yield* storage.assignmentsForSession(sessionId)).some((assignment) => {
-            const attempt = assignmentAttempt(assignment);
+            return (yield* storage.assignmentsForSession(sessionId)).some((assignment) => {
+              const attempt = assignmentAttempt(assignment);
 
-            return (
-              attempt.sessionId === sessionId &&
-              attempt.hostId === hostId &&
-              retainsAssignment(attempt) &&
-              !claimed.has(attempt.id) &&
-              assignment.graph.state !== "completed" &&
-              assignment.graph.state !== "archived" &&
-              assignment.graph.attempts.findLast((a) => a.taskId === attempt.taskId)?.id ===
-                attempt.id
-            );
-          });
-        })
+              return (
+                attempt.sessionId === sessionId &&
+                attempt.hostId === hostId &&
+                retainsAssignment(attempt) &&
+                !claimed.has(attempt.id) &&
+                assignment.graph.state !== "completed" &&
+                assignment.graph.state !== "archived" &&
+                assignment.graph.attempts.findLast((a) => a.taskId === attempt.taskId)?.id ===
+                  attempt.id
+              );
+            });
+          }),
+        (sessionId) => storage.hasAssignmentsForSession?.(sessionId) !== false
       );
       const started = new Set<AttemptId>();
 

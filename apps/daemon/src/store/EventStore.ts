@@ -116,6 +116,8 @@ export class EventStore extends Context.Service<
   EventStore,
   {
     readonly model: Effect.Effect<ReadModel>;
+    readonly hasStartupGraphs?: (sessionId: SessionId) => boolean;
+    readonly hasQueuedInputNow?: (sessionId: SessionId) => boolean;
     readonly hasQueuedInput: (sessionId: SessionId) => Effect.Effect<boolean>;
     readonly markQueuedInput: (sessionId: SessionId) => Effect.Effect<void>;
     readonly startupGraphs: (sessionId: SessionId) => Effect.Effect<ReadonlyArray<Constellation>>;
@@ -330,6 +332,8 @@ export class EventStore extends Context.Service<
 
       return EventStore.of({
         model: Ref.get(modelRef),
+        hasStartupGraphs: (sessionId) => startupIndex.sessions.has(sessionId),
+        hasQueuedInputNow: (sessionId) => startupIndex.queuedTurns.has(sessionId),
         hasQueuedInput: (sessionId) => Effect.sync(() => startupIndex.queuedTurns.has(sessionId)),
         markQueuedInput: (sessionId) =>
           Effect.map(Ref.get(modelRef), (model) => {
@@ -544,12 +548,14 @@ const groupCommit = ({ sql, modelRef, hub, startupIndex }: CommitTarget) =>
             .pipe(Effect.mapError(storeError("commit events")));
         }
 
-        yield* Ref.set(modelRef, batch.next);
+        yield* Ref.update(modelRef, () => {
+          for (const envelope of batch.published) startupIndex.committed(envelope.event);
+
+          return batch.next;
+        });
 
         for (const envelope of batch.published) {
           const event = envelope.event;
-          startupIndex.committed(event);
-
           const related = startupSessions(event, batch.next);
 
           hub.publish(LiveItem.Event({ envelope, sessionId: sessionOf(event) }), related);

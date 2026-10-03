@@ -1,10 +1,17 @@
 import { expect, test } from "bun:test";
-import { Attempt, CommandId, Constellation, ConstellationId, DomainEvent } from "@polaris/protocol";
+import {
+  Attempt,
+  AttemptId,
+  CommandId,
+  Constellation,
+  ConstellationId,
+  DomainEvent,
+} from "@polaris/protocol";
 import { Effect, Fiber, Latch, Predicate, Stream, Struct, SubscriptionRef } from "effect";
 import { CID } from "./constellation.testing.ts";
-import { setup, world } from "../constellation/delivery/testing.ts";
+import { setup, wait, world } from "../constellation/delivery/testing.ts";
 import { EventStore } from "../store/EventStore.ts";
-import { registerStartupGraphs, withSessionInput } from "./sessionBoundary.ts";
+import { registerStartupGraphs, withSessionBoundary, withSessionInput } from "./sessionBoundary.ts";
 
 test("ordinary input commits without mounting a startup wait subscription", async () => {
   await world().run(
@@ -73,6 +80,74 @@ test("a startup ending between the optimistic check and subscription cannot stra
       );
       expect(deliveries).toBe(1);
       expect(reads).toBe(3);
+    })
+  );
+});
+
+test("unassigned input rechecks a new startup after acquiring the Session boundary", async () => {
+  await world().run(
+    Effect.gen(function* () {
+      yield* setup();
+      const store = yield* EventStore;
+      const graph = (yield* store.model).constellations.get(CID)!.graph;
+      const sid = graph.leadSessionId;
+      const before = yield* store.subscriberCount;
+      const held = Latch.makeUnsafe(false);
+      const release = Latch.makeUnsafe(false);
+
+      const holder = yield* withSessionBoundary(
+        store,
+        sid,
+        Effect.sync(() => held.openUnsafe()).pipe(Effect.andThen(release.await))
+      ).pipe(Effect.forkChild);
+
+      yield* held.await;
+
+      let delivered = false;
+
+      const input = yield* withSessionInput(
+        store,
+        sid,
+        Effect.sync(() => {
+          delivered = true;
+        })
+      ).pipe(Effect.forkChild);
+
+      yield* Effect.yieldNow;
+      yield* Effect.yieldNow;
+      yield* store.commit({
+        commandId: null,
+        decide: () =>
+          Effect.succeed([
+            DomainEvent.cases.AttemptStarted.make({
+              constellationId: CID,
+              revision: graph.revision + 1,
+              attempt: Attempt.make(
+                Struct.assign(graph.attempts[0]!, {
+                  id: AttemptId.make("new-boundary-startup"),
+                  sessionId: sid,
+                })
+              ),
+            }),
+          ]),
+      });
+      release.openUnsafe();
+      yield* Fiber.join(holder);
+      yield* wait(() => Effect.map(store.subscriberCount, (count) => count > before));
+      expect(delivered).toBe(false);
+      yield* store.commit({
+        commandId: null,
+        decide: () =>
+          Effect.succeed([
+            DomainEvent.cases.ConstellationStateChanged.make({
+              constellationId: CID,
+              revision: graph.revision + 2,
+              state: "archived",
+            }),
+          ]),
+      });
+      yield* Fiber.join(input);
+      expect(delivered).toBe(true);
     })
   );
 });

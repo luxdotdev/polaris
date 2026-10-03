@@ -40,6 +40,7 @@ export class TransferStorage extends Context.Service<
   TransferStorage,
   {
     readonly changes: SubscriptionRef.SubscriptionRef<number>;
+    readonly hasAssignmentsForSession?: (sessionId: SessionId) => boolean;
     readonly assignmentsForSession: (
       sessionId: SessionId
     ) => Effect.Effect<ReadonlyArray<RemoteWorkerAssignment>>;
@@ -260,6 +261,7 @@ export class TransferStorage extends Context.Service<
 
         return TransferStorage.of({
           changes,
+          hasAssignmentsForSession: (sessionId) => bySession.has(sessionId),
           assignmentChanges,
           assignmentsForSession: (sessionId) =>
             Effect.sync(() => [...(bySession.get(sessionId)?.values() ?? [])]),
@@ -370,9 +372,8 @@ export class TransferStorage extends Context.Service<
                 db.query(
                   "INSERT INTO assignments (id,value) VALUES (?,?) ON CONFLICT(id) DO UPDATE SET value=excluded.value"
                 ).run(assignment.attemptId, Schema.encodeSync(assignmentCodec)(assignment));
+                indexAssignment(assignment);
               });
-
-              indexAssignment(assignment);
 
               const sessionId = assignment.graph.attempts.find(
                 (a) => a.id === assignment.attemptId

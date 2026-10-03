@@ -21,7 +21,11 @@ const admissions = new WeakMap<Store, Map<SessionId, Admission>>();
 
 const registrations = new WeakMap<Store, Map<SessionId, Deferred.Deferred<Admission>>>();
 
-type AssignmentSource = (sessionId: SessionId) => Effect.Effect<boolean>;
+interface AssignmentSource {
+  readonly check: (sessionId: SessionId) => Effect.Effect<boolean>;
+  /** False must prove the durable index has no assignment for this Session. */
+  readonly relevant: ((sessionId: SessionId) => boolean) | undefined;
+}
 
 const sources = new WeakMap<Store, Set<AssignmentSource>>();
 
@@ -29,7 +33,8 @@ const sources = new WeakMap<Store, Set<AssignmentSource>>();
 export const registerWorkerAdmissionSource = (
   store: Store,
   scope: Scope.Scope,
-  source: AssignmentSource
+  check: AssignmentSource["check"],
+  relevant?: AssignmentSource["relevant"]
 ) =>
   Effect.gen(function* () {
     let entries = sources.get(store);
@@ -39,6 +44,7 @@ export const registerWorkerAdmissionSource = (
       sources.set(store, entries);
     }
 
+    const source = { check, relevant };
     entries.add(source);
     const current = entries;
     yield* Scope.addFinalizer(
@@ -51,10 +57,20 @@ export const registerWorkerAdmissionSource = (
 
 const hasAssignment = (store: Store, sessionId: SessionId) =>
   Effect.gen(function* () {
-    for (const source of sources.get(store) ?? []) if (yield* source(sessionId)) return true;
+    for (const source of sources.get(store) ?? [])
+      if (source.relevant?.(sessionId) !== false && (yield* source.check(sessionId))) return true;
 
     return false;
   });
+
+const unassigned = (store: Store, sessionId: SessionId) => {
+  if (admissions.get(store)?.has(sessionId)) return false;
+
+  for (const source of sources.get(store) ?? [])
+    if (source.relevant?.(sessionId) !== false) return false;
+
+  return true;
+};
 
 /** A failed assignment fences input only while the durable assignment remains active. */
 export const clearClosedWorkerAdmission = (store: Store, sessionId: SessionId) =>
@@ -280,27 +296,31 @@ export const withWorkerAdmission = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
   waitForRegistration = false
 ): Effect.Effect<A | void, E, R> =>
-  Effect.gen(function* () {
-    if (yield* clearClosedWorkerAdmission(store, sessionId)) return yield* effect;
+  Effect.suspend(() => {
+    if (!waitForRegistration && unassigned(store, sessionId)) return effect;
 
-    const admission =
-      admissions.get(store)?.get(sessionId) ??
-      (waitForRegistration || (yield* hasAssignment(store, sessionId))
-        ? yield* awaitRegistration(store, sessionId)
-        : undefined);
+    return Effect.gen(function* () {
+      if (yield* clearClosedWorkerAdmission(store, sessionId)) return yield* effect;
 
-    if (admission === undefined) return yield* effect;
+      const admission =
+        admissions.get(store)?.get(sessionId) ??
+        (waitForRegistration || (yield* hasAssignment(store, sessionId))
+          ? yield* awaitRegistration(store, sessionId)
+          : undefined);
 
-    return yield* Effect.uninterruptibleMask((restore) =>
-      Effect.gen(function* () {
-        yield* admission.pin;
+      if (admission === undefined) return yield* effect;
 
-        return yield* restore(admission.enter).pipe(
-          Effect.flatMap((ready): Effect.Effect<A | void, E, R> =>
-            ready ? restore(effect) : Effect.void
-          ),
-          Effect.ensuring(admission.leave)
-        );
-      })
-    );
+      return yield* Effect.uninterruptibleMask((restore) =>
+        Effect.gen(function* () {
+          yield* admission.pin;
+
+          return yield* restore(admission.enter).pipe(
+            Effect.flatMap((ready): Effect.Effect<A | void, E, R> =>
+              ready ? restore(effect) : Effect.void
+            ),
+            Effect.ensuring(admission.leave)
+          );
+        })
+      );
+    });
   });
