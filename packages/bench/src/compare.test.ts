@@ -1,7 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { compare, compareMetric, gatingKinds } from "./compare.ts";
 import { summarize } from "./stats.ts";
-import type { AggregatedMetric, BenchResult, Metric, MetricKind } from "./types.ts";
+import {
+  type AggregatedMetric,
+  type BenchResult,
+  type Metric,
+  type MetricKind,
+  parseBenchResult,
+} from "./types.ts";
 
 const agg = (m: Metric): AggregatedMetric => ({
   ...m,
@@ -79,6 +85,26 @@ describe("compareMetric", () => {
   });
 });
 
+describe("parseBenchResult", () => {
+  test("older artifacts without background load still decode", () => {
+    const saved = result({ mem: metric("memory", 100) });
+    const decoded = parseBenchResult(JSON.stringify(saved));
+
+    expect(decoded).toEqual(saved);
+    expect(decoded.env).not.toHaveProperty("backgroundCores");
+  });
+
+  test.each([0, 1.5, 6.8, 10.2])("retains saved background load of %s cores", (backgroundCores) => {
+    const saved = result({ mem: metric("memory", 100) });
+
+    const decoded = parseBenchResult(
+      JSON.stringify({ ...saved, env: { ...saved.env, backgroundCores } })
+    );
+
+    expect(decoded.env.backgroundCores).toBe(backgroundCores);
+  });
+});
+
 describe("compare", () => {
   test("only gating kinds count; informational metrics never do; mismatched machines warn", () => {
     const base = result({
@@ -116,6 +142,26 @@ describe("compare", () => {
       "baseline started with 4.2"
     );
   });
+
+  test.each([6.8, 10.2])(
+    "decoded busy artifacts warn on either side at %s cores",
+    (backgroundCores) => {
+      const saved = result({ mem: metric("memory", 100) });
+      const quiet = parseBenchResult(JSON.stringify(saved));
+
+      const busy = parseBenchResult(
+        JSON.stringify({ ...saved, env: { ...saved.env, backgroundCores } })
+      );
+
+      expect(compare(quiet, quiet, new Set(["memory"])).warnings).toEqual([]);
+      expect(compare(quiet, busy, new Set(["memory"])).warnings).toEqual([
+        `this run started with ${backgroundCores} cores busy with other work: throughput and CPU are not comparable`,
+      ]);
+      expect(compare(busy, quiet, new Set(["memory"])).warnings).toEqual([
+        `baseline started with ${backgroundCores} cores busy with other work: throughput and CPU are not comparable`,
+      ]);
+    }
+  );
 });
 
 describe("gatingKinds", () => {
