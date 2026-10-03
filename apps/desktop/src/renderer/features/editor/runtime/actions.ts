@@ -152,7 +152,14 @@ export const answerClose = async (choice: CloseChoice) => {
   loadTab(hostKey, workspaceId, path);
   await whenLoaded(key);
 
-  if (await saveBuffer(key, "close")) closeNow(hostKey, workspaceId, viewId);
+  if (!(await saveBuffer(key, "close"))) return;
+
+  const latest = tabsOf(editorStore.getState(), workspaceKey(hostKey, workspaceId)).tabs.find(
+    (t) => tabId(t) === viewId
+  );
+
+  // Immutable tab identity fences retargets and close/reopen, including returning to the same path.
+  if (latest === current && latest.path === path) closeNow(hostKey, workspaceId, viewId);
 };
 
 /** Makes sure the active tab's file has an editor (after a restart, tabs come back first). */

@@ -429,3 +429,71 @@ phase/source/target tokens. The checked-in
 crash/recovery fixture, not a live transport/Daemon trace. Replay checks every
 observed checkpoint against safety; it cannot authenticate arbitrary supplied
 trace provenance. No Apalache or formal temporal liveness proof is claimed.
+
+## Directory resource recovery (X2)
+
+`tree-edits.qnt` extends the independent move abstraction with a root and two
+representative descendants. Root replacement and either descendant intervention
+block forward/reverse moves, while durable intents reconcile after restart.
+Runtime validates every entry of the bounded manifest; the two-token model is
+an abstraction of that complete ownership check, not a filesystem atomicity proof.
+The original `file-edits.qnt` and its fixtures remain unchanged.
+
+`apps/daemon/src/files/edits/trees/model.test.ts` records actual temporary-directory
+journal phases and source/destination root/descendant identity and byte ownership.
+`replay-tree-edits.ts` projects those observations to the Quint actions; a corrupt
+second descendant observation must fail replay. Checked-in recovery and
+intervention traces are under `scripts/tree-edits-runtime-*.json`. Replay both:
+
+```sh
+bun packages/spec/scripts/replay-tree-edits.ts packages/spec/scripts/tree-edits-runtime-recovery.json
+bun packages/spec/scripts/replay-tree-edits.ts packages/spec/scripts/tree-edits-runtime-intervention.json
+```
+
+Checkpoint mapping: prepared → Prepare, forward intent → Intent, filesystem
+rename → Move, applied receipt → PersistApplied, reverse intent → UndoIntent,
+reverse rename → Restore, restored receipt → PersistRestored. SIGKILL/restart
+adds Crash/Retry; an actual edited descendant adds ExternalDescendant. A blocked
+UndoIntent leaves all owned/external tokens unchanged. Ordered-chain/crash/backup
+fault matrices exercise all moves in the real coordinator; the model represents
+one move with descendant ownership. Protocol format 2 and R1 integration seams
+are described in `packages/protocol/src/languages/TREES.md`. Capability and actual
+transport activation remain G2-owned. No Apalache, formal liveness or live Host
+transport proof is claimed.
+
+### T1 Host language runtime mapping
+
+The detached `apps/daemon/src/languages/runtime/` broker implements ordered
+P1 document cuts and generation-bound requests. `Documents.apply` corresponds
+to `languages.Sync`; `requestRaw` dispatch/result checks and `cancel` correspond
+to Request/Result/Cancel. Retiring a process generation on crash, connection loss,
+restart, configuration change or trust revocation clears its ephemeral documents
+and pending operations, corresponding to Restart/Crash. Resource edits are
+proposals only: T1 never applies or acknowledges durable disk changes.
+
+`language-runtime.qnt` separately models the pure XState process lifecycle:
+demand, initialize/ready, last-interest grace, crash/backoff, exhausted budget,
+manual restart, revocation and disconnect. The root runner includes its typecheck,
+three scenarios and 3,000 60-step safety simulations with the existing seed and
+CLI overrides. The model abstracts a single process; bounded automatic retries
+require new current-generation Client snapshots after invalidation. Host wire
+generations are monotonic across contexts, while the P1 abstraction uses a
+context-local generation ordinal. Opaque Client/checkout/project/config/provider
+identities map to stable model context keys; draft text is absent from traces.
+
+`packages/spec/scripts/language-runtime/replay.test.ts` runs actual bounded stdio
+server processes and observes broker lifecycle transitions plus actual ordered
+acknowledgments, fenced results and reset snapshots. It writes
+`/tmp/m31-t1-lifecycle.trace.json` and `/tmp/m31-t1-language.trace.json`; the former
+replays against the dedicated model and rejects an intentionally false Ready
+observation, the latter uses the existing P1 replay. The runtime test suite adds
+Unicode, two Clients/Worktrees, stale requests, cancellation, malformed input,
+crash limits, trust revocation and actual child cleanup. These finite models and
+fake servers do not prove liveness, production provider behavior, remote transport,
+authenticated G2 composition, artifact readiness or Desktop budgets.
+
+```sh
+bun test apps/daemon/src/languages/runtime apps/daemon/src/languages/transport packages/spec/scripts/language-runtime
+bun packages/spec/scripts/replay-language.ts /tmp/m31-t1-language.trace.json
+bun run spec
+```

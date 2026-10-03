@@ -1,0 +1,74 @@
+[
+  {
+    "tool": "rustc",
+    "path": "/opt/homebrew/opt/rustup/bin/rustc",
+    "argv": ["--version"],
+    "executed": true,
+    "exitCode": 0,
+    "output": "rustc 1.98.0 (88d9e12ae 2026-08-18)\n"
+  },
+  {
+    "tool": "cargo",
+    "path": "/opt/homebrew/opt/rustup/bin/cargo",
+    "argv": ["--version"],
+    "executed": true,
+    "exitCode": 0,
+    "output": "cargo 1.98.0 (797e8a9bc 2026-08-05)\n"
+  },
+  {
+    "tool": "clang",
+    "path": "/usr/bin/clang",
+    "argv": ["--version"],
+    "executed": true,
+    "exitCode": 0,
+    "output": "Apple clang version 21.0.0 (clang-2100.3.34.2)\nTarget: arm64-apple-darwin27.0.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin\nclang: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead\n"
+  },
+  {
+    "tool": "clang++",
+    "path": "/usr/bin/clang++",
+    "argv": ["--version"],
+    "executed": true,
+    "exitCode": 0,
+    "output": "Apple clang version 21.0.0 (clang-2100.3.34.2)\nTarget: arm64-apple-darwin27.0.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin\nclang++: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead\n"
+  },
+  {
+    "tool": "make",
+    "path": "/usr/bin/make",
+    "argv": ["--version"],
+    "executed": true,
+    "exitCode": 0,
+    "output": "GNU Make 3.81\nCopyright (C) 2006  Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.\nThere is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A\nPARTICULAR PURPOSE.\n\nThis program built for i386-apple-darwin11.3.0\nmake: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead\nmake: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead\n"
+  },
+  {
+    "tool": "cmake",
+    "path": null,
+    "argv": ["--version"],
+    "executed": false
+  },
+  {
+    "tool": "ninja",
+    "path": null,
+    "argv": ["--version"],
+    "executed": false
+  },
+  {
+    "tool": "mvn",
+    "path": null,
+    "argv": ["--version"],
+    "executed": false
+  },
+  {
+    "tool": "ant",
+    "path": null,
+    "argv": ["-version"],
+    "executed": false
+  },
+  {
+    "tool": "xcrun",
+    "path": "/usr/bin/xcrun",
+    "argv": ["--show-sdk-path"],
+    "executed": true,
+    "exitCode": 0,
+    "output": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk\nxcrun: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead\n"
+  }
+]

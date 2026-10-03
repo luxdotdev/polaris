@@ -1,0 +1,3 @@
+artifactId=plexus-classworlds
+groupId=org.codehaus.plexus
+version=2.11.0

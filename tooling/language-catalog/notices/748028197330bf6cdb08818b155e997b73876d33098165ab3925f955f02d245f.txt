@@ -1,0 +1,28 @@
+Manifest-Version: 1.0
+Ant-Version: Apache Ant 1.10.17
+Created-By: 11.0.30+7-post-Ubuntu-1ubuntu124.04 (Ubuntu)
+
+Name: META-INF/LICENSE.txt
+SHA-256-Digest: bWLR3VL5MoZdbx4okg1T0Kb5cw72uOAsSNmfRw4WCg0=
+
+Name: org/apache/tools/ant/types/resolver/ApacheCatalogResolver.class
+SHA-256-Digest: bC7PQK7k3fBNq7jAsj3BYpS4QgxXvzakVpkbk9P/A+k=
+
+Name: META-INF/NOTICE.txt
+SHA-256-Digest: /D+tOTRSgqIYisw/ypUPvQA6NyxzTaQFhuyULBNMWys=
+
+Name: META-INF/INDEX.LIST
+SHA-256-Digest: /8fHlQLtxrZlwHLQON1+g2eWedwlF5jpSHPBusYG6CI=
+
+Name: org/apache/tools/ant/taskdefs/optional/
+Extension-Name: org.apache.tools.ant
+Specification-Title: Apache Ant
+Specification-Version: 1.10.17
+Specification-Vendor: Apache Software Foundation
+Implementation-Title: org.apache.tools.ant
+Implementation-Version: 1.10.17
+Implementation-Vendor: Apache Software Foundation
+
+Name: org/apache/tools/ant/types/resolver/ApacheCatalog.class
+SHA-256-Digest: mjzHqktF3PlOmlV9Vy0eC6dVTpyXbCMTEl1Z7mD9xLA=
+

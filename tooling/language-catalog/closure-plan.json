@@ -9,7 +9,8 @@
       "native-linkage.json",
       "rust-runtime-sources.json",
       "build-provenance.json",
-      "rust-stdlib-closure.json"
+      "rust-stdlib-closure.json",
+      "rust-target-sources.json"
     ],
     "missingEvidence": [
       "Static musl/compiler runtime notice and exact vendor closure is not yet established for every shipped platform."
@@ -25,7 +26,8 @@
       "native-linkage.json",
       "rust-runtime-sources.json",
       "build-provenance.json",
-      "rust-stdlib-closure.json"
+      "rust-stdlib-closure.json",
+      "rust-target-sources.json"
     ],
     "missingEvidence": [
       "Compiler runtime/vendor closure and musl loader prerequisite packaging need exact scoped resolution."
@@ -40,7 +42,8 @@
       "lua-filtered-proposal.json",
       "lua-filtered-proposal.md",
       "lua-filtered-capabilities.json",
-      "lua-runtime-notices.json"
+      "lua-runtime-notices.json",
+      "lua-retained-source-map.json"
     ],
     "missingEvidence": [
       "Exact source/legal evidence for retained vendor code and published Linux static compiler/runtime closure remains unverified; Lua runtime legal comments are retained and do not certify which other libraries were embedded."
@@ -68,7 +71,11 @@
       "jdt-source-closure.json",
       "jdt-notice-supplements.json",
       "build-provenance.json",
-      "jdt-nested-inventory.json"
+      "jdt-nested-inventory.json",
+      "jdt-nested-metadata.json",
+      "jdt-nested-maven-sources.json",
+      "jdt-nested-parent-sources.json",
+      "jdt-agent-source-build.json"
     ],
     "missingEvidence": [
       "The 114 top-level JAR source records do not cover all nested JARs or native libraries. Recursive release inventory, exact nested Maven/shaded source and legal declarations, JNA/Jansi/Eclipse native closure and source/notice delivery remain unverified."

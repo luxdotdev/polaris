@@ -62,6 +62,7 @@ const sourceNotices = Schema.decodeUnknownSync(
 const tools = data.tools.map((tool) => ({
   ...tool,
   artifacts: tool.artifacts.map((artifact) => {
+    if (tool.id === "shellcheck" && tool.disposition === "evaluation") return artifact;
     const record = readReviewRecords(root).find((candidate) => candidate.tool === tool.id);
 
     const findings = artifact.bundle

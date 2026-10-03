@@ -1,0 +1,86 @@
+{
+  "version": 2,
+  "source": "runtime",
+  "events": [
+    {
+      "event": "Prepare",
+      "phase": "Pending",
+      "childSource": "Owned",
+      "childTarget": "Missing",
+      "otherSource": "Owned",
+      "otherTarget": "Missing",
+      "source": "Owned",
+      "target": "Missing"
+    },
+    {
+      "event": "Intent",
+      "phase": "Forward",
+      "childSource": "Owned",
+      "childTarget": "Missing",
+      "otherSource": "Owned",
+      "otherTarget": "Missing",
+      "source": "Owned",
+      "target": "Missing"
+    },
+    {
+      "event": "Move",
+      "phase": "Forward",
+      "childSource": "Missing",
+      "childTarget": "Owned",
+      "otherSource": "Missing",
+      "otherTarget": "Owned",
+      "source": "Missing",
+      "target": "Owned"
+    },
+    {
+      "event": "Crash",
+      "phase": "Forward",
+      "childSource": "Missing",
+      "childTarget": "Owned",
+      "otherSource": "Missing",
+      "otherTarget": "Owned",
+      "source": "Missing",
+      "target": "Owned"
+    },
+    {
+      "event": "Retry",
+      "phase": "Forward",
+      "childSource": "Missing",
+      "childTarget": "Owned",
+      "otherSource": "Missing",
+      "otherTarget": "Owned",
+      "source": "Missing",
+      "target": "Owned"
+    },
+    {
+      "event": "UndoIntent",
+      "phase": "Backward",
+      "childSource": "Missing",
+      "childTarget": "Owned",
+      "otherSource": "Missing",
+      "otherTarget": "Owned",
+      "source": "Missing",
+      "target": "Owned"
+    },
+    {
+      "event": "Restore",
+      "phase": "Backward",
+      "childSource": "Owned",
+      "childTarget": "Missing",
+      "otherSource": "Owned",
+      "otherTarget": "Missing",
+      "source": "Owned",
+      "target": "Missing"
+    },
+    {
+      "event": "PersistRestored",
+      "phase": "Restored",
+      "childSource": "Owned",
+      "childTarget": "Missing",
+      "otherSource": "Owned",
+      "otherTarget": "Missing",
+      "source": "Owned",
+      "target": "Missing"
+    }
+  ]
+}

@@ -62,6 +62,10 @@ for tool in catalog['tools']:
                 linkage = json.loads((root / 'native-linkage.json').read_text())
                 commits = {commit for row in linkage if row['tool'] == tool['id'] for commit in row['rustcSourceCommits']}
                 contents = {key: value for key, value in contents.items() if key in commits}
+            if path == 'rust-target-sources.json':
+                linkage = json.loads((root / 'native-linkage.json').read_text())
+                commits = {commit for row in linkage if row['tool'] == tool['id'] for commit in row['rustcSourceCommits']}
+                contents = [row for row in contents if row['rustSourceCommit'] in commits]
             notices.update(legal_references(contents))
     if bundle:
         path = 'bundles/' + bundle + '.json'

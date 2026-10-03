@@ -1,0 +1,8 @@
+{
+  "scope": "Post-attempt snapshot of unchanged executed runner files; hashes captured after failure, not execution-time instrumentation. Preserve original staging failure; snapshot alone is not a runnable fixture or artifact evidence.",
+  "files": {
+    "bounded-build.py": "847a57796d58de71f8fc6e20f1a4630c587a914cdd8b3fc283a37ed1763032c8",
+    "stage-rust-analyzer-build.py": "bba6dbab567eb414416bb88877d9de2cfbbf40066933b60c9e189faf97a13a7b",
+    "record-rust-link.py": "bdd8296952233e9f4b80845f007b66790745685148ab35cdaab5be795d0ff37b"
+  }
+}

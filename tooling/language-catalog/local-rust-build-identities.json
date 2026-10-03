@@ -1,0 +1,88 @@
+{
+  "scope": "Read-only local installed toolchain metadata/legal/binary identities only; no distribution-source/runtime membership or capability approval.",
+  "compilerCommit": "88d9e12ae178fab0fb5cc050a94da85685d449ea",
+  "root": "/Users/lucasdoell/.rustup/toolchains/stable-aarch64-apple-darwin",
+  "files": [
+    {
+      "path": "lib/rustlib/components",
+      "bytes": 229,
+      "sha256": "83b954d1c43d1eccd0cdca8ca1e989366d7023d90e7297e58704b1cc88d1761c"
+    },
+    {
+      "path": "lib/rustlib/multirust-channel-manifest.toml",
+      "bytes": 1034029,
+      "sha256": "b17aaaeded2ac77b968b406613ec319b001f105793900a6f852a72a03e241ba9"
+    },
+    {
+      "path": "lib/rustlib/manifest-rust-src",
+      "bytes": 264222,
+      "sha256": "d5c81998995f425f8272bb56993a4d63be88f8c5159f2824b7a375214e8da04b"
+    },
+    {
+      "path": "lib/rustlib/manifest-rustc-aarch64-apple-darwin",
+      "bytes": 1725,
+      "sha256": "ff9b793633bcfb1c2cc5e052d9019c4c6cf6552d8658795c9c46e3e9bbe54744"
+    },
+    {
+      "path": "lib/rustlib/manifest-rust-std-aarch64-apple-darwin",
+      "bytes": 4624,
+      "sha256": "1ab4014a55acc7abf21e5eb821dd8c58a584d3389c5505d0fd622d58559764eb"
+    },
+    {
+      "path": "share/doc/rust/COPYRIGHT-library.html",
+      "bytes": 1512520,
+      "sha256": "68129500b616d5838629e68f55ff3aed5e096dacf60ce9eb41bbe599a563afa6"
+    },
+    {
+      "path": "share/doc/rust/COPYRIGHT.html",
+      "bytes": 15380909,
+      "sha256": "5b0c93fc4e6d4b072eaa521b1762d1e746f4c368f65e81a0e5308e2772dac85e"
+    },
+    {
+      "path": "libexec/rust-analyzer-proc-macro-srv",
+      "bytes": 1463088,
+      "sha256": "6dc28cb7d8bccc8af3047f2f174e750c97a2c6ca966fa23ab93e266743ddc054"
+    },
+    {
+      "path": "bin/rustfmt",
+      "bytes": 4453976,
+      "sha256": "ca9cbe15a4add6baf62d8ce177015c9c48f209ebcf4364416b1953142e8701f8"
+    },
+    {
+      "path": "lib/libLLVM.dylib",
+      "bytes": 139564208,
+      "sha256": "6da171ecd17bbe20b57b2e2d2e324b8fb2267117b504e864eb8b3012a71a6fec"
+    },
+    {
+      "path": "lib/librustc-stable_rt.asan.dylib",
+      "bytes": 4502208,
+      "sha256": "fe85577dd8119f687d55826e19ebcc184f1bfaa843172257cf6befb79ee0bf18"
+    },
+    {
+      "path": "lib/librustc-stable_rt.lsan.dylib",
+      "bytes": 1843040,
+      "sha256": "b460787605bee378f6c1c4259f374a0919c1a88f610d46e9e7400743fc9b8de0"
+    },
+    {
+      "path": "lib/librustc-stable_rt.rtsan.dylib",
+      "bytes": 1542048,
+      "sha256": "e3ca83af77984fb9fd3422b76a5625896b83049e70332b80f1b74301d9b8fc3a"
+    },
+    {
+      "path": "lib/librustc-stable_rt.tsan.dylib",
+      "bytes": 3851520,
+      "sha256": "51bb340b6daa8a4871f749e7ec403d32433780222c74e92929ca84b020fcbcb1"
+    },
+    {
+      "path": "lib/librustc_driver-4031c0ff8e88f5d1.dylib",
+      "bytes": 83036200,
+      "sha256": "275171d3d528b7f78bcad812a84658ec3bd756ce9792a329b6edefdf70884c63"
+    }
+  ],
+  "bytesHashed": 258454546,
+  "seconds": 0.25337616697652265,
+  "remainingEvidence": [
+    "Compiler/support/static runtime source and full notice delivery bind to actual output/linkage; installed documentation hashes alone are insufficient.",
+    "Real developer proc-macro/rustfmt capability probes remain unexecuted."
+  ]
+}

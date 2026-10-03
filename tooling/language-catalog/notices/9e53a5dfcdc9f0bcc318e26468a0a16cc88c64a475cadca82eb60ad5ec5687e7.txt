@@ -1,0 +1,85 @@
+Manifest-Version: 1.0
+Ant-Version: Apache Ant 1.10.17
+Created-By: 11.0.30+7-post-Ubuntu-1ubuntu124.04 (Ubuntu)
+
+Name: org/apache/tools/ant/taskdefs/optional/ssh/AbstractSshMessage$1.cl
+ ass
+SHA-256-Digest: Ia8c6SayaqHD6IQDY4bSpTbkp3cVPQfeLHhGoOK5h5o=
+
+Name: META-INF/LICENSE.txt
+SHA-256-Digest: bWLR3VL5MoZdbx4okg1T0Kb5cw72uOAsSNmfRw4WCg0=
+
+Name: org/apache/tools/ant/taskdefs/optional/ssh/SSHBase$1.class
+SHA-256-Digest: Va1zaFcAToyEiTafmVEDQlKHqpDGbUR816v7uLc/jkA=
+
+Name: org/apache/tools/ant/taskdefs/optional/ssh/SSHSession$NestedSequen
+ tial.class
+SHA-256-Digest: waSWFZ1LGNxJyUr1Z95jHv8h1A2tYy0/0HrdVdHnP6E=
+
+Name: org/apache/tools/ant/taskdefs/optional/ssh/SSHSession.class
+SHA-256-Digest: jISga+UTVmzAzicLwWofnmEhJ4erJ9gaVBnPFIqWqMw=
+
+Name: org/apache/tools/ant/taskdefs/optional/ssh/LogListener.class
+SHA-256-Digest: W+KTyNZfcx/ipiGqU/enoLzwywq/0LlsaGo6N3cK4CY=
+
+Name: org/apache/tools/ant/taskdefs/optional/ssh/Scp.class
+SHA-256-Digest: 1SytABDMosrplsSnwtXcpke7pRA/Lv9t3lObYoD/wp8=
+
+Name: org/apache/tools/ant/taskdefs/optional/ssh/SSHBase.class
+SHA-256-Digest: Cxe0ovPtAecVGVWNoCXEPbpZGT+T/O6YHNrr3Pgh9sE=
+
+Name: org/apache/tools/ant/taskdefs/optional/ssh/AbstractSshMessage$Prog
+ ressMonitor.class
+SHA-256-Digest: CfwXnD9DBWYbeSoV8LcziP++c2n20wHvJlajnqKlmKk=
+
+Name: org/apache/tools/ant/taskdefs/optional/ssh/ScpToMessageBySftp.clas
+ s
+SHA-256-Digest: FuzOqwinxhdUavPmQUAOaN19Y/y+Vzz8yzxi1mVLMnM=
+
+Name: org/apache/tools/ant/taskdefs/optional/ssh/Directory.class
+SHA-256-Digest: m+R76945X5/5NEj17gBUDvX3i0SWUbL8kaxdAq5iHTo=
+
+Name: META-INF/NOTICE.txt
+SHA-256-Digest: /D+tOTRSgqIYisw/ypUPvQA6NyxzTaQFhuyULBNMWys=
+
+Name: META-INF/INDEX.LIST
+SHA-256-Digest: j4t+wQqOS7yGb9qN2Ccvc8K1HqL5YLTe+yMwLJ2hW4U=
+
+Name: org/apache/tools/ant/taskdefs/optional/ssh/SSHUserInfo.class
+SHA-256-Digest: BJb09iuHhT3lX7AvJZkh12VcBvGj1W5Wz7baX1YObm4=
+
+Name: org/apache/tools/ant/taskdefs/optional/
+Extension-Name: org.apache.tools.ant
+Specification-Title: Apache Ant
+Specification-Version: 1.10.17
+Specification-Vendor: Apache Software Foundation
+Implementation-Title: org.apache.tools.ant
+Implementation-Version: 1.10.17
+Implementation-Vendor: Apache Software Foundation
+SHA-256-Digest: 47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=
+
+Name: org/apache/tools/ant/taskdefs/optional/ssh/SSHSession$LocalTunnel.
+ class
+SHA-256-Digest: DtgfM1gNsB93UYx4zODa63LRS8lDda59zxoekAlVKBM=
+
+Name: org/apache/tools/ant/taskdefs/optional/ssh/AbstractSshMessage.clas
+ s
+SHA-256-Digest: 50+hj/gX4Nrz+Hwpul4yedc3urhSs5SFeHYGO/f+rh4=
+
+Name: org/apache/tools/ant/taskdefs/optional/ssh/ScpFromMessage.class
+SHA-256-Digest: DrsHoD+PJ31wB3f1nRSesVS5i4gxObtGsSuS6LzA0TA=
+
+Name: org/apache/tools/ant/taskdefs/optional/ssh/ScpToMessage.class
+SHA-256-Digest: 2s3Y1R7bUgjbLUNvHDlnQkD4xL8pEhUUQ15efo60ttU=
+
+Name: org/apache/tools/ant/taskdefs/optional/ssh/SSHExec.class
+SHA-256-Digest: 4OTciSC0ElCMvnOOTNyVn8u/KgWM5PBhO6AUNRyuTEE=
+
+Name: org/apache/tools/ant/taskdefs/optional/ssh/SSHSession$RemoteTunnel
+ .class
+SHA-256-Digest: iwgXTL+fLqsGMuJIMKIYaYGsOj8OEw9J/YxgF46rJkc=
+
+Name: org/apache/tools/ant/taskdefs/optional/ssh/ScpFromMessageBySftp.cl
+ ass
+SHA-256-Digest: HyVUou348uM0qykJ94NHcG4kNRaGoYRUiuiW4kBTzCY=
+

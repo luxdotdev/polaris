@@ -1,0 +1,27 @@
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+// REQUIRES: target={{.+}}-aix{{.*}}
+// REQUIRES: has-filecheck
+
+// ADDITIONAL_COMPILE_FLAGS: -fno-inline -fno-exceptions
+
+// RUN: %{build}
+// RUN: %{exec} %t.exe 2>&1 \
+// RUN: | FileCheck --check-prefix=CHECK \
+// RUN:       %if libunwind-assertions-enabled %{ --check-prefix=DEBUG %} \
+// RUN:       %s
+
+// Tests use of the libunwind C API to step up from a context where the VAPI is
+// active and to resume contexts where
+// - the VAPI is active (and thus VAPI return glue is not called) and
+// - where the VAPI is not active (and thus VAPI return glue _is_ called).
+//
+// In the latter case, which applies not just to the caller of the Virtual API
+// but also to its ancestors, the return glue should always be called (i.e.,
+// each time, without regard for whether the VAPI is currently active).

@@ -1,0 +1,27 @@
+{
+  "error": "Fixture deadline exceeded",
+  "status": "fixture failed; no artifact readiness",
+  "finalBytes": 237809664,
+  "peakBytes": 237809664,
+  "lowestFreeBytesObserved": 23722995712,
+  "externalReceiptBudgetBytes": 8192,
+  "aggregateStopBytes": 3221225472,
+  "maximumSuccessfulBytes": 4294967296,
+  "pollingOvershootLimitation": true,
+  "exitCode": 1,
+  "durationFromRootCreationToReceiptSeconds": 1200.6112914085388,
+  "externalReceiptActualBytes": 323,
+  "vendorDirectoriesStarted": 285,
+  "vendorChecksumsFinalized": 284,
+  "cargoMetadataStarted": false,
+  "compilerBuildStarted": false,
+  "cleanup": {
+    "runnerExited": true,
+    "matchingStageProcesses": [],
+    "buildProcessGroupLaunched": false,
+    "scope": "No Cargo/build process group launched; initial synchronous compiler identity process completed. First sandbox process-inventory read was denied; authorized read then confirmed no stage processes."
+  },
+  "sourceNoticeCapabilityReadiness": false,
+  "originalDescriptorBlocked": true,
+  "fixtureRoot": "/tmp/k3-ra-source-build-proposed"
+}

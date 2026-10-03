@@ -1,0 +1,11 @@
+{
+  "scope": "Checksum-verified archive header sizes only; no implementation inspection or extraction/compiler execution. Allocation is a planning estimate, not actual filesystem accounting.",
+  "archives": 333,
+  "compressedBytes": 51745654,
+  "fileEntries": 18568,
+  "explicitDirectories": 247,
+  "logicalFileBytes": 383095462,
+  "fileBlockRoundingPlusExplicitDirectoriesEstimateBytes": 432316416,
+  "seconds": 0.6316233749967068,
+  "exclusionsFromEstimate": "Implicit directories, symlinks/checksum/config/receipts/filesystem metadata, compiler outputs and logs. Actual guard remains authoritative; no total build size/time prediction."
+}

@@ -1,0 +1,10 @@
+Manifest-Version: 1.0
+Created-By: Maven JAR Plugin 3.3.0
+Build-Jdk-Spec: 17
+Specification-Title: Apache Maven Shared Utils
+Specification-Version: 3.4
+Specification-Vendor: The Apache Software Foundation
+Implementation-Title: Apache Maven Shared Utils
+Implementation-Version: 3.4.2
+Implementation-Vendor: The Apache Software Foundation
+

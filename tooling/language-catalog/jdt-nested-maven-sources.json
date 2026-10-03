@@ -1,0 +1,1232 @@
+[
+  {
+    "path": "org.eclipse.jdt.launching_3.24.300.v20260609-0435.jar!/lib/javaagent-shaded.jar",
+    "nestedSha256": "c1bf83de06a433b7273d669630714fbd2992ead78261995c680e4c3c4c3c9769",
+    "coordinate": {
+      "artifactId": "org.eclipse.jdt.launching.javaagent",
+      "groupId": "org.eclipse.jdt",
+      "version": "3.10.600-SNAPSHOT"
+    },
+    "missingEvidence": ["HTTP Error 404: Not Found"]
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/error_prone_annotations-2.41.0.jar",
+    "nestedSha256": "a56e782b5b50811ac204073a355a21d915a2107fce13ec711331ad036f660fcc",
+    "coordinate": {
+      "artifactId": "error_prone_annotations",
+      "groupId": "com.google.errorprone",
+      "version": "2.41.0"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.41.0/error_prone_annotations-2.41.0.pom",
+      "path": "pom.xml",
+      "sha256": "a151df1e2e0b48618d8b06a180748a29b3abb39b1b2396f6a1c879a727488c6e"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.41.0/error_prone_annotations-2.41.0-sources.jar",
+      "sha256": "8885bccb4277d4de785da8e5cd9b8610cc12fb3740776741555639afb92ec849",
+      "bytes": 40096,
+      "fileNameInventorySha256": "682eb8277a9db88717eaf137acad79cdf16e02c99438143e478035d5ba30ed61",
+      "notices": []
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/gson-2.13.2.jar",
+    "nestedSha256": "dd0ce1b55a3ed2080cb70f9c655850cda86c206862310009dcb5e5c95265a5e0",
+    "coordinate": {
+      "artifactId": "gson",
+      "groupId": "com.google.code.gson",
+      "version": "2.13.2"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.13.2/gson-2.13.2.pom",
+      "path": "pom.xml",
+      "sha256": "3aa06aa7c0f9af092961a42d09578e4324be146348a0ee6ed47857f7c2677b76"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.13.2/gson-2.13.2-sources.jar",
+      "sha256": "058974b69cb7b0a04712278e11870e84ee8cd8fb5f551bd8401e72ba6638bfef",
+      "bytes": 207421,
+      "fileNameInventorySha256": "51fb008d7122a24059c334e6a23d9c94f5549f9aa55710495ca43f35ea8a820a",
+      "notices": []
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/httpclient-4.5.14.jar",
+    "nestedSha256": "c8bc7e1c51a6d4ce72f40d2ebbabf1c4b68bfe76e732104b04381b493478e9d6",
+    "coordinate": {
+      "version": "4.5.14",
+      "groupId": "org.apache.httpcomponents",
+      "artifactId": "httpclient"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpclient/4.5.14/httpclient-4.5.14.pom",
+      "path": "pom.xml",
+      "sha256": "f18355af4cf80a8a4ef04ebd742a47e90a7eaf080c725b2095dbc4fc5dbdefb7"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpclient/4.5.14/httpclient-4.5.14-sources.jar",
+      "sha256": "55b01f9f4cbec9ac646866a4b64b176570d79e293a556796b5b0263d047ef8e6",
+      "bytes": 732725,
+      "fileNameInventorySha256": "9f82dc618df6f1fb60c62ca72a6019324bb5e2992f43af8e636d6036e02cedbd",
+      "notices": [
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "f5783fbb52e5fcfb26b6916ce3bb9c717d22759b030cee6deaa03145f1f8d819"
+        },
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/httpcore-4.4.16.jar",
+    "nestedSha256": "6c9b3dd142a09dc468e23ad39aad6f75a0f2b85125104469f026e52a474e464f",
+    "coordinate": {
+      "version": "4.4.16",
+      "groupId": "org.apache.httpcomponents",
+      "artifactId": "httpcore"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcore/4.4.16/httpcore-4.4.16.pom",
+      "path": "pom.xml",
+      "sha256": "3cbad849b35dacfe6cec31adada2c623c026c3261141b0d26eec7e399c6cd7fa"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcore/4.4.16/httpcore-4.4.16-sources.jar",
+      "sha256": "705f8cf3671093b6c1db16bbf6971a7ef400e3819784f1af53e5bc3e67b5a9a0",
+      "bytes": 409052,
+      "fileNameInventorySha256": "1601e55446ce7a927f53ae241e6f7a6bdcbddca2f26a2a076b85b796d43acc5c",
+      "notices": [
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "a8ff0d486f1bdd29331e0e244f96245354779ef818ec25ecd60545ad335b68da"
+        },
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/jansi-2.4.3.jar",
+    "nestedSha256": "d8a8fe4462c7916c95ebaf8708a98d24b13a1ab5d3514316ec1270d30ce20a73",
+    "coordinate": {
+      "artifactId": "jansi",
+      "groupId": "org.fusesource.jansi",
+      "version": "2.4.3"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/fusesource/jansi/jansi/2.4.3/jansi-2.4.3.pom",
+      "path": "pom.xml",
+      "sha256": "97229ddcd9aa86eee77bc4e62f47cec630be9edebf6cedfb29716aedf1317710"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/fusesource/jansi/jansi/2.4.3/jansi-2.4.3-sources.jar",
+      "sha256": "d1fe65ec75fa40bb1da3b1308c5954b626e891cff7908fb52fcc6f799a715e99",
+      "bytes": 221300,
+      "fileNameInventorySha256": "5c8e83ef192d7cdb485dd5bfe27026438bf90152164689518087dec2376f77ff",
+      "notices": []
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/jcl-over-slf4j-1.7.36.jar",
+    "nestedSha256": "ab57ca8fd223772c17365d121f59e94ecbf0ae59d08c03a3cb5b81071c019195",
+    "coordinate": {
+      "artifactId": "jcl-over-slf4j",
+      "groupId": "org.slf4j",
+      "version": "1.7.36"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/slf4j/jcl-over-slf4j/1.7.36/jcl-over-slf4j-1.7.36.pom",
+      "path": "pom.xml",
+      "sha256": "bd96243d7d4218cd7cc7d45c0e30fa13480a1a4f91d356edd7dfe93f1ffb68e6"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/slf4j/jcl-over-slf4j/1.7.36/jcl-over-slf4j-1.7.36-sources.jar",
+      "sha256": "aa7a3dc5ff8fd8ca2e8b305d54442a99a722af90777227eb3ce4226c2ba47037",
+      "bytes": 24517,
+      "fileNameInventorySha256": "0e36b8ea9c11cd102b9d5962f55d130cba2416ee1e8db0490f9c7f3a90612110",
+      "notices": []
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-artifact-3.9.16.jar",
+    "nestedSha256": "54cc1c1ef932e3d4a903352111b42b4d3c3ed8e7a1d0de73b625309d9c3ad3e8",
+    "coordinate": {
+      "artifactId": "maven-artifact",
+      "groupId": "org.apache.maven",
+      "version": "3.9.16"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/maven-artifact/3.9.16/maven-artifact-3.9.16.pom",
+      "path": "pom.xml",
+      "sha256": "85d313bbbdbce67e199aadb4336e100c40a147881142ea4368cdebeafc02baec"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/maven-artifact/3.9.16/maven-artifact-3.9.16-sources.jar",
+      "sha256": "2f371e3df38790afdef942b244da7ec3d85ae1adee6b8f86aa4a296f25103ddc",
+      "bytes": 51726,
+      "fileNameInventorySha256": "d86439c0570e4f57aa2200229a3a9a4e60a65f3b580d7a61b229b562743dba20",
+      "notices": [
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "31be9ee92ec5e7816b8c5f0b8324890be657810b4497b29ae35b1e1c7852d097"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-builder-support-3.9.16.jar",
+    "nestedSha256": "02972384eae3495801565fd27abb84cfd75a8e6d2cbb1ae0c556752ebc2b1cde",
+    "coordinate": {
+      "artifactId": "maven-builder-support",
+      "groupId": "org.apache.maven",
+      "version": "3.9.16"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/maven-builder-support/3.9.16/maven-builder-support-3.9.16.pom",
+      "path": "pom.xml",
+      "sha256": "c8366af883eeec0e2fd13e14cd8245969284b6e66df131f7b7c03d270f72f613"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/maven-builder-support/3.9.16/maven-builder-support-3.9.16-sources.jar",
+      "sha256": "2bf294607dc8fa487c96b9d4b3fd93c26d84d49518abd6795d2df5713117f541",
+      "bytes": 17135,
+      "fileNameInventorySha256": "02f8581b9a7908db7c63eb9f88a34b1d446a14fe7ffacfe8f030e57d59fb7dc5",
+      "notices": [
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "defb52f4417346dcf425a3f204020e478b94480a8210f6a56469e2eb48a5acd7"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-compat-3.9.16.jar",
+    "nestedSha256": "69ea74479f87457d29bfdecf11e1470ad95300b06be16f4c8ddcf5bd3627f4dc",
+    "coordinate": {
+      "artifactId": "maven-compat",
+      "groupId": "org.apache.maven",
+      "version": "3.9.16"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/maven-compat/3.9.16/maven-compat-3.9.16.pom",
+      "path": "pom.xml",
+      "sha256": "cd913c965f966fe76e6089d5c91a05f8690b2e42735924b46fe191a28ded8609"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/maven-compat/3.9.16/maven-compat-3.9.16-sources.jar",
+      "sha256": "712c1f16e6f4204c0c757a07cfede96b07fe1536df84aab3e3c0ea0bdfa87e39",
+      "bytes": 245528,
+      "fileNameInventorySha256": "11eba68e3d10e20cb2bbeab0e46bbd3f2451ca007273973f4bd3dea13534ce15",
+      "notices": [
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "62bad2b029b4435183f3e8b0443903f322365b10bea78dfaf4b915f5cff7a0db"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-core-3.9.16.jar",
+    "nestedSha256": "5d45c72e3dbfab8b68d15ad4f12777b7d9b5fe4d4adc99c3bd51fb9641fab009",
+    "coordinate": {
+      "artifactId": "maven-core",
+      "groupId": "org.apache.maven",
+      "version": "3.9.16"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/maven-core/3.9.16/maven-core-3.9.16.pom",
+      "path": "pom.xml",
+      "sha256": "186f17628c5235d03e34c593122d05fdc1be9694440a54d8213b3f957d6379a4"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/maven-core/3.9.16/maven-core-3.9.16-sources.jar",
+      "sha256": "e503bfef8b198ff12fa77e69bd2009ffc59893789d4c6dcec1ef4b790bc2ece6",
+      "bytes": 592462,
+      "fileNameInventorySha256": "14046867ab22de61c1ab023d7b462181d0300cb52e58c7378951ba45b6a321ff",
+      "notices": [
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "28605677c6f879cf57b6bee3ff036bb42b70aace38be0bf7839d3a37a1554c02"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-embedder-3.9.16.jar",
+    "nestedSha256": "a99aaac6ecb1b98d0f3b3ba18c16a122fc503412222055639a3eb4cbe458313b",
+    "coordinate": {
+      "artifactId": "maven-embedder",
+      "groupId": "org.apache.maven",
+      "version": "3.9.16"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/maven-embedder/3.9.16/maven-embedder-3.9.16.pom",
+      "path": "pom.xml",
+      "sha256": "b3fe6f3e04ed4e4f5dd2fcf58359d3c1c9da4e5e877a8e916b620e97f8913f30"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/maven-embedder/3.9.16/maven-embedder-3.9.16-sources.jar",
+      "sha256": "41452fca93ae9cca01e1a3077212f24667b4deb479df1da4152d2b397e55091c",
+      "bytes": 80630,
+      "fileNameInventorySha256": "a5dd241480458a34a9e47478d912fc20f447aa62ee2e59d5597d3e662f97a604",
+      "notices": [
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "45572c49e6a0d30d103349bc038aebf76608a49ac73eea3a7d67e2cb912a4d2e"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-model-3.9.16.jar",
+    "nestedSha256": "f59d86a507c241bf17bbf050050d1b8b9c0d34d5010a7e2386c3cab7c83b93de",
+    "coordinate": {
+      "artifactId": "maven-model",
+      "groupId": "org.apache.maven",
+      "version": "3.9.16"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/maven-model/3.9.16/maven-model-3.9.16.pom",
+      "path": "pom.xml",
+      "sha256": "64883ffcfd91ddaadb4181740236a823bfe0880e0c20f5beee74bc32a93914a7"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/maven-model/3.9.16/maven-model-3.9.16-sources.jar",
+      "sha256": "6ff47950263e16104be152995ca3ca404f5a815b16551bdd984a0279d5d2f188",
+      "bytes": 160982,
+      "fileNameInventorySha256": "0fc91667972ed491518d745688c0f972e04955db01ac5b01d1e8edcfda83c23c",
+      "notices": [
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "998489073acc293f77709d6fc93a9cfce5c38580b2bc3cce23e09382a2da8b23"
+        },
+        {
+          "path": "org/apache/maven/model/License.java",
+          "sha256": "7464ac80e1c30b9fbc35d5c6b38a60f78445aad1a0d95a552be6f0796a667e62"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-model-builder-3.9.16.jar",
+    "nestedSha256": "002be86d1f53b36f559a0786034a17598d71087f1935f205a1f9e51d4dd124b3",
+    "coordinate": {
+      "artifactId": "maven-model-builder",
+      "groupId": "org.apache.maven",
+      "version": "3.9.16"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/maven-model-builder/3.9.16/maven-model-builder-3.9.16.pom",
+      "path": "pom.xml",
+      "sha256": "6e2a59eadd77b244fe60fc60b7ed3a9b2dee704d44a4f5baca4f9d3be6e53e10"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/maven-model-builder/3.9.16/maven-model-builder-3.9.16-sources.jar",
+      "sha256": "0e4863cec9b014b8f428ebaed77f0f2c91381562ef1c4dd45e5de19f902c2d27",
+      "bytes": 168343,
+      "fileNameInventorySha256": "895e8be4cd5a03706ab5657453365096cb5fe615a415178d793198871ef1f9fe",
+      "notices": [
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "6623556e8ed29bbf1b0aec5bddc3b80351a8aeca89a9841c468e1cfeacf3d542"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-plugin-api-3.9.16.jar",
+    "nestedSha256": "37cb5e483e23327cf4ba18f920b45e000d20eec0428a086a5c1bd6bbdecf088c",
+    "coordinate": {
+      "artifactId": "maven-plugin-api",
+      "groupId": "org.apache.maven",
+      "version": "3.9.16"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/maven-plugin-api/3.9.16/maven-plugin-api-3.9.16.pom",
+      "path": "pom.xml",
+      "sha256": "6fe60dbb3157b9466a6b18f70a4c6eca7f68978eaf015ce164bb2471e1acbc12"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/maven-plugin-api/3.9.16/maven-plugin-api-3.9.16-sources.jar",
+      "sha256": "26596ead67df4abaac90345fe476d5bef81c90b97bebc90b61240484acd4858b",
+      "bytes": 49882,
+      "fileNameInventorySha256": "f11f315be554ce0b34f11be1ff8ab634b083dda649860ffcbce5dcb94beb001c",
+      "notices": [
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "80f2f5f12b296c6382f9f06c78bd97cc790d87dda55f1bfa480df932c38dfffb"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-repository-metadata-3.9.16.jar",
+    "nestedSha256": "bc3dd413b89a16b695f35a5d0496b58ea2787c30b7b6062c130d24d6d764720f",
+    "coordinate": {
+      "artifactId": "maven-repository-metadata",
+      "groupId": "org.apache.maven",
+      "version": "3.9.16"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/maven-repository-metadata/3.9.16/maven-repository-metadata-3.9.16.pom",
+      "path": "pom.xml",
+      "sha256": "1c018bbd6cd513b43df5dd64c82579b14c414d35f99e06a0c3878b05ae070912"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/maven-repository-metadata/3.9.16/maven-repository-metadata-3.9.16-sources.jar",
+      "sha256": "d599ef8ed08332438b69f02f8db1fa48844f48c57e5859a3a107a8930755d8f8",
+      "bytes": 25031,
+      "fileNameInventorySha256": "64a53709ecccf09b06f6fdc0f8b361a414b651027ff9a6a7bf465bea1cc86ced",
+      "notices": [
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "56e2eaaf98b59d03b6174bd69e711444b4348c8b6488666cdb351d83117c7f88"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-api-1.9.27.jar",
+    "nestedSha256": "a895d222283666a7320ddc76615e2e93a41fabd93ce9a6bf9ddee39272bb87b4",
+    "coordinate": {
+      "artifactId": "maven-resolver-api",
+      "groupId": "org.apache.maven.resolver",
+      "version": "1.9.27"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/resolver/maven-resolver-api/1.9.27/maven-resolver-api-1.9.27.pom",
+      "path": "pom.xml",
+      "sha256": "98dc031f75f2c9b7efeef344e1c74bb3d009c584e36e82a0ec3d263d2bfef373"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/resolver/maven-resolver-api/1.9.27/maven-resolver-api-1.9.27-sources.jar",
+      "sha256": "1af0d201c58d077536779b185bd5a25841b50de346727965f1d28d74aaa5f69b",
+      "bytes": 202565,
+      "fileNameInventorySha256": "bed3fa515dc578e926504c24017a40f6108f816617ff4a6610ee0735a78b676f",
+      "notices": [
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "6e15450c1b62263a9d69b17dfda2da954b111574bd391b5f0ffd1fc6780029e9"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-connector-basic-1.9.27.jar",
+    "nestedSha256": "3bd98e3a426f9adcae39e3786db229e2be77e08a743ecd9be15c5ed77be3a625",
+    "coordinate": {
+      "artifactId": "maven-resolver-connector-basic",
+      "groupId": "org.apache.maven.resolver",
+      "version": "1.9.27"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/resolver/maven-resolver-connector-basic/1.9.27/maven-resolver-connector-basic-1.9.27.pom",
+      "path": "pom.xml",
+      "sha256": "494fd7b5b48b9dd65ff624ef38c900e7caab4d815567dca1ba6fb9d80278a19f"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/resolver/maven-resolver-connector-basic/1.9.27/maven-resolver-connector-basic-1.9.27-sources.jar",
+      "sha256": "ac17745155ee1d1082909d21138d8db9fcf9a41f964369f1552ab1e4c5379f8f",
+      "bytes": 23166,
+      "fileNameInventorySha256": "c1bb79bc90e29031f444bdc29b147a27864a651b9d6c69f722809ad0bb718ab5",
+      "notices": [
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "218266e61fa7bc44ccb758a899a18460c4700e2c1c52985de8167919a87132ea"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-impl-1.9.27.jar",
+    "nestedSha256": "295d48ea2a8bb3aef51888967f105fb6251997d111f13c32d28919fd9b1c951e",
+    "coordinate": {
+      "artifactId": "maven-resolver-impl",
+      "groupId": "org.apache.maven.resolver",
+      "version": "1.9.27"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/resolver/maven-resolver-impl/1.9.27/maven-resolver-impl-1.9.27.pom",
+      "path": "pom.xml",
+      "sha256": "ce9b47e8aeb58e46dfd05eb8fd0fe3ebfe152a06ff0f23bb42127d1576cd6914"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/resolver/maven-resolver-impl/1.9.27/maven-resolver-impl-1.9.27-sources.jar",
+      "sha256": "9666330c8960e95101fd239b735258ed06f869c4be1bd32b6db24cf3f0133802",
+      "bytes": 224292,
+      "fileNameInventorySha256": "b77eee8d58c981e4ddd2d19d0454fa31f4c0e8b54fb175e40baadc4c4c6ae045",
+      "notices": [
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "8e67504dc783f825fec9f109e8aa192d30da75d940d42f9bc14f3ed192b200a1"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-named-locks-1.9.27.jar",
+    "nestedSha256": "b39ecd4da98fdac5068e6f5d16910a71f4e4d48e95e17d107f6603e18f2b3fdf",
+    "coordinate": {
+      "artifactId": "maven-resolver-named-locks",
+      "groupId": "org.apache.maven.resolver",
+      "version": "1.9.27"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/resolver/maven-resolver-named-locks/1.9.27/maven-resolver-named-locks-1.9.27.pom",
+      "path": "pom.xml",
+      "sha256": "41ef2c7170eb0672cb7bc97caa765bad5386d49d93bbe8ae430887238c8e669a"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/resolver/maven-resolver-named-locks/1.9.27/maven-resolver-named-locks-1.9.27-sources.jar",
+      "sha256": "6eebec0b5a74cf729aa8cfad100740af2188f319a26cd7f30c14158c0e1cc547",
+      "bytes": 27719,
+      "fileNameInventorySha256": "d668506d855a5a2eaa3508bbcae6580a45b736f11c8c9397ce3cf350ec1b097a",
+      "notices": [
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "dd05cd6b7b024023d8a5551d782bf043a3e735dbc82551ec87e387c5db785b85"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-provider-3.9.16.jar",
+    "nestedSha256": "72a2d6aad3708e2c708b659b292ae9587a4d170ec88f48466290318730221118",
+    "coordinate": {
+      "artifactId": "maven-resolver-provider",
+      "groupId": "org.apache.maven",
+      "version": "3.9.16"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/maven-resolver-provider/3.9.16/maven-resolver-provider-3.9.16.pom",
+      "path": "pom.xml",
+      "sha256": "33723bba45ff2a1581bc2840836b7d9c9aa262af676f4f61222e179b56ea8818"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/maven-resolver-provider/3.9.16/maven-resolver-provider-3.9.16-sources.jar",
+      "sha256": "47e312922a4fdc6642857b8ced4c01c8c4af3167a6966db834bcdd1d14cfa0b7",
+      "bytes": 56598,
+      "fileNameInventorySha256": "52a717e8777241103e280e4f0b5e2c64ef64d1e4cbec19f1f114cae1477225fc",
+      "notices": [
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "2a35eeb966a16daaff0b3ca5341e2e9a1abf1d6a343df34b2b602bf01eb1bab3"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-spi-1.9.27.jar",
+    "nestedSha256": "1cab02f45bc58d5f4d8e084eaf032f13ea1a5fc9021d8bd74f8360ebb6593e5a",
+    "coordinate": {
+      "artifactId": "maven-resolver-spi",
+      "groupId": "org.apache.maven.resolver",
+      "version": "1.9.27"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/resolver/maven-resolver-spi/1.9.27/maven-resolver-spi-1.9.27.pom",
+      "path": "pom.xml",
+      "sha256": "c6310e360bb5b543aa0c7a6892b18e964add6feaf3917ac88c85264ed377c676"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/resolver/maven-resolver-spi/1.9.27/maven-resolver-spi-1.9.27-sources.jar",
+      "sha256": "7e03b67c2345e8c6a98e62269a10865a02b6f21544bdc2c093afdeba713e9098",
+      "bytes": 76956,
+      "fileNameInventorySha256": "511f5602a80afce928db5f998d03603cb568575dca96df8b6cd43ffcf2ec132d",
+      "notices": [
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "aa64944d36d3c1a3ab7bca98a524e6e1519c835ec5fe8584be82b9aac0f91ae8"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-transport-file-1.9.27.jar",
+    "nestedSha256": "3988261bd31e2e79eda802b3971992fce44756b0029557a05c7b871d3c3ddef7",
+    "coordinate": {
+      "artifactId": "maven-resolver-transport-file",
+      "groupId": "org.apache.maven.resolver",
+      "version": "1.9.27"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/resolver/maven-resolver-transport-file/1.9.27/maven-resolver-transport-file-1.9.27.pom",
+      "path": "pom.xml",
+      "sha256": "4832099eb3a535b19903a898bb03f4cc654886deb07661bd38f8cb3f002ebe54"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/resolver/maven-resolver-transport-file/1.9.27/maven-resolver-transport-file-1.9.27-sources.jar",
+      "sha256": "d6a8490acdde2889957c1d1d111ada0eaaba6c0f8166de2c94b8bed5a4d72531",
+      "bytes": 13719,
+      "fileNameInventorySha256": "311f7eebe1107ac150e4f8035d1bd7521e2ce8bac7941505db8bd2fc06471172",
+      "notices": [
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "998ecc03ca11a1659be53f0fc655b5753e9e7c0e59f0aafe358c28af83caa222"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-transport-http-1.9.27.jar",
+    "nestedSha256": "723f3d9d717a693d0aac589e266b995f76e9c63edd48ecc8a0cf9e86a77e459c",
+    "coordinate": {
+      "artifactId": "maven-resolver-transport-http",
+      "groupId": "org.apache.maven.resolver",
+      "version": "1.9.27"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/resolver/maven-resolver-transport-http/1.9.27/maven-resolver-transport-http-1.9.27.pom",
+      "path": "pom.xml",
+      "sha256": "a7eae6d54a490eedf286193d7f280f7e97d89588da7d5adf117f0133098dbe2e"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/resolver/maven-resolver-transport-http/1.9.27/maven-resolver-transport-http-1.9.27-sources.jar",
+      "sha256": "28b384446bacee0d580c5c69659a61058d5bffd6089363595984af9754178af5",
+      "bytes": 39154,
+      "fileNameInventorySha256": "90b6fed9c2d13b07dbd964a1030a8d02268277136cd8401bc8fa78b9f1dee80a",
+      "notices": [
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "a3110de601ef24a05b353fce5d0793e16e2d43661d9a5f6c3709cebe587f205c"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-transport-wagon-1.9.27.jar",
+    "nestedSha256": "ddf1c8744f7ef50d8ab78526611b690ab1da0e9ad8d99f72d9dbe1b259aa9a8b",
+    "coordinate": {
+      "artifactId": "maven-resolver-transport-wagon",
+      "groupId": "org.apache.maven.resolver",
+      "version": "1.9.27"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/resolver/maven-resolver-transport-wagon/1.9.27/maven-resolver-transport-wagon-1.9.27.pom",
+      "path": "pom.xml",
+      "sha256": "8dc4eb6a727abe07d6fa8c94056920050dbac039cf714e51e633e430aa2d6002"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/resolver/maven-resolver-transport-wagon/1.9.27/maven-resolver-transport-wagon-1.9.27-sources.jar",
+      "sha256": "ef2a862f31048a1acb9177c48fce25078abe59f12b8cf42b498b136bce47a266",
+      "bytes": 22616,
+      "fileNameInventorySha256": "96128751ea99380e5b9b285249b9b460b219e1d2f04f03ab9398c2c1b3f64755",
+      "notices": [
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "e895861ded9feba7feed2d42fa870a133f004495ecc60100d8c44024d4335933"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-resolver-util-1.9.27.jar",
+    "nestedSha256": "74a12548f0d6aad13c728666288c1e81201c24bd05bb4e4ec8c1558517b379a7",
+    "coordinate": {
+      "artifactId": "maven-resolver-util",
+      "groupId": "org.apache.maven.resolver",
+      "version": "1.9.27"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/resolver/maven-resolver-util/1.9.27/maven-resolver-util-1.9.27.pom",
+      "path": "pom.xml",
+      "sha256": "b2b3c7774cdc61887da814b42338c9421babbab9b1e87c3e6493885ffda53231"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/resolver/maven-resolver-util/1.9.27/maven-resolver-util-1.9.27-sources.jar",
+      "sha256": "0d2b948b67f15306d1578af4c0da6f33e074939359c3b9439de8bd59495d0af0",
+      "bytes": 165843,
+      "fileNameInventorySha256": "56a658f39ee78ec21187e3f7ad75b3d9401107b3a9f47c9f34ce9e4f4f925674",
+      "notices": [
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "58f4cdc004bd37917196e35a54278a9622a8cd3f2dee761e8ff5410e67276314"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-settings-3.9.16.jar",
+    "nestedSha256": "322ae5b23f4b7b6ce7896bd33a793143dbbbbcc16c4475e2d7eebbd8f755da92",
+    "coordinate": {
+      "artifactId": "maven-settings",
+      "groupId": "org.apache.maven",
+      "version": "3.9.16"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/maven-settings/3.9.16/maven-settings-3.9.16.pom",
+      "path": "pom.xml",
+      "sha256": "d3df811fe57832933adef90c119cbf3abb941884cf840cc9777aa639cf1a145d"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/maven-settings/3.9.16/maven-settings-3.9.16-sources.jar",
+      "sha256": "576ab4e7be5b9556c85253927aa63c65506b71b49b747681426285d03183c9d8",
+      "bytes": 42386,
+      "fileNameInventorySha256": "d7d83efb922bd2233bb75bfd01a7e62a76346f17cbbbc185f21fd25954ddfa24",
+      "notices": [
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "384ce0fba8bfa11b3e6339a15d89f5cb50ba8563751132cf2617c6a0cd035630"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-settings-builder-3.9.16.jar",
+    "nestedSha256": "226f1cbb0b4d414eff773fb151a8977837c98073e14d5963794e6cf464e6adbb",
+    "coordinate": {
+      "artifactId": "maven-settings-builder",
+      "groupId": "org.apache.maven",
+      "version": "3.9.16"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/maven-settings-builder/3.9.16/maven-settings-builder-3.9.16.pom",
+      "path": "pom.xml",
+      "sha256": "bce946240bf297982f524666674acff5c14878a24849f1f3c3489cd1d829ed48"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/maven-settings-builder/3.9.16/maven-settings-builder-3.9.16-sources.jar",
+      "sha256": "e7a37d84b995c08221e7d424ac221d94f1d7d231d12d21e39a05eede64df7832",
+      "bytes": 45129,
+      "fileNameInventorySha256": "d9f5e0f1c0c4429f282059a88383f8960061e612dd17e40faf5d148d8f96b346",
+      "notices": [
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "e84ace342f6af7917321f8552cd9b1e0e5489fdf087486f9af3a2bd4ba248475"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-shared-utils-3.4.2.jar",
+    "nestedSha256": "b613357e1bad4dfc1dead801691c9460f9585fe7c6b466bc25186212d7d18487",
+    "coordinate": {
+      "artifactId": "maven-shared-utils",
+      "groupId": "org.apache.maven.shared",
+      "version": "3.4.2"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/shared/maven-shared-utils/3.4.2/maven-shared-utils-3.4.2.pom",
+      "path": "pom.xml",
+      "sha256": "a941745d7faeb8dc9a75edc2c330c994b7440b9a44d21142716b6053967a41c1"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/shared/maven-shared-utils/3.4.2/maven-shared-utils-3.4.2-sources.jar",
+      "sha256": "d465ae0a0e2fe3e75802b850dd8d8c87b479876dc250ccea116bc5e7ab79708b",
+      "bytes": 151873,
+      "fileNameInventorySha256": "ed107dd008b0e543adb10cac09ff5e5d3c17a15f44152263b0ea430cc2323494",
+      "notices": [
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "c53634c960163f00ba0b0147cc3dee5caf0e6a47bc9909a2fe94b7adcf5d983e"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/maven-slf4j-provider-3.9.16.jar",
+    "nestedSha256": "a435cb0fdfc9c906bdc1ef72f043f59fef23dfd0db5beb5dd1e17a0a07f99d52",
+    "coordinate": {
+      "artifactId": "maven-slf4j-provider",
+      "groupId": "org.apache.maven",
+      "version": "3.9.16"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/maven-slf4j-provider/3.9.16/maven-slf4j-provider-3.9.16.pom",
+      "path": "pom.xml",
+      "sha256": "05d8351678f8b4f48fb6d2ee52e23ff2655fee31ce5688525120ba8b86dd746e"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/maven-slf4j-provider/3.9.16/maven-slf4j-provider-3.9.16-sources.jar",
+      "sha256": "025e617898d3242fa753e824d440dca82d089e18f77e3045695119d678018c75",
+      "bytes": 23287,
+      "fileNameInventorySha256": "3cd290faf5981c17df7fa5cad88ce6c3a335b9704d7ab892bd5f7788e3eb4e07",
+      "notices": [
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "7f035c27140a861eb02e4302fb1cbebf9e0a69a7b9b02a6640c74e4bed8a4bbd"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/org.eclipse.sisu.inject-1.0.0.jar",
+    "nestedSha256": "3ab8d7bfe68f3b6ec95c1a0a47e628edbc9d76e90634cb0a0ba121fbb11b8e42",
+    "coordinate": {
+      "artifactId": "org.eclipse.sisu.inject",
+      "groupId": "org.eclipse.sisu",
+      "version": "1.0.0"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/eclipse/sisu/org.eclipse.sisu.inject/1.0.0/org.eclipse.sisu.inject-1.0.0.pom",
+      "path": "pom.xml",
+      "sha256": "ea0fb93dafec8adde218ce2a11f0f84ebec2b822c1d9be8b2ed9cd61ed654cf3"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/eclipse/sisu/org.eclipse.sisu.inject/1.0.0/org.eclipse.sisu.inject-1.0.0-sources.jar",
+      "sha256": "90793c11d4854a380f6f6ee5a5164f471c943f6c62d34ec4283f763ea336f6fc",
+      "bytes": 197994,
+      "fileNameInventorySha256": "a15bd21c52278326349bb88fe193a362e237624f98ee330353ad2783ef43e5c0",
+      "notices": []
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/org.eclipse.sisu.plexus-1.0.0.jar",
+    "nestedSha256": "865b5300034fc08c790215d7d97f141914c932191bef9338a7dcef589f7536e9",
+    "coordinate": {
+      "artifactId": "org.eclipse.sisu.plexus",
+      "groupId": "org.eclipse.sisu",
+      "version": "1.0.0"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/eclipse/sisu/org.eclipse.sisu.plexus/1.0.0/org.eclipse.sisu.plexus-1.0.0.pom",
+      "path": "pom.xml",
+      "sha256": "f9bd338be70d4bc4d8f3f10cdfab7baec089fd3b3ef1013d4ca64c4e7f2163d5"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/eclipse/sisu/org.eclipse.sisu.plexus/1.0.0/org.eclipse.sisu.plexus-1.0.0-sources.jar",
+      "sha256": "db279d2d203dad5fd17de925284c0c684ed39168b6fbc5eb259018d1844583c2",
+      "bytes": 157534,
+      "fileNameInventorySha256": "10550f549c40417cb4464ddb1b20d239da32c47792a8b6e16cbfd31a6246c6f2",
+      "notices": []
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/plexus-build-api-0.0.7.jar",
+    "nestedSha256": "934171640fbd3d2495c50b79b0d9adb11e2c83e65bad157df8fe34bcac0ff798",
+    "coordinate": {
+      "version": "0.0.7",
+      "groupId": "org.sonatype.plexus",
+      "artifactId": "plexus-build-api"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/sonatype/plexus/plexus-build-api/0.0.7/plexus-build-api-0.0.7.pom",
+      "path": "pom.xml",
+      "sha256": "e067317a47ed9e84b2ba85a76d3cf72980e2b0dc873a90b9cbfe74fe80c37c17"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/sonatype/plexus/plexus-build-api/0.0.7/plexus-build-api-0.0.7-sources.jar",
+      "sha256": "c489ae41701845a4580d5e897e72ac3c6a695cf27a2c30c402058a2d983c5e1c",
+      "bytes": 8204,
+      "fileNameInventorySha256": "c6f8ce066c60f962ab8e369fdbd4cab8337d8f9fc014b88a0dc2bab43064f86c",
+      "notices": []
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/plexus-build-api-1.2.0.jar",
+    "nestedSha256": "570ae55a95e1887c3004882d30dc4e9035d2a46ba8d58b991de04175f141d88f",
+    "coordinate": {
+      "artifactId": "plexus-build-api",
+      "groupId": "org.codehaus.plexus",
+      "version": "1.2.0"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus-build-api/1.2.0/plexus-build-api-1.2.0.pom",
+      "path": "pom.xml",
+      "sha256": "47c7b0e65718ca89df6fdf5cb3f24a49e076cacd9499236c7e18ad78e993cddb"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus-build-api/1.2.0/plexus-build-api-1.2.0-sources.jar",
+      "sha256": "23b35d847c39329390d3d0d3e5e75864198c3ecec2951a4fdccf6b14c9370f00",
+      "bytes": 8112,
+      "fileNameInventorySha256": "f0baf98fa5f65eab7ffb0952ad6210f33793f39c4e76d21560c7d3852beac10b",
+      "notices": []
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/plexus-cipher-2.0.jar",
+    "nestedSha256": "9a7f1b5c5a9effd61eadfd8731452a2f76a8e79111fac391ef75ea801bea203a",
+    "coordinate": {
+      "artifactId": "plexus-cipher",
+      "groupId": "org.codehaus.plexus",
+      "version": "2.0"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus-cipher/2.0/plexus-cipher-2.0.pom",
+      "path": "pom.xml",
+      "sha256": "04842f331b0225b85a5e20439710d228ea7a6302abe6d53c9c9846fbc5bf99ff"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus-cipher/2.0/plexus-cipher-2.0-sources.jar",
+      "sha256": "0a98fd1e8d3e9f104f1d158946f5c063ed66af2d85127b70092003c885fe7b0c",
+      "bytes": 13771,
+      "fileNameInventorySha256": "ac2dda42557d7e63f921098400cf79d68c999e81e639873f498bdbe7ec1733e4",
+      "notices": []
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/plexus-classworlds-2.11.0.jar",
+    "nestedSha256": "8971f135490070bc5fde7413fcc8db7c997fda4bebfb5c31185900d66edcbbb2",
+    "coordinate": {
+      "artifactId": "plexus-classworlds",
+      "groupId": "org.codehaus.plexus",
+      "version": "2.11.0"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus-classworlds/2.11.0/plexus-classworlds-2.11.0.pom",
+      "path": "pom.xml",
+      "sha256": "281d317bf8a5fe818708cdd00e377dd234ec949f498d30f4b363f6b9771e1fa2"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus-classworlds/2.11.0/plexus-classworlds-2.11.0-sources.jar",
+      "sha256": "6dcec108e1d85160065e451471c93f34be611a5a4757c2bc6044d41bda01aa90",
+      "bytes": 56451,
+      "fileNameInventorySha256": "ed9a7829e8c91b6ff9c404742b28cb8090d70e876ff6695ae61aa7c420748ba7",
+      "notices": []
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/plexus-component-annotations-2.2.0.jar",
+    "nestedSha256": "50edb93c73786e62822b4fe1336e22880fdf147191373cf5c911370e16748fcf",
+    "coordinate": {
+      "artifactId": "plexus-component-annotations",
+      "groupId": "org.codehaus.plexus",
+      "version": "2.2.0"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus-component-annotations/2.2.0/plexus-component-annotations-2.2.0.pom",
+      "path": "pom.xml",
+      "sha256": "c5483fc9c8e1a7ef6b0f899e37aaa6ce2f8afae54955bfa559fd63a33dbb065b"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus-component-annotations/2.2.0/plexus-component-annotations-2.2.0-sources.jar",
+      "sha256": "205bdeb24bb48dec548232b6faddff33a6d5800a1bafc9ed7e563845fd0eb736",
+      "bytes": 5081,
+      "fileNameInventorySha256": "925143ef0e00cc81173ddb31eeaf2274fcbbfe975222f8ca0c05875c2b8118ba",
+      "notices": []
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/plexus-interpolation-1.29.jar",
+    "nestedSha256": "088d444dbcedfb384630d8686697ece3c401d6f33c8f8b3aa7259ea1c6996878",
+    "coordinate": {
+      "artifactId": "plexus-interpolation",
+      "groupId": "org.codehaus.plexus",
+      "version": "1.29"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus-interpolation/1.29/plexus-interpolation-1.29.pom",
+      "path": "pom.xml",
+      "sha256": "ce0d5634297bb1e065dddfdc8a2a5675717c08e8f4783edcf581543711516938"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus-interpolation/1.29/plexus-interpolation-1.29-sources.jar",
+      "sha256": "4269dfe3faeb29e0a3753341a20eb38184fd66c3178d14cc319e3d8198f9822c",
+      "bytes": 89888,
+      "fileNameInventorySha256": "c18267b5fee4a65f957b77ec634096a51b16bfcf64c5668c93045a5587e171b1",
+      "notices": []
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/plexus-sec-dispatcher-2.0.jar",
+    "nestedSha256": "873139960c4c780176dda580b003a2c4bf82188bdce5bb99234e224ef7acfceb",
+    "coordinate": {
+      "artifactId": "plexus-sec-dispatcher",
+      "groupId": "org.codehaus.plexus",
+      "version": "2.0"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus-sec-dispatcher/2.0/plexus-sec-dispatcher-2.0.pom",
+      "path": "pom.xml",
+      "sha256": "9b28bb307017938a94d06c85b2b099bc46912b859d084fb293e569f432eadb7c"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus-sec-dispatcher/2.0/plexus-sec-dispatcher-2.0-sources.jar",
+      "sha256": "ba4508f478d47717c8aeb41cf0ad9bc67e3c6bc7bf8f8bded2ca77b5885435a2",
+      "bytes": 18094,
+      "fileNameInventorySha256": "8ef24629c3fd8d2d5663d35643c193b41d1f0637d53afaea52ee97909a969536",
+      "notices": []
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/plexus-utils-3.6.1.jar",
+    "nestedSha256": "05a63effd67e2d6b9d610cc82e2bd7473289d34802e57a529b28110f28af5679",
+    "coordinate": {
+      "artifactId": "plexus-utils",
+      "groupId": "org.codehaus.plexus",
+      "version": "3.6.1"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus-utils/3.6.1/plexus-utils-3.6.1.pom",
+      "path": "pom.xml",
+      "sha256": "c8397373781af640a76c5da88f1674293b4fc9a2391d0768ee3fc791883b040d"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus-utils/3.6.1/plexus-utils-3.6.1-sources.jar",
+      "sha256": "f9b0daa4d3728acf62a90f07136b56790b677dd42644d169855b9f9ec410a27d",
+      "bytes": 267268,
+      "fileNameInventorySha256": "848673d0d760d6add17c68a00e80177b155595926d1057f946a8cbe333323aed",
+      "notices": [
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "d478d95476787007320df9dafb15c932849281e2ace56e2aacdac475d29470d7"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/wagon-file-3.5.3.jar",
+    "nestedSha256": "afc9216fa97b78dad227b4a8d4d67b9897bf113a57f80598d62993841113e103",
+    "coordinate": {
+      "artifactId": "wagon-file",
+      "groupId": "org.apache.maven.wagon",
+      "version": "3.5.3"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/wagon/wagon-file/3.5.3/wagon-file-3.5.3.pom",
+      "path": "pom.xml",
+      "sha256": "b89e540a7e432329bb5d93f2dfc578f898960afed66ae6a2dfeaa3d48d32c09c"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/wagon/wagon-file/3.5.3/wagon-file-3.5.3-sources.jar",
+      "sha256": "7ff40a83542d19c3534f32b38bf05384f4b78d6ac03bcd2353266df1402980dc",
+      "bytes": 10103,
+      "fileNameInventorySha256": "7d920f598b4d2b5daf6fda891cd97d5508a9c73eb09309bdbdcf4bccc9ef3b35",
+      "notices": [
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "381734fed65d4b355e0ebb572cba17e2e6747de32c6129c6f5406bcee60ac9b1"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/wagon-http-3.5.3.jar",
+    "nestedSha256": "d2b6e48c9fcbe579e1858c622d14464011ff265fa6e28e794004a6882154a509",
+    "coordinate": {
+      "artifactId": "wagon-http",
+      "groupId": "org.apache.maven.wagon",
+      "version": "3.5.3"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/wagon/wagon-http/3.5.3/wagon-http-3.5.3.pom",
+      "path": "pom.xml",
+      "sha256": "934f2f9c87e497c4f795be4bb05b360b8c231467d460103c19012b79b8c03c6b"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/wagon/wagon-http/3.5.3/wagon-http-3.5.3-sources.jar",
+      "sha256": "b816d1cc79685a65dba62c783be5d7abd9208041e4b67d59c47f64dca005e815",
+      "bytes": 10054,
+      "fileNameInventorySha256": "d2329bc0275dba69ed29267b2764b962470b1fa15ec2f3f468d040f0c5efe0c1",
+      "notices": [
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "0eb902826db7210ed96bbf9808a08a3636cbbdd36898f0cd252d424291f1d8cb"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/wagon-http-shared-3.5.3.jar",
+    "nestedSha256": "8e7da766f55164fde8779aaaa125832506c2848cab4876b5305138873e28037f",
+    "coordinate": {
+      "artifactId": "wagon-http-shared",
+      "groupId": "org.apache.maven.wagon",
+      "version": "3.5.3"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/wagon/wagon-http-shared/3.5.3/wagon-http-shared-3.5.3.pom",
+      "path": "pom.xml",
+      "sha256": "6014b1e64abf455c6834a0918248e15638050f835da12051d33cda7e946d88f8"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/wagon/wagon-http-shared/3.5.3/wagon-http-shared-3.5.3-sources.jar",
+      "sha256": "ac35986f91a9f14154d52fee664e541933182f10934b6141cea29be0ae5c99c1",
+      "bytes": 33346,
+      "fileNameInventorySha256": "f4ba44baca16c0ec5e0c4abf203304e2f957c10a9a48fafb39a5cb1216638b96",
+      "notices": [
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "16abe9cdbc59746a930d6688af0d76618918b62b33afa6ad912dde95b45406c2"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  },
+  {
+    "path": "org.eclipse.m2e.maven.runtime_3.9.1600.20260522-0510.jar!/jars/wagon-provider-api-3.5.3.jar",
+    "nestedSha256": "5e72000338945ed3e96f8e4f578d1d0672e1af7e19c0e9014197ae5b31af3ef4",
+    "coordinate": {
+      "artifactId": "wagon-provider-api",
+      "groupId": "org.apache.maven.wagon",
+      "version": "3.5.3"
+    },
+    "pom": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/wagon/wagon-provider-api/3.5.3/wagon-provider-api-3.5.3.pom",
+      "path": "pom.xml",
+      "sha256": "64d6a085e8a6bede9607cbd029ea58cd1c87304410862492174a6d59b9d17142"
+    },
+    "source": {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/maven/wagon/wagon-provider-api/3.5.3/wagon-provider-api-3.5.3-sources.jar",
+      "sha256": "0e77ad7e3224b2437bb57a4e819d20669d6e80ab1524d40036a73702b5cd7160",
+      "bytes": 64087,
+      "fileNameInventorySha256": "989737ad1de32bdf69e67d4a7b09f8a52347ff1ae8710c39ab1a553f702d3c1b",
+      "notices": [
+        {
+          "path": "META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "META-INF/NOTICE",
+          "sha256": "995da8ed64bf0bca61cbc03b8b6c06d9888e42c099908c41ed50efeaae4e2e13"
+        }
+      ]
+    },
+    "scope": "Exact embedded Maven identity and immutable source/legal archive; native/shaded build membership remains separately required."
+  }
+]

@@ -1,7 +1,14 @@
 import "../../../styles.css";
 import { createRoot } from "react-dom/client";
 import { createStore } from "zustand/vanilla";
-import { HostId, HostInfo, Workspace, WorkspaceId, LanguagePreviewPolicy } from "@polaris/protocol";
+import {
+  HostId,
+  HostInfo,
+  Workspace,
+  WorkspaceId,
+  LanguagePreviewPolicy,
+  LanguageFormatterSelection,
+} from "@polaris/protocol";
 import { Schema } from "effect";
 import { undo } from "@codemirror/commands";
 import { Toaster, TooltipProvider } from "@polaris/ui";
@@ -21,10 +28,11 @@ import { standInBridge } from "../../bridge.ts";
 import { createFakeFiles } from "../files/fake.ts";
 import { fileKey, workspaceKey, readTabs } from "../model/drafts.ts";
 import { ensureEditor } from "../runtime/app.ts";
-import { viewOf, dirtyKeys } from "../runtime/buffers.ts";
+import { viewOf, dirtyKeys, configureEditor } from "../runtime/buffers.ts";
 import {
   openFile,
   closeTab,
+  answerClose,
   activateTab,
   openMarkdownPreview,
   setWorkspaceRoot,
@@ -52,6 +60,34 @@ const files = createFakeFiles({
 });
 
 const kv = globalThis.localStorage;
+
+let heldPhase: "format" | "write" | null = null;
+
+let heldGate = Promise.resolve();
+
+let releaseSave = () => {};
+
+let saveEntered = false;
+
+let failWrite = false;
+
+let pendingClose = Promise.resolve();
+
+let heldView: ReturnType<typeof viewOf> = null;
+
+const raceFiles = {
+  ...files,
+  write: async (...args: Parameters<typeof files.write>) => {
+    if (heldPhase === "write") {
+      saveEntered = true;
+      await heldGate;
+    }
+
+    if (failWrite) throw new Error("Held fixture write failed");
+
+    return files.write(...args);
+  },
+};
 
 const calls: Array<{ method: string; input: unknown }> = [];
 
@@ -183,6 +219,31 @@ setWorkspaceRoot(hostKey, workspaceId, root);
 
 ensureEditor({ app: () => store.getState(), files, kv, canWrite: () => true });
 
+if (new URLSearchParams(location.search).has("close-race"))
+  configureEditor({
+    files: raceFiles,
+    kv,
+    prefs: () => ({ vim: false, autosave: false }),
+    canWrite: () => true,
+    hostLabel: () => "Fake Linux",
+    hostHome: () => null,
+    formatting: {
+      settings: async () => ({
+        formatOnSave: true,
+        formatter: LanguageFormatterSelection.cases.Provider.make({ providerId: "fake" }),
+      }),
+      format: async (snapshot) => {
+        if (heldPhase === "format") {
+          saveEntered = true;
+          await heldGate;
+        }
+
+        return snapshot.text;
+      },
+      failure: () => {},
+    },
+  });
+
 if (!Object.keys(readTabs(kv)).length) openFile({ hostKey, workspaceId, path: a });
 
 const element = document.getElementById("root");
@@ -202,6 +263,25 @@ createRoot(element).render(
 
 Object.assign(window, {
   fixture: {
+    holdSave: (phase: "format" | "write", failure = false) => {
+      heldPhase = phase;
+      failWrite = failure;
+      saveEntered = false;
+      heldView = viewOf(fileKey(hostKey, a));
+      heldGate = new Promise<void>((resolve) => {
+        releaseSave = resolve;
+      });
+    },
+    saveEntered: () => saveEntered,
+    answerSave: () => {
+      pendingClose = answerClose("save");
+    },
+    settleSave: async () => {
+      releaseSave();
+      await pendingClose;
+    },
+    sameView: () => heldView === viewOf(fileKey(hostKey, a)),
+    diskA: () => files.text(hostKey, a),
     calls,
     created,
     revoked,

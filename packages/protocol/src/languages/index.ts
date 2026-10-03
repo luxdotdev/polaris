@@ -13,3 +13,5 @@ export * from "./edits.ts";
 export * from "./broker.ts";
 
 export * from "./rpc.ts";
+
+export * from "./trees.ts";

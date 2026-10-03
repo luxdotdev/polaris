@@ -1,0 +1,35 @@
+Manifest-Version: 1.0
+Build-Jdk-Spec: 25
+Bundle-Description: The Plexus project provides a full software stack 
+ for creating and executing software projects.
+Bundle-DocURL: https://codehaus-plexus.github.io/
+Bundle-License: https://www.apache.org/licenses/LICENSE-2.0.txt
+Bundle-ManifestVersion: 2
+Bundle-Name: Plexus Interpolation API
+Bundle-SymbolicName: org.codehaus.plexus.interpolation
+Bundle-Vendor: Codehaus Plexus
+Bundle-Version: 1.29.0
+Created-By: Apache Maven Bundle Plugin 5.1.9
+Export-Package: org.codehaus.plexus.interpolation;uses:="org.codehaus.
+ plexus.interpolation.fixed";version="1.29.0",org.codehaus.plexus.inte
+ rpolation.fixed;uses:="org.codehaus.plexus.interpolation";version="1.
+ 29.0",org.codehaus.plexus.interpolation.multi;uses:="org.codehaus.ple
+ xus.interpolation";version="1.29.0",org.codehaus.plexus.interpolation
+ .object;uses:="org.codehaus.plexus.interpolation";version="1.29.0",or
+ g.codehaus.plexus.interpolation.os;version="1.29.0",org.codehaus.plex
+ us.interpolation.reflection;version="1.29.0",org.codehaus.plexus.inte
+ rpolation.util;version="1.29.0"
+Implementation-Title: Plexus Interpolation API
+Implementation-Vendor: Codehaus Plexus
+Implementation-Version: 1.29
+Import-Package: org.codehaus.plexus.interpolation,org.codehaus.plexus.
+ interpolation.fixed,org.codehaus.plexus.interpolation.os,org.codehaus
+ .plexus.interpolation.reflection,org.codehaus.plexus.interpolation.ut
+ il
+Multi-Release: true
+Require-Capability: osgi.ee;filter:="(&(osgi.ee=JavaSE)(version=1.8))"
+Specification-Title: Plexus Interpolation API
+Specification-Vendor: Codehaus Plexus
+Specification-Version: 1.29
+Tool: Bnd-6.3.1.202206071316
+

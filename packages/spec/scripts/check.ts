@@ -124,6 +124,24 @@ run("file operation recovery simulation", [
   `--seed=${seed}`,
 ]);
 
+run("typecheck tree-edits.qnt", ["typecheck", "tree-edits.qnt"]);
+
+run("tree recovery scenarios", ["test", "tree-edits.qnt", "--main=tree_edits_test"]);
+
+run("tree descendant guards", ["test", "tree-edits.qnt", "--main=tree_descendants_test"]);
+
+run("tree recovery safety", [
+  "run",
+  "tree-edits.qnt",
+  "--main=tree_edits",
+  "--invariants",
+  "safety",
+  `--max-samples=${samples}`,
+  "--max-steps=60",
+  `--seed=${option("seed", "31")}`,
+  "--verbosity=1",
+]);
+
 run("typecheck languages.qnt", ["typecheck", "languages.qnt"]);
 
 run("language contract scenarios", ["test", "languages.qnt", "--main=languages_test"]);
@@ -132,6 +150,21 @@ run("language contract safety", [
   "run",
   "languages.qnt",
   "--main=languages",
+  "--invariants",
+  "safety",
+  `--max-samples=${samples}`,
+  "--max-steps=60",
+  `--seed=${seed}`,
+]);
+
+run("typecheck language-runtime.qnt", ["typecheck", "language-runtime.qnt"]);
+
+run("language runtime scenarios", ["test", "language-runtime.qnt", "--main=language_runtime_test"]);
+
+run("language runtime safety", [
+  "run",
+  "language-runtime.qnt",
+  "--main=language_runtime",
   "--invariants",
   "safety",
   `--max-samples=${samples}`,

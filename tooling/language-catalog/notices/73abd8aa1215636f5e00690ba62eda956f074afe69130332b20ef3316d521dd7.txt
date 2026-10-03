@@ -1,0 +1,12 @@
+Manifest-Version: 1.0
+Created-By: Maven JAR Plugin 3.5.0
+Java-Version: 8
+Build-Jdk-Spec: 25
+Specification-Title: Maven Artifact
+Specification-Version: 3.9
+Specification-Vendor: The Apache Software Foundation
+Implementation-Title: Maven Artifact
+Implementation-Version: 3.9.16
+Implementation-Vendor: The Apache Software Foundation
+Main-Class: org.apache.maven.artifact.versioning.ComparableVersion
+

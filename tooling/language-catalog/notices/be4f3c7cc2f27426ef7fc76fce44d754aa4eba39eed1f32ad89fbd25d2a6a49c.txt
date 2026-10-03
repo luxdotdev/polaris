@@ -1,0 +1,11 @@
+Manifest-Version: 1.0
+Ant-Version: Apache Ant 1.8.4
+Created-By: 1.7.0_21-b11 (Oracle Corporation)
+
+Name: org/eclipse/jdt/internal/launching/support/LibraryDetector.class
+SHA-256-Digest: wa3v8UXIgome4rHLJNcIxNPb+ET1IDRIIp+Z0zdIsd8=
+
+Name: org/eclipse/jdt/internal/launching/support/LegacySystemProperties.
+ class
+SHA-256-Digest: lp8HP2F+w3Sf3JpgH2xi4qaQTnuqmuKoQ/xFeay+qRs=
+

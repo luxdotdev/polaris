@@ -90,12 +90,12 @@
       "integrity": "sha256:5b518afe66414626eb3145a7dedd8b0fff6f8e33f622f7e8f5e9cdc7df30cfaa"
     },
     {
-      "path": "closure-plan.json",
+      "path": "shellcheck-evaluated-closure-plan.json",
       "integrity": "sha256:a61abd31b8fda9766b634fa5276ec3e121d10ba9943a2efcd2a586a881edc8da"
     },
     {
-      "path": "review-records.json",
-      "integrity": "sha256:84878260fa5e3d66a0c73c80e5484fc839e778798dd558cced84d3949c26321b"
+      "path": "shellcheck-evaluated-review-records.json",
+      "integrity": "sha256:c203888fef070dabde2c5c37d9bb0972870ddab4091f1d26c68d7d34d66b2b2a"
     }
   ]
 }
