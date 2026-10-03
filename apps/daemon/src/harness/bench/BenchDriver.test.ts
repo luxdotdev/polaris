@@ -1,5 +1,6 @@
+import { tempDirectory } from "../../verification/tempDirectories.testing.ts";
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, readdirSync } from "node:fs";
+import { readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ApprovalDecision, SessionId, TurnId } from "@polaris/protocol";
@@ -25,7 +26,7 @@ describe("parseScript", () => {
 
 describe("bench Harness", () => {
   test("streams a scripted Turn, waits on its approval, and touches files", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "polaris-bench-driver-"));
+    const cwd = tempDirectory(join(tmpdir(), "polaris-bench-driver-"));
 
     const events = await Effect.runPromise(
       Effect.scoped(

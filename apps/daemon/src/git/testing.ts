@@ -1,11 +1,18 @@
 /** Test helpers: throwaway git repositories. Not used at runtime. */
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { tempDirectory, suiteTempDirectory } from "../verification/tempDirectories.testing.ts";
+import { mkdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { gitText } from "./git.ts";
 
 export const tempDir = (prefix = "polaris-test-"): string =>
-  realpathSync(mkdtempSync(join(tmpdir(), prefix)));
+  realpathSync(tempDirectory(join(tmpdir(), prefix)));
+
+export const suiteTempDir = (prefix = "polaris-test-"): (() => string) => {
+  const create = suiteTempDirectory(join(tmpdir(), prefix));
+
+  return () => realpathSync(create());
+};
 
 export const removeDir = (path: string): void => rmSync(path, { recursive: true, force: true });
 
