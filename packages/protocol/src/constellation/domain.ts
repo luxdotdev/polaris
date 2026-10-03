@@ -37,14 +37,12 @@ export const AttemptState = Schema.Literals([
   "accepted",
   "rejected",
   "lost",
-  "settled_unverified",
   "failed",
 ]);
 
 export type AttemptState = typeof AttemptState.Type;
 
 export const TaskState = Schema.Literals([
-  "future",
   "waiting",
   "ready",
   "working",
@@ -53,7 +51,6 @@ export const TaskState = Schema.Literals([
   "done",
   "canceled",
   "lost",
-  "settled_unverified",
   "failed",
 ]);
 

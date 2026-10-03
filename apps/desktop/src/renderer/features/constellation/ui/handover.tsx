@@ -49,7 +49,6 @@ const TONE: Partial<Record<TaskState, StripTone>> = {
   done: "accepted",
   working: "working",
   review: "review",
-  future: "future",
   failed: "failed",
 };
 

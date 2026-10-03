@@ -95,7 +95,7 @@ export const constellationEventFields = {
   AttemptRejected: { ...attempt, reason: Schema.String },
   AttemptSettled: {
     ...attempt,
-    outcome: Schema.Literals(["lost", "settled_unverified", "failed"]),
+    outcome: Schema.Literals(["lost", "failed"]),
     reason: Schema.String,
   },
   GatePromoted: task,

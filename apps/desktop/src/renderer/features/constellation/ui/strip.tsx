@@ -15,7 +15,6 @@ const FILL: Readonly<Record<Exclude<StripTone, "working">, string>> = {
   "needs-you": "var(--color-needs-you)",
   failed: "var(--color-failed)",
   waiting: "color-mix(in oklab, var(--color-text-faint) 45%, transparent)",
-  future: "transparent",
 };
 
 const fillOf = (tone: StripTone, harness: Segment["harness"]) =>
@@ -36,10 +35,7 @@ export const ProgressStrip = ({ segments }: { readonly segments: ReadonlyArray<S
       {segments.map((s) => (
         <span
           key={s.key}
-          className={cn(
-            "h-1 w-2.5 rounded-[1px]",
-            s.tone === "future" && "border-text-faint border border-dashed"
-          )}
+          className="h-1 w-2.5 rounded-[1px]"
           style={{ background: fillOf(s.tone, s.harness) }}
         />
       ))}

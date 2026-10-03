@@ -12,6 +12,12 @@ module constellations_test {
   action working = base.then(start(0, 1, -1)).expect(safety)
   action claimed = working.then(claim(0, 1, 42, false, true)).expect(safety)
 
+  run unstartedTasksAreReadyOrWaitingAcrossRestartTest = base
+    .expect(taskState(view, 0) == "ready" and taskState(view, 1) == "waiting" and safety)
+    .then(restart).expect(taskState(view, 0) == "ready" and taskState(view, 2) == "waiting" and safety)
+    .then(start(0, 1, -1)).then(claim(0, 1, 42, false, true)).then(accept(0, 2, 42))
+    .expect(taskState(view, 1) == "ready" and taskState(view, 2) == "waiting" and safety)
+
   run blockWaitsForAcceptanceAndUnblockRequiresTurnTest = working
     .then(plan([Edit({ task: 1, deps: Set(), revision: 1 , parent: -1, gate: false })]))
     .then(block(0, Set(1), 1)).expect(view.attempts[0].status == "blocked" and safety)
@@ -306,6 +312,9 @@ module constellations_property_test {
   run detectsRepeatedRecoveryTest = working
     .then(commit(OWNER, [AttemptRecoveryContinued({ attempt: 0, interruption: 1 }), AttemptRecoveryContinued({ attempt: 0, interruption: 2 })]))
     .expect(not(recoveryAtMostOnce))
+  run detectsRetiredSettlementOutcomeTest = working
+    .then(commit(OWNER, [AttemptSettled({ attempt: 0, outcome: "settled_unverified", stale: false, commanded: false }), NotificationQueued({ id: 10, kind: "settle" })]))
+    .expect(not(settlementOutcomesValid) and not(safety))
   run detectsStaleMechanicalSettleTest = working
     .then(commit(OWNER, [AttemptSettled({ attempt: 0, outcome: "lost", stale: true, commanded: false }), NotificationQueued({ id: 10, kind: "settle" })]))
     .expect(not(staleNeverSettlesWithoutCommand))

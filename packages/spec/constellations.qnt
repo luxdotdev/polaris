@@ -420,6 +420,10 @@ module constellations {
   })
   val recoveryAtMostOnce = view.recoveries.length() == view.recoveries.foldl(Set(), (acc, x) => acc.union(Set(x))).size()
     and view.attempts.indices().forall(a => view.recoveries.select(r => r.attempt == a).length() <= 1)
+  val settlementOutcomesValid = log.indices().forall(i => match log[i].kind {
+    | AttemptSettled(p) => Set("lost", "failed").contains(p.outcome)
+    | _ => true
+  })
   val staleNeverSettlesWithoutCommand = log.indices().forall(i => match log[i].kind {
     | AttemptSettled(p) => not(p.stale) or p.commanded
     | _ => true
@@ -483,7 +487,7 @@ module constellations {
   val safety = all {
     graphAcyclic, causesPointBackward, taskFollowsLatestAttempt, gatePromotedOnlyAfterAccepted,
     oneLead, firstTurnAtMostOnce, oneActiveAttemptPerSession, exactlyOnceDelivery, settledAttemptImmutable,
-    outboxAppliedExactlyOnce, onlyOwnerCommits, recoveryAtMostOnce, recoveryHasEligibleProof, staleNeverSettlesWithoutCommand,
+    outboxAppliedExactlyOnce, onlyOwnerCommits, recoveryAtMostOnce, recoveryHasEligibleProof, settlementOutcomesValid, staleNeverSettlesWithoutCommand,
     noOldLeadDelivery, handoverRequestOrdered, inputDeliveredAtMostOnce, blockTransitionsValid, lifecycleValid, reviewMetadataValid, resourceCapacity, resourceRemovalSafe, fifoGrantOrder, acceptanceMatchesClaim,
   }
   val witnessClaim = view.attempts.indices().exists(i => view.attempts[i].status == "review")
