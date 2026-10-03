@@ -1,4 +1,5 @@
-import { mkdtemp, mkdir, realpath, rm, writeFile } from "node:fs/promises";
+import { tempDirectory } from "../../verification/tempDirectories.testing.ts";
+import { mkdir, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -15,7 +16,7 @@ import { createFileEditCoordinator, type Owner, type CoordinatorOptions } from "
 import type { Fault } from "./moves.ts";
 
 export const fixture = async () => {
-  const home = await realpath(await mkdtemp(join(tmpdir(), "m31-x1-")));
+  const home = await realpath(tempDirectory(join(tmpdir(), "m31-x1-")));
   const root = join(home, "checkout");
   await mkdir(root);
   await writeFile(join(root, "a"), "alpha\r\n");

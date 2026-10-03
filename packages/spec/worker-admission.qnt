@@ -5,6 +5,7 @@ module worker_admission {
     unblocks: int, bindings: bool, bStarted: bool, registered: bool,
     active: bool, replacement: bool, userPending: bool, userTurns: int,
     deferred: bool, inputGate: bool, steerAnswered: bool, acks: int, startup: bool, briefStarted: bool,
+    failed: bool, refusals: int,
   }
   var slots: Admission
   action init = slots' = {
@@ -13,6 +14,7 @@ module worker_admission {
     unblocks: 0, bindings: true, bStarted: false, registered: true,
     active: true, replacement: false, userPending: false, userTurns: 0,
     deferred: false, inputGate: false, steerAnswered: false, acks: 0, startup: false, briefStarted: false,
+    failed: false, refusals: 0,
   }
   action block = all {
     slots.active, not(slots.blocked) and slots.unblocks == 0,
@@ -46,16 +48,16 @@ module worker_admission {
   }
   action grant = all {
     slots.holders.size() == 0, slots.queue.length() > 0,
-    slots.queue[0] != 0 or (slots.registered and slots.active),
+    slots.queue[0] != 0 or (slots.registered and slots.active and not(slots.failed)),
     slots' = { ...slots, holders: Set(slots.queue[0]), queue: slots.queue.slice(1, slots.queue.length()),
       bStarted: slots.bStarted or slots.queue[0] == 1 },
   }
   action resumeInput = all {
-    slots.active, slots.blocked, not(slots.pending), not(slots.receipt),
+    slots.active, not(slots.failed), slots.blocked, not(slots.pending), not(slots.receipt),
     slots' = { ...slots, pending: true, queue: if (slots.holders.contains(0)) slots.queue else slots.queue.append(0) },
   }
   action userInput = all {
-    slots.active, slots.blocked, not(slots.pending),
+    slots.active, not(slots.failed), slots.blocked, not(slots.pending),
     slots' = { ...slots, pending: true, userPending: true,
       queue: if (slots.holders.contains(0)) slots.queue else slots.queue.append(0) },
   }
@@ -85,7 +87,17 @@ module worker_admission {
       userTurns: slots.userTurns + 1, inputGate: false, deferred: false },
   }
   action register = all {
-    slots.active, not(slots.registered), slots' = { ...slots, registered: true },
+    slots.active, not(slots.failed), not(slots.registered), slots' = { ...slots, registered: true },
+  }
+  // Durable assignment facts remain after startup cleanup; failed admission refuses later inputs.
+  action startupFailed = all {
+    slots.active, slots.registered, not(slots.failed),
+    slots' = { ...slots, failed: true, registered: false, foreground: false,
+      background: false, reporting: false, pending: false, userPending: false,
+      inputGate: false, holders: slots.holders.exclude(Set(0)), queue: slots.queue.select(id => id != 0) },
+  }
+  action refuseFailedInput = all {
+    slots.failed, slots' = { ...slots, refusals: slots.refusals + 1 },
   }
   action stop = all {
     slots.active,
@@ -120,7 +132,7 @@ module worker_admission {
     block, foregroundEnded, spawnBackground, backgroundReported, nativeStart,
     reportingEnded, inlineReport, releaseBlocked, grant, resumeInput, claimB, apply,
     retry, restart, register, userInput, acceptedDeferredUser, takeInputGate,
-    steer, applyUser, stop, sendBack, pendingBrief, startBrief,
+    steer, applyUser, stop, sendBack, pendingBrief, startBrief, startupFailed, refuseFailedInput,
   }
   val safety = all {
     slots.holders.size() <= 1,
@@ -132,6 +144,7 @@ module worker_admission {
     slots.queue.length() == slots.queue.foldl(Set(), (ids, id) => ids.union(Set(id))).size(),
     (slots.receipt and slots.foreground) implies slots.holders.contains(0),
     slots.reporting implies slots.holders.contains(0),
+    slots.failed implies (not(slots.registered) and not(slots.foreground) and not(slots.holders.contains(0))),
   }
   val witnessBlockedRelease = slots.blocked and slots.bStarted
   val witnessResumed = slots.receipt
@@ -139,6 +152,9 @@ module worker_admission {
 
 module worker_admission_test {
   import worker_admission.*
+  run failedStartupRejectsUserAndLeadTest = init.then(startupFailed).then(refuseFailedInput)
+    .then(refuseFailedInput).then(grant)
+    .expect(slots.active and slots.refusals == 2 and slots.bStarted and slots.userTurns == 0 and safety)
   run leadResumeWaitsForBTest = init.then(block).then(foregroundEnded).then(releaseBlocked)
     .then(grant).then(resumeInput).expect(slots.holders == Set(1) and slots.blocked and safety)
     .then(claimB).then(grant).then(takeInputGate).then(apply).then(retry)

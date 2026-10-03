@@ -1,10 +1,10 @@
 import { makeFakes, makeFakeDriver } from "../engine/testing.ts";
 import { expect, test } from "bun:test";
-import { Command, CommandId } from "@polaris/protocol";
+import { Command, CommandId, MessageTarget } from "@polaris/protocol";
 import { Effect, Fiber } from "effect";
 import fc from "fast-check";
 import { Engine } from "../engine/Engine.ts";
-import { CID, draft } from "../engine/constellation.testing.ts";
+import { C, CID, HOST, draft } from "../engine/constellation.testing.ts";
 import { inputQueueWorld } from "../constellation/composition/inputQueue.testing.ts";
 import { startAttempt } from "../constellation/composition/workers.ts";
 import { sendBack } from "../constellation/composition/sendback.testing.ts";
@@ -12,6 +12,12 @@ import { finish, send, setup, wait } from "../constellation/delivery/testing.ts"
 import { sendbackWorld } from "../mcp/sendback.testing.ts";
 import { recordSendbackTrace } from "../mcp/sendback.trace.testing.ts";
 import { EventStore } from "../store/EventStore.ts";
+import { ConstellationOwner } from "../constellation/runtime.ts";
+import { Constellations } from "../constellation/service.ts";
+import { deliverLocalInput } from "../constellation/delivery/local.ts";
+import { pendingInputs } from "../constellation/delivery/messages.ts";
+import { applyWorkerDelivery } from "../constellation/delivery/turns.ts";
+import { DeliveryInput } from "../constellation/delivery/inputs.ts";
 import { pbtRuns, pbtSeed, pbtTimeout } from "./pbt.ts";
 
 const runs = pbtRuns(20);
@@ -28,6 +34,7 @@ test(
           later: fc.integer({ min: 1, max: 3 }),
           cancel: fc.option(fc.integer({ min: 0, max: 4 })),
           steer: fc.boolean(),
+          leadRoute: fc.constantFrom("none", "local", "remote"),
         }),
         async (sample) => {
           const { driver, layer } = inputQueueWorld(
@@ -87,6 +94,45 @@ test(
 
               yield* finish(sid);
               yield* Fiber.join(startup);
+              const expectedSteers: string[] = [];
+
+              if (sample.leadRoute !== "none") {
+                const graphs = yield* Constellations;
+                yield* graphs.command(
+                  { kind: "user" },
+                  CommandId.make("live-lead"),
+                  C.Message.make({
+                    constellationId: CID,
+                    target: MessageTarget.cases.Worker.make({ attemptId: attempt.id }),
+                    text: "Steer the brief",
+                  })
+                );
+                const input = pendingInputs((yield* store.model).constellations.get(CID)!)[0]!;
+
+                const delivery =
+                  sample.leadRoute === "local"
+                    ? deliverLocalInput(CID, input)
+                    : applyWorkerDelivery(
+                        {
+                          id: "remote-lead",
+                          ownerHostId: HOST,
+                          workerHostId: HOST,
+                          constellationId: CID,
+                          attemptId: attempt.id,
+                          sessionId: sid,
+                          input: DeliveryInput.Turn({ text: input.text, cause: "message" }),
+                        },
+                        () => Effect.void
+                      );
+
+                const delivered = yield* delivery.pipe(Effect.forkChild);
+                yield* wait(() => Effect.succeed(driver.latest(sid)!.steers.length === 1));
+                yield* Fiber.join(delivered);
+                expectedSteers.push(input.text);
+                expect(driver.latest(sid)!.steers).toEqual(expectedSteers);
+                expect(driver.latest(sid)!.turns).toHaveLength(1);
+              }
+
               yield* finish(sid);
               yield* Fiber.join(requests[0]!);
               yield* wait(() => Effect.succeed(driver.latest(sid)!.turns.length === 2));
@@ -120,10 +166,10 @@ test(
               expect(driver.latest(sid)!.turns.at(-1)!.prompt).toBe(
                 `Prompt ${sample.before + sample.later}`
               );
-              expect(driver.latest(sid)!.steers).toEqual([]);
+              expect(driver.latest(sid)!.steers).toEqual(expectedSteers);
               expect(oldHarness.steers).toEqual(sample.steer ? ["Old Turn steering"] : []);
               yield* recordSendbackTrace(`fifo-model-${trace++}`);
-            }).pipe(Effect.provide(layer))
+            }).pipe(Effect.provide(layer), Effect.provideService(ConstellationOwner, HOST))
           );
         }
       ),

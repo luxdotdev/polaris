@@ -3,7 +3,7 @@ import { rmSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { FileError } from "@polaris/protocol";
 import { Effect, Fiber, Stream } from "effect";
-import { makeRepo, removeDir, tempDir, write } from "../git/testing.ts";
+import { makeRepo, removeDir, tempDir, suiteTempDir, write } from "../git/testing.ts";
 import { FileSearch, FileSearchLive } from "./FileSearch.ts";
 import { handleGrep, handleSearchPaths } from "./FilesRpcs.ts";
 import { fuzzyScore, gitGrepThreads } from "./search/fallback.ts";
@@ -14,8 +14,10 @@ let home: string;
 
 const previousHome = process.env.POLARIS_HOME;
 
+const createHome = suiteTempDir("polaris-home-");
+
 beforeAll(() => {
-  home = tempDir("polaris-home-");
+  home = createHome();
   process.env.POLARIS_HOME = home;
 });
 

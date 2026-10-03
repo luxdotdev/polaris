@@ -5,7 +5,8 @@ import { join } from "node:path";
 import { CID, draft } from "../engine/constellation.testing.ts";
 import { withSessionInput } from "../engine/sessionBoundary.ts";
 import { startAttempt } from "../constellation/composition/workers.ts";
-import { setup, world } from "../constellation/delivery/testing.ts";
+import { finish, send, setup, world } from "../constellation/delivery/testing.ts";
+import { ConstellationSessionEffects } from "../constellation/delivery/inputs.ts";
 import { ConstellationRuntime } from "../constellation/runtime.ts";
 import { WorktreeSetupService } from "../constellation/setup/index.ts";
 import { tempDir, removeDir } from "../git/testing.ts";
@@ -105,3 +106,61 @@ for (const crashBeforeMarker of [false, true])
       removeDir(root);
     }
   });
+
+test("ineligible startup receipt survives restart without a first-Turn receipt", async () => {
+  const root = tempDir();
+  const file = join(root, "state.sqlite");
+
+  try {
+    await world(file).run(
+      Effect.gen(function* () {
+        yield* setup();
+        const store = yield* EventStore;
+        const effects = yield* ConstellationSessionEffects;
+        const graph = (yield* store.model).constellations.get(CID)!.graph;
+        const attempt = graph.attempts.at(-1)!;
+        let eligible = true;
+
+        const stopped = yield* startAttempt(graph, attempt, () => Effect.succeed(eligible)).pipe(
+          Effect.provideService(ConstellationSessionEffects, {
+            ...effects,
+            retire: () =>
+              Effect.sync(() => {
+                eligible = false;
+              }),
+          }),
+          Effect.exit
+        );
+
+        expect(Exit.isFailure(stopped)).toBe(true);
+
+        expect((yield* store.model).constellations.get(CID)!.graph.attempts.at(-1)!.state).toBe(
+          "working"
+        );
+        expect(yield* store.hasCommandReceipt(CommandId.make(`${attempt.id}:startup-failed`))).toBe(
+          true
+        );
+        expect(yield* store.hasCommandReceipt(CommandId.make(`${attempt.id}:start`))).toBe(false);
+      })
+    );
+    const restarted = world(file);
+    await restarted.run(
+      Effect.gen(function* () {
+        const store = yield* EventStore;
+        const graph = (yield* store.model).constellations.get(CID)!.graph;
+        const attempt = graph.attempts.at(-1)!;
+        yield* send(attempt.sessionId, "After startup rejection");
+        yield* finish(attempt.sessionId);
+        expect((yield* store.model).sessions.get(attempt.sessionId)!.session.state).toBe("idle");
+        expect(
+          yield* withSessionInput(store, attempt.sessionId, Effect.succeed("input proceeds"))
+        ).toBe("input proceeds");
+        expect(Exit.isFailure(yield* startAttempt(graph, attempt).pipe(Effect.exit))).toBe(true);
+        expect(restarted.turns).toHaveLength(0);
+        expect(yield* store.hasCommandReceipt(CommandId.make(`${attempt.id}:start`))).toBe(false);
+      })
+    );
+  } finally {
+    removeDir(root);
+  }
+});

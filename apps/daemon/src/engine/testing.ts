@@ -2,7 +2,8 @@
  * Fakes for engine tests: a scriptable Harness driver and in-memory
  * Checkpoints, WorktreeTracker and AttachmentStore. Not used in production.
  */
-import { mkdirSync, mkdtempSync } from "node:fs";
+import { tempDirectory } from "../verification/tempDirectories.testing.ts";
+import { mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -312,16 +313,25 @@ export const engineLayer = (options: {
   readonly checkpointSweepInterval?: Duration.Input;
   /** Items buffered per live subscriber (StoreConfig). */
   readonly subscriberCapacity?: number;
+  /** Wrap the real store for controlled disappearance or stream closure tests. */
+  readonly wrapStore?: (store: EventStore["Service"]) => EventStore["Service"];
   /** Default: `pendingReviewCheckoutGit`. */
   readonly reviewCheckoutGit?: Layer.Layer<ReviewCheckoutGit>;
   /** Default: the fake, which writes no refs; `CheckpointsLive` snapshots real repositories. */
   readonly checkpoints?: Layer.Layer<Checkpoints>;
 }) => {
-  const store = EventStore.layerSqlite(options.filename).pipe(
+  const baseStore = EventStore.layerSqlite(options.filename).pipe(
     Layer.provide(
       Layer.succeed(StoreConfig)({ subscriberCapacity: options.subscriberCapacity ?? 4096 })
     )
   );
+
+  const store =
+    options.wrapStore === undefined
+      ? baseStore
+      : Layer.effect(EventStore, Effect.map(EventStore, options.wrapStore)).pipe(
+          Layer.provide(baseStore)
+        );
 
   const settings: EngineSettings = {
     idleTimeout: options.idleTimeout ?? Duration.minutes(30),
@@ -350,11 +360,11 @@ export const engineLayer = (options: {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-export const tempDir = (): string => mkdtempSync(join(tmpdir(), "polaris-engine-"));
+export const tempDir = (): string => tempDirectory(join(tmpdir(), "polaris-engine-"));
 
 /** A directory that looks like a git repository to RegisterWorkspace. */
-export const fakeRepo = (): string => {
-  const dir = join(tempDir(), "repo");
+export const fakeRepo = (root = tempDir()): string => {
+  const dir = join(root, "repo");
   mkdirSync(join(dir, ".git"), { recursive: true });
 
   return dir;

@@ -11,7 +11,7 @@ import {
   TurnId,
   WorkerPlacement,
 } from "@polaris/protocol";
-import { Effect, Fiber, Latch, Struct } from "effect";
+import { Effect, Exit, Fiber, Latch, Struct } from "effect";
 import { C, CID, HOST, draft } from "../../engine/constellation.testing.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { Constellations } from "../service.ts";
@@ -241,7 +241,14 @@ test("assignment invalidated during startup commit cannot create an empty succes
       const attempt = graph.attempts[0]!;
       let probes = 0;
 
-      yield* startAttempt(graph, attempt, () => Effect.sync(() => ++probes < 3));
+      const result = yield* startAttempt(graph, attempt, () =>
+        Effect.sync(() => ++probes < 3)
+      ).pipe(Effect.exit);
+
+      expect(Exit.isFailure(result)).toBe(true);
+      expect(yield* store.hasCommandReceipt(CommandId.make(`${attempt.id}:startup-failed`))).toBe(
+        true
+      );
       expect(probes).toBe(3);
       expect(yield* store.hasCommandReceipt(CommandId.make(`${attempt.id}:start`))).toBe(false);
       expect(w.turns).toHaveLength(0);

@@ -39,6 +39,8 @@ import { waitingOnBackgroundWork } from "./session.backgroundTasks.ts";
 import type { ReadModel, SessionRecord } from "../store/model.ts";
 import { decideSession, type SessionEffect, type SessionInput } from "./session.ts";
 
+export type SignalResult = CommitResult & { readonly effects: ReadonlyArray<SessionEffect> };
+
 export interface EngineSettings {
   /** How long an Idle session keeps its Harness process before going Dormant. */
   readonly idleTimeout: Duration.Input;
@@ -111,7 +113,10 @@ const make = Effect.gen(function* () {
       return lock.withPermits(1)(effect);
     };
 
-  const recordFor = (sessionId: SessionId, f: DecideFor) => {
+  const recordDecision = (
+    sessionId: SessionId,
+    f: (record: SessionRecord | undefined, model: ReadModel) => ReadonlyArray<DomainEvent>
+  ) => {
     const activity = touchIdle(sessionId);
 
     const committed = store.commit({
@@ -119,7 +124,7 @@ const make = Effect.gen(function* () {
       decide: (model) => {
         const record = model.sessions.get(sessionId);
 
-        return Effect.succeed(record === undefined ? [] : f(record, model));
+        return Effect.succeed(f(record, model));
       },
     });
 
@@ -131,6 +136,9 @@ const make = Effect.gen(function* () {
           )
         );
   };
+
+  const recordFor = (sessionId: SessionId, f: DecideFor) =>
+    recordDecision(sessionId, (record, model) => (record === undefined ? [] : f(record, model)));
 
   const dropProgress = (sessionId: SessionId, turnId?: TurnId) => {
     const items = progress.get(sessionId);
@@ -167,12 +175,12 @@ const make = Effect.gen(function* () {
 
   const signalWith = (
     sessionId: SessionId,
-    input: (record: SessionRecord) => SessionInput
-  ): Effect.Effect<CommitResult, ServiceError> =>
+    input: (record: SessionRecord | undefined) => SessionInput
+  ): Effect.Effect<SignalResult, ServiceError> =>
     Effect.gen(function* () {
       let effects: ReadonlyArray<SessionEffect> = [];
 
-      const result = yield* recordFor(sessionId, (record) => {
+      const result = yield* recordDecision(sessionId, (record) => {
         const decision = decideSession(record, input(record));
         effects = decision.effects;
 
@@ -181,10 +189,10 @@ const make = Effect.gen(function* () {
 
       for (const effect of effects) {
         if (effect === "scheduleIdleStop") yield* scheduleIdle(sessionId);
-        else yield* stopHarness(sessionId);
+        else if (effect === "stopHarness") yield* stopHarness(sessionId);
       }
 
-      return result;
+      return { ...result, effects };
     });
 
   const signal = (sessionId: SessionId, input: SessionInput) => signalWith(sessionId, () => input);
@@ -376,12 +384,12 @@ export class EngineRuntime extends Context.Service<
     readonly signal: (
       sessionId: SessionId,
       input: SessionInput
-    ) => Effect.Effect<CommitResult, ServiceError>;
+    ) => Effect.Effect<SignalResult, ServiceError>;
     /** `signal` with an input built from the record it is decided against. */
     readonly signalWith: (
       sessionId: SessionId,
-      input: (record: SessionRecord) => SessionInput
-    ) => Effect.Effect<CommitResult, ServiceError>;
+      input: (record: SessionRecord | undefined) => SessionInput
+    ) => Effect.Effect<SignalResult, ServiceError>;
     /** The Turn in flight fails and the session goes Failed. */
     readonly failSession: (
       sessionId: SessionId,

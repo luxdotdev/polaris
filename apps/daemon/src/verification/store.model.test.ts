@@ -14,7 +14,7 @@
  * `packages/spec/polaris.qnt`.
  */
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
+import { tempDirectory, removeTempDirectory } from "./tempDirectories.testing.ts";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -302,7 +302,8 @@ interface Subscriber {
 
 class World {
   runtime: ManagedRuntime.ManagedRuntime<EventStore, never> | null = null;
-  readonly filename = join(mkdtempSync(join(tmpdir(), "polaris-pbt-store-")), "state.sqlite");
+  readonly directory = tempDirectory(join(tmpdir(), "polaris-pbt-store-"));
+  readonly filename = join(this.directory, "state.sqlite");
 
   constructor(
     readonly capacity: number,
@@ -818,10 +819,10 @@ describe("EventStore, model-based", () => {
             }));
 
             const world = new World(capacity, subscribers);
-            await world.open();
             const model = newModel();
 
             try {
+              await world.open();
               await fc.asyncModelRun(() => ({ model, real: world }), commands);
 
               // Liveness: with every subscriber reading again, each catches up.
@@ -837,7 +838,11 @@ describe("EventStore, model-based", () => {
             } finally {
               for (const sub of subscribers) reached.drops += sub.drops;
 
-              if (world.runtime !== null) await world.crash();
+              try {
+                if (world.runtime !== null) await world.crash();
+              } finally {
+                removeTempDirectory(world.directory);
+              }
             }
           }
         ),

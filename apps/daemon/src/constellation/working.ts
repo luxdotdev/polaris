@@ -218,8 +218,24 @@ export const workingAttemptsLayer = <E>(hooks: WorkingAttemptHooks<E>) =>
           Effect.provideService(Scope.Scope, scope),
           Effect.catch((error) =>
             Effect.andThen(
-              hooks.failed(attempt, error),
-              close(attempt.id).pipe(Effect.forkIn(parent), Effect.asVoid)
+              Effect.flatMap(store.model, (model) =>
+                [...model.constellations.values()].some(
+                  (r) =>
+                    r.graph.state !== "completed" &&
+                    r.graph.state !== "archived" &&
+                    r.graph.attempts.findLast((a) => a.taskId === attempt.taskId)?.id ===
+                      attempt.id &&
+                    r.graph.attempts.some(
+                      (a) => a.id === attempt.id && (a.state === "working" || a.state === "blocked")
+                    )
+                )
+                  ? admission.retire
+                  : Effect.void
+              ),
+              Effect.andThen(
+                hooks.failed(attempt, error),
+                close(attempt.id).pipe(Effect.forkIn(parent), Effect.asVoid)
+              )
             )
           ),
           Effect.forkIn(scope)

@@ -178,6 +178,7 @@ interface ActiveTurn {
   readonly pending: Set<string>;
   interrupting: boolean;
   outcome: TurnOutcome;
+  resultArrived: boolean;
 }
 
 const openSession = Effect.fnUntraced(function* (
@@ -374,6 +375,7 @@ const openSession = Effect.fnUntraced(function* (
       pending: new Set(),
       interrupting: false,
       outcome: { status: "completed", error: null },
+      resultArrived: false,
     };
     translator.beginTurn(turnId);
     emit(
@@ -399,6 +401,7 @@ const openSession = Effect.fnUntraced(function* (
 
     if (uuids === null) turn.pending.clear();
     else for (const u of uuids) turn.pending.delete(u);
+    turn.resultArrived = true;
     turn.outcome = resultOutcome(result);
     emitAll(translator.onContextUsage(null, contextWindowOf(result)));
 
@@ -486,12 +489,9 @@ const openSession = Effect.fnUntraced(function* (
       attachments: input?.attachments ?? [],
       readFile: driver.readFile,
     }).pipe(
-      Effect.onError((cause) =>
+      Effect.onError(() =>
         Effect.sync(() => {
           turn?.pending.delete(uuid);
-
-          if (turn !== null && active === turn)
-            endTurn("failed", causeMessage(cause) ?? "Claude input preparation failed");
         })
       )
     );
@@ -557,6 +557,7 @@ const openSession = Effect.fnUntraced(function* (
       pending: new Set([uuid]),
       interrupting: false,
       outcome: { status: "completed", error: null },
+      resultArrived: false,
     };
 
     active = reserved;
@@ -589,7 +590,31 @@ const openSession = Effect.fnUntraced(function* (
     const turn = active;
 
     if (!turn || turn.interrupting) return yield* harnessError("No Turn is in progress to steer");
-    const { uuid, message } = yield* send(text, input, turn);
+
+    const { uuid, message } = yield* send(text, input, turn).pipe(
+      Effect.onError((cause) =>
+        Effect.sync(() => {
+          const id = crypto.randomUUID();
+          const reason = causeMessage(cause) ?? "Claude input preparation failed";
+          emit(
+            HarnessEvent.ItemCompleted({
+              turnId: turn.turnId,
+              item: TurnItem.cases.UserMessage.make({ id: `refused:${id}`, text }),
+            })
+          );
+          emit(
+            HarnessEvent.ItemCompleted({
+              turnId: turn.turnId,
+              item: TurnItem.cases.Error.make({ id: `refusal:${id}`, message: reason }),
+            })
+          );
+
+          if (active === turn && turn.resultArrived && turn.pending.size === 0)
+            endTurn("failed", reason);
+        })
+      )
+    );
+
     inbox.push(message);
     // Claude Code has taken it into the Turn's input: record it where it landed.
     emit(

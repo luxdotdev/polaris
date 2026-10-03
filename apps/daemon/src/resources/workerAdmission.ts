@@ -11,6 +11,12 @@ interface Admission {
   readonly leave: Effect.Effect<void>;
 }
 
+const closedAdmission: Admission = {
+  pin: Effect.void,
+  enter: Effect.succeed(false),
+  leave: Effect.void,
+};
+
 const admissions = new WeakMap<Store, Map<SessionId, Admission>>();
 
 const registrations = new WeakMap<Store, Map<SessionId, Deferred.Deferred<Admission>>>();
@@ -80,11 +86,7 @@ export const cancelWorkerAdmissionWait = (store: Store, sessionId: SessionId) =>
 
     if (registration === undefined) return;
     waiting?.delete(sessionId);
-    yield* Deferred.succeed(registration, {
-      pin: Effect.void,
-      enter: Effect.succeed(false),
-      leave: Effect.void,
-    });
+    yield* Deferred.succeed(registration, closedAdmission);
   });
 
 /** Foreground and background work retain capacity; only a quiescent blocked wait releases it. */
@@ -191,6 +193,16 @@ export const registerWorkerAdmission = <E>(
 
     const entries = registered;
 
+    // Keep failure visible to later inputs until a replacement controller registers.
+    const retire = gate.withPermit(
+      Effect.gen(function* () {
+        closed = true;
+
+        if (entries.get(sessionId) === admission) entries.set(sessionId, closedAdmission);
+        yield* release;
+      })
+    );
+
     yield* Scope.addFinalizer(
       parent,
       gate.withPermit(
@@ -239,7 +251,7 @@ export const registerWorkerAdmission = <E>(
         yield* suspend;
       });
 
-    return { ensure, suspend, observe };
+    return { ensure, suspend, observe, retire };
   });
 
 export const hasWorkerAdmission = (store: Store, sessionId: SessionId) =>

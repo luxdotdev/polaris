@@ -1,5 +1,5 @@
+import { tempDirectory } from "../verification/tempDirectories.testing.ts";
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -107,7 +107,7 @@ const seed = (store: EventStore["Service"]) =>
 
 describe("EventStore", () => {
   test("events, projections and receipt commit together and reload from disk", async () => {
-    const file = join(mkdtempSync(join(tmpdir(), "polaris-store-")), "state.sqlite");
+    const file = join(tempDirectory(join(tmpdir(), "polaris-store-")), "state.sqlite");
     await run(
       file,
       Effect.gen(function* () {
@@ -189,7 +189,7 @@ describe("EventStore", () => {
   });
 
   test("commits queued together are decided in order and settled one by one", async () => {
-    const file = join(mkdtempSync(join(tmpdir(), "polaris-store-")), "state.sqlite");
+    const file = join(tempDirectory(join(tmpdir(), "polaris-store-")), "state.sqlite");
     await run(
       file,
       Effect.gen(function* () {

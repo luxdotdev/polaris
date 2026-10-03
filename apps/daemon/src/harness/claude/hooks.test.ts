@@ -1,6 +1,7 @@
+import { tempDirectory } from "../../verification/tempDirectories.testing.ts";
 import { describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile, stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { RequestId, SessionId, TurnId, TurnItem } from "@polaris/protocol";
@@ -240,7 +241,7 @@ describe("ClaudeHookReceiver", () => {
   const withReceiver = async (
     body: (receiver: ClaudeHookReceiver["Service"], settingsDir: string) => Promise<void>
   ) => {
-    const settingsDir = join(await mkdtemp(join(tmpdir(), "polaris-hooks-")), "hooks");
+    const settingsDir = join(tempDirectory(join(tmpdir(), "polaris-hooks-")), "hooks");
     const scope = Effect.runSync(Scope.make());
 
     const receiver = await Effect.runPromise(

@@ -172,7 +172,18 @@ const start = Effect.fn("Constellation.startAttempt")(function* (
             return false;
           }
 
-          if (result !== false && Predicate.isTagged(result, "Committed")) {
+          if (result === false) {
+            const error = new ServiceError({
+              service: "Constellation",
+              message: "Worker startup is no longer eligible",
+            });
+
+            yield* recordStartupFailure(attempt, error);
+
+            return yield* error;
+          }
+
+          if (Predicate.isTagged(result, "Committed")) {
             const turn = startedTurn(result.envelopes.map((e) => e.event));
 
             if (turn !== undefined) {

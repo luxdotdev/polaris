@@ -360,3 +360,102 @@ test.each(["steerTurn", "sendTurn"])(
     }
   }
 );
+
+test.each(["steerTurn", "sendTurn"])(
+  "attachment failure through %s before the result refuses input and preserves the foreground Turn",
+  async (path) => {
+    const fake = new FakeClaude();
+    const scope = Effect.runSync(Scope.make());
+
+    const session = await Effect.runPromise(
+      makeClaudeDriver({
+        query: fake.query,
+        claudePath: () => "/opt/bin/claude",
+        readFile: async () => {
+          throw new Error("Attachment refused");
+        },
+      })
+        .open({
+          sessionId: SessionId.make("s1"),
+          cwd: "/work/repo",
+          permissionMode: "full-access",
+          model: null,
+          effort: null,
+          resumeCursor: null,
+        })
+        .pipe(Scope.provide(scope))
+    );
+
+    const events: HarnessEvent[] = [];
+    Effect.runFork(
+      Stream.runForEach(session.events, (event) => Effect.sync(() => events.push(event)))
+    );
+    const turnId = TurnId.make("still-running");
+
+    try {
+      await Effect.runPromise(
+        session.sendTurn({ turnId, prompt: "Original", model: null, effort: null, attachments: [] })
+      );
+      const original = await fake.nextInput(0);
+
+      const input = {
+        turnId,
+        prompt: "Rejected attachment",
+        model: null,
+        effort: null,
+        attachments: [
+          new Attachment({
+            id: AttachmentId.make("bad"),
+            name: "shot.png",
+            mimeType: "image/png",
+            size: 4,
+            hostPath: "/stage/shot.png",
+            width: null,
+            height: null,
+          }),
+        ],
+      };
+
+      const error = await Effect.runPromise(
+        (path === "steerTurn" ? session.steerTurn!(input) : session.sendTurn(input)).pipe(
+          Effect.flip
+        )
+      );
+
+      expect(error.message).toContain("Could not read");
+      await Bun.sleep(5);
+      expect(events.filter(HarnessEvent.$is("TurnEnded"))).toHaveLength(0);
+
+      const errors = events
+        .filter(HarnessEvent.$is("ItemCompleted"))
+        .flatMap((event) =>
+          TurnItem.guards.Error(event.item)
+            ? [{ turnId: event.turnId, message: event.item.message }]
+            : []
+        );
+
+      expect(errors).toEqual([{ turnId, message: "Could not read the attachment shot.png" }]);
+      expect(fake.inputs).toHaveLength(1);
+      expect(
+        await Effect.runPromise(
+          session.steerTurn!({
+            turnId,
+            prompt: "Accepted next",
+            attachments: [],
+            model: null,
+            effort: null,
+          })
+        )
+      ).toBe(true);
+      const next = await fake.nextInput(1);
+      fake.emit(result([original.uuid!, next.uuid!]));
+      await fake.waitProcessed();
+      await Bun.sleep(5);
+      expect(events.filter(HarnessEvent.$is("TurnEnded"))).toMatchObject([
+        { turnId, status: "completed" },
+      ]);
+    } finally {
+      await Effect.runPromise(Scope.close(scope, Exit.void));
+    }
+  }
+);

@@ -10,7 +10,7 @@ import {
 import { Effect, Predicate, Stream } from "effect";
 import { withWorkerAdmission } from "../../resources/workerAdmission.ts";
 import { decideSession } from "../../engine/session.ts";
-import { serialInput } from "./boundary.ts";
+import { serialInput, startupReceipted } from "./boundary.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import type { ReadModel, SessionRecord } from "../../store/model.ts";
 import { ConstellationSessionEffects, type DeliveryPacket } from "./inputs.ts";
@@ -124,30 +124,50 @@ export const waitForDeliveryReady = Effect.fn("Constellation.waitForDeliveryRead
   }
 });
 
+type ValidateDelivery = (
+  packet: DeliveryPacket,
+  model: ReadModel
+) => Effect.Effect<void, CommandRejected>;
+
 const rejectDelivery = (packet: DeliveryPacket, reason: string) =>
   new CommandRejected({ commandId: CommandId.make(packet.id), reason });
 
 const deliveryEvents = Effect.fnUntraced(function* (
+  store: EventStore["Service"],
   packet: DeliveryPacket,
   model: ReadModel,
+  validate: ValidateDelivery,
   canSteer: boolean,
-  validate: (packet: DeliveryPacket, model: ReadModel) => Effect.Effect<void, CommandRejected>
+  steerOnly: boolean
 ) {
   yield* validate(packet, model);
   const record = model.sessions.get(packet.sessionId);
 
   if (record === undefined || record.session.state === "archived")
-    return yield* rejectDelivery(packet, "Unavailable worker Session");
+    return yield* new CommandRejected({
+      commandId: CommandId.make(packet.id),
+      reason: "Unavailable worker Session",
+    });
 
   if (Predicate.isTagged(packet.input, "Turn") && packet.input.cause === "recover")
-    return yield* rejectDelivery(
-      packet,
-      "Remote recovery requires verified interrupted Turn facts"
-    );
+    return yield* new CommandRejected({
+      commandId: CommandId.make(packet.id),
+      reason: "Remote recovery requires verified interrupted Turn facts",
+    });
+
   const working = record.turns.some((t) => t.status === "working");
 
-  if (working && Predicate.isTagged(packet.input, "Turn") && packet.input.cause === "unblock")
-    return yield* rejectDelivery(packet, "Worker input is queued");
+  const unblock = Predicate.isTagged(packet.input, "Turn") && packet.input.cause === "unblock";
+
+  if (
+    (working && unblock) ||
+    (steerOnly && (!working || !canSteer || !(yield* startupReceipted(store, packet.attemptId))))
+  )
+    return yield* new CommandRejected({
+      commandId: CommandId.make(packet.id),
+      reason: "Worker input is queued",
+    });
+
   const turn = newTurn(record.session, packet.input.text, new Date().toISOString(), packet.id);
 
   const decision = decideSession(
@@ -156,24 +176,29 @@ const deliveryEvents = Effect.fnUntraced(function* (
   );
 
   if (decision.rejection !== null || (!working && !takesDelivery(record, turn)))
-    return yield* rejectDelivery(packet, "Worker input is queued");
+    return yield* new CommandRejected({
+      commandId: CommandId.make(packet.id),
+      reason: "Worker input is queued",
+    });
 
   return decision.events;
 });
 
+/** Decide against committed Turn facts; a failed fast path cannot start a new Turn. */
 const commitDelivery = Effect.fnUntraced(function* (
   packet: DeliveryPacket,
-  canSteer: boolean,
-  validate: (packet: DeliveryPacket, model: ReadModel) => Effect.Effect<void, CommandRejected>
+  validate: ValidateDelivery,
+  steerOnly: boolean = false
 ) {
   const store = yield* EventStore;
   const effects = yield* ConstellationSessionEffects;
+  const canSteer = yield* effects.canSteer(packet.sessionId);
 
   const result = yield* store
     .commit({
       recordRejection: false,
       commandId: CommandId.make(packet.id),
-      decide: (model) => deliveryEvents(packet, model, canSteer, validate),
+      decide: (model) => deliveryEvents(store, packet, model, validate, canSteer, steerOnly),
     })
     .pipe(
       Effect.catchTag("CommandRejected", (error) =>
@@ -192,15 +217,12 @@ const commitDelivery = Effect.fnUntraced(function* (
   return true;
 });
 
-/** Receipt retries bypass admission; new input pins a slot before taking the Session gate. */
+/** Receipt lookup precedes validation, including retries after an Attempt ends. */
 const applyDelivery = Effect.fn("Constellation.applyWorkerDelivery")(function* (
   packet: DeliveryPacket,
-  validate: (packet: DeliveryPacket, model: ReadModel) => Effect.Effect<void, CommandRejected>
+  validate: ValidateDelivery
 ) {
   const store = yield* EventStore;
-  const effects = yield* ConstellationSessionEffects;
-  const canSteer = yield* effects.canSteer(packet.sessionId);
-  const unblock = Predicate.isTagged(packet.input, "Turn") && packet.input.cause === "unblock";
 
   while (true) {
     const done = yield* Effect.scoped(
@@ -211,14 +233,13 @@ const applyDelivery = Effect.fn("Constellation.applyWorkerDelivery")(function* (
           return true;
         yield* validate(packet, yield* store.model);
 
+        if (yield* Effect.uninterruptible(commitDelivery(packet, validate, true))) return true;
+
         const result = yield* withWorkerAdmission(
           store,
           packet.sessionId,
-          serialInput(
-            packet.sessionId,
-            Effect.uninterruptible(commitDelivery(packet, canSteer, validate))
-          ),
-          unblock
+          serialInput(packet.sessionId, Effect.uninterruptible(commitDelivery(packet, validate))),
+          Predicate.isTagged(packet.input, "Turn") && packet.input.cause === "unblock"
         );
 
         if (result === undefined)

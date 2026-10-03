@@ -189,12 +189,17 @@ export const remoteWorkingAttemptsLayer = <E, R>(hooks: RemoteWorkingHooks<E, R>
           yield* admission.suspend;
         }).pipe(
           Effect.catch((error) =>
-            hooks
-              .failed(attempt, error)
-              .pipe(
-                Effect.provide(context),
-                Effect.andThen(stop(attempt.id).pipe(Effect.forkIn(parent), Effect.asVoid))
-              )
+            Effect.flatMap(currentAssignment, (current) =>
+              current !== undefined &&
+              current.graph.state !== "completed" &&
+              current.graph.state !== "archived" &&
+              retainsAssignment(assignmentAttempt(current))
+                ? admission.retire
+                : Effect.void
+            ).pipe(
+              Effect.andThen(hooks.failed(attempt, error).pipe(Effect.provide(context))),
+              Effect.andThen(stop(attempt.id).pipe(Effect.forkIn(parent), Effect.asVoid))
+            )
           ),
           Scope.provide(scope),
           Effect.forkIn(scope)

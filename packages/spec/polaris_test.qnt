@@ -67,6 +67,27 @@ module polaris_test {
       .then(commitBatch).then(publishBatch)
       .expect(viewOf(log, "s1").state == "archived" and viewOf(log, "s1").turns == 1 and safety)
 
+  run deferredInputRefusalAfterFailureTest =
+    turnRunning
+      .then(harnessReports("s1", HTurnFailed))
+      .then(commitBatch).then(publishBatch)
+      .then(harnessReports("s1", HInputRefused))
+      .then(commitBatch).then(publishBatch)
+      .then(harnessReports("s1", HInputRefused))
+      .then(commitBatch).then(publishBatch)
+      .expect(viewOf(log, "s1").state == "failed" and viewOf(log, "s1").turns == 1 and safety)
+
+  run steerRefusalKeepsWorkingTurnTest =
+    turnRunning
+      .then(harnessReports("s1", HInputRefused))
+      .then(commitBatch).then(publishBatch)
+      .then(harnessReports("s1", HInputRefused))
+      .then(commitBatch).then(publishBatch)
+      .expect(viewOf(log, "s1").state == "working" and viewOf(log, "s1").turns == 1 and safety)
+      .then(harnessReports("s1", HTurnEnded))
+      .then(commitBatch).then(publishBatch)
+      .expect(viewOf(log, "s1").state == "idle" and safety)
+
   /** …that asked for approval r1: seq 3 ApprovalRequested, seq 4 Needs You. */
   action waitingOnApproval =
     turnRunning

@@ -2,7 +2,7 @@ import { NotificationItem, type ConstellationId, type TurnId } from "@polaris/pr
 import { Effect, Predicate } from "effect";
 import { withWorkerAdmission } from "../../resources/workerAdmission.ts";
 import { decideSession } from "../../engine/session.ts";
-import { serialInput } from "./boundary.ts";
+import { serialInput, startupReceipted } from "./boundary.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { GraphDecision } from "../decision.ts";
 import { decideConstellationJournal } from "../journal.ts";
@@ -16,7 +16,8 @@ import { unblocksAttempt } from "../blocked.ts";
 
 const deliverInput = Effect.fn("Constellation.deliverLocalInput")(function* (
   id: ConstellationId,
-  input: PendingInput
+  input: PendingInput,
+  steerOnly = false
 ) {
   const store = yield* EventStore;
   const effects = yield* ConstellationSessionEffects;
@@ -25,75 +26,89 @@ const deliverInput = Effect.fn("Constellation.deliverLocalInput")(function* (
 
   const result = yield* store.commit({
     commandId: null,
-    decide: (model) => {
-      const graph = model.constellations.get(id);
-      const record = model.sessions.get(input.sessionId);
+    decide: (model) =>
+      Effect.gen(function* () {
+        const graph = model.constellations.get(id);
+        const record = model.sessions.get(input.sessionId);
 
-      if (
-        graph === undefined ||
-        record === undefined ||
-        graph.graph.hostId !== owner ||
-        graph.graph.state === "archived" ||
-        !pendingInputs(graph).some((i) => i.id === input.id && i.sessionId === input.sessionId) ||
-        (graph.graph.leadSessionId === input.sessionId &&
-          (graph.graph.state === "paused" || graph.handoverRequest !== null))
-      )
-        return Effect.succeed([]);
+        if (
+          graph === undefined ||
+          record === undefined ||
+          graph.graph.hostId !== owner ||
+          graph.graph.state === "archived" ||
+          !pendingInputs(graph).some((i) => i.id === input.id && i.sessionId === input.sessionId) ||
+          (graph.graph.leadSessionId === input.sessionId &&
+            (graph.graph.state === "paused" || graph.handoverRequest !== null))
+        )
+          return [];
 
-      const blocked = graph.graph.attempts.findLast(
-        (a) => a.sessionId === input.sessionId && a.state === "blocked"
-      );
+        const blocked = graph.graph.attempts.findLast(
+          (a) => a.sessionId === input.sessionId && a.state === "blocked"
+        );
 
-      if (
-        blocked !== undefined &&
-        (record.turns.some((t) => t.status === "working") ||
-          !unblocksAttempt(graph, blocked, input.id))
-      )
-        return Effect.succeed([]);
-      const turn = newTurn(record.session, input.text, new Date().toISOString());
-      const working = record.turns.some((t) => t.status === "working");
+        if (
+          blocked !== undefined &&
+          (record.turns.some((t) => t.status === "working") ||
+            !unblocksAttempt(graph, blocked, input.id))
+        )
+          return [];
+        const turn = newTurn(record.session, input.text, new Date().toISOString());
+        const working = record.turns.some((t) => t.status === "working");
 
-      const proof = blocked === undefined ? undefined : graph.interruptions.get(blocked.id);
+        if (steerOnly) {
+          const attempt = graph.graph.attempts.findLast((a) => a.sessionId === input.sessionId);
 
-      const recoveredBlock =
-        blocked !== undefined &&
-        proof?.eligible === true &&
-        record.pending.size === 0 &&
-        record.session.state === "needs-you" &&
-        record.turns.at(-1)?.id === proof.turnId &&
-        record.turns.at(-1)?.endedAt === proof.at;
+          if (
+            !working ||
+            !canSteer ||
+            (attempt !== undefined && !(yield* startupReceipted(store, attempt.id)))
+          )
+            return [];
+        }
 
-      if (!working && !takesDelivery(record, turn) && !recoveredBlock) return Effect.succeed([]);
+        const proof = blocked === undefined ? undefined : graph.interruptions.get(blocked.id);
 
-      const session = decideSession(
-        record,
-        working ? { type: "turn.steer", canSteer } : { type: "turn.send", turn }
-      );
+        const recoveredBlock =
+          blocked !== undefined &&
+          proof?.eligible === true &&
+          record.pending.size === 0 &&
+          record.session.state === "needs-you" &&
+          record.turns.at(-1)?.id === proof.turnId &&
+          record.turns.at(-1)?.endedAt === proof.at;
 
-      if (session.rejection !== null) return Effect.succeed([]);
+        if (!working && !takesDelivery(record, turn) && !recoveredBlock) return [];
 
-      const decision = decideConstellationJournal(
-        graph,
-        {
-          type: "inputDelivered",
-          id: input.id,
-          sessionId: input.sessionId,
-          turnEvents: session.events,
-        },
-        journalContext(graph, turn.startedAt)
-      );
+        const session = decideSession(
+          record,
+          working ? { type: "turn.steer", canSteer } : { type: "turn.send", turn }
+        );
 
-      return decision.rejection === null
-        ? Effect.succeed(decision.events)
-        : Effect.fail(decision.rejection);
-    },
+        if (session.rejection !== null) return [];
+
+        const decision = decideConstellationJournal(
+          graph,
+          {
+            type: "inputDelivered",
+            id: input.id,
+            sessionId: input.sessionId,
+            turnEvents: session.events,
+          },
+          journalContext(graph, turn.startedAt)
+        );
+
+        return yield* decision.rejection === null
+          ? Effect.succeed(decision.events)
+          : Effect.fail(decision.rejection);
+      }),
   });
 
-  if (!Predicate.isTagged(result, "Committed") || result.envelopes.length === 0) return;
+  if (!Predicate.isTagged(result, "Committed") || result.envelopes.length === 0) return false;
   const turn = startedTurn(result.envelopes.map((e) => e.event));
 
   if (turn === undefined) yield* effects.steer(input.sessionId, input.text);
   else yield* effects.runTurn(turn, input.text);
+
+  return true;
 });
 
 const digest = Effect.fn("Constellation.deliverDigest")(function* (id: ConstellationId) {
@@ -232,11 +247,34 @@ const nudge = Effect.fn("Constellation.nudgeSilentWorker")(function* (
 export const deliverLocalInput = (id: ConstellationId, input: PendingInput) =>
   Effect.gen(function* () {
     const store = yield* EventStore;
-    yield* withWorkerAdmission(
+    const effects = yield* ConstellationSessionEffects;
+    const canSteer = yield* effects.canSteer(input.sessionId);
+    const model = yield* store.model;
+    const graph = model.constellations.get(id)?.graph;
+    const attempt = graph?.attempts.findLast((a) => a.sessionId === input.sessionId);
+    const record = model.sessions.get(input.sessionId);
+    const working = record?.turns.find((t) => t.status === "working");
+    // Skip the old Turn's receipt/commit round trip so pre-brief inputs retain FIFO.
+
+    const afterStartup =
+      attempt === undefined ||
+      record?.turns.some((t) => t.id === `${attempt.id}:start`) === true ||
+      (working !== undefined && working.startedAt > attempt.startedAt);
+
+    if (canSteer && working !== undefined && afterStartup && (yield* deliverInput(id, input, true)))
+      return;
+
+    const delivered = yield* withWorkerAdmission(
       store,
       input.sessionId,
       serialInput(input.sessionId, deliverInput(id, input))
     );
+
+    if (delivered === undefined)
+      yield* Effect.logError("Local Constellation input remains queued: worker admission closed", {
+        sessionId: input.sessionId,
+        inputId: input.id,
+      });
   });
 
 export const deliverDigest = (id: ConstellationId) =>
