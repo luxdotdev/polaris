@@ -11,6 +11,7 @@ import type { AttemptData, ConstellationData, ProjectionData, TaskData } from ".
 
 export type TaskGlyphKind =
   | "working"
+  | "blocked"
   | "review"
   | "review-unfetched"
   | "needs-you"
@@ -34,7 +35,15 @@ export type Attention =
   | { readonly kind: "setup"; readonly run: SetupRun };
 
 /** The buckets groups count and filters use. */
-export type Bucket = "needs-you" | "review" | "working" | "done" | "waiting" | "future" | "ended";
+export type Bucket =
+  | "needs-you"
+  | "review"
+  | "working"
+  | "blocked"
+  | "done"
+  | "waiting"
+  | "future"
+  | "ended";
 
 export interface TaskLook {
   readonly glyph: TaskGlyphKind;
@@ -65,6 +74,8 @@ export const glyphFor = (
   if (state === "done") return "accepted";
 
   if (state === "working") return "working";
+
+  if (state === "blocked") return "blocked";
 
   if (state === "review") return projection.branchFetched ? "review" : "review-unfetched";
 
@@ -144,7 +155,7 @@ const BUCKET: Readonly<Record<TaskState, Bucket>> = {
   waiting: "waiting",
   ready: "waiting",
   working: "working",
-  blocked: "waiting",
+  blocked: "blocked",
   review: "review",
   done: "done",
   canceled: "ended",
@@ -162,7 +173,8 @@ const wordFor = (task: TaskData, p: ProjectionData, attempt: AttemptData | null,
   return STATE_WORD[p.state];
 };
 
-const toneOf = (state: TaskState): Tone => {
+/** A state's tone, for the id and word (and a blocked row's "blocked by" ids). */
+export const toneOf = (state: TaskState): Tone => {
   if (state === "done") return "accepted";
 
   if (state === "failed") return "failed";

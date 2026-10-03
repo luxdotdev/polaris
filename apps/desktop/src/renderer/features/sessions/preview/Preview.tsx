@@ -1,7 +1,7 @@
 /**
  * The shell's Constellation parts on fixtures (C1-U2), for screenshots against Paper C1–C5:
  * `#constellations/<scene>` renders the real shell on a stand-in store. Scenes: `sidebar`
- * (C1, the Lead selected), `focus` (C3, B1 focused), `needs-you` (C5), `review` (C4, B1's claim), and
+ * (C1, the Lead selected), `sidebar-tree` (C1's F tree in view), `focus` (C3, B1 focused), `needs-you` (C5), `review` (C4, B1's claim), and
  * Settings' `defaults`, `hosts` (open a host row) and `usage` (By Constellation).
  */
 import { createRoot } from "react-dom/client";

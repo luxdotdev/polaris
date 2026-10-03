@@ -34,6 +34,8 @@ const enter = (row: RailRow | undefined): KeyAction | null => {
       return { kind: "focus", row };
     case "group":
       return { kind: "toggle", group: row.group, open: !row.open };
+    case "parent":
+      return { kind: "toggle", group: row.fold, open: !row.open };
     case "waiting":
       return { kind: "toggle", group: row.group, open: true };
     case "handover":
@@ -45,21 +47,38 @@ const enter = (row: RailRow | undefined): KeyAction | null => {
   }
 };
 
-/** ← folds an open group, or from a nested row selects its group. */
+const depthOf = (row: RailRow | undefined) =>
+  row?.kind === "task" || row?.kind === "parent" ? row.tree.depth : 0;
+
+/** ← folds an open group or parent, or from a nested row selects the one it sits in. */
 const left = (rows: ReadonlyArray<RailRow>, at: number): KeyAction | null => {
   const row = rows[at];
 
   if (row?.kind === "group" && row.open) return { kind: "toggle", group: row.group, open: false };
 
-  if (row?.kind !== "task" || !row.nested) return null;
+  if (row?.kind === "parent" && row.open) return { kind: "toggle", group: row.fold, open: false };
+
+  const depth = depthOf(row);
+
+  if ((row?.kind !== "task" && row?.kind !== "parent") || depth === 0) return null;
 
   for (let i = at - 1; i >= 0; i--) {
     const above = rows[i];
 
-    if (above?.kind === "group") return { kind: "select", key: above.key };
+    if (above?.kind === "group" || (above?.kind === "parent" && above.tree.depth < depth))
+      return { kind: "select", key: above.key };
   }
 
   return null;
+};
+
+/** → opens a folded group or parent. */
+const right = (row: RailRow | undefined): KeyAction | null => {
+  if (row?.kind === "group" && !row.open) return { kind: "toggle", group: row.group, open: true };
+
+  return row?.kind === "parent" && !row.open
+    ? { kind: "toggle", group: row.fold, open: true }
+    : null;
 };
 
 const reviewable = (row: RailRow | undefined): row is TaskRow =>
@@ -83,9 +102,7 @@ export const railKey = (
     case "ArrowLeft":
       return left(rows, at);
     case "ArrowRight":
-      return row?.kind === "group" && !row.open
-        ? { kind: "toggle", group: row.group, open: true }
-        : null;
+      return right(row);
     case "Tab":
       return { kind: "next-needs-you" };
     case "a":

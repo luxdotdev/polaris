@@ -11,6 +11,7 @@ export const STRIP_SEGMENTS_MAX = 40;
 export type StripTone =
   | "accepted"
   | "working"
+  | "blocked"
   | "review"
   | "needs-you"
   | "failed"
@@ -25,6 +26,8 @@ export interface Segment {
 
 const toneOf = (row: TaskRow): StripTone => {
   if (row.look.attention !== null) return "needs-you";
+
+  if (row.look.bucket === "blocked") return "blocked";
 
   if (row.look.glyph === "waiting") return "waiting";
 
@@ -61,6 +64,7 @@ const ORDER: ReadonlyArray<StripTone> = [
   "needs-you",
   "review",
   "working",
+  "blocked",
   "accepted",
   "failed",
   "waiting",
@@ -88,6 +92,7 @@ export const tallyBar = (tally: Tally, total: number): ReadonlyArray<BarPart> =>
     ["needs-you", tally["needs-you"]],
     ["review", tally.review],
     ["working", tally.working],
+    ["blocked", tally.blocked],
     ["accepted", tally.done],
   ];
 

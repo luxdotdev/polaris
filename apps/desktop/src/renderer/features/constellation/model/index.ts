@@ -32,6 +32,7 @@ export {
 export {
   glyphFor,
   taskLook,
+  toneOf,
   type Attention,
   type Bucket,
   type TaskGlyphKind,
@@ -42,16 +43,19 @@ export {
 export {
   buildRail,
   DEFAULT_RAIL,
+  foldsAbove,
   LARGE,
+  parentFold,
   tallyOf,
   type Filter,
+  type ParentRow,
   type Rail,
   type RailOptions,
   type RailRow,
   type Tally,
 } from "./rail.ts";
 
-export type { Line, Liveness, TaskRow } from "./task.ts";
+export { TRUNK, type Line, type Liveness, type TaskRow, type TreeLane } from "./task.ts";
 
 export {
   claimGlance,
@@ -75,7 +79,7 @@ export {
 
 export { areaOverlaps, globsOverlap, type Overlap } from "./areas.ts";
 
-export { LANE_MAX, LANE_MIN, laneWidth } from "./lane.ts";
+export { LANE_MAX, LANE_MIN, laneWidth, RAIL, railCap, railStep, railX } from "./lane.ts";
 
 export { stoppedWithoutClaiming } from "./stopped.ts";
 

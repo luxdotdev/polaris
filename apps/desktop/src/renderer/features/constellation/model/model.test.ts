@@ -508,18 +508,21 @@ describe("rail", () => {
     expect(rowFor(rows, "B2")?.promoted).toBe(false);
   });
 
-  test("C8: 128 Tasks fold, the group that needs you opens, waiting folds to one line", () => {
+  test("C8: 128 Tasks fold, groups that need you or hold a block open, waiting folds", () => {
     const record = largeRecord();
 
-    expect(record.constellation.tasks.length).toBe(128);
+    expect(record.constellation.tasks.length).toBe(134);
     expect(record.constellation.tasks.length).toBeGreaterThanOrEqual(LARGE);
     const rail = buildRail(record, plainFacts());
     const open = rail.rows.filter((r) => r.kind === "group" && r.open);
 
     expect(rail.large).toBe(true);
-    expect(open.map((r) => (r.kind === "group" ? r.group : ""))).toEqual(["C · Tool surface"]);
+    expect(open.map((r) => (r.kind === "group" ? r.group : ""))).toEqual([
+      "C · Tool surface",
+      "I · Updater",
+    ]);
     expect(rail.rows.find((r) => r.kind === "waiting")).toMatchObject({ ids: "C7–C12", count: 6 });
-    expect(rail.counts).toMatchObject({ all: 128, "needs-you": 1, review: 6, done: 71 });
+    expect(rail.counts).toMatchObject({ all: 132, "needs-you": 1, review: 6, done: 72 });
     expect(tasksOf(rail.rows).every((r) => r.line === null)).toBe(true);
   });
 

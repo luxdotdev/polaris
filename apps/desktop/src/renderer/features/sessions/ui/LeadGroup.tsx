@@ -19,11 +19,12 @@ import {
   type LeadGroup as Group,
   type LeadWorker,
   leadLine,
+  type SectionItem,
   type WorkerRow,
   type WorkerSection,
   workerSections,
 } from "../model/leadGroups.ts";
-import { setupHover, shownWorker, TONE_CLASS } from "../model/workerCopy.ts";
+import { blockedHover, setupHover, shownWorker, TONE_CLASS } from "../model/workerCopy.ts";
 import { useConstellationActions, useFocusedTask } from "../source.ts";
 
 interface GroupProps {
@@ -175,7 +176,9 @@ const AttemptMeta = ({
   readonly now: number;
 }) =>
   row.slotSince === null ? (
-    <span className={tone}>{word ?? age(row.attempt.startedAt, now)}</span>
+    <span className={tone} title={row.state === "blocked" ? blockedHover(row.attempt) : undefined}>
+      {word ?? age(row.attempt.startedAt, now)}
+    </span>
   ) : (
     <span
       className={tone}
@@ -210,6 +213,46 @@ const SectionHeading = ({ section }: { readonly section: WorkerSection }) => (
     {section.needsYou === 0 ? null : (
       <span className="text-needs-you-text tabular shrink-0">{section.needsYou} needs you</span>
     )}
+  </div>
+);
+
+/** A step in from the hairline per depth, compactly. */
+const indent = (depth: number) => (depth === 0 ? undefined : { marginLeft: `${depth * 0.75}rem` });
+
+/**
+ * A parent Task's heading, nesting its workers as the tab does: its id (alone when ids are
+ * slugs) and title, then what needs you or is blocked under it on the meta lane.
+ */
+const ParentHeading = ({
+  item,
+  idOnly,
+}: {
+  readonly item: Extract<SectionItem, { kind: "parent" }>;
+  readonly idOnly: boolean;
+}) => (
+  <div
+    data-testid="worker-parent"
+    data-parent={item.parent.id}
+    className="h-tree-row gap-gap px-row-x text-caption text-text-faint flex items-center"
+    style={indent(item.depth)}
+    title={`${item.parent.id} · ${item.parent.title}`}
+  >
+    <span aria-hidden className="w-4 shrink-0" />
+    <span className="flex min-w-0 flex-1 items-baseline gap-2">
+      {idOnly ? (
+        <span className="text-code-inline truncate font-mono">{item.parent.id}</span>
+      ) : (
+        <>
+          <IdLane id={item.parent.id} max={LANE_MAX.sidebar} />
+          <span className="truncate">{item.parent.title}</span>
+        </>
+      )}
+    </span>
+    {item.needsYou > 0 ? (
+      <span className="text-needs-you-text tabular shrink-0">{item.needsYou} needs you</span>
+    ) : item.blocked > 0 ? (
+      <span className="tabular shrink-0">{item.blocked} blocked</span>
+    ) : null}
   </div>
 );
 
@@ -258,7 +301,12 @@ export const LeadGroup = ({ hostKey, group, now }: GroupProps) => {
   };
 
   const sections = workerSections(showDone ? [...group.workers, ...group.done] : group.workers);
-  const ids = [...group.workers, ...group.done].map((r) => r.taskId);
+
+  const ids = [...group.workers, ...group.done].flatMap((r) => [
+    r.taskId,
+    ...r.parents.map((p) => p.id),
+  ]);
+
   const idOnly = idsOnly(group);
 
   return (
@@ -312,16 +360,21 @@ export const LeadGroup = ({ hostKey, group, now }: GroupProps) => {
               aria-label={section.label ?? undefined}
             >
               {section.label === null ? null : <SectionHeading section={section} />}
-              {section.rows.map((row) => (
-                <Worker
-                  key={row.taskId}
-                  hostKey={hostKey}
-                  group={group}
-                  row={row}
-                  idOnly={idOnly}
-                  now={now}
-                />
-              ))}
+              {section.items.map((item) =>
+                item.kind === "parent" ? (
+                  <ParentHeading key={item.key} item={item} idOnly={idOnly} />
+                ) : (
+                  <div key={item.key} style={indent(item.depth)}>
+                    <Worker
+                      hostKey={hostKey}
+                      group={group}
+                      row={item.row}
+                      idOnly={idOnly}
+                      now={now}
+                    />
+                  </div>
+                )
+              )}
             </div>
           ))}
           {group.done.length > 0 && !showDone ? (

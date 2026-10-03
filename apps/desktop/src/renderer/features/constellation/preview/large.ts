@@ -1,4 +1,4 @@
-/** C8: 128 Tasks in nine groups, for the large layout and the frame budget. */
+/** C8: 128 Tasks in nine groups and a parent tree, for the large layout and the frame budget. */
 import {
   AttemptId,
   ConstellationNotification,
@@ -9,6 +9,41 @@ import {
 import { startedRecord } from "../model/fold.ts";
 import type { ConstellationRecord } from "../model/index.ts";
 import { attempt, b1Claim, constellationOf, task } from "./graph.ts";
+
+const UPDATER = "I · Updater";
+
+/** A parent U two levels deep in its own group: U2 blocked by U1b, U3 on the Lead. */
+const treeTasks = [
+  task({ id: "U", title: "Update feed and updater", group: UPDATER }),
+  task({ id: "U1", title: "Signed update feed", group: UPDATER, parent: "U" }),
+  task({ id: "U1a", title: "Feed schema", group: UPDATER, parent: "U1" }),
+  task({ id: "U1b", title: "Sign and serve the feed", group: UPDATER, parent: "U1" }),
+  task({ id: "U2", title: "Updater polls the feed", group: UPDATER, parent: "U", ui: true }),
+  task({ id: "U3", title: "Release notes in the updater", group: UPDATER, parent: "U", ui: true }),
+];
+
+const treeAttempts = [
+  attempt({
+    taskId: "U1a",
+    state: "accepted",
+    minutes: 90,
+    mergedHead: "ab12cd3",
+    evidence: "verified",
+  }),
+  attempt({ taskId: "U1b", state: "working", minutes: 21 }),
+  attempt({
+    taskId: "U2",
+    state: "blocked",
+    minutes: 18,
+    blocked: { on: ["U1b"], reason: "Needs the signed feed URL to poll" },
+  }),
+  attempt({
+    taskId: "U3",
+    state: "blocked",
+    minutes: 12,
+    blocked: { on: [], reason: "Markdown or the site's MDX for the notes?" },
+  }),
+];
 
 type Mix = Readonly<{
   done?: number;
@@ -96,7 +131,7 @@ export const largeRecord = (): ConstellationRecord => {
     statesOf(mix).map((state, index) => ({ letter, group, state, n: index + 1 }))
   );
 
-  const tasks = cells.map(({ letter, group, state, n }) =>
+  const grid = cells.map(({ letter, group, state, n }) =>
     task({
       id: `${letter}${n}`,
       title: titleOf(letter, n),
@@ -107,11 +142,16 @@ export const largeRecord = (): ConstellationRecord => {
     })
   );
 
-  const attempts = cells.flatMap(({ letter, state, n }) => {
-    const a = attemptFor(`${letter}${n}`, state, n);
+  const tasks = [...grid, ...treeTasks];
 
-    return a === null ? [] : [a];
-  });
+  const attempts = [
+    ...cells.flatMap(({ letter, state, n }) => {
+      const a = attemptFor(`${letter}${n}`, state, n);
+
+      return a === null ? [] : [a];
+    }),
+    ...treeAttempts,
+  ];
 
   const notifications = cells.flatMap(({ letter, state, n }) =>
     state === "ask" ? [askFor(`${letter}${n}`)] : []

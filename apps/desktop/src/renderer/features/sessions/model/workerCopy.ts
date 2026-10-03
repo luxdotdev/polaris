@@ -13,7 +13,7 @@ interface Shown {
 }
 
 const SHOWN: Readonly<Record<WorkerState, Shown>> = {
-  blocked: { glyph: "waiting", word: "blocked", tone: "subtle" },
+  blocked: { glyph: "blocked", word: "blocked", tone: "subtle" },
   "needs-you": { glyph: "needs-you", word: "needs you", tone: "needs-you" },
   unclaimed: { glyph: "needs-you", word: "stopped", tone: "needs-you" },
   stale: { glyph: "needs-you", word: "stale", tone: "needs-you" },
@@ -51,3 +51,17 @@ export const TONE_CLASS: Readonly<Record<WorkerTone, string>> = {
   failed: "text-failed-text",
   subtle: "text-text-subtle",
 };
+
+/** A blocked worker's hover: "blocked by F1b · reason", or "waiting on the lead · reason". */
+export const blockedHover = (attempt: {
+  readonly blockedOn: ReadonlyArray<string>;
+  readonly blockedReason?: string | null;
+}) =>
+  [
+    attempt.blockedOn.length === 0
+      ? "waiting on the lead"
+      : `blocked by ${attempt.blockedOn.join(", ")}`,
+    attempt.blockedReason ?? null,
+  ]
+    .filter((part) => part !== null && part !== "")
+    .join(" · ");

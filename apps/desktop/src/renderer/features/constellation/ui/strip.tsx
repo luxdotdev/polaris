@@ -15,6 +15,8 @@ const FILL: Readonly<Record<Exclude<StripTone, "working">, string>> = {
   "needs-you": "var(--color-needs-you)",
   failed: "var(--color-failed)",
   waiting: "color-mix(in oklab, var(--color-text-faint) 45%, transparent)",
+  blocked:
+    "repeating-linear-gradient(135deg, var(--color-text-subtle) 0 1.5px, transparent 1.5px 3px)",
   future: "transparent",
 };
 

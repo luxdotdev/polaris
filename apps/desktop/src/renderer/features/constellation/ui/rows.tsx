@@ -3,12 +3,13 @@
  * `--id-lane`), title, actor and state, plus at most two caption lines that carry state.
  */
 import { Button, ChevronDownIcon, ChevronRightIcon, cn } from "@polaris/ui";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import {
   type ClaimGlance,
   clock,
   type Line,
   type Liveness,
+  type ParentRow,
   pluralize,
   type RailRow,
   setupExit,
@@ -18,9 +19,11 @@ import {
   type TaskRow,
   type Tone,
   LANE_MAX,
+  TRUNK,
 } from "../model/index.ts";
 import { InputDot, TaskGlyph } from "./glyphs.tsx";
 import { IdLane, LaneSpacer } from "./lane.tsx";
+import { overflowIndent, Rail } from "./rail.tsx";
 import { Checks, StripBar } from "./strip.tsx";
 
 export const TONE: Readonly<Record<Tone, string>> = {
@@ -31,43 +34,7 @@ export const TONE: Readonly<Record<Tone, string>> = {
   faint: "text-text-faint",
 };
 
-const ID_TONE: Readonly<Record<Tone, string>> = { ...TONE, neutral: "text-text-subtle" };
-
-/** The rail column: the trunk, for a nested row the elbow to its glyph, and a group's chevron. */
-const Rail = ({
-  nested,
-  accepted,
-  trail,
-  children,
-}: {
-  readonly nested: boolean;
-  readonly accepted?: boolean;
-  readonly trail?: ReactNode;
-  readonly children: ReactNode;
-}) => (
-  <span className="relative w-[60px] shrink-0 self-stretch" aria-hidden={false}>
-    <span className="bg-text-strong/14 absolute top-0 bottom-0 left-[8px] w-px" />
-    {nested ? (
-      <span
-        className={cn(
-          "absolute top-0 left-[8px] h-[14px] w-[10px] rounded-bl-[6px] border-b border-l",
-          accepted ? "border-accepted/40" : "border-text-strong/14"
-        )}
-      />
-    ) : null}
-    <span
-      className={cn(
-        "bg-bg absolute top-[6px] grid size-4 place-items-center rounded-full",
-        nested ? "left-[18px]" : "left-[1px]"
-      )}
-    >
-      {children}
-    </span>
-    {trail === undefined ? null : (
-      <span className="absolute top-[6px] right-1 grid size-4 place-items-center">{trail}</span>
-    )}
-  </span>
-);
+export const ID_TONE: Readonly<Record<Tone, string>> = { ...TONE, neutral: "text-text-subtle" };
 
 const Caption = ({ children, className }: { children: ReactNode; className?: string }) => (
   <p
@@ -132,8 +99,32 @@ const SetupLine = ({ line }: { readonly line: SetupLineData }) => (
   </Caption>
 );
 
+/** "blocked by F1b" with each id in its state's tone, or "waiting on the lead"; the reason. */
+const BlockedLine = ({ line }: { readonly line: Extract<Line, { kind: "blocked" }> }) => (
+  <Caption>
+    {line.on.length === 0 ? (
+      <span className="shrink-0">waiting on the lead</span>
+    ) : (
+      <span className="shrink-0">
+        blocked by{" "}
+        {line.on.map((target, n) => (
+          <Fragment key={target.id}>
+            {n === 0 ? null : ", "}
+            <span className={cn("text-code-inline font-mono", ID_TONE[target.tone])}>
+              {target.id}
+            </span>
+          </Fragment>
+        ))}
+      </span>
+    )}
+    {line.reason === null ? null : <span className="text-text-faint truncate">{line.reason}</span>}
+  </Caption>
+);
+
 const LineView = ({ line }: { readonly line: Line }) => {
   switch (line.kind) {
+    case "blocked":
+      return <BlockedLine line={line} />;
     case "setup":
       return <SetupLine line={line} />;
     case "liveness":
@@ -160,6 +151,7 @@ const LineView = ({ line }: { readonly line: Line }) => {
 };
 
 export interface RowHandlers {
+  /** Folds or opens a group (by name) or a parent (by its `fold` key). */
   readonly onToggleGroup: (group: string) => void;
   readonly onFocus: (row: TaskRow) => void;
   readonly onReview: (row: TaskRow, mode: "accept" | "send-back") => void;
@@ -185,12 +177,31 @@ const TaskTitle = ({ row }: { readonly row: TaskRow }) => (
   </span>
 );
 
-const TaskView = ({ row, on }: { readonly row: TaskRow; readonly on: RowHandlers }) => (
+/** "blocks F2": a row whose Task a blocked Attempt waits on. */
+const Blocks = ({ ids }: { readonly ids: ReadonlyArray<string> }) =>
+  ids.length === 0 ? null : (
+    <span className="text-caption text-text-faint shrink-0 whitespace-nowrap">
+      blocks <span className="text-code-inline font-mono">{ids.join(", ")}</span>
+    </span>
+  );
+
+const TaskView = ({
+  row,
+  on,
+  step,
+}: {
+  readonly row: TaskRow;
+  readonly on: RowHandlers;
+  readonly step: number;
+}) => (
   <div className="min-h-tree-row flex w-full items-stretch pr-3 pl-3" data-task={row.task.id}>
-    <Rail nested={row.nested} accepted={row.look.bucket === "done"}>
+    <Rail tree={row.tree} step={step} accepted={row.look.bucket === "done"}>
       <TaskGlyph glyph={row.look.glyph} harness={row.harness} />
     </Rail>
-    <div className="flex min-w-0 flex-1 flex-col gap-0.5 py-[5px]">
+    <div
+      className="flex min-w-0 flex-1 flex-col gap-0.5 py-[5px]"
+      style={overflowIndent(row.tree.depth, step)}
+    >
       <div className="flex min-w-0 items-center gap-3">
         <IdLane id={row.task.id} max={LANE_MAX.tab} className={ID_TONE[row.look.idTone]} />
         <TaskTitle row={row} />
@@ -205,11 +216,16 @@ const TaskView = ({ row, on }: { readonly row: TaskRow; readonly on: RowHandlers
         </span>
         <span className="w-6 shrink-0">{row.attempt === null ? null : on.menu(row)}</span>
       </div>
-      {row.line === null && !row.promoted ? null : (
+      {row.line === null && !row.promoted && row.blocks.length === 0 ? null : (
         <div className="flex min-w-0 items-center gap-3">
           <LaneSpacer />
-          <div className="min-w-0 flex-1">
-            {row.line === null ? null : <LineView line={row.line} />}
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            {row.line === null ? null : (
+              <div className="min-w-0 shrink">
+                <LineView line={row.line} />
+              </div>
+            )}
+            <Blocks ids={row.blocks} />
           </div>
           {row.setup?.failed === true ? (
             <span className="flex shrink-0 gap-1.5 pr-9">
@@ -265,7 +281,9 @@ const TallyText = ({ tally }: { readonly tally: Tally }) => {
 
   if (tally.working > 0) parts.push(<span key="w">{tally.working} working</span>);
 
-  if (tally.waiting > 0 && tally.working + tally.review + tally["needs-you"] === 0)
+  if (tally.blocked > 0) parts.push(<span key="b">{tally.blocked} blocked</span>);
+
+  if (tally.waiting > 0 && tally.working + tally.review + tally["needs-you"] + tally.blocked === 0)
     parts.push(<span key="wt">{tally.waiting} waiting</span>);
 
   return (
@@ -277,14 +295,23 @@ const TallyText = ({ tally }: { readonly tally: Tally }) => {
 };
 
 /** A group's heading: its label on the id lane, its tally ending on the state lane. */
+const Chevron = ({ open }: { readonly open: boolean }) =>
+  open ? (
+    <ChevronDownIcon size={10} className="text-text-subtle" />
+  ) : (
+    <ChevronRightIcon size={10} className="text-text-subtle" />
+  );
+
 const GroupView = ({
   row,
   on,
   large,
+  step,
 }: {
   readonly row: Extract<RailRow, { kind: "group" }>;
   readonly on: RowHandlers;
   readonly large: boolean;
+  readonly step: number;
 }) => (
   <button
     type="button"
@@ -292,16 +319,7 @@ const GroupView = ({
     onClick={() => on.onToggleGroup(row.group)}
     className="min-h-tree-row flex w-full cursor-default items-stretch pr-3 pl-3 text-left"
   >
-    <Rail
-      nested={false}
-      trail={
-        row.open ? (
-          <ChevronDownIcon size={10} className="text-text-subtle" />
-        ) : (
-          <ChevronRightIcon size={10} className="text-text-subtle" />
-        )
-      }
-    >
+    <Rail tree={TRUNK} step={step} trail={<Chevron open={row.open} />}>
       <TaskGlyph glyph={row.glyph} harness={null} />
     </Rail>
     <span className="flex min-w-0 flex-1 py-[5px]">
@@ -327,13 +345,61 @@ const GroupView = ({
   </button>
 );
 
+/**
+ * A parent Task: its id and title on their lanes, its leaves' tally ending on the state lane,
+ * the rollup's glyph on its depth's column and its chevron in the rail. It has no Attempt.
+ */
+const ParentView = ({
+  row,
+  on,
+  step,
+}: {
+  readonly row: ParentRow;
+  readonly on: RowHandlers;
+  readonly step: number;
+}) => (
+  <button
+    type="button"
+    aria-expanded={row.open}
+    aria-label={`${row.task.id} · ${row.task.title}, ${row.total} tasks`}
+    onClick={() => on.onToggleGroup(row.fold)}
+    className="min-h-tree-row flex w-full cursor-default items-stretch pr-3 pl-3 text-left"
+    data-parent={row.task.id}
+  >
+    <Rail
+      tree={row.tree}
+      step={step}
+      accepted={row.tally.done === row.total}
+      trail={<Chevron open={row.open} />}
+    >
+      <TaskGlyph glyph={row.glyph} harness={null} />
+    </Rail>
+    <span className="flex min-w-0 flex-1 py-[5px]" style={overflowIndent(row.tree.depth, step)}>
+      <span className="flex min-h-(--text-body--line-height) min-w-0 flex-1 items-center gap-3">
+        <IdLane
+          id={row.task.id}
+          max={LANE_MAX.tab}
+          className={row.glyph === "needs-you" ? "text-needs-you-text" : "text-text-subtle"}
+        />
+        <span className="text-body text-text-strong min-w-24 flex-1 truncate">
+          {row.task.title}
+        </span>
+        <TallyText tally={row.tally} />
+        <span className="w-6 shrink-0" />
+      </span>
+    </span>
+  </button>
+);
+
 /** A Subagent under its Attempt (DESIGN.md, Subagents are nodes): smaller glyph, "subagent". */
 const SubagentView = ({
   row,
   on,
+  step,
 }: {
   readonly row: Extract<RailRow, { kind: "subagent" }>;
   readonly on: RowHandlers;
+  readonly step: number;
 }) => (
   <button
     type="button"
@@ -341,14 +407,13 @@ const SubagentView = ({
     className="h-tree-row flex w-full cursor-default items-stretch pr-3 pl-3 text-left"
     data-subagent={row.subagent.id}
   >
-    <span className="relative w-[60px] shrink-0 self-stretch">
-      <span className="bg-text-strong/14 absolute top-0 bottom-0 left-[8px] w-px" />
-      <span className="border-text-strong/14 absolute top-0 left-[26px] h-[14px] w-[10px] rounded-bl-[6px] border-b border-l" />
-      <span className="bg-bg absolute top-[8px] left-[36px] grid size-3 place-items-center rounded-full">
-        <TaskGlyph glyph="working" harness={row.parent.harness} size={12} />
-      </span>
-    </span>
-    <span className="flex min-w-0 flex-1 items-center gap-3">
+    <Rail tree={row.tree} step={step} small>
+      <TaskGlyph glyph="working" harness={row.parent.harness} size={12} />
+    </Rail>
+    <span
+      className="flex min-w-0 flex-1 items-center gap-3"
+      style={overflowIndent(row.tree.depth, step)}
+    >
       <LaneSpacer />
       <span className="text-body text-text-subtle min-w-0 flex-1 truncate">
         {row.subagent.title}
@@ -368,20 +433,25 @@ export const RowView = ({
   row,
   on,
   large,
+  step,
 }: {
   readonly row: RailRow;
   readonly on: RowHandlers;
   readonly large: boolean;
+  /** The view's rail step (`railStep` of its deepest row). */
+  readonly step: number;
 }) => {
   switch (row.kind) {
     case "task":
-      return <TaskView row={row} on={on} />;
+      return <TaskView row={row} on={on} step={step} />;
+    case "parent":
+      return <ParentView row={row} on={on} step={step} />;
     case "group":
-      return <GroupView row={row} on={on} large={large} />;
+      return <GroupView row={row} on={on} large={large} step={step} />;
     case "handover":
       return (
         <div className="h-tree-row flex w-full items-stretch pr-3 pl-3">
-          <Rail nested={false}>
+          <Rail tree={TRUNK} step={step}>
             <span className="bg-text-faint size-[5px] rounded-full" />
           </Rail>
           <span className="text-body text-text-subtle flex flex-1 items-center">
@@ -396,7 +466,7 @@ export const RowView = ({
     case "proposal":
       return (
         <div className="h-tree-row flex w-full items-stretch pr-3 pl-3">
-          <Rail nested={row.nested}>
+          <Rail tree={row.tree} step={step}>
             <TaskGlyph glyph="future" harness={null} />
           </Rail>
           <span className="flex min-w-0 flex-1 items-center gap-3">
@@ -424,7 +494,7 @@ export const RowView = ({
     case "waiting":
       return (
         <div className="h-tree-row flex w-full items-stretch pr-3 pl-3">
-          <Rail nested>
+          <Rail tree={row.tree} step={step}>
             <TaskGlyph glyph="waiting" harness={null} />
           </Rail>
           <button
@@ -438,7 +508,7 @@ export const RowView = ({
         </div>
       );
     case "subagent":
-      return <SubagentView row={row} on={on} />;
+      return <SubagentView row={row} on={on} step={step} />;
     case "note":
       return (
         <p className="text-caption text-text-subtle h-tree-row flex items-center pr-3 pl-[calc(0.75rem+60px)]">

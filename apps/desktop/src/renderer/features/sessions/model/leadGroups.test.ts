@@ -37,8 +37,12 @@ describe("workerRows", () => {
       ["B4", "review"],
       ["B2", "working"],
       ["B3", "waiting-slot"],
+      ["F1b", "working"],
+      ["F2", "blocked"],
+      ["F3", "blocked"],
       ["A1", "accepted"],
       ["A2", "accepted"],
+      ["F1a", "accepted"],
     ]);
   });
 
@@ -157,9 +161,9 @@ describe("sidebarItems", () => {
 
     expect(c1?.needsYou).toBe(1);
     expect(c2?.needsYou).toBe(1);
-    expect(c1?.done.map((r) => `${r.taskId}`)).toEqual(["A1", "A2"]);
+    expect(c1?.done.map((r) => `${r.taskId}`)).toEqual(["A1", "A2", "F1a"]);
     expect(c1 === undefined ? null : leadLine(c1)).toEqual({
-      workers: "7 workers",
+      workers: "11 workers",
       needsYou: "1 needs you",
     });
   });
@@ -254,6 +258,9 @@ describe("worktree setup before the first Attempt", () => {
       ["B4", "attempt", "review"],
       ["B2", "attempt", "working"],
       ["B3", "attempt", "waiting-slot"],
+      ["F1b", "attempt", "working"],
+      ["F2", "attempt", "blocked"],
+      ["F3", "attempt", "blocked"],
       ["B7", "setup", "setting-up"],
     ]);
     expect(group?.needsYou).toBe(2);
@@ -271,8 +278,8 @@ describe("worktree setup before the first Attempt", () => {
 test("doneLine names a few, then counts", () => {
   const rows = workerRows(C1, lookup).filter((r) => r.state === "accepted");
 
-  expect(doneLine(rows)).toBe("A1, A2 done");
-  expect(doneLine([...rows, ...rows, ...rows])).toBe("A1, A2, A1 and 3 more done");
+  expect(doneLine(rows)).toBe("A1, A2, F1a done");
+  expect(doneLine([...rows, ...rows])).toBe("A1, A2, F1a and 3 more done");
 });
 
 describe("workerSections", () => {
@@ -301,5 +308,32 @@ describe("workerSections", () => {
 
   test("no workers, no sections", () => {
     expect(workerSections([])).toEqual([]);
+  });
+});
+
+describe("parents in the sidebar", () => {
+  const rows = workerRows(C1, lookup).filter((r) => r.state !== "accepted");
+  const updates = workerSections(rows).find((s) => s.label === "F · Updates");
+
+  test("workers nest under their parents, loudest subtree first", () => {
+    expect(
+      updates?.items.map((i) =>
+        i.kind === "parent" ? [`${i.parent.id}`, i.depth, i.blocked] : [`${i.row.taskId}`, i.depth]
+      )
+    ).toEqual([
+      ["F", 0, 2],
+      ["F1", 1, 0],
+      ["F1b", 2],
+      ["F2", 1],
+      ["F3", 1],
+    ]);
+  });
+
+  test("a blocked worker reads blocked, unless its session needs you", () => {
+    const f2 = rows.find((r) => r.taskId === "F2");
+
+    expect(f2?.state).toBe("blocked");
+    expect(f2?.group).toBe("F · Updates");
+    expect(f2?.parents.map((p) => `${p.id}`)).toEqual(["F"]);
   });
 });

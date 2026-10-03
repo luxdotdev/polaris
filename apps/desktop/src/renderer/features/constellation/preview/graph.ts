@@ -58,6 +58,7 @@ interface TaskSpec {
   readonly kind?: "task" | "gate";
   readonly brief?: string;
   readonly ui?: boolean;
+  readonly parent?: string;
 }
 
 export const task = (spec: TaskSpec) =>
@@ -71,6 +72,7 @@ export const task = (spec: TaskSpec) =>
     criteria: [],
     suggested: spec.kind === "gate" ? null : spec.ui === true ? claude : codex,
     group: spec.group ?? null,
+    parent: spec.parent === undefined ? null : TaskId.make(spec.parent),
     revision: 1,
     canceled: false,
   });
@@ -101,6 +103,8 @@ interface AttemptSpec {
   readonly evidence?: Attempt["evidence"];
   readonly n?: number;
   readonly nudgedMinutesAgo?: number;
+  /** A blocked Attempt's targets and reason. */
+  readonly blocked?: { readonly on: ReadonlyArray<string>; readonly reason: string };
 }
 
 export const attempt = (spec: AttemptSpec) =>
@@ -125,8 +129,14 @@ export const attempt = (spec: AttemptSpec) =>
     handedUpAt: null,
     handedUpReason: null,
     nudgedAt: spec.nudgedMinutesAgo === undefined ? null : ago(spec.nudgedMinutesAgo),
+    blockedOn: (spec.blocked?.on ?? []).map((id) => TaskId.make(id)),
+    blockedReason: spec.blocked?.reason ?? null,
+    blockedAt: spec.blocked === undefined ? null : ago(Math.max(1, spec.minutes - 5)),
     startedAt: ago(spec.minutes),
-    endedAt: spec.state === "working" || spec.state === "review" ? null : ago(spec.minutes - 20),
+    endedAt:
+      spec.state === "working" || spec.state === "review" || spec.state === "blocked"
+        ? null
+        : ago(spec.minutes - 20),
   });
 
 export const B1_QUESTION = new ConstellationQuestion({
@@ -248,6 +258,47 @@ export const slugTasks = [
   task({ id: "email-validator", title: "Validate the download email", group: "desktop", ui: true }),
   task({ id: "sidebar-groups", title: "Group the sidebar by task", group: "desktop", ui: true }),
   task({ id: "blocked", title: "Show blocked tasks on the rail", group: "desktop", ui: true }),
+];
+
+export const UPDATES = "F · Updates";
+
+/** A parent F two levels deep: F1 holds F1a and F1b; F2 is blocked by F1b, F3 on the Lead. */
+export const treeTasks = [
+  task({ id: "F", title: "Update feed and updater", group: UPDATES, deps: ["G1"] }),
+  task({ id: "F1", title: "Signed update feed", group: UPDATES, parent: "F" }),
+  task({ id: "F1a", title: "Feed schema", group: UPDATES, parent: "F1" }),
+  task({
+    id: "F1b",
+    title: "Sign and serve the feed",
+    group: UPDATES,
+    parent: "F1",
+    deps: ["F1a"],
+  }),
+  task({ id: "F2", title: "Updater polls the feed", group: UPDATES, parent: "F", ui: true }),
+  task({ id: "F3", title: "Release notes in the updater", group: UPDATES, parent: "F", ui: true }),
+];
+
+export const treeAttempts = [
+  attempt({
+    taskId: "F1a",
+    state: "accepted",
+    minutes: 70,
+    mergedHead: "f1a2b3c",
+    evidence: "verified",
+  }),
+  attempt({ taskId: "F1b", state: "working", minutes: 24 }),
+  attempt({
+    taskId: "F2",
+    state: "blocked",
+    minutes: 20,
+    blocked: { on: ["F1b"], reason: "Needs the signed feed URL to poll" },
+  }),
+  attempt({
+    taskId: "F3",
+    state: "blocked",
+    minutes: 16,
+    blocked: { on: [], reason: "Markdown or the site's MDX for the notes?" },
+  }),
 ];
 
 const emailClaim = new Claim({
@@ -501,8 +552,31 @@ export const c1Record = (
   };
 };
 
-/** The digest's slug lines: a question from `blocked`, an answer and a Claim from email-validator. */
+/**
+ * The digest's slug and tree lines: a question from `blocked`, an answer and a Claim from
+ * email-validator, F2 blocked by F1b and F3 waiting on the Lead.
+ */
 const slugDigest = [
+  note(
+    "n-blocked-f2",
+    NotificationItem.cases.Blocked.make({
+      taskId: TaskId.make("F2"),
+      attemptId: AttemptId.make("att-F2-1"),
+      on: [TaskId.make("F1b")],
+      reason: "Needs the signed feed URL to poll",
+    }),
+    4
+  ),
+  note(
+    "n-blocked-f3",
+    NotificationItem.cases.Blocked.make({
+      taskId: TaskId.make("F3"),
+      attemptId: AttemptId.make("att-F3-1"),
+      on: [],
+      reason: "Markdown or the site's MDX for the notes?",
+    }),
+    3
+  ),
   note(
     "n-q-blocked",
     NotificationItem.cases.Question.make({
@@ -535,12 +609,12 @@ const slugDigest = [
   ),
 ];
 
-/** C1 with the slug Tasks added, and the digest reporting on them. */
+/** C1 with the slug Tasks and the F tree added, and the digest reporting on them. */
 export const slugRecord = (patch: Partial<Constellation> = {}): ConstellationRecord => {
   const record = c1Record({
     ...patch,
-    tasks: [...c1Tasks, ...slugTasks],
-    attempts: [...(patch.attempts ?? c1Attempts), ...slugAttempts],
+    tasks: [...c1Tasks, ...slugTasks, ...treeTasks],
+    attempts: [...(patch.attempts ?? c1Attempts), ...slugAttempts, ...treeAttempts],
   });
 
   return {

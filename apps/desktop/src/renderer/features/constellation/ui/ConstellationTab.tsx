@@ -15,6 +15,8 @@ import {
   type AttentionItem,
   attentionItems,
   buildRail,
+  foldsAbove,
+  railStep,
   type ConstellationRecord,
   LANE_MAX,
   laneWidth,
@@ -214,6 +216,7 @@ export const ConstellationTab = (props: ConstellationTabProps) => {
   const items = useMemo(() => attentionItems(rail.tasks, facts), [rail, facts]);
   const strip = useMemo(() => segments(rail.tasks), [rail]);
   const { rows } = rail;
+  const step = railStep(rail.depth);
 
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -226,10 +229,9 @@ export const ConstellationTab = (props: ConstellationTabProps) => {
   });
 
   const jump = (taskId: string) => {
-    const task = c.tasks.find((t) => t.id === taskId);
     const rowKey = `task:${taskId}`;
 
-    if (task?.group != null && rail.large) actions.toggle(task.group, true);
+    for (const fold of foldsAbove(record, taskId)) actions.toggle(fold, true);
     patchLeadUi(actions.key, () => ({ selected: rowKey }));
     requestAnimationFrame(() => {
       const at = indexOf(rail.rows, rowKey);
@@ -258,9 +260,15 @@ export const ConstellationTab = (props: ConstellationTabProps) => {
 
   const handlers: RowHandlers = {
     onToggleGroup: (group) => {
-      const header = rows.find((r) => r.kind === "group" && r.group === group);
+      const header = rows.find(
+        (r) =>
+          (r.kind === "group" && r.group === group) || (r.kind === "parent" && r.fold === group)
+      );
 
-      actions.toggle(group, header?.kind === "group" ? !header.open : true);
+      actions.toggle(
+        group,
+        header?.kind === "group" || header?.kind === "parent" ? !header.open : true
+      );
     },
     onFocus: actions.focus,
     onReview: actions.menu.onReview,
@@ -323,12 +331,7 @@ export const ConstellationTab = (props: ConstellationTabProps) => {
           tabIndex={0}
           onKeyDown={onKeyDown}
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1"
-          style={laneStyle(
-            laneWidth(
-              rail.tasks.map((t) => t.task.id),
-              LANE_MAX.tab
-            )
-          )}
+          style={laneStyle(laneWidth(rail.ids, LANE_MAX.tab))}
           data-testid="constellation-rail"
         >
           <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
@@ -355,7 +358,7 @@ export const ConstellationTab = (props: ConstellationTabProps) => {
                     if (row.kind === "task") actions.focus(row);
                   }}
                 >
-                  <RowView row={row} on={handlers} large={rail.large} />
+                  <RowView row={row} on={handlers} large={rail.large} step={step} />
                 </div>
               );
 

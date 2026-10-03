@@ -32,6 +32,7 @@ if (args.includes("--build"))
 /** Each scene and the test id that says it has painted. */
 const SCENES = new Map([
   ["sidebar", "lead-group"],
+  ["sidebar-tree", "lead-group"],
   ["focus", "lead-group"],
   ["needs-you", "constellation-needs-you"],
   ["needs-you-setup", "constellation-needs-you"],
@@ -58,6 +59,12 @@ const PREPARE = new Map<string, Step>([
 
 /** What a scene shows once painted, before each shot. */
 const SHOW = new Map<string, Step>([
+  [
+    "sidebar-tree",
+    async (page) => {
+      await page.locator('[data-testid="worker-row"][data-task="F3"]').scrollIntoViewIfNeeded();
+    },
+  ],
   [
     "usage",
     async (page) => {

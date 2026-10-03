@@ -18,6 +18,7 @@ import {
 } from "../../constellation/model/setup.ts";
 import { LANE_MAX } from "../../constellation/model/lane.ts";
 import { stoppedWithoutClaiming } from "../../constellation/model/stopped.ts";
+import { ancestors, rootGroup } from "../../constellation/model/tree.ts";
 import type { ConstellationView } from "../source.ts";
 
 export type WorkerState =
@@ -37,12 +38,20 @@ export type WorkerState =
   | "setting-up"
   | "setup-failed";
 
+/** A parent Task a worker nests under in the sidebar. */
+export interface ParentRef {
+  readonly id: TaskId;
+  readonly title: string;
+}
+
 export interface WorkerRow {
   readonly kind: "attempt";
   readonly taskId: TaskId;
   readonly title: string;
-  /** The Task's group ("desktop"), or null on the trunk. */
+  /** Its root Task's group ("desktop"), or null on the trunk. */
   readonly group: string | null;
+  /** Its parent Tasks, outermost first. */
+  readonly parents: ReadonlyArray<ParentRef>;
   readonly sessionId: SessionId;
   /** The Host the worker runs on, when this Client knows it. */
   readonly hostKey: string | null;
@@ -65,6 +74,7 @@ export interface SetupRow {
   readonly taskId: TaskId;
   readonly title: string;
   readonly group: string | null;
+  readonly parents: ReadonlyArray<ParentRef>;
   readonly sessionId: SessionId;
   readonly hostKey: string;
   readonly entry: SessionEntry | null;
@@ -181,7 +191,9 @@ export const workerState = (
 ): WorkerState =>
   Match.value(attempt.state).pipe(
     Match.when("working", () => workingState(attempt, entry, stale, slotSince)),
-    Match.when("blocked", (): WorkerState => "blocked"),
+    Match.when("blocked", (): WorkerState =>
+      entry !== null && needsYou(entry) ? "needs-you" : "blocked"
+    ),
     Match.when("review", () => reviewState(attempt, stale)),
     Match.when("accepted", (): WorkerState => "accepted"),
     Match.when("rejected", (): WorkerState => "sent-back"),
@@ -191,8 +203,15 @@ export const workerState = (
     Match.exhaustive
   );
 
-const groupName = (group: string | null | undefined) =>
-  group == null || group === "" ? null : group;
+type TaskData = ConstellationView["constellation"]["tasks"][number];
+
+/** Where a Task sits: its root's group and its parents, outermost first. */
+const placeOf = (byId: ReadonlyMap<string, TaskData>, task: TaskData) => ({
+  group: rootGroup(byId, task),
+  parents: ancestors(byId, task.id)
+    .toReversed()
+    .map((t) => ({ id: t.id, title: t.title })),
+});
 
 /** One row per Task a worker has tried (its latest Attempt); Gates are the Lead's own. */
 export const workerRows = (view: ConstellationView, lookup: WorkerLookup): Array<WorkerRow> => {
@@ -200,6 +219,7 @@ export const workerRows = (view: ConstellationView, lookup: WorkerLookup): Array
   const stale = new Set(projections.filter((p) => p.stale).map((p) => p.taskId));
   const unfetched = new Set(projections.filter((p) => !p.branchFetched).map((p) => p.taskId));
   const order = new Map(constellation.tasks.map((t, i) => [t.id, i]));
+  const byId = new Map<string, TaskData>(constellation.tasks.map((t) => [t.id, t]));
 
   const rows = constellation.tasks.flatMap((task): Array<WorkerRow> => {
     const attempt = constellation.attempts.findLast((a) => a.taskId === task.id);
@@ -215,7 +235,7 @@ export const workerRows = (view: ConstellationView, lookup: WorkerLookup): Array
         kind: "attempt",
         taskId: task.id,
         title: task.title,
-        group: groupName(task.group),
+        ...placeOf(byId, task),
         sessionId: attempt.sessionId,
         hostKey: found?.hostKey ?? null,
         entry,
@@ -245,6 +265,7 @@ export const setupLookupIn =
     const facts = setupsOf(setupSources(hosts, models), constellation.id, constellation.hostId);
 
     if (facts.size === 0) return [];
+    const byId = new Map<string, TaskData>(constellation.tasks.map((t) => [t.id, t]));
 
     return constellation.tasks.flatMap((task): Array<SetupRow> => {
       const latest = constellation.attempts.findLast((a) => a.taskId === task.id) ?? null;
@@ -257,7 +278,7 @@ export const setupLookupIn =
           kind: "setup",
           taskId: task.id,
           title: task.title,
-          group: groupName(task.group),
+          ...placeOf(byId, task),
           sessionId: setup.sessionId,
           hostKey: setup.hostKey,
           entry: models[setup.hostKey]?.sessions.get(setup.sessionId) ?? null,
@@ -345,7 +366,9 @@ export const SHORT_ID = LANE_MAX.sidebar;
 
 /** Whether a Lead's worker rows show the id alone: any id is a slug longer than SHORT_ID. */
 export const idsOnly = (group: Pick<LeadGroup, "workers" | "done">) =>
-  [...group.workers, ...group.done].some((r) => r.taskId.length > SHORT_ID);
+  [...group.workers, ...group.done].some(
+    (r) => r.taskId.length > SHORT_ID || r.parents.some((p) => p.id.length > SHORT_ID)
+  );
 
 /** "Lead · 7 workers", or folded "3 workers · 1 needs you" (the needs-you part is tinted). */
 export const leadLine = (group: LeadGroup) => {
@@ -366,13 +389,112 @@ export const doneLine = (done: ReadonlyArray<WorkerRow>) => {
     : `${ids.slice(0, 3).join(", ")} and ${ids.length - 3} more done`;
 };
 
+/** A line in a section: a parent Task's heading, or a worker, each at its depth. */
+export type SectionItem =
+  | {
+      readonly kind: "parent";
+      readonly key: string;
+      readonly parent: ParentRef;
+      readonly depth: number;
+      readonly needsYou: number;
+      readonly blocked: number;
+    }
+  | {
+      readonly kind: "worker";
+      readonly key: string;
+      readonly row: LeadWorker;
+      readonly depth: number;
+    };
+
 /** A Task group's workers under a Lead; the trunk's (ungrouped) has no label. */
 export interface WorkerSection {
   readonly key: string;
   readonly label: string | null;
   readonly rows: ReadonlyArray<LeadWorker>;
+  /** The rows nested under their parent Tasks, loudest subtree first. */
+  readonly items: ReadonlyArray<SectionItem>;
   readonly needsYou: number;
 }
+
+interface Subtree {
+  readonly parent: ParentRef | null;
+  /** Where its loudest row sits in the ranked list. */
+  readonly first: number;
+  readonly children: Map<string, Subtree>;
+  readonly rows: Array<{ readonly row: LeadWorker; readonly at: number }>;
+}
+
+const subtree = (parent: ParentRef | null, first: number): Subtree => ({
+  parent,
+  first,
+  children: new Map(),
+  rows: [],
+});
+
+/** Rows (ranked) into a tree along their parents. */
+const treeOf = (rows: ReadonlyArray<LeadWorker>) => {
+  const root = subtree(null, 0);
+
+  rows.forEach((row, at) => {
+    let node = root;
+
+    for (const parent of row.parents) {
+      const next = node.children.get(parent.id) ?? subtree(parent, at);
+
+      node.children.set(parent.id, next);
+      node = next;
+    }
+
+    node.rows.push({ row, at });
+  });
+
+  return root;
+};
+
+const leavesOf = (node: Subtree): Array<LeadWorker> => [
+  ...node.rows.map((r) => r.row),
+  ...[...node.children.values()].flatMap(leavesOf),
+];
+
+/** A subtree's lines: each child in order of its loudest row, parents as headings. */
+const itemsOf = (node: Subtree, depth: number): Array<SectionItem> => {
+  const entries = [
+    ...node.rows.map((r) => ({
+      at: r.at,
+      items: (): Array<SectionItem> => [workerItem(r.row, depth)],
+    })),
+    ...[...node.children.values()].map((child) => ({
+      at: child.first,
+      items: () => parentItems(child, depth),
+    })),
+  ].sort((a, b) => a.at - b.at);
+
+  return entries.flatMap((e) => e.items());
+};
+
+const workerItem = (row: LeadWorker, depth: number): SectionItem => ({
+  kind: "worker",
+  key: row.taskId,
+  row,
+  depth,
+});
+
+const parentItems = (node: Subtree, depth: number): Array<SectionItem> => {
+  if (node.parent === null) return itemsOf(node, depth);
+  const leaves = leavesOf(node);
+
+  return [
+    {
+      kind: "parent",
+      key: `parent:${node.parent.id}`,
+      parent: node.parent,
+      depth,
+      needsYou: leaves.filter((r) => needsAttention(r.state)).length,
+      blocked: leaves.filter((r) => r.state === "blocked").length,
+    },
+    ...itemsOf(node, depth + 1),
+  ];
+};
 
 /**
  * Workers by `task.group`, as the tab groups them: ungrouped ones first, then each group in
@@ -391,6 +513,7 @@ export const workerSections = (rows: ReadonlyArray<LeadWorker>): Array<WorkerSec
             key: label ?? "",
             label,
             rows: members,
+            items: itemsOf(treeOf(members), 0),
             needsYou: members.filter((r) => needsAttention(r.state)).length,
           },
         ]

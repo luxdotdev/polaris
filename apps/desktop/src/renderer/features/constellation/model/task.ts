@@ -8,7 +8,14 @@ import type { Overlap } from "./areas.ts";
 import { acceptedGlance, type ClaimGlance, claimGlance, type ReceiptView } from "./claim.ts";
 import { actorLine, harnessWord, span } from "./copy.ts";
 import { type Activity, CONTEXT_WARN, type Facts, NO_FACTS, type WorkerFacts } from "./facts.ts";
-import { glyphFor, type TaskGlyphKind, type TaskLook, taskLook } from "./look.ts";
+import {
+  glyphFor,
+  type TaskGlyphKind,
+  type TaskLook,
+  taskLook,
+  type Tone,
+  toneOf,
+} from "./look.ts";
 import { currentSetup, type SetupFact } from "./setup.ts";
 import type {
   AttemptData,
@@ -53,6 +60,12 @@ export type Line =
       readonly remoteHost: string | null;
     }
   | {
+      /** "blocked by F1b" (each id in its state's tone), or "waiting on the lead"; the reason. */
+      readonly kind: "blocked";
+      readonly on: ReadonlyArray<{ readonly id: string; readonly tone: Tone }>;
+      readonly reason: string | null;
+    }
+  | {
       readonly kind: "note";
       readonly text: string;
       readonly tone: "neutral" | "needs-you";
@@ -84,9 +97,26 @@ export interface TaskRow {
   readonly inputs: ReadonlyArray<GateInput> | null;
   /** Accept / Send back as buttons: the Constellation is paused or the Claim was handed up. */
   readonly promoted: boolean;
-  /** Nested under a group (not on the trunk). */
+  /** Nested under a group or parent (not on the trunk). */
   readonly nested: boolean;
+  /** Where it hangs in the tree: depth and which ancestor lines run past it. */
+  readonly tree: TreeLane;
+  /** Tasks whose blocked Attempt waits on this one: "blocks F2". */
+  readonly blocks: ReadonlyArray<string>;
 }
+
+/** A row's place in the rail (`git log --graph`): 0 is the trunk. */
+export interface TreeLane {
+  readonly depth: number;
+  /** For each level 1…depth-1, whether that level's line runs on below this row. */
+  readonly through: ReadonlyArray<boolean>;
+  /** The last child of its parent: the elbow ends here. */
+  readonly last: boolean;
+  /** An open parent: its children's line starts under its glyph. */
+  readonly down: boolean;
+}
+
+export const TRUNK: TreeLane = { depth: 0, through: [], last: false, down: false };
 
 const progressText = (p: Progress | undefined) => {
   if (p === undefined) return null;
@@ -143,7 +173,14 @@ interface LineInput {
   readonly worker: WorkerFacts;
   readonly record: ConstellationRecord;
   readonly facts: Facts;
+  readonly tone: (id: TaskId) => Tone;
 }
+
+const blockedLine = (attempt: AttemptData, tone: LineInput["tone"]): Line => ({
+  kind: "blocked",
+  on: attempt.blockedOn.map((id) => ({ id, tone: tone(id) })),
+  reason: attempt.blockedReason ?? null,
+});
 
 const reviewLine = ({ row, worker, facts }: LineInput): Line | null => {
   if (!row.projection.branchFetched)
@@ -186,6 +223,9 @@ const lineFor = (input: LineInput): Line | null => {
   if (attention?.kind === "question")
     return { kind: "note", text: attention.text, tone: "needs-you", detail: null };
 
+  if (row.projection.state === "blocked" && row.attempt !== null)
+    return blockedLine(row.attempt, input.tone);
+
   if (row.projection.state === "review") return reviewLine(input);
 
   if (row.projection.state === "working" && row.attempt !== null)
@@ -224,6 +264,8 @@ export interface TaskContext {
   readonly attempts: ReadonlyMap<TaskId, ReadonlyArray<AttemptData>>;
   readonly overlaps: ReadonlyMap<TaskId, Overlap>;
   readonly tasks: ReadonlyMap<TaskId, TaskData>;
+  /** For each Task, the Tasks whose blocked Attempt names it. */
+  readonly blocks: ReadonlyMap<TaskId, ReadonlyArray<TaskId>>;
   /** Rows drop to one line (large Constellations). */
   readonly oneLine: boolean;
 }
@@ -240,6 +282,9 @@ const unprojected = (taskId: TaskId): ProjectionData => ({
   branchFetched: true,
   liveness: null,
 });
+
+const toneOfTask = (id: TaskId, ctx: TaskContext): Tone =>
+  toneOf(ctx.projections.get(id)?.state ?? "waiting");
 
 const inputGlyphs = (task: TaskData, ctx: TaskContext): ReadonlyArray<GateInput> =>
   task.deps.map((dep) => {
@@ -276,7 +321,12 @@ const actorFor = (
   return actorLine(harnessWord(w.harness), w.model, w.remoteHost);
 };
 
-export const taskRow = (task: TaskData, nested: boolean, ctx: TaskContext): TaskRow => {
+export const taskRow = (
+  task: TaskData,
+  nested: boolean,
+  ctx: TaskContext,
+  tree: TreeLane = TRUNK
+): TaskRow => {
   const { record, facts } = ctx;
   const projection = ctx.projections.get(task.id) ?? unprojected(task.id);
   const history = ctx.attempts.get(task.id) ?? [];
@@ -297,7 +347,11 @@ export const taskRow = (task: TaskData, nested: boolean, ctx: TaskContext): Task
         ? ctx.facts.lead.harness
         : (worker?.harness ?? task.suggested?.harness ?? null),
     actor: actorFor(task, attempt, known, ctx),
-    line: rowLine({ row: base, worker: known, record, facts }, setup, ctx.oneLine),
+    line: rowLine(
+      { row: base, worker: known, record, facts, tone: (id) => toneOfTask(id, ctx) },
+      setup,
+      ctx.oneLine
+    ),
     setup,
     overlap: ctx.oneLine ? null : (ctx.overlaps.get(task.id) ?? null),
     inputs: task.kind === "gate" ? inputGlyphs(task, ctx) : null,
@@ -305,5 +359,7 @@ export const taskRow = (task: TaskData, nested: boolean, ctx: TaskContext): Task
       projection.state === "review" &&
       (record.constellation.state === "paused" || look.attention?.kind === "handed"),
     nested,
+    tree,
+    blocks: ctx.oneLine ? [] : (ctx.blocks.get(task.id) ?? []),
   };
 };

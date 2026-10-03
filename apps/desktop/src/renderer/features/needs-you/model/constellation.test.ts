@@ -167,3 +167,30 @@ test("the count covers Constellation items once, beside sessions that need you",
   expect(withConstellations(plain, inbox).count).toBe(4);
   expect(withConstellations(plain, inbox).waiting.length).toBe(plain.waiting.length);
 });
+
+test("a blocked worker waits on work or the Lead, not on you: no item, even nudged", () => {
+  const graph = asPlain(C1.constellation);
+  const nudgedAt = new Date(Date.now() - 600_000).toISOString();
+
+  const nudged = {
+    projections: C1.projections,
+    constellation: {
+      ...graph,
+      attempts: graph.attempts.map((a) =>
+        a.state === "blocked" ? { ...asPlain(a), nudgedAt } : a
+      ),
+    },
+  };
+
+  const blocked = buildConstellationInbox({
+    hosts: HOSTS,
+    models: MODELS,
+    views: { local: [nudged] },
+  });
+
+  const ids = blocked.groups.flatMap((g) => g.items.map((i) => `${i.taskId}`));
+
+  expect(ids).not.toContain("F2");
+  expect(ids).not.toContain("F3");
+  expect(ids).toEqual(["B1", "B5"]);
+});

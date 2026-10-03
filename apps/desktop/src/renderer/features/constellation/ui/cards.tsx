@@ -5,7 +5,7 @@
 import type { AttemptState } from "@polaris/protocol";
 import { ChevronRightIcon, cn } from "@polaris/ui";
 import { Match } from "effect";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import {
   type AttemptData,
   claimGlance,
@@ -20,9 +20,11 @@ import {
   shortSha,
   type TaskData,
   type TaskGlyphKind,
+  toneOf,
 } from "../model/index.ts";
 import { ConstellationMark, TaskGlyph } from "./glyphs.tsx";
 import { IdLane, LaneSpacer, laneStyle } from "./lane.tsx";
+import { ID_TONE } from "./rows.tsx";
 import { Checks } from "./strip.tsx";
 
 const CARD = "rounded-row border-hairline bg-surface-raised border";
@@ -152,6 +154,40 @@ const settledLine = (r: ConstellationRecord, attemptId: string, state: string, f
   return <>{state === "accepted" ? "accepted" : state.replaceAll("_", " ")}</>;
 };
 
+/** "blocked by F1b" with each id in its state's tone, or "waiting on the lead"; the reason. */
+const BlockedBody = ({
+  record,
+  on,
+  reason,
+}: {
+  readonly record: ConstellationRecord;
+  readonly on: ReadonlyArray<string>;
+  readonly reason: string;
+}) => {
+  const state = (id: string) => record.projections.find((p) => p.taskId === id)?.state ?? "waiting";
+
+  return (
+    <>
+      {on.length === 0 ? (
+        <span className="shrink-0">waiting on the lead</span>
+      ) : (
+        <span className="shrink-0">
+          blocked by{" "}
+          {on.map((id, n) => (
+            <Fragment key={id}>
+              {n === 0 ? null : ", "}
+              <span className={cn("text-code-inline font-mono", ID_TONE[toneOf(state(id))])}>
+                {id}
+              </span>
+            </Fragment>
+          ))}
+        </span>
+      )}
+      <span className="text-text-faint truncate">{reason}</span>
+    </>
+  );
+};
+
 const lineOf = (r: ConstellationRecord, n: NotificationData, facts: Facts): DigestLine => {
   const task = (id: string | null) =>
     r.constellation.tasks.find((t) => t.id === (id === null ? null : attemptOf(r, id)?.taskId)) ??
@@ -162,9 +198,9 @@ const lineOf = (r: ConstellationRecord, n: NotificationData, facts: Facts): Dige
       Blocked: ({ attemptId, on, reason }): DigestLine => ({
         key: n.id,
         task: task(attemptId),
-        glyph: "waiting",
+        glyph: "blocked",
         tone: "text-text-subtle",
-        body: `blocked${on.length === 0 ? " awaiting the lead" : ` by ${on.join(", ")}`}: ${reason}`,
+        body: <BlockedBody record={r} on={on} reason={reason} />,
       }),
       Stopped: ({ attemptId }): DigestLine => ({
         key: n.id,

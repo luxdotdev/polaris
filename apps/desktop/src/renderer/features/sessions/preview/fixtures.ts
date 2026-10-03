@@ -143,6 +143,7 @@ interface TaskSeed {
   readonly deps?: ReadonlyArray<string>;
   readonly area?: ReadonlyArray<string>;
   readonly group: string;
+  readonly parent?: string;
 }
 
 const task = (seed: TaskSeed) =>
@@ -156,6 +157,7 @@ const task = (seed: TaskSeed) =>
     criteria: [],
     suggested: null,
     group: seed.group,
+    parent: seed.parent === undefined ? null : TaskId.make(seed.parent),
     revision: 1,
     canceled: false,
   });
@@ -173,6 +175,8 @@ interface AttemptSeed {
   readonly nudged?: number;
   /** Minutes since the Lead handed the Claim up. */
   readonly handedUp?: number;
+  /** A blocked Attempt's targets and reason. */
+  readonly blocked?: { readonly on: ReadonlyArray<string>; readonly reason: string };
 }
 
 const attempt = (seed: AttemptSeed) =>
@@ -197,6 +201,9 @@ const attempt = (seed: AttemptSeed) =>
     receipts: [],
     evidence: seed.state === "accepted" ? "verified" : null,
     claimedAt: seed.claim === undefined ? null : ago(Math.max(1, seed.minutes - 10)),
+    blockedOn: (seed.blocked?.on ?? []).map((id) => TaskId.make(id)),
+    blockedReason: seed.blocked?.reason ?? null,
+    blockedAt: seed.blocked === undefined ? null : ago(Math.max(1, seed.minutes - 5)),
     startedAt: ago(seed.minutes),
     endedAt: null,
   });
@@ -246,6 +253,18 @@ const C1_ID = "c1";
 
 const LEAD = "lead-c1";
 
+const F = "F · Updates";
+
+/** A parent F two levels deep: F1 holds F1a and F1b; F2 is blocked by F1b, F3 on the Lead. */
+const UPDATES = [
+  task({ id: "F", title: "Update feed and updater", group: F }),
+  task({ id: "F1", title: "Signed update feed", group: F, parent: "F" }),
+  task({ id: "F1a", title: "Feed schema", group: F, parent: "F1" }),
+  task({ id: "F1b", title: "Sign and serve the feed", group: F, parent: "F1" }),
+  task({ id: "F2", title: "Updater polls the feed", group: F, parent: "F" }),
+  task({ id: "F3", title: "Release notes in the updater", group: F, parent: "F" }),
+];
+
 const C1_TASKS = [
   task({ id: "A1", title: "Constellation events and stream", group: "A · Events and decider" }),
   task({ id: "A2", title: "Decider and projections", group: "A · Events and decider" }),
@@ -284,10 +303,22 @@ const C1_TASKS = [
     deps: ["B1", "B2", "B3", "B4", "B5"],
     group: "B · Spec and tools",
   }),
+  ...UPDATES,
 ];
 
 const c1Attempt = (t: string, s: string, state: Attempt["state"], minutes: number) =>
   attempt({ constellation: C1_ID, task: t, session: s, lead: LEAD, state, minutes });
+
+const c1Blocked = (t: string, minutes: number, on: ReadonlyArray<string>, reason: string) =>
+  attempt({
+    constellation: C1_ID,
+    task: t,
+    session: t.toLowerCase(),
+    lead: LEAD,
+    state: "blocked",
+    minutes,
+    blocked: { on, reason },
+  });
 
 const C1_ATTEMPTS = [
   c1Attempt("A1", "a1", "accepted", 180),
@@ -322,6 +353,10 @@ const C1_ATTEMPTS = [
     minutes: 26,
     nudged: 8,
   }),
+  c1Attempt("F1a", "f1a", "accepted", 60),
+  c1Attempt("F1b", "f1b", "working", 24),
+  c1Blocked("F2", 20, ["F1b"], "Needs the signed feed URL to poll"),
+  c1Blocked("F3", 16, [], "Markdown or the site's MDX for the notes?"),
 ];
 
 const projection = (
@@ -384,6 +419,12 @@ export const C1: ConstellationView = {
     projection("B4", "review", { branchFetched: false }),
     projection("B5", "working"),
     projection("G2", "waiting"),
+    projection("F", "working"),
+    projection("F1", "working"),
+    projection("F1a", "done"),
+    projection("F1b", "working"),
+    projection("F2", "blocked"),
+    projection("F3", "blocked"),
   ],
 };
 
@@ -569,6 +610,16 @@ const LOCAL_ENTRIES: ReadonlyArray<SessionEntry> = [
       state: "idle",
       minutes: 26,
     })
+  ),
+  ...(
+    [
+      ["f1a", "F1a · Feed schema", "idle", 60],
+      ["f1b", "F1b · Sign and serve the feed", "working", 24],
+      ["f2", "F2 · Updater polls the feed", "idle", 20],
+      ["f3", "F3 · Release notes in the updater", "idle", 16],
+    ] as const
+  ).map(([id, title, state, minutes]) =>
+    entry(session({ id, harness: "codex", title, state, minutes }))
   ),
   entry(
     session({

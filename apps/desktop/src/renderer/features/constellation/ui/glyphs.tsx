@@ -76,6 +76,12 @@ const drawGlyph = (glyph: TaskGlyphKind, harness: HarnessKind | null) => {
       ) : (
         <Dither hue={harness} size={10} moving intensity={RAIL_DITHER} />
       );
+    case "blocked":
+      return (
+        <span className={cn(RING, "border-text-subtle grid size-2.5 place-items-center")}>
+          <span className="bg-text-subtle h-[1.5px] w-[5px] rounded-full" />
+        </span>
+      );
     case "review":
     case "review-unfetched":
       return (
@@ -110,6 +116,7 @@ const drawGlyph = (glyph: TaskGlyphKind, harness: HarnessKind | null) => {
 
 const LABEL: Readonly<Record<TaskGlyphKind, string>> = {
   working: "working",
+  blocked: "blocked",
   review: "in review",
   "review-unfetched": "in review, branch not yet fetched",
   "needs-you": "needs you",

@@ -92,6 +92,7 @@ const SCENES = [
   "setup",
   "setup-focus",
   "slugs",
+  "tree",
 ] as const;
 
 type Scene = (typeof SCENES)[number];
@@ -123,6 +124,13 @@ const SLUG_FOLDS = new Map([
   ["B · Spec and tools", false],
 ]);
 
+/** A, B and daemon folded, so the F tree and its blocked Tasks are in view. */
+const TREE_FOLDS = new Map([
+  ["A · Events and decider", false],
+  ["B · Spec and tools", false],
+  ["daemon", false],
+]);
+
 const UI: Readonly<Record<Scene, Partial<LeadUi>>> = {
   lead: {},
   menu: { selected: "task:B1", menu: "task:B1" },
@@ -145,6 +153,7 @@ const UI: Readonly<Record<Scene, Partial<LeadUi>>> = {
     folds: SETUP_FOLDS,
   },
   slugs: { selected: "task:email-validator", folds: SLUG_FOLDS },
+  tree: { selected: "task:F2", folds: TREE_FOLDS },
 };
 
 const stateFor = (record: ConstellationRecord): AppState => {
