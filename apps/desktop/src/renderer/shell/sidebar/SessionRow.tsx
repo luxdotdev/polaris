@@ -2,6 +2,8 @@ import type { Worktree } from "@polaris/protocol";
 import { BranchIcon, cn, Row } from "@polaris/ui";
 import type { KeyboardEvent, ReactElement } from "react";
 import { slots } from "../../app/slots.tsx";
+import { waitingOn } from "../../features/session/model/background.ts";
+import { BackgroundTasksHover } from "../../features/session/ui/background.tsx";
 import type { SessionEntry } from "../../store/hostModel.ts";
 import { needsYou, shownState } from "../../routes/topBar.ts";
 import { activityOf, age, sessionLine, sessionStateLabel } from "../copy.ts";
@@ -46,7 +48,13 @@ export const buttonProps = (select: () => void) => ({
   },
 });
 
-/** A row that needs you gets its hover card (the NeedsYouHover slot). */
+/** Background tasks an Idle row waits on; none while it needs you. */
+const waitingFor = (entry: SessionEntry) => (needsYou(entry) ? [] : waitingOn(entry.session));
+
+/**
+ * A row that needs you gets its hover card (the NeedsYouHover slot); one waiting on
+ * background tasks lists them.
+ */
 export const WithHover = ({
   hostKey,
   entry,
@@ -55,14 +63,23 @@ export const WithHover = ({
   readonly hostKey: string;
   readonly entry: SessionEntry;
   readonly children: ReactElement;
-}) =>
-  needsYou(entry) ? (
-    <slots.NeedsYouHover hostKey={hostKey} sessionId={entry.session.id}>
-      {children}
-    </slots.NeedsYouHover>
-  ) : (
+}) => {
+  if (needsYou(entry))
+    return (
+      <slots.NeedsYouHover hostKey={hostKey} sessionId={entry.session.id}>
+        {children}
+      </slots.NeedsYouHover>
+    );
+  const waiting = waitingFor(entry);
+
+  return waiting.length === 0 ? (
     children
+  ) : (
+    <BackgroundTasksHover tasks={waiting} side="right">
+      {children}
+    </BackgroundTasksHover>
   );
+};
 
 const useSelectedSession = (hostKey: string, entry: SessionEntry) => {
   const selection = useSelection();
@@ -81,6 +98,7 @@ export const SessionRow = ({ hostKey, entry, now }: SessionRowProps) => {
   const selected = useSelectedSession(hostKey, entry);
   const { session } = entry;
   const state = shownState(entry);
+  const waiting = waitingFor(entry).length > 0;
 
   // What a Working session is doing now, from its feed if open; a string, so deltas don't re-render.
   const activity = useApp((s) =>
@@ -100,8 +118,13 @@ export const SessionRow = ({ hostKey, entry, now }: SessionRowProps) => {
         title={session.title || "Untitled session"}
         description={sessionLine(entry, activity)}
         meta={
-          <span data-testid="row-state" data-state={state} aria-label={sessionStateLabel[state]}>
-            {age(session.createdAt, now)}
+          <span
+            data-testid="row-state"
+            data-state={state}
+            aria-label={waiting ? "waiting" : sessionStateLabel[state]}
+          >
+            {/* Compact drops the second line, so the wait takes the age's place. */}
+            {waiting && density === "compact" ? "waiting" : age(session.createdAt, now)}
           </span>
         }
       />

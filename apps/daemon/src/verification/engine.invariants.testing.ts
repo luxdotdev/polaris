@@ -8,6 +8,7 @@ import { Predicate } from "effect";
 import type { ReadModel } from "../store/model.ts";
 import {
   type AEvent,
+  type View,
   fold,
   referenceDecide,
   SESSIONS,
@@ -189,13 +190,21 @@ const checkApprovals = (world: World, log: ReadonlyArray<AEvent>) => {
   }
 };
 
+const acceptsDeferredInput = (before: View | undefined) =>
+  before !== undefined &&
+  workingTurnOf(before) === undefined &&
+  (["idle", "dormant", "failed"].includes(before.state) ||
+    (before.state === "needs-you" && before.pending.size === 0));
+
 /** Only a live idle Harness starts a fresh Turn; approval requests need their Turn in flight. */
 const checkHarnessReports = (log: ReadonlyArray<AEvent>) => {
   for (const e of log) {
     if (e.tag === "TurnStarted" && e.commandId === null) {
       const before = fold(log, e.seq - 1).get(e.session!);
 
-      if (!e.autonomous || before?.state !== "idle" || before.turns.has(e.turnId!))
+      const allowed = e.autonomous ? before?.state === "idle" : acceptsDeferredInput(before);
+
+      if (!allowed || before?.turns.has(e.turnId!))
         throw new Error(`Unexpected Harness Turn at ${e.seq}`);
     }
 

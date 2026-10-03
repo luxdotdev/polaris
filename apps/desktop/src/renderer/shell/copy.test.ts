@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { ApprovalRequest, RequestId, TurnItem } from "@polaris/protocol";
+import { ApprovalRequest, BackgroundTask, RequestId, TurnItem } from "@polaris/protocol";
 import type { HostView } from "../../shared/api.ts";
 import { hostModel, hostView } from "../routes/fixtures.testing.ts";
 import { approval, seq, turn } from "../store/fixtures.testing.ts";
@@ -61,6 +61,20 @@ describe("session row line", () => {
     expect(sessionLine(entry(), activityOf(working(cmd)))).toBe("Running cargo build --release");
     expect(sessionLine(entry(), activityOf(working(null, "Sure")))).toBe("Writing a reply…");
     expect(sessionLine(entry(), activityOf(undefined))).toBe("Working · turn 1");
+  });
+
+  test("Idle with background tasks reads as waiting on them, not idle", () => {
+    const tasks = [
+      new BackgroundTask({ id: "a", kind: "subagent", description: "Explore the store" }),
+      new BackgroundTask({ id: "b", kind: "subagent", description: "Run the tests" }),
+    ];
+
+    const waiting = { ...base, session: { ...base.session, state: "idle" as const } };
+
+    expect(
+      sessionLine({ ...waiting, session: { ...waiting.session, backgroundTasks: tasks } })
+    ).toBe("Waiting on 2 subagents");
+    expect(sessionLine(waiting)).toBe("Idle · turn 1");
   });
 });
 

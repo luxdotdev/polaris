@@ -5,7 +5,7 @@ import { resultText, subagentCard } from "./subagents.ts";
 
 const I = TurnItem.cases;
 
-const subagent = (status: "working" | "completed") =>
+const subagent = (status: "working" | "completed", report: string | null = null) =>
   new Subagent({
     id: SubagentId.make("toolu_agent"),
     sessionId: SessionId.make("s1"),
@@ -17,6 +17,7 @@ const subagent = (status: "working" | "completed") =>
     status,
     startedAt: "2026-10-01T00:00:00.000Z",
     endedAt: status === "working" ? null : "2026-10-01T00:00:12.000Z",
+    report,
   });
 
 const ls = I.CommandExecution.make({
@@ -83,6 +84,36 @@ describe("subagent cards", () => {
 
     expect(card.report).toBeNull();
     expect(card.activity).toBe("Running bun test");
+  });
+
+  test("the Harness's report wins; interim text and the handback stay in the transcript", () => {
+    const handback = I.ToolCall.make({
+      id: "h1",
+      name: "SubagentHandback",
+      input: { message: "## Report\n\n- Done." },
+      output: null,
+      status: "completed",
+    });
+
+    const card = subagentCard(
+      {
+        subagent: subagent("completed", "## Report\n\n- Done."),
+        items: [ls, report, handback],
+        live: new Map(),
+      },
+      call
+    );
+
+    expect(card.report).toBe("## Report\n\n- Done.");
+    expect(card.entries.map((e) => (e.kind === "item" ? e.item.id : e.kind))).toEqual([
+      "c1",
+      "m1",
+      "h1",
+    ]);
+
+    const row = card.entries.at(-1);
+
+    expect(row?.kind === "item" && row.item.kind === "tool" ? row.item.summary : null).toBe("");
   });
 
   test("result text from a string or text parts", () => {

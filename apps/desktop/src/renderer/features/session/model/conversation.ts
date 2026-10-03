@@ -7,6 +7,7 @@
 import type {
   ApprovalRequest,
   Attachment,
+  BackgroundTask,
   TurnId,
   TurnItem,
   TurnStatus,
@@ -14,6 +15,7 @@ import type {
 } from "@polaris/protocol";
 import { Predicate } from "effect";
 import type { TurnView } from "../../../store/sessionModel.ts";
+import { triggerPhrase } from "./background.ts";
 import { completedItemView, liveItemView } from "./items.ts";
 import type { Outgoing } from "./outbox.ts";
 import { type Entry, groupItems } from "./runs.ts";
@@ -43,6 +45,15 @@ export type Row =
       readonly model: string | null;
       readonly effort: string | null;
     }
+  /** A Turn the Harness started itself: what woke it, in place of a prompt. */
+  | {
+      readonly kind: "trigger";
+      readonly key: string;
+      readonly turnId: string;
+      readonly text: string;
+      readonly model: string | null;
+      readonly effort: string | null;
+    }
   | {
       readonly kind: "item";
       readonly key: string;
@@ -55,6 +66,12 @@ export type Row =
   | { readonly kind: "approval"; readonly key: string; readonly request: ApprovalRequest }
   /** A steer or queued follow-up that hasn't landed yet (`outbox.ts`). */
   | { readonly kind: "outgoing"; readonly key: string; readonly entry: Outgoing }
+  /** An Idle session's background tasks still running: what it waits on. */
+  | {
+      readonly kind: "waiting";
+      readonly key: string;
+      readonly tasks: ReadonlyArray<BackgroundTask>;
+    }
   /** Whatever the session's chrome closes the list with (a Claim card). */
   | { readonly kind: "trailer"; readonly key: string }
   | {
@@ -90,9 +107,13 @@ type AssistantMessage = Extract<TurnItem, { readonly _tag: "AssistantMessage" }>
 const isMessage = (item: TurnItem): item is AssistantMessage =>
   Predicate.isTagged(item, "AssistantMessage");
 
+/** What started a Turn, in words: its prompt, or what woke a Turn the Harness started. */
+export const turnOpening = (turn: TurnView["turn"]): string =>
+  turn.trigger === null ? turn.prompt : triggerPhrase(turn.trigger);
+
 export const summarize = (view: TurnView): TurnSummary => {
   const lastMessage = view.items.findLast(isMessage);
-  const text = lastMessage === undefined ? view.turn.prompt : lastMessage.text;
+  const text = lastMessage === undefined ? turnOpening(view.turn) : lastMessage.text;
 
   return {
     turnId: view.turn.id,
@@ -188,16 +209,28 @@ const endingRow = (view: TurnView, isLast: boolean): ReadonlyArray<Row> => {
   ];
 };
 
+const openingRow = ({ turn }: TurnView): Row =>
+  turn.trigger === null
+    ? {
+        kind: "prompt",
+        key: `${turn.id}:prompt`,
+        turnId: turn.id,
+        text: turn.prompt,
+        attachments: turn.attachments,
+        model: turn.model,
+        effort: turn.effort,
+      }
+    : {
+        kind: "trigger",
+        key: `${turn.id}:trigger`,
+        turnId: turn.id,
+        text: triggerPhrase(turn.trigger),
+        model: turn.model,
+        effort: turn.effort,
+      };
+
 const expandedRows = (view: TurnView, isLast: boolean): ReadonlyArray<Row> => [
-  {
-    kind: "prompt",
-    key: `${view.turn.id}:prompt`,
-    turnId: view.turn.id,
-    text: view.turn.prompt,
-    attachments: view.turn.attachments,
-    model: view.turn.model,
-    effort: view.turn.effort,
-  },
+  openingRow(view),
   ...itemRows(view),
   ...endingRow(view, isLast),
 ];
@@ -233,6 +266,8 @@ export interface ConversationInput {
   /** Steers and follow-ups not landed yet; they close the list. */
   readonly setup?: WorktreeSetupRun | null;
   readonly outbox?: ReadonlyArray<Outgoing>;
+  /** Background tasks an Idle session waits on (`waitingOn`); they follow the last Turn. */
+  readonly waiting?: ReadonlyArray<BackgroundTask>;
 }
 
 const approvalRow = (request: ApprovalRequest): Row => ({
@@ -248,6 +283,7 @@ export const conversationRows = ({
   unfolded,
   outbox = [],
   setup = null,
+  waiting = [],
 }: ConversationInput): ReadonlyArray<Row> => {
   const rows: Array<Row> = setup === null ? [] : [{ kind: "setup", key: setup.id, setup }];
   const placed = new Set<string>();
@@ -266,6 +302,8 @@ export const conversationRows = ({
   });
 
   for (const request of approvals) if (!placed.has(request.id)) rows.push(approvalRow(request));
+
+  if (waiting.length > 0) rows.push({ kind: "waiting", key: "waiting", tasks: waiting });
 
   for (const entry of outbox) rows.push({ kind: "outgoing", key: `outgoing:${entry.id}`, entry });
 

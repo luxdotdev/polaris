@@ -63,6 +63,7 @@ module polaris {
 
   type EventKind =
     | TurnStarted(bool) // true: a Continue of an Interrupted Turn
+    | UserTurnStarted // accepted input delivered after an autonomous Turn ended
     | TurnEnded(str) // "completed" | "interrupted" | "failed"
     | ItemCompleted // session-only: the host stream leaves it out
     | StateChanged(str) // "working" | "needs-you" | "idle" | "dormant" | "failed" | "archived"
@@ -89,7 +90,9 @@ module polaris {
     | HRequest(str)
     | HWithdraw(str)
     | HItem
+    | HInputRefused // a durable item for a deferred prompt the Session cannot take
     | HTurnStarted
+    | HUserTurnStarted
     | HTurnEnded
     | HTurnFailed
 
@@ -183,6 +186,7 @@ module polaris {
     match e.kind {
       | TurnStarted(continued) =>
         { ...v, turn: "working", autonomous: if (continued) v.autonomous else e.cmd == "", turns: if (continued) v.turns else v.turns + 1, archivedSinceTurn: false }
+      | UserTurnStarted => { ...v, turn: "working", autonomous: false, turns: v.turns + 1, archivedSinceTurn: false }
       | TurnEnded(status) => { ...v, turn: status, archivedSinceTurn: false }
       | ItemCompleted => v
       | StateChanged(state) =>
@@ -288,7 +292,12 @@ module polaris {
         if (v.state == "idle" and v.turn != "working" and turn == v.turns + 1)
           [TurnStarted(false), StateChanged("working")]
         else []
+      | HUserTurnStarted =>
+        if (acceptsTurn(v) and turn == v.turns + 1)
+          [UserTurnStarted, StateChanged("working")]
+        else []
       | HItem => [ItemCompleted]
+      | HInputRefused => [ItemCompleted]
       | HTurnEnded =>
         if (inFlight(v, turn))
           withdrawAll(v, "harness").concat([TurnEnded("completed")]).concat(
@@ -478,14 +487,14 @@ module polaris {
 
   /**
    * The Harness of a live session reports something about its latest Turn; the
-   * engine records it with `recordFor`. Items, withdrawals and Turn ends come
-   * while that Turn is in flight. An approval request may also come late,
+   * engine records it with `recordFor`. Items also model durable deferred-input
+   * refusals after a Turn ends or its Harness stops. An approval may come late,
    * after the Turn ended (a stale or misbehaving Harness), and any report may
    * be decided after a later decision ended its Turn or started another.
    */
   action harnessReports(s: str, ev: HarnessEvent): bool = all {
     up,
-    harness.contains(s),
+    harness.contains(s) or ev == HInputRefused,
     queue.length() < MAX_QUEUE,
     log.length() < MAX_LOG,
     val v = viewOf(log, s)
@@ -498,11 +507,13 @@ module polaris {
       }
       | HWithdraw(r) => v.pending.contains(r)
       | HTurnStarted => v.state == "idle"
+      | HUserTurnStarted => acceptsTurn(v)
       | HItem => v.turn == "working"
+      | HInputRefused => v.turns > 0
       | HTurnEnded => v.turn == "working"
       | HTurnFailed => v.turn == "working"
     },
-    queue' = queue.append(HarnessEv({ session: s, ev: ev, turn: viewOf(log, s).turns + (if (ev == HTurnStarted) 1 else 0) })),
+    queue' = queue.append(HarnessEv({ session: s, ev: ev, turn: viewOf(log, s).turns + (if (ev == HTurnStarted or ev == HUserTurnStarted) 1 else 0) })),
     unchangedClients,
     log' = log, receipts' = receipts, up' = up, toPublish' = toPublish, toSettle' = toSettle,
     toReact' = toReact, reactor' = reactor, harness' = harness, subs' = subs,
@@ -701,7 +712,7 @@ module polaris {
     Set(1, 2).map(n => AcceptTurns({ session: SESSION_LIST[0], through: n })).union(Set(RecordVerdict))
 
   pure val HARNESS_EVENTS: Set[HarnessEvent] =
-    REQUESTS.map(r => HRequest(r)).union(REQUESTS.map(r => HWithdraw(r))).union(Set(HItem, HTurnStarted, HTurnEnded, HTurnFailed))
+    REQUESTS.map(r => HRequest(r)).union(REQUESTS.map(r => HWithdraw(r))).union(Set(HItem, HTurnStarted, HUserTurnStarted, HTurnEnded, HTurnFailed))
 
   action step = any {
     nondet c = CLIENTS.oneOf()
@@ -810,6 +821,7 @@ module polaris {
     log.indices().forall(i => match log[i].kind {
       | TurnStarted(continued) => log[i].cmd != "" or (not(continued)
           and viewOf(log.slice(0, i), log[i].session).state == "idle")
+      | UserTurnStarted => acceptsTurn(viewOf(log.slice(0, i), log[i].session))
       | _ => true
     })
       and harness.forall(s => log.indices().exists(i =>

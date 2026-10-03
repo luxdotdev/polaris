@@ -1,5 +1,6 @@
 /** UI copy: glossary terms lowercase (DESIGN.md rule/glossary-lowercase), what happened (rule/say-what-happened). */
 import type { ConnectionState, SessionState } from "@polaris/protocol";
+import { waitingOn, waitingPhrase } from "../features/session/model/background.ts";
 import type { SessionEntry } from "../store/hostModel.ts";
 
 export { activityOf } from "./activity.ts";
@@ -40,7 +41,8 @@ const lowerFirst = (text: string) => `${text.charAt(0).toLowerCase()}${text.slic
 /**
  * A session row's second line: what the session is doing right now. A question is
  * the ask itself; an approval says what it wants to do; a Working session says
- * its current step (`activity`, from its open feed) when there is one.
+ * its current step (`activity`, from its open feed) when there is one; an Idle
+ * one with background tasks says what it is waiting on.
  */
 export const sessionLine = (entry: SessionEntry, activity: string | null = null): string => {
   const request = entry.pendingApprovals[0];
@@ -50,6 +52,10 @@ export const sessionLine = (entry: SessionEntry, activity: string | null = null)
   }
 
   if (entry.session.state === "working" && activity !== null) return activity;
+
+  const waiting = waitingOn(entry.session);
+
+  if (waiting.length > 0) return waitingPhrase(waiting);
 
   return STATE_LINES[entry.session.state](entry);
 };

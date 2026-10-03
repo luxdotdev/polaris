@@ -47,6 +47,7 @@ import {
   workspaceId,
   worktree,
 } from "./fixtures.ts";
+import { background, waitingSidebar } from "./background.ts";
 import { MODELS, PATCH } from "./fixtureData.ts";
 
 const HOST = "local";
@@ -89,6 +90,7 @@ const SCENES = {
   steer,
   attachments,
   subagents,
+  background,
 } as const;
 
 const SCENE_NAMES = [
@@ -102,6 +104,7 @@ const SCENE_NAMES = [
   "steer",
   "attachments",
   "subagents",
+  "background",
   "new",
   "setup",
   "none-ready",
@@ -396,7 +399,8 @@ const sceneOf = (hash: string): Scene => {
  */
 export const mountPreview = (root: HTMLElement, hash: string) => {
   const scene = sceneOf(hash);
-  const models = Object.values(SCENES).map((make) => make());
+  // Sidebar-only sessions follow the scenes, so a scene's index still finds its model.
+  const models = [...Object.values(SCENES), ...waitingSidebar].map((make) => make());
   const store = createStore<AppState>(() => stateFor(models));
 
   const connection: Connection = {
@@ -426,7 +430,7 @@ export const mountPreview = (root: HTMLElement, hash: string) => {
     patchSessionUi(key, () => ({ outbox: steerOutbox(turnId) }));
   }
 
-  if (scene === "attachments" && shown?.session != null) {
+  if ((scene === "attachments" || scene === "background") && shown?.session != null) {
     const unfolded = new Set(shown.turns.map((t) => t.turn.id));
 
     patchSessionUi(uiKey(HOST, shown.session.id), () => ({ unfolded }));

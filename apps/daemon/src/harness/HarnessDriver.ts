@@ -157,6 +157,8 @@ export interface HarnessSession {
   /** Every event the Harness emits for this session, until it exits. Single consumer. */
   readonly events: Stream.Stream<HarnessEvent>;
   readonly sendTurn: (input: TurnInput) => Effect.Effect<void, HarnessError>;
+  /** Atomically steer input and attachments into this live Turn; false if it ended. */
+  readonly steerTurn?: (input: TurnInput) => Effect.Effect<boolean, HarnessError>;
   /** Add guidance to the Turn in flight; fails if the Harness lacks `steer`. */
   readonly steer: (text: string) => Effect.Effect<void, HarnessError>;
   readonly interrupt: Effect.Effect<void, HarnessError>;

@@ -63,6 +63,9 @@ export type ItemView =
 
 const SUMMARY_MAX = 160;
 
+/** Claude's tool a Subagent hands its report back with (`Subagent.report`). */
+export const HANDBACK = "SubagentHandback";
+
 /** Whatever the Harness passed the tool, as it arrived (the protocol keeps it opaque). */
 export type ToolInput = Extract<TurnItem, { readonly _tag: "ToolCall" }>["input"];
 
@@ -145,7 +148,8 @@ const fromItem = (item: TurnItem, live: boolean): ItemView =>
         id: i.id,
         live,
         name: i.name,
-        summary: toolSummary(i.input),
+        // The handback's input is the report, shown under its Subagent card; never as JSON.
+        summary: i.name === HANDBACK ? "" : toolSummary(i.input),
         file: toolFile(i.input),
         status: i.status,
       }),

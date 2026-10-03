@@ -1,8 +1,8 @@
 /**
  * A Subagent as the conversation shows it, under the Turn that spawned it:
  * its task, what it is doing now, its own items (grouped like the Turn's),
- * and its final report. The report is its last message, or what its Agent
- * call returned to the Turn when no message came through.
+ * and its final report: the Harness's report (Claude's SubagentHandback), else
+ * its last message, else what its Agent call returned to the Turn.
  */
 import { Option, Predicate, Schema } from "effect";
 import type { Subagent, TurnItem } from "@polaris/protocol";
@@ -90,8 +90,9 @@ export const subagentCard = (view: SubagentView, call: ToolCall | undefined): Su
   const done = view.items.map(completedItemView);
   const live = [...view.live].map(([id, item]) => liveItemView(id, item));
   const working = view.subagent.status === "working";
-  const last = working ? undefined : view.items.findLast(isMessage);
-  const report = working ? null : (last?.text ?? resultText(call?.output));
+  const handed = view.subagent.report ?? null;
+  const last = working || handed !== null ? undefined : view.items.findLast(isMessage);
+  const report = handed ?? (working ? null : (last?.text ?? resultText(call?.output)));
   // The report shows on its own under the card; the transcript keeps everything else.
   const shown = last === undefined ? done : done.filter((i) => i.id !== last.id);
 

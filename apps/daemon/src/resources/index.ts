@@ -133,7 +133,9 @@ export const resourcesLayer = Layer.effect(
 
         const attempt = [...current.constellations.values()]
           .flatMap((r) => r.graph.attempts)
-          .findLast((a) => a.sessionId === sessionId && a.state === "working");
+          .findLast(
+            (a) => a.sessionId === sessionId && (a.state === "working" || a.state === "blocked")
+          );
 
         const granted = yield* write(null, [
           DomainEvent.cases.ResourceLeased.make({

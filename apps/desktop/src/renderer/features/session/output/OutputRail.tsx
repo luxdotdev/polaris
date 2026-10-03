@@ -12,6 +12,8 @@ import type { SessionModel } from "../../../store/sessionModel.ts";
 import { homePath, plural, sessionStateLabel } from "../../../shell/copy.ts";
 import { SessionGlyph } from "../../../shell/glyphs.tsx";
 import { useHost, useSession } from "../hooks.ts";
+import { waitingOn, waitingPhrase } from "../model/background.ts";
+import { BackgroundTasksHover } from "../ui/background.tsx";
 import { uiKey } from "../state.ts";
 import { openForEdit, setOutputOpen } from "./open.ts";
 import { diffRevision, useTurnDiff } from "../turnDiff.ts";
@@ -75,6 +77,23 @@ const branchText = (git: GitFacts) => {
 
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
+/** The session's state, or what an Idle one still waits on (listed on hover). */
+const StateFact = ({ session }: { readonly session: NonNullable<SessionModel["session"]> }) => {
+  const waiting = waitingOn(session);
+
+  return waiting.length === 0 ? (
+    <span className="text-label text-text-default truncate">
+      {capitalize(sessionStateLabel[session.state])}
+    </span>
+  ) : (
+    <BackgroundTasksHover tasks={waiting} side="right">
+      <span className="text-label text-text-default truncate" data-testid="rail-waiting">
+        {waitingPhrase(waiting)}
+      </span>
+    </BackgroundTasksHover>
+  );
+};
+
 const changesText = (git: GitFacts) => {
   if (git.kind !== "ready") return "";
 
@@ -129,9 +148,7 @@ export const OutputRail = ({ hostKey, sessionId }: SessionViewProps) => {
       <div className="py-row-x flex min-h-0 flex-1 flex-col overflow-y-auto">
         {session === null ? null : (
           <Fact icon={<SessionGlyph state={session.state} harness={session.harness} />}>
-            <span className="text-label text-text-default truncate">
-              {capitalize(sessionStateLabel[session.state])}
-            </span>
+            <StateFact session={session} />
           </Fact>
         )}
         <Fact icon={<ServerIcon size={14} />}>

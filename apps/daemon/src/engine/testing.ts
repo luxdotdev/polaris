@@ -113,6 +113,8 @@ export const makeFakeDriver = (
       Effect.gen(function* () {
         const queue = yield* Queue.unbounded<HarnessEvent, Cause.Done>();
 
+        let activeTurn: TurnInput["turnId"] | null = null;
+
         const session: FakeHarnessSession = {
           options: openOptions,
           turns: [],
@@ -121,7 +123,13 @@ export const makeFakeDriver = (
           interrupts: 0,
           closed: false,
           emit: (...events) => {
-            for (const event of events) Queue.offerUnsafe(queue, event);
+            for (const event of events) {
+              if (HarnessEvent.$is("TurnStarted")(event)) activeTurn = event.turnId;
+
+              if (HarnessEvent.$is("TurnEnded")(event) && activeTurn === event.turnId)
+                activeTurn = null;
+              Queue.offerUnsafe(queue, event);
+            }
           },
         };
 
@@ -136,8 +144,17 @@ export const makeFakeDriver = (
           events: Stream.fromQueue(queue),
           sendTurn: (input) =>
             Effect.sync(() => {
+              activeTurn = input.turnId;
               session.turns.push(input);
               session.emit(...(options.onTurn?.(input, session) ?? []));
+            }),
+          steerTurn: (input) =>
+            Effect.sync(() => {
+              if (activeTurn !== input.turnId) return false;
+              session.turns.push(input);
+              session.emit(...(options.onTurn?.(input, session) ?? []));
+
+              return true;
             }),
           steer: (text) => Effect.sync(() => void session.steers.push(text)),
           interrupt: Effect.sync(() => {
@@ -308,7 +325,7 @@ export const engineLayer = (options: {
 
   const settings: EngineSettings = {
     idleTimeout: options.idleTimeout ?? Duration.minutes(30),
-    backgroundIdleTimeout: options.backgroundIdleTimeout ?? Duration.hours(2),
+    backgroundIdleTimeout: options.backgroundIdleTimeout ?? Duration.hours(8),
     checkpointSweepInterval: options.checkpointSweepInterval ?? null,
   };
 

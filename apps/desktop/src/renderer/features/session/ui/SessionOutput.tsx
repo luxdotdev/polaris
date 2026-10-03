@@ -23,6 +23,7 @@ import { type ReactNode, useRef, useState } from "react";
 import type { TurnView } from "../../../store/sessionModel.ts";
 import { type DiffRow, diffRows, ROW_HEIGHT } from "../diffRows.ts";
 import { useSession } from "../hooks.ts";
+import { turnOpening } from "../model/conversation.ts";
 import { firstChangedLine, totals } from "../model/diff.ts";
 import { plural } from "../model/format.ts";
 import { showTurnDiff, uiKey, useSessionUi } from "../state.ts";
@@ -198,7 +199,7 @@ const TurnMenu = ({
           <DropdownMenuRadioItem key={t.turn.id} value={t.turn.id}>
             <span className="tabular">Turn {t.turn.index + 1}</span>
             <span className="text-caption text-text-subtle max-w-56 truncate pl-3">
-              {t.turn.prompt}
+              {turnOpening(t.turn)}
             </span>
           </DropdownMenuRadioItem>
         ))}

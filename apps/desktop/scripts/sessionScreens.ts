@@ -55,7 +55,51 @@ const SHOT_SCENES = new Map([
   ["commands", "interrupted"],
   ["chip", "interrupted"],
   ["subagent-open", "subagents"],
+  ["background-hover", "background"],
+  ["background-row", "background"],
+  ["background-open", "background"],
 ]);
+
+/** The subagents scene's first run and Subagent, opened. */
+const openSubagent = async (page: Page) => {
+  for (const target of ['[data-testid="tool-run"] > button', '[data-testid="subagent"] > button'])
+    if ((await page.locator(`${target}[aria-expanded="true"]`).count()) === 0)
+      await page.locator(target).first().click();
+  await page.getByTestId("subagent-transcript").first().waitFor();
+};
+
+/** The background scene's shots: a hover listing the tasks, or the reported Subagent opened. */
+const openBackground = async (page: Page, scene: string) => {
+  if (scene === "background-open") {
+    const card = page.locator('[data-testid="subagent"][data-status="completed"] > button').first();
+
+    if ((await card.getAttribute("aria-expanded")) !== "true") await card.click();
+    await page.getByTestId("subagent-transcript").first().waitFor();
+
+    return;
+  }
+
+  const target = page.locator(
+    scene === "background-hover"
+      ? '[data-testid="waiting"] p'
+      : '[data-session-row][aria-current="true"]'
+  );
+
+  // A theme or density change can swallow the open; leave and come back until it shows.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    await page.mouse.move(0, 0);
+    await page.waitForTimeout(300);
+    await target.hover();
+
+    const shown = await page
+      .getByTestId("background-tasks")
+      .waitFor({ timeout: 2000 })
+      .then(() => true)
+      .catch(() => false);
+
+    if (shown) return;
+  }
+};
 
 /** Opens what a shot shows, again after each theme or density change closes it. */
 const open = async (page: Page, scene: string) => {
@@ -82,10 +126,9 @@ const open = async (page: Page, scene: string) => {
       ? page.getByTestId("command-menu").waitFor()
       : page.locator(".composer-chip").first().waitFor());
   } else if (scene === "subagent-open") {
-    for (const target of ['[data-testid="tool-run"] > button', '[data-testid="subagent"] > button'])
-      if ((await page.locator(`${target}[aria-expanded="true"]`).count()) === 0)
-        await page.locator(target).first().click();
-    await page.getByTestId("subagent-transcript").first().waitFor();
+    await openSubagent(page);
+  } else if (scene.startsWith("background-")) {
+    await openBackground(page, scene);
   } else if (scene === "viewer") {
     await page.locator('[data-testid="sent-image"][data-state="ready"]').first().click();
     await page.getByTestId("attachment-viewer").locator("img").waitFor();

@@ -21,7 +21,7 @@ import {
   type RiskSummary,
   type SessionId,
   SessionPlacement,
-  Turn,
+  type Turn,
   type TurnId,
   Workspace,
   type WorkspaceId,
@@ -29,6 +29,7 @@ import {
 } from "@polaris/protocol";
 import { Effect, Result } from "effect";
 import { lastTurn, type ReadModel, type SessionRecord } from "../store/model.ts";
+import { userTurn } from "./session.turns.ts";
 import { reviewDeciders } from "./review.ts";
 import { decideSession, type SessionInput } from "./session.ts";
 
@@ -126,21 +127,7 @@ const deciding = (model: ReadModel, ctx: DecideContext): Deciding => {
       return decision.rejection !== null ? reject(decision.rejection) : ok(...decision.events);
     },
     newTurn: (session, prompt, attachments = ctx.attachments) =>
-      new Turn({
-        id: ctx.newTurnId,
-        sessionId: session.id,
-        index: session.turnCount,
-        prompt,
-        attachments: [...attachments],
-        model: session.model,
-        effort: session.effort,
-        serviceTier: session.serviceTier,
-        status: "working",
-        checkpointBefore: null,
-        checkpointAfter: null,
-        startedAt: ctx.now,
-        endedAt: null,
-      }),
+      userTurn(session, { id: ctx.newTurnId, prompt, attachments, at: ctx.now }),
   };
 };
 

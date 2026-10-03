@@ -19,3 +19,10 @@ Handover commits `LeadHandoverRequested` and returns immediately, including a ca
 `delivery.test.ts`, `receipts.test.ts`, `../recovery.test.ts` and `../handover/handover.test.ts` exercise real SQLite commits and Session-machine decisions. Quint scenarios and the real-log replay reader cover request ordering, cancelled and superseded requests, old-Lead delivery, stale facts and recipient receipts. `idle.fixture.ts on|off` seeds 128 idle Constellations in a temporary `POLARIS_HOME`; the on variant starts the actual delivery observer and reports its pending timer count for process-tree sampling.
 
 Remote apply queues by Session and immutable packet ID, keeping other Sessions free while a blocked Turn finishes. The Client runs independent delivery RPCs under the worker Connection scope; reconnect cancels old in-flight work and replays pending packets. Session-scoped event subscriptions wake busy unblocks on TurnEnded without polling.
+
+Local worker input jobs wait for admission independently of the graph observer and
+other Sessions. The assignment registers a replaceable admission scope with the
+EventStore boundary; delivery pins it through commit and execution. A blocked wait
+retains its MCP binding and background reporting reservation while releasing idle
+capacity. Local and remote paths reacquire before the existing atomic Turn decision,
+then revalidate the current assignment inside commit. Stop cancels a queued resume.

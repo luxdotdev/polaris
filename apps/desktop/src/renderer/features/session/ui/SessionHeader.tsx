@@ -6,6 +6,7 @@
  */
 import type { PermissionMode } from "@polaris/protocol";
 import {
+  cn,
   Button,
   ChevronDownIcon,
   DropdownMenu,
@@ -35,7 +36,9 @@ import {
   permissionLabel,
   renameCommand,
 } from "../model/intent.ts";
+import { waitingOn, waitingPhrase } from "../model/background.ts";
 import { contextLabel } from "../model/meta.ts";
+import { BackgroundTasksHover } from "./background.tsx";
 import { settingsStore } from "../../settings/index.ts";
 
 export interface SessionHeaderProps {
@@ -176,8 +179,24 @@ const setPermission = (hostKey: string, session: SessionData, mode: PermissionMo
 
 export const SessionHeader = (props: SessionHeaderProps) => {
   const { hostKey, session, harness, turnNumber } = props;
-  const state = capitalized(sessionStateLabel[session.state]);
+  const waiting = waitingOn(session);
+
+  const state =
+    waiting.length > 0 ? waitingPhrase(waiting) : capitalized(sessionStateLabel[session.state]);
+
   const context = contextLabel(session.contextUsage);
+
+  const stateLine = (
+    <span
+      className={cn(
+        "text-caption text-text-subtle tabular",
+        waiting.length > 0 ? "min-w-0 truncate" : "shrink-0"
+      )}
+      data-testid="session-state"
+    >
+      {turnNumber === null ? state : `${state} · turn ${turnNumber}`}
+    </span>
+  );
 
   return (
     <header className="border-hairline gap-row-x pt-panel flex shrink-0 flex-col border-b px-5 pb-3.5">
@@ -193,12 +212,11 @@ export const SessionHeader = (props: SessionHeaderProps) => {
         ) : (
           <HarnessMark harness={harness} named className="shrink-0" />
         )}
-        <span
-          className="text-caption text-text-subtle tabular shrink-0"
-          data-testid="session-state"
-        >
-          {turnNumber === null ? state : `${state} · turn ${turnNumber}`}
-        </span>
+        {waiting.length > 0 ? (
+          <BackgroundTasksHover tasks={waiting}>{stateLine}</BackgroundTasksHover>
+        ) : (
+          stateLine
+        )}
         <span className="flex-1" />
         {context === null ? null : (
           <span

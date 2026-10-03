@@ -89,6 +89,8 @@ export type DecideFor = (record: SessionRecord, model: ReadModel) => ReadonlyArr
 const make = Effect.gen(function* () {
   const store = yield* EventStore;
   const config = yield* EngineConfig;
+  const clock = yield* Clock.Clock;
+  const idleNow = () => Number(clock.monotonicTimeNanosUnsafe() / 1_000_000n);
   const engineScope = yield* Effect.scope;
   const live = new Map<SessionId, LiveHarness>();
   const progress = new Map<SessionId, Map<string, Progress>>();
@@ -141,7 +143,7 @@ const make = Effect.gen(function* () {
     if (items.size === 0) progress.delete(sessionId);
   };
 
-  const backgroundIdle = new Set<SessionId>();
+  const backgroundIdle = new Map<SessionId, { lastEvent: number }>();
 
   const cancelIdle = (sessionId: SessionId) => {
     backgroundIdle.delete(sessionId);
@@ -203,32 +205,72 @@ const make = Effect.gen(function* () {
       )
       .pipe(Effect.catchCause((cause) => Effect.logError("idle stop failed", cause)));
 
-  const armIdle = (sessionId: SessionId, waiting: boolean) =>
-    FiberMap.run(
-      idleTimers,
-      sessionId,
-      Effect.sleep(
-        waiting ? (config.backgroundIdleTimeout ?? Duration.hours(2)) : config.idleTimeout
-      ).pipe(Effect.andThen(serially(sessionId)(goDormant(sessionId, waiting))))
-    ).pipe(Effect.asVoid);
+  const backgroundStop = (sessionId: SessionId, activity: { lastEvent: number }) =>
+    Effect.gen(function* () {
+      const timeout = Duration.toMillis(config.backgroundIdleTimeout ?? Duration.hours(8));
+      let remaining = timeout;
 
-  const touchIdle = (sessionId: SessionId) =>
-    backgroundIdle.has(sessionId)
-      ? Effect.suspend(() =>
-          backgroundIdle.has(sessionId) ? armIdle(sessionId, true) : Effect.void
-        )
-      : null;
+      while (true) {
+        yield* Effect.sleep(Duration.millis(remaining));
+
+        const next = yield* serially(sessionId)(
+          Effect.gen(function* () {
+            if (backgroundIdle.get(sessionId) !== activity) return null;
+            const delay = timeout - (idleNow() - activity.lastEvent);
+
+            if (delay > 0) return delay;
+            yield* goDormant(sessionId, true);
+
+            return null;
+          })
+        );
+
+        if (next === null) return;
+        remaining = next;
+      }
+    });
+
+  const touchIdle = (sessionId: SessionId) => {
+    const activity = backgroundIdle.get(sessionId);
+
+    return activity === undefined
+      ? null
+      : Effect.sync(() => {
+          if (backgroundIdle.get(sessionId) === activity) activity.lastEvent = idleNow();
+        });
+  };
 
   const scheduleIdle = (sessionId: SessionId) =>
     Effect.gen(function* () {
       const record = (yield* store.model).sessions.get(sessionId);
 
       if (record === undefined) return;
-      const waiting = waitingOnBackgroundWork(record);
 
-      if (waiting) backgroundIdle.add(sessionId);
-      else backgroundIdle.delete(sessionId);
-      yield* armIdle(sessionId, waiting);
+      if (!waitingOnBackgroundWork(record)) {
+        backgroundIdle.delete(sessionId);
+        yield* FiberMap.run(
+          idleTimers,
+          sessionId,
+          Effect.sleep(config.idleTimeout).pipe(
+            Effect.andThen(serially(sessionId)(goDormant(sessionId, false)))
+          )
+        );
+
+        return;
+      }
+
+      const at = idleNow();
+      const existing = backgroundIdle.get(sessionId);
+
+      if (existing !== undefined) {
+        existing.lastEvent = at;
+
+        return;
+      }
+
+      const activity = { lastEvent: at };
+      backgroundIdle.set(sessionId, activity);
+      yield* FiberMap.run(idleTimers, sessionId, backgroundStop(sessionId, activity));
     });
 
   const failSession = (sessionId: SessionId, message: string) =>

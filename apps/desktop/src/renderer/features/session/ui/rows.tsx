@@ -1,7 +1,7 @@
 /**
  * The conversation's row kinds: a folded Turn, the user's prompt, an agent
  * item (the first one carries the Harness avatar), an inline approval or
- * question, and how an interrupted or failed Turn ended.
+ * question, how an interrupted or failed Turn ended, and background waits.
  */
 import type { ApprovalDecision, ApprovalRequest, SessionId, SessionState } from "@polaris/protocol";
 import {
@@ -28,6 +28,7 @@ import { useTurnDiff } from "../turnDiff.ts";
 import { questionAnswers } from "../model/question.ts";
 import type { OutboxActions } from "../outbox.ts";
 import type { Entry } from "../model/runs.ts";
+import { Trigger, Waiting } from "./background.tsx";
 import { SetupCard } from "./SetupCard.tsx";
 import { EntryView } from "./entries.tsx";
 import { OutgoingMessage, Steered } from "./outgoing.tsx";
@@ -251,6 +252,10 @@ export const ConversationRow = ({ row, ctx }: { row: Row; ctx: RowContext }) => 
           onToggle: () => ctx.onToggleTurn(row.turnId),
         }) ?? <Prompt row={row} ctx={ctx} />
       );
+    case "trigger":
+      return <Trigger text={row.text} model={ctx.modelLabel(row.model, row.effort)} />;
+    case "waiting":
+      return <Waiting tasks={row.tasks} hue={ctx.harness} />;
     case "trailer":
       return ctx.chrome.trailer ?? null;
     case "item":

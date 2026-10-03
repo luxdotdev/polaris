@@ -58,14 +58,16 @@ export const worktree = new Worktree({
   isMain: true,
 });
 
-const ago = (seconds: number) => new Date(Date.now() - seconds * 1000).toISOString();
+export const ago = (seconds: number) => new Date(Date.now() - seconds * 1000).toISOString();
 
-const turn = (
+export const turn = (
   sessionId: SessionId,
   index: number,
   prompt: string,
   status: TurnStatus,
-  attachments: ReadonlyArray<Attachment> = []
+  attachments: ReadonlyArray<Attachment> = [],
+  /** Fields a scene sets itself (a Harness-started Turn's trigger and times). */
+  patch: Partial<Pick<Turn, "trigger" | "startedAt" | "endedAt">> = {}
 ) =>
   new Turn({
     id: TurnId.make(`${sessionId}-t${index}`),
@@ -81,9 +83,10 @@ const turn = (
       status === "working" ? null : `refs/polaris/checkpoints/${sessionId}/${index}/after`,
     startedAt: status === "working" ? ago(72) : ago(3600),
     endedAt: status === "working" ? null : ago(3500),
+    ...patch,
   });
 
-const session = (id: string, patch: Partial<AgentSession>) =>
+export const session = (id: string, patch: Partial<AgentSession>) =>
   new AgentSession({
     id: SessionId.make(id),
     workspaceId,
@@ -106,7 +109,7 @@ const session = (id: string, patch: Partial<AgentSession>) =>
     ...patch,
   });
 
-const view = (
+export const view = (
   t: Turn,
   items: ReadonlyArray<TurnItem>,
   live: ReadonlyArray<readonly [string, LiveItem]> = [],
@@ -137,7 +140,7 @@ const PLAN = I.Plan.make({
   explanation: null,
 });
 
-const model = (patch: Partial<SessionModel>): SessionModel => ({
+export const model = (patch: Partial<SessionModel>): SessionModel => ({
   sequence: Sequence.make(90),
   synchronized: true,
   session: null,
@@ -479,7 +482,7 @@ export const attachments = (): SessionModel => {
   });
 };
 
-const read = (id: string, path: string) =>
+export const read = (id: string, path: string) =>
   I.ToolCall.make({
     id,
     name: "Read",
@@ -488,14 +491,16 @@ const read = (id: string, path: string) =>
     status: "completed",
   });
 
-const subagentOf = (
+export const subagentOf = (
   s: SessionId,
   t: TurnId,
   id: string,
   title: string,
   status: "working" | "completed",
   items: ReadonlyArray<TurnItem>,
-  live: ReadonlyArray<readonly [string, LiveItem]> = []
+  live: ReadonlyArray<readonly [string, LiveItem]> = [],
+  /** A background agent's flag and its handed-back report. */
+  extra: Partial<Pick<Subagent, "background" | "report">> = {}
 ): SubagentView => ({
   subagent: new Subagent({
     id: SubagentId.make(id),
@@ -508,12 +513,13 @@ const subagentOf = (
     status,
     startedAt: ago(status === "working" ? 24 : 95),
     endedAt: status === "working" ? null : ago(61),
+    ...extra,
   }),
   items,
   live: new Map(live),
 });
 
-const agentCall = (id: string, description: string, prompt: string, done: boolean) =>
+export const agentCall = (id: string, description: string, prompt: string, done: boolean) =>
   I.ToolCall.make({
     id,
     name: "Agent",

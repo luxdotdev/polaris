@@ -106,6 +106,20 @@ run("typecheck polaris.qnt", ["typecheck", "polaris.qnt"]);
 
 run("typecheck polaris_test.qnt", ["typecheck", "polaris_test.qnt"]);
 
+run("typecheck worker-admission.qnt", ["typecheck", "worker-admission.qnt"]);
+
+run("Worker admission scenarios", ["test", "worker-admission.qnt", "--main=worker_admission_test"]);
+
+run("Worker admission safety", [
+  "run",
+  "worker-admission.qnt",
+  "--main=worker_admission",
+  "--invariant=safety",
+  `--max-samples=${samples}`,
+  "--max-steps=60",
+  `--seed=${seed}`,
+]);
+
 run("typecheck constellations.qnt", ["typecheck", "constellations.qnt"]);
 
 run("typecheck constellations_test.qnt", ["typecheck", "constellations_test.qnt"]);

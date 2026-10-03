@@ -16,7 +16,7 @@ module polaris_test {
     REQUESTS = Set("r1", "r2"),
     REQUEST_SESSION = Map("r1" -> "s1", "r2" -> "s1"),
     CAPACITY = 2,
-    MAX_LOG = 10,
+    MAX_LOG = 20,
     MAX_CRASHES = 2,
   ).* from "./polaris"
 
@@ -29,6 +29,43 @@ module polaris_test {
       .then(commitBatch)
       .then(publishBatch)
       .then(reactorRuns("s1"))
+
+  run queuedUserInputAfterAutonomousEndTest =
+    turnRunning
+      .then(harnessReports("s1", HTurnEnded))
+      .then(commitBatch).then(publishBatch)
+      .then(harnessReports("s1", HTurnStarted))
+      .then(commitBatch).then(publishBatch)
+      .then(clientSends("mac", "k2", SendTurn("s1")))
+      .then(commitBatch).then(publishBatch)
+      .expect(answers.get("k2") == [Ok(0)] and safety)
+      .then(clientSends("mac", "k3", SendTurn("s1")))
+      .then(commitBatch).then(publishBatch)
+      .expect(answers.get("k3") == [Ok(0)] and safety)
+      .then(harnessReports("s1", HTurnEnded))
+      .then(commitBatch).then(publishBatch)
+      .then(harnessReports("s1", HUserTurnStarted))
+      .then(commitBatch).then(publishBatch)
+      .expect(viewOf(log, "s1").turns == 3 and not(viewOf(log, "s1").autonomous) and safety)
+      .then(harnessReports("s1", HTurnEnded))
+      .then(commitBatch).then(publishBatch)
+      .then(harnessReports("s1", HUserTurnStarted))
+      .then(commitBatch).then(publishBatch)
+      .expect(viewOf(log, "s1").turns == 4 and not(viewOf(log, "s1").autonomous) and safety)
+
+  run deferredInputRefusalAfterArchiveTest =
+    turnRunning
+      .then(harnessReports("s1", HTurnEnded))
+      .then(commitBatch).then(publishBatch)
+      .then(clientSends("mac", "k2", Archive("s1")))
+      .then(commitBatch).then(publishBatch)
+      .then(reactorRuns("s1"))
+      // The refused prompt and its Error are durable items on the original Turn.
+      .then(harnessReports("s1", HInputRefused))
+      .then(commitBatch).then(publishBatch)
+      .then(harnessReports("s1", HInputRefused))
+      .then(commitBatch).then(publishBatch)
+      .expect(viewOf(log, "s1").state == "archived" and viewOf(log, "s1").turns == 1 and safety)
 
   /** …that asked for approval r1: seq 3 ApprovalRequested, seq 4 Needs You. */
   action waitingOnApproval =
