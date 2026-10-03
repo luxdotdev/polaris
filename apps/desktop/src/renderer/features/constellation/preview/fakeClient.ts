@@ -83,7 +83,25 @@ const rerunSetups = (
     })
   );
 
-export const fakeClient = (store: AppStore): ConstellationClient => {
+/** The Daemon's refusal when the claimed head isn't merged into the Lead's branch (E-GIT). */
+const NOT_MERGED: Outcome = {
+  ok: false,
+  message: "The claimed head has not been merged into the Lead's branch",
+  fix: "Fetch the branch, check the working tree, and retry.",
+  findings: [
+    {
+      code: "E-GIT",
+      message: "The claimed head has not been merged into the Lead's branch",
+      fix: "Fetch the branch, check the working tree, and retry.",
+    },
+  ],
+};
+
+/** `unmerged`: Accept is refused as if the Lead's branch lacked the claimed head. */
+export const fakeClient = (
+  store: AppStore,
+  { unmerged = false }: { readonly unmerged?: boolean } = {}
+): ConstellationClient => {
   let sequence = 1000;
 
   const commit = (hostKey: string, events: ReadonlyArray<Event>) => {
@@ -110,6 +128,8 @@ export const fakeClient = (store: AppStore): ConstellationClient => {
 
       if (r === undefined || a === undefined)
         return { ok: false, message: "No such attempt", fix: null };
+
+      if (unmerged && Predicate.isTagged(input.action, "Accept")) return NOT_MERGED;
 
       if (a.revision !== input.revision)
         return {

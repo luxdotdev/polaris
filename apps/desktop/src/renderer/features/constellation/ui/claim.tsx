@@ -1,23 +1,27 @@
 /**
  * The Claim card (DESIGN.md, The Claim card) at the end of a worker's transcript, and its
- * review form when the Constellation is paused or the Lead handed the Claim up (C3).
+ * review form when the Constellation is paused or the Lead handed the Claim up (C3):
+ * Approve (the Lead merges and accepts), Accept (already merged) or Send back.
  */
 import { type AttemptState, ReviewAction, WorkerPlacement } from "@polaris/protocol";
 import { Button, cn, Input, PixelHandIcon, SegmentedControl, Textarea } from "@polaris/ui";
 import { type ReactNode, useState } from "react";
-import { constellationCommands } from "../client.ts";
+import { useLeadBranch } from "../hooks.ts";
 import {
   type AttemptData,
   type ClaimData,
+  type ClaimPlace,
   type ConstellationRecord,
   type Facts,
   headMatches,
   type ReceiptView,
   receiptView,
+  type RefusalCopy,
   shortSha,
   type TaskData,
 } from "../model/index.ts";
 import type { ReviewMode } from "../state.ts";
+import { approveClaim, placeOf, reviewClaim, toastRefusal } from "./claimActions.ts";
 import { TaskGlyph } from "./glyphs.tsx";
 import { CheckMark } from "./strip.tsx";
 import { EditorPlaceProvider, FileLink } from "../../editor-links/index.ts";
@@ -120,38 +124,75 @@ interface FormProps {
   readonly onMode: (mode: ReviewMode) => void;
   readonly onClose: () => void;
   readonly onOpenInReview: () => void;
+  readonly place: ClaimPlace;
 }
 
-const SendBack = ({ hostKey, record, task, attempt, onClose }: FormProps) => {
+const Mono = ({ children }: { readonly children: ReactNode }) => (
+  <span className="text-code-inline text-text-strong font-mono">{children}</span>
+);
+
+const Approve = ({ hostKey, record, task, attempt, place, onClose }: FormProps) => {
+  const approved = attempt.approvedByUserAt != null;
+
+  return (
+    <div className="flex flex-col gap-2 px-3.5 pb-3.5" data-testid="claim-approve">
+      <p className="text-body text-text-default">
+        {approved ? "You approved it. " : "Records your verdict. "}The lead merges{" "}
+        <Mono>{place.branch}</Mono> at <Mono>{shortSha(place.head)}</Mono> into{" "}
+        {place.leadBranch === null ? "its branch" : <Mono>{place.leadBranch}</Mono>} and accepts it.
+      </p>
+      <div className="flex items-center gap-2 pt-1">
+        <Button
+          variant="primary"
+          disabled={approved}
+          onClick={() =>
+            void approveClaim(hostKey, record, attempt, place).then((ok) =>
+              ok ? onClose() : undefined
+            )
+          }
+        >
+          {approved ? "Approved" : `Approve ${task.id}`}
+        </Button>
+        <Button variant="ghost" onClick={onClose}>
+          Cancel
+        </Button>
+        <span className="flex-1" />
+        <span className="text-caption text-text-subtle">the lead is told</span>
+      </div>
+    </div>
+  );
+};
+
+const SendBack = ({ hostKey, record, task, attempt, place, onClose }: FormProps) => {
   const [reason, setReason] = useState("");
   const [fresh, setFresh] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [base, setBase] = useState(attempt.base);
 
   const send = () =>
-    void constellationCommands
-      .review(
-        hostKey,
-        {
-          constellationId: record.constellation.id,
-          attemptId: attempt.id,
-          revision: attempt.revision,
-          action: ReviewAction.cases.SendBack.make({
-            reason: reason.trim(),
-            worker: fresh
-              ? WorkerPlacement.cases.New.make({
-                  hostId: attempt.hostId,
-                  worktree: attempt.worktree,
-                  branch: attempt.branch,
-                  base: attempt.base,
-                })
-              : WorkerPlacement.cases.Existing.make({ sessionId: attempt.sessionId }),
-            mergeConflictBase: conflict ? base : null,
-          }),
-        },
-        `Couldn't send ${task.id} back`
-      )
-      .then((ok) => (ok ? onClose() : undefined));
+    void reviewClaim(
+      hostKey,
+      {
+        constellationId: record.constellation.id,
+        attemptId: attempt.id,
+        revision: attempt.revision,
+        action: ReviewAction.cases.SendBack.make({
+          reason: reason.trim(),
+          worker: fresh
+            ? WorkerPlacement.cases.New.make({
+                hostId: attempt.hostId,
+                worktree: attempt.worktree,
+                branch: attempt.branch,
+                base: attempt.base,
+              })
+            : WorkerPlacement.cases.Existing.make({ sessionId: attempt.sessionId }),
+          mergeConflictBase: conflict ? base : null,
+        }),
+      },
+      place
+    ).then((refused) =>
+      refused === null ? onClose() : toastRefusal(`Couldn't send ${task.id} back`, refused)
+    );
 
   return (
     <div className="flex flex-col gap-2 px-3.5 pb-3.5">
@@ -228,36 +269,59 @@ const tierOf = (receipts: ReadonlyArray<ReceiptView>) => {
   return receipts.some((r) => r.tier === "verified") ? "verified" : "reported";
 };
 
+/** Why Accept was refused, in the user's words, with Approve beside it when that would work. */
+const Refused = ({
+  copy,
+  onApprove,
+}: {
+  readonly copy: RefusalCopy;
+  readonly onApprove: () => void;
+}) => (
+  <div
+    role="alert"
+    data-testid="claim-refused"
+    className="rounded-control bg-fill-selected flex items-center gap-3 px-3 py-2"
+  >
+    <span className="text-body text-text-default min-w-0 flex-1">{copy.message}</span>
+    {copy.offerApprove ? (
+      <Button size="xs" variant="secondary" onClick={onApprove}>
+        Approve instead
+      </Button>
+    ) : null}
+  </div>
+);
+
 const Accept = ({
   hostKey,
   record,
   task,
   attempt,
   claim,
+  place,
   onClose,
+  onMode,
   facts,
 }: FormProps & { readonly facts: Facts }) => {
   const [head, setHead] = useState(claim.head);
+  const [refused, setRefused] = useState<RefusalCopy | null>(null);
   const [kept, setKept] = useState<ReadonlySet<number>>(new Set(claim.receipts.map((_, n) => n)));
   const views = claim.receipts.map((r) => receiptView(r, facts));
   const matches = headMatches(claim.head, head);
 
   const accept = () =>
-    void constellationCommands
-      .review(
-        hostKey,
-        {
-          constellationId: record.constellation.id,
-          attemptId: attempt.id,
-          revision: attempt.revision,
-          action: ReviewAction.cases.Accept.make({
-            mergedHead: head.trim(),
-            receipts: claim.receipts.filter((_, n) => kept.has(n)),
-          }),
-        },
-        `Couldn't accept ${task.id}`
-      )
-      .then((ok) => (ok ? onClose() : undefined));
+    void reviewClaim(
+      hostKey,
+      {
+        constellationId: record.constellation.id,
+        attemptId: attempt.id,
+        revision: attempt.revision,
+        action: ReviewAction.cases.Accept.make({
+          mergedHead: head.trim(),
+          receipts: claim.receipts.filter((_, n) => kept.has(n)),
+        }),
+      },
+      place
+    ).then((copy) => (copy === null ? onClose() : setRefused(copy)));
 
   return (
     <div className="flex flex-col gap-2 px-3.5 pb-3.5">
@@ -276,6 +340,11 @@ const Accept = ({
           It must match the claimed head, {shortSha(claim.head)}.
         </p>
       )}
+      {matches && refused === null ? (
+        <p className="text-caption text-text-subtle">
+          Merge {place.branch} into {place.leadBranch ?? "the lead's branch"} first.
+        </p>
+      ) : null}
       <p className="text-caption text-text-subtle pt-1">Receipts</p>
       {views.map((r, n) => (
         <Choice
@@ -292,6 +361,7 @@ const Accept = ({
           hint={r.tier}
         />
       ))}
+      {refused === null ? null : <Refused copy={refused} onApprove={() => onMode("approve")} />}
       <div className="flex items-center gap-2 pt-1">
         <Button variant="primary" disabled={!matches} onClick={accept}>
           Accept {task.id}
@@ -314,9 +384,10 @@ export interface ClaimCardProps {
   readonly task: TaskData;
   readonly attempt: AttemptData;
   readonly facts: Facts;
-  /** The Lead handed the Claim up, or the Constellation is paused: review here. */
-  readonly yours: boolean;
+  /** The Lead handed the Claim up: review here, Approve first. */
   readonly handed: boolean;
+  /** The Constellation is paused: review here. */
+  readonly paused: boolean;
   readonly review: ReviewMode | null;
   readonly onReview: (mode: ReviewMode | null) => void;
   readonly onOpenInReview: () => void;
@@ -405,29 +476,45 @@ const ReviewArea = ({
         value={mode}
         onValueChange={form.onMode}
         options={[
+          { value: "approve", label: "Approve" },
           { value: "accept", label: "Accept" },
           { value: "send-back", label: "Send back" },
         ]}
       />
     </div>
-    {mode === "accept" ? <Accept {...form} facts={facts} /> : <SendBack {...form} />}
+    {mode === "approve" ? <Approve {...form} /> : null}
+    {mode === "accept" ? <Accept {...form} facts={facts} /> : null}
+    {mode === "send-back" ? <SendBack {...form} /> : null}
   </>
 );
 
-/** Review here when the Lead handed the Claim up or the Constellation is paused; else read it. */
-const reviewMode = (props: ClaimCardProps): ReviewMode | null => {
-  if (props.attempt.state !== "review") return null;
+/**
+ * Review here when the Lead handed the Claim up (Approve first, until approved) or the
+ * Constellation is paused; else read it.
+ */
+export const reviewMode = (
+  props: Pick<ClaimCardProps, "attempt" | "review" | "handed" | "paused">
+): ReviewMode | null => {
+  const { attempt } = props;
 
-  return props.review ?? (props.yours ? "send-back" : null);
+  if (attempt.state !== "review") return null;
+
+  if (props.review !== null) return props.review;
+
+  if (props.handed && attempt.approvedByUserAt == null) return "approve";
+
+  return props.paused ? "send-back" : null;
 };
 
 export const ClaimCard = (props: ClaimCardProps) => {
   const { attempt, task, facts } = props;
   const claim = attempt.claim;
+  const leadBranch = useLeadBranch(props.hostKey, props.record.constellation.leadSessionId);
 
   if (claim == null) return null;
   const receipts = claim.receipts.map((r) => receiptView(r, facts));
   const mode = reviewMode(props);
+  const place = placeOf(attempt, leadBranch);
 
   const form: FormProps = {
     hostKey: props.hostKey,
@@ -439,6 +526,7 @@ export const ClaimCard = (props: ClaimCardProps) => {
     onMode: (m) => props.onReview(m),
     onClose: () => props.onReview(null),
     onOpenInReview: props.onOpenInReview,
+    place,
   };
 
   return (
@@ -460,7 +548,7 @@ export const ClaimCard = (props: ClaimCardProps) => {
         <EditorPlaceProvider value={{ hostKey: props.hostKey, root: attempt.worktree }}>
           <Facts_ claim={claim} task={task} />
         </EditorPlaceProvider>
-        {props.handed && attempt.state === "review" ? (
+        {props.handed && attempt.state === "review" && attempt.approvedByUserAt == null ? (
           <div className="bg-needs-you-fill text-needs-you-text text-body rounded-control mx-3.5 mb-2.5 flex items-center gap-2 px-3 py-2">
             <PixelHandIcon size={12} className="text-needs-you shrink-0" />
             <span className="shrink-0">The lead handed this claim to you</span>

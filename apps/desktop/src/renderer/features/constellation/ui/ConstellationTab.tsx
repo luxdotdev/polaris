@@ -2,14 +2,14 @@
  * The Constellation tab in a Lead's Output (DESIGN.md, Constellation (DAG)): the header, the
  * rail list (virtualized), filters past 100 Tasks, the key-hint row, the empty state (C7).
  */
-import { AnswerAction, ReviewAction } from "@polaris/protocol";
+import { AnswerAction } from "@polaris/protocol";
 import { Button, cn, ContextMenu, ContextMenuTrigger, EmptyState } from "@polaris/ui";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { type KeyboardEvent, useMemo, useRef, useState } from "react";
 import { openSessionReview } from "../../../routes/review.ts";
 import { useApp, useCommands, useShellActions } from "../../../shell/hooks.ts";
 import { constellationCommands } from "../client.ts";
-import { useFacts } from "../hooks.ts";
+import { useFacts, useLeadBranch } from "../hooks.ts";
 import { hostKeyOf } from "../liveFacts.ts";
 import {
   type AttentionItem,
@@ -32,6 +32,7 @@ import { ConstellationMark } from "./glyphs.tsx";
 import { laneStyle } from "./lane.tsx";
 import { Filters, Header, KeyHints } from "./header.tsx";
 import { CompletionCard } from "./stats.tsx";
+import { approveClaim, placeOf } from "./claimActions.ts";
 import { type MenuActions, RowContextMenu, RowMenu } from "./menu.tsx";
 import { type MessageDraft, MessageLeadDialog } from "./MessageLead.tsx";
 import { type RowHandlers, RowView } from "./rows.tsx";
@@ -69,6 +70,7 @@ const useTabActions = (
   const shell = useShellActions();
   const hosts = useApp((s) => s.hosts);
   const commands = useCommands();
+  const leadBranch = useLeadBranch(hostKey, c.leadSessionId);
 
   const focus = (row: TaskRow) =>
     patchLeadUi(key, () => ({ focus: { kind: "task", taskId: row.task.id }, selected: row.key }));
@@ -91,16 +93,7 @@ const useTabActions = (
     },
     onApprove: (row) => {
       if (row.attempt === null) return;
-      void constellationCommands.review(
-        hostKey,
-        {
-          constellationId: c.id,
-          attemptId: row.attempt.id,
-          revision: row.attempt.revision,
-          action: ReviewAction.cases.Approve.make({}),
-        },
-        `Couldn't approve ${row.task.id}`
-      );
+      void approveClaim(hostKey, record, row.attempt, placeOf(row.attempt, leadBranch));
     },
     onMessageLead: (row, authority) =>
       setDraft({
@@ -272,6 +265,7 @@ export const ConstellationTab = (props: ConstellationTabProps) => {
     },
     onFocus: actions.focus,
     onReview: actions.menu.onReview,
+    onApprove: actions.menu.onApprove,
     onRetrySetup: actions.retry,
     onProposal: actions.answer,
     onHandover: (revision) =>

@@ -113,7 +113,12 @@ const attentionOf = (
 
   if (question !== null) return { kind: "question", text: question };
 
-  if (projection.state === "review" && attempt.handedUpAt != null) return { kind: "handed" };
+  if (
+    projection.state === "review" &&
+    attempt.handedUpAt != null &&
+    attempt.approvedByUserAt == null
+  )
+    return { kind: "handed" };
 
   return worker.stoppedWithoutClaiming && projection.state === "working"
     ? { kind: "stopped" }

@@ -155,6 +155,8 @@ export interface RowHandlers {
   readonly onToggleGroup: (group: string) => void;
   readonly onFocus: (row: TaskRow) => void;
   readonly onReview: (row: TaskRow, mode: "accept" | "send-back") => void;
+  /** Records the user's verdict on a handed-up Claim; the Lead merges and accepts. */
+  readonly onApprove: (row: TaskRow) => void;
   /** Dispatches a Task whose worktree setup failed again, on the same worker Session. */
   readonly onRetrySetup: (row: TaskRow) => void;
   readonly onProposal: (proposalId: string, accept: boolean) => void;
@@ -239,9 +241,15 @@ const TaskView = ({
           ) : null}
           {row.promoted ? (
             <span className="flex shrink-0 gap-1.5 pr-9">
-              <Button size="xs" onClick={() => on.onReview(row, "accept")}>
-                Accept…
-              </Button>
+              {row.look.attention?.kind === "handed" ? (
+                <Button size="xs" onClick={() => on.onApprove(row)}>
+                  Approve
+                </Button>
+              ) : (
+                <Button size="xs" onClick={() => on.onReview(row, "accept")}>
+                  Accept…
+                </Button>
+              )}
               <Button size="xs" variant="ghost" onClick={() => on.onReview(row, "send-back")}>
                 Send back…
               </Button>

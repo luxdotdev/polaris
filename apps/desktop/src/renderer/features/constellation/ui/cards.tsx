@@ -216,6 +216,14 @@ const lineOf = (r: ConstellationRecord, n: NotificationData, facts: Facts): Dige
         tone: state === "accepted" ? "text-accepted-text" : "text-text-subtle",
         body: settledLine(r, attemptId, state, facts),
       }),
+      // The user's verdict isn't accepted work yet (rule/constellation-colour): neutral.
+      Approved: ({ attemptId }): DigestLine => ({
+        key: n.id,
+        task: task(attemptId),
+        glyph: "review",
+        tone: "text-text-subtle",
+        body: "approved by you · the lead merges",
+      }),
       Question: ({ attemptId, question }): DigestLine => ({
         key: n.id,
         task: task(attemptId),

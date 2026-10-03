@@ -1,6 +1,6 @@
 /**
- * A Task row's menu, from ⋯ or a right-click (DESIGN.md, Claims): Accept… a, Send back… s,
- * Open in Review, Focus; and "Message the lead about this" with the two authorities.
+ * A Task row's menu, from ⋯ or a right-click (DESIGN.md, Claims): Approve, Accept… a,
+ * Send back… s, Open in Review, Focus; and "Message the lead about this".
  */
 import type { MessageAuthority } from "@polaris/protocol";
 import {
@@ -75,12 +75,15 @@ export const menuEntries = (row: TaskRow, on: MenuActions): ReadonlyArray<Entry>
 
   if (!review) return [focus, open, { kind: "separator" }, message];
 
+  const approve: Entry =
+    row.attempt?.approvedByUserAt == null
+      ? { kind: "item", label: "Approve", run: () => on.onApprove(row) }
+      : { kind: "label", text: "You approved · the lead merges" };
+
   return [
+    approve,
     { kind: "item", label: "Accept…", key: "a", run: () => on.onReview(row, "accept") },
     { kind: "item", label: "Send back…", key: "s", run: () => on.onReview(row, "send-back") },
-    ...(row.attempt?.approvedByUserAt == null
-      ? [{ kind: "item", label: "Approve", run: () => on.onApprove(row) } satisfies Entry]
-      : []),
     { kind: "separator" },
     open,
     focus,

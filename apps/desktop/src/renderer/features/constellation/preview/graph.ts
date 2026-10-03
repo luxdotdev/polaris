@@ -455,13 +455,15 @@ export const completedAttempts = () =>
   );
 
 /** C3: the Lead handed B1's Claim up because it can't decide the question. */
-export const handedUpAttempts = () =>
+/** B1's Claim handed up to the user; `approved`: and the user has since approved it. */
+export const handedUpAttempts = (approved = false) =>
   c1Attempts.map((a) =>
     a.taskId === "B1"
       ? new Attempt(
           merged(a, {
             handedUpAt: new Date(Date.now() - 2 * 60_000).toISOString(),
             handedUpReason: "it can't decide the question",
+            approvedByUserAt: approved ? new Date(Date.now() - 60_000).toISOString() : null,
           })
         )
       : a

@@ -83,6 +83,9 @@ const SCENES = [
   "menu",
   "focus",
   "handed",
+  "handed-unmerged",
+  "handed-menu",
+  "handed-approved",
   "paused",
   "empty",
   "large",
@@ -106,7 +109,12 @@ const recordFor = (scene: Scene): ConstellationRecord => {
       3
     );
 
-  if (scene === "handed") return slugRecord({ attempts: handedUpAttempts() });
+  if (scene === "handed" || scene === "handed-unmerged")
+    return slugRecord({ attempts: handedUpAttempts() });
+
+  if (scene === "handed-menu") return c1Record({ attempts: handedUpAttempts() });
+
+  if (scene === "handed-approved") return slugRecord({ attempts: handedUpAttempts(true) });
 
   if (scene === "setup" || scene === "setup-focus") return setupRecord();
 
@@ -135,11 +143,14 @@ const UI: Readonly<Record<Scene, Partial<LeadUi>>> = {
   lead: {},
   menu: { selected: "task:B1", menu: "task:B1" },
   focus: { focus: { kind: "task", taskId: "B1" }, selected: "task:B1" },
-  handed: {
+  handed: { focus: { kind: "task", taskId: "B1" }, selected: "task:B1" },
+  "handed-unmerged": {
     focus: { kind: "task", taskId: "B1" },
     selected: "task:B1",
-    review: { attemptId: "att-B1-1", mode: "send-back" },
+    review: { attemptId: "att-B1-1", mode: "accept" },
   },
+  "handed-menu": { selected: "task:B1", menu: "task:B1" },
+  "handed-approved": { focus: { kind: "task", taskId: "B1" }, selected: "task:B1" },
   paused: {},
   empty: {},
   large: { selected: "task:C5" },
@@ -260,7 +271,7 @@ export const mountConstellationPreview = (root: HTMLElement, hash: string) => {
   const navigation = createNavigation({ app: store, storage: null });
 
   standInBridge(bridge);
-  installConstellationClient(fakeClient(store));
+  installConstellationClient(fakeClient(store, { unmerged: scene === "handed-unmerged" }));
   setPreviewSignals();
   patchLeadUi(leadKey(LOCAL, LEAD), () => UI[scene]);
   navigation.actions.selectSession({ hostKey: LOCAL, sessionId: LEAD });

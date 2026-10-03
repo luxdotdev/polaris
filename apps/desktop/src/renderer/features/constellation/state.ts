@@ -11,7 +11,7 @@ export type Focus =
   | { readonly kind: "task"; readonly taskId: string }
   | { readonly kind: "handover"; readonly revision: number };
 
-export type ReviewMode = "accept" | "send-back";
+export type ReviewMode = "approve" | "accept" | "send-back";
 
 export interface LeadUi {
   readonly focus: Focus | null;

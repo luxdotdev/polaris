@@ -68,6 +68,14 @@ export {
 export { attentionItems, nextNeedingYou, type AttentionItem } from "./attention.ts";
 
 export {
+  claimRefusal,
+  mergeFirst,
+  type ClaimPlace,
+  type Refusal,
+  type RefusalCopy,
+} from "./refusal.ts";
+
+export {
   bar,
   segments,
   STRIP_SEGMENTS_MAX,

@@ -17,6 +17,7 @@ export const constellationError = (error: Failure | ConstellationRejected): IpcE
     ? {
         code: "ConstellationRejected",
         message: error.findings.map((f) => `${f.message.replace(/\.$/, "")}. ${f.fix}`).join("\n"),
+        findings: error.findings.map(({ code, message, fix }) => ({ code, message, fix })),
       }
     : toIpcError(error);
 

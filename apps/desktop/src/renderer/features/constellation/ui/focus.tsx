@@ -155,7 +155,7 @@ export const useWorkerChrome = (input: WorkerChromeInput): SessionChrome => {
           task={task}
           attempt={attempt}
           facts={facts}
-          yours={handed || c.state === "paused"}
+          paused={c.state === "paused"}
           handed={handed}
           review={review}
           onReview={(mode: ReviewMode | null) =>

@@ -111,6 +111,14 @@ export interface IpcError {
   /** The failure's tag, e.g. "NotConnected", "FileError", "InvalidInput". */
   readonly code: string;
   readonly message: string;
+  /** A Constellation refusal's findings, so the renderer can word each by its code. */
+  readonly findings?: ReadonlyArray<IpcFinding>;
+}
+
+export interface IpcFinding {
+  readonly code: string;
+  readonly message: string;
+  readonly fix: string;
 }
 
 export type Result<A> =

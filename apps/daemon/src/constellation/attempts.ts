@@ -268,10 +268,12 @@ const reviewMetadata = (
         "Only the user can approve a Claim",
         "Ask the user to approve in Review."
       );
-    else if (attempt.approvedByUserAt === null)
+    else if (attempt.approvedByUserAt === null) {
       d.emit(
         ConstellationEvent.cases.ClaimApproved.make({ ...fields(), by: "user", at: d.ctx.now })
       );
+      d.notify(NotificationItem.cases.Approved.make({ attemptId: attempt.id }));
+    }
 
     return true;
   }

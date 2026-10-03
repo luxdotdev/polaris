@@ -35,6 +35,7 @@ import {
   task,
 } from "./constellation.testing.ts";
 import { projectTask } from "../constellation/projections.ts";
+import { digestDelay, digestPrompt } from "../constellation/delivery/format.ts";
 
 const review = (record: ReturnType<typeof claimed>, action: typeof ReviewAction.Type) =>
   C.Review.make({
@@ -43,6 +44,23 @@ const review = (record: ReturnType<typeof claimed>, action: typeof ReviewAction.
     revision: record.graph.attempts.at(-1)!.revision,
     action,
   });
+
+test("a user's approval tells the Lead once to merge and accept", () => {
+  const record = claimed();
+  const approved = apply(record, review(record, ReviewAction.cases.Approve.make({})), ctx());
+  const pending = approved.graph.pendingNotifications;
+  const attempt = approved.graph.attempts[0]!;
+
+  expect(pending.filter((n) => Predicate.isTagged(n.item, "Approved"))).toHaveLength(1);
+  expect(digestDelay(approved)).not.toBeNull();
+  expect(digestPrompt(approved)).toContain(
+    `${attempt.taskId}: approved by the user. Merge ${attempt.branch} at ${attempt.claim?.head} into your branch, then accept it.`
+  );
+
+  const again = apply(approved, review(approved, ReviewAction.cases.Approve.make({})), ctx());
+
+  expect(again.graph.pendingNotifications).toHaveLength(pending.length);
+});
 
 test("user approval and Lead hand-up remain review metadata with revision and role guards", () => {
   const record = claimed();
