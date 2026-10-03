@@ -5,9 +5,9 @@ import {
   type SESv2ClientConfig,
 } from "@aws-sdk/client-sesv2";
 import { links, site } from "../../../../components/links";
-import { validEmail } from "./validation";
+import { readSesConfig, type EmailEnv } from "./ses";
 
-export type EmailEnv = Readonly<Record<string, string | undefined>>;
+export type { EmailEnv } from "./ses";
 
 export type EmailTransport = { send: (email: string) => Promise<void>; preview: boolean };
 
@@ -24,32 +24,9 @@ export function createTransport(
 ): EmailTransport | null {
   if (env.NODE_ENV !== "production") return { send: async () => {}, preview: true };
 
-  if (env.POLARIS_EMAIL_TRANSPORT === "fake") return null;
-  const region = env.AWS_REGION?.trim();
-  const sender = env.POLARIS_EMAIL_FROM?.trim();
+  const config = readSesConfig(env);
 
-  if (!region || !sender || !validEmail(sender)) return null;
-  const accessKeyId = env.AWS_ACCESS_KEY_ID;
-  const secretAccessKey = env.AWS_SECRET_ACCESS_KEY;
-  const hasKeys = Boolean(accessKeyId && secretAccessKey);
-
-  if (Boolean(accessKeyId) !== Boolean(secretAccessKey)) return null;
-
-  if (!hasKeys && env.POLARIS_EMAIL_USE_ROLE !== "true") return null;
-
-  const config: SESv2ClientConfig = {
-    region,
-    maxAttempts: 1,
-    requestHandler: { connectionTimeout: 3000, requestTimeout: 10000 },
-  };
-
-  if (accessKeyId && secretAccessKey) {
-    config.credentials = { accessKeyId, secretAccessKey };
-
-    if (env.AWS_SESSION_TOKEN) {
-      config.credentials = { accessKeyId, secretAccessKey, sessionToken: env.AWS_SESSION_TOKEN };
-    }
-  }
+  if (!config) return null;
 
   const client = makeClient(config);
 
@@ -58,7 +35,8 @@ export function createTransport(
     send: async (email) => {
       await client.send(
         new SendEmailCommand({
-          FromEmailAddress: sender,
+          FromEmailAddress: env.POLARIS_EMAIL_FROM?.trim(),
+          ConfigurationSetName: env.POLARIS_EMAIL_CONFIGURATION_SET?.trim(),
           Destination: { ToAddresses: [email] },
           Content: {
             Simple: {

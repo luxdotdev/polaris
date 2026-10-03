@@ -1,6 +1,6 @@
 import type { EmailTransport } from "./transport";
 import type { BotCheck } from "./bot";
-import { passThroughValidator, type EmailValidator } from "./validator";
+import { unavailableValidator, type EmailValidator } from "./validator";
 import { readSubmission, validEmail } from "./validation";
 
 type Dependencies = {
@@ -20,7 +20,7 @@ function reply(status: number, message: string, headers?: Readonly<Record<string
 
 export function createEmailHandler({
   checkBot,
-  validator = passThroughValidator,
+  validator = unavailableValidator,
   transport,
   rateLimit,
   requested,
