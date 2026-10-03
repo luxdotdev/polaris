@@ -48,20 +48,20 @@ module worktree_setup_test {
 
 /** Steer addresses the old Turn; only new Turns queue behind startup, in arrival order. */
 module session_input_queue {
-  type View = { pending: bool, failed: bool, old: bool, working: bool, brief: bool, briefSteers: int, queued: List[int], delivered: List[int], oldSteers: int }
+  type View = { pending: bool, failed: bool, abandoned: bool, old: bool, working: bool, brief: bool, briefSteers: int, queued: List[int], delivered: List[int], oldSteers: int }
   type Event = RetryAttempt | Boundary | SetupFailed | StartupRejected | FirstBrief | Steer | LeadSteer | Prompt(int) | EndTurn | DeliverNext
-  pure val empty: View = { pending: false, failed: false, old: true, working: false, brief: false, briefSteers: 0, queued: [], delivered: [], oldSteers: 0 }
+  pure val empty: View = { pending: false, failed: false, abandoned: false, old: true, working: false, brief: false, briefSteers: 0, queued: [], delivered: [], oldSteers: 0 }
   pure def apply(v: View, e: Event): View = match e {
-    | RetryAttempt => if (not(v.failed) and not(v.brief)) { ...v, pending: true } else v
+    | RetryAttempt => if (not(v.failed) and not(v.abandoned) and not(v.brief)) { ...v, pending: true } else v
     | Boundary => { ...v, old: false }
-    | SetupFailed => if (not(v.old)) { ...v, failed: true, pending: false } else v
-    | StartupRejected => if (v.pending and not(v.old)) { ...v, failed: true, pending: false } else v
+    | SetupFailed => if (not(v.old) and not(v.abandoned)) { ...v, failed: true, pending: false } else v
+    | StartupRejected => if (v.pending and not(v.old)) { ...v, abandoned: true, pending: false } else v
     | FirstBrief => if (v.pending and not(v.old) and not(v.failed)) { ...v, pending: false, brief: true, working: true } else v
     | Steer => if (v.old) { ...v, oldSteers: v.oldSteers + 1 } else v
     | LeadSteer => if (not(v.pending) and v.working and v.brief and v.delivered == []) { ...v, briefSteers: v.briefSteers + 1 } else v
     | Prompt(id) => { ...v, queued: v.queued.append(id) }
     | EndTurn => { ...v, working: false }
-    | DeliverNext => if (not(v.pending) and not(v.old) and not(v.working) and (v.brief or v.failed) and v.delivered.length() < v.queued.length())
+    | DeliverNext => if (not(v.pending) and not(v.old) and not(v.working) and (v.brief or v.failed or v.abandoned) and v.delivered.length() < v.queued.length())
         { ...v, working: true, delivered: v.delivered.append(v.queued.nth(v.delivered.length())) } else v
   }
   var view: View
@@ -76,6 +76,7 @@ module session_input_queue {
     view.delivered.length() <= view.queued.length(),
     view.brief implies not(view.old),
     view.failed implies not(view.pending),
+    view.abandoned implies not(view.pending) and not(view.brief) and not(view.failed),
     view.briefSteers > 0 implies view.brief,
   }
 }
@@ -83,7 +84,7 @@ module session_input_queue_test {
   import session_input_queue.* from "./worktree_setup"
   run steerReachesOldTurnWhileNewPromptsWaitTest = init.then(publish(RetryAttempt)).then(publish(Prompt(1))).then(publish(Steer)).expect(view.oldSteers == 1 and view.delivered == []).then(publish(Boundary)).then(publish(FirstBrief)).then(publish(DeliverNext)).expect(view.delivered == [] and safety)
   run leadSteerBypassesPromptsOnlyAfterBriefTest = init.then(publish(RetryAttempt)).then(publish(Prompt(1))).then(publish(LeadSteer)).expect(view.oldSteers == 0 and view.briefSteers == 0 and safety).then(publish(Boundary)).then(publish(FirstBrief)).then(publish(LeadSteer)).expect(view.briefSteers == 1 and view.delivered == [] and safety).then(publish(EndTurn)).then(publish(DeliverNext)).expect(view.delivered == [1] and safety)
-  run rejectedStartupClearsFenceWithoutBriefTest = init.then(publish(RetryAttempt)).then(publish(Prompt(1))).then(publish(Boundary)).then(publish(StartupRejected)).then(publish(FirstBrief)).then(publish(DeliverNext)).expect(not(view.pending) and not(view.brief) and view.delivered == [1] and safety)
+  run rejectedStartupClearsFenceWithoutBriefTest = init.then(publish(RetryAttempt)).then(publish(Prompt(1))).then(publish(Boundary)).then(publish(StartupRejected)).then(publish(FirstBrief)).then(publish(DeliverNext)).expect(not(view.pending) and not(view.brief) and not(view.failed) and view.abandoned and view.delivered == [1] and safety)
   run laterPromptsJoinFifoTest = init.then(publish(RetryAttempt)).then(publish(Prompt(1))).then(publish(Prompt(2))).then(publish(Boundary)).then(publish(FirstBrief)).then(publish(EndTurn)).then(publish(DeliverNext)).then(publish(Prompt(3))).then(publish(DeliverNext)).expect(view.delivered == [1] and safety).then(publish(EndTurn)).then(publish(DeliverNext)).then(publish(EndTurn)).then(publish(DeliverNext)).expect(view.delivered == [1,2,3] and safety)
   run failedSetupClearsFenceForRepairInputTest = init.then(publish(RetryAttempt)).then(publish(Prompt(1))).then(publish(Boundary)).then(publish(SetupFailed)).then(publish(DeliverNext)).expect(not(view.pending) and view.delivered == [1] and safety)
 }

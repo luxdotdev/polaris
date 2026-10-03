@@ -1,5 +1,5 @@
 import { CommandId, type Constellation, type SessionId } from "@polaris/protocol";
-import { Effect, Predicate, Semaphore, Stream, SubscriptionRef } from "effect";
+import { Deferred, Effect, Predicate, Semaphore, Stream, SubscriptionRef } from "effect";
 import type { EventStore } from "../store/EventStore.ts";
 
 type Store = EventStore["Service"];
@@ -13,6 +13,7 @@ interface Lock {
 interface Boundaries {
   readonly locks: Map<SessionId, Lock>;
   readonly inputs: Map<SessionId, Lock>;
+  readonly startupWaiters: Map<SessionId, Deferred.Deferred<void>>;
   remote: (sessionId: SessionId) => Effect.Effect<ReadonlyArray<Constellation>>;
   remoteChanges:
     | ((sessionId: SessionId) => Effect.Effect<SubscriptionRef.SubscriptionRef<number>>)
@@ -28,6 +29,7 @@ const boundaries = (store: Store) => {
     value = {
       locks: new Map(),
       inputs: new Map(),
+      startupWaiters: new Map(),
       remote: () => Effect.succeed([]),
       remoteChanges: null,
     };
@@ -81,6 +83,27 @@ export const withSessionBoundary = <A, E, R>(
   sessionId: SessionId,
   effect: Effect.Effect<A, E, R>
 ) => serially(boundaries(store).locks, sessionId, effect);
+
+/** A receipt-only startup commit wakes its Session's active input waiter. */
+export const notifyStartupReceipt = Effect.fnUntraced(function* (
+  store: Store,
+  sessionId: SessionId
+) {
+  const waiter = boundaries(store).startupWaiters.get(sessionId);
+
+  if (waiter !== undefined) yield* Deferred.succeed(waiter, undefined);
+});
+
+const startupReceiptChanges = (store: Store, sessionId: SessionId) =>
+  Effect.acquireRelease(
+    Effect.sync(() => {
+      const waiter = Deferred.makeUnsafe<void>();
+      boundaries(store).startupWaiters.set(sessionId, waiter);
+
+      return waiter;
+    }),
+    () => Effect.sync(() => boundaries(store).startupWaiters.delete(sessionId))
+  );
 
 const pendingStartup = Effect.fnUntraced(function* (
   store: Store,
@@ -158,6 +181,7 @@ export const withSessionInput = <A, E, R>(
                 filter: (item) => Predicate.isTagged(item, "Event"),
               });
 
+              const receiptChanged = yield* startupReceiptChanges(store, sessionId);
               const remoteChanges = boundaries(store).remoteChanges;
               const changes = remoteChanges === null ? null : yield* remoteChanges(sessionId);
 
@@ -196,7 +220,10 @@ export const withSessionInput = <A, E, R>(
 
               if (committed !== null) return committed;
               yield* Effect.raceFirst(
-                feed.pipe(Stream.take(1), Stream.runDrain),
+                Effect.raceFirst(
+                  feed.pipe(Stream.take(1), Stream.runDrain),
+                  Deferred.await(receiptChanged)
+                ),
                 changes === null
                   ? Effect.never
                   : SubscriptionRef.changes(changes).pipe(

@@ -19,8 +19,9 @@ import { ConstellationSessionEffects } from "../delivery/inputs.ts";
 import { newTurn, startedTurn, waitForDeliveryReady } from "../delivery/turns.ts";
 import { acceptedDependencyClaims, effectiveDeps } from "../parents.ts";
 import { recoverAttempt } from "../recovery.ts";
-import { recordStartupFailure, runStartupSetup } from "./startupSetup.ts";
+import { recordAbandonedStartup, recordStartupFailure, runStartupSetup } from "./startupSetup.ts";
 import { mergeFirst, reviewFeedback } from "./feedback.ts";
+import { StartupAbandoned } from "./startupAbandoned.ts";
 
 export const canStartAttempt = (graph: Constellation, attempt: Attempt) =>
   graph.state !== "completed" &&
@@ -172,14 +173,9 @@ const start = Effect.fn("Constellation.startAttempt")(function* (
           }
 
           if (result === false) {
-            const error = new ServiceError({
-              service: "Constellation",
-              message: "Worker startup is no longer eligible",
-            });
+            yield* recordAbandonedStartup(attempt);
 
-            yield* recordStartupFailure(attempt, error);
-
-            return yield* error;
+            return yield* new StartupAbandoned({ attemptId: attempt.id });
           }
 
           if (Predicate.isTagged(result, "Committed")) {
@@ -245,5 +241,18 @@ export const startPendingAttempt = Effect.fn("Constellation.startPendingAttempt"
 
 export const workerFailed = (
   attempt: Attempt,
-  error: ResourceError | ConstellationTransferError | ServiceError
-) => Effect.logError(`Constellation worker ${attempt.id} startup needs attention`, error);
+  error: ResourceError | ConstellationTransferError | ServiceError | StartupAbandoned
+) =>
+  Effect.fail(error).pipe(
+    Effect.catchTag("StartupAbandoned", () =>
+      Effect.fail(
+        new ServiceError({
+          service: "Constellation",
+          message: "Worker startup is no longer eligible",
+        })
+      )
+    ),
+    Effect.catch((failure) =>
+      Effect.logError(`Constellation worker ${attempt.id} startup needs attention`, failure)
+    )
+  );

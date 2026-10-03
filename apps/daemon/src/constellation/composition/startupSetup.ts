@@ -7,6 +7,7 @@ import {
 } from "@polaris/protocol";
 import { Effect, Predicate } from "effect";
 import { EventStore } from "../../store/EventStore.ts";
+import { notifyStartupReceipt } from "../../engine/sessionBoundary.ts";
 import { decideSession } from "../../engine/session.ts";
 import { ServiceError } from "../../services.ts";
 import type { WorkerPreparation } from "../transfers/prepareWorkers.ts";
@@ -95,4 +96,16 @@ export const recordStartupFailure = Effect.fnUntraced(function* (
       Effect.catchTag("CommandRejected", () => Effect.void),
       Effect.catchTag("ServiceError", Effect.die)
     );
+});
+
+/** Eligibility loss terminates this Attempt's startup without changing Session state. */
+export const recordAbandonedStartup = Effect.fnUntraced(function* (attempt: Attempt) {
+  const store = yield* EventStore;
+  yield* store
+    .commit({
+      commandId: CommandId.make(`${attempt.id}:startup-failed`),
+      decide: () => Effect.succeed([]),
+    })
+    .pipe(Effect.orDie);
+  yield* notifyStartupReceipt(store, attempt.sessionId);
 });
