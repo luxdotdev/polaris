@@ -1,9 +1,7 @@
-import { DomainEvent, type SessionId, TurnId, TurnItem } from "@polaris/protocol";
+import { DomainEvent, type SessionId, TurnId } from "@polaris/protocol";
 import { Effect, Stream } from "effect";
 import type { ServiceError } from "../services.ts";
 import { LiveItem } from "../store/EventStore.ts";
-import { workingTurn } from "../store/model.ts";
-import { decideSession } from "./session.ts";
 import { userTurn } from "./session.turns.ts";
 import type { EngineRuntime } from "./runtime.ts";
 import type { TurnToRun } from "./supervisor.ts";
@@ -19,69 +17,87 @@ export const waitForTurnEnd = (
         sessionId,
         filter: (item) =>
           LiveItem.$is("Event")(item) &&
-          DomainEvent.guards.TurnEnded(item.envelope.event) &&
-          item.envelope.event.turn.id === turnId,
+          ((DomainEvent.guards.TurnEnded(item.envelope.event) &&
+            item.envelope.event.turn.id === turnId) ||
+            (DomainEvent.guards.SessionStateChanged(item.envelope.event) &&
+              (item.envelope.event.state === "archived" || !rt.live.has(sessionId)))),
       });
       // Subscribe before checking the folded status, so an end between them cannot be missed.
 
       const record = (yield* rt.store.model).sessions.get(sessionId);
 
-      if (record?.turns.find((turn) => turn.id === turnId)?.status !== "working") return;
-      yield* events.pipe(Stream.take(1), Stream.runDrain);
+      if (
+        record?.turns.find((turn) => turn.id === turnId)?.status === "working" &&
+        record.session.state !== "archived" &&
+        rt.live.has(sessionId)
+      ) {
+        const wake = yield* events.pipe(Stream.take(1), Stream.runCollect);
+
+        if (wake.length === 0) return "the Session was deleted or its event stream closed";
+      }
+
+      const current = (yield* rt.store.model).sessions.get(sessionId);
+
+      if (current === undefined) return "the Session was deleted";
+
+      if (current.session.state === "archived") return "the session is Archived";
+
+      if (!rt.live.has(sessionId)) return "the Harness exited";
+
+      return null;
     })
   );
 
-const restartUserTurn = (rt: EngineRuntime["Service"], input: TurnToRun) =>
+const restartUserTurn = (rt: EngineRuntime["Service"], input: TurnToRun, refusal: string | null) =>
   Effect.gen(function* () {
     const id = TurnId.make(`turn_${crypto.randomUUID()}`);
     const at = yield* rt.now;
-    let waiting: TurnId | null = null;
-    let started = false;
 
-    yield* rt.recordFor(input.sessionId, (record) => {
-      const working = workingTurn(record);
+    const result = yield* rt.signalWith(input.sessionId, (record) => ({
+      type: "turn.deliver",
+      turn: userTurn(
+        record?.session ?? {
+          id: input.sessionId,
+          turnCount: 0,
+          model: null,
+          effort: null,
+          serviceTier: null,
+        },
+        { id, prompt: input.prompt, attachments: input.attachments, at }
+      ),
+      targetTurnId: input.turnId,
+      refusal,
+    }));
 
-      if (working !== undefined) {
-        waiting = working.id;
+    const waiting = result.effects.find(
+      (effect) => effect !== "scheduleIdleStop" && effect !== "stopHarness"
+    );
 
-        return [];
-      }
+    const started =
+      "envelopes" in result &&
+      result.envelopes.some((e) => DomainEvent.guards.TurnStarted(e.event));
 
-      const decision = decideSession(record, {
-        type: "turn.send",
-        turn: userTurn(record.session, {
-          id,
-          prompt: input.prompt,
-          attachments: input.attachments,
-          at,
-        }),
-      });
-
-      started = decision.events.some(DomainEvent.guards.TurnStarted);
-
-      if (started) return decision.events;
-
-      return [
-        DomainEvent.cases.TurnItemCompleted.make({
-          sessionId: input.sessionId,
-          turnId: input.turnId,
-          subagentId: null,
-          item: TurnItem.cases.UserMessage.make({ id: `refused:${id}`, text: input.prompt }),
-        }),
-        DomainEvent.cases.TurnItemCompleted.make({
-          sessionId: input.sessionId,
-          turnId: input.turnId,
-          subagentId: null,
-          item: TurnItem.cases.Error.make({
-            id: `refusal:${id}`,
-            message: `Could not deliver the queued prompt: ${decision.rejection ?? "the session cannot take a Turn"}`,
-          }),
-        }),
-      ];
-    });
-
-    return { waiting, started: started ? { ...input, turnId: id, steerExisting: false } : null };
+    return {
+      waiting: waiting?.turnId ?? null,
+      started: started ? { ...input, turnId: id, steerExisting: false } : null,
+    };
   });
+
+export const refuseUserTurn = (rt: EngineRuntime["Service"], input: TurnToRun, reason: string) =>
+  restartUserTurn(rt, input, reason).pipe(Effect.asVoid);
+
+/** Taking the last item and retiring its lane must not yield between the two operations. */
+export const takeDeferredTurn = (
+  queues: Map<SessionId, Array<TurnToRun>>,
+  sessionId: SessionId,
+  queue: Array<TurnToRun>
+) => {
+  const next = queue.shift();
+
+  if (next === undefined && queues.get(sessionId) === queue) queues.delete(sessionId);
+
+  return next;
+};
 
 /** Deferred prompts have their own arrival-order lane; only preparation and delivery use the reactor lock. */
 export const deferredUserTurns = (
@@ -90,25 +106,22 @@ export const deferredUserTurns = (
 ) => {
   const queues = new Map<SessionId, Array<TurnToRun>>();
 
-  const process = (input: TurnToRun) =>
+  const process = (input: TurnToRun, refusal: string | null) =>
     Effect.gen(function* () {
-      if (yield* rt.serially(input.sessionId)(deliver(input))) {
-        yield* waitForTurnEnd(rt, input.sessionId, input.turnId);
-
-        return;
-      }
+      if (refusal === null && (yield* rt.serially(input.sessionId)(deliver(input))))
+        return yield* waitForTurnEnd(rt, input.sessionId, input.turnId);
 
       while (true) {
         const next = yield* rt.serially(input.sessionId)(
-          restartUserTurn(rt, input).pipe(
+          restartUserTurn(rt, input, refusal).pipe(
             Effect.tap((result) =>
               result.started === null ? Effect.void : deliver(result.started)
             )
           )
         );
 
-        if (next.waiting === null) return;
-        yield* waitForTurnEnd(rt, input.sessionId, next.waiting);
+        if (next.waiting === null) return refusal;
+        refusal = yield* waitForTurnEnd(rt, input.sessionId, next.waiting);
       }
     });
 
@@ -126,15 +139,20 @@ export const deferredUserTurns = (
       queues.set(input.sessionId, queue);
       yield* Effect.gen(function* () {
         let next: TurnToRun | undefined;
+        let refusal: string | null = null;
 
-        while ((next = queue.shift()) !== undefined)
-          yield* process(next).pipe(
+        while ((next = takeDeferredTurn(queues, input.sessionId, queue)) !== undefined)
+          refusal = yield* process(next, refusal).pipe(
             Effect.catchCause((cause) =>
-              Effect.logError("delivering a queued prompt failed", cause)
+              Effect.logError("delivering a queued prompt failed", cause).pipe(Effect.as(refusal))
             )
           );
       }).pipe(
-        Effect.ensuring(Effect.sync(() => queues.delete(input.sessionId))),
+        Effect.ensuring(
+          Effect.sync(() => {
+            if (queues.get(input.sessionId) === queue) queues.delete(input.sessionId);
+          })
+        ),
         Effect.forkIn(rt.engineScope)
       );
     });

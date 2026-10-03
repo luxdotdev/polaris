@@ -6,10 +6,11 @@ import {
   type TurnId,
   type TurnTrigger,
 } from "@polaris/protocol";
-import { workingTurn, type SessionRecord } from "../store/model.ts";
+import { lastTurn, workingTurn, type SessionRecord } from "../store/model.ts";
+import { lastIsAccepted } from "./session.accept.ts";
 
 export const userTurn = (
-  session: AgentSession,
+  session: Pick<AgentSession, "id" | "turnCount" | "model" | "effort" | "serviceTier">,
   input: {
     id: TurnId;
     prompt: string;
@@ -60,3 +61,42 @@ export const harnessTurn = (
           endedAt: null,
         }),
       });
+
+/** Session States that take a new Turn (with no Turn in flight). */
+export const takesTurn = (record: SessionRecord): boolean => {
+  if (workingTurn(record) !== undefined || record.session.worktreeSetup?.status === "running")
+    return false;
+  const { state } = record.session;
+
+  if (state === "idle" || state === "dormant" || state === "failed") return true;
+
+  // Needs You after a Daemon restart (an Interrupted Turn, nothing pending) takes a new Turn too.
+  return state === "needs-you" && record.pending.size === 0;
+};
+
+/** Why a new or continued Turn is refused, in the order the checks read to a user. */
+export const turnRefusal = (record: SessionRecord, kind: "send" | "continue" | "retry"): string => {
+  const { state } = record.session;
+
+  if (record.session.worktreeSetup?.status === "running") return "worktree setup is still running";
+
+  const last = lastTurn(record)?.status;
+
+  if (kind === "retry" && last !== "failed") return "there is no Failed Turn to retry";
+
+  if (kind === "continue" && last !== "interrupted") {
+    return "there is no Interrupted Turn to continue";
+  }
+
+  if (kind === "continue" && lastIsAccepted(record)) {
+    return "the Interrupted Turn is accepted; send a new Turn instead";
+  }
+
+  if (kind !== "send") return `the session is ${state}`;
+
+  if (state === "archived") return "the session is Archived";
+
+  if (state === "in-terminal") return "the session is In Terminal; return it first";
+
+  return `the session is ${state}; wait for the Turn to end`;
+};

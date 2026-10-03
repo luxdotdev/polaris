@@ -66,6 +66,9 @@ export const eventSchemas = {
   "terminal.open": Nothing,
   "terminal.return": Nothing,
   // Engine signals
+  "turn.deliver": standard(
+    Schema.Struct({ turn: Turn, targetTurnId: TurnId, refusal: Schema.NullOr(Schema.String) })
+  ),
   "harness.opened": Nothing,
   "harness.turnStarted": standard(
     Schema.Struct({
@@ -128,7 +131,9 @@ export type SessionEffect =
   /** The session went Idle: stop its Harness after `EngineConfig.idleTimeout`. */
   | "scheduleIdleStop"
   /** The idle timer fired and the session went Dormant: stop its Harness now. */
-  | "stopHarness";
+  | "stopHarness"
+  /** The deferred input lane waits outside the reactor lock, then signals delivery again. */
+  | { readonly type: "waitForTurn"; readonly turnId: TurnId };
 
 export type Emitted =
   | { readonly type: "domain"; readonly event: DomainEvent }

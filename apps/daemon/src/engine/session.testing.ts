@@ -154,6 +154,17 @@ const newTurn = (id: string, index: number): Turn =>
     endedAt: null,
   });
 
+/** Deferred lane input against the same folded model used by graph replay. */
+export const deferredInput = (
+  snapshot: ModelSnapshot,
+  refusal: string | null = null
+): SessionInput => ({
+  type: "turn.deliver",
+  turn: newTurn(`deferred${snapshot.counter}`, recordOf(snapshot)?.session.turnCount ?? 0),
+  targetTurnId: recordOf(snapshot)?.turns.at(-1)?.id ?? TurnId.make("missing"),
+  refusal,
+});
+
 /** What a Step's inputs are built from: the model's state before it. */
 interface StepContext {
   readonly snapshot: ModelSnapshot;

@@ -16,6 +16,7 @@ import {
 import { Deferred, Duration, Effect, Fiber, Layer, Stream } from "effect";
 import { Checkpoints } from "../services.ts";
 import { HarnessEvent } from "../harness/HarnessDriver.ts";
+import type { ReadModel } from "../store/model.ts";
 import { EventStore, LiveItem } from "../store/EventStore.ts";
 import { Engine } from "./Engine.ts";
 import { decideSession } from "./session.ts";
@@ -358,3 +359,116 @@ test("a second accepted prompt waits after successful steering and gets its own 
     )
   );
 });
+
+test.each(["archived", "deleted", "exited"])(
+  "%s releases a pending wait and visibly refuses every queued prompt",
+  async (terminal) => {
+    const driver = makeFakeDriver("codex");
+    const open = driver.driver.open;
+
+    const declining = {
+      ...driver,
+      driver: {
+        ...driver.driver,
+        open: (options: Parameters<typeof open>[0]) =>
+          open(options).pipe(
+            Effect.map((session) => ({
+              ...session,
+              steerTurn: () => Effect.succeed(false),
+            }))
+          ),
+      },
+    };
+
+    const closed = Deferred.makeUnsafe<void>();
+    let deleted = false;
+
+    const withoutSession = (model: ReadModel): ReadModel =>
+      deleted
+        ? { ...model, sessions: new Map([...model.sessions].filter(([id]) => id !== S)) }
+        : model;
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const store = yield* EventStore;
+        const harness = yield* startAutonomous(driver);
+        const subscribers = yield* store.subscriberCount;
+        yield* send("queued first");
+        yield* store.subscriberCount.pipe(Effect.repeat({ until: (n) => n === subscribers + 1 }));
+        yield* send("queued second");
+        yield* send("queued third");
+
+        if (terminal === "archived") {
+          // A retained waiter must also release for archived records imported from older logs.
+          yield* store.commit({
+            commandId: null,
+            decide: () =>
+              Effect.succeed([
+                DomainEvent.cases.SessionStateChanged.make({
+                  sessionId: S,
+                  state: "archived",
+                  reason: null,
+                }),
+              ]),
+          });
+        } else if (terminal === "exited") {
+          harness.emit(HarnessEvent.Exited({ error: "Fixture process exited" }));
+        } else {
+          deleted = true;
+          yield* Deferred.succeed(closed, undefined);
+        }
+
+        let items: Array<DomainEvent> = [];
+
+        while (items.filter(DomainEvent.guards.TurnItemCompleted).length < 6) {
+          const model = yield* store.model;
+          items = (yield* store.readEvents({ after: 0, upTo: model.sequence, sessionId: S })).map(
+            (e) => e.event
+          );
+          yield* Effect.sleep(Duration.millis(5));
+        }
+
+        const refused = items.filter(DomainEvent.guards.TurnItemCompleted);
+        expect(
+          refused.flatMap((e) => (TurnItem.guards.UserMessage(e.item) ? [e.item.text] : []))
+        ).toEqual(["queued first", "queued second", "queued third"]);
+        expect(
+          refused.flatMap((e) => (TurnItem.guards.Error(e.item) ? [e.item.message] : []))
+        ).toHaveLength(3);
+        expect(harness.turns).toHaveLength(1);
+        expect(driver.sessions).toHaveLength(1);
+        yield* store.subscriberCount.pipe(Effect.repeat({ until: (n) => n <= subscribers }));
+
+        if (terminal === "exited") yield* trace(store, "exited");
+      }).pipe(
+        Effect.timeout(Duration.seconds(5)),
+        Effect.provide(
+          engineLayer({
+            filename: join(tempDir(), "state.sqlite"),
+            fakes: makeFakes(),
+            drivers: [declining],
+            wrapStore: (store) => ({
+              ...store,
+              model: store.model.pipe(Effect.map(withoutSession)),
+              commit: (options) =>
+                store.commit({
+                  ...options,
+                  decide: (model) => options.decide(withoutSession(model)),
+                }),
+              subscribe: (options) =>
+                store
+                  .subscribe(options)
+                  .pipe(
+                    Effect.map((feed) =>
+                      options?.filter === undefined
+                        ? feed
+                        : feed.pipe(Stream.interruptWhen(Deferred.await(closed)))
+                    )
+                  ),
+            }),
+          })
+        )
+      )
+    );
+  }
+);
