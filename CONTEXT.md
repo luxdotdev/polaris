@@ -43,6 +43,18 @@ _Avoid_: Error, disconnected
 **Offline**:
 The Connection State of a Host the Client has stopped retrying, such as a machine that is shut down.
 
+**Release**:
+A published version of Polaris: one version number shared by the Desktop App and the Daemon builds it carries.
+_Avoid_: Build (for a published version), drop
+
+**Update**:
+The Desktop App replacing itself with a newer Release.
+_Avoid_: Upgrade (for the Desktop App)
+
+**Daemon Upgrade**:
+A Host's Daemon replaced by the build the Desktop App carries.
+_Avoid_: Update (for a Daemon), reinstall
+
 ### Agents
 
 **Harness**:

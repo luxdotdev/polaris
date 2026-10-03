@@ -3,6 +3,7 @@
  * directory, from git's objects rather than the working tree: a Turn's
  * snapshot is a tree no checkout holds, and a Review Checkout may be dirty.
  */
+import { childEnv } from "../service/childEnv.ts";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, normalize } from "node:path";
@@ -55,7 +56,12 @@ const isContained = (path: string) => {
 const catFile = async (cwd: string, input: string, out: string): Promise<Uint8Array> => {
   const proc = Bun.spawn(["git", "cat-file", "--batch"], {
     cwd,
-    env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_OPTIONAL_LOCKS: "0", LC_ALL: "C" },
+    env: childEnv({
+      ...process.env,
+      GIT_TERMINAL_PROMPT: "0",
+      GIT_OPTIONAL_LOCKS: "0",
+      LC_ALL: "C",
+    }),
     stdin: new Blob([input]),
     stdout: Bun.file(out),
     stderr: "pipe",

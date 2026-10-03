@@ -18,7 +18,7 @@ describe("the / menu on a Host whose daemon can't list commands", () => {
     const notice = daemonNotice("This Mac", null, openHosts);
 
     expect(notice.message).toBe("Skills need a newer daemon on This Mac");
-    expect(notice.action?.label).toBe("Update daemon");
+    expect(notice.action?.label).toBe("Upgrade daemon");
   });
 
   test("follows the upgrade: running, failed, done", () => {

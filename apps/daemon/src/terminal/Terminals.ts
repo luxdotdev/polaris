@@ -18,6 +18,7 @@
  *   re-attaches gets `Exit { code: null }` instead of NotFound, and can open
  *   a new terminal in the same `cwd`.
  */
+import { childEnv } from "../service/childEnv.ts";
 import { randomUUID } from "node:crypto";
 import {
   existsSync,
@@ -363,6 +364,7 @@ const adoptPty = (options: {
       if (closed || options.slave === null) return;
       const flag = process.platform === "darwin" ? "-f" : "-F";
       Bun.spawn(["stty", flag, options.slave, "cols", String(cols), "rows", String(rows)], {
+        env: childEnv(),
         stdin: "ignore",
         stdout: "ignore",
         stderr: "ignore",
@@ -685,7 +687,7 @@ export const makeTerminalsWith = (options: TerminalsOptions) =>
 
           const proc = Bun.spawn(argv, {
             cwd,
-            env: { ...process.env, TERM: "xterm-256color", COLORTERM: "truecolor" },
+            env: childEnv({ ...process.env, TERM: "xterm-256color", COLORTERM: "truecolor" }),
             terminal: {
               cols,
               rows,

@@ -7,6 +7,7 @@
  * Each start records `{ pid, url }`, so a Daemon that crashed and left its server
  * running stops it on the next start instead of leaking it.
  */
+import { childEnv } from "../../service/childEnv.ts";
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { Duration, Effect, Option, Schema, type Scope, Semaphore } from "effect";
@@ -50,7 +51,10 @@ const decodeState = Schema.decodeUnknownOption(ServerState);
 const encodeState = Schema.encodeSync(ServerState);
 
 const commandLine = (pid: number): string => {
-  const ps = Bun.spawnSync(["ps", "-o", "command=", "-p", String(pid)], { stderr: "ignore" });
+  const ps = Bun.spawnSync(["ps", "-o", "command=", "-p", String(pid)], {
+    env: childEnv(),
+    stderr: "ignore",
+  });
 
   return ps.exitCode === 0 ? ps.stdout.toString() : "";
 };
@@ -146,7 +150,7 @@ export const acquireServer = (
       chmodSync(passwordFile, 0o600);
 
       const proc = Bun.spawn([opencodePath, "serve", "--hostname", "127.0.0.1", "--port", "0"], {
-        env: { ...(options.env ?? process.env), OPENCODE_SERVER_PASSWORD: password },
+        env: childEnv({ ...(options.env ?? process.env), OPENCODE_SERVER_PASSWORD: password }),
         stdin: "ignore",
         stdout: "pipe",
         stderr: Bun.file(logFile),

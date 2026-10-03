@@ -13,6 +13,7 @@ import { join, resolve } from "node:path";
 import { connectRpc, type RpcConnection, socketTransport, spawnTransport } from "@polaris/client";
 import type { Capability } from "@polaris/protocol";
 import { Duration, Effect, type Scope } from "effect";
+import { startSampler, type Sampler } from "./sampler.ts";
 
 export const REPO_ROOT = resolve(import.meta.dir, "..", "..", "..");
 
@@ -77,6 +78,8 @@ export const launchDaemon = async (options: LaunchOptions): Promise<Daemon> => {
 
   if (profileDir) env.POLARIS_DEBUG_DIR = profileDir;
   Object.assign(env, options.env);
+  // Disposable Daemons cannot inherit or override the Host's upgrade descriptors.
+  delete env.POLARIS_HANDOFF;
 
   // A .cpuprofile (Chrome DevTools, speedscope) and a grep-friendly .md summary, on exit.
   const profileFlags = profileDir
@@ -150,6 +153,26 @@ export const launchDaemon = async (options: LaunchOptions): Promise<Daemon> => {
         await exited;
         clearTimeout(killed);
       }
+    },
+  };
+};
+
+/** Daemon measurements must include a process in the requested report window. */
+export const sampleDaemon = (daemon: Daemon, intervalMs: number): Sampler => {
+  const sampler = startSampler({ roots: () => [daemon.pid], intervalMs });
+
+  return {
+    ...sampler,
+    report: (from, to) => {
+      const report = sampler.report(from, to);
+
+      if (report.maxProcesses === 0) {
+        throw new Error(
+          `benchmark measured zero Daemon processes for PID ${daemon.pid} (${report.samples} samples, ${report.backend})\n${daemon.logs()}`
+        );
+      }
+
+      return report;
     },
   };
 };

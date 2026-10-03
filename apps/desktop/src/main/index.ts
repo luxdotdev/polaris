@@ -12,7 +12,16 @@ import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, clipboard, dialog, nativeTheme, session, shell } from "electron";
+import {
+  app,
+  autoUpdater,
+  BrowserWindow,
+  clipboard,
+  dialog,
+  nativeTheme,
+  session,
+  shell,
+} from "electron";
 import { type AppEvent, type Appearance, CHANNELS, type SessionDefault } from "../shared/api.ts";
 import {
   clientIdentity,
@@ -51,6 +60,8 @@ import {
 } from "./settings.ts";
 import { createMainWindow } from "./window.ts";
 import { askToQuit, holdsQuit } from "./editorQuit.ts";
+import { createAppUpdates, type AppUpdates } from "./updates/index.ts";
+import { cannotInstallHere, installId } from "./updates/identity.ts";
 
 const env = process.env;
 
@@ -89,6 +100,10 @@ let needsYou: NeedsYouCenter | null = null;
 
 let reviews: ReviewNotifier | null = null;
 
+let updates: AppUpdates | null = null;
+
+let restartForUpdate = false;
+
 /** Set once Polaris is quitting (⌘Q, the star's Quit): the window may then really close. */
 let exiting = false;
 
@@ -113,6 +128,33 @@ const start = async () => {
 
   const saveSettings = (patch: Partial<Settings>) =>
     updateSettings((current) => ({ ...current, ...patch }));
+
+  const restartToUpdate = () => {
+    if (updates?.get().phase !== "ready") return;
+    restartForUpdate = true;
+    app.quit();
+  };
+
+  const currentUpdates = createAppUpdates({
+    native: autoUpdater,
+    version: app.getVersion(),
+    installId: installId(app.getPath("userData")),
+    macOSVersion: process.getSystemVersion(),
+    arch: process.arch,
+    supported: app.isPackaged && !dev && process.platform === "darwin" && process.arch === "arm64",
+    blocked: cannotInstallHere(app.getAppPath(), app.getPath("downloads")),
+    automatic: settings.automaticAppUpdates ?? true,
+    lastCheckedAt: settings.appUpdateLastCheckedAt ?? null,
+    save: saveSettings,
+    publish: (value) => {
+      applyAppearance();
+      const event: AppEvent = { kind: "updates", updates: value };
+
+      for (const win of BrowserWindow.getAllWindows()) win.webContents.send(CHANNELS.app, event);
+    },
+  });
+
+  updates = currentUpdates;
 
   const setAppearance = (patch: Partial<Appearance>) => {
     saveSettings(patch);
@@ -162,7 +204,17 @@ const start = async () => {
     const event: AppEvent = { kind: "appearance", appearance: current };
 
     nativeTheme.themeSource = current.theme;
-    buildMenu({ appearance: current, setAppearance, dev, proofHostKey });
+    buildMenu({
+      appearance: current,
+      setAppearance,
+      dev,
+      proofHostKey,
+      updates: currentUpdates.get(),
+      checkUpdates: () => {
+        currentUpdates.check();
+      },
+      restartToUpdate,
+    });
 
     for (const win of BrowserWindow.getAllWindows()) win.webContents.send(CHANNELS.app, event);
   };
@@ -211,6 +263,9 @@ const start = async () => {
     runtime,
     trusted,
     context: {
+      updates: currentUpdates,
+      restartToUpdate,
+      showAppInFinder: () => shell.showItemInFolder(join(dirname(app.getPath("exe")), "../..")),
       settings: () => settings,
       cache: openSnapshotCache(app.getPath("userData")),
       prices: openPrices(app.getPath("userData")),
@@ -268,6 +323,7 @@ const start = async () => {
       env.POLARIS_DESKTOP_HIDDEN !== "1" && sessionPrefsOf(settings).notifyReviewRequests,
   });
   followReviewRequests(runtime, reviews);
+  currentUpdates.start();
 
   // Benchmarks and scripts wait for this line: the window is painted and the local Host is up.
   const shown = new Promise<void>((resolve) => win.once("ready-to-show", () => resolve()));
@@ -279,27 +335,31 @@ const start = async () => {
 
 let quitting = false;
 
-app.on("before-quit", (event) => {
-  // Unsaved edits in the Editor: ask first (main/editorQuit.ts); a yes quits again.
-  if (holdsQuit()) {
-    event.preventDefault();
-    void askToQuit().then((go) => go && app.quit());
-
-    return;
-  }
-
-  exiting = true;
-});
-
-app.on("will-quit", (event) => {
-  if (quitting) return;
+const finishQuit = () => {
   quitting = true;
-  event.preventDefault();
+  exiting = true;
   ipc?.dispose();
   needsYou?.dispose();
   reviews?.dispose();
+  updates?.dispose();
   // The dev Daemon (if this app started it) goes down with the app.
-  void Promise.allSettled([runtime?.dispose(), localDaemon?.stop()]).then(() => app.exit(0));
+  void Promise.allSettled([runtime?.dispose(), localDaemon?.stop()]).then(() => {
+    if (restartForUpdate && updates?.get().phase === "ready") updates.install();
+    else app.quit();
+  });
+};
+
+app.on("before-quit", (event) => {
+  if (quitting) return;
+  event.preventDefault();
+
+  // Cleanup precedes Squirrel closing windows; Editor cancellation leaves the app usable.
+  if (holdsQuit()) {
+    void askToQuit().then((go) => {
+      if (go) finishQuit();
+      else restartForUpdate = false;
+    });
+  } else finishQuit();
 });
 
 app.on("window-all-closed", () => app.quit());

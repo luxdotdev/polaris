@@ -4,6 +4,7 @@ import { App } from "./app/App.tsx";
 import { onNeedsYouEvent } from "./features/needs-you/index.ts";
 import { applyAppearance } from "./appearance.ts";
 import { connectSettings, settingsCommands, settingsStore } from "./features/settings/index.ts";
+import { connectUpdates } from "./features/settings/updates/store.ts";
 import { createOnboarding } from "./features/onboarding/index.ts";
 import { startProofSession } from "./proof.ts";
 import { createCommandRegistry } from "./routes/commands.ts";
@@ -67,6 +68,8 @@ const reviewPreview = location.hash.startsWith("#review/");
 const checkoutPreview = location.hash.startsWith("#checkout/");
 
 // `#hosts/<scene>`: Settings → Hosts on fixtures, every daemon update state (features/machines/preview).
+const updatesPreview = location.hash.startsWith("#updates/");
+
 const hostsPreview = location.hash.startsWith("#hosts/");
 
 // `#constellation/<scene>`: the Constellation tab on fixtures (features/constellation/preview).
@@ -99,6 +102,8 @@ settingsStore.subscribe((state, prev) => {
 });
 
 connectSettings(window.polaris);
+
+connectUpdates(window.polaris);
 
 window.polaris.onAppEvent((event) => {
   if (event.kind === "command") commands.run(event.id);
@@ -140,6 +145,10 @@ if (root !== null && preview) {
 } else if (root !== null && checkoutPreview) {
   void import("./features/review/checkout/preview/Preview.tsx").then((m) => {
     setPreviewDensity = m.mountCheckoutPreview(root, location.hash);
+  });
+} else if (root !== null && updatesPreview) {
+  void import("./features/settings/updates/preview/Preview.tsx").then((m) => {
+    setPreviewDensity = m.mountUpdatesPreview(root, location.hash);
   });
 } else if (root !== null && hostsPreview) {
   void import("./features/machines/preview/Preview.tsx").then((m) => {

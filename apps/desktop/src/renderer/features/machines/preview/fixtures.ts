@@ -112,7 +112,13 @@ const all = (now: number): ReadonlyArray<MachineView> => [
       },
     })
   ),
-  machine("studio", "Mac Studio", "studio", connected("darwin-arm64", "0.4.1", 4), daemon()),
+  machine(
+    "studio",
+    "Mac Studio",
+    "studio",
+    connected("darwin-arm64", "0.4.1", 4),
+    daemon({ keepUpToDateOverride: false, keepUpToDate: false })
+  ),
   machine(
     "vm",
     "Build VM",
@@ -246,7 +252,13 @@ const current = (): ReadonlyArray<MachineView> => [
 /** "live" starts as two offers; Update walks the preview through checking, copying and switching. */
 const live = (): ReadonlyArray<MachineView> => [
   thisMac(daemon({ installedVersion: "0.5.0", updateAvailable: false })),
-  machine("studio", "Mac Studio", "studio", connected("darwin-arm64", "0.4.1", 4), daemon()),
+  machine(
+    "studio",
+    "Mac Studio",
+    "studio",
+    connected("darwin-arm64", "0.4.1", 4),
+    daemon({ keepUpToDateOverride: false, keepUpToDate: false })
+  ),
   machine("pi", "Raspberry Pi", "lucas-rpi", connected("linux-arm64", "0.4.1", 38), daemon()),
 ];
 

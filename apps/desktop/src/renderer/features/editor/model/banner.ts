@@ -26,7 +26,7 @@ export const ACTION_LABELS: Readonly<Record<BannerAction, string>> = {
   "take-theirs": "Take theirs",
   close: "Close tab",
   retry: "Try again",
-  "update-daemon": "Update daemon",
+  "update-daemon": "Upgrade daemon",
   save: "Save",
 };
 

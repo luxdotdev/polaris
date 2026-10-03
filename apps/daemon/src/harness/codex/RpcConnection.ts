@@ -6,6 +6,7 @@
  * speaks natively via `ws+unix://<path>`. The `codex --remote unix://<path>`
  * TUI uses the same transport, which is what lets both co-attach.
  */
+import { childEnv } from "../../service/childEnv.ts";
 import { appendFileSync } from "node:fs";
 import { type Cause, Data, Deferred, Effect, Option, Queue, Schema, type Scope } from "effect";
 import { HarnessError } from "../HarnessDriver.ts";
@@ -214,6 +215,7 @@ export const connectStdio = (
     Effect.try({
       try: (): Wire => {
         const proc = Bun.spawn([codexPath, "app-server"], {
+          env: childEnv(),
           stdin: "pipe",
           stdout: "pipe",
           stderr: "ignore",

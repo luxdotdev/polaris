@@ -40,6 +40,16 @@ try {
   const page = await app.firstWindow();
   await page.waitForFunction("window.polaris !== undefined");
   await machineFlow({ page, host, step: console.log, openHosts: null, shoot: async () => {} });
+  await app.evaluate(({ webContents }) => {
+    for (const contents of webContents.getAllWebContents())
+      contents.send("polaris:app", { kind: "command", id: "settings.hosts" });
+  });
+  await page.getByTestId("hosts-settings").waitFor();
+  await page.getByText("Upgraded to 0.0.0-dev.900.abc1234", { exact: false }).waitFor();
+
+  if (await page.locator("[data-sonner-toast]").filter({ hasText: "Daemon upgraded" }).count())
+    throw new Error("Daemon Upgrade still makes a success toast");
+  console.log("Daemon Upgrade smoke: quiet Hosts row, no success toast");
   console.log("Daemon update IPC smoke: ok");
 } finally {
   await app?.close();

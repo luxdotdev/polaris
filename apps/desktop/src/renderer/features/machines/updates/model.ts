@@ -5,7 +5,7 @@
  */
 import type { DaemonUpdateProblem, DaemonUpdateView } from "./contract.ts";
 
-/** How long "Updated to …" stays on the row after an update. */
+/** How long "Upgraded to …" stays on the row after an update. */
 export const UPDATED_NOTE_MS = 24 * 60 * 60 * 1000;
 
 export type FailureAction = "retry" | "copy-command" | "open-ssh";
@@ -141,7 +141,7 @@ export const updateFailure = (
     default:
       return {
         reason: "failed",
-        title: `Updating ${label} didn't finish`,
+        title: `Upgrading ${label} didn't finish`,
         body: `${kept} Nothing half-installed is left running.`,
         detail,
         actions: [RETRY],
@@ -209,20 +209,23 @@ export const updateLine = ({
     };
 
   if (daemon.updateAvailable) {
-    const from = daemon.installedVersion ?? "?";
+    const target = daemon.bundledVersion ?? "?";
+
+    if (!connected && daemon.keepUpToDate)
+      return { kind: "note", text: `Upgrades to ${target} when it connects` };
 
     return {
       kind: "available",
-      text: `Update available · ${from} → ${daemon.bundledVersion ?? "?"}`,
+      text: `${target} available${daemon.keepUpToDate ? "" : " · upgrades its daemon only when you ask"}`,
       canUpdate: connected,
-      caption: connected ? null : `Updates once ${label} is connected`,
+      caption: connected ? null : `Upgrades once ${label} is connected`,
     };
   }
 
   if (last?.result === "updated" && now - last.at < UPDATED_NOTE_MS)
     return {
       kind: "updated",
-      text: `Updated to ${last.version ?? daemon.installedVersion ?? "?"} · ${ago(now - last.at)}`,
+      text: `Upgraded to ${last.version ?? daemon.installedVersion ?? "?"} · ${ago(now - last.at)}`,
     };
 
   if (daemon.keepUpToDateOverride === null) return NONE;
@@ -231,7 +234,7 @@ export const updateLine = ({
     kind: "note",
     text: daemon.keepUpToDateOverride
       ? "Keeps its daemon up to date on its own"
-      : "Updates its daemon only when you ask",
+      : "Upgrades its daemon only when you ask",
   };
 };
 

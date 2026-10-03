@@ -101,7 +101,7 @@ export const UpdateStrip = ({ line, onUpdate, onFailureAction }: UpdateStripProp
             )}
           </span>
           <Button size="sm" disabled={!line.canUpdate} onClick={onUpdate}>
-            Update
+            Upgrade
           </Button>
         </Strip>
       );

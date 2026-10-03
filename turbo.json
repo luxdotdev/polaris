@@ -8,6 +8,10 @@
       "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/scripts/build-daemon.ts"],
       "outputs": ["dist/**"]
     },
+    "@polaris/site#build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**"]
+    },
     "typecheck": { "dependsOn": ["^typecheck"] },
     "test": { "dependsOn": ["^build"], "env": ["POLARIS_PBT_*"] },
     "dev": { "cache": false, "persistent": true },

@@ -140,7 +140,15 @@ export const SECTION_GROUPS: ReadonlyArray<SectionGroup> = GROUPS.map((g) => ({
   sections: g.sections.map((s) => s.id),
 }));
 
-export const SECTIONS: ReadonlyArray<SectionInfo> = GROUPS.flatMap((g) => g.sections);
+export const SECTIONS: ReadonlyArray<SectionInfo> = [
+  ...GROUPS.flatMap((g) => g.sections),
+  {
+    id: "about",
+    title: "About",
+    blurb: "Polaris on this Mac.",
+    keywords: ["update", "version", "release", "restart"],
+  },
+];
 
 const BY_ID = new Map(SECTIONS.map((s) => [s.id, s]));
 

@@ -14,6 +14,7 @@ import {
 } from "../shared/api.ts";
 import { isBare, parseChord } from "../shared/chord.ts";
 import { KEYMAP, type MenuName } from "../shared/keymap.ts";
+import type { AppUpdateView } from "../shared/appUpdates.ts";
 
 export interface MenuInput {
   readonly appearance: Appearance;
@@ -21,6 +22,9 @@ export interface MenuInput {
   readonly dev: boolean;
   /** The local Host runs the bench Harness: offer Develop → Start proof session. */
   readonly proofHostKey: string | null;
+  readonly updates: AppUpdateView;
+  readonly checkUpdates: () => void;
+  readonly restartToUpdate: () => void;
 }
 
 /** To the focused window, else the first (a hidden window, in smoke tests, is never focused). */
@@ -67,10 +71,11 @@ const develop = (proofHostKey: string | null): MenuItemConstructorOptions => ({
 });
 
 /** The macOS app menu, as `role: "appMenu"` builds it, plus the keymap's App items (Settings…). */
-const appMenu = (): MenuItemConstructorOptions => ({
+const appMenu = (input: MenuInput): MenuItemConstructorOptions => ({
   role: "appMenu",
   submenu: [
-    { role: "about" },
+    { label: "About Polaris", click: () => send({ kind: "command", id: "settings.about" }) },
+    updateMenuItem(input),
     { type: "separator" },
     ...commandItems("App"),
     { type: "separator" },
@@ -80,9 +85,26 @@ const appMenu = (): MenuItemConstructorOptions => ({
     { role: "hideOthers" },
     { role: "unhide" },
     { type: "separator" },
-    { role: "quit" },
+    { role: "quit", label: input.updates.phase === "ready" ? "Quit and update" : "Quit Polaris" },
   ],
 });
+
+export const updateMenuItem = (
+  input: Pick<MenuInput, "updates" | "checkUpdates" | "restartToUpdate">
+): MenuItemConstructorOptions => {
+  const ready = input.updates.phase === "ready";
+
+  return {
+    label: ready
+      ? `Restart to update${input.updates.availableVersion === null ? "" : ` to ${input.updates.availableVersion}`}`
+      : "Check for updates…",
+    enabled:
+      ready ||
+      (input.updates.supported &&
+        !["checking", "downloading", "blocked"].includes(input.updates.phase)),
+    click: ready ? input.restartToUpdate : input.checkUpdates,
+  };
+};
 
 const THEMES: ReadonlyArray<{ readonly label: string; readonly theme: ThemeSource }> = [
   { label: "System", theme: "system" },
@@ -96,7 +118,9 @@ const DENSITIES: ReadonlyArray<{ readonly label: string; readonly density: Densi
   { label: "Compact", density: "compact" },
 ];
 
-export const buildMenu = ({ appearance, setAppearance, dev, proofHostKey }: MenuInput) => {
+export const buildMenu = (input: MenuInput) => {
+  const { appearance, setAppearance, dev, proofHostKey } = input;
+
   const view: Array<MenuItemConstructorOptions> = [
     ...commandItems("View"),
     { type: "separator" },
@@ -124,7 +148,7 @@ export const buildMenu = ({ appearance, setAppearance, dev, proofHostKey }: Menu
 
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
-      appMenu(),
+      appMenu(input),
       { role: "fileMenu" },
       { role: "editMenu" },
       { label: "View", submenu: view },

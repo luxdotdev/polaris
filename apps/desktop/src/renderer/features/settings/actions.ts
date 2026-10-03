@@ -1,8 +1,20 @@
 /** Settings' commands (`shared/keymap.ts`): "Settings…" (⌘,) and one per section, for the K menu. */
 import type { CommandHandlers } from "../../routes/commands.ts";
+import { checkForUpdates, restartToUpdate, updatesStore } from "./updates/store.ts";
 import type { ShellActions } from "../../routes/navigation.ts";
 
 export const settingsCommands = (shell: ShellActions): CommandHandlers => ({
+  "settings.about": { run: () => shell.openSettings("about") },
+  "updates.check": {
+    run: () => {
+      shell.openSettings("about");
+      void checkForUpdates();
+    },
+  },
+  "updates.restart": {
+    run: () => void restartToUpdate(),
+    enabled: () => updatesStore.getState().view?.phase === "ready",
+  },
   "settings.open": { run: () => shell.openSettings() },
   "settings.appearance": { run: () => shell.openSettings("appearance") },
   "settings.sessions": { run: () => shell.openSettings("sessions") },

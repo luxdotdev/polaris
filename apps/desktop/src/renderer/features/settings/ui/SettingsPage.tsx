@@ -25,6 +25,8 @@ import { useShellActions } from "../../../shell/hooks.ts";
 import { SECTION_GROUPS, sectionInfo } from "../model/sections.ts";
 import { useSettings } from "../store.ts";
 import { AttachmentsPage } from "../../attachments/index.ts";
+import { useUpdates } from "../updates/store.ts";
+import { AboutPage } from "./AboutPage.tsx";
 import { AppearancePage } from "./AppearancePage.tsx";
 import { GitHubPage } from "./GitHubPage.tsx";
 import { HarnessesPage } from "./HarnessesPage.tsx";
@@ -46,6 +48,7 @@ const ICONS: Readonly<Record<SettingsSection, ReactNode>> = {
   attachments: <PaperclipIcon />,
   reviewer: <AsteriskIcon />,
   github: <UsersIcon />,
+  about: <PixelPolarisIcon />,
 };
 
 /** An open popover, menu, select or dialog takes esc first. */
@@ -95,6 +98,7 @@ const NavItem = ({
 const SettingsNav = ({ current }: { readonly current: SettingsSection }) => {
   const { openSettings, closeSettings } = useShellActions();
   const version = useSettings((s) => s.version);
+  const update = useUpdates((s) => s.view);
 
   return (
     <nav
@@ -127,17 +131,29 @@ const SettingsNav = ({ current }: { readonly current: SettingsSection }) => {
         </div>
       ))}
       <span className="flex-1" />
-      <div className="h-row px-row-x text-label text-text-default flex shrink-0 items-center gap-2.5">
+      <button
+        type="button"
+        onClick={() => openSettings("about")}
+        aria-current={current === "about" ? "page" : undefined}
+        className="px-row-x text-label text-text-default hover:bg-fill-hover rounded-row py-gap flex shrink-0 cursor-default items-center gap-2.5 text-left"
+      >
         <PixelPolarisIcon size={16} className="text-starlight" />
-        About Polaris
-        <span className="text-caption text-text-subtle font-regular">{version}</span>
-      </div>
+        <span className="flex min-w-0 flex-col gap-0.5">
+          About Polaris
+          <span className="text-caption text-text-subtle font-regular">
+            {update?.version ?? version}
+            {update?.phase === "ready" ? " · update ready" : ""}
+          </span>
+        </span>
+      </button>
     </nav>
   );
 };
 
 const Page = ({ route }: { readonly route: SettingsRoute }) => {
   switch (route.section) {
+    case "about":
+      return <AboutPage />;
     case "appearance":
       return <AppearancePage />;
     case "sessions":

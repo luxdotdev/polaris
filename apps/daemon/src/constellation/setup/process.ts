@@ -1,3 +1,4 @@
+import { childEnv } from "../../service/childEnv.ts";
 import { Effect } from "effect";
 import { WorktreeSetupRun } from "@polaris/protocol";
 
@@ -25,6 +26,7 @@ export const executeSetup = Effect.fn("WorktreeSetup.execute")(function* (run: W
       try: () =>
         Bun.spawn(["/bin/sh", "-c", run.command], {
           cwd: run.cwd,
+          env: childEnv(),
           stdin: "ignore",
           stdout: "pipe",
           stderr: "pipe",

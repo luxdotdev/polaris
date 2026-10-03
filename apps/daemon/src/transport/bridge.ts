@@ -15,6 +15,7 @@
  * process; the bridge repoints `~/.polaris/agent.sock` at it, so the Daemon and
  * its Harnesses can use one stable path that survives reconnects.
  */
+import { childEnv } from "../service/childEnv.ts";
 import { renameSync, statSync, symlinkSync, unlinkSync } from "node:fs";
 import { connect, type Socket } from "node:net";
 import { join } from "node:path";
@@ -104,7 +105,12 @@ export interface BridgeOptions {
 
 const spawnSupervisor = (script: string) => {
   // Without arguments the script detaches itself (setsid, else nohup) and returns at once.
-  Bun.spawn([script], { stdin: "ignore", stdout: "ignore", stderr: "ignore" }).unref();
+  Bun.spawn([script], {
+    env: childEnv(),
+    stdin: "ignore",
+    stdout: "ignore",
+    stderr: "ignore",
+  }).unref();
 };
 
 /** Resolves true once something accepts a connection on `socketPath`. */
