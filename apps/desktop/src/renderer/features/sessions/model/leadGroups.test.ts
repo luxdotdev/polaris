@@ -6,6 +6,7 @@ import { asPlain, type Plain } from "../../../store/plain.ts";
 import { C1, C2, C3, HOSTS, MODELS, withSetupFailure } from "../preview/fixtures.ts";
 import {
   doneLine,
+  idsOnly,
   leadLine,
   lookupIn,
   type LeadWorker,
@@ -137,6 +138,16 @@ describe("sidebarItems", () => {
       ["desktop", ["email-validator"], 0],
     ]);
     expect(c3?.done.map((r) => `${r.taskId}`)).toEqual(["sidebar-groups", "tab-lanes"]);
+  });
+
+  test("a Lead with slug ids shows ids alone; short ids keep their titles", () => {
+    const groups = items.flatMap((i) => (i.kind === "lead" ? [i.group] : []));
+
+    const shown = new Map(groups.map((g) => [g.view.constellation.name, idsOnly(g)]));
+
+    expect(shown.get("Constellations v1")).toBe(false);
+    expect(shown.get("Bench leases")).toBe(false);
+    expect(shown.get("Release polish")).toBe(true);
   });
 
   test("a Lead counts what needs you, itself included", () => {

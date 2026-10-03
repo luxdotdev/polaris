@@ -7,7 +7,7 @@
 export const LANE_MIN = 2;
 
 /** Past these widths an id truncates and shows in full on hover. */
-export const LANE_MAX = { tab: 18, digest: 18, sidebar: 9 } as const;
+export const LANE_MAX = { tab: 18, digest: 18, sidebar: 4 } as const;
 
 /** The lane's width in mono characters for these ids, at most `max`. */
 export const laneWidth = (ids: Iterable<string>, max: number) => {

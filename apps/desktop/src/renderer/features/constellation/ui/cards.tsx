@@ -187,10 +187,11 @@ const lineOf = (r: ConstellationRecord, n: NotificationData, facts: Facts): Dige
         tone: "text-text-subtle",
         body: <span className="truncate">{text}</span>,
       }),
+      // An answer isn't accepted work (rule/constellation-colour): a neutral glyph.
       QuestionAnswered: ({ attemptId, text }): DigestLine => ({
         key: n.id,
         task: task(attemptId),
-        glyph: "accepted",
+        glyph: "waiting",
         tone: "text-text-subtle",
         body: <span className="truncate">you answered: {text}</span>,
       }),

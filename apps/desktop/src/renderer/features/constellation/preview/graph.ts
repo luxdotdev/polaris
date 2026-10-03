@@ -247,6 +247,7 @@ export const slugTasks = [
   }),
   task({ id: "email-validator", title: "Validate the download email", group: "desktop", ui: true }),
   task({ id: "sidebar-groups", title: "Group the sidebar by task", group: "desktop", ui: true }),
+  task({ id: "blocked", title: "Show blocked tasks on the rail", group: "desktop", ui: true }),
 ];
 
 const emailClaim = new Claim({
@@ -271,6 +272,7 @@ export const slugAttempts = [
     nudgedMinutesAgo: 4,
   }),
   attempt({ taskId: "email-validator", state: "review", minutes: 30, claim: emailClaim }),
+  attempt({ taskId: "blocked", state: "working", minutes: 12 }),
   attempt({
     taskId: "sidebar-groups",
     state: "accepted",
@@ -498,7 +500,41 @@ export const c1Record = (
   };
 };
 
-/** C1 with the slug Tasks added, and the digest reporting email-validator's Claim. */
+/** The digest's slug lines: a question from `blocked`, an answer and a Claim from email-validator. */
+const slugDigest = [
+  note(
+    "n-q-blocked",
+    NotificationItem.cases.Question.make({
+      attemptId: AttemptId.make("att-blocked-1"),
+      question: new ConstellationQuestion({
+        id: "q-blocked",
+        to: "lead",
+        text: "Should a blocked Task keep its working glyph while it waits?",
+        blocking: false,
+      }),
+    }),
+    2
+  ),
+  note(
+    "n-a-email",
+    NotificationItem.cases.QuestionAnswered.make({
+      attemptId: AttemptId.make("att-email-validator-1"),
+      questionId: "q-email",
+      text: "Accept Gmail's MEDIUM verdict; reject LOW.",
+    }),
+    2
+  ),
+  note(
+    "n-email",
+    NotificationItem.cases.Settled.make({
+      attemptId: AttemptId.make("att-email-validator-1"),
+      state: "review",
+    }),
+    1
+  ),
+];
+
+/** C1 with the slug Tasks added, and the digest reporting on them. */
 export const slugRecord = (patch: Partial<Constellation> = {}): ConstellationRecord => {
   const record = c1Record({
     ...patch,
@@ -506,17 +542,8 @@ export const slugRecord = (patch: Partial<Constellation> = {}): ConstellationRec
     attempts: [...(patch.attempts ?? c1Attempts), ...slugAttempts],
   });
 
-  const settled = note(
-    "n-email",
-    NotificationItem.cases.Settled.make({
-      attemptId: AttemptId.make("att-email-validator-1"),
-      state: "review",
-    }),
-    1
-  );
-
   return {
     ...record,
-    digests: record.digests.map((d) => ({ ...d, items: [...d.items, settled] })),
+    digests: record.digests.map((d) => ({ ...d, items: [...d.items, ...slugDigest] })),
   };
 };

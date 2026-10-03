@@ -15,6 +15,7 @@ import { IdLane, laneStyle } from "../../constellation/ui/lane.tsx";
 import { ConstellationMark, TaskGlyph } from "../glyphs.tsx";
 import {
   doneLine,
+  idsOnly,
   type LeadGroup as Group,
   type LeadWorker,
   leadLine,
@@ -51,15 +52,42 @@ const LeadLine = ({ group, open }: { readonly group: Group; readonly open: boole
   );
 };
 
+/**
+ * The row's id and title; when its Lead's ids are slugs the id alone fills the row, the
+ * title in its tooltip and accessible name.
+ */
+const WorkerTitle = ({
+  row,
+  tone,
+  idOnly,
+}: {
+  readonly row: LeadWorker;
+  readonly tone: string;
+  readonly idOnly: boolean;
+}) =>
+  idOnly ? (
+    <span className="flex min-w-0" title={`${row.taskId} · ${row.title}`}>
+      <span className={cn("text-code-inline truncate font-mono", tone)}>{row.taskId}</span>
+      <span className="sr-only"> · {row.title}</span>
+    </span>
+  ) : (
+    <span className="flex min-w-0 items-baseline gap-2">
+      <IdLane id={row.taskId} max={LANE_MAX.sidebar} className={tone} />
+      <span className="truncate">{row.title}</span>
+    </span>
+  );
+
 const Worker = ({
   hostKey,
   group,
   row,
+  idOnly,
   now,
 }: {
   readonly hostKey: string;
   readonly group: Group;
   readonly row: LeadWorker;
+  readonly idOnly: boolean;
   readonly now: number;
 }) => {
   const { selectSession } = useShellActions();
@@ -93,14 +121,11 @@ const Worker = ({
         <TaskGlyph glyph={shown.glyph} harness={row.entry?.session.harness ?? null} size={16} />
       }
       title={
-        <span className="flex min-w-0 items-baseline gap-2">
-          <IdLane
-            id={row.taskId}
-            max={LANE_MAX.sidebar}
-            className={shown.tone === "needs-you" ? "text-needs-you-text" : "text-text-subtle"}
-          />
-          <span className="truncate">{row.title}</span>
-        </span>
+        <WorkerTitle
+          row={row}
+          idOnly={idOnly}
+          tone={shown.tone === "needs-you" ? "text-needs-you-text" : "text-text-subtle"}
+        />
       }
       meta={<WorkerMeta row={row} shown={shown} hostLabel={hostLabel} now={now} />}
     />
@@ -234,6 +259,7 @@ export const LeadGroup = ({ hostKey, group, now }: GroupProps) => {
 
   const sections = workerSections(showDone ? [...group.workers, ...group.done] : group.workers);
   const ids = [...group.workers, ...group.done].map((r) => r.taskId);
+  const idOnly = idsOnly(group);
 
   return (
     <div className="flex flex-col" data-testid="lead-group" data-lead={leadId}>
@@ -287,7 +313,14 @@ export const LeadGroup = ({ hostKey, group, now }: GroupProps) => {
             >
               {section.label === null ? null : <SectionHeading section={section} />}
               {section.rows.map((row) => (
-                <Worker key={row.taskId} hostKey={hostKey} group={group} row={row} now={now} />
+                <Worker
+                  key={row.taskId}
+                  hostKey={hostKey}
+                  group={group}
+                  row={row}
+                  idOnly={idOnly}
+                  now={now}
+                />
               ))}
             </div>
           ))}

@@ -16,6 +16,7 @@ import {
   setupSources,
   setupsOf,
 } from "../../constellation/model/setup.ts";
+import { LANE_MAX } from "../../constellation/model/lane.ts";
 import { stoppedWithoutClaiming } from "../../constellation/model/stopped.ts";
 import type { ConstellationView } from "../source.ts";
 
@@ -335,6 +336,13 @@ export const sidebarItems = ({ hostKey, entries, views, lookup, setups }: GroupI
 
   return { items, constellations: groups.size };
 };
+
+/** Ids up to this long ("B1", "C12") leave room for a title in a sidebar worker row. */
+export const SHORT_ID = LANE_MAX.sidebar;
+
+/** Whether a Lead's worker rows show the id alone: any id is a slug longer than SHORT_ID. */
+export const idsOnly = (group: Pick<LeadGroup, "workers" | "done">) =>
+  [...group.workers, ...group.done].some((r) => r.taskId.length > SHORT_ID);
 
 /** "Lead · 7 workers", or folded "3 workers · 1 needs you" (the needs-you part is tinted). */
 export const leadLine = (group: LeadGroup) => {
