@@ -54,6 +54,12 @@ export class ConstellationRelay extends Context.Service<
       const packets = new Map<string, Pending<ConstellationOutboxPacket>>();
       const placements = new Map<string, Pending<RemotePlacementRequest>>();
       const delivering = new Set<string>();
+
+      const deliveryAttempts = new Map<
+        string,
+        { owner: LiveSession; worker: LiveSession; revision: number; count: number }
+      >();
+
       const deliveries = new Map<string, Pending<RemoteDeliveryPacket>>();
       const graphs = new Map<ConstellationId, Constellation>();
       const hosts = new Map<string, { scope: Scope.Closeable; connection: HostConnection }>();
@@ -98,17 +104,33 @@ export class ConstellationRelay extends Context.Service<
         const epoch = scope === undefined ? undefined : epochs.get(scope);
 
         if (
-          owner !== undefined &&
-          worker !== undefined &&
-          epoch !== undefined &&
-          !delivering.has(value.id)
-        ) {
-          delivering.add(value.id);
-          yield* ignore(relayRemoteDelivery(owner, worker, value)).pipe(
-            Effect.ensuring(Effect.sync(() => delivering.delete(value.id))),
-            Effect.forkIn(epoch)
-          );
-        }
+          owner === undefined ||
+          worker === undefined ||
+          epoch === undefined ||
+          delivering.has(value.id)
+        )
+          return;
+        const revision = graphs.get(value.constellationId)?.revision ?? -1;
+        const previous = deliveryAttempts.get(value.id);
+
+        const attempt =
+          previous?.owner === owner && previous.worker === worker && previous.revision === revision
+            ? previous
+            : { owner, worker, revision, count: 0 };
+
+        // One immediate retry; persistent failures wait for graph/Connection change or explicit retry.
+        if (attempt.count >= 2) return;
+        attempt.count++;
+        deliveryAttempts.set(value.id, attempt);
+        delivering.add(value.id);
+        yield* ignore(
+          relayRemoteDelivery(owner, worker, value, () => byId(value.ownerHostId))
+        ).pipe(
+          Effect.ensuring(
+            Effect.sync(() => delivering.delete(value.id)).pipe(Effect.andThen(signal))
+          ),
+          Effect.forkIn(epoch)
+        );
       });
 
       const drain = Effect.gen(function* () {
@@ -186,8 +208,13 @@ export class ConstellationRelay extends Context.Service<
         yield* session.client["constellation.delivery.watch"]({}).pipe(
           Stream.runForEach((values) =>
             Effect.gen(function* () {
+              const current = new Set(values.map((value) => value.id));
+
               for (const [id, pending] of deliveries)
-                if (pending.source === connection.key) deliveries.delete(id);
+                if (pending.source === connection.key && !current.has(id)) {
+                  deliveries.delete(id);
+                  deliveryAttempts.delete(id);
+                }
 
               for (const value of values)
                 deliveries.set(value.id, { source: connection.key, value });
@@ -314,7 +341,10 @@ export class ConstellationRelay extends Context.Service<
         Effect.forkIn(parent)
       );
 
-      return ConstellationRelay.of({ retry: signal, waiting });
+      return ConstellationRelay.of({
+        retry: Effect.sync(() => deliveryAttempts.clear()).pipe(Effect.andThen(signal)),
+        waiting,
+      });
     })
   );
 }

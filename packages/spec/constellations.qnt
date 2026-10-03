@@ -528,3 +528,52 @@ module current_constellations {
     OWNER = "lead-host", CAPACITY = 2,
   ).*
 }
+
+// Ephemeral Client transport facts; acknowledgements alone commit the durable owner unblock.
+module constellation_delivery_relay {
+  type Relay = {
+    dependencyAccepted: bool, busy: bool, inFlight: bool, receipt: bool,
+    ownerConnected: bool, ownerEpoch: int, launchEpoch: int,
+    ackEpoch: int, ownerAtAck: int, acknowledged: bool, blocked: bool,
+    unblocks: int, attempts: int, wake: bool, reconnectedDuringApply: bool,
+  }
+  var relay: Relay
+  action init = relay' = {
+    dependencyAccepted: false, busy: true, inFlight: false, receipt: false,
+    ownerConnected: true, ownerEpoch: 0, launchEpoch: -1,
+    ackEpoch: -1, ownerAtAck: -1, acknowledged: false, blocked: true,
+    unblocks: 0, attempts: 0, wake: false, reconnectedDuringApply: false,
+  }
+  action acceptDependency = relay' = { ...relay, dependencyAccepted: true, wake: true }
+  action launch = all {
+    relay.dependencyAccepted and relay.ownerConnected and relay.wake,
+    not(relay.inFlight) and not(relay.acknowledged) and relay.attempts < 2,
+    relay' = { ...relay, inFlight: true, launchEpoch: relay.ownerEpoch, attempts: relay.attempts + 1, wake: false },
+  }
+  action turnEnded = relay' = { ...relay, busy: false }
+  action applyReceipt = all {
+    relay.inFlight and not(relay.busy),
+    relay' = { ...relay, receipt: true },
+  }
+  action disconnectOwner = relay' = { ...relay, ownerConnected: false }
+  action reconnectOwner = relay' = {
+    ...relay, ownerConnected: true, ownerEpoch: relay.ownerEpoch + 1, attempts: 0, wake: true,
+    reconnectedDuringApply: relay.reconnectedDuringApply or relay.inFlight,
+  }
+  action cleanup = relay' = { ...relay, inFlight: false, wake: true }
+  action graphChanged = relay' = { ...relay, attempts: 0, wake: true }
+  action acknowledge = all {
+    relay.inFlight and relay.receipt and relay.ownerConnected and not(relay.acknowledged),
+    relay' = { ...relay, acknowledged: true, blocked: false, unblocks: relay.unblocks + 1,
+      ackEpoch: relay.ownerEpoch, ownerAtAck: relay.ownerEpoch },
+  }
+  action step = any {
+    acceptDependency, launch, turnEnded, applyReceipt, disconnectOwner,
+    reconnectOwner, cleanup, graphChanged, acknowledge,
+  }
+  val safety = relay.unblocks <= 1 and (relay.acknowledged implies all {
+    relay.receipt, not(relay.busy), not(relay.blocked), relay.ackEpoch == relay.ownerAtAck,
+  })
+  val witnessReconnectAck = relay.reconnectedDuringApply and relay.acknowledged
+  val witnessRetry = relay.attempts == 2
+}

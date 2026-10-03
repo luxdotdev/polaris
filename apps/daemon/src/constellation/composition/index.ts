@@ -1,4 +1,9 @@
-import { type Attempt, ConstellationTransferError, WorkerPlacement } from "@polaris/protocol";
+import {
+  type Attempt,
+  ConstellationTransferError,
+  RemoteDeliveryPacket,
+  WorkerPlacement,
+} from "@polaris/protocol";
 import { Effect, Layer, Stream } from "effect";
 import { EventStore } from "../../store/EventStore.ts";
 import { mcpHttp } from "../../mcp/http.ts";
@@ -222,7 +227,9 @@ const remoteDelivery = Layer.effect(
   Effect.gen(function* () {
     const deliveries = yield* RemoteDeliveries;
 
-    return { send: (packet) => deliveries.send(packet).pipe(Effect.orDie) };
+    return {
+      send: (packet) => deliveries.send(RemoteDeliveryPacket.make(packet)).pipe(Effect.orDie),
+    };
   })
 );
 

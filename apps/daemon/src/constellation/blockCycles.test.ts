@@ -202,3 +202,29 @@ test("legacy block cycles allow unrelated edits and edits that remove cycle edge
 
   expect(cancel.rejection).toBeNull();
 });
+
+test("Plan reports one finding for each directed cycle, regardless of its newly added edges", () => {
+  const Y = TaskId.make("Y");
+  const record = planned([task(A), task(B), task(X), task(Y)]);
+
+  const edits: ReadonlyArray<readonly [TaskId, TaskId]> = [
+    [A, B],
+    [B, A],
+    [X, Y],
+    [Y, X],
+  ];
+
+  const result = decideConstellation(
+    record,
+    C.Plan.make({
+      constellationId: CID,
+      operations: edits.map(([id, dep]) =>
+        PlanOperation.cases.Edit.make({ taskId: id, revision: 0, task: task(id, [dep]) })
+      ),
+    }),
+    ctx()
+  );
+
+  expect(result.rejection?.findings.filter((f) => f.code === "E-DEP-CYCLE")).toHaveLength(2);
+  expect(result.events).toEqual([]);
+});

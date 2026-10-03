@@ -117,3 +117,10 @@ export const waitPath = (edges: ReturnType<typeof waitGraph>, from: TaskId, to: 
 
   return null;
 };
+
+export const waitCycleKey = (cycle: ReadonlyArray<TaskId>) => {
+  const nodes = cycle.slice(0, -1);
+  const first = nodes.reduce((lowest, id, index) => (id < nodes[lowest]! ? index : lowest), 0);
+
+  return JSON.stringify([...nodes.slice(first), ...nodes.slice(0, first)]);
+};

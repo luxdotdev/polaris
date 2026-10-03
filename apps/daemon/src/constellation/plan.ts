@@ -11,23 +11,30 @@ import { GraphDecision } from "./decision.ts";
 import { cancelBlockTarget } from "./blocked.ts";
 import { latestAttempt } from "./projections.ts";
 import { cancelSubtrees, effectiveDeps, validateParents } from "./parents.ts";
-import { waitCycleMessage, waitGraph, waitPath } from "./waitGraph.ts";
+import { waitCycleKey, waitCycleMessage, waitGraph, waitPath } from "./waitGraph.ts";
 
 const validateWaitCycles = (d: GraphDecision, tasks: ReadonlyArray<Task>) => {
   const edges = waitGraph(tasks, d.record.graph.attempts);
   const original = waitGraph(d.record.graph.tasks, d.record.graph.attempts);
+  const cycles = new Set<string>();
 
   for (const [from, outgoing] of edges) {
     for (const edge of outgoing) {
       if (original.get(from)?.some((old) => old.target === edge.target)) continue;
       const path = waitPath(edges, edge.target, from);
 
-      if (path !== null)
+      if (path === null) continue;
+      const cycle = [from, ...path];
+      const key = waitCycleKey(cycle);
+
+      if (!cycles.has(key)) {
+        cycles.add(key);
         d.reject(
           "E-DEP-CYCLE",
-          waitCycleMessage(edges, [from, ...path]),
+          waitCycleMessage(edges, cycle),
           "Remove a dependency or unblock an Attempt in this cycle."
         );
+      }
     }
   }
 };
