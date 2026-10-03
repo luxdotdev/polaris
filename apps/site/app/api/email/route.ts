@@ -12,7 +12,9 @@ const limit = createRateLimit();
 
 const handler = createEmailHandler({
   checkBot: checkEmailBot,
-  validator: { validate: (email) => createValidator(process.env).validate(email) },
+  validator: {
+    validate: (email, report) => createValidator(process.env).validate(email, report),
+  },
   transport: () => createTransport(process.env),
   rateLimit: (headers) => limit(headers, process.env.VERCEL === "1"),
   configProblems: () => sesConfigProblems(process.env),

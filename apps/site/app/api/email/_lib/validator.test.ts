@@ -101,8 +101,28 @@ function handlerFixture(
   };
 }
 
+/** Disposable must be LOW; mailbox may be MEDIUM (Gmail and others block probing); the rest HIGH. */
+function acceptedLevel(field: string, value: string) {
+  if (field === "IsDisposable") return value === "LOW";
+
+  if (field === "MailboxExists") return value !== "LOW";
+
+  return value === "HIGH";
+}
+
 const outcomes: Array<{ label: string; response: unknown; status: number; outcome: string }> = [
   { label: "deliverable", response: good(), status: 200, outcome: "accepted" },
+  {
+    label: "Gmail: overall HIGH, mailbox MEDIUM",
+    response: {
+      MailboxValidation: {
+        ...good().MailboxValidation,
+        Evaluations: { ...good().MailboxValidation.Evaluations, MailboxExists: verdict("MEDIUM") },
+      },
+    },
+    status: 200,
+    outcome: "accepted",
+  },
   ...["HIGH", "MEDIUM", "LOW"].map((role) => {
     const response = good();
     response.MailboxValidation.Evaluations.IsRoleAddress = verdict(role);
@@ -116,7 +136,7 @@ const outcomes: Array<{ label: string; response: unknown; status: number; outcom
     return {
       label: `overall ${overall}`,
       response,
-      status: overall === "LOW" ? 422 : 503,
+      status: 422,
       outcome: overall === "LOW" ? "invalid" : "uncertain",
     };
   }),
@@ -124,7 +144,7 @@ const outcomes: Array<{ label: string; response: unknown; status: number; outcom
     ["LOW", "MEDIUM", "HIGH"].map((value) => {
       const response = good();
       const evaluations = { ...response.MailboxValidation.Evaluations, [field]: verdict(value) };
-      const accepts = field === "IsDisposable" ? value === "LOW" : value === "HIGH";
+      const accepts = acceptedLevel(field, value);
       const invalid = field === "IsDisposable" ? value === "HIGH" : value === "LOW";
 
       return {
@@ -132,7 +152,7 @@ const outcomes: Array<{ label: string; response: unknown; status: number; outcom
         response: {
           MailboxValidation: { ...response.MailboxValidation, Evaluations: evaluations },
         },
-        status: accepts ? 200 : invalid ? 422 : 503,
+        status: accepts ? 200 : 422,
         outcome: accepts ? "accepted" : invalid ? "invalid" : "uncertain",
       };
     })
@@ -369,4 +389,21 @@ describe("SES Insights configuration and privacy", () => {
       for (const spy of spies) spy.mockRestore();
     }
   });
+});
+
+test("the wide event records each Insights confidence level, never the address", async () => {
+  const response = good();
+  response.MailboxValidation.Evaluations.MailboxExists = verdict("MEDIUM");
+
+  const f = handlerFixture(async () => response);
+
+  expect((await f.request()).status).toBe(200);
+  expect(JSON.parse(f.telemetry[0] ?? "{}")).toMatchObject({
+    insights_valid: "HIGH",
+    insights_syntax: "HIGH",
+    insights_dns: "HIGH",
+    insights_mailbox: "MEDIUM",
+    insights_disposable: "LOW",
+  });
+  expect(f.telemetry.join()).not.toContain(email);
 });

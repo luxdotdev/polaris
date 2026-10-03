@@ -3,8 +3,9 @@
 `POST /api/email` accepts JSON `{ "email": "you@example.com", "website": "" }`.
 BotID checks run first and reject both `isBot` and `isVerifiedBot` (including
 good bots), before reading the body. Missing client protection or detection
-failure fails closed. The hidden `website` field is a honeypot. The route sends one plain-text email
-with the canonical `/download/mac` and GitHub source links; no attachment,
+failure fails closed. The hidden `website` field is a honeypot. The route sends one email, the
+react-email template in `apps/site/emails/download.tsx` (HTML plus a plain-text part; preview
+with `bun run --cwd apps/site email:dev`), with the canonical `/download/mac` and GitHub source links; no attachment,
 subscription, tracking pixel or recipient list.
 
 Client protection is initialized in `instrumentation-client.ts` using
@@ -18,11 +19,16 @@ does not persist or log those inputs or the verdict.
 An injectable `EmailValidator.validate(email): Promise<boolean>` follows
 syntax/honeypot/rate checks and precedes SES. `true` permits sending, `false`
 returns 422, and an exception returns generic 503 without sending. Production uses AWS SESv2 `GetEmailAddressInsights` in the send Region with the
-same credentials. Only overall `IsValid=HIGH`, `HasValidSyntax=HIGH`,
-`HasValidDnsRecords=HIGH`, `MailboxExists=HIGH` and `IsDisposable=LOW` allow
-sending. Overall LOW returns 422. With overall HIGH, LOW syntax/DNS/mailbox or
-HIGH disposability also return 422. MEDIUM overall or any other uncertain
-acceptance field returns generic 503; no send occurs. All six evaluation fields
+same credentials. Sending needs overall `IsValid=HIGH`, `HasValidSyntax=HIGH`,
+`HasValidDnsRecords=HIGH`, `IsDisposable=LOW` and `MailboxExists` HIGH or MEDIUM:
+Gmail and other large providers block mailbox probing, so a real Gmail address
+reads MEDIUM (verified 2026-10-02). Overall LOW, LOW syntax/DNS/mailbox or HIGH
+disposability return 422. Any other uncertain verdict returns 422 with
+`X-Polaris-Email-Reason: unconfirmed`, and the form says "We couldn't confirm
+that address. Check it, or download Polaris on your Mac at polaris.lux.dev."; no
+send occurs. Each Insights confidence level is recorded on the wide event
+(`insights_valid`, `insights_syntax`, `insights_dns`, `insights_mailbox`,
+`insights_disposable`, `insights_role`, `insights_random`). All six evaluation fields
 must contain a recognized HIGH/MEDIUM/LOW verdict; missing, malformed or unknown
 fields fail closed. Role addresses are allowed; role/random-pattern evaluations
 do not override the overall and required deliverability verdicts.

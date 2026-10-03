@@ -28,7 +28,11 @@ export async function requestDownload(
 
     if (response.status === 400) message = "Enter a valid email address.";
 
-    if (response.status === 422) message = "Use another email address.";
+    if (response.status === 422)
+      message =
+        response.headers.get("X-Polaris-Email-Reason") === "unconfirmed"
+          ? "We couldn't confirm that address. Check it, or download Polaris on your Mac at polaris.lux.dev."
+          : "Use another email address.";
 
     if (response.status === 403)
       message = "This request was blocked. Please try again from your browser.";

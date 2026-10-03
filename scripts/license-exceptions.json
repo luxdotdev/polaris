@@ -27,6 +27,24 @@
     },
     "@img/sharp-win32-x64": {
       "reason": "Apache-2.0 AND LGPL-3.0-or-later Windows sharp build with bundled libvips, an optional dependency of next for apps/site image optimisation; unmodified, never copied into Polaris and never shipped in the Desktop App or Daemon. Same accepted exception as @img/sharp-libvips-*."
+    },
+    "glob": {
+      "reason": "BlueOak-1.0.0, a permissive licence (OSI-approved, patent grant, no copyleft). Pulled in by react-email's file discovery (glob) for apps/site's download email only; never shipped in the Desktop App or Daemon."
+    },
+    "minimatch": {
+      "reason": "BlueOak-1.0.0, a permissive licence (OSI-approved, patent grant, no copyleft). Pulled in by react-email's file discovery (glob) for apps/site's download email only; never shipped in the Desktop App or Daemon."
+    },
+    "minipass": {
+      "reason": "BlueOak-1.0.0, a permissive licence (OSI-approved, patent grant, no copyleft). Pulled in by react-email's file discovery (glob) for apps/site's download email only; never shipped in the Desktop App or Daemon."
+    },
+    "path-scurry": {
+      "reason": "BlueOak-1.0.0, a permissive licence (OSI-approved, patent grant, no copyleft). Pulled in by react-email's file discovery (glob) for apps/site's download email only; never shipped in the Desktop App or Daemon."
+    },
+    "lru-cache": {
+      "reason": "BlueOak-1.0.0, a permissive licence (OSI-approved, patent grant, no copyleft). Pulled in by react-email's file discovery (glob) for apps/site's download email only; never shipped in the Desktop App or Daemon."
+    },
+    "mdn-data": {
+      "reason": "CC0-1.0 (public-domain dedication) CSS data, pulled in by css-tree in react-email's style inliner for apps/site's download email only; never shipped in the Desktop App or Daemon."
     }
   }
 }

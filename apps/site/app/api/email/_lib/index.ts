@@ -20,6 +20,9 @@ type Dependencies = {
   requested?: () => void;
 };
 
+/** Tells the form why a 422 happened, so it can explain an address it couldn't confirm. */
+export const REASON_HEADER = "X-Polaris-Email-Reason";
+
 function reply(status: number, message: string, headers?: Readonly<Record<string, string>>) {
   return Response.json(
     { message },
@@ -85,18 +88,24 @@ async function deliver(
   event: WideEvent
 ) {
   try {
-    const accepted = await validator.validate(email);
+    const accepted = await validator.validate(email, (verdicts) => Object.assign(event, verdicts));
     event.validation = accepted ? "accepted" : "invalid";
 
     if (!accepted) return reply(422, "Use another email address.");
   } catch (error) {
-    validationFailure(
-      Option.getOrElse(
-        decodeEmailValidationError(error),
-        () => new EmailValidationError("provider", errorInfo(error))
-      ),
-      event
+    const failure = Option.getOrElse(
+      decodeEmailValidationError(error),
+      () => new EmailValidationError("provider", errorInfo(error))
     );
+
+    validationFailure(failure, event);
+
+    if (failure.reason === "uncertain")
+      return reply(
+        422,
+        "We couldn't confirm that address. Check it, or download Polaris on your Mac at polaris.lux.dev.",
+        { [REASON_HEADER]: "unconfirmed" }
+      );
 
     return reply(503, "The email could not be sent. Please try again later.");
   }

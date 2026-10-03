@@ -4,7 +4,9 @@ import {
   type SendEmailCommandOutput,
   type SESv2ClientConfig,
 } from "@aws-sdk/client-sesv2";
-import { links, site } from "../../../../components/links";
+import { createElement } from "react";
+import { render } from "react-email";
+import { DownloadEmail, downloadSubject } from "../../../../emails/download";
 import { readSesConfig, type EmailEnv } from "./ses";
 
 export type { EmailEnv } from "./ses";
@@ -33,6 +35,9 @@ export function createTransport(
   return {
     preview: false,
     send: async (email) => {
+      const html = await render(createElement(DownloadEmail));
+      const text = await render(createElement(DownloadEmail), { plainText: true });
+
       await client.send(
         new SendEmailCommand({
           FromEmailAddress: env.POLARIS_EMAIL_FROM?.trim(),
@@ -40,12 +45,10 @@ export function createTransport(
           Destination: { ToAddresses: [email] },
           Content: {
             Simple: {
-              Subject: { Data: "Polaris for Mac", Charset: "UTF-8" },
+              Subject: { Data: downloadSubject, Charset: "UTF-8" },
               Body: {
-                Text: {
-                  Charset: "UTF-8",
-                  Data: `Download Polaris for macOS:\n${site.origin}${links.download}\n\nRun Claude Code and Codex side by side, on any machine.\n\nView source:\n${links.source}\n\nYou requested this download link on ${site.origin}.`,
-                },
+                Html: { Charset: "UTF-8", Data: html },
+                Text: { Charset: "UTF-8", Data: text },
               },
             },
           },

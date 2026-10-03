@@ -12,6 +12,7 @@
     "next-env.d.ts",
     "types.d.ts",
     "app",
+    "emails",
     "components",
     "lib",
     "scripts",

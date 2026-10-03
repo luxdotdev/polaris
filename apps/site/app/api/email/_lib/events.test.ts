@@ -64,7 +64,7 @@ describe("email wide event", () => {
     [
       "uncertain verdict",
       { validator: throwing(new EmailValidationError("uncertain")) },
-      503,
+      422,
       { validation: "uncertain", failure: "validation_uncertain" },
     ],
     [
