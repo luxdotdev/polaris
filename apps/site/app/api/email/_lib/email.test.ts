@@ -5,11 +5,13 @@ import { createRateLimit, windowMs } from "./rate-limit";
 import { logEmailRequested } from "./telemetry";
 import { createTransport, type EmailEnv, type SesFactory } from "./transport";
 import { validEmail } from "./validation";
+import { fakeValidator } from "./validator";
 
 const configured: EmailEnv = {
   NODE_ENV: "production",
   AWS_REGION: "us-east-1",
   POLARIS_EMAIL_FROM: "download@example.com",
+  POLARIS_EMAIL_CONFIGURATION_SET: "polaris-download",
   AWS_ACCESS_KEY_ID: "fake-key",
   AWS_SECRET_ACCESS_KEY: "fake-secret",
 };
@@ -30,6 +32,7 @@ function fixture(env: EmailEnv = configured) {
   const limit = createRateLimit();
 
   const handler = createEmailHandler({
+    validator: fakeValidator,
     checkBot: async () => ({ isBot: false, isVerifiedBot: false }),
     transport: () =>
       createTransport(env, () => ({
@@ -59,6 +62,7 @@ describe("email endpoint", () => {
     expect(f.sent[0]).toBeInstanceOf(SendEmailCommand);
     expect(f.sent[0]?.input).toMatchObject({
       FromEmailAddress: "download@example.com",
+      ConfigurationSetName: "polaris-download",
       Destination: { ToAddresses: ["ada+mac@example.com"] },
       Content: { Simple: { Subject: { Data: "Polaris for Mac", Charset: "UTF-8" } } },
     });
@@ -126,6 +130,7 @@ describe("email endpoint", () => {
 
   test("provider failure discards private details", async () => {
     const handler = createEmailHandler({
+      validator: fakeValidator,
       checkBot: async () => ({ isBot: false, isVerifiedBot: false }),
       transport: () => ({
         preview: false,
@@ -182,6 +187,7 @@ describe("email endpoint", () => {
 describe("transport configuration", () => {
   test.each([
     { ...configured, AWS_REGION: "" },
+    { ...configured, POLARIS_EMAIL_CONFIGURATION_SET: "" },
     { ...configured, POLARIS_EMAIL_FROM: "bad" },
     { ...configured, AWS_SECRET_ACCESS_KEY: "" },
     { ...configured, AWS_ACCESS_KEY_ID: "", AWS_SECRET_ACCESS_KEY: "" },
@@ -212,6 +218,7 @@ describe("transport configuration", () => {
           NODE_ENV: "production",
           AWS_REGION: "us-east-1",
           POLARIS_EMAIL_FROM: "download@example.com",
+          POLARIS_EMAIL_CONFIGURATION_SET: "polaris-download",
           POLARIS_EMAIL_USE_ROLE: "true",
         },
         factory

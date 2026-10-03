@@ -175,9 +175,9 @@ describe("recipient validator seam", () => {
     expect(f.calls).toEqual(["BotID", "rate", "validator"]);
   });
 
-  test("pass-through default makes no validation API call", async () => {
+  test("missing validator fails closed instead of bypassing validation", async () => {
     const f = fixture();
-    expect((await f.handler(request())).status).toBe(200);
-    expect(f.calls).toEqual(["BotID", "rate", "SES"]);
+    expect((await f.handler(request())).status).toBe(503);
+    expect(f.calls).toEqual(["BotID", "rate"]);
   });
 });

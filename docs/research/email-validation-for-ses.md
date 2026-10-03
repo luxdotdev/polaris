@@ -1,8 +1,51 @@
 # Email validation before an SES download email
 
-Research snapshot: **2026-10-02**. Task: `email-validation-research`; consumer: `site-email`. Research only; the user chooses the provider. Prices are USD before tax. No live validator credentials, visitor addresses, paid checks, or SES sends were used.
+Research snapshot: **2026-10-02**. Task: `email-validation-research`; consumer: `site-email`. Research snapshot with the subsequent user decision and implementation recorded below. Prices are USD before tax. No live validator credentials, visitor addresses, paid checks, or SES sends were used.
 
-## Recommendation
+## Decision
+
+**2026-10-02: the user selected AWS-native SES `GetEmailAddressInsights` and
+explicitly allowed SES account-level suppression-list retention.** Polaris itself
+continues to store no addresses and uses no third-party validator. This decision
+supersedes the conditional Bouncer recommendation and provider/storage questions
+below; the comparison remains the research snapshot, not a pending provider choice.
+
+Production now implements the `EmailValidator` seam using the installed Apache-2.0
+`@aws-sdk/client-sesv2@3.1146.0`, which includes `GetEmailAddressInsightsCommand`.
+Validation and sending share the explicit Region/static-credential or opted-in
+hosted-role policy. BotID → syntax/honeypot → rate limit → Insights → SES remains
+the order. There is no production pass-through. Development/test use a fake.
+
+| SES result | Implemented action |
+|---|---|
+| Overall HIGH, syntax/DNS/mailbox HIGH, disposable LOW | Allow one SES send |
+| Overall LOW | `false` → 422; no send |
+| Overall HIGH with syntax/DNS/mailbox LOW or disposable HIGH | `false` → 422; no send |
+| Overall MEDIUM, or HIGH with an uncertain acceptance field | Reject promise → generic 503/direct-download fallback; no send |
+| Missing/malformed/unrecognized verdict, HTTP error including 429, network error or timeout | Generic 503/fallback; no send |
+| Role HIGH/MEDIUM/LOW with all acceptance conditions met | Allow; role is not a disqualifier |
+
+All six evaluation fields must have recognized verdicts. Role and random-pattern
+verdicts do not override the overall/required deliverability fields. SES has no
+explicit catch-all, typo, full-mailbox or greylisting response field; ambiguous
+mailbox evidence withholds rather than inventing a classification or recipient.
+
+One call, no retry, **5-second hard deadline** (superseding the proposed 6-second
+transport budget). Abort and a bounded wait prevent a late result from sending.
+Provider/schema errors are discarded without a cause; only process-local aggregate
+accepted/invalid/uncertain/unavailable counters are recorded, with no address,
+domain, identifier, body, metadata or error. No request-data tracing is added.
+
+The [route README](../../apps/site/app/api/email/README.md) documents IAM actions
+`ses:GetEmailAddressInsights` / `ses:SendEmail`, the conservative 1 request/second
+quota assumption, required dedicated download-email configuration set and allowed
+BOUNCE/COMPLAINT suppression. Auto Validation is not enabled by the app. Live
+account quota/IAM/latency/deliverability and CloudTrail/deployment redaction remain
+operator verification; fake tests prove mapping and fail-closed behavior, not
+real mailbox accuracy or AWS zero retention. [API][aws-api], [verdicts][aws-guide],
+[quotas][aws-quotas], [suppression][aws-suppression].
+
+## Original recommendation
 
 **Choose Bouncer's Single Email API, subject to confirming its API log and anonymized-data retention in writing.** Its API-specific FAQ says it does not save submitted addresses in a non-anonymized form; its DPA places processing in AWS Frankfurt. This is the clearest published privacy fit for a one-shot download email. The minimum purchase is $8 for 1,000 non-expiring credits, with 100 initial free checks. Use direct HTTP rather than adding an SDK. [Bouncer FAQ][b-faq], [DPA][b-dpa], [pricing][b-price].
 
@@ -18,7 +61,7 @@ Keep an address in request memory only: no application database, queue, cache, a
 
 Provider retention is a separate question. GDPR compliance, encryption, hashing and “we do not sell” do **not** establish immediate deletion. Bouncer's FAQ distinguishes single checks from bulk uploads, while its broader DPA permits logs and up to 60 days of result storage. Get confirmation that the single endpoint excludes identifiable addresses from logs, backups and caches, and define whether retained anonymized derivatives are acceptable. [FAQ][b-faq], [DPA][b-dpa].
 
-SES itself stores addresses on its account suppression list until removed. Therefore “no Polaris address database” and “no processor may retain any address” produce different designs. This report does not authorize an exception: the user must resolve whether SES's reputation/suppression records are allowed. If the requirement covers every processor with no exceptions, none of the candidates is fully proven compliant by the public material reviewed. [SES suppression][aws-suppression].
+SES itself stores addresses on its account suppression list until removed. Therefore “no Polaris address database” and “no processor may retain any address” produce different designs. The Decision above now authorizes SES account-level suppression retention; the original research did not authorize that exception. If the requirement covers every processor with no exceptions, none of the candidates is fully proven compliant by the public material reviewed. [SES suppression][aws-suppression].
 
 ## AWS-native options and SES behavior
 
@@ -174,7 +217,7 @@ SES success means acceptance, not confirmed delivery. Keep a dedicated configura
 
 ## Selection and follow-up questions
 
-The user chooses Bouncer, SES-only, or another provider after reviewing this report. No credentials were provisioned or purchases made. Before implementing the selected adapter:
+The user chose SES-only as recorded in Decision. No credentials were provisioned or purchases made. These original questions remain historical; provider choice and suppression storage scope are resolved, and relevant account/operational follow-ups remain:
 
 1. Confirm the meaning of no-storage, especially SES suppression entries and anonymized vendor derivatives. Obtain endpoint-specific retention/log/backups/no-resale terms and a DPA; Bouncer needs its single-API FAQ reconciled with the generic DPA.
 2. Confirm selected account checkout price, credits expiry/refund rules, EU processing and burst quota. Do not rely on a stale bulk-list price or an unverified free tier.
