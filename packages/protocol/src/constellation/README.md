@@ -136,7 +136,8 @@ Turn, not just an in-memory acknowledgement.
 
 `ClaimApproved`, `ClaimHandedUp` and `AttemptNudged` preserve approval, hand-up
 and once-only nudge facts. They advance Attempt and graph revisions without
-changing state. A nudge marker commits atomically with its Session-machine Turn.
+changing state. The first `ClaimApproved` also queues an `Approved` digest item,
+so the Lead learns it should merge and accept. A nudge marker commits atomically with its Session-machine Turn.
 
 `AttemptRecoveryContinued` journals the automatic Continue with cause `recover`,
 its Turn and durable interruption ID. It does not create a second active Attempt.

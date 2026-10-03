@@ -14,6 +14,7 @@ import { PixelFailedIcon, showToast } from "@polaris/ui";
 import type { Rpc } from "effect/rpc";
 import { createElement } from "react";
 import { newCommandId } from "../../commands.ts";
+import type { IpcFinding } from "../../../shared/api.ts";
 import type { RequestInput } from "../../../shared/contract.ts";
 import { polaris } from "../bridge.ts";
 
@@ -31,7 +32,12 @@ export type SetStateInput = Without<Rpc.Payload<typeof ConstellationSetState>>;
 
 export type Outcome =
   | { readonly ok: true; readonly summary: string }
-  | { readonly ok: false; readonly message: string; readonly fix: string | null };
+  | {
+      readonly ok: false;
+      readonly message: string;
+      readonly fix: string | null;
+      readonly findings?: ReadonlyArray<IpcFinding> | undefined;
+    };
 
 /** Each mutation carries a fresh command id; the Host is the Lead's (the stream's owner). */
 export interface ConstellationClient {
@@ -62,7 +68,7 @@ const viaIpc =
 
     return result.ok
       ? { ok: true, summary: result.value.summary }
-      : { ok: false, message: result.error.message, fix: null };
+      : { ok: false, message: result.error.message, fix: null, findings: result.error.findings };
   };
 
 const IPC: ConstellationClient = {
@@ -94,6 +100,10 @@ const run = async (title: string, send: (id: CommandId) => Promise<Outcome>) => 
 
   return outcome.ok;
 };
+
+/** Sends a review and returns its outcome untoasted, for callers that word refusals themselves. */
+export const sendReview = (hostKey: string, input: ReviewInput): Promise<Outcome> =>
+  installed.review(hostKey, { ...input, commandId: newCommandId() });
 
 /** Sends and toasts a refusal under `title`; resolves true when the Daemon took it. */
 export const constellationCommands = {

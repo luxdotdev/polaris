@@ -31,6 +31,9 @@ const ALL = [
   "menu",
   "focus",
   "handed",
+  "handed-unmerged",
+  "handed-menu",
+  "handed-approved",
   "paused",
   "empty",
   "large",
@@ -116,6 +119,11 @@ try {
     await page.evaluate(`location.hash = "#constellation/${scene}"`);
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.getByTestId("constellation-tab").waitFor();
+
+    if (scene === "handed-unmerged") {
+      await page.getByRole("button", { name: "Accept B1" }).click();
+      await page.getByTestId("claim-refused").waitFor();
+    }
 
     for (const density of densities) {
       for (const theme of ["dark", "light"]) {

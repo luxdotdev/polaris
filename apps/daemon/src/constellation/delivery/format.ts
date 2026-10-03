@@ -15,6 +15,14 @@ export const notificationLine = (record: ConstellationRecord, n: ConstellationNo
     ),
     Match.tag("Stopped", (i) => `${i.taskId} stopped without claiming.`),
     Match.tag("Settled", (i) => `${worker(i.attemptId)}: ${i.state}.`),
+    Match.tag("Approved", (i) => {
+      const attempt = record.graph.attempts.find((a) => a.id === i.attemptId);
+
+      if (attempt?.approvedByUserAt == null || attempt.claim === null)
+        return `${worker(i.attemptId)}: approved by the user, then claimed again; review the new claim.`;
+
+      return `${worker(i.attemptId)}: approved by the user. Merge ${attempt.branch} at ${attempt.claim.head} into your branch, then accept it.`;
+    }),
     Match.tag(
       "Question",
       (i) => `${worker(i.attemptId)} asks ${i.question.to}: ${line(i.question.text)}`
@@ -45,7 +53,7 @@ export const notificationLine = (record: ConstellationRecord, n: ConstellationNo
 /** User questions and incidental steering remain queued until a Lead-worthy item arrives. */
 export const wakesLead = (n: ConstellationNotification) =>
   Match.value(n.item).pipe(
-    Match.tag("Settled", "Proposal", "Blocked", "Stopped", () => true),
+    Match.tag("Settled", "Approved", "Proposal", "Blocked", "Stopped", () => true),
     Match.tag("Question", (i) => i.question.to === "lead"),
     Match.tag("QuestionAnswered", () => true),
     Match.tag("OperatorMessage", () => false),

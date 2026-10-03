@@ -211,6 +211,8 @@ export const NotificationItem = Schema.TaggedUnion({
   },
   Stopped: { taskId: TaskId, attemptId: AttemptId },
   Settled: { attemptId: AttemptId, state: AttemptState },
+  /** The user approved a Claim; the Lead merges its head and accepts it. */
+  Approved: { attemptId: AttemptId },
   Question: { attemptId: AttemptId, question: ConstellationQuestion },
   Proposal: { attemptId: AttemptId, proposalId: Schema.String },
   OperatorMessage: { messageId: Schema.String, text: Schema.String },

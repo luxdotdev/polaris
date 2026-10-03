@@ -11,12 +11,19 @@ import {
   type SessionId,
   WorkerPlacement,
 } from "@polaris/protocol";
+import { PixelFailedIcon, showToast } from "@polaris/ui";
+import { createElement } from "react";
 import type { Plain } from "../../../store/plain.ts";
 import { batchOf, setBatch } from "../../comments/data/store.ts";
 import { emptyBatch } from "../../comments/model/feedback.ts";
 import { polaris } from "../../bridge.ts";
 import { showRefusal } from "../../session/dispatch.ts";
-import { sendConstellation } from "../../sessions/constellationApi.ts";
+import {
+  claimRefusal,
+  type ClaimPlace,
+  type RefusalCopy,
+} from "../../constellation/model/index.ts";
+import { constellationRequest, sendConstellation } from "../../sessions/constellationApi.ts";
 import { runInTerminal } from "../../terminal/actions.ts";
 import { followExit } from "../checkout/exit.ts";
 import { sendBackReason } from "./model.ts";
@@ -28,19 +35,47 @@ export interface WorkerTarget {
   readonly attempt: Plain<Attempt>;
 }
 
+const placeOf = (attempt: Plain<Attempt>, leadBranch: string | null): ClaimPlace => ({
+  taskId: attempt.taskId,
+  branch: attempt.branch,
+  head: attempt.claim?.head ?? "",
+  leadBranch,
+});
+
+/** A refused review in the user's words; Approve rides along when it would work instead. */
+const toastRefusal = (title: string, copy: RefusalCopy, approve: (() => void) | null) => {
+  const toast = {
+    source: "starlight" as const,
+    icon: createElement(PixelFailedIcon, { size: 16 }),
+    title,
+    message: copy.message,
+  };
+
+  if (copy.offerApprove && approve !== null)
+    showToast({ ...toast, action: { label: "Approve", onAction: approve } });
+  else showToast(toast);
+};
+
 /** Records the user's verdict (`approvedByUserAt`); the Attempt is accepted once the Lead merges it. */
-export const approveClaim = ({ leadHostKey, constellationId, attempt }: WorkerTarget) =>
-  sendConstellation(
-    leadHostKey,
-    "constellation.review",
-    {
-      constellationId,
-      attemptId: attempt.id,
-      revision: attempt.revision,
-      action: ReviewAction.cases.Approve.make({}),
-    },
-    "Couldn't approve"
-  );
+export const approveClaim = async (target: WorkerTarget) => {
+  const { leadHostKey, constellationId, attempt } = target;
+
+  const result = await constellationRequest(leadHostKey, "constellation.review", {
+    constellationId,
+    attemptId: attempt.id,
+    revision: attempt.revision,
+    action: ReviewAction.cases.Approve.make({}),
+  });
+
+  if (!result.ok)
+    toastRefusal(
+      `Couldn't approve ${attempt.taskId}`,
+      claimRefusal(result.error, placeOf(attempt, null)),
+      null
+    );
+
+  return result.ok;
+};
 
 /** The Review feedback as a send-back to the same session; the batch clears once it lands. */
 export const sendToWorker = async (target: WorkerTarget, subjectKey: string) => {
@@ -93,6 +128,8 @@ export interface MergePlace {
   /** The Lead's checkout: where its branch is. */
   readonly cwd: string;
   readonly leadSessionId: SessionId;
+  /** Runs when the user takes Approve from a refusal instead. */
+  readonly onApprove: () => void;
 }
 
 const exitOf = (hostKey: string, terminalId: string) =>
@@ -122,10 +159,14 @@ export const acceptAndMerge = async (target: WorkerTarget, place: MergePlace) =>
   const code = await exitOf(target.leadHostKey, terminalId);
 
   if (code !== 0) {
-    showRefusal(`Couldn't merge ${attempt.taskId}`, {
-      code: "MergeFailed",
-      message: "git merge stopped; its terminal tab says why. Nothing was accepted.",
-    });
+    toastRefusal(
+      `Couldn't merge ${attempt.taskId}`,
+      {
+        message: "git merge stopped; its terminal tab says why. Nothing was accepted.",
+        offerApprove: true,
+      },
+      place.onApprove
+    );
 
     return false;
   }
@@ -146,15 +187,19 @@ export const acceptAndMerge = async (target: WorkerTarget, place: MergePlace) =>
     return false;
   }
 
-  return sendConstellation(
-    target.leadHostKey,
-    "constellation.review",
-    {
-      constellationId: target.constellationId,
-      attemptId: attempt.id,
-      revision: attempt.revision,
-      action: ReviewAction.cases.Accept.make({ mergedHead: head, receipts: claim.receipts }),
-    },
-    `Couldn't accept ${attempt.taskId}`
-  );
+  const accepted = await constellationRequest(target.leadHostKey, "constellation.review", {
+    constellationId: target.constellationId,
+    attemptId: attempt.id,
+    revision: attempt.revision,
+    action: ReviewAction.cases.Accept.make({ mergedHead: head, receipts: claim.receipts }),
+  });
+
+  if (!accepted.ok)
+    toastRefusal(
+      `Couldn't accept ${attempt.taskId}`,
+      claimRefusal(accepted.error, placeOf(attempt, status.ok ? status.value.branch : null)),
+      place.onApprove
+    );
+
+  return accepted.ok;
 };

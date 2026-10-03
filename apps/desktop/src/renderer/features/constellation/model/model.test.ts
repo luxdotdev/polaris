@@ -551,6 +551,18 @@ describe("rail", () => {
     expect(rowFor(rows, "B1")?.promoted).toBe(true);
   });
 
+  test("approving a handed-up Claim settles the user's part: no longer handed or promoted", () => {
+    const attempts = handedUpAttempts().map((a) =>
+      a.taskId === "B1" ? merged(a, { approvedByUserAt: "2026-10-01T12:00:00Z" }) : a
+    );
+
+    const b1 = rowFor(buildRail(c1Record({ attempts }), facts).rows, "B1");
+
+    expect(b1?.look.attention).toBeNull();
+    expect(b1?.look.word).not.toBe("handed to you");
+    expect(b1?.promoted).toBe(false);
+  });
+
   test("an approved Claim says so and stays in review", () => {
     const attempts = c1Record().constellation.attempts.map((a) =>
       a.taskId === "B1" ? merged(a, { approvedByUserAt: "2026-10-01T12:00:00Z" }) : a

@@ -279,3 +279,16 @@ export const focusTask = (target: FocusTarget & { readonly taskId: string }) =>
 
 /** Shows the Lead's own conversation again (the sidebar's Lead row). */
 export const unfocusTask = (target: FocusTarget) => setFocus(target, null);
+
+/** The branch checked out where the Lead works, from its session's cwd; null when unknown. */
+export const useLeadBranch = (hostKey: string | null, leadSessionId: SessionId): string | null =>
+  useApp((s) => {
+    const model = hostKey === null ? undefined : s.hostModels[hostKey];
+    const cwd = model?.sessions.get(leadSessionId)?.session.cwd;
+
+    if (model === undefined || cwd === undefined) return null;
+
+    for (const wt of model.worktrees.values()) if (wt.path === cwd) return wt.branch;
+
+    return null;
+  });

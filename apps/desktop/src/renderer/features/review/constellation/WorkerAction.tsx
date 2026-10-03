@@ -32,14 +32,17 @@ const Item = ({
   detail,
   onSelect,
   testId,
+  disabled = false,
 }: {
   readonly title: string;
   readonly detail: ReactNode;
   readonly onSelect: () => void;
   readonly testId: string;
+  readonly disabled?: boolean;
 }) => (
   <DropdownMenuItem
     data-testid={testId}
+    disabled={disabled}
     onSelect={onSelect}
     className="h-auto flex-col items-start gap-0.5 py-2"
   >
@@ -121,6 +124,7 @@ const ClaimActions = ({
           workspaceId: lead.session.workspaceId,
           cwd: lead.session.cwd,
           leadSessionId: lead.session.id,
+          onApprove: approve,
         }),
       () => toast(`Merged and accepted ${id}`, "The lead is told")
     );
@@ -156,7 +160,8 @@ const ClaimActions = ({
         <DropdownMenuContent align="end" className="w-[320px]">
           <Item
             testId="worker-approve"
-            title="Approve"
+            title={approved ? "Approved" : "Approve"}
+            disabled={approved}
             detail="Records your verdict; the lead merges and accepts"
             onSelect={approve}
           />
