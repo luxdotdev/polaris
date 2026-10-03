@@ -29,6 +29,7 @@ export interface AEvent {
   readonly what: string;
   readonly turnId?: string;
   readonly autonomous?: boolean;
+  readonly inputRefused?: boolean;
   readonly status?: string;
   readonly state?: string;
   readonly requestId?: string;
@@ -64,6 +65,11 @@ export const abstractEvent = (envelope: EventEnvelope): AEvent => {
       }),
       TurnStarted: (c) => ({ ...base, ...turnFields(c), autonomous: c.turn.trigger != null }),
       TurnEnded: (c) => ({ ...base, ...turnFields(c) }),
+      TurnItemCompleted: (c) => ({
+        ...base,
+        what: c._tag,
+        inputRefused: c.item.id.startsWith("refused:") || c.item.id.startsWith("refusal:"),
+      }),
       ApprovalRequested: (c) => ({
         ...base,
         what: `requested:${c.request.id}`,

@@ -90,6 +90,7 @@ module polaris {
     | HRequest(str)
     | HWithdraw(str)
     | HItem
+    | HInputRefused // a durable item for a deferred prompt the Session cannot take
     | HTurnStarted
     | HUserTurnStarted
     | HTurnEnded
@@ -296,6 +297,7 @@ module polaris {
           [UserTurnStarted, StateChanged("working")]
         else []
       | HItem => [ItemCompleted]
+      | HInputRefused => [ItemCompleted]
       | HTurnEnded =>
         if (inFlight(v, turn))
           withdrawAll(v, "harness").concat([TurnEnded("completed")]).concat(
@@ -485,14 +487,14 @@ module polaris {
 
   /**
    * The Harness of a live session reports something about its latest Turn; the
-   * engine records it with `recordFor`. Items, withdrawals and Turn ends come
-   * while that Turn is in flight. An approval request may also come late,
+   * engine records it with `recordFor`. Items also model durable deferred-input
+   * refusals after a Turn ends or its Harness stops. An approval may come late,
    * after the Turn ended (a stale or misbehaving Harness), and any report may
    * be decided after a later decision ended its Turn or started another.
    */
   action harnessReports(s: str, ev: HarnessEvent): bool = all {
     up,
-    harness.contains(s),
+    harness.contains(s) or ev == HInputRefused,
     queue.length() < MAX_QUEUE,
     log.length() < MAX_LOG,
     val v = viewOf(log, s)
@@ -507,6 +509,7 @@ module polaris {
       | HTurnStarted => v.state == "idle"
       | HUserTurnStarted => acceptsTurn(v)
       | HItem => v.turn == "working"
+      | HInputRefused => v.turns > 0
       | HTurnEnded => v.turn == "working"
       | HTurnFailed => v.turn == "working"
     },

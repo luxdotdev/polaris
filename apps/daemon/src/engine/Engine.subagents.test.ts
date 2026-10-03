@@ -19,7 +19,6 @@ import { EventStore } from "../store/EventStore.ts";
 import { Engine } from "./Engine.ts";
 import {
   cid,
-  completesTurns,
   engineLayer,
   type FakeDriver,
   fakeRepo,
@@ -537,9 +536,7 @@ test("the final background level cannot re-arm the longer timer after waiting en
 test.each([false, true])(
   "accepted input survives autonomous completion during preparation (queued=%s)",
   async (queued) => {
-    const driver = makeFakeDriver("codex", {
-      onTurn: (input, session) => (session.turns.length === 1 ? [] : completesTurns()(input)),
-    });
+    const driver = makeFakeDriver("codex");
 
     const entered = Deferred.makeUnsafe<void>();
     const release = Deferred.makeUnsafe<void>();
@@ -595,6 +592,29 @@ test.each([false, true])(
             m.sessions.get(sessionId)?.turns.find((t) => t.id === autoId)?.status === "completed"
         );
         yield* Deferred.succeed(release, undefined);
+        yield* waitUntil(() => harness.turns.length === 2);
+        expect(harness.turns[1]!.prompt).toBe("Hold");
+        yield* Effect.sleep(Duration.millis(20));
+        expect(harness.turns).toHaveLength(2);
+        harness.emit(
+          HarnessEvent.TurnEnded({
+            turnId: harness.turns[1]!.turnId,
+            status: "completed",
+            error: null,
+          })
+        );
+
+        if (queued) {
+          yield* waitUntil(() => harness.turns.length === 3);
+          expect(harness.turns[2]!.prompt).toBe("Queued");
+          harness.emit(
+            HarnessEvent.TurnEnded({
+              turnId: harness.turns[2]!.turnId,
+              status: "completed",
+              error: null,
+            })
+          );
+        }
 
         const model = yield* waitFor(
           (m) =>

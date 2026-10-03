@@ -36,6 +36,7 @@ const TEvent = Schema.Struct({
   reason: Schema.optional(Schema.NullOr(Schema.String)),
   index: Schema.optional(Schema.Number),
   autonomous: Schema.optional(Schema.Boolean),
+  inputRefused: Schema.optional(Schema.Boolean),
 });
 
 type TEvent = typeof TEvent.Type;
@@ -371,7 +372,7 @@ class Replayer {
       this.harness(s, `HRequest(${q(e.requestId!)})`, followed ? [e, followed] : [e]);
     } else if (e.tag === "TurnItemCompleted") {
       this.i++;
-      this.harness(s, "HItem", [e]);
+      this.harness(s, e.inputRefused === true ? "HInputRefused" : "HItem", [e]);
     } else if (this.endsTurn(e, s)) {
       this.turnEnded(e, s);
     } else if (e.tag === "ApprovalWithdrawn" && byOf(e) === "harness") {
