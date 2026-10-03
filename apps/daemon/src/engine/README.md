@@ -36,7 +36,7 @@ record (folded from the log) ─▶ snapshotOf(record) ─▶ transition(machine
 - **The event log stays the source of truth.** `snapshotOf(record)` derives the machine snapshot from the folded `SessionRecord` (the Session State is the state value, the record is the context), so a restart rebuilds it by folding events, as it always did. Nothing keeps a snapshot between inputs.
 - **The context update is the fold.** A transition emits its `DomainEvent`s and moves to the state `foldSession` of those events gives (`store/model.ts`, the same reducer `project` uses). So a transition's next snapshot is exactly what the log folds to once its events commit, and the target state and the recorded `SessionStateChanged` can't disagree. `session.test.ts` checks this for every reachable snapshot and input.
 - **Inputs** (`SessionInput`) are Client commands, validated (a state that doesn't accept one rejects it with the reason a user reads), and engine signals from the reactors: the Harness (`harness.opened`, `harness.turnStarted`, `harness.approvalRequested`, `harness.turnEnded`, `harness.exited`, …), the terminal hand-off (`terminal.closed`, `harness.resumed`), the idle timer (`idle.timeout`), failures (`session.fail`) and restart / upgrade recovery (`daemon.recover`). Their payloads (`session.inputs.ts`, with what the machine emits) are Effect Schemas passed to XState as Standard Schemas (`Schema.toStandardSchemaV1`), which types every handler's `event`.
-- **Effects**: entering Idle emits `scheduleIdleStop` (the engine arms the idle timer); `idle.timeout` emits `stopHarness`. Everything else the reactors do (opening Harnesses, checkpoints, Worktrees) stays in the reactors and the supervisor, keyed off the command or Harness event as before.
+- **Effects**: entering Idle emits `scheduleIdleStop`. The runtime uses `idleTimeout` (30 minutes by default) without background work, or `backgroundIdleTimeout` (two hours by default) while waiting. Recorded session events and streamed progress re-arm the background timer. Expiry passes through `idle.timeout`, clears background work, stops the Harness and records Dormant with reason `background-idle-timeout`; ordinary expiry records `idle-timeout`. Membership changes re-arm the appropriate timer. Everything else the reactors do (opening Harnesses, checkpoints, Worktrees) stays in the reactors and the supervisor, keyed off the command or Harness event as before.
 - **Where it runs**: `decider.ts` builds the input for each lifecycle command (`StartSession`, `SendTurn`, `Continue`, `Retry`, `Steer`, `Interrupt`, `RespondToApproval`, `SetPermissionMode`, `SetModel`, `ForkSession`, `ArchiveSession`, `UnarchiveSession`, `OpenInTerminal`, `ReturnFromTerminal`) and returns what the machine emits; the runtime's `signal(sessionId, input)` (`runtime.ts`) does the same for engine signals inside `store.commit`, then runs the effects. Workspaces, Worktrees, renames and Turn items are not lifecycle and stay where they were.
 - **Cost**: one `resolveState` + `transition` is ~10 µs, and snapshots are cached per record (`WeakMap`), so a record is resolved once. Deltas and item events never touch the machine.
 
@@ -54,9 +54,10 @@ stateDiagram-v2
   state "live (Harness running)" as live {
     state "Idle" as idle
     state "Working" as working
-    idle --> working: turn.send, turn.retry, harness.turnStarted
+    idle --> working: turn.send, turn.retry, harness.turnStarted (including background reports)
     working --> needs_you: harness.approvalRequested (for the Turn in flight)
     needs_you --> working: approval.respond, harness.approvalWithdrawn (last request, Turn in flight)
+    working --> working: turn.send (autonomous Turn: steer user prompt)
     working --> idle: harness.turnEnded
     needs_you --> idle: harness.turnEnded
   }
@@ -68,7 +69,7 @@ stateDiagram-v2
   failed --> starting: turn.send, turn.continue, turn.retry
   needs_you --> starting: turn.send, turn.continue, turn.retry (after a restart, nothing pending)
   dormant --> working: harness.turnStarted
-  idle --> dormant: idle.timeout
+  idle --> dormant: idle.timeout (ordinary idle or background inactivity cap)
   idle --> in_terminal: terminal.open
   dormant --> in_terminal: terminal.open
   failed --> in_terminal: terminal.open
@@ -94,7 +95,7 @@ Not drawn: `model.set` changes no Session State (it records `SessionModelChanged
 
 | Input | Accepted in | Refused with |
 |---|---|---|
-| `turn.send` | Idle (→ Working), Dormant, Failed, Needs You after a restart with nothing pending (→ Starting); never with a Turn in flight | "the session is Archived", "… In Terminal; return it first", "the session is working; wait for the Turn to end" |
+| `turn.send` | Idle (→ Working), Dormant, Failed, Needs You after a restart with nothing pending (→ Starting); a prompt during an autonomous Working Turn steers that Turn | "the session is Archived", "… In Terminal; return it first", "the session is working; wait for the Turn to end" |
 | `turn.continue` | the same states, and only when the last Turn is Interrupted | "there is no Interrupted Turn to continue", "the session is \<state\>" |
 | `turn.retry` | the same states, and only when the last Turn Failed; a new Turn with its prompt and attachments | "there is no Failed Turn to retry", "the session is \<state\>" |
 | `turn.steer` / `turn.interrupt` | a Turn in flight (steer: not In Terminal, and the Harness supports it) | "there is no Turn in flight …" |
@@ -112,6 +113,8 @@ Not drawn: `model.set` changes no Session State (it records `SessionModelChanged
 A Subagent (CONTEXT.md) is a helper the Harness spawns inside a Turn (Claude's Agent tool, a Codex agent thread, an OpenCode child session). The rules, in `session.subagents.ts`:
 
 - `harness.subagentStarted` records `SubagentStarted` only for the Turn in flight, and once per id (like `harness.approvalRequested`). No Session State changes.
+- `AgentSession.backgroundTasks` lists live non-ambient tasks as `{ id, kind: "subagent" | "command", description }`. Idle with a nonempty list is waiting on background work. `SessionBackgroundTasksChanged { sessionId, tasks }` replaces membership and is gated by `session.background-tasks`; snapshots include the list. Ordinary idle shutdown is suppressed while tasks or Subagents remain, bounded by the configurable background inactivity timeout. Harness exit, recovery, failure and Archive clear the list. `Subagent.report` carries markdown from `SubagentHandback.message`, with the task notification summary as fallback.
+- A parent model call after background task reports emits `harness.turnStarted` with a fresh id, a compatibility prompt label `[Background task continuation]`, and `Turn.trigger = BackgroundTasksReported { tasks: [{ id, kind }] }`. The normal Idle → Working transition records and streams it before its items; its result closes that Turn. IDs in the trigger are CLI task IDs, distinct from Subagent tool-use IDs. No user message is synthesized. Reports received during an existing Turn remain queued for the next parent run. A racing user prompt is steered into the autonomous run; if its user Turn committed first, native events are correlated to that Turn. An edge-less parent run uses an empty trigger task list.
 - It **may outlive its Turn** (Claude runs agents in the background by default): the Turn ending leaves it open, and its items still arrive for that Turn. `harness.subagentEnded` records `SubagentEnded` with the Harness's status, only for an open Subagent.
 - When the Harness goes away, so do its Subagents: `harness.exited`, `daemon.recover`, `session.fail`, `turn.interruptUnattended` and `session.archive` end every open one `interrupted`, first in their events. So no Subagent stays working without a Harness, as no approval stays pending without its Turn.
 
@@ -123,7 +126,7 @@ A Subagent (CONTEXT.md) is a helper the Harness spawns inside a Turn (Claude's A
 
 ### Restart recovery
 
-On start the engine sends `daemon.recover` (cause `restart`) to every session; `prepareForUpgrade` sends cause `upgrade` to the sessions whose Harness lives in the Daemon process. The rule: a Turn in flight ends Interrupted and the session Needs You (reason `interrupted`); pending approvals are withdrawn; Failed stays Failed; a Needs You already waiting on Continue stays; other states go Dormant (`daemon-restart` / `daemon-upgrade`). Dormant and Archived have nothing to recover (an Archived session from a log written before Archive refused a Turn in flight has its Turn ended Interrupted and its requests withdrawn, and stays Archived), and an upgrade leaves In Terminal alone. **Nothing ever continues a Turn automatically**: only `turn.continue` does, and only the user sends it.
+On start the engine sends `daemon.recover` (cause `restart`) to every session; `prepareForUpgrade` sends cause `upgrade` to the sessions whose Harness lives in the Daemon process. The rule: a Turn in flight ends Interrupted and the session Needs You (reason `interrupted`); pending approvals are withdrawn; Failed stays Failed; a Needs You already waiting on Continue stays; other states go Dormant (`daemon-restart` / `daemon-upgrade`). Dormant and Archived have nothing to recover (an Archived session from a log written before Archive refused a Turn in flight has its Turn ended Interrupted and its requests withdrawn, and stays Archived), and an upgrade leaves In Terminal alone. **Recovery never continues a Turn automatically**: only `turn.continue` reopens an Interrupted Turn, and only the user sends it. A still-live Harness may start a fresh Turn after background reports; it is not a recovery continuation.
 
 ### Changes from the pre-machine engine
 
@@ -181,8 +184,8 @@ Every state but `absent` and `removing` takes `checkout.reportHead` (it records 
 
 | Driver | States (shortest paths) | State-changing transitions (one path each) |
 |---|---|---|
-| Claude (sequential hand-off) | 29 | 131 |
-| Codex (live co-attach) | 35 | 178 |
+| Claude (sequential hand-off) | 29 | 135 |
+| Codex (live co-attach) | 35 | 182 |
 
 Simple paths are too many to replay (455k and 2.4M), so every transition is covered instead. Not replayed: `idle.timeout` (the Engine's timer; covered by `Engine.test.ts`) and `session.fail` (a failing Worktree or Harness open). `session.test.ts` checks the machine on its own: all eight Session States are reachable, the rebuild-from-fold property, the guards, recovery and effects.
 

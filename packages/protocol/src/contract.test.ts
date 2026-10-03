@@ -7,7 +7,7 @@ import { Predicate, Schema } from "effect";
 import { HarnessAvailability, HostHarnesses } from "./availability.ts";
 import { CapabilityList } from "./capabilities.ts";
 import { Command } from "./commands.ts";
-import { ApprovalDecision, ContextUsage, Subagent, TurnItem } from "./domain.ts";
+import { ApprovalDecision, BackgroundTask, ContextUsage, Subagent, TurnItem } from "./domain.ts";
 import { DomainEvent } from "./events.ts";
 import { HARNESS_CATALOGUE, harnessEntry } from "./harnesses.ts";
 import { RequestId, Sequence, SessionId, SubagentId, TurnId } from "./ids.ts";
@@ -141,10 +141,12 @@ describe("contract compatibility", () => {
       model: "opus",
       effort: null,
       contextUsage: null,
+      backgroundTasks: [],
     });
     expect(Predicate.isTagged(started, "TurnStarted") && started.turn).toMatchObject({
       model: null,
       effort: null,
+      trigger: null,
     });
   });
 
@@ -377,6 +379,8 @@ describe("contract compatibility", () => {
         title: "Check frame timing at 180 Hz",
         agent: "Explore",
         model: "haiku",
+        background: true,
+        report: status === "completed" ? "**report**" : null,
         status,
         startedAt: "2026-01-01T00:00:00Z",
         endedAt,
@@ -432,4 +436,18 @@ describe("contract compatibility", () => {
     expect(report.indexing).toBe(false);
     expect(changed).toMatchObject({ indexing: false });
   });
+});
+
+test("background task membership round-trips with both task kinds", () => {
+  const tasks = [
+    new BackgroundTask({ id: "a", kind: "subagent", description: "Research" }),
+    new BackgroundTask({ id: "c", kind: "command", description: "Build" }),
+  ];
+
+  const event = DomainEvent.cases.SessionBackgroundTasksChanged.make({
+    sessionId: SessionId.make("s"),
+    tasks,
+  });
+
+  expect(decodeEvent(JSON.parse(JSON.stringify(encodeEvent(event))))).toEqual(event);
 });

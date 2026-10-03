@@ -1,0 +1,8 @@
+{
+  "type": "tool_use",
+  "id": "fixture-handback",
+  "name": "SubagentHandback",
+  "input": {
+    "message": "## Report\n\n**Deliverables completed:**\n\n- Reviewed /work/repo.\n- Captured background task behavior.\n"
+  }
+}

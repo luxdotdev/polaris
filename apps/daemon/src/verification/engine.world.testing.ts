@@ -19,6 +19,8 @@ import {
   SessionId,
   SessionStreamItem,
   TurnItem,
+  TurnId,
+  TurnTrigger,
 } from "@polaris/protocol";
 import {
   Cause,
@@ -83,7 +85,15 @@ export const reached = {
   disconnects: 0,
 };
 
-export type HarnessWhat = "item" | "delta" | "request" | "withdraw" | "end" | "fail" | "late";
+export type HarnessWhat =
+  | "item"
+  | "delta"
+  | "request"
+  | "withdraw"
+  | "end"
+  | "fail"
+  | "late"
+  | "auto";
 
 // ── Client feeds ────────────────────────────────────────────────────────────
 
@@ -478,6 +488,25 @@ export class World {
     if (harness === undefined || harness.closed || this.runtime === null) return;
 
     if (what === "late") return this.lateRequest(harness, pick);
+
+    if (what === "auto") {
+      const record = this.model().sessions.get(SessionId.make(session));
+
+      if (record?.session.state !== "idle") return;
+      const turnId = TurnId.make(`auto-${++this.itemCounter}`);
+      harness.emit(
+        HarnessEvent.TurnStarted({
+          turnId,
+          prompt: null,
+          trigger: TurnTrigger.cases.BackgroundTasksReported.make({
+            tasks: [{ id: "sub1", kind: "subagent" }],
+          }),
+        })
+      );
+      harness.emit(HarnessEvent.TurnEnded({ turnId, status: "completed", error: null }));
+
+      return;
+    }
 
     // Reports only for the Turn it runs, until it reports its end (the spec's `harnessReports`),
     // from the fake's own view: the read model may lag behind what it emitted.

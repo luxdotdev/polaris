@@ -1,27 +1,20 @@
 /**
- * The Agent Session lifecycle as an XState statechart, used as the engine's
- * pure decider for everything that moves a Session State (README.md here).
- *
- * The event log stays the source of truth. A session's machine snapshot is
- * never kept in a live actor: it is derived from the folded `SessionRecord`
- * (`snapshotOf`), the engine runs one pure `transition` against it, and
- * persists the domain events the transition emits. The transition's own
- * context update is `foldSession` of those same events, so the next snapshot
- * is exactly the one a restart would fold the log back to.
- *
- * Inputs are Client commands (validated: a command the current state does not
- * accept is rejected with a reason) and signals from the engine's reactors
- * (the Harness, timers, restart recovery). Outputs are emitted events:
- * `domain` (persist), `rejected` (answer the Client) and `effect` (run after
- * commit).
+ * The pure Agent Session lifecycle decider. It derives snapshots from the event log,
+ * then emits domain events and effects for one input (see README.md).
  */
+import {
+  backgroundTasksChanged,
+  idleStopEffect,
+  backgroundIdleStop,
+} from "./session.backgroundTasks.ts";
+import { harnessTurn } from "./session.turns.ts";
 import { modelChanged } from "./session.model.ts";
 import {
   DomainEvent,
   type RequestId,
   type SessionId,
   type SessionState,
-  Turn,
+  type Turn,
   type TurnId,
 } from "@polaris/protocol";
 import { Predicate, Result } from "effect";
@@ -35,6 +28,7 @@ import {
 } from "../store/model.ts";
 import {
   eventSchemas,
+  normalizedInput,
   isEmitted,
   type Emitted,
   type SessionEffect,
@@ -42,7 +36,7 @@ import {
 } from "./session.inputs.ts";
 import { interruptedSetup, setupChanged } from "./session.setup.ts";
 import { acceptTurns, lastIsAccepted } from "./session.accept.ts";
-import { endSubagents, subagentEnded, subagentStarted } from "./session.subagents.ts";
+import { endBackgroundWork, subagentEnded, subagentStarted } from "./session.subagents.ts";
 
 export type { SessionEffect, SessionInput } from "./session.inputs.ts";
 
@@ -222,31 +216,6 @@ const retryTurn = (
   return sendTurn({ context, event: { type: "turn.send", turn: event.turn } }, enq);
 };
 
-/** Turns started by the Harness itself (a co-attached or followed terminal UI). */
-const harnessTurn = (
-  record: SessionRecord,
-  event: { turnId: TurnId; prompt: string; at: string }
-): DomainEvent | null =>
-  record.turns.some((t) => t.id === event.turnId)
-    ? null
-    : DomainEvent.cases.TurnStarted.make({
-        turn: new Turn({
-          id: event.turnId,
-          sessionId: record.session.id,
-          index: record.session.turnCount,
-          prompt: event.prompt,
-          attachments: [],
-          model: record.session.model,
-          effort: record.session.effort,
-          serviceTier: record.session.serviceTier,
-          status: "working",
-          checkpointBefore: null,
-          checkpointAfter: null,
-          startedAt: event.at,
-          endedAt: null,
-        }),
-      });
-
 type TurnEndedInput = Extract<SessionInput, { type: "harness.turnEnded" }>;
 
 /** The Turn's end as the Harness reports it; `withState` also leaves Working. */
@@ -297,7 +266,7 @@ const exited = (record: SessionRecord, event: ExitedInput, enq: Enqueue, withSta
   const reason = event.error ?? "The Harness exited";
 
   const events = [
-    ...endSubagents(record, event.at),
+    ...endBackgroundWork(record, event.at),
     ...(turn ? [endTurn(turn, event.error ? "failed" : "interrupted", event.at)] : []),
     ...withdrawPending(record, "harness", reason),
   ];
@@ -333,7 +302,7 @@ const recover = (record: SessionRecord, event: RecoverInput, enq: Enqueue) => {
   if (state === "dormant") return HANDLED;
 
   const events = [
-    ...endSubagents(record, event.at),
+    ...endBackgroundWork(record, event.at),
     ...(turn ? [endTurn(turn, "interrupted", event.at)] : []),
     ...withdrawPending(record, "daemon", RECOVERY_REASON[event.cause]),
   ];
@@ -370,7 +339,7 @@ const interruptUnattended = (
     enq,
     record,
     [
-      ...endSubagents(record, at),
+      ...endBackgroundWork(record, at),
       ...withdrawPending(record, "daemon", "Interrupted"),
       endTurn(turn, "interrupted", at),
     ],
@@ -395,7 +364,7 @@ const archive = ({ context, event }: { context: Context; event: { at: string } }
     enq,
     record,
     [
-      ...endSubagents(record, event.at),
+      ...endBackgroundWork(record, event.at),
       ...withdrawPending(record, "daemon", "The session was archived"),
     ],
     { state: "archived" }
@@ -550,8 +519,14 @@ export const sessionMachine = createMachine({
     "harness.turnEnded": ({ context, event }, enq) => turnEnded(need(context), event, enq, true),
     "harness.subagentStarted": ({ context, event }, enq) =>
       settle(enq, need(context), subagentStarted(need(context), event.subagent)),
-    "harness.subagentEnded": ({ context, event }, enq) =>
-      settle(enq, need(context), subagentEnded(need(context), event)),
+    "harness.subagentEnded": ({ context, event }, enq) => {
+      const record = need(context);
+      const events = subagentEnded(record, event);
+
+      if (events.length > 0) for (const effect of idleStopEffect(record)) enq.emit(effect);
+
+      return settle(enq, record, events);
+    },
     "harness.exited": ({ context, event }, enq) => exited(need(context), event, enq, true),
     "terminal.closed": ({ context, event }, enq) => {
       // A Turn the terminal UI left open when it closed ends Interrupted.
@@ -582,7 +557,7 @@ export const sessionMachine = createMachine({
         enq,
         record,
         [
-          ...endSubagents(record, event.at),
+          ...endBackgroundWork(record, event.at),
           ...(turn ? [endTurn(turn, "failed", event.at)] : []),
           ...withdrawPending(record, "daemon", event.message),
         ],
@@ -631,10 +606,21 @@ export const sessionMachine = createMachine({
     /** The Harness process is known to be running. */
     live: {
       initial: "idle",
+      on: {
+        "harness.backgroundTasksChanged": ({ context, event }, enq) => {
+          const record = need(context);
+
+          for (const effect of idleStopEffect(record)) enq.emit(effect);
+
+          return settle(enq, record, backgroundTasksChanged(record, event.tasks));
+        },
+      },
       states: {
         idle: {
           id: "idle",
-          entry: (_, enq) => enq.emit({ type: "effect", effect: "scheduleIdleStop" }),
+          entry: ({ context }, enq) => {
+            for (const effect of idleStopEffect(need(context))) enq.emit(effect);
+          },
           on: {
             "turn.send": sendTurn,
             "turn.continue": continueTurn,
@@ -649,14 +635,30 @@ export const sessionMachine = createMachine({
                 : settle(enq, need(context), [started], { state: "working" });
             },
             "idle.timeout": ({ context, event }, enq) => {
-              if (!event.harnessLive) return undefined;
+              const stop = backgroundIdleStop(need(context), event);
+
+              if (stop === null) return undefined;
               enq.emit({ type: "effect", effect: "stopHarness" });
 
-              return settle(enq, need(context), [], { state: "dormant", reason: "idle-timeout" });
+              return settle(enq, need(context), stop.events, {
+                state: "dormant",
+                reason: stop.reason,
+              });
             },
           },
         },
-        working: { id: "working" },
+        working: {
+          id: "working",
+          on: {
+            "turn.send": ({ context }, enq) => {
+              const record = need(context);
+
+              return workingTurn(record)?.trigger != null
+                ? settle(enq, record, [])
+                : reject(enq, turnRefusal(record, "send"));
+            },
+          },
+        },
         "needs-you": {
           id: "needs-you",
           on: {
@@ -781,7 +783,7 @@ export const sessionMachine = createMachine({
 
           return settle(enq, record, [
             ...interruptedSetup(record, event.at, event.cause),
-            ...endSubagents(record, event.at),
+            ...endBackgroundWork(record, event.at),
             ...(turn ? [endTurn(turn, "interrupted", event.at)] : []),
             ...withdrawPending(record, "daemon", RECOVERY_REASON[event.cause]),
           ]);
@@ -846,7 +848,12 @@ export const decideSession = (record: SessionRecord | undefined, input: SessionI
     return { events: [], rejection: null, effects: [], next: snapshot, unhandled: true };
   }
 
-  const result = transition(sessionMachine, snapshot, input);
+  const result = transition(
+    sessionMachine,
+    snapshot,
+    normalizedInput(input, record?.session.updatedAt ?? "")
+  );
+
   const events: Array<DomainEvent> = [];
   const effects: Array<SessionEffect> = [];
   let rejection: string | null = null;

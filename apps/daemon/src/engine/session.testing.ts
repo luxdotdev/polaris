@@ -12,6 +12,7 @@ import {
   type HarnessKind,
   RequestId,
   SessionId,
+  TurnTrigger,
   type SessionState,
   Turn,
   TurnId,
@@ -58,6 +59,7 @@ export type Step =
   | { readonly type: "lateApproval" }
   | { readonly type: "withdrawApproval" }
   | { readonly type: "terminalTurn" }
+  | { readonly type: "backgroundTurn" }
   | { readonly type: "complete" }
   | { readonly type: "failTurn" }
   | { readonly type: "exit" }
@@ -208,7 +210,15 @@ const terminalTurn = (c: StepContext): Inputs => {
 
   return c.channel === null || c.working !== undefined || !typedThere
     ? []
-    : [{ type: "harness.turnStarted", turnId: TurnId.make(`tui${c.n}`), prompt: "tui", at: AT }];
+    : [
+        {
+          type: "harness.turnStarted",
+          trigger: null,
+          turnId: TurnId.make(`tui${c.n}`),
+          prompt: "tui",
+          at: AT,
+        },
+      ];
 };
 
 /** The machine inputs of each Step, given the model's state; empty if the Step can't happen. */
@@ -281,6 +291,20 @@ const INPUTS = {
       : [{ type: "harness.approvalWithdrawn", requestId: first }];
   },
   terminalTurn,
+  backgroundTurn: (c) =>
+    c.snapshot.live && stateOfModel(c.snapshot) === "idle"
+      ? [
+          {
+            type: "harness.turnStarted",
+            turnId: TurnId.make(`auto${c.n}`),
+            prompt: "",
+            at: AT,
+            trigger: TurnTrigger.cases.BackgroundTasksReported.make({
+              tasks: [{ id: "sub1", kind: "subagent" }],
+            }),
+          },
+        ]
+      : [],
   complete: (c) => turnEnded(c, true),
   failTurn: (c) => turnEnded(c, false),
   exit: (c) => exited(c, null),
@@ -392,6 +416,7 @@ export const ALL_STEPS: ReadonlyArray<Step> = [
   { type: "lateApproval" },
   { type: "withdrawApproval" },
   { type: "terminalTurn" },
+  { type: "backgroundTurn" },
   { type: "complete" },
   { type: "failTurn" },
   { type: "exit" },

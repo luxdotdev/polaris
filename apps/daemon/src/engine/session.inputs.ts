@@ -4,6 +4,7 @@
  */
 import {
   AgentSession,
+  BackgroundTask,
   ApprovalDecision,
   ApprovalRequest,
   type DomainEvent,
@@ -16,6 +17,7 @@ import {
   SubagentId,
   Turn,
   TurnId,
+  TurnTrigger,
   TurnStatus,
   WorktreeSetupRun,
 } from "@polaris/protocol";
@@ -65,13 +67,24 @@ export const eventSchemas = {
   "terminal.return": Nothing,
   // Engine signals
   "harness.opened": Nothing,
-  "harness.turnStarted": standard(Schema.Struct({ turnId: TurnId, prompt: Schema.String, ...At })),
+  "harness.turnStarted": standard(
+    Schema.Struct({
+      turnId: TurnId,
+      prompt: Schema.String,
+      trigger: Schema.NullOr(TurnTrigger),
+      ...At,
+    })
+  ),
   "harness.approvalRequested": standard(Schema.Struct({ request: ApprovalRequest })),
   "harness.approvalWithdrawn": standard(Schema.Struct({ requestId: RequestId })),
+  "harness.backgroundTasksChanged": standard(
+    Schema.Struct({ tasks: Schema.Array(BackgroundTask) })
+  ),
   "harness.subagentStarted": standard(Schema.Struct({ subagent: Subagent })),
   "harness.subagentEnded": standard(
     Schema.Struct({
       subagentId: SubagentId,
+      report: Schema.NullOr(Schema.String),
       status: Schema.Literals(["completed", "failed", "interrupted"]),
       ...At,
     })
@@ -88,7 +101,13 @@ export const eventSchemas = {
   "harness.exited": standard(Schema.Struct({ error: Schema.NullOr(Schema.String), ...At })),
   "harness.resumed": Nothing,
   "terminal.closed": standard(Schema.Struct(At)),
-  "idle.timeout": standard(Schema.Struct({ harnessLive: Schema.Boolean })),
+  "idle.timeout": standard(
+    Schema.Struct({
+      harnessLive: Schema.Boolean,
+      backgroundExpired: Schema.optionalKey(Schema.Boolean),
+      at: Schema.optionalKey(Schema.String),
+    })
+  ),
   "session.setup": standard(Schema.Struct({ setup: WorktreeSetupRun })),
   "session.fail": standard(Schema.Struct({ message: Schema.String, ...At })),
   "turn.interruptUnattended": standard(Schema.Struct(At)),
@@ -120,3 +139,8 @@ const EMITTED: ReadonlySet<string> = new Set<Emitted["type"]>(["domain", "reject
 
 /** What the machine emits is ours: every `enq.emit` here passes an `Emitted`. */
 export const isEmitted = (event: EventObject): event is Emitted => EMITTED.has(event.type);
+
+export const normalizedInput = (input: SessionInput, at: string) =>
+  input.type === "idle.timeout"
+    ? { ...input, backgroundExpired: input.backgroundExpired ?? false, at: input.at ?? at }
+    : input;

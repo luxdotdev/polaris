@@ -35,12 +35,15 @@ import {
   WorktreeTracker,
 } from "../services.ts";
 import { type CommitResult, EventStore } from "../store/EventStore.ts";
+import { waitingOnBackgroundWork } from "./session.backgroundTasks.ts";
 import type { ReadModel, SessionRecord } from "../store/model.ts";
 import { decideSession, type SessionEffect, type SessionInput } from "./session.ts";
 
 export interface EngineSettings {
   /** How long an Idle session keeps its Harness process before going Dormant. */
   readonly idleTimeout: Duration.Input;
+  /** Maximum silence while an Idle session waits on background work; default two hours. */
+  readonly backgroundIdleTimeout?: Duration.Input;
   /** Checkpoint pruning policy (`git/prune.ts`); `DEFAULT_CHECKPOINT_POLICY` when unset. */
   readonly checkpointPolicy?: CheckpointPolicy;
   /** How often the checkpoint sweeper runs (6 hours when unset); null turns it off. */
@@ -106,8 +109,10 @@ const make = Effect.gen(function* () {
       return lock.withPermits(1)(effect);
     };
 
-  const recordFor = (sessionId: SessionId, f: DecideFor) =>
-    store.commit({
+  const recordFor = (sessionId: SessionId, f: DecideFor) => {
+    const activity = touchIdle(sessionId);
+
+    const committed = store.commit({
       commandId: null,
       decide: (model) => {
         const record = model.sessions.get(sessionId);
@@ -115,6 +120,15 @@ const make = Effect.gen(function* () {
         return Effect.succeed(record === undefined ? [] : f(record, model));
       },
     });
+
+    return activity === null
+      ? committed
+      : committed.pipe(
+          Effect.tap((result) =>
+            "envelopes" in result && result.envelopes.length > 0 ? activity : Effect.void
+          )
+        );
+  };
 
   const dropProgress = (sessionId: SessionId, turnId?: TurnId) => {
     const items = progress.get(sessionId);
@@ -127,7 +141,13 @@ const make = Effect.gen(function* () {
     if (items.size === 0) progress.delete(sessionId);
   };
 
-  const cancelIdle = (sessionId: SessionId) => FiberMap.remove(idleTimers, sessionId);
+  const backgroundIdle = new Set<SessionId>();
+
+  const cancelIdle = (sessionId: SessionId) => {
+    backgroundIdle.delete(sessionId);
+
+    return FiberMap.remove(idleTimers, sessionId);
+  };
 
   const stopHarness = (sessionId: SessionId) =>
     Effect.gen(function* () {
@@ -135,6 +155,7 @@ const make = Effect.gen(function* () {
 
       if (entry === undefined) return;
       entry.stopping = true;
+      backgroundIdle.delete(sessionId);
       live.delete(sessionId);
       dropProgress(sessionId);
 
@@ -166,19 +187,49 @@ const make = Effect.gen(function* () {
 
   const signal = (sessionId: SessionId, input: SessionInput) => signalWith(sessionId, () => input);
 
-  const goDormant = (sessionId: SessionId) =>
-    signalWith(sessionId, () => ({ type: "idle.timeout", harnessLive: live.has(sessionId) })).pipe(
-      Effect.catchCause((cause) => Effect.logError("idle stop failed", cause))
-    );
+  const goDormant = (sessionId: SessionId, backgroundExpired: boolean) =>
+    Effect.sync(() => backgroundIdle.delete(sessionId))
+      .pipe(
+        Effect.andThen(
+          Effect.flatMap(now, (at) =>
+            signalWith(sessionId, () => ({
+              type: "idle.timeout",
+              harnessLive: live.has(sessionId),
+              backgroundExpired,
+              at,
+            }))
+          )
+        )
+      )
+      .pipe(Effect.catchCause((cause) => Effect.logError("idle stop failed", cause)));
 
-  const scheduleIdle = (sessionId: SessionId) =>
+  const armIdle = (sessionId: SessionId, waiting: boolean) =>
     FiberMap.run(
       idleTimers,
       sessionId,
-      Effect.sleep(config.idleTimeout).pipe(
-        Effect.andThen(serially(sessionId)(goDormant(sessionId)))
-      )
+      Effect.sleep(
+        waiting ? (config.backgroundIdleTimeout ?? Duration.hours(2)) : config.idleTimeout
+      ).pipe(Effect.andThen(serially(sessionId)(goDormant(sessionId, waiting))))
     ).pipe(Effect.asVoid);
+
+  const touchIdle = (sessionId: SessionId) =>
+    backgroundIdle.has(sessionId)
+      ? Effect.suspend(() =>
+          backgroundIdle.has(sessionId) ? armIdle(sessionId, true) : Effect.void
+        )
+      : null;
+
+  const scheduleIdle = (sessionId: SessionId) =>
+    Effect.gen(function* () {
+      const record = (yield* store.model).sessions.get(sessionId);
+
+      if (record === undefined) return;
+      const waiting = waitingOnBackgroundWork(record);
+
+      if (waiting) backgroundIdle.add(sessionId);
+      else backgroundIdle.delete(sessionId);
+      yield* armIdle(sessionId, waiting);
+    });
 
   const failSession = (sessionId: SessionId, message: string) =>
     Effect.gen(function* () {
@@ -242,6 +293,7 @@ const make = Effect.gen(function* () {
     failSession,
     capture,
     cancelIdle,
+    touchIdle,
     stopHarness,
     findTurn,
   };
@@ -298,6 +350,7 @@ export class EngineRuntime extends Context.Service<
       turnId: TurnId,
       label: "before" | "after"
     ) => Effect.Effect<{ readonly ref: string; readonly commit: string } | null>;
+    readonly touchIdle: (sessionId: SessionId) => Effect.Effect<void> | null;
     readonly cancelIdle: (sessionId: SessionId) => Effect.Effect<void>;
     /** Stop the Harness on purpose. Never call from the session's own event consumer. */
     readonly stopHarness: (sessionId: SessionId) => Effect.Effect<void>;

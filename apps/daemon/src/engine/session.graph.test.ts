@@ -15,6 +15,7 @@ import {
   CommandRejected,
   RequestId,
   SessionId,
+  TurnTrigger,
   SessionPlacement,
   TurnId,
   type WorkspaceId,
@@ -273,6 +274,17 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
             return emit(
               snapshot,
               HarnessEvent.TurnStarted({ turnId: TurnId.make(`tui${n}`), prompt: "tui" })
+            );
+          case "backgroundTurn":
+            return emit(
+              snapshot,
+              HarnessEvent.TurnStarted({
+                turnId: TurnId.make(`auto${n}`),
+                prompt: null,
+                trigger: TurnTrigger.cases.BackgroundTasksReported.make({
+                  tasks: [{ id: "sub1", kind: "subagent" }],
+                }),
+              })
             );
           case "complete":
           case "failTurn":

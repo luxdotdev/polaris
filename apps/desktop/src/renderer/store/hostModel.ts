@@ -261,6 +261,8 @@ const fold = (event: DomainEvent): Fold =>
         onSession(sessionId, patch({ worktreeSetup: setup })),
       SessionContextUsed: ({ sessionId, usage }) =>
         onSession(sessionId, patch({ contextUsage: usage })),
+      SessionBackgroundTasksChanged: ({ sessionId, tasks }) =>
+        onSession(sessionId, patch({ backgroundTasks: tasks })),
       TurnStarted: ({ turn }) => onTurn(turn),
       TurnEnded: ({ turn }) => onTurn(turn),
       TurnItemCompleted: () => unchanged,

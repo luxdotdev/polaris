@@ -140,6 +140,7 @@ export const sessionOf: (event: DomainEvent) => SessionId | null =
     SessionModelChanged: bySessionId,
     SessionSetupChanged: bySessionId,
     SessionContextUsed: bySessionId,
+    SessionBackgroundTasksChanged: bySessionId,
     TurnStarted: byTurn,
     TurnItemCompleted: bySessionId,
     TurnEnded: byTurn,
@@ -234,6 +235,7 @@ export const gatingCapabilities: ReadonlyArray<Capability> = [
   "review.checkouts",
   "constellation",
   "host.resources",
+  "session.background-tasks",
 ];
 
 const needs = (capability: Capability) => (): Capability => capability;
@@ -285,6 +287,7 @@ export const eventCapability = (event: DomainEvent): Capability | null =>
       ResourceLeaseQueued: needs("host.resources"),
       ResourceLeased: needs("host.resources"),
       ResourceReleased: needs("host.resources"),
+      SessionBackgroundTasksChanged: needs("session.background-tasks"),
       SessionSetupChanged: needs("workspace.setup"),
       TurnsAccepted: needs("session.accept"),
       TurnsReverted: needs("session.accept"),
@@ -346,6 +349,7 @@ export const patchSession = (session: AgentSession, patch: SessionPatch): AgentS
     harnessCursor: session.harnessCursor,
     turnCount: session.turnCount,
     contextUsage: session.contextUsage,
+    backgroundTasks: session.backgroundTasks,
     worktreeSetup: session.worktreeSetup,
     lastError: session.lastError,
     acceptedThroughIndex: session.acceptedThroughIndex,
@@ -364,6 +368,7 @@ export const patchTurn = (turn: Turn, patch: TurnPatch): Turn =>
     sessionId: turn.sessionId,
     index: turn.index,
     prompt: turn.prompt,
+    trigger: turn.trigger,
     attachments: turn.attachments,
     model: turn.model,
     effort: turn.effort,
@@ -634,6 +639,8 @@ const apply: (event: DomainEvent) => Reducer = DomainEvent.match<Reducer>({
     updateSession(fold, event.sessionId, () => ({ session: { worktreeSetup: event.setup } })),
   SessionContextUsed: (event) => (fold) =>
     updateSession(fold, event.sessionId, () => ({ session: { contextUsage: event.usage } })),
+  SessionBackgroundTasksChanged: (event) => (fold) =>
+    updateSession(fold, event.sessionId, () => ({ session: { backgroundTasks: event.tasks } })),
   TurnStarted: recordTurn,
   TurnEnded: recordTurn,
   TurnItemCompleted:

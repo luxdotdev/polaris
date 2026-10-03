@@ -28,7 +28,8 @@ import {
   type ApprovalDecision,
   type PermissionMode,
   RequestId,
-  type TurnId,
+  TurnId,
+  TurnTrigger,
   TurnItem,
 } from "@polaris/protocol";
 import {
@@ -171,6 +172,7 @@ interface PendingApproval {
 }
 
 interface ActiveTurn {
+  readonly autonomous: boolean;
   readonly turnId: TurnId;
   /** Uuids of user messages sent for this Turn that Claude has not yet answered. */
   readonly pending: Set<string>;
@@ -361,6 +363,28 @@ const openSession = Effect.fnUntraced(function* (
     Queue.endUnsafe(events);
   };
 
+  const continueOnReports = () => {
+    if (active !== null) return;
+    const tasks = translator.takeReports();
+
+    const turnId = TurnId.make(`claude:${crypto.randomUUID()}`);
+    active = {
+      autonomous: true,
+      turnId,
+      pending: new Set(),
+      interrupting: false,
+      outcome: { status: "completed", error: null },
+    };
+    translator.beginTurn(turnId);
+    emit(
+      HarnessEvent.TurnStarted({
+        turnId,
+        prompt: null,
+        trigger: TurnTrigger.cases.BackgroundTasksReported.make({ tasks }),
+      })
+    );
+  };
+
   const onResult = (result: SDKResultMessage) => {
     const turn = active;
 
@@ -370,6 +394,9 @@ const openSession = Effect.fnUntraced(function* (
       result.user_message_uuids ?? (result.user_message_uuid ? [result.user_message_uuid] : null);
 
     // Older CLIs don't echo uuids: then a result answers everything sent so far.
+    if (uuids === null && result.origin?.kind === "task-notification" && turn.pending.size > 0)
+      return;
+
     if (uuids === null) turn.pending.clear();
     else for (const u of uuids) turn.pending.delete(u);
     turn.outcome = resultOutcome(result);
@@ -396,13 +423,26 @@ const openSession = Effect.fnUntraced(function* (
 
     if (exited) return;
 
-    if (message.type === "result") return onResult(message);
+    if (message.type === "result") {
+      if (message.origin?.kind === "task-notification") continueOnReports();
+
+      return onResult(message);
+    }
+
     limits?.onMessage(message);
     const echo = "user_message_uuid" in message ? message.user_message_uuid : undefined;
 
     if (echo !== undefined && cancelled.delete(echo)) {
       // A steer an interrupt could not recall started its own run: stop it too.
       void q.interrupt().catch(() => {});
+    }
+
+    if (
+      ((message.type === "assistant" || message.type === "stream_event") &&
+        message.parent_tool_use_id === null) ||
+      (message.type === "system" && message.subtype === "status" && message.status === "requesting")
+    ) {
+      continueOnReports();
     }
 
     emitAll(translator.onMessage(message));
@@ -432,8 +472,13 @@ const openSession = Effect.fnUntraced(function* (
 
   yield* validateRequestedAuto(q, permissionMode, options.model, options.readOnly);
 
-  const send = Effect.fnUntraced(function* (prompt: string, input: TurnInput | null) {
-    const uuid = crypto.randomUUID();
+  const send = Effect.fnUntraced(function* (
+    prompt: string,
+    input: TurnInput | null,
+    turn: ActiveTurn | null = null,
+    uuid: NonNullable<SDKUserMessage["uuid"]> = crypto.randomUUID()
+  ) {
+    turn?.pending.add(uuid);
 
     const message = yield* buildUserMessage({
       uuid,
@@ -488,10 +533,17 @@ const openSession = Effect.fnUntraced(function* (
   const sendTurn = Effect.fn("ClaudeSession.sendTurn")(function* (input: TurnInput) {
     if (exited || closing) return yield* harnessError("The Claude session has ended");
 
+    if (active && (active.autonomous || active.turnId === input.turnId) && !active.interrupting)
+      return yield* steerInput(input.prompt, input);
+
     if (active) return yield* harnessError("A Turn is already in progress; steer it instead");
-    yield* switchTo(input.model, input.effort);
-    const { uuid, message } = yield* send(input.prompt, input);
+
+    if (input.effort !== null && !isEffortLevel(input.effort))
+      return yield* unknownEffort(input.effort);
+    const uuid = crypto.randomUUID();
+
     active = {
+      autonomous: false,
       turnId: input.turnId,
       pending: new Set([uuid]),
       interrupting: false,
@@ -499,6 +551,9 @@ const openSession = Effect.fnUntraced(function* (
     };
     translator.beginTurn(input.turnId);
     emit(HarnessEvent.TurnStarted({ turnId: input.turnId, prompt: input.prompt }));
+    // Reserve the user's Turn before controls or attachment reads can yield to a native run.
+    yield* switchTo(input.model, input.effort);
+    const { message } = yield* send(input.prompt, input, active, uuid);
     inbox.push(message);
   });
 
@@ -507,12 +562,14 @@ const openSession = Effect.fnUntraced(function* (
    * rounds; if the Turn ends first, it runs next. Either way the Polaris Turn stays open
    * until every message sent for it has been answered.
    */
-  const steer = Effect.fn("ClaudeSession.steer")(function* (text: string) {
+  const steerInput = Effect.fn("ClaudeSession.steer")(function* (
+    text: string,
+    input: TurnInput | null
+  ) {
     const turn = active;
 
     if (!turn || turn.interrupting) return yield* harnessError("No Turn is in progress to steer");
-    const { uuid, message } = yield* send(text, null);
-    turn.pending.add(uuid);
+    const { uuid, message } = yield* send(text, input, turn);
     inbox.push(message);
     // Claude Code has taken it into the Turn's input: record it where it landed.
     emit(
@@ -522,6 +579,8 @@ const openSession = Effect.fnUntraced(function* (
       })
     );
   });
+
+  const steer = (text: string) => steerInput(text, null);
 
   const interrupt = Effect.gen(function* () {
     const turn = active;

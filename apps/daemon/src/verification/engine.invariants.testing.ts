@@ -189,11 +189,15 @@ const checkApprovals = (world: World, log: ReadonlyArray<AEvent>) => {
   }
 };
 
-/** No Turn starts by itself, and a request is recorded only for its session's Turn in flight. */
+/** Only a live idle Harness starts a fresh Turn; approval requests need their Turn in flight. */
 const checkHarnessReports = (log: ReadonlyArray<AEvent>) => {
   for (const e of log) {
-    if (e.tag === "TurnStarted" && e.commandId === null)
-      throw new Error(`Turn started by itself at ${e.seq}`);
+    if (e.tag === "TurnStarted" && e.commandId === null) {
+      const before = fold(log, e.seq - 1).get(e.session!);
+
+      if (!e.autonomous || before?.state !== "idle" || before.turns.has(e.turnId!))
+        throw new Error(`Unexpected Harness Turn at ${e.seq}`);
+    }
 
     if (e.tag !== "ApprovalRequested") continue;
     const v = fold(log, e.seq - 1).get(e.session!);

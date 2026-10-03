@@ -244,6 +244,10 @@ const fold = (event: DomainEvent): Fold =>
         ({ usage }): Fold =>
         (m) =>
           patchSession(m, { contextUsage: usage }),
+      SessionBackgroundTasksChanged:
+        ({ tasks }): Fold =>
+        (m) =>
+          patchSession(m, { backgroundTasks: tasks }),
       TurnStarted:
         ({ turn }): Fold =>
         (m) =>

@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { DomainEvent, Subagent, SubagentId, TurnId } from "@polaris/protocol";
+import {
+  BackgroundTask,
+  DomainEvent,
+  Subagent,
+  SubagentId,
+  TurnId,
+  TurnTrigger,
+} from "@polaris/protocol";
 import { workingTurn } from "../store/model.ts";
 import { AT, initialSnapshot, SESSION, type ModelOptions, stepModel } from "./session.testing.ts";
 import { decideSession } from "./session.ts";
@@ -62,6 +69,7 @@ describe("session machine: Subagents", () => {
   test("it ends when the Harness says so, once", () => {
     const ended = decideSession(withSubagent, {
       type: "harness.subagentEnded",
+      report: null,
       subagentId: SubagentId.make("sub-1"),
       status: "failed",
       at: AT,
@@ -76,6 +84,7 @@ describe("session machine: Subagents", () => {
 
     const repeat = decideSession(ended.next.context.record!, {
       type: "harness.subagentEnded",
+      report: null,
       subagentId: SubagentId.make("sub-1"),
       status: "completed",
       at: AT,
@@ -109,4 +118,139 @@ describe("session machine: Subagents", () => {
       expect(departure.next.context.record!.subagents.size).toBe(0);
     }
   });
+});
+
+test("background work suppresses idle shutdown and its report starts a distinct Turn", () => {
+  const record = working();
+  const turnId = workingTurn(record)!.id;
+
+  const spawned = decideSession(record, {
+    type: "harness.subagentStarted",
+    subagent: subagent(turnId),
+  }).next.context.record!;
+
+  const idle = decideSession(spawned, {
+    type: "harness.turnEnded",
+    turnId,
+    status: "completed",
+    error: null,
+    checkpoint: null,
+    at: AT,
+  });
+
+  expect(idle.effects).toEqual(["scheduleIdleStop"]);
+  expect(
+    decideSession(idle.next.context.record!, { type: "idle.timeout", harnessLive: true }).events
+  ).toEqual([]);
+
+  const reported = decideSession(idle.next.context.record!, {
+    type: "harness.subagentEnded",
+    subagentId: SubagentId.make("sub-1"),
+    status: "completed",
+    report: "**report**",
+    at: AT,
+  });
+
+  expect(reported.events[0]).toMatchObject({ subagent: { report: "**report**" } });
+  expect(reported.effects).toEqual(["scheduleIdleStop"]);
+
+  const trigger = TurnTrigger.cases.BackgroundTasksReported.make({
+    tasks: [{ id: "sub-1", kind: "subagent" }],
+  });
+
+  const auto = decideSession(reported.next.context.record!, {
+    type: "harness.turnStarted",
+    turnId: TurnId.make("auto1"),
+    prompt: "",
+    trigger,
+    at: AT,
+  });
+
+  expect(auto.next.context.record!.session.state).toBe("working");
+  expect(auto.events.map((e) => e._tag)).toEqual(["TurnStarted", "SessionStateChanged"]);
+  const started = auto.events.find(DomainEvent.guards.TurnStarted);
+  expect(started?.turn).toMatchObject({
+    id: "auto1",
+    index: 1,
+    prompt: "[Background task continuation]",
+    trigger,
+  });
+  expect(
+    decideSession(auto.next.context.record!, {
+      type: "harness.turnStarted",
+      turnId: TurnId.make("auto2"),
+      prompt: "",
+      trigger,
+      at: AT,
+    }).events
+  ).toEqual([]);
+});
+
+test("command waiting is recorded, prevents idle shutdown, and clears on recovery", () => {
+  const task = new BackgroundTask({ id: "bash-1", kind: "command", description: "Sleep" });
+
+  const started = decideSession(working(), {
+    type: "harness.backgroundTasksChanged",
+    tasks: [task],
+  });
+
+  const ended = decideSession(started.next.context.record!, {
+    type: "harness.turnEnded",
+    turnId: workingTurn(started.next.context.record!)!.id,
+    status: "completed",
+    error: null,
+    checkpoint: null,
+    at: AT,
+  });
+
+  expect(ended.next.context.record!.session.backgroundTasks).toEqual([task]);
+  expect(ended.effects).toEqual(["scheduleIdleStop"]);
+  expect(
+    decideSession(ended.next.context.record!, { type: "idle.timeout", harnessLive: true }).events
+  ).toEqual([]);
+
+  const cleared = decideSession(ended.next.context.record!, {
+    type: "harness.backgroundTasksChanged",
+    tasks: [],
+  });
+
+  expect(cleared.effects).toEqual(["scheduleIdleStop"]);
+  expect(cleared.next.context.record!.session.backgroundTasks).toEqual([]);
+
+  const capped = decideSession(ended.next.context.record!, {
+    type: "idle.timeout",
+    harnessLive: true,
+    backgroundExpired: true,
+    at: AT,
+  });
+
+  expect(capped.effects).toEqual(["stopHarness"]);
+  expect(capped.next.context.record!.session.backgroundTasks).toEqual([]);
+  expect(capped.events.find(DomainEvent.guards.SessionStateChanged)).toMatchObject({
+    state: "dormant",
+    reason: "background-idle-timeout",
+  });
+  expect(
+    decideSession(working(), {
+      type: "idle.timeout",
+      harnessLive: true,
+      backgroundExpired: true,
+      at: AT,
+    }).events
+  ).toEqual([]);
+
+  const recovered = decideSession(ended.next.context.record!, {
+    type: "daemon.recover",
+    cause: "restart",
+    at: AT,
+  });
+
+  expect(recovered.next.context.record!.session.backgroundTasks).toEqual([]);
+  expect(recovered.next.context.record!.session.state).toBe("dormant");
+  expect(
+    decideSession(recovered.next.context.record!, {
+      type: "harness.backgroundTasksChanged",
+      tasks: [task],
+    }).events
+  ).toEqual([]);
 });

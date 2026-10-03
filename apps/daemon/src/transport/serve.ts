@@ -126,6 +126,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "workspace.setup",
   "session.live-items",
   "session.subagents",
+  "session.background-tasks",
   "files.read",
   "files.versioned",
   "files.write",

@@ -42,6 +42,8 @@ export const Capability = Schema.Literals([
    * the Daemon leaves all of these out for Clients that didn't.
    */
   "session.subagents",
+  /** Live background task snapshots and SessionBackgroundTasksChanged events. */
+  "session.background-tasks",
   "files.read",
   "files.versioned",
   "files.write",

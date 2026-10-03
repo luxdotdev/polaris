@@ -72,6 +72,7 @@ export const observeLiveness = (
     Exited: () => ({ ...facts, activities: new Map() }),
     CursorAssigned: () => facts,
     TurnStarted: () => facts,
+    BackgroundTasksChanged: () => facts,
     SubagentStarted: () => facts,
     SubagentEnded: () => facts,
     ApprovalRequested: () => facts,

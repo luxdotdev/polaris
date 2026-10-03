@@ -64,6 +64,7 @@ module polaris_test {
         answers.get("k1") == [],
         viewOf(log, "s1") == {
           turn: "interrupted",
+          autonomous: false,
           state: "needs-you",
           pending: Set(),
           requested: [],
@@ -383,6 +384,30 @@ module polaris_test {
       .then(commitBatch)
       .then(publishBatch)
       .expect(all { answers.get("k3") == [Rejected], acceptedNeverInFlight, safety })
+  run promptDuringAutonomousTurnSteersTest =
+    init
+      .then(clientSends("mac", "k1", SendTurn("s1")))
+      .then(commitBatch)
+      .then(publishBatch)
+      .then(reactorRuns("s1"))
+      .then(harnessReports("s1", HTurnEnded))
+      .then(commitBatch)
+      .then(publishBatch)
+      .then(harnessReports("s1", HTurnStarted))
+      .then(commitBatch)
+      .then(publishBatch)
+      .then(clientSends("mac", "k2", SendTurn("s1")))
+      .then(commitBatch)
+      .then(publishBatch)
+      .expect(all { answers.get("k2") == [Ok(0)], viewOf(log, "s1").turns == 2, viewOf(log, "s1").state == "working", safety })
+
+  run backgroundReportStartsFreshTurnTest =
+    turnRunning
+      .then(harnessReports("s1", HTurnEnded)).then(commitBatch).then(publishBatch)
+      .then(harnessReports("s1", HTurnStarted)).then(commitBatch).then(publishBatch)
+      .expect(viewOf(log, "s1").turns == 2 and viewOf(log, "s1").state == "working" and safety)
+      .then(harnessReports("s1", HTurnEnded)).then(commitBatch).then(publishBatch)
+      .expect(viewOf(log, "s1").state == "idle" and safety)
 }
 
 /** Finding 1: the host feed with the gap check `HostConnection` used before the fix. */
@@ -465,6 +490,7 @@ module polaris_finding2_test {
       .expect(all {
         viewOf(log, "s1") == {
           turn: "working",
+          autonomous: false,
           state: "archived",
           pending: Set("r1"),
           requested: ["r1"],
@@ -555,4 +581,6 @@ module polaris_finding4_test {
       .then(commitBatch)
       .then(publishBatch)
       .expect(all { viewOf(log, "s1").turn == "working", not(acceptedNeverInFlight) })
+
+
 }
