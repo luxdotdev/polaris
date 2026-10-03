@@ -1,3 +1,5 @@
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import appleIcon from "../../../design/assets/app-icon/polaris.iconset/icon_256x256.png";
@@ -34,7 +36,11 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { readonly children: ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        <Analytics />
+        <SpeedInsights />
+      </body>
     </html>
   );
 }
