@@ -382,7 +382,11 @@ export const review = (d: GraphDecision, command: GraphCommand<"Review">) => {
     d.notify(NotificationItem.cases.Settled.make({ attemptId: attempt.id, state: "rejected" }));
 };
 
-export const claim = (d: GraphDecision, command: GraphCommand<"WorkerClaim">, attempt: Attempt) => {
+const validateClaimHead = (
+  d: GraphDecision,
+  command: GraphCommand<"WorkerClaim">,
+  attempt: Attempt
+) => {
   const probe = d.ctx.claimProbe;
 
   if (probe === null)
@@ -410,14 +414,25 @@ export const claim = (d: GraphDecision, command: GraphCommand<"WorkerClaim">, at
         `Claim the committed head on ${attempt.branch}.`
       );
   }
+};
 
-  if (attempt.state !== "working")
+export const claim = (d: GraphDecision, command: GraphCommand<"WorkerClaim">, attempt: Attempt) => {
+  validateClaimHead(d, command, attempt);
+
+  if (attempt.state !== "working" && attempt.state !== "review")
     d.reject(
       "E-CLAIM-STATE",
       `Attempt ${attempt.id} is ${attempt.state}`,
       attempt.state === "blocked"
         ? "Wait for its dependencies or a Lead message to resume the Attempt."
         : "Review its existing Claim."
+    );
+
+  if (attempt.state === "review" && command.claim.head === attempt.claim?.head)
+    d.reject(
+      "E-CLAIM-UNCHANGED",
+      "The current branch head is already in review",
+      "Commit the additional work before claiming again, or review the existing Claim."
     );
 
   const questions = new Set<string>();

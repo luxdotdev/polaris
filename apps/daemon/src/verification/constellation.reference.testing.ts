@@ -139,7 +139,14 @@ export const foldReference = (ref: Reference, events: ReadonlyArray<DomainEvent>
         ref.attempts.set(e.attempt.id, refAttempt(e.attempt));
       },
       AttemptProgressed: (e) => patch(ref, e, {}),
-      AttemptClaimed: (e) => patch(ref, e, { state: "review", head: e.claim.head }),
+      AttemptClaimed: (e) =>
+        patch(ref, e, {
+          state: "review",
+          head: e.claim.head,
+          approved: null,
+          handedUp: null,
+          nudged: null,
+        }),
       ClaimApproved: (e) => patch(ref, e, { approved: e.at }),
       ClaimHandedUp: (e) => patch(ref, e, { handedUp: e.at }),
       AttemptBlocked: (e) =>

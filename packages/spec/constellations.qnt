@@ -71,6 +71,8 @@ module constellations {
     waiters: [], holders: Set(), requests: [], grants: [], capacity: CAPACITY, canceled: Set(),
   }
 // The event log is durable; projections and pending notification IDs are always re-folded.
+  pure def claimable(v: View, a: int, sha: int): bool = v.attempts.indices().contains(a) and
+    (v.attempts[a].status == "working" or v.attempts[a].status == "review" and v.attempts[a].sha != sha)
   pure def has(xs: List[int], x: int): bool = xs.indices().exists(i => xs[i] == x)
   pure def active(a: Attempt): bool = Set("working", "blocked", "review").contains(a.status)
   pure def change(v: View, a: int, status: str, sha: int): View = {
@@ -92,7 +94,9 @@ module constellations {
         task: p.task, session: p.session, ref: p.ref, status: "working", revision: 1, sha: -1, rejectionReason: "", mergeBase: p.mergeBase,
       }) }
     | AttemptProgressed(a) => change(v, a, v.attempts[a].status, v.attempts[a].sha)
-    | AttemptClaimed(p) => change(v, p.attempt, "review", p.sha)
+    | AttemptClaimed(p) => { ...change(v, p.attempt, "review", p.sha),
+        approvals: v.approvals.select(a => a != p.attempt),
+        handups: v.handups.select(a => a != p.attempt), nudges: v.nudges.select(a => a != p.attempt) }
     | ClaimApproved(a) => { ...change(v, a, v.attempts[a].status, v.attempts[a].sha), approvals: v.approvals.append(a) }
     | ClaimHandedUp(a) => { ...change(v, a, v.attempts[a].status, v.attempts[a].sha), handups: v.handups.append(a) }
     | AttemptBlocked(p) => { ...change(v, p.attempt, "blocked", v.attempts[p.attempt].sha), blocks: v.blocks.put(p.attempt, p.on) }
@@ -253,7 +257,7 @@ module constellations {
   }
   action startFirstTurn(a: int): bool = commit(OWNER,
     if (view.attempts.indices().contains(a) and view.attempts[a].status == "working"
-      and not(has(view.firstTurns, a))) [FirstTurnStarted(a)] else [])
+      and not(view.stale.contains(a)) and not(has(view.firstTurns, a))) [FirstTurnStarted(a)] else [])
   pure def blockEvents(v: View, a: int, on: Set[int], rev: int): List[EventKind] =
     if (current(v, a, rev) and v.attempts[a].status == "working"
       and not(v.tasks.get(v.attempts[a].task).gate)
@@ -272,7 +276,7 @@ module constellations {
   action progress(a: int, rev: int): bool = commit(OWNER,
     if (current(view, a, rev) and view.attempts[a].status == "working") [AttemptProgressed(a)] else [])
   action claim(a: int, rev: int, sha: int, dirty: bool, onBranch: bool): bool = commit(OWNER,
-    if (current(view, a, rev) and view.attempts[a].status == "working" and not(dirty) and onBranch)
+    if (current(view, a, rev) and claimable(view, a, sha) and not(dirty) and onBranch)
     finish(view, a, AttemptClaimed({ attempt: a, sha: sha })) else [])
   action accept(a: int, rev: int, sha: int): bool = commit(OWNER,
     if (current(view, a, rev) and view.attempts[a].status == "review" and view.attempts[a].sha == sha)
@@ -340,7 +344,7 @@ module constellations {
       val r = outbox.get(id)
       val appliedEvents = [OutboxApplied(id)]
       appliedEvents.concat(if (view.attempts.indices().contains(r.attempt)
-        and current(view, r.attempt, view.attempts[r.attempt].revision) and view.attempts[r.attempt].status == "working")
+        and current(view, r.attempt, view.attempts[r.attempt].revision) and claimable(view, r.attempt, r.sha))
         finish(view, r.attempt, AttemptClaimed({ attempt: r.attempt, sha: r.sha })) else [])
     } else [])
   action request(id: int): bool = commit(OWNER, if (view.capacity > 0 and not(has(view.requests, id))) [ResourceLeaseQueued(id)] else [])
@@ -371,6 +375,16 @@ module constellations {
   }
 
   val graphAcyclic = validGraph(view)
+  val firstTurnValid = log.indices().forall(i => match log[i].kind {
+    | FirstTurnStarted(a) => { val before = foldEvents(log.slice(0, i));
+        before.attempts.indices().contains(a) and before.attempts[a].status == "working"
+        and latest(before, before.attempts[a].task) == a and not(before.stale.contains(a)) }
+    | _ => true
+  })
+  val claimsValid = log.indices().forall(i => match log[i].kind {
+    | AttemptClaimed(p) => claimable(foldEvents(log.slice(0, i)), p.attempt, p.sha)
+    | _ => true
+  })
   val firstTurnAtMostOnce = view.firstTurns.length() == view.firstTurns.foldl(Set(), (acc, a) => acc.union(Set(a))).size()
   val causesPointBackward = view.attempts.indices().forall(i => view.attempts[i].ref == -1
     or view.attempts[i].ref >= 0 and view.attempts[i].ref < i and view.attempts[view.attempts[i].ref].task == view.attempts[i].task)
@@ -482,7 +496,7 @@ module constellations {
     implies (0.to(30).forall(id => view.notes.keys().contains(id) leadsTo delivered.contains(id)))
   val safety = all {
     graphAcyclic, causesPointBackward, taskFollowsLatestAttempt, gatePromotedOnlyAfterAccepted,
-    oneLead, firstTurnAtMostOnce, oneActiveAttemptPerSession, exactlyOnceDelivery, settledAttemptImmutable,
+    oneLead, firstTurnValid, claimsValid, firstTurnAtMostOnce, oneActiveAttemptPerSession, exactlyOnceDelivery, settledAttemptImmutable,
     outboxAppliedExactlyOnce, onlyOwnerCommits, recoveryAtMostOnce, recoveryHasEligibleProof, staleNeverSettlesWithoutCommand,
     noOldLeadDelivery, handoverRequestOrdered, inputDeliveredAtMostOnce, blockTransitionsValid, lifecycleValid, reviewMetadataValid, resourceCapacity, resourceRemovalSafe, fifoGrantOrder, acceptanceMatchesClaim,
   }

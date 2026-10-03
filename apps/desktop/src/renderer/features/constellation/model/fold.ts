@@ -235,6 +235,10 @@ const stepFor = (event: Event, at: string): Step =>
           state: "review",
           claim,
           claimedAt: at,
+          approvedByUserAt: null,
+          handedUpAt: null,
+          handedUpReason: null,
+          nudgedAt: null,
         })),
       AttemptAccepted: ({ attemptId, attemptRevision, mergedHead, receipts, evidence }) =>
         patchAttempt(attemptId, attemptRevision, () => ({

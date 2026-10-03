@@ -13,7 +13,9 @@ activated on the first Resource RPC or working-slot acquisition. Existing proces
 leases force startup activation so process monitoring and recovery still run.
 
 Preparation uses W's worktree/bundle boundary and the pure Session machine to
-allocate a Session without a Turn. Non-Gate preparation then runs the Workspace's
+allocate a Session without a Turn. Retries reusing the same Session and existing
+worktree skip setup, so SendBack commits immediately even during a working Turn.
+Other non-Gate preparation runs the Workspace's
 worktree setup on the worker Host before returning the Attempt: auto-detected
 lockfile command, disabled, or a custom shell command. It persists a separate
 setup card on the Session, so failure is visible even before a first Turn.
@@ -30,8 +32,12 @@ Startup mounts one loopback MCP listener, installs the local/remote command
 facade, replays token revocation, resumes local and remote working scopes, and
 starts delivery plus durable remote ack replay. Resume submits a first Turn only
 when the persisted startup command receipt is absent, including Initial Attempts.
-The receipt survives the bounded recent-Turn projection. An eligible local
-interruption invokes the one Continue inside the acquired resume hook. Remote recovery remains blocked until verified worker
+The receipt survives the bounded recent-Turn projection. Pending first startup
+accepts a restart-interrupted Needs You Session with no pending input through the
+Session machine, using its acquired slot. Local and remote
+startup must still be the latest working Attempt; remote startup rechecks the durable
+assignment. An ineligible startup never writes a successful empty receipt.
+An eligible local interruption invokes the one Continue inside the acquired resume hook. Remote recovery remains blocked until verified worker
 interruption/continued-Turn facts are available.
 
 Every Harness open derives current role attachments from folded local graphs

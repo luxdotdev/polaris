@@ -75,7 +75,7 @@ export const workerTools = (
   ),
   define(
     "claim",
-    "Submit branch, head, commits, check receipts, unfinished work, follow-ups, questions, Area exceptions, decisions and summary.",
+    "Submit branch, head, commits, check receipts, unfinished work, follow-ups, questions, Area exceptions, decisions and summary. In review, a clean changed branch head can be claimed again on the same Attempt; it supersedes the earlier Claim and requires fresh review.",
     Schema.Struct({ claim: C.WorkerClaim.fields.claim }),
     (input) =>
       submit(

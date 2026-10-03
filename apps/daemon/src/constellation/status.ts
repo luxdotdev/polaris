@@ -1,8 +1,18 @@
-import type { Task, Attempt } from "@polaris/protocol";
+import type { Task, Attempt, TaskDefinition } from "@polaris/protocol";
 import type { SessionRecord } from "../store/model.ts";
 import type { ConstellationRecord } from "../store/constellation.ts";
 import { childTasks, isParent } from "./parents.ts";
 import { activeAttempt, latestAttempt, projectTask } from "./projections.ts";
+
+export const proposalDetails = (task: TaskDefinition): ReadonlyArray<string> => [
+  `  Kind: ${task.kind} · parent: ${task.parent ?? "none"} · group: ${task.group ?? "none"}`,
+  "  Brief:",
+  ...task.brief.split("\n").map((line) => `    ${line}`),
+  `  Dependencies: ${task.deps.join(", ") || "none"}`,
+  `  Area: ${task.area.join(", ") || "none"}`,
+  "  Criteria:",
+  ...task.criteria.map((criterion) => `    ${criterion}`),
+];
 
 const prefix = (glob: string) => glob.split(/[?*[{]/, 1)[0] ?? "";
 
@@ -62,7 +72,7 @@ const rejectionLines = (record: ConstellationRecord, task: Task): ReadonlyArray<
 
   if (previous !== undefined) {
     lines.push(
-      `  Rejected attempt ${previous.id}${previous.claim === null ? "" : ` · Claim ${previous.claim.head}`}`
+      `  Sent back attempt ${previous.id}${previous.claim === null ? "" : ` · Claim ${previous.claim.head}`}`
     );
 
     if (previous.rejectionReason !== null) {
@@ -153,8 +163,10 @@ export const statusOutline = (
         `Question ${question.id} · ${attemptId} · to ${question.to}${question.blocking ? " · blocking" : ""}: ${question.text}`
       );
 
-  for (const [id, proposal] of record.proposals)
+  for (const [id, proposal] of record.proposals) {
     lines.push(`Proposal ${id} · ${proposal.task.id} · by ${proposal.by}: ${proposal.task.title}`);
+    lines.push(...proposalDetails(proposal.task));
+  }
 
   if (record.handoverRequest !== null)
     lines.push(

@@ -22,8 +22,14 @@ export const collectClaimFacts = Effect.fnUntraced(function* (
     worktrees: ConstellationWorktrees["Service"];
   }
 ) {
-  if (attempt.state !== "working")
-    return yield* transferError("E-SETTLED", "This Attempt already has a Claim");
+  if (attempt.state !== "working" && attempt.state !== "review")
+    return yield* transferError("E-SETTLED", "This Attempt cannot claim in its current state");
+
+  if (attempt.state === "review" && command.claim.head === attempt.claim?.head)
+    return yield* transferError(
+      "E-CLAIM-UNCHANGED",
+      "The current branch head is already in review"
+    );
   const claimProbe = yield* services.worktrees.probeClaim(attempt);
 
   if (claimProbe.dirtyPaths.length > 0)
@@ -38,7 +44,14 @@ export const collectClaimFacts = Effect.fnUntraced(function* (
       "The Claim does not match the assigned branch head"
     );
 
-  if ((yield* services.storage.claimedAttempts).has(attempt.id))
+  const pending = (yield* services.storage.packets).some(
+    (p) => p.entry.attemptId === attempt.id && Predicate.isTagged(p.entry.command, "WorkerClaim")
+  );
+
+  if (
+    pending ||
+    (attempt.state === "working" && (yield* services.storage.claimedAttempts).has(attempt.id))
+  )
     return yield* transferError("E-CLAIM-QUEUED", "This Attempt already has a durable Claim");
   yield* gitOperation(async () => {
     const ref = constellationRef(assignment.graph.id, attempt.id);

@@ -130,7 +130,13 @@ export const prepareSession = Effect.fn("Constellation.prepareSession")(function
       })
       .pipe(Effect.orDie);
 
-  if (input.task.kind !== "gate") {
+  const reusesWorktree =
+    existing !== undefined &&
+    input.previous?.sessionId === sessionId &&
+    input.previous.worktree === input.worktree.worktree &&
+    existing.cwd === input.worktree.worktree;
+
+  if (input.task.kind !== "gate" && !reusesWorktree) {
     const setup = yield* (yield* WorktreeSetupService)
       .run(
         sessionId,
@@ -144,9 +150,9 @@ export const prepareSession = Effect.fn("Constellation.prepareSession")(function
         Effect.mapError((error) =>
           refusal(model.constellations.get(input.graph.id), [
             finding(
-              "E-SETUP-BUSY",
+              "E-SESSION-BUSY",
               error.reason,
-              "Wait for the Session boundary and dispatch again."
+              "Wait for the selected Session’s Turn to end before setting up its worktree, then retry."
             ),
           ])
         )

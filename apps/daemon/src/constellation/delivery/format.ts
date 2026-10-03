@@ -2,6 +2,8 @@ import type { ConstellationNotification } from "@polaris/protocol";
 import { Match, Predicate } from "effect";
 import type { ConstellationRecord } from "../../store/constellation.ts";
 
+import { proposalDetails } from "../status.ts";
+
 const line = (text: string) => text.replace(/\s+/g, " ").trim();
 
 export const notificationLine = (record: ConstellationRecord, n: ConstellationNotification) => {
@@ -14,16 +16,24 @@ export const notificationLine = (record: ConstellationRecord, n: ConstellationNo
         `${i.taskId}: blocked${i.on.length === 0 ? " awaiting the Lead" : ` by ${i.on.join(", ")}`}: ${line(i.reason)}`
     ),
     Match.tag("Stopped", (i) => `${i.taskId} stopped without claiming.`),
-    Match.tag("Settled", (i) => `${worker(i.attemptId)}: ${i.state}.`),
+    Match.tag(
+      "Settled",
+      (i) => `${worker(i.attemptId)}: ${i.state === "rejected" ? "sent back" : i.state}.`
+    ),
     Match.tag(
       "Question",
       (i) => `${worker(i.attemptId)} asks ${i.question.to}: ${line(i.question.text)}`
     ),
-    Match.tag(
-      "Proposal",
-      (i) =>
-        `${worker(i.attemptId)} proposes ${record.proposals.get(i.proposalId)?.task.title ?? i.proposalId}.`
-    ),
+    Match.tag("Proposal", (i) => {
+      const task = record.proposals.get(i.proposalId)?.task;
+
+      return task === undefined
+        ? `${worker(i.attemptId)} proposed ${i.proposalId}; it has been resolved.`
+        : [
+            `${worker(i.attemptId)} proposes ${task.id} · ${task.title} (${i.proposalId}).`,
+            ...proposalDetails(task),
+          ].join("\n");
+    }),
     Match.tag("OperatorMessage", (i) => {
       const message = record.sentMessages.get(i.messageId);
 

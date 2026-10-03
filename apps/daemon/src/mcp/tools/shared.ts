@@ -74,7 +74,7 @@ const resultText = (
   content: [
     {
       type: "text",
-      text: `${summary ?? result.summary}\nRevision: ${result.revision}\n${json ? `${JSON.stringify({ constellation: result.constellation, projections: result.projections })}\n` : ""}Next: ${next ?? result.next}`,
+      text: `${summary ?? result.summary}\nRevision: ${result.revision}\n${json ? `${JSON.stringify({ constellation: result.constellation, projections: result.projections, proposals: result.proposals })}\n` : ""}Next: ${next ?? result.next}`,
     },
   ],
 });

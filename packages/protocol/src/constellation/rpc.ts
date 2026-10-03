@@ -31,6 +31,7 @@ export class ConstellationResult extends Schema.Class<ConstellationResult>("Cons
   sequence: Schema.NullOr(Sequence),
   constellation: optionalNullable(Constellation),
   projections: optionalArray(TaskProjection),
+  proposals: optionalArray(ConstellationProposal),
 }) {}
 
 export class ConstellationRejected extends Schema.TaggedError<ConstellationRejected>()(

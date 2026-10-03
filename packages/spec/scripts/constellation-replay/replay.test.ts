@@ -658,3 +658,56 @@ test("quoted multiline feedback and merge base replay safely; actual first Turns
   const sources = constellationTraceToQuint("first", trace(batches), "model");
   expect(sources[0]!.source).toContain("FirstTurnStarted(1)");
 }, 30000);
+
+test("first-Turn trace validation rejects blocked, review and settled Attempts", () => {
+  const first = E.TurnStarted.make({
+    turn: Turn.make({
+      id: TurnId.make(`${attemptId}:start`),
+      sessionId: worker,
+      index: 0,
+      prompt: "Brief",
+      attachments: [],
+      model: null,
+      effort: null,
+      status: "working",
+      checkpointBefore: null,
+      checkpointAfter: null,
+      startedAt: time,
+      endedAt: null,
+    }),
+  });
+
+  expect(check(trace([batch(initial), batch([began]), batch([first])]))).toBe(true);
+  const blocked = E.AttemptBlocked.make({ ...target, on: [], reason: "Wait", at: time });
+  expect(check(trace([batch(initial), batch([began]), batch([blocked]), batch([first])]))).toBe(
+    false
+  );
+  expect(check(trace([batch(initial), batch(reviewed), batch([first])]))).toBe(false);
+  expect(check(trace([batch(initial), batch(reviewed), batch(accepted), batch([first])]))).toBe(
+    false
+  );
+}, 30000);
+
+test("re-claim trace preserves earlier Claim and rejects the old head on acceptance", () => {
+  const nextClaim = Claim.make(Struct.assign(claim, { head: "head-2", commits: ["head-2"] }));
+
+  const reClaim = [
+    E.AttemptClaimed.make({ ...target, attemptRevision: 3, claim: nextClaim }),
+    notification("fresh-review", "review"),
+  ];
+
+  const newAccept = E.AttemptAccepted.make({
+    ...target,
+    attemptRevision: 4,
+    mergedHead: "head-2",
+    receipts: [],
+    evidence: "asserted",
+  });
+
+  expect(check(trace([batch(initial), batch(reviewed), batch(reClaim), batch([newAccept])]))).toBe(
+    true
+  );
+  expect(check(trace([batch(initial), batch(reviewed), batch(reClaim), batch(accepted)]))).toBe(
+    false
+  );
+}, 30000);

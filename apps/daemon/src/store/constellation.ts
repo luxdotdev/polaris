@@ -258,7 +258,15 @@ export const foldConstellation = (
     AttemptClaimed: (e) => {
       graph = new Constellation({
         ...graphData(graph),
-        attempts: patchAttempt(next, e, { state: "review", claim: e.claim, claimedAt: at }),
+        attempts: patchAttempt(next, e, {
+          state: "review",
+          claim: e.claim,
+          claimedAt: at,
+          approvedByUserAt: null,
+          handedUpAt: null,
+          handedUpReason: null,
+          nudgedAt: null,
+        }),
       });
     },
     ClaimApproved: (e) => {
