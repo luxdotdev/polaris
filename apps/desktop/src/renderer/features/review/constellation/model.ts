@@ -43,7 +43,6 @@ export const workerCaption = (
     Match.when("rejected", () => "sent back"),
     Match.when("failed", () => "failed"),
     Match.when("lost", () => "lost"),
-    Match.when("settled_unverified", () => "settled unverified"),
     Match.exhaustive
   );
 

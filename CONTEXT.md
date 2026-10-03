@@ -170,7 +170,7 @@ A Task that waits for several other Tasks to finish (fan-in), such as "tiles mer
 _Avoid_: Milestone, checkpoint
 
 **Future**:
-A Task a Constellation has declared but not yet started, shown as intent rather than work.
+Intent for work not yet started. In Constellations v1, a pending Task proposal shows this intent; a mapped unstarted Task projects ready or waiting from its dependencies, without a separate Future state.
 
 **Subagent**:
 A helper a Harness spawns inside an Agent Session; Polaris shows it under its parent and lets the user view it on its own.

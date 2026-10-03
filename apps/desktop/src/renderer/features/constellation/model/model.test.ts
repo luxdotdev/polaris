@@ -68,6 +68,67 @@ describe("copy", () => {
 });
 
 describe("projections", () => {
+  test("mapped unstarted and rejected Tasks use dependency readiness", () => {
+    const tasks = [
+      task({ id: "A", title: "source" }),
+      task({ id: "B", title: "consumer", deps: ["A"] }),
+    ];
+
+    const c = constellationOf({ tasks, attempts: [] });
+
+    expect(deriveProjections(c).map((p) => p.state)).toEqual(["ready", "waiting"]);
+
+    const rejected = constellationOf({
+      tasks,
+      attempts: [attempt({ taskId: "B", state: "rejected", minutes: 1 })],
+    });
+
+    expect(deriveProjections(rejected).map((p) => p.state)).toEqual(["ready", "waiting"]);
+
+    const accepted = constellationOf({
+      tasks,
+      attempts: [attempt({ taskId: "A", state: "accepted", minutes: 1 })],
+    });
+
+    expect(deriveProjections(accepted).map((p) => p.state)).toEqual(["done", "ready"]);
+
+    const row = rowFor(buildRail(startedRecord(c, 1), plainFacts()).rows, "B");
+
+    expect(row?.look).toMatchObject({ glyph: "waiting", word: "waiting" });
+  });
+
+  test("pending proposals are intent outside the Task projections and counts", () => {
+    const record = c1Record();
+
+    const proposed = record.proposals[0]!;
+
+    expect(record.constellation.tasks.some((t) => t.id === proposed.task.id)).toBe(false);
+
+    expect(record.projections.some((p) => p.taskId === proposed.task.id)).toBe(false);
+
+    const rail = buildRail(record, plainFacts());
+
+    expect(rail.counts.all).toBe(record.constellation.tasks.length);
+
+    expect(rail.rows.some((r) => r.kind === "proposal")).toBe(true);
+
+    const event = E.ProposalAccepted.make({
+      constellationId: record.constellation.id,
+      revision: 38,
+      proposalId: proposed.proposalId,
+      task: { ...Struct.omit(proposed.task, []), revision: 1, canceled: false },
+    });
+
+    const mapped = applyEnvelopes(
+      { listed: new Map(), byId: new Map([[record.constellation.id, record]]) },
+      [{ sequence: 121, occurredAt: "2026-10-01T12:00:00Z", event }]
+    ).byId.get(record.constellation.id)!;
+
+    expect(mapped.proposals.some((p) => p.proposalId === proposed.proposalId)).toBe(false);
+
+    expect(mapped.projections.find((p) => p.taskId === proposed.task.id)?.state).toBe("ready");
+  });
+
   test("a Task follows its latest Attempt and waits on unfinished deps", () => {
     const c = constellationOf();
     const p = new Map(deriveProjections(c).map((x) => [x.taskId, x]));
@@ -80,7 +141,7 @@ describe("projections", () => {
     expect(p.get(TaskId.make("G1"))?.gatePromoted).toBe(true);
   });
 
-  test("keeps the Daemon's stale, fetched and future flags", () => {
+  test("keeps the Daemon's stale and fetched flags", () => {
     const c = constellationOf();
 
     const known = deriveProjections(c).map((x) =>
@@ -407,7 +468,7 @@ describe("rail", () => {
       ref.itemId === "i-trace" ? { command: "trace", exitCode: 1 } : { command: "x", exitCode: 0 },
   });
 
-  test("C1: groups, a handover row, the proposal and the Future", () => {
+  test("C1: groups, a handover row, the proposal and the unstarted Task", () => {
     const rail = buildRail(c1Record(), facts);
     const kinds = rail.rows.map((r) => r.kind);
 

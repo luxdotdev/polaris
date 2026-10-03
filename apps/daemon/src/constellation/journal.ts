@@ -32,7 +32,7 @@ export type ConstellationJournalInput =
   | {
       readonly type: "settle";
       readonly attemptId: AttemptId;
-      readonly outcome: "lost" | "settled_unverified" | "failed";
+      readonly outcome: "lost" | "failed";
       readonly reason: string;
     }
   | {

@@ -331,7 +331,6 @@ const STATE_WORD: Readonly<Record<AttemptState, string>> = {
   accepted: "accepted",
   rejected: "sent back",
   lost: "lost",
-  settled_unverified: "unverified",
   failed: "failed",
 };
 

@@ -95,7 +95,6 @@ const STATUS: Readonly<Record<AttemptData["state"], string>> = {
   accepted: "Accepted",
   rejected: "Sent back",
   lost: "Lost",
-  settled_unverified: "Settled unverified",
   failed: "Failed",
 };
 

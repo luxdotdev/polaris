@@ -51,7 +51,6 @@ type Mix = Readonly<{
   review?: number;
   waiting?: number;
   ask?: number;
-  future?: number;
 }>;
 
 const GROUPS: ReadonlyArray<readonly [letter: string, name: string | null, mix: Mix]> = [
@@ -63,7 +62,7 @@ const GROUPS: ReadonlyArray<readonly [letter: string, name: string | null, mix: 
   ["F", "F · Spec and model tests", { done: 16 }],
   ["H", "G · Bench and leases", { done: 5, waiting: 6 }],
   ["G", null, { done: 4, waiting: 3 }],
-  ["X", null, { future: 8 }],
+  ["X", null, { waiting: 8 }],
 ];
 
 const TITLES = [
@@ -83,7 +82,7 @@ const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOSt
 
 type State = keyof Mix;
 
-const ORDER: ReadonlyArray<State> = ["ask", "review", "working", "done", "waiting", "future"];
+const ORDER: ReadonlyArray<State> = ["ask", "review", "working", "done", "waiting"];
 
 const statesOf = (mix: Mix): ReadonlyArray<State> =>
   ORDER.flatMap((key) => Array.from({ length: mix[key] ?? 0 }, () => key));
@@ -137,7 +136,7 @@ export const largeRecord = (): ConstellationRecord => {
       title: titleOf(letter, n),
       group,
       kind: letter === "G" ? "gate" : "task",
-      deps: state === "waiting" || state === "future" ? [`A${(n % 14) + 1}`, "C1"] : [],
+      deps: state === "waiting" ? [`A${(n % 14) + 1}`, "C1"] : [],
       ui: letter === "E" || n % 5 === 0,
     })
   );
@@ -162,13 +161,8 @@ export const largeRecord = (): ConstellationRecord => {
     400
   );
 
-  const futures = new Set(tasks.flatMap((t) => (t.id.startsWith("X") ? [t.id] : [])));
-
   return {
     ...base,
-    projections: base.projections.map((p) =>
-      futures.has(p.taskId) ? { ...p, state: "future" as const } : p
-    ),
     proposals: [
       {
         proposalId: "p-1",

@@ -28,9 +28,10 @@ or terminal ownership. First Turn/title commits have stable Attempt IDs.
 
 Startup mounts one loopback MCP listener, installs the local/remote command
 facade, replays token revocation, resumes local and remote working scopes, and
-starts delivery plus durable remote ack replay. Resume never submits a first
-Turn. An eligible local interruption invokes the one Continue inside the
-acquired resume hook. Remote recovery remains blocked until verified worker
+starts delivery plus durable remote ack replay. Resume submits a first Turn only
+when the persisted startup command receipt is absent, including Initial Attempts.
+The receipt survives the bounded recent-Turn projection. An eligible local
+interruption invokes the one Continue inside the acquired resume hook. Remote recovery remains blocked until verified worker
 interruption/continued-Turn facts are available.
 
 Every Harness open derives current role attachments from folded local graphs

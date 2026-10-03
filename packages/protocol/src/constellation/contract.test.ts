@@ -7,6 +7,8 @@ import { DaemonRpcs, HostStreamItem } from "../rpc.ts";
 import { ConstellationCommand, PlanOperation, ReviewAction } from "./commands.ts";
 import {
   AttemptCause,
+  AttemptState,
+  TaskState,
   AttemptId,
   CheckReceipt,
   Claim,
@@ -51,6 +53,22 @@ const roundTrip = <
 };
 
 describe("Constellation contract", () => {
+  test("retired states are rejected at protocol and event boundaries", () => {
+    expect(() => Schema.decodeUnknownSync(TaskState)("future")).toThrow();
+    expect(() => Schema.decodeUnknownSync(TaskState)("settled_unverified")).toThrow();
+    expect(() => Schema.decodeUnknownSync(AttemptState)("settled_unverified")).toThrow();
+    expect(() =>
+      Schema.decodeUnknownSync(ConstellationEvent.cases.AttemptSettled)({
+        constellationId: "c",
+        revision: 1,
+        attemptId: "a",
+        attemptRevision: 1,
+        outcome: "settled_unverified",
+        reason: "No Claim",
+      })
+    ).toThrow();
+  });
+
   test("the subgroup is mounted under DaemonRpcs with no role supplied by the caller", () => {
     expect(ConstellationRpcs.requests.size).toBe(18);
 

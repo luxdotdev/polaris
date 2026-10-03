@@ -33,7 +33,6 @@ export type WorkerState =
   | "sent-back"
   | "failed"
   | "lost"
-  | "unverified"
   | "accepted"
   | "setting-up"
   | "setup-failed";
@@ -155,7 +154,6 @@ const RANK: Readonly<Record<WorkerState, number>> = {
   "sent-back": 3,
   failed: 3,
   lost: 3,
-  unverified: 3,
   accepted: 4,
 };
 
@@ -199,7 +197,6 @@ export const workerState = (
     Match.when("rejected", (): WorkerState => "sent-back"),
     Match.when("failed", (): WorkerState => "failed"),
     Match.when("lost", (): WorkerState => "lost"),
-    Match.when("settled_unverified", (): WorkerState => "unverified"),
     Match.exhaustive
   );
 

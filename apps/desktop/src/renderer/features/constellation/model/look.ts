@@ -35,15 +35,7 @@ export type Attention =
   | { readonly kind: "setup"; readonly run: SetupRun };
 
 /** The buckets groups count and filters use. */
-export type Bucket =
-  | "needs-you"
-  | "review"
-  | "working"
-  | "blocked"
-  | "done"
-  | "waiting"
-  | "future"
-  | "ended";
+export type Bucket = "needs-you" | "review" | "working" | "blocked" | "done" | "waiting" | "ended";
 
 export interface TaskLook {
   readonly glyph: TaskGlyphKind;
@@ -56,7 +48,7 @@ export interface TaskLook {
   readonly bucket: Bucket;
 }
 
-const ENDED: ReadonlySet<TaskState> = new Set(["canceled", "lost", "settled_unverified"]);
+const ENDED: ReadonlySet<TaskState> = new Set(["canceled", "lost"]);
 
 /** The rail glyph for a projection; shared with the sidebar's worker rows. */
 export const glyphFor = (
@@ -83,7 +75,7 @@ export const glyphFor = (
 
   if (ENDED.has(state)) return "stopped";
 
-  return state === "future" ? "future" : "waiting";
+  return "waiting";
 };
 
 /** The question to the user a Task's latest Attempt is waiting on, if any. */
@@ -137,7 +129,6 @@ const ATTENTION_WORD: Readonly<Record<Attention["kind"], string>> = {
 };
 
 const STATE_WORD: Readonly<Record<TaskState, string>> = {
-  future: "future",
   waiting: "waiting",
   ready: "ready",
   working: "working",
@@ -146,12 +137,10 @@ const STATE_WORD: Readonly<Record<TaskState, string>> = {
   done: "done",
   canceled: "canceled",
   lost: "lost",
-  settled_unverified: "unverified",
   failed: "failed",
 };
 
 const BUCKET: Readonly<Record<TaskState, Bucket>> = {
-  future: "future",
   waiting: "waiting",
   ready: "waiting",
   working: "working",
@@ -160,7 +149,6 @@ const BUCKET: Readonly<Record<TaskState, Bucket>> = {
   done: "done",
   canceled: "ended",
   lost: "ended",
-  settled_unverified: "ended",
   failed: "ended",
 };
 
@@ -179,7 +167,7 @@ export const toneOf = (state: TaskState): Tone => {
 
   if (state === "failed") return "failed";
 
-  return state === "future" || ENDED.has(state) ? "faint" : "neutral";
+  return ENDED.has(state) ? "faint" : "neutral";
 };
 
 /** Setup runs on the Host outside the worker cap: neutral while running, needs you once failed. */

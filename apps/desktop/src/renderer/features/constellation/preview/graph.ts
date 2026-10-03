@@ -477,8 +477,6 @@ export const c1Record = (
   return {
     ...base,
     projections: unfetched(base.projections).map((p) => {
-      if (p.taskId === "C1") return merged(p, { state: "future" });
-
       return p.taskId === "B2" ? merged(p, { liveness: b2Liveness() }) : p;
     }),
     proposals: [

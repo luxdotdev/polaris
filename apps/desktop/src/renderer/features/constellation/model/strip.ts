@@ -15,8 +15,7 @@ export type StripTone =
   | "review"
   | "needs-you"
   | "failed"
-  | "waiting"
-  | "future";
+  | "waiting";
 
 export interface Segment {
   readonly key: string;
@@ -40,8 +39,6 @@ const toneOf = (row: TaskRow): StripTone => {
       return "review";
     case "failed":
       return "failed";
-    case "future":
-      return "future";
     default:
       return "waiting";
   }
@@ -68,7 +65,6 @@ const ORDER: ReadonlyArray<StripTone> = [
   "accepted",
   "failed",
   "waiting",
-  "future",
 ];
 
 /** A proportional bar in a fixed order, so it reads left to right the same way every time. */

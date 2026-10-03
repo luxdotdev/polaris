@@ -54,6 +54,14 @@ children are done, ready if any child is ready, or waiting. A canceled parent is
 With no non-canceled children a Task follows its own Attempt and dependencies.
 Dependencies on parents, including Gate promotion, use this rolled-up done state.
 
+**Unstarted Tasks and intent:** A mapped leaf without an Attempt is ready when all
+its effective dependencies are accepted, otherwise waiting. A rejected latest
+Attempt uses the same readiness rule. Parents retain the rollup above. A worker's
+pending proposal is intent outside the Task graph until the Lead accepts it;
+accepting declares a mapped Task with the same readiness rule. There is no deferred
+Task field in v1, so `future` is removed from TaskState rather than inferred from
+lack of an Attempt. The dashed intent glyph remains for proposals.
+
 **Storage:** one stream per Constellation, `constellation:<id>`, in the Daemon's event store. It's committed, acknowledged and resumed like session streams, and served on the same feeds. An Attempt references its worker session; sessions don't reference back.
 
 **Events:**
@@ -62,14 +70,20 @@ Dependencies on parents, including Gate promotion, use this rolled-up done state
 |---|---|
 | Lifecycle | `ConstellationStarted`, `ConstellationStateChanged`, `LeadChanged { from, to, summary }` |
 | Tasks | `TaskDeclared`, `TaskEdited`, `TaskCanceled` (deps, Area, brief, criteria, kind task/gate, suggested Harness/Model), `TaskProposed` (by an Attempt) → `ProposalAccepted` / `ProposalDeclined` |
-| Attempts | `AttemptStarted { cause: initial · sent_back · merge_conflict(base) · recover · followup · superseded, by, ref, sessionId, worktree, branch, base }`; `AttemptProgressed`; `AttemptClaimed` (the Claim, below); `AttemptAccepted { mergedHead, receipts, evidence }`; `AttemptRejected` (send-back); `AttemptSettled { lost · settled_unverified · failed }` |
+| Attempts | `AttemptStarted { cause: initial · sent_back · merge_conflict(base) · recover · followup · superseded, by, ref, sessionId, worktree, branch, base }`; `AttemptProgressed`; `AttemptClaimed` (the Claim, below); `AttemptAccepted { mergedHead, receipts, evidence }`; `AttemptRejected` (send-back); `AttemptSettled { lost · failed }` |
 | Gates | `GatePromoted` (emitted by the decider when every dep is accepted; never asserted by a caller) |
 | Delivery | `NotificationQueued` → `LeadNotified { items, turnId }`; `OperatorMessageSent { id, authority, target }` / `OperatorMessageResolved { id }`; `PeerMessage { from, to, text }` |
 
 **Settling:**
 - A **Claim** puts the Attempt in **review**. The Lead or the user then **accepts** it (done) or **sends it back**: the Attempt is rejected and a new Attempt opens with `cause: sent_back`.
-- **Mechanical settles skip review:** `lost`, `settled_unverified`, `failed` (Harness failure).
+- **Mechanical settles skip review:** `lost`, `failed` (Harness failure).
 - **Gates count accepted Tasks and done parents.**
+- `settled_unverified` is retired: no Daemon producer exists. Receipt quality is
+  recorded as verified, reported or asserted on acceptance, not as a separate
+  terminal outcome. A worker ending without a Claim remains working, is nudged
+  once, then notifies the Lead as stopped; it is not silently accepted or settled.
+  Lost and failed stay retryable mechanical outcomes. No persisted-event migration
+  is needed for a state the Daemon never emitted; retired values fail wire decoding.
 
 **The Claim carries a structured report:**
 - branch, head SHA, commits;
