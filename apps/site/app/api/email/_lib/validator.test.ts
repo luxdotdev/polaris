@@ -14,8 +14,7 @@ import {
 const env = {
   NODE_ENV: "production",
   AWS_REGION: "us-east-1",
-  AWS_ACCESS_KEY_ID: "fake-key",
-  AWS_SECRET_ACCESS_KEY: "fake-secret",
+  AWS_ROLE_ARN: "arn:aws:iam::123456789012:role/polaris-download-email",
   POLARIS_EMAIL_FROM: "download@example.com",
   POLARIS_EMAIL_CONFIGURATION_SET: "polaris-download",
 };
@@ -261,11 +260,11 @@ describe("SES Insights route mapping", () => {
 });
 
 describe("SES Insights configuration and privacy", () => {
-  test("uses the send Region/credentials, one attempt, signed body command and bounded timeout", async () => {
+  test("uses the send Region and OIDC role, one attempt, signed body command and bounded timeout", async () => {
     const configs: SESv2ClientConfig[] = [];
 
     const validator = createValidator(
-      { ...env, AWS_SESSION_TOKEN: "fake-token" },
+      { ...env, AWS_ACCESS_KEY_ID: "static-key", AWS_SECRET_ACCESS_KEY: "static-secret" },
       (config) => {
         configs.push(config);
 
@@ -283,42 +282,25 @@ describe("SES Insights configuration and privacy", () => {
     );
 
     expect(await validator.validate(email)).toBe(true);
-    createTransport({ ...env, AWS_SESSION_TOKEN: "fake-token" }, (config) => {
+    createTransport(env, (config) => {
       configs.push(config);
 
       return { send: async () => ({}) };
     });
     expect(configs[0]?.region).toBe(configs[1]?.region);
-    expect(configs[0]?.credentials).toEqual(configs[1]?.credentials);
-    expect(configs[0]?.credentials).toEqual({
-      accessKeyId: "fake-key",
-      secretAccessKey: "fake-secret",
-      sessionToken: "fake-token",
-    });
+    // Static keys in the environment are ignored: credentials always come from the role.
+    expect(configs[0]?.credentials).toBeInstanceOf(Function);
+    expect(configs[1]?.credentials).toBeInstanceOf(Function);
     expect(configs[0]?.maxAttempts).toBe(1);
     expect(configs[0]?.requestHandler).toEqual({ connectionTimeout: 3000, requestTimeout: 5000 });
-  });
-
-  test("explicit hosted role uses the same SDK chain", async () => {
-    const validator = createValidator(
-      { ...env, AWS_ACCESS_KEY_ID: "", AWS_SECRET_ACCESS_KEY: "", POLARIS_EMAIL_USE_ROLE: "true" },
-      (config) => {
-        expect(config.credentials).toBeUndefined();
-
-        return { send: async () => good() };
-      },
-      createValidationCounters()
-    );
-
-    expect(await validator.validate(email)).toBe(true);
   });
 
   test.each([
     { AWS_REGION: "" },
     { POLARIS_EMAIL_FROM: "bad" },
-    { AWS_ACCESS_KEY_ID: "" },
-    { AWS_SECRET_ACCESS_KEY: "" },
-    { AWS_ACCESS_KEY_ID: "", AWS_SECRET_ACCESS_KEY: "" },
+    { AWS_ROLE_ARN: "" },
+    { AWS_ROLE_ARN: "arn:aws:iam::123456789012:user/static" },
+    { AWS_ROLE_ARN: "", AWS_ACCESS_KEY_ID: "static-key", AWS_SECRET_ACCESS_KEY: "static-secret" },
     { POLARIS_EMAIL_TRANSPORT: "fake" },
     { POLARIS_EMAIL_CONFIGURATION_SET: "" },
   ])("unconfigured production never creates a client %#", async (missing) => {

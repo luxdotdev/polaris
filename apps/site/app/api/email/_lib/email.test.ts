@@ -12,8 +12,7 @@ const configured: EmailEnv = {
   AWS_REGION: "us-east-1",
   POLARIS_EMAIL_FROM: "download@example.com",
   POLARIS_EMAIL_CONFIGURATION_SET: "polaris-download",
-  AWS_ACCESS_KEY_ID: "fake-key",
-  AWS_SECRET_ACCESS_KEY: "fake-secret",
+  AWS_ROLE_ARN: "arn:aws:iam::123456789012:role/polaris-download-email",
 };
 
 const submission = (
@@ -189,8 +188,14 @@ describe("transport configuration", () => {
     { ...configured, AWS_REGION: "" },
     { ...configured, POLARIS_EMAIL_CONFIGURATION_SET: "" },
     { ...configured, POLARIS_EMAIL_FROM: "bad" },
-    { ...configured, AWS_SECRET_ACCESS_KEY: "" },
-    { ...configured, AWS_ACCESS_KEY_ID: "", AWS_SECRET_ACCESS_KEY: "" },
+    { ...configured, AWS_ROLE_ARN: "" },
+    { ...configured, AWS_ROLE_ARN: "not-an-arn" },
+    {
+      ...configured,
+      AWS_ROLE_ARN: "",
+      AWS_ACCESS_KEY_ID: "static-key",
+      AWS_SECRET_ACCESS_KEY: "static-secret",
+    },
     { ...configured, POLARIS_EMAIL_TRANSPORT: "fake" },
   ])("fails closed before creating a client %#", (env) => {
     let calls = 0;
@@ -203,7 +208,7 @@ describe("transport configuration", () => {
     expect(calls).toBe(0);
   });
 
-  test("role mode opts into the SDK credential chain and bounds retries", () => {
+  test("credentials come from the Vercel OIDC role and retries are bounded", () => {
     const configs: SESv2ClientConfig[] = [];
 
     const factory: SesFactory = (config) => {
@@ -219,12 +224,12 @@ describe("transport configuration", () => {
           AWS_REGION: "us-east-1",
           POLARIS_EMAIL_FROM: "download@example.com",
           POLARIS_EMAIL_CONFIGURATION_SET: "polaris-download",
-          POLARIS_EMAIL_USE_ROLE: "true",
+          AWS_ROLE_ARN: "arn:aws:iam::123456789012:role/polaris-download-email",
         },
         factory
       )
     ).not.toBeNull();
-    expect(configs[0]?.credentials).toBeUndefined();
+    expect(configs[0]?.credentials).toBeInstanceOf(Function);
     expect(configs[0]?.maxAttempts).toBe(1);
   });
 });

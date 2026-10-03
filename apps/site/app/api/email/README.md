@@ -53,19 +53,29 @@ Set server-only environment variables on the production deployment:
 | --- | --- |
 | `AWS_REGION` | The SES region with the verified sender identity |
 | `POLARIS_EMAIL_FROM` | A verified sender email address (address only) |
-| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Credentials permitted to call `ses:GetEmailAddressInsights` and `ses:SendEmail` |
 | `POLARIS_EMAIL_CONFIGURATION_SET` | Required dedicated SES configuration set name, e.g. `polaris-download` |
-| `AWS_SESSION_TOKEN` | Session token, if using temporary credentials |
-| `POLARIS_EMAIL_USE_ROLE` | `true` to opt into the SDK's default credential chain for a hosted role instead of static credentials |
+| `AWS_ROLE_ARN` | The IAM role assumed with Vercel's OIDC token (`arn:aws:iam::<account>:role/<name>`) |
 | `AXIOM_TOKEN`, `AXIOM_DATASET` | Optional, shared with the update/download routes |
 
+Credentials come only from the IAM role: `@vercel/oidc-aws-credentials-provider`
+exchanges the deployment's OIDC token for short-lived STS credentials. Static
+access keys (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`) are
+never read, and must not be set (docs/adr/0018). Setup:
+
+1. Vercel: Project → Settings → Security → OIDC federation, issuer mode Team.
+2. AWS IAM → Identity providers → OpenID Connect: URL `https://oidc.vercel.com/<team-slug>`,
+   audience `https://vercel.com/<team-slug>`.
+3. A role trusting that provider for `sts:AssumeRoleWithWebIdentity`, with
+   `oidc.vercel.com/<team-slug>:aud` = `https://vercel.com/<team-slug>` and
+   `oidc.vercel.com/<team-slug>:sub` = `owner:<team-slug>:project:<project>:environment:production`.
+4. Role permissions: `ses:GetEmailAddressInsights` (resource `*`) and `ses:SendEmail`
+   scoped to the sender identity and configuration set ARNs.
+
 No public env variables, credentials in code, AWS config lookups for region or
-sender, or automatic fallback to a mail app. Role mode relies on the hosting
-environment's credential provider (for example container credentials or web
-identity via `AWS_ROLE_ARN` / `AWS_WEB_IDENTITY_TOKEN_FILE`); grant Insights permission and sender-scoped send
-permission. Credentials are resolved by the SDK at validation/send time.
-Missing region, sender, configuration set, credential pair or role opt-in returns 503; resolution
-or SES errors also return a generic 503 and discard provider details.
+sender, or automatic fallback to a mail app. Credentials are resolved at
+validation/send time. Missing region, sender, configuration set or a valid role
+ARN returns 503; token exchange or SES errors also return a generic 503 and
+discard provider details.
 
 Development and tests always use a fake validator and transport, even with AWS credentials
 present. The response header `X-Polaris-Email-Preview: 1` makes the form say
@@ -151,5 +161,5 @@ Docs: [BotID setup](https://vercel.com/docs/botid/get-started),
 [SES quotas](https://docs.aws.amazon.com/ses/latest/dg/quotas.html),
 [SES IAM](https://docs.aws.amazon.com/service-authorization/latest/reference/list_sesv2.html),
 [SESv2 SendEmail](https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/client/sesv2/command/SendEmailCommand/),
-[credential chain](https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/setting-credentials-node.html),
+[Vercel OIDC for AWS](https://vercel.com/docs/oidc/aws),
 [Vercel request headers](https://vercel.com/docs/headers/request-headers#x-vercel-forwarded-for).
