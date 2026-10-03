@@ -6,7 +6,10 @@ import { Effect, Option, Stream } from "effect";
 import { HOST } from "../engine/constellation.testing.ts";
 
 /** Boot the production Daemon on the pending retry, using only the scripted Harness. */
-export const restartForRetry = async (root: string, attempt: Attempt) => {
+export const restartForRetry = async (root: string, attempt: Attempt, afterIndex?: number) => {
+  const matches = (turn: import("@polaris/protocol").Turn) =>
+    afterIndex === undefined ? turn.id === `${attempt.id}:start` : turn.index > afterIndex;
+
   writeFileSync(join(root, "host-id"), `${HOST}\n`);
 
   const socket = join(root, "daemon.sock");
@@ -63,7 +66,7 @@ export const restartForRetry = async (root: string, attempt: Attempt) => {
             .pipe(
               Stream.map((item) => {
                 if (SessionStreamItem.guards.Snapshot(item))
-                  return item.turns.find((t) => t.turn.id === `${attempt.id}:start`)?.turn;
+                  return item.turns.find((t) => matches(t.turn))?.turn;
 
                 if (
                   SessionStreamItem.guards.Event(item) &&
@@ -73,7 +76,7 @@ export const restartForRetry = async (root: string, attempt: Attempt) => {
 
                 return undefined;
               }),
-              Stream.filter((turn) => turn !== undefined && turn.id === `${attempt.id}:start`),
+              Stream.filter((turn) => turn !== undefined && matches(turn)),
               Stream.runHead
             );
 

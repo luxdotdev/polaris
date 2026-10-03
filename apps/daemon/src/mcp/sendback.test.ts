@@ -1,86 +1,24 @@
 import { expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { type Attempt, type Claim, type Constellation, type Turn } from "@polaris/protocol";
-import { Effect, Schema } from "effect";
+import { type Attempt, type Constellation, type Turn, TurnId } from "@polaris/protocol";
+import { Effect } from "effect";
 import { CID, LEAD, HOST, report } from "../engine/constellation.testing.ts";
-import { setup, finish } from "../constellation/delivery/testing.ts";
+import { setup, finish, send } from "../constellation/delivery/testing.ts";
 import { Constellations } from "../constellation/service.ts";
 import { EventStore } from "../store/EventStore.ts";
 import { startPendingAttempt } from "../constellation/composition/workers.ts";
 import { McpBinding } from "./binding.ts";
-import { type ConstellationCommands } from "./tools.ts";
 import { FriendlyReview } from "./tools/inputs.ts";
-import { McpTokens } from "./tokens.ts";
-import { mcpHttp } from "./http.ts";
+import { callSendbackTool as call } from "./sendback.tools.testing.ts";
 import { sendbackWorld } from "./sendback.testing.ts";
+import { recordSendbackTrace } from "./sendback.trace.testing.ts";
 import { restartForRetry } from "./sendback.restart.testing.ts";
 
 const reason =
-  "  Fix the missing cleanup.\n\nKeep `$(literal)` and Unicode λ verbatim.\n" +
+  '  Fix the missing cleanup.\n\nKeep `$(literal)` and Unicode λ and "quoted" feedback verbatim.\n' +
   "Explain the failure and retain both tests.\n".repeat(90) +
   "Trailing spaces stay.  \n";
-
-interface ToolInput {
-  claim?: Claim;
-  task?: string;
-  revision?: number;
-  action?: typeof FriendlyReview.Type;
-  json?: boolean;
-}
-
-const ToolResponse = Schema.Struct({
-  result: Schema.Struct({
-    isError: Schema.optionalKey(Schema.Boolean),
-    content: Schema.Array(Schema.Struct({ type: Schema.Literal("text"), text: Schema.String })),
-  }),
-});
-
-const call = async (
-  binding: McpBinding,
-  commands: ConstellationCommands,
-  name: string,
-  input: ToolInput
-) => {
-  const tokenRoot = mkdtempSync("/tmp/polaris-sendback-mcp-");
-
-  try {
-    return await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const tokens = yield* McpTokens;
-          const token = yield* tokens.issue(binding);
-          const { origin } = yield* mcpHttp(commands);
-
-          const json = yield* Effect.promise(async () => {
-            const response = await fetch(`${origin}/mcp/${token}`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "MCP-Protocol-Version": "2025-11-25" },
-              body: JSON.stringify({
-                jsonrpc: "2.0",
-                id: 1,
-                method: "tools/call",
-                params: { name, arguments: input },
-              }),
-            });
-
-            expect(response.status).toBe(200);
-
-            return response.json();
-          });
-
-          const { result } = Schema.decodeUnknownSync(ToolResponse)(json);
-
-          expect(result.isError, JSON.stringify(result.content)).not.toBe(true);
-
-          return result.content.map((c) => c.text).join("\n");
-        })
-      ).pipe(Effect.provide(McpTokens.layer(join(tokenRoot, "mcp.sqlite"))))
-    );
-  } finally {
-    rmSync(tokenRoot, { recursive: true, force: true });
-  }
-};
 
 const lead = McpBinding.cases.Lead.make({ sessionId: LEAD, constellationId: CID });
 
@@ -151,7 +89,9 @@ for (const fresh of [false, true])
 
                 expect(text).toContain(`Claim ${previous.claim!.head}`);
 
-                expect(text).toContain(`Review feedback:\n${reason}`);
+                expect(text).toContain("  Review feedback:\n    Fix the missing cleanup.");
+
+                expect(text).toContain("    …");
 
                 expect(text).toContain(JSON.stringify(reason));
               }
@@ -159,7 +99,10 @@ for (const fresh of [false, true])
               const turns = (yield* store.model).sessions.get(attempt.sessionId)!.turns;
 
               if (restart) expect(turns.some((t) => t.id === `${attempt.id}:start`)).toBe(false);
-              else assertTurn(turns.at(-1)!, previous, merge);
+              else {
+                assertTurn(turns.at(-1)!, previous, merge);
+                yield* recordSendbackTrace(`${fresh}-${merge}-${restart}`);
+              }
 
               return { graph, previous, attempt };
             })
@@ -187,6 +130,8 @@ for (const fresh of [false, true])
                 assertTurn(turns.at(-1)!, saved.previous, merge);
 
                 expect(resumed.turns).toHaveLength(0);
+
+                yield* recordSendbackTrace(`${fresh}-${merge}-${restart}`);
               })
             );
           }
@@ -196,3 +141,97 @@ for (const fresh of [false, true])
       }, 20000);
     }
   }
+
+test("Initial Attempt committed before shutdown receives its first Turn on restart", async () => {
+  const root = mkdtempSync("/tmp/polaris-initial-start-");
+
+  try {
+    const w = sendbackWorld(join(root, "state.sqlite"), false);
+
+    const attempt = await w.run(
+      Effect.gen(function* () {
+        yield* setup();
+        const store = yield* EventStore;
+
+        return (yield* store.model).constellations.get(CID)!.graph.attempts[0]!;
+      })
+    );
+
+    const turn = await restartForRetry(root, attempt);
+    expect(turn.id).toBe(TurnId.make(`${attempt.id}:start`));
+    expect(turn.prompt).toContain("Polaris assignment");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}, 20000);
+
+test("retry restart recovers after its first Turn falls out of the recent 32 Turns", async () => {
+  const root = mkdtempSync("/tmp/polaris-long-retry-");
+  const file = join(root, "state.sqlite");
+
+  try {
+    const w = sendbackWorld(file, true);
+
+    const saved = await w.run(
+      Effect.gen(function* () {
+        yield* setup();
+        const commands = yield* Constellations;
+        const store = yield* EventStore;
+        const initial = (yield* store.model).constellations.get(CID)!.graph.attempts[0]!;
+        yield* finish(initial.sessionId);
+        yield* Effect.promise(() => call(worker(initial), commands, "claim", { claim: report() }));
+        const previous = (yield* store.model).constellations.get(CID)!.graph.attempts[0]!;
+        yield* Effect.promise(() =>
+          call(lead, commands, "review", {
+            task: "A",
+            revision: previous.revision,
+            action: FriendlyReview.cases.SendBack.make({
+              reason,
+              worker: { session: initial.sessionId },
+            }),
+          })
+        );
+        const attempt = (yield* store.model).constellations.get(CID)!.graph.attempts.at(-1)!;
+
+        for (let i = 0; i < 34; i++) {
+          yield* finish(attempt.sessionId);
+          yield* send(attempt.sessionId, `Next step ${i}`);
+        }
+
+        const turns = (yield* store.model).sessions.get(attempt.sessionId)!.turns;
+        expect(turns).toHaveLength(32);
+        expect(turns.some((t) => t.id === `${attempt.id}:start`)).toBe(false);
+        expect(
+          yield* startPendingAttempt((yield* store.model).constellations.get(CID)!.graph, attempt)
+        ).toBe(false);
+
+        return { attempt, index: turns.at(-1)!.index };
+      })
+    );
+
+    const recovered = await restartForRetry(root, saved.attempt, saved.index);
+    expect(recovered.index).toBe(saved.index + 1);
+    const resumed = sendbackWorld(file, true);
+    await resumed.run(
+      Effect.gen(function* () {
+        const store = yield* EventStore;
+        const model = yield* store.model;
+        expect(
+          yield* startPendingAttempt(model.constellations.get(CID)!.graph, saved.attempt)
+        ).toBe(false);
+
+        const all = yield* store.readTurns({
+          sessionId: saved.attempt.sessionId,
+          beforeIndex: null,
+          limit: null,
+        });
+
+        expect(all.filter((t) => t.id === `${saved.attempt.id}:start`)).toHaveLength(1);
+        expect(model.constellations.get(CID)!.recoveries.size).toBe(1);
+        expect(resumed.turns).toHaveLength(0);
+      })
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}, 20000);

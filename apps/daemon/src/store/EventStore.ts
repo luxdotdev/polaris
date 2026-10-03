@@ -121,6 +121,8 @@ export class EventStore extends Context.Service<
     readonly commit: <E extends Rejection = never>(
       options: CommitOptions<E>
     ) => Effect.Effect<CommitResult, E | ServiceError>;
+    /** Successful command receipts survive the bounded Session Turn window. */
+    readonly hasCommandReceipt: (id: CommandId) => Effect.Effect<boolean, ServiceError>;
     /**
      * Subscribe before reading a snapshot, so nothing committed in between is
      * missed. The subscription lives as long as the scope; `filter` keeps
@@ -322,6 +324,11 @@ export class EventStore extends Context.Service<
       return EventStore.of({
         model: Ref.get(modelRef),
         commit,
+        hasCommandReceipt: (id) =>
+          sql`SELECT command_id FROM command_receipts WHERE command_id = ${id} AND rejection IS NULL`.pipe(
+            Effect.map((rows) => rows.length > 0),
+            Effect.mapError(storeError("read a command receipt"))
+          ),
         subscribe: (options) => hub.subscribe(options),
         publishEphemeral: (item) => Effect.sync(() => hub.publish(item)),
         subscriberCount: Effect.sync(() => hub.size),

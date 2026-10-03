@@ -141,22 +141,17 @@ export const resumeAttempt = Effect.fn("Constellation.resumeAttempt")(function* 
   if (candidate !== undefined) yield* recoverAttempt(candidate);
 });
 
-/** A committed retry with no first Turn must still start after a Daemon restart. */
+/** A committed Attempt with no startup receipt must still start after a Daemon restart. */
 export const startPendingAttempt = Effect.fn("Constellation.startPendingAttempt")(function* (
   graph: Constellation,
   attempt: Attempt
 ) {
-  if (
-    !Predicate.isTagged(attempt.cause, "SentBack") &&
-    !Predicate.isTagged(attempt.cause, "MergeConflict")
-  )
-    return false;
-
   const store = yield* EventStore;
-  const record = (yield* store.model).sessions.get(attempt.sessionId);
 
-  if (record === undefined || record.turns.some((t) => t.id === `${attempt.id}:start`))
+  if (yield* store.hasCommandReceipt(CommandId.make(`${attempt.id}:start`)).pipe(Effect.orDie))
     return false;
+
+  if (!(yield* store.model).sessions.has(attempt.sessionId)) return false;
 
   yield* startAttempt(graph, attempt);
 

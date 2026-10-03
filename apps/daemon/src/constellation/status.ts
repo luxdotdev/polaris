@@ -53,6 +53,29 @@ const reviewLines = (attempt: Attempt, session?: SessionRecord): ReadonlyArray<s
   return lines;
 };
 
+const rejectionLines = (record: ConstellationRecord, task: Task): ReadonlyArray<string> => {
+  const lines: string[] = [];
+
+  const previous = record.graph.attempts.findLast(
+    (a) => a.taskId === task.id && a.state === "rejected"
+  );
+
+  if (previous !== undefined) {
+    lines.push(
+      `  Rejected attempt ${previous.id}${previous.claim === null ? "" : ` · Claim ${previous.claim.head}`}`
+    );
+
+    if (previous.rejectionReason !== null) {
+      const feedback = previous.rejectionReason.trim().split("\n");
+      lines.push("  Review feedback:", ...feedback.slice(0, 3).map((line) => `    ${line}`));
+
+      if (feedback.length > 3) lines.push("    …");
+    }
+  }
+
+  return lines;
+};
+
 const taskLines = (
   record: ConstellationRecord,
   task: Task,
@@ -79,16 +102,7 @@ const taskLines = (
       );
   }
 
-  for (const previous of graph.attempts.filter(
-    (a) => a.taskId === task.id && a.state === "rejected"
-  )) {
-    lines.push(
-      `  Rejected attempt ${previous.id}${previous.claim === null ? "" : ` · Claim ${previous.claim.head}`}`
-    );
-
-    if (previous.rejectionReason !== null)
-      lines.push(`  Review feedback:\n${previous.rejectionReason}`);
-  }
+  lines.push(...rejectionLines(record, task));
 
   return lines;
 };

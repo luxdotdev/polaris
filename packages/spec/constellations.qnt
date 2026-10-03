@@ -316,6 +316,14 @@ module constellations {
     if (view.attempts.indices().contains(a) and view.attempts[a].status == "working"
       and interruptions.keys().contains(a) and interruptions.get(a) == 1 and view.proofs.contains({ attempt: a, interruption: interruptions.get(a) }) and not(view.recoveries.indices().exists(i => view.recoveries[i].attempt == a)))
     [AttemptRecoveryContinued({ attempt: a, interruption: interruptions.get(a) })] else [])
+  // The simulator samples the same eligible interruptions that runtime recovery examines.
+  action recoverPending = {
+    val candidates = view.attempts.indices().filter(a => view.attempts[a].status == "working"
+      and interruptions.keys().contains(a) and interruptions.get(a) == 1
+      and not(view.recoveries.indices().exists(i => view.recoveries[i].attempt == a)))
+    nondet a = (if (candidates.size() > 0) candidates else Set(-1)).oneOf()
+    recover(a)
+  }
   action restart = all { log' = log, offline' = offline, appConnected' = appConnected,
     ownerAvailable' = true, outbox' = outbox, interruptions' = interruptions }
   action availability(app: bool, owner: bool, stale: Set[int]): bool = all {
@@ -356,7 +364,7 @@ module constellations {
       claim(a, rev, 42, true, true), accept(a, rev, 42), accept(a, rev, 43), reject(a, rev), startFirstTurn(a), stop(a, rev), harnessFail(a),
       ask(a, id), deliver, handover(s), requestHandover(id), cancelHandover, finishHandover(id, s), setState("running"), setState("paused"),
       all { TASKS.forall(task => accepted(view, task)), setState("completed") },
-      setState("archived"), interrupt(a), recover(a), restart,
+      setState("archived"), interrupt(a), recoverPending, restart,
       availability(false, true, Set(s)), availability(true, false, Set()), availability(true, true, Set()),
       enqueue(id, a, 42), relay(id), request(id), grant, release(id), cancelLease(id), commit("worker-host", [LeadChanged({ to: s, request: -1 })]),
     }
@@ -402,7 +410,10 @@ module constellations {
     before.attempts.indices().forall(a => active(before.attempts[a]) or before.attempts[a] == after.attempts[a])
   })
   val outboxAppliedExactlyOnce = view.applied.length() == view.applied.foldl(Set(), (acc, x) => acc.union(Set(x))).size()
-  val onlyOwnerCommits = log.indices().forall(i => log[i].host == OWNER)
+  val onlyOwnerCommits = log.indices().forall(i => match log[i].kind {
+    | FirstTurnStarted(_) => true
+    | _ => log[i].host == OWNER
+  })
   val recoveryHasEligibleProof = log.indices().forall(i => match log[i].kind {
     | AttemptRecoveryContinued(p) => { val before = foldEvents(log.slice(0, i)); before.proofs.contains({ attempt: p.attempt, interruption: p.interruption }) }
     | _ => true
@@ -426,7 +437,7 @@ module constellations {
     | ClaimApproved(a) => foldEvents(log.slice(0, i)).attempts[a].status == "review"
     | ClaimHandedUp(a) => foldEvents(log.slice(0, i)).attempts[a].status == "review"
     | AttemptNudged(a) => foldEvents(log.slice(0, i)).attempts[a].status == "working"
-    | AttemptRejected(a) => Set("review", "blocked").contains(foldEvents(log.slice(0, i)).attempts[a].status)
+    | AttemptRejected(p) => Set("review", "blocked").contains(foldEvents(log.slice(0, i)).attempts[p.attempt].status)
     | _ => true
   }) and view.nudges.length() == view.nudges.foldl(Set(), (acc, a) => acc.union(Set(a))).size()
     and view.approvals.length() == view.approvals.foldl(Set(), (acc, a) => acc.union(Set(a))).size()

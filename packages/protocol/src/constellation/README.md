@@ -37,8 +37,10 @@ Desktop App authorization is checked by the Daemon, not asserted in a payload.
   The rejected Attempt retains `rejectionReason` (nullable, additive); its old
   Claim stays alongside it in snapshots and status. The retry's first Turn
   carries the verbatim reason and rejected Claim; a MergeConflict names the
-  base to merge first. Startup delivers a committed retry without a first Turn
-  after a restart, using the stable Attempt startup command/Turn ID.
+  base to merge first. Startup delivers any committed Attempt without its durable
+  startup command receipt after a restart, including Initial Attempts. The receipt
+  survives the bounded recent-Turn window. Status previews only the latest rejection;
+  graph snapshots retain the complete text for Clients.
 - `constellation.answer`: a proposal verdict or an answer to a durable question.
 - `constellation.message`: a worker, the Lead or all workers, with optional
   authority (`conversation` by default). Only the user may confer decision authority.
