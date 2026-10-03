@@ -8,12 +8,11 @@ import {
   ConstellationId,
   DomainEvent,
   PreparedWorktree,
-  ReviewAction,
   TurnId,
   WorkerPlacement,
 } from "@polaris/protocol";
 import { Effect, Fiber, Latch, Struct } from "effect";
-import { C, CID, HOST, draft, report } from "../../engine/constellation.testing.ts";
+import { C, CID, HOST, draft } from "../../engine/constellation.testing.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { Constellations } from "../service.ts";
 import { finish, send, setup, world } from "../delivery/testing.ts";
@@ -26,32 +25,7 @@ import { makeFakeDriver } from "../../engine/testing.ts";
 import { prepareSession } from "./prepare.ts";
 import { startAttempt, startPendingAttempt } from "./workers.ts";
 
-const sendBack = Effect.fnUntraced(function* () {
-  const graphs = yield* Constellations;
-  const store = yield* EventStore;
-  const attempt = (yield* store.model).constellations.get(CID)!.graph.attempts.at(-1)!;
-  yield* graphs.command(
-    { kind: "session", sessionId: attempt.sessionId },
-    CommandId.make("claim"),
-    C.WorkerClaim.make({ constellationId: CID, attemptId: attempt.id, claim: report() })
-  );
-  const review = (yield* store.model).constellations.get(CID)!.graph.attempts.at(-1)!;
-  yield* graphs.command(
-    { kind: "user" },
-    CommandId.make("busy-sendback"),
-    C.Review.make({
-      constellationId: CID,
-      attemptId: review.id,
-      revision: review.revision,
-      action: ReviewAction.cases.SendBack.make({
-        reason: "Finish the cleanup",
-        worker: WorkerPlacement.cases.Existing.make({ sessionId: attempt.sessionId }),
-      }),
-    })
-  );
-
-  return (yield* store.model).constellations.get(CID)!.graph.attempts.at(-1)!;
-});
+import { sendBack } from "./sendback.testing.ts";
 
 test("same-session busy SendBack commits now, skips setup, and delivers once at the boundary", async () => {
   const w = sendbackWorld(":memory:", false);

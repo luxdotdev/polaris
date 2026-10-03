@@ -23,6 +23,7 @@ import { callSendbackTool } from "./sendback.tools.testing.ts";
 import { ConstellationOwner } from "../constellation/runtime.ts";
 import { ConstellationSessionEffects } from "../constellation/delivery/inputs.ts";
 import { finish, session, send, signal } from "../constellation/delivery/testing.ts";
+import { WorktreeSetupService } from "../constellation/setup/index.ts";
 import { startAttempt, startPendingAttempt } from "../constellation/composition/workers.ts";
 import { remoteWorkingAttemptsLayer } from "../constellation/transfers/remoteWorking.ts";
 import { RemoteWorkers, type RemoteWorkerHooks } from "../constellation/transfers/assignments.ts";
@@ -91,6 +92,7 @@ const mount = Effect.fnUntraced(function* (
       Layer.provide(
         Layer.mergeAll(
           Layer.succeed(EventStore)(host.store),
+          WorktreeSetupService.layer.pipe(Layer.provide(Layer.succeed(EventStore)(host.store))),
           Layer.succeed(TransferStorage)(host.storage),
           Layer.succeed(ConstellationOwner)(host.host.hostId),
           Layer.succeed(HostResources)(resources),

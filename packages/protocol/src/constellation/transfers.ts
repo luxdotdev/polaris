@@ -86,6 +86,7 @@ export class RemotePlacementRequest extends Schema.Class<RemotePlacementRequest>
   previous: Schema.NullOr(Attempt),
   baseHead: Schema.NonEmptyString,
   worktreeSetup: optionalNullable(WorktreeSetup),
+  forceSetup: optionalNullable(Schema.Boolean),
 }) {}
 
 export const RemotePlacementResponse = Schema.TaggedUnion({

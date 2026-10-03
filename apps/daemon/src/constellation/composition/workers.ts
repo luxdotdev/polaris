@@ -8,9 +8,10 @@ import {
   type ConstellationTransferError,
 } from "@polaris/protocol";
 import { Effect, Predicate, Stream } from "effect";
-import type { ServiceError } from "../../services.ts";
+import { ServiceError } from "../../services.ts";
 import { Engine } from "../../engine/Engine.ts";
 import { decideSession } from "../../engine/session.ts";
+import { withSessionBoundary } from "../../engine/sessionBoundary.ts";
 import { workerBrief } from "../../harness/constellation/index.ts";
 import type { ReadModel } from "../../store/model.ts";
 import { EventStore } from "../../store/EventStore.ts";
@@ -18,6 +19,7 @@ import { ConstellationSessionEffects } from "../delivery/inputs.ts";
 import { newTurn, startedTurn, waitForDeliveryReady } from "../delivery/turns.ts";
 import { acceptedDependencyClaims, effectiveDeps } from "../parents.ts";
 import { recoverAttempt } from "../recovery.ts";
+import { runStartupSetup } from "./startupSetup.ts";
 import { mergeFirst, reviewFeedback } from "./feedback.ts";
 
 export const canStartAttempt = (graph: Constellation, attempt: Attempt) =>
@@ -34,7 +36,7 @@ const startupAllowed = (graph: Constellation, attempt: Attempt, model: ReadModel
   return canStartAttempt(local?.graph ?? graph, attempt) && !local?.stale.has(attempt.id);
 };
 
-export const startAttempt = Effect.fn("Constellation.startAttempt")(function* (
+const start = Effect.fn("Constellation.startAttempt")(function* (
   graph: Constellation,
   attempt: Attempt,
   guard: StartupGuard = () => Effect.succeed(true)
@@ -45,13 +47,27 @@ export const startAttempt = Effect.fn("Constellation.startAttempt")(function* (
 
   if (task === undefined) return;
 
+  if (yield* store.hasCommandReceipt(CommandId.make(`${attempt.id}:start`)).pipe(Effect.orDie))
+    return;
+
   if (!startupAllowed(graph, attempt, yield* store.model) || !(yield* guard(yield* store.model)))
     return;
 
-  if (!(yield* waitForDeliveryReady(attempt.sessionId, true))) return;
+  if (!(yield* waitForDeliveryReady(attempt.sessionId, true))) {
+    if ((yield* store.model).sessions.get(attempt.sessionId)?.session.state === "failed")
+      return yield* new ServiceError({
+        service: "Constellation",
+        message:
+          "Worker Session failed before startup. Repair setup or the Harness, stop this Attempt and dispatch again.",
+      });
+
+    return;
+  }
+
   const boundary = yield* store.model;
 
   if (!startupAllowed(graph, attempt, boundary) || !(yield* guard(boundary))) return;
+  yield* runStartupSetup(graph, attempt);
   // Reopen at the boundary so Existing and Gate Sessions retain their Lead attachment and gain Worker tools.
   yield* effects.retire(attempt.sessionId);
   const model = yield* store.model;
@@ -148,6 +164,12 @@ export const startAttempt = Effect.fn("Constellation.startAttempt")(function* (
     if (done) return;
   }
 });
+
+export const startAttempt = (graph: Constellation, attempt: Attempt, guard?: StartupGuard) =>
+  Effect.gen(function* () {
+    const store = yield* EventStore;
+    yield* withSessionBoundary(store, attempt.sessionId, start(graph, attempt, guard));
+  });
 
 export const resumeAttempt = Effect.fn("Constellation.resumeAttempt")(function* (attempt: Attempt) {
   const store = yield* EventStore;

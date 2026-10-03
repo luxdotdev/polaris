@@ -12,6 +12,7 @@ import {
 import { Cause, Context, Effect, Exit, Layer, Match, Semaphore } from "effect";
 import { decideSession } from "../../engine/session.ts";
 import { EventStore } from "../../store/EventStore.ts";
+import { setupFingerprint } from "./inputs.ts";
 import { executeSetup } from "./process.ts";
 
 const DEFAULTS = [
@@ -119,12 +120,23 @@ export class WorktreeSetupService extends Context.Service<
         return yield* currentLock.semaphore
           .withPermit(
             Effect.gen(function* () {
+              const fingerprint = yield* setupFingerprint(cwd, command).pipe(
+                Effect.mapError(
+                  (error) =>
+                    new CommandRejected({
+                      commandId: CommandId.make(`${key}:setup`),
+                      reason: error.message,
+                    })
+                )
+              );
+
               const previous = (yield* store.model).sessions.get(sessionId)?.session.worktreeSetup;
 
               if (
                 previous?.status === "completed" &&
                 previous.cwd === cwd &&
                 previous.command === command &&
+                previous.fingerprint === fingerprint &&
                 previous.id.startsWith(`${key}:setup:`)
               )
                 return previous;
@@ -135,6 +147,7 @@ export class WorktreeSetupService extends Context.Service<
                 taskId,
                 command,
                 cwd,
+                fingerprint,
                 status: "running",
                 output: "",
                 exitCode: null,
@@ -155,6 +168,7 @@ export class WorktreeSetupService extends Context.Service<
                           taskId,
                           command,
                           cwd,
+                          fingerprint,
                           startedAt: started.startedAt,
                           status: "failed",
                           output: error.message,
@@ -173,6 +187,7 @@ export class WorktreeSetupService extends Context.Service<
                               taskId,
                               command,
                               cwd,
+                              fingerprint,
                               startedAt: started.startedAt,
                               status: "failed",
                               output: Cause.pretty(exit.cause),

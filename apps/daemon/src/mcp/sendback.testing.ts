@@ -12,6 +12,7 @@ import { ConstellationRuntime } from "../constellation/runtime.ts";
 import { session, world } from "../constellation/delivery/testing.ts";
 import { startAttempt } from "../constellation/composition/workers.ts";
 import { ConstellationSessionEffects } from "../constellation/delivery/inputs.ts";
+import { WorktreeSetupService } from "../constellation/setup/index.ts";
 import { attemptData } from "../constellation/data.ts";
 
 /** Real journal and Turn delivery; provisioning and Git probes use deterministic fake facts. */
@@ -20,7 +21,10 @@ export const sendbackWorld = (file: string, deliver: boolean) => {
     ConstellationRuntime,
     Effect.gen(function* () {
       const store = yield* EventStore;
-      const context = yield* Effect.context<EventStore | ConstellationSessionEffects>();
+
+      const context = yield* Effect.context<
+        EventStore | ConstellationSessionEffects | WorktreeSetupService
+      >();
 
       return {
         prepare: Effect.fnUntraced(function* (_binding, command: ConstellationCommand, model, id) {
@@ -88,7 +92,7 @@ export const sendbackWorld = (file: string, deliver: boolean) => {
             if (!Predicate.isTagged(event, "AttemptStarted")) continue;
 
             const graph = (yield* store.model).constellations.get(event.constellationId)!.graph;
-            yield* startAttempt(graph, event.attempt).pipe(Effect.provide(context));
+            yield* startAttempt(graph, event.attempt).pipe(Effect.provide(context), Effect.orDie);
           }
         }),
       } satisfies import("../constellation/runtime.ts").ConstellationRuntimeService;

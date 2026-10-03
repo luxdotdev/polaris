@@ -14,7 +14,11 @@ leases force startup activation so process monitoring and recovery still run.
 
 Preparation uses W's worktree/bundle boundary and the pure Session machine to
 allocate a Session without a Turn. Retries reusing the same Session and existing
-worktree skip setup, so SendBack commits immediately even during a working Turn.
+worktree commit SendBack immediately even during a working Turn. An additive
+Attempt setup intent defers the Workspace policy to the boundary: changed
+command, lockfile, manifest or configuration fingerprints rerun setup, and
+MergeConflict forces it. Fingerprints are checked at the boundary, including
+changes made after SendBack. Disabled or absent commands skip setup.
 Other non-Gate preparation runs the Workspace's
 worktree setup on the worker Host before returning the Attempt: auto-detected
 lockfile command, disabled, or a custom shell command. It persists a separate
@@ -22,10 +26,15 @@ setup card on the Session, so failure is visible even before a first Turn.
 A failed setup refuses dispatch and uses the Session machine's failure signal.
 Successful command-ID retries reuse the completed setup receipt; a failure may
 be retried. No worker slot is acquired and Attempt working time has not begun
-during setup. Remote placement carries the owning Workspace's setting. The final runtime wraps deferred handover,
+during initial setup. Deferred retry setup runs in the acquired worker scope
+and closes it on failure, before any startup receipt or brief. Remote placement carries the owning Workspace's setting. The final runtime wraps deferred handover,
 local working scopes and real Git Claim/Accept checks. Remote mirrors use their
 own scoped worker hooks. Both start callbacks run after resource acquisition;
-Existing Sessions wait for machine readiness rather than bypassing approvals
+A per-Session input gate prioritizes a missing startup receipt and holds
+readiness, setup, retirement, commit and Harness submission together. Queued
+Lead inputs and user steering follow the brief; a queued user SendTurn follows
+the brief's boundary. Duplicate startup checks the receipt before retirement.
+Remote assignment changes wake input waiters without polling. Existing Sessions wait for machine readiness rather than bypassing approvals
 or terminal ownership. First Turn/title commits have stable Attempt IDs.
 
 Startup mounts one loopback MCP listener, installs the local/remote command

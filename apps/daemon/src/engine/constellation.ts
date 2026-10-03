@@ -8,7 +8,7 @@ import {
   SetConstellationStateAction,
   type ConstellationState,
 } from "@polaris/protocol";
-import { Predicate } from "effect";
+import { Match, Predicate } from "effect";
 import { createMachine, isUnhandled, transition, types } from "xstate";
 import { claim, currentAttempt, dispatch, review } from "../constellation/attempts.ts";
 import { blockAttempt } from "../constellation/blocked.ts";
@@ -142,7 +142,11 @@ const worker = (
     d,
     command.attemptId,
     undefined,
-    Predicate.isTagged(command, "WorkerBlock") ? "E-BLOCK-STATE" : "E-SETTLED"
+    Match.value(command).pipe(
+      Match.tag("WorkerBlock", () => "E-BLOCK-STATE"),
+      Match.tag("WorkerClaim", () => "E-CLAIM-STATE"),
+      Match.orElse(() => "E-SETTLED")
+    )
   );
 
   if (attempt === undefined) return;

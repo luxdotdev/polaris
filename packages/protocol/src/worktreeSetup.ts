@@ -1,5 +1,6 @@
 import { Schema } from "effect";
 import { ConstellationId, TaskId } from "./constellation/domain.ts";
+import { optionalNullable } from "./models.ts";
 import { Timestamp } from "./ids.ts";
 
 /** Commands run in a worker checkout before its first Turn; null selects Auto. */
@@ -18,6 +19,7 @@ export class WorktreeSetupRun extends Schema.Class<WorktreeSetupRun>("WorktreeSe
   taskId: TaskId,
   command: Schema.String,
   cwd: Schema.String,
+  fingerprint: optionalNullable(Schema.String),
   status: Schema.Literals(["running", "completed", "failed"]),
   output: Schema.String,
   exitCode: Schema.NullOr(Schema.Int),
