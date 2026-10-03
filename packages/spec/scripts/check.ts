@@ -187,6 +187,10 @@ run("worktree setup safety", [
   `--seed=${seed}`,
 ]);
 
+run("typecheck delivery_relay_test.qnt", ["typecheck", "delivery_relay_test.qnt"]);
+
+run("Delivery relay scenarios", ["test", "delivery_relay_test.qnt", "--main=delivery_relay_test"]);
+
 run("Constellation scenarios", ["test", "constellations_test.qnt", "--main=constellations_test"]);
 
 run("Constellation property probes", [
@@ -260,6 +264,12 @@ simulateWitnessed(
     "witnessRecovery",
     "witnessLease",
   ],
+  "constellations.qnt"
+);
+
+simulateWitnessed(
+  "constellation_delivery_relay",
+  ["witnessReconnectAck", "witnessRetry"],
   "constellations.qnt"
 );
 

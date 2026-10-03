@@ -151,10 +151,19 @@ export const mirrorRemoteAssignments = Effect.fnUntraced(function* (
 export const relayRemoteDelivery = Effect.fnUntraced(function* (
   owner: LiveSession,
   worker: LiveSession,
-  packet: import("@polaris/protocol").RemoteDeliveryPacket
+  packet: import("@polaris/protocol").RemoteDeliveryPacket,
+  currentOwner: () => LiveSession | undefined = () => owner
 ) {
   const receipt = yield* worker.client["constellation.delivery.apply"]({ packet });
-  yield* owner.client["constellation.delivery.ack"]({ receipt });
+  const connected = currentOwner();
+
+  if (connected === undefined || connected.host.hostId !== packet.ownerHostId)
+    return yield* new ConstellationTransferError({
+      code: "E-OWNER",
+      message: "The delivery owner is disconnected",
+      retryable: true,
+    });
+  yield* connected.client["constellation.delivery.ack"]({ receipt });
 });
 
 const fetchCleanupHead = Effect.fnUntraced(function* (
