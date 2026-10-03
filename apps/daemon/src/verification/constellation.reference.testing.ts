@@ -10,6 +10,7 @@ import { graphEvent } from "../store/constellation.ts";
 export interface RefTask {
   id: string;
   deps: ReadonlyArray<string>;
+  parent: string | null;
   kind: "task" | "gate";
   revision: number;
   canceled: boolean;
@@ -53,6 +54,7 @@ export const emptyReference = (): Reference => ({
 const refTask = (task: import("@polaris/protocol").Task): RefTask => ({
   id: task.id,
   deps: task.deps,
+  parent: task.parent,
   kind: task.kind,
   revision: task.revision,
   canceled: task.canceled,
@@ -132,7 +134,7 @@ export const foldReference = (ref: Reference, events: ReadonlyArray<DomainEvent>
         if (ref.promoted.has(e.taskId)) throw new Error("reference: gate promoted twice");
         const task = ref.tasks.get(e.taskId);
 
-        if (task === undefined || task.deps.some((dep) => latest(ref, dep)?.state !== "accepted"))
+        if (task === undefined || task.deps.some((dep) => !referenceDone(ref, dep)))
           throw new Error("reference: gate promoted without acceptance");
         ref.promoted.add(e.taskId);
         task.revision = e.taskRevision;
@@ -188,3 +190,17 @@ export const observeFold = (record: ConstellationRecord) => ({
   pending: record.graph.pendingNotifications.map((n) => n.id),
   delivered: [...record.delivered],
 });
+
+export const referenceDone = (ref: Reference, taskId: string): boolean => {
+  const task = ref.tasks.get(taskId);
+
+  if (task === undefined || task.canceled) return false;
+
+  const children = [...ref.tasks.values()].filter(
+    (child) => child.parent === taskId && !child.canceled
+  );
+
+  return children.length > 0
+    ? children.every((child) => referenceDone(ref, child.id))
+    : latest(ref, taskId)?.state === "accepted";
+};

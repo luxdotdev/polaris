@@ -5,13 +5,13 @@ module constellations {
   const OWNER: str
   const CAPACITY: int
 
-  type Task = { declared: bool, deps: Set[int], gate: bool, canceled: bool, revision: int }
+  type Task = { declared: bool, deps: Set[int], parent: int, gate: bool, canceled: bool, revision: int }
   type Attempt = { task: int, session: int, status: str, ref: int, revision: int, sha: int }
   type Delivery = { id: int, lead: int }
   type Recovery = { attempt: int, interruption: int }
   type EventKind =
-    | TaskDeclared({ task: int, deps: Set[int], gate: bool })
-    | TaskEdited({ task: int, deps: Set[int] })
+    | TaskDeclared({ task: int, deps: Set[int], parent: int, gate: bool })
+    | TaskEdited({ task: int, deps: Set[int], parent: int, gate: bool })
     | TaskCanceled(int)
     | AttemptStarted({ task: int, session: int, ref: int })
     | AttemptProgressed(int)
@@ -51,12 +51,12 @@ module constellations {
     applied: List[int], recoveries: List[Recovery], waiters: List[int],
     holders: Set[int], requests: List[int], grants: List[int], capacity: int, canceled: Set[int],
   }
-  type PlanOp = Add({ task: int, deps: Set[int], gate: bool })
-    | Edit({ task: int, deps: Set[int], revision: int })
+  type PlanOp = Add({ task: int, deps: Set[int], parent: int, gate: bool })
+    | Edit({ task: int, deps: Set[int], parent: int, gate: bool, revision: int })
     | Cancel({ task: int, revision: int })
   type Remote = { attempt: int, sha: int }
 
-  pure val emptyTask = { declared: false, deps: Set(), gate: false, canceled: false, revision: 0 }
+  pure val emptyTask = { declared: false, deps: Set(), parent: -1, gate: false, canceled: false, revision: 0 }
   pure val empty: View = {
     tasks: TASKS.mapBy(_ => emptyTask), attempts: [], lead: 0, state: "planning",
     handoverRequest: -1, handoverFrom: -1, stale: Set(), inputs: [],
@@ -75,10 +75,10 @@ module constellations {
   }
   pure def apply(v: View, e: EventKind): View = match e {
     | TaskDeclared(p) => { ...v, tasks: v.tasks.set(p.task, {
-        declared: true, deps: p.deps, gate: p.gate, canceled: false, revision: 1,
+        declared: true, deps: p.deps, parent: p.parent, gate: p.gate, canceled: false, revision: 1,
       }) }
     | TaskEdited(p) => { ...v, tasks: v.tasks.set(p.task, {
-        ...v.tasks.get(p.task), deps: p.deps, revision: v.tasks.get(p.task).revision + 1,
+        ...v.tasks.get(p.task), deps: p.deps, parent: p.parent, gate: p.gate, revision: v.tasks.get(p.task).revision + 1,
       }) }
     | TaskCanceled(t) => { ...v, tasks: v.tasks.set(t, {
         ...v.tasks.get(t), canceled: true, revision: v.tasks.get(t).revision + 1,
@@ -116,25 +116,55 @@ module constellations {
   }
   pure def foldEvents(events: List[Event]): View = events.foldl(empty, (v, e) => apply(v, e.kind))
   pure def latest(v: View, t: int): int = v.attempts.indices().fold(-1, (acc, i) => if (v.attempts[i].task == t) i else acc)
-  pure def taskState(v: View, t: int): str =
-    if (v.tasks.get(t).canceled) "canceled"
-    else if (latest(v, t) < 0) "future"
-    else if (v.attempts[latest(v, t)].status == "accepted") "done"
-    else v.attempts[latest(v, t)].status
-  pure def accepted(v: View, t: int): bool = latest(v, t) >= 0 and taskState(v, t) == "done"
+  // Parent closure is bounded by TASKS; the wire supports arbitrary finite depth.
+  pure def children(v: View, t: int): Set[int] = TASKS.filter(c =>
+    v.tasks.get(c).declared and not(v.tasks.get(c).canceled) and v.tasks.get(c).parent == t)
+  pure def descendants(v: View, t: int): Set[int] = TASKS.fold(children(v, t), (acc, _) =>
+    acc.union(acc.fold(Set(), (out, c) => out.union(children(v, c)))))
+  pure def lineage(v: View, t: int): Set[int] = if (v.tasks.get(t).parent < 0) Set() else TASKS.fold(
+    Set(v.tasks.get(t).parent), (acc, _) =>
+      acc.union(acc.fold(Set(), (out, p) => if (v.tasks.keys().contains(p) and v.tasks.get(p).parent >= 0)
+        out.union(Set(v.tasks.get(p).parent)) else out)))
+  pure def accepted(v: View, t: int): bool = if (children(v, t) == Set())
+    not(v.tasks.get(t).canceled) and latest(v, t) >= 0 and v.attempts[latest(v, t)].status == "accepted"
+    else {
+    val leaves = descendants(v, t).union(Set(t)).filter(c => children(v, c) == Set())
+    not(v.tasks.get(t).canceled) and leaves.forall(c => latest(v, c) >= 0 and v.attempts[latest(v, c)].status == "accepted")
+  }
   pure def ready(v: View, t: int): bool = v.tasks.get(t).declared and not(v.tasks.get(t).canceled)
     and v.tasks.get(t).deps.forall(d => accepted(v, d))
-  pure def reach(v: View, t: int): Set[int] = TASKS.fold(v.tasks.get(t).deps, (acc, _) =>
-    acc.union(acc.fold(Set(), (out, d) => out.union(v.tasks.get(d).deps))))
+  pure def leafState(v: View, t: int): str =
+    if (v.tasks.get(t).canceled) "canceled"
+    else if (latest(v, t) < 0 or v.attempts[latest(v, t)].status == "rejected")
+      (if (ready(v, t)) "ready" else "waiting")
+    else if (v.attempts[latest(v, t)].status == "accepted") "done"
+    else v.attempts[latest(v, t)].status
+  pure def taskStates(v: View): int -> str = TASKS.fold(TASKS.mapBy(t => leafState(v, t)), (states, _) =>
+    TASKS.mapBy(t => {
+      val kids = children(v, t)
+      if (v.tasks.get(t).canceled or kids == Set()) leafState(v, t)
+      else if (kids.forall(c => states.get(c) == "done")) "done"
+      else if (kids.exists(c => Set("working", "review", "blocked").contains(states.get(c)))) "working"
+      else if (kids.exists(c => states.get(c) == "ready")) "ready" else "waiting"
+    }))
+  pure def taskState(v: View, t: int): str =
+    if (children(v, t) == Set()) leafState(v, t) else taskStates(v).get(t)
+  pure def reach(v: View, t: int): Set[int] = TASKS.fold(v.tasks.get(t).deps.union(children(v, t)), (acc, _) =>
+    acc.union(acc.fold(Set(), (out, d) => out.union(v.tasks.get(d).deps).union(children(v, d)))))
   pure def validGraph(v: View): bool = TASKS.forall(t => all {
     not(reach(v, t).contains(t)),
-    v.tasks.get(t).deps.forall(d => v.tasks.get(d).declared and not(v.tasks.get(d).canceled)),
+    not(lineage(v, t).contains(t)),
+    v.tasks.get(t).parent < 0 or (v.tasks.keys().contains(v.tasks.get(t).parent) and v.tasks.get(v.tasks.get(t).parent).declared),
+    children(v, t) == Set() or (not(v.tasks.get(t).gate) and latest(v, t) < 0),
+    v.tasks.get(t).canceled or (v.tasks.get(t).parent < 0 or not(v.tasks.get(v.tasks.get(t).parent).canceled)),
+    v.tasks.get(t).canceled or v.tasks.get(t).deps.forall(d => not(lineage(v, t).contains(d)) and not(lineage(v, d).contains(t))),
+    v.tasks.get(t).canceled or v.tasks.get(t).deps.forall(d => v.tasks.get(d).declared and not(v.tasks.get(d).canceled)),
   })
   pure def opEvents(v: View, op: PlanOp): List[EventKind] = match op {
     | Add(p) => if (not(v.tasks.get(p.task).declared)) [TaskDeclared(p)] else []
     | Edit(p) => if (v.tasks.get(p.task).declared and not(v.tasks.get(p.task).canceled)
         and v.tasks.get(p.task).revision == p.revision)
-      [TaskEdited({ task: p.task, deps: p.deps })] else []
+      [TaskEdited({ task: p.task, deps: p.deps, parent: p.parent, gate: p.gate })] else []
     | Cancel(p) => if (v.tasks.get(p.task).declared and not(v.tasks.get(p.task).canceled)
         and v.tasks.get(p.task).revision == p.revision) [TaskCanceled(p.task)] else []
   }
@@ -144,7 +174,12 @@ module constellations {
       { view: events.foldl(acc.view, (updated, e) => apply(updated, e)),
         events: acc.events.concat(events), valid: acc.valid and events.length() == 1 }
     })
-    if (batch.valid and validGraph(batch.view)) batch.events.concat(promote(batch.view)) else []
+    val roots = batch.events.foldl(Set(), (acc, e) => match e { | TaskCanceled(t) => acc.union(Set(t)) | _ => acc })
+    val canceled = TASKS.filter(t => not(batch.view.tasks.get(t).canceled) and lineage(batch.view, t).intersect(roots) != Set())
+    val events = canceled.fold(batch.events, (acc, t) => acc.append(TaskCanceled(t)))
+    val updated = events.foldl(v, (acc, e) => apply(acc, e))
+    val stopped = roots.union(canceled).forall(t => latest(v, t) < 0 or not(active(v.attempts[latest(v, t)])))
+    if (batch.valid and stopped and validGraph(updated)) events.concat(promote(updated)) else []
   }
   pure def current(v: View, a: int, rev: int): bool = v.attempts.indices().contains(a)
     and latest(v, v.attempts[a].task) == a and active(v.attempts[a]) and v.attempts[a].revision == rev
@@ -179,7 +214,7 @@ module constellations {
   }
   action plan(ops: List[PlanOp]): bool = commit(OWNER, planEvents(view, ops))
   action start(t: int, s: int, ref: int): bool = commit(OWNER,
-    if (view.state == "running" and ready(view, t)
+    if (view.state == "running" and children(view, t) == Set() and ready(view, t)
       and (not(view.tasks.get(t).gate) or has(view.promotions, t))
       and not(view.attempts.indices().exists(i => active(view.attempts[i]) and view.attempts[i].session == s))
       and (latest(view, t) < 0 and ref == -1 or latest(view, t) >= 0 and ref == latest(view, t) and not(active(view.attempts[ref]))))
@@ -262,8 +297,8 @@ module constellations {
     val rev = if (view.attempts.indices().contains(a)) view.attempts[a].revision else 1
     nondet dep = TASKS.oneOf()
     any {
-      plan([Add({ task: t, deps: Set(), gate: t == 2 })]),
-      plan([Edit({ task: t, deps: Set(dep), revision: rev })]),
+      plan([Add({ task: t, deps: Set(), parent: -1, gate: t == 2 })]),
+      plan([Edit({ task: t, deps: Set(dep), parent: -1, gate: t == 2, revision: rev })]),
       plan([Cancel({ task: t, revision: rev })]),
       start(t, s, latest(view, t)), progress(a, rev), claim(a, rev, 42, false, true),
       claim(a, rev, 42, true, true), accept(a, rev, 42), accept(a, rev, 43), reject(a, rev), stop(a, rev), harnessFail(a),
@@ -279,7 +314,7 @@ module constellations {
   val causesPointBackward = view.attempts.indices().forall(i => view.attempts[i].ref == -1
     or view.attempts[i].ref >= 0 and view.attempts[i].ref < i and view.attempts[view.attempts[i].ref].task == view.attempts[i].task)
   val taskFollowsLatestAttempt = TASKS.forall(t => latest(view, t) < 0 or view.tasks.get(t).canceled
-    or taskState(view, t) == (if (view.attempts[latest(view, t)].status == "accepted") "done" else view.attempts[latest(view, t)].status))
+    or taskState(view, t) == leafState(view, t))
   val gatePromotedOnlyAfterAccepted = log.indices().forall(i => match log[i].kind {
     | GatePromoted(t) => ready(foldEvents(log.slice(0, i)), t) and view.tasks.get(t).gate
     | _ => true

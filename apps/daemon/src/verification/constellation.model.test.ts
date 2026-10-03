@@ -9,6 +9,8 @@ import {
   SessionId,
   SetConstellationStateAction,
   WorkerPlacement,
+  TaskDefinition,
+  TaskId,
   type DomainEvent,
 } from "@polaris/protocol";
 import fc from "fast-check";
@@ -35,8 +37,11 @@ import {
   latest,
   observeFold,
   observeReference,
+  referenceDone,
   type Reference,
 } from "./constellation.reference.testing.ts";
+import { taskData } from "../constellation/data.ts";
+import { projectTasks } from "../constellation/projections.ts";
 import { pbtRuns, pbtSeed } from "./pbt.ts";
 
 interface Step {
@@ -179,7 +184,13 @@ const run = (operations: ReadonlyArray<number>) => {
       leadSessionId: planned().graph.leadSessionId,
       settings: planned().graph.settings,
     },
-    operations: [task(A), task(B)].map((t) => PlanOperation.cases.Add.make({ task: t })),
+    operations: [
+      task(TaskId.make("P")),
+      new TaskDefinition({ ...taskData(task(TaskId.make("Q"))), parent: TaskId.make("P") }),
+      new TaskDefinition({ ...taskData(task(A)), parent: TaskId.make("Q") }),
+      new TaskDefinition({ ...taskData(task(B)), parent: TaskId.make("P") }),
+      task(TaskId.make("G"), [TaskId.make("P")], "gate"),
+    ].map((t) => PlanOperation.cases.Add.make({ task: t })),
   });
 
   const first = decideConstellation(undefined, start, ctx());
@@ -205,6 +216,10 @@ const run = (operations: ReadonlyArray<number>) => {
     }
 
     expect(observeFold(record)).toEqual(observeReference(ref));
+
+    for (const projection of projectTasks(record))
+      expect(projection.state === "done").toBe(referenceDone(ref, projection.taskId));
+    expect(record.promoted.has(TaskId.make("G"))).toBe(referenceDone(ref, "P"));
     const sessions = record.graph.attempts.filter((a) => active(a.state)).map((a) => a.sessionId);
     expect(new Set(sessions).size).toBe(sessions.length);
   }

@@ -168,8 +168,8 @@ Findings 1–3 are fixed on `fix/verification-findings`, finding 4 on `m2/protoc
 
 `constellations.qnt` is the reference model for the Constellation contract in
 `packages/protocol/src/constellation/` and ADRs 0004/0011. It runs alongside the
-existing store/session spec. `constellations_test.qnt` contains 18 command/race
-scenarios and 16 malformed-event probes that must violate the corresponding
+existing store/session spec. `constellations_test.qnt` contains 26 command/race
+scenarios and 25 malformed-event probes that must violate the corresponding
 property. `scripts/check.ts` typechecks both files, runs both test modules, then
 simulates the Constellation `safety` conjunction with required witnesses for
 Claim, acceptance, Gate, handover, delivery, relay, recovery and lease grants.
@@ -186,7 +186,7 @@ do not have a log-size cap that could artificially prevent a grant or digest.
 
 | Model | Contract / implementation responsibility |
 | --- | --- |
-| `planEvents`, `opEvents`, `validGraph` | `ConstellationCommand.Plan`, `PlanOperation`: atomic Add/Edit/Cancel with revisions; reject cycles, missing/canceled deps and cancellation with dependents |
+| `planEvents`, `opEvents`, `validGraph` | `ConstellationCommand.Plan`, `PlanOperation`: atomic Add/Edit/Cancel with revisions; reject cycles, missing/canceled deps and cancellation with dependents; parent closure validates unknown/cyclic parents, Gate/started containers and ancestry deps, cancels descendants atomically |
 | `start`, `current`, `change`, `latest`, `taskState` | `AttemptStarted`, Attempt revision, linked `AttemptCause.ref`, `TaskProjection`; engine decider folds the graph rather than persisting Task state |
 | Observed worker liveness | `TaskProjection.liveness` and `ConstellationStreamItem.LivenessChanged` are runtime observations, not graph events. The live item is unsequenced/unpersisted like session item progress; it changes no command, receipt, revision, resume cursor or recovery decision. Unknown facts are null in required Snapshot projections. Elapsed time is derived from observed timestamps without Daemon timers. |
 | `claim`, `accept`, `reject`, `stop`, `harnessFail` | worker Claim, ReviewAction, AttemptClaimed/Accepted/Rejected/Settled; Claim requires clean branch/current revision and acceptance requires the claimed head |
@@ -508,3 +508,12 @@ bun test apps/daemon/src/languages/runtime apps/daemon/src/languages/transport p
 bun packages/spec/scripts/replay-language.ts /tmp/m31-t1-language.trace.json
 bun run spec
 ```
+
+Parent Tasks add `children`, `descendants`, `lineage`, `taskStates` and rolled-up
+`accepted` to `constellations.qnt`. The final batch is validated after cancellation
+closure; containers cannot start Attempts. `constellation.parents.test.ts` covers
+every parent error code, Edit moves, recursive cancellation, rollups, tree status
+and Gate promotion. `constellation.model.test.ts` exercises a nested parent and
+Gate while comparing the independent reference fold and real decider; emitted
+traces include parent declarations for replay. The finite closure uses TASKS as
+a depth bound; the runtime has no configured nesting limit.

@@ -8,10 +8,12 @@ import {
 import type { GraphCommand } from "../engine/constellation.inputs.ts";
 import { taskData } from "./data.ts";
 import { GraphDecision } from "./decision.ts";
-import { activeAttempt, latestAttempt } from "./projections.ts";
+import { latestAttempt } from "./projections.ts";
+import { childTasks, cancelSubtrees, validateParents } from "./parents.ts";
 
 /** Validate the resulting graph, so forward references and removing a dependency in the same batch work. */
 export const validateGraph = (d: GraphDecision, tasks: ReadonlyArray<Task>) => {
+  validateParents(d, tasks);
   const byId = new Map(tasks.map((task) => [task.id, task]));
 
   for (const task of tasks.filter((t) => !t.canceled)) {
@@ -57,7 +59,14 @@ export const validateGraph = (d: GraphDecision, tasks: ReadonlyArray<Task>) => {
     if (visited.has(id)) return;
     visiting.add(id);
 
-    for (const dep of byId.get(id)?.deps ?? []) if (byId.has(dep)) walk(dep, [...path, id]);
+    const prerequisites = [
+      ...(byId.get(id)?.deps ?? []),
+      ...childTasks(tasks, id)
+        .filter((child) => !child.canceled)
+        .map((child) => child.id),
+    ];
+
+    for (const dep of prerequisites) if (byId.has(dep)) walk(dep, [...path, id]);
     visiting.delete(id);
     visited.add(id);
   };
@@ -68,6 +77,7 @@ export const validateGraph = (d: GraphDecision, tasks: ReadonlyArray<Task>) => {
 export const plan = (d: GraphDecision, command: GraphCommand<"Plan">) => {
   const candidate = new Map(d.record.graph.tasks.map((task) => [task.id, task]));
   const changed = new Set<TaskId>();
+  const cancelRoots = new Set<TaskId>();
 
   for (const op of command.operations) {
     const id = PlanOperation.match(op, {
@@ -119,8 +129,6 @@ export const plan = (d: GraphDecision, command: GraphCommand<"Plan">) => {
           );
       },
       Cancel: ({ revision }) => {
-        const attempt = latestAttempt(d.record.graph, id);
-
         if (current === undefined)
           d.reject(
             "E-TASK-UNKNOWN",
@@ -133,17 +141,7 @@ export const plan = (d: GraphDecision, command: GraphCommand<"Plan">) => {
             `Task ${id} is at revision ${current.revision}`,
             "Read status and retry with the current Task revision."
           );
-        else if (attempt !== undefined && activeAttempt(attempt))
-          d.reject(
-            "E-TASK-ACTIVE",
-            `Task ${id} has active Attempt ${attempt.id}`,
-            "Stop its Attempt before canceling the Task."
-          );
-        else
-          candidate.set(
-            id,
-            new Task({ ...taskData(current), revision: revision + 1, canceled: true })
-          );
+        else cancelRoots.add(id);
       },
     });
   }
@@ -169,6 +167,14 @@ export const plan = (d: GraphDecision, command: GraphCommand<"Plan">) => {
       );
   }
 
+  const cancellations = cancelSubtrees(d, candidate, cancelRoots);
+  const declarations = new Map(candidate);
+
+  for (const task of cancellations)
+    candidate.set(
+      task.id,
+      new Task({ ...taskData(task), revision: task.revision + 1, canceled: true })
+    );
   validateGraph(d, [...candidate.values()]);
 
   if (d.findings.length > 0) return;
@@ -176,14 +182,14 @@ export const plan = (d: GraphDecision, command: GraphCommand<"Plan">) => {
   for (const op of command.operations)
     PlanOperation.match(op, {
       Add: ({ task }) => {
-        const next = candidate.get(task.id);
+        const next = declarations.get(task.id);
 
         if (next !== undefined)
           d.emit(ConstellationEvent.cases.TaskDeclared.make({ ...d.fields(), task: next }));
       },
       Edit: ({ taskId }) => {
         const old = d.record.graph.tasks.find((task) => task.id === taskId);
-        const task = candidate.get(taskId);
+        const task = declarations.get(taskId);
 
         if (task === undefined) return;
         d.emit(ConstellationEvent.cases.TaskEdited.make({ ...d.fields(), task }));
@@ -203,17 +209,15 @@ export const plan = (d: GraphDecision, command: GraphCommand<"Plan">) => {
           );
         }
       },
-      Cancel: ({ taskId }) => {
-        const task = candidate.get(taskId);
-
-        if (task !== undefined)
-          d.emit(
-            ConstellationEvent.cases.TaskCanceled.make({
-              ...d.fields(),
-              taskId,
-              taskRevision: task.revision,
-            })
-          );
-      },
+      Cancel: () => {},
     });
+
+  for (const task of cancellations)
+    d.emit(
+      ConstellationEvent.cases.TaskCanceled.make({
+        ...d.fields(),
+        taskId: task.id,
+        taskRevision: task.revision + 1,
+      })
+    );
 };

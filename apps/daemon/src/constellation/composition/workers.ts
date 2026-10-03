@@ -15,6 +15,7 @@ import { workerBrief } from "../../harness/constellation/index.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { ConstellationSessionEffects } from "../delivery/inputs.ts";
 import { newTurn, startedTurn, waitForDeliveryReady } from "../delivery/turns.ts";
+import { acceptedDependencyClaims } from "../parents.ts";
 import { recoverAttempt } from "../recovery.ts";
 
 export const startAttempt = Effect.fn("Constellation.startAttempt")(function* (
@@ -42,11 +43,7 @@ export const startAttempt = Effect.fn("Constellation.startAttempt")(function* (
     attempt,
     selection: session,
     permissionMode: session.permissionMode,
-    acceptedDeps: graph.attempts.flatMap((a) =>
-      a.state === "accepted" && a.claim !== null && task.deps.includes(a.taskId)
-        ? [{ taskId: a.taskId, claim: a.claim }]
-        : []
-    ),
+    acceptedDeps: acceptedDependencyClaims(graph, task.deps),
   });
 
   while (true) {

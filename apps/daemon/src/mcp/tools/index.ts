@@ -31,7 +31,7 @@ export const constellationTools = (
 
   const status = define(
     "status",
-    "Read the graph, Claims, questions and ready Tasks. Do not poll; updates arrive as Lead Turns.",
+    "Read the graph as a tree by group and parent, with Claims, questions and ready Tasks. Do not poll; updates arrive as Lead Turns.",
     Schema.Struct({ json: Schema.optionalKey(Schema.Boolean) }),
     (input) => commands.status(caller, binding.constellationId, input.json ?? false),
     { json: (input) => input.json ?? false }
