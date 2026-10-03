@@ -1,7 +1,7 @@
 import { ConstellationEvent, type DomainEvent, type SessionId } from "@polaris/protocol";
 import { Predicate } from "effect";
 import { inputDeliveryKey } from "../store/constellation.ts";
-import { acceptedBlockInput } from "./blocked.ts";
+import { acceptedBlockInput, unblocksAttempt } from "./blocked.ts";
 import { activeAttempt } from "./projections.ts";
 import { stopLeadGates } from "./handover/gates.ts";
 import type { GraphDecision } from "./decision.ts";
@@ -48,34 +48,42 @@ export const inputDelivered = (
 
   if (attempt !== undefined) {
     const acceptance = acceptedBlockInput(d.record, attempt)?.id === input.id;
-    const leadMessage = d.record.messages.has(input.id);
+    const leadMessage = unblocksAttempt(d.record, attempt, input.id);
 
-    if (acceptance || leadMessage) {
-      if (
-        attempt.hostId === d.record.graph.hostId &&
-        !input.turnEvents.some(
-          (e) => Predicate.isTagged(e, "TurnStarted") && e.turn.sessionId === attempt.sessionId
-        )
-      ) {
-        d.reject(
-          "E-UNBLOCK-TURN",
-          "Unblocking requires the worker's TurnStarted",
-          "Commit the unblock marker and Turn atomically."
-        );
-
-        return [];
-      }
-
-      d.emit(
-        ConstellationEvent.cases.AttemptUnblocked.make({
-          ...d.fields(),
-          attemptId: attempt.id,
-          attemptRevision: attempt.revision + 1,
-          cause: acceptance ? "Accepted" : "Lead",
-          at: d.ctx.now,
-        })
+    if (!acceptance && !leadMessage) {
+      d.reject(
+        "E-UNBLOCK-INPUT",
+        "This queued input predates the block",
+        "Send a new Lead message after the Attempt blocked."
       );
+
+      return [];
     }
+
+    if (
+      attempt.hostId === d.record.graph.hostId &&
+      !input.turnEvents.some(
+        (e) => Predicate.isTagged(e, "TurnStarted") && e.turn.sessionId === attempt.sessionId
+      )
+    ) {
+      d.reject(
+        "E-UNBLOCK-TURN",
+        "Unblocking requires the worker's TurnStarted",
+        "Commit the unblock marker and Turn atomically."
+      );
+
+      return [];
+    }
+
+    d.emit(
+      ConstellationEvent.cases.AttemptUnblocked.make({
+        ...d.fields(),
+        attemptId: attempt.id,
+        attemptRevision: attempt.revision + 1,
+        cause: acceptance ? "Accepted" : "Lead",
+        at: d.ctx.now,
+      })
+    );
   }
 
   d.emit(

@@ -97,7 +97,12 @@ const attentionOf = (
   attempt: AttemptData | null,
   worker: WorkerFacts
 ): Attention | null => {
-  if (attempt === null || (projection.state !== "working" && projection.state !== "review"))
+  if (
+    attempt === null ||
+    (projection.state !== "working" &&
+      projection.state !== "blocked" &&
+      projection.state !== "review")
+  )
     return null;
 
   if (worker.approvalSince !== null) return { kind: "approval", since: worker.approvalSince };

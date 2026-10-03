@@ -128,7 +128,7 @@ const handoverOf = (
   at,
   projections: r.projections,
   inFlight: r.constellation.attempts.flatMap((a) =>
-    a.state === "working" || a.state === "review" ? [a.id] : []
+    a.state === "working" || a.state === "blocked" || a.state === "review" ? [a.id] : []
   ),
   questions: r.constellation.pendingNotifications.filter((n) =>
     Predicate.isTagged(n.item, "Question")
@@ -174,6 +174,11 @@ const stepFor = (event: Event, at: string): Step =>
           ...c,
           tasks: c.tasks.map((t) =>
             t.id === taskId ? merged(t, { canceled: true, revision: taskRevision }) : t
+          ),
+          attempts: c.attempts.map((a) =>
+            a.state === "blocked"
+              ? merged(a, { blockedOn: a.blockedOn.filter((id) => id !== taskId) })
+              : a
           ),
         })),
       TaskProposed:
@@ -221,6 +226,7 @@ const stepFor = (event: Event, at: string): Step =>
           blockedOn: [],
           blockedReason: null,
           blockedAt: null,
+          nudgedAt: null,
         })),
       AttemptNudged: ({ attemptId, attemptRevision, at: nudgedAt }) =>
         patchAttempt(attemptId, attemptRevision, () => ({ nudgedAt })),

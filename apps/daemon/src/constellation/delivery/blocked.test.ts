@@ -420,3 +420,82 @@ import { ConstellationSessionEffects } from "./inputs.ts";
 import { deliverLocalInput } from "./local.ts";
 import { recoverAttempt } from "../recovery.ts";
 import { ConstellationOwner } from "../runtime.ts";
+
+test("only a Lead message sent after the block resumes it, even within the same clock tick", async () => {
+  const w = world();
+  await w.run(
+    Effect.gen(function* () {
+      yield* setup();
+      yield* send(WORKER);
+      const graphs = yield* Constellations;
+      const delivery = yield* ConstellationDelivery;
+      const store = yield* EventStore;
+
+      const message = (text: string) =>
+        graphs.command(
+          { kind: "user" },
+          id(),
+          C.Message.make({
+            constellationId: CID,
+            target: MessageTarget.cases.Worker.make({ attemptId: draft().id }),
+            text,
+          })
+        );
+
+      yield* message("Earlier queued message");
+      yield* graphs.command(worker, id(), block([]));
+      yield* finish(WORKER);
+      yield* delivery.start();
+      yield* delivery.flush();
+      expect(w.turns).toHaveLength(0);
+      expect((yield* store.model).constellations.get(CID)!.graph.attempts[0]!.state).toBe(
+        "blocked"
+      );
+      yield* message("Fresh instruction");
+      yield* delivery.flush();
+      expect(w.turns).toHaveLength(1);
+      expect(w.prompts[0]).toContain("Fresh instruction");
+      expect((yield* store.model).constellations.get(CID)!.graph.attempts[0]!.state).toBe(
+        "working"
+      );
+      yield* delivery.flush();
+      expect(w.turns).toHaveLength(1);
+    })
+  );
+});
+
+test("unblock clears an earlier nudge so the resumed Attempt can be nudged once again", async () => {
+  const w = world();
+  await w.run(
+    Effect.gen(function* () {
+      yield* setup();
+      yield* send(WORKER);
+      const graphs = yield* Constellations;
+      const delivery = yield* ConstellationDelivery;
+      const store = yield* EventStore;
+      yield* delivery.start();
+      yield* finish(WORKER);
+      yield* wait(() => Effect.succeed(w.turns.length === 1));
+      expect(
+        (yield* store.model).constellations.get(CID)!.graph.attempts[0]!.nudgedAt
+      ).not.toBeNull();
+      yield* graphs.command(worker, id(), block([]));
+      yield* finish(WORKER);
+      yield* graphs.command(
+        { kind: "user" },
+        id(),
+        C.Message.make({
+          constellationId: CID,
+          target: MessageTarget.cases.Worker.make({ attemptId: draft().id }),
+          text: "Continue",
+        })
+      );
+      yield* delivery.flush();
+      expect(w.turns).toHaveLength(2);
+      expect((yield* store.model).constellations.get(CID)!.graph.attempts[0]!.nudgedAt).toBeNull();
+      yield* finish(WORKER);
+      yield* wait(() => Effect.succeed(w.turns.length === 3));
+      expect(w.prompts[2]).toContain("call block");
+    })
+  );
+});

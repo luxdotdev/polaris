@@ -1,10 +1,4 @@
-import {
-  type Attempt,
-  CommandId,
-  CommandRejected,
-  ConstellationTransferError,
-  WorkerPlacement,
-} from "@polaris/protocol";
+import { type Attempt, ConstellationTransferError, WorkerPlacement } from "@polaris/protocol";
 import { Effect, Layer, Stream } from "effect";
 import { EventStore } from "../../store/EventStore.ts";
 import { mcpHttp } from "../../mcp/http.ts";
@@ -48,6 +42,7 @@ import { ConstellationStatsService } from "../stats/index.ts";
 import { McpTokens } from "../../mcp/tokens.ts";
 import { loadHostInfo } from "../../transport/hostInfo.ts";
 import { constellationTransferPath } from "./startup.ts";
+import { validateRemoteDelivery } from "./remoteDelivery.ts";
 
 const localRuntime = Layer.unwrap(
   Effect.gen(function* () {
@@ -163,26 +158,11 @@ const workerDelivery = Layer.effect(
       apply: (packet: import("@polaris/protocol").RemoteDeliveryPacket) =>
         applyWorkerDelivery(packet, (_packet, model) =>
           Effect.gen(function* () {
-            const assignment = (yield* storage.assignments.pipe(Effect.orDie)).find(
-              (a) =>
-                a.attemptId === packet.attemptId &&
-                a.graph.id === packet.constellationId &&
-                a.graph.hostId === packet.ownerHostId
+            yield* validateRemoteDelivery(
+              packet,
+              model,
+              yield* storage.assignments.pipe(Effect.orDie)
             );
-
-            const attempt = assignment?.graph.attempts.find((a) => a.id === packet.attemptId);
-
-            if (
-              attempt?.sessionId !== packet.sessionId ||
-              attempt.hostId !== packet.workerHostId ||
-              attempt.state !== "working" ||
-              assignment?.graph.state === "archived" ||
-              !model.sessions.has(packet.sessionId)
-            )
-              return yield* new CommandRejected({
-                commandId: CommandId.make(packet.id),
-                reason: "The input is not for an active remote worker",
-              });
           })
         ).pipe(
           Effect.provide(context),

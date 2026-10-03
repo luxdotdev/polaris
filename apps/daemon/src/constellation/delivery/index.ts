@@ -20,7 +20,7 @@ import { digestDelay } from "./format.ts";
 import { commitJournal } from "./journal.ts";
 import { deliverDigest, deliverLocalInput, nudgeSilentWorker } from "./local.ts";
 import { settleFailedWorker } from "./failures.ts";
-import { acceptedBlockInput } from "../blocked.ts";
+import { acceptedBlockInput, unblocksAttempt } from "../blocked.ts";
 import { pendingInputs } from "./messages.ts";
 import {
   ConstellationSessionEffects,
@@ -102,7 +102,7 @@ const make = Effect.gen(function* () {
     for (const input of pendingInputs(record)) {
       const attempt = record.graph.attempts.findLast((a) => a.sessionId === input.sessionId);
 
-      if (attempt?.state === "blocked" && record.peers.has(input.id)) continue;
+      if (attempt?.state === "blocked" && !unblocksAttempt(record, attempt, input.id)) continue;
 
       if (attempt === undefined || attempt.hostId === owner) {
         yield* deliverLocalInput(id, input);

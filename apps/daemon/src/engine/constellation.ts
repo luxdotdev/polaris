@@ -14,6 +14,7 @@ import { claim, currentAttempt, dispatch, review } from "../constellation/attemp
 import { blockAttempt } from "../constellation/blocked.ts";
 import { finding, GraphDecision, refusal } from "../constellation/decision.ts";
 import { answer, message } from "../constellation/messages.ts";
+import { effectiveDeps } from "../constellation/parents.ts";
 import { plan } from "../constellation/plan.ts";
 import { accepted, activeAttempt, latestAttempt } from "../constellation/projections.ts";
 import {
@@ -101,7 +102,7 @@ const promote = (d: GraphDecision) => {
       task.kind === "gate" &&
       !task.canceled &&
       !d.record.promoted.has(task.id) &&
-      task.deps.every((id) => accepted(d.record.graph, id))
+      effectiveDeps(d.record.graph.tasks, task.id).every((id) => accepted(d.record.graph, id))
     )
       d.emit(
         ConstellationEvent.cases.GatePromoted.make({

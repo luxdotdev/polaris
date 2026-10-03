@@ -61,6 +61,7 @@ export const deriveProjections = (
       state,
       latestAttemptId: attempt?.id ?? null,
       blockedBy,
+      children: c.tasks.filter((child) => child.parent === task.id).map((child) => child.id),
       gatePromoted: task.kind === "gate" && blockedBy.length === 0 && task.deps.length > 0,
       stale: attempt !== null && was?.latestAttemptId === attempt.id ? was.stale : false,
       branchFetched: was?.branchFetched ?? true,

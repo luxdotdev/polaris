@@ -36,6 +36,8 @@ export class ReplayGroup {
   readonly workers = new Map<string, string>();
   readonly workerHosts = new Map<string, string>();
   readonly remoteTurns = new Set<string>();
+  readonly blockRevisions = new Map<string, number>();
+  readonly messages = new Map<string, number>();
   readonly batches: Array<Array<string>> = [];
   readonly capacity = 1;
   isGraph = false;
@@ -84,15 +86,28 @@ const unblockTurn = (
   );
 };
 
+const unblockFresh = (
+  g: ReplayGroup,
+  attemptId: string,
+  companions: ReadonlyArray<import("../../../protocol/src/events.ts").DomainEvent>
+) =>
+  companions.some(
+    (e) =>
+      Predicate.isTagged(e, "WorkerInputDelivered") &&
+      e.sessionId === g.workers.get(attemptId) &&
+      (g.messages.get(e.id) ?? -1) > (g.blockRevisions.get(attemptId) ?? Infinity)
+  );
+
 const taskDeclaration = (
   g: ReplayGroup,
   task: {
     readonly id: string;
     readonly deps: ReadonlyArray<string>;
     readonly kind: "task" | "gate";
+    readonly parent: string | null;
   }
 ) =>
-  `TaskDeclared({ task: ${g.tasks.id(task.id)}, deps: Set(${task.deps.map((id) => g.tasks.id(id)).join(", ")}), gate: ${task.kind === "gate"} })`;
+  `TaskDeclared({ task: ${g.tasks.id(task.id)}, deps: Set(${task.deps.map((id) => g.tasks.id(id)).join(", ")}), parent: ${task.parent === null ? -1 : g.tasks.id(task.parent)}, gate: ${task.kind === "gate"} })`;
 
 export const mapGraphEvent = (
   g: ReplayGroup,
@@ -161,7 +176,7 @@ export const mapGraphEvent = (
       TaskDeclared: ({ task }) => record(taskDeclaration(g, task)),
       TaskEdited: ({ task }) =>
         record(
-          `TaskEdited({ task: ${g.tasks.id(task.id)}, deps: Set(${task.deps.map((id) => g.tasks.id(id)).join(", ")}) })`
+          `TaskEdited({ task: ${g.tasks.id(task.id)}, deps: Set(${task.deps.map((id) => g.tasks.id(id)).join(", ")}), parent: ${task.parent === null ? -1 : g.tasks.id(task.parent)}, gate: ${task.kind === "gate"} })`
         ),
       TaskCanceled: ({ taskId }) => record(`TaskCanceled(${g.tasks.id(taskId)})`),
       ProposalAccepted: ({ task }) => record(taskDeclaration(g, task)),
@@ -190,13 +205,16 @@ export const mapGraphEvent = (
         ),
       ClaimApproved: ({ attemptId }) => record(`ClaimApproved(${g.attemptId(attemptId)})`),
       ClaimHandedUp: ({ attemptId }) => record(`ClaimHandedUp(${g.attemptId(attemptId)})`),
-      AttemptBlocked: ({ attemptId, on }) =>
-        record(
+      AttemptBlocked: ({ attemptId, on, revision }) => {
+        g.blockRevisions.set(attemptId, revision);
+
+        return record(
           `AttemptBlocked({ attempt: ${g.attemptId(attemptId)}, on: Set(${on.map((id) => g.tasks.id(id)).join(", ")}) })`
-        ),
+        );
+      },
       AttemptUnblocked: ({ attemptId, cause }) =>
         record(
-          `AttemptUnblocked({ attempt: ${g.attemptId(attemptId)}, cause: ${JSON.stringify(cause)}, turn: ${unblockTurn(g, attemptId, companions)} })`
+          `AttemptUnblocked({ attempt: ${g.attemptId(attemptId)}, cause: ${JSON.stringify(cause)}, turn: ${unblockTurn(g, attemptId, companions)}, fresh: ${cause === "Accepted" || unblockFresh(g, attemptId, companions)} })`
         ),
       AttemptNudged: ({ attemptId }) => record(`AttemptNudged(${g.attemptId(attemptId)})`),
       AttemptAccepted: ({ attemptId, mergedHead }) =>
@@ -240,7 +258,11 @@ export const mapGraphEvent = (
         record(
           `AttemptRecoveryContinued({ attempt: ${g.attemptId(attemptId)}, interruption: ${g.interruptions.id(interruptionId)} })`
         ),
-      OperatorMessageSent: () => [],
+      OperatorMessageSent: ({ id, revision }) => {
+        g.messages.set(id, revision);
+
+        return [];
+      },
       OperatorMessageResolved: () => [],
       PeerMessage: () => [],
     })

@@ -11,7 +11,8 @@ import type { GraphCommand } from "../engine/constellation.inputs.ts";
 import { questionKey } from "../store/constellation.ts";
 import { attemptData } from "./data.ts";
 import { GraphDecision } from "./decision.ts";
-import { activeAttempt, latestAttempt, projectTask } from "./projections.ts";
+import { effectiveDeps, isParent } from "./parents.ts";
+import { accepted, activeAttempt, latestAttempt, projectTask } from "./projections.ts";
 
 export const currentAttempt = (
   d: GraphDecision,
@@ -146,7 +147,10 @@ export const dispatch = (d: GraphDecision, command: GraphCommand<"Dispatch">) =>
     command.tasks.length > 0
       ? command.tasks.map((t) => t.taskId)
       : d.record.graph.tasks
-          .filter((task) => projectTask(d.record, task).state === "ready")
+          .filter(
+            (task) =>
+              !isParent(d.record.graph, task.id) && projectTask(d.record, task).state === "ready"
+          )
           .map((t) => t.id);
 
   const seen = new Set<TaskId>();
@@ -164,12 +168,20 @@ export const dispatch = (d: GraphDecision, command: GraphCommand<"Dispatch">) =>
         `Task ${id} does not exist`,
         "Read status for the current Task ids."
       );
+    else if (isParent(d.record.graph, id))
+      d.reject(
+        "E-PARENT-DISPATCH",
+        `Task ${id} is a parent container`,
+        "Dispatch its ready children instead."
+      );
     else if (
       projectTask(d.record, task).state !== "ready" &&
       !(
         command.tasks.length > 0 &&
         !task.canceled &&
-        task.deps.every((dep) => latestAttempt(d.record.graph, dep)?.state === "accepted") &&
+        effectiveDeps(d.record.graph.tasks, task.id).every((dep) =>
+          accepted(d.record.graph, dep)
+        ) &&
         ["lost", "failed", "settled_unverified"].includes(
           latestAttempt(d.record.graph, id)?.state ?? ""
         )
@@ -402,8 +414,10 @@ export const claim = (d: GraphDecision, command: GraphCommand<"WorkerClaim">, at
   if (attempt.state !== "working")
     d.reject(
       "E-CLAIM-STATE",
-      `Attempt ${attempt.id} is already in review`,
-      "Review its existing Claim."
+      `Attempt ${attempt.id} is ${attempt.state}`,
+      attempt.state === "blocked"
+        ? "Wait for its dependencies or a Lead message to resume the Attempt."
+        : "Review its existing Claim."
     );
 
   const questions = new Set<string>();

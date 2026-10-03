@@ -91,6 +91,7 @@ export class TaskDefinition extends Schema.Class<TaskDefinition>("TaskDefinition
   criteria: optionalArray(Schema.String),
   suggested: optionalNullable(HarnessSelection),
   group: optionalNullable(Schema.String),
+  parent: optionalNullable(TaskId),
 }) {}
 
 /** Task state and Gate readiness are derived from Attempts, never written here. */
@@ -248,6 +249,7 @@ export class TaskProjection extends Schema.Class<TaskProjection>("ConstellationT
   state: TaskState,
   latestAttemptId: Schema.NullOr(AttemptId),
   blockedBy: Schema.Array(TaskId),
+  children: optionalArray(TaskId),
   gatePromoted: Schema.Boolean,
   stale: Schema.Boolean,
   branchFetched: Schema.Boolean,

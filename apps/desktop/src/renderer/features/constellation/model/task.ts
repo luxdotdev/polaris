@@ -234,6 +234,7 @@ const unprojected = (taskId: TaskId): ProjectionData => ({
   state: "waiting",
   latestAttemptId: null,
   blockedBy: [],
+  children: [],
   gatePromoted: false,
   stale: false,
   branchFetched: true,

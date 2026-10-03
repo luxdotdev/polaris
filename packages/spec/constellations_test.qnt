@@ -1,18 +1,19 @@
 module constellations_test {
   import constellations(
-    TASKS = Set(0, 1, 2), SESSIONS = Set(0, 1, 2, 3), IDS = Set(0, 1, 2, 3, 4, 5),
+    TASKS = Set(0, 1, 2, 3), SESSIONS = Set(0, 1, 2, 3), IDS = Set(0, 1, 2, 3, 4, 5),
     OWNER = "lead-host", CAPACITY = 2,
   ).* from "./constellations"
 
   action base = init.then(plan([
-    Add({ task: 0, deps: Set(), gate: false }),
-    Add({ task: 1, deps: Set(0), gate: false }),
-    Add({ task: 2, deps: Set(0, 1), gate: true }),
+    Add({ task: 0, deps: Set(), parent: -1, gate: false }),
+    Add({ task: 1, deps: Set(0), parent: -1, gate: false }),
+    Add({ task: 2, deps: Set(0, 1), parent: -1, gate: true }),
   ])).then(setState("running")).expect(safety)
   action working = base.then(start(0, 1, -1)).expect(safety)
   action claimed = working.then(claim(0, 1, 42, false, true)).expect(safety)
 
   run blockWaitsForAcceptanceAndUnblockRequiresTurnTest = working
+    .then(plan([Edit({ task: 1, deps: Set(), revision: 1 , parent: -1, gate: false })]))
     .then(block(0, Set(1), 1)).expect(view.attempts[0].status == "blocked" and safety)
     .then(restart).then(unblock(0, 2, "Accepted", true)).expect(view.attempts[0].status == "blocked" and safety)
     .then(unblock(0, 2, "Lead", false)).expect(view.attempts[0].status == "blocked" and safety)
@@ -25,6 +26,95 @@ module constellations_test {
     .then(unblock(0, 2, "Accepted", true)).expect(view.attempts[0].status == "blocked" and safety)
     .then(stop(0, 2)).expect(view.attempts[0].status == "lost" and safety)
 
+  action parentBase = init.then(plan([
+    Add({ task: 0, deps: Set(), parent: 1, gate: false }),
+    Add({ task: 1, deps: Set(), parent: -1, gate: false }),
+    Add({ task: 2, deps: Set(1), parent: -1, gate: true }),
+  ])).then(setState("running")).expect(safety)
+
+  run parentRollupAndGateDependencyTest = parentBase
+    .expect(taskState(view, 1) == "ready" and view.promotions == [])
+    .then(start(1, 1, -1)).expect(view.attempts == [] and safety)
+    .then(start(0, 1, -1)).expect(taskState(view, 1) == "working" and safety)
+    .then(claim(0, 1, 42, false, true)).expect(taskState(view, 1) == "working" and safety)
+    .then(accept(0, 2, 42)).expect(taskState(view, 1) == "done" and view.promotions == [2] and safety)
+
+  run inheritedDependenciesBlockTwoLevelsAndGateTest = init.then(plan([
+    Add({ task: 0, deps: Set(), parent: -1, gate: false }),
+    Add({ task: 1, deps: Set(0), parent: -1, gate: false }),
+    Add({ task: 2, deps: Set(), parent: 1, gate: false }),
+    Add({ task: 3, deps: Set(), parent: 2, gate: true }),
+  ])).then(setState("running"))
+    .expect(not(ready(view, 3)) and taskState(view, 1) == "waiting" and view.promotions == [] and safety)
+    .then(start(3, 1, -1)).expect(view.attempts == [] and safety)
+    .then(start(0, 1, -1)).then(claim(0, 1, 42, false, true)).then(accept(0, 2, 42))
+    .expect(ready(view, 3) and taskState(view, 1) == "ready" and view.promotions == [3] and safety)
+
+  run parentDependencyEditBlocksCompletedChildrenTest = init.then(plan([
+    Add({ task: 0, deps: Set(), parent: -1, gate: false }),
+    Add({ task: 1, deps: Set(), parent: -1, gate: false }),
+    Add({ task: 2, deps: Set(), parent: 1, gate: false }),
+    Add({ task: 3, deps: Set(), parent: 2, gate: false }),
+  ])).then(setState("running")).then(start(3, 1, -1))
+    .then(plan([Edit({ task: 1, deps: Set(0), parent: -1, gate: false, revision: 1 })]))
+    .expect(taskState(view, 1) == "working" and not(ready(view, 3)) and safety)
+    .then(claim(0, 1, 42, false, true)).then(accept(0, 2, 42))
+    .expect(taskState(view, 3) == "done" and taskState(view, 1) == "waiting" and not(accepted(view, 1)) and safety)
+    .then(start(0, 1, -1)).then(claim(1, 1, 42, false, true)).then(accept(1, 2, 42))
+    .expect(taskState(view, 1) == "done" and accepted(view, 1) and safety)
+
+  run parentCompletionEdgesRejectDependencyDeadlocksTest = init.then(plan([
+    Add({ task: 0, deps: Set(), parent: -1, gate: false }),
+    Add({ task: 1, deps: Set(2), parent: 0, gate: false }),
+    Add({ task: 2, deps: Set(0), parent: -1, gate: false }),
+  ])).expect(TASKS.forall(t => not(view.tasks.get(t).declared)) and safety)
+
+  run nestedParentsAndCascadeCancellationTest = init.then(plan([
+    Add({ task: 0, deps: Set(), parent: -1, gate: false }),
+    Add({ task: 1, deps: Set(), parent: 0, gate: false }),
+    Add({ task: 2, deps: Set(), parent: 1, gate: false }),
+  ])).expect(safety).then(plan([Cancel({ task: 0, revision: 1 })]))
+    .expect(Set(0, 1, 2).forall(t => taskState(view, t) == "canceled") and safety)
+
+  run parentValidationRejectsCyclesGateAndAncestryDepsTest = parentBase
+    .then(plan([Edit({ task: 1, deps: Set(), parent: -1, gate: true, revision: 1 })]))
+    .expect(not(view.tasks.get(1).gate) and safety)
+    .then(plan([Edit({ task: 1, deps: Set(), parent: 0, gate: false, revision: 1 })]))
+    .expect(view.tasks.get(1).parent == -1 and safety)
+    .then(plan([Edit({ task: 0, deps: Set(), parent: 2, gate: false, revision: 1 })]))
+    .expect(view.tasks.get(0).parent == 1 and safety)
+    .then(plan([Edit({ task: 0, deps: Set(1), parent: 1, gate: false, revision: 1 })]))
+    .expect(view.tasks.get(0).deps == Set() and safety)
+
+  run startedParentAndActiveDescendantCancelRefusedTest = parentBase.then(start(0, 1, -1))
+    .then(plan([Cancel({ task: 1, revision: 1 }), Cancel({ task: 2, revision: 1 })]))
+    .expect(not(view.tasks.get(0).canceled) and safety)
+    .then(plan([Edit({ task: 2, deps: Set(), parent: 0, gate: true, revision: 1 })]))
+    .expect(view.tasks.get(2).parent == -1 and safety)
+
+  run blockRejectsDependencyCyclesAndGateAttemptsTest = working
+    .then(block(0, Set(1), 1)).expect(view.attempts[0].status == "working" and safety)
+    .then(block(0, Set(2), 1)).expect(view.attempts[0].status == "working" and safety)
+
+  run gateCannotBlockTest = init.then(plan([Add({ task: 2, deps: Set(), gate: true , parent: -1 })]))
+    .then(setState("running")).then(start(2, 0, -1))
+    .then(block(0, Set(), 1)).expect(view.attempts[0].status == "working" and safety)
+
+  run cancelBlockTargetNotifiesAndBecomesReasonOnlyTest = working
+    .then(plan([Edit({ task: 1, deps: Set(), revision: 1 , parent: -1, gate: false })]))
+    .then(block(0, Set(1), 1))
+    .then(plan([Edit({ task: 2, deps: Set(0), revision: 1 , parent: -1, gate: false }), Cancel({ task: 1, revision: 2 })]))
+    .expect(view.attempts[0].status == "blocked" and view.blocks.get(0) == Set() and view.notes.keys().contains(100100) and safety)
+    .then(unblock(0, 2, "Accepted", true)).expect(view.attempts[0].status == "blocked" and safety)
+
+  run sendBackBlockedAndNudgeResetsOnUnblockTest = working
+    .then(replay([{ host: OWNER, kind: AttemptNudged(0) }]))
+    .then(block(0, Set(), 2))
+    .then(unblockInput(0, 3, "Lead", true, false)).expect(view.attempts[0].status == "blocked" and safety)
+    .then(unblockInput(0, 3, "Lead", true, true)).expect(view.nudges == [] and safety)
+    .then(block(0, Set(), 4)).then(reject(0, 5)).then(start(0, 1, 0))
+    .expect(view.attempts[0].status == "rejected" and view.attempts[1].status == "working" and safety)
+
   run reviewMetadataKeepsClaimInReviewUntilMergeTest = claimed
     .then(replay([{ host: OWNER, kind: ClaimHandedUp(0) }, { host: OWNER, kind: ClaimApproved(0) }]))
     .expect(view.attempts[0].status == "review" and view.handups == [0] and view.approvals == [0] and safety)
@@ -35,15 +125,15 @@ module constellations_test {
     .then(restart).expect(view.nudges == [0] and view.attempts[0].status == "working" and safety)
 
   run atomicPlanRejectsEveryOperationOnACycleTest = base
-    .then(plan([Edit({ task: 0, deps: Set(1), revision: 1 }), Add({ task: 1, deps: Set(), gate: false })]))
+    .then(plan([Edit({ task: 0, deps: Set(1), parent: -1, gate: false, revision: 1 }), Add({ task: 1, deps: Set(), parent: -1, gate: false })]))
     .expect(view.tasks.get(0).deps == Set() and view.tasks.get(0).revision == 1 and safety)
-    .then(plan([Edit({ task: 0, deps: Set(2), revision: 1 })]))
+    .then(plan([Edit({ task: 0, deps: Set(2), parent: -1, gate: false, revision: 1 })]))
     .expect(view.tasks.get(0).deps == Set() and graphAcyclic)
 
   run cancelNamesDependentsAndStaleEditIsRefusedTest = base
     .then(plan([Cancel({ task: 0, revision: 1 })]))
     .expect(not(view.tasks.get(0).canceled) and safety)
-    .then(plan([Edit({ task: 1, deps: Set(), revision: 0 })]))
+    .then(plan([Edit({ task: 1, deps: Set(), parent: -1, gate: false, revision: 0 })]))
     .expect(view.tasks.get(1).deps == Set(0) and view.tasks.get(1).revision == 1 and safety)
 
   run linkedCausesPointBackwardTest = claimed
@@ -152,9 +242,9 @@ module constellations_property_test {
   ).* from "./constellations"
 
   action base = init.then(plan([
-    Add({ task: 0, deps: Set(), gate: false }),
-    Add({ task: 1, deps: Set(0), gate: false }),
-    Add({ task: 2, deps: Set(0, 1), gate: true }),
+    Add({ task: 0, deps: Set(), parent: -1, gate: false }),
+    Add({ task: 1, deps: Set(0), parent: -1, gate: false }),
+    Add({ task: 2, deps: Set(0, 1), parent: -1, gate: true }),
   ])).then(setState("running")).expect(safety)
   action working = base.then(start(0, 1, -1)).expect(safety)
   action claimed = working.then(claim(0, 1, 42, false, true)).expect(safety)
@@ -183,7 +273,7 @@ module constellations_property_test {
     .then(start(2, 0, -1)).then(requestHandover(4)).then(finishHandover(4, 3))
     .expect(view.lead == 3 and view.attempts[2].status == "lost" and oneLead and safety)
     .then(start(2, 3, 2)).expect(view.attempts.length() == 4 and view.attempts[3].ref == 2 and causesPointBackward and safety)
-  run detectsCycleTest = base.then(commit(OWNER, [TaskEdited({ task: 0, deps: Set(1) })]))
+  run detectsCycleTest = base.then(commit(OWNER, [TaskEdited({ task: 0, deps: Set(1), parent: -1, gate: false })]))
     .expect(not(graphAcyclic))
   run detectsForwardCauseTest = base.then(commit(OWNER, [AttemptStarted({ task: 0, session: 1, ref: 1 })]))
     .expect(not(causesPointBackward))

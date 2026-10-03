@@ -35,7 +35,8 @@ import { McpTokens } from "../../mcp/index.ts";
 import { McpBinding } from "../../mcp/binding.ts";
 import { ConstellationOwner } from "../runtime.ts";
 import { TransferStorage } from "./storage.ts";
-import { RemoteWorkers } from "./assignments.ts";
+import { RemoteAssignments, RemoteWorkers } from "./assignments.ts";
+import { ConstellationWorktrees } from "../worktrees.ts";
 import { remoteWorkingAttemptsLayer } from "./remoteWorking.ts";
 
 const graph = () =>
@@ -281,6 +282,60 @@ test("a new remote Attempt starts its brief in an Existing Session with historic
           expect(resumes).toBe(1);
         })
       ).pipe(Effect.timeout("3 seconds"))
+    );
+  } finally {
+    removeDir(root);
+  }
+});
+
+test("Host restart restores persisted blocked assignments without starting a first Turn", async () => {
+  const root = mkdtempSync("/tmp/blocked-assignment-");
+  const file = `${root}/transfers.sqlite`;
+
+  const assignment = new RemoteWorkerAssignment({
+    graph: new Constellation(
+      Struct.assign(graph(), {
+        attempts: [new Attempt(Struct.assign(draft(), { state: "blocked" as const }))],
+      })
+    ),
+    attemptId: draft().id,
+    repoPath: root,
+  });
+
+  try {
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          yield* (yield* TransferStorage).assign(assignment);
+        })
+      ).pipe(Effect.provide(TransferStorage.layer(file)))
+    );
+    let resumes = 0;
+
+    const base = Layer.mergeAll(
+      EventStore.layerSqlite(":memory:"),
+      TransferStorage.layer(file),
+      Layer.succeed(ConstellationOwner)(HOST),
+      Layer.succeed(RemoteWorkers)({
+        prepare: () => Effect.die("unexpected prepare"),
+        assigned: () => Effect.die("unexpected first Turn"),
+        claimed: () => Effect.void,
+        resume: (restored) =>
+          Effect.sync(() => {
+            expect(restored).toEqual(assignment);
+            resumes++;
+          }),
+      })
+    );
+
+    const dependencies = ConstellationWorktrees.layer.pipe(Layer.provideMerge(base));
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          yield* (yield* RemoteAssignments).resumeWorking();
+          expect(resumes).toBe(1);
+        })
+      ).pipe(Effect.provide(RemoteAssignments.layer.pipe(Layer.provide(dependencies))))
     );
   } finally {
     removeDir(root);

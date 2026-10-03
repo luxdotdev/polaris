@@ -34,7 +34,9 @@ const itemFor = (row: TaskRow, facts: Facts): AttentionItem | null => {
 
   if (
     row.attempt === null ||
-    (row.projection.state !== "working" && row.projection.state !== "review")
+    (row.projection.state !== "working" &&
+      row.projection.state !== "blocked" &&
+      row.projection.state !== "review")
   )
     return null;
   const worker = facts.worker(row.attempt);

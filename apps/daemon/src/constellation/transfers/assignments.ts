@@ -122,7 +122,8 @@ export class RemoteAssignments extends Context.Service<
         resumeWorking: Effect.fnUntraced(function* () {
           for (const assignment of yield* storage.assignments) {
             if (
-              assignmentAttempt(assignment).state === "working" &&
+              (assignmentAttempt(assignment).state === "working" ||
+                assignmentAttempt(assignment).state === "blocked") &&
               assignment.graph.state !== "completed" &&
               assignment.graph.state !== "archived"
             )

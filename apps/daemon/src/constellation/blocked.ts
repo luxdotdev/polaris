@@ -1,14 +1,25 @@
-import { type Attempt, ConstellationEvent, NotificationItem } from "@polaris/protocol";
+import { type Attempt, type TaskId, ConstellationEvent, NotificationItem } from "@polaris/protocol";
 import type { GraphCommand } from "../engine/constellation.inputs.ts";
 import type { ConstellationRecord } from "../store/constellation.ts";
 import type { GraphDecision } from "./decision.ts";
 import { accepted, latestAttempt } from "./projections.ts";
+import { completionTasks, dependencyClosure } from "./parents.ts";
 
 export const blockAttempt = (
   d: GraphDecision,
   command: GraphCommand<"WorkerBlock">,
   attempt: Attempt
 ) => {
+  if (d.record.graph.tasks.find((t) => t.id === attempt.taskId)?.kind === "gate") {
+    d.reject(
+      "E-BLOCK-GATE",
+      "Gate Attempts cannot block",
+      "Return the Gate's verification result to the Lead."
+    );
+
+    return;
+  }
+
   if (attempt.state !== "working") {
     d.reject(
       "E-BLOCK-STATE",
@@ -45,6 +56,16 @@ export const blockAttempt = (
     return;
   }
 
+  if (on.some((id) => dependencyClosure(d.record.graph.tasks, id).has(attempt.taskId))) {
+    d.reject(
+      "E-BLOCK-CYCLE",
+      "A block target depends on this Task",
+      "Choose Tasks that can finish independently of this Task."
+    );
+
+    return;
+  }
+
   d.emit(
     ConstellationEvent.cases.AttemptBlocked.make({
       ...d.fields(),
@@ -65,6 +86,32 @@ export const blockAttempt = (
   );
 };
 
+/** Earlier queued messages remain queued until an eligible input resumes the Attempt. */
+export const unblocksAttempt = (record: ConstellationRecord, attempt: Attempt, id: string) => {
+  if (acceptedBlockInput(record, attempt)?.id === id) return true;
+  const message = record.messages.get(id);
+
+  return message !== undefined && message.revision > (record.blockRevisions.get(attempt.id) ?? 0);
+};
+
+export const cancelBlockTarget = (d: GraphDecision, taskId: TaskId, taskRevision: number) => {
+  const waiting = d.record.graph.attempts.filter(
+    (a) => a.state === "blocked" && a.blockedOn.includes(taskId)
+  );
+
+  d.emit(ConstellationEvent.cases.TaskCanceled.make({ ...d.fields(), taskId, taskRevision }));
+
+  for (const attempt of waiting)
+    d.notify(
+      NotificationItem.cases.Blocked.make({
+        taskId: attempt.taskId,
+        attemptId: attempt.id,
+        on: d.record.graph.attempts.find((a) => a.id === attempt.id)?.blockedOn ?? [],
+        reason: `${taskId} was canceled. ${attempt.blockedReason ?? "Waiting for the Lead"}`,
+      })
+    );
+};
+
 /** A stable pending input is re-derived from the durable block after a restart. */
 export const acceptedBlockInput = (record: ConstellationRecord, attempt: Attempt) => {
   if (
@@ -74,7 +121,13 @@ export const acceptedBlockInput = (record: ConstellationRecord, attempt: Attempt
   )
     return null;
 
-  const heads = attempt.blockedOn
+  const heads = [
+    ...new Set(
+      attempt.blockedOn.flatMap((id) =>
+        completionTasks(record.graph.tasks, id).map((task) => task.id)
+      )
+    ),
+  ]
     .map((id) => `${id} accepted at ${latestAttempt(record.graph, id)?.mergedHead}`)
     .join("; ");
 

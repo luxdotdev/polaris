@@ -10,6 +10,7 @@ export const taskData = (task: TaskDefinition) => ({
   criteria: task.criteria,
   suggested: task.suggested,
   group: task.group,
+  parent: task.parent,
 });
 
 export const attemptData = (attempt: Attempt) => ({

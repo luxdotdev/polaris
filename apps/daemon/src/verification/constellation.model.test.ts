@@ -9,6 +9,8 @@ import {
   SessionId,
   SetConstellationStateAction,
   WorkerPlacement,
+  TaskDefinition,
+  TaskId,
   type DomainEvent,
 } from "@polaris/protocol";
 import fc from "fast-check";
@@ -35,8 +37,13 @@ import {
   latest,
   observeFold,
   observeReference,
+  referenceDone,
+  referenceDeps,
+  referenceState,
   type Reference,
 } from "./constellation.reference.testing.ts";
+import { taskData } from "../constellation/data.ts";
+import { projectTasks } from "../constellation/projections.ts";
 import { pbtRuns, pbtSeed } from "./pbt.ts";
 
 interface Step {
@@ -45,12 +52,16 @@ interface Step {
   allowed: boolean;
 }
 
+const X = TaskId.make("X");
+
+const choices = [A, B, X];
+
 const active = (state: string | undefined) =>
   state === "working" || state === "blocked" || state === "review";
 
 const metadataStep = (ref: Reference, op: number): Step => {
-  const attempt = latest(ref, op % 2 === 0 ? A : B);
-  const approve = Math.floor(op / 2) === 8;
+  const attempt = latest(ref, choices[op % 3]!);
+  const approve = Math.floor(op / 3) === 8;
   const authorized = op % 2 === 0;
 
   return {
@@ -74,45 +85,91 @@ const metadataStep = (ref: Reference, op: number): Step => {
   };
 };
 
-const extraStep = (ref: Reference, op: number): Step => {
-  if (Math.floor(op / 2) !== 10) return metadataStep(ref, op);
+const dispatchStep = (ref: Reference, taskId: TaskId, index: number): Step => {
+  const sessionId = SessionId.make(`worker-${taskId}`);
 
-  const taskId = op % 2 === 0 ? A : B;
-  const attempt = latest(ref, taskId);
+  return {
+    command: C.Dispatch.make({
+      constellationId: CID,
+      tasks: [{ taskId, worker: WorkerPlacement.cases.Existing.make({ sessionId }) }],
+    }),
+    context: ctx({ attempts: [draft(taskId, `a-${index}`, sessionId)] }),
+    allowed:
+      (ref.state === "planning" || ref.state === "running") &&
+      latest(ref, taskId) === undefined &&
+      referenceDeps(ref, taskId).every((dep) => referenceDone(ref, dep)),
+  };
+};
+
+const referenceClosure = (ref: Reference, id: string) => {
+  const pending = [id];
+  const seen = new Set<string>();
+
+  while (pending.length > 0) {
+    const next = pending.pop()!;
+
+    if (seen.has(next)) continue;
+    seen.add(next);
+    pending.push(
+      ...referenceDeps(ref, next),
+      ...[...ref.tasks.values()].flatMap((t) => (t.parent === next && !t.canceled ? [t.id] : []))
+    );
+  }
+
+  return seen;
+};
+
+const blockStep = (ref: Reference, op: number): Step => {
+  const taskId = choices[op % 3]!;
   const other = taskId === A ? B : A;
-  const mutable = ref.state === "planning" || ref.state === "running" || ref.state === "paused";
+  const attempt = latest(ref, taskId);
 
   return {
     command: C.WorkerBlock.make({
       constellationId: CID,
       attemptId: AttemptId.make(attempt?.id ?? "missing"),
       on: [other],
-      reason: "Wait for dependency",
+      reason: "Wait",
     }),
     context: ctx({ binding: { kind: "session", sessionId: SessionId.make(`worker-${taskId}`) } }),
-    allowed: mutable && attempt?.state === "working" && latest(ref, other)?.state !== "accepted",
+    allowed:
+      (ref.state === "planning" || ref.state === "running" || ref.state === "paused") &&
+      attempt?.state === "working" &&
+      !referenceDone(ref, other) &&
+      !referenceClosure(ref, other).has(taskId),
+  };
+};
+
+const parentEditStep = (ref: Reference, index: number, mutable: boolean): Step => {
+  const parent = ref.tasks.get("P")!;
+
+  return {
+    command: C.Plan.make({
+      constellationId: CID,
+      operations: [
+        PlanOperation.cases.Edit.make({
+          taskId: TaskId.make("P"),
+          revision: parent.revision,
+          task: task(TaskId.make("P"), index % 2 === 0 ? [X] : []),
+        }),
+      ],
+    }),
+    context: ctx(),
+    allowed: mutable,
   };
 };
 
 const step = (ref: Reference, op: number, index: number): Step => {
-  const taskId = op % 2 === 0 ? A : B;
+  const taskId = choices[op % 3]!;
   const attempt = latest(ref, taskId);
   const attemptId = AttemptId.make(attempt?.id ?? "missing");
   const sessionId = SessionId.make(`worker-${taskId}`);
   const mutable = ref.state === "planning" || ref.state === "running" || ref.state === "paused";
-  const action = Math.floor(op / 2);
+  const action = Math.floor(op / 3);
   const base = { constellationId: CID, attemptId };
   const workerContext = ctx({ binding: { kind: "session", sessionId } });
 
-  if (action === 0)
-    return {
-      command: C.Dispatch.make({
-        constellationId: CID,
-        tasks: [{ taskId, worker: WorkerPlacement.cases.Existing.make({ sessionId }) }],
-      }),
-      context: ctx({ attempts: [draft(taskId, `a-${index}`, sessionId)] }),
-      allowed: (ref.state === "planning" || ref.state === "running") && attempt === undefined,
-    };
+  if (action === 0) return dispatchStep(ref, taskId, index);
 
   if (action === 1)
     return {
@@ -177,7 +234,9 @@ const step = (ref: Reference, op: number, index: number): Step => {
       allowed: ref.state === "running",
     };
 
-  if (action >= 8) return extraStep(ref, op);
+  if (action === 10) return parentEditStep(ref, index, mutable);
+
+  if (action >= 8) return action === 11 ? blockStep(ref, op) : metadataStep(ref, op);
 
   return {
     command: C.SetState.make({
@@ -200,7 +259,14 @@ const run = (operations: ReadonlyArray<number>) => {
       leadSessionId: planned().graph.leadSessionId,
       settings: planned().graph.settings,
     },
-    operations: [task(A), task(B)].map((t) => PlanOperation.cases.Add.make({ task: t })),
+    operations: [
+      task(X),
+      task(TaskId.make("P"), [X]),
+      new TaskDefinition({ ...taskData(task(TaskId.make("Q"))), parent: TaskId.make("P") }),
+      new TaskDefinition({ ...taskData(task(A)), parent: TaskId.make("Q") }),
+      new TaskDefinition({ ...taskData(task(B)), parent: TaskId.make("P") }),
+      task(TaskId.make("G"), [TaskId.make("P")], "gate"),
+    ].map((t) => PlanOperation.cases.Add.make({ task: t })),
   });
 
   const first = decideConstellation(undefined, start, ctx());
@@ -215,7 +281,10 @@ const run = (operations: ReadonlyArray<number>) => {
   for (const [index, op] of operations.entries()) {
     const input = step(ref, op, index);
     const decision = decideConstellation(record, input.command, input.context);
-    expect(decision.rejection === null).toBe(input.allowed);
+    expect(
+      decision.rejection === null,
+      JSON.stringify({ op, findings: decision.rejection?.findings })
+    ).toBe(input.allowed);
 
     if (!input.allowed) expect(decision.events).toEqual([]);
     else {
@@ -226,6 +295,11 @@ const run = (operations: ReadonlyArray<number>) => {
     }
 
     expect(observeFold(record)).toEqual(observeReference(ref));
+
+    for (const projection of projectTasks(record))
+      expect(projection.state).toBe(referenceState(ref, projection.taskId));
+
+    if (referenceDone(ref, "P")) expect(record.promoted.has(TaskId.make("G"))).toBe(true);
     const sessions = record.graph.attempts.filter((a) => active(a.state)).map((a) => a.sessionId);
     expect(new Set(sessions).size).toBe(sessions.length);
   }
@@ -241,7 +315,19 @@ const run = (operations: ReadonlyArray<number>) => {
 
 test("model sequences compare the real decider and fold with independent command guards and reference fold", () => {
   fc.assert(
-    fc.property(fc.array(fc.integer({ min: 0, max: 21 }), { minLength: 20, maxLength: 100 }), run),
+    fc.property(fc.array(fc.integer({ min: 0, max: 35 }), { minLength: 20, maxLength: 100 }), run),
     { numRuns: pbtRuns(100), ...pbtSeed() }
   );
+});
+
+test("model parent dependency edits preserve active rollup and gate descendants until acceptance", () => {
+  run([30, 30, 0, 6, 30, 9, 1, 2, 8, 11, 1, 7, 10]);
+});
+
+test("blocked SendBack is modeled and emitted in a complete committed trace", () => {
+  run([30, 0, 33, 12]);
+});
+
+test("a blocked Attempt cannot be accepted without a Claim after a parent dependency edit", () => {
+  run([0, 30, 2, 35, 0, 11]);
 });

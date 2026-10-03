@@ -22,6 +22,7 @@ import {
   WorkspaceId,
 } from "@polaris/protocol";
 import { Effect, Predicate, Schema, Stream } from "effect";
+import { CONSTELLATION_SKILL_VERSION } from "../../constellation/skills/index.ts";
 import { type ConstellationRuntimeService } from "../../constellation/runtime.ts";
 import { decideSession, type SessionInput } from "../../engine/session.ts";
 import { HarnessEvent, type HarnessDriver } from "../../harness/HarnessDriver.ts";
@@ -354,7 +355,7 @@ export const runAttempt = Effect.fnUntraced(function* (
         attachConstellation(binding, "http://127.0.0.1:12345", commands).pipe(Effect.orDie),
       startSession: Effect.fnUntraced(function* (start) {
         expect(start.prompt).toContain(`Task: ${task.id}`);
-        expect(start.attachment.instructions).toContain("v3");
+        expect(start.attachment.instructions).toContain(`v${CONSTELLATION_SKILL_VERSION}`);
         attachment = start.attachment;
         receipt = yield* runBenchTurn(
           start.attachment,

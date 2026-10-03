@@ -34,7 +34,7 @@ export const polarisPreamble = (options: InstructionOptions): string => {
 
   if (plan !== -1)
     features.push(
-      `Constellations: the user may ask you to lead one. Call ${name(plan, "plan")} with start to create it, or operations to map its tasks; use ${name(plan, "status")} for detail.`
+      `Constellations: the user may ask you to lead one. Call ${name(plan, "plan")} with start to create it, or operations to map its tasks; use ${name(plan, "status")} for detail. Nest related tasks with parent (F1–F3 under fix round F), to any depth; group names the broad area. Parents are containers, never workers or gates.`
     );
 
   if (claim !== -1)

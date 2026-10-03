@@ -10,6 +10,7 @@ import { journalContext } from "./journal.ts";
 import { digestPrompt } from "./format.ts";
 import { pendingInputs, type PendingInput } from "./messages.ts";
 import { newTurn, startedTurn, takesDelivery } from "./turns.ts";
+import { unblocksAttempt } from "../blocked.ts";
 
 export const deliverLocalInput = Effect.fn("Constellation.deliverLocalInput")(function* (
   id: ConstellationId,
@@ -43,7 +44,8 @@ export const deliverLocalInput = Effect.fn("Constellation.deliverLocalInput")(fu
 
       if (
         blocked !== undefined &&
-        (record.turns.some((t) => t.status === "working") || graph.peers.has(input.id))
+        (record.turns.some((t) => t.status === "working") ||
+          !unblocksAttempt(graph, blocked, input.id))
       )
         return Effect.succeed([]);
       const turn = newTurn(record.session, input.text, new Date().toISOString());

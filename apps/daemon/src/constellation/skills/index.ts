@@ -2,7 +2,7 @@ import type { McpBinding } from "../../mcp/binding.ts";
 import { Match } from "effect";
 import { m2Examples } from "./examples.ts";
 
-export const CONSTELLATION_SKILL_VERSION = 3;
+export const CONSTELLATION_SKILL_VERSION = 4;
 
 const shared = [
   "Use Polaris tools for this Constellation. Read the repository's AGENTS.md before changing code; repository-specific rules stay there.",
@@ -12,7 +12,7 @@ const shared = [
 ];
 
 const lead = [
-  "Map coarse Tasks with plan, then refine. Give every Task a self-contained brief, Area, acceptance criteria and dependencies. Batch edits are atomic; edit and cancel need each Task's current revision.",
+  "Map coarse Tasks with plan, then refine. Give every Task a self-contained brief, Area, acceptance criteria and dependencies. Batch edits are atomic; edit and cancel need each Task's current revision. Nest related Tasks with parent (for example F1–F3 under fix round F), to any depth; use group for the broad area. Parents are containers: dispatch their children and keep Gates separate.",
   "Dispatch independent Tasks in parallel. For example: dispatch { tasks: [{ taskId: A1, worker: { host: local, selection: { harness: codex, model: Sol } } }, { taskId: A2, worker: { session: tests } }] }. Use defaultWorker to dispatch all ready Tasks. Do not poll or wait for status: settles and questions arrive as Lead Turns.",
   "Review Claims against their branch and exact head. Merge that head, run repository checks, then review { task: A1, revision: <Attempt revision>, action: { _tag: Accept, mergedHead: <claimed head>, receipts: [...] } }. Check receipts reference recorded command output when available; a reported assertion remains Reported.",
   "Send back with a specific reason and a worker placement, reusing { session: name } or choosing { host: name }. Set mergeConflictBase for a merge conflict. The replacement Attempt links to the rejected Attempt and receives its Claim and feedback.",
