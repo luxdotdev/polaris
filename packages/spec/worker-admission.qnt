@@ -110,17 +110,22 @@ module worker_admission {
   }
   action stop = all {
     slots.active,
-    slots' = { ...slots, active: false, foreground: false, background: false,
+    slots' = { ...slots, active: false, failed: false, registered: false, startup: false, foreground: false, background: false,
       reporting: false, bindings: false, pending: false, userPending: false,
       deferred: false, inputGate: false, holders: slots.holders.exclude(Set(0)),
       queue: slots.queue.select(id => id != 0) },
   }
   action sendBack = all {
     slots.active,
-    slots' = { ...slots, active: false, foreground: false, background: false,
+    slots' = { ...slots, active: false, failed: false, registered: false, startup: false, foreground: false, background: false,
       reporting: false, bindings: false, replacement: true, pending: false,
       userPending: false, deferred: false, inputGate: false,
       holders: slots.holders.exclude(Set(0)), queue: slots.queue.select(id => id != 0) },
+  }
+  action assignmentEnded = stop
+  action ordinaryUserInput = all {
+    not(slots.active), not(slots.failed), not(slots.foreground),
+    slots' = { ...slots, foreground: true, userTurns: slots.userTurns + 1 },
   }
   action claimB = slots' = { ...slots, holders: slots.holders.exclude(Set(1)) }
   // Admission precedes the existing atomic unblock/Turn commit, which doubles as a remote receipt.
@@ -142,7 +147,7 @@ module worker_admission {
     reportingEnded, inlineReport, releaseBlocked, grant, resumeInput, claimB, apply,
     retry, restart, register, userInput, acceptedDeferredUser, takeInputGate,
     steer, applyUser, stop, sendBack, pendingBrief, startBrief, startupFailed, refuseFailedInput,
-    startupAbandoned, releaseAbandoned,
+    startupAbandoned, releaseAbandoned, assignmentEnded, ordinaryUserInput,
   }
   val safety = all {
     slots.holders.size() <= 1,
@@ -150,9 +155,9 @@ module worker_admission {
     slots.active implies slots.bindings,
     slots.inputGate implies (slots.registered and slots.holders.contains(0)),
     slots.acks > 0 implies slots.receipt,
-    (slots.userTurns > 0 and slots.foreground) implies slots.holders.contains(0),
+    (slots.active and slots.userTurns > 0 and slots.foreground) implies slots.holders.contains(0),
     slots.queue.length() == slots.queue.foldl(Set(), (ids, id) => ids.union(Set(id))).size(),
-    (slots.receipt and slots.foreground) implies slots.holders.contains(0),
+    (slots.active and slots.receipt and slots.foreground) implies slots.holders.contains(0),
     slots.reporting implies slots.holders.contains(0),
     slots.failed implies (not(slots.registered) and not(slots.foreground) and not(slots.holders.contains(0))),
   }
@@ -162,6 +167,9 @@ module worker_admission {
 
 module worker_admission_test {
   import worker_admission.*
+  run failedAssignmentEndsRestoresSessionTest = init.then(startupFailed).then(refuseFailedInput)
+    .then(assignmentEnded).then(grant).then(ordinaryUserInput)
+    .expect(not(slots.active) and not(slots.failed) and slots.foreground and slots.userTurns == 1 and slots.holders == Set(1) and safety)
   run abandonedStartupUserReacquiresTest = init.then(foregroundEnded).then(pendingBrief)
     .then(startupAbandoned).then(releaseAbandoned).then(grant).then(userInput)
     .expect(slots.bindings and slots.registered and slots.holders == Set(1) and safety)

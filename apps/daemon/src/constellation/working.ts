@@ -2,6 +2,7 @@ import type { Attempt, AttemptId, SessionId, DomainEvent } from "@polaris/protoc
 import { Deferred, Effect, Exit, Layer, Predicate, Scope, Stream } from "effect";
 import {
   cancelWorkerAdmissionWait,
+  clearClosedWorkerAdmission,
   registerWorkerAdmission,
   registerWorkerAdmissionSource,
   workerBusy,
@@ -52,7 +53,11 @@ export const workingAttemptsLayer = <E>(hooks: WorkingAttemptHooks<E>) =>
 
       const working = new Map<
         AttemptId,
-        { scope: Scope.Closeable; observe: (event: DomainEvent) => Effect.Effect<void> }
+        {
+          scope: Scope.Closeable;
+          sessionId: SessionId;
+          observe: (event: DomainEvent) => Effect.Effect<void>;
+        }
       >();
 
       const close = Effect.fnUntraced(function* (id: AttemptId) {
@@ -70,6 +75,7 @@ export const workingAttemptsLayer = <E>(hooks: WorkingAttemptHooks<E>) =>
 
         working.delete(id);
         yield* Scope.close(entry.scope, Exit.void);
+        yield* clearClosedWorkerAdmission(store, entry.sessionId);
       });
 
       let sequence = 0;
@@ -202,7 +208,11 @@ export const workingAttemptsLayer = <E>(hooks: WorkingAttemptHooks<E>) =>
           mayRelease
         );
 
-        working.set(attempt.id, { scope, observe: admission.observe });
+        working.set(attempt.id, {
+          scope,
+          sessionId: attempt.sessionId,
+          observe: admission.observe,
+        });
         yield* Effect.gen(function* () {
           if (!(yield* mayRelease) && !(yield* admission.ensure)) return;
           const latest = yield* store.model;

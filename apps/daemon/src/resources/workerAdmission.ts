@@ -56,6 +56,20 @@ const hasAssignment = (store: Store, sessionId: SessionId) =>
     return false;
   });
 
+/** A failed assignment fences input only while the durable assignment remains active. */
+export const clearClosedWorkerAdmission = (store: Store, sessionId: SessionId) =>
+  Effect.gen(function* () {
+    const entries = admissions.get(store);
+
+    if (entries?.get(sessionId) !== closedAdmission || (yield* hasAssignment(store, sessionId)))
+      return false;
+
+    if (entries.get(sessionId) !== closedAdmission) return false;
+    entries.delete(sessionId);
+
+    return true;
+  });
+
 const awaitRegistration = (store: Store, sessionId: SessionId) =>
   Effect.suspend(() => {
     const current = admissions.get(store)?.get(sessionId);
@@ -81,6 +95,7 @@ const awaitRegistration = (store: Store, sessionId: SessionId) =>
 /** A terminal mirror can retire an input that arrived before its admission controller mounted. */
 export const cancelWorkerAdmissionWait = (store: Store, sessionId: SessionId) =>
   Effect.gen(function* () {
+    yield* clearClosedWorkerAdmission(store, sessionId);
     const waiting = registrations.get(store);
     const registration = waiting?.get(sessionId);
 
@@ -193,7 +208,7 @@ export const registerWorkerAdmission = <E>(
 
     const entries = registered;
 
-    // Keep failure visible to later inputs until a replacement controller registers.
+    // Keep failure visible while assigned; replacement or terminal assignment cleanup removes it.
     const retire = gate.withPermit(
       Effect.gen(function* () {
         closed = true;
@@ -210,6 +225,7 @@ export const registerWorkerAdmission = <E>(
           closed = true;
 
           if (entries.get(sessionId) === admission) entries.delete(sessionId);
+          yield* clearClosedWorkerAdmission(store, sessionId);
           yield* release;
         })
       )
@@ -265,6 +281,8 @@ export const withWorkerAdmission = <A, E, R>(
   waitForRegistration = false
 ): Effect.Effect<A | void, E, R> =>
   Effect.gen(function* () {
+    if (yield* clearClosedWorkerAdmission(store, sessionId)) return yield* effect;
+
     const admission =
       admissions.get(store)?.get(sessionId) ??
       (waitForRegistration || (yield* hasAssignment(store, sessionId))
