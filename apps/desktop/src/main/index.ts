@@ -19,12 +19,14 @@ import {
   clipboard,
   dialog,
   nativeTheme,
+  ipcMain,
   session,
   shell,
 } from "electron";
 import { type AppEvent, type Appearance, CHANNELS, type SessionDefault } from "../shared/api.ts";
 import {
   clientIdentity,
+  HostDirectory,
   type ClientRuntime,
   extraHosts,
   hostEntries,
@@ -35,6 +37,11 @@ import {
 import { followFocus, followReviewRequests, githubLayer } from "./github/electron.ts";
 import { iconPng, nameApp, showIcon } from "./identity.ts";
 import { registerIpc } from "./ipc/index.ts";
+import { registerLanguageIpc } from "./ipc/languages.ts";
+import { optionalLanguageCredential } from "./languages/optionalCredential.ts";
+import { LanguageIdentityEpochs } from "./languages/identityEpochs.ts";
+import { createMainLanguageApi } from "./languages/runtime.ts";
+import { LanguagePreferences } from "./languages/settings.ts";
 import { machinesLayer, sshAliasNames } from "./machines/index.ts";
 import { type LocalDaemon, resolveLocalDaemon } from "./localDaemon.ts";
 import { buildMenu } from "./menu.ts";
@@ -91,6 +98,20 @@ registerAppScheme();
 if (!app.requestSingleInstanceLock()) app.exit(0);
 
 let runtime: ClientRuntime | null = null;
+
+const languageIdentities = new LanguageIdentityEpochs((hostKey) => {
+  try {
+    return (
+      runtime?.runSync(HostDirectory.use((directory) => directory.connection(hostKey))) ?? null
+    );
+  } catch {
+    return null;
+  }
+});
+
+let languageRuntime: ReturnType<typeof createMainLanguageApi> | null = null;
+
+let languageIpc: ReturnType<typeof registerLanguageIpc> | null = null;
 
 let localDaemon: LocalDaemon | null = null;
 
@@ -242,6 +263,12 @@ const start = async () => {
         ...localLabel(env.POLARIS_DESKTOP_LOCAL_LABEL),
       }),
       identity: clientIdentity(app.getVersion()),
+      ...optionalLanguageCredential(join(app.getPath("userData"), "language-private"), (message) =>
+        console.warn(message)
+      ),
+      languageEpoch: (hostKey, session) =>
+        languageIdentities.bind(hostKey, session)?.connectionEpoch ?? null,
+      invalidateLanguage: (hostKey) => languageIdentities.invalidate(hostKey),
     },
     machinesLayer({
       settings: { get: () => settings, update: updateSettings },
@@ -255,6 +282,15 @@ const start = async () => {
     }),
     githubLayer({ userData: app.getPath("userData"), env })
   );
+  languageRuntime = createMainLanguageApi({
+    runtime,
+    identities: languageIdentities,
+    preferences: new LanguagePreferences(
+      () => settings,
+      (value) => updateSettings(() => value)
+    ),
+  });
+  languageIpc = registerLanguageIpc(ipcMain, languageRuntime.api, trusted);
   followFocus(runtime);
 
   const daemonDist = join(repoRoot, "apps/daemon/dist");
@@ -339,6 +375,9 @@ const finishQuit = () => {
   quitting = true;
   exiting = true;
   ipc?.dispose();
+  languageIpc?.dispose();
+  languageRuntime?.dispose();
+  languageIdentities.dispose();
   needsYou?.dispose();
   reviews?.dispose();
   updates?.dispose();

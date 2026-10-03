@@ -41,6 +41,9 @@ import { TerminalsDaemonLive } from "../terminal/Terminals.ts";
 import { UsageIndexLive, UsageRpcsLive, UsageSessions } from "../usage/index.ts";
 import { ResourceRpcsLive } from "../resources/rpc.ts";
 import { startServer } from "./server.ts";
+import { lazyLanguageHandlers } from "./lazyLanguages.ts";
+import { PreviewMediaRpc } from "../languages/media/rpc.ts";
+import { HostPreviewMedia } from "../languages/media/index.ts";
 
 /** Exit status when another Daemon already holds the lock or answers on the socket. */
 export const SERVE_EXIT_ALREADY_RUNNING = 75;
@@ -92,6 +95,8 @@ const daemonServices = ReviewerLive().pipe(Layer.provideMerge(engineServices));
 
 /** Every real handler layer the Daemon mounts. Compose new modules' layers here. */
 export const daemonHandlers = Layer.mergeAll(
+  lazyLanguageHandlers,
+  PreviewMediaRpc.pipe(Layer.provide(HostPreviewMedia.layer())),
   InlineRpcsLive,
   EngineRpcHandlers,
   ResourceRpcsLive,
@@ -110,6 +115,14 @@ export const daemonHandlers = Layer.mergeAll(
 
 export const daemonCapabilities: ReadonlyArray<Capability> = [
   "inline.propose",
+  "languages",
+  "languages.trust",
+  "languages.format",
+  "languages.buffer-acknowledgments",
+  "languages.edit-preparation",
+  "languages.edits",
+  "languages.resources",
+  "languages.resources.tree-v2",
   "constellation",
   "constellation.defaults",
   ...HARNESS_CATALOGUE.map((harness) => harness.capability),

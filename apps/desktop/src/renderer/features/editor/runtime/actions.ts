@@ -140,9 +140,25 @@ export const answerClose = async (choice: CloseChoice) => {
   if (current?.path !== path) return;
 
   if (choice === "discard") {
-    closeNow(hostKey, workspaceId, viewId);
+    const unchanged = () =>
+      tabsOf(editorStore.getState(), workspaceKey(hostKey, workspaceId)).tabs.find(
+        (tab) => tabId(tab) === viewId
+      ) === current && current.path === path;
 
-    if (!shown(hostKey, path)) discardBuffer(hostKey, path);
+    const shared = () =>
+      Object.entries(editorStore.getState().tabs).some(
+        ([key, set]) =>
+          key.startsWith(`${hostKey}\u0000`) &&
+          set.tabs.some(
+            (tab) =>
+              tab.path === path &&
+              (key !== workspaceKey(hostKey, workspaceId) || tabId(tab) !== viewId)
+          )
+      );
+
+    if (!shared() && !(await discardBuffer(hostKey, path, () => unchanged() && !shared()))) return;
+
+    if (unchanged()) closeNow(hostKey, workspaceId, viewId);
 
     return;
   }

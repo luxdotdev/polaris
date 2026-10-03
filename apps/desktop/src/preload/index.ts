@@ -4,6 +4,7 @@
  * One IPC listener demultiplexes every subscription's batched items.
  */
 import { contextBridge, ipcRenderer } from "electron";
+import { languageApi } from "./languages.ts";
 import {
   type BatchEntry,
   CHANNELS,
@@ -43,6 +44,7 @@ ipcRenderer.on(CHANNELS.batch, (_event, entries: ReadonlyArray<BatchEntry>) => {
 });
 
 const api: PolarisApi = {
+  languages: languageApi,
   request: (method, input) => ipcRenderer.invoke(CHANNELS.request, { method, input }),
   subscribe: (kind, input, listener) => {
     const id = nextId++;

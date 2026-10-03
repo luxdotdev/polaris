@@ -1,5 +1,6 @@
 import * as P from "@polaris/protocol";
 import { Schema } from "effect";
+import { captureEditIntentFence } from "./editFence.ts";
 import type {
   LanguageAdapterOptions,
   LanguageBuffer,
@@ -100,6 +101,26 @@ export class LanguageRequests {
     );
   }
 
+  intentCurrent(
+    provider: LanguageProvider,
+    buffer: LanguageBuffer,
+    fence: P.LanguageRequestFence
+  ): boolean {
+    const latest = this.options
+      .providers()
+      .find(
+        (entry) =>
+          entry.context.contextId === provider.context.contextId &&
+          entry.context.providerId === provider.context.providerId
+      );
+
+    return (
+      this.current(provider, buffer) &&
+      latest !== undefined &&
+      P.languageFenceSatisfied(fence, latest.ack)
+    );
+  }
+
   async query(
     method: Method,
     parameters: (provider: LanguageProvider) => Params,
@@ -140,7 +161,8 @@ export class LanguageRequests {
       if (joined.aborted) return [];
 
       return results.flatMap((result) => {
-        if (!result || !this.current(result.provider, buffer)) return [];
+        if (!result || !this.intentCurrent(result.provider, buffer, result.request.fence))
+          return [];
 
         const latest = this.options
           .providers()
@@ -162,7 +184,18 @@ export class LanguageRequests {
   ): Promise<ProviderResult | null> {
     if (signal.aborted) return null;
     const requestId = `${this.requestPrefix}-${++this.serial}`;
-    const fence = providerFence(provider, buffer);
+    let fence: P.LanguageRequestFence;
+
+    try {
+      fence =
+        method === "textDocument/rename" ||
+        method === "textDocument/codeAction" ||
+        method === "codeAction/resolve"
+          ? captureEditIntentFence(provider, buffer)
+          : providerFence(provider, buffer);
+    } catch {
+      return null;
+    }
 
     const request = P.LanguageFeatureRequest.make({
       requestId,
@@ -213,11 +246,15 @@ export class LanguageRequests {
         .providers()
         .find((entry) => entry.context.contextId === provider.context.contextId);
 
-      if (!latest?.capabilities.methods.includes(method)) return null;
+      if (
+        !latest?.capabilities.methods.includes(method) ||
+        !P.languageFenceSatisfied(fence, latest.ack)
+      )
+        return null;
 
       if (value.requestId !== requestId || !sameFence(fence, value.fence)) return null;
 
-      return { provider, value };
+      return { provider, request, value };
     } catch {
       return null;
     } finally {

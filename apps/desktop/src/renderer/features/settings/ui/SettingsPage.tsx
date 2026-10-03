@@ -183,7 +183,7 @@ export const SettingsPage = ({ route }: { readonly route: SettingsRoute }) => {
   useEscapeCloses(closeSettings);
 
   return (
-    <main className="flex min-h-0 flex-1" data-testid="settings">
+    <main className="flex min-h-0 min-w-0 flex-1" data-testid="settings">
       <SettingsNav current={route.section} />
       <div
         className="bg-bg min-w-0 flex-1 [scrollbar-gutter:stable_both-edges] overflow-y-auto"

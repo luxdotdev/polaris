@@ -57,6 +57,8 @@ export const Capability = Schema.Literals([
   "languages.trust",
   "languages.format",
   "languages.edits",
+  "languages.edit-preparation",
+  "languages.buffer-acknowledgments",
   "languages.resources",
   "languages.resources.tree-v2",
   "languages.preview-media",

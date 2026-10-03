@@ -17,10 +17,12 @@
 import { DaemonRpcs } from "@polaris/protocol";
 import { RpcMiddleware } from "effect/rpc";
 import type { BlobChannel } from "../services.ts";
+import type { CurrentLanguageConnection } from "./currentLanguageConnection.ts";
+import type { LanguageConnectionLifetime } from "./languageConnectionLifetime.ts";
 
 export class ConnectionBlobs extends RpcMiddleware.Service<
   ConnectionBlobs,
-  { provides: BlobChannel }
+  { provides: BlobChannel | CurrentLanguageConnection | LanguageConnectionLifetime }
 >()("polaris/daemon/transport/ConnectionBlobs") {}
 
 export const ServerRpcs = DaemonRpcs.middleware(ConnectionBlobs);

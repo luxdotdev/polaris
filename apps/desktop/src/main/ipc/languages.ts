@@ -2,6 +2,7 @@
 import { decodeLanguage } from "@polaris/client";
 import { Schema } from "effect";
 import type { LanguageApi, IpcError } from "../../shared/api.ts";
+import { LANGUAGE_CHANNELS } from "../../shared/languageChannels.ts";
 import {
   LanguageRequestInputs,
   LanguageSubscriptionInputs,
@@ -9,12 +10,7 @@ import {
   type LanguageSubscriptionKind,
 } from "../../shared/languages.ts";
 
-export const LANGUAGE_CHANNELS = {
-  request: "polaris:languages:request",
-  subscribe: "polaris:languages:subscribe",
-  unsubscribe: "polaris:languages:unsubscribe",
-  entries: "polaris:languages:entries",
-} as const;
+export { LANGUAGE_CHANNELS };
 
 interface LanguageSender {
   readonly id: number;

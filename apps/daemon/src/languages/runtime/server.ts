@@ -13,6 +13,11 @@ import {
   LanguageServerRequestPayload,
   LanguageFeatureMethod,
   LanguageWorkspaceEdit,
+  LanguagePreparedEditProposal,
+  decodeLanguageResourceProposal,
+  LanguageTreeEditProposal,
+  LanguageResourceReceiptChallenge,
+  LanguageResourceReceiptResponse,
 } from "@polaris/protocol";
 import type {
   LanguageContextIdentity,
@@ -24,6 +29,7 @@ import type {
 import { Schema } from "effect";
 import { pathToFileURL } from "node:url";
 import { randomUUID } from "node:crypto";
+import { fingerprint } from "../../files/edits/journal.ts";
 import type { OrderedConnection } from "../transport/index.ts";
 import { bounded } from "../transport/deadline.ts";
 import { failure } from "../transport/framing.ts";
@@ -38,12 +44,14 @@ export interface ServerHooks {
   emit: (event: LanguageContextEvent) => void;
   current: () => boolean;
   authorize: () => Promise<void>;
+  /** Independently negotiated Client support, never inferred from a proposal's fields. */
+  treeEdits?: () => boolean;
   prepareEdit:
     | undefined
     | ((
         edit: LanguageWorkspaceEdit,
         proposal: LanguageEditProposal
-      ) => Promise<LanguageEditProposal>);
+      ) => Promise<LanguageEditProposal | LanguageTreeEditProposal>);
   capabilities: (capabilities: LanguageProviderCapabilities) => void;
 }
 
@@ -100,6 +108,12 @@ interface PendingServerRequest {
   request: typeof LanguageJsonRpcRequest.Type;
   timer: ReturnType<typeof setTimeout>;
   fence?: LanguageRequestFence;
+  internal?: {
+    challenge: LanguageResourceReceiptChallenge;
+    resolve: (response: LanguageResourceReceiptResponse) => void;
+    reject: (cause: Error) => void;
+    cleanup: () => void;
+  };
 }
 
 export class ServerBridge {
@@ -241,43 +255,10 @@ export class ServerBridge {
         return;
       }
 
-      case "workspace/applyEdit": {
-        if (this.hooks.prepareEdit === undefined) {
-          await this.send(id, { applied: false, failureReason: "Edit preview unavailable" });
-
-          return;
-        }
-
-        const input = Schema.decodeUnknownSync(ApplyEdit)(params);
-
-        const proposal = LanguageEditProposal.make({
-          proposalId: randomUUID(),
-          fence: {
-            context: this.hooks.context,
-            requiredSequence: this.hooks.documents.sequence,
-            documents: this.hooks.documents.ack().documents,
-          },
-          origin: "server-apply-edit",
-          label: input.label ?? "Language edits",
-          edit: input.edit,
-          snapshots: [],
-          expiresAt: Date.now() + 10000,
-        });
-
-        const prepared = Schema.decodeUnknownSync(LanguageEditProposal)(
-          await bounded(this.hooks.prepareEdit(input.edit, proposal), 10000)
-        );
-
-        if (!this.hooks.current()) return;
-        this.hooks.documents.fence(proposal.fence);
-        this.hooks.documents.fence(prepared.fence);
-        this.forward(
-          request,
-          LanguageServerRequestPayload.cases.ApplyEdit.make({ proposal: prepared })
-        );
+      case "workspace/applyEdit":
+        await this.applyEdit(request);
 
         return;
-      }
 
       case "window/showMessageRequest": {
         const input = Schema.decodeUnknownSync(ShowMessage)(params);
@@ -303,6 +284,98 @@ export class ServerBridge {
     }
   }
 
+  private async applyEdit(request: typeof LanguageJsonRpcRequest.Type) {
+    const { id, params } = request;
+
+    if (this.hooks.prepareEdit === undefined) {
+      await this.send(id, { applied: false, failureReason: "Edit preview unavailable" });
+
+      return;
+    }
+
+    const input = Schema.decodeUnknownSync(ApplyEdit)(params);
+
+    if (
+      input.edit.documentChanges?.some((change) => "kind" in change) &&
+      this.hooks.treeEdits?.() !== true
+    ) {
+      await this.send(id, {
+        applied: false,
+        failureReason: "Resource edit preview unavailable",
+      });
+
+      return;
+    }
+
+    const proposal = LanguageEditProposal.make({
+      proposalId: randomUUID(),
+      fence: {
+        context: this.hooks.context,
+        requiredSequence: this.hooks.documents.sequence,
+        documents: this.hooks.documents.ack().documents,
+      },
+      origin: "server-apply-edit",
+      label: input.label ?? "Language edits",
+      edit: input.edit,
+      snapshots: [],
+      expiresAt: Date.now() + 10000,
+    });
+
+    const prepared = decodeLanguageResourceProposal(
+      Schema.encodeSync(LanguagePreparedEditProposal)(
+        await bounded(this.hooks.prepareEdit(input.edit, proposal), 10000)
+      )
+    );
+
+    if (!this.hooks.current()) return;
+    this.hooks.documents.fence(proposal.fence);
+    this.hooks.documents.fence(prepared.fence);
+
+    if (
+      prepared.proposalId !== proposal.proposalId ||
+      prepared.origin !== proposal.origin ||
+      prepared.expiresAt !== proposal.expiresAt ||
+      prepared.label !== proposal.label ||
+      fingerprint(prepared.edit) !== fingerprint(proposal.edit) ||
+      fingerprint(prepared.fence) !== fingerprint(proposal.fence)
+    )
+      throw failure("invalid-input", "Prepared edit identity changed");
+
+    if (Schema.is(LanguageTreeEditProposal)(prepared)) {
+      if (this.hooks.treeEdits?.() !== true) {
+        await this.send(id, {
+          applied: false,
+          failureReason: "Resource edit preview unavailable",
+        });
+
+        return;
+      }
+
+      this.forward(
+        request,
+        LanguageServerRequestPayload.cases.TreeApplyEdit.make({ proposal: prepared })
+      );
+
+      return;
+    }
+
+    if (prepared.edit.documentChanges?.some((change) => "kind" in change)) {
+      await this.send(id, {
+        applied: false,
+        failureReason: "Resource edit snapshots unavailable",
+      });
+
+      return;
+    }
+
+    this.forward(
+      request,
+      LanguageServerRequestPayload.cases.ApplyEdit.make({ proposal: prepared })
+    );
+
+    return;
+  }
+
   private forward(
     request: typeof LanguageJsonRpcRequest.Type,
     payload: typeof import("@polaris/protocol").LanguageServerRequestPayload.Type
@@ -319,7 +392,10 @@ export class ServerBridge {
 
     const pending: PendingServerRequest = { request, timer };
 
-    if (Schema.is(LanguageServerRequestPayload.cases.ApplyEdit)(payload))
+    if (
+      Schema.is(LanguageServerRequestPayload.cases.ApplyEdit)(payload) ||
+      Schema.is(LanguageServerRequestPayload.cases.TreeApplyEdit)(payload)
+    )
       pending.fence = payload.proposal.fence;
     this.pending.set(key, pending);
     this.hooks.emit(
@@ -330,12 +406,119 @@ export class ServerBridge {
     );
   }
 
+  async challengeReceipt(
+    challenge: LanguageResourceReceiptChallenge,
+    signal: AbortSignal,
+    deadlineMs = 5000
+  ) {
+    const payload = LanguageServerRequestPayload.cases.ResourceReceipt.make({ challenge });
+    await this.hooks.authorize();
+
+    if (!this.hooks.current() || signal.aborted)
+      throw failure("cancelled", "Receipt challenge cancelled");
+
+    if (this.hooks.treeEdits?.() !== true)
+      throw failure("unsupported-capability", "Receipt challenge unavailable");
+
+    if (this.pending.size >= 32) throw failure("queue-full", "Server request limit");
+    const id = `resource-receipt-${randomUUID()}`;
+    const key = JSON.stringify(id);
+
+    const request = LanguageJsonRpcRequest.make({
+      jsonrpc: "2.0",
+      id,
+      method: "polaris/resourceReceipt",
+    });
+
+    return new Promise<LanguageResourceReceiptResponse>((resolve, reject) => {
+      const cancel = (cause: Error) => {
+        const pending = this.pending.get(key);
+
+        if (pending === undefined) return;
+        this.pending.delete(key);
+        clearTimeout(pending.timer);
+        pending.internal?.cleanup();
+        reject(cause);
+      };
+
+      const aborted = () => cancel(failure("cancelled", "Receipt challenge cancelled"));
+
+      const timer = setTimeout(
+        () => cancel(failure("timeout", "Receipt challenge timed out")),
+        deadlineMs
+      );
+
+      const pending: PendingServerRequest = {
+        request,
+        timer,
+        internal: {
+          challenge,
+          resolve,
+          reject,
+          cleanup: () => signal.removeEventListener("abort", aborted),
+        },
+      };
+
+      this.pending.set(key, pending);
+      signal.addEventListener("abort", aborted, { once: true });
+
+      if (signal.aborted) {
+        aborted();
+
+        return;
+      }
+
+      try {
+        this.hooks.emit(
+          LanguageContextEvent.cases.ServerRequest.make({
+            request: { context: this.hooks.context, request, deadline: Date.now() + deadlineMs },
+            payload,
+          })
+        );
+      } catch {
+        cancel(failure("invalid-input", "Receipt challenge delivery failed"));
+      }
+    });
+  }
+
   respond(input: typeof LanguageServerResponse.Type) {
     const key = JSON.stringify(input.response.id);
     const pending = this.pending.get(key);
 
     if (pending === undefined)
       throw failure("stale-generation", "Server request no longer pending");
+
+    if (pending.internal !== undefined) {
+      this.pending.delete(key);
+      clearTimeout(pending.timer);
+      pending.internal.cleanup();
+
+      try {
+        if (
+          !this.hooks.current() ||
+          fingerprint(input.context) !== fingerprint(this.hooks.context) ||
+          !("result" in input.response)
+        )
+          throw failure("not-owner", "Receipt response is unavailable");
+
+        const response = Schema.decodeUnknownSync(LanguageResourceReceiptResponse)(
+          input.response.result
+        );
+
+        if (
+          response.nonce !== pending.internal.challenge.nonce ||
+          response.operationId !== pending.internal.challenge.operationId
+        )
+          throw failure("not-owner", "Receipt challenge identity changed");
+        pending.internal.resolve(response);
+      } catch {
+        const cause = failure("not-owner", "Receipt challenge rejected");
+        pending.internal.reject(cause);
+        throw cause;
+      }
+
+      return Promise.resolve();
+    }
 
     if (pending.fence !== undefined) this.hooks.documents.fence(pending.fence);
     this.pending.delete(key);
@@ -473,7 +656,12 @@ export class ServerBridge {
   }
 
   close() {
-    for (const pending of this.pending.values()) clearTimeout(pending.timer);
+    for (const pending of this.pending.values()) {
+      clearTimeout(pending.timer);
+      pending.internal?.cleanup();
+      pending.internal?.reject(failure("cancelled", "Receipt challenge closed"));
+    }
+
     this.pending.clear();
     this.registrations.clear();
     this.progress.clear();

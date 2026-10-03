@@ -7,6 +7,7 @@ import {
 import { setDiagnostics } from "@codemirror/lint";
 import type { ChangeSpec, Text } from "@codemirror/state";
 import { hoverTooltip, ViewPlugin, type EditorView } from "@codemirror/view";
+import type * as P from "@polaris/protocol";
 import { Predicate } from "effect";
 import { LanguageDiagnosticFeed, cmDiagnostics } from "./diagnostics.ts";
 import { LanguageFeatures } from "./features.ts";
@@ -15,6 +16,8 @@ import { offsetAt } from "./position.ts";
 import type { LanguageBuffer, LanguageProvider } from "./types.ts";
 
 export interface CompletionProposal {
+  readonly request: P.LanguageFeatureRequest;
+  readonly result: P.LanguageFeatureResult;
   readonly provider: LanguageProvider;
   readonly buffer: LanguageBuffer;
   readonly item: CompletionItem;
@@ -167,14 +170,20 @@ export const completionSource =
     const from = word?.from ?? context.pos;
 
     const options = answers
-      .flatMap(({ provider, payload }) => {
+      .flatMap(({ provider, request, value, payload }) => {
         const items = completionItems(payload);
 
         return items.flatMap((item) => {
           try {
             const range = completionRange(buffer.doc, item, provider, from, context.pos);
 
-            return [cmCompletion(features, { provider, buffer, item, ...range }, coordinator)];
+            return [
+              cmCompletion(
+                features,
+                { provider, request, result: value, buffer, item, ...range },
+                coordinator
+              ),
+            ];
           } catch {
             return [];
           }

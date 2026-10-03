@@ -2,7 +2,9 @@
  * Settings → Editor (spec §3–4): vim keys in the Editor, and saving after a
  * short pause in typing. Both off by default; both stay on this Mac.
  */
-import { Switch } from "@polaris/ui";
+import { Button, Switch } from "@polaris/ui";
+import { useState } from "react";
+import { LanguageIntegrations } from "../languages/Integration.tsx";
 import { sectionInfo } from "../model/sections.ts";
 import { setSessionPrefs, useSettings } from "../store.ts";
 import { Column, Group, PageHeader, SettingRow } from "./parts.tsx";
@@ -10,10 +12,21 @@ import { Column, Group, PageHeader, SettingRow } from "./parts.tsx";
 export const EditorPage = () => {
   const prefs = useSettings((s) => s.sessions);
   const info = sectionInfo("editor");
+  const [languages, setLanguages] = useState(false);
+
+  if (languages) return <LanguageIntegrations onBack={() => setLanguages(false)} />;
 
   return (
     <Column>
       <PageHeader title={info.title} blurb={info.blurb} />
+      <Group label="Language integrations">
+        <SettingRow
+          title="Language integrations"
+          caption="Providers, formatting, custom servers, host prerequisites and checkout trust."
+        >
+          <Button onClick={() => setLanguages(true)}>Configure language integrations</Button>
+        </SettingRow>
+      </Group>
       <Group label="Keys">
         <SettingRow
           title="Vim mode"

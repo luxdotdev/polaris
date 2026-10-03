@@ -30,11 +30,13 @@ import { type BufferView, useEditor } from "../runtime/store.ts";
 import { AgentStrip } from "./AgentStrip.tsx";
 import { Banner } from "./Banner.tsx";
 import { Breadcrumbs } from "./Breadcrumbs.tsx";
+import { RefactorPreview } from "./RefactorPreview.tsx";
 import { CloseDialog } from "./CloseDialog.tsx";
 import { CodeHost } from "./CodeHost.tsx";
 import { Compare } from "./Compare.tsx";
 import { FileNotice } from "./FileNotice.tsx";
 import { Tabs } from "./Tabs.tsx";
+import { LanguageTools } from "./LanguageTools.tsx";
 
 export interface EditorPaneProps {
   readonly hostKey: string;
@@ -70,7 +72,10 @@ const theirsOf = (buffer: BufferView | null) =>
 export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
   const connection = useConnection();
 
-  ensureEditor({ app: () => connection.store.getState() });
+  ensureEditor({
+    app: () => connection.store.getState(),
+    subscribeApp: (changed) => connection.store.subscribe(changed),
+  });
 
   const { tabs, active, activeId, rendered } = useEditorTabs(hostKey, workspaceId);
   const buffer = useBuffer(hostKey, active);
@@ -123,6 +128,7 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
   if (tabs.length === 0 || active === null) {
     return (
       <section aria-label="Editor" className="bg-bg grid min-w-0 flex-1 place-items-center">
+        <RefactorPreview hostKey={hostKey} root={root} />
         <EmptyState
           icon={<PixelFolderIcon size={24} className="text-text-strong" />}
           title="No file open"
@@ -146,6 +152,7 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
       className="bg-bg flex min-w-0 flex-1 flex-col"
       data-testid="editor-pane"
     >
+      <RefactorPreview hostKey={hostKey} root={root} />
       <Tabs
         tabs={tabs}
         active={activeId ?? active}
@@ -196,6 +203,7 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
         )}
       </div>
       <CloseDialog hostKey={hostKey} workspaceId={workspaceId} />
+      {rendered ? null : <LanguageTools hostKey={hostKey} path={active} />}
     </section>
   );
 };

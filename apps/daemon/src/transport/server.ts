@@ -19,18 +19,39 @@ import {
   type Wire,
   type WireOptions,
 } from "@polaris/protocol";
-import { Effect, Latch, Layer, Predicate, Queue, Schema, type Scope, Stream } from "effect";
-import { RpcSerialization, RpcServer } from "effect/rpc";
+import {
+  Context,
+  Effect,
+  Latch,
+  Layer,
+  Predicate,
+  Queue,
+  Schema,
+  type Scope,
+  Stream,
+} from "effect";
+import { RpcSerialization, RpcServer, type Rpc } from "effect/rpc";
 import { type FromClientEncoded, ResponseDefectEncoded } from "effect/rpc/RpcMessage";
 import { paths } from "../paths.ts";
 import { CommandRunner } from "../service/CommandRunner.ts";
 import { adoptListener, serveUpgrades } from "../service/upgrade.ts";
 import { BlobChannel, ServiceError } from "../services.ts";
+import { ClientCapabilities } from "../engine/rpc.ts";
 import { defaultHandlers } from "./handlers.ts";
 import { loadHostInfo } from "./hostInfo.ts";
 import { acquireLock, type DaemonAlreadyRunning, LockError } from "./lock.ts";
 import { ConnectionBlobs, ServerRpcs } from "./rpcs.ts";
 import { listen, prepareSocketPath } from "./socket.ts";
+import { languageIdentityFor, revokeLanguageIdentity } from "./languageIdentity.ts";
+import {
+  HostLanguageEnvironment,
+  currentLanguagePlatform,
+} from "../languages/composition/environment.ts";
+import { CurrentLanguageConnection } from "./currentLanguageConnection.ts";
+import {
+  ConnectionLanguageLifetime,
+  LanguageConnectionLifetime,
+} from "./languageConnectionLifetime.ts";
 
 /** Capabilities the transport itself provides. Handler modules add theirs via `capabilities`. */
 export const TRANSPORT_CAPABILITIES: ReadonlyArray<Capability> = ["blobs"];
@@ -95,7 +116,11 @@ export const startServer = <ROut = never, E = never, RIn = never>(
 ): Effect.Effect<
   RunningServer,
   DaemonAlreadyRunning | LockError | ServiceError | E,
-  Scope.Scope | Exclude<RIn, BlobChannel>
+  | Scope.Scope
+  | Exclude<
+      RIn,
+      BlobChannel | CurrentLanguageConnection | HostLanguageEnvironment | LanguageConnectionLifetime
+    >
 > =>
   Effect.gen(function* () {
     const defaults = paths();
@@ -125,7 +150,13 @@ export const startServer = <ROut = never, E = never, RIn = never>(
 
     const connections = new Map<
       number,
-      { readonly wire: Wire; readonly blobs: BlobChannel["Service"] }
+      {
+        readonly wire: Wire;
+        readonly blobs: BlobChannel["Service"];
+        readonly clients: Set<Rpc.ServerClient>;
+        readonly lifetimes: Map<Rpc.ServerClient, ConnectionLanguageLifetime>;
+        closing: boolean;
+      }
     >();
 
     const disconnects = yield* Queue.unbounded<number>();
@@ -167,9 +198,41 @@ export const startServer = <ROut = never, E = never, RIn = never>(
     const blobsMiddleware = ConnectionBlobs.of((effect, { client }) => {
       const connection = connections.get(client.id);
 
-      return connection === undefined
-        ? Effect.die(new Error(`no connection for client ${client.id}`))
-        : Effect.provideService(effect, BlobChannel, connection.blobs);
+      if (connection === undefined || connection.closing) {
+        revokeLanguageIdentity(client);
+
+        return Effect.die(new Error(`no connection for client ${client.id}`));
+      }
+
+      connection.clients.add(client);
+
+      const current = () =>
+        !connection.closing &&
+        connections.get(client.id) === connection &&
+        connection.clients.has(client)
+          ? languageIdentityFor(client, hostInfo.hostId)
+          : null;
+
+      let lifetime = connection.lifetimes.get(client);
+
+      if (lifetime === undefined) {
+        lifetime = new ConnectionLanguageLifetime(current);
+        connection.lifetimes.set(client, lifetime);
+      }
+
+      return effect.pipe(
+        Effect.provideService(BlobChannel, connection.blobs),
+        Effect.provideService(LanguageConnectionLifetime, { attach: lifetime.attach }),
+        Effect.provideService(CurrentLanguageConnection, {
+          current,
+          supports: (capability) =>
+            current() !== null &&
+            capabilities.includes(capability) &&
+            (Context.getOrUndefined(client.annotations, ClientCapabilities) ?? []).includes(
+              capability
+            ),
+        })
+      );
     });
 
     const handlers = yield* Layer.build(
@@ -177,7 +240,20 @@ export const startServer = <ROut = never, E = never, RIn = never>(
         defaultHandlers({ hostInfo, capabilities }),
         // SAFETY: `handlers` is omitted only when ROut, E and RIn keep their `never` defaults.
         ((options.handlers ?? Layer.empty) as Layer.Layer<ROut, E, RIn>).pipe(
-          Layer.provide(BlobChannelOutsideRequest)
+          Layer.provide(
+            Layer.merge(
+              BlobChannelOutsideRequest,
+              Layer.mergeAll(
+                Layer.succeed(HostLanguageEnvironment)({
+                  hostId: hostInfo.hostId,
+                  root: options.root ?? defaults.root,
+                  platform: currentLanguagePlatform(),
+                }),
+                LanguageConnectionLifetime.unavailableLayer,
+                Layer.succeed(CurrentLanguageConnection)({ current: () => null })
+              )
+            )
+          )
         )
       )
     );
@@ -208,8 +284,8 @@ export const startServer = <ROut = never, E = never, RIn = never>(
                   // SAFETY: as in Effect's own RpcServer protocols, the envelope is trusted and
                   // RpcServer decodes each payload against its Rpc schema.
                   messages = decoder.decode(text) as ReadonlyArray<FromClientEncoded>;
-                } catch (cause) {
-                  return Effect.logWarning("dropping an undecodable message", cause);
+                } catch {
+                  return Effect.logWarning("dropping an undecodable message");
                 }
 
                 return Effect.forEach(messages, (message) => writeRequest(clientId, message), {
@@ -223,12 +299,35 @@ export const startServer = <ROut = never, E = never, RIn = never>(
             blobIdPrefix: "d",
           });
 
-          connections.set(clientId, { wire, blobs: blobChannelFor(wire) });
+          const clients = new Set<Rpc.ServerClient>();
+
+          const lifetimes = new Map<Rpc.ServerClient, ConnectionLanguageLifetime>();
+
+          const connection = {
+            wire,
+            blobs: blobChannelFor(wire),
+            clients,
+            lifetimes,
+            closing: false,
+          };
+
+          connections.set(clientId, connection);
           yield* Effect.addFinalizer(() =>
-            Effect.andThen(
-              Effect.sync(() => connections.delete(clientId)),
-              Queue.offer(disconnects, clientId)
-            )
+            Effect.gen(function* () {
+              yield* Effect.sync(() => {
+                connection.closing = true;
+                lifetimes.forEach((lifetime) => lifetime.seal());
+                clients.forEach(revokeLanguageIdentity);
+                clients.clear();
+              });
+              yield* Effect.forEach(lifetimes.values(), (lifetime) => lifetime.close(), {
+                discard: true,
+              });
+              lifetimes.clear();
+
+              if (connections.get(clientId) === connection) connections.delete(clientId);
+              yield* Queue.offer(disconnects, clientId);
+            })
           );
           ready.openUnsafe();
           yield* Effect.ignore(wire.closed);

@@ -29,6 +29,7 @@ export interface LanguageAdapterOptions {
 
 export interface ProviderResult {
   readonly provider: LanguageProvider;
+  readonly request: P.LanguageFeatureRequest;
   readonly value: P.LanguageFeatureResult;
 }
 

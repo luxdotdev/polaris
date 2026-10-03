@@ -1,0 +1,21 @@
+{
+  "apps/desktop/src/renderer/features/settings/languages/integration.evidence.html": "8f8f505a1cd8480cfcf016c57e4e236d6f379b7ff1ef43aabaf012533db030ac",
+  "apps/desktop/src/renderer/features/settings/languages/integration.evidence.tsx": "d3a044aab62d98de181bfc0cbb47720dfd1baf1cf08b8d52a331c6827d839ac5",
+  "apps/desktop/src/renderer/features/settings/languages/integration.fixture.ts": "ff11b78c55bb85020481ecee8048dccef7680173679a7eeb2b4692b04389ec1e",
+  "apps/desktop/src/renderer/features/settings/languages/feed.regression.testing.ts": "6d7203c944f4eb6b342f75a61d2f8834c707912b5b663cac5c3291523d6bfd30",
+  "apps/desktop/src/renderer/features/settings/languages/policy.regression.testing.ts": "17f84de8e1b86e3adbfeb39dc148b025cf624b20315880319602d77a8ebd81e6",
+  "apps/desktop/src/renderer/features/editor/lsp/evidence.html": "75ec05c9bfde5066938c08964b1dd188dcc8757ada9495304c1908a8751867ec",
+  "apps/desktop/src/renderer/features/editor/lsp/evidence.testing.tsx": "4c23d07a68ecb244fbfa41034474a05ff7ed859fb5285bd1a01694196480656a",
+  "apps/desktop/src/renderer/features/editor/lsp/fixture.testing.ts": "fc4348fd66332c8131e2a6f498835207dd8f4da19b917e8b7cf9227a0ed5a1fd",
+  "apps/desktop/src/renderer/features/editor/refactors/evidence.html": "18815129cc6edb009c32b83eda49b965cfa725c4c4abb8ada8e8065816cc616f",
+  "apps/desktop/src/renderer/features/editor/refactors/evidence.testing.tsx": "91a832add0210d966b2766ea09faacf210f455ea27edf3f6196b40e19a14fc83",
+  "apps/desktop/src/renderer/features/editor/refactors/resources.evidence.ts": "14894c49dd5c197c03a7e033d09040150e6a87ba7b5f5d0acfb0bffdfbcb5161",
+  "apps/desktop/src/renderer/features/editor/refactors/resources.testing.ts": "4dc0aa7511a66d1b6c094ec90698cabc5e1c8ad6fcdd5f6d3e1ce9efbea12fc6",
+  "apps/desktop/src/renderer/features/editor/refactors/discard.testing.ts": "92c38850b3a0cfd95bde79b57494ce42abaf9427c1cf8f101a12f3d4eddcb9a1",
+  "apps/desktop/src/renderer/features/editor/refactors/testing.ts": "f3ee4d421f3bf738fc9d9b336f38a44fdd18874b268b868d3b759263dadf5878",
+  "apps/desktop/src/renderer/features/editor/refactors/group.ts": "a1883d1fa7e7df1e5e508f8a3fbfb36a61dff632c8da8f396c853bc5bb8538f1",
+  "apps/desktop/src/renderer/features/editor/refactors/storage.ts": "5bc728dd794c516e279b551e33f8b1a33419f8aa732d7179501a10d6e8983ccf",
+  "apps/desktop/src/renderer/features/editor/runtime/buffers.ts": "6dea3621087d8607166bcb5c6531757ed0c33a0415a473fc98d2bdc7583cb7c5",
+  "apps/desktop/src/renderer/features/editor/refactors/drafts.ts": "c43b4cf49f3e39e199b80cb91957368293436b9a16c7b5db1ff83eb2c97e31c1",
+  "apps/desktop/src/renderer/features/editor/runtime/refactorBuffers.ts": "0bac5f9bca8a4c9f98c0e91b6168a679b64b0de73e52a7440a1dd3ad16eb6028"
+}

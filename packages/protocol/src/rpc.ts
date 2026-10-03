@@ -48,6 +48,7 @@ import { EventEnvelope } from "./events.ts";
 import { HarnessKind } from "./harnesses.ts";
 import {
   BlobId,
+  HostId,
   CommandId,
   ReviewCheckoutId,
   RiskFindingId,
@@ -103,6 +104,18 @@ export class HarnessUnavailable extends Schema.TaggedError<HarnessUnavailable>()
 
 // ── Handshake ───────────────────────────────────────────────────────────────
 
+export const LanguageConnectionIdentity = Schema.Struct({
+  hostId: HostId,
+  clientId: Schema.String,
+});
+
+export type LanguageConnectionIdentity = typeof LanguageConnectionIdentity.Type;
+
+export class LanguageIdentityError extends Schema.TaggedError<LanguageIdentityError>()(
+  "LanguageIdentityError",
+  { message: Schema.Literal("Language identity unavailable") }
+) {}
+
 export const Hello = Rpc.make("hello", {
   payload: {
     clientName: Schema.String,
@@ -110,12 +123,16 @@ export const Hello = Rpc.make("hello", {
     /** Label shown to other Clients, e.g. when this device resolves an approval. */
     deviceLabel: Schema.String,
     capabilities: CapabilityList,
+    /** Private bearer proof; malformed values stay redacted until safe handler validation. */
+    languageProof: Schema.optionalKey(Schema.RedactedFromValue(Schema.Unknown)),
   },
   success: Schema.Struct({
     host: HostInfo,
     protocolVersion: Schema.Int,
     capabilities: CapabilityList,
+    languageIdentity: Schema.optionalKey(LanguageConnectionIdentity),
   }),
+  error: LanguageIdentityError,
 });
 
 // ── Commands ────────────────────────────────────────────────────────────────

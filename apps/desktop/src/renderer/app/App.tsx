@@ -1,5 +1,6 @@
 /** The renderer root: providers around the shell. */
 import { Toaster, TooltipProvider } from "@polaris/ui";
+import { LanguageSettingsBindings } from "../features/settings/languages/Bindings.tsx";
 import { StrictMode } from "react";
 import {
   type Onboarding,
@@ -35,6 +36,7 @@ export const App = ({ value, onboarding = settled }: AppProps) => (
           <Shell />
           <NeedsYouPublisher />
           <ConstellationDefaultsPublisher />
+          <LanguageSettingsBindings />
           <PullsPublisher />
           <CheckoutPublisher />
           <LinkedPullsPublisher />

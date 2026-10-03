@@ -7,11 +7,14 @@
  * attempt at a time, each outcome fed to the machine, then the wait it asks
  * for (or `retryNow`).
  */
+import { createHash } from "node:crypto";
 import {
   type BlobId,
   type Capability,
   type ConnectionState,
   type HostInfo,
+  type HostId,
+  type LanguageConnectionIdentity,
   type HostStreamItem,
   type NotFound,
   PROTOCOL_VERSION,
@@ -26,6 +29,7 @@ import {
   Layer,
   Option,
   Queue,
+  Redacted,
   Scope,
   Stream,
   SubscriptionRef,
@@ -70,7 +74,14 @@ export interface ClientIdentity {
 
 export { DEFAULT_POLICY, type ReconnectPolicy } from "./connection.ts";
 
+export { languageTransportFor } from "./languages/connection.ts";
+
 export interface HostConnectionOptions {
+  /** Main-private independent proof; never supplied by the renderer. */
+  readonly clientIdentity?: {
+    readonly proof: Redacted.Redacted<string>;
+    readonly expectedHostId?: HostId;
+  };
   /** Stable key in the HostRegistry, e.g. "local" or the SSH alias. */
   readonly key: string;
   /** Display name, e.g. "Mac Studio". */
@@ -116,7 +127,42 @@ export interface LiveSession {
   readonly blobs: ClientBlobs;
   readonly host: HostInfo;
   readonly capabilities: ReadonlyArray<Capability>;
+  readonly languageIdentity?: LanguageConnectionIdentity | null;
+  /** Aborts with this exact scoped connection, including explicit replacement. */
+  readonly signal?: AbortSignal;
 }
+
+export interface LanguageSessionAuthority {
+  readonly identity: LanguageConnectionIdentity;
+  readonly signal: AbortSignal;
+  readonly epoch: number;
+  readonly capabilities: ReadonlyArray<Capability>;
+}
+
+interface LanguageSessionBinding {
+  readonly authority: LanguageSessionAuthority;
+  readonly client: DaemonClient;
+  readonly blobs: ClientBlobs;
+}
+
+const languageSessions = new WeakMap<LiveSession, LanguageSessionBinding>();
+
+/** Only independently verified sessions carry authority; public identity fields cannot mint it. */
+export const languageSessionAuthority = (session: LiveSession): LanguageSessionAuthority | null => {
+  const binding = languageSessions.get(session);
+  const authority = binding?.authority;
+
+  return authority === undefined ||
+    binding?.client !== session.client ||
+    binding?.blobs !== session.blobs ||
+    authority.signal.aborted ||
+    authority.epoch !== session.epoch ||
+    authority.identity.hostId !== session.host.hostId ||
+    session.languageIdentity !== authority.identity ||
+    session.signal !== authority.signal
+    ? null
+    : authority;
+};
 
 export class NotConnected extends Error {
   readonly _tag = "NotConnected";
@@ -131,6 +177,8 @@ export interface HostConnection {
   readonly status: SubscriptionRef.SubscriptionRef<ConnectionStatus>;
   /** The current status, then every change. */
   readonly changes: Stream.Stream<ConnectionStatus>;
+  /** Main observes actual session publication separately from Connection State publication. */
+  readonly sessionChanges?: Stream.Stream<LiveSession | null>;
   /** The live session, or NotConnected right away. */
   readonly session: Effect.Effect<LiveSession, NotConnected>;
   /** Waits until connected. */
@@ -177,6 +225,7 @@ export const makeHostConnection = Effect.fnUntraced(function* (
 ): Effect.fn.Return<HostConnection, never, Scope.Scope> {
   const policy: ReconnectPolicy = { ...DEFAULT_POLICY, ...options.policy };
   const connector = connectorFor(options);
+  let boundHostId = options.clientIdentity?.expectedHostId;
 
   const startedAt = yield* Clock.currentTimeMillis;
   /** The Connection State machine's snapshot; only the loop's fiber moves it. */
@@ -219,30 +268,46 @@ export const makeHostConnection = Effect.fnUntraced(function* (
       Effect.gen(function* () {
         const transport = yield* connector;
         const connection = yield* connectRpc(transport, options.rpc);
+        const lifetime = new AbortController();
+        yield* Effect.addFinalizer(() => Effect.sync(() => lifetime.abort()));
 
-        const hello = yield* connection.client
-          .hello({
-            clientName: options.identity.name,
-            clientVersion: options.identity.version,
-            deviceLabel: options.identity.deviceLabel,
-            capabilities: options.identity.capabilities,
-          })
-          .pipe(
-            Effect.timeoutOrElse({
-              duration: policy.helloTimeoutMs,
-              orElse: () =>
-                Effect.fail(
-                  new ConnectFailure({
-                    kind: "transient",
-                    reason: "timeout",
-                    detail: "the Daemon did not answer hello",
-                  })
-                ),
-            }),
-            Effect.catch((error) =>
-              error instanceof ConnectFailure ? Effect.fail(error) : Effect.flip(transport.diagnose)
+        const payload = {
+          clientName: options.identity.name,
+          clientVersion: options.identity.version,
+          deviceLabel: options.identity.deviceLabel,
+          capabilities: options.identity.capabilities,
+        };
+
+        const privatePayload =
+          options.clientIdentity === undefined
+            ? payload
+            : { ...payload, languageProof: options.clientIdentity.proof };
+
+        const hello = yield* connection.client.hello(privatePayload).pipe(
+          Effect.timeoutOrElse({
+            duration: policy.helloTimeoutMs,
+            orElse: () =>
+              Effect.fail(
+                new ConnectFailure({
+                  kind: "transient",
+                  reason: "timeout",
+                  detail: "the Daemon did not answer hello",
+                })
+              ),
+          }),
+          Effect.catchTag("LanguageIdentityError", () =>
+            Effect.fail(
+              new ConnectFailure({
+                kind: "needs-attention",
+                reason: "protocol-mismatch",
+                detail: "Language identity unavailable",
+              })
             )
-          );
+          ),
+          Effect.catch((error) =>
+            error instanceof ConnectFailure ? Effect.fail(error) : Effect.flip(transport.diagnose)
+          )
+        );
 
         if (hello.protocolVersion !== PROTOCOL_VERSION) {
           return yield* new ConnectFailure({
@@ -256,13 +321,64 @@ export const makeHostConnection = Effect.fnUntraced(function* (
           options.identity.capabilities.includes(c)
         );
 
+        let languageIdentity: LanguageConnectionIdentity | null = null;
+
+        if (boundHostId !== undefined && boundHostId !== hello.host.hostId)
+          return yield* new ConnectFailure({
+            kind: "needs-attention",
+            reason: "protocol-mismatch",
+            detail: "Language identity unavailable",
+          });
+
+        if (options.clientIdentity !== undefined && hello.languageIdentity !== undefined) {
+          const expected = createHash("sha256")
+            .update(
+              JSON.stringify([
+                "polaris-language-client-v1",
+                hello.host.hostId,
+                Redacted.value(options.clientIdentity.proof),
+              ])
+            )
+            .digest("hex");
+
+          if (
+            (boundHostId !== undefined && boundHostId !== hello.host.hostId) ||
+            hello.languageIdentity.hostId !== hello.host.hostId ||
+            hello.languageIdentity.clientId !== `language-${expected}`
+          )
+            return yield* new ConnectFailure({
+              kind: "needs-attention",
+              reason: "protocol-mismatch",
+              detail: "Language identity unavailable",
+            });
+          boundHostId = hello.host.hostId;
+          languageIdentity = Object.freeze({ ...hello.languageIdentity });
+        }
+
         const session: LiveSession = {
           epoch,
           client: connection.client,
           blobs: connection.blobs,
           host: hello.host,
           capabilities,
+          languageIdentity,
+          signal: lifetime.signal,
         };
+
+        if (languageIdentity !== null)
+          languageSessions.set(
+            session,
+            Object.freeze({
+              client: connection.client,
+              blobs: connection.blobs,
+              authority: Object.freeze({
+                identity: languageIdentity,
+                signal: lifetime.signal,
+                epoch,
+                capabilities: Object.freeze([...capabilities]),
+              }),
+            })
+          );
 
         yield* Effect.addFinalizer(() =>
           SubscriptionRef.update(live, (current) => (current === session ? null : current))
@@ -369,6 +485,7 @@ export const makeHostConnection = Effect.fnUntraced(function* (
     name: options.name,
     status,
     changes: SubscriptionRef.changes(status),
+    sessionChanges: SubscriptionRef.changes(live),
     session,
     awaitSession: nextLive(0),
     // A feed resubscribes on every RpcClientError, so none ever reaches a subscriber.

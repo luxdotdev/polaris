@@ -31,11 +31,13 @@ let save = async () => false;
 
 let loaded = async () => {};
 
+let discard = async (_current?: () => boolean) => true;
+
 const released: string[] = [];
 
 void mock.module("./buffers.ts", () => ({
   configureEditor: () => {},
-  discardBuffer: () => {},
+  discardBuffer: (_host: string, _path: string, current?: () => boolean) => discard(current),
   ensureBuffer: () => {},
   hasUnsaved: (_host: string, path: string) => path === a && authority.dirty,
   hostOf: () => ({ label: "Fake", home: null }),
@@ -176,6 +178,77 @@ for (const phase of ["format", "write", "load"] as const) {
   await scenario(phase, "none", false);
 }
 
+const discardScenario = async (change: "follow" | "reopen" | "shared" | "none" | "failure") => {
+  const gate = deferred();
+  const entered = deferred();
+  authority.dirty = true;
+  editorStore.setState({
+    tabs: {
+      [key]: {
+        tabs: [
+          { path: a, preview: false, view: "markdown", locked: false },
+          { path: b, preview: false },
+        ],
+        active: a,
+        activeView: "markdown",
+      },
+    },
+    closing: null,
+  });
+  discard = async (current) => {
+    entered.finish();
+    await gate.promise;
+
+    if (change === "failure") throw new Error("Durable intervention failed");
+
+    assert.ok(current, "Discard requires a post-await lifetime/shared-view guard");
+
+    if (!current()) return false;
+    authority.dirty = false;
+
+    return true;
+  };
+
+  actions.closeTab(host, ws, "markdown-preview");
+  const pending = actions.answerClose("discard");
+  await entered.promise;
+  assert.ok(tabsOf(editorStore.getState(), key).tabs.some((tab) => tab.view === "markdown"));
+
+  if (change === "follow") {
+    actions.activateTab(host, ws, b);
+    actions.openMarkdownPreview(host, ws);
+  } else if (change === "reopen") {
+    const set = tabsOf(editorStore.getState(), key);
+    editorStore.setState({
+      tabs: { [key]: { ...set, tabs: set.tabs.map((tab) => ({ ...tab })) } },
+    });
+  } else if (change === "shared") {
+    const set = tabsOf(editorStore.getState(), key);
+    editorStore.setState({
+      tabs: { [key]: { ...set, tabs: [...set.tabs, { path: a, preview: false }] } },
+    });
+  }
+
+  gate.finish();
+
+  if (change === "failure") await assert.rejects(pending, /Durable intervention failed/);
+  else await pending;
+  const preview = tabsOf(editorStore.getState(), key).tabs.find((tab) => tab.view === "markdown");
+  let expected: string | undefined = a;
+
+  if (change === "none") expected = undefined;
+  else if (change === "follow") expected = b;
+  assert.equal(preview?.path, expected);
+  assert.equal(authority.dirty, change !== "none");
+};
+
+for (const change of ["follow", "reopen", "shared", "none", "failure"] as const)
+  await discardScenario(change);
+
 console.log(
   "12 held-save runtime scenarios passed; real answerClose + SaveCoordinator, fake buffer authority/ports, no renderer or disk proof"
+);
+
+console.log(
+  "5 held-discard runtime scenarios passed; injected durable intervention, no renderer proof"
 );

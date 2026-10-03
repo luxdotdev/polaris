@@ -6,6 +6,13 @@ const HostKey = Schema.String.check(Schema.isMinLength(1));
 const onHost = <F extends Schema.Struct.Fields>(fields: F) =>
   Schema.Struct({ hostKey: HostKey, ...fields });
 
+/** Main's authenticated current connection identity; no credentials cross IPC. */
+export const LanguageClientIdentity = Schema.Struct({
+  hostId: Languages.HostId,
+  clientId: Languages.LanguageKey,
+  connectionEpoch: Languages.LanguageCounter.check(Schema.isGreaterThan(0)),
+});
+
 /** Main fetches bounded media; the renderer creates/revokes object URLs from these bytes. */
 export const LanguagePreviewMediaView = Schema.Struct({
   mimeType: Schema.String.check(Schema.isPattern(/^image\/(png|jpeg|gif|webp|avif)$/)),
@@ -45,6 +52,7 @@ const ExternalImageUrl = Schema.String.check(
 /** Opt-in tables for C1; current required request/subscription tables remain unchanged. */
 
 export const LanguageRequestInputs = {
+  "languages.identity.get": onHost({}),
   "languages.catalog": onHost(Languages.GetLanguageCatalog.payloadSchema.fields),
   "languages.availability": onHost(Languages.GetLanguageAvailability.payloadSchema.fields),
   "languages.install": onHost(Languages.InstallLanguageTool.payloadSchema.fields),
@@ -56,6 +64,10 @@ export const LanguageRequestInputs = {
   "languages.context.release": onHost(Languages.ReleaseLanguageContext.payloadSchema.fields),
   "languages.context.restart": onHost(Languages.RestartLanguageContext.payloadSchema.fields),
   "languages.document.sync": onHost(Languages.SyncLanguageDocument.payloadSchema.fields),
+  "languages.document.acknowledge": onHost(
+    Languages.AcknowledgeLanguageDocument.payloadSchema.fields
+  ),
+  "languages.edit.prepare": onHost(Languages.PrepareLanguageEdit.payloadSchema.fields),
   "languages.request": onHost(Languages.RequestLanguageFeature.payloadSchema.fields),
   "languages.cancel": onHost(Languages.CancelLanguageRequest.payloadSchema.fields),
   "languages.progress.cancel": onHost(Languages.CancelLanguageProgress.payloadSchema.fields),
@@ -87,6 +99,7 @@ export const LanguageRequestInputs = {
 } as const;
 
 export const LanguageRequestOutputs = {
+  "languages.identity.get": LanguageClientIdentity,
   "languages.catalog": Languages.GetLanguageCatalog.successSchema,
   "languages.availability": Languages.GetLanguageAvailability.successSchema,
   "languages.install": Languages.InstallLanguageTool.successSchema,
@@ -98,6 +111,8 @@ export const LanguageRequestOutputs = {
   "languages.context.release": Languages.ReleaseLanguageContext.successSchema,
   "languages.context.restart": Languages.RestartLanguageContext.successSchema,
   "languages.document.sync": Languages.SyncLanguageDocument.successSchema,
+  "languages.document.acknowledge": Languages.AcknowledgeLanguageDocument.successSchema,
+  "languages.edit.prepare": Languages.PrepareLanguageEdit.successSchema,
   "languages.request": Languages.RequestLanguageFeature.successSchema,
   "languages.cancel": Languages.CancelLanguageRequest.successSchema,
   "languages.progress.cancel": Languages.CancelLanguageProgress.successSchema,

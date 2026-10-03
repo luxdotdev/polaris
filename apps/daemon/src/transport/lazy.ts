@@ -4,6 +4,8 @@ import { RpcGroup, RpcSchema, type Rpc } from "effect/rpc";
 import { HostResources } from "../resources/service.ts";
 import { BlobChannel } from "../services.ts";
 import { EventStore } from "../store/EventStore.ts";
+import { CurrentLanguageConnection } from "./currentLanguageConnection.ts";
+import { LanguageConnectionLifetime } from "./languageConnectionLifetime.ts";
 import { paths } from "../paths.ts";
 import { needsConstellationStartup } from "../constellation/composition/startup.ts";
 import type { constellationHandlers } from "../constellation/composition/index.ts";
@@ -33,7 +35,13 @@ export const lazyRpcLayer = <R extends Rpc.Any & { readonly successSchema: Schem
           );
 
           const result = handler.handler(payload, options);
-          const context = Context.omit(Scope.Scope, BlobChannel)(handler.context);
+
+          const context = Context.omit(
+            Scope.Scope,
+            BlobChannel,
+            CurrentLanguageConnection,
+            LanguageConnectionLifetime
+          )(handler.context);
 
           return Effect.isEffect(result)
             ? Effect.provide(result, context)

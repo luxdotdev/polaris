@@ -1,3 +1,4 @@
+import { LanguageResourceReceiptChallenge } from "./resourceReceipts.ts";
 import { Schema } from "effect";
 import {
   LanguageContextIdentity,
@@ -18,6 +19,7 @@ import {
   LanguageSyncAck,
 } from "./documents.ts";
 import { LanguageEditProposal } from "./edits.ts";
+import { LanguageTreeEditProposal } from "./trees.ts";
 
 export const LanguageMethod = Schema.String.check(
   Schema.isMinLength(1),
@@ -33,6 +35,12 @@ export const LanguageRpcId = Schema.Union([
 ]);
 
 const NoField = Schema.optionalKey(Schema.Never);
+
+const LegacyServerEditProposal = Schema.Struct({
+  ...LanguageEditProposal.fields,
+  format: NoField,
+  resourceSnapshots: NoField,
+});
 
 const Parameters = Schema.optionalKey(
   Schema.Union([LanguageJsonObject, Schema.Array(LanguageJson).check(Schema.isMaxLength(4096))])
@@ -167,7 +175,9 @@ export const LanguageServerRequestPayload = Schema.TaggedUnion({
     message: LanguageText,
     actions: Schema.Array(Schema.Struct({ title: LanguageText })).check(Schema.isMaxLength(32)),
   },
-  ApplyEdit: { proposal: LanguageEditProposal },
+  ApplyEdit: { proposal: LegacyServerEditProposal },
+  TreeApplyEdit: { proposal: LanguageTreeEditProposal },
+  ResourceReceipt: { challenge: LanguageResourceReceiptChallenge },
   Unsupported: { method: LanguageMethod },
 });
 

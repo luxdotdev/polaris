@@ -63,12 +63,12 @@ export class LanguageFeatures {
   ) {
     const answers = await this.requests.query(method, params, signal);
 
-    return answers.flatMap(({ provider, value }) => {
+    return answers.flatMap(({ provider, request, value }) => {
       const payload = Payload.decodePayload(schema, value.result);
 
       return payload === undefined || payload === null
         ? []
-        : [{ provider, payload, proposals: value.proposals ?? [] }];
+        : [{ provider, request, value, payload, proposals: value.proposals ?? [] }];
     });
   }
 
@@ -168,8 +168,8 @@ export class LanguageFeatures {
     const buffer = this.options.buffer();
 
     return results
-      .flatMap(({ provider, value }) => {
-        if (!this.requests.current(provider, buffer)) return [];
+      .flatMap(({ provider, request, value }) => {
+        if (!this.requests.intentCurrent(provider, buffer, request.fence)) return [];
 
         return (value.proposals ?? []).filter(
           (proposal) => sameFence(proposal.fence, value.fence) && proposal.expiresAt > Date.now()

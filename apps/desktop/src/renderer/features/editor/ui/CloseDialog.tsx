@@ -13,8 +13,18 @@ import {
   DialogTitle,
 } from "@polaris/ui";
 import { baseName } from "../model/language.ts";
-import { answerClose } from "../runtime/actions.ts";
+import { answerClose, type CloseChoice } from "../runtime/actions.ts";
 import { useEditor } from "../runtime/store.ts";
+import { showOpenFailure } from "./toasts.ts";
+
+const answer = (choice: CloseChoice) => {
+  void answerClose(choice).catch(() =>
+    showOpenFailure({
+      title: "Couldn't close file",
+      message: "The file is still open. Your edits were kept.",
+    })
+  );
+};
 
 export interface CloseDialogProps {
   readonly hostKey: string;
@@ -32,7 +42,7 @@ export const CloseDialog = ({ hostKey, workspaceId }: CloseDialogProps) => {
     <Dialog
       open={closing !== null}
       onOpenChange={(open) => {
-        if (!open) void answerClose("cancel");
+        if (!open) answer("cancel");
       }}
     >
       <DialogContent data-testid="editor-close-dialog">
@@ -43,13 +53,13 @@ export const CloseDialog = ({ hostKey, workspaceId }: CloseDialogProps) => {
           <DialogDescription>Your edits are lost if you don't save them.</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="ghost" className="mr-auto" onClick={() => void answerClose("discard")}>
+          <Button variant="ghost" className="mr-auto" onClick={() => answer("discard")}>
             Don't save
           </Button>
-          <Button variant="secondary" onClick={() => void answerClose("cancel")}>
+          <Button variant="secondary" onClick={() => answer("cancel")}>
             Cancel
           </Button>
-          <Button variant="primary" autoFocus onClick={() => void answerClose("save")}>
+          <Button variant="primary" autoFocus onClick={() => answer("save")}>
             Save
           </Button>
         </DialogFooter>

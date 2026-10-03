@@ -9,6 +9,7 @@ import {
   type ConnectionStatus,
   type HostConnection,
   type HostConnectionOptions,
+  type LiveSession,
   HostConnector,
   HostRegistry,
   ConstellationRelay,
@@ -78,20 +79,35 @@ export const statusView = (status: ConnectionStatus): ConnectionStatusView => ({
   lastSeenAt: status.lastSeenAt,
 });
 
-export const hostView = (entry: HostEntry, status: ConnectionStatus): HostView => ({
-  key: entry.key,
-  label: entry.label,
-  colour: entry.colour,
-  alias: entry.alias,
-  proofHarness: entry.proofHarness,
-  status: {
-    ...statusView(status),
-    latencyMs:
-      entry.simulatedLatencyMs !== null && status.state === "connected"
-        ? entry.simulatedLatencyMs
-        : status.latencyMs,
-  },
-});
+interface LanguageLifetimeView {
+  languageConnectionEpoch?: number;
+}
+
+export const hostView = (
+  entry: HostEntry,
+  status: ConnectionStatus,
+  languageConnectionEpoch: number | null = null
+): HostView => {
+  const lifetime: LanguageLifetimeView = {};
+
+  if (languageConnectionEpoch !== null) lifetime.languageConnectionEpoch = languageConnectionEpoch;
+
+  return {
+    key: entry.key,
+    label: entry.label,
+    colour: entry.colour,
+    alias: entry.alias,
+    proofHarness: entry.proofHarness,
+    status: {
+      ...statusView(status),
+      ...lifetime,
+      latencyMs:
+        entry.simulatedLatencyMs !== null && status.state === "connected"
+          ? entry.simulatedLatencyMs
+          : status.latencyMs,
+    },
+  };
+};
 
 /** A Host on a local socket under its own name: screenshots and tests only (`POLARIS_DESKTOP_EXTRA_HOSTS`). */
 export const ExtraHost = Schema.Struct({
@@ -203,6 +219,11 @@ const replaceView = (views: ReadonlyArray<HostView>, view: HostView) => {
 export interface HostDirectoryInput {
   readonly entries: ReadonlyArray<HostEntry>;
   readonly identity: ClientIdentity;
+  /** Supplied by Main's explicit private credential store, never renderer Settings. */
+  readonly clientIdentity?: HostConnectionOptions["clientIdentity"];
+  /** Same Main allocator used by identity IPC; public epochs are freshness, never credentials. */
+  readonly languageEpoch?: (hostKey: string, session: LiveSession) => number | null;
+  readonly invalidateLanguage?: (hostKey: string) => void;
 }
 
 /** The Hosts this app connects to, and their views for the renderers. */
@@ -218,7 +239,13 @@ export class HostDirectory extends Context.Service<
     readonly remove: (key: string) => Effect.Effect<void>;
   }
 >()("polaris/desktop/HostDirectory") {
-  static readonly layer = ({ entries, identity }: HostDirectoryInput) =>
+  static readonly layer = ({
+    entries,
+    identity,
+    clientIdentity,
+    languageEpoch,
+    invalidateLanguage,
+  }: HostDirectoryInput) =>
     Layer.effect(
       HostDirectory,
       Effect.gen(function* () {
@@ -231,6 +258,7 @@ export class HostDirectory extends Context.Service<
 
         const stop = (key: string) =>
           Effect.gen(function* () {
+            invalidateLanguage?.(key);
             const tracker = trackers.get(key);
             trackers.delete(key);
 
@@ -272,7 +300,7 @@ export class HostDirectory extends Context.Service<
             yield* stop(entry.key);
             byKey.set(entry.key, entry);
 
-            const options: HostConnectionOptions = {
+            let options: HostConnectionOptions = {
               key: entry.key,
               name: entry.label,
               target: entry.target,
@@ -280,13 +308,34 @@ export class HostDirectory extends Context.Service<
               ssh: entry.remoteCommand === null ? {} : { remoteCommand: entry.remoteCommand },
             };
 
+            if (clientIdentity !== undefined) options = { ...options, clientIdentity };
+
             const connection = yield* registry.add(options);
 
-            const tracker = yield* connection.changes.pipe(
-              Stream.runForEach((status) =>
-                SubscriptionRef.update(views, (current) =>
-                  replaceView(current, hostView(byKey.get(entry.key) ?? entry, status))
-                )
+            const changes =
+              connection.sessionChanges === undefined
+                ? connection.changes.pipe(Stream.map(() => undefined))
+                : Stream.merge(
+                    connection.changes.pipe(Stream.map(() => undefined)),
+                    connection.sessionChanges.pipe(Stream.map(() => undefined))
+                  );
+
+            const tracker = yield* changes.pipe(
+              Stream.runForEach(() =>
+                Effect.gen(function* () {
+                  const status = yield* SubscriptionRef.get(connection.status);
+
+                  const epoch = yield* connection.session.pipe(
+                    Effect.match({
+                      onSuccess: (session) => languageEpoch?.(entry.key, session) ?? null,
+                      onFailure: () => null,
+                    })
+                  );
+
+                  yield* SubscriptionRef.update(views, (current) =>
+                    replaceView(current, hostView(byKey.get(entry.key) ?? entry, status, epoch))
+                  );
+                })
               ),
               Effect.forkIn(scope)
             );

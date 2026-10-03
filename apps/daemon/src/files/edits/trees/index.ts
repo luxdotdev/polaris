@@ -66,13 +66,16 @@ export interface CoordinatorOptions {
     owner: Owner,
     proposal: LanguageTreeEditProposal,
     acceptance: typeof LanguageTreeEditAcceptance.Type,
-    drafts: LanguageTreeDraftReceipt | null
+    drafts: LanguageTreeDraftReceipt | null,
+    phase?: "prepare" | "moving"
   ) => Promise<void>;
   /** Authenticate status/recovery owner and verify current Client reconciliation before undo. */
   readonly authorizeRecovery: (
     owner: Owner,
     operationId: string,
-    intent: "get" | "recover" | "undo" | "cancel"
+    intent: "get" | "recover" | "undo" | "cancel",
+    outcome?: LanguageTreeOperationOutcome,
+    authority?: Journal["authority"]
   ) => Promise<void>;
   readonly fault?: Fault;
 }
@@ -101,7 +104,25 @@ export const createTreeEditCoordinator = (options: CoordinatorOptions) => {
     });
   };
 
-  const applyMoves = async (directory: string, initial: Journal, signal?: AbortSignal) => {
+  const requireLocation = async (
+    directory: string,
+    journal: Journal,
+    move: Journal["moves"][number],
+    expected: "before" | "after"
+  ) => {
+    if ((await location(directory, journal, move)) !== expected)
+      throw new FileEditFailure({
+        code: "disk-conflict",
+        message: "Resource changed during authorization",
+      });
+  };
+
+  const applyMoves = async (
+    directory: string,
+    initial: Journal,
+    signal: AbortSignal | undefined,
+    authorize: () => Promise<void>
+  ) => {
     let journal = initial;
     let activeMove = 0;
 
@@ -138,6 +159,8 @@ export const createTreeEditCoordinator = (options: CoordinatorOptions) => {
             code: "disk-conflict",
             message: "Resource version changed after intent",
           });
+        await authorize();
+        await requireLocation(directory, journal, move, "before");
         await moveFile(move.from, move.to);
         await fault("mutation", index);
         journal = await persistJournal(directory, updateMove(journal, index, "applied"));
@@ -349,6 +372,13 @@ export const createTreeEditCoordinator = (options: CoordinatorOptions) => {
 
         try {
           journal = await prepare(directory, root, proposal, outcome, requestFingerprint);
+          journal = {
+            ...journal,
+            authority: {
+              context: proposal.fence.context,
+              previewFingerprint: fingerprint(proposal),
+            },
+          };
         } catch (cause) {
           await rm(directory, { recursive: true, force: true });
 
@@ -380,13 +410,20 @@ export const createTreeEditCoordinator = (options: CoordinatorOptions) => {
           journal = await persistJournal(directory, journal);
           await fault("prepared", -1);
 
-          return applyMoves(directory, journal, signal);
+          return applyMoves(directory, journal, signal, () =>
+            options.authorize(owner, proposal, acceptance, drafts, "moving")
+          );
         });
       });
     });
   };
 
-  const restoreMove = async (directory: string, initial: Journal, index: number) => {
+  const restoreMove = async (
+    directory: string,
+    initial: Journal,
+    index: number,
+    authorize: () => Promise<void>
+  ) => {
     let journal = initial;
     const move = journal.moves[index]!;
     const current = await location(directory, journal, move);
@@ -411,6 +448,13 @@ export const createTreeEditCoordinator = (options: CoordinatorOptions) => {
         throw new FileEditFailure({
           code: "disk-conflict",
           message: "Version changed before restoration",
+        });
+      await authorize();
+
+      if ((await location(directory, journal, move)) !== "after")
+        throw new FileEditFailure({
+          code: "disk-conflict",
+          message: "Resource changed during recovery authorization",
         });
       await moveFile(move.to, move.from);
       await fault("restore-mutation", index);
@@ -439,6 +483,14 @@ export const createTreeEditCoordinator = (options: CoordinatorOptions) => {
           message: "Unknown resource operation",
         });
 
+      await options.authorizeRecovery(
+        owner,
+        operationId,
+        intent,
+        recorded.outcome,
+        recorded.authority
+      );
+
       if (
         (await realpath(owner.checkout.path)) !== recorded.root ||
         !sameIdentity(recorded.rootIdentity, resourceIdentity(await lstat(recorded.root)))
@@ -459,7 +511,13 @@ export const createTreeEditCoordinator = (options: CoordinatorOptions) => {
       return locked(
         lockPaths(recorded).filter((path) => path !== directory),
         async () => {
-          await options.authorizeRecovery(owner, operationId, intent);
+          await options.authorizeRecovery(
+            owner,
+            operationId,
+            intent,
+            recorded.outcome,
+            recorded.authority
+          );
 
           let journal = await persistJournal(
             directory,
@@ -472,7 +530,15 @@ export const createTreeEditCoordinator = (options: CoordinatorOptions) => {
               activeStep = move.step;
 
               if (move.state === "pending" || move.state === "restored") continue;
-              journal = await restoreMove(directory, journal, index);
+              journal = await restoreMove(directory, journal, index, () =>
+                options.authorizeRecovery(
+                  owner,
+                  operationId,
+                  intent,
+                  recorded.outcome,
+                  recorded.authority
+                )
+              );
             }
 
             journal = {

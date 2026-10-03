@@ -173,6 +173,7 @@ const Discovery = ({
           busy ||
           host.connection !== "Connected" ||
           host.capability !== "available" ||
+          host.canSetTrust === false ||
           !trustMatchesCheckout(host)
         }
         onClick={() =>

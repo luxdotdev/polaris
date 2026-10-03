@@ -20,6 +20,13 @@ export {
 
 export { SettingsPage } from "./ui/SettingsPage.tsx";
 
+export {
+  setLanguageSettingsServices,
+  type LanguageSettingsServices,
+} from "./languages/services.ts";
+
+export { createLanguageSettingsAdapter } from "./languages/adapter.ts";
+
 export { HostResources } from "./ui/HostResources.tsx";
 
 export { ConstellationDefaultsPublisher } from "./defaultsSync.ts";

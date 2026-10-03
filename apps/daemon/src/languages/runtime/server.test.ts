@@ -6,16 +6,19 @@ import {
   LanguageContextIdentity,
   LanguageDocumentNotification,
   LanguageServerResponse,
+  LanguageEditProposal,
+  LanguageTreeEditProposal,
+  LanguageServerRequestPayload,
   WorkspaceId,
 } from "@polaris/protocol";
 import { Schema } from "effect";
 import { OrderedConnection } from "../transport/index.ts";
 import { memoryPort } from "../transport/fixture.testing.ts";
-import { ServerBridge } from "./server.ts";
+import { ServerBridge, type ServerHooks } from "./server.ts";
 import { Documents } from "./documents.ts";
 import { negotiate } from "./capabilities.ts";
 
-function fixture() {
+function fixture(preparation: Partial<Pick<ServerHooks, "prepareEdit" | "treeEdits">> = {}) {
   const port = memoryPort();
   const events: LanguageContextEvent[] = [];
 
@@ -60,6 +63,7 @@ function fixture() {
     current: () => true,
     authorize: () => Promise.resolve(),
     prepareEdit: undefined,
+    ...preparation,
     emit: (event) => events.push(event),
     capabilities: () => {},
   });
@@ -80,6 +84,72 @@ function fixture() {
     },
   };
 }
+
+test("prepared server edits cannot weaken the delivered document fence", async () => {
+  const f = fixture({
+    prepareEdit: async (_edit, proposal) =>
+      LanguageEditProposal.make({ ...proposal, fence: { ...proposal.fence, documents: [] } }),
+  });
+
+  try {
+    f.bridge.receive({
+      jsonrpc: "2.0",
+      id: 41,
+      method: "workspace/applyEdit",
+      params: { edit: { changes: {} } },
+    });
+    await Bun.sleep(5);
+    expect(f.events.some(Schema.is(LanguageContextEvent.cases.ServerRequest))).toBe(false);
+    expect(f.messages.find((value) => value.id === 41)).toHaveProperty("error.code", -32602);
+  } finally {
+    await f.close();
+  }
+});
+
+test("negotiated tree server delivery retains snapshots and fences its delayed response", async () => {
+  const uri = "file:///private/tmp/project/new.ts";
+  const resourceSnapshots = [{ uri, canonicalPath: "/private/tmp/project/new.ts", tree: null }];
+
+  const f = fixture({
+    treeEdits: () => true,
+    prepareEdit: async (_edit, proposal) =>
+      LanguageTreeEditProposal.make({ ...proposal, format: 2, resourceSnapshots }),
+  });
+
+  try {
+    f.bridge.receive({
+      jsonrpc: "2.0",
+      id: 42,
+      method: "workspace/applyEdit",
+      params: { edit: { documentChanges: [{ kind: "create", uri }] } },
+    });
+    await Bun.sleep(5);
+    const event = f.events.find(Schema.is(LanguageContextEvent.cases.ServerRequest));
+
+    if (
+      event === undefined ||
+      !Schema.is(LanguageServerRequestPayload.cases.TreeApplyEdit)(event.payload)
+    )
+      throw new Error("Dedicated tree delivery missing");
+    expect(event.payload.proposal.resourceSnapshots).toEqual(resourceSnapshots);
+    expect(event.payload.proposal.edit.documentChanges).toEqual([{ kind: "create", uri }]);
+    f.documents.apply(
+      2,
+      LanguageDocumentNotification.cases.Close.make({ uri: f.uri, version: 2 }),
+      "utf-16"
+    );
+    expect(() =>
+      f.bridge.respond(
+        LanguageServerResponse.make({
+          context: f.context,
+          response: { jsonrpc: "2.0", id: 42, result: { applied: false } },
+        })
+      )
+    ).toThrow();
+  } finally {
+    await f.close();
+  }
+});
 
 test("configuration correspondence, registration/removal, progress and unsupported responses", async () => {
   const f = fixture();

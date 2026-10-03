@@ -88,6 +88,22 @@ const ScopePage = ({
     return () => operations.cancel();
   }, [adapter, scope, scopeKey, operations, epoch]);
 
+  const live = current !== null;
+  useLayoutEffect(() => {
+    if (!live || current === null || !adapter.watch) return;
+
+    return adapter.watch(current, (facts) => {
+      setView((previous) => {
+        if (currentSettingsFacts(previous, adapter, scopeKey, epoch) === null) return previous;
+
+        return facts === null ? { ...previous, valid: false } : { ...previous, snapshot: facts };
+      });
+
+      if (facts === null)
+        setNotice("Language feed disconnected. Refresh facts after reconnecting.");
+    });
+  }, [adapter, scopeKey, epoch, live]);
+
   const refresh = () => {
     setView((previous) => ({ ...previous, valid: false }));
     setEpoch((value) => value + 1);
@@ -268,9 +284,14 @@ export const LanguageSettingsPage = ({
   adapter,
   scopes,
   initialScopeKey,
+  onDirty,
 }: LanguageSettingsProps) => {
   const [key, setKey] = useState(initialScopeKey ?? scopes[0]?.key ?? "");
   const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    onDirty?.(dirty);
+  }, [dirty, onDirty]);
 
   const selected = scopes.find((s) => s.key === key) ?? scopes[0];
 
