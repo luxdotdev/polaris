@@ -24,7 +24,6 @@ const SHOWN: Readonly<Record<WorkerState, Shown>> = {
   "sent-back": { glyph: "waiting", word: "sent back", tone: "subtle" },
   failed: { glyph: "failed", word: "failed", tone: "failed" },
   lost: { glyph: "stopped", word: "lost", tone: "subtle" },
-  unverified: { glyph: "stopped", word: "unverified", tone: "subtle" },
   accepted: { glyph: "accepted", word: "done", tone: "accepted" },
   "setting-up": { glyph: "waiting", word: "setting up", tone: "subtle" },
   "setup-failed": { glyph: "needs-you", word: "setup failed", tone: "needs-you" },

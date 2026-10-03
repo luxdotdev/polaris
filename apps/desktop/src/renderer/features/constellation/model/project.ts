@@ -12,7 +12,6 @@ const FROM_ATTEMPT: Readonly<Record<AttemptState, TaskState>> = {
   accepted: "done",
   rejected: "ready",
   lost: "lost",
-  settled_unverified: "settled_unverified",
   failed: "failed",
 };
 
@@ -25,7 +24,7 @@ const unfinishedDeps = (deps: ReadonlyArray<TaskId>, done: ReadonlySet<TaskId>) 
 
 /**
  * Projections for every Task. `known` (the Daemon's last ones) keeps stale, fetched and
- * future, which only the Daemon can tell.
+ * liveness, which only the Daemon can tell.
  */
 export const deriveProjections = (
   c: ConstellationData,
@@ -47,12 +46,11 @@ export const deriveProjections = (
       done
     );
 
-    const waiting: TaskState = was?.state === "future" ? "future" : "waiting";
-    const unstarted: TaskState = blockedBy.length > 0 ? waiting : "ready";
+    const unstarted: TaskState = blockedBy.length > 0 ? "waiting" : "ready";
 
     const state: TaskState = task.canceled
       ? "canceled"
-      : attempt === null
+      : attempt === null || attempt.state === "rejected"
         ? unstarted
         : FROM_ATTEMPT[attempt.state];
 

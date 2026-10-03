@@ -104,9 +104,6 @@ describe("workerState", () => {
 
   test("settled outcomes", () => {
     expect(workerState({ ...attempt, state: "rejected" }, null, false)).toBe("sent-back");
-    expect(workerState({ ...attempt, state: "settled_unverified" }, null, false)).toBe(
-      "unverified"
-    );
   });
 });
 
