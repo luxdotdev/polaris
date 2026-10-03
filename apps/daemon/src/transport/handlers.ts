@@ -5,6 +5,7 @@
  */
 import {
   InlineError,
+  LanguageIdentityError,
   type Capability,
   CommandRejected,
   ConstellationRejected,
@@ -24,6 +25,7 @@ import { ClientCapabilities, DeviceLabel } from "../engine/rpc.ts";
 import { BlobChannel } from "../services.ts";
 import { ServerRpcs } from "./rpcs.ts";
 import { languageDefaults } from "./languageDefaults.ts";
+import { bindLanguageIdentity } from "./languageIdentity.ts";
 
 const constellationUnavailable = () =>
   new ConstellationRejected({
@@ -234,17 +236,28 @@ export const defaultHandlers = (options: {
     "constellation.subscribe": () => Stream.fail(constellationUnavailable()),
     // Record which device this connection is (for ApprovalResolved.resolvedBy) and
     // what it understands (e.g. whether to send it ItemProgress).
-    hello: ({ deviceLabel, capabilities }, { client }) =>
-      Effect.sync(() => {
-        client.annotate(DeviceLabel, deviceLabel);
-        client.annotate(ClientCapabilities, capabilities);
-      }).pipe(
-        Effect.as({
-          host: options.hostInfo,
-          protocolVersion: PROTOCOL_VERSION,
-          capabilities: options.capabilities,
-        })
-      ),
+    hello: ({ deviceLabel, capabilities, languageProof }, { client }) =>
+      Effect.try({
+        try: () => {
+          const languageIdentity = bindLanguageIdentity(
+            client,
+            options.hostInfo.hostId,
+            languageProof
+          );
+
+          client.annotate(DeviceLabel, deviceLabel);
+          client.annotate(ClientCapabilities, capabilities);
+
+          const response = {
+            host: options.hostInfo,
+            protocolVersion: PROTOCOL_VERSION,
+            capabilities: options.capabilities,
+          };
+
+          return languageIdentity === null ? response : { ...response, languageIdentity };
+        },
+        catch: () => new LanguageIdentityError({ message: "Language identity unavailable" }),
+      }),
 
     dispatch: ({ commandId }) =>
       Effect.fail(new CommandRejected({ commandId, reason: notYet("the event store") })),

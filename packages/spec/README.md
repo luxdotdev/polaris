@@ -576,3 +576,53 @@ Failed acquisition, startup or recovery retires the controller before cleanup. W
 Guard-only startup abandonment uses the internal `composition/startupAbandoned.ts` error and preserves the healthy controller and binding. Local and remote admission controllers release quiescent abandoned startup capacity and let later input reacquire through the FIFO; a pinned input or background reporting reservation keeps its slot. `worker-admission.qnt` distinguishes `startupAbandoned` from real `startupFailed`, covering release/reacquisition and a pinned input.
 
 A closed admission fence lasts only while a durable assignment remains active. Input discards a stale closed fence when no local/remote assignment remains; scope finalization and terminal assignment cancellation also remove it. `resources/failedAssignmentEnded.test.ts` uses real Engine commands after Stop/Archive; `transfers/remoteFailedAssignmentEnded.test.ts` checks terminal mirrors; `resources/closedAdmission.test.ts` checks lazy cleanup, finalization and cancellation. The admission model permits ordinary Session input after `assignmentEnded` even while another worker owns capacity.
+
+## Language connection identity (A0)
+
+`language-identity.qnt` models first-hello immutability (including absent proof),
+connection revocation, isolation and replacement epochs independently of the
+existing Agent resume and language document ordering models. `Hello` identities
+are abstract public Host-bound IDs: this finite model does not prove cryptography,
+credential persistence, transport security or production handler authorization.
+Its two scenarios and 60-step simulation run in `bun run spec`.
+
+The actual fake Unix-socket test in
+`apps/daemon/src/transport/languageIdentity.test.ts` emits only public identities
+and connection keys, validates every observation with
+`scripts/language-replay/identity.ts`, and rejects a switched-identity observation
+mutant. Set `A0_TRACE_OUTPUT` to an owned temporary path to retain that runtime
+trace. Proof bytes, context text and original resource bytes are absent. Scoped
+Client cancellation/feed/Blob tests are separate in `connection.test.ts`; they
+preserve the existing Connection State machine and Agent resume semantics.
+Central parser redaction and actual live ServerClient revocation are G2-owned
+integration obligations before any Main proof composition or capability release.
+
+## Authenticated resource receipt challenges (M3.1 salvage)
+
+`resource-receipts.qnt` models the private current-Client challenge and its
+connection generation, durable Client group revision and Host receipt revision.
+Cancellation clears pending authority; revision/generation/lifetime changes during
+waits make a prior reply unusable before mutation. This supplements, and does not
+replace or alter, `tree-edits.qnt` and its accepted real-journal model/trace checks.
+
+| Model boundary | Runtime mapping / evidence |
+| --- | --- |
+| `challenge` / `reply` | `LanguageResourceReceiptChallenge/Response`, `ServerBridge.challengeReceipt`, Broker-owned context and private response consumption; `resourceReceiptsBridge.test.ts` tests nonce/operation/generation, timeout/cancellation/close and provider isolation. |
+| `waitChange` / `move` | `resourceEdits.ts` pins Client group revision and repeats authority after waits; X2 checks again after forward/reverse intent; `resourceEditsFaults.test.ts` and `resourceEdits.test.ts` cover revocation and receipt CAS. |
+| Client reconciliation | Existing journal authority metadata supplies exact context/preview; recovery challenges require the authoritative receipt revision. `resourceEdits.socket.test.ts` proves actual authenticated feed/response, foreign Client rejection, real temporary tree moves and guarded undo with scripted receipt metadata. Production Renderer/IndexedDB and provider approval remain distinct. |
+
+Focused model checks (Lead adds this model to the union spec runner):
+
+```sh
+quint typecheck packages/spec/resource-receipts.qnt
+quint test packages/spec/resource-receipts.qnt
+quint run packages/spec/resource-receipts.qnt --main=resource_receipts --invariants=safety --max-samples=100 --max-steps=60 --seed=31
+```
+
+Historical Recover challenges route only through independently authorized current
+Broker feeds for the same Host/Client/checkout; replacement generation routing
+never permits Resolve/Verify or acceptance replay. `resourceRecoveryRouting.test.ts`
+proves this with the actual Broker/scripted provider. `Verify.phase` distinguishes
+original preview validation from continued durable-group verification during X2-owned
+moves. Both phases pin the same Client group revision; exact disk ownership remains
+with the existing journal model.

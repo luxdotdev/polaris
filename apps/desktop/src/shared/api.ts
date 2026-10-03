@@ -143,6 +143,8 @@ export interface ConnectionStatusView {
   readonly host: HostInfo | null;
   readonly capabilities: ReadonlyArray<Capability>;
   readonly epoch: number;
+  /** Main-issued language lifetime; absent for unauthenticated or older connections. */
+  readonly languageConnectionEpoch?: number;
   /** Round trip when this connection opened, in ms; null if unmeasured. */
   readonly latencyMs: number | null;
   /** When the last good connection ended; null while connected or never. */

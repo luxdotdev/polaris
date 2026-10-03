@@ -68,6 +68,8 @@ export interface InstallerAdapters {
   ) => Promise<ArtifactPayload>;
   /** I1 supplies a session barrier here; reject while a tool version is in use. */
   readonly beforeSelect?: (exact: ExactArtifact, signal: AbortSignal) => Promise<void>;
+  /** Release a selection reservation only after the underlying job has settled, including cancellation. */
+  readonly afterSelection?: (exact: ExactArtifact) => Promise<void>;
   readonly approve?: (exact: ExactArtifact, signal: AbortSignal) => Promise<ApprovalDecision>;
 }
 

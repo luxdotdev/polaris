@@ -181,6 +181,7 @@ export const connectFake = Effect.fnUntraced(function* (
   socketPath: string
 ): Effect.fn.Return<
   LiveSession,
+  | import("@polaris/protocol").LanguageIdentityError
   | import("../../../../../packages/client/src/failures.ts").ConnectFailure
   | import("effect/rpc/RpcClientError").RpcClientError,
   import("effect").Scope.Scope

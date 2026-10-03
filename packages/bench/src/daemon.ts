@@ -104,10 +104,13 @@ export const launchDaemon = async (options: LaunchOptions): Promise<Daemon> => {
 
   const child: ChildProcess = spawn(argv[0]!, argv.slice(1), {
     env,
-    stdio: ["ignore", "ignore", "pipe"],
+    stdio: ["ignore", "pipe", "pipe"],
   });
 
   let logs = "";
+  child.stdout?.on("data", (chunk: Buffer) => {
+    logs = (logs + chunk.toString()).slice(-64 * 1024);
+  });
   child.stderr?.on("data", (chunk: Buffer) => {
     logs = (logs + chunk.toString()).slice(-64 * 1024);
   });

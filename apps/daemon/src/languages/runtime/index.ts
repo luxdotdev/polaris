@@ -1,4 +1,11 @@
+import { bindResourceReceipt, bindServerResponse, bindRecoveryReceipt } from "./resourceReceipt.ts";
+import { Acquire } from "./acquire.ts";
+import { enqueue } from "./queue.ts";
+import { AcknowledgmentOwners } from "./acknowledgmentOwners.ts";
+import { LaunchAdmission, blockedLaunchReasons } from "./launchAdmission.ts";
 import { ProcessBudget } from "./process-budget.ts";
+import { BrokerCleanup, acquisitionTask, settleClientDisconnect } from "./clientSettlement.ts";
+import type { ClientAcquisition } from "./clientSettlement.ts";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   LanguageContextIdentity,
@@ -8,23 +15,17 @@ import {
   LanguageError,
   LanguageFeatureRequest,
   LanguageFeatureResult,
-  LanguageLimits,
-  LanguageKey,
   LanguageCheckout,
-  LanguagePath,
   LanguageJsonObject,
   LanguageRequestFence,
   LanguageRuntime,
   LanguageSyncInput,
-  LanguageServerResponse,
   LanguageMethod,
   LanguageDeadline,
 } from "@polaris/protocol";
 import type { LanguageJson } from "@polaris/protocol";
 import { Schema } from "effect";
-import type { DiscoveryFacts } from "../discovery/index.ts";
 import { checkoutKey, checkoutPath } from "../trust/index.ts";
-import { OrderedConnection } from "../transport/index.ts";
 import { failure } from "../transport/framing.ts";
 import { bounded } from "../transport/deadline.ts";
 import { notificationMessage, clientCapabilities, drainStderr } from "./wire.ts";
@@ -33,6 +34,9 @@ import { Documents } from "./documents.ts";
 import { decideLifecycle, lifecycleInitial, type LifecycleEvent } from "./lifecycle.ts";
 import { negotiate } from "./capabilities.ts";
 import { ServerBridge } from "./server.ts";
+import { bindServerPreparation } from "./serverPreparation.ts";
+import { FeatureEvidence, createFeatureVerifier } from "./featureEvidence.ts";
+import { contextKey, sameIdentity, initialization } from "./keys.ts";
 import { spawnLanguageProcess } from "./process.ts";
 
 export { LanguageBroker } from "./service.ts";
@@ -41,54 +45,28 @@ export { spawnLanguageProcess } from "./process.ts";
 
 export type { Launch } from "./process.ts";
 
-export const limits = LanguageLimits.make({
-  messageBytes: 1048576,
-  queuedMessages: 256,
-  outstandingRequests: 64,
-  documents: 1024,
-  diagnosticsPerDocument: 2000,
-  logBytes: 65536,
-  requestTimeoutMs: 10000,
-});
+import { limits } from "./types.ts";
 
-const Acquire = Schema.Struct({
-  clientId: LanguageKey,
-  contextId: LanguageKey,
-  interestId: LanguageKey,
-  checkout: LanguageCheckout,
-  path: LanguagePath,
-  providerId: LanguageKey,
-  settings: LanguageEffectiveSettings,
-  refresh: Schema.optionalKey(Schema.Boolean),
-});
+export { limits };
 
 export type { AcquireInput, BrokerOptions } from "./types.ts";
 
 import type { AcquireInput, BrokerOptions, Entry } from "./types.ts";
 
-const sameIdentity = (a: LanguageContextIdentity, b: LanguageContextIdentity) =>
-  JSON.stringify(a) === JSON.stringify(b);
-
-const contextKey = (clientId: string, facts: DiscoveryFacts) =>
-  JSON.stringify([
-    clientId,
-    checkoutKey(facts.checkout),
-    facts.checkout.path,
-    facts.projectRoot,
-    facts.providerId,
-    facts.configurationFingerprint,
-  ]);
-
 /** Detached Host broker. The caller binds clientId to its authenticated existing connection. */
 export function createLanguageBroker(options: BrokerOptions) {
   const entries = new Map<string, Entry>();
   const keys = new Map<string, Entry>();
+  const acknowledgments = new AcknowledgmentOwners(owned);
   let generation = 0;
   let closed = false;
   let acquiring = 0;
-  const acquisitions = new Set<{ clientId: string; cancelled: boolean }>();
+
+  const acquisitions = new Set<ClientAcquisition>();
+
   let documentBytes = 0;
   const processBudget = new ProcessBudget();
+  const featureEvidence = new FeatureEvidence();
 
   const documents = (context: LanguageContextIdentity) =>
     new Documents(context, (delta) => {
@@ -97,17 +75,9 @@ export function createLanguageBroker(options: BrokerOptions) {
       documentBytes += delta;
     });
 
-  const cleanup = new Set<Promise<void>>();
-
-  function track(promise: Promise<void>, retainFailure = false) {
-    cleanup.add(promise);
-    void promise.then(
-      () => cleanup.delete(promise),
-      () => {
-        if (!retainFailure) cleanup.delete(promise);
-      }
-    );
-  }
+  const clientSettlement = new BrokerCleanup();
+  const cleanup = clientSettlement.all;
+  const track = clientSettlement.trackGlobal;
 
   function event(entry: Entry, value: LanguageContextEvent) {
     entry.events.emit(value);
@@ -160,30 +130,21 @@ export function createLanguageBroker(options: BrokerOptions) {
     return entry;
   }
 
-  function enqueue<A>(entry: Entry, operation: () => Promise<A>): Promise<A> {
-    if (entry.queued >= 256)
-      return Promise.reject(failure("queue-full", "Language command queue full"));
-    entry.queued++;
-    const result = entry.tail.then(operation);
-    entry.tail = result.then(
-      () => {},
-      () => {}
-    );
-    void result.finally(() => entry.queued--).catch(() => {});
-
-    return result;
-  }
-
   function retire(
     entry: Entry,
     reason: "connection-lost" | "restart" | "settings-changed" | "closed",
     graceful = false
   ) {
+    acknowledgments.retire(entry);
+
     if (entry.timer !== undefined) clearTimeout(entry.timer);
     entry.timer = undefined;
     const identity = entry.identity;
     event(entry, LanguageContextEvent.cases.Invalidated.make({ context: identity, reason }));
     const connection = entry.connection;
+    const admission = entry.launchAdmission;
+    entry.launchAdmission = undefined;
+    admission?.abort();
     entry.connection = undefined;
     entry.stderrAbort?.abort();
     entry.stderrAbort = undefined;
@@ -195,9 +156,13 @@ export function createLanguageBroker(options: BrokerOptions) {
     entry.documents.clear();
     entry.documents = documents(entry.identity);
 
-    if (connection !== undefined) {
-      track(connection.close(graceful));
-      track(connection.settlement(), true);
+    if (admission !== undefined) {
+      const closing = admission.close(graceful);
+      entry.launchRetirement = Promise.all([entry.launchRetirement, closing]).then(() => {});
+      track(entry.launchRetirement, true, identity.clientId);
+    } else if (connection !== undefined) {
+      track(connection.close(graceful), true, identity.clientId);
+      track(connection.settlement(), true, identity.clientId);
     }
   }
 
@@ -252,33 +217,38 @@ export function createLanguageBroker(options: BrokerOptions) {
     );
   }
 
-  function initialization(entry: Entry): typeof LanguageJsonObject.Type {
-    const settings = entry.facts.effectiveSettings.settings;
-
-    return (
-      settings.customServers?.find(({ id }) => id === entry.facts.providerId)
-        ?.initializationOptions ?? {}
-    );
-  }
-
   async function start(entry: Entry) {
     const identity = entry.identity;
+
+    const admission = new LaunchAdmission(
+      identity,
+      entry.facts,
+      () => active(entry, identity) && demanded(entry)
+    );
+
+    entry.launchAdmission = admission;
     move(entry, { type: "demand" });
     state(entry, LanguageRuntime.cases.Starting.make({}));
 
     let reservation: ReturnType<typeof processBudget.reserve> | undefined;
 
     try {
+      await entry.launchRetirement;
       reservation = processBudget.reserve();
       await trusted(entry);
-      const launch = await options.resolveLaunch(entry.facts);
-      await trusted(entry);
 
-      if (!active(entry, identity) || !demanded(entry)) return;
-      const port = reservation.spawn(() => (options.spawn ?? spawnLanguageProcess)(launch));
+      const launch = await admission.resolve(
+        options.reserveLaunch,
+        options.resolveLaunch,
+        async () => {
+          await trusted(entry);
+        }
+      );
 
-      const connection = new OrderedConnection(
-        port,
+      const reserved = reservation;
+
+      const { port, connection } = admission.connect(
+        () => reserved.spawn(() => (options.spawn ?? spawnLanguageProcess)(launch)),
         (message) => entry.bridge?.receive(message),
         () => onCrash(entry, identity)
       );
@@ -297,7 +267,13 @@ export function createLanguageBroker(options: BrokerOptions) {
         authorize: async () => {
           await trusted(entry);
         },
-        prepareEdit: options.prepareEdit,
+        prepareEdit: bindServerPreparation(
+          entry,
+          acknowledgments,
+          admission.request,
+          options.prepareEdit
+        ),
+        treeEdits: () => options.supportsTreeEdits?.(admission.request) === true,
         capabilities: (value) => {
           if (active(entry, identity)) entry.capabilities = value;
         },
@@ -368,16 +344,8 @@ export function createLanguageBroker(options: BrokerOptions) {
     } catch (error) {
       if (!active(entry, identity)) return;
 
-      if (
-        Schema.is(LanguageError)(error) &&
-        [
-          "queue-full",
-          "missing-prerequisite",
-          "not-installed",
-          "audit-required",
-          "unsupported-platform",
-        ].includes(error.reason)
-      ) {
+      if (Schema.is(LanguageError)(error) && blockedLaunchReasons.has(error.reason)) {
+        if (admission.spawned) retire(entry, "restart");
         move(entry, { type: "stop" });
         state(
           entry,
@@ -390,6 +358,9 @@ export function createLanguageBroker(options: BrokerOptions) {
       } else onCrash(entry, identity);
     } finally {
       reservation?.releaseUnstarted();
+      const release = admission.releaseUnstarted();
+      track(release, true, identity.clientId);
+      await release;
     }
   }
 
@@ -406,7 +377,9 @@ export function createLanguageBroker(options: BrokerOptions) {
     track(
       operation.finally(() => {
         if (entry.starting === operation) entry.starting = undefined;
-      })
+      }),
+      false,
+      entry.identity.clientId
     );
   }
 
@@ -416,9 +389,14 @@ export function createLanguageBroker(options: BrokerOptions) {
     entry.timer = setTimeout(() => {
       entry.timer = undefined;
       move(entry, { type: "grace" });
+      acknowledgments.retire(entry);
       entries.delete(entry.identity.contextId);
       keys.delete(contextKey(entry.input.clientId, entry.facts));
-      track(shutdown(entry).finally(() => entry.events.close()));
+      track(
+        shutdown(entry).finally(() => entry.events.close()),
+        true,
+        entry.identity.clientId
+      );
     }, options.graceMs ?? 1500);
   }
 
@@ -448,7 +426,8 @@ export function createLanguageBroker(options: BrokerOptions) {
 
     if (acquiring >= 8) throw failure("queue-full", "Language acquisition limit reached");
     acquiring++;
-    const acquisition = { clientId, cancelled: false };
+    const acquisition = acquisitionTask(clientId);
+
     acquisitions.add(acquisition);
 
     try {
@@ -511,6 +490,7 @@ export function createLanguageBroker(options: BrokerOptions) {
     } finally {
       acquisitions.delete(acquisition);
       acquiring--;
+      acquisition.finish();
     }
   }
 
@@ -530,6 +510,8 @@ export function createLanguageBroker(options: BrokerOptions) {
         entry.capabilities?.positionEncoding ?? "utf-16"
       );
 
+      acknowledgments.synchronized(entry, valid.notification);
+
       for (const [key, operation] of entry.operations) {
         try {
           entry.documents.fence(operation.fence);
@@ -544,6 +526,8 @@ export function createLanguageBroker(options: BrokerOptions) {
 
         if (message !== undefined) await entry.connection.send({ jsonrpc: "2.0", ...message });
       }
+
+      owned(clientId, valid.context);
 
       if (demanded(entry)) {
         if (entry.lifecycle.matches("grace") && entry.timer !== undefined) {
@@ -673,7 +657,7 @@ export function createLanguageBroker(options: BrokerOptions) {
   async function request(clientId: string, input: LanguageFeatureRequest, signal?: AbortSignal) {
     const valid = Schema.decodeUnknownSync(LanguageFeatureRequest)(input);
 
-    return LanguageFeatureResult.make({
+    const result = LanguageFeatureResult.make({
       requestId: valid.requestId,
       fence: valid.fence,
       result: await requestRaw(
@@ -686,7 +670,17 @@ export function createLanguageBroker(options: BrokerOptions) {
         signal
       ),
     });
+
+    featureEvidence.record(clientId, valid, result);
+
+    return result;
   }
+
+  const verifyFeatureEdit = createFeatureVerifier(featureEvidence, {
+    owned,
+    fence: (entry, fence) => entry.documents.fence(fence),
+    trusted,
+  });
 
   function cancel(clientId: string, context: LanguageContextIdentity, requestId: string) {
     const entry = owned(clientId, context);
@@ -718,6 +712,8 @@ export function createLanguageBroker(options: BrokerOptions) {
   }
 
   function disconnect(clientId: string) {
+    featureEvidence.forget(clientId);
+
     for (const acquisition of acquisitions)
       if (acquisition.clientId === clientId) acquisition.cancelled = true;
 
@@ -807,15 +803,6 @@ export function createLanguageBroker(options: BrokerOptions) {
     }
   }
 
-  async function respond(clientId: string, input: typeof LanguageServerResponse.Type) {
-    const valid = Schema.decodeUnknownSync(LanguageServerResponse)(input);
-    const entry = owned(clientId, valid.context);
-    await trusted(entry);
-
-    if (entry.bridge === undefined) throw failure("not-ready", "Language connection not ready");
-    await entry.bridge.respond(valid);
-  }
-
   async function cancelProgress(
     clientId: string,
     context: LanguageContextIdentity,
@@ -841,21 +828,42 @@ export function createLanguageBroker(options: BrokerOptions) {
 
     entries.clear();
     keys.clear();
-    await bounded(Promise.all(cleanup), 10000);
+    // Return before the connection deadline; owned teardown and leases remain tracked.
+    await bounded(Promise.all(cleanup), 2500);
   }
 
   return {
     acquire,
     sync,
+    acknowledgeBuffer: (...args: Parameters<AcknowledgmentOwners["record"]>) =>
+      acknowledgments.record(...args),
+    readAcknowledgedBuffer: (...args: Parameters<AcknowledgmentOwners["read"]>) =>
+      acknowledgments.read(...args),
+    readPreparationDocument: (...args: Parameters<AcknowledgmentOwners["document"]>) =>
+      acknowledgments.document(...args),
+    invalidateBufferAcknowledgments: (
+      principal: Parameters<AcknowledgmentOwners["disconnect"]>[0]
+    ) => acknowledgments.disconnect(principal),
     request,
+    verifyFeatureEdit,
     requestRaw,
     cancel,
     release,
     watch,
     disconnect,
+    disconnectAndWait: (clientId: string) =>
+      settleClientDisconnect(
+        clientId,
+        entries.values(),
+        acquisitions,
+        disconnect,
+        clientSettlement
+      ),
     restart,
     invalidateTrust,
-    respond,
+    respond: bindServerResponse(owned, trusted),
+    challengeReceipt: bindResourceReceipt(owned, trusted),
+    challengeRecoveryReceipt: bindRecoveryReceipt(() => entries.values(), owned, trusted),
     cancelProgress,
     configure,
     invalidateConfiguration,

@@ -146,6 +146,7 @@ export async function createInstaller(options: InstallerOptions) {
 
     if (options.adapters.beforeSelect)
       await abortable(options.adapters.beforeSelect(structuredClone(job.exact), signal), signal);
+    await approve(job.exact, signal);
     checkAbort(signal);
     emit(job, "activating");
     checkAbort(signal);
@@ -239,6 +240,13 @@ export async function createInstaller(options: InstallerOptions) {
 
       if (release)
         await release().catch(() => {
+          cleanupFailures.push(job.id);
+
+          if (cleanupFailures.length > 64) cleanupFailures.shift();
+        });
+
+      if (options.adapters.afterSelection)
+        await options.adapters.afterSelection(structuredClone(job.exact)).catch(() => {
           cleanupFailures.push(job.id);
 
           if (cleanupFailures.length > 64) cleanupFailures.shift();
@@ -368,6 +376,8 @@ export async function createInstaller(options: InstallerOptions) {
           ? cause
           : failure("install-failed", "Private installations could not be verified", true);
       }),
+    recoveryFacts: (toolId: string) =>
+      jobs.has(toolId) ? Promise.resolve([]) : storage.recoveryFacts(toolId),
     progress: (toolId: string) => {
       const value = latest.get(toolId);
 

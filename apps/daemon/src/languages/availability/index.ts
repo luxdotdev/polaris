@@ -18,7 +18,7 @@ export interface AvailabilityInput {
   readonly phase: "install" | "feature";
   readonly probes: ReadonlyArray<ProbeFact>;
   readonly installed: InstalledVersion | null;
-  readonly progress?: Progress;
+  readonly progress?: Progress | undefined;
   readonly checkedAt: number;
 }
 

@@ -48,7 +48,7 @@ test("catalog audit roots and eligibility flags match the exact retained evidenc
 
 test("evaluation-only SQL cannot block offered release roots", () => {
   expect(offeredTools(catalog).some((tool) => tool.id === "sql-language-server")).toBe(false);
-  expect(offeredTools(catalog)).toHaveLength(17);
+  expect(offeredTools(catalog)).toHaveLength(18);
   expect(referenceFailures(catalog)).toEqual([]);
 });
 

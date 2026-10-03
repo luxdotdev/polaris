@@ -35,9 +35,12 @@ export interface LanguageHostView {
   readonly recovery: "reconnect" | "upgrade" | "attention" | null;
   readonly tools: ReadonlyArray<LanguageToolView>;
   readonly discovery: typeof P.LanguageDiscovery.Type | null;
+  readonly canSetTrust?: boolean;
 }
 
 export interface LanguageSettingsSnapshot {
+  /** Renderer-local observation identity; never serialized as trust or protocol authority. */
+  readonly observation?: object;
   readonly record: typeof P.LanguageSettingsRecord.Type;
   readonly effective: typeof P.LanguageEffectiveSettings.Type;
   readonly providers: ReadonlyArray<{ readonly id: string; readonly name: string }>;
@@ -88,6 +91,10 @@ export type LanguageSettingsResult<T> =
   | { readonly ok: false; readonly message: string };
 
 export interface LanguageSettingsAdapter {
+  readonly watch?: (
+    snapshot: LanguageSettingsSnapshot,
+    receive: (snapshot: LanguageSettingsSnapshot | null) => void
+  ) => () => void;
   readonly load: (
     scope: P.LanguageSettingsScope,
     signal: AbortSignal
@@ -106,4 +113,5 @@ export interface LanguageSettingsProps {
   readonly adapter: LanguageSettingsAdapter;
   readonly scopes: ReadonlyArray<LanguageScopeOption>;
   readonly initialScopeKey?: string;
+  readonly onDirty?: (dirty: boolean) => void;
 }

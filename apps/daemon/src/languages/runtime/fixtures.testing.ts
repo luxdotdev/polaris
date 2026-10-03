@@ -27,7 +27,8 @@ export async function fixture(
   discoveryGate?: Promise<void>,
   wrapProcess?: (
     port: ReturnType<typeof spawnLanguageProcess>
-  ) => ReturnType<typeof spawnLanguageProcess>
+  ) => ReturnType<typeof spawnLanguageProcess>,
+  treeEdits = false
 ) {
   const root = await realpath(tempDirectory(join(tmpdir(), "m31-t1-")));
   await writeFile(join(root, "file.ts"), "saved");
@@ -77,6 +78,16 @@ export async function fixture(
 
       return { checkout: canonical, root: canonical.path, workspaceRoot: root };
     },
+    reserveLaunch: async (request) => ({
+      selectionIdentity: "fake-fixture-selection",
+      validate: async () => {
+        if (request.signal.aborted || !request.isCurrent()) throw new Error("Stale fake launch");
+      },
+      assertCurrent: () => {
+        if (request.signal.aborted || !request.isCurrent()) throw new Error("Stale fake launch");
+      },
+      release: async () => {},
+    }),
     resolveLaunch: async (facts) => ({
       executable: process.execPath,
       args: [join(import.meta.dir, "fake-server.testing.ts"), mode],
@@ -84,6 +95,7 @@ export async function fixture(
       environment: {},
     }),
     observeLifecycle,
+    supportsTreeEdits: () => treeEdits,
     spawn: (launch) => {
       const port = spawnLanguageProcess(launch);
       processes.push(port);

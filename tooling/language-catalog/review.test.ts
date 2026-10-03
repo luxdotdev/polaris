@@ -84,7 +84,12 @@ test("record cannot migrate to another version, artifact or evaluation root", ()
 
 test("the exact catalog remains blocked on real evidence gaps, without circular A1 requirements", () => {
   const actual = reviewFailures({ tools: catalog.tools, records, read });
-  expect(actual.filter((failure) => failure.includes(":missing-evidence:"))).toHaveLength(4);
+  expect(
+    actual
+      .filter((failure) => failure.includes(":missing-evidence:"))
+      .map((failure) => failure.split(":")[0])
+      .sort((a, b) => (a ?? "").localeCompare(b ?? ""))
+  ).toEqual(["jdtls", "lua-language-server", "ruff", "rust-analyzer", "shellcheck"]);
   expect(actual.some((failure) => failure.includes("false-awaiting-review"))).toBe(false);
   expect(reviewRootFailures(catalog.tools, read)).toEqual([]);
 });

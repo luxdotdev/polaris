@@ -15,6 +15,8 @@ export const languageMethods = {
   "languages.context.release": P.ReleaseLanguageContext,
   "languages.context.restart": P.RestartLanguageContext,
   "languages.document.sync": P.SyncLanguageDocument,
+  "languages.document.acknowledge": P.AcknowledgeLanguageDocument,
+  "languages.edit.prepare": P.PrepareLanguageEdit,
   "languages.request": P.RequestLanguageFeature,
   "languages.cancel": P.CancelLanguageRequest,
   "languages.progress.cancel": P.CancelLanguageProgress,

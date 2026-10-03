@@ -21,11 +21,13 @@ const fixture = async (body: string) => {
   return { path, root, input: { trusted: true, configuredPath: path, searchPath: [], cwd: root } };
 };
 
-test("managed ShellCheck stays evaluated and Bash retains developer diagnostics plus managed shfmt", () => {
+test("current catalog offers bundled ShellCheck and shfmt while all ShellCheck artifacts remain audit blocked", () => {
   const bash = catalog.integrations.find((entry) => entry.id === "bash")!;
-  expect(bash.companions).toEqual(["shfmt"]);
-  expect(bash.developerCompanions?.[0]?.provider).toBe("bash-language-server");
-  expect(catalog.tools.find((entry) => entry.id === "shellcheck")?.disposition).toBe("evaluation");
+  expect(bash.companions).toEqual(["shellcheck", "shfmt"]);
+  expect(
+    bash.developerCompanions?.some((companion) => companion.id === "shellcheck") ?? false
+  ).toBe(false);
+  expect(catalog.tools.find((entry) => entry.id === "shellcheck")?.disposition).toBe("offered");
   expect(
     catalog.tools
       .find((entry) => entry.id === "shellcheck")

@@ -118,3 +118,65 @@ workflow, remote-provider or budget certification. Temporary output is outside t
 Lead reported accepted-base subscription tables use streaming RPC successSchema wrappers.
 U0 does not import those tables or cast Stream values; U1 must consume the exact E0 shared
 correction during serial integration before projecting subscription items.
+
+## U1 Settings composition
+
+Settings → Editor → Configure language integrations mounts the accepted page through
+`Integration.tsx`. `registeredScopes.ts` uses confirmed Host identities and the existing
+registered Workspace, Worktree and Review Checkout model. Worktree/Review selection changes
+discovery and trust; preferences still target their Workspace. Language and checkout
+selection, and Back to Editor settings, are disabled while the page has a dirty draft.
+Unrelated Agent Session updates do not change registry membership or restart these reads.
+
+`adapter.ts` uses the optional `PolarisApi.languages` extension, never a second connection.
+The edited scope supplies the draft and CAS revision. Independently, effective preferences
+fold the selected checkout's App → language → Host → Workspace → Workspace-language records.
+With no checkout, language defaults remain visible; Host/Workspace editing supplies its own
+context. Every requested record must match its exact scope. Reading an unrelated scope never
+silently replaces the edited record. Save confirms the full patch, exact scope and next
+revision before accepting success. No private environment values enter availability or logs.
+
+`setLanguageSettingsServices` is the settings-owned integration seam. G2/I1 supply authoritative
+`permissions` and bounded sanitized `logs`; defaults omit all install/update/rollback/restart/log
+permissions. Capability and preflight presentation guards intersect supplied facts. The
+`languages.trust` capability gates trust changes separately. Catalog pins, artifact audit
+strings and installed versions do not grant permission or synthesize runtime readiness.
+Managed CLI formatter launch selections require an authoritative executable; configured
+stdio/executable fields remain available without inventing managed paths.
+
+After the exact accepted M2 handoff, `Integration.tsx` imports the production Editor
+`refreshMarkdownPolicy(hostKey, workspaceId)` hook; the services seam permits a typed test override. `policy.ts` calls it after an exact typed acknowledgement, including
+both external-image grant and revoke. Failure, cancellation, malformed or mismatched policy
+results never refresh a preview. Policy component cleanup fences adapter/Host authority and
+hook replacement. Existing Source and sanitized preview stay available without the optional
+service. Source/preview view IDs and buffer authority remain Editor-owned.
+
+`LanguageApi.request` has no renderer AbortSignal argument. Abort stops further reads and
+fences replies; a submitted mutation may already have committed. Main/C1 own transport
+cancellation and deadlines. The UI retains the existing explicit confirmation Refresh,
+dirty baseline/revision fence and Discard behavior, and never automatically repeats a save.
+
+`feedback.ts` accepts protocol progress/prerequisite items with actual language/Host labels,
+rejects foreign Host/tool and older sequences, and bounds retained job entries to 128. E1/G2
+may also supply current owned first-encounter job items. This helper does not start installs.
+After accepted E0, `watch.ts` binds the existing optional typed availability/install API for
+Settings. Confirmed Installing job identity/version, sequence, adapter epoch and registered Host
+fence progress; replacement, reconnect, operation and unmount dispose old watches. Same-job
+availability retains sequence authority. Stream end removes mutation authority until explicit
+Refresh; streamed facts never acknowledge or rebase a dirty CAS draft. No polling or Stream cast. A1/I1 and G2 retain artifact/runtime/Host authorization.
+No installation, activation, first-encounter production or whole-App budget is certified here.
+
+U1's fake integrated evidence uses `integration.smoke.testing.ts` with actual SettingsPage
+navigation and optional typed request/feed services. The optional `feed` argument verifies dirty
+draft retention, progress/reconnect and late old callbacks; `effective` verifies
+full-context overrides while saving only App defaults. Fixtures use owned temporary
+Electron/Vite data and fake registered Hosts; no real account, SSH or project installation.
+
+
+J1 may inject `refreshLanguageSettings(hostKey, workspaceId)` through
+`setLanguageSettingsServices`. This matches E1's light typed port without importing its
+unaccepted candidate. Only exact confirmed Settings CAS or trust acknowledgements invoke it.
+App/language changes refresh registered Editor contexts; Host/Workspace changes refresh matching
+confirmed Host identities and Workspace ids, deduplicating Worktrees. Failed, foreign, superseded
+or cancelled replies never refresh. Trust acknowledgement must match scope, next revision and
+requested trust value. The hook does not grant permissions, install tools or infer readiness.

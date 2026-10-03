@@ -15,4 +15,5 @@ test("pending close-save preserves retargeted/reopened views across load, format
   expect(result.error).toBeUndefined();
   expect(result.status).toBe(0);
   expect(result.stdout).toContain("12 held-save runtime scenarios passed");
+  expect(result.stdout).toContain("5 held-discard runtime scenarios passed");
 });

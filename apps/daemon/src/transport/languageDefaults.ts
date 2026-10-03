@@ -28,6 +28,8 @@ export const languageDefaults = {
   "languages.context.restart": request,
   "languages.context.watch": feed,
   "languages.document.sync": request,
+  "languages.document.acknowledge": request,
+  "languages.edit.prepare": request,
   "languages.request": request,
   "languages.cancel": request,
   "languages.progress.cancel": request,

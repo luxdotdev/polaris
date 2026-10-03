@@ -428,7 +428,27 @@ export async function createVersionStorage(
     return result;
   }
 
-  return { current, stage, lock, select, load, versions };
+  async function recoveryFacts(toolId: string) {
+    const directory = await toolRoot(toolId);
+    const facts: string[] = [];
+    let count = 0;
+
+    for await (const entry of await opendir(directory)) {
+      if (++count > limits.entries)
+        throw failure("too-large", "Installation root entry count exceeds limit");
+
+      if (
+        entry.name === "install.lock" ||
+        entry.name.startsWith(".stage-") ||
+        entry.name.startsWith(".active-")
+      )
+        facts.push(entry.name);
+    }
+
+    return facts;
+  }
+
+  return { current, stage, lock, select, load, versions, recoveryFacts };
 }
 
 export type VersionStorage = Awaited<ReturnType<typeof createVersionStorage>>;

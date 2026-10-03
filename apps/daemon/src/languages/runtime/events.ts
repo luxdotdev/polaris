@@ -10,6 +10,9 @@ export class ContextEvents {
 
     for (const listener of this.listeners) listener(decoded);
   }
+  hasSubscribers() {
+    return this.listeners.size > 0;
+  }
   close() {
     for (const listener of this.listeners) listener(null);
     this.listeners.clear();

@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { testEnv } from "./daemon.ts";
 
@@ -20,7 +19,7 @@ test("smoke environment excludes overridden handoff and preserves fixture settin
 test.each(["inherited", "override"])(
   "a fresh source Daemon excludes %s upgrade hand-off",
   (mode) => {
-    const home = mkdtempSync(join(tmpdir(), "polaris-smoke-handoff-"));
+    const home = mkdtempSync("/private/tmp/polaris-smoke-handoff-");
 
     try {
       const result = spawnSync(

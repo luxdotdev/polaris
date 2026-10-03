@@ -1,5 +1,5 @@
 import { LanguageCheckout } from "./base.ts";
-import { WorkspaceId } from "../ids.ts";
+import { HostId, WorkspaceId } from "../ids.ts";
 import { LanguageEditProposal } from "./edits.ts";
 import { expect, test } from "bun:test";
 import { Schema } from "effect";
@@ -94,10 +94,11 @@ import {
   decodeLanguageResourceProposal,
   decodeLanguageResourceAcceptance,
 } from "./trees.ts";
+import { LanguageServerRequestPayload } from "./broker.ts";
 
 const fence = {
   context: {
-    hostId: "fake-host",
+    hostId: HostId.make("fake-host"),
     clientId: "client",
     checkout: LanguageCheckout.cases.Workspace.make({
       workspaceId: WorkspaceId.make("workspace"),
@@ -113,7 +114,7 @@ const fence = {
   documents: [],
 };
 
-const regular = {
+const regular = LanguageEditProposal.make({
   proposalId: "proposal",
   fence,
   origin: "rename",
@@ -121,7 +122,7 @@ const regular = {
   expiresAt: 1000,
   edit: { documentChanges: [] },
   snapshots: [],
-};
+});
 
 const resources = [
   {
@@ -131,7 +132,35 @@ const resources = [
   },
 ];
 
-const proposal = { ...regular, format: 2, resourceSnapshots: resources };
+const proposal = Schema.decodeUnknownSync(LanguageTreeEditProposal)({
+  ...regular,
+  format: 2,
+  resourceSnapshots: resources,
+});
+
+test("dedicated server tree edit payload preserves resource snapshots before legacy decoding", () => {
+  const payload = LanguageServerRequestPayload.cases.TreeApplyEdit.make({ proposal });
+
+  expect(payload).toEqual(LanguageServerRequestPayload.cases.TreeApplyEdit.make({ proposal }));
+  expect(() =>
+    Schema.decodeUnknownSync(LanguageServerRequestPayload)({
+      ...LanguageServerRequestPayload.cases.ApplyEdit.make({ proposal: regular }),
+      proposal,
+    })
+  ).toThrow();
+  expect(() =>
+    Schema.decodeUnknownSync(LanguageServerRequestPayload)({
+      ...LanguageServerRequestPayload.cases.TreeApplyEdit.make({ proposal }),
+      proposal: regular,
+    })
+  ).toThrow();
+  expect(() =>
+    Schema.decodeUnknownSync(LanguageServerRequestPayload)({
+      ...LanguageServerRequestPayload.cases.TreeApplyEdit.make({ proposal }),
+      proposal: { ...proposal, format: 3 },
+    })
+  ).toThrow();
+});
 
 const acceptance = {
   format: 2,
@@ -269,7 +298,11 @@ test("aggregate roots/entries/hash bytes/UTF8 encoded bytes and all complete rec
     format: 2,
     operationId: "operation",
     proposalId: "proposal",
-    owner: { hostId: "fake-host", clientId: "client", checkout: fence.context.checkout },
+    owner: {
+      hostId: HostId.make("fake-host"),
+      clientId: "client",
+      checkout: fence.context.checkout,
+    },
     state: "prepared",
     draftsDurable: true,
     receiptDurable: true,

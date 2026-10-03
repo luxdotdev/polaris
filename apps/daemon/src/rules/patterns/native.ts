@@ -1,3 +1,5 @@
+// oxlint-disable-next-line typescript/triple-slash-reference -- Include ambient asset declarations in transitive Client fixtures.
+/// <reference path="./grammars.d.ts" />
 /**
  * ast-grep's Node binding (`@ast-grep/napi`, MIT) and the tree-sitter
  * grammars it loads at run time (`@ast-grep/lang-*`, ISC).

@@ -105,4 +105,21 @@ export const onRegistrationsChanged = (listener: () => void): (() => void) => {
 
 export { getActiveEditor, useActiveEditor } from "./runtime/hooks.ts";
 
+let languageRefresher: ((hostKey: string, workspaceId: string) => void) | null = null;
+
+/** Settings calls this only after a matching committed scoped change, never while editing a form. */
+export const refreshLanguageSettings = (hostKey: string, workspaceId: string) =>
+  languageRefresher?.(hostKey, workspaceId);
+
+/** The Editor installs the coordination callback when its lazy runtime starts. */
+export const bindLanguageSettingsRefresh = (
+  refresh: (hostKey: string, workspaceId: string) => void
+) => {
+  languageRefresher = refresh;
+
+  return () => {
+    if (languageRefresher === refresh) languageRefresher = null;
+  };
+};
+
 export type { ActiveEditor } from "./runtime/store.ts";

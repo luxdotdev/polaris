@@ -3,7 +3,7 @@
  * Paper E1): the vim mode while vim is on, the cursor or selection, the
  * file's indentation and its language. The explorer owns the bar and its left side.
  */
-import { LANGUAGE_NAMES } from "../model/language.ts";
+import { LanguageSelector } from "./LanguageTools.tsx";
 import { modeText } from "../model/vim.ts";
 import { harnessHue } from "@polaris/ui";
 import { agentCaretLine } from "../cm/agent.ts";
@@ -71,7 +71,9 @@ export const EditorStatus = ({ hostKey, workspaceId }: EditorStatusProps) => {
         <span>{positionText(cursor)}</span>
       )}
       <span>{indent}</span>
-      {language === null ? null : <span>{LANGUAGE_NAMES[language]}</span>}
+      {language === null ? null : (
+        <LanguageSelector hostKey={hostKey} path={active.path} language={language} />
+      )}
     </div>
   );
 };

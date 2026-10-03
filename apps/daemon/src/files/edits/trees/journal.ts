@@ -6,6 +6,8 @@ import {
   LanguageResourceIdentity,
   LanguageTreeManifest,
   LanguageTreeOperationOutcome,
+  LanguageContextIdentity,
+  LanguageFingerprint,
 } from "@polaris/protocol";
 import { Schema } from "effect";
 
@@ -24,6 +26,9 @@ export const Journal = Schema.Struct({
   root: Schema.String,
   rootIdentity: LanguageResourceIdentity,
   outcome: LanguageTreeOperationOutcome,
+  authority: Schema.optionalKey(
+    Schema.Struct({ context: LanguageContextIdentity, previewFingerprint: LanguageFingerprint })
+  ),
   moves: Schema.Array(Move),
 });
 

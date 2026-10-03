@@ -20,10 +20,13 @@ import {
 } from "../../shared/languages.ts";
 import { LanguagePreferences, scopeWorkspace, settingsScopeHost } from "./settings.ts";
 import { LanguageMedia, type ImageNetwork } from "./media.ts";
+import { clientIdentityOf } from "./identity.ts";
 
 export interface LanguageHost {
   readonly hostId: P.HostId;
   readonly access: LanguageAccess | null;
+  /** Supplied only from Main's authenticated current live session, never renderer input. */
+  readonly connectionEpoch?: number;
   /** Main's registered Workspace/checkout authority, independent of renderer IDs/paths. */
   readonly authorizeWorkspace: (workspaceId: P.WorkspaceId) => boolean;
   readonly authorizeCheckout: (checkout: P.LanguageCheckout) => boolean;
@@ -134,6 +137,9 @@ export const createLanguageBridge = (
     const p = options.preferences;
 
     switch (method) {
+      case "languages.identity.get":
+        return clientIdentityOf(host);
+
       case "languages.settings.get": {
         const input = decodeLanguage(LanguageRequestInputs[method], value);
 
@@ -266,6 +272,9 @@ export const createLanguageBridge = (
       const result = await local(method, input, host);
 
       if (lifetime.signal.aborted || options.lookup(input.hostKey) !== host)
+        throw languageFailure("not-connected");
+
+      if (method === "languages.identity.get" && host.access?.transport.signal.aborted)
         throw languageFailure("not-connected");
 
       // SAFETY: matching IPC output schema enforces method-specific structured clone data.

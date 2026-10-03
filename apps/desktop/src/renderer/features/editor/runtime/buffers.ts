@@ -4,6 +4,13 @@
  * conflict), and drafts kept across restarts. One CodeMirror view per open
  * file, alive while any tab shows it.
  */
+import { readRefactorState, intervene } from "../refactors/drafts.ts";
+import type { GroupStore } from "../refactors/group.ts";
+import {
+  discardRefactorBuffer,
+  refactorDocument,
+  restoreRefactorDocument,
+} from "./refactorBuffers.ts";
 import { EditorState, type Extension, type StateEffect } from "@codemirror/state";
 import { EditorView, type ViewUpdate } from "@codemirror/view";
 import { harnessHue } from "@polaris/ui";
@@ -42,11 +49,12 @@ import {
 import { type Draft, draftMatches, fileKey, type KeyValue, workspaceKey } from "../model/drafts.ts";
 import { createDraftStore, type DraftStore, type SpillStore } from "../model/draftStore.ts";
 import { indentLabel, type Indent, lineSeparatorOf } from "../model/indent.ts";
-import { languageFor } from "../model/language.ts";
+import { languageFor, type LanguageId } from "../model/language.ts";
 import type { Unreadable } from "../model/notices.ts";
 import type { EditorFiles, FileTarget } from "../files/port.ts";
 import { editorStore, modelOf, patchBuffer, setBufferModel } from "./store.ts";
 import { agentReload, staleAgent } from "./agent.ts";
+import type { EditorLanguageLifetime, EditorLanguagePort } from "../lsp/lifecycle.ts";
 
 export interface EditorPrefs {
   readonly vim: boolean;
@@ -54,7 +62,9 @@ export interface EditorPrefs {
 }
 
 export interface EditorConfig {
+  readonly languages?: EditorLanguagePort;
   readonly formatting?: FormattingPort;
+  readonly groups?: GroupStore | undefined;
   readonly files: EditorFiles;
   /** Where drafts are kept; null keeps them in memory only. */
   readonly kv: KeyValue | null;
@@ -75,8 +85,11 @@ const SETTLE_MS = 300;
 /** "Autosave after a short pause" (spec §3). */
 export const AUTOSAVE_MS = 1000;
 
-interface OpenBuffer {
+export interface OpenBuffer {
+  languageLifetime: EditorLanguageLifetime | null;
   revision: number;
+  draftRevisionOffset: number;
+  refactor: boolean;
   save: SaveCoordinator | null;
   /** These three change when the file is renamed under its editor (`moveBuffer`). */
   key: string;
@@ -118,6 +131,9 @@ const drafts = (): DraftStore => {
   return store;
 };
 
+/** Shared inventory reads the same configured draft owner as open/close/save. */
+export const editorDraftStore = () => drafts();
+
 export const isConfigured = () => config !== null;
 
 export const hostOf = (hostKey: string) => ({
@@ -149,10 +165,12 @@ const changedBy = (file: EditorFile): string | null => {
 const keepDraft = (buffer: OpenBuffer) => {
   const model = modelOf(buffer.key);
 
-  if (model === null || buffer.view === null) return;
+  if (model === null || buffer.view === null) return false;
   const { hostKey, path } = buffer.file;
 
   let kept = true;
+
+  if (model.dirty && buffer.refactor) return true;
 
   if (model.dirty)
     kept = drafts().write({ hostKey, path, text: textOf(buffer.view), base: model.version });
@@ -160,6 +178,8 @@ const keepDraft = (buffer: OpenBuffer) => {
 
   if (editorStore.getState().buffers[buffer.key]?.unkept === kept)
     patchBuffer(buffer.key, { unkept: !kept });
+
+  return kept;
 };
 
 const applyEffect = (buffer: OpenBuffer, effect: BufferEffect) => {
@@ -232,6 +252,7 @@ const scheduleAutosave = (buffer: OpenBuffer) => {
 };
 
 const onEdited = (buffer: OpenBuffer) => {
+  buffer.refactor = false;
   const model = modelOf(buffer.key);
 
   if (model !== null && !model.dirty) setBufferModel(buffer.key, { ...model, dirty: true });
@@ -239,7 +260,8 @@ const onEdited = (buffer: OpenBuffer) => {
 
   if (buffer.settle !== null) clearTimeout(buffer.settle);
   buffer.settle = setTimeout(() => settleDirty(buffer), SETTLE_MS);
-  scheduleAutosave(buffer);
+
+  if (!buffer.refactor) scheduleAutosave(buffer);
 };
 
 let cursorTimer: ReturnType<typeof setTimeout> | null = null;
@@ -263,6 +285,7 @@ const updateListener = (buffer: OpenBuffer) =>
     if (update.docChanged) {
       buffer.revision++;
       buffer.save?.invalidate();
+      buffer.languageLifetime?.edited();
     }
 
     const edited = update.transactions.some((tr) => tr.docChanged && !tr.isUserEvent("reload"));
@@ -317,18 +340,28 @@ const mount = (buffer: OpenBuffer, disk: DiskText, readOnly: boolean, draft: Dra
   buffer.view = new EditorView({ state });
   buffer.indent = indent;
   setBufferModel(buffer.key, model);
+  buffer.languageLifetime =
+    need().languages?.mount({
+      file: buffer.file,
+      root: buffer.target.root,
+      view: buffer.view,
+      revision: () => buffer.revision,
+    }) ?? null;
 
   if (buffer.reveal !== null) revealLine(buffer.view, buffer.reveal.line, buffer.reveal.column);
   buffer.reveal = null;
   const view = buffer.view;
 
-  void loadLanguage(languageFor(buffer.file.path, text.slice(0, 200).split("\n")[0])).then(
-    (ext) => {
-      if (buffer.view !== view) return;
-      view.dispatch({ effects: languageCompartment.reconfigure(ext) });
-      patchBuffer(buffer.key, { grammar: true });
-    }
-  );
+  const detectedLanguage = languageFor(buffer.file.path, text.slice(0, 200).split("\n")[0]);
+  void loadLanguage(detectedLanguage).then((ext) => {
+    if (
+      buffer.view !== view ||
+      editorStore.getState().buffers[buffer.key]?.language !== detectedLanguage
+    )
+      return;
+    view.dispatch({ effects: languageCompartment.reconfigure(ext) });
+    patchBuffer(buffer.key, { grammar: true });
+  });
 };
 
 const onDiskChange = async (buffer: OpenBuffer, version: FileVersion | null) => {
@@ -377,10 +410,20 @@ const load = async (buffer: OpenBuffer) => {
       return;
     }
 
-    const draft = await drafts().read(buffer.file.hostKey, buffer.file.path);
+    const legacy = await drafts().read(buffer.file.hostKey, buffer.file.path);
+    const groups = need().groups;
+    const restored = await readRefactorState(groups, buffer.file.hostKey, buffer.file.path, legacy);
 
     if (!open.has(buffer.key)) return;
-    mount(buffer, result, editorStore.getState().buffers[buffer.key]?.readOnly ?? false, draft);
+    mount(
+      buffer,
+      result,
+      editorStore.getState().buffers[buffer.key]?.readOnly ?? false,
+      restored.draft
+    );
+
+    restoreRefactorDocument(buffer, restored.document);
+
     buffer.unwatch = files.watch(buffer.target, (version) => void onDiskChange(buffer, version));
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : String(cause);
@@ -423,7 +466,10 @@ export const ensureBuffer = (input: OpenInput): OpenBuffer => {
   }
 
   const buffer: OpenBuffer = {
+    languageLifetime: null,
     revision: 0,
+    draftRevisionOffset: 0,
+    refactor: false,
     save: null,
     key,
     file: input.file,
@@ -469,6 +515,8 @@ export const releaseBuffer = (key: string) => {
 
   if (buffer === undefined) return;
   buffer.save?.invalidate();
+  buffer.languageLifetime?.dispose();
+  buffer.languageLifetime = null;
 
   if (buffer.settle !== null) {
     clearTimeout(buffer.settle);
@@ -504,7 +552,18 @@ const savingNow = async (buffer: OpenBuffer, view: EditorView, model: BufferMode
     }
 
     if (result.kind === "written") {
+      const savedRevision = buffer.revision;
+
+      if (text === textOf(view)) buffer.languageLifetime?.saved(savedRevision, result.version);
       send(buffer, { kind: "saved", version: result.version, doc: textOf(view) });
+
+      if (need().groups !== undefined)
+        await intervene(
+          need().groups!,
+          buffer.file.hostKey,
+          buffer.file.path,
+          refactorDocument(buffer)
+        );
 
       return !modelOf(buffer.key)?.dirty && modelOf(buffer.key)?.conflict === null;
     }
@@ -710,6 +769,25 @@ export const setReadOnly = (key: string, readOnly: boolean) => {
   });
 };
 
+/** Reconfigure the one authoritative view; local syntax remains available without a language Host. */
+export const applyBufferLanguage = async (key: string, language: LanguageId) => {
+  const buffer = open.get(key);
+  const view = buffer?.view;
+
+  if (buffer === undefined || view == null) return;
+  patchBuffer(key, { language, grammar: false });
+  const extension = await loadLanguage(language);
+
+  if (
+    open.get(key) !== buffer ||
+    buffer.view !== view ||
+    editorStore.getState().buffers[key]?.language !== language
+  )
+    return;
+  view.dispatch({ effects: languageCompartment.reconfigure(extension) });
+  patchBuffer(key, { grammar: true });
+};
+
 // The agent stopped editing a file, or started a new Turn: last Turn's marks go.
 editorStore.subscribe((state, previous) => {
   if (state.agentEdits === previous.agentEdits) return;
@@ -754,8 +832,11 @@ export const saveAll = async (reason: SaveReason = "save-all"): Promise<boolean>
 };
 
 /** An open editor follows its file to the new path: view, undo, cursor, dirty state and draft. */
-const rekey = (buffer: OpenBuffer, to: string) => {
+export const rekey = (buffer: OpenBuffer, to: string) => {
+  const manual = buffer.languageLifetime?.selectedLanguage() ?? null;
   buffer.save?.invalidate();
+  buffer.languageLifetime?.dispose();
+  buffer.languageLifetime = null;
   const from = buffer.key;
   const key = fileKey(buffer.file.hostKey, to);
 
@@ -783,6 +864,16 @@ const rekey = (buffer: OpenBuffer, to: string) => {
 
     return { buffers: moved === undefined ? buffers : { ...buffers, [key]: moved }, active };
   });
+
+  if (buffer.view !== null)
+    buffer.languageLifetime =
+      need().languages?.mount({
+        file: buffer.file,
+        root: buffer.target.root,
+        view: buffer.view,
+        revision: () => buffer.revision,
+        manual,
+      }) ?? null;
 };
 
 /** A renamed file keeps its editor, or (not loaded yet) its draft, at the new path. */
@@ -810,10 +901,8 @@ export const hasUnsaved = (hostKey: string, path: string): boolean => {
 };
 
 /** Closes a file's editor and forgets its unsaved edits ("Don't save"). */
-export const discardBuffer = (hostKey: string, path: string) => {
-  releaseBuffer(fileKey(hostKey, path));
-  drafts().drop(hostKey, path);
-};
+export const discardBuffer = (hostKey: string, path: string, current: () => boolean = () => true) =>
+  discardRefactorBuffer(hostKey, path, current, drafts(), need().groups, keepDraft);
 
 /** Resolves once the file has loaded (or couldn't be). */
 export const whenLoaded = (key: string): Promise<void> =>
@@ -837,3 +926,5 @@ export const whenLoaded = (key: string): Promise<void> =>
 export const resetBuffers = () => {
   for (const key of Array.from(open.keys())) releaseBuffer(key);
 };
+
+export const openBuffers = () => [...open.values()];

@@ -156,6 +156,38 @@ run("tree recovery safety", [
   "--verbosity=1",
 ]);
 
+run("typecheck resource receipts", ["typecheck", "resource-receipts.qnt"]);
+
+run("resource receipt scenarios", ["test", "resource-receipts.qnt", "--main=resource_receipts"]);
+
+run("resource receipt simulation", [
+  "run",
+  "resource-receipts.qnt",
+  "--main=resource_receipts",
+  "--invariant=safety",
+  `--max-samples=${samples}`,
+  "--max-steps=60",
+  `--seed=${seed}`,
+]);
+
+run("typecheck language identity", ["typecheck", "language-identity.qnt"]);
+
+run("language identity scenarios", [
+  "test",
+  "language-identity.qnt",
+  "--main=language_identity_test",
+]);
+
+run("language identity simulation", [
+  "run",
+  "language-identity.qnt",
+  "--main=language_identity",
+  "--invariant=safety",
+  `--max-samples=${samples}`,
+  "--max-steps=60",
+  `--seed=${seed}`,
+]);
+
 run("typecheck languages.qnt", ["typecheck", "languages.qnt"]);
 
 run("language contract scenarios", ["test", "languages.qnt", "--main=languages_test"]);

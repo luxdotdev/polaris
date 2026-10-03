@@ -26,13 +26,19 @@ import {
   LanguageRpcId,
   LanguageServerResponse,
 } from "./broker.ts";
-import { LanguageRuntime, LanguageSyncAck, LanguageSyncInput } from "./documents.ts";
+import {
+  LanguageRequestFence,
+  LanguageRuntime,
+  LanguageSyncAck,
+  LanguageSyncInput,
+} from "./documents.ts";
 import { LanguageTreeEditDecision, LanguageTreeOperationOutcome } from "./trees.ts";
 import {
   LanguageEditAcceptance,
   LanguageFormatOutcome,
   LanguageFormatPreflight,
   LanguageOperationOutcome,
+  LanguageWorkspaceEdit,
 } from "./edits.ts";
 import {
   LanguageEffectiveSettings,
@@ -43,6 +49,30 @@ import {
   LanguageTrust,
   LanguageTrustScope,
 } from "./settings.ts";
+
+import {
+  LanguageBufferAcknowledgment,
+  LanguageBufferAcknowledgmentReceipt,
+  LanguagePreparedEditProposal,
+} from "./preparation.ts";
+
+export const AcknowledgeLanguageDocument = Rpc.make("languages.document.acknowledge", {
+  payload: { fence: LanguageRequestFence, buffer: LanguageBufferAcknowledgment },
+  success: LanguageBufferAcknowledgmentReceipt,
+  error: LanguageError,
+});
+
+export const PrepareLanguageEdit = Rpc.make("languages.edit.prepare", {
+  payload: {
+    request: LanguageFeatureRequest,
+    result: LanguageFeatureResult,
+    origin: Schema.Literals(["rename", "code-action"]),
+    label: Schema.String.check(Schema.isMaxLength(8192)),
+    edit: LanguageWorkspaceEdit,
+  },
+  success: LanguagePreparedEditProposal,
+  error: LanguageError,
+});
 
 export const GetLanguageCatalog = Rpc.make("languages.catalog", {
   payload: {},
@@ -326,6 +356,8 @@ export class LanguageRpcs extends RpcGroup.make(
   RestartLanguageContext,
   WatchLanguageContext,
   SyncLanguageDocument,
+  AcknowledgeLanguageDocument,
+  PrepareLanguageEdit,
   RequestLanguageFeature,
   CancelLanguageRequest,
   CancelLanguageProgress,
