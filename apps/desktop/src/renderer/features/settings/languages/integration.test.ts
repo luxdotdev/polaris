@@ -703,3 +703,52 @@ test("foreign CAS acknowledgement and cancelled late trust acknowledgement never
   expect((await pending).ok).toBe(false);
   expect(calls).toEqual([]);
 });
+
+test("explicit trust is available before prerequisite observations or discovery can succeed", async () => {
+  for (const unavailable of ["failAvailability", "failDiscovery"] as const) {
+    const f = setup();
+    f.control[unavailable] = true;
+    f.control.untrusted = true;
+    const loaded = await f.adapter.load(f.scope, f.signal);
+
+    if (!loaded.ok) throw new Error(loaded.message);
+    const host = loaded.value.hosts[0];
+
+    if (!host?.trust) throw new Error("Missing independent trust observation");
+    expect(host.discovery).toBeNull();
+    expect(host.trust.trusted).toBe(false);
+    expect(host.canSetTrust).toBe(true);
+    expect(f.control.calls).not.toContain("languages.trust.set");
+    expect(
+      (
+        await f.adapter.act(
+          { kind: "trust", hostKey: host.key, trust: host.trust, trusted: true },
+          f.signal
+        )
+      ).ok
+    ).toBe(true);
+    expect(f.control.calls.filter((method) => method === "languages.trust.set")).toHaveLength(1);
+  }
+});
+
+test("failed or foreign independent trust observations cannot authorize a grant", async () => {
+  for (const invalid of ["failReadTrust", "foreignReadTrust"] as const) {
+    const f = setup();
+    f.control[invalid] = true;
+    f.control.failAvailability = true;
+    const loaded = await f.adapter.load(f.scope, f.signal);
+
+    if (!loaded.ok) throw new Error(loaded.message);
+    const host = loaded.value.hosts[0];
+    expect(host?.canSetTrust).toBe(false);
+    expect(
+      (
+        await f.adapter.act(
+          { kind: "trust", hostKey: f.host.key, trust: f.discovery.trust, trusted: true },
+          f.signal
+        )
+      ).ok
+    ).toBe(false);
+    expect(f.control.calls).not.toContain("languages.trust.set");
+  }
+});

@@ -20,6 +20,8 @@ export const createIntegrationFixture = () => {
 
   if (!fact || !fact.discovery) throw new Error("Missing fixture facts");
 
+  const initialTrust = fact.discovery.trust;
+
   const host: HostView = {
     key: "fake-0",
     label: fact.name,
@@ -73,6 +75,11 @@ export const createIntegrationFixture = () => {
     foreignSave: false,
     foreignPolicy: false,
     foreignTrust: false,
+    foreignReadTrust: false,
+    failReadTrust: false,
+    failAvailability: false,
+    failDiscovery: false,
+    untrusted: false,
     staleTrust: false,
     wrongTrustValue: false,
     hold: false,
@@ -137,6 +144,27 @@ export const createIntegrationFixture = () => {
     });
   };
 
+  const unavailableReads: Partial<Record<LanguageRequestMethod, () => boolean>> = {
+    "languages.availability": () => control.failAvailability,
+    "languages.discover": () => control.failDiscovery,
+    "languages.trust.get": () => control.failReadTrust,
+  };
+
+  const requestFails = (method: LanguageRequestMethod) =>
+    control.fail || unavailableReads[method]?.();
+
+  const observedTrust = () =>
+    P.LanguageTrust.make({
+      ...initialTrust,
+      trusted: control.untrusted ? false : initialTrust.trusted,
+      scope: control.foreignReadTrust
+        ? P.LanguageTrustScope.cases.Workspace.make({
+            hostId: fact.id,
+            workspaceId: P.WorkspaceId.make("foreign"),
+          })
+        : initialTrust.scope,
+    });
+
   const api: LanguageApi = {
     request: async <M extends LanguageRequestMethod>(method: M, raw: LanguageRequestInput<M>) => {
       control.calls.push(method);
@@ -149,7 +177,7 @@ export const createIntegrationFixture = () => {
           } else control.release = resolve;
         });
 
-      if (control.fail)
+      if (requestFails(method))
         return { ok: false, error: { code: "Fixture", message: "Synthetic failure" } };
       let value;
 
@@ -222,6 +250,10 @@ export const createIntegrationFixture = () => {
             : policy;
           break;
         }
+
+        case "languages.trust.get":
+          value = observedTrust();
+          break;
 
         case "languages.trust.set": {
           const requested = Schema.decodeUnknownSync(LanguageRequestInputs["languages.trust.set"])(

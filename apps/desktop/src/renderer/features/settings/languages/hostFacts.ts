@@ -38,6 +38,8 @@ export const loadHostFacts = async (
 
   if (!capable || host.status.state !== "connected" || !options.api) return { view, catalog: null };
 
+  let observed = view;
+
   try {
     signal.throwIfAborted();
     const response = await options.api.request("languages.catalog", { hostKey: host.key });
@@ -64,6 +66,12 @@ export const loadHostFacts = async (
 
     const checkout = options.selected?.hostKey === host.key ? options.selected.checkout : null;
 
+    if (checkout !== null)
+      observed = {
+        ...view,
+        ...(await readTrust(options, host.key, identity.hostId, checkout, signal)),
+      };
+
     const available = await options.api.request("languages.availability", {
       hostKey: host.key,
       toolIds: [...ids],
@@ -76,7 +84,7 @@ export const loadHostFacts = async (
 
     if (!available.ok)
       return {
-        view: { ...view, detail: "Couldn't read prerequisites. Refresh facts to retry." },
+        view: { ...observed, detail: "Couldn't read prerequisites. Refresh facts to retry." },
         catalog,
       };
 
@@ -94,7 +102,7 @@ export const loadHostFacts = async (
     return {
       catalog,
       view: {
-        ...view,
+        ...observed,
         discovery,
         tools: facts.map((availability) => ({
           name: catalog.tools.find((t) => t.id === availability.toolId)?.id ?? availability.toolId,
@@ -152,4 +160,39 @@ const readDiscovery = async (
     throw new Error("Foreign discovery");
 
   return found;
+};
+
+const readTrust = async (
+  options: LanguageIntegrationOptions,
+  hostKey: string,
+  hostId: P.HostId,
+  checkout: P.LanguageCheckout,
+  signal: AbortSignal
+): Promise<Pick<LanguageHostView, "trust" | "trustCheckout" | "canSetTrust">> => {
+  if (!options.api) return { canSetTrust: false };
+
+  const scope = P.LanguageCheckout.match<typeof P.LanguageTrustScope.Type>(checkout, {
+    Workspace: (value) =>
+      P.LanguageTrustScope.cases.Workspace.make({ hostId, workspaceId: value.workspaceId }),
+    Worktree: (value) =>
+      P.LanguageTrustScope.cases.Workspace.make({ hostId, workspaceId: value.workspaceId }),
+    ReviewCheckout: (value) =>
+      P.LanguageTrustScope.cases.ReviewCheckout.make({
+        hostId,
+        workspaceId: value.workspaceId,
+        reviewCheckoutId: value.reviewCheckoutId,
+      }),
+  });
+
+  const response = await options.api.request("languages.trust.get", { hostKey, scope });
+
+  signal.throwIfAborted();
+
+  if (!response.ok) return { canSetTrust: false };
+  const trust = Schema.decodeUnknownSync(P.LanguageTrust)(response.value);
+
+  if (!Schema.toEquivalence(P.LanguageTrustScope)(trust.scope, scope))
+    throw new Error("Foreign trust");
+
+  return { trust, trustCheckout: checkout };
 };

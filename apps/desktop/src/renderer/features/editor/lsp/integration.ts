@@ -345,11 +345,14 @@ export class EditorLanguageCoordinator implements EditorLanguagePort {
       busy: false,
     });
     void this.configure(entry, environment.identity, environment.document.checkout, stamp).catch(
-      () => {
+      (error) => {
         if (!entry.disposed && stamp === entry.stamp)
           languagePatch(key, {
             status: "unavailable",
-            fact: "Language tooling is unavailable or awaiting trust on this Host.",
+            fact:
+              error instanceof Error && error.message === "Language operation: awaiting-trust"
+                ? "Language tooling needs trust. Open Settings → Languages and select this checkout."
+                : "Language tooling is unavailable. Check Settings → Languages for this Host.",
             providers: [],
           });
       }

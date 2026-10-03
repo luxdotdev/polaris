@@ -11,7 +11,7 @@ import { refreshConfirmedLanguageSettings } from "./refresh.ts";
 import { watchLanguageFacts } from "./watch.ts";
 import { loadHostFacts } from "./hostFacts.ts";
 import { readPreferences, sameScope } from "./preferences.ts";
-import { toolAction, trustMatchesCheckout } from "./toolState.ts";
+import { toolAction, trustFacts, trustMatchesCheckout } from "./toolState.ts";
 
 const unavailable = (): LanguageSettingsResult<never> => ({
   ok: false,
@@ -69,13 +69,16 @@ const actionAllowed = (snapshot: LanguageSettingsSnapshot, action: LanguageSetti
 
   if (host.connection !== "Connected" || host.capability !== "available") return false;
 
-  if (action.kind === "trust")
+  if (action.kind === "trust") {
+    const facts = trustFacts(host);
+
     return (
       host.canSetTrust === true &&
       trustMatchesCheckout(host) &&
-      host.discovery !== null &&
-      Schema.toEquivalence(P.LanguageTrust)(action.trust, host.discovery.trust)
+      facts !== null &&
+      Schema.toEquivalence(P.LanguageTrust)(action.trust, facts.trust)
     );
+  }
 
   return host.tools.some((tool) => {
     if (action.kind === "logs")

@@ -83,9 +83,16 @@ export const toolAction = (
   return null;
 };
 
+export const trustFacts = (host: LanguageHostView) => {
+  const trust = host.trust ?? host.discovery?.trust;
+  const checkout = host.trustCheckout ?? host.discovery?.checkout;
+
+  return trust !== undefined && checkout !== undefined ? { trust, checkout } : null;
+};
+
 /** Worktrees target Workspace trust; Review Checkout grants must match the exact checkout. */
 export const trustMatchesCheckout = (host: LanguageHostView): boolean => {
-  const d = host.discovery;
+  const d = trustFacts(host);
 
   if (
     !d ||

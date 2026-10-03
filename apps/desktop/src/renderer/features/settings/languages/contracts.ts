@@ -36,6 +36,8 @@ export interface LanguageHostView {
   readonly tools: ReadonlyArray<LanguageToolView>;
   readonly discovery: typeof P.LanguageDiscovery.Type | null;
   readonly canSetTrust?: boolean;
+  readonly trust?: typeof P.LanguageTrust.Type;
+  readonly trustCheckout?: P.LanguageCheckout;
 }
 
 export interface LanguageSettingsSnapshot {

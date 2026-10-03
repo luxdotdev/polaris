@@ -4,7 +4,13 @@ import { useState } from "react";
 import type { LanguageHostView, LanguageSettingsAction, LanguageToolView } from "./contracts.ts";
 import { Group, Heading } from "../ui/parts.tsx";
 import { Field, FormBlock } from "./fields.tsx";
-import { installationText, runtimeText, toolAction, trustMatchesCheckout } from "./toolState.ts";
+import {
+  installationText,
+  runtimeText,
+  toolAction,
+  trustFacts,
+  trustMatchesCheckout,
+} from "./toolState.ts";
 
 const Tool = ({
   host,
@@ -93,6 +99,55 @@ const Tool = ({
   );
 };
 
+const Trust = ({
+  host,
+  busy,
+  act,
+}: {
+  readonly host: LanguageHostView;
+  readonly busy: boolean;
+  readonly act: (action: LanguageSettingsAction) => void;
+}) => {
+  const d = trustFacts(host);
+
+  if (d === null) return null;
+
+  const explanation = Match.value(d.checkout).pipe(
+    Match.tag(
+      "Workspace",
+      () => "Trust permits language tooling to execute project code in this workspace."
+    ),
+    Match.tag("Worktree", () => "This worktree inherits its workspace's trust."),
+    Match.tag(
+      "ReviewCheckout",
+      () => "This review checkout needs its own explicit trust; workspace trust does not apply."
+    ),
+    Match.exhaustive
+  );
+
+  return (
+    <>
+      <p className="text-caption">{explanation} Syntax stays available.</p>
+      <p className="text-caption">{d.trust.trusted ? "Trusted" : "Not trusted"}</p>
+      <Button
+        className="self-start"
+        disabled={
+          busy ||
+          host.connection !== "Connected" ||
+          host.capability !== "available" ||
+          host.canSetTrust === false ||
+          !trustMatchesCheckout(host)
+        }
+        onClick={() =>
+          act({ kind: "trust", hostKey: host.key, trust: d.trust, trusted: !d.trust.trusted })
+        }
+      >
+        {d.trust.trusted ? "Revoke trust" : "Trust this checkout"}
+      </Button>
+    </>
+  );
+};
+
 const Discovery = ({
   host,
   busy,
@@ -107,24 +162,12 @@ const Discovery = ({
   if (d === null)
     return (
       <FormBlock>
+        <Trust host={host} busy={busy} act={act} />
         <p className="text-caption text-text-subtle">
           Project roots, SDK and interpreter have not been observed on this host.
         </p>
       </FormBlock>
     );
-
-  const explanation = Match.value(d.checkout).pipe(
-    Match.tag(
-      "Workspace",
-      () => "Trust permits language tooling to execute project code in this workspace."
-    ),
-    Match.tag("Worktree", () => "This worktree inherits its workspace's trust."),
-    Match.tag(
-      "ReviewCheckout",
-      () => "This review checkout needs its own explicit trust; workspace trust does not apply."
-    ),
-    Match.exhaustive
-  );
 
   return (
     <FormBlock>
@@ -165,23 +208,7 @@ const Discovery = ({
           ))}
         </div>
       ))}
-      <p className="text-caption">{explanation} Syntax stays available.</p>
-      <p className="text-caption">{d.trust.trusted ? "Trusted" : "Not trusted"}</p>
-      <Button
-        className="self-start"
-        disabled={
-          busy ||
-          host.connection !== "Connected" ||
-          host.capability !== "available" ||
-          host.canSetTrust === false ||
-          !trustMatchesCheckout(host)
-        }
-        onClick={() =>
-          act({ kind: "trust", hostKey: host.key, trust: d.trust, trusted: !d.trust.trusted })
-        }
-      >
-        {d.trust.trusted ? "Revoke trust" : "Trust this checkout"}
-      </Button>
+      <Trust host={host} busy={busy} act={act} />
     </FormBlock>
   );
 };
