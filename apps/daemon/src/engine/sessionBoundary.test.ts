@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { Attempt, CommandId, Constellation, ConstellationId, DomainEvent } from "@polaris/protocol";
-import { Effect, Fiber, Latch, Struct, SubscriptionRef } from "effect";
+import { Effect, Fiber, Latch, Predicate, Stream, Struct, SubscriptionRef } from "effect";
 import { CID } from "./constellation.testing.ts";
 import { setup, world } from "../constellation/delivery/testing.ts";
 import { EventStore } from "../store/EventStore.ts";
@@ -31,6 +31,7 @@ for (const terminal of ["blocked", "lost"] as const)
         );
 
         const changes = yield* SubscriptionRef.make(0);
+
         const checked = Latch.makeUnsafe(false);
         registerStartupGraphs(
           store,
@@ -40,7 +41,7 @@ for (const terminal of ["blocked", "lost"] as const)
 
               return [remote];
             }),
-          changes
+          () => Effect.succeed(changes)
         );
         let delivered = false;
 
@@ -69,3 +70,81 @@ for (const terminal of ["blocked", "lost"] as const)
       })
     );
   });
+
+test("startup waiters wake only for their Session; graph wakes do not leak into Client Session feeds", async () => {
+  await world().run(
+    Effect.scoped(
+      Effect.gen(function* () {
+        yield* setup();
+        const store = yield* EventStore;
+        const graph = (yield* store.model).constellations.get(CID)!.graph;
+        const sid = graph.attempts[0]!.sessionId;
+        const checked = Latch.makeUnsafe(false);
+        let reads = 0;
+        registerStartupGraphs(store, () =>
+          Effect.sync(() => {
+            reads++;
+            checked.openUnsafe();
+
+            return [];
+          })
+        );
+        const regular = yield* store.subscribe({ sessionId: sid });
+        const seen: string[] = [];
+
+        const listener = yield* regular.pipe(
+          Stream.take(1),
+          Stream.runForEach((item) =>
+            Effect.sync(() => {
+              if (Predicate.isTagged(item, "Event")) seen.push(item.envelope.event._tag);
+            })
+          ),
+          Effect.forkChild
+        );
+
+        const input = yield* withSessionInput(store, sid, Effect.succeed("delivered")).pipe(
+          Effect.forkChild
+        );
+
+        yield* checked.await;
+        yield* Effect.yieldNow;
+        const before = reads;
+        yield* store.commit({
+          commandId: null,
+          decide: () =>
+            Effect.succeed([
+              DomainEvent.cases.SessionRenamed.make({
+                sessionId: graph.leadSessionId,
+                title: "Unrelated Session",
+              }),
+            ]),
+        });
+        yield* Effect.yieldNow;
+        yield* Effect.yieldNow;
+        expect(reads).toBe(before);
+        yield* store.commit({
+          commandId: null,
+          decide: () =>
+            Effect.succeed([
+              DomainEvent.cases.ConstellationStateChanged.make({
+                constellationId: CID,
+                revision: graph.revision + 1,
+                state: "archived",
+              }),
+            ]),
+        });
+        expect(yield* Fiber.join(input)).toBe("delivered");
+        expect(seen).toEqual([]);
+        yield* store.commit({
+          commandId: null,
+          decide: () =>
+            Effect.succeed([
+              DomainEvent.cases.SessionRenamed.make({ sessionId: sid, title: "Own Session" }),
+            ]),
+        });
+        yield* Fiber.join(listener);
+        expect(seen).toEqual(["SessionRenamed"]);
+      })
+    )
+  );
+});

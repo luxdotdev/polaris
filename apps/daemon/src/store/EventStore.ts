@@ -16,6 +16,7 @@ import { dirname } from "node:path";
 import { SqliteClient } from "@effect/sql-sqlite-bun";
 import {
   type CommandId,
+  type Constellation,
   type CommandRejected,
   type ConstellationId,
   type ConstellationRejected,
@@ -48,9 +49,10 @@ import {
 import { SqlClient, type SqlError } from "effect/sql";
 import { paths } from "../paths.ts";
 import type { ServiceError } from "../services.ts";
+import { StartupGraphIndex, startupSessions } from "./startupSessions.ts";
 import { type EphemeralItem, LiveHub, LiveItem } from "./hub.ts";
 import { MigrationsLayer } from "./migrations.ts";
-import { hostOmittedEventTypes, project, type ReadModel, sessionOf } from "./model.ts";
+import { hostOmittedEventTypes, project, type ReadModel, sessionOf, workingTurn } from "./model.ts";
 import { type ReviewReads, reviewReads } from "./review.ts";
 import {
   decodeEventRow,
@@ -114,6 +116,9 @@ export class EventStore extends Context.Service<
   EventStore,
   {
     readonly model: Effect.Effect<ReadModel>;
+    readonly hasQueuedInput: (sessionId: SessionId) => Effect.Effect<boolean>;
+    readonly markQueuedInput: (sessionId: SessionId) => Effect.Effect<void>;
+    readonly startupGraphs: (sessionId: SessionId) => Effect.Effect<ReadonlyArray<Constellation>>;
     /**
      * Decide and commit atomically. A command id seen before returns
      * `Duplicate` (or re-fails with the original rejection) without deciding again.
@@ -133,6 +138,7 @@ export class EventStore extends Context.Service<
     readonly subscribe: (options?: {
       /** Only this session's items; cheaper than a filter, since other sessions' items skip it. */
       readonly sessionId?: SessionId;
+      readonly includeConstellation?: boolean;
       readonly filter?: (item: LiveItem) => boolean;
     }) => Effect.Effect<Stream.Stream<LiveItem>, never, Scope.Scope>;
     readonly publishEphemeral: (item: EphemeralItem) => Effect.Effect<void>;
@@ -194,7 +200,8 @@ export class EventStore extends Context.Service<
       const modelRef = yield* Ref.make(loaded);
       const { subscriberCapacity } = yield* StoreConfig;
       const hub = new LiveHub(subscriberCapacity);
-      const commit = yield* groupCommit({ sql, modelRef, hub });
+      const startupIndex = new StartupGraphIndex(loaded);
+      const commit = yield* groupCommit({ sql, modelRef, hub, startupIndex });
 
       const readEvents = (options: {
         readonly after: number;
@@ -323,6 +330,16 @@ export class EventStore extends Context.Service<
 
       return EventStore.of({
         model: Ref.get(modelRef),
+        hasQueuedInput: (sessionId) => Effect.sync(() => startupIndex.queuedTurns.has(sessionId)),
+        markQueuedInput: (sessionId) =>
+          Effect.map(Ref.get(modelRef), (model) => {
+            const record = model.sessions.get(sessionId);
+            const turn = record === undefined ? undefined : workingTurn(record);
+
+            if (turn !== undefined) startupIndex.queuedTurns.set(sessionId, turn.id);
+          }),
+        startupGraphs: (sessionId) =>
+          Effect.map(Ref.get(modelRef), (model) => startupIndex.graphs(model, sessionId)),
         commit,
         hasCommandReceipt: (id) =>
           sql`SELECT command_id FROM command_receipts WHERE command_id = ${id} AND rejection IS NULL`.pipe(
@@ -387,6 +404,7 @@ interface CommitTarget {
   readonly sql: SqlClient.SqlClient;
   readonly modelRef: Ref.Ref<ReadModel>;
   readonly hub: LiveHub;
+  readonly startupIndex: StartupGraphIndex;
 }
 
 /** One batch in progress: the model so far, and what it will write and publish. */
@@ -402,7 +420,7 @@ interface Batch {
 const sequenceOf = (value: number | null) => (value === null ? null : Sequence.make(value));
 
 /** The store's `commit`: queued commits are decided in order and written one batch at a time. */
-const groupCommit = ({ sql, modelRef, hub }: CommitTarget) =>
+const groupCommit = ({ sql, modelRef, hub, startupIndex }: CommitTarget) =>
   Effect.gen(function* () {
     let queued: Array<Pending> = [];
     /** A drain is scheduled or running; later commits queue for it. */
@@ -529,7 +547,12 @@ const groupCommit = ({ sql, modelRef, hub }: CommitTarget) =>
         yield* Ref.set(modelRef, batch.next);
 
         for (const envelope of batch.published) {
-          hub.publish(LiveItem.Event({ envelope, sessionId: sessionOf(envelope.event) }));
+          const event = envelope.event;
+          startupIndex.committed(event);
+
+          const related = startupSessions(event, batch.next);
+
+          hub.publish(LiveItem.Event({ envelope, sessionId: sessionOf(event) }), related);
         }
 
         return outcomes;

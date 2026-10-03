@@ -45,3 +45,40 @@ module worktree_setup_test {
   run deferredSetupWaitsForBoundaryAndPrecedesBriefAndInputsTest = init.then(publish(RetryAttempt)).then(publish(Acquire)).then(publish(Start(0))).then(publish(Input)).expect(view.pending and view.setup == "none" and view.inputs == 0 and safety).then(publish(Boundary)).then(publish(Start(1))).then(publish(FirstTurn)).expect(not(view.turn) and safety).then(publish(Finish({ id: 1, ok: true }))).then(publish(FirstTurn)).then(publish(Input)).expect(view.turn and view.inputs == 1 and safety)
   run deferredRestartFailureReleasesSlotBeforeRepairTest = init.then(publish(RetryAttempt)).then(publish(Acquire)).then(publish(Boundary)).then(publish(Start(0))).then(publish(Recover)).expect(view.pending and not(view.slot) and safety).then(publish(Start(1))).then(publish(Finish({ id: 1, ok: true }))).then(publish(Acquire)).then(publish(FirstTurn)).expect(view.turn and safety)
 }
+
+/** Steer addresses the old Turn; only new Turns queue behind startup, in arrival order. */
+module session_input_queue {
+  type View = { pending: bool, failed: bool, old: bool, working: bool, brief: bool, queued: List[int], delivered: List[int], oldSteers: int }
+  type Event = RetryAttempt | Boundary | SetupFailed | FirstBrief | Steer | Prompt(int) | EndTurn | DeliverNext
+  pure val empty: View = { pending: false, failed: false, old: true, working: false, brief: false, queued: [], delivered: [], oldSteers: 0 }
+  pure def apply(v: View, e: Event): View = match e {
+    | RetryAttempt => if (not(v.failed) and not(v.brief)) { ...v, pending: true } else v
+    | Boundary => { ...v, old: false }
+    | SetupFailed => if (not(v.old)) { ...v, failed: true, pending: false } else v
+    | FirstBrief => if (v.pending and not(v.old) and not(v.failed)) { ...v, pending: false, brief: true, working: true } else v
+    | Steer => if (v.old) { ...v, oldSteers: v.oldSteers + 1 } else v
+    | Prompt(id) => { ...v, queued: v.queued.append(id) }
+    | EndTurn => { ...v, working: false }
+    | DeliverNext => if (not(v.pending) and not(v.old) and not(v.working) and (v.brief or v.failed) and v.delivered.length() < v.queued.length())
+        { ...v, working: true, delivered: v.delivered.append(v.queued.nth(v.delivered.length())) } else v
+  }
+  var view: View
+  action init = view' = empty
+  action publish(e: Event): bool = view' = apply(view, e)
+  action step = {
+    nondet e = Set(RetryAttempt, Boundary, SetupFailed, FirstBrief, Steer, Prompt(0), Prompt(1), Prompt(2), EndTurn, DeliverNext).oneOf()
+    publish(e)
+  }
+  val safety = all {
+    view.delivered.indices().forall(i => view.delivered.nth(i) == view.queued.nth(i)),
+    view.delivered.length() <= view.queued.length(),
+    view.brief implies not(view.old),
+    view.failed implies not(view.pending),
+  }
+}
+module session_input_queue_test {
+  import session_input_queue.* from "./worktree_setup"
+  run steerReachesOldTurnWhileNewPromptsWaitTest = init.then(publish(RetryAttempt)).then(publish(Prompt(1))).then(publish(Steer)).expect(view.oldSteers == 1 and view.delivered == []).then(publish(Boundary)).then(publish(FirstBrief)).then(publish(DeliverNext)).expect(view.delivered == [] and safety)
+  run laterPromptsJoinFifoTest = init.then(publish(RetryAttempt)).then(publish(Prompt(1))).then(publish(Prompt(2))).then(publish(Boundary)).then(publish(FirstBrief)).then(publish(EndTurn)).then(publish(DeliverNext)).then(publish(Prompt(3))).then(publish(DeliverNext)).expect(view.delivered == [1] and safety).then(publish(EndTurn)).then(publish(DeliverNext)).then(publish(EndTurn)).then(publish(DeliverNext)).expect(view.delivered == [1,2,3] and safety)
+  run failedSetupClearsFenceForRepairInputTest = init.then(publish(RetryAttempt)).then(publish(Prompt(1))).then(publish(Boundary)).then(publish(SetupFailed)).then(publish(DeliverNext)).expect(not(view.pending) and view.delivered == [1] and safety)
+}

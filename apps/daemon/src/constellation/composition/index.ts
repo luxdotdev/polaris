@@ -118,11 +118,11 @@ const remoteWorkers = Layer.unwrap(
     const storage = yield* TransferStorage;
     registerStartupGraphs(
       store,
-      () =>
-        Effect.map(storage.assignments.pipe(Effect.orDie), (assignments) =>
+      (sessionId) =>
+        Effect.map(storage.assignmentsForSession(sessionId), (assignments) =>
           assignments.map((a) => a.graph)
         ),
-      storage.changes
+      storage.assignmentChanges
     );
 
     const currentAssignment = (assignment: import("@polaris/protocol").RemoteWorkerAssignment) =>

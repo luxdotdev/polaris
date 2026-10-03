@@ -9,7 +9,7 @@ import {
   type ConstellationId,
   type TaskId,
 } from "@polaris/protocol";
-import { Cause, Context, Effect, Exit, Layer, Match, Semaphore } from "effect";
+import { Cause, Context, Effect, Exit, Layer, Match, Option, Semaphore, Struct } from "effect";
 import { decideSession } from "../../engine/session.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { setupFingerprint } from "./inputs.ts";
@@ -63,7 +63,8 @@ export class WorktreeSetupService extends Context.Service<
       cwd: string,
       setting: WorktreeSetup | null,
       constellationId: ConstellationId,
-      taskId: TaskId
+      taskId: TaskId,
+      force?: boolean
     ) => Effect.Effect<WorktreeSetupRun | null, CommandRejected>;
   }
 >()("polaris/daemon/WorktreeSetup") {
@@ -102,7 +103,8 @@ export class WorktreeSetupService extends Context.Service<
         cwd: string,
         setting: WorktreeSetup | null,
         constellationId: ConstellationId,
-        taskId: TaskId
+        taskId: TaskId,
+        force = false
       ) {
         const command = yield* setupCommand(cwd, setting);
 
@@ -120,24 +122,20 @@ export class WorktreeSetupService extends Context.Service<
         return yield* currentLock.semaphore
           .withPermit(
             Effect.gen(function* () {
-              const fingerprint = yield* setupFingerprint(cwd, command).pipe(
-                Effect.mapError(
-                  (error) =>
-                    new CommandRejected({
-                      commandId: CommandId.make(`${key}:setup`),
-                      reason: error.message,
-                    })
-                )
-              );
-
               const previous = (yield* store.model).sessions.get(sessionId)?.session.worktreeSetup;
 
-              if (
+              const fingerprint =
+                !force &&
                 previous?.status === "completed" &&
                 previous.cwd === cwd &&
-                previous.command === command &&
-                previous.fingerprint === fingerprint &&
-                previous.id.startsWith(`${key}:setup:`)
+                previous.command === command
+                  ? yield* setupFingerprint(cwd, command).pipe(Effect.option)
+                  : null;
+
+              if (
+                fingerprint !== null &&
+                Option.isSome(fingerprint) &&
+                previous?.fingerprint === fingerprint.value
               )
                 return previous;
 
@@ -147,7 +145,7 @@ export class WorktreeSetupService extends Context.Service<
                 taskId,
                 command,
                 cwd,
-                fingerprint,
+                fingerprint: null,
                 status: "running",
                 output: "",
                 exitCode: null,
@@ -168,7 +166,7 @@ export class WorktreeSetupService extends Context.Service<
                           taskId,
                           command,
                           cwd,
-                          fingerprint,
+                          fingerprint: null,
                           startedAt: started.startedAt,
                           status: "failed",
                           output: error.message,
@@ -187,7 +185,7 @@ export class WorktreeSetupService extends Context.Service<
                               taskId,
                               command,
                               cwd,
-                              fingerprint,
+                              fingerprint: null,
                               startedAt: started.startedAt,
                               status: "failed",
                               output: Cause.pretty(exit.cause),
@@ -199,9 +197,31 @@ export class WorktreeSetupService extends Context.Service<
                     )
                   );
 
-                  yield* record(sessionId, result);
+                  const finished =
+                    result.status === "completed"
+                      ? yield* setupFingerprint(cwd, command).pipe(
+                          Effect.map(
+                            (value) =>
+                              new WorktreeSetupRun(Struct.assign(result, { fingerprint: value }))
+                          ),
+                          Effect.catch((error) =>
+                            Effect.succeed(
+                              new WorktreeSetupRun(
+                                Struct.assign(result, {
+                                  status: "failed" as const,
+                                  fingerprint: null,
+                                  exitCode: null,
+                                  output: error.message,
+                                })
+                              )
+                            )
+                          )
+                        )
+                      : result;
 
-                  return result;
+                  yield* record(sessionId, finished);
+
+                  return finished;
                 })
               );
             })

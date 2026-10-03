@@ -174,7 +174,7 @@ const make = Effect.gen(function* () {
   const dispatch: Dispatch = (input) => {
     const command = input.command;
 
-    return Command.isAnyOf(["SendTurn", "Steer", "Continue", "Retry", "SendFeedback"])(command)
+    return Command.isAnyOf(["SendTurn", "Continue", "Retry", "SendFeedback"])(command)
       ? withSessionInput(
           store,
           command.sessionId,

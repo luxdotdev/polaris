@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
+import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Effect } from "effect";
 import { gitText } from "../../git/git.ts";
@@ -10,6 +11,12 @@ const FILES = [
   "package-lock.json",
   "pnpm-lock.yaml",
   "uv.lock",
+  "yarn.lock",
+  "Cargo.lock",
+  "go.sum",
+  "Gemfile.lock",
+  "poetry.lock",
+  ".tool-versions",
   "package.json",
   "pyproject.toml",
   "pnpm-workspace.yaml",
@@ -20,6 +27,8 @@ const FILES = [
 /** Git lists workspace manifests without traversing installed dependencies. */
 const inputNames = (cwd: string) =>
   Effect.tryPromise(async () => {
+    const requirements = (await readdir(cwd)).filter((name) => /^requirements.*\.txt$/.test(name));
+
     const nested = existsSync(join(cwd, ".git"))
       ? (
           await gitText(cwd, [
@@ -30,13 +39,15 @@ const inputNames = (cwd: string) =>
             "--exclude-standard",
             "--",
             ...FILES.map((name) => `**/${name}`),
+            "requirements*.txt",
+            "**/requirements*.txt",
           ])
         )
           .split("\0")
           .filter((name) => name !== "")
       : [];
 
-    return [...new Set([...FILES, ...nested])].sort();
+    return [...new Set([...FILES, ...requirements, ...nested])].sort();
   }).pipe(
     Effect.mapError(
       () =>
@@ -52,10 +63,11 @@ export const setupFingerprint = Effect.fnUntraced(function* (cwd: string, comman
   const hash = createHash("sha256").update(JSON.stringify(command));
 
   for (const name of yield* inputNames(cwd)) {
-    const file = Bun.file(join(cwd, name));
-
-    const content = yield* Effect.tryPromise(async () =>
-      (await file.exists()) ? await file.arrayBuffer() : null
+    const content = yield* Effect.tryPromise(() =>
+      readFile(join(cwd, name)).catch((error: NodeJS.ErrnoException) => {
+        if (error.code === "ENOENT") return null;
+        throw error;
+      })
     ).pipe(
       Effect.mapError(
         () =>

@@ -4,6 +4,9 @@ import {
   ConstellationRelayReceipt,
   ConstellationResult,
   HostId,
+  SessionId,
+  AttemptId,
+  ConstellationId,
   Task,
   Constellation,
   ConstellationSettings,
@@ -16,7 +19,7 @@ import {
   TurnId,
   Attempt,
 } from "@polaris/protocol";
-import { Context, Deferred, Effect, Layer, Semaphore, Struct } from "effect";
+import { Context, Deferred, Effect, Layer, Semaphore, Struct, SubscriptionRef } from "effect";
 import {
   HOST,
   CID,
@@ -340,4 +343,58 @@ test("Host restart restores persisted blocked assignments without starting a fir
   } finally {
     removeDir(root);
   }
+});
+
+test("remote assignment indexing and version subscriptions isolate Sessions and share concurrent subscribers", async () => {
+  await Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const storage = yield* TransferStorage;
+        const sid = draft().sessionId;
+        const other = SessionId.make("other-worker");
+
+        const versions = yield* Effect.all(
+          Array.from({ length: 20 }, () => storage.assignmentChanges(sid)),
+          { concurrency: "unbounded" }
+        );
+
+        const unrelated = yield* storage.assignmentChanges(other);
+        expect(versions.every((version) => version === versions[0])).toBe(true);
+        yield* storage.assign(
+          RemoteWorkerAssignment.make({
+            graph: graph(),
+            attemptId: draft().id,
+            repoPath: "/tmp/work",
+          })
+        );
+        expect(yield* SubscriptionRef.get(versions[0]!)).toBe(1);
+        expect(yield* SubscriptionRef.get(unrelated)).toBe(0);
+
+        const otherAttempt = Attempt.make(
+          Struct.assign(draft(), { id: AttemptId.make("other-attempt"), sessionId: other })
+        );
+
+        yield* storage.assign(
+          RemoteWorkerAssignment.make({
+            graph: Constellation.make(
+              Struct.assign(graph(), {
+                id: ConstellationId.make("other-graph"),
+                attempts: [otherAttempt],
+              })
+            ),
+            attemptId: otherAttempt.id,
+            repoPath: "/tmp/work",
+          })
+        );
+        expect(yield* SubscriptionRef.get(versions[0]!)).toBe(1);
+        expect(yield* SubscriptionRef.get(unrelated)).toBe(1);
+        expect((yield* storage.assignmentsForSession(sid)).map((a) => a.attemptId)).toEqual([
+          draft().id,
+        ]);
+        expect((yield* storage.assignmentsForSession(other)).map((a) => a.attemptId)).toEqual([
+          otherAttempt.id,
+        ]);
+      })
+    ).pipe(Effect.provide(TransferStorage.layer(":memory:")))
+  );
 });

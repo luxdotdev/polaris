@@ -44,14 +44,18 @@ export interface SubscribeOptions {
   /** Only this session's items; cheaper than a filter, since other sessions' items skip it. */
   readonly sessionId?: SessionId | undefined;
   readonly filter?: ((item: LiveItem) => boolean) | undefined;
+  readonly includeConstellation?: boolean;
 }
 
 interface Subscriber {
+  readonly includeConstellation: boolean;
   readonly queue: Queue.Queue<LiveItem, Cause.Done>;
   readonly filter: ((item: LiveItem) => boolean) | undefined;
   /** Set for a subscriber to one session only. */
   readonly sessionId: SessionId | undefined;
 }
+
+const NO_RELATED_SESSIONS: ReadonlyArray<SessionId> = [];
 
 export class LiveHub {
   // Subscribers to one session are kept apart, so an item (most are one session's
@@ -72,13 +76,22 @@ export class LiveHub {
     return this.#size;
   }
 
-  publish(item: LiveItem): void {
+  publish(item: LiveItem, relatedSessions: ReadonlyArray<SessionId> = NO_RELATED_SESSIONS): void {
     if (this.#everything.size > 0) this.#offer(this.#everything, item);
 
     if (item.sessionId !== null) {
       const bucket = this.#bySession.get(item.sessionId);
 
       if (bucket !== undefined) this.#offer(bucket, item);
+    }
+
+    if (relatedSessions.length === 0) return;
+
+    for (const sessionId of new Set(relatedSessions)) {
+      if (sessionId === item.sessionId) continue;
+      const bucket = this.#bySession.get(sessionId);
+
+      if (bucket !== undefined) this.#offer(bucket, item, true);
     }
   }
 
@@ -87,7 +100,13 @@ export class LiveHub {
     return Effect.gen({ self: this }, function* () {
       const queue = yield* Queue.dropping<LiveItem, Cause.Done>(this.#capacity);
       const sessionId = options?.sessionId;
-      const subscriber: Subscriber = { queue, filter: options?.filter, sessionId };
+
+      const subscriber: Subscriber = {
+        queue,
+        filter: options?.filter,
+        sessionId,
+        includeConstellation: options?.includeConstellation === true,
+      };
 
       if (sessionId === undefined) {
         this.#everything.add(subscriber);
@@ -120,8 +139,10 @@ export class LiveHub {
     Queue.endUnsafe(subscriber.queue);
   }
 
-  #offer(subscribers: ReadonlySet<Subscriber>, item: LiveItem): void {
+  #offer(subscribers: ReadonlySet<Subscriber>, item: LiveItem, related = false): void {
     for (const subscriber of subscribers) {
+      if (related && !subscriber.includeConstellation) continue;
+
       if (subscriber.filter !== undefined && !subscriber.filter(item)) continue;
 
       if (!Predicate.isTagged(item, "Event")) {

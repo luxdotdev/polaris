@@ -21,6 +21,7 @@ test("Lead and worker instructions share one version and use the report-derived 
   expect(lead).toContain("accepted");
   expect(worker).toContain("notDone, followups, questions, outsideArea, decisions and summary");
   expect(worker).toContain("polaris lease");
+  expect(worker).toContain("identical still-open questions");
   expect(m2Examples.sources).toContain(".dagr/reports/m2/Q-check.md");
   expect(m2Examples.sources).toContain(".dagr/reports/m2/FX-accept.md");
 });

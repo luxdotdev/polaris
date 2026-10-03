@@ -11,7 +11,6 @@ import {
   TurnId,
   WorkerPlacement,
   WorktreeSetup,
-  WorktreeSetupRun,
 } from "@polaris/protocol";
 import { Effect, Layer, Struct } from "effect";
 import { C, CID, HOST, draft, planned, task, report } from "../../engine/constellation.testing.ts";
@@ -30,7 +29,6 @@ import { startAttempt } from "./workers.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { recordSendbackTrace } from "../../mcp/sendback.trace.testing.ts";
 import { prepareSession } from "./prepare.ts";
-import { needsSetup } from "./startupSetup.ts";
 
 const command = "echo run >> setup-count";
 
@@ -53,59 +51,32 @@ const inputAt = (root: string) => ({
   worktreeSetup: setting,
 });
 
-test("reused setup is invalidated by command, manifest or lockfile changes and every MergeConflict", async () => {
+test("fingerprints cover command and root/nested manifests and ecosystem lockfiles", async () => {
   const root = await makeRepo();
 
   try {
-    const fingerprint = await Effect.runPromise(setupFingerprint(root, command));
-
-    const previous = WorktreeSetupRun.make({
-      id: "old",
-      constellationId: CID,
-      taskId: draft().taskId,
-      command,
-      cwd: root,
-      fingerprint,
-      status: "completed",
-      output: "",
-      exitCode: 0,
-      startedAt: "2026-10-01T00:00:00Z",
-      endedAt: "2026-10-01T00:00:01Z",
-    });
-
-    expect(await Effect.runPromise(needsSetup(root, setting, previous, false))).toBe(false);
-    expect(await Effect.runPromise(needsSetup(root, setting, previous, true))).toBe(true);
-    expect(
-      await Effect.runPromise(
-        needsSetup(
-          root,
-          WorktreeSetup.cases.Command.make({ command: "echo changed" }),
-          previous,
-          false
-        )
-      )
-    ).toBe(true);
-    expect(
-      await Effect.runPromise(
-        needsSetup(
-          root,
-          setting,
-          WorktreeSetupRun.make(Struct.assign(previous, { fingerprint: null })),
-          false
-        )
-      )
-    ).toBe(true);
-
+    let previous = await Effect.runPromise(setupFingerprint(root, command));
+    expect(await Effect.runPromise(setupFingerprint(root, "echo changed"))).not.toBe(previous);
     await mkdir(join(root, "packages/worker"), { recursive: true });
 
-    for (const file of ["packages/worker/package.json", "package.json", "bun.lock"]) {
+    for (const file of [
+      "packages/worker/package.json",
+      "package.json",
+      "bun.lock",
+      "yarn.lock",
+      "Cargo.lock",
+      "go.sum",
+      "Gemfile.lock",
+      "poetry.lock",
+      ".tool-versions",
+      "requirements.txt",
+      "requirements-dev.txt",
+      "packages/worker/requirements-prod.txt",
+    ]) {
       await writeFile(join(root, file), "changed");
-      expect(await Effect.runPromise(needsSetup(root, setting, previous, false))).toBe(true);
-      expect(
-        await Effect.runPromise(
-          needsSetup(root, WorktreeSetup.cases.Disabled.make({}), previous, false)
-        )
-      ).toBe(false);
+      const next = await Effect.runPromise(setupFingerprint(root, command));
+      expect(next).not.toBe(previous);
+      previous = next;
     }
   } finally {
     removeDir(root);
@@ -280,6 +251,46 @@ test("failed deferred setup releases the acquired worker slot and creates no sta
         expect(yield* store.hasCommandReceipt(CommandId.make(`${attempt.id}:start`))).toBe(false);
         expect(w.turns).toHaveLength(0);
         expect(w.retired).toHaveLength(0);
+      })
+    );
+  } finally {
+    removeDir(root);
+  }
+});
+
+test("setup persists its resulting inputs once and unchanged reuse does not run again", async () => {
+  const root = await makeRepo({ ".gitignore": "setup-count\n" });
+  const changedCommand = "echo changed > yarn.lock; echo run >> setup-count";
+
+  try {
+    await world().run(
+      Effect.gen(function* () {
+        yield* setup();
+        const service = yield* WorktreeSetupService;
+        const setting = WorktreeSetup.cases.Command.make({ command: changedCommand });
+        const sid = draft().sessionId;
+        const first = yield* service.run(sid, "first", root, setting, CID, draft().taskId);
+        expect(first?.fingerprint).toBe(yield* setupFingerprint(root, changedCommand));
+        const second = yield* service.run(sid, "next-attempt", root, setting, CID, draft().taskId);
+        expect(second?.id).toBe(first?.id);
+        expect(yield* Effect.promise(() => readFile(join(root, "setup-count"), "utf8"))).toBe(
+          "run\n"
+        );
+
+        const forced = yield* service.run(
+          sid,
+          "merge-conflict",
+          root,
+          setting,
+          CID,
+          draft().taskId,
+          true
+        );
+
+        expect(forced?.id).not.toBe(first?.id);
+        expect(yield* Effect.promise(() => readFile(join(root, "setup-count"), "utf8"))).toBe(
+          "run\nrun\n"
+        );
       })
     );
   } finally {

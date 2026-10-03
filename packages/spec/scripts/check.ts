@@ -176,6 +176,21 @@ run("typecheck worktree_setup.qnt", ["typecheck", "worktree_setup.qnt"]);
 
 run("worktree setup scenarios", ["test", "worktree_setup.qnt", "--main=worktree_setup_test"]);
 
+run("Session input queue scenarios", [
+  "test",
+  "worktree_setup.qnt",
+  "--main=session_input_queue_test",
+]);
+
+run("Session input queue safety", [
+  "run",
+  "worktree_setup.qnt",
+  "--main=session_input_queue",
+  "--invariant=safety",
+  "--max-samples=3000",
+  "--max-steps=60",
+]);
+
 run("worktree setup safety", [
   "run",
   "worktree_setup.qnt",

@@ -24,7 +24,7 @@ import { startAttempt } from "./workers.ts";
 
 for (const userMode of ["steer", "turn"] as const)
   for (const inputFirst of [true, false])
-    test(`SendBack brief precedes queued Lead and user input at one boundary; inputFirst=${inputFirst}, userMode=${userMode}`, async () => {
+    test(`SendBack brief precedes new input while Steer reaches the old Turn; inputFirst=${inputFirst}, userMode=${userMode}`, async () => {
       const driver = makeFakeDriver("codex", { steer: true });
 
       const engine = Engine.layer.pipe(
@@ -108,11 +108,17 @@ for (const userMode of ["steer", "turn"] as const)
           const duplicate = yield* start();
 
           const queued = earlierQueued ?? (yield* inputs());
+
+          if (userMode === "steer") {
+            yield* Fiber.join(queued.user);
+            yield* wait(() => Effect.succeed(oldHarness.steers.includes("User follow-up")));
+          }
+
           yield* finish(sid);
           yield* atRetire.await;
           yield* Effect.yieldNow;
           expect(oldHarness.closed).toBe(false);
-          expect(oldHarness.steers).toEqual([]);
+          expect(oldHarness.steers).toEqual(userMode === "steer" ? ["User follow-up"] : []);
           expect(driver.sessions).toHaveLength(1);
           allowRetire.openUnsafe();
           yield* Fiber.join(startup);
@@ -128,7 +134,7 @@ for (const userMode of ["steer", "turn"] as const)
           yield* wait(() =>
             Effect.succeed(
               userMode === "steer"
-                ? driver.latest(sid)?.steers.length === 2
+                ? driver.latest(sid)?.steers.length === 1
                 : driver.latest(sid)?.turns.length === 2
             )
           );
@@ -139,7 +145,7 @@ for (const userMode of ["steer", "turn"] as const)
           expect(current.turns[0]!.turnId).toBe(TurnId.make(`${attempt.id}:start`));
           expect(current.turns[0]!.prompt).toContain("Finish the cleanup");
 
-          if (userMode === "steer") expect(current.steers).toContain("User follow-up");
+          if (userMode === "steer") expect(current.steers).not.toContain("User follow-up");
           else expect(current.turns[1]!.prompt).toBe("User follow-up");
           expect(current.steers.some((s) => s.includes("Lead follow-up"))).toBe(true);
           expect(driver.sessions).toHaveLength(2);

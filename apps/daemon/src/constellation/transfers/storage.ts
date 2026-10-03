@@ -7,6 +7,7 @@ import {
   ConstellationTransferError,
   PreparedWorktree,
   type AttemptId,
+  type SessionId,
   RemoteWorkerAssignment,
 } from "@polaris/protocol";
 import { Context, Effect, Layer, Predicate, Schema, SubscriptionRef } from "effect";
@@ -39,6 +40,12 @@ export class TransferStorage extends Context.Service<
   TransferStorage,
   {
     readonly changes: SubscriptionRef.SubscriptionRef<number>;
+    readonly assignmentsForSession: (
+      sessionId: SessionId
+    ) => Effect.Effect<ReadonlyArray<RemoteWorkerAssignment>>;
+    readonly assignmentChanges: (
+      sessionId: SessionId
+    ) => Effect.Effect<SubscriptionRef.SubscriptionRef<number>>;
     readonly get: (
       table:
         | "placements"
@@ -137,6 +144,19 @@ export class TransferStorage extends Context.Service<
 
         const changes = yield* SubscriptionRef.make(0);
 
+        const assignmentVersions = new Map<SessionId, SubscriptionRef.SubscriptionRef<number>>();
+
+        const assignmentChanges = Effect.fnUntraced(function* (sessionId: SessionId) {
+          const existing = assignmentVersions.get(sessionId);
+
+          if (existing !== undefined) return existing;
+          const version = yield* SubscriptionRef.make(0);
+          const current = assignmentVersions.get(sessionId) ?? version;
+          assignmentVersions.set(sessionId, current);
+
+          return current;
+        });
+
         const run = <A>(body: () => A) =>
           Effect.try({
             try: body,
@@ -219,8 +239,30 @@ export class TransferStorage extends Context.Service<
             ).map((r) => decode(r.value))
           );
 
+        const bySession = new Map<SessionId, Map<AttemptId, RemoteWorkerAssignment>>();
+
+        const indexAssignment = (assignment: RemoteWorkerAssignment) => {
+          const sessionId = assignment.graph.attempts.find(
+            (a) => a.id === assignment.attemptId
+          )?.sessionId;
+
+          if (sessionId === undefined) return;
+          const bucket = bySession.get(sessionId) ?? new Map<AttemptId, RemoteWorkerAssignment>();
+          bucket.set(assignment.attemptId, assignment);
+          bySession.set(sessionId, bucket);
+        };
+
+        for (const assignment of yield* list(
+          "assignments",
+          Schema.decodeUnknownSync(assignmentCodec)
+        ))
+          indexAssignment(assignment);
+
         return TransferStorage.of({
           changes,
+          assignmentChanges,
+          assignmentsForSession: (sessionId) =>
+            Effect.sync(() => [...(bySession.get(sessionId)?.values() ?? [])]),
           get,
           put,
           existing: (id) =>
@@ -323,10 +365,23 @@ export class TransferStorage extends Context.Service<
             yield* SubscriptionRef.update(changes, (n) => n + 1);
           }),
           assign: (assignment) =>
-            run(() => {
-              db.query(
-                "INSERT INTO assignments (id,value) VALUES (?,?) ON CONFLICT(id) DO UPDATE SET value=excluded.value"
-              ).run(assignment.attemptId, Schema.encodeSync(assignmentCodec)(assignment));
+            Effect.gen(function* () {
+              yield* run(() => {
+                db.query(
+                  "INSERT INTO assignments (id,value) VALUES (?,?) ON CONFLICT(id) DO UPDATE SET value=excluded.value"
+                ).run(assignment.attemptId, Schema.encodeSync(assignmentCodec)(assignment));
+              });
+
+              indexAssignment(assignment);
+
+              const sessionId = assignment.graph.attempts.find(
+                (a) => a.id === assignment.attemptId
+              )?.sessionId;
+
+              const version =
+                sessionId === undefined ? undefined : assignmentVersions.get(sessionId);
+
+              if (version !== undefined) yield* SubscriptionRef.update(version, (n) => n + 1);
             }),
         });
       })

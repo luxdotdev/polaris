@@ -1,14 +1,15 @@
 import {
   WorktreeSetup,
+  CommandId,
+  CommandRejected,
   type Attempt,
   type Constellation,
-  type WorktreeSetupRun,
 } from "@polaris/protocol";
 import { Effect, Predicate } from "effect";
 import { EventStore } from "../../store/EventStore.ts";
+import { decideSession } from "../../engine/session.ts";
 import { ServiceError } from "../../services.ts";
 import type { WorkerPreparation } from "../transfers/prepareWorkers.ts";
-import { setupFingerprint } from "../setup/inputs.ts";
 import { setupCommand, WorktreeSetupService } from "../setup/index.ts";
 
 /** A retry's deferred setup intent survives restart and runs before the first brief. */
@@ -24,18 +25,16 @@ export const runStartupSetup = Effect.fnUntraced(function* (
       ? WorktreeSetup.cases.Auto.make({})
       : WorktreeSetup.cases.Command.make({ command: attempt.startupSetup.command });
 
-  const store = yield* EventStore;
-
-  const previous =
-    (yield* store.model).sessions.get(attempt.sessionId)?.session.worktreeSetup ?? null;
-
-  if (
-    !(yield* needsSetup(attempt.worktree, setting, previous, attempt.startupSetup.force === true))
-  )
-    return;
-
   const result = yield* setup
-    .run(attempt.sessionId, attempt.id, attempt.worktree, setting, graph.id, attempt.taskId)
+    .run(
+      attempt.sessionId,
+      attempt.id,
+      attempt.worktree,
+      setting,
+      graph.id,
+      attempt.taskId,
+      attempt.startupSetup.force === true
+    )
     .pipe(
       Effect.mapError(
         (error) => new ServiceError({ service: "WorktreeSetup", message: error.reason })
@@ -49,25 +48,6 @@ export const runStartupSetup = Effect.fnUntraced(function* (
     });
 });
 
-export const needsSetup = Effect.fnUntraced(function* (
-  cwd: string,
-  setting: WorktreeSetup | null,
-  previous: WorktreeSetupRun | null,
-  force: boolean
-) {
-  const command = yield* setupCommand(cwd, setting);
-
-  if (command === "") return false;
-  const fingerprint = yield* setupFingerprint(cwd, command);
-
-  return (
-    force ||
-    previous?.status !== "completed" ||
-    previous.cwd !== cwd ||
-    previous.fingerprint !== fingerprint
-  );
-});
-
 export const startupSetupIntent = Effect.fnUntraced(function* (input: WorkerPreparation) {
   const setting = input.worktreeSetup ?? null;
   const command = yield* setupCommand(input.worktree.worktree, setting);
@@ -78,4 +58,41 @@ export const startupSetupIntent = Effect.fnUntraced(function* (input: WorkerPrep
     command: setting !== null && Predicate.isTagged(setting, "Command") ? setting.command : null,
     force: input.forceSetup === true,
   };
+});
+
+/** A durable failed-startup receipt clears the fence even after manual setup repair or Retry. */
+export const recordStartupFailure = Effect.fnUntraced(function* (
+  attempt: Attempt,
+  error: ServiceError
+) {
+  const store = yield* EventStore;
+  const commandId = CommandId.make(`${attempt.id}:startup-failed`);
+  yield* store
+    .commit({
+      recordRejection: false,
+      commandId,
+      decide: (model) => {
+        const decision = decideSession(model.sessions.get(attempt.sessionId), {
+          type: "session.fail",
+          at: new Date().toISOString(),
+          message:
+            error.service === "WorktreeSetup"
+              ? `Worktree setup failed: ${error.message}`
+              : `Worker startup failed: ${error.message}`,
+        });
+
+        return decision.rejection === null && decision.events.length > 0
+          ? Effect.succeed(decision.events)
+          : Effect.fail(
+              new CommandRejected({
+                commandId,
+                reason: decision.rejection ?? "Worker Session is unavailable",
+              })
+            );
+      },
+    })
+    .pipe(
+      Effect.catchTag("CommandRejected", () => Effect.void),
+      Effect.catchTag("ServiceError", Effect.die)
+    );
 });
