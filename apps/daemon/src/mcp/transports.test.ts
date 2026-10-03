@@ -126,7 +126,7 @@ test("Claude's in-process server exposes valid schemas and bound handlers; revok
         );
 
         const options = claudeConstellationOptions([attachment]);
-        expect(options.strictMcpConfig).toBe(true);
+        expect(options.strictMcpConfig).toBeUndefined();
         expect(options.allowedTools).toEqual(["mcp__polaris__*"]);
         expect(options.systemPrompt).toMatchObject({
           append: polarisInstructions({ constellations: [attachment] }),
