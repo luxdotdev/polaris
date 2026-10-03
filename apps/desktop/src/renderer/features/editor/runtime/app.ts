@@ -3,6 +3,7 @@
  * the Daemon's files, drafts in `localStorage`, Settings → Editor, and the
  * vim commands wired to tabs and saving.
  */
+import { createAppFormatting } from "../formatting/bridge.ts";
 import { settingsStore } from "../../settings/index.ts";
 import type { AppState } from "../../../store/store.ts";
 import { createBridgeFiles } from "../files/bridge.ts";
@@ -69,7 +70,7 @@ const publishDirty = () => {
   });
   polaris().onAppEvent((event) => {
     if (event.kind !== "editor-save-all") return;
-    void saveAll().then((ok) => polaris().request("editor.savedAll", { ok }));
+    void saveAll("quit").then((ok) => polaris().request("editor.savedAll", { ok }));
   });
 };
 
@@ -84,6 +85,7 @@ export const ensureEditor = ({ app, files, kv, spill, canWrite }: StartInput) =>
 
   startEditor({
     files: files ?? createBridgeFiles(has),
+    formatting: createAppFormatting(app),
     kv: kv === undefined ? storage() : kv,
     spill: kv === undefined ? indexedDbSpill() : (spill ?? null),
     prefs,
@@ -93,7 +95,7 @@ export const ensureEditor = ({ app, files, kv, spill, canWrite }: StartInput) =>
   });
 
   setVimHandlers({
-    save: (file) => saveFile(file.hostKey, file.path),
+    save: (file) => saveFile(file.hostKey, file.path, "vim"),
     // After vim has finished the command: closing destroys the view it is still using.
     close: (file) => setTimeout(() => closeTab(file.hostKey, file.workspaceId, file.path), 0),
     find: openFinder,

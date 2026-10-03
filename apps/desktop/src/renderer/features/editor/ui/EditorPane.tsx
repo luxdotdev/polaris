@@ -5,12 +5,14 @@
  */
 import { EmptyState, PixelFolderIcon } from "@polaris/ui";
 import { useEffect, useState } from "react";
-import { useApp, useCommands, useConnection, useShellActions } from "../../../shell/hooks.ts";
+import { useCommands, useConnection, useShellActions } from "../../../shell/hooks.ts";
 import { bannerFor, type BannerAction } from "../model/banner.ts";
 import { fileKey, workspaceKey } from "../model/drafts.ts";
 import { viewOf } from "../runtime/buffers.ts";
 import {
   activateTab,
+  closeActiveTab,
+  openMarkdownPreview,
   closeTab,
   cycleTabs,
   keepMyEdits,
@@ -20,6 +22,8 @@ import {
   setWorkspaceRoot,
   takeDiskVersion,
 } from "../runtime/actions.ts";
+import { languageFor } from "../model/language.ts";
+import { MarkdownBuffer, PreviewControls, useMarkdownDocument } from "./MarkdownHost.tsx";
 import { ensureEditor } from "../runtime/app.ts";
 import { useBuffer, useEditorTabs } from "../runtime/hooks.ts";
 import { type BufferView, useEditor } from "../runtime/store.ts";
@@ -45,6 +49,10 @@ const useEditorCommands = (hostKey: string, workspaceId: string, active: string 
   useEffect(
     () =>
       commands.register({
+        "editor.markdownPreview": {
+          run: () => openMarkdownPreview(hostKey, workspaceId),
+          enabled: () => active !== null && languageFor(active) === "markdown",
+        },
         "editor.save": {
           run: () => void (active === null ? null : saveFile(hostKey, active)),
           enabled: () => active !== null,
@@ -64,9 +72,15 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
 
   ensureEditor({ app: () => connection.store.getState() });
 
-  const { tabs, active } = useEditorTabs(hostKey, workspaceId);
+  const { tabs, active, activeId, rendered } = useEditorTabs(hostKey, workspaceId);
   const buffer = useBuffer(hostKey, active);
-  const hostLabel = useApp((s) => s.hosts.find((h) => h.key === hostKey)?.label ?? "this host");
+
+  const { document, epoch, connectionState, hostLabel } = useMarkdownDocument(
+    hostKey,
+    workspaceId,
+    active
+  );
+
   const { openSettings } = useShellActions();
   const [comparing, setComparing] = useState(false);
   const theirs = theirsOf(buffer);
@@ -97,7 +111,7 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
       compare: () => setComparing((c) => !c),
       "keep-mine": () => keepMyEdits(hostKey, active),
       "take-theirs": () => takeDiskVersion(hostKey, active),
-      close: () => closeTab(hostKey, workspaceId, active),
+      close: () => closeActiveTab(hostKey, workspaceId),
       retry: () => void saveFile(hostKey, active),
       "update-daemon": () => openSettings("hosts"),
       save: () => void saveFile(hostKey, active),
@@ -134,12 +148,21 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
     >
       <Tabs
         tabs={tabs}
-        active={active}
+        active={activeId ?? active}
         onSelect={(path) => activateTab(hostKey, workspaceId, path)}
         onPin={(path) => pinFile(hostKey, workspaceId, path)}
         onClose={(path) => closeTab(hostKey, workspaceId, path)}
       />
-      {agent === null ? (
+      <PreviewControls
+        visible={rendered ?? false}
+        hostKey={hostKey}
+        workspaceId={workspaceId}
+        path={active}
+        hostLabel={hostLabel}
+        connectionState={connectionState}
+        locked={tabs.find((t) => t.id === activeId)?.locked ?? false}
+      />
+      {agent === null || rendered ? (
         <Breadcrumbs hostKey={hostKey} path={active} root={root} />
       ) : (
         <AgentStrip hostKey={hostKey} edit={agent} />
@@ -155,10 +178,22 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
           <FileNotice
             buffer={buffer}
             path={active}
-            onClose={() => closeTab(hostKey, workspaceId, active)}
+            onClose={() => closeActiveTab(hostKey, workspaceId)}
           />
         )}
-        <CodeHost bufferKey={fileKey(hostKey, active)} ready={ready} focus />
+        {rendered ? (
+          <MarkdownBuffer
+            key={JSON.stringify([hostKey, active, epoch, connectionState])}
+            ready={ready}
+            document={document}
+            epoch={epoch}
+            connectionState={connectionState}
+            bufferKey={fileKey(hostKey, active)}
+            hostLabel={hostLabel}
+          />
+        ) : (
+          <CodeHost bufferKey={fileKey(hostKey, active)} ready={ready} focus />
+        )}
       </div>
       <CloseDialog hostKey={hostKey} workspaceId={workspaceId} />
     </section>

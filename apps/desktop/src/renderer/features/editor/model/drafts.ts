@@ -48,12 +48,22 @@ const decodeDraft = Schema.decodeUnknownOption(Schema.fromJsonString(Draft));
 const Tabs = Schema.Record(
   Schema.String,
   Schema.Struct({
-    tabs: Schema.Array(Schema.Struct({ path: Schema.String, preview: Schema.Boolean })),
+    tabs: Schema.Array(
+      Schema.Struct({
+        path: Schema.String,
+        preview: Schema.Boolean,
+        view: Schema.optionalKey(Schema.Literal("markdown")),
+        locked: Schema.optionalKey(Schema.Boolean),
+      })
+    ),
     active: Schema.NullOr(Schema.String),
+    activeView: Schema.optionalKey(Schema.Literal("markdown")),
   })
 );
 
-const decodeTabs = Schema.decodeUnknownOption(Schema.fromJsonString(Tabs));
+const decodeTabs = Schema.decodeUnknownOption(Schema.fromJsonString(Tabs), {
+  onExcessProperty: "error",
+});
 
 export const fileKey = (hostKey: string, path: string) => `${hostKey}\u0000${path}`;
 

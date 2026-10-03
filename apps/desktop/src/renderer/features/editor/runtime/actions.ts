@@ -3,9 +3,16 @@
  * and cycle tabs, save, and tell the Editor which files agents are changing.
  * Tabs persist per Workspace; a file's editor lives while any tab shows it.
  */
+import type { SaveReason } from "../formatting/index.ts";
 import type { HarnessKind } from "@polaris/protocol";
 import {
   closeTab as closeInSet,
+  activateTab as activateInSet,
+  activeTabId,
+  followMarkdown,
+  openMarkdown,
+  lockMarkdown,
+  tabId,
   cycleTab,
   movedPath,
   openTab,
@@ -37,6 +44,7 @@ import { loadLazyExtensions, type OpenFileRequest, openFile, takeOpens } from ".
 export { openFile, type OpenFileRequest };
 
 import type { EditorFile } from "../cm/extensions.ts";
+import { languageFor } from "../model/language.ts";
 import { showOpenFailure } from "../ui/toasts.ts";
 
 /** Each Workspace's root as its pane last said, for relative paths and tree watches. */
@@ -55,9 +63,27 @@ const setTabs = (key: string, update: (set: TabSet) => TabSet) =>
     const before = tabsOf(s, key);
     const after = update(before);
 
+    if (after === before) return s;
+
+    for (const path of new Set(before.tabs.map((t) => t.path))) {
+      if (!after.tabs.some((t) => t.path === path)) {
+        const hostKey = key.slice(0, key.indexOf("\u0000"));
+        queueMicrotask(() => {
+          if (!shown(hostKey, path)) releaseBuffer(fileKey(hostKey, path));
+        });
+      }
+    }
     // Unchanged tabs keep their object, so typing doesn't wake the tab strip or the tabs' save.
-    return after === before ? s : { tabs: { ...s.tabs, [key]: after } };
+
+    return { tabs: { ...s.tabs, [key]: after } };
   });
+
+const followDocument = (set: TabSet, path: string, hostKey: string) => {
+  const rendered = set.tabs.find((t) => t.view === "markdown");
+  const keep = rendered !== undefined && isConfigured() && hasUnsaved(hostKey, rendered.path);
+
+  return followMarkdown(set, path, keep);
+};
 
 /** An edit pins its file's preview tab. */
 const pinOnEdit = (file: EditorFile) =>
@@ -69,21 +95,31 @@ const shown = (hostKey: string, path: string) =>
     ([key, set]) => key.startsWith(`${hostKey}\u0000`) && set.tabs.some((t) => t.path === path)
   );
 
-const closeNow = (hostKey: string, workspaceId: string, path: string) => {
-  setTabs(workspaceKey(hostKey, workspaceId), (set) => closeInSet(set, path));
-
-  if (!shown(hostKey, path)) releaseBuffer(fileKey(hostKey, path));
+const closeNow = (hostKey: string, workspaceId: string, id: string) => {
+  setTabs(workspaceKey(hostKey, workspaceId), (set) => closeInSet(set, id));
 };
 
 /** Closes a tab; one with unsaved edits asks Save / Don't save / Cancel first. */
-export const closeTab = (hostKey: string, workspaceId: string, path: string) => {
-  if (isConfigured() && hasUnsaved(hostKey, path)) {
-    editorStore.setState({ closing: { hostKey, workspaceId, path } });
+export const closeTab = (hostKey: string, workspaceId: string, id: string) => {
+  const ws = workspaceKey(hostKey, workspaceId);
+  const set = tabsOf(editorStore.getState(), ws);
+  const tab = set.tabs.find((t) => tabId(t) === id);
+
+  if (tab === undefined) return;
+
+  const shared = Object.entries(editorStore.getState().tabs).some(
+    ([key, other]) =>
+      key.startsWith(`${hostKey}\u0000`) &&
+      other.tabs.some((t) => t.path === tab.path && (key !== ws || tabId(t) !== id))
+  );
+
+  if (!shared && isConfigured() && hasUnsaved(hostKey, tab.path)) {
+    editorStore.setState({ closing: { hostKey, workspaceId, path: tab.path, viewId: id } });
 
     return;
   }
 
-  closeNow(hostKey, workspaceId, path);
+  closeNow(hostKey, workspaceId, id);
 };
 
 export type CloseChoice = "save" | "discard" | "cancel";
@@ -95,11 +131,18 @@ export const answerClose = async (choice: CloseChoice) => {
   editorStore.setState({ closing: null });
 
   if (closing === null || choice === "cancel") return;
-  const { hostKey, workspaceId, path } = closing;
+  const { hostKey, workspaceId, path, viewId = path } = closing;
+
+  const current = tabsOf(editorStore.getState(), workspaceKey(hostKey, workspaceId)).tabs.find(
+    (t) => tabId(t) === viewId
+  );
+
+  if (current?.path !== path) return;
 
   if (choice === "discard") {
-    closeNow(hostKey, workspaceId, path);
-    discardBuffer(hostKey, path);
+    closeNow(hostKey, workspaceId, viewId);
+
+    if (!shown(hostKey, path)) discardBuffer(hostKey, path);
 
     return;
   }
@@ -109,7 +152,7 @@ export const answerClose = async (choice: CloseChoice) => {
   loadTab(hostKey, workspaceId, path);
   await whenLoaded(key);
 
-  if (await saveBuffer(key)) closeNow(hostKey, workspaceId, path);
+  if (await saveBuffer(key, "close")) closeNow(hostKey, workspaceId, viewId);
 };
 
 /** Makes sure the active tab's file has an editor (after a restart, tabs come back first). */
@@ -134,14 +177,8 @@ const openFileNow = (request: OpenFileRequest) => {
   const path = resolve(root, request.path);
 
   setTabs(ws, (set) => {
-    const next = openTab(set, path, request.preview ?? false);
-    const replaced = set.tabs.find((t) => t.preview && !next.tabs.some((n) => n.path === t.path));
-
-    // The preview this one replaced loses its editor too, unless another Workspace shows it.
-    if (replaced !== undefined)
-      queueMicrotask(() => {
-        if (!shown(hostKey, replaced.path)) releaseBuffer(fileKey(hostKey, replaced.path));
-      });
+    const opened = openTab(set, path, request.preview ?? false);
+    const next = languageFor(path) === "markdown" ? followDocument(opened, path, hostKey) : opened;
 
     return next;
   });
@@ -160,16 +197,62 @@ const openFileNow = (request: OpenFileRequest) => {
   });
 };
 
-export const activateTab = (hostKey: string, workspaceId: string, path: string) =>
-  setTabs(workspaceKey(hostKey, workspaceId), (set) =>
-    set.tabs.some((t) => t.path === path) ? { ...set, active: path } : set
+export const activateTab = (hostKey: string, workspaceId: string, id: string) =>
+  setTabs(workspaceKey(hostKey, workspaceId), (set) => {
+    const next = activateInSet(set, id);
+
+    return next.activeView !== "markdown" &&
+      next.active !== null &&
+      languageFor(next.active) === "markdown"
+      ? followDocument(next, next.active, hostKey)
+      : next;
+  });
+
+export const openMarkdownPreview = (hostKey: string, workspaceId: string) => {
+  const ws = workspaceKey(hostKey, workspaceId);
+  const set = tabsOf(editorStore.getState(), ws);
+
+  if (set.active === null || languageFor(set.active) !== "markdown") return;
+  const path = set.active;
+  loadTab(hostKey, workspaceId, path);
+  setTabs(ws, (current) =>
+    openMarkdown(followDocument(pinTab(current, path), path, hostKey), path)
   );
+};
+
+export const setMarkdownLocked = (hostKey: string, workspaceId: string, locked: boolean) =>
+  setTabs(workspaceKey(hostKey, workspaceId), (set) => lockMarkdown(set, locked));
+
+/** Settings calls this after changing remembered preview policy. */
+export const refreshMarkdownPolicy = (hostKey: string, workspaceId: string) => {
+  const key = workspaceKey(hostKey, workspaceId);
+  editorStore.setState((s) => ({
+    previewEpochs: {
+      ...s.previewEpochs,
+      [key]: (s.previewEpochs[key] ?? 0) + 1,
+    },
+  }));
+};
+
+export const closeActiveTab = (hostKey: string, workspaceId: string) => {
+  const id = activeTabId(tabsOf(editorStore.getState(), workspaceKey(hostKey, workspaceId)));
+
+  if (id !== null) closeTab(hostKey, workspaceId, id);
+};
 
 export const pinFile = (hostKey: string, workspaceId: string, path: string) =>
   setTabs(workspaceKey(hostKey, workspaceId), (set) => pinTab(set, path));
 
 export const cycleTabs = (hostKey: string, workspaceId: string, delta: 1 | -1) =>
-  setTabs(workspaceKey(hostKey, workspaceId), (set) => cycleTab(set, delta));
+  setTabs(workspaceKey(hostKey, workspaceId), (set) => {
+    const next = cycleTab(set, delta);
+
+    return next.activeView !== "markdown" &&
+      next.active !== null &&
+      languageFor(next.active) === "markdown"
+      ? followDocument(next, next.active, hostKey)
+      : next;
+  });
 
 /** A file or folder renamed in the explorer keeps its tabs; their editors reopen at the new paths. */
 export const renameFile = async (hostKey: string, from: string, to: string) => {
@@ -195,7 +278,8 @@ export const renameFile = async (hostKey: string, from: string, to: string) => {
   }));
 };
 
-export const saveFile = (hostKey: string, path: string) => saveBuffer(fileKey(hostKey, path));
+export const saveFile = (hostKey: string, path: string, reason?: SaveReason) =>
+  saveBuffer(fileKey(hostKey, path), reason);
 
 export const keepMyEdits = (hostKey: string, path: string) => keepMine(fileKey(hostKey, path));
 

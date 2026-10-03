@@ -23,7 +23,8 @@ import {
   readOnlyCompartment,
   vimCompartment,
 } from "./editorState.ts";
-import { clearFlash, FLASH_MS, reloadPlan } from "../cm/reload.ts";
+import { clearFlash, FLASH_MS, reloadPlan, normalized, reloadChanges } from "../cm/reload.ts";
+import { SaveCoordinator, type FormattingPort, type SaveReason } from "../formatting/index.ts";
 import { cursorOf } from "../cm/cursor.ts";
 import { loadLanguage } from "../cm/languages.ts";
 import { currentMode, vimExtension } from "../cm/vim.ts";
@@ -53,6 +54,7 @@ export interface EditorPrefs {
 }
 
 export interface EditorConfig {
+  readonly formatting?: FormattingPort;
   readonly files: EditorFiles;
   /** Where drafts are kept; null keeps them in memory only. */
   readonly kv: KeyValue | null;
@@ -74,6 +76,8 @@ const SETTLE_MS = 300;
 export const AUTOSAVE_MS = 1000;
 
 interface OpenBuffer {
+  revision: number;
+  save: SaveCoordinator | null;
   /** These three change when the file is renamed under its editor (`moveBuffer`). */
   key: string;
   file: EditorFile;
@@ -222,7 +226,7 @@ const scheduleAutosave = (buffer: OpenBuffer) => {
   buffer.autosave = need().prefs().autosave
     ? setTimeout(() => {
         buffer.autosave = null;
-        void saveBuffer(buffer.key);
+        void saveBuffer(buffer.key, "autosave");
       }, AUTOSAVE_MS)
     : null;
 };
@@ -256,6 +260,11 @@ const reportCursor = (update: ViewUpdate) => {
 
 const updateListener = (buffer: OpenBuffer) =>
   EditorView.updateListener.of((update) => {
+    if (update.docChanged) {
+      buffer.revision++;
+      buffer.save?.invalidate();
+    }
+
     const edited = update.transactions.some((tr) => tr.docChanged && !tr.isUserEvent("reload"));
 
     if (edited) onEdited(buffer);
@@ -324,6 +333,7 @@ const mount = (buffer: OpenBuffer, disk: DiskText, readOnly: boolean, draft: Dra
 
 const onDiskChange = async (buffer: OpenBuffer, version: FileVersion | null) => {
   if (version === null) {
+    buffer.save?.invalidate();
     patchBuffer(buffer.key, { deleted: true });
 
     return;
@@ -334,6 +344,7 @@ const onDiskChange = async (buffer: OpenBuffer, version: FileVersion | null) => 
   if (model === null || buffer.view === null) return;
 
   if (model.version !== null && sameVersion(model.version, version)) return;
+  buffer.save?.invalidate();
   const result = await need().files.read(buffer.target);
 
   if (result.kind !== "text" || buffer.view === null) return;
@@ -412,6 +423,8 @@ export const ensureBuffer = (input: OpenInput): OpenBuffer => {
   }
 
   const buffer: OpenBuffer = {
+    revision: 0,
+    save: null,
     key,
     file: input.file,
     target: { hostKey: input.file.hostKey, path: input.file.path, root: input.root },
@@ -455,6 +468,7 @@ export const releaseBuffer = (key: string) => {
   const buffer = open.get(key);
 
   if (buffer === undefined) return;
+  buffer.save?.invalidate();
 
   if (buffer.settle !== null) {
     clearTimeout(buffer.settle);
@@ -474,16 +488,25 @@ export const releaseBuffer = (key: string) => {
 
 const savingNow = async (buffer: OpenBuffer, view: EditorView, model: BufferModel) => {
   const text = textOf(view);
+  const target = buffer.target;
 
   send(buffer, { kind: "save-started", text });
 
   try {
-    const result = await need().files.write(buffer.target, text, model.version);
+    const result = await need().files.write(target, text, model.version);
+
+    if (open.get(buffer.key) !== buffer || buffer.view !== view) return false;
+
+    if (buffer.target !== target) {
+      send(buffer, { kind: "save-failed", message: "The file moved while saving. Try again." });
+
+      return false;
+    }
 
     if (result.kind === "written") {
       send(buffer, { kind: "saved", version: result.version, doc: textOf(view) });
 
-      return true;
+      return !modelOf(buffer.key)?.dirty && modelOf(buffer.key)?.conflict === null;
     }
 
     if (result.kind === "unsupported") {
@@ -505,6 +528,7 @@ const savingNow = async (buffer: OpenBuffer, view: EditorView, model: BufferMode
 
     return false;
   } catch (cause) {
+    if (open.get(buffer.key) !== buffer || buffer.view !== view) return false;
     send(buffer, {
       kind: "save-failed",
       message: cause instanceof Error ? cause.message : String(cause),
@@ -515,11 +539,13 @@ const savingNow = async (buffer: OpenBuffer, view: EditorView, model: BufferMode
 };
 
 /** Saves one file; true when it is saved (or had nothing to save). */
-export const saveBuffer = async (key: string): Promise<boolean> => {
+const writeBuffer = async (key: string): Promise<boolean> => {
   const buffer = open.get(key);
   const model = modelOf(key);
 
   if (buffer?.view === null || buffer === undefined || model === null) return false;
+
+  if (editorStore.getState().buffers[key]?.readOnly) return false;
 
   if (buffer.settle !== null) {
     clearTimeout(buffer.settle);
@@ -533,6 +559,71 @@ export const saveBuffer = async (key: string): Promise<boolean> => {
   if (!canSave(settled)) return false;
 
   return savingNow(buffer, buffer.view, settled);
+};
+
+const coordinator = (buffer: OpenBuffer) =>
+  new SaveCoordinator(
+    {
+      snapshot: (reason) => {
+        const model = modelOf(buffer.key);
+        const status = editorStore.getState().buffers[buffer.key];
+
+        if (
+          buffer.view === null ||
+          model === null ||
+          !canSave(model) ||
+          status?.readOnly ||
+          status?.deleted
+        )
+          return null;
+
+        return {
+          file: buffer.file,
+          text: textOf(buffer.view),
+          version: buffer.revision,
+          diskVersion: model.version,
+          reason,
+        };
+      },
+      current: (snapshot) => {
+        const model = modelOf(buffer.key);
+        const status = editorStore.getState().buffers[buffer.key];
+
+        return (
+          open.get(buffer.key) === buffer &&
+          buffer.view !== null &&
+          buffer.file === snapshot.file &&
+          buffer.revision === snapshot.version &&
+          model !== null &&
+          model.version === snapshot.diskVersion &&
+          model.conflict === null &&
+          !status?.deleted &&
+          !status?.readOnly
+        );
+      },
+      apply: (text) => {
+        const view = buffer.view;
+
+        if (view === null) return;
+        view.dispatch({
+          changes: reloadChanges(view.state.doc.toString(), normalized(view.state, text)),
+          userEvent: "input.format",
+        });
+      },
+      write: () =>
+        open.get(buffer.key) === buffer ? writeBuffer(buffer.key) : Promise.resolve(false),
+    },
+    need().formatting
+  );
+
+/** Every save path awaits the same preflight; newer dirty text prevents close/quit success. */
+export const saveBuffer = (key: string, reason: SaveReason = "manual"): Promise<boolean> => {
+  const buffer = open.get(key);
+
+  if (buffer === undefined) return Promise.resolve(false);
+  buffer.save ??= coordinator(buffer);
+
+  return buffer.save.save(reason);
 };
 
 export const keepMine = (key: string) => {
@@ -653,14 +744,18 @@ export const dirtyKeys = (): ReadonlyArray<string> =>
     .map(([key]) => key);
 
 /** Saves every open file with unsaved edits; true when all of them saved. */
-export const saveAll = async (): Promise<boolean> => {
-  const results = await Promise.all(dirtyKeys().map((key) => saveBuffer(key)));
+export const saveAll = async (reason: SaveReason = "save-all"): Promise<boolean> => {
+  const keys = dirtyKeys();
+
+  await Promise.all(keys.map(whenLoaded));
+  const results = await Promise.all(keys.map((key) => saveBuffer(key, reason)));
 
   return results.every(Boolean);
 };
 
 /** An open editor follows its file to the new path: view, undo, cursor, dirty state and draft. */
 const rekey = (buffer: OpenBuffer, to: string) => {
+  buffer.save?.invalidate();
   const from = buffer.key;
   const key = fileKey(buffer.file.hostKey, to);
 

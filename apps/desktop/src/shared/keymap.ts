@@ -40,6 +40,7 @@ export type CommandId =
   | "editor.findInWorkspace"
   | "editor.inlineChat"
   | "editor.addToSession"
+  | "editor.markdownPreview"
   | "editor.save"
   | "editor.nextTab"
   | "editor.previousTab";
@@ -122,6 +123,12 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
     menu: "Help",
   },
   // The Editor (spec §4): these keep working in every vim mode.
+  {
+    id: "editor.markdownPreview",
+    title: "Open Markdown preview",
+    keys: ["CmdOrCtrl+Shift+V"],
+    menu: "View",
+  },
   { id: "editor.save", title: "Save file", keys: ["CmdOrCtrl+S"] },
   { id: "editor.nextTab", title: "Next editor tab", keys: ["Ctrl+Tab"] },
   { id: "editor.previousTab", title: "Previous editor tab", keys: ["Ctrl+Shift+Tab"] },
