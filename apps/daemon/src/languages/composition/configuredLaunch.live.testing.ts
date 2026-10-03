@@ -127,6 +127,17 @@ test("actual default Host routes launch existing TS server only after authentica
           },
         });
 
+        const discovered = yield* rpc.client["languages.discover"]({
+          checkout,
+          path: join(project, "a.ts"),
+          documentLanguageId: "typescript",
+          settings,
+        });
+
+        expect(discovered.providers.map((provider) => provider.preflight)).toEqual([
+          P.LanguagePreflight.cases.Eligible.make({ artifactId: null }),
+        ]);
+
         const input = {
           clientId: hello.languageIdentity.clientId,
           contextId: "real-ts",

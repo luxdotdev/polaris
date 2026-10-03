@@ -14,6 +14,8 @@ import {
   type LanguageRequestInput,
   type LanguageRequestMethod,
 } from "../../shared/languages.ts";
+import { languageFor } from "../../renderer/features/editor/model/language.ts";
+import { associatedLanguage } from "../../renderer/features/editor/lsp/configuration.ts";
 import { HostDirectory, type ClientRuntime } from "../hosts.ts";
 import { createLanguageBridge, LanguagePreferences, type LanguageHost } from "./index.ts";
 import type { LanguageIdentityEpochs } from "./identityEpochs.ts";
@@ -211,7 +213,16 @@ export const createMainLanguageApi = (options: MainLanguageOptions) => {
     }
   };
 
-  const bridge = createLanguageBridge({ preferences: options.preferences, lookup });
+  const bridge = createLanguageBridge({
+    preferences: options.preferences,
+    lookup,
+    languageOf: (host, checkout, path) => {
+      const detected = languageFor(path);
+      const settings = options.preferences.effective(host.hostId, checkout.workspaceId, detected);
+
+      return associatedLanguage(path, settings.settings.associations ?? [], detected);
+    },
+  });
 
   const api: LanguageApi = {
     request: async (method, input) => {

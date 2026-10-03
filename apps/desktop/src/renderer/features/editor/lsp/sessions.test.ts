@@ -16,7 +16,7 @@ import { EditorProviderFixture } from "./fixture.testing.ts";
 import { EditorLanguageSession } from "./sessions.ts";
 import { associatedLanguage, matchesAssociation } from "./configuration.ts";
 
-const fixture = (root = "/fixture", generation = 1) => {
+const fixture = (root = "/fixture", generation = 1, initiallyStopped = false) => {
   const hostId = P.HostId.make("fake");
 
   const checkout = P.LanguageCheckout.cases.Workspace.make({
@@ -75,7 +75,9 @@ const fixture = (root = "/fixture", generation = 1) => {
         acquisitions++;
         value = {
           context: foreign ? { ...context, clientId: "foreign" } : context,
-          runtime: P.LanguageRuntime.cases.Ready.make({ capabilities }),
+          runtime: initiallyStopped
+            ? P.LanguageRuntime.cases.Stopped.make({ reason: "no-demand" })
+            : P.LanguageRuntime.cases.Ready.make({ capabilities }),
           ack: foreignAck ? { ...ack, context: { ...context, clientId: "foreign" } } : ack,
           limits: {
             messageBytes: 1048576,
@@ -717,5 +719,23 @@ test("detach during held Open closes that document before same-URI reattachment"
   ).toEqual(["Open", "Close", "Open"]);
   expect(f.session.provider(replacement.read().uri)).not.toBeNull();
   expect(f.session.provider(retained.read().uri)).not.toBeNull();
+  f.session.dispose();
+});
+
+test("a stopped provider receives initial Open demand before Ready capabilities arrive", async () => {
+  const f = fixture("/fixture", 1, true);
+  const a = f.buffer("file:///fixture/a.ts");
+  await f.session.ready();
+  expect(f.notifications.map((notification) => notification._tag)).toEqual(["Open"]);
+  expect(f.session.provider(a.read().uri)).toBeNull();
+  f.listeners[0]?.items([
+    P.LanguageContextEvent.cases.RuntimeChanged.make({
+      context: f.context,
+      runtime: P.LanguageRuntime.cases.Ready.make({ capabilities: f.capabilities }),
+    }),
+  ]);
+  await f.session.ready();
+  expect(f.session.provider(a.read().uri)).not.toBeNull();
+  expect(f.notifications.map((notification) => notification._tag)).toEqual(["Open"]);
   f.session.dispose();
 });

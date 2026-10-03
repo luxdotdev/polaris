@@ -136,8 +136,7 @@ export class EditorLanguageSession {
       }
     );
 
-    if (this.capabilities !== null)
-      for (const [uri, buffer] of this.buffers) await this.deliverOpen(uri, buffer);
+    for (const [uri, buffer] of this.buffers) await this.deliverOpen(uri, buffer);
     this.changed();
   }
 

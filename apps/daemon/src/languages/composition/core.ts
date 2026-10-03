@@ -1,5 +1,6 @@
 import {
   LanguageCatalog,
+  LanguagePreflight,
   LanguageCheckout,
   LanguageContextIdentity,
   LanguageDiscovery,
@@ -25,6 +26,7 @@ import { registeredCheckout } from "../registeredCheckout.ts";
 import { denied, requestAuthority, type RequestAuthority } from "./authority.ts";
 import { LanguageAcquisitionAuthority } from "./acquisitionAuthority.ts";
 import { prepareFeatureEdit, type PreparationIntent } from "./preparation.ts";
+import { configuredExecutable } from "./configuredLaunch.ts";
 import { observationAdmission } from "./observation.ts";
 import {
   LanguageProviderAccess,
@@ -176,19 +178,30 @@ function makeCore(
 
         projectRoot = found.projectRoot;
 
-        const state = yield* providers.availability(
-          provider.tool,
-          "feature",
-          observed.trust.trusted,
-          observationAdmission(
-            auth,
-            canonical.checkout,
-            found.projectRoot,
-            observed.trust.revision,
-            trust,
-            owners
-          )
-        );
+        const state =
+          configuredExecutable(found) !== undefined
+            ? {
+                preflight: observed.trust.trusted
+                  ? LanguagePreflight.cases.Eligible.make({ artifactId: null })
+                  : LanguagePreflight.cases.Blocked.make({
+                      reason: "awaiting-trust",
+                      message: "Trust this Workspace before using its configured executable",
+                    }),
+                prerequisites: [],
+              }
+            : yield* providers.availability(
+                provider.tool,
+                "feature",
+                observed.trust.trusted,
+                observationAdmission(
+                  auth,
+                  canonical.checkout,
+                  found.projectRoot,
+                  observed.trust.revision,
+                  trust,
+                  owners
+                )
+              );
 
         yield* auth.checkout(input.checkout);
         facts.push({
