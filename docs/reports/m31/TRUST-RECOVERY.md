@@ -45,3 +45,13 @@ The first sandboxed test attempt failed two socket-dependent Daemon fixture
 tests; the socket-capable rerun passed. The Desktop source build passed. Scoped
 trust regressions cover failed prerequisites/discovery, foreign/failed trust
 reads, explicit grant behavior and rendered enabled/disabled trust buttons.
+
+The first fix missed the page's watch lifecycle: it subscribed to an availability
+feed with no observed tools. The installed Daemon rejects that feed with
+`unsupported-capability`, invalidating the entire Settings snapshot and disabling
+trust. Settings now skips tooling subscriptions when no tools were observed;
+the scoped trust observation remains usable. A regression exercises load, watch
+and explicit grant together. Full typecheck, lint and test tasks pass, including
+1,299 fresh Desktop tests and 4,299 assertions. The initial full App bundle attempt
+hit a sandbox denial in the unchanged Daemon frecency selftest; renderer and main
+source builds were validated separately.

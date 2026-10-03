@@ -100,6 +100,7 @@ export const watchLanguageFacts = (
       !options.api ||
       host.connection !== "Connected" ||
       host.capability !== "available" ||
+      host.tools.length === 0 ||
       registered?.status.host?.hostId !== host.id
     )
       continue;

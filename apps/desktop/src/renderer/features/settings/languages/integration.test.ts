@@ -752,3 +752,30 @@ test("failed or foreign independent trust observations cannot authorize a grant"
     expect(f.control.calls).not.toContain("languages.trust.set");
   }
 });
+
+test("watching trust-only facts does not subscribe to unavailable tooling feeds or revoke trust authority", async () => {
+  const f = setup();
+  f.control.failAvailability = true;
+  f.control.untrusted = true;
+  const loaded = await f.adapter.load(f.scope, f.signal);
+
+  if (!loaded.ok) throw new Error(loaded.message);
+  const host = loaded.value.hosts[0];
+
+  if (!host?.trust || !f.adapter.watch) throw new Error("Missing trust observation or watch");
+  const received: Array<unknown> = [];
+  const stop = f.adapter.watch(loaded.value, (facts) => received.push(facts));
+
+  expect(f.control.feeds).toHaveLength(0);
+  expect(received).toHaveLength(0);
+  expect(
+    (
+      await f.adapter.act(
+        { kind: "trust", hostKey: host.key, trust: host.trust, trusted: true },
+        f.signal
+      )
+    ).ok
+  ).toBe(true);
+  expect(f.control.calls.filter((method) => method === "languages.trust.set")).toHaveLength(1);
+  stop();
+});
