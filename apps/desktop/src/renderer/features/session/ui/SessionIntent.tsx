@@ -19,6 +19,7 @@ import { modelLabel, useHarnessModels } from "../../harness/index.ts";
 import { InTerminalBar } from "../../terminal/index.ts";
 import { send } from "../dispatch.ts";
 import { useHost, useSession, hasCapability } from "../hooks.ts";
+import { waitingOn } from "../model/background.ts";
 import { conversationRows } from "../model/conversation.ts";
 import { tildePath } from "../model/format.ts";
 import { composerMode, continueCommand, openQuestion, retryCommand } from "../model/intent.ts";
@@ -102,6 +103,7 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
     approvals: model.pendingApprovals,
     unfolded: ui.unfolded,
     outbox: ui.outbox,
+    waiting: waitingOn(session),
   });
 
   const rows =

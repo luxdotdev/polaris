@@ -129,6 +129,7 @@ const VERBS = new Map<string, readonly [running: string, done: string]>([
   ["webfetch", ["Fetching", "Fetched"]],
   ["websearch", ["Searching the web", "Searched the web"]],
   ["web_search", ["Searching the web", "Searched the web"]],
+  ["subagenthandback", ["Handing back its report", "Handed back its report"]],
 ]);
 
 /** A tool's row label as a verb ("Read", "Searching"); its own name when unknown. */
